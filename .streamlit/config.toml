@@ -7,3 +7,10 @@ textColor = "#1a1d2e"
 
 [server]
 maxUploadSize = 200
+
+[client]
+toolbarMode = "minimal"
+showSidebarNavigation = false
+
+[browser]
+gatherUsageStats = false
