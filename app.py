@@ -15,6 +15,7 @@ import json
 import base64
 import uuid
 from supabase import create_client
+import urllib.parse
 
 st.set_page_config(layout="wide", page_title="Cotizador PRO", page_icon="📊")
 
@@ -99,6 +100,31 @@ def descargar_plano_desde_url(url_plano):
         return None, str(e)
 
 # =========================================================
+# FUNCIÓN PARA DETECTAR NAVEGADOR
+# =========================================================
+def detectar_navegador():
+    """Detecta si el navegador es Chrome/Edge (necesitan Google Docs Viewer)"""
+    try:
+        user_agent = st.context.headers.get('User-Agent', '')
+        # Chrome pero no Edge
+        es_chrome = 'Chrome' in user_agent and 'Edg' not in user_agent
+        # Edge
+        es_edge = 'Edg' in user_agent
+        # Safari
+        es_safari = 'Safari' in user_agent and 'Chrome' not in user_agent
+        
+        return {
+            'es_chrome': es_chrome,
+            'es_edge': es_edge,
+            'es_safari': es_safari,
+            'es_firefox': 'Firefox' in user_agent,
+            'needs_google_viewer': es_chrome or es_edge or es_safari  # Safari también puede tener problemas
+        }
+    except:
+        # Por defecto, asumimos que necesita Google Viewer por seguridad
+        return {'needs_google_viewer': True}
+
+# =========================================================
 # INICIALIZAR VARIABLES DE SESIÓN
 # =========================================================
 if 'modo_admin' not in st.session_state:
@@ -181,7 +207,6 @@ if 'pdf_actual' not in st.session_state:
 if 'numero_en_visor' not in st.session_state:
     st.session_state.numero_en_visor = None
 
-# NUEVA VARIABLE PARA LA URL DEL PDF
 if 'pdf_url' not in st.session_state:
     st.session_state.pdf_url = None
 
@@ -747,7 +772,7 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
 
 def cargar_cotizacion(numero):
     """
-    Carga una cotización desde Supabase - VERSIÓN MEJORADA PARA PDF
+    Carga una cotización desde Supabase
     """
     try:
         if not numero:
@@ -758,10 +783,9 @@ def cargar_cotizacion(numero):
             cotizacion = response.data[0]
             cotizacion['productos'] = json.loads(cotizacion['productos'])
             
-            # Si tiene plano_url, NO descargamos el PDF, guardamos la URL
+            # Si tiene plano_url, guardamos la URL
             if cotizacion.get('plano_url'):
-                cotizacion['plano_url'] = cotizacion['plano_url']  # ya viene como string
-                # No descargamos el PDF aquí, solo guardamos la URL
+                cotizacion['plano_url'] = cotizacion['plano_url']
                 cotizacion['plano_datos'] = None
             
             return cotizacion
@@ -890,9 +914,8 @@ def ejecutar_carga_cotizacion():
         plano_url = cotizacion.get('plano_url')
         if plano_nombre and plano_url:
             st.session_state.plano_nombre = plano_nombre
-            # Guardamos la URL, NO descargamos el PDF completo
             st.session_state.pdf_url = plano_url
-            st.session_state.plano_adjunto = None  # No guardamos bytes
+            st.session_state.plano_adjunto = None
         else:
             st.session_state.plano_nombre = ""
             st.session_state.plano_adjunto = None
@@ -2630,34 +2653,58 @@ with tab3:
                     st.button("👁️ VER PLANO", use_container_width=True, disabled=True)
 
             # =========================================================
-            # VISOR DE PDF MEJORADO (ahora usa la URL de Supabase)
+            # VISOR DE PDF MEJORADO CON DETECCIÓN DE NAVEGADOR
             # =========================================================
             if st.session_state.mostrar_visor and st.session_state.pdf_url:
                 with st.expander("📄 Vista Previa del Plano", expanded=True):
                     st.markdown(f"**Archivo:** {st.session_state.pdf_nombre} — cotización `{st.session_state.numero_en_visor}`")
                     
-                    # Usar iframe con la URL directa de Supabase
-                    st.markdown(f'''
-                    <div style="width:100%;height:82vh;border:2px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);margin:0.5rem 0;background:#f0f2f5;">
-                        <iframe 
-                            src="{st.session_state.pdf_url}" 
-                            width="100%" 
-                            height="100%" 
-                            style="display:block;border:none;"
-                            allow="fullscreen"
-                        ></iframe>
-                    </div>
-                    ''', unsafe_allow_html=True)
+                    # Detectar navegador
+                    navegador = detectar_navegador()
+                    
+                    if navegador['needs_google_viewer']:
+                        # Para Chrome/Edge/Safari: Usar Google Docs Viewer
+                        pdf_url_encoded = urllib.parse.quote(st.session_state.pdf_url, safe='')
+                        google_viewer_url = f"https://docs.google.com/viewer?url={pdf_url_encoded}&embedded=true"
+                        
+                        st.markdown(f'''
+                        <div style="width:100%;height:82vh;border:2px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);margin:0.5rem 0;background:#f0f2f5;">
+                            <iframe 
+                                src="{google_viewer_url}" 
+                                width="100%" 
+                                height="100%" 
+                                style="display:block;border:none;"
+                                allow="fullscreen"
+                            ></iframe>
+                        </div>
+                        ''', unsafe_allow_html=True)
+                    else:
+                        # Para Firefox: URL directa (funciona perfecto)
+                        st.markdown(f'''
+                        <div style="width:100%;height:82vh;border:2px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);margin:0.5rem 0;background:#f0f2f5;">
+                            <iframe 
+                                src="{st.session_state.pdf_url}" 
+                                width="100%" 
+                                height="100%" 
+                                style="display:block;border:none;"
+                                allow="fullscreen"
+                            ></iframe>
+                        </div>
+                        ''', unsafe_allow_html=True)
                     
                     # Botón de descarga
-                    st.download_button(
-                        label="📥 Descargar Plano",
-                        data=requests.get(st.session_state.pdf_url).content,
-                        file_name=st.session_state.pdf_nombre,
-                        mime="application/pdf",
-                        use_container_width=True,
-                        key=f"descargar_plano_{st.session_state.numero_en_visor or 'default'}"
-                    )
+                    try:
+                        pdf_bytes = requests.get(st.session_state.pdf_url).content
+                        st.download_button(
+                            label="📥 Descargar Plano",
+                            data=pdf_bytes,
+                            file_name=st.session_state.pdf_nombre,
+                            mime="application/pdf",
+                            use_container_width=True,
+                            key=f"descargar_plano_{st.session_state.numero_en_visor}"
+                        )
+                    except Exception as e:
+                        st.error(f"Error al descargar el PDF: {e}")
 
         st.markdown("---")
         st.markdown("### 📊 Estadísticas Rápidas")
