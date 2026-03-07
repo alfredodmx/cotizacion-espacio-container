@@ -2661,26 +2661,90 @@ with tab3:
         st.info("💡 No hay resultados. Realice una búsqueda para ver cotizaciones guardadas.")
 
 # =========================================================
-# FAB - BOTÓN GUARDAR FLOTANTE
+# FAB - BOTÓN GUARDAR FLOTANTE (botón real de Streamlit)
 # =========================================================
 if st.session_state.carrito and not (
     st.session_state.cotizacion_cargada and
     st.session_state.margen > 0 and
     not st.session_state.modo_admin
 ):
+    # CSS para convertir el botón en FAB flotante
     st.markdown("""
-    <div style="position:fixed;bottom:2rem;right:2rem;z-index:99999;">
-        <button class="fab-guardar" onclick="
-            const btns = window.parent.document.querySelectorAll('button');
-            for(const btn of btns) {
-                if(btn.innerText.trim() === '💾 Guardar') {
-                    btn.click();
-                    break;
-                }
-            }
-        ">
-            💾 Guardar
-        </button>
-        <span class="fab-badge"></span>
-    </div>
+    <style>
+    div[data-testid="stBottom"] { display: none !important; }
+
+    /* Contenedor FAB */
+    #fab-guardar-container {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        z-index: 99999;
+    }
+    /* Apuntar al botón de Streamlit dentro del contenedor FAB */
+    #fab-guardar-container button {
+        background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 50px !important;
+        padding: 0.9rem 1.8rem !important;
+        font-size: 1rem !important;
+        font-weight: 700 !important;
+        cursor: pointer !important;
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        letter-spacing: 0.02em !important;
+        box-shadow: 0 8px 24px rgba(91,124,250,0.5) !important;
+        animation: pulse-fab 2s infinite !important;
+        transition: all 0.3s cubic-bezier(0.4,0,0.2,1) !important;
+        min-width: 140px !important;
+        height: auto !important;
+    }
+    #fab-guardar-container button:hover {
+        transform: translateY(-3px) scale(1.05) !important;
+        box-shadow: 0 16px 40px rgba(91,124,250,0.7) !important;
+        animation: none !important;
+    }
+    #fab-guardar-container button:active {
+        transform: scale(0.97) !important;
+    }
+    /* Badge rojo parpadeante */
+    #fab-guardar-container::after {
+        content: '';
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        width: 14px;
+        height: 14px;
+        background: #ef4444;
+        border-radius: 50%;
+        border: 2px solid white;
+        animation: blink-badge 1.5s infinite;
+        z-index: 100000;
+    }
+    </style>
     """, unsafe_allow_html=True)
+
+    # Marcador de inicio del contenedor FAB
+    st.markdown('<div id="fab-guardar-container">', unsafe_allow_html=True)
+
+    # Botón REAL de Streamlit — este SÍ ejecuta lógica Python
+    if st.button("💾 Guardar", key="btn_guardar_fab", use_container_width=False):
+        datos_cliente_guardar, datos_asesor_guardar, proyecto, config, totales, plano_nombre, plano_datos = construir_datos_para_guardar()
+
+        if st.session_state.cotizacion_cargada:
+            numero_guardar = st.session_state.cotizacion_cargada
+            es_actualizacion = True
+        else:
+            numero_guardar = generar_numero_unico()
+            es_actualizacion = False
+
+        if guardar_cotizacion(numero_guardar, datos_cliente_guardar, datos_asesor_guardar,
+                              proyecto, st.session_state.carrito, config, totales, plano_nombre, plano_datos):
+            if es_actualizacion:
+                st.success(f"✅ Cotización {numero_guardar} actualizada")
+            else:
+                st.session_state.cotizacion_cargada = numero_guardar
+                st.success(f"✅ Cotización {numero_guardar} guardada")
+            st.session_state.resultados_busqueda = buscar_cotizaciones()
+            st.rerun()
+
+    st.markdown('</div>', unsafe_allow_html=True)
