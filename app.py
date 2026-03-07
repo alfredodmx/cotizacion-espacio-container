@@ -2771,7 +2771,7 @@ if st.session_state.carrito and not (
                 }
                 #fab-guardar-wrapper {
                     position: fixed !important;
-                    bottom: 2rem !important;
+                    bottom: 5.5rem !important;
                     right: 2rem !important;
                     z-index: 999999 !important;
                 }
