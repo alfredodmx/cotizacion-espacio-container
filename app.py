@@ -171,6 +171,9 @@ if 'mostrar_toast_exito' not in st.session_state:
 if 'toast_numero_ep' not in st.session_state:
     st.session_state.toast_numero_ep = ""
 
+if 'recien_guardado' not in st.session_state:
+    st.session_state.recien_guardado = False
+
 if 'numero_a_cargar_pendiente' not in st.session_state:
     st.session_state.numero_a_cargar_pendiente = None
 
@@ -2191,6 +2194,7 @@ with tab1:
                         st.session_state.resultados_busqueda = buscar_cotizaciones()
                         st.session_state.mostrar_toast_exito = True
                         st.session_state.toast_numero_ep = numero_guardar
+                        st.session_state.recien_guardado = True
                         st.rerun()
             else:
                 st.button("💾 Guardar", use_container_width=True, disabled=True)
@@ -2763,7 +2767,7 @@ if st.session_state.get('mostrar_toast_exito', False):
                 }}
                 #toast-exito-ep {{
                     position: fixed !important;
-                    bottom: 1.5rem !important;
+                    bottom: 5rem !important;
                     left: 2rem !important;
                     z-index: 999998 !important;
                     background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
@@ -2814,6 +2818,10 @@ if st.session_state.get('mostrar_toast_exito', False):
     </script>
     """, height=0)
     st.session_state.mostrar_toast_exito = False
+
+# Limpiar flag recien_guardado después de un ciclo para que el FAB reaparezca si siguen editando
+if st.session_state.get('recien_guardado', False):
+    st.session_state.recien_guardado = False
 
 # =========================================================
 # FAB - OCULTAR ÍCONOS STREAMLIT/GITHUB + BOTÓN FLOTANTE
@@ -2895,12 +2903,12 @@ components.html("""
 </script>
 """, height=0)
 
-# Paso 2: Botón flotante real — solo si hay carrito y no es solo lectura
+# Paso 2: Botón flotante real — solo si hay carrito, no es solo lectura, y no se acaba de guardar
 if st.session_state.carrito and not (
     st.session_state.cotizacion_cargada and
     st.session_state.margen > 0 and
     not st.session_state.modo_admin
-):
+) and not st.session_state.get('recien_guardado', False):
     components.html("""
     <script>
     (function() {
