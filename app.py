@@ -22,7 +22,7 @@ st.set_page_config(layout="wide", page_title="Cotizador PRO", page_icon="📊")
 # CONFIGURACIÓN SUPABASE
 # =========================================================
 SUPABASE_URL = "https://rpjktwxitceqylexcaqw.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwamt0d3hpdGNlcXlsZXhjYXF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA5MjM5MzAsImV4cCI6MjA1NjQ5OTkzMH0.GI-idE52XxLx86J3pFvLRbVxHkOdyUXCMR7TkF4fcdI"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwamt0d3hpdGNlcXlsZXhjYXF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MzUyMzYsImV4cCI6MjA4ODQxMTIzNn0.LoZN1W7X1pjVgNLFyVRfzQ8iHFp5JN2qw2Egu5yJq0E"
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
