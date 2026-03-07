@@ -174,6 +174,9 @@ if 'toast_numero_ep' not in st.session_state:
 if 'recien_guardado' not in st.session_state:
     st.session_state.recien_guardado = False
 
+if 'hash_ultimo_guardado' not in st.session_state:
+    st.session_state.hash_ultimo_guardado = None
+
 if 'numero_a_cargar_pendiente' not in st.session_state:
     st.session_state.numero_a_cargar_pendiente = None
 
@@ -374,6 +377,28 @@ def leer_datos_actuales():
                 pass
     if mejor_ft is not None:
         st.session_state.fecha_termino = mejor_ft
+
+def calcular_hash_estado():
+    """Calcula un hash del estado actual para detectar cambios no guardados."""
+    import hashlib
+    estado = {
+        "nombre": st.session_state.get('nombre_input', ''),
+        "rut": st.session_state.get('rut_display', ''),
+        "correo": st.session_state.get('correo_input', ''),
+        "telefono": st.session_state.get('telefono_raw', ''),
+        "direccion": st.session_state.get('direccion_input', ''),
+        "observaciones": st.session_state.get('observaciones_input', ''),
+        "asesor": st.session_state.get('asesor_seleccionado', ''),
+        "correo_asesor": st.session_state.get('correo_asesor', ''),
+        "telefono_asesor": st.session_state.get('telefono_asesor', ''),
+        "fecha_inicio": str(st.session_state.get('fecha_inicio', '')),
+        "fecha_termino": str(st.session_state.get('fecha_termino', '')),
+        "carrito": json.dumps(st.session_state.get('carrito', []), sort_keys=True),
+        "margen": st.session_state.get('margen', 0),
+        "plano_nombre": st.session_state.get('plano_nombre', ''),
+    }
+    estado_str = json.dumps(estado, sort_keys=True)
+    return hashlib.md5(estado_str.encode()).hexdigest()
 
 def construir_datos_para_guardar():
     leer_datos_actuales()
@@ -822,6 +847,8 @@ def ejecutar_carga_cotizacion():
         st.session_state.numero_en_visor = None
         st.session_state.cargar_cotizacion_trigger = False
         st.session_state.cotizacion_a_cargar = None
+        # Resetear hash para que el FAB no aparezca al cargar una cotización existente
+        st.session_state.hash_ultimo_guardado = calcular_hash_estado()
         return True
     return False
 
@@ -2195,6 +2222,7 @@ with tab1:
                         st.session_state.mostrar_toast_exito = True
                         st.session_state.toast_numero_ep = numero_guardar
                         st.session_state.recien_guardado = True
+                        st.session_state.hash_ultimo_guardado = calcular_hash_estado()
                         st.rerun()
             else:
                 st.button("💾 Guardar", use_container_width=True, disabled=True)
@@ -2903,12 +2931,18 @@ components.html("""
 </script>
 """, height=0)
 
-# Paso 2: Botón flotante real — solo si hay carrito, no es solo lectura, y no se acaba de guardar
-if st.session_state.carrito and not (
-    st.session_state.cotizacion_cargada and
-    st.session_state.margen > 0 and
-    not st.session_state.modo_admin
-) and not st.session_state.get('recien_guardado', False):
+# Paso 2: Botón flotante — aparece cuando hay cambios sin guardar
+_hay_cambios_sin_guardar = (
+    len(st.session_state.get('carrito', [])) > 0 and
+    calcular_hash_estado() != st.session_state.get('hash_ultimo_guardado') and
+    not (
+        st.session_state.cotizacion_cargada and
+        st.session_state.margen > 0 and
+        not st.session_state.modo_admin
+    )
+)
+
+if _hay_cambios_sin_guardar and not st.session_state.get('recien_guardado', False):
     components.html("""
     <script>
     (function() {
