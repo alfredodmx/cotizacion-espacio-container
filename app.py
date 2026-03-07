@@ -688,9 +688,15 @@ def cargar_cotizacion(numero):
         response = supabase.table('cotizaciones').select('*').eq('numero', numero).execute()
         if response.data:
             cotizacion = response.data[0]
-            cotizacion['productos'] = json.loads(cotizacion['productos'])
+            # Manejar productos como string JSON o como lista directamente
+            productos = cotizacion['productos']
+            if isinstance(productos, str):
+                cotizacion['productos'] = json.loads(productos)
+            elif isinstance(productos, list):
+                cotizacion['productos'] = productos
+            else:
+                cotizacion['productos'] = []
             if cotizacion.get('plano_url'):
-                cotizacion['plano_url'] = cotizacion['plano_url']
                 cotizacion['plano_datos'] = None
             return cotizacion
         return None
@@ -2561,7 +2567,7 @@ with tab3:
 
                     col_si, col_no, col_cancelar = st.columns(3)
                     with col_si:
-                        if st.button("💾 Sí, guardar", use_container_width=True, type="primary"):
+                        if st.button("💾 Sí, guardar", use_container_width=True, type="primary", key="dialog_btn_si"):
                             # Guardar primero
                             datos_cliente_g, datos_asesor_g, proyecto_g, config_g, totales_g, plano_n, plano_d = construir_datos_para_guardar()
                             if st.session_state.cotizacion_cargada:
@@ -2576,13 +2582,13 @@ with tab3:
                             if preparar_carga_cotizacion(numero_pendiente):
                                 st.rerun()
                     with col_no:
-                        if st.button("🗑️ No, descartar", use_container_width=True):
+                        if st.button("🗑️ No, descartar", use_container_width=True, key="dialog_btn_no"):
                             # Descartar y cargar directamente
                             st.session_state.mostrar_advertencia_carga = False
                             if preparar_carga_cotizacion(numero_pendiente):
                                 st.rerun()
                     with col_cancelar:
-                        if st.button("✖️ Cancelar", use_container_width=True):
+                        if st.button("✖️ Cancelar", use_container_width=True, key="dialog_btn_cancelar"):
                             st.session_state.mostrar_advertencia_carga = False
                             st.session_state.numero_a_cargar_pendiente = None
                             st.rerun()
