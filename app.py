@@ -22,7 +22,7 @@ st.set_page_config(layout="wide", page_title="Cotizador PRO", page_icon="📊")
 # CONFIGURACIÓN SUPABASE
 # =========================================================
 SUPABASE_URL = "https://rpjktwxitceqylexcaqw.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwamt0d3hpdGNlcXlsZXhjYXF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MzUyMzYsImV4cCI6MjA4ODQxMTIzNn0.LoZN1W7X1pjVgNLFyVRfzQ8iHFp5JN2qw2Egu5yJq0E"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwamt0d3hpdGNlcXlsZXhjYXF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA5MjM5MzAsImV4cCI6MjA1NjQ5OTkzMH0.GI-idE52XxLx86J3pFvLRbVxHkOdyUXCMR7TkF4fcdI"
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -180,6 +180,10 @@ if 'pdf_actual' not in st.session_state:
 
 if 'numero_en_visor' not in st.session_state:
     st.session_state.numero_en_visor = None
+
+# NUEVA VARIABLE PARA LA URL DEL PDF
+if 'pdf_url' not in st.session_state:
+    st.session_state.pdf_url = None
 
 CLAVE_ADMIN = "admin2024"
 
@@ -601,7 +605,7 @@ def cargar_categoria_desde_modelo(nombre_hoja, categoria_objetivo):
     return categoria_items
 
 # =========================================================
-# FUNCIONES DE SUPABASE PARA COTIZACIONES (CORREGIDAS)
+# FUNCIONES DE SUPABASE PARA COTIZACIONES
 # =========================================================
 
 def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, totales, plano_nombre=None, plano_datos=None):
@@ -699,7 +703,7 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
 
 def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
     """
-    Busca cotizaciones en Supabase - CORREGIDO para usar fecha_creacion
+    Busca cotizaciones en Supabase
     """
     try:
         query = supabase.table('cotizaciones').select(
@@ -715,14 +719,11 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
                 'asesor': 'asesor_nombre'
             }
             campo = campo_map.get(tipo_busqueda, 'numero')
-            # Usar ilike para búsqueda insensible a mayúsculas
             query = query.ilike(campo, f'%{termino}%')
         
-        # Ordenar por fecha_creación descendente (más recientes primero)
         query = query.order('fecha_creacion', desc=True).limit(50)
         response = query.execute()
         
-        # Convertir a lista de tuplas para mantener compatibilidad
         resultados = []
         for row in response.data:
             resultados.append((
@@ -736,7 +737,7 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
                 row.get('cliente_email', '') or '',
                 row.get('asesor_email', '') or '',
                 row.get('asesor_telefono', '') or '',
-                1 if row.get('plano_url') else 0  # tiene_plano
+                1 if row.get('plano_url') else 0
             ))
         
         return resultados
@@ -746,23 +747,22 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
 
 def cargar_cotizacion(numero):
     """
-    Carga una cotización desde Supabase
+    Carga una cotización desde Supabase - VERSIÓN MEJORADA PARA PDF
     """
     try:
+        if not numero:
+            return None
+            
         response = supabase.table('cotizaciones').select('*').eq('numero', numero).execute()
         if response.data:
             cotizacion = response.data[0]
             cotizacion['productos'] = json.loads(cotizacion['productos'])
             
-            # Si tiene plano_url, descargar el PDF para el visor
+            # Si tiene plano_url, NO descargamos el PDF, guardamos la URL
             if cotizacion.get('plano_url'):
-                try:
-                    pdf_bytes, error = descargar_plano_desde_url(cotizacion['plano_url'])
-                    if pdf_bytes:
-                        cotizacion['plano_datos'] = pdf_bytes
-                except Exception as e:
-                    print(f"Error descargando plano: {e}")
-                    cotizacion['plano_datos'] = None
+                cotizacion['plano_url'] = cotizacion['plano_url']  # ya viene como string
+                # No descargamos el PDF aquí, solo guardamos la URL
+                cotizacion['plano_datos'] = None
             
             return cotizacion
         return None
@@ -887,13 +887,16 @@ def ejecutar_carga_cotizacion():
             st.session_state.margen = 0.0
 
         plano_nombre = cotizacion.get('plano_nombre')
-        plano_datos = cotizacion.get('plano_datos')
-        if plano_nombre and plano_datos:
+        plano_url = cotizacion.get('plano_url')
+        if plano_nombre and plano_url:
             st.session_state.plano_nombre = plano_nombre
-            st.session_state.plano_adjunto = plano_datos
+            # Guardamos la URL, NO descargamos el PDF completo
+            st.session_state.pdf_url = plano_url
+            st.session_state.plano_adjunto = None  # No guardamos bytes
         else:
             st.session_state.plano_nombre = ""
             st.session_state.plano_adjunto = None
+            st.session_state.pdf_url = None
 
         st.session_state.cotizacion_cargada = cotizacion.get('numero', '')
         st.session_state.counter += 100
@@ -1436,6 +1439,7 @@ if st.session_state.cotizacion_cargada:
             st.session_state.pdf_actual = None
             st.session_state.pdf_nombre = ""
             st.session_state.numero_en_visor = None
+            st.session_state.pdf_url = None
             st.session_state.counter += 100
             st.success("✅ Cotización guardada y cerrada. Listo para nueva cotización.")
             st.rerun()
@@ -1736,6 +1740,7 @@ def limpiar_todo():
     st.session_state.pdf_actual = None
     st.session_state.pdf_nombre = ""
     st.session_state.numero_en_visor = None
+    st.session_state.pdf_url = None
     st.session_state.counter += 100
 
 # =========================================================
@@ -2455,6 +2460,7 @@ with tab3:
         st.session_state.pdf_actual = None
         st.session_state.pdf_nombre = ""
         st.session_state.numero_en_visor = None
+        st.session_state.pdf_url = None
 
     if limpiar_btn:
         st.session_state.resultados_busqueda = []
@@ -2463,6 +2469,7 @@ with tab3:
         st.session_state.pdf_actual = None
         st.session_state.pdf_nombre = ""
         st.session_state.numero_en_visor = None
+        st.session_state.pdf_url = None
         st.rerun()
 
     if st.session_state.resultados_busqueda:
@@ -2528,8 +2535,8 @@ with tab3:
                 if numero_seleccionado != st.session_state.numero_en_visor:
                     if tiene_plano_seleccionado and st.session_state.mostrar_visor:
                         cot_visor = cargar_cotizacion(numero_seleccionado)
-                        if cot_visor and cot_visor.get('plano_datos'):
-                            st.session_state.pdf_actual = cot_visor['plano_datos']
+                        if cot_visor and cot_visor.get('plano_url'):
+                            st.session_state.pdf_url = cot_visor['plano_url']
                             st.session_state.pdf_nombre = cot_visor.get('plano_nombre', 'plano.pdf')
                             st.session_state.numero_en_visor = numero_seleccionado
                             st.rerun()
@@ -2538,6 +2545,7 @@ with tab3:
                             st.session_state.pdf_actual = None
                             st.session_state.pdf_nombre = ""
                             st.session_state.numero_en_visor = None
+                            st.session_state.pdf_url = None
                             st.rerun()
                     else:
                         if st.session_state.mostrar_visor:
@@ -2545,6 +2553,7 @@ with tab3:
                             st.session_state.pdf_actual = None
                             st.session_state.pdf_nombre = ""
                             st.session_state.numero_en_visor = None
+                            st.session_state.pdf_url = None
                             st.rerun()
 
                 if tiene_margen_seleccionado and not st.session_state.modo_admin:
@@ -2611,8 +2620,8 @@ with tab3:
                     label_visor = "🔄 ACTUALIZAR PLANO" if (st.session_state.mostrar_visor and st.session_state.numero_en_visor == numero_seleccionado) else "👁️ VER PLANO"
                     if st.button(label_visor, use_container_width=True, type="primary"):
                         cot_btn = cargar_cotizacion(numero_seleccionado)
-                        if cot_btn and cot_btn.get('plano_datos'):
-                            st.session_state.pdf_actual = cot_btn['plano_datos']
+                        if cot_btn and cot_btn.get('plano_url'):
+                            st.session_state.pdf_url = cot_btn['plano_url']
                             st.session_state.pdf_nombre = cot_btn.get('plano_nombre', 'plano.pdf')
                             st.session_state.mostrar_visor = True
                             st.session_state.numero_en_visor = numero_seleccionado
@@ -2620,29 +2629,34 @@ with tab3:
                 else:
                     st.button("👁️ VER PLANO", use_container_width=True, disabled=True)
 
-            if st.session_state.mostrar_visor and st.session_state.pdf_actual:
+            # =========================================================
+            # VISOR DE PDF MEJORADO (ahora usa la URL de Supabase)
+            # =========================================================
+            if st.session_state.mostrar_visor and st.session_state.pdf_url:
                 with st.expander("📄 Vista Previa del Plano", expanded=True):
                     st.markdown(f"**Archivo:** {st.session_state.pdf_nombre} — cotización `{st.session_state.numero_en_visor}`")
-                    pdf_base64 = base64.b64encode(st.session_state.pdf_actual).decode('utf-8')
-                    visor_key = st.session_state.numero_en_visor or "default"
+                    
+                    # Usar iframe con la URL directa de Supabase
                     st.markdown(f'''
-                    <div id="visor-plano-{visor_key}" style="width:100%;height:82vh;border:2px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);margin:0.5rem 0;background:#525659;">
-                        <embed
-                            id="embed-plano-{visor_key}"
-                            src="data:application/pdf;base64,{pdf_base64}#toolbar=1&navpanes=0&scrollbar=1&view=FitH"
-                            type="application/pdf"
-                            width="100%"
-                            height="100%"
+                    <div style="width:100%;height:82vh;border:2px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);margin:0.5rem 0;background:#f0f2f5;">
+                        <iframe 
+                            src="{st.session_state.pdf_url}" 
+                            width="100%" 
+                            height="100%" 
                             style="display:block;border:none;"
-                        />
-                    </div>''', unsafe_allow_html=True)
+                            allow="fullscreen"
+                        ></iframe>
+                    </div>
+                    ''', unsafe_allow_html=True)
+                    
+                    # Botón de descarga
                     st.download_button(
                         label="📥 Descargar Plano",
-                        data=st.session_state.pdf_actual,
+                        data=requests.get(st.session_state.pdf_url).content,
                         file_name=st.session_state.pdf_nombre,
                         mime="application/pdf",
                         use_container_width=True,
-                        key=f"descargar_plano_{visor_key}"
+                        key=f"descargar_plano_{st.session_state.numero_en_visor or 'default'}"
                     )
 
         st.markdown("---")
