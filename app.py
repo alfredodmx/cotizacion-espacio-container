@@ -28,7 +28,6 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def verificar_conexion_supabase():
-    """Verifica que la tabla existe y la conexión funciona"""
     try:
         response = supabase.table('cotizaciones').select('*').limit(1).execute()
         print("✅ Conexión a Supabase exitosa")
@@ -43,40 +42,24 @@ verificar_conexion_supabase()
 # FUNCIONES PARA MANEJO DE PDFs EN STORAGE
 # =========================================================
 def guardar_plano_en_storage(archivo_pdf_bytes, cotizacion_numero, nombre_original):
-    """
-    Sube un PDF a Supabase Storage
-    Retorna: (url_publica, error)
-    """
     try:
-        # Crear nombre único: cotizacion-EP-1234/uuid.pdf
         file_ext = ".pdf"
-        # Limpiar el número de cotización para usarlo como carpeta
         carpeta = cotizacion_numero.replace('/', '_').replace('\\', '_')
         file_name = f"cotizacion-{carpeta}/{uuid.uuid4()}{file_ext}"
-        
-        # Subir archivo
         response = supabase.storage.from_('planos').upload(
             path=file_name,
             file=archivo_pdf_bytes,
             file_options={"content-type": "application/pdf"}
         )
-        
-        # Obtener URL pública
         public_url = supabase.storage.from_('planos').get_public_url(file_name)
-        
         return public_url, None
     except Exception as e:
         return None, str(e)
 
 def eliminar_plano_de_storage(url_plano):
-    """
-    Elimina un PDF de Storage
-    """
     try:
         if not url_plano:
             return True, None
-        
-        # Extraer el path de la URL
         if '/planos/' in url_plano:
             path = url_plano.split('/planos/')[-1]
             supabase.storage.from_('planos').remove([path])
@@ -85,9 +68,6 @@ def eliminar_plano_de_storage(url_plano):
         return False, str(e)
 
 def descargar_plano_desde_url(url_plano):
-    """
-    Descarga un PDF desde su URL pública
-    """
     try:
         if not url_plano:
             return None, None
@@ -103,25 +83,19 @@ def descargar_plano_desde_url(url_plano):
 # FUNCIÓN PARA DETECTAR NAVEGADOR
 # =========================================================
 def detectar_navegador():
-    """Detecta si el navegador es Chrome/Edge (necesitan Google Docs Viewer)"""
     try:
         user_agent = st.context.headers.get('User-Agent', '')
-        # Chrome pero no Edge
         es_chrome = 'Chrome' in user_agent and 'Edg' not in user_agent
-        # Edge
         es_edge = 'Edg' in user_agent
-        # Safari
         es_safari = 'Safari' in user_agent and 'Chrome' not in user_agent
-        
         return {
             'es_chrome': es_chrome,
             'es_edge': es_edge,
             'es_safari': es_safari,
             'es_firefox': 'Firefox' in user_agent,
-            'needs_google_viewer': es_chrome or es_edge or es_safari  # Safari también puede tener problemas
+            'needs_google_viewer': es_chrome or es_edge or es_safari
         }
     except:
-        # Por defecto, asumimos que necesita Google Viewer por seguridad
         return {'needs_google_viewer': True}
 
 # =========================================================
@@ -129,10 +103,8 @@ def detectar_navegador():
 # =========================================================
 if 'modo_admin' not in st.session_state:
     st.session_state.modo_admin = False
-    
 if 'mostrar_login' not in st.session_state:
     st.session_state.mostrar_login = False
-
 if 'nombre_input' not in st.session_state:
     st.session_state.nombre_input = ""
 if 'correo_input' not in st.session_state:
@@ -145,24 +117,18 @@ if 'fecha_termino' not in st.session_state:
     st.session_state.fecha_termino = (datetime.now() + timedelta(days=15)).date()
 if 'observaciones_input' not in st.session_state:
     st.session_state.observaciones_input = ""
-
 if 'plano_adjunto' not in st.session_state:
     st.session_state.plano_adjunto = None
 if 'plano_nombre' not in st.session_state:
     st.session_state.plano_nombre = ""
-
 if 'cotizacion_seleccionada' not in st.session_state:
     st.session_state.cotizacion_seleccionada = None
-
 if 'cotizacion_cargada' not in st.session_state:
     st.session_state.cotizacion_cargada = None
-
 if 'carrito' not in st.session_state:
     st.session_state.carrito = []
-
 if 'margen' not in st.session_state:
     st.session_state.margen = 0.0
-    
 if 'rut_raw' not in st.session_state:
     st.session_state.rut_raw = ""
 if 'rut_display' not in st.session_state:
@@ -171,42 +137,31 @@ if 'rut_valido' not in st.session_state:
     st.session_state.rut_valido = False
 if 'rut_mensaje' not in st.session_state:
     st.session_state.rut_mensaje = ""
-
 if 'telefono_raw' not in st.session_state:
     st.session_state.telefono_raw = ""
-
 if 'asesor_seleccionado' not in st.session_state:
     st.session_state.asesor_seleccionado = "Seleccionar asesor"
 if 'correo_asesor' not in st.session_state:
     st.session_state.correo_asesor = ""
 if 'telefono_asesor' not in st.session_state:
     st.session_state.telefono_asesor = ""
-
 if 'telefono_asesor_raw' not in st.session_state:
     st.session_state.telefono_asesor_raw = ""
-
 if 'asesor_correo_temp' not in st.session_state:
     st.session_state.asesor_correo_temp = ""
-
 if 'counter' not in st.session_state:
     st.session_state.counter = 0
-
 if 'cargar_cotizacion_trigger' not in st.session_state:
     st.session_state.cargar_cotizacion_trigger = False
-    
 if 'cotizacion_a_cargar' not in st.session_state:
     st.session_state.cotizacion_a_cargar = None
-
 if 'mostrar_visor' not in st.session_state:
     st.session_state.mostrar_visor = False
-
 if 'pdf_actual' not in st.session_state:
     st.session_state.pdf_actual = None
     st.session_state.pdf_nombre = ""
-
 if 'numero_en_visor' not in st.session_state:
     st.session_state.numero_en_visor = None
-
 if 'pdf_url' not in st.session_state:
     st.session_state.pdf_url = None
 
@@ -215,7 +170,6 @@ CLAVE_ADMIN = "admin2024"
 # =========================================================
 # FUNCIONES DE VALIDACIÓN Y FORMATO
 # =========================================================
-
 def validar_rut(rut_completo):
     rut_limpio = re.sub(r'[^0-9kK]', '', rut_completo)
     if len(rut_limpio) < 2:
@@ -279,7 +233,6 @@ def formato_clp(valor):
 # =========================================================
 # FUNCIONES PARA PROCESAR CAMBIOS EN TIEMPO REAL
 # =========================================================
-
 def procesar_cambio_rut():
     rut_key = f"rut_input_{st.session_state.counter}"
     if rut_key in st.session_state:
@@ -310,9 +263,6 @@ def procesar_cambio_telefono():
         st.session_state.telefono_raw = raw
 
 def leer_datos_actuales():
-    """
-    Sincroniza session_state buscando los widgets dinámicos
-    """
     mapeo_texto = {
         'nombre_input_':    'nombre_input',
         'correo_input_':    'correo_input',
@@ -320,7 +270,6 @@ def leer_datos_actuales():
         'observaciones_input_': 'observaciones_input',
         'asesor_correo_input_': 'correo_asesor',
     }
-
     for prefijo, campo in mapeo_texto.items():
         mejor_counter = -1
         mejor_valor = None
@@ -415,11 +364,7 @@ def leer_datos_actuales():
         st.session_state.fecha_termino = mejor_ft
 
 def construir_datos_para_guardar():
-    """
-    Construye los diccionarios necesarios para guardar
-    """
     leer_datos_actuales()
-
     datos_cliente = {
         "Nombre": st.session_state.nombre_input or "",
         "RUT": st.session_state.rut_display or "",
@@ -428,30 +373,25 @@ def construir_datos_para_guardar():
         "Dirección": st.session_state.direccion_input or "",
         "Observaciones": st.session_state.observaciones_input or ""
     }
-
     nombre_asesor = st.session_state.asesor_seleccionado if st.session_state.asesor_seleccionado != "Seleccionar asesor" else ""
     datos_asesor = {
         "Nombre Ejecutivo": nombre_asesor,
         "Correo Ejecutivo": st.session_state.correo_asesor or "",
         "Teléfono Ejecutivo": st.session_state.telefono_asesor or ""
     }
-
     proyecto = {
         'fecha_inicio': str(st.session_state.fecha_inicio),
         'fecha_termino': str(st.session_state.fecha_termino),
         'dias_validez': (st.session_state.fecha_termino - st.session_state.fecha_inicio).days,
         'observaciones': st.session_state.observaciones_input or ""
     }
-
     config = {
         'margen': st.session_state.margen,
         'modo_admin': st.session_state.modo_admin
     }
-
     if st.session_state.carrito:
         carrito_df_temp = pd.DataFrame(st.session_state.carrito)
         subtotal_base_temp = carrito_df_temp["Subtotal"].sum()
-
         if st.session_state.modo_admin or st.session_state.margen > 0:
             subtotal_general_temp = sum(
                 item["Cantidad"] * aplicar_margen(item["Precio Unitario"], st.session_state.margen)
@@ -474,7 +414,6 @@ def construir_datos_para_guardar():
     else:
         subtotal_base_temp = subtotal_general_temp = iva_temp = total_temp = 0
         margen_valor_temp = comision_vendedor_temp = comision_supervisor_temp = utilidad_real_temp = 0
-
     totales = {
         'subtotal_sin_margen': subtotal_base_temp,
         'subtotal_con_margen': subtotal_general_temp,
@@ -485,16 +424,13 @@ def construir_datos_para_guardar():
         'comision_supervisor': comision_supervisor_temp,
         'utilidad_real': utilidad_real_temp
     }
-
     plano_nombre = st.session_state.plano_nombre if st.session_state.plano_adjunto else None
     plano_datos = st.session_state.plano_adjunto if st.session_state.plano_adjunto else None
-
     return datos_cliente, datos_asesor, proyecto, config, totales, plano_nombre, plano_datos
 
 # =========================================================
 # FUNCIONES PARA EVALUAR ESTADO DE COTIZACIÓN
 # =========================================================
-
 def evaluar_estado_cotizacion(cotizacion):
     datos_completos = all([
         cotizacion.get('cliente_nombre', ''),
@@ -507,10 +443,8 @@ def evaluar_estado_cotizacion(cotizacion):
         cotizacion.get('asesor_telefono', '')
     ])
     tiene_plano = cotizacion.get('plano_nombre') not in (None, '')
-    
     if not datos_completos or not asesor_completo:
         return "🔴 INCOMPLETO CON PLANO" if tiene_plano else "🔴 INCOMPLETO"
-    
     tiene_margen = cotizacion.get('config_margen', 0) > 0
     if tiene_margen:
         return "🟢 AUTORIZADO CON PLANO" if tiene_plano else "🟢 AUTORIZADO"
@@ -526,10 +460,8 @@ def crear_badge_estado(row):
     asesor_nombre = row[2]
     asesor_email = row[8]
     asesor_telefono = row[9]
-
     datos_completos = all([cliente_nombre, cliente_rut, cliente_email])
     asesor_completo = any([asesor_nombre, asesor_email, asesor_telefono])
-
     if config_margen and config_margen > 0:
         if datos_completos and asesor_completo:
             label = "🟢 AUTORIZADO CON PLANO" if tiene_plano else "🟢 AUTORIZADO"
@@ -553,7 +485,6 @@ def crear_badge_estado(row):
             label = "🔴 INCOMPLETO CON PLANO" if tiene_plano else "🔴 INCOMPLETO"
             color = "#dc3545"
             border = "#bd2130"
-
     text_color = "#212529" if label == "🟡 BORRADOR" else "white"
     return f'''<span style="background-color:{color};color:{text_color};padding:4px 12px;
         border-radius:20px;font-size:0.8rem;font-weight:600;display:inline-block;
@@ -562,7 +493,6 @@ def crear_badge_estado(row):
 # =========================================================
 # FUNCIONES PARA MANEJO DE MARGEN
 # =========================================================
-
 def aplicar_margen(precio_original, margen):
     return precio_original * (1 + margen / 100)
 
@@ -632,20 +562,12 @@ def cargar_categoria_desde_modelo(nombre_hoja, categoria_objetivo):
 # =========================================================
 # FUNCIONES DE SUPABASE PARA COTIZACIONES
 # =========================================================
-
 def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, totales, plano_nombre=None, plano_datos=None):
-    """
-    Guarda o actualiza una cotización en Supabase.
-    - Si el número ya existe: hace UPDATE
-    - Si es nueva: hace INSERT
-    """
     try:
         fecha_actual = datetime.now().isoformat()
         productos_json = json.dumps(productos, ensure_ascii=False)
-
         tiene_margen = float(config.get('margen', 0) or 0) > 0
         tiene_plano = plano_datos is not None
-
         datos_completos = all([
             str(cliente.get('Nombre', '')).strip(),
             str(cliente.get('RUT', '')).strip(),
@@ -656,7 +578,6 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
             str(asesor.get('Correo Ejecutivo', '')).strip(),
             str(asesor.get('Teléfono Ejecutivo', '')).strip()
         ])
-
         if not datos_completos or not asesor_completo:
             estado = "INCOMPLETO CON PLANO" if tiene_plano else "INCOMPLETO"
         elif tiene_margen:
@@ -664,23 +585,17 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
         else:
             estado = "BORRADOR CON PLANO" if tiene_plano else "BORRADOR"
 
-        # Verificar si la cotización ya existe
         response = supabase.table('cotizaciones').select('*').eq('numero', numero).execute()
         existe = len(response.data) > 0
 
-        # Procesar plano si se proporcionó uno nuevo
         plano_url = None
         if plano_datos:
-            # Si ya tenía plano, eliminarlo de Storage
             if existe and response.data[0].get('plano_url'):
                 eliminar_plano_de_storage(response.data[0]['plano_url'])
-            
-            # Subir nuevo plano
             plano_url, error = guardar_plano_en_storage(plano_datos, numero, plano_nombre)
             if error:
                 st.error(f"Error al subir plano: {error}")
 
-        # Preparar datos para Supabase
         data = {
             'numero': numero,
             'fecha_modificacion': fecha_actual,
@@ -713,30 +628,23 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
         }
 
         if existe:
-            # Actualizar
             response = supabase.table('cotizaciones').update(data).eq('numero', numero).execute()
         else:
-            # Insertar nueva
             data['fecha_creacion'] = fecha_actual
             response = supabase.table('cotizaciones').insert(data).execute()
 
         return True
-
     except Exception as e:
         st.error(f"❌ Error al guardar cotización: {e}")
         return False
 
 def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
-    """
-    Busca cotizaciones en Supabase
-    """
     try:
         query = supabase.table('cotizaciones').select(
-            'numero', 'cliente_nombre', 'asesor_nombre', 'fecha_creacion', 
+            'numero', 'cliente_nombre', 'asesor_nombre', 'fecha_creacion',
             'total_total', 'config_margen', 'cliente_rut', 'cliente_email',
             'asesor_email', 'asesor_telefono', 'plano_url'
         )
-        
         if termino and termino.strip():
             campo_map = {
                 'numero': 'numero',
@@ -745,10 +653,8 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
             }
             campo = campo_map.get(tipo_busqueda, 'numero')
             query = query.ilike(campo, f'%{termino}%')
-        
         query = query.order('fecha_creacion', desc=True).limit(50)
         response = query.execute()
-        
         resultados = []
         for row in response.data:
             resultados.append((
@@ -764,30 +670,22 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
                 row.get('asesor_telefono', '') or '',
                 1 if row.get('plano_url') else 0
             ))
-        
         return resultados
     except Exception as e:
         st.error(f"Error en búsqueda: {e}")
         return []
 
 def cargar_cotizacion(numero):
-    """
-    Carga una cotización desde Supabase
-    """
     try:
         if not numero:
             return None
-            
         response = supabase.table('cotizaciones').select('*').eq('numero', numero).execute()
         if response.data:
             cotizacion = response.data[0]
             cotizacion['productos'] = json.loads(cotizacion['productos'])
-            
-            # Si tiene plano_url, guardamos la URL
             if cotizacion.get('plano_url'):
                 cotizacion['plano_url'] = cotizacion['plano_url']
                 cotizacion['plano_datos'] = None
-            
             return cotizacion
         return None
     except Exception as e:
@@ -795,17 +693,10 @@ def cargar_cotizacion(numero):
         return None
 
 def eliminar_cotizacion(numero):
-    """
-    Elimina una cotización y su plano de Storage
-    """
     try:
-        # Obtener la cotización para saber si tiene plano
         response = supabase.table('cotizaciones').select('plano_url').eq('numero', numero).execute()
         if response.data and response.data[0].get('plano_url'):
-            # Eliminar plano de Storage
             eliminar_plano_de_storage(response.data[0]['plano_url'])
-        
-        # Eliminar cotización
         response = supabase.table('cotizaciones').delete().eq('numero', numero).execute()
         return True
     except Exception as e:
@@ -813,9 +704,6 @@ def eliminar_cotizacion(numero):
         return False
 
 def actualizar_estado_cotizacion(numero, estado):
-    """
-    Actualiza el estado de una cotización
-    """
     try:
         fecha_actual = datetime.now().isoformat()
         response = supabase.table('cotizaciones').update({
@@ -828,7 +716,6 @@ def actualizar_estado_cotizacion(numero, estado):
         return False
 
 def generar_numero_unico():
-    """Genera un número de cotización único verificando que no exista en Supabase."""
     intentos = 0
     while intentos < 20:
         numero = f"EP-{random.randint(10000, 99999)}"
@@ -839,7 +726,6 @@ def generar_numero_unico():
         except:
             pass
         intentos += 1
-    # Fallback con timestamp
     return f"EP-{int(datetime.now().timestamp())}"
 
 # =========================================================
@@ -860,14 +746,11 @@ def preparar_carga_cotizacion(numero_cotizacion):
 def ejecutar_carga_cotizacion():
     if st.session_state.cargar_cotizacion_trigger and st.session_state.cotizacion_a_cargar:
         cotizacion = st.session_state.cotizacion_a_cargar
-
         st.session_state.carrito = cotizacion['productos']
         st.session_state.nombre_input = cotizacion.get('cliente_nombre', '')
-
         rut_valor = cotizacion.get('cliente_rut', '')
         st.session_state.rut_display = rut_valor
         st.session_state.rut_raw = re.sub(r'[^0-9kK]', '', rut_valor)
-
         if st.session_state.rut_raw and len(st.session_state.rut_raw) >= 2:
             valido, mensaje = validar_rut(st.session_state.rut_raw)
             st.session_state.rut_valido = valido
@@ -875,16 +758,13 @@ def ejecutar_carga_cotizacion():
         else:
             st.session_state.rut_valido = False
             st.session_state.rut_mensaje = "RUT incompleto"
-
         st.session_state.correo_input = cotizacion.get('cliente_email', '')
         st.session_state.telefono_raw = cotizacion.get('cliente_telefono', '')
         st.session_state.direccion_input = cotizacion.get('cliente_direccion', '')
-
         nombre_asesor = cotizacion.get('asesor_nombre', '')
         st.session_state.asesor_seleccionado = nombre_asesor if nombre_asesor else "Seleccionar asesor"
         st.session_state.correo_asesor = cotizacion.get('asesor_email', '')
         st.session_state.telefono_asesor = cotizacion.get('asesor_telefono', '')
-
         if cotizacion.get('proyecto_fecha_inicio'):
             try:
                 st.session_state.fecha_inicio = datetime.strptime(cotizacion['proyecto_fecha_inicio'], '%Y-%m-%d').date()
@@ -892,7 +772,6 @@ def ejecutar_carga_cotizacion():
                 st.session_state.fecha_inicio = datetime.now().date()
         else:
             st.session_state.fecha_inicio = datetime.now().date()
-
         if cotizacion.get('proyecto_fecha_termino'):
             try:
                 st.session_state.fecha_termino = datetime.strptime(cotizacion['proyecto_fecha_termino'], '%Y-%m-%d').date()
@@ -900,16 +779,13 @@ def ejecutar_carga_cotizacion():
                 st.session_state.fecha_termino = (datetime.now() + timedelta(days=15)).date()
         else:
             st.session_state.fecha_termino = (datetime.now() + timedelta(days=15)).date()
-
         st.session_state.observaciones_input = cotizacion.get('proyecto_observaciones', '')
         st.session_state.modo_admin = bool(cotizacion.get('config_modo_admin', False))
-
         margen_valor = cotizacion.get('config_margen')
         try:
             st.session_state.margen = float(margen_valor) if margen_valor is not None else 0.0
         except (ValueError, TypeError):
             st.session_state.margen = 0.0
-
         plano_nombre = cotizacion.get('plano_nombre')
         plano_url = cotizacion.get('plano_url')
         if plano_nombre and plano_url:
@@ -920,15 +796,12 @@ def ejecutar_carga_cotizacion():
             st.session_state.plano_nombre = ""
             st.session_state.plano_adjunto = None
             st.session_state.pdf_url = None
-
         st.session_state.cotizacion_cargada = cotizacion.get('numero', '')
         st.session_state.counter += 100
-
         st.session_state.mostrar_visor = False
         st.session_state.pdf_actual = None
         st.session_state.pdf_nombre = ""
         st.session_state.numero_en_visor = None
-
         st.session_state.cargar_cotizacion_trigger = False
         st.session_state.cotizacion_a_cargar = None
         return True
@@ -945,6 +818,18 @@ ejecutar_carga_cotizacion()
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    /* ══ Ocultar íconos Streamlit y GitHub ══ */
+    #MainMenu { visibility: hidden !important; }
+    footer { visibility: hidden !important; }
+    [data-testid="stToolbar"] { display: none !important; }
+    [data-testid="stDecoration"] { display: none !important; }
+    [data-testid="stStatusWidget"] { display: none !important; }
+    .viewerBadge_container__r5tak { display: none !important; }
+    .viewerBadge_link__qRIco { display: none !important; }
+    #stDecoration { display: none !important; }
+    a[href*="github.com"] { display: none !important; }
+    button[title="View fullscreen"] { display: none !important; }
 
     /* ══ BASE ══ */
     html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif !important; }
@@ -1061,7 +946,7 @@ st.markdown("""
     .resultados-table tr:hover td { background-color: #f5f7ff !important; }
     .resultados-table tr:last-child td { border-bottom: none !important; }
 
-    /* ══ METRIC CARDS (ÍTEMS/PROD/CAT) ══ */
+    /* ══ METRIC CARDS ══ */
     .metric-card {
         background: linear-gradient(150deg, #1e2447 0%, #252d5a 100%);
         border-radius: 16px; padding: 1.4rem 1.5rem;
@@ -1090,7 +975,7 @@ st.markdown("""
     }
     .metric-change { font-size: 0.75rem; color: #5c6494; margin-top: 0.35rem; }
 
-    /* ══ TARJETAS COLOREADAS (TOTAL SIN IVA, etc.) ══ */
+    /* ══ TARJETAS COLOREADAS ══ */
     .metric-card-special {
         border-radius: 18px; padding: 1.5rem;
         box-shadow: 0 8px 28px rgba(0,0,0,0.14);
@@ -1114,7 +999,7 @@ st.markdown("""
     .metric-card-comisiones { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
     .metric-card-utilidad { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
 
-    /* ══ STATS CARDS (Estadísticas Rápidas) ══ */
+    /* ══ STATS CARDS ══ */
     .stats-card {
         background: #ffffff; border-radius: 16px; padding: 1.5rem 1.6rem;
         border: 1.5px solid #e8ebf5;
@@ -1214,12 +1099,57 @@ st.markdown("""
     /* ══ RADIO BUTTONS ══ */
     .stRadio > div { gap: 0.5rem !important; }
 
+    /* ══ FAB GUARDAR FLOTANTE ══ */
+    .fab-guardar {
+        background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%);
+        color: white;
+        border: none;
+        border-radius: 50px;
+        padding: 0.9rem 1.6rem;
+        font-size: 0.95rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        letter-spacing: 0.02em;
+        animation: pulse-fab 2s infinite;
+        transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+    }
+    .fab-guardar:hover {
+        transform: translateY(-3px) scale(1.05);
+        box-shadow: 0 16px 40px rgba(91,124,250,0.7) !important;
+        animation: none;
+    }
+    .fab-guardar:active {
+        transform: scale(0.97);
+    }
+    @keyframes pulse-fab {
+        0%   { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
+        50%  { box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }
+        100% { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
+    }
+    .fab-badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        width: 14px;
+        height: 14px;
+        background: #ef4444;
+        border-radius: 50%;
+        border: 2px solid white;
+        animation: blink-badge 1.5s infinite;
+    }
+    @keyframes blink-badge {
+        0%, 100% { opacity: 1; }
+        50%       { opacity: 0.2; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown('''
 <style>
-/* Títulos de sección con acento izquierdo */
 .stMarkdown h3 {
     font-family: 'Plus Jakarta Sans', sans-serif !important;
     font-size: 1.05rem !important;
@@ -1239,19 +1169,16 @@ st.markdown('''
     letter-spacing: -0.01em !important;
     margin: 1rem 0 0.6rem 0 !important;
 }
-/* Contenedor principal más limpio */
 .block-container {
     padding-top: 2rem !important;
     padding-bottom: 3rem !important;
 }
-/* Checkbox y radio más elegantes */
 [data-testid="stCheckbox"] span,
 [data-testid="stRadio"] span {
     font-family: 'Plus Jakarta Sans', sans-serif !important;
     font-weight: 500 !important;
     color: #3a4070 !important;
 }
-/* Metric nativo de Streamlit */
 [data-testid="stMetric"] {
     background: #ffffff;
     border-radius: 14px;
@@ -1270,7 +1197,6 @@ st.markdown('''
     font-weight: 800 !important; color: #1e2447 !important;
     letter-spacing: -0.03em !important;
 }
-/* Popover más limpio */
 [data-testid="stPopover"] [data-testid="stMarkdown"] h3 {
     border-left: none !important; padding-left: 0 !important;
     font-size: 1rem !important;
@@ -1278,7 +1204,6 @@ st.markdown('''
 </style>
 ''', unsafe_allow_html=True)
 
-# Detectar tema activo y aplicar CSS correspondiente
 _tema = st.get_option("theme.base") or "light"
 if _tema == "dark":
     st.markdown('''<style>
@@ -1314,7 +1239,6 @@ if _tema == "dark":
 st.markdown('''<div id="header-marker"></div>''', unsafe_allow_html=True)
 st.markdown('''
 <style>
-/* Alinear a la derecha la columna del logo/admin */
 #header-marker + div [data-testid="stHorizontalBlock"] > div:last-child > div {
     display: flex !important;
     flex-direction: column !important;
@@ -1337,7 +1261,7 @@ _logo_html = ""
 if _os.path.exists("logo.png"):
     with open("logo.png", "rb") as _f:
         _logo_b64 = _b64.b64encode(_f.read()).decode()
-    _logo_html = f'<img src="data:image/png;base64,{_logo_b64}" width="350" style="display:block;margin-left:auto;">' 
+    _logo_html = f'<img src="data:image/png;base64,{_logo_b64}" width="350" style="display:block;margin-left:auto;">'
 else:
     _logo_html = '''<svg width="350" height="48" viewBox="0 0 130 48" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;margin-left:auto;">
         <rect width="350" height="48" rx="8" fill="url(#hg)"/>
@@ -2229,7 +2153,7 @@ with tab1:
 
         with col_btn1:
             if not es_solo_lectura:
-                if st.button("💾 Guardar", use_container_width=True, type="primary"):
+                if st.button("💾 Guardar", use_container_width=True, type="primary", key="btn_guardar_principal"):
                     datos_cliente_guardar, datos_asesor_guardar, proyecto, config, totales, plano_nombre, plano_datos = construir_datos_para_guardar()
 
                     if st.session_state.cotizacion_cargada:
@@ -2653,46 +2577,26 @@ with tab3:
                     st.button("👁️ VER PLANO", use_container_width=True, disabled=True)
 
             # =========================================================
-            # VISOR DE PDF MEJORADO CON DETECCIÓN DE NAVEGADOR
+            # VISOR DE PDF
             # =========================================================
             if st.session_state.mostrar_visor and st.session_state.pdf_url:
                 with st.expander("📄 Vista Previa del Plano", expanded=True):
                     st.markdown(f"**Archivo:** {st.session_state.pdf_nombre} — cotización `{st.session_state.numero_en_visor}`")
-                    
-                    # Detectar navegador
                     navegador = detectar_navegador()
-                    
                     if navegador['needs_google_viewer']:
-                        # Para Chrome/Edge/Safari: Usar Google Docs Viewer
                         pdf_url_encoded = urllib.parse.quote(st.session_state.pdf_url, safe='')
                         google_viewer_url = f"https://docs.google.com/viewer?url={pdf_url_encoded}&embedded=true"
-                        
                         st.markdown(f'''
                         <div style="width:100%;height:82vh;border:2px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);margin:0.5rem 0;background:#f0f2f5;">
-                            <iframe 
-                                src="{google_viewer_url}" 
-                                width="100%" 
-                                height="100%" 
-                                style="display:block;border:none;"
-                                allow="fullscreen"
-                            ></iframe>
+                            <iframe src="{google_viewer_url}" width="100%" height="100%" style="display:block;border:none;" allow="fullscreen"></iframe>
                         </div>
                         ''', unsafe_allow_html=True)
                     else:
-                        # Para Firefox: URL directa (funciona perfecto)
                         st.markdown(f'''
                         <div style="width:100%;height:82vh;border:2px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);margin:0.5rem 0;background:#f0f2f5;">
-                            <iframe 
-                                src="{st.session_state.pdf_url}" 
-                                width="100%" 
-                                height="100%" 
-                                style="display:block;border:none;"
-                                allow="fullscreen"
-                            ></iframe>
+                            <iframe src="{st.session_state.pdf_url}" width="100%" height="100%" style="display:block;border:none;" allow="fullscreen"></iframe>
                         </div>
                         ''', unsafe_allow_html=True)
-                    
-                    # Botón de descarga
                     try:
                         pdf_bytes = requests.get(st.session_state.pdf_url).content
                         st.download_button(
@@ -2755,3 +2659,28 @@ with tab3:
 
     else:
         st.info("💡 No hay resultados. Realice una búsqueda para ver cotizaciones guardadas.")
+
+# =========================================================
+# FAB - BOTÓN GUARDAR FLOTANTE
+# =========================================================
+if st.session_state.carrito and not (
+    st.session_state.cotizacion_cargada and
+    st.session_state.margen > 0 and
+    not st.session_state.modo_admin
+):
+    st.markdown("""
+    <div style="position:fixed;bottom:2rem;right:2rem;z-index:99999;">
+        <button class="fab-guardar" onclick="
+            const btns = window.parent.document.querySelectorAll('button');
+            for(const btn of btns) {
+                if(btn.innerText.trim() === '💾 Guardar') {
+                    btn.click();
+                    break;
+                }
+            }
+        ">
+            💾 Guardar
+        </button>
+        <span class="fab-badge"></span>
+    </div>
+    """, unsafe_allow_html=True)
