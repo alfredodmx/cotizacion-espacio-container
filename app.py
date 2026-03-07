@@ -2670,30 +2670,49 @@ components.html("""
 (function() {
     function applyStyles() {
         const parent = window.parent.document;
-
-        // Ocultar íconos Streamlit y GitHub
+        const styleId = 'fab-hide-icons';
+        if (parent.getElementById(styleId)) return;
         const style = parent.createElement('style');
-        style.id = 'fab-hide-icons';
-        if (!parent.getElementById('fab-hide-icons')) {
-            style.innerHTML = `
-                #MainMenu { visibility: hidden !important; }
-                footer { visibility: hidden !important; }
-                [data-testid="stToolbar"] { display: none !important; }
-                [data-testid="stDecoration"] { display: none !important; }
-                [data-testid="stStatusWidget"] { display: none !important; }
-                .viewerBadge_container__r5tak { display: none !important; }
-                .viewerBadge_link__qRIco { display: none !important; }
-                a[href*="github.com"] { display: none !important; }
-                button[title="View fullscreen"] { display: none !important; }
-            `;
-            parent.head.appendChild(style);
-        }
+        style.id = styleId;
+        style.innerHTML = `
+            #MainMenu { visibility: hidden !important; display: none !important; }
+            footer { visibility: hidden !important; display: none !important; }
+            [data-testid="stToolbar"] { display: none !important; }
+            [data-testid="stDecoration"] { display: none !important; }
+            [data-testid="stStatusWidget"] { display: none !important; }
+            [data-testid="stBottomBlockContainer"] { display: none !important; }
+            .viewerBadge_container__r5tak { display: none !important; }
+            .viewerBadge_link__qRIco { display: none !important; }
+            a[href*="github.com"] { display: none !important; }
+            button[title="View fullscreen"] { display: none !important; }
+            /* Ocultar barra inferior completa de Streamlit Cloud */
+            .st-emotion-cache-1dp5vir { display: none !important; }
+            .st-emotion-cache-164nlkn { display: none !important; }
+            iframe[title="streamlit_analytics"] { display: none !important; }
+        `;
+        parent.head.appendChild(style);
+
+        /* También eliminar directamente los nodos si existen */
+        const selectors = [
+            'footer',
+            '[data-testid="stToolbar"]',
+            '[data-testid="stDecoration"]',
+            '[data-testid="stStatusWidget"]',
+            '[data-testid="stBottomBlockContainer"]',
+            'a[href*="github.com"]'
+        ];
+        selectors.forEach(sel => {
+            parent.querySelectorAll(sel).forEach(el => {
+                el.style.setProperty('display', 'none', 'important');
+                el.style.setProperty('visibility', 'hidden', 'important');
+            });
+        });
     }
-    // Intentar varias veces hasta que el DOM esté listo
     applyStyles();
-    setTimeout(applyStyles, 500);
-    setTimeout(applyStyles, 1500);
-    setTimeout(applyStyles, 3000);
+    setTimeout(applyStyles, 300);
+    setTimeout(applyStyles, 800);
+    setTimeout(applyStyles, 2000);
+    setTimeout(applyStyles, 4000);
 })();
 </script>
 """, height=0)
