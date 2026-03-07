@@ -819,15 +819,21 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
-    /* ══ Ocultar íconos Streamlit y GitHub ══ */
-    #MainMenu { visibility: hidden !important; }
-    footer { visibility: hidden !important; }
+    /* ══ Ocultar íconos Streamlit y GitHub — clases exactas ══ */
+    #MainMenu { display: none !important; }
+    footer { display: none !important; }
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stDecoration"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
-    .viewerBadge_container__r5tak { display: none !important; }
-    .viewerBadge_link__qRIco { display: none !important; }
-    #stDecoration { display: none !important; }
+    [data-testid="stBottomBlockContainer"] { display: none !important; }
+    [class*="viewerBadge"] { display: none !important; }
+    [class*="ViewerBadge"] { display: none !important; }
+    [class*="_viewerBadge"] { display: none !important; }
+    [class*="profileContainer"] { display: none !important; }
+    [class*="_profileContainer"] { display: none !important; }
+    [class*="profilePreview"] { display: none !important; }
+    [class*="_profilePreview"] { display: none !important; }
+    a[href*="streamlit.io"] { display: none !important; }
     a[href*="github.com"] { display: none !important; }
     button[title="View fullscreen"] { display: none !important; }
 
