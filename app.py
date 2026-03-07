@@ -165,6 +165,12 @@ if 'numero_en_visor' not in st.session_state:
 if 'pdf_url' not in st.session_state:
     st.session_state.pdf_url = None
 
+if 'mostrar_advertencia_carga' not in st.session_state:
+    st.session_state.mostrar_advertencia_carga = False
+
+if 'numero_a_cargar_pendiente' not in st.session_state:
+    st.session_state.numero_a_cargar_pendiente = None
+
 CLAVE_ADMIN = "admin2024"
 
 # =========================================================
@@ -2521,9 +2527,67 @@ with tab3:
                     st.button("📂 Cargar", use_container_width=True, disabled=True)
                 else:
                     if st.button("📂 Cargar", use_container_width=True):
-                        if preparar_carga_cotizacion(numero_seleccionado):
-                            st.success(f"✅ Cotización {numero_seleccionado} cargada")
+                        # Si hay carrito sin guardar, mostrar advertencia
+                        tiene_sin_guardar = (
+                            len(st.session_state.carrito) > 0 and
+                            st.session_state.cotizacion_cargada != numero_seleccionado
+                        )
+                        if tiene_sin_guardar:
+                            st.session_state.mostrar_advertencia_carga = True
+                            st.session_state.numero_a_cargar_pendiente = numero_seleccionado
                             st.rerun()
+                        else:
+                            if preparar_carga_cotizacion(numero_seleccionado):
+                                st.success(f"✅ Cotización {numero_seleccionado} cargada")
+                                st.rerun()
+
+            # ── Popup advertencia productos sin guardar ──
+            if st.session_state.get('mostrar_advertencia_carga', False):
+                @st.dialog("⚠️ Productos sin guardar")
+                def dialogo_advertencia():
+                    numero_pendiente = st.session_state.get('numero_a_cargar_pendiente', '')
+                    st.markdown(f"""
+                    <div style="text-align:center;padding:1rem 0;">
+                        <div style="font-size:3rem;margin-bottom:0.5rem;">⚠️</div>
+                        <div style="font-size:1rem;font-weight:700;color:#1e2447;margin-bottom:0.5rem;">
+                            Tienes productos sin guardar
+                        </div>
+                        <div style="font-size:0.88rem;color:#5a6080;line-height:1.6;">
+                            Estás a punto de cargar la cotización <strong>{numero_pendiente}</strong>.<br/>
+                            ¿Deseas guardar el presupuesto actual antes de continuar?
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    col_si, col_no, col_cancelar = st.columns(3)
+                    with col_si:
+                        if st.button("💾 Sí, guardar", use_container_width=True, type="primary"):
+                            # Guardar primero
+                            datos_cliente_g, datos_asesor_g, proyecto_g, config_g, totales_g, plano_n, plano_d = construir_datos_para_guardar()
+                            if st.session_state.cotizacion_cargada:
+                                num_g = st.session_state.cotizacion_cargada
+                            else:
+                                num_g = generar_numero_unico()
+                            guardar_cotizacion(num_g, datos_cliente_g, datos_asesor_g,
+                                               proyecto_g, st.session_state.carrito,
+                                               config_g, totales_g, plano_n, plano_d)
+                            # Luego cargar
+                            st.session_state.mostrar_advertencia_carga = False
+                            if preparar_carga_cotizacion(numero_pendiente):
+                                st.rerun()
+                    with col_no:
+                        if st.button("🗑️ No, descartar", use_container_width=True):
+                            # Descartar y cargar directamente
+                            st.session_state.mostrar_advertencia_carga = False
+                            if preparar_carga_cotizacion(numero_pendiente):
+                                st.rerun()
+                    with col_cancelar:
+                        if st.button("✖️ Cancelar", use_container_width=True):
+                            st.session_state.mostrar_advertencia_carga = False
+                            st.session_state.numero_a_cargar_pendiente = None
+                            st.rerun()
+
+                dialogo_advertencia()
 
             cotizacion_para_pdf = cargar_cotizacion(numero_seleccionado) if cotizacion_seleccionada else None
 
