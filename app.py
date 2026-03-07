@@ -2071,7 +2071,7 @@ with tab1:
             </style>
             ''', unsafe_allow_html=True)
 
-            uploaded_file = st.file_uploader("Subir Plano PDF", type=["pdf"], key="plano_uploader", label_visibility="collapsed")
+            uploaded_file = st.file_uploader("Subir Plano PDF", type=["pdf"], key=f"plano_uploader_{st.session_state.counter}", label_visibility="collapsed")
 
             if uploaded_file is not None:
                 if uploaded_file.name != st.session_state.plano_nombre:
