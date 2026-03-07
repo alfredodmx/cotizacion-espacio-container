@@ -165,8 +165,11 @@ if 'numero_en_visor' not in st.session_state:
 if 'pdf_url' not in st.session_state:
     st.session_state.pdf_url = None
 
-if 'mostrar_advertencia_carga' not in st.session_state:
-    st.session_state.mostrar_advertencia_carga = False
+if 'mostrar_toast_exito' not in st.session_state:
+    st.session_state.mostrar_toast_exito = False
+
+if 'toast_numero_ep' not in st.session_state:
+    st.session_state.toast_numero_ep = ""
 
 if 'numero_a_cargar_pendiente' not in st.session_state:
     st.session_state.numero_a_cargar_pendiente = None
@@ -2183,12 +2186,11 @@ with tab1:
 
                     if guardar_cotizacion(numero_guardar, datos_cliente_guardar, datos_asesor_guardar,
                                          proyecto, st.session_state.carrito, config, totales, plano_nombre, plano_datos):
-                        if es_actualizacion:
-                            st.success(f"✅ Cotización {numero_guardar} actualizada")
-                        else:
+                        if not es_actualizacion:
                             st.session_state.cotizacion_cargada = numero_guardar
-                            st.success(f"✅ Cotización {numero_guardar} guardada")
                         st.session_state.resultados_busqueda = buscar_cotizaciones()
+                        st.session_state.mostrar_toast_exito = True
+                        st.session_state.toast_numero_ep = numero_guardar
                         st.rerun()
             else:
                 st.button("💾 Guardar", use_container_width=True, disabled=True)
@@ -2735,6 +2737,83 @@ with tab3:
 
     else:
         st.info("💡 No hay resultados. Realice una búsqueda para ver cotizaciones guardadas.")
+
+# =========================================================
+# TOAST ÉXITO AL GUARDAR
+# =========================================================
+if st.session_state.get('mostrar_toast_exito', False):
+    ep = st.session_state.get('toast_numero_ep', '')
+    components.html(f"""
+    <script>
+    (function() {{
+        const parent = window.parent.document;
+        const old = parent.getElementById('toast-exito-ep');
+        if (old) old.remove();
+        if (!parent.getElementById('toast-exito-style')) {{
+            const style = parent.createElement('style');
+            style.id = 'toast-exito-style';
+            style.innerHTML = `
+                @keyframes slideInLeft {{
+                    from {{ transform: translateX(-120%); opacity: 0; }}
+                    to   {{ transform: translateX(0);    opacity: 1; }}
+                }}
+                @keyframes fadeOutLeft {{
+                    from {{ transform: translateX(0);    opacity: 1; }}
+                    to   {{ transform: translateX(-120%); opacity: 0; }}
+                }}
+                #toast-exito-ep {{
+                    position: fixed !important;
+                    bottom: 1.5rem !important;
+                    left: 2rem !important;
+                    z-index: 999998 !important;
+                    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
+                    color: white !important;
+                    border-radius: 16px !important;
+                    padding: 1rem 1.4rem !important;
+                    font-family: sans-serif !important;
+                    font-size: 0.9rem !important;
+                    font-weight: 600 !important;
+                    box-shadow: 0 8px 32px rgba(34,197,94,0.4) !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    gap: 0.6rem !important;
+                    animation: slideInLeft 0.4s cubic-bezier(0.4,0,0.2,1) forwards !important;
+                    min-width: 240px !important;
+                }}
+                #toast-exito-ep.fadeout {{
+                    animation: fadeOutLeft 0.6s cubic-bezier(0.4,0,0.2,1) forwards !important;
+                }}
+                .toast-titulo {{
+                    font-size: 0.8rem !important;
+                    opacity: 0.88 !important;
+                    font-weight: 500 !important;
+                }}
+                .toast-ep {{
+                    font-size: 1.05rem !important;
+                    font-weight: 800 !important;
+                    letter-spacing: 0.03em !important;
+                }}
+            `;
+            parent.head.appendChild(style);
+        }}
+        const toast = parent.createElement('div');
+        toast.id = 'toast-exito-ep';
+        toast.innerHTML = `
+            <span style="font-size:1.4rem">✅</span>
+            <div>
+                <div class="toast-titulo">Presupuesto guardado con éxito</div>
+                <div class="toast-ep">EP {ep}</div>
+            </div>
+        `;
+        parent.body.appendChild(toast);
+        setTimeout(() => {{
+            toast.classList.add('fadeout');
+            setTimeout(() => toast.remove(), 700);
+        }}, 3500);
+    }})();
+    </script>
+    """, height=0)
+    st.session_state.mostrar_toast_exito = False
 
 # =========================================================
 # FAB - OCULTAR ÍCONOS STREAMLIT/GITHUB + BOTÓN FLOTANTE
