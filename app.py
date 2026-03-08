@@ -1873,6 +1873,7 @@ if st.session_state.get('trigger_cerrar_cotizacion', False):
 # TAB 2 - DATOS CLIENTE
 # =========================================================
 with tab2:
+    st.markdown("### 👤 Datos del Cliente")
 
     es_solo_lectura = bool(
         st.session_state.cotizacion_cargada and
@@ -1889,31 +1890,31 @@ with tab2:
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             with st.container(border=True):
-                st.markdown("**👤 CLIENTE**")
+                st.markdown("**👤 Cliente**")
                 st.text_input("Nombre", value=st.session_state.nombre_input, disabled=True, key="nombre_readonly")
                 st.text_input("RUT", value=st.session_state.rut_display, disabled=True, key="rut_readonly")
                 st.text_input("Correo", value=st.session_state.correo_input, disabled=True, key="correo_readonly")
                 st.text_input("Teléfono", value=st.session_state.telefono_raw, disabled=True, key="telefono_readonly")
         with col2:
             with st.container(border=True):
-                st.markdown("**📍 DIRECCIÓN**")
+                st.markdown("**📍 Dirección**")
                 st.text_input("Dirección del Proyecto", value=st.session_state.direccion_input, disabled=True, key="direccion_readonly")
         with col3:
             with st.container(border=True):
-                st.markdown("**👨‍💼 EJECUTIVO**")
+                st.markdown("**👨‍💼 Ejecutivo**")
                 st.text_input("Asesor", value=st.session_state.asesor_seleccionado, disabled=True, key="asesor_readonly")
                 st.text_input("Correo Ejecutivo", value=st.session_state.correo_asesor, disabled=True, key="correo_asesor_readonly")
                 st.text_input("Teléfono Ejecutivo", value=st.session_state.telefono_asesor, disabled=True, key="telefono_asesor_readonly")
         with col4:
             with st.container(border=True):
-                st.markdown("**📅 VALIDEZ**")
+                st.markdown("**📅 Validez**")
                 st.date_input("Fecha Inicio", value=fecha_inicio, disabled=True, key="fecha_inicio_readonly")
                 st.date_input("Fecha Término", value=fecha_termino, disabled=True, key="fecha_termino_readonly")
                 st.markdown(f"**⏱️ Duración:** {dias_validez} días")
                 if dias_validez > 0:
                     st.progress(min(dias_validez/30, 1.0), text=f"{dias_validez} días")
         with st.container(border=True):
-            st.markdown("**📝 OBSERVACIONES**")
+            st.markdown("**📝 Observaciones**")
             st.text_area("Observaciones", value=st.session_state.observaciones_input, disabled=True, height=80, key="observaciones_readonly")
 
     else:
@@ -1932,7 +1933,7 @@ with tab2:
         # ── Columna 1: Cliente ──
         with col1:
             with st.container(border=True):
-                st.markdown("**👤 CLIENTE**")
+                st.markdown("**👤 Cliente**")
 
                 nombre_key = f"nombre_input_{st.session_state.counter}"
                 nombre = st.text_input("Nombre Completo*", placeholder="Ej: Juan Pérez", key=nombre_key, value=st.session_state.nombre_input)
@@ -1963,7 +1964,7 @@ with tab2:
         # ── Columna 2: Dirección ──
         with col2:
             with st.container(border=True):
-                st.markdown("**📍 DIRECCIÓN**")
+                st.markdown("**📍 Dirección**")
                 direccion_key = f"direccion_input_{st.session_state.counter}"
                 direccion = st.text_input("Dirección del Proyecto", placeholder="Calle, número, comuna", key=direccion_key, value=st.session_state.direccion_input)
                 if direccion != st.session_state.direccion_input:
@@ -1982,7 +1983,7 @@ with tab2:
         # ── Columna 3: Ejecutivo ──
         with col3:
             with st.container(border=True):
-                st.markdown("**👨‍💼 EJECUTIVO**")
+                st.markdown("**👨‍💼 Ejecutivo**")
                 nombres_asesores = list(asesores.keys())
                 asesor_key = f"asesor_select_{st.session_state.counter}"
                 indice_actual = nombres_asesores.index(st.session_state.asesor_seleccionado) if st.session_state.asesor_seleccionado in nombres_asesores else 0
@@ -2022,7 +2023,7 @@ with tab2:
         # ── Columna 4: Validez ──
         with col4:
             with st.container(border=True):
-                st.markdown("**📅 VALIDEZ**")
+                st.markdown("**📅 Validez**")
                 fecha_inicio_key = f"fecha_inicio_{st.session_state.counter}"
                 fecha_inicio = st.date_input("Fecha de Inicio", value=st.session_state.fecha_inicio, key=fecha_inicio_key)
                 if fecha_inicio != st.session_state.fecha_inicio:
@@ -2043,7 +2044,7 @@ with tab2:
 
         # ── Observaciones (ancho completo) ──
         with st.container(border=True):
-            st.markdown("**📝 OBSERVACIONES**")
+            st.markdown("**📝 Observaciones**")
             observaciones_key = f"observaciones_input_{st.session_state.counter}"
             observaciones = st.text_area("Observaciones y notas adicionales", placeholder="Ingresa aquí cualquier información relevante...", height=80, key=observaciones_key, value=st.session_state.observaciones_input)
             if observaciones != st.session_state.observaciones_input:
