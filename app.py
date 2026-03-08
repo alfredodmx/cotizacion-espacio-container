@@ -183,6 +183,9 @@ if 'recien_cargado' not in st.session_state:
 if 'mostrar_advertencia_cerrar' not in st.session_state:
     st.session_state.mostrar_advertencia_cerrar = False
 
+if 'trigger_cerrar_cotizacion' not in st.session_state:
+    st.session_state.trigger_cerrar_cotizacion = False
+
 if 'numero_a_cargar_pendiente' not in st.session_state:
     st.session_state.numero_a_cargar_pendiente = None
 
@@ -1421,12 +1424,9 @@ if st.session_state.cotizacion_cargada:
             )
             if _hay_cambios:
                 st.session_state.mostrar_advertencia_cerrar = True
-                st.rerun()
             else:
-                limpiar_todo()
-                st.session_state.recien_guardado = True
-                st.session_state.hash_ultimo_guardado = None
-                st.rerun()
+                st.session_state.trigger_cerrar_cotizacion = True
+            st.rerun()
 
     # ── Popup advertencia al cerrar con cambios sin guardar ──
     if st.session_state.get('mostrar_advertencia_cerrar', False):
@@ -1774,6 +1774,12 @@ def _ejecutar_cierre_cotizacion():
     limpiar_todo()
     st.session_state.recien_guardado = True
     st.session_state.hash_ultimo_guardado = None
+
+# Procesar triggers de cierre aquí, donde limpiar_todo ya está definida
+if st.session_state.get('trigger_cerrar_cotizacion', False):
+    st.session_state.trigger_cerrar_cotizacion = False
+    _ejecutar_cierre_cotizacion()
+    st.rerun()
 
 # =========================================================
 # TAB 2 - DATOS CLIENTE
