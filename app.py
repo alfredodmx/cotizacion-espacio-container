@@ -2230,19 +2230,18 @@ with tab1:
         if st.session_state.margen > 0:
             st.caption(f"ℹ️ Margen del {st.session_state.margen}% aplicado")
 
-    # Input de margen + botón oculto trigger para el FAB
+    # Input de margen en modo admin
     if st.session_state.modo_admin:
         col_res_tit, col_res_margen = st.columns([4, 1])
         with col_res_tit:
             st.markdown("#### Resumen del Presupuesto")
         with col_res_margen:
             st.caption("Margen %")
-            _mk = f"margen_num_{st.session_state.counter}"
             _nuevo_margen = st.number_input(
                 "Margen", min_value=0.0, max_value=100.0,
                 value=float(st.session_state.margen),
                 step=0.5, format="%.1f",
-                key=_mk, label_visibility="collapsed"
+                key="margen_input_fijo", label_visibility="collapsed"
             )
             if _nuevo_margen != st.session_state.margen:
                 st.session_state.margen = _nuevo_margen
@@ -3198,11 +3197,48 @@ if st.session_state.modo_admin:
 
   D.getElementById('_fm_ok').addEventListener('click',function(e){{
     e.stopPropagation();
-    var val=Math.max(0,Math.min(100,parseFloat(cur)||0));
-    // Navegar la URL del padre con query param — Streamlit lo lee al inicio
-    var url=new URL(window.parent.location.href);
-    url.searchParams.set('mgfab', val.toFixed(1));
-    window.parent.location.href = url.toString();
+    var val = Math.max(0, Math.min(100, parseFloat(cur)||0));
+    var current = {_margen_actual};
+
+    // Buscar el number_input de margen por key fijo "margen_input_fijo"
+    var niContainer = null;
+    var allNI = D.querySelectorAll('[data-testid="stNumberInput"]');
+    for(var i=0; i<allNI.length; i++){{
+      var inp = allNI[i].querySelector('input');
+      if(inp && inp.getAttribute('aria-label') && inp.getAttribute('aria-label').indexOf('margen_input_fijo') >= 0){{
+        niContainer = allNI[i]; break;
+      }}
+      // fallback: step 0.5
+      if(inp && (inp.step==='0.5'||inp.getAttribute('step')==='0.5')){{
+        niContainer = allNI[i]; break;
+      }}
+    }}
+
+    if(!niContainer) {{ p.classList.remove('on'); return; }}
+
+    var input = niContainer.querySelector('input');
+    var btnMinus = niContainer.querySelector('button:first-of-type');
+    var btnPlus  = niContainer.querySelectorAll('button')[1];
+    if(!btnPlus) {{ p.classList.remove('on'); return; }}
+
+    // Calcular cuántos clicks de "+" necesitamos
+    // step = 0.5, clickear (val - current) / 0.5 veces
+    // Si val < current, usar "-"
+    var diff = Math.round((val - current) * 10) / 10;
+    var clicks = Math.round(Math.abs(diff) / 0.5);
+    var btn = diff >= 0 ? btnPlus : btnMinus;
+
+    if(clicks === 0) {{ p.classList.remove('on'); return; }}
+
+    // Hacer los clicks con pequeño delay entre cada uno
+    var done = 0;
+    function doClick(){{
+      if(done >= clicks) return;
+      btn.click();
+      done++;
+      setTimeout(doClick, 30);
+    }}
+    doClick();
     p.classList.remove('on');
   }});
 
