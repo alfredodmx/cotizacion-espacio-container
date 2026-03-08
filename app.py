@@ -3206,21 +3206,15 @@ with tab4:
 
         st.markdown(f"📎 **Plano:** `{_opciones_3d[_idx_3d]['plano_nombre'] or 'plano.pdf'}`")
 
-        # Cache por URL para no reprocesar al rerenderizar
+        # Cache por URL — procesa automáticamente al seleccionar
         _cache_key = f"layout_3d_{_plano_url_3d}"
         _layout_3d = st.session_state.get(_cache_key)
         _img_b64_3d = st.session_state.get(f"img_3d_{_plano_url_3d}", "")
 
-        col_btn_3d, col_status_3d = st.columns([1, 4])
-        with col_btn_3d:
-            _btn_generar = st.button("🏗️ Generar 3D", key="btn_generar_3d", use_container_width=True,
-                                      disabled=(_layout_3d is not None))
-        with col_status_3d:
-            if _layout_3d:
-                st.success(f"✅ Modelo generado — {_layout_3d.get('width',0):.1f}m × {_layout_3d.get('depth',0):.1f}m")
-
-        if _btn_generar:
-            with st.spinner("📥 Descargando plano..."):
+        # Si no hay layout en cache, procesar automáticamente
+        if not _layout_3d:
+            with st.spinner("⏳ Procesando plano con IA, un momento..."):
+                _pdf_bytes = None
                 try:
                     import requests as _req
                     _r = _req.get(_plano_url_3d, timeout=20)
@@ -3228,7 +3222,6 @@ with tab4:
                     _pdf_bytes = _r.content
                 except Exception as _e:
                     st.error(f"❌ No se pudo descargar el plano: {_e}")
-                    _pdf_bytes = None
 
             if _pdf_bytes:
                 with st.spinner("🖼️ Renderizando página del plano..."):
@@ -3526,9 +3519,6 @@ T.set(0,H*0.45,0);S.r=Math.max(W,D)*2.2;applyC();
             import streamlit.components.v1 as _components
             _components.html(_visor_html, height=620, scrolling=False)
             st.caption(f"⚠️ Beta — Dimensiones detectadas: {_layout_3d.get('width',0):.1f}m × {_layout_3d.get('depth',0):.1f}m × {_layout_3d.get('wallHeight',2.8):.1f}m altura")
-
-        elif not _layout_3d:
-            st.info("👆 Haz clic en **Generar 3D** para analizar el plano con Claude Vision y construir el modelo.")
 
 # =========================================================
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
