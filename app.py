@@ -2386,27 +2386,23 @@ with tab1:
             if st.session_state.modo_admin:
                 st.markdown(f'''
                 <div class="metric-card-special" style="background:linear-gradient(135deg,#ef4444,#dc2626);padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
-                    <div>
-                        <div class="metric-title" style="color:white;margin-bottom:0.8rem;text-align:center;font-size:1.1rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">📦 TOTAL SIN IVA</div>
-                        <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
-                            <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Costo base:</span><span>{formato_clp(subtotal_base)}</span></div>
-                            <div style="display:flex;justify-content:space-between;"><span>+ Margen {st.session_state.margen}%:</span><span>{formato_clp(margen_valor)}</span></div>
-                        </div>
+                    <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Costo base:</span><span>{formato_clp(subtotal_base)}</span></div>
+                        <div style="display:flex;justify-content:space-between;"><span>+ Margen {st.session_state.margen}%:</span><span>{formato_clp(margen_valor)}</span></div>
                     </div>
-                    <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:flex-end;">
+                    <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:flex-end;">
+                        <span style="font-size:0.85rem;font-weight:600;color:rgba(255,255,255,0.85);">📦 Total sin iva</span>
                         <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(subtotal_general)}</span>
                     </div>
                 </div>''', unsafe_allow_html=True)
             else:
                 st.markdown(f'''
                 <div class="metric-card-special" style="background:linear-gradient(135deg,#ef4444,#dc2626);padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
-                    <div>
-                        <div class="metric-title" style="color:white;margin-bottom:0.8rem;text-align:center;font-size:1.1rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">📦 TOTAL SIN IVA</div>
-                        <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
-                            <div style="display:flex;justify-content:space-between;"><span>Costo base (sin IVA):</span><span>{formato_clp(subtotal_base)}</span></div>
-                        </div>
+                    <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
+                        <div style="display:flex;justify-content:space-between;"><span>Costo base (sin IVA):</span><span>{formato_clp(subtotal_base)}</span></div>
                     </div>
-                    <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:flex-end;">
+                    <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:flex-end;">
+                        <span style="font-size:0.85rem;font-weight:600;color:rgba(255,255,255,0.85);">📦 Total sin iva</span>
                         <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(subtotal_base)}</span>
                     </div>
                 </div>''', unsafe_allow_html=True)
@@ -2418,44 +2414,38 @@ with tab1:
             with col_total_card:
                     st.markdown(f'''
                     <div class="metric-card-special metric-card-total" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
-                        <div>
-                            <div class="metric-title" style="color:white;margin-bottom:0.8rem;text-align:center;font-size:1.1rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">💰 TOTAL CON IVA</div>
-                            <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
-                                <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Costo base:</span><span>{formato_clp(subtotal_base)}</span></div>
-                                <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>+ Margen {st.session_state.margen}%:</span><span>{formato_clp(margen_valor)}</span></div>
-                                <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>= Subtotal c/margen:</span><span>{formato_clp(subtotal_general)}</span></div>
-                                <div style="display:flex;justify-content:space-between;"><span>+ IVA 19%:</span><span>{formato_clp(iva)}</span></div>
-                            </div>
+                        <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
+                            <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Costo base:</span><span>{formato_clp(subtotal_base)}</span></div>
+                            <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>+ Margen {st.session_state.margen}%:</span><span>{formato_clp(margen_valor)}</span></div>
+                            <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>= Subtotal c/margen:</span><span>{formato_clp(subtotal_general)}</span></div>
+                            <div style="display:flex;justify-content:space-between;"><span>+ IVA 19%:</span><span>{formato_clp(iva)}</span></div>
                         </div>
-                        <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:flex-end;">
+                        <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:flex-end;">
+                            <span style="font-size:0.85rem;font-weight:600;color:rgba(255,255,255,0.85);">💰 Total con iva</span>
                             <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(total)}</span>
                         </div>
                     </div>''', unsafe_allow_html=True)
             with col_comisiones_card:
                     st.markdown(f'''
                     <div class="metric-card-special metric-card-comisiones" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
-                        <div>
-                            <div class="metric-title" style="color:white;margin-bottom:0.8rem;text-align:center;font-size:1.1rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">📊 COMISIONES</div>
-                            <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
-                                <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Vendedor 2.5%:</span><span>{formato_clp(comision_vendedor)}</span></div>
-                                <div style="display:flex;justify-content:space-between;"><span>Supervisor 0.8%:</span><span>{formato_clp(comision_supervisor)}</span></div>
-                            </div>
+                        <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
+                            <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Vendedor 2.5%:</span><span>{formato_clp(comision_vendedor)}</span></div>
+                            <div style="display:flex;justify-content:space-between;"><span>Supervisor 0.8%:</span><span>{formato_clp(comision_supervisor)}</span></div>
                         </div>
-                        <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:flex-end;">
+                        <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:flex-end;">
+                            <span style="font-size:0.85rem;font-weight:600;color:rgba(255,255,255,0.85);">📊 Comisiones</span>
                             <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(total_comisiones)}</span>
                         </div>
                     </div>''', unsafe_allow_html=True)
             with col_utilidad_card:
                     st.markdown(f'''
                     <div class="metric-card-special metric-card-utilidad" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
-                        <div>
-                            <div class="metric-title" style="color:white;margin-bottom:0.8rem;text-align:center;font-size:1.1rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">📈 UTILIDAD REAL</div>
-                            <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
-                                <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Margen bruto:</span><span>{formato_clp(margen_valor)}</span></div>
-                                <div style="display:flex;justify-content:space-between;"><span>- Comisiones:</span><span>{formato_clp(total_comisiones)}</span></div>
-                            </div>
+                        <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
+                            <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Margen bruto:</span><span>{formato_clp(margen_valor)}</span></div>
+                            <div style="display:flex;justify-content:space-between;"><span>- Comisiones:</span><span>{formato_clp(total_comisiones)}</span></div>
                         </div>
-                        <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:flex-end;">
+                        <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:flex-end;">
+                            <span style="font-size:0.85rem;font-weight:600;color:rgba(255,255,255,0.85);">📈 Utilidad real</span>
                             <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(utilidad_real)}</span>
                         </div>
                     </div>''', unsafe_allow_html=True)
@@ -2465,14 +2455,12 @@ with tab1:
             with col_t2:
                 st.markdown(f'''
                 <div class="metric-card-special metric-card-total" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
-                    <div>
-                        <div class="metric-title" style="color:white;margin-bottom:0.8rem;text-align:center;font-size:1.1rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">💰 TOTAL CON IVA</div>
-                        <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
-                            <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Costo base:</span><span>{formato_clp(subtotal_base)}</span></div>
-                            <div style="display:flex;justify-content:space-between;"><span>+ IVA 19%:</span><span>{formato_clp(iva)}</span></div>
-                        </div>
+                    <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Costo base:</span><span>{formato_clp(subtotal_base)}</span></div>
+                        <div style="display:flex;justify-content:space-between;"><span>+ IVA 19%:</span><span>{formato_clp(iva)}</span></div>
                     </div>
-                    <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:flex-end;">
+                    <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:flex-end;">
+                        <span style="font-size:0.85rem;font-weight:600;color:rgba(255,255,255,0.85);">💰 Total con iva</span>
                         <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(total)}</span>
                     </div>
                 </div>''', unsafe_allow_html=True)
