@@ -2986,7 +2986,7 @@ if st.session_state.get('recien_guardado', False):
 if st.session_state.get('recien_cargado', False):
     st.session_state.recien_cargado = False
 
-# Trigger: el FAB JS setea este flag, Streamlit lo procesa en el rerun
+# Capturar trigger del FAB guardar via postMessage/setComponentValue
 if st.session_state.get('_trigger_guardar_fab'):
     del st.session_state['_trigger_guardar_fab']
     datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
@@ -3000,56 +3000,45 @@ if st.session_state.get('_trigger_guardar_fab'):
     st.rerun()
 
 if _mostrar_fab:
-    components.html("""
-    <script>
-    (function() {
-        var D = window.parent.document;
-        var old = D.getElementById('fab-guardar-btn');
-        if (old) old.remove();
-        var os = D.getElementById('fab-guardar-style');
-        if (os) os.remove();
+    _fab_guardar_val = components.html("""<!DOCTYPE html><html><head>
+<style>
+body{margin:0;padding:0;background:transparent;font-family:sans-serif;}
+@keyframes pulse-fab{
+  0%{box-shadow:0 8px 24px rgba(91,124,250,0.5);}
+  50%{box-shadow:0 8px 40px rgba(91,124,250,0.9),0 0 0 12px rgba(91,124,250,0.15);}
+  100%{box-shadow:0 8px 24px rgba(91,124,250,0.5);}
+}
+#fab-btn{
+  position:fixed;bottom:1.5rem;left:2rem;z-index:2147483646;
+  background:linear-gradient(135deg,#5b7cfa,#8b5cf6);
+  color:white;border:none;border-radius:50px;
+  padding:0.85rem 1.6rem;font-size:0.95rem;font-weight:700;
+  cursor:pointer;white-space:nowrap;
+  animation:pulse-fab 2s infinite;
+  box-shadow:0 8px 24px rgba(91,124,250,0.5);
+}
+#fab-btn:hover{transform:translateY(-2px);animation:none;}
+</style></head><body>
+<button id="fab-btn">&#128190; Guardar</button>
+<script>
+document.getElementById('fab-btn').onclick = function() {
+  window.parent.postMessage({isStreamlitMessage:true, type:'streamlit:setComponentValue', value:'guardar'}, '*');
+};
+</script>
+</body></html>""", height=90)
 
-        var style = D.createElement('style');
-        style.id = 'fab-guardar-style';
-        style.textContent = `
-            @keyframes pulse-fab {
-                0%   { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
-                50%  { box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }
-                100% { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
-            }
-            #fab-guardar-btn {
-                position: fixed; bottom: 1.5rem; left: 2rem; z-index: 999999;
-                background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%);
-                color: white; border: none; border-radius: 50px;
-                padding: 0.85rem 1.6rem; font-size: 0.95rem; font-weight: 700;
-                cursor: pointer; white-space: nowrap; font-family: sans-serif;
-                animation: pulse-fab 2s infinite;
-            }
-            #fab-guardar-btn:hover { transform: translateY(-2px); animation: none; }
-        `;
-        D.head.appendChild(style);
+    if _fab_guardar_val == 'guardar':
+        st.session_state['_trigger_guardar_fab'] = True
+        st.rerun()
 
-        var btn = D.createElement('button');
-        btn.id = 'fab-guardar-btn';
-        btn.innerHTML = '&#128190; Guardar';
-        btn.onclick = function() {
-            // Navegar con query param — Streamlit lo lee al inicio y guarda
-            var url = new URL(window.parent.location.href);
-            url.searchParams.set('_fab_guardar', '1');
-            window.parent.location.replace(url.toString());
-        };
-        D.body.appendChild(btn);
-    })();
-    </script>
-    """, height=0)
 else:
     components.html("""<script>
-    (function(){
-        var D=window.parent.document;
-        var b=D.getElementById('fab-guardar-btn'); if(b) b.remove();
-        var s=D.getElementById('fab-guardar-style'); if(s) s.remove();
-    })();
-    </script>""", height=0)
+(function(){
+  var D=window.parent.document;
+  var b=D.getElementById('fab-guardar-btn'); if(b) b.remove();
+  var s=D.getElementById('fab-guardar-style'); if(s) s.remove();
+})();
+</script>""", height=0)
 
 # =========================================================
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
