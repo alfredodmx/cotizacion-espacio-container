@@ -2085,9 +2085,7 @@ with tab1:
         st.warning("🔒 Esta cotización tiene márgenes aplicados. Modo solo lectura. Solo puedes visualizar y generar PDFs.")
 
     if not es_solo_lectura:
-        col_header, col_plano = st.columns([3, 1])
-        with col_header:
-            pass
+        _, col_plano = st.columns([3, 1])
         with col_plano:
             st.markdown('''
             <style>
@@ -2150,6 +2148,7 @@ with tab1:
                     st.session_state.plano_nombre = ""
                     st.rerun()
 
+        st.markdown('<div style="margin-top:-2rem"></div>', unsafe_allow_html=True)
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 
         with col_m1:
