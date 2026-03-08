@@ -2246,6 +2246,11 @@ with tab1:
             if _nuevo_margen != st.session_state.margen:
                 st.session_state.margen = _nuevo_margen
                 st.rerun()
+        # Botón puente para el FAB — recibe valor via session_state y hace rerun
+        if st.session_state.get('_fab_pending'):
+            st.session_state.margen = float(st.session_state._fab_pending)
+            del st.session_state['_fab_pending']
+            st.rerun()
 
 
     # Variables de métricas con valores por defecto
@@ -3137,9 +3142,10 @@ else:
     """, height=0)
 
 # =========================================================
-# FAB - MARGEN FLOTANTE (solo visible en modo admin)
-# Estrategia: inyectar en DOM padre, comunicar via postMessage
-# al iframe que contiene el number_input de margen
+# FAB - MARGEN FLOTANTE
+# Estrategia: formulario HTML nativo en iframe propio
+# El submit recarga window.parent con ?mgfab=X
+# Streamlit lee el param al inicio y actualiza session_state
 # =========================================================
 _margen_actual = st.session_state.margen
 _mstr = f"{_margen_actual:.1f}"
@@ -3148,124 +3154,117 @@ if st.session_state.modo_admin:
     _color = '#10b981' if _margen_actual > 0 else '#6b7280'
     _anim  = 'animation:pm 2s infinite;' if _margen_actual > 0 else ''
 
-    # Receptor en el mismo iframe donde vive el number_input
-    # Escucha postMessage y clickea el botón + del stepper
-    components.html(f"""
+    st.markdown('''<style>
+iframe[height="80"]{position:fixed!important;bottom:0;left:0;width:100vw;height:100px;z-index:99990;background:transparent!important;border:none!important;}
+</style>''', unsafe_allow_html=True)
+
+    components.html(f"""<!DOCTYPE html>
+<html>
+<head>
+<style>
+*{{box-sizing:border-box;margin:0;padding:0;font-family:sans-serif;}}
+body{{background:transparent;overflow:visible;}}
+@keyframes pm{{
+  0%{{box-shadow:0 6px 20px rgba(16,185,129,.5)}}
+  50%{{box-shadow:0 6px 36px rgba(16,185,129,.9),0 0 0 10px rgba(16,185,129,.15)}}
+  100%{{box-shadow:0 6px 20px rgba(16,185,129,.5)}}
+}}
+#fab{{
+  position:fixed;bottom:1.5rem;left:12rem;z-index:99999;
+  background:linear-gradient(135deg,{_color},{_color}cc);
+  color:#fff;border:none;border-radius:50px;
+  padding:.8rem 1.4rem;font-size:.9rem;font-weight:700;
+  cursor:pointer;white-space:nowrap;{_anim}
+  box-shadow:0 6px 20px rgba(16,185,129,.4);
+}}
+#fab:hover{{transform:translateY(-2px);animation:none;}}
+#popup{{
+  position:fixed;bottom:5rem;left:12rem;z-index:99999;
+  background:#fff;border-radius:16px;
+  box-shadow:0 8px 40px rgba(0,0,0,.28);
+  padding:1rem 1.2rem;min-width:220px;display:none;
+}}
+#popup.on{{display:block;}}
+#disp{{
+  width:100%;padding:.5rem;border:2px solid #10b981;
+  border-radius:10px;font-size:1.6rem;font-weight:700;
+  text-align:center;margin-bottom:6px;
+  color:#111;background:#f0fdf4;user-select:none;
+}}
+#pad{{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:6px;}}
+#pad button{{
+  padding:.5rem;border:1px solid #e5e7eb;border-radius:8px;
+  background:#f9fafb;font-size:1rem;font-weight:600;cursor:pointer;color:#111;
+}}
+#pad button:hover{{background:#f0fdf4;border-color:#10b981;}}
+#ok{{
+  width:100%;padding:.55rem;
+  background:linear-gradient(135deg,#10b981,#059669);
+  color:#fff;border:none;border-radius:10px;
+  font-size:.9rem;font-weight:700;cursor:pointer;
+}}
+</style>
+</head>
+<body>
+<button id="fab">&#128202; Margen: {_mstr}%</button>
+<div id="popup">
+  <div style="font-size:.85rem;font-weight:700;color:#374151;margin-bottom:.5rem;">Margen %</div>
+  <div id="disp">{_mstr}%</div>
+  <div id="pad">
+    <button type="button">1</button><button type="button">2</button><button type="button">3</button>
+    <button type="button">4</button><button type="button">5</button><button type="button">6</button>
+    <button type="button">7</button><button type="button">8</button><button type="button">9</button>
+    <button type="button" id="clr" style="color:#ef4444">C</button>
+    <button type="button">0</button>
+    <button type="button">.</button>
+  </div>
+  <button id="ok" type="button">&#9989; Aplicar</button>
+</div>
 <script>
-window.addEventListener('message', function(e) {{
-  if (!e.data || e.data.type !== 'fab_margen') return;
-  var targetVal = parseFloat(e.data.value);
-  var current   = parseFloat(e.data.current);
-  if (isNaN(targetVal)) return;
+var cur = '{_mstr}';
+var disp = document.getElementById('disp');
+var popup = document.getElementById('popup');
 
-  // Buscar el number_input de margen por step=0.5
-  var ni = document.querySelector('[data-testid="stNumberInput"]');
-  if (!ni) return;
-  var inp     = ni.querySelector('input[type="number"]');
-  var btnPlus = ni.querySelectorAll('button')[1];
-  var btnMinus= ni.querySelectorAll('button')[0];
-  if (!inp || !btnPlus) return;
-
-  var diff   = Math.round((targetVal - current) * 10) / 10;
-  var clicks = Math.round(Math.abs(diff) / 0.5);
-  var btn    = diff >= 0 ? btnPlus : btnMinus;
-  if (clicks === 0) return;
-
-  // Primero setear el valor base correcto
-  var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-  var base   = diff >= 0 ? targetVal - 0.5 : targetVal + 0.5;
-  setter.call(inp, base.toFixed(1));
-  inp.dispatchEvent(new Event('input',  {{bubbles:true}}));
-  inp.dispatchEvent(new Event('change', {{bubbles:true}}));
-  // Un solo click en + o - para disparar el rerun con el valor final
-  setTimeout(function() {{ btn.click(); }}, 30);
+document.getElementById('fab').addEventListener('click', function(e){{
+  e.stopPropagation();
+  cur = '{_mstr}';
+  disp.textContent = cur + '%';
+  popup.classList.toggle('on');
 }});
+
+document.getElementById('pad').addEventListener('click', function(e){{
+  e.stopPropagation();
+  var t = e.target;
+  if (!t || t.tagName !== 'BUTTON') return;
+  var n = t.textContent.trim();
+  if (t.id === 'clr') cur = '0';
+  else if (n === '.') {{ if (cur.indexOf('.') < 0) cur += '.'; }}
+  else cur = (cur === '0') ? n : cur + n;
+  if (parseFloat(cur) > 100) cur = '100';
+  disp.textContent = cur + '%';
+}});
+
+document.getElementById('ok').addEventListener('click', function(e){{
+  e.stopPropagation();
+  var val = Math.max(0, Math.min(100, parseFloat(cur) || 0));
+  // Modificar query param de la página padre SIN recargar
+  // usando st.query_params de Streamlit
+  try {{
+    var url = new URL(window.parent.location.href);
+    url.searchParams.set('mgfab', val.toFixed(1));
+    window.parent.location.replace(url.toString());
+  }} catch(err) {{
+    // fallback: navegar directamente
+    window.parent.location.href = window.parent.location.pathname + '?mgfab=' + val.toFixed(1);
+  }}
+  popup.classList.remove('on');
+}});
+
+document.addEventListener('click', function(){{ popup.classList.remove('on'); }});
 </script>
-""", height=0)
-
-    # FAB en DOM padre — envía postMessage a todos los iframes
-    components.html(f"""
-<script>
-(function(){{
-  var D = window.parent.document;
-  ['_fm_s','_fm_b','_fm_p'].forEach(function(id){{
-    var e=D.getElementById(id); if(e) e.remove();
-  }});
-
-  var s=D.createElement('style'); s.id='_fm_s';
-  s.textContent=[
-    '@keyframes pm{{0%{{box-shadow:0 6px 20px rgba(16,185,129,.5)}}50%{{box-shadow:0 6px 36px rgba(16,185,129,.9),0 0 0 10px rgba(16,185,129,.15)}}100%{{box-shadow:0 6px 20px rgba(16,185,129,.5)}}}}',
-    '#_fm_b{{position:fixed;bottom:1.5rem;left:12rem;z-index:99998;background:linear-gradient(135deg,{_color},{_color}cc);color:#fff;border:none;border-radius:50px;padding:.8rem 1.4rem;font-size:.9rem;font-weight:700;cursor:pointer;white-space:nowrap;{_anim}font-family:sans-serif;box-shadow:0 6px 20px rgba(16,185,129,.4);}}',
-    '#_fm_b:hover{{transform:translateY(-2px);animation:none;}}',
-    '#_fm_p{{position:fixed;bottom:5rem;left:12rem;z-index:99999;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.28);padding:1rem 1.2rem;min-width:220px;display:none;font-family:sans-serif;}}',
-    '#_fm_p.on{{display:block;}}',
-    '#_fm_disp{{width:100%;padding:.5rem;border:2px solid #10b981;border-radius:10px;font-size:1.6rem;font-weight:700;text-align:center;margin-bottom:6px;color:#111;background:#f0fdf4;user-select:none;}}',
-    '#_fm_pad{{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:6px;}}',
-    '#_fm_pad button{{padding:.5rem;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;font-size:1rem;font-weight:600;cursor:pointer;color:#111;font-family:sans-serif;}}',
-    '#_fm_pad button:hover{{background:#f0fdf4;border-color:#10b981;}}',
-    '#_fm_ok{{width:100%;padding:.55rem;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:10px;font-size:.9rem;font-weight:700;cursor:pointer;font-family:sans-serif;}}'
-  ].join('');
-  D.head.appendChild(s);
-
-  var p=D.createElement('div'); p.id='_fm_p';
-  p.innerHTML='<div style="font-size:.85rem;font-weight:700;color:#374151;margin-bottom:.5rem;">Margen %</div>'
-    +'<div id="_fm_disp">{_mstr}%</div>'
-    +'<div id="_fm_pad">'
-    +'<button>1</button><button>2</button><button>3</button>'
-    +'<button>4</button><button>5</button><button>6</button>'
-    +'<button>7</button><button>8</button><button>9</button>'
-    +'<button id="_fm_c" style="color:#ef4444">C</button>'
-    +'<button>0</button><button>.</button>'
-    +'</div>'
-    +'<button id="_fm_ok">&#9989; Aplicar</button>';
-  D.body.appendChild(p);
-
-  var cur='{_mstr}';
-  var disp=D.getElementById('_fm_disp');
-
-  D.getElementById('_fm_pad').addEventListener('click',function(e){{
-    e.stopPropagation();
-    var t=e.target; if(!t||t.tagName!=='BUTTON') return;
-    var n=t.textContent.trim();
-    if(t.id==='_fm_c') cur='0';
-    else if(n==='.') {{ if(cur.indexOf('.')<0) cur+='.'; }}
-    else cur=(cur==='0')?n:cur+n;
-    if(parseFloat(cur)>100) cur='100';
-    disp.textContent=cur+'%';
-  }});
-
-  D.getElementById('_fm_ok').addEventListener('click',function(e){{
-    e.stopPropagation();
-    var val = Math.max(0, Math.min(100, parseFloat(cur)||0));
-    // Enviar postMessage a todos los iframes de Streamlit
-    var frames = D.querySelectorAll('iframe');
-    for(var i=0; i<frames.length; i++){{
-      try {{
-        frames[i].contentWindow.postMessage({{
-          type: 'fab_margen',
-          value: val.toFixed(1),
-          current: '{_mstr}'
-        }}, '*');
-      }} catch(err) {{}}
-    }}
-    p.classList.remove('on');
-  }});
-
-  var b=D.createElement('button'); b.id='_fm_b';
-  b.innerHTML='&#128202; Margen: {_mstr}%';
-  b.addEventListener('click',function(e){{
-    e.stopPropagation();
-    cur='{_mstr}'; disp.textContent=cur+'%';
-    p.classList.toggle('on');
-  }});
-  D.body.appendChild(b);
-
-  D.addEventListener('click',function(e){{
-    if(!b.contains(e.target)&&!p.contains(e.target)) p.classList.remove('on');
-  }});
-}})();
-</script>
-""", height=0)
+</body>
+</html>
+""", height=80, scrolling=False)
 
 else:
     components.html("""<script>
