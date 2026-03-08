@@ -3461,75 +3461,175 @@ const img=new Image();
 img.onload=()=>{{
   const tex=new THREE.Texture(img);tex.needsUpdate=true;
   const fm=new THREE.Mesh(new THREE.PlaneGeometry(W,D),new THREE.MeshStandardMaterial({{map:tex,roughness:0.85}}));
-  fm.rotation.x=-Math.PI/2;fm.receiveShadow=true;gPlan.add(fm);
+  fm.rotation.x=-Math.PI/2;fm.position.y=0.01;fm.receiveShadow=true;gPlan.add(fm);
 }};
 img.src='data:image/png;base64,'+IMG_B64;
 
-// Suelo
-const flM=new THREE.Mesh(new THREE.BoxGeometry(W,0.08,D),new THREE.MeshStandardMaterial({{color:0xeceff1,roughness:0.9}}));
-flM.position.y=-0.04;flM.receiveShadow=true;gBody.add(flM);
+// Suelo sólido
+const flM=new THREE.Mesh(new THREE.BoxGeometry(W+th*2,0.1,D+th*2),
+  new THREE.MeshStandardMaterial({{color:0xdde1e7,roughness:0.9}}));
+flM.position.y=-0.05;flM.receiveShadow=true;gBody.add(flM);
 
-// Construir pared con huecos exactos
-function makeWall(px,pz,rotY,wallW,openings){{
-  const grp=new THREE.Group();grp.position.set(px,0,pz);grp.rotation.y=rotY;
-  const ops=[...openings].sort((a,b)=>a.x-b.x);
-  let cur=-wallW/2;
-  ops.forEach(op=>{{
-    // Segmento izquierdo
-    const sw=op.x-op.w/2-cur;
-    if(sw>0.05){{const m=new THREE.Mesh(new THREE.BoxGeometry(sw,H,th),mWall);m.position.set(cur+sw/2,H/2,0);m.castShadow=true;m.receiveShadow=true;grp.add(m);}}
-    cur=op.x+op.w/2;
-    // Dintel
-    const dh=H-(op.y+op.h/2);
-    if(dh>0.02){{const m=new THREE.Mesh(new THREE.BoxGeometry(op.w,dh,th),mWall);m.position.set(op.x,H-dh/2,0);m.castShadow=true;grp.add(m);}}
-    // Antepecho (solo ventana)
-    if(op.type==='window'){{const ah=Math.max(0,op.y-op.h/2);if(ah>0.02){{const m=new THREE.Mesh(new THREE.BoxGeometry(op.w,ah,th),mWall);m.position.set(op.x,ah/2,0);m.castShadow=true;grp.add(m);}}}};
-    // Relleno hueco
-    const fm2=new THREE.Mesh(new THREE.BoxGeometry(op.w,op.h,th*0.25),op.type==='door'?mDoor:mGlass);
-    fm2.position.set(op.x,op.y,0);fm2.castShadow=true;grp.add(fm2);
+// ── makeWall: construye una pared con huecos correctos ──────────
+// wallW = largo de la pared, openings = array de {{type,x,y,w,h}}
+// x = posición desde el centro de la pared (-wallW/2 .. +wallW/2)
+// y = centro vertical desde el suelo (0..H)
+function makeWall(px, pz, rotY, wallW, openings) {{
+
+  // 1. Clonar y sanear openings — clamp para que no salgan del borde
+  const ops = openings
+    .map(op => {{
+      const hw = op.w / 2;
+      const x  = Math.max(-wallW/2 + hw + 0.01, Math.min(wallW/2 - hw - 0.01, op.x));
+      const yb = op.y - op.h/2;  // base
+      const yt = op.y + op.h/2;  // tope
+      const y  = Math.max(op.h/2 + 0.01, Math.min(H - op.h/2 - 0.01, op.y));
+      return {{ ...op, x, y }};
+    }})
+    .sort((a,b) => a.x - b.x);
+
+  const grp = new THREE.Group();
+  grp.position.set(px, 0, pz);
+  grp.rotation.y = rotY;
+
+  // 2. Por cada abertura construir: panel-izq, dintel, antepecho, relleno
+  let curX = -wallW / 2;
+
+  ops.forEach(op => {{
+    const opL = op.x - op.w/2;   // borde izquierdo del hueco
+    const opR = op.x + op.w/2;   // borde derecho
+    const opB = op.y - op.h/2;   // base del hueco
+    const opT = op.y + op.h/2;   // tope del hueco
+
+    // Panel izquierdo (lleno, de suelo a techo)
+    const segW = opL - curX;
+    if (segW > 0.02) {{
+      const m = new THREE.Mesh(new THREE.BoxGeometry(segW, H, th), mWall);
+      m.position.set(curX + segW/2, H/2, 0);
+      m.castShadow = true; m.receiveShadow = true;
+      grp.add(m);
+    }}
+    curX = opR;
+
+    // Dintel (sobre el hueco)
+    const dintelH = H - opT;
+    if (dintelH > 0.02) {{
+      const m = new THREE.Mesh(new THREE.BoxGeometry(op.w, dintelH, th), mWall);
+      m.position.set(op.x, opT + dintelH/2, 0);
+      m.castShadow = true;
+      grp.add(m);
+    }}
+
+    // Antepecho (bajo el hueco — solo ventanas)
+    if (op.type === 'window' && opB > 0.02) {{
+      const m = new THREE.Mesh(new THREE.BoxGeometry(op.w, opB, th), mWall);
+      m.position.set(op.x, opB/2, 0);
+      m.castShadow = true;
+      grp.add(m);
+    }}
+
+    // Relleno del hueco (vidrio o puerta)
+    const mat  = op.type === 'door' ? mDoor : mGlass;
+    const fill = new THREE.Mesh(new THREE.BoxGeometry(op.w, op.h, th * 0.3), mat);
+    fill.position.set(op.x, op.y, 0);
+    fill.castShadow = true;
+    grp.add(fill);
+
+    // Marco del hueco
+    const mrkMat = mRib;
+    const mkT = 0.05;
+    // Jambas laterales
+    [opL - mkT/2, opR + mkT/2].forEach(mx => {{
+      const mk = new THREE.Mesh(new THREE.BoxGeometry(mkT, op.h, th+0.02), mrkMat);
+      mk.position.set(mx, op.y, 0); grp.add(mk);
+    }});
+    // Dintel marco
+    const mk2 = new THREE.Mesh(new THREE.BoxGeometry(op.w + mkT*2, mkT, th+0.02), mrkMat);
+    mk2.position.set(op.x, opT + mkT/2, 0); grp.add(mk2);
+    // Umbral (solo ventana)
+    if (op.type === 'window') {{
+      const mk3 = new THREE.Mesh(new THREE.BoxGeometry(op.w + mkT*2, mkT, th+0.02), mrkMat);
+      mk3.position.set(op.x, opB - mkT/2, 0); grp.add(mk3);
+    }}
   }});
-  // Segmento derecho
-  const rw=wallW/2-cur;
-  if(rw>0.05){{const m=new THREE.Mesh(new THREE.BoxGeometry(rw,H,th),mWall);m.position.set(cur+rw/2,H/2,0);m.castShadow=true;m.receiveShadow=true;grp.add(m);}}
+
+  // Panel derecho final
+  const remW = wallW/2 - curX;
+  if (remW > 0.02) {{
+    const m = new THREE.Mesh(new THREE.BoxGeometry(remW, H, th), mWall);
+    m.position.set(curX + remW/2, H/2, 0);
+    m.castShadow = true; m.receiveShadow = true;
+    grp.add(m);
+  }}
+
   gBody.add(grp);
-  // Wire outline
-  const wm=new THREE.Mesh(new THREE.BoxGeometry(wallW,H,th),mWire);
-  const wg=new THREE.Group();wg.position.set(px,H/2,pz);wg.rotation.y=rotY;wg.add(wm);gWire.add(wg);
+
+  // Wire outline (pared completa, en grupo separado)
+  const wg = new THREE.Group();
+  wg.position.set(px, H/2, pz);
+  wg.rotation.y = rotY;
+  wg.add(new THREE.Mesh(new THREE.BoxGeometry(wallW, H, th), mWire));
+  gWire.add(wg);
 }}
 
-// Construir las 4 paredes
-LAYOUT.walls.forEach(w=>{{
-  let px,pz,rotY,ww;
-  if(w.side==='front'){{px=0;pz=D/2;rotY=0;ww=W;}}
-  else if(w.side==='back'){{px=0;pz=-D/2;rotY=0;ww=W;}}
-  else if(w.side==='left'){{px=-W/2;pz=0;rotY=Math.PI/2;ww=D;}}
-  else{{px=W/2;pz=0;rotY=Math.PI/2;ww=D;}}
-  makeWall(px,pz,rotY,ww,w.openings||[]);
+// ── Construir las 4 paredes ─────────────────────────────────────
+LAYOUT.walls.forEach(w => {{
+  let px, pz, rotY, ww;
+  if      (w.side==='front') {{ px=0;    pz= D/2; rotY=0;          ww=W; }}
+  else if (w.side==='back')  {{ px=0;    pz=-D/2; rotY=0;          ww=W; }}
+  else if (w.side==='left')  {{ px=-W/2; pz=0;    rotY=Math.PI/2;  ww=D; }}
+  else                       {{ px= W/2; pz=0;    rotY=Math.PI/2;  ww=D; }}
+  makeWall(px, pz, rotY, ww, w.openings||[]);
 }});
 
-// Techo
-const rm=new THREE.Mesh(new THREE.BoxGeometry(W+0.2,0.15,D+0.2),mRoof);
-rm.position.y=H+0.075;rm.castShadow=true;gRoof.add(rm);
-// Borde techo (perfil metálico)
-[[W+0.2,0.1,0.1,0,0],[W+0.2,0.1,0.1,0,D],[0.1,0.1,D+0.2,W/2,0],[0.1,0.1,D+0.2,-W/2,0]].forEach(r=>{{
-  const m=new THREE.Mesh(new THREE.BoxGeometry(r[0],r[1],r[2]),mRib);
-  m.position.set(r[3],H,r[4]);gRoof.add(m);
+// ── Techo ───────────────────────────────────────────────────────
+// Losa principal
+const roofM = new THREE.Mesh(new THREE.BoxGeometry(W+th*2, 0.18, D+th*2), mRoof);
+roofM.position.y = H + 0.09;
+roofM.castShadow = true;
+gRoof.add(roofM);
+// Alero frontal
+const aleroM = new THREE.Mesh(new THREE.BoxGeometry(W+th*2, 0.08, 0.4), mRoof);
+aleroM.position.set(0, H+0.04, D/2+th+0.2);
+gRoof.add(aleroM);
+// Perfil metálico perimetral del techo
+[[W+th*2, 0.12, th, 0, D/2+th/2, 0],
+ [W+th*2, 0.12, th, 0,-D/2-th/2, 0],
+ [th, 0.12, D+th*2,-W/2-th/2, 0, 0],
+ [th, 0.12, D+th*2, W/2+th/2, 0, 0]].forEach(r => {{
+  const m = new THREE.Mesh(new THREE.BoxGeometry(r[0],r[1],r[2]), mRib);
+  m.position.set(r[3], H, r[4]);
+  gRoof.add(m);
 }});
 
-// Costillas estructurales container
-[0.4,1.0,1.6,2.2,H-0.05].forEach(h=>{{
-  [[0,D/2+0.08,0,W,0],[0,-D/2-0.08,0,W,0],[-W/2-0.08,0,0,D,Math.PI/2],[W/2+0.08,0,0,D,Math.PI/2]].forEach(r=>{{
-    const m=new THREE.Mesh(new THREE.BoxGeometry(r[3],0.055,0.055),mRib);
-    m.position.set(r[0],h,r[2]);m.rotation.y=r[4]||0;gBody.add(m);
+// ── Costillas estructurales (rasgos de container) ───────────────
+const ribHeights = [0.0, 0.55, 1.1, 1.65, 2.2, H];
+ribHeights.forEach(h => {{
+  // frente y atrás
+  [D/2+th*0.6, -D/2-th*0.6].forEach(pz2 => {{
+    const m = new THREE.Mesh(new THREE.BoxGeometry(W+th*2, 0.05, 0.05), mRib);
+    m.position.set(0, h, pz2); gBody.add(m);
+  }});
+  // laterales
+  [-W/2-th*0.6, W/2+th*0.6].forEach(px2 => {{
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, D+th*2), mRib);
+    m.position.set(px2, h, 0); gBody.add(m);
   }});
 }});
-// Columnas esquinas
-[[-W/2,-D/2],[W/2,-D/2],[-W/2,D/2],[W/2,D/2]].forEach(([x,z])=>{{
-  const m=new THREE.Mesh(new THREE.BoxGeometry(0.16,H+0.16,0.16),mRib);m.position.set(x,H/2,z);m.castShadow=true;gBody.add(m);
+
+// ── Columnas en las 4 esquinas ──────────────────────────────────
+[[-W/2, -D/2],[W/2, -D/2],[-W/2, D/2],[W/2, D/2]].forEach(([cx,cz]) => {{
+  const col = new THREE.Mesh(new THREE.BoxGeometry(th+0.04, H+0.2, th+0.04), mRib);
+  col.position.set(cx, H/2, cz);
+  col.castShadow = true;
+  gBody.add(col);
 }});
 
-// Ajustar cámara al modelo
-T.set(0,H*0.45,0);S.r=Math.max(W,D)*2.2;applyC();
+// ── Ajustar cámara ──────────────────────────────────────────────
+T.set(0, H*0.4, 0);
+S.r = Math.max(W, D) * 2.4;
+S.th = 0.7; S.ph = 0.95;
+applyC();
 </script></body></html>"""
 
             import streamlit.components.v1 as _components
