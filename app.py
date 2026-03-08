@@ -2957,7 +2957,7 @@ components.html("""
 """, height=0)
 
 # =========================================================
-# FAB - BOTÓN GUARDAR FLOTANTE
+# FAB - BOTÓN GUARDAR FLOTANTE (st.button nativo como el FAB de margen)
 # =========================================================
 _es_solo_lectura = (
     st.session_state.cotizacion_cargada and
@@ -2976,102 +2976,56 @@ _mostrar_fab = (
     _hay_cambios
 )
 
-# Limpiar flags después de evaluar
 if st.session_state.get('recien_guardado', False):
     st.session_state.recien_guardado = False
 if st.session_state.get('recien_cargado', False):
     st.session_state.recien_cargado = False
 
-# Botón real oculto que el FAB JS clickea
-if len(st.session_state.get('carrito', [])) > 0 and not _es_solo_lectura:
-    st.markdown('<div style="position:fixed;left:-9999px;top:-9999px">', unsafe_allow_html=True)
-    if st.button("💾 Guardar", key="btn_guardar_real_oculto"):
+if _mostrar_fab:
+    st.markdown("""
+<style>
+@keyframes pulse-fab {
+    0%   { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
+    50%  { box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }
+    100% { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
+}
+/* FAB Guardar — posicionar el botón como flotante */
+div[data-testid="stButton"]:has(button[kind="primary"]#btn_fab_guardar_key) {
+    position: fixed !important; bottom: 1.5rem !important;
+    left: 2rem !important; z-index: 99999 !important;
+}
+button[kind="primary"]#btn_fab_guardar_key {
+    border-radius: 50px !important; padding: 0.85rem 1.6rem !important;
+    font-size: 0.95rem !important; font-weight: 700 !important;
+    animation: pulse-fab 2s infinite !important;
+    white-space: nowrap !important;
+}
+</style>
+""", unsafe_allow_html=True)
+    if st.button("💾 Guardar", key="btn_fab_guardar_key", type="primary"):
         datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
         num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
-        guardar_cotizacion(num_g, datos_c, datos_a, proy, st.session_state.carrito, cfg, tots, pl_n, pl_d)
+        guardar_cotizacion(num_g, datos_c, datos_a, proy,
+                           st.session_state.carrito, cfg, tots, pl_n, pl_d)
         st.session_state.hash_ultimo_guardado = calcular_hash_estado()
         st.session_state.recien_guardado = True
         st.session_state.mostrar_toast_exito = True
         st.session_state.toast_numero_ep = num_g
         st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
-if _mostrar_fab:
-    st.markdown("""<style>
-    @keyframes pulse-fab {
-        0%   { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
-        50%  { box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }
-        100% { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
-    }
-    </style>""", unsafe_allow_html=True)
-
-    components.html("""
-    <script>
-    (function() {
-        const parent = window.parent.document;
-        const old = parent.getElementById('fab-guardar-wrapper');
-        if (old) old.remove();
-
-        const style = parent.getElementById('fab-guardar-style') || parent.createElement('style');
-        style.id = 'fab-guardar-style';
-        style.textContent = `
-            #fab-guardar-wrapper {
-                position: fixed; bottom: 1.5rem; left: 2rem;
-                z-index: 999999; display: flex; align-items: center; gap: 0.5rem;
-            }
-            #fab-guardar-btn {
-                background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%);
-                color: white; border: none; border-radius: 50px;
-                padding: 0.85rem 1.6rem; font-size: 0.95rem; font-weight: 700;
-                cursor: pointer; white-space: nowrap;
-                box-shadow: 0 8px 24px rgba(91,124,250,0.5);
-                animation: pulse-fab 2s infinite;
-                font-family: sans-serif;
-            }
-            #fab-guardar-btn:hover { transform: translateY(-2px); animation: none; }
-            @keyframes pulse-fab {
-                0%   { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
-                50%  { box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }
-                100% { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
-            }
-        `;
-        if (!parent.getElementById('fab-guardar-style')) parent.head.appendChild(style);
-
-        const wrapper = parent.createElement('div');
-        wrapper.id = 'fab-guardar-wrapper';
-        const btn = parent.createElement('button');
-        btn.id = 'fab-guardar-btn';
-        btn.innerHTML = '💾 Guardar';
-        btn.onclick = function() {
-            const frames = parent.querySelectorAll('iframe');
-            for (const f of frames) {
-                try {
-                    const btns = f.contentDocument.querySelectorAll('button');
-                    for (const b of btns) {
-                        const txt = (b.innerText || b.textContent || '').trim();
-                        if (txt.includes('Guardar') && !b.disabled) {
-                            b.click(); return;
-                        }
-                    }
-                } catch(e) {}
-            }
-        };
-        wrapper.appendChild(btn);
-        parent.body.appendChild(wrapper);
-    })();
-    </script>
-    """, height=0)
-
+    # Limpiar DOM antiguo si quedó
+    components.html("""<script>
+(function(){var D=window.parent.document;
+  var w=D.getElementById('fab-guardar-wrapper'); if(w) w.remove();
+  var s=D.getElementById('fab-guardar-style'); if(s) s.remove();
+})();
+</script>""", height=0)
 else:
-    components.html("""
-    <script>
-    (function() {
-        const parent = window.parent.document;
-        const w = parent.getElementById('fab-guardar-wrapper');
-        if (w) w.remove();
-    })();
-    </script>
-    """, height=0)
+    components.html("""<script>
+(function(){var D=window.parent.document;
+  var w=D.getElementById('fab-guardar-wrapper'); if(w) w.remove();
+})();
+</script>""", height=0)
 
 # =========================================================
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
