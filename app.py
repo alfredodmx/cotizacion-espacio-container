@@ -3144,7 +3144,22 @@ with tab4:
 
         st.markdown(f"📎 **Plano:** `{_opciones_3d[_idx_3d]['plano_nombre'] or 'plano.pdf'}`")
 
-        _visor_html = f"""
+        # Descargar PDF en el servidor Python y convertir a base64
+        import requests as _req
+        import base64 as _b64
+        _pdf_b64_3d = ""
+        _pdf_error_3d = ""
+        try:
+            _r = _req.get(_plano_url_3d, timeout=15)
+            _r.raise_for_status()
+            _pdf_b64_3d = _b64.b64encode(_r.content).decode('utf-8')
+        except Exception as _e:
+            _pdf_error_3d = str(_e)
+
+        if _pdf_error_3d:
+            st.error(f"❌ No se pudo descargar el plano: {_pdf_error_3d}")
+        else:
+            _visor_html = f"""
 <!DOCTYPE html>
 <html>
 <head>
@@ -3196,8 +3211,7 @@ body {{ background:#0f1117; font-family:'Segoe UI',sans-serif; overflow:hidden; 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
-const PLANO_URL="{_plano_url_3d}";
-const PROXY="https://api.allorigins.win/raw?url="+encodeURIComponent(PLANO_URL);
+const PDF_B64="{_pdf_b64_3d}";
 
 const cv=document.getElementById('c3d');
 const W0=cv.parentElement.offsetWidth,H0=610;
@@ -3295,10 +3309,10 @@ function setStep(m){{document.getElementById('step').textContent=m;}}
 
 async function main(){{
   try{{
-    setStep("📥 Descargando plano PDF…");
-    const resp=await fetch(PROXY);
-    if(!resp.ok) throw new Error("No se pudo descargar el plano ("+resp.status+")");
-    const buf=await resp.arrayBuffer();
+    setStep("📥 Cargando plano PDF…");
+    const bin=atob(PDF_B64);
+    const buf=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
     setStep("🖼 Renderizando página…");
     const pdf=await pdfjsLib.getDocument({{data:buf}}).promise;
     const page=await pdf.getPage(1);
@@ -3324,12 +3338,9 @@ async function main(){{
 main();
 </script></body></html>
 """
-        import streamlit.components.v1 as _components
-        _components.html(_visor_html, height=630, scrolling=False)
-
-        st.caption("⚠️ Beta: Claude Vision analiza el plano y construye el modelo 3D. Resultados dependen de la calidad del PDF.")
-
-        st.caption("⚠️ Beta: La detección de paredes es automática y puede variar según la calidad del plano.")
+            import streamlit.components.v1 as _components
+            _components.html(_visor_html, height=630, scrolling=False)
+            st.caption("⚠️ Beta: Claude Vision analiza el plano y construye el modelo 3D. Resultados dependen de la calidad del PDF.")
 
 # =========================================================
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
