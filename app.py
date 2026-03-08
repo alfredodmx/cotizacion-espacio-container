@@ -3138,6 +3138,8 @@ else:
 
 # =========================================================
 # FAB - MARGEN FLOTANTE (solo visible en modo admin)
+# Estrategia: inyectar en DOM padre, comunicar via postMessage
+# al iframe que contiene el number_input de margen
 # =========================================================
 _margen_actual = st.session_state.margen
 _mstr = f"{_margen_actual:.1f}"
@@ -3146,6 +3148,42 @@ if st.session_state.modo_admin:
     _color = '#10b981' if _margen_actual > 0 else '#6b7280'
     _anim  = 'animation:pm 2s infinite;' if _margen_actual > 0 else ''
 
+    # Receptor en el mismo iframe donde vive el number_input
+    # Escucha postMessage y clickea el botón + del stepper
+    components.html(f"""
+<script>
+window.addEventListener('message', function(e) {{
+  if (!e.data || e.data.type !== 'fab_margen') return;
+  var targetVal = parseFloat(e.data.value);
+  var current   = parseFloat(e.data.current);
+  if (isNaN(targetVal)) return;
+
+  // Buscar el number_input de margen por step=0.5
+  var ni = document.querySelector('[data-testid="stNumberInput"]');
+  if (!ni) return;
+  var inp     = ni.querySelector('input[type="number"]');
+  var btnPlus = ni.querySelectorAll('button')[1];
+  var btnMinus= ni.querySelectorAll('button')[0];
+  if (!inp || !btnPlus) return;
+
+  var diff   = Math.round((targetVal - current) * 10) / 10;
+  var clicks = Math.round(Math.abs(diff) / 0.5);
+  var btn    = diff >= 0 ? btnPlus : btnMinus;
+  if (clicks === 0) return;
+
+  // Primero setear el valor base correcto
+  var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+  var base   = diff >= 0 ? targetVal - 0.5 : targetVal + 0.5;
+  setter.call(inp, base.toFixed(1));
+  inp.dispatchEvent(new Event('input',  {{bubbles:true}}));
+  inp.dispatchEvent(new Event('change', {{bubbles:true}}));
+  // Un solo click en + o - para disparar el rerun con el valor final
+  setTimeout(function() {{ btn.click(); }}, 30);
+}});
+</script>
+""", height=0)
+
+    # FAB en DOM padre — envía postMessage a todos los iframes
     components.html(f"""
 <script>
 (function(){{
@@ -3199,47 +3237,17 @@ if st.session_state.modo_admin:
   D.getElementById('_fm_ok').addEventListener('click',function(e){{
     e.stopPropagation();
     var val = Math.max(0, Math.min(100, parseFloat(cur)||0));
-    var current = {_margen_actual};
-
-    // Buscar el number_input de margen por key fijo "margen_input_fijo"
-    var niContainer = null;
-    var allNI = D.querySelectorAll('[data-testid="stNumberInput"]');
-    for(var i=0; i<allNI.length; i++){{
-      var inp = allNI[i].querySelector('input');
-      if(inp && inp.getAttribute('aria-label') && inp.getAttribute('aria-label').indexOf('margen_input_fijo') >= 0){{
-        niContainer = allNI[i]; break;
-      }}
-      // fallback: step 0.5
-      if(inp && (inp.step==='0.5'||inp.getAttribute('step')==='0.5')){{
-        niContainer = allNI[i]; break;
-      }}
+    // Enviar postMessage a todos los iframes de Streamlit
+    var frames = D.querySelectorAll('iframe');
+    for(var i=0; i<frames.length; i++){{
+      try {{
+        frames[i].contentWindow.postMessage({{
+          type: 'fab_margen',
+          value: val.toFixed(1),
+          current: '{_mstr}'
+        }}, '*');
+      }} catch(err) {{}}
     }}
-
-    if(!niContainer) {{ p.classList.remove('on'); return; }}
-
-    var input = niContainer.querySelector('input');
-    var btnMinus = niContainer.querySelector('button:first-of-type');
-    var btnPlus  = niContainer.querySelectorAll('button')[1];
-    if(!btnPlus) {{ p.classList.remove('on'); return; }}
-
-    // Calcular cuántos clicks de "+" necesitamos
-    // step = 0.5, clickear (val - current) / 0.5 veces
-    // Si val < current, usar "-"
-    var diff = Math.round((val - current) * 10) / 10;
-    var clicks = Math.round(Math.abs(diff) / 0.5);
-    var btn = diff >= 0 ? btnPlus : btnMinus;
-
-    if(clicks === 0) {{ p.classList.remove('on'); return; }}
-
-    // Hacer los clicks con pequeño delay entre cada uno
-    var done = 0;
-    function doClick(){{
-      if(done >= clicks) return;
-      btn.click();
-      done++;
-      setTimeout(doClick, 30);
-    }}
-    doClick();
     p.classList.remove('on');
   }});
 
