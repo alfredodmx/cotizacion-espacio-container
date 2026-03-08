@@ -3255,12 +3255,28 @@ with tab4:
                                 },
                                 json={
                                     "model": "claude-sonnet-4-20250514",
-                                    "max_tokens": 1024,
+                                    "max_tokens": 2048,
                                     "messages": [{
                                         "role": "user",
                                         "content": [
                                             {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": _img_b64_3d}},
-                                            {"type": "text", "text": 'Analiza esta planta arquitectónica de un container house. Responde SOLO con JSON válido sin texto extra ni markdown. Formato exacto: {"width":<ancho metros>,"depth":<profundidad metros>,"wallHeight":2.8,"walls":[{"side":"front","openings":[{"type":"door","x":<x desde centro pared>,"y":1.05,"w":0.9,"h":2.1},{"type":"window","x":<x>,"y":1.2,"w":1.2,"h":1.0}]},{"side":"back","openings":[...]},{"side":"left","openings":[...]},{"side":"right","openings":[...]}]}. Detecta TODAS las puertas y ventanas visibles. x es posición desde el centro de esa pared en metros (negativo=izquierda).'}
+                                            {"type": "text", "text": """Eres un arquitecto experto analizando un plano de planta de un CONTAINER HOUSE (casa contenedor).
+
+TAREA: Extrae dimensiones reales y ubicación EXACTA de todas las aberturas del plano.
+
+PASOS:
+1. Identifica el norte/orientación del plano
+2. Mide el largo y ancho total del container en metros
+   - Containers típicos: 6m, 9m o 12m de largo; 2.4m o 3.0m de ancho
+3. Para cada pared identifica las aberturas:
+   - PUERTA: se dibuja con un arco de 90 grados, ancho 0.8-1.0m
+   - VENTANA: rectángulo con líneas internas paralelas, ancho 0.6-1.5m
+4. Mide la posición X de cada abertura desde el CENTRO de su pared (negativo=izquierda, positivo=derecha)
+5. La fachada PRINCIPAL (front) suele tener la puerta principal
+6. Si hay cotas numéricas en el plano, úsalas para mayor precisión
+
+RESPONDE ÚNICAMENTE con JSON válido, sin texto adicional:
+{"width":<largo en metros>,"depth":<ancho en metros>,"wallHeight":2.8,"walls":[{"side":"front","openings":[{"type":"door","x":<pos x>,"y":1.05,"w":<ancho>,"h":2.1},{"type":"window","x":<pos x>,"y":1.2,"w":<ancho>,"h":<alto>}]},{"side":"back","openings":[...]},{"side":"left","openings":[...]},{"side":"right","openings":[...]}]}"""}
                                         ]
                                     }]
                                 },
@@ -3519,6 +3535,18 @@ T.set(0,H*0.45,0);S.r=Math.max(W,D)*2.2;applyC();
             import streamlit.components.v1 as _components
             _components.html(_visor_html, height=620, scrolling=False)
             st.caption(f"⚠️ Beta — Dimensiones detectadas: {_layout_3d.get('width',0):.1f}m × {_layout_3d.get('depth',0):.1f}m × {_layout_3d.get('wallHeight',2.8):.1f}m altura")
+
+            # Debug: mostrar JSON detectado + botón para regenerar
+            import json as _json_dbg
+            _col_dbg1, _col_dbg2 = st.columns([3,1])
+            with _col_dbg2:
+                if st.button("🔄 Regenerar", key="btn_regen_3d", help="Forzar nuevo análisis del plano"):
+                    st.session_state.pop(_cache_key, None)
+                    st.session_state.pop(f"img_3d_{_plano_url_3d}", None)
+                    st.rerun()
+            with _col_dbg1:
+                with st.expander("🔍 Ver JSON detectado por Claude Vision"):
+                    st.json(_layout_3d)
 
 # =========================================================
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
