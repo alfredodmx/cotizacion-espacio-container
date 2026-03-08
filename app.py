@@ -702,6 +702,31 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
         st.error(f"❌ Error al guardar cotización: {e}")
         return False
 
+def exportar_csv_completo():
+    """Exporta todas las cotizaciones de Supabase a CSV."""
+    try:
+        response = supabase.table('cotizaciones').select(
+            'numero', 'fecha_creacion', 'fecha_modificacion',
+            'cliente_nombre', 'cliente_rut', 'cliente_email', 'cliente_telefono', 'cliente_direccion',
+            'asesor_nombre', 'asesor_email', 'asesor_telefono',
+            'config_margen', 'total_sin_iva', 'total_iva', 'total_total',
+            'estado', 'plano_nombre', 'plano_url'
+        ).order('fecha_creacion', desc=True).execute()
+        if not response.data:
+            return None
+        df = pd.DataFrame(response.data)
+        df.columns = [
+            'N° Presupuesto', 'Fecha Creación', 'Fecha Modificación',
+            'Cliente', 'RUT', 'Email Cliente', 'Teléfono Cliente', 'Dirección',
+            'Asesor', 'Email Asesor', 'Teléfono Asesor',
+            'Margen %', 'Total sin IVA', 'IVA', 'Total con IVA',
+            'Estado', 'Nombre Plano', 'URL Plano'
+        ]
+        return df.to_csv(index=False).encode('utf-8-sig')
+    except Exception as e:
+        st.error(f"Error al exportar: {e}")
+        return None
+
 def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
     try:
         query = supabase.table('cotizaciones').select(
@@ -1420,10 +1445,29 @@ st.markdown(f'''
 _, col_admin = st.columns([4, 1])
 with col_admin:
     if st.session_state.modo_admin:
-        st.markdown("**👑 Admin Activo**")
-        if st.button("🔓 Cerrar", key="btn_cerrar_sesion_header", use_container_width=True):
-            st.session_state.modo_admin = False
-            st.rerun()
+        with st.popover("👑 Admin ▾", use_container_width=True):
+            st.markdown("### Panel Administrador")
+            st.markdown("---")
+            st.markdown("**📦 Exportar base de datos**")
+            st.caption("Descarga todas las cotizaciones en CSV")
+            _csv_data = exportar_csv_completo()
+            if _csv_data:
+                from datetime import datetime as _dt
+                _fname = f"cotizaciones_backup_{_dt.now().strftime('%Y%m%d_%H%M')}.csv"
+                st.download_button(
+                    label="⬇️ Descargar CSV",
+                    data=_csv_data,
+                    file_name=_fname,
+                    mime="text/csv",
+                    use_container_width=True,
+                    key="btn_export_csv"
+                )
+            else:
+                st.info("Sin datos para exportar")
+            st.markdown("---")
+            if st.button("🔓 Cerrar sesión admin", key="btn_cerrar_sesion_header", use_container_width=True):
+                st.session_state.modo_admin = False
+                st.rerun()
     else:
         with st.popover("🔐 Admin", use_container_width=True):
             st.markdown("### Acceso Administrativo")
