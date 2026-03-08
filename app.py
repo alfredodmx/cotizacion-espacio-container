@@ -1448,13 +1448,14 @@ st.markdown(f'''
 </div>
 ''', unsafe_allow_html=True)
 
-_, col_admin = st.columns([4, 1])
-with col_admin:
+_, col_admin_label, col_admin_export, col_admin_cerrar = st.columns([3, 0.8, 0.8, 0.6])
+with col_admin_label:
     if st.session_state.modo_admin:
-        with st.popover("👑 Admin ▾", use_container_width=True):
-            st.markdown("### Panel Administrador")
-            st.markdown("---")
-            st.markdown("**📦 Exportar base de datos**")
+        st.markdown('<div style="text-align:right;padding-top:0.5rem;font-weight:700;color:#5b7cfa;">👑 Admin Activo</div>', unsafe_allow_html=True)
+with col_admin_export:
+    if st.session_state.modo_admin:
+        with st.popover("📦 Export", use_container_width=True):
+            st.markdown("**Exportar base de datos**")
             st.caption("Descarga todas las cotizaciones en CSV")
             _csv_data = exportar_csv_completo()
             if _csv_data:
@@ -1470,11 +1471,12 @@ with col_admin:
                 )
             else:
                 st.info("Sin datos para exportar")
-            st.markdown("---")
-            if st.button("🔓 Cerrar sesión admin", key="btn_cerrar_sesion_header", use_container_width=True):
-                st.session_state.modo_admin = False
-                st.rerun()
-    else:
+with col_admin_cerrar:
+    if st.session_state.modo_admin:
+        if st.button("🔓 Cerrar", key="btn_cerrar_sesion_header", use_container_width=True):
+            st.session_state.modo_admin = False
+            st.rerun()
+    if not st.session_state.modo_admin:
         with st.popover("🔐 Admin", use_container_width=True):
             st.markdown("### Acceso Administrativo")
             st.markdown("Ingrese su clave de autorización:")
