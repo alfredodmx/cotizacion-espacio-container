@@ -3209,13 +3209,15 @@ if st.session_state.modo_admin:
     if(target){{
       target.focus();
       var setter=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
-      setter.call(target,val.toFixed(1));
-      target.dispatchEvent(new Event('input',{{bubbles:true}}));
-      target.dispatchEvent(new Event('change',{{bubbles:true}}));
+      setter.call(target, val.toFixed(1));
+      target.dispatchEvent(new Event('input', {{bubbles:true}}));
+      target.dispatchEvent(new Event('change', {{bubbles:true}}));
       setTimeout(function(){{
-        target.dispatchEvent(new KeyboardEvent('keydown',{{key:'Enter',keyCode:13,which:13,bubbles:true}}));
-        target.blur();
-      }},100);
+        var eOpts = {{key:'Enter', keyCode:13, which:13, bubbles:true, cancelable:true}};
+        target.dispatchEvent(new KeyboardEvent('keydown',  eOpts));
+        target.dispatchEvent(new KeyboardEvent('keypress', eOpts));
+        target.dispatchEvent(new KeyboardEvent('keyup',    eOpts));
+      }}, 80);
     }}
     p.classList.remove('on');
   }});
