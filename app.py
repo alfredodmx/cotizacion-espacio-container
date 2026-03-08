@@ -1806,6 +1806,7 @@ def _ejecutar_cierre_cotizacion():
 if st.session_state.get('trigger_cerrar_cotizacion', False):
     st.session_state.trigger_cerrar_cotizacion = False
     _ejecutar_cierre_cotizacion()
+    st.session_state.resultados_busqueda = buscar_cotizaciones()
     st.rerun()
 
 # =========================================================
