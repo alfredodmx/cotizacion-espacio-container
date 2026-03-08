@@ -149,6 +149,17 @@ if 'telefono_asesor_raw' not in st.session_state:
     st.session_state.telefono_asesor_raw = ""
 if 'asesor_correo_temp' not in st.session_state:
     st.session_state.asesor_correo_temp = ""
+# ── Leer margen desde FAB via query_params ──────────────
+_mgfab = st.query_params.get("mgfab")
+if _mgfab is not None:
+    try:
+        _mgfab_val = max(0.0, min(100.0, float(_mgfab)))
+        st.session_state['margen'] = _mgfab_val
+    except ValueError:
+        pass
+    st.query_params.clear()
+# ────────────────────────────────────────────────────────
+
 if 'counter' not in st.session_state:
     st.session_state.counter = 0
 if 'cargar_cotizacion_trigger' not in st.session_state:
@@ -164,6 +175,33 @@ if 'numero_en_visor' not in st.session_state:
     st.session_state.numero_en_visor = None
 if 'pdf_url' not in st.session_state:
     st.session_state.pdf_url = None
+
+if 'mostrar_toast_exito' not in st.session_state:
+    st.session_state.mostrar_toast_exito = False
+
+if 'toast_numero_ep' not in st.session_state:
+    st.session_state.toast_numero_ep = ""
+
+if 'recien_guardado' not in st.session_state:
+    st.session_state.recien_guardado = False
+
+if 'hash_ultimo_guardado' not in st.session_state:
+    st.session_state.hash_ultimo_guardado = None
+
+if 'recien_cargado' not in st.session_state:
+    st.session_state.recien_cargado = False
+
+if 'mostrar_advertencia_cerrar' not in st.session_state:
+    st.session_state.mostrar_advertencia_cerrar = False
+
+if 'trigger_cerrar_cotizacion' not in st.session_state:
+    st.session_state.trigger_cerrar_cotizacion = False
+
+if 'datos_pendientes_cerrar' not in st.session_state:
+    st.session_state.datos_pendientes_cerrar = None
+
+if 'numero_a_cargar_pendiente' not in st.session_state:
+    st.session_state.numero_a_cargar_pendiente = None
 
 CLAVE_ADMIN = "admin2024"
 
@@ -363,6 +401,28 @@ def leer_datos_actuales():
     if mejor_ft is not None:
         st.session_state.fecha_termino = mejor_ft
 
+def calcular_hash_estado():
+    """Calcula un hash del estado actual para detectar cambios no guardados."""
+    import hashlib
+    estado = {
+        "nombre": st.session_state.get('nombre_input', ''),
+        "rut": st.session_state.get('rut_display', ''),
+        "correo": st.session_state.get('correo_input', ''),
+        "telefono": st.session_state.get('telefono_raw', ''),
+        "direccion": st.session_state.get('direccion_input', ''),
+        "observaciones": st.session_state.get('observaciones_input', ''),
+        "asesor": st.session_state.get('asesor_seleccionado', ''),
+        "correo_asesor": st.session_state.get('correo_asesor', ''),
+        "telefono_asesor": st.session_state.get('telefono_asesor', ''),
+        "fecha_inicio": str(st.session_state.get('fecha_inicio', '')),
+        "fecha_termino": str(st.session_state.get('fecha_termino', '')),
+        "carrito": json.dumps(st.session_state.get('carrito', []), sort_keys=True),
+        "margen": st.session_state.get('margen', 0),
+        "plano_nombre": st.session_state.get('plano_nombre', ''),
+    }
+    estado_str = json.dumps(estado, sort_keys=True)
+    return hashlib.md5(estado_str.encode()).hexdigest()
+
 def construir_datos_para_guardar():
     leer_datos_actuales()
     datos_cliente = {
@@ -434,7 +494,6 @@ def construir_datos_para_guardar():
 def evaluar_estado_cotizacion(cotizacion):
     datos_completos = all([
         cotizacion.get('cliente_nombre', ''),
-        cotizacion.get('cliente_rut', ''),
         cotizacion.get('cliente_email', '')
     ])
     asesor_completo = any([
@@ -460,7 +519,7 @@ def crear_badge_estado(row):
     asesor_nombre = row[2]
     asesor_email = row[8]
     asesor_telefono = row[9]
-    datos_completos = all([cliente_nombre, cliente_rut, cliente_email])
+    datos_completos = all([cliente_nombre, cliente_email])
     asesor_completo = any([asesor_nombre, asesor_email, asesor_telefono])
     if config_margen and config_margen > 0:
         if datos_completos and asesor_completo:
@@ -570,7 +629,6 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
         tiene_plano = plano_datos is not None
         datos_completos = all([
             str(cliente.get('Nombre', '')).strip(),
-            str(cliente.get('RUT', '')).strip(),
             str(cliente.get('Correo', '')).strip()
         ])
         asesor_completo = any([
@@ -682,9 +740,15 @@ def cargar_cotizacion(numero):
         response = supabase.table('cotizaciones').select('*').eq('numero', numero).execute()
         if response.data:
             cotizacion = response.data[0]
-            cotizacion['productos'] = json.loads(cotizacion['productos'])
+            # Manejar productos como string JSON o como lista directamente
+            productos = cotizacion['productos']
+            if isinstance(productos, str):
+                cotizacion['productos'] = json.loads(productos)
+            elif isinstance(productos, list):
+                cotizacion['productos'] = productos
+            else:
+                cotizacion['productos'] = []
             if cotizacion.get('plano_url'):
-                cotizacion['plano_url'] = cotizacion['plano_url']
                 cotizacion['plano_datos'] = None
             return cotizacion
         return None
@@ -804,6 +868,9 @@ def ejecutar_carga_cotizacion():
         st.session_state.numero_en_visor = None
         st.session_state.cargar_cotizacion_trigger = False
         st.session_state.cotizacion_a_cargar = None
+        # Resetear hash y marcar como recién cargado para suprimir FAB
+        st.session_state.hash_ultimo_guardado = calcular_hash_estado()
+        st.session_state.recien_cargado = True
         return True
     return False
 
@@ -819,15 +886,52 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
-    /* ══ Ocultar íconos Streamlit y GitHub ══ */
-    #MainMenu { visibility: hidden !important; }
-    footer { visibility: hidden !important; }
+
+
+    /* ══ Sombra tabla data_editor / dataframe ══ */
+    div[data-testid="stDataFrame"] > div,
+    div[data-testid="stDataEditor"] > div {
+        border-radius: 16px !important;
+        box-shadow: 0 4px 20px rgba(91, 124, 250, 0.08), 0 1px 6px rgba(0,0,0,0.06) !important;
+        border: 1px solid rgba(91,124,250,0.15) !important;
+        overflow: hidden !important;
+        transition: box-shadow 0.25s ease, transform 0.25s ease !important;
+        background: #ffffff !important;
+    }
+    div[data-testid="stDataFrame"] > div:hover,
+    div[data-testid="stDataEditor"] > div:hover {
+        box-shadow: 0 8px 32px rgba(91, 124, 250, 0.16), 0 2px 10px rgba(0,0,0,0.08) !important;
+        transform: translateY(-2px) !important;
+    }
+
+    /* ══ Sombra flotante para containers con borde ══ */
+    [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"] {
+        box-shadow: 0 4px 20px rgba(91, 124, 250, 0.08), 0 1px 6px rgba(0,0,0,0.06) !important;
+        border: 1px solid rgba(91,124,250,0.15) !important;
+        border-radius: 16px !important;
+        transition: box-shadow 0.25s ease, transform 0.25s ease !important;
+        background: #ffffff !important;
+    }
+    [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"]:hover {
+        box-shadow: 0 8px 32px rgba(91, 124, 250, 0.16), 0 2px 10px rgba(0,0,0,0.08) !important;
+        transform: translateY(-2px) !important;
+    }
+
+
+    #MainMenu { display: none !important; }
+    footer { display: none !important; }
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stDecoration"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
-    .viewerBadge_container__r5tak { display: none !important; }
-    .viewerBadge_link__qRIco { display: none !important; }
-    #stDecoration { display: none !important; }
+    [data-testid="stBottomBlockContainer"] { display: none !important; }
+    [class*="viewerBadge"] { display: none !important; }
+    [class*="ViewerBadge"] { display: none !important; }
+    [class*="_viewerBadge"] { display: none !important; }
+    [class*="profileContainer"] { display: none !important; }
+    [class*="_profileContainer"] { display: none !important; }
+    [class*="profilePreview"] { display: none !important; }
+    [class*="_profilePreview"] { display: none !important; }
+    a[href*="streamlit.io"] { display: none !important; }
     a[href*="github.com"] { display: none !important; }
     button[title="View fullscreen"] { display: none !important; }
 
@@ -1356,40 +1460,82 @@ if st.session_state.cotizacion_cargada:
         st.markdown(f'<div class="cotizacion-status-container"><span class="status-badge">{badge_html}</span></div>', unsafe_allow_html=True)
     with col_cerrar:
         if st.button("🗑️ Cerrar Cotización", key="btn_cerrar_cotizacion", use_container_width=True):
-            numero_guardar = st.session_state.cotizacion_cargada
-            if numero_guardar:
-                datos_cliente_guardar, datos_asesor_guardar, proyecto, config, totales, plano_nombre, plano_datos = construir_datos_para_guardar()
-                guardar_cotizacion(numero_guardar, datos_cliente_guardar, datos_asesor_guardar,
-                                   proyecto, st.session_state.carrito, config, totales, plano_nombre, plano_datos)
-
-            st.session_state.carrito = []
-            st.session_state.nombre_input = ""
-            st.session_state.rut_raw = ""
-            st.session_state.rut_display = ""
-            st.session_state.rut_valido = False
-            st.session_state.rut_mensaje = ""
-            st.session_state.correo_input = ""
-            st.session_state.telefono_raw = ""
-            st.session_state.direccion_input = ""
-            st.session_state.asesor_seleccionado = "Seleccionar asesor"
-            st.session_state.correo_asesor = ""
-            st.session_state.telefono_asesor = ""
-            st.session_state.fecha_inicio = datetime.now().date()
-            st.session_state.fecha_termino = (datetime.now() + timedelta(days=15)).date()
-            st.session_state.observaciones_input = ""
-            st.session_state.plano_adjunto = None
-            st.session_state.plano_nombre = ""
-            st.session_state.cotizacion_cargada = None
-            st.session_state.cotizacion_seleccionada = None
-            st.session_state.margen = 0.0
-            st.session_state.mostrar_visor = False
-            st.session_state.pdf_actual = None
-            st.session_state.pdf_nombre = ""
-            st.session_state.numero_en_visor = None
-            st.session_state.pdf_url = None
-            st.session_state.counter += 100
-            st.success("✅ Cotización guardada y cerrada. Listo para nueva cotización.")
+            _hash_actual = calcular_hash_estado()
+            _hay_cambios = (
+                len(st.session_state.get('carrito', [])) > 0 and
+                _hash_actual != st.session_state.get('hash_ultimo_guardado')
+            )
+            if _hay_cambios:
+                # Capturar todos los datos AHORA antes del rerun, mientras los widgets existen
+                leer_datos_actuales()
+                datos_c, datos_a, proy, cfg, tots, pnom, pdat = construir_datos_para_guardar()
+                st.session_state.datos_pendientes_cerrar = {
+                    'datos_cliente': datos_c,
+                    'datos_asesor': datos_a,
+                    'proyecto': proy,
+                    'config': cfg,
+                    'totales': tots,
+                    'plano_nombre': pnom,
+                    'plano_datos': pdat,
+                    'carrito': list(st.session_state.carrito),
+                    'numero': st.session_state.cotizacion_cargada,
+                }
+                st.session_state.mostrar_advertencia_cerrar = True
+            else:
+                st.session_state.trigger_cerrar_cotizacion = True
             st.rerun()
+
+    # ── Popup advertencia al cerrar con cambios sin guardar ──
+    if st.session_state.get('mostrar_advertencia_cerrar', False):
+        @st.dialog("⚠️ Cambios sin guardar")
+        def dialogo_advertencia_cerrar():
+            st.markdown("""
+            <div style="text-align:center;padding:1rem 0;">
+                <div style="font-size:3rem;margin-bottom:0.5rem;">⚠️</div>
+                <div style="font-size:1rem;font-weight:700;color:#1e2447;margin-bottom:0.5rem;">
+                    Se hicieron modificaciones
+                </div>
+                <div style="font-size:0.88rem;color:#5a6080;line-height:1.6;">
+                    Tienes cambios sin guardar en esta cotización.<br/>
+                    ¿Qué deseas hacer antes de cerrar?
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            col_si, col_no, col_cancelar = st.columns(3)
+            with col_si:
+                if st.button("💾 Guardar y cerrar", use_container_width=True, type="primary", key="dialog_cerrar_si"):
+                    # Usar datos capturados antes del rerun
+                    d = st.session_state.get('datos_pendientes_cerrar', {})
+                    num = d.get('numero') or generar_numero_unico()
+                    guardar_cotizacion(
+                        num,
+                        d.get('datos_cliente', {}),
+                        d.get('datos_asesor', {}),
+                        d.get('proyecto', {}),
+                        d.get('carrito', []),
+                        d.get('config', {}),
+                        d.get('totales', {}),
+                        d.get('plano_nombre', ''),
+                        d.get('plano_datos', None)
+                    )
+                    st.session_state.datos_pendientes_cerrar = None
+                    st.session_state.mostrar_advertencia_cerrar = False
+                    st.session_state.trigger_cerrar_cotizacion = True
+                    st.rerun()
+            with col_no:
+                if st.button("🗑️ Descartar y cerrar", use_container_width=True, key="dialog_cerrar_no"):
+                    st.session_state.datos_pendientes_cerrar = None
+                    st.session_state.mostrar_advertencia_cerrar = False
+                    st.session_state.trigger_cerrar_cotizacion = True
+                    st.rerun()
+            with col_cancelar:
+                if st.button("✖️ Cancelar", use_container_width=True, key="dialog_cerrar_cancelar"):
+                    st.session_state.datos_pendientes_cerrar = None
+                    st.session_state.mostrar_advertencia_cerrar = False
+                    st.rerun()
+
+        dialogo_advertencia_cerrar()
 
 # =========================================================
 # TABS
@@ -1690,11 +1836,23 @@ def limpiar_todo():
     st.session_state.pdf_url = None
     st.session_state.counter += 100
 
+def _ejecutar_cierre_cotizacion():
+    """Limpia todo el estado al cerrar una cotización."""
+    limpiar_todo()
+    st.session_state.recien_guardado = True
+    st.session_state.hash_ultimo_guardado = None
+
+# Procesar triggers de cierre aquí, donde limpiar_todo ya está definida
+if st.session_state.get('trigger_cerrar_cotizacion', False):
+    st.session_state.trigger_cerrar_cotizacion = False
+    _ejecutar_cierre_cotizacion()
+    st.session_state.resultados_busqueda = buscar_cotizaciones()
+    st.rerun()
+
 # =========================================================
 # TAB 2 - DATOS CLIENTE
 # =========================================================
 with tab2:
-    st.markdown("### 📋 Datos de la Cotización")
 
     es_solo_lectura = bool(
         st.session_state.cotizacion_cargada and
@@ -1707,40 +1865,36 @@ with tab2:
     dias_validez = (fecha_termino - fecha_inicio).days
 
     if es_solo_lectura:
-        st.warning("🔒 Esta cotización tiene márgenes aplicados. Modo solo lectura.")
-        st.info("Los datos se muestran solo para referencia. No se pueden realizar modificaciones.")
-
-        with st.container(border=True):
-            st.markdown("### 👤 Datos del Cliente")
-            col1, col2 = st.columns(2)
-            with col1:
-                st.text_input("Nombre Completo", value=st.session_state.nombre_input, disabled=True, key="nombre_readonly")
+        st.warning("🔒 Modo solo lectura — cotización con márgenes aplicados.")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            with st.container(border=True):
+                st.markdown("**👤 CLIENTE**")
+                st.text_input("Nombre", value=st.session_state.nombre_input, disabled=True, key="nombre_readonly")
                 st.text_input("RUT", value=st.session_state.rut_display, disabled=True, key="rut_readonly")
-            with col2:
-                st.text_input("Correo Electrónico", value=st.session_state.correo_input, disabled=True, key="correo_readonly")
+                st.text_input("Correo", value=st.session_state.correo_input, disabled=True, key="correo_readonly")
                 st.text_input("Teléfono", value=st.session_state.telefono_raw, disabled=True, key="telefono_readonly")
-
+        with col2:
+            with st.container(border=True):
+                st.markdown("**📍 DIRECCIÓN**")
+                st.text_input("Dirección del Proyecto", value=st.session_state.direccion_input, disabled=True, key="direccion_readonly")
+        with col3:
+            with st.container(border=True):
+                st.markdown("**👨‍💼 EJECUTIVO**")
+                st.text_input("Asesor", value=st.session_state.asesor_seleccionado, disabled=True, key="asesor_readonly")
+                st.text_input("Correo Ejecutivo", value=st.session_state.correo_asesor, disabled=True, key="correo_asesor_readonly")
+                st.text_input("Teléfono Ejecutivo", value=st.session_state.telefono_asesor, disabled=True, key="telefono_asesor_readonly")
+        with col4:
+            with st.container(border=True):
+                st.markdown("**📅 VALIDEZ**")
+                st.date_input("Fecha Inicio", value=fecha_inicio, disabled=True, key="fecha_inicio_readonly")
+                st.date_input("Fecha Término", value=fecha_termino, disabled=True, key="fecha_termino_readonly")
+                st.markdown(f"**⏱️ Duración:** {dias_validez} días")
+                if dias_validez > 0:
+                    st.progress(min(dias_validez/30, 1.0), text=f"{dias_validez} días")
         with st.container(border=True):
-            st.markdown("### 📍 Dirección del Proyecto")
-            st.text_input("Dirección", value=st.session_state.direccion_input, disabled=True, key="direccion_readonly")
-
-        with st.container(border=True):
-            st.markdown("### 👨‍💼 Asesor")
-            st.text_input("Ejecutivo", value=st.session_state.asesor_seleccionado, disabled=True, key="asesor_readonly")
-            st.text_input("Correo Ejecutivo", value=st.session_state.correo_asesor, disabled=True, key="correo_asesor_readonly")
-            st.text_input("Teléfono Ejecutivo", value=st.session_state.telefono_asesor, disabled=True, key="telefono_asesor_readonly")
-
-        with st.container(border=True):
-            st.markdown("### 📅 Validez")
-            col1, col2 = st.columns(2)
-            with col1:
-                st.date_input("Fecha de Inicio", value=fecha_inicio, disabled=True, key="fecha_inicio_readonly")
-            with col2:
-                st.date_input("Fecha de Término", value=fecha_termino, disabled=True, key="fecha_termino_readonly")
-            st.markdown(f"**⏱️ Duración:** {dias_validez} días")
-
-        st.markdown("### 📝 Observaciones")
-        st.text_area("Observaciones", value=st.session_state.observaciones_input, disabled=True, height=100, key="observaciones_readonly")
+            st.markdown("**📝 OBSERVACIONES**")
+            st.text_area("Observaciones", value=st.session_state.observaciones_input, disabled=True, height=80, key="observaciones_readonly")
 
     else:
         asesores = {
@@ -1753,51 +1907,66 @@ with tab2:
             "JAVIER QUEZADA": {"correo": "JQUEZADA@ESPACIOCONTAINERHOUSE.CL", "telefono": "+56966983700"}
         }
 
-        col_cliente, col_asesor = st.columns(2)
+        col1, col2, col3, col4 = st.columns(4)
 
-        with col_cliente:
+        # ── Columna 1: Cliente ──
+        with col1:
             with st.container(border=True):
-                st.markdown("👤 CLIENTE")
-                col1, col2 = st.columns(2)
+                st.markdown("**👤 CLIENTE**")
 
-                with col1:
-                    nombre_key = f"nombre_input_{st.session_state.counter}"
-                    nombre = st.text_input("Nombre Completo*", placeholder="Ej: Juan Pérez", key=nombre_key, value=st.session_state.nombre_input)
-                    if nombre != st.session_state.nombre_input:
-                        st.session_state.nombre_input = nombre
+                nombre_key = f"nombre_input_{st.session_state.counter}"
+                nombre = st.text_input("Nombre Completo*", placeholder="Ej: Juan Pérez", key=nombre_key, value=st.session_state.nombre_input)
+                if nombre != st.session_state.nombre_input:
+                    st.session_state.nombre_input = nombre
 
-                    rut_key = f"rut_input_{st.session_state.counter}"
-                    st.text_input("RUT (opcional)", value=st.session_state.rut_display, key=rut_key, placeholder="12.345.678-9", on_change=procesar_cambio_rut)
+                correo_key = f"correo_input_{st.session_state.counter}"
+                correo = st.text_input("Correo Electrónico*", placeholder="ejemplo@correo.cl", key=correo_key, value=st.session_state.correo_input)
+                if correo != st.session_state.correo_input:
+                    st.session_state.correo_input = correo
+                if correo and "@" not in correo:
+                    st.warning("⚠️ El correo debe contener @")
 
-                    if st.session_state.rut_raw:
-                        if len(st.session_state.rut_raw) >= 2:
-                            if st.session_state.rut_valido:
-                                st.success("✅ RUT válido")
-                            else:
-                                st.error(f"❌ {st.session_state.rut_mensaje}")
+                rut_key = f"rut_input_{st.session_state.counter}"
+                st.text_input("RUT (opcional)", value=st.session_state.rut_display, key=rut_key, placeholder="12.345.678-9", on_change=procesar_cambio_rut)
+                if st.session_state.rut_raw:
+                    if len(st.session_state.rut_raw) >= 2:
+                        if st.session_state.rut_valido:
+                            st.success("✅ RUT válido")
                         else:
-                            st.info("⏳ RUT incompleto")
+                            st.error(f"❌ {st.session_state.rut_mensaje}")
+                    else:
+                        st.info("⏳ RUT incompleto")
 
-                with col2:
-                    correo_key = f"correo_input_{st.session_state.counter}"
-                    correo = st.text_input("Correo Electrónico*", placeholder="ejemplo@correo.cl", key=correo_key, value=st.session_state.correo_input)
-                    if correo != st.session_state.correo_input:
-                        st.session_state.correo_input = correo
-                    if correo and "@" not in correo:
-                        st.warning("⚠️ El correo debe contener @")
+                telefono_key = f"telefono_input_{st.session_state.counter}"
+                st.text_input("Teléfono", value=st.session_state.telefono_raw, key=telefono_key, placeholder="961528954 (9 dígitos)", on_change=procesar_cambio_telefono)
 
-                    telefono_key = f"telefono_input_{st.session_state.counter}"
-                    st.text_input("Teléfono", value=st.session_state.telefono_raw, key=telefono_key, placeholder="961528954 (9 dígitos)", on_change=procesar_cambio_telefono)
-
-        with col_asesor:
+        # ── Columna 2: Dirección ──
+        with col2:
             with st.container(border=True):
-                st.markdown("👨‍💼 ASESOR")
+                st.markdown("**📍 DIRECCIÓN**")
+                direccion_key = f"direccion_input_{st.session_state.counter}"
+                direccion = st.text_input("Dirección del Proyecto", placeholder="Calle, número, comuna", key=direccion_key, value=st.session_state.direccion_input)
+                if direccion != st.session_state.direccion_input:
+                    st.session_state.direccion_input = direccion
+                if direccion:
+                    with st.spinner("Buscando..."):
+                        comuna, region = buscar_direccion(direccion)
+                        if comuna:
+                            st.success(f"🏙️ {comuna}")
+                            st.success(f"🗺️ {region}")
+                        else:
+                            st.info("No se detectó automáticamente.")
+                            st.text_input("Comuna", key="comuna_manual")
+                            st.text_input("Región", key="region_manual")
+
+        # ── Columna 3: Ejecutivo ──
+        with col3:
+            with st.container(border=True):
+                st.markdown("**👨‍💼 EJECUTIVO**")
                 nombres_asesores = list(asesores.keys())
                 asesor_key = f"asesor_select_{st.session_state.counter}"
                 indice_actual = nombres_asesores.index(st.session_state.asesor_seleccionado) if st.session_state.asesor_seleccionado in nombres_asesores else 0
-
-                asesor_elegido = st.selectbox("Seleccionar Asesor", nombres_asesores, index=indice_actual, key=asesor_key, label_visibility="collapsed")
-
+                asesor_elegido = st.selectbox("Asesor", nombres_asesores, index=indice_actual, key=asesor_key, label_visibility="collapsed")
                 if asesor_elegido != st.session_state.asesor_seleccionado:
                     st.session_state.asesor_seleccionado = asesor_elegido
                     if asesor_elegido != "Seleccionar asesor":
@@ -1809,106 +1978,58 @@ with tab2:
                     st.session_state.counter += 1
                     st.rerun()
 
-                if st.session_state.asesor_seleccionado != "Seleccionar asesor":
-                    st.info(f"👤 Asesor seleccionado: **{st.session_state.asesor_seleccionado}**")
+                correo_asesor_key = f"asesor_correo_input_{st.session_state.counter}"
+                correo_input = st.text_input("Correo Ejecutivo*", value=st.session_state.correo_asesor, placeholder="ejecutivo@empresa.cl", key=correo_asesor_key)
+                if correo_input and "@" not in correo_input:
+                    st.warning("⚠️ El correo debe contener @")
+                if correo_input != st.session_state.correo_asesor:
+                    st.session_state.correo_asesor = correo_input
+                    st.session_state.asesor_seleccionado = "Seleccionar asesor"
+                    st.session_state.counter += 1
+                    st.rerun()
 
-                col_a1, col_a2 = st.columns(2)
-                with col_a1:
-                    correo_asesor_key = f"asesor_correo_input_{st.session_state.counter}"
-                    correo_input = st.text_input("Correo Ejecutivo*", value=st.session_state.correo_asesor, placeholder="ejecutivo@empresa.cl", key=correo_asesor_key)
-                    if correo_input and "@" not in correo_input:
-                        st.warning("⚠️ El correo debe contener @")
-                    if correo_input != st.session_state.correo_asesor:
-                        st.session_state.correo_asesor = correo_input
-                        st.session_state.asesor_seleccionado = "Seleccionar asesor"
-                        st.session_state.counter += 1
-                        st.rerun()
+                telefono_asesor_key = f"asesor_telefono_input_{st.session_state.counter}"
+                telefono_input = st.text_input("Teléfono Ejecutivo", value=st.session_state.telefono_asesor, key=telefono_asesor_key, placeholder="912345678 (9 dígitos)")
+                if telefono_input != st.session_state.telefono_asesor:
+                    raw = re.sub(r'[^0-9]', '', telefono_input)
+                    if len(raw) > 9:
+                        raw = raw[:9]
+                    st.session_state.telefono_asesor = raw
+                    st.session_state.asesor_seleccionado = "Seleccionar asesor"
+                    st.session_state.counter += 1
+                    st.rerun()
 
-                with col_a2:
-                    telefono_asesor_key = f"asesor_telefono_input_{st.session_state.counter}"
-                    telefono_input = st.text_input("Teléfono Ejecutivo", value=st.session_state.telefono_asesor, key=telefono_asesor_key, placeholder="912345678 (9 dígitos)")
-                    if telefono_input != st.session_state.telefono_asesor:
-                        raw = re.sub(r'[^0-9]', '', telefono_input)
-                        if len(raw) > 9:
-                            raw = raw[:9]
-                        st.session_state.telefono_asesor = raw
-                        st.session_state.asesor_seleccionado = "Seleccionar asesor"
-                        st.session_state.counter += 1
-                        st.rerun()
-
-        with st.container(border=True):
-            st.markdown("📍 PROYECTO")
-            st.markdown("**📍 Dirección del Proyecto**")
-            direccion_key = f"direccion_input_{st.session_state.counter}"
-            direccion = st.text_input("Dirección", placeholder="Calle, número, comuna", key=direccion_key, value=st.session_state.direccion_input)
-            if direccion != st.session_state.direccion_input:
-                st.session_state.direccion_input = direccion
-
-            if direccion:
-                with st.spinner("Buscando ubicación..."):
-                    comuna, region = buscar_direccion(direccion)
-                    if comuna:
-                        col_comuna, col_region = st.columns(2)
-                        with col_comuna:
-                            st.success(f"🏙️ **Comuna:** {comuna}")
-                        with col_region:
-                            st.success(f"🗺️ **Región:** {region}")
-                    else:
-                        st.info("No se pudo detectar automáticamente.")
-                        st.text_input("Comuna", key="comuna_manual")
-                        st.text_input("Región", key="region_manual")
-
-        with st.container(border=True):
-            st.markdown("📅 VALIDEZ")
-            st.markdown("### 📅 Validez del Presupuesto")
-            col_v1, col_v2 = st.columns(2)
-            with col_v1:
+        # ── Columna 4: Validez ──
+        with col4:
+            with st.container(border=True):
+                st.markdown("**📅 VALIDEZ**")
                 fecha_inicio_key = f"fecha_inicio_{st.session_state.counter}"
                 fecha_inicio = st.date_input("Fecha de Inicio", value=st.session_state.fecha_inicio, key=fecha_inicio_key)
                 if fecha_inicio != st.session_state.fecha_inicio:
                     st.session_state.fecha_inicio = fecha_inicio
-            with col_v2:
+
                 fecha_termino_key = f"fecha_termino_{st.session_state.counter}"
                 fecha_termino = st.date_input("Fecha de Término", value=st.session_state.fecha_termino, key=fecha_termino_key)
                 if fecha_termino != st.session_state.fecha_termino:
                     st.session_state.fecha_termino = fecha_termino
 
-            dias_validez = (fecha_termino - fecha_inicio).days
-            if dias_validez < 0:
-                st.error("⚠️ La fecha de término debe ser posterior a la fecha de inicio.")
-            else:
-                st.markdown(f"**⏱️ Duración:** {dias_validez} días")
-                if dias_validez > 0:
-                    st.progress(min(dias_validez/30, 1.0), text=f"{dias_validez} días de validez")
+                dias_validez = (fecha_termino - fecha_inicio).days
+                if dias_validez < 0:
+                    st.error("⚠️ Fecha de término anterior a inicio.")
+                else:
+                    st.markdown(f"**⏱️ Duración:** {dias_validez} días")
+                    if dias_validez > 0:
+                        st.progress(min(dias_validez/30, 1.0), text=f"{dias_validez} días de validez")
 
-    st.markdown("---")
-    st.markdown("### 📝 Observaciones")
-    with st.container(border=True):
-        observaciones_disabled = es_solo_lectura
-        observaciones_key = f"observaciones_input_{st.session_state.counter}"
-        observaciones = st.text_area("Observaciones y notas adicionales", placeholder="Ingresa aquí cualquier información relevante...", height=100, key=observaciones_key, value=st.session_state.observaciones_input, disabled=observaciones_disabled)
-        if not observaciones_disabled and observaciones != st.session_state.observaciones_input:
-            st.session_state.observaciones_input = observaciones
+        # ── Observaciones (ancho completo) ──
+        with st.container(border=True):
+            st.markdown("**📝 OBSERVACIONES**")
+            observaciones_key = f"observaciones_input_{st.session_state.counter}"
+            observaciones = st.text_area("Observaciones y notas adicionales", placeholder="Ingresa aquí cualquier información relevante...", height=80, key=observaciones_key, value=st.session_state.observaciones_input)
+            if observaciones != st.session_state.observaciones_input:
+                st.session_state.observaciones_input = observaciones
 
-    st.markdown("---")
-    with st.expander("📋 Ver resumen de datos ingresados", expanded=False):
-        col_res1, col_res2 = st.columns(2)
-        with col_res1:
-            st.markdown("**Cliente:**")
-            st.write(f"• **Nombre:** {st.session_state.nombre_input or 'No ingresado'}")
-            st.write(f"• **RUT:** {st.session_state.rut_display or 'No ingresado'} {'✅' if st.session_state.rut_valido else '❌' if st.session_state.rut_raw else ''}")
-            st.write(f"• **Email:** {st.session_state.correo_input or 'No ingresado'}")
-            st.write(f"• **Teléfono:** {st.session_state.telefono_raw or 'No ingresado'}")
-            st.write(f"• **Dirección:** {st.session_state.direccion_input or 'No ingresado'}")
-        with col_res2:
-            st.markdown("**Asesor y Validez:**")
-            nombre_asesor_mostrar = st.session_state.asesor_seleccionado if st.session_state.asesor_seleccionado != "Seleccionar asesor" else "No seleccionado"
-            st.write(f"• **Ejecutivo:** {nombre_asesor_mostrar}")
-            st.write(f"• **Email Ejecutivo:** {st.session_state.correo_asesor or 'No ingresado'}")
-            st.write(f"• **Teléfono Ejecutivo:** {st.session_state.telefono_asesor or 'No ingresado'}")
-            st.write(f"• **Validez:** {fecha_inicio.strftime('%d/%m/%Y')} al {fecha_termino.strftime('%d/%m/%Y')}")
-            st.write(f"• **Días de validez:** {dias_validez if dias_validez >= 0 else 'Fechas inválidas'}")
-
+    nombre_asesor_final = st.session_state.asesor_seleccionado if st.session_state.asesor_seleccionado != "Seleccionar asesor" else ""
     datos_cliente = {
         "Nombre": st.session_state.nombre_input or "",
         "RUT": st.session_state.rut_display or "",
@@ -2012,70 +2133,74 @@ with tab1:
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 
         with col_m1:
-            st.markdown("**📋 Modelo Predefinido**")
-            archivo_excel = pd.ExcelFile("cotizador.xlsx")
-            hojas_modelo = [h for h in archivo_excel.sheet_names if h.lower().startswith("modelo")]
-            if hojas_modelo:
-                modelo_seleccionado = st.selectbox("Modelo", hojas_modelo, key="modelo_select", label_visibility="collapsed")
-                if st.button("Cargar", key="btn_modelo", use_container_width=True):
-                    st.session_state.carrito = cargar_modelo(modelo_seleccionado)
-                    st.session_state.modelo_base = modelo_seleccionado
-                    st.session_state.margen = 0.0
-                    st.success("Modelo cargado correctamente.")
-                    st.rerun()
+            with st.container(border=True):
+                st.markdown("**📋 Modelo Predefinido**")
+                archivo_excel = pd.ExcelFile("cotizador.xlsx")
+                hojas_modelo = [h for h in archivo_excel.sheet_names if h.lower().startswith("modelo")]
+                if hojas_modelo:
+                    modelo_seleccionado = st.selectbox("Modelo", hojas_modelo, key="modelo_select", label_visibility="collapsed")
+                    if st.button("Cargar", key="btn_modelo", use_container_width=True):
+                        st.session_state.carrito = cargar_modelo(modelo_seleccionado)
+                        st.session_state.modelo_base = modelo_seleccionado
+                        st.session_state.margen = 0.0
+                        st.success("Modelo cargado correctamente.")
+                        st.rerun()
 
         with col_m2:
-            st.markdown("**🔍 Ítems**")
-            df = pd.read_excel("cotizador.xlsx", sheet_name="BD Total")
-            categorias = df["Categorias"].dropna().unique()
-            categoria_seleccionada = st.selectbox("Categoría", categorias, key="cat_manual", label_visibility="collapsed")
-            items_filtrados = df[df["Categorias"] == categoria_seleccionada]
-            item = st.selectbox("Ítem", items_filtrados["Item"], key="item_manual", label_visibility="collapsed")
-            cantidad = st.number_input("Cantidad", min_value=1, value=1, key="cantidad_manual", label_visibility="collapsed")
-            if st.button("Agregar", key="btn_agregar_manual", use_container_width=True):
-                existe = False
-                for producto in st.session_state.carrito:
-                    if producto["Item"] == item:
-                        producto["Cantidad"] += cantidad
-                        producto["Subtotal"] = producto["Cantidad"] * producto["Precio Unitario"]
-                        existe = True
-                        break
-                if not existe:
-                    precio_unitario_original = items_filtrados[items_filtrados["Item"] == item]["P. Unitario real"].values[0]
-                    st.session_state.carrito.append({
-                        "Categoria": categoria_seleccionada, "Item": item,
-                        "Cantidad": cantidad, "Precio Unitario": precio_unitario_original,
-                        "Subtotal": precio_unitario_original * cantidad
-                    })
-                st.rerun()
+            with st.container(border=True):
+                st.markdown("**🔍 Ítems**")
+                df = pd.read_excel("cotizador.xlsx", sheet_name="BD Total")
+                categorias = df["Categorias"].dropna().unique()
+                categoria_seleccionada = st.selectbox("Categoría", categorias, key="cat_manual", label_visibility="collapsed")
+                items_filtrados = df[df["Categorias"] == categoria_seleccionada]
+                item = st.selectbox("Ítem", items_filtrados["Item"], key="item_manual", label_visibility="collapsed")
+                cantidad = st.number_input("Cantidad", min_value=1, value=1, key="cantidad_manual", label_visibility="collapsed")
+                if st.button("Agregar", key="btn_agregar_manual", use_container_width=True):
+                    existe = False
+                    for producto in st.session_state.carrito:
+                        if producto["Item"] == item:
+                            producto["Cantidad"] += cantidad
+                            producto["Subtotal"] = producto["Cantidad"] * producto["Precio Unitario"]
+                            existe = True
+                            break
+                    if not existe:
+                        precio_unitario_original = items_filtrados[items_filtrados["Item"] == item]["P. Unitario real"].values[0]
+                        st.session_state.carrito.append({
+                            "Categoria": categoria_seleccionada, "Item": item,
+                            "Cantidad": cantidad, "Precio Unitario": precio_unitario_original,
+                            "Subtotal": precio_unitario_original * cantidad
+                        })
+                    st.rerun()
 
         with col_m3:
-            st.markdown("**🗑️ Eliminar Categoría**")
-            if st.session_state.carrito:
-                carrito_df_temp = pd.DataFrame(st.session_state.carrito)
-                categorias_carrito = carrito_df_temp["Categoria"].unique()
-                categoria_eliminar = st.selectbox("Eliminar", ["-- Seleccionar --"] + list(categorias_carrito), key="cat_eliminar", label_visibility="collapsed")
-                if categoria_eliminar != "-- Seleccionar --":
-                    if st.button("Eliminar", key="btn_eliminar_categoria", use_container_width=True):
-                        st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_eliminar]
-                        st.success("Categoría eliminada.")
-                        st.rerun()
-            else:
-                st.info("No hay categorías")
+            with st.container(border=True):
+                st.markdown("**🗑️ Eliminar Categoría**")
+                if st.session_state.carrito:
+                    carrito_df_temp = pd.DataFrame(st.session_state.carrito)
+                    categorias_carrito = carrito_df_temp["Categoria"].unique()
+                    categoria_eliminar = st.selectbox("Eliminar", ["-- Seleccionar --"] + list(categorias_carrito), key="cat_eliminar", label_visibility="collapsed")
+                    if categoria_eliminar != "-- Seleccionar --":
+                        if st.button("Eliminar", key="btn_eliminar_categoria", use_container_width=True):
+                            st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_eliminar]
+                            st.success("Categoría eliminada.")
+                            st.rerun()
+                else:
+                    st.info("No hay categorías")
 
         with col_m4:
-            st.markdown("**➕ Agregar Categoría**")
-            if hojas_modelo:
-                modelo_origen = st.selectbox("Modelo", hojas_modelo, key="modelo_origen", label_visibility="collapsed")
-                df_temp = pd.read_excel("cotizador.xlsx", sheet_name=modelo_origen)
-                categorias_disponibles = df_temp["Categorias"].dropna().unique()
-                categoria_agregar = st.selectbox("Categoría", categorias_disponibles, key="cat_agregar", label_visibility="collapsed")
-                if st.button("Agregar", key="btn_agregar_categoria", use_container_width=True):
-                    nuevos_items = cargar_categoria_desde_modelo(modelo_origen, categoria_agregar)
-                    st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_agregar]
-                    st.session_state.carrito.extend(nuevos_items)
-                    st.success("Categoría agregada.")
-                    st.rerun()
+            with st.container(border=True):
+                st.markdown("**➕ Agregar Categoría**")
+                if hojas_modelo:
+                    modelo_origen = st.selectbox("Modelo", hojas_modelo, key="modelo_origen", label_visibility="collapsed")
+                    df_temp = pd.read_excel("cotizador.xlsx", sheet_name=modelo_origen)
+                    categorias_disponibles = df_temp["Categorias"].dropna().unique()
+                    categoria_agregar = st.selectbox("Categoría", categorias_disponibles, key="cat_agregar", label_visibility="collapsed")
+                    if st.button("Agregar", key="btn_agregar_categoria", use_container_width=True):
+                        nuevos_items = cargar_categoria_desde_modelo(modelo_origen, categoria_agregar)
+                        st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_agregar]
+                        st.session_state.carrito.extend(nuevos_items)
+                        st.success("Categoría agregada.")
+                        st.rerun()
     else:
         st.markdown("#### Gestión de Productos")
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
@@ -2086,24 +2211,24 @@ with tab1:
 
     st.markdown("---")
 
-    if st.session_state.modo_admin:
-        col_titulo, col_margen_etq, col_margen_input = st.columns([4, 0.5, 0.8])
-        with col_titulo:
-            st.markdown("#### Resumen del Presupuesto")
-        with col_margen_etq:
-            st.markdown("**Margen (%)**")
-        with col_margen_input:
-            margen_key = f"margen_input_{st.session_state.counter}"
-            margen_input = st.number_input("Margen", min_value=0.0, max_value=100.0, value=float(st.session_state.margen), step=0.5, format="%.1f", key=margen_key, label_visibility="collapsed")
-            if margen_input != st.session_state.margen:
-                st.session_state.margen = margen_input
-                st.rerun()
-    else:
-        st.markdown("#### Resumen del Presupuesto")
-        if st.session_state.margen > 0:
-            st.caption(f"ℹ️ Esta cotización tiene un margen del {st.session_state.margen}% aplicado")
+    st.markdown("#### Resumen del Presupuesto")
+    if not st.session_state.modo_admin and st.session_state.margen > 0:
+        st.caption(f"ℹ️ Margen del {st.session_state.margen}% aplicado")
+
+    # Margen controlado exclusivamente desde FAB flotante
+    if st.session_state.get('_margen_fab_aplicar') is not None:
+        st.session_state.margen = st.session_state._margen_fab_aplicar
+        st.session_state._margen_fab_aplicar = None
+        st.rerun()
 
     if st.session_state.carrito:
+        # Fila buscador — solo visible con productos
+        col_vacio1, col_search_c, col_fs_c, col_vacio2 = st.columns([1, 3, 0.5, 1])
+        with col_search_c:
+            buscar_tabla = st.text_input("🔍", placeholder="Filtrar por categoría o ítem...", key="buscar_tabla_presupuesto", label_visibility="collapsed")
+        with col_fs_c:
+            pantalla_completa = st.toggle("⛶", key="tabla_fullscreen", value=st.session_state.get("tabla_fullscreen_val", False), help="Expandir tabla")
+            st.session_state.tabla_fullscreen_val = pantalla_completa
         carrito_df = pd.DataFrame(st.session_state.carrito)
         subtotal_base = carrito_df["Subtotal"].sum()
 
@@ -2123,12 +2248,19 @@ with tab1:
         comision_supervisor = subtotal_general * 0.008 if st.session_state.modo_admin else 0
         total_comisiones = comision_vendedor + comision_supervisor
         utilidad_real = margen_valor - total_comisiones if st.session_state.modo_admin else 0
+        altura_tabla = 1400 if pantalla_completa else min(38 * len(carrito_df_con_margen) + 80, 420)
 
         if es_solo_lectura:
             carrito_df_display = carrito_df_con_margen[["Categoria", "Item", "Cantidad", "Precio Unitario", "Subtotal"]].copy()
             carrito_df_display["Precio Unitario"] = carrito_df_display["Precio Unitario"].apply(formato_clp)
             carrito_df_display["Subtotal"] = carrito_df_display["Subtotal"].apply(formato_clp)
-            st.dataframe(carrito_df_display, use_container_width=True, hide_index=True,
+            if buscar_tabla:
+                mask = (
+                    carrito_df_display["Categoria"].str.contains(buscar_tabla, case=False, na=False) |
+                    carrito_df_display["Item"].str.contains(buscar_tabla, case=False, na=False)
+                )
+                carrito_df_display = carrito_df_display[mask]
+            st.dataframe(carrito_df_display, use_container_width=True, hide_index=True, height=altura_tabla,
                 column_config={"Categoria": st.column_config.TextColumn("Categoría"), "Item": st.column_config.TextColumn("Item"),
                                "Cantidad": st.column_config.NumberColumn("Cant."), "Precio Unitario": st.column_config.TextColumn("P. Unitario"),
                                "Subtotal": st.column_config.TextColumn("Subtotal")})
@@ -2138,48 +2270,36 @@ with tab1:
             carrito_df_edit["❌"] = False
             carrito_df_edit["Precio Unitario"] = carrito_df_edit["Precio Unitario"].apply(formato_clp)
             carrito_df_edit["Subtotal"] = carrito_df_edit["Subtotal"].apply(formato_clp)
-            edited_df = st.data_editor(carrito_df_edit, use_container_width=True, hide_index=True,
+            if buscar_tabla:
+                mask = (
+                    carrito_df_edit["Categoria"].str.contains(buscar_tabla, case=False, na=False) |
+                    carrito_df_edit["Item"].str.contains(buscar_tabla, case=False, na=False)
+                )
+                carrito_df_edit_filtrado = carrito_df_edit[mask].copy()
+            else:
+                carrito_df_edit_filtrado = carrito_df_edit
+            edited_df = st.data_editor(carrito_df_edit_filtrado, use_container_width=True, hide_index=True, height=altura_tabla,
                 column_config={"❌": st.column_config.CheckboxColumn("❌"), "Categoria": st.column_config.TextColumn("Categoría"),
                                "Item": st.column_config.TextColumn("Item"), "Cantidad": st.column_config.NumberColumn("Cant."),
                                "Precio Unitario": st.column_config.TextColumn("P. Unitario"), "Subtotal": st.column_config.TextColumn("Subtotal")})
             filas_eliminar = edited_df[edited_df["❌"] == True].index.tolist()
             if filas_eliminar:
-                for i in sorted(filas_eliminar, reverse=True):
+                indices_reales = carrito_df_edit_filtrado.iloc[filas_eliminar].index.tolist()
+                for i in sorted(indices_reales, reverse=True):
                     del st.session_state.carrito[i]
                 st.rerun()
-
         st.markdown("---")
-        col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
-
-        with col_btn1:
+        # Solo botón Limpiar
+        col_btn_limpiar, _, _, _ = st.columns(4)
+        with col_btn_limpiar:
             if not es_solo_lectura:
-                if st.button("💾 Guardar", use_container_width=True, type="primary", key="btn_guardar_principal"):
-                    datos_cliente_guardar, datos_asesor_guardar, proyecto, config, totales, plano_nombre, plano_datos = construir_datos_para_guardar()
-
-                    if st.session_state.cotizacion_cargada:
-                        numero_guardar = st.session_state.cotizacion_cargada
-                        es_actualizacion = True
-                    else:
-                        numero_guardar = generar_numero_unico()
-                        es_actualizacion = False
-
-                    if guardar_cotizacion(numero_guardar, datos_cliente_guardar, datos_asesor_guardar,
-                                         proyecto, st.session_state.carrito, config, totales, plano_nombre, plano_datos):
-                        if es_actualizacion:
-                            st.success(f"✅ Cotización {numero_guardar} actualizada")
-                        else:
-                            st.session_state.cotizacion_cargada = numero_guardar
-                            st.success(f"✅ Cotización {numero_guardar} guardada")
-                        st.session_state.resultados_busqueda = buscar_cotizaciones()
-                        st.rerun()
+                if st.button("🧹 Limpiar", use_container_width=True):
+                    limpiar_todo()
+                    st.rerun()
             else:
-                st.button("💾 Guardar", use_container_width=True, disabled=True)
+                st.button("🧹 Limpiar", use_container_width=True, disabled=True)
 
         correo_para_pdf = st.session_state.correo_input
-        rut_valido_para_pdf = True
-        if st.session_state.rut_raw and len(st.session_state.rut_raw) >= 2:
-            rut_valido_para_pdf = st.session_state.rut_valido
-
         datos_cliente_pdf = {
             "Nombre": st.session_state.nombre_input,
             "RUT": st.session_state.rut_display or '',
@@ -2194,64 +2314,16 @@ with tab1:
             "Correo Ejecutivo": st.session_state.correo_asesor or "",
             "Teléfono Ejecutivo": st.session_state.telefono_asesor or ""
         }
-
         carrito_df_pdf = carrito_df_con_margen.copy()
         margen_actual = st.session_state.margen
-
-        errores = []
-        if "@" not in correo_para_pdf:
-            errores.append("❌ El correo debe contener '@'")
-        if dias_validez < 0:
-            errores.append("❌ La fecha de término debe ser posterior a la fecha de inicio")
-        if not rut_valido_para_pdf and st.session_state.rut_raw and len(st.session_state.rut_raw) >= 2:
-            errores.append("❌ El RUT no es válido")
-
-        if errores:
-            for error in errores:
-                st.error(error)
-            with col_btn2:
-                st.button("📥 PDF Completo", use_container_width=True, disabled=True)
-            with col_btn3:
-                st.button("🔒 PDF Cliente", use_container_width=True, disabled=True)
-        else:
-            with col_btn2:
-                numero_para_pdf = st.session_state.cotizacion_cargada if st.session_state.cotizacion_cargada else None
-                pdf_buffer_completo, numero_cotizacion = generar_pdf_completo(
-                    carrito_df_pdf, subtotal_general, iva, total,
-                    datos_cliente_pdf, fecha_inicio, fecha_termino, dias_validez,
-                    datos_asesor_pdf, margen=margen_actual, numero_cotizacion=numero_para_pdf)
-                st.download_button(label="📥 PDF Completo", data=pdf_buffer_completo,
-                    file_name=f"Presupuesto_Completo_{numero_cotizacion}.pdf", mime="application/pdf",
-                    use_container_width=True, key="pdf_completo")
-
-            with col_btn3:
-                pdf_buffer_cliente, numero_cotizacion = generar_pdf_cliente(
-                    carrito_df_pdf, subtotal_general, iva, total,
-                    datos_cliente_pdf, fecha_inicio, fecha_termino, dias_validez,
-                    datos_asesor_pdf, margen=margen_actual, numero_cotizacion=numero_para_pdf)
-                st.download_button(label="🔒 PDF Cliente", data=pdf_buffer_cliente,
-                    file_name=f"Presupuesto_Cliente_{numero_cotizacion}.pdf", mime="application/pdf",
-                    use_container_width=True, key="pdf_cliente")
-
-        with col_btn4:
-            if not es_solo_lectura:
-                if st.button("🧹 Limpiar", use_container_width=True):
-                    limpiar_todo()
-                    st.rerun()
-            else:
-                st.button("🧹 Limpiar", use_container_width=True, disabled=True)
-
-        st.markdown("### Totales")
-        col_total1, col_total2, col_total3 = st.columns(3)
-        with col_total1:
-            st.metric("Subtotal", formato_clp(subtotal_general))
-        with col_total2:
-            st.metric("IVA (19%)", formato_clp(iva))
-        with col_total3:
-            st.metric("TOTAL", formato_clp(total))
+        numero_para_pdf = st.session_state.cotizacion_cargada if st.session_state.cotizacion_cargada else None
 
         if st.session_state.modo_admin and st.session_state.margen > 0:
             st.caption(f"*Precios calculados con margen del {st.session_state.margen}%")
+
+        # Asegurar que todas las variables de métricas estén definidas
+        if 'utilidad_real' not in dir():
+            utilidad_real = margen_valor - total_comisiones if st.session_state.modo_admin else 0
 
         st.markdown("---")
         st.markdown("#### Métricas")
@@ -2378,15 +2450,17 @@ with tab3:
 
     col_busqueda, col_filtros = st.columns([3, 1])
     with col_busqueda:
-        tipo_busqueda = st.radio("Buscar por:", ["📋 N° Presupuesto", "👤 Cliente", "👨‍💼 Asesor"], horizontal=True, key="tipo_busqueda")
-        tipo_map = {"📋 N° Presupuesto": "numero", "👤 Cliente": "cliente", "👨‍💼 Asesor": "asesor"}
-        termino = st.text_input("Buscar...", placeholder="Ingrese término de búsqueda...", key="buscar_cotizacion")
+        with st.container(border=True):
+            tipo_busqueda = st.radio("Buscar por:", ["📋 N° Presupuesto", "👤 Cliente", "👨‍💼 Asesor"], horizontal=True, key="tipo_busqueda")
+            tipo_map = {"📋 N° Presupuesto": "numero", "👤 Cliente": "cliente", "👨‍💼 Asesor": "asesor"}
+            termino = st.text_input("Buscar...", placeholder="Ingrese término de búsqueda...", key="buscar_cotizacion")
 
     with col_filtros:
-        st.markdown("### Filtros rápidos")
-        st.button("📅 Hoy", use_container_width=True)
-        st.button("📅 Esta semana", use_container_width=True)
-        st.button("📅 Este mes", use_container_width=True)
+        with st.container(border=True):
+            st.markdown("**📅 Filtros rápidos**")
+            st.button("📅 Hoy", use_container_width=True)
+            st.button("📅 Esta semana", use_container_width=True)
+            st.button("📅 Este mes", use_container_width=True)
 
     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 4])
     with col_btn1:
@@ -2515,9 +2589,67 @@ with tab3:
                     st.button("📂 Cargar", use_container_width=True, disabled=True)
                 else:
                     if st.button("📂 Cargar", use_container_width=True):
-                        if preparar_carga_cotizacion(numero_seleccionado):
-                            st.success(f"✅ Cotización {numero_seleccionado} cargada")
+                        # Si hay carrito sin guardar, mostrar advertencia
+                        tiene_sin_guardar = (
+                            len(st.session_state.carrito) > 0 and
+                            st.session_state.cotizacion_cargada != numero_seleccionado
+                        )
+                        if tiene_sin_guardar:
+                            st.session_state.mostrar_advertencia_carga = True
+                            st.session_state.numero_a_cargar_pendiente = numero_seleccionado
                             st.rerun()
+                        else:
+                            if preparar_carga_cotizacion(numero_seleccionado):
+                                st.success(f"✅ Cotización {numero_seleccionado} cargada")
+                                st.rerun()
+
+            # ── Popup advertencia productos sin guardar ──
+            if st.session_state.get('mostrar_advertencia_carga', False):
+                @st.dialog("⚠️ Productos sin guardar")
+                def dialogo_advertencia():
+                    numero_pendiente = st.session_state.get('numero_a_cargar_pendiente', '')
+                    st.markdown(f"""
+                    <div style="text-align:center;padding:1rem 0;">
+                        <div style="font-size:3rem;margin-bottom:0.5rem;">⚠️</div>
+                        <div style="font-size:1rem;font-weight:700;color:#1e2447;margin-bottom:0.5rem;">
+                            Tienes productos sin guardar
+                        </div>
+                        <div style="font-size:0.88rem;color:#5a6080;line-height:1.6;">
+                            Estás a punto de cargar la cotización <strong>{numero_pendiente}</strong>.<br/>
+                            ¿Deseas guardar el presupuesto actual antes de continuar?
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    col_si, col_no, col_cancelar = st.columns(3)
+                    with col_si:
+                        if st.button("💾 Sí, guardar", use_container_width=True, type="primary", key="dialog_btn_si"):
+                            # Guardar primero
+                            datos_cliente_g, datos_asesor_g, proyecto_g, config_g, totales_g, plano_n, plano_d = construir_datos_para_guardar()
+                            if st.session_state.cotizacion_cargada:
+                                num_g = st.session_state.cotizacion_cargada
+                            else:
+                                num_g = generar_numero_unico()
+                            guardar_cotizacion(num_g, datos_cliente_g, datos_asesor_g,
+                                               proyecto_g, st.session_state.carrito,
+                                               config_g, totales_g, plano_n, plano_d)
+                            # Luego cargar
+                            st.session_state.mostrar_advertencia_carga = False
+                            if preparar_carga_cotizacion(numero_pendiente):
+                                st.rerun()
+                    with col_no:
+                        if st.button("🗑️ No, descartar", use_container_width=True, key="dialog_btn_no"):
+                            # Descartar y cargar directamente
+                            st.session_state.mostrar_advertencia_carga = False
+                            if preparar_carga_cotizacion(numero_pendiente):
+                                st.rerun()
+                    with col_cancelar:
+                        if st.button("✖️ Cancelar", use_container_width=True, key="dialog_btn_cancelar"):
+                            st.session_state.mostrar_advertencia_carga = False
+                            st.session_state.numero_a_cargar_pendiente = None
+                            st.rerun()
+
+                dialogo_advertencia()
 
             cotizacion_para_pdf = cargar_cotizacion(numero_seleccionado) if cotizacion_seleccionada else None
 
@@ -2661,147 +2793,420 @@ with tab3:
         st.info("💡 No hay resultados. Realice una búsqueda para ver cotizaciones guardadas.")
 
 # =========================================================
-# FAB - OCULTAR ÍCONOS STREAMLIT/GITHUB + BOTÓN FLOTANTE
+# TOAST ÉXITO AL GUARDAR
 # =========================================================
+if st.session_state.get('mostrar_toast_exito', False):
+    ep = st.session_state.get('toast_numero_ep', '')
+    components.html(f"""
+    <script>
+    (function() {{
+        const parent = window.parent.document;
+        const old = parent.getElementById('toast-exito-ep');
+        if (old) old.remove();
+        if (!parent.getElementById('toast-exito-style')) {{
+            const style = parent.createElement('style');
+            style.id = 'toast-exito-style';
+            style.innerHTML = `
+                @keyframes slideInLeft {{
+                    from {{ transform: translateX(-120%); opacity: 0; }}
+                    to   {{ transform: translateX(0);    opacity: 1; }}
+                }}
+                @keyframes fadeOutLeft {{
+                    from {{ transform: translateX(0);    opacity: 1; }}
+                    to   {{ transform: translateX(-120%); opacity: 0; }}
+                }}
+                #toast-exito-ep {{
+                    position: fixed !important;
+                    bottom: 5rem !important;
+                    left: 2rem !important;
+                    z-index: 999998 !important;
+                    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
+                    color: white !important;
+                    border-radius: 16px !important;
+                    padding: 1rem 1.4rem !important;
+                    font-family: sans-serif !important;
+                    font-size: 0.9rem !important;
+                    font-weight: 600 !important;
+                    box-shadow: 0 8px 32px rgba(34,197,94,0.4) !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    gap: 0.6rem !important;
+                    animation: slideInLeft 0.4s cubic-bezier(0.4,0,0.2,1) forwards !important;
+                    min-width: 240px !important;
+                }}
+                #toast-exito-ep.fadeout {{
+                    animation: fadeOutLeft 0.6s cubic-bezier(0.4,0,0.2,1) forwards !important;
+                }}
+                .toast-titulo {{
+                    font-size: 0.8rem !important;
+                    opacity: 0.88 !important;
+                    font-weight: 500 !important;
+                }}
+                .toast-ep {{
+                    font-size: 1.05rem !important;
+                    font-weight: 800 !important;
+                    letter-spacing: 0.03em !important;
+                }}
+            `;
+            parent.head.appendChild(style);
+        }}
+        const toast = parent.createElement('div');
+        toast.id = 'toast-exito-ep';
+        toast.innerHTML = `
+            <span style="font-size:1.4rem">✅</span>
+            <div>
+                <div class="toast-titulo">Presupuesto guardado con éxito</div>
+                <div class="toast-ep">EP {ep}</div>
+            </div>
+        `;
+        parent.body.appendChild(toast);
+        setTimeout(() => {{
+            toast.classList.add('fadeout');
+            setTimeout(() => toast.remove(), 700);
+        }}, 3500);
+    }})();
+    </script>
+    """, height=0)
+    st.session_state.mostrar_toast_exito = False
 
-# Paso 1: Inyectar CSS en el documento PADRE via components
+# =========================================================
+# FAB - OCULTAR ÍCONOS STREAMLIT/GITHUB
+# =========================================================
+# Inyectar CSS para ocultar íconos de Streamlit Cloud
 components.html("""
 <script>
 (function() {
-    function applyStyles() {
-        const parent = window.parent.document;
-        const styleId = 'fab-hide-icons';
-        if (parent.getElementById(styleId)) return;
-        const style = parent.createElement('style');
-        style.id = styleId;
-        style.innerHTML = `
-            #MainMenu { visibility: hidden !important; display: none !important; }
-            footer { visibility: hidden !important; display: none !important; }
-            [data-testid="stToolbar"] { display: none !important; }
-            [data-testid="stDecoration"] { display: none !important; }
-            [data-testid="stStatusWidget"] { display: none !important; }
-            [data-testid="stBottomBlockContainer"] { display: none !important; }
-            .viewerBadge_container__r5tak { display: none !important; }
-            .viewerBadge_link__qRIco { display: none !important; }
-            a[href*="github.com"] { display: none !important; }
-            button[title="View fullscreen"] { display: none !important; }
-            /* Ocultar barra inferior completa de Streamlit Cloud */
-            .st-emotion-cache-1dp5vir { display: none !important; }
-            .st-emotion-cache-164nlkn { display: none !important; }
-            iframe[title="streamlit_analytics"] { display: none !important; }
-        `;
-        parent.head.appendChild(style);
+    const parent = window.parent.document;
 
-        /* También eliminar directamente los nodos si existen */
+    function hideIcons() {
         const selectors = [
             'footer',
             '[data-testid="stToolbar"]',
             '[data-testid="stDecoration"]',
             '[data-testid="stStatusWidget"]',
             '[data-testid="stBottomBlockContainer"]',
-            'a[href*="github.com"]'
+            'a[href*="streamlit.io/cloud"]',
+            'a[href*="github.com"]',
+            '[class*="viewerBadge"]',
+            '[class*="ViewerBadge"]',
+            '[class*="_viewerBadge"]',
+            '[class*="profileContainer"]',
+            '[class*="_profileContainer"]',
+            '[class*="profilePreview"]',
+            '[class*="_profilePreview"]',
         ];
         selectors.forEach(sel => {
-            parent.querySelectorAll(sel).forEach(el => {
-                el.style.setProperty('display', 'none', 'important');
-                el.style.setProperty('visibility', 'hidden', 'important');
-            });
+            try {
+                parent.querySelectorAll(sel).forEach(el => {
+                    el.style.setProperty('display', 'none', 'important');
+                });
+            } catch(e) {}
         });
     }
-    applyStyles();
-    setTimeout(applyStyles, 300);
-    setTimeout(applyStyles, 800);
-    setTimeout(applyStyles, 2000);
-    setTimeout(applyStyles, 4000);
+
+    if (!parent.getElementById('fab-hide-icons-style')) {
+        const style = parent.createElement('style');
+        style.id = 'fab-hide-icons-style';
+        style.innerHTML = `
+            #MainMenu { display: none !important; }
+            footer { display: none !important; }
+            [data-testid="stToolbar"] { display: none !important; }
+            [data-testid="stDecoration"] { display: none !important; }
+            [data-testid="stStatusWidget"] { display: none !important; }
+            [data-testid="stBottomBlockContainer"] { display: none !important; }
+            [class*="viewerBadge"] { display: none !important; }
+            [class*="_viewerBadge"] { display: none !important; }
+            [class*="profileContainer"] { display: none !important; }
+            [class*="_profileContainer"] { display: none !important; }
+            [class*="profilePreview"] { display: none !important; }
+            a[href*="streamlit.io"] { display: none !important; }
+            a[href*="github.com"] { display: none !important; }
+        `;
+        parent.head.appendChild(style);
+    }
+
+    hideIcons();
+    setTimeout(hideIcons, 500);
+    setTimeout(hideIcons, 1500);
+    new MutationObserver(hideIcons).observe(parent.body, {childList: true, subtree: true});
 })();
 </script>
 """, height=0)
 
-# Paso 2: Botón flotante real — solo si hay carrito y no es solo lectura
-if st.session_state.carrito and not (
+# =========================================================
+# FAB - BOTÓN GUARDAR FLOTANTE (Streamlit puro)
+# =========================================================
+_es_solo_lectura = (
     st.session_state.cotizacion_cargada and
     st.session_state.margen > 0 and
     not st.session_state.modo_admin
-):
+)
+
+_mostrar_fab = (
+    len(st.session_state.get('carrito', [])) > 0 and
+    not _es_solo_lectura and
+    not st.session_state.get('recien_guardado', False) and
+    not st.session_state.get('recien_cargado', False)
+)
+
+# Limpiar flags después de evaluar
+if st.session_state.get('recien_guardado', False):
+    st.session_state.recien_guardado = False
+if st.session_state.get('recien_cargado', False):
+    st.session_state.recien_cargado = False
+
+if _mostrar_fab:
+    # CSS para posicionar el botón de Streamlit como FAB flotante
+    st.markdown("""
+    <style>
+    /* FAB container - lo identificamos por data-testid único */
+    div[data-testid="stBottom"] { display: none !important; }
+
+    @keyframes pulse-fab {
+        0%   { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
+        50%  { box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }
+        100% { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
+    }
+    @keyframes blink-badge {
+        0%, 100% { opacity: 1; }
+        50%       { opacity: 0.2; }
+    }
+
+    /* Posicionar el contenedor del FAB */
+    [data-testid="stVerticalBlock"] div:has(> [data-testid="stVerticalBlock"] > div > button[kind="primary"]#fab_btn_guardar_real) {
+        position: fixed !important;
+        bottom: 1.5rem !important;
+        left: 2rem !important;
+        z-index: 999999 !important;
+    }
+
+    /* Estilo del botón FAB */
+    button[kind="primary"].fab-real-btn,
+    div.fab-real-container button {
+        background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 50px !important;
+        padding: 0.85rem 1.6rem !important;
+        font-size: 0.95rem !important;
+        font-weight: 700 !important;
+        animation: pulse-fab 2s infinite !important;
+        white-space: nowrap !important;
+        min-width: 140px !important;
+    }
+    </style>
+    <div class="fab-real-container" style="position:fixed;bottom:1.5rem;left:2rem;z-index:999999;">
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Botón real de Streamlit que ejecuta la lógica de guardado
+    with st.container():
+        st.markdown('<div class="fab-real-container" style="position:fixed;bottom:1.5rem;left:2rem;z-index:999999;"></div>', unsafe_allow_html=True)
+
+    # Usar st.session_state para trigger desde el FAB
+    if 'fab_trigger_guardar' not in st.session_state:
+        st.session_state.fab_trigger_guardar = False
+
+    # El FAB real se implementa como un components.html que inyecta
+    # el botón en el documento padre y usa postMessage para comunicarse
+    components.html(f"""
+    <script>
+    (function() {{
+        const parent = window.parent.document;
+
+        // Eliminar FAB anterior si existe
+        const old = parent.getElementById('fab-guardar-wrapper');
+        if (old) old.remove();
+
+        // Crear FAB nuevo
+        const style = parent.getElementById('fab-guardar-style') || parent.createElement('style');
+        style.id = 'fab-guardar-style';
+        style.innerHTML = `
+            @keyframes pulse-fab {{
+                0%   {{ box-shadow: 0 8px 24px rgba(91,124,250,0.5); }}
+                50%  {{ box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }}
+                100% {{ box-shadow: 0 8px 24px rgba(91,124,250,0.5); }}
+            }}
+            @keyframes blink-badge {{
+                0%, 100% {{ opacity: 1; }}
+                50%      {{ opacity: 0.2; }}
+            }}
+            #fab-guardar-wrapper {{
+                position: fixed !important;
+                bottom: 1.5rem !important;
+                left: 2rem !important;
+                z-index: 999999 !important;
+            }}
+            #fab-guardar-btn {{
+                background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%) !important;
+                color: white !important;
+                border: none !important;
+                border-radius: 50px !important;
+                padding: 0.85rem 1.6rem !important;
+                font-size: 0.95rem !important;
+                font-weight: 700 !important;
+                cursor: pointer !important;
+                font-family: sans-serif !important;
+                animation: pulse-fab 2s infinite !important;
+                white-space: nowrap !important;
+            }}
+            #fab-guardar-btn:hover {{
+                transform: translateY(-3px) scale(1.05) !important;
+                animation: none !important;
+            }}
+            #fab-badge {{
+                position: absolute !important;
+                top: -5px !important; right: -5px !important;
+                width: 14px !important; height: 14px !important;
+                background: #ef4444 !important;
+                border-radius: 50% !important;
+                border: 2px solid white !important;
+                animation: blink-badge 1.5s infinite !important;
+            }}
+        `;
+        if (!parent.getElementById('fab-guardar-style')) parent.head.appendChild(style);
+
+        const wrapper = parent.createElement('div');
+        wrapper.id = 'fab-guardar-wrapper';
+        const btn = parent.createElement('button');
+        btn.id = 'fab-guardar-btn';
+        btn.innerHTML = '💾 Guardar';
+        btn.onclick = function() {{
+            // Buscar y clickear el botón guardar real de Streamlit
+            const buttons = parent.querySelectorAll('button');
+            for (const b of buttons) {{
+                const txt = (b.innerText || b.textContent || '').trim();
+                if (txt.includes('Guardar') && b.id !== 'fab-guardar-btn' && !b.disabled) {{
+                    b.click();
+                    return;
+                }}
+            }}
+        }};
+        const badge = parent.createElement('span');
+        badge.id = 'fab-badge';
+        wrapper.appendChild(btn);
+        wrapper.appendChild(badge);
+        parent.body.appendChild(wrapper);
+    }})();
+    </script>
+    """, height=0)
+else:
+    # Eliminar FAB del DOM cuando no hay cambios pendientes
     components.html("""
     <script>
     (function() {
-        function injectFAB() {
-            const parent = window.parent.document;
-            if (parent.getElementById('fab-guardar-btn')) return;
-            const style = parent.createElement('style');
-            style.innerHTML = `
-                @keyframes pulse-fab {
-                    0%   { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
-                    50%  { box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }
-                    100% { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
-                }
-                @keyframes blink-badge {
-                    0%, 100% { opacity: 1; }
-                    50%      { opacity: 0.2; }
-                }
-                #fab-guardar-wrapper {
-                    position: fixed !important;
-                    bottom: 2rem !important;
-                    right: 2rem !important;
-                    z-index: 999999 !important;
-                }
-                #fab-guardar-btn {
-                    background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%) !important;
-                    color: white !important;
-                    border: none !important;
-                    border-radius: 50px !important;
-                    padding: 0.85rem 1.6rem !important;
-                    font-size: 0.95rem !important;
-                    font-weight: 700 !important;
-                    cursor: pointer !important;
-                    font-family: sans-serif !important;
-                    animation: pulse-fab 2s infinite !important;
-                    transition: all 0.3s ease !important;
-                    white-space: nowrap !important;
-                }
-                #fab-guardar-btn:hover {
-                    transform: translateY(-3px) scale(1.05) !important;
-                    animation: none !important;
-                }
-                #fab-badge {
-                    position: absolute !important;
-                    top: -5px !important;
-                    right: -5px !important;
-                    width: 14px !important;
-                    height: 14px !important;
-                    background: #ef4444 !important;
-                    border-radius: 50% !important;
-                    border: 2px solid white !important;
-                    animation: blink-badge 1.5s infinite !important;
-                }
-            `;
-            parent.head.appendChild(style);
-            const wrapper = parent.createElement('div');
-            wrapper.id = 'fab-guardar-wrapper';
-            const btn = parent.createElement('button');
-            btn.id = 'fab-guardar-btn';
-            btn.innerHTML = '💾 Guardar';
-            btn.onclick = function() {
-                const buttons = parent.querySelectorAll('button');
-                for (const b of buttons) {
-                    const txt = (b.innerText || b.textContent || '').trim();
-                    if (txt.includes('Guardar') && b.id !== 'fab-guardar-btn' && !b.disabled) {
-                        b.click();
-                        break;
-                    }
-                }
-            };
-            const badge = parent.createElement('span');
-            badge.id = 'fab-badge';
-            wrapper.appendChild(btn);
-            wrapper.appendChild(badge);
-            parent.body.appendChild(wrapper);
-        }
-        injectFAB();
-        setTimeout(injectFAB, 500);
-        setTimeout(injectFAB, 1500);
+        const parent = window.parent.document;
+        const w = parent.getElementById('fab-guardar-wrapper');
+        if (w) w.remove();
     })();
     </script>
     """, height=0)
 
+# =========================================================
+# FAB - MARGEN FLOTANTE (solo visible en modo admin)
+# =========================================================
+_margen_actual = st.session_state.margen
+_mstr = f"{_margen_actual:.1f}"
+
+if st.session_state.modo_admin:
+    _color = 'linear-gradient(135deg, #10b981 0%, #059669 100%)' if _margen_actual > 0 else 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'
+    _pulse = 'animation:pulse-margen 2s infinite;' if _margen_actual > 0 else ''
+
+    components.html(f"""
+<script>
+(function(){{
+  var doc = window.parent.document;
+  ['_fab_mg_style','_fab_mg_wrap','_fab_mg_popup','_fab_mg_overlay'].forEach(function(id){{
+    var e=doc.getElementById(id); if(e) e.remove();
+  }});
+
+  var s = doc.createElement('style');
+  s.id = '_fab_mg_style';
+  s.textContent = [
+    '@keyframes pm{{0%{{box-shadow:0 8px 24px rgba(16,185,129,.5)}}50%{{box-shadow:0 8px 40px rgba(16,185,129,.9),0 0 0 12px rgba(16,185,129,.15)}}100%{{box-shadow:0 8px 24px rgba(16,185,129,.5)}}}}',
+    '#_fab_mg_btn{{position:fixed;bottom:1.5rem;left:12rem;z-index:999990;background:{_color};color:#fff;border:none;border-radius:50px;padding:.85rem 1.4rem;font-size:.95rem;font-weight:700;cursor:pointer;white-space:nowrap;{_pulse}font-family:sans-serif;box-shadow:0 8px 24px rgba(16,185,129,.5);}}',
+    '#_fab_mg_btn:hover{{transform:translateY(-3px);animation:none;}}',
+    '#_fab_mg_overlay{{display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:999988;background:transparent;}}',
+    '#_fab_mg_overlay.open{{display:block;}}',
+    '#_fab_mg_popup{{position:fixed;bottom:5.5rem;left:12rem;z-index:999995;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.3);padding:1.2rem 1.4rem;min-width:230px;display:none;font-family:sans-serif;}}',
+    '#_fab_mg_popup.open{{display:block;}}',
+    '#_fab_mg_disp{{width:100%;padding:.6rem;border:2px solid #10b981;border-radius:10px;font-size:1.5rem;font-weight:700;text-align:center;margin-bottom:8px;box-sizing:border-box;color:#111827;background:#f0fdf4;user-select:none;}}',
+    '#_fab_mg_pad{{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px;}}',
+    '#_fab_mg_pad button{{padding:.6rem;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;font-size:1rem;font-weight:600;cursor:pointer;color:#111827;font-family:sans-serif;}}',
+    '#_fab_mg_pad button:hover{{background:#f0fdf4;border-color:#10b981;}}',
+    '#_fab_mg_apply{{width:100%;padding:.65rem;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:10px;font-size:.95rem;font-weight:700;cursor:pointer;font-family:sans-serif;}}'
+  ].join('');
+  doc.head.appendChild(s);
+
+  // Overlay para bloquear clicks en los iframes de Streamlit
+  var overlay = doc.createElement('div');
+  overlay.id = '_fab_mg_overlay';
+  doc.body.appendChild(overlay);
+
+  var popup = doc.createElement('div');
+  popup.id = '_fab_mg_popup';
+  popup.innerHTML = '<b style="font-size:.95rem;color:#374151;display:block;margin-bottom:.7rem;">Aplicar Margen</b>'
+    + '<div id="_fab_mg_disp">{_mstr}%</div>'
+    + '<div id="_fab_mg_pad"><button>1</button><button>2</button><button>3</button><button>4</button><button>5</button><button>6</button><button>7</button><button>8</button><button>9</button>'
+    + '<button id="_fab_mg_clr" style="color:#ef4444;font-size:.85rem;">C</button><button>0</button><button>.</button></div>'
+    + '<button id="_fab_mg_apply">Aplicar</button>';
+  doc.body.appendChild(popup);
+
+  var cur = '{_mstr}';
+  var disp = doc.getElementById('_fab_mg_disp');
+
+  function openPopup() {{
+    cur = '{_mstr}';
+    disp.textContent = cur + '%';
+    popup.classList.add('open');
+    overlay.classList.add('open');
+  }}
+  function closePopup() {{
+    popup.classList.remove('open');
+    overlay.classList.remove('open');
+  }}
+
+  doc.getElementById('_fab_mg_pad').addEventListener('click', function(e){{
+    e.stopPropagation();
+    var t=e.target; if(!t||t.tagName!=='BUTTON') return;
+    var n=t.textContent.trim();
+    if(t.id==='_fab_mg_clr') cur='0';
+    else if(n==='.') {{ if(cur.indexOf('.')<0) cur+='.'; }}
+    else cur=(cur==='0')?n:cur+n;
+    if(parseFloat(cur)>100) cur='100';
+    disp.textContent=cur+'%';
+  }});
+
+  doc.getElementById('_fab_mg_apply').addEventListener('click', function(e){{
+    e.stopPropagation();
+    var val=Math.max(0,Math.min(100,parseFloat(cur)||0));
+    var url=new URL(doc.location.href);
+    url.searchParams.set('mgfab', val.toFixed(1));
+    doc.location.href=url.toString();
+  }});
+
+  // Overlay cierra el popup al hacer click fuera
+  overlay.addEventListener('click', closePopup);
+
+  var wrap=doc.createElement('div'); wrap.id='_fab_mg_wrap';
+  var btn=doc.createElement('button'); btn.id='_fab_mg_btn';
+  btn.textContent='Margen: {_mstr}%';
+  btn.addEventListener('click',function(e){{
+    e.stopPropagation();
+    if(popup.classList.contains('open')) closePopup();
+    else openPopup();
+  }});
+  wrap.appendChild(btn); doc.body.appendChild(wrap);
+}})();
+</script>
+""", height=0)
+
+else:
+    components.html("""<script>
+(function(){
+  var doc=window.parent.document;
+  ['_fab_mg_style','_fab_mg_wrap','_fab_mg_popup','_fab_mg_overlay'].forEach(function(id){
+    var e=doc.getElementById(id); if(e) e.remove();
+  });
+})();
+</script>""", height=0)
