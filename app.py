@@ -3150,361 +3150,184 @@ with tab4:
 <head>
 <meta charset="utf-8">
 <style>
-  * {{ margin:0; padding:0; box-sizing:border-box; }}
-  body {{ background:#0f1117; font-family:'Segoe UI',sans-serif; overflow:hidden; }}
-  #wrap {{ width:100%; height:590px; position:relative; }}
-  #canvas3d {{ width:100%; height:100%; display:block; }}
-  #controls {{
-    position:absolute; top:12px; left:12px; z-index:10;
-    display:flex; gap:6px; flex-wrap:wrap;
-  }}
-  .btn {{
-    background:rgba(20,20,40,0.75); color:#cdd6f4;
-    border:1px solid rgba(255,255,255,0.18);
-    padding:5px 13px; border-radius:20px; cursor:pointer;
-    font-size:11.5px; font-weight:600; transition:all .18s;
-    backdrop-filter:blur(10px);
-  }}
-  .btn:hover {{ background:rgba(91,124,250,0.55); border-color:#5b7cfa; color:#fff; }}
-  .btn.on {{ background:rgba(91,124,250,0.75); border-color:#5b7cfa; color:#fff; }}
-  #info {{
-    position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
-    color:rgba(255,255,255,0.4); font-size:10.5px;
-    background:rgba(0,0,0,0.5); padding:5px 16px; border-radius:20px;
-    white-space:nowrap; backdrop-filter:blur(8px);
-  }}
-  #loading {{
-    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-    color:#cdd6f4; text-align:center; z-index:20; pointer-events:none;
-  }}
-  .spin {{
-    width:46px; height:46px; border:4px solid rgba(255,255,255,0.15);
-    border-top-color:#5b7cfa; border-radius:50%;
-    animation:sp .7s linear infinite; margin:0 auto 10px;
-  }}
-  @keyframes sp {{ to {{ transform:rotate(360deg); }} }}
-  #errbox {{
-    display:none; position:absolute; top:50%; left:50%;
-    transform:translate(-50%,-50%); color:#f38ba8; text-align:center;
-    z-index:20; background:rgba(0,0,0,0.7); padding:20px 30px;
-    border-radius:12px; max-width:380px; line-height:1.6;
-  }}
-  #planolabel {{
-    position:absolute; top:12px; right:12px; z-index:10;
-    color:rgba(255,255,255,0.35); font-size:10px;
-    background:rgba(0,0,0,0.4); padding:4px 10px; border-radius:10px;
-  }}
+* {{ margin:0; padding:0; box-sizing:border-box; }}
+body {{ background:#0f1117; font-family:'Segoe UI',sans-serif; overflow:hidden; }}
+#wrap {{ width:100%; height:610px; position:relative; }}
+#c3d {{ width:100%; height:100%; display:block; }}
+#ctrl {{ position:absolute; top:10px; left:10px; z-index:10; display:flex; gap:6px; flex-wrap:wrap; }}
+.btn {{ background:rgba(15,17,34,0.82); color:#cdd6f4; border:1px solid rgba(255,255,255,0.15);
+  padding:5px 12px; border-radius:18px; cursor:pointer; font-size:11px; font-weight:600;
+  transition:all .15s; backdrop-filter:blur(8px); }}
+.btn:hover,.btn.on {{ background:rgba(91,124,250,0.72); border-color:#5b7cfa; color:#fff; }}
+#hud {{ position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
+  color:rgba(255,255,255,0.35); font-size:10px; background:rgba(0,0,0,0.5);
+  padding:5px 14px; border-radius:18px; white-space:nowrap; }}
+#loading {{ position:absolute; top:0; left:0; width:100%; height:100%;
+  background:rgba(15,17,34,0.93); display:flex; flex-direction:column;
+  align-items:center; justify-content:center; z-index:30; color:#cdd6f4; gap:14px; }}
+#loading.hide {{ display:none; }}
+.ring {{ width:52px; height:52px; border:4px solid rgba(91,124,250,0.2);
+  border-top-color:#5b7cfa; border-radius:50%; animation:sp .7s linear infinite; }}
+@keyframes sp {{ to {{ transform:rotate(360deg); }} }}
+#step {{ font-size:12px; color:#a6adc8; max-width:300px; text-align:center; line-height:1.5; }}
+#errbox {{ display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  background:rgba(0,0,0,0.88); color:#f38ba8; padding:20px 28px; border-radius:12px;
+  text-align:center; z-index:40; max-width:360px; line-height:1.6;
+  border:1px solid rgba(243,139,168,0.3); }}
 </style>
 </head>
 <body>
 <div id="wrap">
-  <canvas id="canvas3d"></canvas>
-  <div id="controls">
-    <button class="btn on"  id="btnOrbit"   onclick="setMode('orbit')">🖱 Orbitar</button>
-    <button class="btn"     id="btnReset"   onclick="resetCam()">🎯 Reset</button>
-    <button class="btn on"  id="btnRoof"    onclick="tog('roof')">🏠 Techo</button>
-    <button class="btn on"  id="btnPlano"   onclick="tog('plano')">📐 Plano</button>
-    <button class="btn on"  id="btnWire"    onclick="tog('wire')">🔲 Estructura</button>
-    <button class="btn"     onclick="setView('top')">⬆ Top</button>
-    <button class="btn"     onclick="setView('iso')">🔷 Iso</button>
+  <canvas id="c3d"></canvas>
+  <div id="ctrl">
+    <button class="btn on" id="bRoof" onclick="tog('roof')">🏠 Techo</button>
+    <button class="btn on" id="bPlan" onclick="tog('plan')">📐 Plano</button>
+    <button class="btn on" id="bWire" onclick="tog('wire')">🔲 Wire</button>
+    <button class="btn" onclick="resetCam()">🎯 Reset</button>
+    <button class="btn" onclick="setV('top')">⬆ Top</button>
+    <button class="btn" onclick="setV('iso')">🔷 Iso</button>
   </div>
-  <div id="planolabel">Espacio Container House — Prototipo 3D Beta</div>
-  <div id="loading"><div class="spin"></div>Analizando plano PDF…</div>
+  <div id="loading"><div class="ring"></div><div id="step">Descargando plano…</div></div>
   <div id="errbox"></div>
-  <div id="info">🖱 Arrastrar: rotar &nbsp;│&nbsp; Scroll: zoom &nbsp;│&nbsp; Derecho: mover</div>
+  <div id="hud">🖱 Arrastrar: rotar &nbsp;│&nbsp; Scroll: zoom &nbsp;│&nbsp; Derecho: mover</div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+const PLANO_URL="{_plano_url_3d}";
+const PROXY="https://api.allorigins.win/raw?url="+encodeURIComponent(PLANO_URL);
 
-const PLANO_URL = "{_plano_url_3d}";
-const PROXY     = "https://api.allorigins.win/raw?url=" + encodeURIComponent(PLANO_URL);
+const cv=document.getElementById('c3d');
+const W0=cv.parentElement.offsetWidth,H0=610;
+const renderer=new THREE.WebGLRenderer({{canvas:cv,antialias:true}});
+renderer.setPixelRatio(devicePixelRatio);renderer.setSize(W0,H0);renderer.shadowMap.enabled=true;
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x0f1117);
+const camera=new THREE.PerspectiveCamera(42,W0/H0,0.1,300);
+let S={{th:0.6,ph:1.0,r:32}},T=new THREE.Vector3(0,1.5,0);
+function applyC(){{camera.position.set(T.x+S.r*Math.sin(S.ph)*Math.sin(S.th),T.y+S.r*Math.cos(S.ph),T.z+S.r*Math.sin(S.ph)*Math.cos(S.th));camera.lookAt(T);}}
+applyC();
+scene.add(new THREE.AmbientLight(0xffffff,0.5));
+const sun=new THREE.DirectionalLight(0xfff8e7,1.0);sun.position.set(15,25,12);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);scene.add(sun);
+scene.add(new THREE.HemisphereLight(0x7788cc,0x223344,0.35));
+scene.add(new THREE.GridHelper(80,80,0x1e2140,0x1a1d36));
+const gRoof=new THREE.Group(),gPlan=new THREE.Group(),gWire=new THREE.Group(),gBody=new THREE.Group();
+scene.add(gBody,gRoof,gPlan,gWire);
+const vis={{roof:true,plan:true,wire:true}};
+function tog(k){{vis[k]=!vis[k];if(k==='roof')gRoof.visible=vis[k];if(k==='plan')gPlan.visible=vis[k];if(k==='wire')gWire.visible=vis[k];document.getElementById('b'+k.charAt(0).toUpperCase()+k.slice(1)).classList.toggle('on',vis[k]);}}
+let drag=false,rDrag=false,lx=0,ly=0;
+cv.addEventListener('mousedown',e=>{{drag=true;rDrag=e.button===2;lx=e.clientX;ly=e.clientY;}});
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+window.addEventListener('mouseup',()=>drag=false);
+window.addEventListener('mousemove',e=>{{if(!drag)return;const dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;if(rDrag){{const r=new THREE.Vector3().crossVectors(new THREE.Vector3().subVectors(camera.position,T).normalize(),camera.up).normalize();T.addScaledVector(r,-dx*0.022);T.y+=dy*0.022;}}else{{S.th-=dx*0.007;S.ph=Math.max(0.05,Math.min(Math.PI/2.05,S.ph+dy*0.007));}}applyC();}});
+cv.addEventListener('wheel',e=>{{S.r=Math.max(3,Math.min(80,S.r+e.deltaY*0.04));applyC();}});
+function resetCam(){{S={{th:0.6,ph:1.0,r:32}};T.set(0,1.5,0);applyC();}}
+function setV(v){{if(v==='top'){{S.ph=0.04;applyC();}}if(v==='iso'){{S={{th:0.8,ph:0.85,r:30}};applyC();}}}}
+(function loop(){{requestAnimationFrame(loop);renderer.render(scene,camera);}})();
 
-// ─── Renderer ───────────────────────────────────────────
-const canvas = document.getElementById('canvas3d');
-const W0 = canvas.parentElement.offsetWidth, H0 = 590;
-const renderer = new THREE.WebGLRenderer({{ canvas, antialias:true }});
-renderer.setPixelRatio(window.devicePixelRatio);
-renderer.setSize(W0, H0);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const mWall=new THREE.MeshStandardMaterial({{color:0xb8c4cc,roughness:0.5,metalness:0.3}});
+const mRoof=new THREE.MeshStandardMaterial({{color:0x78909c,roughness:0.55,metalness:0.35}});
+const mGlass=new THREE.MeshStandardMaterial({{color:0x89cff0,transparent:true,opacity:0.35,roughness:0.05}});
+const mDoor=new THREE.MeshStandardMaterial({{color:0x455a64,roughness:0.4,metalness:0.5}});
+const mFloor=new THREE.MeshStandardMaterial({{color:0xeceff1,roughness:0.9}});
+const mWire=new THREE.MeshBasicMaterial({{color:0x5b7cfa,wireframe:true}});
+const mRib=new THREE.MeshStandardMaterial({{color:0x8fa4ae,roughness:0.5,metalness:0.4}});
 
-// ─── Scene ──────────────────────────────────────────────
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0f1117);
+function addBox(geo,mat,x,y,z,ry,grp){{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);if(ry)m.rotation.y=ry;m.castShadow=true;m.receiveShadow=true;grp.add(m);}}
 
-// ─── Camera ─────────────────────────────────────────────
-const camera = new THREE.PerspectiveCamera(42, W0/H0, 0.1, 300);
-let sph = {{ th:0.6, ph:1.05, r:30 }};
-let tgt = new THREE.Vector3(0,1.2,0);
-function applyCam() {{
-  camera.position.set(
-    tgt.x + sph.r*Math.sin(sph.ph)*Math.sin(sph.th),
-    tgt.y + sph.r*Math.cos(sph.ph),
-    tgt.z + sph.r*Math.sin(sph.ph)*Math.cos(sph.th)
-  );
-  camera.lookAt(tgt);
-}}
-applyCam();
+function buildModel(layout,floorTex){{
+  const W=layout.width,D=layout.depth,H=layout.wallHeight||2.8,th=0.14;
+  if(floorTex){{const fm=new THREE.Mesh(new THREE.PlaneGeometry(W,D),new THREE.MeshStandardMaterial({{map:floorTex,roughness:0.8}}));fm.rotation.x=-Math.PI/2;fm.receiveShadow=true;gPlan.add(fm);}}
+  addBox(new THREE.BoxGeometry(W,0.08,D),mFloor,0,-0.04,0,0,gBody);
 
-// ─── Lights ─────────────────────────────────────────────
-scene.add(new THREE.AmbientLight(0xffffff, 0.45));
-const sun = new THREE.DirectionalLight(0xfff5e0, 1.1);
-sun.position.set(12, 22, 14);
-sun.castShadow = true;
-sun.shadow.mapSize.set(2048,2048);
-sun.shadow.camera.near = 1; sun.shadow.camera.far = 80;
-sun.shadow.camera.left = -20; sun.shadow.camera.right = 20;
-sun.shadow.camera.top  =  20; sun.shadow.camera.bottom = -20;
-scene.add(sun);
-scene.add(new THREE.HemisphereLight(0x8899cc, 0x334455, 0.4));
-
-// ─── Grid ───────────────────────────────────────────────
-const grid = new THREE.GridHelper(60, 60, 0x1e2140, 0x1e2140);
-scene.add(grid);
-
-// ─── Groups ─────────────────────────────────────────────
-const grpContainer = new THREE.Group();
-const grpPlano     = new THREE.Group();
-const grpRoof      = new THREE.Group();
-const grpWire      = new THREE.Group();
-scene.add(grpContainer, grpPlano, grpRoof, grpWire);
-
-// ─── Visibility toggles ─────────────────────────────────
-const vis = {{ roof:true, plano:true, wire:true }};
-function tog(k) {{
-  vis[k] = !vis[k];
-  if (k==='roof')  grpRoof.visible  = vis[k];
-  if (k==='plano') grpPlano.visible = vis[k];
-  if (k==='wire')  grpWire.visible  = vis[k];
-  document.getElementById('btn'+k.charAt(0).toUpperCase()+k.slice(1))
-    .classList.toggle('on', vis[k]);
-}}
-
-// ─── Camera controls ────────────────────────────────────
-let drag=false, rDrag=false, lx=0, ly=0;
-canvas.addEventListener('mousedown',  e=>{{ drag=true; rDrag=e.button===2; lx=e.clientX; ly=e.clientY; }});
-canvas.addEventListener('contextmenu',e=>e.preventDefault());
-window.addEventListener('mouseup',   ()=>drag=false);
-window.addEventListener('mousemove', e=>{{
-  if(!drag) return;
-  const dx=e.clientX-lx, dy=e.clientY-ly; lx=e.clientX; ly=e.clientY;
-  if(rDrag){{
-    const right=new THREE.Vector3().crossVectors(
-      new THREE.Vector3().subVectors(camera.position,tgt).normalize(), camera.up).normalize();
-    tgt.addScaledVector(right,-dx*0.025); tgt.y+=dy*0.025;
-  }} else {{
-    sph.th -= dx*0.007;
-    sph.ph  = Math.max(0.08, Math.min(Math.PI/2.05, sph.ph+dy*0.007));
-  }}
-  applyCam();
-}});
-canvas.addEventListener('wheel', e=>{{
-  sph.r = Math.max(4, Math.min(70, sph.r+e.deltaY*0.04));
-  applyCam();
-}});
-// Touch support
-let tLast=null;
-canvas.addEventListener('touchstart', e=>{{ tLast=e.touches[0]; }}, {{passive:true}});
-canvas.addEventListener('touchmove',  e=>{{
-  const t=e.touches[0];
-  const dx=t.clientX-tLast.clientX, dy=t.clientY-tLast.clientY;
-  sph.th -= dx*0.007;
-  sph.ph  = Math.max(0.08, Math.min(Math.PI/2.05, sph.ph+dy*0.007));
-  tLast=t; applyCam();
-}}, {{passive:true}});
-
-function resetCam() {{ sph={{th:0.6,ph:1.05,r:30}}; tgt.set(0,1.2,0); applyCam(); }}
-function setView(v) {{
-  if(v==='top')  {{ sph.ph=0.04; applyCam(); }}
-  if(v==='iso')  {{ sph.th=0.8; sph.ph=0.9; sph.r=28; applyCam(); }}
-}}
-
-// ─── Build container from detected dimensions ────────────
-function buildContainer(W, D, floorTex) {{
-  const wallH = 2.6;
-  const steelColor  = 0xb0bec5;
-  const steelRough  = 0.55;
-  const glassColor  = 0x89cff0;
-
-  const matWall = new THREE.MeshStandardMaterial({{
-    color:steelColor, roughness:steelRough, metalness:0.25
-  }});
-  const matRoof = new THREE.MeshStandardMaterial({{
-    color:0x78909c, roughness:0.6, metalness:0.3
-  }});
-  const matFloor = new THREE.MeshStandardMaterial({{
-    map: floorTex, roughness:0.8, metalness:0.0
-  }});
-  const matGlass = new THREE.MeshStandardMaterial({{
-    color:glassColor, transparent:true, opacity:0.38,
-    roughness:0.05, metalness:0.1
-  }});
-  const matDoor = new THREE.MeshStandardMaterial({{
-    color:0x546e7a, roughness:0.5, metalness:0.4
-  }});
-  const matWire = new THREE.MeshBasicMaterial({{
-    color:0x5b7cfa, wireframe:true
-  }});
-
-  const half = {{w:W/2, d:D/2}};
-
-  // ── Floor ──
-  const floorGeo = new THREE.PlaneGeometry(W, D);
-  const floorM   = new THREE.Mesh(floorGeo, matFloor);
-  floorM.rotation.x = -Math.PI/2;
-  floorM.receiveShadow = true;
-  grpPlano.add(floorM);
-
-  // ── Helper: solid wall panel with cutouts ──
-  function addWallPanel(x,y,z, pw,ph, rotY, cutouts) {{
-    // Full panel as BoxGeo (thickness = 0.15)
-    const th = 0.14;
-    const geo = new THREE.BoxGeometry(pw, ph, th);
-    const m   = new THREE.Mesh(geo, matWall);
-    m.position.set(x,y,z); m.rotation.y=rotY;
-    m.castShadow=true; m.receiveShadow=true;
-    grpContainer.add(m);
-    // Wire copy
-    const wm = new THREE.Mesh(geo, matWire);
-    wm.position.set(x,y,z); wm.rotation.y=rotY;
-    grpWire.add(wm);
-
-    // Cutouts as glass/door panels
-    cutouts.forEach(c => {{
-      const cg = new THREE.BoxGeometry(c.w, c.h, th+0.02);
-      const mat = c.type==='door' ? matDoor : matGlass;
-      const cm  = new THREE.Mesh(cg, mat);
-      cm.position.set(x + (rotY===0 ? c.ox : 0), y+c.oy, z + (rotY!==0 ? c.ox : 0));
-      cm.rotation.y=rotY;
-      cm.castShadow=true;
-      grpContainer.add(cm);
+  function makeWall(px,pz,rotY,wallW,openings){{
+    const grp=new THREE.Group();grp.position.set(px,H/2,pz);grp.rotation.y=rotY;
+    const ops=[...openings].sort((a,b)=>a.x-b.x);
+    let cur=-wallW/2;
+    ops.forEach(op=>{{
+      const segW=op.x-op.w/2-cur;
+      if(segW>0.05){{const m=new THREE.Mesh(new THREE.BoxGeometry(segW,H,th),mWall);m.position.x=cur+segW/2;m.castShadow=true;m.receiveShadow=true;grp.add(m);}}
+      cur=op.x+op.w/2;
+      const dintelH=H-(op.y+op.h/2);
+      if(dintelH>0.05){{const m=new THREE.Mesh(new THREE.BoxGeometry(op.w,dintelH,th),mWall);m.position.x=op.x;m.position.y=H/2-dintelH/2;m.castShadow=true;grp.add(m);}}
+      if(op.type==='window'&&(op.y-op.h/2)>0.05){{const apH=op.y-op.h/2;const m=new THREE.Mesh(new THREE.BoxGeometry(op.w,apH,th),mWall);m.position.x=op.x;m.position.y=apH/2-H/2;m.castShadow=true;grp.add(m);}}
+      const fillM=op.type==='door'?mDoor:mGlass;
+      const fm=new THREE.Mesh(new THREE.BoxGeometry(op.w,op.h,th*0.3),fillM);fm.position.x=op.x;fm.position.y=op.y-H/2;fm.castShadow=true;grp.add(fm);
     }});
+    const remW=wallW/2-cur;
+    if(remW>0.05){{const m=new THREE.Mesh(new THREE.BoxGeometry(remW,H,th),mWall);m.position.x=cur+remW/2;m.castShadow=true;m.receiveShadow=true;grp.add(m);}}
+    gBody.add(grp);
+    const wm=new THREE.Mesh(new THREE.BoxGeometry(wallW,H,th),mWire);
+    const wg=new THREE.Group();wg.position.set(px,H/2,pz);wg.rotation.y=rotY;wg.add(wm);gWire.add(wg);
   }}
 
-  // ── Walls — automatic cutout distribution ──
-  const wH = wallH, wY = wH/2;
-  const winW=1.2, winH=0.9, winY=0.3;   // window size & offset from center
-  const doorW=0.9, doorH=2.1, doorY=(doorH-wH)/2;
-
-  // Front wall (z = +D/2): 1 door + 2 windows
-  addWallPanel(0, wY, half.d, W, wH, 0, [
-    {{ type:'door',   w:doorW, h:doorH, ox:-W*0.3, oy:doorY }},
-    {{ type:'window', w:winW,  h:winH,  ox: W*0.1, oy:winY  }},
-    {{ type:'window', w:winW,  h:winH,  ox: W*0.35,oy:winY  }}
-  ]);
-  // Back wall (z = -D/2): 2 windows
-  addWallPanel(0, wY, -half.d, W, wH, 0, [
-    {{ type:'window', w:winW, h:winH, ox:-W*0.25, oy:winY }},
-    {{ type:'window', w:winW, h:winH, ox: W*0.25, oy:winY }}
-  ]);
-  // Left wall (x = -W/2): 1 window
-  addWallPanel(-half.w, wY, 0, D, wH, Math.PI/2, [
-    {{ type:'window', w:winW, h:winH, ox:0, oy:winY }}
-  ]);
-  // Right wall (x = +W/2): 1 window
-  addWallPanel( half.w, wY, 0, D, wH, Math.PI/2, [
-    {{ type:'window', w:winW, h:winH, ox:0, oy:winY }}
-  ]);
-
-  // ── Roof ──
-  const roofGeo = new THREE.BoxGeometry(W+0.15, 0.14, D+0.15);
-  const roofM   = new THREE.Mesh(roofGeo, matRoof);
-  roofM.position.set(0, wH+0.07, 0);
-  roofM.castShadow=true;
-  grpRoof.add(roofM);
-
-  // Roof wire
-  const roofWM = new THREE.Mesh(roofGeo, matWire);
-  roofWM.position.set(0, wH+0.07, 0);
-  grpWire.add(roofWM);
-
-  // ── Structural ribs (horizontal lines on walls) ──
-  const ribMat = new THREE.MeshStandardMaterial({{color:0x90a4ae,roughness:0.5,metalness:0.4}});
-  [0.6,1.3,2.0].forEach(h=>{{
-    [[0,half.d+0.07,0,W,0],[0,-half.d-0.07,0,W,0],
-     [-half.w-0.07,0,0,D,Math.PI/2],[ half.w+0.07,0,0,D,Math.PI/2]].forEach(r=>{{
-      const rg=new THREE.BoxGeometry(r[3],0.06,0.06);
-      const rm=new THREE.Mesh(rg,ribMat);
-      rm.position.set(r[0],h,r[2]); rm.rotation.y=r[4]||0;
-      grpContainer.add(rm);
-    }});
+  (layout.walls||[]).forEach(w=>{{
+    let px,pz,rotY,wallW;
+    if(w.side==='front'){{px=0;pz=D/2;rotY=0;wallW=W;}}
+    else if(w.side==='back'){{px=0;pz=-D/2;rotY=0;wallW=W;}}
+    else if(w.side==='left'){{px=-W/2;pz=0;rotY=Math.PI/2;wallW=D;}}
+    else{{px=W/2;pz=0;rotY=Math.PI/2;wallW=D;}}
+    makeWall(px,pz,rotY,wallW,w.openings||[]);
   }});
+
+  const roofM=new THREE.Mesh(new THREE.BoxGeometry(W+0.2,0.15,D+0.2),mRoof);roofM.position.y=H+0.075;roofM.castShadow=true;gRoof.add(roofM);
+  [0.3,0.8,1.4,2.0,H-0.1].forEach(h=>{{
+    [[0,D/2+0.08,0,W,0],[0,-D/2-0.08,0,W,0],[-W/2-0.08,0,0,D,Math.PI/2],[W/2+0.08,0,0,D,Math.PI/2]].forEach(r=>{{const m=new THREE.Mesh(new THREE.BoxGeometry(r[3],0.06,0.06),mRib);m.position.set(r[0],h,r[2]);m.rotation.y=r[4]||0;gBody.add(m);}});
+  }});
+  [[-W/2,-D/2],[W/2,-D/2],[-W/2,D/2],[W/2,D/2]].forEach(([x,z])=>{{const m=new THREE.Mesh(new THREE.BoxGeometry(0.18,H+0.15,0.18),mRib);m.position.set(x,H/2,z);m.castShadow=true;gBody.add(m);}});
+  T.set(0,H*0.4,0);S.r=Math.max(W,D)*2.1;applyC();
 }}
 
-// ─── Detect dims from image & build ─────────────────────
-function detectDims(imgData, iw, ih) {{
-  // Find bounding box of dark pixels (the floor plan outline)
-  const d = imgData.data, thresh=100;
-  let minX=iw,maxX=0,minY=ih,maxY=0;
-  for(let y=0;y<ih;y+=3) for(let x=0;x<iw;x+=3) {{
-    const i=(y*iw+x)*4;
-    if(d[i]<thresh && d[i+1]<thresh && d[i+2]<thresh) {{
-      if(x<minX) minX=x; if(x>maxX) maxX=x;
-      if(y<minY) minY=y; if(y>maxY) maxY=y;
-    }}
-  }}
-  // Scale to reasonable container dimensions (3-12 m range)
-  const rawW=(maxX-minX)/iw, rawD=(maxY-minY)/ih;
-  const scale = 14;
-  return {{
-    W: Math.max(4, Math.min(14, rawW*scale)),
-    D: Math.max(3, Math.min(10, rawD*scale))
-  }};
+async function analyzeWithClaude(b64){{
+  setStep("🤖 Claude Vision analizando plano…");
+  const prompt=`Analiza esta imagen de planta arquitectónica de un container house. Responde SOLO con JSON válido sin texto extra ni markdown:
+{{"width":<ancho metros>,"depth":<profundidad metros>,"wallHeight":2.8,"walls":[{{"side":"front","openings":[{{"type":"door","x":<pos x centrada en 0>,"y":<centro y desde suelo>,"w":<ancho>,"h":<alto>}},{{"type":"window","x":...,"y":...,"w":...,"h":...}}]}},{{"side":"back","openings":[...]}},{{"side":"left","openings":[...]}},{{"side":"right","openings":[...]}}]}}
+Reglas: puertas ~0.9x2.1m centro y=1.05, ventanas ~1.2x1.0m centro y=1.2, x relativo al centro de esa pared. Detecta TODAS las aberturas visibles.`;
+  const r=await fetch("https://api.anthropic.com/v1/messages",{{method:"POST",headers:{{"Content-Type":"application/json","anthropic-version":"2023-06-01"}}  ,body:JSON.stringify({{model:"claude-sonnet-4-20250514",max_tokens:1024,messages:[{{role:"user",content:[{{type:"image",source:{{type:"base64",media_type:"image/png",data:b64}}}},{{type:"text",text:prompt}}]}}]}})}});
+  if(!r.ok) throw new Error("Claude API: "+r.status+" "+(await r.text()).slice(0,100));
+  const d=await r.json();
+  const txt=d.content.map(b=>b.text||"").join("").trim().replace(/```json|```/g,"").trim();
+  return JSON.parse(txt);
 }}
 
-// ─── Main load ──────────────────────────────────────────
-async function main() {{
-  try {{
-    const resp = await fetch(PROXY);
-    if(!resp.ok) throw new Error('Error al descargar el plano ('+resp.status+')');
-    const buf = await resp.arrayBuffer();
+function setStep(m){{document.getElementById('step').textContent=m;}}
 
-    const pdf  = await pdfjsLib.getDocument({{data:buf}}).promise;
-    const page = await pdf.getPage(1);
-    const vp   = page.getViewport({{scale:2}});
-
-    const oc  = document.createElement('canvas');
-    oc.width  = vp.width; oc.height = vp.height;
-    const ctx = oc.getContext('2d');
-    await page.render({{canvasContext:ctx, viewport:vp}}).promise;
-
-    const imgData = ctx.getImageData(0,0,oc.width,oc.height);
-    const dims    = detectDims(imgData, oc.width, oc.height);
-
-    // Floor texture from plan
-    const tex = new THREE.CanvasTexture(oc);
-    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-
-    buildContainer(dims.W, dims.D, tex);
-
-    // Center camera on model
-    tgt.set(0, dims.D*0.1, 0);
-    sph.r = Math.max(dims.W, dims.D)*2.2;
-    applyCam();
-
-    document.getElementById('loading').style.display='none';
-
-  }} catch(e) {{
+async function main(){{
+  try{{
+    setStep("📥 Descargando plano PDF…");
+    const resp=await fetch(PROXY);
+    if(!resp.ok) throw new Error("No se pudo descargar el plano ("+resp.status+")");
+    const buf=await resp.arrayBuffer();
+    setStep("🖼 Renderizando página…");
+    const pdf=await pdfjsLib.getDocument({{data:buf}}).promise;
+    const page=await pdf.getPage(1);
+    const vp=page.getViewport({{scale:2.0}});
+    const oc=document.createElement('canvas');
+    oc.width=vp.width;oc.height=vp.height;
+    const ctx=oc.getContext('2d');
+    await page.render({{canvasContext:ctx,viewport:vp}}).promise;
+    const b64=oc.toDataURL('image/png').split(',')[1];
+    const tex=new THREE.CanvasTexture(oc);
+    const layout=await analyzeWithClaude(b64);
+    console.log("Layout:",JSON.stringify(layout,null,2));
+    setStep("🏗 Construyendo modelo 3D…");
+    buildModel(layout,tex);
+    document.getElementById('loading').classList.add('hide');
+  }}catch(e){{
     console.error(e);
-    document.getElementById('loading').style.display='none';
-    const eb=document.getElementById('errbox');
-    eb.style.display='block';
-    eb.innerHTML='⚠️ No se pudo cargar el plano.<br><small>'+e.message+'</small><br><br><small>Verifica que el PDF sea accesible públicamente.</small>';
+    document.getElementById('loading').classList.add('hide');
+    const eb=document.getElementById('errbox');eb.style.display='block';
+    eb.innerHTML="⚠️ "+e.message+"<br><small style='opacity:.6'>Ver consola para detalles</small>";
   }}
 }}
-
-(function animate() {{ requestAnimationFrame(animate); renderer.render(scene,camera); }})();
 main();
-</script>
-</body>
-</html>
+</script></body></html>
 """
         import streamlit.components.v1 as _components
-        _components.html(_visor_html, height=600, scrolling=False)
+        _components.html(_visor_html, height=630, scrolling=False)
+
+        st.caption("⚠️ Beta: Claude Vision analiza el plano y construye el modelo 3D. Resultados dependen de la calidad del PDF.")
 
         st.caption("⚠️ Beta: La detección de paredes es automática y puede variar según la calidad del plano.")
 
