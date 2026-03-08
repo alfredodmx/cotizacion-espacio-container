@@ -2207,8 +2207,8 @@ with tab1:
     # Input oculto de margen - controlado desde el FAB flotante
     if st.session_state.modo_admin:
         margen_key = f"margen_input_{st.session_state.counter}"
-        st.markdown('<div style="display:none" id="margen-input-hidden">', unsafe_allow_html=True)
-        margen_input = st.number_input("Margen oculto", min_value=0.0, max_value=100.0, value=float(st.session_state.margen), step=0.5, format="%.1f", key=margen_key, label_visibility="collapsed")
+        st.markdown('<div id="margen-input-hidden" style="position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden;">', unsafe_allow_html=True)
+        margen_input = st.number_input("__MARGEN_FAB__", min_value=0.0, max_value=100.0, value=float(st.session_state.margen), step=0.5, format="%.1f", key=margen_key)
         st.markdown('</div>', unsafe_allow_html=True)
         if margen_input != st.session_state.margen:
             st.session_state.margen = margen_input
@@ -3225,18 +3225,34 @@ if _mostrar_fab_margen:
         // Aplicar margen: busca el number_input de Streamlit y le pone el valor
         function applyMargen() {{
             const val = parseFloat(parent.getElementById('fab-margen-input').value) || 0;
-            // Buscar el input numérico de margen en Streamlit
-            const inputs = parent.querySelectorAll('input[type="number"]');
-            for (const inp of inputs) {{
-                const label = inp.closest('[data-testid="stNumberInput"]');
-                if (label) {{
-                    const nativeInput = inp;
-                    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-                    nativeInputValueSetter.call(nativeInput, val.toFixed(1));
-                    nativeInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                    nativeInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                    break;
+            // Buscar el input de margen por su contenedor con id específico
+            const hiddenDiv = parent.getElementById('margen-input-hidden');
+            let targetInput = null;
+            if (hiddenDiv) {{
+                // Buscar el siguiente stNumberInput después del div oculto
+                let el = hiddenDiv.nextElementSibling;
+                while (el) {{
+                    const inp = el.querySelector('input[type="number"]');
+                    if (inp) {{ targetInput = inp; break; }}
+                    el = el.nextElementSibling;
                 }}
+            }}
+            // Buscar por label único __MARGEN_FAB__
+            if (!targetInput) {{
+                const allContainers = parent.querySelectorAll('[data-testid="stNumberInput"]');
+                for (const c of allContainers) {{
+                    const lbl = c.querySelector('label');
+                    if (lbl && lbl.textContent.includes('MARGEN_FAB')) {{
+                        targetInput = c.querySelector('input[type="number"]');
+                        break;
+                    }}
+                }}
+            }}
+            if (targetInput) {{
+                const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                setter.call(targetInput, val.toFixed(1));
+                targetInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                targetInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
             }}
             popup.classList.remove('visible');
         }}
