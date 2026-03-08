@@ -2204,15 +2204,20 @@ with tab1:
     if not st.session_state.modo_admin and st.session_state.margen > 0:
         st.caption(f"ℹ️ Margen del {st.session_state.margen}% aplicado")
 
-    # Input oculto de margen - controlado desde el FAB flotante
+    # Input oculto de margen - texto como intermediario desde FAB
     if st.session_state.modo_admin:
-        margen_key = f"margen_input_{st.session_state.counter}"
-        st.markdown('<div id="margen-input-hidden" style="position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden;">', unsafe_allow_html=True)
-        margen_input = st.number_input("__MARGEN_FAB__", min_value=0.0, max_value=100.0, value=float(st.session_state.margen), step=0.5, format="%.1f", key=margen_key)
+        st.markdown('<div style="position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden;" id="margen-fab-container">', unsafe_allow_html=True)
+        margen_fab_val = st.text_input("__MARGEN_FAB__", value="", key="margen_fab_input", label_visibility="hidden")
         st.markdown('</div>', unsafe_allow_html=True)
-        if margen_input != st.session_state.margen:
-            st.session_state.margen = margen_input
-            st.rerun()
+        if margen_fab_val:
+            try:
+                nuevo_margen = float(margen_fab_val.replace(',', '.'))
+                nuevo_margen = max(0.0, min(100.0, nuevo_margen))
+                if nuevo_margen != st.session_state.margen:
+                    st.session_state.margen = nuevo_margen
+                    st.rerun()
+            except ValueError:
+                pass
 
     if st.session_state.carrito:
         # Fila buscador — solo visible con productos
@@ -2240,6 +2245,7 @@ with tab1:
         comision_vendedor = subtotal_general * 0.025 if st.session_state.modo_admin else 0
         comision_supervisor = subtotal_general * 0.008 if st.session_state.modo_admin else 0
         total_comisiones = comision_vendedor + comision_supervisor
+        utilidad_real = margen_valor - total_comisiones if st.session_state.modo_admin else 0
         altura_tabla = 1400 if pantalla_completa else min(38 * len(carrito_df_con_margen) + 80, 420)
 
         if es_solo_lectura:
@@ -3225,27 +3231,14 @@ if _mostrar_fab_margen:
         // Aplicar margen: busca el number_input de Streamlit y le pone el valor
         function applyMargen() {{
             const val = parseFloat(parent.getElementById('fab-margen-input').value) || 0;
-            // Buscar el input de margen por su contenedor con id específico
-            const hiddenDiv = parent.getElementById('margen-input-hidden');
+            // Buscar el text_input con label __MARGEN_FAB__
+            const allContainers = parent.querySelectorAll('[data-testid="stTextInput"]');
             let targetInput = null;
-            if (hiddenDiv) {{
-                // Buscar el siguiente stNumberInput después del div oculto
-                let el = hiddenDiv.nextElementSibling;
-                while (el) {{
-                    const inp = el.querySelector('input[type="number"]');
-                    if (inp) {{ targetInput = inp; break; }}
-                    el = el.nextElementSibling;
-                }}
-            }}
-            // Buscar por label único __MARGEN_FAB__
-            if (!targetInput) {{
-                const allContainers = parent.querySelectorAll('[data-testid="stNumberInput"]');
-                for (const c of allContainers) {{
-                    const lbl = c.querySelector('label');
-                    if (lbl && lbl.textContent.includes('MARGEN_FAB')) {{
-                        targetInput = c.querySelector('input[type="number"]');
-                        break;
-                    }}
+            for (const c of allContainers) {{
+                const lbl = c.querySelector('label');
+                if (lbl && lbl.textContent.includes('MARGEN_FAB')) {{
+                    targetInput = c.querySelector('input[type="text"]');
+                    break;
                 }}
             }}
             if (targetInput) {{
@@ -3253,6 +3246,8 @@ if _mostrar_fab_margen:
                 setter.call(targetInput, val.toFixed(1));
                 targetInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
                 targetInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                // Simular Enter para que Streamlit procese el valor
+                targetInput.dispatchEvent(new KeyboardEvent('keydown', {{ key: 'Enter', keyCode: 13, bubbles: true }}));
             }}
             popup.classList.remove('visible');
         }}
