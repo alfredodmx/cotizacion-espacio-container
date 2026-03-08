@@ -1428,28 +1428,29 @@ else:
         </linearGradient></defs>
     </svg>'''
 
-st.markdown(f'''
-<div style="
-    display:flex; justify-content:space-between; align-items:center;
-    padding: 1.2rem 1.8rem;
-    background: #ffffff;
-    border-radius: 18px;
-    border: 1.5px solid #e2e6f3;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-    margin-bottom: 1.5rem;
-">
-    <div style="display:flex; flex-direction:column; gap:0.15rem;">
-        <span class="main-title">Cotizador PRO</span>
-        <div class="sub-title">Sistema profesional de cotizaciones</div>
+col_header, col_admin = st.columns([5, 1])
+with col_header:
+    st.markdown(f'''
+    <div style="
+        display:flex; justify-content:space-between; align-items:center;
+        padding: 1.2rem 1.8rem;
+        background: #ffffff;
+        border-radius: 18px;
+        border: 1.5px solid #e2e6f3;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        margin-bottom: 1.5rem;
+    ">
+        <div style="display:flex; flex-direction:column; gap:0.15rem;">
+            <span class="main-title">Cotizador PRO</span>
+            <div class="sub-title">Sistema profesional de cotizaciones</div>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.5rem;">
+            {_logo_html}
+        </div>
     </div>
-    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.5rem;">
-        {_logo_html}
-    </div>
-</div>
-''', unsafe_allow_html=True)
-
-_, col_admin = st.columns([4, 1])
+    ''', unsafe_allow_html=True)
 with col_admin:
+    st.markdown('<div style="height:1.5rem"></div>', unsafe_allow_html=True)
     if st.session_state.modo_admin:
         with st.popover("👑 Admin ▾", use_container_width=True):
             st.markdown("**📦 Exportar base de datos**")
