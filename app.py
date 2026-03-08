@@ -2214,15 +2214,14 @@ with tab1:
             st.session_state.margen = margen_input
             st.rerun()
 
-    # Fila buscador centrada
-    col_vacio1, col_search_c, col_fs_c, col_vacio2 = st.columns([1, 3, 0.5, 1])
-    with col_search_c:
-        buscar_tabla = st.text_input("🔍", placeholder="Filtrar por categoría o ítem...", key="buscar_tabla_presupuesto", label_visibility="collapsed")
-    with col_fs_c:
-        pantalla_completa = st.toggle("⛶", key="tabla_fullscreen", value=st.session_state.get("tabla_fullscreen_val", False), help="Expandir tabla")
-        st.session_state.tabla_fullscreen_val = pantalla_completa
-
     if st.session_state.carrito:
+        # Fila buscador — solo visible con productos
+        col_vacio1, col_search_c, col_fs_c, col_vacio2 = st.columns([1, 3, 0.5, 1])
+        with col_search_c:
+            buscar_tabla = st.text_input("🔍", placeholder="Filtrar por categoría o ítem...", key="buscar_tabla_presupuesto", label_visibility="collapsed")
+        with col_fs_c:
+            pantalla_completa = st.toggle("⛶", key="tabla_fullscreen", value=st.session_state.get("tabla_fullscreen_val", False), help="Expandir tabla")
+            st.session_state.tabla_fullscreen_val = pantalla_completa
         carrito_df = pd.DataFrame(st.session_state.carrito)
         subtotal_base = carrito_df["Subtotal"].sum()
 
