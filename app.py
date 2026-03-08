@@ -2588,7 +2588,6 @@ with tab3:
         """
         st.markdown(html_table, unsafe_allow_html=True)
 
-        st.markdown("---")
         st.markdown("### Seleccionar cotización")
 
         opciones = []
