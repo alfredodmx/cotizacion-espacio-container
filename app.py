@@ -161,7 +161,7 @@ if _mgfab is not None:
     st.query_params.clear()
 
 # ── Leer acción guardar desde FAB via query_params ───────
-if st.query_params.get("_fab_guardar") == "1":
+if st.query_params.get("_fabg") == "1":
     st.query_params.clear()
     st.session_state['_trigger_guardar_fab'] = True
 # ────────────────────────────────────────────────────────
@@ -2962,7 +2962,7 @@ components.html("""
 """, height=0)
 
 # =========================================================
-# FAB - BOTÓN GUARDAR FLOTANTE
+# FAB - BOTÓN GUARDAR FLOTANTE (st.popover — mismo patrón que margen)
 # =========================================================
 _es_solo_lectura = (
     st.session_state.cotizacion_cargada and
@@ -2986,59 +2986,43 @@ if st.session_state.get('recien_guardado', False):
 if st.session_state.get('recien_cargado', False):
     st.session_state.recien_cargado = False
 
-# Capturar trigger del FAB guardar via postMessage/setComponentValue
-if st.session_state.get('_trigger_guardar_fab'):
-    del st.session_state['_trigger_guardar_fab']
-    datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
-    num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
-    guardar_cotizacion(num_g, datos_c, datos_a, proy,
-                       st.session_state.carrito, cfg, tots, pl_n, pl_d)
-    st.session_state.hash_ultimo_guardado = calcular_hash_estado()
-    st.session_state.recien_guardado = True
-    st.session_state.mostrar_toast_exito = True
-    st.session_state.toast_numero_ep = num_g
-    st.rerun()
-
 if _mostrar_fab:
-    _fab_guardar_val = components.html("""<!DOCTYPE html><html><head>
+    st.markdown("""
 <style>
-body{margin:0;padding:0;background:transparent;font-family:sans-serif;}
-@keyframes pulse-fab{
+@keyframes pulse-fab {
   0%{box-shadow:0 8px 24px rgba(91,124,250,0.5);}
   50%{box-shadow:0 8px 40px rgba(91,124,250,0.9),0 0 0 12px rgba(91,124,250,0.15);}
   100%{box-shadow:0 8px 24px rgba(91,124,250,0.5);}
 }
-#fab-btn{
-  position:fixed;bottom:1.5rem;left:2rem;z-index:2147483646;
-  background:linear-gradient(135deg,#5b7cfa,#8b5cf6);
-  color:white;border:none;border-radius:50px;
-  padding:0.85rem 1.6rem;font-size:0.95rem;font-weight:700;
-  cursor:pointer;white-space:nowrap;
-  animation:pulse-fab 2s infinite;
-  box-shadow:0 8px 24px rgba(91,124,250,0.5);
+/* FAB Guardar — primer popover de la página */
+div[data-testid="stPopover"]:first-of-type {
+    position: fixed !important; bottom: 1.5rem !important;
+    left: 2rem !important; z-index: 99999 !important;
 }
-#fab-btn:hover{transform:translateY(-2px);animation:none;}
-</style></head><body>
-<button id="fab-btn">&#128190; Guardar</button>
-<script>
-document.getElementById('fab-btn').onclick = function() {
-  window.parent.postMessage({isStreamlitMessage:true, type:'streamlit:setComponentValue', value:'guardar'}, '*');
-};
-</script>
-</body></html>""", height=90)
+div[data-testid="stPopover"]:first-of-type > div > button {
+    background: linear-gradient(135deg,#5b7cfa,#8b5cf6) !important;
+    color: white !important; border: none !important;
+    border-radius: 50px !important; padding: 0.8rem 1.6rem !important;
+    font-size: 0.95rem !important; font-weight: 700 !important;
+    white-space: nowrap !important; animation: pulse-fab 2s infinite !important;
+    box-shadow: 0 8px 24px rgba(91,124,250,0.5) !important;
+    min-height: unset !important; height: auto !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
-    if _fab_guardar_val == 'guardar':
-        st.session_state['_trigger_guardar_fab'] = True
-        st.rerun()
-
-else:
-    components.html("""<script>
-(function(){
-  var D=window.parent.document;
-  var b=D.getElementById('fab-guardar-btn'); if(b) b.remove();
-  var s=D.getElementById('fab-guardar-style'); if(s) s.remove();
-})();
-</script>""", height=0)
+    with st.popover("💾 Guardar"):
+        st.markdown("**¿Guardar cotización?**")
+        if st.button("✅ Confirmar guardar", key="btn_confirmar_guardar", use_container_width=True, type="primary"):
+            datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
+            num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
+            guardar_cotizacion(num_g, datos_c, datos_a, proy,
+                               st.session_state.carrito, cfg, tots, pl_n, pl_d)
+            st.session_state.hash_ultimo_guardado = calcular_hash_estado()
+            st.session_state.recien_guardado = True
+            st.session_state.mostrar_toast_exito = True
+            st.session_state.toast_numero_ep = num_g
+            st.rerun()
 
 # =========================================================
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
@@ -3051,13 +3035,13 @@ if st.session_state.modo_admin:
     # CSS para posicionar el popover como FAB flotante
     st.markdown(f"""
 <style>
-div[data-testid="stPopover"] {{
+div[data-testid="stPopover"]:last-of-type {{
     position: fixed !important;
     bottom: 1.5rem !important;
     left: 12rem !important;
     z-index: 99998 !important;
 }}
-div[data-testid="stPopover"] > div > button {{
+div[data-testid="stPopover"]:last-of-type > div > button {{
     background: linear-gradient(135deg, {_color_fab}, {_color_fab}dd) !important;
     color: white !important;
     border: none !important;
