@@ -3246,15 +3246,21 @@ if st.session_state.modo_admin:
       var tWin=tDoc.defaultView||tDoc.parentWindow;
       target.dispatchEvent(new tWin.Event('input',{{bubbles:true}}));
       target.dispatchEvent(new tWin.Event('change',{{bubbles:true}}));
-      // text_input de Streamlit confirma con Enter
+      // Streamlit text_input se confirma con blur - forzar blur moviendo foco
       setTimeout(function(){{
-        var opts={{key:'Enter',code:'Enter',keyCode:13,which:13,bubbles:true,cancelable:true}};
-        target.dispatchEvent(new tWin.KeyboardEvent('keydown', opts));
-        target.dispatchEvent(new tWin.KeyboardEvent('keypress',opts));
-        target.dispatchEvent(new tWin.KeyboardEvent('keyup',   opts));
-        // También hacer blur para que Streamlit detecte el cambio
-        setTimeout(function(){{ target.blur(); }},50);
-      }},50);
+        target.blur();
+        // Mover foco al body para garantizar el blur event
+        tDoc.body.focus();
+        // Fallback: click en cualquier elemento neutro
+        setTimeout(function(){{
+          var overlay = tDoc.createElement('button');
+          overlay.style.cssText='position:fixed;top:-999px;left:-999px;opacity:0;';
+          tDoc.body.appendChild(overlay);
+          overlay.focus();
+          overlay.click();
+          setTimeout(function(){{ overlay.remove(); }}, 100);
+        }}, 30);
+      }}, 50);
     }}
     p.classList.remove('on');
   }});
