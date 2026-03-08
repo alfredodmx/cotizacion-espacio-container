@@ -1428,31 +1428,31 @@ else:
         </linearGradient></defs>
     </svg>'''
 
-col_header, col_admin = st.columns([5, 1])
-with col_header:
-    st.markdown(f'''
-    <div style="
-        display:flex; justify-content:space-between; align-items:center;
-        padding: 1.2rem 1.8rem;
-        background: #ffffff;
-        border-radius: 18px;
-        border: 1.5px solid #e2e6f3;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-        margin-bottom: 1.5rem;
-    ">
-        <div style="display:flex; flex-direction:column; gap:0.15rem;">
-            <span class="main-title">Cotizador PRO</span>
-            <div class="sub-title">Sistema profesional de cotizaciones</div>
-        </div>
-        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.5rem;">
-            {_logo_html}
-        </div>
+st.markdown(f'''
+<div style="
+    display:flex; justify-content:space-between; align-items:center;
+    padding: 1.2rem 1.8rem;
+    background: #ffffff;
+    border-radius: 18px;
+    border: 1.5px solid #e2e6f3;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    margin-bottom: 0.8rem;
+">
+    <div style="display:flex; flex-direction:column; gap:0.15rem;">
+        <span class="main-title">Cotizador PRO</span>
+        <div class="sub-title">Sistema profesional de cotizaciones</div>
     </div>
-    ''', unsafe_allow_html=True)
-with col_admin:
-    st.markdown('<div style="height:1.5rem"></div>', unsafe_allow_html=True)
+    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.5rem;">
+        {_logo_html}
+    </div>
+</div>
+''', unsafe_allow_html=True)
+
+# Barra admin — alineada a la derecha debajo del header
+_col_esp, _col_admin_btn = st.columns([3, 1])
+with _col_admin_btn:
     if not st.session_state.modo_admin:
-        with st.popover("🔐 Admin", use_container_width=True):
+        with st.popover("🔐 Admin ▾", use_container_width=True):
             st.markdown("### Acceso Administrativo")
             st.markdown("Ingrese su clave de autorización:")
             clave_input = st.text_input("Clave", type="password", key="clave_admin_header", label_visibility="collapsed")
@@ -1468,13 +1468,13 @@ with col_admin:
                         st.rerun()
                     else:
                         st.error("❌ Clave incorrecta")
+    else:
+        st.markdown('<div style="padding-top:0.3rem;font-weight:700;color:#5b7cfa;text-align:right;">👑 Admin Activo</div>', unsafe_allow_html=True)
 
-# Fila de herramientas admin — solo visible cuando modo_admin está activo
+# Herramientas admin — solo cuando está activo
 if st.session_state.modo_admin:
-    col_adm_lbl, col_adm_csv, col_adm_cerrar = st.columns([3, 1, 1])
-    with col_adm_lbl:
-        st.markdown('<div style="padding-top:0.4rem;font-weight:700;color:#5b7cfa;text-align:right;">👑 Modo Admin Activo</div>', unsafe_allow_html=True)
-    with col_adm_csv:
+    _col_esp2, _col_csv, _col_cerrar = st.columns([3, 1, 1])
+    with _col_csv:
         if st.button("📦 Exportar CSV", key="btn_generar_csv", use_container_width=True):
             st.session_state._csv_listo = exportar_csv_completo()
         if st.session_state.get('_csv_listo'):
@@ -1488,7 +1488,7 @@ if st.session_state.modo_admin:
                 use_container_width=True,
                 key="btn_export_csv"
             )
-    with col_adm_cerrar:
+    with _col_cerrar:
         if st.button("🔓 Cerrar sesión", key="btn_cerrar_sesion_header", use_container_width=True):
             st.session_state.modo_admin = False
             st.session_state._csv_listo = None
