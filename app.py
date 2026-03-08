@@ -2408,9 +2408,8 @@ with tab1:
         st.markdown("---")
 
         if st.session_state.modo_admin:
-            if st.session_state.margen > 0:
-                col_total_card, col_comisiones_card, col_utilidad_card = st.columns(3)
-                with col_total_card:
+            col_total_card, col_comisiones_card, col_utilidad_card = st.columns(3)
+            with col_total_card:
                     st.markdown(f'''
                     <div class="metric-card-special metric-card-total" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
                         <div>
@@ -2426,7 +2425,7 @@ with tab1:
                             <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(total)}</span>
                         </div>
                     </div>''', unsafe_allow_html=True)
-                with col_comisiones_card:
+            with col_comisiones_card:
                     st.markdown(f'''
                     <div class="metric-card-special metric-card-comisiones" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
                         <div>
@@ -2440,7 +2439,7 @@ with tab1:
                             <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(total_comisiones)}</span>
                         </div>
                     </div>''', unsafe_allow_html=True)
-                with col_utilidad_card:
+            with col_utilidad_card:
                     st.markdown(f'''
                     <div class="metric-card-special metric-card-utilidad" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
                         <div>
@@ -2454,11 +2453,7 @@ with tab1:
                             <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(utilidad_real)}</span>
                         </div>
                     </div>''', unsafe_allow_html=True)
-            else:
-                col_t, col_c, col_u = st.columns(3)
-                for col, label, val in [(col_t, "TOTAL CON IVA", total), (col_c, "COMISIONES", 0), (col_u, "UTILIDAD REAL", 0)]:
-                    with col:
-                        st.markdown(f'<div class="metric-card-special" style="opacity:0.7;padding:1.5rem;display:flex;flex-direction:column;"><div class="metric-title">{label}</div><div style="flex:1;"></div><div style="border-top:2px solid rgba(255,255,255,0.3);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:flex-end;"><span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(val)}</span></div></div>', unsafe_allow_html=True)
+
         else:
             col_t1, col_t2, col_t3 = st.columns([1, 2, 1])
             with col_t2:
@@ -3190,6 +3185,7 @@ if st.session_state.modo_admin:
   var disp=D.getElementById('_fm_disp');
 
   D.getElementById('_fm_pad').addEventListener('click',function(e){{
+    e.stopPropagation();
     var t=e.target; if(!t||t.tagName!=='BUTTON') return;
     var n=t.textContent.trim();
     if(t.id==='_fm_c') cur='0';
@@ -3199,39 +3195,27 @@ if st.session_state.modo_admin:
     disp.textContent=cur+'%';
   }});
 
-  D.getElementById('_fm_ok').addEventListener('click',function(){{
+  D.getElementById('_fm_ok').addEventListener('click',function(e){{
+    e.stopPropagation();
     var val=Math.max(0,Math.min(100,parseFloat(cur)||0));
-    // Buscar el input de margen: es el UNICO number input dentro de un elemento
-    // que tiene un pequeño caption "Margen %" justo arriba
+    // Buscar el input de margen: step=0.5 y dentro de la tab de cotizacion
+    var allInputs=D.querySelectorAll('[data-testid="stNumberInput"] input[type="number"]');
     var target=null;
-    // Buscar por el small/caption que dice "Margen %"
-    var smalls=D.querySelectorAll('div[data-testid="stCaptionContainer"]');
-    for(var i=0;i<smalls.length;i++){{
-      if(smalls[i].textContent.trim().indexOf('Margen')>=0){{
-        // El input está en el siguiente stNumberInput hermano o en el padre
-        var col=smalls[i].closest('[data-testid="stColumn"]');
-        if(col){{
-          target=col.querySelector('input[type="number"]');
-        }}
-        break;
-      }}
-    }}
-    // Fallback: buscar input en col_res_margen por posición
-    if(!target){{
-      var allNI=D.querySelectorAll('[data-testid="stNumberInput"] input[type="number"]');
-      // El de margen es el que tiene step 0.5 - buscar por step attribute
-      for(var k=0;k<allNI.length;k++){{
-        if(allNI[k].getAttribute('step')==='0.5'){{ target=allNI[k]; break; }}
+    for(var i=0;i<allInputs.length;i++){{
+      if(allInputs[i].step==='0.5' || allInputs[i].getAttribute('step')==='0.5'){{
+        target=allInputs[i]; break;
       }}
     }}
     if(target){{
+      target.focus();
       var setter=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
-      setter.call(target, val.toFixed(1));
+      setter.call(target,val.toFixed(1));
       target.dispatchEvent(new Event('input',{{bubbles:true}}));
       target.dispatchEvent(new Event('change',{{bubbles:true}}));
       setTimeout(function(){{
-        target.dispatchEvent(new KeyboardEvent('keydown',{{key:'Enter',keyCode:13,bubbles:true}}));
-      }},50);
+        target.dispatchEvent(new KeyboardEvent('keydown',{{key:'Enter',keyCode:13,which:13,bubbles:true}}));
+        target.blur();
+      }},100);
     }}
     p.classList.remove('on');
   }});
