@@ -159,6 +159,11 @@ if _mgfab is not None:
     except ValueError:
         pass
     st.query_params.clear()
+
+# ── Leer acción guardar desde FAB via query_params ───────
+if st.query_params.get("_fab_guardar") == "1":
+    st.query_params.clear()
+    st.session_state['_trigger_guardar_fab'] = True
 # ────────────────────────────────────────────────────────
 
 if 'counter' not in st.session_state:
@@ -2981,38 +2986,31 @@ if st.session_state.get('recien_guardado', False):
 if st.session_state.get('recien_cargado', False):
     st.session_state.recien_cargado = False
 
-# Botón real oculto — el FAB JS del DOM padre lo clickea dentro del iframe
-st.markdown('''<style>
-/* Ocultar wrapper del botón guardar oculto */
-[data-testid="stVerticalBlock"] > [data-testid="element-container"]:has(div[data-testid="stEmptyBlock"]) { height:0!important; overflow:hidden!important; }
-</style>''', unsafe_allow_html=True)
-if len(st.session_state.get('carrito', [])) > 0 and not _es_solo_lectura:
-    # Wrapper invisible — Streamlit renderiza el botón pero queda fuera de vista
-    _guardar_container = st.empty()
-    with _guardar_container.container():
-        if st.button("💾 Guardar", key="btn_guardar_real_oculto"):
-            datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
-            num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
-            guardar_cotizacion(num_g, datos_c, datos_a, proy,
-                               st.session_state.carrito, cfg, tots, pl_n, pl_d)
-            st.session_state.hash_ultimo_guardado = calcular_hash_estado()
-            st.session_state.recien_guardado = True
-            st.session_state.mostrar_toast_exito = True
-            st.session_state.toast_numero_ep = num_g
-            st.rerun()
+# Trigger: el FAB JS setea este flag, Streamlit lo procesa en el rerun
+if st.session_state.get('_trigger_guardar_fab'):
+    del st.session_state['_trigger_guardar_fab']
+    datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
+    num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
+    guardar_cotizacion(num_g, datos_c, datos_a, proy,
+                       st.session_state.carrito, cfg, tots, pl_n, pl_d)
+    st.session_state.hash_ultimo_guardado = calcular_hash_estado()
+    st.session_state.recien_guardado = True
+    st.session_state.mostrar_toast_exito = True
+    st.session_state.toast_numero_ep = num_g
+    st.rerun()
 
 if _mostrar_fab:
     components.html("""
     <script>
     (function() {
         var D = window.parent.document;
-        // Limpiar anterior
-        var old = D.getElementById('fab-guardar-wrapper');
+        var old = D.getElementById('fab-guardar-btn');
         if (old) old.remove();
+        var os = D.getElementById('fab-guardar-style');
+        if (os) os.remove();
 
-        // Estilos
-        var style = D.getElementById('fab-guardar-style');
-        if (!style) { style = D.createElement('style'); style.id='fab-guardar-style'; D.head.appendChild(style); }
+        var style = D.createElement('style');
+        style.id = 'fab-guardar-style';
         style.textContent = `
             @keyframes pulse-fab {
                 0%   { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
@@ -3026,45 +3024,32 @@ if _mostrar_fab:
                 padding: 0.85rem 1.6rem; font-size: 0.95rem; font-weight: 700;
                 cursor: pointer; white-space: nowrap; font-family: sans-serif;
                 animation: pulse-fab 2s infinite;
-                box-shadow: 0 8px 24px rgba(91,124,250,0.5);
             }
             #fab-guardar-btn:hover { transform: translateY(-2px); animation: none; }
         `;
+        D.head.appendChild(style);
 
-        // Botón flotante
         var btn = D.createElement('button');
         btn.id = 'fab-guardar-btn';
-        btn.innerHTML = '💾 Guardar';
+        btn.innerHTML = '&#128190; Guardar';
         btn.onclick = function() {
-            // Buscar el botón real dentro de todos los iframes
-            var frames = D.querySelectorAll('iframe');
-            for (var i = 0; i < frames.length; i++) {
-                try {
-                    var btns = frames[i].contentDocument.querySelectorAll('button');
-                    for (var j = 0; j < btns.length; j++) {
-                        var txt = (btns[j].innerText || btns[j].textContent || '').trim();
-                        if (txt === '💾 Guardar' && !btns[j].disabled) {
-                            btns[j].click();
-                            return;
-                        }
-                    }
-                } catch(e) {}
-            }
+            // Navegar con query param — Streamlit lo lee al inicio y guarda
+            var url = new URL(window.parent.location.href);
+            url.searchParams.set('_fab_guardar', '1');
+            window.parent.location.replace(url.toString());
         };
         D.body.appendChild(btn);
     })();
     </script>
     """, height=0)
 else:
-    components.html("""
-    <script>
-    (function() {
-        var D = window.parent.document;
-        var b = D.getElementById('fab-guardar-btn');
-        if (b) b.remove();
+    components.html("""<script>
+    (function(){
+        var D=window.parent.document;
+        var b=D.getElementById('fab-guardar-btn'); if(b) b.remove();
+        var s=D.getElementById('fab-guardar-style'); if(s) s.remove();
     })();
-    </script>
-    """, height=0)
+    </script>""", height=0)
 
 # =========================================================
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
