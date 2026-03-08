@@ -483,7 +483,6 @@ def construir_datos_para_guardar():
 def evaluar_estado_cotizacion(cotizacion):
     datos_completos = all([
         cotizacion.get('cliente_nombre', ''),
-        cotizacion.get('cliente_rut', ''),
         cotizacion.get('cliente_email', '')
     ])
     asesor_completo = any([
@@ -509,7 +508,7 @@ def crear_badge_estado(row):
     asesor_nombre = row[2]
     asesor_email = row[8]
     asesor_telefono = row[9]
-    datos_completos = all([cliente_nombre, cliente_rut, cliente_email])
+    datos_completos = all([cliente_nombre, cliente_email])
     asesor_completo = any([asesor_nombre, asesor_email, asesor_telefono])
     if config_margen and config_margen > 0:
         if datos_completos and asesor_completo:
@@ -619,7 +618,6 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
         tiene_plano = plano_datos is not None
         datos_completos = all([
             str(cliente.get('Nombre', '')).strip(),
-            str(cliente.get('RUT', '')).strip(),
             str(cliente.get('Correo', '')).strip()
         ])
         asesor_completo = any([
