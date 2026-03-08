@@ -26,6 +26,13 @@ st.set_page_config(layout="wide", page_title="Cotizador PRO", page_icon="📊")
 SUPABASE_URL = "https://rpjktwxitceqylexcaqw.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwamt0d3hpdGNlcXlsZXhjYXF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MzUyMzYsImV4cCI6MjA4ODQxMTIzNn0.LoZN1W7X1pjVgNLFyVRfzQ8iHFp5JN2qw2Egu5yJq0E"
 
+# API key de Anthropic para el Visor 3D (leer de secrets o env)
+import os as _os_init
+ANTHROPIC_API_KEY = (
+    _os_init.environ.get("ANTHROPIC_API_KEY", "") or
+    (st.secrets.get("ANTHROPIC_API_KEY", "") if hasattr(st, "secrets") else "")
+)
+
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def verificar_conexion_supabase():
@@ -3118,6 +3125,61 @@ else:
 # =========================================================
 # TAB 4 - 3D BETA
 # =========================================================
+
+def _analizar_plano_con_claude(pdf_bytes):
+    """Descarga PDF, renderiza imagen, llama Claude Vision, retorna layout JSON."""
+    import fitz  # PyMuPDF
+    import base64, anthropic, json
+
+    # Renderizar primera página del PDF
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    page = doc[0]
+    mat = fitz.Matrix(2.0, 2.0)
+    pix = page.get_pixmap(matrix=mat)
+    img_bytes = pix.tobytes("png")
+    doc.close()
+
+    # Convertir a base64
+    img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+
+    # Llamar a Claude Vision
+    client = anthropic.Anthropic(api_key=SUPABASE_KEY.replace(SUPABASE_KEY, __import__("os").environ.get("ANTHROPIC_API_KEY", "")))
+    # Usar la clave de Anthropic directamente
+    import httpx
+    resp = httpx.post(
+        "https://api.anthropic.com/v1/messages",
+        headers={
+            "x-api-key": __import__("os").environ.get("ANTHROPIC_API_KEY", ""),
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json"
+        },
+        json={
+            "model": "claude-opus-4-5",
+            "max_tokens": 1024,
+            "messages": [{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {"type": "base64", "media_type": "image/png", "data": img_b64}
+                    },
+                    {
+                        "type": "text",
+                        "text": """Analiza esta planta arquitectónica de un container house.
+Responde SOLO con JSON válido, sin texto extra ni markdown:
+{"width":<ancho total metros>,"depth":<profundidad total metros>,"wallHeight":2.8,"walls":[{"side":"front","openings":[{"type":"door","x":<pos x desde centro>,"y":<centro y desde suelo>,"w":<ancho>,"h":<alto>},{"type":"window","x":...,"y":...,"w":...,"h":...}]},{"side":"back","openings":[...]},{"side":"left","openings":[...]},{"side":"right","openings":[...]}]}
+Reglas: puertas ~0.9x2.1m (y=1.05), ventanas ~1.2x1.0m (y=1.2). x relativo al centro de la pared (negativo=izquierda). Detecta TODAS las aberturas visibles."""
+                    }
+                ]
+            }]
+        },
+        timeout=30
+    )
+    data = resp.json()
+    txt = "".join(b.get("text","") for b in data.get("content",[])).strip()
+    txt = txt.replace("```json","").replace("```","").strip()
+    return json.loads(txt), img_b64
+
 with tab4:
     st.markdown("### 🧊 Visor 3D Beta")
     st.caption("Selecciona un presupuesto con plano adjunto para generar su prototipo 3D interactivo.")
@@ -3144,203 +3206,329 @@ with tab4:
 
         st.markdown(f"📎 **Plano:** `{_opciones_3d[_idx_3d]['plano_nombre'] or 'plano.pdf'}`")
 
-        # Descargar PDF en el servidor Python y convertir a base64
-        import requests as _req
-        import base64 as _b64
-        _pdf_b64_3d = ""
-        _pdf_error_3d = ""
-        try:
-            _r = _req.get(_plano_url_3d, timeout=15)
-            _r.raise_for_status()
-            _pdf_b64_3d = _b64.b64encode(_r.content).decode('utf-8')
-        except Exception as _e:
-            _pdf_error_3d = str(_e)
+        # Cache por URL para no reprocesar al rerenderizar
+        _cache_key = f"layout_3d_{_plano_url_3d}"
+        _layout_3d = st.session_state.get(_cache_key)
+        _img_b64_3d = st.session_state.get(f"img_3d_{_plano_url_3d}", "")
 
-        if _pdf_error_3d:
-            st.error(f"❌ No se pudo descargar el plano: {_pdf_error_3d}")
-        else:
-            _visor_html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
+        col_btn_3d, col_status_3d = st.columns([1, 4])
+        with col_btn_3d:
+            _btn_generar = st.button("🏗️ Generar 3D", key="btn_generar_3d", use_container_width=True,
+                                      disabled=(_layout_3d is not None))
+        with col_status_3d:
+            if _layout_3d:
+                st.success(f"✅ Modelo generado — {_layout_3d.get('width',0):.1f}m × {_layout_3d.get('depth',0):.1f}m")
+
+        if _btn_generar:
+            with st.spinner("📥 Descargando plano..."):
+                try:
+                    import requests as _req
+                    _r = _req.get(_plano_url_3d, timeout=20)
+                    _r.raise_for_status()
+                    _pdf_bytes = _r.content
+                except Exception as _e:
+                    st.error(f"❌ No se pudo descargar el plano: {_e}")
+                    _pdf_bytes = None
+
+            if _pdf_bytes:
+                with st.spinner("🖼️ Renderizando página del plano..."):
+                    try:
+                        import fitz as _fitz
+                        _doc = _fitz.open(stream=_pdf_bytes, filetype="pdf")
+                        _page = _doc[0]
+                        _pix = _page.get_pixmap(matrix=_fitz.Matrix(2.0, 2.0))
+                        _img_bytes = _pix.tobytes("png")
+                        _doc.close()
+                        import base64 as _b64
+                        _img_b64_3d = _b64.b64encode(_img_bytes).decode("utf-8")
+                        st.session_state[f"img_3d_{_plano_url_3d}"] = _img_b64_3d
+                    except Exception as _e:
+                        st.error(f"❌ Error al renderizar PDF: {_e}. Asegúrate de instalar PyMuPDF: pip install pymupdf")
+                        _img_b64_3d = ""
+
+                if _img_b64_3d:
+                    with st.spinner("🤖 Analizando plano con IA..."):
+                        try:
+                            import httpx as _httpx, json as _json
+                            _api_key = ANTHROPIC_API_KEY
+                            if not _api_key:
+                                raise ValueError("ANTHROPIC_API_KEY no configurada")
+                            _cv_resp = _httpx.post(
+                                "https://api.anthropic.com/v1/messages",
+                                headers={
+                                    "x-api-key": _api_key,
+                                    "anthropic-version": "2023-06-01",
+                                    "content-type": "application/json"
+                                },
+                                json={
+                                    "model": "claude-sonnet-4-20250514",
+                                    "max_tokens": 1024,
+                                    "messages": [{
+                                        "role": "user",
+                                        "content": [
+                                            {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": _img_b64_3d}},
+                                            {"type": "text", "text": 'Analiza esta planta arquitectónica de un container house. Responde SOLO con JSON válido sin texto extra ni markdown. Formato exacto: {"width":<ancho metros>,"depth":<profundidad metros>,"wallHeight":2.8,"walls":[{"side":"front","openings":[{"type":"door","x":<x desde centro pared>,"y":1.05,"w":0.9,"h":2.1},{"type":"window","x":<x>,"y":1.2,"w":1.2,"h":1.0}]},{"side":"back","openings":[...]},{"side":"left","openings":[...]},{"side":"right","openings":[...]}]}. Detecta TODAS las puertas y ventanas visibles. x es posición desde el centro de esa pared en metros (negativo=izquierda).'}
+                                        ]
+                                    }]
+                                },
+                                timeout=30
+                            )
+                            _cv_data = _cv_resp.json()
+                            _cv_txt = "".join(b.get("text","") for b in _cv_data.get("content",[])).strip()
+                            _cv_txt = _cv_txt.replace("```json","").replace("```","").strip()
+                            _layout_3d = _json.loads(_cv_txt)
+                            st.session_state[_cache_key] = _layout_3d
+                            st.rerun()
+                        except ValueError as _ve:
+                            # Sin API key: análisis geométrico local
+                            st.warning(f"⚠️ {_ve} — usando análisis geométrico local")
+                            try:
+                                import base64 as _b64c, io, json as _json
+                                from PIL import Image as _PIL_Image
+                                import numpy as _np
+
+                                _img_data = _b64c.b64decode(_img_b64_3d)
+                                _pil_img = _PIL_Image.open(io.BytesIO(_img_data)).convert("L")
+                                _arr = _np.array(_pil_img)
+                                ih, iw = _arr.shape
+
+                                # Bounding box del contenido oscuro (paredes)
+                                _dark = _arr < 100
+                                _rows = _np.any(_dark, axis=1)
+                                _cols = _np.any(_dark, axis=0)
+                                _r0,_r1 = _np.where(_rows)[0][[0,-1]]
+                                _c0,_c1 = _np.where(_cols)[0][[0,-1]]
+
+                                # Escala: asumir que el plano representa un container HC
+                                # Maitencillo HC: 6.0 x 3.0 m típico, o 9.0 x 3.0 m
+                                _ratio = (_c1-_c0) / max(_r1-_r0, 1)
+                                if _ratio > 2.5:
+                                    _W, _D = 9.0, 3.0
+                                elif _ratio > 1.8:
+                                    _W, _D = 6.0, 3.0
+                                else:
+                                    _W, _D = 6.0, 3.0
+
+                                # Detectar aberturas por proyección de píxeles claros en bordes
+                                def _find_openings(edge_strip, wall_len, side):
+                                    """Detecta zonas claras (aberturas) en un strip del borde"""
+                                    bright = edge_strip > 200
+                                    openings = []
+                                    in_gap = False
+                                    gap_start = 0
+                                    min_gap = int(iw * 0.05)  # mínimo 5% del ancho
+                                    for i, b in enumerate(bright):
+                                        if b and not in_gap:
+                                            in_gap = True; gap_start = i
+                                        elif not b and in_gap:
+                                            in_gap = False
+                                            gap_w = i - gap_start
+                                            if gap_w >= min_gap:
+                                                cx = (gap_start + i/2) / len(bright) * wall_len - wall_len/2
+                                                w_m = gap_w / len(bright) * wall_len
+                                                if w_m < 1.5:  # puerta
+                                                    openings.append({"type":"door","x":round(cx,2),"y":1.05,"w":round(min(w_m,1.0),2),"h":2.1})
+                                                else:  # ventana
+                                                    openings.append({"type":"window","x":round(cx,2),"y":1.2,"w":round(min(w_m,1.5),2),"h":1.0})
+                                    return openings
+
+                                _strip_h = max(5, int(ih*0.05))
+                                _strip_w = max(5, int(iw*0.05))
+                                _front_strip = _arr[_r1-_strip_h:_r1, _c0:_c1].mean(axis=0)
+                                _back_strip  = _arr[_r0:_r0+_strip_h, _c0:_c1].mean(axis=0)
+                                _left_strip  = _arr[_r0:_r1, _c0:_c0+_strip_w].mean(axis=1)
+                                _right_strip = _arr[_r0:_r1, _c1-_strip_w:_c1].mean(axis=1)
+
+                                _layout_3d = {
+                                    "width": _W, "depth": _D, "wallHeight": 2.8,
+                                    "walls": [
+                                        {"side":"front",  "openings": _find_openings(_front_strip, _W, "front")},
+                                        {"side":"back",   "openings": _find_openings(_back_strip,  _W, "back")},
+                                        {"side":"left",   "openings": _find_openings(_left_strip,  _D, "left")},
+                                        {"side":"right",  "openings": _find_openings(_right_strip, _D, "right")},
+                                    ]
+                                }
+                                st.session_state[_cache_key] = _layout_3d
+                                st.rerun()
+                            except Exception as _e2:
+                                st.error(f"❌ Error en análisis local: {_e2}")
+                        except Exception as _e_api:
+                            st.error(f"❌ Error API Claude: {_e_api}")
+                            st.info("💡 Configura ANTHROPIC_API_KEY en los secrets de Streamlit para usar Claude Vision.")
+
+
+        if _layout_3d and _img_b64_3d:
+            import json as _json
+            _layout_json = _json.dumps(_layout_3d)
+
+            _visor_html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8">
 <style>
-* {{ margin:0; padding:0; box-sizing:border-box; }}
-body {{ background:#0f1117; font-family:'Segoe UI',sans-serif; overflow:hidden; }}
-#wrap {{ width:100%; height:610px; position:relative; }}
-#c3d {{ width:100%; height:100%; display:block; }}
-#ctrl {{ position:absolute; top:10px; left:10px; z-index:10; display:flex; gap:6px; flex-wrap:wrap; }}
-.btn {{ background:rgba(15,17,34,0.82); color:#cdd6f4; border:1px solid rgba(255,255,255,0.15);
-  padding:5px 12px; border-radius:18px; cursor:pointer; font-size:11px; font-weight:600;
-  transition:all .15s; backdrop-filter:blur(8px); }}
-.btn:hover,.btn.on {{ background:rgba(91,124,250,0.72); border-color:#5b7cfa; color:#fff; }}
-#hud {{ position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
-  color:rgba(255,255,255,0.35); font-size:10px; background:rgba(0,0,0,0.5);
-  padding:5px 14px; border-radius:18px; white-space:nowrap; }}
-#loading {{ position:absolute; top:0; left:0; width:100%; height:100%;
-  background:rgba(15,17,34,0.93); display:flex; flex-direction:column;
-  align-items:center; justify-content:center; z-index:30; color:#cdd6f4; gap:14px; }}
-#loading.hide {{ display:none; }}
-.ring {{ width:52px; height:52px; border:4px solid rgba(91,124,250,0.2);
-  border-top-color:#5b7cfa; border-radius:50%; animation:sp .7s linear infinite; }}
-@keyframes sp {{ to {{ transform:rotate(360deg); }} }}
-#step {{ font-size:12px; color:#a6adc8; max-width:300px; text-align:center; line-height:1.5; }}
-#errbox {{ display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-  background:rgba(0,0,0,0.88); color:#f38ba8; padding:20px 28px; border-radius:12px;
-  text-align:center; z-index:40; max-width:360px; line-height:1.6;
-  border:1px solid rgba(243,139,168,0.3); }}
-</style>
-</head>
-<body>
-<div id="wrap">
-  <canvas id="c3d"></canvas>
-  <div id="ctrl">
-    <button class="btn on" id="bRoof" onclick="tog('roof')">🏠 Techo</button>
-    <button class="btn on" id="bPlan" onclick="tog('plan')">📐 Plano</button>
-    <button class="btn on" id="bWire" onclick="tog('wire')">🔲 Wire</button>
-    <button class="btn" onclick="resetCam()">🎯 Reset</button>
-    <button class="btn" onclick="setV('top')">⬆ Top</button>
-    <button class="btn" onclick="setV('iso')">🔷 Iso</button>
-  </div>
-  <div id="loading"><div class="ring"></div><div id="step">Descargando plano…</div></div>
-  <div id="errbox"></div>
-  <div id="hud">🖱 Arrastrar: rotar &nbsp;│&nbsp; Scroll: zoom &nbsp;│&nbsp; Derecho: mover</div>
+*{{margin:0;padding:0;box-sizing:border-box;}}
+body{{background:#0f1117;overflow:hidden;font-family:'Segoe UI',sans-serif;}}
+#wrap{{width:100%;height:600px;position:relative;}}
+#c3d{{width:100%;height:100%;display:block;}}
+#ctrl{{position:absolute;top:10px;left:10px;z-index:10;display:flex;gap:6px;flex-wrap:wrap;}}
+.btn{{background:rgba(15,17,34,0.82);color:#cdd6f4;border:1px solid rgba(255,255,255,0.15);padding:5px 12px;border-radius:18px;cursor:pointer;font-size:11px;font-weight:600;transition:all .15s;}}
+.btn:hover,.btn.on{{background:rgba(91,124,250,0.72);border-color:#5b7cfa;color:#fff;}}
+#hud{{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.35);font-size:10px;background:rgba(0,0,0,0.5);padding:5px 14px;border-radius:18px;white-space:nowrap;}}
+</style></head>
+<body><div id="wrap">
+<canvas id="c3d"></canvas>
+<div id="ctrl">
+<button class="btn on" id="bRoof" onclick="tog('roof')">🏠 Techo</button>
+<button class="btn on" id="bPlan" onclick="tog('plan')">📐 Plano</button>
+<button class="btn on" id="bWire" onclick="tog('wire')">🔲 Wire</button>
+<button class="btn" onclick="resetCam()">🎯 Reset</button>
+<button class="btn" onclick="setV('top')">⬆ Top</button>
+<button class="btn" onclick="setV('iso')">🔷 Iso</button>
 </div>
-
+<div id="hud">🖱 Arrastrar: rotar │ Scroll: zoom │ Derecho: mover</div>
+</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
-const PDF_B64="{_pdf_b64_3d}";
+const LAYOUT={_layout_json};
+const IMG_B64="{_img_b64_3d}";
 
 const cv=document.getElementById('c3d');
-const W0=cv.parentElement.offsetWidth,H0=610;
+const W0=cv.parentElement.offsetWidth,H0=600;
 const renderer=new THREE.WebGLRenderer({{canvas:cv,antialias:true}});
-renderer.setPixelRatio(devicePixelRatio);renderer.setSize(W0,H0);renderer.shadowMap.enabled=true;
-const scene=new THREE.Scene();scene.background=new THREE.Color(0x0f1117);
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(W0,H0);
+renderer.shadowMap.enabled=true;
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x0f1117);
 const camera=new THREE.PerspectiveCamera(42,W0/H0,0.1,300);
 let S={{th:0.6,ph:1.0,r:32}},T=new THREE.Vector3(0,1.5,0);
-function applyC(){{camera.position.set(T.x+S.r*Math.sin(S.ph)*Math.sin(S.th),T.y+S.r*Math.cos(S.ph),T.z+S.r*Math.sin(S.ph)*Math.cos(S.th));camera.lookAt(T);}}
+function applyC(){{
+  camera.position.set(T.x+S.r*Math.sin(S.ph)*Math.sin(S.th),T.y+S.r*Math.cos(S.ph),T.z+S.r*Math.sin(S.ph)*Math.cos(S.th));
+  camera.lookAt(T);
+}}
 applyC();
 scene.add(new THREE.AmbientLight(0xffffff,0.5));
-const sun=new THREE.DirectionalLight(0xfff8e7,1.0);sun.position.set(15,25,12);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);scene.add(sun);
+const sun=new THREE.DirectionalLight(0xfff8e7,1.0);
+sun.position.set(15,25,12);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
+scene.add(sun);
 scene.add(new THREE.HemisphereLight(0x7788cc,0x223344,0.35));
 scene.add(new THREE.GridHelper(80,80,0x1e2140,0x1a1d36));
 const gRoof=new THREE.Group(),gPlan=new THREE.Group(),gWire=new THREE.Group(),gBody=new THREE.Group();
 scene.add(gBody,gRoof,gPlan,gWire);
 const vis={{roof:true,plan:true,wire:true}};
-function tog(k){{vis[k]=!vis[k];if(k==='roof')gRoof.visible=vis[k];if(k==='plan')gPlan.visible=vis[k];if(k==='wire')gWire.visible=vis[k];document.getElementById('b'+k.charAt(0).toUpperCase()+k.slice(1)).classList.toggle('on',vis[k]);}}
+function tog(k){{
+  vis[k]=!vis[k];
+  if(k==='roof')gRoof.visible=vis[k];
+  if(k==='plan')gPlan.visible=vis[k];
+  if(k==='wire')gWire.visible=vis[k];
+  document.getElementById('b'+k[0].toUpperCase()+k.slice(1)).classList.toggle('on',vis[k]);
+}}
 let drag=false,rDrag=false,lx=0,ly=0;
 cv.addEventListener('mousedown',e=>{{drag=true;rDrag=e.button===2;lx=e.clientX;ly=e.clientY;}});
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 window.addEventListener('mouseup',()=>drag=false);
-window.addEventListener('mousemove',e=>{{if(!drag)return;const dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;if(rDrag){{const r=new THREE.Vector3().crossVectors(new THREE.Vector3().subVectors(camera.position,T).normalize(),camera.up).normalize();T.addScaledVector(r,-dx*0.022);T.y+=dy*0.022;}}else{{S.th-=dx*0.007;S.ph=Math.max(0.05,Math.min(Math.PI/2.05,S.ph+dy*0.007));}}applyC();}});
-cv.addEventListener('wheel',e=>{{S.r=Math.max(3,Math.min(80,S.r+e.deltaY*0.04));applyC();}});
+window.addEventListener('mousemove',e=>{{
+  if(!drag)return;
+  const dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;
+  if(rDrag){{const r=new THREE.Vector3().crossVectors(new THREE.Vector3().subVectors(camera.position,T).normalize(),camera.up).normalize();T.addScaledVector(r,-dx*0.022);T.y+=dy*0.022;}}
+  else{{S.th-=dx*0.007;S.ph=Math.max(0.05,Math.min(Math.PI/2.05,S.ph+dy*0.007));}}
+  applyC();
+}});
+cv.addEventListener('wheel',e=>{{S.r=Math.max(3,Math.min(80,S.r+e.deltaY*0.04));applyC();}},{{passive:true}});
 function resetCam(){{S={{th:0.6,ph:1.0,r:32}};T.set(0,1.5,0);applyC();}}
-function setV(v){{if(v==='top'){{S.ph=0.04;applyC();}}if(v==='iso'){{S={{th:0.8,ph:0.85,r:30}};applyC();}}}}
+function setV(v){{if(v==='top'){{S.ph=0.04;applyC();}}else{{S={{th:0.8,ph:0.85,r:30}};applyC();}}}}
 (function loop(){{requestAnimationFrame(loop);renderer.render(scene,camera);}})();
 
+// Materiales
 const mWall=new THREE.MeshStandardMaterial({{color:0xb8c4cc,roughness:0.5,metalness:0.3}});
-const mRoof=new THREE.MeshStandardMaterial({{color:0x78909c,roughness:0.55,metalness:0.35}});
-const mGlass=new THREE.MeshStandardMaterial({{color:0x89cff0,transparent:true,opacity:0.35,roughness:0.05}});
-const mDoor=new THREE.MeshStandardMaterial({{color:0x455a64,roughness:0.4,metalness:0.5}});
-const mFloor=new THREE.MeshStandardMaterial({{color:0xeceff1,roughness:0.9}});
+const mRoof=new THREE.MeshStandardMaterial({{color:0x607d8b,roughness:0.55,metalness:0.4}});
+const mGlass=new THREE.MeshStandardMaterial({{color:0x89cff0,transparent:true,opacity:0.4,roughness:0.05,metalness:0.1}});
+const mDoor=new THREE.MeshStandardMaterial({{color:0x37474f,roughness:0.4,metalness:0.6}});
 const mWire=new THREE.MeshBasicMaterial({{color:0x5b7cfa,wireframe:true}});
-const mRib=new THREE.MeshStandardMaterial({{color:0x8fa4ae,roughness:0.5,metalness:0.4}});
+const mRib=new THREE.MeshStandardMaterial({{color:0x8fa4ae,roughness:0.45,metalness:0.5}});
 
-function addBox(geo,mat,x,y,z,ry,grp){{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);if(ry)m.rotation.y=ry;m.castShadow=true;m.receiveShadow=true;grp.add(m);}}
+const W=LAYOUT.width, D=LAYOUT.depth, H=LAYOUT.wallHeight||2.8, th=0.14;
 
-function buildModel(layout,floorTex){{
-  const W=layout.width,D=layout.depth,H=layout.wallHeight||2.8,th=0.14;
-  if(floorTex){{const fm=new THREE.Mesh(new THREE.PlaneGeometry(W,D),new THREE.MeshStandardMaterial({{map:floorTex,roughness:0.8}}));fm.rotation.x=-Math.PI/2;fm.receiveShadow=true;gPlan.add(fm);}}
-  addBox(new THREE.BoxGeometry(W,0.08,D),mFloor,0,-0.04,0,0,gBody);
+// Plano PDF como textura en el suelo
+const img=new Image();
+img.onload=()=>{{
+  const tex=new THREE.Texture(img);tex.needsUpdate=true;
+  const fm=new THREE.Mesh(new THREE.PlaneGeometry(W,D),new THREE.MeshStandardMaterial({{map:tex,roughness:0.85}}));
+  fm.rotation.x=-Math.PI/2;fm.receiveShadow=true;gPlan.add(fm);
+}};
+img.src='data:image/png;base64,'+IMG_B64;
 
-  function makeWall(px,pz,rotY,wallW,openings){{
-    const grp=new THREE.Group();grp.position.set(px,H/2,pz);grp.rotation.y=rotY;
-    const ops=[...openings].sort((a,b)=>a.x-b.x);
-    let cur=-wallW/2;
-    ops.forEach(op=>{{
-      const segW=op.x-op.w/2-cur;
-      if(segW>0.05){{const m=new THREE.Mesh(new THREE.BoxGeometry(segW,H,th),mWall);m.position.x=cur+segW/2;m.castShadow=true;m.receiveShadow=true;grp.add(m);}}
-      cur=op.x+op.w/2;
-      const dintelH=H-(op.y+op.h/2);
-      if(dintelH>0.05){{const m=new THREE.Mesh(new THREE.BoxGeometry(op.w,dintelH,th),mWall);m.position.x=op.x;m.position.y=H/2-dintelH/2;m.castShadow=true;grp.add(m);}}
-      if(op.type==='window'&&(op.y-op.h/2)>0.05){{const apH=op.y-op.h/2;const m=new THREE.Mesh(new THREE.BoxGeometry(op.w,apH,th),mWall);m.position.x=op.x;m.position.y=apH/2-H/2;m.castShadow=true;grp.add(m);}}
-      const fillM=op.type==='door'?mDoor:mGlass;
-      const fm=new THREE.Mesh(new THREE.BoxGeometry(op.w,op.h,th*0.3),fillM);fm.position.x=op.x;fm.position.y=op.y-H/2;fm.castShadow=true;grp.add(fm);
-    }});
-    const remW=wallW/2-cur;
-    if(remW>0.05){{const m=new THREE.Mesh(new THREE.BoxGeometry(remW,H,th),mWall);m.position.x=cur+remW/2;m.castShadow=true;m.receiveShadow=true;grp.add(m);}}
-    gBody.add(grp);
-    const wm=new THREE.Mesh(new THREE.BoxGeometry(wallW,H,th),mWire);
-    const wg=new THREE.Group();wg.position.set(px,H/2,pz);wg.rotation.y=rotY;wg.add(wm);gWire.add(wg);
-  }}
+// Suelo
+const flM=new THREE.Mesh(new THREE.BoxGeometry(W,0.08,D),new THREE.MeshStandardMaterial({{color:0xeceff1,roughness:0.9}}));
+flM.position.y=-0.04;flM.receiveShadow=true;gBody.add(flM);
 
-  (layout.walls||[]).forEach(w=>{{
-    let px,pz,rotY,wallW;
-    if(w.side==='front'){{px=0;pz=D/2;rotY=0;wallW=W;}}
-    else if(w.side==='back'){{px=0;pz=-D/2;rotY=0;wallW=W;}}
-    else if(w.side==='left'){{px=-W/2;pz=0;rotY=Math.PI/2;wallW=D;}}
-    else{{px=W/2;pz=0;rotY=Math.PI/2;wallW=D;}}
-    makeWall(px,pz,rotY,wallW,w.openings||[]);
+// Construir pared con huecos exactos
+function makeWall(px,pz,rotY,wallW,openings){{
+  const grp=new THREE.Group();grp.position.set(px,0,pz);grp.rotation.y=rotY;
+  const ops=[...openings].sort((a,b)=>a.x-b.x);
+  let cur=-wallW/2;
+  ops.forEach(op=>{{
+    // Segmento izquierdo
+    const sw=op.x-op.w/2-cur;
+    if(sw>0.05){{const m=new THREE.Mesh(new THREE.BoxGeometry(sw,H,th),mWall);m.position.set(cur+sw/2,H/2,0);m.castShadow=true;m.receiveShadow=true;grp.add(m);}}
+    cur=op.x+op.w/2;
+    // Dintel
+    const dh=H-(op.y+op.h/2);
+    if(dh>0.02){{const m=new THREE.Mesh(new THREE.BoxGeometry(op.w,dh,th),mWall);m.position.set(op.x,H-dh/2,0);m.castShadow=true;grp.add(m);}}
+    // Antepecho (solo ventana)
+    if(op.type==='window'){{const ah=Math.max(0,op.y-op.h/2);if(ah>0.02){{const m=new THREE.Mesh(new THREE.BoxGeometry(op.w,ah,th),mWall);m.position.set(op.x,ah/2,0);m.castShadow=true;grp.add(m);}}}};
+    // Relleno hueco
+    const fm2=new THREE.Mesh(new THREE.BoxGeometry(op.w,op.h,th*0.25),op.type==='door'?mDoor:mGlass);
+    fm2.position.set(op.x,op.y,0);fm2.castShadow=true;grp.add(fm2);
   }});
+  // Segmento derecho
+  const rw=wallW/2-cur;
+  if(rw>0.05){{const m=new THREE.Mesh(new THREE.BoxGeometry(rw,H,th),mWall);m.position.set(cur+rw/2,H/2,0);m.castShadow=true;m.receiveShadow=true;grp.add(m);}}
+  gBody.add(grp);
+  // Wire outline
+  const wm=new THREE.Mesh(new THREE.BoxGeometry(wallW,H,th),mWire);
+  const wg=new THREE.Group();wg.position.set(px,H/2,pz);wg.rotation.y=rotY;wg.add(wm);gWire.add(wg);
+}}
 
-  const roofM=new THREE.Mesh(new THREE.BoxGeometry(W+0.2,0.15,D+0.2),mRoof);roofM.position.y=H+0.075;roofM.castShadow=true;gRoof.add(roofM);
-  [0.3,0.8,1.4,2.0,H-0.1].forEach(h=>{{
-    [[0,D/2+0.08,0,W,0],[0,-D/2-0.08,0,W,0],[-W/2-0.08,0,0,D,Math.PI/2],[W/2+0.08,0,0,D,Math.PI/2]].forEach(r=>{{const m=new THREE.Mesh(new THREE.BoxGeometry(r[3],0.06,0.06),mRib);m.position.set(r[0],h,r[2]);m.rotation.y=r[4]||0;gBody.add(m);}});
+// Construir las 4 paredes
+LAYOUT.walls.forEach(w=>{{
+  let px,pz,rotY,ww;
+  if(w.side==='front'){{px=0;pz=D/2;rotY=0;ww=W;}}
+  else if(w.side==='back'){{px=0;pz=-D/2;rotY=0;ww=W;}}
+  else if(w.side==='left'){{px=-W/2;pz=0;rotY=Math.PI/2;ww=D;}}
+  else{{px=W/2;pz=0;rotY=Math.PI/2;ww=D;}}
+  makeWall(px,pz,rotY,ww,w.openings||[]);
+}});
+
+// Techo
+const rm=new THREE.Mesh(new THREE.BoxGeometry(W+0.2,0.15,D+0.2),mRoof);
+rm.position.y=H+0.075;rm.castShadow=true;gRoof.add(rm);
+// Borde techo (perfil metálico)
+[[W+0.2,0.1,0.1,0,0],[W+0.2,0.1,0.1,0,D],[0.1,0.1,D+0.2,W/2,0],[0.1,0.1,D+0.2,-W/2,0]].forEach(r=>{{
+  const m=new THREE.Mesh(new THREE.BoxGeometry(r[0],r[1],r[2]),mRib);
+  m.position.set(r[3],H,r[4]);gRoof.add(m);
+}});
+
+// Costillas estructurales container
+[0.4,1.0,1.6,2.2,H-0.05].forEach(h=>{{
+  [[0,D/2+0.08,0,W,0],[0,-D/2-0.08,0,W,0],[-W/2-0.08,0,0,D,Math.PI/2],[W/2+0.08,0,0,D,Math.PI/2]].forEach(r=>{{
+    const m=new THREE.Mesh(new THREE.BoxGeometry(r[3],0.055,0.055),mRib);
+    m.position.set(r[0],h,r[2]);m.rotation.y=r[4]||0;gBody.add(m);
   }});
-  [[-W/2,-D/2],[W/2,-D/2],[-W/2,D/2],[W/2,D/2]].forEach(([x,z])=>{{const m=new THREE.Mesh(new THREE.BoxGeometry(0.18,H+0.15,0.18),mRib);m.position.set(x,H/2,z);m.castShadow=true;gBody.add(m);}});
-  T.set(0,H*0.4,0);S.r=Math.max(W,D)*2.1;applyC();
-}}
+}});
+// Columnas esquinas
+[[-W/2,-D/2],[W/2,-D/2],[-W/2,D/2],[W/2,D/2]].forEach(([x,z])=>{{
+  const m=new THREE.Mesh(new THREE.BoxGeometry(0.16,H+0.16,0.16),mRib);m.position.set(x,H/2,z);m.castShadow=true;gBody.add(m);
+}});
 
-async function analyzeWithClaude(b64){{
-  setStep("🤖 Claude Vision analizando plano…");
-  const prompt=`Analiza esta imagen de planta arquitectónica de un container house. Responde SOLO con JSON válido sin texto extra ni markdown:
-{{"width":<ancho metros>,"depth":<profundidad metros>,"wallHeight":2.8,"walls":[{{"side":"front","openings":[{{"type":"door","x":<pos x centrada en 0>,"y":<centro y desde suelo>,"w":<ancho>,"h":<alto>}},{{"type":"window","x":...,"y":...,"w":...,"h":...}}]}},{{"side":"back","openings":[...]}},{{"side":"left","openings":[...]}},{{"side":"right","openings":[...]}}]}}
-Reglas: puertas ~0.9x2.1m centro y=1.05, ventanas ~1.2x1.0m centro y=1.2, x relativo al centro de esa pared. Detecta TODAS las aberturas visibles.`;
-  const r=await fetch("https://api.anthropic.com/v1/messages",{{method:"POST",headers:{{"Content-Type":"application/json","anthropic-version":"2023-06-01"}}  ,body:JSON.stringify({{model:"claude-sonnet-4-20250514",max_tokens:1024,messages:[{{role:"user",content:[{{type:"image",source:{{type:"base64",media_type:"image/png",data:b64}}}},{{type:"text",text:prompt}}]}}]}})}});
-  if(!r.ok) throw new Error("Claude API: "+r.status+" "+(await r.text()).slice(0,100));
-  const d=await r.json();
-  const txt=d.content.map(b=>b.text||"").join("").trim().replace(/```json|```/g,"").trim();
-  return JSON.parse(txt);
-}}
+// Ajustar cámara al modelo
+T.set(0,H*0.45,0);S.r=Math.max(W,D)*2.2;applyC();
+</script></body></html>"""
 
-function setStep(m){{document.getElementById('step').textContent=m;}}
-
-async function main(){{
-  try{{
-    setStep("📥 Cargando plano PDF…");
-    const bin=atob(PDF_B64);
-    const buf=new Uint8Array(bin.length);
-    for(let i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
-    setStep("🖼 Renderizando página…");
-    const pdf=await pdfjsLib.getDocument({{data:buf}}).promise;
-    const page=await pdf.getPage(1);
-    const vp=page.getViewport({{scale:2.0}});
-    const oc=document.createElement('canvas');
-    oc.width=vp.width;oc.height=vp.height;
-    const ctx=oc.getContext('2d');
-    await page.render({{canvasContext:ctx,viewport:vp}}).promise;
-    const b64=oc.toDataURL('image/png').split(',')[1];
-    const tex=new THREE.CanvasTexture(oc);
-    const layout=await analyzeWithClaude(b64);
-    console.log("Layout:",JSON.stringify(layout,null,2));
-    setStep("🏗 Construyendo modelo 3D…");
-    buildModel(layout,tex);
-    document.getElementById('loading').classList.add('hide');
-  }}catch(e){{
-    console.error(e);
-    document.getElementById('loading').classList.add('hide');
-    const eb=document.getElementById('errbox');eb.style.display='block';
-    eb.innerHTML="⚠️ "+e.message+"<br><small style='opacity:.6'>Ver consola para detalles</small>";
-  }}
-}}
-main();
-</script></body></html>
-"""
             import streamlit.components.v1 as _components
-            _components.html(_visor_html, height=630, scrolling=False)
-            st.caption("⚠️ Beta: Claude Vision analiza el plano y construye el modelo 3D. Resultados dependen de la calidad del PDF.")
+            _components.html(_visor_html, height=620, scrolling=False)
+            st.caption(f"⚠️ Beta — Dimensiones detectadas: {_layout_3d.get('width',0):.1f}m × {_layout_3d.get('depth',0):.1f}m × {_layout_3d.get('wallHeight',2.8):.1f}m altura")
+
+        elif not _layout_3d:
+            st.info("👆 Haz clic en **Generar 3D** para analizar el plano con Claude Vision y construir el modelo.")
 
 # =========================================================
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
