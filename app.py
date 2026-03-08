@@ -2085,7 +2085,7 @@ with tab1:
         st.warning("🔒 Esta cotización tiene márgenes aplicados. Modo solo lectura. Solo puedes visualizar y generar PDFs.")
 
     if not es_solo_lectura:
-        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns([1,1,1,1,0.7])
 
         with col_m1:
             with st.container(border=True):
@@ -2156,6 +2156,10 @@ with tab1:
                         st.session_state.carrito.extend(nuevos_items)
                         st.success("Categoría agregada.")
                         st.rerun()
+
+        with col_m5:
+            with st.container(border=True):
+                st.markdown("**📎 Plano PDF**")
                 st.markdown('''
                 <style>
                 [data-testid="stFileUploader"] section {
@@ -2174,37 +2178,20 @@ with tab1:
                     opacity: 0.85 !important;
                     cursor: pointer !important;
                 }
-                [data-testid="stFileUploadDropzone"] > div {
-                    display: flex !important;
-                    align-items: center !important;
-                    justify-content: center !important;
-                    gap: 8px !important;
-                }
-                [data-testid="stFileUploadDropzone"] span {
-                    display: none !important;
-                }
-                [data-testid="stFileUploadDropzone"] button {
-                    display: none !important;
-                }
+                [data-testid="stFileUploadDropzone"] span { display: none !important; }
+                [data-testid="stFileUploadDropzone"] button { display: none !important; }
                 [data-testid="stFileUploadDropzone"] p {
                     color: white !important;
                     font-weight: 600 !important;
                     font-size: 14px !important;
                     margin: 0 !important;
                 }
-                [data-testid="stFileUploadDropzone"] p::before {
-                    content: "📎 " !important;
-                }
-                [data-testid="stFileUploadDropzone"] p[data-testid="stMarkdownContainer"] {
-                    display: none !important;
-                }
-                div[data-testid="stFileUploader"] > label {display:none !important;}
-                [data-testid="stFileUploader"] small {display:none !important;}
+                [data-testid="stFileUploadDropzone"] p::before { content: "📎 " !important; }
+                div[data-testid="stFileUploader"] > label { display:none !important; }
+                [data-testid="stFileUploader"] small { display:none !important; }
                 </style>
                 ''', unsafe_allow_html=True)
-
                 uploaded_file = st.file_uploader("Subir Plano PDF", type=["pdf"], key=f"plano_uploader_{st.session_state.counter}", label_visibility="collapsed")
-
                 if uploaded_file is not None:
                     if uploaded_file.name != st.session_state.plano_nombre:
                         st.session_state.plano_adjunto = uploaded_file.getvalue()
@@ -2216,8 +2203,6 @@ with tab1:
                         st.session_state.plano_adjunto = None
                         st.session_state.plano_nombre = ""
                         st.rerun()
-
-        st.markdown('<div style="margin-top:-2rem"></div>', unsafe_allow_html=True)
 
     else:
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
