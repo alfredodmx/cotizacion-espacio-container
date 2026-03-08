@@ -1813,7 +1813,6 @@ if st.session_state.get('trigger_cerrar_cotizacion', False):
 # TAB 2 - DATOS CLIENTE
 # =========================================================
 with tab2:
-    st.markdown("### 📋 Datos de la Cotización")
 
     es_solo_lectura = bool(
         st.session_state.cotizacion_cargada and
@@ -1826,40 +1825,36 @@ with tab2:
     dias_validez = (fecha_termino - fecha_inicio).days
 
     if es_solo_lectura:
-        st.warning("🔒 Esta cotización tiene márgenes aplicados. Modo solo lectura.")
-        st.info("Los datos se muestran solo para referencia. No se pueden realizar modificaciones.")
-
-        with st.container(border=True):
-            st.markdown("### 👤 Datos del Cliente")
-            col1, col2 = st.columns(2)
-            with col1:
-                st.text_input("Nombre Completo", value=st.session_state.nombre_input, disabled=True, key="nombre_readonly")
+        st.warning("🔒 Modo solo lectura — cotización con márgenes aplicados.")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            with st.container(border=True):
+                st.markdown("**👤 CLIENTE**")
+                st.text_input("Nombre", value=st.session_state.nombre_input, disabled=True, key="nombre_readonly")
                 st.text_input("RUT", value=st.session_state.rut_display, disabled=True, key="rut_readonly")
-            with col2:
-                st.text_input("Correo Electrónico", value=st.session_state.correo_input, disabled=True, key="correo_readonly")
+                st.text_input("Correo", value=st.session_state.correo_input, disabled=True, key="correo_readonly")
                 st.text_input("Teléfono", value=st.session_state.telefono_raw, disabled=True, key="telefono_readonly")
-
+        with col2:
+            with st.container(border=True):
+                st.markdown("**📍 DIRECCIÓN**")
+                st.text_input("Dirección del Proyecto", value=st.session_state.direccion_input, disabled=True, key="direccion_readonly")
+        with col3:
+            with st.container(border=True):
+                st.markdown("**👨‍💼 EJECUTIVO**")
+                st.text_input("Asesor", value=st.session_state.asesor_seleccionado, disabled=True, key="asesor_readonly")
+                st.text_input("Correo Ejecutivo", value=st.session_state.correo_asesor, disabled=True, key="correo_asesor_readonly")
+                st.text_input("Teléfono Ejecutivo", value=st.session_state.telefono_asesor, disabled=True, key="telefono_asesor_readonly")
+        with col4:
+            with st.container(border=True):
+                st.markdown("**📅 VALIDEZ**")
+                st.date_input("Fecha Inicio", value=fecha_inicio, disabled=True, key="fecha_inicio_readonly")
+                st.date_input("Fecha Término", value=fecha_termino, disabled=True, key="fecha_termino_readonly")
+                st.markdown(f"**⏱️ Duración:** {dias_validez} días")
+                if dias_validez > 0:
+                    st.progress(min(dias_validez/30, 1.0), text=f"{dias_validez} días")
         with st.container(border=True):
-            st.markdown("### 📍 Dirección del Proyecto")
-            st.text_input("Dirección", value=st.session_state.direccion_input, disabled=True, key="direccion_readonly")
-
-        with st.container(border=True):
-            st.markdown("### 👨‍💼 Asesor")
-            st.text_input("Ejecutivo", value=st.session_state.asesor_seleccionado, disabled=True, key="asesor_readonly")
-            st.text_input("Correo Ejecutivo", value=st.session_state.correo_asesor, disabled=True, key="correo_asesor_readonly")
-            st.text_input("Teléfono Ejecutivo", value=st.session_state.telefono_asesor, disabled=True, key="telefono_asesor_readonly")
-
-        with st.container(border=True):
-            st.markdown("### 📅 Validez")
-            col1, col2 = st.columns(2)
-            with col1:
-                st.date_input("Fecha de Inicio", value=fecha_inicio, disabled=True, key="fecha_inicio_readonly")
-            with col2:
-                st.date_input("Fecha de Término", value=fecha_termino, disabled=True, key="fecha_termino_readonly")
-            st.markdown(f"**⏱️ Duración:** {dias_validez} días")
-
-        st.markdown("### 📝 Observaciones")
-        st.text_area("Observaciones", value=st.session_state.observaciones_input, disabled=True, height=100, key="observaciones_readonly")
+            st.markdown("**📝 OBSERVACIONES**")
+            st.text_area("Observaciones", value=st.session_state.observaciones_input, disabled=True, height=80, key="observaciones_readonly")
 
     else:
         asesores = {
@@ -1872,51 +1867,66 @@ with tab2:
             "JAVIER QUEZADA": {"correo": "JQUEZADA@ESPACIOCONTAINERHOUSE.CL", "telefono": "+56966983700"}
         }
 
-        col_cliente, col_asesor = st.columns(2)
+        col1, col2, col3, col4 = st.columns(4)
 
-        with col_cliente:
+        # ── Columna 1: Cliente ──
+        with col1:
             with st.container(border=True):
-                st.markdown("👤 CLIENTE")
-                col1, col2 = st.columns(2)
+                st.markdown("**👤 CLIENTE**")
 
-                with col1:
-                    nombre_key = f"nombre_input_{st.session_state.counter}"
-                    nombre = st.text_input("Nombre Completo*", placeholder="Ej: Juan Pérez", key=nombre_key, value=st.session_state.nombre_input)
-                    if nombre != st.session_state.nombre_input:
-                        st.session_state.nombre_input = nombre
+                nombre_key = f"nombre_input_{st.session_state.counter}"
+                nombre = st.text_input("Nombre Completo*", placeholder="Ej: Juan Pérez", key=nombre_key, value=st.session_state.nombre_input)
+                if nombre != st.session_state.nombre_input:
+                    st.session_state.nombre_input = nombre
 
-                    rut_key = f"rut_input_{st.session_state.counter}"
-                    st.text_input("RUT (opcional)", value=st.session_state.rut_display, key=rut_key, placeholder="12.345.678-9", on_change=procesar_cambio_rut)
+                correo_key = f"correo_input_{st.session_state.counter}"
+                correo = st.text_input("Correo Electrónico*", placeholder="ejemplo@correo.cl", key=correo_key, value=st.session_state.correo_input)
+                if correo != st.session_state.correo_input:
+                    st.session_state.correo_input = correo
+                if correo and "@" not in correo:
+                    st.warning("⚠️ El correo debe contener @")
 
-                    if st.session_state.rut_raw:
-                        if len(st.session_state.rut_raw) >= 2:
-                            if st.session_state.rut_valido:
-                                st.success("✅ RUT válido")
-                            else:
-                                st.error(f"❌ {st.session_state.rut_mensaje}")
+                rut_key = f"rut_input_{st.session_state.counter}"
+                st.text_input("RUT (opcional)", value=st.session_state.rut_display, key=rut_key, placeholder="12.345.678-9", on_change=procesar_cambio_rut)
+                if st.session_state.rut_raw:
+                    if len(st.session_state.rut_raw) >= 2:
+                        if st.session_state.rut_valido:
+                            st.success("✅ RUT válido")
                         else:
-                            st.info("⏳ RUT incompleto")
+                            st.error(f"❌ {st.session_state.rut_mensaje}")
+                    else:
+                        st.info("⏳ RUT incompleto")
 
-                with col2:
-                    correo_key = f"correo_input_{st.session_state.counter}"
-                    correo = st.text_input("Correo Electrónico*", placeholder="ejemplo@correo.cl", key=correo_key, value=st.session_state.correo_input)
-                    if correo != st.session_state.correo_input:
-                        st.session_state.correo_input = correo
-                    if correo and "@" not in correo:
-                        st.warning("⚠️ El correo debe contener @")
+                telefono_key = f"telefono_input_{st.session_state.counter}"
+                st.text_input("Teléfono", value=st.session_state.telefono_raw, key=telefono_key, placeholder="961528954 (9 dígitos)", on_change=procesar_cambio_telefono)
 
-                    telefono_key = f"telefono_input_{st.session_state.counter}"
-                    st.text_input("Teléfono", value=st.session_state.telefono_raw, key=telefono_key, placeholder="961528954 (9 dígitos)", on_change=procesar_cambio_telefono)
-
-        with col_asesor:
+        # ── Columna 2: Dirección ──
+        with col2:
             with st.container(border=True):
-                st.markdown("👨‍💼 ASESOR")
+                st.markdown("**📍 DIRECCIÓN**")
+                direccion_key = f"direccion_input_{st.session_state.counter}"
+                direccion = st.text_input("Dirección del Proyecto", placeholder="Calle, número, comuna", key=direccion_key, value=st.session_state.direccion_input)
+                if direccion != st.session_state.direccion_input:
+                    st.session_state.direccion_input = direccion
+                if direccion:
+                    with st.spinner("Buscando..."):
+                        comuna, region = buscar_direccion(direccion)
+                        if comuna:
+                            st.success(f"🏙️ {comuna}")
+                            st.success(f"🗺️ {region}")
+                        else:
+                            st.info("No se detectó automáticamente.")
+                            st.text_input("Comuna", key="comuna_manual")
+                            st.text_input("Región", key="region_manual")
+
+        # ── Columna 3: Ejecutivo ──
+        with col3:
+            with st.container(border=True):
+                st.markdown("**👨‍💼 EJECUTIVO**")
                 nombres_asesores = list(asesores.keys())
                 asesor_key = f"asesor_select_{st.session_state.counter}"
                 indice_actual = nombres_asesores.index(st.session_state.asesor_seleccionado) if st.session_state.asesor_seleccionado in nombres_asesores else 0
-
-                asesor_elegido = st.selectbox("Seleccionar Asesor", nombres_asesores, index=indice_actual, key=asesor_key, label_visibility="collapsed")
-
+                asesor_elegido = st.selectbox("Asesor", nombres_asesores, index=indice_actual, key=asesor_key, label_visibility="collapsed")
                 if asesor_elegido != st.session_state.asesor_seleccionado:
                     st.session_state.asesor_seleccionado = asesor_elegido
                     if asesor_elegido != "Seleccionar asesor":
@@ -1928,106 +1938,58 @@ with tab2:
                     st.session_state.counter += 1
                     st.rerun()
 
-                if st.session_state.asesor_seleccionado != "Seleccionar asesor":
-                    st.info(f"👤 Asesor seleccionado: **{st.session_state.asesor_seleccionado}**")
+                correo_asesor_key = f"asesor_correo_input_{st.session_state.counter}"
+                correo_input = st.text_input("Correo Ejecutivo*", value=st.session_state.correo_asesor, placeholder="ejecutivo@empresa.cl", key=correo_asesor_key)
+                if correo_input and "@" not in correo_input:
+                    st.warning("⚠️ El correo debe contener @")
+                if correo_input != st.session_state.correo_asesor:
+                    st.session_state.correo_asesor = correo_input
+                    st.session_state.asesor_seleccionado = "Seleccionar asesor"
+                    st.session_state.counter += 1
+                    st.rerun()
 
-                col_a1, col_a2 = st.columns(2)
-                with col_a1:
-                    correo_asesor_key = f"asesor_correo_input_{st.session_state.counter}"
-                    correo_input = st.text_input("Correo Ejecutivo*", value=st.session_state.correo_asesor, placeholder="ejecutivo@empresa.cl", key=correo_asesor_key)
-                    if correo_input and "@" not in correo_input:
-                        st.warning("⚠️ El correo debe contener @")
-                    if correo_input != st.session_state.correo_asesor:
-                        st.session_state.correo_asesor = correo_input
-                        st.session_state.asesor_seleccionado = "Seleccionar asesor"
-                        st.session_state.counter += 1
-                        st.rerun()
+                telefono_asesor_key = f"asesor_telefono_input_{st.session_state.counter}"
+                telefono_input = st.text_input("Teléfono Ejecutivo", value=st.session_state.telefono_asesor, key=telefono_asesor_key, placeholder="912345678 (9 dígitos)")
+                if telefono_input != st.session_state.telefono_asesor:
+                    raw = re.sub(r'[^0-9]', '', telefono_input)
+                    if len(raw) > 9:
+                        raw = raw[:9]
+                    st.session_state.telefono_asesor = raw
+                    st.session_state.asesor_seleccionado = "Seleccionar asesor"
+                    st.session_state.counter += 1
+                    st.rerun()
 
-                with col_a2:
-                    telefono_asesor_key = f"asesor_telefono_input_{st.session_state.counter}"
-                    telefono_input = st.text_input("Teléfono Ejecutivo", value=st.session_state.telefono_asesor, key=telefono_asesor_key, placeholder="912345678 (9 dígitos)")
-                    if telefono_input != st.session_state.telefono_asesor:
-                        raw = re.sub(r'[^0-9]', '', telefono_input)
-                        if len(raw) > 9:
-                            raw = raw[:9]
-                        st.session_state.telefono_asesor = raw
-                        st.session_state.asesor_seleccionado = "Seleccionar asesor"
-                        st.session_state.counter += 1
-                        st.rerun()
-
-        with st.container(border=True):
-            st.markdown("📍 PROYECTO")
-            st.markdown("**📍 Dirección del Proyecto**")
-            direccion_key = f"direccion_input_{st.session_state.counter}"
-            direccion = st.text_input("Dirección", placeholder="Calle, número, comuna", key=direccion_key, value=st.session_state.direccion_input)
-            if direccion != st.session_state.direccion_input:
-                st.session_state.direccion_input = direccion
-
-            if direccion:
-                with st.spinner("Buscando ubicación..."):
-                    comuna, region = buscar_direccion(direccion)
-                    if comuna:
-                        col_comuna, col_region = st.columns(2)
-                        with col_comuna:
-                            st.success(f"🏙️ **Comuna:** {comuna}")
-                        with col_region:
-                            st.success(f"🗺️ **Región:** {region}")
-                    else:
-                        st.info("No se pudo detectar automáticamente.")
-                        st.text_input("Comuna", key="comuna_manual")
-                        st.text_input("Región", key="region_manual")
-
-        with st.container(border=True):
-            st.markdown("📅 VALIDEZ")
-            st.markdown("### 📅 Validez del Presupuesto")
-            col_v1, col_v2 = st.columns(2)
-            with col_v1:
+        # ── Columna 4: Validez ──
+        with col4:
+            with st.container(border=True):
+                st.markdown("**📅 VALIDEZ**")
                 fecha_inicio_key = f"fecha_inicio_{st.session_state.counter}"
                 fecha_inicio = st.date_input("Fecha de Inicio", value=st.session_state.fecha_inicio, key=fecha_inicio_key)
                 if fecha_inicio != st.session_state.fecha_inicio:
                     st.session_state.fecha_inicio = fecha_inicio
-            with col_v2:
+
                 fecha_termino_key = f"fecha_termino_{st.session_state.counter}"
                 fecha_termino = st.date_input("Fecha de Término", value=st.session_state.fecha_termino, key=fecha_termino_key)
                 if fecha_termino != st.session_state.fecha_termino:
                     st.session_state.fecha_termino = fecha_termino
 
-            dias_validez = (fecha_termino - fecha_inicio).days
-            if dias_validez < 0:
-                st.error("⚠️ La fecha de término debe ser posterior a la fecha de inicio.")
-            else:
-                st.markdown(f"**⏱️ Duración:** {dias_validez} días")
-                if dias_validez > 0:
-                    st.progress(min(dias_validez/30, 1.0), text=f"{dias_validez} días de validez")
+                dias_validez = (fecha_termino - fecha_inicio).days
+                if dias_validez < 0:
+                    st.error("⚠️ Fecha de término anterior a inicio.")
+                else:
+                    st.markdown(f"**⏱️ Duración:** {dias_validez} días")
+                    if dias_validez > 0:
+                        st.progress(min(dias_validez/30, 1.0), text=f"{dias_validez} días de validez")
 
-    st.markdown("---")
-    st.markdown("### 📝 Observaciones")
-    with st.container(border=True):
-        observaciones_disabled = es_solo_lectura
-        observaciones_key = f"observaciones_input_{st.session_state.counter}"
-        observaciones = st.text_area("Observaciones y notas adicionales", placeholder="Ingresa aquí cualquier información relevante...", height=100, key=observaciones_key, value=st.session_state.observaciones_input, disabled=observaciones_disabled)
-        if not observaciones_disabled and observaciones != st.session_state.observaciones_input:
-            st.session_state.observaciones_input = observaciones
+        # ── Observaciones (ancho completo) ──
+        with st.container(border=True):
+            st.markdown("**📝 OBSERVACIONES**")
+            observaciones_key = f"observaciones_input_{st.session_state.counter}"
+            observaciones = st.text_area("Observaciones y notas adicionales", placeholder="Ingresa aquí cualquier información relevante...", height=80, key=observaciones_key, value=st.session_state.observaciones_input)
+            if observaciones != st.session_state.observaciones_input:
+                st.session_state.observaciones_input = observaciones
 
-    st.markdown("---")
-    with st.expander("📋 Ver resumen de datos ingresados", expanded=False):
-        col_res1, col_res2 = st.columns(2)
-        with col_res1:
-            st.markdown("**Cliente:**")
-            st.write(f"• **Nombre:** {st.session_state.nombre_input or 'No ingresado'}")
-            st.write(f"• **RUT:** {st.session_state.rut_display or 'No ingresado'} {'✅' if st.session_state.rut_valido else '❌' if st.session_state.rut_raw else ''}")
-            st.write(f"• **Email:** {st.session_state.correo_input or 'No ingresado'}")
-            st.write(f"• **Teléfono:** {st.session_state.telefono_raw or 'No ingresado'}")
-            st.write(f"• **Dirección:** {st.session_state.direccion_input or 'No ingresado'}")
-        with col_res2:
-            st.markdown("**Asesor y Validez:**")
-            nombre_asesor_mostrar = st.session_state.asesor_seleccionado if st.session_state.asesor_seleccionado != "Seleccionar asesor" else "No seleccionado"
-            st.write(f"• **Ejecutivo:** {nombre_asesor_mostrar}")
-            st.write(f"• **Email Ejecutivo:** {st.session_state.correo_asesor or 'No ingresado'}")
-            st.write(f"• **Teléfono Ejecutivo:** {st.session_state.telefono_asesor or 'No ingresado'}")
-            st.write(f"• **Validez:** {fecha_inicio.strftime('%d/%m/%Y')} al {fecha_termino.strftime('%d/%m/%Y')}")
-            st.write(f"• **Días de validez:** {dias_validez if dias_validez >= 0 else 'Fechas inválidas'}")
-
+    nombre_asesor_final = st.session_state.asesor_seleccionado if st.session_state.asesor_seleccionado != "Seleccionar asesor" else ""
     datos_cliente = {
         "Nombre": st.session_state.nombre_input or "",
         "RUT": st.session_state.rut_display or "",
