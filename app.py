@@ -2185,7 +2185,7 @@ with tab1:
     st.markdown("---")
 
     if st.session_state.modo_admin:
-        col_titulo, col_margen_etq, col_margen_input = st.columns([4, 0.5, 0.8])
+        col_titulo, col_search, col_margen_etq, col_margen_input, col_fs = st.columns([2.5, 2, 0.6, 0.8, 0.4])
         with col_titulo:
             st.markdown("#### Resumen del Presupuesto")
         with col_margen_etq:
@@ -2196,10 +2196,22 @@ with tab1:
             if margen_input != st.session_state.margen:
                 st.session_state.margen = margen_input
                 st.rerun()
+        with col_search:
+            buscar_tabla = st.text_input("🔍", placeholder="Filtrar por categoría o ítem...", key="buscar_tabla_presupuesto", label_visibility="collapsed")
+        with col_fs:
+            pantalla_completa = st.toggle("⛶", key="tabla_fullscreen", value=st.session_state.get("tabla_fullscreen_val", False), help="Expandir tabla")
+            st.session_state.tabla_fullscreen_val = pantalla_completa
     else:
-        st.markdown("#### Resumen del Presupuesto")
-        if st.session_state.margen > 0:
-            st.caption(f"ℹ️ Esta cotización tiene un margen del {st.session_state.margen}% aplicado")
+        col_titulo, col_search, col_fs = st.columns([3, 2.5, 0.4])
+        with col_titulo:
+            st.markdown("#### Resumen del Presupuesto")
+            if st.session_state.margen > 0:
+                st.caption(f"ℹ️ Margen del {st.session_state.margen}% aplicado")
+        with col_search:
+            buscar_tabla = st.text_input("🔍", placeholder="Filtrar por categoría o ítem...", key="buscar_tabla_presupuesto", label_visibility="collapsed")
+        with col_fs:
+            pantalla_completa = st.toggle("⛶", key="tabla_fullscreen", value=st.session_state.get("tabla_fullscreen_val", False), help="Expandir tabla")
+            st.session_state.tabla_fullscreen_val = pantalla_completa
 
     if st.session_state.carrito:
         carrito_df = pd.DataFrame(st.session_state.carrito)
@@ -2220,17 +2232,7 @@ with tab1:
         comision_vendedor = subtotal_general * 0.025 if st.session_state.modo_admin else 0
         comision_supervisor = subtotal_general * 0.008 if st.session_state.modo_admin else 0
         total_comisiones = comision_vendedor + comision_supervisor
-        utilidad_real = margen_valor - total_comisiones if st.session_state.modo_admin else 0
-
-        # ── Buscador + botón pantalla completa ──
-        col_search, col_fs = st.columns([5, 1])
-        with col_search:
-            buscar_tabla = st.text_input("🔍 Buscar en presupuesto...", placeholder="Filtrar por categoría o ítem...", key="buscar_tabla_presupuesto", label_visibility="collapsed")
-        with col_fs:
-            pantalla_completa = st.checkbox("⛶ Ver completo", key="tabla_fullscreen", value=st.session_state.get("tabla_fullscreen_val", False))
-            st.session_state.tabla_fullscreen_val = pantalla_completa
-
-        altura_tabla = 600 if pantalla_completa else min(35 * len(carrito_df_con_margen) + 80, 420)
+        altura_tabla = 1400 if pantalla_completa else min(38 * len(carrito_df_con_margen) + 80, 420)
 
         if es_solo_lectura:
             carrito_df_display = carrito_df_con_margen[["Categoria", "Item", "Cantidad", "Precio Unitario", "Subtotal"]].copy()
