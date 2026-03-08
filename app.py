@@ -2847,44 +2847,16 @@ if st.session_state.get('mostrar_toast_exito', False):
     """, height=0)
     st.session_state.mostrar_toast_exito = False
 
-# Limpiar flag recien_guardado después de un ciclo para que el FAB reaparezca si siguen editando
-if st.session_state.get('recien_guardado', False):
-    st.session_state.recien_guardado = False
-
 # =========================================================
-# FAB - OCULTAR ÍCONOS STREAMLIT/GITHUB + BOTÓN FLOTANTE
+# FAB - OCULTAR ÍCONOS STREAMLIT/GITHUB
 # =========================================================
-
-# Paso 1: Inyectar CSS en el documento PADRE via components
+# Inyectar CSS para ocultar íconos de Streamlit Cloud
 components.html("""
 <script>
 (function() {
     const parent = window.parent.document;
 
-    if (!parent.getElementById('fab-hide-icons-style')) {
-        const style = parent.createElement('style');
-        style.id = 'fab-hide-icons-style';
-        style.innerHTML = `
-            #MainMenu { display: none !important; }
-            footer { display: none !important; }
-            [data-testid="stToolbar"] { display: none !important; }
-            [data-testid="stDecoration"] { display: none !important; }
-            [data-testid="stStatusWidget"] { display: none !important; }
-            [data-testid="stBottomBlockContainer"] { display: none !important; }
-            [class*="viewerBadge"] { display: none !important; }
-            [class*="ViewerBadge"] { display: none !important; }
-            [class*="_viewerBadge"] { display: none !important; }
-            [class*="profileContainer"] { display: none !important; }
-            [class*="_profileContainer"] { display: none !important; }
-            [class*="profilePreview"] { display: none !important; }
-            a[href*="streamlit.io"] { display: none !important; }
-            a[href*="github.com"] { display: none !important; }
-            button[title="View fullscreen"] { display: none !important; }
-        `;
-        parent.head.appendChild(style);
-    }
-
-    function hideElements() {
+    function hideIcons() {
         const selectors = [
             'footer',
             '[data-testid="stToolbar"]',
@@ -2905,124 +2877,183 @@ components.html("""
             try {
                 parent.querySelectorAll(sel).forEach(el => {
                     el.style.setProperty('display', 'none', 'important');
-                    el.style.setProperty('visibility', 'hidden', 'important');
-                    el.style.setProperty('opacity', '0', 'important');
-                    el.style.setProperty('pointer-events', 'none', 'important');
                 });
             } catch(e) {}
         });
     }
 
-    hideElements();
-    setTimeout(hideElements, 300);
-    setTimeout(hideElements, 1000);
-    setTimeout(hideElements, 2500);
+    if (!parent.getElementById('fab-hide-icons-style')) {
+        const style = parent.createElement('style');
+        style.id = 'fab-hide-icons-style';
+        style.innerHTML = `
+            #MainMenu { display: none !important; }
+            footer { display: none !important; }
+            [data-testid="stToolbar"] { display: none !important; }
+            [data-testid="stDecoration"] { display: none !important; }
+            [data-testid="stStatusWidget"] { display: none !important; }
+            [data-testid="stBottomBlockContainer"] { display: none !important; }
+            [class*="viewerBadge"] { display: none !important; }
+            [class*="_viewerBadge"] { display: none !important; }
+            [class*="profileContainer"] { display: none !important; }
+            [class*="_profileContainer"] { display: none !important; }
+            [class*="profilePreview"] { display: none !important; }
+            a[href*="streamlit.io"] { display: none !important; }
+            a[href*="github.com"] { display: none !important; }
+        `;
+        parent.head.appendChild(style);
+    }
 
-    const observer = new MutationObserver(function() {
-        hideElements();
-    });
-    observer.observe(parent.body, {
-        childList: true,
-        subtree: true,
-        attributes: false
-    });
-
+    hideIcons();
+    setTimeout(hideIcons, 500);
+    setTimeout(hideIcons, 1500);
+    new MutationObserver(hideIcons).observe(parent.body, {childList: true, subtree: true});
 })();
 </script>
 """, height=0)
 
-# Paso 2: Botón flotante — aparece cuando hay carrito y hay cambios sin guardar
-_hay_cambios_sin_guardar = (
-    len(st.session_state.get('carrito', [])) > 0 and
-    not st.session_state.get('recien_guardado', False) and
-    not (
-        st.session_state.cotizacion_cargada and
-        st.session_state.margen > 0 and
-        not st.session_state.modo_admin
-    )
+# =========================================================
+# FAB - BOTÓN GUARDAR FLOTANTE (Streamlit puro)
+# =========================================================
+_es_solo_lectura = (
+    st.session_state.cotizacion_cargada and
+    st.session_state.margen > 0 and
+    not st.session_state.modo_admin
 )
 
-if _hay_cambios_sin_guardar:
-    _fab_accion = "mostrar"
-else:
-    _fab_accion = "ocultar"
+_mostrar_fab = (
+    len(st.session_state.get('carrito', [])) > 0 and
+    not _es_solo_lectura and
+    not st.session_state.get('recien_guardado', False)
+)
 
-components.html(f"""
-<script>
-(function() {{
-    const parent = window.parent.document;
-    const accion = '{_fab_accion}';
+# Limpiar flag recien_guardado después de un ciclo
+if st.session_state.get('recien_guardado', False):
+    st.session_state.recien_guardado = False
 
-    function eliminarFAB() {{
-        const w = parent.getElementById('fab-guardar-wrapper');
-        if (w) w.remove();
-    }}
+if _mostrar_fab:
+    # CSS para posicionar el botón de Streamlit como FAB flotante
+    st.markdown("""
+    <style>
+    /* FAB container - lo identificamos por data-testid único */
+    div[data-testid="stBottom"] { display: none !important; }
 
-    function inyectarFAB() {{
-        if (parent.getElementById('fab-guardar-wrapper')) return;
-        if (!parent.getElementById('fab-guardar-style')) {{
-            const style = parent.createElement('style');
-            style.id = 'fab-guardar-style';
-            style.innerHTML = `
-                @keyframes pulse-fab {{
-                    0%   {{ box-shadow: 0 8px 24px rgba(91,124,250,0.5); }}
-                    50%  {{ box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }}
-                    100% {{ box-shadow: 0 8px 24px rgba(91,124,250,0.5); }}
-                }}
-                @keyframes blink-badge {{
-                    0%, 100% {{ opacity: 1; }}
-                    50%      {{ opacity: 0.2; }}
-                }}
-                #fab-guardar-wrapper {{
-                    position: fixed !important;
-                    bottom: 1.5rem !important;
-                    left: 2rem !important;
-                    z-index: 999999 !important;
-                }}
-                #fab-guardar-btn {{
-                    background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%) !important;
-                    color: white !important;
-                    border: none !important;
-                    border-radius: 50px !important;
-                    padding: 0.85rem 1.6rem !important;
-                    font-size: 0.95rem !important;
-                    font-weight: 700 !important;
-                    cursor: pointer !important;
-                    font-family: sans-serif !important;
-                    animation: pulse-fab 2s infinite !important;
-                    transition: all 0.3s ease !important;
-                    white-space: nowrap !important;
-                }}
-                #fab-guardar-btn:hover {{
-                    transform: translateY(-3px) scale(1.05) !important;
-                    animation: none !important;
-                }}
-                #fab-badge {{
-                    position: absolute !important;
-                    top: -5px !important;
-                    right: -5px !important;
-                    width: 14px !important;
-                    height: 14px !important;
-                    background: #ef4444 !important;
-                    border-radius: 50% !important;
-                    border: 2px solid white !important;
-                    animation: blink-badge 1.5s infinite !important;
-                }}
-            `;
-            parent.head.appendChild(style);
-        }}
+    @keyframes pulse-fab {
+        0%   { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
+        50%  { box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }
+        100% { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
+    }
+    @keyframes blink-badge {
+        0%, 100% { opacity: 1; }
+        50%       { opacity: 0.2; }
+    }
+
+    /* Posicionar el contenedor del FAB */
+    [data-testid="stVerticalBlock"] div:has(> [data-testid="stVerticalBlock"] > div > button[kind="primary"]#fab_btn_guardar_real) {
+        position: fixed !important;
+        bottom: 1.5rem !important;
+        left: 2rem !important;
+        z-index: 999999 !important;
+    }
+
+    /* Estilo del botón FAB */
+    button[kind="primary"].fab-real-btn,
+    div.fab-real-container button {
+        background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 50px !important;
+        padding: 0.85rem 1.6rem !important;
+        font-size: 0.95rem !important;
+        font-weight: 700 !important;
+        animation: pulse-fab 2s infinite !important;
+        white-space: nowrap !important;
+        min-width: 140px !important;
+    }
+    </style>
+    <div class="fab-real-container" style="position:fixed;bottom:1.5rem;left:2rem;z-index:999999;">
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Botón real de Streamlit que ejecuta la lógica de guardado
+    with st.container():
+        st.markdown('<div class="fab-real-container" style="position:fixed;bottom:1.5rem;left:2rem;z-index:999999;"></div>', unsafe_allow_html=True)
+
+    # Usar st.session_state para trigger desde el FAB
+    if 'fab_trigger_guardar' not in st.session_state:
+        st.session_state.fab_trigger_guardar = False
+
+    # El FAB real se implementa como un components.html que inyecta
+    # el botón en el documento padre y usa postMessage para comunicarse
+    components.html(f"""
+    <script>
+    (function() {{
+        const parent = window.parent.document;
+
+        // Eliminar FAB anterior si existe
+        const old = parent.getElementById('fab-guardar-wrapper');
+        if (old) old.remove();
+
+        // Crear FAB nuevo
+        const style = parent.getElementById('fab-guardar-style') || parent.createElement('style');
+        style.id = 'fab-guardar-style';
+        style.innerHTML = `
+            @keyframes pulse-fab {{
+                0%   {{ box-shadow: 0 8px 24px rgba(91,124,250,0.5); }}
+                50%  {{ box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }}
+                100% {{ box-shadow: 0 8px 24px rgba(91,124,250,0.5); }}
+            }}
+            @keyframes blink-badge {{
+                0%, 100% {{ opacity: 1; }}
+                50%      {{ opacity: 0.2; }}
+            }}
+            #fab-guardar-wrapper {{
+                position: fixed !important;
+                bottom: 1.5rem !important;
+                left: 2rem !important;
+                z-index: 999999 !important;
+            }}
+            #fab-guardar-btn {{
+                background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%) !important;
+                color: white !important;
+                border: none !important;
+                border-radius: 50px !important;
+                padding: 0.85rem 1.6rem !important;
+                font-size: 0.95rem !important;
+                font-weight: 700 !important;
+                cursor: pointer !important;
+                font-family: sans-serif !important;
+                animation: pulse-fab 2s infinite !important;
+                white-space: nowrap !important;
+            }}
+            #fab-guardar-btn:hover {{
+                transform: translateY(-3px) scale(1.05) !important;
+                animation: none !important;
+            }}
+            #fab-badge {{
+                position: absolute !important;
+                top: -5px !important; right: -5px !important;
+                width: 14px !important; height: 14px !important;
+                background: #ef4444 !important;
+                border-radius: 50% !important;
+                border: 2px solid white !important;
+                animation: blink-badge 1.5s infinite !important;
+            }}
+        `;
+        if (!parent.getElementById('fab-guardar-style')) parent.head.appendChild(style);
+
         const wrapper = parent.createElement('div');
         wrapper.id = 'fab-guardar-wrapper';
         const btn = parent.createElement('button');
         btn.id = 'fab-guardar-btn';
         btn.innerHTML = '💾 Guardar';
         btn.onclick = function() {{
+            // Buscar y clickear el botón guardar real de Streamlit
             const buttons = parent.querySelectorAll('button');
             for (const b of buttons) {{
                 const txt = (b.innerText || b.textContent || '').trim();
                 if (txt.includes('Guardar') && b.id !== 'fab-guardar-btn' && !b.disabled) {{
                     b.click();
-                    break;
+                    return;
                 }}
             }}
         }};
@@ -3031,16 +3062,17 @@ components.html(f"""
         wrapper.appendChild(btn);
         wrapper.appendChild(badge);
         parent.body.appendChild(wrapper);
-    }}
-
-    if (accion === 'mostrar') {{
-        inyectarFAB();
-        setTimeout(inyectarFAB, 500);
-    }} else {{
-        eliminarFAB();
-        setTimeout(eliminarFAB, 200);
-    }}
-}})();
-</script>
-""", height=0)
-
+    }})();
+    </script>
+    """, height=0)
+else:
+    # Eliminar FAB del DOM cuando no hay cambios pendientes
+    components.html("""
+    <script>
+    (function() {
+        const parent = window.parent.document;
+        const w = parent.getElementById('fab-guardar-wrapper');
+        if (w) w.remove();
+    })();
+    </script>
+    """, height=0)
