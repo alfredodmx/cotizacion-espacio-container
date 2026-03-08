@@ -3079,16 +3079,16 @@ _mstr = f"{_margen_actual:.1f}"
 
 if st.session_state.modo_admin:
     _color_fab = '#10b981' if _margen_actual > 0 else '#6b7280'
-    # CSS para posicionar el popover como FAB flotante
     st.markdown(f"""
 <style>
-div#fab-margen-container {{
+/* Identificar el popover de margen por ser el ÚNICO popover fuera del header */
+section[data-testid="stMain"] div[data-testid="stPopover"] {{
     position: fixed !important;
     bottom: 1.5rem !important;
     left: 12rem !important;
     z-index: 99998 !important;
 }}
-div#fab-margen-container div[data-testid="stPopover"] > div > button {{
+section[data-testid="stMain"] div[data-testid="stPopover"] > div > button {{
     background: linear-gradient(135deg, {_color_fab}, {_color_fab}dd) !important;
     color: white !important;
     border: none !important;
@@ -3103,7 +3103,6 @@ div#fab-margen-container div[data-testid="stPopover"] > div > button {{
 }}
 </style>
 """, unsafe_allow_html=True)
-    st.markdown('<div id="fab-margen-container">', unsafe_allow_html=True)
 
     with st.popover(f"📊 Margen: {_mstr}%"):
         st.markdown("**Aplicar margen**")
@@ -3116,7 +3115,6 @@ div#fab-margen-container div[data-testid="stPopover"] > div > button {{
         if st.button("✅ Aplicar", key="btn_aplicar_margen", use_container_width=True):
             st.session_state.margen = _mg_pop
             st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
 else:
     components.html("""<script>
