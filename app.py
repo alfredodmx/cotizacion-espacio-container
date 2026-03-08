@@ -3040,14 +3040,15 @@ if _mostrar_fab:
         btn.id = 'fab-guardar-btn';
         btn.innerHTML = '&#128190; Guardar';
         btn.onclick = function() {{
-            // Buscar el botón real en todos los iframes
             const frames = D.querySelectorAll('iframe');
             for (var i = 0; i < frames.length; i++) {{
                 try {{
-                    const btns = frames[i].contentDocument.querySelectorAll('button');
+                    var doc = frames[i].contentDocument;
+                    // Buscar todos los botones primary y encontrar el de guardar por texto
+                    var btns = doc.querySelectorAll('button[data-testid="stBaseButton-primary"]');
                     for (var j = 0; j < btns.length; j++) {{
-                        const txt = (btns[j].innerText || '').trim();
-                        if (txt === '💾 Guardar' && !btns[j].disabled) {{
+                        var txt = btns[j].innerText || btns[j].textContent || '';
+                        if (txt.indexOf('Guardar') >= 0 && !btns[j].disabled) {{
                             btns[j].click();
                             return;
                         }}
