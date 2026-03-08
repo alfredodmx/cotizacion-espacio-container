@@ -2238,7 +2238,7 @@ with tab1:
             value=float(st.session_state.margen),
             step=0.5, format="%.1f",
             key=_mk,
-            label_visibility="collapsed"
+            label_visibility="hidden"
         )
         if _nuevo_margen != st.session_state.margen:
             st.session_state.margen = _nuevo_margen
@@ -3144,169 +3144,120 @@ _mstr = f"{_margen_actual:.1f}"
 
 if st.session_state.modo_admin:
     _color = '#10b981' if _margen_actual > 0 else '#6b7280'
-    _pulse = 'pulse' if _margen_actual > 0 else 'none'
+    _anim  = 'animation:pm 2s infinite;' if _margen_actual > 0 else ''
 
-    # El FAB vive DENTRO del iframe — usa window.location para enviar valor
+    # Inyectar botón y popup en el DOM PADRE via components.html height=0
     components.html(f"""
-<!DOCTYPE html>
-<html>
-<head>
-<style>
-* {{ box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }}
-body {{ background: transparent; overflow: hidden; }}
-
-@keyframes pulse {{
-  0%   {{ box-shadow: 0 6px 20px rgba(16,185,129,.5); }}
-  50%  {{ box-shadow: 0 6px 36px rgba(16,185,129,.9), 0 0 0 10px rgba(16,185,129,.15); }}
-  100% {{ box-shadow: 0 6px 20px rgba(16,185,129,.5); }}
-}}
-
-#fab {{
-  position: fixed;
-  bottom: 1.5rem;
-  left: 12rem;
-  background: linear-gradient(135deg, {_color}, {_color}dd);
-  color: white;
-  border: none;
-  border-radius: 50px;
-  padding: .8rem 1.4rem;
-  font-size: .9rem;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-  animation: {_pulse} 2s infinite;
-  z-index: 1;
-}}
-#fab:hover {{ transform: translateY(-2px); animation: none; }}
-
-#popup {{
-  position: fixed;
-  bottom: 4.5rem;
-  left: 12rem;
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 8px 40px rgba(0,0,0,.25);
-  padding: 1rem 1.2rem;
-  min-width: 220px;
-  display: none;
-  z-index: 2;
-}}
-#popup.open {{ display: block; }}
-
-#title {{ font-size: .85rem; font-weight: 700; color: #374151; margin-bottom: .5rem; }}
-#disp {{
-  width: 100%;
-  padding: .5rem;
-  border: 2px solid #10b981;
-  border-radius: 10px;
-  font-size: 1.6rem;
-  font-weight: 700;
-  text-align: center;
-  margin-bottom: 6px;
-  color: #111;
-  background: #f0fdf4;
-  user-select: none;
-}}
-#pad {{
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 5px;
-  margin-bottom: 6px;
-}}
-#pad button {{
-  padding: .5rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: #f9fafb;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  color: #111;
-}}
-#pad button:hover {{ background: #f0fdf4; border-color: #10b981; }}
-#apply {{
-  width: 100%;
-  padding: .55rem;
-  background: linear-gradient(135deg, #10b981, #059669);
-  color: white;
-  border: none;
-  border-radius: 10px;
-  font-size: .9rem;
-  font-weight: 700;
-  cursor: pointer;
-}}
-#apply:hover {{ opacity: .9; }}
-</style>
-</head>
-<body>
-  <button id="fab">&#128202; Margen: {_mstr}%</button>
-  <div id="popup">
-    <div id="title">&#128202; Aplicar Margen</div>
-    <div id="disp">{_mstr}%</div>
-    <div id="pad">
-      <button>1</button><button>2</button><button>3</button>
-      <button>4</button><button>5</button><button>6</button>
-      <button>7</button><button>8</button><button>9</button>
-      <button id="clr" style="color:#ef4444">C</button>
-      <button>0</button>
-      <button>.</button>
-    </div>
-    <button id="apply">&#9989; Aplicar</button>
-  </div>
-
 <script>
-var cur = '{_mstr}';
-var disp = document.getElementById('disp');
-var popup = document.getElementById('popup');
+(function(){{
+  var D = window.parent.document;
+  // Limpiar elementos anteriores
+  ['_fm_s','_fm_b','_fm_p'].forEach(function(id){{
+    var e=D.getElementById(id); if(e) e.remove();
+  }});
 
-document.getElementById('fab').addEventListener('click', function() {{
-  popup.classList.toggle('open');
-  if (popup.classList.contains('open')) {{
-    cur = '{_mstr}';
-    disp.textContent = cur + '%';
-  }}
-}});
+  // Estilos
+  var s=D.createElement('style'); s.id='_fm_s';
+  s.textContent=[
+    '@keyframes pm{{0%{{box-shadow:0 6px 20px rgba(16,185,129,.5)}}50%{{box-shadow:0 6px 36px rgba(16,185,129,.9),0 0 0 10px rgba(16,185,129,.15)}}100%{{box-shadow:0 6px 20px rgba(16,185,129,.5)}}}}',
+    '#_fm_b{{position:fixed;bottom:1.5rem;left:12rem;z-index:99998;background:linear-gradient(135deg,{_color},{_color}dd);color:#fff;border:none;border-radius:50px;padding:.8rem 1.4rem;font-size:.9rem;font-weight:700;cursor:pointer;white-space:nowrap;{_anim}font-family:sans-serif;box-shadow:0 6px 20px rgba(16,185,129,.4);}}',
+    '#_fm_b:hover{{transform:translateY(-2px);animation:none;}}',
+    '#_fm_p{{position:fixed;bottom:5rem;left:12rem;z-index:99999;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.28);padding:1rem 1.2rem;min-width:220px;display:none;font-family:sans-serif;}}',
+    '#_fm_p.on{{display:block;}}',
+    '#_fm_disp{{width:100%;padding:.5rem;border:2px solid #10b981;border-radius:10px;font-size:1.6rem;font-weight:700;text-align:center;margin-bottom:6px;color:#111;background:#f0fdf4;user-select:none;}}',
+    '#_fm_pad{{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:6px;}}',
+    '#_fm_pad button{{padding:.5rem;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;font-size:1rem;font-weight:600;cursor:pointer;color:#111;font-family:sans-serif;}}',
+    '#_fm_pad button:hover{{background:#f0fdf4;border-color:#10b981;}}',
+    '#_fm_ok{{width:100%;padding:.55rem;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:10px;font-size:.9rem;font-weight:700;cursor:pointer;font-family:sans-serif;}}'
+  ].join('');
+  D.head.appendChild(s);
 
-document.getElementById('pad').addEventListener('click', function(e) {{
-  var t = e.target;
-  if (!t || t.tagName !== 'BUTTON') return;
-  var n = t.textContent.trim();
-  if (t.id === 'clr') {{
-    cur = '0';
-  }} else if (n === '.') {{
-    if (cur.indexOf('.') < 0) cur += '.';
-  }} else {{
-    cur = (cur === '0') ? n : cur + n;
-  }}
-  if (parseFloat(cur) > 100) cur = '100';
-  disp.textContent = cur + '%';
-}});
+  // Popup
+  var p=D.createElement('div'); p.id='_fm_p';
+  p.innerHTML='<div style="font-size:.85rem;font-weight:700;color:#374151;margin-bottom:.5rem;">Aplicar Margen</div>'
+    +'<div id="_fm_disp">{_mstr}%</div>'
+    +'<div id="_fm_pad">'
+    +'<button>1</button><button>2</button><button>3</button>'
+    +'<button>4</button><button>5</button><button>6</button>'
+    +'<button>7</button><button>8</button><button>9</button>'
+    +'<button id="_fm_c" style="color:#ef4444">C</button>'
+    +'<button>0</button><button>.</button>'
+    +'</div>'
+    +'<button id="_fm_ok">&#9989; Aplicar</button>';
+  D.body.appendChild(p);
 
-document.getElementById('apply').addEventListener('click', function() {{
-  var val = Math.max(0, Math.min(100, parseFloat(cur) || 0));
-  // Navegar con query param — window.location del iframe navega la página completa
-  var url = new URL(window.parent.location.href);
-  url.searchParams.set('mgfab', val.toFixed(1));
-  window.parent.location.href = url.toString();
-}});
+  var cur='{_mstr}';
+  var disp=D.getElementById('_fm_disp');
 
-document.addEventListener('click', function(e) {{
-  if (!document.getElementById('fab').contains(e.target) &&
-      !popup.contains(e.target)) {{
-    popup.classList.remove('open');
-  }}
-}});
+  // Pad numérico
+  D.getElementById('_fm_pad').addEventListener('click',function(e){{
+    var t=e.target; if(!t||t.tagName!=='BUTTON') return;
+    var n=t.textContent.trim();
+    if(t.id==='_fm_c') cur='0';
+    else if(n==='.') {{ if(cur.indexOf('.')<0) cur+='.'; }}
+    else cur=(cur==='0')?n:cur+n;
+    if(parseFloat(cur)>100) cur='100';
+    disp.textContent=cur+'%';
+  }});
+
+  // Aplicar: buscar input por label exacto "margen_fab_hidden"
+  D.getElementById('_fm_ok').addEventListener('click',function(){{
+    var val=Math.max(0,Math.min(100,parseFloat(cur)||0));
+    var target=null;
+    // Buscar label con texto exacto margen_fab_hidden
+    var allL=D.querySelectorAll('label');
+    for(var j=0;j<allL.length;j++){{
+      if(allL[j].textContent.trim()==='margen_fab_hidden'){{
+        var forId=allL[j].getAttribute('for');
+        if(forId) target=D.getElementById(forId);
+        if(!target){{
+          var wrap=allL[j].closest('[data-testid="stNumberInput"]');
+          if(wrap) target=wrap.querySelector('input[type="number"]');
+        }}
+        break;
+      }}
+    }}
+    if(target){{
+      var nv=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
+      nv.call(target,val.toFixed(1));
+      target.dispatchEvent(new Event('input',{{bubbles:true}}));
+      target.dispatchEvent(new Event('change',{{bubbles:true}}));
+      setTimeout(function(){{ target.dispatchEvent(new KeyboardEvent('keydown',{{key:'Enter',keyCode:13,bubbles:true}})); }},30);
+    }}
+    p.classList.remove('on');
+  }});
+
+  // Botón FAB
+  var b=D.createElement('button'); b.id='_fm_b';
+  b.innerHTML='&#128202; Margen: {_mstr}%';
+  b.addEventListener('click',function(e){{
+    e.stopPropagation();
+    cur='{_mstr}'; disp.textContent=cur+'%';
+    p.classList.toggle('on');
+  }});
+  D.body.appendChild(b);
+
+  // Cerrar al clickear fuera
+  D.addEventListener('click',function(e){{
+    if(!b.contains(e.target)&&!p.contains(e.target)) p.classList.remove('on');
+  }});
+}})();
 </script>
-</body>
-</html>
-""", height=90, scrolling=False)
+""", height=0)
+
+    # CSS para ocultar el number_input de margen del layout
+    st.markdown("""
+<style>
+div[data-testid="stNumberInput"]:has(input[id*="margen_fab"]) { display:none!important; }
+</style>
+""", unsafe_allow_html=True)
 
 else:
     components.html("""<script>
 (function(){
-  var doc=window.parent.document;
-  ['_fmg_s','_fmg_btn','_fmg_pop','_fmg_ov'].forEach(function(id){
-    var e=doc.getElementById(id); if(e) e.remove();
+  var D=window.parent.document;
+  ['_fm_s','_fm_b','_fm_p'].forEach(function(id){
+    var e=D.getElementById(id); if(e) e.remove();
   });
 })();
 </script>""", height=0)
