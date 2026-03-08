@@ -2321,6 +2321,10 @@ with tab1:
         if st.session_state.modo_admin and st.session_state.margen > 0:
             st.caption(f"*Precios calculados con margen del {st.session_state.margen}%")
 
+        # Asegurar que todas las variables de métricas estén definidas
+        if 'utilidad_real' not in dir():
+            utilidad_real = margen_valor - total_comisiones if st.session_state.modo_admin else 0
+
         st.markdown("---")
         st.markdown("#### Métricas")
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
@@ -3112,18 +3116,21 @@ if st.session_state.modo_admin:
 <script>
 (function(){{
   var doc = window.parent.document;
-  ['_fab_mg_style','_fab_mg_wrap','_fab_mg_popup'].forEach(function(id){{
+  ['_fab_mg_style','_fab_mg_wrap','_fab_mg_popup','_fab_mg_overlay'].forEach(function(id){{
     var e=doc.getElementById(id); if(e) e.remove();
   }});
+
   var s = doc.createElement('style');
   s.id = '_fab_mg_style';
   s.textContent = [
     '@keyframes pm{{0%{{box-shadow:0 8px 24px rgba(16,185,129,.5)}}50%{{box-shadow:0 8px 40px rgba(16,185,129,.9),0 0 0 12px rgba(16,185,129,.15)}}100%{{box-shadow:0 8px 24px rgba(16,185,129,.5)}}}}',
     '#_fab_mg_btn{{position:fixed;bottom:1.5rem;left:12rem;z-index:999990;background:{_color};color:#fff;border:none;border-radius:50px;padding:.85rem 1.4rem;font-size:.95rem;font-weight:700;cursor:pointer;white-space:nowrap;{_pulse}font-family:sans-serif;box-shadow:0 8px 24px rgba(16,185,129,.5);}}',
     '#_fab_mg_btn:hover{{transform:translateY(-3px);animation:none;}}',
-    '#_fab_mg_popup{{position:fixed;bottom:5.5rem;left:12rem;z-index:999991;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.25);padding:1.2rem 1.4rem;min-width:230px;display:none;font-family:sans-serif;}}',
+    '#_fab_mg_overlay{{display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:999988;background:transparent;}}',
+    '#_fab_mg_overlay.open{{display:block;}}',
+    '#_fab_mg_popup{{position:fixed;bottom:5.5rem;left:12rem;z-index:999995;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.3);padding:1.2rem 1.4rem;min-width:230px;display:none;font-family:sans-serif;}}',
     '#_fab_mg_popup.open{{display:block;}}',
-    '#_fab_mg_disp{{width:100%;padding:.6rem;border:2px solid #10b981;border-radius:10px;font-size:1.5rem;font-weight:700;text-align:center;margin-bottom:8px;box-sizing:border-box;color:#111827;background:#f0fdf4;}}',
+    '#_fab_mg_disp{{width:100%;padding:.6rem;border:2px solid #10b981;border-radius:10px;font-size:1.5rem;font-weight:700;text-align:center;margin-bottom:8px;box-sizing:border-box;color:#111827;background:#f0fdf4;user-select:none;}}',
     '#_fab_mg_pad{{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px;}}',
     '#_fab_mg_pad button{{padding:.6rem;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;font-size:1rem;font-weight:600;cursor:pointer;color:#111827;font-family:sans-serif;}}',
     '#_fab_mg_pad button:hover{{background:#f0fdf4;border-color:#10b981;}}',
@@ -3131,19 +3138,36 @@ if st.session_state.modo_admin:
   ].join('');
   doc.head.appendChild(s);
 
+  // Overlay para bloquear clicks en los iframes de Streamlit
+  var overlay = doc.createElement('div');
+  overlay.id = '_fab_mg_overlay';
+  doc.body.appendChild(overlay);
+
   var popup = doc.createElement('div');
   popup.id = '_fab_mg_popup';
-  popup.innerHTML = '<b style="font-size:.95rem;color:#374151;display:block;margin-bottom:.7rem;">&#128202; Aplicar Margen</b>'
+  popup.innerHTML = '<b style="font-size:.95rem;color:#374151;display:block;margin-bottom:.7rem;">Aplicar Margen</b>'
     + '<div id="_fab_mg_disp">{_mstr}%</div>'
     + '<div id="_fab_mg_pad"><button>1</button><button>2</button><button>3</button><button>4</button><button>5</button><button>6</button><button>7</button><button>8</button><button>9</button>'
     + '<button id="_fab_mg_clr" style="color:#ef4444;font-size:.85rem;">C</button><button>0</button><button>.</button></div>'
-    + '<button id="_fab_mg_apply">&#9989; Aplicar</button>';
+    + '<button id="_fab_mg_apply">Aplicar</button>';
   doc.body.appendChild(popup);
 
   var cur = '{_mstr}';
   var disp = doc.getElementById('_fab_mg_disp');
 
+  function openPopup() {{
+    cur = '{_mstr}';
+    disp.textContent = cur + '%';
+    popup.classList.add('open');
+    overlay.classList.add('open');
+  }}
+  function closePopup() {{
+    popup.classList.remove('open');
+    overlay.classList.remove('open');
+  }}
+
   doc.getElementById('_fab_mg_pad').addEventListener('click', function(e){{
+    e.stopPropagation();
     var t=e.target; if(!t||t.tagName!=='BUTTON') return;
     var n=t.textContent.trim();
     if(t.id==='_fab_mg_clr') cur='0';
@@ -3153,25 +3177,26 @@ if st.session_state.modo_admin:
     disp.textContent=cur+'%';
   }});
 
-  doc.getElementById('_fab_mg_apply').addEventListener('click', function(){{
+  doc.getElementById('_fab_mg_apply').addEventListener('click', function(e){{
+    e.stopPropagation();
     var val=Math.max(0,Math.min(100,parseFloat(cur)||0));
     var url=new URL(doc.location.href);
     url.searchParams.set('mgfab', val.toFixed(1));
     doc.location.href=url.toString();
   }});
 
+  // Overlay cierra el popup al hacer click fuera
+  overlay.addEventListener('click', closePopup);
+
   var wrap=doc.createElement('div'); wrap.id='_fab_mg_wrap';
   var btn=doc.createElement('button'); btn.id='_fab_mg_btn';
   btn.textContent='Margen: {_mstr}%';
   btn.addEventListener('click',function(e){{
     e.stopPropagation();
-    cur='{_mstr}'; disp.textContent=cur+'%';
-    popup.classList.toggle('open');
+    if(popup.classList.contains('open')) closePopup();
+    else openPopup();
   }});
   wrap.appendChild(btn); doc.body.appendChild(wrap);
-  doc.addEventListener('click',function(e){{
-    if(!wrap.contains(e.target)&&!popup.contains(e.target)) popup.classList.remove('open');
-  }});
 }})();
 </script>
 """, height=0)
@@ -3180,7 +3205,7 @@ else:
     components.html("""<script>
 (function(){
   var doc=window.parent.document;
-  ['_fab_mg_style','_fab_mg_wrap','_fab_mg_popup'].forEach(function(id){
+  ['_fab_mg_style','_fab_mg_wrap','_fab_mg_popup','_fab_mg_overlay'].forEach(function(id){
     var e=doc.getElementById(id); if(e) e.remove();
   });
 })();
