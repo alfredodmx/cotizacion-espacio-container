@@ -2204,20 +2204,21 @@ with tab1:
     if not st.session_state.modo_admin and st.session_state.margen > 0:
         st.caption(f"ℹ️ Margen del {st.session_state.margen}% aplicado")
 
-    # Input oculto de margen - texto como intermediario desde FAB
+    # Leer margen desde query_params (enviado por FAB flotante)
     if st.session_state.modo_admin:
-        st.markdown('<div style="position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden;" id="margen-fab-container">', unsafe_allow_html=True)
-        margen_fab_val = st.text_input("__MARGEN_FAB__", value="", key="margen_fab_input", label_visibility="hidden")
-        st.markdown('</div>', unsafe_allow_html=True)
-        if margen_fab_val:
+        _qp = st.query_params.get("margen_fab", None)
+        if _qp is not None:
             try:
-                nuevo_margen = float(margen_fab_val.replace(',', '.'))
-                nuevo_margen = max(0.0, min(100.0, nuevo_margen))
-                if nuevo_margen != st.session_state.margen:
-                    st.session_state.margen = nuevo_margen
+                _nuevo_margen = float(_qp)
+                _nuevo_margen = max(0.0, min(100.0, _nuevo_margen))
+                if _nuevo_margen != st.session_state.margen:
+                    st.session_state.margen = _nuevo_margen
+                    st.query_params.clear()
                     st.rerun()
+                else:
+                    st.query_params.clear()
             except ValueError:
-                pass
+                st.query_params.clear()
 
     if st.session_state.carrito:
         # Fila buscador — solo visible con productos
@@ -3231,24 +3232,10 @@ if _mostrar_fab_margen:
         // Aplicar margen: busca el number_input de Streamlit y le pone el valor
         function applyMargen() {{
             const val = parseFloat(parent.getElementById('fab-margen-input').value) || 0;
-            // Buscar el text_input con label __MARGEN_FAB__
-            const allContainers = parent.querySelectorAll('[data-testid="stTextInput"]');
-            let targetInput = null;
-            for (const c of allContainers) {{
-                const lbl = c.querySelector('label');
-                if (lbl && lbl.textContent.includes('MARGEN_FAB')) {{
-                    targetInput = c.querySelector('input[type="text"]');
-                    break;
-                }}
-            }}
-            if (targetInput) {{
-                const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-                setter.call(targetInput, val.toFixed(1));
-                targetInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                targetInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                // Simular Enter para que Streamlit procese el valor
-                targetInput.dispatchEvent(new KeyboardEvent('keydown', {{ key: 'Enter', keyCode: 13, bubbles: true }}));
-            }}
+            // Usar query_params para pasar el valor a Streamlit sin tocar otros inputs
+            const url = new URL(parent.location.href);
+            url.searchParams.set('margen_fab', val.toFixed(1));
+            parent.location.href = url.toString();
             popup.classList.remove('visible');
         }}
 
