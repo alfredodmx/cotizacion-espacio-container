@@ -2987,25 +2987,34 @@ if st.session_state.get('recien_cargado', False):
     st.session_state.recien_cargado = False
 
 if _mostrar_fab:
+    # Botón real oculto — el FAB JS lo clickea
+    if st.button("💾 Guardar", key="btn_guardar_fab_real", type="primary"):
+        datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
+        num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
+        guardar_cotizacion(num_g, datos_c, datos_a, proy,
+                           st.session_state.carrito, cfg, tots, pl_n, pl_d)
+        st.session_state.hash_ultimo_guardado = calcular_hash_estado()
+        st.session_state.recien_guardado = True
+        st.session_state.mostrar_toast_exito = True
+        st.session_state.toast_numero_ep = num_g
+        st.rerun()
+
+    # FAB JS: botón flotante en DOM padre que clickea el botón real dentro del iframe
     components.html(f"""
     <script>
     (function() {{
-        const parent = window.parent.document;
+        const D = window.parent.document;
 
-        const old = parent.getElementById('fab-guardar-wrapper');
+        const old = D.getElementById('fab-guardar-wrapper');
         if (old) old.remove();
 
-        const style = parent.getElementById('fab-guardar-style') || parent.createElement('style');
+        const style = D.getElementById('fab-guardar-style') || D.createElement('style');
         style.id = 'fab-guardar-style';
         style.innerHTML = `
             @keyframes pulse-fab {{
                 0%   {{ box-shadow: 0 8px 24px rgba(91,124,250,0.5); }}
                 50%  {{ box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }}
                 100% {{ box-shadow: 0 8px 24px rgba(91,124,250,0.5); }}
-            }}
-            @keyframes blink-badge {{
-                0%, 100% {{ opacity: 1; }}
-                50%      {{ opacity: 0.2; }}
             }}
             #fab-guardar-wrapper {{
                 position: fixed !important;
@@ -3015,57 +3024,51 @@ if _mostrar_fab:
             }}
             #fab-guardar-btn {{
                 background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%) !important;
-                color: white !important;
-                border: none !important;
-                border-radius: 50px !important;
-                padding: 0.85rem 1.6rem !important;
-                font-size: 0.95rem !important;
-                font-weight: 700 !important;
-                cursor: pointer !important;
-                font-family: sans-serif !important;
-                animation: pulse-fab 2s infinite !important;
-                white-space: nowrap !important;
+                color: white !important; border: none !important;
+                border-radius: 50px !important; padding: 0.85rem 1.6rem !important;
+                font-size: 0.95rem !important; font-weight: 700 !important;
+                cursor: pointer !important; font-family: sans-serif !important;
+                animation: pulse-fab 2s infinite !important; white-space: nowrap !important;
             }}
-            #fab-guardar-btn:hover {{
-                transform: translateY(-3px) scale(1.05) !important;
-                animation: none !important;
-            }}
-            #fab-badge {{
-                position: absolute !important;
-                top: -5px !important; right: -5px !important;
-                width: 14px !important; height: 14px !important;
-                background: #ef4444 !important;
-                border-radius: 50% !important;
-                border: 2px solid white !important;
-                animation: blink-badge 1.5s infinite !important;
-            }}
+            #fab-guardar-btn:hover {{ transform: translateY(-3px) scale(1.05) !important; animation: none !important; }}
         `;
-        if (!parent.getElementById('fab-guardar-style')) parent.head.appendChild(style);
+        if (!D.getElementById('fab-guardar-style')) D.head.appendChild(style);
 
-        const wrapper = parent.createElement('div');
+        const wrapper = D.createElement('div');
         wrapper.id = 'fab-guardar-wrapper';
-        const btn = parent.createElement('button');
+        const btn = D.createElement('button');
         btn.id = 'fab-guardar-btn';
         btn.innerHTML = '&#128190; Guardar';
         btn.onclick = function() {{
-            const url = new URL(window.parent.location.href);
-            url.searchParams.set('_fabg','1');
-            window.parent.location.replace(url.toString());
+            // Buscar el botón real en todos los iframes
+            const frames = D.querySelectorAll('iframe');
+            for (var i = 0; i < frames.length; i++) {{
+                try {{
+                    const btns = frames[i].contentDocument.querySelectorAll('button');
+                    for (var j = 0; j < btns.length; j++) {{
+                        const txt = (btns[j].innerText || '').trim();
+                        if (txt === '💾 Guardar' && !btns[j].disabled) {{
+                            btns[j].click();
+                            return;
+                        }}
+                    }}
+                }} catch(e) {{}}
+            }}
         }};
-        const badge = parent.createElement('span');
-        badge.id = 'fab-badge';
         wrapper.appendChild(btn);
-        wrapper.appendChild(badge);
-        parent.body.appendChild(wrapper);
+        D.body.appendChild(wrapper);
     }})();
     </script>
     """, height=0)
+
+
+
 else:
     components.html("""
     <script>
     (function() {
-        const parent = window.parent.document;
-        const w = parent.getElementById('fab-guardar-wrapper');
+        const D = window.parent.document;
+        const w = D.getElementById('fab-guardar-wrapper');
         if (w) w.remove();
     })();
     </script>
