@@ -3260,32 +3260,82 @@ with tab4:
                                         "role": "user",
                                         "content": [
                                             {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": _img_b64_3d}},
-                                            {"type": "text", "text": """Eres un arquitecto experto analizando un plano de planta de un CONTAINER HOUSE (casa contenedor).
+                                            {"type": "text", "text": """Analiza este plano de planta de un CONTAINER HOUSE. Sé muy estricto.
 
-TAREA: Extrae dimensiones reales y ubicación EXACTA de todas las aberturas del plano.
+REGLAS CRÍTICAS:
+1. PUERTA = tiene un ARCO de 90° (cuarto de círculo). Sin arco = NO es puerta. Un container tiene MÁXIMO 2-3 puertas.
+2. VENTANA = rectángulo con líneas paralelas internas (doble línea). Las costillas del container son líneas paralelas UNIFORMES separadas regularmente — NO son ventanas.
+3. Las líneas verticales uniformes y repetidas a lo largo de una pared son COSTILLAS ESTRUCTURALES — IGNÓRALAS completamente.
+4. Solo incluye aberturas donde claramente hay un vano (espacio abierto) en la pared.
+5. Container HC estándar: largo 6m o 9m, ancho 2.4m o 3.0m.
 
-PASOS:
-1. Identifica el norte/orientación del plano
-2. Mide el largo y ancho total del container en metros
-   - Containers típicos: 6m, 9m o 12m de largo; 2.4m o 3.0m de ancho
-3. Para cada pared identifica las aberturas:
-   - PUERTA: se dibuja con un arco de 90 grados, ancho 0.8-1.0m
-   - VENTANA: rectángulo con líneas internas paralelas, ancho 0.6-1.5m
-4. Mide la posición X de cada abertura desde el CENTRO de su pared (negativo=izquierda, positivo=derecha)
-5. La fachada PRINCIPAL (front) suele tener la puerta principal
-6. Si hay cotas numéricas en el plano, úsalas para mayor precisión
+CUÁNTAS aberturas esperar:
+- Pared frontal (fachada): 1 puerta + 1-2 ventanas máximo
+- Pared trasera: 0-1 puertas + 0-2 ventanas máximo  
+- Paredes laterales: 0-1 ventanas cada una, raramente puertas
 
-RESPONDE ÚNICAMENTE con JSON válido, sin texto adicional:
-{"width":<largo en metros>,"depth":<ancho en metros>,"wallHeight":2.8,"walls":[{"side":"front","openings":[{"type":"door","x":<pos x>,"y":1.05,"w":<ancho>,"h":2.1},{"type":"window","x":<pos x>,"y":1.2,"w":<ancho>,"h":<alto>}]},{"side":"back","openings":[...]},{"side":"left","openings":[...]},{"side":"right","openings":[...]}]}"""}
+Responde SOLO JSON sin texto extra:
+{"width":<largo container>,"depth":<ancho container>,"wallHeight":2.8,"walls":[{"side":"front","openings":[{"type":"door","x":<x desde centro>,"y":1.05,"w":<ancho real>,"h":2.1},{"type":"window","x":<x>,"y":1.2,"w":<ancho>,"h":<alto>}]},{"side":"back","openings":[...]},{"side":"left","openings":[...]},{"side":"right","openings":[...]}]}
+
+Si NO ves claramente una abertura en una pared, usa "openings":[]"""}
                                         ]
                                     }]
                                 },
-                                timeout=30
+                                timeout=40
                             )
                             _cv_data = _cv_resp.json()
                             _cv_txt = "".join(b.get("text","") for b in _cv_data.get("content",[])).strip()
                             _cv_txt = _cv_txt.replace("```json","").replace("```","").strip()
-                            _layout_3d = _json.loads(_cv_txt)
+                            _layout_raw = _json.loads(_cv_txt)
+
+                            # ── Post-procesador estricto ──────────────────────────
+                            _W = float(_layout_raw.get("width", 9))
+                            _D = float(_layout_raw.get("depth", 3))
+
+                            # Límites máximos de aberturas por pared
+                            _max_openings = {"front": 4, "back": 3, "left": 2, "right": 2}
+
+                            for _wall in _layout_raw.get("walls", []):
+                                _side  = _wall["side"]
+                                _wlen  = _W if _side in ("front","back") else _D
+                                _valid = []
+
+                                for _op in _wall.get("openings", []):
+                                    _ow  = float(_op.get("w", 0.9))
+                                    _oh  = float(_op.get("h", 2.1))
+                                    _ox  = float(_op.get("x", 0))
+                                    _oy  = float(_op.get("y", 1.05))
+
+                                    # Filtro 1: x dentro del rango de la pared
+                                    if abs(_ox) + _ow/2 >= _wlen/2 - 0.05:
+                                        continue
+
+                                    # Filtro 2: dimensiones razonables
+                                    if _op.get("type") == "door":
+                                        if not (0.7 <= _ow <= 1.2 and 1.8 <= _oh <= 2.4):
+                                            continue
+                                    else:  # window
+                                        if not (0.4 <= _ow <= 2.0 and 0.4 <= _oh <= 1.8):
+                                            continue
+
+                                    # Filtro 3: y dentro de la pared
+                                    if _oy - _oh/2 < 0 or _oy + _oh/2 > 2.8:
+                                        continue
+
+                                    # Filtro 4: no solapada con otra abertura ya aceptada
+                                    _overlap = False
+                                    for _v in _valid:
+                                        if abs(_ox - float(_v["x"])) < (_ow + float(_v["w"]))/2 + 0.05:
+                                            _overlap = True; break
+                                    if _overlap:
+                                        continue
+
+                                    _valid.append({**_op, "x": _ox, "y": _oy, "w": _ow, "h": _oh})
+
+                                # Limitar cantidad máxima por pared
+                                _wall["openings"] = _valid[:_max_openings.get(_side, 3)]
+
+                            _layout_3d = _layout_raw
                             st.session_state[_cache_key] = _layout_3d
                             st.rerun()
                         except ValueError as _ve:
