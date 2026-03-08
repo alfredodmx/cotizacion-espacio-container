@@ -2987,7 +2987,31 @@ if st.session_state.get('recien_cargado', False):
     st.session_state.recien_cargado = False
 
 if _mostrar_fab:
-    # Botón real oculto — el FAB JS lo clickea
+    st.markdown("""
+<style>
+@keyframes pfab {
+    0%   {box-shadow:0 8px 24px rgba(91,124,250,.5);}
+    50%  {box-shadow:0 8px 40px rgba(91,124,250,.9),0 0 0 12px rgba(91,124,250,.15);}
+    100% {box-shadow:0 8px 24px rgba(91,124,250,.5);}
+}
+div[data-testid="stMainBlockContainer"] div[data-testid="stVerticalBlock"] > div:last-child > div[data-testid="stVerticalBlock"] > div:last-child button[data-testid="stBaseButton-primary"] {
+    position: fixed !important;
+    bottom: 1.5rem !important;
+    left: 2rem !important;
+    z-index: 999999 !important;
+    border-radius: 50px !important;
+    padding: .85rem 1.6rem !important;
+    font-size: .95rem !important;
+    font-weight: 700 !important;
+    animation: pfab 2s infinite !important;
+    white-space: nowrap !important;
+    background: linear-gradient(135deg,#5b7cfa,#8b5cf6) !important;
+    color: white !important;
+    border: none !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
     if st.button("💾 Guardar", key="btn_guardar_fab_real", type="primary"):
         datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
         num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
@@ -2998,82 +3022,13 @@ if _mostrar_fab:
         st.session_state.mostrar_toast_exito = True
         st.session_state.toast_numero_ep = num_g
         st.rerun()
-
-    # FAB JS: botón flotante en DOM padre que clickea el botón real dentro del iframe
-    components.html(f"""
-    <script>
-    (function() {{
-        const D = window.parent.document;
-
-        const old = D.getElementById('fab-guardar-wrapper');
-        if (old) old.remove();
-
-        const style = D.getElementById('fab-guardar-style') || D.createElement('style');
-        style.id = 'fab-guardar-style';
-        style.innerHTML = `
-            @keyframes pulse-fab {{
-                0%   {{ box-shadow: 0 8px 24px rgba(91,124,250,0.5); }}
-                50%  {{ box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }}
-                100% {{ box-shadow: 0 8px 24px rgba(91,124,250,0.5); }}
-            }}
-            #fab-guardar-wrapper {{
-                position: fixed !important;
-                bottom: 1.5rem !important;
-                left: 2rem !important;
-                z-index: 999999 !important;
-            }}
-            #fab-guardar-btn {{
-                background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%) !important;
-                color: white !important; border: none !important;
-                border-radius: 50px !important; padding: 0.85rem 1.6rem !important;
-                font-size: 0.95rem !important; font-weight: 700 !important;
-                cursor: pointer !important; font-family: sans-serif !important;
-                animation: pulse-fab 2s infinite !important; white-space: nowrap !important;
-            }}
-            #fab-guardar-btn:hover {{ transform: translateY(-3px) scale(1.05) !important; animation: none !important; }}
-        `;
-        if (!D.getElementById('fab-guardar-style')) D.head.appendChild(style);
-
-        const wrapper = D.createElement('div');
-        wrapper.id = 'fab-guardar-wrapper';
-        const btn = D.createElement('button');
-        btn.id = 'fab-guardar-btn';
-        btn.innerHTML = '&#128190; Guardar';
-        btn.onclick = function() {{
-            const frames = D.querySelectorAll('iframe');
-            for (var i = 0; i < frames.length; i++) {{
-                try {{
-                    var doc = frames[i].contentDocument;
-                    // Buscar todos los botones primary y encontrar el de guardar por texto
-                    var btns = doc.querySelectorAll('button[data-testid="stBaseButton-primary"]');
-                    for (var j = 0; j < btns.length; j++) {{
-                        var txt = btns[j].innerText || btns[j].textContent || '';
-                        if (txt.indexOf('Guardar') >= 0 && !btns[j].disabled) {{
-                            btns[j].click();
-                            return;
-                        }}
-                    }}
-                }} catch(e) {{}}
-            }}
-        }};
-        wrapper.appendChild(btn);
-        D.body.appendChild(wrapper);
-    }})();
-    </script>
-    """, height=0)
-
-
-
 else:
-    components.html("""
-    <script>
-    (function() {
-        const D = window.parent.document;
-        const w = D.getElementById('fab-guardar-wrapper');
-        if (w) w.remove();
-    })();
-    </script>
-    """, height=0)
+    components.html("""<script>
+(function(){
+    var D = window.parent.document;
+    var s = D.getElementById('_fab_g_css'); if(s) s.remove();
+})();
+</script>""", height=0)
 
 # =========================================================
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
