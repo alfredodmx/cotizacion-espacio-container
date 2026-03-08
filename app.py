@@ -3151,290 +3151,354 @@ with tab4:
 <meta charset="utf-8">
 <style>
   * {{ margin:0; padding:0; box-sizing:border-box; }}
-  body {{ background:#1a1a2e; font-family: 'Segoe UI', sans-serif; overflow:hidden; }}
-  #container {{ width:100%; height:580px; position:relative; }}
+  body {{ background:#0f1117; font-family:'Segoe UI',sans-serif; overflow:hidden; }}
+  #wrap {{ width:100%; height:590px; position:relative; }}
   #canvas3d {{ width:100%; height:100%; display:block; }}
   #controls {{
     position:absolute; top:12px; left:12px; z-index:10;
-    display:flex; gap:8px; flex-wrap:wrap;
+    display:flex; gap:6px; flex-wrap:wrap;
   }}
   .btn {{
-    background:rgba(255,255,255,0.12); color:white; border:1px solid rgba(255,255,255,0.25);
-    padding:6px 14px; border-radius:20px; cursor:pointer; font-size:12px; font-weight:600;
-    transition:all 0.2s; backdrop-filter:blur(8px);
+    background:rgba(20,20,40,0.75); color:#cdd6f4;
+    border:1px solid rgba(255,255,255,0.18);
+    padding:5px 13px; border-radius:20px; cursor:pointer;
+    font-size:11.5px; font-weight:600; transition:all .18s;
+    backdrop-filter:blur(10px);
   }}
-  .btn:hover {{ background:rgba(91,124,250,0.6); border-color:#5b7cfa; }}
-  .btn.active {{ background:rgba(91,124,250,0.8); border-color:#5b7cfa; }}
+  .btn:hover {{ background:rgba(91,124,250,0.55); border-color:#5b7cfa; color:#fff; }}
+  .btn.on {{ background:rgba(91,124,250,0.75); border-color:#5b7cfa; color:#fff; }}
   #info {{
-    position:absolute; bottom:12px; left:50%; transform:translateX(-50%);
-    color:rgba(255,255,255,0.5); font-size:11px; text-align:center;
-    background:rgba(0,0,0,0.4); padding:6px 16px; border-radius:20px;
-    backdrop-filter:blur(8px);
+    position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
+    color:rgba(255,255,255,0.4); font-size:10.5px;
+    background:rgba(0,0,0,0.5); padding:5px 16px; border-radius:20px;
+    white-space:nowrap; backdrop-filter:blur(8px);
   }}
   #loading {{
     position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-    color:white; text-align:center; z-index:20;
+    color:#cdd6f4; text-align:center; z-index:20; pointer-events:none;
   }}
-  .spinner {{
-    width:48px; height:48px; border:4px solid rgba(255,255,255,0.2);
+  .spin {{
+    width:46px; height:46px; border:4px solid rgba(255,255,255,0.15);
     border-top-color:#5b7cfa; border-radius:50%;
-    animation:spin 0.8s linear infinite; margin:0 auto 12px;
+    animation:sp .7s linear infinite; margin:0 auto 10px;
   }}
-  @keyframes spin {{ to {{ transform:rotate(360deg); }} }}
-  #error {{ display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-    color:#ff6b6b; text-align:center; z-index:20; max-width:400px; }}
+  @keyframes sp {{ to {{ transform:rotate(360deg); }} }}
+  #errbox {{
+    display:none; position:absolute; top:50%; left:50%;
+    transform:translate(-50%,-50%); color:#f38ba8; text-align:center;
+    z-index:20; background:rgba(0,0,0,0.7); padding:20px 30px;
+    border-radius:12px; max-width:380px; line-height:1.6;
+  }}
+  #planolabel {{
+    position:absolute; top:12px; right:12px; z-index:10;
+    color:rgba(255,255,255,0.35); font-size:10px;
+    background:rgba(0,0,0,0.4); padding:4px 10px; border-radius:10px;
+  }}
 </style>
 </head>
 <body>
-<div id="container">
+<div id="wrap">
   <canvas id="canvas3d"></canvas>
   <div id="controls">
-    <button class="btn active" onclick="setView('orbit')">🖱️ Orbitar</button>
-    <button class="btn" onclick="resetCamera()">🎯 Reset</button>
-    <button class="btn" onclick="toggleWalls()">🏠 Paredes</button>
-    <button class="btn" onclick="toggleFloor()">📐 Plano</button>
-    <button class="btn" onclick="setView('top')">⬆️ Top</button>
-    <button class="btn" onclick="setView('front')">➡️ Frontal</button>
+    <button class="btn on"  id="btnOrbit"   onclick="setMode('orbit')">🖱 Orbitar</button>
+    <button class="btn"     id="btnReset"   onclick="resetCam()">🎯 Reset</button>
+    <button class="btn on"  id="btnRoof"    onclick="tog('roof')">🏠 Techo</button>
+    <button class="btn on"  id="btnPlano"   onclick="tog('plano')">📐 Plano</button>
+    <button class="btn on"  id="btnWire"    onclick="tog('wire')">🔲 Estructura</button>
+    <button class="btn"     onclick="setView('top')">⬆ Top</button>
+    <button class="btn"     onclick="setView('iso')">🔷 Iso</button>
   </div>
-  <div id="loading"><div class="spinner"></div><div>Procesando plano...</div></div>
-  <div id="error">❌ No se pudo procesar el plano. Verifica que sea un PDF de planta arquitectónica.</div>
-  <div id="info">🖱️ Click+arrastrar: rotar &nbsp;|&nbsp; Scroll: zoom &nbsp;|&nbsp; Click derecho: mover</div>
+  <div id="planolabel">Espacio Container House — Prototipo 3D Beta</div>
+  <div id="loading"><div class="spin"></div>Analizando plano PDF…</div>
+  <div id="errbox"></div>
+  <div id="info">🖱 Arrastrar: rotar &nbsp;│&nbsp; Scroll: zoom &nbsp;│&nbsp; Derecho: mover</div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
 <script>
-// ── PDF.js worker ──
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
 const PLANO_URL = "{_plano_url_3d}";
-const PROXY_URL = "https://api.allorigins.win/raw?url=" + encodeURIComponent(PLANO_URL);
+const PROXY     = "https://api.allorigins.win/raw?url=" + encodeURIComponent(PLANO_URL);
 
-// ── Three.js setup ──
+// ─── Renderer ───────────────────────────────────────────
 const canvas = document.getElementById('canvas3d');
-const renderer = new THREE.WebGLRenderer({{ canvas, antialias:true, alpha:true }});
-renderer.setSize(canvas.parentElement.offsetWidth, 580);
+const W0 = canvas.parentElement.offsetWidth, H0 = 590;
+const renderer = new THREE.WebGLRenderer({{ canvas, antialias:true }});
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(W0, H0);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
+// ─── Scene ──────────────────────────────────────────────
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x1a1a2e);
-scene.fog = new THREE.Fog(0x1a1a2e, 30, 80);
+scene.background = new THREE.Color(0x0f1117);
 
-const camera = new THREE.PerspectiveCamera(45, canvas.parentElement.offsetWidth/580, 0.1, 200);
-camera.position.set(0, 18, 22);
-camera.lookAt(0, 0, 0);
+// ─── Camera ─────────────────────────────────────────────
+const camera = new THREE.PerspectiveCamera(42, W0/H0, 0.1, 300);
+let sph = {{ th:0.6, ph:1.05, r:30 }};
+let tgt = new THREE.Vector3(0,1.2,0);
+function applyCam() {{
+  camera.position.set(
+    tgt.x + sph.r*Math.sin(sph.ph)*Math.sin(sph.th),
+    tgt.y + sph.r*Math.cos(sph.ph),
+    tgt.z + sph.r*Math.sin(sph.ph)*Math.cos(sph.th)
+  );
+  camera.lookAt(tgt);
+}}
+applyCam();
 
-// ── Lights ──
-const ambient = new THREE.AmbientLight(0xffffff, 0.4);
-scene.add(ambient);
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
-dirLight.position.set(10, 20, 10);
-dirLight.castShadow = true;
-scene.add(dirLight);
-const fillLight = new THREE.DirectionalLight(0x8b9cf7, 0.3);
-fillLight.position.set(-10, 5, -10);
-scene.add(fillLight);
+// ─── Lights ─────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+const sun = new THREE.DirectionalLight(0xfff5e0, 1.1);
+sun.position.set(12, 22, 14);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 80;
+sun.shadow.camera.left = -20; sun.shadow.camera.right = 20;
+sun.shadow.camera.top  =  20; sun.shadow.camera.bottom = -20;
+scene.add(sun);
+scene.add(new THREE.HemisphereLight(0x8899cc, 0x334455, 0.4));
 
-// ── Grid ──
-const grid = new THREE.GridHelper(40, 40, 0x2a2a4a, 0x2a2a4a);
+// ─── Grid ───────────────────────────────────────────────
+const grid = new THREE.GridHelper(60, 60, 0x1e2140, 0x1e2140);
 scene.add(grid);
 
-// ── Groups ──
-const wallGroup = new THREE.Group();
-const floorGroup = new THREE.Group();
-scene.add(wallGroup);
-scene.add(floorGroup);
+// ─── Groups ─────────────────────────────────────────────
+const grpContainer = new THREE.Group();
+const grpPlano     = new THREE.Group();
+const grpRoof      = new THREE.Group();
+const grpWire      = new THREE.Group();
+scene.add(grpContainer, grpPlano, grpRoof, grpWire);
 
-// ── Orbit Controls manual ──
-let isDragging = false, isRightDrag = false;
-let lastX = 0, lastY = 0;
-let spherical = {{ theta: 0.5, phi: 1.0, radius: 28 }};
-let target = new THREE.Vector3(0, 0, 0);
-let showWalls = true, showFloor = true;
+// ─── Visibility toggles ─────────────────────────────────
+const vis = {{ roof:true, plano:true, wire:true }};
+function tog(k) {{
+  vis[k] = !vis[k];
+  if (k==='roof')  grpRoof.visible  = vis[k];
+  if (k==='plano') grpPlano.visible = vis[k];
+  if (k==='wire')  grpWire.visible  = vis[k];
+  document.getElementById('btn'+k.charAt(0).toUpperCase()+k.slice(1))
+    .classList.toggle('on', vis[k]);
+}}
 
-canvas.addEventListener('mousedown', e => {{
-  isDragging = true;
-  isRightDrag = e.button === 2;
-  lastX = e.clientX; lastY = e.clientY;
-}});
-canvas.addEventListener('contextmenu', e => e.preventDefault());
-window.addEventListener('mouseup', () => isDragging = false);
-window.addEventListener('mousemove', e => {{
-  if (!isDragging) return;
-  const dx = e.clientX - lastX, dy = e.clientY - lastY;
-  lastX = e.clientX; lastY = e.clientY;
-  if (isRightDrag) {{
-    const pan = 0.02;
-    const right = new THREE.Vector3().crossVectors(
-      new THREE.Vector3().subVectors(camera.position, target).normalize(),
-      camera.up
-    ).normalize();
-    target.addScaledVector(right, -dx * pan);
-    target.y += dy * pan;
+// ─── Camera controls ────────────────────────────────────
+let drag=false, rDrag=false, lx=0, ly=0;
+canvas.addEventListener('mousedown',  e=>{{ drag=true; rDrag=e.button===2; lx=e.clientX; ly=e.clientY; }});
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+window.addEventListener('mouseup',   ()=>drag=false);
+window.addEventListener('mousemove', e=>{{
+  if(!drag) return;
+  const dx=e.clientX-lx, dy=e.clientY-ly; lx=e.clientX; ly=e.clientY;
+  if(rDrag){{
+    const right=new THREE.Vector3().crossVectors(
+      new THREE.Vector3().subVectors(camera.position,tgt).normalize(), camera.up).normalize();
+    tgt.addScaledVector(right,-dx*0.025); tgt.y+=dy*0.025;
   }} else {{
-    spherical.theta -= dx * 0.008;
-    spherical.phi = Math.max(0.1, Math.min(Math.PI/2.1, spherical.phi + dy * 0.008));
+    sph.th -= dx*0.007;
+    sph.ph  = Math.max(0.08, Math.min(Math.PI/2.05, sph.ph+dy*0.007));
   }}
-  updateCamera();
+  applyCam();
 }});
-canvas.addEventListener('wheel', e => {{
-  spherical.radius = Math.max(5, Math.min(60, spherical.radius + e.deltaY * 0.04));
-  updateCamera();
+canvas.addEventListener('wheel', e=>{{
+  sph.r = Math.max(4, Math.min(70, sph.r+e.deltaY*0.04));
+  applyCam();
 }});
+// Touch support
+let tLast=null;
+canvas.addEventListener('touchstart', e=>{{ tLast=e.touches[0]; }}, {{passive:true}});
+canvas.addEventListener('touchmove',  e=>{{
+  const t=e.touches[0];
+  const dx=t.clientX-tLast.clientX, dy=t.clientY-tLast.clientY;
+  sph.th -= dx*0.007;
+  sph.ph  = Math.max(0.08, Math.min(Math.PI/2.05, sph.ph+dy*0.007));
+  tLast=t; applyCam();
+}}, {{passive:true}});
 
-function updateCamera() {{
-  camera.position.set(
-    target.x + spherical.radius * Math.sin(spherical.phi) * Math.sin(spherical.theta),
-    target.y + spherical.radius * Math.cos(spherical.phi),
-    target.z + spherical.radius * Math.sin(spherical.phi) * Math.cos(spherical.theta)
-  );
-  camera.lookAt(target);
-}}
-
-function resetCamera() {{
-  spherical = {{ theta: 0.5, phi: 1.0, radius: 28 }};
-  target.set(0,0,0);
-  updateCamera();
-}}
-
+function resetCam() {{ sph={{th:0.6,ph:1.05,r:30}}; tgt.set(0,1.2,0); applyCam(); }}
 function setView(v) {{
-  if (v === 'top') {{ spherical.phi = 0.05; updateCamera(); }}
-  else if (v === 'front') {{ spherical.phi = Math.PI/2.05; spherical.theta = 0; updateCamera(); }}
+  if(v==='top')  {{ sph.ph=0.04; applyCam(); }}
+  if(v==='iso')  {{ sph.th=0.8; sph.ph=0.9; sph.r=28; applyCam(); }}
 }}
 
-function toggleWalls() {{
-  showWalls = !showWalls;
-  wallGroup.visible = showWalls;
+// ─── Build container from detected dimensions ────────────
+function buildContainer(W, D, floorTex) {{
+  const wallH = 2.6;
+  const steelColor  = 0xb0bec5;
+  const steelRough  = 0.55;
+  const glassColor  = 0x89cff0;
+
+  const matWall = new THREE.MeshStandardMaterial({{
+    color:steelColor, roughness:steelRough, metalness:0.25
+  }});
+  const matRoof = new THREE.MeshStandardMaterial({{
+    color:0x78909c, roughness:0.6, metalness:0.3
+  }});
+  const matFloor = new THREE.MeshStandardMaterial({{
+    map: floorTex, roughness:0.8, metalness:0.0
+  }});
+  const matGlass = new THREE.MeshStandardMaterial({{
+    color:glassColor, transparent:true, opacity:0.38,
+    roughness:0.05, metalness:0.1
+  }});
+  const matDoor = new THREE.MeshStandardMaterial({{
+    color:0x546e7a, roughness:0.5, metalness:0.4
+  }});
+  const matWire = new THREE.MeshBasicMaterial({{
+    color:0x5b7cfa, wireframe:true
+  }});
+
+  const half = {{w:W/2, d:D/2}};
+
+  // ── Floor ──
+  const floorGeo = new THREE.PlaneGeometry(W, D);
+  const floorM   = new THREE.Mesh(floorGeo, matFloor);
+  floorM.rotation.x = -Math.PI/2;
+  floorM.receiveShadow = true;
+  grpPlano.add(floorM);
+
+  // ── Helper: solid wall panel with cutouts ──
+  function addWallPanel(x,y,z, pw,ph, rotY, cutouts) {{
+    // Full panel as BoxGeo (thickness = 0.15)
+    const th = 0.14;
+    const geo = new THREE.BoxGeometry(pw, ph, th);
+    const m   = new THREE.Mesh(geo, matWall);
+    m.position.set(x,y,z); m.rotation.y=rotY;
+    m.castShadow=true; m.receiveShadow=true;
+    grpContainer.add(m);
+    // Wire copy
+    const wm = new THREE.Mesh(geo, matWire);
+    wm.position.set(x,y,z); wm.rotation.y=rotY;
+    grpWire.add(wm);
+
+    // Cutouts as glass/door panels
+    cutouts.forEach(c => {{
+      const cg = new THREE.BoxGeometry(c.w, c.h, th+0.02);
+      const mat = c.type==='door' ? matDoor : matGlass;
+      const cm  = new THREE.Mesh(cg, mat);
+      cm.position.set(x + (rotY===0 ? c.ox : 0), y+c.oy, z + (rotY!==0 ? c.ox : 0));
+      cm.rotation.y=rotY;
+      cm.castShadow=true;
+      grpContainer.add(cm);
+    }});
+  }}
+
+  // ── Walls — automatic cutout distribution ──
+  const wH = wallH, wY = wH/2;
+  const winW=1.2, winH=0.9, winY=0.3;   // window size & offset from center
+  const doorW=0.9, doorH=2.1, doorY=(doorH-wH)/2;
+
+  // Front wall (z = +D/2): 1 door + 2 windows
+  addWallPanel(0, wY, half.d, W, wH, 0, [
+    {{ type:'door',   w:doorW, h:doorH, ox:-W*0.3, oy:doorY }},
+    {{ type:'window', w:winW,  h:winH,  ox: W*0.1, oy:winY  }},
+    {{ type:'window', w:winW,  h:winH,  ox: W*0.35,oy:winY  }}
+  ]);
+  // Back wall (z = -D/2): 2 windows
+  addWallPanel(0, wY, -half.d, W, wH, 0, [
+    {{ type:'window', w:winW, h:winH, ox:-W*0.25, oy:winY }},
+    {{ type:'window', w:winW, h:winH, ox: W*0.25, oy:winY }}
+  ]);
+  // Left wall (x = -W/2): 1 window
+  addWallPanel(-half.w, wY, 0, D, wH, Math.PI/2, [
+    {{ type:'window', w:winW, h:winH, ox:0, oy:winY }}
+  ]);
+  // Right wall (x = +W/2): 1 window
+  addWallPanel( half.w, wY, 0, D, wH, Math.PI/2, [
+    {{ type:'window', w:winW, h:winH, ox:0, oy:winY }}
+  ]);
+
+  // ── Roof ──
+  const roofGeo = new THREE.BoxGeometry(W+0.15, 0.14, D+0.15);
+  const roofM   = new THREE.Mesh(roofGeo, matRoof);
+  roofM.position.set(0, wH+0.07, 0);
+  roofM.castShadow=true;
+  grpRoof.add(roofM);
+
+  // Roof wire
+  const roofWM = new THREE.Mesh(roofGeo, matWire);
+  roofWM.position.set(0, wH+0.07, 0);
+  grpWire.add(roofWM);
+
+  // ── Structural ribs (horizontal lines on walls) ──
+  const ribMat = new THREE.MeshStandardMaterial({{color:0x90a4ae,roughness:0.5,metalness:0.4}});
+  [0.6,1.3,2.0].forEach(h=>{{
+    [[0,half.d+0.07,0,W,0],[0,-half.d-0.07,0,W,0],
+     [-half.w-0.07,0,0,D,Math.PI/2],[ half.w+0.07,0,0,D,Math.PI/2]].forEach(r=>{{
+      const rg=new THREE.BoxGeometry(r[3],0.06,0.06);
+      const rm=new THREE.Mesh(rg,ribMat);
+      rm.position.set(r[0],h,r[2]); rm.rotation.y=r[4]||0;
+      grpContainer.add(rm);
+    }});
+  }});
 }}
 
-function toggleFloor() {{
-  showFloor = !showFloor;
-  floorGroup.visible = showFloor;
+// ─── Detect dims from image & build ─────────────────────
+function detectDims(imgData, iw, ih) {{
+  // Find bounding box of dark pixels (the floor plan outline)
+  const d = imgData.data, thresh=100;
+  let minX=iw,maxX=0,minY=ih,maxY=0;
+  for(let y=0;y<ih;y+=3) for(let x=0;x<iw;x+=3) {{
+    const i=(y*iw+x)*4;
+    if(d[i]<thresh && d[i+1]<thresh && d[i+2]<thresh) {{
+      if(x<minX) minX=x; if(x>maxX) maxX=x;
+      if(y<minY) minY=y; if(y>maxY) maxY=y;
+    }}
+  }}
+  // Scale to reasonable container dimensions (3-12 m range)
+  const rawW=(maxX-minX)/iw, rawD=(maxY-minY)/ih;
+  const scale = 14;
+  return {{
+    W: Math.max(4, Math.min(14, rawW*scale)),
+    D: Math.max(3, Math.min(10, rawD*scale))
+  }};
 }}
 
-// ── Animate ──
-function animate() {{
-  requestAnimationFrame(animate);
-  renderer.render(scene, camera);
-}}
-animate();
-
-// ── Cargar PDF y procesar ──
-async function loadAndProcess() {{
+// ─── Main load ──────────────────────────────────────────
+async function main() {{
   try {{
-    // Fetch PDF via proxy
-    const resp = await fetch(PROXY_URL);
-    if (!resp.ok) throw new Error('No se pudo descargar el plano');
-    const arrayBuffer = await resp.arrayBuffer();
+    const resp = await fetch(PROXY);
+    if(!resp.ok) throw new Error('Error al descargar el plano ('+resp.status+')');
+    const buf = await resp.arrayBuffer();
 
-    // Render PDF página 1 en canvas offscreen
-    const pdf = await pdfjsLib.getDocument({{ data: arrayBuffer }}).promise;
+    const pdf  = await pdfjsLib.getDocument({{data:buf}}).promise;
     const page = await pdf.getPage(1);
-    const scale = 2.5;
-    const viewport = page.getViewport({{ scale }});
+    const vp   = page.getViewport({{scale:2}});
 
-    const offCanvas = document.createElement('canvas');
-    offCanvas.width = viewport.width;
-    offCanvas.height = viewport.height;
-    const ctx = offCanvas.getContext('2d');
-    await page.render({{ canvasContext: ctx, viewport }}).promise;
+    const oc  = document.createElement('canvas');
+    oc.width  = vp.width; oc.height = vp.height;
+    const ctx = oc.getContext('2d');
+    await page.render({{canvasContext:ctx, viewport:vp}}).promise;
 
-    // Obtener imagen
-    const imgData = ctx.getImageData(0, 0, offCanvas.width, offCanvas.height);
+    const imgData = ctx.getImageData(0,0,oc.width,oc.height);
+    const dims    = detectDims(imgData, oc.width, oc.height);
 
-    // ── Plano texturizado en 3D (floor) ──
-    const tex = new THREE.CanvasTexture(offCanvas);
-    const aspect = offCanvas.width / offCanvas.height;
-    const W = 18, H = W / aspect;
-    const floorGeo = new THREE.PlaneGeometry(W, H);
-    const floorMat = new THREE.MeshLambertMaterial({{ map: tex, side: THREE.DoubleSide }});
-    const floorMesh = new THREE.Mesh(floorGeo, floorMat);
-    floorMesh.rotation.x = -Math.PI / 2;
-    floorMesh.receiveShadow = true;
-    floorGroup.add(floorMesh);
+    // Floor texture from plan
+    const tex = new THREE.CanvasTexture(oc);
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-    // ── Detección de paredes por píxeles oscuros ──
-    detectAndBuildWalls(imgData, offCanvas.width, offCanvas.height, W, H);
+    buildContainer(dims.W, dims.D, tex);
 
-    document.getElementById('loading').style.display = 'none';
+    // Center camera on model
+    tgt.set(0, dims.D*0.1, 0);
+    sph.r = Math.max(dims.W, dims.D)*2.2;
+    applyCam();
 
-  }} catch(err) {{
-    console.error(err);
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('error').style.display = 'block';
-    document.getElementById('error').textContent = '⚠️ ' + err.message;
+    document.getElementById('loading').style.display='none';
+
+  }} catch(e) {{
+    console.error(e);
+    document.getElementById('loading').style.display='none';
+    const eb=document.getElementById('errbox');
+    eb.style.display='block';
+    eb.innerHTML='⚠️ No se pudo cargar el plano.<br><small>'+e.message+'</small><br><br><small>Verifica que el PDF sea accesible públicamente.</small>';
   }}
 }}
 
-function detectAndBuildWalls(imgData, iw, ih, W, H) {{
-  const data = imgData.data;
-  const wallH = 1.8;
-  const wallMat = new THREE.MeshLambertMaterial({{ color: 0xc8d0f0, side: THREE.DoubleSide }});
-  const darkThresh = 80;
-  const sampleStep = 8; // cada N píxeles
-
-  // Detectar segmentos de línea horizontales y verticales
-  const segments = [];
-
-  // Horizontal scan
-  for (let y = 0; y < ih; y += sampleStep) {{
-    let inWall = false, startX = 0;
-    for (let x = 0; x < iw; x += sampleStep) {{
-      const i = (y * iw + x) * 4;
-      const dark = data[i] < darkThresh && data[i+1] < darkThresh && data[i+2] < darkThresh;
-      if (dark && !inWall) {{ inWall = true; startX = x; }}
-      else if (!dark && inWall) {{
-        inWall = false;
-        const len = (x - startX) / iw * W;
-        if (len > 0.3 && len < W * 0.9) {{
-          const mx = ((startX + x) / 2 / iw - 0.5) * W;
-          const my = (y / ih - 0.5) * H;
-          segments.push({{ type:'h', cx:mx, cy:-my, len, angle:0 }});
-        }}
-      }}
-    }}
-  }}
-
-  // Vertical scan
-  for (let x = 0; x < iw; x += sampleStep) {{
-    let inWall = false, startY = 0;
-    for (let y = 0; y < ih; y += sampleStep) {{
-      const i = (y * iw + x) * 4;
-      const dark = data[i] < darkThresh && data[i+1] < darkThresh && data[i+2] < darkThresh;
-      if (dark && !inWall) {{ inWall = true; startY = y; }}
-      else if (!dark && inWall) {{
-        inWall = false;
-        const len = (y - startY) / ih * H;
-        if (len > 0.3 && len < H * 0.9) {{
-          const mx = (x / iw - 0.5) * W;
-          const my = ((startY + y) / 2 / ih - 0.5) * H;
-          segments.push({{ type:'v', cx:mx, cy:-my, len, angle:Math.PI/2 }});
-        }}
-      }}
-    }}
-  }}
-
-  // Limitar segmentos y crear geometría
-  const maxSeg = 400;
-  const step = Math.max(1, Math.floor(segments.length / maxSeg));
-  for (let i = 0; i < segments.length; i += step) {{
-    const s = segments[i];
-    const thickness = 0.12;
-    const geo = new THREE.BoxGeometry(
-      s.type === 'h' ? s.len : thickness,
-      wallH,
-      s.type === 'v' ? s.len : thickness
-    );
-    const mesh = new THREE.Mesh(geo, wallMat);
-    mesh.position.set(s.cx, wallH / 2, s.cy);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    wallGroup.add(mesh);
-  }}
-}}
-
-loadAndProcess();
+(function animate() {{ requestAnimationFrame(animate); renderer.render(scene,camera); }})();
+main();
 </script>
 </body>
 </html>
