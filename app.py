@@ -2230,33 +2230,24 @@ with tab1:
         if st.session_state.margen > 0:
             st.caption(f"ℹ️ Margen del {st.session_state.margen}% aplicado")
 
-    # Input de margen compacto junto al título (solo en modo admin)
+    # Input de margen + botón oculto trigger para el FAB
     if st.session_state.modo_admin:
         col_res_tit, col_res_margen = st.columns([4, 1])
         with col_res_tit:
             st.markdown("#### Resumen del Presupuesto")
         with col_res_margen:
             st.caption("Margen %")
-            _mk = f"margen_txt_{st.session_state.counter}"
-            _margen_txt = st.text_input(
-                "Margen", value=str(st.session_state.margen),
-                key=_mk, label_visibility="collapsed",
-                placeholder="0.0"
+            _mk = f"margen_num_{st.session_state.counter}"
+            _nuevo_margen = st.number_input(
+                "Margen", min_value=0.0, max_value=100.0,
+                value=float(st.session_state.margen),
+                step=0.5, format="%.1f",
+                key=_mk, label_visibility="collapsed"
             )
-            try:
-                _parsed = float(_margen_txt.replace(',', '.'))
-                _parsed = max(0.0, min(100.0, _parsed))
-                if _parsed != st.session_state.margen:
-                    st.session_state.margen = _parsed
-                    st.rerun()
-            except ValueError:
-                pass
+            if _nuevo_margen != st.session_state.margen:
+                st.session_state.margen = _nuevo_margen
+                st.rerun()
 
-    # Leer margen aplicado desde FAB (via session_state flag)
-    if st.session_state.get('_fab_margen_apply'):
-        st.session_state.margen = st.session_state._fab_margen_apply
-        del st.session_state._fab_margen_apply
-        st.rerun()
 
     # Variables de métricas con valores por defecto
     utilidad_real = 0
@@ -3208,60 +3199,10 @@ if st.session_state.modo_admin:
   D.getElementById('_fm_ok').addEventListener('click',function(e){{
     e.stopPropagation();
     var val=Math.max(0,Math.min(100,parseFloat(cur)||0));
-    // Buscar el input de margen: step=0.5 y dentro de la tab de cotizacion
-    // Buscar el text_input de margen: está en stTextInput dentro de una columna pequeña
-    // Se identifica porque su valor es un número decimal (el margen actual)
-    var target=null;
-    var allTI=D.querySelectorAll('[data-testid="stTextInput"] input[type="text"]');
-    for(var i=0;i<allTI.length;i++){{
-      var v=allTI[i].value.trim();
-      // Es el de margen si su valor es un número entre 0 y 100
-      if(v!=='' && !isNaN(parseFloat(v)) && parseFloat(v)>=0 && parseFloat(v)<=100){{
-        // Verificar que esté en la sección de presupuesto (tiene caption "Margen %")
-        var col=allTI[i].closest('[data-testid="stColumn"]');
-        if(col){{
-          var caps=col.querySelectorAll('[data-testid="stCaptionContainer"]');
-          for(var j=0;j<caps.length;j++){{
-            if(caps[j].textContent.indexOf('Margen')>=0){{
-              target=allTI[i]; break;
-            }}
-          }}
-        }}
-        if(target) break;
-      }}
-    }}
-    // Fallback: cualquier text input con valor numérico flotante
-    if(!target){{
-      for(var i=0;i<allTI.length;i++){{
-        var v=allTI[i].value.trim();
-        if(/^\d+(\.\d+)?$/.test(v)){{ target=allTI[i]; break; }}
-      }}
-    }}
-    if(target){{
-      // El input ahora es text_input - buscar por tipo text en la columna de margen
-      target.focus();
-      var setter=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
-      setter.call(target, val.toFixed(1));
-      var tDoc=target.ownerDocument;
-      var tWin=tDoc.defaultView||tDoc.parentWindow;
-      target.dispatchEvent(new tWin.Event('input',{{bubbles:true}}));
-      target.dispatchEvent(new tWin.Event('change',{{bubbles:true}}));
-      // Streamlit text_input se confirma con blur - forzar blur moviendo foco
-      setTimeout(function(){{
-        target.blur();
-        // Mover foco al body para garantizar el blur event
-        tDoc.body.focus();
-        // Fallback: click en cualquier elemento neutro
-        setTimeout(function(){{
-          var overlay = tDoc.createElement('button');
-          overlay.style.cssText='position:fixed;top:-999px;left:-999px;opacity:0;';
-          tDoc.body.appendChild(overlay);
-          overlay.focus();
-          overlay.click();
-          setTimeout(function(){{ overlay.remove(); }}, 100);
-        }}, 30);
-      }}, 50);
-    }}
+    // Navegar la URL del padre con query param — Streamlit lo lee al inicio
+    var url=new URL(window.parent.location.href);
+    url.searchParams.set('mgfab', val.toFixed(1));
+    window.parent.location.href = url.toString();
     p.classList.remove('on');
   }});
 
