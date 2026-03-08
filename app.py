@@ -2247,11 +2247,6 @@ with tab1:
             if _nuevo_margen != st.session_state.margen:
                 st.session_state.margen = _nuevo_margen
                 st.rerun()
-        # Botón puente para el FAB — recibe valor via session_state y hace rerun
-        if st.session_state.get('_fab_pending'):
-            st.session_state.margen = float(st.session_state._fab_pending)
-            del st.session_state['_fab_pending']
-            st.rerun()
 
 
     # Variables de métricas con valores por defecto
@@ -3131,129 +3126,49 @@ else:
     """, height=0)
 
 # =========================================================
-# FAB - MARGEN FLOTANTE
-# Estrategia: formulario HTML nativo en iframe propio
-# El submit recarga window.parent con ?mgfab=X
-# Streamlit lee el param al inicio y actualiza session_state
+# FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
 # =========================================================
 _margen_actual = st.session_state.margen
 _mstr = f"{_margen_actual:.1f}"
 
 if st.session_state.modo_admin:
-    _color = '#10b981' if _margen_actual > 0 else '#6b7280'
-    _anim  = 'animation:pm 2s infinite;' if _margen_actual > 0 else ''
-
-    st.markdown('''<style>
-iframe[height="80"]{position:fixed!important;bottom:0;left:0;width:100vw;height:100px;z-index:99990;background:transparent!important;border:none!important;}
-</style>''', unsafe_allow_html=True)
-
-    components.html(f"""<!DOCTYPE html>
-<html>
-<head>
+    _color_fab = '#10b981' if _margen_actual > 0 else '#6b7280'
+    # CSS para posicionar el popover como FAB flotante
+    st.markdown(f"""
 <style>
-*{{box-sizing:border-box;margin:0;padding:0;font-family:sans-serif;}}
-body{{background:transparent;overflow:visible;}}
-@keyframes pm{{
-  0%{{box-shadow:0 6px 20px rgba(16,185,129,.5)}}
-  50%{{box-shadow:0 6px 36px rgba(16,185,129,.9),0 0 0 10px rgba(16,185,129,.15)}}
-  100%{{box-shadow:0 6px 20px rgba(16,185,129,.5)}}
+div[data-testid="stPopover"] {{
+    position: fixed !important;
+    bottom: 1.5rem !important;
+    left: 12rem !important;
+    z-index: 99998 !important;
 }}
-#fab{{
-  position:fixed;bottom:1.5rem;left:12rem;z-index:99999;
-  background:linear-gradient(135deg,{_color},{_color}cc);
-  color:#fff;border:none;border-radius:50px;
-  padding:.8rem 1.4rem;font-size:.9rem;font-weight:700;
-  cursor:pointer;white-space:nowrap;{_anim}
-  box-shadow:0 6px 20px rgba(16,185,129,.4);
-}}
-#fab:hover{{transform:translateY(-2px);animation:none;}}
-#popup{{
-  position:fixed;bottom:5rem;left:12rem;z-index:99999;
-  background:#fff;border-radius:16px;
-  box-shadow:0 8px 40px rgba(0,0,0,.28);
-  padding:1rem 1.2rem;min-width:220px;display:none;
-}}
-#popup.on{{display:block;}}
-#disp{{
-  width:100%;padding:.5rem;border:2px solid #10b981;
-  border-radius:10px;font-size:1.6rem;font-weight:700;
-  text-align:center;margin-bottom:6px;
-  color:#111;background:#f0fdf4;user-select:none;
-}}
-#pad{{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:6px;}}
-#pad button{{
-  padding:.5rem;border:1px solid #e5e7eb;border-radius:8px;
-  background:#f9fafb;font-size:1rem;font-weight:600;cursor:pointer;color:#111;
-}}
-#pad button:hover{{background:#f0fdf4;border-color:#10b981;}}
-#ok{{
-  width:100%;padding:.55rem;
-  background:linear-gradient(135deg,#10b981,#059669);
-  color:#fff;border:none;border-radius:10px;
-  font-size:.9rem;font-weight:700;cursor:pointer;
+div[data-testid="stPopover"] > div > button {{
+    background: linear-gradient(135deg, {_color_fab}, {_color_fab}dd) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 50px !important;
+    padding: 0.8rem 1.4rem !important;
+    font-size: 0.9rem !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+    box-shadow: 0 6px 20px rgba(16,185,129,.4) !important;
+    min-height: unset !important;
+    height: auto !important;
 }}
 </style>
-</head>
-<body>
-<button id="fab">&#128202; Margen: {_mstr}%</button>
-<div id="popup">
-  <div style="font-size:.85rem;font-weight:700;color:#374151;margin-bottom:.5rem;">Margen %</div>
-  <div id="disp">{_mstr}%</div>
-  <div id="pad">
-    <button type="button">1</button><button type="button">2</button><button type="button">3</button>
-    <button type="button">4</button><button type="button">5</button><button type="button">6</button>
-    <button type="button">7</button><button type="button">8</button><button type="button">9</button>
-    <button type="button" id="clr" style="color:#ef4444">C</button>
-    <button type="button">0</button>
-    <button type="button">.</button>
-  </div>
-  <button id="ok" type="button">&#9989; Aplicar</button>
-</div>
-<script>
-var cur = '{_mstr}';
-var disp = document.getElementById('disp');
-var popup = document.getElementById('popup');
+""", unsafe_allow_html=True)
 
-document.getElementById('fab').addEventListener('click', function(e){{
-  e.stopPropagation();
-  cur = '{_mstr}';
-  disp.textContent = cur + '%';
-  popup.classList.toggle('on');
-}});
-
-document.getElementById('pad').addEventListener('click', function(e){{
-  e.stopPropagation();
-  var t = e.target;
-  if (!t || t.tagName !== 'BUTTON') return;
-  var n = t.textContent.trim();
-  if (t.id === 'clr') cur = '0';
-  else if (n === '.') {{ if (cur.indexOf('.') < 0) cur += '.'; }}
-  else cur = (cur === '0') ? n : cur + n;
-  if (parseFloat(cur) > 100) cur = '100';
-  disp.textContent = cur + '%';
-}});
-
-document.getElementById('ok').addEventListener('click', function(e){{
-  e.stopPropagation();
-  var val = Math.max(0, Math.min(100, parseFloat(cur) || 0));
-  // Modificar query param de la página padre SIN recargar
-  // usando st.query_params de Streamlit
-  try {{
-    var url = new URL(window.parent.location.href);
-    url.searchParams.set('mgfab', val.toFixed(1));
-    window.parent.location.replace(url.toString());
-  }} catch(err) {{
-    // fallback: navegar directamente
-    window.parent.location.href = window.parent.location.pathname + '?mgfab=' + val.toFixed(1);
-  }}
-  popup.classList.remove('on');
-}});
-
-document.addEventListener('click', function(){{ popup.classList.remove('on'); }});
-</script>
-</body>
-</html>
-""", height=80, scrolling=False)
+    with st.popover(f"📊 Margen: {_mstr}%"):
+        st.markdown("**Aplicar margen**")
+        _mg_pop = st.number_input(
+            "Margen %", min_value=0.0, max_value=100.0,
+            value=float(_margen_actual),
+            step=0.5, format="%.1f",
+            key="margen_popover"
+        )
+        if st.button("✅ Aplicar", key="btn_aplicar_margen", use_container_width=True):
+            st.session_state.margen = _mg_pop
+            st.rerun()
 
 else:
     components.html("""<script>
