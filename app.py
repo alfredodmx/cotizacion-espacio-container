@@ -709,7 +709,10 @@ def exportar_csv_completo():
             'numero', 'fecha_creacion', 'fecha_modificacion',
             'cliente_nombre', 'cliente_rut', 'cliente_email', 'cliente_telefono', 'cliente_direccion',
             'asesor_nombre', 'asesor_email', 'asesor_telefono',
-            'config_margen', 'total_sin_iva', 'total_iva', 'total_total',
+            'config_margen',
+            'total_subtotal_sin_margen', 'total_subtotal_con_margen',
+            'total_iva', 'total_total', 'total_margen_valor',
+            'total_comision_vendedor', 'total_comision_supervisor', 'total_utilidad_real',
             'estado', 'plano_nombre', 'plano_url'
         ).order('fecha_creacion', desc=True).execute()
         if not response.data:
@@ -719,7 +722,10 @@ def exportar_csv_completo():
             'N° Presupuesto', 'Fecha Creación', 'Fecha Modificación',
             'Cliente', 'RUT', 'Email Cliente', 'Teléfono Cliente', 'Dirección',
             'Asesor', 'Email Asesor', 'Teléfono Asesor',
-            'Margen %', 'Total sin IVA', 'IVA', 'Total con IVA',
+            'Margen %',
+            'Subtotal sin Margen', 'Subtotal con Margen',
+            'IVA', 'Total con IVA', 'Valor Margen',
+            'Comisión Vendedor', 'Comisión Supervisor', 'Utilidad Real',
             'Estado', 'Nombre Plano', 'URL Plano'
         ]
         return df.to_csv(index=False).encode('utf-8-sig')
