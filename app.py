@@ -186,6 +186,9 @@ if 'mostrar_advertencia_cerrar' not in st.session_state:
 if 'trigger_cerrar_cotizacion' not in st.session_state:
     st.session_state.trigger_cerrar_cotizacion = False
 
+if 'datos_pendientes_cerrar' not in st.session_state:
+    st.session_state.datos_pendientes_cerrar = None
+
 if 'numero_a_cargar_pendiente' not in st.session_state:
     st.session_state.numero_a_cargar_pendiente = None
 
@@ -1423,6 +1426,20 @@ if st.session_state.cotizacion_cargada:
                 _hash_actual != st.session_state.get('hash_ultimo_guardado')
             )
             if _hay_cambios:
+                # Capturar todos los datos AHORA antes del rerun, mientras los widgets existen
+                leer_datos_actuales()
+                datos_c, datos_a, proy, cfg, tots, pnom, pdat = construir_datos_para_guardar()
+                st.session_state.datos_pendientes_cerrar = {
+                    'datos_cliente': datos_c,
+                    'datos_asesor': datos_a,
+                    'proyecto': proy,
+                    'config': cfg,
+                    'totales': tots,
+                    'plano_nombre': pnom,
+                    'plano_datos': pdat,
+                    'carrito': list(st.session_state.carrito),
+                    'numero': st.session_state.cotizacion_cargada,
+                }
                 st.session_state.mostrar_advertencia_cerrar = True
             else:
                 st.session_state.trigger_cerrar_cotizacion = True
@@ -1448,23 +1465,33 @@ if st.session_state.cotizacion_cargada:
             col_si, col_no, col_cancelar = st.columns(3)
             with col_si:
                 if st.button("💾 Guardar y cerrar", use_container_width=True, type="primary", key="dialog_cerrar_si"):
-                    datos_c, datos_a, proy, cfg, tots, pnom, pdat = construir_datos_para_guardar()
-                    num = st.session_state.cotizacion_cargada or generar_numero_unico()
-                    guardar_cotizacion(num, datos_c, datos_a, proy, st.session_state.carrito, cfg, tots, pnom, pdat)
+                    # Usar datos capturados antes del rerun
+                    d = st.session_state.get('datos_pendientes_cerrar', {})
+                    num = d.get('numero') or generar_numero_unico()
+                    guardar_cotizacion(
+                        num,
+                        d.get('datos_cliente', {}),
+                        d.get('datos_asesor', {}),
+                        d.get('proyecto', {}),
+                        d.get('carrito', []),
+                        d.get('config', {}),
+                        d.get('totales', {}),
+                        d.get('plano_nombre', ''),
+                        d.get('plano_datos', None)
+                    )
+                    st.session_state.datos_pendientes_cerrar = None
                     st.session_state.mostrar_advertencia_cerrar = False
-                    limpiar_todo()
-                    st.session_state.recien_guardado = True
-                    st.session_state.hash_ultimo_guardado = None
+                    st.session_state.trigger_cerrar_cotizacion = True
                     st.rerun()
             with col_no:
                 if st.button("🗑️ Descartar y cerrar", use_container_width=True, key="dialog_cerrar_no"):
+                    st.session_state.datos_pendientes_cerrar = None
                     st.session_state.mostrar_advertencia_cerrar = False
-                    limpiar_todo()
-                    st.session_state.recien_guardado = True
-                    st.session_state.hash_ultimo_guardado = None
+                    st.session_state.trigger_cerrar_cotizacion = True
                     st.rerun()
             with col_cancelar:
                 if st.button("✖️ Cancelar", use_container_width=True, key="dialog_cerrar_cancelar"):
+                    st.session_state.datos_pendientes_cerrar = None
                     st.session_state.mostrar_advertencia_cerrar = False
                     st.rerun()
 
