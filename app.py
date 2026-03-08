@@ -1414,7 +1414,6 @@ if st.session_state.cotizacion_cargada:
         st.markdown(f'<div class="cotizacion-status-container"><span class="status-badge">{badge_html}</span></div>', unsafe_allow_html=True)
     with col_cerrar:
         if st.button("🗑️ Cerrar Cotización", key="btn_cerrar_cotizacion", use_container_width=True):
-            # Detectar si hay cambios sin guardar comparando hash actual vs guardado
             _hash_actual = calcular_hash_estado()
             _hay_cambios = (
                 len(st.session_state.get('carrito', [])) > 0 and
@@ -1424,7 +1423,9 @@ if st.session_state.cotizacion_cargada:
                 st.session_state.mostrar_advertencia_cerrar = True
                 st.rerun()
             else:
-                _ejecutar_cierre_cotizacion()
+                limpiar_todo()
+                st.session_state.recien_guardado = True
+                st.session_state.hash_ultimo_guardado = None
                 st.rerun()
 
     # ── Popup advertencia al cerrar con cambios sin guardar ──
@@ -1451,12 +1452,16 @@ if st.session_state.cotizacion_cargada:
                     num = st.session_state.cotizacion_cargada or generar_numero_unico()
                     guardar_cotizacion(num, datos_c, datos_a, proy, st.session_state.carrito, cfg, tots, pnom, pdat)
                     st.session_state.mostrar_advertencia_cerrar = False
-                    _ejecutar_cierre_cotizacion()
+                    limpiar_todo()
+                    st.session_state.recien_guardado = True
+                    st.session_state.hash_ultimo_guardado = None
                     st.rerun()
             with col_no:
                 if st.button("🗑️ Descartar y cerrar", use_container_width=True, key="dialog_cerrar_no"):
                     st.session_state.mostrar_advertencia_cerrar = False
-                    _ejecutar_cierre_cotizacion()
+                    limpiar_todo()
+                    st.session_state.recien_guardado = True
+                    st.session_state.hash_ultimo_guardado = None
                     st.rerun()
             with col_cancelar:
                 if st.button("✖️ Cancelar", use_container_width=True, key="dialog_cerrar_cancelar"):
