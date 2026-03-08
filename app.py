@@ -2588,19 +2588,6 @@ with tab3:
         """
         st.markdown(html_table, unsafe_allow_html=True)
 
-        with st.expander("📋 Leyenda de estados", expanded=False):
-            col_l1, col_l2, col_l3, col_l4 = st.columns(4)
-            with col_l1:
-                st.markdown('<div style="background-color:#d4edda;padding:10px;border-radius:10px;"><span style="font-size:1.2rem;">🟢</span> <strong>AUTORIZADO</strong><br><small>Con margen, datos completos, sin plano</small></div>', unsafe_allow_html=True)
-                st.markdown('<div style="background-color:#d4edda;padding:10px;border-radius:10px;margin-top:5px;"><span style="font-size:1.2rem;">🟢</span> <strong>AUTORIZADO CON PLANO</strong><br><small>Con margen, datos completos, con plano</small></div>', unsafe_allow_html=True)
-            with col_l2:
-                st.markdown('<div style="background-color:#ffedd5;padding:10px;border-radius:10px;"><span style="font-size:1.2rem;">🟠</span> <strong>BORRADOR CON PLANO</strong><br><small>Sin margen, datos completos, con plano</small></div>', unsafe_allow_html=True)
-                st.markdown('<div style="background-color:#fff3cd;padding:10px;border-radius:10px;margin-top:5px;"><span style="font-size:1.2rem;">🟡</span> <strong>BORRADOR</strong><br><small>Sin margen, datos completos, sin plano</small></div>', unsafe_allow_html=True)
-            with col_l3:
-                st.markdown('<div style="background-color:#f8d7da;padding:10px;border-radius:10px;"><span style="font-size:1.2rem;">🔴</span> <strong>INCOMPLETO CON PLANO</strong><br><small>Faltan datos, con plano</small></div>', unsafe_allow_html=True)
-            with col_l4:
-                st.markdown('<div style="background-color:#f8d7da;padding:10px;border-radius:10px;"><span style="font-size:1.2rem;">🔴</span> <strong>INCOMPLETO</strong><br><small>Faltan datos, sin plano</small></div>', unsafe_allow_html=True)
-
         st.markdown("---")
         st.markdown("### Seleccionar cotización")
 
