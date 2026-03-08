@@ -1,3 +1,4 @@
+# v2.1 - titulos tarjetas abajo izquierda
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
