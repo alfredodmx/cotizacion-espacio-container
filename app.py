@@ -2987,12 +2987,13 @@ if st.session_state.get('recien_cargado', False):
     st.session_state.recien_cargado = False
 
 if _mostrar_fab:
-    # Botón real en el DOM — el FAB JS lo clickea
+    st.markdown('<style>#btn_fab_guardar_container{display:none!important}</style>', unsafe_allow_html=True)
     if st.button("💾 Guardar", key="btn_fab_guardar"):
         datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
         num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
         guardar_cotizacion(num_g, datos_c, datos_a, proy,
                            st.session_state.carrito, cfg, tots, pl_n, pl_d)
+        st.session_state.cotizacion_cargada = num_g
         st.session_state.hash_ultimo_guardado = calcular_hash_estado()
         st.session_state.recien_guardado = True
         st.session_state.mostrar_toast_exito = True
@@ -3038,6 +3039,17 @@ if _mostrar_fab:
         const btn = parent.createElement('button');
         btn.id = 'fab-guardar-btn';
         btn.innerHTML = '&#128190; Guardar';
+        // Ocultar el botón fijo guardar del layout
+        setTimeout(function(){
+            const buttons = parent.querySelectorAll('button');
+            for (const b of buttons) {
+                const txt = (b.innerText || b.textContent || '').trim();
+                if (txt.includes('Guardar') && b.id !== 'fab-guardar-btn') {
+                    b.parentElement.style.display = 'none';
+                }
+            }
+        }, 300);
+
         btn.onclick = function() {
             const buttons = parent.querySelectorAll('button');
             for (const b of buttons) {
