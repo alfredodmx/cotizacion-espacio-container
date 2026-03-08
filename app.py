@@ -149,6 +149,17 @@ if 'telefono_asesor_raw' not in st.session_state:
     st.session_state.telefono_asesor_raw = ""
 if 'asesor_correo_temp' not in st.session_state:
     st.session_state.asesor_correo_temp = ""
+# ── Leer margen desde FAB via query_params ──────────────
+_mgfab = st.query_params.get("mgfab")
+if _mgfab is not None:
+    try:
+        _mgfab_val = max(0.0, min(100.0, float(_mgfab)))
+        st.session_state['margen'] = _mgfab_val
+    except ValueError:
+        pass
+    st.query_params.clear()
+# ────────────────────────────────────────────────────────
+
 if 'counter' not in st.session_state:
     st.session_state.counter = 0
 if 'cargar_cotizacion_trigger' not in st.session_state:
@@ -2204,25 +2215,11 @@ with tab1:
     if not st.session_state.modo_admin and st.session_state.margen > 0:
         st.caption(f"ℹ️ Margen del {st.session_state.margen}% aplicado")
 
-    # Margen controlado desde FAB - usar session_state directamente
-    if st.session_state.modo_admin:
-        if st.session_state.get('margen_fab_pendiente') is not None:
-            st.session_state.margen = st.session_state.margen_fab_pendiente
-            st.session_state.margen_fab_pendiente = None
-            st.rerun()
-
-        # Input de margen visible pero compacto en modo admin
-        col_tit, col_mg = st.columns([5, 1])
-        with col_tit:
-            st.markdown("#### Resumen del Presupuesto")
-        with col_mg:
-            margen_key = f"margen_input_{st.session_state.counter}"
-            nuevo_margen = st.number_input("Margen %", min_value=0.0, max_value=100.0,
-                value=float(st.session_state.margen), step=0.5, format="%.1f",
-                key=margen_key, label_visibility="collapsed")
-            if nuevo_margen != st.session_state.margen:
-                st.session_state.margen = nuevo_margen
-                st.rerun()
+    # Margen controlado exclusivamente desde FAB flotante
+    if st.session_state.get('_margen_fab_aplicar') is not None:
+        st.session_state.margen = st.session_state._margen_fab_aplicar
+        st.session_state._margen_fab_aplicar = None
+        st.rerun()
 
     if st.session_state.carrito:
         # Fila buscador — solo visible con productos
@@ -3105,114 +3102,86 @@ else:
 # FAB - MARGEN FLOTANTE (solo visible en modo admin)
 # =========================================================
 _margen_actual = st.session_state.margen
-_mostrar_fab_margen = st.session_state.modo_admin
+_mstr = f"{_margen_actual:.1f}"
 
-# Capturar valor enviado por el FAB
-if st.session_state.get('_margen_fab_valor') is not None:
-    _nuevo = float(st.session_state._margen_fab_valor)
-    _nuevo = max(0.0, min(100.0, _nuevo))
-    st.session_state._margen_fab_valor = None
-    st.session_state.margen = _nuevo
-    st.rerun()
-
-if _mostrar_fab_margen:
+if st.session_state.modo_admin:
     _color = 'linear-gradient(135deg, #10b981 0%, #059669 100%)' if _margen_actual > 0 else 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'
-    _pulse = 'animation: pulse-margen 2s infinite !important;' if _margen_actual > 0 else ''
-    _margen_str = f"{_margen_actual:.1f}"
+    _pulse = 'animation:pulse-margen 2s infinite;' if _margen_actual > 0 else ''
 
-    margen_component_val = components.html(
-        f"""<!DOCTYPE html><html><head>
-<style>
-body{{margin:0;padding:0;background:transparent;font-family:sans-serif;}}
-#fab-btn{{position:fixed;bottom:1.5rem;left:12rem;z-index:2147483646;
-  background:{_color};color:white;border:none;border-radius:50px;
-  padding:0.85rem 1.4rem;font-size:0.95rem;font-weight:700;
-  cursor:pointer;white-space:nowrap;{_pulse}}}
-#fab-btn:hover{{transform:translateY(-3px) scale(1.05);animation:none;}}
-#popup{{position:fixed;bottom:5.5rem;left:12rem;z-index:2147483647;
-  background:white;border-radius:16px;
-  box-shadow:0 8px 40px rgba(0,0,0,0.25);
-  padding:1.2rem 1.4rem;min-width:230px;display:none;}}
-#popup.open{{display:block;}}
-h4{{margin:0 0 0.7rem 0;font-size:0.95rem;color:#374151;font-weight:700;}}
-#disp{{width:100%;padding:0.6rem;border:2px solid #10b981;border-radius:10px;
-  font-size:1.5rem;font-weight:700;text-align:center;margin-bottom:8px;
-  box-sizing:border-box;color:#111827;background:#f0fdf4;}}
-#pad{{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px;}}
-#pad button{{padding:0.6rem;border:1px solid #e5e7eb;border-radius:8px;
-  background:#f9fafb;font-size:1rem;font-weight:600;cursor:pointer;color:#111827;}}
-#pad button:hover{{background:#f0fdf4;border-color:#10b981;}}
-#apply-btn{{width:100%;padding:0.65rem;
-  background:linear-gradient(135deg,#10b981,#059669);
-  color:white;border:none;border-radius:10px;
-  font-size:0.95rem;font-weight:700;cursor:pointer;}}
-@keyframes pulse-margen{{
-  0%{{box-shadow:0 8px 24px rgba(16,185,129,0.5);}}
-  50%{{box-shadow:0 8px 40px rgba(16,185,129,0.9),0 0 0 12px rgba(16,185,129,0.15);}}
-  100%{{box-shadow:0 8px 24px rgba(16,185,129,0.5);}}}}
-</style></head><body>
-<button id="fab-btn">&#128202; Margen: {_margen_str}%</button>
-<div id="popup">
-  <h4>&#128202; Aplicar Margen</h4>
-  <div id="disp">{_margen_str}%</div>
-  <div id="pad">
-    <button>1</button><button>2</button><button>3</button>
-    <button>4</button><button>5</button><button>6</button>
-    <button>7</button><button>8</button><button>9</button>
-    <button id="clr" style="color:#ef4444;font-size:0.85rem;">C</button>
-    <button>0</button><button>.</button>
-  </div>
-  <button id="apply-btn">&#9989; Aplicar</button>
-</div>
+    components.html(f"""
 <script>
-var cur='{_margen_str}';
-var disp=document.getElementById('disp');
-var popup=document.getElementById('popup');
-document.getElementById('fab-btn').onclick=function(e){{
-  e.stopPropagation();
-  popup.classList.toggle('open');
-  cur='{_margen_str}';
-  disp.textContent=cur+'%';
-}};
-document.getElementById('pad').addEventListener('click',function(e){{
-  var t=e.target;
-  if(!t||t.tagName!=='BUTTON')return;
-  var n=t.textContent.trim();
-  if(t.id==='clr'){{cur='0';}}
-  else if(n==='.'){{if(cur.indexOf('.')<0)cur+='.';}}
-  else{{cur=(cur==='0')?n:cur+n;}}
-  if(parseFloat(cur)>100)cur='100';
-  disp.textContent=cur+'%';
-}});
-document.getElementById('apply-btn').onclick=function(){{
-  var val=Math.max(0,Math.min(100,parseFloat(cur)||0));
-  window.parent.postMessage({{isStreamlitMessage:true,type:'streamlit:setComponentValue',value:val}},'*');
-  popup.classList.remove('open');
-}};
-document.addEventListener('click',function(e){{
-  if(!document.getElementById('fab-btn').contains(e.target)&&
-     !popup.contains(e.target)){{popup.classList.remove('open');}}
-}});
-</script></body></html>""",
-        height=90
-    )
+(function(){{
+  var doc = window.parent.document;
+  ['_fab_mg_style','_fab_mg_wrap','_fab_mg_popup'].forEach(function(id){{
+    var e=doc.getElementById(id); if(e) e.remove();
+  }});
+  var s = doc.createElement('style');
+  s.id = '_fab_mg_style';
+  s.textContent = [
+    '@keyframes pm{{0%{{box-shadow:0 8px 24px rgba(16,185,129,.5)}}50%{{box-shadow:0 8px 40px rgba(16,185,129,.9),0 0 0 12px rgba(16,185,129,.15)}}100%{{box-shadow:0 8px 24px rgba(16,185,129,.5)}}}}',
+    '#_fab_mg_btn{{position:fixed;bottom:1.5rem;left:12rem;z-index:999990;background:{_color};color:#fff;border:none;border-radius:50px;padding:.85rem 1.4rem;font-size:.95rem;font-weight:700;cursor:pointer;white-space:nowrap;{_pulse}font-family:sans-serif;box-shadow:0 8px 24px rgba(16,185,129,.5);}}',
+    '#_fab_mg_btn:hover{{transform:translateY(-3px);animation:none;}}',
+    '#_fab_mg_popup{{position:fixed;bottom:5.5rem;left:12rem;z-index:999991;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.25);padding:1.2rem 1.4rem;min-width:230px;display:none;font-family:sans-serif;}}',
+    '#_fab_mg_popup.open{{display:block;}}',
+    '#_fab_mg_disp{{width:100%;padding:.6rem;border:2px solid #10b981;border-radius:10px;font-size:1.5rem;font-weight:700;text-align:center;margin-bottom:8px;box-sizing:border-box;color:#111827;background:#f0fdf4;}}',
+    '#_fab_mg_pad{{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px;}}',
+    '#_fab_mg_pad button{{padding:.6rem;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;font-size:1rem;font-weight:600;cursor:pointer;color:#111827;font-family:sans-serif;}}',
+    '#_fab_mg_pad button:hover{{background:#f0fdf4;border-color:#10b981;}}',
+    '#_fab_mg_apply{{width:100%;padding:.65rem;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:10px;font-size:.95rem;font-weight:700;cursor:pointer;font-family:sans-serif;}}'
+  ].join('');
+  doc.head.appendChild(s);
 
-    if margen_component_val is not None:
-        try:
-            _v = float(margen_component_val)
-            _v = max(0.0, min(100.0, _v))
-            if _v != st.session_state.margen:
-                st.session_state.margen = _v
-                st.rerun()
-        except (ValueError, TypeError):
-            pass
+  var popup = doc.createElement('div');
+  popup.id = '_fab_mg_popup';
+  popup.innerHTML = '<b style="font-size:.95rem;color:#374151;display:block;margin-bottom:.7rem;">&#128202; Aplicar Margen</b>'
+    + '<div id="_fab_mg_disp">{_mstr}%</div>'
+    + '<div id="_fab_mg_pad"><button>1</button><button>2</button><button>3</button><button>4</button><button>5</button><button>6</button><button>7</button><button>8</button><button>9</button>'
+    + '<button id="_fab_mg_clr" style="color:#ef4444;font-size:.85rem;">C</button><button>0</button><button>.</button></div>'
+    + '<button id="_fab_mg_apply">&#9989; Aplicar</button>';
+  doc.body.appendChild(popup);
+
+  var cur = '{_mstr}';
+  var disp = doc.getElementById('_fab_mg_disp');
+
+  doc.getElementById('_fab_mg_pad').addEventListener('click', function(e){{
+    var t=e.target; if(!t||t.tagName!=='BUTTON') return;
+    var n=t.textContent.trim();
+    if(t.id==='_fab_mg_clr') cur='0';
+    else if(n==='.') {{ if(cur.indexOf('.')<0) cur+='.'; }}
+    else cur=(cur==='0')?n:cur+n;
+    if(parseFloat(cur)>100) cur='100';
+    disp.textContent=cur+'%';
+  }});
+
+  doc.getElementById('_fab_mg_apply').addEventListener('click', function(){{
+    var val=Math.max(0,Math.min(100,parseFloat(cur)||0));
+    var url=new URL(doc.location.href);
+    url.searchParams.set('mgfab', val.toFixed(1));
+    doc.location.href=url.toString();
+  }});
+
+  var wrap=doc.createElement('div'); wrap.id='_fab_mg_wrap';
+  var btn=doc.createElement('button'); btn.id='_fab_mg_btn';
+  btn.textContent='Margen: {_mstr}%';
+  btn.addEventListener('click',function(e){{
+    e.stopPropagation();
+    cur='{_mstr}'; disp.textContent=cur+'%';
+    popup.classList.toggle('open');
+  }});
+  wrap.appendChild(btn); doc.body.appendChild(wrap);
+  doc.addEventListener('click',function(e){{
+    if(!wrap.contains(e.target)&&!popup.contains(e.target)) popup.classList.remove('open');
+  }});
+}})();
+</script>
+""", height=0)
 
 else:
     components.html("""<script>
 (function(){
   var doc=window.parent.document;
-  ['fab-margen-wrapper','fab-margen-popup','fab-margen-style'].forEach(function(id){
-    var el=doc.getElementById(id);if(el)el.remove();
+  ['_fab_mg_style','_fab_mg_wrap','_fab_mg_popup'].forEach(function(id){
+    var e=doc.getElementById(id); if(e) e.remove();
   });
 })();
 </script>""", height=0)
