@@ -876,29 +876,25 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
     /* ══ Tabla de presupuesto con estilo flotante ══ */
-    div.tabla-presupuesto {
-        background: #ffffff;
-        border-radius: 16px;
-        border: 1px solid rgba(91,124,250,0.15);
-        box-shadow: 0 4px 20px rgba(91, 124, 250, 0.08), 0 1px 6px rgba(0,0,0,0.06);
-        padding: 0.75rem;
-        transition: box-shadow 0.25s ease, transform 0.25s ease;
+    [data-testid="stDataFrame"],
+    [data-testid="stDataEditor"] {
+        background: #ffffff !important;
+        border-radius: 16px !important;
+        border: 1px solid rgba(91,124,250,0.15) !important;
+        box-shadow: 0 4px 20px rgba(91, 124, 250, 0.08), 0 1px 6px rgba(0,0,0,0.06) !important;
+        padding: 0.5rem !important;
+        transition: box-shadow 0.25s ease, transform 0.25s ease !important;
+        overflow: hidden !important;
     }
-    div.tabla-presupuesto:hover {
-        box-shadow: 0 8px 32px rgba(91, 124, 250, 0.16), 0 2px 10px rgba(0,0,0,0.08);
-        transform: translateY(-2px);
+    [data-testid="stDataFrame"]:hover,
+    [data-testid="stDataEditor"]:hover {
+        box-shadow: 0 8px 32px rgba(91, 124, 250, 0.16), 0 2px 10px rgba(0,0,0,0.08) !important;
+        transform: translateY(-2px) !important;
     }
-
-    /* ══ Tabla de presupuesto (dataframe/data_editor) ══ */
     [data-testid="stDataFrame"] iframe,
     [data-testid="stDataEditor"] iframe {
         border-radius: 10px !important;
         border: none !important;
-    }
-    [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stDataFrame"],
-    [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stDataEditor"] {
-        border-radius: 10px !important;
-        overflow: hidden !important;
     }
 
     /* ══ Sombra flotante para containers con borde ══ */
@@ -2246,8 +2242,6 @@ with tab1:
         total_comisiones = comision_vendedor + comision_supervisor
         utilidad_real = margen_valor - total_comisiones if st.session_state.modo_admin else 0
 
-        # Estilo tabla via CSS (sin container para preservar toolbar)
-        st.markdown('<div class="tabla-presupuesto">', unsafe_allow_html=True)
         if es_solo_lectura:
             carrito_df_display = carrito_df_con_margen[["Categoria", "Item", "Cantidad", "Precio Unitario", "Subtotal"]].copy()
             carrito_df_display["Precio Unitario"] = carrito_df_display["Precio Unitario"].apply(formato_clp)
@@ -2273,7 +2267,6 @@ with tab1:
                 for i in sorted(filas_eliminar, reverse=True):
                     del st.session_state.carrito[i]
                 st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
         st.markdown("---")
         # Solo botón Limpiar
         col_btn_limpiar, _, _, _ = st.columns(4)
