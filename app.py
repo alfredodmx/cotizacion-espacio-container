@@ -183,12 +183,6 @@ if 'recien_cargado' not in st.session_state:
 if 'mostrar_advertencia_cerrar' not in st.session_state:
     st.session_state.mostrar_advertencia_cerrar = False
 
-if 'trigger_cerrar_cotizacion' not in st.session_state:
-    st.session_state.trigger_cerrar_cotizacion = False
-
-if 'datos_pendientes_cerrar' not in st.session_state:
-    st.session_state.datos_pendientes_cerrar = None
-
 if 'numero_a_cargar_pendiente' not in st.session_state:
     st.session_state.numero_a_cargar_pendiente = None
 
@@ -877,20 +871,7 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
-    /* ══ Sombra flotante para containers con borde ══ */
-    [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"] {
-        box-shadow: 0 4px 20px rgba(91, 124, 250, 0.08), 0 1px 6px rgba(0,0,0,0.06) !important;
-        border: 1px solid rgba(91,124,250,0.15) !important;
-        border-radius: 16px !important;
-        transition: box-shadow 0.25s ease, transform 0.25s ease !important;
-        background: #ffffff !important;
-    }
-    [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"]:hover {
-        box-shadow: 0 8px 32px rgba(91, 124, 250, 0.16), 0 2px 10px rgba(0,0,0,0.08) !important;
-        transform: translateY(-2px) !important;
-    }
-
-
+    /* ══ Ocultar íconos Streamlit y GitHub — clases exactas ══ */
     #MainMenu { display: none !important; }
     footer { display: none !important; }
     [data-testid="stToolbar"] { display: none !important; }
@@ -1433,30 +1414,18 @@ if st.session_state.cotizacion_cargada:
         st.markdown(f'<div class="cotizacion-status-container"><span class="status-badge">{badge_html}</span></div>', unsafe_allow_html=True)
     with col_cerrar:
         if st.button("🗑️ Cerrar Cotización", key="btn_cerrar_cotizacion", use_container_width=True):
+            # Detectar si hay cambios sin guardar comparando hash actual vs guardado
             _hash_actual = calcular_hash_estado()
             _hay_cambios = (
                 len(st.session_state.get('carrito', [])) > 0 and
                 _hash_actual != st.session_state.get('hash_ultimo_guardado')
             )
             if _hay_cambios:
-                # Capturar todos los datos AHORA antes del rerun, mientras los widgets existen
-                leer_datos_actuales()
-                datos_c, datos_a, proy, cfg, tots, pnom, pdat = construir_datos_para_guardar()
-                st.session_state.datos_pendientes_cerrar = {
-                    'datos_cliente': datos_c,
-                    'datos_asesor': datos_a,
-                    'proyecto': proy,
-                    'config': cfg,
-                    'totales': tots,
-                    'plano_nombre': pnom,
-                    'plano_datos': pdat,
-                    'carrito': list(st.session_state.carrito),
-                    'numero': st.session_state.cotizacion_cargada,
-                }
                 st.session_state.mostrar_advertencia_cerrar = True
+                st.rerun()
             else:
-                st.session_state.trigger_cerrar_cotizacion = True
-            st.rerun()
+                _ejecutar_cierre_cotizacion()
+                st.rerun()
 
     # ── Popup advertencia al cerrar con cambios sin guardar ──
     if st.session_state.get('mostrar_advertencia_cerrar', False):
@@ -1478,33 +1447,19 @@ if st.session_state.cotizacion_cargada:
             col_si, col_no, col_cancelar = st.columns(3)
             with col_si:
                 if st.button("💾 Guardar y cerrar", use_container_width=True, type="primary", key="dialog_cerrar_si"):
-                    # Usar datos capturados antes del rerun
-                    d = st.session_state.get('datos_pendientes_cerrar', {})
-                    num = d.get('numero') or generar_numero_unico()
-                    guardar_cotizacion(
-                        num,
-                        d.get('datos_cliente', {}),
-                        d.get('datos_asesor', {}),
-                        d.get('proyecto', {}),
-                        d.get('carrito', []),
-                        d.get('config', {}),
-                        d.get('totales', {}),
-                        d.get('plano_nombre', ''),
-                        d.get('plano_datos', None)
-                    )
-                    st.session_state.datos_pendientes_cerrar = None
+                    datos_c, datos_a, proy, cfg, tots, pnom, pdat = construir_datos_para_guardar()
+                    num = st.session_state.cotizacion_cargada or generar_numero_unico()
+                    guardar_cotizacion(num, datos_c, datos_a, proy, st.session_state.carrito, cfg, tots, pnom, pdat)
                     st.session_state.mostrar_advertencia_cerrar = False
-                    st.session_state.trigger_cerrar_cotizacion = True
+                    _ejecutar_cierre_cotizacion()
                     st.rerun()
             with col_no:
                 if st.button("🗑️ Descartar y cerrar", use_container_width=True, key="dialog_cerrar_no"):
-                    st.session_state.datos_pendientes_cerrar = None
                     st.session_state.mostrar_advertencia_cerrar = False
-                    st.session_state.trigger_cerrar_cotizacion = True
+                    _ejecutar_cierre_cotizacion()
                     st.rerun()
             with col_cancelar:
                 if st.button("✖️ Cancelar", use_container_width=True, key="dialog_cerrar_cancelar"):
-                    st.session_state.datos_pendientes_cerrar = None
                     st.session_state.mostrar_advertencia_cerrar = False
                     st.rerun()
 
@@ -1815,17 +1770,11 @@ def _ejecutar_cierre_cotizacion():
     st.session_state.recien_guardado = True
     st.session_state.hash_ultimo_guardado = None
 
-# Procesar triggers de cierre aquí, donde limpiar_todo ya está definida
-if st.session_state.get('trigger_cerrar_cotizacion', False):
-    st.session_state.trigger_cerrar_cotizacion = False
-    _ejecutar_cierre_cotizacion()
-    st.session_state.resultados_busqueda = buscar_cotizaciones()
-    st.rerun()
-
 # =========================================================
 # TAB 2 - DATOS CLIENTE
 # =========================================================
 with tab2:
+    st.markdown("### 📋 Datos de la Cotización")
 
     es_solo_lectura = bool(
         st.session_state.cotizacion_cargada and
@@ -1838,36 +1787,40 @@ with tab2:
     dias_validez = (fecha_termino - fecha_inicio).days
 
     if es_solo_lectura:
-        st.warning("🔒 Modo solo lectura — cotización con márgenes aplicados.")
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            with st.container(border=True):
-                st.markdown("**👤 CLIENTE**")
-                st.text_input("Nombre", value=st.session_state.nombre_input, disabled=True, key="nombre_readonly")
-                st.text_input("RUT", value=st.session_state.rut_display, disabled=True, key="rut_readonly")
-                st.text_input("Correo", value=st.session_state.correo_input, disabled=True, key="correo_readonly")
-                st.text_input("Teléfono", value=st.session_state.telefono_raw, disabled=True, key="telefono_readonly")
-        with col2:
-            with st.container(border=True):
-                st.markdown("**📍 DIRECCIÓN**")
-                st.text_input("Dirección del Proyecto", value=st.session_state.direccion_input, disabled=True, key="direccion_readonly")
-        with col3:
-            with st.container(border=True):
-                st.markdown("**👨‍💼 EJECUTIVO**")
-                st.text_input("Asesor", value=st.session_state.asesor_seleccionado, disabled=True, key="asesor_readonly")
-                st.text_input("Correo Ejecutivo", value=st.session_state.correo_asesor, disabled=True, key="correo_asesor_readonly")
-                st.text_input("Teléfono Ejecutivo", value=st.session_state.telefono_asesor, disabled=True, key="telefono_asesor_readonly")
-        with col4:
-            with st.container(border=True):
-                st.markdown("**📅 VALIDEZ**")
-                st.date_input("Fecha Inicio", value=fecha_inicio, disabled=True, key="fecha_inicio_readonly")
-                st.date_input("Fecha Término", value=fecha_termino, disabled=True, key="fecha_termino_readonly")
-                st.markdown(f"**⏱️ Duración:** {dias_validez} días")
-                if dias_validez > 0:
-                    st.progress(min(dias_validez/30, 1.0), text=f"{dias_validez} días")
+        st.warning("🔒 Esta cotización tiene márgenes aplicados. Modo solo lectura.")
+        st.info("Los datos se muestran solo para referencia. No se pueden realizar modificaciones.")
+
         with st.container(border=True):
-            st.markdown("**📝 OBSERVACIONES**")
-            st.text_area("Observaciones", value=st.session_state.observaciones_input, disabled=True, height=80, key="observaciones_readonly")
+            st.markdown("### 👤 Datos del Cliente")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.text_input("Nombre Completo", value=st.session_state.nombre_input, disabled=True, key="nombre_readonly")
+                st.text_input("RUT", value=st.session_state.rut_display, disabled=True, key="rut_readonly")
+            with col2:
+                st.text_input("Correo Electrónico", value=st.session_state.correo_input, disabled=True, key="correo_readonly")
+                st.text_input("Teléfono", value=st.session_state.telefono_raw, disabled=True, key="telefono_readonly")
+
+        with st.container(border=True):
+            st.markdown("### 📍 Dirección del Proyecto")
+            st.text_input("Dirección", value=st.session_state.direccion_input, disabled=True, key="direccion_readonly")
+
+        with st.container(border=True):
+            st.markdown("### 👨‍💼 Asesor")
+            st.text_input("Ejecutivo", value=st.session_state.asesor_seleccionado, disabled=True, key="asesor_readonly")
+            st.text_input("Correo Ejecutivo", value=st.session_state.correo_asesor, disabled=True, key="correo_asesor_readonly")
+            st.text_input("Teléfono Ejecutivo", value=st.session_state.telefono_asesor, disabled=True, key="telefono_asesor_readonly")
+
+        with st.container(border=True):
+            st.markdown("### 📅 Validez")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.date_input("Fecha de Inicio", value=fecha_inicio, disabled=True, key="fecha_inicio_readonly")
+            with col2:
+                st.date_input("Fecha de Término", value=fecha_termino, disabled=True, key="fecha_termino_readonly")
+            st.markdown(f"**⏱️ Duración:** {dias_validez} días")
+
+        st.markdown("### 📝 Observaciones")
+        st.text_area("Observaciones", value=st.session_state.observaciones_input, disabled=True, height=100, key="observaciones_readonly")
 
     else:
         asesores = {
@@ -1880,66 +1833,51 @@ with tab2:
             "JAVIER QUEZADA": {"correo": "JQUEZADA@ESPACIOCONTAINERHOUSE.CL", "telefono": "+56966983700"}
         }
 
-        col1, col2, col3, col4 = st.columns(4)
+        col_cliente, col_asesor = st.columns(2)
 
-        # ── Columna 1: Cliente ──
-        with col1:
+        with col_cliente:
             with st.container(border=True):
-                st.markdown("**👤 CLIENTE**")
+                st.markdown("👤 CLIENTE")
+                col1, col2 = st.columns(2)
 
-                nombre_key = f"nombre_input_{st.session_state.counter}"
-                nombre = st.text_input("Nombre Completo*", placeholder="Ej: Juan Pérez", key=nombre_key, value=st.session_state.nombre_input)
-                if nombre != st.session_state.nombre_input:
-                    st.session_state.nombre_input = nombre
+                with col1:
+                    nombre_key = f"nombre_input_{st.session_state.counter}"
+                    nombre = st.text_input("Nombre Completo*", placeholder="Ej: Juan Pérez", key=nombre_key, value=st.session_state.nombre_input)
+                    if nombre != st.session_state.nombre_input:
+                        st.session_state.nombre_input = nombre
 
-                correo_key = f"correo_input_{st.session_state.counter}"
-                correo = st.text_input("Correo Electrónico*", placeholder="ejemplo@correo.cl", key=correo_key, value=st.session_state.correo_input)
-                if correo != st.session_state.correo_input:
-                    st.session_state.correo_input = correo
-                if correo and "@" not in correo:
-                    st.warning("⚠️ El correo debe contener @")
+                    rut_key = f"rut_input_{st.session_state.counter}"
+                    st.text_input("RUT (opcional)", value=st.session_state.rut_display, key=rut_key, placeholder="12.345.678-9", on_change=procesar_cambio_rut)
 
-                rut_key = f"rut_input_{st.session_state.counter}"
-                st.text_input("RUT (opcional)", value=st.session_state.rut_display, key=rut_key, placeholder="12.345.678-9", on_change=procesar_cambio_rut)
-                if st.session_state.rut_raw:
-                    if len(st.session_state.rut_raw) >= 2:
-                        if st.session_state.rut_valido:
-                            st.success("✅ RUT válido")
+                    if st.session_state.rut_raw:
+                        if len(st.session_state.rut_raw) >= 2:
+                            if st.session_state.rut_valido:
+                                st.success("✅ RUT válido")
+                            else:
+                                st.error(f"❌ {st.session_state.rut_mensaje}")
                         else:
-                            st.error(f"❌ {st.session_state.rut_mensaje}")
-                    else:
-                        st.info("⏳ RUT incompleto")
+                            st.info("⏳ RUT incompleto")
 
-                telefono_key = f"telefono_input_{st.session_state.counter}"
-                st.text_input("Teléfono", value=st.session_state.telefono_raw, key=telefono_key, placeholder="961528954 (9 dígitos)", on_change=procesar_cambio_telefono)
+                with col2:
+                    correo_key = f"correo_input_{st.session_state.counter}"
+                    correo = st.text_input("Correo Electrónico*", placeholder="ejemplo@correo.cl", key=correo_key, value=st.session_state.correo_input)
+                    if correo != st.session_state.correo_input:
+                        st.session_state.correo_input = correo
+                    if correo and "@" not in correo:
+                        st.warning("⚠️ El correo debe contener @")
 
-        # ── Columna 2: Dirección ──
-        with col2:
+                    telefono_key = f"telefono_input_{st.session_state.counter}"
+                    st.text_input("Teléfono", value=st.session_state.telefono_raw, key=telefono_key, placeholder="961528954 (9 dígitos)", on_change=procesar_cambio_telefono)
+
+        with col_asesor:
             with st.container(border=True):
-                st.markdown("**📍 DIRECCIÓN**")
-                direccion_key = f"direccion_input_{st.session_state.counter}"
-                direccion = st.text_input("Dirección del Proyecto", placeholder="Calle, número, comuna", key=direccion_key, value=st.session_state.direccion_input)
-                if direccion != st.session_state.direccion_input:
-                    st.session_state.direccion_input = direccion
-                if direccion:
-                    with st.spinner("Buscando..."):
-                        comuna, region = buscar_direccion(direccion)
-                        if comuna:
-                            st.success(f"🏙️ {comuna}")
-                            st.success(f"🗺️ {region}")
-                        else:
-                            st.info("No se detectó automáticamente.")
-                            st.text_input("Comuna", key="comuna_manual")
-                            st.text_input("Región", key="region_manual")
-
-        # ── Columna 3: Ejecutivo ──
-        with col3:
-            with st.container(border=True):
-                st.markdown("**👨‍💼 EJECUTIVO**")
+                st.markdown("👨‍💼 ASESOR")
                 nombres_asesores = list(asesores.keys())
                 asesor_key = f"asesor_select_{st.session_state.counter}"
                 indice_actual = nombres_asesores.index(st.session_state.asesor_seleccionado) if st.session_state.asesor_seleccionado in nombres_asesores else 0
-                asesor_elegido = st.selectbox("Asesor", nombres_asesores, index=indice_actual, key=asesor_key, label_visibility="collapsed")
+
+                asesor_elegido = st.selectbox("Seleccionar Asesor", nombres_asesores, index=indice_actual, key=asesor_key, label_visibility="collapsed")
+
                 if asesor_elegido != st.session_state.asesor_seleccionado:
                     st.session_state.asesor_seleccionado = asesor_elegido
                     if asesor_elegido != "Seleccionar asesor":
@@ -1951,58 +1889,106 @@ with tab2:
                     st.session_state.counter += 1
                     st.rerun()
 
-                correo_asesor_key = f"asesor_correo_input_{st.session_state.counter}"
-                correo_input = st.text_input("Correo Ejecutivo*", value=st.session_state.correo_asesor, placeholder="ejecutivo@empresa.cl", key=correo_asesor_key)
-                if correo_input and "@" not in correo_input:
-                    st.warning("⚠️ El correo debe contener @")
-                if correo_input != st.session_state.correo_asesor:
-                    st.session_state.correo_asesor = correo_input
-                    st.session_state.asesor_seleccionado = "Seleccionar asesor"
-                    st.session_state.counter += 1
-                    st.rerun()
+                if st.session_state.asesor_seleccionado != "Seleccionar asesor":
+                    st.info(f"👤 Asesor seleccionado: **{st.session_state.asesor_seleccionado}**")
 
-                telefono_asesor_key = f"asesor_telefono_input_{st.session_state.counter}"
-                telefono_input = st.text_input("Teléfono Ejecutivo", value=st.session_state.telefono_asesor, key=telefono_asesor_key, placeholder="912345678 (9 dígitos)")
-                if telefono_input != st.session_state.telefono_asesor:
-                    raw = re.sub(r'[^0-9]', '', telefono_input)
-                    if len(raw) > 9:
-                        raw = raw[:9]
-                    st.session_state.telefono_asesor = raw
-                    st.session_state.asesor_seleccionado = "Seleccionar asesor"
-                    st.session_state.counter += 1
-                    st.rerun()
+                col_a1, col_a2 = st.columns(2)
+                with col_a1:
+                    correo_asesor_key = f"asesor_correo_input_{st.session_state.counter}"
+                    correo_input = st.text_input("Correo Ejecutivo*", value=st.session_state.correo_asesor, placeholder="ejecutivo@empresa.cl", key=correo_asesor_key)
+                    if correo_input and "@" not in correo_input:
+                        st.warning("⚠️ El correo debe contener @")
+                    if correo_input != st.session_state.correo_asesor:
+                        st.session_state.correo_asesor = correo_input
+                        st.session_state.asesor_seleccionado = "Seleccionar asesor"
+                        st.session_state.counter += 1
+                        st.rerun()
 
-        # ── Columna 4: Validez ──
-        with col4:
-            with st.container(border=True):
-                st.markdown("**📅 VALIDEZ**")
+                with col_a2:
+                    telefono_asesor_key = f"asesor_telefono_input_{st.session_state.counter}"
+                    telefono_input = st.text_input("Teléfono Ejecutivo", value=st.session_state.telefono_asesor, key=telefono_asesor_key, placeholder="912345678 (9 dígitos)")
+                    if telefono_input != st.session_state.telefono_asesor:
+                        raw = re.sub(r'[^0-9]', '', telefono_input)
+                        if len(raw) > 9:
+                            raw = raw[:9]
+                        st.session_state.telefono_asesor = raw
+                        st.session_state.asesor_seleccionado = "Seleccionar asesor"
+                        st.session_state.counter += 1
+                        st.rerun()
+
+        with st.container(border=True):
+            st.markdown("📍 PROYECTO")
+            st.markdown("**📍 Dirección del Proyecto**")
+            direccion_key = f"direccion_input_{st.session_state.counter}"
+            direccion = st.text_input("Dirección", placeholder="Calle, número, comuna", key=direccion_key, value=st.session_state.direccion_input)
+            if direccion != st.session_state.direccion_input:
+                st.session_state.direccion_input = direccion
+
+            if direccion:
+                with st.spinner("Buscando ubicación..."):
+                    comuna, region = buscar_direccion(direccion)
+                    if comuna:
+                        col_comuna, col_region = st.columns(2)
+                        with col_comuna:
+                            st.success(f"🏙️ **Comuna:** {comuna}")
+                        with col_region:
+                            st.success(f"🗺️ **Región:** {region}")
+                    else:
+                        st.info("No se pudo detectar automáticamente.")
+                        st.text_input("Comuna", key="comuna_manual")
+                        st.text_input("Región", key="region_manual")
+
+        with st.container(border=True):
+            st.markdown("📅 VALIDEZ")
+            st.markdown("### 📅 Validez del Presupuesto")
+            col_v1, col_v2 = st.columns(2)
+            with col_v1:
                 fecha_inicio_key = f"fecha_inicio_{st.session_state.counter}"
                 fecha_inicio = st.date_input("Fecha de Inicio", value=st.session_state.fecha_inicio, key=fecha_inicio_key)
                 if fecha_inicio != st.session_state.fecha_inicio:
                     st.session_state.fecha_inicio = fecha_inicio
-
+            with col_v2:
                 fecha_termino_key = f"fecha_termino_{st.session_state.counter}"
                 fecha_termino = st.date_input("Fecha de Término", value=st.session_state.fecha_termino, key=fecha_termino_key)
                 if fecha_termino != st.session_state.fecha_termino:
                     st.session_state.fecha_termino = fecha_termino
 
-                dias_validez = (fecha_termino - fecha_inicio).days
-                if dias_validez < 0:
-                    st.error("⚠️ Fecha de término anterior a inicio.")
-                else:
-                    st.markdown(f"**⏱️ Duración:** {dias_validez} días")
-                    if dias_validez > 0:
-                        st.progress(min(dias_validez/30, 1.0), text=f"{dias_validez} días de validez")
+            dias_validez = (fecha_termino - fecha_inicio).days
+            if dias_validez < 0:
+                st.error("⚠️ La fecha de término debe ser posterior a la fecha de inicio.")
+            else:
+                st.markdown(f"**⏱️ Duración:** {dias_validez} días")
+                if dias_validez > 0:
+                    st.progress(min(dias_validez/30, 1.0), text=f"{dias_validez} días de validez")
 
-        # ── Observaciones (ancho completo) ──
-        with st.container(border=True):
-            st.markdown("**📝 OBSERVACIONES**")
-            observaciones_key = f"observaciones_input_{st.session_state.counter}"
-            observaciones = st.text_area("Observaciones y notas adicionales", placeholder="Ingresa aquí cualquier información relevante...", height=80, key=observaciones_key, value=st.session_state.observaciones_input)
-            if observaciones != st.session_state.observaciones_input:
-                st.session_state.observaciones_input = observaciones
+    st.markdown("---")
+    st.markdown("### 📝 Observaciones")
+    with st.container(border=True):
+        observaciones_disabled = es_solo_lectura
+        observaciones_key = f"observaciones_input_{st.session_state.counter}"
+        observaciones = st.text_area("Observaciones y notas adicionales", placeholder="Ingresa aquí cualquier información relevante...", height=100, key=observaciones_key, value=st.session_state.observaciones_input, disabled=observaciones_disabled)
+        if not observaciones_disabled and observaciones != st.session_state.observaciones_input:
+            st.session_state.observaciones_input = observaciones
 
-    nombre_asesor_final = st.session_state.asesor_seleccionado if st.session_state.asesor_seleccionado != "Seleccionar asesor" else ""
+    st.markdown("---")
+    with st.expander("📋 Ver resumen de datos ingresados", expanded=False):
+        col_res1, col_res2 = st.columns(2)
+        with col_res1:
+            st.markdown("**Cliente:**")
+            st.write(f"• **Nombre:** {st.session_state.nombre_input or 'No ingresado'}")
+            st.write(f"• **RUT:** {st.session_state.rut_display or 'No ingresado'} {'✅' if st.session_state.rut_valido else '❌' if st.session_state.rut_raw else ''}")
+            st.write(f"• **Email:** {st.session_state.correo_input or 'No ingresado'}")
+            st.write(f"• **Teléfono:** {st.session_state.telefono_raw or 'No ingresado'}")
+            st.write(f"• **Dirección:** {st.session_state.direccion_input or 'No ingresado'}")
+        with col_res2:
+            st.markdown("**Asesor y Validez:**")
+            nombre_asesor_mostrar = st.session_state.asesor_seleccionado if st.session_state.asesor_seleccionado != "Seleccionar asesor" else "No seleccionado"
+            st.write(f"• **Ejecutivo:** {nombre_asesor_mostrar}")
+            st.write(f"• **Email Ejecutivo:** {st.session_state.correo_asesor or 'No ingresado'}")
+            st.write(f"• **Teléfono Ejecutivo:** {st.session_state.telefono_asesor or 'No ingresado'}")
+            st.write(f"• **Validez:** {fecha_inicio.strftime('%d/%m/%Y')} al {fecha_termino.strftime('%d/%m/%Y')}")
+            st.write(f"• **Días de validez:** {dias_validez if dias_validez >= 0 else 'Fechas inválidas'}")
+
     datos_cliente = {
         "Nombre": st.session_state.nombre_input or "",
         "RUT": st.session_state.rut_display or "",
@@ -2106,74 +2092,70 @@ with tab1:
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 
         with col_m1:
-            with st.container(border=True):
-                st.markdown("**📋 Modelo Predefinido**")
-                archivo_excel = pd.ExcelFile("cotizador.xlsx")
-                hojas_modelo = [h for h in archivo_excel.sheet_names if h.lower().startswith("modelo")]
-                if hojas_modelo:
-                    modelo_seleccionado = st.selectbox("Modelo", hojas_modelo, key="modelo_select", label_visibility="collapsed")
-                    if st.button("Cargar", key="btn_modelo", use_container_width=True):
-                        st.session_state.carrito = cargar_modelo(modelo_seleccionado)
-                        st.session_state.modelo_base = modelo_seleccionado
-                        st.session_state.margen = 0.0
-                        st.success("Modelo cargado correctamente.")
-                        st.rerun()
-
-        with col_m2:
-            with st.container(border=True):
-                st.markdown("**🔍 Ítems**")
-                df = pd.read_excel("cotizador.xlsx", sheet_name="BD Total")
-                categorias = df["Categorias"].dropna().unique()
-                categoria_seleccionada = st.selectbox("Categoría", categorias, key="cat_manual", label_visibility="collapsed")
-                items_filtrados = df[df["Categorias"] == categoria_seleccionada]
-                item = st.selectbox("Ítem", items_filtrados["Item"], key="item_manual", label_visibility="collapsed")
-                cantidad = st.number_input("Cantidad", min_value=1, value=1, key="cantidad_manual", label_visibility="collapsed")
-                if st.button("Agregar", key="btn_agregar_manual", use_container_width=True):
-                    existe = False
-                    for producto in st.session_state.carrito:
-                        if producto["Item"] == item:
-                            producto["Cantidad"] += cantidad
-                            producto["Subtotal"] = producto["Cantidad"] * producto["Precio Unitario"]
-                            existe = True
-                            break
-                    if not existe:
-                        precio_unitario_original = items_filtrados[items_filtrados["Item"] == item]["P. Unitario real"].values[0]
-                        st.session_state.carrito.append({
-                            "Categoria": categoria_seleccionada, "Item": item,
-                            "Cantidad": cantidad, "Precio Unitario": precio_unitario_original,
-                            "Subtotal": precio_unitario_original * cantidad
-                        })
+            st.markdown("**📋 Modelo Predefinido**")
+            archivo_excel = pd.ExcelFile("cotizador.xlsx")
+            hojas_modelo = [h for h in archivo_excel.sheet_names if h.lower().startswith("modelo")]
+            if hojas_modelo:
+                modelo_seleccionado = st.selectbox("Modelo", hojas_modelo, key="modelo_select", label_visibility="collapsed")
+                if st.button("Cargar", key="btn_modelo", use_container_width=True):
+                    st.session_state.carrito = cargar_modelo(modelo_seleccionado)
+                    st.session_state.modelo_base = modelo_seleccionado
+                    st.session_state.margen = 0.0
+                    st.success("Modelo cargado correctamente.")
                     st.rerun()
 
+        with col_m2:
+            st.markdown("**🔍 Ítems**")
+            df = pd.read_excel("cotizador.xlsx", sheet_name="BD Total")
+            categorias = df["Categorias"].dropna().unique()
+            categoria_seleccionada = st.selectbox("Categoría", categorias, key="cat_manual", label_visibility="collapsed")
+            items_filtrados = df[df["Categorias"] == categoria_seleccionada]
+            item = st.selectbox("Ítem", items_filtrados["Item"], key="item_manual", label_visibility="collapsed")
+            cantidad = st.number_input("Cantidad", min_value=1, value=1, key="cantidad_manual", label_visibility="collapsed")
+            if st.button("Agregar", key="btn_agregar_manual", use_container_width=True):
+                existe = False
+                for producto in st.session_state.carrito:
+                    if producto["Item"] == item:
+                        producto["Cantidad"] += cantidad
+                        producto["Subtotal"] = producto["Cantidad"] * producto["Precio Unitario"]
+                        existe = True
+                        break
+                if not existe:
+                    precio_unitario_original = items_filtrados[items_filtrados["Item"] == item]["P. Unitario real"].values[0]
+                    st.session_state.carrito.append({
+                        "Categoria": categoria_seleccionada, "Item": item,
+                        "Cantidad": cantidad, "Precio Unitario": precio_unitario_original,
+                        "Subtotal": precio_unitario_original * cantidad
+                    })
+                st.rerun()
+
         with col_m3:
-            with st.container(border=True):
-                st.markdown("**🗑️ Eliminar Categoría**")
-                if st.session_state.carrito:
-                    carrito_df_temp = pd.DataFrame(st.session_state.carrito)
-                    categorias_carrito = carrito_df_temp["Categoria"].unique()
-                    categoria_eliminar = st.selectbox("Eliminar", ["-- Seleccionar --"] + list(categorias_carrito), key="cat_eliminar", label_visibility="collapsed")
-                    if categoria_eliminar != "-- Seleccionar --":
-                        if st.button("Eliminar", key="btn_eliminar_categoria", use_container_width=True):
-                            st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_eliminar]
-                            st.success("Categoría eliminada.")
-                            st.rerun()
-                else:
-                    st.info("No hay categorías")
+            st.markdown("**🗑️ Eliminar Categoría**")
+            if st.session_state.carrito:
+                carrito_df_temp = pd.DataFrame(st.session_state.carrito)
+                categorias_carrito = carrito_df_temp["Categoria"].unique()
+                categoria_eliminar = st.selectbox("Eliminar", ["-- Seleccionar --"] + list(categorias_carrito), key="cat_eliminar", label_visibility="collapsed")
+                if categoria_eliminar != "-- Seleccionar --":
+                    if st.button("Eliminar", key="btn_eliminar_categoria", use_container_width=True):
+                        st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_eliminar]
+                        st.success("Categoría eliminada.")
+                        st.rerun()
+            else:
+                st.info("No hay categorías")
 
         with col_m4:
-            with st.container(border=True):
-                st.markdown("**➕ Agregar Categoría**")
-                if hojas_modelo:
-                    modelo_origen = st.selectbox("Modelo", hojas_modelo, key="modelo_origen", label_visibility="collapsed")
-                    df_temp = pd.read_excel("cotizador.xlsx", sheet_name=modelo_origen)
-                    categorias_disponibles = df_temp["Categorias"].dropna().unique()
-                    categoria_agregar = st.selectbox("Categoría", categorias_disponibles, key="cat_agregar", label_visibility="collapsed")
-                    if st.button("Agregar", key="btn_agregar_categoria", use_container_width=True):
-                        nuevos_items = cargar_categoria_desde_modelo(modelo_origen, categoria_agregar)
-                        st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_agregar]
-                        st.session_state.carrito.extend(nuevos_items)
-                        st.success("Categoría agregada.")
-                        st.rerun()
+            st.markdown("**➕ Agregar Categoría**")
+            if hojas_modelo:
+                modelo_origen = st.selectbox("Modelo", hojas_modelo, key="modelo_origen", label_visibility="collapsed")
+                df_temp = pd.read_excel("cotizador.xlsx", sheet_name=modelo_origen)
+                categorias_disponibles = df_temp["Categorias"].dropna().unique()
+                categoria_agregar = st.selectbox("Categoría", categorias_disponibles, key="cat_agregar", label_visibility="collapsed")
+                if st.button("Agregar", key="btn_agregar_categoria", use_container_width=True):
+                    nuevos_items = cargar_categoria_desde_modelo(modelo_origen, categoria_agregar)
+                    st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_agregar]
+                    st.session_state.carrito.extend(nuevos_items)
+                    st.success("Categoría agregada.")
+                    st.rerun()
     else:
         st.markdown("#### Gestión de Productos")
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
