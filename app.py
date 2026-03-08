@@ -2931,10 +2931,10 @@ components.html("""
 </script>
 """, height=0)
 
-# Paso 2: Botón flotante — aparece cuando hay cambios sin guardar
+# Paso 2: Botón flotante — aparece cuando hay carrito y hay cambios sin guardar
 _hay_cambios_sin_guardar = (
     len(st.session_state.get('carrito', [])) > 0 and
-    calcular_hash_estado() != st.session_state.get('hash_ultimo_guardado') and
+    not st.session_state.get('recien_guardado', False) and
     not (
         st.session_state.cotizacion_cargada and
         st.session_state.margen > 0 and
@@ -2942,31 +2942,44 @@ _hay_cambios_sin_guardar = (
     )
 )
 
-if _hay_cambios_sin_guardar and not st.session_state.get('recien_guardado', False):
-    components.html("""
-    <script>
-    (function() {
-        function injectFAB() {
-            const parent = window.parent.document;
-            if (parent.getElementById('fab-guardar-btn')) return;
+if _hay_cambios_sin_guardar:
+    _fab_accion = "mostrar"
+else:
+    _fab_accion = "ocultar"
+
+components.html(f"""
+<script>
+(function() {{
+    const parent = window.parent.document;
+    const accion = '{_fab_accion}';
+
+    function eliminarFAB() {{
+        const w = parent.getElementById('fab-guardar-wrapper');
+        if (w) w.remove();
+    }}
+
+    function inyectarFAB() {{
+        if (parent.getElementById('fab-guardar-wrapper')) return;
+        if (!parent.getElementById('fab-guardar-style')) {{
             const style = parent.createElement('style');
+            style.id = 'fab-guardar-style';
             style.innerHTML = `
-                @keyframes pulse-fab {
-                    0%   { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
-                    50%  { box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }
-                    100% { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
-                }
-                @keyframes blink-badge {
-                    0%, 100% { opacity: 1; }
-                    50%      { opacity: 0.2; }
-                }
-                #fab-guardar-wrapper {
+                @keyframes pulse-fab {{
+                    0%   {{ box-shadow: 0 8px 24px rgba(91,124,250,0.5); }}
+                    50%  {{ box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }}
+                    100% {{ box-shadow: 0 8px 24px rgba(91,124,250,0.5); }}
+                }}
+                @keyframes blink-badge {{
+                    0%, 100% {{ opacity: 1; }}
+                    50%      {{ opacity: 0.2; }}
+                }}
+                #fab-guardar-wrapper {{
                     position: fixed !important;
                     bottom: 1.5rem !important;
                     left: 2rem !important;
                     z-index: 999999 !important;
-                }
-                #fab-guardar-btn {
+                }}
+                #fab-guardar-btn {{
                     background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%) !important;
                     color: white !important;
                     border: none !important;
@@ -2979,12 +2992,12 @@ if _hay_cambios_sin_guardar and not st.session_state.get('recien_guardado', Fals
                     animation: pulse-fab 2s infinite !important;
                     transition: all 0.3s ease !important;
                     white-space: nowrap !important;
-                }
-                #fab-guardar-btn:hover {
+                }}
+                #fab-guardar-btn:hover {{
                     transform: translateY(-3px) scale(1.05) !important;
                     animation: none !important;
-                }
-                #fab-badge {
+                }}
+                #fab-badge {{
                     position: absolute !important;
                     top: -5px !important;
                     right: -5px !important;
@@ -2994,34 +3007,40 @@ if _hay_cambios_sin_guardar and not st.session_state.get('recien_guardado', Fals
                     border-radius: 50% !important;
                     border: 2px solid white !important;
                     animation: blink-badge 1.5s infinite !important;
-                }
+                }}
             `;
             parent.head.appendChild(style);
-            const wrapper = parent.createElement('div');
-            wrapper.id = 'fab-guardar-wrapper';
-            const btn = parent.createElement('button');
-            btn.id = 'fab-guardar-btn';
-            btn.innerHTML = '💾 Guardar';
-            btn.onclick = function() {
-                const buttons = parent.querySelectorAll('button');
-                for (const b of buttons) {
-                    const txt = (b.innerText || b.textContent || '').trim();
-                    if (txt.includes('Guardar') && b.id !== 'fab-guardar-btn' && !b.disabled) {
-                        b.click();
-                        break;
-                    }
-                }
-            };
-            const badge = parent.createElement('span');
-            badge.id = 'fab-badge';
-            wrapper.appendChild(btn);
-            wrapper.appendChild(badge);
-            parent.body.appendChild(wrapper);
-        }
-        injectFAB();
-        setTimeout(injectFAB, 500);
-        setTimeout(injectFAB, 1500);
-    })();
-    </script>
-    """, height=0)
+        }}
+        const wrapper = parent.createElement('div');
+        wrapper.id = 'fab-guardar-wrapper';
+        const btn = parent.createElement('button');
+        btn.id = 'fab-guardar-btn';
+        btn.innerHTML = '💾 Guardar';
+        btn.onclick = function() {{
+            const buttons = parent.querySelectorAll('button');
+            for (const b of buttons) {{
+                const txt = (b.innerText || b.textContent || '').trim();
+                if (txt.includes('Guardar') && b.id !== 'fab-guardar-btn' && !b.disabled) {{
+                    b.click();
+                    break;
+                }}
+            }}
+        }};
+        const badge = parent.createElement('span');
+        badge.id = 'fab-badge';
+        wrapper.appendChild(btn);
+        wrapper.appendChild(badge);
+        parent.body.appendChild(wrapper);
+    }}
+
+    if (accion === 'mostrar') {{
+        inyectarFAB();
+        setTimeout(inyectarFAB, 500);
+    }} else {{
+        eliminarFAB();
+        setTimeout(eliminarFAB, 200);
+    }}
+}})();
+</script>
+""", height=0)
 
