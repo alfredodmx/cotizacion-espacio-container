@@ -2998,6 +2998,7 @@ if _mostrar_fab:
         st.session_state.recien_guardado = True
         st.session_state.mostrar_toast_exito = True
         st.session_state.toast_numero_ep = num_g
+        st.session_state.resultados_busqueda = buscar_cotizaciones()
         st.rerun()
 
     # FAB JS: botón flotante en DOM padre que clickea el botón real
