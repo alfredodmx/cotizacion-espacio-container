@@ -819,21 +819,15 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
-    /* ══ Ocultar íconos Streamlit y GitHub — clases exactas ══ */
-    #MainMenu { display: none !important; }
-    footer { display: none !important; }
+    /* ══ Ocultar íconos Streamlit y GitHub ══ */
+    #MainMenu { visibility: hidden !important; }
+    footer { visibility: hidden !important; }
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stDecoration"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
-    [data-testid="stBottomBlockContainer"] { display: none !important; }
-    [class*="viewerBadge"] { display: none !important; }
-    [class*="ViewerBadge"] { display: none !important; }
-    [class*="_viewerBadge"] { display: none !important; }
-    [class*="profileContainer"] { display: none !important; }
-    [class*="_profileContainer"] { display: none !important; }
-    [class*="profilePreview"] { display: none !important; }
-    [class*="_profilePreview"] { display: none !important; }
-    a[href*="streamlit.io"] { display: none !important; }
+    .viewerBadge_container__r5tak { display: none !important; }
+    .viewerBadge_link__qRIco { display: none !important; }
+    #stDecoration { display: none !important; }
     a[href*="github.com"] { display: none !important; }
     button[title="View fullscreen"] { display: none !important; }
 
@@ -2674,74 +2668,51 @@ with tab3:
 components.html("""
 <script>
 (function() {
-    const parent = window.parent.document;
-
-    if (!parent.getElementById('fab-hide-icons-style')) {
+    function applyStyles() {
+        const parent = window.parent.document;
+        const styleId = 'fab-hide-icons';
+        if (parent.getElementById(styleId)) return;
         const style = parent.createElement('style');
-        style.id = 'fab-hide-icons-style';
+        style.id = styleId;
         style.innerHTML = `
-            #MainMenu { display: none !important; }
-            footer { display: none !important; }
+            #MainMenu { visibility: hidden !important; display: none !important; }
+            footer { visibility: hidden !important; display: none !important; }
             [data-testid="stToolbar"] { display: none !important; }
             [data-testid="stDecoration"] { display: none !important; }
             [data-testid="stStatusWidget"] { display: none !important; }
             [data-testid="stBottomBlockContainer"] { display: none !important; }
-            [class*="viewerBadge"] { display: none !important; }
-            [class*="ViewerBadge"] { display: none !important; }
-            [class*="_viewerBadge"] { display: none !important; }
-            [class*="profileContainer"] { display: none !important; }
-            [class*="_profileContainer"] { display: none !important; }
-            [class*="profilePreview"] { display: none !important; }
-            a[href*="streamlit.io"] { display: none !important; }
+            .viewerBadge_container__r5tak { display: none !important; }
+            .viewerBadge_link__qRIco { display: none !important; }
             a[href*="github.com"] { display: none !important; }
             button[title="View fullscreen"] { display: none !important; }
+            /* Ocultar barra inferior completa de Streamlit Cloud */
+            .st-emotion-cache-1dp5vir { display: none !important; }
+            .st-emotion-cache-164nlkn { display: none !important; }
+            iframe[title="streamlit_analytics"] { display: none !important; }
         `;
         parent.head.appendChild(style);
-    }
 
-    function hideElements() {
+        /* También eliminar directamente los nodos si existen */
         const selectors = [
             'footer',
             '[data-testid="stToolbar"]',
             '[data-testid="stDecoration"]',
             '[data-testid="stStatusWidget"]',
             '[data-testid="stBottomBlockContainer"]',
-            'a[href*="streamlit.io/cloud"]',
-            'a[href*="github.com"]',
-            '[class*="viewerBadge"]',
-            '[class*="ViewerBadge"]',
-            '[class*="_viewerBadge"]',
-            '[class*="profileContainer"]',
-            '[class*="_profileContainer"]',
-            '[class*="profilePreview"]',
-            '[class*="_profilePreview"]',
+            'a[href*="github.com"]'
         ];
         selectors.forEach(sel => {
-            try {
-                parent.querySelectorAll(sel).forEach(el => {
-                    el.style.setProperty('display', 'none', 'important');
-                    el.style.setProperty('visibility', 'hidden', 'important');
-                    el.style.setProperty('opacity', '0', 'important');
-                    el.style.setProperty('pointer-events', 'none', 'important');
-                });
-            } catch(e) {}
+            parent.querySelectorAll(sel).forEach(el => {
+                el.style.setProperty('display', 'none', 'important');
+                el.style.setProperty('visibility', 'hidden', 'important');
+            });
         });
     }
-
-    hideElements();
-    setTimeout(hideElements, 300);
-    setTimeout(hideElements, 1000);
-    setTimeout(hideElements, 2500);
-
-    const observer = new MutationObserver(function() {
-        hideElements();
-    });
-    observer.observe(parent.body, {
-        childList: true,
-        subtree: true,
-        attributes: false
-    });
-
+    applyStyles();
+    setTimeout(applyStyles, 300);
+    setTimeout(applyStyles, 800);
+    setTimeout(applyStyles, 2000);
+    setTimeout(applyStyles, 4000);
 })();
 </script>
 """, height=0)
