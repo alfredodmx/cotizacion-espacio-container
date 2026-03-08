@@ -1050,10 +1050,9 @@ st.markdown("""
 
     /* ══ TABLA RESULTADOS ══ */
     .resultados-table {
-        width: 100%; border-collapse: separate; border-spacing: 0;
+        width: 100%; border-collapse: collapse; border-spacing: 0;
         font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.875rem;
-        border-radius: 14px; overflow: hidden;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.07); background: #ffffff;
+        background: #ffffff;
     }
     .resultados-table th {
         background: linear-gradient(135deg, #1e2447 0%, #2a3060 100%) !important;
@@ -1061,6 +1060,7 @@ st.markdown("""
         padding: 14px 16px !important; text-align: left !important;
         font-size: 0.75rem !important; letter-spacing: 0.07em !important;
         text-transform: uppercase !important;
+        position: sticky !important; top: 0 !important; z-index: 2 !important;
     }
     .resultados-table td {
         padding: 12px 16px !important; border-bottom: 1px solid #f0f2f8 !important;
@@ -2514,10 +2514,26 @@ with tab3:
         df_resultados["Estado"] = df_resultados.apply(crear_badge_estado, axis=1)
         df_resultados["Plano"] = df_resultados.apply(lambda row: "📎" if row["Tiene_Plano"] else "❌", axis=1)
 
-        html_table = "<table class='resultados-table'><thead><tr><th>N° Presupuesto</th><th>Cliente</th><th>Asesor</th><th>Fecha</th><th>Total</th><th>Estado</th><th>Plano</th></tr></thead><tbody>"
+        n_resultados = len(df_resultados)
+        altura_tabla = min(n_resultados * 48 + 50, 530)  # ~10 filas = 530px máx
+
+        rows_html = ""
         for _, row in df_resultados.iterrows():
-            html_table += f"<tr><td>{row['N°']}</td><td>{row['Cliente'] or '—'}</td><td>{row['Asesor'] or '—'}</td><td>{row['Fecha']}</td><td>{row['Total']}</td><td style='text-align:center;'>{row['Estado']}</td><td style='text-align:center;font-size:1.2rem;'>{row['Plano']}</td></tr>"
-        html_table += "</tbody></table>"
+            rows_html += f"<tr><td>{row['N°']}</td><td>{row['Cliente'] or '—'}</td><td>{row['Asesor'] or '—'}</td><td>{row['Fecha']}</td><td>{row['Total']}</td><td style='text-align:center;'>{row['Estado']}</td><td style='text-align:center;font-size:1.2rem;'>{row['Plano']}</td></tr>"
+
+        html_table = f"""
+        <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;">
+            <div style="overflow-y:auto;max-height:{altura_tabla}px;">
+                <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;'>
+                    <thead style='position:sticky;top:0;z-index:2;'>
+                        <tr><th>N° Presupuesto</th><th>Cliente</th><th>Asesor</th><th>Fecha</th><th>Total</th><th>Estado</th><th>Plano</th></tr>
+                    </thead>
+                    <tbody>{rows_html}</tbody>
+                </table>
+            </div>
+        </div>
+        <p style="font-size:0.8rem;color:#888;margin-top:6px;">Mostrando {n_resultados} resultado{'s' if n_resultados != 1 else ''}</p>
+        """
         st.markdown(html_table, unsafe_allow_html=True)
 
         with st.expander("📋 Leyenda de estados", expanded=False):
