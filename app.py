@@ -3210,13 +3210,17 @@ if st.session_state.modo_admin:
       target.focus();
       var setter=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
       setter.call(target, val.toFixed(1));
-      target.dispatchEvent(new Event('input', {{bubbles:true}}));
-      target.dispatchEvent(new Event('change', {{bubbles:true}}));
+      // Disparar eventos dentro del mismo documento donde vive el input
+      var tDoc = target.ownerDocument;
+      var tWin = tDoc.defaultView || tDoc.parentWindow;
+      target.dispatchEvent(new tWin.Event('input', {{bubbles:true}}));
+      target.dispatchEvent(new tWin.Event('change', {{bubbles:true}}));
       setTimeout(function(){{
         var eOpts = {{key:'Enter', keyCode:13, which:13, bubbles:true, cancelable:true}};
-        target.dispatchEvent(new KeyboardEvent('keydown',  eOpts));
-        target.dispatchEvent(new KeyboardEvent('keypress', eOpts));
-        target.dispatchEvent(new KeyboardEvent('keyup',    eOpts));
+        target.dispatchEvent(new tWin.KeyboardEvent('keydown',  eOpts));
+        target.dispatchEvent(new tWin.KeyboardEvent('keypress', eOpts));
+        target.dispatchEvent(new tWin.KeyboardEvent('keyup',    eOpts));
+        target.blur();
       }}, 80);
     }}
     p.classList.remove('on');
