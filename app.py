@@ -2282,10 +2282,11 @@ with tab1:
         iva = subtotal_general * 0.19
         total = subtotal_general + iva
         margen_valor = subtotal_general - subtotal_base
-        comision_vendedor = subtotal_general * 0.025 if st.session_state.modo_admin else 0
-        comision_supervisor = subtotal_general * 0.008 if st.session_state.modo_admin else 0
+        tiene_margen = st.session_state.margen > 0
+        comision_vendedor = subtotal_general * 0.025 if (st.session_state.modo_admin and tiene_margen) else 0
+        comision_supervisor = subtotal_general * 0.008 if (st.session_state.modo_admin and tiene_margen) else 0
         total_comisiones = comision_vendedor + comision_supervisor
-        utilidad_real = margen_valor - total_comisiones if st.session_state.modo_admin else 0
+        utilidad_real = margen_valor - total_comisiones if (st.session_state.modo_admin and tiene_margen) else 0
         altura_tabla = 1400 if pantalla_completa else min(38 * len(carrito_df_con_margen) + 80, 420)
 
         if es_solo_lectura:
