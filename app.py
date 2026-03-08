@@ -1451,29 +1451,7 @@ with col_header:
     ''', unsafe_allow_html=True)
 with col_admin:
     st.markdown('<div style="height:1.5rem"></div>', unsafe_allow_html=True)
-    if st.session_state.modo_admin:
-        with st.popover("👑 Admin ▾", use_container_width=True):
-            st.markdown("**📦 Exportar base de datos**")
-            st.caption("Descarga todas las cotizaciones en CSV")
-            if st.button("⬇️ Generar CSV", key="btn_generar_csv", use_container_width=True):
-                st.session_state._csv_listo = exportar_csv_completo()
-            if st.session_state.get('_csv_listo'):
-                from datetime import datetime as _dt
-                _fname = f"cotizaciones_backup_{_dt.now().strftime('%Y%m%d_%H%M')}.csv"
-                st.download_button(
-                    label="💾 Descargar ahora",
-                    data=st.session_state._csv_listo,
-                    file_name=_fname,
-                    mime="text/csv",
-                    use_container_width=True,
-                    key="btn_export_csv"
-                )
-            st.markdown("---")
-            if st.button("🔓 Cerrar sesión admin", key="btn_cerrar_sesion_header", use_container_width=True):
-                st.session_state.modo_admin = False
-                st.session_state._csv_listo = None
-                st.rerun()
-    else:
+    if not st.session_state.modo_admin:
         with st.popover("🔐 Admin", use_container_width=True):
             st.markdown("### Acceso Administrativo")
             st.markdown("Ingrese su clave de autorización:")
@@ -1490,6 +1468,31 @@ with col_admin:
                         st.rerun()
                     else:
                         st.error("❌ Clave incorrecta")
+
+# Fila de herramientas admin — solo visible cuando modo_admin está activo
+if st.session_state.modo_admin:
+    col_adm_lbl, col_adm_csv, col_adm_cerrar = st.columns([3, 1, 1])
+    with col_adm_lbl:
+        st.markdown('<div style="padding-top:0.4rem;font-weight:700;color:#5b7cfa;text-align:right;">👑 Modo Admin Activo</div>', unsafe_allow_html=True)
+    with col_adm_csv:
+        if st.button("📦 Exportar CSV", key="btn_generar_csv", use_container_width=True):
+            st.session_state._csv_listo = exportar_csv_completo()
+        if st.session_state.get('_csv_listo'):
+            from datetime import datetime as _dt
+            _fname = f"cotizaciones_backup_{_dt.now().strftime('%Y%m%d_%H%M')}.csv"
+            st.download_button(
+                label="⬇️ Descargar CSV",
+                data=st.session_state._csv_listo,
+                file_name=_fname,
+                mime="text/csv",
+                use_container_width=True,
+                key="btn_export_csv"
+            )
+    with col_adm_cerrar:
+        if st.button("🔓 Cerrar sesión", key="btn_cerrar_sesion_header", use_container_width=True):
+            st.session_state.modo_admin = False
+            st.session_state._csv_listo = None
+            st.rerun()
 
 # =========================================================
 # BADGE DE COTIZACIÓN CARGADA
