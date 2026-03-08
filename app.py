@@ -149,17 +149,6 @@ if 'telefono_asesor_raw' not in st.session_state:
     st.session_state.telefono_asesor_raw = ""
 if 'asesor_correo_temp' not in st.session_state:
     st.session_state.asesor_correo_temp = ""
-# ── Leer margen desde FAB via query_params ──────────────
-_mgfab = st.query_params.get("mgfab")
-if _mgfab is not None:
-    try:
-        _mgfab_val = max(0.0, min(100.0, float(_mgfab)))
-        st.session_state['margen'] = _mgfab_val
-    except ValueError:
-        pass
-    st.query_params.clear()
-# ────────────────────────────────────────────────────────
-
 if 'counter' not in st.session_state:
     st.session_state.counter = 0
 if 'cargar_cotizacion_trigger' not in st.session_state:
@@ -2215,20 +2204,25 @@ with tab1:
     if not st.session_state.modo_admin and st.session_state.margen > 0:
         st.caption(f"ℹ️ Margen del {st.session_state.margen}% aplicado")
 
-    # Margen controlado exclusivamente desde FAB flotante
-    if st.session_state.get('_margen_fab_aplicar') is not None:
-        st.session_state.margen = st.session_state._margen_fab_aplicar
-        st.session_state._margen_fab_aplicar = None
-        st.rerun()
+    # Input oculto de margen - controlado desde el FAB flotante
+    if st.session_state.modo_admin:
+        margen_key = f"margen_input_{st.session_state.counter}"
+        st.markdown('<div style="display:none" id="margen-input-hidden">', unsafe_allow_html=True)
+        margen_input = st.number_input("Margen oculto", min_value=0.0, max_value=100.0, value=float(st.session_state.margen), step=0.5, format="%.1f", key=margen_key, label_visibility="collapsed")
+        st.markdown('</div>', unsafe_allow_html=True)
+        if margen_input != st.session_state.margen:
+            st.session_state.margen = margen_input
+            st.rerun()
+
+    # Fila buscador centrada
+    col_vacio1, col_search_c, col_fs_c, col_vacio2 = st.columns([1, 3, 0.5, 1])
+    with col_search_c:
+        buscar_tabla = st.text_input("🔍", placeholder="Filtrar por categoría o ítem...", key="buscar_tabla_presupuesto", label_visibility="collapsed")
+    with col_fs_c:
+        pantalla_completa = st.toggle("⛶", key="tabla_fullscreen", value=st.session_state.get("tabla_fullscreen_val", False), help="Expandir tabla")
+        st.session_state.tabla_fullscreen_val = pantalla_completa
 
     if st.session_state.carrito:
-        # Fila buscador — solo visible con productos
-        col_vacio1, col_search_c, col_fs_c, col_vacio2 = st.columns([1, 3, 0.5, 1])
-        with col_search_c:
-            buscar_tabla = st.text_input("🔍", placeholder="Filtrar por categoría o ítem...", key="buscar_tabla_presupuesto", label_visibility="collapsed")
-        with col_fs_c:
-            pantalla_completa = st.toggle("⛶", key="tabla_fullscreen", value=st.session_state.get("tabla_fullscreen_val", False), help="Expandir tabla")
-            st.session_state.tabla_fullscreen_val = pantalla_completa
         carrito_df = pd.DataFrame(st.session_state.carrito)
         subtotal_base = carrito_df["Subtotal"].sum()
 
@@ -2247,7 +2241,6 @@ with tab1:
         comision_vendedor = subtotal_general * 0.025 if st.session_state.modo_admin else 0
         comision_supervisor = subtotal_general * 0.008 if st.session_state.modo_admin else 0
         total_comisiones = comision_vendedor + comision_supervisor
-        utilidad_real = margen_valor - total_comisiones if st.session_state.modo_admin else 0
         altura_tabla = 1400 if pantalla_completa else min(38 * len(carrito_df_con_margen) + 80, 420)
 
         if es_solo_lectura:
@@ -2320,10 +2313,6 @@ with tab1:
 
         if st.session_state.modo_admin and st.session_state.margen > 0:
             st.caption(f"*Precios calculados con margen del {st.session_state.margen}%")
-
-        # Asegurar que todas las variables de métricas estén definidas
-        if 'utilidad_real' not in dir():
-            utilidad_real = margen_valor - total_comisiones if st.session_state.modo_admin else 0
 
         st.markdown("---")
         st.markdown("#### Métricas")
@@ -3106,107 +3095,175 @@ else:
 # FAB - MARGEN FLOTANTE (solo visible en modo admin)
 # =========================================================
 _margen_actual = st.session_state.margen
-_mstr = f"{_margen_actual:.1f}"
+_mostrar_fab_margen = st.session_state.modo_admin
 
-if st.session_state.modo_admin:
-    _color = 'linear-gradient(135deg, #10b981 0%, #059669 100%)' if _margen_actual > 0 else 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'
-    _pulse = 'animation:pulse-margen 2s infinite;' if _margen_actual > 0 else ''
-
+if _mostrar_fab_margen:
+    _color_margen = 'linear-gradient(135deg, #10b981 0%, #059669 100%)' if _margen_actual > 0 else 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'
+    _pulse_margen = 'animation: pulse-margen 2s infinite !important;' if _margen_actual > 0 else ''
     components.html(f"""
-<script>
-(function(){{
-  var doc = window.parent.document;
-  ['_fab_mg_style','_fab_mg_wrap','_fab_mg_popup','_fab_mg_overlay'].forEach(function(id){{
-    var e=doc.getElementById(id); if(e) e.remove();
-  }});
+    <script>
+    (function() {{
+        const parent = window.parent.document;
+        const old = parent.getElementById('fab-margen-wrapper');
+        if (old) old.remove();
+        const oldPopup = parent.getElementById('fab-margen-popup');
+        if (oldPopup) oldPopup.remove();
 
-  var s = doc.createElement('style');
-  s.id = '_fab_mg_style';
-  s.textContent = [
-    '@keyframes pm{{0%{{box-shadow:0 8px 24px rgba(16,185,129,.5)}}50%{{box-shadow:0 8px 40px rgba(16,185,129,.9),0 0 0 12px rgba(16,185,129,.15)}}100%{{box-shadow:0 8px 24px rgba(16,185,129,.5)}}}}',
-    '#_fab_mg_btn{{position:fixed;bottom:1.5rem;left:12rem;z-index:999990;background:{_color};color:#fff;border:none;border-radius:50px;padding:.85rem 1.4rem;font-size:.95rem;font-weight:700;cursor:pointer;white-space:nowrap;{_pulse}font-family:sans-serif;box-shadow:0 8px 24px rgba(16,185,129,.5);}}',
-    '#_fab_mg_btn:hover{{transform:translateY(-3px);animation:none;}}',
-    '#_fab_mg_overlay{{display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:999988;background:transparent;}}',
-    '#_fab_mg_overlay.open{{display:block;}}',
-    '#_fab_mg_popup{{position:fixed;bottom:5.5rem;left:12rem;z-index:999995;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.3);padding:1.2rem 1.4rem;min-width:230px;display:none;font-family:sans-serif;}}',
-    '#_fab_mg_popup.open{{display:block;}}',
-    '#_fab_mg_disp{{width:100%;padding:.6rem;border:2px solid #10b981;border-radius:10px;font-size:1.5rem;font-weight:700;text-align:center;margin-bottom:8px;box-sizing:border-box;color:#111827;background:#f0fdf4;user-select:none;}}',
-    '#_fab_mg_pad{{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px;}}',
-    '#_fab_mg_pad button{{padding:.6rem;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;font-size:1rem;font-weight:600;cursor:pointer;color:#111827;font-family:sans-serif;}}',
-    '#_fab_mg_pad button:hover{{background:#f0fdf4;border-color:#10b981;}}',
-    '#_fab_mg_apply{{width:100%;padding:.65rem;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:10px;font-size:.95rem;font-weight:700;cursor:pointer;font-family:sans-serif;}}'
-  ].join('');
-  doc.head.appendChild(s);
+        const style = parent.getElementById('fab-margen-style') || parent.createElement('style');
+        style.id = 'fab-margen-style';
+        style.innerHTML = `
+            @keyframes pulse-margen {{
+                0%   {{ box-shadow: 0 8px 24px rgba(16,185,129,0.5); }}
+                50%  {{ box-shadow: 0 8px 40px rgba(16,185,129,0.9), 0 0 0 12px rgba(16,185,129,0.15); }}
+                100% {{ box-shadow: 0 8px 24px rgba(16,185,129,0.5); }}
+            }}
+            #fab-margen-wrapper {{
+                position: fixed !important;
+                bottom: 1.5rem !important;
+                left: 12rem !important;
+                z-index: 999998 !important;
+            }}
+            #fab-margen-btn {{
+                background: {_color_margen} !important;
+                color: white !important;
+                border: none !important;
+                border-radius: 50px !important;
+                padding: 0.85rem 1.4rem !important;
+                font-size: 0.95rem !important;
+                font-weight: 700 !important;
+                cursor: pointer !important;
+                font-family: sans-serif !important;
+                {_pulse_margen}
+                white-space: nowrap !important;
+            }}
+            #fab-margen-btn:hover {{
+                transform: translateY(-3px) scale(1.05) !important;
+                animation: none !important;
+            }}
+            #fab-margen-popup {{
+                position: fixed !important;
+                bottom: 5.5rem !important;
+                left: 12rem !important;
+                z-index: 999999 !important;
+                background: white !important;
+                border-radius: 16px !important;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.18) !important;
+                padding: 1.2rem 1.4rem !important;
+                min-width: 220px !important;
+                display: none !important;
+                font-family: sans-serif !important;
+            }}
+            #fab-margen-popup.visible {{ display: block !important; }}
+            #fab-margen-popup h4 {{
+                margin: 0 0 0.8rem 0 !important;
+                font-size: 0.9rem !important;
+                color: #374151 !important;
+                font-weight: 600 !important;
+            }}
+            #fab-margen-input {{
+                width: 100% !important;
+                padding: 0.6rem 0.8rem !important;
+                border: 2px solid #d1d5db !important;
+                border-radius: 10px !important;
+                font-size: 1.1rem !important;
+                font-weight: 700 !important;
+                text-align: center !important;
+                outline: none !important;
+                box-sizing: border-box !important;
+                color: #111827 !important;
+            }}
+            #fab-margen-input:focus {{ border-color: #10b981 !important; box-shadow: 0 0 0 3px rgba(16,185,129,0.15) !important; }}
+            #fab-margen-apply {{
+                width: 100% !important;
+                margin-top: 0.7rem !important;
+                padding: 0.6rem !important;
+                background: linear-gradient(135deg, #10b981, #059669) !important;
+                color: white !important;
+                border: none !important;
+                border-radius: 10px !important;
+                font-size: 0.9rem !important;
+                font-weight: 700 !important;
+                cursor: pointer !important;
+                font-family: sans-serif !important;
+            }}
+            #fab-margen-apply:hover {{ opacity: 0.9 !important; }}
+            #fab-margen-hint {{
+                font-size: 0.75rem !important;
+                color: #9ca3af !important;
+                text-align: center !important;
+                margin-top: 0.4rem !important;
+            }}
+        `;
+        if (!parent.getElementById('fab-margen-style')) parent.head.appendChild(style);
 
-  // Overlay para bloquear clicks en los iframes de Streamlit
-  var overlay = doc.createElement('div');
-  overlay.id = '_fab_mg_overlay';
-  doc.body.appendChild(overlay);
+        // Popup
+        const popup = parent.createElement('div');
+        popup.id = 'fab-margen-popup';
+        popup.innerHTML = `
+            <h4>📊 Aplicar Margen</h4>
+            <input id="fab-margen-input" type="number" min="0" max="100" step="0.5" value="{_margen_actual:.1f}" placeholder="0.0" />
+            <button id="fab-margen-apply">✅ Aplicar</button>
+            <div id="fab-margen-hint">Enter o clic en Aplicar</div>
+        `;
+        parent.body.appendChild(popup);
 
-  var popup = doc.createElement('div');
-  popup.id = '_fab_mg_popup';
-  popup.innerHTML = '<b style="font-size:.95rem;color:#374151;display:block;margin-bottom:.7rem;">Aplicar Margen</b>'
-    + '<div id="_fab_mg_disp">{_mstr}%</div>'
-    + '<div id="_fab_mg_pad"><button>1</button><button>2</button><button>3</button><button>4</button><button>5</button><button>6</button><button>7</button><button>8</button><button>9</button>'
-    + '<button id="_fab_mg_clr" style="color:#ef4444;font-size:.85rem;">C</button><button>0</button><button>.</button></div>'
-    + '<button id="_fab_mg_apply">Aplicar</button>';
-  doc.body.appendChild(popup);
+        // FAB button
+        const wrapper = parent.createElement('div');
+        wrapper.id = 'fab-margen-wrapper';
+        const btn = parent.createElement('button');
+        btn.id = 'fab-margen-btn';
+        btn.innerHTML = '📊 Margen: {_margen_actual:.1f}%';
+        btn.onclick = function(e) {{
+            e.stopPropagation();
+            popup.classList.toggle('visible');
+            if (popup.classList.contains('visible')) {{
+                setTimeout(() => parent.getElementById('fab-margen-input')?.focus(), 100);
+            }}
+        }};
+        wrapper.appendChild(btn);
+        parent.body.appendChild(wrapper);
 
-  var cur = '{_mstr}';
-  var disp = doc.getElementById('_fab_mg_disp');
+        // Aplicar margen: busca el number_input de Streamlit y le pone el valor
+        function applyMargen() {{
+            const val = parseFloat(parent.getElementById('fab-margen-input').value) || 0;
+            // Buscar el input numérico de margen en Streamlit
+            const inputs = parent.querySelectorAll('input[type="number"]');
+            for (const inp of inputs) {{
+                const label = inp.closest('[data-testid="stNumberInput"]');
+                if (label) {{
+                    const nativeInput = inp;
+                    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                    nativeInputValueSetter.call(nativeInput, val.toFixed(1));
+                    nativeInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                    nativeInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                    break;
+                }}
+            }}
+            popup.classList.remove('visible');
+        }}
 
-  function openPopup() {{
-    cur = '{_mstr}';
-    disp.textContent = cur + '%';
-    popup.classList.add('open');
-    overlay.classList.add('open');
-  }}
-  function closePopup() {{
-    popup.classList.remove('open');
-    overlay.classList.remove('open');
-  }}
+        parent.getElementById('fab-margen-apply').onclick = applyMargen;
+        parent.getElementById('fab-margen-input').addEventListener('keydown', function(e) {{
+            if (e.key === 'Enter') applyMargen();
+            if (e.key === 'Escape') popup.classList.remove('visible');
+        }});
 
-  doc.getElementById('_fab_mg_pad').addEventListener('click', function(e){{
-    e.stopPropagation();
-    var t=e.target; if(!t||t.tagName!=='BUTTON') return;
-    var n=t.textContent.trim();
-    if(t.id==='_fab_mg_clr') cur='0';
-    else if(n==='.') {{ if(cur.indexOf('.')<0) cur+='.'; }}
-    else cur=(cur==='0')?n:cur+n;
-    if(parseFloat(cur)>100) cur='100';
-    disp.textContent=cur+'%';
-  }});
-
-  doc.getElementById('_fab_mg_apply').addEventListener('click', function(e){{
-    e.stopPropagation();
-    var val=Math.max(0,Math.min(100,parseFloat(cur)||0));
-    var url=new URL(doc.location.href);
-    url.searchParams.set('mgfab', val.toFixed(1));
-    doc.location.href=url.toString();
-  }});
-
-  // Overlay cierra el popup al hacer click fuera
-  overlay.addEventListener('click', closePopup);
-
-  var wrap=doc.createElement('div'); wrap.id='_fab_mg_wrap';
-  var btn=doc.createElement('button'); btn.id='_fab_mg_btn';
-  btn.textContent='Margen: {_mstr}%';
-  btn.addEventListener('click',function(e){{
-    e.stopPropagation();
-    if(popup.classList.contains('open')) closePopup();
-    else openPopup();
-  }});
-  wrap.appendChild(btn); doc.body.appendChild(wrap);
-}})();
-</script>
-""", height=0)
-
+        // Cerrar popup al hacer click fuera
+        parent.addEventListener('click', function(e) {{
+            if (!wrapper.contains(e.target) && !popup.contains(e.target)) {{
+                popup.classList.remove('visible');
+            }}
+        }});
+    }})();
+    </script>
+    """, height=0)
 else:
-    components.html("""<script>
-(function(){
-  var doc=window.parent.document;
-  ['_fab_mg_style','_fab_mg_wrap','_fab_mg_popup','_fab_mg_overlay'].forEach(function(id){
-    var e=doc.getElementById(id); if(e) e.remove();
-  });
-})();
-</script>""", height=0)
+    components.html("""
+    <script>
+    (function() {
+        const parent = window.parent.document;
+        const w = parent.getElementById('fab-margen-wrapper');
+        if (w) w.remove();
+    })();
+    </script>
+    """, height=0)
