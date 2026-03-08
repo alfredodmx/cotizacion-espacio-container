@@ -2236,17 +2236,27 @@ with tab1:
         with col_res_tit:
             st.markdown("#### Resumen del Presupuesto")
         with col_res_margen:
-            _mk = f"margen_input_{st.session_state.counter}"
             st.caption("Margen %")
-            _nuevo_margen = st.number_input(
-                "Margen", min_value=0.0, max_value=100.0,
-                value=float(st.session_state.margen),
-                step=0.5, format="%.1f",
-                key=_mk, label_visibility="collapsed"
+            _mk = f"margen_txt_{st.session_state.counter}"
+            _margen_txt = st.text_input(
+                "Margen", value=str(st.session_state.margen),
+                key=_mk, label_visibility="collapsed",
+                placeholder="0.0"
             )
-            if _nuevo_margen != st.session_state.margen:
-                st.session_state.margen = _nuevo_margen
-                st.rerun()
+            try:
+                _parsed = float(_margen_txt.replace(',', '.'))
+                _parsed = max(0.0, min(100.0, _parsed))
+                if _parsed != st.session_state.margen:
+                    st.session_state.margen = _parsed
+                    st.rerun()
+            except ValueError:
+                pass
+
+    # Leer margen aplicado desde FAB (via session_state flag)
+    if st.session_state.get('_fab_margen_apply'):
+        st.session_state.margen = st.session_state._fab_margen_apply
+        del st.session_state._fab_margen_apply
+        st.rerun()
 
     # Variables de métricas con valores por defecto
     utilidad_real = 0
@@ -3199,29 +3209,52 @@ if st.session_state.modo_admin:
     e.stopPropagation();
     var val=Math.max(0,Math.min(100,parseFloat(cur)||0));
     // Buscar el input de margen: step=0.5 y dentro de la tab de cotizacion
-    var allInputs=D.querySelectorAll('[data-testid="stNumberInput"] input[type="number"]');
+    // Buscar el text_input de margen: está en stTextInput dentro de una columna pequeña
+    // Se identifica porque su valor es un número decimal (el margen actual)
     var target=null;
-    for(var i=0;i<allInputs.length;i++){{
-      if(allInputs[i].step==='0.5' || allInputs[i].getAttribute('step')==='0.5'){{
-        target=allInputs[i]; break;
+    var allTI=D.querySelectorAll('[data-testid="stTextInput"] input[type="text"]');
+    for(var i=0;i<allTI.length;i++){{
+      var v=allTI[i].value.trim();
+      // Es el de margen si su valor es un número entre 0 y 100
+      if(v!=='' && !isNaN(parseFloat(v)) && parseFloat(v)>=0 && parseFloat(v)<=100){{
+        // Verificar que esté en la sección de presupuesto (tiene caption "Margen %")
+        var col=allTI[i].closest('[data-testid="stColumn"]');
+        if(col){{
+          var caps=col.querySelectorAll('[data-testid="stCaptionContainer"]');
+          for(var j=0;j<caps.length;j++){{
+            if(caps[j].textContent.indexOf('Margen')>=0){{
+              target=allTI[i]; break;
+            }}
+          }}
+        }}
+        if(target) break;
+      }}
+    }}
+    // Fallback: cualquier text input con valor numérico flotante
+    if(!target){{
+      for(var i=0;i<allTI.length;i++){{
+        var v=allTI[i].value.trim();
+        if(/^\d+(\.\d+)?$/.test(v)){{ target=allTI[i]; break; }}
       }}
     }}
     if(target){{
+      // El input ahora es text_input - buscar por tipo text en la columna de margen
       target.focus();
       var setter=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
       setter.call(target, val.toFixed(1));
-      // Disparar eventos dentro del mismo documento donde vive el input
-      var tDoc = target.ownerDocument;
-      var tWin = tDoc.defaultView || tDoc.parentWindow;
-      target.dispatchEvent(new tWin.Event('input', {{bubbles:true}}));
-      target.dispatchEvent(new tWin.Event('change', {{bubbles:true}}));
+      var tDoc=target.ownerDocument;
+      var tWin=tDoc.defaultView||tDoc.parentWindow;
+      target.dispatchEvent(new tWin.Event('input',{{bubbles:true}}));
+      target.dispatchEvent(new tWin.Event('change',{{bubbles:true}}));
+      // text_input de Streamlit confirma con Enter
       setTimeout(function(){{
-        var eOpts = {{key:'Enter', keyCode:13, which:13, bubbles:true, cancelable:true}};
-        target.dispatchEvent(new tWin.KeyboardEvent('keydown',  eOpts));
-        target.dispatchEvent(new tWin.KeyboardEvent('keypress', eOpts));
-        target.dispatchEvent(new tWin.KeyboardEvent('keyup',    eOpts));
-        target.blur();
-      }}, 80);
+        var opts={{key:'Enter',code:'Enter',keyCode:13,which:13,bubbles:true,cancelable:true}};
+        target.dispatchEvent(new tWin.KeyboardEvent('keydown', opts));
+        target.dispatchEvent(new tWin.KeyboardEvent('keypress',opts));
+        target.dispatchEvent(new tWin.KeyboardEvent('keyup',   opts));
+        // También hacer blur para que Streamlit detecte el cambio
+        setTimeout(function(){{ target.blur(); }},50);
+      }},50);
     }}
     p.classList.remove('on');
   }});
