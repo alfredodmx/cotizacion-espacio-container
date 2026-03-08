@@ -2087,7 +2087,7 @@ with tab1:
     if not es_solo_lectura:
         col_header, col_plano = st.columns([3, 1])
         with col_header:
-            st.markdown("#### Gestión de Productos")
+            pass
         with col_plano:
             st.markdown('''
             <style>
@@ -2222,7 +2222,6 @@ with tab1:
                         st.success("Categoría agregada.")
                         st.rerun()
     else:
-        st.markdown("#### Gestión de Productos")
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
         for col, label in zip([col_m1, col_m2, col_m3, col_m4], ["MODELO PREDEFINIDO", "ITEMS", "ELIMINAR CATEGORÍA", "AGREGAR CATEGORÍA"]):
             with col:
