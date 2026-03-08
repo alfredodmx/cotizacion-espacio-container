@@ -877,7 +877,20 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
-    /* ══ Ocultar íconos Streamlit y GitHub — clases exactas ══ */
+    /* ══ Sombra flotante para containers con borde ══ */
+    [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"] {
+        box-shadow: 0 4px 20px rgba(91, 124, 250, 0.08), 0 1px 6px rgba(0,0,0,0.06) !important;
+        border: 1px solid rgba(91,124,250,0.15) !important;
+        border-radius: 16px !important;
+        transition: box-shadow 0.25s ease, transform 0.25s ease !important;
+        background: #ffffff !important;
+    }
+    [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"]:hover {
+        box-shadow: 0 8px 32px rgba(91, 124, 250, 0.16), 0 2px 10px rgba(0,0,0,0.08) !important;
+        transform: translateY(-2px) !important;
+    }
+
+
     #MainMenu { display: none !important; }
     footer { display: none !important; }
     [data-testid="stToolbar"] { display: none !important; }
