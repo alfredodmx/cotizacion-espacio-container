@@ -165,27 +165,6 @@ if 'numero_en_visor' not in st.session_state:
 if 'pdf_url' not in st.session_state:
     st.session_state.pdf_url = None
 
-if 'mostrar_toast_exito' not in st.session_state:
-    st.session_state.mostrar_toast_exito = False
-
-if 'toast_numero_ep' not in st.session_state:
-    st.session_state.toast_numero_ep = ""
-
-if 'recien_guardado' not in st.session_state:
-    st.session_state.recien_guardado = False
-
-if 'hash_ultimo_guardado' not in st.session_state:
-    st.session_state.hash_ultimo_guardado = None
-
-if 'recien_cargado' not in st.session_state:
-    st.session_state.recien_cargado = False
-
-if 'mostrar_advertencia_cerrar' not in st.session_state:
-    st.session_state.mostrar_advertencia_cerrar = False
-
-if 'numero_a_cargar_pendiente' not in st.session_state:
-    st.session_state.numero_a_cargar_pendiente = None
-
 CLAVE_ADMIN = "admin2024"
 
 # =========================================================
@@ -383,28 +362,6 @@ def leer_datos_actuales():
                 pass
     if mejor_ft is not None:
         st.session_state.fecha_termino = mejor_ft
-
-def calcular_hash_estado():
-    """Calcula un hash del estado actual para detectar cambios no guardados."""
-    import hashlib
-    estado = {
-        "nombre": st.session_state.get('nombre_input', ''),
-        "rut": st.session_state.get('rut_display', ''),
-        "correo": st.session_state.get('correo_input', ''),
-        "telefono": st.session_state.get('telefono_raw', ''),
-        "direccion": st.session_state.get('direccion_input', ''),
-        "observaciones": st.session_state.get('observaciones_input', ''),
-        "asesor": st.session_state.get('asesor_seleccionado', ''),
-        "correo_asesor": st.session_state.get('correo_asesor', ''),
-        "telefono_asesor": st.session_state.get('telefono_asesor', ''),
-        "fecha_inicio": str(st.session_state.get('fecha_inicio', '')),
-        "fecha_termino": str(st.session_state.get('fecha_termino', '')),
-        "carrito": json.dumps(st.session_state.get('carrito', []), sort_keys=True),
-        "margen": st.session_state.get('margen', 0),
-        "plano_nombre": st.session_state.get('plano_nombre', ''),
-    }
-    estado_str = json.dumps(estado, sort_keys=True)
-    return hashlib.md5(estado_str.encode()).hexdigest()
 
 def construir_datos_para_guardar():
     leer_datos_actuales()
@@ -725,15 +682,9 @@ def cargar_cotizacion(numero):
         response = supabase.table('cotizaciones').select('*').eq('numero', numero).execute()
         if response.data:
             cotizacion = response.data[0]
-            # Manejar productos como string JSON o como lista directamente
-            productos = cotizacion['productos']
-            if isinstance(productos, str):
-                cotizacion['productos'] = json.loads(productos)
-            elif isinstance(productos, list):
-                cotizacion['productos'] = productos
-            else:
-                cotizacion['productos'] = []
+            cotizacion['productos'] = json.loads(cotizacion['productos'])
             if cotizacion.get('plano_url'):
+                cotizacion['plano_url'] = cotizacion['plano_url']
                 cotizacion['plano_datos'] = None
             return cotizacion
         return None
@@ -853,9 +804,6 @@ def ejecutar_carga_cotizacion():
         st.session_state.numero_en_visor = None
         st.session_state.cargar_cotizacion_trigger = False
         st.session_state.cotizacion_a_cargar = None
-        # Resetear hash y marcar como recién cargado para suprimir FAB
-        st.session_state.hash_ultimo_guardado = calcular_hash_estado()
-        st.session_state.recien_cargado = True
         return True
     return False
 
@@ -1414,56 +1362,40 @@ if st.session_state.cotizacion_cargada:
         st.markdown(f'<div class="cotizacion-status-container"><span class="status-badge">{badge_html}</span></div>', unsafe_allow_html=True)
     with col_cerrar:
         if st.button("🗑️ Cerrar Cotización", key="btn_cerrar_cotizacion", use_container_width=True):
-            # Detectar si hay cambios sin guardar comparando hash actual vs guardado
-            _hash_actual = calcular_hash_estado()
-            _hay_cambios = (
-                len(st.session_state.get('carrito', [])) > 0 and
-                _hash_actual != st.session_state.get('hash_ultimo_guardado')
-            )
-            if _hay_cambios:
-                st.session_state.mostrar_advertencia_cerrar = True
-                st.rerun()
-            else:
-                _ejecutar_cierre_cotizacion()
-                st.rerun()
+            numero_guardar = st.session_state.cotizacion_cargada
+            if numero_guardar:
+                datos_cliente_guardar, datos_asesor_guardar, proyecto, config, totales, plano_nombre, plano_datos = construir_datos_para_guardar()
+                guardar_cotizacion(numero_guardar, datos_cliente_guardar, datos_asesor_guardar,
+                                   proyecto, st.session_state.carrito, config, totales, plano_nombre, plano_datos)
 
-    # ── Popup advertencia al cerrar con cambios sin guardar ──
-    if st.session_state.get('mostrar_advertencia_cerrar', False):
-        @st.dialog("⚠️ Cambios sin guardar")
-        def dialogo_advertencia_cerrar():
-            st.markdown("""
-            <div style="text-align:center;padding:1rem 0;">
-                <div style="font-size:3rem;margin-bottom:0.5rem;">⚠️</div>
-                <div style="font-size:1rem;font-weight:700;color:#1e2447;margin-bottom:0.5rem;">
-                    Se hicieron modificaciones
-                </div>
-                <div style="font-size:0.88rem;color:#5a6080;line-height:1.6;">
-                    Tienes cambios sin guardar en esta cotización.<br/>
-                    ¿Qué deseas hacer antes de cerrar?
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            col_si, col_no, col_cancelar = st.columns(3)
-            with col_si:
-                if st.button("💾 Guardar y cerrar", use_container_width=True, type="primary", key="dialog_cerrar_si"):
-                    datos_c, datos_a, proy, cfg, tots, pnom, pdat = construir_datos_para_guardar()
-                    num = st.session_state.cotizacion_cargada or generar_numero_unico()
-                    guardar_cotizacion(num, datos_c, datos_a, proy, st.session_state.carrito, cfg, tots, pnom, pdat)
-                    st.session_state.mostrar_advertencia_cerrar = False
-                    _ejecutar_cierre_cotizacion()
-                    st.rerun()
-            with col_no:
-                if st.button("🗑️ Descartar y cerrar", use_container_width=True, key="dialog_cerrar_no"):
-                    st.session_state.mostrar_advertencia_cerrar = False
-                    _ejecutar_cierre_cotizacion()
-                    st.rerun()
-            with col_cancelar:
-                if st.button("✖️ Cancelar", use_container_width=True, key="dialog_cerrar_cancelar"):
-                    st.session_state.mostrar_advertencia_cerrar = False
-                    st.rerun()
-
-        dialogo_advertencia_cerrar()
+            st.session_state.carrito = []
+            st.session_state.nombre_input = ""
+            st.session_state.rut_raw = ""
+            st.session_state.rut_display = ""
+            st.session_state.rut_valido = False
+            st.session_state.rut_mensaje = ""
+            st.session_state.correo_input = ""
+            st.session_state.telefono_raw = ""
+            st.session_state.direccion_input = ""
+            st.session_state.asesor_seleccionado = "Seleccionar asesor"
+            st.session_state.correo_asesor = ""
+            st.session_state.telefono_asesor = ""
+            st.session_state.fecha_inicio = datetime.now().date()
+            st.session_state.fecha_termino = (datetime.now() + timedelta(days=15)).date()
+            st.session_state.observaciones_input = ""
+            st.session_state.plano_adjunto = None
+            st.session_state.plano_nombre = ""
+            st.session_state.cotizacion_cargada = None
+            st.session_state.cotizacion_seleccionada = None
+            st.session_state.margen = 0.0
+            st.session_state.mostrar_visor = False
+            st.session_state.pdf_actual = None
+            st.session_state.pdf_nombre = ""
+            st.session_state.numero_en_visor = None
+            st.session_state.pdf_url = None
+            st.session_state.counter += 100
+            st.success("✅ Cotización guardada y cerrada. Listo para nueva cotización.")
+            st.rerun()
 
 # =========================================================
 # TABS
@@ -1763,12 +1695,6 @@ def limpiar_todo():
     st.session_state.numero_en_visor = None
     st.session_state.pdf_url = None
     st.session_state.counter += 100
-
-def _ejecutar_cierre_cotizacion():
-    """Limpia todo el estado al cerrar una cotización."""
-    limpiar_todo()
-    st.session_state.recien_guardado = True
-    st.session_state.hash_ultimo_guardado = None
 
 # =========================================================
 # TAB 2 - DATOS CLIENTE
@@ -2245,13 +2171,12 @@ with tab1:
 
                     if guardar_cotizacion(numero_guardar, datos_cliente_guardar, datos_asesor_guardar,
                                          proyecto, st.session_state.carrito, config, totales, plano_nombre, plano_datos):
-                        if not es_actualizacion:
+                        if es_actualizacion:
+                            st.success(f"✅ Cotización {numero_guardar} actualizada")
+                        else:
                             st.session_state.cotizacion_cargada = numero_guardar
+                            st.success(f"✅ Cotización {numero_guardar} guardada")
                         st.session_state.resultados_busqueda = buscar_cotizaciones()
-                        st.session_state.mostrar_toast_exito = True
-                        st.session_state.toast_numero_ep = numero_guardar
-                        st.session_state.recien_guardado = True
-                        st.session_state.hash_ultimo_guardado = calcular_hash_estado()
                         st.rerun()
             else:
                 st.button("💾 Guardar", use_container_width=True, disabled=True)
@@ -2596,67 +2521,9 @@ with tab3:
                     st.button("📂 Cargar", use_container_width=True, disabled=True)
                 else:
                     if st.button("📂 Cargar", use_container_width=True):
-                        # Si hay carrito sin guardar, mostrar advertencia
-                        tiene_sin_guardar = (
-                            len(st.session_state.carrito) > 0 and
-                            st.session_state.cotizacion_cargada != numero_seleccionado
-                        )
-                        if tiene_sin_guardar:
-                            st.session_state.mostrar_advertencia_carga = True
-                            st.session_state.numero_a_cargar_pendiente = numero_seleccionado
+                        if preparar_carga_cotizacion(numero_seleccionado):
+                            st.success(f"✅ Cotización {numero_seleccionado} cargada")
                             st.rerun()
-                        else:
-                            if preparar_carga_cotizacion(numero_seleccionado):
-                                st.success(f"✅ Cotización {numero_seleccionado} cargada")
-                                st.rerun()
-
-            # ── Popup advertencia productos sin guardar ──
-            if st.session_state.get('mostrar_advertencia_carga', False):
-                @st.dialog("⚠️ Productos sin guardar")
-                def dialogo_advertencia():
-                    numero_pendiente = st.session_state.get('numero_a_cargar_pendiente', '')
-                    st.markdown(f"""
-                    <div style="text-align:center;padding:1rem 0;">
-                        <div style="font-size:3rem;margin-bottom:0.5rem;">⚠️</div>
-                        <div style="font-size:1rem;font-weight:700;color:#1e2447;margin-bottom:0.5rem;">
-                            Tienes productos sin guardar
-                        </div>
-                        <div style="font-size:0.88rem;color:#5a6080;line-height:1.6;">
-                            Estás a punto de cargar la cotización <strong>{numero_pendiente}</strong>.<br/>
-                            ¿Deseas guardar el presupuesto actual antes de continuar?
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    col_si, col_no, col_cancelar = st.columns(3)
-                    with col_si:
-                        if st.button("💾 Sí, guardar", use_container_width=True, type="primary", key="dialog_btn_si"):
-                            # Guardar primero
-                            datos_cliente_g, datos_asesor_g, proyecto_g, config_g, totales_g, plano_n, plano_d = construir_datos_para_guardar()
-                            if st.session_state.cotizacion_cargada:
-                                num_g = st.session_state.cotizacion_cargada
-                            else:
-                                num_g = generar_numero_unico()
-                            guardar_cotizacion(num_g, datos_cliente_g, datos_asesor_g,
-                                               proyecto_g, st.session_state.carrito,
-                                               config_g, totales_g, plano_n, plano_d)
-                            # Luego cargar
-                            st.session_state.mostrar_advertencia_carga = False
-                            if preparar_carga_cotizacion(numero_pendiente):
-                                st.rerun()
-                    with col_no:
-                        if st.button("🗑️ No, descartar", use_container_width=True, key="dialog_btn_no"):
-                            # Descartar y cargar directamente
-                            st.session_state.mostrar_advertencia_carga = False
-                            if preparar_carga_cotizacion(numero_pendiente):
-                                st.rerun()
-                    with col_cancelar:
-                        if st.button("✖️ Cancelar", use_container_width=True, key="dialog_btn_cancelar"):
-                            st.session_state.mostrar_advertencia_carga = False
-                            st.session_state.numero_a_cargar_pendiente = None
-                            st.rerun()
-
-                dialogo_advertencia()
 
             cotizacion_para_pdf = cargar_cotizacion(numero_seleccionado) if cotizacion_seleccionada else None
 
@@ -2800,92 +2667,39 @@ with tab3:
         st.info("💡 No hay resultados. Realice una búsqueda para ver cotizaciones guardadas.")
 
 # =========================================================
-# TOAST ÉXITO AL GUARDAR
+# FAB - OCULTAR ÍCONOS STREAMLIT/GITHUB + BOTÓN FLOTANTE
 # =========================================================
-if st.session_state.get('mostrar_toast_exito', False):
-    ep = st.session_state.get('toast_numero_ep', '')
-    components.html(f"""
-    <script>
-    (function() {{
-        const parent = window.parent.document;
-        const old = parent.getElementById('toast-exito-ep');
-        if (old) old.remove();
-        if (!parent.getElementById('toast-exito-style')) {{
-            const style = parent.createElement('style');
-            style.id = 'toast-exito-style';
-            style.innerHTML = `
-                @keyframes slideInLeft {{
-                    from {{ transform: translateX(-120%); opacity: 0; }}
-                    to   {{ transform: translateX(0);    opacity: 1; }}
-                }}
-                @keyframes fadeOutLeft {{
-                    from {{ transform: translateX(0);    opacity: 1; }}
-                    to   {{ transform: translateX(-120%); opacity: 0; }}
-                }}
-                #toast-exito-ep {{
-                    position: fixed !important;
-                    bottom: 5rem !important;
-                    left: 2rem !important;
-                    z-index: 999998 !important;
-                    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
-                    color: white !important;
-                    border-radius: 16px !important;
-                    padding: 1rem 1.4rem !important;
-                    font-family: sans-serif !important;
-                    font-size: 0.9rem !important;
-                    font-weight: 600 !important;
-                    box-shadow: 0 8px 32px rgba(34,197,94,0.4) !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    gap: 0.6rem !important;
-                    animation: slideInLeft 0.4s cubic-bezier(0.4,0,0.2,1) forwards !important;
-                    min-width: 240px !important;
-                }}
-                #toast-exito-ep.fadeout {{
-                    animation: fadeOutLeft 0.6s cubic-bezier(0.4,0,0.2,1) forwards !important;
-                }}
-                .toast-titulo {{
-                    font-size: 0.8rem !important;
-                    opacity: 0.88 !important;
-                    font-weight: 500 !important;
-                }}
-                .toast-ep {{
-                    font-size: 1.05rem !important;
-                    font-weight: 800 !important;
-                    letter-spacing: 0.03em !important;
-                }}
-            `;
-            parent.head.appendChild(style);
-        }}
-        const toast = parent.createElement('div');
-        toast.id = 'toast-exito-ep';
-        toast.innerHTML = `
-            <span style="font-size:1.4rem">✅</span>
-            <div>
-                <div class="toast-titulo">Presupuesto guardado con éxito</div>
-                <div class="toast-ep">EP {ep}</div>
-            </div>
-        `;
-        parent.body.appendChild(toast);
-        setTimeout(() => {{
-            toast.classList.add('fadeout');
-            setTimeout(() => toast.remove(), 700);
-        }}, 3500);
-    }})();
-    </script>
-    """, height=0)
-    st.session_state.mostrar_toast_exito = False
 
-# =========================================================
-# FAB - OCULTAR ÍCONOS STREAMLIT/GITHUB
-# =========================================================
-# Inyectar CSS para ocultar íconos de Streamlit Cloud
+# Paso 1: Inyectar CSS en el documento PADRE via components
 components.html("""
 <script>
 (function() {
     const parent = window.parent.document;
 
-    function hideIcons() {
+    if (!parent.getElementById('fab-hide-icons-style')) {
+        const style = parent.createElement('style');
+        style.id = 'fab-hide-icons-style';
+        style.innerHTML = `
+            #MainMenu { display: none !important; }
+            footer { display: none !important; }
+            [data-testid="stToolbar"] { display: none !important; }
+            [data-testid="stDecoration"] { display: none !important; }
+            [data-testid="stStatusWidget"] { display: none !important; }
+            [data-testid="stBottomBlockContainer"] { display: none !important; }
+            [class*="viewerBadge"] { display: none !important; }
+            [class*="ViewerBadge"] { display: none !important; }
+            [class*="_viewerBadge"] { display: none !important; }
+            [class*="profileContainer"] { display: none !important; }
+            [class*="_profileContainer"] { display: none !important; }
+            [class*="profilePreview"] { display: none !important; }
+            a[href*="streamlit.io"] { display: none !important; }
+            a[href*="github.com"] { display: none !important; }
+            button[title="View fullscreen"] { display: none !important; }
+        `;
+        parent.head.appendChild(style);
+    }
+
+    function hideElements() {
         const selectors = [
             'footer',
             '[data-testid="stToolbar"]',
@@ -2906,205 +2720,117 @@ components.html("""
             try {
                 parent.querySelectorAll(sel).forEach(el => {
                     el.style.setProperty('display', 'none', 'important');
+                    el.style.setProperty('visibility', 'hidden', 'important');
+                    el.style.setProperty('opacity', '0', 'important');
+                    el.style.setProperty('pointer-events', 'none', 'important');
                 });
             } catch(e) {}
         });
     }
 
-    if (!parent.getElementById('fab-hide-icons-style')) {
-        const style = parent.createElement('style');
-        style.id = 'fab-hide-icons-style';
-        style.innerHTML = `
-            #MainMenu { display: none !important; }
-            footer { display: none !important; }
-            [data-testid="stToolbar"] { display: none !important; }
-            [data-testid="stDecoration"] { display: none !important; }
-            [data-testid="stStatusWidget"] { display: none !important; }
-            [data-testid="stBottomBlockContainer"] { display: none !important; }
-            [class*="viewerBadge"] { display: none !important; }
-            [class*="_viewerBadge"] { display: none !important; }
-            [class*="profileContainer"] { display: none !important; }
-            [class*="_profileContainer"] { display: none !important; }
-            [class*="profilePreview"] { display: none !important; }
-            a[href*="streamlit.io"] { display: none !important; }
-            a[href*="github.com"] { display: none !important; }
-        `;
-        parent.head.appendChild(style);
-    }
+    hideElements();
+    setTimeout(hideElements, 300);
+    setTimeout(hideElements, 1000);
+    setTimeout(hideElements, 2500);
 
-    hideIcons();
-    setTimeout(hideIcons, 500);
-    setTimeout(hideIcons, 1500);
-    new MutationObserver(hideIcons).observe(parent.body, {childList: true, subtree: true});
+    const observer = new MutationObserver(function() {
+        hideElements();
+    });
+    observer.observe(parent.body, {
+        childList: true,
+        subtree: true,
+        attributes: false
+    });
+
 })();
 </script>
 """, height=0)
 
-# =========================================================
-# FAB - BOTÓN GUARDAR FLOTANTE (Streamlit puro)
-# =========================================================
-_es_solo_lectura = (
+# Paso 2: Botón flotante real — solo si hay carrito y no es solo lectura
+if st.session_state.carrito and not (
     st.session_state.cotizacion_cargada and
     st.session_state.margen > 0 and
     not st.session_state.modo_admin
-)
-
-_mostrar_fab = (
-    len(st.session_state.get('carrito', [])) > 0 and
-    not _es_solo_lectura and
-    not st.session_state.get('recien_guardado', False) and
-    not st.session_state.get('recien_cargado', False)
-)
-
-# Limpiar flags después de evaluar
-if st.session_state.get('recien_guardado', False):
-    st.session_state.recien_guardado = False
-if st.session_state.get('recien_cargado', False):
-    st.session_state.recien_cargado = False
-
-if _mostrar_fab:
-    # CSS para posicionar el botón de Streamlit como FAB flotante
-    st.markdown("""
-    <style>
-    /* FAB container - lo identificamos por data-testid único */
-    div[data-testid="stBottom"] { display: none !important; }
-
-    @keyframes pulse-fab {
-        0%   { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
-        50%  { box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }
-        100% { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
-    }
-    @keyframes blink-badge {
-        0%, 100% { opacity: 1; }
-        50%       { opacity: 0.2; }
-    }
-
-    /* Posicionar el contenedor del FAB */
-    [data-testid="stVerticalBlock"] div:has(> [data-testid="stVerticalBlock"] > div > button[kind="primary"]#fab_btn_guardar_real) {
-        position: fixed !important;
-        bottom: 1.5rem !important;
-        left: 2rem !important;
-        z-index: 999999 !important;
-    }
-
-    /* Estilo del botón FAB */
-    button[kind="primary"].fab-real-btn,
-    div.fab-real-container button {
-        background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%) !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 50px !important;
-        padding: 0.85rem 1.6rem !important;
-        font-size: 0.95rem !important;
-        font-weight: 700 !important;
-        animation: pulse-fab 2s infinite !important;
-        white-space: nowrap !important;
-        min-width: 140px !important;
-    }
-    </style>
-    <div class="fab-real-container" style="position:fixed;bottom:1.5rem;left:2rem;z-index:999999;">
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Botón real de Streamlit que ejecuta la lógica de guardado
-    with st.container():
-        st.markdown('<div class="fab-real-container" style="position:fixed;bottom:1.5rem;left:2rem;z-index:999999;"></div>', unsafe_allow_html=True)
-
-    # Usar st.session_state para trigger desde el FAB
-    if 'fab_trigger_guardar' not in st.session_state:
-        st.session_state.fab_trigger_guardar = False
-
-    # El FAB real se implementa como un components.html que inyecta
-    # el botón en el documento padre y usa postMessage para comunicarse
-    components.html(f"""
-    <script>
-    (function() {{
-        const parent = window.parent.document;
-
-        // Eliminar FAB anterior si existe
-        const old = parent.getElementById('fab-guardar-wrapper');
-        if (old) old.remove();
-
-        // Crear FAB nuevo
-        const style = parent.getElementById('fab-guardar-style') || parent.createElement('style');
-        style.id = 'fab-guardar-style';
-        style.innerHTML = `
-            @keyframes pulse-fab {{
-                0%   {{ box-shadow: 0 8px 24px rgba(91,124,250,0.5); }}
-                50%  {{ box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }}
-                100% {{ box-shadow: 0 8px 24px rgba(91,124,250,0.5); }}
-            }}
-            @keyframes blink-badge {{
-                0%, 100% {{ opacity: 1; }}
-                50%      {{ opacity: 0.2; }}
-            }}
-            #fab-guardar-wrapper {{
-                position: fixed !important;
-                bottom: 1.5rem !important;
-                left: 2rem !important;
-                z-index: 999999 !important;
-            }}
-            #fab-guardar-btn {{
-                background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%) !important;
-                color: white !important;
-                border: none !important;
-                border-radius: 50px !important;
-                padding: 0.85rem 1.6rem !important;
-                font-size: 0.95rem !important;
-                font-weight: 700 !important;
-                cursor: pointer !important;
-                font-family: sans-serif !important;
-                animation: pulse-fab 2s infinite !important;
-                white-space: nowrap !important;
-            }}
-            #fab-guardar-btn:hover {{
-                transform: translateY(-3px) scale(1.05) !important;
-                animation: none !important;
-            }}
-            #fab-badge {{
-                position: absolute !important;
-                top: -5px !important; right: -5px !important;
-                width: 14px !important; height: 14px !important;
-                background: #ef4444 !important;
-                border-radius: 50% !important;
-                border: 2px solid white !important;
-                animation: blink-badge 1.5s infinite !important;
-            }}
-        `;
-        if (!parent.getElementById('fab-guardar-style')) parent.head.appendChild(style);
-
-        const wrapper = parent.createElement('div');
-        wrapper.id = 'fab-guardar-wrapper';
-        const btn = parent.createElement('button');
-        btn.id = 'fab-guardar-btn';
-        btn.innerHTML = '💾 Guardar';
-        btn.onclick = function() {{
-            // Buscar y clickear el botón guardar real de Streamlit
-            const buttons = parent.querySelectorAll('button');
-            for (const b of buttons) {{
-                const txt = (b.innerText || b.textContent || '').trim();
-                if (txt.includes('Guardar') && b.id !== 'fab-guardar-btn' && !b.disabled) {{
-                    b.click();
-                    return;
-                }}
-            }}
-        }};
-        const badge = parent.createElement('span');
-        badge.id = 'fab-badge';
-        wrapper.appendChild(btn);
-        wrapper.appendChild(badge);
-        parent.body.appendChild(wrapper);
-    }})();
-    </script>
-    """, height=0)
-else:
-    # Eliminar FAB del DOM cuando no hay cambios pendientes
+):
     components.html("""
     <script>
     (function() {
-        const parent = window.parent.document;
-        const w = parent.getElementById('fab-guardar-wrapper');
-        if (w) w.remove();
+        function injectFAB() {
+            const parent = window.parent.document;
+            if (parent.getElementById('fab-guardar-btn')) return;
+            const style = parent.createElement('style');
+            style.innerHTML = `
+                @keyframes pulse-fab {
+                    0%   { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
+                    50%  { box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }
+                    100% { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
+                }
+                @keyframes blink-badge {
+                    0%, 100% { opacity: 1; }
+                    50%      { opacity: 0.2; }
+                }
+                #fab-guardar-wrapper {
+                    position: fixed !important;
+                    bottom: 2rem !important;
+                    right: 2rem !important;
+                    z-index: 999999 !important;
+                }
+                #fab-guardar-btn {
+                    background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%) !important;
+                    color: white !important;
+                    border: none !important;
+                    border-radius: 50px !important;
+                    padding: 0.85rem 1.6rem !important;
+                    font-size: 0.95rem !important;
+                    font-weight: 700 !important;
+                    cursor: pointer !important;
+                    font-family: sans-serif !important;
+                    animation: pulse-fab 2s infinite !important;
+                    transition: all 0.3s ease !important;
+                    white-space: nowrap !important;
+                }
+                #fab-guardar-btn:hover {
+                    transform: translateY(-3px) scale(1.05) !important;
+                    animation: none !important;
+                }
+                #fab-badge {
+                    position: absolute !important;
+                    top: -5px !important;
+                    right: -5px !important;
+                    width: 14px !important;
+                    height: 14px !important;
+                    background: #ef4444 !important;
+                    border-radius: 50% !important;
+                    border: 2px solid white !important;
+                    animation: blink-badge 1.5s infinite !important;
+                }
+            `;
+            parent.head.appendChild(style);
+            const wrapper = parent.createElement('div');
+            wrapper.id = 'fab-guardar-wrapper';
+            const btn = parent.createElement('button');
+            btn.id = 'fab-guardar-btn';
+            btn.innerHTML = '💾 Guardar';
+            btn.onclick = function() {
+                const buttons = parent.querySelectorAll('button');
+                for (const b of buttons) {
+                    const txt = (b.innerText || b.textContent || '').trim();
+                    if (txt.includes('Guardar') && b.id !== 'fab-guardar-btn' && !b.disabled) {
+                        b.click();
+                        break;
+                    }
+                }
+            };
+            const badge = parent.createElement('span');
+            badge.id = 'fab-badge';
+            wrapper.appendChild(btn);
+            wrapper.appendChild(badge);
+            parent.body.appendChild(wrapper);
+        }
+        injectFAB();
+        setTimeout(injectFAB, 500);
+        setTimeout(injectFAB, 1500);
     })();
     </script>
     """, height=0)
+
