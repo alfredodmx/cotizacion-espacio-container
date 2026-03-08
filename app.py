@@ -2225,24 +2225,28 @@ with tab1:
 
     st.markdown("---")
 
-    st.markdown("#### Resumen del Presupuesto")
-    if not st.session_state.modo_admin and st.session_state.margen > 0:
-        st.caption(f"ℹ️ Margen del {st.session_state.margen}% aplicado")
+    if not st.session_state.modo_admin:
+        st.markdown("#### Resumen del Presupuesto")
+        if st.session_state.margen > 0:
+            st.caption(f"ℹ️ Margen del {st.session_state.margen}% aplicado")
 
-    # Input de margen - oculto visualmente via CSS, controlado desde FAB
+    # Input de margen compacto junto al título (solo en modo admin)
     if st.session_state.modo_admin:
-        _mk = f"margen_fab_{st.session_state.counter}"
-        _nuevo_margen = st.number_input(
-            "margen_fab_hidden",
-            min_value=0.0, max_value=100.0,
-            value=float(st.session_state.margen),
-            step=0.5, format="%.1f",
-            key=_mk,
-            label_visibility="hidden"
-        )
-        if _nuevo_margen != st.session_state.margen:
-            st.session_state.margen = _nuevo_margen
-            st.rerun()
+        col_res_tit, col_res_margen = st.columns([4, 1])
+        with col_res_tit:
+            st.markdown("#### Resumen del Presupuesto")
+        with col_res_margen:
+            _mk = f"margen_input_{st.session_state.counter}"
+            st.caption("Margen %")
+            _nuevo_margen = st.number_input(
+                "Margen", min_value=0.0, max_value=100.0,
+                value=float(st.session_state.margen),
+                step=0.5, format="%.1f",
+                key=_mk, label_visibility="collapsed"
+            )
+            if _nuevo_margen != st.session_state.margen:
+                st.session_state.margen = _nuevo_margen
+                st.rerun()
 
     # Variables de métricas con valores por defecto
     utilidad_real = 0
@@ -3146,21 +3150,18 @@ if st.session_state.modo_admin:
     _color = '#10b981' if _margen_actual > 0 else '#6b7280'
     _anim  = 'animation:pm 2s infinite;' if _margen_actual > 0 else ''
 
-    # Inyectar botón y popup en el DOM PADRE via components.html height=0
     components.html(f"""
 <script>
 (function(){{
   var D = window.parent.document;
-  // Limpiar elementos anteriores
   ['_fm_s','_fm_b','_fm_p'].forEach(function(id){{
     var e=D.getElementById(id); if(e) e.remove();
   }});
 
-  // Estilos
   var s=D.createElement('style'); s.id='_fm_s';
   s.textContent=[
     '@keyframes pm{{0%{{box-shadow:0 6px 20px rgba(16,185,129,.5)}}50%{{box-shadow:0 6px 36px rgba(16,185,129,.9),0 0 0 10px rgba(16,185,129,.15)}}100%{{box-shadow:0 6px 20px rgba(16,185,129,.5)}}}}',
-    '#_fm_b{{position:fixed;bottom:1.5rem;left:12rem;z-index:99998;background:linear-gradient(135deg,{_color},{_color}dd);color:#fff;border:none;border-radius:50px;padding:.8rem 1.4rem;font-size:.9rem;font-weight:700;cursor:pointer;white-space:nowrap;{_anim}font-family:sans-serif;box-shadow:0 6px 20px rgba(16,185,129,.4);}}',
+    '#_fm_b{{position:fixed;bottom:1.5rem;left:12rem;z-index:99998;background:linear-gradient(135deg,{_color},{_color}cc);color:#fff;border:none;border-radius:50px;padding:.8rem 1.4rem;font-size:.9rem;font-weight:700;cursor:pointer;white-space:nowrap;{_anim}font-family:sans-serif;box-shadow:0 6px 20px rgba(16,185,129,.4);}}',
     '#_fm_b:hover{{transform:translateY(-2px);animation:none;}}',
     '#_fm_p{{position:fixed;bottom:5rem;left:12rem;z-index:99999;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.28);padding:1rem 1.2rem;min-width:220px;display:none;font-family:sans-serif;}}',
     '#_fm_p.on{{display:block;}}',
@@ -3172,9 +3173,8 @@ if st.session_state.modo_admin:
   ].join('');
   D.head.appendChild(s);
 
-  // Popup
   var p=D.createElement('div'); p.id='_fm_p';
-  p.innerHTML='<div style="font-size:.85rem;font-weight:700;color:#374151;margin-bottom:.5rem;">Aplicar Margen</div>'
+  p.innerHTML='<div style="font-size:.85rem;font-weight:700;color:#374151;margin-bottom:.5rem;">Margen %</div>'
     +'<div id="_fm_disp">{_mstr}%</div>'
     +'<div id="_fm_pad">'
     +'<button>1</button><button>2</button><button>3</button>'
@@ -3189,7 +3189,6 @@ if st.session_state.modo_admin:
   var cur='{_mstr}';
   var disp=D.getElementById('_fm_disp');
 
-  // Pad numérico
   D.getElementById('_fm_pad').addEventListener('click',function(e){{
     var t=e.target; if(!t||t.tagName!=='BUTTON') return;
     var n=t.textContent.trim();
@@ -3200,34 +3199,43 @@ if st.session_state.modo_admin:
     disp.textContent=cur+'%';
   }});
 
-  // Aplicar: buscar input por label exacto "margen_fab_hidden"
   D.getElementById('_fm_ok').addEventListener('click',function(){{
     var val=Math.max(0,Math.min(100,parseFloat(cur)||0));
+    // Buscar el input de margen: es el UNICO number input dentro de un elemento
+    // que tiene un pequeño caption "Margen %" justo arriba
     var target=null;
-    // Buscar label con texto exacto margen_fab_hidden
-    var allL=D.querySelectorAll('label');
-    for(var j=0;j<allL.length;j++){{
-      if(allL[j].textContent.trim()==='margen_fab_hidden'){{
-        var forId=allL[j].getAttribute('for');
-        if(forId) target=D.getElementById(forId);
-        if(!target){{
-          var wrap=allL[j].closest('[data-testid="stNumberInput"]');
-          if(wrap) target=wrap.querySelector('input[type="number"]');
+    // Buscar por el small/caption que dice "Margen %"
+    var smalls=D.querySelectorAll('div[data-testid="stCaptionContainer"]');
+    for(var i=0;i<smalls.length;i++){{
+      if(smalls[i].textContent.trim().indexOf('Margen')>=0){{
+        // El input está en el siguiente stNumberInput hermano o en el padre
+        var col=smalls[i].closest('[data-testid="stColumn"]');
+        if(col){{
+          target=col.querySelector('input[type="number"]');
         }}
         break;
       }}
     }}
+    // Fallback: buscar input en col_res_margen por posición
+    if(!target){{
+      var allNI=D.querySelectorAll('[data-testid="stNumberInput"] input[type="number"]');
+      // El de margen es el que tiene step 0.5 - buscar por step attribute
+      for(var k=0;k<allNI.length;k++){{
+        if(allNI[k].getAttribute('step')==='0.5'){{ target=allNI[k]; break; }}
+      }}
+    }}
     if(target){{
-      var nv=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
-      nv.call(target,val.toFixed(1));
+      var setter=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
+      setter.call(target, val.toFixed(1));
       target.dispatchEvent(new Event('input',{{bubbles:true}}));
       target.dispatchEvent(new Event('change',{{bubbles:true}}));
-      setTimeout(function(){{ target.dispatchEvent(new KeyboardEvent('keydown',{{key:'Enter',keyCode:13,bubbles:true}})); }},30);
+      setTimeout(function(){{
+        target.dispatchEvent(new KeyboardEvent('keydown',{{key:'Enter',keyCode:13,bubbles:true}}));
+      }},50);
     }}
     p.classList.remove('on');
   }});
 
-  // Botón FAB
   var b=D.createElement('button'); b.id='_fm_b';
   b.innerHTML='&#128202; Margen: {_mstr}%';
   b.addEventListener('click',function(e){{
@@ -3237,20 +3245,12 @@ if st.session_state.modo_admin:
   }});
   D.body.appendChild(b);
 
-  // Cerrar al clickear fuera
   D.addEventListener('click',function(e){{
     if(!b.contains(e.target)&&!p.contains(e.target)) p.classList.remove('on');
   }});
 }})();
 </script>
 """, height=0)
-
-    # CSS para ocultar el number_input de margen del layout
-    st.markdown("""
-<style>
-div[data-testid="stNumberInput"]:has(input[id*="margen_fab"]) { display:none!important; }
-</style>
-""", unsafe_allow_html=True)
 
 else:
     components.html("""<script>
