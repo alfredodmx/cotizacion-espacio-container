@@ -2499,8 +2499,8 @@ with tab3:
     st.markdown("---")
     st.markdown("### Resultados")
 
-    if 'resultados_busqueda' not in st.session_state:
-        st.session_state.resultados_busqueda = []
+    if 'resultados_busqueda' not in st.session_state or st.session_state.resultados_busqueda is None:
+        st.session_state.resultados_busqueda = buscar_cotizaciones()
 
     if buscar_btn or (termino and termino != st.session_state.get('ultimo_termino', '')):
         st.session_state.ultimo_termino = termino
@@ -2998,7 +2998,7 @@ if _mostrar_fab:
         st.session_state.recien_guardado = True
         st.session_state.mostrar_toast_exito = True
         st.session_state.toast_numero_ep = num_g
-        st.session_state.resultados_busqueda = buscar_cotizaciones()
+        st.session_state.resultados_busqueda = None
         st.rerun()
 
     # FAB JS: botón flotante en DOM padre que clickea el botón real
