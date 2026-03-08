@@ -3256,44 +3256,52 @@ with tab4:
                                 json={
                                     "model": "claude-sonnet-4-20250514",
                                     "max_tokens": 2048,
-                                    "messages": [{
-                                        "role": "user",
-                                        "content": [
-                                            {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": _img_b64_3d}},
-                                            {"type": "text", "text": """Analiza este plano de planta de un CONTAINER HOUSE. Sé muy estricto.
+                                    "messages": [
+                                        {
+                                            "role": "user",
+                                            "content": [
+                                                {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": _img_b64_3d}},
+                                                {"type": "text", "text": """Analiza este plano arquitectónico de un container house.
 
-REGLAS CRÍTICAS:
-1. PUERTA = tiene un ARCO de 90° (cuarto de círculo). Sin arco = NO es puerta. Un container tiene MÁXIMO 2-3 puertas.
-2. VENTANA = rectángulo con líneas paralelas internas (doble línea). Las costillas del container son líneas paralelas UNIFORMES separadas regularmente — NO son ventanas.
-3. Las líneas verticales uniformes y repetidas a lo largo de una pared son COSTILLAS ESTRUCTURALES — IGNÓRALAS completamente.
-4. Solo incluye aberturas donde claramente hay un vano (espacio abierto) en la pared.
-5. Container HC estándar: largo 6m o 9m, ancho 2.4m o 3.0m.
+PASO 1 — Describe brevemente lo que ves:
+- Dimensiones totales del container (largo x ancho en metros)
+- Cuántas PUERTAS reales hay (deben tener arco de 90°) y en qué pared
+- Cuántas VENTANAS reales hay (rectángulo con doble línea o líneas internas) y en qué pared
+- IGNORA completamente: costillas estructurales, líneas de división interna, muebles, cotas
 
-CUÁNTAS aberturas esperar:
-- Pared frontal (fachada): 1 puerta + 1-2 ventanas máximo
-- Pared trasera: 0-1 puertas + 0-2 ventanas máximo  
-- Paredes laterales: 0-1 ventanas cada una, raramente puertas
+PASO 2 — Genera el JSON final con SOLO las aberturas reales que describiste:
+{"width":<largo>,"depth":<ancho>,"wallHeight":2.8,"walls":[{"side":"front","openings":[{"type":"door","x":<x desde centro pared>,"y":1.05,"w":<ancho m>,"h":2.1},{"type":"window","x":<x>,"y":1.2,"w":<ancho m>,"h":<alto m>}]},{"side":"back","openings":[...]},{"side":"left","openings":[...]},{"side":"right","openings":[...]}]}
 
-Responde SOLO JSON sin texto extra:
-{"width":<largo container>,"depth":<ancho container>,"wallHeight":2.8,"walls":[{"side":"front","openings":[{"type":"door","x":<x desde centro>,"y":1.05,"w":<ancho real>,"h":2.1},{"type":"window","x":<x>,"y":1.2,"w":<ancho>,"h":<alto>}]},{"side":"back","openings":[...]},{"side":"left","openings":[...]},{"side":"right","openings":[...]}]}
-
-Si NO ves claramente una abertura en una pared, usa "openings":[]"""}
-                                        ]
-                                    }]
+LÍMITES ESTRICTOS: máximo 3 puertas y 6 ventanas en total. Una pared sin aberturas usa "openings":[]
+El JSON debe ir al final de tu respuesta, solo como bloque de código con ```json```"""}
+                                            ]
+                                        }
+                                    ]
                                 },
                                 timeout=40
                             )
                             _cv_data = _cv_resp.json()
                             _cv_txt = "".join(b.get("text","") for b in _cv_data.get("content",[])).strip()
-                            _cv_txt = _cv_txt.replace("```json","").replace("```","").strip()
-                            _layout_raw = _json.loads(_cv_txt)
+
+                            # Extraer JSON del bloque ```json``` si existe, sino buscar { directo
+                            import re as _re
+                            _json_match = _re.search(r'```json\s*(\{.*?\})\s*```', _cv_txt, _re.DOTALL)
+                            if _json_match:
+                                _cv_json_str = _json_match.group(1)
+                            else:
+                                # Fallback: encontrar el primer { hasta el último }
+                                _js = _cv_txt.find('{')
+                                _je = _cv_txt.rfind('}')
+                                _cv_json_str = _cv_txt[_js:_je+1] if _js >= 0 else _cv_txt
+
+                            _layout_raw = _json.loads(_cv_json_str)
 
                             # ── Post-procesador estricto ──────────────────────────
                             _W = float(_layout_raw.get("width", 9))
                             _D = float(_layout_raw.get("depth", 3))
 
                             # Límites máximos de aberturas por pared
-                            _max_openings = {"front": 4, "back": 3, "left": 2, "right": 2}
+                            _max_openings = {"front": 3, "back": 2, "left": 2, "right": 2}
 
                             for _wall in _layout_raw.get("walls", []):
                                 _side  = _wall["side"]
@@ -3497,8 +3505,8 @@ function setV(v){{if(v==='top'){{S.ph=0.04;applyC();}}else{{S={{th:0.8,ph:0.85,r
 (function loop(){{requestAnimationFrame(loop);renderer.render(scene,camera);}})();
 
 // Materiales
-const mWall=new THREE.MeshStandardMaterial({{color:0xb8c4cc,roughness:0.5,metalness:0.3}});
-const mRoof=new THREE.MeshStandardMaterial({{color:0x607d8b,roughness:0.55,metalness:0.4}});
+const mWall=new THREE.MeshStandardMaterial({{color:0xd4dde3,roughness:0.45,metalness:0.2}});
+const mRoof=new THREE.MeshStandardMaterial({{color:0x546e7a,roughness:0.4,metalness:0.55}});
 const mGlass=new THREE.MeshStandardMaterial({{color:0x89cff0,transparent:true,opacity:0.4,roughness:0.05,metalness:0.1}});
 const mDoor=new THREE.MeshStandardMaterial({{color:0x37474f,roughness:0.4,metalness:0.6}});
 const mWire=new THREE.MeshBasicMaterial({{color:0x5b7cfa,wireframe:true}});
@@ -3517,7 +3525,7 @@ img.src='data:image/png;base64,'+IMG_B64;
 
 // Suelo sólido
 const flM=new THREE.Mesh(new THREE.BoxGeometry(W+th*2,0.1,D+th*2),
-  new THREE.MeshStandardMaterial({{color:0xdde1e7,roughness:0.9}}));
+  new THREE.MeshStandardMaterial({{color:0xc8cdd4,roughness:0.95}}));
 flM.position.y=-0.05;flM.receiveShadow=true;gBody.add(flM);
 
 // ── makeWall: construye una pared con huecos correctos ──────────
@@ -3676,9 +3684,10 @@ ribHeights.forEach(h => {{
 }});
 
 // ── Ajustar cámara ──────────────────────────────────────────────
-T.set(0, H*0.4, 0);
-S.r = Math.max(W, D) * 2.4;
-S.th = 0.7; S.ph = 0.95;
+T.set(0, H * 0.35, 0);
+S.r  = Math.max(W, D) * 2.6;
+S.th = 0.55;   // ángulo horizontal — muestra fachada frontal
+S.ph = 0.85;   // ángulo vertical — ni muy alto ni muy bajo
 applyC();
 </script></body></html>"""
 
