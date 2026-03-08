@@ -2237,7 +2237,8 @@ with tab1:
                 carrito_df_display = carrito_df_con_margen[["Categoria", "Item", "Cantidad", "Precio Unitario", "Subtotal"]].copy()
                 carrito_df_display["Precio Unitario"] = carrito_df_display["Precio Unitario"].apply(formato_clp)
                 carrito_df_display["Subtotal"] = carrito_df_display["Subtotal"].apply(formato_clp)
-                st.dataframe(carrito_df_display, use_container_width=True, hide_index=True,
+                altura = min(35 * len(carrito_df_display) + 80, 500)
+                st.dataframe(carrito_df_display, use_container_width=True, hide_index=True, height=altura,
                     column_config={"Categoria": st.column_config.TextColumn("Categoría"), "Item": st.column_config.TextColumn("Item"),
                                    "Cantidad": st.column_config.NumberColumn("Cant."), "Precio Unitario": st.column_config.TextColumn("P. Unitario"),
                                    "Subtotal": st.column_config.TextColumn("Subtotal")})
@@ -2247,7 +2248,8 @@ with tab1:
                 carrito_df_edit["❌"] = False
                 carrito_df_edit["Precio Unitario"] = carrito_df_edit["Precio Unitario"].apply(formato_clp)
                 carrito_df_edit["Subtotal"] = carrito_df_edit["Subtotal"].apply(formato_clp)
-                edited_df = st.data_editor(carrito_df_edit, use_container_width=True, hide_index=True,
+                altura = min(35 * len(carrito_df_edit) + 80, 500)
+                edited_df = st.data_editor(carrito_df_edit, use_container_width=True, hide_index=True, height=altura,
                     column_config={"❌": st.column_config.CheckboxColumn("❌"), "Categoria": st.column_config.TextColumn("Categoría"),
                                    "Item": st.column_config.TextColumn("Item"), "Cantidad": st.column_config.NumberColumn("Cant."),
                                    "Precio Unitario": st.column_config.TextColumn("P. Unitario"), "Subtotal": st.column_config.TextColumn("Subtotal")})
