@@ -2962,7 +2962,7 @@ components.html("""
 """, height=0)
 
 # =========================================================
-# FAB - BOTÓN GUARDAR FLOTANTE (st.popover — mismo patrón que margen)
+# FAB - BOTÓN GUARDAR FLOTANTE
 # =========================================================
 _es_solo_lectura = (
     st.session_state.cotizacion_cargada and
@@ -2987,42 +2987,89 @@ if st.session_state.get('recien_cargado', False):
     st.session_state.recien_cargado = False
 
 if _mostrar_fab:
-    st.markdown("""
-<style>
-@keyframes pulse-fab {
-  0%{box-shadow:0 8px 24px rgba(91,124,250,0.5);}
-  50%{box-shadow:0 8px 40px rgba(91,124,250,0.9),0 0 0 12px rgba(91,124,250,0.15);}
-  100%{box-shadow:0 8px 24px rgba(91,124,250,0.5);}
-}
-/* FAB Guardar — primer popover de la página */
-div[data-testid="stPopover"]:first-of-type {
-    position: fixed !important; bottom: 1.5rem !important;
-    left: 2rem !important; z-index: 99999 !important;
-}
-div[data-testid="stPopover"]:first-of-type > div > button {
-    background: linear-gradient(135deg,#5b7cfa,#8b5cf6) !important;
-    color: white !important; border: none !important;
-    border-radius: 50px !important; padding: 0.8rem 1.6rem !important;
-    font-size: 0.95rem !important; font-weight: 700 !important;
-    white-space: nowrap !important; animation: pulse-fab 2s infinite !important;
-    box-shadow: 0 8px 24px rgba(91,124,250,0.5) !important;
-    min-height: unset !important; height: auto !important;
-}
-</style>
-""", unsafe_allow_html=True)
+    components.html(f"""
+    <script>
+    (function() {{
+        const parent = window.parent.document;
 
-    with st.popover("💾 Guardar"):
-        st.markdown("**¿Guardar cotización?**")
-        if st.button("✅ Confirmar guardar", key="btn_confirmar_guardar", use_container_width=True, type="primary"):
-            datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
-            num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
-            guardar_cotizacion(num_g, datos_c, datos_a, proy,
-                               st.session_state.carrito, cfg, tots, pl_n, pl_d)
-            st.session_state.hash_ultimo_guardado = calcular_hash_estado()
-            st.session_state.recien_guardado = True
-            st.session_state.mostrar_toast_exito = True
-            st.session_state.toast_numero_ep = num_g
-            st.rerun()
+        const old = parent.getElementById('fab-guardar-wrapper');
+        if (old) old.remove();
+
+        const style = parent.getElementById('fab-guardar-style') || parent.createElement('style');
+        style.id = 'fab-guardar-style';
+        style.innerHTML = `
+            @keyframes pulse-fab {{
+                0%   {{ box-shadow: 0 8px 24px rgba(91,124,250,0.5); }}
+                50%  {{ box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }}
+                100% {{ box-shadow: 0 8px 24px rgba(91,124,250,0.5); }}
+            }}
+            @keyframes blink-badge {{
+                0%, 100% {{ opacity: 1; }}
+                50%      {{ opacity: 0.2; }}
+            }}
+            #fab-guardar-wrapper {{
+                position: fixed !important;
+                bottom: 1.5rem !important;
+                left: 2rem !important;
+                z-index: 999999 !important;
+            }}
+            #fab-guardar-btn {{
+                background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%) !important;
+                color: white !important;
+                border: none !important;
+                border-radius: 50px !important;
+                padding: 0.85rem 1.6rem !important;
+                font-size: 0.95rem !important;
+                font-weight: 700 !important;
+                cursor: pointer !important;
+                font-family: sans-serif !important;
+                animation: pulse-fab 2s infinite !important;
+                white-space: nowrap !important;
+            }}
+            #fab-guardar-btn:hover {{
+                transform: translateY(-3px) scale(1.05) !important;
+                animation: none !important;
+            }}
+            #fab-badge {{
+                position: absolute !important;
+                top: -5px !important; right: -5px !important;
+                width: 14px !important; height: 14px !important;
+                background: #ef4444 !important;
+                border-radius: 50% !important;
+                border: 2px solid white !important;
+                animation: blink-badge 1.5s infinite !important;
+            }}
+        `;
+        if (!parent.getElementById('fab-guardar-style')) parent.head.appendChild(style);
+
+        const wrapper = parent.createElement('div');
+        wrapper.id = 'fab-guardar-wrapper';
+        const btn = parent.createElement('button');
+        btn.id = 'fab-guardar-btn';
+        btn.innerHTML = '&#128190; Guardar';
+        btn.onclick = function() {{
+            const url = new URL(window.parent.location.href);
+            url.searchParams.set('_fabg','1');
+            window.parent.location.replace(url.toString());
+        }};
+        const badge = parent.createElement('span');
+        badge.id = 'fab-badge';
+        wrapper.appendChild(btn);
+        wrapper.appendChild(badge);
+        parent.body.appendChild(wrapper);
+    }})();
+    </script>
+    """, height=0)
+else:
+    components.html("""
+    <script>
+    (function() {
+        const parent = window.parent.document;
+        const w = parent.getElementById('fab-guardar-wrapper');
+        if (w) w.remove();
+    })();
+    </script>
+    """, height=0)
 
 # =========================================================
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
@@ -3035,13 +3082,13 @@ if st.session_state.modo_admin:
     # CSS para posicionar el popover como FAB flotante
     st.markdown(f"""
 <style>
-div[data-testid="stPopover"]:last-of-type {{
+div#fab-margen-container {{
     position: fixed !important;
     bottom: 1.5rem !important;
     left: 12rem !important;
     z-index: 99998 !important;
 }}
-div[data-testid="stPopover"]:last-of-type > div > button {{
+div#fab-margen-container div[data-testid="stPopover"] > div > button {{
     background: linear-gradient(135deg, {_color_fab}, {_color_fab}dd) !important;
     color: white !important;
     border: none !important;
@@ -3056,6 +3103,7 @@ div[data-testid="stPopover"]:last-of-type > div > button {{
 }}
 </style>
 """, unsafe_allow_html=True)
+    st.markdown('<div id="fab-margen-container">', unsafe_allow_html=True)
 
     with st.popover(f"📊 Margen: {_mstr}%"):
         st.markdown("**Aplicar margen**")
@@ -3068,6 +3116,7 @@ div[data-testid="stPopover"]:last-of-type > div > button {{
         if st.button("✅ Aplicar", key="btn_aplicar_margen", use_container_width=True):
             st.session_state.margen = _mg_pop
             st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 else:
     components.html("""<script>
