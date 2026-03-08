@@ -483,6 +483,7 @@ def construir_datos_para_guardar():
 def evaluar_estado_cotizacion(cotizacion):
     datos_completos = all([
         cotizacion.get('cliente_nombre', ''),
+        cotizacion.get('cliente_rut', ''),
         cotizacion.get('cliente_email', '')
     ])
     asesor_completo = any([
@@ -508,7 +509,7 @@ def crear_badge_estado(row):
     asesor_nombre = row[2]
     asesor_email = row[8]
     asesor_telefono = row[9]
-    datos_completos = all([cliente_nombre, cliente_email])
+    datos_completos = all([cliente_nombre, cliente_rut, cliente_email])
     asesor_completo = any([asesor_nombre, asesor_email, asesor_telefono])
     if config_margen and config_margen > 0:
         if datos_completos and asesor_completo:
@@ -618,6 +619,7 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
         tiene_plano = plano_datos is not None
         datos_completos = all([
             str(cliente.get('Nombre', '')).strip(),
+            str(cliente.get('RUT', '')).strip(),
             str(cliente.get('Correo', '')).strip()
         ])
         asesor_completo = any([
@@ -874,18 +876,6 @@ ejecutar_carga_cotizacion()
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
-
-    /* ══ Tabla de presupuesto (dataframe/data_editor) ══ */
-    [data-testid="stDataFrame"] iframe,
-    [data-testid="stDataEditor"] iframe {
-        border-radius: 10px !important;
-        border: none !important;
-    }
-    [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stDataFrame"],
-    [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stDataEditor"] {
-        border-radius: 10px !important;
-        overflow: hidden !important;
-    }
 
     /* ══ Sombra flotante para containers con borde ══ */
     [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"] {
@@ -2232,42 +2222,63 @@ with tab1:
         total_comisiones = comision_vendedor + comision_supervisor
         utilidad_real = margen_valor - total_comisiones if st.session_state.modo_admin else 0
 
-        with st.container(border=True):
-            if es_solo_lectura:
-                carrito_df_display = carrito_df_con_margen[["Categoria", "Item", "Cantidad", "Precio Unitario", "Subtotal"]].copy()
-                carrito_df_display["Precio Unitario"] = carrito_df_display["Precio Unitario"].apply(formato_clp)
-                carrito_df_display["Subtotal"] = carrito_df_display["Subtotal"].apply(formato_clp)
-                st.dataframe(carrito_df_display, use_container_width=True, hide_index=True,
-                    column_config={"Categoria": st.column_config.TextColumn("Categoría"), "Item": st.column_config.TextColumn("Item"),
-                                   "Cantidad": st.column_config.NumberColumn("Cant."), "Precio Unitario": st.column_config.TextColumn("P. Unitario"),
-                                   "Subtotal": st.column_config.TextColumn("Subtotal")})
-                st.caption("🔒 Vista de solo lectura")
-            else:
-                carrito_df_edit = carrito_df_con_margen.copy()
-                carrito_df_edit["❌"] = False
-                carrito_df_edit["Precio Unitario"] = carrito_df_edit["Precio Unitario"].apply(formato_clp)
-                carrito_df_edit["Subtotal"] = carrito_df_edit["Subtotal"].apply(formato_clp)
-                edited_df = st.data_editor(carrito_df_edit, use_container_width=True, hide_index=True,
-                    column_config={"❌": st.column_config.CheckboxColumn("❌"), "Categoria": st.column_config.TextColumn("Categoría"),
-                                   "Item": st.column_config.TextColumn("Item"), "Cantidad": st.column_config.NumberColumn("Cant."),
-                                   "Precio Unitario": st.column_config.TextColumn("P. Unitario"), "Subtotal": st.column_config.TextColumn("Subtotal")})
-                filas_eliminar = edited_df[edited_df["❌"] == True].index.tolist()
-                if filas_eliminar:
-                    for i in sorted(filas_eliminar, reverse=True):
-                        del st.session_state.carrito[i]
-                    st.rerun()
+        if es_solo_lectura:
+            carrito_df_display = carrito_df_con_margen[["Categoria", "Item", "Cantidad", "Precio Unitario", "Subtotal"]].copy()
+            carrito_df_display["Precio Unitario"] = carrito_df_display["Precio Unitario"].apply(formato_clp)
+            carrito_df_display["Subtotal"] = carrito_df_display["Subtotal"].apply(formato_clp)
+            st.dataframe(carrito_df_display, use_container_width=True, hide_index=True,
+                column_config={"Categoria": st.column_config.TextColumn("Categoría"), "Item": st.column_config.TextColumn("Item"),
+                               "Cantidad": st.column_config.NumberColumn("Cant."), "Precio Unitario": st.column_config.TextColumn("P. Unitario"),
+                               "Subtotal": st.column_config.TextColumn("Subtotal")})
+            st.caption("🔒 Vista de solo lectura")
+        else:
+            carrito_df_edit = carrito_df_con_margen.copy()
+            carrito_df_edit["❌"] = False
+            carrito_df_edit["Precio Unitario"] = carrito_df_edit["Precio Unitario"].apply(formato_clp)
+            carrito_df_edit["Subtotal"] = carrito_df_edit["Subtotal"].apply(formato_clp)
+            edited_df = st.data_editor(carrito_df_edit, use_container_width=True, hide_index=True,
+                column_config={"❌": st.column_config.CheckboxColumn("❌"), "Categoria": st.column_config.TextColumn("Categoría"),
+                               "Item": st.column_config.TextColumn("Item"), "Cantidad": st.column_config.NumberColumn("Cant."),
+                               "Precio Unitario": st.column_config.TextColumn("P. Unitario"), "Subtotal": st.column_config.TextColumn("Subtotal")})
+            filas_eliminar = edited_df[edited_df["❌"] == True].index.tolist()
+            if filas_eliminar:
+                for i in sorted(filas_eliminar, reverse=True):
+                    del st.session_state.carrito[i]
+                st.rerun()
+
         st.markdown("---")
-        # Solo botón Limpiar
-        col_btn_limpiar, _, _, _ = st.columns(4)
-        with col_btn_limpiar:
+        col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
+
+        with col_btn1:
             if not es_solo_lectura:
-                if st.button("🧹 Limpiar", use_container_width=True):
-                    limpiar_todo()
-                    st.rerun()
+                if st.button("💾 Guardar", use_container_width=True, type="primary", key="btn_guardar_principal"):
+                    datos_cliente_guardar, datos_asesor_guardar, proyecto, config, totales, plano_nombre, plano_datos = construir_datos_para_guardar()
+
+                    if st.session_state.cotizacion_cargada:
+                        numero_guardar = st.session_state.cotizacion_cargada
+                        es_actualizacion = True
+                    else:
+                        numero_guardar = generar_numero_unico()
+                        es_actualizacion = False
+
+                    if guardar_cotizacion(numero_guardar, datos_cliente_guardar, datos_asesor_guardar,
+                                         proyecto, st.session_state.carrito, config, totales, plano_nombre, plano_datos):
+                        if not es_actualizacion:
+                            st.session_state.cotizacion_cargada = numero_guardar
+                        st.session_state.resultados_busqueda = buscar_cotizaciones()
+                        st.session_state.mostrar_toast_exito = True
+                        st.session_state.toast_numero_ep = numero_guardar
+                        st.session_state.recien_guardado = True
+                        st.session_state.hash_ultimo_guardado = calcular_hash_estado()
+                        st.rerun()
             else:
-                st.button("🧹 Limpiar", use_container_width=True, disabled=True)
+                st.button("💾 Guardar", use_container_width=True, disabled=True)
 
         correo_para_pdf = st.session_state.correo_input
+        rut_valido_para_pdf = True
+        if st.session_state.rut_raw and len(st.session_state.rut_raw) >= 2:
+            rut_valido_para_pdf = st.session_state.rut_valido
+
         datos_cliente_pdf = {
             "Nombre": st.session_state.nombre_input,
             "RUT": st.session_state.rut_display or '',
@@ -2282,9 +2293,61 @@ with tab1:
             "Correo Ejecutivo": st.session_state.correo_asesor or "",
             "Teléfono Ejecutivo": st.session_state.telefono_asesor or ""
         }
+
         carrito_df_pdf = carrito_df_con_margen.copy()
         margen_actual = st.session_state.margen
-        numero_para_pdf = st.session_state.cotizacion_cargada if st.session_state.cotizacion_cargada else None
+
+        errores = []
+        if "@" not in correo_para_pdf:
+            errores.append("❌ El correo debe contener '@'")
+        if dias_validez < 0:
+            errores.append("❌ La fecha de término debe ser posterior a la fecha de inicio")
+        if not rut_valido_para_pdf and st.session_state.rut_raw and len(st.session_state.rut_raw) >= 2:
+            errores.append("❌ El RUT no es válido")
+
+        if errores:
+            for error in errores:
+                st.error(error)
+            with col_btn2:
+                st.button("📥 PDF Completo", use_container_width=True, disabled=True)
+            with col_btn3:
+                st.button("🔒 PDF Cliente", use_container_width=True, disabled=True)
+        else:
+            with col_btn2:
+                numero_para_pdf = st.session_state.cotizacion_cargada if st.session_state.cotizacion_cargada else None
+                pdf_buffer_completo, numero_cotizacion = generar_pdf_completo(
+                    carrito_df_pdf, subtotal_general, iva, total,
+                    datos_cliente_pdf, fecha_inicio, fecha_termino, dias_validez,
+                    datos_asesor_pdf, margen=margen_actual, numero_cotizacion=numero_para_pdf)
+                st.download_button(label="📥 PDF Completo", data=pdf_buffer_completo,
+                    file_name=f"Presupuesto_Completo_{numero_cotizacion}.pdf", mime="application/pdf",
+                    use_container_width=True, key="pdf_completo")
+
+            with col_btn3:
+                pdf_buffer_cliente, numero_cotizacion = generar_pdf_cliente(
+                    carrito_df_pdf, subtotal_general, iva, total,
+                    datos_cliente_pdf, fecha_inicio, fecha_termino, dias_validez,
+                    datos_asesor_pdf, margen=margen_actual, numero_cotizacion=numero_para_pdf)
+                st.download_button(label="🔒 PDF Cliente", data=pdf_buffer_cliente,
+                    file_name=f"Presupuesto_Cliente_{numero_cotizacion}.pdf", mime="application/pdf",
+                    use_container_width=True, key="pdf_cliente")
+
+        with col_btn4:
+            if not es_solo_lectura:
+                if st.button("🧹 Limpiar", use_container_width=True):
+                    limpiar_todo()
+                    st.rerun()
+            else:
+                st.button("🧹 Limpiar", use_container_width=True, disabled=True)
+
+        st.markdown("### Totales")
+        col_total1, col_total2, col_total3 = st.columns(3)
+        with col_total1:
+            st.metric("Subtotal", formato_clp(subtotal_general))
+        with col_total2:
+            st.metric("IVA (19%)", formato_clp(iva))
+        with col_total3:
+            st.metric("TOTAL", formato_clp(total))
 
         if st.session_state.modo_admin and st.session_state.margen > 0:
             st.caption(f"*Precios calculados con margen del {st.session_state.margen}%")
