@@ -2987,6 +2987,7 @@ if st.session_state.get('recien_cargado', False):
     st.session_state.recien_cargado = False
 
 if _mostrar_fab:
+    # Botón real en el DOM — el FAB JS lo clickea
     if st.button("💾 Guardar", key="btn_fab_guardar"):
         datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
         num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
@@ -2998,49 +2999,71 @@ if _mostrar_fab:
         st.session_state.toast_numero_ep = num_g
         st.rerun()
 
-    # JS: busca el botón en el mismo iframe por texto y lo estiliza como FAB flotante
+    # FAB JS: botón flotante en DOM padre que clickea el botón real
     components.html("""
-<script>
-(function(){
-    // Este script corre en su propio iframe
-    // Buscar en TODOS los iframes del padre el botón con texto Guardar
-    var D = window.parent.document;
+    <script>
+    (function() {
+        const parent = window.parent.document;
 
-    // Limpiar FAB anterior del DOM padre
-    var old = D.getElementById('_fab_g_btn'); if(old) old.remove();
-    var olds = D.getElementById('_fab_g_sty'); if(olds) olds.remove();
+        const old = parent.getElementById('fab-guardar-wrapper');
+        if (old) old.remove();
 
-    // Encontrar el iframe que tiene el botón Guardar y posicionarlo
-    var frames = D.querySelectorAll('iframe');
-    var targetFrame = null;
-    var targetBtn = null;
+        const style = parent.getElementById('fab-guardar-style') || parent.createElement('style');
+        style.id = 'fab-guardar-style';
+        style.innerHTML = `
+            @keyframes pulse-fab {
+                0%   { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
+                50%  { box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }
+                100% { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
+            }
+            #fab-guardar-wrapper {
+                position: fixed !important;
+                bottom: 1.5rem !important;
+                left: 2rem !important;
+                z-index: 999999 !important;
+            }
+            #fab-guardar-btn {
+                background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%);
+                color: white; border: none; border-radius: 50px;
+                padding: 0.85rem 1.6rem; font-size: 0.95rem; font-weight: 700;
+                cursor: pointer; font-family: sans-serif;
+                animation: pulse-fab 2s infinite; white-space: nowrap;
+            }
+            #fab-guardar-btn:hover { transform: translateY(-3px); animation: none; }
+        `;
+        if (!parent.getElementById('fab-guardar-style')) parent.head.appendChild(style);
 
-    for(var i = 0; i < frames.length; i++){
-        try {
-            var doc = frames[i].contentDocument || frames[i].contentWindow.document;
-            var btns = doc.querySelectorAll('button');
-            for(var j = 0; j < btns.length; j++){
-                if((btns[j].innerText || '').indexOf('Guardar') >= 0){
-                    targetFrame = frames[i];
-                    targetBtn = btns[j];
-                    break;
+        const wrapper = parent.createElement('div');
+        wrapper.id = 'fab-guardar-wrapper';
+        const btn = parent.createElement('button');
+        btn.id = 'fab-guardar-btn';
+        btn.innerHTML = '&#128190; Guardar';
+        btn.onclick = function() {
+            const buttons = parent.querySelectorAll('button');
+            for (const b of buttons) {
+                const txt = (b.innerText || b.textContent || '').trim();
+                if (txt.includes('Guardar') && b.id !== 'fab-guardar-btn' && !b.disabled) {
+                    b.click();
+                    return;
                 }
             }
-        } catch(e){}
-        if(targetBtn) break;
-    }
+        };
+        wrapper.appendChild(btn);
+        parent.body.appendChild(wrapper);
+    })();
+    </script>
+    """, height=0)
 
-    if(targetBtn){
-        // Posicionar el iframe que contiene el botón como flotante
-        targetFrame.style.cssText = 'position:fixed!important;bottom:1.5rem!important;left:2rem!important;z-index:999999!important;width:160px!important;height:50px!important;border:none!important;background:transparent!important;';
-        // Estilizar el botón dentro del iframe
-        var sty = targetBtn.ownerDocument.createElement('style');
-        sty.textContent = '@keyframes pfab{0%{box-shadow:0 8px 24px rgba(91,124,250,.5);}50%{box-shadow:0 8px 40px rgba(91,124,250,.9),0 0 0 12px rgba(91,124,250,.15);}100%{box-shadow:0 8px 24px rgba(91,124,250,.5);}} button{position:fixed!important;bottom:0!important;left:0!important;background:linear-gradient(135deg,#5b7cfa,#8b5cf6)!important;color:#fff!important;border:none!important;border-radius:50px!important;padding:.85rem 1.6rem!important;font-size:.95rem!important;font-weight:700!important;white-space:nowrap!important;animation:pfab 2s infinite!important;cursor:pointer!important;font-family:sans-serif!important;width:auto!important;}';
-        targetBtn.ownerDocument.head.appendChild(sty);
-    }
-})();
-</script>
-""", height=0)
+else:
+    components.html("""
+    <script>
+    (function() {
+        const parent = window.parent.document;
+        const w = parent.getElementById('fab-guardar-wrapper');
+        if (w) w.remove();
+    })();
+    </script>
+    """, height=0)
 
 # =========================================================
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
