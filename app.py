@@ -2987,30 +2987,14 @@ if st.session_state.get('recien_cargado', False):
     st.session_state.recien_cargado = False
 
 if _mostrar_fab:
-    st.markdown("""
-<style>
-@keyframes pfab {
-    0%   {box-shadow:0 8px 24px rgba(91,124,250,.5);}
-    50%  {box-shadow:0 8px 40px rgba(91,124,250,.9),0 0 0 12px rgba(91,124,250,.15);}
-    100% {box-shadow:0 8px 24px rgba(91,124,250,.5);}
-}
-div[data-testid="stMainBlockContainer"] div[data-testid="stVerticalBlock"] > div:last-child > div[data-testid="stVerticalBlock"] > div:last-child button[data-testid="stBaseButton-primary"] {
+    # Botón real que ejecuta el guardado — oculto visualmente con CSS
+    st.markdown("""<style>
+button[data-testid="stBaseButton-primary"][kind="primary"] {
+    visibility: hidden !important;
     position: fixed !important;
-    bottom: 1.5rem !important;
-    left: 2rem !important;
-    z-index: 999999 !important;
-    border-radius: 50px !important;
-    padding: .85rem 1.6rem !important;
-    font-size: .95rem !important;
-    font-weight: 700 !important;
-    animation: pfab 2s infinite !important;
-    white-space: nowrap !important;
-    background: linear-gradient(135deg,#5b7cfa,#8b5cf6) !important;
-    color: white !important;
-    border: none !important;
+    bottom: -999px !important;
 }
-</style>
-""", unsafe_allow_html=True)
+</style>""", unsafe_allow_html=True)
 
     if st.button("💾 Guardar", key="btn_guardar_fab_real", type="primary"):
         datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
@@ -3022,11 +3006,45 @@ div[data-testid="stMainBlockContainer"] div[data-testid="stVerticalBlock"] > div
         st.session_state.mostrar_toast_exito = True
         st.session_state.toast_numero_ep = num_g
         st.rerun()
+
+    # FAB flotante en DOM padre — clickea el botón real via postMessage al iframe correcto
+    components.html("""
+<script>
+(function(){
+    var D = window.parent.document;
+    // Limpiar FAB anterior
+    var old = D.getElementById('_fab_g_w'); if(old) old.remove();
+    var olds = D.getElementById('_fab_g_s'); if(olds) olds.remove();
+
+    var s = D.createElement('style'); s.id = '_fab_g_s';
+    s.textContent = '@keyframes pfab{0%{box-shadow:0 8px 24px rgba(91,124,250,.5);}50%{box-shadow:0 8px 40px rgba(91,124,250,.9),0 0 0 12px rgba(91,124,250,.15);}100%{box-shadow:0 8px 24px rgba(91,124,250,.5);}}#_fab_g_b{position:fixed;bottom:1.5rem;left:2rem;z-index:2147483647;background:linear-gradient(135deg,#5b7cfa,#8b5cf6);color:#fff;border:none;border-radius:50px;padding:.85rem 1.6rem;font-size:.95rem;font-weight:700;cursor:pointer;font-family:sans-serif;animation:pfab 2s infinite;white-space:nowrap;}#_fab_g_b:hover{transform:translateY(-2px);animation:none;}';
+    D.head.appendChild(s);
+
+    var w = D.createElement('div'); w.id = '_fab_g_w';
+    var b = D.createElement('button'); b.id = '_fab_g_b';
+    b.innerHTML = '&#128190; Guardar';
+    b.onclick = function(){
+        // El botón real está en un iframe — usar postMessage para clickearlo
+        var frames = D.querySelectorAll('iframe');
+        for(var i=0;i<frames.length;i++){
+            try{
+                var btn = frames[i].contentDocument.querySelector('button[data-testid="stBaseButton-primary"]');
+                if(btn){ btn.click(); return; }
+            }catch(e){}
+        }
+    };
+    w.appendChild(b);
+    D.body.appendChild(w);
+})();
+</script>
+""", height=0)
+
 else:
     components.html("""<script>
 (function(){
-    var D = window.parent.document;
-    var s = D.getElementById('_fab_g_css'); if(s) s.remove();
+    var D=window.parent.document;
+    var w=D.getElementById('_fab_g_w'); if(w) w.remove();
+    var s=D.getElementById('_fab_g_s'); if(s) s.remove();
 })();
 </script>""", height=0)
 
