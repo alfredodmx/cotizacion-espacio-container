@@ -877,6 +877,22 @@ st.markdown("""
 
 
 
+    /* ══ Sombra tabla data_editor / dataframe ══ */
+    div[data-testid="stDataFrame"] > div,
+    div[data-testid="stDataEditor"] > div {
+        border-radius: 16px !important;
+        box-shadow: 0 4px 20px rgba(91, 124, 250, 0.08), 0 1px 6px rgba(0,0,0,0.06) !important;
+        border: 1px solid rgba(91,124,250,0.15) !important;
+        overflow: hidden !important;
+        transition: box-shadow 0.25s ease, transform 0.25s ease !important;
+        background: #ffffff !important;
+    }
+    div[data-testid="stDataFrame"] > div:hover,
+    div[data-testid="stDataEditor"] > div:hover {
+        box-shadow: 0 8px 32px rgba(91, 124, 250, 0.16), 0 2px 10px rgba(0,0,0,0.08) !important;
+        transform: translateY(-2px) !important;
+    }
+
     /* ══ Sombra flotante para containers con borde ══ */
     [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"] {
         box-shadow: 0 4px 20px rgba(91, 124, 250, 0.08), 0 1px 6px rgba(0,0,0,0.06) !important;
@@ -2185,7 +2201,7 @@ with tab1:
     st.markdown("---")
 
     if st.session_state.modo_admin:
-        col_titulo, col_search, col_margen_etq, col_margen_input, col_fs = st.columns([2.5, 2, 0.6, 0.8, 0.4])
+        col_titulo, col_margen_etq, col_margen_input = st.columns([3.5, 0.6, 0.8])
         with col_titulo:
             st.markdown("#### Resumen del Presupuesto")
         with col_margen_etq:
@@ -2196,22 +2212,19 @@ with tab1:
             if margen_input != st.session_state.margen:
                 st.session_state.margen = margen_input
                 st.rerun()
-        with col_search:
-            buscar_tabla = st.text_input("🔍", placeholder="Filtrar por categoría o ítem...", key="buscar_tabla_presupuesto", label_visibility="collapsed")
-        with col_fs:
-            pantalla_completa = st.toggle("⛶", key="tabla_fullscreen", value=st.session_state.get("tabla_fullscreen_val", False), help="Expandir tabla")
-            st.session_state.tabla_fullscreen_val = pantalla_completa
     else:
-        col_titulo, col_search, col_fs = st.columns([3, 2.5, 0.4])
         with col_titulo:
             st.markdown("#### Resumen del Presupuesto")
             if st.session_state.margen > 0:
                 st.caption(f"ℹ️ Margen del {st.session_state.margen}% aplicado")
-        with col_search:
-            buscar_tabla = st.text_input("🔍", placeholder="Filtrar por categoría o ítem...", key="buscar_tabla_presupuesto", label_visibility="collapsed")
-        with col_fs:
-            pantalla_completa = st.toggle("⛶", key="tabla_fullscreen", value=st.session_state.get("tabla_fullscreen_val", False), help="Expandir tabla")
-            st.session_state.tabla_fullscreen_val = pantalla_completa
+
+    # Fila buscador centrada
+    col_vacio1, col_search_c, col_fs_c, col_vacio2 = st.columns([1, 3, 0.5, 1])
+    with col_search_c:
+        buscar_tabla = st.text_input("🔍", placeholder="Filtrar por categoría o ítem...", key="buscar_tabla_presupuesto", label_visibility="collapsed")
+    with col_fs_c:
+        pantalla_completa = st.toggle("⛶", key="tabla_fullscreen", value=st.session_state.get("tabla_fullscreen_val", False), help="Expandir tabla")
+        st.session_state.tabla_fullscreen_val = pantalla_completa
 
     if st.session_state.carrito:
         carrito_df = pd.DataFrame(st.session_state.carrito)
@@ -3077,6 +3090,74 @@ else:
     (function() {
         const parent = window.parent.document;
         const w = parent.getElementById('fab-guardar-wrapper');
+        if (w) w.remove();
+    })();
+    </script>
+    """, height=0)
+
+# =========================================================
+# FAB - MARGEN FLOTANTE (solo visible en modo admin)
+# =========================================================
+_margen_actual = st.session_state.margen
+_mostrar_fab_margen = st.session_state.modo_admin
+
+if _mostrar_fab_margen:
+    components.html(f"""
+    <script>
+    (function() {{
+        const parent = window.parent.document;
+        const old = parent.getElementById('fab-margen-wrapper');
+        if (old) old.remove();
+
+        const style = parent.getElementById('fab-margen-style') || parent.createElement('style');
+        style.id = 'fab-margen-style';
+        style.innerHTML = `
+            @keyframes pulse-margen {{
+                0%   {{ box-shadow: 0 8px 24px rgba(16,185,129,0.5); }}
+                50%  {{ box-shadow: 0 8px 40px rgba(16,185,129,0.9), 0 0 0 12px rgba(16,185,129,0.15); }}
+                100% {{ box-shadow: 0 8px 24px rgba(16,185,129,0.5); }}
+            }}
+            #fab-margen-wrapper {{
+                position: fixed !important;
+                bottom: 1.5rem !important;
+                left: 12rem !important;
+                z-index: 999998 !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 0 !important;
+            }}
+            #fab-margen-btn {{
+                background: {'linear-gradient(135deg, #10b981 0%, #059669 100%)' if _margen_actual > 0 else 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'} !important;
+                color: white !important;
+                border: none !important;
+                border-radius: 50px !important;
+                padding: 0.85rem 1.4rem !important;
+                font-size: 0.95rem !important;
+                font-weight: 700 !important;
+                cursor: default !important;
+                font-family: sans-serif !important;
+                {'animation: pulse-margen 2s infinite !important;' if _margen_actual > 0 else ''}
+                white-space: nowrap !important;
+            }}
+        `;
+        if (!parent.getElementById('fab-margen-style')) parent.head.appendChild(style);
+
+        const wrapper = parent.createElement('div');
+        wrapper.id = 'fab-margen-wrapper';
+        const btn = parent.createElement('button');
+        btn.id = 'fab-margen-btn';
+        btn.innerHTML = '📊 Margen: {_margen_actual:.1f}%';
+        wrapper.appendChild(btn);
+        parent.body.appendChild(wrapper);
+    }})();
+    </script>
+    """, height=0)
+else:
+    components.html("""
+    <script>
+    (function() {
+        const parent = window.parent.document;
+        const w = parent.getElementById('fab-margen-wrapper');
         if (w) w.remove();
     })();
     </script>
