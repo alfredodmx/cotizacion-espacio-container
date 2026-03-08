@@ -177,6 +177,12 @@ if 'recien_guardado' not in st.session_state:
 if 'hash_ultimo_guardado' not in st.session_state:
     st.session_state.hash_ultimo_guardado = None
 
+if 'recien_cargado' not in st.session_state:
+    st.session_state.recien_cargado = False
+
+if 'mostrar_advertencia_cerrar' not in st.session_state:
+    st.session_state.mostrar_advertencia_cerrar = False
+
 if 'numero_a_cargar_pendiente' not in st.session_state:
     st.session_state.numero_a_cargar_pendiente = None
 
@@ -847,8 +853,9 @@ def ejecutar_carga_cotizacion():
         st.session_state.numero_en_visor = None
         st.session_state.cargar_cotizacion_trigger = False
         st.session_state.cotizacion_a_cargar = None
-        # Resetear hash para que el FAB no aparezca al cargar una cotización existente
+        # Resetear hash y marcar como recién cargado para suprimir FAB
         st.session_state.hash_ultimo_guardado = calcular_hash_estado()
+        st.session_state.recien_cargado = True
         return True
     return False
 
@@ -1407,40 +1414,56 @@ if st.session_state.cotizacion_cargada:
         st.markdown(f'<div class="cotizacion-status-container"><span class="status-badge">{badge_html}</span></div>', unsafe_allow_html=True)
     with col_cerrar:
         if st.button("🗑️ Cerrar Cotización", key="btn_cerrar_cotizacion", use_container_width=True):
-            numero_guardar = st.session_state.cotizacion_cargada
-            if numero_guardar:
-                datos_cliente_guardar, datos_asesor_guardar, proyecto, config, totales, plano_nombre, plano_datos = construir_datos_para_guardar()
-                guardar_cotizacion(numero_guardar, datos_cliente_guardar, datos_asesor_guardar,
-                                   proyecto, st.session_state.carrito, config, totales, plano_nombre, plano_datos)
+            # Detectar si hay cambios sin guardar comparando hash actual vs guardado
+            _hash_actual = calcular_hash_estado()
+            _hay_cambios = (
+                len(st.session_state.get('carrito', [])) > 0 and
+                _hash_actual != st.session_state.get('hash_ultimo_guardado')
+            )
+            if _hay_cambios:
+                st.session_state.mostrar_advertencia_cerrar = True
+                st.rerun()
+            else:
+                _ejecutar_cierre_cotizacion()
+                st.rerun()
 
-            st.session_state.carrito = []
-            st.session_state.nombre_input = ""
-            st.session_state.rut_raw = ""
-            st.session_state.rut_display = ""
-            st.session_state.rut_valido = False
-            st.session_state.rut_mensaje = ""
-            st.session_state.correo_input = ""
-            st.session_state.telefono_raw = ""
-            st.session_state.direccion_input = ""
-            st.session_state.asesor_seleccionado = "Seleccionar asesor"
-            st.session_state.correo_asesor = ""
-            st.session_state.telefono_asesor = ""
-            st.session_state.fecha_inicio = datetime.now().date()
-            st.session_state.fecha_termino = (datetime.now() + timedelta(days=15)).date()
-            st.session_state.observaciones_input = ""
-            st.session_state.plano_adjunto = None
-            st.session_state.plano_nombre = ""
-            st.session_state.cotizacion_cargada = None
-            st.session_state.cotizacion_seleccionada = None
-            st.session_state.margen = 0.0
-            st.session_state.mostrar_visor = False
-            st.session_state.pdf_actual = None
-            st.session_state.pdf_nombre = ""
-            st.session_state.numero_en_visor = None
-            st.session_state.pdf_url = None
-            st.session_state.counter += 100
-            st.success("✅ Cotización guardada y cerrada. Listo para nueva cotización.")
-            st.rerun()
+    # ── Popup advertencia al cerrar con cambios sin guardar ──
+    if st.session_state.get('mostrar_advertencia_cerrar', False):
+        @st.dialog("⚠️ Cambios sin guardar")
+        def dialogo_advertencia_cerrar():
+            st.markdown("""
+            <div style="text-align:center;padding:1rem 0;">
+                <div style="font-size:3rem;margin-bottom:0.5rem;">⚠️</div>
+                <div style="font-size:1rem;font-weight:700;color:#1e2447;margin-bottom:0.5rem;">
+                    Se hicieron modificaciones
+                </div>
+                <div style="font-size:0.88rem;color:#5a6080;line-height:1.6;">
+                    Tienes cambios sin guardar en esta cotización.<br/>
+                    ¿Qué deseas hacer antes de cerrar?
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            col_si, col_no, col_cancelar = st.columns(3)
+            with col_si:
+                if st.button("💾 Guardar y cerrar", use_container_width=True, type="primary", key="dialog_cerrar_si"):
+                    datos_c, datos_a, proy, cfg, tots, pnom, pdat = construir_datos_para_guardar()
+                    num = st.session_state.cotizacion_cargada or generar_numero_unico()
+                    guardar_cotizacion(num, datos_c, datos_a, proy, st.session_state.carrito, cfg, tots, pnom, pdat)
+                    st.session_state.mostrar_advertencia_cerrar = False
+                    _ejecutar_cierre_cotizacion()
+                    st.rerun()
+            with col_no:
+                if st.button("🗑️ Descartar y cerrar", use_container_width=True, key="dialog_cerrar_no"):
+                    st.session_state.mostrar_advertencia_cerrar = False
+                    _ejecutar_cierre_cotizacion()
+                    st.rerun()
+            with col_cancelar:
+                if st.button("✖️ Cancelar", use_container_width=True, key="dialog_cerrar_cancelar"):
+                    st.session_state.mostrar_advertencia_cerrar = False
+                    st.rerun()
+
+        dialogo_advertencia_cerrar()
 
 # =========================================================
 # TABS
@@ -1740,6 +1763,12 @@ def limpiar_todo():
     st.session_state.numero_en_visor = None
     st.session_state.pdf_url = None
     st.session_state.counter += 100
+
+def _ejecutar_cierre_cotizacion():
+    """Limpia todo el estado al cerrar una cotización."""
+    limpiar_todo()
+    st.session_state.recien_guardado = True
+    st.session_state.hash_ultimo_guardado = None
 
 # =========================================================
 # TAB 2 - DATOS CLIENTE
@@ -2923,12 +2952,15 @@ _es_solo_lectura = (
 _mostrar_fab = (
     len(st.session_state.get('carrito', [])) > 0 and
     not _es_solo_lectura and
-    not st.session_state.get('recien_guardado', False)
+    not st.session_state.get('recien_guardado', False) and
+    not st.session_state.get('recien_cargado', False)
 )
 
-# Limpiar flag recien_guardado después de un ciclo
+# Limpiar flags después de evaluar
 if st.session_state.get('recien_guardado', False):
     st.session_state.recien_guardado = False
+if st.session_state.get('recien_cargado', False):
+    st.session_state.recien_cargado = False
 
 if _mostrar_fab:
     # CSS para posicionar el botón de Streamlit como FAB flotante
