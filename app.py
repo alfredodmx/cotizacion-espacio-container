@@ -2987,9 +2987,8 @@ if st.session_state.get('recien_cargado', False):
     st.session_state.recien_cargado = False
 
 if _mostrar_fab:
-    # Mismo patrón exacto que el FAB de margen que funciona
-    # El popover del margen usa modo_admin=True, el de guardar usa _mostrar_fab=True
-    # Son mutuamente compatibles — el de guardar va a left:2rem, el de margen a left:12rem
+    # CSS: posicionar SOLO el botón con key específico como FAB flotante
+    # Streamlit genera el data-testid del botón como: stButton-{key}
     st.markdown("""
 <style>
 @keyframes pulse-fab-g {
@@ -2997,50 +2996,38 @@ if _mostrar_fab:
     50%  { box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }
     100% { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
 }
-div[data-testid="stPopover"]:first-of-type {
+[data-testid="stButton-btn_fab_guardar"] button {
     position: fixed !important;
     bottom: 1.5rem !important;
     left: 2rem !important;
-    z-index: 99999 !important;
-}
-div[data-testid="stPopover"]:first-of-type > div > button {
-    background: linear-gradient(135deg, #5b7cfa, #8b5cf6) !important;
+    z-index: 999999 !important;
+    background: linear-gradient(135deg,#5b7cfa,#8b5cf6) !important;
     color: white !important;
     border: none !important;
     border-radius: 50px !important;
-    padding: 0.85rem 1.6rem !important;
-    font-size: 0.95rem !important;
+    padding: .85rem 1.6rem !important;
+    font-size: .95rem !important;
     font-weight: 700 !important;
     white-space: nowrap !important;
     animation: pulse-fab-g 2s infinite !important;
-    min-height: unset !important;
-    height: auto !important;
+}
+[data-testid="stButton-btn_fab_guardar"] button:hover {
+    transform: translateY(-2px) !important;
+    animation: none !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-    with st.popover("💾 Guardar"):
-        # Ejecutar guardado inmediatamente al abrir el popover
-        if not st.session_state.get('_guardado_en_curso'):
-            st.session_state['_guardado_en_curso'] = True
-            datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
-            num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
-            guardar_cotizacion(num_g, datos_c, datos_a, proy,
-                               st.session_state.carrito, cfg, tots, pl_n, pl_d)
-            st.session_state.hash_ultimo_guardado = calcular_hash_estado()
-            st.session_state.recien_guardado = True
-            st.session_state.mostrar_toast_exito = True
-            st.session_state.toast_numero_ep = num_g
-            del st.session_state['_guardado_en_curso']
-            st.rerun()
-else:
-    components.html("""<script>
-(function(){
-    var D=window.parent.document;
-    var w=D.getElementById('_fab_g_w'); if(w) w.remove();
-    var s=D.getElementById('_fab_g_s'); if(s) s.remove();
-})();
-</script>""", height=0)
+    if st.button("💾 Guardar", key="btn_fab_guardar"):
+        datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
+        num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
+        guardar_cotizacion(num_g, datos_c, datos_a, proy,
+                           st.session_state.carrito, cfg, tots, pl_n, pl_d)
+        st.session_state.hash_ultimo_guardado = calcular_hash_estado()
+        st.session_state.recien_guardado = True
+        st.session_state.mostrar_toast_exito = True
+        st.session_state.toast_numero_ep = num_g
+        st.rerun()
 
 # =========================================================
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
