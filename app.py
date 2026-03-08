@@ -3107,139 +3107,112 @@ else:
 _margen_actual = st.session_state.margen
 _mostrar_fab_margen = st.session_state.modo_admin
 
+# Capturar valor enviado por el FAB
+if st.session_state.get('_margen_fab_valor') is not None:
+    _nuevo = float(st.session_state._margen_fab_valor)
+    _nuevo = max(0.0, min(100.0, _nuevo))
+    st.session_state._margen_fab_valor = None
+    st.session_state.margen = _nuevo
+    st.rerun()
+
 if _mostrar_fab_margen:
     _color = 'linear-gradient(135deg, #10b981 0%, #059669 100%)' if _margen_actual > 0 else 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'
     _pulse = 'animation: pulse-margen 2s infinite !important;' if _margen_actual > 0 else ''
-    
-    margen_retorno = components.html(f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-    <style>
-        body {{ margin:0; padding:0; background:transparent; overflow:hidden; }}
-        @keyframes pulse-margen {{
-            0%   {{ box-shadow: 0 8px 24px rgba(16,185,129,0.5); }}
-            50%  {{ box-shadow: 0 8px 40px rgba(16,185,129,0.9), 0 0 0 12px rgba(16,185,129,0.15); }}
-            100% {{ box-shadow: 0 8px 24px rgba(16,185,129,0.5); }}
-        }}
-        #fab-margen-btn {{
-            position: fixed;
-            bottom: 1.5rem;
-            left: 12rem;
-            background: {_color};
-            color: white;
-            border: none;
-            border-radius: 50px;
-            padding: 0.85rem 1.4rem;
-            font-size: 0.95rem;
-            font-weight: 700;
-            cursor: pointer;
-            font-family: sans-serif;
-            {_pulse}
-            white-space: nowrap;
-            z-index: 999998;
-            box-shadow: 0 8px 24px rgba(16,185,129,0.5);
-        }}
-        #fab-margen-btn:hover {{ transform: translateY(-3px) scale(1.05); animation: none; }}
-        #popup {{
-            position: fixed;
-            bottom: 5.5rem;
-            left: 12rem;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.18);
-            padding: 1.2rem 1.4rem;
-            min-width: 220px;
-            display: none;
-            font-family: sans-serif;
-            z-index: 999999;
-        }}
-        #popup.visible {{ display: block; }}
-        #popup h4 {{ margin: 0 0 0.8rem 0; font-size: 0.9rem; color: #374151; font-weight: 600; }}
-        #margen-val {{
-            width: 100%;
-            padding: 0.6rem 0.8rem;
-            border: 2px solid #d1d5db;
-            border-radius: 10px;
-            font-size: 1.4rem;
-            font-weight: 700;
-            text-align: center;
-            outline: none;
-            box-sizing: border-box;
-            color: #111827;
-        }}
-        #margen-val:focus {{ border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.15); }}
-        #apply-btn {{
-            width: 100%;
-            margin-top: 0.7rem;
-            padding: 0.65rem;
-            background: linear-gradient(135deg, #10b981, #059669);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 0.95rem;
-            font-weight: 700;
-            cursor: pointer;
-            font-family: sans-serif;
-        }}
-        #apply-btn:hover {{ opacity: 0.9; }}
-        #hint {{ font-size: 0.75rem; color: #9ca3af; text-align: center; margin-top: 0.4rem; }}
-    </style>
-    </head>
-    <body>
-        <button id="fab-margen-btn">📊 Margen: {_margen_actual:.1f}%</button>
-        <div id="popup">
-            <h4>📊 Aplicar Margen</h4>
-            <input id="margen-val" type="number" min="0" max="100" step="0.5" value="{_margen_actual:.1f}" />
-            <button id="apply-btn">✅ Aplicar</button>
-            <div id="hint">Enter o clic en Aplicar</div>
-        </div>
-        <script>
-        const btn = document.getElementById('fab-margen-btn');
-        const popup = document.getElementById('popup');
-        const input = document.getElementById('margen-val');
-        const applyBtn = document.getElementById('apply-btn');
+    _margen_str = f"{_margen_actual:.1f}"
 
-        btn.onclick = function() {{
-            popup.classList.toggle('visible');
-            if (popup.classList.contains('visible')) {{
-                setTimeout(() => input.focus(), 100);
-            }}
-        }};
+    margen_component_val = components.html(
+        f"""<!DOCTYPE html><html><head>
+<style>
+body{{margin:0;padding:0;background:transparent;font-family:sans-serif;}}
+#fab-btn{{position:fixed;bottom:1.5rem;left:12rem;z-index:2147483646;
+  background:{_color};color:white;border:none;border-radius:50px;
+  padding:0.85rem 1.4rem;font-size:0.95rem;font-weight:700;
+  cursor:pointer;white-space:nowrap;{_pulse}}}
+#fab-btn:hover{{transform:translateY(-3px) scale(1.05);animation:none;}}
+#popup{{position:fixed;bottom:5.5rem;left:12rem;z-index:2147483647;
+  background:white;border-radius:16px;
+  box-shadow:0 8px 40px rgba(0,0,0,0.25);
+  padding:1.2rem 1.4rem;min-width:230px;display:none;}}
+#popup.open{{display:block;}}
+h4{{margin:0 0 0.7rem 0;font-size:0.95rem;color:#374151;font-weight:700;}}
+#disp{{width:100%;padding:0.6rem;border:2px solid #10b981;border-radius:10px;
+  font-size:1.5rem;font-weight:700;text-align:center;margin-bottom:8px;
+  box-sizing:border-box;color:#111827;background:#f0fdf4;}}
+#pad{{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px;}}
+#pad button{{padding:0.6rem;border:1px solid #e5e7eb;border-radius:8px;
+  background:#f9fafb;font-size:1rem;font-weight:600;cursor:pointer;color:#111827;}}
+#pad button:hover{{background:#f0fdf4;border-color:#10b981;}}
+#apply-btn{{width:100%;padding:0.65rem;
+  background:linear-gradient(135deg,#10b981,#059669);
+  color:white;border:none;border-radius:10px;
+  font-size:0.95rem;font-weight:700;cursor:pointer;}}
+@keyframes pulse-margen{{
+  0%{{box-shadow:0 8px 24px rgba(16,185,129,0.5);}}
+  50%{{box-shadow:0 8px 40px rgba(16,185,129,0.9),0 0 0 12px rgba(16,185,129,0.15);}}
+  100%{{box-shadow:0 8px 24px rgba(16,185,129,0.5);}}}}
+</style></head><body>
+<button id="fab-btn">&#128202; Margen: {_margen_str}%</button>
+<div id="popup">
+  <h4>&#128202; Aplicar Margen</h4>
+  <div id="disp">{_margen_str}%</div>
+  <div id="pad">
+    <button>1</button><button>2</button><button>3</button>
+    <button>4</button><button>5</button><button>6</button>
+    <button>7</button><button>8</button><button>9</button>
+    <button id="clr" style="color:#ef4444;font-size:0.85rem;">C</button>
+    <button>0</button><button>.</button>
+  </div>
+  <button id="apply-btn">&#9989; Aplicar</button>
+</div>
+<script>
+var cur='{_margen_str}';
+var disp=document.getElementById('disp');
+var popup=document.getElementById('popup');
+document.getElementById('fab-btn').onclick=function(e){{
+  e.stopPropagation();
+  popup.classList.toggle('open');
+  cur='{_margen_str}';
+  disp.textContent=cur+'%';
+}};
+document.getElementById('pad').addEventListener('click',function(e){{
+  var t=e.target;
+  if(!t||t.tagName!=='BUTTON')return;
+  var n=t.textContent.trim();
+  if(t.id==='clr'){{cur='0';}}
+  else if(n==='.'){{if(cur.indexOf('.')<0)cur+='.';}}
+  else{{cur=(cur==='0')?n:cur+n;}}
+  if(parseFloat(cur)>100)cur='100';
+  disp.textContent=cur+'%';
+}});
+document.getElementById('apply-btn').onclick=function(){{
+  var val=Math.max(0,Math.min(100,parseFloat(cur)||0));
+  window.parent.postMessage({{isStreamlitMessage:true,type:'streamlit:setComponentValue',value:val}},'*');
+  popup.classList.remove('open');
+}};
+document.addEventListener('click',function(e){{
+  if(!document.getElementById('fab-btn').contains(e.target)&&
+     !popup.contains(e.target)){{popup.classList.remove('open');}}
+}});
+</script></body></html>""",
+        height=90
+    )
 
-        function applyMargen() {{
-            const val = parseFloat(input.value) || 0;
-            const clamped = Math.max(0, Math.min(100, val));
-            window.parent.postMessage({{
-                isStreamlitMessage: true,
-                type: 'streamlit:setComponentValue',
-                value: clamped
-            }}, '*');
-            popup.classList.remove('visible');
-        }}
-
-        applyBtn.onclick = applyMargen;
-        input.addEventListener('keydown', function(e) {{
-            if (e.key === 'Enter') applyMargen();
-            if (e.key === 'Escape') popup.classList.remove('visible');
-        }});
-
-        document.addEventListener('click', function(e) {{
-            if (!btn.contains(e.target) && !popup.contains(e.target)) {{
-                popup.classList.remove('visible');
-            }}
-        }});
-        </script>
-    </body>
-    </html>
-    """, height=120)
-
-    if margen_retorno is not None:
+    if margen_component_val is not None:
         try:
-            nuevo = float(margen_retorno)
-            nuevo = max(0.0, min(100.0, nuevo))
-            if nuevo != st.session_state.margen:
-                st.session_state.margen = nuevo
+            _v = float(margen_component_val)
+            _v = max(0.0, min(100.0, _v))
+            if _v != st.session_state.margen:
+                st.session_state.margen = _v
                 st.rerun()
         except (ValueError, TypeError):
             pass
+
+else:
+    components.html("""<script>
+(function(){
+  var doc=window.parent.document;
+  ['fab-margen-wrapper','fab-margen-popup','fab-margen-style'].forEach(function(id){
+    var el=doc.getElementById(id);if(el)el.remove();
+  });
+})();
+</script>""", height=0)
