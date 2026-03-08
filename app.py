@@ -875,27 +875,7 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
-    /* ══ Tabla de presupuesto con estilo flotante ══ */
-    [data-testid="stDataFrame"],
-    [data-testid="stDataEditor"] {
-        background: #ffffff !important;
-        border-radius: 16px !important;
-        border: 1px solid rgba(91,124,250,0.15) !important;
-        box-shadow: 0 4px 20px rgba(91, 124, 250, 0.08), 0 1px 6px rgba(0,0,0,0.06) !important;
-        padding: 0.5rem !important;
-        transition: box-shadow 0.25s ease, transform 0.25s ease !important;
-        overflow: hidden !important;
-    }
-    [data-testid="stDataFrame"]:hover,
-    [data-testid="stDataEditor"]:hover {
-        box-shadow: 0 8px 32px rgba(91, 124, 250, 0.16), 0 2px 10px rgba(0,0,0,0.08) !important;
-        transform: translateY(-2px) !important;
-    }
-    [data-testid="stDataFrame"] iframe,
-    [data-testid="stDataEditor"] iframe {
-        border-radius: 10px !important;
-        border: none !important;
-    }
+
 
     /* ══ Sombra flotante para containers con borde ══ */
     [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"] {
@@ -2242,12 +2222,27 @@ with tab1:
         total_comisiones = comision_vendedor + comision_supervisor
         utilidad_real = margen_valor - total_comisiones if st.session_state.modo_admin else 0
 
+        # ── Buscador + botón pantalla completa ──
+        col_search, col_fs = st.columns([5, 1])
+        with col_search:
+            buscar_tabla = st.text_input("🔍 Buscar en presupuesto...", placeholder="Filtrar por categoría o ítem...", key="buscar_tabla_presupuesto", label_visibility="collapsed")
+        with col_fs:
+            pantalla_completa = st.checkbox("⛶ Ver completo", key="tabla_fullscreen", value=st.session_state.get("tabla_fullscreen_val", False))
+            st.session_state.tabla_fullscreen_val = pantalla_completa
+
+        altura_tabla = 600 if pantalla_completa else min(35 * len(carrito_df_con_margen) + 80, 420)
+
         if es_solo_lectura:
             carrito_df_display = carrito_df_con_margen[["Categoria", "Item", "Cantidad", "Precio Unitario", "Subtotal"]].copy()
             carrito_df_display["Precio Unitario"] = carrito_df_display["Precio Unitario"].apply(formato_clp)
             carrito_df_display["Subtotal"] = carrito_df_display["Subtotal"].apply(formato_clp)
-            altura = min(35 * len(carrito_df_display) + 80, 500)
-            st.dataframe(carrito_df_display, use_container_width=True, hide_index=True, height=altura,
+            if buscar_tabla:
+                mask = (
+                    carrito_df_display["Categoria"].str.contains(buscar_tabla, case=False, na=False) |
+                    carrito_df_display["Item"].str.contains(buscar_tabla, case=False, na=False)
+                )
+                carrito_df_display = carrito_df_display[mask]
+            st.dataframe(carrito_df_display, use_container_width=True, hide_index=True, height=altura_tabla,
                 column_config={"Categoria": st.column_config.TextColumn("Categoría"), "Item": st.column_config.TextColumn("Item"),
                                "Cantidad": st.column_config.NumberColumn("Cant."), "Precio Unitario": st.column_config.TextColumn("P. Unitario"),
                                "Subtotal": st.column_config.TextColumn("Subtotal")})
@@ -2257,14 +2252,22 @@ with tab1:
             carrito_df_edit["❌"] = False
             carrito_df_edit["Precio Unitario"] = carrito_df_edit["Precio Unitario"].apply(formato_clp)
             carrito_df_edit["Subtotal"] = carrito_df_edit["Subtotal"].apply(formato_clp)
-            altura = min(35 * len(carrito_df_edit) + 80, 500)
-            edited_df = st.data_editor(carrito_df_edit, use_container_width=True, hide_index=True, height=altura,
+            if buscar_tabla:
+                mask = (
+                    carrito_df_edit["Categoria"].str.contains(buscar_tabla, case=False, na=False) |
+                    carrito_df_edit["Item"].str.contains(buscar_tabla, case=False, na=False)
+                )
+                carrito_df_edit_filtrado = carrito_df_edit[mask].copy()
+            else:
+                carrito_df_edit_filtrado = carrito_df_edit
+            edited_df = st.data_editor(carrito_df_edit_filtrado, use_container_width=True, hide_index=True, height=altura_tabla,
                 column_config={"❌": st.column_config.CheckboxColumn("❌"), "Categoria": st.column_config.TextColumn("Categoría"),
                                "Item": st.column_config.TextColumn("Item"), "Cantidad": st.column_config.NumberColumn("Cant."),
                                "Precio Unitario": st.column_config.TextColumn("P. Unitario"), "Subtotal": st.column_config.TextColumn("Subtotal")})
             filas_eliminar = edited_df[edited_df["❌"] == True].index.tolist()
             if filas_eliminar:
-                for i in sorted(filas_eliminar, reverse=True):
+                indices_reales = carrito_df_edit_filtrado.iloc[filas_eliminar].index.tolist()
+                for i in sorted(indices_reales, reverse=True):
                     del st.session_state.carrito[i]
                 st.rerun()
         st.markdown("---")
