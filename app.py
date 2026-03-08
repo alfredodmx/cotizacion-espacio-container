@@ -1612,7 +1612,7 @@ if st.session_state.cotizacion_cargada:
 # =========================================================
 # TABS
 # =========================================================
-tab1, tab2, tab3 = st.tabs(["📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES"])
+tab1, tab2, tab3, tab4 = st.tabs(["📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "🧊 3D BETA"])
 
 # =========================================================
 # FUNCIÓN PARA GENERAR PDF COMPLETO
@@ -3114,6 +3114,335 @@ else:
     })();
     </script>
     """, height=0)
+
+# =========================================================
+# TAB 4 - 3D BETA
+# =========================================================
+with tab4:
+    st.markdown("### 🧊 Visor 3D Beta")
+    st.caption("Selecciona un presupuesto con plano adjunto para generar su prototipo 3D interactivo.")
+
+    # Obtener presupuestos con plano
+    try:
+        _resp_3d = supabase.table('cotizaciones').select(
+            'numero', 'cliente_nombre', 'plano_url', 'plano_nombre'
+        ).not_.is_('plano_url', 'null').order('fecha_creacion', desc=True).execute()
+        _opciones_3d = _resp_3d.data or []
+    except:
+        _opciones_3d = []
+
+    if not _opciones_3d:
+        st.info("No hay presupuestos con plano adjunto disponibles.")
+    else:
+        _labels_3d = [
+            f"{r['numero']} — {r['cliente_nombre'] or 'S/C'} — {r['plano_nombre'] or 'plano.pdf'}"
+            for r in _opciones_3d
+        ]
+        _sel_3d = st.selectbox("Selecciona presupuesto con plano:", _labels_3d, key="sel_3d_presupuesto")
+        _idx_3d = _labels_3d.index(_sel_3d)
+        _plano_url_3d = _opciones_3d[_idx_3d]['plano_url']
+
+        st.markdown(f"📎 **Plano:** `{_opciones_3d[_idx_3d]['plano_nombre'] or 'plano.pdf'}`")
+
+        _visor_html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * {{ margin:0; padding:0; box-sizing:border-box; }}
+  body {{ background:#1a1a2e; font-family: 'Segoe UI', sans-serif; overflow:hidden; }}
+  #container {{ width:100%; height:580px; position:relative; }}
+  #canvas3d {{ width:100%; height:100%; display:block; }}
+  #controls {{
+    position:absolute; top:12px; left:12px; z-index:10;
+    display:flex; gap:8px; flex-wrap:wrap;
+  }}
+  .btn {{
+    background:rgba(255,255,255,0.12); color:white; border:1px solid rgba(255,255,255,0.25);
+    padding:6px 14px; border-radius:20px; cursor:pointer; font-size:12px; font-weight:600;
+    transition:all 0.2s; backdrop-filter:blur(8px);
+  }}
+  .btn:hover {{ background:rgba(91,124,250,0.6); border-color:#5b7cfa; }}
+  .btn.active {{ background:rgba(91,124,250,0.8); border-color:#5b7cfa; }}
+  #info {{
+    position:absolute; bottom:12px; left:50%; transform:translateX(-50%);
+    color:rgba(255,255,255,0.5); font-size:11px; text-align:center;
+    background:rgba(0,0,0,0.4); padding:6px 16px; border-radius:20px;
+    backdrop-filter:blur(8px);
+  }}
+  #loading {{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    color:white; text-align:center; z-index:20;
+  }}
+  .spinner {{
+    width:48px; height:48px; border:4px solid rgba(255,255,255,0.2);
+    border-top-color:#5b7cfa; border-radius:50%;
+    animation:spin 0.8s linear infinite; margin:0 auto 12px;
+  }}
+  @keyframes spin {{ to {{ transform:rotate(360deg); }} }}
+  #error {{ display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    color:#ff6b6b; text-align:center; z-index:20; max-width:400px; }}
+</style>
+</head>
+<body>
+<div id="container">
+  <canvas id="canvas3d"></canvas>
+  <div id="controls">
+    <button class="btn active" onclick="setView('orbit')">🖱️ Orbitar</button>
+    <button class="btn" onclick="resetCamera()">🎯 Reset</button>
+    <button class="btn" onclick="toggleWalls()">🏠 Paredes</button>
+    <button class="btn" onclick="toggleFloor()">📐 Plano</button>
+    <button class="btn" onclick="setView('top')">⬆️ Top</button>
+    <button class="btn" onclick="setView('front')">➡️ Frontal</button>
+  </div>
+  <div id="loading"><div class="spinner"></div><div>Procesando plano...</div></div>
+  <div id="error">❌ No se pudo procesar el plano. Verifica que sea un PDF de planta arquitectónica.</div>
+  <div id="info">🖱️ Click+arrastrar: rotar &nbsp;|&nbsp; Scroll: zoom &nbsp;|&nbsp; Click derecho: mover</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+<script>
+// ── PDF.js worker ──
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+const PLANO_URL = "{_plano_url_3d}";
+const PROXY_URL = "https://api.allorigins.win/raw?url=" + encodeURIComponent(PLANO_URL);
+
+// ── Three.js setup ──
+const canvas = document.getElementById('canvas3d');
+const renderer = new THREE.WebGLRenderer({{ canvas, antialias:true, alpha:true }});
+renderer.setSize(canvas.parentElement.offsetWidth, 580);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1a2e);
+scene.fog = new THREE.Fog(0x1a1a2e, 30, 80);
+
+const camera = new THREE.PerspectiveCamera(45, canvas.parentElement.offsetWidth/580, 0.1, 200);
+camera.position.set(0, 18, 22);
+camera.lookAt(0, 0, 0);
+
+// ── Lights ──
+const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+scene.add(ambient);
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+dirLight.position.set(10, 20, 10);
+dirLight.castShadow = true;
+scene.add(dirLight);
+const fillLight = new THREE.DirectionalLight(0x8b9cf7, 0.3);
+fillLight.position.set(-10, 5, -10);
+scene.add(fillLight);
+
+// ── Grid ──
+const grid = new THREE.GridHelper(40, 40, 0x2a2a4a, 0x2a2a4a);
+scene.add(grid);
+
+// ── Groups ──
+const wallGroup = new THREE.Group();
+const floorGroup = new THREE.Group();
+scene.add(wallGroup);
+scene.add(floorGroup);
+
+// ── Orbit Controls manual ──
+let isDragging = false, isRightDrag = false;
+let lastX = 0, lastY = 0;
+let spherical = {{ theta: 0.5, phi: 1.0, radius: 28 }};
+let target = new THREE.Vector3(0, 0, 0);
+let showWalls = true, showFloor = true;
+
+canvas.addEventListener('mousedown', e => {{
+  isDragging = true;
+  isRightDrag = e.button === 2;
+  lastX = e.clientX; lastY = e.clientY;
+}});
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+window.addEventListener('mouseup', () => isDragging = false);
+window.addEventListener('mousemove', e => {{
+  if (!isDragging) return;
+  const dx = e.clientX - lastX, dy = e.clientY - lastY;
+  lastX = e.clientX; lastY = e.clientY;
+  if (isRightDrag) {{
+    const pan = 0.02;
+    const right = new THREE.Vector3().crossVectors(
+      new THREE.Vector3().subVectors(camera.position, target).normalize(),
+      camera.up
+    ).normalize();
+    target.addScaledVector(right, -dx * pan);
+    target.y += dy * pan;
+  }} else {{
+    spherical.theta -= dx * 0.008;
+    spherical.phi = Math.max(0.1, Math.min(Math.PI/2.1, spherical.phi + dy * 0.008));
+  }}
+  updateCamera();
+}});
+canvas.addEventListener('wheel', e => {{
+  spherical.radius = Math.max(5, Math.min(60, spherical.radius + e.deltaY * 0.04));
+  updateCamera();
+}});
+
+function updateCamera() {{
+  camera.position.set(
+    target.x + spherical.radius * Math.sin(spherical.phi) * Math.sin(spherical.theta),
+    target.y + spherical.radius * Math.cos(spherical.phi),
+    target.z + spherical.radius * Math.sin(spherical.phi) * Math.cos(spherical.theta)
+  );
+  camera.lookAt(target);
+}}
+
+function resetCamera() {{
+  spherical = {{ theta: 0.5, phi: 1.0, radius: 28 }};
+  target.set(0,0,0);
+  updateCamera();
+}}
+
+function setView(v) {{
+  if (v === 'top') {{ spherical.phi = 0.05; updateCamera(); }}
+  else if (v === 'front') {{ spherical.phi = Math.PI/2.05; spherical.theta = 0; updateCamera(); }}
+}}
+
+function toggleWalls() {{
+  showWalls = !showWalls;
+  wallGroup.visible = showWalls;
+}}
+
+function toggleFloor() {{
+  showFloor = !showFloor;
+  floorGroup.visible = showFloor;
+}}
+
+// ── Animate ──
+function animate() {{
+  requestAnimationFrame(animate);
+  renderer.render(scene, camera);
+}}
+animate();
+
+// ── Cargar PDF y procesar ──
+async function loadAndProcess() {{
+  try {{
+    // Fetch PDF via proxy
+    const resp = await fetch(PROXY_URL);
+    if (!resp.ok) throw new Error('No se pudo descargar el plano');
+    const arrayBuffer = await resp.arrayBuffer();
+
+    // Render PDF página 1 en canvas offscreen
+    const pdf = await pdfjsLib.getDocument({{ data: arrayBuffer }}).promise;
+    const page = await pdf.getPage(1);
+    const scale = 2.5;
+    const viewport = page.getViewport({{ scale }});
+
+    const offCanvas = document.createElement('canvas');
+    offCanvas.width = viewport.width;
+    offCanvas.height = viewport.height;
+    const ctx = offCanvas.getContext('2d');
+    await page.render({{ canvasContext: ctx, viewport }}).promise;
+
+    // Obtener imagen
+    const imgData = ctx.getImageData(0, 0, offCanvas.width, offCanvas.height);
+
+    // ── Plano texturizado en 3D (floor) ──
+    const tex = new THREE.CanvasTexture(offCanvas);
+    const aspect = offCanvas.width / offCanvas.height;
+    const W = 18, H = W / aspect;
+    const floorGeo = new THREE.PlaneGeometry(W, H);
+    const floorMat = new THREE.MeshLambertMaterial({{ map: tex, side: THREE.DoubleSide }});
+    const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+    floorMesh.rotation.x = -Math.PI / 2;
+    floorMesh.receiveShadow = true;
+    floorGroup.add(floorMesh);
+
+    // ── Detección de paredes por píxeles oscuros ──
+    detectAndBuildWalls(imgData, offCanvas.width, offCanvas.height, W, H);
+
+    document.getElementById('loading').style.display = 'none';
+
+  }} catch(err) {{
+    console.error(err);
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error').style.display = 'block';
+    document.getElementById('error').textContent = '⚠️ ' + err.message;
+  }}
+}}
+
+function detectAndBuildWalls(imgData, iw, ih, W, H) {{
+  const data = imgData.data;
+  const wallH = 1.8;
+  const wallMat = new THREE.MeshLambertMaterial({{ color: 0xc8d0f0, side: THREE.DoubleSide }});
+  const darkThresh = 80;
+  const sampleStep = 8; // cada N píxeles
+
+  // Detectar segmentos de línea horizontales y verticales
+  const segments = [];
+
+  // Horizontal scan
+  for (let y = 0; y < ih; y += sampleStep) {{
+    let inWall = false, startX = 0;
+    for (let x = 0; x < iw; x += sampleStep) {{
+      const i = (y * iw + x) * 4;
+      const dark = data[i] < darkThresh && data[i+1] < darkThresh && data[i+2] < darkThresh;
+      if (dark && !inWall) {{ inWall = true; startX = x; }}
+      else if (!dark && inWall) {{
+        inWall = false;
+        const len = (x - startX) / iw * W;
+        if (len > 0.3 && len < W * 0.9) {{
+          const mx = ((startX + x) / 2 / iw - 0.5) * W;
+          const my = (y / ih - 0.5) * H;
+          segments.push({{ type:'h', cx:mx, cy:-my, len, angle:0 }});
+        }}
+      }}
+    }}
+  }}
+
+  // Vertical scan
+  for (let x = 0; x < iw; x += sampleStep) {{
+    let inWall = false, startY = 0;
+    for (let y = 0; y < ih; y += sampleStep) {{
+      const i = (y * iw + x) * 4;
+      const dark = data[i] < darkThresh && data[i+1] < darkThresh && data[i+2] < darkThresh;
+      if (dark && !inWall) {{ inWall = true; startY = y; }}
+      else if (!dark && inWall) {{
+        inWall = false;
+        const len = (y - startY) / ih * H;
+        if (len > 0.3 && len < H * 0.9) {{
+          const mx = (x / iw - 0.5) * W;
+          const my = ((startY + y) / 2 / ih - 0.5) * H;
+          segments.push({{ type:'v', cx:mx, cy:-my, len, angle:Math.PI/2 }});
+        }}
+      }}
+    }}
+  }}
+
+  // Limitar segmentos y crear geometría
+  const maxSeg = 400;
+  const step = Math.max(1, Math.floor(segments.length / maxSeg));
+  for (let i = 0; i < segments.length; i += step) {{
+    const s = segments[i];
+    const thickness = 0.12;
+    const geo = new THREE.BoxGeometry(
+      s.type === 'h' ? s.len : thickness,
+      wallH,
+      s.type === 'v' ? s.len : thickness
+    );
+    const mesh = new THREE.Mesh(geo, wallMat);
+    mesh.position.set(s.cx, wallH / 2, s.cy);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    wallGroup.add(mesh);
+  }}
+}}
+
+loadAndProcess();
+</script>
+</body>
+</html>
+"""
+        import streamlit.components.v1 as _components
+        _components.html(_visor_html, height=600, scrolling=False)
+
+        st.caption("⚠️ Beta: La detección de paredes es automática y puede variar según la calidad del plano.")
 
 # =========================================================
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
