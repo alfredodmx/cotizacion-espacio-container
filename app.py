@@ -2477,15 +2477,17 @@ with tab3:
 
     col_busqueda, col_filtros = st.columns([3, 1])
     with col_busqueda:
-        tipo_busqueda = st.radio("Buscar por:", ["📋 N° Presupuesto", "👤 Cliente", "👨‍💼 Asesor"], horizontal=True, key="tipo_busqueda")
-        tipo_map = {"📋 N° Presupuesto": "numero", "👤 Cliente": "cliente", "👨‍💼 Asesor": "asesor"}
-        termino = st.text_input("Buscar...", placeholder="Ingrese término de búsqueda...", key="buscar_cotizacion")
+        with st.container(border=True):
+            tipo_busqueda = st.radio("Buscar por:", ["📋 N° Presupuesto", "👤 Cliente", "👨‍💼 Asesor"], horizontal=True, key="tipo_busqueda")
+            tipo_map = {"📋 N° Presupuesto": "numero", "👤 Cliente": "cliente", "👨‍💼 Asesor": "asesor"}
+            termino = st.text_input("Buscar...", placeholder="Ingrese término de búsqueda...", key="buscar_cotizacion")
 
     with col_filtros:
-        st.markdown("### Filtros rápidos")
-        st.button("📅 Hoy", use_container_width=True)
-        st.button("📅 Esta semana", use_container_width=True)
-        st.button("📅 Este mes", use_container_width=True)
+        with st.container(border=True):
+            st.markdown("**📅 Filtros rápidos**")
+            st.button("📅 Hoy", use_container_width=True)
+            st.button("📅 Esta semana", use_container_width=True)
+            st.button("📅 Este mes", use_container_width=True)
 
     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 4])
     with col_btn1:
