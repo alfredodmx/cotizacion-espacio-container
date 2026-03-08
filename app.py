@@ -875,6 +875,18 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
+    /* ══ Tabla de presupuesto (dataframe/data_editor) ══ */
+    [data-testid="stDataFrame"] iframe,
+    [data-testid="stDataEditor"] iframe {
+        border-radius: 10px !important;
+        border: none !important;
+    }
+    [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stDataFrame"],
+    [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stDataEditor"] {
+        border-radius: 10px !important;
+        overflow: hidden !important;
+    }
+
     /* ══ Sombra flotante para containers con borde ══ */
     [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"] {
         box-shadow: 0 4px 20px rgba(91, 124, 250, 0.08), 0 1px 6px rgba(0,0,0,0.06) !important;
@@ -2220,30 +2232,30 @@ with tab1:
         total_comisiones = comision_vendedor + comision_supervisor
         utilidad_real = margen_valor - total_comisiones if st.session_state.modo_admin else 0
 
-        if es_solo_lectura:
-            carrito_df_display = carrito_df_con_margen[["Categoria", "Item", "Cantidad", "Precio Unitario", "Subtotal"]].copy()
-            carrito_df_display["Precio Unitario"] = carrito_df_display["Precio Unitario"].apply(formato_clp)
-            carrito_df_display["Subtotal"] = carrito_df_display["Subtotal"].apply(formato_clp)
-            st.dataframe(carrito_df_display, use_container_width=True, hide_index=True,
-                column_config={"Categoria": st.column_config.TextColumn("Categoría"), "Item": st.column_config.TextColumn("Item"),
-                               "Cantidad": st.column_config.NumberColumn("Cant."), "Precio Unitario": st.column_config.TextColumn("P. Unitario"),
-                               "Subtotal": st.column_config.TextColumn("Subtotal")})
-            st.caption("🔒 Vista de solo lectura")
-        else:
-            carrito_df_edit = carrito_df_con_margen.copy()
-            carrito_df_edit["❌"] = False
-            carrito_df_edit["Precio Unitario"] = carrito_df_edit["Precio Unitario"].apply(formato_clp)
-            carrito_df_edit["Subtotal"] = carrito_df_edit["Subtotal"].apply(formato_clp)
-            edited_df = st.data_editor(carrito_df_edit, use_container_width=True, hide_index=True,
-                column_config={"❌": st.column_config.CheckboxColumn("❌"), "Categoria": st.column_config.TextColumn("Categoría"),
-                               "Item": st.column_config.TextColumn("Item"), "Cantidad": st.column_config.NumberColumn("Cant."),
-                               "Precio Unitario": st.column_config.TextColumn("P. Unitario"), "Subtotal": st.column_config.TextColumn("Subtotal")})
-            filas_eliminar = edited_df[edited_df["❌"] == True].index.tolist()
-            if filas_eliminar:
-                for i in sorted(filas_eliminar, reverse=True):
-                    del st.session_state.carrito[i]
-                st.rerun()
-
+        with st.container(border=True):
+            if es_solo_lectura:
+                carrito_df_display = carrito_df_con_margen[["Categoria", "Item", "Cantidad", "Precio Unitario", "Subtotal"]].copy()
+                carrito_df_display["Precio Unitario"] = carrito_df_display["Precio Unitario"].apply(formato_clp)
+                carrito_df_display["Subtotal"] = carrito_df_display["Subtotal"].apply(formato_clp)
+                st.dataframe(carrito_df_display, use_container_width=True, hide_index=True,
+                    column_config={"Categoria": st.column_config.TextColumn("Categoría"), "Item": st.column_config.TextColumn("Item"),
+                                   "Cantidad": st.column_config.NumberColumn("Cant."), "Precio Unitario": st.column_config.TextColumn("P. Unitario"),
+                                   "Subtotal": st.column_config.TextColumn("Subtotal")})
+                st.caption("🔒 Vista de solo lectura")
+            else:
+                carrito_df_edit = carrito_df_con_margen.copy()
+                carrito_df_edit["❌"] = False
+                carrito_df_edit["Precio Unitario"] = carrito_df_edit["Precio Unitario"].apply(formato_clp)
+                carrito_df_edit["Subtotal"] = carrito_df_edit["Subtotal"].apply(formato_clp)
+                edited_df = st.data_editor(carrito_df_edit, use_container_width=True, hide_index=True,
+                    column_config={"❌": st.column_config.CheckboxColumn("❌"), "Categoria": st.column_config.TextColumn("Categoría"),
+                                   "Item": st.column_config.TextColumn("Item"), "Cantidad": st.column_config.NumberColumn("Cant."),
+                                   "Precio Unitario": st.column_config.TextColumn("P. Unitario"), "Subtotal": st.column_config.TextColumn("Subtotal")})
+                filas_eliminar = edited_df[edited_df["❌"] == True].index.tolist()
+                if filas_eliminar:
+                    for i in sorted(filas_eliminar, reverse=True):
+                        del st.session_state.carrito[i]
+                    st.rerun()
         st.markdown("---")
         # Solo botón Limpiar
         col_btn_limpiar, _, _, _ = st.columns(4)
