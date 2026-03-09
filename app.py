@@ -3749,46 +3749,34 @@ if st.session_state.modo_admin and tab5 is not None:
         <style>
         .excel-header {
             background: linear-gradient(135deg, #1e3a5f 0%, #2d6a4f 100%);
-            border-radius: 14px; padding: 20px 24px; margin-bottom: 20px;
-            display: flex; align-items: center; gap: 14px;
+            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
+            display: flex; align-items: center; gap: 16px;
         }
-        .excel-header h2 { color: white; margin: 0; font-size: 1.4rem; }
-        .excel-header p  { color: rgba(255,255,255,0.7); margin: 4px 0 0; font-size: 0.85rem; }
-        .version-card {
+        .excel-header h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
+        .excel-header p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
+        div[data-testid="stFileUploader"],
+        div[data-testid="stTextInput"],
+        div[data-testid="stButton"] { margin-bottom: 4px; }
+        .tab5-section {
             background: white; border: 1px solid #e5e7eb;
-            border-radius: 12px; padding: 16px 20px; margin-bottom: 10px;
-            display: flex; align-items: center; gap: 12px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-            transition: all .2s;
+            border-radius: 14px; padding: 22px 24px; margin-bottom: 18px;
         }
-        .version-card.activa {
+        .version-row {
+            background: white; border: 1px solid #e5e7eb;
+            border-radius: 10px; padding: 14px 16px; margin-bottom: 8px;
+        }
+        .version-row.activa {
             border: 2px solid #10b981;
-            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
-            box-shadow: 0 2px 12px rgba(16,185,129,0.15);
-        }
-        .badge-activa {
-            background: #10b981; color: white;
-            padding: 4px 12px; border-radius: 20px;
-            font-size: 11px; font-weight: 700; letter-spacing: .5px;
-        }
-        .badge-inactiva {
-            background: #f3f4f6; color: #6b7280;
-            padding: 4px 12px; border-radius: 20px;
-            font-size: 11px; font-weight: 600;
-        }
-        .upload-zone {
-            background: #f8fafc; border: 2px dashed #cbd5e1;
-            border-radius: 12px; padding: 20px 24px; margin-bottom: 16px;
+            background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
         }
         .status-bar-green {
-            background: linear-gradient(90deg, rgba(16,185,129,0.12), rgba(16,185,129,0.05));
+            background: linear-gradient(90deg,rgba(16,185,129,0.12),rgba(16,185,129,0.03));
             border: 1px solid #10b981; border-radius: 10px;
-            padding: 12px 18px; margin-top: 16px;
-            display: flex; align-items: center; gap: 10px;
+            padding: 14px 20px; margin-top: 16px;
         }
         .status-bar-warn {
             background: rgba(245,158,11,0.08); border: 1px solid #f59e0b;
-            border-radius: 10px; padding: 12px 18px; margin-top: 16px;
+            border-radius: 10px; padding: 14px 20px; margin-top: 16px;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -3796,7 +3784,7 @@ if st.session_state.modo_admin and tab5 is not None:
         # Header
         st.markdown("""
         <div class="excel-header">
-          <span style="font-size:2.2rem">📊</span>
+          <span style="font-size:2.4rem">📊</span>
           <div>
             <h2>Proyecto Excel — Control de Versiones</h2>
             <p>Sube nuevas versiones del cotizador.xlsx y activa la que necesites. El sistema se actualiza al instante.</p>
@@ -3809,8 +3797,11 @@ if st.session_state.modo_admin and tab5 is not None:
         if "excel_upload_key" not in st.session_state:
             st.session_state.excel_upload_key = 0
 
+        st.markdown('<div style="padding: 0 8px;">', unsafe_allow_html=True)
+
         with st.container():
             st.markdown("##### ⬆️ Subir nueva versión")
+            st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
             _col_up1, _col_up2 = st.columns([3, 2])
             with _col_up1:
                 _excel_file = st.file_uploader(
@@ -3820,6 +3811,7 @@ if st.session_state.modo_admin and tab5 is not None:
                     label_visibility="collapsed"
                 )
             with _col_up2:
+                st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
                 _version_nombre = st.text_input(
                     "Nombre de versión",
                     placeholder="Ej: v2.1 — Abril 2025",
@@ -3829,6 +3821,7 @@ if st.session_state.modo_admin and tab5 is not None:
                 st.caption("📝 Nombre de la versión")
 
             if _excel_file and _version_nombre:
+                st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
                 _col_sb, _col_info = st.columns([1, 3])
                 with _col_sb:
                     _btn_subir = st.button("📤 Subir versión", key="btn_subir_excel",
@@ -3871,6 +3864,7 @@ if st.session_state.modo_admin and tab5 is not None:
 
         # ── Lista de versiones ───────────────────────────────
         st.markdown("##### 📋 Versiones disponibles")
+        st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
         try:
             _versiones = supabase.table("excel_versiones").select("*").order("fecha_subida", desc=True).execute().data or []
         except:
@@ -3882,24 +3876,23 @@ if st.session_state.modo_admin and tab5 is not None:
             for _v in _versiones:
                 _es_activa = _v.get("activa", False)
                 _fecha = str(_v.get("fecha_subida",""))[:16].replace("T"," ")
-                _card_class = "version-card activa" if _es_activa else "version-card"
 
                 _cv1, _cv2, _cv3, _cv4 = st.columns([3, 2.5, 1.5, 0.6])
 
                 with _cv1:
                     if _es_activa:
                         st.markdown(
-                            f'<div style="display:flex;align-items:center;gap:10px;">'
+                            f'<div style="display:flex;align-items:center;gap:10px;padding:4px 0;">'
                             f'<span style="font-size:1.5rem">🟢</span>'
-                            f'<div><div style="font-size:1.1rem;font-weight:700;color:#065f46;">{_v["version_nombre"]}</div>'
+                            f'<div><div style="font-size:1.05rem;font-weight:700;color:#065f46;">{_v["version_nombre"]}</div>'
                             f'<div style="font-size:0.75rem;color:#10b981;font-weight:600;">✅ VERSIÓN ACTIVA</div></div>'
                             f'</div>',
                             unsafe_allow_html=True
                         )
                     else:
                         st.markdown(
-                            f'<div style="display:flex;align-items:center;gap:10px;">'
-                            f'<span style="font-size:1.3rem;opacity:.4;">⚪</span>'
+                            f'<div style="display:flex;align-items:center;gap:10px;padding:4px 0;">'
+                            f'<span style="font-size:1.2rem;opacity:.35;">⚪</span>'
                             f'<div><div style="font-size:1rem;font-weight:600;color:#374151;">{_v["version_nombre"]}</div>'
                             f'<div style="font-size:0.75rem;color:#9ca3af;">🗓 {_fecha}</div></div>'
                             f'</div>',
@@ -3907,10 +3900,12 @@ if st.session_state.modo_admin and tab5 is not None:
                         )
 
                 with _cv2:
+                    st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
                     st.caption(f"📁 `{_v.get('archivo_nombre','')}`")
                     st.caption(f"🗓 {_fecha} &nbsp;·&nbsp; 👤 {_v.get('subida_por','admin')}")
 
                 with _cv3:
+                    st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
                     if not _es_activa:
                         if st.button("⚡ Activar", key=f"btn_act_{_v['id']}",
                                      use_container_width=True, type="primary"):
@@ -3925,13 +3920,14 @@ if st.session_state.modo_admin and tab5 is not None:
                                     st.error(f"❌ {_e}")
                     else:
                         st.markdown(
-                            '<div style="background:#10b981;color:white;padding:7px 0;'
+                            '<div style="background:#10b981;color:white;padding:8px 0;'
                             'border-radius:8px;text-align:center;font-size:12px;font-weight:700;">'
                             '🟢 ACTIVA</div>',
                             unsafe_allow_html=True
                         )
 
                 with _cv4:
+                    st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
                     if not _es_activa:
                         if st.button("🗑️", key=f"btn_del_{_v['id']}", help="Eliminar esta versión"):
                             try:
@@ -3941,7 +3937,7 @@ if st.session_state.modo_admin and tab5 is not None:
                             except Exception as _e:
                                 st.error(f"❌ {_e}")
 
-                st.markdown('<hr style="border:none;border-top:1px solid #f0f0f0;margin:6px 0;">', unsafe_allow_html=True)
+                st.markdown('<hr style="border:none;border-top:1px solid #f0f0f0;margin:8px 0 12px;">', unsafe_allow_html=True)
 
         # ── Barra de estado ──────────────────────────────────
         _activa_info = next((_v for _v in _versiones if _v.get("activa")), None)
@@ -3966,6 +3962,8 @@ if st.session_state.modo_admin and tab5 is not None:
                 '<code>cotizador.xlsx</code> de GitHub.</div>',
                 unsafe_allow_html=True
             )
+
+        st.markdown('</div>', unsafe_allow_html=True)  # cierre padding
 
 
 # =========================================================
