@@ -1094,10 +1094,19 @@ st.markdown("""
 
     /* ══ TABS ══ */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 0 !important; border-bottom: none !important;
-        padding: 0 !important; margin-bottom: 1.5rem !important;
+        gap: 0 !important; border-bottom: 2px solid #e2e6f3 !important;
+        padding: 0 !important; margin-bottom: 0 !important;
         background: transparent !important;
     }
+    .stTabs [data-baseweb="tab-panel"] {
+        padding-top: 1.5rem !important;
+        border-top: none !important;
+    }
+    .stTabs > div > div:nth-child(2) {
+        border-top: none !important;
+        box-shadow: none !important;
+    }
+    hr { display: none !important; }
     .stTabs [data-baseweb="tab"] {
         font-family: 'Plus Jakarta Sans', sans-serif !important;
         font-size: 0.88rem !important; font-weight: 600 !important;
