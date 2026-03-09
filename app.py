@@ -1963,7 +1963,17 @@ if st.session_state.get('trigger_cerrar_cotizacion', False):
 # TAB 2 - DATOS CLIENTE
 # =========================================================
 with tab2:
-    st.markdown("### 👤 Datos del Cliente")
+    st.markdown(f"""
+    <div style="background:linear-gradient(135deg,#1e3a5f 0%,#2d6a4f 100%);
+    border-radius:14px;padding:24px 28px;margin-bottom:24px;
+    display:flex;align-items:center;gap:16px;">
+      <span style="font-size:2.4rem">👤</span>
+      <div>
+        <div style="color:#ffffff;font-size:1.4rem;font-weight:700;margin:0;">Datos del Cliente</div>
+        <div style="color:rgba(255,255,255,0.75);font-size:0.87rem;margin-top:5px;">Completa la información del cliente y del proyecto antes de guardar.</div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     es_solo_lectura = bool(
         st.session_state.cotizacion_cargada and
@@ -2160,7 +2170,17 @@ with tab2:
 # TAB 1 - PREPARAR COTIZACIÓN
 # =========================================================
 with tab1:
-    st.markdown("### ☑️ Gestión de Presupuesto")
+    st.markdown(f"""
+    <div style="background:linear-gradient(135deg,#1e3a5f 0%,#2d6a4f 100%);
+    border-radius:14px;padding:24px 28px;margin-bottom:24px;
+    display:flex;align-items:center;gap:16px;">
+      <span style="font-size:2.4rem">☑️</span>
+      <div>
+        <div style="color:#ffffff;font-size:1.4rem;font-weight:700;margin:0;">Gestión de Presupuesto</div>
+        <div style="color:rgba(255,255,255,0.75);font-size:0.87rem;margin-top:5px;">Agrega productos, aplica márgenes y genera tu cotización en PDF.</div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     fecha_inicio = st.session_state.fecha_inicio
     fecha_termino = st.session_state.fecha_termino
@@ -2547,7 +2567,17 @@ with tab1:
 # TAB 3 - GESTIÓN DE COTIZACIONES GUARDADAS
 # =========================================================
 with tab3:
-    st.markdown("### 📂 Gestión de Cotizaciones")
+    st.markdown(f"""
+    <div style="background:linear-gradient(135deg,#1e3a5f 0%,#2d6a4f 100%);
+    border-radius:14px;padding:24px 28px;margin-bottom:24px;
+    display:flex;align-items:center;gap:16px;">
+      <span style="font-size:2.4rem">📂</span>
+      <div>
+        <div style="color:#ffffff;font-size:1.4rem;font-weight:700;margin:0;">Gestión de Cotizaciones</div>
+        <div style="color:rgba(255,255,255,0.75);font-size:0.87rem;margin-top:5px;">Busca, carga y administra todas las cotizaciones del sistema.</div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     col_busqueda, col_filtros = st.columns([3, 1])
     with col_busqueda:
@@ -3212,8 +3242,17 @@ Reglas: puertas ~0.9x2.1m (y=1.05), ventanas ~1.2x1.0m (y=1.2). x relativo al ce
     return json.loads(txt), img_b64
 
 with tab4:
-    st.markdown("### 🧊 Visor 3D Beta")
-    st.caption("Selecciona un presupuesto con plano adjunto para generar su prototipo 3D interactivo.")
+    st.markdown(f"""
+    <div style="background:linear-gradient(135deg,#1e3a5f 0%,#2d6a4f 100%);
+    border-radius:14px;padding:24px 28px;margin-bottom:24px;
+    display:flex;align-items:center;gap:16px;">
+      <span style="font-size:2.4rem">🧊</span>
+      <div>
+        <div style="color:#ffffff;font-size:1.4rem;font-weight:700;margin:0;">Visor 3D Beta</div>
+        <div style="color:rgba(255,255,255,0.75);font-size:0.87rem;margin-top:5px;">Selecciona un presupuesto con plano adjunto para generar su prototipo 3D interactivo.</div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     # Obtener presupuestos con plano
     try:
