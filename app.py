@@ -601,11 +601,38 @@ def buscar_direccion(direccion):
         pass
     return None, None
 
+
+# =========================================================
+# HELPER: OBTENER EXCEL ACTIVO DESDE SUPABASE
+# =========================================================
+import io as _io_excel
+
+@st.cache_data(ttl=60)
+def _get_excel_bytes_activo():
+    """Descarga el Excel activo desde Supabase Storage. Cache 60s."""
+    try:
+        _resp = supabase.table('excel_versiones').select('archivo_url').eq('activa', True).limit(1).execute()
+        if _resp.data:
+            _url = _resp.data[0]['archivo_url']
+            import requests as _rq
+            _r = _rq.get(_url, timeout=15)
+            _r.raise_for_status()
+            return _io_excel.BytesIO(_r.content)
+    except:
+        pass
+    return "cotizador.xlsx"  # fallback local
+
+def _excel_src():
+    """Retorna la fuente del Excel (BytesIO desde Supabase o path local)."""
+    if 'excel_bytes_cache' not in st.session_state:
+        st.session_state.excel_bytes_cache = _get_excel_bytes_activo()
+    return st.session_state.excel_bytes_cache
+
 def cargar_modelo(nombre_hoja):
-    df_modelo = pd.read_excel("cotizador.xlsx", sheet_name=nombre_hoja)
+    df_modelo = pd.read_excel(_excel_src(), sheet_name=nombre_hoja)
     df_modelo = df_modelo[["Categorias", "Item", "Cantidad"]].dropna()
     df_modelo = df_modelo[df_modelo["Cantidad"] > 0]
-    df_bd = pd.read_excel("cotizador.xlsx", sheet_name="BD Total")[["Item", "P. Unitario real"]]
+    df_bd = pd.read_excel(_excel_src(), sheet_name="BD Total")[["Item", "P. Unitario real"]]
     df_final = df_modelo.merge(df_bd, on="Item", how="left")
     carrito = []
     for _, row in df_final.iterrows():
@@ -617,10 +644,10 @@ def cargar_modelo(nombre_hoja):
     return carrito
 
 def cargar_categoria_desde_modelo(nombre_hoja, categoria_objetivo):
-    df_modelo = pd.read_excel("cotizador.xlsx", sheet_name=nombre_hoja)
+    df_modelo = pd.read_excel(_excel_src(), sheet_name=nombre_hoja)
     df_modelo = df_modelo[["Categorias", "Item", "Cantidad"]].dropna()
     df_modelo = df_modelo[(df_modelo["Cantidad"] > 0) & (df_modelo["Categorias"] == categoria_objetivo)]
-    df_bd = pd.read_excel("cotizador.xlsx", sheet_name="BD Total")[["Item", "P. Unitario real"]]
+    df_bd = pd.read_excel(_excel_src(), sheet_name="BD Total")[["Item", "P. Unitario real"]]
     df_final = df_modelo.merge(df_bd, on="Item", how="left")
     categoria_items = []
     for _, row in df_final.iterrows():
@@ -1619,7 +1646,11 @@ if st.session_state.cotizacion_cargada:
 # =========================================================
 # TABS
 # =========================================================
-tab1, tab2, tab3, tab4 = st.tabs(["📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "🧊 3D BETA"])
+if st.session_state.modo_admin:
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "🧊 3D BETA", "📊 PROYECTO EXCEL"])
+else:
+    tab1, tab2, tab3, tab4 = st.tabs(["📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "🧊 3D BETA"])
+    tab5 = None
 
 # =========================================================
 # FUNCIÓN PARA GENERAR PDF COMPLETO
@@ -2150,7 +2181,7 @@ with tab1:
         with col_m1:
             with st.container(border=True):
                 st.markdown("**📋 Modelo Predefinido**")
-                archivo_excel = pd.ExcelFile("cotizador.xlsx")
+                archivo_excel = pd.ExcelFile(_excel_src())
                 hojas_modelo = [h for h in archivo_excel.sheet_names if h.lower().startswith("modelo")]
                 if hojas_modelo:
                     modelo_seleccionado = st.selectbox("Modelo", hojas_modelo, key="modelo_select", label_visibility="collapsed")
@@ -2164,7 +2195,7 @@ with tab1:
         with col_m2:
             with st.container(border=True):
                 st.markdown("**🔍 Ítems**")
-                df = pd.read_excel("cotizador.xlsx", sheet_name="BD Total")
+                df = pd.read_excel(_excel_src(), sheet_name="BD Total")
                 categorias = df["Categorias"].dropna().unique()
                 categoria_seleccionada = st.selectbox("Categoría", categorias, key="cat_manual", label_visibility="collapsed")
                 items_filtrados = df[df["Categorias"] == categoria_seleccionada]
@@ -2207,7 +2238,7 @@ with tab1:
                 st.markdown("**➕ Agregar Categoría**")
                 if hojas_modelo:
                     modelo_origen = st.selectbox("Modelo", hojas_modelo, key="modelo_origen", label_visibility="collapsed")
-                    df_temp = pd.read_excel("cotizador.xlsx", sheet_name=modelo_origen)
+                    df_temp = pd.read_excel(_excel_src(), sheet_name=modelo_origen)
                     categorias_disponibles = df_temp["Categorias"].dropna().unique()
                     categoria_agregar = st.selectbox("Categoría", categorias_disponibles, key="cat_agregar", label_visibility="collapsed")
                     if st.button("Agregar", key="btn_agregar_categoria", use_container_width=True):
@@ -3706,6 +3737,154 @@ applyC();
             with _col_dbg1:
                 with st.expander("🔍 Ver JSON detectado por Claude Vision"):
                     st.json(_layout_3d)
+
+# =========================================================
+# TAB 5 - PROYECTO EXCEL (solo admin)
+# =========================================================
+if st.session_state.modo_admin and tab5 is not None:
+    with tab5:
+        st.markdown("### 📊 Proyecto Excel — Control de Versiones")
+        st.caption("Sube una nueva versión del cotizador.xlsx y activa la que necesites.")
+
+        # ── Subir nueva versión ──────────────────────────────
+        with st.container():
+            st.markdown("#### ⬆️ Subir nueva versión")
+            _col_up1, _col_up2 = st.columns([2, 1])
+            with _col_up1:
+                _excel_file = st.file_uploader(
+                    "Selecciona el archivo cotizador.xlsx",
+                    type=["xlsx"],
+                    key="uploader_excel_version"
+                )
+            with _col_up2:
+                _version_nombre = st.text_input(
+                    "Nombre de versión",
+                    placeholder="Ej: v2.1 - Abril 2025",
+                    key="input_version_nombre"
+                )
+
+            if _excel_file and _version_nombre:
+                if st.button("📤 Subir versión", key="btn_subir_excel", use_container_width=True):
+                    with st.spinner("Subiendo archivo..."):
+                        try:
+                            import datetime as _dt
+                            _ts = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+                            _nombre_archivo = f"cotizador_{_ts}.xlsx"
+                            _excel_bytes = _excel_file.read()
+
+                            # Subir a Supabase Storage bucket 'config'
+                            supabase.storage.from_("config").upload(
+                                path=_nombre_archivo,
+                                file=_excel_bytes,
+                                file_options={"content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
+                            )
+
+                            # Obtener URL pública
+                            _url_publica = supabase.storage.from_("config").get_public_url(_nombre_archivo)
+
+                            # Registrar en tabla excel_versiones
+                            supabase.table("excel_versiones").insert({
+                                "version_nombre": _version_nombre,
+                                "archivo_url": _url_publica,
+                                "archivo_nombre": _nombre_archivo,
+                                "activa": False,
+                                "subida_por": "admin"
+                            }).execute()
+
+                            st.success(f"✅ Versión **{_version_nombre}** subida correctamente.")
+                            st.rerun()
+                        except Exception as _e:
+                            st.error(f"❌ Error al subir: {_e}")
+            elif _excel_file and not _version_nombre:
+                st.warning("⚠️ Escribe un nombre para la versión antes de subir.")
+
+        st.markdown("---")
+
+        # ── Lista de versiones ───────────────────────────────
+        st.markdown("#### 📋 Versiones disponibles")
+        try:
+            _versiones = supabase.table("excel_versiones").select("*").order("fecha_subida", desc=True).execute().data or []
+        except:
+            _versiones = []
+
+        if not _versiones:
+            st.info("No hay versiones subidas aún. Sube el cotizador.xlsx para comenzar.")
+        else:
+            for _v in _versiones:
+                _es_activa = _v.get("activa", False)
+                _col_v1, _col_v2, _col_v3, _col_v4 = st.columns([3, 2, 1.5, 1])
+
+                with _col_v1:
+                    if _es_activa:
+                        st.markdown(f"### 🟢 {_v['version_nombre']}")
+                        st.caption("✅ VERSIÓN ACTIVA")
+                    else:
+                        st.markdown(f"**{_v['version_nombre']}**")
+                        st.caption(f"🗓 {str(_v.get('fecha_subida',''))[:16].replace('T',' ')}")
+
+                with _col_v2:
+                    st.caption(f"📁 `{_v.get('archivo_nombre','')}`")
+                    st.caption(f"👤 {_v.get('subida_por','admin')}")
+
+                with _col_v3:
+                    if not _es_activa:
+                        if st.button("⚡ Activar", key=f"btn_activar_{_v['id']}", use_container_width=True):
+                            with st.spinner("Activando versión..."):
+                                try:
+                                    # Desactivar todas
+                                    supabase.table("excel_versiones").update({"activa": False}).neq("id", "00000000-0000-0000-0000-000000000000").execute()
+                                    # Activar esta
+                                    supabase.table("excel_versiones").update({"activa": True}).eq("id", _v["id"]).execute()
+                                    # Limpiar cache del Excel
+                                    _get_excel_bytes_activo.clear()
+                                    if "excel_bytes_cache" in st.session_state:
+                                        del st.session_state["excel_bytes_cache"]
+                                    st.success(f"✅ Versión **{_v['version_nombre']}** activada.")
+                                    st.rerun()
+                                except Exception as _e:
+                                    st.error(f"❌ {_e}")
+                    else:
+                        st.markdown(
+                            '<div style="background:#10b981;color:white;padding:6px 12px;'
+                            'border-radius:8px;text-align:center;font-size:12px;font-weight:700;">'
+                            '🟢 ACTIVA</div>',
+                            unsafe_allow_html=True
+                        )
+
+                with _col_v4:
+                    if not _es_activa:
+                        if st.button("🗑️", key=f"btn_del_{_v['id']}", help="Eliminar versión"):
+                            try:
+                                # Eliminar del storage
+                                supabase.storage.from_("config").remove([_v.get("archivo_nombre","")])
+                                # Eliminar de la tabla
+                                supabase.table("excel_versiones").delete().eq("id", _v["id"]).execute()
+                                st.rerun()
+                            except Exception as _e:
+                                st.error(f"❌ {_e}")
+
+                st.markdown("---" if not _es_activa else "")
+
+        # ── Info versión activa ──────────────────────────────
+        _activa_info = next((_v for _v in _versiones if _v.get("activa")), None)
+        if _activa_info:
+            st.markdown(
+                f'<div style="background:rgba(16,185,129,0.1);border:1px solid #10b981;'
+                f'border-radius:10px;padding:12px 16px;margin-top:8px;">'
+                f'<span style="color:#10b981;font-weight:700;">🟢 Sistema usando:</span> '
+                f'<strong>{_activa_info["version_nombre"]}</strong> — '
+                f'subida el {str(_activa_info.get("fecha_subida",""))[:16].replace("T"," ")}'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                '<div style="background:rgba(245,158,11,0.1);border:1px solid #f59e0b;'
+                'border-radius:10px;padding:12px 16px;margin-top:8px;">'
+                '⚠️ <strong>Sin versión activa</strong> — el sistema usa el archivo local <code>cotizador.xlsx</code>'
+                '</div>',
+                unsafe_allow_html=True
+            )
 
 # =========================================================
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
