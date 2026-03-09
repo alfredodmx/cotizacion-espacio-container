@@ -1398,7 +1398,10 @@ if _tema == "dark":
     st.markdown('''<style>
     /* ── Headers de tabs — texto siempre blanco ── */
     .tab-header h2, .tab-header p,
-    .tab-header h2 *, .tab-header p * { color: #ffffff !important; }
+    .tab-header h2 *, .tab-header p *,
+    .tab-header span[style*="display:block"] { color: #ffffff !important; }
+    .tab-header h2 { color: #ffffff !important; font-size:1.5rem !important; font-weight:700 !important; margin:0 !important; }
+    .tab-header p  { color: rgba(255,255,255,0.75) !important; font-size:0.88rem !important; margin:6px 0 0 !important; }
     </style>''', unsafe_allow_html=True)
 
     st.markdown('''<style>
@@ -1975,8 +1978,8 @@ with tab2:
     display:flex;align-items:center;gap:16px;">
       <span style="font-size:2.4rem">👤</span>
       <div>
-        <h2 style="color:#ffffff !important;margin:0;font-size:1.5rem;font-weight:700;">Datos del Cliente</h2>
-        <p style="color:rgba(255,255,255,0.75) !important;margin:6px 0 0;font-size:0.88rem;">Completa la información del cliente y del proyecto antes de guardar.</p>
+        <h2>Datos del Cliente</h2>
+        <p>Completa la información del cliente y del proyecto antes de guardar.</p>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -2182,8 +2185,8 @@ with tab1:
     display:flex;align-items:center;gap:16px;">
       <span style="font-size:2.4rem">☑️</span>
       <div>
-        <h2 style="color:#ffffff !important;margin:0;font-size:1.5rem;font-weight:700;">Gestión de Presupuesto</h2>
-        <p style="color:rgba(255,255,255,0.75) !important;margin:6px 0 0;font-size:0.88rem;">Agrega productos, aplica márgenes y genera tu cotización en PDF.</p>
+        <h2>Gestión de Presupuesto</h2>
+        <p>Agrega productos, aplica márgenes y genera tu cotización en PDF.</p>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -2579,8 +2582,8 @@ with tab3:
     display:flex;align-items:center;gap:16px;">
       <span style="font-size:2.4rem">📂</span>
       <div>
-        <h2 style="color:#ffffff !important;margin:0;font-size:1.5rem;font-weight:700;">Gestión de Cotizaciones</h2>
-        <p style="color:rgba(255,255,255,0.75) !important;margin:6px 0 0;font-size:0.88rem;">Busca, carga y administra todas las cotizaciones del sistema.</p>
+        <h2>Gestión de Cotizaciones</h2>
+        <p>Busca, carga y administra todas las cotizaciones del sistema.</p>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -3254,8 +3257,8 @@ with tab4:
     display:flex;align-items:center;gap:16px;">
       <span style="font-size:2.4rem">🧊</span>
       <div>
-        <h2 style="color:#ffffff !important;margin:0;font-size:1.5rem;font-weight:700;">Visor 3D Beta</h2>
-        <p style="color:rgba(255,255,255,0.75) !important;margin:6px 0 0;font-size:0.88rem;">Selecciona un presupuesto con plano adjunto para generar su prototipo 3D interactivo.</p>
+        <h2>Visor 3D Beta</h2>
+        <p>Selecciona un presupuesto con plano adjunto para generar su prototipo 3D interactivo.</p>
       </div>
     </div>
     """, unsafe_allow_html=True)
