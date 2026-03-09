@@ -1984,7 +1984,7 @@ with tab2:
     st.markdown("""
         <style>
         .hdr2 {
-            background: linear-gradient(135deg, #4a1a8f 0%, #7b1fa2 100%);
+            background: linear-gradient(135deg, #2d0d66 0%, #5b0d7a 100%);
             border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
             display: flex; align-items: center; gap: 16px;
         }
@@ -2198,7 +2198,7 @@ with tab1:
     st.markdown("""
         <style>
         .hdr1 {
-            background: linear-gradient(135deg, #1a3a8f 0%, #1565c0 100%);
+            background: linear-gradient(135deg, #0d2266 0%, #0d47a1 100%);
             border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
             display: flex; align-items: center; gap: 16px;
         }
@@ -2602,7 +2602,7 @@ with tab3:
     st.markdown("""
         <style>
         .hdr3 {
-            background: linear-gradient(135deg, #8f6a00 0%, #f9a825 100%);
+            background: linear-gradient(135deg, #6b4e00 0%, #e65100 100%);
             border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
             display: flex; align-items: center; gap: 16px;
         }
@@ -3284,7 +3284,7 @@ with tab4:
     st.markdown("""
         <style>
         .hdr4 {
-            background: linear-gradient(135deg, #006080 0%, #0097a7 100%);
+            background: linear-gradient(135deg, #003d52 0%, #006978 100%);
             border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
             display: flex; align-items: center; gap: 16px;
         }
@@ -3833,7 +3833,7 @@ if st.session_state.modo_admin and tab5 is not None:
         st.markdown("""
         <style>
         .excel-header {
-            background: linear-gradient(135deg, #1e3a5f 0%, #2d6a4f 100%);
+            background: linear-gradient(135deg, #0f2240 0%, #1a4d33 100%);
             border-radius: 14px; padding: 24px 28px; margin-bottom: 24px; margin-top: -1rem;
             display: flex; align-items: center; gap: 16px;
         }
