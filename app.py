@@ -1017,6 +1017,13 @@ st.markdown("""
     [class*="_profileContainer"] { display: none !important; }
     [class*="profilePreview"] { display: none !important; }
     [class*="_profilePreview"] { display: none !important; }
+    [class*="styles_viewerBadge"] { display: none !important; }
+    [class*="styles_profileContainer"] { display: none !important; }
+    button[kind="header"] { display: none !important; }
+    [data-testid="stAppViewBlockContainer"] > div:last-child { display: none !important; }
+    ._profileContainer_pgfmv_53 { display: none !important; }
+    ._viewerBadge_nim44_23 { display: none !important; }
+    #root > div:last-child { display: none !important; }
     a[href*="streamlit.io"] { display: none !important; }
     a[href*="github.com"] { display: none !important; }
     button[title="View fullscreen"] { display: none !important; }
