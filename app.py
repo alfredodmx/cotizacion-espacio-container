@@ -1963,14 +1963,14 @@ if st.session_state.get('trigger_cerrar_cotizacion', False):
 # TAB 2 - DATOS CLIENTE
 # =========================================================
 with tab2:
-    st.markdown(f"""
-    <div style="background:linear-gradient(135deg,#1e3a5f 0%,#2d6a4f 100%);
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,#4a1a8f 0%,#7b1fa2 100%);
     border-radius:14px;padding:24px 28px;margin-bottom:24px;
     display:flex;align-items:center;gap:16px;">
       <span style="font-size:2.4rem">👤</span>
       <div>
-        <div style="color:#ffffff;font-size:1.4rem;font-weight:700;margin:0;">Datos del Cliente</div>
-        <div style="color:rgba(255,255,255,0.75);font-size:0.87rem;margin-top:5px;">Completa la información del cliente y del proyecto antes de guardar.</div>
+        <h2 style="color:#ffffff;margin:0;font-size:1.5rem;font-weight:700;">Datos del Cliente</h2>
+        <p style="color:rgba(255,255,255,0.75);margin:6px 0 0;font-size:0.88rem;">Completa la información del cliente y del proyecto antes de guardar.</p>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -2170,14 +2170,14 @@ with tab2:
 # TAB 1 - PREPARAR COTIZACIÓN
 # =========================================================
 with tab1:
-    st.markdown(f"""
-    <div style="background:linear-gradient(135deg,#1e3a5f 0%,#2d6a4f 100%);
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,#1a3a8f 0%,#1565c0 100%);
     border-radius:14px;padding:24px 28px;margin-bottom:24px;
     display:flex;align-items:center;gap:16px;">
       <span style="font-size:2.4rem">☑️</span>
       <div>
-        <div style="color:#ffffff;font-size:1.4rem;font-weight:700;margin:0;">Gestión de Presupuesto</div>
-        <div style="color:rgba(255,255,255,0.75);font-size:0.87rem;margin-top:5px;">Agrega productos, aplica márgenes y genera tu cotización en PDF.</div>
+        <h2 style="color:#ffffff;margin:0;font-size:1.5rem;font-weight:700;">Gestión de Presupuesto</h2>
+        <p style="color:rgba(255,255,255,0.75);margin:6px 0 0;font-size:0.88rem;">Agrega productos, aplica márgenes y genera tu cotización en PDF.</p>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -2567,14 +2567,14 @@ with tab1:
 # TAB 3 - GESTIÓN DE COTIZACIONES GUARDADAS
 # =========================================================
 with tab3:
-    st.markdown(f"""
-    <div style="background:linear-gradient(135deg,#1e3a5f 0%,#2d6a4f 100%);
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,#8f6a00 0%,#f9a825 100%);
     border-radius:14px;padding:24px 28px;margin-bottom:24px;
     display:flex;align-items:center;gap:16px;">
       <span style="font-size:2.4rem">📂</span>
       <div>
-        <div style="color:#ffffff;font-size:1.4rem;font-weight:700;margin:0;">Gestión de Cotizaciones</div>
-        <div style="color:rgba(255,255,255,0.75);font-size:0.87rem;margin-top:5px;">Busca, carga y administra todas las cotizaciones del sistema.</div>
+        <h2 style="color:#ffffff;margin:0;font-size:1.5rem;font-weight:700;">Gestión de Cotizaciones</h2>
+        <p style="color:rgba(255,255,255,0.75);margin:6px 0 0;font-size:0.88rem;">Busca, carga y administra todas las cotizaciones del sistema.</p>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -3242,14 +3242,14 @@ Reglas: puertas ~0.9x2.1m (y=1.05), ventanas ~1.2x1.0m (y=1.2). x relativo al ce
     return json.loads(txt), img_b64
 
 with tab4:
-    st.markdown(f"""
-    <div style="background:linear-gradient(135deg,#1e3a5f 0%,#2d6a4f 100%);
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,#006080 0%,#0097a7 100%);
     border-radius:14px;padding:24px 28px;margin-bottom:24px;
     display:flex;align-items:center;gap:16px;">
       <span style="font-size:2.4rem">🧊</span>
       <div>
-        <div style="color:#ffffff;font-size:1.4rem;font-weight:700;margin:0;">Visor 3D Beta</div>
-        <div style="color:rgba(255,255,255,0.75);font-size:0.87rem;margin-top:5px;">Selecciona un presupuesto con plano adjunto para generar su prototipo 3D interactivo.</div>
+        <h2 style="color:#ffffff;margin:0;font-size:1.5rem;font-weight:700;">Visor 3D Beta</h2>
+        <p style="color:rgba(255,255,255,0.75);margin:6px 0 0;font-size:0.88rem;">Selecciona un presupuesto con plano adjunto para generar su prototipo 3D interactivo.</p>
       </div>
     </div>
     """, unsafe_allow_html=True)
