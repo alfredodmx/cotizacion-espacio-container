@@ -3754,21 +3754,25 @@ if st.session_state.modo_admin and tab5 is not None:
         }
         .excel-header h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
         .excel-header p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
-        div[data-testid="stFileUploader"],
-        div[data-testid="stTextInput"],
-        div[data-testid="stButton"] { margin-bottom: 4px; }
-        .tab5-section {
-            background: white; border: 1px solid #e5e7eb;
-            border-radius: 14px; padding: 22px 24px; margin-bottom: 18px;
+
+        /* Padding para todos los widgets del tab5 */
+        [data-testid="stVerticalBlock"] [data-testid="stFileUploader"],
+        [data-testid="stVerticalBlock"] [data-testid="stTextInput"] > div,
+        [data-testid="stVerticalBlock"] [data-testid="stTextInput"] input {
+            padding-left: 4px;
         }
-        .version-row {
-            background: white; border: 1px solid #e5e7eb;
-            border-radius: 10px; padding: 14px 16px; margin-bottom: 8px;
+        /* Contenedor de subida con bordes y padding */
+        .upload-box {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 20px 28px 16px 28px;
+            margin-bottom: 16px;
         }
-        .version-row.activa {
-            border: 2px solid #10b981;
-            background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+        .upload-box .stFileUploader {
+            padding: 0 !important;
         }
+        .version-row { margin-bottom: 4px; }
         .status-bar-green {
             background: linear-gradient(90deg,rgba(16,185,129,0.12),rgba(16,185,129,0.03));
             border: 1px solid #10b981; border-radius: 10px;
@@ -3800,8 +3804,9 @@ if st.session_state.modo_admin and tab5 is not None:
         st.markdown('<div style="padding: 0 8px;">', unsafe_allow_html=True)
 
         with st.container():
+            st.markdown('<div class="upload-box">', unsafe_allow_html=True)
             st.markdown("##### ⬆️ Subir nueva versión")
-            st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
+            st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
             _col_up1, _col_up2 = st.columns([3, 2])
             with _col_up1:
                 _excel_file = st.file_uploader(
@@ -3859,6 +3864,8 @@ if st.session_state.modo_admin and tab5 is not None:
                             st.error(f"❌ Error al subir: {_e}")
             elif _excel_file and not _version_nombre:
                 st.warning("⚠️ Escribe un nombre para identificar esta versión.")
+
+            st.markdown('</div>', unsafe_allow_html=True)  # cierre upload-box
 
         st.markdown("---")
 
