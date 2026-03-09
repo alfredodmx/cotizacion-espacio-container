@@ -3803,11 +3803,13 @@ if st.session_state.modo_admin and tab5 is not None:
 
 
         with st.container():
-            st.markdown("##### ⬆️ Subir nueva versión")
+            _mg_l, _titulo_col, _mg_r = st.columns([0.4, 9, 0.4])
+            with _titulo_col:
+                st.markdown("##### ⬆️ Subir nueva versión")
             st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 
             # Columnas con margen lateral para simular padding
-            _mg, _col_up1, _col_up2, _mg2 = st.columns([0.15, 3, 2, 0.15])
+            _mg, _col_up1, _col_up2, _mg2 = st.columns([0.4, 3, 2, 0.4])
             with _col_up1:
                 _excel_file = st.file_uploader(
                     "Archivo cotizador.xlsx",
@@ -3827,7 +3829,7 @@ if st.session_state.modo_admin and tab5 is not None:
 
             if _excel_file and _version_nombre:
                 st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
-                _mg3, _col_sb, _col_info, _mg4 = st.columns([0.15, 1, 3, 0.15])
+                _mg3, _col_sb, _col_info, _mg4 = st.columns([0.4, 1, 3, 0.4])
                 with _col_sb:
                     _btn_subir = st.button("📤 Subir versión", key="btn_subir_excel",
                                            use_container_width=True, type="primary")
@@ -3862,7 +3864,7 @@ if st.session_state.modo_admin and tab5 is not None:
                         except Exception as _e:
                             st.error(f"❌ Error al subir: {_e}")
             elif _excel_file and not _version_nombre:
-                _mg5, _col_w, _mg6 = st.columns([0.15, 5, 0.15])
+                _mg5, _col_w, _mg6 = st.columns([0.4, 5, 0.4])
                 with _col_w:
                     st.warning("⚠️ Escribe un nombre para identificar esta versión.")
 
