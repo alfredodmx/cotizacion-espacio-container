@@ -1094,8 +1094,8 @@ st.markdown("""
 
     /* ══ TABS ══ */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 0 !important; border-bottom: 2px solid #e2e6f3 !important;
-        padding: 0 !important; margin-bottom: 2rem !important;
+        gap: 0 !important; border-bottom: none !important;
+        padding: 0 !important; margin-bottom: 1.5rem !important;
         background: transparent !important;
     }
     .stTabs [data-baseweb="tab"] {
