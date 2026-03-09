@@ -1396,6 +1396,12 @@ st.markdown('''
 _tema = st.get_option("theme.base") or "light"
 if _tema == "dark":
     st.markdown('''<style>
+    /* ── Headers de tabs — texto siempre blanco ── */
+    .tab-header h2, .tab-header p,
+    .tab-header h2 *, .tab-header p * { color: #ffffff !important; }
+    </style>''', unsafe_allow_html=True)
+
+    st.markdown('''<style>
     .stTextInput > div > div > input,
     .stTextArea > div > div > textarea,
     .stNumberInput > div > div > input,
@@ -1964,7 +1970,7 @@ if st.session_state.get('trigger_cerrar_cotizacion', False):
 # =========================================================
 with tab2:
     st.markdown("""
-    <div style="background:linear-gradient(135deg,#4a1a8f 0%,#7b1fa2 100%);
+    <div class="tab-header" style="background:linear-gradient(135deg,#4a1a8f 0%,#7b1fa2 100%);
     border-radius:14px;padding:24px 28px;margin-bottom:24px;
     display:flex;align-items:center;gap:16px;">
       <span style="font-size:2.4rem">👤</span>
@@ -2171,7 +2177,7 @@ with tab2:
 # =========================================================
 with tab1:
     st.markdown("""
-    <div style="background:linear-gradient(135deg,#1a3a8f 0%,#1565c0 100%);
+    <div class="tab-header" style="background:linear-gradient(135deg,#1a3a8f 0%,#1565c0 100%);
     border-radius:14px;padding:24px 28px;margin-bottom:24px;
     display:flex;align-items:center;gap:16px;">
       <span style="font-size:2.4rem">☑️</span>
@@ -2568,7 +2574,7 @@ with tab1:
 # =========================================================
 with tab3:
     st.markdown("""
-    <div style="background:linear-gradient(135deg,#8f6a00 0%,#f9a825 100%);
+    <div class="tab-header" style="background:linear-gradient(135deg,#8f6a00 0%,#f9a825 100%);
     border-radius:14px;padding:24px 28px;margin-bottom:24px;
     display:flex;align-items:center;gap:16px;">
       <span style="font-size:2.4rem">📂</span>
@@ -3243,7 +3249,7 @@ Reglas: puertas ~0.9x2.1m (y=1.05), ventanas ~1.2x1.0m (y=1.2). x relativo al ce
 
 with tab4:
     st.markdown("""
-    <div style="background:linear-gradient(135deg,#006080 0%,#0097a7 100%);
+    <div class="tab-header" style="background:linear-gradient(135deg,#006080 0%,#0097a7 100%);
     border-radius:14px;padding:24px 28px;margin-bottom:24px;
     display:flex;align-items:center;gap:16px;">
       <span style="font-size:2.4rem">🧊</span>
