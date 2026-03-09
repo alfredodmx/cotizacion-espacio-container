@@ -3801,13 +3801,13 @@ if st.session_state.modo_admin and tab5 is not None:
         if "excel_upload_key" not in st.session_state:
             st.session_state.excel_upload_key = 0
 
-        st.markdown('<div style="padding: 0 8px;">', unsafe_allow_html=True)
 
         with st.container():
-            st.markdown('<div class="upload-box">', unsafe_allow_html=True)
             st.markdown("##### ⬆️ Subir nueva versión")
-            st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
-            _col_up1, _col_up2 = st.columns([3, 2])
+            st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+
+            # Columnas con margen lateral para simular padding
+            _mg, _col_up1, _col_up2, _mg2 = st.columns([0.15, 3, 2, 0.15])
             with _col_up1:
                 _excel_file = st.file_uploader(
                     "Archivo cotizador.xlsx",
@@ -3816,7 +3816,7 @@ if st.session_state.modo_admin and tab5 is not None:
                     label_visibility="collapsed"
                 )
             with _col_up2:
-                st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
+                st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
                 _version_nombre = st.text_input(
                     "Nombre de versión",
                     placeholder="Ej: v2.1 — Abril 2025",
@@ -3827,7 +3827,7 @@ if st.session_state.modo_admin and tab5 is not None:
 
             if _excel_file and _version_nombre:
                 st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
-                _col_sb, _col_info = st.columns([1, 3])
+                _mg3, _col_sb, _col_info, _mg4 = st.columns([0.15, 1, 3, 0.15])
                 with _col_sb:
                     _btn_subir = st.button("📤 Subir versión", key="btn_subir_excel",
                                            use_container_width=True, type="primary")
@@ -3856,16 +3856,15 @@ if st.session_state.modo_admin and tab5 is not None:
                                 "subida_por": "admin"
                             }).execute()
 
-                            # Reset uploader
                             st.session_state.excel_upload_key += 1
                             st.success(f"✅ Versión **{_version_nombre}** subida correctamente.")
                             st.rerun()
                         except Exception as _e:
                             st.error(f"❌ Error al subir: {_e}")
             elif _excel_file and not _version_nombre:
-                st.warning("⚠️ Escribe un nombre para identificar esta versión.")
-
-            st.markdown('</div>', unsafe_allow_html=True)  # cierre upload-box
+                _mg5, _col_w, _mg6 = st.columns([0.15, 5, 0.15])
+                with _col_w:
+                    st.warning("⚠️ Escribe un nombre para identificar esta versión.")
 
         st.markdown("---")
 
@@ -3970,7 +3969,6 @@ if st.session_state.modo_admin and tab5 is not None:
                 unsafe_allow_html=True
             )
 
-        st.markdown('</div>', unsafe_allow_html=True)  # cierre padding
 
 
 # =========================================================
