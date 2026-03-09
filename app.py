@@ -1026,6 +1026,9 @@ st.markdown("""
     #root > div:last-child { display: none !important; }
     [class*="_link_gzau3"] { display: none !important; }
     [class^="_link_"] { display: none !important; }
+    [class*="_container_gzau3"] { display: none !important; }
+    [class*="_viewerBadge_nim44"] { display: none !important; }
+    a[href="https://streamlit.io/cloud"] { display: none !important; }
     a[href*="streamlit.io"] { display: none !important; }
     a[href*="github.com"] { display: none !important; }
     button[title="View fullscreen"] { display: none !important; }
