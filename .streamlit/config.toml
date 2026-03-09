@@ -9,7 +9,7 @@ textColor = "#1a1d2e"
 maxUploadSize = 200
 
 [client]
-toolbarMode = "minimal"
+toolbarMode = "viewer"
 showSidebarNavigation = false
 
 [browser]
