@@ -1005,6 +1005,7 @@ st.markdown("""
 
     #MainMenu { display: none !important; }
     footer { display: none !important; }
+    .stDeployButton { display: none !important; }
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stDecoration"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
