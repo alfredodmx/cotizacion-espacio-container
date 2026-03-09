@@ -3834,7 +3834,7 @@ if st.session_state.modo_admin and tab5 is not None:
         <style>
         .excel-header {
             background: linear-gradient(135deg, #1e3a5f 0%, #2d6a4f 100%);
-            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
+            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px; margin-top: -1rem;
             display: flex; align-items: center; gap: 16px;
         }
         .excel-header h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
