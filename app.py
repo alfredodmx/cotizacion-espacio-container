@@ -1552,7 +1552,6 @@ if st.session_state.modo_admin:
 if st.session_state.cotizacion_cargada:
     datos_completos = all([
         st.session_state.nombre_input,
-        st.session_state.rut_display,
         st.session_state.correo_input
     ])
     asesor_completo = any([
