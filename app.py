@@ -1005,7 +1005,6 @@ st.markdown("""
 
     #MainMenu { display: none !important; }
     footer { display: none !important; }
-    .stDeployButton { display: none !important; }
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stDecoration"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
@@ -1017,18 +1016,6 @@ st.markdown("""
     [class*="_profileContainer"] { display: none !important; }
     [class*="profilePreview"] { display: none !important; }
     [class*="_profilePreview"] { display: none !important; }
-    [class*="styles_viewerBadge"] { display: none !important; }
-    [class*="styles_profileContainer"] { display: none !important; }
-    button[kind="header"] { display: none !important; }
-    [data-testid="stAppViewBlockContainer"] > div:last-child { display: none !important; }
-    ._profileContainer_pgfmv_53 { display: none !important; }
-    ._viewerBadge_nim44_23 { display: none !important; }
-    #root > div:last-child { display: none !important; }
-    [class*="_link_gzau3"] { display: none !important; }
-    [class^="_link_"] { display: none !important; }
-    [class*="_container_gzau3"] { display: none !important; }
-    [class*="_viewerBadge_nim44"] { display: none !important; }
-    a[href="https://streamlit.io/cloud"] { display: none !important; }
     a[href*="streamlit.io"] { display: none !important; }
     a[href*="github.com"] { display: none !important; }
     button[title="View fullscreen"] { display: none !important; }
