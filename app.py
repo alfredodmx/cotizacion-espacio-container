@@ -1973,16 +1973,23 @@ if st.session_state.get('trigger_cerrar_cotizacion', False):
 # =========================================================
 with tab2:
     st.markdown("""
-    <div class="tab-header" style="background:linear-gradient(135deg,#4a1a8f 0%,#7b1fa2 100%);
-    border-radius:14px;padding:24px 28px;margin-bottom:24px;
-    display:flex;align-items:center;gap:16px;">
-      <span style="font-size:2.4rem">👤</span>
-      <div>
-        <h2>Datos del Cliente</h2>
-        <p>Completa la información del cliente y del proyecto antes de guardar.</p>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+        <style>
+        .hdr2 {
+            background: linear-gradient(135deg, #4a1a8f 0%, #7b1fa2 100%);
+            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
+            display: flex; align-items: center; gap: 16px;
+        }
+        .hdr2 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
+        .hdr2 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
+        </style>
+        <div class="hdr2">
+          <span style="font-size:2.4rem">👤</span>
+          <div>
+            <h2>Datos del Cliente</h2>
+            <p>Completa la información del cliente y del proyecto antes de guardar.</p>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     es_solo_lectura = bool(
         st.session_state.cotizacion_cargada and
@@ -2180,16 +2187,23 @@ with tab2:
 # =========================================================
 with tab1:
     st.markdown("""
-    <div class="tab-header" style="background:linear-gradient(135deg,#1a3a8f 0%,#1565c0 100%);
-    border-radius:14px;padding:24px 28px;margin-bottom:24px;
-    display:flex;align-items:center;gap:16px;">
-      <span style="font-size:2.4rem">☑️</span>
-      <div>
-        <h2>Gestión de Presupuesto</h2>
-        <p>Agrega productos, aplica márgenes y genera tu cotización en PDF.</p>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+        <style>
+        .hdr1 {
+            background: linear-gradient(135deg, #1a3a8f 0%, #1565c0 100%);
+            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
+            display: flex; align-items: center; gap: 16px;
+        }
+        .hdr1 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
+        .hdr1 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
+        </style>
+        <div class="hdr1">
+          <span style="font-size:2.4rem">☑️</span>
+          <div>
+            <h2>Gestión de Presupuesto</h2>
+            <p>Agrega productos, aplica márgenes y genera tu cotización en PDF.</p>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     fecha_inicio = st.session_state.fecha_inicio
     fecha_termino = st.session_state.fecha_termino
@@ -2577,16 +2591,23 @@ with tab1:
 # =========================================================
 with tab3:
     st.markdown("""
-    <div class="tab-header" style="background:linear-gradient(135deg,#8f6a00 0%,#f9a825 100%);
-    border-radius:14px;padding:24px 28px;margin-bottom:24px;
-    display:flex;align-items:center;gap:16px;">
-      <span style="font-size:2.4rem">📂</span>
-      <div>
-        <h2>Gestión de Cotizaciones</h2>
-        <p>Busca, carga y administra todas las cotizaciones del sistema.</p>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+        <style>
+        .hdr3 {
+            background: linear-gradient(135deg, #8f6a00 0%, #f9a825 100%);
+            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
+            display: flex; align-items: center; gap: 16px;
+        }
+        .hdr3 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
+        .hdr3 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
+        </style>
+        <div class="hdr3">
+          <span style="font-size:2.4rem">📂</span>
+          <div>
+            <h2>Gestión de Cotizaciones</h2>
+            <p>Busca, carga y administra todas las cotizaciones del sistema.</p>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     col_busqueda, col_filtros = st.columns([3, 1])
     with col_busqueda:
@@ -3252,16 +3273,23 @@ Reglas: puertas ~0.9x2.1m (y=1.05), ventanas ~1.2x1.0m (y=1.2). x relativo al ce
 
 with tab4:
     st.markdown("""
-    <div class="tab-header" style="background:linear-gradient(135deg,#006080 0%,#0097a7 100%);
-    border-radius:14px;padding:24px 28px;margin-bottom:24px;
-    display:flex;align-items:center;gap:16px;">
-      <span style="font-size:2.4rem">🧊</span>
-      <div>
-        <h2>Visor 3D Beta</h2>
-        <p>Selecciona un presupuesto con plano adjunto para generar su prototipo 3D interactivo.</p>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+        <style>
+        .hdr4 {
+            background: linear-gradient(135deg, #006080 0%, #0097a7 100%);
+            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
+            display: flex; align-items: center; gap: 16px;
+        }
+        .hdr4 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
+        .hdr4 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
+        </style>
+        <div class="hdr4">
+          <span style="font-size:2.4rem">🧊</span>
+          <div>
+            <h2>Visor 3D Beta</h2>
+            <p>Selecciona un presupuesto con plano adjunto para generar su prototipo 3D interactivo.</p>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     # Obtener presupuestos con plano
     try:
