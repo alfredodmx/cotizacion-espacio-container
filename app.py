@@ -3803,10 +3803,11 @@ if st.session_state.modo_admin and tab5 is not None:
 
 
         with st.container():
+            st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
             _mg_l, _titulo_col, _mg_r = st.columns([0.4, 9, 0.4])
             with _titulo_col:
                 st.markdown("##### ⬆️ Subir nueva versión")
-            st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+            st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
 
             # Columnas con margen lateral para simular padding
             _mg, _col_up1, _col_up2, _mg2 = st.columns([0.4, 3, 2, 0.4])
@@ -3867,6 +3868,8 @@ if st.session_state.modo_admin and tab5 is not None:
                 _mg5, _col_w, _mg6 = st.columns([0.4, 5, 0.4])
                 with _col_w:
                     st.warning("⚠️ Escribe un nombre para identificar esta versión.")
+
+            st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
 
         st.markdown("---")
 
