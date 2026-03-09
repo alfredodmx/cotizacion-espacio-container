@@ -3743,46 +3743,113 @@ applyC();
 # =========================================================
 if st.session_state.modo_admin and tab5 is not None:
     with tab5:
-        st.markdown("### 📊 Proyecto Excel — Control de Versiones")
-        st.caption("Sube una nueva versión del cotizador.xlsx y activa la que necesites.")
+
+        # CSS del tab5
+        st.markdown("""
+        <style>
+        .excel-header {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2d6a4f 100%);
+            border-radius: 14px; padding: 20px 24px; margin-bottom: 20px;
+            display: flex; align-items: center; gap: 14px;
+        }
+        .excel-header h2 { color: white; margin: 0; font-size: 1.4rem; }
+        .excel-header p  { color: rgba(255,255,255,0.7); margin: 4px 0 0; font-size: 0.85rem; }
+        .version-card {
+            background: white; border: 1px solid #e5e7eb;
+            border-radius: 12px; padding: 16px 20px; margin-bottom: 10px;
+            display: flex; align-items: center; gap: 12px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+            transition: all .2s;
+        }
+        .version-card.activa {
+            border: 2px solid #10b981;
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+            box-shadow: 0 2px 12px rgba(16,185,129,0.15);
+        }
+        .badge-activa {
+            background: #10b981; color: white;
+            padding: 4px 12px; border-radius: 20px;
+            font-size: 11px; font-weight: 700; letter-spacing: .5px;
+        }
+        .badge-inactiva {
+            background: #f3f4f6; color: #6b7280;
+            padding: 4px 12px; border-radius: 20px;
+            font-size: 11px; font-weight: 600;
+        }
+        .upload-zone {
+            background: #f8fafc; border: 2px dashed #cbd5e1;
+            border-radius: 12px; padding: 20px 24px; margin-bottom: 16px;
+        }
+        .status-bar-green {
+            background: linear-gradient(90deg, rgba(16,185,129,0.12), rgba(16,185,129,0.05));
+            border: 1px solid #10b981; border-radius: 10px;
+            padding: 12px 18px; margin-top: 16px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .status-bar-warn {
+            background: rgba(245,158,11,0.08); border: 1px solid #f59e0b;
+            border-radius: 10px; padding: 12px 18px; margin-top: 16px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        # Header
+        st.markdown("""
+        <div class="excel-header">
+          <span style="font-size:2.2rem">📊</span>
+          <div>
+            <h2>Proyecto Excel — Control de Versiones</h2>
+            <p>Sube nuevas versiones del cotizador.xlsx y activa la que necesites. El sistema se actualiza al instante.</p>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
 
         # ── Subir nueva versión ──────────────────────────────
+        # Usar key dinámica para resetear el uploader tras subir
+        if "excel_upload_key" not in st.session_state:
+            st.session_state.excel_upload_key = 0
+
         with st.container():
-            st.markdown("#### ⬆️ Subir nueva versión")
-            _col_up1, _col_up2 = st.columns([2, 1])
+            st.markdown("##### ⬆️ Subir nueva versión")
+            _col_up1, _col_up2 = st.columns([3, 2])
             with _col_up1:
                 _excel_file = st.file_uploader(
-                    "Selecciona el archivo cotizador.xlsx",
+                    "Archivo cotizador.xlsx",
                     type=["xlsx"],
-                    key="uploader_excel_version"
+                    key=f"uploader_excel_{st.session_state.excel_upload_key}",
+                    label_visibility="collapsed"
                 )
             with _col_up2:
                 _version_nombre = st.text_input(
                     "Nombre de versión",
-                    placeholder="Ej: v2.1 - Abril 2025",
-                    key="input_version_nombre"
+                    placeholder="Ej: v2.1 — Abril 2025",
+                    key=f"input_vnom_{st.session_state.excel_upload_key}",
+                    label_visibility="collapsed"
                 )
+                st.caption("📝 Nombre de la versión")
 
             if _excel_file and _version_nombre:
-                if st.button("📤 Subir versión", key="btn_subir_excel", use_container_width=True):
-                    with st.spinner("Subiendo archivo..."):
+                _col_sb, _col_info = st.columns([1, 3])
+                with _col_sb:
+                    _btn_subir = st.button("📤 Subir versión", key="btn_subir_excel",
+                                           use_container_width=True, type="primary")
+                with _col_info:
+                    st.info(f"📁 **{_excel_file.name}** — versión: **{_version_nombre}**")
+
+                if _btn_subir:
+                    with st.spinner("⏳ Subiendo archivo a Supabase..."):
                         try:
                             import datetime as _dt
                             _ts = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
                             _nombre_archivo = f"cotizador_{_ts}.xlsx"
                             _excel_bytes = _excel_file.read()
 
-                            # Subir a Supabase Storage bucket 'config'
                             supabase.storage.from_("config").upload(
                                 path=_nombre_archivo,
                                 file=_excel_bytes,
                                 file_options={"content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
                             )
-
-                            # Obtener URL pública
                             _url_publica = supabase.storage.from_("config").get_public_url(_nombre_archivo)
-
-                            # Registrar en tabla excel_versiones
                             supabase.table("excel_versiones").insert({
                                 "version_nombre": _version_nombre,
                                 "archivo_url": _url_publica,
@@ -3791,100 +3858,115 @@ if st.session_state.modo_admin and tab5 is not None:
                                 "subida_por": "admin"
                             }).execute()
 
+                            # Reset uploader
+                            st.session_state.excel_upload_key += 1
                             st.success(f"✅ Versión **{_version_nombre}** subida correctamente.")
                             st.rerun()
                         except Exception as _e:
                             st.error(f"❌ Error al subir: {_e}")
             elif _excel_file and not _version_nombre:
-                st.warning("⚠️ Escribe un nombre para la versión antes de subir.")
+                st.warning("⚠️ Escribe un nombre para identificar esta versión.")
 
         st.markdown("---")
 
         # ── Lista de versiones ───────────────────────────────
-        st.markdown("#### 📋 Versiones disponibles")
+        st.markdown("##### 📋 Versiones disponibles")
         try:
             _versiones = supabase.table("excel_versiones").select("*").order("fecha_subida", desc=True).execute().data or []
         except:
             _versiones = []
 
         if not _versiones:
-            st.info("No hay versiones subidas aún. Sube el cotizador.xlsx para comenzar.")
+            st.info("📭 No hay versiones subidas aún. Sube el cotizador.xlsx para comenzar.")
         else:
             for _v in _versiones:
                 _es_activa = _v.get("activa", False)
-                _col_v1, _col_v2, _col_v3, _col_v4 = st.columns([3, 2, 1.5, 1])
+                _fecha = str(_v.get("fecha_subida",""))[:16].replace("T"," ")
+                _card_class = "version-card activa" if _es_activa else "version-card"
 
-                with _col_v1:
+                _cv1, _cv2, _cv3, _cv4 = st.columns([3, 2.5, 1.5, 0.6])
+
+                with _cv1:
                     if _es_activa:
-                        st.markdown(f"### 🟢 {_v['version_nombre']}")
-                        st.caption("✅ VERSIÓN ACTIVA")
+                        st.markdown(
+                            f'<div style="display:flex;align-items:center;gap:10px;">'
+                            f'<span style="font-size:1.5rem">🟢</span>'
+                            f'<div><div style="font-size:1.1rem;font-weight:700;color:#065f46;">{_v["version_nombre"]}</div>'
+                            f'<div style="font-size:0.75rem;color:#10b981;font-weight:600;">✅ VERSIÓN ACTIVA</div></div>'
+                            f'</div>',
+                            unsafe_allow_html=True
+                        )
                     else:
-                        st.markdown(f"**{_v['version_nombre']}**")
-                        st.caption(f"🗓 {str(_v.get('fecha_subida',''))[:16].replace('T',' ')}")
+                        st.markdown(
+                            f'<div style="display:flex;align-items:center;gap:10px;">'
+                            f'<span style="font-size:1.3rem;opacity:.4;">⚪</span>'
+                            f'<div><div style="font-size:1rem;font-weight:600;color:#374151;">{_v["version_nombre"]}</div>'
+                            f'<div style="font-size:0.75rem;color:#9ca3af;">🗓 {_fecha}</div></div>'
+                            f'</div>',
+                            unsafe_allow_html=True
+                        )
 
-                with _col_v2:
+                with _cv2:
                     st.caption(f"📁 `{_v.get('archivo_nombre','')}`")
-                    st.caption(f"👤 {_v.get('subida_por','admin')}")
+                    st.caption(f"🗓 {_fecha} &nbsp;·&nbsp; 👤 {_v.get('subida_por','admin')}")
 
-                with _col_v3:
+                with _cv3:
                     if not _es_activa:
-                        if st.button("⚡ Activar", key=f"btn_activar_{_v['id']}", use_container_width=True):
-                            with st.spinner("Activando versión..."):
+                        if st.button("⚡ Activar", key=f"btn_act_{_v['id']}",
+                                     use_container_width=True, type="primary"):
+                            with st.spinner("Activando..."):
                                 try:
-                                    # Desactivar todas
-                                    supabase.table("excel_versiones").update({"activa": False}).neq("id", "00000000-0000-0000-0000-000000000000").execute()
-                                    # Activar esta
+                                    supabase.table("excel_versiones").update({"activa": False}).neq("id","00000000-0000-0000-0000-000000000000").execute()
                                     supabase.table("excel_versiones").update({"activa": True}).eq("id", _v["id"]).execute()
-                                    # Limpiar cache del Excel
                                     _get_excel_bytes_activo.clear()
-                                    if "excel_bytes_cache" in st.session_state:
-                                        del st.session_state["excel_bytes_cache"]
-                                    st.success(f"✅ Versión **{_v['version_nombre']}** activada.")
+                                    st.session_state.pop("excel_bytes_cache", None)
                                     st.rerun()
                                 except Exception as _e:
                                     st.error(f"❌ {_e}")
                     else:
                         st.markdown(
-                            '<div style="background:#10b981;color:white;padding:6px 12px;'
+                            '<div style="background:#10b981;color:white;padding:7px 0;'
                             'border-radius:8px;text-align:center;font-size:12px;font-weight:700;">'
                             '🟢 ACTIVA</div>',
                             unsafe_allow_html=True
                         )
 
-                with _col_v4:
+                with _cv4:
                     if not _es_activa:
-                        if st.button("🗑️", key=f"btn_del_{_v['id']}", help="Eliminar versión"):
+                        if st.button("🗑️", key=f"btn_del_{_v['id']}", help="Eliminar esta versión"):
                             try:
-                                # Eliminar del storage
                                 supabase.storage.from_("config").remove([_v.get("archivo_nombre","")])
-                                # Eliminar de la tabla
                                 supabase.table("excel_versiones").delete().eq("id", _v["id"]).execute()
                                 st.rerun()
                             except Exception as _e:
                                 st.error(f"❌ {_e}")
 
-                st.markdown("---" if not _es_activa else "")
+                st.markdown('<hr style="border:none;border-top:1px solid #f0f0f0;margin:6px 0;">', unsafe_allow_html=True)
 
-        # ── Info versión activa ──────────────────────────────
+        # ── Barra de estado ──────────────────────────────────
         _activa_info = next((_v for _v in _versiones if _v.get("activa")), None)
         if _activa_info:
+            _fa = str(_activa_info.get("fecha_subida",""))[:16].replace("T"," ")
             st.markdown(
-                f'<div style="background:rgba(16,185,129,0.1);border:1px solid #10b981;'
-                f'border-radius:10px;padding:12px 16px;margin-top:8px;">'
-                f'<span style="color:#10b981;font-weight:700;">🟢 Sistema usando:</span> '
-                f'<strong>{_activa_info["version_nombre"]}</strong> — '
-                f'subida el {str(_activa_info.get("fecha_subida",""))[:16].replace("T"," ")}'
+                f'<div style="background:linear-gradient(90deg,rgba(16,185,129,0.12),rgba(16,185,129,0.03));'
+                f'border:1px solid #10b981;border-radius:10px;padding:14px 20px;margin-top:12px;'
+                f'display:flex;align-items:center;gap:12px;">'
+                f'<span style="font-size:1.4rem">🟢</span>'
+                f'<div><span style="color:#065f46;font-weight:700;">Sistema usando versión activa:</span> '
+                f'<strong style="color:#059669;">{_activa_info["version_nombre"]}</strong>'
+                f'<span style="color:#6b7280;font-size:0.8rem;margin-left:10px;">subida el {_fa}</span></div>'
                 f'</div>',
                 unsafe_allow_html=True
             )
         else:
             st.markdown(
-                '<div style="background:rgba(245,158,11,0.1);border:1px solid #f59e0b;'
-                'border-radius:10px;padding:12px 16px;margin-top:8px;">'
-                '⚠️ <strong>Sin versión activa</strong> — el sistema usa el archivo local <code>cotizador.xlsx</code>'
-                '</div>',
+                '<div style="background:rgba(245,158,11,0.08);border:1px solid #f59e0b;'
+                'border-radius:10px;padding:14px 20px;margin-top:12px;">'
+                '⚠️ <strong>Sin versión activa</strong> — el sistema usa el archivo local '
+                '<code>cotizador.xlsx</code> de GitHub.</div>',
                 unsafe_allow_html=True
             )
+
 
 # =========================================================
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
