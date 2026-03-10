@@ -2917,102 +2917,78 @@ with tab3:
                     pdf_url_encoded = urllib.parse.quote(pdf_url_visor, safe='')
                     google_viewer_url = f"https://docs.google.com/viewer?url={pdf_url_encoded}&embedded=true"
                     usar_google = navegador['needs_google_viewer']
+                    src_inicial = google_viewer_url if usar_google else pdf_url_visor
 
-                    st.markdown(f'''
-                    <div style="width:100%;height:82vh;border:2px solid #e2e8f0;border-radius:12px;overflow:hidden;
-                         box-shadow:0 4px 12px rgba(0,0,0,0.1);margin:0.5rem 0;background:#f0f2f5;position:relative;">
-                        <div id="pdf-loading-{st.session_state.numero_en_visor}"
-                             style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
-                                    justify-content:center;background:#f0f2f5;z-index:2;gap:12px;">
-                            <div style="width:40px;height:40px;border:4px solid #cbd5e1;border-top-color:#5b7cfa;
-                                        border-radius:50%;animation:spin 0.8s linear infinite;"></div>
-                            <span style="color:#64748b;font-size:0.9rem;font-family:sans-serif;">Cargando PDF...</span>
-                        </div>
-                        <iframe id="pdf-iframe-{st.session_state.numero_en_visor}"
-                            src="{"" if usar_google else pdf_url_visor}"
-                            data-google-url="{google_viewer_url}"
-                            data-direct-url="{pdf_url_visor}"
-                            data-use-google="{"true" if usar_google else "false"}"
-                            width="100%" height="100%"
-                            style="display:block;border:none;position:relative;z-index:1;"
-                            allow="fullscreen">
-                        </iframe>
-                    </div>
-                    <style>
-                    @keyframes spin {{ from{{transform:rotate(0deg)}} to{{transform:rotate(360deg)}} }}
-                    </style>
-                    <script>
-                    (function() {{
-                        var iframeId = "pdf-iframe-{st.session_state.numero_en_visor}";
-                        var loadingId = "pdf-loading-{st.session_state.numero_en_visor}";
-                        var iframe = document.getElementById(iframeId);
-                        var loading = document.getElementById(loadingId);
-                        if (!iframe) return;
+                    components.html(f"""
+<style>
+@keyframes spin {{from{{transform:rotate(0deg)}}to{{transform:rotate(360deg)}}}}
+#pdf-wrap {{width:100%;height:82vh;border:2px solid #e2e8f0;border-radius:12px;
+            overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);background:#f0f2f5;position:relative;}}
+#pdf-loading {{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+               justify-content:center;background:#f0f2f5;z-index:2;gap:12px;}}
+#pdf-spinner {{width:40px;height:40px;border:4px solid #cbd5e1;border-top-color:#5b7cfa;
+               border-radius:50%;animation:spin 0.8s linear infinite;}}
+#pdf-loading span {{color:#64748b;font-size:0.9rem;font-family:sans-serif;}}
+#pdf-iframe {{width:100%;height:100%;border:none;display:block;}}
+</style>
+<div id="pdf-wrap">
+  <div id="pdf-loading">
+    <div id="pdf-spinner"></div>
+    <span>Cargando PDF...</span>
+  </div>
+  <iframe id="pdf-iframe" src="{src_inicial}" allow="fullscreen"></iframe>
+</div>
+<script>
+(function() {{
+  var iframe = document.getElementById('pdf-iframe');
+  var loading = document.getElementById('pdf-loading');
+  var googleUrl = "{google_viewer_url}";
+  var directUrl = "{pdf_url_visor}";
+  var usingGoogle = {"true" if usar_google else "false"};
+  var retries = 0;
+  var maxRetries = 2;
 
-                        var googleUrl = iframe.getAttribute("data-google-url");
-                        var directUrl = iframe.getAttribute("data-direct-url");
-                        var useGoogle = iframe.getAttribute("data-use-google") === "true";
-                        var retries = 0;
-                        var maxRetries = 3;
-                        var retryDelay = 4000;
-                        var usingGoogle = useGoogle;
+  function hideLoading() {{
+    if (loading) loading.style.display = 'none';
+  }}
 
-                        function hidLoading() {{
-                            if (loading) loading.style.display = "none";
-                        }}
+  function tryDirect() {{
+    usingGoogle = false;
+    iframe.src = directUrl;
+  }}
 
-                        function loadPdf() {{
-                            iframe.src = usingGoogle ? googleUrl : directUrl;
-                        }}
+  iframe.onload = function() {{
+    if (!usingGoogle) {{
+      hideLoading();
+      return;
+    }}
+    // Verificar si Google Viewer cargo algo real
+    try {{
+      var doc = iframe.contentDocument || iframe.contentWindow.document;
+      if (doc && doc.body && doc.body.innerHTML.trim() === '') {{
+        if (retries < maxRetries) {{
+          retries++;
+          setTimeout(function() {{ iframe.src = googleUrl; }}, 3000);
+        }} else {{
+          tryDirect();
+        }}
+        return;
+      }}
+    }} catch(e) {{}}
+    hideLoading();
+  }};
 
-                        // Detectar si Google Viewer devolvió pantalla en blanco (sin contenido)
-                        function checkGoogleViewerLoaded() {{
-                            if (!usingGoogle) return;
-                            try {{
-                                // Si el iframe cargó pero está vacío, reintentar
-                                var doc = iframe.contentDocument || iframe.contentWindow.document;
-                                var body = doc && doc.body;
-                                if (body && body.innerHTML.trim() === "") {{
-                                    return false;
-                                }}
-                            }} catch(e) {{}}
-                            return true;
-                        }}
+  // Fallback timeout: si en 14s no ocultó loading, ir directo
+  setTimeout(function() {{
+    if (loading && loading.style.display !== 'none') {{
+      tryDirect();
+      setTimeout(hideLoading, 3000);
+    }}
+  }}, 14000);
+}})();
+</script>
+""", height=700, scrolling=False)
 
-                        iframe.addEventListener("load", function() {{
-                            var ok = checkGoogleViewerLoaded();
-                            if (ok === false && retries < maxRetries) {{
-                                retries++;
-                                setTimeout(loadPdf, retryDelay);
-                            }} else if (ok === false && retries >= maxRetries) {{
-                                // Fallback: intentar con iframe directo
-                                usingGoogle = false;
-                                iframe.src = directUrl;
-                                hidLoading();
-                            }} else {{
-                                hidLoading();
-                            }}
-                        }});
-
-                        // Timeout de seguridad: si en 12s no cargó, intentar directo
-                        var timeoutId = setTimeout(function() {{
-                            if (loading && loading.style.display !== "none") {{
-                                if (usingGoogle && retries < maxRetries) {{
-                                    retries++;
-                                    loadPdf();
-                                }} else {{
-                                    usingGoogle = false;
-                                    iframe.src = directUrl;
-                                    hidLoading();
-                                }}
-                            }}
-                        }}, 12000);
-
-                        // Iniciar carga
-                        loadPdf();
-                    }})();
-                    </script>
-                    ''', unsafe_allow_html=True)
                     try:
                         pdf_bytes = requests.get(st.session_state.pdf_url, timeout=15).content
                         st.download_button(
