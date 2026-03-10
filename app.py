@@ -1723,9 +1723,9 @@ if st.session_state.cotizacion_cargada:
 # TABS
 # =========================================================
 if st.session_state.modo_admin:
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "🧊 3D BETA", "📊 PROYECTO EXCEL", "✏️ EDICIÓN PDF"])
+    tab1, tab2, tab3, tab6, tab4, tab5 = st.tabs(["📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🧊 3D BETA", "📊 PROYECTO EXCEL"])
 else:
-    tab1, tab2, tab3, tab4, tab6 = st.tabs(["📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "🧊 3D BETA", "✏️ EDICIÓN PDF"])
+    tab1, tab2, tab3, tab6, tab4 = st.tabs(["📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🧊 3D BETA"])
     tab5 = None
 
 # =========================================================
@@ -4263,11 +4263,11 @@ if tab6 is not None:
         st.markdown("""
         <style>
         .pdf-edit-header {
-            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+            background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%);
             border-radius: 14px; padding: 24px 28px; margin-bottom: 24px; margin-top: -1rem;
         }
-        .pdf-edit-header h2 { color: white; margin: 0; font-size: 1.4rem; }
-        .pdf-edit-header p  { color: rgba(255,255,255,0.75); margin: 4px 0 0; font-size: 0.9rem; }
+        .pdf-edit-header h2 { color: white !important; margin: 0; font-size: 1.4rem; }
+        .pdf-edit-header p  { color: rgba(255,255,255,0.85) !important; margin: 4px 0 0; font-size: 0.9rem; }
         </style>
         """, unsafe_allow_html=True)
 
