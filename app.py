@@ -2996,80 +2996,86 @@ with tab3:
         st.info("💡 No hay resultados. Realice una búsqueda para ver cotizaciones guardadas.")
 
 # =========================================================
-# TOAST ÉXITO AL GUARDAR
+# TOAST ÉXITO AL GUARDAR — st.toast() nativo
+# CSS solo se inyecta cuando el toast está activo, evita contenedor
+# vacío pegado en pantalla entre reruns
 # =========================================================
 if st.session_state.get('mostrar_toast_exito', False):
     ep = st.session_state.get('toast_numero_ep', '')
-    components.html(f"""
-    <script>
-    (function() {{
-        const parent = window.parent.document;
-        const old = parent.getElementById('toast-exito-ep');
-        if (old) old.remove();
-        if (!parent.getElementById('toast-exito-style')) {{
-            const style = parent.createElement('style');
-            style.id = 'toast-exito-style';
-            style.innerHTML = `
-                @keyframes slideInLeft {{
-                    from {{ transform: translateX(-120%); opacity: 0; }}
-                    to   {{ transform: translateX(0);    opacity: 1; }}
-                }}
-                @keyframes fadeOutLeft {{
-                    from {{ transform: translateX(0);    opacity: 1; }}
-                    to   {{ transform: translateX(-120%); opacity: 0; }}
-                }}
-                #toast-exito-ep {{
-                    position: fixed !important;
-                    bottom: 5rem !important;
-                    left: 2rem !important;
-                    z-index: 999998 !important;
-                    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
-                    color: white !important;
-                    border-radius: 16px !important;
-                    padding: 1rem 1.4rem !important;
-                    font-family: sans-serif !important;
-                    font-size: 0.9rem !important;
-                    font-weight: 600 !important;
-                    box-shadow: 0 8px 32px rgba(34,197,94,0.4) !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    gap: 0.6rem !important;
-                    animation: slideInLeft 0.4s cubic-bezier(0.4,0,0.2,1) forwards !important;
-                    min-width: 240px !important;
-                }}
-                #toast-exito-ep.fadeout {{
-                    animation: fadeOutLeft 0.6s cubic-bezier(0.4,0,0.2,1) forwards !important;
-                }}
-                .toast-titulo {{
-                    font-size: 0.8rem !important;
-                    opacity: 0.88 !important;
-                    font-weight: 500 !important;
-                }}
-                .toast-ep {{
-                    font-size: 1.05rem !important;
-                    font-weight: 800 !important;
-                    letter-spacing: 0.03em !important;
-                }}
-            `;
-            parent.head.appendChild(style);
-        }}
-        const toast = parent.createElement('div');
-        toast.id = 'toast-exito-ep';
-        toast.innerHTML = `
-            <span style="font-size:1.4rem">✅</span>
-            <div>
-                <div class="toast-titulo">Presupuesto guardado con éxito</div>
-                <div class="toast-ep">EP {ep}</div>
-            </div>
-        `;
-        parent.body.appendChild(toast);
-        setTimeout(() => {{
-            toast.classList.add('fadeout');
-            setTimeout(() => toast.remove(), 700);
-        }}, 3500);
-    }})();
-    </script>
-    """, height=0)
+    st.markdown("""
+<style>
+div[data-testid="stToastContainer"] {
+    position: fixed !important;
+    bottom: 5.5rem !important;
+    left: 2rem !important;
+    right: auto !important;
+    top: auto !important;
+    width: auto !important;
+    max-width: none !important;
+    overflow: visible !important;
+    z-index: 999999 !important;
+    height: auto !important;
+    min-height: 0 !important;
+}
+div[data-testid="stToast"] {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
+    color: white !important;
+    border-radius: 18px !important;
+    padding: 1.1rem 1.6rem !important;
+    box-shadow: 0 10px 36px rgba(34,197,94,0.5) !important;
+    border: none !important;
+    width: 320px !important;
+    min-width: 320px !important;
+    max-width: 320px !important;
+    height: auto !important;
+    min-height: 80px !important;
+    max-height: none !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+}
+div[data-testid="stToast"] > div,
+div[data-testid="stToast"] > div > div,
+div[data-testid="stToast"] > div > div > div {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    width: 100% !important;
+    max-width: none !important;
+}
+div[data-testid="stToast"] > div {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.8rem !important;
+}
+div[data-testid="stToast"] [data-testid="stToastIcon"] {
+    font-size: 2rem !important;
+    flex-shrink: 0 !important;
+}
+div[data-testid="stToast"] p,
+div[data-testid="stToast"] span,
+div[data-testid="stToast"] div,
+div[data-testid="stToast"] li {
+    color: white !important;
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
+}
+div[data-testid="stToast"] p {
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+    opacity: 0.92 !important;
+    margin: 0 0 3px 0 !important;
+    line-height: 1.4 !important;
+}
+div[data-testid="stToast"] strong {
+    font-size: 1.25rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.04em !important;
+    color: white !important;
+    display: block !important;
+    line-height: 1.3 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+    st.toast(f"Presupuesto guardado  ·  **{ep}**", icon="✅")
     st.session_state.mostrar_toast_exito = False
 
 # =========================================================
