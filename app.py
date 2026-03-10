@@ -52,14 +52,18 @@ verificar_conexion_supabase()
 # =========================================================
 # HELPERS: DESCRIPCIONES PDF CLIENTE (JSON en Storage bucket config)
 # =========================================================
-def cargar_descripciones_por_ep(numero):
+def cargar_descripciones_por_ep(numero, bust_cache=False):
     """Carga descripciones de un EP desde Storage bucket config."""
     try:
         import requests as _rq
+        import time as _time
         _base = SUPABASE_URL.rstrip("/")
         _fname = f"pdf_desc_{numero}.json"
         url = f"{_base}/storage/v1/object/public/config/{_fname}"
-        r = _rq.get(url, timeout=3)
+        # Romper CDN cache con timestamp cuando se pide explícitamente
+        if bust_cache:
+            url += f"?t={int(_time.time())}"
+        r = _rq.get(url, timeout=5, headers={"Cache-Control": "no-cache", "Pragma": "no-cache"})
         if r.status_code == 200:
             return r.json()
     except:
@@ -2993,7 +2997,7 @@ with tab3:
             with col_acc3:
                 if cotizacion_para_pdf:
                     carrito_df_p, subtotal_p, iva_p, total_p, dc, da, fi, ft, dv, margen_c = preparar_pdf_data(cotizacion_para_pdf)
-                    _desc_ep = cargar_descripciones_por_ep(numero_seleccionado)
+                    _desc_ep = cargar_descripciones_por_ep(numero_seleccionado, bust_cache=True)
                     pdf_buffer, _ = generar_pdf_cliente(carrito_df_p, subtotal_p, iva_p, total_p, dc, fi, ft, dv, da, margen=margen_c, numero_cotizacion=numero_seleccionado, descripciones_ep=_desc_ep)
                     st.download_button(label="🔒 PDF Cliente", data=pdf_buffer, file_name=f"Presupuesto_Cliente_{numero_seleccionado}.pdf",
                         mime="application/pdf", use_container_width=True, key=f"pdf_cliente_{numero_seleccionado}")
@@ -4391,7 +4395,7 @@ if tab6 is not None:
             # Cargar descripciones desde Storage solo la primera vez que se abre este EP
             _init_key = f"_desc_init_{_num_edit}"
             if _init_key not in st.session_state:
-                _desc_storage = cargar_descripciones_por_ep(_num_edit)
+                _desc_storage = cargar_descripciones_por_ep(_num_edit, bust_cache=True)
                 # Inicializar cada text_area con el valor de Storage
                 for _k, _v in _desc_storage.items():
                     _ta_key = f"pdf_edit_desc_{_num_edit}_{_k}"
