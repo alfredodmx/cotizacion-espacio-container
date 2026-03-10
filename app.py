@@ -1516,7 +1516,8 @@ with _col_admin_btn:
                 if st.button("Acceder", use_container_width=True, type="primary"):
                     if clave_input == CLAVE_ADMIN:
                         st.session_state.modo_admin = True
-                        st.success("✅ Acceso concedido")
+                        st.session_state.mostrar_toast_exito = False
+                        components.html("""<script>(function(){var t=window.parent.document.getElementById('toast-exito-ep');if(t)t.remove();})();</script>""", height=0)
                         st.rerun()
                     else:
                         st.error("❌ Clave incorrecta")
@@ -2966,15 +2967,10 @@ with tab3:
 # =========================================================
 # TOAST ÉXITO AL GUARDAR
 # =========================================================
-# Limpieza preventiva en cada render — evita que el toast quede pegado
-# cuando st.rerun() recarga el iframe antes de que el setTimeout se ejecute
+# Limpieza preventiva en cada render — evita toast huérfano tras st.rerun()
 components.html("""
 <script>
-(function() {
-    var D = window.parent.document;
-    var old = D.getElementById('toast-exito-ep');
-    if (old) old.remove();
-})();
+(function(){var t=window.parent.document.getElementById('toast-exito-ep');if(t)t.remove();})();
 </script>
 """, height=0)
 
@@ -3040,7 +3036,7 @@ if st.session_state.get('mostrar_toast_exito', False):
             <span style="font-size:1.4rem">✅</span>
             <div>
                 <div class="toast-titulo">Presupuesto guardado con éxito</div>
-                <div class="toast-ep">{ep}</div>
+                <div class="toast-ep">EP {ep}</div>
             </div>
         `;
         parent.body.appendChild(toast);
