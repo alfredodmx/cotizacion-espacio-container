@@ -80,9 +80,9 @@ def guardar_descripciones_pdf(descripciones: dict):
         except:
             pass
         supabase.storage.from_("config").upload(
-            _PDF_DESC_FILE,
-            data,
-            {"content-type": "application/json", "cache-control": "no-cache"}
+            path=_PDF_DESC_FILE,
+            file=data,
+            file_options={"content-type": "application/json", "upsert": "true"}
         )
         cargar_descripciones_pdf.clear()
         return True
