@@ -4407,7 +4407,7 @@ if tab6 is not None:
                 _desc_editadas = {}
                 for _cat in _cats_ep:
                     with st.container(border=True):
-                        col_cat, col_estado = st.columns([3, 1])
+                        col_cat, col_estado, col_limpiar_uno = st.columns([3, 1, 1])
                         with col_cat:
                             st.markdown(f"**{_cat}**")
                         with col_estado:
@@ -4415,6 +4415,13 @@ if tab6 is not None:
                                 st.markdown("🟣 Personalizada")
                             else:
                                 st.markdown("⬜ Por defecto")
+                        with col_limpiar_uno:
+                            if _cat in _desc_actuales and _desc_actuales[_cat].strip():
+                                if st.button("🗑️ Limpiar", key=f"pdf_limpiar_{_num_edit}_{_cat}",
+                                             use_container_width=True):
+                                    _dict_actualizado = {k: v for k, v in _desc_actuales.items() if k != _cat}
+                                    if guardar_descripciones_por_ep(_num_edit, _dict_actualizado):
+                                        st.rerun()
 
                         _val_actual = _desc_actuales.get(_cat, '')
                         _nueva = st.text_area(
