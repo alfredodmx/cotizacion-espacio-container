@@ -1516,8 +1516,7 @@ with _col_admin_btn:
                 if st.button("Acceder", use_container_width=True, type="primary"):
                     if clave_input == CLAVE_ADMIN:
                         st.session_state.modo_admin = True
-                        st.session_state.mostrar_toast_exito = False
-                        components.html("""<script>(function(){var t=window.parent.document.getElementById('toast-exito-ep');if(t)t.remove();})();</script>""", height=0)
+                        st.success("✅ Acceso concedido")
                         st.rerun()
                     else:
                         st.error("❌ Clave incorrecta")
@@ -2965,92 +2964,11 @@ with tab3:
         st.info("💡 No hay resultados. Realice una búsqueda para ver cotizaciones guardadas.")
 
 # =========================================================
-# TOAST ÉXITO AL GUARDAR
+# TOAST ÉXITO AL GUARDAR — usa st.toast() nativo (nunca queda pegado)
 # =========================================================
-# Limpieza preventiva en cada render — evita toast huérfano tras st.rerun()
-components.html("""
-<script>
-(function(){var t=window.parent.document.getElementById('toast-exito-ep');if(t)t.remove();})();
-</script>
-""", height=0)
-
 if st.session_state.get('mostrar_toast_exito', False):
     ep = st.session_state.get('toast_numero_ep', '')
-    components.html(f"""
-    <script>
-    (function() {{
-        const parent = window.parent.document;
-        const old = parent.getElementById('toast-exito-ep');
-        if (old) old.remove();
-        if (!parent.getElementById('toast-exito-style')) {{
-            const style = parent.createElement('style');
-            style.id = 'toast-exito-style';
-            style.innerHTML = `
-                @keyframes slideInLeft {{
-                    from {{ transform: translateX(-120%); opacity: 0; }}
-                    to   {{ transform: translateX(0);    opacity: 1; }}
-                }}
-                @keyframes fadeOutLeft {{
-                    from {{ transform: translateX(0);    opacity: 1; }}
-                    to   {{ transform: translateX(-120%); opacity: 0; }}
-                }}
-                #toast-exito-ep {{
-                    position: fixed !important;
-                    bottom: 5rem !important;
-                    left: 2rem !important;
-                    z-index: 999998 !important;
-                    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
-                    color: white !important;
-                    border-radius: 16px !important;
-                    padding: 1rem 1.4rem !important;
-                    font-family: sans-serif !important;
-                    font-size: 0.9rem !important;
-                    font-weight: 600 !important;
-                    box-shadow: 0 8px 32px rgba(34,197,94,0.4) !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    gap: 0.6rem !important;
-                    animation: slideInLeft 0.4s cubic-bezier(0.4,0,0.2,1) forwards !important;
-                    min-width: 240px !important;
-                    cursor: pointer !important;
-                }}
-                #toast-exito-ep.fadeout {{
-                    animation: fadeOutLeft 0.6s cubic-bezier(0.4,0,0.2,1) forwards !important;
-                }}
-                .toast-titulo {{
-                    font-size: 0.8rem !important;
-                    opacity: 0.88 !important;
-                    font-weight: 500 !important;
-                }}
-                .toast-ep {{
-                    font-size: 1.05rem !important;
-                    font-weight: 800 !important;
-                    letter-spacing: 0.03em !important;
-                }}
-            `;
-            parent.head.appendChild(style);
-        }}
-        const toast = parent.createElement('div');
-        toast.id = 'toast-exito-ep';
-        toast.innerHTML = `
-            <span style="font-size:1.4rem">✅</span>
-            <div>
-                <div class="toast-titulo">Presupuesto guardado con éxito</div>
-                <div class="toast-ep">EP {ep}</div>
-            </div>
-        `;
-        parent.body.appendChild(toast);
-        const removeToast = () => {{
-            if (!toast.classList.contains('fadeout')) {{
-                toast.classList.add('fadeout');
-                setTimeout(() => {{ if (toast.parentNode) toast.remove(); }}, 700);
-            }}
-        }};
-        setTimeout(removeToast, 3500);
-        toast.addEventListener('click', removeToast);
-    }})();
-    </script>
-    """, height=0)
+    st.toast(f"✅ Presupuesto guardado con éxito\n**{ep}**", icon="💾")
     st.session_state.mostrar_toast_exito = False
 
 # =========================================================
