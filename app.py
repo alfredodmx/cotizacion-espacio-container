@@ -2724,8 +2724,9 @@ with tab3:
 
         opciones = []
         for idx, row in df_resultados.iterrows():
-            datos_completos = all([row[1], row[6], row[7]])
-            asesor_completo = any([row[2], row[8], row[9]])
+            # Usar nombres de columna correctos (no índices numéricos)
+            datos_completos = all([row['Cliente'], row['Email']])
+            asesor_completo = any([row['Asesor'], row['Asesor_Email'], row['Asesor_Tel']])
             if row['Margen'] and row['Margen'] > 0:
                 estado = ("🟢 AUTORIZADO CON PLANO" if row['Tiene_Plano'] else "🟢 AUTORIZADO") if (datos_completos and asesor_completo) else ("🔴 INCOMPLETO CON PLANO" if row['Tiene_Plano'] else "🔴 INCOMPLETO")
             else:
