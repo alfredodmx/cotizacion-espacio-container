@@ -2739,9 +2739,6 @@ with tab3:
 
             if cotizacion_seleccionada:
                 numero_seleccionado = cotizacion_seleccionada.split(" - ")[0]
-                # Limpiar cache de cotizaciones anteriores (mantener solo la actual)
-                keys_to_del = [k for k in st.session_state if k.startswith("_cot_cache_") and k != f"_cot_cache_{numero_seleccionado}"]
-                for k in keys_to_del: del st.session_state[k]
 
                 tiene_margen_seleccionado = False
                 tiene_plano_seleccionado = False
@@ -2849,11 +2846,7 @@ with tab3:
 
                 dialogo_advertencia()
 
-            # Cargar cotización una sola vez y reusar — evita 3 queries por render
-            _cache_key_cot = f"_cot_cache_{numero_seleccionado}"
-            if _cache_key_cot not in st.session_state:
-                st.session_state[_cache_key_cot] = cargar_cotizacion(numero_seleccionado) if cotizacion_seleccionada else None
-            cotizacion_para_pdf = st.session_state[_cache_key_cot]
+            cotizacion_para_pdf = cargar_cotizacion(numero_seleccionado) if cotizacion_seleccionada else None
 
             def preparar_pdf_data(cotizacion):
                 carrito_df_t = pd.DataFrame(cotizacion['productos'])
@@ -2900,8 +2893,7 @@ with tab3:
                 if cotizacion_seleccionada and tiene_plano_seleccionado:
                     label_visor = "🔄 ACTUALIZAR PLANO" if (st.session_state.mostrar_visor and st.session_state.numero_en_visor == numero_seleccionado) else "👁️ VER PLANO"
                     if st.button(label_visor, use_container_width=True, type="primary"):
-                        # Reusar cotizacion ya cargada — evita query extra
-                        cot_btn = cotizacion_para_pdf or cargar_cotizacion(numero_seleccionado)
+                        cot_btn = cargar_cotizacion(numero_seleccionado)
                         if cot_btn and cot_btn.get('plano_url'):
                             st.session_state.pdf_url = cot_btn['plano_url']
                             st.session_state.pdf_nombre = cot_btn.get('plano_nombre', 'plano.pdf')
