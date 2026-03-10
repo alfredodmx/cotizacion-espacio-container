@@ -36,9 +36,12 @@ ANTHROPIC_API_KEY = (
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def verificar_conexion_supabase():
+    # Solo verifica una vez por sesión, no en cada render
+    if st.session_state.get('_supabase_ok'):
+        return True
     try:
-        response = supabase.table('cotizaciones').select('*').limit(1).execute()
-        print("✅ Conexión a Supabase exitosa")
+        supabase.table('cotizaciones').select('numero').limit(1).execute()
+        st.session_state['_supabase_ok'] = True
         return True
     except Exception as e:
         st.error(f"❌ Error conectando a Supabase: {e}")
@@ -586,7 +589,11 @@ def calcular_comision_supervisor(subtotal_con_margen):
 def calcular_utilidad_real(margen_valor, comision_vendedor, comision_supervisor):
     return margen_valor - comision_vendedor - comision_supervisor
 
+@st.cache_data(ttl=3600)
 def buscar_direccion(direccion):
+    # Cache 1 hora — evita HTTP en cada render mientras el usuario escribe
+    if not direccion or len(direccion.strip()) < 5:
+        return None, None
     url = "https://nominatim.openstreetmap.org/search"
     params = {"q": direccion, "format": "json", "addressdetails": 1, "limit": 1, "countrycodes": "cl"}
     try:
@@ -628,11 +635,26 @@ def _excel_src():
         st.session_state.excel_bytes_cache = _get_excel_bytes_activo()
     return st.session_state.excel_bytes_cache
 
+@st.cache_data(ttl=300)
+def _leer_hoja_excel(nombre_hoja):
+    """Lee y cachea una hoja del Excel — evita re-parsear en cada render."""
+    return pd.read_excel(_excel_src(), sheet_name=nombre_hoja)
+
+@st.cache_data(ttl=300)
+def _leer_bd_total():
+    """Lee y cachea la hoja BD Total."""
+    return pd.read_excel(_excel_src(), sheet_name="BD Total")[["Item", "P. Unitario real"]]
+
+@st.cache_data(ttl=300)
+def _leer_hojas_disponibles():
+    """Lista de hojas del Excel cacheada."""
+    return pd.ExcelFile(_excel_src()).sheet_names
+
 def cargar_modelo(nombre_hoja):
-    df_modelo = pd.read_excel(_excel_src(), sheet_name=nombre_hoja)
+    df_modelo = _leer_hoja_excel(nombre_hoja)
     df_modelo = df_modelo[["Categorias", "Item", "Cantidad"]].dropna()
     df_modelo = df_modelo[df_modelo["Cantidad"] > 0]
-    df_bd = pd.read_excel(_excel_src(), sheet_name="BD Total")[["Item", "P. Unitario real"]]
+    df_bd = _leer_bd_total()
     df_final = df_modelo.merge(df_bd, on="Item", how="left")
     carrito = []
     for _, row in df_final.iterrows():
@@ -644,10 +666,10 @@ def cargar_modelo(nombre_hoja):
     return carrito
 
 def cargar_categoria_desde_modelo(nombre_hoja, categoria_objetivo):
-    df_modelo = pd.read_excel(_excel_src(), sheet_name=nombre_hoja)
+    df_modelo = _leer_hoja_excel(nombre_hoja)
     df_modelo = df_modelo[["Categorias", "Item", "Cantidad"]].dropna()
     df_modelo = df_modelo[(df_modelo["Cantidad"] > 0) & (df_modelo["Categorias"] == categoria_objetivo)]
-    df_bd = pd.read_excel(_excel_src(), sheet_name="BD Total")[["Item", "P. Unitario real"]]
+    df_bd = _leer_bd_total()
     df_final = df_modelo.merge(df_bd, on="Item", how="left")
     categoria_items = []
     for _, row in df_final.iterrows():
@@ -2232,8 +2254,7 @@ with tab1:
         with col_m1:
             with st.container(border=True):
                 st.markdown("**📋 Modelo Predefinido**")
-                archivo_excel = pd.ExcelFile(_excel_src())
-                hojas_modelo = [h for h in archivo_excel.sheet_names if h.lower().startswith("modelo")]
+                hojas_modelo = [h for h in _leer_hojas_disponibles() if h.lower().startswith("modelo")]
                 if hojas_modelo:
                     modelo_seleccionado = st.selectbox("Modelo", hojas_modelo, key="modelo_select", label_visibility="collapsed")
                     if st.button("Cargar", key="btn_modelo", use_container_width=True):
@@ -2246,7 +2267,7 @@ with tab1:
         with col_m2:
             with st.container(border=True):
                 st.markdown("**🔍 Ítems**")
-                df = pd.read_excel(_excel_src(), sheet_name="BD Total")
+                df = _leer_hoja_excel("BD Total")
                 categorias = df["Categorias"].dropna().unique()
                 categoria_seleccionada = st.selectbox("Categoría", categorias, key="cat_manual", label_visibility="collapsed")
                 items_filtrados = df[df["Categorias"] == categoria_seleccionada]
@@ -2289,7 +2310,7 @@ with tab1:
                 st.markdown("**➕ Agregar Categoría**")
                 if hojas_modelo:
                     modelo_origen = st.selectbox("Modelo", hojas_modelo, key="modelo_origen", label_visibility="collapsed")
-                    df_temp = pd.read_excel(_excel_src(), sheet_name=modelo_origen)
+                    df_temp = _leer_hoja_excel(modelo_origen)
                     categorias_disponibles = df_temp["Categorias"].dropna().unique()
                     categoria_agregar = st.selectbox("Categoría", categorias_disponibles, key="cat_agregar", label_visibility="collapsed")
                     if st.button("Agregar", key="btn_agregar_categoria", use_container_width=True):
@@ -2642,8 +2663,11 @@ with tab3:
 
     if 'resultados_busqueda' not in st.session_state or st.session_state.resultados_busqueda is None:
         st.session_state.resultados_busqueda = buscar_cotizaciones()
+        st.session_state.ultimo_termino = ""
 
-    if buscar_btn or (termino and termino != st.session_state.get('ultimo_termino', '')):
+    # Una sola query: buscar_btn tiene prioridad, evita doble llamada
+    _termino_cambio = termino and termino != st.session_state.get('ultimo_termino', '')
+    if buscar_btn or _termino_cambio:
         st.session_state.ultimo_termino = termino
         st.session_state.resultados_busqueda = buscar_cotizaciones(termino if termino else None, tipo_map[tipo_busqueda])
         st.session_state.mostrar_visor = False
@@ -2715,6 +2739,9 @@ with tab3:
 
             if cotizacion_seleccionada:
                 numero_seleccionado = cotizacion_seleccionada.split(" - ")[0]
+                # Limpiar cache de cotizaciones anteriores (mantener solo la actual)
+                keys_to_del = [k for k in st.session_state if k.startswith("_cot_cache_") and k != f"_cot_cache_{numero_seleccionado}"]
+                for k in keys_to_del: del st.session_state[k]
 
                 tiene_margen_seleccionado = False
                 tiene_plano_seleccionado = False
@@ -2822,7 +2849,11 @@ with tab3:
 
                 dialogo_advertencia()
 
-            cotizacion_para_pdf = cargar_cotizacion(numero_seleccionado) if cotizacion_seleccionada else None
+            # Cargar cotización una sola vez y reusar — evita 3 queries por render
+            _cache_key_cot = f"_cot_cache_{numero_seleccionado}"
+            if _cache_key_cot not in st.session_state:
+                st.session_state[_cache_key_cot] = cargar_cotizacion(numero_seleccionado) if cotizacion_seleccionada else None
+            cotizacion_para_pdf = st.session_state[_cache_key_cot]
 
             def preparar_pdf_data(cotizacion):
                 carrito_df_t = pd.DataFrame(cotizacion['productos'])
@@ -2869,7 +2900,8 @@ with tab3:
                 if cotizacion_seleccionada and tiene_plano_seleccionado:
                     label_visor = "🔄 ACTUALIZAR PLANO" if (st.session_state.mostrar_visor and st.session_state.numero_en_visor == numero_seleccionado) else "👁️ VER PLANO"
                     if st.button(label_visor, use_container_width=True, type="primary"):
-                        cot_btn = cargar_cotizacion(numero_seleccionado)
+                        # Reusar cotizacion ya cargada — evita query extra
+                        cot_btn = cotizacion_para_pdf or cargar_cotizacion(numero_seleccionado)
                         if cot_btn and cot_btn.get('plano_url'):
                             st.session_state.pdf_url = cot_btn['plano_url']
                             st.session_state.pdf_nombre = cot_btn.get('plano_nombre', 'plano.pdf')
@@ -2964,94 +2996,80 @@ with tab3:
         st.info("💡 No hay resultados. Realice una búsqueda para ver cotizaciones guardadas.")
 
 # =========================================================
-# TOAST ÉXITO AL GUARDAR — st.toast() nativo + CSS override para posición/estilo
+# TOAST ÉXITO AL GUARDAR
 # =========================================================
-# CSS: reposicionar y rediseñar el toast nativo de Streamlit
-st.markdown("""
-<style>
-/* Contenedor principal — izquierda, encima de los FABs, sin recorte */
-div[data-testid="stToastContainer"] {
-    position: fixed !important;
-    bottom: 5.5rem !important;
-    left: 2rem !important;
-    right: auto !important;
-    top: auto !important;
-    width: auto !important;
-    max-width: none !important;
-    overflow: visible !important;
-    z-index: 999999 !important;
-    height: auto !important;
-    min-height: 0 !important;
-}
-/* El toast en sí */
-div[data-testid="stToast"] {
-    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
-    color: white !important;
-    border-radius: 18px !important;
-    padding: 1.1rem 1.6rem !important;
-    box-shadow: 0 10px 36px rgba(34,197,94,0.5) !important;
-    border: none !important;
-    width: 320px !important;
-    min-width: 320px !important;
-    max-width: 320px !important;
-    height: auto !important;
-    min-height: 80px !important;
-    max-height: none !important;
-    overflow: visible !important;
-    box-sizing: border-box !important;
-}
-/* Todos los wrappers internos — quitar clips de altura */
-div[data-testid="stToast"] > div,
-div[data-testid="stToast"] > div > div,
-div[data-testid="stToast"] > div > div > div {
-    overflow: visible !important;
-    height: auto !important;
-    max-height: none !important;
-    width: 100% !important;
-    max-width: none !important;
-}
-/* Layout flex del contenido */
-div[data-testid="stToast"] > div {
-    display: flex !important;
-    align-items: center !important;
-    gap: 0.8rem !important;
-}
-/* Ícono */
-div[data-testid="stToast"] [data-testid="stToastIcon"] {
-    font-size: 2rem !important;
-    flex-shrink: 0 !important;
-}
-/* Todo el texto blanco */
-div[data-testid="stToast"] p,
-div[data-testid="stToast"] span,
-div[data-testid="stToast"] div,
-div[data-testid="stToast"] li {
-    color: white !important;
-    font-family: 'Plus Jakarta Sans', sans-serif !important;
-}
-/* Subtítulo "Presupuesto guardado" */
-div[data-testid="stToast"] p {
-    font-size: 0.85rem !important;
-    font-weight: 500 !important;
-    opacity: 0.92 !important;
-    margin: 0 0 3px 0 !important;
-    line-height: 1.4 !important;
-}
-/* Número EP en negrita */
-div[data-testid="stToast"] strong {
-    font-size: 1.25rem !important;
-    font-weight: 800 !important;
-    letter-spacing: 0.04em !important;
-    color: white !important;
-    display: block !important;
-    line-height: 1.3 !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
 if st.session_state.get('mostrar_toast_exito', False):
     ep = st.session_state.get('toast_numero_ep', '')
-    st.toast(f"Presupuesto guardado\n**{ep}**", icon="✅")
+    components.html(f"""
+    <script>
+    (function() {{
+        const parent = window.parent.document;
+        const old = parent.getElementById('toast-exito-ep');
+        if (old) old.remove();
+        if (!parent.getElementById('toast-exito-style')) {{
+            const style = parent.createElement('style');
+            style.id = 'toast-exito-style';
+            style.innerHTML = `
+                @keyframes slideInLeft {{
+                    from {{ transform: translateX(-120%); opacity: 0; }}
+                    to   {{ transform: translateX(0);    opacity: 1; }}
+                }}
+                @keyframes fadeOutLeft {{
+                    from {{ transform: translateX(0);    opacity: 1; }}
+                    to   {{ transform: translateX(-120%); opacity: 0; }}
+                }}
+                #toast-exito-ep {{
+                    position: fixed !important;
+                    bottom: 5rem !important;
+                    left: 2rem !important;
+                    z-index: 999998 !important;
+                    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
+                    color: white !important;
+                    border-radius: 16px !important;
+                    padding: 1rem 1.4rem !important;
+                    font-family: sans-serif !important;
+                    font-size: 0.9rem !important;
+                    font-weight: 600 !important;
+                    box-shadow: 0 8px 32px rgba(34,197,94,0.4) !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    gap: 0.6rem !important;
+                    animation: slideInLeft 0.4s cubic-bezier(0.4,0,0.2,1) forwards !important;
+                    min-width: 240px !important;
+                }}
+                #toast-exito-ep.fadeout {{
+                    animation: fadeOutLeft 0.6s cubic-bezier(0.4,0,0.2,1) forwards !important;
+                }}
+                .toast-titulo {{
+                    font-size: 0.8rem !important;
+                    opacity: 0.88 !important;
+                    font-weight: 500 !important;
+                }}
+                .toast-ep {{
+                    font-size: 1.05rem !important;
+                    font-weight: 800 !important;
+                    letter-spacing: 0.03em !important;
+                }}
+            `;
+            parent.head.appendChild(style);
+        }}
+        const toast = parent.createElement('div');
+        toast.id = 'toast-exito-ep';
+        toast.innerHTML = `
+            <span style="font-size:1.4rem">✅</span>
+            <div>
+                <div class="toast-titulo">Presupuesto guardado con éxito</div>
+                <div class="toast-ep">EP {ep}</div>
+            </div>
+        `;
+        parent.body.appendChild(toast);
+        setTimeout(() => {{
+            toast.classList.add('fadeout');
+            setTimeout(() => toast.remove(), 700);
+        }}, 3500);
+    }})();
+    </script>
+    """, height=0)
     st.session_state.mostrar_toast_exito = False
 
 # =========================================================
@@ -3151,7 +3169,7 @@ if _mostrar_fab:
         guardar_cotizacion(num_g, datos_c, datos_a, proy,
                            st.session_state.carrito, cfg, tots, pl_n, pl_d)
         st.session_state.cotizacion_cargada = num_g
-        st.session_state.hash_ultimo_guardado = calcular_hash_estado()
+        st.session_state.hash_ultimo_guardado = _hash_actual  # reusar hash ya calculado
         st.session_state.recien_guardado = True
         st.session_state.mostrar_toast_exito = True
         st.session_state.toast_numero_ep = num_g
