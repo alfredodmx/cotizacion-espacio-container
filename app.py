@@ -4421,6 +4421,12 @@ if tab6 is not None:
                                              use_container_width=True):
                                     _dict_actualizado = {k: v for k, v in _desc_actuales.items() if k != _cat}
                                     if guardar_descripciones_por_ep(_num_edit, _dict_actualizado):
+                                        # Limpiar el widget del text_area del session_state
+                                        _key_widget = f"pdf_edit_desc_{_num_edit}_{_cat}"
+                                        if _key_widget in st.session_state:
+                                            del st.session_state[_key_widget]
+                                        # Forzar recarga de descripciones
+                                        st.session_state.pdf_edit_cotizacion = cargar_cotizacion(_num_edit)
                                         st.rerun()
 
                         _val_actual = _desc_actuales.get(_cat, '')
