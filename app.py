@@ -2966,6 +2966,18 @@ with tab3:
 # =========================================================
 # TOAST ÉXITO AL GUARDAR
 # =========================================================
+# Limpieza preventiva en cada render — evita que el toast quede pegado
+# cuando st.rerun() recarga el iframe antes de que el setTimeout se ejecute
+components.html("""
+<script>
+(function() {
+    var D = window.parent.document;
+    var old = D.getElementById('toast-exito-ep');
+    if (old) old.remove();
+})();
+</script>
+""", height=0)
+
 if st.session_state.get('mostrar_toast_exito', False):
     ep = st.session_state.get('toast_numero_ep', '')
     components.html(f"""
@@ -3004,6 +3016,7 @@ if st.session_state.get('mostrar_toast_exito', False):
                     gap: 0.6rem !important;
                     animation: slideInLeft 0.4s cubic-bezier(0.4,0,0.2,1) forwards !important;
                     min-width: 240px !important;
+                    cursor: pointer !important;
                 }}
                 #toast-exito-ep.fadeout {{
                     animation: fadeOutLeft 0.6s cubic-bezier(0.4,0,0.2,1) forwards !important;
@@ -3027,14 +3040,18 @@ if st.session_state.get('mostrar_toast_exito', False):
             <span style="font-size:1.4rem">✅</span>
             <div>
                 <div class="toast-titulo">Presupuesto guardado con éxito</div>
-                <div class="toast-ep">EP {ep}</div>
+                <div class="toast-ep">{ep}</div>
             </div>
         `;
         parent.body.appendChild(toast);
-        setTimeout(() => {{
-            toast.classList.add('fadeout');
-            setTimeout(() => toast.remove(), 700);
-        }}, 3500);
+        const removeToast = () => {{
+            if (!toast.classList.contains('fadeout')) {{
+                toast.classList.add('fadeout');
+                setTimeout(() => {{ if (toast.parentNode) toast.remove(); }}, 700);
+            }}
+        }};
+        setTimeout(removeToast, 3500);
+        toast.addEventListener('click', removeToast);
     }})();
     </script>
     """, height=0)
