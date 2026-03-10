@@ -52,16 +52,13 @@ verificar_conexion_supabase()
 # =========================================================
 # HELPERS: DESCRIPCIONES PDF CLIENTE (JSON en Storage bucket config)
 # =========================================================
-_PDF_DESC_FILE = "pdf_descripciones.json"
-
-@st.cache_data(ttl=300)
-def cargar_descripciones_pdf():
-    """Carga descripciones desde un JSON en Supabase Storage bucket config."""
+def cargar_descripciones_por_ep(numero):
+    """Carga descripciones de un EP desde Storage bucket config."""
     try:
         import requests as _rq
-        # Construir URL directamente sin llamada a la API de Supabase
         _base = SUPABASE_URL.rstrip("/")
-        url = f"{_base}/storage/v1/object/public/config/{_PDF_DESC_FILE}"
+        _fname = f"pdf_desc_{numero}.json"
+        url = f"{_base}/storage/v1/object/public/config/{_fname}"
         r = _rq.get(url, timeout=3)
         if r.status_code == 200:
             return r.json()
@@ -69,22 +66,20 @@ def cargar_descripciones_pdf():
         pass
     return {}
 
-def guardar_descripciones_pdf(descripciones: dict):
-    """Guarda el dict completo de descripciones como JSON en Storage."""
+def guardar_descripciones_por_ep(numero, descripciones: dict):
+    """Guarda descripciones de un EP como JSON en Storage bucket config."""
     try:
-        import json as _json
-        data = _json.dumps(descripciones, ensure_ascii=False, indent=2).encode("utf-8")
-        # Eliminar archivo anterior si existe
+        _fname = f"pdf_desc_{numero}.json"
+        data = json.dumps(descripciones, ensure_ascii=False, indent=2).encode("utf-8")
         try:
-            supabase.storage.from_("config").remove([_PDF_DESC_FILE])
+            supabase.storage.from_("config").remove([_fname])
         except:
             pass
         supabase.storage.from_("config").upload(
-            path=_PDF_DESC_FILE,
+            path=_fname,
             file=data,
             file_options={"content-type": "application/json", "upsert": "true"}
         )
-        cargar_descripciones_pdf.clear()
         return True
     except Exception as e:
         st.error(f"Error al guardar descripciones: {e}")
@@ -1730,9 +1725,8 @@ if st.session_state.cotizacion_cargada:
 if st.session_state.modo_admin:
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "🧊 3D BETA", "📊 PROYECTO EXCEL", "✏️ EDICIÓN PDF"])
 else:
-    tab1, tab2, tab3, tab4 = st.tabs(["📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "🧊 3D BETA"])
+    tab1, tab2, tab3, tab4, tab6 = st.tabs(["📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "🧊 3D BETA", "✏️ EDICIÓN PDF"])
     tab5 = None
-    tab6 = None
 
 # =========================================================
 # FUNCIÓN PARA GENERAR PDF COMPLETO
@@ -1867,7 +1861,8 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
 # =========================================================
 def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
                      fecha_inicio, fecha_termino, dias_validez,
-                     datos_asesor, margen=0, numero_cotizacion=None):
+                     datos_asesor, margen=0, numero_cotizacion=None, descripciones_ep=None):
+    _descripciones_ep = descripciones_ep or {}
 
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4,
@@ -1930,14 +1925,11 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
 
     categorias = carrito_df.groupby('Categoria')
     data_resumen = []
-    # Cargar descripciones personalizadas definidas por el admin
-    _descripciones_custom = cargar_descripciones_pdf()
     for categoria, grupo in categorias:
-        if categoria in _descripciones_custom and _descripciones_custom[categoria].strip():
-            # Usar descripción personalizada del admin
-            descripcion_html = _descripciones_custom[categoria].strip().replace('\n', '<br/>')
+        desc_custom = (_descripciones_ep or {}).get(categoria, '').strip()
+        if desc_custom:
+            descripcion_html = desc_custom.replace('\n', '<br/>')
         else:
-            # Descripción por defecto: lista de ítems
             items_lista = grupo['Item'].tolist()
             descripcion_html = "<br/>".join(f"• {item}" for item in items_lista)
         data_resumen.append([
@@ -2936,7 +2928,8 @@ with tab3:
             with col_acc3:
                 if cotizacion_para_pdf:
                     carrito_df_p, subtotal_p, iva_p, total_p, dc, da, fi, ft, dv, margen_c = preparar_pdf_data(cotizacion_para_pdf)
-                    pdf_buffer, _ = generar_pdf_cliente(carrito_df_p, subtotal_p, iva_p, total_p, dc, fi, ft, dv, da, margen=margen_c, numero_cotizacion=numero_seleccionado)
+                    _desc_ep = cargar_descripciones_por_ep(numero_seleccionado)
+                    pdf_buffer, _ = generar_pdf_cliente(carrito_df_p, subtotal_p, iva_p, total_p, dc, fi, ft, dv, da, margen=margen_c, numero_cotizacion=numero_seleccionado, descripciones_ep=_desc_ep)
                     st.download_button(label="🔒 PDF Cliente", data=pdf_buffer, file_name=f"Presupuesto_Cliente_{numero_seleccionado}.pdf",
                         mime="application/pdf", use_container_width=True, key=f"pdf_cliente_{numero_seleccionado}")
                 else:
@@ -4263,16 +4256,15 @@ else:
 </script>""", height=0)
 
 # =========================================================
-# TAB 6 - EDICIÓN PDF (solo admin)
+# TAB 6 - EDICIÓN PDF (visible para todos)
 # =========================================================
-if st.session_state.modo_admin and tab6 is not None:
+if tab6 is not None:
     with tab6:
         st.markdown("""
         <style>
         .pdf-edit-header {
             background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
             border-radius: 14px; padding: 24px 28px; margin-bottom: 24px; margin-top: -1rem;
-            display: flex; align-items: center; gap: 16px;
         }
         .pdf-edit-header h2 { color: white; margin: 0; font-size: 1.4rem; }
         .pdf-edit-header p  { color: rgba(255,255,255,0.75); margin: 4px 0 0; font-size: 0.9rem; }
@@ -4281,92 +4273,114 @@ if st.session_state.modo_admin and tab6 is not None:
 
         st.markdown("""
         <div class="pdf-edit-header">
-            <div>
-                <h2>✏️ Edición PDF Cliente</h2>
-                <p>Define la descripción que verá el cliente por cada categoría. Si no defines una, se muestran los ítems por defecto.</p>
-            </div>
+            <h2>✏️ Edición PDF Cliente</h2>
+            <p>Busca tu cotización por número EP y personaliza la descripción de cada categoría para el cliente.</p>
         </div>
         """, unsafe_allow_html=True)
 
-        # Cargar descripciones guardadas
-        _desc_guardadas = cargar_descripciones_pdf()
+        # Buscar cotización por EP
+        with st.container(border=True):
+            st.markdown("#### 🔍 Buscar cotización")
+            col_ep, col_btn = st.columns([3, 1])
+            with col_ep:
+                _ep_buscar = st.text_input("Número EP", placeholder="Ej: EP-22286",
+                                           key="pdf_edit_ep_input",
+                                           label_visibility="collapsed")
+            with col_btn:
+                _btn_buscar_ep = st.button("🔍 Buscar", use_container_width=True,
+                                           key="pdf_edit_btn_buscar", type="primary")
 
-        # Obtener categorías únicas del Excel activo
-        try:
-            _df_cats = _leer_hoja_excel("BD Total")
-            _categorias_disponibles = sorted(_df_cats["Categorias"].dropna().unique().tolist())
-        except:
-            _categorias_disponibles = list(_desc_guardadas.keys())
+        # Estado de cotización cargada para edición
+        if 'pdf_edit_cotizacion' not in st.session_state:
+            st.session_state.pdf_edit_cotizacion = None
+        if 'pdf_edit_numero' not in st.session_state:
+            st.session_state.pdf_edit_numero = None
 
-        if not _categorias_disponibles:
-            st.info("No se encontraron categorías en el Excel activo.")
-        else:
-            # Panel agregar/editar
-            with st.container(border=True):
-                st.markdown("#### ➕ Agregar o editar descripción")
-                col_sel, col_txt = st.columns([1, 2])
-                with col_sel:
-                    cat_elegida = st.selectbox(
-                        "Categoría",
-                        options=_categorias_disponibles,
-                        key="pdf_edit_cat_select"
-                    )
-                    desc_actual = _desc_guardadas.get(cat_elegida, "")
-                    if desc_actual:
-                        st.success("✅ Tiene descripción personalizada")
-                    else:
-                        st.info("📋 Usa ítems por defecto")
-
-                with col_txt:
-                    nueva_desc = st.text_area(
-                        "Descripción para el PDF cliente",
-                        value=desc_actual,
-                        height=120,
-                        placeholder="Ej: Incluye ducha, lavamanos, WC y todos los accesorios de instalación.",
-                        key="pdf_edit_desc_input"
-                    )
-                    col_g, col_e = st.columns([1, 1])
-                    with col_g:
-                        if st.button("💾 Guardar descripción", type="primary", use_container_width=True, key="pdf_edit_guardar"):
-                            if nueva_desc.strip():
-                                _dict_actualizado = dict(_desc_guardadas)
-                                _dict_actualizado[cat_elegida] = nueva_desc.strip()
-                                if guardar_descripciones_pdf(_dict_actualizado):
-                                    st.success(f"✅ Descripción de '{cat_elegida}' guardada.")
-                                    st.rerun()
-                            else:
-                                st.warning("Escribe una descripción antes de guardar.")
-                    with col_e:
-                        if desc_actual and st.button("🗑️ Eliminar descripción", use_container_width=True, key="pdf_edit_eliminar"):
-                            _dict_actualizado = {k: v for k, v in _desc_guardadas.items() if k != cat_elegida}
-                            if guardar_descripciones_pdf(_dict_actualizado):
-                                st.success(f"Descripción de '{cat_elegida}' eliminada.")
-                                st.rerun()
-
-            st.markdown("---")
-            st.markdown(f"#### 📋 Descripciones configuradas ({len(_desc_guardadas)} de {len(_categorias_disponibles)} categorías)")
-
-            if _desc_guardadas:
-                for cat, desc in sorted(_desc_guardadas.items()):
-                    with st.container(border=True):
-                        col_info, col_del = st.columns([5, 1])
-                        with col_info:
-                            st.markdown(f"**{cat}**")
-                            st.caption(desc[:200] + ("..." if len(desc) > 200 else ""))
-                        with col_del:
-                            if st.button("🗑️", key=f"del_desc_{cat}", help=f"Eliminar descripción de {cat}"):
-                                _dict_actualizado = {k: v for k, v in _desc_guardadas.items() if k != cat}
-                                if guardar_descripciones_pdf(_dict_actualizado):
-                                    st.rerun()
+        if _btn_buscar_ep and _ep_buscar.strip():
+            _cot_found = cargar_cotizacion(_ep_buscar.strip().upper())
+            if _cot_found:
+                st.session_state.pdf_edit_cotizacion = _cot_found
+                st.session_state.pdf_edit_numero = _ep_buscar.strip().upper()
+                st.success(f"✅ Cotización {st.session_state.pdf_edit_numero} encontrada — {_cot_found.get('cliente_nombre','S/C')}")
             else:
-                st.info("No hay descripciones personalizadas aún. Todas las categorías mostrarán los ítems del carrito.")
+                st.error("❌ No se encontró la cotización. Verifica el número EP.")
+                st.session_state.pdf_edit_cotizacion = None
+                st.session_state.pdf_edit_numero = None
 
-            with st.expander("👁️ Vista previa — cómo verá el cliente cada categoría"):
-                st.markdown("**Así aparecerá cada categoría en el PDF cliente:**")
-                for cat in _categorias_disponibles:
-                    desc = _desc_guardadas.get(cat, "")
-                    if desc:
-                        st.markdown(f"🟣 **{cat}** → _{desc}_")
-                    else:
-                        st.markdown(f"⬜ **{cat}** → *(ítems del carrito por defecto)*")
+        # Si hay cotización cargada, mostrar editor
+        if st.session_state.pdf_edit_cotizacion and st.session_state.pdf_edit_numero:
+            _cot_edit = st.session_state.pdf_edit_cotizacion
+            _num_edit = st.session_state.pdf_edit_numero
 
+            # Info de la cotización
+            st.markdown(f"""
+            <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;
+                        padding:12px 16px;margin:12px 0;">
+                <b>📋 {_num_edit}</b> — {_cot_edit.get('cliente_nombre','S/C')} &nbsp;|&nbsp;
+                Asesor: {_cot_edit.get('asesor_nombre','—')} &nbsp;|&nbsp;
+                Fecha: {(_cot_edit.get('fecha_creacion','')[:10])}
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Cargar descripciones actuales de este EP
+            _desc_actuales = cargar_descripciones_por_ep(_num_edit)
+
+            # Obtener categorías de los productos de esta cotización
+            _productos = _cot_edit.get('productos', [])
+            if _productos:
+                _cats_ep = sorted(list({p.get('Categoria','') for p in _productos if p.get('Categoria','')}))
+            else:
+                _cats_ep = []
+
+            if not _cats_ep:
+                st.warning("Esta cotización no tiene productos con categorías definidas.")
+            else:
+                st.markdown(f"#### 📝 Editar descripciones ({len(_cats_ep)} categorías)")
+                st.caption("Escribe la descripción que verá el cliente en el PDF. Si la dejas vacía, se mostrarán los ítems del carrito.")
+
+                _desc_editadas = {}
+                for _cat in _cats_ep:
+                    with st.container(border=True):
+                        col_cat, col_estado = st.columns([3, 1])
+                        with col_cat:
+                            st.markdown(f"**{_cat}**")
+                        with col_estado:
+                            if _cat in _desc_actuales and _desc_actuales[_cat].strip():
+                                st.markdown("🟣 Personalizada")
+                            else:
+                                st.markdown("⬜ Por defecto")
+
+                        _val_actual = _desc_actuales.get(_cat, '')
+                        _nueva = st.text_area(
+                            f"Descripción para {_cat}",
+                            value=_val_actual,
+                            height=80,
+                            placeholder=f"Ej: Incluye todos los elementos de {_cat.lower()}...",
+                            key=f"pdf_edit_desc_{_num_edit}_{_cat}",
+                            label_visibility="collapsed"
+                        )
+                        _desc_editadas[_cat] = _nueva
+
+                st.markdown("")
+                col_guardar, col_limpiar = st.columns([2, 1])
+                with col_guardar:
+                    if st.button("💾 Guardar todas las descripciones", type="primary",
+                                 use_container_width=True, key="pdf_edit_guardar_todo"):
+                        # Solo guardar categorías con descripción no vacía
+                        _dict_final = {k: v.strip() for k, v in _desc_editadas.items() if v.strip()}
+                        if guardar_descripciones_por_ep(_num_edit, _dict_final):
+                            st.success("✅ Descripciones guardadas. Se usarán al generar el PDF cliente.")
+                            st.session_state.pdf_edit_cotizacion = None
+                            st.session_state.pdf_edit_numero = None
+                            st.rerun()
+
+                with col_limpiar:
+                    if st.button("🗑️ Limpiar todas", use_container_width=True,
+                                 key="pdf_edit_limpiar_todo"):
+                        if guardar_descripciones_por_ep(_num_edit, {}):
+                            st.success("✅ Descripciones eliminadas.")
+                            st.session_state.pdf_edit_cotizacion = None
+                            st.session_state.pdf_edit_numero = None
+                            st.rerun()
+        else:
+            st.info("🔍 Ingresa el número EP y presiona Buscar para editar las descripciones de una cotización.")
