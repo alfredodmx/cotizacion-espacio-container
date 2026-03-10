@@ -2980,6 +2980,8 @@ div[data-testid="stToastContainer"] {
     max-width: none !important;
     overflow: visible !important;
     z-index: 999999 !important;
+    height: auto !important;
+    min-height: 0 !important;
 }
 /* El toast en sí */
 div[data-testid="stToast"] {
@@ -2992,14 +2994,24 @@ div[data-testid="stToast"] {
     width: 320px !important;
     min-width: 320px !important;
     max-width: 320px !important;
+    height: auto !important;
+    min-height: 80px !important;
+    max-height: none !important;
     overflow: visible !important;
     box-sizing: border-box !important;
 }
-/* Wrapper interno de Streamlit — quitar cualquier clip o max-width */
-div[data-testid="stToast"] > div {
+/* Todos los wrappers internos — quitar clips de altura */
+div[data-testid="stToast"] > div,
+div[data-testid="stToast"] > div > div,
+div[data-testid="stToast"] > div > div > div {
     overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
     width: 100% !important;
     max-width: none !important;
+}
+/* Layout flex del contenido */
+div[data-testid="stToast"] > div {
     display: flex !important;
     align-items: center !important;
     gap: 0.8rem !important;
