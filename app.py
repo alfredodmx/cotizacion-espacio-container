@@ -4262,19 +4262,20 @@ if tab6 is not None:
     with tab6:
         st.markdown("""
         <style>
-        .pdf-edit-header {
+        .hdr6 {
             background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%);
-            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px; margin-top: -1rem;
+            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
+            display: flex; align-items: center; gap: 16px;
         }
-        .pdf-edit-header h2 { color: white !important; margin: 0; font-size: 1.4rem; }
-        .pdf-edit-header p  { color: rgba(255,255,255,0.85) !important; margin: 4px 0 0; font-size: 0.9rem; }
+        .hdr6 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
+        .hdr6 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
         </style>
-        """, unsafe_allow_html=True)
-
-        st.markdown("""
-        <div class="pdf-edit-header">
-            <h2>✏️ Edición PDF Cliente</h2>
+        <div class="hdr6">
+          <span style="font-size:2.4rem">✏️</span>
+          <div>
+            <h2>Edición PDF Cliente</h2>
             <p>Busca tu cotización por número EP y personaliza la descripción de cada categoría para el cliente.</p>
+          </div>
         </div>
         """, unsafe_allow_html=True)
 
