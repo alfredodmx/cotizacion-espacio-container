@@ -1720,12 +1720,77 @@ if st.session_state.cotizacion_cargada:
         dialogo_advertencia_cerrar()
 
 # =========================================================
+# FUNCIÓN: RANKING DE EJECUTIVOS
+# =========================================================
+def cargar_ranking_ejecutivos(periodo='mes'):
+    """Carga métricas de ejecutivos desde Supabase."""
+    try:
+        from datetime import datetime as _dt, timedelta as _td
+        query = supabase.table('cotizaciones').select(
+            'asesor_nombre, total_total, config_margen, cliente_nombre,'
+            'cliente_email, cliente_rut, asesor_email, asesor_telefono, fecha_creacion'
+        )
+        if periodo == 'mes':
+            _inicio = _dt.now().replace(day=1).strftime('%Y-%m-%d')
+            query = query.gte('fecha_creacion', _inicio)
+        resp = query.execute()
+        if not resp.data:
+            return []
+        # Agrupar por asesor
+        asesores = {}
+        for row in resp.data:
+            nombre = row.get('asesor_nombre') or 'Sin asignar'
+            if nombre not in asesores:
+                asesores[nombre] = {
+                    'nombre': nombre,
+                    'total_presupuestos': 0,
+                    'total_generado': 0.0,
+                    'autorizados': 0,
+                    'borradores': 0,
+                    'incompletos': 0,
+                }
+            a = asesores[nombre]
+            a['total_presupuestos'] += 1
+            a['total_generado'] += float(row.get('total_total') or 0)
+            # Clasificar estado
+            margen = float(row.get('config_margen') or 0)
+            datos_ok = all([row.get('cliente_nombre'), row.get('cliente_email')])
+            asesor_ok = any([row.get('asesor_nombre'), row.get('asesor_email'), row.get('asesor_telefono')])
+            if margen > 0 and datos_ok and asesor_ok:
+                a['autorizados'] += 1
+            elif datos_ok and asesor_ok:
+                a['borradores'] += 1
+            else:
+                a['incompletos'] += 1
+        # Calcular métricas derivadas
+        ranking = []
+        for nombre, a in asesores.items():
+            n = a['total_presupuestos']
+            a['promedio'] = a['total_generado'] / n if n > 0 else 0
+            a['pct_autorizado'] = round((a['autorizados'] / n) * 100) if n > 0 else 0
+            # Score: pondera total generado (60%) + % autorizado (25%) + cantidad (15%)
+            max_total = max((x['total_generado'] for x in asesores.values()), default=1) or 1
+            max_n     = max((x['total_presupuestos'] for x in asesores.values()), default=1) or 1
+            a['score'] = round(
+                (a['total_generado'] / max_total) * 60 +
+                (a['pct_autorizado'] / 100) * 25 +
+                (a['total_presupuestos'] / max_n) * 15
+            )
+            ranking.append(a)
+        # Ordenar por score desc
+        ranking.sort(key=lambda x: x['score'], reverse=True)
+        return ranking
+    except Exception as e:
+        return []
+
+
+# =========================================================
 # TABS
 # =========================================================
 if st.session_state.modo_admin:
-    tab1, tab2, tab3, tab6, tab4, tab5 = st.tabs(["📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🧊 3D BETA", "📊 PROYECTO EXCEL"])
+    tab1, tab2, tab3, tab6, tab7, tab4, tab5 = st.tabs(["📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "🧊 3D BETA", "📊 PROYECTO EXCEL"])
 else:
-    tab1, tab2, tab3, tab6, tab4 = st.tabs(["📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🧊 3D BETA"])
+    tab1, tab2, tab3, tab6, tab7, tab4 = st.tabs(["📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "🧊 3D BETA"])
     tab5 = None
 
 # =========================================================
@@ -4385,3 +4450,124 @@ if tab6 is not None:
                             st.rerun()
         else:
             st.info("🔍 Ingresa el número EP y presiona Buscar para editar las descripciones de una cotización.")
+
+# =========================================================
+# TAB 7 - RANKING EJECUTIVOS (visible para todos)
+# =========================================================
+if tab7 is not None:
+    with tab7:
+        st.markdown("""
+        <style>
+        .hdr7 {
+            background: linear-gradient(135deg, #78350f 0%, #d97706 100%);
+            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
+            display: flex; align-items: center; gap: 16px;
+        }
+        .hdr7 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
+        .hdr7 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
+        .rank-card {
+            background: white; border-radius: 14px; padding: 20px 24px;
+            border: 1px solid #e2e8f0; margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .rank-1 { border-left: 5px solid #f59e0b; }
+        .rank-2 { border-left: 5px solid #94a3b8; }
+        .rank-3 { border-left: 5px solid #cd7c3a; }
+        .rank-other { border-left: 5px solid #e2e8f0; }
+        .rank-medal { font-size: 2rem; min-width: 2.5rem; }
+        .rank-score-bar {
+            height: 8px; border-radius: 4px;
+            background: linear-gradient(90deg, #f59e0b, #d97706);
+            margin-top: 6px;
+        }
+        </style>
+        <div class="hdr7">
+          <span style="font-size:2.4rem">🏆</span>
+          <div>
+            <h2>Ranking de Ejecutivos</h2>
+            <p>Desempeño del equipo de ventas — este mes.</p>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Cargar datos
+        with st.spinner("Cargando ranking..."):
+            _ranking = cargar_ranking_ejecutivos(periodo='mes')
+
+        if not _ranking:
+            st.info("No hay cotizaciones registradas este mes.")
+        else:
+            from datetime import datetime as _dt
+            _mes_actual = _dt.now().strftime("%B %Y").capitalize()
+            st.markdown(f"#### 📅 {_mes_actual} — {len(_ranking)} ejecutivo{'s' if len(_ranking) != 1 else ''}")
+
+            # Métricas globales del mes
+            _total_mes     = sum(a['total_generado'] for a in _ranking)
+            _total_presup  = sum(a['total_presupuestos'] for a in _ranking)
+            _total_autori  = sum(a['autorizados'] for a in _ranking)
+
+            col_g1, col_g2, col_g3 = st.columns(3)
+            with col_g1:
+                st.metric("💰 Total mes", f"${_total_mes:,.0f}".replace(",","."))
+            with col_g2:
+                st.metric("📋 Presupuestos", _total_presup)
+            with col_g3:
+                pct_g = round((_total_autori / _total_presup) * 100) if _total_presup else 0
+                st.metric("🟢 % Autorizados", f"{pct_g}%")
+
+            st.markdown("---")
+
+            # Cards por ejecutivo
+            _medallas = {1: "🥇", 2: "🥈", 3: "🥉"}
+            _clases   = {1: "rank-1", 2: "rank-2", 3: "rank-3"}
+
+            for i, ej in enumerate(_ranking, 1):
+                medalla   = _medallas.get(i, f"#{i}")
+                cls       = _clases.get(i, "rank-other")
+                score      = ej["score"]
+                total_fmt  = "${:,.0f}".format(ej['total_generado']).replace(",", ".")
+                prom_fmt   = "${:,.0f}".format(ej['promedio']).replace(",", ".")
+                color_pct  = "#16a34a" if ej['pct_autorizado'] >= 50 else "#dc2626"
+                bar_width  = score  # score ya es sobre 100
+
+                st.markdown(f"""
+                <div class="rank-card {cls}">
+                  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                    <span class="rank-medal">{medalla}</span>
+                    <div style="flex:1;min-width:200px;">
+                      <div style="font-size:1.1rem;font-weight:700;color:#1e293b;">{ej['nombre']}</div>
+                      <div class="rank-score-bar" style="width:{bar_width}%"></div>
+                      <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">Score {score}/100</div>
+                    </div>
+                    <div style="display:flex;gap:24px;flex-wrap:wrap;">
+                      <div style="text-align:center;">
+                        <div style="font-size:1.3rem;font-weight:800;color:#0f172a;">{ej['total_presupuestos']}</div>
+                        <div style="font-size:0.72rem;color:#64748b;">Presupuestos</div>
+                      </div>
+                      <div style="text-align:center;">
+                        <div style="font-size:1.3rem;font-weight:800;color:#0f172a;">{total_fmt}</div>
+                        <div style="font-size:0.72rem;color:#64748b;">Total generado</div>
+                      </div>
+                      <div style="text-align:center;">
+                        <div style="font-size:1.3rem;font-weight:800;color:#0f172a;">{prom_fmt}</div>
+                        <div style="font-size:0.72rem;color:#64748b;">Promedio / cot.</div>
+                      </div>
+                      <div style="text-align:center;">
+                        <div style="font-size:1.3rem;font-weight:800;color:{color_pct};">{ej['pct_autorizado']}%</div>
+                        <div style="font-size:0.72rem;color:#64748b;">Autorizados</div>
+                      </div>
+                      <div style="text-align:center;">
+                        <div style="font-size:1.3rem;font-weight:800;color:#0f172a;">{ej['autorizados']}</div>
+                        <div style="font-size:0.72rem;color:#64748b;">🟢 Autor.</div>
+                      </div>
+                      <div style="text-align:center;">
+                        <div style="font-size:1.3rem;font-weight:800;color:#0f172a;">{ej['borradores']}</div>
+                        <div style="font-size:0.72rem;color:#64748b;">🟡 Borrad.</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            st.caption("Score = 60% total generado + 25% % autorizados + 15% cantidad de presupuestos")
+
