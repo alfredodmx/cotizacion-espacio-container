@@ -3335,7 +3335,7 @@ if _mostrar_fab:
             const buttons = parent.querySelectorAll('button');
             for (const b of buttons) {
                 const txt = (b.innerText || b.textContent || '').trim();
-                if (txt.includes('Guardar') && b.id !== 'fab-guardar-btn') {
+                if ((txt === '💾 Guardar' || txt === 'Guardar') && b.id !== 'fab-guardar-btn') {
                     b.parentElement.style.display = 'none';
                 }
             }
@@ -3345,7 +3345,7 @@ if _mostrar_fab:
             const buttons = parent.querySelectorAll('button');
             for (const b of buttons) {
                 const txt = (b.innerText || b.textContent || '').trim();
-                if (txt.includes('Guardar') && b.id !== 'fab-guardar-btn' && !b.disabled) {
+                if ((txt === '💾 Guardar' || txt === 'Guardar') && b.id !== 'fab-guardar-btn' && !b.disabled) {
                     b.click();
                     return;
                 }
