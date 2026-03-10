@@ -4388,13 +4388,16 @@ if tab6 is not None:
             </div>
             """, unsafe_allow_html=True)
 
-            # Cargar descripciones — preferir session_state para evitar CDN cache
-            _cache_key_desc = f"_desc_cache_{_num_edit}"
-            if _cache_key_desc in st.session_state:
-                _desc_actuales = st.session_state[_cache_key_desc]
-            else:
-                _desc_actuales = cargar_descripciones_por_ep(_num_edit)
-                st.session_state[_cache_key_desc] = _desc_actuales
+            # Cargar descripciones desde Storage solo la primera vez que se abre este EP
+            _init_key = f"_desc_init_{_num_edit}"
+            if _init_key not in st.session_state:
+                _desc_storage = cargar_descripciones_por_ep(_num_edit)
+                # Inicializar cada text_area con el valor de Storage
+                for _k, _v in _desc_storage.items():
+                    _ta_key = f"pdf_edit_desc_{_num_edit}_{_k}"
+                    if _ta_key not in st.session_state:
+                        st.session_state[_ta_key] = _v
+                st.session_state[_init_key] = True
 
             # Obtener categorías de los productos de esta cotización
             _productos = _cot_edit.get('productos', [])
@@ -4411,36 +4414,36 @@ if tab6 is not None:
 
                 _desc_editadas = {}
                 for _cat in _cats_ep:
+                    _key_ta = f"pdf_edit_desc_{_num_edit}_{_cat}"
+                    _tiene_desc = bool(st.session_state.get(_key_ta, '').strip())
                     with st.container(border=True):
                         col_cat, col_estado, col_limpiar_uno = st.columns([3, 1, 1])
                         with col_cat:
                             st.markdown(f"**{_cat}**")
                         with col_estado:
-                            if _cat in _desc_actuales and _desc_actuales[_cat].strip():
+                            if _tiene_desc:
                                 st.markdown("🟣 Personalizada")
                             else:
                                 st.markdown("⬜ Por defecto")
                         with col_limpiar_uno:
-                            if _cat in _desc_actuales and _desc_actuales[_cat].strip():
+                            if _tiene_desc:
                                 if st.button("🗑️ Limpiar", key=f"pdf_limpiar_{_num_edit}_{_cat}",
                                              use_container_width=True):
-                                    _dict_actualizado = {k: v for k, v in _desc_actuales.items() if k != _cat}
-                                    guardar_descripciones_por_ep(_num_edit, _dict_actualizado)
-                                    # Actualizar directo en session_state — evita CDN cache de Storage
-                                    st.session_state[f"_desc_cache_{_num_edit}"] = _dict_actualizado
-                                    # Limpiar el widget del text_area
-                                    _key_widget = f"pdf_edit_desc_{_num_edit}_{_cat}"
-                                    if _key_widget in st.session_state:
-                                        del st.session_state[_key_widget]
+                                    # Borrar widget y guardar en Storage sin esta categoría
+                                    st.session_state[_key_ta] = ''
+                                    _dict_sin = {
+                                        _c: st.session_state.get(f"pdf_edit_desc_{_num_edit}_{_c}", '')
+                                        for _c in _cats_ep
+                                        if _c != _cat and st.session_state.get(f"pdf_edit_desc_{_num_edit}_{_c}", '').strip()
+                                    }
+                                    guardar_descripciones_por_ep(_num_edit, _dict_sin)
                                     st.rerun()
 
-                        _val_actual = _desc_actuales.get(_cat, '')
                         _nueva = st.text_area(
                             f"Descripción para {_cat}",
-                            value=_val_actual,
                             height=80,
                             placeholder=f"Ej: Incluye todos los elementos de {_cat.lower()}...",
-                            key=f"pdf_edit_desc_{_num_edit}_{_cat}",
+                            key=_key_ta,
                             label_visibility="collapsed"
                         )
                         _desc_editadas[_cat] = _nueva
@@ -4450,11 +4453,12 @@ if tab6 is not None:
                 with col_guardar:
                     if st.button("💾 Guardar todas las descripciones", type="primary",
                                  use_container_width=True, key="pdf_edit_guardar_todo"):
-                        # Solo guardar categorías con descripción no vacía
                         _dict_final = {k: v.strip() for k, v in _desc_editadas.items() if v.strip()}
                         if guardar_descripciones_por_ep(_num_edit, _dict_final):
-                            st.session_state[f"_desc_cache_{_num_edit}"] = _dict_final
                             st.success("✅ Descripciones guardadas. Se usarán al generar el PDF cliente.")
+                            # Limpiar init para que recargue desde Storage al reabrir
+                            if _init_key in st.session_state:
+                                del st.session_state[_init_key]
                             st.session_state.pdf_edit_cotizacion = None
                             st.session_state.pdf_edit_numero = None
                             st.rerun()
@@ -4462,17 +4466,17 @@ if tab6 is not None:
                 with col_limpiar:
                     if st.button("🗑️ Limpiar todas", use_container_width=True,
                                  key="pdf_edit_limpiar_todo"):
-                        if guardar_descripciones_por_ep(_num_edit, {}):
-                            st.session_state[f"_desc_cache_{_num_edit}"] = {}
-                            # Limpiar todos los widgets de text_area
-                            for _c in _cats_ep:
-                                _kw = f"pdf_edit_desc_{_num_edit}_{_c}"
-                                if _kw in st.session_state:
-                                    del st.session_state[_kw]
-                            st.success("✅ Descripciones eliminadas.")
-                            st.session_state.pdf_edit_cotizacion = None
-                            st.session_state.pdf_edit_numero = None
-                            st.rerun()
+                        guardar_descripciones_por_ep(_num_edit, {})
+                        # Limpiar todos los widgets
+                        for _c in _cats_ep:
+                            _kw = f"pdf_edit_desc_{_num_edit}_{_c}"
+                            if _kw in st.session_state:
+                                del st.session_state[_kw]
+                        if _init_key in st.session_state:
+                            del st.session_state[_init_key]
+                        st.session_state.pdf_edit_cotizacion = None
+                        st.session_state.pdf_edit_numero = None
+                        st.rerun()
         else:
             st.info("🔍 Ingresa el número EP y presiona Buscar para editar las descripciones de una cotización.")
 
