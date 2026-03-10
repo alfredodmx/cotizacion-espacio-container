@@ -54,13 +54,15 @@ verificar_conexion_supabase()
 # =========================================================
 _PDF_DESC_FILE = "pdf_descripciones.json"
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=300)
 def cargar_descripciones_pdf():
     """Carga descripciones desde un JSON en Supabase Storage bucket config."""
     try:
         import requests as _rq
-        url = supabase.storage.from_("config").get_public_url(_PDF_DESC_FILE)
-        r = _rq.get(url, timeout=5)
+        # Construir URL directamente sin llamada a la API de Supabase
+        _base = SUPABASE_URL.rstrip("/")
+        url = f"{_base}/storage/v1/object/public/config/{_PDF_DESC_FILE}"
+        r = _rq.get(url, timeout=3)
         if r.status_code == 200:
             return r.json()
     except:
