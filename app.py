@@ -2969,52 +2969,70 @@ with tab3:
 # CSS: reposicionar y rediseñar el toast nativo de Streamlit
 st.markdown("""
 <style>
-/* Mover el contenedor de toasts: izquierda, justo encima de los FABs */
+/* Contenedor principal — izquierda, encima de los FABs, sin recorte */
 div[data-testid="stToastContainer"] {
+    position: fixed !important;
     bottom: 5.5rem !important;
     left: 2rem !important;
     right: auto !important;
     top: auto !important;
+    width: auto !important;
+    max-width: none !important;
+    overflow: visible !important;
+    z-index: 999999 !important;
 }
-/* Estilo del toast: verde, tipografía grande */
+/* El toast en sí */
 div[data-testid="stToast"] {
     background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
     color: white !important;
-    border-radius: 16px !important;
-    padding: 1rem 1.4rem !important;
-    box-shadow: 0 8px 32px rgba(34,197,94,0.45) !important;
+    border-radius: 18px !important;
+    padding: 1.1rem 1.6rem !important;
+    box-shadow: 0 10px 36px rgba(34,197,94,0.5) !important;
     border: none !important;
-    min-width: 260px !important;
-    max-width: 360px !important;
+    width: 320px !important;
+    min-width: 320px !important;
+    max-width: 320px !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
 }
-/* Texto principal del toast */
+/* Wrapper interno de Streamlit — quitar cualquier clip o max-width */
+div[data-testid="stToast"] > div {
+    overflow: visible !important;
+    width: 100% !important;
+    max-width: none !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.8rem !important;
+}
+/* Ícono */
+div[data-testid="stToast"] [data-testid="stToastIcon"] {
+    font-size: 2rem !important;
+    flex-shrink: 0 !important;
+}
+/* Todo el texto blanco */
 div[data-testid="stToast"] p,
 div[data-testid="stToast"] span,
-div[data-testid="stToast"] div {
+div[data-testid="stToast"] div,
+div[data-testid="stToast"] li {
     color: white !important;
     font-family: 'Plus Jakarta Sans', sans-serif !important;
 }
-/* Ícono del toast */
-div[data-testid="stToast"] [data-testid="stToastIcon"],
-div[data-testid="stToast"] > div:first-child {
-    font-size: 1.6rem !important;
+/* Subtítulo "Presupuesto guardado" */
+div[data-testid="stToast"] p {
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+    opacity: 0.92 !important;
+    margin: 0 0 3px 0 !important;
+    line-height: 1.4 !important;
 }
-/* Línea de texto — número EP */
+/* Número EP en negrita */
 div[data-testid="stToast"] strong {
-    font-size: 1.1rem !important;
+    font-size: 1.25rem !important;
     font-weight: 800 !important;
-    letter-spacing: 0.03em !important;
+    letter-spacing: 0.04em !important;
     color: white !important;
     display: block !important;
-    margin-top: 2px !important;
-}
-/* Subtítulo */
-div[data-testid="stToast"] p {
-    font-size: 0.82rem !important;
-    font-weight: 500 !important;
-    opacity: 0.9 !important;
-    margin: 0 !important;
-    line-height: 1.4 !important;
+    line-height: 1.3 !important;
 }
 </style>
 """, unsafe_allow_html=True)
