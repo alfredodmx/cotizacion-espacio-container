@@ -2922,72 +2922,73 @@ with tab3:
                     components.html(f"""
 <style>
 @keyframes spin {{from{{transform:rotate(0deg)}}to{{transform:rotate(360deg)}}}}
-#pdf-wrap {{width:100%;height:82vh;border:2px solid #e2e8f0;border-radius:12px;
+body,html{{margin:0;padding:0;overflow:hidden;}}
+#pdf-wrap {{width:100%;height:680px;border:2px solid #e2e8f0;border-radius:12px;
             overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);background:#f0f2f5;position:relative;}}
 #pdf-loading {{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
-               justify-content:center;background:#f0f2f5;z-index:2;gap:12px;}}
+               justify-content:center;background:#f0f2f5;z-index:2;gap:12px;
+               transition:opacity 0.4s ease;}}
 #pdf-spinner {{width:40px;height:40px;border:4px solid #cbd5e1;border-top-color:#5b7cfa;
                border-radius:50%;animation:spin 0.8s linear infinite;}}
 #pdf-loading span {{color:#64748b;font-size:0.9rem;font-family:sans-serif;}}
-#pdf-iframe {{width:100%;height:100%;border:none;display:block;}}
+#pdf-iframe {{position:absolute;inset:0;width:100%;height:100%;border:none;display:block;}}
 </style>
 <div id="pdf-wrap">
   <div id="pdf-loading">
     <div id="pdf-spinner"></div>
-    <span>Cargando PDF...</span>
+    <span id="pdf-status">Cargando PDF...</span>
   </div>
-  <iframe id="pdf-iframe" src="{src_inicial}" allow="fullscreen"></iframe>
+  <iframe id="pdf-iframe" src="" allow="fullscreen"></iframe>
 </div>
 <script>
 (function() {{
-  var iframe = document.getElementById('pdf-iframe');
+  var iframe  = document.getElementById('pdf-iframe');
   var loading = document.getElementById('pdf-loading');
-  var googleUrl = "{google_viewer_url}";
-  var directUrl = "{pdf_url_visor}";
+  var status  = document.getElementById('pdf-status');
+  var googleUrl  = "{google_viewer_url}";
+  var directUrl  = "{pdf_url_visor}";
   var usingGoogle = {"true" if usar_google else "false"};
-  var retries = 0;
-  var maxRetries = 2;
 
   function hideLoading() {{
-    if (loading) loading.style.display = 'none';
+    loading.style.opacity = '0';
+    setTimeout(function(){{ loading.style.display = 'none'; }}, 400);
   }}
 
-  function tryDirect() {{
+  function loadDirect() {{
     usingGoogle = false;
+    status.textContent = 'Cargando PDF...';
     iframe.src = directUrl;
+    // Para iframe directo, ocultar spinner tras tiempo prudente según conexión
+    setTimeout(hideLoading, 4000);
   }}
 
-  iframe.onload = function() {{
-    if (!usingGoogle) {{
-      hideLoading();
-      return;
-    }}
-    // Verificar si Google Viewer cargo algo real
-    try {{
-      var doc = iframe.contentDocument || iframe.contentWindow.document;
-      if (doc && doc.body && doc.body.innerHTML.trim() === '') {{
-        if (retries < maxRetries) {{
-          retries++;
-          setTimeout(function() {{ iframe.src = googleUrl; }}, 3000);
-        }} else {{
-          tryDirect();
+  // Arrancar con Google Viewer o directo según navegador
+  if (usingGoogle) {{
+    iframe.src = googleUrl;
+    // Google Viewer: ocultar spinner a los 3s (ya renderizó o sigue cargando de fondo)
+    // Si a los 12s aún no hubo contenido, caer a directo
+    setTimeout(function() {{
+      if (loading.style.display !== 'none') hideLoading();
+    }}, 3000);
+    setTimeout(function() {{
+      // Intentar detectar pantalla en blanco de Google Viewer vía postMessage no es posible
+      // por CORS — simplemente ofrecer fallback visual con botón
+      if (usingGoogle) {{
+        try {{
+          var doc = iframe.contentDocument || iframe.contentWindow.document;
+          if (!doc || !doc.body || doc.body.children.length === 0) loadDirect();
+        }} catch(e) {{
+          // CORS — no podemos leer, asumir que cargó bien
         }}
-        return;
       }}
-    }} catch(e) {{}}
-    hideLoading();
-  }};
-
-  // Fallback timeout: si en 14s no ocultó loading, ir directo
-  setTimeout(function() {{
-    if (loading && loading.style.display !== 'none') {{
-      tryDirect();
-      setTimeout(hideLoading, 3000);
-    }}
-  }}, 14000);
+    }}, 8000);
+  }} else {{
+    iframe.src = directUrl;
+    setTimeout(hideLoading, 4000);
+  }}
 }})();
 </script>
-""", height=700, scrolling=False)
+""", height=710, scrolling=False)
 
                     try:
                         pdf_bytes = requests.get(st.session_state.pdf_url, timeout=15).content
