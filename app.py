@@ -2661,13 +2661,15 @@ with tab3:
     st.markdown("---")
     st.markdown("### Resultados")
 
+    # Forzar refresco si se acaba de guardar una cotización
+    if st.session_state.get('_tab3_necesita_refresh', False):
+        st.session_state.resultados_busqueda = None
+        st.session_state['_tab3_necesita_refresh'] = False
+
     if 'resultados_busqueda' not in st.session_state or st.session_state.resultados_busqueda is None:
         st.session_state.resultados_busqueda = buscar_cotizaciones()
-        st.session_state.ultimo_termino = ""
 
-    # Una sola query: buscar_btn tiene prioridad, evita doble llamada
-    _termino_cambio = termino and termino != st.session_state.get('ultimo_termino', '')
-    if buscar_btn or _termino_cambio:
+    if buscar_btn or (termino and termino != st.session_state.get('ultimo_termino', '')):
         st.session_state.ultimo_termino = termino
         st.session_state.resultados_busqueda = buscar_cotizaciones(termino if termino else None, tipo_map[tipo_busqueda])
         st.session_state.mostrar_visor = False
@@ -3172,6 +3174,7 @@ if _mostrar_fab:
         st.session_state.mostrar_toast_exito = True
         st.session_state.toast_numero_ep = num_g
         st.session_state.resultados_busqueda = None
+        st.session_state['_tab3_necesita_refresh'] = True
         st.rerun()
 
     # FAB JS: botón flotante en DOM padre que clickea el botón real
