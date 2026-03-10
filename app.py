@@ -2964,11 +2964,64 @@ with tab3:
         st.info("💡 No hay resultados. Realice una búsqueda para ver cotizaciones guardadas.")
 
 # =========================================================
-# TOAST ÉXITO AL GUARDAR — usa st.toast() nativo (nunca queda pegado)
+# TOAST ÉXITO AL GUARDAR — st.toast() nativo + CSS override para posición/estilo
 # =========================================================
+# CSS: reposicionar y rediseñar el toast nativo de Streamlit
+st.markdown("""
+<style>
+/* Mover el contenedor de toasts: izquierda, justo encima de los FABs */
+div[data-testid="stToastContainer"] {
+    bottom: 5.5rem !important;
+    left: 2rem !important;
+    right: auto !important;
+    top: auto !important;
+}
+/* Estilo del toast: verde, tipografía grande */
+div[data-testid="stToast"] {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
+    color: white !important;
+    border-radius: 16px !important;
+    padding: 1rem 1.4rem !important;
+    box-shadow: 0 8px 32px rgba(34,197,94,0.45) !important;
+    border: none !important;
+    min-width: 260px !important;
+    max-width: 360px !important;
+}
+/* Texto principal del toast */
+div[data-testid="stToast"] p,
+div[data-testid="stToast"] span,
+div[data-testid="stToast"] div {
+    color: white !important;
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
+}
+/* Ícono del toast */
+div[data-testid="stToast"] [data-testid="stToastIcon"],
+div[data-testid="stToast"] > div:first-child {
+    font-size: 1.6rem !important;
+}
+/* Línea de texto — número EP */
+div[data-testid="stToast"] strong {
+    font-size: 1.1rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.03em !important;
+    color: white !important;
+    display: block !important;
+    margin-top: 2px !important;
+}
+/* Subtítulo */
+div[data-testid="stToast"] p {
+    font-size: 0.82rem !important;
+    font-weight: 500 !important;
+    opacity: 0.9 !important;
+    margin: 0 !important;
+    line-height: 1.4 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 if st.session_state.get('mostrar_toast_exito', False):
     ep = st.session_state.get('toast_numero_ep', '')
-    st.toast(f"✅ Presupuesto guardado con éxito\n**{ep}**", icon="💾")
+    st.toast(f"Presupuesto guardado\n**{ep}**", icon="✅")
     st.session_state.mostrar_toast_exito = False
 
 # =========================================================
