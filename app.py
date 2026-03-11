@@ -4497,47 +4497,98 @@ with tab_dash:
     st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap');
+
+    /* ── Header ── */
     .dash-hdr {
-        background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #1e40af 100%);
-        border-radius: 16px; padding: 28px 32px; margin-bottom: 28px;
-        display: flex; align-items: center; gap: 20px;
+        background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #2563eb 100%);
+        border-radius: 20px; padding: 32px 36px; margin-bottom: 32px;
+        display: flex; align-items: center; gap: 22px;
+        box-shadow: 0 8px 32px rgba(37,99,235,0.25);
+        position: relative; overflow: hidden;
     }
-    .dash-hdr h2 { color: #fff !important; margin: 0; font-size: 1.6rem; font-weight: 900; font-family: 'Montserrat', sans-serif; }
-    .dash-hdr p  { color: rgba(255,255,255,0.7) !important; margin: 6px 0 0; font-size: 0.9rem; }
+    .dash-hdr::before {
+        content: ''; position: absolute; top: -40px; right: -40px;
+        width: 180px; height: 180px; border-radius: 50%;
+        background: rgba(255,255,255,0.04); pointer-events: none;
+    }
+    .dash-hdr::after {
+        content: ''; position: absolute; bottom: -60px; right: 80px;
+        width: 240px; height: 240px; border-radius: 50%;
+        background: rgba(255,255,255,0.03); pointer-events: none;
+    }
+    .dash-hdr h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
+                   font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
+    .dash-hdr p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
+
+    /* ── KPI Cards ── */
     .kpi-card {
-        background: white; border-radius: 14px; padding: 20px 22px;
-        border: 1px solid #e8edf5; box-shadow: 0 2px 12px rgba(0,0,0,0.05);
-        height: 100%;
+        background: white; border-radius: 18px; padding: 22px 24px;
+        border: 1px solid rgba(226,232,240,0.8);
+        box-shadow: 0 4px 24px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04);
+        height: 100%; transition: transform 0.2s;
+        position: relative; overflow: hidden;
     }
-    .kpi-label { font-size: 0.75rem; font-weight: 700; color: #94a3b8;
-                 text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
-    .kpi-value { font-size: 1.9rem; font-weight: 900; color: #0f172a;
+    .kpi-card::after {
+        content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+        height: 3px; background: linear-gradient(90deg, #3b82f6, #6366f1);
+        border-radius: 0 0 18px 18px;
+    }
+    .kpi-label { font-size: 0.72rem; font-weight: 800; color: #94a3b8;
+                 text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; }
+    .kpi-value { font-size: 2.1rem; font-weight: 900; color: #0f172a;
                  font-family: 'Montserrat', sans-serif; line-height: 1; }
-    .kpi-delta-pos { font-size: 0.78rem; font-weight: 700; color: #16a34a; margin-top: 6px; }
-    .kpi-delta-neg { font-size: 0.78rem; font-weight: 700; color: #dc2626; margin-top: 6px; }
-    .kpi-delta-neu { font-size: 0.78rem; font-weight: 600; color: #94a3b8; margin-top: 6px; }
+    .kpi-delta-pos { font-size: 0.75rem; font-weight: 700; color: #16a34a; margin-top: 8px;
+                     background: #f0fdf4; padding: 3px 8px; border-radius: 20px;
+                     display: inline-block; }
+    .kpi-delta-neg { font-size: 0.75rem; font-weight: 700; color: #dc2626; margin-top: 8px;
+                     background: #fef2f2; padding: 3px 8px; border-radius: 20px;
+                     display: inline-block; }
+    .kpi-delta-neu { font-size: 0.75rem; font-weight: 600; color: #94a3b8; margin-top: 8px;
+                     display: inline-block; }
+
+    /* ── Section titles ── */
     .section-title {
-        font-size: 0.8rem; font-weight: 800; color: #475569;
-        text-transform: uppercase; letter-spacing: 0.1em;
-        margin: 24px 0 12px; padding-left: 4px;
-        border-left: 3px solid #3b82f6; padding-left: 10px;
+        font-size: 0.78rem; font-weight: 900; color: #1e293b;
+        text-transform: uppercase; letter-spacing: 0.12em;
+        margin: 28px 0 14px; padding: 8px 14px;
+        background: linear-gradient(90deg, rgba(59,130,246,0.08), transparent);
+        border-left: 4px solid #3b82f6; border-radius: 0 8px 8px 0;
     }
-    .funnel-bar-wrap { background: #f1f5f9; border-radius: 10px; overflow: hidden; height: 12px; margin: 6px 0 2px; }
-    .funnel-bar-inner { height: 12px; border-radius: 10px; }
-    .cat-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
-    .cat-name { font-size: 0.82rem; font-weight: 700; color: #334155; min-width: 120px; }
-    .cat-bar-wrap { flex: 1; background: #f1f5f9; border-radius: 6px; height: 10px; overflow: hidden; }
-    .cat-bar-inner { height: 10px; border-radius: 6px;
+
+    /* ── Panel contenedor ── */
+    .dash-panel {
+        background: white; border-radius: 18px; padding: 22px 24px;
+        border: 1px solid rgba(226,232,240,0.8);
+        box-shadow: 0 4px 24px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04);
+        margin-bottom: 4px;
+    }
+
+    /* ── Embudo barras ── */
+    .funnel-bar-wrap { background: #f1f5f9; border-radius: 10px; overflow: hidden;
+                       height: 10px; margin: 6px 0 2px; }
+    .funnel-bar-inner { height: 10px; border-radius: 10px; }
+
+    /* ── Top categorías ── */
+    .cat-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .cat-name { font-size: 0.82rem; font-weight: 700; color: #334155; min-width: 130px; }
+    .cat-bar-wrap { flex: 1; background: #f1f5f9; border-radius: 6px; height: 8px; overflow: hidden; }
+    .cat-bar-inner { height: 8px; border-radius: 6px;
                      background: linear-gradient(90deg, #3b82f6, #6366f1); }
-    .cat-monto { font-size: 0.78rem; font-weight: 700; color: #64748b; min-width: 90px; text-align: right; }
-    .ej-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
-    .ej-pos { font-size: 1.1rem; min-width: 28px; }
+    .cat-monto { font-size: 0.8rem; font-weight: 800; color: #3b82f6;
+                 min-width: 90px; text-align: right; }
+
+    /* ── Top ejecutivos ── */
+    .ej-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .ej-pos { font-size: 1.2rem; min-width: 28px; }
     .ej-name { font-size: 0.85rem; font-weight: 700; color: #1e293b; flex: 1; }
-    .ej-monto { font-size: 0.82rem; font-weight: 800; color: #3b82f6; min-width: 100px; text-align: right; }
-    .ej-count { font-size: 0.75rem; color: #94a3b8; min-width: 50px; text-align: right; }
+    .ej-monto { font-size: 0.83rem; font-weight: 900; color: #2563eb;
+                min-width: 100px; text-align: right; }
+
+    /* ── Top productos ── */
+    .kpi-card .prod-divider { border: none; border-top: 1px solid #f1f5f9; margin: 10px 0; }
     </style>
     <div class="dash-hdr">
-      <span style="font-size:2.8rem">📊</span>
+      <span style="font-size:3rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📊</span>
       <div>
         <h2>Dashboard</h2>
         <p>Resumen ejecutivo del rendimiento comercial en tiempo real.</p>
@@ -4603,7 +4654,7 @@ with tab_dash:
         col_funnel, col_donut = st.columns([3, 2])
         with col_funnel:
             _funnel_html = """
-            <div class="kpi-card" style="padding:24px 28px;">
+            <div class="dash-panel">
               <div style="display:flex;justify-content:space-between;margin-bottom:20px;">
                 <span style="font-size:0.78rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;">Estado</span>
                 <span style="font-size:0.78rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;">% del total</span>
@@ -4642,11 +4693,13 @@ with tab_dash:
                     xref="paper", yref="paper", align="center"
                 )
                 _fig_donut.update_layout(
-                    showlegend=True, margin=dict(t=10, b=10, l=10, r=10),
-                    height=220, paper_bgcolor='rgba(0,0,0,0)',
+                    showlegend=True, margin=dict(t=16, b=16, l=16, r=16),
+                    height=240, paper_bgcolor='rgba(0,0,0,0)',
                     plot_bgcolor='rgba(0,0,0,0)',
-                    legend=dict(font=dict(size=11), orientation='h',
-                                yanchor='bottom', y=-0.15, xanchor='center', x=0.5)
+                    legend=dict(font=dict(size=11, color='#475569'),
+                                orientation='h', yanchor='bottom',
+                                y=-0.18, xanchor='center', x=0.5,
+                                bgcolor='rgba(0,0,0,0)'),
                 )
                 st.plotly_chart(_fig_donut, use_container_width=True, config={'displayModeBar': False})
 
@@ -4656,34 +4709,41 @@ with tab_dash:
         if _d['fechas']:
             import plotly.graph_objects as go
             _fig_line = go.Figure()
+            _fig_line.add_trace(go.Bar(
+                x=_d['fechas'], y=_d['serie_counts'],
+                name='Nº EP',
+                marker=dict(color='rgba(99,102,241,0.25)', line=dict(width=0)),
+                yaxis='y2',
+                hovertemplate='<b>%{x}</b><br>%{y} EP<extra></extra>',
+            ))
             _fig_line.add_trace(go.Scatter(
                 x=_d['fechas'], y=_d['serie_montos'],
                 mode='lines+markers',
                 name='Monto ($)',
-                line=dict(color='#3b82f6', width=3, shape='spline'),
-                marker=dict(size=7, color='#3b82f6', line=dict(color='white', width=2)),
+                line=dict(color='#2563eb', width=3.5, shape='spline'),
+                marker=dict(size=8, color='#2563eb',
+                            line=dict(color='white', width=2.5)),
                 fill='tozeroy',
-                fillcolor='rgba(59,130,246,0.08)',
+                fillcolor='rgba(37,99,235,0.07)',
                 hovertemplate='<b>%{x}</b><br>$%{y:,.0f}<extra></extra>',
             ))
-            _fig_line.add_trace(go.Bar(
-                x=_d['fechas'], y=_d['serie_counts'],
-                name='Nº EP',
-                marker_color='rgba(99,102,241,0.3)',
-                yaxis='y2',
-                hovertemplate='<b>%{x}</b><br>%{y} EP<extra></extra>',
-            ))
             _fig_line.update_layout(
-                height=300, margin=dict(t=10, b=40, l=60, r=60),
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                xaxis=dict(showgrid=False, tickfont=dict(size=10)),
-                yaxis=dict(showgrid=True, gridcolor='#f1f5f9',
-                           tickformat='$,.0f', tickfont=dict(size=10)),
+                height=320, margin=dict(t=20, b=40, l=70, r=60),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(248,250,252,0.6)',
+                xaxis=dict(showgrid=False, tickfont=dict(size=10, color='#64748b'),
+                           linecolor='#e2e8f0'),
+                yaxis=dict(showgrid=True, gridcolor='rgba(226,232,240,0.6)',
+                           tickformat='$,.0f', tickfont=dict(size=10, color='#64748b'),
+                           zeroline=False),
                 yaxis2=dict(overlaying='y', side='right', showgrid=False,
-                            tickfont=dict(size=10), title='EP'),
+                            tickfont=dict(size=10, color='#94a3b8'), title=''),
                 legend=dict(orientation='h', yanchor='bottom', y=1.02,
-                            xanchor='right', x=1, font=dict(size=11)),
+                            xanchor='right', x=1, font=dict(size=11),
+                            bgcolor='rgba(0,0,0,0)'),
                 hovermode='x unified',
+                hoverlabel=dict(bgcolor='white', font_size=12,
+                                bordercolor='#e2e8f0'),
             )
             st.plotly_chart(_fig_line, use_container_width=True, config={'displayModeBar': False})
 
@@ -4694,7 +4754,7 @@ with tab_dash:
             st.markdown('<div class="section-title">Top categorías</div>', unsafe_allow_html=True)
             if _d['top_cats']:
                 _max_cat = _d['top_cats'][0][1] or 1
-                html_cats = '<div class="kpi-card" style="padding:20px 24px;">'
+                html_cats = '<div class="dash-panel">'
                 for cat_name, cat_val in _d['top_cats']:
                     pct_c = round((cat_val / _max_cat) * 100)
                     html_cats += f"""
@@ -4712,7 +4772,7 @@ with tab_dash:
             st.markdown('<div class="section-title">Top ejecutivos</div>', unsafe_allow_html=True)
             if _d['top_ej']:
                 _medallas_d = {0:"🥇",1:"🥈",2:"🥉",3:"4️⃣",4:"5️⃣"}
-                html_ejs = '<div class="kpi-card" style="padding:20px 24px;">'
+                html_ejs = '<div class="dash-panel">'
                 for idx_e, (ej_name, ej_val) in enumerate(_d['top_ej']):
                     ej_count = next((v for k,v in zip(
                         [e[0] for e in _d['top_ej']],
@@ -4733,7 +4793,7 @@ with tab_dash:
         st.markdown('<div class="section-title">🏅 Top 30 productos más cotizados</div>', unsafe_allow_html=True)
         if _d.get('top_productos'):
             _max_prod = _d['top_productos'][0][1] or 1
-            _html_prods = '<div class="kpi-card" style="padding:20px 24px;">'
+            _html_prods = '<div class="dash-panel">'
             _html_prods += """
             <div style="display:flex;gap:8px;margin-bottom:14px;padding-bottom:10px;
                         border-bottom:1px solid #f1f5f9;">
