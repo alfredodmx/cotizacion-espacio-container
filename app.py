@@ -1750,11 +1750,21 @@ def cargar_datos_dashboard(periodo='mes'):
             _inicio = '2000-01-01'
             _inicio_ant = None
 
+        # Filtrar por fecha_modificacion también como fallback
+        # Agregar T00:00:00 para que Supabase compare correctamente con timestamps
+        _inicio_ts = _inicio + 'T00:00:00'
         resp = supabase.table('cotizaciones').select(
             'numero, fecha_creacion, fecha_modificacion, estado, '
             'total_total, asesor_nombre, cliente_nombre, '
             'config_margen, cliente_email, asesor_email, asesor_telefono, productos'
-        ).gte('fecha_creacion', _inicio).execute()
+        ).gte('fecha_creacion', _inicio_ts).execute()
+        # Si no hay resultados con fecha_creacion, intentar con fecha_modificacion
+        if not resp.data:
+            resp = supabase.table('cotizaciones').select(
+                'numero, fecha_creacion, fecha_modificacion, estado, '
+                'total_total, asesor_nombre, cliente_nombre, '
+                'config_margen, cliente_email, asesor_email, asesor_telefono, productos'
+            ).gte('fecha_modificacion', _inicio_ts).execute()
 
         rows = resp.data or []
 
@@ -1794,8 +1804,8 @@ def cargar_datos_dashboard(periodo='mes'):
         serie = _dd(float)
         serie_n = _dd(int)
         for r in rows:
-            fecha = (r.get('fecha_creacion') or '')[:10]
-            if fecha:
+            fecha = (r.get('fecha_creacion') or r.get('fecha_modificacion') or '')[:10]
+            if fecha and len(fecha) == 10:
                 serie[fecha]   += float(r.get('total_total') or 0)
                 serie_n[fecha] += 1
         fechas_sorted = sorted(serie.keys())
@@ -4619,6 +4629,10 @@ with tab_dash:
         # ── Evolución temporal ──
         if _d['fechas']:
             st.markdown('<div class="section-title">Evolución de cotizaciones</div>', unsafe_allow_html=True)
+        elif _d['total_ep'] > 0:
+            st.markdown('<div class="section-title">Evolución de cotizaciones</div>', unsafe_allow_html=True)
+            st.caption("⚠️ Sin datos de fecha para graficar la evolución — las cotizaciones existen pero sin fecha_creacion registrada.")
+        if _d['fechas']:
             try:
                 import plotly.graph_objects as go
                 _plotly_line = True
