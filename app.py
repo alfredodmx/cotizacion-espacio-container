@@ -4599,35 +4599,30 @@ with tab_dash:
 
         with col_donut:
             if _d['autorizados'] + _d['borradores'] + _d['incompletos'] > 0:
-                try:
-                    import plotly.graph_objects as go
-                    _plotly_ok = True
-                except ImportError:
-                    _plotly_ok = False
-                if _plotly_ok:
-                    _fig_donut = go.Figure(go.Pie(
-                        labels=["Autorizados", "Borradores", "Incompletos"],
-                        values=[_d['autorizados'], _d['borradores'], _d['incompletos']],
-                        hole=0.62,
-                        marker=dict(colors=["#16a34a", "#f59e0b", "#ef4444"],
-                                    line=dict(color='white', width=3)),
-                        textinfo='percent',
-                        textfont=dict(size=11, family='Montserrat', color='white'),
-                        hovertemplate='<b>%{label}</b><br>%{value} cotizaciones<br>%{percent}<extra></extra>',
-                    ))
-                    _fig_donut.add_annotation(
-                        text=f"<b>{_d['pct_conv']}%</b><br><span style='font-size:10px'>conv.</span>",
-                        x=0.5, y=0.5, showarrow=False, font=dict(size=18, family='Montserrat'),
-                        xref="paper", yref="paper", align="center"
-                    )
-                    _fig_donut.update_layout(
-                        showlegend=True, margin=dict(t=10, b=10, l=10, r=10),
-                        height=220, paper_bgcolor='rgba(0,0,0,0)',
-                        plot_bgcolor='rgba(0,0,0,0)',
-                        legend=dict(font=dict(size=11), orientation='h',
-                                    yanchor='bottom', y=-0.15, xanchor='center', x=0.5)
-                    )
-                    st.plotly_chart(_fig_donut, use_container_width=True, config={'displayModeBar': False})
+                import plotly.graph_objects as go
+                _fig_donut = go.Figure(go.Pie(
+                    labels=["Autorizados", "Borradores", "Incompletos"],
+                    values=[_d['autorizados'], _d['borradores'], _d['incompletos']],
+                    hole=0.62,
+                    marker=dict(colors=["#16a34a", "#f59e0b", "#ef4444"],
+                                line=dict(color='white', width=3)),
+                    textinfo='percent',
+                    textfont=dict(size=11, family='Montserrat', color='white'),
+                    hovertemplate='<b>%{label}</b><br>%{value} cotizaciones<br>%{percent}<extra></extra>',
+                ))
+                _fig_donut.add_annotation(
+                    text=f"<b>{_d['pct_conv']}%</b><br><span style='font-size:10px'>conv.</span>",
+                    x=0.5, y=0.5, showarrow=False, font=dict(size=18, family='Montserrat'),
+                    xref="paper", yref="paper", align="center"
+                )
+                _fig_donut.update_layout(
+                    showlegend=True, margin=dict(t=10, b=10, l=10, r=10),
+                    height=220, paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    legend=dict(font=dict(size=11), orientation='h',
+                                yanchor='bottom', y=-0.15, xanchor='center', x=0.5)
+                )
+                st.plotly_chart(_fig_donut, use_container_width=True, config={'displayModeBar': False})
 
         # ── Evolución temporal ──
         st.markdown('<div class="section-title">Evolución de cotizaciones</div>', unsafe_allow_html=True)
@@ -4637,43 +4632,38 @@ with tab_dash:
             st.write("serie_montos:", _d['serie_montos'])
             st.write("debug_fecha_raw:", _d.get('debug_fecha','?'))
         if _d['fechas']:
-            try:
-                import plotly.graph_objects as go
-                _plotly_line = True
-            except ImportError:
-                _plotly_line = False
-            if _plotly_line:
-                _fig_line = go.Figure()
-                _fig_line.add_trace(go.Scatter(
-                    x=_d['fechas'], y=_d['serie_montos'],
-                    mode='lines+markers',
-                    name='Monto ($)',
-                    line=dict(color='#3b82f6', width=3, shape='spline'),
-                    marker=dict(size=6, color='#3b82f6', line=dict(color='white', width=2)),
-                    fill='tozeroy',
-                    fillcolor='rgba(59,130,246,0.08)',
-                    hovertemplate='<b>%{x}</b><br>$%{y:,.0f}<extra></extra>',
-                ))
-                _fig_line.add_trace(go.Bar(
-                    x=_d['fechas'], y=_d['serie_counts'],
-                    name='Nº EP',
-                    marker_color='rgba(99,102,241,0.3)',
-                    yaxis='y2',
-                    hovertemplate='<b>%{x}</b><br>%{y} EP<extra></extra>',
-                ))
-                _fig_line.update_layout(
-                    height=280, margin=dict(t=10, b=40, l=60, r=60),
-                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                    xaxis=dict(showgrid=False, tickfont=dict(size=10)),
-                    yaxis=dict(showgrid=True, gridcolor='#f1f5f9',
-                               tickformat='$,.0f', tickfont=dict(size=10)),
-                    yaxis2=dict(overlaying='y', side='right', showgrid=False,
-                                tickfont=dict(size=10), title='EP'),
-                    legend=dict(orientation='h', yanchor='bottom', y=1.02,
-                                xanchor='right', x=1, font=dict(size=11)),
-                    hovermode='x unified',
-                )
-                st.plotly_chart(_fig_line, use_container_width=True, config={'displayModeBar': False})
+            import plotly.graph_objects as go
+            _fig_line = go.Figure()
+            _fig_line.add_trace(go.Scatter(
+                x=_d['fechas'], y=_d['serie_montos'],
+                mode='lines+markers',
+                name='Monto ($)',
+                line=dict(color='#3b82f6', width=3, shape='spline'),
+                marker=dict(size=7, color='#3b82f6', line=dict(color='white', width=2)),
+                fill='tozeroy',
+                fillcolor='rgba(59,130,246,0.08)',
+                hovertemplate='<b>%{x}</b><br>$%{y:,.0f}<extra></extra>',
+            ))
+            _fig_line.add_trace(go.Bar(
+                x=_d['fechas'], y=_d['serie_counts'],
+                name='Nº EP',
+                marker_color='rgba(99,102,241,0.3)',
+                yaxis='y2',
+                hovertemplate='<b>%{x}</b><br>%{y} EP<extra></extra>',
+            ))
+            _fig_line.update_layout(
+                height=300, margin=dict(t=10, b=40, l=60, r=60),
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                xaxis=dict(showgrid=False, tickfont=dict(size=10)),
+                yaxis=dict(showgrid=True, gridcolor='#f1f5f9',
+                           tickformat='$,.0f', tickfont=dict(size=10)),
+                yaxis2=dict(overlaying='y', side='right', showgrid=False,
+                            tickfont=dict(size=10), title='EP'),
+                legend=dict(orientation='h', yanchor='bottom', y=1.02,
+                            xanchor='right', x=1, font=dict(size=11)),
+                hovermode='x unified',
+            )
+            st.plotly_chart(_fig_line, use_container_width=True, config={'displayModeBar': False})
 
         # ── Top categorías + Top ejecutivos ──
         col_cats, col_ejs = st.columns(2)
