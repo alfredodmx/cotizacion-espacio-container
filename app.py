@@ -1172,7 +1172,7 @@ st.markdown("""
     hr { display: none !important; }
     .stTabs [data-baseweb="tab"] {
         font-family: 'Plus Jakarta Sans', sans-serif !important;
-        font-size: 1rem !important; font-weight: 700 !important;
+        font-size: 1.05rem !important; font-weight: 900 !important;
         color: #7c85b3 !important; padding: 0.85rem 1.6rem !important;
         background: transparent !important; border: none !important;
         border-bottom: 3px solid transparent !important;
@@ -1182,7 +1182,7 @@ st.markdown("""
     .stTabs [data-baseweb="tab"]:hover { color: #5b7cfa !important; background: rgba(91,124,250,0.05) !important; }
     .stTabs [aria-selected="true"] {
         color: #5b7cfa !important; border-bottom: 3px solid #5b7cfa !important;
-        font-weight: 800 !important; background: rgba(91,124,250,0.06) !important;
+        font-weight: 900 !important; background: rgba(91,124,250,0.06) !important;
     }
 
     /* ══ TABLA RESULTADOS ══ */
