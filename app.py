@@ -163,6 +163,16 @@ if 'correo_input' not in st.session_state:
     st.session_state.correo_input = ""
 if 'direccion_input' not in st.session_state:
     st.session_state.direccion_input = ""
+if 'cliente_comuna' not in st.session_state:
+    st.session_state.cliente_comuna = ""
+if 'cliente_region' not in st.session_state:
+    st.session_state.cliente_region = ""
+if 'proyecto_direccion' not in st.session_state:
+    st.session_state.proyecto_direccion = ""
+if 'proyecto_comuna' not in st.session_state:
+    st.session_state.proyecto_comuna = ""
+if 'proyecto_region' not in st.session_state:
+    st.session_state.proyecto_region = ""  
 if 'fecha_inicio' not in st.session_state:
     st.session_state.fecha_inicio = datetime.now().date()
 if 'fecha_termino' not in st.session_state:
@@ -488,7 +498,12 @@ def construir_datos_para_guardar():
         "Correo": st.session_state.correo_input or "",
         "Teléfono": st.session_state.telefono_raw or "",
         "Dirección": st.session_state.direccion_input or "",
-        "Observaciones": st.session_state.observaciones_input or ""
+            "ComunaCliente": st.session_state.cliente_comuna or "",
+            "RegionCliente": st.session_state.cliente_region or "",
+            "DireccionProyecto": st.session_state.proyecto_direccion or "",
+            "ComunaProyecto": st.session_state.proyecto_comuna or "",
+            "RegionProyecto": st.session_state.proyecto_region or "",
+            "Observaciones": st.session_state.observaciones_input or ""
     }
     nombre_asesor = st.session_state.asesor_seleccionado if st.session_state.asesor_seleccionado != "Seleccionar asesor" else ""
     datos_asesor = {
@@ -766,6 +781,11 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
             'cliente_email': str(cliente.get('Correo', '') or ''),
             'cliente_telefono': str(cliente.get('Teléfono', '') or ''),
             'cliente_direccion': str(cliente.get('Dirección', '') or ''),
+            'cliente_comuna': str(cliente.get('ComunaCliente', '') or ''),
+            'cliente_region': str(cliente.get('RegionCliente', '') or ''),
+            'proyecto_direccion': str(cliente.get('DireccionProyecto', '') or ''),
+            'proyecto_comuna': str(cliente.get('ComunaProyecto', '') or ''),
+            'proyecto_region': str(cliente.get('RegionProyecto', '') or ''),
             'asesor_nombre': str(asesor.get('Nombre Ejecutivo', '') or ''),
             'asesor_email': str(asesor.get('Correo Ejecutivo', '') or ''),
             'asesor_telefono': str(asesor.get('Teléfono Ejecutivo', '') or ''),
@@ -958,7 +978,12 @@ def ejecutar_carga_cotizacion():
             st.session_state.rut_mensaje = "RUT incompleto"
         st.session_state.correo_input = cotizacion.get('cliente_email', '')
         st.session_state.telefono_raw = cotizacion.get('cliente_telefono', '')
-        st.session_state.direccion_input = cotizacion.get('cliente_direccion', '')
+        st.session_state.direccion_input    = cotizacion.get('cliente_direccion', '')
+        st.session_state.cliente_comuna      = cotizacion.get('cliente_comuna', '')
+        st.session_state.cliente_region      = cotizacion.get('cliente_region', '')
+        st.session_state.proyecto_direccion  = cotizacion.get('proyecto_direccion', '')
+        st.session_state.proyecto_comuna     = cotizacion.get('proyecto_comuna', '')
+        st.session_state.proyecto_region     = cotizacion.get('proyecto_region', '')
         nombre_asesor = cotizacion.get('asesor_nombre', '')
         st.session_state.asesor_seleccionado = nombre_asesor if nombre_asesor else "Seleccionar asesor"
         st.session_state.correo_asesor = cotizacion.get('asesor_email', '')
@@ -2816,8 +2841,14 @@ with tab2:
                 st.text_input("Teléfono", value=st.session_state.telefono_raw, disabled=True, key="telefono_readonly")
         with col2:
             with st.container(border=True):
-                st.markdown("**📍 Dirección**")
-                st.text_input("Dirección del Proyecto", value=st.session_state.direccion_input, disabled=True, key="direccion_readonly")
+                st.markdown("**📍 Cliente**")
+                st.text_input("Dirección cliente", value=st.session_state.direccion_input, disabled=True, key="direccion_readonly")
+                st.text_input("Comuna cliente", value=st.session_state.cliente_comuna, disabled=True, key="cliente_comuna_readonly")
+                st.text_input("Región cliente", value=st.session_state.cliente_region, disabled=True, key="cliente_region_readonly")
+                st.markdown("**🏗️ Proyecto**")
+                st.text_input("Dirección instalación", value=st.session_state.proyecto_direccion, disabled=True, key="proyecto_dir_readonly")
+                st.text_input("Comuna instalación", value=st.session_state.proyecto_comuna, disabled=True, key="proyecto_com_readonly")
+                st.text_input("Región instalación", value=st.session_state.proyecto_region, disabled=True, key="proyecto_reg_readonly")
         with col3:
             with st.container(border=True):
                 st.markdown("**👨‍💼 Ejecutivo**")
@@ -2883,21 +2914,37 @@ with tab2:
         # ── Columna 2: Dirección ──
         with col2:
             with st.container(border=True):
-                st.markdown("**📍 Dirección**")
+                st.markdown("**📍 Cliente**")
                 direccion_key = f"direccion_input_{st.session_state.counter}"
-                direccion = st.text_input("Dirección del Proyecto", placeholder="Calle, número, comuna", key=direccion_key, value=st.session_state.direccion_input)
+                direccion = st.text_input("Dirección cliente", placeholder="Calle, número", key=direccion_key, value=st.session_state.direccion_input)
                 if direccion != st.session_state.direccion_input:
                     st.session_state.direccion_input = direccion
-                if direccion:
-                    with st.spinner("Buscando..."):
-                        comuna, region = buscar_direccion(direccion)
-                        if comuna:
-                            st.success(f"🏙️ {comuna}")
-                            st.success(f"🗺️ {region}")
-                        else:
-                            st.info("No se detectó automáticamente.")
-                            st.text_input("Comuna", key="comuna_manual")
-                            st.text_input("Región", key="region_manual")
+
+                cli_comuna_key = f"cliente_comuna_{st.session_state.counter}"
+                cli_comuna = st.text_input("Comuna cliente", placeholder="Ej: Las Condes", key=cli_comuna_key, value=st.session_state.cliente_comuna)
+                if cli_comuna != st.session_state.cliente_comuna:
+                    st.session_state.cliente_comuna = cli_comuna
+
+                cli_region_key = f"cliente_region_{st.session_state.counter}"
+                cli_region = st.text_input("Región cliente", placeholder="Ej: Metropolitana", key=cli_region_key, value=st.session_state.cliente_region)
+                if cli_region != st.session_state.cliente_region:
+                    st.session_state.cliente_region = cli_region
+
+                st.markdown("**🏗️ Proyecto**")
+                proy_dir_key = f"proyecto_direccion_{st.session_state.counter}"
+                proy_dir = st.text_input("Dirección instalación", placeholder="Calle, número", key=proy_dir_key, value=st.session_state.proyecto_direccion)
+                if proy_dir != st.session_state.proyecto_direccion:
+                    st.session_state.proyecto_direccion = proy_dir
+
+                proy_com_key = f"proyecto_comuna_{st.session_state.counter}"
+                proy_com = st.text_input("Comuna instalación", placeholder="Ej: Colina", key=proy_com_key, value=st.session_state.proyecto_comuna)
+                if proy_com != st.session_state.proyecto_comuna:
+                    st.session_state.proyecto_comuna = proy_com
+
+                proy_reg_key = f"proyecto_region_{st.session_state.counter}"
+                proy_reg = st.text_input("Región instalación", placeholder="Ej: La Araucanía", key=proy_reg_key, value=st.session_state.proyecto_region)
+                if proy_reg != st.session_state.proyecto_region:
+                    st.session_state.proyecto_region = proy_reg
 
         # ── Columna 3: Ejecutivo ──
         with col3:
@@ -2976,7 +3023,12 @@ with tab2:
         "Correo": st.session_state.correo_input or "",
         "Teléfono": st.session_state.telefono_raw or "",
         "Dirección": st.session_state.direccion_input or "",
-        "Observaciones": st.session_state.observaciones_input or ""
+            "ComunaCliente": st.session_state.cliente_comuna or "",
+            "RegionCliente": st.session_state.cliente_region or "",
+            "DireccionProyecto": st.session_state.proyecto_direccion or "",
+            "ComunaProyecto": st.session_state.proyecto_comuna or "",
+            "RegionProyecto": st.session_state.proyecto_region or "",
+            "Observaciones": st.session_state.observaciones_input or ""
     }
     nombre_asesor_final = st.session_state.asesor_seleccionado if st.session_state.asesor_seleccionado != "Seleccionar asesor" else ""
     datos_asesor = {
@@ -3269,6 +3321,11 @@ with tab1:
             "Correo": st.session_state.correo_input,
             "Teléfono": st.session_state.telefono_raw or '',
             "Dirección": st.session_state.direccion_input,
+            "ComunaCliente": st.session_state.cliente_comuna or "",
+            "RegionCliente": st.session_state.cliente_region or "",
+            "DireccionProyecto": st.session_state.proyecto_direccion or "",
+            "ComunaProyecto": st.session_state.proyecto_comuna or "",
+            "RegionProyecto": st.session_state.proyecto_region or "",
             "Observaciones": st.session_state.observaciones_input
         }
         nombre_asesor_final = st.session_state.asesor_seleccionado if st.session_state.asesor_seleccionado != "Seleccionar asesor" else ""
@@ -5795,9 +5852,11 @@ with tab_contrato:
                 st.session_state["cont_cli_nombre"]     = _cot.get("cliente_nombre", "")
                 st.session_state["cont_cli_rut"]        = _cot.get("cliente_rut", "")
                 st.session_state["cont_cli_domicilio"]  = _dir
-                st.session_state["cont_cli_comuna"]     = ""
-                st.session_state["cont_inst_domicilio"] = _dir
-                st.session_state["cont_inst_comuna"]    = ""
+                st.session_state["cont_cli_comuna"]     = _cot.get("cliente_comuna", "")
+                st.session_state["cont_cli_region"]     = _cot.get("cliente_region", "")
+                st.session_state["cont_inst_domicilio"] = _cot.get("proyecto_direccion", "") or _dir
+                st.session_state["cont_inst_comuna"]    = _cot.get("proyecto_comuna", "")
+                st.session_state["cont_inst_region"]    = _cot.get("proyecto_region", "")
                 st.session_state["cont_ep_nombre"]      = _cot.get("proyecto_observaciones", "") or ""
                 st.session_state["cont_precio"]         = _total
                 st.rerun()
@@ -5897,18 +5956,18 @@ with tab_contrato:
                     value=st.session_state.get("cont_cli_domicilio",""), key="cont_cli_dom")
             with _i2:
                 _cli_com = st.text_input("Comuna",
-                    value=st.session_state.get("cont_cli_comuna",""), key="cont_cli_com")
+                    value=st.session_state.get("cont_cli_comuna", st.session_state.get("cliente_comuna","")), key="cont_cli_com")
             with _i3:
-                _cli_reg = st.text_input("Región", value="Metropolitana", key="cont_cli_reg")
+                _cli_reg = st.text_input("Región", value=st.session_state.get("cont_cli_region", st.session_state.get("cliente_region", "Metropolitana")), key="cont_cli_reg")
             _j1, _j2, _j3 = st.columns([3, 2, 2])
             with _j1:
                 _inst_dom = st.text_input("Dirección instalación",
-                    value=st.session_state.get("cont_inst_domicilio",""), key="cont_inst_dom")
+                    value=st.session_state.get("cont_inst_domicilio", st.session_state.get("proyecto_direccion","")), key="cont_inst_dom")
             with _j2:
                 _inst_com = st.text_input("Comuna inst.",
-                    value=st.session_state.get("cont_inst_comuna",""), key="cont_inst_com")
+                    value=st.session_state.get("cont_inst_comuna", st.session_state.get("proyecto_comuna","")), key="cont_inst_com")
             with _j3:
-                _inst_reg = st.text_input("Región inst.", value="La Araucanía", key="cont_inst_reg")
+                _inst_reg = st.text_input("Región inst.", value=st.session_state.get("cont_inst_region", st.session_state.get("proyecto_region", "")), key="cont_inst_reg")
             st.markdown('</div>', unsafe_allow_html=True)
 
         with _pcol:
