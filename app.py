@@ -6101,40 +6101,43 @@ with tab_contrato:
                 value=st.session_state.get("cont_ep_nombre",""), key="cont_ep_nombre_input")
             st.markdown('</div>', unsafe_allow_html=True)
 
-            # Panel 2 — Cliente
-            st.markdown('<div class="cont-form-panel"><div class="cont-form-title">👤 Datos del cliente</div>', unsafe_allow_html=True)
-            _tipo_pre = st.session_state.get("cont_tipo_cli_val",
-                         st.session_state.get("cliente_tipo", "natural"))
-            _tipo_idx_cont = 1 if _tipo_pre == "juridica" else 0
-            _tipo_cli = st.radio("Tipo", ["Persona natural", "Persona jurídica"],
-                                 index=_tipo_idx_cont,
-                                 horizontal=True, key="cont_tipo_cli", label_visibility="collapsed")
-            _es_juridica = (_tipo_cli == "Persona jurídica")
-            _g1, _g2, _g3 = st.columns([1, 3, 2])
+            # Panel 2 — Cliente (solo Don/Doña editable, resto lectura)
+            _tipo_pre      = st.session_state.get("cont_tipo_cli_val", st.session_state.get("cliente_tipo", "natural"))
+            _es_juridica   = (_tipo_pre == "juridica")
+            _cli_nombre    = st.session_state.get("cont_cli_nombre",    st.session_state.get("nombre_input", ""))
+            _cli_rut       = st.session_state.get("cont_cli_rut",       st.session_state.get("rut_display", ""))
+            _cli_empresa   = st.session_state.get("cont_cli_empresa",   st.session_state.get("cliente_empresa", ""))
+            _cli_rut_empresa = st.session_state.get("cont_cli_rut_empresa", st.session_state.get("cliente_rut_empresa", ""))
+            _tipo_lbl      = "Persona jurídica" if _es_juridica else "Persona natural"
+
+            _g1, _g2 = st.columns([1, 4])
             with _g1:
                 _tratamiento = st.selectbox("Trato", ["Don", "Doña"], key="cont_tratamiento", label_visibility="collapsed")
             with _g2:
-                _cli_nombre = st.text_input("Nombre completo *",
-                    value=st.session_state.get("cont_cli_nombre",""), key="cont_nombre")
-            with _g3:
-                _cli_rut = st.text_input("RUT *",
-                    value=st.session_state.get("cont_cli_rut",""),
-                    placeholder="12.345.678-9", key="cont_rut")
-            if _es_juridica:
-                _h1, _h2 = st.columns([3, 2])
-                with _h1:
-                    _cli_empresa = st.text_input("Razón social *",
-                        value=st.session_state.get("cont_cli_empresa",
-                              st.session_state.get("cliente_empresa","")), key="cont_empresa")
-                with _h2:
-                    _cli_rut_empresa = st.text_input("RUT empresa *",
-                        value=st.session_state.get("cont_cli_rut_empresa",
-                              st.session_state.get("cliente_rut_empresa","")),
-                        placeholder="76.123.456-7", key="cont_rut_empresa")
-            else:
-                _cli_empresa = ""
-                _cli_rut_empresa = ""
-            st.markdown('</div>', unsafe_allow_html=True)
+                _tag_tipo = "🏢 Persona jurídica" if _es_juridica else "👤 Persona natural"
+                _emp_html = (
+                    f"<div style='display:flex;gap:8px;margin-top:6px;'>"
+                    f"<span style='font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;color:rgba(255,255,255,0.7);'>{_tag_tipo}</span>"
+                    f"</div>"
+                ) if not _es_juridica else (
+                    f"<div style='display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;'>"
+                    f"<span style='font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;color:rgba(255,255,255,0.7);'>🏢 {_cli_empresa or '—'}</span>"
+                    f"<span style='font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;color:rgba(255,255,255,0.7);'>RUT empresa: {_cli_rut_empresa or '—'}</span>"
+                    f"</div>"
+                )
+                _html_cli = (
+                    "<div style='background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;padding:16px 18px;margin-bottom:4px;'>"
+                    "<div style='font-size:0.65rem;font-weight:900;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;'>👤 Datos del cliente</div>"
+                    "<div style='display:flex;flex-direction:column;gap:10px;'>"
+                    "<div style='background:rgba(255,255,255,0.07);border-radius:10px;padding:12px 14px;'>"
+                    f"<div style='font-size:1rem;font-weight:800;color:#fff;'>{_tratamiento} {_cli_nombre or '<span style="color:rgba(255,255,255,0.3);font-style:italic;font-weight:400;">Sin nombre</span>'}</div>"
+                    f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.6);margin-top:4px;'>RUT: {_cli_rut or '—'}</div>"
+                    + _emp_html +
+                    "</div>"
+                    "</div>"
+                    "</div>"
+                )
+                st.markdown(_html_cli, unsafe_allow_html=True)
 
             # Panel 3 — Domicilios (solo lectura — vienen de pestaña DATOS)
             _cli_dom  = st.session_state.get("cont_cli_domicilio",  st.session_state.get("direccion_input", ""))
