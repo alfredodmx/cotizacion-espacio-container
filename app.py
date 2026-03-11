@@ -5761,122 +5761,149 @@ with tab_contrato:
         # ── Datos del contrato ──
         st.markdown('<div class="cont-section">📝 Paso 2 — Completar datos del contrato</div>', unsafe_allow_html=True)
 
-        with st.container():
-            # Fecha y plazo
-            _ca, _cb = st.columns(2)
-            with _ca:
-                from datetime import date as _date_t
-                _meses_es = {1:"enero",2:"febrero",3:"marzo",4:"abril",5:"mayo",6:"junio",
-                             7:"julio",8:"agosto",9:"septiembre",10:"octubre",11:"noviembre",12:"diciembre"}
+        # CSS compacto para el formulario
+        st.markdown("""
+        <style>
+        div[data-testid="stForm"] { padding: 0 !important; }
+        .cont-form-panel {
+            background: white; border-radius: 14px; padding: 16px 20px 10px;
+            border: 1px solid #e8edf5;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+            margin-bottom: 10px;
+        }
+        .cont-form-title {
+            font-size: 0.68rem; font-weight: 900; color: #64748b;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
+        }
+        /* reducir espacio entre widgets dentro del formulario */
+        .cont-form-panel div[data-testid="stVerticalBlock"] > div { margin-bottom: -8px !important; }
+        </style>
+        """, unsafe_allow_html=True)
+
+        from datetime import date as _date_t
+        _meses_es = {1:"enero",2:"febrero",3:"marzo",4:"abril",5:"mayo",6:"junio",
+                     7:"julio",8:"agosto",9:"septiembre",10:"octubre",
+                     11:"noviembre",12:"diciembre"}
+
+        # ── Layout: col izquierda (formulario) | col derecha (pagos) ──
+        _fcol, _pcol = st.columns([3, 2])
+
+        with _fcol:
+            # Panel 1 — Contrato
+            st.markdown('<div class="cont-form-panel"><div class="cont-form-title">📋 Datos del contrato</div>', unsafe_allow_html=True)
+            _fa, _fb, _fc = st.columns([2, 2, 1])
+            with _fa:
                 _hoy = _date_t.today()
-                _fecha_obj = st.date_input("📅 Fecha del contrato", value=_hoy, key="cont_fecha")
+                _fecha_obj = st.date_input("Fecha", value=_hoy, key="cont_fecha", label_visibility="visible")
                 _fecha_str = f"{_fecha_obj.day} de {_meses_es[_fecha_obj.month]} de {_fecha_obj.year}"
-            with _cb:
-                _plazo = st.number_input("⏱️ Plazo de fabricación (días hábiles)", min_value=1,
-                                         max_value=180, value=45, key="cont_plazo")
+            with _fb:
+                _ep_num_input = st.text_input("N° EP", value=_ep_num, key="cont_ep_num_input")
+            with _fc:
+                _plazo = st.number_input("Plazo días", min_value=1, max_value=180, value=45, key="cont_plazo")
+            _ep_nombre = st.text_input("Nombre / descripción del proyecto",
+                value=st.session_state.get("cont_ep_nombre",""), key="cont_ep_nombre_input")
+            st.markdown('</div>', unsafe_allow_html=True)
 
-            st.markdown("---")
-
-            # Tipo de cliente
-            _tipo_cli = st.radio("👤 Tipo de cliente", ["Persona natural", "Persona jurídica (empresa)"],
-                                 horizontal=True, key="cont_tipo_cli")
-            _es_juridica = (_tipo_cli == "Persona jurídica (empresa)")
-
-            _c1, _c2 = st.columns(2)
-            with _c1:
-                _tratamiento = st.selectbox("Tratamiento", ["Don", "Doña"], key="cont_tratamiento")
-                _cli_nombre = st.text_input("Nombre completo del cliente *",
+            # Panel 2 — Cliente
+            st.markdown('<div class="cont-form-panel"><div class="cont-form-title">👤 Datos del cliente</div>', unsafe_allow_html=True)
+            _tipo_cli = st.radio("Tipo", ["Persona natural", "Persona jurídica"],
+                                 horizontal=True, key="cont_tipo_cli", label_visibility="collapsed")
+            _es_juridica = (_tipo_cli == "Persona jurídica")
+            _g1, _g2, _g3 = st.columns([1, 3, 2])
+            with _g1:
+                _tratamiento = st.selectbox("Trato", ["Don", "Doña"], key="cont_tratamiento", label_visibility="collapsed")
+            with _g2:
+                _cli_nombre = st.text_input("Nombre completo *",
                     value=st.session_state.get("cont_cli_nombre",""), key="cont_nombre")
-            with _c2:
-                _cli_rut = st.text_input("RUT del cliente *",
+            with _g3:
+                _cli_rut = st.text_input("RUT *",
                     value=st.session_state.get("cont_cli_rut",""),
                     placeholder="12.345.678-9", key="cont_rut")
-
             if _es_juridica:
-                _c3, _c4 = st.columns(2)
-                with _c3:
-                    _cli_empresa = st.text_input("Razón social empresa *",
+                _h1, _h2 = st.columns([3, 2])
+                with _h1:
+                    _cli_empresa = st.text_input("Razón social *",
                         value=st.session_state.get("cont_cli_empresa",""), key="cont_empresa")
-                with _c4:
+                with _h2:
                     _cli_rut_empresa = st.text_input("RUT empresa *",
                         value=st.session_state.get("cont_cli_rut_empresa",""),
                         placeholder="76.123.456-7", key="cont_rut_empresa")
             else:
                 _cli_empresa = ""
                 _cli_rut_empresa = ""
+            st.markdown('</div>', unsafe_allow_html=True)
 
-            st.markdown("**📍 Domicilio del cliente**")
-            _c5, _c6, _c7 = st.columns(3)
-            with _c5:
-                _cli_dom = st.text_input("Dirección",
+            # Panel 3 — Domicilios
+            st.markdown('<div class="cont-form-panel"><div class="cont-form-title">📍 Domicilios</div>', unsafe_allow_html=True)
+            _i1, _i2, _i3 = st.columns([3, 2, 2])
+            with _i1:
+                _cli_dom = st.text_input("Dirección cliente",
                     value=st.session_state.get("cont_cli_domicilio",""), key="cont_cli_dom")
-            with _c6:
+            with _i2:
                 _cli_com = st.text_input("Comuna",
                     value=st.session_state.get("cont_cli_comuna",""), key="cont_cli_com")
-            with _c7:
+            with _i3:
                 _cli_reg = st.text_input("Región", value="Metropolitana", key="cont_cli_reg")
-
-            st.markdown("**🏗️ Dirección de instalación del proyecto**")
-            _c8, _c9, _c10 = st.columns(3)
-            with _c8:
+            _j1, _j2, _j3 = st.columns([3, 2, 2])
+            with _j1:
                 _inst_dom = st.text_input("Dirección instalación",
                     value=st.session_state.get("cont_inst_domicilio",""), key="cont_inst_dom")
-            with _c9:
-                _inst_com = st.text_input("Comuna instalación",
+            with _j2:
+                _inst_com = st.text_input("Comuna inst.",
                     value=st.session_state.get("cont_inst_comuna",""), key="cont_inst_com")
-            with _c10:
-                _inst_reg = st.text_input("Región instalación", value="La Araucanía", key="cont_inst_reg")
+            with _j3:
+                _inst_reg = st.text_input("Región inst.", value="La Araucanía", key="cont_inst_reg")
+            st.markdown('</div>', unsafe_allow_html=True)
 
-            st.markdown("---")
-            st.markdown("**🏠 Datos del proyecto**")
-            _c11, _c12 = st.columns(2)
-            with _c11:
-                _ep_nombre = st.text_input("Nombre / descripción del proyecto",
-                    value=st.session_state.get("cont_ep_nombre",""), key="cont_ep_nombre_input")
-            with _c12:
-                _ep_num_input = st.text_input("Número EP", value=_ep_num, key="cont_ep_num_input")
+        with _pcol:
+            # Panel precio — sticky visual
+            _precio = st.number_input("💰 Precio total (IVA incluido)",
+                min_value=0,
+                value=int(st.session_state.get("cont_precio", 0)),
+                step=1000, key="cont_precio_input",
+                help="Valor total del EP tal como aparece en el PDF del cliente")
 
-            st.markdown("---")
-            st.markdown("**💰 Precio y pagos**")
-            _c13, _c14 = st.columns([2, 3])
-            with _c13:
-                _precio = st.number_input("Precio total (IVA incluido) $",
-                    min_value=0,
-                    value=int(st.session_state.get("cont_precio", 0)),
-                    step=1000, key="cont_precio_input",
-                    help="Valor total del EP tal como aparece en el PDF del cliente")
-
-            # Pagos calculados automáticamente, solo lectura
             _pago50  = round(_precio * 0.50)
             _pago25a = round(_precio * 0.25)
-            _pago25b = _precio - _pago50 - _pago25a  # resto para evitar redondeo
+            _pago25b = _precio - _pago50 - _pago25a
 
             def _fp(v): return "${:,.0f}".format(int(v)).replace(",",".")
-            with _c14:
-                st.markdown(f"""
-                <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;
-                            padding:14px 18px;margin-top:4px;">
-                  <div style="font-size:0.7rem;font-weight:800;color:#0369a1;text-transform:uppercase;
-                              letter-spacing:0.08em;margin-bottom:10px;">Etapas de pago calculadas</div>
-                  <div style="display:flex;gap:24px;flex-wrap:wrap;">
-                    <div>
-                      <div style="font-size:0.72rem;color:#64748b;font-weight:700;">50% INICIAL</div>
-                      <div style="font-size:1.15rem;font-weight:900;color:#0f172a;">{_fp(_pago50)}</div>
-                      <div style="font-size:0.68rem;color:#94a3b8;">Asignación + obra gruesa</div>
-                    </div>
-                    <div>
-                      <div style="font-size:0.72rem;color:#64748b;font-weight:700;">25% INTERMEDIO</div>
-                      <div style="font-size:1.15rem;font-weight:900;color:#0f172a;">{_fp(_pago25a)}</div>
-                      <div style="font-size:0.68rem;color:#94a3b8;">Finalizada obra gruesa</div>
-                    </div>
-                    <div>
-                      <div style="font-size:0.72rem;color:#64748b;font-weight:700;">25% FINAL</div>
-                      <div style="font-size:1.15rem;font-weight:900;color:#0f172a;">{_fp(_pago25b)}</div>
-                      <div style="font-size:0.68rem;color:#94a3b8;">Día del despacho</div>
-                    </div>
-                  </div>
+
+            st.markdown(f"""
+            <div style="background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;
+                        padding:18px 20px;margin-top:4px;">
+              <div style="font-size:0.65rem;font-weight:900;color:rgba(255,255,255,0.5);
+                          text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;">
+                Etapas de pago
+              </div>
+              <div style="display:flex;flex-direction:column;gap:12px;">
+                <div style="background:rgba(255,255,255,0.07);border-radius:10px;padding:12px 14px;">
+                  <div style="font-size:0.65rem;font-weight:800;color:rgba(255,255,255,0.5);
+                              text-transform:uppercase;letter-spacing:0.08em;">50% Inicial</div>
+                  <div style="font-size:1.3rem;font-weight:900;color:#fff;margin:3px 0;">{_fp(_pago50)}</div>
+                  <div style="font-size:0.65rem;color:rgba(255,255,255,0.4);">Asignación + obra gruesa</div>
                 </div>
-                """, unsafe_allow_html=True)
+                <div style="background:rgba(255,255,255,0.07);border-radius:10px;padding:12px 14px;">
+                  <div style="font-size:0.65rem;font-weight:800;color:rgba(255,255,255,0.5);
+                              text-transform:uppercase;letter-spacing:0.08em;">25% Intermedio</div>
+                  <div style="font-size:1.3rem;font-weight:900;color:#fff;margin:3px 0;">{_fp(_pago25a)}</div>
+                  <div style="font-size:0.65rem;color:rgba(255,255,255,0.4);">Finalizada obra gruesa</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.07);border-radius:10px;padding:12px 14px;">
+                  <div style="font-size:0.65rem;font-weight:800;color:rgba(255,255,255,0.5);
+                              text-transform:uppercase;letter-spacing:0.08em;">25% Final</div>
+                  <div style="font-size:1.3rem;font-weight:900;color:#fff;margin:3px 0;">{_fp(_pago25b)}</div>
+                  <div style="font-size:0.65rem;color:rgba(255,255,255,0.4);">Día del despacho</div>
+                </div>
+              </div>
+              <div style="border-top:1px solid rgba(255,255,255,0.1);margin-top:14px;padding-top:12px;
+                          display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:0.65rem;color:rgba(255,255,255,0.4);font-weight:700;">TOTAL</span>
+                <span style="font-size:1rem;font-weight:900;color:#fff;">{_fp(_precio)}</span>
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
 
         # ── Paso 3: Generar ──
         st.markdown('<div class="cont-section">📤 Paso 3 — Generar contrato</div>', unsafe_allow_html=True)
