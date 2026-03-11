@@ -6150,58 +6150,30 @@ with tab_contrato:
             if _inst_com: _inst_com = _normalizar_nombre(_inst_com, _todas_comunas)
             if _inst_reg: _inst_reg = _normalizar_nombre(_inst_reg, _todas_regiones)
 
-            st.markdown(f"""
-            <div style="background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;
-                        padding:18px 20px;margin-bottom:12px;">
-              <div style="font-size:0.65rem;font-weight:900;color:rgba(255,255,255,0.5);
-                          text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;">
-                📍 Domicilios
-              </div>
-              <div style="display:flex;flex-direction:column;gap:10px;">
-
-                <div style="background:rgba(255,255,255,0.07);border-radius:10px;padding:12px 14px;">
-                  <div style="font-size:0.6rem;font-weight:800;color:rgba(255,255,255,0.45);
-                              text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">
-                    Cliente
-                  </div>
-                  <div style="font-size:0.95rem;font-weight:700;color:#fff;margin-bottom:2px;">
-                    {_cli_dom or '<span style="color:rgba(255,255,255,0.25);font-style:italic;font-weight:400;">Sin dirección</span>'}
-                  </div>
-                  <div style="display:flex;gap:8px;margin-top:4px;">
-                    <span style="font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;
-                                 padding:2px 8px;color:rgba(255,255,255,0.7);">
-                      🏙️ {_cli_com or '—'}
-                    </span>
-                    <span style="font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;
-                                 padding:2px 8px;color:rgba(255,255,255,0.7);">
-                      🗺️ {_cli_reg or '—'}
-                    </span>
-                  </div>
-                </div>
-
-                <div style="background:rgba(255,255,255,0.07);border-radius:10px;padding:12px 14px;">
-                  <div style="font-size:0.6rem;font-weight:800;color:rgba(255,255,255,0.45);
-                              text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">
-                    Instalación
-                  </div>
-                  <div style="font-size:0.95rem;font-weight:700;color:#fff;margin-bottom:2px;">
-                    {_inst_dom or '<span style="color:rgba(255,255,255,0.25);font-style:italic;font-weight:400;">Sin dirección</span>'}
-                  </div>
-                  <div style="display:flex;gap:8px;margin-top:4px;">
-                    <span style="font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;
-                                 padding:2px 8px;color:rgba(255,255,255,0.7);">
-                      🏙️ {_inst_com or '—'}
-                    </span>
-                    <span style="font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;
-                                 padding:2px 8px;color:rgba(255,255,255,0.7);">
-                      🗺️ {_inst_reg or '—'}
-                    </span>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
+            _sin_dir = "<span style='color:rgba(255,255,255,0.25);font-style:italic;font-weight:400;'>Sin dirección</span>"
+            _html_dom = (
+                "<div style='background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;padding:18px 20px;margin-bottom:12px;'>"
+                "<div style='font-size:0.65rem;font-weight:900;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;'>📍 Domicilios</div>"
+                "<div style='display:flex;flex-direction:column;gap:10px;'>"
+                # Tarjeta cliente
+                "<div style='background:rgba(255,255,255,0.07);border-radius:10px;padding:12px 14px;'>"
+                "<div style='font-size:0.6rem;font-weight:800;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;'>Cliente</div>"
+                f"<div style='font-size:0.95rem;font-weight:700;color:#fff;margin-bottom:2px;'>{_cli_dom or _sin_dir}</div>"
+                "<div style='display:flex;gap:8px;margin-top:4px;'>"
+                f"<span style='font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;color:rgba(255,255,255,0.7);'>🏙️ {_cli_com or '—'}</span>"
+                f"<span style='font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;color:rgba(255,255,255,0.7);'>🗺️ {_cli_reg or '—'}</span>"
+                "</div></div>"
+                # Tarjeta instalación
+                "<div style='background:rgba(255,255,255,0.07);border-radius:10px;padding:12px 14px;'>"
+                "<div style='font-size:0.6rem;font-weight:800;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;'>Instalación</div>"
+                f"<div style='font-size:0.95rem;font-weight:700;color:#fff;margin-bottom:2px;'>{_inst_dom or _sin_dir}</div>"
+                "<div style='display:flex;gap:8px;margin-top:4px;'>"
+                f"<span style='font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;color:rgba(255,255,255,0.7);'>🏙️ {_inst_com or '—'}</span>"
+                f"<span style='font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;color:rgba(255,255,255,0.7);'>🗺️ {_inst_reg or '—'}</span>"
+                "</div></div>"
+                "</div></div>"
+            )
+            st.markdown(_html_dom, unsafe_allow_html=True)
 
         with _pcol:
             # El precio viene del EP cargado, sin input visible
