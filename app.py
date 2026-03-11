@@ -1815,9 +1815,14 @@ def cargar_datos_dashboard(periodo='mes'):
                 except: prods = []
             for p in prods:
                 cat = p.get('Categoria') or 'Sin categoría'
-                precio = float(p.get('Precio Final', 0) or 0)
-                qty    = int(p.get('Cantidad', 1) or 1)
-                cat_montos[cat] += precio * qty
+                # Usar Subtotal directo, o calcular desde Precio Unitario * Cantidad
+                subtotal = float(p.get('Subtotal') or 0)
+                if subtotal == 0:
+                    precio = float(p.get('Precio Unitario') or p.get('Precio Final') or 0)
+                    qty    = int(p.get('Cantidad') or 1)
+                    subtotal = precio * qty
+                qty = int(p.get('Cantidad') or 1)
+                cat_montos[cat] += subtotal
                 cat_counts[cat] += qty
         top_cats = sorted(cat_montos.items(), key=lambda x: x[1], reverse=True)[:6]
 
