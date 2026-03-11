@@ -184,30 +184,44 @@ REGIONES_COMUNAS = {
 COMUNA_A_REGION = {c: r for r, cs in REGIONES_COMUNAS.items() for c in cs}
 
 def selector_comuna_region(label_com, label_reg, key_com, key_reg, val_com="", val_reg="", col_layout=None):
-    """Muestra selectbox de comuna y región sincronizados."""
-    todas_comunas = sorted([c for cs in REGIONES_COMUNAS.values() for c in cs])
+    """
+    Región filtra comunas. Elegir comuna auto-completa región.
+    Default: Metropolitana / Santiago.
+    """
     todas_regiones = list(REGIONES_COMUNAS.keys())
 
-    # Índice actual de comuna
-    _idx_com = todas_comunas.index(val_com) + 1 if val_com in todas_comunas else 0
-    comuna_sel = st.selectbox(label_com, ["— seleccionar —"] + todas_comunas,
-                              index=_idx_com, key=key_com)
-    if comuna_sel != "— seleccionar —":
-        region_auto = COMUNA_A_REGION.get(comuna_sel, val_reg)
-    else:
-        region_auto = val_reg
+    # Determinar región inicial
+    _reg_init = val_reg if val_reg in todas_regiones else (
+        COMUNA_A_REGION.get(val_com, "Metropolitana")
+    )
+    _idx_reg = todas_regiones.index(_reg_init) if _reg_init in todas_regiones else todas_regiones.index("Metropolitana")
 
-    # Región: si la comuna identificó una región, mostrar como texto fijo; si no, dropdown
-    if comuna_sel != "— seleccionar —" and region_auto:
-        st.text_input(label_reg, value=region_auto, disabled=True, key=key_reg)
-        region_sel = region_auto
+    region_sel = st.selectbox(
+        label_reg,
+        todas_regiones,
+        index=_idx_reg,
+        key=key_reg,
+    )
+
+    # Comunas filtradas por región seleccionada
+    comunas_region = REGIONES_COMUNAS.get(region_sel, [])
+
+    # Si la comuna guardada pertenece a esta región, preseleccionar; si no, Santiago o primera
+    if val_com in comunas_region:
+        _idx_com = comunas_region.index(val_com)
+    elif region_sel == "Metropolitana" and "Santiago" in comunas_region:
+        _idx_com = comunas_region.index("Santiago")
     else:
-        _idx_reg = todas_regiones.index(val_reg) + 1 if val_reg in todas_regiones else 0
-        region_sel = st.selectbox(label_reg, ["— seleccionar —"] + todas_regiones,
-                                  index=_idx_reg, key=key_reg)
-        if region_sel == "— seleccionar —":
-            region_sel = ""
-    return comuna_sel if comuna_sel != "— seleccionar —" else "", region_sel
+        _idx_com = 0
+
+    comuna_sel = st.selectbox(
+        label_com,
+        comunas_region,
+        index=_idx_com,
+        key=key_com,
+    )
+
+    return comuna_sel, region_sel
 
 if 'nombre_input' not in st.session_state:
     st.session_state.nombre_input = ""
