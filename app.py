@@ -3756,12 +3756,22 @@ with tab3:
         df_resultados = pd.DataFrame(_rows_norm, columns=_cols_esperadas)
         df_resultados["Total"] = df_resultados["Total"].apply(lambda x: f"${x:,.0f}".replace(",", ".") if x else "$0")
         def _fmt_fecha(x):
+            """Para la tabla HTML: fecha en negrita + hora en gris."""
             if not x: return ""
             try:
                 from datetime import datetime as _dt
                 _d = _dt.fromisoformat(x.replace("Z","").split("+")[0])
                 return f'<span style="font-weight:700;">{_d.strftime("%d/%m/%Y")}</span><br><span style="font-size:0.75em;color:#64748b;">{_d.strftime("%H:%M")}</span>'
             except: return x[:10]
+        def _fmt_fecha_plana(x):
+            """Para el selectbox: texto limpio sin HTML."""
+            if not x: return ""
+            try:
+                from datetime import datetime as _dt
+                _d = _dt.fromisoformat(x.replace("Z","").split("+")[0])
+                return _d.strftime("%d/%m/%Y %H:%M")
+            except: return x[:10]
+        df_resultados["FechaPlana"] = df_resultados["Fecha"].apply(_fmt_fecha_plana)
         df_resultados["Fecha"] = df_resultados["Fecha"].apply(_fmt_fecha)
         df_resultados["Estado"] = df_resultados.apply(crear_badge_estado, axis=1)
         df_resultados["Plano"]    = df_resultados.apply(lambda row: "📎" if row["Tiene_Plano"] else "—", axis=1)
@@ -3809,7 +3819,7 @@ with tab3:
                 else:
                     estado = "🔴 INCOMPLETO CON PLANO" if row['Tiene_Plano'] else "🔴 INCOMPLETO"
             plano_indicador = "📎" if row['Tiene_Plano'] else "❌"
-            opciones.append(f"{row['N°']} - {row['Cliente'] or 'S/C'} ({row['Fecha']}) - {row['Total']} - {estado} {plano_indicador}")
+            opciones.append(f"{row['N°']} - {row['Cliente'] or 'S/C'} ({row['FechaPlana']}) - {row['Total']} - {estado} {plano_indicador}")
 
         if opciones:
             cotizacion_seleccionada = st.selectbox("Selecciona una cotización:", options=opciones, key="selector_cotizaciones")
