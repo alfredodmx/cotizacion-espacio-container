@@ -1850,6 +1850,7 @@ def cargar_datos_dashboard(periodo='mes'):
         # ── Top 30 productos ──
         prod_montos = _dd(float)
         prod_cantidades = _dd(int)
+        prod_categoria = {}
         for r in rows:
             prods = r.get('productos') or []
             if isinstance(prods, str):
@@ -1868,8 +1869,10 @@ def cargar_datos_dashboard(periodo='mes'):
                 qty = int(p.get('Cantidad') or 1)
                 prod_montos[item]     += subtotal
                 prod_cantidades[item] += qty
+                if item not in prod_categoria:
+                    prod_categoria[item] = (p.get('Categoria') or '').strip()
         top_productos = sorted(prod_montos.items(), key=lambda x: x[1], reverse=True)[:30]
-        top_productos = [(n, v, prod_cantidades[n]) for n, v in top_productos]
+        top_productos = [(n, v, prod_cantidades[n], prod_categoria.get(n,'')) for n, v in top_productos]
 
         return {
             'total_ep': total_ep, 'total_monto': total_monto,
@@ -4743,7 +4746,7 @@ with tab_dash:
               <span style="font-size:0.72rem;font-weight:800;color:#94a3b8;
                            text-transform:uppercase;letter-spacing:0.08em;min-width:100px;text-align:right;">Monto</span>
             </div>"""
-            for idx_p, (prod_name, prod_val, prod_qty) in enumerate(_d['top_productos'], 1):
+            for idx_p, (prod_name, prod_val, prod_qty, prod_cat) in enumerate(_d['top_productos'], 1):
                 pct_p    = round((prod_val / _max_prod) * 100)
                 _color_p = "#3b82f6" if idx_p <= 3 else "#6366f1" if idx_p <= 10 else "#94a3b8"
                 _bold_p  = "800" if idx_p <= 3 else "600"
@@ -4753,8 +4756,8 @@ with tab_dash:
                                min-width:24px;text-align:center;">{idx_p}</span>
                   <div style="flex:1;min-width:0;">
                     <div style="font-size:0.82rem;font-weight:{_bold_p};color:#1e293b;
-                                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-                                margin-bottom:3px;">{prod_name}</div>
+                                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{prod_name}</div>
+                    <div style="font-size:0.72rem;color:#94a3b8;margin-bottom:3px;">{prod_cat}</div>
                     <div style="background:#f1f5f9;border-radius:4px;height:5px;overflow:hidden;">
                       <div style="width:{pct_p}%;height:5px;border-radius:4px;
                                   background:{_color_p};opacity:0.7;"></div>
