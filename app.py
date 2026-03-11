@@ -6125,12 +6125,13 @@ with tab_contrato:
                     f"<span style='font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;color:rgba(255,255,255,0.7);'>RUT empresa: {_cli_rut_empresa or '—'}</span>"
                     f"</div>"
                 )
+                _sin_nombre_cli = "<span style='color:rgba(255,255,255,0.3);font-style:italic;font-weight:400;'>Sin nombre</span>"
                 _html_cli = (
                     "<div style='background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;padding:16px 18px;margin-bottom:4px;'>"
                     "<div style='font-size:0.65rem;font-weight:900;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;'>👤 Datos del cliente</div>"
                     "<div style='display:flex;flex-direction:column;gap:10px;'>"
                     "<div style='background:rgba(255,255,255,0.07);border-radius:10px;padding:12px 14px;'>"
-                    f"<div style='font-size:1rem;font-weight:800;color:#fff;'>{_tratamiento} {_cli_nombre or '<span style="color:rgba(255,255,255,0.3);font-style:italic;font-weight:400;">Sin nombre</span>'}</div>"
+                    f"<div style='font-size:1rem;font-weight:800;color:#fff;'>{_tratamiento} {_cli_nombre if _cli_nombre else _sin_nombre_cli}</div>"
                     f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.6);margin-top:4px;'>RUT: {_cli_rut or '—'}</div>"
                     + _emp_html +
                     "</div>"
