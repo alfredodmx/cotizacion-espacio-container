@@ -4630,11 +4630,12 @@ with tab_dash:
                     st.plotly_chart(_fig_donut, use_container_width=True, config={'displayModeBar': False})
 
         # ── Evolución temporal ──
-        if _d['fechas']:
-            st.markdown('<div class="section-title">Evolución de cotizaciones</div>', unsafe_allow_html=True)
-        elif _d['total_ep'] > 0:
-            st.markdown('<div class="section-title">Evolución de cotizaciones</div>', unsafe_allow_html=True)
-            st.caption(f"⚠️ Debug: total_ep={_d['total_ep']}, fechas={_d['fechas']}, muestra_fecha_raw={_d.get('debug_fecha','?')}")
+        st.markdown('<div class="section-title">Evolución de cotizaciones</div>', unsafe_allow_html=True)
+        with st.expander("🔍 Debug temporal — borrar después"):
+            st.write("total_ep:", _d['total_ep'])
+            st.write("fechas:", _d['fechas'])
+            st.write("serie_montos:", _d['serie_montos'])
+            st.write("debug_fecha_raw:", _d.get('debug_fecha','?'))
         if _d['fechas']:
             try:
                 import plotly.graph_objects as go
