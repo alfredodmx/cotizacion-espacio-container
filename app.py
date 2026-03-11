@@ -5733,16 +5733,18 @@ with tab_contrato:
                 _cot = _res.data[0]
                 st.session_state["cont_cot"] = _cot
                 st.session_state["cont_ep"]  = _num
-                # Pre-llenar campos editables desde la cotización
-                st.session_state["cont_cli_nombre"]     = _cot.get("nombre_cliente", "")
-                st.session_state["cont_cli_rut"]        = _cot.get("rut_cliente", "")
-                st.session_state["cont_cli_domicilio"]  = _cot.get("direccion_cliente", "") or _cot.get("direccion", "")
-                st.session_state["cont_cli_comuna"]     = _cot.get("comuna_cliente", "") or _cot.get("comuna", "")
-                st.session_state["cont_inst_domicilio"] = _cot.get("direccion", "")
-                st.session_state["cont_inst_comuna"]    = _cot.get("comuna", "")
-                st.session_state["cont_ep_nombre"]      = _cot.get("nombre_proyecto", "") or _cot.get("descripcion", "")
-                _total = float(_cot.get("total", 0) or _cot.get("precio_total", 0) or 0)
-                st.session_state["cont_precio"]  = _total
+                # Mapeo con campos reales de la tabla cotizaciones
+                _dir = _cot.get("cliente_direccion", "")
+                # Intentar extraer comuna de la dirección si está disponible
+                _total = float(_cot.get("total_total", 0) or _cot.get("total", 0) or 0)
+                st.session_state["cont_cli_nombre"]     = _cot.get("cliente_nombre", "")
+                st.session_state["cont_cli_rut"]        = _cot.get("cliente_rut", "")
+                st.session_state["cont_cli_domicilio"]  = _dir
+                st.session_state["cont_cli_comuna"]     = ""
+                st.session_state["cont_inst_domicilio"] = _dir
+                st.session_state["cont_inst_comuna"]    = ""
+                st.session_state["cont_ep_nombre"]      = _cot.get("proyecto_observaciones", "") or ""
+                st.session_state["cont_precio"]         = _total
                 st.rerun()
             else:
                 st.error(f"No se encontró la cotización {_num}")
@@ -5754,7 +5756,7 @@ with tab_contrato:
         _cot    = st.session_state["cont_cot"]
         _ep_num = st.session_state.get("cont_ep", "")
 
-        st.success(f"✅ Cotización **{_ep_num}** cargada — {_cot.get('nombre_cliente','')}")
+        st.success(f"✅ Cotización **{_ep_num}** cargada — {_cot.get('cliente_nombre','')}")
 
         # ── Datos del contrato ──
         st.markdown('<div class="cont-section">📝 Paso 2 — Completar datos del contrato</div>', unsafe_allow_html=True)
