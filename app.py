@@ -183,6 +183,28 @@ REGIONES_COMUNAS = {
 # Mapa inverso: comuna → región
 COMUNA_A_REGION = {c: r for r, cs in REGIONES_COMUNAS.items() for c in cs}
 
+# Normalizar texto ingresado a nombre oficial de región/comuna
+def _normalizar_nombre(texto, catalogo):
+    """Busca el nombre oficial ignorando tildes, mayúsculas y 'Región de/del'."""
+    import unicodedata
+    def _strip(s):
+        s = s.lower().strip()
+        s = ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+        for prefix in ('region de los ', 'region de la ', 'region del ', 'region de ', 'region '):
+            if s.startswith(prefix):
+                s = s[len(prefix):]
+        return s
+    txt_norm = _strip(texto)
+    for nombre in catalogo:
+        if _strip(nombre) == txt_norm:
+            return nombre
+    # Coincidencia parcial
+    for nombre in catalogo:
+        if txt_norm in _strip(nombre) or _strip(nombre) in txt_norm:
+            return nombre
+    return texto  # devolver original si no encuentra
+
+
 def selector_comuna_region(label_com, label_reg, key_com, key_reg, val_com="", val_reg="", col_layout=None):
     """
     Región filtra comunas. Elegir comuna auto-completa región.
@@ -6121,6 +6143,12 @@ with tab_contrato:
             _inst_dom = st.session_state.get("cont_inst_domicilio", st.session_state.get("proyecto_direccion", ""))
             _inst_com = st.session_state.get("cont_inst_comuna",    st.session_state.get("proyecto_comuna", ""))
             _inst_reg = st.session_state.get("cont_inst_region",    st.session_state.get("proyecto_region", ""))
+            _todas_regiones = list(REGIONES_COMUNAS.keys())
+            _todas_comunas  = [c for cs in REGIONES_COMUNAS.values() for c in cs]
+            if _cli_com:  _cli_com  = _normalizar_nombre(_cli_com,  _todas_comunas)
+            if _cli_reg:  _cli_reg  = _normalizar_nombre(_cli_reg,  _todas_regiones)
+            if _inst_com: _inst_com = _normalizar_nombre(_inst_com, _todas_comunas)
+            if _inst_reg: _inst_reg = _normalizar_nombre(_inst_reg, _todas_regiones)
 
             st.markdown(f"""
             <div style="background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;
