@@ -867,7 +867,7 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
         query = supabase.table('cotizaciones').select(
             'numero', 'cliente_nombre', 'asesor_nombre', 'fecha_creacion',
             'total_total', 'config_margen', 'cliente_rut', 'cliente_email',
-            'asesor_email', 'asesor_telefono', 'plano_url'
+            'asesor_email', 'asesor_telefono', 'plano_url', 'contrato_generado'
         )
         if termino and termino.strip():
             campo_map = {
@@ -892,7 +892,8 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
                 row.get('cliente_email', '') or '',
                 row.get('asesor_email', '') or '',
                 row.get('asesor_telefono', '') or '',
-                1 if row.get('plano_url') else 0
+                1 if row.get('plano_url') else 0,
+                1 if row.get('contrato_generado') else 0
             ))
         return resultados
     except Exception as e:
@@ -3584,26 +3585,30 @@ with tab3:
     if st.session_state.resultados_busqueda:
         df_resultados = pd.DataFrame(
             st.session_state.resultados_busqueda,
-            columns=["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano"]
+            columns=["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato"]
         )
         df_resultados["Total"] = df_resultados["Total"].apply(lambda x: f"${x:,.0f}".replace(",", ".") if x else "$0")
         df_resultados["Fecha"] = df_resultados["Fecha"].apply(lambda x: x[:10] if x else "")
         df_resultados["Estado"] = df_resultados.apply(crear_badge_estado, axis=1)
-        df_resultados["Plano"] = df_resultados.apply(lambda row: "📎" if row["Tiene_Plano"] else "❌", axis=1)
+        df_resultados["Plano"]    = df_resultados.apply(lambda row: "📎" if row["Tiene_Plano"] else "—", axis=1)
+        df_resultados["MargenCol"]= df_resultados["Margen"].apply(lambda x: "✅ Sí" if x and x > 0 else "—")
+        df_resultados["ContratoCol"] = df_resultados["Tiene_Contrato"].apply(lambda x: "✅ Sí" if x else "—")
 
         n_resultados = len(df_resultados)
         altura_tabla = min(n_resultados * 48 + 50, 530)  # ~10 filas = 530px máx
 
         rows_html = ""
         for _, row in df_resultados.iterrows():
-            rows_html += f"<tr><td>{row['N°']}</td><td>{row['Cliente'] or '—'}</td><td>{row['Asesor'] or '—'}</td><td>{row['Fecha']}</td><td>{row['Total']}</td><td style='text-align:center;'>{row['Estado']}</td><td style='text-align:center;font-size:1.2rem;'>{row['Plano']}</td></tr>"
+            _mg_color = 'color:#16a34a;font-weight:700;' if row['MargenCol'] == '✅ Sí' else 'color:#94a3b8;'
+            _ct_color = 'color:#16a34a;font-weight:700;' if row['ContratoCol'] == '✅ Sí' else 'color:#94a3b8;'
+            rows_html += f"<tr><td>{row['N°']}</td><td>{row['Cliente'] or '—'}</td><td>{row['Asesor'] or '—'}</td><td>{row['Fecha']}</td><td>{row['Total']}</td><td style='text-align:center;'>{row['Estado']}</td><td style='text-align:center;{_mg_color}'>{row['MargenCol']}</td><td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;font-size:1.1rem;'>{row['Plano']}</td></tr>"
 
         html_table = f"""
         <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;">
             <div style="overflow-y:auto;max-height:{altura_tabla}px;">
                 <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
-                        <tr><th>N° Presupuesto</th><th>Cliente</th><th>Asesor</th><th>Fecha</th><th>Total</th><th>Estado</th><th>Plano</th></tr>
+                        <tr><th>N° Presupuesto</th><th>Cliente</th><th>Asesor</th><th>Fecha</th><th>Total</th><th>Estado</th><th>Margen</th><th>Contrato</th><th>Plano</th></tr>
                     </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
@@ -5923,6 +5928,23 @@ with tab_contrato:
                 st.session_state["cont_tipo_cli_val"]   = _cot.get("cliente_tipo", "natural")
                 st.session_state["cont_cli_empresa"]    = _cot.get("cliente_empresa", "")
                 st.session_state["cont_cli_rut_empresa"]= _cot.get("cliente_rut_empresa", "")
+                # Si ya tiene contrato guardado, cargar sus datos
+                if _cot.get("contrato_datos"):
+                    import json as _json
+                    try:
+                        _cd = _json.loads(_cot["contrato_datos"])
+                        st.session_state["cont_cli_domicilio"]  = _cd.get("cli_domicilio", st.session_state["cont_cli_domicilio"])
+                        st.session_state["cont_cli_comuna"]     = _cd.get("cli_comuna", st.session_state.get("cont_cli_comuna",""))
+                        st.session_state["cont_cli_region"]     = _cd.get("cli_region", st.session_state.get("cont_cli_region",""))
+                        st.session_state["cont_inst_domicilio"] = _cd.get("inst_domicilio", st.session_state.get("cont_inst_domicilio",""))
+                        st.session_state["cont_inst_comuna"]    = _cd.get("inst_comuna", st.session_state.get("cont_inst_comuna",""))
+                        st.session_state["cont_inst_region"]    = _cd.get("inst_region", st.session_state.get("cont_inst_region",""))
+                        st.session_state["cont_ep_nombre"]      = _cd.get("ep_nombre", st.session_state.get("cont_ep_nombre",""))
+                        st.session_state["cont_tiene_contrato"] = True
+                    except:
+                        st.session_state["cont_tiene_contrato"] = False
+                else:
+                    st.session_state["cont_tiene_contrato"] = False
                 st.session_state["cont_ep_nombre"]      = _cot.get("proyecto_observaciones", "") or ""
                 st.session_state["cont_precio"]         = _total
                 st.rerun()
@@ -5936,7 +5958,11 @@ with tab_contrato:
         _cot    = st.session_state["cont_cot"]
         _ep_num = st.session_state.get("cont_ep", "")
 
-        st.success(f"✅ Cotización **{_ep_num}** cargada — {_cot.get('cliente_nombre','')}")
+        _tiene_cont = st.session_state.get("cont_tiene_contrato", False)
+        if _tiene_cont:
+            st.success(f"✅ Cotización **{_ep_num}** cargada — {_cot.get('cliente_nombre','')} · 📄 Ya tiene contrato generado")
+        else:
+            st.success(f"✅ Cotización **{_ep_num}** cargada — {_cot.get('cliente_nombre','')} · Sin contrato previo")
 
         # ── Datos del contrato ──
         st.markdown('<div class="cont-section">📝 Paso 2 — Completar datos del contrato</div>', unsafe_allow_html=True)
@@ -6148,7 +6174,19 @@ with tab_contrato:
                         _pdf_bytes = generar_pdf_contrato(_datos_contrato)
                         st.session_state["cont_pdf_bytes"] = _pdf_bytes
                         st.session_state["cont_pdf_nombre"] = f"Contrato_{_ep_num_input.replace('-','_')}.pdf"
-                        st.success("✅ Contrato generado exitosamente.")
+                        # Guardar contrato en Supabase
+                        import json as _json
+                        try:
+                            _cont_payload = {
+                                "contrato_generado": True,
+                                "contrato_datos": _json.dumps(_datos_contrato, ensure_ascii=False),
+                                "contrato_fecha": _datos_contrato["fecha_str"],
+                            }
+                            supabase.table("cotizaciones").update(_cont_payload)                                     .eq("numero", _ep_num_input).execute()
+                            st.success("✅ Contrato generado y guardado exitosamente.")
+                        except Exception as _es:
+                            st.success("✅ Contrato generado.")
+                            st.warning(f"No se pudo guardar en BD: {_es}")
                     except Exception as _e:
                         st.error(f"Error al generar PDF: {_e}")
 
