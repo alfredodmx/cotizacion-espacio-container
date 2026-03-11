@@ -6114,30 +6114,29 @@ with tab_contrato:
                 _cli_rut_empresa = ""
             st.markdown('</div>', unsafe_allow_html=True)
 
-            # Panel 3 — Domicilios
+            # Panel 3 — Domicilios (solo lectura — vienen de pestaña DATOS)
+            _cli_dom  = st.session_state.get("cont_cli_domicilio",  st.session_state.get("direccion_input", ""))
+            _cli_com  = st.session_state.get("cont_cli_comuna",     st.session_state.get("cliente_comuna", ""))
+            _cli_reg  = st.session_state.get("cont_cli_region",     st.session_state.get("cliente_region", ""))
+            _inst_dom = st.session_state.get("cont_inst_domicilio", st.session_state.get("proyecto_direccion", ""))
+            _inst_com = st.session_state.get("cont_inst_comuna",    st.session_state.get("proyecto_comuna", ""))
+            _inst_reg = st.session_state.get("cont_inst_region",    st.session_state.get("proyecto_region", ""))
+
             st.markdown('<div class="cont-form-panel"><div class="cont-form-title">📍 Domicilios</div>', unsafe_allow_html=True)
-            _i1, _i2 = st.columns([3, 4])
+            _i1, _i2, _i3 = st.columns([3, 2, 2])
             with _i1:
-                _cli_dom = st.text_input("Dirección cliente",
-                    value=st.session_state.get("cont_cli_domicilio",""), key="cont_cli_dom")
+                st.text_input("Dirección cliente", value=_cli_dom, disabled=True, key="cont_cli_dom")
             with _i2:
-                _cli_com, _cli_reg = selector_comuna_region(
-                    "Comuna", "Región",
-                    "cont_cli_com", "cont_cli_reg",
-                    val_com=st.session_state.get("cont_cli_comuna", st.session_state.get("cliente_comuna","")),
-                    val_reg=st.session_state.get("cont_cli_region", st.session_state.get("cliente_region","")),
-                )
-            _j1, _j2 = st.columns([3, 4])
+                st.text_input("Comuna", value=_cli_com, disabled=True, key="cont_cli_com")
+            with _i3:
+                st.text_input("Región", value=_cli_reg, disabled=True, key="cont_cli_reg")
+            _j1, _j2, _j3 = st.columns([3, 2, 2])
             with _j1:
-                _inst_dom = st.text_input("Dirección instalación",
-                    value=st.session_state.get("cont_inst_domicilio", st.session_state.get("proyecto_direccion","")), key="cont_inst_dom")
+                st.text_input("Dirección instalación", value=_inst_dom, disabled=True, key="cont_inst_dom")
             with _j2:
-                _inst_com, _inst_reg = selector_comuna_region(
-                    "Comuna inst.", "Región inst.",
-                    "cont_inst_com", "cont_inst_reg",
-                    val_com=st.session_state.get("cont_inst_comuna", st.session_state.get("proyecto_comuna","")),
-                    val_reg=st.session_state.get("cont_inst_region", st.session_state.get("proyecto_region","")),
-                )
+                st.text_input("Comuna inst.", value=_inst_com, disabled=True, key="cont_inst_com")
+            with _j3:
+                st.text_input("Región inst.", value=_inst_reg, disabled=True, key="cont_inst_reg")
             st.markdown('</div>', unsafe_allow_html=True)
 
         with _pcol:
