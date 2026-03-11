@@ -5912,12 +5912,8 @@ with tab_contrato:
             st.markdown('</div>', unsafe_allow_html=True)
 
         with _pcol:
-            # Panel precio — sticky visual
-            _precio = st.number_input("💰 Precio total (IVA incluido)",
-                min_value=0,
-                value=int(st.session_state.get("cont_precio", 0)),
-                step=1000, key="cont_precio_input",
-                help="Valor total del EP tal como aparece en el PDF del cliente")
+            # El precio viene del EP cargado, sin input visible
+            _precio = int(st.session_state.get("cont_precio", 0))
 
             _pago50  = round(_precio * 0.50)
             _pago25a = round(_precio * 0.25)
@@ -5952,10 +5948,13 @@ with tab_contrato:
                   <div style="font-size:0.65rem;color:rgba(255,255,255,0.4);">Día del despacho</div>
                 </div>
               </div>
-              <div style="border-top:1px solid rgba(255,255,255,0.1);margin-top:14px;padding-top:12px;
+              <div style="border-top:1px solid rgba(255,255,255,0.15);margin-top:14px;padding-top:12px;
                           display:flex;justify-content:space-between;align-items:center;">
-                <span style="font-size:0.65rem;color:rgba(255,255,255,0.4);font-weight:700;">TOTAL</span>
-                <span style="font-size:1rem;font-weight:900;color:#fff;">{_fp(_precio)}</span>
+                <div>
+                  <div style="font-size:0.65rem;color:rgba(255,255,255,0.45);font-weight:800;
+                               text-transform:uppercase;letter-spacing:0.08em;">Total IVA incluido</div>
+                </div>
+                <span style="font-size:1.15rem;font-weight:900;color:#fff;">{_fp(_precio)}</span>
               </div>
             </div>
             """, unsafe_allow_html=True)
