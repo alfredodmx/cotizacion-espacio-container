@@ -2018,11 +2018,38 @@ def generar_pdf_contrato(datos):
 
     story = []
 
-    # ── Encabezado ──
+    # ── Encabezado con logo ──
+    import os as _os_c
+    if _os_c.path.exists("logo.png"):
+        from reportlab.platypus import Image as _RLImage
+        _logo = _RLImage("logo.png")
+        _logo_aspect = _logo.imageHeight / float(_logo.imageWidth)
+        _logo.drawWidth  = 4.5 * cm
+        _logo.drawHeight = 4.5 * cm * _logo_aspect
+        _titulo_inner = Table(
+            [[Paragraph("CONTRATO DE FABRICACIÓN Y VENTA", titulo)],
+             [Paragraph("VIVIENDA TIPO CONTAINER", subtit)]],
+            colWidths=[11.5*cm]
+        )
+        _hdr_tbl = Table([[_titulo_inner, _logo]], colWidths=[11.5*cm, 4.5*cm])
+        _hdr_tbl.setStyle(TableStyle([
+            ('ALIGN',        (0,0), (0,0), 'LEFT'),
+            ('ALIGN',        (1,0), (1,0), 'RIGHT'),
+            ('VALIGN',       (0,0), (-1,-1), 'MIDDLE'),
+            ('LEFTPADDING',  (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+            ('TOPPADDING',   (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING',(0,0), (-1,-1), 0),
+        ]))
+        story.append(_hdr_tbl)
+    else:
+        story += [
+            Paragraph("CONTRATO DE FABRICACIÓN Y VENTA", titulo),
+            Paragraph("VIVIENDA TIPO CONTAINER", subtit),
+        ]
+
     story += [
-        Paragraph("CONTRATO DE FABRICACIÓN Y VENTA", titulo),
-        Paragraph("VIVIENDA TIPO CONTAINER", subtit),
-        SP(4),
+        SP(8),
         Paragraph(f"En Santiago de Chile, a <b>{d['fecha_str']}</b>, comparecen:", normal),
         HR(), SP(2),
     ]
