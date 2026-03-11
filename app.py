@@ -157,6 +157,58 @@ if 'modo_admin' not in st.session_state:
     st.session_state.modo_admin = False
 if 'mostrar_login' not in st.session_state:
     st.session_state.mostrar_login = False
+
+# ══════════════════════════════════════════════════════
+# REGIONES Y COMUNAS DE CHILE
+# ══════════════════════════════════════════════════════
+REGIONES_COMUNAS = {
+    "Arica y Parinacota": ["Arica","Camarones","Putre","General Lagos"],
+    "Tarapacá": ["Iquique","Alto Hospicio","Pozo Almonte","Camiña","Colchane","Huara","Pica"],
+    "Antofagasta": ["Antofagasta","Mejillones","Sierra Gorda","Taltal","Calama","Ollagüe","San Pedro de Atacama","Tocopilla","María Elena"],
+    "Atacama": ["Copiapó","Caldera","Tierra Amarilla","Chañaral","Diego de Almagro","Vallenar","Alto del Carmen","Freirina","Huasco"],
+    "Coquimbo": ["La Serena","Coquimbo","Andacollo","La Higuera","Paiguano","Vicuña","Illapel","Canela","Los Vilos","Salamanca","Ovalle","Combarbalá","Monte Patria","Punitaqui","Río Hurtado"],
+    "Valparaíso": ["Valparaíso","Casablanca","Concón","Juan Fernández","Puchuncaví","Quintero","Viña del Mar","Isla de Pascua","Los Andes","Calle Larga","Rinconada","San Esteban","La Ligua","Cabildo","Papudo","Petorca","Zapallar","Quillota","Calera","Hijuelas","La Cruz","Nogales","San Antonio","Algarrobo","Cartagena","El Quisco","El Tabo","Santo Domingo","San Felipe","Catemu","Llaillay","Panquehue","Putaendo","Santa María","Quilpué","Limache","Olmué","Villa Alemana"],
+    "Metropolitana": ["Santiago","Cerrillos","Cerro Navia","Conchalí","El Bosque","Estación Central","Huechuraba","Independencia","La Cisterna","La Florida","La Granja","La Pintana","La Reina","Las Condes","Lo Barnechea","Lo Espejo","Lo Prado","Macul","Maipú","Ñuñoa","Pedro Aguirre Cerda","Peñalolén","Providencia","Pudahuel","Quilicura","Quinta Normal","Recoleta","Renca","San Joaquín","San Miguel","San Ramón","Vitacura","Puente Alto","Pirque","San José de Maipo","Colina","Lampa","Tiltil","San Bernardo","Buin","Calera de Tango","Paine","Melipilla","Alhué","Curacaví","María Pinto","San Pedro","Talagante","El Monte","Isla de Maipo","Padre Hurtado","Peñaflor"],
+    "O'Higgins": ["Rancagua","Codegua","Coinco","Coltauco","Doñihue","Graneros","Las Cabras","Machalí","Malloa","Mostazal","Olivar","Peumo","Pichidegua","Quinta de Tilcoco","Rengo","Requínoa","San Vicente","Pichilemu","La Estrella","Litueche","Marchihue","Navidad","Paredones","San Fernando","Chépica","Chimbarongo","Lolol","Nancagua","Palmilla","Peralillo","Placilla","Pumanque","Santa Cruz"],
+    "Maule": ["Talca","Constitución","Curepto","Empedrado","Maule","Pelarco","Pencahue","Río Claro","San Clemente","San Rafael","Cauquenes","Chanco","Pelluhue","Curicó","Hualañé","Licantén","Molina","Rauco","Romeral","Sagrada Familia","Teno","Vichuquén","Linares","Colbún","Longaví","Parral","Retiro","San Javier","Villa Alegre","Yerbas Buenas"],
+    "Ñuble": ["Chillán","Bulnes","Chillán Viejo","El Carmen","Pemuco","Pinto","Quillón","San Ignacio","Yungay","Cobquecura","Coelemu","Ninhue","Portezuelo","Quirihue","Ránquil","Treguaco","Coihueco","Ñiquén","San Carlos","San Fabián","San Nicolás"],
+    "Biobío": ["Concepción","Coronel","Chiguayante","Florida","Hualpén","Hualqui","Lota","Penco","San Pedro de la Paz","Santa Juana","Talcahuano","Tomé","Lebu","Arauco","Cañete","Contulmo","Curanilahue","Los Álamos","Tirúa","Los Ángeles","Antuco","Cabrero","Laja","Mulchén","Nacimiento","Negrete","Quilaco","Quilleco","San Rosendo","Santa Bárbara","Tucapel","Yumbel","Alto Biobío"],
+    "La Araucanía": ["Temuco","Carahue","Cunco","Curarrehue","Freire","Galvarino","Gorbea","Lautaro","Loncoche","Melipeuco","Nueva Imperial","Padre las Casas","Perquenco","Pitrufquén","Pucón","Saavedra","Teodoro Schmidt","Toltén","Vilcún","Villarrica","Cholchol","Angol","Collipulli","Curacautín","Ercilla","Lonquimay","Los Sauces","Lumaco","Purén","Renaico","Traiguén","Victoria"],
+    "Los Ríos": ["Valdivia","Corral","Futrono","La Unión","Lago Ranco","Lanco","Los Lagos","Máfil","Mariquina","Paillaco","Panguipulli","Río Bueno"],
+    "Los Lagos": ["Puerto Montt","Calbuco","Cochamó","Fresia","Frutillar","Los Muermos","Llanquihue","Maullín","Puerto Varas","Castro","Ancud","Chonchi","Curaco de Vélez","Dalcahue","Puqueldón","Queilén","Quellón","Quemchi","Quinchao","Osorno","Puerto Octay","Purranque","Puyehue","Río Negro","San Juan de la Costa","San Pablo","Chaitén","Futaleufú","Hualaihué","Palena"],
+    "Aysén": ["Coyhaique","Lago Verde","Aysén","Cisnes","Guaitecas","Cochrane","O'Higgins","Tortel","Chile Chico","Río Ibáñez"],
+    "Magallanes": ["Punta Arenas","Laguna Blanca","Río Verde","San Gregorio","Cabo de Hornos","Antártica","Porvenir","Primavera","Timaukel","Natales","Torres del Paine"],
+}
+
+# Mapa inverso: comuna → región
+COMUNA_A_REGION = {c: r for r, cs in REGIONES_COMUNAS.items() for c in cs}
+
+def selector_comuna_region(label_com, label_reg, key_com, key_reg, val_com="", val_reg="", col_layout=None):
+    """Muestra selectbox de comuna y región sincronizados."""
+    todas_comunas = sorted([c for cs in REGIONES_COMUNAS.values() for c in cs])
+    todas_regiones = list(REGIONES_COMUNAS.keys())
+
+    # Índice actual de comuna
+    _idx_com = todas_comunas.index(val_com) + 1 if val_com in todas_comunas else 0
+    comuna_sel = st.selectbox(label_com, ["— seleccionar —"] + todas_comunas,
+                              index=_idx_com, key=key_com)
+    if comuna_sel != "— seleccionar —":
+        region_auto = COMUNA_A_REGION.get(comuna_sel, val_reg)
+    else:
+        region_auto = val_reg
+
+    # Región: si la comuna identificó una región, mostrar como texto fijo; si no, dropdown
+    if comuna_sel != "— seleccionar —" and region_auto:
+        st.text_input(label_reg, value=region_auto, disabled=True, key=key_reg)
+        region_sel = region_auto
+    else:
+        _idx_reg = todas_regiones.index(val_reg) + 1 if val_reg in todas_regiones else 0
+        region_sel = st.selectbox(label_reg, ["— seleccionar —"] + todas_regiones,
+                                  index=_idx_reg, key=key_reg)
+        if region_sel == "— seleccionar —":
+            region_sel = ""
+    return comuna_sel if comuna_sel != "— seleccionar —" else "", region_sel
+
 if 'nombre_input' not in st.session_state:
     st.session_state.nombre_input = ""
 if 'correo_input' not in st.session_state:
@@ -2977,32 +3029,30 @@ with tab2:
                 direccion = st.text_input("Dirección cliente", placeholder="Calle, número", key=direccion_key, value=st.session_state.direccion_input)
                 if direccion != st.session_state.direccion_input:
                     st.session_state.direccion_input = direccion
-
-                cli_comuna_key = f"cliente_comuna_{st.session_state.counter}"
-                cli_comuna = st.text_input("Comuna cliente", placeholder="Ej: Las Condes", key=cli_comuna_key, value=st.session_state.cliente_comuna)
-                if cli_comuna != st.session_state.cliente_comuna:
-                    st.session_state.cliente_comuna = cli_comuna
-
-                cli_region_key = f"cliente_region_{st.session_state.counter}"
-                cli_region = st.text_input("Región cliente", placeholder="Ej: Metropolitana", key=cli_region_key, value=st.session_state.cliente_region)
-                if cli_region != st.session_state.cliente_region:
-                    st.session_state.cliente_region = cli_region
+                _com_cli, _reg_cli = selector_comuna_region(
+                    "Comuna cliente", "Región cliente",
+                    f"cliente_comuna_{st.session_state.counter}",
+                    f"cliente_region_{st.session_state.counter}",
+                    val_com=st.session_state.cliente_comuna,
+                    val_reg=st.session_state.cliente_region,
+                )
+                st.session_state.cliente_comuna = _com_cli
+                st.session_state.cliente_region = _reg_cli
 
                 st.markdown("**🏗️ Proyecto**")
                 proy_dir_key = f"proyecto_direccion_{st.session_state.counter}"
                 proy_dir = st.text_input("Dirección instalación", placeholder="Calle, número", key=proy_dir_key, value=st.session_state.proyecto_direccion)
                 if proy_dir != st.session_state.proyecto_direccion:
                     st.session_state.proyecto_direccion = proy_dir
-
-                proy_com_key = f"proyecto_comuna_{st.session_state.counter}"
-                proy_com = st.text_input("Comuna instalación", placeholder="Ej: Colina", key=proy_com_key, value=st.session_state.proyecto_comuna)
-                if proy_com != st.session_state.proyecto_comuna:
-                    st.session_state.proyecto_comuna = proy_com
-
-                proy_reg_key = f"proyecto_region_{st.session_state.counter}"
-                proy_reg = st.text_input("Región instalación", placeholder="Ej: La Araucanía", key=proy_reg_key, value=st.session_state.proyecto_region)
-                if proy_reg != st.session_state.proyecto_region:
-                    st.session_state.proyecto_region = proy_reg
+                _com_proy, _reg_proy = selector_comuna_region(
+                    "Comuna instalación", "Región instalación",
+                    f"proyecto_comuna_{st.session_state.counter}",
+                    f"proyecto_region_{st.session_state.counter}",
+                    val_com=st.session_state.proyecto_comuna,
+                    val_reg=st.session_state.proyecto_region,
+                )
+                st.session_state.proyecto_comuna = _com_proy
+                st.session_state.proyecto_region = _reg_proy
 
         # ── Columna 3: Ejecutivo ──
         with col3:
@@ -6052,24 +6102,28 @@ with tab_contrato:
 
             # Panel 3 — Domicilios
             st.markdown('<div class="cont-form-panel"><div class="cont-form-title">📍 Domicilios</div>', unsafe_allow_html=True)
-            _i1, _i2, _i3 = st.columns([3, 2, 2])
+            _i1, _i2 = st.columns([3, 4])
             with _i1:
                 _cli_dom = st.text_input("Dirección cliente",
                     value=st.session_state.get("cont_cli_domicilio",""), key="cont_cli_dom")
             with _i2:
-                _cli_com = st.text_input("Comuna",
-                    value=st.session_state.get("cont_cli_comuna", st.session_state.get("cliente_comuna","")), key="cont_cli_com")
-            with _i3:
-                _cli_reg = st.text_input("Región", value=st.session_state.get("cont_cli_region", st.session_state.get("cliente_region", "Metropolitana")), key="cont_cli_reg")
-            _j1, _j2, _j3 = st.columns([3, 2, 2])
+                _cli_com, _cli_reg = selector_comuna_region(
+                    "Comuna", "Región",
+                    "cont_cli_com", "cont_cli_reg",
+                    val_com=st.session_state.get("cont_cli_comuna", st.session_state.get("cliente_comuna","")),
+                    val_reg=st.session_state.get("cont_cli_region", st.session_state.get("cliente_region","")),
+                )
+            _j1, _j2 = st.columns([3, 4])
             with _j1:
                 _inst_dom = st.text_input("Dirección instalación",
                     value=st.session_state.get("cont_inst_domicilio", st.session_state.get("proyecto_direccion","")), key="cont_inst_dom")
             with _j2:
-                _inst_com = st.text_input("Comuna inst.",
-                    value=st.session_state.get("cont_inst_comuna", st.session_state.get("proyecto_comuna","")), key="cont_inst_com")
-            with _j3:
-                _inst_reg = st.text_input("Región inst.", value=st.session_state.get("cont_inst_region", st.session_state.get("proyecto_region", "")), key="cont_inst_reg")
+                _inst_com, _inst_reg = selector_comuna_region(
+                    "Comuna inst.", "Región inst.",
+                    "cont_inst_com", "cont_inst_reg",
+                    val_com=st.session_state.get("cont_inst_comuna", st.session_state.get("proyecto_comuna","")),
+                    val_reg=st.session_state.get("cont_inst_region", st.session_state.get("proyecto_region","")),
+                )
             st.markdown('</div>', unsafe_allow_html=True)
 
         with _pcol:
