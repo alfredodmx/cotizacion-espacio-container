@@ -6035,7 +6035,7 @@ with tab_contrato:
                         st.session_state["cont_tiene_contrato"] = False
                 else:
                     st.session_state["cont_tiene_contrato"] = False
-                st.session_state["cont_ep_nombre"]      = _cot.get("proyecto_observaciones", "") or ""
+                st.session_state["cont_ep_nombre"]      = ""  # campo libre, no viene de observaciones
                 st.session_state["cont_precio"]         = _total
                 st.rerun()
             else:
@@ -6087,19 +6087,33 @@ with tab_contrato:
 
         with _fcol:
             # Panel 1 — Contrato
-            st.markdown('<div class="cont-form-panel"><div class="cont-form-title">📋 Datos del contrato</div>', unsafe_allow_html=True)
-            _fa, _fb, _fc = st.columns([2, 2, 1])
+            _hoy = _date_t.today()
+            _fecha_obj   = st.date_input("Fecha del contrato", value=_hoy, key="cont_fecha")
+            _fecha_str   = f"{_fecha_obj.day} de {_meses_es[_fecha_obj.month]} de {_fecha_obj.year}"
+            _ep_num_input = _ep_num  # solo lectura — viene del EP buscado
+
+            _fa, _fb = st.columns([3, 1])
             with _fa:
-                _hoy = _date_t.today()
-                _fecha_obj = st.date_input("Fecha", value=_hoy, key="cont_fecha", label_visibility="visible")
-                _fecha_str = f"{_fecha_obj.day} de {_meses_es[_fecha_obj.month]} de {_fecha_obj.year}"
+                _ep_nombre = st.text_input("📝 Nombre / descripción del proyecto",
+                    value=st.session_state.get("cont_ep_nombre",""),
+                    placeholder="Ej: Casa container 2 módulos, 45m²",
+                    key="cont_ep_nombre_input")
             with _fb:
-                _ep_num_input = st.text_input("N° EP", value=_ep_num, key="cont_ep_num_input")
-            with _fc:
-                _plazo = st.number_input("Plazo días", min_value=1, max_value=180, value=45, key="cont_plazo")
-            _ep_nombre = st.text_input("Nombre / descripción del proyecto",
-                value=st.session_state.get("cont_ep_nombre",""), key="cont_ep_nombre_input")
-            st.markdown('</div>', unsafe_allow_html=True)
+                _plazo = st.number_input("Plazo (días)", min_value=1, max_value=180, value=45, key="cont_plazo")
+
+            # N° EP — solo lectura, mostrado como card
+            _html_ep = (
+                "<div style='background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;"
+                "padding:14px 18px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;'>"
+                "<div>"
+                "<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.5);"
+                "text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;'>📋 Presupuesto</div>"
+                f"<div style='font-size:1.2rem;font-weight:900;color:#fff;'>{_ep_num_input or '—'}</div>"
+                "</div>"
+                f"<div style='font-size:0.8rem;color:rgba(255,255,255,0.5);'>{_fecha_str}</div>"
+                "</div>"
+            )
+            st.markdown(_html_ep, unsafe_allow_html=True)
 
             # Panel 2 — Cliente (solo Don/Doña editable, resto lectura)
             _tipo_pre      = st.session_state.get("cont_tipo_cli_val", st.session_state.get("cliente_tipo", "natural"))
