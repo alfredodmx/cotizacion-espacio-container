@@ -266,7 +266,16 @@ if 'cliente_tipo' not in st.session_state:
 if 'cliente_empresa' not in st.session_state:
     st.session_state.cliente_empresa = ""
 if 'cliente_rut_empresa' not in st.session_state:
-    st.session_state.cliente_rut_empresa = ""  
+    st.session_state.cliente_rut_empresa = ""
+    st.session_state.rut_empresa_raw     = ""
+    st.session_state.rut_empresa_display = ""
+    st.session_state.rut_empresa_valido  = False
+if 'rut_empresa_raw' not in st.session_state:
+    st.session_state.rut_empresa_raw = ""
+if 'rut_empresa_display' not in st.session_state:
+    st.session_state.rut_empresa_display = ""
+if 'rut_empresa_valido' not in st.session_state:
+    st.session_state.rut_empresa_valido = False  
 if 'fecha_inicio' not in st.session_state:
     st.session_state.fecha_inicio = datetime.now().date()
 if 'fecha_termino' not in st.session_state:
@@ -451,6 +460,28 @@ def procesar_cambio_rut():
         else:
             st.session_state.rut_valido = False
             st.session_state.rut_mensaje = "RUT incompleto"
+
+def procesar_cambio_rut_empresa():
+    rut_emp_key = f"rut_empresa_input_{st.session_state.counter}"
+    if rut_emp_key in st.session_state:
+        valor_actual = st.session_state[rut_emp_key]
+        raw = re.sub(r'[^0-9kK]', '', valor_actual)
+        if len(raw) > 9:
+            raw = raw[:9]
+        st.session_state.rut_empresa_raw = raw
+        if raw:
+            st.session_state.rut_empresa_display = formatear_rut(raw)
+            st.session_state.cliente_rut_empresa  = formatear_rut(raw)
+        else:
+            st.session_state.rut_empresa_display = ""
+            st.session_state.cliente_rut_empresa  = ""
+        if len(raw) >= 2:
+            valido, mensaje = validar_rut(raw)
+            st.session_state.rut_empresa_valido  = valido
+            st.session_state.rut_empresa_mensaje = mensaje
+        else:
+            st.session_state.rut_empresa_valido  = False
+            st.session_state.rut_empresa_mensaje = "RUT incompleto"
 
 def procesar_cambio_telefono():
     telefono_key = f"telefono_input_{st.session_state.counter}"
@@ -1088,6 +1119,9 @@ def ejecutar_carga_cotizacion():
         st.session_state.cliente_tipo         = cotizacion.get('cliente_tipo', 'natural')
         st.session_state.cliente_empresa      = cotizacion.get('cliente_empresa', '')
         st.session_state.cliente_rut_empresa  = cotizacion.get('cliente_rut_empresa', '')
+        _rut_emp_raw = re.sub(r'[^0-9kK]', '', cotizacion.get('cliente_rut_empresa', ''))
+        st.session_state.rut_empresa_raw     = _rut_emp_raw
+        st.session_state.rut_empresa_display = formatear_rut(_rut_emp_raw) if _rut_emp_raw else ''
         nombre_asesor = cotizacion.get('asesor_nombre', '')
         st.session_state.asesor_seleccionado = nombre_asesor if nombre_asesor else "Seleccionar asesor"
         st.session_state.correo_asesor = cotizacion.get('asesor_email', '')
@@ -2877,6 +2911,9 @@ def limpiar_todo():
     st.session_state.cliente_tipo = "natural"
     st.session_state.cliente_empresa = ""
     st.session_state.cliente_rut_empresa = ""
+    st.session_state.rut_empresa_raw     = ""
+    st.session_state.rut_empresa_display = ""
+    st.session_state.rut_empresa_valido  = False
     st.session_state.asesor_seleccionado = "Seleccionar asesor"
     st.session_state.correo_asesor = ""
     st.session_state.telefono_asesor = ""
@@ -3051,11 +3088,19 @@ with tab2:
                     if empresa != st.session_state.cliente_empresa:
                         st.session_state.cliente_empresa = empresa
 
-                    rut_emp_key = f"cliente_rut_empresa_{st.session_state.counter}"
-                    rut_emp = st.text_input("RUT empresa*", placeholder="76.123.456-7",
-                                            key=rut_emp_key, value=st.session_state.cliente_rut_empresa)
-                    if rut_emp != st.session_state.cliente_rut_empresa:
-                        st.session_state.cliente_rut_empresa = rut_emp
+                    rut_emp_key = f"rut_empresa_input_{st.session_state.counter}"
+                    st.text_input("RUT empresa*", placeholder="76.123.456-7",
+                                  key=rut_emp_key,
+                                  value=st.session_state.rut_empresa_display,
+                                  on_change=procesar_cambio_rut_empresa)
+                    if st.session_state.rut_empresa_raw:
+                        if len(st.session_state.rut_empresa_raw) >= 2:
+                            if st.session_state.rut_empresa_valido:
+                                st.success("✅ RUT válido")
+                            else:
+                                st.error(f"❌ {st.session_state.rut_empresa_mensaje}")
+                        else:
+                            st.info("⏳ RUT incompleto")
 
         # ── Columna 2: Dirección ──
         with col2:
