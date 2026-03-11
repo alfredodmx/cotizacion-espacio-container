@@ -1890,6 +1890,447 @@ def cargar_datos_dashboard(periodo='mes'):
 
 
 # =========================================================
+# =========================================================
+# FUNCIÓN: GENERADOR PDF CONTRATO CLIENTE
+# =========================================================
+def num_a_palabras(n):
+    """Convierte un número entero a su representación en palabras en español."""
+    unidades = ['','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve',
+                'diez','once','doce','trece','catorce','quince','dieciséis','diecisiete',
+                'dieciocho','diecinueve','veinte','veintiuno','veintidós','veintitrés',
+                'veinticuatro','veinticinco','veintiséis','veintisiete','veintiocho','veintinueve']
+    decenas = ['','diez','veinte','treinta','cuarenta','cincuenta','sesenta','setenta','ochenta','noventa']
+    centenas = ['','ciento','doscientos','trescientos','cuatrocientos','quinientos',
+                'seiscientos','setecientos','ochocientos','novecientos']
+    if n == 0: return 'cero'
+    if n < 0:  return 'menos ' + num_a_palabras(-n)
+    res = ''
+    if n >= 1_000_000:
+        m = n // 1_000_000
+        res += ('un millón' if m == 1 else num_a_palabras(m) + ' millones') + ' '
+        n %= 1_000_000
+    if n >= 1000:
+        m = n // 1000
+        res += ('mil' if m == 1 else num_a_palabras(m) + ' mil') + ' '
+        n %= 1000
+    if n >= 100:
+        if n == 100: res += 'cien '
+        else: res += centenas[n // 100] + ' '
+        n %= 100
+    if n >= 30:
+        d, u = divmod(n, 10)
+        res += decenas[d] + (' y ' + unidades[u] if u else '') + ' '
+    elif n > 0:
+        res += unidades[n] + ' '
+    return res.strip()
+
+def monto_a_palabras(monto):
+    """Convierte monto a texto: 'X pesos'."""
+    entero = int(round(monto))
+    return num_a_palabras(entero) + ' pesos'
+
+def generar_pdf_contrato(datos):
+    """
+    Genera PDF del contrato a partir del dict `datos` con campos:
+    fecha_str, tipo_cliente (natural/juridica),
+    cli_nombre, cli_rut, cli_empresa (solo jurídica), cli_rut_empresa (solo jurídica),
+    cli_domicilio, cli_comuna, cli_region,
+    inst_domicilio, inst_comuna, inst_region,
+    ep_numero, ep_nombre,
+    precio_total, plazo_dias,
+    pago_50, pago_25a, pago_25b
+    """
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
+                                    HRFlowable, Table, TableStyle, PageBreak)
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY
+    import io
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=letter,
+        leftMargin=3*cm, rightMargin=3*cm,
+        topMargin=2.5*cm, bottomMargin=2.5*cm,
+        title=f"Contrato {datos.get('ep_numero','')}"
+    )
+
+    # ── Estilos ──
+    base = getSampleStyleSheet()
+    normal = ParagraphStyle('cNormal', parent=base['Normal'],
+                            fontName='Helvetica', fontSize=10,
+                            leading=15, spaceAfter=6,
+                            alignment=TA_JUSTIFY)
+    bold   = ParagraphStyle('cBold', parent=normal,
+                            fontName='Helvetica-Bold')
+    titulo = ParagraphStyle('cTitulo', parent=base['Normal'],
+                            fontName='Helvetica-Bold', fontSize=16,
+                            leading=20, spaceAfter=4,
+                            alignment=TA_CENTER)
+    subtit = ParagraphStyle('cSubtit', parent=base['Normal'],
+                            fontName='Helvetica-Bold', fontSize=12,
+                            leading=16, spaceAfter=10,
+                            alignment=TA_CENTER)
+    seccion = ParagraphStyle('cSeccion', parent=normal,
+                             fontName='Helvetica-Bold', fontSize=10,
+                             spaceBefore=14, spaceAfter=4)
+    firma   = ParagraphStyle('cFirma', parent=normal,
+                             fontName='Helvetica-Bold', fontSize=10,
+                             alignment=TA_CENTER)
+
+    def HR(): return HRFlowable(width="100%", thickness=0.5,
+                                color=colors.HexColor('#a0a0a0'), spaceAfter=8, spaceBefore=4)
+    def SP(h=6): return Spacer(1, h)
+
+    d = datos
+    precio   = d['precio_total']
+    p50      = d['pago_50']
+    p25a     = d['pago_25a']
+    p25b     = d['pago_25b']
+    precio_p = monto_a_palabras(precio)
+    p50_p    = monto_a_palabras(p50)
+    p25a_p   = monto_a_palabras(p25a)
+    p25b_p   = monto_a_palabras(p25b)
+
+    fmt = lambda v: "${:,.0f}".format(v).replace(",",".")
+
+    # ── Comparecencia cliente según tipo ──
+    if d['tipo_cliente'] == 'natural':
+        tratamiento = d.get('cli_tratamiento', 'Don')
+        cli_bloque = (
+            f"{tratamiento} <b>{d['cli_nombre']}</b>, cédula nacional de identidad "
+            f"<b>N° {d['cli_rut']}</b>, con domicilio en <b>{d['cli_domicilio']}</b>, "
+            f"comuna de <b>{d['cli_comuna']}</b>, Región {d['cli_region']}, "
+            f"quien en adelante se denominará \"el Cliente\"."
+        )
+    else:
+        tratamiento = d.get('cli_tratamiento', 'Don')
+        cli_bloque = (
+            f"{tratamiento} <b>{d['cli_nombre']}</b>, cédula nacional de identidad "
+            f"<b>N° {d['cli_rut']}</b>, en representación de "
+            f"<b>{d['cli_empresa']}</b>, Rol Único Tributario "
+            f"<b>N° {d['cli_rut_empresa']}</b>, con domicilio en "
+            f"<b>{d['cli_domicilio']}</b>, comuna de <b>{d['cli_comuna']}</b>, "
+            f"Región {d['cli_region']}, quien en adelante se denominará \"el Cliente\"."
+        )
+
+    story = []
+
+    # ── Encabezado ──
+    story += [
+        Paragraph("CONTRATO DE FABRICACIÓN Y VENTA", titulo),
+        Paragraph("VIVIENDA TIPO CONTAINER", subtit),
+        SP(4),
+        Paragraph(f"En Santiago de Chile, a <b>{d['fecha_str']}</b>, comparecen:", normal),
+        HR(), SP(2),
+    ]
+
+    # ── I. Comparecencia ──
+    story += [
+        Paragraph("I. COMPARECENCIA", seccion),
+        Paragraph("<b>1. EL PROVEEDOR</b>", bold),
+        Paragraph(
+            "Don <b>Alan Mauricio Gatica Concha</b>, cédula nacional de identidad "
+            "N° <b>13.668.157-5</b>, en representación de "
+            "<b>Inversiones Container House SpA</b>, Rol Único Tributario "
+            "N° <b>78.268.851-0</b>, ambos con domicilio para estos efectos en "
+            "Villasana N° 2039, Departamento 51, Torre D, comuna de Quinta Normal, "
+            "Región Metropolitana, quien en adelante se denominará "
+            "indistintamente \"el Proveedor\".", normal),
+        SP(6),
+        Paragraph("<b>2. EL CLIENTE</b>", bold),
+        Paragraph(cli_bloque, normal),
+        SP(4),
+        Paragraph(
+            f"Se deja expresa constancia que la dirección de instalación del proyecto "
+            f"será <b>{d['inst_domicilio']}</b>, comuna de <b>{d['inst_comuna']}</b>, "
+            f"Región {d['inst_region']}.", normal),
+        SP(4),
+        Paragraph(
+            "Las partes declaran ser mayores de edad, con plena capacidad legal para "
+            "contratar, y acuerdan celebrar el presente <b>Contrato de Fabricación y "
+            "Venta de Vivienda Tipo Container</b>, el cual se regirá por las cláusulas "
+            "que se indican a continuación.", normal),
+        HR(),
+    ]
+
+    # ── II. Definiciones ──
+    story += [
+        Paragraph("II. DEFINICIONES", seccion),
+        Paragraph("Para efectos del presente contrato, se entenderá por:", normal),
+        Paragraph(
+            f"a) <b>Proyecto</b>: La vivienda tipo container identificada como "
+            f"<b>Proyecto N° {d['ep_numero']} – \"{d['ep_nombre']}\"</b>.", normal),
+        Paragraph(
+            "b) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte "
+            "integrante del presente contrato, en especial Anexo N°1 (Especificaciones "
+            "Técnicas) y Anexo N°2 (Presupuesto Detallado).", normal),
+        Paragraph(
+            "c) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su "
+            "despacho desde las instalaciones del Proveedor.", normal),
+        HR(),
+    ]
+
+    # ── III. Objeto ──
+    story += [
+        Paragraph("III. OBJETO DEL CONTRATO", seccion),
+        Paragraph(
+            "El Cliente encarga al Proveedor la <b>fabricación y venta</b> del Proyecto "
+            "individualizado precedentemente, conforme a los <b>planos entregados por el "
+            "Cliente</b>, a las <b>especificaciones técnicas</b>, y al <b>presupuesto "
+            "detallado contenido en el Anexo N°2</b>, documentos que el Cliente declara "
+            "conocer, aceptar y que forman parte integrante e inseparable del presente "
+            "contrato.", normal),
+        HR(),
+    ]
+
+    # ── IV. Alcance técnico ──
+    story += [
+        Paragraph("IV. ALCANCE TÉCNICO Y EJECUCIÓN", seccion),
+        Paragraph(
+            "El Proveedor declara contar con la experiencia, conocimientos técnicos, "
+            "personal calificado, herramientas e infraestructura necesarias para la "
+            "correcta ejecución del Proyecto, comprometiéndose a:", normal),
+        Paragraph("a) Fabricar el módulo conforme a la normativa vigente aplicable.", normal),
+        Paragraph("b) Respetar las especificaciones técnicas y alcances definidos en los Anexos.", normal),
+        Paragraph("c) Ejecutar los trabajos con estándares de calidad y seguridad.", normal),
+        Paragraph(
+            "Cualquier trabajo, modificación o prestación no contemplada expresamente en "
+            "los Anexos será considerada <b>obra adicional</b>, debiendo ser cotizada y "
+            "aprobada por escrito por ambas partes.", normal),
+        HR(),
+    ]
+
+    # ── V. Visitas ──
+    story += [
+        Paragraph("V. VISITAS Y SEGUIMIENTO DEL PROYECTO", seccion),
+        Paragraph(
+            "El Cliente podrá realizar visitas de seguimiento a las instalaciones del "
+            "Proveedor ubicadas en <b>Portezuelo, parcela 3, Colina, Región "
+            "Metropolitana</b>, previa coordinación con al menos <b>48 horas hábiles de "
+            "anticipación</b>, con el único objeto de verificar el avance del Proyecto, "
+            "quedando expresamente prohibida cualquier interferencia en los procesos "
+            "productivos o instrucciones al personal del Proveedor.", normal),
+        HR(),
+    ]
+
+    # ── VI. Precio ──
+    story += [
+        Paragraph("VI. PRECIO", seccion),
+        Paragraph(
+            f"El precio total del Proyecto asciende a la suma de "
+            f"<b>{fmt(precio)}</b> ({precio_p}), IVA incluido.", normal),
+        HR(),
+    ]
+
+    # ── VII. Forma de pago ──
+    story += [
+        Paragraph("VII. FORMA Y ETAPAS DE PAGO", seccion),
+        Paragraph("El precio será pagado por el Cliente al Proveedor en las siguientes etapas:", normal),
+        Paragraph(
+            f"a) <b>50% inicial</b>: <b>{fmt(p50)}</b> ({p50_p}), "
+            f"correspondiente a la asignación del contenedor y ejecución de obra gruesa.", normal),
+        Paragraph(
+            f"b) <b>25% intermedio</b>: <b>{fmt(p25a)}</b> ({p25a_p}), "
+            f"una vez finalizada la obra gruesa.", normal),
+        Paragraph(
+            f"c) <b>25% final</b>: <b>{fmt(p25b)}</b> ({p25b_p}), "
+            f"luego de la preentrega del Proyecto y el mismo día del despacho del módulo.", normal),
+        Paragraph(
+            "El Proveedor emitirá la factura correspondiente al día hábil siguiente de "
+            "recibido cada pago, bajo modalidad de <b>pago al contado</b>.", normal),
+        HR(),
+    ]
+
+    # ── VIII. Inicio fabricación ──
+    story += [
+        Paragraph("VIII. INICIO DE FABRICACIÓN", seccion),
+        Paragraph(
+            "La fabricación del Proyecto se iniciará <b>única y exclusivamente</b> una "
+            "vez recibido y efectivamente abonado el pago inicial del "
+            "<b>50% del valor total del contrato</b>.", normal),
+        HR(),
+    ]
+
+    # ── IX. Medios de pago ──
+    story += [
+        Paragraph("IX. MEDIOS DE PAGO", seccion),
+        Paragraph(
+            "Los pagos deberán efectuarse mediante <b>transferencia electrónica, "
+            "cheque o vale vista</b>, a la siguiente cuenta bancaria:", normal),
+    ]
+    datos_banco = [
+        ["Razón Social:", "Inversiones Container House SpA"],
+        ["RUT:",          "78.268.851-0"],
+        ["Banco:",        "Banco Itaú"],
+        ["Cuenta Corriente:", "N° 230771767"],
+        ["Correo de confirmación:", "jperez@espaciocontainerhouse.cl"],
+    ]
+    tbl = Table(datos_banco, colWidths=[4.5*cm, 11*cm])
+    tbl.setStyle(TableStyle([
+        ('FONTNAME',  (0,0), (0,-1), 'Helvetica-Bold'),
+        ('FONTNAME',  (1,0), (1,-1), 'Helvetica'),
+        ('FONTSIZE',  (0,0), (-1,-1), 10),
+        ('LEADING',   (0,0), (-1,-1), 14),
+        ('ROWBACKGROUNDS', (0,0), (-1,-1), [colors.HexColor('#f8fafc'), colors.white]),
+        ('TOPPADDING',    (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('LEFTPADDING',   (0,0), (-1,-1), 6),
+    ]))
+    story += [tbl, SP(6),
+        Paragraph(
+            "Cada pago deberá ser informado por el Cliente mediante correo electrónico, "
+            "adjuntando el comprobante respectivo.", normal),
+        HR(),
+    ]
+
+    # ── X. Plazo ──
+    story += [
+        Paragraph("X. PLAZO DE FABRICACIÓN Y ENTREGA", seccion),
+        Paragraph(
+            f"El plazo máximo de fabricación y entrega será de "
+            f"<b>{d['plazo_dias']} días hábiles administrativos</b>, contados desde el "
+            "día hábil siguiente a aquel en que los fondos del anticipo se encuentren "
+            "efectivamente liberados.", normal),
+        Paragraph(
+            "El Cliente se obliga a contar con <b>radier y/o apoyos estructurales "
+            "ejecutados, nivelados y aptos</b> para la instalación dentro de un plazo "
+            "máximo de <b>30 días hábiles</b> desde la firma del contrato. Cualquier "
+            "atraso en estas condiciones suspenderá automáticamente los plazos de entrega.",
+            normal),
+        HR(),
+    ]
+
+    # ── XI. Penalidad ──
+    story += [
+        Paragraph("XI. PENALIDAD POR ATRASO", seccion),
+        Paragraph(
+            "En caso de atraso imputable exclusivamente al Proveedor en los plazos "
+            "establecidos para la fabricación o entrega del Proyecto, éste pagará al "
+            "Cliente, a título de indemnización única y total, una suma equivalente al "
+            "<b>1% del valor neto correspondiente al último 25% del Proyecto por cada "
+            "7 días hábiles de atraso</b>, con un "
+            "<b>tope máximo del 10% del valor neto de dicho monto</b>.", normal),
+        Paragraph(
+            "No se considerarán atrasos imputables al Proveedor aquellos derivados de "
+            "caso fortuito, fuerza mayor, condiciones climáticas adversas, retrasos de "
+            "proveedores externos, o cualquier situación no atribuible directamente al "
+            "Proveedor.", normal),
+        Paragraph(
+            "Asimismo, en caso de que el atraso sea imputable al Cliente, ya sea por "
+            "retraso en los pagos comprometidos, falta de entrega de antecedentes "
+            "necesarios, impedimentos de acceso al lugar de instalación, o cualquier "
+            "otra circunstancia bajo su responsabilidad, los plazos del Proyecto se "
+            "extenderán automáticamente por el mismo período de tiempo que dure dicho "
+            "atraso, sin que ello genere responsabilidad ni penalidad alguna para el "
+            "Proveedor.", normal),
+        HR(),
+    ]
+
+    # ── XII. Retiro y bodegaje ──
+    story += [
+        Paragraph("XII. RETIRO, DESPACHO Y BODEGAJE", seccion),
+        Paragraph(
+            "Una vez notificada la finalización del Proyecto, el Cliente dispondrá de "
+            "un plazo máximo de <b>10 días hábiles</b> para coordinar el retiro o "
+            "despacho del módulo.", normal),
+        Paragraph(
+            "Vencido dicho plazo, el Proveedor quedará facultado para cobrar un "
+            "<b>cargo por bodegaje equivalente al 1% del valor neto del Proyecto por "
+            "cada 7 días corridos</b>, hasta el retiro efectivo.", normal),
+        HR(),
+    ]
+
+    # ── XIII. Garantía ──
+    story += [
+        Paragraph("XIII. GARANTÍA", seccion),
+        Paragraph(
+            "El Proveedor otorga una garantía de <b>6 meses</b> contados desde la "
+            "entrega del módulo, limitada exclusivamente a <b>defectos de fabricación "
+            "o construcción imputables al proceso productivo</b>.", normal),
+        Paragraph("Quedan expresamente excluidos de garantía los daños derivados de:", normal),
+        Paragraph("• Mal uso o uso distinto al previsto", normal),
+        Paragraph("• Modificaciones no autorizadas", normal),
+        Paragraph("• Transporte realizado por terceros", normal),
+        Paragraph("• Vandalismo", normal),
+        Paragraph("• Fenómenos naturales", normal),
+        Paragraph("• Falta de mantención adecuada", normal),
+        HR(),
+    ]
+
+    # ── XIV. Terminación anticipada ──
+    story += [
+        Paragraph("XIV. TERMINACIÓN ANTICIPADA", seccion),
+        Paragraph("El presente contrato podrá terminarse anticipadamente por:", normal),
+        Paragraph("a) Incumplimiento grave de cualquiera de las partes.", normal),
+        Paragraph("b) Mutuo acuerdo por escrito.", normal),
+        Paragraph("c) No pago oportuno de cualquiera de las etapas de pago.", normal),
+        Paragraph(
+            "En caso de término imputable al Cliente, los montos pagados "
+            "<b>no serán reembolsables</b>, salvo acuerdo distinto por escrito.", normal),
+        HR(),
+    ]
+
+    # ── XV. Domicilio y jurisdicción ──
+    story += [
+        Paragraph("XV. DOMICILIO Y JURISDICCIÓN", seccion),
+        Paragraph(
+            "Para todos los efectos legales derivados del presente contrato, las partes "
+            "fijan su domicilio en la <b>ciudad de Santiago</b>, y se someten a la "
+            "competencia de sus <b>Tribunales Ordinarios de Justicia</b>.", normal),
+        PageBreak(),
+    ]
+
+    # ── XVI. Firma ──
+    story += [
+        Paragraph("XVI. FIRMA", seccion),
+        Paragraph(
+            "El presente contrato se firma en <b>dos ejemplares de igual tenor y "
+            "fecha</b>, quedando uno en poder de cada parte.", normal),
+        SP(60),
+    ]
+
+    # Bloque de firmas en tabla 2 columnas
+    if d['tipo_cliente'] == 'natural':
+        cli_firma_nombre = d['cli_nombre']
+        cli_firma_sub    = f"RUT: {d['cli_rut']}"
+    else:
+        cli_firma_nombre = d['cli_nombre']
+        cli_firma_sub    = f"RUT: {d['cli_rut']}\n{d['cli_empresa']}"
+
+    firma_data = [[
+        Paragraph("<b>EL PROVEEDOR</b>", firma),
+        Paragraph("<b>EL CLIENTE</b>", firma),
+    ],[
+        Paragraph("_" * 32, firma),
+        Paragraph("_" * 32, firma),
+    ],[
+        Paragraph("<b>Alan Mauricio Gatica Concha</b>", firma),
+        Paragraph(f"<b>{cli_firma_nombre}</b>", firma),
+    ],[
+        Paragraph("RUT: 13.668.157-5", firma),
+        Paragraph(f"RUT: {d['cli_rut']}", firma),
+    ],[
+        Paragraph("<b>Inversiones Container House SpA</b>", firma),
+        Paragraph(f"<b>{d.get('cli_empresa', '') or ''}</b>", firma),
+    ]]
+    firma_tbl = Table(firma_data, colWidths=[8*cm, 8*cm])
+    firma_tbl.setStyle(TableStyle([
+        ('ALIGN',      (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN',     (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('LINEBELOW',  (0,0), (-1,0), 0.5, colors.HexColor('#a0a0a0')),
+    ]))
+    story.append(firma_tbl)
+
+    doc.build(story)
+    buf.seek(0)
+    return buf.read()
+
+
 # FUNCIÓN: RANKING DE EJECUTIVOS
 # =========================================================
 def cargar_ranking_ejecutivos(periodo='mes'):
@@ -1958,9 +2399,9 @@ def cargar_ranking_ejecutivos(periodo='mes'):
 # TABS
 # =========================================================
 if st.session_state.modo_admin:
-    tab_dash, tab1, tab2, tab3, tab6, tab7, tab4, tab5 = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "🧊 3D BETA", "📊 PROYECTO EXCEL"])
+    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5 = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL"])
 else:
-    tab_dash, tab1, tab2, tab3, tab6, tab7, tab4 = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "🧊 3D BETA"])
+    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4 = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA"])
     tab5 = None
 
 # =========================================================
@@ -5222,3 +5663,291 @@ if tab7 is not None:
 
             st.caption("Score = 60% total generado + 25% % conversión + 15% cantidad de presupuestos")
 
+
+# =========================================================
+# TAB CONTRATO CLIENTE
+# =========================================================
+with tab_contrato:
+    st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap');
+    .hdr-contrato {
+        background: linear-gradient(135deg, #0f3460 0%, #16213e 60%, #1a1a2e 100%);
+        border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
+        display: flex; align-items: center; gap: 22px;
+        box-shadow: 0 8px 32px rgba(15,52,96,0.3);
+    }
+    .hdr-contrato h2 { color: #fff !important; margin: 0; font-size: 1.8rem;
+                       font-weight: 900; font-family: 'Montserrat', sans-serif;
+                       letter-spacing: -0.02em; }
+    .hdr-contrato p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
+    .cont-section {
+        font-size: 0.75rem; font-weight: 900; color: #1e293b;
+        text-transform: uppercase; letter-spacing: 0.12em;
+        margin: 20px 0 10px; padding: 7px 14px;
+        background: linear-gradient(90deg, rgba(15,52,96,0.08), transparent);
+        border-left: 4px solid #0f3460; border-radius: 0 8px 8px 0;
+    }
+    .cont-panel {
+        background: white; border-radius: 16px; padding: 22px 26px;
+        border: 1px solid rgba(226,232,240,0.8);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        margin-bottom: 16px;
+    }
+    .cont-preview {
+        background: #f8fafc; border-radius: 12px; padding: 18px 22px;
+        border: 1px solid #e2e8f0; font-size: 0.88rem;
+        color: #334155; line-height: 1.7;
+    }
+    .cont-field-label { font-size: 0.7rem; font-weight: 800; color: #64748b;
+                        text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px; }
+    </style>
+    <div class="hdr-contrato">
+      <span style="font-size:3rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.4));">📄</span>
+      <div>
+        <h2>Contrato Cliente</h2>
+        <p>Genera el contrato de fabricación y venta listo para imprimir y firmar.</p>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Paso 1: Buscar EP ──
+    st.markdown('<div class="cont-section">🔍 Paso 1 — Buscar cotización</div>', unsafe_allow_html=True)
+    with st.container():
+        _col_ep, _col_btn = st.columns([3, 1])
+        with _col_ep:
+            _ep_input = st.text_input("Número EP", placeholder="EP-22286",
+                                      key="cont_ep_input",
+                                      label_visibility="collapsed")
+        with _col_btn:
+            _buscar = st.button("🔍 Buscar EP", use_container_width=True, key="cont_buscar")
+
+    if _buscar and _ep_input.strip():
+        _num = _ep_input.strip().upper()
+        if not _num.startswith("EP-"):
+            _num = "EP-" + _num.lstrip("EP- ")
+        try:
+            _res = supabase.table("cotizaciones").select("*") \
+                           .eq("numero", _num).limit(1).execute()
+            if _res.data:
+                _cot = _res.data[0]
+                st.session_state["cont_cot"] = _cot
+                st.session_state["cont_ep"]  = _num
+                # Pre-llenar campos editables desde la cotización
+                st.session_state["cont_cli_nombre"]     = _cot.get("nombre_cliente", "")
+                st.session_state["cont_cli_rut"]        = _cot.get("rut_cliente", "")
+                st.session_state["cont_cli_domicilio"]  = _cot.get("direccion_cliente", "") or _cot.get("direccion", "")
+                st.session_state["cont_cli_comuna"]     = _cot.get("comuna_cliente", "") or _cot.get("comuna", "")
+                st.session_state["cont_inst_domicilio"] = _cot.get("direccion", "")
+                st.session_state["cont_inst_comuna"]    = _cot.get("comuna", "")
+                st.session_state["cont_ep_nombre"]      = _cot.get("nombre_proyecto", "") or _cot.get("descripcion", "")
+                _total = float(_cot.get("total", 0) or _cot.get("precio_total", 0) or 0)
+                st.session_state["cont_precio"]  = _total
+                st.session_state["cont_pago_50"] = round(_total * 0.50)
+                st.session_state["cont_pago_25a"]= round(_total * 0.25)
+                st.session_state["cont_pago_25b"]= round(_total * 0.25)
+                st.rerun()
+            else:
+                st.error(f"No se encontró la cotización {_num}")
+        except Exception as _e:
+            st.error(f"Error al buscar: {_e}")
+
+    # ── Formulario editable (solo si hay EP cargado) ──
+    if st.session_state.get("cont_cot"):
+        _cot    = st.session_state["cont_cot"]
+        _ep_num = st.session_state.get("cont_ep", "")
+
+        st.success(f"✅ Cotización **{_ep_num}** cargada — {_cot.get('nombre_cliente','')}")
+
+        # ── Datos del contrato ──
+        st.markdown('<div class="cont-section">📝 Paso 2 — Completar datos del contrato</div>', unsafe_allow_html=True)
+
+        with st.container():
+            # Fecha y plazo
+            _ca, _cb = st.columns(2)
+            with _ca:
+                from datetime import date as _date_t
+                _meses_es = {1:"enero",2:"febrero",3:"marzo",4:"abril",5:"mayo",6:"junio",
+                             7:"julio",8:"agosto",9:"septiembre",10:"octubre",11:"noviembre",12:"diciembre"}
+                _hoy = _date_t.today()
+                _fecha_obj = st.date_input("📅 Fecha del contrato", value=_hoy, key="cont_fecha")
+                _fecha_str = f"{_fecha_obj.day} de {_meses_es[_fecha_obj.month]} de {_fecha_obj.year}"
+            with _cb:
+                _plazo = st.number_input("⏱️ Plazo de fabricación (días hábiles)", min_value=1,
+                                         max_value=180, value=45, key="cont_plazo")
+
+            st.markdown("---")
+
+            # Tipo de cliente
+            _tipo_cli = st.radio("👤 Tipo de cliente", ["Persona natural", "Persona jurídica (empresa)"],
+                                 horizontal=True, key="cont_tipo_cli")
+            _es_juridica = (_tipo_cli == "Persona jurídica (empresa)")
+
+            _c1, _c2 = st.columns(2)
+            with _c1:
+                _tratamiento = st.selectbox("Tratamiento", ["Don", "Doña"], key="cont_tratamiento")
+                _cli_nombre = st.text_input("Nombre completo del cliente *",
+                    value=st.session_state.get("cont_cli_nombre",""), key="cont_nombre")
+            with _c2:
+                _cli_rut = st.text_input("RUT del cliente *",
+                    value=st.session_state.get("cont_cli_rut",""),
+                    placeholder="12.345.678-9", key="cont_rut")
+
+            if _es_juridica:
+                _c3, _c4 = st.columns(2)
+                with _c3:
+                    _cli_empresa = st.text_input("Razón social empresa *",
+                        value=st.session_state.get("cont_cli_empresa",""), key="cont_empresa")
+                with _c4:
+                    _cli_rut_empresa = st.text_input("RUT empresa *",
+                        value=st.session_state.get("cont_cli_rut_empresa",""),
+                        placeholder="76.123.456-7", key="cont_rut_empresa")
+            else:
+                _cli_empresa = ""
+                _cli_rut_empresa = ""
+
+            st.markdown("**📍 Domicilio del cliente**")
+            _c5, _c6, _c7 = st.columns(3)
+            with _c5:
+                _cli_dom = st.text_input("Dirección",
+                    value=st.session_state.get("cont_cli_domicilio",""), key="cont_cli_dom")
+            with _c6:
+                _cli_com = st.text_input("Comuna",
+                    value=st.session_state.get("cont_cli_comuna",""), key="cont_cli_com")
+            with _c7:
+                _cli_reg = st.text_input("Región", value="Metropolitana", key="cont_cli_reg")
+
+            st.markdown("**🏗️ Dirección de instalación del proyecto**")
+            _c8, _c9, _c10 = st.columns(3)
+            with _c8:
+                _inst_dom = st.text_input("Dirección instalación",
+                    value=st.session_state.get("cont_inst_domicilio",""), key="cont_inst_dom")
+            with _c9:
+                _inst_com = st.text_input("Comuna instalación",
+                    value=st.session_state.get("cont_inst_comuna",""), key="cont_inst_com")
+            with _c10:
+                _inst_reg = st.text_input("Región instalación", value="La Araucanía", key="cont_inst_reg")
+
+            st.markdown("---")
+            st.markdown("**🏠 Datos del proyecto**")
+            _c11, _c12 = st.columns(2)
+            with _c11:
+                _ep_nombre = st.text_input("Nombre / descripción del proyecto",
+                    value=st.session_state.get("cont_ep_nombre",""), key="cont_ep_nombre_input")
+            with _c12:
+                _ep_num_input = st.text_input("Número EP", value=_ep_num, key="cont_ep_num_input")
+
+            st.markdown("---")
+            st.markdown("**💰 Precio y pagos**")
+            _c13, _c14, _c15, _c16 = st.columns(4)
+            with _c13:
+                _precio = st.number_input("Precio total ($)", min_value=0,
+                    value=int(st.session_state.get("cont_precio",0)), step=1000, key="cont_precio_input")
+            with _c14:
+                _pago50 = st.number_input("50% inicial ($)", min_value=0,
+                    value=int(st.session_state.get("cont_pago_50", round(_precio*0.5))),
+                    step=1000, key="cont_p50")
+            with _c15:
+                _pago25a = st.number_input("25% intermedio ($)", min_value=0,
+                    value=int(st.session_state.get("cont_pago_25a", round(_precio*0.25))),
+                    step=1000, key="cont_p25a")
+            with _c16:
+                _pago25b = st.number_input("25% final ($)", min_value=0,
+                    value=int(st.session_state.get("cont_pago_25b", round(_precio*0.25))),
+                    step=1000, key="cont_p25b")
+
+            # Validación rápida
+            _suma = _pago50 + _pago25a + _pago25b
+            if _precio > 0 and abs(_suma - _precio) > 1:
+                st.warning(f"⚠️ Los pagos suman ${_suma:,.0f} pero el precio total es ${_precio:,.0f}. Verifica los montos.".replace(",","."))
+
+        # ── Paso 3: Generar ──
+        st.markdown('<div class="cont-section">📤 Paso 3 — Generar contrato</div>', unsafe_allow_html=True)
+
+        # Preview resumen
+        _fmt_p = lambda v: "${:,.0f}".format(int(v)).replace(",",".")
+        st.markdown(f"""
+        <div class="cont-preview">
+          <b>Contrato {_ep_num_input}</b> — {_fecha_str}<br>
+          <b>Cliente:</b> {_tratamiento} {_cli_nombre or '—'} · RUT {_cli_rut or '—'}<br>
+          {"<b>Empresa:</b> " + _cli_empresa + " · RUT " + _cli_rut_empresa + "<br>" if _es_juridica else ""}
+          <b>Domicilio cliente:</b> {_cli_dom or '—'}, {_cli_com or '—'}, Región {_cli_reg}<br>
+          <b>Instalación:</b> {_inst_dom or '—'}, {_inst_com or '—'}, Región {_inst_reg}<br>
+          <b>Proyecto:</b> {_ep_nombre or '—'}<br>
+          <b>Precio total:</b> {_fmt_p(_precio)} · Plazo: {_plazo} días hábiles<br>
+          <b>Pagos:</b> 50% {_fmt_p(_pago50)} / 25% {_fmt_p(_pago25a)} / 25% {_fmt_p(_pago25b)}
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("")
+        _gen_col, _ = st.columns([2, 3])
+        with _gen_col:
+            _generar = st.button("📄 Generar contrato PDF", type="primary",
+                                 use_container_width=True, key="cont_generar")
+
+        if _generar:
+            _campos_req = [_cli_nombre, _cli_rut, _cli_dom, _cli_com, _ep_nombre]
+            if _es_juridica:
+                _campos_req += [_cli_empresa, _cli_rut_empresa]
+            if not all(_campos_req):
+                st.error("⚠️ Completa todos los campos obligatorios antes de generar.")
+            else:
+                with st.spinner("Generando contrato..."):
+                    _datos_contrato = {
+                        "fecha_str":       _fecha_str,
+                        "tipo_cliente":    "juridica" if _es_juridica else "natural",
+                        "cli_tratamiento": _tratamiento,
+                        "cli_nombre":      _cli_nombre,
+                        "cli_rut":         _cli_rut,
+                        "cli_empresa":     _cli_empresa,
+                        "cli_rut_empresa": _cli_rut_empresa,
+                        "cli_domicilio":   _cli_dom,
+                        "cli_comuna":      _cli_com,
+                        "cli_region":      _cli_reg,
+                        "inst_domicilio":  _inst_dom,
+                        "inst_comuna":     _inst_com,
+                        "inst_region":     _inst_reg,
+                        "ep_numero":       _ep_num_input,
+                        "ep_nombre":       _ep_nombre,
+                        "precio_total":    _precio,
+                        "plazo_dias":      _plazo,
+                        "pago_50":         _pago50,
+                        "pago_25a":        _pago25a,
+                        "pago_25b":        _pago25b,
+                    }
+                    try:
+                        _pdf_bytes = generar_pdf_contrato(_datos_contrato)
+                        st.session_state["cont_pdf_bytes"] = _pdf_bytes
+                        st.session_state["cont_pdf_nombre"] = f"Contrato_{_ep_num_input.replace('-','_')}.pdf"
+                        st.success("✅ Contrato generado exitosamente.")
+                    except Exception as _e:
+                        st.error(f"Error al generar PDF: {_e}")
+
+        # ── Descarga e impresión ──
+        if st.session_state.get("cont_pdf_bytes"):
+            import base64 as _b64
+            _pdf_b64 = _b64.b64encode(st.session_state["cont_pdf_bytes"]).decode()
+            _pdf_nom = st.session_state.get("cont_pdf_nombre","contrato.pdf")
+
+            _dl_col, _pr_col, _sp = st.columns([1.5, 1.5, 3])
+            with _dl_col:
+                st.download_button(
+                    label="⬇️ Descargar PDF",
+                    data=st.session_state["cont_pdf_bytes"],
+                    file_name=_pdf_nom,
+                    mime="application/pdf",
+                    use_container_width=True,
+                    key="cont_download"
+                )
+            with _pr_col:
+                st.markdown(f"""
+                <a href="data:application/pdf;base64,{_pdf_b64}" target="_blank"
+                   style="display:block;background:linear-gradient(135deg,#0f3460,#16213e);
+                          color:white;text-align:center;padding:0.55rem 1rem;border-radius:8px;
+                          font-weight:700;font-size:0.88rem;text-decoration:none;
+                          box-shadow:0 2px 8px rgba(15,52,96,0.3);">
+                  🖨️ Abrir e imprimir
+                </a>""", unsafe_allow_html=True)
+
+    else:
+        st.info("👆 Ingresa un número EP y presiona **Buscar EP** para cargar los datos del cliente.")
