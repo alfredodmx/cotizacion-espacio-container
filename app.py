@@ -1846,6 +1846,7 @@ def cargar_datos_dashboard(periodo='mes'):
             ej_counts[ej] += 1
         top_ej = sorted(ej_montos.items(), key=lambda x: x[1], reverse=True)[:5]
 
+        _debug_fecha = rows[0].get('fecha_creacion') if rows else 'sin rows'
         return {
             'total_ep': total_ep, 'total_monto': total_monto,
             'promedio_monto': promedio_monto, 'pipeline': pipeline,
@@ -1855,6 +1856,7 @@ def cargar_datos_dashboard(periodo='mes'):
             'fechas': fechas_sorted, 'serie_montos': serie_montos,
             'serie_counts': serie_counts,
             'top_cats': top_cats, 'top_ej': top_ej,
+            'debug_fecha': str(_debug_fecha),
         }
     except Exception as e:
         return None
@@ -4631,7 +4633,7 @@ with tab_dash:
             st.markdown('<div class="section-title">Evolución de cotizaciones</div>', unsafe_allow_html=True)
         elif _d['total_ep'] > 0:
             st.markdown('<div class="section-title">Evolución de cotizaciones</div>', unsafe_allow_html=True)
-            st.caption("⚠️ Sin datos de fecha para graficar la evolución — las cotizaciones existen pero sin fecha_creacion registrada.")
+            st.caption(f"⚠️ Debug: total_ep={_d['total_ep']}, fechas={_d['fechas']}, muestra_fecha_raw={_d.get('debug_fecha','?')}")
         if _d['fechas']:
             try:
                 import plotly.graph_objects as go
