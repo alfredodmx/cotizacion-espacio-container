@@ -1771,19 +1771,17 @@ def cargar_datos_dashboard(periodo='mes'):
         total_monto    = sum(float(r.get('total_total') or 0) for r in rows)
         promedio_monto = total_monto / total_ep if total_ep else 0
 
-        def _estado(r):
-            m  = float(r.get('config_margen') or 0)
-            dok = all([r.get('cliente_nombre'), r.get('cliente_email')])
-            aok = any([r.get('asesor_nombre'), r.get('asesor_email'), r.get('asesor_telefono')])
-            if m > 0 and dok and aok: return 'autorizado'
-            if dok and aok:           return 'borrador'
+        def _clasificar_estado(r):
+            e = (r.get('estado') or '').upper()
+            if 'AUTORIZADO' in e:  return 'autorizado'
+            if 'BORRADOR'   in e:  return 'borrador'
             return 'incompleto'
 
-        estados = [_estado(r) for r in rows]
-        autorizados  = estados.count('autorizado')
-        borradores   = estados.count('borrador')
-        incompletos  = estados.count('incompleto')
-        pct_conv     = round((autorizados / total_ep) * 100) if total_ep else 0
+        estados     = [_clasificar_estado(r) for r in rows]
+        autorizados = estados.count('autorizado')
+        borradores  = estados.count('borrador')
+        incompletos = estados.count('incompleto')
+        pct_conv    = round((autorizados / total_ep) * 100) if total_ep else 0
 
         # Comparación período anterior
         total_ep_ant    = len(rows_ant)
@@ -4565,15 +4563,15 @@ with tab_dash:
         ]
         col_funnel, col_donut = st.columns([3, 2])
         with col_funnel:
-            st.markdown(f"""
+            _funnel_html = """
             <div class="kpi-card" style="padding:24px 28px;">
               <div style="display:flex;justify-content:space-between;margin-bottom:20px;">
                 <span style="font-size:0.78rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;">Estado</span>
                 <span style="font-size:0.78rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;">% del total</span>
-              </div>""", unsafe_allow_html=True)
+              </div>"""
             for label_f, count_f, color_f in _funnel_data:
                 pct_f = round((count_f / _total_ep) * 100) if _total_ep else 0
-                st.markdown(f"""
+                _funnel_html += f"""
                 <div style="margin-bottom:16px;">
                   <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
                     <span style="font-size:0.85rem;font-weight:700;color:#1e293b;">{label_f}</span>
@@ -4582,8 +4580,9 @@ with tab_dash:
                   <div class="funnel-bar-wrap">
                     <div class="funnel-bar-inner" style="width:{pct_f}%;background:{color_f};opacity:0.85;"></div>
                   </div>
-                </div>""", unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
+                </div>"""
+            _funnel_html += "</div>"
+            st.markdown(_funnel_html, unsafe_allow_html=True)
 
         with col_donut:
             if _d['autorizados'] + _d['borradores'] + _d['incompletos'] > 0:
