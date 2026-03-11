@@ -1948,40 +1948,92 @@ def generar_pdf_contrato(datos):
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY
     import io
+    import os as _os_c
 
+    # ── Plantilla con header/footer en cada página ──
     buf = io.BytesIO()
+
+    AZUL       = colors.HexColor('#0f3460')
+    AZUL_LIGHT = colors.HexColor('#e8eef7')
+    GRIS       = colors.HexColor('#64748b')
+    NEGRO      = colors.HexColor('#0f172a')
+
+    def _build_header_footer(canvas, doc):
+        """Header con logo centrado + línea azul. Footer con número de página."""
+        canvas.saveState()
+        pw = doc.pagesize[0]
+        # ── Header ──
+        if _os_c.path.exists("logo.png"):
+            from reportlab.lib.utils import ImageReader
+            _img = ImageReader("logo.png")
+            _iw, _ih = _img.getSize()
+            _aspect = _ih / float(_iw)
+            _lw = 4.5 * cm
+            _lh = _lw * _aspect
+            canvas.drawImage(_img,
+                             x=(pw - _lw) / 2,
+                             y=doc.pagesize[1] - doc.topMargin + 0.3*cm,
+                             width=_lw, height=_lh,
+                             preserveAspectRatio=True, mask='auto')
+        # Línea azul bajo el header
+        canvas.setStrokeColor(AZUL)
+        canvas.setLineWidth(1.2)
+        _ly = doc.pagesize[1] - doc.topMargin + 0.1*cm
+        canvas.line(doc.leftMargin, _ly, pw - doc.rightMargin, _ly)
+        # ── Footer ──
+        canvas.setFont('Helvetica', 8)
+        canvas.setFillColor(GRIS)
+        _fy = doc.bottomMargin - 0.5*cm
+        canvas.drawCentredString(pw/2, _fy,
+            f"Inversiones Container House SpA  ·  RUT 78.268.851-0  ·  Página {doc.page}")
+        canvas.setStrokeColor(GRIS)
+        canvas.setLineWidth(0.4)
+        canvas.line(doc.leftMargin, _fy + 0.35*cm, pw - doc.rightMargin, _fy + 0.35*cm)
+        canvas.restoreState()
+
     doc = SimpleDocTemplate(
         buf, pagesize=letter,
         leftMargin=3*cm, rightMargin=3*cm,
-        topMargin=2.5*cm, bottomMargin=2.5*cm,
+        topMargin=3.8*cm, bottomMargin=2.2*cm,
         title=f"Contrato {datos.get('ep_numero','')}"
     )
 
-    # ── Estilos ──
+    # ── Estilos tipográficos jurídicos ──
     base = getSampleStyleSheet()
     normal = ParagraphStyle('cNormal', parent=base['Normal'],
-                            fontName='Helvetica', fontSize=10,
-                            leading=15, spaceAfter=6,
-                            alignment=TA_JUSTIFY)
+                            fontName='Times-Roman', fontSize=10.5,
+                            leading=16, spaceAfter=6,
+                            alignment=TA_JUSTIFY,
+                            firstLineIndent=0)
     bold   = ParagraphStyle('cBold', parent=normal,
-                            fontName='Helvetica-Bold')
+                            fontName='Times-Bold')
     titulo = ParagraphStyle('cTitulo', parent=base['Normal'],
-                            fontName='Helvetica-Bold', fontSize=16,
-                            leading=20, spaceAfter=4,
-                            alignment=TA_CENTER)
+                            fontName='Times-Bold', fontSize=15,
+                            leading=20, spaceAfter=2,
+                            spaceBefore=6,
+                            alignment=TA_CENTER,
+                            textColor=AZUL)
     subtit = ParagraphStyle('cSubtit', parent=base['Normal'],
-                            fontName='Helvetica-Bold', fontSize=12,
-                            leading=16, spaceAfter=10,
-                            alignment=TA_CENTER)
-    seccion = ParagraphStyle('cSeccion', parent=normal,
-                             fontName='Helvetica-Bold', fontSize=10,
-                             spaceBefore=14, spaceAfter=4)
+                            fontName='Times-Bold', fontSize=11,
+                            leading=16, spaceAfter=8,
+                            alignment=TA_CENTER,
+                            textColor=AZUL)
+    seccion = ParagraphStyle('cSeccion', parent=base['Normal'],
+                             fontName='Helvetica-Bold', fontSize=9.5,
+                             leading=13, spaceBefore=14, spaceAfter=5,
+                             textColor=colors.white,
+                             backColor=AZUL,
+                             leftIndent=-0.3*cm, rightIndent=-0.3*cm,
+                             borderPadding=(4, 8, 4, 8))
     firma   = ParagraphStyle('cFirma', parent=normal,
-                             fontName='Helvetica-Bold', fontSize=10,
+                             fontName='Times-Roman', fontSize=10,
                              alignment=TA_CENTER)
+    firma_bold = ParagraphStyle('cFirmaBold', parent=firma,
+                                fontName='Times-Bold')
 
-    def HR(): return HRFlowable(width="100%", thickness=0.5,
-                                color=colors.HexColor('#a0a0a0'), spaceAfter=8, spaceBefore=4)
+    def HR():
+        return HRFlowable(width="100%", thickness=0.6,
+                          color=AZUL_LIGHT, spaceAfter=6, spaceBefore=2)
     def SP(h=6): return Spacer(1, h)
 
     d = datos
@@ -2018,46 +2070,20 @@ def generar_pdf_contrato(datos):
 
     story = []
 
-    # ── Encabezado con logo ──
-    import os as _os_c
-    if _os_c.path.exists("logo.png"):
-        from reportlab.platypus import Image as _RLImage
-        _logo = _RLImage("logo.png")
-        _logo_aspect = _logo.imageHeight / float(_logo.imageWidth)
-        _logo.drawWidth  = 4.5 * cm
-        _logo.drawHeight = 4.5 * cm * _logo_aspect
-        _titulo_inner = Table(
-            [[Paragraph("CONTRATO DE FABRICACIÓN Y VENTA", titulo)],
-             [Paragraph("VIVIENDA TIPO CONTAINER", subtit)]],
-            colWidths=[11.5*cm]
-        )
-        _hdr_tbl = Table([[_titulo_inner, _logo]], colWidths=[11.5*cm, 4.5*cm])
-        _hdr_tbl.setStyle(TableStyle([
-            ('ALIGN',        (0,0), (0,0), 'LEFT'),
-            ('ALIGN',        (1,0), (1,0), 'RIGHT'),
-            ('VALIGN',       (0,0), (-1,-1), 'MIDDLE'),
-            ('LEFTPADDING',  (0,0), (-1,-1), 0),
-            ('RIGHTPADDING', (0,0), (-1,-1), 0),
-            ('TOPPADDING',   (0,0), (-1,-1), 0),
-            ('BOTTOMPADDING',(0,0), (-1,-1), 0),
-        ]))
-        story.append(_hdr_tbl)
-    else:
-        story += [
-            Paragraph("CONTRATO DE FABRICACIÓN Y VENTA", titulo),
-            Paragraph("VIVIENDA TIPO CONTAINER", subtit),
-        ]
-
+    # ── Encabezado del documento ──
     story += [
-        SP(8),
+        Paragraph("CONTRATO DE FABRICACIÓN Y VENTA", titulo),
+        Paragraph("VIVIENDA TIPO CONTAINER", subtit),
+        SP(4),
+        HRFlowable(width="100%", thickness=1.5, color=AZUL, spaceAfter=10, spaceBefore=0),
         Paragraph(f"En Santiago de Chile, a <b>{d['fecha_str']}</b>, comparecen:", normal),
-        HR(), SP(2),
+        SP(4),
     ]
 
     # ── I. Comparecencia ──
     story += [
         Paragraph("I. COMPARECENCIA", seccion),
-        Paragraph("<b>1. EL PROVEEDOR</b>", bold),
+        Paragraph("1. EL PROVEEDOR", bold),
         Paragraph(
             "Don <b>Alan Mauricio Gatica Concha</b>, cédula nacional de identidad "
             "N° <b>13.668.157-5</b>, en representación de "
@@ -2067,7 +2093,7 @@ def generar_pdf_contrato(datos):
             "Región Metropolitana, quien en adelante se denominará "
             "indistintamente \"el Proveedor\".", normal),
         SP(6),
-        Paragraph("<b>2. EL CLIENTE</b>", bold),
+        Paragraph("2. EL CLIENTE", bold),
         Paragraph(cli_bloque, normal),
         SP(4),
         Paragraph(
@@ -2328,20 +2354,20 @@ def generar_pdf_contrato(datos):
         cli_firma_sub    = f"RUT: {d['cli_rut']}\n{d['cli_empresa']}"
 
     firma_data = [[
-        Paragraph("<b>EL PROVEEDOR</b>", firma),
-        Paragraph("<b>EL CLIENTE</b>", firma),
+        Paragraph("EL PROVEEDOR", firma_bold),
+        Paragraph("EL CLIENTE", firma_bold),
     ],[
-        Paragraph("_" * 32, firma),
-        Paragraph("_" * 32, firma),
+        Paragraph("_" * 34, firma),
+        Paragraph("_" * 34, firma),
     ],[
-        Paragraph("<b>Alan Mauricio Gatica Concha</b>", firma),
-        Paragraph(f"<b>{cli_firma_nombre}</b>", firma),
+        Paragraph("Alan Mauricio Gatica Concha", firma_bold),
+        Paragraph(cli_firma_nombre, firma_bold),
     ],[
         Paragraph("RUT: 13.668.157-5", firma),
         Paragraph(f"RUT: {d['cli_rut']}", firma),
     ],[
-        Paragraph("<b>Inversiones Container House SpA</b>", firma),
-        Paragraph(f"<b>{d.get('cli_empresa', '') or ''}</b>", firma),
+        Paragraph("Inversiones Container House SpA", firma),
+        Paragraph(d.get('cli_empresa', '') or '', firma),
     ]]
     firma_tbl = Table(firma_data, colWidths=[8*cm, 8*cm])
     firma_tbl.setStyle(TableStyle([
@@ -2349,11 +2375,13 @@ def generar_pdf_contrato(datos):
         ('VALIGN',     (0,0), (-1,-1), 'MIDDLE'),
         ('TOPPADDING', (0,0), (-1,-1), 6),
         ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-        ('LINEBELOW',  (0,0), (-1,0), 0.5, colors.HexColor('#a0a0a0')),
+        ('LINEBELOW',  (0,0), (-1,0), 0.8, AZUL),
     ]))
     story.append(firma_tbl)
 
-    doc.build(story)
+    doc.build(story,
+              onFirstPage=_build_header_footer,
+              onLaterPages=_build_header_footer)
     buf.seek(0)
     return buf.read()
 
