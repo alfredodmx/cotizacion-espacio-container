@@ -5743,9 +5743,6 @@ with tab_contrato:
                 st.session_state["cont_ep_nombre"]      = _cot.get("nombre_proyecto", "") or _cot.get("descripcion", "")
                 _total = float(_cot.get("total", 0) or _cot.get("precio_total", 0) or 0)
                 st.session_state["cont_precio"]  = _total
-                st.session_state["cont_pago_50"] = round(_total * 0.50)
-                st.session_state["cont_pago_25a"]= round(_total * 0.25)
-                st.session_state["cont_pago_25b"]= round(_total * 0.25)
                 st.rerun()
             else:
                 st.error(f"No se encontró la cotización {_num}")
@@ -5839,27 +5836,45 @@ with tab_contrato:
 
             st.markdown("---")
             st.markdown("**💰 Precio y pagos**")
-            _c13, _c14, _c15, _c16 = st.columns(4)
+            _c13, _c14 = st.columns([2, 3])
             with _c13:
-                _precio = st.number_input("Precio total ($)", min_value=0,
-                    value=int(st.session_state.get("cont_precio",0)), step=1000, key="cont_precio_input")
-            with _c14:
-                _pago50 = st.number_input("50% inicial ($)", min_value=0,
-                    value=int(st.session_state.get("cont_pago_50", round(_precio*0.5))),
-                    step=1000, key="cont_p50")
-            with _c15:
-                _pago25a = st.number_input("25% intermedio ($)", min_value=0,
-                    value=int(st.session_state.get("cont_pago_25a", round(_precio*0.25))),
-                    step=1000, key="cont_p25a")
-            with _c16:
-                _pago25b = st.number_input("25% final ($)", min_value=0,
-                    value=int(st.session_state.get("cont_pago_25b", round(_precio*0.25))),
-                    step=1000, key="cont_p25b")
+                _precio = st.number_input("Precio total (IVA incluido) $",
+                    min_value=0,
+                    value=int(st.session_state.get("cont_precio", 0)),
+                    step=1000, key="cont_precio_input",
+                    help="Valor total del EP tal como aparece en el PDF del cliente")
 
-            # Validación rápida
-            _suma = _pago50 + _pago25a + _pago25b
-            if _precio > 0 and abs(_suma - _precio) > 1:
-                st.warning(f"⚠️ Los pagos suman ${_suma:,.0f} pero el precio total es ${_precio:,.0f}. Verifica los montos.".replace(",","."))
+            # Pagos calculados automáticamente, solo lectura
+            _pago50  = round(_precio * 0.50)
+            _pago25a = round(_precio * 0.25)
+            _pago25b = _precio - _pago50 - _pago25a  # resto para evitar redondeo
+
+            def _fp(v): return "${:,.0f}".format(int(v)).replace(",",".")
+            with _c14:
+                st.markdown(f"""
+                <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;
+                            padding:14px 18px;margin-top:4px;">
+                  <div style="font-size:0.7rem;font-weight:800;color:#0369a1;text-transform:uppercase;
+                              letter-spacing:0.08em;margin-bottom:10px;">Etapas de pago calculadas</div>
+                  <div style="display:flex;gap:24px;flex-wrap:wrap;">
+                    <div>
+                      <div style="font-size:0.72rem;color:#64748b;font-weight:700;">50% INICIAL</div>
+                      <div style="font-size:1.15rem;font-weight:900;color:#0f172a;">{_fp(_pago50)}</div>
+                      <div style="font-size:0.68rem;color:#94a3b8;">Asignación + obra gruesa</div>
+                    </div>
+                    <div>
+                      <div style="font-size:0.72rem;color:#64748b;font-weight:700;">25% INTERMEDIO</div>
+                      <div style="font-size:1.15rem;font-weight:900;color:#0f172a;">{_fp(_pago25a)}</div>
+                      <div style="font-size:0.68rem;color:#94a3b8;">Finalizada obra gruesa</div>
+                    </div>
+                    <div>
+                      <div style="font-size:0.72rem;color:#64748b;font-weight:700;">25% FINAL</div>
+                      <div style="font-size:1.15rem;font-weight:900;color:#0f172a;">{_fp(_pago25b)}</div>
+                      <div style="font-size:0.68rem;color:#94a3b8;">Día del despacho</div>
+                    </div>
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
 
         # ── Paso 3: Generar ──
         st.markdown('<div class="cont-section">📤 Paso 3 — Generar contrato</div>', unsafe_allow_html=True)
