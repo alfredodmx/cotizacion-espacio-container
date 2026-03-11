@@ -1018,7 +1018,7 @@ ejecutar_carga_cotizacion()
 # =========================================================
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400;1,500;1,600;1,700;1,800&family=Montserrat:wght@700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
 
 
 
@@ -1171,12 +1171,13 @@ st.markdown("""
     }
     hr { display: none !important; }
     .stTabs [data-baseweb="tab"] {
-        font-family: 'Plus Jakarta Sans', sans-serif !important;
-        font-size: 1.05rem !important; font-weight: 900 !important;
+        font-family: 'Montserrat', sans-serif !important;
+        font-size: 0.82rem !important; font-weight: 800 !important;
         color: #7c85b3 !important; padding: 0.85rem 1.6rem !important;
         background: transparent !important; border: none !important;
         border-bottom: 3px solid transparent !important;
-        margin-bottom: -2px !important; letter-spacing: 0.01em !important;
+        margin-bottom: -2px !important; letter-spacing: 0.06em !important;
+        text-transform: uppercase !important;
         transition: all 0.2s ease !important;
     }
     .stTabs [data-baseweb="tab"]:hover { color: #5b7cfa !important; background: rgba(91,124,250,0.05) !important; }
