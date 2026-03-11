@@ -4948,23 +4948,31 @@ if tab7 is not None:
             border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
             display: flex; align-items: center; gap: 16px;
         }
-        .hdr7 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
+        .hdr7 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 900;
+                   font-family: 'Montserrat', sans-serif; }
         .hdr7 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
+        .rank-kpi {
+            background: white; border-radius: 14px; padding: 20px 22px;
+            border: 1px solid #e8edf5; box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        .rank-kpi-label { font-size: 0.72rem; font-weight: 700; color: #94a3b8;
+                          text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+        .rank-kpi-value { font-size: 1.8rem; font-weight: 900; color: #0f172a;
+                          font-family: 'Montserrat', sans-serif; line-height: 1; }
+        .rank-section { font-size: 0.8rem; font-weight: 800; color: #475569;
+                        text-transform: uppercase; letter-spacing: 0.1em;
+                        margin: 24px 0 12px; border-left: 3px solid #d97706;
+                        padding-left: 10px; }
         .rank-card {
-            background: white; border-radius: 14px; padding: 20px 24px;
-            border: 1px solid #e2e8f0; margin-bottom: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            background: white; border-radius: 14px; padding: 18px 22px;
+            border: 1px solid #e2e8f0; margin-bottom: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
         }
         .rank-1 { border-left: 5px solid #f59e0b; }
         .rank-2 { border-left: 5px solid #94a3b8; }
         .rank-3 { border-left: 5px solid #cd7c3a; }
         .rank-other { border-left: 5px solid #e2e8f0; }
-        .rank-medal { font-size: 2rem; min-width: 2.5rem; }
-        .rank-score-bar {
-            height: 8px; border-radius: 4px;
-            background: linear-gradient(90deg, #f59e0b, #d97706);
-            margin-top: 6px;
-        }
         </style>
         <div class="hdr7">
           <span style="font-size:2.4rem">🏆</span>
@@ -4975,84 +4983,177 @@ if tab7 is not None:
         </div>
         """, unsafe_allow_html=True)
 
-        # Cargar datos
         with st.spinner("Cargando ranking..."):
             _ranking = cargar_ranking_ejecutivos(periodo='mes')
 
         if not _ranking:
             st.info("No hay cotizaciones registradas este mes.")
         else:
+            import plotly.graph_objects as go
             from datetime import datetime as _dt
-            _mes_actual = _dt.now().strftime("%B %Y").capitalize()
-            st.markdown(f"#### 📅 {_mes_actual} — {len(_ranking)} ejecutivo{'s' if len(_ranking) != 1 else ''}")
 
-            # Métricas globales del mes
-            _total_mes     = sum(a['total_generado'] for a in _ranking)
-            _total_presup  = sum(a['total_presupuestos'] for a in _ranking)
-            _total_autori  = sum(a['autorizados'] for a in _ranking)
+            def _fmt_r(v):
+                if v >= 1_000_000: return f"${v/1_000_000:.1f}M"
+                if v >= 1_000:     return f"${v/1_000:.0f}K"
+                return f"${v:,.0f}"
 
-            col_g1, col_g2, col_g3 = st.columns(3)
-            with col_g1:
-                st.metric("💰 Total mes", f"${_total_mes:,.0f}".replace(",","."))
-            with col_g2:
-                st.metric("📋 Presupuestos", _total_presup)
-            with col_g3:
-                pct_g = round((_total_autori / _total_presup) * 100) if _total_presup else 0
-                st.metric("🟢 % Autorizados", f"{pct_g}%")
+            _mes_actual   = _dt.now().strftime("%B %Y").capitalize()
+            _total_mes    = sum(a['total_generado'] for a in _ranking)
+            _total_presup = sum(a['total_presupuestos'] for a in _ranking)
+            _total_autori = sum(a['autorizados'] for a in _ranking)
+            _pct_g        = round((_total_autori / _total_presup) * 100) if _total_presup else 0
 
-            st.markdown("---")
+            # ── KPIs globales ──
+            st.markdown(f'<div class="rank-section">📅 {_mes_actual} · {len(_ranking)} ejecutivo{"s" if len(_ranking)!=1 else ""}</div>', unsafe_allow_html=True)
+            rk1, rk2, rk3, rk4 = st.columns(4)
+            for _col, _lbl, _val in [
+                (rk1, "💰 Total generado",  _fmt_r(_total_mes)),
+                (rk2, "📋 Presupuestos",    str(_total_presup)),
+                (rk3, "🟢 Autorizados",     str(_total_autori)),
+                (rk4, "📈 % Conversión",    f"{_pct_g}%"),
+            ]:
+                with _col:
+                    st.markdown(f"""<div class="rank-kpi">
+                      <div class="rank-kpi-label">{_lbl}</div>
+                      <div class="rank-kpi-value">{_val}</div>
+                    </div>""", unsafe_allow_html=True)
 
-            # Cards por ejecutivo
-            _medallas = {1: "🥇", 2: "🥈", 3: "🥉"}
-            _clases   = {1: "rank-1", 2: "rank-2", 3: "rank-3"}
+            st.markdown("")
+
+            # ── Gráfico barras: monto generado por ejecutivo ──
+            st.markdown('<div class="rank-section">💰 Monto generado por ejecutivo</div>', unsafe_allow_html=True)
+            _nombres   = [a['nombre'].split()[0] for a in _ranking]
+            _montos    = [a['total_generado'] for a in _ranking]
+            _colores   = ["#f59e0b" if i==0 else "#94a3b8" if i==1 else "#cd7c3a" if i==2 else "#e2e8f0"
+                          for i in range(len(_ranking))]
+            _fig_bar = go.Figure(go.Bar(
+                x=_nombres, y=_montos,
+                marker_color=_colores,
+                marker_line_width=0,
+                text=[_fmt_r(m) for m in _montos],
+                textposition='outside',
+                textfont=dict(size=11, family='Montserrat', color='#1e293b'),
+                hovertemplate='<b>%{x}</b><br>%{text}<extra></extra>',
+            ))
+            _fig_bar.update_layout(
+                height=280, margin=dict(t=30, b=10, l=10, r=10),
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                xaxis=dict(showgrid=False, tickfont=dict(size=11, family='Montserrat')),
+                yaxis=dict(showgrid=True, gridcolor='#f1f5f9', visible=False),
+                showlegend=False,
+            )
+            st.plotly_chart(_fig_bar, use_container_width=True, config={'displayModeBar': False})
+
+            # ── Gráfico doble: presupuestos + % autorizado ──
+            st.markdown('<div class="rank-section">📊 Presupuestos y conversión por ejecutivo</div>', unsafe_allow_html=True)
+            col_bars, col_radar = st.columns([3, 2])
+
+            with col_bars:
+                _fig_combo = go.Figure()
+                _fig_combo.add_trace(go.Bar(
+                    name='Total EP', x=_nombres,
+                    y=[a['total_presupuestos'] for a in _ranking],
+                    marker_color='rgba(99,102,241,0.7)',
+                    text=[a['total_presupuestos'] for a in _ranking],
+                    textposition='auto',
+                    hovertemplate='<b>%{x}</b><br>%{y} presupuestos<extra></extra>',
+                ))
+                _fig_combo.add_trace(go.Bar(
+                    name='Autorizados', x=_nombres,
+                    y=[a['autorizados'] for a in _ranking],
+                    marker_color='rgba(22,163,74,0.8)',
+                    text=[a['autorizados'] for a in _ranking],
+                    textposition='auto',
+                    hovertemplate='<b>%{x}</b><br>%{y} autorizados<extra></extra>',
+                ))
+                _fig_combo.update_layout(
+                    barmode='group', height=260,
+                    margin=dict(t=10, b=10, l=10, r=10),
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    xaxis=dict(showgrid=False, tickfont=dict(size=11)),
+                    yaxis=dict(showgrid=True, gridcolor='#f1f5f9'),
+                    legend=dict(orientation='h', yanchor='bottom', y=1.02,
+                                xanchor='right', x=1, font=dict(size=11)),
+                )
+                st.plotly_chart(_fig_combo, use_container_width=True, config={'displayModeBar': False})
+
+            with col_radar:
+                _fig_pie_conv = go.Figure(go.Bar(
+                    x=[a['pct_autorizado'] for a in _ranking],
+                    y=_nombres,
+                    orientation='h',
+                    marker=dict(
+                        color=[a['pct_autorizado'] for a in _ranking],
+                        colorscale=[[0,'#ef4444'],[0.5,'#f59e0b'],[1,'#16a34a']],
+                        showscale=False,
+                    ),
+                    text=[f"{a['pct_autorizado']}%" for a in _ranking],
+                    textposition='auto',
+                    hovertemplate='<b>%{y}</b><br>%{text} autorizados<extra></extra>',
+                ))
+                _fig_pie_conv.update_layout(
+                    height=260, margin=dict(t=10, b=10, l=10, r=60),
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    xaxis=dict(showgrid=True, gridcolor='#f1f5f9', range=[0,100],
+                               ticksuffix='%', tickfont=dict(size=10)),
+                    yaxis=dict(showgrid=False, tickfont=dict(size=11)),
+                    title=dict(text='% Conversión', font=dict(size=12), x=0.5),
+                )
+                st.plotly_chart(_fig_pie_conv, use_container_width=True, config={'displayModeBar': False})
+
+            # ── Cards resumen por ejecutivo ──
+            st.markdown('<div class="rank-section">🎖️ Detalle por ejecutivo</div>', unsafe_allow_html=True)
+            _medallas = {1:"🥇", 2:"🥈", 3:"🥉"}
+            _clases   = {1:"rank-1", 2:"rank-2", 3:"rank-3"}
 
             for i, ej in enumerate(_ranking, 1):
-                medalla   = _medallas.get(i, f"#{i}")
                 cls       = _clases.get(i, "rank-other")
-                score      = ej["score"]
-                total_fmt  = "${:,.0f}".format(ej['total_generado']).replace(",", ".")
-                prom_fmt   = "${:,.0f}".format(ej['promedio']).replace(",", ".")
-                color_pct  = "#16a34a" if ej['pct_autorizado'] >= 50 else "#dc2626"
-                bar_width  = score  # score ya es sobre 100
-
+                total_fmt = _fmt_r(ej['total_generado'])
+                prom_fmt  = _fmt_r(ej['promedio'])
+                color_pct = "#16a34a" if ej['pct_autorizado'] >= 50 else "#dc2626"
+                score     = ej['score']
                 st.markdown(f"""
                 <div class="rank-card {cls}">
                   <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-                    <span class="rank-medal">{medalla}</span>
-                    <div style="flex:1;min-width:200px;">
-                      <div style="font-size:1.1rem;font-weight:700;color:#1e293b;">{ej['nombre']}</div>
-                      <div class="rank-score-bar" style="width:{bar_width}%"></div>
-                      <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">Score {score}/100</div>
+                    <span style="font-size:1.8rem;min-width:2rem;">{_medallas.get(i,f'#{i}')}</span>
+                    <div style="flex:1;min-width:180px;">
+                      <div style="font-size:1rem;font-weight:800;color:#1e293b;
+                                  font-family:'Montserrat',sans-serif;">{ej['nombre']}</div>
+                      <div style="background:#f1f5f9;border-radius:6px;height:7px;
+                                  margin:6px 0 2px;overflow:hidden;">
+                        <div style="width:{score}%;height:7px;border-radius:6px;
+                                    background:linear-gradient(90deg,#f59e0b,#d97706);"></div>
+                      </div>
+                      <div style="font-size:0.72rem;color:#94a3b8;">Score {score}/100</div>
                     </div>
-                    <div style="display:flex;gap:24px;flex-wrap:wrap;">
+                    <div style="display:flex;gap:20px;flex-wrap:wrap;">
                       <div style="text-align:center;">
-                        <div style="font-size:1.3rem;font-weight:800;color:#0f172a;">{ej['total_presupuestos']}</div>
-                        <div style="font-size:0.72rem;color:#64748b;">Presupuestos</div>
+                        <div style="font-size:1.2rem;font-weight:800;color:#0f172a;">{ej['total_presupuestos']}</div>
+                        <div style="font-size:0.7rem;color:#64748b;">EP</div>
                       </div>
                       <div style="text-align:center;">
-                        <div style="font-size:1.3rem;font-weight:800;color:#0f172a;">{total_fmt}</div>
-                        <div style="font-size:0.72rem;color:#64748b;">Total generado</div>
+                        <div style="font-size:1.2rem;font-weight:800;color:#0f172a;">{total_fmt}</div>
+                        <div style="font-size:0.7rem;color:#64748b;">Total</div>
                       </div>
                       <div style="text-align:center;">
-                        <div style="font-size:1.3rem;font-weight:800;color:#0f172a;">{prom_fmt}</div>
-                        <div style="font-size:0.72rem;color:#64748b;">Promedio / cot.</div>
+                        <div style="font-size:1.2rem;font-weight:800;color:#0f172a;">{prom_fmt}</div>
+                        <div style="font-size:0.7rem;color:#64748b;">Promedio</div>
                       </div>
                       <div style="text-align:center;">
-                        <div style="font-size:1.3rem;font-weight:800;color:{color_pct};">{ej['pct_autorizado']}%</div>
-                        <div style="font-size:0.72rem;color:#64748b;">Autorizados</div>
+                        <div style="font-size:1.2rem;font-weight:800;color:{color_pct};">{ej['pct_autorizado']}%</div>
+                        <div style="font-size:0.7rem;color:#64748b;">Conv.</div>
                       </div>
                       <div style="text-align:center;">
-                        <div style="font-size:1.3rem;font-weight:800;color:#0f172a;">{ej['autorizados']}</div>
-                        <div style="font-size:0.72rem;color:#64748b;">🟢 Autor.</div>
+                        <div style="font-size:1.2rem;font-weight:800;color:#16a34a;">{ej['autorizados']}</div>
+                        <div style="font-size:0.7rem;color:#64748b;">🟢</div>
                       </div>
                       <div style="text-align:center;">
-                        <div style="font-size:1.3rem;font-weight:800;color:#0f172a;">{ej['borradores']}</div>
-                        <div style="font-size:0.72rem;color:#64748b;">🟡 Borrad.</div>
+                        <div style="font-size:1.2rem;font-weight:800;color:#f59e0b;">{ej['borradores']}</div>
+                        <div style="font-size:0.7rem;color:#64748b;">🟡</div>
                       </div>
                     </div>
                   </div>
-                </div>
-                """, unsafe_allow_html=True)
+                </div>""", unsafe_allow_html=True)
 
-            st.caption("Score = 60% total generado + 25% % autorizados + 15% cantidad de presupuestos")
+            st.caption("Score = 60% total generado + 25% % conversión + 15% cantidad de presupuestos")
 
