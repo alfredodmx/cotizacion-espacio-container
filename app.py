@@ -1725,6 +1725,129 @@ if st.session_state.cotizacion_cargada:
         dialogo_advertencia_cerrar()
 
 # =========================================================
+# FUNCIÓN: DASHBOARD PRINCIPAL
+# =========================================================
+def cargar_datos_dashboard(periodo='mes'):
+    """Carga todas las métricas para el dashboard."""
+    try:
+        from datetime import datetime as _dt, timedelta as _td
+        import calendar as _cal
+
+        _ahora = _dt.now()
+        if periodo == 'mes':
+            _inicio = _ahora.replace(day=1).strftime('%Y-%m-%d')
+            _inicio_ant = (_ahora.replace(day=1) - _td(days=1)).replace(day=1).strftime('%Y-%m-%d')
+            _fin_ant = (_ahora.replace(day=1) - _td(days=1)).strftime('%Y-%m-%d')
+        elif periodo == '3meses':
+            _inicio = (_ahora - _td(days=90)).strftime('%Y-%m-%d')
+            _inicio_ant = (_ahora - _td(days=180)).strftime('%Y-%m-%d')
+            _fin_ant = (_ahora - _td(days=91)).strftime('%Y-%m-%d')
+        elif periodo == 'año':
+            _inicio = _ahora.replace(month=1, day=1).strftime('%Y-%m-%d')
+            _inicio_ant = (_ahora.replace(month=1, day=1).replace(year=_ahora.year-1)).strftime('%Y-%m-%d')
+            _fin_ant = (_ahora.replace(month=1, day=1) - _td(days=1)).strftime('%Y-%m-%d')
+        else:
+            _inicio = '2000-01-01'
+            _inicio_ant = None
+
+        resp = supabase.table('cotizaciones').select(
+            'numero, fecha_creacion, fecha_modificacion, estado, '
+            'total_total, asesor_nombre, cliente_nombre, '
+            'config_margen, cliente_email, asesor_email, asesor_telefono, productos'
+        ).gte('fecha_creacion', _inicio).execute()
+
+        rows = resp.data or []
+
+        # Período anterior para comparación
+        rows_ant = []
+        if _inicio_ant:
+            resp_ant = supabase.table('cotizaciones').select(
+                'total_total, estado, config_margen, cliente_nombre, cliente_email, asesor_nombre, asesor_email, asesor_telefono'
+            ).gte('fecha_creacion', _inicio_ant).lte('fecha_creacion', _fin_ant).execute()
+            rows_ant = resp_ant.data or []
+
+        # ── Métricas principales ──
+        total_ep       = len(rows)
+        total_monto    = sum(float(r.get('total_total') or 0) for r in rows)
+        promedio_monto = total_monto / total_ep if total_ep else 0
+
+        def _estado(r):
+            m  = float(r.get('config_margen') or 0)
+            dok = all([r.get('cliente_nombre'), r.get('cliente_email')])
+            aok = any([r.get('asesor_nombre'), r.get('asesor_email'), r.get('asesor_telefono')])
+            if m > 0 and dok and aok: return 'autorizado'
+            if dok and aok:           return 'borrador'
+            return 'incompleto'
+
+        estados = [_estado(r) for r in rows]
+        autorizados  = estados.count('autorizado')
+        borradores   = estados.count('borrador')
+        incompletos  = estados.count('incompleto')
+        pct_conv     = round((autorizados / total_ep) * 100) if total_ep else 0
+
+        # Comparación período anterior
+        total_ep_ant    = len(rows_ant)
+        total_monto_ant = sum(float(r.get('total_total') or 0) for r in rows_ant)
+        delta_ep        = total_ep - total_ep_ant
+        delta_monto     = total_monto - total_monto_ant
+
+        # ── Serie temporal por día/semana ──
+        from collections import defaultdict as _dd
+        serie = _dd(float)
+        serie_n = _dd(int)
+        for r in rows:
+            fecha = (r.get('fecha_creacion') or '')[:10]
+            if fecha:
+                serie[fecha]   += float(r.get('total_total') or 0)
+                serie_n[fecha] += 1
+        fechas_sorted = sorted(serie.keys())
+        serie_montos  = [round(serie[f]) for f in fechas_sorted]
+        serie_counts  = [serie_n[f] for f in fechas_sorted]
+
+        # ── Top categorías ──
+        cat_montos = _dd(float)
+        cat_counts = _dd(int)
+        for r in rows:
+            prods = r.get('productos') or []
+            if isinstance(prods, str):
+                try:
+                    import json as _j; prods = _j.loads(prods)
+                except: prods = []
+            for p in prods:
+                cat = p.get('Categoria') or 'Sin categoría'
+                precio = float(p.get('Precio Final', 0) or 0)
+                qty    = int(p.get('Cantidad', 1) or 1)
+                cat_montos[cat] += precio * qty
+                cat_counts[cat] += qty
+        top_cats = sorted(cat_montos.items(), key=lambda x: x[1], reverse=True)[:6]
+
+        # ── Pipeline (borradores pendientes) ──
+        pipeline = sum(float(r.get('total_total') or 0) for r, e in zip(rows, estados) if e == 'borrador')
+
+        # ── Ejecutivos top ──
+        ej_montos = _dd(float)
+        ej_counts = _dd(int)
+        for r in rows:
+            ej = r.get('asesor_nombre') or 'Sin asignar'
+            ej_montos[ej] += float(r.get('total_total') or 0)
+            ej_counts[ej] += 1
+        top_ej = sorted(ej_montos.items(), key=lambda x: x[1], reverse=True)[:5]
+
+        return {
+            'total_ep': total_ep, 'total_monto': total_monto,
+            'promedio_monto': promedio_monto, 'pipeline': pipeline,
+            'autorizados': autorizados, 'borradores': borradores,
+            'incompletos': incompletos, 'pct_conv': pct_conv,
+            'delta_ep': delta_ep, 'delta_monto': delta_monto,
+            'fechas': fechas_sorted, 'serie_montos': serie_montos,
+            'serie_counts': serie_counts,
+            'top_cats': top_cats, 'top_ej': top_ej,
+        }
+    except Exception as e:
+        return None
+
+
+# =========================================================
 # FUNCIÓN: RANKING DE EJECUTIVOS
 # =========================================================
 def cargar_ranking_ejecutivos(periodo='mes'):
@@ -1793,9 +1916,9 @@ def cargar_ranking_ejecutivos(periodo='mes'):
 # TABS
 # =========================================================
 if st.session_state.modo_admin:
-    tab1, tab2, tab3, tab6, tab7, tab4, tab5 = st.tabs(["📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "🧊 3D BETA", "📊 PROYECTO EXCEL"])
+    tab_dash, tab1, tab2, tab3, tab6, tab7, tab4, tab5 = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "🧊 3D BETA", "📊 PROYECTO EXCEL"])
 else:
-    tab1, tab2, tab3, tab6, tab7, tab4 = st.tabs(["📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "🧊 3D BETA"])
+    tab_dash, tab1, tab2, tab3, tab6, tab7, tab4 = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "🧊 3D BETA"])
     tab5 = None
 
 # =========================================================
@@ -4324,6 +4447,256 @@ else:
   });
 })();
 </script>""", height=0)
+
+# =========================================================
+# TAB DASHBOARD — visible para todos
+# =========================================================
+with tab_dash:
+    st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap');
+    .dash-hdr {
+        background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #1e40af 100%);
+        border-radius: 16px; padding: 28px 32px; margin-bottom: 28px;
+        display: flex; align-items: center; gap: 20px;
+    }
+    .dash-hdr h2 { color: #fff !important; margin: 0; font-size: 1.6rem; font-weight: 900; font-family: 'Montserrat', sans-serif; }
+    .dash-hdr p  { color: rgba(255,255,255,0.7) !important; margin: 6px 0 0; font-size: 0.9rem; }
+    .kpi-card {
+        background: white; border-radius: 14px; padding: 20px 22px;
+        border: 1px solid #e8edf5; box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+        height: 100%;
+    }
+    .kpi-label { font-size: 0.75rem; font-weight: 700; color: #94a3b8;
+                 text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+    .kpi-value { font-size: 1.9rem; font-weight: 900; color: #0f172a;
+                 font-family: 'Montserrat', sans-serif; line-height: 1; }
+    .kpi-delta-pos { font-size: 0.78rem; font-weight: 700; color: #16a34a; margin-top: 6px; }
+    .kpi-delta-neg { font-size: 0.78rem; font-weight: 700; color: #dc2626; margin-top: 6px; }
+    .kpi-delta-neu { font-size: 0.78rem; font-weight: 600; color: #94a3b8; margin-top: 6px; }
+    .section-title {
+        font-size: 0.8rem; font-weight: 800; color: #475569;
+        text-transform: uppercase; letter-spacing: 0.1em;
+        margin: 24px 0 12px; padding-left: 4px;
+        border-left: 3px solid #3b82f6; padding-left: 10px;
+    }
+    .funnel-bar-wrap { background: #f1f5f9; border-radius: 10px; overflow: hidden; height: 12px; margin: 6px 0 2px; }
+    .funnel-bar-inner { height: 12px; border-radius: 10px; }
+    .cat-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .cat-name { font-size: 0.82rem; font-weight: 700; color: #334155; min-width: 120px; }
+    .cat-bar-wrap { flex: 1; background: #f1f5f9; border-radius: 6px; height: 10px; overflow: hidden; }
+    .cat-bar-inner { height: 10px; border-radius: 6px;
+                     background: linear-gradient(90deg, #3b82f6, #6366f1); }
+    .cat-monto { font-size: 0.78rem; font-weight: 700; color: #64748b; min-width: 90px; text-align: right; }
+    .ej-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .ej-pos { font-size: 1.1rem; min-width: 28px; }
+    .ej-name { font-size: 0.85rem; font-weight: 700; color: #1e293b; flex: 1; }
+    .ej-monto { font-size: 0.82rem; font-weight: 800; color: #3b82f6; min-width: 100px; text-align: right; }
+    .ej-count { font-size: 0.75rem; color: #94a3b8; min-width: 50px; text-align: right; }
+    </style>
+    <div class="dash-hdr">
+      <span style="font-size:2.8rem">📊</span>
+      <div>
+        <h2>Dashboard</h2>
+        <p>Resumen ejecutivo del rendimiento comercial en tiempo real.</p>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Filtro período ──
+    _periodo_opciones = {"Este mes": "mes", "Últimos 3 meses": "3meses", "Este año": "año", "Todos los tiempos": "todo"}
+    _periodo_label = st.radio("Período", list(_periodo_opciones.keys()),
+                               horizontal=True, index=0, key="dash_periodo",
+                               label_visibility="collapsed")
+    _periodo = _periodo_opciones[_periodo_label]
+
+    with st.spinner("Cargando datos..."):
+        _d = cargar_datos_dashboard(_periodo)
+
+    if not _d:
+        st.error("No se pudieron cargar los datos del dashboard.")
+    else:
+        def _fmt_monto(v):
+            if v >= 1_000_000: return f"${v/1_000_000:.1f}M"
+            if v >= 1_000:     return f"${v/1_000:.0f}K"
+            return f"${v:,.0f}"
+
+        def _delta_html(val, prefix=""):
+            if val > 0:   return f'<div class="kpi-delta-pos">▲ {prefix}{abs(val):,} vs período ant.</div>'
+            if val < 0:   return f'<div class="kpi-delta-neg">▼ {prefix}{abs(val):,} vs período ant.</div>'
+            return f'<div class="kpi-delta-neu">— Sin cambio</div>'
+
+        # ── KPIs principales ──
+        st.markdown('<div class="section-title">Métricas clave</div>', unsafe_allow_html=True)
+        k1, k2, k3, k4 = st.columns(4)
+        kpis = [
+            (k1, "💼 Presupuestos", str(_d['total_ep']),
+             _delta_html(_d['delta_ep'])),
+            (k2, "💰 Monto total", _fmt_monto(_d['total_monto']),
+             _delta_html(int(_d['delta_monto']), prefix="$")),
+            (k3, "📈 Ticket promedio", _fmt_monto(_d['promedio_monto']),
+             '<div class="kpi-delta-neu">por cotización</div>'),
+            (k4, "🔄 Pipeline", _fmt_monto(_d['pipeline']),
+             '<div class="kpi-delta-neu">borradores activos</div>'),
+        ]
+        for col, label, val, delta in kpis:
+            with col:
+                st.markdown(f"""
+                <div class="kpi-card">
+                  <div class="kpi-label">{label}</div>
+                  <div class="kpi-value">{val}</div>
+                  {delta}
+                </div>""", unsafe_allow_html=True)
+
+        st.markdown("")
+
+        # ── Embudo de conversión ──
+        st.markdown('<div class="section-title">Embudo de conversión</div>', unsafe_allow_html=True)
+        _total_ep = _d['total_ep'] or 1
+        _funnel_data = [
+            ("🟢 Autorizados", _d['autorizados'], "#16a34a"),
+            ("🟠 Borradores",  _d['borradores'],  "#f59e0b"),
+            ("🔴 Incompletos", _d['incompletos'],  "#ef4444"),
+        ]
+        col_funnel, col_donut = st.columns([3, 2])
+        with col_funnel:
+            st.markdown(f"""
+            <div class="kpi-card" style="padding:24px 28px;">
+              <div style="display:flex;justify-content:space-between;margin-bottom:20px;">
+                <span style="font-size:0.78rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;">Estado</span>
+                <span style="font-size:0.78rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;">% del total</span>
+              </div>""", unsafe_allow_html=True)
+            for label_f, count_f, color_f in _funnel_data:
+                pct_f = round((count_f / _total_ep) * 100) if _total_ep else 0
+                st.markdown(f"""
+                <div style="margin-bottom:16px;">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+                    <span style="font-size:0.85rem;font-weight:700;color:#1e293b;">{label_f}</span>
+                    <span style="font-size:0.85rem;font-weight:800;color:{color_f};">{count_f} &nbsp;({pct_f}%)</span>
+                  </div>
+                  <div class="funnel-bar-wrap">
+                    <div class="funnel-bar-inner" style="width:{pct_f}%;background:{color_f};opacity:0.85;"></div>
+                  </div>
+                </div>""", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with col_donut:
+            if _d['autorizados'] + _d['borradores'] + _d['incompletos'] > 0:
+                try:
+                    import plotly.graph_objects as go
+                    _plotly_ok = True
+                except ImportError:
+                    _plotly_ok = False
+                if _plotly_ok:
+                    _fig_donut = go.Figure(go.Pie(
+                        labels=["Autorizados", "Borradores", "Incompletos"],
+                        values=[_d['autorizados'], _d['borradores'], _d['incompletos']],
+                        hole=0.62,
+                        marker=dict(colors=["#16a34a", "#f59e0b", "#ef4444"],
+                                    line=dict(color='white', width=3)),
+                        textinfo='percent',
+                        textfont=dict(size=11, family='Montserrat', color='white'),
+                        hovertemplate='<b>%{label}</b><br>%{value} cotizaciones<br>%{percent}<extra></extra>',
+                    ))
+                    _fig_donut.add_annotation(
+                        text=f"<b>{_d['pct_conv']}%</b><br><span style='font-size:10px'>conv.</span>",
+                        x=0.5, y=0.5, showarrow=False, font=dict(size=18, family='Montserrat'),
+                        xref="paper", yref="paper", align="center"
+                    )
+                    _fig_donut.update_layout(
+                        showlegend=True, margin=dict(t=10, b=10, l=10, r=10),
+                        height=220, paper_bgcolor='rgba(0,0,0,0)',
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        legend=dict(font=dict(size=11), orientation='h',
+                                    yanchor='bottom', y=-0.15, xanchor='center', x=0.5)
+                    )
+                    st.plotly_chart(_fig_donut, use_container_width=True, config={'displayModeBar': False})
+
+        # ── Evolución temporal ──
+        if _d['fechas']:
+            st.markdown('<div class="section-title">Evolución de cotizaciones</div>', unsafe_allow_html=True)
+            try:
+                import plotly.graph_objects as go
+                _plotly_line = True
+            except ImportError:
+                _plotly_line = False
+            if _plotly_line:
+                _fig_line = go.Figure()
+                _fig_line.add_trace(go.Scatter(
+                    x=_d['fechas'], y=_d['serie_montos'],
+                    mode='lines+markers',
+                    name='Monto ($)',
+                    line=dict(color='#3b82f6', width=3, shape='spline'),
+                    marker=dict(size=6, color='#3b82f6', line=dict(color='white', width=2)),
+                    fill='tozeroy',
+                    fillcolor='rgba(59,130,246,0.08)',
+                    hovertemplate='<b>%{x}</b><br>$%{y:,.0f}<extra></extra>',
+                ))
+                _fig_line.add_trace(go.Bar(
+                    x=_d['fechas'], y=_d['serie_counts'],
+                    name='Nº EP',
+                    marker_color='rgba(99,102,241,0.3)',
+                    yaxis='y2',
+                    hovertemplate='<b>%{x}</b><br>%{y} EP<extra></extra>',
+                ))
+                _fig_line.update_layout(
+                    height=280, margin=dict(t=10, b=40, l=60, r=60),
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    xaxis=dict(showgrid=False, tickfont=dict(size=10)),
+                    yaxis=dict(showgrid=True, gridcolor='#f1f5f9',
+                               tickformat='$,.0f', tickfont=dict(size=10)),
+                    yaxis2=dict(overlaying='y', side='right', showgrid=False,
+                                tickfont=dict(size=10), title='EP'),
+                    legend=dict(orientation='h', yanchor='bottom', y=1.02,
+                                xanchor='right', x=1, font=dict(size=11)),
+                    hovermode='x unified',
+                )
+                st.plotly_chart(_fig_line, use_container_width=True, config={'displayModeBar': False})
+
+        # ── Top categorías + Top ejecutivos ──
+        col_cats, col_ejs = st.columns(2)
+
+        with col_cats:
+            st.markdown('<div class="section-title">Top categorías</div>', unsafe_allow_html=True)
+            if _d['top_cats']:
+                _max_cat = _d['top_cats'][0][1] or 1
+                html_cats = '<div class="kpi-card" style="padding:20px 24px;">'
+                for cat_name, cat_val in _d['top_cats']:
+                    pct_c = round((cat_val / _max_cat) * 100)
+                    html_cats += f"""
+                    <div class="cat-row">
+                      <div class="cat-name">{cat_name[:18]}</div>
+                      <div class="cat-bar-wrap"><div class="cat-bar-inner" style="width:{pct_c}%;"></div></div>
+                      <div class="cat-monto">{_fmt_monto(cat_val)}</div>
+                    </div>"""
+                html_cats += '</div>'
+                st.markdown(html_cats, unsafe_allow_html=True)
+            else:
+                st.info("Sin datos de categorías.")
+
+        with col_ejs:
+            st.markdown('<div class="section-title">Top ejecutivos</div>', unsafe_allow_html=True)
+            if _d['top_ej']:
+                _medallas_d = {0:"🥇",1:"🥈",2:"🥉",3:"4️⃣",4:"5️⃣"}
+                html_ejs = '<div class="kpi-card" style="padding:20px 24px;">'
+                for idx_e, (ej_name, ej_val) in enumerate(_d['top_ej']):
+                    ej_count = next((v for k,v in zip(
+                        [e[0] for e in _d['top_ej']],
+                        [sum(1 for r in [] if True)]
+                    ) if k == ej_name), '—')
+                    html_ejs += f"""
+                    <div class="ej-row">
+                      <div class="ej-pos">{_medallas_d.get(idx_e, str(idx_e+1))}</div>
+                      <div class="ej-name">{ej_name[:22]}</div>
+                      <div class="ej-monto">{_fmt_monto(ej_val)}</div>
+                    </div>"""
+                html_ejs += '</div>'
+                st.markdown(html_ejs, unsafe_allow_html=True)
+            else:
+                st.info("Sin datos de ejecutivos.")
+
+        st.caption(f"Datos actualizados al abrir la pestaña · Período: {_periodo_label}")
+
 
 # =========================================================
 # TAB 6 - EDICIÓN PDF (visible para todos)
