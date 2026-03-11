@@ -6122,22 +6122,58 @@ with tab_contrato:
             _inst_com = st.session_state.get("cont_inst_comuna",    st.session_state.get("proyecto_comuna", ""))
             _inst_reg = st.session_state.get("cont_inst_region",    st.session_state.get("proyecto_region", ""))
 
-            st.markdown('<div class="cont-form-panel"><div class="cont-form-title">📍 Domicilios</div>', unsafe_allow_html=True)
-            _i1, _i2, _i3 = st.columns([3, 2, 2])
-            with _i1:
-                st.text_input("Dirección cliente", value=_cli_dom, disabled=True, key="cont_cli_dom")
-            with _i2:
-                st.text_input("Comuna", value=_cli_com, disabled=True, key="cont_cli_com")
-            with _i3:
-                st.text_input("Región", value=_cli_reg, disabled=True, key="cont_cli_reg")
-            _j1, _j2, _j3 = st.columns([3, 2, 2])
-            with _j1:
-                st.text_input("Dirección instalación", value=_inst_dom, disabled=True, key="cont_inst_dom")
-            with _j2:
-                st.text_input("Comuna inst.", value=_inst_com, disabled=True, key="cont_inst_com")
-            with _j3:
-                st.text_input("Región inst.", value=_inst_reg, disabled=True, key="cont_inst_reg")
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;
+                        padding:18px 20px;margin-bottom:12px;">
+              <div style="font-size:0.65rem;font-weight:900;color:rgba(255,255,255,0.5);
+                          text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;">
+                📍 Domicilios
+              </div>
+              <div style="display:flex;flex-direction:column;gap:10px;">
+
+                <div style="background:rgba(255,255,255,0.07);border-radius:10px;padding:12px 14px;">
+                  <div style="font-size:0.6rem;font-weight:800;color:rgba(255,255,255,0.45);
+                              text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">
+                    Cliente
+                  </div>
+                  <div style="font-size:0.95rem;font-weight:700;color:#fff;margin-bottom:2px;">
+                    {_cli_dom or '<span style="color:rgba(255,255,255,0.25);font-style:italic;font-weight:400;">Sin dirección</span>'}
+                  </div>
+                  <div style="display:flex;gap:8px;margin-top:4px;">
+                    <span style="font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;
+                                 padding:2px 8px;color:rgba(255,255,255,0.7);">
+                      🏙️ {_cli_com or '—'}
+                    </span>
+                    <span style="font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;
+                                 padding:2px 8px;color:rgba(255,255,255,0.7);">
+                      🗺️ {_cli_reg or '—'}
+                    </span>
+                  </div>
+                </div>
+
+                <div style="background:rgba(255,255,255,0.07);border-radius:10px;padding:12px 14px;">
+                  <div style="font-size:0.6rem;font-weight:800;color:rgba(255,255,255,0.45);
+                              text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">
+                    Instalación
+                  </div>
+                  <div style="font-size:0.95rem;font-weight:700;color:#fff;margin-bottom:2px;">
+                    {_inst_dom or '<span style="color:rgba(255,255,255,0.25);font-style:italic;font-weight:400;">Sin dirección</span>'}
+                  </div>
+                  <div style="display:flex;gap:8px;margin-top:4px;">
+                    <span style="font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;
+                                 padding:2px 8px;color:rgba(255,255,255,0.7);">
+                      🏙️ {_inst_com or '—'}
+                    </span>
+                    <span style="font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;
+                                 padding:2px 8px;color:rgba(255,255,255,0.7);">
+                      🗺️ {_inst_reg or '—'}
+                    </span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
 
         with _pcol:
             # El precio viene del EP cargado, sin input visible
