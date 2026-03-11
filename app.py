@@ -172,7 +172,13 @@ if 'proyecto_direccion' not in st.session_state:
 if 'proyecto_comuna' not in st.session_state:
     st.session_state.proyecto_comuna = ""
 if 'proyecto_region' not in st.session_state:
-    st.session_state.proyecto_region = ""  
+    st.session_state.proyecto_region = ""
+if 'cliente_tipo' not in st.session_state:
+    st.session_state.cliente_tipo = "natural"
+if 'cliente_empresa' not in st.session_state:
+    st.session_state.cliente_empresa = ""
+if 'cliente_rut_empresa' not in st.session_state:
+    st.session_state.cliente_rut_empresa = ""  
 if 'fecha_inicio' not in st.session_state:
     st.session_state.fecha_inicio = datetime.now().date()
 if 'fecha_termino' not in st.session_state:
@@ -503,6 +509,9 @@ def construir_datos_para_guardar():
             "DireccionProyecto": st.session_state.proyecto_direccion or "",
             "ComunaProyecto": st.session_state.proyecto_comuna or "",
             "RegionProyecto": st.session_state.proyecto_region or "",
+            "TipoCliente": st.session_state.cliente_tipo or "natural",
+            "EmpresaCliente": st.session_state.cliente_empresa or "",
+            "RutEmpresa": st.session_state.cliente_rut_empresa or "",
             "Observaciones": st.session_state.observaciones_input or ""
     }
     nombre_asesor = st.session_state.asesor_seleccionado if st.session_state.asesor_seleccionado != "Seleccionar asesor" else ""
@@ -786,6 +795,9 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
             'proyecto_direccion': str(cliente.get('DireccionProyecto', '') or ''),
             'proyecto_comuna': str(cliente.get('ComunaProyecto', '') or ''),
             'proyecto_region': str(cliente.get('RegionProyecto', '') or ''),
+            'cliente_tipo': str(cliente.get('TipoCliente', 'natural') or 'natural'),
+            'cliente_empresa': str(cliente.get('EmpresaCliente', '') or ''),
+            'cliente_rut_empresa': str(cliente.get('RutEmpresa', '') or ''),
             'asesor_nombre': str(asesor.get('Nombre Ejecutivo', '') or ''),
             'asesor_email': str(asesor.get('Correo Ejecutivo', '') or ''),
             'asesor_telefono': str(asesor.get('Teléfono Ejecutivo', '') or ''),
@@ -984,6 +996,9 @@ def ejecutar_carga_cotizacion():
         st.session_state.proyecto_direccion  = cotizacion.get('proyecto_direccion', '')
         st.session_state.proyecto_comuna     = cotizacion.get('proyecto_comuna', '')
         st.session_state.proyecto_region     = cotizacion.get('proyecto_region', '')
+        st.session_state.cliente_tipo         = cotizacion.get('cliente_tipo', 'natural')
+        st.session_state.cliente_empresa      = cotizacion.get('cliente_empresa', '')
+        st.session_state.cliente_rut_empresa  = cotizacion.get('cliente_rut_empresa', '')
         nombre_asesor = cotizacion.get('asesor_nombre', '')
         st.session_state.asesor_seleccionado = nombre_asesor if nombre_asesor else "Seleccionar asesor"
         st.session_state.correo_asesor = cotizacion.get('asesor_email', '')
@@ -2765,6 +2780,14 @@ def limpiar_todo():
     st.session_state.correo_input = ""
     st.session_state.telefono_raw = ""
     st.session_state.direccion_input = ""
+    st.session_state.cliente_comuna = ""
+    st.session_state.cliente_region = ""
+    st.session_state.proyecto_direccion = ""
+    st.session_state.proyecto_comuna = ""
+    st.session_state.proyecto_region = ""
+    st.session_state.cliente_tipo = "natural"
+    st.session_state.cliente_empresa = ""
+    st.session_state.cliente_rut_empresa = ""
     st.session_state.asesor_seleccionado = "Seleccionar asesor"
     st.session_state.correo_asesor = ""
     st.session_state.telefono_asesor = ""
@@ -2835,10 +2858,16 @@ with tab2:
         with col1:
             with st.container(border=True):
                 st.markdown("**👤 Cliente**")
+                _tipo_lbl = "Persona jurídica" if st.session_state.cliente_tipo == "juridica" else "Persona natural"
+                st.caption(f"🏷️ {_tipo_lbl}")
                 st.text_input("Nombre", value=st.session_state.nombre_input, disabled=True, key="nombre_readonly")
                 st.text_input("RUT", value=st.session_state.rut_display, disabled=True, key="rut_readonly")
                 st.text_input("Correo", value=st.session_state.correo_input, disabled=True, key="correo_readonly")
                 st.text_input("Teléfono", value=st.session_state.telefono_raw, disabled=True, key="telefono_readonly")
+                if st.session_state.cliente_tipo == "juridica":
+                    st.markdown("**🏢 Empresa**")
+                    st.text_input("Razón social", value=st.session_state.cliente_empresa, disabled=True, key="empresa_readonly")
+                    st.text_input("RUT empresa", value=st.session_state.cliente_rut_empresa, disabled=True, key="rut_empresa_readonly")
         with col2:
             with st.container(border=True):
                 st.markdown("**📍 Cliente**")
@@ -2885,6 +2914,18 @@ with tab2:
             with st.container(border=True):
                 st.markdown("**👤 Cliente**")
 
+                # Tipo de cliente
+                tipo_key = f"cliente_tipo_{st.session_state.counter}"
+                _tipo_options = ["natural", "juridica"]
+                _tipo_labels  = ["Persona natural", "Persona jurídica"]
+                _tipo_idx = _tipo_options.index(st.session_state.cliente_tipo) if st.session_state.cliente_tipo in _tipo_options else 0
+                _tipo_sel = st.radio("Tipo", _tipo_labels, index=_tipo_idx,
+                                     horizontal=True, key=tipo_key, label_visibility="collapsed")
+                _tipo_val = _tipo_options[_tipo_labels.index(_tipo_sel)]
+                if _tipo_val != st.session_state.cliente_tipo:
+                    st.session_state.cliente_tipo = _tipo_val
+                    st.rerun()
+
                 nombre_key = f"nombre_input_{st.session_state.counter}"
                 nombre = st.text_input("Nombre Completo*", placeholder="Ej: Juan Pérez", key=nombre_key, value=st.session_state.nombre_input)
                 if nombre != st.session_state.nombre_input:
@@ -2910,6 +2951,22 @@ with tab2:
 
                 telefono_key = f"telefono_input_{st.session_state.counter}"
                 st.text_input("Teléfono", value=st.session_state.telefono_raw, key=telefono_key, placeholder="961528954 (9 dígitos)", on_change=procesar_cambio_telefono)
+
+                # Campos adicionales si es jurídica
+                if st.session_state.cliente_tipo == "juridica":
+                    st.markdown("---")
+                    st.markdown("**🏢 Empresa**")
+                    emp_key = f"cliente_empresa_{st.session_state.counter}"
+                    empresa = st.text_input("Razón social*", placeholder="Ej: Constructora ABC SpA",
+                                            key=emp_key, value=st.session_state.cliente_empresa)
+                    if empresa != st.session_state.cliente_empresa:
+                        st.session_state.cliente_empresa = empresa
+
+                    rut_emp_key = f"cliente_rut_empresa_{st.session_state.counter}"
+                    rut_emp = st.text_input("RUT empresa*", placeholder="76.123.456-7",
+                                            key=rut_emp_key, value=st.session_state.cliente_rut_empresa)
+                    if rut_emp != st.session_state.cliente_rut_empresa:
+                        st.session_state.cliente_rut_empresa = rut_emp
 
         # ── Columna 2: Dirección ──
         with col2:
@@ -3028,6 +3085,9 @@ with tab2:
             "DireccionProyecto": st.session_state.proyecto_direccion or "",
             "ComunaProyecto": st.session_state.proyecto_comuna or "",
             "RegionProyecto": st.session_state.proyecto_region or "",
+            "TipoCliente": st.session_state.cliente_tipo or "natural",
+            "EmpresaCliente": st.session_state.cliente_empresa or "",
+            "RutEmpresa": st.session_state.cliente_rut_empresa or "",
             "Observaciones": st.session_state.observaciones_input or ""
     }
     nombre_asesor_final = st.session_state.asesor_seleccionado if st.session_state.asesor_seleccionado != "Seleccionar asesor" else ""
@@ -3326,6 +3386,9 @@ with tab1:
             "DireccionProyecto": st.session_state.proyecto_direccion or "",
             "ComunaProyecto": st.session_state.proyecto_comuna or "",
             "RegionProyecto": st.session_state.proyecto_region or "",
+            "TipoCliente": st.session_state.cliente_tipo or "natural",
+            "EmpresaCliente": st.session_state.cliente_empresa or "",
+            "RutEmpresa": st.session_state.cliente_rut_empresa or "",
             "Observaciones": st.session_state.observaciones_input
         }
         nombre_asesor_final = st.session_state.asesor_seleccionado if st.session_state.asesor_seleccionado != "Seleccionar asesor" else ""
@@ -5857,6 +5920,9 @@ with tab_contrato:
                 st.session_state["cont_inst_domicilio"] = _cot.get("proyecto_direccion", "") or _dir
                 st.session_state["cont_inst_comuna"]    = _cot.get("proyecto_comuna", "")
                 st.session_state["cont_inst_region"]    = _cot.get("proyecto_region", "")
+                st.session_state["cont_tipo_cli_val"]   = _cot.get("cliente_tipo", "natural")
+                st.session_state["cont_cli_empresa"]    = _cot.get("cliente_empresa", "")
+                st.session_state["cont_cli_rut_empresa"]= _cot.get("cliente_rut_empresa", "")
                 st.session_state["cont_ep_nombre"]      = _cot.get("proyecto_observaciones", "") or ""
                 st.session_state["cont_precio"]         = _total
                 st.rerun()
@@ -5921,7 +5987,11 @@ with tab_contrato:
 
             # Panel 2 — Cliente
             st.markdown('<div class="cont-form-panel"><div class="cont-form-title">👤 Datos del cliente</div>', unsafe_allow_html=True)
+            _tipo_pre = st.session_state.get("cont_tipo_cli_val",
+                         st.session_state.get("cliente_tipo", "natural"))
+            _tipo_idx_cont = 1 if _tipo_pre == "juridica" else 0
             _tipo_cli = st.radio("Tipo", ["Persona natural", "Persona jurídica"],
+                                 index=_tipo_idx_cont,
                                  horizontal=True, key="cont_tipo_cli", label_visibility="collapsed")
             _es_juridica = (_tipo_cli == "Persona jurídica")
             _g1, _g2, _g3 = st.columns([1, 3, 2])
@@ -5938,10 +6008,12 @@ with tab_contrato:
                 _h1, _h2 = st.columns([3, 2])
                 with _h1:
                     _cli_empresa = st.text_input("Razón social *",
-                        value=st.session_state.get("cont_cli_empresa",""), key="cont_empresa")
+                        value=st.session_state.get("cont_cli_empresa",
+                              st.session_state.get("cliente_empresa","")), key="cont_empresa")
                 with _h2:
                     _cli_rut_empresa = st.text_input("RUT empresa *",
-                        value=st.session_state.get("cont_cli_rut_empresa",""),
+                        value=st.session_state.get("cont_cli_rut_empresa",
+                              st.session_state.get("cliente_rut_empresa","")),
                         placeholder="76.123.456-7", key="cont_rut_empresa")
             else:
                 _cli_empresa = ""
