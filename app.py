@@ -5035,10 +5035,12 @@ if tab7 is not None:
                 textfont=dict(size=11, family='Montserrat', color='#1e293b'),
                 hovertemplate='<b>%{x}</b><br>%{text}<extra></extra>',
             ))
+            _n_ejs = len(_ranking)
             _fig_bar.update_layout(
-                height=280, margin=dict(t=30, b=10, l=10, r=10),
+                height=max(300, 60 * _n_ejs), margin=dict(t=40, b=60, l=10, r=10),
                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                xaxis=dict(showgrid=False, tickfont=dict(size=11, family='Montserrat')),
+                xaxis=dict(showgrid=False, tickfont=dict(size=11, family='Montserrat'),
+                           tickangle=-30 if _n_ejs > 4 else 0),
                 yaxis=dict(showgrid=True, gridcolor='#f1f5f9', visible=False),
                 showlegend=False,
             )
@@ -5067,10 +5069,11 @@ if tab7 is not None:
                     hovertemplate='<b>%{x}</b><br>%{y} autorizados<extra></extra>',
                 ))
                 _fig_combo.update_layout(
-                    barmode='group', height=260,
-                    margin=dict(t=10, b=10, l=10, r=10),
+                    barmode='group', height=max(280, 55 * _n_ejs),
+                    margin=dict(t=30, b=60, l=10, r=10),
                     paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                    xaxis=dict(showgrid=False, tickfont=dict(size=11)),
+                    xaxis=dict(showgrid=False, tickfont=dict(size=11),
+                               tickangle=-30 if _n_ejs > 4 else 0),
                     yaxis=dict(showgrid=True, gridcolor='#f1f5f9'),
                     legend=dict(orientation='h', yanchor='bottom', y=1.02,
                                 xanchor='right', x=1, font=dict(size=11)),
@@ -5092,11 +5095,13 @@ if tab7 is not None:
                     hovertemplate='<b>%{y}</b><br>%{text} autorizados<extra></extra>',
                 ))
                 _fig_pie_conv.update_layout(
-                    height=260, margin=dict(t=10, b=10, l=10, r=60),
+                    height=max(280, 40 * _n_ejs),
+                    margin=dict(t=30, b=20, l=120, r=20),
                     paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                     xaxis=dict(showgrid=True, gridcolor='#f1f5f9', range=[0,100],
                                ticksuffix='%', tickfont=dict(size=10)),
-                    yaxis=dict(showgrid=False, tickfont=dict(size=11)),
+                    yaxis=dict(showgrid=False, tickfont=dict(size=10),
+                               automargin=True),
                     title=dict(text='% Conversión', font=dict(size=12), x=0.5),
                 )
                 st.plotly_chart(_fig_pie_conv, use_container_width=True, config={'displayModeBar': False})
