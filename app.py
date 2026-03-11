@@ -2633,6 +2633,31 @@ else:
 # =========================================================
 # FUNCIÓN PARA GENERAR PDF COMPLETO
 # =========================================================
+
+def _construir_texto_cliente_pdf(datos_cliente, style):
+    """Construye párrafos del bloque cliente para PDFs, mostrando empresa si es jurídica."""
+    d = datos_cliente
+    tipo = d.get("TipoCliente", "natural")
+    lines = []
+    if d.get("Nombre"):       lines.append(f"<b>Nombre:</b> {d['Nombre']}")
+    if d.get("RUT"):          lines.append(f"<b>RUT:</b> {d['RUT']}")
+    if tipo == "juridica":
+        if d.get("EmpresaCliente"): lines.append(f"<b>Empresa:</b> {d['EmpresaCliente']}")
+        if d.get("RutEmpresa"):     lines.append(f"<b>RUT empresa:</b> {d['RutEmpresa']}")
+    if d.get("Correo"):       lines.append(f"<b>Correo:</b> {d['Correo']}")
+    if d.get("Teléfono"):     lines.append(f"<b>Teléfono:</b> {d['Teléfono']}")
+    if d.get("Dirección"):
+        dir_completa = d["Dirección"]
+        if d.get("ComunaCliente"): dir_completa += f", {d['ComunaCliente']}"
+        if d.get("RegionCliente"): dir_completa += f", {d['RegionCliente']}"
+        lines.append(f"<b>Dirección:</b> {dir_completa}")
+    if d.get("DireccionProyecto"):
+        inst_completa = d["DireccionProyecto"]
+        if d.get("ComunaProyecto"): inst_completa += f", {d['ComunaProyecto']}"
+        if d.get("RegionProyecto"): inst_completa += f", {d['RegionProyecto']}"
+        lines.append(f"<b>Dirección instalación:</b> {inst_completa}")
+    return Paragraph("<br/>".join(lines), style)
+
 def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
                      fecha_inicio, fecha_termino, dias_validez,
                      datos_asesor, margen=0, numero_cotizacion=None):
@@ -2680,9 +2705,8 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
 
     ancho_columna = (doc.width - 20) / 2
     data_ca = [[Paragraph("<b>DATOS DEL CLIENTE</b>", styles['TituloSeccion']), Paragraph("<b>DATOS DEL ASESOR</b>", styles['TituloSeccion'])]]
-    cliente_text = "".join(f"<b>{k}:</b> {v}<br/>" for k, v in datos_cliente.items() if v)
     asesor_text = "".join(f"<b>{k}:</b> {v}<br/>" for k, v in datos_asesor.items() if v)
-    data_ca.append([Paragraph(cliente_text, styles['TextoNormal']), Paragraph(asesor_text, styles['TextoNormal'])])
+    data_ca.append([_construir_texto_cliente_pdf(datos_cliente, styles['TextoNormal']), Paragraph(asesor_text, styles['TextoNormal'])])
     tabla_ca = Table(data_ca, colWidths=[ancho_columna, ancho_columna])
     tabla_ca.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'), ('ALIGN', (0,0), (0,-1), 'LEFT'), ('ALIGN', (1,0), (1,-1), 'LEFT'),
@@ -2809,9 +2833,8 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
 
     ancho_columna = (doc.width - 20) / 2
     data_ca = [[Paragraph("<b>DATOS DEL CLIENTE</b>", styles['TituloSeccion']), Paragraph("<b>DATOS DEL ASESOR</b>", styles['TituloSeccion'])]]
-    cliente_text = "".join(f"<b>{k}:</b> {v}<br/>" for k, v in datos_cliente.items() if v)
     asesor_text = "".join(f"<b>{k}:</b> {v}<br/>" for k, v in datos_asesor.items() if v)
-    data_ca.append([Paragraph(cliente_text, styles['TextoNormal']), Paragraph(asesor_text, styles['TextoNormal'])])
+    data_ca.append([_construir_texto_cliente_pdf(datos_cliente, styles['TextoNormal']), Paragraph(asesor_text, styles['TextoNormal'])])
     tabla_ca = Table(data_ca, colWidths=[ancho_columna, ancho_columna])
     tabla_ca.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'), ('ALIGN', (0,0), (0,-1), 'LEFT'), ('ALIGN', (1,0), (1,-1), 'LEFT'),
