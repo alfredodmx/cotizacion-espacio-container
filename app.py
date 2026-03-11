@@ -3583,10 +3583,14 @@ with tab3:
         st.rerun()
 
     if st.session_state.resultados_busqueda:
-        df_resultados = pd.DataFrame(
-            st.session_state.resultados_busqueda,
-            columns=["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato"]
-        )
+        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato"]
+        _rows_norm = []
+        for _r in st.session_state.resultados_busqueda:
+            _r = list(_r)
+            while len(_r) < len(_cols_esperadas):
+                _r.append(0)
+            _rows_norm.append(_r[:len(_cols_esperadas)])
+        df_resultados = pd.DataFrame(_rows_norm, columns=_cols_esperadas)
         df_resultados["Total"] = df_resultados["Total"].apply(lambda x: f"${x:,.0f}".replace(",", ".") if x else "$0")
         df_resultados["Fecha"] = df_resultados["Fecha"].apply(lambda x: x[:10] if x else "")
         df_resultados["Estado"] = df_resultados.apply(crear_badge_estado, axis=1)
