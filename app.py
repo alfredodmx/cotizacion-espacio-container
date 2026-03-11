@@ -1847,6 +1847,30 @@ def cargar_datos_dashboard(periodo='mes'):
             ej_counts[ej] += 1
         top_ej = sorted(ej_montos.items(), key=lambda x: x[1], reverse=True)[:5]
 
+        # ── Top 30 productos ──
+        prod_montos = _dd(float)
+        prod_cantidades = _dd(int)
+        for r in rows:
+            prods = r.get('productos') or []
+            if isinstance(prods, str):
+                try:
+                    import json as _j2; prods = _j2.loads(prods)
+                except: prods = []
+            for p in prods:
+                item = (p.get('Item') or '').strip()
+                if not item:
+                    continue
+                subtotal = float(p.get('Subtotal') or 0)
+                if subtotal == 0:
+                    precio = float(p.get('Precio Unitario') or 0)
+                    qty    = int(p.get('Cantidad') or 1)
+                    subtotal = precio * qty
+                qty = int(p.get('Cantidad') or 1)
+                prod_montos[item]     += subtotal
+                prod_cantidades[item] += qty
+        top_productos = sorted(prod_montos.items(), key=lambda x: x[1], reverse=True)[:30]
+        top_productos = [(n, v, prod_cantidades[n]) for n, v in top_productos]
+
         return {
             'total_ep': total_ep, 'total_monto': total_monto,
             'promedio_monto': promedio_monto, 'pipeline': pipeline,
@@ -1856,6 +1880,7 @@ def cargar_datos_dashboard(periodo='mes'):
             'fechas': fechas_sorted, 'serie_montos': serie_montos,
             'serie_counts': serie_counts,
             'top_cats': top_cats, 'top_ej': top_ej,
+            'top_productos': top_productos,
         }
     except Exception as e:
         return None
@@ -4700,6 +4725,50 @@ with tab_dash:
                 st.markdown(html_ejs, unsafe_allow_html=True)
             else:
                 st.info("Sin datos de ejecutivos.")
+
+        # ── Top 30 productos ──
+        st.markdown('<div class="section-title">🏅 Top 30 productos más cotizados</div>', unsafe_allow_html=True)
+        if _d.get('top_productos'):
+            _max_prod = _d['top_productos'][0][1] or 1
+            _html_prods = '<div class="kpi-card" style="padding:20px 24px;">'
+            _html_prods += """
+            <div style="display:flex;gap:8px;margin-bottom:14px;padding-bottom:10px;
+                        border-bottom:1px solid #f1f5f9;">
+              <span style="font-size:0.72rem;font-weight:800;color:#94a3b8;
+                           text-transform:uppercase;letter-spacing:0.08em;min-width:24px;">#</span>
+              <span style="font-size:0.72rem;font-weight:800;color:#94a3b8;
+                           text-transform:uppercase;letter-spacing:0.08em;flex:1;">Producto</span>
+              <span style="font-size:0.72rem;font-weight:800;color:#94a3b8;
+                           text-transform:uppercase;letter-spacing:0.08em;min-width:55px;text-align:center;">Cant.</span>
+              <span style="font-size:0.72rem;font-weight:800;color:#94a3b8;
+                           text-transform:uppercase;letter-spacing:0.08em;min-width:100px;text-align:right;">Monto</span>
+            </div>"""
+            for idx_p, (prod_name, prod_val, prod_qty) in enumerate(_d['top_productos'], 1):
+                pct_p    = round((prod_val / _max_prod) * 100)
+                _color_p = "#3b82f6" if idx_p <= 3 else "#6366f1" if idx_p <= 10 else "#94a3b8"
+                _bold_p  = "800" if idx_p <= 3 else "600"
+                _html_prods += f"""
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;">
+                  <span style="font-size:0.78rem;font-weight:700;color:{_color_p};
+                               min-width:24px;text-align:center;">{idx_p}</span>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:0.82rem;font-weight:{_bold_p};color:#1e293b;
+                                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+                                margin-bottom:3px;">{prod_name}</div>
+                    <div style="background:#f1f5f9;border-radius:4px;height:5px;overflow:hidden;">
+                      <div style="width:{pct_p}%;height:5px;border-radius:4px;
+                                  background:{_color_p};opacity:0.7;"></div>
+                    </div>
+                  </div>
+                  <span style="font-size:0.8rem;font-weight:700;color:#475569;
+                               min-width:55px;text-align:center;">{prod_qty:,}</span>
+                  <span style="font-size:0.82rem;font-weight:800;color:{_color_p};
+                               min-width:100px;text-align:right;">{_fmt_monto(prod_val)}</span>
+                </div>"""
+            _html_prods += '</div>'
+            st.markdown(_html_prods, unsafe_allow_html=True)
+        else:
+            st.info("Sin datos de productos para el período seleccionado.")
 
         st.caption(f"Datos actualizados al abrir la pestaña · Período: {_periodo_label}")
 
