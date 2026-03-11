@@ -1750,21 +1750,22 @@ def cargar_datos_dashboard(periodo='mes'):
             _inicio = '2000-01-01'
             _inicio_ant = None
 
-        # Filtrar por fecha_modificacion también como fallback
-        # Agregar T00:00:00 para que Supabase compare correctamente con timestamps
-        _inicio_ts = _inicio + 'T00:00:00'
+        # Sin filtro de fecha — traer todo y filtrar en Python
         resp = supabase.table('cotizaciones').select(
             'numero, fecha_creacion, fecha_modificacion, estado, '
             'total_total, asesor_nombre, cliente_nombre, '
             'config_margen, cliente_email, asesor_email, asesor_telefono, productos'
-        ).gte('fecha_creacion', _inicio_ts).execute()
-        # Si no hay resultados con fecha_creacion, intentar con fecha_modificacion
-        if not resp.data:
-            resp = supabase.table('cotizaciones').select(
-                'numero, fecha_creacion, fecha_modificacion, estado, '
-                'total_total, asesor_nombre, cliente_nombre, '
-                'config_margen, cliente_email, asesor_email, asesor_telefono, productos'
-            ).gte('fecha_modificacion', _inicio_ts).execute()
+        ).execute()
+        # Filtrar en Python según período
+        if periodo != 'todo':
+            _rows_all = resp.data or []
+            rows = []
+            for _r in _rows_all:
+                _fc = (_r.get('fecha_creacion') or _r.get('fecha_modificacion') or '')[:10]
+                if _fc >= _inicio:
+                    rows.append(_r)
+        else:
+            rows = resp.data or []
 
         rows = resp.data or []
 
