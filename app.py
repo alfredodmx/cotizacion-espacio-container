@@ -938,6 +938,197 @@ def _diff_datos(anterior, nuevo):
             cambios[label] = {'antes': v_ant or '—', 'despues': v_new or '—'}
     return cambios
 
+
+def generar_pdf_log(numero, logs):
+    """Genera PDF de auditoría con logo y tabla de modificaciones."""
+    import io as _io
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
+                                     Table, TableStyle, HRFlowable, Image as RLImage)
+    import os as _os
+
+    AZUL   = colors.HexColor('#0f3460')
+    AZUL_L = colors.HexColor('#e8eef7')
+    GRIS   = colors.HexColor('#64748b')
+    VERDE  = colors.HexColor('#16a34a')
+    ROJO   = colors.HexColor('#dc2626')
+
+    buf = _io.BytesIO()
+
+    def _hf(canvas, doc):
+        canvas.saveState()
+        pw = doc.pagesize[0]
+        if _os.path.exists("logo.png"):
+            from reportlab.lib.utils import ImageReader
+            _img = ImageReader("logo.png")
+            _iw, _ih = _img.getSize()
+            _lw = 3.5 * cm
+            _lh = _lw * (_ih / float(_iw))
+            canvas.drawImage(_img, x=(pw - _lw)/2,
+                             y=doc.pagesize[1] - doc.topMargin + 0.3*cm,
+                             width=_lw, height=_lh,
+                             preserveAspectRatio=True, mask='auto')
+        canvas.setStrokeColor(AZUL)
+        canvas.setLineWidth(1.0)
+        canvas.line(doc.leftMargin,
+                    doc.pagesize[1] - doc.topMargin + 0.1*cm,
+                    pw - doc.rightMargin,
+                    doc.pagesize[1] - doc.topMargin + 0.1*cm)
+        canvas.setFont('Helvetica', 7.5)
+        canvas.setFillColor(GRIS)
+        canvas.drawCentredString(pw/2, doc.bottomMargin - 0.5*cm,
+            f"Inversiones Container House SpA  ·  RUT 78.268.851-0  ·  Página {doc.page}")
+        canvas.setStrokeColor(GRIS)
+        canvas.setLineWidth(0.3)
+        canvas.line(doc.leftMargin, doc.bottomMargin - 0.3*cm,
+                    pw - doc.rightMargin, doc.bottomMargin - 0.3*cm)
+        canvas.restoreState()
+
+    doc = SimpleDocTemplate(buf, pagesize=letter,
+                            leftMargin=2.5*cm, rightMargin=2.5*cm,
+                            topMargin=3.5*cm, bottomMargin=2.0*cm)
+
+    base = getSampleStyleSheet()
+    s_titulo  = ParagraphStyle('LT', parent=base['Normal'],
+                                fontName='Helvetica-Bold', fontSize=16,
+                                textColor=AZUL, alignment=TA_CENTER,
+                                spaceAfter=4)
+    s_subtit  = ParagraphStyle('LS', parent=base['Normal'],
+                                fontName='Helvetica', fontSize=10,
+                                textColor=GRIS, alignment=TA_CENTER,
+                                spaceAfter=14)
+    s_seccion = ParagraphStyle('LSec', parent=base['Normal'],
+                                fontName='Helvetica-Bold', fontSize=9,
+                                textColor=colors.white, backColor=AZUL,
+                                leftIndent=-0.2*cm, rightIndent=-0.2*cm,
+                                borderPadding=(4, 8, 4, 8),
+                                spaceBefore=12, spaceAfter=6)
+    s_normal  = ParagraphStyle('LN', parent=base['Normal'],
+                                fontName='Helvetica', fontSize=9,
+                                leading=13)
+    s_small   = ParagraphStyle('LSm', parent=base['Normal'],
+                                fontName='Helvetica', fontSize=7.5,
+                                textColor=GRIS, leading=11)
+
+    story = []
+
+    from datetime import datetime as _dt
+    _ahora = _dt.now().strftime("%d/%m/%Y %H:%M")
+    _n_mods = len([l for l in logs if l.get("tipo_cambio") == "modificacion"])
+    _n_total = len(logs)
+
+    story.append(Paragraph(f"HISTORIAL DE MODIFICACIONES", s_titulo))
+    story.append(Paragraph(f"Presupuesto {numero}", s_subtit))
+
+    # Resumen
+    resumen_data = [
+        [Paragraph("<b>Total registros</b>", s_normal), Paragraph(str(_n_total), s_normal),
+         Paragraph("<b>Modificaciones</b>", s_normal), Paragraph(str(_n_mods), s_normal),
+         Paragraph("<b>Generado</b>", s_normal), Paragraph(_ahora, s_normal)],
+    ]
+    resumen_tbl = Table(resumen_data, colWidths=[3.5*cm, 1.5*cm, 3.5*cm, 1.5*cm, 3*cm, 3*cm])
+    resumen_tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), AZUL_L),
+        ('ROUNDEDCORNERS', [6]),
+        ('TOPPADDING',  (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('LEFTPADDING', (0,0), (-1,-1), 8),
+        ('RIGHTPADDING', (0,0), (-1,-1), 8),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+    ]))
+    story.append(resumen_tbl)
+    story.append(Spacer(1, 14))
+
+    if not logs:
+        story.append(Paragraph("Sin registros de modificaciones.", s_normal))
+    else:
+        # Agrupar por fecha (solo día)
+        from collections import OrderedDict
+        grupos = OrderedDict()
+        for lg in logs:
+            _f = lg.get("fecha","")[:10]
+            grupos.setdefault(_f, []).append(lg)
+
+        for fecha_grupo, items in grupos.items():
+            try:
+                _fd = _dt.fromisoformat(fecha_grupo)
+                _titulo_fecha = _fd.strftime("%d de %B de %Y").capitalize()
+            except:
+                _titulo_fecha = fecha_grupo
+
+            story.append(Paragraph(f"  {_titulo_fecha}", s_seccion))
+
+            for lg in items:
+                _hora  = lg.get("fecha","")[11:16]
+                _asesor = lg.get("asesor","") or "Sistema"
+                _tipo  = lg.get("tipo_cambio","").upper()
+                _det   = lg.get("detalle", {})
+                _tipo_color = VERDE if _tipo == "CREACION" else AZUL
+
+                # Encabezado del registro
+                enc_data = [[
+                    Paragraph(f"<b>{_hora}</b>", s_normal),
+                    Paragraph(f"<b>{_tipo}</b>", ParagraphStyle('LT2', parent=s_normal,
+                              fontName='Helvetica-Bold', textColor=_tipo_color)),
+                    Paragraph(f"Asesor: {_asesor}", s_small),
+                ]]
+                enc_tbl = Table(enc_data, colWidths=[2*cm, 3.5*cm, 10.5*cm])
+                enc_tbl.setStyle(TableStyle([
+                    ('TOPPADDING',  (0,0), (-1,-1), 4),
+                    ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                    ('LINEBELOW', (0,0), (-1,-1), 0.3, AZUL_L),
+                ]))
+                story.append(enc_tbl)
+
+                # Detalle de cambios
+                if isinstance(_det, dict):
+                    if "mensaje" in _det:
+                        story.append(Paragraph(f"  → {_det['mensaje']}", s_small))
+                    else:
+                        cambios_data = [[
+                            Paragraph("<b>Campo</b>", s_small),
+                            Paragraph("<b>Antes</b>", s_small),
+                            Paragraph("<b>Después</b>", s_small),
+                        ]]
+                        for _campo, _vals in _det.items():
+                            if isinstance(_vals, dict):
+                                _antes   = str(_vals.get("antes","—"))
+                                _despues = str(_vals.get("despues","—"))
+                            else:
+                                _antes   = "—"
+                                _despues = str(_vals)
+                            cambios_data.append([
+                                Paragraph(_campo, s_small),
+                                Paragraph(_antes[:80], s_small),
+                                Paragraph(_despues[:80], s_small),
+                            ])
+                        if len(cambios_data) > 1:
+                            cam_tbl = Table(cambios_data,
+                                           colWidths=[4*cm, 6.5*cm, 5.5*cm])
+                            cam_tbl.setStyle(TableStyle([
+                                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#f1f5f9')),
+                                ('FONTNAME',   (0,0), (-1,0), 'Helvetica-Bold'),
+                                ('FONTSIZE',   (0,0), (-1,-1), 7.5),
+                                ('GRID',       (0,0), (-1,-1), 0.3, colors.HexColor('#e2e8f0')),
+                                ('TOPPADDING',    (0,0), (-1,-1), 3),
+                                ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+                                ('LEFTPADDING',   (0,0), (-1,-1), 5),
+                                ('ROWBACKGROUNDS', (0,1), (-1,-1),
+                                 [colors.white, colors.HexColor('#f8fafc')]),
+                            ]))
+                            story.append(cam_tbl)
+
+                story.append(Spacer(1, 6))
+
+    doc.build(story, onFirstPage=_hf, onLaterPages=_hf)
+    buf.seek(0)
+    return buf.read()
+
 # =========================================================
 # FUNCIONES DE SUPABASE PARA COTIZACIONES
 # =========================================================
@@ -3951,40 +4142,22 @@ with tab3:
                 if tiene_margen_seleccionado and not st.session_state.modo_admin:
                     st.warning("🔒 Cotización autorizada - Solo puedes generar PDFs")
 
-                # ── Botón descargar log de modificaciones ──
+                # ── Botón descargar log de modificaciones (PDF) ──
                 _logs_ep = obtener_logs_ep(numero_seleccionado)
                 if _logs_ep:
-                    import io as _io
-                    import csv as _csv
-                    _buf = _io.StringIO()
-                    _wr  = _csv.writer(_buf)
-                    _wr.writerow(["Fecha", "Asesor", "Tipo", "Campo", "Antes", "Después"])
-                    for _lg in _logs_ep:
-                        _fecha_lg = _lg.get("fecha","")[:19].replace("T"," ")
-                        _asesor_lg = _lg.get("asesor","")
-                        _tipo_lg   = _lg.get("tipo_cambio","")
-                        _det = _lg.get("detalle", {})
-                        if isinstance(_det, dict):
-                            if "mensaje" in _det:
-                                _wr.writerow([_fecha_lg, _asesor_lg, _tipo_lg, "—", "—", _det["mensaje"]])
-                            else:
-                                for _campo, _vals in _det.items():
-                                    if isinstance(_vals, dict):
-                                        _wr.writerow([_fecha_lg, _asesor_lg, _tipo_lg, _campo, _vals.get("antes","—"), _vals.get("despues","—")])
-                                    else:
-                                        _wr.writerow([_fecha_lg, _asesor_lg, _tipo_lg, _campo, "—", str(_vals)])
-                        else:
-                            _wr.writerow([_fecha_lg, _asesor_lg, _tipo_lg, "—", "—", str(_det)])
-                    _csv_bytes = _buf.getvalue().encode("utf-8-sig")
                     _n_mods = len([l for l in _logs_ep if l.get("tipo_cambio") == "modificacion"])
-                    st.download_button(
-                        label=f"📋 Descargar log ({len(_logs_ep)} registros · {_n_mods} modif.)",
-                        data=_csv_bytes,
-                        file_name=f"log_{numero_seleccionado}.csv",
-                        mime="text/csv",
-                        use_container_width=True,
-                        key="btn_download_log"
-                    )
+                    try:
+                        _pdf_log_bytes = generar_pdf_log(numero_seleccionado, _logs_ep)
+                        st.download_button(
+                            label=f"📋 Descargar historial PDF ({len(_logs_ep)} registros · {_n_mods} modif.)",
+                            data=_pdf_log_bytes,
+                            file_name=f"historial_{numero_seleccionado}.pdf",
+                            mime="application/pdf",
+                            use_container_width=True,
+                            key="btn_download_log"
+                        )
+                    except Exception as _e_log:
+                        st.error(f"Error generando PDF log: {_e_log}")
                 else:
                     st.caption("📋 Sin registros de modificaciones aún")
 
