@@ -2164,21 +2164,7 @@ with _col_admin_btn:
 
 # Herramientas admin — solo cuando está activo
 if st.session_state.modo_admin:
-    _col_esp2, _col_csv, _col_cerrar = st.columns([3, 1, 1])
-    with _col_csv:
-        if st.button("📦 Exportar CSV", key="btn_generar_csv", use_container_width=True):
-            st.session_state._csv_listo = exportar_csv_completo()
-        if st.session_state.get('_csv_listo'):
-            from datetime import datetime as _dt
-            _fname = f"cotizaciones_backup_{_dt.now().strftime('%Y%m%d_%H%M')}.csv"
-            st.download_button(
-                label="⬇️ Descargar CSV",
-                data=st.session_state._csv_listo,
-                file_name=_fname,
-                mime="text/csv",
-                use_container_width=True,
-                key="btn_export_csv"
-            )
+    _col_esp2, _col_cerrar = st.columns([4, 1])
     with _col_cerrar:
         if st.button("🔓 Cerrar sesión", key="btn_cerrar_sesion_header", use_container_width=True):
             st.session_state.modo_admin = False
@@ -5779,6 +5765,29 @@ if st.session_state.modo_admin and tab5 is not None:
                             except Exception as _e:
                                 st.error(f"❌ {_e}")
 
+
+        # ── Exportar CSV ─────────────────────────────────────
+        st.markdown('<div class="ind-titulo">📦 Exportar datos</div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            st.caption("Descarga todas las cotizaciones del sistema en formato CSV para respaldo o análisis externo.")
+            _col_csv_btn, _col_csv_info = st.columns([1, 3])
+            with _col_csv_btn:
+                if st.button("📦 Generar CSV", key="btn_generar_csv", use_container_width=True, type="primary"):
+                    st.session_state._csv_listo = exportar_csv_completo()
+            with _col_csv_info:
+                if st.session_state.get('_csv_listo'):
+                    from datetime import datetime as _dt
+                    _fname = f"cotizaciones_backup_{_dt.now().strftime('%Y%m%d_%H%M')}.csv"
+                    st.download_button(
+                        label="⬇️ Descargar CSV",
+                        data=st.session_state._csv_listo,
+                        file_name=_fname,
+                        mime="text/csv",
+                        use_container_width=True,
+                        key="btn_export_csv"
+                    )
+                else:
+                    st.info("Haz clic en **Generar CSV** para preparar el archivo.", icon="ℹ️")
 
         # ── Barra de estado ──────────────────────────────────
         _activa_info = next((_v for _v in _versiones if _v.get("activa")), None)
