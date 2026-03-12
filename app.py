@@ -2498,17 +2498,17 @@ def cargar_datos_dashboard(periodo='mes'):
 
         # ── Rango etario estimado por RUT ──
         # RUT chileno < 10M ~ nacido antes 1975, 10-15M ~ 1975-1995, 15-20M ~ 1995+
-        rangos = {'< 1975 (50+)': 0, '1975-1995 (30-50)': 0, '> 1995 (< 30)': 0, 'No det.': 0}
+        rangos = {'< 1975 (50+)': 0, '1975-1995 (30-50)': 0, '> 1995 (< 30)': 0, 'No determinado': 0}
         for r in rows:
             if (r.get('cliente_tipo') or 'natural') == 'juridica': continue
             _rut_str = re.sub(r'[^0-9]', '', str(r.get('cliente_rut') or ''))
             try:
                 _rut_n = int(_rut_str[:-1]) if len(_rut_str) > 1 else 0
-                if   _rut_n < 1_000_000:  rangos['No det.'] += 1
+                if   _rut_n < 1_000_000:  rangos['No determinado'] += 1
                 elif _rut_n < 10_000_000: rangos['< 1975 (50+)'] += 1
                 elif _rut_n < 15_000_000: rangos['1975-1995 (30-50)'] += 1
                 else:                     rangos['> 1995 (< 30)'] += 1
-            except: rangos['No det.'] += 1
+            except: rangos['No determinado'] += 1
 
         return {
             'total_ep': total_ep, 'total_monto': total_monto,
@@ -6262,19 +6262,20 @@ with tab_dash:
             with st.container(border=True):
                 _re_f = {k: v for k, v in _re.items() if v > 0}
                 if _re_f:
-                    _orden_e = ['< 1975 (50+)', '1975-1995 (30-50)', '> 1995 (< 30)', 'No det.']
+                    _orden_e = ['< 1975 (50+)', '1975-1995 (30-50)', '> 1995 (< 30)', 'No determinado']
                     _lbl_e = [k for k in _orden_e if k in _re_f]
                     _val_e = [_re_f[k] for k in _lbl_e]
                     _col_e = ['#7c3aed','#2563eb','#0891b2','#94a3b8'][:len(_lbl_e)]
                     _fig_edad = go.Figure(go.Bar(
-                        x=_lbl_e, y=_val_e,
+                        x=_val_e, y=_lbl_e,
+                        orientation='h',
                         marker=dict(color=_col_e, line=dict(color='white', width=1)),
                         text=_val_e, textposition='outside',
-                        hovertemplate='<b>%{x}</b><br>%{y} clientes<extra></extra>',
+                        hovertemplate='<b>%{y}</b><br>%{x} clientes<extra></extra>',
                     ))
                     _fig_edad.update_layout(**_TMPL,
-                        xaxis=dict(tickfont=dict(size=9), showgrid=False),
-                        yaxis=dict(showgrid=True, gridcolor='#f1f5f9', showticklabels=False),
+                        xaxis=dict(showgrid=False, showticklabels=False, zeroline=False),
+                        yaxis=dict(tickfont=dict(size=10), automargin=True),
                         height=280)
                     st.plotly_chart(_fig_edad, use_container_width=True, config={'displayModeBar': False})
                     st.caption("⚠️ Estimado por correlación RUT")
