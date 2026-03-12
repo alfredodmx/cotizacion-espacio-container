@@ -807,6 +807,7 @@ def buscar_direccion(direccion):
 import io as _io_excel
 
 @st.cache_data(ttl=60)
+@st.cache_data(ttl=60)
 def _get_excel_bytes_activo():
     """Descarga el Excel activo desde Supabase Storage. Cache 60s."""
     try:
@@ -5653,7 +5654,6 @@ if st.session_state.modo_admin and tab5 is not None:
                                     supabase.table("excel_versiones").update({"activa": False}).neq("id","00000000-0000-0000-0000-000000000000").execute()
                                     supabase.table("excel_versiones").update({"activa": True}).eq("id", _v["id"]).execute()
                                     _get_excel_bytes_activo.clear()
-                                    _leer_hojas_disponibles.clear()
                                     _leer_hoja_excel.clear()
                                     _leer_bd_total.clear()
                                     cargar_visibilidad_impresion.clear()
