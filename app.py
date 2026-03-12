@@ -6233,72 +6233,72 @@ with tab_dash:
             st.markdown('<div class="section-title">⚤ Género Estimado</div>', unsafe_allow_html=True)
             with st.container(border=True):
                 _total_gen = _nm + _nf + _nd_g
-            if _total_gen > 0:
-                _lbl_g, _val_g, _col_g = [], [], []
-                if _nm: _lbl_g.append('Masculino'); _val_g.append(_nm); _col_g.append('#3b82f6')
-                if _nf: _lbl_g.append('Femenino');  _val_g.append(_nf); _col_g.append('#ec4899')
-                if _nd_g: _lbl_g.append('No det.'); _val_g.append(_nd_g); _col_g.append('#94a3b8')
-                _fig_gen = go.Figure(go.Pie(
-                    labels=_lbl_g, values=_val_g, hole=0.55,
-                    marker=dict(colors=_col_g, line=dict(color='white', width=2)),
-                    textinfo='percent',
-                    hovertemplate='<b>%{label}</b><br>%{value} (%{percent})<extra></extra>',
-                ))
-                _fig_gen.add_annotation(text=f"<b>{_nm+_nf}</b><br>detect.",
-                    x=0.5, y=0.5, showarrow=False,
-                    font=dict(size=13, color='#0f172a'), align='center')
-                _fig_gen.update_layout(**_TMPL,
-                    showlegend=True,
-                    legend=dict(orientation='h', y=-0.15, font=dict(size=9)),
-                    height=280)
-                st.plotly_chart(_fig_gen, use_container_width=True, config={'displayModeBar': False})
-                st.caption("⚠️ Estimado por primer nombre")
-            else:
-                st.info("Sin datos")
+                if _total_gen > 0:
+                    _lbl_g, _val_g, _col_g = [], [], []
+                    if _nm: _lbl_g.append('Masculino'); _val_g.append(_nm); _col_g.append('#3b82f6')
+                    if _nf: _lbl_g.append('Femenino');  _val_g.append(_nf); _col_g.append('#ec4899')
+                    if _nd_g: _lbl_g.append('No det.'); _val_g.append(_nd_g); _col_g.append('#94a3b8')
+                    _fig_gen = go.Figure(go.Pie(
+                        labels=_lbl_g, values=_val_g, hole=0.55,
+                        marker=dict(colors=_col_g, line=dict(color='white', width=2)),
+                        textinfo='percent',
+                        hovertemplate='<b>%{label}</b><br>%{value} (%{percent})<extra></extra>',
+                    ))
+                    _fig_gen.add_annotation(text=f"<b>{_nm+_nf}</b><br>detect.",
+                        x=0.5, y=0.5, showarrow=False,
+                        font=dict(size=13, color='#0f172a'), align='center')
+                    _fig_gen.update_layout(**_TMPL,
+                        showlegend=True,
+                        legend=dict(orientation='h', y=-0.15, font=dict(size=9)),
+                        height=280)
+                    st.plotly_chart(_fig_gen, use_container_width=True, config={'displayModeBar': False})
+                    st.caption("⚠️ Estimado por primer nombre")
+                else:
+                    st.info("Sin datos")
 
         with col_edad:
             st.markdown('<div class="section-title">📅 Rango Etario Est.</div>', unsafe_allow_html=True)
             with st.container(border=True):
                 _re_f = {k: v for k, v in _re.items() if v > 0}
-            if _re_f:
-                _orden_e = ['< 1975 (50+)', '1975-1995 (30-50)', '> 1995 (< 30)', 'No det.']
-                _lbl_e = [k for k in _orden_e if k in _re_f]
-                _val_e = [_re_f[k] for k in _lbl_e]
-                _col_e = ['#7c3aed','#2563eb','#0891b2','#94a3b8'][:len(_lbl_e)]
-                _fig_edad = go.Figure(go.Bar(
-                    x=_lbl_e, y=_val_e,
-                    marker=dict(color=_col_e, line=dict(color='white', width=1)),
-                    text=_val_e, textposition='outside',
-                    hovertemplate='<b>%{x}</b><br>%{y} clientes<extra></extra>',
-                ))
-                _fig_edad.update_layout(**_TMPL,
-                    xaxis=dict(tickfont=dict(size=9), showgrid=False),
-                    yaxis=dict(showgrid=True, gridcolor='#f1f5f9', showticklabels=False),
-                    height=280)
-                st.plotly_chart(_fig_edad, use_container_width=True, config={'displayModeBar': False})
-                st.caption("⚠️ Estimado por correlación RUT")
-            else:
-                st.info("Sin datos")
+                if _re_f:
+                    _orden_e = ['< 1975 (50+)', '1975-1995 (30-50)', '> 1995 (< 30)', 'No det.']
+                    _lbl_e = [k for k in _orden_e if k in _re_f]
+                    _val_e = [_re_f[k] for k in _lbl_e]
+                    _col_e = ['#7c3aed','#2563eb','#0891b2','#94a3b8'][:len(_lbl_e)]
+                    _fig_edad = go.Figure(go.Bar(
+                        x=_lbl_e, y=_val_e,
+                        marker=dict(color=_col_e, line=dict(color='white', width=1)),
+                        text=_val_e, textposition='outside',
+                        hovertemplate='<b>%{x}</b><br>%{y} clientes<extra></extra>',
+                    ))
+                    _fig_edad.update_layout(**_TMPL,
+                        xaxis=dict(tickfont=dict(size=9), showgrid=False),
+                        yaxis=dict(showgrid=True, gridcolor='#f1f5f9', showticklabels=False),
+                        height=280)
+                    st.plotly_chart(_fig_edad, use_container_width=True, config={'displayModeBar': False})
+                    st.caption("⚠️ Estimado por correlación RUT")
+                else:
+                    st.info("Sin datos")
 
         # ── Fila 3: Top empresas ─────────────────────────────
         if _te:
             st.markdown('<div class="section-title">🏢 Top Empresas Cotizantes</div>', unsafe_allow_html=True)
             with st.container(border=True):
                 _emp_n = [x[0] for x in _te]
-            _emp_v = [x[1] for x in _te]
-            _fig_emp = go.Figure(go.Bar(
-                x=_emp_v[::-1], y=_emp_n[::-1], orientation='h',
-                marker=dict(color=_emp_v[::-1],
-                            colorscale=[[0,'#fde68a'],[1,'#d97706']],
-                            showscale=False),
-                text=[str(v) for v in _emp_v[::-1]], textposition='outside',
-                hovertemplate='<b>%{y}</b><br>%{x} cotizaciones<extra></extra>',
-            ))
-            _fig_emp.update_layout(**_TMPL,
-                xaxis=dict(showgrid=False, showticklabels=False, zeroline=False),
-                yaxis=dict(tickfont=dict(size=11)),
-                height=max(200, len(_te) * 38))
-            st.plotly_chart(_fig_emp, use_container_width=True, config={'displayModeBar': False})
+                _emp_v = [x[1] for x in _te]
+                _fig_emp = go.Figure(go.Bar(
+                    x=_emp_v[::-1], y=_emp_n[::-1], orientation='h',
+                    marker=dict(color=_emp_v[::-1],
+                                colorscale=[[0,'#fde68a'],[1,'#d97706']],
+                                showscale=False),
+                    text=[str(v) for v in _emp_v[::-1]], textposition='outside',
+                    hovertemplate='<b>%{y}</b><br>%{x} cotizaciones<extra></extra>',
+                ))
+                _fig_emp.update_layout(**_TMPL,
+                    xaxis=dict(showgrid=False, showticklabels=False, zeroline=False),
+                    yaxis=dict(tickfont=dict(size=11)),
+                    height=max(200, len(_te) * 38))
+                st.plotly_chart(_fig_emp, use_container_width=True, config={'displayModeBar': False})
 
 
 
