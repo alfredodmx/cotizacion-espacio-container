@@ -1119,17 +1119,19 @@ def generar_pdf_log(numero, logs):
                                 _antes   = "—"
                                 _despues = str(_vals)
                             # Formatear valores numéricos como moneda si corresponde
-                            def _fmt_val(v):
+                            _CAMPOS_MONEDA = {'Total', 'Subtotal', 'IVA', 'Margen valor',
+                                             'Comisión', 'Utilidad', 'total', 'subtotal'}
+                            def _fmt_val(v, campo=''):
                                 try:
-                                    _n = float(v)
-                                    if _n == int(_n) and abs(_n) > 100:
+                                    _n = float(str(v).replace('$','').replace('.','').replace(',','.'))
+                                    if abs(_n) > 99:
                                         return "$" + "{:,.0f}".format(_n).replace(",",".")
-                                    return v
-                                except: return v
+                                    return str(v)
+                                except: return str(v)
                             cambios_data.append([
                                 Paragraph(_campo, s_small),
-                                Paragraph(_fmt_val(_antes)[:80], s_small),
-                                Paragraph(_fmt_val(_despues)[:80], s_small),
+                                Paragraph(_fmt_val(_antes, _campo)[:80], s_small),
+                                Paragraph(_fmt_val(_despues, _campo)[:80], s_small),
                             ])
                         if len(cambios_data) > 1:
                             cam_tbl = Table(cambios_data,
