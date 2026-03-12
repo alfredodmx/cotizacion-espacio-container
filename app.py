@@ -6238,7 +6238,7 @@ with tab_dash:
                     _lbl_g, _val_g, _col_g = [], [], []
                     if _nm: _lbl_g.append('Masculino'); _val_g.append(_nm); _col_g.append('#3b82f6')
                     if _nf: _lbl_g.append('Femenino');  _val_g.append(_nf); _col_g.append('#ec4899')
-                    if _nd_g: _lbl_g.append('No det.'); _val_g.append(_nd_g); _col_g.append('#94a3b8')
+                    if _nd_g: _lbl_g.append('No determinado'); _val_g.append(_nd_g); _col_g.append('#94a3b8')
                     _fig_gen = go.Figure(go.Pie(
                         labels=_lbl_g, values=_val_g, hole=0.55,
                         marker=dict(colors=_col_g, line=dict(color='white', width=2)),
