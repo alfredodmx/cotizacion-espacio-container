@@ -3283,19 +3283,24 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
         desc_custom = (_descripciones_ep or {}).get(categoria, '').strip()
         if desc_custom:
             descripcion_html = desc_custom.replace('\n', '<br/>')
+            data_resumen.append([
+                Paragraph(categoria, styles['SmallFont']),
+                Paragraph(descripcion_html, styles['SmallFont'])
+            ])
         else:
             _vis_map = cargar_visibilidad_impresion()
             items_lista = [
                 item for item in grupo['Item'].tolist()
                 if _vis_map.get(str(item).strip().lower(), 'Mostrar') == 'Mostrar'
             ]
+            # Si todos los ítems dicen Ocultar → omitir categoría completa
             if not items_lista:
-                items_lista = grupo['Item'].tolist()  # si todos ocultos, mostrar igual
+                continue
             descripcion_html = "<br/>".join(f"• {item}" for item in items_lista)
-        data_resumen.append([
-            Paragraph(categoria, styles['SmallFont']),
-            Paragraph(descripcion_html, styles['SmallFont'])
-        ])
+            data_resumen.append([
+                Paragraph(categoria, styles['SmallFont']),
+                Paragraph(descripcion_html, styles['SmallFont'])
+            ])
 
     ancho_cat = doc.width * 0.25
     ancho_desc = doc.width * 0.75
