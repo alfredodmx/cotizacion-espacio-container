@@ -5789,6 +5789,46 @@ if st.session_state.modo_admin and tab5 is not None:
                 else:
                     st.info("Haz clic en **Generar CSV** para preparar el archivo.", icon="ℹ️")
 
+        # ── Previsualizador Excel ────────────────────────────
+        st.markdown('<div class="ind-titulo">👁 Vista previa del Excel activo</div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            _prev_activa = next((_v for _v in _versiones if _v.get("activa")), None)
+            if _prev_activa:
+                try:
+                    import pandas as pd
+                    import io as _io
+                    _prev_bytes = _get_excel_bytes_activo()
+                    if _prev_bytes:
+                        _xls = pd.ExcelFile(_io.BytesIO(_prev_bytes))
+                        _hojas_disp = _xls.sheet_names
+                        _col_sel, _col_info = st.columns([2, 3])
+                        with _col_sel:
+                            _hoja_sel = st.selectbox(
+                                "Hoja a previsualizar",
+                                options=_hojas_disp,
+                                key="prev_hoja_sel",
+                                label_visibility="collapsed"
+                            )
+                        with _col_info:
+                            st.caption(f"📊 **{len(_hojas_disp)} hojas** en la versión activa · **{_prev_activa['version_nombre']}**")
+                        if _hoja_sel:
+                            _df_prev = pd.read_excel(_io.BytesIO(_prev_bytes), sheet_name=_hoja_sel, header=None)
+                            _df_prev = _df_prev.dropna(how='all').fillna('')
+                            _df_str = _df_prev.astype(str).replace('nan','').replace('0.0','')
+                            st.dataframe(
+                                _df_str.head(40),
+                                use_container_width=True,
+                                hide_index=True,
+                                height=320
+                            )
+                            st.caption(f"Mostrando hasta 40 filas · {len(_df_prev)} filas totales en esta hoja")
+                    else:
+                        st.info("No se pudo cargar el archivo Excel activo.", icon="⚠️")
+                except Exception as _pe:
+                    st.error(f"Error al previsualizar: {_pe}")
+            else:
+                st.info("Activa una versión para poder previsualizarla.", icon="📂")
+
         # ── Barra de estado ──────────────────────────────────
         _activa_info = next((_v for _v in _versiones if _v.get("activa")), None)
         if _activa_info:
