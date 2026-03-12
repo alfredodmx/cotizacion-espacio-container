@@ -4190,19 +4190,21 @@ with tab3:
         df_resultados = pd.DataFrame(_rows_norm, columns=_cols_esperadas)
         df_resultados["Total"] = df_resultados["Total"].apply(lambda x: f"${x:,.0f}".replace(",", ".") if x else "$0")
         def _fmt_fecha(x):
-            """Para la tabla HTML: fecha en negrita + hora en gris."""
+            """Para la tabla HTML: fecha en negrita + hora en gris — zona horaria Chile."""
             if not x: return ""
             try:
-                from datetime import datetime as _dt
-                _d = _dt.fromisoformat(x.replace("Z","").split("+")[0])
+                from datetime import datetime as _dt, timezone, timedelta
+                _tz_cl = timezone(timedelta(hours=-3))
+                _d = _dt.fromisoformat(x.replace("Z","+00:00")).astimezone(_tz_cl)
                 return f'<span style="font-weight:700;">{_d.strftime("%d/%m/%Y")}</span><br><span style="font-size:0.75em;color:#64748b;">{_d.strftime("%H:%M")}</span>'
             except: return x[:10]
         def _fmt_fecha_plana(x):
-            """Para el selectbox: texto limpio sin HTML."""
+            """Para el selectbox: texto limpio sin HTML — zona horaria Chile."""
             if not x: return ""
             try:
-                from datetime import datetime as _dt
-                _d = _dt.fromisoformat(x.replace("Z","").split("+")[0])
+                from datetime import datetime as _dt, timezone, timedelta
+                _tz_cl = timezone(timedelta(hours=-3))
+                _d = _dt.fromisoformat(x.replace("Z","+00:00")).astimezone(_tz_cl)
                 return _d.strftime("%d/%m/%Y %H:%M")
             except: return x[:10]
         df_resultados["FechaPlana"] = df_resultados["Fecha"].apply(_fmt_fecha_plana)
@@ -4230,7 +4232,7 @@ with tab3:
             <div style="overflow-y:auto;max-height:{altura_tabla}px;">
                 <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
-                        <tr><th>N° Presupuesto</th><th>Cliente</th><th>Asesor</th><th>Fecha</th><th>Total</th><th>Estado</th><th>Empresa</th><th>Margen</th><th>Contrato</th><th>Plano</th><th>Modif.</th></tr>
+                        <tr><th>N° Presupuesto</th><th>Cliente</th><th>Asesor</th><th>Fecha de creación</th><th>Total</th><th>Estado</th><th>Empresa</th><th>Margen</th><th>Contrato</th><th>Plano</th><th>Modif.</th></tr>
                     </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
