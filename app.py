@@ -872,6 +872,72 @@ def cargar_categoria_desde_modelo(nombre_hoja, categoria_objetivo):
         })
     return categoria_items
 
+
+# =========================================================
+# SISTEMA DE AUDITORÍA / LOGS DE MODIFICACIONES
+# =========================================================
+def registrar_log(numero, asesor, tipo_cambio, detalle_dict):
+    """Inserta un registro en cotizacion_logs."""
+    try:
+        supabase.table('cotizacion_logs').insert({
+            'numero': numero,
+            'asesor': asesor,
+            'tipo_cambio': tipo_cambio,
+            'detalle': detalle_dict,
+        }).execute()
+    except Exception as e:
+        pass  # El log no debe interrumpir el flujo principal
+
+def contar_logs(numeros):
+    """Devuelve dict {numero: count} para una lista de números EP."""
+    if not numeros:
+        return {}
+    try:
+        resp = supabase.table('cotizacion_logs').select('numero').in_('numero', numeros).execute()
+        counts = {}
+        for row in resp.data:
+            n = row['numero']
+            counts[n] = counts.get(n, 0) + 1
+        return counts
+    except:
+        return {}
+
+def obtener_logs_ep(numero):
+    """Devuelve lista de logs ordenados por fecha DESC para un EP."""
+    try:
+        resp = supabase.table('cotizacion_logs') \
+            .select('*').eq('numero', numero) \
+            .order('fecha', desc=True).execute()
+        return resp.data or []
+    except:
+        return []
+
+def _diff_datos(anterior, nuevo):
+    """Compara dos dicts y devuelve solo los campos que cambiaron."""
+    LABELS = {
+        'cliente_nombre': 'Nombre cliente', 'cliente_rut': 'RUT cliente',
+        'cliente_email': 'Correo', 'cliente_telefono': 'Teléfono',
+        'cliente_direccion': 'Dirección cliente', 'cliente_comuna': 'Comuna cliente',
+        'cliente_region': 'Región cliente', 'proyecto_direccion': 'Dirección instalación',
+        'proyecto_comuna': 'Comuna instalación', 'proyecto_region': 'Región instalación',
+        'cliente_tipo': 'Tipo cliente', 'cliente_empresa': 'Empresa',
+        'cliente_rut_empresa': 'RUT empresa', 'asesor_nombre': 'Asesor',
+        'config_margen': 'Margen %', 'total_total': 'Total',
+        'proyecto_observaciones': 'Observaciones', 'estado': 'Estado',
+        'productos': 'Productos/carrito',
+    }
+    cambios = {}
+    for k, label in LABELS.items():
+        v_ant = str(anterior.get(k, '') or '')
+        v_new = str(nuevo.get(k, '') or '')
+        if k == 'productos':
+            # Solo marcar si cambia, no mostrar JSON completo
+            if v_ant != v_new:
+                cambios[label] = {'antes': '(carrito anterior)', 'despues': '(carrito actualizado)'}
+        elif v_ant != v_new:
+            cambios[label] = {'antes': v_ant or '—', 'despues': v_new or '—'}
+    return cambios
+
 # =========================================================
 # FUNCIONES DE SUPABASE PARA COTIZACIONES
 # =========================================================
@@ -948,10 +1014,27 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
         }
 
         if existe:
+            _anterior = response.data[0]
             response = supabase.table('cotizaciones').update(data).eq('numero', numero).execute()
+            # Registrar log de modificación con diff
+            _cambios = _diff_datos(_anterior, data)
+            if _cambios:
+                registrar_log(
+                    numero=numero,
+                    asesor=str(asesor.get('Nombre Ejecutivo', '') or 'Sistema'),
+                    tipo_cambio='modificacion',
+                    detalle_dict=_cambios
+                )
         else:
             data['fecha_creacion'] = fecha_actual
             response = supabase.table('cotizaciones').insert(data).execute()
+            # Registrar log de creación
+            registrar_log(
+                numero=numero,
+                asesor=str(asesor.get('Nombre Ejecutivo', '') or 'Sistema'),
+                tipo_cambio='creacion',
+                detalle_dict={'mensaje': f'Cotización {numero} creada'}
+            )
 
         return True
     except Exception as e:
@@ -1023,6 +1106,10 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
                 1 if row.get('contrato_generado') else 0,
                 row.get('cliente_empresa', '') or ''
             ))
+        # Agregar conteo de logs
+        numeros_ep = [r[0] for r in resultados]
+        _log_counts = contar_logs(numeros_ep)
+        resultados = [r + (_log_counts.get(r[0], 0),) for r in resultados]
         return resultados
     except Exception as e:
         st.error(f"Error en búsqueda: {e}")
@@ -3746,7 +3833,7 @@ with tab3:
         st.rerun()
 
     if st.session_state.resultados_busqueda:
-        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa"]
+        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa", "NLogs"]
         _rows_norm = []
         for _r in st.session_state.resultados_busqueda:
             _r = list(_r)
@@ -3778,6 +3865,8 @@ with tab3:
         df_resultados["MargenCol"]= df_resultados["Margen"].apply(lambda x: "✅ Sí" if x and x > 0 else "—")
         df_resultados["ContratoCol"] = df_resultados["Tiene_Contrato"].apply(lambda x: "✅ Sí" if x else "—")
         df_resultados["EmpresaCol"] = df_resultados["Empresa"].apply(lambda x: "✅ Sí" if x and x.strip() else "—")
+        df_resultados["ModCol"] = df_resultados["NLogs"].apply(
+            lambda x: f'<span style="font-weight:700;color:#3b82f6;">{x}</span>' if x > 0 else '<span style="color:#94a3b8;">0</span>')
 
         n_resultados = len(df_resultados)
         altura_tabla = min(n_resultados * 48 + 50, 530)  # ~10 filas = 530px máx
@@ -3787,14 +3876,14 @@ with tab3:
             _mg_color = 'color:#16a34a;font-weight:700;' if row['MargenCol'] == '✅ Sí' else 'color:#94a3b8;'
             _ct_color = 'color:#16a34a;font-weight:700;' if row['ContratoCol'] == '✅ Sí' else 'color:#94a3b8;'
             _emp_color = 'color:#16a34a;font-weight:700;' if row['EmpresaCol'] == '✅ Sí' else 'color:#94a3b8;'
-            rows_html += f"<tr><td>{row['N°']}</td><td>{row['Cliente'] or '—'}</td><td>{row['Asesor'] or '—'}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td>{row['Total']}</td><td style='text-align:center;'>{row['Estado']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td><td style='text-align:center;{_mg_color}'>{row['MargenCol']}</td><td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;font-size:1.1rem;'>{row['Plano']}</td></tr>"
+            rows_html += f"<tr><td>{row['N°']}</td><td>{row['Cliente'] or '—'}</td><td>{row['Asesor'] or '—'}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td>{row['Total']}</td><td style='text-align:center;'>{row['Estado']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td><td style='text-align:center;{_mg_color}'>{row['MargenCol']}</td><td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;font-size:1.1rem;'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td></tr>"
 
         html_table = f"""
         <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;">
             <div style="overflow-y:auto;max-height:{altura_tabla}px;">
                 <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
-                        <tr><th>N° Presupuesto</th><th>Cliente</th><th>Asesor</th><th>Fecha</th><th>Total</th><th>Estado</th><th>Empresa</th><th>Margen</th><th>Contrato</th><th>Plano</th></tr>
+                        <tr><th>N° Presupuesto</th><th>Cliente</th><th>Asesor</th><th>Fecha</th><th>Total</th><th>Estado</th><th>Empresa</th><th>Margen</th><th>Contrato</th><th>Plano</th><th>Modif.</th></tr>
                     </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
@@ -3861,6 +3950,43 @@ with tab3:
 
                 if tiene_margen_seleccionado and not st.session_state.modo_admin:
                     st.warning("🔒 Cotización autorizada - Solo puedes generar PDFs")
+
+                # ── Botón descargar log de modificaciones ──
+                _logs_ep = obtener_logs_ep(numero_seleccionado)
+                if _logs_ep:
+                    import io as _io
+                    import csv as _csv
+                    _buf = _io.StringIO()
+                    _wr  = _csv.writer(_buf)
+                    _wr.writerow(["Fecha", "Asesor", "Tipo", "Campo", "Antes", "Después"])
+                    for _lg in _logs_ep:
+                        _fecha_lg = _lg.get("fecha","")[:19].replace("T"," ")
+                        _asesor_lg = _lg.get("asesor","")
+                        _tipo_lg   = _lg.get("tipo_cambio","")
+                        _det = _lg.get("detalle", {})
+                        if isinstance(_det, dict):
+                            if "mensaje" in _det:
+                                _wr.writerow([_fecha_lg, _asesor_lg, _tipo_lg, "—", "—", _det["mensaje"]])
+                            else:
+                                for _campo, _vals in _det.items():
+                                    if isinstance(_vals, dict):
+                                        _wr.writerow([_fecha_lg, _asesor_lg, _tipo_lg, _campo, _vals.get("antes","—"), _vals.get("despues","—")])
+                                    else:
+                                        _wr.writerow([_fecha_lg, _asesor_lg, _tipo_lg, _campo, "—", str(_vals)])
+                        else:
+                            _wr.writerow([_fecha_lg, _asesor_lg, _tipo_lg, "—", "—", str(_det)])
+                    _csv_bytes = _buf.getvalue().encode("utf-8-sig")
+                    _n_mods = len([l for l in _logs_ep if l.get("tipo_cambio") == "modificacion"])
+                    st.download_button(
+                        label=f"📋 Descargar log ({len(_logs_ep)} registros · {_n_mods} modif.)",
+                        data=_csv_bytes,
+                        file_name=f"log_{numero_seleccionado}.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                        key="btn_download_log"
+                    )
+                else:
+                    st.caption("📋 Sin registros de modificaciones aún")
 
             st.markdown("---")
             st.markdown("### Acciones")
