@@ -6159,8 +6159,8 @@ with tab_dash:
         # ── Fila 1: Comunas + Regiones ──────────────────────
         col_com, col_reg = st.columns(2)
 
-        st.markdown('<div class="section-title">📍 Top Comunas & 🗺️ Top Regiones</div>', unsafe_allow_html=True)
         with col_com:
+            st.markdown('<div class="section-title">📍 Top Comunas</div>', unsafe_allow_html=True)
             if _tc:
                 _coms   = [x[0] for x in _tc]
                 _vals_c = [x[1] for x in _tc]
@@ -6180,6 +6180,7 @@ with tab_dash:
                 st.info("Sin datos de comunas aún")
 
         with col_reg:
+            st.markdown('<div class="section-title">🗺️ Top Regiones</div>', unsafe_allow_html=True)
             if _tr:
                 _regs   = [x[0] for x in _tr]
                 _vals_r = [x[1] for x in _tr]
@@ -6199,10 +6200,10 @@ with tab_dash:
                 st.info("Sin datos de regiones aún")
 
         # ── Fila 2: Tipo cliente + Género + Rango etario ────
-        st.markdown('<div class="section-title">🏢 Tipo Cliente · ⚤ Género Est. · 📅 Rango Etario Est.</div>', unsafe_allow_html=True)
         col_tipo, col_gen, col_edad = st.columns(3)
 
         with col_tipo:
+            st.markdown('<div class="section-title">🏢 Tipo Cliente</div>', unsafe_allow_html=True)
             _total_tipo = _nn + _nj
             if _total_tipo > 0:
                 _fig_tipo = go.Figure(go.Pie(
@@ -6225,6 +6226,7 @@ with tab_dash:
                 st.info("Sin datos")
 
         with col_gen:
+            st.markdown('<div class="section-title">⚤ Género Estimado</div>', unsafe_allow_html=True)
             _total_gen = _nm + _nf + _nd_g
             if _total_gen > 0:
                 _lbl_g, _val_g, _col_g = [], [], []
@@ -6250,6 +6252,7 @@ with tab_dash:
                 st.info("Sin datos")
 
         with col_edad:
+            st.markdown('<div class="section-title">📅 Rango Etario Est.</div>', unsafe_allow_html=True)
             _re_f = {k: v for k, v in _re.items() if v > 0}
             if _re_f:
                 _orden_e = ['< 1975 (50+)', '1975-1995 (30-50)', '> 1995 (< 30)', 'No det.']
