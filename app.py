@@ -1362,26 +1362,34 @@ def exportar_csv_completo():
     try:
         response = supabase.table('cotizaciones').select(
             'numero', 'fecha_creacion', 'fecha_modificacion',
-            'cliente_nombre', 'cliente_rut', 'cliente_email', 'cliente_telefono', 'cliente_direccion',
+            'cliente_nombre', 'cliente_rut', 'cliente_email', 'cliente_telefono',
+            'cliente_direccion', 'cliente_comuna', 'cliente_region',
+            'cliente_tipo', 'cliente_empresa', 'cliente_rut_empresa',
+            'proyecto_direccion', 'proyecto_comuna', 'proyecto_region',
             'asesor_nombre', 'asesor_email', 'asesor_telefono',
             'config_margen',
             'total_subtotal_sin_margen', 'total_subtotal_con_margen',
             'total_iva', 'total_total', 'total_margen_valor',
             'total_comision_vendedor', 'total_comision_supervisor', 'total_utilidad_real',
-            'estado', 'plano_nombre', 'plano_url'
+            'estado', 'plano_nombre', 'plano_url',
+            'contrato_generado', 'contrato_fecha'
         ).order('fecha_creacion', desc=True).execute()
         if not response.data:
             return None
         df = pd.DataFrame(response.data)
         df.columns = [
             'N° Presupuesto', 'Fecha Creación', 'Fecha Modificación',
-            'Cliente', 'RUT', 'Email Cliente', 'Teléfono Cliente', 'Dirección',
+            'Cliente', 'RUT', 'Email Cliente', 'Teléfono Cliente',
+            'Dirección Cliente', 'Comuna Cliente', 'Región Cliente',
+            'Tipo Cliente', 'Empresa', 'RUT Empresa',
+            'Dirección Proyecto', 'Comuna Proyecto', 'Región Proyecto',
             'Asesor', 'Email Asesor', 'Teléfono Asesor',
             'Margen %',
             'Subtotal sin Margen', 'Subtotal con Margen',
             'IVA', 'Total con IVA', 'Valor Margen',
             'Comisión Vendedor', 'Comisión Supervisor', 'Utilidad Real',
-            'Estado', 'Nombre Plano', 'URL Plano'
+            'Estado', 'Nombre Plano', 'URL Plano',
+            'Contrato Generado', 'Fecha Contrato'
         ]
         return df.to_csv(index=False).encode('utf-8-sig')
     except Exception as e:
