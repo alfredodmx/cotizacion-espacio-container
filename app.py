@@ -1016,8 +1016,9 @@ def generar_pdf_log(numero, logs):
 
     story = []
 
-    from datetime import datetime as _dt
-    _ahora = _dt.now().strftime("%d/%m/%Y %H:%M")
+    from datetime import datetime as _dt, timezone, timedelta
+    _tz_chile = timezone(timedelta(hours=-3))  # Chile Central (CLST verano) / usar -4 en invierno
+    _ahora = _dt.now(_tz_chile).strftime("%d/%m/%Y %H:%M")
     _n_mods = len([l for l in logs if l.get("tipo_cambio") == "modificacion"])
     _n_total = len(logs)
 
@@ -1049,21 +1050,36 @@ def generar_pdf_log(numero, logs):
         # Agrupar por fecha (solo día)
         from collections import OrderedDict
         grupos = OrderedDict()
+        from datetime import datetime as _dt3, timezone, timedelta
+        _tz_cl = timezone(timedelta(hours=-3))
         for lg in logs:
-            _f = lg.get("fecha","")[:10]
+            try:
+                _dt_utc2 = _dt3.fromisoformat(lg.get("fecha","").replace("Z","+00:00"))
+                _f = _dt_utc2.astimezone(_tz_cl).strftime("%Y-%m-%d")
+            except:
+                _f = lg.get("fecha","")[:10]
             grupos.setdefault(_f, []).append(lg)
 
         for fecha_grupo, items in grupos.items():
+            _MESES_ES = {1:"enero",2:"febrero",3:"marzo",4:"abril",5:"mayo",
+                         6:"junio",7:"julio",8:"agosto",9:"septiembre",
+                         10:"octubre",11:"noviembre",12:"diciembre"}
             try:
                 _fd = _dt.fromisoformat(fecha_grupo)
-                _titulo_fecha = _fd.strftime("%d de %B de %Y").capitalize()
+                _titulo_fecha = f"{_fd.day} de {_MESES_ES[_fd.month]} de {_fd.year}"
             except:
                 _titulo_fecha = fecha_grupo
 
             story.append(Paragraph(f"  {_titulo_fecha}", s_seccion))
 
             for lg in items:
-                _hora  = lg.get("fecha","")[11:16]
+                try:
+                    from datetime import datetime as _dt2, timezone, timedelta
+                    _tz_chile = timezone(timedelta(hours=-3))
+                    _dt_utc = _dt2.fromisoformat(lg.get("fecha","").replace("Z","+00:00"))
+                    _hora  = _dt_utc.astimezone(_tz_chile).strftime("%H:%M")
+                except:
+                    _hora  = lg.get("fecha","")[11:16]
                 _asesor = lg.get("asesor","") or "Sistema"
                 _tipo  = lg.get("tipo_cambio","").upper()
                 _det   = lg.get("detalle", {})
@@ -1102,10 +1118,18 @@ def generar_pdf_log(numero, logs):
                             else:
                                 _antes   = "—"
                                 _despues = str(_vals)
+                            # Formatear valores numéricos como moneda si corresponde
+                            def _fmt_val(v):
+                                try:
+                                    _n = float(v)
+                                    if _n == int(_n) and abs(_n) > 100:
+                                        return "$" + "{:,.0f}".format(_n).replace(",",".")
+                                    return v
+                                except: return v
                             cambios_data.append([
                                 Paragraph(_campo, s_small),
-                                Paragraph(_antes[:80], s_small),
-                                Paragraph(_despues[:80], s_small),
+                                Paragraph(_fmt_val(_antes)[:80], s_small),
+                                Paragraph(_fmt_val(_despues)[:80], s_small),
                             ])
                         if len(cambios_data) > 1:
                             cam_tbl = Table(cambios_data,
