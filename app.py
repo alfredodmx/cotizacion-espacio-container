@@ -3067,6 +3067,26 @@ def _construir_texto_cliente_pdf(datos_cliente, style):
         lines.append(f"<b>Dirección instalación:</b> {inst_completa}")
     return Paragraph("<br/>".join(lines), style)
 
+
+@st.cache_data(ttl=300)
+def cargar_visibilidad_impresion():
+    """Carga hoja Impresion del Excel activo. Retorna dict {item_lower: 'Mostrar'|'Ocultar'}."""
+    try:
+        import openpyxl as _opx
+        _src = _get_excel_bytes_activo()
+        _wb  = _opx.load_workbook(_src, data_only=True, read_only=True)
+        if 'Impresion' not in _wb.sheetnames:
+            return {}
+        _ws = _wb['Impresion']
+        _vis = {}
+        for _row in _ws.iter_rows(min_row=2, values_only=True):
+            _item, _cat, _pdf = (_row[0], _row[1], _row[2]) if len(_row) >= 3 else (None, None, None)
+            if _item and _pdf:
+                _vis[str(_item).strip().lower()] = str(_pdf).strip()
+        return _vis
+    except:
+        return {}
+
 def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
                      fecha_inicio, fecha_termino, dias_validez,
                      datos_asesor, margen=0, numero_cotizacion=None):
@@ -3264,7 +3284,13 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
         if desc_custom:
             descripcion_html = desc_custom.replace('\n', '<br/>')
         else:
-            items_lista = grupo['Item'].tolist()
+            _vis_map = cargar_visibilidad_impresion()
+            items_lista = [
+                item for item in grupo['Item'].tolist()
+                if _vis_map.get(str(item).strip().lower(), 'Mostrar') != 'Ocultar'
+            ]
+            if not items_lista:
+                items_lista = grupo['Item'].tolist()  # si todos ocultos, mostrar igual
             descripcion_html = "<br/>".join(f"• {item}" for item in items_lista)
         data_resumen.append([
             Paragraph(categoria, styles['SmallFont']),
