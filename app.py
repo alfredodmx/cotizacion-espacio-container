@@ -1123,9 +1123,10 @@ def generar_pdf_log(numero, logs):
                                              'Comisión', 'Utilidad', 'total', 'subtotal'}
                             def _fmt_val(v, campo=''):
                                 try:
-                                    _n = float(str(v).replace('$','').replace('.','').replace(',','.'))
+                                    # El valor viene directo de Python float: ej 4055455.53
+                                    _n = float(str(v).replace('$','').strip())
                                     if abs(_n) > 99:
-                                        return "$" + "{:,.0f}".format(_n).replace(",",".")
+                                        return "$" + "{:,.0f}".format(round(_n)).replace(",",".")
                                     return str(v)
                                 except: return str(v)
                             cambios_data.append([
