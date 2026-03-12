@@ -3097,8 +3097,9 @@ def cargar_ranking_ejecutivos(periodo='mes'):
 if st.session_state.modo_admin:
     tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5 = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL"])
 else:
-    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4 = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA"])
+    tab_dash, tab1, tab2, tab3, tab7, tab_contrato, tab4 = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA"])
     tab5 = None
+    tab6 = None
 
 # =========================================================
 # FUNCIÓN PARA GENERAR PDF COMPLETO
