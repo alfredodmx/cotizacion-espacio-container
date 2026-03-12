@@ -5660,7 +5660,9 @@ if st.session_state.modo_admin and tab5 is not None:
                     with st.spinner("⏳ Subiendo archivo a Supabase..."):
                         try:
                             import datetime as _dt
-                            _ts = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+                            import pytz as _pytz
+                            _tz_cl = _pytz.timezone("America/Santiago")
+                            _ts = _dt.datetime.now(_tz_cl).strftime("%Y%m%d_%H%M%S")
                             _nombre_archivo = f"cotizador_{_ts}.xlsx"
                             _excel_bytes = _excel_file.read()
 
@@ -5702,7 +5704,14 @@ if st.session_state.modo_admin and tab5 is not None:
         else:
             for _v in _versiones:
                 _es_activa = _v.get("activa", False)
-                _fecha = str(_v.get("fecha_subida",""))[:16].replace("T"," ")
+                try:
+                    import pytz as _pytz_v; from datetime import datetime as _dtv
+                    _tz_cl_v = _pytz_v.timezone("America/Santiago")
+                    _raw_f = str(_v.get("fecha_subida",""))
+                    _dtobj = _dtv.fromisoformat(_raw_f.replace("Z","+00:00"))
+                    _fecha = _dtobj.astimezone(_tz_cl_v).strftime("%d/%m/%Y %H:%M")
+                except:
+                    _fecha = str(_v.get("fecha_subida",""))[:16].replace("T"," ")
 
                 _cv1, _cv2, _cv3, _cv4 = st.columns([3, 2.5, 1.5, 0.6])
 
@@ -5777,7 +5786,9 @@ if st.session_state.modo_admin and tab5 is not None:
             with _col_csv_info:
                 if st.session_state.get('_csv_listo'):
                     from datetime import datetime as _dt
-                    _fname = f"cotizaciones_backup_{_dt.now().strftime('%Y%m%d_%H%M')}.csv"
+                    import pytz as _pytz2
+                    _tz_cl2 = _pytz2.timezone("America/Santiago")
+                    _fname = f"cotizaciones_backup_{_dt.now(_tz_cl2).strftime('%Y%m%d_%H%M')}.csv"
                     st.download_button(
                         label="⬇️ Descargar CSV",
                         data=st.session_state._csv_listo,
@@ -5834,7 +5845,13 @@ if st.session_state.modo_admin and tab5 is not None:
         # ── Barra de estado ──────────────────────────────────
         _activa_info = next((_v for _v in _versiones if _v.get("activa")), None)
         if _activa_info:
-            _fa = str(_activa_info.get("fecha_subida",""))[:16].replace("T"," ")
+            try:
+                import pytz as _pytz_fa; from datetime import datetime as _dtfa
+                _raw_fa = str(_activa_info.get("fecha_subida",""))
+                _dtfa_obj = _dtfa.fromisoformat(_raw_fa.replace("Z","+00:00"))
+                _fa = _dtfa_obj.astimezone(_pytz_fa.timezone("America/Santiago")).strftime("%d/%m/%Y %H:%M")
+            except:
+                _fa = str(_activa_info.get("fecha_subida",""))[:16].replace("T"," ")
             st.markdown(
                 f'<div style="background:linear-gradient(90deg,rgba(16,185,129,0.12),rgba(16,185,129,0.03));'
                 f'border:1px solid #10b981;border-radius:10px;padding:14px 20px;margin-top:12px;'
