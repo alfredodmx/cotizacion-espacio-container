@@ -943,180 +943,179 @@ def _diff_datos(anterior, nuevo):
 
 
 def generar_pdf_log(numero, logs):
-    """PDF de auditoría estilo terminal/log profesional."""
+    """PDF de auditoría — diseño limpio tipo registro de cambios."""
     import io as _io, os as _os
     from datetime import datetime as _dt, timezone, timedelta
     from collections import OrderedDict
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
-    from reportlab.lib.units import cm, mm
+    from reportlab.lib.units import cm
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
     from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
-                                    Table, TableStyle, HRFlowable, KeepTogether)
-    from reportlab.pdfgen import canvas as _canvas_mod
+                                    Table, TableStyle, KeepTogether)
 
-    # ── Paleta ──────────────────────────────────────────────
-    C_BG        = colors.HexColor('#0d1117')   # fondo header tipo terminal
-    C_VERDE     = colors.HexColor('#3fb950')   # creación
-    C_AZUL      = colors.HexColor('#58a6ff')   # modificación / acento
-    C_AMARILLO  = colors.HexColor('#d29922')   # advertencia
-    C_GRIS_OSC  = colors.HexColor('#21262d')   # fila impar tabla
-    C_GRIS_MED  = colors.HexColor('#30363d')   # borde
-    C_GRIS_CLR  = colors.HexColor('#8b949e')   # texto secundario
-    C_BLANCO    = colors.white
-    C_ANTES     = colors.HexColor('#ffdcd7')   # antes (rojo suave)
-    C_DESPUES   = colors.HexColor('#ccffd8')   # después (verde suave)
-    C_ANTES_TXT = colors.HexColor('#cf222e')
-    C_DESPUES_TXT = colors.HexColor('#1a7f37')
-    C_LINE      = colors.HexColor('#e6edf3')   # línea separadora clara
-    C_HEADER_BG = colors.HexColor('#f6f8fa')   # fondo header tabla
+    # ── Paleta ───────────────────────────────────────────────
+    C_BG       = colors.HexColor('#0d1117')
+    C_AZUL     = colors.HexColor('#58a6ff')
+    C_VERDE    = colors.HexColor('#3fb950')
+    C_AMARILLO = colors.HexColor('#d29922')
+    C_GRIS     = colors.HexColor('#8b949e')
+    C_LINE     = colors.HexColor('#e2e8f0')
+    C_HDR_BG   = colors.HexColor('#f6f8fa')
+    C_ANTES    = colors.HexColor('#ffdcd7')
+    C_DESPUES  = colors.HexColor('#ccffd8')
+    C_ANT_TXT  = colors.HexColor('#cf222e')
+    C_DEP_TXT  = colors.HexColor('#1a7f37')
 
-    _tz = timezone(timedelta(hours=-3))
+    _tz    = timezone(timedelta(hours=-3))
     _ahora = _dt.now(_tz).strftime("%d/%m/%Y %H:%M")
     _n_mods = len([l for l in logs if l.get("tipo_cambio") == "modificacion"])
     _n_crea = len([l for l in logs if l.get("tipo_cambio") == "creacion"])
     _n_total = len(logs)
-
     _MESES = {1:"enero",2:"febrero",3:"marzo",4:"abril",5:"mayo",6:"junio",
               7:"julio",8:"agosto",9:"septiembre",10:"octubre",11:"noviembre",12:"diciembre"}
 
     def _fmt_val(v):
         try:
-            _n = float(str(v).replace('$','').strip())
+            _n = float(str(v).replace("$","").strip())
             if abs(_n) > 99:
                 return "$" + "{:,.0f}".format(round(_n)).replace(",",".")
             return str(v)
         except: return str(v) if v else "—"
 
-    def _hora_chile(fecha_str):
+    def _hora_chile(fs):
         try:
-            _d = _dt.fromisoformat(fecha_str.replace("Z","+00:00"))
-            return _d.astimezone(_tz).strftime("%H:%M")
-        except: return fecha_str[11:16]
+            return _dt.fromisoformat(fs.replace("Z","+00:00")).astimezone(_tz).strftime("%H:%M")
+        except: return fs[11:16]
 
-    def _fecha_chile(fecha_str):
+    def _fecha_chile(fs):
         try:
-            _d = _dt.fromisoformat(fecha_str.replace("Z","+00:00"))
-            return _d.astimezone(_tz).strftime("%Y-%m-%d")
-        except: return fecha_str[:10]
+            return _dt.fromisoformat(fs.replace("Z","+00:00")).astimezone(_tz).strftime("%Y-%m-%d")
+        except: return fs[:10]
 
     buf = _io.BytesIO()
+    PW, PH = A4
+    ML = MR = 2.2*cm
+    TM = 2.8*cm   # espacio suficiente para banda + margen
+    BM = 2.0*cm
 
-    # ── Header/Footer canvas ─────────────────────────────────
+    # ── Header / Footer ──────────────────────────────────────
     def _hf(cv, doc):
         cv.saveState()
         pw, ph = doc.pagesize
-        ml, mr = doc.leftMargin, doc.rightMargin
 
-        # Banda superior oscura
+        # Banda oscura — altura fija 1.4cm pegada al borde superior
+        banda_h = 1.4*cm
         cv.setFillColor(C_BG)
-        cv.rect(0, ph - 1.6*cm, pw, 1.6*cm, fill=1, stroke=0)
+        cv.rect(0, ph - banda_h, pw, banda_h, fill=1, stroke=0)
 
-        # Logo dentro de la banda
+        # Logo centrado dentro de la banda
         if _os.path.exists("logo.png"):
             from reportlab.lib.utils import ImageReader
             _img = ImageReader("logo.png")
             _iw, _ih = _img.getSize()
-            _lw = 2.8*cm
+            _lw = 2.6*cm
             _lh = _lw * (_ih / float(_iw))
-            cv.drawImage(_img, x=(pw-_lw)/2,
-                         y=ph - 1.6*cm + (1.6*cm - _lh)/2,
+            _ly = ph - banda_h + (banda_h - _lh) / 2
+            cv.drawImage(_img, x=(pw - _lw)/2, y=_ly,
                          width=_lw, height=_lh,
-                         preserveAspectRatio=True, mask='auto')
+                         preserveAspectRatio=True, mask="auto")
 
-        # Etiqueta izquierda en banda
-        cv.setFont("Helvetica-Bold", 7)
-        cv.setFillColor(C_GRIS_CLR)
-        cv.drawString(ml, ph - 0.95*cm, "AUDIT LOG")
+        # Etiquetas laterales dentro de la banda
+        cv.setFont("Helvetica-Bold", 6.5)
+        cv.setFillColor(C_GRIS)
+        cv.drawString(ML, ph - banda_h/2 - 2.5, "AUDIT LOG")
+        cv.setFont("Helvetica", 6.5)
+        cv.drawRightString(pw - MR, ph - banda_h/2 - 2.5, numero)
 
-        # Número EP derecha en banda
-        cv.setFont("Helvetica", 7)
-        cv.drawRightString(pw - mr, ph - 0.95*cm, numero)
-
-        # Línea acento azul bajo la banda
+        # Línea azul fina separando banda del contenido
         cv.setStrokeColor(C_AZUL)
-        cv.setLineWidth(1.5)
-        cv.line(0, ph - 1.6*cm, pw, ph - 1.6*cm)
+        cv.setLineWidth(1.2)
+        cv.line(ML, ph - banda_h - 1, pw - MR, ph - banda_h - 1)
 
         # Footer
         cv.setStrokeColor(C_LINE)
         cv.setLineWidth(0.4)
-        cv.line(ml, 1.4*cm, pw - mr, 1.4*cm)
-        cv.setFont("Helvetica", 7)
-        cv.setFillColor(C_GRIS_CLR)
-        cv.drawString(ml, 0.9*cm,
+        cv.line(ML, BM - 0.1*cm, pw - MR, BM - 0.1*cm)
+        cv.setFont("Helvetica", 6.5)
+        cv.setFillColor(C_GRIS)
+        cv.drawString(ML, BM - 0.45*cm,
             "Inversiones Container House SpA  ·  RUT 78.268.851-0  ·  Documento interno confidencial")
-        cv.drawRightString(pw - mr, 0.9*cm, f"Página {doc.page}  ·  {_ahora}")
+        cv.drawRightString(pw - MR, BM - 0.45*cm, f"Pág. {doc.page}  ·  {_ahora}")
         cv.restoreState()
 
     doc = SimpleDocTemplate(buf, pagesize=A4,
-                            leftMargin=2.2*cm, rightMargin=2.2*cm,
-                            topMargin=2.4*cm, bottomMargin=2.0*cm)
+                            leftMargin=ML, rightMargin=MR,
+                            topMargin=TM, bottomMargin=BM)
 
     base = getSampleStyleSheet()
-
     def _sty(name, **kw):
-        return ParagraphStyle(name, parent=base['Normal'], **kw)
+        return ParagraphStyle(name, parent=base["Normal"], **kw)
 
-    s_ep      = _sty('ep',   fontName='Helvetica-Bold', fontSize=22,
-                              textColor=C_BG, alignment=TA_LEFT, spaceAfter=2)
-    s_sub     = _sty('sub',  fontName='Helvetica', fontSize=10,
-                              textColor=C_GRIS_CLR, alignment=TA_LEFT, spaceAfter=16)
-    s_dia     = _sty('dia',  fontName='Helvetica-Bold', fontSize=8,
-                              textColor=C_AZUL, spaceBefore=14, spaceAfter=4)
-    s_normal  = _sty('nor',  fontName='Helvetica', fontSize=8.5, leading=13)
-    s_small   = _sty('sm',   fontName='Helvetica', fontSize=7.5,
-                              textColor=C_GRIS_CLR, leading=11)
-    s_mono    = _sty('mono', fontName='Courier', fontSize=7.5,
-                              textColor=C_BG, leading=11)
-    s_campo   = _sty('cmp',  fontName='Helvetica-Bold', fontSize=7.5,
-                              textColor=C_BG, leading=11)
-    s_antes   = _sty('ant',  fontName='Helvetica', fontSize=7.5,
-                              textColor=C_ANTES_TXT, leading=11)
-    s_despues = _sty('dep',  fontName='Helvetica', fontSize=7.5,
-                              textColor=C_DESPUES_TXT, leading=11)
+    s_ep     = _sty("ep",  fontName="Helvetica-Bold", fontSize=20,
+                            textColor=C_BG, spaceAfter=2)
+    s_sub    = _sty("sub", fontName="Helvetica", fontSize=9,
+                            textColor=C_GRIS, spaceAfter=14)
+    s_dia    = _sty("dia", fontName="Helvetica-Bold", fontSize=7.5,
+                            textColor=C_AZUL, spaceBefore=12, spaceAfter=3)
+    s_normal = _sty("nor", fontName="Helvetica", fontSize=8.5, leading=13)
+    s_small  = _sty("sm",  fontName="Helvetica", fontSize=7.5,
+                            textColor=C_GRIS, leading=11)
+    s_mono   = _sty("mn",  fontName="Courier", fontSize=7.5, leading=11)
+    s_campo  = _sty("cp",  fontName="Helvetica-Bold", fontSize=7.5, leading=11)
+    s_antes  = _sty("an",  fontName="Helvetica", fontSize=7.5,
+                            textColor=C_ANT_TXT, leading=11)
+    s_dep    = _sty("dp",  fontName="Helvetica", fontSize=7.5,
+                            textColor=C_DEP_TXT, leading=11)
 
     story = []
 
     # ── Título ───────────────────────────────────────────────
-    story.append(Spacer(1, 0.3*cm))
-    story.append(Paragraph(f"Historial de cambios", s_sub))
+    story.append(Spacer(1, 0.2*cm))
+    story.append(Paragraph("Historial de cambios", s_sub))
     story.append(Paragraph(numero, s_ep))
-    story.append(HRFlowable(width="100%", thickness=1.5, color=C_BG, spaceAfter=12))
+    story.append(Spacer(1, 6))
 
-    # ── Tarjetas KPI ────────────────────────────────────────
+    # Línea divisoria fina bajo el título
+    story.append(Table([[""]], colWidths=[doc.width],
+                        style=[("LINEBELOW", (0,0), (0,0), 0.8, C_BG),
+                               ("TOPPADDING", (0,0), (0,0), 0),
+                               ("BOTTOMPADDING", (0,0), (0,0), 0)]))
+    story.append(Spacer(1, 10))
+
+    # ── KPIs ────────────────────────────────────────────────
+    kpi_w = doc.width / 4
     kpi_data = [[
-        Paragraph(f'<font size="18"><b>{_n_total}</b></font><br/>'
+        Paragraph(f'<font size="17"><b>{_n_total}</b></font><br/>'
                   f'<font color="#8b949e" size="7">registros totales</font>', s_normal),
-        Paragraph(f'<font size="18" color="#3fb950"><b>{_n_crea}</b></font><br/>'
+        Paragraph(f'<font size="17" color="#3fb950"><b>{_n_crea}</b></font><br/>'
                   f'<font color="#8b949e" size="7">creaciones</font>', s_normal),
-        Paragraph(f'<font size="18" color="#58a6ff"><b>{_n_mods}</b></font><br/>'
+        Paragraph(f'<font size="17" color="#58a6ff"><b>{_n_mods}</b></font><br/>'
                   f'<font color="#8b949e" size="7">modificaciones</font>', s_normal),
-        Paragraph(f'<font size="9"><b>{_ahora}</b></font><br/>'
+        Paragraph(f'<font size="8.5"><b>{_ahora}</b></font><br/>'
                   f'<font color="#8b949e" size="7">generado (hora Chile)</font>', s_normal),
     ]]
-    kpi_tbl = Table(kpi_data, colWidths=[3.8*cm, 3.8*cm, 3.8*cm, 5.6*cm])
+    kpi_tbl = Table(kpi_data, colWidths=[kpi_w]*4)
     kpi_tbl.setStyle(TableStyle([
-        ('BACKGROUND',    (0,0), (-1,-1), C_HEADER_BG),
-        ('LINEABOVE',     (0,0), (0,0),   1.5, C_BG),
-        ('LINEABOVE',     (1,0), (1,0),   1.5, C_VERDE),
-        ('LINEABOVE',     (2,0), (2,0),   1.5, C_AZUL),
-        ('LINEABOVE',     (3,0), (3,0),   1.5, C_AMARILLO),
-        ('TOPPADDING',    (0,0), (-1,-1), 10),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 10),
-        ('LEFTPADDING',   (0,0), (-1,-1), 10),
-        ('RIGHTPADDING',  (0,0), (-1,-1), 6),
-        ('VALIGN',        (0,0), (-1,-1), 'TOP'),
-        ('LINEAFTER',     (0,0), (2,0),   0.3, C_LINE),
+        ("BACKGROUND",    (0,0), (-1,-1), C_HDR_BG),
+        ("LINEABOVE",     (0,0), (0,0),   2, C_BG),
+        ("LINEABOVE",     (1,0), (1,0),   2, C_VERDE),
+        ("LINEABOVE",     (2,0), (2,0),   2, C_AZUL),
+        ("LINEABOVE",     (3,0), (3,0),   2, C_AMARILLO),
+        ("LINEAFTER",     (0,0), (2,0),   0.4, C_LINE),
+        ("TOPPADDING",    (0,0), (-1,-1), 10),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 10),
+        ("LEFTPADDING",   (0,0), (-1,-1), 10),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 6),
+        ("VALIGN",        (0,0), (-1,-1), "TOP"),
     ]))
     story.append(kpi_tbl)
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 18))
 
     if not logs:
         story.append(Paragraph("Sin registros.", s_small))
     else:
-        # Agrupar por día Chile
         grupos = OrderedDict()
         for lg in logs:
             _f = _fecha_chile(lg.get("fecha",""))
@@ -1129,19 +1128,20 @@ def generar_pdf_log(numero, logs):
             except:
                 _titulo_dia = fecha_key
 
-            # Separador de día estilo timeline
-            dia_data = [[
-                Paragraph(f"── {_titulo_dia}", s_dia),
-                Paragraph(f"{len(items)} evento{'s' if len(items)!=1 else ''}",
-                          _sty('cnt', fontName='Helvetica', fontSize=7.5,
-                               textColor=C_GRIS_CLR, alignment=TA_RIGHT)),
-            ]]
-            dia_tbl = Table(dia_data, colWidths=[12*cm, 4*cm])
+            # Separador de día
+            dia_tbl = Table(
+                [[Paragraph(f"── {_titulo_dia}", s_dia),
+                  Paragraph(f"{len(items)} evento{'s' if len(items)!=1 else ''}",
+                            _sty("cnt", fontName="Helvetica", fontSize=7.5,
+                                 textColor=C_GRIS, alignment=TA_RIGHT))]],
+                colWidths=[doc.width*0.75, doc.width*0.25])
             dia_tbl.setStyle(TableStyle([
-                ('TOPPADDING',    (0,0), (-1,-1), 0),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-                ('LINEBELOW',     (0,0), (-1,-1), 0.4, C_LINE),
-                ('VALIGN',        (0,0), (-1,-1), 'BOTTOM'),
+                ("LINEBELOW",     (0,0), (-1,0), 0.4, C_LINE),
+                ("TOPPADDING",    (0,0), (-1,-1), 0),
+                ("BOTTOMPADDING", (0,0), (-1,-1), 4),
+                ("VALIGN",        (0,0), (-1,-1), "BOTTOM"),
+                ("LEFTPADDING",   (0,0), (-1,-1), 0),
+                ("RIGHTPADDING",  (0,0), (-1,-1), 0),
             ]))
             story.append(dia_tbl)
 
@@ -1151,57 +1151,52 @@ def generar_pdf_log(numero, logs):
                 _tipo   = lg.get("tipo_cambio","").upper()
                 _det    = lg.get("detalle", {})
 
-                # Color e icono por tipo
-                if _tipo == "CREACION":
-                    _dot_color = C_VERDE
-                    _badge_bg  = colors.HexColor('#d1f5db')
-                    _badge_txt = colors.HexColor('#1a7f37')
-                    _icono     = "+"
-                else:
-                    _dot_color = C_AZUL
-                    _badge_bg  = colors.HexColor('#dbeafe')
-                    _badge_txt = colors.HexColor('#1d4ed8')
-                    _icono     = "✎"
+                _dot_color = C_VERDE if _tipo == "CREACION" else C_AZUL
+                _bdg_bg    = colors.HexColor("#d1f5db") if _tipo == "CREACION" else colors.HexColor("#dbeafe")
+                _bdg_txt   = colors.HexColor("#1a7f37") if _tipo == "CREACION" else colors.HexColor("#1d4ed8")
 
                 # Fila encabezado del evento
-                badge_sty = _sty(f'bdg{_hora}', fontName='Helvetica-Bold', fontSize=7,
-                                  textColor=_badge_txt, backColor=_badge_bg,
-                                  borderPadding=(2,5,2,5))
-                header_data = [[
-                    Paragraph(f"<b>{_hora}</b>", _sty('hr', fontName='Courier-Bold',
-                               fontSize=9, textColor=_dot_color)),
-                    Paragraph(_tipo, badge_sty),
-                    Paragraph(f"<b>{_asesor}</b>", _sty('as', fontName='Helvetica',
-                               fontSize=8, textColor=C_GRIS_CLR)),
-                ]]
-                hdr_tbl = Table(header_data, colWidths=[2*cm, 3.5*cm, 11*cm - 0.5*cm])
+                hdr_tbl = Table([[
+                    Paragraph(f"<b>{_hora}</b>",
+                               _sty(f"hr{_hora}", fontName="Courier-Bold",
+                                    fontSize=9, textColor=_dot_color)),
+                    Paragraph(_tipo,
+                               _sty(f"bdg{_hora}", fontName="Helvetica-Bold",
+                                    fontSize=7, textColor=_bdg_txt, backColor=_bdg_bg,
+                                    borderPadding=(2,5,2,5))),
+                    Paragraph(f"<b>{_asesor}</b>",
+                               _sty(f"as{_hora}", fontName="Helvetica",
+                                    fontSize=8, textColor=C_GRIS)),
+                ]], colWidths=[2.0*cm, 3.2*cm, doc.width - 5.2*cm])
                 hdr_tbl.setStyle(TableStyle([
-                    ('TOPPADDING',    (0,0), (-1,-1), 8),
-                    ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-                    ('LEFTPADDING',   (0,0), (0,-1),  4),
-                    ('LEFTPADDING',   (1,0), (-1,-1), 4),
-                    ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
-                    ('LINEAFTER',     (0,0), (0,-1),  1, _dot_color),
+                    ("TOPPADDING",    (0,0), (-1,-1), 7),
+                    ("BOTTOMPADDING", (0,0), (-1,-1), 4),
+                    ("LEFTPADDING",   (0,0), (-1,-1), 0),
+                    ("RIGHTPADDING",  (0,0), (-1,-1), 4),
+                    ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+                    ("LINEAFTER",     (0,0), (0,-1),  1.2, _dot_color),
+                    ("LEFTPADDING",   (1,0), (-1,-1), 8),
                 ]))
                 story.append(hdr_tbl)
 
-                # Detalle cambios
+                # Detalle
                 if isinstance(_det, dict):
                     if "mensaje" in _det:
-                        msg_data = [[
+                        msg_tbl = Table([[
                             Paragraph("", s_small),
                             Paragraph(f"→ {_det['mensaje']}", s_small),
-                        ]]
-                        msg_tbl = Table(msg_data, colWidths=[2*cm, 13.5*cm - 0.5*cm])
+                        ]], colWidths=[2.0*cm, doc.width - 2.0*cm])
                         msg_tbl.setStyle(TableStyle([
-                            ('TOPPADDING',    (0,0), (-1,-1), 2),
-                            ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-                            ('LINEAFTER',     (0,0), (0,-1),  1, _dot_color),
-                            ('LEFTPADDING',   (1,0), (1,-1),  8),
+                            ("TOPPADDING",    (0,0), (-1,-1), 2),
+                            ("BOTTOMPADDING", (0,0), (-1,-1), 8),
+                            ("LEFTPADDING",   (0,0), (-1,-1), 0),
+                            ("RIGHTPADDING",  (0,0), (-1,-1), 0),
+                            ("LINEAFTER",     (0,0), (0,-1),  1.2, _dot_color),
+                            ("LEFTPADDING",   (1,0), (1,-1),  10),
+                            ("VALIGN",        (0,0), (-1,-1), "TOP"),
                         ]))
                         story.append(msg_tbl)
                     else:
-                        # Tabla de cambios
                         cam_rows = [[
                             Paragraph("CAMPO", s_campo),
                             Paragraph("ANTES", s_campo),
@@ -1216,42 +1211,38 @@ def generar_pdf_log(numero, logs):
                             cam_rows.append([
                                 Paragraph(_c, s_mono),
                                 Paragraph(_a[:70], s_antes),
-                                Paragraph(_d[:70], s_despues),
+                                Paragraph(_d[:70], s_dep),
                             ])
 
                         if len(cam_rows) > 1:
-                            cam_tbl = Table(cam_rows,
-                                           colWidths=[4.5*cm, 5.5*cm, 5.5*cm])
-                            styles_cam = [
-                                ('BACKGROUND',    (0,0), (-1,0),  C_HEADER_BG),
-                                ('LINEBELOW',     (0,0), (-1,0),  0.5, C_LINE),
-                                ('TOPPADDING',    (0,0), (-1,-1), 4),
-                                ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-                                ('LEFTPADDING',   (0,0), (-1,-1), 6),
-                                ('RIGHTPADDING',  (0,0), (-1,-1), 6),
-                                ('GRID',          (0,0), (-1,-1), 0.3, C_LINE),
-                                ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
+                            _cw1, _cw2, _cw3 = 4.2*cm, 5.4*cm, 5.4*cm
+                            cam_tbl = Table(cam_rows, colWidths=[_cw1, _cw2, _cw3])
+                            cam_styles = [
+                                ("BACKGROUND",    (0,0), (-1,0),  C_HDR_BG),
+                                ("LINEBELOW",     (0,0), (-1,0),  0.5, C_LINE),
+                                ("GRID",          (0,0), (-1,-1), 0.3, C_LINE),
+                                ("TOPPADDING",    (0,0), (-1,-1), 4),
+                                ("BOTTOMPADDING", (0,0), (-1,-1), 4),
+                                ("LEFTPADDING",   (0,0), (-1,-1), 6),
+                                ("RIGHTPADDING",  (0,0), (-1,-1), 6),
+                                ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
                             ]
                             for _ri in range(1, len(cam_rows)):
-                                if _ri % 2 == 0:
-                                    styles_cam.append(('BACKGROUND', (0,_ri), (-1,_ri),
-                                                       colors.HexColor('#fafbfc')))
-                                # Celda antes en rojo suave, después en verde suave
-                                styles_cam.append(('BACKGROUND', (1,_ri), (1,_ri), C_ANTES))
-                                styles_cam.append(('BACKGROUND', (2,_ri), (2,_ri), C_DESPUES))
-                            cam_tbl.setStyle(TableStyle(styles_cam))
+                                cam_styles.append(("BACKGROUND", (1,_ri), (1,_ri), C_ANTES))
+                                cam_styles.append(("BACKGROUND", (2,_ri), (2,_ri), C_DESPUES))
+                            cam_tbl.setStyle(TableStyle(cam_styles))
 
-                            # Envolver con margen izquierdo (alineado con línea vertical)
-                            wrap_data = [[Paragraph("", s_small), cam_tbl]]
-                            wrap_tbl = Table(wrap_data, colWidths=[2*cm, 13.5*cm - 0.5*cm])
+                            wrap_tbl = Table(
+                                [["", cam_tbl]],
+                                colWidths=[2.0*cm, doc.width - 2.0*cm])
                             wrap_tbl.setStyle(TableStyle([
-                                ('TOPPADDING',    (0,0), (-1,-1), 2),
-                                ('BOTTOMPADDING', (0,0), (-1,-1), 8),
-                                ('LEFTPADDING',   (0,0), (-1,-1), 0),
-                                ('RIGHTPADDING',  (0,0), (-1,-1), 0),
-                                ('LINEAFTER',     (0,0), (0,-1),  1, _dot_color),
-                                ('LEFTPADDING',   (1,0), (1,-1),  8),
-                                ('VALIGN',        (0,0), (-1,-1), 'TOP'),
+                                ("TOPPADDING",    (0,0), (-1,-1), 3),
+                                ("BOTTOMPADDING", (0,0), (-1,-1), 10),
+                                ("LEFTPADDING",   (0,0), (-1,-1), 0),
+                                ("RIGHTPADDING",  (0,0), (-1,-1), 0),
+                                ("LINEAFTER",     (0,0), (0,-1),  1.2, _dot_color),
+                                ("LEFTPADDING",   (1,0), (1,-1),  10),
+                                ("VALIGN",        (0,0), (-1,-1), "TOP"),
                             ]))
                             story.append(KeepTogether(wrap_tbl))
 
@@ -1260,6 +1251,7 @@ def generar_pdf_log(numero, logs):
     doc.build(story, onFirstPage=_hf, onLaterPages=_hf)
     buf.seek(0)
     return buf.read()
+
 
 
 # =========================================================
