@@ -3287,7 +3287,7 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
             _vis_map = cargar_visibilidad_impresion()
             items_lista = [
                 item for item in grupo['Item'].tolist()
-                if _vis_map.get(str(item).strip().lower(), 'Mostrar') != 'Ocultar'
+                if _vis_map.get(str(item).strip().lower(), 'Mostrar') == 'Mostrar'
             ]
             if not items_lista:
                 items_lista = grupo['Item'].tolist()  # si todos ocultos, mostrar igual
