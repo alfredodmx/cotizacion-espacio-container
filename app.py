@@ -5796,11 +5796,11 @@ if st.session_state.modo_admin and tab5 is not None:
             if _prev_activa:
                 try:
                     import pandas as pd
-                    import io as _io
-                    _prev_bytes = _get_excel_bytes_activo()
-                    if _prev_bytes:
-                        _prev_bio = _io.BytesIO(_prev_bytes)
-                        _xls = pd.ExcelFile(_prev_bio)
+                    import pandas as pd
+                    _prev_src = _get_excel_bytes_activo()
+                    if _prev_src and hasattr(_prev_src, "read"):
+                        _xls = pd.ExcelFile(_prev_src)
+                        _hojas_disp = _xls.sheet_names
                         _hojas_disp = _xls.sheet_names
                         _col_sel, _col_info = st.columns([2, 3])
                         with _col_sel:
@@ -5813,8 +5813,8 @@ if st.session_state.modo_admin and tab5 is not None:
                         with _col_info:
                             st.caption(f"📊 **{len(_hojas_disp)} hojas** en la versión activa · **{_prev_activa['version_nombre']}**")
                         if _hoja_sel:
-                            _prev_bio2 = _io.BytesIO(_prev_bytes)
-                            _df_prev = pd.read_excel(_prev_bio2, sheet_name=_hoja_sel, header=None)
+                            _prev_src.seek(0)
+                            _df_prev = pd.read_excel(_prev_src, sheet_name=_hoja_sel, header=None)
                             _df_prev = _df_prev.dropna(how='all').fillna('')
                             _df_str = _df_prev.astype(str).replace('nan','').replace('0.0','')
                             st.dataframe(
