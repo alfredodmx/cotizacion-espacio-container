@@ -6159,6 +6159,7 @@ with tab_dash:
         # ── Fila 1: Comunas + Regiones ──────────────────────
         col_com, col_reg = st.columns(2)
 
+        st.markdown('<div class="section-title">📍 Top Comunas & 🗺️ Top Regiones</div>', unsafe_allow_html=True)
         with col_com:
             if _tc:
                 _coms   = [x[0] for x in _tc]
@@ -6172,7 +6173,6 @@ with tab_dash:
                     hovertemplate='<b>%{y}</b><br>%{x} cotizaciones<extra></extra>',
                 ))
                 _fig_com.update_layout(**_TMPL,
-                    title=dict(text='📍 Top Comunas', font=dict(size=13), x=0),
                     xaxis=dict(showgrid=False, showticklabels=False, zeroline=False),
                     yaxis=dict(tickfont=dict(size=11)), height=320)
                 st.plotly_chart(_fig_com, use_container_width=True, config={'displayModeBar': False})
@@ -6192,7 +6192,6 @@ with tab_dash:
                     hovertemplate='<b>%{y}</b><br>%{x} cotizaciones<extra></extra>',
                 ))
                 _fig_reg.update_layout(**_TMPL,
-                    title=dict(text='🗺️ Top Regiones', font=dict(size=13), x=0),
                     xaxis=dict(showgrid=False, showticklabels=False, zeroline=False),
                     yaxis=dict(tickfont=dict(size=11)), height=320)
                 st.plotly_chart(_fig_reg, use_container_width=True, config={'displayModeBar': False})
@@ -6200,6 +6199,7 @@ with tab_dash:
                 st.info("Sin datos de regiones aún")
 
         # ── Fila 2: Tipo cliente + Género + Rango etario ────
+        st.markdown('<div class="section-title">🏢 Tipo Cliente · ⚤ Género Est. · 📅 Rango Etario Est.</div>', unsafe_allow_html=True)
         col_tipo, col_gen, col_edad = st.columns(3)
 
         with col_tipo:
@@ -6217,7 +6217,6 @@ with tab_dash:
                     x=0.5, y=0.5, showarrow=False,
                     font=dict(size=13, color='#0f172a'), align='center')
                 _fig_tipo.update_layout(**_TMPL,
-                    title=dict(text='🏢 Tipo Cliente', font=dict(size=13), x=0),
                     showlegend=True,
                     legend=dict(orientation='h', y=-0.15, font=dict(size=9)),
                     height=280)
@@ -6242,7 +6241,6 @@ with tab_dash:
                     x=0.5, y=0.5, showarrow=False,
                     font=dict(size=13, color='#0f172a'), align='center')
                 _fig_gen.update_layout(**_TMPL,
-                    title=dict(text='⚤ Género Est.', font=dict(size=13), x=0),
                     showlegend=True,
                     legend=dict(orientation='h', y=-0.15, font=dict(size=9)),
                     height=280)
@@ -6265,7 +6263,6 @@ with tab_dash:
                     hovertemplate='<b>%{x}</b><br>%{y} clientes<extra></extra>',
                 ))
                 _fig_edad.update_layout(**_TMPL,
-                    title=dict(text='📅 Rango Etario Est.', font=dict(size=13), x=0),
                     xaxis=dict(tickfont=dict(size=9), showgrid=False),
                     yaxis=dict(showgrid=True, gridcolor='#f1f5f9', showticklabels=False),
                     height=280)
@@ -6276,7 +6273,7 @@ with tab_dash:
 
         # ── Fila 3: Top empresas ─────────────────────────────
         if _te:
-            st.markdown("#### 🏢 Top Empresas Cotizantes")
+            st.markdown('<div class="section-title">🏢 Top Empresas Cotizantes</div>', unsafe_allow_html=True)
             _emp_n = [x[0] for x in _te]
             _emp_v = [x[1] for x in _te]
             _fig_emp = go.Figure(go.Bar(
@@ -6348,20 +6345,7 @@ with tab_dash:
         # ═══════════════════════════════════════════════════════
         # SECCIÓN: PERFIL DE CLIENTES
         # ═══════════════════════════════════════════════════════
-        st.markdown("---")
-        st.markdown("""
-        <div style="background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;
-                    padding:20px 24px;margin-bottom:20px;">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <span style="font-size:2rem;">👥</span>
-            <div>
-              <div style="color:#fff;font-size:1.2rem;font-weight:700;">Perfil de Clientes</div>
-              <div style="color:rgba(255,255,255,0.6);font-size:0.82rem;">
-                Análisis demográfico y geográfico de cotizaciones
-              </div>
-            </div>
-          </div>
-        </div>""", unsafe_allow_html=True)
+        st.markdown('<div class="section-title">👥 Perfil de Clientes</div>', unsafe_allow_html=True)
 
         st.caption(f"Datos actualizados al abrir la pestaña · Período: {_periodo_label}")
 
