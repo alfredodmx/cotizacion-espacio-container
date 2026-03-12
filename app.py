@@ -5775,31 +5775,6 @@ if st.session_state.modo_admin and tab5 is not None:
                                 st.error(f"❌ {_e}")
 
 
-        # ── Exportar CSV ─────────────────────────────────────
-        st.markdown('<div class="ind-titulo">📦 Exportar datos</div>', unsafe_allow_html=True)
-        with st.container(border=True):
-            st.caption("Descarga todas las cotizaciones del sistema en formato CSV para respaldo o análisis externo.")
-            _col_csv_btn, _col_csv_info = st.columns([1, 3])
-            with _col_csv_btn:
-                if st.button("📦 Generar CSV", key="btn_generar_csv", use_container_width=True, type="primary"):
-                    st.session_state._csv_listo = exportar_csv_completo()
-            with _col_csv_info:
-                if st.session_state.get('_csv_listo'):
-                    from datetime import datetime as _dt
-                    import pytz as _pytz2
-                    _tz_cl2 = _pytz2.timezone("America/Santiago")
-                    _fname = f"cotizaciones_backup_{_dt.now(_tz_cl2).strftime('%Y%m%d_%H%M')}.csv"
-                    st.download_button(
-                        label="⬇️ Descargar CSV",
-                        data=st.session_state._csv_listo,
-                        file_name=_fname,
-                        mime="text/csv",
-                        use_container_width=True,
-                        key="btn_export_csv"
-                    )
-                else:
-                    st.info("Haz clic en **Generar CSV** para preparar el archivo.", icon="ℹ️")
-
         # ── Previsualizador Excel ────────────────────────────
         st.markdown('<div class="ind-titulo">👁 Vista previa del Excel activo</div>', unsafe_allow_html=True)
         with st.container(border=True):
@@ -5828,19 +5803,45 @@ if st.session_state.modo_admin and tab5 is not None:
                             _df_prev = pd.read_excel(_prev_src, sheet_name=_hoja_sel, header=None)
                             _df_prev = _df_prev.dropna(how='all').fillna('')
                             _df_str = _df_prev.astype(str).replace('nan','').replace('0.0','')
+                            _altura = min(600, max(300, len(_df_str) * 35 + 50))
                             st.dataframe(
-                                _df_str.head(40),
+                                _df_str,
                                 use_container_width=True,
                                 hide_index=True,
-                                height=320
+                                height=_altura
                             )
-                            st.caption(f"Mostrando hasta 40 filas · {len(_df_prev)} filas totales en esta hoja")
+                            st.caption(f"📋 {len(_df_prev)} filas · {len(_df_prev.columns)} columnas en esta hoja")
                     else:
                         st.info("No se pudo cargar el archivo Excel activo.", icon="⚠️")
                 except Exception as _pe:
                     st.error(f"Error al previsualizar: {_pe}")
             else:
                 st.info("Activa una versión para poder previsualizarla.", icon="📂")
+
+        # ── Exportar CSV ─────────────────────────────────────
+        st.markdown('<div class="ind-titulo">📦 Exportar datos</div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            st.caption("Descarga todas las cotizaciones del sistema en formato CSV para respaldo o análisis externo.")
+            _col_csv_btn, _col_csv_info = st.columns([1, 3])
+            with _col_csv_btn:
+                if st.button("📦 Generar CSV", key="btn_generar_csv", use_container_width=True, type="primary"):
+                    st.session_state._csv_listo = exportar_csv_completo()
+            with _col_csv_info:
+                if st.session_state.get('_csv_listo'):
+                    from datetime import datetime as _dt
+                    import pytz as _pytz2
+                    _tz_cl2 = _pytz2.timezone("America/Santiago")
+                    _fname = f"cotizaciones_backup_{_dt.now(_tz_cl2).strftime('%Y%m%d_%H%M')}.csv"
+                    st.download_button(
+                        label="⬇️ Descargar CSV",
+                        data=st.session_state._csv_listo,
+                        file_name=_fname,
+                        mime="text/csv",
+                        use_container_width=True,
+                        key="btn_export_csv"
+                    )
+                else:
+                    st.info("Haz clic en **Generar CSV** para preparar el archivo.", icon="ℹ️")
 
         # ── Barra de estado ──────────────────────────────────
         _activa_info = next((_v for _v in _versiones if _v.get("activa")), None)
