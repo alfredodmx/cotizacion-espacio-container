@@ -6587,15 +6587,15 @@ if tab7 is not None:
               </div>
             </div>""", unsafe_allow_html=True)
 
-            _tc = datos.get('top_comunas', [])
-            _tr = datos.get('top_regiones', [])
-            _nn = datos.get('n_natural', 0)
-            _nj = datos.get('n_juridica', 0)
-            _nm = datos.get('n_masc', 0)
-            _nf = datos.get('n_fem', 0)
-            _nd = datos.get('n_nd', 0)
-            _re = datos.get('rangos_etarios', {})
-            _te = datos.get('top_empresas', [])
+            _tc = _d.get('top_comunas', [])
+            _tr = _d.get('top_regiones', [])
+            _nn = _d.get('n_natural', 0)
+            _nj = _d.get('n_juridica', 0)
+            _nm = _d.get('n_masc', 0)
+            _nf = _d.get('n_fem', 0)
+            _nd = _d.get('n_nd', 0)
+            _re = _d.get('rangos_etarios', {})
+            _te = _d.get('top_empresas', [])
 
             import plotly.graph_objects as go
             import plotly.express as px
