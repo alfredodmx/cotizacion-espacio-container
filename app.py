@@ -837,10 +837,12 @@ def _leer_bd_total():
     """Lee y cachea la hoja BD Total."""
     return pd.read_excel(_excel_src(), sheet_name="BD Total")[["Item", "P. Unitario real"]]
 
-@st.cache_data(ttl=300)
 def _leer_hojas_disponibles():
-    """Lista de hojas del Excel cacheada."""
-    return pd.ExcelFile(_excel_src()).sheet_names
+    """Lista de hojas siempre fresca — sin caché, para detectar hojas nuevas al instante."""
+    try:
+        return pd.ExcelFile(_get_excel_bytes_activo()).sheet_names
+    except:
+        return pd.ExcelFile(_excel_src()).sheet_names
 
 def cargar_modelo(nombre_hoja):
     df_modelo = _leer_hoja_excel(nombre_hoja)
@@ -5651,6 +5653,10 @@ if st.session_state.modo_admin and tab5 is not None:
                                     supabase.table("excel_versiones").update({"activa": False}).neq("id","00000000-0000-0000-0000-000000000000").execute()
                                     supabase.table("excel_versiones").update({"activa": True}).eq("id", _v["id"]).execute()
                                     _get_excel_bytes_activo.clear()
+                                    _leer_hojas_disponibles.clear()
+                                    _leer_hoja_excel.clear()
+                                    _leer_bd_total.clear()
+                                    cargar_visibilidad_impresion.clear()
                                     st.session_state.pop("excel_bytes_cache", None)
                                     st.rerun()
                                 except Exception as _e:
