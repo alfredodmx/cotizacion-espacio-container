@@ -4404,9 +4404,22 @@ with tab3:
                 subtotal_p = carrito_df_p["Subtotal"].sum()
                 iva_p = subtotal_p * 0.19
                 total_p = subtotal_p + iva_p
-                dc = {"Nombre": cotizacion.get('cliente_nombre',''), "RUT": cotizacion.get('cliente_rut',''),
-                      "Correo": cotizacion.get('cliente_email',''), "Teléfono": cotizacion.get('cliente_telefono',''),
-                      "Dirección": cotizacion.get('cliente_direccion',''), "Observaciones": cotizacion.get('proyecto_observaciones','')}
+                dc = {
+                    "Nombre":            cotizacion.get('cliente_nombre',''),
+                    "RUT":               cotizacion.get('cliente_rut',''),
+                    "Correo":            cotizacion.get('cliente_email',''),
+                    "Teléfono":          cotizacion.get('cliente_telefono',''),
+                    "Dirección":         cotizacion.get('cliente_direccion',''),
+                    "ComunaCliente":     cotizacion.get('cliente_comuna',''),
+                    "RegionCliente":     cotizacion.get('cliente_region',''),
+                    "DireccionProyecto": cotizacion.get('proyecto_direccion',''),
+                    "ComunaProyecto":    cotizacion.get('proyecto_comuna',''),
+                    "RegionProyecto":    cotizacion.get('proyecto_region',''),
+                    "TipoCliente":       cotizacion.get('cliente_tipo','natural'),
+                    "EmpresaCliente":    cotizacion.get('cliente_empresa',''),
+                    "RutEmpresa":        cotizacion.get('cliente_rut_empresa',''),
+                    "Observaciones":     cotizacion.get('proyecto_observaciones',''),
+                }
                 da = {"Nombre Ejecutivo": cotizacion.get('asesor_nombre',''),
                       "Correo Ejecutivo": cotizacion.get('asesor_email',''),
                       "Teléfono Ejecutivo": cotizacion.get('asesor_telefono','')}
