@@ -5564,17 +5564,45 @@ if st.session_state.modo_admin and tab5 is not None:
         [data-testid="stVerticalBlock"] [data-testid="stTextInput"] input {
             padding-left: 4px;
         }
-        /* Contenedor de subida con bordes y padding */
-        .upload-box {
-            background: white;
+
+        /* ── Títulos de sección industriales ── */
+        .ind-titulo {
+            display: flex; align-items: center; gap: 10px;
+            font-size: 0.7rem; font-weight: 800; letter-spacing: 0.15em;
+            text-transform: uppercase; color: #1e293b;
+            border-left: 4px solid #f59e0b;
+            padding: 6px 0 6px 12px;
+            margin: 20px 0 14px 0;
+        }
+        /* ── Filas de versión ── */
+        .ver-activa {
+            background: linear-gradient(90deg, rgba(16,185,129,0.07), rgba(16,185,129,0.02));
+            border: 1px solid #10b981;
+            border-left: 5px solid #10b981;
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin-bottom: 8px;
+        }
+        .ver-row {
+            background: #f8fafc;
             border: 1px solid #e2e8f0;
-            border-radius: 14px;
-            padding: 20px 28px 16px 28px;
-            margin-bottom: 16px;
+            border-left: 5px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin-bottom: 8px;
+            transition: border-left-color 0.2s;
         }
-        .upload-box .stFileUploader {
-            padding: 0 !important;
+        .ver-nombre-activa { font-size:1rem; font-weight:700; color:#065f46; }
+        .ver-nombre       { font-size:1rem; font-weight:600; color:#1e293b; }
+        .ver-badge        {
+            display:inline-block; background:#10b981; color:white;
+            font-size:0.6rem; font-weight:800; letter-spacing:0.1em;
+            padding:2px 7px; border-radius:4px; text-transform:uppercase;
+            vertical-align:middle; margin-left:8px;
         }
+        .ver-meta   { font-size:0.75rem; color:#64748b; margin-top:3px; }
+        .ver-archivo{ font-size:0.7rem; color:#94a3b8; font-family:monospace; margin-top:2px; }
+
         .version-row { margin-bottom: 4px; }
         .status-bar-green {
             background: linear-gradient(90deg,rgba(16,185,129,0.12),rgba(16,185,129,0.03));
@@ -5588,7 +5616,7 @@ if st.session_state.modo_admin and tab5 is not None:
         </style>
         """, unsafe_allow_html=True)
 
-        # Header
+        # Header — intacto, no se toca
         st.markdown("""
         <div class="excel-header">
           <span style="font-size:2.4rem">📊</span>
@@ -5598,6 +5626,8 @@ if st.session_state.modo_admin and tab5 is not None:
           </div>
         </div>
         """, unsafe_allow_html=True)
+
+        st.markdown('<div class="ind-titulo">⬆ Subir nueva versión</div>', unsafe_allow_html=True)
 
         # ── Subir nueva versión ──────────────────────────────
         # Usar key dinámica para resetear el uploader tras subir
@@ -5674,11 +5704,8 @@ if st.session_state.modo_admin and tab5 is not None:
 
             st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
 
-        st.markdown("---")
 
-        # ── Lista de versiones ───────────────────────────────
-        st.markdown("##### 📋 Versiones disponibles")
-        st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="ind-titulo">📋 Versiones disponibles</div>', unsafe_allow_html=True)
         try:
             _versiones = supabase.table("excel_versiones").select("*").order("fecha_subida", desc=True).execute().data or []
         except:
@@ -5696,27 +5723,25 @@ if st.session_state.modo_admin and tab5 is not None:
                 with _cv1:
                     if _es_activa:
                         st.markdown(
-                            f'<div style="display:flex;align-items:center;gap:10px;padding:4px 0;">'
-                            f'<span style="font-size:1.5rem">🟢</span>'
-                            f'<div><div style="font-size:1.05rem;font-weight:700;color:#065f46;">{_v["version_nombre"]}</div>'
-                            f'<div style="font-size:0.75rem;color:#10b981;font-weight:600;">✅ VERSIÓN ACTIVA</div></div>'
+                            f'<div class="ver-activa">'
+                            f'<div class="ver-nombre-activa">🟢 {_v["version_nombre"]}<span class="ver-badge">activa</span></div>'
+                            f'<div class="ver-meta">🗓 {_fecha} &nbsp;·&nbsp; 👤 {_v.get("subida_por","admin")}</div>'
+                            f'<div class="ver-archivo">📁 {_v.get("archivo_nombre","")}</div>'
                             f'</div>',
                             unsafe_allow_html=True
                         )
                     else:
                         st.markdown(
-                            f'<div style="display:flex;align-items:center;gap:10px;padding:4px 0;">'
-                            f'<span style="font-size:1.2rem;opacity:.35;">⚪</span>'
-                            f'<div><div style="font-size:1rem;font-weight:600;color:#374151;">{_v["version_nombre"]}</div>'
-                            f'<div style="font-size:0.75rem;color:#9ca3af;">🗓 {_fecha}</div></div>'
+                            f'<div class="ver-row">'
+                            f'<div class="ver-nombre">⚪ {_v["version_nombre"]}</div>'
+                            f'<div class="ver-meta">🗓 {_fecha} &nbsp;·&nbsp; 👤 {_v.get("subida_por","admin")}</div>'
+                            f'<div class="ver-archivo">📁 {_v.get("archivo_nombre","")}</div>'
                             f'</div>',
                             unsafe_allow_html=True
                         )
 
                 with _cv2:
                     st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
-                    st.caption(f"📁 `{_v.get('archivo_nombre','')}`")
-                    st.caption(f"🗓 {_fecha} &nbsp;·&nbsp; 👤 {_v.get('subida_por','admin')}")
 
                 with _cv3:
                     st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
@@ -5754,7 +5779,6 @@ if st.session_state.modo_admin and tab5 is not None:
                             except Exception as _e:
                                 st.error(f"❌ {_e}")
 
-                st.markdown('<hr style="border:none;border-top:1px solid #f0f0f0;margin:8px 0 12px;">', unsafe_allow_html=True)
 
         # ── Barra de estado ──────────────────────────────────
         _activa_info = next((_v for _v in _versiones if _v.get("activa")), None)
