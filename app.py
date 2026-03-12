@@ -3476,64 +3476,24 @@ if st.session_state.get('trigger_cerrar_cotizacion', False):
 # TAB 2 - DATOS CLIENTE
 # =========================================================
 with tab2:
-    st.markdown("""<style>
+    st.markdown("""
+        <style>
         .hdr2 {
-            position: relative;
-            background: #0a0e1a;
-            border-radius: 14px;
-            padding: 0;
-            margin-bottom: 24px;
-            overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.06);
-            box-shadow: 0 6px 32px rgba(0,0,0,0.3);
+            background: linear-gradient(135deg, #2d0d66 0%, #5b0d7a 100%);
+            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
+            display: flex; align-items: center; gap: 16px;
         }
-        .hdr2-top {
-            height: 3px;
-            background: linear-gradient(90deg,#7c3aed,#a855f7);
-        }
-        .hdr2-grid {
-            position: absolute; inset: 0;
-            background-image:
-                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-            background-size: 28px 28px;
-            pointer-events: none;
-        }
-        .hdr2-inner {
-            position: relative;
-            display: flex; align-items: center; gap: 20px;
-            padding: 24px 28px;
-        }
-        .hdr2-icon {
-            width: 52px; height: 52px; flex-shrink: 0;
-            background: rgba(124,58,237,0.15);
-            border: 1px solid rgba(124,58,237,0.4);
-            border-radius: 10px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.6rem;
-        }
-        .hdr2 h2 {
-            color: #f1f5f9 !important;
-            margin: 0 0 3px 0;
-            font-size: 1.6rem; font-weight: 900;
-            font-family: 'Arial Black', 'Inter', sans-serif;
-            letter-spacing: -0.01em; text-transform: uppercase;
-        }
-        .hdr2 p {
-            color: rgba(255,255,255,0.4) !important;
-            margin: 0; font-size: 0.82rem;
-        }</style>
+        .hdr2 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
+        .hdr2 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
+        </style>
         <div class="hdr2">
-          <div class="hdr2-top"></div>
-          <div class="hdr2-grid"></div>
-          <div class="hdr2-inner">
-            <div class="hdr2-icon">👤</div>
-            <div>
-              <h2>Datos del Cliente</h2>
-              <p>Completa la información del cliente y del proyecto antes de guardar.</p>
-            </div>
+          <span style="font-size:2.4rem">👤</span>
+          <div>
+            <h2>Datos del Cliente</h2>
+            <p>Completa la información del cliente y del proyecto antes de guardar.</p>
           </div>
-        </div>""", unsafe_allow_html=True)
+        </div>
+        """, unsafe_allow_html=True)
 
     es_solo_lectura = bool(
         st.session_state.cotizacion_cargada and
@@ -3800,64 +3760,24 @@ with tab2:
 # TAB 1 - PREPARAR COTIZACIÓN
 # =========================================================
 with tab1:
-    st.markdown("""<style>
+    st.markdown("""
+        <style>
         .hdr1 {
-            position: relative;
-            background: #0a0e1a;
-            border-radius: 14px;
-            padding: 0;
-            margin-bottom: 24px;
-            overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.06);
-            box-shadow: 0 6px 32px rgba(0,0,0,0.3);
+            background: linear-gradient(135deg, #0d2266 0%, #0d47a1 100%);
+            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
+            display: flex; align-items: center; gap: 16px;
         }
-        .hdr1-top {
-            height: 3px;
-            background: linear-gradient(90deg,#2563eb,#06b6d4);
-        }
-        .hdr1-grid {
-            position: absolute; inset: 0;
-            background-image:
-                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-            background-size: 28px 28px;
-            pointer-events: none;
-        }
-        .hdr1-inner {
-            position: relative;
-            display: flex; align-items: center; gap: 20px;
-            padding: 24px 28px;
-        }
-        .hdr1-icon {
-            width: 52px; height: 52px; flex-shrink: 0;
-            background: rgba(37,99,235,0.15);
-            border: 1px solid rgba(37,99,235,0.4);
-            border-radius: 10px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.6rem;
-        }
-        .hdr1 h2 {
-            color: #f1f5f9 !important;
-            margin: 0 0 3px 0;
-            font-size: 1.6rem; font-weight: 900;
-            font-family: 'Arial Black', 'Inter', sans-serif;
-            letter-spacing: -0.01em; text-transform: uppercase;
-        }
-        .hdr1 p {
-            color: rgba(255,255,255,0.4) !important;
-            margin: 0; font-size: 0.82rem;
-        }</style>
+        .hdr1 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
+        .hdr1 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
+        </style>
         <div class="hdr1">
-          <div class="hdr1-top"></div>
-          <div class="hdr1-grid"></div>
-          <div class="hdr1-inner">
-            <div class="hdr1-icon">📋</div>
-            <div>
-              <h2>Cotización</h2>
-              <p>Agrega productos, aplica márgenes y genera tu cotización en PDF.</p>
-            </div>
+          <span style="font-size:2.4rem">☑️</span>
+          <div>
+            <h2>Gestión de Presupuesto</h2>
+            <p>Agrega productos, aplica márgenes y genera tu cotización en PDF.</p>
           </div>
-        </div>""", unsafe_allow_html=True)
+        </div>
+        """, unsafe_allow_html=True)
 
     fecha_inicio = st.session_state.fecha_inicio
     fecha_termino = st.session_state.fecha_termino
@@ -4251,64 +4171,24 @@ with tab1:
 # TAB 3 - GESTIÓN DE COTIZACIONES GUARDADAS
 # =========================================================
 with tab3:
-    st.markdown("""<style>
+    st.markdown("""
+        <style>
         .hdr3 {
-            position: relative;
-            background: #0a0e1a;
-            border-radius: 14px;
-            padding: 0;
-            margin-bottom: 24px;
-            overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.06);
-            box-shadow: 0 6px 32px rgba(0,0,0,0.3);
+            background: linear-gradient(135deg, #6b4e00 0%, #e65100 100%);
+            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
+            display: flex; align-items: center; gap: 16px;
         }
-        .hdr3-top {
-            height: 3px;
-            background: linear-gradient(90deg,#ea580c,#f59e0b);
-        }
-        .hdr3-grid {
-            position: absolute; inset: 0;
-            background-image:
-                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-            background-size: 28px 28px;
-            pointer-events: none;
-        }
-        .hdr3-inner {
-            position: relative;
-            display: flex; align-items: center; gap: 20px;
-            padding: 24px 28px;
-        }
-        .hdr3-icon {
-            width: 52px; height: 52px; flex-shrink: 0;
-            background: rgba(234,88,12,0.15);
-            border: 1px solid rgba(234,88,12,0.4);
-            border-radius: 10px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.6rem;
-        }
-        .hdr3 h2 {
-            color: #f1f5f9 !important;
-            margin: 0 0 3px 0;
-            font-size: 1.6rem; font-weight: 900;
-            font-family: 'Arial Black', 'Inter', sans-serif;
-            letter-spacing: -0.01em; text-transform: uppercase;
-        }
-        .hdr3 p {
-            color: rgba(255,255,255,0.4) !important;
-            margin: 0; font-size: 0.82rem;
-        }</style>
+        .hdr3 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
+        .hdr3 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
+        </style>
         <div class="hdr3">
-          <div class="hdr3-top"></div>
-          <div class="hdr3-grid"></div>
-          <div class="hdr3-inner">
-            <div class="hdr3-icon">📂</div>
-            <div>
-              <h2>Cotizaciones</h2>
-              <p>Busca, carga y administra todas las cotizaciones del sistema.</p>
-            </div>
+          <span style="font-size:2.4rem">📂</span>
+          <div>
+            <h2>Gestión de Cotizaciones</h2>
+            <p>Busca, carga y administra todas las cotizaciones del sistema.</p>
           </div>
-        </div>""", unsafe_allow_html=True)
+        </div>
+        """, unsafe_allow_html=True)
 
     col_busqueda, col_filtros = st.columns([3, 1])
     with col_busqueda:
@@ -5113,64 +4993,24 @@ Reglas: puertas ~0.9x2.1m (y=1.05), ventanas ~1.2x1.0m (y=1.2). x relativo al ce
     return json.loads(txt), img_b64
 
 with tab4:
-    st.markdown("""<style>
+    st.markdown("""
+        <style>
         .hdr4 {
-            position: relative;
-            background: #0a0e1a;
-            border-radius: 14px;
-            padding: 0;
-            margin-bottom: 24px;
-            overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.06);
-            box-shadow: 0 6px 32px rgba(0,0,0,0.3);
+            background: linear-gradient(135deg, #003d52 0%, #006978 100%);
+            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
+            display: flex; align-items: center; gap: 16px;
         }
-        .hdr4-top {
-            height: 3px;
-            background: linear-gradient(90deg,#0891b2,#06b6d4);
-        }
-        .hdr4-grid {
-            position: absolute; inset: 0;
-            background-image:
-                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-            background-size: 28px 28px;
-            pointer-events: none;
-        }
-        .hdr4-inner {
-            position: relative;
-            display: flex; align-items: center; gap: 20px;
-            padding: 24px 28px;
-        }
-        .hdr4-icon {
-            width: 52px; height: 52px; flex-shrink: 0;
-            background: rgba(8,145,178,0.15);
-            border: 1px solid rgba(8,145,178,0.4);
-            border-radius: 10px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.6rem;
-        }
-        .hdr4 h2 {
-            color: #f1f5f9 !important;
-            margin: 0 0 3px 0;
-            font-size: 1.6rem; font-weight: 900;
-            font-family: 'Arial Black', 'Inter', sans-serif;
-            letter-spacing: -0.01em; text-transform: uppercase;
-        }
-        .hdr4 p {
-            color: rgba(255,255,255,0.4) !important;
-            margin: 0; font-size: 0.82rem;
-        }</style>
+        .hdr4 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
+        .hdr4 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
+        </style>
         <div class="hdr4">
-          <div class="hdr4-top"></div>
-          <div class="hdr4-grid"></div>
-          <div class="hdr4-inner">
-            <div class="hdr4-icon">🧊</div>
-            <div>
-              <h2>Visor 3D Beta</h2>
-              <p>Selecciona un presupuesto con plano adjunto para generar su prototipo 3D interactivo.</p>
-            </div>
+          <span style="font-size:2.4rem">🧊</span>
+          <div>
+            <h2>Visor 3D Beta</h2>
+            <p>Selecciona un presupuesto con plano adjunto para generar su prototipo 3D interactivo.</p>
           </div>
-        </div>""", unsafe_allow_html=True)
+        </div>
+        """, unsafe_allow_html=True)
 
     # Obtener presupuestos con plano
     try:
@@ -6107,53 +5947,26 @@ with tab_dash:
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap');
 
     /* ── Header ── */
-
-        .dash-hdr {
-            position: relative;
-            background: #0a0e1a;
-            border-radius: 14px;
-            padding: 0;
-            margin-bottom: 24px;
-            overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.06);
-            box-shadow: 0 6px 32px rgba(0,0,0,0.3);
-        }
-        .dash-hdr-top {
-            height: 3px;
-            background: linear-gradient(90deg,#2563eb,#10b981);
-        }
-        .dash-hdr-grid {
-            position: absolute; inset: 0;
-            background-image:
-                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-            background-size: 28px 28px;
-            pointer-events: none;
-        }
-        .dash-hdr-inner {
-            position: relative;
-            display: flex; align-items: center; gap: 20px;
-            padding: 24px 28px;
-        }
-        .dash-hdr-icon {
-            width: 52px; height: 52px; flex-shrink: 0;
-            background: rgba(37,99,235,0.15);
-            border: 1px solid rgba(37,99,235,0.4);
-            border-radius: 10px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.6rem;
-        }
-        .dash-hdr h2 {
-            color: #f1f5f9 !important;
-            margin: 0 0 3px 0;
-            font-size: 1.6rem; font-weight: 900;
-            font-family: 'Arial Black', 'Inter', sans-serif;
-            letter-spacing: -0.01em; text-transform: uppercase;
-        }
-        .dash-hdr p {
-            color: rgba(255,255,255,0.4) !important;
-            margin: 0; font-size: 0.82rem;
-        }
+    .dash-hdr {
+        background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #2563eb 100%);
+        border-radius: 20px; padding: 32px 36px; margin-bottom: 32px;
+        display: flex; align-items: center; gap: 22px;
+        box-shadow: 0 8px 32px rgba(37,99,235,0.25);
+        position: relative; overflow: hidden;
+    }
+    .dash-hdr::before {
+        content: ''; position: absolute; top: -40px; right: -40px;
+        width: 180px; height: 180px; border-radius: 50%;
+        background: rgba(255,255,255,0.04); pointer-events: none;
+    }
+    .dash-hdr::after {
+        content: ''; position: absolute; bottom: -60px; right: 80px;
+        width: 240px; height: 240px; border-radius: 50%;
+        background: rgba(255,255,255,0.03); pointer-events: none;
+    }
+    .dash-hdr h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
+                   font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
+    .dash-hdr p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
 
     /* ── KPI Cards ── */
     .kpi-card {
@@ -6222,18 +6035,13 @@ with tab_dash:
     /* ── Top productos ── */
     .kpi-card .prod-divider { border: none; border-top: 1px solid #f1f5f9; margin: 10px 0; }
     </style>
-
-        <div class="dash-hdr">
-          <div class="dash-hdr-top"></div>
-          <div class="dash-hdr-grid"></div>
-          <div class="dash-hdr-inner">
-            <div class="dash-hdr-icon">📊</div>
-            <div>
-              <h2>Dashboard</h2>
-              <p>Resumen ejecutivo del rendimiento comercial en tiempo real.</p>
-            </div>
-          </div>
-        </div>
+    <div class="dash-hdr">
+      <span style="font-size:3rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📊</span>
+      <div>
+        <h2>Dashboard</h2>
+        <p>Resumen ejecutivo del rendimiento comercial en tiempo real.</p>
+      </div>
+    </div>
     """, unsafe_allow_html=True)
 
     # ── Filtro período ──
@@ -6656,64 +6464,24 @@ with tab_dash:
 # =========================================================
 if tab6 is not None:
     with tab6:
-        st.markdown("""<style>
+        st.markdown("""
+        <style>
         .hdr6 {
-            position: relative;
-            background: #0a0e1a;
-            border-radius: 14px;
-            padding: 0;
-            margin-bottom: 24px;
-            overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.06);
-            box-shadow: 0 6px 32px rgba(0,0,0,0.3);
+            background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%);
+            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
+            display: flex; align-items: center; gap: 16px;
         }
-        .hdr6-top {
-            height: 3px;
-            background: linear-gradient(90deg,#dc2626,#f97316);
-        }
-        .hdr6-grid {
-            position: absolute; inset: 0;
-            background-image:
-                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-            background-size: 28px 28px;
-            pointer-events: none;
-        }
-        .hdr6-inner {
-            position: relative;
-            display: flex; align-items: center; gap: 20px;
-            padding: 24px 28px;
-        }
-        .hdr6-icon {
-            width: 52px; height: 52px; flex-shrink: 0;
-            background: rgba(220,38,38,0.15);
-            border: 1px solid rgba(220,38,38,0.4);
-            border-radius: 10px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.6rem;
-        }
-        .hdr6 h2 {
-            color: #f1f5f9 !important;
-            margin: 0 0 3px 0;
-            font-size: 1.6rem; font-weight: 900;
-            font-family: 'Arial Black', 'Inter', sans-serif;
-            letter-spacing: -0.01em; text-transform: uppercase;
-        }
-        .hdr6 p {
-            color: rgba(255,255,255,0.4) !important;
-            margin: 0; font-size: 0.82rem;
-        }</style>
+        .hdr6 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
+        .hdr6 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
+        </style>
         <div class="hdr6">
-          <div class="hdr6-top"></div>
-          <div class="hdr6-grid"></div>
-          <div class="hdr6-inner">
-            <div class="hdr6-icon">✏️</div>
-            <div>
-              <h2>Edición PDF</h2>
-              <p>Personaliza la descripción de cada categoría para el PDF del cliente.</p>
-            </div>
+          <span style="font-size:2.4rem">✏️</span>
+          <div>
+            <h2>Edición PDF Cliente</h2>
+            <p>Busca tu cotización por número EP y personaliza la descripción de cada categoría para el cliente.</p>
           </div>
-        </div>""", unsafe_allow_html=True)
+        </div>
+        """, unsafe_allow_html=True)
 
         # Buscar cotización por EP
         with st.container(border=True):
@@ -6858,29 +6626,14 @@ if tab7 is not None:
     with tab7:
         st.markdown("""
         <style>
-
         .hdr7 {
-            position: relative; background: #0a0e1a; border-radius: 14px;
-            padding: 0; margin-bottom: 24px; overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.06);
-            box-shadow: 0 6px 32px rgba(0,0,0,0.3);
+            background: linear-gradient(135deg, #78350f 0%, #d97706 100%);
+            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
+            display: flex; align-items: center; gap: 16px;
         }
-        .hdr7-top { height: 3px; background: linear-gradient(90deg,#d97706,#fbbf24); }
-        .hdr7-grid {
-            position: absolute; inset: 0;
-            background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                              linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-            background-size: 28px 28px; pointer-events: none;
-        }
-        .hdr7-inner { position: relative; display: flex; align-items: center; gap: 20px; padding: 24px 28px; }
-        .hdr7-icon {
-            width: 52px; height: 52px; flex-shrink: 0;
-            background: rgba(217,119,6,0.15); border: 1px solid rgba(217,119,6,0.4);
-            border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.6rem;
-        }
-        .hdr7 h2 { color: #f1f5f9 !important; margin: 0 0 3px 0; font-size: 1.6rem; font-weight: 900;
-                   font-family: 'Arial Black', 'Inter', sans-serif; letter-spacing: -0.01em; text-transform: uppercase; }
-        .hdr7 p  { color: rgba(255,255,255,0.4) !important; margin: 0; font-size: 0.82rem; }
+        .hdr7 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 900;
+                   font-family: 'Montserrat', sans-serif; }
+        .hdr7 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
         .rank-kpi {
             background: white; border-radius: 14px; padding: 20px 22px;
             border: 1px solid #e8edf5; box-shadow: 0 2px 12px rgba(0,0,0,0.05);
@@ -6905,14 +6658,10 @@ if tab7 is not None:
         .rank-other { border-left: 5px solid #e2e8f0; }
         </style>
         <div class="hdr7">
-          <div class="hdr7-top"></div>
-          <div class="hdr7-grid"></div>
-          <div class="hdr7-inner">
-            <div class="hdr7-icon">🏆</div>
-            <div>
-              <h2>Ranking</h2>
-              <p>Desempeño del equipo de ventas — este mes.</p>
-            </div>
+          <span style="font-size:2.4rem">🏆</span>
+          <div>
+            <h2>Ranking de Ejecutivos</h2>
+            <p>Desempeño del equipo de ventas — este mes.</p>
           </div>
         </div>
         """, unsafe_allow_html=True)
@@ -7101,53 +6850,16 @@ with tab_contrato:
     st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap');
-
-        .hdr-contrato {
-            position: relative;
-            background: #0a0e1a;
-            border-radius: 14px;
-            padding: 0;
-            margin-bottom: 24px;
-            overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.06);
-            box-shadow: 0 6px 32px rgba(0,0,0,0.3);
-        }
-        .hdr-contrato-top {
-            height: 3px;
-            background: linear-gradient(90deg,#0f3460,#3b82f6);
-        }
-        .hdr-contrato-grid {
-            position: absolute; inset: 0;
-            background-image:
-                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-            background-size: 28px 28px;
-            pointer-events: none;
-        }
-        .hdr-contrato-inner {
-            position: relative;
-            display: flex; align-items: center; gap: 20px;
-            padding: 24px 28px;
-        }
-        .hdr-contrato-icon {
-            width: 52px; height: 52px; flex-shrink: 0;
-            background: rgba(15,52,96,0.3);
-            border: 1px solid rgba(59,130,246,0.4);
-            border-radius: 10px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.6rem;
-        }
-        .hdr-contrato h2 {
-            color: #f1f5f9 !important;
-            margin: 0 0 3px 0;
-            font-size: 1.6rem; font-weight: 900;
-            font-family: 'Arial Black', 'Inter', sans-serif;
-            letter-spacing: -0.01em; text-transform: uppercase;
-        }
-        .hdr-contrato p {
-            color: rgba(255,255,255,0.4) !important;
-            margin: 0; font-size: 0.82rem;
-        }
+    .hdr-contrato {
+        background: linear-gradient(135deg, #0f3460 0%, #16213e 60%, #1a1a2e 100%);
+        border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
+        display: flex; align-items: center; gap: 22px;
+        box-shadow: 0 8px 32px rgba(15,52,96,0.3);
+    }
+    .hdr-contrato h2 { color: #fff !important; margin: 0; font-size: 1.8rem;
+                       font-weight: 900; font-family: 'Montserrat', sans-serif;
+                       letter-spacing: -0.02em; }
+    .hdr-contrato p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
     .cont-section {
         font-size: 0.75rem; font-weight: 900; color: #1e293b;
         text-transform: uppercase; letter-spacing: 0.12em;
@@ -7169,18 +6881,13 @@ with tab_contrato:
     .cont-field-label { font-size: 0.7rem; font-weight: 800; color: #64748b;
                         text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px; }
     </style>
-
-        <div class="hdr-contrato">
-          <div class="hdr-contrato-top"></div>
-          <div class="hdr-contrato-grid"></div>
-          <div class="hdr-contrato-inner">
-            <div class="hdr-contrato-icon">📄</div>
-            <div>
-              <h2>Contrato</h2>
-              <p>Genera el contrato de fabricación y venta listo para imprimir y firmar.</p>
-            </div>
-          </div>
-        </div>
+    <div class="hdr-contrato">
+      <span style="font-size:3rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.4));">📄</span>
+      <div>
+        <h2>Contrato Cliente</h2>
+        <p>Genera el contrato de fabricación y venta listo para imprimir y firmar.</p>
+      </div>
+    </div>
     """, unsafe_allow_html=True)
 
     # ── Paso 1: Buscar EP ──
