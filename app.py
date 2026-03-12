@@ -6567,217 +6567,202 @@ if tab7 is not None:
                 </div>""", unsafe_allow_html=True)
 
 
-            st.caption("Score = 60% total generado + 25% % conversión + 15% cantidad de presupuestos")
 
-            # ═══════════════════════════════════════════════════════
-            # SECCIÓN: PERFIL DE CLIENTES
-            # ═══════════════════════════════════════════════════════
-            st.markdown("---")
-            st.markdown("""
-            <div style="background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;
-                        padding:20px 24px;margin-bottom:20px;">
-              <div style="display:flex;align-items:center;gap:12px;">
-                <span style="font-size:2rem;">👥</span>
-                <div>
-                  <div style="color:#fff;font-size:1.2rem;font-weight:700;">Perfil de Clientes</div>
-                  <div style="color:rgba(255,255,255,0.6);font-size:0.82rem;">
-                    Análisis demográfico y geográfico de cotizaciones
-                  </div>
-                </div>
-              </div>
-            </div>""", unsafe_allow_html=True)
 
-            _tc = _d.get('top_comunas', [])
-            _tr = _d.get('top_regiones', [])
-            _nn = _d.get('n_natural', 0)
-            _nj = _d.get('n_juridica', 0)
-            _nm = _d.get('n_masc', 0)
-            _nf = _d.get('n_fem', 0)
-            _nd = _d.get('n_nd', 0)
-            _re = _d.get('rangos_etarios', {})
-            _te = _d.get('top_empresas', [])
+        _tc = _d.get('top_comunas', [])
+        _tr = _d.get('top_regiones', [])
+        _nn = _d.get('n_natural', 0)
+        _nj = _d.get('n_juridica', 0)
+        _nm = _d.get('n_masc', 0)
+        _nf = _d.get('n_fem', 0)
+        _nd = _d.get('n_nd', 0)
+        _re = _d.get('rangos_etarios', {})
+        _te = _d.get('top_empresas', [])
 
-            import plotly.graph_objects as go
-            import plotly.express as px
+        import plotly.graph_objects as go
+        import plotly.express as px
 
-            _TEMPLATE = dict(
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                font=dict(family='Inter, sans-serif', color='#1e293b'),
-                margin=dict(l=10, r=10, t=30, b=10),
-            )
+        _TEMPLATE = dict(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(family='Inter, sans-serif', color='#1e293b'),
+            margin=dict(l=10, r=10, t=30, b=10),
+        )
 
-            # ── Fila 1: Comunas + Regiones ──────────────────────────
-            col_com, col_reg = st.columns(2)
+        # ── Fila 1: Comunas + Regiones ──────────────────────────
+        col_com, col_reg = st.columns(2)
 
-            with col_com:
-                if _tc:
-                    _coms  = [x[0] for x in _tc]
-                    _vals_c = [x[1] for x in _tc]
-                    _fig_com = go.Figure(go.Bar(
-                        x=_vals_c[::-1], y=_coms[::-1],
-                        orientation='h',
-                        marker=dict(
-                            color=_vals_c[::-1],
-                            colorscale=[[0,'#bfdbfe'],[1,'#1d4ed8']],
-                            showscale=False,
-                        ),
-                        text=[str(v) for v in _vals_c[::-1]],
-                        textposition='outside',
-                        hovertemplate='<b>%{y}</b><br>%{x} cotizaciones<extra></extra>',
-                    ))
-                    _fig_com.update_layout(
-                        **_TEMPLATE,
-                        title=dict(text='📍 Top Comunas', font=dict(size=13, color='#0f172a'), x=0),
-                        xaxis=dict(showgrid=False, showticklabels=False, zeroline=False),
-                        yaxis=dict(tickfont=dict(size=11)),
-                        height=320,
-                    )
-                    st.plotly_chart(_fig_com, use_container_width=True, config={'displayModeBar': False})
-                else:
-                    st.info("Sin datos de comunas aún")
-
-            with col_reg:
-                if _tr:
-                    _regs  = [x[0] for x in _tr]
-                    _vals_r = [x[1] for x in _tr]
-                    _colors_reg = px.colors.sequential.Blues[2:][::-1][:len(_regs)]
-                    _fig_reg = go.Figure(go.Bar(
-                        x=_vals_r[::-1], y=_regs[::-1],
-                        orientation='h',
-                        marker=dict(color=_vals_r[::-1],
-                                    colorscale=[[0,'#bbf7d0'],[1,'#15803d']],
-                                    showscale=False),
-                        text=[str(v) for v in _vals_r[::-1]],
-                        textposition='outside',
-                        hovertemplate='<b>%{y}</b><br>%{x} cotizaciones<extra></extra>',
-                    ))
-                    _fig_reg.update_layout(
-                        **_TEMPLATE,
-                        title=dict(text='🗺️ Top Regiones', font=dict(size=13, color='#0f172a'), x=0),
-                        xaxis=dict(showgrid=False, showticklabels=False, zeroline=False),
-                        yaxis=dict(tickfont=dict(size=11)),
-                        height=320,
-                    )
-                    st.plotly_chart(_fig_reg, use_container_width=True, config={'displayModeBar': False})
-                else:
-                    st.info("Sin datos de regiones aún")
-
-            # ── Fila 2: Natural/Jurídica + Género + Rango etario ──
-            col_tipo, col_gen, col_edad = st.columns(3)
-
-            with col_tipo:
-                _total_tipo = _nn + _nj
-                if _total_tipo > 0:
-                    _fig_tipo = go.Figure(go.Pie(
-                        labels=['Persona Natural', 'Persona Jurídica'],
-                        values=[_nn, _nj],
-                        hole=0.55,
-                        marker=dict(colors=['#3b82f6','#f59e0b'],
-                                    line=dict(color='white', width=2)),
-                        textinfo='percent',
-                        hovertemplate='<b>%{label}</b><br>%{value} clientes (%{percent})<extra></extra>',
-                    ))
-                    _fig_tipo.add_annotation(
-                        text=f"<b>{_total_tipo}</b><br><span style='font-size:10px'>clientes</span>",
-                        x=0.5, y=0.5, showarrow=False,
-                        font=dict(size=14, color='#0f172a'),
-                        align='center',
-                    )
-                    _fig_tipo.update_layout(
-                        **_TEMPLATE,
-                        title=dict(text='🏢 Tipo de Cliente', font=dict(size=13, color='#0f172a'), x=0),
-                        showlegend=True,
-                        legend=dict(orientation='h', y=-0.15, font=dict(size=10)),
-                        height=280,
-                    )
-                    st.plotly_chart(_fig_tipo, use_container_width=True, config={'displayModeBar': False})
-                else:
-                    st.info("Sin datos")
-
-            with col_gen:
-                _total_gen = _nm + _nf + _nd
-                if _total_gen > 0:
-                    _labels_g = []
-                    _vals_g   = []
-                    _colors_g = []
-                    if _nm: _labels_g.append('Masculino');   _vals_g.append(_nm); _colors_g.append('#3b82f6')
-                    if _nf: _labels_g.append('Femenino');    _vals_g.append(_nf); _colors_g.append('#ec4899')
-                    if _nd: _labels_g.append('No det.');     _vals_g.append(_nd); _colors_g.append('#94a3b8')
-                    _fig_gen = go.Figure(go.Pie(
-                        labels=_labels_g, values=_vals_g, hole=0.55,
-                        marker=dict(colors=_colors_g, line=dict(color='white', width=2)),
-                        textinfo='percent',
-                        hovertemplate='<b>%{label}</b><br>%{value} (%{percent})<extra></extra>',
-                    ))
-                    _fig_gen.add_annotation(
-                        text=f"<b>{_nm+_nf}</b><br><span style='font-size:10px'>detectados</span>",
-                        x=0.5, y=0.5, showarrow=False,
-                        font=dict(size=14, color='#0f172a'), align='center',
-                    )
-                    _fig_gen.update_layout(
-                        **_TEMPLATE,
-                        title=dict(text='⚤ Género Estimado', font=dict(size=13, color='#0f172a'), x=0),
-                        showlegend=True,
-                        legend=dict(orientation='h', y=-0.15, font=dict(size=10)),
-                        height=280,
-                    )
-                    st.plotly_chart(_fig_gen, use_container_width=True, config={'displayModeBar': False})
-                    st.caption("⚠️ Estimado por primer nombre — referencial")
-                else:
-                    st.info("Sin datos")
-
-            with col_edad:
-                _re_filt = {k: v for k, v in _re.items() if v > 0}
-                if _re_filt:
-                    _orden = ['< 1975 (50+)', '1975-1995 (30-50)', '> 1995 (< 30)', 'No det.']
-                    _lbl_e = [k for k in _orden if k in _re_filt]
-                    _val_e = [_re_filt[k] for k in _lbl_e]
-                    _col_e = ['#7c3aed','#2563eb','#0891b2','#94a3b8'][:len(_lbl_e)]
-                    _fig_edad = go.Figure(go.Bar(
-                        x=_lbl_e, y=_val_e,
-                        marker=dict(color=_col_e, line=dict(color='white', width=1)),
-                        text=_val_e, textposition='outside',
-                        hovertemplate='<b>%{x}</b><br>%{y} clientes<extra></extra>',
-                    ))
-                    _fig_edad.update_layout(
-                        **_TEMPLATE,
-                        title=dict(text='📅 Rango Etario Est.', font=dict(size=13, color='#0f172a'), x=0),
-                        xaxis=dict(tickfont=dict(size=9), showgrid=False),
-                        yaxis=dict(showgrid=True, gridcolor='#f1f5f9', showticklabels=False),
-                        height=280,
-                    )
-                    st.plotly_chart(_fig_edad, use_container_width=True, config={'displayModeBar': False})
-                    st.caption("⚠️ Estimado por correlación RUT — referencial")
-                else:
-                    st.info("Sin datos")
-
-            # ── Fila 3: Top empresas ────────────────────────────────
-            if _te:
-                st.markdown("#### 🏢 Top Empresas Cotizantes")
-                _emp_names = [x[0] for x in _te]
-                _emp_vals  = [x[1] for x in _te]
-                _fig_emp = go.Figure(go.Bar(
-                    x=_emp_vals[::-1], y=_emp_names[::-1],
+        with col_com:
+            if _tc:
+                _coms  = [x[0] for x in _tc]
+                _vals_c = [x[1] for x in _tc]
+                _fig_com = go.Figure(go.Bar(
+                    x=_vals_c[::-1], y=_coms[::-1],
                     orientation='h',
-                    marker=dict(color=_emp_vals[::-1],
-                                colorscale=[[0,'#fde68a'],[1,'#d97706']],
-                                showscale=False),
-                    text=[str(v) for v in _emp_vals[::-1]],
+                    marker=dict(
+                        color=_vals_c[::-1],
+                        colorscale=[[0,'#bfdbfe'],[1,'#1d4ed8']],
+                        showscale=False,
+                    ),
+                    text=[str(v) for v in _vals_c[::-1]],
                     textposition='outside',
                     hovertemplate='<b>%{y}</b><br>%{x} cotizaciones<extra></extra>',
                 ))
-                _fig_emp.update_layout(
+                _fig_com.update_layout(
                     **_TEMPLATE,
+                    title=dict(text='📍 Top Comunas', font=dict(size=13, color='#0f172a'), x=0),
                     xaxis=dict(showgrid=False, showticklabels=False, zeroline=False),
                     yaxis=dict(tickfont=dict(size=11)),
-                    height=max(200, len(_te) * 38),
+                    height=320,
                 )
-                st.plotly_chart(_fig_emp, use_container_width=True, config={'displayModeBar': False})
+                st.plotly_chart(_fig_com, use_container_width=True, config={'displayModeBar': False})
+            else:
+                st.info("Sin datos de comunas aún")
+
+        with col_reg:
+            if _tr:
+                _regs  = [x[0] for x in _tr]
+                _vals_r = [x[1] for x in _tr]
+                _colors_reg = px.colors.sequential.Blues[2:][::-1][:len(_regs)]
+                _fig_reg = go.Figure(go.Bar(
+                    x=_vals_r[::-1], y=_regs[::-1],
+                    orientation='h',
+                    marker=dict(color=_vals_r[::-1],
+                                colorscale=[[0,'#bbf7d0'],[1,'#15803d']],
+                                showscale=False),
+                    text=[str(v) for v in _vals_r[::-1]],
+                    textposition='outside',
+                    hovertemplate='<b>%{y}</b><br>%{x} cotizaciones<extra></extra>',
+                ))
+                _fig_reg.update_layout(
+                    **_TEMPLATE,
+                    title=dict(text='🗺️ Top Regiones', font=dict(size=13, color='#0f172a'), x=0),
+                    xaxis=dict(showgrid=False, showticklabels=False, zeroline=False),
+                    yaxis=dict(tickfont=dict(size=11)),
+                    height=320,
+                )
+                st.plotly_chart(_fig_reg, use_container_width=True, config={'displayModeBar': False})
+            else:
+                st.info("Sin datos de regiones aún")
+
+        # ── Fila 2: Natural/Jurídica + Género + Rango etario ──
+        col_tipo, col_gen, col_edad = st.columns(3)
+
+        with col_tipo:
+            _total_tipo = _nn + _nj
+            if _total_tipo > 0:
+                _fig_tipo = go.Figure(go.Pie(
+                    labels=['Persona Natural', 'Persona Jurídica'],
+                    values=[_nn, _nj],
+                    hole=0.55,
+                    marker=dict(colors=['#3b82f6','#f59e0b'],
+                                line=dict(color='white', width=2)),
+                    textinfo='percent',
+                    hovertemplate='<b>%{label}</b><br>%{value} clientes (%{percent})<extra></extra>',
+                ))
+                _fig_tipo.add_annotation(
+                    text=f"<b>{_total_tipo}</b><br><span style='font-size:10px'>clientes</span>",
+                    x=0.5, y=0.5, showarrow=False,
+                    font=dict(size=14, color='#0f172a'),
+                    align='center',
+                )
+                _fig_tipo.update_layout(
+                    **_TEMPLATE,
+                    title=dict(text='🏢 Tipo de Cliente', font=dict(size=13, color='#0f172a'), x=0),
+                    showlegend=True,
+                    legend=dict(orientation='h', y=-0.15, font=dict(size=10)),
+                    height=280,
+                )
+                st.plotly_chart(_fig_tipo, use_container_width=True, config={'displayModeBar': False})
+            else:
+                st.info("Sin datos")
+
+        with col_gen:
+            _total_gen = _nm + _nf + _nd
+            if _total_gen > 0:
+                _labels_g = []
+                _vals_g   = []
+                _colors_g = []
+                if _nm: _labels_g.append('Masculino');   _vals_g.append(_nm); _colors_g.append('#3b82f6')
+                if _nf: _labels_g.append('Femenino');    _vals_g.append(_nf); _colors_g.append('#ec4899')
+                if _nd: _labels_g.append('No det.');     _vals_g.append(_nd); _colors_g.append('#94a3b8')
+                _fig_gen = go.Figure(go.Pie(
+                    labels=_labels_g, values=_vals_g, hole=0.55,
+                    marker=dict(colors=_colors_g, line=dict(color='white', width=2)),
+                    textinfo='percent',
+                    hovertemplate='<b>%{label}</b><br>%{value} (%{percent})<extra></extra>',
+                ))
+                _fig_gen.add_annotation(
+                    text=f"<b>{_nm+_nf}</b><br><span style='font-size:10px'>detectados</span>",
+                    x=0.5, y=0.5, showarrow=False,
+                    font=dict(size=14, color='#0f172a'), align='center',
+                )
+                _fig_gen.update_layout(
+                    **_TEMPLATE,
+                    title=dict(text='⚤ Género Estimado', font=dict(size=13, color='#0f172a'), x=0),
+                    showlegend=True,
+                    legend=dict(orientation='h', y=-0.15, font=dict(size=10)),
+                    height=280,
+                )
+                st.plotly_chart(_fig_gen, use_container_width=True, config={'displayModeBar': False})
+                st.caption("⚠️ Estimado por primer nombre — referencial")
+            else:
+                st.info("Sin datos")
+
+        with col_edad:
+            _re_filt = {k: v for k, v in _re.items() if v > 0}
+            if _re_filt:
+                _orden = ['< 1975 (50+)', '1975-1995 (30-50)', '> 1995 (< 30)', 'No det.']
+                _lbl_e = [k for k in _orden if k in _re_filt]
+                _val_e = [_re_filt[k] for k in _lbl_e]
+                _col_e = ['#7c3aed','#2563eb','#0891b2','#94a3b8'][:len(_lbl_e)]
+                _fig_edad = go.Figure(go.Bar(
+                    x=_lbl_e, y=_val_e,
+                    marker=dict(color=_col_e, line=dict(color='white', width=1)),
+                    text=_val_e, textposition='outside',
+                    hovertemplate='<b>%{x}</b><br>%{y} clientes<extra></extra>',
+                ))
+                _fig_edad.update_layout(
+                    **_TEMPLATE,
+                    title=dict(text='📅 Rango Etario Est.', font=dict(size=13, color='#0f172a'), x=0),
+                    xaxis=dict(tickfont=dict(size=9), showgrid=False),
+                    yaxis=dict(showgrid=True, gridcolor='#f1f5f9', showticklabels=False),
+                    height=280,
+                )
+                st.plotly_chart(_fig_edad, use_container_width=True, config={'displayModeBar': False})
+                st.caption("⚠️ Estimado por correlación RUT — referencial")
+            else:
+                st.info("Sin datos")
+
+        # ── Fila 3: Top empresas ────────────────────────────────
+        if _te:
+            st.markdown("#### 🏢 Top Empresas Cotizantes")
+            _emp_names = [x[0] for x in _te]
+            _emp_vals  = [x[1] for x in _te]
+            _fig_emp = go.Figure(go.Bar(
+                x=_emp_vals[::-1], y=_emp_names[::-1],
+                orientation='h',
+                marker=dict(color=_emp_vals[::-1],
+                            colorscale=[[0,'#fde68a'],[1,'#d97706']],
+                            showscale=False),
+                text=[str(v) for v in _emp_vals[::-1]],
+                textposition='outside',
+                hovertemplate='<b>%{y}</b><br>%{x} cotizaciones<extra></extra>',
+            ))
+            _fig_emp.update_layout(
+                **_TEMPLATE,
+                xaxis=dict(showgrid=False, showticklabels=False, zeroline=False),
+                yaxis=dict(tickfont=dict(size=11)),
+                height=max(200, len(_te) * 38),
+            )
+            st.plotly_chart(_fig_emp, use_container_width=True, config={'displayModeBar': False})
 
 
 
 # =========================================================
+
+            st.caption("Score = 60% total generado + 25% % conversión + 15% cantidad de presupuestos")
+
 # TAB CONTRATO CLIENTE
 # =========================================================
 with tab_contrato:
