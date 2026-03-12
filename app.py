@@ -6135,71 +6135,6 @@ with tab_dash:
             else:
                 st.info("Sin datos de ejecutivos.")
 
-        # ── Top 30 productos ──
-        st.markdown('<div class="section-title">🏅 Top 30 productos más cotizados</div>', unsafe_allow_html=True)
-        if _d.get('top_productos'):
-            _max_prod = _d['top_productos'][0][1] or 1
-            _html_prods = '<div class="dash-panel">'
-            _html_prods += """
-            <div style="display:flex;gap:8px;margin-bottom:14px;padding-bottom:10px;
-                        border-bottom:1px solid #f1f5f9;">
-              <span style="font-size:0.72rem;font-weight:800;color:#94a3b8;
-                           text-transform:uppercase;letter-spacing:0.08em;min-width:24px;">#</span>
-              <span style="font-size:0.72rem;font-weight:800;color:#94a3b8;
-                           text-transform:uppercase;letter-spacing:0.08em;flex:1;">Producto</span>
-              <span style="font-size:0.72rem;font-weight:800;color:#94a3b8;
-                           text-transform:uppercase;letter-spacing:0.08em;min-width:55px;text-align:center;">Cant.</span>
-              <span style="font-size:0.72rem;font-weight:800;color:#94a3b8;
-                           text-transform:uppercase;letter-spacing:0.08em;min-width:100px;text-align:right;">Monto</span>
-            </div>"""
-            for idx_p, (prod_name, prod_val, prod_qty, prod_cat) in enumerate(_d['top_productos'], 1):
-                pct_p    = round((prod_val / _max_prod) * 100)
-                _color_p = "#3b82f6" if idx_p <= 3 else "#6366f1" if idx_p <= 10 else "#94a3b8"
-                _bold_p  = "800" if idx_p <= 3 else "600"
-                _html_prods += f"""
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;">
-                  <span style="font-size:0.78rem;font-weight:700;color:{_color_p};
-                               min-width:24px;text-align:center;">{idx_p}</span>
-                  <div style="flex:1;min-width:0;">
-                    <div style="font-size:0.82rem;font-weight:{_bold_p};color:#1e293b;
-                                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{prod_name}</div>
-                    <div style="font-size:0.72rem;color:#94a3b8;margin-bottom:3px;">{prod_cat}</div>
-                    <div style="background:#f1f5f9;border-radius:4px;height:5px;overflow:hidden;">
-                      <div style="width:{pct_p}%;height:5px;border-radius:4px;
-                                  background:{_color_p};opacity:0.7;"></div>
-                    </div>
-                  </div>
-                  <span style="font-size:0.8rem;font-weight:700;color:#475569;
-                               min-width:55px;text-align:center;">{prod_qty:,}</span>
-                  <span style="font-size:0.82rem;font-weight:800;color:{_color_p};
-                               min-width:100px;text-align:right;">{_fmt_monto(prod_val)}</span>
-                </div>"""
-            _html_prods += '</div>'
-            st.markdown(_html_prods, unsafe_allow_html=True)
-        else:
-            st.info("Sin datos de productos para el período seleccionado.")
-
-
-
-            st.caption("Score = 60% total generado + 25% % conversión + 15% cantidad de presupuestos")
-
-        # ═══════════════════════════════════════════════════════
-        # SECCIÓN: PERFIL DE CLIENTES
-        # ═══════════════════════════════════════════════════════
-        st.markdown("---")
-        st.markdown("""
-        <div style="background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;
-                    padding:20px 24px;margin-bottom:20px;">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <span style="font-size:2rem;">👥</span>
-            <div>
-              <div style="color:#fff;font-size:1.2rem;font-weight:700;">Perfil de Clientes</div>
-              <div style="color:rgba(255,255,255,0.6);font-size:0.82rem;">
-                Análisis demográfico y geográfico de cotizaciones
-              </div>
-            </div>
-          </div>
-        </div>""", unsafe_allow_html=True)
 
         _tc = _d.get('top_comunas', [])
         _tr = _d.get('top_regiones', [])
@@ -6361,6 +6296,72 @@ with tab_dash:
 
 
 
+
+        # ── Top 30 productos ──
+        st.markdown('<div class="section-title">🏅 Top 30 productos más cotizados</div>', unsafe_allow_html=True)
+        if _d.get('top_productos'):
+            _max_prod = _d['top_productos'][0][1] or 1
+            _html_prods = '<div class="dash-panel">'
+            _html_prods += """
+            <div style="display:flex;gap:8px;margin-bottom:14px;padding-bottom:10px;
+                        border-bottom:1px solid #f1f5f9;">
+              <span style="font-size:0.72rem;font-weight:800;color:#94a3b8;
+                           text-transform:uppercase;letter-spacing:0.08em;min-width:24px;">#</span>
+              <span style="font-size:0.72rem;font-weight:800;color:#94a3b8;
+                           text-transform:uppercase;letter-spacing:0.08em;flex:1;">Producto</span>
+              <span style="font-size:0.72rem;font-weight:800;color:#94a3b8;
+                           text-transform:uppercase;letter-spacing:0.08em;min-width:55px;text-align:center;">Cant.</span>
+              <span style="font-size:0.72rem;font-weight:800;color:#94a3b8;
+                           text-transform:uppercase;letter-spacing:0.08em;min-width:100px;text-align:right;">Monto</span>
+            </div>"""
+            for idx_p, (prod_name, prod_val, prod_qty, prod_cat) in enumerate(_d['top_productos'], 1):
+                pct_p    = round((prod_val / _max_prod) * 100)
+                _color_p = "#3b82f6" if idx_p <= 3 else "#6366f1" if idx_p <= 10 else "#94a3b8"
+                _bold_p  = "800" if idx_p <= 3 else "600"
+                _html_prods += f"""
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;">
+                  <span style="font-size:0.78rem;font-weight:700;color:{_color_p};
+                               min-width:24px;text-align:center;">{idx_p}</span>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:0.82rem;font-weight:{_bold_p};color:#1e293b;
+                                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{prod_name}</div>
+                    <div style="font-size:0.72rem;color:#94a3b8;margin-bottom:3px;">{prod_cat}</div>
+                    <div style="background:#f1f5f9;border-radius:4px;height:5px;overflow:hidden;">
+                      <div style="width:{pct_p}%;height:5px;border-radius:4px;
+                                  background:{_color_p};opacity:0.7;"></div>
+                    </div>
+                  </div>
+                  <span style="font-size:0.8rem;font-weight:700;color:#475569;
+                               min-width:55px;text-align:center;">{prod_qty:,}</span>
+                  <span style="font-size:0.82rem;font-weight:800;color:{_color_p};
+                               min-width:100px;text-align:right;">{_fmt_monto(prod_val)}</span>
+                </div>"""
+            _html_prods += '</div>'
+            st.markdown(_html_prods, unsafe_allow_html=True)
+        else:
+            st.info("Sin datos de productos para el período seleccionado.")
+
+
+
+            st.caption("Score = 60% total generado + 25% % conversión + 15% cantidad de presupuestos")
+
+        # ═══════════════════════════════════════════════════════
+        # SECCIÓN: PERFIL DE CLIENTES
+        # ═══════════════════════════════════════════════════════
+        st.markdown("---")
+        st.markdown("""
+        <div style="background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;
+                    padding:20px 24px;margin-bottom:20px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span style="font-size:2rem;">👥</span>
+            <div>
+              <div style="color:#fff;font-size:1.2rem;font-weight:700;">Perfil de Clientes</div>
+              <div style="color:rgba(255,255,255,0.6);font-size:0.82rem;">
+                Análisis demográfico y geográfico de cotizaciones
+              </div>
+            </div>
+          </div>
+        </div>""", unsafe_allow_html=True)
 
         st.caption(f"Datos actualizados al abrir la pestaña · Período: {_periodo_label}")
 
