@@ -7353,6 +7353,9 @@ if tab7 is not None:
         with st.spinner("Cargando ranking..."):
             _ranking = cargar_ranking_ejecutivos(periodo='mes')
 
+        # DEBUG TEMPORAL
+        st.warning(f"DEBUG → ejecutivos en ranking: {len(_ranking)} | nombres: {[r['nombre'] for r in _ranking]}")
+
         if not _ranking:
             st.info("No hay cotizaciones registradas este mes.")
         else:
