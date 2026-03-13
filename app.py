@@ -6049,9 +6049,13 @@ if _mostrar_fab:
             for (const b of buttons) {
                 const txt = (b.innerText || b.textContent || '').trim();
                 if (txt === '💾 Guardar' && b.id !== 'fab-guardar-btn' && !b.disabled) {
+                    // Clickear sin mostrar: usar visibility en vez de display
+                    b.style.setProperty('visibility','hidden','important');
                     b.parentElement.style.removeProperty('display');
                     b.parentElement.parentElement.style.removeProperty('display');
                     b.click();
+                    b.parentElement.style.setProperty('display','none','important');
+                    b.parentElement.parentElement.style.setProperty('display','none','important');
                     return;
                 }
             }
