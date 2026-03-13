@@ -115,7 +115,7 @@ def listar_usuarios_ejecutivos():
         users = []
         for u in res:
             email = u.email or ""
-            if email.lower() in [s.lower() for s in SUPERVISORES]:
+            if email.lower() in [s.lower() for s in ROOTS]:
                 continue
             meta = u.user_metadata or {}
             nombre = meta.get("nombre", email)
