@@ -190,7 +190,7 @@ if not st.session_state.auth_user:
         if _osl.path.exists(_lpath):
             with open(_lpath, "rb") as _lf:
                 _logo2_b64 = _b64l.b64encode(_lf.read()).decode()
-            _logo2_html = f'<img src="data:image/png;base64,{_logo2_b64}" style="max-width:220px;margin:0 auto 24px;display:block;filter:drop-shadow(0 4px 24px rgba(212,175,55,0.3));">'
+            _logo2_html = f'<img src="data:image/png;base64,{_logo2_b64}" style="max-width:500px;width:100%;margin:0 auto 28px;display:block;filter:drop-shadow(0 4px 24px rgba(212,175,55,0.3));">'
             break
 
     st.markdown("""
@@ -336,40 +336,23 @@ if not st.session_state.auth_user:
     #MainMenu { display:none !important; }
     footer { display:none !important; }
 
-    /* Hacer que los inputs queden pegados visualmente al card */
-    section[data-testid="stMain"] > div > div > div > div[data-testid="stVerticalBlock"] > div:nth-child(2) {
-        background: linear-gradient(160deg, #161616 0%, #1c1c1c 100%) !important;
-        border: 1px solid rgba(212,175,55,0.25) !important;
-        border-top: none !important;
-        border-radius: 0 0 4px 4px !important;
-        padding: 16px 20px 24px !important;
-        margin-top: -12px !important;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.7) !important;
-    }
+
     </style>
     """, unsafe_allow_html=True)
 
     # Centrar con columnas
-    _lc, _mc, _rc = st.columns([1, 2, 1])
+    _lc, _mc, _rc = st.columns([1, 3, 1])
     with _mc:
-        # Logo encima del card
+        # Logo 500px
         if _logo2_html:
-            st.markdown(_logo2_html, unsafe_allow_html=True)
+            st.markdown(_logo2_html.replace('max-width:220px', 'max-width:500px'), unsafe_allow_html=True)
         else:
-            st.markdown('<div style="text-align:center;margin-bottom:20px;"><span style="font-size:3rem;filter:drop-shadow(0 0 20px rgba(212,175,55,0.5));">🧊</span></div>', unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center;margin-bottom:20px;"><span style="font-size:4rem;filter:drop-shadow(0 0 20px rgba(212,175,55,0.5));">🧊</span></div>', unsafe_allow_html=True)
 
-        # Cabecera del card (solo título + subtítulo + divisor)
-        st.markdown("""
-        <div class="login-card">
-            <div class="login-corner-tl"></div>
-            <div class="login-corner-br"></div>
-            <div class="login-title">Cotizador PRO</div>
-            <div class="login-sub">Espacio Container House</div>
-            <div class="login-divider"></div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-divider"></div>', unsafe_allow_html=True)
+        st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
 
-        # Los inputs van fuera del HTML pero con estilo que los integra visualmente
         _email_in = st.text_input("Correo electrónico", key="login_email", placeholder="usuario@empresa.cl")
         _pass_in  = st.text_input("Contraseña", type="password", key="login_pass", placeholder="••••••••")
 
