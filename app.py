@@ -241,6 +241,9 @@ if not st.session_state.auth_user:
                 st.session_state.es_root       = _rol_login == "root"
                 if st.session_state.es_supervisor:
                     st.session_state.modo_admin = True
+                # Limpiar caché de búsquedas del usuario anterior
+                st.session_state.pop('resultados_busqueda', None)
+                st.session_state.pop('_usuarios_cache', None)
                 st.rerun()
             else:
                 msg = "Correo o contraseña incorrectos."
@@ -1664,19 +1667,10 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
         # Filtrar por usuario si es ejecutivo (no admin ni root)
         _rol_q = st.session_state.get('rol_usuario', 'ejecutivo')
         if _rol_q == 'ejecutivo':
-            _uid   = st.session_state.get('auth_user')
-            _email = st.session_state.get('auth_email', '').lower()
-            # Cotizaciones nuevas: filtrar por user_id
-            # Cotizaciones antiguas (user_id NULL): filtrar por asesor_email
-            if _uid and _email:
-                query = query.or_(
-                    f"user_id.eq.{_uid},"
-                    f"and(user_id.is.null,asesor_email.ilike.{_email})"
-                )
-            elif _uid:
-                query = query.eq('user_id', _uid)
-            elif _email:
-                query = query.ilike('asesor_email', _email)
+            _email = st.session_state.get('auth_email', '')
+            if _email:
+                # ilike es case-insensitive, cubre tanto mayúsculas como minúsculas
+                query = query.ilike('asesor_email', _email.strip())
         if termino and termino.strip():
             campo_map = {
                 'numero': 'numero',
