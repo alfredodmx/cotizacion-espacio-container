@@ -148,6 +148,7 @@ def listar_usuarios_ejecutivos():
                 "email": email,
                 "nombre": nombre,
                 "rol": rol,
+                "telefono": meta.get("telefono", "") or "",
                 "created_at": str(u.created_at)[:10] if u.created_at else "",
                 "activo": _activo
             })
@@ -4187,17 +4188,22 @@ with tab2:
         _es_ejecutivo_tab2 = _rol_actual_tab2 == 'ejecutivo'
 
         if _es_ejecutivo_tab2:
-            # Buscar datos del ejecutivo logueado en el dict de asesores por correo
             _email_logueado = st.session_state.get('auth_email', '').upper()
             _nombre_logueado = st.session_state.get('auth_nombre', '').upper()
             _datos_ej = None
-            # Buscar por correo primero
+            # Buscar por correo o nombre en el dict de asesores
             for _nm, _dat in asesores.items():
                 if _nm == "Seleccionar asesor":
                     continue
                 if _dat["correo"].upper() == _email_logueado or _nm.upper() == _nombre_logueado:
                     _datos_ej = (_nm, _dat)
                     break
+            # Si no encontró en el dict, usar datos del perfil de Supabase
+            if not _datos_ej and _nombre_logueado:
+                _datos_ej = (_nombre_logueado, {
+                    "correo": st.session_state.get('auth_email', ''),
+                    "telefono": st.session_state.get('auth_telefono', '')
+                })
             # Auto-cargar si encontró y no está ya cargado
             if _datos_ej and st.session_state.asesor_seleccionado != _datos_ej[0]:
                 st.session_state.asesor_seleccionado = _datos_ej[0]
@@ -8064,11 +8070,13 @@ if st.session_state.modo_admin and tab_usuarios is not None:
             _tab_adm = _tabs_obj[1] if len(_tabs_obj) > 1 else None
 
             with _tab_ej:
-                col_n, col_e, col_p = st.columns(3)
+                col_n, col_e, col_t, col_p = st.columns(4)
                 with col_n:
                     _u_nombre = st.text_input("Nombre completo", key="new_usr_nombre", placeholder="Juan Pérez")
                 with col_e:
                     _u_email = st.text_input("Correo electrónico", key="new_usr_email", placeholder="juan@empresa.cl")
+                with col_t:
+                    _u_tel = st.text_input("Teléfono", key="new_usr_tel", placeholder="+56912345678")
                 with col_p:
                     _u_pass = st.text_input("Contraseña", type="password", key="new_usr_pass", placeholder="Mínimo 6 caracteres")
 
@@ -8083,7 +8091,22 @@ if st.session_state.modo_admin and tab_usuarios is not None:
                         st.error("Ese correo ya está registrado como supervisor/admin.")
                     else:
                         with st.spinner("Creando cuenta..."):
-                            user, err = crear_usuario_ejecutivo(_u_email.strip(), _u_pass, _u_nombre.strip())
+                            try:
+                                _res_ej = supabase_admin.auth.admin.create_user({
+                                    "email": _u_email.strip().lower(),
+                                    "password": _u_pass,
+                                    "email_confirm": True,
+                                    "user_metadata": {
+                                        "nombre": _u_nombre.strip().upper(),
+                                        "telefono": _u_tel.strip(),
+                                        "rol": "ejecutivo"
+                                    }
+                                })
+                                user = _res_ej.user
+                                err = None
+                            except Exception as _ex:
+                                user = None
+                                err = str(_ex)
                         if user:
                             st.success(f"✅ Cuenta creada para **{_u_nombre}** ({_u_email})")
                             st.session_state.pop('_usuarios_cache', None)
@@ -8097,11 +8120,13 @@ if st.session_state.modo_admin and tab_usuarios is not None:
             if _tab_adm is not None:
                 with _tab_adm:
                     st.info("Los administradores ven todas las cotizaciones, pueden crear ejecutivos y otros admins, pero no pueden crear ni eliminar cuentas Root. El tab 🛡️ Sistema es exclusivo de Root.")
-                    col_an, col_ae, col_ap = st.columns(3)
+                    col_an, col_ae, col_at, col_ap = st.columns(4)
                     with col_an:
                         _a_nombre = st.text_input("Nombre completo", key="new_adm_nombre", placeholder="Ana Rodríguez")
                     with col_ae:
                         _a_email = st.text_input("Correo electrónico", key="new_adm_email", placeholder="ana@empresa.cl")
+                    with col_at:
+                        _a_tel = st.text_input("Teléfono", key="new_adm_tel", placeholder="+56912345678")
                     with col_ap:
                         _a_pass = st.text_input("Contraseña", type="password", key="new_adm_pass", placeholder="Mínimo 6 caracteres")
 
@@ -8120,7 +8145,8 @@ if st.session_state.modo_admin and tab_usuarios is not None:
                                         "password": _a_pass,
                                         "email_confirm": True,
                                         "user_metadata": {
-                                            "nombre": _a_nombre.strip(),
+                                            "nombre": _a_nombre.strip().upper(),
+                                            "telefono": _a_tel.strip(),
                                             "rol": "admin"
                                         }
                                     })
@@ -8228,6 +8254,7 @@ if st.session_state.modo_admin and tab_usuarios is not None:
                 _av_cls   = 'av-root'  if _es_root_u else ('av-admin'  if _es_admin_u else 'av-ejecutivo')
                 _rol_pill = ('rol-root'  if _es_root_u else ('rol-admin' if _es_admin_u else 'rol-ejecutivo'))
                 _rol_txt  = ('🔑 Root'   if _es_root_u else ('👑 Admin'  if _es_admin_u else '👤 Ejecutivo'))
+                _u_tel_disp = _u.get('telefono', '') or ''  
 
                 # Permisos
                 _puede = (
@@ -8241,7 +8268,7 @@ if st.session_state.modo_admin and tab_usuarios is not None:
                     <div class="usr-av2 {_av_cls}">{_inicial}</div>
                     <div style="flex:1;min-width:0;">
                         <div class="usr-nm2">{_u['nombre']}</div>
-                        <div class="usr-em2">✉️ {_u['email']}</div>
+                        <div class="usr-em2">✉️ {_u['email']}{(' &nbsp;·&nbsp; 📞 ' + _u_tel_disp) if _u_tel_disp else ''}</div>
                         <div class="usr-meta">📅 {_u['created_at']} &nbsp;·&nbsp;
                             <span class="rol-pill {_rol_pill}">{_rol_txt}</span>
                         </div>
