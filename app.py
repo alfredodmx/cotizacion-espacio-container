@@ -344,11 +344,11 @@ if not st.session_state.auth_user:
     if _logo2_html:
         _logo_tag = _logo2_html.replace(
             'max-width:220px;margin:0 auto 24px;display:block;filter:drop-shadow(0 4px 24px rgba(212,175,55,0.3));',
-            'width:650px;max-width:100%;margin:0 auto 8px;display:block;filter:drop-shadow(0 4px 24px rgba(212,175,55,0.3));'
+            'width:750px;max-width:100%;margin:0 auto 8px;display:block;filter:drop-shadow(0 4px 24px rgba(212,175,55,0.3));'
         )
         st.markdown(f"""
         <style>
-        .login-logo-wrap img {{ width: 650px !important; max-width: 100% !important; display:block !important; margin: 0 auto !important; }}
+        .login-logo-wrap img {{ width: 750px !important; max-width: 100% !important; display:block !important; margin: 0 auto !important; }}
         </style>
         <div class="login-logo-wrap">{_logo_tag}</div>
         """, unsafe_allow_html=True)
