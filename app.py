@@ -5930,101 +5930,114 @@ if st.session_state.modo_admin and tab_salud is not None:
 # =========================================================
 # FAB - BOTÓN GUARDAR FLOTANTE
 # =========================================================
-if st.session_state.carrito and not (
+_es_solo_lectura = (
     st.session_state.cotizacion_cargada and
     st.session_state.margen > 0 and
     not st.session_state.modo_admin
-):
+)
+
+_hash_actual = calcular_hash_estado()
+_hay_cambios = _hash_actual != st.session_state.get('hash_ultimo_guardado')
+
+_mostrar_fab = (
+    len(st.session_state.get('carrito', [])) > 0 and
+    not _es_solo_lectura and
+    not st.session_state.get('recien_guardado', False) and
+    not st.session_state.get('recien_cargado', False) and
+    _hay_cambios
+)
+
+if st.session_state.get('recien_guardado', False):
+    st.session_state.recien_guardado = False
+if st.session_state.get('recien_cargado', False):
+    st.session_state.recien_cargado = False
+
+if _mostrar_fab:
+    # Botón real de Streamlit oculto — el FAB JS lo clickea
+    st.markdown('<style>#btn_fab_guardar_container{display:none!important}</style>', unsafe_allow_html=True)
+    if st.button("💾 Guardar", key="btn_fab_guardar"):
+        leer_datos_actuales()
+        datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
+        num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
+        guardar_cotizacion(num_g, datos_c, datos_a, proy,
+                           st.session_state.carrito, cfg, tots, pl_n, pl_d)
+        st.session_state.cotizacion_cargada = num_g
+        st.session_state.hash_ultimo_guardado = calcular_hash_estado()
+        st.session_state.recien_guardado = True
+        st.session_state.mostrar_toast_exito = True
+        st.session_state.toast_numero_ep = num_g
+        st.session_state.resultados_busqueda = None
+        st.rerun()
+
+    # FAB JS: botón flotante en DOM padre que clickea el botón real oculto
     import streamlit.components.v1 as _fab_comp
     _fab_comp.html("""
     <script>
     (function() {
-        function injectFAB() {
-            const parent = window.parent.document;
-            if (parent.getElementById('fab-guardar-btn')) return;
+        const parent = window.parent.document;
 
-            const style = parent.createElement('style');
-            style.id = 'fab-guardar-style';
-            style.innerHTML = `
-                @keyframes pulse-fab {
-                    0%   { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
-                    50%  { box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }
-                    100% { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
-                }
-                @keyframes blink-badge {
-                    0%, 100% { opacity: 1; }
-                    50%      { opacity: 0.2; }
-                }
-                #fab-guardar-wrapper {
-                    position: fixed !important;
-                    bottom: 2rem !important;
-                    left: 2rem !important;
-                    z-index: 999999 !important;
-                    display: flex !important;
-                    align-items: center !important;
-                }
-                #fab-guardar-btn {
-                    background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%) !important;
-                    color: white !important;
-                    border: none !important;
-                    border-radius: 50px !important;
-                    padding: 0.85rem 1.6rem !important;
-                    font-size: 0.95rem !important;
-                    font-weight: 700 !important;
-                    cursor: pointer !important;
-                    font-family: 'Plus Jakarta Sans', sans-serif !important;
-                    letter-spacing: 0.02em !important;
-                    animation: pulse-fab 2s infinite !important;
-                    transition: all 0.3s cubic-bezier(0.4,0,0.2,1) !important;
-                    white-space: nowrap !important;
-                }
-                #fab-guardar-btn:hover {
-                    transform: translateY(-3px) scale(1.05) !important;
-                    box-shadow: 0 16px 40px rgba(91,124,250,0.75) !important;
-                    animation: none !important;
-                }
-                #fab-badge {
-                    position: absolute !important;
-                    top: -5px !important;
-                    right: -5px !important;
-                    width: 14px !important;
-                    height: 14px !important;
-                    background: #ef4444 !important;
-                    border-radius: 50% !important;
-                    border: 2px solid white !important;
-                    animation: blink-badge 1.5s infinite !important;
-                }
-            `;
-            parent.head.appendChild(style);
+        const old = parent.getElementById('fab-guardar-wrapper');
+        if (old) old.remove();
 
-            const wrapper = parent.createElement('div');
-            wrapper.id = 'fab-guardar-wrapper';
+        const style = parent.getElementById('fab-guardar-style') || parent.createElement('style');
+        style.id = 'fab-guardar-style';
+        style.innerHTML = `
+            @keyframes pulse-fab {
+                0%   { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
+                50%  { box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }
+                100% { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
+            }
+            @keyframes blink-badge {
+                0%, 100% { opacity: 1; }
+                50%      { opacity: 0.2; }
+            }
+            #fab-guardar-wrapper {
+                position: fixed !important;
+                bottom: 1.5rem !important;
+                left: 2rem !important;
+                z-index: 999999 !important;
+            }
+            #fab-guardar-btn {
+                background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%);
+                color: white; border: none; border-radius: 50px;
+                padding: 0.85rem 1.6rem; font-size: 0.95rem; font-weight: 700;
+                cursor: pointer; font-family: sans-serif;
+                animation: pulse-fab 2s infinite; white-space: nowrap;
+                position: relative;
+            }
+            #fab-guardar-btn:hover { transform: translateY(-3px); animation: none; }
+            #fab-badge {
+                position: absolute; top: -5px; right: -5px;
+                width: 12px; height: 12px;
+                background: #ef4444; border-radius: 50%; border: 2px solid white;
+                animation: blink-badge 1.5s infinite;
+            }
+        `;
+        if (!parent.getElementById('fab-guardar-style')) parent.head.appendChild(style);
 
-            const btn = parent.createElement('button');
-            btn.id = 'fab-guardar-btn';
-            btn.innerHTML = '💾 Guardar';
-            btn.onclick = function() {
-                const buttons = parent.querySelectorAll('button');
-                for (const b of buttons) {
-                    const txt = (b.innerText || b.textContent || '').trim();
-                    if (txt.includes('Guardar') && b.id !== 'fab-guardar-btn' && !b.disabled) {
-                        b.click();
-                        break;
-                    }
+        const wrapper = parent.createElement('div');
+        wrapper.id = 'fab-guardar-wrapper';
+
+        const btn = parent.createElement('button');
+        btn.id = 'fab-guardar-btn';
+        btn.innerHTML = '&#128190; Guardar';
+
+        const badge = parent.createElement('span');
+        badge.id = 'fab-badge';
+        btn.appendChild(badge);
+
+        btn.onclick = function() {
+            const buttons = parent.querySelectorAll('button');
+            for (const b of buttons) {
+                const txt = (b.innerText || b.textContent || '').trim();
+                if (txt.includes('Guardar') && b.id !== 'fab-guardar-btn' && !b.disabled) {
+                    b.click();
+                    return;
                 }
-            };
-
-            const badge = parent.createElement('span');
-            badge.id = 'fab-badge';
-
-            wrapper.appendChild(btn);
-            wrapper.appendChild(badge);
-            parent.body.appendChild(wrapper);
-        }
-
-        injectFAB();
-        setTimeout(injectFAB, 500);
-        setTimeout(injectFAB, 1500);
+            }
+        };
+        wrapper.appendChild(btn);
+        parent.body.appendChild(wrapper);
     })();
     </script>
     """, height=0)
@@ -6034,9 +6047,8 @@ else:
     _fab_comp2.html("""<script>
 (function(){
   var D=window.parent.document;
-  ['fab-guardar-wrapper','fab-guardar-style'].forEach(function(id){
-    var e=D.getElementById(id); if(e) e.remove();
-  });
+  var w=D.getElementById('fab-guardar-wrapper'); if(w) w.remove();
+  var s=D.getElementById('fab-guardar-style'); if(s) s.remove();
 })();
 </script>""", height=0)
 
