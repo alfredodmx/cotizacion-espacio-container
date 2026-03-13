@@ -5630,45 +5630,26 @@ with tab_dash:
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap');
 
     /* ── Header ── */
-
-        .dash-hdr {
-            position: relative;
-            background: #0a0e1a;
-            border-radius: 14px;
-            padding: 0;
-            margin-bottom: 24px;
-            overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.06);
-            box-shadow: 0 6px 32px rgba(0,0,0,0.3);
-        }
-        .dash-hdr-top {
-            height: 3px;
-            background: linear-gradient(90deg,#2563eb,#10b981);
-        }
-        .dash-hdr-inner {
-            position: relative;
-            display: flex; align-items: center; gap: 20px;
-            padding: 24px 28px;
-        }
-        .dash-hdr-icon {
-            width: 52px; height: 52px; flex-shrink: 0;
-            background: rgba(37,99,235,0.15);
-            border: 1px solid rgba(37,99,235,0.4);
-            border-radius: 10px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.6rem;
-        }
-        .dash-hdr h2 {
-            color: #f1f5f9 !important;
-            margin: 0 0 3px 0;
-            font-size: 1.6rem; font-weight: 900;
-            font-family: 'Arial Black', 'Inter', sans-serif;
-            letter-spacing: -0.01em; text-transform: uppercase;
-        }
-        .dash-hdr p {
-            color: rgba(255,255,255,0.4) !important;
-            margin: 0; font-size: 0.82rem;
-        }
+    .dash-hdr {
+        background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #2563eb 100%);
+        border-radius: 20px; padding: 32px 36px; margin-bottom: 32px;
+        display: flex; align-items: center; gap: 22px;
+        box-shadow: 0 8px 32px rgba(37,99,235,0.25);
+        position: relative; overflow: hidden;
+    }
+    .dash-hdr::before {
+        content: ''; position: absolute; top: -40px; right: -40px;
+        width: 180px; height: 180px; border-radius: 50%;
+        background: rgba(255,255,255,0.04); pointer-events: none;
+    }
+    .dash-hdr::after {
+        content: ''; position: absolute; bottom: -60px; right: 80px;
+        width: 240px; height: 240px; border-radius: 50%;
+        background: rgba(255,255,255,0.03); pointer-events: none;
+    }
+    .dash-hdr h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
+                   font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
+    .dash-hdr p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
 
     /* ── KPI Cards ── */
     .kpi-card {
@@ -5738,16 +5719,13 @@ with tab_dash:
     .kpi-card .prod-divider { border: none; border-top: 1px solid #f1f5f9; margin: 10px 0; }
     </style>
 
-        <div class="dash-hdr">
-          <div class="dash-hdr-top"></div>
-          <div class="dash-hdr-inner">
-            <div class="dash-hdr-icon">📊</div>
-            <div>
-              <h2>Dashboard</h2>
-              <p>Resumen ejecutivo del rendimiento comercial en tiempo real.</p>
-            </div>
-          </div>
-        </div>
+    <div class="dash-hdr">
+      <span style="font-size:3rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📊</span>
+      <div>
+        <h2>Dashboard</h2>
+        <p>Resumen ejecutivo del rendimiento comercial en tiempo real.</p>
+      </div>
+    </div>
     """, unsafe_allow_html=True)
 
     # ── Filtro período ──
@@ -6334,21 +6312,13 @@ if tab7 is not None:
         <style>
 
         .hdr7 {
-            position: relative; background: #0a0e1a; border-radius: 14px;
-            padding: 0; margin-bottom: 24px; overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.06);
-            box-shadow: 0 6px 32px rgba(0,0,0,0.3);
+            background: linear-gradient(135deg, #78350f 0%, #d97706 100%);
+            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
+            display: flex; align-items: center; gap: 16px;
         }
-        .hdr7-top { height: 3px; background: linear-gradient(90deg,#d97706,#fbbf24); }
-        .hdr7-inner { position: relative; display: flex; align-items: center; gap: 20px; padding: 24px 28px; }
-        .hdr7-icon {
-            width: 52px; height: 52px; flex-shrink: 0;
-            background: rgba(217,119,6,0.15); border: 1px solid rgba(217,119,6,0.4);
-            border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.6rem;
-        }
-        .hdr7 h2 { color: #f1f5f9 !important; margin: 0 0 3px 0; font-size: 1.6rem; font-weight: 900;
-                   font-family: 'Arial Black', 'Inter', sans-serif; letter-spacing: -0.01em; text-transform: uppercase; }
-        .hdr7 p  { color: rgba(255,255,255,0.4) !important; margin: 0; font-size: 0.82rem; }
+        .hdr7 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 900;
+                   font-family: 'Montserrat', sans-serif; }
+        .hdr7 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
         .rank-kpi {
             background: white; border-radius: 14px; padding: 20px 22px;
             border: 1px solid #e8edf5; box-shadow: 0 2px 12px rgba(0,0,0,0.05);
@@ -6373,13 +6343,10 @@ if tab7 is not None:
         .rank-other { border-left: 5px solid #e2e8f0; }
         </style>
         <div class="hdr7">
-          <div class="hdr7-top"></div>
-          <div class="hdr7-inner">
-            <div class="hdr7-icon">🏆</div>
-            <div>
-              <h2>Ranking</h2>
-              <p>Desempeño del equipo de ventas — este mes.</p>
-            </div>
+          <span style="font-size:2.4rem">🏆</span>
+          <div>
+            <h2>Ranking de Ejecutivos</h2>
+            <p>Desempeño del equipo de ventas — este mes.</p>
           </div>
         </div>
         """, unsafe_allow_html=True)
@@ -6569,44 +6536,16 @@ with tab_contrato:
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap');
 
-        .hdr-contrato {
-            position: relative;
-            background: #0a0e1a;
-            border-radius: 14px;
-            padding: 0;
-            margin-bottom: 24px;
-            overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.06);
-            box-shadow: 0 6px 32px rgba(0,0,0,0.3);
-        }
-        .hdr-contrato-top {
-            height: 3px;
-            background: linear-gradient(90deg,#0f3460,#3b82f6);
-        }
-        .hdr-contrato-inner {
-            position: relative;
-            display: flex; align-items: center; gap: 20px;
-            padding: 24px 28px;
-        }
-        .hdr-contrato-icon {
-            width: 52px; height: 52px; flex-shrink: 0;
-            background: rgba(15,52,96,0.3);
-            border: 1px solid rgba(59,130,246,0.4);
-            border-radius: 10px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.6rem;
-        }
-        .hdr-contrato h2 {
-            color: #f1f5f9 !important;
-            margin: 0 0 3px 0;
-            font-size: 1.6rem; font-weight: 900;
-            font-family: 'Arial Black', 'Inter', sans-serif;
-            letter-spacing: -0.01em; text-transform: uppercase;
-        }
-        .hdr-contrato p {
-            color: rgba(255,255,255,0.4) !important;
-            margin: 0; font-size: 0.82rem;
-        }
+    .hdr-contrato {
+        background: linear-gradient(135deg, #0f3460 0%, #16213e 60%, #1a1a2e 100%);
+        border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
+        display: flex; align-items: center; gap: 22px;
+        box-shadow: 0 8px 32px rgba(15,52,96,0.3);
+    }
+    .hdr-contrato h2 { color: #fff !important; margin: 0; font-size: 1.8rem;
+                       font-weight: 900; font-family: 'Montserrat', sans-serif;
+                       letter-spacing: -0.02em; }
+    .hdr-contrato p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
     .cont-section {
         font-size: 0.75rem; font-weight: 900; color: #1e293b;
         text-transform: uppercase; letter-spacing: 0.12em;
@@ -6629,16 +6568,13 @@ with tab_contrato:
                         text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px; }
     </style>
 
-        <div class="hdr-contrato">
-          <div class="hdr-contrato-top"></div>
-          <div class="hdr-contrato-inner">
-            <div class="hdr-contrato-icon">📄</div>
-            <div>
-              <h2>Contrato</h2>
-              <p>Genera el contrato de fabricación y venta listo para imprimir y firmar.</p>
-            </div>
-          </div>
-        </div>
+    <div class="hdr-contrato">
+      <span style="font-size:3rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.4));">📄</span>
+      <div>
+        <h2>Contrato Cliente</h2>
+        <p>Genera el contrato de fabricación y venta listo para imprimir y firmar.</p>
+      </div>
+    </div>
     """, unsafe_allow_html=True)
 
     # ── Paso 1: Buscar EP ──
