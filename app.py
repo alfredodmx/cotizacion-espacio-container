@@ -5851,7 +5851,7 @@ if st.session_state.modo_admin and tab_salud is not None:
             <div class="sys-card">
               <div class="sys-card-title">🗄️ Base de datos PostgreSQL</div>
               <div class="sys-metric-val">{_db_size_mb} MB</div>
-              <div class="sys-metric-sub">Límite Free: {_DB_LIMIT_MB} MB &nbsp;·&nbsp; <span class="{_bc}">{_bl}</span>{" &nbsp;· <i style='color:#94a3b8;font-size:0.7rem'>estimado</i>" if _db_size_estimado else ""}</div>
+              <div class="sys-metric-sub">Límite Core: {_DB_LIMIT_MB} MB &nbsp;·&nbsp; <span class="{_bc}">{_bl}</span>{" &nbsp;· <i style='color:#94a3b8;font-size:0.7rem'>estimado</i>" if _db_size_estimado else ""}</div>
               <div class="sys-bar-wrap">
                 <div class="sys-bar-inner {_bar_class(_db_pct)}" style="width:{_db_pct}%"></div>
               </div>
