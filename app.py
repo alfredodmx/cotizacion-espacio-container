@@ -92,6 +92,16 @@ def crear_usuario_ejecutivo(email, password, nombre):
     except Exception as e:
         return None, str(e)
 
+def cambiar_rol_usuario(user_id, nuevo_rol):
+    """Cambia el rol de un usuario en sus metadatos."""
+    try:
+        supabase_admin.auth.admin.update_user_by_id(
+            user_id, {"user_metadata": {"rol": nuevo_rol}}
+        )
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
 def cambiar_password_propio(nueva_password):
     """El usuario cambia su propia contraseña (requiere sesión activa)."""
     try:
@@ -7932,7 +7942,7 @@ if st.session_state.modo_admin and tab_usuarios is not None:
             st.caption(f"Total: {len(_usuarios)} ejecutivo(s)")
             for _u in _usuarios:
                 _inicial = (_u['nombre'] or _u['email'] or "?")[0].upper()
-                col_info, col_acc = st.columns([5, 1])
+                col_info, col_acc = st.columns([4, 2])
                 with col_info:
                     _rol_label = "👑 Admin" if _u.get('rol') in ("admin","administrador","supervisor") else "👤 Ejecutivo"
                     _rol_color = "#7c3aed" if _u.get('rol') in ("admin","administrador","supervisor") else "#2563eb"
@@ -7961,8 +7971,22 @@ if st.session_state.modo_admin and tab_usuarios is not None:
                     if _rol_objetivo == 'root':
                         _puede_eliminar = False
 
-                    # Botón resetear contraseña (admin puede resetear ejecutivos y admins, root puede resetear todo menos root)
-                    _puede_resetear = _puede_eliminar  # mismos permisos que eliminar
+                    # ── Cambiar rol ──
+                    _puede_cambiar_rol = _puede_eliminar and _rol_objetivo != 'root'
+                    if _puede_cambiar_rol:
+                        _nuevo_rol = 'admin' if _rol_objetivo == 'ejecutivo' else 'ejecutivo'
+                        _etiqueta_rol = '⬆️ Hacer Admin' if _nuevo_rol == 'admin' else '⬇️ Hacer Ejecutivo'
+                        if st.button(_etiqueta_rol, key=f"cambiar_rol_{_u['id']}", use_container_width=True):
+                            _ok_r, _err_r = cambiar_rol_usuario(_u['id'], _nuevo_rol)
+                            if _ok_r:
+                                st.success(f"✅ {_u['nombre']} ahora es {_nuevo_rol}.")
+                                st.session_state.pop('_usuarios_cache', None)
+                                st.rerun()
+                            else:
+                                st.error(f"❌ {_err_r}")
+
+                    # Botón resetear contraseña
+                    _puede_resetear = _puede_eliminar
                     if _puede_resetear:
                         if st.button("🔑", key=f"reset_pwd_{_u['id']}", help=f"Resetear contraseña de {_u['nombre']}"):
                             st.session_state[f'_reset_pwd_{_u["id"]}'] = True
