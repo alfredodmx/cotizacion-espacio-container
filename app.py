@@ -1740,12 +1740,9 @@ st.markdown("""
 
     /* ══ TABS ══ */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 2px !important;
-        border-bottom: 3px solid #0f172a !important;
+        gap: 0 !important; border-bottom: 2px solid #e2e6f3 !important;
         padding: 0 !important; margin-bottom: 0 !important;
-        background: #0f172a !important;
-        border-radius: 10px 10px 0 0 !important;
-        padding: 4px 4px 0 4px !important;
+        background: transparent !important;
     }
     .stTabs [data-baseweb="tab-panel"] {
         padding-top: 1.5rem !important;
@@ -1757,30 +1754,19 @@ st.markdown("""
     }
     hr { display: none !important; }
     .stTabs [data-baseweb="tab"] {
-        font-family: 'Arial Black', 'Inter', sans-serif !important;
-        font-size: 0.72rem !important;
-        font-weight: 900 !important;
-        color: rgba(255,255,255,0.35) !important;
-        padding: 0.75rem 1.2rem !important;
-        background: transparent !important;
-        border: none !important;
+        font-family: 'Montserrat', sans-serif !important;
+        font-size: 0.82rem !important; font-weight: 800 !important;
+        color: #7c85b3 !important; padding: 0.85rem 1.6rem !important;
+        background: transparent !important; border: none !important;
         border-bottom: 3px solid transparent !important;
-        border-radius: 8px 8px 0 0 !important;
-        margin-bottom: -3px !important;
-        letter-spacing: 0.1em !important;
+        margin-bottom: -2px !important; letter-spacing: 0.06em !important;
         text-transform: uppercase !important;
-        transition: all 0.18s ease !important;
+        transition: all 0.2s ease !important;
     }
-    .stTabs [data-baseweb="tab"]:hover {
-        color: rgba(255,255,255,0.75) !important;
-        background: rgba(255,255,255,0.06) !important;
-    }
+    .stTabs [data-baseweb="tab"]:hover { color: #5b7cfa !important; background: rgba(91,124,250,0.05) !important; }
     .stTabs [aria-selected="true"] {
-        color: #ffffff !important;
-        background: rgba(255,255,255,0.1) !important;
-        border-bottom: 3px solid #f59e0b !important;
-        font-weight: 900 !important;
-        letter-spacing: 0.12em !important;
+        color: #5b7cfa !important; border-bottom: 3px solid #5b7cfa !important;
+        font-weight: 900 !important; background: rgba(91,124,250,0.06) !important;
     }
 
     /* ══ TABLA RESULTADOS ══ */
@@ -3491,36 +3477,23 @@ if st.session_state.get('trigger_cerrar_cotizacion', False):
 # =========================================================
 with tab2:
     st.markdown("""
-    <style>
-    .hdr2 {
-        position: relative; background: #0a0e1a; border-radius: 14px;
-        padding: 0; margin-bottom: 24px; overflow: hidden;
-        border: 1px solid rgba(255,255,255,0.06);
-        box-shadow: 0 6px 32px rgba(0,0,0,0.3);
-    }
-    .hdr2-top { height: 3px; background: linear-gradient(90deg,#7c3aed,#a855f7); }
-    .hdr2-inner { position: relative; display: flex; align-items: center; gap: 20px; padding: 24px 28px; }
-    .hdr2-icon {
-        width: 52px; height: 52px; flex-shrink: 0;
-        background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.4);
-        border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.6rem;
-    }
-    .hdr2 h2 {
-        color: #f1f5f9 !important; margin: 0 0 3px 0;
-        font-size: 1.6rem; font-weight: 900;
-        font-family: 'Arial Black', 'Inter', sans-serif;
-        letter-spacing: -0.01em; text-transform: uppercase;
-    }
-    .hdr2 p { color: rgba(255,255,255,0.4) !important; margin: 0; font-size: 0.82rem; }
-    </style>
-    <div class="hdr2">
-      <div class="hdr2-top"></div>
-      <div class="hdr2-inner">
-        <div class="hdr2-icon">👤</div>
-        <div><h2>Datos del Cliente</h2><p>Completa la información del cliente y del proyecto antes de guardar.</p></div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+        <style>
+        .hdr2 {
+            background: linear-gradient(135deg, #2d0d66 0%, #5b0d7a 100%);
+            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
+            display: flex; align-items: center; gap: 16px;
+        }
+        .hdr2 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
+        .hdr2 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
+        </style>
+        <div class="hdr2">
+          <span style="font-size:2.4rem">👤</span>
+          <div>
+            <h2>Datos del Cliente</h2>
+            <p>Completa la información del cliente y del proyecto antes de guardar.</p>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     es_solo_lectura = bool(
         st.session_state.cotizacion_cargada and
@@ -3788,36 +3761,23 @@ with tab2:
 # =========================================================
 with tab1:
     st.markdown("""
-    <style>
-    .hdr1 {
-        position: relative; background: #0a0e1a; border-radius: 14px;
-        padding: 0; margin-bottom: 24px; overflow: hidden;
-        border: 1px solid rgba(255,255,255,0.06);
-        box-shadow: 0 6px 32px rgba(0,0,0,0.3);
-    }
-    .hdr1-top { height: 3px; background: linear-gradient(90deg,#2563eb,#06b6d4); }
-    .hdr1-inner { position: relative; display: flex; align-items: center; gap: 20px; padding: 24px 28px; }
-    .hdr1-icon {
-        width: 52px; height: 52px; flex-shrink: 0;
-        background: rgba(37,99,235,0.15); border: 1px solid rgba(37,99,235,0.4);
-        border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.6rem;
-    }
-    .hdr1 h2 {
-        color: #f1f5f9 !important; margin: 0 0 3px 0;
-        font-size: 1.6rem; font-weight: 900;
-        font-family: 'Arial Black', 'Inter', sans-serif;
-        letter-spacing: -0.01em; text-transform: uppercase;
-    }
-    .hdr1 p { color: rgba(255,255,255,0.4) !important; margin: 0; font-size: 0.82rem; }
-    </style>
-    <div class="hdr1">
-      <div class="hdr1-top"></div>
-      <div class="hdr1-inner">
-        <div class="hdr1-icon">📋</div>
-        <div><h2>Cotización</h2><p>Agrega productos, aplica márgenes y genera tu cotización en PDF.</p></div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+        <style>
+        .hdr1 {
+            background: linear-gradient(135deg, #0d2266 0%, #0d47a1 100%);
+            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
+            display: flex; align-items: center; gap: 16px;
+        }
+        .hdr1 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
+        .hdr1 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
+        </style>
+        <div class="hdr1">
+          <span style="font-size:2.4rem">☑️</span>
+          <div>
+            <h2>Gestión de Presupuesto</h2>
+            <p>Agrega productos, aplica márgenes y genera tu cotización en PDF.</p>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     fecha_inicio = st.session_state.fecha_inicio
     fecha_termino = st.session_state.fecha_termino
@@ -4212,36 +4172,23 @@ with tab1:
 # =========================================================
 with tab3:
     st.markdown("""
-    <style>
-    .hdr3 {
-        position: relative; background: #0a0e1a; border-radius: 14px;
-        padding: 0; margin-bottom: 24px; overflow: hidden;
-        border: 1px solid rgba(255,255,255,0.06);
-        box-shadow: 0 6px 32px rgba(0,0,0,0.3);
-    }
-    .hdr3-top { height: 3px; background: linear-gradient(90deg,#ea580c,#f59e0b); }
-    .hdr3-inner { position: relative; display: flex; align-items: center; gap: 20px; padding: 24px 28px; }
-    .hdr3-icon {
-        width: 52px; height: 52px; flex-shrink: 0;
-        background: rgba(234,88,12,0.15); border: 1px solid rgba(234,88,12,0.4);
-        border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.6rem;
-    }
-    .hdr3 h2 {
-        color: #f1f5f9 !important; margin: 0 0 3px 0;
-        font-size: 1.6rem; font-weight: 900;
-        font-family: 'Arial Black', 'Inter', sans-serif;
-        letter-spacing: -0.01em; text-transform: uppercase;
-    }
-    .hdr3 p { color: rgba(255,255,255,0.4) !important; margin: 0; font-size: 0.82rem; }
-    </style>
-    <div class="hdr3">
-      <div class="hdr3-top"></div>
-      <div class="hdr3-inner">
-        <div class="hdr3-icon">📂</div>
-        <div><h2>Cotizaciones</h2><p>Busca, carga y administra todas las cotizaciones del sistema.</p></div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+        <style>
+        .hdr3 {
+            background: linear-gradient(135deg, #6b4e00 0%, #e65100 100%);
+            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
+            display: flex; align-items: center; gap: 16px;
+        }
+        .hdr3 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
+        .hdr3 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
+        </style>
+        <div class="hdr3">
+          <span style="font-size:2.4rem">📂</span>
+          <div>
+            <h2>Gestión de Cotizaciones</h2>
+            <p>Busca, carga y administra todas las cotizaciones del sistema.</p>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     col_busqueda, col_filtros = st.columns([3, 1])
     with col_busqueda:
@@ -4730,353 +4677,23 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
 if st.session_state.get('mostrar_toast_exito', False):
     ep = st.session_state.get('toast_numero_ep', '')
     st.markdown("""
-<style>
-div[data-testid="stToastContainer"] {
-    position: fixed !important;
-    bottom: 5.5rem !important;
-    left: 2rem !important;
-    right: auto !important;
-    top: auto !important;
-    width: auto !important;
-    max-width: none !important;
-    overflow: visible !important;
-    z-index: 999999 !important;
-    height: auto !important;
-    min-height: 0 !important;
-}
-div[data-testid="stToast"] {
-    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
-    color: white !important;
-    border-radius: 18px !important;
-    padding: 1.1rem 1.6rem !important;
-    box-shadow: 0 10px 36px rgba(34,197,94,0.5) !important;
-    border: none !important;
-    width: 320px !important;
-    min-width: 320px !important;
-    max-width: 320px !important;
-    height: auto !important;
-    min-height: 80px !important;
-    max-height: none !important;
-    overflow: visible !important;
-    box-sizing: border-box !important;
-}
-div[data-testid="stToast"] > div,
-div[data-testid="stToast"] > div > div,
-div[data-testid="stToast"] > div > div > div {
-    overflow: visible !important;
-    height: auto !important;
-    max-height: none !important;
-    width: 100% !important;
-    max-width: none !important;
-}
-div[data-testid="stToast"] > div {
-    display: flex !important;
-    align-items: center !important;
-    gap: 0.8rem !important;
-}
-div[data-testid="stToast"] [data-testid="stToastIcon"] {
-    font-size: 2rem !important;
-    flex-shrink: 0 !important;
-}
-div[data-testid="stToast"] p,
-div[data-testid="stToast"] span,
-div[data-testid="stToast"] div,
-div[data-testid="stToast"] li {
-    color: white !important;
-    font-family: 'Plus Jakarta Sans', sans-serif !important;
-}
-div[data-testid="stToast"] p {
-    font-size: 0.85rem !important;
-    font-weight: 500 !important;
-    opacity: 0.92 !important;
-    margin: 0 0 3px 0 !important;
-    line-height: 1.4 !important;
-}
-div[data-testid="stToast"] strong {
-    font-size: 1.25rem !important;
-    font-weight: 800 !important;
-    letter-spacing: 0.04em !important;
-    color: white !important;
-    display: block !important;
-    line-height: 1.3 !important;
-}
-</style>
-""", unsafe_allow_html=True)
-    st.toast(f"Presupuesto guardado  ·  **{ep}**", icon="✅")
-    st.session_state.mostrar_toast_exito = False
-
-# =========================================================
-# FAB - OCULTAR ÍCONOS STREAMLIT/GITHUB
-# =========================================================
-# Inyectar CSS para ocultar íconos de Streamlit Cloud
-components.html("""
-<script>
-(function() {
-    const parent = window.parent.document;
-
-    function hideIcons() {
-        const selectors = [
-            'footer',
-            '[data-testid="stToolbar"]',
-            '[data-testid="stDecoration"]',
-            '[data-testid="stStatusWidget"]',
-            '[data-testid="stBottomBlockContainer"]',
-            'a[href*="streamlit.io/cloud"]',
-            'a[href*="github.com"]',
-            '[class*="viewerBadge"]',
-            '[class*="ViewerBadge"]',
-            '[class*="_viewerBadge"]',
-            '[class*="profileContainer"]',
-            '[class*="_profileContainer"]',
-            '[class*="profilePreview"]',
-            '[class*="_profilePreview"]',
-        ];
-        selectors.forEach(sel => {
-            try {
-                parent.querySelectorAll(sel).forEach(el => {
-                    el.style.setProperty('display', 'none', 'important');
-                });
-            } catch(e) {}
-        });
-    }
-
-    if (!parent.getElementById('fab-hide-icons-style')) {
-        const style = parent.createElement('style');
-        style.id = 'fab-hide-icons-style';
-        style.innerHTML = `
-            #MainMenu { display: none !important; }
-            footer { display: none !important; }
-            [data-testid="stToolbar"] { display: none !important; }
-            [data-testid="stDecoration"] { display: none !important; }
-            [data-testid="stStatusWidget"] { display: none !important; }
-            [data-testid="stBottomBlockContainer"] { display: none !important; }
-            [class*="viewerBadge"] { display: none !important; }
-            [class*="_viewerBadge"] { display: none !important; }
-            [class*="profileContainer"] { display: none !important; }
-            [class*="_profileContainer"] { display: none !important; }
-            [class*="profilePreview"] { display: none !important; }
-            a[href*="streamlit.io"] { display: none !important; }
-            a[href*="github.com"] { display: none !important; }
-        `;
-        parent.head.appendChild(style);
-    }
-
-    hideIcons();
-    setTimeout(hideIcons, 500);
-    setTimeout(hideIcons, 1500);
-    new MutationObserver(hideIcons).observe(parent.body, {childList: true, subtree: true});
-})();
-</script>
-""", height=0)
-
-# =========================================================
-# FAB - BOTÓN GUARDAR FLOTANTE
-# =========================================================
-_es_solo_lectura = (
-    st.session_state.cotizacion_cargada and
-    st.session_state.margen > 0 and
-    not st.session_state.modo_admin
-)
-
-_hash_actual = calcular_hash_estado()
-_hay_cambios = _hash_actual != st.session_state.get('hash_ultimo_guardado')
-
-_mostrar_fab = (
-    len(st.session_state.get('carrito', [])) > 0 and
-    not _es_solo_lectura and
-    not st.session_state.get('recien_guardado', False) and
-    not st.session_state.get('recien_cargado', False) and
-    _hay_cambios
-)
-
-if st.session_state.get('recien_guardado', False):
-    st.session_state.recien_guardado = False
-if st.session_state.get('recien_cargado', False):
-    st.session_state.recien_cargado = False
-
-if _mostrar_fab:
-    st.markdown('<style>#btn_fab_guardar_container{display:none!important}</style>', unsafe_allow_html=True)
-    if st.button("💾 Guardar", key="btn_fab_guardar"):
-        datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
-        num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
-        guardar_cotizacion(num_g, datos_c, datos_a, proy,
-                           st.session_state.carrito, cfg, tots, pl_n, pl_d)
-        st.session_state.cotizacion_cargada = num_g
-        st.session_state.hash_ultimo_guardado = _hash_actual  # reusar hash ya calculado
-        st.session_state.recien_guardado = True
-        st.session_state.mostrar_toast_exito = True
-        st.session_state.toast_numero_ep = num_g
-        st.session_state.resultados_busqueda = None
-        st.session_state['_tab3_necesita_refresh'] = True
-        st.rerun()
-
-    # FAB JS: botón flotante en DOM padre que clickea el botón real
-    components.html("""
-    <script>
-    (function() {
-        const parent = window.parent.document;
-
-        const old = parent.getElementById('fab-guardar-wrapper');
-        if (old) old.remove();
-
-        const style = parent.getElementById('fab-guardar-style') || parent.createElement('style');
-        style.id = 'fab-guardar-style';
-        style.innerHTML = `
-            @keyframes pulse-fab {
-                0%   { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
-                50%  { box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }
-                100% { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
-            }
-            #fab-guardar-wrapper {
-                position: fixed !important;
-                bottom: 1.5rem !important;
-                left: 2rem !important;
-                z-index: 999999 !important;
-            }
-            #fab-guardar-btn {
-                background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%);
-                color: white; border: none; border-radius: 50px;
-                padding: 0.85rem 1.6rem; font-size: 0.95rem; font-weight: 700;
-                cursor: pointer; font-family: sans-serif;
-                animation: pulse-fab 2s infinite; white-space: nowrap;
-            }
-            #fab-guardar-btn:hover { transform: translateY(-3px); animation: none; }
-        `;
-        if (!parent.getElementById('fab-guardar-style')) parent.head.appendChild(style);
-
-        const wrapper = parent.createElement('div');
-        wrapper.id = 'fab-guardar-wrapper';
-        const btn = parent.createElement('button');
-        btn.id = 'fab-guardar-btn';
-        btn.innerHTML = '&#128190; Guardar';
-        // Ocultar el botón fijo guardar del layout
-        setTimeout(function(){
-            const buttons = parent.querySelectorAll('button');
-            for (const b of buttons) {
-                const txt = (b.innerText || b.textContent || '').trim();
-                if ((txt === '💾 Guardar' || txt === 'Guardar') && b.id !== 'fab-guardar-btn') {
-                    b.parentElement.style.display = 'none';
-                }
-            }
-        }, 300);
-
-        btn.onclick = function() {
-            const buttons = parent.querySelectorAll('button');
-            for (const b of buttons) {
-                const txt = (b.innerText || b.textContent || '').trim();
-                if ((txt === '💾 Guardar' || txt === 'Guardar') && b.id !== 'fab-guardar-btn' && !b.disabled) {
-                    b.click();
-                    return;
-                }
-            }
-        };
-        wrapper.appendChild(btn);
-        parent.body.appendChild(wrapper);
-    })();
-    </script>
-    """, height=0)
-
-else:
-    components.html("""
-    <script>
-    (function() {
-        const parent = window.parent.document;
-        const w = parent.getElementById('fab-guardar-wrapper');
-        if (w) w.remove();
-    })();
-    </script>
-    """, height=0)
-
-# =========================================================
-# TAB 4 - 3D BETA
-# =========================================================
-
-def _analizar_plano_con_claude(pdf_bytes):
-    """Descarga PDF, renderiza imagen, llama Claude Vision, retorna layout JSON."""
-    import fitz  # PyMuPDF
-    import base64, anthropic, json
-
-    # Renderizar primera página del PDF
-    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-    page = doc[0]
-    mat = fitz.Matrix(2.0, 2.0)
-    pix = page.get_pixmap(matrix=mat)
-    img_bytes = pix.tobytes("png")
-    doc.close()
-
-    # Convertir a base64
-    img_b64 = base64.b64encode(img_bytes).decode("utf-8")
-
-    # Llamar a Claude Vision
-    client = anthropic.Anthropic(api_key=SUPABASE_KEY.replace(SUPABASE_KEY, __import__("os").environ.get("ANTHROPIC_API_KEY", "")))
-    # Usar la clave de Anthropic directamente
-    import httpx
-    resp = httpx.post(
-        "https://api.anthropic.com/v1/messages",
-        headers={
-            "x-api-key": __import__("os").environ.get("ANTHROPIC_API_KEY", ""),
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json"
-        },
-        json={
-            "model": "claude-opus-4-5",
-            "max_tokens": 1024,
-            "messages": [{
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "source": {"type": "base64", "media_type": "image/png", "data": img_b64}
-                    },
-                    {
-                        "type": "text",
-                        "text": """Analiza esta planta arquitectónica de un container house.
-Responde SOLO con JSON válido, sin texto extra ni markdown:
-{"width":<ancho total metros>,"depth":<profundidad total metros>,"wallHeight":2.8,"walls":[{"side":"front","openings":[{"type":"door","x":<pos x desde centro>,"y":<centro y desde suelo>,"w":<ancho>,"h":<alto>},{"type":"window","x":...,"y":...,"w":...,"h":...}]},{"side":"back","openings":[...]},{"side":"left","openings":[...]},{"side":"right","openings":[...]}]}
-Reglas: puertas ~0.9x2.1m (y=1.05), ventanas ~1.2x1.0m (y=1.2). x relativo al centro de la pared (negativo=izquierda). Detecta TODAS las aberturas visibles."""
-                    }
-                ]
-            }]
-        },
-        timeout=30
-    )
-    data = resp.json()
-    txt = "".join(b.get("text","") for b in data.get("content",[])).strip()
-    txt = txt.replace("```json","").replace("```","").strip()
-    return json.loads(txt), img_b64
-
-with tab4:
-    st.markdown("""
-    <style>
-    .hdr4 {
-        position: relative; background: #0a0e1a; border-radius: 14px;
-        padding: 0; margin-bottom: 24px; overflow: hidden;
-        border: 1px solid rgba(255,255,255,0.06);
-        box-shadow: 0 6px 32px rgba(0,0,0,0.3);
-    }
-    .hdr4-top { height: 3px; background: linear-gradient(90deg,#0891b2,#06b6d4); }
-    .hdr4-inner { position: relative; display: flex; align-items: center; gap: 20px; padding: 24px 28px; }
-    .hdr4-icon {
-        width: 52px; height: 52px; flex-shrink: 0;
-        background: rgba(8,145,178,0.15); border: 1px solid rgba(8,145,178,0.4);
-        border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.6rem;
-    }
-    .hdr4 h2 {
-        color: #f1f5f9 !important; margin: 0 0 3px 0;
-        font-size: 1.6rem; font-weight: 900;
-        font-family: 'Arial Black', 'Inter', sans-serif;
-        letter-spacing: -0.01em; text-transform: uppercase;
-    }
-    .hdr4 p { color: rgba(255,255,255,0.4) !important; margin: 0; font-size: 0.82rem; }
-    </style>
-    <div class="hdr4">
-      <div class="hdr4-top"></div>
-      <div class="hdr4-inner">
-        <div class="hdr4-icon">🧊</div>
-        <div><h2>Visor 3D Beta</h2><p>Selecciona un presupuesto con plano adjunto para generar su prototipo 3D interactivo.</p></div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+        <style>
+        .hdr4 {
+            background: linear-gradient(135deg, #003d52 0%, #006978 100%);
+            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
+            display: flex; align-items: center; gap: 16px;
+        }
+        .hdr4 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
+        .hdr4 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
+        </style>
+        <div class="hdr4">
+          <span style="font-size:2.4rem">🧊</span>
+          <div>
+            <h2>Visor 3D Beta</h2>
+            <p>Selecciona un presupuesto con plano adjunto para generar su prototipo 3D interactivo.</p>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     # Obtener presupuestos con plano
     try:
@@ -6554,36 +6171,23 @@ with tab_dash:
 if tab6 is not None:
     with tab6:
         st.markdown("""
-        <style>
-        .hdr6 {
-            position: relative; background: #0a0e1a; border-radius: 14px;
-            padding: 0; margin-bottom: 24px; overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.06);
-            box-shadow: 0 6px 32px rgba(0,0,0,0.3);
-        }
-        .hdr6-top { height: 3px; background: linear-gradient(90deg,#dc2626,#f97316); }
-        .hdr6-inner { position: relative; display: flex; align-items: center; gap: 20px; padding: 24px 28px; }
-        .hdr6-icon {
-            width: 52px; height: 52px; flex-shrink: 0;
-            background: rgba(220,38,38,0.15); border: 1px solid rgba(220,38,38,0.4);
-            border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.6rem;
-        }
-        .hdr6 h2 {
-            color: #f1f5f9 !important; margin: 0 0 3px 0;
-            font-size: 1.6rem; font-weight: 900;
-            font-family: 'Arial Black', 'Inter', sans-serif;
-            letter-spacing: -0.01em; text-transform: uppercase;
-        }
-        .hdr6 p { color: rgba(255,255,255,0.4) !important; margin: 0; font-size: 0.82rem; }
-        </style>
-        <div class="hdr6">
-          <div class="hdr6-top"></div>
-          <div class="hdr6-inner">
-            <div class="hdr6-icon">✏️</div>
-            <div><h2>Edición PDF</h2><p>Personaliza la descripción de cada categoría para el PDF del cliente.</p></div>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
+            <style>
+            .hdr6 {
+                background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%);
+                border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
+                display: flex; align-items: center; gap: 16px;
+            }
+            .hdr6 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
+            .hdr6 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
+            </style>
+            <div class="hdr6">
+              <span style="font-size:2.4rem">✏️</span>
+              <div>
+                <h2>Edición PDF Cliente</h2>
+                <p>Busca tu cotización por número EP y personaliza la descripción de cada categoría para el cliente.</p>
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
 
         # Buscar cotización por EP
         with st.container(border=True):
