@@ -5768,59 +5768,34 @@ if st.session_state.modo_admin and tab_salud is not None:
             else:
                 _db_size_estimado = False
 
-            # ── 2. Storage — listar buckets con tamaños reales ──
+            # ── 2. Storage — contar archivos desde tablas + estimar tamaño ──
             _storage_info = {}
             try:
-                import httpx as _hx2
-                _headers_stg = {
-                    "apikey": SUPABASE_KEY,
-                    "Authorization": f"Bearer {SUPABASE_KEY}",
-                }
-                # Listar buckets via API REST de storage
-                _bkt_resp = _hx2.get(
-                    f"{SUPABASE_URL}/storage/v1/bucket",
-                    headers=_headers_stg, timeout=10
-                )
-                if _bkt_resp.status_code == 200:
-                    for _bkt in _bkt_resp.json():
-                        _bname = _bkt.get('name','')
-                        # Listar archivos del bucket
-                        try:
-                            _obj_resp = _hx2.post(
-                                f"{SUPABASE_URL}/storage/v1/object/list/{_bname}",
-                                headers={**_headers_stg, "Content-Type": "application/json"},
-                                json={"prefix": "", "limit": 1000, "offset": 0},
-                                timeout=10
-                            )
-                            if _obj_resp.status_code == 200:
-                                _objs = _obj_resp.json()
-                                _count = len(_objs)
-                                _size_bytes = sum(
-                                    o.get('metadata', {}).get('size', 0) or 0
-                                    for o in _objs if isinstance(o, dict)
-                                )
-                                _storage_info[_bname] = {
-                                    'archivos': _count,
-                                    'mb': round(_size_bytes / 1024 / 1024, 2)
-                                }
-                            else:
-                                _storage_info[_bname] = {'archivos': 0, 'mb': 0}
-                        except:
-                            _storage_info[_bname] = {'archivos': 0, 'mb': 0}
+                # Bucket "planos" — contar cotizaciones con plano adjunto
+                _r_planos = supabase.table('cotizaciones')                    .select('numero', count='exact')                    .not_.is_('plano_url', 'null')                    .execute()
+                _n_planos = _r_planos.count or 0
+                # PDFs de planos: estimado ~500KB por archivo
+                _mb_planos = round((_n_planos * 500 * 1024) / (1024*1024), 2)
+                _storage_info['planos'] = {'archivos': _n_planos, 'mb': _mb_planos, 'estimado': True}
             except:
-                # Fallback: usar supabase-py
-                try:
-                    for _bname in ['planos', 'config']:
-                        _files = supabase.storage.from_(_bname).list()
-                        _count = len(_files) if _files else 0
-                        _size_bytes = 0
-                        for _f in (_files or []):
-                            if isinstance(_f, dict):
-                                _meta = _f.get('metadata') or {}
-                                _size_bytes += _meta.get('size', 0) or 0
-                        _storage_info[_bname] = {'archivos': _count, 'mb': round(_size_bytes/1024/1024, 2)}
-                except:
-                    pass
+                _storage_info['planos'] = {'archivos': 0, 'mb': 0, 'estimado': True}
+
+            try:
+                # Bucket "config" — versiones Excel + JSONs de descripción
+                _r_excel = supabase.table('excel_versiones').select('id', count='exact').execute()
+                _n_excel = _r_excel.count or 0
+                # PDFs desc por cotización autorizada
+                _r_auth = supabase.table('cotizaciones')                    .select('numero', count='exact')                    .eq('estado', 'Autorizado')                    .execute()
+                _n_jsons = _r_auth.count or 0
+                # Excel ~2MB c/u, JSONs ~5KB c/u
+                _mb_config = round((_n_excel * 2 * 1024 + _n_jsons * 5) / 1024, 2)
+                _storage_info['config'] = {
+                    'archivos': _n_excel + _n_jsons,
+                    'mb': _mb_config,
+                    'estimado': True
+                }
+            except:
+                _storage_info['config'] = {'archivos': 0, 'mb': 0, 'estimado': True}
 
             _storage_total_mb = sum(v['mb'] for v in _storage_info.values())
 
@@ -5893,7 +5868,8 @@ if st.session_state.modo_admin and tab_salud is not None:
                 _bkt_icons = {'planos': '📐 planos', 'config': '⚙️ config'}
                 for _bn, _bv in _storage_info.items():
                     _blbl = _bkt_icons.get(_bn, f'📁 {_bn}')
-                    _bkt_html += f'<tr><td>{_blbl}</td><td>{_bv["archivos"]}</td><td>{_bv["mb"]} MB</td></tr>'
+                    _est = ' <i style="color:#94a3b8;font-size:0.7rem">(est.)</i>' if _bv.get('estimado') else ''
+                    _bkt_html += f'<tr><td>{_blbl}</td><td>{_bv["archivos"]}</td><td>{_bv["mb"]} MB{_est}</td></tr>'
                 _bkt_html += '</tbody></table></div>'
                 st.markdown(_bkt_html, unsafe_allow_html=True)
             else:
