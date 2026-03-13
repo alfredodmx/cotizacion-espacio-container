@@ -5902,6 +5902,120 @@ if st.session_state.modo_admin and tab_salud is not None:
             st.rerun()
 
 
+# =========================================================
+# FAB - BOTÓN GUARDAR FLOTANTE
+# =========================================================
+if st.session_state.carrito and not (
+    st.session_state.cotizacion_cargada and
+    st.session_state.margen > 0 and
+    not st.session_state.modo_admin
+):
+    import streamlit.components.v1 as _fab_comp
+    _fab_comp.html("""
+    <script>
+    (function() {
+        function injectFAB() {
+            const parent = window.parent.document;
+            if (parent.getElementById('fab-guardar-btn')) return;
+
+            const style = parent.createElement('style');
+            style.id = 'fab-guardar-style';
+            style.innerHTML = `
+                @keyframes pulse-fab {
+                    0%   { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
+                    50%  { box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }
+                    100% { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
+                }
+                @keyframes blink-badge {
+                    0%, 100% { opacity: 1; }
+                    50%      { opacity: 0.2; }
+                }
+                #fab-guardar-wrapper {
+                    position: fixed !important;
+                    bottom: 2rem !important;
+                    right: 2rem !important;
+                    z-index: 999999 !important;
+                    display: flex !important;
+                    align-items: center !important;
+                }
+                #fab-guardar-btn {
+                    background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%) !important;
+                    color: white !important;
+                    border: none !important;
+                    border-radius: 50px !important;
+                    padding: 0.85rem 1.6rem !important;
+                    font-size: 0.95rem !important;
+                    font-weight: 700 !important;
+                    cursor: pointer !important;
+                    font-family: 'Plus Jakarta Sans', sans-serif !important;
+                    letter-spacing: 0.02em !important;
+                    animation: pulse-fab 2s infinite !important;
+                    transition: all 0.3s cubic-bezier(0.4,0,0.2,1) !important;
+                    white-space: nowrap !important;
+                }
+                #fab-guardar-btn:hover {
+                    transform: translateY(-3px) scale(1.05) !important;
+                    box-shadow: 0 16px 40px rgba(91,124,250,0.75) !important;
+                    animation: none !important;
+                }
+                #fab-badge {
+                    position: absolute !important;
+                    top: -5px !important;
+                    right: -5px !important;
+                    width: 14px !important;
+                    height: 14px !important;
+                    background: #ef4444 !important;
+                    border-radius: 50% !important;
+                    border: 2px solid white !important;
+                    animation: blink-badge 1.5s infinite !important;
+                }
+            `;
+            parent.head.appendChild(style);
+
+            const wrapper = parent.createElement('div');
+            wrapper.id = 'fab-guardar-wrapper';
+
+            const btn = parent.createElement('button');
+            btn.id = 'fab-guardar-btn';
+            btn.innerHTML = '💾 Guardar';
+            btn.onclick = function() {
+                const buttons = parent.querySelectorAll('button');
+                for (const b of buttons) {
+                    const txt = (b.innerText || b.textContent || '').trim();
+                    if (txt.includes('Guardar') && b.id !== 'fab-guardar-btn' && !b.disabled) {
+                        b.click();
+                        break;
+                    }
+                }
+            };
+
+            const badge = parent.createElement('span');
+            badge.id = 'fab-badge';
+
+            wrapper.appendChild(btn);
+            wrapper.appendChild(badge);
+            parent.body.appendChild(wrapper);
+        }
+
+        injectFAB();
+        setTimeout(injectFAB, 500);
+        setTimeout(injectFAB, 1500);
+    })();
+    </script>
+    """, height=0)
+
+else:
+    import streamlit.components.v1 as _fab_comp2
+    _fab_comp2.html("""<script>
+(function(){
+  var D=window.parent.document;
+  ['fab-guardar-wrapper','fab-guardar-style'].forEach(function(id){
+    var e=D.getElementById(id); if(e) e.remove();
+  });
+})();
+</script>""", height=0)
+
+
 
 
 # =========================================================
