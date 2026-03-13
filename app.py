@@ -3527,6 +3527,7 @@ def cargar_ranking_ejecutivos(periodo='mes'):
         ranking.sort(key=lambda x: x['score'], reverse=True)
         return ranking
     except Exception as e:
+        st.session_state['_rank_debug'] = f"EXCEPCIÓN: {str(e)}"
         return []
 
 
@@ -7367,8 +7368,9 @@ if tab7 is not None:
 
         with st.spinner("Cargando ranking..."):
             _ranking = cargar_ranking_ejecutivos(periodo='mes')
-        if st.session_state.get('_rank_debug'):
-            st.caption(f"🔍 Debug: {st.session_state['_rank_debug']}")
+        # Debug siempre visible
+        _dbg = st.session_state.get('_rank_debug', 'Sin debug aún')
+        st.info(f"🔍 Debug ranking: {_dbg}")
 
         if not _ranking:
             st.info("No hay cotizaciones registradas este mes.")
