@@ -4676,6 +4676,10 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
 # =========================================================
 if st.session_state.get('mostrar_toast_exito', False):
     ep = st.session_state.get('toast_numero_ep', '')
+    st.toast(f"✅ Cotización {ep} guardada correctamente", icon="✅")
+    st.session_state.mostrar_toast_exito = False
+
+with tab4:
     st.markdown("""
         <style>
         .hdr4 {
@@ -4774,17 +4778,17 @@ if st.session_state.get('mostrar_toast_exito', False):
                                                 {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": _img_b64_3d}},
                                                 {"type": "text", "text": """Analiza este plano arquitectónico de un container house.
 
-PASO 1 — Describe brevemente lo que ves:
-- Dimensiones totales del container (largo x ancho en metros)
-- Cuántas PUERTAS reales hay (deben tener arco de 90°) y en qué pared
-- Cuántas VENTANAS reales hay (rectángulo con doble línea o líneas internas) y en qué pared
-- IGNORA completamente: costillas estructurales, líneas de división interna, muebles, cotas
+    PASO 1 — Describe brevemente lo que ves:
+    - Dimensiones totales del container (largo x ancho en metros)
+    - Cuántas PUERTAS reales hay (deben tener arco de 90°) y en qué pared
+    - Cuántas VENTANAS reales hay (rectángulo con doble línea o líneas internas) y en qué pared
+    - IGNORA completamente: costillas estructurales, líneas de división interna, muebles, cotas
 
-PASO 2 — Genera el JSON final con SOLO las aberturas reales que describiste:
-{"width":<largo>,"depth":<ancho>,"wallHeight":2.8,"walls":[{"side":"front","openings":[{"type":"door","x":<x desde centro pared>,"y":1.05,"w":<ancho m>,"h":2.1},{"type":"window","x":<x>,"y":1.2,"w":<ancho m>,"h":<alto m>}]},{"side":"back","openings":[...]},{"side":"left","openings":[...]},{"side":"right","openings":[...]}]}
+    PASO 2 — Genera el JSON final con SOLO las aberturas reales que describiste:
+    {"width":<largo>,"depth":<ancho>,"wallHeight":2.8,"walls":[{"side":"front","openings":[{"type":"door","x":<x desde centro pared>,"y":1.05,"w":<ancho m>,"h":2.1},{"type":"window","x":<x>,"y":1.2,"w":<ancho m>,"h":<alto m>}]},{"side":"back","openings":[...]},{"side":"left","openings":[...]},{"side":"right","openings":[...]}]}
 
-LÍMITES ESTRICTOS: máximo 3 puertas y 6 ventanas en total. Una pared sin aberturas usa "openings":[]
-El JSON debe ir al final de tu respuesta, solo como bloque de código con ```json```"""}
+    LÍMITES ESTRICTOS: máximo 3 puertas y 6 ventanas en total. Una pared sin aberturas usa "openings":[]
+    El JSON debe ir al final de tu respuesta, solo como bloque de código con ```json```"""}
                                             ]
                                         }
                                     ]
@@ -4940,113 +4944,113 @@ El JSON debe ir al final de tu respuesta, solo como bloque de código con ```jso
             _layout_json = _json.dumps(_layout_3d)
 
             _visor_html = f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8">
-<style>
-*{{margin:0;padding:0;box-sizing:border-box;}}
-body{{background:#0f1117;overflow:hidden;font-family:'Segoe UI',sans-serif;}}
-#wrap{{width:100%;height:600px;position:relative;}}
-#c3d{{width:100%;height:100%;display:block;}}
-#ctrl{{position:absolute;top:10px;left:10px;z-index:10;display:flex;gap:6px;flex-wrap:wrap;}}
-.btn{{background:rgba(15,17,34,0.82);color:#cdd6f4;border:1px solid rgba(255,255,255,0.15);padding:5px 12px;border-radius:18px;cursor:pointer;font-size:11px;font-weight:600;transition:all .15s;}}
-.btn:hover,.btn.on{{background:rgba(91,124,250,0.72);border-color:#5b7cfa;color:#fff;}}
-#hud{{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.35);font-size:10px;background:rgba(0,0,0,0.5);padding:5px 14px;border-radius:18px;white-space:nowrap;}}
-</style></head>
-<body><div id="wrap">
-<canvas id="c3d"></canvas>
-<div id="ctrl">
-<button class="btn on" id="bRoof" onclick="tog('roof')">🏠 Techo</button>
-<button class="btn on" id="bPlan" onclick="tog('plan')">📐 Plano</button>
-<button class="btn on" id="bWire" onclick="tog('wire')">🔲 Wire</button>
-<button class="btn" onclick="resetCam()">🎯 Reset</button>
-<button class="btn" onclick="setV('top')">⬆ Top</button>
-<button class="btn" onclick="setV('iso')">🔷 Iso</button>
-</div>
-<div id="hud">🖱 Arrastrar: rotar │ Scroll: zoom │ Derecho: mover</div>
-</div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
-const LAYOUT={_layout_json};
-const IMG_B64="{_img_b64_3d}";
+    <html><head><meta charset="utf-8">
+    <style>
+    *{{margin:0;padding:0;box-sizing:border-box;}}
+    body{{background:#0f1117;overflow:hidden;font-family:'Segoe UI',sans-serif;}}
+    #wrap{{width:100%;height:600px;position:relative;}}
+    #c3d{{width:100%;height:100%;display:block;}}
+    #ctrl{{position:absolute;top:10px;left:10px;z-index:10;display:flex;gap:6px;flex-wrap:wrap;}}
+    .btn{{background:rgba(15,17,34,0.82);color:#cdd6f4;border:1px solid rgba(255,255,255,0.15);padding:5px 12px;border-radius:18px;cursor:pointer;font-size:11px;font-weight:600;transition:all .15s;}}
+    .btn:hover,.btn.on{{background:rgba(91,124,250,0.72);border-color:#5b7cfa;color:#fff;}}
+    #hud{{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.35);font-size:10px;background:rgba(0,0,0,0.5);padding:5px 14px;border-radius:18px;white-space:nowrap;}}
+    </style></head>
+    <body><div id="wrap">
+    <canvas id="c3d"></canvas>
+    <div id="ctrl">
+    <button class="btn on" id="bRoof" onclick="tog('roof')">🏠 Techo</button>
+    <button class="btn on" id="bPlan" onclick="tog('plan')">📐 Plano</button>
+    <button class="btn on" id="bWire" onclick="tog('wire')">🔲 Wire</button>
+    <button class="btn" onclick="resetCam()">🎯 Reset</button>
+    <button class="btn" onclick="setV('top')">⬆ Top</button>
+    <button class="btn" onclick="setV('iso')">🔷 Iso</button>
+    </div>
+    <div id="hud">🖱 Arrastrar: rotar │ Scroll: zoom │ Derecho: mover</div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+    const LAYOUT={_layout_json};
+    const IMG_B64="{_img_b64_3d}";
 
-const cv=document.getElementById('c3d');
-const W0=cv.parentElement.offsetWidth,H0=600;
-const renderer=new THREE.WebGLRenderer({{canvas:cv,antialias:true}});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-renderer.setSize(W0,H0);
-renderer.shadowMap.enabled=true;
-const scene=new THREE.Scene();
-scene.background=new THREE.Color(0x0f1117);
-const camera=new THREE.PerspectiveCamera(42,W0/H0,0.1,300);
-let S={{th:0.6,ph:1.0,r:32}},T=new THREE.Vector3(0,1.5,0);
-function applyC(){{
-  camera.position.set(T.x+S.r*Math.sin(S.ph)*Math.sin(S.th),T.y+S.r*Math.cos(S.ph),T.z+S.r*Math.sin(S.ph)*Math.cos(S.th));
-  camera.lookAt(T);
-}}
-applyC();
-scene.add(new THREE.AmbientLight(0xffffff,0.5));
-const sun=new THREE.DirectionalLight(0xfff8e7,1.0);
-sun.position.set(15,25,12);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
-scene.add(sun);
-scene.add(new THREE.HemisphereLight(0x7788cc,0x223344,0.35));
-scene.add(new THREE.GridHelper(80,80,0x1e2140,0x1a1d36));
-const gRoof=new THREE.Group(),gPlan=new THREE.Group(),gWire=new THREE.Group(),gBody=new THREE.Group();
-scene.add(gBody,gRoof,gPlan,gWire);
-const vis={{roof:true,plan:true,wire:true}};
-function tog(k){{
-  vis[k]=!vis[k];
-  if(k==='roof')gRoof.visible=vis[k];
-  if(k==='plan')gPlan.visible=vis[k];
-  if(k==='wire')gWire.visible=vis[k];
-  document.getElementById('b'+k[0].toUpperCase()+k.slice(1)).classList.toggle('on',vis[k]);
-}}
-let drag=false,rDrag=false,lx=0,ly=0;
-cv.addEventListener('mousedown',e=>{{drag=true;rDrag=e.button===2;lx=e.clientX;ly=e.clientY;}});
-cv.addEventListener('contextmenu',e=>e.preventDefault());
-window.addEventListener('mouseup',()=>drag=false);
-window.addEventListener('mousemove',e=>{{
-  if(!drag)return;
-  const dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;
-  if(rDrag){{const r=new THREE.Vector3().crossVectors(new THREE.Vector3().subVectors(camera.position,T).normalize(),camera.up).normalize();T.addScaledVector(r,-dx*0.022);T.y+=dy*0.022;}}
-  else{{S.th-=dx*0.007;S.ph=Math.max(0.05,Math.min(Math.PI/2.05,S.ph+dy*0.007));}}
-  applyC();
-}});
-cv.addEventListener('wheel',e=>{{S.r=Math.max(3,Math.min(80,S.r+e.deltaY*0.04));applyC();}},{{passive:true}});
-function resetCam(){{S={{th:0.6,ph:1.0,r:32}};T.set(0,1.5,0);applyC();}}
-function setV(v){{if(v==='top'){{S.ph=0.04;applyC();}}else{{S={{th:0.8,ph:0.85,r:30}};applyC();}}}}
-(function loop(){{requestAnimationFrame(loop);renderer.render(scene,camera);}})();
+    const cv=document.getElementById('c3d');
+    const W0=cv.parentElement.offsetWidth,H0=600;
+    const renderer=new THREE.WebGLRenderer({{canvas:cv,antialias:true}});
+    renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+    renderer.setSize(W0,H0);
+    renderer.shadowMap.enabled=true;
+    const scene=new THREE.Scene();
+    scene.background=new THREE.Color(0x0f1117);
+    const camera=new THREE.PerspectiveCamera(42,W0/H0,0.1,300);
+    let S={{th:0.6,ph:1.0,r:32}},T=new THREE.Vector3(0,1.5,0);
+    function applyC(){{
+      camera.position.set(T.x+S.r*Math.sin(S.ph)*Math.sin(S.th),T.y+S.r*Math.cos(S.ph),T.z+S.r*Math.sin(S.ph)*Math.cos(S.th));
+      camera.lookAt(T);
+    }}
+    applyC();
+    scene.add(new THREE.AmbientLight(0xffffff,0.5));
+    const sun=new THREE.DirectionalLight(0xfff8e7,1.0);
+    sun.position.set(15,25,12);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
+    scene.add(sun);
+    scene.add(new THREE.HemisphereLight(0x7788cc,0x223344,0.35));
+    scene.add(new THREE.GridHelper(80,80,0x1e2140,0x1a1d36));
+    const gRoof=new THREE.Group(),gPlan=new THREE.Group(),gWire=new THREE.Group(),gBody=new THREE.Group();
+    scene.add(gBody,gRoof,gPlan,gWire);
+    const vis={{roof:true,plan:true,wire:true}};
+    function tog(k){{
+      vis[k]=!vis[k];
+      if(k==='roof')gRoof.visible=vis[k];
+      if(k==='plan')gPlan.visible=vis[k];
+      if(k==='wire')gWire.visible=vis[k];
+      document.getElementById('b'+k[0].toUpperCase()+k.slice(1)).classList.toggle('on',vis[k]);
+    }}
+    let drag=false,rDrag=false,lx=0,ly=0;
+    cv.addEventListener('mousedown',e=>{{drag=true;rDrag=e.button===2;lx=e.clientX;ly=e.clientY;}});
+    cv.addEventListener('contextmenu',e=>e.preventDefault());
+    window.addEventListener('mouseup',()=>drag=false);
+    window.addEventListener('mousemove',e=>{{
+      if(!drag)return;
+      const dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;
+      if(rDrag){{const r=new THREE.Vector3().crossVectors(new THREE.Vector3().subVectors(camera.position,T).normalize(),camera.up).normalize();T.addScaledVector(r,-dx*0.022);T.y+=dy*0.022;}}
+      else{{S.th-=dx*0.007;S.ph=Math.max(0.05,Math.min(Math.PI/2.05,S.ph+dy*0.007));}}
+      applyC();
+    }});
+    cv.addEventListener('wheel',e=>{{S.r=Math.max(3,Math.min(80,S.r+e.deltaY*0.04));applyC();}},{{passive:true}});
+    function resetCam(){{S={{th:0.6,ph:1.0,r:32}};T.set(0,1.5,0);applyC();}}
+    function setV(v){{if(v==='top'){{S.ph=0.04;applyC();}}else{{S={{th:0.8,ph:0.85,r:30}};applyC();}}}}
+    (function loop(){{requestAnimationFrame(loop);renderer.render(scene,camera);}})();
 
-// Materiales
-const mWall=new THREE.MeshStandardMaterial({{color:0xd4dde3,roughness:0.45,metalness:0.2}});
-const mRoof=new THREE.MeshStandardMaterial({{color:0x546e7a,roughness:0.4,metalness:0.55}});
-const mGlass=new THREE.MeshStandardMaterial({{color:0x89cff0,transparent:true,opacity:0.4,roughness:0.05,metalness:0.1}});
-const mDoor=new THREE.MeshStandardMaterial({{color:0x37474f,roughness:0.4,metalness:0.6}});
-const mWire=new THREE.MeshBasicMaterial({{color:0x5b7cfa,wireframe:true}});
-const mRib=new THREE.MeshStandardMaterial({{color:0x8fa4ae,roughness:0.45,metalness:0.5}});
+    // Materiales
+    const mWall=new THREE.MeshStandardMaterial({{color:0xd4dde3,roughness:0.45,metalness:0.2}});
+    const mRoof=new THREE.MeshStandardMaterial({{color:0x546e7a,roughness:0.4,metalness:0.55}});
+    const mGlass=new THREE.MeshStandardMaterial({{color:0x89cff0,transparent:true,opacity:0.4,roughness:0.05,metalness:0.1}});
+    const mDoor=new THREE.MeshStandardMaterial({{color:0x37474f,roughness:0.4,metalness:0.6}});
+    const mWire=new THREE.MeshBasicMaterial({{color:0x5b7cfa,wireframe:true}});
+    const mRib=new THREE.MeshStandardMaterial({{color:0x8fa4ae,roughness:0.45,metalness:0.5}});
 
-const W=LAYOUT.width, D=LAYOUT.depth, H=LAYOUT.wallHeight||2.8, th=0.14;
+    const W=LAYOUT.width, D=LAYOUT.depth, H=LAYOUT.wallHeight||2.8, th=0.14;
 
-// Plano PDF como textura en el suelo
-const img=new Image();
-img.onload=()=>{{
-  const tex=new THREE.Texture(img);tex.needsUpdate=true;
-  const fm=new THREE.Mesh(new THREE.PlaneGeometry(W,D),new THREE.MeshStandardMaterial({{map:tex,roughness:0.85}}));
-  fm.rotation.x=-Math.PI/2;fm.position.y=0.01;fm.receiveShadow=true;gPlan.add(fm);
-}};
-img.src='data:image/png;base64,'+IMG_B64;
+    // Plano PDF como textura en el suelo
+    const img=new Image();
+    img.onload=()=>{{
+      const tex=new THREE.Texture(img);tex.needsUpdate=true;
+      const fm=new THREE.Mesh(new THREE.PlaneGeometry(W,D),new THREE.MeshStandardMaterial({{map:tex,roughness:0.85}}));
+      fm.rotation.x=-Math.PI/2;fm.position.y=0.01;fm.receiveShadow=true;gPlan.add(fm);
+    }};
+    img.src='data:image/png;base64,'+IMG_B64;
 
-// Suelo sólido
-const flM=new THREE.Mesh(new THREE.BoxGeometry(W+th*2,0.1,D+th*2),
-  new THREE.MeshStandardMaterial({{color:0xc8cdd4,roughness:0.95}}));
-flM.position.y=-0.05;flM.receiveShadow=true;gBody.add(flM);
+    // Suelo sólido
+    const flM=new THREE.Mesh(new THREE.BoxGeometry(W+th*2,0.1,D+th*2),
+      new THREE.MeshStandardMaterial({{color:0xc8cdd4,roughness:0.95}}));
+    flM.position.y=-0.05;flM.receiveShadow=true;gBody.add(flM);
 
-// ── makeWall: construye una pared con huecos correctos ──────────
-// wallW = largo de la pared, openings = array de {{type,x,y,w,h}}
-// x = posición desde el centro de la pared (-wallW/2 .. +wallW/2)
-// y = centro vertical desde el suelo (0..H)
-function makeWall(px, pz, rotY, wallW, openings) {{
+    // ── makeWall: construye una pared con huecos correctos ──────────
+    // wallW = largo de la pared, openings = array de {{type,x,y,w,h}}
+    // x = posición desde el centro de la pared (-wallW/2 .. +wallW/2)
+    // y = centro vertical desde el suelo (0..H)
+    function makeWall(px, pz, rotY, wallW, openings) {{
 
-  // 1. Clonar y sanear openings — clamp para que no salgan del borde
-  const ops = openings
+      // 1. Clonar y sanear openings — clamp para que no salgan del borde
+      const ops = openings
     .map(op => {{
       const hw = op.w / 2;
       const x  = Math.max(-wallW/2 + hw + 0.01, Math.min(wallW/2 - hw - 0.01, op.x));
@@ -5057,14 +5061,14 @@ function makeWall(px, pz, rotY, wallW, openings) {{
     }})
     .sort((a,b) => a.x - b.x);
 
-  const grp = new THREE.Group();
-  grp.position.set(px, 0, pz);
-  grp.rotation.y = rotY;
+      const grp = new THREE.Group();
+      grp.position.set(px, 0, pz);
+      grp.rotation.y = rotY;
 
-  // 2. Por cada abertura construir: panel-izq, dintel, antepecho, relleno
-  let curX = -wallW / 2;
+      // 2. Por cada abertura construir: panel-izq, dintel, antepecho, relleno
+      let curX = -wallW / 2;
 
-  ops.forEach(op => {{
+      ops.forEach(op => {{
     const opL = op.x - op.w/2;   // borde izquierdo del hueco
     const opR = op.x + op.w/2;   // borde derecho
     const opB = op.y - op.h/2;   // base del hueco
@@ -5120,87 +5124,87 @@ function makeWall(px, pz, rotY, wallW, openings) {{
       const mk3 = new THREE.Mesh(new THREE.BoxGeometry(op.w + mkT*2, mkT, th+0.02), mrkMat);
       mk3.position.set(op.x, opB - mkT/2, 0); grp.add(mk3);
     }}
-  }});
+      }});
 
-  // Panel derecho final
-  const remW = wallW/2 - curX;
-  if (remW > 0.02) {{
+      // Panel derecho final
+      const remW = wallW/2 - curX;
+      if (remW > 0.02) {{
     const m = new THREE.Mesh(new THREE.BoxGeometry(remW, H, th), mWall);
     m.position.set(curX + remW/2, H/2, 0);
     m.castShadow = true; m.receiveShadow = true;
     grp.add(m);
-  }}
+      }}
 
-  gBody.add(grp);
+      gBody.add(grp);
 
-  // Wire outline (pared completa, en grupo separado)
-  const wg = new THREE.Group();
-  wg.position.set(px, H/2, pz);
-  wg.rotation.y = rotY;
-  wg.add(new THREE.Mesh(new THREE.BoxGeometry(wallW, H, th), mWire));
-  gWire.add(wg);
-}}
+      // Wire outline (pared completa, en grupo separado)
+      const wg = new THREE.Group();
+      wg.position.set(px, H/2, pz);
+      wg.rotation.y = rotY;
+      wg.add(new THREE.Mesh(new THREE.BoxGeometry(wallW, H, th), mWire));
+      gWire.add(wg);
+    }}
 
-// ── Construir las 4 paredes ─────────────────────────────────────
-LAYOUT.walls.forEach(w => {{
-  let px, pz, rotY, ww;
-  if      (w.side==='front') {{ px=0;    pz= D/2; rotY=0;          ww=W; }}
-  else if (w.side==='back')  {{ px=0;    pz=-D/2; rotY=0;          ww=W; }}
-  else if (w.side==='left')  {{ px=-W/2; pz=0;    rotY=Math.PI/2;  ww=D; }}
-  else                       {{ px= W/2; pz=0;    rotY=Math.PI/2;  ww=D; }}
-  makeWall(px, pz, rotY, ww, w.openings||[]);
-}});
+    // ── Construir las 4 paredes ─────────────────────────────────────
+    LAYOUT.walls.forEach(w => {{
+      let px, pz, rotY, ww;
+      if      (w.side==='front') {{ px=0;    pz= D/2; rotY=0;          ww=W; }}
+      else if (w.side==='back')  {{ px=0;    pz=-D/2; rotY=0;          ww=W; }}
+      else if (w.side==='left')  {{ px=-W/2; pz=0;    rotY=Math.PI/2;  ww=D; }}
+      else                       {{ px= W/2; pz=0;    rotY=Math.PI/2;  ww=D; }}
+      makeWall(px, pz, rotY, ww, w.openings||[]);
+    }});
 
-// ── Techo ───────────────────────────────────────────────────────
-// Losa principal
-const roofM = new THREE.Mesh(new THREE.BoxGeometry(W+th*2, 0.18, D+th*2), mRoof);
-roofM.position.y = H + 0.09;
-roofM.castShadow = true;
-gRoof.add(roofM);
-// Alero frontal
-const aleroM = new THREE.Mesh(new THREE.BoxGeometry(W+th*2, 0.08, 0.4), mRoof);
-aleroM.position.set(0, H+0.04, D/2+th+0.2);
-gRoof.add(aleroM);
-// Perfil metálico perimetral del techo
-[[W+th*2, 0.12, th, 0, D/2+th/2, 0],
- [W+th*2, 0.12, th, 0,-D/2-th/2, 0],
- [th, 0.12, D+th*2,-W/2-th/2, 0, 0],
- [th, 0.12, D+th*2, W/2+th/2, 0, 0]].forEach(r => {{
-  const m = new THREE.Mesh(new THREE.BoxGeometry(r[0],r[1],r[2]), mRib);
-  m.position.set(r[3], H, r[4]);
-  gRoof.add(m);
-}});
+    // ── Techo ───────────────────────────────────────────────────────
+    // Losa principal
+    const roofM = new THREE.Mesh(new THREE.BoxGeometry(W+th*2, 0.18, D+th*2), mRoof);
+    roofM.position.y = H + 0.09;
+    roofM.castShadow = true;
+    gRoof.add(roofM);
+    // Alero frontal
+    const aleroM = new THREE.Mesh(new THREE.BoxGeometry(W+th*2, 0.08, 0.4), mRoof);
+    aleroM.position.set(0, H+0.04, D/2+th+0.2);
+    gRoof.add(aleroM);
+    // Perfil metálico perimetral del techo
+    [[W+th*2, 0.12, th, 0, D/2+th/2, 0],
+     [W+th*2, 0.12, th, 0,-D/2-th/2, 0],
+     [th, 0.12, D+th*2,-W/2-th/2, 0, 0],
+     [th, 0.12, D+th*2, W/2+th/2, 0, 0]].forEach(r => {{
+      const m = new THREE.Mesh(new THREE.BoxGeometry(r[0],r[1],r[2]), mRib);
+      m.position.set(r[3], H, r[4]);
+      gRoof.add(m);
+    }});
 
-// ── Costillas estructurales (rasgos de container) ───────────────
-const ribHeights = [0.0, 0.55, 1.1, 1.65, 2.2, H];
-ribHeights.forEach(h => {{
-  // frente y atrás
-  [D/2+th*0.6, -D/2-th*0.6].forEach(pz2 => {{
+    // ── Costillas estructurales (rasgos de container) ───────────────
+    const ribHeights = [0.0, 0.55, 1.1, 1.65, 2.2, H];
+    ribHeights.forEach(h => {{
+      // frente y atrás
+      [D/2+th*0.6, -D/2-th*0.6].forEach(pz2 => {{
     const m = new THREE.Mesh(new THREE.BoxGeometry(W+th*2, 0.05, 0.05), mRib);
     m.position.set(0, h, pz2); gBody.add(m);
-  }});
-  // laterales
-  [-W/2-th*0.6, W/2+th*0.6].forEach(px2 => {{
+      }});
+      // laterales
+      [-W/2-th*0.6, W/2+th*0.6].forEach(px2 => {{
     const m = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, D+th*2), mRib);
     m.position.set(px2, h, 0); gBody.add(m);
-  }});
-}});
+      }});
+    }});
 
-// ── Columnas en las 4 esquinas ──────────────────────────────────
-[[-W/2, -D/2],[W/2, -D/2],[-W/2, D/2],[W/2, D/2]].forEach(([cx,cz]) => {{
-  const col = new THREE.Mesh(new THREE.BoxGeometry(th+0.04, H+0.2, th+0.04), mRib);
-  col.position.set(cx, H/2, cz);
-  col.castShadow = true;
-  gBody.add(col);
-}});
+    // ── Columnas en las 4 esquinas ──────────────────────────────────
+    [[-W/2, -D/2],[W/2, -D/2],[-W/2, D/2],[W/2, D/2]].forEach(([cx,cz]) => {{
+      const col = new THREE.Mesh(new THREE.BoxGeometry(th+0.04, H+0.2, th+0.04), mRib);
+      col.position.set(cx, H/2, cz);
+      col.castShadow = true;
+      gBody.add(col);
+    }});
 
-// ── Ajustar cámara ──────────────────────────────────────────────
-T.set(0, H * 0.35, 0);
-S.r  = Math.max(W, D) * 2.6;
-S.th = 0.55;   // ángulo horizontal — muestra fachada frontal
-S.ph = 0.85;   // ángulo vertical — ni muy alto ni muy bajo
-applyC();
-</script></body></html>"""
+    // ── Ajustar cámara ──────────────────────────────────────────────
+    T.set(0, H * 0.35, 0);
+    S.r  = Math.max(W, D) * 2.6;
+    S.th = 0.55;   // ángulo horizontal — muestra fachada frontal
+    S.ph = 0.85;   // ángulo vertical — ni muy alto ni muy bajo
+    applyC();
+    </script></body></html>"""
 
             import streamlit.components.v1 as _components
             _components.html(_visor_html, height=620, scrolling=False)
