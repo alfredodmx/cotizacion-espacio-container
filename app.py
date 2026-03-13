@@ -3511,7 +3511,6 @@ def cargar_ranking_ejecutivos(periodo='mes'):
         ranking.sort(key=lambda x: x['score'], reverse=True)
         return ranking
     except Exception as e:
-        st.session_state['_rank_debug'] = f"EXCEPCIÓN: {str(e)}"
         return []
 
 
@@ -7286,11 +7285,6 @@ if tab6 is not None:
 # =========================================================
 if tab7 is not None:
     with tab7:
-        try:
-            _tab7_ok = True
-        except:
-            _tab7_ok = False
-        st.write(f"TAB7 ACTIVO: {_tab7_ok} | rol: {st.session_state.get('rol_usuario')}")
         st.markdown("""
         <style>
         .hdr7 {
@@ -7357,9 +7351,6 @@ if tab7 is not None:
 
         with st.spinner("Cargando ranking..."):
             _ranking = cargar_ranking_ejecutivos(periodo='mes')
-
-        # DEBUG TEMPORAL
-        st.warning(f"DEBUG → ejecutivos en ranking: {len(_ranking)} | nombres: {[r['nombre'] for r in _ranking]}")
 
         if not _ranking:
             st.info("No hay cotizaciones registradas este mes.")
