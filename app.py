@@ -187,6 +187,17 @@ if 'es_root'      not in st.session_state: st.session_state.es_root      = False
 if 'rol_usuario'  not in st.session_state: st.session_state.rol_usuario  = "ejecutivo"
 if 'modo_admin'   not in st.session_state: st.session_state.modo_admin   = False
 
+# ── Ejecutar JS de logout si se solicitó ──
+if st.session_state.get('_do_logout_js'):
+    st.session_state.pop('_do_logout_js', None)
+    import streamlit.components.v1 as _lj
+    _lj.html("""<script>
+    localStorage.removeItem('_cph_access_token');
+    var url = new URL(window.parent.location.href);
+    url.searchParams.delete('_sess');
+    window.parent.history.replaceState({}, '', url.toString());
+    </script>""", height=0)
+
 # ── Recuperar sesión desde localStorage via query param ──
 # El JS escribe el token en ?_sess= al cargar, Python lo lee y restaura la sesión
 _sess_token = st.query_params.get("_sess")
@@ -2651,7 +2662,6 @@ with _col_pwd:
             elif _pwd_nueva != _pwd_repite:
                 st.error("Las contraseñas no coinciden.")
             else:
-                # Verificar contraseña actual re-autenticando
                 _u_check, _e_check = login_usuario(
                     st.session_state.get('auth_email',''), _pwd_actual
                 )
@@ -2668,6 +2678,7 @@ with _col_cerrar:
         logout_usuario()
         st.session_state.modo_admin = False
         st.session_state._csv_listo = None
+        st.session_state['_do_logout_js'] = True
         st.rerun()
 
 # =========================================================
