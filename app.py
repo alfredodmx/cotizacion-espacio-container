@@ -3467,31 +3467,21 @@ def cargar_ranking_ejecutivos(periodo='mes'):
             "apikey": SUPABASE_SERVICE_KEY,
             "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
             "Content-Type": "application/json",
-            "Prefer": "return=representation"
+            "Prefer": "count=none"
         }
         _rank_url = f"{SUPABASE_URL}/rest/v1/cotizaciones"
-        _params_rank = {
-            "select": "asesor_nombre,total_total,config_margen,cliente_nombre,cliente_email,cliente_rut,asesor_email,asesor_telefono,fecha_creacion"
-        }
+        _rank_select = "asesor_nombre,total_total,config_margen,cliente_nombre,cliente_email,cliente_rut,asesor_email,asesor_telefono,fecha_creacion"
+        _rank_params = {"select": _rank_select}
         if periodo == 'mes':
             _inicio = _dt.now().replace(day=1).strftime('%Y-%m-%d')
-            _params_rank["fecha_creacion"] = f"gte.{_inicio}"
-        _rank_resp = _rq_rank.get(_rank_url, headers=_rank_headers, params=_params_rank)
-        if _rank_resp.status_code != 200 or not _rank_resp.json():
+            _rank_params["fecha_creacion"] = f"gte.{_inicio}"
+        _rank_resp = _rq_rank.get(_rank_url, headers=_rank_headers, params=_rank_params)
+        st.session_state['_rank_debug'] = f"HTTP {_rank_resp.status_code} · {len(_rank_resp.json()) if _rank_resp.status_code==200 else _rank_resp.text[:200]} filas"
+        if _rank_resp.status_code != 200:
             return []
         resp_data = _rank_resp.json()
-        # Simular objeto resp compatible
-        class _FakeResp:
-            def __init__(self, data): self.data = data
-        resp = _FakeResp(resp_data)
-        if not resp.data:
+        if not resp_data:
             return []
-        # Saltar el query.execute() original
-        if False:
-            query = supabase_admin.table('cotizaciones').select(
-                'asesor_nombre, total_total, config_margen, cliente_nombre,'
-                'cliente_email, cliente_rut, asesor_email, asesor_telefono, fecha_creacion'
-            )
         # Agrupar por asesor
         asesores = {}
         for row in resp.data:
@@ -7377,6 +7367,8 @@ if tab7 is not None:
 
         with st.spinner("Cargando ranking..."):
             _ranking = cargar_ranking_ejecutivos(periodo='mes')
+        if st.session_state.get('_rank_debug'):
+            st.caption(f"🔍 Debug: {st.session_state['_rank_debug']}")
 
         if not _ranking:
             st.info("No hay cotizaciones registradas este mes.")
