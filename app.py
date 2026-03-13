@@ -8278,7 +8278,7 @@ if st.session_state.modo_admin and tab_usuarios is not None:
 
                 if _puede:
                     # Botones de acción en línea
-                    _ba1, _ba2, _ba3, _ba4 = st.columns([1, 1, 1, 3])
+                    _ba1, _ba2, _ba3, _ba4, _ba5 = st.columns([1, 1, 1, 1, 2])
                     with _ba1:
                         _nuevo_rol  = 'admin' if _rol_obj == 'ejecutivo' else 'ejecutivo'
                         _lbl_rol    = '⬆️ Admin' if _nuevo_rol == 'admin' else '⬇️ Ejecutivo'
@@ -8286,10 +8286,14 @@ if st.session_state.modo_admin and tab_usuarios is not None:
                             st.session_state[f'_accion_{_u["id"]}'] = 'rol'
                             st.rerun()
                     with _ba2:
+                        if st.button("✏️ Editar", key=f"edit_btn_{_u['id']}", use_container_width=True):
+                            st.session_state[f'_accion_{_u["id"]}'] = 'edit'
+                            st.rerun()
+                    with _ba3:
                         if st.button("🔑 Contraseña", key=f"pwd_btn_{_u['id']}", use_container_width=True):
                             st.session_state[f'_accion_{_u["id"]}'] = 'pwd'
                             st.rerun()
-                    with _ba3:
+                    with _ba4:
                         if st.button("🗑️ Eliminar", key=f"del_btn_{_u['id']}", use_container_width=True):
                             st.session_state[f'_accion_{_u["id"]}'] = 'del'
                             st.rerun()
@@ -8297,7 +8301,48 @@ if st.session_state.modo_admin and tab_usuarios is not None:
                     # Panel de acción expandido según selección
                     _accion = st.session_state.get(f'_accion_{_u["id"]}')
 
-                    if _accion == 'rol':
+                    if _accion == 'edit':
+                        st.markdown(f'<div class="accion-panel"><div class="accion-title">✏️ Editar datos de {_u["nombre"]}</div>', unsafe_allow_html=True)
+                        _ec1, _ec2, _ec3 = st.columns(3)
+                        with _ec1:
+                            _edit_nombre = st.text_input("Nombre completo", value=_u['nombre'],
+                                                          key=f"edit_nm_{_u['id']}")
+                        with _ec2:
+                            _edit_email = st.text_input("Correo electrónico", value=_u['email'],
+                                                         key=f"edit_em_{_u['id']}")
+                        with _ec3:
+                            _edit_tel = st.text_input("Teléfono", value=_u.get('telefono',''),
+                                                       key=f"edit_tel_{_u['id']}", placeholder="+56912345678")
+                        _ep1, _ep2 = st.columns(2)
+                        with _ep1:
+                            if st.button("✅ Guardar cambios", key=f"edit_ok_{_u['id']}", use_container_width=True, type="primary"):
+                                if not _edit_nombre.strip():
+                                    st.error("El nombre no puede estar vacío.")
+                                elif not _edit_email.strip() or "@" not in _edit_email:
+                                    st.error("Ingresa un correo válido.")
+                                else:
+                                    try:
+                                        supabase_admin.auth.admin.update_user_by_id(_u['id'], {
+                                            "email": _edit_email.strip().lower(),
+                                            "user_metadata": {
+                                                "nombre": _edit_nombre.strip().upper(),
+                                                "telefono": _edit_tel.strip(),
+                                                "rol": _rol_obj
+                                            }
+                                        })
+                                        st.success(f"✅ Datos de {_edit_nombre.upper()} actualizados.")
+                                        st.session_state.pop('_usuarios_cache', None)
+                                        st.session_state.pop(f'_accion_{_u["id"]}', None)
+                                        st.rerun()
+                                    except Exception as _edit_err:
+                                        st.error(f"❌ {_edit_err}")
+                        with _ep2:
+                            if st.button("✖️ Cancelar", key=f"edit_no_{_u['id']}", use_container_width=True):
+                                st.session_state.pop(f'_accion_{_u["id"]}', None)
+                                st.rerun()
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+                    elif _accion == 'rol':
                         st.markdown(f'<div class="accion-panel"><div class="accion-title">Cambiar rol de {_u["nombre"]}</div>', unsafe_allow_html=True)
                         st.info(f"Rol actual: **{_rol_txt}** → Nuevo rol: **{'Admin' if _nuevo_rol == 'admin' else 'Ejecutivo'}**")
                         _cr1, _cr2 = st.columns(2)
