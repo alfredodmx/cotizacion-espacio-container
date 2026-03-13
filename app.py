@@ -7289,6 +7289,10 @@ if tab6 is not None:
 # =========================================================
 if tab7 is not None:
     with tab7:
+        try:
+         st.write("✅ Tab ranking cargando...")
+        except Exception as _e7:
+         st.error(f"Error tab7: {_e7}")
         st.markdown("""
         <style>
         .hdr7 {
