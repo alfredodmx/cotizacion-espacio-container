@@ -3089,9 +3089,10 @@ def cargar_ranking_ejecutivos(periodo='mes'):
 # TABS
 # =========================================================
 if st.session_state.modo_admin:
-    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5 = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL"])
+    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_salud = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "🛡️ SISTEMA"])
 else:
     tab_dash, tab1, tab2, tab3, tab7, tab_contrato, tab4 = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA"])
+    tab_salud = None
     tab5 = None
     tab6 = None
 
@@ -5632,6 +5633,249 @@ if st.session_state.modo_admin and tab5 is not None:
                 '<code>cotizador.xlsx</code> de GitHub.</div>',
                 unsafe_allow_html=True
             )
+
+
+
+# =========================================================
+# TAB SALUD - SISTEMA (solo admin)
+# =========================================================
+if st.session_state.modo_admin and tab_salud is not None:
+    with tab_salud:
+
+        st.markdown("""
+        <style>
+        .hdr-salud {
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 60%, #2d2d2d 100%);
+            border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
+            display: flex; align-items: center; gap: 22px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            position: relative; overflow: hidden;
+        }
+        .hdr-salud::before {
+            content: ''; position: absolute; top: -40px; right: -40px;
+            width: 180px; height: 180px; border-radius: 50%;
+            background: rgba(255,255,255,0.03); pointer-events: none;
+        }
+        .hdr-salud::after {
+            content: ''; position: absolute; bottom: -60px; right: 80px;
+            width: 240px; height: 240px; border-radius: 50%;
+            background: rgba(255,255,255,0.02); pointer-events: none;
+        }
+        .hdr-salud h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
+                        font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
+        .hdr-salud p  { color: rgba(255,255,255,0.55) !important; margin: 6px 0 0; font-size: 0.92rem; }
+
+        .sys-card {
+            background: white; border-radius: 16px; padding: 20px 24px;
+            border: 1px solid rgba(226,232,240,0.8);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+            margin-bottom: 16px;
+        }
+        .sys-card-title {
+            font-size: 0.72rem; font-weight: 800; color: #94a3b8;
+            text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 14px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .sys-metric-val {
+            font-size: 2rem; font-weight: 900; color: #0f172a;
+            font-family: 'Montserrat', sans-serif; line-height: 1;
+        }
+        .sys-metric-sub {
+            font-size: 0.78rem; color: #64748b; margin-top: 4px;
+        }
+        .sys-bar-wrap {
+            background: #f1f5f9; border-radius: 8px; height: 12px;
+            overflow: hidden; margin: 10px 0 6px;
+        }
+        .sys-bar-inner {
+            height: 12px; border-radius: 8px; transition: width 0.5s ease;
+        }
+        .sys-bar-ok   { background: linear-gradient(90deg, #10b981, #34d399); }
+        .sys-bar-warn { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+        .sys-bar-crit { background: linear-gradient(90deg, #ef4444, #f97316); }
+        .sys-pct-label {
+            font-size: 0.75rem; font-weight: 700;
+            display: flex; justify-content: space-between;
+        }
+        .sys-section-title {
+            font-size: 0.78rem; font-weight: 900; color: #1e293b;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            margin: 24px 0 14px; padding: 8px 16px;
+            background: linear-gradient(90deg, rgba(15,15,15,0.07), transparent);
+            border-left: 4px solid #374151; border-radius: 0 8px 8px 0;
+        }
+        .sys-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+        .sys-table th {
+            background: #f8fafc; color: #64748b; font-weight: 700;
+            font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+            padding: 10px 14px; text-align: left; border-bottom: 2px solid #e2e8f0;
+        }
+        .sys-table td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; color: #1e293b; }
+        .sys-table tr:last-child td { border-bottom: none; }
+        .sys-badge-ok   { background:#dcfce7; color:#15803d; padding:2px 8px; border-radius:4px; font-weight:700; font-size:0.7rem; }
+        .sys-badge-warn { background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:4px; font-weight:700; font-size:0.7rem; }
+        .sys-badge-crit { background:#fee2e2; color:#dc2626; padding:2px 8px; border-radius:4px; font-weight:700; font-size:0.7rem; }
+        </style>
+        <div class="hdr-salud">
+          <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.5));">🛡️</span>
+          <div>
+            <h2>Salud del Sistema</h2>
+            <p>Monitoreo de capacidad y estado de Supabase — Plan Free (actualizado al cargar)</p>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        import datetime as _dt_sys
+
+        with st.spinner("Consultando métricas del sistema..."):
+
+            # ── 1. Tamaño BD desde PostgreSQL ──
+            _db_size_mb = 0
+            _db_rows = {}
+            _db_connections = 0
+            try:
+                _r_size = supabase.rpc('get_db_size', {}).execute()
+                if _r_size.data:
+                    _db_size_mb = round(_r_size.data / (1024*1024), 2)
+            except:
+                try:
+                    # fallback: query directa
+                    _r_size2 = supabase.table('cotizaciones').select('id', count='exact').execute()
+                    _db_rows['cotizaciones'] = _r_size2.count or 0
+                except:
+                    pass
+
+            # Contar filas por tabla
+            for _tbl in ['cotizaciones', 'cotizacion_logs', 'excel_versiones']:
+                try:
+                    _r = supabase.table(_tbl).select('id', count='exact').execute()
+                    _db_rows[_tbl] = _r.count or 0
+                except:
+                    _db_rows[_tbl] = 0
+
+            # ── 2. Storage — listar buckets y tamaños ──
+            _storage_info = {}
+            try:
+                _buckets = supabase.storage.list_buckets()
+                for _bkt in _buckets:
+                    _bname = _bkt.name if hasattr(_bkt, 'name') else _bkt.get('name','')
+                    try:
+                        _files = supabase.storage.from_(_bname).list()
+                        _count = len(_files) if _files else 0
+                        _size_bytes = sum(
+                            f.get('metadata', {}).get('size', 0) if isinstance(f, dict)
+                            else getattr(getattr(f, 'metadata', None), 'size', 0) or 0
+                            for f in (_files or [])
+                        )
+                        _storage_info[_bname] = {'archivos': _count, 'mb': round(_size_bytes/1024/1024, 2)}
+                    except:
+                        _storage_info[_bname] = {'archivos': 0, 'mb': 0}
+            except:
+                pass
+
+            _storage_total_mb = sum(v['mb'] for v in _storage_info.values())
+
+        # ── LÍMITES FREE ──
+        _DB_LIMIT_MB  = 500
+        _STG_LIMIT_MB = 1024  # 1 GB
+
+        _db_pct  = min(round((_db_size_mb / _DB_LIMIT_MB) * 100, 1), 100) if _db_size_mb > 0 else 0
+        _stg_pct = min(round((_storage_total_mb / _STG_LIMIT_MB) * 100, 1), 100)
+
+        def _bar_class(pct):
+            if pct >= 80: return "sys-bar-crit"
+            if pct >= 50: return "sys-bar-warn"
+            return "sys-bar-ok"
+
+        def _badge(pct):
+            if pct >= 80: return "sys-badge-crit", "⚠️ Crítico"
+            if pct >= 50: return "sys-badge-warn", "🟡 Atención"
+            return "sys-badge-ok", "🟢 Normal"
+
+        # ── FILA 1: BD y Storage ──
+        st.markdown('<div class="sys-section-title">💾 Capacidad de almacenamiento</div>', unsafe_allow_html=True)
+        _col_db, _col_stg = st.columns(2)
+
+        with _col_db:
+            _bc, _bl = _badge(_db_pct)
+            st.markdown(f"""
+            <div class="sys-card">
+              <div class="sys-card-title">🗄️ Base de datos PostgreSQL</div>
+              <div class="sys-metric-val">{_db_size_mb if _db_size_mb > 0 else "~"} MB</div>
+              <div class="sys-metric-sub">Límite Free: {_DB_LIMIT_MB} MB &nbsp;·&nbsp; <span class="{_bc}">{_bl}</span></div>
+              <div class="sys-bar-wrap">
+                <div class="sys-bar-inner {_bar_class(_db_pct)}" style="width:{_db_pct}%"></div>
+              </div>
+              <div class="sys-pct-label"><span>{_db_pct}% usado</span><span>{round(_DB_LIMIT_MB - _db_size_mb, 1)} MB libres</span></div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with _col_stg:
+            _bc2, _bl2 = _badge(_stg_pct)
+            st.markdown(f"""
+            <div class="sys-card">
+              <div class="sys-card-title">📦 Storage (todos los buckets)</div>
+              <div class="sys-metric-val">{round(_storage_total_mb, 1)} MB</div>
+              <div class="sys-metric-sub">Límite Free: {_STG_LIMIT_MB} MB (1 GB) &nbsp;·&nbsp; <span class="{_bc2}">{_bl2}</span></div>
+              <div class="sys-bar-wrap">
+                <div class="sys-bar-inner {_bar_class(_stg_pct)}" style="width:{_stg_pct}%"></div>
+              </div>
+              <div class="sys-pct-label"><span>{_stg_pct}% usado</span><span>{round(_STG_LIMIT_MB - _storage_total_mb, 1)} MB libres</span></div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # ── FILA 2: Tablas y Buckets ──
+        _col_tbl, _col_bkt = st.columns(2)
+
+        with _col_tbl:
+            st.markdown('<div class="sys-section-title">📋 Filas por tabla</div>', unsafe_allow_html=True)
+            _tbl_html = '<div class="sys-card"><table class="sys-table"><thead><tr><th>Tabla</th><th>Filas</th></tr></thead><tbody>'
+            _tbl_labels = {'cotizaciones': '📄 Cotizaciones', 'cotizacion_logs': '📝 Logs auditoría', 'excel_versiones': '📊 Versiones Excel'}
+            for _t, _cnt in _db_rows.items():
+                _lbl = _tbl_labels.get(_t, _t)
+                _tbl_html += f'<tr><td>{_lbl}</td><td><b>{_cnt:,}</b></td></tr>'
+            _tbl_html += '</tbody></table></div>'
+            st.markdown(_tbl_html, unsafe_allow_html=True)
+
+        with _col_bkt:
+            st.markdown('<div class="sys-section-title">🗂️ Archivos por bucket</div>', unsafe_allow_html=True)
+            if _storage_info:
+                _bkt_html = '<div class="sys-card"><table class="sys-table"><thead><tr><th>Bucket</th><th>Archivos</th><th>Tamaño</th></tr></thead><tbody>'
+                _bkt_icons = {'planos': '📐 planos', 'config': '⚙️ config'}
+                for _bn, _bv in _storage_info.items():
+                    _blbl = _bkt_icons.get(_bn, f'📁 {_bn}')
+                    _bkt_html += f'<tr><td>{_blbl}</td><td>{_bv["archivos"]}</td><td>{_bv["mb"]} MB</td></tr>'
+                _bkt_html += '</tbody></table></div>'
+                st.markdown(_bkt_html, unsafe_allow_html=True)
+            else:
+                st.markdown('<div class="sys-card"><p style="color:#94a3b8;font-size:0.85rem;">No se pudieron leer los buckets.</p></div>', unsafe_allow_html=True)
+
+        # ── FILA 3: Info del plan ──
+        st.markdown('<div class="sys-section-title">ℹ️ Límites del plan Free</div>', unsafe_allow_html=True)
+        _plan_html = """
+        <div class="sys-card">
+          <table class="sys-table">
+            <thead><tr><th>Recurso</th><th>Límite Free</th><th>Estado</th></tr></thead>
+            <tbody>
+              <tr><td>🗄️ Base de datos</td><td>500 MB</td><td><span class="{_bc_db}">{_bl_db}</span></td></tr>
+              <tr><td>📦 File Storage</td><td>1 GB</td><td><span class="{_bc_s}">{_bl_s}</span></td></tr>
+              <tr><td>👥 Usuarios auth</td><td>50,000</td><td><span class="sys-badge-ok">🟢 Normal</span></td></tr>
+              <tr><td>📡 Requests API</td><td>500K / mes</td><td><span class="sys-badge-ok">🟢 Normal</span></td></tr>
+              <tr><td>⚡ Ancho de banda</td><td>5 GB / mes</td><td><span class="sys-badge-ok">🟢 Normal</span></td></tr>
+              <tr><td>😴 Inactividad</td><td>Pausa tras 7 días sin uso</td><td><span class="sys-badge-warn">🟡 Atención</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        """.replace('{_bc_db}', _badge(_db_pct)[0]).replace('{_bl_db}', _badge(_db_pct)[1])            .replace('{_bc_s}', _badge(_stg_pct)[0]).replace('{_bl_s}', _badge(_stg_pct)[1])
+        st.markdown(_plan_html, unsafe_allow_html=True)
+
+        # ── Nota actualización ──
+        _now_cl = _dt_sys.datetime.now(_dt_sys.timezone(_dt_sys.timedelta(hours=-3)))
+        st.caption(f"🕐 Última actualización: {_now_cl.strftime('%d/%m/%Y %H:%M')} hora Chile · Las métricas de tamaño de BD en Supabase Free se actualizan diariamente.")
+
+        if st.button("🔄 Actualizar métricas", key="btn_refresh_salud"):
+            st.rerun()
+
 
 
 
