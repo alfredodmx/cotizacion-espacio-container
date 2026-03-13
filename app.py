@@ -154,6 +154,15 @@ def verificar_conexion_supabase():
 
 verificar_conexion_supabase()
 
+# ── Inicializar variables de auth ANTES del check de login ──
+if 'auth_user'    not in st.session_state: st.session_state.auth_user    = None
+if 'auth_email'   not in st.session_state: st.session_state.auth_email   = ""
+if 'auth_nombre'  not in st.session_state: st.session_state.auth_nombre  = ""
+if 'es_supervisor'not in st.session_state: st.session_state.es_supervisor= False
+if 'es_root'      not in st.session_state: st.session_state.es_root      = False
+if 'rol_usuario'  not in st.session_state: st.session_state.rol_usuario  = "ejecutivo"
+if 'modo_admin'   not in st.session_state: st.session_state.modo_admin   = False
+
 # =========================================================
 # PANTALLA DE LOGIN — bloquea la app si no hay sesión
 # =========================================================
