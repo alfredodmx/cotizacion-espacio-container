@@ -8077,126 +8077,199 @@ if st.session_state.modo_admin and tab_usuarios is not None:
                                     st.error(f"❌ Error: {_adm_err}")
 
         st.markdown("---")
-        st.markdown("### 👥 Usuarios registrados")
 
-        # ── Listar usuarios ──
-        if st.button("🔄 Actualizar lista", key="btn_refresh_usuarios"):
-            st.session_state.pop('_usuarios_cache', None)
-            st.rerun()
+        # ── CSS adicional para la lista ──
+        st.markdown("""
+        <style>
+        .usr-card2 {
+            background: var(--background-color, #fff);
+            border-radius: 14px;
+            border: 1.5px solid #e8eaf0;
+            padding: 16px 20px;
+            display: flex; align-items: center; gap: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: box-shadow 0.2s;
+        }
+        .usr-card2:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.10); }
+        .usr-card2.es-admin { border-left: 4px solid #8b5cf6; }
+        .usr-card2.es-ejecutivo { border-left: 4px solid #3b82f6; }
+        .usr-card2.es-root { border-left: 4px solid #f59e0b; }
+        .usr-av2 {
+            width: 46px; height: 46px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.25rem; font-weight: 800; color: white; flex-shrink: 0;
+        }
+        .usr-av2.av-admin    { background: linear-gradient(135deg,#7c3aed,#a78bfa); }
+        .usr-av2.av-ejecutivo{ background: linear-gradient(135deg,#2563eb,#60a5fa); }
+        .usr-av2.av-root     { background: linear-gradient(135deg,#b45309,#f59e0b); }
+        .usr-nm2  { font-weight: 700; font-size: 0.97rem; color: #1e2447; }
+        .usr-em2  { font-size: 0.81rem; color: #64748b; margin-top: 2px; }
+        .usr-meta { font-size: 0.75rem; color: #94a3b8; margin-top: 2px; }
+        .rol-pill {
+            display: inline-block; padding: 2px 10px; border-radius: 20px;
+            font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em;
+        }
+        .rol-admin    { background:#ede9fe; color:#6d28d9; }
+        .rol-ejecutivo{ background:#dbeafe; color:#1d4ed8; }
+        .rol-root     { background:#fef3c7; color:#b45309; }
+        .accion-panel {
+            background: #f8f9fc;
+            border: 1px solid #e8eaf0;
+            border-radius: 12px;
+            padding: 16px 18px;
+            margin-top: 6px;
+            margin-bottom: 8px;
+        }
+        .accion-title { font-size:0.78rem; font-weight:700; color:#64748b;
+                        text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px; }
+        </style>
+        """, unsafe_allow_html=True)
 
-        if '_usuarios_cache' not in st.session_state:
-            with st.spinner("Cargando usuarios..."):
-                st.session_state['_usuarios_cache'] = listar_usuarios_ejecutivos()
-
-        _usuarios = st.session_state.get('_usuarios_cache', [])
+        # ── Header con contador y refresh ──
+        _hcol1, _hcol2 = st.columns([4, 1])
+        with _hcol1:
+            if '_usuarios_cache' not in st.session_state:
+                with st.spinner("Cargando usuarios..."):
+                    st.session_state['_usuarios_cache'] = listar_usuarios_ejecutivos()
+            _usuarios = st.session_state.get('_usuarios_cache', [])
+            _n_adm = sum(1 for u in _usuarios if u.get('rol') in ('admin','administrador'))
+            _n_ej  = sum(1 for u in _usuarios if u.get('rol','ejecutivo') == 'ejecutivo')
+            st.markdown(f"""
+            <div style="display:flex;gap:12px;align-items:center;margin-bottom:4px;">
+                <span style="font-size:1.1rem;font-weight:800;color:#1e2447;">👥 Usuarios registrados</span>
+                <span style="background:#ede9fe;color:#6d28d9;padding:3px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;">👑 {_n_adm} Admin</span>
+                <span style="background:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;">👤 {_n_ej} Ejecutivo</span>
+            </div>
+            """, unsafe_allow_html=True)
+        with _hcol2:
+            if st.button("🔄 Actualizar", key="btn_refresh_usuarios", use_container_width=True):
+                st.session_state.pop('_usuarios_cache', None)
+                st.rerun()
 
         if st.session_state.get('_usuarios_list_error'):
             st.error(f"❌ Error al cargar usuarios: {st.session_state['_usuarios_list_error']}")
             st.session_state.pop('_usuarios_list_error', None)
 
         if not _usuarios:
-            st.info("No hay usuarios registrados aún, o los ejecutivos deben ser creados desde el formulario de arriba.")
+            st.info("No hay usuarios registrados aún.")
         else:
-            st.caption(f"Total: {len(_usuarios)} ejecutivo(s)")
             for _u in _usuarios:
-                _inicial = (_u['nombre'] or _u['email'] or "?")[0].upper()
-                col_info, col_acc = st.columns([4, 2])
-                with col_info:
-                    _rol_label = "👑 Admin" if _u.get('rol') in ("admin","administrador","supervisor") else "👤 Ejecutivo"
-                    _rol_color = "#7c3aed" if _u.get('rol') in ("admin","administrador","supervisor") else "#2563eb"
-                    st.markdown(f"""
-                    <div class="usr-card">
-                        <div class="usr-avatar">{_inicial}</div>
-                        <div class="usr-info">
-                            <div class="usr-nombre">{_u['nombre']}</div>
-                            <div class="usr-email">✉️ {_u['email']}</div>
-                            <div class="usr-fecha">📅 Creado: {_u['created_at']} &nbsp;·&nbsp;
-                                <span style="color:{_rol_color};font-weight:700;">{_rol_label}</span>
-                            </div>
+                _inicial   = (_u['nombre'] or _u['email'] or "?")[0].upper()
+                _rol_obj   = _u.get('rol', 'ejecutivo')
+                _es_root_u = _rol_obj == 'root'
+                _es_admin_u= _rol_obj in ('admin','administrador')
+
+                # Clases CSS según rol
+                _card_cls = 'es-root' if _es_root_u else ('es-admin' if _es_admin_u else 'es-ejecutivo')
+                _av_cls   = 'av-root'  if _es_root_u else ('av-admin'  if _es_admin_u else 'av-ejecutivo')
+                _rol_pill = ('rol-root'  if _es_root_u else ('rol-admin' if _es_admin_u else 'rol-ejecutivo'))
+                _rol_txt  = ('🔑 Root'   if _es_root_u else ('👑 Admin'  if _es_admin_u else '👤 Ejecutivo'))
+
+                # Permisos
+                _puede = (
+                    st.session_state.get('es_root') or
+                    (st.session_state.get('rol_usuario') == 'admin' and _rol_obj in ('ejecutivo','admin'))
+                ) and not _es_root_u
+
+                # ── Tarjeta principal ──
+                st.markdown(f"""
+                <div class="usr-card2 {_card_cls}">
+                    <div class="usr-av2 {_av_cls}">{_inicial}</div>
+                    <div style="flex:1;min-width:0;">
+                        <div class="usr-nm2">{_u['nombre']}</div>
+                        <div class="usr-em2">✉️ {_u['email']}</div>
+                        <div class="usr-meta">📅 {_u['created_at']} &nbsp;·&nbsp;
+                            <span class="rol-pill {_rol_pill}">{_rol_txt}</span>
                         </div>
-                        <span class="{'usr-badge-ok' if _u['activo'] else 'usr-badge-off'}">
-                            {'🟢 Activo' if _u['activo'] else '🔴 Inactivo'}
-                        </span>
                     </div>
-                    """, unsafe_allow_html=True)
-                with col_acc:
-                    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-                    _rol_objetivo = _u.get('rol', 'ejecutivo')
-                    _puede_eliminar = (
-                        st.session_state.get('es_root') or
-                        (st.session_state.get('rol_usuario') == 'admin' and _rol_objetivo in ('ejecutivo', 'admin'))
-                    )
-                    if _rol_objetivo == 'root':
-                        _puede_eliminar = False
+                </div>
+                """, unsafe_allow_html=True)
 
-                    # ── Cambiar rol ──
-                    _puede_cambiar_rol = _puede_eliminar and _rol_objetivo != 'root'
-                    if _puede_cambiar_rol:
-                        _nuevo_rol = 'admin' if _rol_objetivo == 'ejecutivo' else 'ejecutivo'
-                        _etiqueta_rol = '⬆️ Hacer Admin' if _nuevo_rol == 'admin' else '⬇️ Hacer Ejecutivo'
-                        if st.button(_etiqueta_rol, key=f"cambiar_rol_{_u['id']}", use_container_width=True):
-                            _ok_r, _err_r = cambiar_rol_usuario(_u['id'], _nuevo_rol)
-                            if _ok_r:
-                                st.success(f"✅ {_u['nombre']} ahora es {_nuevo_rol}.")
-                                st.session_state.pop('_usuarios_cache', None)
-                                st.rerun()
-                            else:
-                                st.error(f"❌ {_err_r}")
-
-                    # Botón resetear contraseña
-                    _puede_resetear = _puede_eliminar
-                    if _puede_resetear:
-                        if st.button("🔑", key=f"reset_pwd_{_u['id']}", help=f"Resetear contraseña de {_u['nombre']}"):
-                            st.session_state[f'_reset_pwd_{_u["id"]}'] = True
+                if _puede:
+                    # Botones de acción en línea
+                    _ba1, _ba2, _ba3, _ba4 = st.columns([1, 1, 1, 3])
+                    with _ba1:
+                        _nuevo_rol  = 'admin' if _rol_obj == 'ejecutivo' else 'ejecutivo'
+                        _lbl_rol    = '⬆️ Admin' if _nuevo_rol == 'admin' else '⬇️ Ejecutivo'
+                        if st.button(_lbl_rol, key=f"rol_{_u['id']}", use_container_width=True):
+                            st.session_state[f'_accion_{_u["id"]}'] = 'rol'
                             st.rerun()
-                        if st.session_state.get(f'_reset_pwd_{_u["id"]}', False):
-                            _nueva_pwd = st.text_input(
-                                f"Nueva contraseña para {_u['nombre']}",
-                                type="password", key=f"new_pwd_input_{_u['id']}",
-                                placeholder="Mínimo 6 caracteres"
-                            )
-                            c_ok, c_no = st.columns(2)
-                            with c_ok:
-                                if st.button("✅", key=f"pwd_ok_{_u['id']}"):
-                                    if len(_nueva_pwd) < 6:
-                                        st.error("Mínimo 6 caracteres.")
-                                    else:
-                                        ok, err = resetear_password_admin(_u['id'], _nueva_pwd)
-                                        if ok:
-                                            st.success(f"✅ Contraseña de {_u['nombre']} actualizada.")
-                                            st.session_state.pop(f'_reset_pwd_{_u["id"]}', None)
-                                            st.rerun()
-                                        else:
-                                            st.error(f"❌ {err}")
-                            with c_no:
-                                if st.button("❌", key=f"pwd_no_{_u['id']}"):
-                                    st.session_state.pop(f'_reset_pwd_{_u["id"]}', None)
+                    with _ba2:
+                        if st.button("🔑 Contraseña", key=f"pwd_btn_{_u['id']}", use_container_width=True):
+                            st.session_state[f'_accion_{_u["id"]}'] = 'pwd'
+                            st.rerun()
+                    with _ba3:
+                        if st.button("🗑️ Eliminar", key=f"del_btn_{_u['id']}", use_container_width=True):
+                            st.session_state[f'_accion_{_u["id"]}'] = 'del'
+                            st.rerun()
+
+                    # Panel de acción expandido según selección
+                    _accion = st.session_state.get(f'_accion_{_u["id"]}')
+
+                    if _accion == 'rol':
+                        st.markdown(f'<div class="accion-panel"><div class="accion-title">Cambiar rol de {_u["nombre"]}</div>', unsafe_allow_html=True)
+                        st.info(f"Rol actual: **{_rol_txt}** → Nuevo rol: **{'Admin' if _nuevo_rol == 'admin' else 'Ejecutivo'}**")
+                        _cr1, _cr2 = st.columns(2)
+                        with _cr1:
+                            if st.button(f"✅ Confirmar cambio", key=f"rol_ok_{_u['id']}", use_container_width=True, type="primary"):
+                                _ok_r, _err_r = cambiar_rol_usuario(_u['id'], _nuevo_rol)
+                                if _ok_r:
+                                    st.success(f"✅ {_u['nombre']} ahora es {_nuevo_rol}.")
+                                    st.session_state.pop('_usuarios_cache', None)
+                                    st.session_state.pop(f'_accion_{_u["id"]}', None)
                                     st.rerun()
-                    if _puede_eliminar:
-                        if st.button("🗑️", key=f"del_usr_{_u['id']}", help=f"Eliminar {_u['nombre']}"):
-                            st.session_state[f'_confirm_del_{_u["id"]}'] = True
-                            st.rerun()
+                                else:
+                                    st.error(f"❌ {_err_r}")
+                        with _cr2:
+                            if st.button("✖️ Cancelar", key=f"rol_no_{_u['id']}", use_container_width=True):
+                                st.session_state.pop(f'_accion_{_u["id"]}', None)
+                                st.rerun()
+                        st.markdown('</div>', unsafe_allow_html=True)
 
-                        # Confirmación de borrado
-                        if st.session_state.get(f'_confirm_del_{_u["id"]}', False):
-                            st.warning(f"¿Eliminar a **{_u['nombre']}**?")
-                            c1, c2 = st.columns(2)
-                            with c1:
-                                if st.button("✅ Sí", key=f"conf_si_{_u['id']}"):
-                                    ok, err = eliminar_usuario_ejecutivo(_u['id'])
-                                    if ok:
-                                        st.success("Usuario eliminado.")
-                                        st.session_state.pop('_usuarios_cache', None)
-                                        st.session_state.pop(f'_confirm_del_{_u["id"]}', None)
+                    elif _accion == 'pwd':
+                        st.markdown(f'<div class="accion-panel"><div class="accion-title">Resetear contraseña de {_u["nombre"]}</div>', unsafe_allow_html=True)
+                        _nueva_pwd = st.text_input("Nueva contraseña", type="password",
+                                                   key=f"pwd_inp_{_u['id']}", placeholder="Mínimo 6 caracteres")
+                        _pp1, _pp2 = st.columns(2)
+                        with _pp1:
+                            if st.button("✅ Guardar contraseña", key=f"pwd_ok_{_u['id']}", use_container_width=True, type="primary"):
+                                if len(_nueva_pwd or '') < 6:
+                                    st.error("Mínimo 6 caracteres.")
+                                else:
+                                    _ok_p, _err_p = resetear_password_admin(_u['id'], _nueva_pwd)
+                                    if _ok_p:
+                                        st.success(f"✅ Contraseña actualizada.")
+                                        st.session_state.pop(f'_accion_{_u["id"]}', None)
                                         st.rerun()
                                     else:
-                                        st.error(f"Error: {err}")
-                            with c2:
-                                if st.button("❌ No", key=f"conf_no_{_u['id']}"):
-                                    st.session_state.pop(f'_confirm_del_{_u["id"]}', None)
+                                        st.error(f"❌ {_err_p}")
+                        with _pp2:
+                            if st.button("✖️ Cancelar", key=f"pwd_no_{_u['id']}", use_container_width=True):
+                                st.session_state.pop(f'_accion_{_u["id"]}', None)
+                                st.rerun()
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+                    elif _accion == 'del':
+                        st.markdown(f'<div class="accion-panel"><div class="accion-title">Eliminar usuario</div>', unsafe_allow_html=True)
+                        st.warning(f"⚠️ ¿Estás seguro que deseas eliminar a **{_u['nombre']}** ({_u['email']})? Esta acción no se puede deshacer.")
+                        _dd1, _dd2 = st.columns(2)
+                        with _dd1:
+                            if st.button("🗑️ Sí, eliminar", key=f"del_ok_{_u['id']}", use_container_width=True, type="primary"):
+                                _ok_d, _err_d = eliminar_usuario_ejecutivo(_u['id'])
+                                if _ok_d:
+                                    st.success("✅ Usuario eliminado.")
+                                    st.session_state.pop('_usuarios_cache', None)
+                                    st.session_state.pop(f'_accion_{_u["id"]}', None)
                                     st.rerun()
-                    else:
-                        if _rol_objetivo == 'root':
-                            st.markdown("<span title='Cuenta Root — no se puede eliminar' style='color:#f59e0b;font-size:1.2rem;'>🔑</span>", unsafe_allow_html=True)
-                        else:
-                            st.markdown("<span title='Sin permisos para eliminar' style='color:#94a3b8;font-size:1.2rem;'>🔒</span>", unsafe_allow_html=True)
+                                else:
+                                    st.error(f"❌ {_err_d}")
+                        with _dd2:
+                            if st.button("✖️ Cancelar", key=f"del_no_{_u['id']}", use_container_width=True):
+                                st.session_state.pop(f'_accion_{_u["id"]}', None)
+                                st.rerun()
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+                elif _es_root_u:
+                    st.markdown("<div style='padding:4px 0 8px;'><span style='color:#f59e0b;font-size:0.8rem;font-weight:600;'>🔑 Cuenta Root — protegida</span></div>", unsafe_allow_html=True)
+
+                st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
