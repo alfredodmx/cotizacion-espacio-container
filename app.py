@@ -340,24 +340,22 @@ if not st.session_state.auth_user:
     </style>
     """, unsafe_allow_html=True)
 
-    # Centrar con columnas
-    _lc, _mc, _rc = st.columns([0.2, 4, 0.2])
+    # Logo ancho — fuera de columnas para que ocupe todo el espacio
+    if _logo2_html:
+        st.markdown(
+            _logo2_html.replace('max-width:220px', 'max-width:650px').replace('margin:0 auto 24px', 'margin:0 auto 8px'),
+            unsafe_allow_html=True
+        )
+    else:
+        st.markdown('<div style="text-align:center;margin-bottom:20px;"><span style="font-size:4rem;filter:drop-shadow(0 0 20px rgba(212,175,55,0.5));">🧊</span></div>', unsafe_allow_html=True)
+
+    st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="login-divider"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
+
+    # Inputs centrados en columna angosta
+    _lc, _mc, _rc = st.columns([1, 2, 1])
     with _mc:
-        # Logo 500px
-        if _logo2_html:
-            st.markdown(
-                _logo2_html
-                    .replace('max-width:220px', 'max-width:100%')
-                    .replace('width="350"', 'width="100%"'),
-                unsafe_allow_html=True
-            )
-        else:
-            st.markdown('<div style="text-align:center;margin-bottom:20px;"><span style="font-size:4rem;filter:drop-shadow(0 0 20px rgba(212,175,55,0.5));">🧊</span></div>', unsafe_allow_html=True)
-
-        st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
-        st.markdown('<div class="login-divider"></div>', unsafe_allow_html=True)
-        st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
-
         _email_in = st.text_input("Correo electrónico", key="login_email", placeholder="usuario@empresa.cl")
         _pass_in  = st.text_input("Contraseña", type="password", key="login_pass", placeholder="••••••••")
 
