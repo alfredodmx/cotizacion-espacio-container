@@ -5954,8 +5954,11 @@ if st.session_state.get('recien_cargado', False):
 
 if _mostrar_fab:
     # Botón real de Streamlit oculto — el FAB JS lo clickea
-    st.markdown('<style>#btn_fab_guardar_container{display:none!important}</style>', unsafe_allow_html=True)
-    if st.button("💾 Guardar", key="btn_fab_guardar"):
+    st.markdown("""<style>
+    /* Ocultar el botón real de Streamlit — solo se usa como trigger interno */
+    div[data-testid="stButton"]:has(button[data-testid="baseButton-secondary"]) + div { display:none!important; }
+    </style>""", unsafe_allow_html=True)
+    if st.button("💾 Guardar", key="btn_fab_guardar", help=None):
         leer_datos_actuales()
         datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
         num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
@@ -6026,11 +6029,28 @@ if _mostrar_fab:
         badge.id = 'fab-badge';
         btn.appendChild(badge);
 
+        // Ocultar botón real de Streamlit (trigger interno)
+        function hideRealBtn() {
+            const buttons = parent.querySelectorAll('button');
+            for (const b of buttons) {
+                const txt = (b.innerText || b.textContent || '').trim();
+                if (txt === '💾 Guardar' && b.id !== 'fab-guardar-btn') {
+                    b.parentElement.style.setProperty('display','none','important');
+                    b.parentElement.parentElement.style.setProperty('display','none','important');
+                }
+            }
+        }
+        hideRealBtn();
+        setTimeout(hideRealBtn, 300);
+        setTimeout(hideRealBtn, 800);
+
         btn.onclick = function() {
             const buttons = parent.querySelectorAll('button');
             for (const b of buttons) {
                 const txt = (b.innerText || b.textContent || '').trim();
-                if (txt.includes('Guardar') && b.id !== 'fab-guardar-btn' && !b.disabled) {
+                if (txt === '💾 Guardar' && b.id !== 'fab-guardar-btn' && !b.disabled) {
+                    b.parentElement.style.removeProperty('display');
+                    b.parentElement.parentElement.style.removeProperty('display');
                     b.click();
                     return;
                 }
