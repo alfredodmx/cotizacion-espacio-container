@@ -25,6 +25,29 @@ st.set_page_config(layout="wide", page_title="Cotizador PRO", page_icon="📊")
 # =========================================================
 SUPABASE_URL = "https://rpjktwxitceqylexcaqw.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwamt0d3hpdGNlcXlsZXhjYXF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MzUyMzYsImV4cCI6MjA4ODQxMTIzNn0.LoZN1W7X1pjVgNLFyVRfzQ8iHFp5JN2qw2Egu5yJq0E"
+SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwamt0d3hpdGNlcXlsZXhjYXF3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjgzNTIzNiwiZXhwIjoyMDg4NDExMjM2fQ.HcXL2zeYrL6GONevt3CDDQmRZtanXymRH9PJIdOKLZk"
+# ── Roles del sistema ──────────────────────────────────
+# root  → acceso total, puede eliminar cualquier cuenta, ve 🛡️ SISTEMA
+# admin → ve todo, puede crear ejecutivos y admins, NO ve 🛡️ SISTEMA
+# ejecutivo → solo sus cotizaciones
+# -----------------------------------------------------------
+ROOTS = ["alfredodmx@gmail.com"]   # root fijo — agregar más si necesario
+
+def get_rol(email, user_metadata=None):
+    """Retorna el rol del usuario: 'root', 'admin' o 'ejecutivo'."""
+    email_l = (email or "").lower()
+    if email_l in [r.lower() for r in ROOTS]:
+        return "root"
+    meta_rol = (user_metadata or {}).get("rol", "ejecutivo")
+    if meta_rol in ("root",):
+        return "root"
+    if meta_rol in ("admin", "administrador"):
+        return "admin"
+    return "ejecutivo"
+
+def es_rol_superior(email, user_metadata=None):
+    """True si es root o admin (acceso amplio)."""
+    return get_rol(email, user_metadata) in ("root", "admin")
 
 # API key de Anthropic para el Visor 3D (leer de secrets o env)
 import os as _os_init
@@ -34,6 +57,88 @@ ANTHROPIC_API_KEY = (
 )
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
+# =========================================================
+# SISTEMA DE AUTENTICACIÓN
+# =========================================================
+def login_usuario(email, password):
+    """Inicia sesión con email y contraseña."""
+    try:
+        res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+        return res.user, None
+    except Exception as e:
+        return None, str(e)
+
+def logout_usuario():
+    """Cierra sesión."""
+    try:
+        supabase.auth.sign_out()
+    except:
+        pass
+    for k in ['auth_user', 'auth_email', 'auth_nombre', 'es_supervisor', 'es_root', 'rol_usuario']:
+        st.session_state.pop(k, None)
+
+def crear_usuario_ejecutivo(email, password, nombre):
+    """Crea un nuevo usuario ejecutivo (requiere service role)."""
+    try:
+        res = supabase_admin.auth.admin.create_user({
+            "email": email,
+            "password": password,
+            "email_confirm": True,
+            "user_metadata": {"nombre": nombre, "rol": "ejecutivo"}
+        })
+        return res.user, None
+    except Exception as e:
+        return None, str(e)
+
+def cambiar_password_propio(nueva_password):
+    """El usuario cambia su propia contraseña (requiere sesión activa)."""
+    try:
+        supabase.auth.update_user({"password": nueva_password})
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+def resetear_password_admin(user_id, nueva_password):
+    """Admin/Root resetea la contraseña de otro usuario (requiere service role)."""
+    try:
+        supabase_admin.auth.admin.update_user_by_id(user_id, {"password": nueva_password})
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+def listar_usuarios_ejecutivos():
+    """Lista todos los usuarios excepto supervisores fijos."""
+    try:
+        res = supabase_admin.auth.admin.list_users()
+        users = []
+        for u in res:
+            email = u.email or ""
+            if email.lower() in [s.lower() for s in SUPERVISORES]:
+                continue
+            meta = u.user_metadata or {}
+            nombre = meta.get("nombre", email)
+            rol = meta.get("rol", "ejecutivo")
+            users.append({
+                "id": str(u.id),
+                "email": email,
+                "nombre": nombre,
+                "rol": rol,
+                "created_at": str(u.created_at)[:10] if u.created_at else "",
+                "activo": not u.banned_until
+            })
+        return users
+    except Exception as e:
+        return []
+
+def eliminar_usuario_ejecutivo(user_id):
+    """Elimina un usuario ejecutivo."""
+    try:
+        supabase_admin.auth.admin.delete_user(user_id)
+        return True, None
+    except Exception as e:
+        return False, str(e)
 
 def verificar_conexion_supabase():
     # Solo verifica una vez por sesión, no en cada render
@@ -48,6 +153,120 @@ def verificar_conexion_supabase():
         return False
 
 verificar_conexion_supabase()
+
+# =========================================================
+# PANTALLA DE LOGIN — bloquea la app si no hay sesión
+# =========================================================
+if not st.session_state.auth_user:
+    st.markdown("""
+    <style>
+    [data-testid="stAppViewContainer"] { background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%) !important; }
+    [data-testid="stHeader"] { display: none !important; }
+    .login-card {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.10);
+        border-radius: 24px;
+        padding: 48px 44px 40px;
+        max-width: 420px;
+        margin: 6vh auto 0;
+        box-shadow: 0 32px 80px rgba(0,0,0,0.5);
+        backdrop-filter: blur(20px);
+    }
+    .login-logo { text-align:center; font-size: 3rem; margin-bottom: 0.5rem; }
+    .login-title { text-align:center; color: #fff; font-size: 1.6rem; font-weight: 900;
+                   font-family: 'Montserrat', sans-serif; margin-bottom: 0.3rem; }
+    .login-sub { text-align:center; color: rgba(255,255,255,0.5); font-size: 0.88rem; margin-bottom: 2rem; }
+    div[data-testid="stTextInput"] label { color: rgba(255,255,255,0.7) !important; font-size: 0.85rem !important; }
+    div[data-testid="stTextInput"] input {
+        background: rgba(255,255,255,0.07) !important;
+        border: 1px solid rgba(255,255,255,0.15) !important;
+        color: white !important;
+        border-radius: 10px !important;
+    }
+    div[data-testid="stTextInput"] input:focus {
+        border-color: #5b7cfa !important;
+        box-shadow: 0 0 0 3px rgba(91,124,250,0.2) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="login-card">', unsafe_allow_html=True)
+    st.markdown('<div class="login-logo">🧊</div>', unsafe_allow_html=True)
+    st.markdown('<div class="login-title">Cotizador PRO</div>', unsafe_allow_html=True)
+    st.markdown('<div class="login-sub">Espacio Container House · Ingresa con tu cuenta</div>', unsafe_allow_html=True)
+
+    _email_in = st.text_input("Correo electrónico", key="login_email", placeholder="tu@correo.cl")
+    _pass_in  = st.text_input("Contraseña", type="password", key="login_pass", placeholder="••••••••")
+
+    if st.button("🔐 Iniciar sesión", use_container_width=True, type="primary", key="btn_login"):
+        if not _email_in or not _pass_in:
+            st.error("Completa correo y contraseña.")
+        else:
+            with st.spinner("Verificando..."):
+                user, err = login_usuario(_email_in.strip(), _pass_in)
+            if user:
+                st.session_state.auth_user   = str(user.id)
+                st.session_state.auth_email  = user.email or _email_in.strip()
+                meta = user.user_metadata or {}
+                st.session_state.auth_nombre = meta.get("nombre", user.email or "")
+                _meta = user.user_metadata or {}
+                _rol_login = get_rol(user.email, _meta)
+                st.session_state.rol_usuario   = _rol_login
+                st.session_state.es_supervisor = _rol_login in ("root", "admin")
+                st.session_state.es_root       = _rol_login == "root"
+                if st.session_state.es_supervisor:
+                    st.session_state.modo_admin = True
+                st.rerun()
+            else:
+                msg = "Correo o contraseña incorrectos."
+                if "Invalid login" in str(err) or "invalid_credentials" in str(err):
+                    msg = "❌ Correo o contraseña incorrectos."
+                elif "Email not confirmed" in str(err):
+                    msg = "❌ Cuenta no confirmada. Contacta al administrador."
+                else:
+                    msg = f"❌ {err}"
+                st.error(msg)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.stop()
+
+# =========================================================
+# AUTO-PROVISIONAMIENTO DE EJECUTIVOS
+# =========================================================
+_EJECUTIVOS_INICIALES = [
+    {"nombre": "BERNARD BUSTAMANTE",  "email": "balday@espaciocontainerhouse.cl",    "telefono": "+56956786366", "pass": "ECH2024!BB",  "rol": "ejecutivo"},
+    {"nombre": "ANDREA OSORIO",       "email": "aosorio@espaciocontainerhouse.cl",   "telefono": "+56927619483", "pass": "ECH2024!AO",  "rol": "ejecutivo"},
+    {"nombre": "REBECA CALDERON",     "email": "rcalderon@espaciocontainerhouse.cl", "telefono": "+56955286708", "pass": "ECH2024!RC",  "rol": "ejecutivo"},
+    {"nombre": "MAURICIO CEVO",       "email": "mcevo@espaciocontainerhouse.cl",     "telefono": "+56971406162", "pass": "ECH2024!MC",  "rol": "ejecutivo"},
+    {"nombre": "JACQUELINE PÉREZ",    "email": "jperez@espaciocontainerhouse.cl",    "telefono": "+56992286057", "pass": "ECH2024!JP",  "rol": "ejecutivo"},
+    {"nombre": "JAVIER QUEZADA",      "email": "jquezada@espaciocontainerhouse.cl",  "telefono": "+56966983700", "pass": "ECH2024!JQ",  "rol": "ejecutivo"},
+]
+
+def _auto_provisionar_ejecutivos():
+    """Crea las cuentas de ejecutivos si no existen. Se ejecuta solo una vez por sesión."""
+    if st.session_state.get('_ejecutivos_provisionados'):
+        return
+    try:
+        existentes = supabase_admin.auth.admin.list_users()
+        emails_existentes = {u.email.lower() for u in existentes if u.email}
+        for ej in _EJECUTIVOS_INICIALES:
+            if ej["email"].lower() not in emails_existentes:
+                try:
+                    supabase_admin.auth.admin.create_user({
+                        "email": ej["email"].lower(),
+                        "password": ej["pass"],
+                        "email_confirm": True,
+                        "user_metadata": {"nombre": ej["nombre"], "telefono": ej["telefono"], "rol": ej.get("rol","ejecutivo")}
+                    })
+                except:
+                    pass
+    except:
+        pass
+    st.session_state['_ejecutivos_provisionados'] = True
+
+# Solo ejecutar si hay sesión activa (supervisor)
+if st.session_state.get('es_supervisor') and not st.session_state.get('_ejecutivos_provisionados'):
+    _auto_provisionar_ejecutivos()
 
 # =========================================================
 # HELPERS: DESCRIPCIONES PDF CLIENTE (JSON en Storage bucket config)
@@ -157,6 +376,18 @@ if 'modo_admin' not in st.session_state:
     st.session_state.modo_admin = False
 if 'mostrar_login' not in st.session_state:
     st.session_state.mostrar_login = False
+if 'auth_user' not in st.session_state:
+    st.session_state.auth_user = None
+if 'auth_email' not in st.session_state:
+    st.session_state.auth_email = ""
+if 'auth_nombre' not in st.session_state:
+    st.session_state.auth_nombre = ""
+if 'es_supervisor' not in st.session_state:
+    st.session_state.es_supervisor = False
+if 'es_root' not in st.session_state:
+    st.session_state.es_root = False
+if 'rol_usuario' not in st.session_state:
+    st.session_state.rol_usuario = "ejecutivo"
 
 # ══════════════════════════════════════════════════════
 # REGIONES Y COMUNAS DE CHILE
@@ -1326,7 +1557,9 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
             'total_comision_supervisor': float(totales.get('comision_supervisor', 0) or 0),
             'total_utilidad_real': float(totales.get('utilidad_real', 0) or 0),
             'plano_nombre': plano_nombre if plano_datos else (response.data[0].get('plano_nombre') if existe else None),
-            'plano_url': plano_url if plano_datos else (response.data[0].get('plano_url') if existe else None)
+            'plano_url': plano_url if plano_datos else (response.data[0].get('plano_url') if existe else None),
+            'user_id': st.session_state.get('auth_user') or None,
+            'asesor_email': str(asesor.get('Correo Ejecutivo', '') or st.session_state.get('auth_email', '') or '')
         }
 
         if existe:
@@ -1403,6 +1636,11 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
             'total_total', 'config_margen', 'cliente_rut', 'cliente_email',
             'asesor_email', 'asesor_telefono', 'plano_url', 'contrato_generado', 'cliente_empresa'
         )
+        # Filtrar por usuario si no es supervisor
+        if not st.session_state.get('es_supervisor', False):
+            _uid = st.session_state.get('auth_user')
+            if _uid:
+                query = query.eq('user_id', _uid)
         if termino and termino.strip():
             campo_map = {
                 'numero': 'numero',
@@ -2150,34 +2388,49 @@ st.markdown(f'''
 # Barra admin — alineada a la derecha debajo del header
 _col_esp, _col_admin_btn = st.columns([3, 1])
 with _col_admin_btn:
-    if not st.session_state.modo_admin:
-        with st.popover("🔐 Admin ▾", use_container_width=True):
-            st.markdown("### Acceso Administrativo")
-            st.markdown("Ingrese su clave de autorización:")
-            clave_input = st.text_input("Clave", type="password", key="clave_admin_header", label_visibility="collapsed")
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("Cancelar", use_container_width=True):
-                    st.rerun()
-            with col2:
-                if st.button("Acceder", use_container_width=True, type="primary"):
-                    if clave_input == CLAVE_ADMIN:
-                        st.session_state.modo_admin = True
-                        st.success("✅ Acceso concedido")
-                        st.rerun()
-                    else:
-                        st.error("❌ Clave incorrecta")
+    _nombre_display = st.session_state.get('auth_nombre', '') or st.session_state.get('auth_email', '')
+    _rol_disp = st.session_state.get('rol_usuario', 'ejecutivo')
+    if _rol_disp == 'root':
+        st.markdown(f'<div style="padding-top:0.3rem;font-weight:700;color:#f59e0b;text-align:right;">🔑 Root · {_nombre_display}</div>', unsafe_allow_html=True)
+    elif _rol_disp == 'admin':
+        st.markdown(f'<div style="padding-top:0.3rem;font-weight:700;color:#8b5cf6;text-align:right;">👑 Admin · {_nombre_display}</div>', unsafe_allow_html=True)
     else:
-        st.markdown('<div style="padding-top:0.3rem;font-weight:700;color:#5b7cfa;text-align:right;">👑 Admin Activo</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="padding-top:0.3rem;font-weight:600;color:#64748b;text-align:right;">👤 {_nombre_display}</div>', unsafe_allow_html=True)
 
 # Herramientas admin — solo cuando está activo
-if st.session_state.modo_admin:
-    _col_esp2, _col_cerrar = st.columns([4, 1])
-    with _col_cerrar:
-        if st.button("🔓 Cerrar sesión", key="btn_cerrar_sesion_header", use_container_width=True):
-            st.session_state.modo_admin = False
-            st.session_state._csv_listo = None
-            st.rerun()
+_col_esp2, _col_pwd, _col_cerrar = st.columns([4, 1, 1])
+with _col_pwd:
+    with st.popover("🔑 Mi contraseña", use_container_width=True):
+        st.markdown("**Cambiar mi contraseña**")
+        _pwd_actual  = st.text_input("Contraseña actual", type="password", key="pwd_actual_hdr")
+        _pwd_nueva   = st.text_input("Nueva contraseña",  type="password", key="pwd_nueva_hdr", placeholder="Mínimo 6 caracteres")
+        _pwd_repite  = st.text_input("Repetir nueva",     type="password", key="pwd_repite_hdr")
+        if st.button("✅ Cambiar", key="btn_cambiar_pwd_hdr", use_container_width=True, type="primary"):
+            if not _pwd_actual or not _pwd_nueva or not _pwd_repite:
+                st.error("Completa todos los campos.")
+            elif len(_pwd_nueva) < 6:
+                st.error("Mínimo 6 caracteres.")
+            elif _pwd_nueva != _pwd_repite:
+                st.error("Las contraseñas no coinciden.")
+            else:
+                # Verificar contraseña actual re-autenticando
+                _u_check, _e_check = login_usuario(
+                    st.session_state.get('auth_email',''), _pwd_actual
+                )
+                if not _u_check:
+                    st.error("❌ Contraseña actual incorrecta.")
+                else:
+                    _ok, _err = cambiar_password_propio(_pwd_nueva)
+                    if _ok:
+                        st.success("✅ Contraseña actualizada.")
+                    else:
+                        st.error(f"❌ {_err}")
+with _col_cerrar:
+    if st.button("🚪 Cerrar sesión", key="btn_cerrar_sesion_header", use_container_width=True):
+        logout_usuario()
+        st.session_state.modo_admin = False
+        st.session_state._csv_listo = None
+        st.rerun()
 
 # =========================================================
 # BADGE DE COTIZACIÓN CARGADA
@@ -3088,13 +3341,18 @@ def cargar_ranking_ejecutivos(periodo='mes'):
 # =========================================================
 # TABS
 # =========================================================
-if st.session_state.modo_admin:
-    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_salud = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "🛡️ SISTEMA"])
+_rol_actual = st.session_state.get('rol_usuario', 'ejecutivo')
+if _rol_actual == 'root':
+    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_salud, tab_usuarios = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "🛡️ SISTEMA", "👥 USUARIOS"])
+elif _rol_actual == 'admin':
+    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_usuarios = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "👥 USUARIOS"])
+    tab_salud = None
 else:
     tab_dash, tab1, tab2, tab3, tab7, tab_contrato, tab4 = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA"])
     tab_salud = None
     tab5 = None
     tab6 = None
+    tab_usuarios = None
 
 # =========================================================
 # FUNCIÓN PARA GENERAR PDF COMPLETO
@@ -3677,44 +3935,78 @@ with tab2:
                 st.session_state.proyecto_region = _reg_proy
 
         # ── Columna 3: Ejecutivo ──
+        # Si es ejecutivo, pre-cargar sus datos automáticamente y bloquear el selector
+        _rol_actual_tab2 = st.session_state.get('rol_usuario', 'ejecutivo')
+        _es_ejecutivo_tab2 = _rol_actual_tab2 == 'ejecutivo'
+
+        if _es_ejecutivo_tab2:
+            # Buscar datos del ejecutivo logueado en el dict de asesores por correo
+            _email_logueado = st.session_state.get('auth_email', '').upper()
+            _nombre_logueado = st.session_state.get('auth_nombre', '').upper()
+            _datos_ej = None
+            # Buscar por correo primero
+            for _nm, _dat in asesores.items():
+                if _nm == "Seleccionar asesor":
+                    continue
+                if _dat["correo"].upper() == _email_logueado or _nm.upper() == _nombre_logueado:
+                    _datos_ej = (_nm, _dat)
+                    break
+            # Auto-cargar si encontró y no está ya cargado
+            if _datos_ej and st.session_state.asesor_seleccionado != _datos_ej[0]:
+                st.session_state.asesor_seleccionado = _datos_ej[0]
+                st.session_state.correo_asesor = _datos_ej[1]["correo"]
+                st.session_state.telefono_asesor = _datos_ej[1]["telefono"]
+
         with col3:
             with st.container(border=True):
                 st.markdown("**👨‍💼 Ejecutivo**")
-                nombres_asesores = list(asesores.keys())
-                asesor_key = f"asesor_select_{st.session_state.counter}"
-                indice_actual = nombres_asesores.index(st.session_state.asesor_seleccionado) if st.session_state.asesor_seleccionado in nombres_asesores else 0
-                asesor_elegido = st.selectbox("Asesor", nombres_asesores, index=indice_actual, key=asesor_key, label_visibility="collapsed")
-                if asesor_elegido != st.session_state.asesor_seleccionado:
-                    st.session_state.asesor_seleccionado = asesor_elegido
-                    if asesor_elegido != "Seleccionar asesor":
-                        st.session_state.correo_asesor = asesores[asesor_elegido]["correo"]
-                        st.session_state.telefono_asesor = asesores[asesor_elegido]["telefono"]
-                    else:
-                        st.session_state.correo_asesor = ""
-                        st.session_state.telefono_asesor = ""
-                    st.session_state.counter += 1
-                    st.rerun()
 
-                correo_asesor_key = f"asesor_correo_input_{st.session_state.counter}"
-                correo_input = st.text_input("Correo Ejecutivo*", value=st.session_state.correo_asesor, placeholder="ejecutivo@empresa.cl", key=correo_asesor_key)
-                if correo_input and "@" not in correo_input:
-                    st.warning("⚠️ El correo debe contener @")
-                if correo_input != st.session_state.correo_asesor:
-                    st.session_state.correo_asesor = correo_input
-                    st.session_state.asesor_seleccionado = "Seleccionar asesor"
-                    st.session_state.counter += 1
-                    st.rerun()
+                if _es_ejecutivo_tab2:
+                    # Ejecutivo: solo ve sus propios datos, sin dropdown
+                    st.text_input("Nombre", value=st.session_state.asesor_seleccionado, disabled=True,
+                                  key=f"ej_nombre_fixed_{st.session_state.counter}")
+                    st.text_input("Correo Ejecutivo*", value=st.session_state.correo_asesor, disabled=True,
+                                  key=f"ej_correo_fixed_{st.session_state.counter}")
+                    st.text_input("Teléfono Ejecutivo", value=st.session_state.telefono_asesor, disabled=True,
+                                  key=f"ej_tel_fixed_{st.session_state.counter}")
+                    st.caption("🔒 Tus datos están asignados automáticamente.")
+                else:
+                    # Admin/root: dropdown completo
+                    nombres_asesores = list(asesores.keys())
+                    asesor_key = f"asesor_select_{st.session_state.counter}"
+                    indice_actual = nombres_asesores.index(st.session_state.asesor_seleccionado) if st.session_state.asesor_seleccionado in nombres_asesores else 0
+                    asesor_elegido = st.selectbox("Asesor", nombres_asesores, index=indice_actual, key=asesor_key, label_visibility="collapsed")
+                    if asesor_elegido != st.session_state.asesor_seleccionado:
+                        st.session_state.asesor_seleccionado = asesor_elegido
+                        if asesor_elegido != "Seleccionar asesor":
+                            st.session_state.correo_asesor = asesores[asesor_elegido]["correo"]
+                            st.session_state.telefono_asesor = asesores[asesor_elegido]["telefono"]
+                        else:
+                            st.session_state.correo_asesor = ""
+                            st.session_state.telefono_asesor = ""
+                        st.session_state.counter += 1
+                        st.rerun()
 
-                telefono_asesor_key = f"asesor_telefono_input_{st.session_state.counter}"
-                telefono_input = st.text_input("Teléfono Ejecutivo", value=st.session_state.telefono_asesor, key=telefono_asesor_key, placeholder="912345678 (9 dígitos)")
-                if telefono_input != st.session_state.telefono_asesor:
-                    raw = re.sub(r'[^0-9]', '', telefono_input)
-                    if len(raw) > 9:
-                        raw = raw[:9]
-                    st.session_state.telefono_asesor = raw
-                    st.session_state.asesor_seleccionado = "Seleccionar asesor"
-                    st.session_state.counter += 1
-                    st.rerun()
+                    correo_asesor_key = f"asesor_correo_input_{st.session_state.counter}"
+                    correo_input = st.text_input("Correo Ejecutivo*", value=st.session_state.correo_asesor, placeholder="ejecutivo@empresa.cl", key=correo_asesor_key)
+                    if correo_input and "@" not in correo_input:
+                        st.warning("⚠️ El correo debe contener @")
+                    if correo_input != st.session_state.correo_asesor:
+                        st.session_state.correo_asesor = correo_input
+                        st.session_state.asesor_seleccionado = "Seleccionar asesor"
+                        st.session_state.counter += 1
+                        st.rerun()
+
+                    telefono_asesor_key = f"asesor_telefono_input_{st.session_state.counter}"
+                    telefono_input = st.text_input("Teléfono Ejecutivo", value=st.session_state.telefono_asesor, key=telefono_asesor_key, placeholder="912345678 (9 dígitos)")
+                    if telefono_input != st.session_state.telefono_asesor:
+                        raw = re.sub(r'[^0-9]', '', telefono_input)
+                        if len(raw) > 9:
+                            raw = raw[:9]
+                        st.session_state.telefono_asesor = raw
+                        st.session_state.asesor_seleccionado = "Seleccionar asesor"
+                        st.session_state.counter += 1
+                        st.rerun()
 
         # ── Columna 4: Validez ──
         with col4:
@@ -5664,7 +5956,7 @@ if st.session_state.modo_admin and tab5 is not None:
 # =========================================================
 # TAB SALUD - SISTEMA (solo admin)
 # =========================================================
-if st.session_state.modo_admin and tab_salud is not None:
+if st.session_state.get('es_root') and tab_salud is not None:
     with tab_salud:
 
         st.markdown("""
@@ -7456,3 +7748,254 @@ with tab_contrato:
 
     else:
         st.info("👆 Ingresa un número EP y presiona **Buscar EP** para cargar los datos del cliente.")
+
+
+# =========================================================
+# TAB USUARIOS — solo admin/supervisor
+# =========================================================
+if st.session_state.modo_admin and tab_usuarios is not None:
+    with tab_usuarios:
+        st.markdown("""
+        <style>
+        .hdr-usuarios {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
+            display: flex; align-items: center; gap: 22px;
+            box-shadow: 0 8px 32px rgba(15,52,96,0.4);
+            position: relative; overflow: hidden;
+        }
+        .hdr-usuarios::before {
+            content: ''; position: absolute; top: -40px; right: -40px;
+            width: 180px; height: 180px; border-radius: 50%;
+            background: rgba(255,255,255,0.04); pointer-events: none;
+        }
+        .hdr-usuarios::after {
+            content: ''; position: absolute; bottom: -60px; right: 80px;
+            width: 240px; height: 240px; border-radius: 50%;
+            background: rgba(255,255,255,0.03); pointer-events: none;
+        }
+        .hdr-usuarios h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
+                           font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
+        .hdr-usuarios p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
+        .usr-card {
+            background: var(--background-color, #fff);
+            border: 1px solid rgba(0,0,0,0.08);
+            border-radius: 14px; padding: 18px 20px;
+            margin-bottom: 10px;
+            display: flex; align-items: center; gap: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .usr-avatar {
+            width: 44px; height: 44px; border-radius: 50%;
+            background: linear-gradient(135deg, #5b7cfa, #8b5cf6);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; font-weight: 700; color: white;
+            flex-shrink: 0;
+        }
+        .usr-info { flex: 1; }
+        .usr-nombre { font-weight: 700; font-size: 0.97rem; color: #1e2447; }
+        .usr-email  { font-size: 0.82rem; color: #64748b; margin-top: 2px; }
+        .usr-fecha  { font-size: 0.78rem; color: #94a3b8; }
+        .usr-badge-ok   { background:#dcfce7; color:#166534; padding:3px 10px; border-radius:20px; font-size:0.75rem; font-weight:700; }
+        .usr-badge-off  { background:#fee2e2; color:#991b1b; padding:3px 10px; border-radius:20px; font-size:0.75rem; font-weight:700; }
+        </style>
+        <div class="hdr-usuarios">
+          <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">👥</span>
+          <div>
+            <h2>Gestión de Usuarios</h2>
+            <p>Crea y administra las cuentas de acceso de los ejecutivos.</p>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ── Crear nuevo usuario ──
+        with st.expander("➕ Crear nuevo usuario", expanded=False):
+            # Root puede crear ejecutivos y admins; admin solo ejecutivos
+            _tabs_crear = ["👤 Nuevo ejecutivo", "👑 Nuevo administrador"]  # admin y root pueden crear ambos
+            _tabs_obj = st.tabs(_tabs_crear)
+            _tab_ej = _tabs_obj[0]
+            _tab_adm = _tabs_obj[1] if len(_tabs_obj) > 1 else None
+
+            with _tab_ej:
+                col_n, col_e, col_p = st.columns(3)
+                with col_n:
+                    _u_nombre = st.text_input("Nombre completo", key="new_usr_nombre", placeholder="Juan Pérez")
+                with col_e:
+                    _u_email = st.text_input("Correo electrónico", key="new_usr_email", placeholder="juan@empresa.cl")
+                with col_p:
+                    _u_pass = st.text_input("Contraseña", type="password", key="new_usr_pass", placeholder="Mínimo 6 caracteres")
+
+                if st.button("✅ Crear ejecutivo", type="primary", key="btn_crear_usuario"):
+                    if not _u_nombre.strip():
+                        st.error("Ingresa el nombre del ejecutivo.")
+                    elif not _u_email.strip() or "@" not in _u_email:
+                        st.error("Ingresa un correo válido.")
+                    elif len(_u_pass) < 6:
+                        st.error("La contraseña debe tener al menos 6 caracteres.")
+                    elif es_rol_superior(_u_email):
+                        st.error("Ese correo ya está registrado como supervisor/admin.")
+                    else:
+                        with st.spinner("Creando cuenta..."):
+                            user, err = crear_usuario_ejecutivo(_u_email.strip(), _u_pass, _u_nombre.strip())
+                        if user:
+                            st.success(f"✅ Cuenta creada para **{_u_nombre}** ({_u_email})")
+                            st.session_state.pop('_usuarios_cache', None)
+                            st.rerun()
+                        else:
+                            if "already registered" in str(err) or "already been registered" in str(err):
+                                st.error("❌ Ya existe una cuenta con ese correo.")
+                            else:
+                                st.error(f"❌ Error: {err}")
+
+            if _tab_adm is not None:
+                with _tab_adm:
+                    st.info("Los administradores ven todas las cotizaciones, pueden crear ejecutivos y otros admins, pero no pueden crear ni eliminar cuentas Root. El tab 🛡️ Sistema es exclusivo de Root.")
+                    col_an, col_ae, col_ap = st.columns(3)
+                    with col_an:
+                        _a_nombre = st.text_input("Nombre completo", key="new_adm_nombre", placeholder="Ana Rodríguez")
+                    with col_ae:
+                        _a_email = st.text_input("Correo electrónico", key="new_adm_email", placeholder="ana@empresa.cl")
+                    with col_ap:
+                        _a_pass = st.text_input("Contraseña", type="password", key="new_adm_pass", placeholder="Mínimo 6 caracteres")
+
+                    if st.button("👑 Crear administrador", type="primary", key="btn_crear_admin"):
+                        if not _a_nombre.strip():
+                            st.error("Ingresa el nombre del administrador.")
+                        elif not _a_email.strip() or "@" not in _a_email:
+                            st.error("Ingresa un correo válido.")
+                        elif len(_a_pass) < 6:
+                            st.error("La contraseña debe tener al menos 6 caracteres.")
+                        else:
+                            with st.spinner("Creando cuenta..."):
+                                try:
+                                    _res_adm = supabase_admin.auth.admin.create_user({
+                                        "email": _a_email.strip().lower(),
+                                        "password": _a_pass,
+                                        "email_confirm": True,
+                                        "user_metadata": {
+                                            "nombre": _a_nombre.strip(),
+                                            "rol": "admin"
+                                        }
+                                    })
+                                    _adm_user = _res_adm.user
+                                    _adm_err = None
+                                except Exception as _ex:
+                                    _adm_user = None
+                                    _adm_err = str(_ex)
+                            if _adm_user:
+                                st.success(f"✅ Administrador creado: **{_a_nombre}** ({_a_email})")
+                                st.info("El acceso de administrador es permanente — guardado en Supabase.")
+                                st.session_state.pop('_usuarios_cache', None)
+                                st.rerun()
+                            else:
+                                if "already registered" in str(_adm_err) or "already been registered" in str(_adm_err):
+                                    st.error("❌ Ya existe una cuenta con ese correo.")
+                                else:
+                                    st.error(f"❌ Error: {_adm_err}")
+
+        st.markdown("---")
+        st.markdown("### 👥 Usuarios registrados")
+
+        # ── Listar usuarios ──
+        if st.button("🔄 Actualizar lista", key="btn_refresh_usuarios"):
+            st.session_state.pop('_usuarios_cache', None)
+            st.rerun()
+
+        if '_usuarios_cache' not in st.session_state:
+            with st.spinner("Cargando usuarios..."):
+                st.session_state['_usuarios_cache'] = listar_usuarios_ejecutivos()
+
+        _usuarios = st.session_state.get('_usuarios_cache', [])
+
+        if not _usuarios:
+            st.info("No hay ejecutivos registrados aún. Crea el primero con el formulario de arriba.")
+        else:
+            st.caption(f"Total: {len(_usuarios)} ejecutivo(s)")
+            for _u in _usuarios:
+                _inicial = (_u['nombre'] or _u['email'] or "?")[0].upper()
+                col_info, col_acc = st.columns([5, 1])
+                with col_info:
+                    _rol_label = "👑 Admin" if _u.get('rol') in ("admin","administrador","supervisor") else "👤 Ejecutivo"
+                    _rol_color = "#7c3aed" if _u.get('rol') in ("admin","administrador","supervisor") else "#2563eb"
+                    st.markdown(f"""
+                    <div class="usr-card">
+                        <div class="usr-avatar">{_inicial}</div>
+                        <div class="usr-info">
+                            <div class="usr-nombre">{_u['nombre']}</div>
+                            <div class="usr-email">✉️ {_u['email']}</div>
+                            <div class="usr-fecha">📅 Creado: {_u['created_at']} &nbsp;·&nbsp;
+                                <span style="color:{_rol_color};font-weight:700;">{_rol_label}</span>
+                            </div>
+                        </div>
+                        <span class="{'usr-badge-ok' if _u['activo'] else 'usr-badge-off'}">
+                            {'🟢 Activo' if _u['activo'] else '🔴 Inactivo'}
+                        </span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                with col_acc:
+                    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+                    _rol_objetivo = _u.get('rol', 'ejecutivo')
+                    _puede_eliminar = (
+                        st.session_state.get('es_root') or
+                        (st.session_state.get('rol_usuario') == 'admin' and _rol_objetivo in ('ejecutivo', 'admin'))
+                    )
+                    if _rol_objetivo == 'root':
+                        _puede_eliminar = False
+
+                    # Botón resetear contraseña (admin puede resetear ejecutivos y admins, root puede resetear todo menos root)
+                    _puede_resetear = _puede_eliminar  # mismos permisos que eliminar
+                    if _puede_resetear:
+                        if st.button("🔑", key=f"reset_pwd_{_u['id']}", help=f"Resetear contraseña de {_u['nombre']}"):
+                            st.session_state[f'_reset_pwd_{_u["id"]}'] = True
+                            st.rerun()
+                        if st.session_state.get(f'_reset_pwd_{_u["id"]}', False):
+                            _nueva_pwd = st.text_input(
+                                f"Nueva contraseña para {_u['nombre']}",
+                                type="password", key=f"new_pwd_input_{_u['id']}",
+                                placeholder="Mínimo 6 caracteres"
+                            )
+                            c_ok, c_no = st.columns(2)
+                            with c_ok:
+                                if st.button("✅", key=f"pwd_ok_{_u['id']}"):
+                                    if len(_nueva_pwd) < 6:
+                                        st.error("Mínimo 6 caracteres.")
+                                    else:
+                                        ok, err = resetear_password_admin(_u['id'], _nueva_pwd)
+                                        if ok:
+                                            st.success(f"✅ Contraseña de {_u['nombre']} actualizada.")
+                                            st.session_state.pop(f'_reset_pwd_{_u["id"]}', None)
+                                            st.rerun()
+                                        else:
+                                            st.error(f"❌ {err}")
+                            with c_no:
+                                if st.button("❌", key=f"pwd_no_{_u['id']}"):
+                                    st.session_state.pop(f'_reset_pwd_{_u["id"]}', None)
+                                    st.rerun()
+                    if _puede_eliminar:
+                        if st.button("🗑️", key=f"del_usr_{_u['id']}", help=f"Eliminar {_u['nombre']}"):
+                            st.session_state[f'_confirm_del_{_u["id"]}'] = True
+                            st.rerun()
+
+                        # Confirmación de borrado
+                        if st.session_state.get(f'_confirm_del_{_u["id"]}', False):
+                            st.warning(f"¿Eliminar a **{_u['nombre']}**?")
+                            c1, c2 = st.columns(2)
+                            with c1:
+                                if st.button("✅ Sí", key=f"conf_si_{_u['id']}"):
+                                    ok, err = eliminar_usuario_ejecutivo(_u['id'])
+                                    if ok:
+                                        st.success("Usuario eliminado.")
+                                        st.session_state.pop('_usuarios_cache', None)
+                                        st.session_state.pop(f'_confirm_del_{_u["id"]}', None)
+                                        st.rerun()
+                                    else:
+                                        st.error(f"Error: {err}")
+                            with c2:
+                                if st.button("❌ No", key=f"conf_no_{_u['id']}"):
+                                    st.session_state.pop(f'_confirm_del_{_u["id"]}', None)
+                                    st.rerun()
+                    else:
+                        if _rol_objetivo == 'root':
+                            st.markdown("<span title='Cuenta Root — no se puede eliminar' style='color:#f59e0b;font-size:1.2rem;'>🔑</span>", unsafe_allow_html=True)
+                        else:
+                            st.markdown("<span title='Sin permisos para eliminar' style='color:#94a3b8;font-size:1.2rem;'>🔒</span>", unsafe_allow_html=True)
