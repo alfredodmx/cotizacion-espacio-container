@@ -340,12 +340,18 @@ if not st.session_state.auth_user:
     </style>
     """, unsafe_allow_html=True)
 
-    # Logo ancho — fuera de columnas para que ocupe todo el espacio
+    # Logo con CSS forzado a 650px
     if _logo2_html:
-        st.markdown(
-            _logo2_html.replace('max-width:220px', 'max-width:650px').replace('margin:0 auto 24px', 'margin:0 auto 8px'),
-            unsafe_allow_html=True
+        _logo_tag = _logo2_html.replace(
+            'max-width:220px;margin:0 auto 24px;display:block;filter:drop-shadow(0 4px 24px rgba(212,175,55,0.3));',
+            'width:650px;max-width:100%;margin:0 auto 8px;display:block;filter:drop-shadow(0 4px 24px rgba(212,175,55,0.3));'
         )
+        st.markdown(f"""
+        <style>
+        .login-logo-wrap img {{ width: 650px !important; max-width: 100% !important; display:block !important; margin: 0 auto !important; }}
+        </style>
+        <div class="login-logo-wrap">{_logo_tag}</div>
+        """, unsafe_allow_html=True)
     else:
         st.markdown('<div style="text-align:center;margin-bottom:20px;"><span style="font-size:4rem;filter:drop-shadow(0 0 20px rgba(212,175,55,0.5));">🧊</span></div>', unsafe_allow_html=True)
 
