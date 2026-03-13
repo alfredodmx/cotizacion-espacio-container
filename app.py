@@ -3477,23 +3477,36 @@ if st.session_state.get('trigger_cerrar_cotizacion', False):
 # =========================================================
 with tab2:
     st.markdown("""
-        <style>
-        .hdr2 {
-            background: linear-gradient(135deg, #2d0d66 0%, #5b0d7a 100%);
-            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
-            display: flex; align-items: center; gap: 16px;
-        }
-        .hdr2 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
-        .hdr2 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
-        </style>
-        <div class="hdr2">
-          <span style="font-size:2.4rem">👤</span>
-          <div>
-            <h2>Datos del Cliente</h2>
-            <p>Completa la información del cliente y del proyecto antes de guardar.</p>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
+    <style>
+    .hdr2 {
+        background: linear-gradient(135deg, #2d0d66 0%, #5b0d7a 100%);
+        border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
+        display: flex; align-items: center; gap: 22px;
+        box-shadow: 0 8px 32px rgba(91,13,122,0.25);
+        position: relative; overflow: hidden;
+    }
+    .hdr2::before {
+        content: ''; position: absolute; top: -40px; right: -40px;
+        width: 180px; height: 180px; border-radius: 50%;
+        background: rgba(255,255,255,0.04); pointer-events: none;
+    }
+    .hdr2::after {
+        content: ''; position: absolute; bottom: -60px; right: 80px;
+        width: 240px; height: 240px; border-radius: 50%;
+        background: rgba(255,255,255,0.03); pointer-events: none;
+    }
+    .hdr2 h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
+                 font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
+    .hdr2 p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
+    </style>
+    <div class="hdr2">
+      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">👤</span>
+      <div>
+        <h2>Datos del Cliente</h2>
+        <p>Completa la información del cliente y del proyecto antes de guardar.</p>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     es_solo_lectura = bool(
         st.session_state.cotizacion_cargada and
@@ -3761,23 +3774,36 @@ with tab2:
 # =========================================================
 with tab1:
     st.markdown("""
-        <style>
-        .hdr1 {
-            background: linear-gradient(135deg, #0d2266 0%, #0d47a1 100%);
-            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
-            display: flex; align-items: center; gap: 16px;
-        }
-        .hdr1 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
-        .hdr1 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
-        </style>
-        <div class="hdr1">
-          <span style="font-size:2.4rem">☑️</span>
-          <div>
-            <h2>Gestión de Presupuesto</h2>
-            <p>Agrega productos, aplica márgenes y genera tu cotización en PDF.</p>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
+    <style>
+    .hdr1 {
+        background: linear-gradient(135deg, #0d2266 0%, #0d47a1 100%);
+        border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
+        display: flex; align-items: center; gap: 22px;
+        box-shadow: 0 8px 32px rgba(37,99,235,0.25);
+        position: relative; overflow: hidden;
+    }
+    .hdr1::before {
+        content: ''; position: absolute; top: -40px; right: -40px;
+        width: 180px; height: 180px; border-radius: 50%;
+        background: rgba(255,255,255,0.04); pointer-events: none;
+    }
+    .hdr1::after {
+        content: ''; position: absolute; bottom: -60px; right: 80px;
+        width: 240px; height: 240px; border-radius: 50%;
+        background: rgba(255,255,255,0.03); pointer-events: none;
+    }
+    .hdr1 h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
+                 font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
+    .hdr1 p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
+    </style>
+    <div class="hdr1">
+      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">☑️</span>
+      <div>
+        <h2>Gestión de Presupuesto</h2>
+        <p>Agrega productos, aplica márgenes y genera tu cotización en PDF.</p>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     fecha_inicio = st.session_state.fecha_inicio
     fecha_termino = st.session_state.fecha_termino
@@ -4172,23 +4198,36 @@ with tab1:
 # =========================================================
 with tab3:
     st.markdown("""
-        <style>
-        .hdr3 {
-            background: linear-gradient(135deg, #6b4e00 0%, #e65100 100%);
-            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
-            display: flex; align-items: center; gap: 16px;
-        }
-        .hdr3 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
-        .hdr3 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
-        </style>
-        <div class="hdr3">
-          <span style="font-size:2.4rem">📂</span>
-          <div>
-            <h2>Gestión de Cotizaciones</h2>
-            <p>Busca, carga y administra todas las cotizaciones del sistema.</p>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
+    <style>
+    .hdr3 {
+        background: linear-gradient(135deg, #6b4e00 0%, #e65100 100%);
+        border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
+        display: flex; align-items: center; gap: 22px;
+        box-shadow: 0 8px 32px rgba(230,81,0,0.25);
+        position: relative; overflow: hidden;
+    }
+    .hdr3::before {
+        content: ''; position: absolute; top: -40px; right: -40px;
+        width: 180px; height: 180px; border-radius: 50%;
+        background: rgba(255,255,255,0.04); pointer-events: none;
+    }
+    .hdr3::after {
+        content: ''; position: absolute; bottom: -60px; right: 80px;
+        width: 240px; height: 240px; border-radius: 50%;
+        background: rgba(255,255,255,0.03); pointer-events: none;
+    }
+    .hdr3 h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
+                 font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
+    .hdr3 p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
+    </style>
+    <div class="hdr3">
+      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📂</span>
+      <div>
+        <h2>Gestión de Cotizaciones</h2>
+        <p>Busca, carga y administra todas las cotizaciones del sistema.</p>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     col_busqueda, col_filtros = st.columns([3, 1])
     with col_busqueda:
@@ -4681,23 +4720,36 @@ if st.session_state.get('mostrar_toast_exito', False):
 
 with tab4:
     st.markdown("""
-        <style>
-        .hdr4 {
-            background: linear-gradient(135deg, #003d52 0%, #006978 100%);
-            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
-            display: flex; align-items: center; gap: 16px;
-        }
-        .hdr4 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
-        .hdr4 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
-        </style>
-        <div class="hdr4">
-          <span style="font-size:2.4rem">🧊</span>
-          <div>
-            <h2>Visor 3D Beta</h2>
-            <p>Selecciona un presupuesto con plano adjunto para generar su prototipo 3D interactivo.</p>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
+    <style>
+    .hdr4 {
+        background: linear-gradient(135deg, #003d52 0%, #006978 100%);
+        border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
+        display: flex; align-items: center; gap: 22px;
+        box-shadow: 0 8px 32px rgba(0,105,120,0.25);
+        position: relative; overflow: hidden;
+    }
+    .hdr4::before {
+        content: ''; position: absolute; top: -40px; right: -40px;
+        width: 180px; height: 180px; border-radius: 50%;
+        background: rgba(255,255,255,0.04); pointer-events: none;
+    }
+    .hdr4::after {
+        content: ''; position: absolute; bottom: -60px; right: 80px;
+        width: 240px; height: 240px; border-radius: 50%;
+        background: rgba(255,255,255,0.03); pointer-events: none;
+    }
+    .hdr4 h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
+                 font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
+    .hdr4 p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
+    </style>
+    <div class="hdr4">
+      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">🧊</span>
+      <div>
+        <h2>Visor 3D Beta</h2>
+        <p>Selecciona un presupuesto con plano adjunto para generar su prototipo 3D interactivo.</p>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     # Obtener presupuestos con plano
     try:
@@ -5631,12 +5683,9 @@ else:
 with tab_dash:
     st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap');
-
-    /* ── Header ── */
     .dash-hdr {
         background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #2563eb 100%);
-        border-radius: 20px; padding: 32px 36px; margin-bottom: 32px;
+        border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
         display: flex; align-items: center; gap: 22px;
         box-shadow: 0 8px 32px rgba(37,99,235,0.25);
         position: relative; overflow: hidden;
@@ -5652,79 +5701,11 @@ with tab_dash:
         background: rgba(255,255,255,0.03); pointer-events: none;
     }
     .dash-hdr h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
-                   font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
+                 font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
     .dash-hdr p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
-
-    /* ── KPI Cards ── */
-    .kpi-card {
-        background: white; border-radius: 18px; padding: 22px 24px;
-        border: 1px solid rgba(226,232,240,0.8);
-        box-shadow: 0 4px 24px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04);
-        height: 100%; transition: transform 0.2s;
-        position: relative; overflow: hidden;
-    }
-    .kpi-card::after {
-        content: ''; position: absolute; bottom: 0; left: 0; right: 0;
-        height: 3px; background: linear-gradient(90deg, #3b82f6, #6366f1);
-        border-radius: 0 0 18px 18px;
-    }
-    .kpi-label { font-size: 0.72rem; font-weight: 800; color: #94a3b8;
-                 text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; }
-    .kpi-value { font-size: 2.1rem; font-weight: 900; color: #0f172a;
-                 font-family: 'Montserrat', sans-serif; line-height: 1; }
-    .kpi-delta-pos { font-size: 0.75rem; font-weight: 700; color: #16a34a; margin-top: 8px;
-                     background: #f0fdf4; padding: 3px 8px; border-radius: 20px;
-                     display: inline-block; }
-    .kpi-delta-neg { font-size: 0.75rem; font-weight: 700; color: #dc2626; margin-top: 8px;
-                     background: #fef2f2; padding: 3px 8px; border-radius: 20px;
-                     display: inline-block; }
-    .kpi-delta-neu { font-size: 0.75rem; font-weight: 600; color: #94a3b8; margin-top: 8px;
-                     display: inline-block; }
-
-    /* ── Section titles ── */
-    .section-title {
-        font-size: 0.78rem; font-weight: 900; color: #1e293b;
-        text-transform: uppercase; letter-spacing: 0.12em;
-        margin: 28px 0 14px; padding: 8px 14px;
-        background: linear-gradient(90deg, rgba(59,130,246,0.08), transparent);
-        border-left: 4px solid #3b82f6; border-radius: 0 8px 8px 0;
-    }
-
-    /* ── Panel contenedor ── */
-    .dash-panel {
-        background: white; border-radius: 18px; padding: 22px 24px;
-        border: 1px solid rgba(226,232,240,0.8);
-        box-shadow: 0 4px 24px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04);
-        margin-bottom: 4px;
-    }
-
-    /* ── Embudo barras ── */
-    .funnel-bar-wrap { background: #f1f5f9; border-radius: 10px; overflow: hidden;
-                       height: 10px; margin: 6px 0 2px; }
-    .funnel-bar-inner { height: 10px; border-radius: 10px; }
-
-    /* ── Top categorías ── */
-    .cat-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-    .cat-name { font-size: 0.82rem; font-weight: 700; color: #334155; min-width: 130px; }
-    .cat-bar-wrap { flex: 1; background: #f1f5f9; border-radius: 6px; height: 8px; overflow: hidden; }
-    .cat-bar-inner { height: 8px; border-radius: 6px;
-                     background: linear-gradient(90deg, #3b82f6, #6366f1); }
-    .cat-monto { font-size: 0.8rem; font-weight: 800; color: #3b82f6;
-                 min-width: 90px; text-align: right; }
-
-    /* ── Top ejecutivos ── */
-    .ej-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-    .ej-pos { font-size: 1.2rem; min-width: 28px; }
-    .ej-name { font-size: 0.85rem; font-weight: 700; color: #1e293b; flex: 1; }
-    .ej-monto { font-size: 0.83rem; font-weight: 900; color: #2563eb;
-                min-width: 100px; text-align: right; }
-
-    /* ── Top productos ── */
-    .kpi-card .prod-divider { border: none; border-top: 1px solid #f1f5f9; margin: 10px 0; }
     </style>
-
     <div class="dash-hdr">
-      <span style="font-size:3rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📊</span>
+      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📊</span>
       <div>
         <h2>Dashboard</h2>
         <p>Resumen ejecutivo del rendimiento comercial en tiempo real.</p>
@@ -6153,23 +6134,36 @@ with tab_dash:
 if tab6 is not None:
     with tab6:
         st.markdown("""
-            <style>
-            .hdr6 {
-                background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%);
-                border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
-                display: flex; align-items: center; gap: 16px;
-            }
-            .hdr6 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
-            .hdr6 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
-            </style>
-            <div class="hdr6">
-              <span style="font-size:2.4rem">✏️</span>
-              <div>
-                <h2>Edición PDF Cliente</h2>
-                <p>Busca tu cotización por número EP y personaliza la descripción de cada categoría para el cliente.</p>
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
+        <style>
+        .hdr6 {
+            background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%);
+            border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
+            display: flex; align-items: center; gap: 22px;
+            box-shadow: 0 8px 32px rgba(220,38,38,0.25);
+            position: relative; overflow: hidden;
+        }
+        .hdr6::before {
+            content: ''; position: absolute; top: -40px; right: -40px;
+            width: 180px; height: 180px; border-radius: 50%;
+            background: rgba(255,255,255,0.04); pointer-events: none;
+        }
+        .hdr6::after {
+            content: ''; position: absolute; bottom: -60px; right: 80px;
+            width: 240px; height: 240px; border-radius: 50%;
+            background: rgba(255,255,255,0.03); pointer-events: none;
+        }
+        .hdr6 h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
+                     font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
+        .hdr6 p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
+        </style>
+        <div class="hdr6">
+          <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">✏️</span>
+          <div>
+            <h2>Edición PDF Cliente</h2>
+            <p>Busca tu cotización por número EP y personaliza la descripción de cada categoría para el cliente.</p>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
 
         # Buscar cotización por EP
         with st.container(border=True):
@@ -6314,40 +6308,29 @@ if tab7 is not None:
     with tab7:
         st.markdown("""
         <style>
-
         .hdr7 {
             background: linear-gradient(135deg, #78350f 0%, #d97706 100%);
-            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
-            display: flex; align-items: center; gap: 16px;
+            border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
+            display: flex; align-items: center; gap: 22px;
+            box-shadow: 0 8px 32px rgba(217,119,6,0.25);
+            position: relative; overflow: hidden;
         }
-        .hdr7 h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 900;
-                   font-family: 'Montserrat', sans-serif; }
-        .hdr7 p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
-        .rank-kpi {
-            background: white; border-radius: 14px; padding: 20px 22px;
-            border: 1px solid #e8edf5; box-shadow: 0 2px 12px rgba(0,0,0,0.05);
-            text-align: center;
+        .hdr7::before {
+            content: ''; position: absolute; top: -40px; right: -40px;
+            width: 180px; height: 180px; border-radius: 50%;
+            background: rgba(255,255,255,0.04); pointer-events: none;
         }
-        .rank-kpi-label { font-size: 0.72rem; font-weight: 700; color: #94a3b8;
-                          text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
-        .rank-kpi-value { font-size: 1.8rem; font-weight: 900; color: #0f172a;
-                          font-family: 'Montserrat', sans-serif; line-height: 1; }
-        .rank-section { font-size: 0.8rem; font-weight: 800; color: #475569;
-                        text-transform: uppercase; letter-spacing: 0.1em;
-                        margin: 24px 0 12px; border-left: 3px solid #d97706;
-                        padding-left: 10px; }
-        .rank-card {
-            background: white; border-radius: 14px; padding: 18px 22px;
-            border: 1px solid #e2e8f0; margin-bottom: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        .hdr7::after {
+            content: ''; position: absolute; bottom: -60px; right: 80px;
+            width: 240px; height: 240px; border-radius: 50%;
+            background: rgba(255,255,255,0.03); pointer-events: none;
         }
-        .rank-1 { border-left: 5px solid #f59e0b; }
-        .rank-2 { border-left: 5px solid #94a3b8; }
-        .rank-3 { border-left: 5px solid #cd7c3a; }
-        .rank-other { border-left: 5px solid #e2e8f0; }
+        .hdr7 h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
+                     font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
+        .hdr7 p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
         </style>
         <div class="hdr7">
-          <span style="font-size:2.4rem">🏆</span>
+          <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">🏆</span>
           <div>
             <h2>Ranking de Ejecutivos</h2>
             <p>Desempeño del equipo de ventas — este mes.</p>
@@ -6538,42 +6521,29 @@ if tab7 is not None:
 with tab_contrato:
     st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap');
-
     .hdr-contrato {
         background: linear-gradient(135deg, #0f3460 0%, #16213e 60%, #1a1a2e 100%);
         border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
         display: flex; align-items: center; gap: 22px;
         box-shadow: 0 8px 32px rgba(15,52,96,0.3);
+        position: relative; overflow: hidden;
     }
-    .hdr-contrato h2 { color: #fff !important; margin: 0; font-size: 1.8rem;
-                       font-weight: 900; font-family: 'Montserrat', sans-serif;
-                       letter-spacing: -0.02em; }
+    .hdr-contrato::before {
+        content: ''; position: absolute; top: -40px; right: -40px;
+        width: 180px; height: 180px; border-radius: 50%;
+        background: rgba(255,255,255,0.04); pointer-events: none;
+    }
+    .hdr-contrato::after {
+        content: ''; position: absolute; bottom: -60px; right: 80px;
+        width: 240px; height: 240px; border-radius: 50%;
+        background: rgba(255,255,255,0.03); pointer-events: none;
+    }
+    .hdr-contrato h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
+                 font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
     .hdr-contrato p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
-    .cont-section {
-        font-size: 0.75rem; font-weight: 900; color: #1e293b;
-        text-transform: uppercase; letter-spacing: 0.12em;
-        margin: 20px 0 10px; padding: 7px 14px;
-        background: linear-gradient(90deg, rgba(15,52,96,0.08), transparent);
-        border-left: 4px solid #0f3460; border-radius: 0 8px 8px 0;
-    }
-    .cont-panel {
-        background: white; border-radius: 16px; padding: 22px 26px;
-        border: 1px solid rgba(226,232,240,0.8);
-        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-        margin-bottom: 16px;
-    }
-    .cont-preview {
-        background: #f8fafc; border-radius: 12px; padding: 18px 22px;
-        border: 1px solid #e2e8f0; font-size: 0.88rem;
-        color: #334155; line-height: 1.7;
-    }
-    .cont-field-label { font-size: 0.7rem; font-weight: 800; color: #64748b;
-                        text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px; }
     </style>
-
     <div class="hdr-contrato">
-      <span style="font-size:3rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.4));">📄</span>
+      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📄</span>
       <div>
         <h2>Contrato Cliente</h2>
         <p>Genera el contrato de fabricación y venta listo para imprimir y firmar.</p>
