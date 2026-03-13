@@ -3461,8 +3461,8 @@ def cargar_ranking_ejecutivos(periodo='mes'):
         _inicio = None
         if periodo == 'mes':
             _inicio = _dt.now().replace(day=1).strftime('%Y-%m-%d')
-        # Usar RPC con SECURITY DEFINER para ver todas las cotizaciones
-        resp = supabase.rpc('get_ranking_data', {'fecha_inicio': _inicio}).execute()
+        # supabase_admin usa service_role JWT que bypasea RLS completamente
+        resp = supabase_admin.rpc('get_ranking_data', {'fecha_inicio': _inicio}).execute()
         resp_data = resp.data if resp.data else []
         if not resp_data:
             return []
