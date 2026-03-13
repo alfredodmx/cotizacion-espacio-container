@@ -3455,36 +3455,23 @@ def generar_pdf_contrato(datos):
 # FUNCIÓN: RANKING DE EJECUTIVOS
 # =========================================================
 def cargar_ranking_ejecutivos(periodo='mes'):
-    """Carga métricas de ejecutivos desde Supabase."""
+    """Carga métricas de ejecutivos desde Supabase — usa service role para bypassear RLS."""
     try:
         from datetime import datetime as _dt, timedelta as _td
-        # Ranking: usar cliente anon con select de user_id incluido
-        # El RLS filtra por user_id, pero en Python podemos hacer múltiples queries
-        # Una por cada ejecutivo conocido — o mejor: crear función RPC en Supabase
-        # Por ahora usamos supabase_admin con header especial
-        import requests as _rq_rank
-        _rank_headers = {
-            "apikey": SUPABASE_SERVICE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-            "Content-Type": "application/json",
-            "Prefer": "count=none"
-        }
-        _rank_url = f"{SUPABASE_URL}/rest/v1/cotizaciones"
-        _rank_select = "asesor_nombre,total_total,config_margen,cliente_nombre,cliente_email,cliente_rut,asesor_email,asesor_telefono,fecha_creacion"
-        _rank_params = {"select": _rank_select}
+        query = supabase_admin.table('cotizaciones').select(
+            'asesor_nombre,total_total,config_margen,cliente_nombre,'
+            'cliente_email,cliente_rut,asesor_email,asesor_telefono,fecha_creacion'
+        )
         if periodo == 'mes':
             _inicio = _dt.now().replace(day=1).strftime('%Y-%m-%d')
-            _rank_params["fecha_creacion"] = f"gte.{_inicio}"
-        _rank_resp = _rq_rank.get(_rank_url, headers=_rank_headers, params=_rank_params)
-        st.session_state['_rank_debug'] = f"HTTP {_rank_resp.status_code} · {len(_rank_resp.json()) if _rank_resp.status_code==200 else _rank_resp.text[:200]} filas"
-        if _rank_resp.status_code != 200:
-            return []
-        resp_data = _rank_resp.json()
+            query = query.gte('fecha_creacion', _inicio)
+        resp = query.execute()
+        resp_data = resp.data if resp.data else []
         if not resp_data:
             return []
         # Agrupar por asesor
         asesores = {}
-        for row in resp.data:
+        for row in resp_data:
             nombre = row.get('asesor_nombre') or 'Sin asignar'
             if nombre not in asesores:
                 asesores[nombre] = {
@@ -7366,20 +7353,8 @@ if tab7 is not None:
         </style>
         """, unsafe_allow_html=True)
 
-        st.info(f"🔍 Rol: {st.session_state.get('rol_usuario')} | Email: {st.session_state.get('auth_email')}")
-        try:
-            import requests as _test_rq
-            _test_r = _test_rq.get(
-                f"{SUPABASE_URL}/rest/v1/cotizaciones",
-                headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"},
-                params={"select": "asesor_nombre", "limit": "5"}
-            )
-            st.info(f"🔍 REST test: HTTP {_test_r.status_code} → {str(_test_r.json())[:200]}")
-        except Exception as _te:
-            st.error(f"🔍 REST error: {_te}")
         with st.spinner("Cargando ranking..."):
             _ranking = cargar_ranking_ejecutivos(periodo='mes')
-        st.info(f"🔍 Ranking result: {len(_ranking)} ejecutivos")
 
         if not _ranking:
             st.info("No hay cotizaciones registradas este mes.")
