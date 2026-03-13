@@ -4716,7 +4716,32 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
 # =========================================================
 if st.session_state.get('mostrar_toast_exito', False):
     ep = st.session_state.get('toast_numero_ep', '')
-    st.toast(f"✅ Cotización {ep} guardada correctamente", icon="✅")
+    import streamlit.components.v1 as _tc
+    _tc.html(f"""<script>
+(function(){{
+    var D=window.parent.document;
+    if(D.getElementById('_toast_ep')) return;
+    var t=D.createElement('div');
+    t.id='_toast_ep';
+    t.style.cssText='position:fixed;bottom:5rem;left:2rem;z-index:9999999;'+
+        'background:linear-gradient(135deg,#10b981,#059669);color:white;'+
+        'padding:14px 22px;border-radius:12px;font-size:0.95rem;font-weight:700;'+
+        'font-family:Plus Jakarta Sans,sans-serif;'+
+        'box-shadow:0 8px 24px rgba(16,185,129,0.4);'+
+        'display:flex;align-items:center;gap:10px;'+
+        'animation:slideInToast 0.3s ease;';
+    t.innerHTML='<span style="font-size:1.2rem">✅</span> Cotización <b style="margin:0 4px">{ep}</b> guardada correctamente';
+    var s=D.createElement('style');
+    s.innerHTML='@keyframes slideInToast{{from{{transform:translateY(20px);opacity:0}}to{{transform:translateY(0);opacity:1}}}}';
+    D.head.appendChild(s);
+    D.body.appendChild(t);
+    setTimeout(function(){{
+        t.style.transition='opacity 0.4s';
+        t.style.opacity='0';
+        setTimeout(function(){{t.remove();}},400);
+    }},3500);
+}})();
+</script>""", height=0)
     st.session_state.mostrar_toast_exito = False
 
 with tab4:
@@ -5933,7 +5958,7 @@ if st.session_state.carrito and not (
                 #fab-guardar-wrapper {
                     position: fixed !important;
                     bottom: 2rem !important;
-                    right: 2rem !important;
+                    left: 2rem !important;
                     z-index: 999999 !important;
                     display: flex !important;
                     align-items: center !important;
