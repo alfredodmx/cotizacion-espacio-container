@@ -3455,17 +3455,14 @@ def generar_pdf_contrato(datos):
 # FUNCIÓN: RANKING DE EJECUTIVOS
 # =========================================================
 def cargar_ranking_ejecutivos(periodo='mes'):
-    """Carga métricas de ejecutivos desde Supabase — usa service role para bypassear RLS."""
+    """Carga métricas de ejecutivos via RPC SECURITY DEFINER — bypasea RLS."""
     try:
         from datetime import datetime as _dt, timedelta as _td
-        query = supabase_admin.table('cotizaciones').select(
-            'asesor_nombre,total_total,config_margen,cliente_nombre,'
-            'cliente_email,cliente_rut,asesor_email,asesor_telefono,fecha_creacion'
-        )
+        _inicio = None
         if periodo == 'mes':
             _inicio = _dt.now().replace(day=1).strftime('%Y-%m-%d')
-            query = query.gte('fecha_creacion', _inicio)
-        resp = query.execute()
+        # Usar RPC con SECURITY DEFINER para ver todas las cotizaciones
+        resp = supabase.rpc('get_ranking_data', {'fecha_inicio': _inicio}).execute()
         resp_data = resp.data if resp.data else []
         if not resp_data:
             return []
@@ -7289,10 +7286,6 @@ if tab6 is not None:
 # =========================================================
 if tab7 is not None:
     with tab7:
-        try:
-         st.write("✅ Tab ranking cargando...")
-        except Exception as _e7:
-         st.error(f"Error tab7: {_e7}")
         st.markdown("""
         <style>
         .hdr7 {
