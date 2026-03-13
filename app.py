@@ -4070,15 +4070,39 @@ with tab2:
             st.text_area("Observaciones", value=st.session_state.observaciones_input, disabled=True, height=80, key="observaciones_readonly")
 
     else:
-        asesores = {
-            "Seleccionar asesor": {"correo": "", "telefono": ""},
-            "BERNARD BUSTAMANTE": {"correo": "BALDAY@ESPACIOCONTAINERHOUSE.CL", "telefono": "+56956786366"},
-            "ANDREA OSORIO": {"correo": "AOSORIO@ESPACIOCONTAINERHOUSE.CL", "telefono": "+56927619483"},
-            "REBECA CALDERON": {"correo": "RCALDERON@ESPACIOCONTAINERHOUSE.CL", "telefono": "+56955286708"},
-            "MAURICIO CEVO": {"correo": "MCEVO@ESPACIOCONTAINERHOUSE.CL", "telefono": "+56971406162"},
-            "JACQUELINE PÉREZ": {"correo": "JPEREZ@ESPACIOCONTAINERHOUSE.CL", "telefono": "+56992286057"},
-            "JAVIER QUEZADA": {"correo": "JQUEZADA@ESPACIOCONTAINERHOUSE.CL", "telefono": "+56966983700"}
-        }
+        # ── Construir dict de asesores dinámicamente desde Supabase ──
+        def _cargar_asesores_desde_supabase():
+            """Carga la lista de ejecutivos/admins desde Supabase Auth."""
+            try:
+                _users = listar_usuarios_ejecutivos()
+                _d = {"Seleccionar asesor": {"correo": "", "telefono": ""}}
+                for _usr in _users:
+                    _nm = (_usr.get('nombre') or _usr.get('email', '')).upper()
+                    if _nm and _nm != "SELECCIONAR ASESOR":
+                        _d[_nm] = {
+                            "correo": _usr.get('email', '').upper(),
+                            "telefono": _usr.get('telefono', '') or ''
+                        }
+                return _d
+            except:
+                # Fallback al dict estático si falla Supabase
+                return {
+                    "Seleccionar asesor": {"correo": "", "telefono": ""},
+                    "BERNARD BUSTAMANTE": {"correo": "BALDAY@ESPACIOCONTAINERHOUSE.CL", "telefono": "+56956786366"},
+                    "ANDREA OSORIO": {"correo": "AOSORIO@ESPACIOCONTAINERHOUSE.CL", "telefono": "+56927619483"},
+                    "REBECA CALDERON": {"correo": "RCALDERON@ESPACIOCONTAINERHOUSE.CL", "telefono": "+56955286708"},
+                    "MAURICIO CEVO": {"correo": "MCEVO@ESPACIOCONTAINERHOUSE.CL", "telefono": "+56971406162"},
+                    "JACQUELINE PÉREZ": {"correo": "JPEREZ@ESPACIOCONTAINERHOUSE.CL", "telefono": "+56992286057"},
+                    "JAVIER QUEZADA": {"correo": "JQUEZADA@ESPACIOCONTAINERHOUSE.CL", "telefono": "+56966983700"}
+                }
+
+        # Cachear por sesión y refrescar si se editaron usuarios
+        if ('_asesores_cache' not in st.session_state or
+                st.session_state.get('_asesores_cache_dirty', False)):
+            st.session_state['_asesores_cache'] = _cargar_asesores_desde_supabase()
+            st.session_state['_asesores_cache_dirty'] = False
+
+        asesores = st.session_state['_asesores_cache']
 
         col1, col2, col3, col4 = st.columns(4)
 
@@ -8110,6 +8134,7 @@ if st.session_state.modo_admin and tab_usuarios is not None:
                         if user:
                             st.success(f"✅ Cuenta creada para **{_u_nombre}** ({_u_email})")
                             st.session_state.pop('_usuarios_cache', None)
+                            st.session_state['_asesores_cache_dirty'] = True
                             st.rerun()
                         else:
                             if "already registered" in str(err) or "already been registered" in str(err):
@@ -8159,6 +8184,7 @@ if st.session_state.modo_admin and tab_usuarios is not None:
                                 st.success(f"✅ Administrador creado: **{_a_nombre}** ({_a_email})")
                                 st.info("El acceso de administrador es permanente — guardado en Supabase.")
                                 st.session_state.pop('_usuarios_cache', None)
+                                st.session_state['_asesores_cache_dirty'] = True
                                 st.rerun()
                             else:
                                 if "already registered" in str(_adm_err) or "already been registered" in str(_adm_err):
@@ -8332,6 +8358,7 @@ if st.session_state.modo_admin and tab_usuarios is not None:
                                         })
                                         st.success(f"✅ Datos de {_edit_nombre.upper()} actualizados.")
                                         st.session_state.pop('_usuarios_cache', None)
+                                        st.session_state['_asesores_cache_dirty'] = True
                                         st.session_state.pop(f'_accion_{_u["id"]}', None)
                                         st.rerun()
                                     except Exception as _edit_err:
@@ -8352,6 +8379,7 @@ if st.session_state.modo_admin and tab_usuarios is not None:
                                 if _ok_r:
                                     st.success(f"✅ {_u['nombre']} ahora es {_nuevo_rol}.")
                                     st.session_state.pop('_usuarios_cache', None)
+                                    st.session_state['_asesores_cache_dirty'] = True
                                     st.session_state.pop(f'_accion_{_u["id"]}', None)
                                     st.rerun()
                                 else:
@@ -8395,6 +8423,7 @@ if st.session_state.modo_admin and tab_usuarios is not None:
                                 if _ok_d:
                                     st.success("✅ Usuario eliminado.")
                                     st.session_state.pop('_usuarios_cache', None)
+                                    st.session_state['_asesores_cache_dirty'] = True
                                     st.session_state.pop(f'_accion_{_u["id"]}', None)
                                     st.rerun()
                                 else:
