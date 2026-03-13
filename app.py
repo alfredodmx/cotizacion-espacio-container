@@ -5745,7 +5745,7 @@ if st.session_state.modo_admin and tab_salud is not None:
           <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.5));">🛡️</span>
           <div>
             <h2>Salud del Sistema</h2>
-            <p>Monitoreo de capacidad y estado de Supabase — Plan Free (actualizado al cargar)</p>
+            <p>Monitoreo de capacidad y estado de Supabase — Plan Core (actualizado al cargar)</p>
           </div>
         </div>
         """, unsafe_allow_html=True)
@@ -5865,7 +5865,7 @@ if st.session_state.modo_admin and tab_salud is not None:
             <div class="sys-card">
               <div class="sys-card-title">📦 Storage (todos los buckets)</div>
               <div class="sys-metric-val">{round(_storage_total_mb, 1)} MB</div>
-              <div class="sys-metric-sub">Límite Free: {_STG_LIMIT_MB} MB (1 GB) &nbsp;·&nbsp; <span class="{_bc2}">{_bl2}</span></div>
+              <div class="sys-metric-sub">Límite Core: {_STG_LIMIT_MB} MB (1 GB) &nbsp;·&nbsp; <span class="{_bc2}">{_bl2}</span></div>
               <div class="sys-bar-wrap">
                 <div class="sys-bar-inner {_bar_class(_stg_pct)}" style="width:{_stg_pct}%"></div>
               </div>
@@ -5901,11 +5901,11 @@ if st.session_state.modo_admin and tab_salud is not None:
                 st.markdown('<div class="sys-card"><p style="color:#94a3b8;font-size:0.85rem;">No se pudieron leer los buckets.</p></div>', unsafe_allow_html=True)
 
         # ── FILA 3: Info del plan ──
-        st.markdown('<div class="sys-section-title">ℹ️ Límites del plan Free</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sys-section-title">ℹ️ Límites del plan Core</div>', unsafe_allow_html=True)
         _plan_html = """
         <div class="sys-card">
           <table class="sys-table">
-            <thead><tr><th>Recurso</th><th>Límite Free</th><th>Estado</th></tr></thead>
+            <thead><tr><th>Recurso</th><th>Límite Core</th><th>Estado</th></tr></thead>
             <tbody>
               <tr><td>🗄️ Base de datos</td><td>500 MB</td><td><span class="{_bc_db}">{_bl_db}</span></td></tr>
               <tr><td>📦 File Storage</td><td>1 GB</td><td><span class="{_bc_s}">{_bl_s}</span></td></tr>
@@ -5921,7 +5921,7 @@ if st.session_state.modo_admin and tab_salud is not None:
 
         # ── Nota actualización ──
         _now_cl = _dt_sys.datetime.now(_dt_sys.timezone(_dt_sys.timedelta(hours=-3)))
-        st.caption(f"🕐 Última actualización: {_now_cl.strftime('%d/%m/%Y %H:%M')} hora Chile · Las métricas de tamaño de BD en Supabase Free se actualizan diariamente.")
+        st.caption(f"🕐 Última actualización: {_now_cl.strftime('%d/%m/%Y %H:%M')} hora Chile · Las métricas de tamaño de BD en Supabase Core se actualizan diariamente.")
 
         if st.button("🔄 Actualizar métricas", key="btn_refresh_salud"):
             st.rerun()
