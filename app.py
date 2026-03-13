@@ -5713,6 +5713,60 @@ with tab_dash:
     </div>
     """, unsafe_allow_html=True)
 
+
+    # ── CSS métricas dashboard ──
+    st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap');
+    .kpi-card {
+        background: white; border-radius: 18px; padding: 22px 24px;
+        border: 1px solid rgba(226,232,240,0.8);
+        box-shadow: 0 4px 24px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04);
+        height: 100%; transition: transform 0.2s;
+        position: relative; overflow: hidden;
+    }
+    .kpi-card::after {
+        content: ''; position: absolute; top: 0; left: 0; right: 0;
+        height: 3px; border-radius: 18px 18px 0 0;
+        background: linear-gradient(90deg, #2563eb, #06b6d4);
+    }
+    .kpi-label { font-size: 0.72rem; font-weight: 800; color: #94a3b8;
+                 text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+    .kpi-value { font-size: 2.1rem; font-weight: 900; color: #0f172a;
+                 font-family: 'Montserrat', sans-serif; line-height: 1; }
+    .kpi-delta-pos { font-size: 0.75rem; font-weight: 700; color: #16a34a; margin-top: 8px;
+                     display: flex; align-items: center; gap: 4px; }
+    .kpi-delta-neg { font-size: 0.75rem; font-weight: 700; color: #dc2626; margin-top: 8px;
+                     display: flex; align-items: center; gap: 4px; }
+    .kpi-delta-neu { font-size: 0.75rem; font-weight: 600; color: #94a3b8; margin-top: 8px;
+                     display: flex; align-items: center; gap: 4px; }
+    .section-title {
+        font-size: 0.78rem; font-weight: 900; color: #1e293b;
+        text-transform: uppercase; letter-spacing: 0.1em;
+        margin: 24px 0 14px; padding: 8px 16px;
+        background: linear-gradient(90deg, rgba(37,99,235,0.07), transparent);
+        border-left: 4px solid #2563eb; border-radius: 0 8px 8px 0;
+    }
+    .dash-panel {
+        background: white; border-radius: 16px; padding: 20px 22px;
+        border: 1px solid rgba(226,232,240,0.8);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    }
+    .funnel-bar-wrap { background: #f1f5f9; border-radius: 10px; overflow: hidden; height: 10px; }
+    .funnel-bar-inner { height: 10px; border-radius: 10px; }
+    .cat-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .cat-name { font-size: 0.82rem; font-weight: 700; color: #334155; min-width: 130px; }
+    .cat-bar-wrap { flex: 1; background: #f1f5f9; border-radius: 6px; height: 8px; overflow: hidden; }
+    .cat-bar-inner { height: 8px; border-radius: 6px; background: linear-gradient(90deg,#2563eb,#06b6d4); }
+    .cat-monto { font-size: 0.8rem; font-weight: 800; color: #3b82f6; min-width: 70px; text-align: right; }
+    .ej-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .ej-pos { font-size: 1.2rem; min-width: 28px; }
+    .ej-name { font-size: 0.85rem; font-weight: 700; color: #1e293b; flex: 1; }
+    .ej-monto { font-size: 0.83rem; font-weight: 900; color: #2563eb; min-width: 80px; text-align: right; }
+    .kpi-card .prod-divider { border: none; border-top: 1px solid #f1f5f9; margin: 10px 0; }
+    </style>
+    """, unsafe_allow_html=True)
+
     # ── Filtro período ──
     _periodo_opciones = {"Este mes": "mes", "Últimos 3 meses": "3meses", "Este año": "año", "Todos los tiempos": "todo"}
     _periodo_label = st.radio("Período", list(_periodo_opciones.keys()),
@@ -6336,6 +6390,38 @@ if tab7 is not None:
             <p>Desempeño del equipo de ventas — este mes.</p>
           </div>
         </div>
+        """, unsafe_allow_html=True)
+
+
+        # ── CSS métricas ranking ──
+        st.markdown("""
+        <style>
+        .rank-kpi {
+            background: white; border-radius: 14px; padding: 20px 22px;
+            border: 1px solid #e8edf5; box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        .rank-kpi-label { font-size: 0.72rem; font-weight: 700; color: #94a3b8;
+                          text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+        .rank-kpi-value { font-size: 1.8rem; font-weight: 900; color: #0f172a;
+                          font-family: 'Montserrat', sans-serif; line-height: 1; }
+        .rank-section {
+            font-size: 0.75rem; font-weight: 900; color: #1e293b;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            margin: 20px 0 12px; padding: 7px 14px;
+            background: linear-gradient(90deg, rgba(217,119,6,0.08), transparent);
+            border-left: 4px solid #d97706; border-radius: 0 8px 8px 0;
+        }
+        .rank-card {
+            background: white; border-radius: 16px; padding: 20px 24px;
+            border: 1px solid #e2e8f0; margin-bottom: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+        }
+        .rank-1 { border-left: 5px solid #f59e0b; }
+        .rank-2 { border-left: 5px solid #94a3b8; }
+        .rank-3 { border-left: 5px solid #b45309; }
+        .rank-other { border-left: 5px solid #e2e8f0; }
+        </style>
         """, unsafe_allow_html=True)
 
         with st.spinner("Cargando ranking..."):
