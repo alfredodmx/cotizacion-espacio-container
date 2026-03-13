@@ -5729,23 +5729,29 @@ if st.session_state.modo_admin and tab_salud is not None:
 
         with st.spinner("Consultando métricas del sistema..."):
 
-            # ── 1. Tamaño BD desde PostgreSQL ──
+            # ── 1. Tamaño BD via SQL directo a pg_database_size ──
             _db_size_mb = 0
             _db_rows = {}
-            _db_connections = 0
             try:
-                _r_size = supabase.rpc('get_db_size', {}).execute()
-                if _r_size.data:
-                    _db_size_mb = round(_r_size.data / (1024*1024), 2)
+                # Usar execute_sql via rpc si existe, sino estimamos por filas
+                import httpx as _hx, json as _js_sys
+                _headers_sys = {
+                    "apikey": SUPABASE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_KEY}",
+                    "Content-Type": "application/json",
+                }
+                _sql_resp = _hx.post(
+                    f"{SUPABASE_URL}/rest/v1/rpc/get_db_stats",
+                    headers=_headers_sys,
+                    json={},
+                    timeout=10
+                )
+                if _sql_resp.status_code == 200:
+                    _db_size_mb = round(_sql_resp.json() / (1024*1024), 2)
             except:
-                try:
-                    # fallback: query directa
-                    _r_size2 = supabase.table('cotizaciones').select('id', count='exact').execute()
-                    _db_rows['cotizaciones'] = _r_size2.count or 0
-                except:
-                    pass
+                pass
 
-            # Contar filas por tabla
+            # Contar filas por tabla (siempre funciona)
             for _tbl in ['cotizaciones', 'cotizacion_logs', 'excel_versiones']:
                 try:
                     _r = supabase.table(_tbl).select('id', count='exact').execute()
@@ -5753,25 +5759,68 @@ if st.session_state.modo_admin and tab_salud is not None:
                 except:
                     _db_rows[_tbl] = 0
 
-            # ── 2. Storage — listar buckets y tamaños ──
+            # Estimación de tamaño BD basada en filas si no pudimos leer pg_database_size
+            if _db_size_mb == 0:
+                _total_filas = sum(_db_rows.values())
+                # Estimación conservadora: ~2KB por fila promedio
+                _db_size_mb = round((_total_filas * 2048) / (1024*1024), 2)
+                _db_size_estimado = True
+            else:
+                _db_size_estimado = False
+
+            # ── 2. Storage — listar buckets con tamaños reales ──
             _storage_info = {}
             try:
-                _buckets = supabase.storage.list_buckets()
-                for _bkt in _buckets:
-                    _bname = _bkt.name if hasattr(_bkt, 'name') else _bkt.get('name','')
-                    try:
+                import httpx as _hx2
+                _headers_stg = {
+                    "apikey": SUPABASE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_KEY}",
+                }
+                # Listar buckets via API REST de storage
+                _bkt_resp = _hx2.get(
+                    f"{SUPABASE_URL}/storage/v1/bucket",
+                    headers=_headers_stg, timeout=10
+                )
+                if _bkt_resp.status_code == 200:
+                    for _bkt in _bkt_resp.json():
+                        _bname = _bkt.get('name','')
+                        # Listar archivos del bucket
+                        try:
+                            _obj_resp = _hx2.post(
+                                f"{SUPABASE_URL}/storage/v1/object/list/{_bname}",
+                                headers={**_headers_stg, "Content-Type": "application/json"},
+                                json={"prefix": "", "limit": 1000, "offset": 0},
+                                timeout=10
+                            )
+                            if _obj_resp.status_code == 200:
+                                _objs = _obj_resp.json()
+                                _count = len(_objs)
+                                _size_bytes = sum(
+                                    o.get('metadata', {}).get('size', 0) or 0
+                                    for o in _objs if isinstance(o, dict)
+                                )
+                                _storage_info[_bname] = {
+                                    'archivos': _count,
+                                    'mb': round(_size_bytes / 1024 / 1024, 2)
+                                }
+                            else:
+                                _storage_info[_bname] = {'archivos': 0, 'mb': 0}
+                        except:
+                            _storage_info[_bname] = {'archivos': 0, 'mb': 0}
+            except:
+                # Fallback: usar supabase-py
+                try:
+                    for _bname in ['planos', 'config']:
                         _files = supabase.storage.from_(_bname).list()
                         _count = len(_files) if _files else 0
-                        _size_bytes = sum(
-                            f.get('metadata', {}).get('size', 0) if isinstance(f, dict)
-                            else getattr(getattr(f, 'metadata', None), 'size', 0) or 0
-                            for f in (_files or [])
-                        )
+                        _size_bytes = 0
+                        for _f in (_files or []):
+                            if isinstance(_f, dict):
+                                _meta = _f.get('metadata') or {}
+                                _size_bytes += _meta.get('size', 0) or 0
                         _storage_info[_bname] = {'archivos': _count, 'mb': round(_size_bytes/1024/1024, 2)}
-                    except:
-                        _storage_info[_bname] = {'archivos': 0, 'mb': 0}
-            except:
-                pass
+                except:
+                    pass
 
             _storage_total_mb = sum(v['mb'] for v in _storage_info.values())
 
@@ -5801,8 +5850,8 @@ if st.session_state.modo_admin and tab_salud is not None:
             st.markdown(f"""
             <div class="sys-card">
               <div class="sys-card-title">🗄️ Base de datos PostgreSQL</div>
-              <div class="sys-metric-val">{_db_size_mb if _db_size_mb > 0 else "~"} MB</div>
-              <div class="sys-metric-sub">Límite Free: {_DB_LIMIT_MB} MB &nbsp;·&nbsp; <span class="{_bc}">{_bl}</span></div>
+              <div class="sys-metric-val">{_db_size_mb} MB</div>
+              <div class="sys-metric-sub">Límite Free: {_DB_LIMIT_MB} MB &nbsp;·&nbsp; <span class="{_bc}">{_bl}</span>{" &nbsp;· <i style='color:#94a3b8;font-size:0.7rem'>estimado</i>" if _db_size_estimado else ""}</div>
               <div class="sys-bar-wrap">
                 <div class="sys-bar-inner {_bar_class(_db_pct)}" style="width:{_db_pct}%"></div>
               </div>
