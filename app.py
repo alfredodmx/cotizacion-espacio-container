@@ -341,11 +341,16 @@ if not st.session_state.auth_user:
     """, unsafe_allow_html=True)
 
     # Centrar con columnas
-    _lc, _mc, _rc = st.columns([1, 3, 1])
+    _lc, _mc, _rc = st.columns([0.2, 4, 0.2])
     with _mc:
         # Logo 500px
         if _logo2_html:
-            st.markdown(_logo2_html.replace('max-width:220px', 'max-width:650px'), unsafe_allow_html=True)
+            st.markdown(
+                _logo2_html
+                    .replace('max-width:220px', 'max-width:100%')
+                    .replace('width="350"', 'width="100%"'),
+                unsafe_allow_html=True
+            )
         else:
             st.markdown('<div style="text-align:center;margin-bottom:20px;"><span style="font-size:4rem;filter:drop-shadow(0 0 20px rgba(212,175,55,0.5));">🧊</span></div>', unsafe_allow_html=True)
 
