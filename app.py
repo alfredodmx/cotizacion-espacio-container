@@ -7366,11 +7366,20 @@ if tab7 is not None:
         </style>
         """, unsafe_allow_html=True)
 
+        st.info(f"🔍 Rol: {st.session_state.get('rol_usuario')} | Email: {st.session_state.get('auth_email')}")
+        try:
+            import requests as _test_rq
+            _test_r = _test_rq.get(
+                f"{SUPABASE_URL}/rest/v1/cotizaciones",
+                headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"},
+                params={"select": "asesor_nombre", "limit": "5"}
+            )
+            st.info(f"🔍 REST test: HTTP {_test_r.status_code} → {str(_test_r.json())[:200]}")
+        except Exception as _te:
+            st.error(f"🔍 REST error: {_te}")
         with st.spinner("Cargando ranking..."):
             _ranking = cargar_ranking_ejecutivos(periodo='mes')
-        # Debug siempre visible
-        _dbg = st.session_state.get('_rank_debug', 'Sin debug aún')
-        st.info(f"🔍 Debug ranking: {_dbg}")
+        st.info(f"🔍 Ranking result: {len(_ranking)} ejecutivos")
 
         if not _ranking:
             st.info("No hay cotizaciones registradas este mes.")
