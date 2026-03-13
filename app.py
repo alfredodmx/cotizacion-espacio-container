@@ -360,7 +360,7 @@ if not st.session_state.auth_user:
     st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
 
     # Inputs centrados en columna angosta
-    _lc, _mc, _rc = st.columns([1, 2, 1])
+    _lc, _mc, _rc = st.columns([1.5, 1, 1.5])
     with _mc:
         _email_in = st.text_input("Correo electrónico", key="login_email", placeholder="usuario@empresa.cl")
         _pass_in  = st.text_input("Contraseña", type="password", key="login_pass", placeholder="••••••••")
