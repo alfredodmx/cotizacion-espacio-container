@@ -3458,19 +3458,40 @@ def cargar_ranking_ejecutivos(periodo='mes'):
     """Carga métricas de ejecutivos desde Supabase."""
     try:
         from datetime import datetime as _dt, timedelta as _td
-        # Usar cliente admin para bypassear RLS — el ranking debe ver todas las cotizaciones
-        query = supabase_admin.table('cotizaciones').select(
-            'asesor_nombre, total_total, config_margen, cliente_nombre,'
-            'cliente_email, cliente_rut, asesor_email, asesor_telefono, fecha_creacion'
-        )
+        # Ranking: usar cliente anon con select de user_id incluido
+        # El RLS filtra por user_id, pero en Python podemos hacer múltiples queries
+        # Una por cada ejecutivo conocido — o mejor: crear función RPC en Supabase
+        # Por ahora usamos supabase_admin con header especial
+        import requests as _rq_rank
+        _rank_headers = {
+            "apikey": SUPABASE_SERVICE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation"
+        }
+        _rank_url = f"{SUPABASE_URL}/rest/v1/cotizaciones"
+        _params_rank = {
+            "select": "asesor_nombre,total_total,config_margen,cliente_nombre,cliente_email,cliente_rut,asesor_email,asesor_telefono,fecha_creacion"
+        }
         if periodo == 'mes':
             _inicio = _dt.now().replace(day=1).strftime('%Y-%m-%d')
-            query = query.gte('fecha_creacion', _inicio)
-        # Ranking muestra a todos los ejecutivos sin importar el rol
-        # (el ejecutivo puede ver su posición vs el equipo)
-        resp = query.execute()
+            _params_rank["fecha_creacion"] = f"gte.{_inicio}"
+        _rank_resp = _rq_rank.get(_rank_url, headers=_rank_headers, params=_params_rank)
+        if _rank_resp.status_code != 200 or not _rank_resp.json():
+            return []
+        resp_data = _rank_resp.json()
+        # Simular objeto resp compatible
+        class _FakeResp:
+            def __init__(self, data): self.data = data
+        resp = _FakeResp(resp_data)
         if not resp.data:
             return []
+        # Saltar el query.execute() original
+        if False:
+            query = supabase_admin.table('cotizaciones').select(
+                'asesor_nombre, total_total, config_margen, cliente_nombre,'
+                'cliente_email, cliente_rut, asesor_email, asesor_telefono, fecha_creacion'
+            )
         # Agrupar por asesor
         asesores = {}
         for row in resp.data:
