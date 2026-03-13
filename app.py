@@ -5285,11 +5285,24 @@ if st.session_state.modo_admin and tab5 is not None:
         <style>
         .excel-header {
             background: linear-gradient(135deg, #0f2240 0%, #1a4d33 100%);
-            border-radius: 14px; padding: 24px 28px; margin-bottom: 24px; margin-top: -1rem;
-            display: flex; align-items: center; gap: 16px;
+            border-radius: 20px; padding: 32px 36px; margin-bottom: 28px; margin-top: -1rem;
+            display: flex; align-items: center; gap: 22px;
+            box-shadow: 0 8px 32px rgba(26,77,51,0.3);
+            position: relative; overflow: hidden;
         }
-        .excel-header h2 { color: #ffffff !important; margin: 0; font-size: 1.5rem; font-weight: 700; }
-        .excel-header p  { color: rgba(255,255,255,0.75) !important; margin: 6px 0 0; font-size: 0.88rem; }
+        .excel-header::before {
+            content: ''; position: absolute; top: -40px; right: -40px;
+            width: 180px; height: 180px; border-radius: 50%;
+            background: rgba(255,255,255,0.04); pointer-events: none;
+        }
+        .excel-header::after {
+            content: ''; position: absolute; bottom: -60px; right: 80px;
+            width: 240px; height: 240px; border-radius: 50%;
+            background: rgba(255,255,255,0.03); pointer-events: none;
+        }
+        .excel-header h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
+                           font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
+        .excel-header p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
 
         /* Padding para todos los widgets del tab5 */
         [data-testid="stVerticalBlock"] [data-testid="stFileUploader"],
@@ -5352,7 +5365,7 @@ if st.session_state.modo_admin and tab5 is not None:
         # Header — intacto, no se toca
         st.markdown("""
         <div class="excel-header">
-          <span style="font-size:2.4rem">📊</span>
+          <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📊</span>
           <div>
             <h2>Proyecto Excel — Control de Versiones</h2>
             <p>Sube nuevas versiones del cotizador.xlsx y activa la que necesites. El sistema se actualiza al instante.</p>
