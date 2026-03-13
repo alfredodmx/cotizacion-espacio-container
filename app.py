@@ -120,13 +120,18 @@ def listar_usuarios_ejecutivos():
             meta = u.user_metadata or {}
             nombre = meta.get("nombre", email)
             rol = meta.get("rol", "ejecutivo")
+            # Compatibilidad con distintas versiones de supabase-py
+            try:
+                _activo = not getattr(u, 'banned_until', None)
+            except:
+                _activo = True
             users.append({
                 "id": str(u.id),
                 "email": email,
                 "nombre": nombre,
                 "rol": rol,
                 "created_at": str(u.created_at)[:10] if u.created_at else "",
-                "activo": not u.banned_until
+                "activo": _activo
             })
         return users
     except Exception as e:
