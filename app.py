@@ -1740,9 +1740,12 @@ st.markdown("""
 
     /* ══ TABS ══ */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 0 !important; border-bottom: 2px solid #e2e6f3 !important;
+        gap: 2px !important;
+        border-bottom: 3px solid #0f172a !important;
         padding: 0 !important; margin-bottom: 0 !important;
-        background: transparent !important;
+        background: #0f172a !important;
+        border-radius: 10px 10px 0 0 !important;
+        padding: 4px 4px 0 4px !important;
     }
     .stTabs [data-baseweb="tab-panel"] {
         padding-top: 1.5rem !important;
@@ -1754,19 +1757,30 @@ st.markdown("""
     }
     hr { display: none !important; }
     .stTabs [data-baseweb="tab"] {
-        font-family: 'Montserrat', sans-serif !important;
-        font-size: 0.82rem !important; font-weight: 800 !important;
-        color: #7c85b3 !important; padding: 0.85rem 1.6rem !important;
-        background: transparent !important; border: none !important;
+        font-family: 'Arial Black', 'Inter', sans-serif !important;
+        font-size: 0.72rem !important;
+        font-weight: 900 !important;
+        color: rgba(255,255,255,0.35) !important;
+        padding: 0.75rem 1.2rem !important;
+        background: transparent !important;
+        border: none !important;
         border-bottom: 3px solid transparent !important;
-        margin-bottom: -2px !important; letter-spacing: 0.06em !important;
+        border-radius: 8px 8px 0 0 !important;
+        margin-bottom: -3px !important;
+        letter-spacing: 0.1em !important;
         text-transform: uppercase !important;
-        transition: all 0.2s ease !important;
+        transition: all 0.18s ease !important;
     }
-    .stTabs [data-baseweb="tab"]:hover { color: #5b7cfa !important; background: rgba(91,124,250,0.05) !important; }
+    .stTabs [data-baseweb="tab"]:hover {
+        color: rgba(255,255,255,0.75) !important;
+        background: rgba(255,255,255,0.06) !important;
+    }
     .stTabs [aria-selected="true"] {
-        color: #5b7cfa !important; border-bottom: 3px solid #5b7cfa !important;
-        font-weight: 900 !important; background: rgba(91,124,250,0.06) !important;
+        color: #ffffff !important;
+        background: rgba(255,255,255,0.1) !important;
+        border-bottom: 3px solid #f59e0b !important;
+        font-weight: 900 !important;
+        letter-spacing: 0.12em !important;
     }
 
     /* ══ TABLA RESULTADOS ══ */
@@ -3485,12 +3499,6 @@ with tab2:
         box-shadow: 0 6px 32px rgba(0,0,0,0.3);
     }
     .hdr2-top { height: 3px; background: linear-gradient(90deg,#7c3aed,#a855f7); }
-    .hdr2-grid {
-        position: absolute; inset: 0;
-        background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                          linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-        background-size: 28px 28px; pointer-events: none;
-    }
     .hdr2-inner { position: relative; display: flex; align-items: center; gap: 20px; padding: 24px 28px; }
     .hdr2-icon {
         width: 52px; height: 52px; flex-shrink: 0;
@@ -3507,7 +3515,6 @@ with tab2:
     </style>
     <div class="hdr2">
       <div class="hdr2-top"></div>
-      <div class="hdr2-grid"></div>
       <div class="hdr2-inner">
         <div class="hdr2-icon">👤</div>
         <div><h2>Datos del Cliente</h2><p>Completa la información del cliente y del proyecto antes de guardar.</p></div>
@@ -3789,12 +3796,6 @@ with tab1:
         box-shadow: 0 6px 32px rgba(0,0,0,0.3);
     }
     .hdr1-top { height: 3px; background: linear-gradient(90deg,#2563eb,#06b6d4); }
-    .hdr1-grid {
-        position: absolute; inset: 0;
-        background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                          linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-        background-size: 28px 28px; pointer-events: none;
-    }
     .hdr1-inner { position: relative; display: flex; align-items: center; gap: 20px; padding: 24px 28px; }
     .hdr1-icon {
         width: 52px; height: 52px; flex-shrink: 0;
@@ -3811,7 +3812,6 @@ with tab1:
     </style>
     <div class="hdr1">
       <div class="hdr1-top"></div>
-      <div class="hdr1-grid"></div>
       <div class="hdr1-inner">
         <div class="hdr1-icon">📋</div>
         <div><h2>Cotización</h2><p>Agrega productos, aplica márgenes y genera tu cotización en PDF.</p></div>
@@ -4220,12 +4220,6 @@ with tab3:
         box-shadow: 0 6px 32px rgba(0,0,0,0.3);
     }
     .hdr3-top { height: 3px; background: linear-gradient(90deg,#ea580c,#f59e0b); }
-    .hdr3-grid {
-        position: absolute; inset: 0;
-        background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                          linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-        background-size: 28px 28px; pointer-events: none;
-    }
     .hdr3-inner { position: relative; display: flex; align-items: center; gap: 20px; padding: 24px 28px; }
     .hdr3-icon {
         width: 52px; height: 52px; flex-shrink: 0;
@@ -4242,7 +4236,6 @@ with tab3:
     </style>
     <div class="hdr3">
       <div class="hdr3-top"></div>
-      <div class="hdr3-grid"></div>
       <div class="hdr3-inner">
         <div class="hdr3-icon">📂</div>
         <div><h2>Cotizaciones</h2><p>Busca, carga y administra todas las cotizaciones del sistema.</p></div>
@@ -5062,12 +5055,6 @@ with tab4:
         box-shadow: 0 6px 32px rgba(0,0,0,0.3);
     }
     .hdr4-top { height: 3px; background: linear-gradient(90deg,#0891b2,#06b6d4); }
-    .hdr4-grid {
-        position: absolute; inset: 0;
-        background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                          linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-        background-size: 28px 28px; pointer-events: none;
-    }
     .hdr4-inner { position: relative; display: flex; align-items: center; gap: 20px; padding: 24px 28px; }
     .hdr4-icon {
         width: 52px; height: 52px; flex-shrink: 0;
@@ -5084,7 +5071,6 @@ with tab4:
     </style>
     <div class="hdr4">
       <div class="hdr4-top"></div>
-      <div class="hdr4-grid"></div>
       <div class="hdr4-inner">
         <div class="hdr4-icon">🧊</div>
         <div><h2>Visor 3D Beta</h2><p>Selecciona un presupuesto con plano adjunto para generar su prototipo 3D interactivo.</p></div>
@@ -6042,14 +6028,6 @@ with tab_dash:
             height: 3px;
             background: linear-gradient(90deg,#2563eb,#10b981);
         }
-        .dash-hdr-grid {
-            position: absolute; inset: 0;
-            background-image:
-                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-            background-size: 28px 28px;
-            pointer-events: none;
-        }
         .dash-hdr-inner {
             position: relative;
             display: flex; align-items: center; gap: 20px;
@@ -6145,7 +6123,6 @@ with tab_dash:
 
         <div class="dash-hdr">
           <div class="dash-hdr-top"></div>
-          <div class="dash-hdr-grid"></div>
           <div class="dash-hdr-inner">
             <div class="dash-hdr-icon">📊</div>
             <div>
@@ -6585,12 +6562,6 @@ if tab6 is not None:
             box-shadow: 0 6px 32px rgba(0,0,0,0.3);
         }
         .hdr6-top { height: 3px; background: linear-gradient(90deg,#dc2626,#f97316); }
-        .hdr6-grid {
-            position: absolute; inset: 0;
-            background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                              linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-            background-size: 28px 28px; pointer-events: none;
-        }
         .hdr6-inner { position: relative; display: flex; align-items: center; gap: 20px; padding: 24px 28px; }
         .hdr6-icon {
             width: 52px; height: 52px; flex-shrink: 0;
@@ -6607,7 +6578,6 @@ if tab6 is not None:
         </style>
         <div class="hdr6">
           <div class="hdr6-top"></div>
-          <div class="hdr6-grid"></div>
           <div class="hdr6-inner">
             <div class="hdr6-icon">✏️</div>
             <div><h2>Edición PDF</h2><p>Personaliza la descripción de cada categoría para el PDF del cliente.</p></div>
@@ -6766,12 +6736,6 @@ if tab7 is not None:
             box-shadow: 0 6px 32px rgba(0,0,0,0.3);
         }
         .hdr7-top { height: 3px; background: linear-gradient(90deg,#d97706,#fbbf24); }
-        .hdr7-grid {
-            position: absolute; inset: 0;
-            background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                              linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-            background-size: 28px 28px; pointer-events: none;
-        }
         .hdr7-inner { position: relative; display: flex; align-items: center; gap: 20px; padding: 24px 28px; }
         .hdr7-icon {
             width: 52px; height: 52px; flex-shrink: 0;
@@ -6806,7 +6770,6 @@ if tab7 is not None:
         </style>
         <div class="hdr7">
           <div class="hdr7-top"></div>
-          <div class="hdr7-grid"></div>
           <div class="hdr7-inner">
             <div class="hdr7-icon">🏆</div>
             <div>
@@ -7016,14 +6979,6 @@ with tab_contrato:
             height: 3px;
             background: linear-gradient(90deg,#0f3460,#3b82f6);
         }
-        .hdr-contrato-grid {
-            position: absolute; inset: 0;
-            background-image:
-                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-            background-size: 28px 28px;
-            pointer-events: none;
-        }
         .hdr-contrato-inner {
             position: relative;
             display: flex; align-items: center; gap: 20px;
@@ -7072,7 +7027,6 @@ with tab_contrato:
 
         <div class="hdr-contrato">
           <div class="hdr-contrato-top"></div>
-          <div class="hdr-contrato-grid"></div>
           <div class="hdr-contrato-inner">
             <div class="hdr-contrato-icon">📄</div>
             <div>
