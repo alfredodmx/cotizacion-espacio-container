@@ -3458,7 +3458,8 @@ def cargar_ranking_ejecutivos(periodo='mes'):
     """Carga métricas de ejecutivos desde Supabase."""
     try:
         from datetime import datetime as _dt, timedelta as _td
-        query = supabase.table('cotizaciones').select(
+        # Usar cliente admin para bypassear RLS — el ranking debe ver todas las cotizaciones
+        query = supabase_admin.table('cotizaciones').select(
             'asesor_nombre, total_total, config_margen, cliente_nombre,'
             'cliente_email, cliente_rut, asesor_email, asesor_telefono, fecha_creacion'
         )
