@@ -335,26 +335,41 @@ if not st.session_state.auth_user:
     .stDeployButton { display:none !important; }
     #MainMenu { display:none !important; }
     footer { display:none !important; }
+
+    /* Hacer que los inputs queden pegados visualmente al card */
+    section[data-testid="stMain"] > div > div > div > div[data-testid="stVerticalBlock"] > div:nth-child(2) {
+        background: linear-gradient(160deg, #161616 0%, #1c1c1c 100%) !important;
+        border: 1px solid rgba(212,175,55,0.25) !important;
+        border-top: none !important;
+        border-radius: 0 0 4px 4px !important;
+        padding: 16px 20px 24px !important;
+        margin-top: -12px !important;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.7) !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
     # Centrar con columnas
     _lc, _mc, _rc = st.columns([1, 2, 1])
     with _mc:
-        # Logo
+        # Logo encima del card
         if _logo2_html:
             st.markdown(_logo2_html, unsafe_allow_html=True)
         else:
-            st.markdown("""
-            <div style="text-align:center;margin-bottom:20px;">
-                <span style="font-size:3rem;filter:drop-shadow(0 0 20px rgba(212,175,55,0.5));">🧊</span>
-            </div>""", unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center;margin-bottom:20px;"><span style="font-size:3rem;filter:drop-shadow(0 0 20px rgba(212,175,55,0.5));">🧊</span></div>', unsafe_allow_html=True)
 
-        st.markdown('<div class="login-card"><div class="login-corner-tl"></div><div class="login-corner-br"></div>', unsafe_allow_html=True)
-        st.markdown('<div class="login-title">Cotizador PRO</div>', unsafe_allow_html=True)
-        st.markdown('<div class="login-sub">Espacio Container House</div>', unsafe_allow_html=True)
-        st.markdown('<div class="login-divider"></div>', unsafe_allow_html=True)
+        # Cabecera del card (solo título + subtítulo + divisor)
+        st.markdown("""
+        <div class="login-card">
+            <div class="login-corner-tl"></div>
+            <div class="login-corner-br"></div>
+            <div class="login-title">Cotizador PRO</div>
+            <div class="login-sub">Espacio Container House</div>
+            <div class="login-divider"></div>
+        </div>
+        """, unsafe_allow_html=True)
 
+        # Los inputs van fuera del HTML pero con estilo que los integra visualmente
         _email_in = st.text_input("Correo electrónico", key="login_email", placeholder="usuario@empresa.cl")
         _pass_in  = st.text_input("Contraseña", type="password", key="login_pass", placeholder="••••••••")
 
@@ -395,7 +410,7 @@ if not st.session_state.auth_user:
                     letter-spacing:0.15em;text-transform:uppercase;font-family:'Rajdhani',sans-serif;">
             Sistema de gestión · Uso interno
         </div>""", unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)  # cierra login-card
+        # (login-card ya cerrado en el bloque HTML superior)
 
     st.stop()
 
