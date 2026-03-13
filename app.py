@@ -130,6 +130,7 @@ def listar_usuarios_ejecutivos():
             })
         return users
     except Exception as e:
+        st.session_state['_usuarios_list_error'] = str(e)
         return []
 
 def eliminar_usuario_ejecutivo(user_id):
@@ -7916,8 +7917,12 @@ if st.session_state.modo_admin and tab_usuarios is not None:
 
         _usuarios = st.session_state.get('_usuarios_cache', [])
 
+        if st.session_state.get('_usuarios_list_error'):
+            st.error(f"❌ Error al cargar usuarios: {st.session_state['_usuarios_list_error']}")
+            st.session_state.pop('_usuarios_list_error', None)
+
         if not _usuarios:
-            st.info("No hay ejecutivos registrados aún. Crea el primero con el formulario de arriba.")
+            st.info("No hay usuarios registrados aún, o los ejecutivos deben ser creados desde el formulario de arriba.")
         else:
             st.caption(f"Total: {len(_usuarios)} ejecutivo(s)")
             for _u in _usuarios:
