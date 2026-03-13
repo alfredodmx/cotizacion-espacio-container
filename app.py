@@ -78,6 +78,14 @@ def logout_usuario():
         pass
     for k in ['auth_user', 'auth_email', 'auth_nombre', 'es_supervisor', 'es_root', 'rol_usuario']:
         st.session_state.pop(k, None)
+    # Borrar cookie de sesión
+    try:
+        import streamlit.components.v1 as _ck_out
+        _ck_out.html("""<script>
+        document.cookie = '_cph_sess=; path=/; max-age=0; SameSite=Lax';
+        </script>""", height=0)
+    except:
+        pass
 
 def crear_usuario_ejecutivo(email, password, nombre):
     """Crea un nuevo usuario ejecutivo (requiere service role)."""
@@ -178,6 +186,57 @@ if 'es_supervisor'not in st.session_state: st.session_state.es_supervisor= False
 if 'es_root'      not in st.session_state: st.session_state.es_root      = False
 if 'rol_usuario'  not in st.session_state: st.session_state.rol_usuario  = "ejecutivo"
 if 'modo_admin'   not in st.session_state: st.session_state.modo_admin   = False
+
+# ── Recuperar sesión desde cookie del navegador ──
+if not st.session_state.auth_user:
+    import streamlit.components.v1 as _sess_comp
+    _sess_comp.html("""
+    <script>
+    (function() {
+        // Leer cookie de sesión
+        var _raw = document.cookie.split(';').map(s=>s.trim());
+        var _tok = null;
+        for (var i=0; i<_raw.length; i++) {
+            if (_raw[i].startsWith('_cph_sess=')) {
+                _tok = decodeURIComponent(_raw[i].substring(10));
+                break;
+            }
+        }
+        if (_tok) {
+            // Pasar token via query param para que Python lo lea
+            var url = new URL(window.parent.location.href);
+            if (!url.searchParams.get('_sess')) {
+                url.searchParams.set('_sess', _tok);
+                window.parent.location.replace(url.toString());
+            }
+        }
+    })();
+    </script>
+    """, height=0)
+
+    # Leer token desde query param
+    _sess_token = st.query_params.get("_sess")
+    if _sess_token:
+        try:
+            # Verificar token con Supabase
+            _sess_user = supabase.auth.get_user(_sess_token)
+            if _sess_user and _sess_user.user:
+                _u = _sess_user.user
+                _meta = _u.user_metadata or {}
+                _rol = get_rol(_u.email, _meta)
+                st.session_state.auth_user    = str(_u.id)
+                st.session_state.auth_email   = _u.email or ""
+                st.session_state.auth_nombre  = _meta.get("nombre", _u.email or "")
+                st.session_state.rol_usuario  = _rol
+                st.session_state.es_supervisor= _rol in ("root", "admin")
+                st.session_state.es_root      = _rol == "root"
+                st.session_state.modo_admin   = _rol in ("root", "admin")
+                # Limpiar query param
+                st.query_params.clear()
+                st.rerun()
+        except:
+            # Token inválido — ignorar y mostrar login
+            st.query_params.clear()
 
 # =========================================================
 # PANTALLA DE LOGIN — bloquea la app si no hay sesión
@@ -387,6 +446,18 @@ if not st.session_state.auth_user:
                         st.session_state.modo_admin = True
                     st.session_state.pop('resultados_busqueda', None)
                     st.session_state.pop('_usuarios_cache', None)
+                    # Guardar token en cookie para persistir sesión
+                    try:
+                        _sess = supabase.auth.get_session()
+                        if _sess and _sess.access_token:
+                            _tok_val = _sess.access_token
+                            import streamlit.components.v1 as _ck
+                            _ck.html(f"""<script>
+                            document.cookie = '_cph_sess=' + encodeURIComponent('{_tok_val}') +
+                                '; path=/; max-age=86400; SameSite=Lax';
+                            </script>""", height=0)
+                    except:
+                        pass
                     st.rerun()
                 else:
                     if "Invalid login" in str(err) or "invalid_credentials" in str(err):
