@@ -3465,11 +3465,8 @@ def cargar_ranking_ejecutivos(periodo='mes'):
         if periodo == 'mes':
             _inicio = _dt.now().replace(day=1).strftime('%Y-%m-%d')
             query = query.gte('fecha_creacion', _inicio)
-        # Ejecutivo solo ve su propio ranking
-        if st.session_state.get('rol_usuario', 'ejecutivo') == 'ejecutivo':
-            _email_rk = st.session_state.get('auth_email', '').lower()
-            if _email_rk:
-                query = query.ilike('asesor_email', _email_rk)
+        # Ranking muestra a todos los ejecutivos sin importar el rol
+        # (el ejecutivo puede ver su posición vs el equipo)
         resp = query.execute()
         if not resp.data:
             return []
