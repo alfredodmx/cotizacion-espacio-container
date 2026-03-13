@@ -7286,6 +7286,11 @@ if tab6 is not None:
 # =========================================================
 if tab7 is not None:
     with tab7:
+        try:
+            _tab7_ok = True
+        except:
+            _tab7_ok = False
+        st.write(f"TAB7 ACTIVO: {_tab7_ok} | rol: {st.session_state.get('rol_usuario')}")
         st.markdown("""
         <style>
         .hdr7 {
