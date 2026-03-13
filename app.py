@@ -1661,11 +1661,22 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
             'total_total', 'config_margen', 'cliente_rut', 'cliente_email',
             'asesor_email', 'asesor_telefono', 'plano_url', 'contrato_generado', 'cliente_empresa'
         )
-        # Filtrar por usuario si no es supervisor
-        if not st.session_state.get('es_supervisor', False):
-            _uid = st.session_state.get('auth_user')
-            if _uid:
+        # Filtrar por usuario si es ejecutivo (no admin ni root)
+        _rol_q = st.session_state.get('rol_usuario', 'ejecutivo')
+        if _rol_q == 'ejecutivo':
+            _uid   = st.session_state.get('auth_user')
+            _email = st.session_state.get('auth_email', '').lower()
+            # Cotizaciones nuevas: filtrar por user_id
+            # Cotizaciones antiguas (user_id NULL): filtrar por asesor_email
+            if _uid and _email:
+                query = query.or_(
+                    f"user_id.eq.{_uid},"
+                    f"and(user_id.is.null,asesor_email.ilike.{_email})"
+                )
+            elif _uid:
                 query = query.eq('user_id', _uid)
+            elif _email:
+                query = query.ilike('asesor_email', _email)
         if termino and termino.strip():
             campo_map = {
                 'numero': 'numero',
@@ -3312,6 +3323,11 @@ def cargar_ranking_ejecutivos(periodo='mes'):
         if periodo == 'mes':
             _inicio = _dt.now().replace(day=1).strftime('%Y-%m-%d')
             query = query.gte('fecha_creacion', _inicio)
+        # Ejecutivo solo ve su propio ranking
+        if st.session_state.get('rol_usuario', 'ejecutivo') == 'ejecutivo':
+            _email_rk = st.session_state.get('auth_email', '').lower()
+            if _email_rk:
+                query = query.ilike('asesor_email', _email_rk)
         resp = query.execute()
         if not resp.data:
             return []
