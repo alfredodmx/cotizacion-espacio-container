@@ -2706,22 +2706,24 @@ if st.session_state.cotizacion_cargada:
         st.session_state.telefono_asesor
     ])
 
+    _tiene_plano_badge = bool(st.session_state.plano_adjunto or st.session_state.get('pdf_url') or st.session_state.plano_nombre)
     if st.session_state.margen > 0:
         if datos_completos and asesor_completo:
             rol = "👑 Admin" if st.session_state.modo_admin else "🔒 Solo lectura"
-            sufijo = " CON PLANO" if st.session_state.plano_adjunto else ""
+            sufijo = " CON PLANO" if _tiene_plano_badge else ""
             badge_html = f"{rol} • 🟢 AUTORIZADO{sufijo} ({st.session_state.margen}%)"
         else:
-            sufijo = " CON PLANO" if st.session_state.plano_adjunto else ""
+            sufijo = " CON PLANO" if _tiene_plano_badge else ""
             badge_html = f"⚠️ {st.session_state.cotizacion_cargada} • 🔴 INCOMPLETO{sufijo}"
     else:
+        _tiene_plano_badge = bool(st.session_state.plano_adjunto or st.session_state.get('pdf_url') or st.session_state.plano_nombre)
         if datos_completos and asesor_completo:
-            if st.session_state.plano_adjunto:
+            if _tiene_plano_badge:
                 badge_html = f"📝 {st.session_state.cotizacion_cargada} • 🟠 BORRADOR CON PLANO"
             else:
                 badge_html = f"📝 {st.session_state.cotizacion_cargada} • 🟡 BORRADOR"
         else:
-            sufijo = " CON PLANO" if st.session_state.plano_adjunto else ""
+            sufijo = " CON PLANO" if _tiene_plano_badge else ""
             badge_html = f"⚠️ {st.session_state.cotizacion_cargada} • 🔴 INCOMPLETO{sufijo}"
 
     col_badge, col_cerrar = st.columns([3, 1])
