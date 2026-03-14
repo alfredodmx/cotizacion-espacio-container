@@ -2729,31 +2729,49 @@ if st.session_state.cotizacion_cargada:
     col_badge, col_cerrar = st.columns([3, 1])
     with col_badge:
         _ep_num = st.session_state.cotizacion_cargada
-        st.markdown(f"""
+        st.markdown(f'''
         <div class="cotizacion-status-container">
-            <span class="status-badge" id="badge-ep-copy"
-                onclick="(function(){{
-                    var ep='{_ep_num}';
-                    var D=window.parent.document;
-                    var ta=D.createElement('textarea');
-                    ta.value=ep;
-                    ta.style.cssText='position:fixed;top:-9999px;left:-9999px;opacity:0;';
-                    D.body.appendChild(ta);
-                    ta.focus();ta.select();
-                    try{{D.execCommand('copy');}}catch(e){{}}
-                    ta.remove();
-                    var b=document.getElementById('badge-ep-copy');
-                    var orig=b.innerHTML;
-                    b.innerHTML='✅ &nbsp;¡Copiado!';
-                    b.style.opacity='0.7';
-                    setTimeout(function(){{b.innerHTML=orig;b.style.opacity='1';}},1200);
-                }})()"
-                title="Click para copiar {_ep_num}"
-                style="cursor:pointer;">
+            <span class="status-badge" style="cursor:pointer;" id="badge-ep-copy"
+                title="Click para copiar {_ep_num}">
                 {badge_html}
                 <span style="font-size:0.7rem;opacity:0.5;margin-left:6px;">📋</span>
             </span>
-        </div>""", unsafe_allow_html=True)
+        </div>''', unsafe_allow_html=True)
+        # Inyectar JS via components.html para copiar desde DOM padre
+        import streamlit.components.v1 as _badge_comp
+        _badge_comp.html(f"""<script>
+        (function() {{
+            var ep = '{_ep_num}';
+            // Buscar el badge en el DOM padre
+            var D = window.parent.document;
+            var badge = D.getElementById('badge-ep-copy');
+            if (!badge) return;
+            // Evitar duplicar listener
+            if (badge._cpListener) return;
+            badge._cpListener = true;
+            badge.addEventListener('click', function() {{
+                // Copiar al portapapeles
+                var ta = D.createElement('textarea');
+                ta.value = ep;
+                ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;font-size:12px;';
+                D.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                var ok = false;
+                try {{ ok = D.execCommand('copy'); }} catch(e) {{}}
+                ta.remove();
+                // También intentar con clipboard API
+                if (!ok && window.parent.navigator.clipboard) {{
+                    window.parent.navigator.clipboard.writeText(ep).catch(function(){{}});
+                    ok = true;
+                }}
+                // Mostrar confirmación
+                var orig = badge.innerHTML;
+                badge.innerHTML = '<span style="color:#10b981;font-weight:800;">✅ ¡EP copiado!</span>';
+                setTimeout(function() {{ badge.innerHTML = orig; }}, 1500);
+            }});
+        }})();
+        </script>""", height=0)
     with col_cerrar:
         if st.button("🗑️ Cerrar Cotización", key="btn_cerrar_cotizacion", use_container_width=True):
             _hash_actual = calcular_hash_estado()
