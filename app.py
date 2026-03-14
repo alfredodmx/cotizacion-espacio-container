@@ -2732,13 +2732,22 @@ if st.session_state.cotizacion_cargada:
         st.markdown(f"""
         <div class="cotizacion-status-container">
             <span class="status-badge" id="badge-ep-copy"
-                onclick="navigator.clipboard.writeText('{_ep_num}').then(function(){{
+                onclick="(function(){{
+                    var ep='{_ep_num}';
+                    var D=window.parent.document;
+                    var ta=D.createElement('textarea');
+                    ta.value=ep;
+                    ta.style.cssText='position:fixed;top:-9999px;left:-9999px;opacity:0;';
+                    D.body.appendChild(ta);
+                    ta.focus();ta.select();
+                    try{{D.execCommand('copy');}}catch(e){{}}
+                    ta.remove();
                     var b=document.getElementById('badge-ep-copy');
                     var orig=b.innerHTML;
-                    b.innerHTML='✅ ¡Copiado!';
+                    b.innerHTML='✅ &nbsp;¡Copiado!';
                     b.style.opacity='0.7';
                     setTimeout(function(){{b.innerHTML=orig;b.style.opacity='1';}},1200);
-                }})"
+                }})()"
                 title="Click para copiar {_ep_num}"
                 style="cursor:pointer;">
                 {badge_html}
