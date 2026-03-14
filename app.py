@@ -1198,14 +1198,24 @@ def evaluar_estado_cotizacion(cotizacion):
         return "🟠 BORRADOR CON PLANO" if tiene_plano else "🟡 BORRADOR"
 
 def crear_badge_estado(row):
-    config_margen = row[5]
-    tiene_plano = row[10] if len(row) > 10 else False
-    cliente_nombre = row[1]
-    cliente_rut = row[6]
-    cliente_email = row[7]
-    asesor_nombre = row[2]
-    asesor_email = row[8]
-    asesor_telefono = row[9]
+    # Soporta tanto índices numéricos como nombres de columna del DataFrame
+    if hasattr(row, 'index') and 'Margen' in row.index:
+        config_margen = row['Margen']
+        tiene_plano   = row['Tiene_Plano']
+        cliente_nombre= row['Cliente']
+        cliente_email = row['Email']
+        asesor_nombre = row['Asesor']
+        asesor_email  = row['Asesor_Email']
+        asesor_telefono = row['Asesor_Tel']
+    else:
+        config_margen = row[5]
+        tiene_plano = row[10] if len(row) > 10 else False
+        cliente_nombre = row[1]
+        cliente_rut = row[6]
+        cliente_email = row[7]
+        asesor_nombre = row[2]
+        asesor_email = row[8]
+        asesor_telefono = row[9]
     datos_completos = all([cliente_nombre, cliente_email])
     asesor_completo = any([asesor_nombre, asesor_email, asesor_telefono])
     if config_margen and config_margen > 0:
