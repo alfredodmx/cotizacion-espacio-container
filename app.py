@@ -2728,7 +2728,23 @@ if st.session_state.cotizacion_cargada:
 
     col_badge, col_cerrar = st.columns([3, 1])
     with col_badge:
-        st.markdown(f'<div class="cotizacion-status-container"><span class="status-badge">{badge_html}</span></div>', unsafe_allow_html=True)
+        _ep_num = st.session_state.cotizacion_cargada
+        st.markdown(f"""
+        <div class="cotizacion-status-container">
+            <span class="status-badge" id="badge-ep-copy"
+                onclick="navigator.clipboard.writeText('{_ep_num}').then(function(){{
+                    var b=document.getElementById('badge-ep-copy');
+                    var orig=b.innerHTML;
+                    b.innerHTML='✅ ¡Copiado!';
+                    b.style.opacity='0.7';
+                    setTimeout(function(){{b.innerHTML=orig;b.style.opacity='1';}},1200);
+                }})"
+                title="Click para copiar {_ep_num}"
+                style="cursor:pointer;">
+                {badge_html}
+                <span style="font-size:0.7rem;opacity:0.5;margin-left:6px;">📋</span>
+            </span>
+        </div>""", unsafe_allow_html=True)
     with col_cerrar:
         if st.button("🗑️ Cerrar Cotización", key="btn_cerrar_cotizacion", use_container_width=True):
             _hash_actual = calcular_hash_estado()
