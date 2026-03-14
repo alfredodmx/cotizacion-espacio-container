@@ -5299,7 +5299,9 @@ if st.session_state.get('mostrar_toast_exito', False):
         'box-shadow:0 8px 24px rgba(16,185,129,0.4);'+
         'display:flex;align-items:center;gap:10px;'+
         'animation:slideInToast 0.3s ease;';
-    t.innerHTML='<span style="font-size:1.2rem">✅</span> Cotización <b style="margin:0 4px">{ep}</b> guardada correctamente';
+    t.innerHTML='<span style="font-size:1.2rem">✅</span> Cotización <b style="margin:0 4px">{ep}</b> guardada correctamente' +
+        '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:rgba(255,255,255,0.8);' +
+        'font-size:1.1rem;cursor:pointer;margin-left:10px;padding:0;line-height:1;" title="Cerrar">✕</button>';
     var s=D.createElement('style');
     s.innerHTML='@keyframes slideInToast{{from{{transform:translateY(20px);opacity:0}}to{{transform:translateY(0);opacity:1}}}}';
     D.head.appendChild(s);
