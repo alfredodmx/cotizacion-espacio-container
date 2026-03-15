@@ -7273,7 +7273,7 @@ if tab6 is not None:
         st.markdown("""
         <style>
         .hdr6 {
-            background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%);
+            background: linear-gradient(135deg, #000000 0%, #dc2626 100%);
             border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
             display: flex; align-items: center; gap: 22px;
             box-shadow: 0 8px 32px rgba(220,38,38,0.25);
