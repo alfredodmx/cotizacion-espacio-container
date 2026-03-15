@@ -4041,7 +4041,7 @@ with tab2:
     st.markdown("""
     <style>
     .hdr2 {
-        background: linear-gradient(135deg, #2d0d66 0%, #5b0d7a 100%);
+        background: linear-gradient(135deg, #000000 0%, #5b0d7a 100%);
         border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
         display: flex; align-items: center; gap: 22px;
         box-shadow: 0 8px 32px rgba(91,13,122,0.25);
@@ -4401,7 +4401,7 @@ with tab1:
     st.markdown("""
     <style>
     .hdr1 {
-        background: linear-gradient(135deg, #0d2266 0%, #0d47a1 100%);
+        background: linear-gradient(135deg, #000000 0%, #0d47a1 100%);
         border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
         display: flex; align-items: center; gap: 22px;
         box-shadow: 0 8px 32px rgba(37,99,235,0.25);
@@ -4825,7 +4825,7 @@ with tab3:
     st.markdown("""
     <style>
     .hdr3 {
-        background: linear-gradient(135deg, #6b4e00 0%, #e65100 100%);
+        background: linear-gradient(135deg, #000000 0%, #e65100 100%);
         border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
         display: flex; align-items: center; gap: 22px;
         box-shadow: 0 8px 32px rgba(230,81,0,0.25);
@@ -5374,7 +5374,7 @@ with tab4:
     st.markdown("""
     <style>
     .hdr4 {
-        background: linear-gradient(135deg, #003d52 0%, #006978 100%);
+        background: linear-gradient(135deg, #000000 0%, #006978 100%);
         border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
         display: flex; align-items: center; gap: 22px;
         box-shadow: 0 8px 32px rgba(0,105,120,0.25);
@@ -6767,7 +6767,7 @@ with tab_dash:
     st.markdown("""
     <style>
     .dash-hdr {
-        background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #2563eb 100%);
+        background: linear-gradient(135deg, #000000 0%, #1e3a5f 50%, #2563eb 100%);
         border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
         display: flex; align-items: center; gap: 22px;
         box-shadow: 0 8px 32px rgba(37,99,235,0.25);
@@ -7446,7 +7446,7 @@ if tab7 is not None:
         st.markdown("""
         <style>
         .hdr7 {
-            background: linear-gradient(135deg, #78350f 0%, #d97706 100%);
+            background: linear-gradient(135deg, #000000 0%, #d97706 100%);
             border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
             display: flex; align-items: center; gap: 22px;
             box-shadow: 0 8px 32px rgba(217,119,6,0.25);
@@ -7691,7 +7691,7 @@ with tab_contrato:
     st.markdown("""
     <style>
     .hdr-contrato {
-        background: linear-gradient(135deg, #0f3460 0%, #16213e 60%, #1a1a2e 100%);
+        background: linear-gradient(135deg, #000000 0%, #23499d 60%, #0b61ff 100%);
         border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
         display: flex; align-items: center; gap: 22px;
         box-shadow: 0 8px 32px rgba(15,52,96,0.3);
