@@ -71,14 +71,20 @@ def login_usuario(email, password):
         return None, str(e)
 
 def logout_usuario():
-    """Cierra sesión."""
+    """Cierra sesión — limpia TODO el session_state."""
     try:
         supabase.auth.sign_out()
     except:
         pass
-    for k in ['auth_user', 'auth_email', 'auth_nombre', 'es_supervisor', 'es_root', 'rol_usuario']:
-        st.session_state.pop(k, None)
-    # Limpiar query params de sesión
+    # Guardar solo la lista de claves a preservar (ninguna en este caso)
+    # Limpiar ABSOLUTAMENTE todo el session_state
+    _keys_to_clear = list(st.session_state.keys())
+    for k in _keys_to_clear:
+        try:
+            del st.session_state[k]
+        except:
+            pass
+    # Limpiar query params
     try:
         st.query_params.clear()
     except:
