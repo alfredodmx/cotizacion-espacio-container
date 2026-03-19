@@ -6662,8 +6662,15 @@ if st.session_state.get('recien_cargado', False):
 if _mostrar_fab:
     # Botón real de Streamlit oculto — el FAB JS lo clickea
     st.markdown("""<style>
-    /* Ocultar el botón real de Streamlit — solo se usa como trigger interno */
-    div[data-testid="stButton"]:has(button[data-testid="baseButton-secondary"]) + div { display:none!important; }
+    /* Mover botón real fuera de vista sin usar display:none */
+    div[data-testid="stButton"]:has(button[aria-label="btn_fab_guardar"]),
+    div:has(> div > button[data-testid="baseButton-secondary"]:only-child) {
+        position: fixed !important;
+        top: -9999px !important;
+        left: -9999px !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
     </style>""", unsafe_allow_html=True)
     if st.button("💾 Guardar", key="btn_fab_guardar", help=None):
         leer_datos_actuales()
@@ -6778,10 +6785,15 @@ if _mostrar_fab:
         setTimeout(hideRealBtn, 800);
 
         btn.onclick = function() {
-            // Usar query param para comunicar acción a Python
-            var url = new URL(window.parent.location.href);
-            url.searchParams.set('_fabg', '1');
-            window.parent.location.href = url.toString();
+            var D = window.parent.document;
+            var allBtns = D.querySelectorAll('button');
+            for (var i = 0; i < allBtns.length; i++) {
+                var txt = (allBtns[i].innerText || allBtns[i].textContent || '').trim();
+                if (txt === '💾 Guardar' && allBtns[i].id !== 'fab-guardar-btn') {
+                    allBtns[i].click();
+                    return;
+                }
+            }
         };
         wrapper.appendChild(btn);
         parent.body.appendChild(wrapper);
