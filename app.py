@@ -6759,20 +6759,28 @@ if _mostrar_fab:
         setTimeout(hideRealBtn, 800);
 
         btn.onclick = function() {
-            const buttons = parent.querySelectorAll('button');
-            for (const b of buttons) {
-                const txt = (b.innerText || b.textContent || '').trim();
-                if (txt === '💾 Guardar' && b.id !== 'fab-guardar-btn' && !b.disabled) {
-                    // Clickear sin mostrar: usar visibility en vez de display
-                    b.style.setProperty('visibility','hidden','important');
-                    b.parentElement.style.removeProperty('display');
-                    b.parentElement.parentElement.style.removeProperty('display');
-                    b.click();
-                    b.parentElement.style.setProperty('display','none','important');
-                    b.parentElement.parentElement.style.setProperty('display','none','important');
-                    return;
+            // Buscar por key específico del botón real
+            var allBtns = parent.querySelectorAll('button');
+            var target = null;
+            for (var i = 0; i < allBtns.length; i++) {
+                var b = allBtns[i];
+                var txt = (b.innerText || b.textContent || '').trim();
+                if (txt === '💾 Guardar' && b.id !== 'fab-guardar-btn') {
+                    target = b; break;
                 }
             }
+            if (!target) return;
+            // Hacer visible temporalmente para clickear
+            var par1 = target.parentElement;
+            var par2 = par1 ? par1.parentElement : null;
+            target.style.setProperty('visibility','hidden','important');
+            if (par1) par1.style.removeProperty('display');
+            if (par2) par2.style.removeProperty('display');
+            target.dispatchEvent(new MouseEvent('click', {bubbles:true, cancelable:true}));
+            setTimeout(function() {
+                if (par1) par1.style.setProperty('display','none','important');
+                if (par2) par2.style.setProperty('display','none','important');
+            }, 100);
         };
         wrapper.appendChild(btn);
         parent.body.appendChild(wrapper);
