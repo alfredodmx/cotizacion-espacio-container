@@ -210,181 +210,109 @@ if not st.session_state.auth_user and _sess_token:
 # PANTALLA DE LOGIN — bloquea la app si no hay sesión
 # =========================================================
 if not st.session_state.auth_user:
-    # Cargar logo2.png si existe
+    # Cargar logo.png (o logo2.png como fallback)
     import base64 as _b64l, os as _osl
-    _logo2_html = ""
-    for _lpath in ["logo2.png", "assets/logo2.png", "images/logo2.png"]:
+    _logo_html = ""
+    for _lpath in ["logo.png", "logo2.png", "assets/logo.png", "images/logo.png"]:
         if _osl.path.exists(_lpath):
             with open(_lpath, "rb") as _lf:
-                _logo2_b64 = _b64l.b64encode(_lf.read()).decode()
-            _logo2_html = f'<img src="data:image/png;base64,{_logo2_b64}" style="max-width:500px;width:100%;margin:0 auto 28px;display:block;filter:drop-shadow(0 4px 24px rgba(212,175,55,0.3));">'
+                _logo_b64 = _b64l.b64encode(_lf.read()).decode()
+            _logo_html = f'<img src="data:image/png;base64,{_logo_b64}" style="width:750px;max-width:100%;display:block;margin:0 auto 8px;filter:drop-shadow(0 2px 16px rgba(255,255,255,0.08));">'
             break
 
     st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;700;900&display=swap');
 
     [data-testid="stAppViewContainer"] {
-        background:
-            radial-gradient(ellipse at 20% 20%, rgba(212,175,55,0.06) 0%, transparent 60%),
-            radial-gradient(ellipse at 80% 80%, rgba(212,175,55,0.04) 0%, transparent 60%),
-            linear-gradient(160deg, #0a0a0a 0%, #111111 40%, #1a1408 100%) !important;
+        background: #0d0d0d !important;
     }
-    [data-testid="stHeader"]  { display:none !important; }
-    [data-testid="stToolbar"] { display:none !important; }
-    [data-testid="stDecoration"] { display:none !important; }
+    [data-testid="stHeader"]      { display:none !important; }
+    [data-testid="stToolbar"]     { display:none !important; }
+    [data-testid="stDecoration"]  { display:none !important; }
+    .stDeployButton { display:none !important; }
+    #MainMenu { display:none !important; }
+    footer    { display:none !important; }
 
-    /* Líneas decorativas industriales */
+    /* Línea blanca superior */
     [data-testid="stAppViewContainer"]::before {
-        content:''; position:fixed; top:0; left:0; right:0; height:3px;
-        background: linear-gradient(90deg, transparent, #d4af37, #f5d060, #d4af37, transparent);
-        z-index:9999;
-    }
-    [data-testid="stAppViewContainer"]::after {
-        content:''; position:fixed; bottom:0; left:0; right:0; height:1px;
-        background: linear-gradient(90deg, transparent, #d4af37, transparent);
+        content:''; position:fixed; top:0; left:0; right:0; height:1px;
+        background: rgba(255,255,255,0.15);
         z-index:9999;
     }
 
-    .login-outer {
-        max-width: 460px;
-        margin: 5vh auto 0;
-    }
-    .login-card {
-        background: linear-gradient(160deg, #161616 0%, #1c1c1c 60%, #1a1508 100%);
-        border: 1px solid rgba(212,175,55,0.25);
-        border-radius: 4px;
-        padding: 48px 44px 40px;
-        box-shadow:
-            0 0 0 1px rgba(212,175,55,0.05),
-            0 32px 80px rgba(0,0,0,0.8),
-            inset 0 1px 0 rgba(212,175,55,0.1);
-        position: relative;
-        overflow: hidden;
-    }
-    .login-card::before {
-        content:''; position:absolute; top:0; left:0; right:0; height:2px;
-        background: linear-gradient(90deg, transparent, #d4af37, #f5d060, #d4af37, transparent);
-    }
-    .login-card::after {
-        content:''; position:absolute; top:-60px; right:-60px;
-        width:180px; height:180px; border-radius:50%;
-        background: radial-gradient(circle, rgba(212,175,55,0.04) 0%, transparent 70%);
-        pointer-events:none;
-    }
-    .login-corner-tl {
-        position:absolute; top:0; left:0;
-        width:20px; height:20px;
-        border-top:2px solid #d4af37;
-        border-left:2px solid #d4af37;
-    }
-    .login-corner-br {
-        position:absolute; bottom:0; right:0;
-        width:20px; height:20px;
-        border-bottom:2px solid #d4af37;
-        border-right:2px solid #d4af37;
-    }
-    .login-title {
-        text-align:center; color:#d4af37;
-        font-size:1.5rem; font-weight:900;
-        font-family:'Montserrat',sans-serif;
-        letter-spacing:0.12em; text-transform:uppercase;
-        margin-bottom:4px;
-        text-shadow: 0 0 30px rgba(212,175,55,0.4);
-    }
-    .login-sub {
-        text-align:center; color:rgba(212,175,55,0.45);
-        font-size:0.78rem; letter-spacing:0.18em;
-        text-transform:uppercase; margin-bottom:32px;
-        font-family:'Rajdhani',sans-serif;
-    }
+    /* Divisor */
     .login-divider {
-        height:1px; margin:24px 0;
-        background:linear-gradient(90deg, transparent, rgba(212,175,55,0.2), transparent);
-    }
-    .login-label {
-        color:rgba(212,175,55,0.7) !important;
-        font-size:0.75rem !important;
-        letter-spacing:0.1em !important;
-        text-transform:uppercase !important;
-        font-family:'Rajdhani',sans-serif !important;
-        margin-bottom:4px !important;
+        height:1px; margin:20px 0;
+        background: rgba(255,255,255,0.08);
     }
 
-    /* Inputs — fondo oscuro, texto blanco visible */
+    /* Inputs minimalistas */
     div[data-testid="stTextInput"] label {
-        color: rgba(212,175,55,0.75) !important;
-        font-size: 0.75rem !important;
-        letter-spacing: 0.1em !important;
+        color: rgba(255,255,255,0.35) !important;
+        font-size: 0.7rem !important;
+        letter-spacing: 0.12em !important;
         text-transform: uppercase !important;
-        font-family: 'Rajdhani', sans-serif !important;
+        font-family: 'Montserrat', sans-serif !important;
+        font-weight: 400 !important;
     }
     div[data-testid="stTextInput"] > div > div {
-        background: rgba(0,0,0,0.6) !important;
-        border: 1px solid rgba(212,175,55,0.2) !important;
+        background: rgba(255,255,255,0.04) !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
         border-radius: 2px !important;
     }
     div[data-testid="stTextInput"] input {
         background: transparent !important;
-        color: #f0e6c0 !important;
-        font-size: 0.95rem !important;
-        caret-color: #d4af37 !important;
+        color: #ffffff !important;
+        font-size: 0.92rem !important;
+        font-family: 'Montserrat', sans-serif !important;
+        caret-color: #ffffff !important;
     }
     div[data-testid="stTextInput"] input::placeholder {
-        color: rgba(212,175,55,0.25) !important;
+        color: rgba(255,255,255,0.18) !important;
     }
     div[data-testid="stTextInput"] > div > div:focus-within {
-        border-color: #d4af37 !important;
-        box-shadow: 0 0 0 2px rgba(212,175,55,0.15), 0 0 12px rgba(212,175,55,0.1) !important;
+        border-color: rgba(255,255,255,0.4) !important;
+        box-shadow: none !important;
     }
 
-    /* Botón login */
+    /* Botón — blanco sobre negro */
     div[data-testid="stButton"] > button[kind="primary"] {
-        background: linear-gradient(135deg, #b8960c 0%, #d4af37 40%, #f5d060 60%, #d4af37 100%) !important;
-        color: #0a0a0a !important;
+        background: #ffffff !important;
+        color: #0d0d0d !important;
         border: none !important;
         border-radius: 2px !important;
-        font-weight: 900 !important;
-        font-size: 0.88rem !important;
-        letter-spacing: 0.15em !important;
+        font-weight: 700 !important;
+        font-size: 0.78rem !important;
+        letter-spacing: 0.2em !important;
         text-transform: uppercase !important;
         font-family: 'Montserrat', sans-serif !important;
         padding: 0.75rem !important;
-        box-shadow: 0 4px 20px rgba(212,175,55,0.3) !important;
-        transition: all 0.3s ease !important;
+        box-shadow: none !important;
+        transition: background 0.2s ease, color 0.2s ease !important;
     }
     div[data-testid="stButton"] > button[kind="primary"]:hover {
-        box-shadow: 0 6px 30px rgba(212,175,55,0.5) !important;
-        transform: translateY(-1px) !important;
+        background: rgba(255,255,255,0.85) !important;
+        transform: none !important;
+        box-shadow: none !important;
     }
-
-    /* Ocultar toolbar de streamlit */
-    .stDeployButton { display:none !important; }
-    #MainMenu { display:none !important; }
-    footer { display:none !important; }
-
-
     </style>
     """, unsafe_allow_html=True)
 
-    # Logo con CSS forzado a 650px
-    if _logo2_html:
-        _logo_tag = _logo2_html.replace(
-            'max-width:220px;margin:0 auto 24px;display:block;filter:drop-shadow(0 4px 24px rgba(212,175,55,0.3));',
-            'width:750px;max-width:100%;margin:0 auto 8px;display:block;filter:drop-shadow(0 4px 24px rgba(212,175,55,0.3));'
-        )
+    # Logo
+    if _logo_html:
         st.markdown(f"""
         <style>
-        .login-logo-wrap img {{ width: 750px !important; max-width: 100% !important; display:block !important; margin: 0 auto !important; }}
+        .login-logo-wrap img {{ width:750px !important; max-width:100% !important; display:block !important; margin:0 auto !important; }}
         </style>
-        <div class="login-logo-wrap">{_logo_tag}</div>
+        <div class="login-logo-wrap">{_logo_html}</div>
         """, unsafe_allow_html=True)
     else:
-        st.markdown('<div style="text-align:center;margin-bottom:20px;"><span style="font-size:4rem;filter:drop-shadow(0 0 20px rgba(212,175,55,0.5));">🧊</span></div>', unsafe_allow_html=True)
+        st.markdown('<div style="text-align:center;margin-bottom:20px;color:white;font-size:3rem;">🧊</div>', unsafe_allow_html=True)
 
-    st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
     st.markdown('<div class="login-divider"></div>', unsafe_allow_html=True)
-    st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
 
     # Inputs centrados en columna angosta
     _lc, _mc, _rc = st.columns([1.5, 1, 1.5])
@@ -426,8 +354,9 @@ if not st.session_state.auth_user:
 
         st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
         st.markdown("""
-        <div style="text-align:center;color:rgba(212,175,55,0.2);font-size:0.7rem;
-                    letter-spacing:0.15em;text-transform:uppercase;font-family:'Rajdhani',sans-serif;">
+        <div style="text-align:center;color:rgba(255,255,255,0.15);font-size:0.65rem;
+                    letter-spacing:0.2em;text-transform:uppercase;font-family:'Montserrat',sans-serif;
+                    font-weight:300;margin-top:8px;">
             Sistema de gestión · Uso interno
         </div>""", unsafe_allow_html=True)
         # (login-card ya cerrado en el bloque HTML superior)
