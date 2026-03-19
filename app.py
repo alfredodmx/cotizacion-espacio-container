@@ -6677,13 +6677,17 @@ if _mostrar_fab:
     // Click: buscar y clickear el botón oculto de Streamlit en el DOM padre
     b.addEventListener('click', function(){
         var btns = D.querySelectorAll('button');
+        var found = [];
         for(var i=0; i<btns.length; i++){
             var txt=(btns[i].innerText||btns[i].textContent||'').trim();
+            found.push('['+txt+']');
             if(txt==='_FAB_SAVE_' && btns[i].id!=='_fm_b'){
                 btns[i].click();
+                console.log('FAB: clicked _FAB_SAVE_');
                 return;
             }
         }
+        console.log('FAB: no encontrado. Botones:', found.join(', '));
     });
 })();
 </script>
