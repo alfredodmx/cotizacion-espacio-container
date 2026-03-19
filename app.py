@@ -6641,16 +6641,15 @@ if st.session_state.get('recien_cargado', False):
     st.session_state.recien_cargado = False
 
 if _mostrar_fab:
-    # Botón real — oculto visualmente pero accesible para Streamlit
+    # Botón real — invisible pero clickeable en posición fija real
     st.markdown("""<style>
-    div[data-testid="stButton"]:has(> button[kind="secondary"]) {
+    #btn_fab_guardar {
+        opacity: 0 !important;
         position: fixed !important;
-        top: -9999px !important;
-        left: -9999px !important;
-        width: 1px !important;
-        height: 1px !important;
-        overflow: hidden !important;
-        clip: rect(0,0,0,0) !important;
+        bottom: 1.5rem !important;
+        left: 2rem !important;
+        z-index: 1 !important;
+        pointer-events: none !important;
     }
     </style>""", unsafe_allow_html=True)
     if st.button("💾 Guardar", key="btn_fab_guardar", help=None):
@@ -6750,20 +6749,15 @@ if _mostrar_fab:
         btn.appendChild(badge);
 
         btn.onclick = function() {
+            // Habilitar temporalmente pointer-events y clickear
             const buttons = D.querySelectorAll('button');
             for (const b of buttons) {
                 const txt = (b.innerText || b.textContent || '').trim();
-                if (txt === '💾 Guardar' && b.id !== 'fab-guardar-btn' && !b.disabled) {
-                    // Mover temporalmente al viewport para que Streamlit registre el click
-                    const par = b.closest('[data-testid="stButton"]');
-                    if (par) {
-                        const origPos = par.style.cssText;
-                        par.style.cssText = 'position:fixed!important;top:50%!important;left:50%!important;opacity:0!important;';
-                        b.click();
-                        setTimeout(() => { par.style.cssText = origPos; }, 200);
-                    } else {
-                        b.click();
-                    }
+                if (txt === '💾 Guardar' && b.id !== 'fab-guardar-btn') {
+                    const origPE = b.style.pointerEvents;
+                    b.style.pointerEvents = 'auto';
+                    b.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true, view: window.parent}));
+                    b.style.pointerEvents = origPE;
                     return;
                 }
             }
