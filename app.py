@@ -6641,12 +6641,16 @@ if st.session_state.get('recien_cargado', False):
     st.session_state.recien_cargado = False
 
 if _mostrar_fab:
-    # Botón real — visible pero fuera de pantalla para que Streamlit registre el click
+    # Botón real — oculto visualmente pero accesible para Streamlit
     st.markdown("""<style>
-    div[data-testid="stButton"]:has(button[data-testid="baseButton-secondary"]) {
+    div[data-testid="stButton"]:has(> button[kind="secondary"]) {
         position: fixed !important;
-        top: -200px !important;
-        left: -200px !important;
+        top: -9999px !important;
+        left: -9999px !important;
+        width: 1px !important;
+        height: 1px !important;
+        overflow: hidden !important;
+        clip: rect(0,0,0,0) !important;
     }
     </style>""", unsafe_allow_html=True)
     if st.button("💾 Guardar", key="btn_fab_guardar", help=None):
