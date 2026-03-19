@@ -6670,7 +6670,14 @@ if _mostrar_fab:
             # Solo notificar si tiene plano y datos completos (BORRADOR CON PLANO)
             if _tiene_plano_notif and _datos_ok and _asesor_ok:
                 _estado_notif = "🟠 Borrador con plano"
-                notificar_nueva_cotizacion(num_g, _ej_nombre, _cli_nombre, _monto, _estado_notif, _ej_email)
+                # Enviar en hilo separado para no bloquear el rerun
+                import threading as _thr
+                _t = _thr.Thread(
+                    target=notificar_nueva_cotizacion,
+                    args=(num_g, _ej_nombre, _cli_nombre, _monto, _estado_notif, _ej_email),
+                    daemon=True
+                )
+                _t.start()
         except:
             pass
         st.rerun()
