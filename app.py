@@ -1818,7 +1818,7 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
         else:
             estado = "BORRADOR CON PLANO" if tiene_plano else "BORRADOR"
 
-        response = supabase.table('cotizaciones').select('*').eq('numero', numero).execute()
+        response = supabase_admin.table('cotizaciones').select('*').eq('numero', numero).execute()
         existe = len(response.data) > 0
 
         plano_url = None
@@ -1872,7 +1872,7 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
 
         if existe:
             _anterior = response.data[0]
-            response = supabase.table('cotizaciones').update(data).eq('numero', numero).execute()
+            response = supabase_admin.table('cotizaciones').update(data).eq('numero', numero).execute()
             # Registrar log de modificación con diff
             _cambios = _diff_datos(_anterior, data)
             if _cambios:
@@ -1884,7 +1884,7 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
                 )
         else:
             data['fecha_creacion'] = fecha_actual
-            response = supabase.table('cotizaciones').insert(data).execute()
+            response = supabase_admin.table('cotizaciones').insert(data).execute()
             # Registrar log de creación
             registrar_log(
                 numero=numero,
