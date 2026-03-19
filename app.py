@@ -6641,17 +6641,38 @@ if st.session_state.get('recien_cargado', False):
     st.session_state.recien_cargado = False
 
 if _mostrar_fab:
-    # Botón real — invisible pero clickeable en posición fija real
-    st.markdown("""<style>
-    #btn_fab_guardar {
-        opacity: 0 !important;
+    # FAB: botón real Streamlit estilizado como flotante via CSS key-based
+    st.markdown("""
+    <style>
+    @keyframes pulse-fab {
+        0%   { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
+        50%  { box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }
+        100% { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
+    }
+    [data-testid="stButton"]:has(button[data-testid="baseButton-secondary"][kind="secondary"]) {
         position: fixed !important;
         bottom: 1.5rem !important;
         left: 2rem !important;
-        z-index: 1 !important;
-        pointer-events: none !important;
+        z-index: 999999 !important;
+        width: auto !important;
     }
-    </style>""", unsafe_allow_html=True)
+    [data-testid="stButton"] button[data-testid="baseButton-secondary"][kind="secondary"] {
+        background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 50px !important;
+        padding: 0.85rem 1.6rem !important;
+        font-size: 0.95rem !important;
+        font-weight: 700 !important;
+        white-space: nowrap !important;
+        animation: pulse-fab 2s infinite !important;
+    }
+    [data-testid="stButton"] button[data-testid="baseButton-secondary"][kind="secondary"]:hover {
+        transform: translateY(-3px) !important;
+        animation: none !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     if st.button("💾 Guardar", key="btn_fab_guardar", help=None):
         leer_datos_actuales()
         datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
@@ -6692,92 +6713,8 @@ if _mostrar_fab:
             pass
         st.rerun()
 
-    # FAB flotante via components.html — inyecta botón en DOM padre
-    import streamlit.components.v1 as _fab_comp
-    _fab_comp.html("""
-    <script>
-    (function() {
-        const D = window.parent.document;
-        const old = D.getElementById('fab-guardar-wrapper');
-        if (old) old.remove();
-
-        const style = D.getElementById('fab-guardar-style') || D.createElement('style');
-        style.id = 'fab-guardar-style';
-        style.innerHTML = `
-            @keyframes pulse-fab {
-                0%   { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
-                50%  { box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }
-                100% { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
-            }
-            @keyframes blink-badge {
-                0%, 100% { opacity: 1; }
-                50%      { opacity: 0.2; }
-            }
-            #fab-guardar-wrapper {
-                position: fixed !important;
-                bottom: 1.5rem !important;
-                left: 2rem !important;
-                z-index: 999999 !important;
-            }
-            #fab-guardar-btn {
-                background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%);
-                color: white; border: none; border-radius: 50px;
-                padding: 0.85rem 1.6rem; font-size: 0.95rem; font-weight: 700;
-                cursor: pointer; font-family: sans-serif;
-                animation: pulse-fab 2s infinite; white-space: nowrap;
-                position: relative;
-            }
-            #fab-guardar-btn:hover { transform: translateY(-3px); animation: none; }
-            #fab-badge {
-                position: absolute; top: -5px; right: -5px;
-                width: 12px; height: 12px;
-                background: #ef4444; border-radius: 50%; border: 2px solid white;
-                animation: blink-badge 1.5s infinite;
-            }
-        `;
-        if (!D.getElementById('fab-guardar-style')) D.head.appendChild(style);
-
-        const wrapper = D.createElement('div');
-        wrapper.id = 'fab-guardar-wrapper';
-
-        const btn = D.createElement('button');
-        btn.id = 'fab-guardar-btn';
-        btn.innerHTML = '&#128190; Guardar';
-
-        const badge = D.createElement('span');
-        badge.id = 'fab-badge';
-        btn.appendChild(badge);
-
-        btn.onclick = function() {
-            // Habilitar temporalmente pointer-events y clickear
-            const buttons = D.querySelectorAll('button');
-            for (const b of buttons) {
-                const txt = (b.innerText || b.textContent || '').trim();
-                if (txt === '💾 Guardar' && b.id !== 'fab-guardar-btn') {
-                    const origPE = b.style.pointerEvents;
-                    b.style.pointerEvents = 'auto';
-                    b.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true, view: window.parent}));
-                    b.style.pointerEvents = origPE;
-                    return;
-                }
-            }
-        };
-
-        wrapper.appendChild(btn);
-        D.body.appendChild(wrapper);
-    })();
-    </script>
-    """, height=0)
-
 else:
-    import streamlit.components.v1 as _fab_comp2
-    _fab_comp2.html("""<script>
-(function(){
-  var D = window.parent.document;
-  var w = D.getElementById('fab-guardar-wrapper'); if(w) w.remove();
-  var s = D.getElementById('fab-guardar-style');   if(s) s.remove();
-})();
-</script>""", height=0)
+    pass
 
 
 
