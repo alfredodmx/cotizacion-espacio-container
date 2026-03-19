@@ -78,12 +78,9 @@ def logout_usuario():
         pass
     for k in ['auth_user', 'auth_email', 'auth_nombre', 'es_supervisor', 'es_root', 'rol_usuario']:
         st.session_state.pop(k, None)
-    # Borrar token de localStorage
+    # Limpiar query params de sesión
     try:
-        import streamlit.components.v1 as _ck_out
-        _ck_out.html("""<script>
-        localStorage.removeItem('_cph_access_token');
-        </script>""", height=0)
+        st.query_params.clear()
     except:
         pass
 
@@ -188,19 +185,7 @@ if 'es_root'      not in st.session_state: st.session_state.es_root      = False
 if 'rol_usuario'  not in st.session_state: st.session_state.rol_usuario  = "ejecutivo"
 if 'modo_admin'   not in st.session_state: st.session_state.modo_admin   = False
 
-# ── Ejecutar JS de logout si se solicitó ──
-if st.session_state.get('_do_logout_js'):
-    st.session_state.pop('_do_logout_js', None)
-    import streamlit.components.v1 as _lj
-    _lj.html("""<script>
-    localStorage.removeItem('_cph_access_token');
-    var url = new URL(window.parent.location.href);
-    url.searchParams.delete('_sess');
-    window.parent.history.replaceState({}, '', url.toString());
-    </script>""", height=0)
-
-# ── Recuperar sesión desde localStorage via query param ──
-# El JS escribe el token en ?_sess= al cargar, Python lo lee y restaura la sesión
+# ── Recuperar sesión desde query param _sess (sin localStorage) ──
 _sess_token = st.query_params.get("_sess")
 if not st.session_state.auth_user and _sess_token:
     try:
@@ -220,25 +205,6 @@ if not st.session_state.auth_user and _sess_token:
             st.rerun()
     except:
         st.query_params.clear()
-
-# JS que lee localStorage y redirige con ?_sess= si hay token guardado
-if not st.session_state.auth_user:
-    import streamlit.components.v1 as _sess_comp
-    _sess_comp.html("""
-    <script>
-    (function() {
-        var tok = localStorage.getItem('_cph_access_token');
-        if (tok) {
-            var url = new URL(window.parent.location.href);
-            if (!url.searchParams.get('_sess')) {
-                url.searchParams.set('_sess', tok);
-                window.parent.history.replaceState({}, '', url.toString());
-                window.parent.location.reload();
-            }
-        }
-    })();
-    </script>
-    """, height=0)
 
 # =========================================================
 # PANTALLA DE LOGIN — bloquea la app si no hay sesión
@@ -448,17 +414,7 @@ if not st.session_state.auth_user:
                         st.session_state.modo_admin = True
                     st.session_state.pop('resultados_busqueda', None)
                     st.session_state.pop('_usuarios_cache', None)
-                    # Guardar token en localStorage para persistir sesión
-                    try:
-                        _sess = supabase.auth.get_session()
-                        if _sess and _sess.access_token:
-                            _tok_val = _sess.access_token
-                            import streamlit.components.v1 as _ck
-                            _ck.html(f"""<script>
-                            localStorage.setItem('_cph_access_token', '{_tok_val}');
-                            </script>""", height=0)
-                    except:
-                        pass
+                    # Sesión manejada via query params — sin localStorage
                     st.rerun()
                 else:
                     if "Invalid login" in str(err) or "invalid_credentials" in str(err):
@@ -2689,7 +2645,7 @@ with _col_cerrar:
         logout_usuario()
         st.session_state.modo_admin = False
         st.session_state._csv_listo = None
-        st.session_state['_do_logout_js'] = True
+        pass  # logout limpio
         st.rerun()
 
 # =========================================================
@@ -4041,7 +3997,7 @@ with tab2:
     st.markdown("""
     <style>
     .hdr2 {
-        background: linear-gradient(135deg, #000000 0%, #5b0d7a 100%);
+        background: linear-gradient(135deg, #2d0d66 0%, #5b0d7a 100%);
         border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
         display: flex; align-items: center; gap: 22px;
         box-shadow: 0 8px 32px rgba(91,13,122,0.25);
@@ -4401,7 +4357,7 @@ with tab1:
     st.markdown("""
     <style>
     .hdr1 {
-        background: linear-gradient(135deg, #000000 0%, #0d47a1 100%);
+        background: linear-gradient(135deg, #0d2266 0%, #0d47a1 100%);
         border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
         display: flex; align-items: center; gap: 22px;
         box-shadow: 0 8px 32px rgba(37,99,235,0.25);
@@ -4825,7 +4781,7 @@ with tab3:
     st.markdown("""
     <style>
     .hdr3 {
-        background: linear-gradient(135deg, #000000 0%, #e65100 100%);
+        background: linear-gradient(135deg, #6b4e00 0%, #e65100 100%);
         border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
         display: flex; align-items: center; gap: 22px;
         box-shadow: 0 8px 32px rgba(230,81,0,0.25);
@@ -5374,7 +5330,7 @@ with tab4:
     st.markdown("""
     <style>
     .hdr4 {
-        background: linear-gradient(135deg, #000000 0%, #006978 100%);
+        background: linear-gradient(135deg, #003d52 0%, #006978 100%);
         border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
         display: flex; align-items: center; gap: 22px;
         box-shadow: 0 8px 32px rgba(0,105,120,0.25);
@@ -6767,7 +6723,7 @@ with tab_dash:
     st.markdown("""
     <style>
     .dash-hdr {
-        background: linear-gradient(135deg, #000000 0%, #1e3a5f 50%, #2563eb 100%);
+        background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #2563eb 100%);
         border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
         display: flex; align-items: center; gap: 22px;
         box-shadow: 0 8px 32px rgba(37,99,235,0.25);
@@ -7273,7 +7229,7 @@ if tab6 is not None:
         st.markdown("""
         <style>
         .hdr6 {
-            background: linear-gradient(135deg, #000000 0%, #dc2626 100%);
+            background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%);
             border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
             display: flex; align-items: center; gap: 22px;
             box-shadow: 0 8px 32px rgba(220,38,38,0.25);
@@ -7446,7 +7402,7 @@ if tab7 is not None:
         st.markdown("""
         <style>
         .hdr7 {
-            background: linear-gradient(135deg, #000000 0%, #d97706 100%);
+            background: linear-gradient(135deg, #78350f 0%, #d97706 100%);
             border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
             display: flex; align-items: center; gap: 22px;
             box-shadow: 0 8px 32px rgba(217,119,6,0.25);
@@ -7691,7 +7647,7 @@ with tab_contrato:
     st.markdown("""
     <style>
     .hdr-contrato {
-        background: linear-gradient(135deg, #000000 0%, #23499d 60%, #0b61ff 100%);
+        background: linear-gradient(135deg, #0f3460 0%, #16213e 60%, #1a1a2e 100%);
         border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
         display: flex; align-items: center; gap: 22px;
         box-shadow: 0 8px 32px rgba(15,52,96,0.3);
