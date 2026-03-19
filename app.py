@@ -865,25 +865,6 @@ if st.query_params.get("_fabg") == "1":
     st.session_state['_trigger_guardar_fab'] = True
 # ────────────────────────────────────────────────────────
 
-# ── Ejecutar guardado si fue disparado por el FAB ────────
-if st.session_state.get('_trigger_guardar_fab'):
-    st.session_state['_trigger_guardar_fab'] = False
-    try:
-        leer_datos_actuales()
-        _datos_c, _datos_a, _proy, _cfg, _tots, _pl_n, _pl_d = construir_datos_para_guardar()
-        _num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
-        guardar_cotizacion(_num_g, _datos_c, _datos_a, _proy,
-                           st.session_state.carrito, _cfg, _tots, _pl_n, _pl_d)
-        st.session_state.cotizacion_cargada = _num_g
-        st.session_state.hash_ultimo_guardado = calcular_hash_estado()
-        st.session_state.recien_guardado = True
-        st.session_state.mostrar_toast_exito = True
-        st.session_state.toast_numero_ep = _num_g
-        st.session_state.resultados_busqueda = None
-    except Exception as _ef:
-        st.error(f"❌ Error al guardar: {_ef}")
-# ─────────────────────────────────────────────────────────
-
 if 'counter' not in st.session_state:
     st.session_state.counter = 0
 if 'cargar_cotizacion_trigger' not in st.session_state:
@@ -6660,16 +6641,12 @@ if st.session_state.get('recien_cargado', False):
     st.session_state.recien_cargado = False
 
 if _mostrar_fab:
-    # Botón real de Streamlit oculto — el FAB JS lo clickea
+    # Botón real — visible pero fuera de pantalla para que Streamlit registre el click
     st.markdown("""<style>
-    /* Mover botón real fuera de vista sin usar display:none */
-    div[data-testid="stButton"]:has(button[aria-label="btn_fab_guardar"]),
-    div:has(> div > button[data-testid="baseButton-secondary"]:only-child) {
+    div[data-testid="stButton"]:has(button[data-testid="baseButton-secondary"]) {
         position: fixed !important;
-        top: -9999px !important;
-        left: -9999px !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
+        top: -200px !important;
+        left: -200px !important;
     }
     </style>""", unsafe_allow_html=True)
     if st.button("💾 Guardar", key="btn_fab_guardar", help=None):
@@ -6712,17 +6689,16 @@ if _mostrar_fab:
             pass
         st.rerun()
 
-    # FAB JS: botón flotante en DOM padre que clickea el botón real oculto
+    # FAB flotante via components.html — inyecta botón en DOM padre
     import streamlit.components.v1 as _fab_comp
     _fab_comp.html("""
     <script>
     (function() {
-        const parent = window.parent.document;
-
-        const old = parent.getElementById('fab-guardar-wrapper');
+        const D = window.parent.document;
+        const old = D.getElementById('fab-guardar-wrapper');
         if (old) old.remove();
 
-        const style = parent.getElementById('fab-guardar-style') || parent.createElement('style');
+        const style = D.getElementById('fab-guardar-style') || D.createElement('style');
         style.id = 'fab-guardar-style';
         style.innerHTML = `
             @keyframes pulse-fab {
@@ -6756,47 +6732,41 @@ if _mostrar_fab:
                 animation: blink-badge 1.5s infinite;
             }
         `;
-        if (!parent.getElementById('fab-guardar-style')) parent.head.appendChild(style);
+        if (!D.getElementById('fab-guardar-style')) D.head.appendChild(style);
 
-        const wrapper = parent.createElement('div');
+        const wrapper = D.createElement('div');
         wrapper.id = 'fab-guardar-wrapper';
 
-        const btn = parent.createElement('button');
+        const btn = D.createElement('button');
         btn.id = 'fab-guardar-btn';
         btn.innerHTML = '&#128190; Guardar';
 
-        const badge = parent.createElement('span');
+        const badge = D.createElement('span');
         badge.id = 'fab-badge';
         btn.appendChild(badge);
 
-        // Ocultar botón real de Streamlit (trigger interno)
-        function hideRealBtn() {
-            const buttons = parent.querySelectorAll('button');
+        btn.onclick = function() {
+            const buttons = D.querySelectorAll('button');
             for (const b of buttons) {
                 const txt = (b.innerText || b.textContent || '').trim();
-                if (txt === '💾 Guardar' && b.id !== 'fab-guardar-btn') {
-                    b.parentElement.style.setProperty('display','none','important');
-                    b.parentElement.parentElement.style.setProperty('display','none','important');
-                }
-            }
-        }
-        hideRealBtn();
-        setTimeout(hideRealBtn, 300);
-        setTimeout(hideRealBtn, 800);
-
-        btn.onclick = function() {
-            var D = window.parent.document;
-            var allBtns = D.querySelectorAll('button');
-            for (var i = 0; i < allBtns.length; i++) {
-                var txt = (allBtns[i].innerText || allBtns[i].textContent || '').trim();
-                if (txt === '💾 Guardar' && allBtns[i].id !== 'fab-guardar-btn') {
-                    allBtns[i].click();
+                if (txt === '💾 Guardar' && b.id !== 'fab-guardar-btn' && !b.disabled) {
+                    // Mover temporalmente al viewport para que Streamlit registre el click
+                    const par = b.closest('[data-testid="stButton"]');
+                    if (par) {
+                        const origPos = par.style.cssText;
+                        par.style.cssText = 'position:fixed!important;top:50%!important;left:50%!important;opacity:0!important;';
+                        b.click();
+                        setTimeout(() => { par.style.cssText = origPos; }, 200);
+                    } else {
+                        b.click();
+                    }
                     return;
                 }
             }
         };
+
         wrapper.appendChild(btn);
-        parent.body.appendChild(wrapper);
+        D.body.appendChild(wrapper);
     })();
     </script>
     """, height=0)
@@ -6805,9 +6775,9 @@ else:
     import streamlit.components.v1 as _fab_comp2
     _fab_comp2.html("""<script>
 (function(){
-  var D=window.parent.document;
-  var w=D.getElementById('fab-guardar-wrapper'); if(w) w.remove();
-  var s=D.getElementById('fab-guardar-style'); if(s) s.remove();
+  var D = window.parent.document;
+  var w = D.getElementById('fab-guardar-wrapper'); if(w) w.remove();
+  var s = D.getElementById('fab-guardar-style');   if(s) s.remove();
 })();
 </script>""", height=0)
 
