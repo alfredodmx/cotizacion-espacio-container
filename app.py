@@ -210,10 +210,10 @@ if not st.session_state.auth_user and _sess_token:
 # PANTALLA DE LOGIN — bloquea la app si no hay sesión
 # =========================================================
 if not st.session_state.auth_user:
-    # Cargar logo.png (o logo2.png como fallback)
+    # Cargar logo3.png
     import base64 as _b64l, os as _osl
     _logo_html = ""
-    for _lpath in ["logo3.png", "logo.png", "logo2.png", "assets/logo3.png"]:
+    for _lpath in ["logo3.png", "assets/logo3.png", "images/logo3.png"]:
         if _osl.path.exists(_lpath):
             with open(_lpath, "rb") as _lf:
                 _logo_b64 = _b64l.b64encode(_lf.read()).decode()
@@ -247,28 +247,32 @@ if not st.session_state.auth_user:
         background: rgba(255,255,255,0.08);
     }
 
-    /* Inputs glossy */
-    div[data-testid="stTextInput"] label {
-        color: rgba(255,255,255,0.45) !important;
-        font-size: 0.7rem !important;
-        letter-spacing: 0.12em !important;
+    /* Labels */
+    div[data-testid="stTextInput"] label,
+    div[data-testid="stTextInput"] label p {
+        color: rgba(255,255,255,0.4) !important;
+        font-size: 0.68rem !important;
+        letter-spacing: 0.14em !important;
         text-transform: uppercase !important;
         font-family: 'Montserrat', sans-serif !important;
         font-weight: 400 !important;
     }
+    /* Contenedor input — negro glossy */
+    div[data-testid="stTextInput"] > div,
+    div[data-testid="stTextInput"] > div > div,
+    div[data-testid="stTextInput"] > div > div > div {
+        background: #0a0a0a !important;
+        border-color: rgba(255,255,255,0.15) !important;
+        border-radius: 6px !important;
+    }
     div[data-testid="stTextInput"] > div > div {
-        background: linear-gradient(180deg,
-            rgba(255,255,255,0.10) 0%,
-            rgba(255,255,255,0.04) 100%) !important;
-        border: 1px solid rgba(255,255,255,0.22) !important;
-        border-top: 1px solid rgba(255,255,255,0.35) !important;
+        background: linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%) !important;
+        border: 1px solid rgba(255,255,255,0.18) !important;
         border-radius: 6px !important;
         box-shadow:
-            inset 0 1px 0 rgba(255,255,255,0.12),
-            inset 0 -1px 0 rgba(0,0,0,0.3),
-            0 2px 8px rgba(0,0,0,0.4) !important;
-        backdrop-filter: blur(8px) !important;
-        transition: all 0.25s ease !important;
+            inset 0 2px 4px rgba(0,0,0,0.8),
+            inset 0 1px 0 rgba(255,255,255,0.05),
+            0 1px 0 rgba(255,255,255,0.08) !important;
     }
     div[data-testid="stTextInput"] input {
         background: transparent !important;
@@ -278,53 +282,50 @@ if not st.session_state.auth_user:
         caret-color: #ffffff !important;
     }
     div[data-testid="stTextInput"] input::placeholder {
-        color: rgba(255,255,255,0.2) !important;
+        color: rgba(255,255,255,0.18) !important;
     }
     div[data-testid="stTextInput"] > div > div:focus-within {
-        border-color: rgba(255,255,255,0.6) !important;
-        border-top-color: rgba(255,255,255,0.8) !important;
+        border-color: rgba(255,255,255,0.45) !important;
         box-shadow:
-            inset 0 1px 0 rgba(255,255,255,0.2),
-            inset 0 -1px 0 rgba(0,0,0,0.3),
-            0 0 0 1px rgba(255,255,255,0.1),
-            0 4px 16px rgba(0,0,0,0.5) !important;
+            inset 0 2px 4px rgba(0,0,0,0.8),
+            0 0 0 1px rgba(255,255,255,0.12),
+            0 0 12px rgba(255,255,255,0.05) !important;
     }
 
-    /* Botón glossy */
+    /* Botón negro glossy con texto blanco */
+    div[data-testid="stButton"] > button,
     div[data-testid="stButton"] > button[kind="primary"] {
-        background: linear-gradient(180deg,
-            rgba(255,255,255,0.95) 0%,
-            rgba(220,220,220,0.90) 50%,
-            rgba(255,255,255,0.95) 100%) !important;
-        color: #0d0d0d !important;
-        border: 1px solid rgba(255,255,255,0.6) !important;
-        border-bottom: 1px solid rgba(180,180,180,0.4) !important;
+        background: linear-gradient(180deg, #2a2a2a 0%, #111111 60%, #1a1a1a 100%) !important;
+        color: #ffffff !important;
+        border: 1px solid rgba(255,255,255,0.2) !important;
+        border-top: 1px solid rgba(255,255,255,0.3) !important;
         border-radius: 6px !important;
-        font-weight: 700 !important;
-        font-size: 0.78rem !important;
-        letter-spacing: 0.2em !important;
+        font-weight: 600 !important;
+        font-size: 0.75rem !important;
+        letter-spacing: 0.22em !important;
         text-transform: uppercase !important;
         font-family: 'Montserrat', sans-serif !important;
         padding: 0.75rem !important;
         box-shadow:
-            inset 0 1px 0 rgba(255,255,255,1),
-            inset 0 -1px 0 rgba(0,0,0,0.1),
-            0 4px 16px rgba(0,0,0,0.5) !important;
+            inset 0 1px 0 rgba(255,255,255,0.1),
+            inset 0 -1px 0 rgba(0,0,0,0.5),
+            0 4px 16px rgba(0,0,0,0.6) !important;
         transition: all 0.2s ease !important;
     }
+    div[data-testid="stButton"] > button:hover,
     div[data-testid="stButton"] > button[kind="primary"]:hover {
-        background: linear-gradient(180deg,
-            rgba(255,255,255,1) 0%,
-            rgba(235,235,235,0.95) 50%,
-            rgba(255,255,255,1) 100%) !important;
+        background: linear-gradient(180deg, #333333 0%, #1a1a1a 60%, #222222 100%) !important;
+        border-color: rgba(255,255,255,0.35) !important;
         box-shadow:
-            inset 0 1px 0 rgba(255,255,255,1),
-            0 6px 24px rgba(0,0,0,0.6) !important;
+            inset 0 1px 0 rgba(255,255,255,0.15),
+            0 6px 24px rgba(0,0,0,0.7) !important;
         transform: translateY(-1px) !important;
+        color: #ffffff !important;
     }
+    div[data-testid="stButton"] > button:active,
     div[data-testid="stButton"] > button[kind="primary"]:active {
-        transform: translateY(0px) !important;
-        box-shadow: inset 0 2px 4px rgba(0,0,0,0.2) !important;
+        transform: translateY(0) !important;
+        box-shadow: inset 0 2px 6px rgba(0,0,0,0.8) !important;
     }
     </style>
     """, unsafe_allow_html=True)
