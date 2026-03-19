@@ -6641,7 +6641,7 @@ if st.session_state.get('recien_cargado', False):
     st.session_state.recien_cargado = False
 
 if _mostrar_fab:
-    # FAB: botón real Streamlit estilizado como flotante via CSS key-based
+    # Inyectar CSS FAB globalmente (fuera del flujo normal)
     st.markdown("""
     <style>
     @keyframes pulse-fab {
@@ -6649,14 +6649,14 @@ if _mostrar_fab:
         50%  { box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }
         100% { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
     }
-    [data-testid="stButton"]:has(button[data-testid="baseButton-secondary"][kind="secondary"]) {
+    .fab-guardar-wrap {
         position: fixed !important;
         bottom: 1.5rem !important;
         left: 2rem !important;
         z-index: 999999 !important;
         width: auto !important;
     }
-    [data-testid="stButton"] button[data-testid="baseButton-secondary"][kind="secondary"] {
+    .fab-guardar-wrap button {
         background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%) !important;
         color: white !important;
         border: none !important;
@@ -6666,52 +6666,56 @@ if _mostrar_fab:
         font-weight: 700 !important;
         white-space: nowrap !important;
         animation: pulse-fab 2s infinite !important;
+        cursor: pointer !important;
     }
-    [data-testid="stButton"] button[data-testid="baseButton-secondary"][kind="secondary"]:hover {
+    .fab-guardar-wrap button:hover {
         transform: translateY(-3px) !important;
         animation: none !important;
+        box-shadow: 0 12px 40px rgba(91,124,250,0.8) !important;
     }
     </style>
     """, unsafe_allow_html=True)
-    if st.button("💾 Guardar", key="btn_fab_guardar", help=None):
-        leer_datos_actuales()
-        datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
-        num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
-        guardar_cotizacion(num_g, datos_c, datos_a, proy,
-                           st.session_state.carrito, cfg, tots, pl_n, pl_d)
-        st.session_state.cotizacion_cargada = num_g
-        st.session_state.hash_ultimo_guardado = calcular_hash_estado()
-        st.session_state.recien_guardado = True
-        st.session_state.mostrar_toast_exito = True
-        st.session_state.toast_numero_ep = num_g
-        st.session_state.resultados_busqueda = None
+    # Envolver el botón en un div con clase fab-guardar-wrap
+    with st.container():
+        st.markdown('<div class="fab-guardar-wrap">', unsafe_allow_html=True)
+        if st.button("💾 Guardar", key="btn_fab_guardar", help=None):
+            leer_datos_actuales()
+            datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
+            num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
+            guardar_cotizacion(num_g, datos_c, datos_a, proy,
+                               st.session_state.carrito, cfg, tots, pl_n, pl_d)
+            st.session_state.cotizacion_cargada = num_g
+            st.session_state.hash_ultimo_guardado = calcular_hash_estado()
+            st.session_state.recien_guardado = True
+            st.session_state.mostrar_toast_exito = True
+            st.session_state.toast_numero_ep = num_g
+            st.session_state.resultados_busqueda = None
         # Notificar solo cuando hay plano adjunto (BORRADOR CON PLANO = lista para revisar)
-        try:
-            _ej_email  = st.session_state.get('auth_email', '')
-            _ej_nombre = st.session_state.get('auth_nombre', st.session_state.asesor_seleccionado)
-            _cli_nombre= st.session_state.get('nombre_input', '')
-            _monto     = tots.get('total', 0) if tots else 0
-            _tiene_plano_notif = bool(
-                st.session_state.get('plano_adjunto') or
-                st.session_state.get('pdf_url') or
-                st.session_state.get('plano_nombre')
-            )
-            _datos_ok  = bool(_cli_nombre and st.session_state.get('correo_input'))
-            _asesor_ok = bool(st.session_state.get('asesor_seleccionado','') != 'Seleccionar asesor')
-            # Solo notificar si tiene plano y datos completos (BORRADOR CON PLANO)
-            if _tiene_plano_notif and _datos_ok and _asesor_ok:
-                _estado_notif = "🟠 Borrador con plano"
-                # Enviar en hilo separado para no bloquear el rerun
-                import threading as _thr
-                _t = _thr.Thread(
-                    target=notificar_nueva_cotizacion,
-                    args=(num_g, _ej_nombre, _cli_nombre, _monto, _estado_notif, _ej_email),
-                    daemon=True
+            try:
+                _ej_email  = st.session_state.get('auth_email', '')
+                _ej_nombre = st.session_state.get('auth_nombre', st.session_state.asesor_seleccionado)
+                _cli_nombre= st.session_state.get('nombre_input', '')
+                _monto     = tots.get('total', 0) if tots else 0
+                _tiene_plano_notif = bool(
+                    st.session_state.get('plano_adjunto') or
+                    st.session_state.get('pdf_url') or
+                    st.session_state.get('plano_nombre')
                 )
-                _t.start()
-        except:
-            pass
-        st.rerun()
+                _datos_ok  = bool(_cli_nombre and st.session_state.get('correo_input'))
+                _asesor_ok = bool(st.session_state.get('asesor_seleccionado','') != 'Seleccionar asesor')
+                if _tiene_plano_notif and _datos_ok and _asesor_ok:
+                    _estado_notif = "🟠 Borrador con plano"
+                    import threading as _thr
+                    _t = _thr.Thread(
+                        target=notificar_nueva_cotizacion,
+                        args=(num_g, _ej_nombre, _cli_nombre, _monto, _estado_notif, _ej_email),
+                        daemon=True
+                    )
+                    _t.start()
+            except:
+                pass
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
 else:
     pass
