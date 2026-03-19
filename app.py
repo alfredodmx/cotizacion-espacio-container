@@ -865,6 +865,25 @@ if st.query_params.get("_fabg") == "1":
     st.session_state['_trigger_guardar_fab'] = True
 # ────────────────────────────────────────────────────────
 
+# ── Ejecutar guardado si fue disparado por el FAB ────────
+if st.session_state.get('_trigger_guardar_fab'):
+    st.session_state['_trigger_guardar_fab'] = False
+    try:
+        leer_datos_actuales()
+        _datos_c, _datos_a, _proy, _cfg, _tots, _pl_n, _pl_d = construir_datos_para_guardar()
+        _num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
+        guardar_cotizacion(_num_g, _datos_c, _datos_a, _proy,
+                           st.session_state.carrito, _cfg, _tots, _pl_n, _pl_d)
+        st.session_state.cotizacion_cargada = _num_g
+        st.session_state.hash_ultimo_guardado = calcular_hash_estado()
+        st.session_state.recien_guardado = True
+        st.session_state.mostrar_toast_exito = True
+        st.session_state.toast_numero_ep = _num_g
+        st.session_state.resultados_busqueda = None
+    except Exception as _ef:
+        st.error(f"❌ Error al guardar: {_ef}")
+# ─────────────────────────────────────────────────────────
+
 if 'counter' not in st.session_state:
     st.session_state.counter = 0
 if 'cargar_cotizacion_trigger' not in st.session_state:
@@ -6759,26 +6778,10 @@ if _mostrar_fab:
         setTimeout(hideRealBtn, 800);
 
         btn.onclick = function() {
-            try {
-                var allBtns = parent.querySelectorAll('button');
-                var found = [];
-                for (var i = 0; i < allBtns.length; i++) {
-                    var txt = (allBtns[i].innerText || allBtns[i].textContent || '').trim();
-                    found.push(txt);
-                    if (txt === '💾 Guardar' && allBtns[i].id !== 'fab-guardar-btn') {
-                        var el = allBtns[i];
-                        while (el && el !== parent.body) {
-                            el.style.removeProperty('display');
-                            el = el.parentElement;
-                        }
-                        allBtns[i].style.setProperty('visibility','hidden','important');
-                        allBtns[i].click();
-                        console.log('FAB: botón clickeado');
-                        return;
-                    }
-                }
-                console.log('FAB: botón NO encontrado. Botones en DOM:', found.join(' | '));
-            } catch(e) { console.log('FAB error:', e); }
+            // Usar query param para comunicar acción a Python
+            var url = new URL(window.parent.location.href);
+            url.searchParams.set('_fabg', '1');
+            window.parent.location.href = url.toString();
         };
         wrapper.appendChild(btn);
         parent.body.appendChild(wrapper);
