@@ -8621,11 +8621,22 @@ if tab_notif is not None and st.session_state.get('es_supervisor'):
             with _cb1:
                 if st.button("🔌 Probar", key="btn_probar_bot", use_container_width=True):
                     with st.spinner("Probando..."):
-                        _ok = _enviar_telegram("me", "✅ Bot conectado correctamente", _token_inp)
-                    if _ok:
-                        st.success("✅ Bot activo")
+                        try:
+                            import requests as _rtest
+                            _r = _rtest.get(
+                                f"https://api.telegram.org/bot{_token_inp}/getMe",
+                                timeout=10
+                            )
+                            _rdata = _r.json()
+                            _bot_ok = _rdata.get('ok', False)
+                        except Exception as _re:
+                            _bot_ok = False
+                            _rdata = {}
+                    if _bot_ok:
+                        _bname = _rdata.get('result', {}).get('username', '')
+                        st.success(f"✅ Bot activo: @{_bname}")
                     else:
-                        st.error("❌ Error de conexión")
+                        st.error("❌ Token inválido o sin conexión")
             with _cb2:
                 if st.button("💾 Guardar", key="btn_guardar_bot", use_container_width=True, type="primary"):
                     _set_notif_config('bot_token', _token_inp)
