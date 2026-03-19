@@ -6759,28 +6759,24 @@ if _mostrar_fab:
         setTimeout(hideRealBtn, 800);
 
         btn.onclick = function() {
-            // Buscar por key específico del botón real
-            var allBtns = parent.querySelectorAll('button');
-            var target = null;
-            for (var i = 0; i < allBtns.length; i++) {
-                var b = allBtns[i];
-                var txt = (b.innerText || b.textContent || '').trim();
-                if (txt === '💾 Guardar' && b.id !== 'fab-guardar-btn') {
-                    target = b; break;
+            try {
+                var allBtns = parent.querySelectorAll('button');
+                for (var i = 0; i < allBtns.length; i++) {
+                    var b = allBtns[i];
+                    var txt = (b.innerText || b.textContent || '').trim();
+                    if (txt === '💾 Guardar' && b.id !== 'fab-guardar-btn') {
+                        // Escalar árbol hasta encontrar el contenedor visible
+                        var el = b;
+                        while (el && el !== parent.body) {
+                            el.style.removeProperty('display');
+                            el = el.parentElement;
+                        }
+                        b.style.setProperty('visibility','hidden','important');
+                        b.click();
+                        break;
+                    }
                 }
-            }
-            if (!target) return;
-            // Hacer visible temporalmente para clickear
-            var par1 = target.parentElement;
-            var par2 = par1 ? par1.parentElement : null;
-            target.style.setProperty('visibility','hidden','important');
-            if (par1) par1.style.removeProperty('display');
-            if (par2) par2.style.removeProperty('display');
-            target.dispatchEvent(new MouseEvent('click', {bubbles:true, cancelable:true}));
-            setTimeout(function() {
-                if (par1) par1.style.setProperty('display','none','important');
-                if (par2) par2.style.setProperty('display','none','important');
-            }, 100);
+            } catch(e) { console.log('FAB error:', e); }
         };
         wrapper.appendChild(btn);
         parent.body.appendChild(wrapper);
