@@ -3607,7 +3607,8 @@ elif _rol_actual == 'admin':
     tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_usuarios = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "👥 USUARIOS"])
     tab_salud = None
 else:
-    tab_dash, tab1, tab2, tab3, tab7, tab_contrato, tab4 = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA"])
+    tab1, tab2, tab3, tab7, tab_contrato, tab4 = st.tabs(["📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA"])
+    tab_dash = None
     tab_salud = None
     tab5 = None
     tab6 = None
@@ -6719,7 +6720,8 @@ else:
 # =========================================================
 # TAB DASHBOARD — visible para todos
 # =========================================================
-with tab_dash:
+if tab_dash is not None:
+ with tab_dash:
     st.markdown("""
     <style>
     .dash-hdr {
