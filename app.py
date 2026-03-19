@@ -6761,21 +6761,23 @@ if _mostrar_fab:
         btn.onclick = function() {
             try {
                 var allBtns = parent.querySelectorAll('button');
+                var found = [];
                 for (var i = 0; i < allBtns.length; i++) {
-                    var b = allBtns[i];
-                    var txt = (b.innerText || b.textContent || '').trim();
-                    if (txt === '💾 Guardar' && b.id !== 'fab-guardar-btn') {
-                        // Escalar árbol hasta encontrar el contenedor visible
-                        var el = b;
+                    var txt = (allBtns[i].innerText || allBtns[i].textContent || '').trim();
+                    found.push(txt);
+                    if (txt === '💾 Guardar' && allBtns[i].id !== 'fab-guardar-btn') {
+                        var el = allBtns[i];
                         while (el && el !== parent.body) {
                             el.style.removeProperty('display');
                             el = el.parentElement;
                         }
-                        b.style.setProperty('visibility','hidden','important');
-                        b.click();
-                        break;
+                        allBtns[i].style.setProperty('visibility','hidden','important');
+                        allBtns[i].click();
+                        console.log('FAB: botón clickeado');
+                        return;
                     }
                 }
+                console.log('FAB: botón NO encontrado. Botones en DOM:', found.join(' | '));
             } catch(e) { console.log('FAB error:', e); }
         };
         wrapper.appendChild(btn);
