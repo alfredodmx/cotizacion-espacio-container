@@ -6641,84 +6641,89 @@ if st.session_state.get('recien_cargado', False):
     st.session_state.recien_cargado = False
 
 if _mostrar_fab:
-    # Inyectar CSS FAB globalmente (fuera del flujo normal)
-    st.markdown("""
-    <style>
-    @keyframes pulse-fab {
-        0%   { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
-        50%  { box-shadow: 0 8px 40px rgba(91,124,250,0.9), 0 0 0 12px rgba(91,124,250,0.15); }
-        100% { box-shadow: 0 8px 24px rgba(91,124,250,0.5); }
-    }
-    .fab-guardar-wrap {
-        position: fixed !important;
-        bottom: 1.5rem !important;
-        left: 2rem !important;
-        z-index: 999999 !important;
-        width: auto !important;
-    }
-    .fab-guardar-wrap button {
-        background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%) !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 50px !important;
-        padding: 0.85rem 1.6rem !important;
-        font-size: 0.95rem !important;
-        font-weight: 700 !important;
-        white-space: nowrap !important;
-        animation: pulse-fab 2s infinite !important;
-        cursor: pointer !important;
-    }
-    .fab-guardar-wrap button:hover {
-        transform: translateY(-3px) !important;
-        animation: none !important;
-        box-shadow: 0 12px 40px rgba(91,124,250,0.8) !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    # Envolver el botón en un div con clase fab-guardar-wrap
-    with st.container():
-        st.markdown('<div class="fab-guardar-wrap">', unsafe_allow_html=True)
-        if st.button("💾 Guardar", key="btn_fab_guardar", help=None):
-            leer_datos_actuales()
-            datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
-            num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
-            guardar_cotizacion(num_g, datos_c, datos_a, proy,
-                               st.session_state.carrito, cfg, tots, pl_n, pl_d)
-            st.session_state.cotizacion_cargada = num_g
-            st.session_state.hash_ultimo_guardado = calcular_hash_estado()
-            st.session_state.recien_guardado = True
-            st.session_state.mostrar_toast_exito = True
-            st.session_state.toast_numero_ep = num_g
-            st.session_state.resultados_busqueda = None
-        # Notificar solo cuando hay plano adjunto (BORRADOR CON PLANO = lista para revisar)
-            try:
-                _ej_email  = st.session_state.get('auth_email', '')
-                _ej_nombre = st.session_state.get('auth_nombre', st.session_state.asesor_seleccionado)
-                _cli_nombre= st.session_state.get('nombre_input', '')
-                _monto     = tots.get('total', 0) if tots else 0
-                _tiene_plano_notif = bool(
-                    st.session_state.get('plano_adjunto') or
-                    st.session_state.get('pdf_url') or
-                    st.session_state.get('plano_nombre')
-                )
-                _datos_ok  = bool(_cli_nombre and st.session_state.get('correo_input'))
-                _asesor_ok = bool(st.session_state.get('asesor_seleccionado','') != 'Seleccionar asesor')
-                if _tiene_plano_notif and _datos_ok and _asesor_ok:
-                    _estado_notif = "🟠 Borrador con plano"
-                    import threading as _thr
-                    _t = _thr.Thread(
-                        target=notificar_nueva_cotizacion,
-                        args=(num_g, _ej_nombre, _cli_nombre, _monto, _estado_notif, _ej_email),
-                        daemon=True
-                    )
-                    _t.start()
-            except:
-                pass
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+    # ── Trigger desde FAB via query_params ──
+    import streamlit.components.v1 as _fab_comp
+    _fab_comp.html("""
+<script>
+(function(){
+    var D = window.parent.document;
+    ['_fm_s','_fm_b','_fm_p'].forEach(function(id){
+        var e=D.getElementById(id); if(e) e.remove();
+    });
+    var s = D.createElement('style'); s.id='_fm_s';
+    s.innerHTML=[
+        '@keyframes pfab{0%{box-shadow:0 8px 24px rgba(91,124,250,0.5);}50%{box-shadow:0 8px 40px rgba(91,124,250,0.9),0 0 0 12px rgba(91,124,250,0.15);}100%{box-shadow:0 8px 24px rgba(91,124,250,0.5);}}',
+        '@keyframes blnk{0%,100%{opacity:1;}50%{opacity:0.2;}}',
+        '#_fm_p{position:fixed!important;bottom:1.5rem!important;left:2rem!important;z-index:999999!important;}',
+        '#_fm_b{background:linear-gradient(135deg,#5b7cfa,#8b5cf6);color:#fff;border:none;border-radius:50px;',
+        'padding:0.85rem 1.6rem;font-size:0.95rem;font-weight:700;cursor:pointer;',
+        'font-family:sans-serif;white-space:nowrap;position:relative;animation:pfab 2s infinite;}',
+        '#_fm_b:hover{transform:translateY(-3px);animation:none;}',
+        '#_fm_badge{position:absolute;top:-5px;right:-5px;width:12px;height:12px;',
+        'background:#ef4444;border-radius:50%;border:2px solid #fff;animation:blnk 1.5s infinite;}'
+    ].join('');
+    D.head.appendChild(s);
+    var p=D.createElement('div'); p.id='_fm_p';
+    var b=D.createElement('button'); b.id='_fm_b'; b.innerHTML='&#128190; Guardar';
+    var badge=D.createElement('span'); badge.id='_fm_badge';
+    b.appendChild(badge); p.appendChild(b); D.body.appendChild(p);
+    b.addEventListener('click',function(){
+        var url=new URL(D.location.href);
+        url.searchParams.set('_fabg','1');
+        D.location.href=url.toString();
+    });
+})();
+</script>
+""", height=0)
+
+    # Ejecutar guardado cuando _fabg=1 (seteado antes de los tabs)
+    if st.session_state.get('_trigger_guardar_fab'):
+        st.session_state['_trigger_guardar_fab'] = False
+        leer_datos_actuales()
+        datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
+        num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
+        guardar_cotizacion(num_g, datos_c, datos_a, proy,
+                           st.session_state.carrito, cfg, tots, pl_n, pl_d)
+        st.session_state.cotizacion_cargada = num_g
+        st.session_state.hash_ultimo_guardado = calcular_hash_estado()
+        st.session_state.recien_guardado = True
+        st.session_state.mostrar_toast_exito = True
+        st.session_state.toast_numero_ep = num_g
+        st.session_state.resultados_busqueda = None
+        try:
+            _ej_email  = st.session_state.get('auth_email', '')
+            _ej_nombre = st.session_state.get('auth_nombre', st.session_state.asesor_seleccionado)
+            _cli_nombre= st.session_state.get('nombre_input', '')
+            _monto     = tots.get('total', 0) if tots else 0
+            _tiene_plano_notif = bool(
+                st.session_state.get('plano_adjunto') or
+                st.session_state.get('pdf_url') or
+                st.session_state.get('plano_nombre')
+            )
+            _datos_ok  = bool(_cli_nombre and st.session_state.get('correo_input'))
+            _asesor_ok = bool(st.session_state.get('asesor_seleccionado','') != 'Seleccionar asesor')
+            if _tiene_plano_notif and _datos_ok and _asesor_ok:
+                import threading as _thr
+                _thr.Thread(
+                    target=notificar_nueva_cotizacion,
+                    args=(num_g, _ej_nombre, _cli_nombre, _monto, '🟠 Borrador con plano', _ej_email),
+                    daemon=True
+                ).start()
+        except:
+            pass
+        st.rerun()
 
 else:
-    pass
+    import streamlit.components.v1 as _fab_comp2
+    _fab_comp2.html("""<script>
+(function(){
+    var D=window.parent.document;
+    ['_fm_s','_fm_b','_fm_p'].forEach(function(id){
+        var e=D.getElementById(id); if(e) e.remove();
+    });
+})();
+</script>""", height=0)
+
 
 
 
