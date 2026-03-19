@@ -6654,14 +6654,23 @@ if _mostrar_fab:
         st.session_state.mostrar_toast_exito = True
         st.session_state.toast_numero_ep = num_g
         st.session_state.resultados_busqueda = None
-        # Notificar a supervisores/admins via Telegram
+        # Notificar solo cuando hay plano adjunto (BORRADOR CON PLANO = lista para revisar)
         try:
-            _ej_email = st.session_state.get('auth_email', '')
+            _ej_email  = st.session_state.get('auth_email', '')
             _ej_nombre = st.session_state.get('auth_nombre', st.session_state.asesor_seleccionado)
-            _cli_nombre = st.session_state.get('nombre_input', '')
-            _monto = tots.get('total', 0) if tots else 0
-            _estado_notif = "🟡 Borrador"
-            notificar_nueva_cotizacion(num_g, _ej_nombre, _cli_nombre, _monto, _estado_notif, _ej_email)
+            _cli_nombre= st.session_state.get('nombre_input', '')
+            _monto     = tots.get('total', 0) if tots else 0
+            _tiene_plano_notif = bool(
+                st.session_state.get('plano_adjunto') or
+                st.session_state.get('pdf_url') or
+                st.session_state.get('plano_nombre')
+            )
+            _datos_ok  = bool(_cli_nombre and st.session_state.get('correo_input'))
+            _asesor_ok = bool(st.session_state.get('asesor_seleccionado','') != 'Seleccionar asesor')
+            # Solo notificar si tiene plano y datos completos (BORRADOR CON PLANO)
+            if _tiene_plano_notif and _datos_ok and _asesor_ok:
+                _estado_notif = "🟠 Borrador con plano"
+                notificar_nueva_cotizacion(num_g, _ej_nombre, _cli_nombre, _monto, _estado_notif, _ej_email)
         except:
             pass
         st.rerun()
