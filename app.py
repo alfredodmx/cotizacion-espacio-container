@@ -97,6 +97,140 @@ def crear_usuario_ejecutivo(email, password, nombre):
     except Exception as e:
         return None, str(e)
 
+# =========================================================
+# SISTEMA DE NOTIFICACIONES TELEGRAM
+# =========================================================
+TELEGRAM_BOT_TOKEN_DEFAULT = "8639597343:AAG-E3HJVmDGbbMI5oniiivLitlphTDJkCU"
+
+def _get_notif_config(clave, default=""):
+    """Lee un valor de configuración de notificaciones desde Supabase."""
+    try:
+        r = supabase_admin.table('notificaciones_config').select('valor').eq('clave', clave).execute()
+        if r.data:
+            return r.data[0]['valor'] or default
+    except:
+        pass
+    return default
+
+def _set_notif_config(clave, valor):
+    """Guarda un valor de configuración en Supabase."""
+    try:
+        supabase_admin.table('notificaciones_config').upsert(
+            {'clave': clave, 'valor': valor, 'updated_at': 'now()'},
+            on_conflict='clave'
+        ).execute()
+        return True
+    except:
+        return False
+
+def _enviar_telegram(chat_id, mensaje, token=None):
+    """Envía un mensaje de Telegram a un chat_id."""
+    if not chat_id or not chat_id.strip():
+        return False
+    try:
+        import requests as _req
+        _token = token or _get_notif_config('bot_token', TELEGRAM_BOT_TOKEN_DEFAULT)
+        if not _token:
+            return False
+        _url = f"https://api.telegram.org/bot{_token}/sendMessage"
+        _resp = _req.post(_url, json={
+            'chat_id': chat_id.strip(),
+            'text': mensaje,
+            'parse_mode': 'Markdown'
+        }, timeout=10)
+        return _resp.status_code == 200
+    except:
+        return False
+
+def _get_contactos_notif():
+    """Retorna dict {user_email: chat_id} de contactos configurados."""
+    try:
+        raw = _get_notif_config('contactos_json', '{}')
+        import json as _j
+        return _j.loads(raw)
+    except:
+        return {}
+
+def _get_observadores_notif():
+    """Retorna lista de dicts {nombre, chat_id} de observadores."""
+    try:
+        raw = _get_notif_config('observadores_json', '[]')
+        import json as _j
+        return _j.loads(raw)
+    except:
+        return []
+
+def notificar_nueva_cotizacion(ep, ejecutivo_nombre, cliente_nombre, monto, estado, ejecutivo_email):
+    """Notifica a supervisores/admins/observadores cuando se guarda una cotización."""
+    try:
+        # Obtener plantilla
+        plantilla = _get_notif_config('msg_nueva_cotizacion', '🆕 *Nueva cotización para revisar*\n\n*{ep}* · {ejecutivo}\nCliente: {cliente} · Monto: *{monto}*\nEstado: {estado}')
+        _fmt_monto = f"${monto:,.0f}".replace(",", ".") if monto else "$0"
+        msg = plantilla.replace('{ep}', str(ep)).replace('{ejecutivo}', str(ejecutivo_nombre))                       .replace('{cliente}', str(cliente_nombre)).replace('{monto}', _fmt_monto)                       .replace('{estado}', str(estado))
+        contactos = _get_contactos_notif()
+        enviados = 0
+        # Enviar a admins/root (no al propio ejecutivo)
+        try:
+            usuarios = listar_usuarios_ejecutivos()
+            for u in usuarios:
+                if u.get('rol') in ('admin', 'root') and u.get('email','').lower() != ejecutivo_email.lower():
+                    chat_id = contactos.get(u['email'].lower(), '')
+                    if chat_id and _enviar_telegram(chat_id, msg):
+                        enviados += 1
+        except:
+            pass
+        # Enviar a roots fijos
+        for root_email in ROOTS:
+            if root_email.lower() != ejecutivo_email.lower():
+                chat_id = contactos.get(root_email.lower(), '')
+                if chat_id and _enviar_telegram(chat_id, msg):
+                    enviados += 1
+        # Enviar a observadores
+        for obs in _get_observadores_notif():
+            if obs.get('chat_id') and _enviar_telegram(obs['chat_id'], msg):
+                enviados += 1
+        # Enviar a grupo si está configurado
+        grupo_id = _get_notif_config('grupo_chat_id', '')
+        grupo_filtro = _get_notif_config('grupo_filtro', 'todas')
+        if grupo_id and grupo_filtro in ('todas', 'solo_nuevas'):
+            _enviar_telegram(grupo_id, msg)
+    except:
+        pass
+
+def notificar_cotizacion_autorizada(ep, cliente_nombre, margen, ejecutivo_email, ejecutivo_nombre):
+    """Notifica al ejecutivo cuando su cotización es autorizada."""
+    try:
+        plantilla = _get_notif_config('msg_autorizada', '✅ *¡Cotización autorizada!*\n\n*{ep}* · {cliente}\nMargen aplicado: *{margen}%*\nYa puedes presentársela a tu cliente 🎉')
+        msg = plantilla.replace('{ep}', str(ep)).replace('{cliente}', str(cliente_nombre))                       .replace('{margen}', str(margen)).replace('{ejecutivo}', str(ejecutivo_nombre))
+        contactos = _get_contactos_notif()
+        # Enviar al ejecutivo
+        chat_id = contactos.get(ejecutivo_email.lower(), '')
+        if chat_id:
+            _enviar_telegram(chat_id, msg)
+        # Enviar a observadores
+        for obs in _get_observadores_notif():
+            if obs.get('chat_id'):
+                _enviar_telegram(obs['chat_id'], msg)
+        # Grupo
+        grupo_id = _get_notif_config('grupo_chat_id', '')
+        grupo_filtro = _get_notif_config('grupo_filtro', 'todas')
+        if grupo_id and grupo_filtro in ('todas', 'solo_autorizaciones'):
+            _enviar_telegram(grupo_id, msg)
+    except:
+        pass
+
+def notificar_margen_removido(ep, cliente_nombre, ejecutivo_email):
+    """Notifica al ejecutivo cuando se remueve el margen."""
+    try:
+        plantilla = _get_notif_config('msg_margen_removido', '↩️ La cotización *{ep}* volvió a estado borrador.\nEl supervisor realizó cambios. Revisa el sistema.')
+        msg = plantilla.replace('{ep}', str(ep)).replace('{cliente}', str(cliente_nombre))
+        contactos = _get_contactos_notif()
+        chat_id = contactos.get(ejecutivo_email.lower(), '')
+        if chat_id:
+            _enviar_telegram(chat_id, msg)
+    except:
+        pass
+
 def cambiar_rol_usuario(user_id, nuevo_rol):
     """Cambia el rol de un usuario en sus metadatos."""
     try:
@@ -3562,9 +3696,9 @@ def cargar_ranking_ejecutivos(periodo='mes'):
 # =========================================================
 _rol_actual = st.session_state.get('rol_usuario', 'ejecutivo')
 if _rol_actual == 'root':
-    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_salud, tab_usuarios = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "🛡️ SISTEMA", "👥 USUARIOS"])
+    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_salud, tab_usuarios, tab_notif = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "🛡️ SISTEMA", "👥 USUARIOS", "📣 NOTIFICACIONES"])
 elif _rol_actual == 'admin':
-    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_usuarios = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "👥 USUARIOS"])
+    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_usuarios, tab_notif = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "👥 USUARIOS", "📣 NOTIFICACIONES"])
     tab_salud = None
 else:
     tab1, tab2, tab3, tab7, tab_contrato, tab4 = st.tabs(["📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA"])
@@ -3573,6 +3707,7 @@ else:
     tab5 = None
     tab6 = None
     tab_usuarios = None
+    tab_notif = None
 
 # =========================================================
 # FUNCIÓN PARA GENERAR PDF COMPLETO
@@ -6513,6 +6648,16 @@ if _mostrar_fab:
         st.session_state.mostrar_toast_exito = True
         st.session_state.toast_numero_ep = num_g
         st.session_state.resultados_busqueda = None
+        # Notificar a supervisores/admins via Telegram
+        try:
+            _ej_email = st.session_state.get('auth_email', '')
+            _ej_nombre = st.session_state.get('auth_nombre', st.session_state.asesor_seleccionado)
+            _cli_nombre = st.session_state.get('nombre_input', '')
+            _monto = tots.get('total', 0) if tots else 0
+            _estado_notif = "🟡 Borrador"
+            notificar_nueva_cotizacion(num_g, _ej_nombre, _cli_nombre, _monto, _estado_notif, _ej_email)
+        except:
+            pass
         st.rerun()
 
     # FAB JS: botón flotante en DOM padre que clickea el botón real oculto
@@ -6664,7 +6809,21 @@ section[data-testid="stMain"] div[data-testid="stPopover"] > div > button {{
             key="margen_popover"
         )
         if st.button("✅ Aplicar", key="btn_aplicar_margen", use_container_width=True):
+            _margen_anterior = st.session_state.margen
             st.session_state.margen = _mg_pop
+            # Notificar via Telegram
+            try:
+                _ep_notif = st.session_state.get('cotizacion_cargada', '')
+                _cli_notif = st.session_state.get('nombre_input', '')
+                _ej_email_notif = st.session_state.get('correo_asesor', '')
+                _ej_nombre_notif = st.session_state.get('asesor_seleccionado', '')
+                if _ep_notif and _ej_email_notif:
+                    if _mg_pop > 0 and _margen_anterior == 0:
+                        notificar_cotizacion_autorizada(_ep_notif, _cli_notif, _mg_pop, _ej_email_notif, _ej_nombre_notif)
+                    elif _mg_pop == 0 and _margen_anterior > 0:
+                        notificar_margen_removido(_ep_notif, _cli_notif, _ej_email_notif)
+            except:
+                pass
             st.rerun()
 
 else:
@@ -8413,3 +8572,195 @@ if st.session_state.modo_admin and tab_usuarios is not None:
                     st.markdown("<div style='padding:4px 0 8px;'><span style='color:#f59e0b;font-size:0.8rem;font-weight:600;'>🔑 Cuenta Root — protegida</span></div>", unsafe_allow_html=True)
 
                 st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+
+
+# =========================================================
+# TAB NOTIFICACIONES — solo admin y root
+# =========================================================
+if tab_notif is not None and st.session_state.get('es_supervisor'):
+    with tab_notif:
+        import json as _json_notif
+
+        st.markdown("""
+        <style>
+        .hdr-notif {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #0f172a 100%);
+            border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
+            display: flex; align-items: center; gap: 22px;
+            box-shadow: 0 8px 32px rgba(42,171,238,0.15);
+            position: relative; overflow: hidden;
+        }
+        .hdr-notif::before { content:''; position:absolute; top:-40px; right:-40px; width:180px; height:180px; border-radius:50%; background:rgba(255,255,255,0.03); pointer-events:none; }
+        .hdr-notif h2 { color:#fff !important; margin:0; font-size:1.8rem; font-weight:900; font-family:'Montserrat',sans-serif; }
+        .hdr-notif p  { color:rgba(255,255,255,0.55) !important; margin:6px 0 0; font-size:0.92rem; }
+        .notif-section { background:var(--background-color,#fff); border:1px solid #e8eaf0; border-radius:14px; margin-bottom:18px; overflow:hidden; }
+        .notif-section-hdr { padding:12px 18px; background:rgba(0,0,0,0.03); border-bottom:1px solid #e8eaf0; font-weight:700; font-size:0.9rem; display:flex; align-items:center; gap:8px; }
+        .notif-section-body { padding:16px 18px; }
+        </style>
+        <div class="hdr-notif">
+          <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📣</span>
+          <div>
+            <h2>Notificaciones</h2>
+            <p>Configura Telegram, contactos, observadores y mensajes automáticos.</p>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ── 1. Configuración del Bot ──
+        st.markdown('<div class="notif-section"><div class="notif-section-hdr">⚙️ 1 · Configuración del Bot</div><div class="notif-section-body">', unsafe_allow_html=True)
+        _token_actual = _get_notif_config('bot_token', TELEGRAM_BOT_TOKEN_DEFAULT)
+        _bot_nombre = _get_notif_config('bot_nombre', 'Cotizador ECH Bot')
+        _c1, _c2, _c3 = st.columns([2, 1.5, 1])
+        with _c1:
+            _token_inp = st.text_input("Token del Bot", value=_token_actual, type="password", key="notif_token")
+        with _c2:
+            _nombre_inp = st.text_input("Nombre del Bot", value=_bot_nombre, key="notif_nombre")
+        with _c3:
+            st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+            _cb1, _cb2 = st.columns(2)
+            with _cb1:
+                if st.button("🔌 Probar", key="btn_probar_bot", use_container_width=True):
+                    with st.spinner("Probando..."):
+                        _ok = _enviar_telegram("me", "✅ Bot conectado correctamente", _token_inp)
+                    if _ok:
+                        st.success("✅ Bot activo")
+                    else:
+                        st.error("❌ Error de conexión")
+            with _cb2:
+                if st.button("💾 Guardar", key="btn_guardar_bot", use_container_width=True, type="primary"):
+                    _set_notif_config('bot_token', _token_inp)
+                    _set_notif_config('bot_nombre', _nombre_inp)
+                    st.success("✅ Guardado")
+        st.markdown('</div></div>', unsafe_allow_html=True)
+
+        # ── 2. Contactos del sistema ──
+        st.markdown('<div class="notif-section"><div class="notif-section-hdr">👥 2 · Contactos del sistema</div><div class="notif-section-body">', unsafe_allow_html=True)
+        st.caption("Cada usuario debe escribirle /start al bot una vez para obtener su Chat ID")
+
+        _contactos = _get_contactos_notif()
+        _todos_usuarios = []
+        try:
+            _todos_usuarios = listar_usuarios_ejecutivos()
+            # Agregar roots
+            for _re in ROOTS:
+                _todos_usuarios.insert(0, {'email': _re, 'nombre': 'Root', 'rol': 'root'})
+        except:
+            pass
+
+        _contactos_nuevos = dict(_contactos)
+        for _idx, _uu in enumerate(_todos_usuarios):
+            _ue = _uu.get('email', '').lower()
+            _ur = _uu.get('rol', 'ejecutivo')
+            _un = _uu.get('nombre', _ue)
+            _rol_color = "#7c3aed" if _ur == 'root' else ("#8b5cf6" if _ur == 'admin' else "#2563eb")
+            _rol_txt = "🔑 Root" if _ur == 'root' else ("👑 Admin" if _ur == 'admin' else "👤 Ejecutivo")
+            _col_nm, _col_em, _col_chat, _col_rol, _col_est = st.columns([1.5, 1.8, 1.5, 1, 0.7])
+            with _col_nm:
+                st.markdown(f"<div style='padding:8px 0;font-size:0.88rem;font-weight:600'>{_un}</div>", unsafe_allow_html=True)
+            with _col_em:
+                st.markdown(f"<div style='padding:8px 0;font-size:0.78rem;color:#64748b'>{_ue}</div>", unsafe_allow_html=True)
+            with _col_chat:
+                _chat_val = _contactos.get(_ue, '')
+                _new_chat = st.text_input("", value=_chat_val, placeholder="@usuario o Chat ID",
+                                          key=f"chat_{_idx}_{_ue}", label_visibility="collapsed")
+                _contactos_nuevos[_ue] = _new_chat
+            with _col_rol:
+                st.markdown(f"<div style='padding:8px 0;font-size:0.75rem;color:{_rol_color};font-weight:700'>{_rol_txt}</div>", unsafe_allow_html=True)
+            with _col_est:
+                _esta = "🟢" if _contactos.get(_ue, '') else "🟡"
+                st.markdown(f"<div style='padding:8px 0;text-align:center'>{_esta}</div>", unsafe_allow_html=True)
+
+        if st.button("💾 Guardar contactos", key="btn_guardar_contactos", type="primary"):
+            _set_notif_config('contactos_json', _json_notif.dumps(_contactos_nuevos))
+            st.success("✅ Contactos guardados")
+            st.rerun()
+        st.markdown('</div></div>', unsafe_allow_html=True)
+
+        # ── 3. Observadores ──
+        st.markdown('<div class="notif-section"><div class="notif-section-hdr">👁 3 · Observadores externos</div><div class="notif-section-body">', unsafe_allow_html=True)
+        st.caption("Sin cuenta en el sistema · Reciben todas las notificaciones")
+
+        _obs_list = _get_observadores_notif()
+        # Agregar fila vacía para nuevo
+        _obs_list_edit = list(_obs_list) + [{'nombre': '', 'chat_id': ''}]
+        _obs_nuevos = []
+        for _oi, _ob in enumerate(_obs_list_edit):
+            _oc1, _oc2, _oc3 = st.columns([2, 2, 0.5])
+            with _oc1:
+                _on = st.text_input("", value=_ob.get('nombre',''), placeholder="Nombre (ej: Gerente)",
+                                    key=f"obs_nm_{_oi}", label_visibility="collapsed")
+            with _oc2:
+                _oid = st.text_input("", value=_ob.get('chat_id',''), placeholder="@usuario o Chat ID",
+                                     key=f"obs_id_{_oi}", label_visibility="collapsed")
+            with _oc3:
+                _del = st.button("✕", key=f"obs_del_{_oi}", help="Eliminar")
+            if _on.strip() and not _del:
+                _obs_nuevos.append({'nombre': _on.strip(), 'chat_id': _oid.strip()})
+
+        if st.button("💾 Guardar observadores", key="btn_guardar_obs", type="primary"):
+            _set_notif_config('observadores_json', _json_notif.dumps(_obs_nuevos))
+            st.success("✅ Observadores guardados")
+            st.rerun()
+        st.markdown('</div></div>', unsafe_allow_html=True)
+
+        # ── 4. Grupo ──
+        st.markdown('<div class="notif-section"><div class="notif-section-hdr">📢 4 · Grupo de Telegram (opcional)</div><div class="notif-section-body">', unsafe_allow_html=True)
+        _grupo_id = _get_notif_config('grupo_chat_id', '')
+        _grupo_filtro = _get_notif_config('grupo_filtro', 'todas')
+        _gc1, _gc2, _gc3 = st.columns([2, 2, 1])
+        with _gc1:
+            _g_id_inp = st.text_input("Chat ID del grupo", value=_grupo_id, placeholder="-1001234567890", key="notif_grupo_id")
+            st.caption("Agrega el bot al grupo y escribe /start para obtener el ID")
+        with _gc2:
+            _filtro_opts = {"todas": "Todas las notificaciones", "solo_nuevas": "Solo nuevas cotizaciones",
+                            "solo_autorizaciones": "Solo autorizaciones", "ninguna": "No usar grupo"}
+            _filtro_idx = list(_filtro_opts.keys()).index(_grupo_filtro) if _grupo_filtro in _filtro_opts else 0
+            _filtro_sel = st.selectbox("Qué notificar al grupo", list(_filtro_opts.values()), index=_filtro_idx, key="notif_grupo_filtro")
+            _filtro_val = list(_filtro_opts.keys())[list(_filtro_opts.values()).index(_filtro_sel)]
+        with _gc3:
+            st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+            if st.button("💾 Guardar grupo", key="btn_guardar_grupo", use_container_width=True, type="primary"):
+                _set_notif_config('grupo_chat_id', _g_id_inp)
+                _set_notif_config('grupo_filtro', _filtro_val)
+                st.success("✅ Guardado")
+        st.markdown('</div></div>', unsafe_allow_html=True)
+
+        # ── 5. Mensajes ──
+        st.markdown('<div class="notif-section"><div class="notif-section-hdr">✏️ 5 · Mensajes personalizables</div><div class="notif-section-body">', unsafe_allow_html=True)
+
+        _msg_defaults = {
+            'msg_nueva_cotizacion': "🆕 *Nueva cotización para revisar*\n\n*{ep}* · {ejecutivo}\nCliente: {cliente} · Monto: *{monto}*\nEstado: {estado}",
+            'msg_autorizada': "✅ *¡Cotización autorizada!*\n\n*{ep}* · {cliente}\nMargen aplicado: *{margen}%*\nYa puedes presentársela a tu cliente 🎉",
+            'msg_margen_removido': "↩️ La cotización *{ep}* volvió a estado borrador.\nEl supervisor realizó cambios. Revisa el sistema."
+        }
+        _msg_labels = {
+            'msg_nueva_cotizacion': ("🆕 Nueva cotización → supervisores/admins/observadores", "Al guardar cotización", "{ep} {ejecutivo} {cliente} {monto} {estado}"),
+            'msg_autorizada': ("✅ Cotización autorizada → ejecutivo + observadores", "Al aplicar margen", "{ep} {cliente} {margen} {ejecutivo}"),
+            'msg_margen_removido': ("↩️ Margen removido → ejecutivo", "Al quitar margen", "{ep} {cliente}")
+        }
+        _msgs_nuevos = {}
+        for _mk, (_mlabel, _mcuando, _mvars) in _msg_labels.items():
+            _mval = _get_notif_config(_mk, _msg_defaults[_mk])
+            _mc1, _mc2 = st.columns([3, 1])
+            with _mc1:
+                st.markdown(f"**{_mlabel}**", unsafe_allow_html=False)
+            with _mc2:
+                st.markdown(f"<div style='text-align:right;font-size:0.75rem;color:#94a3b8;padding-top:4px'>{_mcuando}</div>", unsafe_allow_html=True)
+            _msgs_nuevos[_mk] = st.text_area("", value=_mval, height=90, key=f"msg_{_mk}", label_visibility="collapsed")
+            st.caption(f"Variables: {_mvars}")
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+        _mb1, _mb2 = st.columns([1, 1])
+        with _mb1:
+            if st.button("↩️ Restaurar por defecto", key="btn_restaurar_msgs"):
+                for _mk, _mdef in _msg_defaults.items():
+                    _set_notif_config(_mk, _mdef)
+                st.success("✅ Mensajes restaurados")
+                st.rerun()
+        with _mb2:
+            if st.button("💾 Guardar mensajes", key="btn_guardar_msgs", type="primary", use_container_width=True):
+                for _mk, _mv in _msgs_nuevos.items():
+                    _set_notif_config(_mk, _mv)
+                st.success("✅ Mensajes guardados")
+
+        st.markdown('</div></div>', unsafe_allow_html=True)
