@@ -6641,44 +6641,67 @@ if st.session_state.get('recien_cargado', False):
     st.session_state.recien_cargado = False
 
 if _mostrar_fab:
-    # ── Trigger desde FAB via query_params ──
+    # FAB guardar — botón creado en DOM padre, comunica via postMessage
     import streamlit.components.v1 as _fab_comp
     _fab_comp.html("""
 <script>
 (function(){
     var D = window.parent.document;
+    // Limpiar anterior
     ['_fm_s','_fm_b','_fm_p'].forEach(function(id){
         var e=D.getElementById(id); if(e) e.remove();
     });
-    var s = D.createElement('style'); s.id='_fm_s';
+    // Estilos
+    var s=D.createElement('style'); s.id='_fm_s';
     s.innerHTML=[
-        '@keyframes pfab{0%{box-shadow:0 8px 24px rgba(91,124,250,0.5);}50%{box-shadow:0 8px 40px rgba(91,124,250,0.9),0 0 0 12px rgba(91,124,250,0.15);}100%{box-shadow:0 8px 24px rgba(91,124,250,0.5);}}',
+        '@keyframes pfab{0%{box-shadow:0 8px 24px rgba(91,124,250,0.5);}',
+        '50%{box-shadow:0 8px 40px rgba(91,124,250,0.9),0 0 0 12px rgba(91,124,250,0.15);}',
+        '100%{box-shadow:0 8px 24px rgba(91,124,250,0.5);}}',
         '@keyframes blnk{0%,100%{opacity:1;}50%{opacity:0.2;}}',
         '#_fm_p{position:fixed!important;bottom:1.5rem!important;left:2rem!important;z-index:999999!important;}',
-        '#_fm_b{background:linear-gradient(135deg,#5b7cfa,#8b5cf6);color:#fff;border:none;border-radius:50px;',
-        'padding:0.85rem 1.6rem;font-size:0.95rem;font-weight:700;cursor:pointer;',
-        'font-family:sans-serif;white-space:nowrap;position:relative;animation:pfab 2s infinite;}',
+        '#_fm_b{background:linear-gradient(135deg,#5b7cfa,#8b5cf6);color:#fff;border:none;',
+        'border-radius:50px;padding:0.85rem 1.6rem;font-size:0.95rem;font-weight:700;',
+        'cursor:pointer;font-family:sans-serif;white-space:nowrap;position:relative;',
+        'animation:pfab 2s infinite;}',
         '#_fm_b:hover{transform:translateY(-3px);animation:none;}',
         '#_fm_badge{position:absolute;top:-5px;right:-5px;width:12px;height:12px;',
         'background:#ef4444;border-radius:50%;border:2px solid #fff;animation:blnk 1.5s infinite;}'
     ].join('');
     D.head.appendChild(s);
+    // Botón
     var p=D.createElement('div'); p.id='_fm_p';
-    var b=D.createElement('button'); b.id='_fm_b'; b.innerHTML='&#128190; Guardar';
+    var b=D.createElement('button'); b.id='_fm_b';
+    b.innerHTML='&#128190; Guardar';
     var badge=D.createElement('span'); badge.id='_fm_badge';
     b.appendChild(badge); p.appendChild(b); D.body.appendChild(p);
-    b.addEventListener('click',function(){
-        var url=new URL(D.location.href);
-        url.searchParams.set('_fabg','1');
-        D.location.href=url.toString();
+    // Click: buscar y clickear el botón oculto de Streamlit en el DOM padre
+    b.addEventListener('click', function(){
+        var btns = D.querySelectorAll('button');
+        for(var i=0; i<btns.length; i++){
+            var txt=(btns[i].innerText||btns[i].textContent||'').trim();
+            if(txt==='_FAB_SAVE_' && btns[i].id!=='_fm_b'){
+                btns[i].click();
+                return;
+            }
+        }
     });
 })();
 </script>
 """, height=0)
 
-    # Ejecutar guardado cuando _fabg=1 (seteado antes de los tabs)
-    if st.session_state.get('_trigger_guardar_fab'):
-        st.session_state['_trigger_guardar_fab'] = False
+    # Botón real oculto con texto especial para identificarlo
+    st.markdown("""<style>
+    /* Ocultar botón FAB real — identificado por key en el DOM */
+    div[data-testid="stButton"]:has(button[kind="secondary"]) {
+        position:fixed!important;
+        top:-999px!important;
+        left:-999px!important;
+        width:1px!important;
+        height:1px!important;
+    }
+    </style>""", unsafe_allow_html=True)
+
+    if st.button("_FAB_SAVE_", key="btn_fab_guardar"):
         leer_datos_actuales()
         datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
         num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
@@ -6723,10 +6746,6 @@ else:
     });
 })();
 </script>""", height=0)
-
-
-
-
 
 # =========================================================
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
