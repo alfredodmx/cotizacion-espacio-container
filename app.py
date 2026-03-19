@@ -2115,7 +2115,11 @@ def ejecutar_carga_cotizacion():
         else:
             st.session_state.fecha_termino = (datetime.now() + timedelta(days=15)).date()
         st.session_state.observaciones_input = cotizacion.get('proyecto_observaciones', '')
-        st.session_state.modo_admin = bool(cotizacion.get('config_modo_admin', False))
+        # Preservar modo_admin del usuario actual — no sobreescribir con el valor de la cotización
+        # Solo activar si la cotización lo tenía guardado, pero nunca desactivar si el usuario es admin/root
+        _modo_admin_cot = bool(cotizacion.get('config_modo_admin', False))
+        if not st.session_state.get('es_supervisor'):
+            st.session_state.modo_admin = _modo_admin_cot
         margen_valor = cotizacion.get('config_margen')
         try:
             st.session_state.margen = float(margen_valor) if margen_valor is not None else 0.0
