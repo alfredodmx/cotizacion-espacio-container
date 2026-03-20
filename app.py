@@ -2948,26 +2948,62 @@ _hdr_comp.html("""
         if (colCerrar) colCerrar.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
     }
 
-    // Mover badge al header
-    function moveBadgeToHeader() {
+    // Mover badge y botón cerrar cotización al header
+    function moveBadgeAndCloseToHeader() {
         var bar = D.getElementById('_usr_header_bar');
         var slot = D.getElementById('_badge_slot');
         if (!bar || !slot) return;
+
+        // Limpiar slot anterior
+        slot.innerHTML = '';
+
+        // Mover badge de estado
         var badge = D.querySelector('.cotizacion-status-container');
-        if (badge && !slot.hasChildNodes()) {
-            var clone = badge.cloneNode(true);
-            clone.style.cssText = 'margin:0;padding:0;';
-            slot.appendChild(clone);
+        if (badge) {
+            var cloneBadge = badge.cloneNode(true);
+            cloneBadge.style.cssText = 'margin:0;padding:0;flex-shrink:0;';
+            slot.appendChild(cloneBadge);
             badge.style.visibility = 'hidden';
             badge.style.height = '0';
             badge.style.overflow = 'hidden';
+        }
+
+        // Mover botón Cerrar Cotización
+        var allBtns = D.querySelectorAll('button');
+        var btnCerrarCot = null;
+        for (var i = 0; i < allBtns.length; i++) {
+            var txt = (allBtns[i].innerText || allBtns[i].textContent || '').trim();
+            if (txt === '🗑️ Cerrar Cotización') { btnCerrarCot = allBtns[i]; break; }
+        }
+        if (btnCerrarCot && !slot.querySelector('._btn_cerrar_cot')) {
+            var cloneCerrarCot = btnCerrarCot.cloneNode(true);
+            cloneCerrarCot.className += ' _btn_cerrar_cot';
+            cloneCerrarCot.style.cssText = [
+                'background:rgba(239,68,68,0.12);color:#fca5a5;',
+                'border:1px solid rgba(239,68,68,0.2);border-radius:6px;',
+                'padding:3px 10px;font-size:0.75rem;font-weight:600;',
+                'cursor:pointer;white-space:nowrap;font-family:inherit;',
+                'margin-left:8px;flex-shrink:0;'
+            ].join('');
+            cloneCerrarCot.onmouseenter = function(){ this.style.background='rgba(239,68,68,0.25)'; };
+            cloneCerrarCot.onmouseleave = function(){ this.style.background='rgba(239,68,68,0.12)'; };
+            cloneCerrarCot.addEventListener('click', function(e){
+                e.stopPropagation();
+                btnCerrarCot.click();
+            });
+            slot.appendChild(cloneCerrarCot);
+            // Ocultar el botón original
+            var parCerrarCot = btnCerrarCot.closest('[data-testid="stButton"]');
+            if (parCerrarCot) parCerrarCot.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
         }
     }
 
     setTimeout(moveButtonsToHeader, 800);
     setTimeout(moveButtonsToHeader, 1500);
-    setTimeout(moveBadgeToHeader, 900);
-    setTimeout(moveBadgeToHeader, 1600);
+    setTimeout(moveBadgeAndCloseToHeader, 900);
+    setTimeout(moveBadgeAndCloseToHeader, 1600);
+    // Re-ejecutar cuando cambia el estado (badge cambia frecuentemente)
+    setInterval(moveBadgeAndCloseToHeader, 3000);
 })();
 </script>
 """, height=0)
