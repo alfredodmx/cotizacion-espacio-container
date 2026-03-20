@@ -6735,26 +6735,24 @@ if _mostrar_fab:
         st.session_state.toast_numero_ep = num_g
         st.session_state.resultados_busqueda = None
         try:
-            _margen_notif   = st.session_state.get('margen', 0)
-            _cli_nombre     = st.session_state.get('nombre_input', '')
-            _correo_cliente = st.session_state.get('correo_input', '')
-            _tiene_plano    = bool(st.session_state.get('plano_adjunto') or st.session_state.get('pdf_url') or st.session_state.get('plano_nombre'))
-            _datos_ok       = bool(_cli_nombre and _correo_cliente)
-            _asesor_sel     = st.session_state.get('asesor_seleccionado', '')
-            _asesor_ok      = bool(_asesor_sel and _asesor_sel != 'Seleccionar asesor')
-            _ej_email       = st.session_state.get('correo_asesor', '')
-            _ej_nombre      = _asesor_sel
-            _monto          = tots.get('total', 0) if tots else 0
-            if not _ej_email and num_g:
-                try:
-                    _rd = supabase_admin.table('cotizaciones').select('asesor_email','asesor_nombre').eq('numero', num_g).execute()
-                    if _rd.data:
-                        _ej_email = _rd.data[0].get('asesor_email','')
-                        _ej_nombre = _ej_nombre or _rd.data[0].get('asesor_nombre','')
-                except: pass
+            _margen_notif = st.session_state.get('margen', 0)
+            _cli_nombre   = st.session_state.get('nombre_input', '')
+            _tiene_plano  = bool(st.session_state.get('plano_adjunto') or st.session_state.get('pdf_url') or st.session_state.get('plano_nombre'))
+            _monto        = tots.get('total', 0) if tots else 0
+            # Siempre obtener datos del asesor desde la BD recién guardada
+            _ej_email  = ''
+            _ej_nombre = ''
+            try:
+                _rd = supabase_admin.table('cotizaciones').select('asesor_email','asesor_nombre','cliente_nombre').eq('numero', num_g).execute()
+                if _rd.data:
+                    _ej_email  = _rd.data[0].get('asesor_email', '') or ''
+                    _ej_nombre = _rd.data[0].get('asesor_nombre', '') or ''
+                    _cli_nombre = _rd.data[0].get('cliente_nombre', '') or _cli_nombre
+            except: pass
             import threading as _thr
-            if _tiene_plano and _datos_ok and _asesor_ok:
+            if _tiene_plano:
                 if _margen_notif > 0:
+                    # Estado AUTORIZADO CON PLANO → notificar al ejecutivo
                     _sup_nombre = st.session_state.get('auth_nombre','') or st.session_state.get('auth_email','')
                     _thr.Thread(
                         target=notificar_cotizacion_autorizada,
@@ -6762,11 +6760,12 @@ if _mostrar_fab:
                         daemon=True
                     ).start()
                 else:
-                    _ej_email_fab = st.session_state.get('auth_email','')
-                    _ej_nombre_fab = st.session_state.get('auth_nombre', _ej_nombre)
+                    # Estado BORRADOR CON PLANO → notificar a supervisores
+                    _autor_email = st.session_state.get('auth_email','')
+                    _autor_nombre = st.session_state.get('auth_nombre', _ej_nombre)
                     _thr.Thread(
                         target=notificar_nueva_cotizacion,
-                        args=(num_g, _ej_nombre_fab, _cli_nombre, _monto, '🟠 Borrador con plano', _ej_email_fab),
+                        args=(num_g, _autor_nombre, _cli_nombre, _monto, '🟠 Borrador con plano', _autor_email),
                         daemon=True
                     ).start()
         except:
