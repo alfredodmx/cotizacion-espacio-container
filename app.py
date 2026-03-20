@@ -2624,8 +2624,17 @@ st.markdown('''
     margin: 1rem 0 0.6rem 0 !important;
 }
 .block-container {
-    padding-top: 2rem !important;
+    padding-top: 0.5rem !important;
     padding-bottom: 3rem !important;
+}
+/* Eliminar espacio reservado del header nativo */
+[data-testid="stHeader"] {
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+}
+[data-testid="stAppViewContainer"] > section:first-child {
+    padding-top: 0 !important;
 }
 [data-testid="stCheckbox"] span,
 [data-testid="stRadio"] span {
@@ -4635,7 +4644,7 @@ with tab1:
                         st.session_state.carrito = cargar_modelo(modelo_seleccionado)
                         st.session_state.modelo_base = modelo_seleccionado
                         st.session_state.margen = 0.0
-                        st.success("Modelo cargado correctamente.")
+                        st.toast("✅ Modelo cargado correctamente.")
                         st.rerun()
 
         with col_m2:
@@ -4674,7 +4683,7 @@ with tab1:
                     if categoria_eliminar != "-- Seleccionar --":
                         if st.button("Eliminar", key="btn_eliminar_categoria", use_container_width=True):
                             st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_eliminar]
-                            st.success("Categoría eliminada.")
+                            st.toast("🗑️ Categoría eliminada.")
                             st.rerun()
                 else:
                     st.info("No hay categorías")
@@ -4691,7 +4700,7 @@ with tab1:
                         nuevos_items = cargar_categoria_desde_modelo(modelo_origen, categoria_agregar)
                         st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_agregar]
                         st.session_state.carrito.extend(nuevos_items)
-                        st.success("Categoría agregada.")
+                        st.toast("➕ Categoría agregada.")
                         st.rerun()
 
         with col_m5:
