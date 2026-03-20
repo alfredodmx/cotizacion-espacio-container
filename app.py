@@ -2910,20 +2910,28 @@ if st.session_state.show_pwd_dialog:
     st.session_state.show_pwd_dialog = False  # Reset inmediato
     _pwd_dialog()
 
-# Botones en columnas ocultas — se mueven al header via JS
+# Botones ocultos — se mueven al header via JS
+# CSS para ocultar todo el bloque sin dejar espacio
+st.markdown("""<style>
+.st-key-btn_pwd_hdr, .st-key-btn_cerrar_sesion_header, .st-key-btn_cerrar_cotizacion {
+    position:fixed!important;top:-9999px!important;left:-9999px!important;
+    width:1px!important;height:1px!important;overflow:hidden!important;
+}
+[data-testid="stHorizontalBlock"]:has(.st-key-btn_pwd_hdr) {
+    display:none!important;height:0!important;margin:0!important;padding:0!important;min-height:0!important;
+}
+</style>""", unsafe_allow_html=True)
+
 _col_esp2, _col_pwd, _col_cerrar = st.columns([12, 1, 1])
 with _col_pwd:
     if st.button("🔑 Mi contraseña", key="btn_pwd_hdr", use_container_width=True):
         st.session_state.show_pwd_dialog = True
         st.rerun()
-# Botón oculto con id para que el header lo encuentre
-st.markdown('<div id="_btn_cerrar_cot_real_wrap" style="display:none"></div>', unsafe_allow_html=True)
 with _col_cerrar:
     if st.button("🚪 Cerrar sesión", key="btn_cerrar_sesion_header", use_container_width=True):
         logout_usuario()
         st.session_state.modo_admin = False
         st.session_state._csv_listo = None
-        pass
         st.rerun()
 
 # JS consolidado — header, tabs y cerrar cotización (un solo components.html = menos espacio)
