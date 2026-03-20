@@ -2833,26 +2833,30 @@ if _cot_cargada:
     _ase_hdr    = st.session_state.get('asesor_seleccionado', '')
     _asesor_hdr = bool(_ase_hdr and _ase_hdr != 'Seleccionar asesor')
     if _margen_hdr > 0 and _datos_hdr and _asesor_hdr:
-        _badge_hdr   = '🟢 AUTORIZADO' + (' CON PLANO' if _plano_hdr else '')
-        _badge_color = '#10b981'
+        _badge_hdr    = '🟢 AUTORIZADO' + (' CON PLANO' if _plano_hdr else '')
+        _badge_color  = '#10b981'
+        _header_color = '#064e3b'
     elif _datos_hdr and _asesor_hdr and _plano_hdr:
-        _badge_hdr   = '🟠 BORRADOR CON PLANO'
-        _badge_color = '#f97316'
+        _badge_hdr    = '🟠 BORRADOR CON PLANO'
+        _badge_color  = '#f97316'
+        _header_color = '#7c2d12'
     elif _datos_hdr and _asesor_hdr:
-        _badge_hdr   = '🟡 BORRADOR'
-        _badge_color = '#eab308'
+        _badge_hdr    = '🟡 BORRADOR'
+        _badge_color  = '#eab308'
+        _header_color = '#713f12'
     else:
-        _badge_hdr   = '🔴 INCOMPLETO' + (' CON PLANO' if _plano_hdr else '')
-        _badge_color = '#ef4444'
-    _badge_pill = '<span style="font-size:0.72rem;font-weight:700;color:' + _badge_color + ';background:rgba(0,0,0,0.3);padding:2px 8px;border-radius:20px;border:1px solid ' + _badge_color + '33;">' + _badge_hdr + '</span>'
-    _ep_txt = '<span style="font-size:0.78rem;font-weight:700;color:#e2e8f0;margin-right:6px;">📝 ' + str(_cot_cargada) + ' •</span>'
+        _badge_hdr    = '🔴 INCOMPLETO' + (' CON PLANO' if _plano_hdr else '')
+        _badge_color  = '#ef4444'
+        _header_color = '#7f1d1d'
+    _badge_pill = '<span style="font-size:0.72rem;font-weight:700;color:' + _badge_color + ';background:rgba(0,0,0,0.3);padding:2px 8px;border-radius:20px;border:1px solid ' + _badge_color + '55;">' + _badge_hdr + '</span>'
+    _ep_txt     = '<span style="font-size:0.78rem;font-weight:700;color:#e2e8f0;margin-right:6px;">📝 ' + str(_cot_cargada) + ' •</span>'
     _cerrar_btn = '<button id="_btn_cerrar_hdr" data-action="cerrar-cot" style="margin-left:10px;background:rgba(239,68,68,0.12);color:#fca5a5;border:1px solid rgba(239,68,68,0.2);border-radius:6px;padding:2px 8px;font-size:0.72rem;font-weight:600;cursor:pointer;">🗑️ Cerrar</button>'
-    _left_html = _ep_txt + _badge_pill + _cerrar_btn
+    _left_html  = _ep_txt + _badge_pill + _cerrar_btn
 else:
     _header_color = '#0f172a'
-    _left_html = '<span style="font-size:0.75rem;color:#475569;">Sin cotización activa</span>'
+    _left_html    = '<span style="font-size:0.75rem;color:#475569;">Sin cotización activa</span>'
 
-_header_bg = 'linear-gradient(90deg, ' + _header_color + ' 0%, #0f172a 60%)'
+_header_bg = 'linear-gradient(90deg, ' + _header_color + ' 0%, #0f172a 65%)'
 
 st.markdown(f"""
 <style>
