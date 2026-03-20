@@ -3023,11 +3023,10 @@ _js_global.html("""
             'font-family:inherit!important;transition:background 0.2s!important;'
         ].join('');
 
-        // Clonar y estilizar botón contraseña
-        var clonePwd = btnPwd.cloneNode(true);
+        // Crear botones nuevos (no clonar) para evitar herencia de estilos Streamlit
+        var clonePwd = D.createElement('button');
+        clonePwd.textContent = '🔑 Mi contraseña';
         clonePwd.style.cssText = btnStyle;
-        clonePwd.style.setProperty('color', '#ffffff', 'important');
-        clonePwd.querySelectorAll('*').forEach(function(el){ el.style.setProperty('color','#ffffff','important'); });
         clonePwd.onmouseenter = function(){ this.style.background='rgba(255,255,255,0.15)'; };
         clonePwd.onmouseleave = function(){ this.style.background='rgba(255,255,255,0.08)'; };
         clonePwd.addEventListener('click', function(e){
@@ -3036,11 +3035,9 @@ _js_global.html("""
             btnPwd.click();
         });
 
-        // Clonar y estilizar botón cerrar sesión
-        var cloneCerrar = btnCerrar.cloneNode(true);
+        var cloneCerrar = D.createElement('button');
+        cloneCerrar.textContent = '🚪 Cerrar sesión';
         cloneCerrar.style.cssText = btnStyle;
-        cloneCerrar.style.setProperty('color', '#ffffff', 'important');
-        cloneCerrar.querySelectorAll('*').forEach(function(el){ el.style.setProperty('color','#ffffff','important'); });
         cloneCerrar.onmouseenter = function(){ this.style.background='rgba(239,68,68,0.15)'; };
         cloneCerrar.onmouseleave = function(){ this.style.background='rgba(255,255,255,0.08)'; };
         cloneCerrar.addEventListener('click', function(e){
