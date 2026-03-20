@@ -2350,6 +2350,31 @@ st.markdown("""
         scroll-behavior: smooth !important;
     }
     .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar { display: none !important; }
+
+    /* ── Toast personalizado ── */
+    div[data-testid="stToast"] {
+        background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%) !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 16px 20px !important;
+        min-width: 280px !important;
+        box-shadow: 0 8px 24px rgba(37,99,235,0.4) !important;
+        font-size: 1rem !important;
+        font-weight: 600 !important;
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+    }
+    div[data-testid="stToast"] p,
+    div[data-testid="stToast"] span,
+    div[data-testid="stToast"] div {
+        color: #ffffff !important;
+        font-size: 1rem !important;
+        font-weight: 600 !important;
+    }
+    div[data-testid="stToast"] button {
+        color: rgba(255,255,255,0.7) !important;
+        filter: brightness(10) !important;
+    }
     /* Botones flecha */
     .tab-arrow {
         position: absolute; top: 0; z-index: 999;
