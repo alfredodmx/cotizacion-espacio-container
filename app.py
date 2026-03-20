@@ -2935,16 +2935,71 @@ if 'show_pwd_dialog' not in st.session_state:
 
 @st.dialog("🔑 Cambiar contraseña")
 def _pwd_dialog():
+    st.markdown("""
+    <style>
+    div[data-testid="stDialog"] > div > div {
+        background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%) !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
+        border-radius: 16px !important;
+        padding: 8px !important;
+    }
+    div[data-testid="stDialog"] h2 {
+        color: #f1f5f9 !important;
+        font-size: 1.1rem !important;
+    }
+    div[data-testid="stDialog"] label,
+    div[data-testid="stDialog"] label p {
+        color: rgba(255,255,255,0.5) !important;
+        font-size: 0.75rem !important;
+        letter-spacing: 0.08em !important;
+        text-transform: uppercase !important;
+    }
+    div[data-testid="stDialog"] input {
+        background: rgba(255,255,255,0.06) !important;
+        border: 1px solid rgba(255,255,255,0.12) !important;
+        border-radius: 8px !important;
+        color: #f1f5f9 !important;
+    }
+    div[data-testid="stDialog"] input:focus {
+        border-color: rgba(91,124,250,0.6) !important;
+        box-shadow: 0 0 0 2px rgba(91,124,250,0.15) !important;
+    }
+    div[data-testid="stDialog"] button[kind="primary"] {
+        background: linear-gradient(135deg, #5b7cfa, #8b5cf6) !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.05em !important;
+        padding: 0.6rem !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+
+    _nombre_usr = st.session_state.get('auth_nombre', '') or st.session_state.get('auth_email', '')
+    st.markdown(f"""
+    <div style='text-align:center;margin-bottom:20px;'>
+        <div style='width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#5b7cfa,#8b5cf6);
+            display:flex;align-items:center;justify-content:center;font-size:1.6rem;margin:0 auto 10px;'>🔑</div>
+        <div style='color:#94a3b8;font-size:0.82rem;'>Cambia tu contraseña de acceso</div>
+        <div style='color:#e2e8f0;font-size:0.85rem;font-weight:600;margin-top:2px;'>{_nombre_usr.upper()}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
     _pwd_actual = st.text_input("Contraseña actual", type="password", key="pwd_actual_dlg")
     _pwd_nueva  = st.text_input("Nueva contraseña",  type="password", key="pwd_nueva_dlg", placeholder="Mínimo 6 caracteres")
-    _pwd_repite = st.text_input("Repetir nueva",     type="password", key="pwd_repite_dlg")
-    if st.button("✅ Cambiar", key="btn_cambiar_pwd_dlg", use_container_width=True, type="primary"):
+    _pwd_repite = st.text_input("Repetir nueva contraseña", type="password", key="pwd_repite_dlg")
+
+    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+
+    if st.button("🔐 Actualizar contraseña", key="btn_cambiar_pwd_dlg", use_container_width=True, type="primary"):
         if not _pwd_actual or not _pwd_nueva or not _pwd_repite:
             st.error("Completa todos los campos.")
         elif len(_pwd_nueva) < 6:
-            st.error("Mínimo 6 caracteres.")
+            st.error("La contraseña debe tener mínimo 6 caracteres.")
         elif _pwd_nueva != _pwd_repite:
-            st.error("Las contraseñas no coinciden.")
+            st.error("Las contraseñas nuevas no coinciden.")
         else:
             _u_check, _ = login_usuario(st.session_state.get('auth_email',''), _pwd_actual)
             if not _u_check:
@@ -2952,7 +3007,7 @@ def _pwd_dialog():
             else:
                 _ok, _err = cambiar_password_propio(_pwd_nueva)
                 if _ok:
-                    st.success("✅ Contraseña actualizada.")
+                    st.success("✅ ¡Contraseña actualizada correctamente!")
                     st.session_state.show_pwd_dialog = False
                 else:
                     st.error(f"❌ {_err}")
