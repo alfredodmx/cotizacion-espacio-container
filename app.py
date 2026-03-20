@@ -2859,7 +2859,7 @@ st.markdown("""
 /* Ocultar badge y botón cerrar originales */
 .cotizacion-status-container { display: none !important; }
 </style>
-""" + '<div id="_usr_header_bar"><div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow:hidden;">' + _left_html + '</div><div class="usr-right">' + _rol_html + '<div id="_badge_slot"></div></div></div>', unsafe_allow_html=True)
+""" + '<div id="_usr_header_bar"><div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow:hidden;">' + _left_html + '</div><div class="usr-right">' + _rol_html + '</div></div>', unsafe_allow_html=True)
 
 # Dialog contraseña — se abre centrado sin interferir con popovers
 if 'show_pwd_dialog' not in st.session_state:
@@ -3212,6 +3212,7 @@ if st.session_state.cotizacion_cargada:
         }})();
         </script>""", height=0)
     with col_cerrar:
+        st.markdown('<div style="display:none">', unsafe_allow_html=True)
         if st.button("🗑️ Cerrar Cotización", key="btn_cerrar_cotizacion", use_container_width=True):
             _hash_actual = calcular_hash_estado()
             _hay_cambios = (
