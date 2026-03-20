@@ -6677,17 +6677,13 @@ if _mostrar_fab:
     // Click: buscar y clickear el botón oculto de Streamlit en el DOM padre
     b.addEventListener('click', function(){
         var btns = D.querySelectorAll('button');
-        var found = [];
         for(var i=0; i<btns.length; i++){
             var txt=(btns[i].innerText||btns[i].textContent||'').trim();
-            found.push('['+txt+']');
             if(txt==='FAB_SAVE' && btns[i].id!=='_fm_b'){
                 btns[i].click();
-                console.log('FAB: clicked FAB_SAVE');
                 return;
             }
         }
-        console.log('FAB: no encontrado. Botones:', found.join(', '));
     });
 })();
 </script>
@@ -6729,7 +6725,9 @@ if _mostrar_fab:
             )
             _datos_ok  = bool(_cli_nombre and st.session_state.get('correo_input'))
             _asesor_ok = bool(st.session_state.get('asesor_seleccionado','') != 'Seleccionar asesor')
-            if _tiene_plano_notif and _datos_ok and _asesor_ok:
+            # Solo notificar si NO tiene margen (borrador) — si ya está autorizado no re-notificar
+            _margen_actual_notif = st.session_state.get('margen', 0)
+            if _tiene_plano_notif and _datos_ok and _asesor_ok and _margen_actual_notif == 0:
                 import threading as _thr
                 _thr.Thread(
                     target=notificar_nueva_cotizacion,
@@ -6802,8 +6800,14 @@ section[data-testid="stMain"] div[data-testid="stPopover"] > div > button {{
                 _ej_email_notif = st.session_state.get('correo_asesor', '')
                 _ej_nombre_notif = st.session_state.get('asesor_seleccionado', '')
                 if _ep_notif and _ej_email_notif:
-                    if _mg_pop > 0 and _margen_anterior == 0:
-                        notificar_cotizacion_autorizada(_ep_notif, _cli_notif, _mg_pop, _ej_email_notif, _ej_nombre_notif)
+                    if _mg_pop > 0:
+                        # Notificar autorización (nueva o cambio de margen)
+                        import threading as _thr2
+                        _thr2.Thread(
+                            target=notificar_cotizacion_autorizada,
+                            args=(_ep_notif, _cli_notif, _mg_pop, _ej_email_notif, _ej_nombre_notif),
+                            daemon=True
+                        ).start()
                     elif _mg_pop == 0 and _margen_anterior > 0:
                         notificar_margen_removido(_ep_notif, _cli_notif, _ej_email_notif)
             except:
