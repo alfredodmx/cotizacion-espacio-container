@@ -8663,6 +8663,55 @@ if tab_notif is not None and st.session_state.get('es_supervisor'):
         with st.container(border=True):
             st.markdown("**👥 2 · Contactos del sistema**")
             st.caption("Cada usuario debe escribirle /start al bot una vez para obtener su Chat ID")
+
+            # ── Panel getUpdates — detectar quién escribió /start ──
+            with st.expander("📡 Detectar usuarios desde Telegram (getUpdates)", expanded=False):
+                st.caption("Muestra las personas que le han escrito al bot. Haz click en ➕ para asignar su Chat ID.")
+                if st.button("🔄 Obtener usuarios del bot", key="btn_get_updates"):
+                    st.session_state['_tg_updates'] = None
+                    try:
+                        import requests as _ru
+                        _tok = _get_notif_config('bot_token', TELEGRAM_BOT_TOKEN_DEFAULT)
+                        _resp = _ru.get(f"https://api.telegram.org/bot{_tok}/getUpdates?limit=100", timeout=10)
+                        _data = _resp.json()
+                        if _data.get('ok'):
+                            _vistos = {}
+                            for _upd in _data.get('result', []):
+                                _msg = _upd.get('message', {})
+                                _ch  = _msg.get('chat', {})
+                                if _ch.get('id'):
+                                    _uid = str(_ch['id'])
+                                    _vistos[_uid] = {
+                                        'chat_id': _uid,
+                                        'nombre':  _ch.get('first_name','') + (' ' + _ch.get('last_name','') if _ch.get('last_name') else ''),
+                                        'username': _ch.get('username','')
+                                    }
+                            st.session_state['_tg_updates'] = list(_vistos.values())
+                        else:
+                            st.error("❌ Error al consultar el bot")
+                    except Exception as _ue:
+                        st.error(f"❌ {_ue}")
+
+                if st.session_state.get('_tg_updates') is not None:
+                    _updates = st.session_state['_tg_updates']
+                    if not _updates:
+                        st.info("No hay usuarios registrados aún. Pídeles que escriban /start al bot.")
+                    else:
+                        st.markdown(f"**{len(_updates)} persona(s) encontradas:**")
+                        for _up in _updates:
+                            _uc1, _uc2, _uc3 = st.columns([2, 1.5, 1])
+                            with _uc1:
+                                _uname = f"@{_up['username']}" if _up['username'] else "sin username"
+                                st.markdown(f"**{_up['nombre']}** · `{_uname}`")
+                            with _uc2:
+                                st.code(_up['chat_id'], language=None)
+                            with _uc3:
+                                if st.button(f"➕ Asignar", key=f"asignar_{_up['chat_id']}"):
+                                    st.session_state[f"_asignar_chat_{_up['chat_id']}"] = _up['chat_id']
+                                    st.info(f"Copia el Chat ID `{_up['chat_id']}` en el campo del contacto correspondiente abajo ↓")
+
+            st.divider()
+
             _contactos = _get_contactos_notif()
             _todos_usuarios = []
             try:
