@@ -4632,12 +4632,13 @@ with tab1:
         st.warning("🔒 Esta cotización tiene márgenes aplicados. Modo solo lectura. Solo puedes visualizar y generar PDFs.")
 
     if not es_solo_lectura:
+        # Calcular hojas_modelo ANTES de las columnas para que esté disponible en col_m4
+        hojas_modelo = [h for h in _leer_hojas_disponibles() if h.lower().startswith("modelo")]
         col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns([1,1,1,1,0.7])
 
         with col_m1:
             with st.container(border=True):
                 st.markdown("**📋 Modelo Predefinido**")
-                hojas_modelo = [h for h in _leer_hojas_disponibles() if h.lower().startswith("modelo")]
                 if hojas_modelo:
                     modelo_seleccionado = st.selectbox("Modelo", hojas_modelo, key="modelo_select", label_visibility="collapsed")
                     if st.button("Cargar", key="btn_modelo", use_container_width=True):
