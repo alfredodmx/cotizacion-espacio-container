@@ -6670,17 +6670,14 @@ if st.session_state.get('recien_cargado', False):
     st.session_state.recien_cargado = False
 
 if _mostrar_fab:
-    # FAB guardar — botón creado en DOM padre, comunica via postMessage
     import streamlit.components.v1 as _fab_comp
     _fab_comp.html("""
 <script>
 (function(){
     var D = window.parent.document;
-    // Limpiar anterior
     ['_fm_s','_fm_b','_fm_p'].forEach(function(id){
         var e=D.getElementById(id); if(e) e.remove();
     });
-    // Estilos
     var s=D.createElement('style'); s.id='_fm_s';
     s.innerHTML=[
         '@keyframes pfab{0%{box-shadow:0 8px 24px rgba(91,124,250,0.5);}',
@@ -6697,29 +6694,14 @@ if _mostrar_fab:
         'background:#ef4444;border-radius:50%;border:2px solid #fff;animation:blnk 1.5s infinite;}'
     ].join('');
     D.head.appendChild(s);
-    // Botón
     var p=D.createElement('div'); p.id='_fm_p';
     var b=D.createElement('button'); b.id='_fm_b';
     b.innerHTML='&#128190; Guardar';
     var badge=D.createElement('span'); badge.id='_fm_badge';
     b.appendChild(badge); p.appendChild(b); D.body.appendChild(p);
-    // Ocultar el botón real FAB_SAVE (se busca con delay para esperar render)
-    function hideFabSave(){
-        var allBtns = D.querySelectorAll('button');
-        for(var i=0;i<allBtns.length;i++){
-            var txt=(allBtns[i].innerText||allBtns[i].textContent||'').trim();
-            if(txt==='FAB_SAVE'){
-                var par=allBtns[i].closest('[data-testid="stButton"]');
-                if(par) par.style.cssText='position:fixed!important;top:-9999px!important;left:-9999px!important;';
-            }
-        }
-    }
-    setTimeout(hideFabSave,300);
-    setTimeout(hideFabSave,800);
-    // Click: buscar y clickear el botón oculto de Streamlit en el DOM padre
     b.addEventListener('click', function(){
-        var btns = D.querySelectorAll('button');
-        for(var i=0; i<btns.length; i++){
+        var btns=D.querySelectorAll('button');
+        for(var i=0;i<btns.length;i++){
             var txt=(btns[i].innerText||btns[i].textContent||'').trim();
             if(txt==='FAB_SAVE' && btns[i].id!=='_fm_b'){
                 btns[i].click();
@@ -6730,8 +6712,6 @@ if _mostrar_fab:
 })();
 </script>
 """, height=0)
-
-    # Sin CSS de ocultamiento — el JS del FAB oculta el botón directamente
 
     if st.button("FAB_SAVE", key="btn_fab_guardar"):
         leer_datos_actuales()
@@ -6756,7 +6736,6 @@ if _mostrar_fab:
             _ej_email       = st.session_state.get('correo_asesor', '')
             _ej_nombre      = _asesor_sel
             _monto          = tots.get('total', 0) if tots else 0
-            # Obtener email asesor desde BD si no está en session
             if not _ej_email and num_g:
                 try:
                     _rd = supabase_admin.table('cotizaciones').select('asesor_email','asesor_nombre').eq('numero', num_g).execute()
@@ -6767,7 +6746,6 @@ if _mostrar_fab:
             import threading as _thr
             if _tiene_plano and _datos_ok and _asesor_ok:
                 if _margen_notif > 0:
-                    # Estado: AUTORIZADO CON PLANO → notificar al ejecutivo
                     _sup_nombre = st.session_state.get('auth_nombre','') or st.session_state.get('auth_email','')
                     _thr.Thread(
                         target=notificar_cotizacion_autorizada,
@@ -6775,7 +6753,6 @@ if _mostrar_fab:
                         daemon=True
                     ).start()
                 else:
-                    # Estado: BORRADOR CON PLANO → notificar a supervisores
                     _ej_email_fab = st.session_state.get('auth_email','')
                     _ej_nombre_fab = st.session_state.get('auth_nombre', _ej_nombre)
                     _thr.Thread(
