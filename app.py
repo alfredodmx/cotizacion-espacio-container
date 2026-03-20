@@ -8843,21 +8843,26 @@ if tab_notif is not None and st.session_state.get('es_supervisor'):
         </script>
         """, unsafe_allow_html=True)
 
-        _msg_labels = {
-            'msg_nueva_cotizacion': ("🆕 Nueva cotización → supervisores/admins/observadores", "Al guardar cotización"),
-            'msg_autorizada': ("✅ Cotización autorizada → ejecutivo + observadores", "Al guardar con margen"),
-            'msg_margen_removido': ("↩️ Margen removido → ejecutivo", "Al quitar margen")
-        }
+        # ── 3 columnas para los mensajes ──
+        _msg_configs = [
+            ('msg_nueva_cotizacion', "🆕 Nueva cotización", "supervisores/admins/observadores", "Al guardar cotización"),
+            ('msg_autorizada',       "✅ Cotización autorizada", "ejecutivo + observadores", "Al guardar con margen"),
+            ('msg_margen_removido',  "↩️ Margen removido", "ejecutivo", "Al quitar margen"),
+        ]
         _msgs_nuevos = {}
-        for _mk, (_mlabel, _mcuando) in _msg_labels.items():
+        _mcol1, _mcol2, _mcol3 = st.columns(3)
+        for (_mk, _mtitulo, _mdest, _mcuando), _mcol in zip(_msg_configs, [_mcol1, _mcol2, _mcol3]):
             _mval = _get_notif_config(_mk, _msg_defaults[_mk])
-            _mc1, _mc2 = st.columns([3, 1])
-            with _mc1:
-                st.markdown(f"**{_mlabel}**", unsafe_allow_html=False)
-            with _mc2:
-                st.markdown(f"<div style='text-align:right;font-size:0.75rem;color:#94a3b8;padding-top:4px'>{_mcuando}</div>", unsafe_allow_html=True)
-            _msgs_nuevos[_mk] = st.text_area("", value=_mval, height=90, key=f"msg_{_mk}", label_visibility="collapsed")
-            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+            with _mcol:
+                st.markdown(f"""
+                <div style='margin-bottom:6px'>
+                    <div style='font-size:0.85rem;font-weight:700;color:var(--text-color)'>{_mtitulo}</div>
+                    <div style='font-size:0.72rem;color:#94a3b8;margin-bottom:2px'>→ {_mdest}</div>
+                    <div style='font-size:0.7rem;color:#cbd5e1;font-style:italic'>{_mcuando}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                _msgs_nuevos[_mk] = st.text_area("", value=_mval, height=400,
+                                                  key=f"msg_{_mk}", label_visibility="collapsed")
 
         _mb1, _mb2 = st.columns([1, 1])
         with _mb1:
