@@ -2667,7 +2667,7 @@ st.markdown('''
     min-height: 0 !important;
 }
 [data-testid="stAppViewContainer"] > section:first-child {
-    padding-top: 0 !important;
+    padding-top: 42px !important;
 }
 [data-testid="stCheckbox"] span,
 [data-testid="stRadio"] span {
@@ -2798,20 +2798,48 @@ st.markdown(f'''
 </div>
 ''', unsafe_allow_html=True)
 
-# Barra admin — alineada a la derecha debajo del header
-_col_esp, _col_admin_btn = st.columns([3, 1])
-with _col_admin_btn:
-    _nombre_display = st.session_state.get('auth_nombre', '') or st.session_state.get('auth_email', '')
-    _rol_disp = st.session_state.get('rol_usuario', 'ejecutivo')
-    if _rol_disp == 'root':
-        st.markdown(f'<div style="padding-top:0.3rem;font-weight:700;color:#f59e0b;text-align:right;">🔑 Root · {_nombre_display}</div>', unsafe_allow_html=True)
-    elif _rol_disp == 'admin':
-        st.markdown(f'<div style="padding-top:0.3rem;font-weight:700;color:#8b5cf6;text-align:right;">👑 Admin · {_nombre_display}</div>', unsafe_allow_html=True)
-    else:
-        st.markdown(f'<div style="padding-top:0.3rem;font-weight:600;color:#64748b;text-align:right;">👤 {_nombre_display}</div>', unsafe_allow_html=True)
+# ── Header fijo: badge izquierda + usuario derecha ──
+_nombre_display = st.session_state.get('auth_nombre', '') or st.session_state.get('auth_email', '')
+_rol_disp = st.session_state.get('rol_usuario', 'ejecutivo')
+if _rol_disp == 'root':
+    _rol_html = f'<span style="color:#f59e0b;font-weight:700;font-size:0.8rem;">🔑 ROOT</span> <span style="color:#e2e8f0;font-size:0.82rem;font-weight:600;">{_nombre_display.upper()}</span>'
+elif _rol_disp == 'admin':
+    _rol_html = f'<span style="color:#a78bfa;font-weight:700;font-size:0.8rem;">👑 ADMIN</span> <span style="color:#e2e8f0;font-size:0.82rem;font-weight:600;">{_nombre_display.upper()}</span>'
+else:
+    _rol_html = f'<span style="color:#94a3b8;font-weight:700;font-size:0.8rem;">👤</span> <span style="color:#e2e8f0;font-size:0.82rem;font-weight:600;">{_nombre_display.upper()}</span>'
 
-# Herramientas admin — solo cuando está activo
-_col_esp2, _col_pwd, _col_cerrar = st.columns([4, 1, 1])
+st.markdown(f"""
+<style>
+#_usr_header_bar {{
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 42px;
+    background: #0f172a;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.5rem;
+    z-index: 999998;
+    gap: 12px;
+}}
+#_usr_header_bar .usr-right {{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+}}
+</style>
+<div id="_usr_header_bar">
+    <div id="_badge_slot" style="flex:1;min-width:0;"></div>
+    <div class="usr-right">
+        {_rol_html}
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# Botones en columnas ocultas pero funcionales — se mueven al header via JS
+_col_esp2, _col_pwd, _col_cerrar = st.columns([12, 1, 1])
 with _col_pwd:
     with st.popover("🔑 Mi contraseña", use_container_width=True):
         st.markdown("**Cambiar mi contraseña**")
@@ -2842,10 +2870,108 @@ with _col_cerrar:
         logout_usuario()
         st.session_state.modo_admin = False
         st.session_state._csv_listo = None
-        pass  # logout limpio
+        pass
         st.rerun()
 
 # =========================================================
+# JS: mover botones de contraseña y cerrar sesión al header fijo
+import streamlit.components.v1 as _hdr_comp
+_hdr_comp.html("""
+<script>
+(function(){
+    var D = window.parent.document;
+
+    function moveButtonsToHeader() {
+        var bar = D.getElementById('_usr_header_bar');
+        if (!bar) return;
+
+        var usrRight = bar.querySelector('.usr-right');
+        if (!usrRight) return;
+
+        // Evitar duplicar
+        if (bar.querySelector('._hdr_btns_moved')) return;
+
+        // Buscar botones por texto
+        var allBtns = D.querySelectorAll('button');
+        var btnPwd = null, btnCerrar = null, popoverPwd = null;
+
+        for (var i = 0; i < allBtns.length; i++) {
+            var txt = (allBtns[i].innerText || allBtns[i].textContent || '').trim();
+            if (txt === '🔑 Mi contraseña') btnPwd = allBtns[i];
+            if (txt === '🚪 Cerrar sesión') btnCerrar = allBtns[i];
+        }
+
+        if (!btnPwd || !btnCerrar) return;
+
+        // Crear contenedor de botones en el header
+        var wrap = D.createElement('div');
+        wrap.className = '_hdr_btns_moved';
+        wrap.style.cssText = 'display:flex;align-items:center;gap:6px;';
+
+        // Estilo compartido para botones del header
+        var btnStyle = [
+            'background:rgba(255,255,255,0.08);',
+            'color:#e2e8f0;border:1px solid rgba(255,255,255,0.12);',
+            'border-radius:6px;padding:4px 10px;font-size:0.75rem;',
+            'font-weight:600;cursor:pointer;white-space:nowrap;',
+            'font-family:inherit;transition:background 0.2s;'
+        ].join('');
+
+        // Clonar y estilizar botón contraseña
+        var clonePwd = btnPwd.cloneNode(true);
+        clonePwd.style.cssText = btnStyle;
+        clonePwd.onmouseenter = function(){ this.style.background='rgba(255,255,255,0.15)'; };
+        clonePwd.onmouseleave = function(){ this.style.background='rgba(255,255,255,0.08)'; };
+        clonePwd.addEventListener('click', function(e){
+            e.stopPropagation();
+            btnPwd.click();
+        });
+
+        // Clonar y estilizar botón cerrar sesión
+        var cloneCerrar = btnCerrar.cloneNode(true);
+        cloneCerrar.style.cssText = btnStyle + 'color:#fca5a5;border-color:rgba(252,165,165,0.2);';
+        cloneCerrar.onmouseenter = function(){ this.style.background='rgba(239,68,68,0.15)'; };
+        cloneCerrar.onmouseleave = function(){ this.style.background='rgba(255,255,255,0.08)'; };
+        cloneCerrar.addEventListener('click', function(e){
+            e.stopPropagation();
+            btnCerrar.click();
+        });
+
+        wrap.appendChild(clonePwd);
+        wrap.appendChild(cloneCerrar);
+        usrRight.appendChild(wrap);
+
+        // Ocultar los botones originales
+        var colPwd = btnPwd.closest('[data-testid="stPopover"]') || btnPwd.closest('[data-testid="stButton"]');
+        var colCerrar = btnCerrar.closest('[data-testid="stButton"]');
+        if (colPwd) colPwd.parentElement.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
+        if (colCerrar) colCerrar.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
+    }
+
+    // Mover badge al header
+    function moveBadgeToHeader() {
+        var bar = D.getElementById('_usr_header_bar');
+        var slot = D.getElementById('_badge_slot');
+        if (!bar || !slot) return;
+        var badge = D.querySelector('.cotizacion-status-container');
+        if (badge && !slot.hasChildNodes()) {
+            var clone = badge.cloneNode(true);
+            clone.style.cssText = 'margin:0;padding:0;';
+            slot.appendChild(clone);
+            badge.style.visibility = 'hidden';
+            badge.style.height = '0';
+            badge.style.overflow = 'hidden';
+        }
+    }
+
+    setTimeout(moveButtonsToHeader, 800);
+    setTimeout(moveButtonsToHeader, 1500);
+    setTimeout(moveBadgeToHeader, 900);
+    setTimeout(moveBadgeToHeader, 1600);
+})();
+</script>
+""", height=0)
+
 # JS FLECHAS NAVEGACIÓN TABS
 import streamlit.components.v1 as _tabs_nav_comp
 _tabs_nav_comp.html("""
