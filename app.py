@@ -2926,9 +2926,11 @@ with _col_cerrar:
         pass
         st.rerun()
 
-# Dar id al botón cerrar cotización para que el header lo encuentre
-import streamlit.components.v1 as _id_comp
-_id_comp.html("""<script>
+# JS consolidado — header, tabs y cerrar cotización (un solo components.html = menos espacio)
+import streamlit.components.v1 as _js_global
+_js_global.html("""
+<script>
+(function(){
 (function(){
     var D = window.parent.document;
     function tagCerrarCot(){
@@ -2944,13 +2946,7 @@ _id_comp.html("""<script>
     setTimeout(tagCerrarCot,500);
     setTimeout(tagCerrarCot,1200);
 })();
-</script>""", height=0)
 
-# =========================================================
-# JS: mover botones de contraseña y cerrar sesión al header fijo
-import streamlit.components.v1 as _hdr_comp
-_hdr_comp.html("""
-<script>
 (function(){
     var D = window.parent.document;
 
@@ -3085,13 +3081,7 @@ _hdr_comp.html("""
     setTimeout(moveBadgeAndCloseToHeader, 900);
     setTimeout(moveBadgeAndCloseToHeader, 1600);
 })();
-</script>
-""", height=0)
 
-# JS FLECHAS NAVEGACIÓN TABS
-import streamlit.components.v1 as _tabs_nav_comp
-_tabs_nav_comp.html("""
-<script>
 (function(){
     function initTabArrows() {
         var D = window.parent.document;
@@ -3150,6 +3140,7 @@ _tabs_nav_comp.html("""
             setTimeout(initTabArrows, 300);
         }
     });
+})();
 })();
 </script>
 """, height=0)
