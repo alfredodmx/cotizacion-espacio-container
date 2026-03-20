@@ -2854,7 +2854,7 @@ if _cot_cargada:
     _left_html  = _ep_txt + _badge_pill + _cerrar_btn
 else:
     _header_color = '#0f172a'
-    _left_html    = '<span style="font-size:0.85rem;font-weight:600;color:#ffffff;opacity:0.5;">Sin cotización activa</span>'
+    _left_html    = '<span style="font-size:0.85rem!important;font-weight:600!important;color:#ffffff!important;">Sin cotización activa</span>'
 
 _header_bg = 'linear-gradient(90deg, ' + _header_color + ' 0%, #0f172a 65%)'
 
@@ -2880,6 +2880,11 @@ st.markdown(f"""
     margin-left: auto;
     flex-shrink: 0;
 }}
+/* Botones del header — forzar texto blanco */
+#_usr_header_bar button,
+#_usr_header_bar ._hdr_btns_moved button {
+    color: #ffffff !important;
+}
 /* Ocultar badge y botón cerrar originales — sin espacio */
 .cotizacion-status-container {{ display: none !important; }}
 .st-key-btn_cerrar_cotizacion {{
@@ -3011,11 +3016,11 @@ _js_global.html("""
 
         // Estilo compartido para botones del header
         var btnStyle = [
-            'background:rgba(255,255,255,0.08);',
-            'color:#ffffff;border:1px solid rgba(255,255,255,0.18);',
-            'border-radius:6px;padding:4px 12px;font-size:0.82rem;',
-            'font-weight:600;cursor:pointer;white-space:nowrap;',
-            'font-family:inherit;transition:background 0.2s;'
+            'background:rgba(255,255,255,0.08)!important;',
+            'color:#ffffff!important;border:1px solid rgba(255,255,255,0.25)!important;',
+            'border-radius:6px!important;padding:4px 12px!important;font-size:0.82rem!important;',
+            'font-weight:600!important;cursor:pointer!important;white-space:nowrap!important;',
+            'font-family:inherit!important;transition:background 0.2s!important;'
         ].join('');
 
         // Clonar y estilizar botón contraseña
@@ -3031,7 +3036,7 @@ _js_global.html("""
 
         // Clonar y estilizar botón cerrar sesión
         var cloneCerrar = btnCerrar.cloneNode(true);
-        cloneCerrar.style.cssText = btnStyle + 'color:#ffffff;border-color:rgba(255,255,255,0.18);';
+        cloneCerrar.style.cssText = btnStyle;
         cloneCerrar.onmouseenter = function(){ this.style.background='rgba(239,68,68,0.15)'; };
         cloneCerrar.onmouseleave = function(){ this.style.background='rgba(255,255,255,0.08)'; };
         cloneCerrar.addEventListener('click', function(e){
