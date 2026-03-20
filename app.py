@@ -2849,29 +2849,33 @@ if _cot_cargada:
     _cerrar_btn = '<button id="_btn_cerrar_hdr" data-action="cerrar-cot" style="margin-left:10px;background:rgba(239,68,68,0.12);color:#fca5a5;border:1px solid rgba(239,68,68,0.2);border-radius:6px;padding:2px 8px;font-size:0.72rem;font-weight:600;cursor:pointer;">🗑️ Cerrar</button>'
     _left_html = _ep_txt + _badge_pill + _cerrar_btn
 else:
+    _header_color = '#0f172a'
     _left_html = '<span style="font-size:0.75rem;color:#475569;">Sin cotización activa</span>'
 
-st.markdown("""
+_header_bg = 'linear-gradient(90deg, ' + _header_color + ' 0%, #0f172a 60%)'
+
+st.markdown(f"""
 <style>
-#_usr_header_bar {
+#_usr_header_bar {{
     position: fixed;
     top: 0; left: 0; right: 0;
     height: 42px;
-    background: #0f172a;
+    background: {_header_bg};
     border-bottom: 1px solid rgba(255,255,255,0.08);
+    transition: background 0.5s ease;
     display: flex;
     align-items: center;
     padding: 0 1.5rem;
     z-index: 999998;
     gap: 12px;
-}
-#_usr_header_bar .usr-right {
+}}
+#_usr_header_bar .usr-right {{
     display: flex;
     align-items: center;
     gap: 10px;
     margin-left: auto;
     flex-shrink: 0;
-}
+}}
 /* Ocultar badge y botón cerrar originales — sin espacio */
 .cotizacion-status-container { display: none !important; }
 .st-key-btn_cerrar_cotizacion {
