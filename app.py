@@ -6743,26 +6743,43 @@ if _mostrar_fab:
         st.session_state.toast_numero_ep = num_g
         st.session_state.resultados_busqueda = None
         try:
-            _ej_email  = st.session_state.get('auth_email', '')
-            _ej_nombre = st.session_state.get('auth_nombre', st.session_state.asesor_seleccionado)
-            _cli_nombre= st.session_state.get('nombre_input', '')
-            _monto     = tots.get('total', 0) if tots else 0
-            _tiene_plano_notif = bool(
-                st.session_state.get('plano_adjunto') or
-                st.session_state.get('pdf_url') or
-                st.session_state.get('plano_nombre')
-            )
-            _datos_ok  = bool(_cli_nombre and st.session_state.get('correo_input'))
-            _asesor_ok = bool(st.session_state.get('asesor_seleccionado','') != 'Seleccionar asesor')
-            # Solo notificar si NO tiene margen (borrador) — si ya está autorizado no re-notificar
-            _margen_actual_notif = st.session_state.get('margen', 0)
-            if _tiene_plano_notif and _datos_ok and _asesor_ok and _margen_actual_notif == 0:
-                import threading as _thr
-                _thr.Thread(
-                    target=notificar_nueva_cotizacion,
-                    args=(num_g, _ej_nombre, _cli_nombre, _monto, '🟠 Borrador con plano', _ej_email),
-                    daemon=True
-                ).start()
+            _margen_notif   = st.session_state.get('margen', 0)
+            _cli_nombre     = st.session_state.get('nombre_input', '')
+            _correo_cliente = st.session_state.get('correo_input', '')
+            _tiene_plano    = bool(st.session_state.get('plano_adjunto') or st.session_state.get('pdf_url') or st.session_state.get('plano_nombre'))
+            _datos_ok       = bool(_cli_nombre and _correo_cliente)
+            _asesor_sel     = st.session_state.get('asesor_seleccionado', '')
+            _asesor_ok      = bool(_asesor_sel and _asesor_sel != 'Seleccionar asesor')
+            _ej_email       = st.session_state.get('correo_asesor', '')
+            _ej_nombre      = _asesor_sel
+            _monto          = tots.get('total', 0) if tots else 0
+            # Obtener email asesor desde BD si no está en session
+            if not _ej_email and num_g:
+                try:
+                    _rd = supabase_admin.table('cotizaciones').select('asesor_email','asesor_nombre').eq('numero', num_g).execute()
+                    if _rd.data:
+                        _ej_email = _rd.data[0].get('asesor_email','')
+                        _ej_nombre = _ej_nombre or _rd.data[0].get('asesor_nombre','')
+                except: pass
+            import threading as _thr
+            if _tiene_plano and _datos_ok and _asesor_ok:
+                if _margen_notif > 0:
+                    # Estado: AUTORIZADO CON PLANO → notificar al ejecutivo
+                    _sup_nombre = st.session_state.get('auth_nombre','') or st.session_state.get('auth_email','')
+                    _thr.Thread(
+                        target=notificar_cotizacion_autorizada,
+                        args=(num_g, _cli_nombre, _margen_notif, _ej_email, _ej_nombre, _sup_nombre),
+                        daemon=True
+                    ).start()
+                else:
+                    # Estado: BORRADOR CON PLANO → notificar a supervisores
+                    _ej_email_fab = st.session_state.get('auth_email','')
+                    _ej_nombre_fab = st.session_state.get('auth_nombre', _ej_nombre)
+                    _thr.Thread(
+                        target=notificar_nueva_cotizacion,
+                        args=(num_g, _ej_nombre_fab, _cli_nombre, _monto, '🟠 Borrador con plano', _ej_email_fab),
+                        daemon=True
+                    ).start()
         except:
             pass
         st.rerun()
@@ -6838,24 +6855,8 @@ section[data-testid="stMain"] div[data-testid="stPopover"] > div > button {{
                             _ej_nombre_notif = _ej_nombre_notif or _cot_data.data[0].get('asesor_nombre', '')
                     except:
                         pass
-                if _ep_notif:
-                    if _mg_pop > 0:
-                        _supervisor_nombre = st.session_state.get('auth_nombre', '') or st.session_state.get('auth_email', '')
-                        import threading as _thr2
-                        _thr2.Thread(
-                            target=notificar_cotizacion_autorizada,
-                            args=(_ep_notif, _cli_notif, _mg_pop, _ej_email_notif, _ej_nombre_notif, _supervisor_nombre),
-                            daemon=True
-                        ).start()
-                    elif _mg_pop == 0 and _margen_anterior > 0:
-                        import threading as _thr3
-                        _thr3.Thread(
-                            target=notificar_margen_removido,
-                            args=(_ep_notif, _cli_notif, _ej_email_notif),
-                            daemon=True
-                        ).start()
             except Exception as _ne:
-                st.toast(f"⚠️ Notif error: {_ne}", icon="⚠️")
+                pass
             st.rerun()
 
 else:
