@@ -6703,6 +6703,19 @@ if _mostrar_fab:
     b.innerHTML='&#128190; Guardar';
     var badge=D.createElement('span'); badge.id='_fm_badge';
     b.appendChild(badge); p.appendChild(b); D.body.appendChild(p);
+    // Ocultar el botón real FAB_SAVE (se busca con delay para esperar render)
+    function hideFabSave(){
+        var allBtns = D.querySelectorAll('button');
+        for(var i=0;i<allBtns.length;i++){
+            var txt=(allBtns[i].innerText||allBtns[i].textContent||'').trim();
+            if(txt==='FAB_SAVE'){
+                var par=allBtns[i].closest('[data-testid="stButton"]');
+                if(par) par.style.cssText='position:fixed!important;top:-9999px!important;left:-9999px!important;';
+            }
+        }
+    }
+    setTimeout(hideFabSave,300);
+    setTimeout(hideFabSave,800);
     // Click: buscar y clickear el botón oculto de Streamlit en el DOM padre
     b.addEventListener('click', function(){
         var btns = D.querySelectorAll('button');
@@ -6718,17 +6731,7 @@ if _mostrar_fab:
 </script>
 """, height=0)
 
-    # Botón real oculto con texto especial para identificarlo
-    st.markdown("""<style>
-    /* Ocultar botón FAB real — identificado por key en el DOM */
-    div[data-testid="stButton"]:has(button[kind="secondary"]) {
-        position:fixed!important;
-        top:-999px!important;
-        left:-999px!important;
-        width:1px!important;
-        height:1px!important;
-    }
-    </style>""", unsafe_allow_html=True)
+    # Sin CSS de ocultamiento — el JS del FAB oculta el botón directamente
 
     if st.button("FAB_SAVE", key="btn_fab_guardar"):
         leer_datos_actuales()
