@@ -6796,12 +6796,21 @@ section[data-testid="stMain"] div[data-testid="stPopover"] > div > button {{
             # Notificar via Telegram
             try:
                 _ep_notif = st.session_state.get('cotizacion_cargada', '')
-                _cli_notif = st.session_state.get('nombre_input', '')
-                _ej_email_notif = st.session_state.get('correo_asesor', '')
+                _cli_notif = st.session_state.get('nombre_input', '') or 'Cliente'
+                # Obtener email ejecutivo — desde session_state o desde la BD
+                _ej_email_notif = st.session_state.get('correo_asesor', '') or st.session_state.get('asesor_correo_temp', '')
                 _ej_nombre_notif = st.session_state.get('asesor_seleccionado', '')
-                if _ep_notif and _ej_email_notif:
+                # Si no hay email en session, buscarlo en la cotización cargada
+                if not _ej_email_notif and _ep_notif:
+                    try:
+                        _cot_data = supabase_admin.table('cotizaciones').select('asesor_email','asesor_nombre').eq('numero', _ep_notif).execute()
+                        if _cot_data.data:
+                            _ej_email_notif = _cot_data.data[0].get('asesor_email', '')
+                            _ej_nombre_notif = _ej_nombre_notif or _cot_data.data[0].get('asesor_nombre', '')
+                    except:
+                        pass
+                if _ep_notif:
                     if _mg_pop > 0:
-                        # Notificar autorización (nueva o cambio de margen)
                         import threading as _thr2
                         _thr2.Thread(
                             target=notificar_cotizacion_autorizada,
@@ -6809,9 +6818,14 @@ section[data-testid="stMain"] div[data-testid="stPopover"] > div > button {{
                             daemon=True
                         ).start()
                     elif _mg_pop == 0 and _margen_anterior > 0:
-                        notificar_margen_removido(_ep_notif, _cli_notif, _ej_email_notif)
-            except:
-                pass
+                        import threading as _thr3
+                        _thr3.Thread(
+                            target=notificar_margen_removido,
+                            args=(_ep_notif, _cli_notif, _ej_email_notif),
+                            daemon=True
+                        ).start()
+            except Exception as _ne:
+                st.toast(f"⚠️ Notif error: {_ne}", icon="⚠️")
             st.rerun()
 
 else:
