@@ -2830,9 +2830,7 @@ if _cot_cargada:
         _badge_color = '#ef4444'
     _badge_pill = '<span style="font-size:0.72rem;font-weight:700;color:' + _badge_color + ';background:rgba(0,0,0,0.3);padding:2px 8px;border-radius:20px;border:1px solid ' + _badge_color + '33;">' + _badge_hdr + '</span>'
     _ep_txt = '<span style="font-size:0.78rem;font-weight:700;color:#e2e8f0;margin-right:6px;">📝 ' + str(_cot_cargada) + ' •</span>'
-    _cerrar_btn = ('<button id="_btn_cerrar_hdr" style="margin-left:10px;background:rgba(239,68,68,0.12);color:#fca5a5;border:1px solid rgba(239,68,68,0.2);border-radius:6px;padding:2px 8px;font-size:0.72rem;font-weight:600;cursor:pointer;"'
-        ' onclick="(function(){var D=window.parent.document;var q=D.querySelectorAll.bind(D);var btns=q(&quot;button&quot;);for(var i=0;i<btns.length;i++){var t=(btns[i].innerText||btns[i].textContent||&quot;&quot;).trim();if(t.indexOf(&quot;Cerrar Cotizaci&quot;)>=0){btns[i].click();return;}}})()">'
-        '\U0001F5D1\uFE0F Cerrar</button>')
+    _cerrar_btn = '<button id="_btn_cerrar_hdr" data-action="cerrar-cot" style="margin-left:10px;background:rgba(239,68,68,0.12);color:#fca5a5;border:1px solid rgba(239,68,68,0.2);border-radius:6px;padding:2px 8px;font-size:0.72rem;font-weight:600;cursor:pointer;">🗑️ Cerrar</button>'
     _left_html = _ep_txt + _badge_pill + _cerrar_btn
 else:
     _left_html = '<span style="font-size:0.75rem;color:#475569;">Sin cotización activa</span>'
@@ -2860,11 +2858,13 @@ st.markdown("""
 }
 /* Ocultar badge y botón cerrar originales */
 .cotizacion-status-container { display: none !important; }
-/* Ocultar columna del botón cerrar cotización */
-[data-testid="column"]:has(button[kind="secondary"][data-testid="baseButton-secondary"]) {
+/* Ocultar botón cerrar cotización original por su key */
+.st-key-btn_cerrar_cotizacion {
     position: fixed !important;
     top: -9999px !important;
     left: -9999px !important;
+    width: 1px !important;
+    height: 1px !important;
 }
 </style>
 """ + '<div id="_usr_header_bar"><div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow:hidden;">' + _left_html + '</div><div class="usr-right">' + _rol_html + '</div></div>', unsafe_allow_html=True)
@@ -3057,19 +3057,24 @@ _hdr_comp.html("""
         }
     }
 
+    // Listener para botón cerrar cotización del header
+    D.addEventListener('click', function(e){
+        if (e.target && e.target.getAttribute && e.target.getAttribute('data-action') === 'cerrar-cot') {
+            var btns = D.querySelectorAll('button');
+            for (var i = 0; i < btns.length; i++) {
+                var t = (btns[i].innerText || btns[i].textContent || '').trim();
+                if (t === '🗑️ Cerrar Cotización') {
+                    btns[i].click();
+                    return;
+                }
+            }
+        }
+    });
+
     setTimeout(moveButtonsToHeader, 800);
     setTimeout(moveButtonsToHeader, 1500);
     setTimeout(moveBadgeAndCloseToHeader, 900);
     setTimeout(moveBadgeAndCloseToHeader, 1600);
-    setInterval(function(){
-        // Actualizar solo el texto del badge cada 2s
-        var slot = D.getElementById('_badge_slot');
-        var badge = D.querySelector('.status-badge');
-        var slotBadge = slot ? slot.querySelector('._slot_badge') : null;
-        if (slotBadge && badge) {
-            slotBadge.textContent = (badge.innerText || badge.textContent || '').trim();
-        }
-    }, 2000);
 })();
 </script>
 """, height=0)
