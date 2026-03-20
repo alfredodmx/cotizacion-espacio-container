@@ -2669,6 +2669,22 @@ st.markdown('''
 [data-testid="stAppViewContainer"] > section:first-child {
     padding-top: 42px !important;
 }
+/* Eliminar espacio de iframes height=0 y elementos ocultos */
+iframe[height="0"], iframe[width="0"] {
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+[data-testid="stCustomComponentV1"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+}
+[data-testid="stCustomComponentV1"]:has(iframe[height="0"]) {
+    display: none !important;
+    height: 0 !important;
+}
 [data-testid="stCheckbox"] span,
 [data-testid="stRadio"] span {
     font-family: 'Plus Jakarta Sans', sans-serif !important;
