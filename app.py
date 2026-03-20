@@ -217,7 +217,7 @@ def notificar_nueva_cotizacion(ep, ejecutivo_nombre, cliente_nombre, monto, esta
     except:
         pass
 
-def notificar_cotizacion_autorizada(ep, cliente_nombre, margen, ejecutivo_email, ejecutivo_nombre, supervisor_nombre=''):
+def notificar_cotizacion_autorizada(ep, cliente_nombre, margen, ejecutivo_email, ejecutivo_nombre, supervisor_nombre='', monto=0):
     """Notifica al ejecutivo cuando su cotización es autorizada."""
     import traceback as _tb
     try:
@@ -226,10 +226,12 @@ def notificar_cotizacion_autorizada(ep, cliente_nombre, margen, ejecutivo_email,
         _sup = supervisor_nombre.upper() if supervisor_nombre else 'EL SUPERVISOR'
         _plantilla = _get_notif_config('msg_autorizada',
             "✅ *¡PRESUPUESTO AUTORIZADO!*\n\n📋 *{ep}* · {cliente}\n💰 Margen aplicado: *{margen}%*\n👤 Autorizado por: *{supervisor}*\n\nYa puedes presentárselo a tu cliente 🎉")
+        _fmt_monto = f"${float(monto):,.0f}".replace(",",".") if monto else "$0"
         msg = (_plantilla
             .replace('{ep}', str(ep))
             .replace('{cliente}', str(cliente_nombre))
             .replace('{margen}', _margen_str)
+            .replace('{monto}', _fmt_monto)
             .replace('{ejecutivo}', str(ejecutivo_nombre))
             .replace('{supervisor}', _sup)
         )
@@ -6758,7 +6760,7 @@ if _mostrar_fab:
                     _sup_nombre = st.session_state.get('auth_nombre','') or st.session_state.get('auth_email','')
                     _thr.Thread(
                         target=notificar_cotizacion_autorizada,
-                        args=(num_g, _cli_nombre, _margen_notif, _ej_email, _ej_nombre, _sup_nombre),
+                        args=(num_g, _cli_nombre, _margen_notif, _ej_email, _ej_nombre, _sup_nombre, _monto),
                         daemon=True
                     ).start()
                 else:
