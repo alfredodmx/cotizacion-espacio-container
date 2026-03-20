@@ -2923,8 +2923,20 @@ _hdr_comp.html("""
         clonePwd.onmouseenter = function(){ this.style.background='rgba(255,255,255,0.15)'; };
         clonePwd.onmouseleave = function(){ this.style.background='rgba(255,255,255,0.08)'; };
         clonePwd.addEventListener('click', function(e){
+            e.preventDefault();
             e.stopPropagation();
-            btnPwd.click();
+            // Hacer visible el popover original temporalmente para que abra en posición correcta
+            var colPwd2 = btnPwd.closest('[data-testid="stPopover"]') || btnPwd.closest('[data-testid="stButton"]');
+            if (colPwd2 && colPwd2.parentElement) {
+                var origStyle = colPwd2.parentElement.style.cssText;
+                colPwd2.parentElement.style.cssText = 'position:fixed!important;top:42px!important;right:120px!important;z-index:9999999!important;';
+                btnPwd.click();
+                setTimeout(function(){
+                    colPwd2.parentElement.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
+                }, 300);
+            } else {
+                btnPwd.click();
+            }
         });
 
         // Clonar y estilizar botón cerrar sesión
