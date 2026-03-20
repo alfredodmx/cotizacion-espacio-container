@@ -2881,24 +2881,24 @@ st.markdown(f"""
     flex-shrink: 0;
 }}
 /* Ocultar badge y botón cerrar originales — sin espacio */
-.cotizacion-status-container { display: none !important; }
-.st-key-btn_cerrar_cotizacion {
+.cotizacion-status-container {{ display: none !important; }}
+.st-key-btn_cerrar_cotizacion {{
     display: none !important;
     height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
-}
+}}
 /* Ocultar toda la fila de columnas del badge/cerrar */
 .st-key-btn_cerrar_cotizacion,
-.st-key-btn_cerrar_cotizacion * { display: none !important; }
+.st-key-btn_cerrar_cotizacion * {{ display: none !important; }}
 /* Reducir espacio del bloque completo que contiene badge+cerrar */
-[data-testid="stHorizontalBlock"]:has(.st-key-btn_cerrar_cotizacion) {
+[data-testid="stHorizontalBlock"]:has(.st-key-btn_cerrar_cotizacion) {{
     display: none !important;
     height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
     min-height: 0 !important;
-}
+}}
 </style>
 """ + '<div id="_usr_header_bar"><div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow:hidden;">' + _left_html + '</div><div class="usr-right">' + _rol_html + '</div></div>', unsafe_allow_html=True)
 
