@@ -6714,12 +6714,12 @@ if _mostrar_fab:
 """, height=0)
 
     st.markdown("""<style>
-    div[data-testid="stButton"]:has(button[data-testid="baseButton-secondary"][kind="secondary"]) {
-        visibility: hidden !important;
-        height: 0 !important;
-        overflow: hidden !important;
-        margin: 0 !important;
-        padding: 0 !important;
+    [data-testid="stButton"]:has(> button[data-testid="baseButton-secondary"]),
+    [data-testid="stButton"]:has(> button[kind="secondary"]) {
+        position: fixed !important;
+        top: -9999px !important;
+        left: -9999px !important;
+        pointer-events: none !important;
     }
     </style>""", unsafe_allow_html=True)
     if st.button("FAB_SAVE", key="btn_fab_guardar"):
