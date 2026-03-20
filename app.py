@@ -131,21 +131,34 @@ def _set_notif_config(clave, valor):
 
 def _enviar_telegram(chat_id, mensaje, token=None):
     """Envía un mensaje de Telegram a un chat_id."""
-    if not chat_id or not chat_id.strip():
+    if not chat_id or not str(chat_id).strip():
         return False
     try:
-        import requests as _req
         _token = token or _get_notif_config('bot_token', TELEGRAM_BOT_TOKEN_DEFAULT)
         if not _token:
             return False
+        _chat = str(chat_id).strip()
         _url = f"https://api.telegram.org/bot{_token}/sendMessage"
-        _resp = _req.post(_url, json={
-            'chat_id': chat_id.strip(),
+        _payload = json.dumps({
+            'chat_id': _chat,
             'text': mensaje,
             'parse_mode': 'Markdown'
-        }, timeout=10)
-        return _resp.status_code == 200
-    except:
+        }).encode('utf-8')
+        try:
+            # Intentar con requests primero
+            import requests as _req
+            _resp = _req.post(_url, data=_payload,
+                              headers={'Content-Type': 'application/json'}, timeout=10)
+            return _resp.status_code == 200
+        except ImportError:
+            # Fallback a urllib
+            import urllib.request as _ur
+            _req2 = _ur.Request(_url, data=_payload,
+                                headers={'Content-Type': 'application/json'})
+            _resp2 = _ur.urlopen(_req2, timeout=10)
+            return _resp2.status == 200
+    except Exception as _e:
+        print(f"_enviar_telegram error: {_e}")
         return False
 
 def _get_contactos_notif():
@@ -168,6 +181,7 @@ def _get_observadores_notif():
 
 def notificar_nueva_cotizacion(ep, ejecutivo_nombre, cliente_nombre, monto, estado, ejecutivo_email):
     """Notifica a supervisores/admins/observadores cuando se guarda una cotización."""
+    import traceback as _tb2
     try:
         # Obtener plantilla
         plantilla = _get_notif_config('msg_nueva_cotizacion', '🆕 *Nueva cotización para revisar*\n\n*{ep}* · {ejecutivo}\nCliente: {cliente} · Monto: *{monto}*\nEstado: {estado}')
@@ -203,27 +217,42 @@ def notificar_nueva_cotizacion(ep, ejecutivo_nombre, cliente_nombre, monto, esta
     except:
         pass
 
-def notificar_cotizacion_autorizada(ep, cliente_nombre, margen, ejecutivo_email, ejecutivo_nombre):
+def notificar_cotizacion_autorizada(ep, cliente_nombre, margen, ejecutivo_email, ejecutivo_nombre, supervisor_nombre=''):
     """Notifica al ejecutivo cuando su cotización es autorizada."""
+    import traceback as _tb
     try:
-        plantilla = _get_notif_config('msg_autorizada', '✅ *¡Cotización autorizada!*\n\n*{ep}* · {cliente}\nMargen aplicado: *{margen}%*\nYa puedes presentársela a tu cliente 🎉')
-        msg = plantilla.replace('{ep}', str(ep)).replace('{cliente}', str(cliente_nombre))                       .replace('{margen}', str(margen)).replace('{ejecutivo}', str(ejecutivo_nombre))
+        _token = _get_notif_config('bot_token', TELEGRAM_BOT_TOKEN_DEFAULT)
+        _margen_str = f"{float(margen):.1f}" if margen else "0"
+        _sup = supervisor_nombre.upper() if supervisor_nombre else 'EL SUPERVISOR'
+        msg = (
+            f"✅ *¡PRESUPUESTO AUTORIZADO!*\n\n"
+            f"📋 *{ep}* · {cliente_nombre}\n"
+            f"💰 Margen aplicado: *{_margen_str}%*\n"
+            f"👤 Autorizado por: *{_sup}*\n\n"
+            f"Ya puedes presentárselo a tu cliente 🎉"
+        )
         contactos = _get_contactos_notif()
-        # Enviar al ejecutivo
-        chat_id = contactos.get(ejecutivo_email.lower(), '')
-        if chat_id:
-            _enviar_telegram(chat_id, msg)
+        enviados = 0
+        # Enviar al ejecutivo si tiene chat_id
+        if ejecutivo_email:
+            chat_id = contactos.get(ejecutivo_email.lower(), '')
+            if chat_id:
+                ok = _enviar_telegram(chat_id, msg, _token)
+                if ok: enviados += 1
         # Enviar a observadores
         for obs in _get_observadores_notif():
             if obs.get('chat_id'):
-                _enviar_telegram(obs['chat_id'], msg)
+                if _enviar_telegram(obs['chat_id'], msg, _token):
+                    enviados += 1
         # Grupo
         grupo_id = _get_notif_config('grupo_chat_id', '')
         grupo_filtro = _get_notif_config('grupo_filtro', 'todas')
         if grupo_id and grupo_filtro in ('todas', 'solo_autorizaciones'):
-            _enviar_telegram(grupo_id, msg)
-    except:
-        pass
+            _enviar_telegram(grupo_id, msg, _token)
+        return enviados
+    except Exception as _e:
+        print(f"ERROR notificar_autorizada: {_e}\n{_tb.format_exc()}")
+        return 0
 
 def notificar_margen_removido(ep, cliente_nombre, ejecutivo_email):
     """Notifica al ejecutivo cuando se remueve el margen."""
@@ -6811,10 +6840,11 @@ section[data-testid="stMain"] div[data-testid="stPopover"] > div > button {{
                         pass
                 if _ep_notif:
                     if _mg_pop > 0:
+                        _supervisor_nombre = st.session_state.get('auth_nombre', '') or st.session_state.get('auth_email', '')
                         import threading as _thr2
                         _thr2.Thread(
                             target=notificar_cotizacion_autorizada,
-                            args=(_ep_notif, _cli_notif, _mg_pop, _ej_email_notif, _ej_nombre_notif),
+                            args=(_ep_notif, _cli_notif, _mg_pop, _ej_email_notif, _ej_nombre_notif, _supervisor_nombre),
                             daemon=True
                         ).start()
                     elif _mg_pop == 0 and _margen_anterior > 0:
