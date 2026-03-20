@@ -6821,12 +6821,33 @@ if _mostrar_fab:
     b.innerHTML='&#128190; Guardar';
     var badge=D.createElement('span'); badge.id='_fm_badge';
     b.appendChild(badge); p.appendChild(b); D.body.appendChild(p);
+    // Ocultar el botón FAB_SAVE en el DOM
+    function hideFabSave(){
+        var btns=D.querySelectorAll('button');
+        for(var i=0;i<btns.length;i++){
+            var txt=(btns[i].innerText||btns[i].textContent||'').trim();
+            if(txt==='FAB_SAVE'){
+                var par=btns[i].closest('[data-testid="stButton"]');
+                if(par){
+                    par.style.cssText='position:fixed!important;top:-9999px!important;left:-9999px!important;width:1px!important;height:1px!important;overflow:hidden!important;';
+                }
+            }
+        }
+    }
+    setTimeout(hideFabSave, 200);
+    setTimeout(hideFabSave, 600);
+    setTimeout(hideFabSave, 1500);
+
     b.addEventListener('click', function(){
+        // Asegurarse que el FAB_SAVE sea clickeable antes de clickear
         var btns=D.querySelectorAll('button');
         for(var i=0;i<btns.length;i++){
             var txt=(btns[i].innerText||btns[i].textContent||'').trim();
             if(txt==='FAB_SAVE' && btns[i].id!=='_fm_b'){
+                var par=btns[i].closest('[data-testid="stButton"]');
+                if(par) par.style.cssText='';
                 btns[i].click();
+                setTimeout(hideFabSave, 100);
                 return;
             }
         }
@@ -6835,15 +6856,6 @@ if _mostrar_fab:
 </script>
 """, height=0)
 
-    st.markdown("""<style>
-    [data-testid="stButton"]:has(> button[data-testid="baseButton-secondary"]),
-    [data-testid="stButton"]:has(> button[kind="secondary"]) {
-        position: fixed !important;
-        top: -9999px !important;
-        left: -9999px !important;
-        pointer-events: none !important;
-    }
-    </style>""", unsafe_allow_html=True)
     if st.button("FAB_SAVE", key="btn_fab_guardar"):
         leer_datos_actuales()
         datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
