@@ -2848,9 +2848,17 @@ if _cot_cargada:
         _badge_hdr    = '🔴 INCOMPLETO' + (' CON PLANO' if _plano_hdr else '')
         _badge_color  = '#ef4444'
         _header_color = '#7f1d1d'
-    _badge_pill = '<span style="font-size:0.72rem;font-weight:700;color:' + _badge_color + ';background:rgba(0,0,0,0.3);padding:2px 8px;border-radius:20px;border:1px solid ' + _badge_color + '55;">' + _badge_hdr + '</span>'
-    _ep_txt     = '<span style="font-size:0.78rem;font-weight:700;color:#e2e8f0;margin-right:6px;">📝 ' + str(_cot_cargada) + ' •</span>'
-    _cerrar_btn = '<button id="_btn_cerrar_hdr" data-action="cerrar-cot" style="margin-left:10px;background:rgba(239,68,68,0.12);color:#fca5a5;border:1px solid rgba(239,68,68,0.2);border-radius:6px;padding:2px 8px;font-size:0.72rem;font-weight:600;cursor:pointer;">🗑️ Cerrar</button>'
+    _ep_num_str = str(_cot_cargada)
+    _badge_pill = ('<span id="hdr-badge-estado" data-ep="' + _ep_num_str + '" title="Click para copiar ' + _ep_num_str + '" '
+                   'style="font-size:0.88rem;font-weight:700;color:' + _badge_color + ';background:rgba(0,0,0,0.3);'
+                   'padding:4px 14px;border-radius:20px;border:1px solid ' + _badge_color + '55;cursor:pointer;white-space:nowrap;">'
+                   + _badge_hdr + '</span>')
+    _ep_txt     = ('<span style="font-size:0.9rem;font-weight:700;color:#e2e8f0;margin-right:8px;white-space:nowrap;">'
+                   '📝 ' + _ep_num_str + ' •</span>')
+    _cerrar_btn = ('<button id="_btn_cerrar_hdr" data-action="cerrar-cot" '
+                   'style="margin-left:12px;background:rgba(239,68,68,0.15);color:#fca5a5;'
+                   'border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:5px 12px;'
+                   'font-size:0.85rem;font-weight:700;cursor:pointer;white-space:nowrap;">🗑️ Cerrar</button>')
     _left_html  = _ep_txt + _badge_pill + _cerrar_btn
 else:
     _header_color = '#0f172a'
@@ -3100,6 +3108,25 @@ _js_global.html("""
             }
         }
     }
+
+    // Listener para copiar EP al hacer click en el badge de estado
+    D.addEventListener('click', function(e){
+        var el = e.target && e.target.closest ? e.target.closest('#hdr-badge-estado') : null;
+        if (el) {
+            var ep = el.getAttribute('data-ep') || '';
+            if (ep) {
+                var ta = D.createElement('textarea');
+                ta.value = ep; ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
+                D.body.appendChild(ta); ta.focus(); ta.select();
+                try { D.execCommand('copy'); } catch(e) {}
+                ta.remove();
+                var orig = el.innerHTML;
+                el.innerHTML = '✅ ¡Copiado!';
+                el.style.color = '#10b981';
+                setTimeout(function(){ el.innerHTML = orig; el.style.color = ''; }, 1200);
+            }
+        }
+    });
 
     // Listener para botón cerrar cotización del header
     D.addEventListener('click', function(e){
