@@ -2851,7 +2851,9 @@ if _cot_cargada:
     _ep_num_str = str(_cot_cargada)
     _badge_pill = ('<span id="hdr-badge-estado" data-ep="' + _ep_num_str + '" title="Click para copiar ' + _ep_num_str + '" '
                    'style="font-size:0.88rem;font-weight:700;color:' + _badge_color + ';background:rgba(0,0,0,0.3);'
-                   'padding:4px 14px;border-radius:20px;border:1px solid ' + _badge_color + '55;cursor:pointer;white-space:nowrap;">'
+                   'padding:4px 14px;border-radius:20px;border:1px solid ' + _badge_color + '55;cursor:pointer;'
+                   'white-space:nowrap;user-select:none;-webkit-user-select:none;'
+                   '-webkit-tap-highlight-color:transparent;outline:none;">'
                    + _badge_hdr + '</span>')
     _ep_txt     = ('<span style="font-size:0.9rem;font-weight:700;color:#e2e8f0;margin-right:8px;white-space:nowrap;">'
                    '📝 ' + _ep_num_str + ' •</span>')
@@ -2893,6 +2895,15 @@ st.markdown(f"""
 #_usr_header_bar button,
 #_usr_header_bar ._hdr_btns_moved button {{
     color: #ffffff !important;
+}}
+/* Badge estado — sin efectos de click */
+#hdr-badge-estado {{
+    -webkit-tap-highlight-color: transparent !important;
+    outline: none !important;
+}}
+#hdr-badge-estado:active {{
+    opacity: 0.85 !important;
+    transform: scale(0.97) !important;
 }}
 /* Ocultar badge y botón cerrar originales — sin espacio */
 .cotizacion-status-container {{ display: none !important; }}
@@ -3120,10 +3131,14 @@ _js_global.html("""
                 D.body.appendChild(ta); ta.focus(); ta.select();
                 try { D.execCommand('copy'); } catch(e) {}
                 ta.remove();
-                var orig = el.innerHTML;
+                var origHtml = el.innerHTML;
+                var origColor = el.style.color;
                 el.innerHTML = '✅ ¡Copiado!';
-                el.style.color = '#10b981';
-                setTimeout(function(){ el.innerHTML = orig; el.style.color = ''; }, 1200);
+                el.style.setProperty('color', '#10b981', 'important');
+                setTimeout(function(){
+                    el.innerHTML = origHtml;
+                    el.style.setProperty('color', origColor, 'important');
+                }, 1200);
             }
         }
     });
