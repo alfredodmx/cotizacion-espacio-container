@@ -2856,15 +2856,24 @@ st.markdown("""
     margin-left: auto;
     flex-shrink: 0;
 }
-/* Ocultar badge y botón cerrar originales */
+/* Ocultar badge y botón cerrar originales — sin espacio */
 .cotizacion-status-container { display: none !important; }
-/* Ocultar botón cerrar cotización original por su key */
 .st-key-btn_cerrar_cotizacion {
-    position: fixed !important;
-    top: -9999px !important;
-    left: -9999px !important;
-    width: 1px !important;
-    height: 1px !important;
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+/* Ocultar toda la fila de columnas del badge/cerrar */
+.st-key-btn_cerrar_cotizacion,
+.st-key-btn_cerrar_cotizacion * { display: none !important; }
+/* Reducir espacio del bloque completo que contiene badge+cerrar */
+[data-testid="stHorizontalBlock"]:has(.st-key-btn_cerrar_cotizacion) {
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
 }
 </style>
 """ + '<div id="_usr_header_bar"><div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow:hidden;">' + _left_html + '</div><div class="usr-right">' + _rol_html + '</div></div>', unsafe_allow_html=True)
@@ -3178,6 +3187,7 @@ if st.session_state.cotizacion_cargada:
             sufijo = " CON PLANO" if _tiene_plano_badge else ""
             badge_html = f"⚠️ {st.session_state.cotizacion_cargada} • 🔴 INCOMPLETO{sufijo}"
 
+    st.markdown('<div style="display:none;height:0;overflow:hidden;">', unsafe_allow_html=True)
     col_badge, col_cerrar = st.columns([3, 1])
     with col_badge:
         _ep_num = st.session_state.cotizacion_cargada
