@@ -2850,18 +2850,20 @@ if _cot_cargada:
         _header_color = '#7f1d1d'
     _ep_num_str = str(_cot_cargada)
     _badge_pill = ('<span id="hdr-badge-estado" data-ep="' + _ep_num_str + '" title="Click para copiar ' + _ep_num_str + '" '
-                   'style="font-size:0.88rem;font-weight:700;color:' + _badge_color + ';background:rgba(0,0,0,0.3);'
-                   'padding:4px 14px;border-radius:20px;border:1px solid ' + _badge_color + '55;cursor:pointer;'
+                   'style="font-size:0.88rem;font-weight:700;color:#e2e8f0;cursor:pointer;'
                    'white-space:nowrap;user-select:none;-webkit-user-select:none;'
-                   '-webkit-tap-highlight-color:transparent;outline:none;">'
-                   + _badge_hdr + '</span>')
-    _ep_txt     = ('<span style="font-size:0.9rem;font-weight:700;color:#e2e8f0;margin-right:8px;white-space:nowrap;">'
-                   '📝 ' + _ep_num_str + ' •</span>')
+                   '-webkit-tap-highlight-color:transparent;outline:none;display:flex;align-items:center;gap:8px;">'
+                   '<span>📝 ' + _ep_num_str + ' •</span>'
+                   '<span style="color:' + _badge_color + ';background:rgba(0,0,0,0.3);'
+                   'padding:4px 14px;border-radius:20px;border:1px solid ' + _badge_color + '55;">'
+                   + _badge_hdr + '</span>'
+                   '</span>')
+    _ep_txt     = ''
     _cerrar_btn = ('<button id="_btn_cerrar_hdr" data-action="cerrar-cot" '
                    'style="margin-left:12px;background:rgba(239,68,68,0.15);color:#fca5a5;'
                    'border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:5px 12px;'
                    'font-size:0.85rem;font-weight:700;cursor:pointer;white-space:nowrap;">🗑️ Cerrar</button>')
-    _left_html  = _ep_txt + _badge_pill + _cerrar_btn
+    _left_html  = _badge_pill + _cerrar_btn
 else:
     _header_color = '#0f172a'
     _left_html    = '<span style="font-size:0.85rem;font-weight:600;color:#ffffff;-webkit-text-fill-color:#ffffff;">Sin cotización activa</span>'
