@@ -6681,9 +6681,9 @@ if _mostrar_fab:
         for(var i=0; i<btns.length; i++){
             var txt=(btns[i].innerText||btns[i].textContent||'').trim();
             found.push('['+txt+']');
-            if(txt==='_FAB_SAVE_' && btns[i].id!=='_fm_b'){
+            if(txt==='FAB_SAVE' && btns[i].id!=='_fm_b'){
                 btns[i].click();
-                console.log('FAB: clicked _FAB_SAVE_');
+                console.log('FAB: clicked FAB_SAVE');
                 return;
             }
         }
@@ -6705,7 +6705,7 @@ if _mostrar_fab:
     }
     </style>""", unsafe_allow_html=True)
 
-    if st.button("_FAB_SAVE_", key="btn_fab_guardar"):
+    if st.button("FAB_SAVE", key="btn_fab_guardar"):
         leer_datos_actuales()
         datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
         num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
