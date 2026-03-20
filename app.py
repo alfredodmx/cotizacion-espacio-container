@@ -1407,21 +1407,29 @@ def _excel_src():
     return st.session_state.excel_bytes_cache
 
 @st.cache_data(ttl=300)
+@st.cache_data(ttl=120)
 def _leer_hoja_excel(nombre_hoja):
     """Lee y cachea una hoja del Excel — evita re-parsear en cada render."""
-    return pd.read_excel(_excel_src(), sheet_name=nombre_hoja)
+    try:
+        return pd.read_excel(_excel_src(), sheet_name=nombre_hoja)
+    except:
+        return pd.DataFrame()
 
 @st.cache_data(ttl=300)
 def _leer_bd_total():
     """Lee y cachea la hoja BD Total."""
     return pd.read_excel(_excel_src(), sheet_name="BD Total")[["Item", "P. Unitario real"]]
 
+@st.cache_data(ttl=120)
 def _leer_hojas_disponibles():
-    """Lista de hojas siempre fresca — sin caché, para detectar hojas nuevas al instante."""
+    """Lista de hojas disponibles con caché corto."""
     try:
         return pd.ExcelFile(_get_excel_bytes_activo()).sheet_names
     except:
-        return pd.ExcelFile(_excel_src()).sheet_names
+        try:
+            return pd.ExcelFile(_excel_src()).sheet_names
+        except:
+            return []
 
 def cargar_modelo(nombre_hoja):
     df_modelo = _leer_hoja_excel(nombre_hoja)
