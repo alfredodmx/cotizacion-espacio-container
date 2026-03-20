@@ -2937,40 +2937,18 @@ if 'show_pwd_dialog' not in st.session_state:
 def _pwd_dialog():
     st.markdown("""
     <style>
-    div[data-testid="stDialog"] > div > div {
-        background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%) !important;
-        border: 1px solid rgba(255,255,255,0.1) !important;
-        border-radius: 16px !important;
-        padding: 8px !important;
-    }
-    div[data-testid="stDialog"] h2 {
-        color: #f1f5f9 !important;
-        font-size: 1.1rem !important;
-    }
-    div[data-testid="stDialog"] label,
-    div[data-testid="stDialog"] label p {
-        color: rgba(255,255,255,0.5) !important;
-        font-size: 0.75rem !important;
-        letter-spacing: 0.08em !important;
-        text-transform: uppercase !important;
-    }
-    div[data-testid="stDialog"] input {
-        background: rgba(255,255,255,0.06) !important;
-        border: 1px solid rgba(255,255,255,0.12) !important;
-        border-radius: 8px !important;
-        color: #f1f5f9 !important;
-    }
-    div[data-testid="stDialog"] input:focus {
-        border-color: rgba(91,124,250,0.6) !important;
-        box-shadow: 0 0 0 2px rgba(91,124,250,0.15) !important;
-    }
     div[data-testid="stDialog"] button[kind="primary"] {
         background: linear-gradient(135deg, #5b7cfa, #8b5cf6) !important;
         border: none !important;
         border-radius: 8px !important;
         font-weight: 700 !important;
         letter-spacing: 0.05em !important;
-        padding: 0.6rem !important;
+    }
+    div[data-testid="stDialog"] [data-testid="stTextInput"] label p {
+        font-size: 0.78rem !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.06em !important;
+        text-transform: uppercase !important;
     }
     </style>
     """, unsafe_allow_html=True)
