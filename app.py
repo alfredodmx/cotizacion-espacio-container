@@ -6713,6 +6713,15 @@ if _mostrar_fab:
 </script>
 """, height=0)
 
+    st.markdown("""<style>
+    div[data-testid="stButton"]:has(button[data-testid="baseButton-secondary"][kind="secondary"]) {
+        visibility: hidden !important;
+        height: 0 !important;
+        overflow: hidden !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    </style>""", unsafe_allow_html=True)
     if st.button("FAB_SAVE", key="btn_fab_guardar"):
         leer_datos_actuales()
         datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
