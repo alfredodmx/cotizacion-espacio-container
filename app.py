@@ -3179,6 +3179,46 @@ _js_global.html("""
 
 # BADGE DE COTIZACIÓN CARGADA
 # =========================================================
+def limpiar_todo():
+    st.session_state.carrito = []
+    st.session_state.nombre_input = ""
+    st.session_state.rut_raw = ""
+    st.session_state.rut_display = ""
+    st.session_state.rut_valido = False
+    st.session_state.rut_mensaje = ""
+    st.session_state.correo_input = ""
+    st.session_state.telefono_raw = ""
+    st.session_state.direccion_input = ""
+    st.session_state.cliente_comuna = ""
+    st.session_state.cliente_region = ""
+    st.session_state.proyecto_direccion = ""
+    st.session_state.proyecto_comuna = ""
+    st.session_state.proyecto_region = ""
+    st.session_state.cliente_tipo = "natural"
+    st.session_state.cliente_empresa = ""
+    st.session_state.cliente_rut_empresa = ""
+    st.session_state.rut_empresa_raw     = ""
+    st.session_state.rut_empresa_display = ""
+    st.session_state.rut_empresa_valido  = False
+    st.session_state.asesor_seleccionado = "Seleccionar asesor"
+    st.session_state.correo_asesor = ""
+    st.session_state.telefono_asesor = ""
+    st.session_state.fecha_inicio = datetime.now().date()
+    st.session_state.fecha_termino = (datetime.now() + timedelta(days=15)).date()
+    st.session_state.observaciones_input = ""
+    st.session_state.plano_adjunto = None
+    st.session_state.plano_nombre = ""
+    st.session_state.cotizacion_cargada = None
+    st.session_state.cotizacion_seleccionada = None
+    st.session_state.margen = 0.0
+    st.session_state.mostrar_visor = False
+    st.session_state.pdf_actual = None
+    st.session_state.pdf_nombre = ""
+    st.session_state.numero_en_visor = None
+    st.session_state.pdf_url = None
+    st.session_state.counter += 100
+
+
 if st.session_state.cotizacion_cargada:
     datos_completos = all([
         st.session_state.nombre_input,
@@ -4392,45 +4432,6 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
 # =========================================================
 # FUNCIÓN LIMPIAR TODO
 # =========================================================
-def limpiar_todo():
-    st.session_state.carrito = []
-    st.session_state.nombre_input = ""
-    st.session_state.rut_raw = ""
-    st.session_state.rut_display = ""
-    st.session_state.rut_valido = False
-    st.session_state.rut_mensaje = ""
-    st.session_state.correo_input = ""
-    st.session_state.telefono_raw = ""
-    st.session_state.direccion_input = ""
-    st.session_state.cliente_comuna = ""
-    st.session_state.cliente_region = ""
-    st.session_state.proyecto_direccion = ""
-    st.session_state.proyecto_comuna = ""
-    st.session_state.proyecto_region = ""
-    st.session_state.cliente_tipo = "natural"
-    st.session_state.cliente_empresa = ""
-    st.session_state.cliente_rut_empresa = ""
-    st.session_state.rut_empresa_raw     = ""
-    st.session_state.rut_empresa_display = ""
-    st.session_state.rut_empresa_valido  = False
-    st.session_state.asesor_seleccionado = "Seleccionar asesor"
-    st.session_state.correo_asesor = ""
-    st.session_state.telefono_asesor = ""
-    st.session_state.fecha_inicio = datetime.now().date()
-    st.session_state.fecha_termino = (datetime.now() + timedelta(days=15)).date()
-    st.session_state.observaciones_input = ""
-    st.session_state.plano_adjunto = None
-    st.session_state.plano_nombre = ""
-    st.session_state.cotizacion_cargada = None
-    st.session_state.cotizacion_seleccionada = None
-    st.session_state.margen = 0.0
-    st.session_state.mostrar_visor = False
-    st.session_state.pdf_actual = None
-    st.session_state.pdf_nombre = ""
-    st.session_state.numero_en_visor = None
-    st.session_state.pdf_url = None
-    st.session_state.counter += 100
-
 def _ejecutar_cierre_cotizacion():
     """Limpia todo el estado al cerrar una cotización."""
     limpiar_todo()
