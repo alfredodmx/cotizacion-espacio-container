@@ -3037,9 +3037,9 @@ _js_global.html("""
 
         var cloneCerrar = D.createElement('button');
         cloneCerrar.textContent = '🚪 Cerrar sesión';
-        cloneCerrar.style.cssText = btnStyle;
-        cloneCerrar.onmouseenter = function(){ this.style.background='rgba(239,68,68,0.15)'; };
-        cloneCerrar.onmouseleave = function(){ this.style.background='rgba(255,255,255,0.08)'; };
+        cloneCerrar.style.cssText = btnStyle + 'background:rgba(239,68,68,0.25)!important;border-color:rgba(239,68,68,0.5)!important;';
+        cloneCerrar.onmouseenter = function(){ this.style.background='rgba(239,68,68,0.5)!important'; };
+        cloneCerrar.onmouseleave = function(){ this.style.background='rgba(239,68,68,0.25)'; };
         cloneCerrar.addEventListener('click', function(e){
             e.stopPropagation();
             btnCerrar.click();
