@@ -8602,24 +8602,19 @@ if tab_notif is not None and st.session_state.get('es_supervisor'):
     with tab_notif:
         import json as _json_notif
 
+        # Header
         st.markdown("""
         <style>
         .hdr-notif {
             background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #0f172a 100%);
-            border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
-            display: flex; align-items: center; gap: 22px;
-            box-shadow: 0 8px 32px rgba(42,171,238,0.15);
-            position: relative; overflow: hidden;
+            border-radius: 20px; padding: 28px 32px; margin-bottom: 20px;
+            display: flex; align-items: center; gap: 18px;
         }
-        .hdr-notif::before { content:''; position:absolute; top:-40px; right:-40px; width:180px; height:180px; border-radius:50%; background:rgba(255,255,255,0.03); pointer-events:none; }
-        .hdr-notif h2 { color:#fff !important; margin:0; font-size:1.8rem; font-weight:900; font-family:'Montserrat',sans-serif; }
-        .hdr-notif p  { color:rgba(255,255,255,0.55) !important; margin:6px 0 0; font-size:0.92rem; }
-        .notif-section { background:var(--background-color,#fff); border:1px solid #e8eaf0; border-radius:14px; margin-bottom:18px; overflow:hidden; }
-        .notif-section-hdr { padding:12px 18px; background:rgba(0,0,0,0.03); border-bottom:1px solid #e8eaf0; font-weight:700; font-size:0.9rem; display:flex; align-items:center; gap:8px; }
-        .notif-section-body { padding:16px 18px; }
+        .hdr-notif h2 { color:#fff !important; margin:0; font-size:1.6rem; font-weight:900; }
+        .hdr-notif p  { color:rgba(255,255,255,0.5) !important; margin:4px 0 0; font-size:0.88rem; }
         </style>
         <div class="hdr-notif">
-          <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📣</span>
+          <span style="font-size:2.4rem">📣</span>
           <div>
             <h2>Notificaciones</h2>
             <p>Configura Telegram, contactos, observadores y mensajes automáticos.</p>
@@ -8628,253 +8623,232 @@ if tab_notif is not None and st.session_state.get('es_supervisor'):
         """, unsafe_allow_html=True)
 
         # ── 1. Configuración del Bot ──
-        st.markdown('<div class="notif-section"><div class="notif-section-hdr">⚙️ 1 · Configuración del Bot</div><div class="notif-section-body">', unsafe_allow_html=True)
-        _token_actual = _get_notif_config('bot_token', TELEGRAM_BOT_TOKEN_DEFAULT)
-        _bot_nombre = _get_notif_config('bot_nombre', 'Cotizador ECH Bot')
-        _c1, _c2, _c3 = st.columns([2, 1.5, 1])
-        with _c1:
-            _token_inp = st.text_input("Token del Bot", value=_token_actual, type="password", key="notif_token")
-        with _c2:
-            _nombre_inp = st.text_input("Nombre del Bot", value=_bot_nombre, key="notif_nombre")
-        with _c3:
-            st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-            _cb1, _cb2 = st.columns(2)
-            with _cb1:
-                if st.button("🔌 Probar", key="btn_probar_bot", use_container_width=True):
-                    with st.spinner("Probando..."):
-                        try:
-                            import requests as _rtest
-                            _r = _rtest.get(
-                                f"https://api.telegram.org/bot{_token_inp}/getMe",
-                                timeout=10
-                            )
-                            _rdata = _r.json()
-                            _bot_ok = _rdata.get('ok', False)
-                        except Exception as _re:
-                            _bot_ok = False
-                            _rdata = {}
-                    if _bot_ok:
-                        _bname = _rdata.get('result', {}).get('username', '')
-                        st.success(f"✅ Bot activo: @{_bname}")
-                    else:
-                        st.error("❌ Token inválido o sin conexión")
-            with _cb2:
-                if st.button("💾 Guardar", key="btn_guardar_bot", use_container_width=True, type="primary"):
-                    _set_notif_config('bot_token', _token_inp)
-                    _set_notif_config('bot_nombre', _nombre_inp)
-                    st.success("✅ Guardado")
-        st.markdown('</div></div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("**⚙️ 1 · Configuración del Bot**")
+            _token_actual = _get_notif_config('bot_token', TELEGRAM_BOT_TOKEN_DEFAULT)
+            _bot_nombre   = _get_notif_config('bot_nombre', 'Cotizador ECH Bot')
+            _c1, _c2, _c3 = st.columns([2, 1.5, 1])
+            with _c1:
+                _token_inp = st.text_input("Token del Bot", value=_token_actual, type="password", key="notif_token")
+            with _c2:
+                _nombre_inp = st.text_input("Nombre del Bot", value=_bot_nombre, key="notif_nombre")
+            with _c3:
+                st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                _cb1, _cb2 = st.columns(2)
+                with _cb1:
+                    if st.button("🔌 Probar", key="btn_probar_bot", use_container_width=True):
+                        with st.spinner("Probando..."):
+                            try:
+                                import requests as _rtest
+                                _r = _rtest.get(f"https://api.telegram.org/bot{_token_inp}/getMe", timeout=10)
+                                _rdata = _r.json()
+                                _bot_ok = _rdata.get('ok', False)
+                            except:
+                                _bot_ok = False; _rdata = {}
+                        if _bot_ok:
+                            st.success(f"✅ @{_rdata.get('result',{}).get('username','')}")
+                        else:
+                            st.error("❌ Token inválido")
+                with _cb2:
+                    if st.button("💾 Guardar", key="btn_guardar_bot", use_container_width=True, type="primary"):
+                        _set_notif_config('bot_token', _token_inp)
+                        _set_notif_config('bot_nombre', _nombre_inp)
+                        st.success("✅ Guardado")
 
         # ── 2. Contactos del sistema ──
-        st.markdown('<div class="notif-section"><div class="notif-section-hdr">👥 2 · Contactos del sistema</div><div class="notif-section-body">', unsafe_allow_html=True)
-        st.caption("Cada usuario debe escribirle /start al bot una vez para obtener su Chat ID")
-
-        _contactos = _get_contactos_notif()
-        _todos_usuarios = []
-        try:
-            _todos_usuarios = listar_usuarios_ejecutivos()
-            # Agregar roots
-            for _re in ROOTS:
-                _todos_usuarios.insert(0, {'email': _re, 'nombre': 'Root', 'rol': 'root'})
-        except:
-            pass
-
-        _contactos_nuevos = dict(_contactos)
-        for _idx, _uu in enumerate(_todos_usuarios):
-            _ue = _uu.get('email', '').lower()
-            _ur = _uu.get('rol', 'ejecutivo')
-            _un = _uu.get('nombre', _ue)
-            _rol_color = "#7c3aed" if _ur == 'root' else ("#8b5cf6" if _ur == 'admin' else "#2563eb")
-            _rol_txt = "🔑 Root" if _ur == 'root' else ("👑 Admin" if _ur == 'admin' else "👤 Ejecutivo")
-            _col_nm, _col_em, _col_chat, _col_rol, _col_est = st.columns([1.5, 1.8, 1.5, 1, 0.7])
-            with _col_nm:
-                st.markdown(f"<div style='padding:8px 0;font-size:0.88rem;font-weight:600'>{_un}</div>", unsafe_allow_html=True)
-            with _col_em:
-                st.markdown(f"<div style='padding:8px 0;font-size:0.78rem;color:#64748b'>{_ue}</div>", unsafe_allow_html=True)
-            with _col_chat:
-                _chat_val = _contactos.get(_ue, '')
-                _new_chat = st.text_input("", value=_chat_val, placeholder="@usuario o Chat ID",
-                                          key=f"chat_{_idx}_{_ue}", label_visibility="collapsed")
-                _contactos_nuevos[_ue] = _new_chat
-            with _col_rol:
-                st.markdown(f"<div style='padding:8px 0;font-size:0.75rem;color:{_rol_color};font-weight:700'>{_rol_txt}</div>", unsafe_allow_html=True)
-            with _col_est:
-                _esta = "🟢" if _contactos.get(_ue, '') else "🟡"
-                st.markdown(f"<div style='padding:8px 0;text-align:center'>{_esta}</div>", unsafe_allow_html=True)
-
-        if st.button("💾 Guardar contactos", key="btn_guardar_contactos", type="primary"):
-            _set_notif_config('contactos_json', _json_notif.dumps(_contactos_nuevos))
-            st.success("✅ Contactos guardados")
-            st.rerun()
-        st.markdown('</div></div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("**👥 2 · Contactos del sistema**")
+            st.caption("Cada usuario debe escribirle /start al bot una vez para obtener su Chat ID")
+            _contactos = _get_contactos_notif()
+            _todos_usuarios = []
+            try:
+                _todos_usuarios = listar_usuarios_ejecutivos()
+                for _re in ROOTS:
+                    _todos_usuarios.insert(0, {'email': _re, 'nombre': 'Root', 'rol': 'root'})
+            except: pass
+            _contactos_nuevos = dict(_contactos)
+            for _idx, _uu in enumerate(_todos_usuarios):
+                _ue  = _uu.get('email', '').lower()
+                _ur  = _uu.get('rol', 'ejecutivo')
+                _un  = _uu.get('nombre', _ue)
+                _rol_color = "#7c3aed" if _ur=='root' else ("#8b5cf6" if _ur=='admin' else "#2563eb")
+                _rol_txt   = "🔑 Root" if _ur=='root' else ("👑 Admin" if _ur=='admin' else "👤 Ejecutivo")
+                _col_nm, _col_em, _col_chat, _col_rol, _col_est = st.columns([1.5, 1.8, 1.5, 1, 0.7])
+                with _col_nm:
+                    st.markdown(f"<div style='padding:6px 0;font-size:0.88rem;font-weight:600'>{_un}</div>", unsafe_allow_html=True)
+                with _col_em:
+                    st.markdown(f"<div style='padding:6px 0;font-size:0.78rem;color:#64748b'>{_ue}</div>", unsafe_allow_html=True)
+                with _col_chat:
+                    _chat_val = _contactos.get(_ue, '')
+                    _new_chat = st.text_input("", value=_chat_val, placeholder="@usuario o Chat ID",
+                                              key=f"chat_{_idx}_{_ue}", label_visibility="collapsed")
+                    _contactos_nuevos[_ue] = _new_chat
+                with _col_rol:
+                    st.markdown(f"<div style='padding:6px 0;font-size:0.75rem;color:{_rol_color};font-weight:700'>{_rol_txt}</div>", unsafe_allow_html=True)
+                with _col_est:
+                    _esta = "🟢" if _contactos.get(_ue,'') else "🟡"
+                    st.markdown(f"<div style='padding:6px 0;text-align:center'>{_esta}</div>", unsafe_allow_html=True)
+            if st.button("💾 Guardar contactos", key="btn_guardar_contactos", type="primary"):
+                _set_notif_config('contactos_json', _json_notif.dumps(_contactos_nuevos))
+                st.success("✅ Contactos guardados")
+                st.rerun()
 
         # ── 3. Observadores ──
-        st.markdown('<div class="notif-section"><div class="notif-section-hdr">👁 3 · Observadores externos</div><div class="notif-section-body">', unsafe_allow_html=True)
-        st.caption("Sin cuenta en el sistema · Reciben todas las notificaciones")
-
-        _obs_list = _get_observadores_notif()
-        # Agregar fila vacía para nuevo
-        _obs_list_edit = list(_obs_list) + [{'nombre': '', 'chat_id': ''}]
-        _obs_nuevos = []
-        for _oi, _ob in enumerate(_obs_list_edit):
-            _oc1, _oc2, _oc3 = st.columns([2, 2, 0.5])
-            with _oc1:
-                _on = st.text_input("", value=_ob.get('nombre',''), placeholder="Nombre (ej: Gerente)",
-                                    key=f"obs_nm_{_oi}", label_visibility="collapsed")
-            with _oc2:
-                _oid = st.text_input("", value=_ob.get('chat_id',''), placeholder="@usuario o Chat ID",
-                                     key=f"obs_id_{_oi}", label_visibility="collapsed")
-            with _oc3:
-                _del = st.button("✕", key=f"obs_del_{_oi}", help="Eliminar")
-            if _on.strip() and not _del:
-                _obs_nuevos.append({'nombre': _on.strip(), 'chat_id': _oid.strip()})
-
-        if st.button("💾 Guardar observadores", key="btn_guardar_obs", type="primary"):
-            _set_notif_config('observadores_json', _json_notif.dumps(_obs_nuevos))
-            st.success("✅ Observadores guardados")
-            st.rerun()
-        st.markdown('</div></div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("**👁 3 · Observadores externos**")
+            st.caption("Sin cuenta en el sistema · Reciben todas las notificaciones")
+            _obs_list = _get_observadores_notif()
+            _obs_list_edit = list(_obs_list) + [{'nombre': '', 'chat_id': ''}]
+            _obs_nuevos = []
+            for _oi, _ob in enumerate(_obs_list_edit):
+                _oc1, _oc2, _oc3 = st.columns([2, 2, 0.5])
+                with _oc1:
+                    _on = st.text_input("", value=_ob.get('nombre',''), placeholder="Nombre (ej: Gerente)",
+                                        key=f"obs_nm_{_oi}", label_visibility="collapsed")
+                with _oc2:
+                    _oid = st.text_input("", value=_ob.get('chat_id',''), placeholder="@usuario o Chat ID",
+                                         key=f"obs_id_{_oi}", label_visibility="collapsed")
+                with _oc3:
+                    _del = st.button("✕", key=f"obs_del_{_oi}", help="Eliminar")
+                if _on.strip() and not _del:
+                    _obs_nuevos.append({'nombre': _on.strip(), 'chat_id': _oid.strip()})
+            if st.button("💾 Guardar observadores", key="btn_guardar_obs", type="primary"):
+                _set_notif_config('observadores_json', _json_notif.dumps(_obs_nuevos))
+                st.success("✅ Observadores guardados")
+                st.rerun()
 
         # ── 4. Grupo ──
-        st.markdown('<div class="notif-section"><div class="notif-section-hdr">📢 4 · Grupo de Telegram (opcional)</div><div class="notif-section-body">', unsafe_allow_html=True)
-        _grupo_id = _get_notif_config('grupo_chat_id', '')
-        _grupo_filtro = _get_notif_config('grupo_filtro', 'todas')
-        _gc1, _gc2, _gc3 = st.columns([2, 2, 1])
-        with _gc1:
-            _g_id_inp = st.text_input("Chat ID del grupo", value=_grupo_id, placeholder="-1001234567890", key="notif_grupo_id")
-            st.caption("Agrega el bot al grupo y escribe /start para obtener el ID")
-        with _gc2:
-            _filtro_opts = {"todas": "Todas las notificaciones", "solo_nuevas": "Solo nuevas cotizaciones",
-                            "solo_autorizaciones": "Solo autorizaciones", "ninguna": "No usar grupo"}
-            _filtro_idx = list(_filtro_opts.keys()).index(_grupo_filtro) if _grupo_filtro in _filtro_opts else 0
-            _filtro_sel = st.selectbox("Qué notificar al grupo", list(_filtro_opts.values()), index=_filtro_idx, key="notif_grupo_filtro")
-            _filtro_val = list(_filtro_opts.keys())[list(_filtro_opts.values()).index(_filtro_sel)]
-        with _gc3:
-            st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-            if st.button("💾 Guardar grupo", key="btn_guardar_grupo", use_container_width=True, type="primary"):
-                _set_notif_config('grupo_chat_id', _g_id_inp)
-                _set_notif_config('grupo_filtro', _filtro_val)
-                st.success("✅ Guardado")
-        st.markdown('</div></div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("**📢 4 · Grupo de Telegram (opcional)**")
+            _grupo_id     = _get_notif_config('grupo_chat_id', '')
+            _grupo_filtro = _get_notif_config('grupo_filtro', 'todas')
+            _gc1, _gc2, _gc3 = st.columns([2, 2, 1])
+            with _gc1:
+                _g_id_inp = st.text_input("Chat ID del grupo", value=_grupo_id, placeholder="-1001234567890", key="notif_grupo_id")
+                st.caption("Agrega el bot al grupo y escribe /start para obtener el ID")
+            with _gc2:
+                _filtro_opts = {"todas":"Todas las notificaciones","solo_nuevas":"Solo nuevas cotizaciones",
+                                "solo_autorizaciones":"Solo autorizaciones","ninguna":"No usar grupo"}
+                _filtro_idx  = list(_filtro_opts.keys()).index(_grupo_filtro) if _grupo_filtro in _filtro_opts else 0
+                _filtro_sel  = st.selectbox("Qué notificar al grupo", list(_filtro_opts.values()), index=_filtro_idx, key="notif_grupo_filtro")
+                _filtro_val  = list(_filtro_opts.keys())[list(_filtro_opts.values()).index(_filtro_sel)]
+            with _gc3:
+                st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                if st.button("💾 Guardar grupo", key="btn_guardar_grupo", use_container_width=True, type="primary"):
+                    _set_notif_config('grupo_chat_id', _g_id_inp)
+                    _set_notif_config('grupo_filtro', _filtro_val)
+                    st.success("✅ Guardado")
 
         # ── 5. Mensajes ──
-        st.markdown('<div class="notif-section"><div class="notif-section-hdr">✏️ 5 · Mensajes personalizables</div><div class="notif-section-body">', unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("**✏️ 5 · Mensajes personalizables**")
 
-        _msg_defaults = {
-            'msg_nueva_cotizacion': "🆕 *Nueva cotización para revisar*\n\n*{ep}* · {ejecutivo}\nCliente: {cliente} · Monto: *{monto}*\nEstado: {estado}",
-            'msg_autorizada': "✅ *¡Cotización autorizada!*\n\n*{ep}* · {cliente}\nMargen aplicado: *{margen}%*\nYa puedes presentársela a tu cliente 🎉",
-            'msg_margen_removido': "↩️ La cotización *{ep}* volvió a estado borrador.\nEl supervisor realizó cambios. Revisa el sistema."
-        }
-        # ── Guía de variables con click para copiar ──
-        st.markdown("""
-        <style>
-        .var-guide { background:rgba(0,0,0,0.04); border-radius:10px; padding:12px 16px; margin-bottom:16px; }
-        .var-guide-title { font-size:0.78rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:10px; }
-        .var-group { margin-bottom:8px; }
-        .var-group-label { font-size:0.72rem; color:#94a3b8; margin-bottom:4px; }
-        .var-chips { display:flex; flex-wrap:wrap; gap:6px; }
-        .var-chip {
-            display:inline-block; background:#f1f5f9; border:1px solid #e2e8f0;
-            border-radius:20px; padding:3px 10px; font-size:0.78rem; font-family:monospace;
-            color:#3b82f6; cursor:pointer; transition:all 0.15s; user-select:none;
-        }
-        .var-chip:hover { background:#dbeafe; border-color:#93c5fd; transform:scale(1.05); }
-        .var-chip:active { transform:scale(0.97); }
-        .var-chip.copied { background:#dcfce7; border-color:#86efac; color:#16a34a; }
-        .fmt-chip {
-            display:inline-block; background:#faf5ff; border:1px solid #e9d5ff;
-            border-radius:20px; padding:3px 10px; font-size:0.78rem; font-family:monospace;
-            color:#7c3aed; cursor:pointer; transition:all 0.15s; user-select:none;
-        }
-        .fmt-chip:hover { background:#ede9fe; border-color:#c4b5fd; transform:scale(1.05); }
-        .fmt-chip.copied { background:#dcfce7; border-color:#86efac; color:#16a34a; }
-        </style>
-        <div class="var-guide">
-            <div class="var-guide-title">📋 Variables disponibles — click para copiar</div>
-            <div class="var-group">
+            _msg_defaults = {
+                'msg_nueva_cotizacion': "🆕 *Nueva cotización para revisar*\n\n*{ep}* · {ejecutivo}\nCliente: {cliente} · Monto: *{monto}*\nEstado: {estado}",
+                'msg_autorizada':       "✅ *¡PRESUPUESTO AUTORIZADO!*\n\n📋 *{ep}* · {cliente}\n💰 Margen aplicado: *{margen}%*\n👤 Autorizado por: *{supervisor}*\n\nYa puedes presentárselo a tu cliente 🎉",
+                'msg_margen_removido':  "↩️ La cotización *{ep}* volvió a estado borrador.\nEl supervisor realizó cambios. Revisa el sistema."
+            }
+
+            # Guía variables con click para copiar
+            st.markdown("""
+            <style>
+            .var-guide{background:rgba(0,0,0,0.03);border-radius:10px;padding:12px 16px;margin-bottom:14px;}
+            .var-guide-title{font-size:0.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;}
+            .var-group{margin-bottom:7px;}
+            .var-group-label{font-size:0.7rem;color:#94a3b8;margin-bottom:4px;}
+            .var-chips{display:flex;flex-wrap:wrap;gap:5px;}
+            .var-chip{display:inline-block;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:20px;
+                padding:2px 9px;font-size:0.76rem;font-family:monospace;color:#3b82f6;cursor:pointer;
+                transition:all 0.15s;user-select:none;}
+            .var-chip:hover{background:#dbeafe;border-color:#93c5fd;transform:scale(1.05);}
+            .var-chip.copied{background:#dcfce7;border-color:#86efac;color:#16a34a;}
+            .fmt-chip{display:inline-block;background:#faf5ff;border:1px solid #e9d5ff;border-radius:20px;
+                padding:2px 9px;font-size:0.76rem;font-family:monospace;color:#7c3aed;cursor:pointer;
+                transition:all 0.15s;user-select:none;}
+            .fmt-chip:hover{background:#ede9fe;border-color:#c4b5fd;transform:scale(1.05);}
+            .fmt-chip.copied{background:#dcfce7;border-color:#86efac;color:#16a34a;}
+            </style>
+            <div class="var-guide">
+              <div class="var-guide-title">📋 Variables — click para copiar</div>
+              <div class="var-group">
                 <div class="var-group-label">🆕 Nueva cotización</div>
                 <div class="var-chips">
-                    <span class="var-chip" onclick="copyVar(this,'{ep}')">&#123;ep&#125;</span>
-                    <span class="var-chip" onclick="copyVar(this,'{ejecutivo}')">&#123;ejecutivo&#125;</span>
-                    <span class="var-chip" onclick="copyVar(this,'{cliente}')">&#123;cliente&#125;</span>
-                    <span class="var-chip" onclick="copyVar(this,'{monto}')">&#123;monto&#125;</span>
-                    <span class="var-chip" onclick="copyVar(this,'{estado}')">&#123;estado&#125;</span>
+                  <span class="var-chip" onclick="copyVar(this,'{ep}')">&#123;ep&#125;</span>
+                  <span class="var-chip" onclick="copyVar(this,'{ejecutivo}')">&#123;ejecutivo&#125;</span>
+                  <span class="var-chip" onclick="copyVar(this,'{cliente}')">&#123;cliente&#125;</span>
+                  <span class="var-chip" onclick="copyVar(this,'{monto}')">&#123;monto&#125;</span>
+                  <span class="var-chip" onclick="copyVar(this,'{estado}')">&#123;estado&#125;</span>
                 </div>
-            </div>
-            <div class="var-group">
-                <div class="var-group-label">✅ Cotización autorizada</div>
+              </div>
+              <div class="var-group">
+                <div class="var-group-label">✅ Autorizada</div>
                 <div class="var-chips">
-                    <span class="var-chip" onclick="copyVar(this,'{ep}')">&#123;ep&#125;</span>
-                    <span class="var-chip" onclick="copyVar(this,'{cliente}')">&#123;cliente&#125;</span>
-                    <span class="var-chip" onclick="copyVar(this,'{margen}')">&#123;margen&#125;</span>
-                    <span class="var-chip" onclick="copyVar(this,'{ejecutivo}')">&#123;ejecutivo&#125;</span>
-                    <span class="var-chip" onclick="copyVar(this,'{supervisor}')">&#123;supervisor&#125;</span>
+                  <span class="var-chip" onclick="copyVar(this,'{ep}')">&#123;ep&#125;</span>
+                  <span class="var-chip" onclick="copyVar(this,'{cliente}')">&#123;cliente&#125;</span>
+                  <span class="var-chip" onclick="copyVar(this,'{margen}')">&#123;margen&#125;</span>
+                  <span class="var-chip" onclick="copyVar(this,'{ejecutivo}')">&#123;ejecutivo&#125;</span>
+                  <span class="var-chip" onclick="copyVar(this,'{supervisor}')">&#123;supervisor&#125;</span>
                 </div>
-            </div>
-            <div class="var-group">
-                <div class="var-group-label">↩️ Margen removido</div>
+              </div>
+              <div class="var-group">
+                <div class="var-group-label">↩️ Removido</div>
                 <div class="var-chips">
-                    <span class="var-chip" onclick="copyVar(this,'{ep}')">&#123;ep&#125;</span>
-                    <span class="var-chip" onclick="copyVar(this,'{cliente}')">&#123;cliente&#125;</span>
+                  <span class="var-chip" onclick="copyVar(this,'{ep}')">&#123;ep&#125;</span>
+                  <span class="var-chip" onclick="copyVar(this,'{cliente}')">&#123;cliente&#125;</span>
                 </div>
-            </div>
-            <div class="var-group" style="margin-top:10px;padding-top:10px;border-top:1px solid #e2e8f0;">
+              </div>
+              <div class="var-group" style="margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0;">
                 <div class="var-group-label">✨ Formato Telegram</div>
                 <div class="var-chips">
-                    <span class="fmt-chip" onclick="copyVar(this,'*texto*')">*negrita*</span>
-                    <span class="fmt-chip" onclick="copyVar(this,'_texto_')">_cursiva_</span>
-                    <span class="fmt-chip" onclick="copyVar(this,'`texto`')">`monospace`</span>
+                  <span class="fmt-chip" onclick="copyVar(this,'*texto*')">*negrita*</span>
+                  <span class="fmt-chip" onclick="copyVar(this,'_texto_')">_cursiva_</span>
+                  <span class="fmt-chip" onclick="copyVar(this,'`texto`')">`monospace`</span>
                 </div>
+              </div>
             </div>
-        </div>
-        <script>
-        function copyVar(el, txt) {
-            navigator.clipboard.writeText(txt).catch(function(){
-                var ta=document.createElement('textarea');
-                ta.value=txt; ta.style.position='fixed'; ta.style.top='-999px';
-                document.body.appendChild(ta); ta.select();
-                document.execCommand('copy'); ta.remove();
-            });
-            var orig = el.innerHTML;
-            el.classList.add('copied');
-            el.innerHTML = '✓ copiado';
-            setTimeout(function(){ el.classList.remove('copied'); el.innerHTML=orig; }, 1200);
-        }
-        </script>
-        """, unsafe_allow_html=True)
+            <script>
+            function copyVar(el,txt){
+                navigator.clipboard.writeText(txt).catch(function(){
+                    var ta=document.createElement('textarea');
+                    ta.value=txt;ta.style.position='fixed';ta.style.top='-999px';
+                    document.body.appendChild(ta);ta.select();
+                    document.execCommand('copy');ta.remove();
+                });
+                var orig=el.innerHTML;
+                el.classList.add('copied');el.innerHTML='✓ copiado';
+                setTimeout(function(){el.classList.remove('copied');el.innerHTML=orig;},1200);
+            }
+            </script>
+            """, unsafe_allow_html=True)
 
-        # ── 3 columnas para los mensajes ──
-        _msg_configs = [
-            ('msg_nueva_cotizacion', "🆕 Nueva cotización", "supervisores/admins/observadores", "Al guardar cotización"),
-            ('msg_autorizada',       "✅ Cotización autorizada", "ejecutivo + observadores", "Al guardar con margen"),
-            ('msg_margen_removido',  "↩️ Margen removido", "ejecutivo", "Al quitar margen"),
-        ]
-        _msgs_nuevos = {}
-        _mcol1, _mcol2, _mcol3 = st.columns(3)
-        for (_mk, _mtitulo, _mdest, _mcuando), _mcol in zip(_msg_configs, [_mcol1, _mcol2, _mcol3]):
-            _mval = _get_notif_config(_mk, _msg_defaults[_mk])
-            with _mcol:
-                st.markdown(f"""
-                <div style='margin-bottom:6px'>
-                    <div style='font-size:0.85rem;font-weight:700;color:var(--text-color)'>{_mtitulo}</div>
-                    <div style='font-size:0.72rem;color:#94a3b8;margin-bottom:2px'>→ {_mdest}</div>
-                    <div style='font-size:0.7rem;color:#cbd5e1;font-style:italic'>{_mcuando}</div>
-                </div>
-                """, unsafe_allow_html=True)
-                _msgs_nuevos[_mk] = st.text_area("", value=_mval, height=400,
-                                                  key=f"msg_{_mk}", label_visibility="collapsed")
-
-        _mb1, _mb2 = st.columns([1, 1])
-        with _mb1:
-            if st.button("↩️ Restaurar por defecto", key="btn_restaurar_msgs"):
-                for _mk, _mdef in _msg_defaults.items():
-                    _set_notif_config(_mk, _mdef)
-                st.success("✅ Mensajes restaurados")
-                st.rerun()
-        with _mb2:
-            if st.button("💾 Guardar mensajes", key="btn_guardar_msgs", type="primary", use_container_width=True):
-                for _mk, _mv in _msgs_nuevos.items():
-                    _set_notif_config(_mk, _mv)
-                st.success("✅ Mensajes guardados")
-
-        st.markdown('</div></div>', unsafe_allow_html=True)
+            # 3 columnas para los mensajes
+            _msg_configs = [
+                ('msg_nueva_cotizacion', "🆕 Nueva cotización", "supervisores/admins/obs.", "Al guardar cotización"),
+                ('msg_autorizada',       "✅ Cotización autorizada", "ejecutivo + obs.", "Al guardar con margen"),
+                ('msg_margen_removido',  "↩️ Margen removido", "ejecutivo", "Al quitar margen"),
+            ]
+            _msgs_nuevos = {}
+            _mcol1, _mcol2, _mcol3 = st.columns(3)
+            for (_mk, _mtitulo, _mdest, _mcuando), _mcol in zip(_msg_configs, [_mcol1, _mcol2, _mcol3]):
+                _mval = _get_notif_config(_mk, _msg_defaults[_mk])
+                with _mcol:
+                    st.markdown(f"""
+                    <div style='margin-bottom:6px'>
+                        <div style='font-size:0.85rem;font-weight:700'>{_mtitulo}</div>
+                        <div style='font-size:0.72rem;color:#94a3b8'>→ {_mdest}</div>
+                        <div style='font-size:0.7rem;color:#cbd5e1;font-style:italic'>{_mcuando}</div>
+                    </div>""", unsafe_allow_html=True)
+                    _msgs_nuevos[_mk] = st.text_area("", value=_mval, height=400,
+                                                      key=f"msg_{_mk}", label_visibility="collapsed")
+            _mb1, _mb2 = st.columns([1, 1])
+            with _mb1:
+                if st.button("↩️ Restaurar por defecto", key="btn_restaurar_msgs"):
+                    for _mk, _mdef in _msg_defaults.items():
+                        _set_notif_config(_mk, _mdef)
+                    st.success("✅ Mensajes restaurados")
+                    st.rerun()
+            with _mb2:
+                if st.button("💾 Guardar mensajes", key="btn_guardar_msgs", type="primary", use_container_width=True):
+                    for _mk, _mv in _msgs_nuevos.items():
+                        _set_notif_config(_mk, _mv)
+                    st.success("✅ Mensajes guardados")
