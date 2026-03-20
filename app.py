@@ -2882,9 +2882,9 @@ st.markdown(f"""
 }}
 /* Botones del header — forzar texto blanco */
 #_usr_header_bar button,
-#_usr_header_bar ._hdr_btns_moved button {
+#_usr_header_bar ._hdr_btns_moved button {{
     color: #ffffff !important;
-}
+}}
 /* Ocultar badge y botón cerrar originales — sin espacio */
 .cotizacion-status-container {{ display: none !important; }}
 .st-key-btn_cerrar_cotizacion {{
