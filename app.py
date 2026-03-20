@@ -2798,19 +2798,46 @@ st.markdown(f'''
 </div>
 ''', unsafe_allow_html=True)
 
-# ── Header fijo: badge izquierda + usuario derecha ──
+# ── Header fijo: badge + cerrar izquierda / usuario derecha ──
 _nombre_display = st.session_state.get('auth_nombre', '') or st.session_state.get('auth_email', '')
 _rol_disp = st.session_state.get('rol_usuario', 'ejecutivo')
 if _rol_disp == 'root':
-    _rol_html = f'<span style="color:#f59e0b;font-weight:700;font-size:0.8rem;">🔑 ROOT</span> <span style="color:#e2e8f0;font-size:0.82rem;font-weight:600;">{_nombre_display.upper()}</span>'
+    _rol_html = '<span style="color:#f59e0b;font-weight:700;font-size:0.8rem;">🔑 ROOT</span> <span style="color:#e2e8f0;font-size:0.82rem;font-weight:600;">' + _nombre_display.upper() + '</span>'
 elif _rol_disp == 'admin':
-    _rol_html = f'<span style="color:#a78bfa;font-weight:700;font-size:0.8rem;">👑 ADMIN</span> <span style="color:#e2e8f0;font-size:0.82rem;font-weight:600;">{_nombre_display.upper()}</span>'
+    _rol_html = '<span style="color:#a78bfa;font-weight:700;font-size:0.8rem;">👑 ADMIN</span> <span style="color:#e2e8f0;font-size:0.82rem;font-weight:600;">' + _nombre_display.upper() + '</span>'
 else:
-    _rol_html = f'<span style="color:#94a3b8;font-weight:700;font-size:0.8rem;">👤</span> <span style="color:#e2e8f0;font-size:0.82rem;font-weight:600;">{_nombre_display.upper()}</span>'
+    _rol_html = '<span style="color:#94a3b8;font-weight:700;font-size:0.8rem;">👤</span> <span style="color:#e2e8f0;font-size:0.82rem;font-weight:600;">' + _nombre_display.upper() + '</span>'
 
-st.markdown(f"""
+# Calcular badge desde session_state directamente
+_cot_cargada = st.session_state.get('cotizacion_cargada')
+if _cot_cargada:
+    _margen_hdr = st.session_state.get('margen', 0)
+    _plano_hdr  = bool(st.session_state.get('plano_adjunto') or st.session_state.get('pdf_url') or st.session_state.get('plano_nombre'))
+    _datos_hdr  = bool(st.session_state.get('nombre_input') and st.session_state.get('correo_input'))
+    _ase_hdr    = st.session_state.get('asesor_seleccionado', '')
+    _asesor_hdr = bool(_ase_hdr and _ase_hdr != 'Seleccionar asesor')
+    if _margen_hdr > 0 and _datos_hdr and _asesor_hdr:
+        _badge_hdr   = '🟢 AUTORIZADO' + (' CON PLANO' if _plano_hdr else '')
+        _badge_color = '#10b981'
+    elif _datos_hdr and _asesor_hdr and _plano_hdr:
+        _badge_hdr   = '🟠 BORRADOR CON PLANO'
+        _badge_color = '#f97316'
+    elif _datos_hdr and _asesor_hdr:
+        _badge_hdr   = '🟡 BORRADOR'
+        _badge_color = '#eab308'
+    else:
+        _badge_hdr   = '🔴 INCOMPLETO' + (' CON PLANO' if _plano_hdr else '')
+        _badge_color = '#ef4444'
+    _badge_pill = '<span style="font-size:0.72rem;font-weight:700;color:' + _badge_color + ';background:rgba(0,0,0,0.3);padding:2px 8px;border-radius:20px;border:1px solid ' + _badge_color + '33;">' + _badge_hdr + '</span>'
+    _ep_txt = '<span style="font-size:0.78rem;font-weight:700;color:#e2e8f0;margin-right:6px;">📝 ' + str(_cot_cargada) + ' •</span>'
+    _cerrar_btn = '<button id="_btn_cerrar_hdr" style="margin-left:10px;background:rgba(239,68,68,0.12);color:#fca5a5;border:1px solid rgba(239,68,68,0.2);border-radius:6px;padding:2px 8px;font-size:0.72rem;font-weight:600;cursor:pointer;" onclick="var b=window.parent.document.getElementById(&quot;_btn_cerrar_cot_real&quot;);if(b)b.click();">🗑️ Cerrar</button>'
+    _left_html = _ep_txt + _badge_pill + _cerrar_btn
+else:
+    _left_html = '<span style="font-size:0.75rem;color:#475569;">Sin cotización activa</span>'
+
+st.markdown("""
 <style>
-#_usr_header_bar {{
+#_usr_header_bar {
     position: fixed;
     top: 0; left: 0; right: 0;
     height: 42px;
@@ -2818,25 +2845,21 @@ st.markdown(f"""
     border-bottom: 1px solid rgba(255,255,255,0.08);
     display: flex;
     align-items: center;
-    justify-content: space-between;
     padding: 0 1.5rem;
     z-index: 999998;
     gap: 12px;
-}}
-#_usr_header_bar .usr-right {{
+}
+#_usr_header_bar .usr-right {
     display: flex;
     align-items: center;
     gap: 10px;
     margin-left: auto;
-}}
+    flex-shrink: 0;
+}
+/* Ocultar badge y botón cerrar originales */
+.cotizacion-status-container { display: none !important; }
 </style>
-<div id="_usr_header_bar">
-    <div id="_badge_slot" style="flex:1;min-width:0;"></div>
-    <div class="usr-right">
-        {_rol_html}
-    </div>
-</div>
-""", unsafe_allow_html=True)
+""" + '<div id="_usr_header_bar"><div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow:hidden;">' + _left_html + '</div><div class="usr-right">' + _rol_html + '<div id="_badge_slot"></div></div></div>', unsafe_allow_html=True)
 
 # Dialog contraseña — se abre centrado sin interferir con popovers
 if 'show_pwd_dialog' not in st.session_state:
@@ -2867,6 +2890,7 @@ def _pwd_dialog():
                     st.error(f"❌ {_err}")
 
 if st.session_state.show_pwd_dialog:
+    st.session_state.show_pwd_dialog = False  # Reset inmediato
     _pwd_dialog()
 
 # Botones en columnas ocultas — se mueven al header via JS
@@ -2875,6 +2899,8 @@ with _col_pwd:
     if st.button("🔑 Mi contraseña", key="btn_pwd_hdr", use_container_width=True):
         st.session_state.show_pwd_dialog = True
         st.rerun()
+# Botón oculto con id para que el header lo encuentre
+st.markdown('<div id="_btn_cerrar_cot_real_wrap" style="display:none"></div>', unsafe_allow_html=True)
 with _col_cerrar:
     if st.button("🚪 Cerrar sesión", key="btn_cerrar_sesion_header", use_container_width=True):
         logout_usuario()
@@ -2882,6 +2908,26 @@ with _col_cerrar:
         st.session_state._csv_listo = None
         pass
         st.rerun()
+
+# Dar id al botón cerrar cotización para que el header lo encuentre
+import streamlit.components.v1 as _id_comp
+_id_comp.html("""<script>
+(function(){
+    var D = window.parent.document;
+    function tagCerrarCot(){
+        var btns = D.querySelectorAll('button');
+        for(var i=0;i<btns.length;i++){
+            var txt=(btns[i].innerText||btns[i].textContent||'').trim();
+            if(txt==='🗑️ Cerrar Cotización'){
+                btns[i].id='_btn_cerrar_cot_real';
+                break;
+            }
+        }
+    }
+    setTimeout(tagCerrarCot,500);
+    setTimeout(tagCerrarCot,1200);
+})();
+</script>""", height=0)
 
 # =========================================================
 # JS: mover botones de contraseña y cerrar sesión al header fijo
