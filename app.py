@@ -2854,7 +2854,7 @@ if _cot_cargada:
     _left_html  = _ep_txt + _badge_pill + _cerrar_btn
 else:
     _header_color = '#0f172a'
-    _left_html    = '<span style="font-size:0.75rem;color:#475569;">Sin cotización activa</span>'
+    _left_html    = '<span style="font-size:0.85rem;font-weight:600;color:#ffffff;opacity:0.5;">Sin cotización activa</span>'
 
 _header_bg = 'linear-gradient(90deg, ' + _header_color + ' 0%, #0f172a 65%)'
 
@@ -3012,8 +3012,8 @@ _js_global.html("""
         // Estilo compartido para botones del header
         var btnStyle = [
             'background:rgba(255,255,255,0.08);',
-            'color:#e2e8f0;border:1px solid rgba(255,255,255,0.12);',
-            'border-radius:6px;padding:4px 10px;font-size:0.75rem;',
+            'color:#ffffff;border:1px solid rgba(255,255,255,0.18);',
+            'border-radius:6px;padding:4px 12px;font-size:0.82rem;',
             'font-weight:600;cursor:pointer;white-space:nowrap;',
             'font-family:inherit;transition:background 0.2s;'
         ].join('');
@@ -3031,7 +3031,7 @@ _js_global.html("""
 
         // Clonar y estilizar botón cerrar sesión
         var cloneCerrar = btnCerrar.cloneNode(true);
-        cloneCerrar.style.cssText = btnStyle + 'color:#fca5a5;border-color:rgba(252,165,165,0.2);';
+        cloneCerrar.style.cssText = btnStyle + 'color:#ffffff;border-color:rgba(255,255,255,0.18);';
         cloneCerrar.onmouseenter = function(){ this.style.background='rgba(239,68,68,0.15)'; };
         cloneCerrar.onmouseleave = function(){ this.style.background='rgba(255,255,255,0.08)'; };
         cloneCerrar.addEventListener('click', function(e){
