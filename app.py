@@ -4639,70 +4639,86 @@ with tab1:
         with col_m1:
             with st.container(border=True):
                 st.markdown("**📋 Modelo Predefinido**")
-                if hojas_modelo:
-                    modelo_seleccionado = st.selectbox("Modelo", hojas_modelo, key="modelo_select", label_visibility="collapsed")
-                    if st.button("Cargar", key="btn_modelo", use_container_width=True):
-                        st.session_state.carrito = cargar_modelo(modelo_seleccionado)
-                        st.session_state.modelo_base = modelo_seleccionado
-                        st.session_state.margen = 0.0
-                        st.toast("✅ Modelo cargado correctamente.")
-                        st.rerun()
+                try:
+                    if hojas_modelo:
+                        modelo_seleccionado = st.selectbox("Modelo", hojas_modelo, key="modelo_select", label_visibility="collapsed")
+                        if st.button("Cargar", key="btn_modelo", use_container_width=True):
+                            st.session_state.carrito = cargar_modelo(modelo_seleccionado)
+                            st.session_state.modelo_base = modelo_seleccionado
+                            st.session_state.margen = 0.0
+                            st.toast("✅ Modelo cargado correctamente.")
+                            st.rerun()
+                    else:
+                        st.caption("Sin modelos")
+                except Exception as _e1:
+                    st.caption(f"Error: {_e1}")
 
         with col_m2:
             with st.container(border=True):
                 st.markdown("**🔍 Ítems**")
-                df = _leer_hoja_excel("BD Total")
-                categorias = df["Categorias"].dropna().unique()
-                categoria_seleccionada = st.selectbox("Categoría", categorias, key="cat_manual", label_visibility="collapsed")
-                items_filtrados = df[df["Categorias"] == categoria_seleccionada]
-                item = st.selectbox("Ítem", items_filtrados["Item"], key="item_manual", label_visibility="collapsed")
-                cantidad = st.number_input("Cantidad", min_value=1, value=1, key="cantidad_manual", label_visibility="collapsed")
-                if st.button("Agregar", key="btn_agregar_manual", use_container_width=True):
-                    existe = False
-                    for producto in st.session_state.carrito:
-                        if producto["Item"] == item:
-                            producto["Cantidad"] += cantidad
-                            producto["Subtotal"] = producto["Cantidad"] * producto["Precio Unitario"]
-                            existe = True
-                            break
-                    if not existe:
-                        precio_unitario_original = items_filtrados[items_filtrados["Item"] == item]["P. Unitario real"].values[0]
-                        st.session_state.carrito.append({
-                            "Categoria": categoria_seleccionada, "Item": item,
-                            "Cantidad": cantidad, "Precio Unitario": precio_unitario_original,
-                            "Subtotal": precio_unitario_original * cantidad
-                        })
-                    st.rerun()
+                try:
+                    df = _leer_hoja_excel("BD Total")
+                    categorias = df["Categorias"].dropna().unique()
+                    categoria_seleccionada = st.selectbox("Categoría", categorias, key="cat_manual", label_visibility="collapsed")
+                    items_filtrados = df[df["Categorias"] == categoria_seleccionada]
+                    item = st.selectbox("Ítem", items_filtrados["Item"], key="item_manual", label_visibility="collapsed")
+                    cantidad = st.number_input("Cantidad", min_value=1, value=1, key="cantidad_manual", label_visibility="collapsed")
+                    if st.button("Agregar", key="btn_agregar_manual", use_container_width=True):
+                        existe = False
+                        for producto in st.session_state.carrito:
+                            if producto["Item"] == item:
+                                producto["Cantidad"] += cantidad
+                                producto["Subtotal"] = producto["Cantidad"] * producto["Precio Unitario"]
+                                existe = True
+                                break
+                        if not existe:
+                            precio_unitario_original = items_filtrados[items_filtrados["Item"] == item]["P. Unitario real"].values[0]
+                            st.session_state.carrito.append({
+                                "Categoria": categoria_seleccionada, "Item": item,
+                                "Cantidad": cantidad, "Precio Unitario": precio_unitario_original,
+                                "Subtotal": precio_unitario_original * cantidad
+                            })
+                        st.rerun()
+                except Exception as _e2:
+                    st.caption(f"Error: {_e2}")
 
         with col_m3:
             with st.container(border=True):
                 st.markdown("**🗑️ Eliminar Categoría**")
-                if st.session_state.carrito:
-                    carrito_df_temp = pd.DataFrame(st.session_state.carrito)
-                    categorias_carrito = carrito_df_temp["Categoria"].unique()
-                    categoria_eliminar = st.selectbox("Eliminar", ["-- Seleccionar --"] + list(categorias_carrito), key="cat_eliminar", label_visibility="collapsed")
-                    if categoria_eliminar != "-- Seleccionar --":
+                try:
+                    if st.session_state.carrito:
+                        carrito_df_temp = pd.DataFrame(st.session_state.carrito)
+                        categorias_carrito = carrito_df_temp["Categoria"].unique()
+                        categoria_eliminar = st.selectbox("Eliminar", ["-- Seleccionar --"] + list(categorias_carrito), key="cat_eliminar", label_visibility="collapsed")
                         if st.button("Eliminar", key="btn_eliminar_categoria", use_container_width=True):
-                            st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_eliminar]
-                            st.toast("🗑️ Categoría eliminada.")
-                            st.rerun()
-                else:
-                    st.info("No hay categorías")
+                            if categoria_eliminar != "-- Seleccionar --":
+                                st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_eliminar]
+                                st.toast("🗑️ Categoría eliminada.")
+                                st.rerun()
+                    else:
+                        st.caption("Sin categorías")
+                except Exception as _e3:
+                    st.caption(f"Error: {_e3}")
 
         with col_m4:
             with st.container(border=True):
                 st.markdown("**➕ Agregar Categoría**")
-                if hojas_modelo:
-                    modelo_origen = st.selectbox("Modelo", hojas_modelo, key="modelo_origen", label_visibility="collapsed")
-                    df_temp = _leer_hoja_excel(modelo_origen)
-                    categorias_disponibles = df_temp["Categorias"].dropna().unique()
-                    categoria_agregar = st.selectbox("Categoría", categorias_disponibles, key="cat_agregar", label_visibility="collapsed")
-                    if st.button("Agregar", key="btn_agregar_categoria", use_container_width=True):
-                        nuevos_items = cargar_categoria_desde_modelo(modelo_origen, categoria_agregar)
-                        st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_agregar]
-                        st.session_state.carrito.extend(nuevos_items)
-                        st.toast("➕ Categoría agregada.")
-                        st.rerun()
+                try:
+                    if hojas_modelo:
+                        modelo_origen = st.selectbox("Modelo", hojas_modelo, key="modelo_origen", label_visibility="collapsed")
+                        df_temp = _leer_hoja_excel(modelo_origen)
+                        categorias_disponibles = df_temp["Categorias"].dropna().unique()
+                        categoria_agregar = st.selectbox("Categoría", categorias_disponibles, key="cat_agregar", label_visibility="collapsed")
+                        if st.button("Agregar", key="btn_agregar_categoria", use_container_width=True):
+                            nuevos_items = cargar_categoria_desde_modelo(modelo_origen, categoria_agregar)
+                            st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_agregar]
+                            st.session_state.carrito.extend(nuevos_items)
+                            st.toast("➕ Categoría agregada.")
+                            st.rerun()
+                    else:
+                        st.caption("Sin modelos")
+                except Exception as _e4:
+                    st.caption(f"Error: {_e4}")
 
         with col_m5:
             with st.container(border=True):
