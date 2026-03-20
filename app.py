@@ -2838,33 +2838,43 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Botones en columnas ocultas pero funcionales — se mueven al header via JS
+# Dialog contraseña — se abre centrado sin interferir con popovers
+if 'show_pwd_dialog' not in st.session_state:
+    st.session_state.show_pwd_dialog = False
+
+@st.dialog("🔑 Cambiar contraseña")
+def _pwd_dialog():
+    _pwd_actual = st.text_input("Contraseña actual", type="password", key="pwd_actual_dlg")
+    _pwd_nueva  = st.text_input("Nueva contraseña",  type="password", key="pwd_nueva_dlg", placeholder="Mínimo 6 caracteres")
+    _pwd_repite = st.text_input("Repetir nueva",     type="password", key="pwd_repite_dlg")
+    if st.button("✅ Cambiar", key="btn_cambiar_pwd_dlg", use_container_width=True, type="primary"):
+        if not _pwd_actual or not _pwd_nueva or not _pwd_repite:
+            st.error("Completa todos los campos.")
+        elif len(_pwd_nueva) < 6:
+            st.error("Mínimo 6 caracteres.")
+        elif _pwd_nueva != _pwd_repite:
+            st.error("Las contraseñas no coinciden.")
+        else:
+            _u_check, _ = login_usuario(st.session_state.get('auth_email',''), _pwd_actual)
+            if not _u_check:
+                st.error("❌ Contraseña actual incorrecta.")
+            else:
+                _ok, _err = cambiar_password_propio(_pwd_nueva)
+                if _ok:
+                    st.success("✅ Contraseña actualizada.")
+                    st.session_state.show_pwd_dialog = False
+                else:
+                    st.error(f"❌ {_err}")
+
+if st.session_state.show_pwd_dialog:
+    _pwd_dialog()
+
+# Botones en columnas ocultas — se mueven al header via JS
 _col_esp2, _col_pwd, _col_cerrar = st.columns([12, 1, 1])
 with _col_pwd:
-    with st.popover("🔑 Mi contraseña", use_container_width=True):
-        st.markdown("**Cambiar mi contraseña**")
-        _pwd_actual  = st.text_input("Contraseña actual", type="password", key="pwd_actual_hdr")
-        _pwd_nueva   = st.text_input("Nueva contraseña",  type="password", key="pwd_nueva_hdr", placeholder="Mínimo 6 caracteres")
-        _pwd_repite  = st.text_input("Repetir nueva",     type="password", key="pwd_repite_hdr")
-        if st.button("✅ Cambiar", key="btn_cambiar_pwd_hdr", use_container_width=True, type="primary"):
-            if not _pwd_actual or not _pwd_nueva or not _pwd_repite:
-                st.error("Completa todos los campos.")
-            elif len(_pwd_nueva) < 6:
-                st.error("Mínimo 6 caracteres.")
-            elif _pwd_nueva != _pwd_repite:
-                st.error("Las contraseñas no coinciden.")
-            else:
-                _u_check, _e_check = login_usuario(
-                    st.session_state.get('auth_email',''), _pwd_actual
-                )
-                if not _u_check:
-                    st.error("❌ Contraseña actual incorrecta.")
-                else:
-                    _ok, _err = cambiar_password_propio(_pwd_nueva)
-                    if _ok:
-                        st.success("✅ Contraseña actualizada.")
-                    else:
-                        st.error(f"❌ {_err}")
+    if st.button("🔑 Mi contraseña", key="btn_pwd_hdr", use_container_width=True):
+        st.session_state.show_pwd_dialog = True
+        st.rerun()
 with _col_cerrar:
     if st.button("🚪 Cerrar sesión", key="btn_cerrar_sesion_header", use_container_width=True):
         logout_usuario()
@@ -2925,18 +2935,7 @@ _hdr_comp.html("""
         clonePwd.addEventListener('click', function(e){
             e.preventDefault();
             e.stopPropagation();
-            // Hacer visible el popover original temporalmente para que abra en posición correcta
-            var colPwd2 = btnPwd.closest('[data-testid="stPopover"]') || btnPwd.closest('[data-testid="stButton"]');
-            if (colPwd2 && colPwd2.parentElement) {
-                var origStyle = colPwd2.parentElement.style.cssText;
-                colPwd2.parentElement.style.cssText = 'position:fixed!important;top:42px!important;right:120px!important;z-index:9999999!important;';
-                btnPwd.click();
-                setTimeout(function(){
-                    colPwd2.parentElement.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
-                }, 300);
-            } else {
-                btnPwd.click();
-            }
+            btnPwd.click();
         });
 
         // Clonar y estilizar botón cerrar sesión
@@ -2962,51 +2961,45 @@ _hdr_comp.html("""
 
     // Mover badge y botón cerrar cotización al header
     function moveBadgeAndCloseToHeader() {
-        var bar = D.getElementById('_usr_header_bar');
         var slot = D.getElementById('_badge_slot');
-        if (!bar || !slot) return;
+        if (!slot) return;
 
-        // Limpiar slot anterior
-        slot.innerHTML = '';
-
-        // Mover badge de estado
-        var badge = D.querySelector('.cotizacion-status-container');
-        if (badge) {
-            var cloneBadge = badge.cloneNode(true);
-            cloneBadge.style.cssText = 'margin:0;padding:0;flex-shrink:0;';
-            slot.appendChild(cloneBadge);
-            badge.style.visibility = 'hidden';
-            badge.style.height = '0';
-            badge.style.overflow = 'hidden';
+        // Badge de estado
+        var badge = D.querySelector('.status-badge');
+        var badgeText = badge ? (badge.innerText || badge.textContent || '').trim() : '';
+        var slotBadge = slot.querySelector('._slot_badge');
+        if (!slotBadge) {
+            slotBadge = D.createElement('span');
+            slotBadge.className = '_slot_badge';
+            slotBadge.style.cssText = 'font-size:0.78rem;font-weight:700;color:#e2e8f0;white-space:nowrap;cursor:pointer;';
+            slot.appendChild(slotBadge);
         }
+        slotBadge.textContent = badgeText;
 
-        // Mover botón Cerrar Cotización
+        // Ocultar badge original
+        var badgeWrap = D.querySelector('.cotizacion-status-container');
+        if (badgeWrap) { badgeWrap.style.visibility='hidden'; badgeWrap.style.height='0'; badgeWrap.style.overflow='hidden'; }
+
+        // Botón cerrar cotización
+        if (slot.querySelector('._btn_cerrar_cot')) return;
         var allBtns = D.querySelectorAll('button');
-        var btnCerrarCot = null;
         for (var i = 0; i < allBtns.length; i++) {
             var txt = (allBtns[i].innerText || allBtns[i].textContent || '').trim();
-            if (txt === '🗑️ Cerrar Cotización') { btnCerrarCot = allBtns[i]; break; }
-        }
-        if (btnCerrarCot && !slot.querySelector('._btn_cerrar_cot')) {
-            var cloneCerrarCot = btnCerrarCot.cloneNode(true);
-            cloneCerrarCot.className += ' _btn_cerrar_cot';
-            cloneCerrarCot.style.cssText = [
-                'background:rgba(239,68,68,0.12);color:#fca5a5;',
-                'border:1px solid rgba(239,68,68,0.2);border-radius:6px;',
-                'padding:3px 10px;font-size:0.75rem;font-weight:600;',
-                'cursor:pointer;white-space:nowrap;font-family:inherit;',
-                'margin-left:8px;flex-shrink:0;'
-            ].join('');
-            cloneCerrarCot.onmouseenter = function(){ this.style.background='rgba(239,68,68,0.25)'; };
-            cloneCerrarCot.onmouseleave = function(){ this.style.background='rgba(239,68,68,0.12)'; };
-            cloneCerrarCot.addEventListener('click', function(e){
-                e.stopPropagation();
-                btnCerrarCot.click();
-            });
-            slot.appendChild(cloneCerrarCot);
-            // Ocultar el botón original
-            var parCerrarCot = btnCerrarCot.closest('[data-testid="stButton"]');
-            if (parCerrarCot) parCerrarCot.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
+            if (txt === '🗑️ Cerrar Cotización') {
+                var orig = allBtns[i];
+                var btn = D.createElement('button');
+                btn.className = '_btn_cerrar_cot';
+                btn.textContent = '🗑️ Cerrar';
+                btn.style.cssText = 'background:rgba(239,68,68,0.12);color:#fca5a5;border:1px solid rgba(239,68,68,0.2);border-radius:6px;padding:3px 10px;font-size:0.75rem;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit;margin-left:8px;';
+                btn.onmouseenter = function(){ this.style.background='rgba(239,68,68,0.25)'; };
+                btn.onmouseleave = function(){ this.style.background='rgba(239,68,68,0.12)'; };
+                btn.addEventListener('click', function(){ orig.click(); });
+                slot.appendChild(btn);
+                // Ocultar original
+                var par = orig.closest('[data-testid="stButton"]');
+                if (par) par.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
+                break;
+            }
         }
     }
 
@@ -3014,8 +3007,15 @@ _hdr_comp.html("""
     setTimeout(moveButtonsToHeader, 1500);
     setTimeout(moveBadgeAndCloseToHeader, 900);
     setTimeout(moveBadgeAndCloseToHeader, 1600);
-    // Re-ejecutar cuando cambia el estado (badge cambia frecuentemente)
-    setInterval(moveBadgeAndCloseToHeader, 3000);
+    setInterval(function(){
+        // Actualizar solo el texto del badge cada 2s
+        var slot = D.getElementById('_badge_slot');
+        var badge = D.querySelector('.status-badge');
+        var slotBadge = slot ? slot.querySelector('._slot_badge') : null;
+        if (slotBadge && badge) {
+            slotBadge.textContent = (badge.innerText || badge.textContent || '').trim();
+        }
+    }, 2000);
 })();
 </script>
 """, height=0)
