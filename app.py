@@ -3027,6 +3027,7 @@ _js_global.html("""
         var clonePwd = btnPwd.cloneNode(true);
         clonePwd.style.cssText = btnStyle;
         clonePwd.style.setProperty('color', '#ffffff', 'important');
+        clonePwd.querySelectorAll('*').forEach(function(el){ el.style.setProperty('color','#ffffff','important'); });
         clonePwd.onmouseenter = function(){ this.style.background='rgba(255,255,255,0.15)'; };
         clonePwd.onmouseleave = function(){ this.style.background='rgba(255,255,255,0.08)'; };
         clonePwd.addEventListener('click', function(e){
@@ -3039,6 +3040,7 @@ _js_global.html("""
         var cloneCerrar = btnCerrar.cloneNode(true);
         cloneCerrar.style.cssText = btnStyle;
         cloneCerrar.style.setProperty('color', '#ffffff', 'important');
+        cloneCerrar.querySelectorAll('*').forEach(function(el){ el.style.setProperty('color','#ffffff','important'); });
         cloneCerrar.onmouseenter = function(){ this.style.background='rgba(239,68,68,0.15)'; };
         cloneCerrar.onmouseleave = function(){ this.style.background='rgba(255,255,255,0.08)'; };
         cloneCerrar.addEventListener('click', function(e){
