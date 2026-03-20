@@ -3187,131 +3187,53 @@ if st.session_state.cotizacion_cargada:
             sufijo = " CON PLANO" if _tiene_plano_badge else ""
             badge_html = f"⚠️ {st.session_state.cotizacion_cargada} • 🔴 INCOMPLETO{sufijo}"
 
-    st.markdown('<div style="display:none;height:0;overflow:hidden;">', unsafe_allow_html=True)
-    col_badge, col_cerrar = st.columns([3, 1])
-    with col_badge:
-        _ep_num = st.session_state.cotizacion_cargada
-        st.markdown(f'''
-        <div class="cotizacion-status-container">
-            <span class="status-badge" style="cursor:pointer;" id="badge-ep-copy"
-                title="Click para copiar {_ep_num}">
-                {badge_html}
-                <span style="font-size:0.7rem;opacity:0.5;margin-left:6px;">📋</span>
-            </span>
-        </div>''', unsafe_allow_html=True)
-        # Inyectar JS via components.html para copiar desde DOM padre
-        import streamlit.components.v1 as _badge_comp
-        _badge_comp.html(f"""<script>
-        (function() {{
-            var ep = '{_ep_num}';
-            // Buscar el badge en el DOM padre
-            var D = window.parent.document;
-            var badge = D.getElementById('badge-ep-copy');
-            if (!badge) return;
-            // Evitar duplicar listener
-            if (badge._cpListener) return;
-            badge._cpListener = true;
-            badge.addEventListener('click', function() {{
-                // Copiar al portapapeles
-                var ta = D.createElement('textarea');
-                ta.value = ep;
-                ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;font-size:12px;';
-                D.body.appendChild(ta);
-                ta.focus();
-                ta.select();
-                var ok = false;
-                try {{ ok = D.execCommand('copy'); }} catch(e) {{}}
-                ta.remove();
-                // También intentar con clipboard API
-                if (!ok && window.parent.navigator.clipboard) {{
-                    window.parent.navigator.clipboard.writeText(ep).catch(function(){{}});
-                    ok = true;
-                }}
-                // Mostrar confirmación
-                var orig = badge.innerHTML;
-                badge.innerHTML = '<span style="color:#10b981;font-weight:800;">✅ ¡EP copiado!</span>';
-                setTimeout(function() {{ badge.innerHTML = orig; }}, 1500);
-            }});
-        }})();
-        </script>""", height=0)
-    with col_cerrar:
-        st.markdown('<div style="display:none">', unsafe_allow_html=True)
-        if st.button("🗑️ Cerrar Cotización", key="btn_cerrar_cotizacion", use_container_width=True):
-            _hash_actual = calcular_hash_estado()
-            _hay_cambios = (
-                len(st.session_state.get('carrito', [])) > 0 and
-                _hash_actual != st.session_state.get('hash_ultimo_guardado')
-            )
-            if _hay_cambios:
-                # Capturar todos los datos AHORA antes del rerun, mientras los widgets existen
-                leer_datos_actuales()
-                datos_c, datos_a, proy, cfg, tots, pnom, pdat = construir_datos_para_guardar()
-                st.session_state.datos_pendientes_cerrar = {
-                    'datos_cliente': datos_c,
-                    'datos_asesor': datos_a,
-                    'proyecto': proy,
-                    'config': cfg,
-                    'totales': tots,
-                    'plano_nombre': pnom,
-                    'plano_datos': pdat,
-                    'carrito': list(st.session_state.carrito),
-                    'numero': st.session_state.cotizacion_cargada,
-                }
-                st.session_state.mostrar_advertencia_cerrar = True
-            else:
-                st.session_state.trigger_cerrar_cotizacion = True
+    # Botón cerrar cotización — oculto visualmente, funciona desde el header
+    if st.button("🗑️ Cerrar Cotización", key="btn_cerrar_cotizacion"):
+        _hash_actual = calcular_hash_estado()
+        _hay_cambios = (
+            len(st.session_state.get('carrito', [])) > 0 and
+            _hash_actual != st.session_state.get('hash_ultimo_guardado')
+        )
+        if _hay_cambios:
+            leer_datos_actuales()
+            datos_c2, datos_a2, proy2, cfg2, tots2, pnom2, pdat2 = construir_datos_para_guardar()
+            st.session_state.datos_pendientes_cerrar = {
+                'datos_c': datos_c2, 'datos_a': datos_a2, 'proy': proy2,
+                'cfg': cfg2, 'tots': tots2, 'pnom': pnom2, 'pdat': pdat2,
+                'numero': st.session_state.cotizacion_cargada
+            }
+            st.session_state.mostrar_advertencia_cerrar = True
+            st.rerun()
+        else:
+            limpiar_todo()
             st.rerun()
 
-    # ── Popup advertencia al cerrar con cambios sin guardar ──
     if st.session_state.get('mostrar_advertencia_cerrar', False):
         @st.dialog("⚠️ Cambios sin guardar")
         def dialogo_advertencia_cerrar():
-            st.markdown("""
-            <div style="text-align:center;padding:1rem 0;">
-                <div style="font-size:3rem;margin-bottom:0.5rem;">⚠️</div>
-                <div style="font-size:1rem;font-weight:700;color:#1e2447;margin-bottom:0.5rem;">
-                    Se hicieron modificaciones
-                </div>
-                <div style="font-size:0.88rem;color:#5a6080;line-height:1.6;">
-                    Tienes cambios sin guardar en esta cotización.<br/>
-                    ¿Qué deseas hacer antes de cerrar?
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            col_si, col_no, col_cancelar = st.columns(3)
-            with col_si:
-                if st.button("💾 Guardar y cerrar", use_container_width=True, type="primary", key="dialog_cerrar_si"):
-                    # Usar datos capturados antes del rerun
-                    d = st.session_state.get('datos_pendientes_cerrar', {})
-                    num = d.get('numero') or generar_numero_unico()
-                    guardar_cotizacion(
-                        num,
-                        d.get('datos_cliente', {}),
-                        d.get('datos_asesor', {}),
-                        d.get('proyecto', {}),
-                        d.get('carrito', []),
-                        d.get('config', {}),
-                        d.get('totales', {}),
-                        d.get('plano_nombre', ''),
-                        d.get('plano_datos', None)
-                    )
+            st.warning("Tienes cambios sin guardar. ¿Qué deseas hacer?")
+            col_guardar, col_descartar, col_cancelar = st.columns(3)
+            with col_guardar:
+                if st.button("💾 Guardar y cerrar", use_container_width=True, type="primary", key="dialog_cerrar_guardar"):
+                    _dp = st.session_state.datos_pendientes_cerrar
+                    guardar_cotizacion(_dp['numero'], _dp['datos_c'], _dp['datos_a'],
+                                       _dp['proy'], st.session_state.carrito,
+                                       _dp['cfg'], _dp['tots'], _dp['pnom'], _dp['pdat'])
+                    limpiar_todo()
                     st.session_state.datos_pendientes_cerrar = None
                     st.session_state.mostrar_advertencia_cerrar = False
-                    st.session_state.trigger_cerrar_cotizacion = True
                     st.rerun()
-            with col_no:
-                if st.button("🗑️ Descartar y cerrar", use_container_width=True, key="dialog_cerrar_no"):
+            with col_descartar:
+                if st.button("🗑️ Descartar y cerrar", use_container_width=True, key="dialog_cerrar_descartar"):
+                    limpiar_todo()
                     st.session_state.datos_pendientes_cerrar = None
                     st.session_state.mostrar_advertencia_cerrar = False
-                    st.session_state.trigger_cerrar_cotizacion = True
                     st.rerun()
             with col_cancelar:
                 if st.button("✖️ Cancelar", use_container_width=True, key="dialog_cerrar_cancelar"):
                     st.session_state.datos_pendientes_cerrar = None
                     st.session_state.mostrar_advertencia_cerrar = False
                     st.rerun()
-
         dialogo_advertencia_cerrar()
 
 # =========================================================
