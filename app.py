@@ -2667,7 +2667,7 @@ st.markdown('''
     min-height: 0 !important;
 }
 [data-testid="stAppViewContainer"] > section:first-child {
-    padding-top: 42px !important;
+    padding-top: 65px !important;
 }
 /* Eliminar espacio de iframes height=0 y elementos ocultos */
 iframe[height="0"], iframe[width="0"] {
@@ -2863,9 +2863,10 @@ st.markdown(f"""
 #_usr_header_bar {{
     position: fixed;
     top: 0; left: 0; right: 0;
-    height: 42px;
+    height: 65px;
     background: {_header_bg};
     border-bottom: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.05);
     transition: background 0.5s ease;
     display: flex;
     align-items: center;
