@@ -8765,13 +8765,91 @@ if tab_notif is not None and st.session_state.get('es_supervisor'):
             'msg_autorizada': "✅ *¡Cotización autorizada!*\n\n*{ep}* · {cliente}\nMargen aplicado: *{margen}%*\nYa puedes presentársela a tu cliente 🎉",
             'msg_margen_removido': "↩️ La cotización *{ep}* volvió a estado borrador.\nEl supervisor realizó cambios. Revisa el sistema."
         }
+        # ── Guía de variables con click para copiar ──
+        st.markdown("""
+        <style>
+        .var-guide { background:rgba(0,0,0,0.04); border-radius:10px; padding:12px 16px; margin-bottom:16px; }
+        .var-guide-title { font-size:0.78rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:10px; }
+        .var-group { margin-bottom:8px; }
+        .var-group-label { font-size:0.72rem; color:#94a3b8; margin-bottom:4px; }
+        .var-chips { display:flex; flex-wrap:wrap; gap:6px; }
+        .var-chip {
+            display:inline-block; background:#f1f5f9; border:1px solid #e2e8f0;
+            border-radius:20px; padding:3px 10px; font-size:0.78rem; font-family:monospace;
+            color:#3b82f6; cursor:pointer; transition:all 0.15s; user-select:none;
+        }
+        .var-chip:hover { background:#dbeafe; border-color:#93c5fd; transform:scale(1.05); }
+        .var-chip:active { transform:scale(0.97); }
+        .var-chip.copied { background:#dcfce7; border-color:#86efac; color:#16a34a; }
+        .fmt-chip {
+            display:inline-block; background:#faf5ff; border:1px solid #e9d5ff;
+            border-radius:20px; padding:3px 10px; font-size:0.78rem; font-family:monospace;
+            color:#7c3aed; cursor:pointer; transition:all 0.15s; user-select:none;
+        }
+        .fmt-chip:hover { background:#ede9fe; border-color:#c4b5fd; transform:scale(1.05); }
+        .fmt-chip.copied { background:#dcfce7; border-color:#86efac; color:#16a34a; }
+        </style>
+        <div class="var-guide">
+            <div class="var-guide-title">📋 Variables disponibles — click para copiar</div>
+            <div class="var-group">
+                <div class="var-group-label">🆕 Nueva cotización</div>
+                <div class="var-chips">
+                    <span class="var-chip" onclick="copyVar(this,'{ep}')">&#123;ep&#125;</span>
+                    <span class="var-chip" onclick="copyVar(this,'{ejecutivo}')">&#123;ejecutivo&#125;</span>
+                    <span class="var-chip" onclick="copyVar(this,'{cliente}')">&#123;cliente&#125;</span>
+                    <span class="var-chip" onclick="copyVar(this,'{monto}')">&#123;monto&#125;</span>
+                    <span class="var-chip" onclick="copyVar(this,'{estado}')">&#123;estado&#125;</span>
+                </div>
+            </div>
+            <div class="var-group">
+                <div class="var-group-label">✅ Cotización autorizada</div>
+                <div class="var-chips">
+                    <span class="var-chip" onclick="copyVar(this,'{ep}')">&#123;ep&#125;</span>
+                    <span class="var-chip" onclick="copyVar(this,'{cliente}')">&#123;cliente&#125;</span>
+                    <span class="var-chip" onclick="copyVar(this,'{margen}')">&#123;margen&#125;</span>
+                    <span class="var-chip" onclick="copyVar(this,'{ejecutivo}')">&#123;ejecutivo&#125;</span>
+                    <span class="var-chip" onclick="copyVar(this,'{supervisor}')">&#123;supervisor&#125;</span>
+                </div>
+            </div>
+            <div class="var-group">
+                <div class="var-group-label">↩️ Margen removido</div>
+                <div class="var-chips">
+                    <span class="var-chip" onclick="copyVar(this,'{ep}')">&#123;ep&#125;</span>
+                    <span class="var-chip" onclick="copyVar(this,'{cliente}')">&#123;cliente&#125;</span>
+                </div>
+            </div>
+            <div class="var-group" style="margin-top:10px;padding-top:10px;border-top:1px solid #e2e8f0;">
+                <div class="var-group-label">✨ Formato Telegram</div>
+                <div class="var-chips">
+                    <span class="fmt-chip" onclick="copyVar(this,'*texto*')">*negrita*</span>
+                    <span class="fmt-chip" onclick="copyVar(this,'_texto_')">_cursiva_</span>
+                    <span class="fmt-chip" onclick="copyVar(this,'`texto`')">`monospace`</span>
+                </div>
+            </div>
+        </div>
+        <script>
+        function copyVar(el, txt) {
+            navigator.clipboard.writeText(txt).catch(function(){
+                var ta=document.createElement('textarea');
+                ta.value=txt; ta.style.position='fixed'; ta.style.top='-999px';
+                document.body.appendChild(ta); ta.select();
+                document.execCommand('copy'); ta.remove();
+            });
+            var orig = el.innerHTML;
+            el.classList.add('copied');
+            el.innerHTML = '✓ copiado';
+            setTimeout(function(){ el.classList.remove('copied'); el.innerHTML=orig; }, 1200);
+        }
+        </script>
+        """, unsafe_allow_html=True)
+
         _msg_labels = {
-            'msg_nueva_cotizacion': ("🆕 Nueva cotización → supervisores/admins/observadores", "Al guardar cotización", "{ep} {ejecutivo} {cliente} {monto} {estado}"),
-            'msg_autorizada': ("✅ Cotización autorizada → ejecutivo + observadores", "Al aplicar margen", "{ep} {cliente} {margen} {ejecutivo}"),
-            'msg_margen_removido': ("↩️ Margen removido → ejecutivo", "Al quitar margen", "{ep} {cliente}")
+            'msg_nueva_cotizacion': ("🆕 Nueva cotización → supervisores/admins/observadores", "Al guardar cotización"),
+            'msg_autorizada': ("✅ Cotización autorizada → ejecutivo + observadores", "Al guardar con margen"),
+            'msg_margen_removido': ("↩️ Margen removido → ejecutivo", "Al quitar margen")
         }
         _msgs_nuevos = {}
-        for _mk, (_mlabel, _mcuando, _mvars) in _msg_labels.items():
+        for _mk, (_mlabel, _mcuando) in _msg_labels.items():
             _mval = _get_notif_config(_mk, _msg_defaults[_mk])
             _mc1, _mc2 = st.columns([3, 1])
             with _mc1:
@@ -8779,7 +8857,6 @@ if tab_notif is not None and st.session_state.get('es_supervisor'):
             with _mc2:
                 st.markdown(f"<div style='text-align:right;font-size:0.75rem;color:#94a3b8;padding-top:4px'>{_mcuando}</div>", unsafe_allow_html=True)
             _msgs_nuevos[_mk] = st.text_area("", value=_mval, height=90, key=f"msg_{_mk}", label_visibility="collapsed")
-            st.caption(f"Variables: {_mvars}")
             st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
         _mb1, _mb2 = st.columns([1, 1])
