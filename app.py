@@ -2330,11 +2330,29 @@ st.markdown("""
     }
 
     /* ══ TABS ══ */
+    /* ── Tab scroll con flechas ── */
     .stTabs [data-baseweb="tab-list"] {
         gap: 0 !important; border-bottom: 2px solid #e2e6f3 !important;
         padding: 0 !important; margin-bottom: 0 !important;
         background: transparent !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+        scroll-behavior: smooth !important;
     }
+    .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar { display: none !important; }
+    /* Botones flecha */
+    .tab-arrow {
+        position: absolute; top: 0; z-index: 999;
+        background: linear-gradient(90deg, #fff 60%, transparent);
+        border: none; cursor: pointer; padding: 0 10px;
+        height: 100%; font-size: 1.1rem; color: #5b7cfa;
+        display: flex; align-items: center;
+    }
+    .tab-arrow-right { right: 0; background: linear-gradient(270deg, #fff 60%, transparent); }
+    .tab-arrow-left  { left: 0; }
+    .tab-arrow-wrap  { position: relative; }
     .stTabs [data-baseweb="tab-panel"] {
         padding-top: 1.5rem !important;
         border-top: none !important;
@@ -2786,6 +2804,72 @@ with _col_cerrar:
         st.rerun()
 
 # =========================================================
+# JS FLECHAS NAVEGACIÓN TABS
+import streamlit.components.v1 as _tabs_nav_comp
+_tabs_nav_comp.html("""
+<script>
+(function(){
+    function initTabArrows() {
+        var D = window.parent.document;
+        // Eliminar flechas anteriores
+        D.querySelectorAll('.tab-nav-arrow').forEach(function(e){ e.remove(); });
+
+        var tablist = D.querySelector('[data-baseweb="tab-list"]');
+        if (!tablist) return;
+
+        var wrap = tablist.parentElement;
+        if (!wrap) return;
+        wrap.style.position = 'relative';
+
+        function makeArrow(dir) {
+            var btn = D.createElement('button');
+            btn.className = 'tab-nav-arrow';
+            btn.innerHTML = dir === 'left' ? '&#8249;' : '&#8250;';
+            btn.style.cssText = [
+                'position:absolute;top:0;z-index:99;',
+                'background:linear-gradient(' + (dir==='left'?'90':'270') + 'deg,rgba(255,255,255,0.97) 55%,rgba(255,255,255,0))',
+                ';border:none;cursor:pointer;padding:0 14px;height:100%;',
+                'font-size:1.4rem;font-weight:700;color:#5b7cfa;',
+                dir==='left' ? 'left:0;' : 'right:0;'
+            ].join('');
+            btn.addEventListener('click', function(){
+                tablist.scrollBy({ left: dir==='left' ? -160 : 160, behavior:'smooth' });
+            });
+            return btn;
+        }
+
+        var btnL = makeArrow('left');
+        var btnR = makeArrow('right');
+        wrap.appendChild(btnL);
+        wrap.appendChild(btnR);
+
+        function updateArrows() {
+            var sl = tablist.scrollLeft;
+            var maxScroll = tablist.scrollWidth - tablist.clientWidth;
+            btnL.style.opacity = sl > 5 ? '1' : '0';
+            btnL.style.pointerEvents = sl > 5 ? 'auto' : 'none';
+            btnR.style.opacity = sl < maxScroll - 5 ? '1' : '0';
+            btnR.style.pointerEvents = sl < maxScroll - 5 ? 'auto' : 'none';
+        }
+
+        tablist.addEventListener('scroll', updateArrows);
+        updateArrows();
+    }
+
+    // Inicializar cuando el DOM esté listo
+    setTimeout(initTabArrows, 800);
+    setTimeout(initTabArrows, 1800);
+
+    // Re-inicializar al cambiar de tab
+    window.parent.addEventListener('click', function(e){
+        if (e.target && e.target.getAttribute && e.target.getAttribute('data-baseweb') === 'tab') {
+            setTimeout(initTabArrows, 300);
+        }
+    });
+})();
+</script>
+""", height=0)
+
 # BADGE DE COTIZACIÓN CARGADA
 # =========================================================
 if st.session_state.cotizacion_cargada:
