@@ -4679,7 +4679,7 @@ with tab1:
                             st.session_state.carrito = cargar_modelo(modelo_seleccionado)
                             st.session_state.modelo_base = modelo_seleccionado
                             st.session_state.margen = 0.0
-                            st.toast("✅ Modelo cargado correctamente.")
+                            st.session_state['_toast_msg'] = f"✅ Modelo '{modelo_seleccionado}' cargado correctamente."
                             st.rerun()
                     else:
                         st.caption("Sin modelos")
@@ -4711,6 +4711,9 @@ with tab1:
                                 "Cantidad": cantidad, "Precio Unitario": precio_unitario_original,
                                 "Subtotal": precio_unitario_original * cantidad
                             })
+                            st.session_state['_toast_msg'] = f"✅ {item} agregado exitosamente ({cantidad} un.)"
+                        else:
+                            st.session_state['_toast_msg'] = f"✅ {item} actualizado — {cantidad} un. más agregadas"
                         st.rerun()
                 except Exception as _e2:
                     st.caption(f"Error: {_e2}")
@@ -4726,7 +4729,7 @@ with tab1:
                         if st.button("Eliminar", key="btn_eliminar_categoria", use_container_width=True):
                             if categoria_eliminar != "-- Seleccionar --":
                                 st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_eliminar]
-                                st.toast("🗑️ Categoría eliminada.")
+                                st.session_state['_toast_msg'] = f"🗑️ Categoría '{categoria_eliminar}' eliminada del presupuesto."
                                 st.rerun()
                     else:
                         st.caption("Sin categorías")
@@ -4746,7 +4749,7 @@ with tab1:
                             nuevos_items = cargar_categoria_desde_modelo(modelo_origen, categoria_agregar)
                             st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_agregar]
                             st.session_state.carrito.extend(nuevos_items)
-                            st.toast("➕ Categoría agregada.")
+                            st.session_state['_toast_msg'] = f"✅ Categoría '{categoria_agregar}' agregada al presupuesto."
                             st.rerun()
                     else:
                         st.caption("Sin modelos")
@@ -4792,6 +4795,7 @@ with tab1:
                     if uploaded_file.name != st.session_state.plano_nombre:
                         st.session_state.plano_adjunto = uploaded_file.getvalue()
                         st.session_state.plano_nombre = uploaded_file.name
+                        st.session_state['_toast_msg'] = f"📎 Plano '{uploaded_file.name}' adjuntado exitosamente."
                     st.success(f"✅ {st.session_state.plano_nombre}")
                 elif st.session_state.plano_nombre:
                     st.info(f"📎 {st.session_state.plano_nombre}")
@@ -5572,6 +5576,11 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
         st.info("💡 No hay resultados. Realice una búsqueda para ver cotizaciones guardadas.")
 
 # =========================================================
+# TOASTS GENERALES — mostrar mensaje pendiente del rerun anterior
+if st.session_state.get('_toast_msg'):
+    st.toast(st.session_state['_toast_msg'])
+    st.session_state['_toast_msg'] = None
+
 # TOAST ÉXITO AL GUARDAR — st.toast() nativo
 # CSS solo se inyecta cuando el toast está activo, evita contenedor
 # vacío pegado en pantalla entre reruns
