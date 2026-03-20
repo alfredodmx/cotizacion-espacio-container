@@ -224,12 +224,14 @@ def notificar_cotizacion_autorizada(ep, cliente_nombre, margen, ejecutivo_email,
         _token = _get_notif_config('bot_token', TELEGRAM_BOT_TOKEN_DEFAULT)
         _margen_str = f"{float(margen):.1f}" if margen else "0"
         _sup = supervisor_nombre.upper() if supervisor_nombre else 'EL SUPERVISOR'
-        msg = (
-            f"✅ *¡PRESUPUESTO AUTORIZADO!*\n\n"
-            f"📋 *{ep}* · {cliente_nombre}\n"
-            f"💰 Margen aplicado: *{_margen_str}%*\n"
-            f"👤 Autorizado por: *{_sup}*\n\n"
-            f"Ya puedes presentárselo a tu cliente 🎉"
+        _plantilla = _get_notif_config('msg_autorizada',
+            "✅ *¡PRESUPUESTO AUTORIZADO!*\n\n📋 *{ep}* · {cliente}\n💰 Margen aplicado: *{margen}%*\n👤 Autorizado por: *{supervisor}*\n\nYa puedes presentárselo a tu cliente 🎉")
+        msg = (_plantilla
+            .replace('{ep}', str(ep))
+            .replace('{cliente}', str(cliente_nombre))
+            .replace('{margen}', _margen_str)
+            .replace('{ejecutivo}', str(ejecutivo_nombre))
+            .replace('{supervisor}', _sup)
         )
         contactos = _get_contactos_notif()
         enviados = 0
