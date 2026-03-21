@@ -2954,7 +2954,7 @@ def _pwd_dialog():
         _pwd_actual = st.text_input("Contraseña actual", type="password", key="pwd_actual_dlg")
         _pwd_nueva  = st.text_input("Nueva contraseña", type="password", key="pwd_nueva_dlg", placeholder="Mínimo 6 caracteres")
         _pwd_repite = st.text_input("Repetir nueva contraseña", type="password", key="pwd_repite_dlg")
-        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
         if st.button("🔐 Actualizar contraseña", key="btn_cambiar_pwd_dlg", use_container_width=True, type="primary"):
             if not _pwd_actual or not _pwd_nueva or not _pwd_repite:
                 st.error("Completa todos los campos.")
