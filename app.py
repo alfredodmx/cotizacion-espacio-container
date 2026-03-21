@@ -7077,71 +7077,39 @@ if st.session_state.get('recien_cargado', False):
     st.session_state.recien_cargado = False
 
 if _mostrar_fab:
-    import streamlit.components.v1 as _fab_comp
-    _fab_comp.html("""
-<script>
-(function(){
-    var D = window.parent.document;
-    ['_fm_s','_fm_b','_fm_p'].forEach(function(id){
-        var e=D.getElementById(id); if(e) e.remove();
-    });
-    var s=D.createElement('style'); s.id='_fm_s';
-    s.innerHTML=[
-        '@keyframes pfab{0%{box-shadow:0 8px 24px rgba(91,124,250,0.5);}',
-        '50%{box-shadow:0 8px 40px rgba(91,124,250,0.9),0 0 0 12px rgba(91,124,250,0.15);}',
-        '100%{box-shadow:0 8px 24px rgba(91,124,250,0.5);}}',
-        '@keyframes blnk{0%,100%{opacity:1;}50%{opacity:0.2;}}',
-        '#_fm_p{position:fixed!important;bottom:1.5rem!important;left:2rem!important;z-index:999999!important;}',
-        '#_fm_b{background:linear-gradient(135deg,#5b7cfa,#8b5cf6);color:#fff;border:none;',
-        'border-radius:50px;padding:0.85rem 1.6rem;font-size:0.95rem;font-weight:700;',
-        'cursor:pointer;font-family:sans-serif;white-space:nowrap;position:relative;',
-        'animation:pfab 2s infinite;}',
-        '#_fm_b:hover{transform:translateY(-3px);animation:none;}',
-        '#_fm_badge{position:absolute;top:-5px;right:-5px;width:12px;height:12px;',
-        'background:#ef4444;border-radius:50%;border:2px solid #fff;animation:blnk 1.5s infinite;}'
-    ].join('');
-    D.head.appendChild(s);
-    var p=D.createElement('div'); p.id='_fm_p';
-    var b=D.createElement('button'); b.id='_fm_b';
-    b.innerHTML='&#128190; Guardar';
-    var badge=D.createElement('span'); badge.id='_fm_badge';
-    b.appendChild(badge); p.appendChild(b); D.body.appendChild(p);
-    // Ocultar el botón FAB_SAVE en el DOM
-    function hideFabSave(){
-        var btns=D.querySelectorAll('button');
-        for(var i=0;i<btns.length;i++){
-            var txt=(btns[i].innerText||btns[i].textContent||'').trim();
-            if(txt==='FAB_SAVE'){
-                var par=btns[i].closest('[data-testid="stButton"]');
-                if(par){
-                    par.style.cssText='position:fixed!important;top:-9999px!important;left:-9999px!important;width:1px!important;height:1px!important;overflow:hidden!important;';
-                }
-            }
-        }
-    }
-    setTimeout(hideFabSave, 200);
-    setTimeout(hideFabSave, 600);
-    setTimeout(hideFabSave, 1500);
-
-    b.addEventListener('click', function(){
-        // Asegurarse que el FAB_SAVE sea clickeable antes de clickear
-        var btns=D.querySelectorAll('button');
-        for(var i=0;i<btns.length;i++){
-            var txt=(btns[i].innerText||btns[i].textContent||'').trim();
-            if(txt==='FAB_SAVE' && btns[i].id!=='_fm_b'){
-                var par=btns[i].closest('[data-testid="stButton"]');
-                if(par) par.style.cssText='';
-                btns[i].click();
-                setTimeout(hideFabSave, 100);
-                return;
-            }
-        }
-    });
-})();
-</script>
-""", height=16)
-
-    if st.button("FAB_SAVE", key="btn_fab_guardar"):
+    # CSS puro — posiciona el botón Streamlit como FAB flotante
+    st.markdown("""
+<style>
+@keyframes pfab{
+    0%{box-shadow:0 8px 24px rgba(91,124,250,0.5);}
+    50%{box-shadow:0 8px 40px rgba(91,124,250,0.9),0 0 0 12px rgba(91,124,250,0.15);}
+    100%{box-shadow:0 8px 24px rgba(91,124,250,0.5);}
+}
+.st-key-btn_fab_guardar {
+    position: fixed !important;
+    bottom: 1.5rem !important;
+    left: 2rem !important;
+    z-index: 999999 !important;
+}
+.st-key-btn_fab_guardar button {
+    background: linear-gradient(135deg,#5b7cfa,#8b5cf6) !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: 50px !important;
+    padding: 0.85rem 1.6rem !important;
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    animation: pfab 2s infinite !important;
+    white-space: nowrap !important;
+    min-width: 140px !important;
+}
+.st-key-btn_fab_guardar button:hover {
+    transform: translateY(-3px) !important;
+    animation: none !important;
+}
+</style>
+""", unsafe_allow_html=True)
+    if st.button("💾 Guardar", key="btn_fab_guardar"):
         leer_datos_actuales()
         datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
         num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
@@ -7158,7 +7126,6 @@ if _mostrar_fab:
             _cli_nombre   = st.session_state.get('nombre_input', '')
             _tiene_plano  = bool(st.session_state.get('plano_adjunto') or st.session_state.get('pdf_url') or st.session_state.get('plano_nombre'))
             _monto        = tots.get('total', 0) if tots else 0
-            # Siempre obtener datos del asesor desde la BD recién guardada
             _ej_email  = ''
             _ej_nombre = ''
             try:
@@ -7171,7 +7138,6 @@ if _mostrar_fab:
             import threading as _thr
             if _tiene_plano:
                 if _margen_notif > 0:
-                    # Estado AUTORIZADO CON PLANO → notificar al ejecutivo
                     _sup_nombre = st.session_state.get('auth_nombre','') or st.session_state.get('auth_email','')
                     _thr.Thread(
                         target=notificar_cotizacion_autorizada,
@@ -7179,7 +7145,6 @@ if _mostrar_fab:
                         daemon=True
                     ).start()
                 else:
-                    # Estado BORRADOR CON PLANO → notificar a supervisores
                     _autor_email = st.session_state.get('auth_email','')
                     _autor_nombre = st.session_state.get('auth_nombre', _ej_nombre)
                     _thr.Thread(
@@ -7190,17 +7155,6 @@ if _mostrar_fab:
         except:
             pass
         st.rerun()
-
-else:
-    import streamlit.components.v1 as _fab_comp2
-    _fab_comp2.html("""<script>
-(function(){
-    var D=window.parent.document;
-    ['_fm_s','_fm_b','_fm_p'].forEach(function(id){
-        var e=D.getElementById(id); if(e) e.remove();
-    });
-})();
-</script>""", height=0)
 
 # =========================================================
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
