@@ -7210,7 +7210,7 @@ if _mostrar_progreso:
     _items_html = ''.join(_items_parts)
     # Panel principal + botón toggle al fondo
     _barra = (
-        '<div id="_prog_panel" style="position:fixed;right:0.8rem;top:50%;transform:translateY(-50%);'
+        '<div id="_prog_panel" style="position:fixed;right:0;top:50%;transform:translateY(-50%);'
         'z-index:99997;background:#ffffff;border-radius:14px;padding:12px 10px;width:148px;'
         'box-shadow:0 4px 24px rgba(0,0,0,0.12),0 1px 4px rgba(0,0,0,0.06);'
         'border:1px solid #e2e8f0;">'
@@ -7230,9 +7230,9 @@ if _mostrar_progreso:
         '› Ocultar</div>'
         '</div>'
         # Botón mini cuando está oculto
-        '<div id="_prog_mini" style="display:none;position:fixed;right:0.8rem;top:50%;'
+        '<div id="_prog_mini" style="display:none;position:fixed;right:0;top:50%;'
         'transform:translateY(-50%);z-index:99997;background:' + _pc + ';'
-        'border-radius:12px;padding:14px 8px;cursor:pointer;'
+        'border-radius:10px 0 0 10px;padding:14px 8px;cursor:pointer;'
         'box-shadow:0 4px 20px rgba(0,0,0,0.2);text-align:center;width:54px;"'
         ' data-action="prog-show">'
         '<div style="font-size:1.15rem;font-weight:900;color:#fff;line-height:1;">' + str(_pct) + '%</div>'
