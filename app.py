@@ -2973,6 +2973,7 @@ def _pwd_dialog():
                         st.session_state.show_pwd_dialog = False
                     else:
                         st.error(f"❌ {_err}")
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
 if st.session_state.show_pwd_dialog:
     st.session_state.show_pwd_dialog = False  # Reset inmediato
