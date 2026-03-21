@@ -7208,30 +7208,12 @@ if _mostrar_progreso:
             '</div>'
         )
     _items_html = ''.join(_items_parts)
+    # Panel principal + botón toggle al fondo
     _barra = (
-        # Botón tab para mostrar/ocultar (siempre visible)
-        '<div id="_prog_tab" onclick="'
-        '(function(){'
-        'var p=document.getElementById(\'_prog_panel\');'
-        'var t=document.getElementById(\'_prog_tab_icon\');'
-        'if(p.style.display===\'none\'){'
-        'p.style.display=\'block\';t.innerHTML=\'›\';'
-        '}else{'
-        'p.style.display=\'none\';t.innerHTML=\'‹\';'
-        '}})()" '
-        'style="position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:99998;'
-        'background:' + _pc + ';color:#fff;border-radius:8px 0 0 8px;'
-        'width:22px;cursor:pointer;padding:10px 0;text-align:center;'
-        'box-shadow:-2px 0 8px rgba(0,0,0,0.15);user-select:none;">'
-        '<span id="_prog_tab_icon" style="font-size:0.9rem;font-weight:900;">›</span>'
-        '<div style="writing-mode:vertical-rl;font-size:0.55rem;font-weight:700;'
-        'letter-spacing:0.08em;margin-top:6px;opacity:0.85;">' + str(_pct) + '%</div>'
-        '</div>'
-        # Panel principal
-        '<div id="_prog_panel" style="position:fixed;right:22px;top:50%;transform:translateY(-50%);'
-        'z-index:99997;background:#ffffff;border-radius:14px 0 0 14px;padding:12px 10px;width:148px;'
+        '<div id="_prog_panel" style="position:fixed;right:0.8rem;top:50%;transform:translateY(-50%);'
+        'z-index:99997;background:#ffffff;border-radius:14px;padding:12px 10px;width:148px;'
         'box-shadow:0 4px 24px rgba(0,0,0,0.12),0 1px 4px rgba(0,0,0,0.06);'
-        'border:1px solid #e2e8f0;border-right:none;font-family:Plus Jakarta Sans,sans-serif;">'
+        'border:1px solid #e2e8f0;">'
         '<div style="text-align:center;margin-bottom:8px;">'
         '<div style="font-size:1.4rem;font-weight:900;color:' + _pc + ';line-height:1;">' + str(_pct) + '%</div>'
         '<div style="font-size:0.62rem;color:#9ca3af;margin-top:1px;text-transform:uppercase;letter-spacing:0.05em;">Completado</div>'
@@ -7240,10 +7222,54 @@ if _mostrar_progreso:
         '<div style="width:' + str(_pct) + '%;height:100%;border-radius:99px;'
         'background:linear-gradient(90deg,' + _pc + ',' + _pc + 'cc);transition:width 0.4s ease;"></div>'
         '</div>'
-        '<div style="display:flex;flex-direction:column;gap:1px;">' + _items_html + '</div>'
+        '<div id="_prog_items" style="display:flex;flex-direction:column;gap:1px;">' + _items_html + '</div>'
+        # Botón ocultar al fondo del panel
+        '<div id="_prog_toggle" data-action="prog-toggle" style="margin-top:8px;text-align:center;'
+        'cursor:pointer;font-size:0.65rem;color:#9ca3af;padding:3px 0;'
+        'border-top:1px solid #f1f5f9;user-select:none;" title="Ocultar">'
+        '▲ Ocultar</div>'
+        '</div>'
+        # Botón mini cuando está oculto
+        '<div id="_prog_mini" style="display:none;position:fixed;right:0.8rem;top:50%;'
+        'transform:translateY(-50%);z-index:99997;background:' + _pc + ';'
+        'border-radius:10px;padding:8px 6px;cursor:pointer;'
+        'box-shadow:0 4px 16px rgba(0,0,0,0.15);text-align:center;width:36px;"'
+        ' data-action="prog-show">'
+        '<div style="font-size:0.75rem;font-weight:900;color:#fff;">' + str(_pct) + '%</div>'
+        '<div style="font-size:0.6rem;color:rgba(255,255,255,0.8);margin-top:2px;">📊</div>'
         '</div>'
     )
     st.markdown(_barra, unsafe_allow_html=True)
+    # JS listener para toggle — en el mismo DOM
+    st.markdown("""
+    <script>
+    (function(){
+        function initToggle(){
+            var D = document;
+            D.addEventListener('click', function(e){
+                var el = e.target && e.target.closest ? e.target.closest('[data-action]') : null;
+                if (!el) return;
+                var action = el.getAttribute('data-action');
+                var panel = D.getElementById('_prog_panel');
+                var mini  = D.getElementById('_prog_mini');
+                if (!panel || !mini) return;
+                if (action === 'prog-toggle') {
+                    panel.style.display = 'none';
+                    mini.style.display  = 'block';
+                } else if (action === 'prog-show') {
+                    panel.style.display = 'block';
+                    mini.style.display  = 'none';
+                }
+            });
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initToggle);
+        } else {
+            initToggle();
+        }
+    })();
+    </script>
+    """, unsafe_allow_html=True)
 
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
 # =========================================================
