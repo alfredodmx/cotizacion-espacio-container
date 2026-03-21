@@ -2936,43 +2936,43 @@ if 'show_pwd_dialog' not in st.session_state:
 @st.dialog("🔑 Cambiar contraseña")
 def _pwd_dialog():
     _nombre_usr = st.session_state.get('auth_nombre', '') or st.session_state.get('auth_email', '')
-
-    # Avatar centrado
     st.markdown(f"""
-    <div style='text-align:center;padding:16px 0 20px;'>
+    <div style='text-align:center;padding:0.8rem 0 1rem;'>
         <div style='width:52px;height:52px;border-radius:50%;
             background:linear-gradient(135deg,#5b7cfa,#8b5cf6);
             display:flex;align-items:center;justify-content:center;
-            font-size:1.5rem;margin:0 auto 10px;
-            box-shadow:0 4px 16px rgba(91,124,250,0.4);'>🔑</div>
-        <div style='color:#64748b;font-size:0.8rem;'>Usuario: <strong>{_nombre_usr.upper()}</strong></div>
+            font-size:1.5rem;margin:0 auto 8px;
+            box-shadow:0 4px 16px rgba(91,124,250,0.3);'>🔑</div>
+        <div style='color:#64748b;font-size:0.82rem;'>
+            Usuario: <strong style='color:#1e293b;'>{_nombre_usr.upper()}</strong>
+        </div>
     </div>
     """, unsafe_allow_html=True)
-
-    _pwd_actual = st.text_input("Contraseña actual", type="password", key="pwd_actual_dlg")
-    _pwd_nueva  = st.text_input("Nueva contraseña", type="password", key="pwd_nueva_dlg", placeholder="Mínimo 6 caracteres")
-    _pwd_repite = st.text_input("Repetir nueva contraseña", type="password", key="pwd_repite_dlg")
-
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-
-    if st.button("🔐 Actualizar contraseña", key="btn_cambiar_pwd_dlg", use_container_width=True, type="primary"):
-        if not _pwd_actual or not _pwd_nueva or not _pwd_repite:
-            st.error("Completa todos los campos.")
-        elif len(_pwd_nueva) < 6:
-            st.error("La contraseña debe tener mínimo 6 caracteres.")
-        elif _pwd_nueva != _pwd_repite:
-            st.error("Las contraseñas nuevas no coinciden.")
-        else:
-            _u_check, _ = login_usuario(st.session_state.get('auth_email',''), _pwd_actual)
-            if not _u_check:
-                st.error("❌ Contraseña actual incorrecta.")
+    # Columnas para simular padding lateral
+    _sp1, _mid, _sp2 = st.columns([0.08, 1, 0.08])
+    with _mid:
+        _pwd_actual = st.text_input("Contraseña actual", type="password", key="pwd_actual_dlg")
+        _pwd_nueva  = st.text_input("Nueva contraseña", type="password", key="pwd_nueva_dlg", placeholder="Mínimo 6 caracteres")
+        _pwd_repite = st.text_input("Repetir nueva contraseña", type="password", key="pwd_repite_dlg")
+        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+        if st.button("🔐 Actualizar contraseña", key="btn_cambiar_pwd_dlg", use_container_width=True, type="primary"):
+            if not _pwd_actual or not _pwd_nueva or not _pwd_repite:
+                st.error("Completa todos los campos.")
+            elif len(_pwd_nueva) < 6:
+                st.error("La contraseña debe tener mínimo 6 caracteres.")
+            elif _pwd_nueva != _pwd_repite:
+                st.error("Las contraseñas nuevas no coinciden.")
             else:
-                _ok, _err = cambiar_password_propio(_pwd_nueva)
-                if _ok:
-                    st.success("✅ ¡Contraseña actualizada correctamente!")
-                    st.session_state.show_pwd_dialog = False
+                _u_check, _ = login_usuario(st.session_state.get('auth_email',''), _pwd_actual)
+                if not _u_check:
+                    st.error("❌ Contraseña actual incorrecta.")
                 else:
-                    st.error(f"❌ {_err}")
+                    _ok, _err = cambiar_password_propio(_pwd_nueva)
+                    if _ok:
+                        st.success("✅ ¡Contraseña actualizada correctamente!")
+                        st.session_state.show_pwd_dialog = False
+                    else:
+                        st.error(f"❌ {_err}")
 
 if st.session_state.show_pwd_dialog:
     st.session_state.show_pwd_dialog = False  # Reset inmediato
