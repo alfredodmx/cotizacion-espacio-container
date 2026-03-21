@@ -7211,7 +7211,7 @@ if _mostrar_progreso:
     # Panel principal + botón toggle al fondo
     _barra = (
         '<div id="_prog_panel" style="position:fixed;right:0;top:50%;transform:translateY(-50%);'
-        'z-index:99997;background:#ffffff;border-radius:14px;padding:12px 10px;width:148px;'
+        'z-index:99997;background:#ffffff;border-radius:14px 0 0 14px;padding:12px 10px;width:148px;'
         'box-shadow:0 4px 24px rgba(0,0,0,0.12),0 1px 4px rgba(0,0,0,0.06);'
         'border:1px solid #e2e8f0;">'
         '<div style="text-align:center;margin-bottom:8px;">'
