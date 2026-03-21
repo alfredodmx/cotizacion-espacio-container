@@ -2669,19 +2669,12 @@ st.markdown('''
 [data-testid="stAppViewContainer"] > section:first-child {
     padding-top: 65px !important;
 }
-/* Eliminar espacio de iframes height=0 y elementos ocultos */
-iframe[height="0"], iframe[width="0"] {
-    height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: none !important;
-}
+/* Eliminar espacio de iframes JS-only (height=0) sin afectar FAB */
 [data-testid="stCustomComponentV1"]:has(iframe[height="0"]) {
     height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
     min-height: 0 !important;
-    overflow: hidden !important;
 }
 [data-testid="stCheckbox"] span,
 [data-testid="stRadio"] span {
@@ -7146,7 +7139,7 @@ if _mostrar_fab:
     });
 })();
 </script>
-""", height=1)
+""", height=16)
 
     if st.button("FAB_SAVE", key="btn_fab_guardar"):
         leer_datos_actuales()
