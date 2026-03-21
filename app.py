@@ -7146,7 +7146,7 @@ if _mostrar_fab:
     });
 })();
 </script>
-""", height=0)
+""", height=1)
 
     if st.button("FAB_SAVE", key="btn_fab_guardar"):
         leer_datos_actuales()
