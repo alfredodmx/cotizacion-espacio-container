@@ -2937,8 +2937,11 @@ if 'show_pwd_dialog' not in st.session_state:
 def _pwd_dialog():
     st.markdown("""
     <style>
+    div[data-testid="stDialog"] > div > div {
+        padding: 1.2rem 1.8rem 1.5rem 1.8rem !important;
+    }
     div[data-testid="stDialog"] > div > div > div {
-        padding: 0 1.2rem 1rem 1.2rem !important;
+        padding: 0 !important;
     }
     div[data-testid="stDialog"] button[kind="primary"] {
         background: linear-gradient(135deg, #5b7cfa, #8b5cf6) !important;
