@@ -7157,6 +7157,75 @@ if _mostrar_fab:
         st.rerun()
 
 # =========================================================
+
+# =========================================================
+# INDICADOR DE PROGRESO FLOTANTE
+# =========================================================
+_mostrar_progreso = bool(
+    st.session_state.get('cotizacion_cargada') or
+    len(st.session_state.get('carrito', [])) > 0
+)
+
+if _mostrar_progreso:
+    _ss = st.session_state
+    _es_juridica = _ss.get('cliente_tipo', 'natural') == 'juridica'
+    _asesor_ok = bool(_ss.get('asesor_seleccionado','') and _ss.get('asesor_seleccionado') != 'Seleccionar asesor')
+    _campos = [
+        ('Carrito',        25, bool(len(_ss.get('carrito',[])) > 0)),
+        ('Plano PDF',      10, bool(_ss.get('plano_adjunto') or _ss.get('pdf_url') or _ss.get('plano_nombre'))),
+        ('Asesor',         10, _asesor_ok),
+        ('Nombre cliente', 10, bool(str(_ss.get('nombre_input','')).strip())),
+        ('Correo',          8, bool(str(_ss.get('correo_input','')).strip())),
+        ('RUT',             8, bool(str(_ss.get('rut_display','')).strip())),
+        ('Teléfono',        5, bool(str(_ss.get('telefono_raw','')).strip())),
+        ('Observaciones',   5, bool(str(_ss.get('observaciones_input','')).strip())),
+        ('Dir. cliente',    5, bool(str(_ss.get('direccion_input','')).strip())),
+        ('Dir. proyecto',   5, bool(str(_ss.get('proyecto_direccion','')).strip())),
+    ]
+    if _es_juridica:
+        _campos.append(('Empresa',      5, bool(str(_ss.get('cliente_empresa','')).strip())))
+        _campos.append(('RUT empresa',  4, bool(str(_ss.get('cliente_rut_empresa','')).strip())))
+    _total_peso = sum(p for _,p,_ in _campos)
+    _peso_ok    = sum(p for _,p,v in _campos if v)
+    _pct        = int(round(_peso_ok / _total_peso * 100)) if _total_peso > 0 else 0
+    if _pct == 100:
+        _pc, _pb = '#10b981', 'rgba(16,185,129,0.15)'
+    elif _pct >= 70:
+        _pc, _pb = '#f97316', 'rgba(249,115,22,0.15)'
+    elif _pct >= 40:
+        _pc, _pb = '#eab308', 'rgba(234,179,8,0.15)'
+    else:
+        _pc, _pb = '#ef4444', 'rgba(239,68,68,0.15)'
+    _items_parts = []
+    for _lbl, _peso, _ok in _campos:
+        _ic  = '✅' if _ok else '⬜'
+        _col = '#374151' if _ok else '#9ca3af'
+        _fw  = '600' if _ok else '400'
+        _items_parts.append(
+            '<div style="display:flex;align-items:center;gap:6px;padding:2px 0;">'
+            '<span style="font-size:0.7rem;">' + _ic + '</span>'
+            '<span style="font-size:0.7rem;color:' + _col + ';font-weight:' + _fw + ';">' + _lbl + '</span>'
+            '</div>'
+        )
+    _items_html = ''.join(_items_parts)
+    _barra = (
+        '<div id="_prog_flotante" style="position:fixed;right:0.8rem;top:50%;transform:translateY(-50%);'
+        'z-index:99997;background:#ffffff;border-radius:14px;padding:12px 10px;width:148px;'
+        'box-shadow:0 4px 24px rgba(0,0,0,0.12),0 1px 4px rgba(0,0,0,0.06);'
+        'border:1px solid #e2e8f0;font-family:Plus Jakarta Sans,sans-serif;">'
+        '<div style="text-align:center;margin-bottom:8px;">'
+        '<div style="font-size:1.4rem;font-weight:900;color:' + _pc + ';line-height:1;">' + str(_pct) + '%</div>'
+        '<div style="font-size:0.62rem;color:#9ca3af;margin-top:1px;text-transform:uppercase;letter-spacing:0.05em;">Completado</div>'
+        '</div>'
+        '<div style="background:#f1f5f9;border-radius:99px;height:6px;margin-bottom:10px;overflow:hidden;">'
+        '<div style="width:' + str(_pct) + '%;height:100%;border-radius:99px;'
+        'background:linear-gradient(90deg,' + _pc + ',' + _pc + 'cc);transition:width 0.4s ease;"></div>'
+        '</div>'
+        '<div style="display:flex;flex-direction:column;gap:1px;">' + _items_html + '</div>'
+        '</div>'
+    )
+    st.markdown(_barra, unsafe_allow_html=True)
+
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
 # =========================================================
 _margen_actual = st.session_state.margen
