@@ -7209,10 +7209,29 @@ if _mostrar_progreso:
         )
     _items_html = ''.join(_items_parts)
     _barra = (
-        '<div id="_prog_flotante" style="position:fixed;right:0.8rem;top:50%;transform:translateY(-50%);'
-        'z-index:99997;background:#ffffff;border-radius:14px;padding:12px 10px;width:148px;'
+        # Botón tab para mostrar/ocultar (siempre visible)
+        '<div id="_prog_tab" onclick="'
+        '(function(){'
+        'var p=document.getElementById(\'_prog_panel\');'
+        'var t=document.getElementById(\'_prog_tab_icon\');'
+        'if(p.style.display===\'none\'){'
+        'p.style.display=\'block\';t.innerHTML=\'›\';'
+        '}else{'
+        'p.style.display=\'none\';t.innerHTML=\'‹\';'
+        '}})()" '
+        'style="position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:99998;'
+        'background:' + _pc + ';color:#fff;border-radius:8px 0 0 8px;'
+        'width:22px;cursor:pointer;padding:10px 0;text-align:center;'
+        'box-shadow:-2px 0 8px rgba(0,0,0,0.15);user-select:none;">'
+        '<span id="_prog_tab_icon" style="font-size:0.9rem;font-weight:900;">›</span>'
+        '<div style="writing-mode:vertical-rl;font-size:0.55rem;font-weight:700;'
+        'letter-spacing:0.08em;margin-top:6px;opacity:0.85;">' + str(_pct) + '%</div>'
+        '</div>'
+        # Panel principal
+        '<div id="_prog_panel" style="position:fixed;right:22px;top:50%;transform:translateY(-50%);'
+        'z-index:99997;background:#ffffff;border-radius:14px 0 0 14px;padding:12px 10px;width:148px;'
         'box-shadow:0 4px 24px rgba(0,0,0,0.12),0 1px 4px rgba(0,0,0,0.06);'
-        'border:1px solid #e2e8f0;font-family:Plus Jakarta Sans,sans-serif;">'
+        'border:1px solid #e2e8f0;border-right:none;font-family:Plus Jakarta Sans,sans-serif;">'
         '<div style="text-align:center;margin-bottom:8px;">'
         '<div style="font-size:1.4rem;font-weight:900;color:' + _pc + ';line-height:1;">' + str(_pct) + '%</div>'
         '<div style="font-size:0.62rem;color:#9ca3af;margin-top:1px;text-transform:uppercase;letter-spacing:0.05em;">Completado</div>'
