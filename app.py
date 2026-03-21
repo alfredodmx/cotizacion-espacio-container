@@ -7227,7 +7227,7 @@ if _mostrar_progreso:
         '<div id="_prog_toggle" data-action="prog-toggle" style="margin-top:8px;text-align:center;'
         'cursor:pointer;font-size:0.65rem;color:#9ca3af;padding:3px 0;'
         'border-top:1px solid #f1f5f9;user-select:none;" title="Ocultar">'
-        '▲ Ocultar</div>'
+        '› Ocultar</div>'
         '</div>'
         # Botón mini cuando está oculto
         '<div id="_prog_mini" style="display:none;position:fixed;right:0.8rem;top:50%;'
@@ -7241,35 +7241,30 @@ if _mostrar_progreso:
     )
     st.markdown(_barra, unsafe_allow_html=True)
     # JS listener para toggle — en el mismo DOM
-    st.markdown("""
-    <script>
-    (function(){
-        function initToggle(){
-            var D = document;
-            D.addEventListener('click', function(e){
-                var el = e.target && e.target.closest ? e.target.closest('[data-action]') : null;
-                if (!el) return;
-                var action = el.getAttribute('data-action');
-                var panel = D.getElementById('_prog_panel');
-                var mini  = D.getElementById('_prog_mini');
-                if (!panel || !mini) return;
-                if (action === 'prog-toggle') {
-                    panel.style.display = 'none';
-                    mini.style.display  = 'block';
-                } else if (action === 'prog-show') {
-                    panel.style.display = 'block';
-                    mini.style.display  = 'none';
-                }
-            });
-        }
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initToggle);
-        } else {
-            initToggle();
-        }
-    })();
-    </script>
-    """, unsafe_allow_html=True)
+    import streamlit.components.v1 as _prog_comp
+    _prog_comp.html("""<script>
+(function(){
+    var D = window.parent.document;
+    function initToggle(){
+        D.addEventListener('click', function(e){
+            var el = e.target && e.target.closest ? e.target.closest('[data-action]') : null;
+            if (!el) return;
+            var action = el.getAttribute('data-action');
+            var panel = D.getElementById('_prog_panel');
+            var mini  = D.getElementById('_prog_mini');
+            if (!panel || !mini) return;
+            if (action === 'prog-toggle') {
+                panel.style.display = 'none';
+                mini.style.display  = 'block';
+            } else if (action === 'prog-show') {
+                panel.style.display = 'block';
+                mini.style.display  = 'none';
+            }
+        });
+    }
+    setTimeout(initToggle, 300);
+})();
+</script>""", height=1)
 
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
 # =========================================================
