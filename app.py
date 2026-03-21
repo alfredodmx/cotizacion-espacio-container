@@ -2935,47 +2935,25 @@ if 'show_pwd_dialog' not in st.session_state:
 
 @st.dialog("🔑 Cambiar contraseña")
 def _pwd_dialog():
-    st.markdown("""
-    <style>
-    div[data-testid="stDialog"] > div > div {
-        padding: 1.2rem 1.8rem 1.5rem 1.8rem !important;
-    }
-    div[data-testid="stDialog"] > div > div > div {
-        padding: 0 !important;
-    }
-    div[data-testid="stDialog"] button[kind="primary"] {
-        background: linear-gradient(135deg, #5b7cfa, #8b5cf6) !important;
-        border: none !important;
-        border-radius: 8px !important;
-        font-weight: 700 !important;
-        letter-spacing: 0.05em !important;
-    }
-    div[data-testid="stDialog"] [data-testid="stTextInput"] label p {
-        font-size: 0.78rem !important;
-        font-weight: 600 !important;
-        letter-spacing: 0.06em !important;
-        text-transform: uppercase !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-
     _nombre_usr = st.session_state.get('auth_nombre', '') or st.session_state.get('auth_email', '')
+
+    # Avatar centrado
     st.markdown(f"""
-    <div style='text-align:center;margin-bottom:20px;'>
-        <div style='width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#5b7cfa,#8b5cf6);
-            display:flex;align-items:center;justify-content:center;font-size:1.6rem;margin:0 auto 10px;'>🔑</div>
-        <div style='color:#94a3b8;font-size:0.82rem;'>Cambia tu contraseña de acceso</div>
-        <div style='color:#e2e8f0;font-size:0.85rem;font-weight:600;margin-top:2px;'>{_nombre_usr.upper()}</div>
+    <div style='text-align:center;padding:16px 0 20px;'>
+        <div style='width:52px;height:52px;border-radius:50%;
+            background:linear-gradient(135deg,#5b7cfa,#8b5cf6);
+            display:flex;align-items:center;justify-content:center;
+            font-size:1.5rem;margin:0 auto 10px;
+            box-shadow:0 4px 16px rgba(91,124,250,0.4);'>🔑</div>
+        <div style='color:#64748b;font-size:0.8rem;'>Usuario: <strong>{_nombre_usr.upper()}</strong></div>
     </div>
     """, unsafe_allow_html=True)
 
     _pwd_actual = st.text_input("Contraseña actual", type="password", key="pwd_actual_dlg")
-    _pwd_nueva  = st.text_input("Nueva contraseña",  type="password", key="pwd_nueva_dlg", placeholder="Mínimo 6 caracteres")
+    _pwd_nueva  = st.text_input("Nueva contraseña", type="password", key="pwd_nueva_dlg", placeholder="Mínimo 6 caracteres")
     _pwd_repite = st.text_input("Repetir nueva contraseña", type="password", key="pwd_repite_dlg")
 
-    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
     if st.button("🔐 Actualizar contraseña", key="btn_cambiar_pwd_dlg", use_container_width=True, type="primary"):
         if not _pwd_actual or not _pwd_nueva or not _pwd_repite:
