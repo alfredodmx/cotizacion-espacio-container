@@ -7078,6 +7078,9 @@ _mostrar_fab = (
     not st.session_state.get('recien_cargado', False) and
     _hay_cambios
 )
+# Debug temporal
+if st.session_state.get('rol_usuario') == 'ejecutivo' and len(st.session_state.get('carrito', [])) > 0:
+    st.sidebar.caption(f"FAB debug: carrito={len(st.session_state.get('carrito',[]))}, solo_lectura={_es_solo_lectura}, hay_cambios={_hay_cambios}, mostrar={_mostrar_fab}")
 
 if st.session_state.get('recien_guardado', False):
     st.session_state.recien_guardado = False
