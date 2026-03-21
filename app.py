@@ -7232,11 +7232,12 @@ if _mostrar_progreso:
         # Botón mini cuando está oculto
         '<div id="_prog_mini" style="display:none;position:fixed;right:0.8rem;top:50%;'
         'transform:translateY(-50%);z-index:99997;background:' + _pc + ';'
-        'border-radius:10px;padding:8px 6px;cursor:pointer;'
-        'box-shadow:0 4px 16px rgba(0,0,0,0.15);text-align:center;width:36px;"'
+        'border-radius:12px;padding:14px 8px;cursor:pointer;'
+        'box-shadow:0 4px 20px rgba(0,0,0,0.2);text-align:center;width:54px;"'
         ' data-action="prog-show">'
-        '<div style="font-size:0.75rem;font-weight:900;color:#fff;">' + str(_pct) + '%</div>'
-        '<div style="font-size:0.6rem;color:rgba(255,255,255,0.8);margin-top:2px;">📊</div>'
+        '<div style="font-size:1.15rem;font-weight:900;color:#fff;line-height:1;">' + str(_pct) + '%</div>'
+        '<div style="font-size:0.7rem;color:rgba(255,255,255,0.85);margin-top:5px;">📊</div>'
+        '<div style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.75);margin-top:3px;letter-spacing:0.06em;">VER</div>'
         '</div>'
     )
     st.markdown(_barra, unsafe_allow_html=True)
