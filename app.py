@@ -2671,19 +2671,17 @@ st.markdown('''
 }
 /* Eliminar espacio de iframes height=0 y elementos ocultos */
 iframe[height="0"], iframe[width="0"] {
-    display: none !important;
     height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
+    border: none !important;
 }
-[data-testid="stCustomComponentV1"] {
+[data-testid="stCustomComponentV1"]:has(iframe[height="0"]) {
+    height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
     min-height: 0 !important;
-}
-[data-testid="stCustomComponentV1"]:has(iframe[height="0"]) {
-    display: none !important;
-    height: 0 !important;
+    overflow: hidden !important;
 }
 [data-testid="stCheckbox"] span,
 [data-testid="stRadio"] span {
@@ -2986,7 +2984,7 @@ st.markdown("""<style>
     position:fixed!important;top:-9999px!important;left:-9999px!important;
     width:1px!important;height:1px!important;overflow:hidden!important;
 }
-[data-testid="stHorizontalBlock"]:has(.st-key-btn_pwd_hdr) {
+[data-testid="stHorizontalBlock"]:has(.st-key-btn_pwd_hdr):not(:has(.st-key-btn_fab_guardar)) {
     display:none!important;height:0!important;margin:0!important;padding:0!important;min-height:0!important;
 }
 </style>""", unsafe_allow_html=True)
@@ -7078,9 +7076,7 @@ _mostrar_fab = (
     not st.session_state.get('recien_cargado', False) and
     _hay_cambios
 )
-# Debug temporal
-if st.session_state.get('rol_usuario') == 'ejecutivo' and len(st.session_state.get('carrito', [])) > 0:
-    st.sidebar.caption(f"FAB debug: carrito={len(st.session_state.get('carrito',[]))}, solo_lectura={_es_solo_lectura}, hay_cambios={_hay_cambios}, mostrar={_mostrar_fab}")
+
 
 if st.session_state.get('recien_guardado', False):
     st.session_state.recien_guardado = False
