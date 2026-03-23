@@ -5442,7 +5442,7 @@ with tab3:
             _mg_color = 'color:#16a34a;font-weight:700;' if row['MargenCol'] == '✅ Sí' else 'color:#94a3b8;'
             _ct_color = 'color:#16a34a;font-weight:700;' if row['ContratoCol'] == '✅ Sí' else 'color:#94a3b8;'
             _emp_color = 'color:#16a34a;font-weight:700;' if row['EmpresaCol'] == '✅ Sí' else 'color:#94a3b8;'
-            rows_html += f"<tr><td>{row['N°']}</td><td>{row['Cliente'] or '—'}</td><td>{row['Asesor'] or '—'}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td>{row['Total']}</td><td style='text-align:center;'>{row['Estado']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td><td style='text-align:center;{_mg_color}'>{row['MargenCol']}</td><td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;font-size:1.1rem;'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td></tr>"
+            rows_html += f"<tr><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td>{row['Cliente'] or '—'}</td><td>{row['Asesor'] or '—'}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td>{row['Total']}</td><td style='text-align:center;'>{row['Estado']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td><td style='text-align:center;{_mg_color}'>{row['MargenCol']}</td><td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;font-size:1.1rem;'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td></tr>"
 
         html_table = f"""
         <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;">
@@ -5458,6 +5458,39 @@ with tab3:
         <p style="font-size:0.8rem;color:#888;margin-top:6px;">Mostrando {n_resultados} resultado{'s' if n_resultados != 1 else ''}</p>
         """
         st.markdown(html_table, unsafe_allow_html=True)
+
+        # JS para copiar EP al hacer click en la celda
+        import streamlit.components.v1 as _ep_copy_comp
+        _ep_copy_comp.html("""<script>
+(function(){
+    var D = window.parent.document;
+    function initEPCopy(){
+        D.addEventListener('click', function(e){
+            var td = e.target && e.target.closest ? e.target.closest('td[data-ep]') : null;
+            if (!td) return;
+            var ep = td.getAttribute('data-ep');
+            if (!ep) return;
+            // Copiar al portapapeles
+            var ta = D.createElement('textarea');
+            ta.value = ep;
+            ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
+            D.body.appendChild(ta); ta.focus(); ta.select();
+            try { D.execCommand('copy'); } catch(err) {}
+            ta.remove();
+            if (window.parent.navigator.clipboard) {
+                window.parent.navigator.clipboard.writeText(ep).catch(function(){});
+            }
+            // Feedback visual
+            var orig = td.innerHTML;
+            var origColor = td.style.color;
+            td.innerHTML = '✅ ¡Copiado!';
+            td.style.color = '#10b981';
+            setTimeout(function(){ td.innerHTML = orig; td.style.color = origColor; }, 1200);
+        });
+    }
+    setTimeout(initEPCopy, 500);
+})();
+</script>""", height=0)
 
         st.markdown("### Seleccionar cotización")
 
