@@ -982,8 +982,8 @@ def validar_rut(rut_completo):
 def formatear_rut(rut_raw):
     if not rut_raw:
         return ""
-    if len(rut_raw) > 9:
-        rut_raw = rut_raw[:9]
+    if len(rut_raw) > 10:
+        rut_raw = rut_raw[:10]
     if len(rut_raw) >= 2:
         cuerpo = rut_raw[:-1]
         dv = rut_raw[-1].upper()
@@ -1022,8 +1022,8 @@ def procesar_cambio_rut():
     if rut_key in st.session_state:
         valor_actual = st.session_state[rut_key]
         raw = re.sub(r'[^0-9kK]', '', valor_actual)
-        if len(raw) > 9:
-            raw = raw[:9]
+        if len(raw) > 10:
+            raw = raw[:10]
         st.session_state.rut_raw = raw
         if raw:
             st.session_state.rut_display = formatear_rut(raw)
@@ -1042,8 +1042,8 @@ def procesar_cambio_rut_empresa():
     if rut_emp_key in st.session_state:
         valor_actual = st.session_state[rut_emp_key]
         raw = re.sub(r'[^0-9kK]', '', valor_actual)
-        if len(raw) > 9:
-            raw = raw[:9]
+        if len(raw) > 10:
+            raw = raw[:10]
         st.session_state.rut_empresa_raw = raw
         if raw:
             st.session_state.rut_empresa_display = formatear_rut(raw)
@@ -1064,8 +1064,8 @@ def procesar_cambio_telefono():
     if telefono_key in st.session_state:
         valor_actual = st.session_state[telefono_key]
         raw = re.sub(r'[^0-9]', '', valor_actual)
-        if len(raw) > 9:
-            raw = raw[:9]
+        if len(raw) > 10:
+            raw = raw[:10]
         st.session_state.telefono_raw = raw
 
 def leer_datos_actuales():
