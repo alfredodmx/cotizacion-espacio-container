@@ -1843,7 +1843,7 @@ def generar_pdf_log(numero, logs):
 # =========================================================
 # FUNCIONES DE SUPABASE PARA COTIZACIONES
 # =========================================================
-def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, totales, plano_nombre=None, plano_datos=None):
+def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, totales, plano_nombre=None, plano_datos=None, usuario_logueado=None):
     try:
         fecha_actual = datetime.now().isoformat()
         productos_json = json.dumps(productos, ensure_ascii=False)
@@ -1923,9 +1923,10 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
             # Registrar log de modificación con diff
             _cambios = _diff_datos(_anterior, data)
             if _cambios:
+                _actor = usuario_logueado or str(asesor.get('Nombre Ejecutivo', '') or 'Sistema')
                 registrar_log(
                     numero=numero,
-                    asesor=str(asesor.get('Nombre Ejecutivo', '') or 'Sistema'),
+                    asesor=_actor,
                     tipo_cambio='modificacion',
                     detalle_dict=_cambios
                 )
@@ -1933,9 +1934,10 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
             data['fecha_creacion'] = fecha_actual
             response = supabase_admin.table('cotizaciones').insert(data).execute()
             # Registrar log de creación
+            _actor = usuario_logueado or str(asesor.get('Nombre Ejecutivo', '') or 'Sistema')
             registrar_log(
                 numero=numero,
-                asesor=str(asesor.get('Nombre Ejecutivo', '') or 'Sistema'),
+                asesor=_actor,
                 tipo_cambio='creacion',
                 detalle_dict={'mensaje': f'Cotización {numero} creada'}
             )
@@ -3339,9 +3341,11 @@ if st.session_state.cotizacion_cargada:
             with col_guardar:
                 if st.button("💾 Guardar y cerrar", use_container_width=True, type="primary", key="dialog_cerrar_guardar"):
                     _dp = st.session_state.datos_pendientes_cerrar
+                    _usr_log2 = st.session_state.get('auth_nombre','') or st.session_state.get('auth_email','')
                     guardar_cotizacion(_dp['numero'], _dp['datos_c'], _dp['datos_a'],
                                        _dp['proy'], st.session_state.carrito,
-                                       _dp['cfg'], _dp['tots'], _dp['pnom'], _dp['pdat'])
+                                       _dp['cfg'], _dp['tots'], _dp['pnom'], _dp['pdat'],
+                                       usuario_logueado=_usr_log2)
                     limpiar_todo()
                     st.session_state.datos_pendientes_cerrar = None
                     st.session_state.mostrar_advertencia_cerrar = False
@@ -5620,9 +5624,11 @@ with tab3:
                                 num_g = st.session_state.cotizacion_cargada
                             else:
                                 num_g = generar_numero_unico()
+                            _usr_log3 = st.session_state.get('auth_nombre','') or st.session_state.get('auth_email','')
                             guardar_cotizacion(num_g, datos_cliente_g, datos_asesor_g,
                                                proyecto_g, st.session_state.carrito,
-                                               config_g, totales_g, plano_n, plano_d)
+                                               config_g, totales_g, plano_n, plano_d,
+                                               usuario_logueado=_usr_log3)
                             # Luego cargar
                             st.session_state.mostrar_advertencia_carga = False
                             if preparar_carga_cotizacion(numero_pendiente):
@@ -7147,8 +7153,10 @@ if _mostrar_fab:
         leer_datos_actuales()
         datos_c, datos_a, proy, cfg, tots, pl_n, pl_d = construir_datos_para_guardar()
         num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
+        _usr_log = st.session_state.get('auth_nombre','') or st.session_state.get('auth_email','')
         guardar_cotizacion(num_g, datos_c, datos_a, proy,
-                           st.session_state.carrito, cfg, tots, pl_n, pl_d)
+                           st.session_state.carrito, cfg, tots, pl_n, pl_d,
+                           usuario_logueado=_usr_log)
         st.session_state.cotizacion_cargada = num_g
         st.session_state.hash_ultimo_guardado = calcular_hash_estado()
         st.session_state.recien_guardado = True
