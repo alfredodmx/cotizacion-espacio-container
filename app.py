@@ -1515,12 +1515,25 @@ def _diff_datos(anterior, nuevo):
         'proyecto_observaciones': 'Observaciones', 'estado': 'Estado',
         'productos': 'Productos/carrito',
     }
+    # Campos que deben mostrarse como texto plano sin formato numérico
+    CAMPOS_TEXTO = {'cliente_telefono', 'cliente_rut', 'cliente_rut_empresa',
+                    'cliente_email', 'cliente_nombre', 'cliente_direccion',
+                    'cliente_comuna', 'cliente_region', 'proyecto_direccion',
+                    'proyecto_comuna', 'proyecto_region', 'cliente_empresa',
+                    'asesor_nombre', 'proyecto_observaciones', 'estado'}
+
     cambios = {}
     for k, label in LABELS.items():
-        v_ant = str(anterior.get(k, '') or '')
-        v_new = str(nuevo.get(k, '') or '')
+        v_ant_raw = anterior.get(k, '') or ''
+        v_new_raw = nuevo.get(k, '') or ''
+        # Forzar string para campos de texto (evitar formato numérico)
+        if k in CAMPOS_TEXTO:
+            v_ant = str(v_ant_raw)
+            v_new = str(v_new_raw)
+        else:
+            v_ant = str(v_ant_raw)
+            v_new = str(v_new_raw)
         if k == 'productos':
-            # Solo marcar si cambia, no mostrar JSON completo
             if v_ant != v_new:
                 cambios[label] = {'antes': '(carrito anterior)', 'despues': '(carrito actualizado)'}
         elif v_ant != v_new:
@@ -1562,10 +1575,17 @@ def generar_pdf_log(numero, logs):
     _MESES = {1:"enero",2:"febrero",3:"marzo",4:"abril",5:"mayo",6:"junio",
               7:"julio",8:"agosto",9:"septiembre",10:"octubre",11:"noviembre",12:"diciembre"}
 
-    def _fmt_val(v):
+    # Campos que NO deben formatearse como moneda
+    _CAMPOS_TEXTO = {'Teléfono','RUT cliente','RUT empresa','Correo','Nombre cliente',
+                     'Asesor','Dirección cliente','Dirección instalación','Observaciones',
+                     'Estado','Empresa','Tipo cliente','Comuna cliente','Región cliente'}
+
+    def _fmt_val(v, campo=None):
+        if campo and campo in _CAMPOS_TEXTO:
+            return str(v) if v else "—"
         try:
-            _n = float(str(v).replace("$","").strip())
-            if abs(_n) > 99:
+            _n = float(str(v).replace("$","").replace(".","").replace(",",".").strip())
+            if abs(_n) > 999:
                 return "$" + "{:,.0f}".format(round(_n)).replace(",",".")
             return str(v)
         except: return str(v) if v else "—"
@@ -1790,10 +1810,10 @@ def generar_pdf_log(numero, logs):
                         ]]
                         for _c, _v in _det.items():
                             if isinstance(_v, dict):
-                                _a = _fmt_val(str(_v.get("antes","—")))
-                                _d = _fmt_val(str(_v.get("despues","—")))
+                                _a = _fmt_val(str(_v.get("antes","—")), campo=_c)
+                                _d = _fmt_val(str(_v.get("despues","—")), campo=_c)
                             else:
-                                _a, _d = "—", _fmt_val(str(_v))
+                                _a, _d = "—", _fmt_val(str(_v), campo=_c)
                             cam_rows.append([
                                 Paragraph(_c, s_mono),
                                 Paragraph(_a[:70], s_antes),
@@ -1883,7 +1903,7 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
             'cliente_nombre': str(cliente.get('Nombre', '') or ''),
             'cliente_rut': str(cliente.get('RUT', '') or ''),
             'cliente_email': str(cliente.get('Correo', '') or ''),
-            'cliente_telefono': str(cliente.get('Teléfono', '') or ''),
+            'cliente_telefono': str(cliente.get('Teléfono', '') or '').strip(),
             'cliente_direccion': str(cliente.get('Dirección', '') or ''),
             'cliente_comuna': str(cliente.get('ComunaCliente', '') or ''),
             'cliente_region': str(cliente.get('RegionCliente', '') or ''),
