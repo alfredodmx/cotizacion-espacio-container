@@ -954,6 +954,9 @@ def validar_rut(rut_completo):
     dv_ingresado = rut_limpio[-1].upper()
     if not cuerpo.isdigit():
         return False, "RUT inválido"
+    # RUT extranjero: 9+ dígitos en cuerpo o número >= 100.000.000
+    _es_extranjero = len(cuerpo) >= 9 or int(cuerpo) >= 100000000
+    # Aplicar algoritmo módulo 11
     suma = 0
     multiplo = 2
     for i in range(len(cuerpo) - 1, -1, -1):
@@ -967,8 +970,13 @@ def validar_rut(rut_completo):
     else:
         dv_esperado = str(dv_esperado)
     if dv_ingresado == dv_esperado:
+        if _es_extranjero:
+            return True, "RUT extranjero válido"
         return True, "RUT válido"
     else:
+        # Si falla validación pero tiene formato de extranjero → advertencia en vez de error
+        if _es_extranjero:
+            return True, "RUT inválido o RUT extranjero"
         return False, "RUT inválido"
 
 def formatear_rut(rut_raw):
@@ -4701,9 +4709,16 @@ with tab2:
                 if st.session_state.rut_raw:
                     if len(st.session_state.rut_raw) >= 2:
                         if st.session_state.rut_valido:
-                            st.success("✅ RUT válido")
+                            if "extranjero" in st.session_state.rut_mensaje.lower():
+                                st.warning(f"⚠️ {st.session_state.rut_mensaje}")
+                            else:
+                                st.success("✅ RUT válido")
                         else:
-                            st.error(f"❌ {st.session_state.rut_mensaje}")
+                            _msg_rut = st.session_state.rut_mensaje
+                            if "extranjero" in _msg_rut.lower():
+                                st.warning(f"⚠️ RUT inválido o RUT extranjero")
+                            else:
+                                st.error(f"❌ {_msg_rut}")
                     else:
                         st.info("⏳ RUT incompleto")
 
@@ -4728,7 +4743,10 @@ with tab2:
                     if st.session_state.rut_empresa_raw:
                         if len(st.session_state.rut_empresa_raw) >= 2:
                             if st.session_state.rut_empresa_valido:
-                                st.success("✅ RUT válido")
+                                if "extranjero" in (st.session_state.rut_empresa_mensaje or '').lower():
+                                    st.warning(f"⚠️ {st.session_state.rut_empresa_mensaje}")
+                                else:
+                                    st.success("✅ RUT válido")
                             else:
                                 st.error(f"❌ {st.session_state.rut_empresa_mensaje}")
                         else:
