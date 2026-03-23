@@ -1506,38 +1506,49 @@ def _diff_datos(anterior, nuevo):
     LABELS = {
         'cliente_nombre': 'Nombre cliente', 'cliente_rut': 'RUT cliente',
         'cliente_email': 'Correo', 'cliente_telefono': 'Teléfono',
-        'cliente_direccion': 'Dirección cliente', 'cliente_comuna': 'Comuna cliente',
-        'cliente_region': 'Región cliente', 'proyecto_direccion': 'Dirección instalación',
-        'proyecto_comuna': 'Comuna instalación', 'proyecto_region': 'Región instalación',
         'cliente_tipo': 'Tipo cliente', 'cliente_empresa': 'Empresa',
         'cliente_rut_empresa': 'RUT empresa', 'asesor_nombre': 'Asesor',
         'config_margen': 'Margen %', 'total_total': 'Total',
         'proyecto_observaciones': 'Observaciones', 'estado': 'Estado',
         'productos': 'Productos/carrito',
     }
-    # Campos que deben mostrarse como texto plano sin formato numérico
     CAMPOS_TEXTO = {'cliente_telefono', 'cliente_rut', 'cliente_rut_empresa',
-                    'cliente_email', 'cliente_nombre', 'cliente_direccion',
-                    'cliente_comuna', 'cliente_region', 'proyecto_direccion',
-                    'proyecto_comuna', 'proyecto_region', 'cliente_empresa',
+                    'cliente_email', 'cliente_nombre', 'cliente_empresa',
                     'asesor_nombre', 'proyecto_observaciones', 'estado'}
 
     cambios = {}
+
+    # Comparar campos simples
     for k, label in LABELS.items():
         v_ant_raw = anterior.get(k, '') or ''
         v_new_raw = nuevo.get(k, '') or ''
-        # Forzar string para campos de texto (evitar formato numérico)
-        if k in CAMPOS_TEXTO:
-            v_ant = str(v_ant_raw)
-            v_new = str(v_new_raw)
-        else:
-            v_ant = str(v_ant_raw)
-            v_new = str(v_new_raw)
+        v_ant = str(v_ant_raw)
+        v_new = str(v_new_raw)
         if k == 'productos':
             if v_ant != v_new:
                 cambios[label] = {'antes': '(carrito anterior)', 'despues': '(carrito actualizado)'}
         elif v_ant != v_new:
             cambios[label] = {'antes': v_ant or '—', 'despues': v_new or '—'}
+
+    # Dirección cliente completa (dirección + comuna + región juntas)
+    def _dir_completa(d, prefix_dir, prefix_com, prefix_reg):
+        parts = [
+            str(d.get(prefix_dir, '') or '').strip(),
+            str(d.get(prefix_com, '') or '').strip(),
+            str(d.get(prefix_reg, '') or '').strip(),
+        ]
+        return ', '.join(p for p in parts if p) or ''
+
+    _dir_cli_ant = _dir_completa(anterior, 'cliente_direccion', 'cliente_comuna', 'cliente_region')
+    _dir_cli_new = _dir_completa(nuevo,    'cliente_direccion', 'cliente_comuna', 'cliente_region')
+    if _dir_cli_ant != _dir_cli_new:
+        cambios['Dirección cliente'] = {'antes': _dir_cli_ant or '—', 'despues': _dir_cli_new or '—'}
+
+    _dir_ins_ant = _dir_completa(anterior, 'proyecto_direccion', 'proyecto_comuna', 'proyecto_region')
+    _dir_ins_new = _dir_completa(nuevo,    'proyecto_direccion', 'proyecto_comuna', 'proyecto_region')
+    if _dir_ins_ant != _dir_ins_new:
+        cambios['Dirección instalación'] = {'antes': _dir_ins_ant or '—', 'despues': _dir_ins_new or '—'}
+
     return cambios
 
 
