@@ -5427,7 +5427,7 @@ with tab3:
         df_resultados["FechaPlana"] = df_resultados["Fecha"].apply(_fmt_fecha_plana)
         df_resultados["Fecha"] = df_resultados["Fecha"].apply(_fmt_fecha)
         df_resultados["Estado"] = df_resultados.apply(crear_badge_estado, axis=1)
-        df_resultados["Plano"]    = df_resultados.apply(lambda row: "📎" if row["Tiene_Plano"] else "—", axis=1)
+        df_resultados["Plano"]    = df_resultados.apply(lambda row: "✅ Sí" if row["Tiene_Plano"] else "—", axis=1)
         df_resultados["MargenCol"]= df_resultados["Margen"].apply(lambda x: "✅ Sí" if x and x > 0 else "—")
         df_resultados["ContratoCol"] = df_resultados["Tiene_Contrato"].apply(lambda x: "✅ Sí" if x else "—")
         df_resultados["EmpresaCol"] = df_resultados["Empresa"].apply(lambda x: "✅ Sí" if x and x.strip() else "—")
@@ -5442,7 +5442,7 @@ with tab3:
             _mg_color = 'color:#16a34a;font-weight:700;' if row['MargenCol'] == '✅ Sí' else 'color:#94a3b8;'
             _ct_color = 'color:#16a34a;font-weight:700;' if row['ContratoCol'] == '✅ Sí' else 'color:#94a3b8;'
             _emp_color = 'color:#16a34a;font-weight:700;' if row['EmpresaCol'] == '✅ Sí' else 'color:#94a3b8;'
-            rows_html += f"<tr><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td>{row['Cliente'] or '—'}</td><td>{row['Asesor'] or '—'}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td>{row['Total']}</td><td style='text-align:center;'>{row['Estado']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td><td style='text-align:center;{_mg_color}'>{row['MargenCol']}</td><td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;font-size:1.1rem;'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td></tr>"
+            rows_html += f"<tr><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td>{row['Cliente'] or '—'}</td><td>{row['Asesor'] or '—'}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td>{row['Total']}</td><td style='text-align:center;'>{row['Estado']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td><td style='text-align:center;{_mg_color}'>{row['MargenCol']}</td><td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{"color:#16a34a;font-weight:700;" if row["Plano"] == "✅ Sí" else "color:#94a3b8;"}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td></tr>"
 
         html_table = f"""
         <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;">
