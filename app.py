@@ -4355,12 +4355,20 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
         ('BOTTOMPADDING',(0,0), (-1,-1), 4),
     ]))
 
-    _fila1 = Table([["", _col2_fila1]], colWidths=[_col1, _col2])
+    # Fila 1: logo izquierda | vacío centro | QR derecha
+    _qr_col_w = _qr_sz + 10
+    _logo_col_w = _col1
+    _mid_col_w = _col2 - _qr_col_w
+
+    _fila1 = Table([[_logo_cell, "", _qr_cell]],
+        colWidths=[_logo_col_w, _mid_col_w, _qr_col_w])
     _fila1.setStyle(TableStyle([
+        ('ALIGN',  (0,0), (0,0), 'LEFT'),
+        ('ALIGN',  (2,0), (2,0), 'RIGHT'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('LEFTPADDING',  (0,0), (-1,-1), 0),
         ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ('TOPPADDING',   (0,0), (-1,-1), 0),
+        ('TOPPADDING',   (0,0), (-1,-1), 4),
         ('BOTTOMPADDING',(0,0), (-1,-1), 6),
         ('LINEBELOW', (0,0), (-1,0), 0.5, colors.HexColor('#e2e8f0')),
     ]))
@@ -4568,12 +4576,20 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
         ('BOTTOMPADDING',(0,0), (-1,-1), 4),
     ]))
 
-    _fila1 = Table([["", _col2_fila1]], colWidths=[_col1, _col2])
+    # Fila 1: logo izquierda | vacío centro | QR derecha
+    _qr_col_w = _qr_sz + 10
+    _logo_col_w = _col1
+    _mid_col_w = _col2 - _qr_col_w
+
+    _fila1 = Table([[_logo_cell, "", _qr_cell]],
+        colWidths=[_logo_col_w, _mid_col_w, _qr_col_w])
     _fila1.setStyle(TableStyle([
+        ('ALIGN',  (0,0), (0,0), 'LEFT'),
+        ('ALIGN',  (2,0), (2,0), 'RIGHT'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('LEFTPADDING',  (0,0), (-1,-1), 0),
         ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ('TOPPADDING',   (0,0), (-1,-1), 0),
+        ('TOPPADDING',   (0,0), (-1,-1), 4),
         ('BOTTOMPADDING',(0,0), (-1,-1), 6),
         ('LINEBELOW', (0,0), (-1,0), 0.5, colors.HexColor('#e2e8f0')),
     ]))
