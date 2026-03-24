@@ -4464,30 +4464,7 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
     _p25b = formato_clp(round(total * 0.25))
     notas_texto = f"""<b>NOTAS IMPORTANTES:</b><br/>1.- Valores incluyen IVA.<br/>{texto_transporte}<br/>3.- Formas de pago: transferencia - pago contado.<br/>4.- Proceso de pagos:<br/>&nbsp;&nbsp;&nbsp;- 50% inicial correspondiente a <b>{_p50}</b><br/>&nbsp;&nbsp;&nbsp;- 25% obra correspondiente a <b>{_p25a}</b><br/>&nbsp;&nbsp;&nbsp;- 25% entrega correspondiente a <b>{_p25b}</b>."""
     datos_transferencia = """<b>DATOS PARA TRANSFERENCIA:</b><br/>Inversiones Container House Spa<br/>RUT: 78.268.851-0<br/>Tipo de cuenta: Cuenta Corriente<br/>Banco: Itaú<br/>N° de cuenta: 230771767<br/>Correo: jperez@espaciocontainerhouse.cl"""
-    # Separar notas y transferencia con línea suave entre ellas
-    _bloque_notas_p    = Paragraph(notas_texto, styles['NotasEstilo'])
-    _bloque_transf_p   = Paragraph(datos_transferencia, styles['NotasEstilo'])
-    _sep_line = Table([[""], [""]], colWidths=[doc.width * 0.48])
-    _sep_line.setStyle(TableStyle([
-        ('LINEBELOW', (0,0), (-1,0), 0.5, colors.HexColor('#e2e8f0')),
-        ('TOPPADDING',   (0,0), (-1,-1), 0),
-        ('BOTTOMPADDING',(0,0), (-1,-1), 0),
-        ('LEFTPADDING',  (0,0), (-1,-1), 0),
-        ('RIGHTPADDING', (0,0), (-1,-1), 0),
-    ]))
-    _tbl_notas = Table(
-        [[_bloque_notas_p], [_sep_line], [_bloque_transf_p]],
-        colWidths=[doc.width * 0.48]
-    )
-    _tbl_notas.setStyle(TableStyle([
-        ('TOPPADDING',   (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING',(0,0), (-1,-1), 4),
-        ('LEFTPADDING',  (0,0), (-1,-1), 0),
-        ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ('LINEABOVE', (0,0), (-1,0), 0.5, colors.HexColor('#e2e8f0')),
-        ('LINEBELOW', (0,-1), (-1,-1), 0.5, colors.HexColor('#e2e8f0')),
-    ]))
-    bloque_notas = _tbl_notas
+    # bloque_notas ya no se usa — se separa en notas_texto y datos_transferencia
 
     totales_data = [
         [Paragraph("Subtotal:", styles['TotalLabel']), Paragraph(formato_clp(subtotal), styles['TotalValue'])],
@@ -4533,30 +4510,27 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
         ('LINEBELOW', (0,1), (-1,1), 0.3, colors.HexColor('#e2e8f0')),
     ]))
 
-    # 2 columnas: notas+mensaje (izq) | totales (der), ambos centrados verticalmente
-    _tbl_izq = Table(
-        [[bloque_notas], [_msg_cordial]],
-        colWidths=[ancho_bloque]
-    )
-    _tbl_izq.setStyle(TableStyle([
-        ('ALIGN',  (0,0), (-1,-1), 'LEFT'),
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('TOPPADDING',   (0,1), (-1,1), 10),
-        ('BOTTOMPADDING',(0,0), (-1,-1), 2),
-        ('LEFTPADDING',  (0,0), (-1,-1), 0),
-        ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ('LINEABOVE', (0,1), (-1,1), 0.5, colors.HexColor('#e2e8f0')),
-    ]))
+    # Fila 1: notas (izq) | totales (der)
+    # Fila 2: transferencia (izq) | mensaje cordial (der)
+    _bloque_notas_p  = Paragraph(notas_texto, styles['NotasEstilo'])
+    _bloque_transf_p = Paragraph(datos_transferencia, styles['NotasEstilo'])
 
-    data_bloques = [[_tbl_izq, totales_tabla]]
+    data_bloques = [
+        [_bloque_notas_p,  totales_tabla],
+        [_bloque_transf_p, _msg_cordial],
+    ]
     tabla_bloques = Table(data_bloques, colWidths=[ancho_bloque, ancho_bloque])
     tabla_bloques.setStyle(TableStyle([
-        ('ALIGN',  (0,0), (0,0), 'LEFT'),
-        ('ALIGN',  (1,0), (1,0), 'RIGHT'),
-        ('VALIGN', (0,0), (0,0), 'TOP'),
-        ('VALIGN', (1,0), (1,0), 'MIDDLE'),
-        ('LEFTPADDING',  (0,0), (0,0), 0),
-        ('RIGHTPADDING', (1,0), (1,0), 0),
+        ('ALIGN',  (0,0), (0,-1), 'LEFT'),
+        ('ALIGN',  (1,0), (1,-1), 'RIGHT'),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('VALIGN', (1,0), (1,0),  'MIDDLE'),
+        ('VALIGN', (1,1), (1,1),  'MIDDLE'),
+        ('LEFTPADDING',  (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (1,0), (1,-1), 0),
+        ('TOPPADDING',   (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING',(0,0), (-1,-1), 6),
+        ('LINEBELOW', (0,0), (-1,0), 0.5, colors.HexColor('#e2e8f0')),
     ]))
     elements.append(tabla_bloques)
     doc.build(elements)
@@ -4779,30 +4753,7 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
     _p25b = formato_clp(round(total * 0.25))
     notas_texto = f"""<b>NOTAS IMPORTANTES:</b><br/>1.- Valores incluyen IVA.<br/>{texto_transporte}<br/>3.- Formas de pago: transferencia - pago contado.<br/>4.- Proceso de pagos:<br/>&nbsp;&nbsp;&nbsp;- 50% inicial correspondiente a <b>{_p50}</b><br/>&nbsp;&nbsp;&nbsp;- 25% obra correspondiente a <b>{_p25a}</b><br/>&nbsp;&nbsp;&nbsp;- 25% entrega correspondiente a <b>{_p25b}</b>."""
     datos_transferencia = """<b>DATOS PARA TRANSFERENCIA:</b><br/>Inversiones Container House Spa<br/>RUT: 78.268.851-0<br/>Tipo de cuenta: Cuenta Corriente<br/>Banco: Itaú<br/>N° de cuenta: 230771767<br/>Correo: jperez@espaciocontainerhouse.cl"""
-    # Separar notas y transferencia con línea suave entre ellas
-    _bloque_notas_p    = Paragraph(notas_texto, styles['NotasEstilo'])
-    _bloque_transf_p   = Paragraph(datos_transferencia, styles['NotasEstilo'])
-    _sep_line = Table([[""], [""]], colWidths=[doc.width * 0.48])
-    _sep_line.setStyle(TableStyle([
-        ('LINEBELOW', (0,0), (-1,0), 0.5, colors.HexColor('#e2e8f0')),
-        ('TOPPADDING',   (0,0), (-1,-1), 0),
-        ('BOTTOMPADDING',(0,0), (-1,-1), 0),
-        ('LEFTPADDING',  (0,0), (-1,-1), 0),
-        ('RIGHTPADDING', (0,0), (-1,-1), 0),
-    ]))
-    _tbl_notas = Table(
-        [[_bloque_notas_p], [_sep_line], [_bloque_transf_p]],
-        colWidths=[doc.width * 0.48]
-    )
-    _tbl_notas.setStyle(TableStyle([
-        ('TOPPADDING',   (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING',(0,0), (-1,-1), 4),
-        ('LEFTPADDING',  (0,0), (-1,-1), 0),
-        ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ('LINEABOVE', (0,0), (-1,0), 0.5, colors.HexColor('#e2e8f0')),
-        ('LINEBELOW', (0,-1), (-1,-1), 0.5, colors.HexColor('#e2e8f0')),
-    ]))
-    bloque_notas = _tbl_notas
+    # bloque_notas ya no se usa — se separa en notas_texto y datos_transferencia
 
     totales_data = [
         [Paragraph("Subtotal:", styles['TotalLabel']), Paragraph(formato_clp(subtotal), styles['TotalValue'])],
@@ -4848,30 +4799,27 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
         ('LINEBELOW', (0,1), (-1,1), 0.3, colors.HexColor('#e2e8f0')),
     ]))
 
-    # 2 columnas: notas+mensaje (izq) | totales (der), ambos centrados verticalmente
-    _tbl_izq = Table(
-        [[bloque_notas], [_msg_cordial]],
-        colWidths=[ancho_bloque]
-    )
-    _tbl_izq.setStyle(TableStyle([
-        ('ALIGN',  (0,0), (-1,-1), 'LEFT'),
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('TOPPADDING',   (0,1), (-1,1), 10),
-        ('BOTTOMPADDING',(0,0), (-1,-1), 2),
-        ('LEFTPADDING',  (0,0), (-1,-1), 0),
-        ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ('LINEABOVE', (0,1), (-1,1), 0.5, colors.HexColor('#e2e8f0')),
-    ]))
+    # Fila 1: notas (izq) | totales (der)
+    # Fila 2: transferencia (izq) | mensaje cordial (der)
+    _bloque_notas_p  = Paragraph(notas_texto, styles['NotasEstilo'])
+    _bloque_transf_p = Paragraph(datos_transferencia, styles['NotasEstilo'])
 
-    data_bloques = [[_tbl_izq, totales_tabla]]
+    data_bloques = [
+        [_bloque_notas_p,  totales_tabla],
+        [_bloque_transf_p, _msg_cordial],
+    ]
     tabla_bloques = Table(data_bloques, colWidths=[ancho_bloque, ancho_bloque])
     tabla_bloques.setStyle(TableStyle([
-        ('ALIGN',  (0,0), (0,0), 'LEFT'),
-        ('ALIGN',  (1,0), (1,0), 'RIGHT'),
-        ('VALIGN', (0,0), (0,0), 'TOP'),
-        ('VALIGN', (1,0), (1,0), 'MIDDLE'),
-        ('LEFTPADDING',  (0,0), (0,0), 0),
-        ('RIGHTPADDING', (1,0), (1,0), 0),
+        ('ALIGN',  (0,0), (0,-1), 'LEFT'),
+        ('ALIGN',  (1,0), (1,-1), 'RIGHT'),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('VALIGN', (1,0), (1,0),  'MIDDLE'),
+        ('VALIGN', (1,1), (1,1),  'MIDDLE'),
+        ('LEFTPADDING',  (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (1,0), (1,-1), 0),
+        ('TOPPADDING',   (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING',(0,0), (-1,-1), 6),
+        ('LINEBELOW', (0,0), (-1,0), 0.5, colors.HexColor('#e2e8f0')),
     ]))
     elements.append(tabla_bloques)
     doc.build(elements)
