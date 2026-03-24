@@ -8131,16 +8131,26 @@ if tab7 is not None:
             background: #ffffff; border-radius: 18px; padding: 22px 24px;
             border: 1px solid #e8edf5; margin-bottom: 20px;
             box-shadow: 0 6px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04);
-            transition: box-shadow 0.2s ease;
-        }
-        .rank-chart-box:hover {
-            box-shadow: 0 10px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
         }
         .rank-chart-title {
             font-size: 0.78rem; font-weight: 800; color: #64748b;
             text-transform: uppercase; letter-spacing: 0.08em;
             margin-bottom: 14px; padding-bottom: 12px;
             border-bottom: 2px solid #f1f5f9;
+        }
+        /* Estilizar st.container(border=True) como rank-chart-box */
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            background: #ffffff !important;
+            border-radius: 18px !important;
+            border: 1px solid #e8edf5 !important;
+            box-shadow: 0 6px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04) !important;
+            padding: 8px !important;
+            margin-bottom: 16px !important;
+            transition: box-shadow 0.2s ease, transform 0.2s ease !important;
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"]:hover {
+            box-shadow: 0 10px 40px rgba(0,0,0,0.13), 0 2px 8px rgba(0,0,0,0.06) !important;
+            transform: translateY(-1px) !important;
         }
         .rank-kpi {
             background: #ffffff; border-radius: 16px; padding: 22px 20px;
@@ -8222,10 +8232,11 @@ if tab7 is not None:
                 (rk4, "📈 % Conversión",   f"{_pct_g}%"),
             ]:
                 with _col:
-                    st.markdown(f'''<div class="rank-kpi">
-                      <div class="rank-kpi-label">{_lbl}</div>
-                      <div class="rank-kpi-value">{_val}</div>
-                    </div>''', unsafe_allow_html=True)
+                    with st.container(border=True):
+                        st.markdown(f'''<div style="text-align:center;padding:8px 4px;">
+                          <div class="rank-kpi-label">{_lbl}</div>
+                          <div class="rank-kpi-value">{_val}</div>
+                        </div>''', unsafe_allow_html=True)
 
             st.markdown("")
 
@@ -8249,9 +8260,9 @@ if tab7 is not None:
                 yaxis=dict(showgrid=False, tickfont=dict(size=12, family='Montserrat')),
                 showlegend=False,
             )
-            st.markdown('<div class="rank-chart-box"><div class="rank-chart-title">💰 Monto total generado</div>', unsafe_allow_html=True)
-            st.plotly_chart(_fig_bar, use_container_width=True, config={'displayModeBar': False})
-            st.markdown('</div>', unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown('<div class="rank-chart-title">💰 Monto total generado</div>', unsafe_allow_html=True)
+                st.plotly_chart(_fig_bar, use_container_width=True, config={'displayModeBar': False})
 
             # ── Gráficos HORIZONTALES: presupuestos + conversión ──
             st.markdown('<div class="rank-section">📊 Presupuestos y conversión por ejecutivo</div>', unsafe_allow_html=True)
@@ -8286,9 +8297,9 @@ if tab7 is not None:
                     legend=dict(orientation='h', yanchor='bottom', y=1.02,
                                 xanchor='right', x=1, font=dict(size=11)),
                 )
-                st.markdown('<div class="rank-chart-box"><div class="rank-chart-title">📋 EP totales vs autorizados</div>', unsafe_allow_html=True)
-                st.plotly_chart(_fig_combo, use_container_width=True, config={'displayModeBar': False})
-                st.markdown('</div>', unsafe_allow_html=True)
+                with st.container(border=True):
+                    st.markdown('<div class="rank-chart-title">📋 EP totales vs autorizados</div>', unsafe_allow_html=True)
+                    st.plotly_chart(_fig_combo, use_container_width=True, config={'displayModeBar': False})
 
             with col_conv:
                 _fig_conv = go.Figure(go.Bar(
@@ -8311,9 +8322,9 @@ if tab7 is not None:
                                ticksuffix='%', tickfont=dict(size=10)),
                     yaxis=dict(showgrid=False, tickfont=dict(size=11)),
                 )
-                st.markdown('<div class="rank-chart-box"><div class="rank-chart-title">📈 % Conversión</div>', unsafe_allow_html=True)
-                st.plotly_chart(_fig_conv, use_container_width=True, config={'displayModeBar': False})
-                st.markdown('</div>', unsafe_allow_html=True)
+                with st.container(border=True):
+                    st.markdown('<div class="rank-chart-title">📈 % Conversión</div>', unsafe_allow_html=True)
+                    st.plotly_chart(_fig_conv, use_container_width=True, config={'displayModeBar': False})
 
             # ── Cards con gráfico circular por ejecutivo ──
             st.markdown('<div class="rank-section">🎖️ Detalle por ejecutivo</div>', unsafe_allow_html=True)
