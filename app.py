@@ -4502,12 +4502,50 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
         ('BOTTOMPADDING', (0,0), (-1,-1), 2), ('LINEABOVE', (1,1), (1,1), 1, colors.grey),
         ('LINEABOVE', (1,2), (1,2), 2, colors.black),
     ]))
-    data_bloques = [[bloque_notas, totales_tabla]]
-    tabla_bloques = Table(data_bloques, colWidths=[ancho_bloque, ancho_bloque])
+    # Mensaje cordial — columna central
+    styles.add(ParagraphStyle(name='MensajeCordial', parent=styles['Normal'],
+        fontSize=9.5, fontName='Helvetica-Oblique', leading=14,
+        textColor=colors.HexColor('#4a5568'), alignment=1, spaceAfter=4))
+    styles.add(ParagraphStyle(name='MensajeFirma', parent=styles['Normal'],
+        fontSize=9, fontName='Helvetica-BoldOblique', leading=13,
+        textColor=colors.HexColor('#0d2266'), alignment=1))
+    styles.add(ParagraphStyle(name='MensajeWeb', parent=styles['Normal'],
+        fontSize=8, fontName='Helvetica-Oblique', leading=11,
+        textColor=colors.HexColor('#6b7280'), alignment=1))
+
+    _msg_cordial = Table([
+        [Paragraph("✨", styles['MensajeCordial'])],
+        [Paragraph("¡Gracias por confiar<br/>en nosotros!", styles['MensajeCordial'])],
+        [Paragraph(" ", styles['MensajeCordial'])],
+        [Paragraph("Esperamos que este<br/>presupuesto supere<br/>tus expectativas.", styles['MensajeCordial'])],
+        [Paragraph(" ", styles['MensajeCordial'])],
+        [Paragraph("Con cariño,", styles['MensajeCordial'])],
+        [Paragraph("La familia<br/>Espacio Container House", styles['MensajeFirma'])],
+        [Paragraph("espaciocontainerhouse.cl", styles['MensajeWeb'])],
+    ], colWidths=[ancho_bloque * 0.8])
+    _msg_cordial.setStyle(TableStyle([
+        ('ALIGN',  (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING',   (0,0), (-1,-1), 1),
+        ('BOTTOMPADDING',(0,0), (-1,-1), 1),
+        ('LEFTPADDING',  (0,0), (-1,-1), 4),
+        ('RIGHTPADDING', (0,0), (-1,-1), 4),
+        ('LINEBELOW', (0,1), (-1,1), 0.3, colors.HexColor('#e2e8f0')),
+    ]))
+
+    _ancho_msg = ancho_bloque * 0.9
+    _ancho_notas = doc.width - ancho_bloque - _ancho_msg
+    data_bloques = [[bloque_notas, _msg_cordial, totales_tabla]]
+    tabla_bloques = Table(data_bloques, colWidths=[_ancho_notas, _ancho_msg, ancho_bloque])
     tabla_bloques.setStyle(TableStyle([
-        ('ALIGN', (0,0), (0,0), 'LEFT'), ('ALIGN', (1,0), (1,0), 'RIGHT'),
-        ('VALIGN', (0,0), (-1,-1), 'TOP'), ('LEFTPADDING', (0,0), (0,0), 0),
-        ('RIGHTPADDING', (1,0), (1,0), 0),
+        ('ALIGN',  (0,0), (0,0), 'LEFT'),
+        ('ALIGN',  (1,0), (1,0), 'CENTER'),
+        ('ALIGN',  (2,0), (2,0), 'RIGHT'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('LEFTPADDING',  (0,0), (0,0), 0),
+        ('RIGHTPADDING', (2,0), (2,0), 0),
+        ('LINEBEFORE', (1,0), (1,0), 0.5, colors.HexColor('#e2e8f0')),
+        ('LINEAFTER',  (1,0), (1,0), 0.5, colors.HexColor('#e2e8f0')),
     ]))
     elements.append(tabla_bloques)
     doc.build(elements)
@@ -4768,12 +4806,50 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
         ('BOTTOMPADDING', (0,0), (-1,-1), 2), ('LINEABOVE', (1,1), (1,1), 1, colors.grey),
         ('LINEABOVE', (1,2), (1,2), 2, colors.black),
     ]))
-    data_bloques = [[bloque_notas, totales_tabla]]
-    tabla_bloques = Table(data_bloques, colWidths=[ancho_bloque, ancho_bloque])
+    # Mensaje cordial — columna central
+    styles.add(ParagraphStyle(name='MensajeCordial', parent=styles['Normal'],
+        fontSize=9.5, fontName='Helvetica-Oblique', leading=14,
+        textColor=colors.HexColor('#4a5568'), alignment=1, spaceAfter=4))
+    styles.add(ParagraphStyle(name='MensajeFirma', parent=styles['Normal'],
+        fontSize=9, fontName='Helvetica-BoldOblique', leading=13,
+        textColor=colors.HexColor('#0d2266'), alignment=1))
+    styles.add(ParagraphStyle(name='MensajeWeb', parent=styles['Normal'],
+        fontSize=8, fontName='Helvetica-Oblique', leading=11,
+        textColor=colors.HexColor('#6b7280'), alignment=1))
+
+    _msg_cordial = Table([
+        [Paragraph("✨", styles['MensajeCordial'])],
+        [Paragraph("¡Gracias por confiar<br/>en nosotros!", styles['MensajeCordial'])],
+        [Paragraph(" ", styles['MensajeCordial'])],
+        [Paragraph("Esperamos que este<br/>presupuesto supere<br/>tus expectativas.", styles['MensajeCordial'])],
+        [Paragraph(" ", styles['MensajeCordial'])],
+        [Paragraph("Con cariño,", styles['MensajeCordial'])],
+        [Paragraph("La familia<br/>Espacio Container House", styles['MensajeFirma'])],
+        [Paragraph("espaciocontainerhouse.cl", styles['MensajeWeb'])],
+    ], colWidths=[ancho_bloque * 0.8])
+    _msg_cordial.setStyle(TableStyle([
+        ('ALIGN',  (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING',   (0,0), (-1,-1), 1),
+        ('BOTTOMPADDING',(0,0), (-1,-1), 1),
+        ('LEFTPADDING',  (0,0), (-1,-1), 4),
+        ('RIGHTPADDING', (0,0), (-1,-1), 4),
+        ('LINEBELOW', (0,1), (-1,1), 0.3, colors.HexColor('#e2e8f0')),
+    ]))
+
+    _ancho_msg = ancho_bloque * 0.9
+    _ancho_notas = doc.width - ancho_bloque - _ancho_msg
+    data_bloques = [[bloque_notas, _msg_cordial, totales_tabla]]
+    tabla_bloques = Table(data_bloques, colWidths=[_ancho_notas, _ancho_msg, ancho_bloque])
     tabla_bloques.setStyle(TableStyle([
-        ('ALIGN', (0,0), (0,0), 'LEFT'), ('ALIGN', (1,0), (1,0), 'RIGHT'),
-        ('VALIGN', (0,0), (-1,-1), 'TOP'), ('LEFTPADDING', (0,0), (0,0), 0),
-        ('RIGHTPADDING', (1,0), (1,0), 0),
+        ('ALIGN',  (0,0), (0,0), 'LEFT'),
+        ('ALIGN',  (1,0), (1,0), 'CENTER'),
+        ('ALIGN',  (2,0), (2,0), 'RIGHT'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('LEFTPADDING',  (0,0), (0,0), 0),
+        ('RIGHTPADDING', (2,0), (2,0), 0),
+        ('LINEBEFORE', (1,0), (1,0), 0.5, colors.HexColor('#e2e8f0')),
+        ('LINEAFTER',  (1,0), (1,0), 0.5, colors.HexColor('#e2e8f0')),
     ]))
     elements.append(tabla_bloques)
     doc.build(elements)
