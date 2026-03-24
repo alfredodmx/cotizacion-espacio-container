@@ -4376,7 +4376,7 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
 
     # ── FILA 2: EP/fechas | datos empresa ──
     _txt_ep = Paragraph(
-        f"<font name='Helvetica-Bold' size='10' color='#0d2266'>PRESUPUESTO Nº {numero_presupuesto}</font><br/>"
+        f"<font name='Helvetica-Bold' size='14' color='#0d2266'>PRESUPUESTO Nº {numero_presupuesto}</font><br/>"
         f"<font size='9' color='#374151'><b>Fecha Emisión:</b> {fecha_emision.strftime('%d-%m-%Y')}</font><br/>"
         f"<font size='9' color='#374151'><b>Validez:</b> {fecha_inicio.strftime('%d-%m-%Y')} hasta "
         f"{fecha_termino.strftime('%d-%m-%Y')} ({dias_validez} días)</font>",
@@ -4638,7 +4638,7 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
 
     # ── FILA 2: EP/fechas | datos empresa ──
     _txt_ep = Paragraph(
-        f"<font name='Helvetica-Bold' size='10' color='#0d2266'>PRESUPUESTO Nº {numero_presupuesto}</font><br/>"
+        f"<font name='Helvetica-Bold' size='14' color='#0d2266'>PRESUPUESTO Nº {numero_presupuesto}</font><br/>"
         f"<font size='9' color='#374151'><b>Fecha Emisión:</b> {fecha_emision.strftime('%d-%m-%Y')}</font><br/>"
         f"<font size='9' color='#374151'><b>Validez:</b> {fecha_inicio.strftime('%d-%m-%Y')} hasta "
         f"{fecha_termino.strftime('%d-%m-%Y')} ({dias_validez} días)</font>",
