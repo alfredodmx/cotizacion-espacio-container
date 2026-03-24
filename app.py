@@ -4491,7 +4491,7 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
         textColor=colors.HexColor('#6b7280'), alignment=1))
 
     _msg_cordial = Paragraph(
-        "<para align='center'>"
+        "<para align='right'>"
         "<font name='Helvetica-Oblique' size='11'>✨</font><br/>"
         "<font name='Helvetica-Oblique' size='9' color='#718096'>¡Gracias por confiar en nosotros!<br/>"
         "Esperamos que este presupuesto<br/>"
@@ -4774,7 +4774,7 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
         textColor=colors.HexColor('#6b7280'), alignment=1))
 
     _msg_cordial = Paragraph(
-        "<para align='center'>"
+        "<para align='right'>"
         "<font name='Helvetica-Oblique' size='11'>✨</font><br/>"
         "<font name='Helvetica-Oblique' size='9' color='#718096'>¡Gracias por confiar en nosotros!<br/>"
         "Esperamos que este presupuesto<br/>"
