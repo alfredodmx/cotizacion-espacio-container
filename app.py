@@ -4492,7 +4492,8 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
 
     _msg_cordial = Paragraph(
         "<para align='center'>"
-        "<font name='Helvetica-Oblique' size='9' color='#718096'>✨ ¡Gracias por confiar en nosotros!<br/>"
+        "<font name='Helvetica-Oblique' size='11'>✨</font><br/>"
+        "<font name='Helvetica-Oblique' size='9' color='#718096'>¡Gracias por confiar en nosotros!<br/>"
         "Esperamos que este presupuesto<br/>"
         "supere tus expectativas.<br/><br/>"
         "Con cariño,<br/></font>"
@@ -4774,7 +4775,8 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
 
     _msg_cordial = Paragraph(
         "<para align='center'>"
-        "<font name='Helvetica-Oblique' size='9' color='#718096'>✨ ¡Gracias por confiar en nosotros!<br/>"
+        "<font name='Helvetica-Oblique' size='11'>✨</font><br/>"
+        "<font name='Helvetica-Oblique' size='9' color='#718096'>¡Gracias por confiar en nosotros!<br/>"
         "Esperamos que este presupuesto<br/>"
         "supere tus expectativas.<br/><br/>"
         "Con cariño,<br/></font>"
