@@ -4458,7 +4458,7 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
     elements.append(Spacer(1, 20))
 
     ancho_bloque = (doc.width - 20) / 2
-    texto_transporte = "2.- Transporte y bases de apoyo <b>incluidos</b>." if margen > 0 else "2.- Transporte y bases de apoyo <b>no incluidos</b>."
+    texto_transporte = "2.- Transporte y bases de apoyo <b>no incluidos</b>."
     _p50 = formato_clp(round(total * 0.50))
     _p25a = formato_clp(round(total * 0.25))
     _p25b = formato_clp(round(total * 0.25))
@@ -4742,7 +4742,7 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
     elements.append(Spacer(1, 20))
 
     ancho_bloque = (doc.width - 20) / 2
-    texto_transporte = "2.- Transporte y bases de apoyo <b>incluidos</b>." if margen > 0 else "2.- Transporte y bases de apoyo <b>no incluidos</b>."
+    texto_transporte = "2.- Transporte y bases de apoyo <b>no incluidos</b>."
     _p50 = formato_clp(round(total * 0.50))
     _p25a = formato_clp(round(total * 0.25))
     _p25b = formato_clp(round(total * 0.25))
