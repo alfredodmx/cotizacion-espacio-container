@@ -8416,6 +8416,18 @@ if tab7 is not None:
             border: 1px solid #e8edf5; margin-bottom: 20px;
             box-shadow: 0 6px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04);
         }
+        /* Sombra solo en containers del tab ranking */
+        .hdr7 ~ div [data-testid="stVerticalBlockBorderWrapper"],
+        .hdr7 + div [data-testid="stVerticalBlockBorderWrapper"] {
+            box-shadow: 0 6px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04) !important;
+            border-radius: 18px !important;
+            border: 1px solid #e8edf5 !important;
+            transition: box-shadow 0.2s, transform 0.2s !important;
+        }
+        .hdr7 ~ div [data-testid="stVerticalBlockBorderWrapper"]:hover {
+            box-shadow: 0 10px 40px rgba(0,0,0,0.13) !important;
+            transform: translateY(-1px) !important;
+        }
         .rank-chart-title {
             font-size: 0.78rem; font-weight: 800; color: #64748b;
             text-transform: uppercase; letter-spacing: 0.08em;
