@@ -4326,12 +4326,19 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
     _col_ep = int(doc.width * 0.45)
     _col_emp = int(doc.width * 0.55)
 
+    # Estilo EP izquierda — igual que empresa derecha en tamaño y coherencia
+    styles.add(ParagraphStyle(name='EPTitulo', parent=styles['Normal'],
+        fontSize=10, fontName='Helvetica-Bold', leading=13,
+        textColor=colors.HexColor('#0d2266'), spaceAfter=2))
+    styles.add(ParagraphStyle(name='EPDato', parent=styles['Normal'],
+        fontSize=9, leading=12, textColor=colors.HexColor('#374151')))
+
     _txt_ep = Paragraph(
-        f"<b>PRESUPUESTO Nº {numero_presupuesto}</b><br/>"
-        f"<font size='8'><b>Fecha Emisión:</b> {fecha_emision.strftime('%d-%m-%Y')}<br/>"
-        f"<b>Validez:</b> {fecha_inicio.strftime('%d-%m-%Y')} hasta "
+        f"<font name='Helvetica-Bold' size='10' color='#0d2266'>PRESUPUESTO Nº {numero_presupuesto}</font><br/>"
+        f"<font size='9' color='#374151'><b>Fecha Emisión:</b> {fecha_emision.strftime('%d-%m-%Y')}</font><br/>"
+        f"<font size='9' color='#374151'><b>Validez:</b> {fecha_inicio.strftime('%d-%m-%Y')} hasta "
         f"{fecha_termino.strftime('%d-%m-%Y')} ({dias_validez} días)</font>",
-        styles['TituloPresupuesto'])
+        styles['EPTitulo'])
 
     # Empresa a la derecha
     _txt_empresa = Paragraph(
@@ -4515,12 +4522,19 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
     _col_ep = int(doc.width * 0.45)
     _col_emp = int(doc.width * 0.55)
 
+    # Estilo EP izquierda — igual que empresa derecha en tamaño y coherencia
+    styles.add(ParagraphStyle(name='EPTitulo', parent=styles['Normal'],
+        fontSize=10, fontName='Helvetica-Bold', leading=13,
+        textColor=colors.HexColor('#0d2266'), spaceAfter=2))
+    styles.add(ParagraphStyle(name='EPDato', parent=styles['Normal'],
+        fontSize=9, leading=12, textColor=colors.HexColor('#374151')))
+
     _txt_ep = Paragraph(
-        f"<b>PRESUPUESTO Nº {numero_presupuesto}</b><br/>"
-        f"<font size='8'><b>Fecha Emisión:</b> {fecha_emision.strftime('%d-%m-%Y')}<br/>"
-        f"<b>Validez:</b> {fecha_inicio.strftime('%d-%m-%Y')} hasta "
+        f"<font name='Helvetica-Bold' size='10' color='#0d2266'>PRESUPUESTO Nº {numero_presupuesto}</font><br/>"
+        f"<font size='9' color='#374151'><b>Fecha Emisión:</b> {fecha_emision.strftime('%d-%m-%Y')}</font><br/>"
+        f"<font size='9' color='#374151'><b>Validez:</b> {fecha_inicio.strftime('%d-%m-%Y')} hasta "
         f"{fecha_termino.strftime('%d-%m-%Y')} ({dias_validez} días)</font>",
-        styles['TituloPresupuesto'])
+        styles['EPTitulo'])
 
     # Empresa a la derecha
     _txt_empresa = Paragraph(
