@@ -8,3 +8,4 @@ httpx
 Pillow
 numpy
 plotly
+qrcode
