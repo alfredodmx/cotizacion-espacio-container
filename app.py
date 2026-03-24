@@ -8623,10 +8623,11 @@ if tab7 is not None:
                 _pct_aut  = ej['pct_autorizado']
                 _pc_color = "#16a34a" if _pct_aut >= 50 else "#f59e0b" if _pct_aut >= 25 else "#ef4444"
 
-                # Card + donut integrado en columnas
-                _c_card, _c_donut = st.columns([5, 1])
-                with _c_card:
-                    st.markdown(f'''<div class="rank-card {cls}" style="margin-bottom:0;">
+                # Card + donut en contenedor con sombra
+                with st.container(border=True):
+                    _c_card, _c_donut = st.columns([5, 1])
+                    with _c_card:
+                        st.markdown(f'''<div class="rank-card {cls}" style="margin-bottom:0;">
                       <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
                         <span style="font-size:1.8rem;min-width:2rem;">{_medallas.get(i, f"#{i}")}</span>
                         <div style="flex:1;min-width:180px;">
@@ -8664,40 +8665,40 @@ if tab7 is not None:
                       </div>
                     </div>''', unsafe_allow_html=True)
 
-                with _c_donut:
-                    _fig_donut = go.Figure(go.Pie(
-                        values=[_pct_aut, max(1, 100 - _pct_aut)],
-                        labels=['Conv.', 'Pend.'],
-                        hole=0.65,
-                        marker=dict(colors=[_pc_color, '#f1f5f9']),
-                        textinfo='none',
-                        hovertemplate='%{label}: %{value}%<extra></extra>',
-                        showlegend=False,
-                    ))
-                    _fig_donut.add_annotation(
-                        text=f"<b>{_pct_aut}%</b><br><span style='font-size:9px;'>Conv.</span>",
-                        x=0.5, y=0.5, font_size=13,
-                        font_color=_pc_color,
-                        showarrow=False
-                    )
-                    _fig_donut.update_layout(
-                        height=130, margin=dict(t=8, b=8, l=8, r=8),
-                        paper_bgcolor='rgba(0,0,0,0)',
-                        annotations=[dict(
-                            text=f"<b>{_pct_aut}%</b>",
-                            x=0.5, y=0.55, font_size=16,
+                    with _c_donut:
+                        _fig_donut = go.Figure(go.Pie(
+                            values=[_pct_aut, max(1, 100 - _pct_aut)],
+                            labels=['Conv.', 'Pend.'],
+                            hole=0.65,
+                            marker=dict(colors=[_pc_color, '#f1f5f9']),
+                            textinfo='none',
+                            hovertemplate='%{label}: %{value}%<extra></extra>',
+                            showlegend=False,
+                        ))
+                        _fig_donut.add_annotation(
+                            text=f"<b>{_pct_aut}%</b><br><span style='font-size:9px;'>Conv.</span>",
+                            x=0.5, y=0.5, font_size=13,
                             font_color=_pc_color,
                             showarrow=False
-                        ), dict(
-                            text="Conv.",
-                            x=0.5, y=0.35, font_size=9,
-                            font_color='#94a3b8',
-                            showarrow=False
-                        )]
-                    )
-                    st.plotly_chart(_fig_donut, use_container_width=True,
-                                    config={'displayModeBar': False},
-                                    key=f"donut_ej_{i}")
+                        )
+                        _fig_donut.update_layout(
+                            height=130, margin=dict(t=8, b=8, l=8, r=8),
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            annotations=[dict(
+                                text=f"<b>{_pct_aut}%</b>",
+                                x=0.5, y=0.55, font_size=16,
+                                font_color=_pc_color,
+                                showarrow=False
+                            ), dict(
+                                text="Conv.",
+                                x=0.5, y=0.35, font_size=9,
+                                font_color='#94a3b8',
+                                showarrow=False
+                            )]
+                        )
+                        st.plotly_chart(_fig_donut, use_container_width=True,
+                                        config={'displayModeBar': False},
+                                        key=f"donut_ej_{i}")
                 st.markdown("<div style='margin-bottom:8px;'></div>", unsafe_allow_html=True)
 
 # TAB CONTRATO CLIENTE
