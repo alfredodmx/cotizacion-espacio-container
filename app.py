@@ -8128,40 +8128,54 @@ if tab7 is not None:
                      font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
         .hdr7 p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
         .rank-chart-box {
-            background: white; border-radius: 16px; padding: 20px 22px;
-            border: 1px solid #e8edf5; margin-bottom: 18px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04);
+            background: #ffffff; border-radius: 18px; padding: 22px 24px;
+            border: 1px solid #e8edf5; margin-bottom: 20px;
+            box-shadow: 0 6px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04);
+            transition: box-shadow 0.2s ease;
+        }
+        .rank-chart-box:hover {
+            box-shadow: 0 10px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
         }
         .rank-chart-title {
             font-size: 0.78rem; font-weight: 800; color: #64748b;
             text-transform: uppercase; letter-spacing: 0.08em;
-            margin-bottom: 12px; padding-bottom: 10px;
+            margin-bottom: 14px; padding-bottom: 12px;
             border-bottom: 2px solid #f1f5f9;
         }
         .rank-kpi {
-            background: white; border-radius: 14px; padding: 20px 22px;
+            background: #ffffff; border-radius: 16px; padding: 22px 20px;
             border: 1px solid #e8edf5; text-align: center;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04);
+            box-shadow: 0 6px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .rank-kpi:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.12);
         }
         .rank-kpi-label { font-size: 0.72rem; font-weight: 700; color: #94a3b8;
-                          text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
-        .rank-kpi-value { font-size: 1.8rem; font-weight: 900; color: #0f172a;
+                          text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+        .rank-kpi-value { font-size: 2rem; font-weight: 900; color: #0f172a;
                           font-family: 'Montserrat', sans-serif; line-height: 1; }
         .rank-section {
             font-size: 0.75rem; font-weight: 900; color: #1e293b;
             text-transform: uppercase; letter-spacing: 0.1em;
-            margin: 20px 0 12px; padding: 7px 14px;
-            background: linear-gradient(90deg, rgba(217,119,6,0.08), transparent);
+            margin: 24px 0 14px; padding: 8px 16px;
+            background: linear-gradient(90deg, rgba(217,119,6,0.1), transparent);
             border-left: 4px solid #d97706; border-radius: 0 8px 8px 0;
         }
         .rank-card {
-            background: white; border-radius: 16px; padding: 20px 24px;
-            border: 1px solid #e2e8f0; margin-bottom: 4px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04);
+            background: #ffffff; border-radius: 18px; padding: 20px 24px;
+            border: 1px solid #e2e8f0; margin-bottom: 0px;
+            box-shadow: 0 6px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
-        .rank-1 { border-left: 5px solid #f59e0b; }
-        .rank-2 { border-left: 5px solid #94a3b8; }
-        .rank-3 { border-left: 5px solid #b45309; }
+        .rank-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+        }
+        .rank-1 { border-left: 5px solid #f59e0b; background: linear-gradient(135deg, #fffbeb 0%, #ffffff 40%); }
+        .rank-2 { border-left: 5px solid #94a3b8; background: linear-gradient(135deg, #f8fafc 0%, #ffffff 40%); }
+        .rank-3 { border-left: 5px solid #b45309; background: linear-gradient(135deg, #fef3c7 0%, #ffffff 40%); }
         .rank-other { border-left: 5px solid #e2e8f0; }
         </style>
         <div class="hdr7">
