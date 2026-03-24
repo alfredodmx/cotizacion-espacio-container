@@ -4490,23 +4490,17 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
         fontSize=8, fontName='Helvetica-Oblique', leading=11,
         textColor=colors.HexColor('#6b7280'), alignment=1))
 
-    _msg_cordial = Table([
-        [Paragraph("¡Gracias por confiar en nosotros!", styles['MensajeCordial'])],
-        [Paragraph("Esperamos que este presupuesto supere tus expectativas.", styles['MensajeCordial'])],
-        [Paragraph("Con cariño,", styles['MensajeCordial'])],
-        [Paragraph("La familia", styles['MensajeFirma'])],
-        [Paragraph("Espacio Container House", styles['MensajeFirma'])],
-        [Paragraph("espaciocontainerhouse.cl", styles['MensajeWeb'])],
-    ], colWidths=[doc.width * 0.23])
-    _msg_cordial.setStyle(TableStyle([
-        ('ALIGN',  (0,0), (-1,-1), 'CENTER'),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING',   (0,0), (-1,-1), 1),
-        ('BOTTOMPADDING',(0,0), (-1,-1), 1),
-        ('LEFTPADDING',  (0,0), (-1,-1), 4),
-        ('RIGHTPADDING', (0,0), (-1,-1), 4),
-        ('LINEBELOW', (0,1), (-1,1), 0.3, colors.HexColor('#e2e8f0')),
-    ]))
+    _msg_cordial = Paragraph(
+        "<para align='center'>"
+        "<font name='Helvetica-Oblique' size='9' color='#718096'>✨ ¡Gracias por confiar en nosotros!<br/>"
+        "Esperamos que este presupuesto<br/>"
+        "supere tus expectativas.<br/><br/>"
+        "Con cariño,<br/></font>"
+        "<font name='Helvetica-BoldOblique' size='9' color='#0d2266'>La familia<br/>"
+        "Espacio Container House<br/></font>"
+        "<font name='Helvetica-Oblique' size='8' color='#9ca3af'>espaciocontainerhouse.cl</font>"
+        "</para>",
+        styles['NotasEstilo'])
 
     # Fila 1: notas (izq) | totales (der)
     # Fila 2: transferencia (izq) | mensaje cordial (der)
@@ -4778,23 +4772,17 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
         fontSize=8, fontName='Helvetica-Oblique', leading=11,
         textColor=colors.HexColor('#6b7280'), alignment=1))
 
-    _msg_cordial = Table([
-        [Paragraph("¡Gracias por confiar en nosotros!", styles['MensajeCordial'])],
-        [Paragraph("Esperamos que este presupuesto supere tus expectativas.", styles['MensajeCordial'])],
-        [Paragraph("Con cariño,", styles['MensajeCordial'])],
-        [Paragraph("La familia", styles['MensajeFirma'])],
-        [Paragraph("Espacio Container House", styles['MensajeFirma'])],
-        [Paragraph("espaciocontainerhouse.cl", styles['MensajeWeb'])],
-    ], colWidths=[doc.width * 0.23])
-    _msg_cordial.setStyle(TableStyle([
-        ('ALIGN',  (0,0), (-1,-1), 'CENTER'),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING',   (0,0), (-1,-1), 1),
-        ('BOTTOMPADDING',(0,0), (-1,-1), 1),
-        ('LEFTPADDING',  (0,0), (-1,-1), 4),
-        ('RIGHTPADDING', (0,0), (-1,-1), 4),
-        ('LINEBELOW', (0,1), (-1,1), 0.3, colors.HexColor('#e2e8f0')),
-    ]))
+    _msg_cordial = Paragraph(
+        "<para align='center'>"
+        "<font name='Helvetica-Oblique' size='9' color='#718096'>✨ ¡Gracias por confiar en nosotros!<br/>"
+        "Esperamos que este presupuesto<br/>"
+        "supere tus expectativas.<br/><br/>"
+        "Con cariño,<br/></font>"
+        "<font name='Helvetica-BoldOblique' size='9' color='#0d2266'>La familia<br/>"
+        "Espacio Container House<br/></font>"
+        "<font name='Helvetica-Oblique' size='8' color='#9ca3af'>espaciocontainerhouse.cl</font>"
+        "</para>",
+        styles['NotasEstilo'])
 
     # Fila 1: notas (izq) | totales (der)
     # Fila 2: transferencia (izq) | mensaje cordial (der)
