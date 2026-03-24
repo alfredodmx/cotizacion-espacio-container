@@ -4522,7 +4522,7 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
         [Paragraph("Con cariño,", styles['MensajeCordial'])],
         [Paragraph("La familia<br/>Espacio Container House", styles['MensajeFirma'])],
         [Paragraph("espaciocontainerhouse.cl", styles['MensajeWeb'])],
-    ], colWidths=[ancho_bloque * 0.8])
+    ], colWidths=[doc.width * 0.23])
     _msg_cordial.setStyle(TableStyle([
         ('ALIGN',  (0,0), (-1,-1), 'CENTER'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
@@ -4533,10 +4533,12 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
         ('LINEBELOW', (0,1), (-1,1), 0.3, colors.HexColor('#e2e8f0')),
     ]))
 
-    _ancho_msg = ancho_bloque * 0.9
-    _ancho_notas = doc.width - ancho_bloque - _ancho_msg
+    # 3 columnas: 45% notas | 25% mensaje | 30% totales
+    _w_notas  = doc.width * 0.45
+    _w_msg    = doc.width * 0.25
+    _w_totales = doc.width * 0.30
     data_bloques = [[bloque_notas, _msg_cordial, totales_tabla]]
-    tabla_bloques = Table(data_bloques, colWidths=[_ancho_notas, _ancho_msg, ancho_bloque])
+    tabla_bloques = Table(data_bloques, colWidths=[_w_notas, _w_msg, _w_totales])
     tabla_bloques.setStyle(TableStyle([
         ('ALIGN',  (0,0), (0,0), 'LEFT'),
         ('ALIGN',  (1,0), (1,0), 'CENTER'),
@@ -4544,6 +4546,8 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('LEFTPADDING',  (0,0), (0,0), 0),
         ('RIGHTPADDING', (2,0), (2,0), 0),
+        ('LEFTPADDING',  (1,0), (1,0), 8),
+        ('RIGHTPADDING', (1,0), (1,0), 8),
         ('LINEBEFORE', (1,0), (1,0), 0.5, colors.HexColor('#e2e8f0')),
         ('LINEAFTER',  (1,0), (1,0), 0.5, colors.HexColor('#e2e8f0')),
     ]))
@@ -4826,7 +4830,7 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
         [Paragraph("Con cariño,", styles['MensajeCordial'])],
         [Paragraph("La familia<br/>Espacio Container House", styles['MensajeFirma'])],
         [Paragraph("espaciocontainerhouse.cl", styles['MensajeWeb'])],
-    ], colWidths=[ancho_bloque * 0.8])
+    ], colWidths=[doc.width * 0.23])
     _msg_cordial.setStyle(TableStyle([
         ('ALIGN',  (0,0), (-1,-1), 'CENTER'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
@@ -4837,10 +4841,12 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
         ('LINEBELOW', (0,1), (-1,1), 0.3, colors.HexColor('#e2e8f0')),
     ]))
 
-    _ancho_msg = ancho_bloque * 0.9
-    _ancho_notas = doc.width - ancho_bloque - _ancho_msg
+    # 3 columnas: 45% notas | 25% mensaje | 30% totales
+    _w_notas  = doc.width * 0.45
+    _w_msg    = doc.width * 0.25
+    _w_totales = doc.width * 0.30
     data_bloques = [[bloque_notas, _msg_cordial, totales_tabla]]
-    tabla_bloques = Table(data_bloques, colWidths=[_ancho_notas, _ancho_msg, ancho_bloque])
+    tabla_bloques = Table(data_bloques, colWidths=[_w_notas, _w_msg, _w_totales])
     tabla_bloques.setStyle(TableStyle([
         ('ALIGN',  (0,0), (0,0), 'LEFT'),
         ('ALIGN',  (1,0), (1,0), 'CENTER'),
@@ -4848,6 +4854,8 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('LEFTPADDING',  (0,0), (0,0), 0),
         ('RIGHTPADDING', (2,0), (2,0), 0),
+        ('LEFTPADDING',  (1,0), (1,0), 8),
+        ('RIGHTPADDING', (1,0), (1,0), 8),
         ('LINEBEFORE', (1,0), (1,0), 0.5, colors.HexColor('#e2e8f0')),
         ('LINEAFTER',  (1,0), (1,0), 0.5, colors.HexColor('#e2e8f0')),
     ]))
