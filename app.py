@@ -4491,13 +4491,11 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
         textColor=colors.HexColor('#6b7280'), alignment=1))
 
     _msg_cordial = Table([
-        [Paragraph("✨", styles['MensajeCordial'])],
-        [Paragraph("¡Gracias por confiar<br/>en nosotros!", styles['MensajeCordial'])],
-        [Paragraph(" ", styles['MensajeCordial'])],
-        [Paragraph("Esperamos que este<br/>presupuesto supere<br/>tus expectativas.", styles['MensajeCordial'])],
-        [Paragraph(" ", styles['MensajeCordial'])],
+        [Paragraph("¡Gracias por confiar en nosotros!", styles['MensajeCordial'])],
+        [Paragraph("Esperamos que este presupuesto supere tus expectativas.", styles['MensajeCordial'])],
         [Paragraph("Con cariño,", styles['MensajeCordial'])],
-        [Paragraph("La familia<br/>Espacio Container House", styles['MensajeFirma'])],
+        [Paragraph("La familia", styles['MensajeFirma'])],
+        [Paragraph("Espacio Container House", styles['MensajeFirma'])],
         [Paragraph("espaciocontainerhouse.cl", styles['MensajeWeb'])],
     ], colWidths=[doc.width * 0.23])
     _msg_cordial.setStyle(TableStyle([
@@ -4781,13 +4779,11 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
         textColor=colors.HexColor('#6b7280'), alignment=1))
 
     _msg_cordial = Table([
-        [Paragraph("✨", styles['MensajeCordial'])],
-        [Paragraph("¡Gracias por confiar<br/>en nosotros!", styles['MensajeCordial'])],
-        [Paragraph(" ", styles['MensajeCordial'])],
-        [Paragraph("Esperamos que este<br/>presupuesto supere<br/>tus expectativas.", styles['MensajeCordial'])],
-        [Paragraph(" ", styles['MensajeCordial'])],
+        [Paragraph("¡Gracias por confiar en nosotros!", styles['MensajeCordial'])],
+        [Paragraph("Esperamos que este presupuesto supere tus expectativas.", styles['MensajeCordial'])],
         [Paragraph("Con cariño,", styles['MensajeCordial'])],
-        [Paragraph("La familia<br/>Espacio Container House", styles['MensajeFirma'])],
+        [Paragraph("La familia", styles['MensajeFirma'])],
+        [Paragraph("Espacio Container House", styles['MensajeFirma'])],
         [Paragraph("espaciocontainerhouse.cl", styles['MensajeWeb'])],
     ], colWidths=[doc.width * 0.23])
     _msg_cordial.setStyle(TableStyle([
