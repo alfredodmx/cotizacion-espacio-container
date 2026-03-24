@@ -4359,7 +4359,7 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
     _p50 = formato_clp(round(total * 0.50))
     _p25a = formato_clp(round(total * 0.25))
     _p25b = formato_clp(round(total * 0.25))
-    notas_texto = f"""<b>NOTAS IMPORTANTES:</b><br/>1.- Valores incluyen IVA.<br/>{texto_transporte}<br/>3.- Formas de pago: transferencia - pago contado.<br/>4.- Proceso de pagos: 50% inicial correspondiente a <b>{_p50}</b> - 25% obra correspondiente a <b>{_p25a}</b> - 25% entrega correspondiente a <b>{_p25b}</b>."""
+    notas_texto = f"""<b>NOTAS IMPORTANTES:</b><br/>1.- Valores incluyen IVA.<br/>{texto_transporte}<br/>3.- Formas de pago: transferencia - pago contado.<br/>4.- Proceso de pagos:<br/>&nbsp;&nbsp;&nbsp;- 50% inicial correspondiente a <b>{_p50}</b><br/>&nbsp;&nbsp;&nbsp;- 25% obra correspondiente a <b>{_p25a}</b><br/>&nbsp;&nbsp;&nbsp;- 25% entrega correspondiente a <b>{_p25b}</b>."""
     bloque_notas = Paragraph(notas_texto, styles['NotasEstilo'])
 
     totales_data = [
@@ -4512,7 +4512,7 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
     _p50 = formato_clp(round(total * 0.50))
     _p25a = formato_clp(round(total * 0.25))
     _p25b = formato_clp(round(total * 0.25))
-    notas_texto = f"""<b>NOTAS IMPORTANTES:</b><br/>1.- Valores incluyen IVA.<br/>{texto_transporte}<br/>3.- Formas de pago: transferencia - pago contado.<br/>4.- Proceso de pagos: 50% inicial correspondiente a <b>{_p50}</b> - 25% obra correspondiente a <b>{_p25a}</b> - 25% entrega correspondiente a <b>{_p25b}</b>."""
+    notas_texto = f"""<b>NOTAS IMPORTANTES:</b><br/>1.- Valores incluyen IVA.<br/>{texto_transporte}<br/>3.- Formas de pago: transferencia - pago contado.<br/>4.- Proceso de pagos:<br/>&nbsp;&nbsp;&nbsp;- 50% inicial correspondiente a <b>{_p50}</b><br/>&nbsp;&nbsp;&nbsp;- 25% obra correspondiente a <b>{_p25a}</b><br/>&nbsp;&nbsp;&nbsp;- 25% entrega correspondiente a <b>{_p25b}</b>."""
     bloque_notas = Paragraph(notas_texto, styles['NotasEstilo'])
 
     totales_data = [
