@@ -5601,8 +5601,7 @@ with tab1:
                         <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
                             <span style="font-size:1.4rem;font-weight:700;color:white;">💰 Total con iva</span>
                             <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(total)}</span>
-                        </div>
-                    </div>''', unsafe_allow_html=True)
+                          </div>''', unsafe_allow_html=True)
             with col_comisiones_card:
                     st.markdown(f'''
                     <div class="metric-card-special metric-card-comisiones" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
@@ -5613,8 +5612,7 @@ with tab1:
                         <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
                             <span style="font-size:1.4rem;font-weight:700;color:white;">📊 Comisiones</span>
                             <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(total_comisiones)}</span>
-                        </div>
-                    </div>''', unsafe_allow_html=True)
+                          </div>''', unsafe_allow_html=True)
             with col_utilidad_card:
                     st.markdown(f'''
                     <div class="metric-card-special metric-card-utilidad" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
@@ -5625,8 +5623,7 @@ with tab1:
                         <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
                             <span style="font-size:1.4rem;font-weight:700;color:white;">📈 Utilidad real</span>
                             <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(utilidad_real)}</span>
-                        </div>
-                    </div>''', unsafe_allow_html=True)
+                          </div>''', unsafe_allow_html=True)
 
         else:
             col_t1, col_t2, col_t3 = st.columns([1, 2, 1])
@@ -8627,8 +8624,7 @@ if tab7 is not None:
                 with st.container(border=True):
                     _c_card, _c_donut = st.columns([5, 1])
                     with _c_card:
-                        st.markdown(f'''<div class="rank-card {cls}" style="margin-bottom:0;">
-                      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                        st.markdown(f'''<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:4px 0;">
                         <span style="font-size:1.8rem;min-width:2rem;">{_medallas.get(i, f"#{i}")}</span>
                         <div style="flex:1;min-width:180px;">
                           <div style="font-size:1rem;font-weight:800;color:#1e293b;
@@ -8662,8 +8658,7 @@ if tab7 is not None:
                             <div style="font-size:0.7rem;color:#64748b;">🟡 Borr.</div>
                           </div>
                         </div>
-                      </div>
-                    </div>''', unsafe_allow_html=True)
+                        </div>''', unsafe_allow_html=True)
 
                     with _c_donut:
                         _fig_donut = go.Figure(go.Pie(
