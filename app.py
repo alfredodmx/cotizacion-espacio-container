@@ -4346,7 +4346,7 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
     _col2_fila1 = Table([[_logo_cell, _qr_cell]],
         colWidths=[_col2 - _qr_sz - 14, _qr_sz + 10])
     _col2_fila1.setStyle(TableStyle([
-        ('ALIGN',  (0,0), (0,0), 'CENTER'),
+        ('ALIGN',  (0,0), (0,0), 'LEFT'),
         ('ALIGN',  (1,0), (1,0), 'RIGHT'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('LEFTPADDING',  (0,0), (-1,-1), 0),
@@ -4559,7 +4559,7 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
     _col2_fila1 = Table([[_logo_cell, _qr_cell]],
         colWidths=[_col2 - _qr_sz - 14, _qr_sz + 10])
     _col2_fila1.setStyle(TableStyle([
-        ('ALIGN',  (0,0), (0,0), 'CENTER'),
+        ('ALIGN',  (0,0), (0,0), 'LEFT'),
         ('ALIGN',  (1,0), (1,0), 'RIGHT'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('LEFTPADDING',  (0,0), (-1,-1), 0),
