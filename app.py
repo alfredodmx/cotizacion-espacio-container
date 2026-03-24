@@ -1517,7 +1517,7 @@ def _diff_datos(anterior, nuevo):
         'cliente_tipo': 'Tipo cliente', 'cliente_empresa': 'Empresa',
         'cliente_rut_empresa': 'RUT empresa', 'asesor_nombre': 'Asesor',
         'config_margen': 'Margen %', 'total_total': 'Total',
-        'proyecto_observaciones': 'Observaciones', 'estado': 'Estado',
+        'proyecto_observaciones': 'Descripción del proyecto', 'estado': 'Estado',
         'productos': 'Productos/carrito',
     }
     CAMPOS_TEXTO = {'cliente_telefono', 'cliente_rut', 'cliente_rut_empresa',
@@ -1596,7 +1596,7 @@ def generar_pdf_log(numero, logs):
 
     # Campos que NO deben formatearse como moneda
     _CAMPOS_TEXTO = {'Teléfono','RUT cliente','RUT empresa','Correo','Nombre cliente',
-                     'Asesor','Dirección cliente','Dirección instalación','Observaciones',
+                     'Asesor','Dirección cliente','Dirección instalación','Descripción del proyecto',
                      'Estado','Empresa','Tipo cliente','Comuna cliente','Región cliente'}
 
     def _fmt_val(v, campo=None):
@@ -4236,6 +4236,8 @@ def _construir_texto_cliente_pdf(datos_cliente, style):
         if d.get("ComunaProyecto"): inst_completa += f", {d['ComunaProyecto']}"
         if d.get("RegionProyecto"): inst_completa += f", {d['RegionProyecto']}"
         lines.append(f"<b>Dirección instalación:</b> {inst_completa}")
+    if d.get("Observaciones"):
+        lines.append(f"<b>Descripción del proyecto:</b> {d['Observaciones']}")
     return Paragraph("<br/>".join(lines), style)
 
 
@@ -4635,8 +4637,8 @@ with tab2:
                 if dias_validez > 0:
                     st.progress(min(dias_validez/30, 1.0), text=f"{dias_validez} días")
         with st.container(border=True):
-            st.markdown("**📝 Observaciones**")
-            st.text_area("Observaciones", value=st.session_state.observaciones_input, disabled=True, height=80, key="observaciones_readonly")
+            st.markdown("**📝 Descripción del proyecto**")
+            st.text_area("Descripción del proyecto", value=st.session_state.observaciones_input, disabled=True, height=80, key="observaciones_readonly")
 
     else:
         # ── Construir dict de asesores dinámicamente desde Supabase ──
@@ -4888,9 +4890,9 @@ with tab2:
 
         # ── Observaciones (ancho completo) ──
         with st.container(border=True):
-            st.markdown("**📝 Observaciones**")
+            st.markdown("**📝 Descripción del proyecto**")
             observaciones_key = f"observaciones_input_{st.session_state.counter}"
-            observaciones = st.text_area("Observaciones y notas adicionales", placeholder="Ingresa aquí cualquier información relevante...", height=80, key=observaciones_key, value=st.session_state.observaciones_input)
+            observaciones = st.text_area("Descripción del proyecto", placeholder="Describe el proyecto, características especiales o información relevante...", height=80, key=observaciones_key, value=st.session_state.observaciones_input)
             if observaciones != st.session_state.observaciones_input:
                 st.session_state.observaciones_input = observaciones
 
@@ -7269,7 +7271,7 @@ if _mostrar_progreso:
         ('Correo',          8, bool(str(_ss.get('correo_input','')).strip())),
         ('RUT',             8, bool(str(_ss.get('rut_display','')).strip())),
         ('Teléfono',        5, bool(str(_ss.get('telefono_raw','')).strip())),
-        ('Observaciones',   5, bool(str(_ss.get('observaciones_input','')).strip())),
+        ('Descripción proyecto', 5, bool(str(_ss.get('observaciones_input','')).strip())),
         ('Dir. cliente',    5, bool(str(_ss.get('direccion_input','')).strip())),
         ('Dir. proyecto',   5, bool(str(_ss.get('proyecto_direccion','')).strip())),
     ]
