@@ -4260,6 +4260,21 @@ def cargar_visibilidad_impresion():
     except:
         return {}
 
+
+def _generar_qr_imagen(url, size=80):
+    """Genera un QR code como imagen ReportLab desde una URL."""
+    try:
+        import qrcode as _qr
+        from reportlab.lib.utils import ImageReader
+        import io as _io
+        _qr_img = _qr.make(url)
+        _buf = _io.BytesIO()
+        _qr_img.save(_buf, format='PNG')
+        _buf.seek(0)
+        return ImageReader(_buf), size
+    except:
+        return None, size
+
 def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
                      fecha_inicio, fecha_termino, dias_validez,
                      datos_asesor, margen=0, numero_cotizacion=None):
@@ -4299,11 +4314,66 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
     numero_presupuesto = numero_cotizacion if numero_cotizacion else f"EP-{random.randint(1000,9999)}"
     fecha_emision = datetime.now()
 
-    elements.append(Paragraph(f"<b>PRESUPUESTO Nº {numero_presupuesto}</b>", styles['TituloPresupuesto']))
-    elements.append(Spacer(1, 2))
-    elements.append(Paragraph(f"<b>Fecha Emisión:</b> {fecha_emision.strftime('%d-%m-%Y')}", styles['TextoNormal']))
-    elements.append(Paragraph(f"<b>Validez:</b> {fecha_inicio.strftime('%d-%m-%Y')} hasta {fecha_termino.strftime('%d-%m-%Y')} ({dias_validez} días)", styles['TextoNormal']))
-    elements.append(Spacer(1, 20))
+    # ── Encabezado: EP/fechas izquierda | Empresa+QR derecha ──
+    styles.add(ParagraphStyle(name='EmpresaNombre', parent=styles['Normal'],
+        fontSize=10, fontName='Helvetica-Bold', leading=13,
+        textColor=colors.HexColor('#0d2266'), spaceAfter=2))
+    styles.add(ParagraphStyle(name='EmpresaDato', parent=styles['Normal'],
+        fontSize=8, leading=11, textColor=colors.HexColor('#374151')))
+    styles.add(ParagraphStyle(name='QRLabel', parent=styles['Normal'],
+        fontSize=7, leading=9, textColor=colors.HexColor('#6b7280'),
+        alignment=1))
+
+    _col_ep = int(doc.width * 0.45)
+    _col_emp = int(doc.width * 0.55)
+
+    _txt_ep = Paragraph(
+        f"<b>PRESUPUESTO Nº {numero_presupuesto}</b><br/>"
+        f"<font size='8'><b>Fecha Emisión:</b> {fecha_emision.strftime('%d-%m-%Y')}<br/>"
+        f"<b>Validez:</b> {fecha_inicio.strftime('%d-%m-%Y')} hasta "
+        f"{fecha_termino.strftime('%d-%m-%Y')} ({dias_validez} días)</font>",
+        styles['TituloPresupuesto'])
+
+    # Empresa a la derecha
+    _txt_empresa = Paragraph(
+        "<b>INVERSIONES CONTAINER HOUSE SPA</b><br/>"
+        "RUT: 78.268.851-0<br/>"
+        "Construcción y Acondicionamiento Containers<br/>"
+        "Villasana 2039, Quinta Normal, Santiago",
+        styles['EmpresaNombre'])
+
+    _qr_img, _qr_sz = _generar_qr_imagen("https://www2.sii.cl/stc/noauthz/consulta", size=65)
+    if _qr_img:
+        from reportlab.platypus import Image as _RLImage
+        _qr_rl = _RLImage(_qr_img, width=_qr_sz, height=_qr_sz)
+        _qr_label = Paragraph("SII Verifíquenos", styles['QRLabel'])
+        _qr_cell = [_qr_rl, _qr_label]
+        _empresa_inner = Table(
+            [[_txt_empresa, _qr_cell]],
+            colWidths=[_col_emp - 80, 75]
+        )
+        _empresa_inner.setStyle(TableStyle([
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('ALIGN', (1,0), (1,-1), 'CENTER'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ]))
+    else:
+        _empresa_inner = _txt_empresa
+
+    _tbl_header = Table([[_txt_ep, _empresa_inner]], colWidths=[_col_ep, _col_emp])
+    _tbl_header.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (0,0), (0,-1), 'LEFT'),
+        ('ALIGN', (1,0), (1,-1), 'RIGHT'),
+        ('LEFTPADDING', (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('LINEBELOW', (0,0), (-1,0), 1, colors.HexColor('#e2e8f0')),
+    ]))
+    elements.append(_tbl_header)
+    elements.append(Spacer(1, 14))
 
     ancho_columna = (doc.width - 20) / 2
     data_ca = [[Paragraph("<b>DATOS DEL CLIENTE</b>", styles['TituloSeccion']), Paragraph("<b>DATOS DEL ASESOR</b>", styles['TituloSeccion'])]]
@@ -4431,11 +4501,66 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
     numero_presupuesto = numero_cotizacion if numero_cotizacion else f"EP-{random.randint(1000,9999)}"
     fecha_emision = datetime.now()
 
-    elements.append(Paragraph(f"<b>PRESUPUESTO Nº {numero_presupuesto}</b>", styles['TituloPresupuesto']))
-    elements.append(Spacer(1, 2))
-    elements.append(Paragraph(f"<b>Fecha Emisión:</b> {fecha_emision.strftime('%d-%m-%Y')}", styles['TextoNormal']))
-    elements.append(Paragraph(f"<b>Validez:</b> {fecha_inicio.strftime('%d-%m-%Y')} hasta {fecha_termino.strftime('%d-%m-%Y')} ({dias_validez} días)", styles['TextoNormal']))
-    elements.append(Spacer(1, 20))
+    # ── Encabezado: EP/fechas izquierda | Empresa+QR derecha ──
+    styles.add(ParagraphStyle(name='EmpresaNombre', parent=styles['Normal'],
+        fontSize=10, fontName='Helvetica-Bold', leading=13,
+        textColor=colors.HexColor('#0d2266'), spaceAfter=2))
+    styles.add(ParagraphStyle(name='EmpresaDato', parent=styles['Normal'],
+        fontSize=8, leading=11, textColor=colors.HexColor('#374151')))
+    styles.add(ParagraphStyle(name='QRLabel', parent=styles['Normal'],
+        fontSize=7, leading=9, textColor=colors.HexColor('#6b7280'),
+        alignment=1))
+
+    _col_ep = int(doc.width * 0.45)
+    _col_emp = int(doc.width * 0.55)
+
+    _txt_ep = Paragraph(
+        f"<b>PRESUPUESTO Nº {numero_presupuesto}</b><br/>"
+        f"<font size='8'><b>Fecha Emisión:</b> {fecha_emision.strftime('%d-%m-%Y')}<br/>"
+        f"<b>Validez:</b> {fecha_inicio.strftime('%d-%m-%Y')} hasta "
+        f"{fecha_termino.strftime('%d-%m-%Y')} ({dias_validez} días)</font>",
+        styles['TituloPresupuesto'])
+
+    # Empresa a la derecha
+    _txt_empresa = Paragraph(
+        "<b>INVERSIONES CONTAINER HOUSE SPA</b><br/>"
+        "RUT: 78.268.851-0<br/>"
+        "Construcción y Acondicionamiento Containers<br/>"
+        "Villasana 2039, Quinta Normal, Santiago",
+        styles['EmpresaNombre'])
+
+    _qr_img, _qr_sz = _generar_qr_imagen("https://www2.sii.cl/stc/noauthz/consulta", size=65)
+    if _qr_img:
+        from reportlab.platypus import Image as _RLImage
+        _qr_rl = _RLImage(_qr_img, width=_qr_sz, height=_qr_sz)
+        _qr_label = Paragraph("SII Verifíquenos", styles['QRLabel'])
+        _qr_cell = [_qr_rl, _qr_label]
+        _empresa_inner = Table(
+            [[_txt_empresa, _qr_cell]],
+            colWidths=[_col_emp - 80, 75]
+        )
+        _empresa_inner.setStyle(TableStyle([
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('ALIGN', (1,0), (1,-1), 'CENTER'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ]))
+    else:
+        _empresa_inner = _txt_empresa
+
+    _tbl_header = Table([[_txt_ep, _empresa_inner]], colWidths=[_col_ep, _col_emp])
+    _tbl_header.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (0,0), (0,-1), 'LEFT'),
+        ('ALIGN', (1,0), (1,-1), 'RIGHT'),
+        ('LEFTPADDING', (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('LINEBELOW', (0,0), (-1,0), 1, colors.HexColor('#e2e8f0')),
+    ]))
+    elements.append(_tbl_header)
+    elements.append(Spacer(1, 14))
 
     ancho_columna = (doc.width - 20) / 2
     data_ca = [[Paragraph("<b>DATOS DEL CLIENTE</b>", styles['TituloSeccion']), Paragraph("<b>DATOS DEL ASESOR</b>", styles['TituloSeccion'])]]
