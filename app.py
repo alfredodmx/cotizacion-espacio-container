@@ -4295,44 +4295,78 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
     styles.add(ParagraphStyle(name='TotalValue', parent=styles['Normal'], fontSize=10, leading=14, alignment=2, fontName='Helvetica', spaceAfter=2))
     styles.add(ParagraphStyle(name='TotalBold', parent=styles['Normal'], fontSize=12, leading=16, alignment=2, fontName='Helvetica-Bold', spaceAfter=2, textColor=colors.black))
 
-    try:
-        logo = Image("logo.png")
-        max_width = 2 * inch
-        aspect = logo.imageHeight / float(logo.imageWidth)
-        logo.drawWidth = max_width
-        logo.drawHeight = max_width * aspect
-        logo_data = [[logo]]
-        logo_table = Table(logo_data, colWidths=[doc.width])
-        logo_table.setStyle(TableStyle([('ALIGN', (0,0), (0,0), 'CENTER'), ('VALIGN', (0,0), (0,0), 'MIDDLE'), ('LEFTPADDING', (0,0), (0,0), 0), ('RIGHTPADDING', (0,0), (0,0), 0)]))
-        elements.append(logo_table)
-        elements.append(Spacer(1, 15))
-    except:
-        elements.append(Paragraph("<b># ESPACIO</b>", styles['TituloPresupuesto']))
-        elements.append(Spacer(1, 10))
-
     numero_presupuesto = numero_cotizacion if numero_cotizacion else f"EP-{random.randint(1000,9999)}"
     fecha_emision = datetime.now()
 
-    # ── Encabezado: EP/fechas izquierda | Empresa+QR derecha ──
+    # Estilos encabezado
     styles.add(ParagraphStyle(name='EmpresaNombre', parent=styles['Normal'],
         fontSize=10, fontName='Helvetica-Bold', leading=13,
         textColor=colors.HexColor('#0d2266'), spaceAfter=2))
-    styles.add(ParagraphStyle(name='EmpresaDato', parent=styles['Normal'],
-        fontSize=8, leading=11, textColor=colors.HexColor('#374151')))
     styles.add(ParagraphStyle(name='QRLabel', parent=styles['Normal'],
-        fontSize=7, leading=9, textColor=colors.HexColor('#6b7280'),
-        alignment=1))
-
-    _col_ep = int(doc.width * 0.45)
-    _col_emp = int(doc.width * 0.55)
-
-    # Estilo EP izquierda — igual que empresa derecha en tamaño y coherencia
+        fontSize=7, leading=9, textColor=colors.HexColor('#6b7280'), alignment=1))
     styles.add(ParagraphStyle(name='EPTitulo', parent=styles['Normal'],
         fontSize=10, fontName='Helvetica-Bold', leading=13,
         textColor=colors.HexColor('#0d2266'), spaceAfter=2))
-    styles.add(ParagraphStyle(name='EPDato', parent=styles['Normal'],
-        fontSize=9, leading=12, textColor=colors.HexColor('#374151')))
 
+    # Proporciones: col1=45%, col2=55% (iguales en fila 2 y 3)
+    _col1 = doc.width * 0.45
+    _col2 = doc.width * 0.55
+
+    # ── FILA 1: vacío | logo (centrado) | QR (derecha) ──
+    _qr_img, _qr_sz = _generar_qr_imagen("https://www2.sii.cl/stc/noauthz/consulta", size=70)
+    _logo_cell = ""
+    try:
+        _logo = Image("logo.png")
+        _logo_max = _col2 * 0.80
+        _logo_aspect = _logo.imageHeight / float(_logo.imageWidth)
+        _logo.drawWidth  = _logo_max
+        _logo.drawHeight = _logo_max * _logo_aspect
+        _logo_cell = _logo
+    except:
+        _logo_cell = Paragraph("", styles['EPTitulo'])
+
+    if _qr_img:
+        from reportlab.platypus import Image as _RLImage
+        _qr_img.name = 'qr.png'
+        _qr_rl = _RLImage(_qr_img, width=_qr_sz, height=_qr_sz)
+        _qr_label = Paragraph("SII Verifíquenos", styles['QRLabel'])
+        _qr_cell = Table([[_qr_rl], [_qr_label]], colWidths=[_qr_sz + 4])
+        _qr_cell.setStyle(TableStyle([
+            ('ALIGN',  (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('LEFTPADDING',  (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+            ('TOPPADDING',   (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING',(0,0), (-1,-1), 0),
+        ]))
+    else:
+        _qr_cell = Paragraph("", styles['EPTitulo'])
+
+    # Col2 fila1: logo centrado + QR a la derecha
+    _col2_fila1 = Table([[_logo_cell, _qr_cell]],
+        colWidths=[_col2 - _qr_sz - 14, _qr_sz + 10])
+    _col2_fila1.setStyle(TableStyle([
+        ('ALIGN',  (0,0), (0,0), 'CENTER'),
+        ('ALIGN',  (1,0), (1,0), 'RIGHT'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('LEFTPADDING',  (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ('TOPPADDING',   (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING',(0,0), (-1,-1), 4),
+    ]))
+
+    _fila1 = Table([["", _col2_fila1]], colWidths=[_col1, _col2])
+    _fila1.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('LEFTPADDING',  (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ('TOPPADDING',   (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING',(0,0), (-1,-1), 6),
+        ('LINEBELOW', (0,0), (-1,0), 0.5, colors.HexColor('#e2e8f0')),
+    ]))
+    elements.append(_fila1)
+
+    # ── FILA 2: EP/fechas | datos empresa ──
     _txt_ep = Paragraph(
         f"<font name='Helvetica-Bold' size='10' color='#0d2266'>PRESUPUESTO Nº {numero_presupuesto}</font><br/>"
         f"<font size='9' color='#374151'><b>Fecha Emisión:</b> {fecha_emision.strftime('%d-%m-%Y')}</font><br/>"
@@ -4340,7 +4374,6 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
         f"{fecha_termino.strftime('%d-%m-%Y')} ({dias_validez} días)</font>",
         styles['EPTitulo'])
 
-    # Empresa a la derecha
     _txt_empresa = Paragraph(
         "<b>INVERSIONES CONTAINER HOUSE SPA</b><br/>"
         "RUT: 78.268.851-0<br/>"
@@ -4348,51 +4381,35 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
         "Villasana 2039, Quinta Normal, Santiago",
         styles['EmpresaNombre'])
 
-    _qr_img, _qr_sz = _generar_qr_imagen("https://www2.sii.cl/stc/noauthz/consulta", size=65)
-    if _qr_img:
-        from reportlab.platypus import Image as _RLImage
-        # Guardar BytesIO con nombre de atributo para que ReportLab lo acepte
-        _qr_img.name = 'qr.png'
-        _qr_rl = _RLImage(_qr_img, width=_qr_sz, height=_qr_sz)
-        _qr_label = Paragraph("SII Verifíquenos", styles['QRLabel'])
-        _qr_cell = [_qr_rl, _qr_label]
-        _empresa_inner = Table(
-            [[_txt_empresa, _qr_cell]],
-            colWidths=[_col_emp - 80, 75]
-        )
-        _empresa_inner.setStyle(TableStyle([
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('ALIGN', (1,0), (1,-1), 'CENTER'),
-            ('LEFTPADDING', (0,0), (-1,-1), 0),
-            ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ]))
-    else:
-        _empresa_inner = _txt_empresa
-
-    _tbl_header = Table([[_txt_ep, _empresa_inner]], colWidths=[_col_ep, _col_emp])
-    _tbl_header.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('ALIGN', (0,0), (0,-1), 'LEFT'),
-        ('ALIGN', (1,0), (1,-1), 'RIGHT'),
-        ('LEFTPADDING', (0,0), (-1,-1), 0),
+    _fila2 = Table([[_txt_ep, _txt_empresa]], colWidths=[_col1, _col2])
+    _fila2.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('ALIGN',  (0,0), (0,-1), 'LEFT'),
+        ('ALIGN',  (1,0), (1,-1), 'RIGHT'),
+        ('LEFTPADDING',  (0,0), (-1,-1), 0),
         ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ('TOPPADDING', (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-        ('LINEBELOW', (0,0), (-1,0), 1, colors.HexColor('#e2e8f0')),
+        ('TOPPADDING',   (0,0), (-1,-1), 8),
+        ('BOTTOMPADDING',(0,0), (-1,-1), 8),
+        ('LINEBELOW', (0,0), (-1,0), 0.5, colors.HexColor('#e2e8f0')),
     ]))
-    elements.append(_tbl_header)
-    elements.append(Spacer(1, 14))
+    elements.append(_fila2)
+    elements.append(Spacer(1, 10))
 
-    ancho_columna = (doc.width - 20) / 2
+    # Fila 3 — mismas proporciones que fila 2
     data_ca = [[Paragraph("<b>DATOS DEL CLIENTE</b>", styles['TituloSeccion']), Paragraph("<b>DATOS DEL ASESOR</b>", styles['TituloSeccion'])]]
     asesor_text = "".join(f"<b>{k}:</b> {v}<br/>" for k, v in datos_asesor.items() if v)
     data_ca.append([_construir_texto_cliente_pdf(datos_cliente, styles['TextoNormal']), Paragraph(asesor_text, styles['TextoNormal'])])
-    tabla_ca = Table(data_ca, colWidths=[ancho_columna, ancho_columna])
+    tabla_ca = Table(data_ca, colWidths=[_col1, _col2])
     tabla_ca.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'TOP'), ('ALIGN', (0,0), (0,-1), 'LEFT'), ('ALIGN', (1,0), (1,-1), 'LEFT'),
-        ('LEFTPADDING', (0,0), (0,-1), 0), ('RIGHTPADDING', (0,0), (0,-1), 10),
-        ('LEFTPADDING', (1,0), (1,-1), 0), ('RIGHTPADDING', (1,0), (1,-1), 0),
-        ('TOPPADDING', (0,0), (-1,-1), 0), ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('ALIGN',  (0,0), (0,-1), 'LEFT'),
+        ('ALIGN',  (1,0), (1,-1), 'LEFT'),
+        ('LEFTPADDING',  (0,0), (0,-1), 0),
+        ('RIGHTPADDING', (0,0), (0,-1), 10),
+        ('LEFTPADDING',  (1,0), (1,-1), 0),
+        ('RIGHTPADDING', (1,0), (1,-1), 0),
+        ('TOPPADDING',   (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING',(0,0), (-1,-1), 5),
     ]))
     elements.append(tabla_ca)
     elements.append(Spacer(1, 20))
@@ -4491,44 +4508,78 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
     styles.add(ParagraphStyle(name='TotalValue', parent=styles['Normal'], fontSize=10, leading=14, alignment=2, fontName='Helvetica', spaceAfter=2))
     styles.add(ParagraphStyle(name='TotalBold', parent=styles['Normal'], fontSize=12, leading=16, alignment=2, fontName='Helvetica-Bold', spaceAfter=2, textColor=colors.black))
 
-    try:
-        logo = Image("logo.png")
-        max_width = 2 * inch
-        aspect = logo.imageHeight / float(logo.imageWidth)
-        logo.drawWidth = max_width
-        logo.drawHeight = max_width * aspect
-        logo_data = [[logo]]
-        logo_table = Table(logo_data, colWidths=[doc.width])
-        logo_table.setStyle(TableStyle([('ALIGN', (0,0), (0,0), 'CENTER'), ('VALIGN', (0,0), (0,0), 'MIDDLE'), ('LEFTPADDING', (0,0), (0,0), 0), ('RIGHTPADDING', (0,0), (0,0), 0)]))
-        elements.append(logo_table)
-        elements.append(Spacer(1, 15))
-    except:
-        elements.append(Paragraph("<b># ESPACIO</b>", styles['TituloPresupuesto']))
-        elements.append(Spacer(1, 10))
-
     numero_presupuesto = numero_cotizacion if numero_cotizacion else f"EP-{random.randint(1000,9999)}"
     fecha_emision = datetime.now()
 
-    # ── Encabezado: EP/fechas izquierda | Empresa+QR derecha ──
+    # Estilos encabezado
     styles.add(ParagraphStyle(name='EmpresaNombre', parent=styles['Normal'],
         fontSize=10, fontName='Helvetica-Bold', leading=13,
         textColor=colors.HexColor('#0d2266'), spaceAfter=2))
-    styles.add(ParagraphStyle(name='EmpresaDato', parent=styles['Normal'],
-        fontSize=8, leading=11, textColor=colors.HexColor('#374151')))
     styles.add(ParagraphStyle(name='QRLabel', parent=styles['Normal'],
-        fontSize=7, leading=9, textColor=colors.HexColor('#6b7280'),
-        alignment=1))
-
-    _col_ep = int(doc.width * 0.45)
-    _col_emp = int(doc.width * 0.55)
-
-    # Estilo EP izquierda — igual que empresa derecha en tamaño y coherencia
+        fontSize=7, leading=9, textColor=colors.HexColor('#6b7280'), alignment=1))
     styles.add(ParagraphStyle(name='EPTitulo', parent=styles['Normal'],
         fontSize=10, fontName='Helvetica-Bold', leading=13,
         textColor=colors.HexColor('#0d2266'), spaceAfter=2))
-    styles.add(ParagraphStyle(name='EPDato', parent=styles['Normal'],
-        fontSize=9, leading=12, textColor=colors.HexColor('#374151')))
 
+    # Proporciones: col1=45%, col2=55% (iguales en fila 2 y 3)
+    _col1 = doc.width * 0.45
+    _col2 = doc.width * 0.55
+
+    # ── FILA 1: vacío | logo (centrado) | QR (derecha) ──
+    _qr_img, _qr_sz = _generar_qr_imagen("https://www2.sii.cl/stc/noauthz/consulta", size=70)
+    _logo_cell = ""
+    try:
+        _logo = Image("logo.png")
+        _logo_max = _col2 * 0.80
+        _logo_aspect = _logo.imageHeight / float(_logo.imageWidth)
+        _logo.drawWidth  = _logo_max
+        _logo.drawHeight = _logo_max * _logo_aspect
+        _logo_cell = _logo
+    except:
+        _logo_cell = Paragraph("", styles['EPTitulo'])
+
+    if _qr_img:
+        from reportlab.platypus import Image as _RLImage
+        _qr_img.name = 'qr.png'
+        _qr_rl = _RLImage(_qr_img, width=_qr_sz, height=_qr_sz)
+        _qr_label = Paragraph("SII Verifíquenos", styles['QRLabel'])
+        _qr_cell = Table([[_qr_rl], [_qr_label]], colWidths=[_qr_sz + 4])
+        _qr_cell.setStyle(TableStyle([
+            ('ALIGN',  (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('LEFTPADDING',  (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+            ('TOPPADDING',   (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING',(0,0), (-1,-1), 0),
+        ]))
+    else:
+        _qr_cell = Paragraph("", styles['EPTitulo'])
+
+    # Col2 fila1: logo centrado + QR a la derecha
+    _col2_fila1 = Table([[_logo_cell, _qr_cell]],
+        colWidths=[_col2 - _qr_sz - 14, _qr_sz + 10])
+    _col2_fila1.setStyle(TableStyle([
+        ('ALIGN',  (0,0), (0,0), 'CENTER'),
+        ('ALIGN',  (1,0), (1,0), 'RIGHT'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('LEFTPADDING',  (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ('TOPPADDING',   (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING',(0,0), (-1,-1), 4),
+    ]))
+
+    _fila1 = Table([["", _col2_fila1]], colWidths=[_col1, _col2])
+    _fila1.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('LEFTPADDING',  (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ('TOPPADDING',   (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING',(0,0), (-1,-1), 6),
+        ('LINEBELOW', (0,0), (-1,0), 0.5, colors.HexColor('#e2e8f0')),
+    ]))
+    elements.append(_fila1)
+
+    # ── FILA 2: EP/fechas | datos empresa ──
     _txt_ep = Paragraph(
         f"<font name='Helvetica-Bold' size='10' color='#0d2266'>PRESUPUESTO Nº {numero_presupuesto}</font><br/>"
         f"<font size='9' color='#374151'><b>Fecha Emisión:</b> {fecha_emision.strftime('%d-%m-%Y')}</font><br/>"
@@ -4536,7 +4587,6 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
         f"{fecha_termino.strftime('%d-%m-%Y')} ({dias_validez} días)</font>",
         styles['EPTitulo'])
 
-    # Empresa a la derecha
     _txt_empresa = Paragraph(
         "<b>INVERSIONES CONTAINER HOUSE SPA</b><br/>"
         "RUT: 78.268.851-0<br/>"
@@ -4544,51 +4594,35 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
         "Villasana 2039, Quinta Normal, Santiago",
         styles['EmpresaNombre'])
 
-    _qr_img, _qr_sz = _generar_qr_imagen("https://www2.sii.cl/stc/noauthz/consulta", size=65)
-    if _qr_img:
-        from reportlab.platypus import Image as _RLImage
-        # Guardar BytesIO con nombre de atributo para que ReportLab lo acepte
-        _qr_img.name = 'qr.png'
-        _qr_rl = _RLImage(_qr_img, width=_qr_sz, height=_qr_sz)
-        _qr_label = Paragraph("SII Verifíquenos", styles['QRLabel'])
-        _qr_cell = [_qr_rl, _qr_label]
-        _empresa_inner = Table(
-            [[_txt_empresa, _qr_cell]],
-            colWidths=[_col_emp - 80, 75]
-        )
-        _empresa_inner.setStyle(TableStyle([
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('ALIGN', (1,0), (1,-1), 'CENTER'),
-            ('LEFTPADDING', (0,0), (-1,-1), 0),
-            ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ]))
-    else:
-        _empresa_inner = _txt_empresa
-
-    _tbl_header = Table([[_txt_ep, _empresa_inner]], colWidths=[_col_ep, _col_emp])
-    _tbl_header.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('ALIGN', (0,0), (0,-1), 'LEFT'),
-        ('ALIGN', (1,0), (1,-1), 'RIGHT'),
-        ('LEFTPADDING', (0,0), (-1,-1), 0),
+    _fila2 = Table([[_txt_ep, _txt_empresa]], colWidths=[_col1, _col2])
+    _fila2.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('ALIGN',  (0,0), (0,-1), 'LEFT'),
+        ('ALIGN',  (1,0), (1,-1), 'RIGHT'),
+        ('LEFTPADDING',  (0,0), (-1,-1), 0),
         ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ('TOPPADDING', (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-        ('LINEBELOW', (0,0), (-1,0), 1, colors.HexColor('#e2e8f0')),
+        ('TOPPADDING',   (0,0), (-1,-1), 8),
+        ('BOTTOMPADDING',(0,0), (-1,-1), 8),
+        ('LINEBELOW', (0,0), (-1,0), 0.5, colors.HexColor('#e2e8f0')),
     ]))
-    elements.append(_tbl_header)
-    elements.append(Spacer(1, 14))
+    elements.append(_fila2)
+    elements.append(Spacer(1, 10))
 
-    ancho_columna = (doc.width - 20) / 2
+    # Fila 3 — mismas proporciones que fila 2
     data_ca = [[Paragraph("<b>DATOS DEL CLIENTE</b>", styles['TituloSeccion']), Paragraph("<b>DATOS DEL ASESOR</b>", styles['TituloSeccion'])]]
     asesor_text = "".join(f"<b>{k}:</b> {v}<br/>" for k, v in datos_asesor.items() if v)
     data_ca.append([_construir_texto_cliente_pdf(datos_cliente, styles['TextoNormal']), Paragraph(asesor_text, styles['TextoNormal'])])
-    tabla_ca = Table(data_ca, colWidths=[ancho_columna, ancho_columna])
+    tabla_ca = Table(data_ca, colWidths=[_col1, _col2])
     tabla_ca.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'TOP'), ('ALIGN', (0,0), (0,-1), 'LEFT'), ('ALIGN', (1,0), (1,-1), 'LEFT'),
-        ('LEFTPADDING', (0,0), (0,-1), 0), ('RIGHTPADDING', (0,0), (0,-1), 10),
-        ('LEFTPADDING', (1,0), (1,-1), 0), ('RIGHTPADDING', (1,0), (1,-1), 0),
-        ('TOPPADDING', (0,0), (-1,-1), 0), ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('ALIGN',  (0,0), (0,-1), 'LEFT'),
+        ('ALIGN',  (1,0), (1,-1), 'LEFT'),
+        ('LEFTPADDING',  (0,0), (0,-1), 0),
+        ('RIGHTPADDING', (0,0), (0,-1), 10),
+        ('LEFTPADDING',  (1,0), (1,-1), 0),
+        ('RIGHTPADDING', (1,0), (1,-1), 0),
+        ('TOPPADDING',   (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING',(0,0), (-1,-1), 5),
     ]))
     elements.append(tabla_ca)
     elements.append(Spacer(1, 20))
