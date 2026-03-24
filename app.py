@@ -4533,23 +4533,29 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
         ('LINEBELOW', (0,1), (-1,1), 0.3, colors.HexColor('#e2e8f0')),
     ]))
 
-    # 3 columnas: 45% notas | 25% mensaje | 30% totales
-    _w_notas  = doc.width * 0.45
-    _w_msg    = doc.width * 0.25
-    _w_totales = doc.width * 0.30
-    data_bloques = [[bloque_notas, _msg_cordial, totales_tabla]]
-    tabla_bloques = Table(data_bloques, colWidths=[_w_notas, _w_msg, _w_totales])
+    # Columna derecha: totales arriba + mensaje cordial abajo
+    _tbl_derecha = Table(
+        [[totales_tabla], [_msg_cordial]],
+        colWidths=[ancho_bloque]
+    )
+    _tbl_derecha.setStyle(TableStyle([
+        ('ALIGN',  (0,0), (-1,-1), 'RIGHT'),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('TOPPADDING',   (0,1), (-1,1), 10),
+        ('BOTTOMPADDING',(0,0), (-1,-1), 2),
+        ('LEFTPADDING',  (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ('LINEABOVE', (0,1), (-1,1), 0.5, colors.HexColor('#e2e8f0')),
+    ]))
+
+    data_bloques = [[bloque_notas, _tbl_derecha]]
+    tabla_bloques = Table(data_bloques, colWidths=[ancho_bloque, ancho_bloque])
     tabla_bloques.setStyle(TableStyle([
         ('ALIGN',  (0,0), (0,0), 'LEFT'),
-        ('ALIGN',  (1,0), (1,0), 'CENTER'),
-        ('ALIGN',  (2,0), (2,0), 'RIGHT'),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN',  (1,0), (1,0), 'RIGHT'),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ('LEFTPADDING',  (0,0), (0,0), 0),
-        ('RIGHTPADDING', (2,0), (2,0), 0),
-        ('LEFTPADDING',  (1,0), (1,0), 8),
-        ('RIGHTPADDING', (1,0), (1,0), 8),
-        ('LINEBEFORE', (1,0), (1,0), 0.5, colors.HexColor('#e2e8f0')),
-        ('LINEAFTER',  (1,0), (1,0), 0.5, colors.HexColor('#e2e8f0')),
+        ('RIGHTPADDING', (1,0), (1,0), 0),
     ]))
     elements.append(tabla_bloques)
     doc.build(elements)
@@ -4841,23 +4847,29 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
         ('LINEBELOW', (0,1), (-1,1), 0.3, colors.HexColor('#e2e8f0')),
     ]))
 
-    # 3 columnas: 45% notas | 25% mensaje | 30% totales
-    _w_notas  = doc.width * 0.45
-    _w_msg    = doc.width * 0.25
-    _w_totales = doc.width * 0.30
-    data_bloques = [[bloque_notas, _msg_cordial, totales_tabla]]
-    tabla_bloques = Table(data_bloques, colWidths=[_w_notas, _w_msg, _w_totales])
+    # Columna derecha: totales arriba + mensaje cordial abajo
+    _tbl_derecha = Table(
+        [[totales_tabla], [_msg_cordial]],
+        colWidths=[ancho_bloque]
+    )
+    _tbl_derecha.setStyle(TableStyle([
+        ('ALIGN',  (0,0), (-1,-1), 'RIGHT'),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('TOPPADDING',   (0,1), (-1,1), 10),
+        ('BOTTOMPADDING',(0,0), (-1,-1), 2),
+        ('LEFTPADDING',  (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ('LINEABOVE', (0,1), (-1,1), 0.5, colors.HexColor('#e2e8f0')),
+    ]))
+
+    data_bloques = [[bloque_notas, _tbl_derecha]]
+    tabla_bloques = Table(data_bloques, colWidths=[ancho_bloque, ancho_bloque])
     tabla_bloques.setStyle(TableStyle([
         ('ALIGN',  (0,0), (0,0), 'LEFT'),
-        ('ALIGN',  (1,0), (1,0), 'CENTER'),
-        ('ALIGN',  (2,0), (2,0), 'RIGHT'),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN',  (1,0), (1,0), 'RIGHT'),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ('LEFTPADDING',  (0,0), (0,0), 0),
-        ('RIGHTPADDING', (2,0), (2,0), 0),
-        ('LEFTPADDING',  (1,0), (1,0), 8),
-        ('RIGHTPADDING', (1,0), (1,0), 8),
-        ('LINEBEFORE', (1,0), (1,0), 0.5, colors.HexColor('#e2e8f0')),
-        ('LINEAFTER',  (1,0), (1,0), 0.5, colors.HexColor('#e2e8f0')),
+        ('RIGHTPADDING', (1,0), (1,0), 0),
     ]))
     elements.append(tabla_bloques)
     doc.build(elements)
