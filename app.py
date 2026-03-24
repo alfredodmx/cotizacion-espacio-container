@@ -8422,18 +8422,7 @@ if tab7 is not None:
             margin-bottom: 14px; padding-bottom: 12px;
             border-bottom: 2px solid #f1f5f9;
         }
-        /* Contenedores del ranking — aplicado via JS con clase rank-scope */
-        .rank-scope > div[data-testid="stVerticalBlockBorderWrapper"] {
-            background: #ffffff !important;
-            border-radius: 18px !important;
-            border: 1px solid #e8edf5 !important;
-            box-shadow: 0 6px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04) !important;
-            transition: box-shadow 0.2s, transform 0.2s !important;
-        }
-        .rank-scope > div[data-testid="stVerticalBlockBorderWrapper"]:hover {
-            box-shadow: 0 10px 40px rgba(0,0,0,0.13) !important;
-            transform: translateY(-1px) !important;
-        }
+
         .rank-kpi {
             background: #ffffff; border-radius: 16px; padding: 22px 20px;
             border: 1px solid #e8edf5; text-align: center;
@@ -8608,30 +8597,6 @@ if tab7 is not None:
                     st.markdown('<div class="rank-chart-title">📈 % Conversión</div>', unsafe_allow_html=True)
                     st.plotly_chart(_fig_conv, use_container_width=True, config={'displayModeBar': False})
 
-
-            # JS para aplicar clase rank-scope a containers del ranking
-            import streamlit.components.v1 as _rank_comp
-            _rank_comp.html("""<script>
-(function(){
-    var D = window.parent.document;
-    function applyRankScope(){
-        // Encontrar el tab panel activo del ranking (contiene .hdr7)
-        var hdr = D.querySelector('.hdr7');
-        if (!hdr) return;
-        var panel = hdr.closest('[data-testid="stTabPanel"]') || hdr.closest('[role="tabpanel"]');
-        if (!panel) return;
-        var wrappers = panel.querySelectorAll('[data-testid="stVerticalBlockBorderWrapper"]');
-        wrappers.forEach(function(w){
-            var parent = w.parentElement;
-            if (parent && !parent.classList.contains('rank-scope')) {
-                parent.classList.add('rank-scope');
-            }
-        });
-    }
-    setTimeout(applyRankScope, 600);
-    setTimeout(applyRankScope, 1500);
-})();
-</script>""", height=0)
 
             # ── Cards con gráfico circular por ejecutivo ──
             st.markdown('<div class="rank-section">🎖️ Detalle por ejecutivo</div>', unsafe_allow_html=True)
