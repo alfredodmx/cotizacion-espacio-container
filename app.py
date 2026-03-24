@@ -4491,7 +4491,7 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
         textColor=colors.HexColor('#6b7280'), alignment=1))
 
     _msg_cordial = Paragraph(
-        "<para align='right'>"
+        "<para align='center'>"
         "<font name='Helvetica-Oblique' size='11'>✨</font><br/>"
         "<font name='Helvetica-Oblique' size='9' color='#718096'>¡Gracias por confiar en nosotros!<br/>"
         "Esperamos que este presupuesto<br/>"
@@ -4521,6 +4521,7 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
         ('VALIGN', (1,0), (1,0), 'MIDDLE'),
         ('VALIGN', (1,1), (1,1), 'MIDDLE'),
         ('LEFTPADDING',  (0,0), (-1,-1), 0),
+        ('LEFTPADDING',  (1,1), (1,1), 40),
         ('RIGHTPADDING', (1,0), (1,-1), 0),
         ('TOPPADDING',   (0,0), (-1,-1), 6),
         ('BOTTOMPADDING',(0,0), (-1,-1), 6),
@@ -4774,7 +4775,7 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
         textColor=colors.HexColor('#6b7280'), alignment=1))
 
     _msg_cordial = Paragraph(
-        "<para align='right'>"
+        "<para align='center'>"
         "<font name='Helvetica-Oblique' size='11'>✨</font><br/>"
         "<font name='Helvetica-Oblique' size='9' color='#718096'>¡Gracias por confiar en nosotros!<br/>"
         "Esperamos que este presupuesto<br/>"
@@ -4804,6 +4805,7 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
         ('VALIGN', (1,0), (1,0), 'MIDDLE'),
         ('VALIGN', (1,1), (1,1), 'MIDDLE'),
         ('LEFTPADDING',  (0,0), (-1,-1), 0),
+        ('LEFTPADDING',  (1,1), (1,1), 40),
         ('RIGHTPADDING', (1,0), (1,-1), 0),
         ('TOPPADDING',   (0,0), (-1,-1), 6),
         ('BOTTOMPADDING',(0,0), (-1,-1), 6),
