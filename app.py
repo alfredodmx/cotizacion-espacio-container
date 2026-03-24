@@ -4344,8 +4344,9 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
     _qr_img, _qr_sz = _generar_qr_imagen("https://www2.sii.cl/stc/noauthz/consulta", size=65)
     if _qr_img:
         from reportlab.platypus import Image as _RLImage
-        from reportlab.lib.utils import ImageReader as _IRdr
-        _qr_rl = _RLImage(_IRdr(_qr_img), width=_qr_sz, height=_qr_sz)
+        # Guardar BytesIO con nombre de atributo para que ReportLab lo acepte
+        _qr_img.name = 'qr.png'
+        _qr_rl = _RLImage(_qr_img, width=_qr_sz, height=_qr_sz)
         _qr_label = Paragraph("SII Verifíquenos", styles['QRLabel'])
         _qr_cell = [_qr_rl, _qr_label]
         _empresa_inner = Table(
@@ -4532,8 +4533,9 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
     _qr_img, _qr_sz = _generar_qr_imagen("https://www2.sii.cl/stc/noauthz/consulta", size=65)
     if _qr_img:
         from reportlab.platypus import Image as _RLImage
-        from reportlab.lib.utils import ImageReader as _IRdr
-        _qr_rl = _RLImage(_IRdr(_qr_img), width=_qr_sz, height=_qr_sz)
+        # Guardar BytesIO con nombre de atributo para que ReportLab lo acepte
+        _qr_img.name = 'qr.png'
+        _qr_rl = _RLImage(_qr_img, width=_qr_sz, height=_qr_sz)
         _qr_label = Paragraph("SII Verifíquenos", styles['QRLabel'])
         _qr_cell = [_qr_rl, _qr_label]
         _empresa_inner = Table(
