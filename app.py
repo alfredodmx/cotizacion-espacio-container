@@ -8624,14 +8624,14 @@ if tab7 is not None:
                 with st.container(border=True):
                     _c_card, _c_donut = st.columns([5, 1])
                     with _c_card:
-                        st.markdown(f'''<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:4px 0;">
-                        <span style="font-size:1.8rem;min-width:2rem;">{_medallas.get(i, f"#{i}")}</span>
+                        st.markdown(f'''<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:6px 2px;">
+                        <span style="font-size:1.8rem;min-width:2rem;flex-shrink:0;">{_medallas.get(i, f"#{i}")}</span>
                         <div style="flex:1;min-width:180px;">
                           <div style="font-size:1rem;font-weight:800;color:#1e293b;
                                       font-family:'Montserrat',sans-serif;">{ej['nombre']}</div>
-                          <div style="background:#f1f5f9;border-radius:6px;height:7px;
+                          <div style="background:#f1f5f9;border-radius:8px;height:10px;
                                       margin:6px 0 2px;overflow:hidden;">
-                            <div style="width:{score}%;height:7px;border-radius:6px;
+                            <div style="width:{score}%;height:10px;border-radius:8px;
                                         background:linear-gradient(90deg,#f59e0b,#d97706);"></div>
                           </div>
                           <div style="font-size:0.72rem;color:#94a3b8;">Score {score}/100</div>
