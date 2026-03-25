@@ -1603,10 +1603,16 @@ def generar_pdf_log(numero, logs):
         if campo and campo in _CAMPOS_TEXTO:
             return str(v) if v else "—"
         try:
-            _n = float(str(v).replace("$","").replace(".","").replace(",",".").strip())
+            _s = str(v).strip()
+            # Si ya tiene formato chileno con $ y puntos, devolverlo tal cual
+            if _s.startswith("$"):
+                return _s
+            # Convertir directamente desde el número (float/int)
+            # sin eliminar puntos que podrían ser decimales
+            _n = float(_s)
             if abs(_n) > 999:
                 return "$" + "{:,.0f}".format(round(_n)).replace(",",".")
-            return str(v)
+            return _s
         except: return str(v) if v else "—"
 
     def _hora_chile(fs):
