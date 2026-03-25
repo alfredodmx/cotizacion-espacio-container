@@ -2478,13 +2478,21 @@ st.markdown("""
     hr { display: none !important; }
     .stTabs [data-baseweb="tab"] {
         font-family: 'Plus Jakarta Sans', sans-serif !important;
-        font-size: 0.84rem !important; font-weight: 800 !important;
+        font-size: 0.88rem !important; font-weight: 900 !important;
         color: #7c85b3 !important; padding: 0.85rem 1.6rem !important;
         background: transparent !important; border: none !important;
         border-bottom: 3px solid transparent !important;
-        margin-bottom: -2px !important; letter-spacing: 0.04em !important;
+        margin-bottom: -2px !important; letter-spacing: 0.05em !important;
         text-transform: uppercase !important;
+        -webkit-font-smoothing: antialiased !important;
         transition: all 0.2s ease !important;
+    }
+    .stTabs [data-baseweb="tab"] p,
+    .stTabs [data-baseweb="tab"] span,
+    .stTabs [data-baseweb="tab"] div {
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        font-weight: 900 !important;
+        font-size: 0.88rem !important;
     }
     .stTabs [data-baseweb="tab"]:hover { color: #5b7cfa !important; background: rgba(91,124,250,0.05) !important; }
     .stTabs [aria-selected="true"] {
