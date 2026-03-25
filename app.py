@@ -2477,12 +2477,12 @@ st.markdown("""
     }
     hr { display: none !important; }
     .stTabs [data-baseweb="tab"] {
-        font-family: 'Montserrat', sans-serif !important;
-        font-size: 0.82rem !important; font-weight: 800 !important;
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        font-size: 0.84rem !important; font-weight: 800 !important;
         color: #7c85b3 !important; padding: 0.85rem 1.6rem !important;
         background: transparent !important; border: none !important;
         border-bottom: 3px solid transparent !important;
-        margin-bottom: -2px !important; letter-spacing: 0.06em !important;
+        margin-bottom: -2px !important; letter-spacing: 0.04em !important;
         text-transform: uppercase !important;
         transition: all 0.2s ease !important;
     }
