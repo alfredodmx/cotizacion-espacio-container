@@ -1534,7 +1534,32 @@ def _diff_datos(anterior, nuevo):
         v_new = str(v_new_raw)
         if k == 'productos':
             if v_ant != v_new:
-                cambios[label] = {'antes': '(carrito anterior)', 'despues': '(carrito actualizado)'}
+                try:
+                    import json as _j
+                    _ant_list = _j.loads(v_ant_raw) if v_ant_raw else []
+                    _new_list = _j.loads(v_new_raw) if v_new_raw else []
+                    # Convertir a dict por Item para comparar
+                    _ant_dict = {it.get('Item','?'): it.get('Cantidad',0) for it in _ant_list}
+                    _new_dict = {it.get('Item','?'): it.get('Cantidad',0) for it in _new_list}
+                    _detalles = []
+                    # Items agregados
+                    for item, cant in _new_dict.items():
+                        if item not in _ant_dict:
+                            _detalles.append(f"+ {item} (x{cant})")
+                    # Items eliminados
+                    for item, cant in _ant_dict.items():
+                        if item not in _new_dict:
+                            _detalles.append(f"- {item} (x{cant})")
+                    # Items con cantidad modificada
+                    for item in _ant_dict:
+                        if item in _new_dict and _ant_dict[item] != _new_dict[item]:
+                            _detalles.append(f"~ {item}: {_ant_dict[item]} → {_new_dict[item]}")
+                    if _detalles:
+                        cambios['Productos'] = {'antes': '—', 'despues': chr(10).join(_detalles)}
+                    else:
+                        cambios[label] = {'antes': '(carrito anterior)', 'despues': '(carrito actualizado)'}
+                except:
+                    cambios[label] = {'antes': '(carrito anterior)', 'despues': '(carrito actualizado)'}
         elif v_ant != v_new:
             cambios[label] = {'antes': v_ant or '—', 'despues': v_new or '—'}
 
@@ -1836,13 +1861,22 @@ def generar_pdf_log(numero, logs):
                         for _c, _v in _det.items():
                             if isinstance(_v, dict):
                                 _a = _fmt_val(str(_v.get("antes","—")), campo=_c)
-                                _d = _fmt_val(str(_v.get("despues","—")), campo=_c)
+                                _d_raw = str(_v.get("despues","—"))
+                                # Si tiene saltos de línea (detalle carrito), formatear con <br/>
+                                if chr(10) in _d_raw:
+                                    _d = _d_raw.replace(chr(10), '<br/>')
+                                    _d_para = Paragraph(_d, s_dep)
+                                else:
+                                    _d = _fmt_val(_d_raw, campo=_c)
+                                    _d_para = Paragraph(_d[:120], s_dep)
+                                _a_para = Paragraph(_a[:70], s_antes)
                             else:
-                                _a, _d = "—", _fmt_val(str(_v), campo=_c)
+                                _a_para = Paragraph("—", s_antes)
+                                _d_para = Paragraph(_fmt_val(str(_v), campo=_c)[:70], s_dep)
                             cam_rows.append([
                                 Paragraph(_c, s_mono),
-                                Paragraph(_a[:70], s_antes),
-                                Paragraph(_d[:70], s_dep),
+                                _a_para,
+                                _d_para,
                             ])
 
                         if len(cam_rows) > 1:
