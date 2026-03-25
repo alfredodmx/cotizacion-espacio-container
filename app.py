@@ -8635,80 +8635,46 @@ if tab7 is not None:
                 _pct_aut  = ej['pct_autorizado']
                 _pc_color = "#16a34a" if _pct_aut >= 50 else "#f59e0b" if _pct_aut >= 25 else "#ef4444"
 
-                # Card + donut en contenedor con sombra
-                with st.container(border=True):
-                    _c_card, _c_donut = st.columns([5, 1])
-                    with _c_card:
-                        st.markdown(f'''<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:8px 4px;height:100%;">
-                        <span style="font-size:1.8rem;min-width:2rem;flex-shrink:0;align-self:center;">{_medallas.get(i, f"#{i}")}</span>
-                        <div style="flex:1;min-width:180px;">
-                          <div style="font-size:1rem;font-weight:800;color:#1e293b;
-                                      font-family:'Montserrat',sans-serif;">{ej['nombre']}</div>
-                          <div style="background:#f1f5f9;border-radius:8px;height:10px;
-                                      margin:6px 0 2px;overflow:hidden;">
-                            <div style="width:{score}%;height:10px;border-radius:8px;
-                                        background:linear-gradient(90deg,#f59e0b,#d97706);"></div>
-                          </div>
-                          <div style="font-size:0.72rem;color:#94a3b8;">Score {score}/100</div>
-                        </div>
-                        <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;">
-                          <div style="text-align:center;">
-                            <div style="font-size:1.2rem;font-weight:800;color:#0f172a;">{ej['total_presupuestos']}</div>
-                            <div style="font-size:0.7rem;color:#64748b;">EP</div>
-                          </div>
-                          <div style="text-align:center;">
-                            <div style="font-size:1.2rem;font-weight:800;color:#0f172a;">{total_fmt}</div>
-                            <div style="font-size:0.7rem;color:#64748b;">Total</div>
-                          </div>
-                          <div style="text-align:center;">
-                            <div style="font-size:1.2rem;font-weight:800;color:#0f172a;">{prom_fmt}</div>
-                            <div style="font-size:0.7rem;color:#64748b;">Promedio</div>
-                          </div>
-                          <div style="text-align:center;">
-                            <div style="font-size:1.2rem;font-weight:800;color:#16a34a;">{ej['autorizados']}</div>
-                            <div style="font-size:0.7rem;color:#64748b;">🟢 Auth.</div>
-                          </div>
-                          <div style="text-align:center;">
-                            <div style="font-size:1.2rem;font-weight:800;color:#f59e0b;">{ej['borradores']}</div>
-                            <div style="font-size:0.7rem;color:#64748b;">🟡 Borr.</div>
-                          </div>
-                        </div>
-                        </div>''', unsafe_allow_html=True)
-
-                    with _c_donut:
-                        _fig_donut = go.Figure(go.Pie(
-                            values=[_pct_aut, max(1, 100 - _pct_aut)],
-                            labels=['Conv.', 'Pend.'],
-                            hole=0.65,
-                            marker=dict(colors=[_pc_color, '#f1f5f9']),
-                            textinfo='none',
-                            hovertemplate='%{label}: %{value}%<extra></extra>',
-                            showlegend=False,
-                        ))
-                        _fig_donut.add_annotation(
-                            text=f"<b>{_pct_aut}%</b><br><span style='font-size:9px;'>Conv.</span>",
-                            x=0.5, y=0.5, font_size=13,
-                            font_color=_pc_color,
-                            showarrow=False
-                        )
-                        _fig_donut.update_layout(
-                            height=130, margin=dict(t=8, b=8, l=8, r=8),
-                            paper_bgcolor='rgba(0,0,0,0)',
-                            annotations=[dict(
-                                text=f"<b>{_pct_aut}%</b>",
-                                x=0.5, y=0.55, font_size=16,
-                                font_color=_pc_color,
-                                showarrow=False
-                            ), dict(
-                                text="Conv.",
-                                x=0.5, y=0.35, font_size=9,
-                                font_color='#94a3b8',
-                                showarrow=False
-                            )]
-                        )
-                        st.plotly_chart(_fig_donut, use_container_width=True,
-                                        config={'displayModeBar': False},
-                                        key=f"donut_ej_{i}")
+                # Card completa en un solo markdown con SVG donut — centrado vertical perfecto
+                _r, _r2 = 45, 28  # radio exterior e interior del donut
+                _cx, _cy = 55, 55
+                _circum = 2 * 3.14159 * _r
+                _dash = _circum * _pct_aut / 100
+                _gap  = _circum - _dash
+                _svg_donut = (
+                    f'<svg width="110" height="110" viewBox="0 0 110 110" xmlns="http://www.w3.org/2000/svg">' +
+                    f'<circle cx="{_cx}" cy="{_cy}" r="{_r}" fill="none" stroke="#f1f5f9" stroke-width="14"/>' +
+                    f'<circle cx="{_cx}" cy="{_cy}" r="{_r}" fill="none" stroke="{_pc_color}" stroke-width="14" ' +
+                    f'stroke-dasharray="{_dash:.1f} {_gap:.1f}" stroke-dashoffset="{_circum/4:.1f}" stroke-linecap="round"/>' +
+                    f'<text x="{_cx}" y="{_cy-4}" text-anchor="middle" font-size="14" font-weight="bold" fill="{_pc_color}">{_pct_aut}%</text>' +
+                    f'<text x="{_cx}" y="{_cy+12}" text-anchor="middle" font-size="9" fill="#94a3b8">Conv.</text>' +
+                    f'</svg>'
+                )
+                _border_color = '#f59e0b' if i==1 else '#94a3b8' if i==2 else '#b45309' if i==3 else '#e2e8f0'
+                st.markdown(f'''
+                <div style="display:flex;align-items:center;gap:16px;padding:12px 16px;
+                    background:#fff;border-radius:16px;border:1px solid #e2e8f0;
+                    border-left:5px solid {_border_color};
+                    box-shadow:0 4px 20px rgba(0,0,0,0.07);">
+                  <span style="font-size:1.8rem;flex-shrink:0;">{_medallas.get(i, f"#{i}")}</span>
+                  <div style="flex:1;min-width:160px;">
+                    <div style="font-size:1rem;font-weight:800;color:#1e293b;font-family:'Montserrat',sans-serif;">{ej['nombre']}</div>
+                    <div style="background:#f1f5f9;border-radius:8px;height:10px;margin:6px 0 2px;overflow:hidden;">
+                      <div style="width:{score}%;height:10px;border-radius:8px;background:linear-gradient(90deg,#f59e0b,#d97706);"></div>
+                    </div>
+                    <div style="font-size:0.72rem;color:#94a3b8;">Score {score}/100</div>
+                  </div>
+                  <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;">
+                    <div style="text-align:center;"><div style="font-size:1.2rem;font-weight:800;color:#0f172a;">{ej['total_presupuestos']}</div><div style="font-size:0.7rem;color:#64748b;">EP</div></div>
+                    <div style="text-align:center;"><div style="font-size:1.2rem;font-weight:800;color:#0f172a;">{total_fmt}</div><div style="font-size:0.7rem;color:#64748b;">Total</div></div>
+                    <div style="text-align:center;"><div style="font-size:1.2rem;font-weight:800;color:#0f172a;">{prom_fmt}</div><div style="font-size:0.7rem;color:#64748b;">Promedio</div></div>
+                    <div style="text-align:center;"><div style="font-size:1.2rem;font-weight:800;color:#16a34a;">{ej['autorizados']}</div><div style="font-size:0.7rem;color:#64748b;">🟢 Auth.</div></div>
+                    <div style="text-align:center;"><div style="font-size:1.2rem;font-weight:800;color:#f59e0b;">{ej['borradores']}</div><div style="font-size:0.7rem;color:#64748b;">🟡 Borr.</div></div>
+                  </div>
+                  <div style="flex-shrink:0;">{_svg_donut}</div>
+                </div>
+                ''', unsafe_allow_html=True)
+                st.markdown("<div style='margin-bottom:6px;'></div>", unsafe_allow_html=True)
                 st.markdown("<div style='margin-bottom:8px;'></div>", unsafe_allow_html=True)
 
 # TAB CONTRATO CLIENTE
