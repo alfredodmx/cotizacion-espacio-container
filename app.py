@@ -8425,6 +8425,10 @@ if tab7 is not None:
             box-shadow: 0 10px 40px rgba(0,0,0,0.13) !important;
             transform: translateY(-1px) !important;
         }
+        /* Centrar verticalmente columnas dentro de los containers del ranking */
+        .hdr7 ~ div [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] {
+            align-items: center !important;
+        }
         .rank-chart-title {
             font-size: 0.78rem; font-weight: 800; color: #64748b;
             text-transform: uppercase; letter-spacing: 0.08em;
@@ -8441,6 +8445,15 @@ if tab7 is not None:
         .rank-kpi:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+        }
+        /* Centrar verticalmente columnas dentro del card ejecutivo */
+        .rank-exec-row [data-testid="stHorizontalBlock"] {
+            align-items: center !important;
+        }
+        .rank-exec-row [data-testid="column"] {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
         }
         .rank-kpi-label { font-size: 0.72rem; font-weight: 700; color: #94a3b8;
                           text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
@@ -8624,7 +8637,7 @@ if tab7 is not None:
                 with st.container(border=True):
                     _c_card, _c_donut = st.columns([5, 1])
                     with _c_card:
-                        st.markdown(f'''<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:6px 2px;">
+                        st.markdown(f'''<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:8px 4px;min-height:80px;">
                         <span style="font-size:1.8rem;min-width:2rem;flex-shrink:0;">{_medallas.get(i, f"#{i}")}</span>
                         <div style="flex:1;min-width:180px;">
                           <div style="font-size:1rem;font-weight:800;color:#1e293b;
