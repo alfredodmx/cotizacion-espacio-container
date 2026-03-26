@@ -5545,10 +5545,11 @@ with tab1:
                 column_config={"✏️": st.column_config.CheckboxColumn("✏️"), "Categoria": st.column_config.TextColumn("Categoría"),
                                "Item": st.column_config.TextColumn("Item"), "Cantidad": st.column_config.NumberColumn("Cant."),
                                "Precio Unitario": st.column_config.TextColumn("P. Unitario"), "Subtotal": st.column_config.TextColumn("Subtotal")})
-            filas_editar = edited_df[edited_df["✏️"] == True].index.tolist()
-            if filas_editar:
+            filas_eliminar = edited_df[edited_df["❌"] == True].index.tolist()
+            if filas_eliminar:
                 if not st.session_state.get('_item_pendiente_eliminar'):
-                    _fila_marcada = edited_df[edited_df["✏️"] == True].iloc[0]
+                    # Buscar el item por nombre para evitar errores de indice con filtros activos
+                    _fila_marcada = edited_df[edited_df["❌"] == True].iloc[0]
                     _nombre_buscar = _fila_marcada["Item"]
                     item_pendiente = next(
                         (item for item in st.session_state.carrito
@@ -5557,13 +5558,11 @@ with tab1:
                     )
                     if item_pendiente:
                         st.session_state['_item_pendiente_eliminar'] = {
-                            'item': item_pendiente,
-                            'nueva_cantidad': int(item_pendiente.get('Cantidad', 1))
+                            'item': item_pendiente
                         }
                         st.rerun()
 
         # ── Panel inline editar cantidad / eliminar item ──
-        # Leer accion via query_params enviada desde el componente
         _accion_qp = st.query_params.get('_popup_accion', '')
         _qty_qp    = st.query_params.get('_popup_qty', '1')
         _item_qp   = st.query_params.get('_popup_item', '')
@@ -5598,88 +5597,88 @@ with tab1:
         if st.session_state.get('_item_pendiente_eliminar'):
             _pend          = st.session_state['_item_pendiente_eliminar']
             _item_data     = _pend['item']
-            _nombre_item   = _item_data.get('Item', '—')
+            _nombre_item   = _item_data.get('Item', '---')
             _cantidad_orig = int(_item_data.get('Cantidad', 1))
             _precio        = float(_item_data.get('Precio Unitario', 0))
-            _categoria     = _item_data.get('Categoria', '—')
+            _categoria     = _item_data.get('Categoria', '---')
             _nueva_cant    = int(_pend.get('nueva_cantidad', _cantidad_orig))
             _subtotal_nuevo = _nueva_cant * _precio
             _precio_fmt    = formato_clp(_precio)
             _subtotal_fmt  = formato_clp(_subtotal_nuevo)
             _nombre_esc    = _nombre_item.replace("'", "\\'")
-
-            _html_popup = (
-                "<!DOCTYPE html><html><head><meta charset='utf-8'><style>"
-                "* {box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',sans-serif;}"
-                "body {background:transparent;display:flex;justify-content:center;padding:8px 0 4px;}"
-                ".card {width:100%;max-width:560px;background:#FCEBEB;border:1.5px solid #E24B4A;"
-                "border-radius:14px;padding:20px 24px;display:flex;flex-direction:column;gap:14px;}"
-                ".cat {font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px;}"
-                ".nombre {font-size:16px;font-weight:600;color:#501313;}"
-                ".stats {display:flex;gap:10px;}"
-                ".stat {background:#fff;border:0.5px solid #F09595;border-radius:10px;padding:10px 14px;text-align:center;flex:1;min-width:0;}"
-                ".stat.hi {border-color:#E24B4A;}"
-                ".slabel {font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;}"
-                ".sval {font-size:15px;font-weight:600;color:#501313;margin-top:3px;}"
-                ".stat.hi .sval {color:#E24B4A;}"
-                ".divider {border-top:0.5px solid #F09595;padding-top:12px;}"
-                ".alabel {font-size:12px;color:#791F1F;margin-bottom:10px;}"
-                ".stepper {display:flex;align-items:center;border:1px solid #E24B4A;border-radius:10px;overflow:hidden;width:fit-content;background:#fff;}"
-                ".sbtn {width:40px;height:40px;background:#FCEBEB;border:none;font-size:20px;cursor:pointer;color:#A32D2D;}"
-                ".sbtn:first-child {border-right:0.5px solid #F09595;}"
-                ".sbtn:last-child {border-left:0.5px solid #F09595;}"
-                ".snum {width:56px;text-align:center;font-size:16px;font-weight:600;color:#501313;user-select:none;}"
-                ".actions {border-top:0.5px solid #F09595;padding-top:12px;display:flex;gap:8px;}"
-                ".btn {padding:9px 12px;font-size:13px;border-radius:8px;cursor:pointer;font-weight:500;flex:1;transition:opacity .15s;}"
-                ".btn:hover {opacity:.82;} .btn:active {transform:scale(.97);}"
-                ".bc {background:transparent;border:0.5px solid #F09595;color:#791F1F;}"
-                ".ba {background:#fff;border:1px solid #E24B4A;color:#A32D2D;font-weight:600;flex:1.5;}"
-                ".be {background:#E24B4A;border:none;color:#fff;font-weight:600;flex:1.5;}"
-                "</style></head><body>"
-                "<div class='card'>"
-                "<div><div class='cat'>__CAT__</div><div class='nombre'>__NOM__</div></div>"
-                "<div class='stats'>"
-                "<div class='stat'><div class='slabel'>P. unitario</div><div class='sval'>__PRC__</div></div>"
-                "<div class='stat'><div class='slabel'>Cant. original</div><div class='sval'>__ORI__</div></div>"
-                "<div class='stat hi'><div class='slabel'>Subtotal nuevo</div><div class='sval' id='sub'>__SUB__</div></div>"
-                "</div>"
-                "<div class='divider'><div class='alabel'>Ajustar cantidad:</div>"
-                "<div class='stepper'>"
-                "<button class='sbtn' onclick='dec()'>-</button>"
-                "<span class='snum' id='qty'>__QTY__</span>"
-                "<button class='sbtn' onclick='inc()'>+</button>"
-                "</div></div>"
-                "<div class='actions'>"
-                "<button class='btn bc' onclick='send("cancelar")'>&#x2716; Cancelar</button>"
-                "<button class='btn ba' onclick='send("aplicar")'>&#x2705; Aplicar cambio</button>"
-                "<button class='btn be' onclick='send("eliminar")'>&#x1F5D1; Eliminar todo</button>"
-                "</div></div>"
-                "<script>"
-                "var qty=__QTYJS__,precio=__PRCJS__,nombre='__NOMJS__';"
-                "function dec(){if(qty>1){qty--;upd();}}"
-                "function inc(){qty++;upd();}"
-                "function upd(){document.getElementById('qty').textContent=qty;"
-                "document.getElementById('sub').textContent='$'+Math.round(qty*precio).toLocaleString('es-CL');}"
-                "function send(accion){var url=window.parent.location.pathname"
-                "+'?_popup_accion='+encodeURIComponent(accion)"
-                "+'&_popup_qty='+qty"
-                "+'&_popup_item='+encodeURIComponent(nombre);"
-                "window.parent.location.href=url;}"
-                "</script></body></html>"
+            _html_p = """<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',sans-serif}
+body{background:transparent;display:flex;justify-content:center;padding:8px 0 4px}
+.card{width:100%;max-width:560px;background:#FCEBEB;border:1.5px solid #E24B4A;border-radius:14px;padding:20px 24px;display:flex;flex-direction:column;gap:14px}
+.cat{font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
+.nombre{font-size:16px;font-weight:600;color:#501313}
+.stats{display:flex;gap:10px}
+.stat{background:#fff;border:.5px solid #F09595;border-radius:10px;padding:10px 14px;text-align:center;flex:1;min-width:0}
+.stat.hi{border-color:#E24B4A}
+.slabel{font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.sval{font-size:15px;font-weight:600;color:#501313;margin-top:3px}
+.stat.hi .sval{color:#E24B4A}
+.divider{border-top:.5px solid #F09595;padding-top:12px}
+.alabel{font-size:12px;color:#791F1F;margin-bottom:10px}
+.stepper{display:flex;align-items:center;border:1px solid #E24B4A;border-radius:10px;overflow:hidden;width:fit-content;background:#fff}
+.sbtn{width:40px;height:40px;background:#FCEBEB;border:none;font-size:20px;cursor:pointer;color:#A32D2D}
+.sbtn:first-child{border-right:.5px solid #F09595}
+.sbtn:last-child{border-left:.5px solid #F09595}
+.snum{width:56px;text-align:center;font-size:16px;font-weight:600;color:#501313;user-select:none}
+.actions{border-top:.5px solid #F09595;padding-top:12px;display:flex;gap:8px}
+.btn{padding:9px 12px;font-size:13px;border-radius:8px;cursor:pointer;font-weight:500;flex:1}
+.bc{background:transparent;border:.5px solid #F09595;color:#791F1F}
+.ba{background:#fff;border:1px solid #E24B4A;color:#A32D2D;font-weight:600;flex:1.5}
+.be{background:#E24B4A;border:none;color:#fff;font-weight:600;flex:1.5}
+</style></head><body>
+<div class="card">
+<div><div class="cat">__CAT__</div><div class="nombre">__NOM__</div></div>
+<div class="stats">
+<div class="stat"><div class="slabel">P. unitario</div><div class="sval">__PRC__</div></div>
+<div class="stat"><div class="slabel">Cant. original</div><div class="sval">__ORI__</div></div>
+<div class="stat hi"><div class="slabel">Subtotal nuevo</div><div class="sval" id="sub">__SUB__</div></div>
+</div>
+<div class="divider"><div class="alabel">Ajustar cantidad:</div>
+<div class="stepper">
+<button class="sbtn" onclick="dec()">-</button>
+<span class="snum" id="qty">__QTY__</span>
+<button class="sbtn" onclick="inc()">+</button>
+</div></div>
+<div class="actions">
+<button class="btn bc" onclick="send('cancelar')">✖ Cancelar</button>
+<button class="btn ba" onclick="send('aplicar')">✅ Aplicar cambio</button>
+<button class="btn be" onclick="send('eliminar')">🗑 Eliminar todo</button>
+</div></div>
+<script>
+var qty=__QTYJS__,precio=__PRCJS__,nombre="__NOMJS__";
+function dec(){if(qty>1){qty--;upd();}}
+function inc(){qty++;upd();}
+function upd(){
+  document.getElementById("qty").textContent=qty;
+  document.getElementById("sub").textContent="$"+Math.round(qty*precio).toLocaleString("es-CL");
+}
+function send(accion){
+  var url=window.parent.location.pathname
+    +"?_popup_accion="+encodeURIComponent(accion)
+    +"&_popup_qty="+qty
+    +"&_popup_item="+encodeURIComponent(nombre);
+  window.parent.location.href=url;
+}
+</script></body></html>"""
+            _html_p = (_html_p
+                .replace("__CAT__",   _categoria)
+                .replace("__NOM__",   _nombre_item)
+                .replace("__PRC__",   _precio_fmt)
+                .replace("__ORI__",   str(_cantidad_orig))
+                .replace("__SUB__",   _subtotal_fmt)
+                .replace("__QTY__",   str(_nueva_cant))
+                .replace("__QTYJS__", str(_nueva_cant))
+                .replace("__PRCJS__", str(int(_precio)))
+                .replace("__NOMJS__", _nombre_item.replace('"', ''))
             )
-            _html_popup = (
-                _html_popup
-                .replace('__CAT__',   _categoria)
-                .replace('__NOM__',   _nombre_item)
-                .replace('__PRC__',   _precio_fmt)
-                .replace('__ORI__',   str(_cantidad_orig))
-                .replace('__SUB__',   _subtotal_fmt)
-                .replace('__QTY__',   str(_nueva_cant))
-                .replace('__QTYJS__', str(_nueva_cant))
-                .replace('__PRCJS__', str(int(_precio)))
-                .replace('__NOMJS__', _nombre_esc)
-            )
-            components.html(_html_popup, height=340, scrolling=False)
+            components.html(_html_p, height=340, scrolling=False)
         st.markdown("---")
         # Solo botón Limpiar
         col_btn_limpiar, _, _, _ = st.columns(4)
