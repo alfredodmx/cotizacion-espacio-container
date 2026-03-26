@@ -5547,9 +5547,81 @@ with tab1:
             filas_eliminar = edited_df[edited_df["❌"] == True].index.tolist()
             if filas_eliminar:
                 indices_reales = carrito_df_edit_filtrado.iloc[filas_eliminar].index.tolist()
-                for i in sorted(indices_reales, reverse=True):
-                    del st.session_state.carrito[i]
-                st.rerun()
+                if not st.session_state.get('_item_pendiente_eliminar'):
+                    idx_real = indices_reales[0]
+                    item_pendiente = st.session_state.carrito[idx_real]
+                    st.session_state['_item_pendiente_eliminar'] = {
+                        'idx': idx_real,
+                        'item': item_pendiente
+                    }
+                    st.rerun()
+
+        # ── Dialog de confirmacion de eliminacion de item ──
+        if st.session_state.get('_item_pendiente_eliminar'):
+            _pend = st.session_state['_item_pendiente_eliminar']
+            _item_data = _pend['item']
+
+            @st.dialog("🗑️ Confirmar eliminación")
+            def _dialog_confirmar_eliminar():
+                _nombre_item = _item_data.get('Item', '—')
+                _cantidad    = _item_data.get('Cantidad', 0)
+                _precio      = _item_data.get('Precio Unitario', 0)
+                _subtotal    = _item_data.get('Subtotal', 0)
+                _categoria   = _item_data.get('Categoria', '—')
+
+                st.markdown(f"""
+                <div style="
+                    background: linear-gradient(135deg, #fff5f5, #fff);
+                    border: 1.5px solid #fecaca;
+                    border-radius: 14px;
+                    padding: 18px 20px;
+                    margin-bottom: 16px;
+                ">
+                    <div style="font-size:0.7rem;font-weight:800;color:#94a3b8;
+                                text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">
+                        {_categoria}
+                    </div>
+                    <div style="font-size:1.1rem;font-weight:800;color:#1e2447;margin-bottom:12px;">
+                        {_nombre_item}
+                    </div>
+                    <div style="display:flex;gap:20px;">
+                        <div style="text-align:center;">
+                            <div style="font-size:0.68rem;color:#94a3b8;font-weight:700;
+                                        text-transform:uppercase;letter-spacing:0.06em;">Cantidad</div>
+                            <div style="font-size:1.2rem;font-weight:900;color:#3b82f6;">{int(_cantidad)}</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:0.68rem;color:#94a3b8;font-weight:700;
+                                        text-transform:uppercase;letter-spacing:0.06em;">P. Unitario</div>
+                            <div style="font-size:1.2rem;font-weight:900;color:#3b82f6;">{formato_clp(_precio)}</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:0.68rem;color:#94a3b8;font-weight:700;
+                                        text-transform:uppercase;letter-spacing:0.06em;">Subtotal</div>
+                            <div style="font-size:1.2rem;font-weight:900;color:#ef4444;">{formato_clp(_subtotal)}</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="font-size:0.88rem;color:#64748b;text-align:center;">
+                    ¿Estás seguro que deseas eliminar este ítem del presupuesto?
+                </div>
+                """, unsafe_allow_html=True)
+
+                st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+                _col_si, _col_no = st.columns(2)
+                with _col_si:
+                    if st.button("🗑️ Sí, eliminar", use_container_width=True,
+                                 type="primary", key="dialog_eliminar_si"):
+                        del st.session_state.carrito[_pend['idx']]
+                        st.session_state.pop('_item_pendiente_eliminar', None)
+                        st.rerun()
+                with _col_no:
+                    if st.button("✖️ Cancelar", use_container_width=True,
+                                 key="dialog_eliminar_no"):
+                        st.session_state.pop('_item_pendiente_eliminar', None)
+                        st.rerun()
+
+            _dialog_confirmar_eliminar()
         st.markdown("---")
         # Solo botón Limpiar
         col_btn_limpiar, _, _, _ = st.columns(4)
