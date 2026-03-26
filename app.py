@@ -5545,8 +5545,8 @@ with tab1:
                 column_config={"✏️": st.column_config.CheckboxColumn("✏️"), "Categoria": st.column_config.TextColumn("Categoría"),
                                "Item": st.column_config.TextColumn("Item"), "Cantidad": st.column_config.NumberColumn("Cant."),
                                "Precio Unitario": st.column_config.TextColumn("P. Unitario"), "Subtotal": st.column_config.TextColumn("Subtotal")})
-            filas_eliminar = edited_df[edited_df["❌"] == True].index.tolist()
-            if filas_eliminar:
+            filas_editar = edited_df[edited_df["✏️"] == True].index.tolist()
+            if filas_editar:
                 if not st.session_state.get('_item_pendiente_eliminar'):
                     # Buscar el item por nombre para evitar errores de indice con filtros activos
                     _fila_marcada = edited_df[edited_df["❌"] == True].iloc[0]
