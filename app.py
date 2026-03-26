@@ -5546,15 +5546,20 @@ with tab1:
                                "Precio Unitario": st.column_config.TextColumn("P. Unitario"), "Subtotal": st.column_config.TextColumn("Subtotal")})
             filas_eliminar = edited_df[edited_df["❌"] == True].index.tolist()
             if filas_eliminar:
-                indices_reales = carrito_df_edit_filtrado.iloc[filas_eliminar].index.tolist()
                 if not st.session_state.get('_item_pendiente_eliminar'):
-                    idx_real = indices_reales[0]
-                    item_pendiente = st.session_state.carrito[idx_real]
-                    st.session_state['_item_pendiente_eliminar'] = {
-                        'idx': idx_real,
-                        'item': item_pendiente
-                    }
-                    st.rerun()
+                    # Buscar el item por nombre para evitar errores de indice con filtros activos
+                    _fila_marcada = edited_df[edited_df["❌"] == True].iloc[0]
+                    _nombre_buscar = _fila_marcada["Item"]
+                    item_pendiente = next(
+                        (item for item in st.session_state.carrito
+                         if item["Item"] == _nombre_buscar),
+                        None
+                    )
+                    if item_pendiente:
+                        st.session_state['_item_pendiente_eliminar'] = {
+                            'item': item_pendiente
+                        }
+                        st.rerun()
 
         # ── Dialog de confirmacion de eliminacion de item ──
         if st.session_state.get('_item_pendiente_eliminar'):
@@ -5612,7 +5617,11 @@ with tab1:
                 with _col_si:
                     if st.button("🗑️ Sí, eliminar", use_container_width=True,
                                  type="primary", key="dialog_eliminar_si"):
-                        del st.session_state.carrito[_pend['idx']]
+                        _item_a_eliminar = _pend['item']
+                        st.session_state.carrito = [
+                            i for i in st.session_state.carrito
+                            if i is not _item_a_eliminar
+                        ]
                         st.session_state.pop('_item_pendiente_eliminar', None)
                         st.rerun()
                 with _col_no:
