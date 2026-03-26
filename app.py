@@ -3323,6 +3323,20 @@ _js_global.html("""
     });
 })();
 })();
+(function(){
+  window.addEventListener('message', function(e){
+    if(!e.data || e.data.type !== 'streamlit:setComponentValue') return;
+    var d = e.data.value;
+    if(!d || !d.accion) return;
+    // Guardar en sessionStorage para que Streamlit lo lea via query_params
+    var D = window.parent.document;
+    var url = window.parent.location.pathname +
+      '?_popup_accion=' + encodeURIComponent(d.accion) +
+      '&_popup_qty='    + encodeURIComponent(d.qty || 1) +
+      '&_popup_item='   + encodeURIComponent(d.item || '');
+    window.parent.location.href = url;
+  });
+})();
 </script>
 """, height=0)
 
@@ -5545,10 +5559,11 @@ with tab1:
                 column_config={"✏️": st.column_config.CheckboxColumn("✏️"), "Categoria": st.column_config.TextColumn("Categoría"),
                                "Item": st.column_config.TextColumn("Item"), "Cantidad": st.column_config.NumberColumn("Cant."),
                                "Precio Unitario": st.column_config.TextColumn("P. Unitario"), "Subtotal": st.column_config.TextColumn("Subtotal")})
-            filas_editar = edited_df[edited_df["✏️"] == True].index.tolist()
-            if filas_editar:
+            filas_eliminar = edited_df[edited_df["❌"] == True].index.tolist()
+            if filas_eliminar:
                 if not st.session_state.get('_item_pendiente_eliminar'):
-                    _fila_marcada = edited_df[edited_df["✏️"] == True].iloc[0]
+                    # Buscar el item por nombre para evitar errores de indice con filtros activos
+                    _fila_marcada = edited_df[edited_df["❌"] == True].iloc[0]
                     _nombre_buscar = _fila_marcada["Item"]
                     item_pendiente = next(
                         (item for item in st.session_state.carrito
@@ -5557,12 +5572,42 @@ with tab1:
                     )
                     if item_pendiente:
                         st.session_state['_item_pendiente_eliminar'] = {
-                            'item': item_pendiente,
-                            'nueva_cantidad': int(item_pendiente.get('Cantidad', 1))
+                            'item': item_pendiente
                         }
                         st.rerun()
 
         # ── Panel inline editar cantidad / eliminar item ──
+        # Leer accion enviada via query_params desde el componente HTML
+        _accion_qp   = st.query_params.get('_popup_accion', '')
+        _qty_qp      = st.query_params.get('_popup_qty', '1')
+        _item_qp     = st.query_params.get('_popup_item', '')
+        if _accion_qp:
+            st.query_params.clear()
+            _accion = _accion_qp
+            _qty_nueva = _qty_qp
+            _item_nombre = _item_qp
+            if _accion == 'cancelar':
+                st.session_state.pop('_item_pendiente_eliminar', None)
+                st.session_state.counter += 1
+                st.rerun()
+            elif _accion == 'aplicar':
+                for item in st.session_state.carrito:
+                    if item['Item'] == _item_nombre:
+                        item['Cantidad'] = int(_qty_nueva)
+                        item['Subtotal'] = int(_qty_nueva) * float(item['Precio Unitario'])
+                        break
+                st.session_state.pop('_item_pendiente_eliminar', None)
+                st.session_state.counter += 1
+                st.rerun()
+            elif _accion == 'eliminar':
+                st.session_state.carrito = [
+                    i for i in st.session_state.carrito
+                    if i['Item'] != _item_nombre
+                ]
+                st.session_state.pop('_item_pendiente_eliminar', None)
+                st.session_state.counter += 1
+                st.rerun()
+
         if st.session_state.get('_item_pendiente_eliminar'):
             _pend         = st.session_state['_item_pendiente_eliminar']
             _item_data    = _pend['item']
@@ -5572,123 +5617,89 @@ with tab1:
             _categoria     = _item_data.get('Categoria', '—')
             _nueva_cant    = int(_pend.get('nueva_cantidad', _cantidad_orig))
             _subtotal_nuevo = _nueva_cant * _precio
+            _precio_fmt    = formato_clp(_precio)
+            _subtotal_fmt  = formato_clp(_subtotal_nuevo)
+            _nombre_esc    = _nombre_item.replace("'", "\\'")
 
-            # Leer accion enviada via query_params desde el componente HTML
-            _accion_popup = st.query_params.get('_popup_accion', '')
-            _qty_popup    = st.query_params.get('_popup_qty', '')
-            if _accion_popup:
-                st.query_params.clear()
-                if _accion_popup == 'cancelar':
-                    st.session_state.pop('_item_pendiente_eliminar', None)
-                    st.session_state.counter += 1
-                    st.rerun()
-                elif _accion_popup == 'aplicar' and _qty_popup:
-                    try:
-                        _qty_nueva = int(_qty_popup)
-                        for item in st.session_state.carrito:
-                            if item['Item'] == _nombre_item:
-                                item['Cantidad'] = _qty_nueva
-                                item['Subtotal'] = _qty_nueva * float(item['Precio Unitario'])
-                                break
-                    except:
-                        pass
-                    st.session_state.pop('_item_pendiente_eliminar', None)
-                    st.session_state.counter += 1
-                    st.rerun()
-                elif _accion_popup == 'eliminar':
-                    st.session_state.carrito = [
-                        i for i in st.session_state.carrito
-                        if i['Item'] != _nombre_item
-                    ]
-                    st.session_state.pop('_item_pendiente_eliminar', None)
-                    st.session_state.counter += 1
-                    st.rerun()
-
-            _precio_fmt   = formato_clp(_precio)
-            _subtotal_fmt = formato_clp(_subtotal_nuevo)
             components.html(f"""
 <!DOCTYPE html><html><head><meta charset='utf-8'>
 <style>
-* {{ box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; }}
-body {{ background: transparent; display: flex; justify-content: center; padding: 8px 0 4px; }}
-.card {{
-    width: 100%; max-width: 560px;
-    background: #FCEBEB;
-    border: 1.5px solid #E24B4A;
-    border-radius: 14px;
-    padding: 20px 24px;
-    display: flex; flex-direction: column; gap: 14px;
-}}
-.cat {{ font-size: 11px; color: #A32D2D; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px; }}
-.nombre {{ font-size: 16px; font-weight: 600; color: #501313; }}
-.stats {{ display: flex; gap: 10px; }}
-.stat {{ background: #fff; border: 0.5px solid #F09595; border-radius: 10px; padding: 10px 14px; text-align: center; flex: 1; min-width: 0; }}
-.stat.highlight {{ border-color: #E24B4A; }}
-.stat-label {{ font-size: 11px; color: #A32D2D; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }}
-.stat-val {{ font-size: 15px; font-weight: 600; color: #501313; margin-top: 3px; }}
-.stat.highlight .stat-val {{ color: #E24B4A; }}
-.divider {{ border-top: 0.5px solid #F09595; padding-top: 12px; }}
-.adj-label {{ font-size: 12px; color: #791F1F; margin-bottom: 10px; }}
-.stepper {{ display: flex; align-items: center; border: 1px solid #E24B4A; border-radius: 10px; overflow: hidden; width: fit-content; background: #fff; }}
-.step-btn {{ width: 40px; height: 40px; background: #FCEBEB; border: none; font-size: 20px; cursor: pointer; color: #A32D2D; }}
-.step-btn:first-child {{ border-right: 0.5px solid #F09595; }}
-.step-btn:last-child  {{ border-left:  0.5px solid #F09595; }}
-.step-num {{ width: 56px; text-align: center; font-size: 16px; font-weight: 600; color: #501313; user-select: none; }}
-.actions {{ border-top: 0.5px solid #F09595; padding-top: 12px; display: flex; gap: 8px; }}
-.btn {{ padding: 9px 12px; font-size: 13px; border-radius: 8px; cursor: pointer; font-weight: 500; flex: 1; }}
-.btn-cancelar {{ background: transparent; border: 0.5px solid #F09595; color: #791F1F; }}
-.btn-aplicar  {{ background: #fff; border: 1px solid #E24B4A; color: #A32D2D; font-weight: 600; flex: 1.5; }}
-.btn-eliminar {{ background: #E24B4A; border: none; color: #fff; font-weight: 600; flex: 1.5; }}
-.btn:hover {{ opacity: 0.85; }}
-.btn:active {{ transform: scale(0.97); }}
+*{{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',sans-serif;}}
+body{{background:transparent;display:flex;justify-content:center;padding:8px 0 4px;}}
+.card{{width:100%;max-width:560px;background:#FCEBEB;border:1.5px solid #E24B4A;
+       border-radius:14px;padding:20px 24px;display:flex;flex-direction:column;gap:14px;}}
+.cat{{font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;
+      letter-spacing:0.08em;margin-bottom:3px;}}
+.nombre{{font-size:16px;font-weight:600;color:#501313;}}
+.stats{{display:flex;gap:10px;}}
+.stat{{background:#fff;border:0.5px solid #F09595;border-radius:10px;
+       padding:10px 14px;text-align:center;flex:1;min-width:0;}}
+.stat.hi{{border-color:#E24B4A;}}
+.slabel{{font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;
+         letter-spacing:0.06em;}}
+.sval{{font-size:15px;font-weight:600;color:#501313;margin-top:3px;}}
+.stat.hi .sval{{color:#E24B4A;}}
+.div{{border-top:0.5px solid #F09595;padding-top:12px;}}
+.alabel{{font-size:12px;color:#791F1F;margin-bottom:10px;}}
+.stepper{{display:flex;align-items:center;border:1px solid #E24B4A;
+          border-radius:10px;overflow:hidden;width:fit-content;background:#fff;}}
+.sbtn{{width:40px;height:40px;background:#FCEBEB;border:none;font-size:20px;
+       cursor:pointer;color:#A32D2D;}}
+.sbtn:first-child{{border-right:0.5px solid #F09595;}}
+.sbtn:last-child{{border-left:0.5px solid #F09595;}}
+.snum{{width:56px;text-align:center;font-size:16px;font-weight:600;
+       color:#501313;user-select:none;}}
+.actions{{border-top:0.5px solid #F09595;padding-top:12px;display:flex;gap:8px;}}
+.btn{{padding:9px 12px;font-size:13px;border-radius:8px;cursor:pointer;
+      font-weight:500;flex:1;transition:opacity .15s;}}
+.btn:hover{{opacity:.82;}}
+.btn:active{{transform:scale(.97);}}
+.bc{{background:transparent;border:0.5px solid #F09595;color:#791F1F;}}
+.ba{{background:#fff;border:1px solid #E24B4A;color:#A32D2D;font-weight:600;flex:1.5;}}
+.be{{background:#E24B4A;border:none;color:#fff;font-weight:600;flex:1.5;}}
 </style></head><body>
 <div class='card'>
-  <div>
-    <div class='cat'>{_categoria}</div>
-    <div class='nombre'>{_nombre_item}</div>
-  </div>
+  <div><div class='cat'>{_categoria}</div><div class='nombre'>{_nombre_item}</div></div>
   <div class='stats'>
-    <div class='stat'><div class='stat-label'>P. unitario</div><div class='stat-val'>{_precio_fmt}</div></div>
-    <div class='stat'><div class='stat-label'>Cant. original</div><div class='stat-val'>{_cantidad_orig}</div></div>
-    <div class='stat highlight'><div class='stat-label'>Subtotal nuevo</div><div class='stat-val' id='sub'>{_subtotal_fmt}</div></div>
+    <div class='stat'><div class='slabel'>P. unitario</div><div class='sval'>{_precio_fmt}</div></div>
+    <div class='stat'><div class='slabel'>Cant. original</div><div class='sval'>{_cantidad_orig}</div></div>
+    <div class='stat hi'><div class='slabel'>Subtotal nuevo</div><div class='sval' id='sub'>{_subtotal_fmt}</div></div>
   </div>
-  <div class='divider'>
-    <div class='adj-label'>Ajustar cantidad:</div>
+  <div class='div'>
+    <div class='alabel'>Ajustar cantidad:</div>
     <div class='stepper'>
-      <button class='step-btn' onclick='dec()'>−</button>
-      <span class='step-num' id='qty'>{_nueva_cant}</span>
-      <button class='step-btn' onclick='inc()'>+</button>
+      <button class='sbtn' onclick='dec()'>−</button>
+      <span class='snum' id='qty'>{_nueva_cant}</span>
+      <button class='sbtn' onclick='inc()'>+</button>
     </div>
   </div>
   <div class='actions'>
-    <button class='btn btn-cancelar' onclick='accion("cancelar")'>✖ Cancelar</button>
-    <button class='btn btn-aplicar'  onclick='accion("aplicar")'>✅ Aplicar cambio</button>
-    <button class='btn btn-eliminar' onclick='accion("eliminar")'>🗑 Eliminar todo</button>
+    <button class='btn bc' onclick='send("cancelar")'>✖ Cancelar</button>
+    <button class='btn ba' onclick='send("aplicar")'>✅ Aplicar cambio</button>
+    <button class='btn be' onclick='send("eliminar")'>🗑 Eliminar todo</button>
   </div>
 </div>
 <script>
-var qty = {_nueva_cant};
-var precio = {_precio};
-function dec(){{ if(qty>1){{ qty--; update(); }} }}
-function inc(){{ qty++; update(); }}
-function update(){{
-  document.getElementById('qty').textContent = qty;
-  var sub = qty * precio;
-  document.getElementById('sub').textContent = '$' + Math.round(sub).toLocaleString('es-CL');
+var qty={_nueva_cant}, precio={_precio}, nombre='{_nombre_esc}';
+function dec(){{if(qty>1){{qty--;upd();}}}}
+function inc(){{qty++;upd();}}
+function upd(){{
+  document.getElementById('qty').textContent=qty;
+  document.getElementById('sub').textContent='$'+Math.round(qty*precio).toLocaleString('es-CL');
 }}
-function accion(tipo){{
-  var params = '?_popup_accion=' + tipo;
-  if(tipo === 'aplicar') params += '&_popup_qty=' + qty;
-  window.parent.location.href = window.parent.location.pathname + params;
+function send(accion){{
+  window.parent.postMessage({{type:'streamlit:setComponentValue',
+    value:{{accion:accion,qty:qty,item:nombre}}}}, '*');
 }}
 </script></body></html>
-""", height=340, scrolling=False)
+""", height=340, scrolling=False, key=f'popup_editar_{st.session_state.counter}')
         st.markdown("---")
         # Solo botón Limpiar
         col_btn_limpiar, _, _, _ = st.columns(4)
         with col_btn_limpiar:
             if not es_solo_lectura:
                 if st.button("🧹 Limpiar", use_container_width=True):
+                    st.session_state.pop('_item_pendiente_eliminar', None)
                     limpiar_todo()
                     st.rerun()
             else:
