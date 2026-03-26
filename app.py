@@ -5561,77 +5561,77 @@ with tab1:
                         }
                         st.rerun()
 
-        # ── Dialog de confirmacion de eliminacion de item ──
+        # Popup inline de confirmacion de eliminacion de item
         if st.session_state.get('_item_pendiente_eliminar'):
-            _pend = st.session_state['_item_pendiente_eliminar']
+            _pend      = st.session_state['_item_pendiente_eliminar']
             _item_data = _pend['item']
+            _nombre_item = _item_data.get('Item', '—')
+            _cantidad    = _item_data.get('Cantidad', 0)
+            _precio      = _item_data.get('Precio Unitario', 0)
+            _subtotal    = _item_data.get('Subtotal', 0)
+            _categoria   = _item_data.get('Categoria', '—')
 
-            @st.dialog("🗑️ Confirmar eliminación")
-            def _dialog_confirmar_eliminar():
-                _nombre_item = _item_data.get('Item', '—')
-                _cantidad    = _item_data.get('Cantidad', 0)
-                _precio      = _item_data.get('Precio Unitario', 0)
-                _subtotal    = _item_data.get('Subtotal', 0)
-                _categoria   = _item_data.get('Categoria', '—')
-
-                st.markdown(f"""
-                <div style="
-                    background: linear-gradient(135deg, #fff5f5, #fff);
-                    border: 1.5px solid #fecaca;
-                    border-radius: 14px;
-                    padding: 18px 20px;
-                    margin-bottom: 16px;
-                ">
-                    <div style="font-size:0.7rem;font-weight:800;color:#94a3b8;
-                                text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">
-                        {_categoria}
+            st.markdown(f"""
+            <div style="
+                background: linear-gradient(135deg, #fff5f5, #fff);
+                border: 2px solid #fecaca;
+                border-radius: 16px;
+                padding: 20px 24px;
+                margin: 8px 0 16px 0;
+                box-shadow: 0 8px 32px rgba(239,68,68,0.15);
+            ">
+                <div style="font-size:0.78rem;font-weight:800;color:#ef4444;
+                            text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">
+                    🗑️ Confirmar eliminación
+                </div>
+                <div style="font-size:0.68rem;font-weight:700;color:#94a3b8;
+                            text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">
+                    {_categoria}
+                </div>
+                <div style="font-size:1.1rem;font-weight:800;color:#1e2447;margin-bottom:14px;">
+                    {_nombre_item}
+                </div>
+                <div style="display:flex;gap:24px;margin-bottom:14px;">
+                    <div style="text-align:center;background:#f8fafc;border-radius:10px;padding:8px 16px;">
+                        <div style="font-size:0.65rem;color:#94a3b8;font-weight:700;
+                                    text-transform:uppercase;letter-spacing:0.06em;">Cantidad</div>
+                        <div style="font-size:1.2rem;font-weight:900;color:#3b82f6;">{int(_cantidad)}</div>
                     </div>
-                    <div style="font-size:1.1rem;font-weight:800;color:#1e2447;margin-bottom:12px;">
-                        {_nombre_item}
+                    <div style="text-align:center;background:#f8fafc;border-radius:10px;padding:8px 16px;">
+                        <div style="font-size:0.65rem;color:#94a3b8;font-weight:700;
+                                    text-transform:uppercase;letter-spacing:0.06em;">P. Unitario</div>
+                        <div style="font-size:1.2rem;font-weight:900;color:#3b82f6;">{formato_clp(_precio)}</div>
                     </div>
-                    <div style="display:flex;gap:20px;">
-                        <div style="text-align:center;">
-                            <div style="font-size:0.68rem;color:#94a3b8;font-weight:700;
-                                        text-transform:uppercase;letter-spacing:0.06em;">Cantidad</div>
-                            <div style="font-size:1.2rem;font-weight:900;color:#3b82f6;">{int(_cantidad)}</div>
-                        </div>
-                        <div style="text-align:center;">
-                            <div style="font-size:0.68rem;color:#94a3b8;font-weight:700;
-                                        text-transform:uppercase;letter-spacing:0.06em;">P. Unitario</div>
-                            <div style="font-size:1.2rem;font-weight:900;color:#3b82f6;">{formato_clp(_precio)}</div>
-                        </div>
-                        <div style="text-align:center;">
-                            <div style="font-size:0.68rem;color:#94a3b8;font-weight:700;
-                                        text-transform:uppercase;letter-spacing:0.06em;">Subtotal</div>
-                            <div style="font-size:1.2rem;font-weight:900;color:#ef4444;">{formato_clp(_subtotal)}</div>
-                        </div>
+                    <div style="text-align:center;background:#fff0f0;border-radius:10px;padding:8px 16px;">
+                        <div style="font-size:0.65rem;color:#94a3b8;font-weight:700;
+                                    text-transform:uppercase;letter-spacing:0.06em;">Subtotal</div>
+                        <div style="font-size:1.2rem;font-weight:900;color:#ef4444;">{formato_clp(_subtotal)}</div>
                     </div>
                 </div>
-                <div style="font-size:0.88rem;color:#64748b;text-align:center;">
+                <div style="font-size:0.85rem;color:#64748b;">
                     ¿Estás seguro que deseas eliminar este ítem del presupuesto?
                 </div>
-                """, unsafe_allow_html=True)
+            </div>
+            """, unsafe_allow_html=True)
 
-                st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-                _col_si, _col_no = st.columns(2)
-                with _col_si:
-                    if st.button("🗑️ Sí, eliminar", use_container_width=True,
-                                 type="primary", key="dialog_eliminar_si"):
-                        _item_a_eliminar = _pend['item']
-                        st.session_state.carrito = [
-                            i for i in st.session_state.carrito
-                            if i is not _item_a_eliminar
-                        ]
-                        st.session_state.pop('_item_pendiente_eliminar', None)
-                        st.rerun()
-                with _col_no:
-                    if st.button("✖️ Cancelar", use_container_width=True,
-                                 key="dialog_eliminar_no"):
-                        st.session_state.pop('_item_pendiente_eliminar', None)
-                        st.session_state.counter += 1
-                        st.rerun()
-
-            _dialog_confirmar_eliminar()
+            _pbtn1, _pbtn2, _pbtn3 = st.columns([1, 1, 3])
+            with _pbtn1:
+                if st.button("🗑️ Sí, eliminar", use_container_width=True,
+                             type="primary", key="popup_eliminar_si"):
+                    _item_a_eliminar = _pend['item']
+                    st.session_state.carrito = [
+                        i for i in st.session_state.carrito
+                        if i is not _item_a_eliminar
+                    ]
+                    st.session_state.pop('_item_pendiente_eliminar', None)
+                    st.session_state.counter += 1
+                    st.rerun()
+            with _pbtn2:
+                if st.button("✖️ Cancelar", use_container_width=True,
+                             key="popup_eliminar_no"):
+                    st.session_state.pop('_item_pendiente_eliminar', None)
+                    st.session_state.counter += 1
+                    st.rerun()
         st.markdown("---")
         # Solo botón Limpiar
         col_btn_limpiar, _, _, _ = st.columns(4)
