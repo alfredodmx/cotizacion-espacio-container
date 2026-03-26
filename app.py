@@ -5682,7 +5682,7 @@ function accion(tipo){{
   window.parent.location.href = window.parent.location.pathname + params;
 }}
 </script></body></html>
-""", height=280, scrolling=False)
+""", height=320, scrolling=False)
         st.markdown("---")
         # Solo botón Limpiar
         col_btn_limpiar, _, _, _ = st.columns(4)
