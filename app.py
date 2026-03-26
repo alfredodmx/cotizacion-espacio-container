@@ -5529,7 +5529,7 @@ with tab1:
             st.caption("🔒 Vista de solo lectura")
         else:
             carrito_df_edit = carrito_df_con_margen.copy()
-            carrito_df_edit["❌"] = False
+            carrito_df_edit["✏️"] = False
             carrito_df_edit["Precio Unitario"] = carrito_df_edit["Precio Unitario"].apply(formato_clp)
             carrito_df_edit["Subtotal"] = carrito_df_edit["Subtotal"].apply(formato_clp)
             if buscar_tabla:
@@ -5542,14 +5542,13 @@ with tab1:
                 carrito_df_edit_filtrado = carrito_df_edit
             edited_df = st.data_editor(carrito_df_edit_filtrado, use_container_width=True, hide_index=True, height=altura_tabla,
                 key=f"data_editor_carrito_{st.session_state.counter}",
-                column_config={"❌": st.column_config.CheckboxColumn("❌"), "Categoria": st.column_config.TextColumn("Categoría"),
+                column_config={"✏️": st.column_config.CheckboxColumn("✏️"), "Categoria": st.column_config.TextColumn("Categoría"),
                                "Item": st.column_config.TextColumn("Item"), "Cantidad": st.column_config.NumberColumn("Cant."),
                                "Precio Unitario": st.column_config.TextColumn("P. Unitario"), "Subtotal": st.column_config.TextColumn("Subtotal")})
-            filas_eliminar = edited_df[edited_df["❌"] == True].index.tolist()
-            if filas_eliminar:
+            filas_editar = edited_df[edited_df["✏️"] == True].index.tolist()
+            if filas_editar:
                 if not st.session_state.get('_item_pendiente_eliminar'):
-                    # Buscar el item por nombre para evitar errores de indice con filtros activos
-                    _fila_marcada = edited_df[edited_df["❌"] == True].iloc[0]
+                    _fila_marcada = edited_df[edited_df["✏️"] == True].iloc[0]
                     _nombre_buscar = _fila_marcada["Item"]
                     item_pendiente = next(
                         (item for item in st.session_state.carrito
@@ -5558,78 +5557,101 @@ with tab1:
                     )
                     if item_pendiente:
                         st.session_state['_item_pendiente_eliminar'] = {
-                            'item': item_pendiente
+                            'item': item_pendiente,
+                            'nueva_cantidad': int(item_pendiente.get('Cantidad', 1))
                         }
                         st.rerun()
 
-        # Popup inline de confirmacion de eliminacion de item
+        # ── Panel inline editar cantidad / eliminar item ──
         if st.session_state.get('_item_pendiente_eliminar'):
-            _pend      = st.session_state['_item_pendiente_eliminar']
-            _item_data = _pend['item']
-            _nombre_item = _item_data.get('Item', '—')
-            _cantidad    = _item_data.get('Cantidad', 0)
-            _precio      = _item_data.get('Precio Unitario', 0)
-            _subtotal    = _item_data.get('Subtotal', 0)
-            _categoria   = _item_data.get('Categoria', '—')
+            _pend         = st.session_state['_item_pendiente_eliminar']
+            _item_data    = _pend['item']
+            _nombre_item  = _item_data.get('Item', '—')
+            _cantidad_orig = int(_item_data.get('Cantidad', 1))
+            _precio        = float(_item_data.get('Precio Unitario', 0))
+            _categoria     = _item_data.get('Categoria', '—')
+            _nueva_cant    = int(_pend.get('nueva_cantidad', _cantidad_orig))
+            _subtotal_nuevo = _nueva_cant * _precio
 
             st.markdown(f"""
-            <div style="
-                background: linear-gradient(135deg, #fff5f5, #fff);
-                border: 2px solid #fecaca;
-                border-radius: 16px;
-                padding: 20px 24px;
-                margin: 8px 0 16px 0;
-                box-shadow: 0 8px 32px rgba(239,68,68,0.15);
-            ">
-                <div style="font-size:0.78rem;font-weight:800;color:#ef4444;
-                            text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">
-                    🗑️ Confirmar eliminación
-                </div>
-                <div style="font-size:0.68rem;font-weight:700;color:#94a3b8;
-                            text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">
+            <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:14px;
+                        padding:18px 22px;margin:8px 0 14px 0;">
+                <div style="font-size:0.65rem;font-weight:700;color:#94a3b8;
+                            text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px;">
                     {_categoria}
                 </div>
-                <div style="font-size:1.1rem;font-weight:800;color:#1e2447;margin-bottom:14px;">
+                <div style="font-size:1.05rem;font-weight:700;color:#1e2447;margin-bottom:14px;">
                     {_nombre_item}
                 </div>
-                <div style="display:flex;gap:24px;margin-bottom:14px;">
-                    <div style="text-align:center;background:#f8fafc;border-radius:10px;padding:8px 16px;">
-                        <div style="font-size:0.65rem;color:#94a3b8;font-weight:700;
-                                    text-transform:uppercase;letter-spacing:0.06em;">Cantidad</div>
-                        <div style="font-size:1.2rem;font-weight:900;color:#3b82f6;">{int(_cantidad)}</div>
+                <div style="display:flex;gap:12px;margin-bottom:16px;">
+                    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;
+                                padding:10px 16px;text-align:center;flex:1;">
+                        <div style="font-size:0.62rem;color:#94a3b8;font-weight:700;
+                                    text-transform:uppercase;letter-spacing:0.06em;">P. unitario</div>
+                        <div style="font-size:1rem;font-weight:700;color:#1e2447;margin-top:2px;">
+                            {formato_clp(_precio)}
+                        </div>
                     </div>
-                    <div style="text-align:center;background:#f8fafc;border-radius:10px;padding:8px 16px;">
-                        <div style="font-size:0.65rem;color:#94a3b8;font-weight:700;
-                                    text-transform:uppercase;letter-spacing:0.06em;">P. Unitario</div>
-                        <div style="font-size:1.2rem;font-weight:900;color:#3b82f6;">{formato_clp(_precio)}</div>
+                    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;
+                                padding:10px 16px;text-align:center;flex:1;">
+                        <div style="font-size:0.62rem;color:#94a3b8;font-weight:700;
+                                    text-transform:uppercase;letter-spacing:0.06em;">Cant. original</div>
+                        <div style="font-size:1rem;font-weight:700;color:#64748b;margin-top:2px;">
+                            {_cantidad_orig}
+                        </div>
                     </div>
-                    <div style="text-align:center;background:#fff0f0;border-radius:10px;padding:8px 16px;">
-                        <div style="font-size:0.65rem;color:#94a3b8;font-weight:700;
-                                    text-transform:uppercase;letter-spacing:0.06em;">Subtotal</div>
-                        <div style="font-size:1.2rem;font-weight:900;color:#ef4444;">{formato_clp(_subtotal)}</div>
+                    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;
+                                padding:10px 16px;text-align:center;flex:1;">
+                        <div style="font-size:0.62rem;color:#3b82f6;font-weight:700;
+                                    text-transform:uppercase;letter-spacing:0.06em;">Subtotal nuevo</div>
+                        <div style="font-size:1rem;font-weight:700;color:#2563eb;margin-top:2px;">
+                            {formato_clp(_subtotal_nuevo)}
+                        </div>
                     </div>
                 </div>
-                <div style="font-size:0.85rem;color:#64748b;">
-                    ¿Estás seguro que deseas eliminar este ítem del presupuesto?
+                <div style="font-size:0.82rem;color:#64748b;margin-bottom:10px;">
+                    Ajustar cantidad:
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-            _pbtn1, _pbtn2, _pbtn3 = st.columns([1, 1, 3])
-            with _pbtn1:
-                if st.button("🗑️ Sí, eliminar", use_container_width=True,
-                             type="primary", key="popup_eliminar_si"):
-                    _item_a_eliminar = _pend['item']
-                    st.session_state.carrito = [
-                        i for i in st.session_state.carrito
-                        if i is not _item_a_eliminar
-                    ]
+            _qc1, _qc2, _qc3, _qc4 = st.columns([0.6, 0.6, 0.6, 5])
+            with _qc1:
+                if st.button("➖", use_container_width=True, key="qty_menos"):
+                    if _nueva_cant > 1:
+                        st.session_state['_item_pendiente_eliminar']['nueva_cantidad'] = _nueva_cant - 1
+                        st.rerun()
+            with _qc2:
+                st.markdown(f'<div style="text-align:center;padding:7px 0;font-size:1.15rem;'
+                            f'font-weight:700;color:#1e2447;">{_nueva_cant}</div>', unsafe_allow_html=True)
+            with _qc3:
+                if st.button("➕", use_container_width=True, key="qty_mas"):
+                    st.session_state['_item_pendiente_eliminar']['nueva_cantidad'] = _nueva_cant + 1
+                    st.rerun()
+
+            _ba1, _ba2, _ba3 = st.columns([1, 1.5, 1.5])
+            with _ba1:
+                if st.button("✖️ Cancelar", use_container_width=True, key="popup_cancelar"):
                     st.session_state.pop('_item_pendiente_eliminar', None)
                     st.session_state.counter += 1
                     st.rerun()
-            with _pbtn2:
-                if st.button("✖️ Cancelar", use_container_width=True,
-                             key="popup_eliminar_no"):
+            with _ba2:
+                if st.button("✅ Aplicar cambio", use_container_width=True,
+                             type="primary", key="popup_aplicar"):
+                    for item in st.session_state.carrito:
+                        if item['Item'] == _nombre_item:
+                            item['Cantidad'] = _nueva_cant
+                            item['Subtotal'] = _nueva_cant * float(item['Precio Unitario'])
+                            break
+                    st.session_state.pop('_item_pendiente_eliminar', None)
+                    st.session_state.counter += 1
+                    st.rerun()
+            with _ba3:
+                if st.button("🗑️ Eliminar todo", use_container_width=True, key="popup_eliminar_todo"):
+                    st.session_state.carrito = [
+                        i for i in st.session_state.carrito
+                        if i['Item'] != _nombre_item
+                    ]
                     st.session_state.pop('_item_pendiente_eliminar', None)
                     st.session_state.counter += 1
                     st.rerun()
