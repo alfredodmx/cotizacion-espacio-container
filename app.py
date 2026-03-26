@@ -5573,52 +5573,34 @@ with tab1:
             _nueva_cant    = int(_pend.get('nueva_cantidad', _cantidad_orig))
             _subtotal_nuevo = _nueva_cant * _precio
 
-            # CSS para simular diseño rojo en botones de Streamlit
+            # Estilos para botones con diseño rojo
             st.markdown("""
             <style>
-            div[data-testid="stHorizontalBlock"]:has(button[kind="secondary"][data-testid="baseButton-secondary"]) {
-                max-width: 560px !important; margin: 0 auto !important;
+            .st-key-qty_menos button, .st-key-qty_mas button {
+                background: #FCEBEB !important; border: 1px solid #E24B4A !important;
+                color: #A32D2D !important;
             }
             .st-key-popup_cancelar button {
-                background: transparent !important;
-                border: 0.5px solid #F09595 !important;
+                background: transparent !important; border: 1px solid #F09595 !important;
                 color: #791F1F !important;
             }
-            .st-key-popup_cancelar button:hover {
-                background: #fff0f0 !important;
-            }
             .st-key-popup_aplicar button {
-                background: #fff !important;
-                border: 1px solid #E24B4A !important;
-                color: #A32D2D !important;
-            }
-            .st-key-popup_aplicar button:hover {
-                background: #fff0f0 !important;
+                background: #fff !important; border: 1px solid #E24B4A !important;
+                color: #A32D2D !important; font-weight: 600 !important;
             }
             .st-key-popup_eliminar_todo button {
-                background: #E24B4A !important;
-                border: none !important;
-                color: #fff !important;
+                background: #E24B4A !important; border: none !important;
+                color: #fff !important; font-weight: 600 !important;
             }
-            .st-key-popup_eliminar_todo button:hover {
-                background: #C0392B !important;
-            }
-            .st-key-qty_menos button, .st-key-qty_mas button {
-                background: #FCEBEB !important;
-                border: 1px solid #E24B4A !important;
-                color: #A32D2D !important;
-                font-size: 1.2rem !important;
-            }
+            .st-key-popup_eliminar_todo button:hover { background: #C0392B !important; }
             </style>
             """, unsafe_allow_html=True)
 
-            # Contenedor con diseño rojo — info del item
-            _col_center, _ = st.columns([560, 1])
+            # Parte superior del contenedor rojo
             st.markdown(f"""
-            <div style="width:100%;max-width:560px;margin:0 auto;
-                        background:#FCEBEB;border:1.5px solid #E24B4A;
-                        border-radius:14px 14px 0 0;padding:20px 24px 16px;
-                        box-sizing:border-box;">
+            <div style="background:#FCEBEB;border:1.5px solid #E24B4A;
+                        border-radius:14px 14px 0 0;padding:20px 24px 4px;
+                        margin-bottom:0;">
                 <div style="font-size:11px;color:#A32D2D;font-weight:600;
                             text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px;">
                     {_categoria}
@@ -5652,12 +5634,13 @@ with tab1:
                         </div>
                     </div>
                 </div>
-                <div style="font-size:12px;color:#791F1F;margin-bottom:6px;">Ajustar cantidad:</div>
+                <div style="font-size:12px;color:#791F1F;padding-bottom:8px;">Ajustar cantidad:</div>
             </div>
             """, unsafe_allow_html=True)
 
-            # Botones — y + (centrados bajo el contenedor)
-            _sp1, _qc1, _qc2, _qc3, _sp2 = st.columns([2, 0.5, 0.5, 0.5, 8])
+            # Franja media — botones ➖ número ➕ dentro del contenedor
+            st.markdown('<div style="background:#FCEBEB;border-left:1.5px solid #E24B4A;border-right:1.5px solid #E24B4A;padding:4px 24px 8px;">', unsafe_allow_html=True)
+            _qc1, _qc2, _qc3, _qc4 = st.columns([0.5, 0.5, 0.5, 8])
             with _qc1:
                 if st.button("➖", use_container_width=True, key="qty_menos"):
                     if _nueva_cant > 1:
@@ -5666,7 +5649,7 @@ with tab1:
             with _qc2:
                 st.markdown(
                     f'<div style="text-align:center;padding:7px 0;font-size:1.1rem;'
-                    f'font-weight:700;color:#501313;background:#FCEBEB;'
+                    f'font-weight:700;color:#501313;background:#fff;'
                     f'border:1px solid #E24B4A;border-radius:8px;">'
                     f'{_nueva_cant}</div>',
                     unsafe_allow_html=True
@@ -5675,19 +5658,11 @@ with tab1:
                 if st.button("➕", use_container_width=True, key="qty_mas"):
                     st.session_state['_item_pendiente_eliminar']['nueva_cantidad'] = _nueva_cant + 1
                     st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
-            # Franja inferior del contenedor rojo con los botones de accion
-            st.markdown("""
-            <div style="width:100%;max-width:560px;margin:0 auto;
-                        background:#FCEBEB;border:1.5px solid #E24B4A;border-top:none;
-                        border-radius:0 0 14px 14px;padding:0 24px 16px;
-                        box-sizing:border-box;">
-                <div style="border-top:0.5px solid #F09595;padding-top:12px;"></div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            # Botones de accion centrados
-            _sp3, _ba1, _ba2, _ba3, _sp4 = st.columns([2, 1, 1.5, 1.5, 0.5])
+            # Franja inferior — botones de acción dentro del contenedor
+            st.markdown('<div style="background:#FCEBEB;border:1.5px solid #E24B4A;border-top:0.5px solid #F09595;border-radius:0 0 14px 14px;padding:12px 24px 16px;">', unsafe_allow_html=True)
+            _ba1, _ba2, _ba3 = st.columns([1, 1.5, 1.5])
             with _ba1:
                 if st.button("✖️ Cancelar", use_container_width=True, key="popup_cancelar"):
                     st.session_state.pop('_item_pendiente_eliminar', None)
@@ -5712,6 +5687,7 @@ with tab1:
                     st.session_state.pop('_item_pendiente_eliminar', None)
                     st.session_state.counter += 1
                     st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
         st.markdown("---")
         # Solo botón Limpiar
         col_btn_limpiar, _, _, _ = st.columns(4)
