@@ -5549,7 +5549,7 @@ with tab1:
             if filas_editar:
                 if not st.session_state.get('_item_pendiente_eliminar'):
                     # Buscar el item por nombre para evitar errores de indice con filtros activos
-                    _fila_marcada = edited_df[edited_df["❌"] == True].iloc[0]
+                    _fila_marcada = edited_df[edited_df["✏️"] == True].iloc[0]
                     _nombre_buscar = _fila_marcada["Item"]
                     item_pendiente = next(
                         (item for item in st.session_state.carrito
