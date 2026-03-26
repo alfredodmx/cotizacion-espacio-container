@@ -5541,6 +5541,7 @@ with tab1:
             else:
                 carrito_df_edit_filtrado = carrito_df_edit
             edited_df = st.data_editor(carrito_df_edit_filtrado, use_container_width=True, hide_index=True, height=altura_tabla,
+                key=f"data_editor_carrito_{st.session_state.counter}",
                 column_config={"❌": st.column_config.CheckboxColumn("❌"), "Categoria": st.column_config.TextColumn("Categoría"),
                                "Item": st.column_config.TextColumn("Item"), "Cantidad": st.column_config.NumberColumn("Cant."),
                                "Precio Unitario": st.column_config.TextColumn("P. Unitario"), "Subtotal": st.column_config.TextColumn("Subtotal")})
