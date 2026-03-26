@@ -5628,6 +5628,7 @@ with tab1:
                     if st.button("✖️ Cancelar", use_container_width=True,
                                  key="dialog_eliminar_no"):
                         st.session_state.pop('_item_pendiente_eliminar', None)
+                        st.session_state.counter += 1
                         st.rerun()
 
             _dialog_confirmar_eliminar()
