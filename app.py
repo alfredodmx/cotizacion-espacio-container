@@ -3351,6 +3351,34 @@ _js_global.html("""
     setTimeout(initTabArrows, 800);
     setTimeout(initTabArrows, 1800);
 
+    // Expandir dropdowns al contenido más largo
+    function expandSelectPopover() {
+        var keys = ['modelo_select','cat_manual','item_manual','cat_eliminar','modelo_origen','cat_agregar'];
+        keys.forEach(function(k) {
+            var sel = D.querySelector('.st-key-' + k);
+            if (!sel) return;
+            sel.addEventListener('click', function() {
+                setTimeout(function() {
+                    var popover = D.querySelector('[data-baseweb="popover"] [data-baseweb="menu"]');
+                    if (!popover) return;
+                    var items = popover.querySelectorAll('li');
+                    var maxW = 0;
+                    items.forEach(function(li) {
+                        li.style.whiteSpace = 'nowrap';
+                        li.style.overflow = 'visible';
+                        li.style.textOverflow = 'unset';
+                        if (li.scrollWidth > maxW) maxW = li.scrollWidth;
+                    });
+                    var wrap = popover.closest('[data-baseweb="popover"]');
+                    if (wrap && maxW > 0) {
+                        wrap.style.minWidth = Math.min(maxW + 32, 700) + 'px';
+                    }
+                }, 80);
+            });
+        });
+    }
+    setTimeout(expandSelectPopover, 1000);
+
     // Re-inicializar al cambiar de tab
     window.parent.addEventListener('click', function(e){
         if (e.target && e.target.getAttribute && e.target.getAttribute('data-baseweb') === 'tab') {
@@ -5322,31 +5350,7 @@ with tab1:
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown('''
-<style>
-/* Dropdowns tab Presupuesto — menú se expande al contenido más largo */
-[data-testid="stSelectbox"]:has([data-baseweb="select"] [id$="modelo_select"]),
-.st-key-modelo_select [data-baseweb="popover"],
-.st-key-cat_manual [data-baseweb="popover"],
-.st-key-cat_eliminar [data-baseweb="popover"],
-.st-key-modelo_origen [data-baseweb="popover"],
-.st-key-cat_agregar [data-baseweb="popover"] {
-    min-width: 100% !important;
-    width: max-content !important;
-    max-width: 600px !important;
-}
-/* Texto de las opciones sin cortar */
-.st-key-modelo_select [data-baseweb="menu"] li,
-.st-key-cat_manual [data-baseweb="menu"] li,
-.st-key-cat_eliminar [data-baseweb="menu"] li,
-.st-key-modelo_origen [data-baseweb="menu"] li,
-.st-key-cat_agregar [data-baseweb="menu"] li {
-    white-space: nowrap !important;
-    overflow: visible !important;
-    text-overflow: unset !important;
-}
-</style>
-''', unsafe_allow_html=True)
+    st.markdown('''''', unsafe_allow_html=True)
 
     fecha_inicio = st.session_state.fecha_inicio
     fecha_termino = st.session_state.fecha_termino
