@@ -5340,7 +5340,7 @@ with tab1:
             if (!ul) return;
             var items = ul.querySelectorAll('li');
             if (!items.length) return;
-            // Paso 1: forzar nowrap para medir ancho real
+            // Paso 1: forzar nowrap en los li para medir ancho real
             items.forEach(function(li) {
                 li.style.setProperty('white-space','nowrap','important');
                 li.style.setProperty('overflow','visible','important');
@@ -5351,13 +5351,16 @@ with tab1:
                     ch.style.setProperty('text-overflow','unset','important');
                 });
             });
-            // Paso 2: medir y expandir SOLO el popover (no el firstElementChild)
+            // Paso 2: expandir SOLO el ul y su padre inmediato — nunca el popover
             setTimeout(function(){
                 var sw = ul.scrollWidth;
                 if (sw < 100) return;
                 var fw = Math.min(sw + 48, 1100);
-                pop.style.setProperty('min-width', fw+'px','important');
-                pop.style.setProperty('width', fw+'px','important');
+                ul.style.setProperty('min-width', fw+'px','important');
+                if (ul.parentElement) {
+                    ul.parentElement.style.setProperty('min-width', fw+'px','important');
+                    ul.parentElement.style.setProperty('overflow', 'visible','important');
+                }
             }, 30);
         });
     }
