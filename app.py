@@ -5357,7 +5357,7 @@ with tab1:
         });
     }
 
-    function _expand(origW) {
+    function _expand() {
         var focusDivs = D.querySelectorAll('[data-no-focus-lock="true"]');
         if (!focusDivs.length) return;
         focusDivs.forEach(function(focusDiv) {
@@ -5380,8 +5380,9 @@ with tab1:
                 if (w > maxW) maxW = w;
             });
             if (maxW < 50) return;
-            origW = origW || 200;
-            var fw = Math.min(Math.max(maxW + 380, origW), 1200);
+            // Respetar el ancho original del dropdown como mínimo
+            var originalW = focusDiv.getBoundingClientRect().width || 200;
+            var fw = Math.min(Math.max(maxW + 380, originalW), 1200);
             var fwStr = fw + 'px';
 
             // Aplicar y usar MutationObserver para re-aplicar si Streamlit sobreescribe
@@ -5389,17 +5390,16 @@ with tab1:
 
             // Observar cambios en el style del focusDiv
             if (focusDiv._echObserver) focusDiv._echObserver.disconnect();
-            var _savedFw = fwStr;
             var obs = new MutationObserver(function(mutations) {
                 mutations.forEach(function(m) {
                     if (m.type === 'attributes' && m.attributeName === 'style') {
                         var cur = focusDiv.getAttribute('style') || '';
-                        if (cur.indexOf(_savedFw) === -1) {
-                            _applyWidth(focusDiv, _savedFw);
+                        if (cur.indexOf(fwStr) === -1) {
+                            _applyWidth(focusDiv, fwStr);
                         }
                     }
                     if (m.type === 'childList') {
-                        _applyWidth(focusDiv, _savedFw);
+                        _applyWidth(focusDiv, fwStr);
                     }
                 });
             });
@@ -5418,13 +5418,10 @@ with tab1:
         _keys.forEach(function(k) {
             var el = D.querySelector('.st-key-' + k);
             if (!el) return;
-            // Guardar ancho original ANTES de que se abra el popover
             el.addEventListener('mousedown', function() {
-                var inputEl = el.querySelector('[data-baseweb="select"] > div');
-                var origW = inputEl ? inputEl.getBoundingClientRect().width : 200;
-                setTimeout(function(){ _expand(origW); }, 100);
-                setTimeout(function(){ _expand(origW); }, 300);
-                setTimeout(function(){ _expand(origW); }, 600);
+                setTimeout(_expand, 100);
+                setTimeout(_expand, 300);
+                setTimeout(_expand, 600);
             }, true);
         });
     }
