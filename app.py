@@ -3129,8 +3129,12 @@ _js_global.html("""
         var usrRight = bar.querySelector('.usr-right');
         if (!usrRight) return;
 
-        // Evitar duplicar
-        if (bar.querySelector('._hdr_btns_moved')) return;
+        // Limpiar wrap anterior para usar referencias frescas en cada rerun
+        var oldWrap = bar.querySelector('._hdr_btns_moved');
+        if (oldWrap) oldWrap.remove();
+        // Restaurar visibilidad de botones originales por si quedaron ocultos
+        var allHidden = D.querySelectorAll('[style*="visibility:hidden"]');
+        for (var h=0; h<allHidden.length; h++) { allHidden[h].style.visibility = ''; }
 
         // Buscar botones por texto
         var allBtns = D.querySelectorAll('button');
@@ -3167,15 +3171,7 @@ _js_global.html("""
         clonePwd.addEventListener('click', function(e){
             e.preventDefault();
             e.stopPropagation();
-            var realBtn = D.querySelector('[data-testid="stBaseButton-secondary"] p');
-            var allBtns2 = D.querySelectorAll('button');
-            for (var j=0; j<allBtns2.length; j++) {
-                var t = (allBtns2[j].innerText||allBtns2[j].textContent||'').trim();
-                if (t === '🔑 Mi contraseña') {
-                    allBtns2[j].dispatchEvent(new MouseEvent('click', {bubbles:true, cancelable:true}));
-                    break;
-                }
-            }
+            btnPwd.click();
         });
 
         var cloneCerrar = D.createElement('button');
@@ -3185,21 +3181,14 @@ _js_global.html("""
         cloneCerrar.onmouseleave = function(){ this.style.background='rgba(239,68,68,0.25)'; };
         cloneCerrar.addEventListener('click', function(e){
             e.stopPropagation();
-            var allBtns2 = D.querySelectorAll('button');
-            for (var j=0; j<allBtns2.length; j++) {
-                var t = (allBtns2[j].innerText||allBtns2[j].textContent||'').trim();
-                if (t === '🚪 Cerrar sesión') {
-                    allBtns2[j].dispatchEvent(new MouseEvent('click', {bubbles:true, cancelable:true}));
-                    break;
-                }
-            }
+            btnCerrar.click();
         });
 
         wrap.appendChild(clonePwd);
         wrap.appendChild(cloneCerrar);
         usrRight.appendChild(wrap);
 
-        // Ocultar visualmente — visibility:hidden mantiene el elemento en el DOM activo
+        // Ocultar visualmente — siguen en el DOM para que Streamlit registre clicks
         var colPwd = btnPwd.closest('[data-testid="stPopover"]') || btnPwd.closest('[data-testid="stButton"]');
         var colCerrar = btnCerrar.closest('[data-testid="stButton"]');
         if (colPwd) colPwd.parentElement.style.visibility = 'hidden';
