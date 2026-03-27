@@ -5779,28 +5779,29 @@ with tab1:
             ''', unsafe_allow_html=True)
 
             with st.container(border=True, key=_container_key):
-                st.markdown(f'''
-                <div style="margin-bottom:12px;">
-                    <div style="font-size:11px;color:#A32D2D;font-weight:600;
-                                text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;">{_categoria}</div>
-                    <div style="font-size:17px;font-weight:700;color:#501313;margin-bottom:14px;">{_nombre_item}</div>
-
-                    <div style="display:flex;gap:12px;margin-bottom:4px;">
-                        <div style="background:#fff;border:.5px solid #F09595;border-radius:10px;padding:10px 14px;text-align:center;flex:1;">
-                            <div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">P. unitario</div>
-                            <div style="font-size:15px;font-weight:700;color:#501313;margin-top:3px;">{formato_clp(_precio)}</div>
-                        </div>
-                        <div style="background:#fff;border:.5px solid #F09595;border-radius:10px;padding:10px 14px;text-align:center;flex:1;">
-                            <div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Cant. original</div>
-                            <div style="font-size:15px;font-weight:700;color:#791F1F;margin-top:3px;">{_cantidad_orig}</div>
-                        </div>
-                        <div style="background:#fff;border:.5px solid #E24B4A;border-radius:10px;padding:10px 14px;text-align:center;flex:1;">
-                            <div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Subtotal nuevo</div>
-                            <div style="font-size:15px;font-weight:700;color:#E24B4A;margin-top:3px;">{formato_clp(_nueva_cant * _precio)}</div>
-                        </div>
-                    </div>
-                </div>
-                ''', unsafe_allow_html=True)
+                _cat_esc    = str(_categoria).replace('<','&lt;').replace('>','&gt;')
+                _nom_esc    = str(_nombre_item).replace('<','&lt;').replace('>','&gt;')
+                _precio_fmt = formato_clp(_precio)
+                _sub_fmt    = formato_clp(_nueva_cant * _precio)
+                st.markdown(
+                    f'<div style="margin-bottom:12px;">'
+                    f'<div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;">{_cat_esc}</div>'
+                    f'<div style="font-size:17px;font-weight:700;color:#501313;margin-bottom:14px;">{_nom_esc}</div>'
+                    f'<div style="display:flex;gap:12px;margin-bottom:4px;">'
+                    f'<div style="background:#fff;border:.5px solid #F09595;border-radius:10px;padding:10px 14px;text-align:center;flex:1;">'
+                    f'<div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">P. unitario</div>'
+                    f'<div style="font-size:15px;font-weight:700;color:#501313;margin-top:3px;">{_precio_fmt}</div>'
+                    f'</div>'
+                    f'<div style="background:#fff;border:.5px solid #F09595;border-radius:10px;padding:10px 14px;text-align:center;flex:1;">'
+                    f'<div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Cant. original</div>'
+                    f'<div style="font-size:15px;font-weight:700;color:#791F1F;margin-top:3px;">{_cantidad_orig}</div>'
+                    f'</div>'
+                    f'<div style="background:#fff;border:.5px solid #E24B4A;border-radius:10px;padding:10px 14px;text-align:center;flex:1;">'
+                    f'<div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Subtotal nuevo</div>'
+                    f'<div style="font-size:15px;font-weight:700;color:#E24B4A;margin-top:3px;">{_sub_fmt}</div>'
+                    f'</div></div></div>',
+                    unsafe_allow_html=True
+                )
 
                 if st.button("📋 Copiar nombre", key=f"btn_copy_{st.session_state.counter}", help="Copiar nombre del producto"):
                     st.session_state['_copiar_nombre_producto'] = _nombre_item
