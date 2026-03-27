@@ -3351,6 +3351,22 @@ _js_global.html("""
     setTimeout(initTabArrows, 800);
     setTimeout(initTabArrows, 1800);
 
+    // CSS global para expandir popovers de selectbox al contenido
+    (function(){
+        var styleId = '_select_expand_css';
+        if (D.getElementById(styleId)) return;
+        var style = D.createElement('style');
+        style.id = styleId;
+        style.textContent = [
+            '[data-baseweb="popover"] { width: auto !important; min-width: 0 !important; }',
+            '[data-baseweb="popover"] > div { width: auto !important; min-width: 0 !important; }',
+            '[data-baseweb="popover"] ul { width: auto !important; }',
+            '[data-baseweb="popover"] li { white-space: nowrap !important; overflow: visible !important; text-overflow: unset !important; min-width: max-content !important; }',
+            '[data-baseweb="popover"] li > div { white-space: nowrap !important; overflow: visible !important; text-overflow: unset !important; min-width: max-content !important; }'
+        ].join(' ');
+        D.head.appendChild(style);
+    })();
+
 
 
     // Re-inicializar al cambiar de tab
@@ -5329,49 +5345,6 @@ with tab1:
     fecha_inicio = st.session_state.fecha_inicio
     fecha_termino = st.session_state.fecha_termino
     dias_validez = (fecha_termino - fecha_inicio).days
-
-    # JS para expandir popovers de selectbox al ancho del contenido
-    import streamlit.components.v1 as _sel_comp
-    _sel_comp.html("""<script>
-(function(){
-    var D = window.parent.document;
-    var _keys = ['modelo_select','cat_manual','item_manual','cat_eliminar','modelo_origen','cat_agregar'];
-
-    function _expandPopover() {
-        var popovers = D.querySelectorAll('[data-baseweb="popover"]');
-        popovers.forEach(function(popover) {
-            var ul = popover.querySelector('ul');
-            if (!ul) return;
-            // Forzar nowrap en todos los items
-            ul.querySelectorAll('li, li *').forEach(function(el) {
-                el.style.setProperty('white-space', 'nowrap', 'important');
-                el.style.setProperty('overflow', 'visible', 'important');
-                el.style.setProperty('text-overflow', 'unset', 'important');
-            });
-            // Forzar ancho al scrollWidth real del ul
-            var scrollW = ul.scrollWidth;
-            var finalW = Math.min(Math.max(scrollW + 20, 200), 900);
-            popover.style.setProperty('min-width', finalW + 'px', 'important');
-            var inner = popover.firstElementChild;
-            if (inner) inner.style.setProperty('min-width', finalW + 'px', 'important');
-        });
-    }
-
-    function _init() {
-        _keys.forEach(function(k) {
-            var el = D.querySelector('.st-key-' + k);
-            if (!el) return;
-            el.addEventListener('mousedown', function() {
-                setTimeout(_expandPopover, 80);
-                setTimeout(_expandPopover, 200);
-                setTimeout(_expandPopover, 400);
-            }, true);
-        });
-    }
-    setTimeout(_init, 800);
-    setTimeout(_init, 2000);
-})();
-</script>""", height=0)
 
     es_solo_lectura = bool(
         st.session_state.cotizacion_cargada and
