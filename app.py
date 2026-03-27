@@ -5783,7 +5783,7 @@ with tab1:
                 <div style="margin-bottom:12px;">
                     <div style="font-size:11px;color:#A32D2D;font-weight:600;
                                 text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;">{_categoria}</div>
-                    <div style="font-size:17px;font-weight:700;color:#501313;margin-bottom:14px;">{_nombre_item}</div>
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;"><span style="font-size:17px;font-weight:700;color:#501313;">{_nombre_item}</span></div>
                     <div style="display:flex;gap:12px;margin-bottom:4px;">
                         <div style="background:#fff;border:.5px solid #F09595;border-radius:10px;padding:10px 14px;text-align:center;flex:1;">
                             <div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">P. unitario</div>
@@ -5801,12 +5801,21 @@ with tab1:
                 </div>
                 ''', unsafe_allow_html=True)
 
-                # Botón copiar nombre — usa el mismo mecanismo del header
-                _cc1, _cc2 = st.columns([8, 1])
-                with _cc2:
-                    if st.button("📋", key=f"btn_copy_{st.session_state.counter}", help=f"Copiar: {_nombre_item}"):
-                        st.session_state['_copiar_nombre_producto'] = _nombre_item
-                        st.rerun()
+                # Botón 📋 inline con el nombre
+                st.markdown(f"""
+                <style>
+                .st-key-btn_copy_{st.session_state.counter} button {{
+                    position:relative;margin-top:-52px;float:right;
+                    background:transparent!important;border:none!important;
+                    color:#A32D2D!important;font-size:1rem!important;
+                    padding:0!important;min-height:0!important;height:auto!important;
+                    box-shadow:none!important;cursor:pointer!important;
+                }}
+                </style>
+                """, unsafe_allow_html=True)
+                if st.button("📋", key=f"btn_copy_{st.session_state.counter}", help=f"Copiar nombre"):
+                    st.session_state['_copiar_nombre_producto'] = _nombre_item
+                    st.rerun()
 
                 _cant_input = st.number_input(
                     "Nueva cantidad",
