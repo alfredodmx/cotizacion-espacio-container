@@ -3351,20 +3351,48 @@ _js_global.html("""
     setTimeout(initTabArrows, 800);
     setTimeout(initTabArrows, 1800);
 
-    // CSS global para expandir popovers de selectbox al contenido
+    // Expandir popover de selectbox al ancho del texto mas largo
     (function(){
-        var styleId = '_select_expand_css';
-        if (D.getElementById(styleId)) return;
-        var style = D.createElement('style');
-        style.id = styleId;
-        style.textContent = [
-            '[data-baseweb="popover"] { width: auto !important; min-width: 0 !important; }',
-            '[data-baseweb="popover"] > div { width: auto !important; min-width: 0 !important; }',
-            '[data-baseweb="popover"] ul { width: auto !important; }',
-            '[data-baseweb="popover"] li { white-space: nowrap !important; overflow: visible !important; text-overflow: unset !important; min-width: max-content !important; }',
-            '[data-baseweb="popover"] li > div { white-space: nowrap !important; overflow: visible !important; text-overflow: unset !important; min-width: max-content !important; }'
-        ].join(' ');
-        D.head.appendChild(style);
+        var _keys = ['modelo_select','cat_manual','item_manual','cat_eliminar','modelo_origen','cat_agregar'];
+        function _expand() {
+            var popovers = D.querySelectorAll('[data-baseweb="popover"]');
+            popovers.forEach(function(pop) {
+                var ul = pop.querySelector('ul');
+                if (!ul) return;
+                var lis = ul.querySelectorAll('li');
+                if (!lis.length) return;
+                // Paso 1: forzar nowrap en todos los li y sus hijos
+                lis.forEach(function(li) {
+                    li.style.cssText += ';white-space:nowrap!important;overflow:visible!important;text-overflow:unset!important;';
+                    li.querySelectorAll('*').forEach(function(ch) {
+                        ch.style.cssText += ';white-space:nowrap!important;overflow:visible!important;text-overflow:unset!important;';
+                    });
+                });
+                // Paso 2: ahora medir scrollWidth real
+                setTimeout(function() {
+                    var sw = ul.scrollWidth;
+                    var fw = Math.min(Math.max(sw + 32, 220), 1000);
+                    pop.style.setProperty('min-width', fw + 'px', 'important');
+                    pop.style.setProperty('width', fw + 'px', 'important');
+                    if (pop.firstElementChild) {
+                        pop.firstElementChild.style.setProperty('min-width', fw + 'px', 'important');
+                        pop.firstElementChild.style.setProperty('width', fw + 'px', 'important');
+                    }
+                }, 50);
+            });
+        }
+        function _init() {
+            _keys.forEach(function(k) {
+                var el = D.querySelector('.st-key-' + k);
+                if (!el) return;
+                el.addEventListener('mousedown', function() {
+                    setTimeout(_expand, 120);
+                    setTimeout(_expand, 350);
+                }, true);
+            });
+        }
+        setTimeout(_init, 900);
+        setTimeout(_init, 2200);
     })();
 
 
