@@ -5963,7 +5963,7 @@ with tab1:
             with col_total_card:
                     st.markdown(f'''
                     <div class="metric-card-special metric-card-total" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
-                        <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
+                        <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;font-family:Montserrat,sans-serif;">
                             <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Costo base:</span><span>{formato_clp(subtotal_base)}</span></div>
                             <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>+ Margen {st.session_state.margen}%:</span><span>{formato_clp(margen_valor)}</span></div>
                             <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>= Subtotal c/margen:</span><span>{formato_clp(subtotal_general)}</span></div>
@@ -5976,7 +5976,7 @@ with tab1:
             with col_comisiones_card:
                     st.markdown(f'''
                     <div class="metric-card-special metric-card-comisiones" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
-                        <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
+                        <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;font-family:Montserrat,sans-serif;">
                             <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Vendedor 2.5%:</span><span>{formato_clp(comision_vendedor)}</span></div>
                             <div style="display:flex;justify-content:space-between;"><span>Supervisor 0.8%:</span><span>{formato_clp(comision_supervisor)}</span></div>
                         </div>
@@ -5987,7 +5987,7 @@ with tab1:
             with col_utilidad_card:
                     st.markdown(f'''
                     <div class="metric-card-special metric-card-utilidad" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
-                        <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
+                        <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;font-family:Montserrat,sans-serif;">
                             <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Margen bruto:</span><span>{formato_clp(margen_valor)}</span></div>
                             <div style="display:flex;justify-content:space-between;"><span>- Comisiones:</span><span>{formato_clp(total_comisiones)}</span></div>
                         </div>
@@ -6001,7 +6001,7 @@ with tab1:
             with col_t2:
                 st.markdown(f'''
                 <div class="metric-card-special metric-card-total" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
-                    <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
+                    <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;font-family:Montserrat,sans-serif;">
                         <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Costo base:</span><span>{formato_clp(subtotal_base)}</span></div>
                         <div style="display:flex;justify-content:space-between;"><span>+ IVA 19%:</span><span>{formato_clp(iva)}</span></div>
                     </div>
