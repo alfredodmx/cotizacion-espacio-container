@@ -3282,8 +3282,8 @@ _js_global.html("""
         var div = D.createElement('div');
         div.id = '_hdr_total_iva';
         div.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;';
-        div.innerHTML = '<div style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:2px;">Total + IVA</div><div style="font-size:1.25rem;font-weight:900;color:#fff;letter-spacing:-0.02em;font-family:Montserrat,sans-serif;line-height:1;">' + totalFmt + '</div>';
-        bar.style.position = 'relative';
+        div.innerHTML = '<div style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:2px;">Total + IVA</div>'
+            + '<div style="font-size:1.25rem;font-weight:900;color:#fff;letter-spacing:-0.02em;font-family:Montserrat,sans-serif;line-height:1;">' + totalFmt + '</div>';
         bar.appendChild(div);
     }
     setTimeout(injectTotal, 700);
