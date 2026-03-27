@@ -5545,8 +5545,13 @@ with tab1:
                 column_config={"✏️": st.column_config.CheckboxColumn("✏️"), "Categoria": st.column_config.TextColumn("Categoría"),
                                "Item": st.column_config.TextColumn("Item"), "Cantidad": st.column_config.NumberColumn("Cant."),
                                "Precio Unitario": st.column_config.TextColumn("P. Unitario"), "Subtotal": st.column_config.TextColumn("Subtotal")})
-            filas_editar = edited_df[edited_df["✏️"] == True].index.tolist()
-            if filas_editar:
+            filas_marcadas = edited_df[edited_df["✏️"] == True].index.tolist()
+            # Si hay popup abierto y el usuario hizo uncheck → cancelar (igual que botón Cancelar)
+            if st.session_state.get('_item_pendiente_eliminar') and not filas_marcadas:
+                st.session_state.pop('_item_pendiente_eliminar', None)
+                st.session_state.counter += 1
+                st.rerun()
+            if filas_marcadas:
                 if not st.session_state.get('_item_pendiente_eliminar'):
                     _fila_marcada = edited_df[edited_df["✏️"] == True].iloc[0]
                     _nombre_buscar = _fila_marcada["Item"]
@@ -5576,51 +5581,39 @@ with tab1:
 
             st.markdown(f'''
             <style>
-            /* Colorear SOLO el container del popup por su key única */
             .st-key-{_css_key} > div[data-testid="stVerticalBlockBorderWrapper"] {{
                 background: #FCEBEB !important;
                 border: 1.5px solid #E24B4A !important;
                 border-radius: 14px !important;
                 box-shadow: none !important;
-                transition: opacity 0.3s ease !important;
             }}
             .st-key-{_css_key} label {{
-                color: #791F1F !important;
-                font-weight: 600 !important;
+                color: #791F1F !important; font-weight: 600 !important;
             }}
             .st-key-{_css_key} input[type="number"] {{
-                background: #fff !important;
-                border-color: #E24B4A !important;
-                color: #501313 !important;
-                font-weight: 700 !important;
+                background: #fff !important; border-color: #E24B4A !important;
+                color: #501313 !important; font-weight: 700 !important;
             }}
             .st-key-{_css_key} button[data-testid="stNumberInputStepUp"],
             .st-key-{_css_key} button[data-testid="stNumberInputStepDown"] {{
-                background: #FCEBEB !important;
-                color: #A32D2D !important;
+                background: #FCEBEB !important; color: #A32D2D !important;
             }}
             .st-key-popup_cancelar_btn button {{
-                background: transparent !important;
-                border: 1px solid #F09595 !important;
+                background: transparent !important; border: 1px solid #F09595 !important;
                 color: #791F1F !important;
             }}
             .st-key-popup_aplicar_btn button {{
-                background: #fff !important;
-                border: 1.5px solid #E24B4A !important;
-                color: #A32D2D !important;
-                font-weight: 600 !important;
+                background: #fff !important; border: 1.5px solid #E24B4A !important;
+                color: #A32D2D !important; font-weight: 600 !important;
             }}
             .st-key-popup_eliminar_btn button {{
-                background: #E24B4A !important;
-                border: none !important;
-                color: #fff !important;
-                font-weight: 600 !important;
+                background: #E24B4A !important; border: none !important;
+                color: #fff !important; font-weight: 600 !important;
             }}
             </style>
             ''', unsafe_allow_html=True)
 
             with st.container(border=True, key=_container_key):
-                # Info del item
                 st.markdown(f'''
                 <div style="margin-bottom:12px;">
                     <div style="font-size:11px;color:#A32D2D;font-weight:600;
@@ -5643,7 +5636,6 @@ with tab1:
                 </div>
                 ''', unsafe_allow_html=True)
 
-                # number_input nativo
                 _cant_input = st.number_input(
                     "Nueva cantidad",
                     min_value=1,
@@ -5655,17 +5647,14 @@ with tab1:
                     st.session_state['_item_pendiente_eliminar']['nueva_cantidad'] = int(_cant_input)
                     st.rerun()
 
-                # Botones de acción — keys únicas con sufijo _btn para evitar conflictos
                 _ba1, _ba2, _ba3 = st.columns([1, 1.5, 1.5])
                 with _ba1:
-                    if st.button("✖️ Cancelar", use_container_width=True,
-                                 key="popup_cancelar_btn"):
+                    if st.button("✖️ Cancelar", use_container_width=True, key="popup_cancelar_btn"):
                         st.session_state.pop('_item_pendiente_eliminar', None)
                         st.session_state.counter += 1
                         st.rerun()
                 with _ba2:
-                    if st.button("✅ Aplicar cambio", use_container_width=True,
-                                 key="popup_aplicar_btn"):
+                    if st.button("✅ Aplicar cambio", use_container_width=True, key="popup_aplicar_btn"):
                         for item in st.session_state.carrito:
                             if item['Item'] == _nombre_item:
                                 item['Cantidad'] = int(_cant_input)
@@ -5675,8 +5664,7 @@ with tab1:
                         st.session_state.counter += 1
                         st.rerun()
                 with _ba3:
-                    if st.button("🗑️ Eliminar todo", use_container_width=True,
-                                 key="popup_eliminar_btn"):
+                    if st.button("🗑️ Eliminar todo", use_container_width=True, key="popup_eliminar_btn"):
                         st.session_state.carrito = [
                             i for i in st.session_state.carrito
                             if i['Item'] != _nombre_item
