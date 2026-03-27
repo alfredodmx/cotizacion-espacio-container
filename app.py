@@ -5380,7 +5380,7 @@ with tab1:
                 if (w > maxW) maxW = w;
             });
             if (maxW < 50) return;
-            var fw = Math.min(maxW + 380, 1200);
+            var fw = Math.min(Math.max(maxW + 380, 300), 1200);
             var fwStr = fw + 'px';
 
             // Aplicar y usar MutationObserver para re-aplicar si Streamlit sobreescribe
@@ -5388,16 +5388,17 @@ with tab1:
 
             // Observar cambios en el style del focusDiv
             if (focusDiv._echObserver) focusDiv._echObserver.disconnect();
+            var _savedFw = fwStr;
             var obs = new MutationObserver(function(mutations) {
                 mutations.forEach(function(m) {
                     if (m.type === 'attributes' && m.attributeName === 'style') {
                         var cur = focusDiv.getAttribute('style') || '';
-                        if (cur.indexOf(fwStr) === -1) {
-                            _applyWidth(focusDiv, fwStr);
+                        if (cur.indexOf(_savedFw) === -1) {
+                            _applyWidth(focusDiv, _savedFw);
                         }
                     }
                     if (m.type === 'childList') {
-                        _applyWidth(focusDiv, fwStr);
+                        _applyWidth(focusDiv, _savedFw);
                     }
                 });
             });
@@ -5417,9 +5418,9 @@ with tab1:
             var el = D.querySelector('.st-key-' + k);
             if (!el) return;
             el.addEventListener('mousedown', function() {
-                setTimeout(_expand, 100);
-                setTimeout(_expand, 300);
-                setTimeout(_expand, 600);
+                setTimeout(function(){ _expand(); }, 100);
+                setTimeout(function(){ _expand(); }, 300);
+                setTimeout(function(){ _expand(); }, 600);
             }, true);
         });
     }
@@ -5440,7 +5441,7 @@ with tab1:
     if not es_solo_lectura:
         # Calcular hojas_modelo ANTES de las columnas para que esté disponible en col_m4
         hojas_modelo = [h for h in _leer_hojas_disponibles() if h.lower().startswith("modelo")]
-        col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns([1,1,1,1,0.7])
+        col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns([0.7,1.8,0.8,1,0.7])
 
         with col_m1:
             with st.container(border=True):
