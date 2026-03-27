@@ -5971,7 +5971,7 @@ with tab1:
                         </div>
                         <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
                             <span style="font-size:1.4rem;font-weight:700;color:white;">💰 Total con iva</span>
-                            <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(total)}</span>
+                            <span style="font-size:2.2rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:-0.02em;">{formato_clp(total)}</span>
                           </div>''', unsafe_allow_html=True)
             with col_comisiones_card:
                     st.markdown(f'''
@@ -5982,7 +5982,7 @@ with tab1:
                         </div>
                         <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
                             <span style="font-size:1.4rem;font-weight:700;color:white;">📊 Comisiones</span>
-                            <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(total_comisiones)}</span>
+                            <span style="font-size:2.2rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:-0.02em;">{formato_clp(total_comisiones)}</span>
                           </div>''', unsafe_allow_html=True)
             with col_utilidad_card:
                     st.markdown(f'''
@@ -5993,7 +5993,7 @@ with tab1:
                         </div>
                         <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
                             <span style="font-size:1.4rem;font-weight:700;color:white;">📈 Utilidad real</span>
-                            <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(utilidad_real)}</span>
+                            <span style="font-size:2.2rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:-0.02em;">{formato_clp(utilidad_real)}</span>
                           </div>''', unsafe_allow_html=True)
 
         else:
@@ -6007,7 +6007,7 @@ with tab1:
                     </div>
                     <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
                         <span style="font-size:1.4rem;font-weight:700;color:white;">💰 Total con iva</span>
-                        <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(total)}</span>
+                        <span style="font-size:2.2rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:-0.02em;">{formato_clp(total)}</span>
                     </div>
                 </div>''', unsafe_allow_html=True)
             if st.session_state.margen > 0:
