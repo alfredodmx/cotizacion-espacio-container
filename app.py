@@ -1865,8 +1865,7 @@ def generar_pdf_log(numero, logs):
                                 _d_raw = str(_v.get("despues","—"))
                                 # Si tiene saltos de línea (detalle carrito), formatear con <br/>
                                 if chr(10) in _d_raw:
-                                    _lineas = _d_raw.split(chr(10))[:20]
-                                    _d = '<br/>'.join(_lineas)
+                                    _d = _d_raw.replace(chr(10), '<br/>')
                                     _d_para = Paragraph(_d, s_dep)
                                 else:
                                     _d = _fmt_val(_d_raw, campo=_c)
@@ -1883,7 +1882,7 @@ def generar_pdf_log(numero, logs):
 
                         if len(cam_rows) > 1:
                             _cw1, _cw2, _cw3 = 4.2*cm, 5.4*cm, 5.4*cm
-                            cam_tbl = Table(cam_rows, colWidths=[_cw1, _cw2, _cw3], splitByRow=1)
+                            cam_tbl = Table(cam_rows, colWidths=[_cw1, _cw2, _cw3])
                             cam_styles = [
                                 ("BACKGROUND",    (0,0), (-1,0),  C_HDR_BG),
                                 ("LINEBELOW",     (0,0), (-1,0),  0.5, C_LINE),
@@ -1911,7 +1910,7 @@ def generar_pdf_log(numero, logs):
                                 ("LEFTPADDING",   (1,0), (1,-1),  10),
                                 ("VALIGN",        (0,0), (-1,-1), "TOP"),
                             ]))
-                            story.append(cam_tbl)
+                            story.append(KeepTogether(wrap_tbl))
 
                 story.append(Spacer(1, 2))
 
@@ -3350,8 +3349,6 @@ _js_global.html("""
     // Inicializar cuando el DOM esté listo
     setTimeout(initTabArrows, 800);
     setTimeout(initTabArrows, 1800);
-
-
 
     // Re-inicializar al cambiar de tab
     window.parent.addEventListener('click', function(e){
@@ -5324,52 +5321,62 @@ with tab1:
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown('''''', unsafe_allow_html=True)
-
     fecha_inicio = st.session_state.fecha_inicio
     fecha_termino = st.session_state.fecha_termino
     dias_validez = (fecha_termino - fecha_inicio).days
 
-    # JS para expandir popovers de selectbox al ancho del contenido
+    # JS expansión popovers selectbox
     import streamlit.components.v1 as _sel_comp
     _sel_comp.html("""<script>
 (function(){
     var D = window.parent.document;
     var _keys = ['modelo_select','cat_manual','item_manual','cat_eliminar','modelo_origen','cat_agregar'];
-    function _expandPopover() {
-        var popover = D.querySelector('[data-baseweb="popover"]');
-        if (!popover) return;
-        var ul = popover.querySelector('ul');
-        if (!ul) return;
-        var items = ul.querySelectorAll('li');
-        var maxW = 0;
-        items.forEach(function(li) {
-            li.style.cssText += 'white-space:nowrap!important;overflow:visible!important;text-overflow:unset!important;';
-            if (li.scrollWidth > maxW) maxW = li.scrollWidth;
+
+    function _expand() {
+        var popovers = D.querySelectorAll('[data-baseweb="popover"]');
+        if (!popovers.length) return;
+        popovers.forEach(function(pop) {
+            var ul = pop.querySelector('ul');
+            if (!ul) return;
+            var items = ul.querySelectorAll('li');
+            if (!items.length) return;
+            items.forEach(function(li) {
+                li.style.setProperty('white-space','nowrap','important');
+                li.style.setProperty('overflow','visible','important');
+                li.style.setProperty('text-overflow','unset','important');
+                li.querySelectorAll('*').forEach(function(ch){
+                    ch.style.setProperty('white-space','nowrap','important');
+                    ch.style.setProperty('overflow','visible','important');
+                    ch.style.setProperty('text-overflow','unset','important');
+                });
+            });
+            setTimeout(function(){
+                var sw = ul.scrollWidth;
+                if (sw < 100) return;
+                var fw = Math.min(sw + 48, 1100);
+                [pop, pop.firstElementChild].forEach(function(el){
+                    if (el) {
+                        el.style.setProperty('min-width', fw+'px','important');
+                        el.style.setProperty('width', fw+'px','important');
+                    }
+                });
+            }, 30);
         });
-        if (maxW > 0) {
-            popover.style.minWidth = Math.min(maxW + 40, 720) + 'px';
-            if (ul.parentElement) ul.parentElement.style.minWidth = Math.min(maxW + 40, 720) + 'px';
-        }
     }
+
     function _init() {
         _keys.forEach(function(k) {
             var el = D.querySelector('.st-key-' + k);
             if (!el) return;
             el.addEventListener('mousedown', function() {
-                setTimeout(_expandPopover, 120);
+                setTimeout(_expand, 100);
+                setTimeout(_expand, 250);
+                setTimeout(_expand, 500);
             }, true);
         });
-        D.addEventListener('click', function(e) {
-            var inSelect = _keys.some(function(k) {
-                var el = D.querySelector('.st-key-' + k);
-                return el && el.contains(e.target);
-            });
-            if (inSelect) setTimeout(_expandPopover, 120);
-        });
     }
-    setTimeout(_init, 800);
-    setTimeout(_init, 2000);
+    setTimeout(_init, 900);
+    setTimeout(_init, 2200);
 })();
 </script>""", height=0)
 
@@ -5721,8 +5728,7 @@ with tab1:
                 _cant_input = st.number_input(
                     "Nueva cantidad",
                     min_value=1,
-                    max_value=99999,
-                    value=min(int(_nueva_cant), 99999),
+                    value=_nueva_cant,
                     step=1,
                     key=f"ni_{st.session_state.counter}"
                 )
@@ -5807,65 +5813,83 @@ with tab1:
 
         st.markdown("---")
         st.markdown("#### Métricas")
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 
         total_productos = sum(item["Cantidad"] for item in st.session_state.carrito)
         categorias_unicas = len(set(item["Categoria"] for item in st.session_state.carrito))
 
-        # Fila 1: siempre 3 tarjetas de métricas
-        col_m1, col_m2, col_m3 = st.columns(3)
         with col_m1:
             st.markdown(f'<div class="stats-card"><div class="stats-title">ÍTEMS</div><div class="stats-number" style="color:#3b82f6;border:none;padding:0;">{len(st.session_state.carrito)}</div><div class="stats-desc">En presupuesto</div></div>', unsafe_allow_html=True)
         with col_m2:
             st.markdown(f'<div class="stats-card"><div class="stats-title">PRODUCTOS</div><div class="stats-number" style="color:#f59e0b;border:none;padding:0;">{total_productos}</div><div class="stats-desc">Unidades</div></div>', unsafe_allow_html=True)
         with col_m3:
             st.markdown(f'<div class="stats-card"><div class="stats-title">CATEGORÍAS</div><div class="stats-number" style="color:#10b981;border:none;padding:0;">{categorias_unicas}</div><div class="stats-desc">Diferentes</div></div>', unsafe_allow_html=True)
+        with col_m4:
+            if st.session_state.modo_admin:
+                st.markdown(f'''
+                <div class="metric-card-special" style="background:linear-gradient(135deg,#ef4444,#dc2626);padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
+                    <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Costo base:</span><span>{formato_clp(subtotal_base)}</span></div>
+                        <div style="display:flex;justify-content:space-between;"><span>+ Margen {st.session_state.margen}%:</span><span>{formato_clp(margen_valor)}</span></div>
+                    </div>
+                    <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:1.4rem;font-weight:700;color:white;">📦 Total sin iva</span>
+                        <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(subtotal_general)}</span>
+                    </div>
+                </div>''', unsafe_allow_html=True)
+            else:
+                st.markdown(f'''
+                <div class="metric-card-special" style="background:linear-gradient(135deg,#ef4444,#dc2626);padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
+                    <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
+                        <div style="display:flex;justify-content:space-between;"><span>Costo base (sin IVA):</span><span>{formato_clp(subtotal_base)}</span></div>
+                    </div>
+                    <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:1.4rem;font-weight:700;color:white;">📦 Total sin iva</span>
+                        <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(subtotal_base)}</span>
+                    </div>
+                </div>''', unsafe_allow_html=True)
 
         st.markdown("---")
 
         if st.session_state.modo_admin:
-            # Fila 2 admin: 3 tarjetas de valores
             col_total_card, col_comisiones_card, col_utilidad_card = st.columns(3)
             with col_total_card:
-                st.markdown(f'''
-                <div class="metric-card-special metric-card-total" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
-                    <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
-                        <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Costo base:</span><span>{formato_clp(subtotal_base)}</span></div>
-                        <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>+ Margen {st.session_state.margen}%:</span><span>{formato_clp(margen_valor)}</span></div>
-                        <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>= Subtotal c/margen:</span><span>{formato_clp(subtotal_general)}</span></div>
-                        <div style="display:flex;justify-content:space-between;"><span>+ IVA 19%:</span><span>{formato_clp(iva)}</span></div>
-                    </div>
-                    <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
-                        <span style="font-size:1.4rem;font-weight:700;color:white;">💰 Total con IVA</span>
-                        <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(total)}</span>
-                    </div>
-                </div>''', unsafe_allow_html=True)
+                    st.markdown(f'''
+                    <div class="metric-card-special metric-card-total" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
+                        <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
+                            <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Costo base:</span><span>{formato_clp(subtotal_base)}</span></div>
+                            <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>+ Margen {st.session_state.margen}%:</span><span>{formato_clp(margen_valor)}</span></div>
+                            <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>= Subtotal c/margen:</span><span>{formato_clp(subtotal_general)}</span></div>
+                            <div style="display:flex;justify-content:space-between;"><span>+ IVA 19%:</span><span>{formato_clp(iva)}</span></div>
+                        </div>
+                        <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
+                            <span style="font-size:1.4rem;font-weight:700;color:white;">💰 Total con iva</span>
+                            <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(total)}</span>
+                          </div>''', unsafe_allow_html=True)
             with col_comisiones_card:
-                st.markdown(f'''
-                <div class="metric-card-special metric-card-comisiones" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
-                    <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
-                        <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Vendedor 2.5%:</span><span>{formato_clp(comision_vendedor)}</span></div>
-                        <div style="display:flex;justify-content:space-between;"><span>Supervisor 0.8%:</span><span>{formato_clp(comision_supervisor)}</span></div>
-                    </div>
-                    <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
-                        <span style="font-size:1.4rem;font-weight:700;color:white;">📊 Comisiones</span>
-                        <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(total_comisiones)}</span>
-                    </div>
-                </div>''', unsafe_allow_html=True)
+                    st.markdown(f'''
+                    <div class="metric-card-special metric-card-comisiones" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
+                        <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
+                            <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Vendedor 2.5%:</span><span>{formato_clp(comision_vendedor)}</span></div>
+                            <div style="display:flex;justify-content:space-between;"><span>Supervisor 0.8%:</span><span>{formato_clp(comision_supervisor)}</span></div>
+                        </div>
+                        <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
+                            <span style="font-size:1.4rem;font-weight:700;color:white;">📊 Comisiones</span>
+                            <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(total_comisiones)}</span>
+                          </div>''', unsafe_allow_html=True)
             with col_utilidad_card:
-                st.markdown(f'''
-                <div class="metric-card-special metric-card-utilidad" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
-                    <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
-                        <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Margen bruto:</span><span>{formato_clp(margen_valor)}</span></div>
-                        <div style="display:flex;justify-content:space-between;"><span>- Comisiones:</span><span>{formato_clp(total_comisiones)}</span></div>
-                    </div>
-                    <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
-                        <span style="font-size:1.4rem;font-weight:700;color:white;">📈 Utilidad real</span>
-                        <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(utilidad_real)}</span>
-                    </div>
-                </div>''', unsafe_allow_html=True)
+                    st.markdown(f'''
+                    <div class="metric-card-special metric-card-utilidad" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
+                        <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
+                            <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Margen bruto:</span><span>{formato_clp(margen_valor)}</span></div>
+                            <div style="display:flex;justify-content:space-between;"><span>- Comisiones:</span><span>{formato_clp(total_comisiones)}</span></div>
+                        </div>
+                        <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
+                            <span style="font-size:1.4rem;font-weight:700;color:white;">📈 Utilidad real</span>
+                            <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(utilidad_real)}</span>
+                          </div>''', unsafe_allow_html=True)
 
         else:
-            # Fila 2 ejecutivo: tarjeta total centrada
             col_t1, col_t2, col_t3 = st.columns([1, 2, 1])
             with col_t2:
                 st.markdown(f'''
@@ -5875,7 +5899,7 @@ with tab1:
                         <div style="display:flex;justify-content:space-between;"><span>+ IVA 19%:</span><span>{formato_clp(iva)}</span></div>
                     </div>
                     <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
-                        <span style="font-size:1.4rem;font-weight:700;color:white;">💰 Total con IVA</span>
+                        <span style="font-size:1.4rem;font-weight:700;color:white;">💰 Total con iva</span>
                         <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(total)}</span>
                     </div>
                 </div>''', unsafe_allow_html=True)
