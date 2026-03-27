@@ -2677,35 +2677,6 @@ st.markdown("""
     /* ══ RADIO BUTTONS ══ */
     .stRadio > div { gap: 0.5rem !important; }
 
-    /* ══ SELECTBOX POPOVER — expandir al contenido ══ */
-    [data-baseweb="popover"] {
-        min-width: fit-content !important;
-        width: fit-content !important;
-    }
-    [data-baseweb="popover"] > div {
-        min-width: fit-content !important;
-        width: fit-content !important;
-    }
-    [data-baseweb="popover"] ul,
-    [data-baseweb="popover"] [role="listbox"] {
-        min-width: fit-content !important;
-        width: fit-content !important;
-    }
-    [data-baseweb="popover"] li,
-    [data-baseweb="popover"] [role="option"] {
-        white-space: nowrap !important;
-        overflow: visible !important;
-        text-overflow: unset !important;
-        min-width: fit-content !important;
-        width: fit-content !important;
-    }
-    [data-baseweb="popover"] li span,
-    [data-baseweb="popover"] [role="option"] span {
-        white-space: nowrap !important;
-        overflow: visible !important;
-        text-overflow: unset !important;
-    }
-
     /* ══ FAB GUARDAR FLOTANTE ══ */
     .fab-guardar {
         background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%);
@@ -3379,8 +3350,6 @@ _js_global.html("""
     // Inicializar cuando el DOM esté listo
     setTimeout(initTabArrows, 800);
     setTimeout(initTabArrows, 1800);
-
-
 
 
 
@@ -5360,6 +5329,49 @@ with tab1:
     fecha_inicio = st.session_state.fecha_inicio
     fecha_termino = st.session_state.fecha_termino
     dias_validez = (fecha_termino - fecha_inicio).days
+
+    # JS para expandir popovers de selectbox al ancho del contenido
+    import streamlit.components.v1 as _sel_comp
+    _sel_comp.html("""<script>
+(function(){
+    var D = window.parent.document;
+    var _keys = ['modelo_select','cat_manual','item_manual','cat_eliminar','modelo_origen','cat_agregar'];
+
+    function _expandPopover() {
+        var popovers = D.querySelectorAll('[data-baseweb="popover"]');
+        popovers.forEach(function(popover) {
+            var ul = popover.querySelector('ul');
+            if (!ul) return;
+            // Forzar nowrap en todos los items
+            ul.querySelectorAll('li, li *').forEach(function(el) {
+                el.style.setProperty('white-space', 'nowrap', 'important');
+                el.style.setProperty('overflow', 'visible', 'important');
+                el.style.setProperty('text-overflow', 'unset', 'important');
+            });
+            // Forzar ancho al scrollWidth real del ul
+            var scrollW = ul.scrollWidth;
+            var finalW = Math.min(Math.max(scrollW + 20, 200), 900);
+            popover.style.setProperty('min-width', finalW + 'px', 'important');
+            var inner = popover.firstElementChild;
+            if (inner) inner.style.setProperty('min-width', finalW + 'px', 'important');
+        });
+    }
+
+    function _init() {
+        _keys.forEach(function(k) {
+            var el = D.querySelector('.st-key-' + k);
+            if (!el) return;
+            el.addEventListener('mousedown', function() {
+                setTimeout(_expandPopover, 80);
+                setTimeout(_expandPopover, 200);
+                setTimeout(_expandPopover, 400);
+            }, true);
+        });
+    }
+    setTimeout(_init, 800);
+    setTimeout(_init, 2000);
+})();
+</script>""", height=0)
 
     es_solo_lectura = bool(
         st.session_state.cotizacion_cargada and
