@@ -5342,36 +5342,18 @@ with tab1:
         popovers.forEach(function(popover) {
             var ul = popover.querySelector('ul');
             if (!ul) return;
-            var items = ul.querySelectorAll('li');
-            if (!items.length) return;
-
-            // Primero aplicar nowrap para que el scrollWidth sea real
-            items.forEach(function(li) {
-                li.style.setProperty('white-space', 'nowrap', 'important');
-                li.style.setProperty('overflow', 'visible', 'important');
-                li.style.setProperty('text-overflow', 'unset', 'important');
+            // Forzar nowrap en todos los items
+            ul.querySelectorAll('li, li *').forEach(function(el) {
+                el.style.setProperty('white-space', 'nowrap', 'important');
+                el.style.setProperty('overflow', 'visible', 'important');
+                el.style.setProperty('text-overflow', 'unset', 'important');
             });
-
-            // Medir el texto mas largo creando un span temporal
-            var maxW = 0;
-            items.forEach(function(li) {
-                var span = D.createElement('span');
-                span.style.cssText = 'position:fixed;top:-9999px;left:-9999px;white-space:nowrap;font-size:14px;font-family:inherit;padding:0 16px;';
-                span.textContent = li.textContent || li.innerText || '';
-                D.body.appendChild(span);
-                var w = span.getBoundingClientRect().width;
-                D.body.removeChild(span);
-                if (w > maxW) maxW = w;
-            });
-
-            var finalW = Math.min(Math.max(maxW + 60, 200), 900);
+            // Forzar ancho al scrollWidth real del ul
+            var scrollW = ul.scrollWidth;
+            var finalW = Math.min(Math.max(scrollW + 20, 200), 900);
             popover.style.setProperty('min-width', finalW + 'px', 'important');
-            popover.style.setProperty('width', 'auto', 'important');
             var inner = popover.firstElementChild;
-            if (inner) {
-                inner.style.setProperty('min-width', finalW + 'px', 'important');
-                inner.style.setProperty('width', 'auto', 'important');
-            }
+            if (inner) inner.style.setProperty('min-width', finalW + 'px', 'important');
         });
     }
 
@@ -5380,8 +5362,9 @@ with tab1:
             var el = D.querySelector('.st-key-' + k);
             if (!el) return;
             el.addEventListener('mousedown', function() {
-                setTimeout(_expandPopover, 100);
-                setTimeout(_expandPopover, 300);
+                setTimeout(_expandPopover, 80);
+                setTimeout(_expandPopover, 200);
+                setTimeout(_expandPopover, 400);
             }, true);
         });
     }
