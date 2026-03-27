@@ -5764,7 +5764,15 @@ with tab1:
                 <div style="margin-bottom:12px;">
                     <div style="font-size:11px;color:#A32D2D;font-weight:600;
                                 text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;">{_categoria}</div>
-                    <div style="font-size:17px;font-weight:700;color:#501313;margin-bottom:14px;">{_nombre_item}</div>
+                    <div onclick="navigator.clipboard.writeText('{_nombre_item}').then(function(){{
+                        var el=document.currentTarget;
+                        var orig=el.innerHTML;
+                        el.innerHTML='✅ ¡Copiado!';
+                        el.style.color='#059669';
+                        setTimeout(function(){{el.innerHTML=orig;el.style.color='#501313';}},1200);
+                    }})"
+                    style="font-size:17px;font-weight:700;color:#501313;margin-bottom:14px;cursor:pointer;
+                           user-select:none;" title="Click para copiar">{_nombre_item} 📋</div>
                     <div style="display:flex;gap:12px;margin-bottom:4px;">
                         <div style="background:#fff;border:.5px solid #F09595;border-radius:10px;padding:10px 14px;text-align:center;flex:1;">
                             <div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">P. unitario</div>
