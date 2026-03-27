@@ -5970,7 +5970,7 @@ with tab1:
                             <div style="display:flex;justify-content:space-between;"><span>+ IVA 19%:</span><span>{formato_clp(iva)}</span></div>
                         </div>
                         <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
-                            <span style="font-size:1.4rem;font-weight:700;color:white;">💰 Total con iva</span>
+                            <span style="font-size:1.1rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:0.04em;">💰 TOTAL + IVA</span>
                             <span style="font-size:2.2rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:-0.02em;">{formato_clp(total)}</span>
                           </div>''', unsafe_allow_html=True)
             with col_comisiones_card:
@@ -5981,7 +5981,7 @@ with tab1:
                             <div style="display:flex;justify-content:space-between;"><span>Supervisor 0.8%:</span><span>{formato_clp(comision_supervisor)}</span></div>
                         </div>
                         <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
-                            <span style="font-size:1.4rem;font-weight:700;color:white;">📊 Comisiones</span>
+                            <span style="font-size:1.1rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:0.04em;">📊 COMISIONES</span>
                             <span style="font-size:2.2rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:-0.02em;">{formato_clp(total_comisiones)}</span>
                           </div>''', unsafe_allow_html=True)
             with col_utilidad_card:
@@ -5992,7 +5992,7 @@ with tab1:
                             <div style="display:flex;justify-content:space-between;"><span>- Comisiones:</span><span>{formato_clp(total_comisiones)}</span></div>
                         </div>
                         <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
-                            <span style="font-size:1.4rem;font-weight:700;color:white;">📈 Utilidad real</span>
+                            <span style="font-size:1.1rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:0.04em;">📈 UTILIDAD REAL</span>
                             <span style="font-size:2.2rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:-0.02em;">{formato_clp(utilidad_real)}</span>
                           </div>''', unsafe_allow_html=True)
 
@@ -6006,7 +6006,7 @@ with tab1:
                         <div style="display:flex;justify-content:space-between;"><span>+ IVA 19%:</span><span>{formato_clp(iva)}</span></div>
                     </div>
                     <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
-                        <span style="font-size:1.4rem;font-weight:700;color:white;">💰 Total con iva</span>
+                        <span style="font-size:1.1rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:0.04em;">💰 TOTAL + IVA</span>
                         <span style="font-size:2.2rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:-0.02em;">{formato_clp(total)}</span>
                     </div>
                 </div>''', unsafe_allow_html=True)
