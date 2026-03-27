@@ -3098,6 +3098,9 @@ try:
 except Exception:
     _total_hdr_fmt = ''
 
+# Nombre producto a copiar — se inyecta en el JS del header
+_nombre_copiar_hdr = st.session_state.pop('_copiar_nombre_producto', '')
+
 # JS consolidado — header, tabs y cerrar cotización (un solo components.html = menos espacio)
 import streamlit.components.v1 as _js_global
 _js_global.html("""
@@ -3292,6 +3295,18 @@ _js_global.html("""
     }
     setTimeout(injectTotal, 700);
     setTimeout(injectTotal, 1500);
+
+    // Copiar nombre producto si está pendiente
+    (function(){
+        var nombre = '_NOMBRE_';
+        if (!nombre) return;
+        var ta = D.createElement('textarea');
+        ta.value = nombre;
+        ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+        D.body.appendChild(ta); ta.focus(); ta.select();
+        try { D.execCommand('copy'); } catch(e) {}
+        D.body.removeChild(ta);
+    })();
     setTimeout(moveButtonsToHeader, 800);
     setTimeout(moveButtonsToHeader, 1500);
     setTimeout(moveBadgeAndCloseToHeader, 900);
@@ -3350,24 +3365,7 @@ _js_global.html("""
     setTimeout(initTabArrows, 800);
     setTimeout(initTabArrows, 1800);
 
-    // Copiar nombre producto del panel de edición
-    D.addEventListener('click', function(e) {
-        var el = e.target && e.target.id === '_popup_nombre' ? e.target : 
-                 (e.target.closest ? e.target.closest('#_popup_nombre') : null);
-        if (!el) return;
-        var txt = (el.innerText || el.textContent || '').replace('📋','').trim();
-        if (!txt) return;
-        var ta = D.createElement('textarea');
-        ta.value = txt;
-        ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
-        D.body.appendChild(ta); ta.focus(); ta.select();
-        try { D.execCommand('copy'); } catch(err) {}
-        D.body.removeChild(ta);
-        var orig = el.innerHTML;
-        el.innerHTML = '✅ Copiado';
-        el.style.color = '#059669';
-        setTimeout(function(){ el.innerHTML = orig; el.style.color = '#501313'; }, 1500);
-    });
+
 
 
 
@@ -5785,7 +5783,7 @@ with tab1:
                 <div style="margin-bottom:12px;">
                     <div style="font-size:11px;color:#A32D2D;font-weight:600;
                                 text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;">{_categoria}</div>
-                    <div id="_popup_nombre" style="font-size:17px;font-weight:700;color:#501313;margin-bottom:14px;cursor:pointer;user-select:none;" title="Click para copiar">{_nombre_item} 📋</div>
+                    <div style="font-size:17px;font-weight:700;color:#501313;margin-bottom:14px;">{_nombre_item}</div>
                     <div style="display:flex;gap:12px;margin-bottom:4px;">
                         <div style="background:#fff;border:.5px solid #F09595;border-radius:10px;padding:10px 14px;text-align:center;flex:1;">
                             <div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">P. unitario</div>
@@ -5802,6 +5800,14 @@ with tab1:
                     </div>
                 </div>
                 ''', unsafe_allow_html=True)
+
+                # Botón copiar nombre — usa el mismo mecanismo del header
+                _cc1, _cc2 = st.columns([8, 1])
+                with _cc2:
+                    if st.button("📋", key=f"btn_copy_{st.session_state.counter}", help=f"Copiar: {_nombre_item}"):
+                        st.session_state['_copiar_nombre_producto'] = _nombre_item
+                        st.rerun()
+
                 _cant_input = st.number_input(
                     "Nueva cantidad",
                     min_value=1,
