@@ -3167,7 +3167,15 @@ _js_global.html("""
         clonePwd.addEventListener('click', function(e){
             e.preventDefault();
             e.stopPropagation();
-            btnPwd.click();
+            var realBtn = D.querySelector('[data-testid="stBaseButton-secondary"] p');
+            var allBtns2 = D.querySelectorAll('button');
+            for (var j=0; j<allBtns2.length; j++) {
+                var t = (allBtns2[j].innerText||allBtns2[j].textContent||'').trim();
+                if (t === '🔑 Mi contraseña') {
+                    allBtns2[j].dispatchEvent(new MouseEvent('click', {bubbles:true, cancelable:true}));
+                    break;
+                }
+            }
         });
 
         var cloneCerrar = D.createElement('button');
@@ -3177,18 +3185,25 @@ _js_global.html("""
         cloneCerrar.onmouseleave = function(){ this.style.background='rgba(239,68,68,0.25)'; };
         cloneCerrar.addEventListener('click', function(e){
             e.stopPropagation();
-            btnCerrar.click();
+            var allBtns2 = D.querySelectorAll('button');
+            for (var j=0; j<allBtns2.length; j++) {
+                var t = (allBtns2[j].innerText||allBtns2[j].textContent||'').trim();
+                if (t === '🚪 Cerrar sesión') {
+                    allBtns2[j].dispatchEvent(new MouseEvent('click', {bubbles:true, cancelable:true}));
+                    break;
+                }
+            }
         });
 
         wrap.appendChild(clonePwd);
         wrap.appendChild(cloneCerrar);
         usrRight.appendChild(wrap);
 
-        // Ocultar visualmente pero mantener clickeables para Streamlit
+        // Ocultar visualmente — visibility:hidden mantiene el elemento en el DOM activo
         var colPwd = btnPwd.closest('[data-testid="stPopover"]') || btnPwd.closest('[data-testid="stButton"]');
         var colCerrar = btnCerrar.closest('[data-testid="stButton"]');
-        if (colPwd) colPwd.parentElement.style.cssText = 'opacity:0;pointer-events:none;position:absolute;width:1px;height:1px;overflow:hidden;';
-        if (colCerrar) colCerrar.style.cssText = 'opacity:0;pointer-events:none;position:absolute;width:1px;height:1px;overflow:hidden;';
+        if (colPwd) colPwd.parentElement.style.visibility = 'hidden';
+        if (colCerrar) colCerrar.style.visibility = 'hidden';
     }
 
     // Mover badge y botón cerrar cotización al header
