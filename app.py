@@ -5340,7 +5340,7 @@ with tab1:
             if (!ul) return;
             var items = ul.querySelectorAll('li');
             if (!items.length) return;
-            // Forzar nowrap para medir el ancho real
+            // Paso 1: forzar nowrap para medir ancho real
             items.forEach(function(li) {
                 li.style.setProperty('white-space','nowrap','important');
                 li.style.setProperty('overflow','visible','important');
@@ -5351,16 +5351,13 @@ with tab1:
                     ch.style.setProperty('text-overflow','unset','important');
                 });
             });
+            // Paso 2: medir y expandir SOLO el popover (no el firstElementChild)
             setTimeout(function(){
                 var sw = ul.scrollWidth;
                 if (sw < 100) return;
                 var fw = Math.min(sw + 48, 1100);
-                // Solo min-width — nunca width, para no afectar el layout padre
                 pop.style.setProperty('min-width', fw+'px','important');
-                pop.style.setProperty('position','absolute','important');
-                if (pop.firstElementChild) {
-                    pop.firstElementChild.style.setProperty('min-width', fw+'px','important');
-                }
+                pop.style.setProperty('width', fw+'px','important');
             }, 30);
         });
     }
