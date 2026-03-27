@@ -5380,7 +5380,7 @@ with tab1:
                 if (w > maxW) maxW = w;
             });
             if (maxW < 50) return;
-            var fw = Math.min(maxW + 80, 1000);
+            var fw = Math.min(maxW + 200, 1000);
             var fwStr = fw + 'px';
 
             // Aplicar y usar MutationObserver para re-aplicar si Streamlit sobreescribe
