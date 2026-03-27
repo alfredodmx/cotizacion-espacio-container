@@ -1882,7 +1882,7 @@ def generar_pdf_log(numero, logs):
 
                         if len(cam_rows) > 1:
                             _cw1, _cw2, _cw3 = 4.2*cm, 5.4*cm, 5.4*cm
-                            cam_tbl = Table(cam_rows, colWidths=[_cw1, _cw2, _cw3])
+                            cam_tbl = Table(cam_rows, colWidths=[_cw1, _cw2, _cw3], splitByRow=1, repeatRows=1)
                             cam_styles = [
                                 ("BACKGROUND",    (0,0), (-1,0),  C_HDR_BG),
                                 ("LINEBELOW",     (0,0), (-1,0),  0.5, C_LINE),
@@ -1910,7 +1910,7 @@ def generar_pdf_log(numero, logs):
                                 ("LEFTPADDING",   (1,0), (1,-1),  10),
                                 ("VALIGN",        (0,0), (-1,-1), "TOP"),
                             ]))
-                            story.append(KeepTogether(wrap_tbl))
+                            story.append(wrap_tbl)
 
                 story.append(Spacer(1, 2))
 
