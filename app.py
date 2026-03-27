@@ -3351,7 +3351,21 @@ _js_global.html("""
     setTimeout(initTabArrows, 800);
     setTimeout(initTabArrows, 1800);
 
-
+    // CSS global para expandir popovers de selectbox al contenido
+    (function(){
+        var styleId = '_select_expand_css';
+        if (D.getElementById(styleId)) return;
+        var style = D.createElement('style');
+        style.id = styleId;
+        style.textContent = [
+            '[data-baseweb="popover"] { width: auto !important; min-width: 0 !important; }',
+            '[data-baseweb="popover"] > div { width: auto !important; min-width: 0 !important; }',
+            '[data-baseweb="popover"] ul { width: auto !important; }',
+            '[data-baseweb="popover"] li { white-space: nowrap !important; overflow: visible !important; text-overflow: unset !important; min-width: max-content !important; }',
+            '[data-baseweb="popover"] li > div { white-space: nowrap !important; overflow: visible !important; text-overflow: unset !important; min-width: max-content !important; }'
+        ].join(' ');
+        D.head.appendChild(style);
+    })();
 
 
 
