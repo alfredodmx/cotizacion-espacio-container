@@ -5778,12 +5778,15 @@ with tab1:
                 background: #FCEBEB !important; color: #A32D2D !important;
             }}
             .st-key-btn_copy_{st.session_state.counter} button {{
-                font-weight: 700 !important;
-                font-size: 0.95rem !important;
+                font-family: 'Plus Jakarta Sans', sans-serif !important;
+                font-weight: 900 !important;
+                font-size: 1rem !important;
                 color: #501313 !important;
                 border: 1.5px solid #E24B4A !important;
                 background: #fff !important;
                 text-align: left !important;
+                letter-spacing: -0.01em !important;
+                -webkit-font-smoothing: antialiased !important;
             }}
             .st-key-popup_cancelar_btn button {{
                 background: transparent !important; border: 1px solid #F09595 !important;
