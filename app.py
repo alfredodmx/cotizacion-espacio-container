@@ -5780,13 +5780,19 @@ with tab1:
 
             with st.container(border=True, key=_container_key):
                 _cat_esc    = str(_categoria).replace('<','&lt;').replace('>','&gt;')
-                _nom_esc    = str(_nombre_item).replace('<','&lt;').replace('>','&gt;')
                 _precio_fmt = formato_clp(_precio)
                 _sub_fmt    = formato_clp(_nueva_cant * _precio)
+                # Categoría
                 st.markdown(
-                    f'<div style="margin-bottom:12px;">'
-                    f'<div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;">{_cat_esc}</div>'
-                    f'<div style="font-size:17px;font-weight:700;color:#501313;margin-bottom:14px;">{_nom_esc}</div>'
+                    f'<div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">{_cat_esc}</div>',
+                    unsafe_allow_html=True
+                )
+                # Botón con nombre del producto (reemplaza el título)
+                if st.button(f"📋 {_nombre_item}", key=f"btn_copy_{st.session_state.counter}", help="Click para copiar nombre"):
+                    st.session_state['_copiar_nombre_producto'] = _nombre_item
+                    st.rerun()
+                # Tarjetas métricas
+                st.markdown(
                     f'<div style="display:flex;gap:12px;margin-bottom:4px;">'
                     f'<div style="background:#fff;border:.5px solid #F09595;border-radius:10px;padding:10px 14px;text-align:center;flex:1;">'
                     f'<div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">P. unitario</div>'
@@ -5799,13 +5805,9 @@ with tab1:
                     f'<div style="background:#fff;border:.5px solid #E24B4A;border-radius:10px;padding:10px 14px;text-align:center;flex:1;">'
                     f'<div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Subtotal nuevo</div>'
                     f'<div style="font-size:15px;font-weight:700;color:#E24B4A;margin-top:3px;">{_sub_fmt}</div>'
-                    f'</div></div></div>',
+                    f'</div></div>',
                     unsafe_allow_html=True
                 )
-
-                if st.button(f"📋 {_nombre_item}", key=f"btn_copy_{st.session_state.counter}", help="Click para copiar"):
-                    st.session_state['_copiar_nombre_producto'] = _nombre_item
-                    st.rerun()
 
                 _cant_input = st.number_input(
                     "Nueva cantidad",
