@@ -5336,36 +5336,53 @@ with tab1:
 (function(){
     var D = window.parent.document;
     var _keys = ['modelo_select','cat_manual','item_manual','cat_eliminar','modelo_origen','cat_agregar'];
+
     function _expandPopover() {
-        var popover = D.querySelector('[data-baseweb="popover"]');
-        if (!popover) return;
-        var ul = popover.querySelector('ul');
-        if (!ul) return;
-        var items = ul.querySelectorAll('li');
-        var maxW = 0;
-        items.forEach(function(li) {
-            li.style.cssText += 'white-space:nowrap!important;overflow:visible!important;text-overflow:unset!important;';
-            if (li.scrollWidth > maxW) maxW = li.scrollWidth;
+        var popovers = D.querySelectorAll('[data-baseweb="popover"]');
+        popovers.forEach(function(popover) {
+            var ul = popover.querySelector('ul');
+            if (!ul) return;
+            var items = ul.querySelectorAll('li');
+            if (!items.length) return;
+
+            // Primero aplicar nowrap para que el scrollWidth sea real
+            items.forEach(function(li) {
+                li.style.setProperty('white-space', 'nowrap', 'important');
+                li.style.setProperty('overflow', 'visible', 'important');
+                li.style.setProperty('text-overflow', 'unset', 'important');
+            });
+
+            // Medir el texto mas largo creando un span temporal
+            var maxW = 0;
+            items.forEach(function(li) {
+                var span = D.createElement('span');
+                span.style.cssText = 'position:fixed;top:-9999px;left:-9999px;white-space:nowrap;font-size:14px;font-family:inherit;padding:0 16px;';
+                span.textContent = li.textContent || li.innerText || '';
+                D.body.appendChild(span);
+                var w = span.getBoundingClientRect().width;
+                D.body.removeChild(span);
+                if (w > maxW) maxW = w;
+            });
+
+            var finalW = Math.min(Math.max(maxW + 60, 200), 900);
+            popover.style.setProperty('min-width', finalW + 'px', 'important');
+            popover.style.setProperty('width', 'auto', 'important');
+            var inner = popover.firstElementChild;
+            if (inner) {
+                inner.style.setProperty('min-width', finalW + 'px', 'important');
+                inner.style.setProperty('width', 'auto', 'important');
+            }
         });
-        if (maxW > 0) {
-            popover.style.minWidth = Math.min(maxW + 40, 720) + 'px';
-            if (ul.parentElement) ul.parentElement.style.minWidth = Math.min(maxW + 40, 720) + 'px';
-        }
     }
+
     function _init() {
         _keys.forEach(function(k) {
             var el = D.querySelector('.st-key-' + k);
             if (!el) return;
             el.addEventListener('mousedown', function() {
-                setTimeout(_expandPopover, 120);
+                setTimeout(_expandPopover, 100);
+                setTimeout(_expandPopover, 300);
             }, true);
-        });
-        D.addEventListener('click', function(e) {
-            var inSelect = _keys.some(function(k) {
-                var el = D.querySelector('.st-key-' + k);
-                return el && el.contains(e.target);
-            });
-            if (inSelect) setTimeout(_expandPopover, 120);
         });
     }
     setTimeout(_init, 800);
