@@ -5870,7 +5870,8 @@ with tab1:
 
         st.markdown("---")
         st.markdown("#### Métricas")
-        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        # Fila 1: siempre 3 tarjetas de métricas
+        col_m1, col_m2, col_m3 = st.columns(3)
 
         total_productos = sum(item["Cantidad"] for item in st.session_state.carrito)
         categorias_unicas = len(set(item["Categoria"] for item in st.session_state.carrito))
@@ -5881,30 +5882,6 @@ with tab1:
             st.markdown(f'<div class="stats-card"><div class="stats-title">PRODUCTOS</div><div class="stats-number" style="color:#f59e0b;border:none;padding:0;">{total_productos}</div><div class="stats-desc">Unidades</div></div>', unsafe_allow_html=True)
         with col_m3:
             st.markdown(f'<div class="stats-card"><div class="stats-title">CATEGORÍAS</div><div class="stats-number" style="color:#10b981;border:none;padding:0;">{categorias_unicas}</div><div class="stats-desc">Diferentes</div></div>', unsafe_allow_html=True)
-        with col_m4:
-            if st.session_state.modo_admin:
-                st.markdown(f'''
-                <div class="metric-card-special" style="background:linear-gradient(135deg,#ef4444,#dc2626);padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
-                    <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
-                        <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Costo base:</span><span>{formato_clp(subtotal_base)}</span></div>
-                        <div style="display:flex;justify-content:space-between;"><span>+ Margen {st.session_state.margen}%:</span><span>{formato_clp(margen_valor)}</span></div>
-                    </div>
-                    <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
-                        <span style="font-size:1.4rem;font-weight:700;color:white;">📦 Total sin iva</span>
-                        <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(subtotal_general)}</span>
-                    </div>
-                </div>''', unsafe_allow_html=True)
-            else:
-                st.markdown(f'''
-                <div class="metric-card-special" style="background:linear-gradient(135deg,#ef4444,#dc2626);padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
-                    <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;">
-                        <div style="display:flex;justify-content:space-between;"><span>Costo base (sin IVA):</span><span>{formato_clp(subtotal_base)}</span></div>
-                    </div>
-                    <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
-                        <span style="font-size:1.4rem;font-weight:700;color:white;">📦 Total sin iva</span>
-                        <span style="font-size:2.2rem;font-weight:700;color:white;">{formato_clp(subtotal_base)}</span>
-                    </div>
-                </div>''', unsafe_allow_html=True)
 
         st.markdown("---")
 
