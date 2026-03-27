@@ -2509,7 +2509,7 @@ st.markdown("""
     }
     .resultados-table th {
         background: linear-gradient(135deg, #1e2447 0%, #2a3060 100%) !important;
-        color: #ffffff !important; font-weight: 700 !important;
+        color: #ffffff !important; font-weight: 900 !important;
         padding: 14px 16px !important; text-align: left !important;
         font-size: 0.75rem !important; letter-spacing: 0.07em !important;
         text-transform: uppercase !important;
