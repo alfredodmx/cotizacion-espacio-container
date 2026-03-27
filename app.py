@@ -5357,7 +5357,7 @@ with tab1:
         });
     }
 
-    function _expand() {
+    function _expand(origW) {
         var focusDivs = D.querySelectorAll('[data-no-focus-lock="true"]');
         if (!focusDivs.length) return;
         focusDivs.forEach(function(focusDiv) {
@@ -5380,7 +5380,8 @@ with tab1:
                 if (w > maxW) maxW = w;
             });
             if (maxW < 50) return;
-            var fw = Math.min(Math.max(maxW + 380, 300), 1200);
+            origW = origW || 200;
+            var fw = Math.min(Math.max(maxW + 380, origW), 1200);
             var fwStr = fw + 'px';
 
             // Aplicar y usar MutationObserver para re-aplicar si Streamlit sobreescribe
@@ -5417,10 +5418,13 @@ with tab1:
         _keys.forEach(function(k) {
             var el = D.querySelector('.st-key-' + k);
             if (!el) return;
+            // Guardar ancho original ANTES de que se abra el popover
             el.addEventListener('mousedown', function() {
-                setTimeout(function(){ _expand(); }, 100);
-                setTimeout(function(){ _expand(); }, 300);
-                setTimeout(function(){ _expand(); }, 600);
+                var inputEl = el.querySelector('[data-baseweb="select"] > div');
+                var origW = inputEl ? inputEl.getBoundingClientRect().width : 200;
+                setTimeout(function(){ _expand(origW); }, 100);
+                setTimeout(function(){ _expand(origW); }, 300);
+                setTimeout(function(){ _expand(origW); }, 600);
             }, true);
         });
     }
@@ -5441,7 +5445,7 @@ with tab1:
     if not es_solo_lectura:
         # Calcular hojas_modelo ANTES de las columnas para que esté disponible en col_m4
         hojas_modelo = [h for h in _leer_hojas_disponibles() if h.lower().startswith("modelo")]
-        col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns([0.7,1.8,0.8,1,0.7])
+        col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns([1,1,1,1,0.7])
 
         with col_m1:
             with st.container(border=True):
