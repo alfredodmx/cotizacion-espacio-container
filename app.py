@@ -5333,7 +5333,6 @@ with tab1:
     var _keys = ['modelo_select','cat_manual','item_manual','cat_eliminar','modelo_origen','cat_agregar'];
 
     function _expand() {
-        // Buscar el div[data-no-focus-lock] directamente en el documento
         var focusDivs = D.querySelectorAll('[data-no-focus-lock="true"]');
         if (!focusDivs.length) return;
         focusDivs.forEach(function(focusDiv) {
@@ -5356,16 +5355,19 @@ with tab1:
                 if (w > maxW) maxW = w;
             });
             if (maxW < 50) return;
-            var fw = Math.min(maxW + 40, 1000);
+
+            // El ancho final: el mayor entre el texto medido y el ancho actual del focusDiv
+            var currentW = focusDiv.getBoundingClientRect().width;
+            var fw = Math.min(Math.max(maxW + 40, currentW), 1000);
             var fwStr = fw + 'px';
 
-            // Aplicar width al div[data-no-focus-lock] — exactamente como en devtools
-            focusDiv.style.width = fwStr;
-
-            // También al ul y al div interno de scroll
+            // Sobreescribir el style inline directamente
+            focusDiv.setAttribute('style', 'width:' + fwStr + ';');
             ul.style.width = fwStr;
-            var inner = ul.querySelector('div > div');
-            if (inner) inner.style.width = fwStr;
+            var scrollDiv = ul.firstElementChild;
+            if (scrollDiv) scrollDiv.style.width = fwStr;
+            var innerDiv = scrollDiv && scrollDiv.firstElementChild;
+            if (innerDiv) innerDiv.style.width = fwStr;
         });
     }
 
