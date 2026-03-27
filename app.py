@@ -5334,18 +5334,15 @@ with tab1:
 
     function _expand() {
         var focusDivs = D.querySelectorAll('[data-no-focus-lock="true"]');
-        console.log('[ECH] focusDivs encontrados:', focusDivs.length);
         if (!focusDivs.length) return;
         focusDivs.forEach(function(focusDiv) {
             var ul = focusDiv.querySelector('ul');
             if (!ul) return;
             var items = ul.querySelectorAll('li');
-            console.log('[ECH] items:', items.length);
             if (!items.length) return;
 
             // Medir texto más largo con span temporal
             var maxW = 0;
-            var maxTxt = '';
             items.forEach(function(li) {
                 var txt = (li.textContent || li.innerText || '').trim();
                 if (!txt) return;
@@ -5355,21 +5352,44 @@ with tab1:
                 D.body.appendChild(sp);
                 var w = sp.getBoundingClientRect().width;
                 D.body.removeChild(sp);
-                if (w > maxW) { maxW = w; maxTxt = txt; }
+                if (w > maxW) maxW = w;
             });
-            console.log('[ECH] maxW:', maxW, 'texto:', maxTxt);
             if (maxW < 50) return;
-
             var fw = Math.min(maxW + 40, 1000);
             var fwStr = fw + 'px';
-            console.log('[ECH] aplicando width:', fwStr);
 
+            // 1. focusDiv — contenedor raíz
             focusDiv.setAttribute('style', 'width:' + fwStr + ';');
+
+            // 2. ul
             ul.style.width = fwStr;
-            var scrollDiv = ul.firstElementChild;
-            if (scrollDiv) scrollDiv.style.width = fwStr;
-            var innerDiv = scrollDiv && scrollDiv.firstElementChild;
-            if (innerDiv) innerDiv.style.width = fwStr;
+
+            // 3. div con overflow:auto (scroll container)
+            var scrollCont = ul.firstElementChild;
+            if (scrollCont) {
+                scrollCont.style.width = fwStr;
+
+                // 4. div interno del virtual scroller (height=Npx, width=100%)
+                var virtualInner = scrollCont.firstElementChild;
+                if (virtualInner) {
+                    virtualInner.style.width = fwStr;
+                }
+            }
+
+            // 5. Cada li tiene width:100% — al expandir el contenedor se expanden solos
+            // pero forzar nowrap para que el texto no se corte
+            items.forEach(function(li) {
+                li.style.whiteSpace = 'nowrap';
+                li.style.overflow = 'visible';
+                li.style.width = fwStr;
+                // El div interno del li con el texto
+                var txtDiv = li.querySelector('div div');
+                if (txtDiv) {
+                    txtDiv.style.whiteSpace = 'nowrap';
+                    txtDiv.style.overflow = 'visible';
+                    txtDiv.style.textOverflow = 'unset';
+                }
+            });
         });
     }
 
