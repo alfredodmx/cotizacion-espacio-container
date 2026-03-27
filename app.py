@@ -5803,7 +5803,7 @@ with tab1:
                     unsafe_allow_html=True
                 )
 
-                if st.button("📋 Copiar nombre", key=f"btn_copy_{st.session_state.counter}", help="Copiar nombre del producto"):
+                if st.button(f"📋 {_nombre_item}", key=f"btn_copy_{st.session_state.counter}", help="Click para copiar"):
                     st.session_state['_copiar_nombre_producto'] = _nombre_item
                     st.rerun()
 
