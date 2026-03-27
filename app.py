@@ -2951,7 +2951,7 @@ else:
 
 _header_bg = 'linear-gradient(90deg, ' + _header_color + ' 0%, #0f172a 65%)'
 
-_center_html = ''
+_total_hdr_fmt = ''
 try:
     _carrito_hdr = st.session_state.get('carrito', [])
     if _carrito_hdr:
@@ -2960,21 +2960,9 @@ try:
             float(item.get('Cantidad', 0)) * float(item.get('Precio Unitario', 0)) * (1 + _margen_h / 100)
             for item in _carrito_hdr
         )
-        _total_hdr = _sub_hdr * 1.19
-        _total_fmt = '$' + '{:,.0f}'.format(_total_hdr).replace(',', '.')
-        _center_html = (
-            '<div style="position:absolute;left:50%;top:50%;'
-            'transform:translate(-50%,-50%);'
-            'display:flex;flex-direction:column;align-items:center;'
-            'justify-content:center;pointer-events:none;">'
-            '<div style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.45);'
-            'text-transform:uppercase;letter-spacing:0.12em;margin-bottom:2px;">Total + IVA</div>'
-            '<div style="font-size:1.25rem;font-weight:900;color:#ffffff;letter-spacing:-0.02em;'
-            'font-family:Montserrat,sans-serif;line-height:1;">' + _total_fmt + '</div>'
-            '</div>'
-        )
+        _total_hdr_fmt = '$' + '{:,.0f}'.format(_sub_hdr * 1.19).replace(',', '.')
 except Exception:
-    _center_html = ''
+    _total_hdr_fmt = ''
 
 st.markdown(f"""
 <style>
@@ -3033,7 +3021,7 @@ st.markdown(f"""
     min-height: 0 !important;
 }}
 </style>
-""" + '<div id="_usr_header_bar" style="position:relative;">' + _center_html + '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow:hidden;position:relative;z-index:2;">' + _left_html + '</div>' + '<div class="usr-right" style="position:relative;z-index:2;margin-left:auto;">' + _rol_html + '</div></div>', unsafe_allow_html=True)
+""" + '<div id="_usr_header_bar"><div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow:hidden;">' + _left_html + '</div><div class="usr-right">' + _rol_html + '</div></div>', unsafe_allow_html=True)
 
 # Dialog contraseña — se abre centrado sin interferir con popovers
 if 'show_pwd_dialog' not in st.session_state:
@@ -3283,6 +3271,27 @@ _js_global.html("""
         }
     });
 
+    function injectTotal() {{
+        var bar = D.getElementById('_usr_header_bar');
+        if (!bar) return;
+        var existing = D.getElementById('_hdr_total_iva');
+        if (existing) existing.remove();
+        var totalFmt = '{_total_hdr_fmt}';
+        if (!totalFmt) return;
+        var div = D.createElement('div');
+        div.id = '_hdr_total_iva';
+        div.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);'
+            + 'display:flex;flex-direction:column;align-items:center;justify-content:center;'
+            + 'pointer-events:none;';
+        div.innerHTML = '<div style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.45);'
+            + 'text-transform:uppercase;letter-spacing:0.12em;margin-bottom:2px;">Total + IVA</div>'
+            + '<div style="font-size:1.25rem;font-weight:900;color:#fff;letter-spacing:-0.02em;'
+            + 'font-family:Montserrat,sans-serif;line-height:1;">' + totalFmt + '</div>';
+        bar.style.position = 'relative';
+        bar.appendChild(div);
+    }}
+    setTimeout(injectTotal, 600);
+    setTimeout(injectTotal, 1400);
     setTimeout(moveButtonsToHeader, 800);
     setTimeout(moveButtonsToHeader, 1500);
     setTimeout(moveBadgeAndCloseToHeader, 900);
