@@ -5785,7 +5785,18 @@ with tab1:
                 <div style="margin-bottom:12px;">
                     <div style="font-size:11px;color:#A32D2D;font-weight:600;
                                 text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;">{_categoria}</div>
-                    <div id="_copy_item_name" data-nombre="{_nombre_item}"
+                    <div id="_copy_item_name"
+                    onclick="(function(el){{
+                        var txt=el.getAttribute('data-txt');
+                        var ta=document.createElement('textarea');
+                        ta.value=txt;ta.style.cssText='position:fixed;top:-9999px;left:-9999px;opacity:0;';
+                        document.body.appendChild(ta);ta.focus();ta.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(ta);
+                        var orig=el.innerHTML;el.innerHTML='✅ ¡Copiado!';el.style.color='#059669';
+                        setTimeout(function(){{el.innerHTML=orig;el.style.color='#501313';}},1200);
+                    }})(this)"
+                    data-txt="{_nombre_item}"
                     style="font-size:17px;font-weight:700;color:#501313;margin-bottom:14px;cursor:pointer;
                            user-select:none;" title="Click para copiar">{_nombre_item} 📋</div>
                     <div style="display:flex;gap:12px;margin-bottom:4px;">
