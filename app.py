@@ -3350,26 +3350,26 @@ _js_global.html("""
     setTimeout(initTabArrows, 800);
     setTimeout(initTabArrows, 1800);
 
-    // Copiar nombre de producto al hacer click en el panel de edición
+    // Copiar nombre producto del panel de edición
     D.addEventListener('click', function(e) {
-        var el = e.target && e.target.closest ? e.target.closest('#_copy_item_name') : null;
+        var el = e.target && e.target.id === '_popup_nombre' ? e.target : 
+                 (e.target.closest ? e.target.closest('#_popup_nombre') : null);
         if (!el) return;
-        var txt = el.getAttribute('data-nombre') || el.textContent.replace('📋','').trim();
+        var txt = (el.innerText || el.textContent || '').replace('📋','').trim();
+        if (!txt) return;
         var ta = D.createElement('textarea');
         ta.value = txt;
-        ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
+        ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
         D.body.appendChild(ta); ta.focus(); ta.select();
-        try { D.execCommand('copy'); } catch(e) {}
-        ta.remove();
-        if (window.navigator.clipboard) {
-            window.navigator.clipboard.writeText(txt).catch(function(){});
-        }
+        try { D.execCommand('copy'); } catch(err) {}
+        D.body.removeChild(ta);
         var orig = el.innerHTML;
-        var origColor = el.style.color;
-        el.innerHTML = '✅ ¡Copiado!';
+        el.innerHTML = '✅ Copiado';
         el.style.color = '#059669';
-        setTimeout(function(){ el.innerHTML = orig; el.style.color = origColor; }, 1200);
+        setTimeout(function(){ el.innerHTML = orig; el.style.color = '#501313'; }, 1500);
     });
+
+
 
     // Re-inicializar al cambiar de tab
     window.parent.addEventListener('click', function(e){
@@ -5785,9 +5785,7 @@ with tab1:
                 <div style="margin-bottom:12px;">
                     <div style="font-size:11px;color:#A32D2D;font-weight:600;
                                 text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;">{_categoria}</div>
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-                        <div style="font-size:17px;font-weight:700;color:#501313;">{_nombre_item}</div>
-                    </div>
+                    <div id="_popup_nombre" style="font-size:17px;font-weight:700;color:#501313;margin-bottom:14px;cursor:pointer;user-select:none;" title="Click para copiar">{_nombre_item} 📋</div>
                     <div style="display:flex;gap:12px;margin-bottom:4px;">
                         <div style="background:#fff;border:.5px solid #F09595;border-radius:10px;padding:10px 14px;text-align:center;flex:1;">
                             <div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">P. unitario</div>
@@ -5804,15 +5802,6 @@ with tab1:
                     </div>
                 </div>
                 ''', unsafe_allow_html=True)
-
-                _col_nombre, _col_copy = st.columns([6, 1])
-                with _col_nombre:
-                    st.markdown(f'<div style="font-size:0.8rem;color:#A32D2D;font-weight:600;">📦 {_nombre_item}</div>', unsafe_allow_html=True)
-                with _col_copy:
-                    if st.button("📋", key=f"btn_copy_nombre_{st.session_state.counter}", help="Copiar nombre"):
-                        st.session_state['_copiado_nombre'] = _nombre_item
-                        st.toast(f"📋 Copiado: {_nombre_item[:40]}")
-
                 _cant_input = st.number_input(
                     "Nueva cantidad",
                     min_value=1,
