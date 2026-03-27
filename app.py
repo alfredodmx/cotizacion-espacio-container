@@ -3296,6 +3296,27 @@ _js_global.html("""
     setTimeout(injectTotal, 700);
     setTimeout(injectTotal, 1500);
 
+    // Aplicar tipografía al botón copiar nombre
+    (function(){
+        function _styleBtn() {
+            var btns = D.querySelectorAll('button');
+            for (var i=0; i<btns.length; i++) {
+                var key = btns[i].closest('[class*="st-key-btn_copy_"]');
+                if (key) {
+                    btns[i].style.setProperty('font-family', "'Plus Jakarta Sans', sans-serif", 'important');
+                    btns[i].style.setProperty('font-weight', '900', 'important');
+                    btns[i].style.setProperty('font-size', '1rem', 'important');
+                    btns[i].style.setProperty('-webkit-font-smoothing', 'antialiased', 'important');
+                }
+            }
+        }
+        setTimeout(_styleBtn, 500);
+        setTimeout(_styleBtn, 1200);
+        setTimeout(_styleBtn, 2500);
+        var obs = new MutationObserver(_styleBtn);
+        obs.observe(D.body, {childList: true, subtree: true});
+    })();
+
     // Copiar nombre producto si está pendiente
     (function(){
         var nombre = """ + repr(_nombre_copiar_hdr) + """;
