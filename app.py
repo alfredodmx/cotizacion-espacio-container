@@ -2951,19 +2951,6 @@ else:
 
 _header_bg = 'linear-gradient(90deg, ' + _header_color + ' 0%, #0f172a 65%)'
 
-_total_hdr_fmt = ''
-try:
-    _carrito_hdr = st.session_state.get('carrito', [])
-    if _carrito_hdr:
-        _margen_h = float(st.session_state.get('margen', 0) or 0)
-        _sub_hdr = sum(
-            float(item.get('Cantidad', 0)) * float(item.get('Precio Unitario', 0)) * (1 + _margen_h / 100)
-            for item in _carrito_hdr
-        )
-        _total_hdr_fmt = '$' + '{:,.0f}'.format(_sub_hdr * 1.19).replace(',', '.')
-except Exception:
-    _total_hdr_fmt = ''
-
 st.markdown(f"""
 <style>
 #_usr_header_bar {{
@@ -3096,6 +3083,20 @@ with _col_cerrar:
         st.session_state.modo_admin = False
         st.session_state._csv_listo = None
         st.rerun()
+
+# Calcular total+IVA para inyectar en el header via JS
+_total_hdr_fmt = ''
+try:
+    _carrito_hdr = st.session_state.get('carrito', [])
+    if _carrito_hdr:
+        _margen_h = float(st.session_state.get('margen', 0) or 0)
+        _sub_hdr = sum(
+            float(item.get('Cantidad', 0)) * float(item.get('Precio Unitario', 0)) * (1 + _margen_h / 100)
+            for item in _carrito_hdr
+        )
+        _total_hdr_fmt = '$' + '{:,.0f}'.format(_sub_hdr * 1.19).replace(',', '.')
+except Exception:
+    _total_hdr_fmt = ''
 
 # JS consolidado — header, tabs y cerrar cotización (un solo components.html = menos espacio)
 import streamlit.components.v1 as _js_global
@@ -3271,27 +3272,22 @@ _js_global.html("""
         }
     });
 
-    function injectTotal() {{
+    function injectTotal() {
         var bar = D.getElementById('_usr_header_bar');
         if (!bar) return;
         var existing = D.getElementById('_hdr_total_iva');
         if (existing) existing.remove();
-        var totalFmt = '{_total_hdr_fmt}';
+        var totalFmt = """ + repr(_total_hdr_fmt) + """;
         if (!totalFmt) return;
         var div = D.createElement('div');
         div.id = '_hdr_total_iva';
-        div.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);'
-            + 'display:flex;flex-direction:column;align-items:center;justify-content:center;'
-            + 'pointer-events:none;';
-        div.innerHTML = '<div style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.45);'
-            + 'text-transform:uppercase;letter-spacing:0.12em;margin-bottom:2px;">Total + IVA</div>'
-            + '<div style="font-size:1.25rem;font-weight:900;color:#fff;letter-spacing:-0.02em;'
-            + 'font-family:Montserrat,sans-serif;line-height:1;">' + totalFmt + '</div>';
+        div.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;';
+        div.innerHTML = '<div style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:2px;">Total + IVA</div><div style="font-size:1.25rem;font-weight:900;color:#fff;letter-spacing:-0.02em;font-family:Montserrat,sans-serif;line-height:1;">' + totalFmt + '</div>';
         bar.style.position = 'relative';
         bar.appendChild(div);
-    }}
-    setTimeout(injectTotal, 600);
-    setTimeout(injectTotal, 1400);
+    }
+    setTimeout(injectTotal, 700);
+    setTimeout(injectTotal, 1500);
     setTimeout(moveButtonsToHeader, 800);
     setTimeout(moveButtonsToHeader, 1500);
     setTimeout(moveBadgeAndCloseToHeader, 900);
