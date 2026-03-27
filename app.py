@@ -3033,7 +3033,7 @@ st.markdown(f"""
     min-height: 0 !important;
 }}
 </style>
-""" + '<div id="_usr_header_bar" style="position:relative;">' + _center_html + '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow:hidden;position:relative;z-index:2;">' + _left_html + '</div><div class="usr-right" style="position:relative;z-index:2;">' + _rol_html + '</div></div>', unsafe_allow_html=True)
+""" + '<div id="_usr_header_bar" style="position:relative;">' + _center_html + '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow:hidden;position:relative;z-index:2;">' + _left_html + '</div>' + '<div class="usr-right" style="position:relative;z-index:2;margin-left:auto;">' + _rol_html + '</div></div>', unsafe_allow_html=True)
 
 # Dialog contraseña — se abre centrado sin interferir con popovers
 if 'show_pwd_dialog' not in st.session_state:
