@@ -3184,11 +3184,11 @@ _js_global.html("""
         wrap.appendChild(cloneCerrar);
         usrRight.appendChild(wrap);
 
-        // Ocultar los botones originales
+        // Ocultar visualmente pero mantener clickeables para Streamlit
         var colPwd = btnPwd.closest('[data-testid="stPopover"]') || btnPwd.closest('[data-testid="stButton"]');
         var colCerrar = btnCerrar.closest('[data-testid="stButton"]');
-        if (colPwd) colPwd.parentElement.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
-        if (colCerrar) colCerrar.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
+        if (colPwd) colPwd.parentElement.style.cssText = 'opacity:0;pointer-events:none;position:absolute;width:1px;height:1px;overflow:hidden;';
+        if (colCerrar) colCerrar.style.cssText = 'opacity:0;pointer-events:none;position:absolute;width:1px;height:1px;overflow:hidden;';
     }
 
     // Mover badge y botón cerrar cotización al header
