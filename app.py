@@ -5333,54 +5333,39 @@ with tab1:
     var _keys = ['modelo_select','cat_manual','item_manual','cat_eliminar','modelo_origen','cat_agregar'];
 
     function _expand() {
-        var popovers = D.querySelectorAll('[data-baseweb="popover"]');
-        if (!popovers.length) return;
-        popovers.forEach(function(pop) {
-            // El contenedor clave es el div con data-no-focus-lock
-            var focusDiv = pop.querySelector('[data-no-focus-lock]');
-            var ul = pop.querySelector('ul[data-testid="stSelectboxVirtualDropdown"]');
-            if (!ul) ul = pop.querySelector('ul');
+        // Buscar el div[data-no-focus-lock] directamente en el documento
+        var focusDivs = D.querySelectorAll('[data-no-focus-lock="true"]');
+        if (!focusDivs.length) return;
+        focusDivs.forEach(function(focusDiv) {
+            var ul = focusDiv.querySelector('ul');
             if (!ul) return;
             var items = ul.querySelectorAll('li');
             if (!items.length) return;
 
-            // Paso 1: forzar nowrap para medir texto real
+            // Medir texto más largo con span temporal
+            var maxW = 0;
             items.forEach(function(li) {
-                li.style.setProperty('white-space','nowrap','important');
-                li.style.setProperty('overflow','visible','important');
-                li.style.setProperty('text-overflow','unset','important');
-                li.querySelectorAll('div').forEach(function(ch){
-                    ch.style.setProperty('white-space','nowrap','important');
-                    ch.style.setProperty('overflow','visible','important');
-                    ch.style.setProperty('text-overflow','unset','important');
-                });
+                var txt = (li.textContent || li.innerText || '').trim();
+                if (!txt) return;
+                var sp = D.createElement('span');
+                sp.style.cssText = 'position:fixed;top:-9999px;left:-9999px;white-space:nowrap;font-size:14px;font-family:Plus Jakarta Sans,sans-serif;padding:0 24px;visibility:hidden;pointer-events:none;';
+                sp.textContent = txt;
+                D.body.appendChild(sp);
+                var w = sp.getBoundingClientRect().width;
+                D.body.removeChild(sp);
+                if (w > maxW) maxW = w;
             });
+            if (maxW < 50) return;
+            var fw = Math.min(maxW + 40, 1000);
+            var fwStr = fw + 'px';
 
-            // Paso 2: medir el li más largo con un span temporal
-            setTimeout(function(){
-                var maxW = 0;
-                items.forEach(function(li) {
-                    var txt = li.textContent || li.innerText || '';
-                    var sp = D.createElement('span');
-                    sp.style.cssText = 'position:fixed;top:-9999px;left:-9999px;white-space:nowrap;font-size:14px;font-family:Plus Jakarta Sans,sans-serif;padding:0 20px;visibility:hidden;';
-                    sp.textContent = txt;
-                    D.body.appendChild(sp);
-                    var w = sp.getBoundingClientRect().width;
-                    D.body.removeChild(sp);
-                    if (w > maxW) maxW = w;
-                });
-                if (maxW < 100) return;
-                var fw = Math.min(maxW + 32, 1000);
+            // Aplicar width al div[data-no-focus-lock] — exactamente como en devtools
+            focusDiv.style.width = fwStr;
 
-                // Expandir el div[data-no-focus-lock] — ese es el que acepta width en devtools
-                if (focusDiv) {
-                    focusDiv.style.setProperty('width', fw+'px','important');
-                }
-                // También expandir el ul y su scroll container
-                ul.style.setProperty('width', fw+'px','important');
-                var scrollDiv = ul.querySelector('div[style*="overflow: auto"]');
-                if (scrollDiv) scrollDiv.style.setProperty('width', fw+'px','important');
-            }, 50);
+            // También al ul y al div interno de scroll
+            ul.style.width = fwStr;
+            var inner = ul.querySelector('div > div');
+            if (inner) inner.style.width = fwStr;
         });
     }
 
