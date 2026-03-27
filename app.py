@@ -5674,7 +5674,8 @@ with tab1:
                 _cant_input = st.number_input(
                     "Nueva cantidad",
                     min_value=1,
-                    value=_nueva_cant,
+                    max_value=99999,
+                    value=min(int(_nueva_cant), 99999),
                     step=1,
                     key=f"ni_{st.session_state.counter}"
                 )
