@@ -900,7 +900,6 @@ if st.query_params.get("_fabg") == "1":
 
 if 'counter' not in st.session_state:
     st.session_state.counter = 0
-st.session_state['_rerun_lock'] = False
 if 'cargar_cotizacion_trigger' not in st.session_state:
     st.session_state.cargar_cotizacion_trigger = False
 if 'cotizacion_a_cargar' not in st.session_state:
@@ -1882,7 +1881,7 @@ def generar_pdf_log(numero, logs):
 
                         if len(cam_rows) > 1:
                             _cw1, _cw2, _cw3 = 4.2*cm, 5.4*cm, 5.4*cm
-                            cam_tbl = Table(cam_rows, colWidths=[_cw1, _cw2, _cw3])
+                            cam_tbl = Table(cam_rows, colWidths=[_cw1, _cw2, _cw3], splitByRow=1, repeatRows=1)
                             cam_styles = [
                                 ("BACKGROUND",    (0,0), (-1,0),  C_HDR_BG),
                                 ("LINEBELOW",     (0,0), (-1,0),  0.5, C_LINE),
@@ -1910,7 +1909,7 @@ def generar_pdf_log(numero, logs):
                                 ("LEFTPADDING",   (1,0), (1,-1),  10),
                                 ("VALIGN",        (0,0), (-1,-1), "TOP"),
                             ]))
-                            story.append(KeepTogether(wrap_tbl))
+                            story.append(wrap_tbl)
 
                 story.append(Spacer(1, 2))
 
@@ -2964,7 +2963,7 @@ st.markdown(f"""
     display: flex;
     align-items: center;
     padding: 0 1.5rem;
-    z-index: 2147483647;
+    z-index: 999998;
     gap: 12px;
 }}
 #_usr_header_bar .usr-right {{
@@ -3084,20 +3083,6 @@ with _col_cerrar:
         st.session_state._csv_listo = None
         st.rerun()
 
-# Calcular total+IVA para inyectar en el header via JS
-_total_hdr_fmt = ''
-try:
-    _carrito_hdr = st.session_state.get('carrito', [])
-    if _carrito_hdr:
-        _margen_h = float(st.session_state.get('margen', 0) or 0)
-        _sub_hdr = sum(
-            float(item.get('Cantidad', 0)) * float(item.get('Precio Unitario', 0)) * (1 + _margen_h / 100)
-            for item in _carrito_hdr
-        )
-        _total_hdr_fmt = '$' + '{:,.0f}'.format(_sub_hdr * 1.19).replace(',', '.')
-except Exception:
-    _total_hdr_fmt = ''
-
 # JS consolidado — header, tabs y cerrar cotización (un solo components.html = menos espacio)
 import streamlit.components.v1 as _js_global
 _js_global.html("""
@@ -3129,12 +3114,8 @@ _js_global.html("""
         var usrRight = bar.querySelector('.usr-right');
         if (!usrRight) return;
 
-        // Limpiar wrap anterior para usar referencias frescas en cada rerun
-        var oldWrap = bar.querySelector('._hdr_btns_moved');
-        if (oldWrap) oldWrap.remove();
-        // Restaurar visibilidad de botones originales por si quedaron ocultos
-        var allHidden = D.querySelectorAll('[style*="visibility:hidden"]');
-        for (var h=0; h<allHidden.length; h++) { allHidden[h].style.visibility = ''; }
+        // Evitar duplicar
+        if (bar.querySelector('._hdr_btns_moved')) return;
 
         // Buscar botones por texto
         var allBtns = D.querySelectorAll('button');
@@ -3188,11 +3169,11 @@ _js_global.html("""
         wrap.appendChild(cloneCerrar);
         usrRight.appendChild(wrap);
 
-        // Ocultar visualmente — siguen en el DOM para que Streamlit registre clicks
+        // Ocultar los botones originales
         var colPwd = btnPwd.closest('[data-testid="stPopover"]') || btnPwd.closest('[data-testid="stButton"]');
         var colCerrar = btnCerrar.closest('[data-testid="stButton"]');
-        if (colPwd) colPwd.parentElement.style.visibility = 'hidden';
-        if (colCerrar) colCerrar.style.visibility = 'hidden';
+        if (colPwd) colPwd.parentElement.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
+        if (colCerrar) colCerrar.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
     }
 
     // Mover badge y botón cerrar cotización al header
@@ -3276,22 +3257,6 @@ _js_global.html("""
         }
     });
 
-    function injectTotal() {
-        var bar = D.getElementById('_usr_header_bar');
-        if (!bar) return;
-        var existing = D.getElementById('_hdr_total_iva');
-        if (existing) existing.remove();
-        var totalFmt = """ + repr(_total_hdr_fmt) + """;
-        if (!totalFmt) return;
-        var div = D.createElement('div');
-        div.id = '_hdr_total_iva';
-        div.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;';
-        div.innerHTML = '<div style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:2px;">Total + IVA</div>'
-            + '<div style="font-size:1.25rem;font-weight:900;color:#fff;letter-spacing:-0.02em;font-family:Montserrat,sans-serif;line-height:1;">' + totalFmt + '</div>';
-        bar.appendChild(div);
-    }
-    setTimeout(injectTotal, 700);
-    setTimeout(injectTotal, 1500);
     setTimeout(moveButtonsToHeader, 800);
     setTimeout(moveButtonsToHeader, 1500);
     setTimeout(moveBadgeAndCloseToHeader, 900);
@@ -4280,12 +4245,12 @@ def cargar_ranking_ejecutivos(periodo='mes'):
 # =========================================================
 _rol_actual = st.session_state.get('rol_usuario', 'ejecutivo')
 if _rol_actual == 'root':
-    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_salud, tab_usuarios, tab_notif = st.tabs(["📊 DASHBOARD", "📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "🛡️ SISTEMA", "👥 USUARIOS", "📣 NOTIFICACIONES"])
+    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_salud, tab_usuarios, tab_notif = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "🛡️ SISTEMA", "👥 USUARIOS", "📣 NOTIFICACIONES"])
 elif _rol_actual == 'admin':
-    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_usuarios, tab_notif = st.tabs(["📊 DASHBOARD", "📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "👥 USUARIOS", "📣 NOTIFICACIONES"])
+    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_usuarios, tab_notif = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "👥 USUARIOS", "📣 NOTIFICACIONES"])
     tab_salud = None
 else:
-    tab1, tab2, tab3, tab7, tab_contrato, tab4 = st.tabs(["📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA"])
+    tab1, tab2, tab3, tab7, tab_contrato, tab4 = st.tabs(["📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA"])
     tab_dash = None
     tab_salud = None
     tab5 = None
@@ -5564,7 +5529,7 @@ with tab1:
             st.caption("🔒 Vista de solo lectura")
         else:
             carrito_df_edit = carrito_df_con_margen.copy()
-            carrito_df_edit["✏️"] = False
+            carrito_df_edit["❌"] = False
             carrito_df_edit["Precio Unitario"] = carrito_df_edit["Precio Unitario"].apply(formato_clp)
             carrito_df_edit["Subtotal"] = carrito_df_edit["Subtotal"].apply(formato_clp)
             if buscar_tabla:
@@ -5576,18 +5541,14 @@ with tab1:
             else:
                 carrito_df_edit_filtrado = carrito_df_edit
             edited_df = st.data_editor(carrito_df_edit_filtrado, use_container_width=True, hide_index=True, height=altura_tabla,
-                key=f"data_editor_{st.session_state.counter}",
-                column_config={"✏️": st.column_config.CheckboxColumn("✏️"), "Categoria": st.column_config.TextColumn("Categoría"),
+                column_config={"❌": st.column_config.CheckboxColumn("❌"), "Categoria": st.column_config.TextColumn("Categoría"),
                                "Item": st.column_config.TextColumn("Item"), "Cantidad": st.column_config.NumberColumn("Cant."),
                                "Precio Unitario": st.column_config.TextColumn("P. Unitario"), "Subtotal": st.column_config.TextColumn("Subtotal")})
-            filas_editar = edited_df[edited_df["✏️"] == True].index.tolist()
-            if st.session_state.get('_item_pendiente_eliminar') and not filas_editar:
-                st.session_state.pop('_item_pendiente_eliminar', None)
-                st.session_state.counter += 1
-                st.rerun()
-            if filas_editar:
+            filas_eliminar = edited_df[edited_df["❌"] == True].index.tolist()
+            if filas_eliminar:
                 if not st.session_state.get('_item_pendiente_eliminar'):
-                    _fila_marcada = edited_df[edited_df["✏️"] == True].iloc[0]
+                    # Buscar el item por nombre para evitar errores de indice con filtros activos
+                    _fila_marcada = edited_df[edited_df["❌"] == True].iloc[0]
                     _nombre_buscar = _fila_marcada["Item"]
                     item_pendiente = next(
                         (item for item in st.session_state.carrito
@@ -5596,127 +5557,86 @@ with tab1:
                     )
                     if item_pendiente:
                         st.session_state['_item_pendiente_eliminar'] = {
-                            'item': item_pendiente,
-                            'nueva_cantidad': int(item_pendiente.get('Cantidad', 1))
+                            'item': item_pendiente
                         }
                         st.rerun()
 
-        # ── Panel inline editar cantidad / eliminar item ──
+        # ── Dialog de confirmacion de eliminacion de item ──
         if st.session_state.get('_item_pendiente_eliminar'):
-            _pend          = st.session_state['_item_pendiente_eliminar']
-            _item_data     = _pend['item']
-            _nombre_item   = _item_data.get('Item', '')
-            _cantidad_orig = int(_item_data.get('Cantidad', 1))
-            _precio        = float(_item_data.get('Precio Unitario', 0))
-            _categoria     = _item_data.get('Categoria', '')
-            _nueva_cant    = int(_pend.get('nueva_cantidad', _cantidad_orig))
-            _container_key = f"popup_container_{st.session_state.counter}"
-            _css_key       = _container_key.replace('-', '_')
+            _pend = st.session_state['_item_pendiente_eliminar']
+            _item_data = _pend['item']
 
-            st.markdown(f'''
-            <style>
-            .st-key-{_css_key} > div[data-testid="stVerticalBlockBorderWrapper"] {{
-                background: #FCEBEB !important;
-                border: 1.5px solid #E24B4A !important;
-                border-radius: 14px !important;
-                box-shadow: none !important;
-            }}
-            .st-key-{_css_key} label {{
-                color: #791F1F !important; font-weight: 600 !important;
-            }}
-            .st-key-{_css_key} input[type="number"] {{
-                background: #fff !important; border-color: #E24B4A !important;
-                color: #501313 !important; font-weight: 700 !important;
-            }}
-            .st-key-{_css_key} button[data-testid="stNumberInputStepUp"],
-            .st-key-{_css_key} button[data-testid="stNumberInputStepDown"] {{
-                background: #FCEBEB !important; color: #A32D2D !important;
-            }}
-            .st-key-popup_cancelar_btn button {{
-                background: transparent !important; border: 1px solid #F09595 !important;
-                color: #791F1F !important;
-            }}
-            .st-key-popup_aplicar_btn button {{
-                background: #fff !important; border: 1.5px solid #E24B4A !important;
-                color: #A32D2D !important; font-weight: 600 !important;
-            }}
-            .st-key-popup_eliminar_btn button {{
-                background: #E24B4A !important; border: none !important;
-                color: #fff !important; font-weight: 600 !important;
-            }}
-            </style>
-            ''', unsafe_allow_html=True)
+            @st.dialog("🗑️ Confirmar eliminación")
+            def _dialog_confirmar_eliminar():
+                _nombre_item = _item_data.get('Item', '—')
+                _cantidad    = _item_data.get('Cantidad', 0)
+                _precio      = _item_data.get('Precio Unitario', 0)
+                _subtotal    = _item_data.get('Subtotal', 0)
+                _categoria   = _item_data.get('Categoria', '—')
 
-            with st.container(border=True, key=_container_key):
-                st.markdown(f'''
-                <div style="margin-bottom:12px;">
-                    <div style="font-size:11px;color:#A32D2D;font-weight:600;
-                                text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;">{_categoria}</div>
-                    <div style="font-size:17px;font-weight:700;color:#501313;margin-bottom:14px;">{_nombre_item}</div>
-                    <div style="display:flex;gap:12px;margin-bottom:4px;">
-                        <div style="background:#fff;border:.5px solid #F09595;border-radius:10px;padding:10px 14px;text-align:center;flex:1;">
-                            <div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">P. unitario</div>
-                            <div style="font-size:15px;font-weight:700;color:#501313;margin-top:3px;">{formato_clp(_precio)}</div>
+                st.markdown(f"""
+                <div style="
+                    background: linear-gradient(135deg, #fff5f5, #fff);
+                    border: 1.5px solid #fecaca;
+                    border-radius: 14px;
+                    padding: 18px 20px;
+                    margin-bottom: 16px;
+                ">
+                    <div style="font-size:0.7rem;font-weight:800;color:#94a3b8;
+                                text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">
+                        {_categoria}
+                    </div>
+                    <div style="font-size:1.1rem;font-weight:800;color:#1e2447;margin-bottom:12px;">
+                        {_nombre_item}
+                    </div>
+                    <div style="display:flex;gap:20px;">
+                        <div style="text-align:center;">
+                            <div style="font-size:0.68rem;color:#94a3b8;font-weight:700;
+                                        text-transform:uppercase;letter-spacing:0.06em;">Cantidad</div>
+                            <div style="font-size:1.2rem;font-weight:900;color:#3b82f6;">{int(_cantidad)}</div>
                         </div>
-                        <div style="background:#fff;border:.5px solid #F09595;border-radius:10px;padding:10px 14px;text-align:center;flex:1;">
-                            <div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Cant. original</div>
-                            <div style="font-size:15px;font-weight:700;color:#791F1F;margin-top:3px;">{_cantidad_orig}</div>
+                        <div style="text-align:center;">
+                            <div style="font-size:0.68rem;color:#94a3b8;font-weight:700;
+                                        text-transform:uppercase;letter-spacing:0.06em;">P. Unitario</div>
+                            <div style="font-size:1.2rem;font-weight:900;color:#3b82f6;">{formato_clp(_precio)}</div>
                         </div>
-                        <div style="background:#fff;border:.5px solid #E24B4A;border-radius:10px;padding:10px 14px;text-align:center;flex:1;">
-                            <div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Subtotal nuevo</div>
-                            <div style="font-size:15px;font-weight:700;color:#E24B4A;margin-top:3px;">{formato_clp(_nueva_cant * _precio)}</div>
+                        <div style="text-align:center;">
+                            <div style="font-size:0.68rem;color:#94a3b8;font-weight:700;
+                                        text-transform:uppercase;letter-spacing:0.06em;">Subtotal</div>
+                            <div style="font-size:1.2rem;font-weight:900;color:#ef4444;">{formato_clp(_subtotal)}</div>
                         </div>
                     </div>
                 </div>
-                ''', unsafe_allow_html=True)
+                <div style="font-size:0.88rem;color:#64748b;text-align:center;">
+                    ¿Estás seguro que deseas eliminar este ítem del presupuesto?
+                </div>
+                """, unsafe_allow_html=True)
 
-                _cant_input = st.number_input(
-                    "Nueva cantidad",
-                    min_value=1,
-                    value=_nueva_cant,
-                    step=1,
-                    key=f"ni_{st.session_state.counter}"
-                )
-                if int(_cant_input) != _nueva_cant and not st.session_state.get('_rerun_lock'):
-                    st.session_state['_item_pendiente_eliminar']['nueva_cantidad'] = int(_cant_input)
-                    st.rerun()
-
-                _ba1, _ba2, _ba3 = st.columns([1, 1.5, 1.5])
-                with _ba1:
-                    if st.button("✖️ Cancelar", use_container_width=True, key="popup_cancelar_btn"):
-                        st.session_state.pop('_item_pendiente_eliminar', None)
-                        st.session_state.pop('_rerun_lock', None)
-                        st.session_state.counter += 1
-                        st.rerun()
-                with _ba2:
-                    if st.button("✅ Aplicar cambio", use_container_width=True, key="popup_aplicar_btn"):
-                        for item in st.session_state.carrito:
-                            if item['Item'] == _nombre_item:
-                                item['Cantidad'] = int(_cant_input)
-                                item['Subtotal'] = int(_cant_input) * float(item['Precio Unitario'])
-                                break
-                        st.session_state.pop('_item_pendiente_eliminar', None)
-                        st.session_state.pop('_rerun_lock', None)
-                        st.session_state.counter += 1
-                        st.rerun()
-                with _ba3:
-                    if st.button("🗑️ Eliminar todo", use_container_width=True, key="popup_eliminar_btn"):
+                st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+                _col_si, _col_no = st.columns(2)
+                with _col_si:
+                    if st.button("🗑️ Sí, eliminar", use_container_width=True,
+                                 type="primary", key="dialog_eliminar_si"):
+                        _item_a_eliminar = _pend['item']
                         st.session_state.carrito = [
                             i for i in st.session_state.carrito
-                            if i['Item'] != _nombre_item
+                            if i is not _item_a_eliminar
                         ]
                         st.session_state.pop('_item_pendiente_eliminar', None)
-                        st.session_state.pop('_rerun_lock', None)
-                        st.session_state.counter += 1
                         st.rerun()
+                with _col_no:
+                    if st.button("✖️ Cancelar", use_container_width=True,
+                                 key="dialog_eliminar_no"):
+                        st.session_state.pop('_item_pendiente_eliminar', None)
+                        st.rerun()
+
+            _dialog_confirmar_eliminar()
         st.markdown("---")
         # Solo botón Limpiar
         col_btn_limpiar, _, _, _ = st.columns(4)
         with col_btn_limpiar:
             if not es_solo_lectura:
                 if st.button("🧹 Limpiar", use_container_width=True):
-                    st.session_state.pop('_item_pendiente_eliminar', None)
-                    st.session_state.pop('_rerun_lock', None)
                     limpiar_todo()
                     st.rerun()
             else:
