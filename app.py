@@ -5355,7 +5355,7 @@ with tab1:
                 if (w > maxW) maxW = w;
             });
             if (maxW < 50) return;
-            var fw = Math.min(maxW + 40, 1000);
+            var fw = Math.min(maxW + 120, 1000);
             var fwStr = fw + 'px';
 
             // 1. focusDiv — contenedor raíz
