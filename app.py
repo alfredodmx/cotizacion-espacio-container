@@ -5336,32 +5336,51 @@ with tab1:
         var popovers = D.querySelectorAll('[data-baseweb="popover"]');
         if (!popovers.length) return;
         popovers.forEach(function(pop) {
-            var ul = pop.querySelector('ul');
+            // El contenedor clave es el div con data-no-focus-lock
+            var focusDiv = pop.querySelector('[data-no-focus-lock]');
+            var ul = pop.querySelector('ul[data-testid="stSelectboxVirtualDropdown"]');
+            if (!ul) ul = pop.querySelector('ul');
             if (!ul) return;
             var items = ul.querySelectorAll('li');
             if (!items.length) return;
-            // Paso 1: forzar nowrap en los li para medir ancho real
+
+            // Paso 1: forzar nowrap para medir texto real
             items.forEach(function(li) {
                 li.style.setProperty('white-space','nowrap','important');
                 li.style.setProperty('overflow','visible','important');
                 li.style.setProperty('text-overflow','unset','important');
-                li.querySelectorAll('*').forEach(function(ch){
+                li.querySelectorAll('div').forEach(function(ch){
                     ch.style.setProperty('white-space','nowrap','important');
                     ch.style.setProperty('overflow','visible','important');
                     ch.style.setProperty('text-overflow','unset','important');
                 });
             });
-            // Paso 2: expandir SOLO el ul y su padre inmediato — nunca el popover
+
+            // Paso 2: medir el li más largo con un span temporal
             setTimeout(function(){
-                var sw = ul.scrollWidth;
-                if (sw < 100) return;
-                var fw = Math.min(sw + 48, 1100);
-                ul.style.setProperty('min-width', fw+'px','important');
-                if (ul.parentElement) {
-                    ul.parentElement.style.setProperty('min-width', fw+'px','important');
-                    ul.parentElement.style.setProperty('overflow', 'visible','important');
+                var maxW = 0;
+                items.forEach(function(li) {
+                    var txt = li.textContent || li.innerText || '';
+                    var sp = D.createElement('span');
+                    sp.style.cssText = 'position:fixed;top:-9999px;left:-9999px;white-space:nowrap;font-size:14px;font-family:Plus Jakarta Sans,sans-serif;padding:0 20px;visibility:hidden;';
+                    sp.textContent = txt;
+                    D.body.appendChild(sp);
+                    var w = sp.getBoundingClientRect().width;
+                    D.body.removeChild(sp);
+                    if (w > maxW) maxW = w;
+                });
+                if (maxW < 100) return;
+                var fw = Math.min(maxW + 32, 1000);
+
+                // Expandir el div[data-no-focus-lock] — ese es el que acepta width en devtools
+                if (focusDiv) {
+                    focusDiv.style.setProperty('width', fw+'px','important');
                 }
-            }, 30);
+                // También expandir el ul y su scroll container
+                ul.style.setProperty('width', fw+'px','important');
+                var scrollDiv = ul.querySelector('div[style*="overflow: auto"]');
+                if (scrollDiv) scrollDiv.style.setProperty('width', fw+'px','important');
+            }, 50);
         });
     }
 
