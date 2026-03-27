@@ -1910,7 +1910,7 @@ def generar_pdf_log(numero, logs):
                                 ("LEFTPADDING",   (1,0), (1,-1),  10),
                                 ("VALIGN",        (0,0), (-1,-1), "TOP"),
                             ]))
-                            story.append(wrap_tbl)
+                            story.append(cam_tbl)
 
                 story.append(Spacer(1, 2))
 
