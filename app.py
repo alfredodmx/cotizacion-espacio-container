@@ -900,6 +900,8 @@ if st.query_params.get("_fabg") == "1":
 
 if 'counter' not in st.session_state:
     st.session_state.counter = 0
+# Limpiar lock de rerun al inicio de cada ciclo
+st.session_state['_rerun_lock'] = False
 if 'cargar_cotizacion_trigger' not in st.session_state:
     st.session_state.cargar_cotizacion_trigger = False
 if 'cotizacion_a_cargar' not in st.session_state:
@@ -2950,7 +2952,6 @@ else:
 
 _header_bg = 'linear-gradient(90deg, ' + _header_color + ' 0%, #0f172a 65%)'
 
-# Total + IVA centrado en el header
 _center_html = ''
 try:
     _carrito_hdr = st.session_state.get('carrito', [])
@@ -2981,7 +2982,6 @@ st.markdown(f"""
     position: fixed;
     top: 0; left: 0; right: 0;
     height: 65px;
-    overflow: visible;
     background: {_header_bg};
     border-bottom: 1px solid rgba(255,255,255,0.08);
     box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.05);
@@ -5669,7 +5669,9 @@ with tab1:
                     step=1,
                     key=f"ni_{st.session_state.counter}"
                 )
-                if int(_cant_input) != _nueva_cant:
+                # FIX "Bad message format": solo rerun si realmente cambió el valor
+                # y no hay otro rerun pendiente en el mismo ciclo
+                if int(_cant_input) != _nueva_cant and not st.session_state.get('_rerun_lock'):
                     st.session_state['_item_pendiente_eliminar']['nueva_cantidad'] = int(_cant_input)
                     st.rerun()
 
@@ -5677,6 +5679,7 @@ with tab1:
                 with _ba1:
                     if st.button("✖️ Cancelar", use_container_width=True, key="popup_cancelar_btn"):
                         st.session_state.pop('_item_pendiente_eliminar', None)
+                        st.session_state.pop('_rerun_lock', None)
                         st.session_state.counter += 1
                         st.rerun()
                 with _ba2:
@@ -5687,6 +5690,7 @@ with tab1:
                                 item['Subtotal'] = int(_cant_input) * float(item['Precio Unitario'])
                                 break
                         st.session_state.pop('_item_pendiente_eliminar', None)
+                        st.session_state.pop('_rerun_lock', None)
                         st.session_state.counter += 1
                         st.rerun()
                 with _ba3:
@@ -5696,6 +5700,7 @@ with tab1:
                             if i['Item'] != _nombre_item
                         ]
                         st.session_state.pop('_item_pendiente_eliminar', None)
+                        st.session_state.pop('_rerun_lock', None)
                         st.session_state.counter += 1
                         st.rerun()
         st.markdown("---")
@@ -5705,6 +5710,7 @@ with tab1:
             if not es_solo_lectura:
                 if st.button("🧹 Limpiar", use_container_width=True):
                     st.session_state.pop('_item_pendiente_eliminar', None)
+                    st.session_state.pop('_rerun_lock', None)
                     limpiar_todo()
                     st.rerun()
             else:
