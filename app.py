@@ -3298,7 +3298,7 @@ _js_global.html("""
 
     // Copiar nombre producto si está pendiente
     (function(){
-        var nombre = '_NOMBRE_';
+        var nombre = """ + repr(_nombre_copiar_hdr) + """;
         if (!nombre) return;
         var ta = D.createElement('textarea');
         ta.value = nombre;
