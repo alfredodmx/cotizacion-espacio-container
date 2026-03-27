@@ -900,7 +900,6 @@ if st.query_params.get("_fabg") == "1":
 
 if 'counter' not in st.session_state:
     st.session_state.counter = 0
-# Limpiar lock de rerun al inicio de cada ciclo
 st.session_state['_rerun_lock'] = False
 if 'cargar_cotizacion_trigger' not in st.session_state:
     st.session_state.cargar_cotizacion_trigger = False
@@ -4271,12 +4270,12 @@ def cargar_ranking_ejecutivos(periodo='mes'):
 # =========================================================
 _rol_actual = st.session_state.get('rol_usuario', 'ejecutivo')
 if _rol_actual == 'root':
-    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_salud, tab_usuarios, tab_notif = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "🛡️ SISTEMA", "👥 USUARIOS", "📣 NOTIFICACIONES"])
+    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_salud, tab_usuarios, tab_notif = st.tabs(["📊 DASHBOARD", "📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "🛡️ SISTEMA", "👥 USUARIOS", "📣 NOTIFICACIONES"])
 elif _rol_actual == 'admin':
-    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_usuarios, tab_notif = st.tabs(["📊 DASHBOARD", "📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "👥 USUARIOS", "📣 NOTIFICACIONES"])
+    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_usuarios, tab_notif = st.tabs(["📊 DASHBOARD", "📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "👥 USUARIOS", "📣 NOTIFICACIONES"])
     tab_salud = None
 else:
-    tab1, tab2, tab3, tab7, tab_contrato, tab4 = st.tabs(["📋 COTIZACIÓN", "👤 DATOS", "📂 COTIZACIONES", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA"])
+    tab1, tab2, tab3, tab7, tab_contrato, tab4 = st.tabs(["📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA"])
     tab_dash = None
     tab_salud = None
     tab5 = None
@@ -5572,7 +5571,6 @@ with tab1:
                                "Item": st.column_config.TextColumn("Item"), "Cantidad": st.column_config.NumberColumn("Cant."),
                                "Precio Unitario": st.column_config.TextColumn("P. Unitario"), "Subtotal": st.column_config.TextColumn("Subtotal")})
             filas_editar = edited_df[edited_df["✏️"] == True].index.tolist()
-            # Uncheck mientras popup abierto → cancelar
             if st.session_state.get('_item_pendiente_eliminar') and not filas_editar:
                 st.session_state.pop('_item_pendiente_eliminar', None)
                 st.session_state.counter += 1
@@ -5669,8 +5667,6 @@ with tab1:
                     step=1,
                     key=f"ni_{st.session_state.counter}"
                 )
-                # FIX "Bad message format": solo rerun si realmente cambió el valor
-                # y no hay otro rerun pendiente en el mismo ciclo
                 if int(_cant_input) != _nueva_cant and not st.session_state.get('_rerun_lock'):
                     st.session_state['_item_pendiente_eliminar']['nueva_cantidad'] = int(_cant_input)
                     st.rerun()
