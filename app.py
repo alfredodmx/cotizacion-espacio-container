@@ -2677,35 +2677,6 @@ st.markdown("""
     /* ══ RADIO BUTTONS ══ */
     .stRadio > div { gap: 0.5rem !important; }
 
-    /* ══ SELECTBOX POPOVER — expandir al contenido ══ */
-    [data-baseweb="popover"] {
-        min-width: fit-content !important;
-        width: fit-content !important;
-    }
-    [data-baseweb="popover"] > div {
-        min-width: fit-content !important;
-        width: fit-content !important;
-    }
-    [data-baseweb="popover"] ul,
-    [data-baseweb="popover"] [role="listbox"] {
-        min-width: fit-content !important;
-        width: fit-content !important;
-    }
-    [data-baseweb="popover"] li,
-    [data-baseweb="popover"] [role="option"] {
-        white-space: nowrap !important;
-        overflow: visible !important;
-        text-overflow: unset !important;
-        min-width: fit-content !important;
-        width: fit-content !important;
-    }
-    [data-baseweb="popover"] li span,
-    [data-baseweb="popover"] [role="option"] span {
-        white-space: nowrap !important;
-        overflow: visible !important;
-        text-overflow: unset !important;
-    }
-
     /* ══ FAB GUARDAR FLOTANTE ══ */
     .fab-guardar {
         background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%);
