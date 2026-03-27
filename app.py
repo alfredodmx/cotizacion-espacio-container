@@ -3350,6 +3350,27 @@ _js_global.html("""
     setTimeout(initTabArrows, 800);
     setTimeout(initTabArrows, 1800);
 
+    // Copiar nombre de producto al hacer click en el panel de edición
+    D.addEventListener('click', function(e) {
+        var el = e.target && e.target.closest ? e.target.closest('#_copy_item_name') : null;
+        if (!el) return;
+        var txt = el.getAttribute('data-nombre') || el.textContent.replace('📋','').trim();
+        var ta = D.createElement('textarea');
+        ta.value = txt;
+        ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
+        D.body.appendChild(ta); ta.focus(); ta.select();
+        try { D.execCommand('copy'); } catch(e) {}
+        ta.remove();
+        if (window.navigator.clipboard) {
+            window.navigator.clipboard.writeText(txt).catch(function(){});
+        }
+        var orig = el.innerHTML;
+        var origColor = el.style.color;
+        el.innerHTML = '✅ ¡Copiado!';
+        el.style.color = '#059669';
+        setTimeout(function(){ el.innerHTML = orig; el.style.color = origColor; }, 1200);
+    });
+
     // Re-inicializar al cambiar de tab
     window.parent.addEventListener('click', function(e){
         if (e.target && e.target.getAttribute && e.target.getAttribute('data-baseweb') === 'tab') {
@@ -5764,13 +5785,7 @@ with tab1:
                 <div style="margin-bottom:12px;">
                     <div style="font-size:11px;color:#A32D2D;font-weight:600;
                                 text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;">{_categoria}</div>
-                    <div onclick="navigator.clipboard.writeText('{_nombre_item}').then(function(){{
-                        var el=document.currentTarget;
-                        var orig=el.innerHTML;
-                        el.innerHTML='✅ ¡Copiado!';
-                        el.style.color='#059669';
-                        setTimeout(function(){{el.innerHTML=orig;el.style.color='#501313';}},1200);
-                    }})"
+                    <div id="_copy_item_name" data-nombre="{_nombre_item}"
                     style="font-size:17px;font-weight:700;color:#501313;margin-bottom:14px;cursor:pointer;
                            user-select:none;" title="Click para copiar">{_nombre_item} 📋</div>
                     <div style="display:flex;gap:12px;margin-bottom:4px;">
