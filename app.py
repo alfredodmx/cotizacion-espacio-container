@@ -3306,6 +3306,20 @@ _js_global.html("""
         D.body.appendChild(ta); ta.focus(); ta.select();
         try { D.execCommand('copy'); } catch(e) {}
         D.body.removeChild(ta);
+        // Feedback visual — igual que badge EP
+        var btns = D.querySelectorAll('button');
+        for (var i=0; i<btns.length; i++) {
+            var txt = (btns[i].innerText || btns[i].textContent || '');
+            if (txt.indexOf(nombre.substring(0,15)) !== -1) {
+                var btn = btns[i];
+                var orig = btn.innerHTML;
+                btn.innerHTML = '✅ Copiado';
+                btn.style.color = '#059669';
+                btn.style.borderColor = '#059669';
+                setTimeout(function(){ btn.innerHTML = orig; btn.style.color = ''; btn.style.borderColor = ''; }, 1500);
+                break;
+            }
+        }
     })();
     setTimeout(moveButtonsToHeader, 800);
     setTimeout(moveButtonsToHeader, 1500);
@@ -5762,6 +5776,14 @@ with tab1:
             .st-key-{_css_key} button[data-testid="stNumberInputStepUp"],
             .st-key-{_css_key} button[data-testid="stNumberInputStepDown"] {{
                 background: #FCEBEB !important; color: #A32D2D !important;
+            }}
+            .st-key-btn_copy_{st.session_state.counter} button {{
+                font-weight: 700 !important;
+                font-size: 0.95rem !important;
+                color: #501313 !important;
+                border: 1.5px solid #E24B4A !important;
+                background: #fff !important;
+                text-align: left !important;
             }}
             .st-key-popup_cancelar_btn button {{
                 background: transparent !important; border: 1px solid #F09595 !important;
