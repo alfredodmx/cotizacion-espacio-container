@@ -1865,7 +1865,8 @@ def generar_pdf_log(numero, logs):
                                 _d_raw = str(_v.get("despues","—"))
                                 # Si tiene saltos de línea (detalle carrito), formatear con <br/>
                                 if chr(10) in _d_raw:
-                                    _d = _d_raw.replace(chr(10), '<br/>')
+                                    _lineas = _d_raw.split(chr(10))[:20]
+                                    _d = '<br/>'.join(_lineas)
                                     _d_para = Paragraph(_d, s_dep)
                                 else:
                                     _d = _fmt_val(_d_raw, campo=_c)
