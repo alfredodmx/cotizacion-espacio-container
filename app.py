@@ -5413,19 +5413,27 @@ with tab1:
         });
     }
 
-    function _init() {
+    function _attachListeners() {
         _keys.forEach(function(k) {
             var el = D.querySelector('.st-key-' + k);
-            if (!el) return;
+            if (!el || el._echBound) return;
+            el._echBound = true;
             el.addEventListener('mousedown', function() {
-                setTimeout(function(){ _expand(); }, 100);
-                setTimeout(function(){ _expand(); }, 300);
-                setTimeout(function(){ _expand(); }, 600);
+                setTimeout(_expand, 100);
+                setTimeout(_expand, 300);
+                setTimeout(_expand, 600);
             }, true);
         });
     }
-    setTimeout(_init, 900);
-    setTimeout(_init, 2200);
+
+    // Re-adjuntar listeners después de cada rerun de Streamlit
+    var _pageObs = new MutationObserver(function() {
+        _attachListeners();
+    });
+    _pageObs.observe(D.body, { childList: true, subtree: true });
+
+    setTimeout(_attachListeners, 900);
+    setTimeout(_attachListeners, 2200);
 })();
 </script>""", height=0)
 
