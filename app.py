@@ -4285,7 +4285,7 @@ elif _rol_actual == 'admin':
     tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_usuarios, tab_notif = st.tabs(["📊 DASHBOARD", "📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "👥 USUARIOS", "📣 NOTIFICACIONES"])
     tab_salud = None
 else:
-    tab1, tab2, tab3, tab7, tab_contrato, tab4 = st.tabs(["📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA"])
+    tab1, tab2, tab3, tab_contrato, tab7, tab4 = st.tabs(["📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "📄 CONTRATO", "🏆 RANKING", "🧊 3D BETA"])
     tab_dash = None
     tab_salud = None
     tab5 = None
