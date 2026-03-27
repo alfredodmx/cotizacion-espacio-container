@@ -5570,129 +5570,117 @@ with tab1:
             _precio        = float(_item_data.get('Precio Unitario', 0))
             _categoria     = _item_data.get('Categoria', '')
             _nueva_cant    = int(_pend.get('nueva_cantidad', _cantidad_orig))
-            _subtotal_nuevo = _nueva_cant * _precio
 
-            # CSS: elimina gaps para que st.button quede dentro del contenedor visual
+            # CSS para colorear el container de Streamlit
             st.markdown('''
             <style>
-            /* Contenedor popup */
-            .popup-header {
-                background:#FCEBEB; border:1.5px solid #E24B4A;
-                border-bottom:none; border-radius:14px 14px 0 0;
-                padding:20px 24px 14px; margin-bottom:-16px;
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(
+                div[data-testid="stNumberInput"]
+            ) {
+                background: #FCEBEB !important;
+                border: 1.5px solid #E24B4A !important;
+                border-radius: 14px !important;
+                padding: 4px 8px !important;
             }
-            .popup-qty-band {
-                background:#FCEBEB;
-                border-left:1.5px solid #E24B4A; border-right:1.5px solid #E24B4A;
-                padding:4px 24px 8px; margin-bottom:-16px;
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(
+                div[data-testid="stNumberInput"]
+            ) label {
+                color: #791F1F !important;
+                font-weight: 600 !important;
             }
-            .popup-btn-band {
-                background:#FCEBEB;
-                border:1.5px solid #E24B4A; border-top:0.5px solid #F09595;
-                border-radius:0 0 14px 14px;
-                padding:10px 24px 14px; margin-bottom:0;
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(
+                div[data-testid="stNumberInput"]
+            ) input {
+                background: #fff !important;
+                border-color: #E24B4A !important;
+                color: #501313 !important;
+                font-weight: 700 !important;
             }
-            /* Quitar margen de columnas dentro del popup */
-            .st-key-qty_menos [data-testid="stButton"],
-            .st-key-qty_mas [data-testid="stButton"] { margin:0!important; }
-            /* Botones qty — estilo rojo */
-            .st-key-qty_menos button, .st-key-qty_mas button {
-                background:#FCEBEB!important; border:1.5px solid #E24B4A!important;
-                color:#A32D2D!important; font-size:1.2rem!important; font-weight:700!important;
-                padding:6px!important;
-            }
-            /* Botones acción */
             .st-key-popup_cancelar button {
-                background:transparent!important; border:1px solid #F09595!important;
-                color:#791F1F!important;
+                background: transparent !important;
+                border: 1px solid #F09595 !important;
+                color: #791F1F !important;
             }
             .st-key-popup_aplicar button {
-                background:#fff!important; border:1.5px solid #E24B4A!important;
-                color:#A32D2D!important; font-weight:600!important;
+                background: #fff !important;
+                border: 1.5px solid #E24B4A !important;
+                color: #A32D2D !important;
+                font-weight: 600 !important;
             }
             .st-key-popup_eliminar button {
-                background:#E24B4A!important; border:none!important;
-                color:#fff!important; font-weight:600!important;
+                background: #E24B4A !important;
+                border: none !important;
+                color: #fff !important;
+                font-weight: 600 !important;
             }
             </style>
             ''', unsafe_allow_html=True)
 
-            # ── Parte superior: info del item ──
-            st.markdown(f'''
-            <div class="popup-header">
-                <div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;
-                            letter-spacing:.08em;margin-bottom:3px;">{_categoria}</div>
-                <div style="font-size:17px;font-weight:700;color:#501313;margin-bottom:16px;">{_nombre_item}</div>
-                <div style="display:flex;gap:12px;margin-bottom:14px;">
-                    <div style="background:#fff;border:.5px solid #F09595;border-radius:10px;
-                                padding:10px 14px;text-align:center;flex:1;">
-                        <div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">P. unitario</div>
-                        <div style="font-size:15px;font-weight:700;color:#501313;margin-top:3px;">{formato_clp(_precio)}</div>
-                    </div>
-                    <div style="background:#fff;border:.5px solid #F09595;border-radius:10px;
-                                padding:10px 14px;text-align:center;flex:1;">
-                        <div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Cant. original</div>
-                        <div style="font-size:15px;font-weight:700;color:#791F1F;margin-top:3px;">{_cantidad_orig}</div>
-                    </div>
-                    <div style="background:#fff;border:.5px solid #E24B4A;border-radius:10px;
-                                padding:10px 14px;text-align:center;flex:1;">
-                        <div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Subtotal nuevo</div>
-                        <div style="font-size:15px;font-weight:700;color:#E24B4A;margin-top:3px;">{formato_clp(_subtotal_nuevo)}</div>
+            with st.container(border=True):
+                # Info del item
+                st.markdown(f'''
+                <div style="margin-bottom:12px;">
+                    <div style="font-size:11px;color:#A32D2D;font-weight:600;
+                                text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;">{_categoria}</div>
+                    <div style="font-size:17px;font-weight:700;color:#501313;margin-bottom:14px;">{_nombre_item}</div>
+                    <div style="display:flex;gap:12px;">
+                        <div style="background:#fff;border:.5px solid #F09595;border-radius:10px;
+                                    padding:10px 14px;text-align:center;flex:1;">
+                            <div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">P. unitario</div>
+                            <div style="font-size:15px;font-weight:700;color:#501313;margin-top:3px;">{formato_clp(_precio)}</div>
+                        </div>
+                        <div style="background:#fff;border:.5px solid #F09595;border-radius:10px;
+                                    padding:10px 14px;text-align:center;flex:1;">
+                            <div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Cant. original</div>
+                            <div style="font-size:15px;font-weight:700;color:#791F1F;margin-top:3px;">{_cantidad_orig}</div>
+                        </div>
+                        <div style="background:#fff;border:.5px solid #E24B4A;border-radius:10px;
+                                    padding:10px 14px;text-align:center;flex:1;">
+                            <div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Subtotal nuevo</div>
+                            <div style="font-size:15px;font-weight:700;color:#E24B4A;margin-top:3px;">{formato_clp(_nueva_cant * _precio)}</div>
+                        </div>
                     </div>
                 </div>
-                <div style="font-size:12px;color:#791F1F;">Ajustar cantidad:</div>
-            </div>
-            ''', unsafe_allow_html=True)
+                ''', unsafe_allow_html=True)
 
-            # ── Banda media: botones qty ──
-            st.markdown('<div class="popup-qty-band">', unsafe_allow_html=True)
-            _qc1, _qc2, _qc3, _qrest = st.columns([0.5, 0.6, 0.5, 8])
-            with _qc1:
-                if st.button("➖", use_container_width=True, key="qty_menos"):
-                    if _nueva_cant > 1:
-                        st.session_state['_item_pendiente_eliminar']['nueva_cantidad'] = _nueva_cant - 1
-                        st.rerun()
-            with _qc2:
-                st.markdown(
-                    f'<div style="text-align:center;padding:8px 0;font-size:1.1rem;font-weight:700;'
-                    f'color:#501313;background:#fff;border:1.5px solid #E24B4A;border-radius:8px;">'
-                    f'{_nueva_cant}</div>',
-                    unsafe_allow_html=True
+                # Cantidad con number_input nativo
+                _cant_input = st.number_input(
+                    "Nueva cantidad",
+                    min_value=1,
+                    value=_nueva_cant,
+                    step=1,
+                    key=f"popup_qty_{st.session_state.counter}"
                 )
-            with _qc3:
-                if st.button("➕", use_container_width=True, key="qty_mas"):
-                    st.session_state['_item_pendiente_eliminar']['nueva_cantidad'] = _nueva_cant + 1
+                if _cant_input != _nueva_cant:
+                    st.session_state['_item_pendiente_eliminar']['nueva_cantidad'] = int(_cant_input)
                     st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
 
-            # ── Banda inferior: botones acción ──
-            st.markdown('<div class="popup-btn-band">', unsafe_allow_html=True)
-            _ba1, _ba2, _ba3 = st.columns([1, 1.5, 1.5])
-            with _ba1:
-                if st.button("✖️ Cancelar", use_container_width=True, key="popup_cancelar"):
-                    st.session_state.pop('_item_pendiente_eliminar', None)
-                    st.session_state.counter += 1
-                    st.rerun()
-            with _ba2:
-                if st.button("✅ Aplicar cambio", use_container_width=True, key="popup_aplicar"):
-                    for item in st.session_state.carrito:
-                        if item['Item'] == _nombre_item:
-                            item['Cantidad'] = _nueva_cant
-                            item['Subtotal'] = _nueva_cant * float(item['Precio Unitario'])
-                            break
-                    st.session_state.pop('_item_pendiente_eliminar', None)
-                    st.session_state.counter += 1
-                    st.rerun()
-            with _ba3:
-                if st.button("🗑️ Eliminar todo", use_container_width=True, key="popup_eliminar"):
-                    st.session_state.carrito = [
-                        i for i in st.session_state.carrito
-                        if i['Item'] != _nombre_item
-                    ]
-                    st.session_state.pop('_item_pendiente_eliminar', None)
-                    st.session_state.counter += 1
-                    st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+                # Botones de acción
+                _ba1, _ba2, _ba3 = st.columns([1, 1.5, 1.5])
+                with _ba1:
+                    if st.button("✖️ Cancelar", use_container_width=True, key="popup_cancelar"):
+                        st.session_state.pop('_item_pendiente_eliminar', None)
+                        st.session_state.counter += 1
+                        st.rerun()
+                with _ba2:
+                    if st.button("✅ Aplicar cambio", use_container_width=True, key="popup_aplicar"):
+                        for item in st.session_state.carrito:
+                            if item['Item'] == _nombre_item:
+                                item['Cantidad'] = int(_cant_input)
+                                item['Subtotal'] = int(_cant_input) * float(item['Precio Unitario'])
+                                break
+                        st.session_state.pop('_item_pendiente_eliminar', None)
+                        st.session_state.counter += 1
+                        st.rerun()
+                with _ba3:
+                    if st.button("🗑️ Eliminar todo", use_container_width=True, key="popup_eliminar"):
+                        st.session_state.carrito = [
+                            i for i in st.session_state.carrito
+                            if i['Item'] != _nombre_item
+                        ]
+                        st.session_state.pop('_item_pendiente_eliminar', None)
+                        st.session_state.counter += 1
+                        st.rerun()
         st.markdown("---")
         # Solo botón Limpiar
         col_btn_limpiar, _, _, _ = st.columns(4)
