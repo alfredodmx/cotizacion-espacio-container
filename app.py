@@ -5785,9 +5785,7 @@ with tab1:
                 <div style="margin-bottom:12px;">
                     <div style="font-size:11px;color:#A32D2D;font-weight:600;
                                 text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;">{_categoria}</div>
-                    <div id="_copy_item_name"
-                    style="font-size:17px;font-weight:700;color:#501313;margin-bottom:14px;cursor:pointer;
-                           user-select:none;" title="Click para copiar">{_nombre_item} 📋</div>
+                    <div style="font-size:17px;font-weight:700;color:#501313;margin-bottom:14px;">{_nombre_item}</div>
                     <div style="display:flex;gap:12px;margin-bottom:4px;">
                         <div style="background:#fff;border:.5px solid #F09595;border-radius:10px;padding:10px 14px;text-align:center;flex:1;">
                             <div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">P. unitario</div>
@@ -5805,9 +5803,7 @@ with tab1:
                 </div>
                 ''', unsafe_allow_html=True)
 
-                # JS copiar nombre producto
-                import streamlit.components.v1 as _cpy
-                _cpy.html(f'<script>setTimeout(function(){{var el=document.getElementById("_copy_item_name");if(!el)return;el.addEventListener("click",function(){{var txt=el.innerText.replace("📋","").trim();var ta=document.createElement("textarea");ta.value=txt;ta.style.cssText="position:fixed;top:-9999px";document.body.appendChild(ta);ta.focus();ta.select();try{{document.execCommand("copy");}}catch(e){{}}document.body.removeChild(ta);var o=el.innerHTML;el.style.color="#059669";el.innerHTML="✅ ¡Copiado!";setTimeout(function(){{el.innerHTML=o;el.style.color="#501313";}},1200);}});}},300);</script>', height=0)
+                st.code(_nombre_item, language=None)
 
                 _cant_input = st.number_input(
                     "Nueva cantidad",
