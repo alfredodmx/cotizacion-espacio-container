@@ -2950,6 +2950,30 @@ else:
 
 _header_bg = 'linear-gradient(90deg, ' + _header_color + ' 0%, #0f172a 65%)'
 
+# Calcular total + IVA para el centro del header
+_center_html = ''
+try:
+    _carrito_hdr = st.session_state.get('carrito', [])
+    if _carrito_hdr:
+        _margen_h = float(st.session_state.get('margen', 0) or 0)
+        _sub_hdr = sum(
+            float(item.get('Cantidad', 0)) * float(item.get('Precio Unitario', 0)) * (1 + _margen_h / 100)
+            for item in _carrito_hdr
+        )
+        _total_hdr = _sub_hdr * 1.19
+        _total_fmt = '$' + '{:,.0f}'.format(_total_hdr).replace(',', '.')
+        _center_html = (
+            '<div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;padding:0 20px;'
+            'border-left:1px solid rgba(255,255,255,0.08);border-right:1px solid rgba(255,255,255,0.08);">'
+            '<div style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.4);'
+            'text-transform:uppercase;letter-spacing:0.12em;margin-bottom:1px;">Total + IVA</div>'
+            '<div style="font-size:1.2rem;font-weight:900;color:#ffffff;letter-spacing:-0.02em;'
+            'font-family:Montserrat,sans-serif;">' + _total_fmt + '</div>'
+            '</div>'
+        )
+except Exception:
+    _center_html = ''
+
 st.markdown(f"""
 <style>
 #_usr_header_bar {{
@@ -3007,29 +3031,6 @@ st.markdown(f"""
     min-height: 0 !important;
 }}
 </style>
-_carrito_hdr = st.session_state.get('carrito', [])
-_center_html = ''
-if _carrito_hdr:
-    try:
-        _margen_h = st.session_state.get('margen', 0)
-        if _margen_h > 0:
-            _sub_hdr = sum(item.get('Cantidad', 0) * item.get('Precio Unitario', 0) * (1 + _margen_h / 100) for item in _carrito_hdr)
-        else:
-            _sub_hdr = sum(item.get('Cantidad', 0) * item.get('Precio Unitario', 0) for item in _carrito_hdr)
-        _total_hdr = _sub_hdr * 1.19
-        _total_hdr_fmt = '$' + f"{_total_hdr:,.0f}".replace(",", ".")
-        _center_html = (
-            '<div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;padding:0 20px;'
-            'border-left:1px solid rgba(255,255,255,0.08);border-right:1px solid rgba(255,255,255,0.08);">'
-            '<div style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.4);'
-            'text-transform:uppercase;letter-spacing:0.12em;margin-bottom:1px;">Total + IVA</div>'
-            '<div style="font-size:1.2rem;font-weight:900;color:#ffffff;letter-spacing:-0.02em;'
-            'font-family:Montserrat,sans-serif;">' + _total_hdr_fmt + '</div>'
-            '</div>'
-        )
-    except Exception:
-        _center_html = ''
-
 """ + '<div id="_usr_header_bar"><div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow:hidden;">' + _left_html + '</div>' + _center_html + '<div class="usr-right">' + _rol_html + '</div></div>', unsafe_allow_html=True)
 
 # Dialog contraseña — se abre centrado sin interferir con popovers
