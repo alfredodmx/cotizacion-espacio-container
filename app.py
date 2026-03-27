@@ -5322,6 +5322,32 @@ with tab1:
     </div>
     """, unsafe_allow_html=True)
 
+    st.markdown('''
+<style>
+/* Dropdowns tab Presupuesto — menú se expande al contenido más largo */
+[data-testid="stSelectbox"]:has([data-baseweb="select"] [id$="modelo_select"]),
+.st-key-modelo_select [data-baseweb="popover"],
+.st-key-cat_manual [data-baseweb="popover"],
+.st-key-cat_eliminar [data-baseweb="popover"],
+.st-key-modelo_origen [data-baseweb="popover"],
+.st-key-cat_agregar [data-baseweb="popover"] {
+    min-width: 100% !important;
+    width: max-content !important;
+    max-width: 600px !important;
+}
+/* Texto de las opciones sin cortar */
+.st-key-modelo_select [data-baseweb="menu"] li,
+.st-key-cat_manual [data-baseweb="menu"] li,
+.st-key-cat_eliminar [data-baseweb="menu"] li,
+.st-key-modelo_origen [data-baseweb="menu"] li,
+.st-key-cat_agregar [data-baseweb="menu"] li {
+    white-space: nowrap !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+}
+</style>
+''', unsafe_allow_html=True)
+
     fecha_inicio = st.session_state.fecha_inicio
     fecha_termino = st.session_state.fecha_termino
     dias_validez = (fecha_termino - fecha_inicio).days
