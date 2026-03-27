@@ -5380,7 +5380,9 @@ with tab1:
                 if (w > maxW) maxW = w;
             });
             if (maxW < 50) return;
-            var fw = Math.min(maxW + 380, 1200);
+            // Respetar el ancho original del dropdown como mínimo
+            var originalW = focusDiv.getBoundingClientRect().width || 200;
+            var fw = Math.min(Math.max(maxW + 380, originalW), 1200);
             var fwStr = fw + 'px';
 
             // Aplicar y usar MutationObserver para re-aplicar si Streamlit sobreescribe
