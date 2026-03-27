@@ -5777,7 +5777,7 @@ with tab1:
             .st-key-{_css_key} button[data-testid="stNumberInputStepDown"] {{
                 background: #FCEBEB !important; color: #A32D2D !important;
             }}
-            .st-key-btn_copy_{st.session_state.counter} button {{
+            [class*="st-key-btn_copy_"] button {{
                 font-family: 'Plus Jakarta Sans', sans-serif !important;
                 font-weight: 900 !important;
                 font-size: 1rem !important;
