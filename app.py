@@ -5332,6 +5332,31 @@ with tab1:
     var D = window.parent.document;
     var _keys = ['modelo_select','cat_manual','item_manual','cat_eliminar','modelo_origen','cat_agregar'];
 
+    function _applyWidth(focusDiv, fwStr) {
+        focusDiv.setAttribute('style', 'width:' + fwStr + ';');
+        var ul = focusDiv.querySelector('ul');
+        if (!ul) return;
+        ul.style.width = fwStr;
+        var scrollCont = ul.firstElementChild;
+        if (scrollCont) {
+            scrollCont.style.width = fwStr;
+            var virtualInner = scrollCont.firstElementChild;
+            if (virtualInner) virtualInner.style.width = fwStr;
+        }
+        var items = ul.querySelectorAll('li');
+        items.forEach(function(li) {
+            li.style.whiteSpace = 'nowrap';
+            li.style.overflow = 'visible';
+            li.style.width = fwStr;
+            var txtDiv = li.querySelector('div div');
+            if (txtDiv) {
+                txtDiv.style.whiteSpace = 'nowrap';
+                txtDiv.style.overflow = 'visible';
+                txtDiv.style.textOverflow = 'unset';
+            }
+        });
+    }
+
     function _expand() {
         var focusDivs = D.querySelectorAll('[data-no-focus-lock="true"]');
         if (!focusDivs.length) return;
@@ -5341,7 +5366,7 @@ with tab1:
             var items = ul.querySelectorAll('li');
             if (!items.length) return;
 
-            // Medir texto más largo con span temporal
+            // Medir texto más largo
             var maxW = 0;
             items.forEach(function(li) {
                 var txt = (li.textContent || li.innerText || '').trim();
@@ -5355,41 +5380,35 @@ with tab1:
                 if (w > maxW) maxW = w;
             });
             if (maxW < 50) return;
-            var fw = Math.min(maxW + 120, 1000);
+            var fw = Math.min(maxW + 80, 1000);
             var fwStr = fw + 'px';
 
-            // 1. focusDiv — contenedor raíz
-            focusDiv.setAttribute('style', 'width:' + fwStr + ';');
+            // Aplicar y usar MutationObserver para re-aplicar si Streamlit sobreescribe
+            _applyWidth(focusDiv, fwStr);
 
-            // 2. ul
-            ul.style.width = fwStr;
-
-            // 3. div con overflow:auto (scroll container)
-            var scrollCont = ul.firstElementChild;
-            if (scrollCont) {
-                scrollCont.style.width = fwStr;
-
-                // 4. div interno del virtual scroller (height=Npx, width=100%)
-                var virtualInner = scrollCont.firstElementChild;
-                if (virtualInner) {
-                    virtualInner.style.width = fwStr;
-                }
-            }
-
-            // 5. Cada li tiene width:100% — al expandir el contenedor se expanden solos
-            // pero forzar nowrap para que el texto no se corte
-            items.forEach(function(li) {
-                li.style.whiteSpace = 'nowrap';
-                li.style.overflow = 'visible';
-                li.style.width = fwStr;
-                // El div interno del li con el texto
-                var txtDiv = li.querySelector('div div');
-                if (txtDiv) {
-                    txtDiv.style.whiteSpace = 'nowrap';
-                    txtDiv.style.overflow = 'visible';
-                    txtDiv.style.textOverflow = 'unset';
-                }
+            // Observar cambios en el style del focusDiv
+            if (focusDiv._echObserver) focusDiv._echObserver.disconnect();
+            var obs = new MutationObserver(function(mutations) {
+                mutations.forEach(function(m) {
+                    if (m.type === 'attributes' && m.attributeName === 'style') {
+                        var cur = focusDiv.getAttribute('style') || '';
+                        if (cur.indexOf(fwStr) === -1) {
+                            _applyWidth(focusDiv, fwStr);
+                        }
+                    }
+                    if (m.type === 'childList') {
+                        _applyWidth(focusDiv, fwStr);
+                    }
+                });
             });
+            obs.observe(focusDiv, { attributes: true, childList: true, subtree: true });
+            focusDiv._echObserver = obs;
+
+            // Desconectar al cerrar el dropdown
+            setTimeout(function() {
+                var still = D.querySelector('[data-no-focus-lock="true"]');
+                if (!still && obs) obs.disconnect();
+            }, 5000);
         });
     }
 
@@ -5399,8 +5418,8 @@ with tab1:
             if (!el) return;
             el.addEventListener('mousedown', function() {
                 setTimeout(_expand, 100);
-                setTimeout(_expand, 250);
-                setTimeout(_expand, 500);
+                setTimeout(_expand, 300);
+                setTimeout(_expand, 600);
             }, true);
         });
     }
