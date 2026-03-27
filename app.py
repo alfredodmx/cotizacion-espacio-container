@@ -3324,14 +3324,14 @@ _js_global.html("""
 })();
 })();
 (function(){
-  window.addEventListener("message", function(e){
-    if(!e.data || e.data.streamlit_action !== "set_query_params") return;
-    var d = e.data;
-    var url = window.location.pathname
-      + "?_popup_accion=" + encodeURIComponent(d.accion)
-      + "&_popup_qty="    + encodeURIComponent(d.qty || 1)
-      + "&_popup_item="   + encodeURIComponent(d.item || "");
-    window.location.href = url;
+  window.addEventListener("message",function(e){
+    if(!e.data||e.data.streamlit_action!=="cotizador_popup")return;
+    var d=e.data;
+    var url=window.location.pathname
+      +"?_popup_accion="+encodeURIComponent(d.accion)
+      +"&_popup_qty="+encodeURIComponent(d.qty||1)
+      +"&_popup_item="+encodeURIComponent(d.item||"");
+    window.location.href=url;
   });
 })();
 </script>
@@ -5540,7 +5540,7 @@ with tab1:
             st.caption("🔒 Vista de solo lectura")
         else:
             carrito_df_edit = carrito_df_con_margen.copy()
-            carrito_df_edit["❌"] = False
+            carrito_df_edit["✏️"] = False
             carrito_df_edit["Precio Unitario"] = carrito_df_edit["Precio Unitario"].apply(formato_clp)
             carrito_df_edit["Subtotal"] = carrito_df_edit["Subtotal"].apply(formato_clp)
             if buscar_tabla:
@@ -5552,14 +5552,13 @@ with tab1:
             else:
                 carrito_df_edit_filtrado = carrito_df_edit
             edited_df = st.data_editor(carrito_df_edit_filtrado, use_container_width=True, hide_index=True, height=altura_tabla,
-                column_config={"❌": st.column_config.CheckboxColumn("❌"), "Categoria": st.column_config.TextColumn("Categoría"),
+                column_config={"✏️": st.column_config.CheckboxColumn("✏️"), "Categoria": st.column_config.TextColumn("Categoría"),
                                "Item": st.column_config.TextColumn("Item"), "Cantidad": st.column_config.NumberColumn("Cant."),
                                "Precio Unitario": st.column_config.TextColumn("P. Unitario"), "Subtotal": st.column_config.TextColumn("Subtotal")})
-            filas_eliminar = edited_df[edited_df["❌"] == True].index.tolist()
-            if filas_eliminar:
+            filas_editar = edited_df[edited_df["✏️"] == True].index.tolist()
+            if filas_editar:
                 if not st.session_state.get('_item_pendiente_eliminar'):
-                    # Buscar el item por nombre para evitar errores de indice con filtros activos
-                    _fila_marcada = edited_df[edited_df["❌"] == True].iloc[0]
+                    _fila_marcada = edited_df[edited_df["✏️"] == True].iloc[0]
                     _nombre_buscar = _fila_marcada["Item"]
                     item_pendiente = next(
                         (item for item in st.session_state.carrito
@@ -5568,86 +5567,117 @@ with tab1:
                     )
                     if item_pendiente:
                         st.session_state['_item_pendiente_eliminar'] = {
-                            'item': item_pendiente
+                            'item': item_pendiente,
+                            'nueva_cantidad': int(item_pendiente.get('Cantidad', 1))
                         }
                         st.rerun()
 
-        # ── Dialog de confirmacion de eliminacion de item ──
+        # ── Panel inline editar cantidad / eliminar item ──
+        _qp_accion = st.query_params.get('_popup_accion', '')
+        _qp_qty    = st.query_params.get('_popup_qty', '1')
+        _qp_item   = st.query_params.get('_popup_item', '')
+        if _qp_accion:
+            st.query_params.clear()
+            if _qp_accion == 'cancelar':
+                st.session_state.pop('_item_pendiente_eliminar', None)
+                st.session_state.counter += 1
+                st.rerun()
+            elif _qp_accion == 'aplicar':
+                try:
+                    _qty_ap = max(1, int(float(_qp_qty)))
+                    for item in st.session_state.carrito:
+                        if item['Item'] == _qp_item:
+                            item['Cantidad'] = _qty_ap
+                            item['Subtotal'] = _qty_ap * float(item['Precio Unitario'])
+                            break
+                except Exception:
+                    pass
+                st.session_state.pop('_item_pendiente_eliminar', None)
+                st.session_state.counter += 1
+                st.rerun()
+            elif _qp_accion == 'eliminar':
+                st.session_state.carrito = [
+                    i for i in st.session_state.carrito
+                    if i['Item'] != _qp_item
+                ]
+                st.session_state.pop('_item_pendiente_eliminar', None)
+                st.session_state.counter += 1
+                st.rerun()
+
         if st.session_state.get('_item_pendiente_eliminar'):
-            _pend = st.session_state['_item_pendiente_eliminar']
-            _item_data = _pend['item']
+            _pend          = st.session_state['_item_pendiente_eliminar']
+            _item_data     = _pend['item']
+            _nombre_item   = _item_data.get('Item', '')
+            _cantidad_orig = int(_item_data.get('Cantidad', 1))
+            _precio        = float(_item_data.get('Precio Unitario', 0))
+            _categoria     = _item_data.get('Categoria', '')
+            _nueva_cant    = int(_pend.get('nueva_cantidad', _cantidad_orig))
+            _subtotal_nuevo = _nueva_cant * _precio
+            _p_fmt = formato_clp(_precio)
+            _s_fmt = formato_clp(_subtotal_nuevo)
+            _nom_safe = _nombre_item.replace('<','').replace('>','').replace('&','')
+            _cat_safe = _categoria.replace('<','').replace('>','').replace('&','')
+            _nom_js   = _nombre_item.replace('"','').replace("'",'').replace('\\','')
 
-            @st.dialog("🗑️ Confirmar eliminación")
-            def _dialog_confirmar_eliminar():
-                _nombre_item = _item_data.get('Item', '—')
-                _cantidad    = _item_data.get('Cantidad', 0)
-                _precio      = _item_data.get('Precio Unitario', 0)
-                _subtotal    = _item_data.get('Subtotal', 0)
-                _categoria   = _item_data.get('Categoria', '—')
-
-                st.markdown(f"""
-                <div style="
-                    background: linear-gradient(135deg, #fff5f5, #fff);
-                    border: 1.5px solid #fecaca;
-                    border-radius: 14px;
-                    padding: 18px 20px;
-                    margin-bottom: 16px;
-                ">
-                    <div style="font-size:0.7rem;font-weight:800;color:#94a3b8;
-                                text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">
-                        {_categoria}
-                    </div>
-                    <div style="font-size:1.1rem;font-weight:800;color:#1e2447;margin-bottom:12px;">
-                        {_nombre_item}
-                    </div>
-                    <div style="display:flex;gap:20px;">
-                        <div style="text-align:center;">
-                            <div style="font-size:0.68rem;color:#94a3b8;font-weight:700;
-                                        text-transform:uppercase;letter-spacing:0.06em;">Cantidad</div>
-                            <div style="font-size:1.2rem;font-weight:900;color:#3b82f6;">{int(_cantidad)}</div>
-                        </div>
-                        <div style="text-align:center;">
-                            <div style="font-size:0.68rem;color:#94a3b8;font-weight:700;
-                                        text-transform:uppercase;letter-spacing:0.06em;">P. Unitario</div>
-                            <div style="font-size:1.2rem;font-weight:900;color:#3b82f6;">{formato_clp(_precio)}</div>
-                        </div>
-                        <div style="text-align:center;">
-                            <div style="font-size:0.68rem;color:#94a3b8;font-weight:700;
-                                        text-transform:uppercase;letter-spacing:0.06em;">Subtotal</div>
-                            <div style="font-size:1.2rem;font-weight:900;color:#ef4444;">{formato_clp(_subtotal)}</div>
-                        </div>
-                    </div>
-                </div>
-                <div style="font-size:0.88rem;color:#64748b;text-align:center;">
-                    ¿Estás seguro que deseas eliminar este ítem del presupuesto?
-                </div>
-                """, unsafe_allow_html=True)
-
-                st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-                _col_si, _col_no = st.columns(2)
-                with _col_si:
-                    if st.button("🗑️ Sí, eliminar", use_container_width=True,
-                                 type="primary", key="dialog_eliminar_si"):
-                        _item_a_eliminar = _pend['item']
-                        st.session_state.carrito = [
-                            i for i in st.session_state.carrito
-                            if i is not _item_a_eliminar
-                        ]
-                        st.session_state.pop('_item_pendiente_eliminar', None)
-                        st.rerun()
-                with _col_no:
-                    if st.button("✖️ Cancelar", use_container_width=True,
-                                 key="dialog_eliminar_no"):
-                        st.session_state.pop('_item_pendiente_eliminar', None)
-                        st.rerun()
-
-            _dialog_confirmar_eliminar()
+            _h = [
+                '<!DOCTYPE html><html><head><meta charset="utf-8"><style>',
+                '*{box-sizing:border-box;margin:0;padding:0;}',
+                'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:transparent;padding:4px 0;}',
+                '.card{background:#FCEBEB;border:1.5px solid #E24B4A;border-radius:14px;padding:20px 24px;display:flex;flex-direction:column;gap:14px;}',
+                '.cat{font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;}',
+                '.nom{font-size:17px;font-weight:700;color:#501313;}',
+                '.stats{display:flex;gap:12px;}',
+                '.stat{background:#fff;border:.5px solid #F09595;border-radius:10px;padding:10px 14px;text-align:center;flex:1;}',
+                '.hi{border-color:#E24B4A!important;}',
+                '.sl{font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;}',
+                '.sv{font-size:15px;font-weight:700;color:#501313;margin-top:3px;}',
+                '.hi .sv{color:#E24B4A;}',
+                '.sep{border-top:.5px solid #F09595;padding-top:12px;}',
+                '.adj{font-size:12px;color:#791F1F;margin-bottom:8px;}',
+                '.qrow{display:flex;align-items:center;gap:12px;}',
+                'input[type=number]{width:110px;padding:8px 12px;font-size:17px;font-weight:700;border:1.5px solid #E24B4A;border-radius:8px;background:#fff;color:#501313;text-align:center;}',
+                'input[type=number]:focus{outline:none;border-color:#C0392B;}',
+                '.unit{font-size:13px;color:#791F1F;}',
+                '.acts{display:flex;gap:10px;padding-top:2px;}',
+                '.btn{flex:1;padding:10px;font-size:14px;border-radius:9px;cursor:pointer;font-weight:600;border:none;transition:opacity .15s;}',
+                '.btn:hover{opacity:.85;}.btn:active{transform:scale(.97);}',
+                '.bc{background:transparent;border:1px solid #F09595!important;color:#791F1F;}',
+                '.ba{background:#fff;border:1.5px solid #E24B4A!important;color:#A32D2D;flex:1.5;}',
+                '.be{background:#E24B4A;color:#fff;flex:1.5;}',
+                '</style></head><body><div class="card">',
+                '<div><div class="cat">' + _cat_safe + '</div>',
+                '<div class="nom">' + _nom_safe + '</div></div>',
+                '<div class="stats">',
+                '<div class="stat"><div class="sl">P. unitario</div><div class="sv">' + _p_fmt + '</div></div>',
+                '<div class="stat"><div class="sl">Cant. original</div><div class="sv">' + str(_cantidad_orig) + '</div></div>',
+                '<div class="stat hi"><div class="sl">Subtotal nuevo</div><div class="sv" id="sub">' + _s_fmt + '</div></div>',
+                '</div>',
+                '<div class="sep"><div class="adj">Nueva cantidad:</div>',
+                '<div class="qrow">',
+                '<input type="number" id="qty" min="1" value="' + str(_nueva_cant) + '" oninput="upd()">',
+                '<span class="unit">unidades</span></div></div>',
+                '<div class="acts">',
+                '<button class="btn bc" onclick="ir(\' cancelar\')">&#x2716; Cancelar</button>',
+                '<button class="btn ba" onclick="ir(\'aplicar\')">&#x2705; Aplicar cambio</button>',
+                '<button class="btn be" onclick="ir(\'eliminar\')">&#x1F5D1; Eliminar todo</button>',
+                '</div></div>',
+                '<script>',
+                'var precio=' + str(int(_precio)) + ';',
+                'var nom="' + _nom_js + '";',
+                'function upd(){var q=parseInt(document.getElementById("qty").value)||1;',
+                'document.getElementById("sub").textContent="$"+Math.round(q*precio).toLocaleString("es-CL");}',
+                'function ir(a){var q=document.getElementById("qty").value||1;',
+                'window.parent.postMessage({streamlit_action:"cotizador_popup",accion:a,qty:q,item:nom},"*");}',
+                '</script></body></html>',
+            ]
+            components.html(''.join(_h), height=350, scrolling=False)
         st.markdown("---")
         # Solo botón Limpiar
         col_btn_limpiar, _, _, _ = st.columns(4)
         with col_btn_limpiar:
             if not es_solo_lectura:
                 if st.button("🧹 Limpiar", use_container_width=True):
+                    st.session_state.pop('_item_pendiente_eliminar', None)
                     limpiar_todo()
                     st.rerun()
             else:
