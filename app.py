@@ -2966,7 +2966,7 @@ try:
             '<div style="position:absolute;left:50%;top:50%;'
             'transform:translate(-50%,-50%);'
             'display:flex;flex-direction:column;align-items:center;'
-            'justify-content:center;pointer-events:none;z-index:1;">'
+            'justify-content:center;pointer-events:none;">'
             '<div style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.45);'
             'text-transform:uppercase;letter-spacing:0.12em;margin-bottom:2px;">Total + IVA</div>'
             '<div style="font-size:1.25rem;font-weight:900;color:#ffffff;letter-spacing:-0.02em;'
@@ -2989,7 +2989,7 @@ st.markdown(f"""
     display: flex;
     align-items: center;
     padding: 0 1.5rem;
-    z-index: 999998;
+    z-index: 2147483647;
     gap: 12px;
 }}
 #_usr_header_bar .usr-right {{
@@ -3033,7 +3033,7 @@ st.markdown(f"""
     min-height: 0 !important;
 }}
 </style>
-""" + '<div id="_usr_header_bar" style="position:relative;">' + _center_html + '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow:hidden;">' + _left_html + '</div><div class="usr-right">' + _rol_html + '</div></div>', unsafe_allow_html=True)
+""" + '<div id="_usr_header_bar" style="position:relative;">' + _center_html + '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow:hidden;position:relative;z-index:2;">' + _left_html + '</div><div class="usr-right" style="position:relative;z-index:2;">' + _rol_html + '</div></div>', unsafe_allow_html=True)
 
 # Dialog contraseña — se abre centrado sin interferir con popovers
 if 'show_pwd_dialog' not in st.session_state:
@@ -3158,7 +3158,7 @@ _js_global.html("""
         // Crear contenedor de botones en el header
         var wrap = D.createElement('div');
         wrap.className = '_hdr_btns_moved';
-        wrap.style.cssText = 'display:flex;align-items:center;gap:6px;position:relative;z-index:10;';
+        wrap.style.cssText = 'display:flex;align-items:center;gap:6px;';
 
         // Estilo compartido para botones del header
         var btnStyle = [
