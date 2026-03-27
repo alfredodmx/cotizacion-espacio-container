@@ -5334,15 +5334,18 @@ with tab1:
 
     function _expand() {
         var focusDivs = D.querySelectorAll('[data-no-focus-lock="true"]');
+        console.log('[ECH] focusDivs encontrados:', focusDivs.length);
         if (!focusDivs.length) return;
         focusDivs.forEach(function(focusDiv) {
             var ul = focusDiv.querySelector('ul');
             if (!ul) return;
             var items = ul.querySelectorAll('li');
+            console.log('[ECH] items:', items.length);
             if (!items.length) return;
 
             // Medir texto más largo con span temporal
             var maxW = 0;
+            var maxTxt = '';
             items.forEach(function(li) {
                 var txt = (li.textContent || li.innerText || '').trim();
                 if (!txt) return;
@@ -5352,16 +5355,15 @@ with tab1:
                 D.body.appendChild(sp);
                 var w = sp.getBoundingClientRect().width;
                 D.body.removeChild(sp);
-                if (w > maxW) maxW = w;
+                if (w > maxW) { maxW = w; maxTxt = txt; }
             });
+            console.log('[ECH] maxW:', maxW, 'texto:', maxTxt);
             if (maxW < 50) return;
 
-            // El ancho final: el mayor entre el texto medido y el ancho actual del focusDiv
-            var currentW = focusDiv.getBoundingClientRect().width;
-            var fw = Math.min(Math.max(maxW + 40, currentW), 1000);
+            var fw = Math.min(maxW + 40, 1000);
             var fwStr = fw + 'px';
+            console.log('[ECH] aplicando width:', fwStr);
 
-            // Sobreescribir el style inline directamente
             focusDiv.setAttribute('style', 'width:' + fwStr + ';');
             ul.style.width = fwStr;
             var scrollDiv = ul.firstElementChild;
