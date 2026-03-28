@@ -6386,24 +6386,39 @@ with tab3:
                 dv = cotizacion.get('proyecto_dias_validez', 15)
                 return carrito_df_p, subtotal_p, iva_p, total_p, dc, da, fi, ft, dv, margen_c
 
+            # En modo ejecutivo solo habilitar PDFs si está AUTORIZADO
+            _es_ejecutivo_pdf = st.session_state.get('rol_usuario', 'ejecutivo') == 'ejecutivo'
+            _estado_sel = ''
+            for _row in st.session_state.resultados_busqueda:
+                if _row[0] == numero_seleccionado:
+                    _margen_sel = _row[5] or 0
+                    _datos_ok = all([_row[1], _row[7]])
+                    _asesor_ok = any([_row[2], _row[8], _row[9]])
+                    if _margen_sel > 0 and _datos_ok and _asesor_ok:
+                        _estado_sel = 'autorizado'
+                    break
+            _pdf_habilitado = (not _es_ejecutivo_pdf) or (_estado_sel == 'autorizado')
+
             with col_acc2:
-                if cotizacion_para_pdf:
+                if cotizacion_para_pdf and _pdf_habilitado:
                     carrito_df_p, subtotal_p, iva_p, total_p, dc, da, fi, ft, dv, margen_c = preparar_pdf_data(cotizacion_para_pdf)
                     pdf_buffer, _ = generar_pdf_completo(carrito_df_p, subtotal_p, iva_p, total_p, dc, fi, ft, dv, da, margen=margen_c, numero_cotizacion=numero_seleccionado)
                     st.download_button(label="📄 PDF Completo", data=pdf_buffer, file_name=f"Presupuesto_Completo_{numero_seleccionado}.pdf",
                         mime="application/pdf", use_container_width=True, key=f"pdf_completo_{numero_seleccionado}")
                 else:
-                    st.button("📄 PDF Completo", use_container_width=True, disabled=True)
+                    st.button("📄 PDF Completo", use_container_width=True, disabled=True,
+                              help="Solo disponible para cotizaciones autorizadas" if _es_ejecutivo_pdf else None)
 
             with col_acc3:
-                if cotizacion_para_pdf:
+                if cotizacion_para_pdf and _pdf_habilitado:
                     carrito_df_p, subtotal_p, iva_p, total_p, dc, da, fi, ft, dv, margen_c = preparar_pdf_data(cotizacion_para_pdf)
                     _desc_ep = cargar_descripciones_por_ep(numero_seleccionado, bust_cache=True)
                     pdf_buffer, _ = generar_pdf_cliente(carrito_df_p, subtotal_p, iva_p, total_p, dc, fi, ft, dv, da, margen=margen_c, numero_cotizacion=numero_seleccionado, descripciones_ep=_desc_ep)
                     st.download_button(label="🔒 PDF Cliente", data=pdf_buffer, file_name=f"Presupuesto_Cliente_{numero_seleccionado}.pdf",
                         mime="application/pdf", use_container_width=True, key=f"pdf_cliente_{numero_seleccionado}")
                 else:
-                    st.button("🔒 PDF Cliente", use_container_width=True, disabled=True)
+                    st.button("🔒 PDF Cliente", use_container_width=True, disabled=True,
+                              help="Solo disponible para cotizaciones autorizadas" if _es_ejecutivo_pdf else None)
 
             with col_acc4:
                 if cotizacion_seleccionada and tiene_plano_seleccionado:
