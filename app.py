@@ -4434,38 +4434,25 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
 
     # Marca de agua diagonal solo para PDF Compras
     def _watermark_canvas(canvas_obj, doc_obj):
-        if mostrar_precios and _os.path.exists('logo.png'):
-            import math
-            canvas_obj.saveState()
-            page_w, page_h = A4
-            canvas_obj.translate(page_w / 2, page_h / 2)
-            canvas_obj.rotate(45)
+        canvas_obj.saveState()
+        page_w, page_h = A4
+        canvas_obj.translate(page_w / 2, page_h / 2)
+        canvas_obj.rotate(45)
+        if _os.path.exists('logo.png'):
             try:
-                from PIL import Image as _PILImage
-                import io as _io
-                _pil = _PILImage.open('logo.png').convert('RGBA')
-                r, g, b, a = _pil.split()
-                # Colorear a rojo
-                r2 = r.point(lambda x: min(int(x * 0.8 + 180), 255))
-                g2 = g.point(lambda x: int(x * 0.1))
-                b2 = b.point(lambda x: int(x * 0.1))
-                a2 = a.point(lambda x: int(x * 0.12))
-                _pil2 = _PILImage.merge('RGBA', (r2, g2, b2, a2))
-                _buf = _io.BytesIO()
-                _pil2.save(_buf, format='PNG')
-                _buf.seek(0)
                 from reportlab.lib.utils import ImageReader as _IR
-                _ir = _IR(_buf)
-                _logo_w = 300
-                _logo_h = 300
-                canvas_obj.drawImage(_ir, -_logo_w/2, -_logo_h/2,
-                    width=_logo_w, height=_logo_h, mask='auto')
+                _ir = _IR('logo.png')
+                canvas_obj.setFillAlpha(0.08)
+                canvas_obj.drawImage(_ir, -150, -150, width=300, height=300, mask='auto')
             except Exception:
-                # Fallback sin PIL — solo texto
-                canvas_obj.setFont('Helvetica-Bold', 60)
-                canvas_obj.setFillColorRGB(0.8, 0.1, 0.1, alpha=0.08)
-                canvas_obj.drawCentredString(0, 0, 'COMPRAS')
-            canvas_obj.restoreState()
+                pass
+        # Siempre agregar texto como capa adicional
+        canvas_obj.setFont('Helvetica-Bold', 52)
+        canvas_obj.setFillColorRGB(0.75, 0.05, 0.05)
+        canvas_obj.setFillAlpha(0.07)
+        canvas_obj.drawCentredString(0, 60, 'SOLO USO')
+        canvas_obj.drawCentredString(0, -20, 'INTERNO')
+        canvas_obj.restoreState()
 
     doc = SimpleDocTemplate(buffer, pagesize=A4,
                            leftMargin=20, rightMargin=20,
