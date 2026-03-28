@@ -4436,22 +4436,17 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
     def _watermark_canvas(canvas_obj, doc_obj):
         canvas_obj.saveState()
         page_w, page_h = A4
-        canvas_obj.translate(page_w / 2, page_h / 2)
-        canvas_obj.rotate(45)
-        if _os.path.exists('logo.png'):
-            try:
-                from reportlab.lib.utils import ImageReader as _IR
-                _ir = _IR('logo.png')
-                canvas_obj.setFillAlpha(0.08)
-                canvas_obj.drawImage(_ir, -150, -150, width=300, height=300, mask='auto')
-            except Exception:
-                pass
-        # Siempre agregar texto como capa adicional
-        canvas_obj.setFont('Helvetica-Bold', 52)
+        # Repetir texto diagonal en cuadrícula por toda la página
+        canvas_obj.setFont('Helvetica-Bold', 28)
         canvas_obj.setFillColorRGB(0.75, 0.05, 0.05)
-        canvas_obj.setFillAlpha(0.07)
-        canvas_obj.drawCentredString(0, 60, 'SOLO USO')
-        canvas_obj.drawCentredString(0, -20, 'INTERNO')
+        canvas_obj.setFillAlpha(0.10)
+        for _wy in range(-100, int(page_h) + 200, 120):
+            for _wx in range(-100, int(page_w) + 200, 220):
+                canvas_obj.saveState()
+                canvas_obj.translate(_wx, _wy)
+                canvas_obj.rotate(45)
+                canvas_obj.drawCentredString(0, 0, 'COMPRAS')
+                canvas_obj.restoreState()
         canvas_obj.restoreState()
 
     doc = SimpleDocTemplate(buffer, pagesize=A4,
