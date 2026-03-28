@@ -6188,7 +6188,7 @@ with tab3:
             lambda x: f'<span style="font-weight:700;color:#3b82f6;">{x}</span>' if x > 0 else '<span style="color:#94a3b8;">0</span>')
 
         n_resultados = len(df_resultados)
-        altura_tabla = min(n_resultados * 52 + 60, 700)  # ~12 filas = 700px máx
+        altura_tabla = min(n_resultados * 52 + 60, 550)
 
         rows_html = ""
         for _, row in df_resultados.iterrows():
