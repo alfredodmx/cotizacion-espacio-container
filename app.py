@@ -6278,7 +6278,7 @@ with tab3:
 
             st.markdown("---")
             st.markdown("### Acciones")
-            col_acc1, col_acc2, col_acc3, col_acc4 = st.columns(4)
+            col_acc1, col_acc0, col_acc2, col_acc3, col_acc4 = st.columns(5)
 
             with col_acc1:
                 if tiene_margen_seleccionado and not st.session_state.modo_admin:
@@ -6399,6 +6399,46 @@ with tab3:
                         _estado_sel = 'autorizado'
                     break
             _pdf_habilitado = (not _es_ejecutivo_pdf) or (_estado_sel == 'autorizado')
+
+            with col_acc0:
+                if cotizacion_para_pdf and not _es_ejecutivo_pdf:
+                    # PDF Compras: sin margen, precios base
+                    _cot_compras = cargar_cotizacion(numero_seleccionado)
+                    if _cot_compras:
+                        _df_compras = pd.DataFrame(_cot_compras['productos'])
+                        _sub_compras = _df_compras['Subtotal'].sum()
+                        _iva_compras = _sub_compras * 0.19
+                        _tot_compras = _sub_compras + _iva_compras
+                        _dc_compras = {
+                            "Nombre": _cot_compras.get('cliente_nombre',''),
+                            "RUT": _cot_compras.get('cliente_rut',''),
+                            "Correo": _cot_compras.get('cliente_email',''),
+                            "Teléfono": _cot_compras.get('cliente_telefono',''),
+                            "Dirección": _cot_compras.get('cliente_direccion',''),
+                            "ComunaCliente": _cot_compras.get('cliente_comuna',''),
+                            "RegionCliente": _cot_compras.get('cliente_region',''),
+                            "DireccionProyecto": _cot_compras.get('proyecto_direccion',''),
+                            "ComunaProyecto": _cot_compras.get('proyecto_comuna',''),
+                            "RegionProyecto": _cot_compras.get('proyecto_region',''),
+                            "TipoCliente": _cot_compras.get('cliente_tipo','natural'),
+                            "EmpresaCliente": _cot_compras.get('cliente_empresa',''),
+                            "RutEmpresa": _cot_compras.get('cliente_rut_empresa',''),
+                            "Observaciones": _cot_compras.get('proyecto_observaciones',''),
+                        }
+                        _da_compras = {
+                            "Nombre Ejecutivo": _cot_compras.get('asesor_nombre',''),
+                            "Correo Ejecutivo": _cot_compras.get('asesor_email',''),
+                            "Teléfono Ejecutivo": _cot_compras.get('asesor_telefono',''),
+                        }
+                        _fi_c = datetime.strptime(_cot_compras.get('proyecto_fecha_inicio', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d').date()
+                        _ft_c = datetime.strptime(_cot_compras.get('proyecto_fecha_termino', (datetime.now()+timedelta(days=15)).strftime('%Y-%m-%d')), '%Y-%m-%d').date()
+                        _dv_c = _cot_compras.get('proyecto_dias_validez', 15)
+                        _pdf_compras, _ = generar_pdf_completo(_df_compras, _sub_compras, _iva_compras, _tot_compras, _dc_compras, _fi_c, _ft_c, _dv_c, _da_compras, margen=0, numero_cotizacion=numero_seleccionado)
+                        st.download_button(label="🛒 PDF Compras", data=_pdf_compras, file_name=f"Compras_{numero_seleccionado}.pdf",
+                            mime="application/pdf", use_container_width=True, key=f"pdf_compras_{numero_seleccionado}")
+                else:
+                    st.button("🛒 PDF Compras", use_container_width=True, disabled=True,
+                              help="Solo disponible para admin y root" if _es_ejecutivo_pdf else None)
 
             with col_acc2:
                 if cotizacion_para_pdf and _pdf_habilitado:
