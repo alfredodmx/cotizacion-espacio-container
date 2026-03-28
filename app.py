@@ -6529,7 +6529,7 @@ with tab3:
                             mime="application/pdf", use_container_width=True, key=f"pdf_compras_{numero_seleccionado}")
                 else:
                     st.button("🛒 PDF Compras", use_container_width=True, disabled=True,
-                              help="Solo disponible para admin y root" if _es_ejecutivo_pdf else None)
+                              help="Solo disponible para operaciones, admin y root" if _es_ejecutivo_pdf else None)
 
             with col_acc2:
                 if cotizacion_para_pdf and _pdf_habilitado:
