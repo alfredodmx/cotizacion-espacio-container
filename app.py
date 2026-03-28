@@ -2534,6 +2534,7 @@ st.markdown("""
         transition: background 0.15s !important;
     }
     .resultados-table tr:hover td { background-color: #f5f7ff !important; }
+    .resultados-table td.demora-col { color: #dc2626 !important; }
     .resultados-table tr:last-child td { border-bottom: none !important; }
 
     /* ══ METRIC CARDS ══ */
@@ -2841,6 +2842,7 @@ if _tema == "dark":
     .resultados-table { background: #1e293b !important; border-color: #334155 !important; }
     .resultados-table th { background-color: #0f172a !important; color: #f1f5f9 !important; border-bottom: 2px solid #334155 !important; }
     .resultados-table td { color: #cbd5e1 !important; background-color: #1e293b !important; border-bottom: 1px solid #334155 !important; }
+    .resultados-table td.demora-col { color: #f87171 !important; }
     .resultados-table tr:hover td { background-color: #334155 !important; }
     .stats-card { background: #1e293b !important; border: 1px solid #334155 !important; }
     .stats-title { color: #94a3b8 !important; }
@@ -6194,7 +6196,7 @@ with tab3:
             _ct_color  = 'color:#16a34a;font-weight:700;' if row['ContratoCol'] == '✅ Sí' else 'color:#94a3b8;'
             _emp_color = 'color:#16a34a;font-weight:700;' if row['EmpresaCol']  == '✅ Sí' else 'color:#94a3b8;'
             _pln_color = 'color:#16a34a;font-weight:700;' if row['Plano']       == '✅ Sí' else 'color:#94a3b8;'
-            rows_html += f"<tr><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td>{row['Cliente'] or '—'}</td><td>{row['Total']}</td><td>{row['Asesor'] or '—'}</td><td style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td style='text-align:center;font-size:0.82rem;font-weight:900;color:#dc2626 !important;font-family:Montserrat,sans-serif;'>{row['Demora']}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td><td style='text-align:center;{_mg_color}'>{row['MargenCol']}</td><td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td></tr>"
+            rows_html += f"<tr><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td>{row['Cliente'] or '—'}</td><td>{row['Total']}</td><td>{row['Asesor'] or '—'}</td><td style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td class='demora-col' style='text-align:center;font-size:0.82rem;font-weight:700;'>{row['Demora']}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td><td style='text-align:center;{_mg_color}'>{row['MargenCol']}</td><td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td></tr>"
 
         html_table = f"""
         <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;">
