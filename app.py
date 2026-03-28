@@ -6257,23 +6257,24 @@ with tab3:
                     st.warning("🔒 Cotización autorizada - Solo puedes generar PDFs")
 
                 # ── Botón descargar log de modificaciones (PDF) ──
-                _logs_ep = obtener_logs_ep(numero_seleccionado)
-                if _logs_ep:
-                    _n_mods = len([l for l in _logs_ep if l.get("tipo_cambio") == "modificacion"])
-                    try:
-                        _pdf_log_bytes = generar_pdf_log(numero_seleccionado, _logs_ep)
-                        st.download_button(
-                            label=f"📋 Descargar historial PDF ({len(_logs_ep)} registros · {_n_mods} modif.)",
-                            data=_pdf_log_bytes,
-                            file_name=f"historial_{numero_seleccionado}.pdf",
-                            mime="application/pdf",
-                            use_container_width=True,
-                            key="btn_download_log"
-                        )
-                    except Exception as _e_log:
-                        st.error(f"Error generando PDF log: {_e_log}")
-                else:
-                    st.caption("📋 Sin registros de modificaciones aún")
+                if st.session_state.get('rol_usuario', 'ejecutivo') in ('admin', 'root'):
+                    _logs_ep = obtener_logs_ep(numero_seleccionado)
+                    if _logs_ep:
+                        _n_mods = len([l for l in _logs_ep if l.get("tipo_cambio") == "modificacion"])
+                        try:
+                            _pdf_log_bytes = generar_pdf_log(numero_seleccionado, _logs_ep)
+                            st.download_button(
+                                label=f"📋 Descargar historial PDF ({len(_logs_ep)} registros · {_n_mods} modif.)",
+                                data=_pdf_log_bytes,
+                                file_name=f"historial_{numero_seleccionado}.pdf",
+                                mime="application/pdf",
+                                use_container_width=True,
+                                key="btn_download_log"
+                            )
+                        except Exception as _e_log:
+                            st.error(f"Error generando PDF log: {_e_log}")
+                    else:
+                        st.caption("📋 Sin registros de modificaciones aún")
 
             st.markdown("---")
             st.markdown("### Acciones")
