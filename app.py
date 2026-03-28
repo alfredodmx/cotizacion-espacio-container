@@ -6126,18 +6126,18 @@ with tab3:
         df_resultados["Total"] = df_resultados["Total"].apply(lambda x: f"${x:,.0f}".replace(",", ".") if x else "$0")
 
         def _fmt_fecha_auth(x):
-            if not x: return "—"
+            if not x or not isinstance(x, str) or x.strip() == "": return "—"
             try:
                 from datetime import datetime as _dt, timezone, timedelta
                 _tz_cl = timezone(timedelta(hours=-3))
-                _d = _dt.fromisoformat(x.replace("Z","+00:00")).astimezone(_tz_cl)
+                _d = _dt.fromisoformat(str(x).replace("Z","+00:00")).astimezone(_tz_cl)
                 return f'<span style="font-weight:700;">{_d.strftime("%d/%m/%Y")}</span><br><span style="font-size:0.75em;color:#64748b;">{_d.strftime("%H:%M")}</span>'
-            except: return x[:10]
+            except: return str(x)[:10] if x else "—"
 
         def _fmt_demora(row):
             f_crea = row["Fecha_raw"] if "Fecha_raw" in row else ""
             f_auth = row["Fecha_Auth"]
-            if not f_crea or not f_auth: return "—"
+            if not f_crea or not f_auth or not isinstance(f_auth, str) or f_auth.strip() == "": return "—"
             try:
                 from datetime import datetime as _dt, timezone, timedelta
                 _tz_cl = timezone(timedelta(hours=-3))
