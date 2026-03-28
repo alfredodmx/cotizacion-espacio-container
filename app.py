@@ -4451,9 +4451,7 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
 
     doc = SimpleDocTemplate(buffer, pagesize=A4,
                            leftMargin=20, rightMargin=20,
-                           topMargin=30, bottomMargin=30, allowSplitting=1,
-                           onFirstPage=_watermark_canvas if mostrar_precios else None,
-                           onLaterPages=_watermark_canvas if mostrar_precios else None)
+                           topMargin=30, bottomMargin=30, allowSplitting=1)
     elements = []
     styles = getSampleStyleSheet()
 
@@ -4717,7 +4715,10 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
         ('LINEBELOW', (0,0), (-1,0), 0.5, colors.HexColor('#e2e8f0')),
     ]))
     elements.append(tabla_bloques)
-    doc.build(elements)
+    if mostrar_precios:
+        doc.build(elements, onFirstPage=_watermark_canvas, onLaterPages=_watermark_canvas)
+    else:
+        doc.build(elements)
     buffer.seek(0)
     return buffer, numero_presupuesto
 
