@@ -4428,7 +4428,7 @@ def _generar_qr_imagen(url, size=80):
 
 def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
                      fecha_inicio, fecha_termino, dias_validez,
-                     datos_asesor, margen=0, numero_cotizacion=None):
+                     datos_asesor, margen=0, numero_cotizacion=None, mostrar_precios=False):
 
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4,
@@ -4575,19 +4575,40 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
     elements.append(Spacer(1, 20))
 
     ancho_total = doc.width
-    porcentajes = [15, 58, 27]
-    anchos = [ancho_total * p / 100 for p in porcentajes]
-    data = [[
-        Paragraph("<b>Categoría</b>", styles['HeaderStyle']),
-        Paragraph("<b>Item</b>", styles['HeaderStyle']),
-        Paragraph("<b>Cant.</b>", styles['HeaderStyle']),
-    ]]
-    for _, row in carrito_df.iterrows():
-        data.append([
-            Paragraph(row["Categoria"], styles['SmallFont']),
-            Paragraph(row["Item"], styles['SmallFont']),
-            Paragraph(str(row["Cantidad"]), styles['SmallFont']),
-        ])
+    if mostrar_precios:
+        porcentajes = [15, 50, 8, 13.5, 13.5]
+        anchos = [ancho_total * p / 100 for p in porcentajes]
+        data = [[
+            Paragraph("<b>Categoría</b>", styles['HeaderStyle']),
+            Paragraph("<b>Item</b>", styles['HeaderStyle']),
+            Paragraph("<b>Cant.</b>", styles['HeaderStyle']),
+            Paragraph("<b>P. Unitario</b>", styles['HeaderStyle']),
+            Paragraph("<b>Subtotal</b>", styles['HeaderStyle'])
+        ]]
+        for _, row in carrito_df.iterrows():
+            data.append([
+                Paragraph(row["Categoria"], styles['SmallFont']),
+                Paragraph(row["Item"], styles['SmallFont']),
+                Paragraph(str(row["Cantidad"]), styles['SmallFont']),
+                Paragraph(formato_clp(row["Precio Unitario"]), styles['SmallFont']),
+                Paragraph(formato_clp(row["Subtotal"]), styles['SmallFont'])
+            ])
+        _align_col = ('ALIGN', (2,1), (4,-1), 'RIGHT')
+    else:
+        porcentajes = [15, 58, 27]
+        anchos = [ancho_total * p / 100 for p in porcentajes]
+        data = [[
+            Paragraph("<b>Categoría</b>", styles['HeaderStyle']),
+            Paragraph("<b>Item</b>", styles['HeaderStyle']),
+            Paragraph("<b>Cant.</b>", styles['HeaderStyle']),
+        ]]
+        for _, row in carrito_df.iterrows():
+            data.append([
+                Paragraph(row["Categoria"], styles['SmallFont']),
+                Paragraph(row["Item"], styles['SmallFont']),
+                Paragraph(str(row["Cantidad"]), styles['SmallFont']),
+            ])
+        _align_col = ('ALIGN', (2,1), (2,-1), 'RIGHT')
 
     tabla_productos = Table(data, colWidths=anchos, repeatRows=1, splitByRow=1)
     tabla_productos.setStyle(TableStyle([
@@ -4595,7 +4616,7 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
         ('ALIGN', (0,0), (-1,0), 'CENTER'), ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
         ('FONTSIZE', (0,0), (-1,0), 9), ('BOTTOMPADDING', (0,0), (-1,0), 8), ('TOPPADDING', (0,0), (-1,0), 8),
         ('BACKGROUND', (0,1), (-1,-1), colors.white), ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('ALIGN', (2,1), (2,-1), 'RIGHT'), ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        _align_col, ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ('LEFTPADDING', (0,0), (-1,-1), 2), ('RIGHTPADDING', (0,0), (-1,-1), 2),
         ('TOPPADDING', (0,1), (-1,-1), 4), ('BOTTOMPADDING', (0,1), (-1,-1), 4),
     ]))
@@ -6478,7 +6499,7 @@ with tab3:
                         _fi_c = datetime.strptime(_cot_compras.get('proyecto_fecha_inicio', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d').date()
                         _ft_c = datetime.strptime(_cot_compras.get('proyecto_fecha_termino', (datetime.now()+timedelta(days=15)).strftime('%Y-%m-%d')), '%Y-%m-%d').date()
                         _dv_c = _cot_compras.get('proyecto_dias_validez', 15)
-                        _pdf_compras, _ = generar_pdf_completo(_df_compras, _sub_compras, _iva_compras, _tot_compras, _dc_compras, _fi_c, _ft_c, _dv_c, _da_compras, margen=0, numero_cotizacion=numero_seleccionado)
+                        _pdf_compras, _ = generar_pdf_completo(_df_compras, _sub_compras, _iva_compras, _tot_compras, _dc_compras, _fi_c, _ft_c, _dv_c, _da_compras, margen=0, numero_cotizacion=numero_seleccionado, mostrar_precios=True)
                         st.download_button(label="🛒 PDF Compras", data=_pdf_compras, file_name=f"Compras_{numero_seleccionado}.pdf",
                             mime="application/pdf", use_container_width=True, key=f"pdf_compras_{numero_seleccionado}")
                 else:
