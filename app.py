@@ -6220,7 +6220,7 @@ with tab3:
         df_resultados["Fecha"] = df_resultados["Fecha"].apply(_fmt_fecha)
         df_resultados["Estado"] = df_resultados.apply(crear_badge_estado, axis=1)
         df_resultados["Plano"]    = df_resultados.apply(lambda row: "✅ Sí" if row["Tiene_Plano"] else "—", axis=1)
-        df_resultados["MargenCol"]= df_resultados["Margen"].apply(lambda x: "✅ Sí" if x and x > 0 else "—")
+        df_resultados["MargenCol"] = df_resultados["Margen"].apply(lambda x: f'✅ Sí<br><span style="font-size:0.78em;color:#16a34a;">{x:.1f}%</span>' if x and x > 0 else "—")
         df_resultados["ContratoCol"] = df_resultados["Tiene_Contrato"].apply(lambda x: "✅ Sí" if x else "—")
         df_resultados["EmpresaCol"] = df_resultados["Empresa"].apply(lambda x: "✅ Sí" if x and x.strip() else "—")
         df_resultados["ModCol"] = df_resultados["NLogs"].apply(
@@ -6231,18 +6231,21 @@ with tab3:
 
         rows_html = ""
         for _, row in df_resultados.iterrows():
-            _mg_color  = 'color:#16a34a;font-weight:700;' if row['MargenCol']  == '✅ Sí' else 'color:#94a3b8;'
+            _mg_color  = 'color:#16a34a;font-weight:700;' if '✅' in str(row['MargenCol']) else 'color:#94a3b8;'
+            _th_margen = '<th>Margen</th>' if st.session_state.modo_admin else ''
+            _td_margen = f'<td style="text-align:center;line-height:1.6;{_mg_color}">{row["MargenCol"]}</td>' if st.session_state.modo_admin else ''
+
             _ct_color  = 'color:#16a34a;font-weight:700;' if row['ContratoCol'] == '✅ Sí' else 'color:#94a3b8;'
             _emp_color = 'color:#16a34a;font-weight:700;' if row['EmpresaCol']  == '✅ Sí' else 'color:#94a3b8;'
             _pln_color = 'color:#16a34a;font-weight:700;' if row['Plano']       == '✅ Sí' else 'color:#94a3b8;'
-            rows_html += f"<tr><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td>{row['Cliente'] or '—'}</td><td>{row['Total']}</td><td>{row['Asesor'] or '—'}</td><td style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td class='demora-col' style='text-align:center;font-size:0.82rem;font-weight:700;'>{row['Demora']}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td><td style='text-align:center;{_mg_color}'>{row['MargenCol']}</td><td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td></tr>"
+            rows_html += f"<tr><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td>{row['Cliente'] or '—'}</td><td>{row['Total']}</td><td>{row['Asesor'] or '—'}</td><td style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td class='demora-col' style='text-align:center;font-size:0.82rem;font-weight:700;'>{row['Demora']}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td>{_td_margen}<td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td></tr>"
 
         html_table = f"""
         <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;">
             <div style="overflow-y:auto;max-height:{altura_tabla}px;">
                 <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
-                        <tr><th>N° Presupuesto</th><th>Cliente</th><th>Total</th><th>Asesor</th><th>Estado</th><th>Fecha de creación</th><th>Demora</th><th>Fecha Autorización</th><th>Empresa</th><th>Margen</th><th>Contrato</th><th>Plano</th><th>Modif.</th></tr>
+                        <tr><th>N° Presupuesto</th><th>Cliente</th><th>Total</th><th>Asesor</th><th>Estado</th><th>Fecha de creación</th><th>Demora</th><th>Fecha Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th></tr>
                     </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
