@@ -6282,7 +6282,8 @@ with tab3:
 
             with col_acc1:
                 if tiene_margen_seleccionado and not st.session_state.modo_admin:
-                    st.button("📂 Cargar", use_container_width=True, disabled=True)
+                    st.button("📂 Cargar", use_container_width=True, disabled=True,
+                              help="Solo disponible para cotizaciones autorizadas")
                 else:
                     if st.button("📂 Cargar", use_container_width=True):
                         # Si hay carrito sin guardar, mostrar advertencia
