@@ -1997,6 +1997,17 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
             'asesor_email': str(asesor.get('Correo Ejecutivo', '') or st.session_state.get('auth_email', '') or '')
         }
 
+        # Fecha de autorización: guardar solo cuando pasa a AUTORIZADO y no tenía fecha previa
+        _es_autorizado_nuevo = 'AUTORIZADO' in estado
+        if _es_autorizado_nuevo:
+            _fecha_auth_anterior = response.data[0].get('fecha_autorizacion') if existe else None
+            if not _fecha_auth_anterior:
+                data['fecha_autorizacion'] = fecha_actual
+            else:
+                data['fecha_autorizacion'] = _fecha_auth_anterior
+        else:
+            data['fecha_autorizacion'] = None
+
         if existe:
             _anterior = response.data[0]
             response = supabase_admin.table('cotizaciones').update(data).eq('numero', numero).execute()
@@ -2071,7 +2082,8 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
         query = supabase.table('cotizaciones').select(
             'numero', 'cliente_nombre', 'asesor_nombre', 'fecha_creacion',
             'total_total', 'config_margen', 'cliente_rut', 'cliente_email',
-            'asesor_email', 'asesor_telefono', 'plano_url', 'contrato_generado', 'cliente_empresa'
+            'asesor_email', 'asesor_telefono', 'plano_url', 'contrato_generado', 'cliente_empresa',
+            'fecha_autorizacion'
         )
         # Filtrar por usuario si es ejecutivo (no admin ni root)
         _rol_q = st.session_state.get('rol_usuario', 'ejecutivo')
@@ -2105,7 +2117,8 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
                 row.get('asesor_telefono', '') or '',
                 1 if row.get('plano_url') else 0,
                 1 if row.get('contrato_generado') else 0,
-                row.get('cliente_empresa', '') or ''
+                row.get('cliente_empresa', '') or '',
+                row.get('fecha_autorizacion', '') or ''
             ))
         # Agregar conteo de logs
         numeros_ep = [r[0] for r in resultados]
@@ -6102,7 +6115,7 @@ with tab3:
         st.rerun()
 
     if st.session_state.resultados_busqueda:
-        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa", "NLogs"]
+        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa", "Fecha_Auth", "NLogs"]
         _rows_norm = []
         for _r in st.session_state.resultados_busqueda:
             _r = list(_r)
@@ -6111,6 +6124,39 @@ with tab3:
             _rows_norm.append(_r[:len(_cols_esperadas)])
         df_resultados = pd.DataFrame(_rows_norm, columns=_cols_esperadas)
         df_resultados["Total"] = df_resultados["Total"].apply(lambda x: f"${x:,.0f}".replace(",", ".") if x else "$0")
+
+        def _fmt_fecha_auth(x):
+            if not x: return "—"
+            try:
+                from datetime import datetime as _dt, timezone, timedelta
+                _tz_cl = timezone(timedelta(hours=-3))
+                _d = _dt.fromisoformat(x.replace("Z","+00:00")).astimezone(_tz_cl)
+                return f'<span style="font-weight:700;">{_d.strftime("%d/%m/%Y")}</span><br><span style="font-size:0.75em;color:#64748b;">{_d.strftime("%H:%M")}</span>'
+            except: return x[:10]
+
+        def _fmt_demora(row):
+            f_crea = row["Fecha_raw"] if "Fecha_raw" in row else ""
+            f_auth = row["Fecha_Auth"]
+            if not f_crea or not f_auth: return "—"
+            try:
+                from datetime import datetime as _dt, timezone, timedelta
+                _tz_cl = timezone(timedelta(hours=-3))
+                _d1 = _dt.fromisoformat(f_crea.replace("Z","+00:00")).astimezone(_tz_cl)
+                _d2 = _dt.fromisoformat(f_auth.replace("Z","+00:00")).astimezone(_tz_cl)
+                _diff = _d2 - _d1
+                _dias = _diff.days
+                _horas = _diff.seconds // 3600
+                _mins  = (_diff.seconds % 3600) // 60
+                partes = []
+                if _dias > 0: partes.append(f"{_dias}d")
+                if _horas > 0: partes.append(f"{_horas}h")
+                partes.append(f"{_mins}m")
+                return " ".join(partes)
+            except: return "—"
+
+        df_resultados["Fecha_raw"] = df_resultados["Fecha"].copy()
+        df_resultados["Fecha_Auth_fmt"] = df_resultados["Fecha_Auth"].apply(_fmt_fecha_auth)
+        df_resultados["Demora"] = df_resultados.apply(_fmt_demora, axis=1)
         def _fmt_fecha(x):
             """Para la tabla HTML: fecha en negrita + hora en gris — zona horaria Chile."""
             if not x: return ""
@@ -6148,14 +6194,14 @@ with tab3:
             _ct_color  = 'color:#16a34a;font-weight:700;' if row['ContratoCol'] == '✅ Sí' else 'color:#94a3b8;'
             _emp_color = 'color:#16a34a;font-weight:700;' if row['EmpresaCol']  == '✅ Sí' else 'color:#94a3b8;'
             _pln_color = 'color:#16a34a;font-weight:700;' if row['Plano']       == '✅ Sí' else 'color:#94a3b8;'
-            rows_html += f"<tr><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td>{row['Cliente'] or '—'}</td><td>{row['Asesor'] or '—'}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td>{row['Total']}</td><td style='text-align:center;'>{row['Estado']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td><td style='text-align:center;{_mg_color}'>{row['MargenCol']}</td><td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td></tr>"
+            rows_html += f"<tr><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td>{row['Cliente'] or '—'}</td><td>{row['Asesor'] or '—'}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td>{row['Total']}</td><td style='text-align:center;'>{row['Estado']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td><td style='text-align:center;{_mg_color}'>{row['MargenCol']}</td><td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;font-size:0.82rem;font-weight:700;color:#6366f1;'>{row['Demora']}</td><td style='text-align:center;'>{row['ModCol']}</td></tr>"
 
         html_table = f"""
         <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;">
             <div style="overflow-y:auto;max-height:{altura_tabla}px;">
                 <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
-                        <tr><th>N° Presupuesto</th><th>Cliente</th><th>Asesor</th><th>Fecha de creación</th><th>Total</th><th>Estado</th><th>Empresa</th><th>Margen</th><th>Contrato</th><th>Plano</th><th>Modif.</th></tr>
+                        <tr><th>N° Presupuesto</th><th>Cliente</th><th>Asesor</th><th>Fecha de creación</th><th>Total</th><th>Estado</th><th>Empresa</th><th>Margen</th><th>Contrato</th><th>Plano</th><th>Fecha Autorización</th><th>Demora</th><th>Modif.</th></tr>
                     </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
