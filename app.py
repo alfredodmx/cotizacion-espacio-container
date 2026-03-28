@@ -4575,22 +4575,18 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
     elements.append(Spacer(1, 20))
 
     ancho_total = doc.width
-    porcentajes = [15, 50, 8, 13.5, 13.5]
+    porcentajes = [15, 58, 27]
     anchos = [ancho_total * p / 100 for p in porcentajes]
     data = [[
         Paragraph("<b>Categoría</b>", styles['HeaderStyle']),
         Paragraph("<b>Item</b>", styles['HeaderStyle']),
         Paragraph("<b>Cant.</b>", styles['HeaderStyle']),
-        Paragraph("<b>P. Unitario</b>", styles['HeaderStyle']),
-        Paragraph("<b>Subtotal</b>", styles['HeaderStyle'])
     ]]
     for _, row in carrito_df.iterrows():
         data.append([
             Paragraph(row["Categoria"], styles['SmallFont']),
             Paragraph(row["Item"], styles['SmallFont']),
             Paragraph(str(row["Cantidad"]), styles['SmallFont']),
-            Paragraph(formato_clp(row["Precio Unitario"]), styles['SmallFont']),
-            Paragraph(formato_clp(row["Subtotal"]), styles['SmallFont'])
         ])
 
     tabla_productos = Table(data, colWidths=anchos, repeatRows=1, splitByRow=1)
@@ -4599,7 +4595,7 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
         ('ALIGN', (0,0), (-1,0), 'CENTER'), ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
         ('FONTSIZE', (0,0), (-1,0), 9), ('BOTTOMPADDING', (0,0), (-1,0), 8), ('TOPPADDING', (0,0), (-1,0), 8),
         ('BACKGROUND', (0,1), (-1,-1), colors.white), ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('ALIGN', (2,1), (4,-1), 'RIGHT'), ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('ALIGN', (2,1), (2,-1), 'RIGHT'), ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ('LEFTPADDING', (0,0), (-1,-1), 2), ('RIGHTPADDING', (0,0), (-1,-1), 2),
         ('TOPPADDING', (0,1), (-1,-1), 4), ('BOTTOMPADDING', (0,1), (-1,-1), 4),
     ]))
