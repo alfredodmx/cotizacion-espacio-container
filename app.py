@@ -4645,14 +4645,6 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
     elements.append(Spacer(1, 20))
 
     ancho_bloque = (doc.width - 20) / 2
-    texto_transporte = "2.- Transporte y bases de apoyo <b>no incluidos</b>."
-    _p50 = formato_clp(round(total * 0.50))
-    _p25a = formato_clp(round(total * 0.25))
-    _p25b = formato_clp(round(total * 0.25))
-    notas_texto = f"""<font color='#0d2266'><b>NOTAS IMPORTANTES:</b></font><br/>1.- Valores incluyen IVA.<br/>{texto_transporte}<br/>3.- Formas de pago: transferencia - pago contado.<br/>4.- Proceso de pagos:<br/>&nbsp;&nbsp;&nbsp;<font size='10'><b>- 50% inicial</b> correspondiente a <b>{_p50}</b></font><br/>&nbsp;&nbsp;&nbsp;<font size='10'><b>- 25% obra</b> correspondiente a <b>{_p25a}</b></font><br/>&nbsp;&nbsp;&nbsp;<font size='10'><b>- 25% entrega</b> correspondiente a <b>{_p25b}</b></font>."""
-    datos_transferencia = """<font color='#0d2266'><b>DATOS PARA TRANSFERENCIA:</b></font><br/>Inversiones Container House Spa<br/>RUT: 78.268.851-0<br/>Tipo de cuenta: Cuenta Corriente<br/>Banco: Itaú<br/>N° de cuenta: 230771767<br/>Correo: jperez@espaciocontainerhouse.cl"""
-    # bloque_notas ya no se usa — se separa en notas_texto y datos_transferencia
-
     totales_data = [
         [Paragraph("Subtotal:", styles['TotalLabel']), Paragraph(formato_clp(subtotal), styles['TotalValue'])],
         [Paragraph("IVA (19%):", styles['TotalLabel']), Paragraph(formato_clp(iva), styles['TotalValue'])],
@@ -4666,55 +4658,64 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
         ('BOTTOMPADDING', (0,0), (-1,-1), 2), ('LINEABOVE', (1,1), (1,1), 1, colors.grey),
         ('LINEABOVE', (1,2), (1,2), 2, colors.black),
     ]))
-    # Mensaje cordial — columna central
-    styles.add(ParagraphStyle(name='MensajeCordial', parent=styles['Normal'],
-        fontSize=9.5, fontName='Helvetica-Oblique', leading=14,
-        textColor=colors.HexColor('#4a5568'), alignment=1, spaceAfter=4))
-    styles.add(ParagraphStyle(name='MensajeFirma', parent=styles['Normal'],
-        fontSize=9, fontName='Helvetica-BoldOblique', leading=13,
-        textColor=colors.HexColor('#0d2266'), alignment=1))
-    styles.add(ParagraphStyle(name='MensajeWeb', parent=styles['Normal'],
-        fontSize=8, fontName='Helvetica-Oblique', leading=11,
-        textColor=colors.HexColor('#6b7280'), alignment=1))
 
-    _msg_cordial = Paragraph(
-        "<para align='center'>"
-        "<font name='Helvetica-Oblique' size='11'>✨</font><br/>"
-        "<font name='Helvetica-Oblique' size='9' color='#718096'>¡Gracias por confiar en nosotros!<br/>"
-        "Esperamos que este presupuesto<br/>"
-        "supere tus expectativas.<br/><br/>"
-        "Con cariño,<br/></font>"
-        "<font name='Helvetica-BoldOblique' size='9' color='#0d2266'>La familia<br/>"
-        "Espacio Container House<br/></font>"
-        "<font name='Helvetica-Oblique' size='8' color='#9ca3af'>espaciocontainerhouse.cl</font>"
-        "</para>",
-        styles['NotasEstilo'])
-
-    # Fila 1: notas (izq) | totales (der)
-    # Fila 2: transferencia (izq) | mensaje cordial (der)
-    _bloque_notas_p  = Paragraph(notas_texto, styles['NotasEstilo'])
-    _bloque_transf_p = Paragraph(datos_transferencia, styles['NotasEstilo'])
-
-    data_bloques = [
-        [_bloque_notas_p,  totales_tabla],
-        [_bloque_transf_p, _msg_cordial],
-    ]
-    tabla_bloques = Table(data_bloques, colWidths=[ancho_bloque, ancho_bloque])
-    tabla_bloques.setStyle(TableStyle([
-        ('ALIGN',  (0,0), (0,-1), 'LEFT'),
-        ('ALIGN',  (1,0), (1,-1), 'RIGHT'),
-        ('VALIGN', (0,0), (0,0), 'TOP'),
-        ('VALIGN', (0,1), (0,1), 'MIDDLE'),
-        ('VALIGN', (1,0), (1,0), 'MIDDLE'),
-        ('VALIGN', (1,1), (1,1), 'MIDDLE'),
-        ('LEFTPADDING',  (0,0), (-1,-1), 0),
-        ('LEFTPADDING',  (1,1), (1,1), 40),
-        ('RIGHTPADDING', (1,0), (1,-1), 0),
-        ('TOPPADDING',   (0,0), (-1,-1), 6),
-        ('BOTTOMPADDING',(0,0), (-1,-1), 6),
-        ('LINEBELOW', (0,0), (-1,0), 0.5, colors.HexColor('#e2e8f0')),
-    ]))
-    elements.append(tabla_bloques)
+    if not mostrar_precios:
+        # PDF Completo — mostrar notas, transferencia y mensaje cordial
+        texto_transporte = "2.- Transporte y bases de apoyo <b>no incluidos</b>."
+        _p50 = formato_clp(round(total * 0.50))
+        _p25a = formato_clp(round(total * 0.25))
+        _p25b = formato_clp(round(total * 0.25))
+        notas_texto = f"""<font color='#0d2266'><b>NOTAS IMPORTANTES:</b></font><br/>1.- Valores incluyen IVA.<br/>{texto_transporte}<br/>3.- Formas de pago: transferencia - pago contado.<br/>4.- Proceso de pagos:<br/>&nbsp;&nbsp;&nbsp;<font size='10'><b>- 50% inicial</b> correspondiente a <b>{_p50}</b></font><br/>&nbsp;&nbsp;&nbsp;<font size='10'><b>- 25% obra</b> correspondiente a <b>{_p25a}</b></font><br/>&nbsp;&nbsp;&nbsp;<font size='10'><b>- 25% entrega</b> correspondiente a <b>{_p25b}</b></font>."""
+        datos_transferencia = """<font color='#0d2266'><b>DATOS PARA TRANSFERENCIA:</b></font><br/>Inversiones Container House Spa<br/>RUT: 78.268.851-0<br/>Tipo de cuenta: Cuenta Corriente<br/>Banco: Itaú<br/>N° de cuenta: 230771767<br/>Correo: jperez@espaciocontainerhouse.cl"""
+        styles.add(ParagraphStyle(name='MensajeCordial', parent=styles['Normal'],
+            fontSize=9.5, fontName='Helvetica-Oblique', leading=14,
+            textColor=colors.HexColor('#4a5568'), alignment=1, spaceAfter=4))
+        styles.add(ParagraphStyle(name='MensajeFirma', parent=styles['Normal'],
+            fontSize=9, fontName='Helvetica-BoldOblique', leading=13,
+            textColor=colors.HexColor('#0d2266'), alignment=1))
+        styles.add(ParagraphStyle(name='MensajeWeb', parent=styles['Normal'],
+            fontSize=8, fontName='Helvetica-Oblique', leading=11,
+            textColor=colors.HexColor('#6b7280'), alignment=1))
+        _msg_cordial = Paragraph(
+            "<para align='center'>"
+            "<font name='Helvetica-Oblique' size='11'>✨</font><br/>"
+            "<font name='Helvetica-Oblique' size='9' color='#718096'>¡Gracias por confiar en nosotros!<br/>"
+            "Esperamos que este presupuesto<br/>"
+            "supere tus expectativas.<br/><br/>"
+            "Con cariño,<br/></font>"
+            "<font name='Helvetica-BoldOblique' size='9' color='#0d2266'>La familia<br/>"
+            "Espacio Container House<br/></font>"
+            "<font name='Helvetica-Oblique' size='8' color='#9ca3af'>espaciocontainerhouse.cl</font>"
+            "</para>",
+            styles['NotasEstilo'])
+        _bloque_notas_p  = Paragraph(notas_texto, styles['NotasEstilo'])
+        _bloque_transf_p = Paragraph(datos_transferencia, styles['NotasEstilo'])
+        data_bloques = [
+            [_bloque_notas_p,  totales_tabla],
+            [_bloque_transf_p, _msg_cordial],
+        ]
+        tabla_bloques = Table(data_bloques, colWidths=[ancho_bloque, ancho_bloque])
+        tabla_bloques.setStyle(TableStyle([
+            ('ALIGN',  (0,0), (0,-1), 'LEFT'),
+            ('ALIGN',  (1,0), (1,-1), 'RIGHT'),
+            ('VALIGN', (0,0), (0,0), 'TOP'),
+            ('VALIGN', (0,1), (0,1), 'MIDDLE'),
+            ('VALIGN', (1,0), (1,0), 'MIDDLE'),
+            ('VALIGN', (1,1), (1,1), 'MIDDLE'),
+            ('LEFTPADDING',  (0,0), (-1,-1), 0),
+            ('LEFTPADDING',  (1,1), (1,1), 40),
+            ('RIGHTPADDING', (1,0), (1,-1), 0),
+            ('TOPPADDING',   (0,0), (-1,-1), 6),
+            ('BOTTOMPADDING',(0,0), (-1,-1), 6),
+            ('LINEBELOW', (0,0), (-1,0), 0.5, colors.HexColor('#e2e8f0')),
+        ]))
+        elements.append(tabla_bloques)
+    else:
+        # PDF Compras — solo totales, sin notas ni mensaje
+        elements.append(Spacer(1, 20))
+        _tbl_tot = Table([[Paragraph('', styles['Normal']), totales_tabla]], colWidths=[ancho_bloque, ancho_bloque])
+        _tbl_tot.setStyle(TableStyle([('ALIGN', (1,0), (1,0), 'RIGHT'), ('VALIGN', (0,0), (-1,-1), 'TOP')]))
+        elements.append(_tbl_tot)
     if mostrar_precios:
         doc.build(elements, onFirstPage=_watermark_canvas, onLaterPages=_watermark_canvas)
     else:
