@@ -6465,7 +6465,7 @@ with tab3:
             with col_acc4:
                 if cotizacion_seleccionada and tiene_plano_seleccionado:
                     label_visor = "🔄 ACTUALIZAR PLANO" if (st.session_state.mostrar_visor and st.session_state.numero_en_visor == numero_seleccionado) else "👁️ VER PLANO"
-                    if st.button(label_visor, use_container_width=True, type="primary"):
+                    if st.button(label_visor, use_container_width=True, type="primary", help="Ver plano adjunto"):
                         cot_btn = cargar_cotizacion(numero_seleccionado)
                         if cot_btn and cot_btn.get('plano_url'):
                             st.session_state.pdf_url = cot_btn['plano_url']
@@ -6474,7 +6474,7 @@ with tab3:
                             st.session_state.numero_en_visor = numero_seleccionado
                             st.rerun()
                 else:
-                    st.button("👁️ VER PLANO", use_container_width=True, disabled=True)
+                    st.button("👁️ VER PLANO", use_container_width=True, disabled=True, help="Sin plano adjunto")
 
             # =========================================================
             # VISOR DE PDF
