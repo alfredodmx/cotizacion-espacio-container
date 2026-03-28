@@ -4633,14 +4633,14 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
         ('BACKGROUND', (0,0), (-1,0), colors.black), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
         ('ALIGN', (0,0), (-1,0), 'CENTER'), ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
         ('FONTSIZE', (0,0), (-1,0), 9), ('BOTTOMPADDING', (0,0), (-1,0), 8), ('TOPPADDING', (0,0), (-1,0), 8),
-        ('BACKGROUND', (0,1), (-1,-1), colors.white), ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('BACKGROUND', (0,1), (-1,-1), colors.Color(1, 1, 1, alpha=0.55)), ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
         _align_col, ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ('LEFTPADDING', (0,0), (-1,-1), 2), ('RIGHTPADDING', (0,0), (-1,-1), 2),
         ('TOPPADDING', (0,1), (-1,-1), 4), ('BOTTOMPADDING', (0,1), (-1,-1), 4),
     ]))
     for i in range(1, len(data)):
         if i % 2 == 0:
-            tabla_productos.setStyle(TableStyle([('BACKGROUND', (0,i), (-1,i), colors.Color(0.95, 0.95, 0.95))]))
+            tabla_productos.setStyle(TableStyle([('BACKGROUND', (0,i), (-1,i), colors.Color(0.95, 0.95, 0.95, alpha=0.55))]))
     elements.append(tabla_productos)
     elements.append(Spacer(1, 20))
 
