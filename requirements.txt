@@ -9,3 +9,4 @@ Pillow
 numpy
 plotly
 qrcode
+python-docx
