@@ -10005,74 +10005,96 @@ with tab_contrato:
                     <div class="marker-tooltip">{_desc}</div>
                 </div>"""
 
-            st.markdown(f"""
-            <style>
-            .markers-wrap {{
-                display: flex; flex-wrap: wrap; gap: 8px;
-                margin: 8px 0 16px 0;
-            }}
-            .marker-chip {{
-                position: relative;
-                background: #e8eef7; border: 1.5px solid #0f3460;
-                border-radius: 6px; padding: 5px 10px;
-                cursor: pointer; font-size: 12px; font-weight: 700;
-                color: #0f3460; font-family: monospace;
-                transition: all 0.15s ease;
-                display: flex; align-items: center; gap: 6px;
-                user-select: none;
-            }}
-            .marker-chip:hover {{ background: #0f3460; color: white; }}
-            .marker-chip:hover .marker-tooltip {{ display: block; }}
-            .marker-chip.copied {{ background: #16a34a; border-color: #16a34a; color: white; }}
-            .marker-tooltip {{
-                display: none;
-                position: absolute; bottom: calc(100% + 8px); left: 50%;
-                transform: translateX(-50%);
-                background: #1e293b; color: white;
-                font-size: 11px; font-weight: 400; font-family: sans-serif;
-                padding: 6px 10px; border-radius: 6px;
-                white-space: nowrap; z-index: 9999;
-                pointer-events: none;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            }}
-            .marker-tooltip::after {{
-                content: ''; position: absolute; top: 100%; left: 50%;
-                transform: translateX(-50%);
-                border: 5px solid transparent;
-                border-top-color: #1e293b;
-            }}
-            .marker-copied {{ font-family: sans-serif; font-size: 11px; }}
-            </style>
-            <div style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">
-                📌 Marcadores disponibles — haz clic para copiar
-            </div>
-            <div class="markers-wrap">{_markers_html}</div>
-            <script>
-            function copyMarker(el, text) {{
-                try {{
-                    var ta = document.createElement("textarea");
-                    ta.value = text;
-                    ta.style.position = "fixed";
-                    ta.style.top = "0";
-                    ta.style.left = "0";
-                    ta.style.opacity = "0";
-                    document.body.appendChild(ta);
-                    ta.focus();
-                    ta.select();
-                    document.execCommand("copy");
-                    document.body.removeChild(ta);
-                }} catch(e) {{}}
-                el.classList.add("copied");
-                el.querySelector(".marker-text").style.display = "none";
-                el.querySelector(".marker-copied").style.display = "inline";
-                setTimeout(function() {{
-                    el.classList.remove("copied");
-                    el.querySelector(".marker-text").style.display = "inline";
-                    el.querySelector(".marker-copied").style.display = "none";
-                }}, 1500);
-            }}
-            </script>
-            """, unsafe_allow_html=True)
+            import streamlit.components.v1 as _comp_markers
+
+            _markers_component_html = """
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body { margin:0; padding:0; font-family: sans-serif; }
+.label { font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px; }
+.wrap { display:flex; flex-wrap:wrap; gap:8px; }
+.chip {
+    position:relative; background:#e8eef7; border:1.5px solid #0f3460;
+    border-radius:6px; padding:5px 10px; cursor:pointer;
+    font-size:12px; font-weight:700; color:#0f3460; font-family:monospace;
+    display:inline-flex; align-items:center; gap:6px; user-select:none;
+    transition: background 0.15s, color 0.15s;
+}
+.chip:hover { background:#0f3460; color:white; }
+.chip:hover .tip { display:block; }
+.chip.ok { background:#16a34a; border-color:#16a34a; color:white; }
+.tip {
+    display:none; position:absolute; bottom:calc(100% + 8px); left:50%;
+    transform:translateX(-50%); background:#1e293b; color:white;
+    font-size:11px; font-weight:400; font-family:sans-serif;
+    padding:6px 10px; border-radius:6px; white-space:nowrap;
+    z-index:9999; pointer-events:none; box-shadow:0 4px 12px rgba(0,0,0,0.3);
+}
+.tip::after {
+    content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%);
+    border:5px solid transparent; border-top-color:#1e293b;
+}
+</style>
+</head>
+<body>
+<div class="label">📌 Marcadores disponibles — haz clic para copiar</div>
+<div class="wrap" id="wrap"></div>
+<script>
+var markers = [
+    ["{{FECHA}}", "Fecha del contrato (ej: 29 de marzo de 2026)"],
+    ["{{TRATAMIENTO}}", "Tratamiento del cliente (Don / Doña / Sr. / Sra.)"],
+    ["{{CLIENTE}}", "Nombre completo del cliente"],
+    ["{{RUT_CLIENTE}}", "RUT del cliente (ej: 12.345.678-9)"],
+    ["{{DOMICILIO_CLIENTE}}", "Dirección del domicilio del cliente"],
+    ["{{COMUNA_CLIENTE}}", "Comuna del domicilio del cliente"],
+    ["{{REGION_CLIENTE}}", "Región del domicilio del cliente"],
+    ["{{DOMICILIO_INST}}", "Dirección donde se instalará el proyecto"],
+    ["{{COMUNA_INST}}", "Comuna de instalación del proyecto"],
+    ["{{REGION_INST}}", "Región de instalación del proyecto"],
+    ["{{EP}}", "Número del presupuesto (ej: EP-12345)"],
+    ["{{EP_NOMBRE}}", "Nombre/descripción del proyecto"],
+    ["{{TOTAL}}", "Precio total con IVA (ej: $26.168.975)"],
+    ["{{TOTAL_PALABRAS}}", "Precio total en palabras"],
+    ["{{PAGO_50}}", "50% inicial en números"],
+    ["{{PAGO_50_PALABRAS}}", "50% inicial en palabras"],
+    ["{{PAGO_25A}}", "25% intermedio en números"],
+    ["{{PAGO_25A_PALABRAS}}", "25% intermedio en palabras"],
+    ["{{PAGO_25B}}", "25% final en números"],
+    ["{{PAGO_25B_PALABRAS}}", "25% final en palabras"],
+    ["{{PLAZO}}", "Plazo de fabricación en días hábiles"]
+];
+var wrap = document.getElementById("wrap");
+markers.forEach(function(m) {
+    var chip = document.createElement("div");
+    chip.className = "chip";
+    chip.innerHTML = '<span class="mk">' + m[0] + '</span><span class="ok-txt" style="display:none">✓ copiado</span><div class="tip">' + m[1] + '</div>';
+    chip.addEventListener("click", function() {
+        var ta = document.createElement("textarea");
+        ta.value = m[0];
+        ta.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;";
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        try { document.execCommand("copy"); } catch(e) {}
+        document.body.removeChild(ta);
+        chip.classList.add("ok");
+        chip.querySelector(".mk").style.display = "none";
+        chip.querySelector(".ok-txt").style.display = "inline";
+        setTimeout(function() {
+            chip.classList.remove("ok");
+            chip.querySelector(".mk").style.display = "inline";
+            chip.querySelector(".ok-txt").style.display = "none";
+        }, 1500);
+    });
+    wrap.appendChild(chip);
+});
+</script>
+</body>
+</html>
+"""
+            _comp_markers.html(_markers_component_html, height=130, scrolling=False)
+
 
             # ── Secciones bloqueadas (solo lectura) ──
             with st.expander("🔒 Secciones fijas del sistema (no editables)", expanded=False):
