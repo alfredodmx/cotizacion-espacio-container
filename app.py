@@ -4438,32 +4438,15 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     ]
 
     # ── IV. Alcance técnico ──
-    story += [
-        Paragraph("IV. ALCANCE TÉCNICO Y EJECUCIÓN", seccion),
-        Paragraph(
-            "El Proveedor declara contar con la experiencia, conocimientos técnicos, "
-            "personal calificado, herramientas e infraestructura necesarias para la "
-            "correcta ejecución del Proyecto, comprometiéndose a:", normal),
-        Paragraph("a) Fabricar el módulo conforme a la normativa vigente aplicable.", normal),
-        Paragraph("b) Respetar las especificaciones técnicas y alcances definidos en los Anexos.", normal),
-        Paragraph("c) Ejecutar los trabajos con estándares de calidad y seguridad.", normal),
-        Paragraph(
-            "Cualquier trabajo, modificación o prestación no contemplada expresamente en "
-            "los Anexos será considerada <b>obra adicional</b>, debiendo ser cotizada y "
-            "aprobada por escrito por ambas partes.", normal),
-        HR(),
-    ]
+    story += [Paragraph("IV. ALCANCE TÉCNICO Y EJECUCIÓN", seccion)]
+    for _l in _p("alcance", "El Proveedor se compromete a fabricar conforme a normativa vigente.").split("\n"):
+        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
+    story += [HR()]
 
     # ── V. Visitas ──
     story += [
         Paragraph("V. VISITAS Y SEGUIMIENTO DEL PROYECTO", seccion),
-        Paragraph(
-            "El Cliente podrá realizar visitas de seguimiento a las instalaciones del "
-            "Proveedor ubicadas en <b>Portezuelo, parcela 3, Colina, Región "
-            "Metropolitana</b>, previa coordinación con al menos <b>48 horas hábiles de "
-            "anticipación</b>, con el único objeto de verificar el avance del Proyecto, "
-            "quedando expresamente prohibida cualquier interferencia en los procesos "
-            "productivos o instrucciones al personal del Proveedor.", normal),
+        Paragraph(_p("visitas", "El Cliente podrá realizar visitas previa coordinación de 48 horas."), normal),
         HR(),
     ]
 
@@ -4496,10 +4479,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     # ── VIII. Inicio fabricación ──
     story += [
         Paragraph("VIII. INICIO DE FABRICACIÓN", seccion),
-        Paragraph(
-            "La fabricación del Proyecto se iniciará <b>única y exclusivamente</b> una "
-            "vez recibido y efectivamente abonado el pago inicial del "
-            "<b>50% del valor total del contrato</b>.", normal),
+        Paragraph(_p("inicio", "La fabricación se iniciará una vez recibido el 50% inicial."), normal),
         HR(),
     ]
 
@@ -4549,91 +4529,41 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     ]
 
     # ── XI. Penalidad ──
-    story += [
-        Paragraph("XI. PENALIDAD POR ATRASO", seccion),
-        Paragraph(
-            "En caso de atraso imputable exclusivamente al Proveedor en los plazos "
-            "establecidos para la fabricación o entrega del Proyecto, éste pagará al "
-            "Cliente, a título de indemnización única y total, una suma equivalente al "
-            "<b>1% del valor neto correspondiente al último 25% del Proyecto por cada "
-            "7 días hábiles de atraso</b>, con un "
-            "<b>tope máximo del 10% del valor neto de dicho monto</b>.", normal),
-        Paragraph(
-            "No se considerarán atrasos imputables al Proveedor aquellos derivados de "
-            "caso fortuito, fuerza mayor, condiciones climáticas adversas, retrasos de "
-            "proveedores externos, o cualquier situación no atribuible directamente al "
-            "Proveedor.", normal),
-        Paragraph(
-            "Asimismo, en caso de que el atraso sea imputable al Cliente, ya sea por "
-            "retraso en los pagos comprometidos, falta de entrega de antecedentes "
-            "necesarios, impedimentos de acceso al lugar de instalación, o cualquier "
-            "otra circunstancia bajo su responsabilidad, los plazos del Proyecto se "
-            "extenderán automáticamente por el mismo período de tiempo que dure dicho "
-            "atraso, sin que ello genere responsabilidad ni penalidad alguna para el "
-            "Proveedor.", normal),
-        HR(),
-    ]
+    story += [Paragraph("XI. PENALIDAD POR ATRASO", seccion)]
+    for _l in _p("penalidad", "En caso de atraso imputable al Proveedor, pagará 1% por 7 días.").split("\n"):
+        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
+    story += [HR()]
 
     # ── XII. Retiro y bodegaje ──
     story += [
         Paragraph("XII. RETIRO, DESPACHO Y BODEGAJE", seccion),
-        Paragraph(
-            "Una vez notificada la finalización del Proyecto, el Cliente dispondrá de "
-            "un plazo máximo de <b>10 días hábiles</b> para coordinar el retiro o "
-            "despacho del módulo.", normal),
-        Paragraph(
-            "Vencido dicho plazo, el Proveedor quedará facultado para cobrar un "
-            "<b>cargo por bodegaje equivalente al 1% del valor neto del Proyecto por "
-            "cada 7 días corridos</b>, hasta el retiro efectivo.", normal),
+        Paragraph(_p("bodegaje", "El Cliente dispondrá de 10 días hábiles para coordinar el retiro."), normal),
         HR(),
     ]
 
     # ── XIII. Garantía ──
-    story += [
-        Paragraph("XIII. GARANTÍA", seccion),
-        Paragraph(
-            "El Proveedor otorga una garantía de <b>6 meses</b> contados desde la "
-            "entrega del módulo, limitada exclusivamente a <b>defectos de fabricación "
-            "o construcción imputables al proceso productivo</b>.", normal),
-        Paragraph("Quedan expresamente excluidos de garantía los daños derivados de:", normal),
-        Paragraph("• Mal uso o uso distinto al previsto", normal),
-        Paragraph("• Modificaciones no autorizadas", normal),
-        Paragraph("• Transporte realizado por terceros", normal),
-        Paragraph("• Vandalismo", normal),
-        Paragraph("• Fenómenos naturales", normal),
-        Paragraph("• Falta de mantención adecuada", normal),
-        HR(),
-    ]
+    story += [Paragraph("XIII. GARANTÍA", seccion)]
+    for _l in _p("garantia", "El Proveedor otorga garantía de 6 meses.").split("\n"):
+        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
+    story += [HR()]
 
     # ── XIV. Terminación anticipada ──
-    story += [
-        Paragraph("XIV. TERMINACIÓN ANTICIPADA", seccion),
-        Paragraph("El presente contrato podrá terminarse anticipadamente por:", normal),
-        Paragraph("a) Incumplimiento grave de cualquiera de las partes.", normal),
-        Paragraph("b) Mutuo acuerdo por escrito.", normal),
-        Paragraph("c) No pago oportuno de cualquiera de las etapas de pago.", normal),
-        Paragraph(
-            "En caso de término imputable al Cliente, los montos pagados "
-            "<b>no serán reembolsables</b>, salvo acuerdo distinto por escrito.", normal),
-        HR(),
-    ]
+    story += [Paragraph("XIV. TERMINACIÓN ANTICIPADA", seccion)]
+    for _l in _p("terminacion", "El contrato podrá terminarse por incumplimiento, mutuo acuerdo o no pago.").split("\n"):
+        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
+    story += [HR()]
 
     # ── XV. Domicilio y jurisdicción ──
     story += [
         Paragraph("XV. DOMICILIO Y JURISDICCIÓN", seccion),
-        Paragraph(
-            "Para todos los efectos legales derivados del presente contrato, las partes "
-            "fijan su domicilio en la <b>ciudad de Santiago</b>, y se someten a la "
-            "competencia de sus <b>Tribunales Ordinarios de Justicia</b>.", normal),
+        Paragraph(_p("jurisdiccion", "Las partes fijan domicilio en Santiago y se someten a sus Tribunales."), normal),
         PageBreak(),
     ]
 
     # ── XVI. Firma ──
     story += [
         Paragraph("XVI. FIRMA", seccion),
-        Paragraph(
-            "El presente contrato se firma en <b>dos ejemplares de igual tenor y "
-            "fecha</b>, quedando uno en poder de cada parte.", normal),
+        Paragraph(_p("firma", "El presente contrato se firma en dos ejemplares de igual tenor y fecha."), normal),
         SP(60),
     ]
 
