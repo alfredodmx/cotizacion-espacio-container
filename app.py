@@ -9939,39 +9939,31 @@ with tab_contrato:
 
             # ── Historial ──
             st.markdown('<div class="cont-section" style="margin-top:12px;">📋 Historial</div>', unsafe_allow_html=True)
-            _hist_html = """
-            <table style='width:100%;border-collapse:collapse;font-size:13px;'>
-              <thead>
-                <tr style='border-bottom:1px solid #e2e8f0;'>
-                  <th style='text-align:left;padding:6px 8px;color:#64748b;font-weight:500;'>Versión</th>
-                  <th style='text-align:left;padding:6px 8px;color:#64748b;font-weight:500;'>Tipo</th>
-                  <th style='text-align:center;padding:6px 8px;color:#64748b;font-weight:500;'>Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-            """
+            # Tabla historial — construida con concatenación simple sin f-strings anidados
+            _h  = '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
+            _h += '<thead><tr style="border-bottom:1px solid #e2e8f0;">'
+            _h += '<th style="text-align:left;padding:6px 8px;color:#64748b;font-weight:500;">Versión</th>'
+            _h += '<th style="text-align:left;padding:6px 8px;color:#64748b;font-weight:500;">Tipo</th>'
+            _h += '<th style="text-align:center;padding:6px 8px;color:#64748b;font-weight:500;">Estado</th>'
+            _h += '</tr></thead><tbody>'
             if _tiene_word:
-                _hist_html += f"""
-                <tr style='border-bottom:0.5px solid #e2e8f0;background:#e8eef7;'>
-                  <td style='padding:8px;font-weight:700;color:#0f3460;'>Word personalizado</td>
-                  <td style='padding:8px;color:#0f3460;'>.docx subido</td>
-                  <td style='padding:8px;text-align:center;'><span style='background:#0f3460;color:white;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;'>✅ ACTIVO</span></td>
-                </tr>
-                """
+                _h += '<tr style="border-bottom:0.5px solid #e2e8f0;background:#e8eef7;">'
+                _h += '<td style="padding:8px;font-weight:700;color:#0f3460;">Word personalizado</td>'
+                _h += '<td style="padding:8px;color:#0f3460;">.docx subido</td>'
+                _h += '<td style="padding:8px;text-align:center;"><span style="background:#0f3460;color:white;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;">✅ ACTIVO</span></td>'
+                _h += '</tr>'
             if _cot2.get("contrato_generado"):
-                _est_orig = "inactivo" if _tiene_word else "✅ ACTIVO"
-                _bg_orig  = "var(--color-background-secondary)" if _tiene_word else "#e8eef7"
-                _txt_orig = "#64748b" if _tiene_word else "#0f3460"
-                _badge    = f'<span style="background:{"#94a3b8" if _tiene_word else "#0f3460"};color:white;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;">{"inactivo" if _tiene_word else "✅ ACTIVO"}</span>'
-                _hist_html += f"""
-                <tr style='border-bottom:0.5px solid #e2e8f0;background:{_bg_orig};'>
-                  <td style='padding:8px;font-weight:700;color:{_txt_orig};'>v1 — original sistema</td>
-                  <td style='padding:8px;color:{_txt_orig};'>PDF generado</td>
-                  <td style='padding:8px;text-align:center;'>{_badge}</td>
-                </tr>
-                """
-            _hist_html += "</tbody></table>"
-            st.markdown(_hist_html, unsafe_allow_html=True)
+                _bg_o   = "#e8eef7" if not _tiene_word else "#f8fafc"
+                _txt_o  = "#0f3460" if not _tiene_word else "#64748b"
+                _bdg_bg = "#0f3460" if not _tiene_word else "#94a3b8"
+                _bdg_lb = "✅ ACTIVO" if not _tiene_word else "inactivo"
+                _h += f'<tr style="border-bottom:0.5px solid #e2e8f0;background:{_bg_o};">'
+                _h += f'<td style="padding:8px;font-weight:700;color:{_txt_o};">v1 — original sistema</td>'
+                _h += f'<td style="padding:8px;color:{_txt_o};">PDF generado</td>'
+                _h += f'<td style="padding:8px;text-align:center;"><span style="background:{_bdg_bg};color:white;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;">{_bdg_lb}</span></td>'
+                _h += '</tr>'
+            _h += '</tbody></table>'
+            st.markdown(_h, unsafe_allow_html=True)
 
             # Botón para volver a versión original
             if _tiene_word:
