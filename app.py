@@ -10003,26 +10003,34 @@ with tab_contrato:
             _edits = {}
             import re as _re_ed
 
+            import re as _re_strip
+            def _strip_b(t): return _re_strip.sub(r'<[^>]+>', '', t)
+
             for _key, _label in _LABELS.items():
-                # Obtener valor actual
+                # Siempre partir del _CLAUSULAS_EDITOR (texto completo con <b>)
+                # Solo sobreescribir si Supabase tiene algo diferente al original
+                _base_editor = _CLAUSULAS_EDITOR.get(_key, "")
                 _val_sup = _clausulas_act.get(_key, "")
-                if _val_sup and "<b>" not in _val_sup and "<b>" in _CLAUSULAS_EDITOR.get(_key, ""):
-                    _val_actual = _CLAUSULAS_EDITOR.get(_key, _val_sup)
-                elif _val_sup:
+
+                if _val_sup and _strip_b(_val_sup).strip() != _strip_b(_base_editor).strip():
+                    # El usuario modificó esta cláusula — mostrar su versión
                     _val_actual = _val_sup
                 else:
-                    _val_actual = _CLAUSULAS_EDITOR.get(_key, _CLAUSULAS_BASE.get(_key, ""))
+                    # Sin cambios o no existe en Supabase — mostrar el editor completo
+                    _val_actual = _base_editor
 
-                # Altura proporcional: contar líneas reales + estimación por longitud
-                _n_lineas = _val_actual.count("\n") + max(1, len(_val_actual) // 100)
-                _h = min(350, max(80, _n_lineas * 24))
+                # Altura: basada en caracteres totales para mostrar todo el texto
+                _chars = len(_val_actual)
+                _newlines = _val_actual.count("\n")
+                _estimated_lines = _newlines + max(1, _chars // 85)
+                _h = max(120, _estimated_lines * 22)
 
                 _edits[_key] = st.text_area(
                     _label,
                     value=_val_actual,
                     height=_h,
                     key=f"plt_{_key}",
-                    help="Usa <b>texto</b> para negrita. Los marcadores {{CAMPO}} se reemplazan con datos reales al generar el contrato."
+                    help="Usa <b>texto</b> para negrita. Los {{MARCADORES}} se reemplazan con los datos reales del cliente al generar el contrato."
                 )
 
             # ── Botones ──
