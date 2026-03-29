@@ -3825,6 +3825,370 @@ def monto_a_palabras(monto):
     entero = int(round(monto))
     return num_a_palabras(entero) + ' pesos'
 
+
+def generar_word_contrato(datos):
+    """
+    Genera un .docx del contrato con los datos ya rellenados.
+    Los campos autollenados aparecen en AZUL NEGRITA — no modificar.
+    El resto del texto puede editarse libremente.
+    """
+    try:
+        from docx import Document as _DocxDocument
+        from docx.shared import Pt, RGBColor, Inches, Cm
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.oxml.ns import qn
+        from docx.oxml import OxmlElement
+        import io as _io
+    except ImportError:
+        return None
+
+    doc = _DocxDocument()
+
+    # Márgenes
+    for section in doc.sections:
+        section.left_margin   = Cm(3)
+        section.right_margin  = Cm(3)
+        section.top_margin    = Cm(3.8)
+        section.bottom_margin = Cm(2.2)
+
+    AZUL = RGBColor(0x0f, 0x34, 0x60)
+
+    def _style_normal(paragraph):
+        paragraph.paragraph_format.space_after = Pt(6)
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+
+    def _run_normal(paragraph, text, bold=False, color=None, size=10.5):
+        run = paragraph.add_run(text)
+        run.bold = bold
+        run.font.size = Pt(size)
+        run.font.name = 'Times New Roman'
+        if color:
+            run.font.color.rgb = color
+        return run
+
+    def _run_dato(paragraph, text):
+        """Campo autollenado — azul negrita, NO MODIFICAR"""
+        return _run_normal(paragraph, text, bold=True, color=AZUL)
+
+    def _seccion(doc, texto):
+        p = doc.add_paragraph()
+        run = p.add_run(f'  {texto}  ')
+        run.bold = True
+        run.font.size = Pt(9.5)
+        run.font.name = 'Arial'
+        run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+        p.paragraph_format.space_before = Pt(14)
+        p.paragraph_format.space_after  = Pt(5)
+        # Fondo azul
+        pPr = p._p.get_or_add_pPr()
+        shd = OxmlElement('w:shd')
+        shd.set(qn('w:val'), 'clear')
+        shd.set(qn('w:color'), 'auto')
+        shd.set(qn('w:fill'), '0F3460')
+        pPr.append(shd)
+        return p
+
+    def _hr(doc):
+        p = doc.add_paragraph()
+        pPr = p._p.get_or_add_pPr()
+        pBdr = OxmlElement('w:pBdr')
+        bottom = OxmlElement('w:bottom')
+        bottom.set(qn('w:val'), 'single')
+        bottom.set(qn('w:sz'), '4')
+        bottom.set(qn('w:space'), '1')
+        bottom.set(qn('w:color'), 'E8EEF7')
+        pBdr.append(bottom)
+        pPr.append(pBdr)
+        p.paragraph_format.space_after = Pt(6)
+
+    d = datos
+    fmt = lambda v: "${:,.0f}".format(v).replace(",",".")
+
+    # ── Nota al inicio ──
+    nota = doc.add_paragraph()
+    nota.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r = nota.add_run('⚠️  CAMPOS EN AZUL NEGRITA = AUTOLLENADOS — NO MODIFICAR  ⚠️')
+    r.bold = True
+    r.font.size = Pt(9)
+    r.font.color.rgb = RGBColor(0xDC, 0x26, 0x26)
+    nota.paragraph_format.space_after = Pt(12)
+
+    # ── Título ──
+    t1 = doc.add_paragraph()
+    t1.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r = t1.add_run('CONTRATO DE FABRICACIÓN Y VENTA')
+    r.bold = True; r.font.size = Pt(15); r.font.name = 'Times New Roman'
+    r.font.color.rgb = AZUL
+    t2 = doc.add_paragraph()
+    t2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r = t2.add_run('VIVIENDA TIPO CONTAINER')
+    r.bold = True; r.font.size = Pt(11); r.font.name = 'Times New Roman'
+    r.font.color.rgb = AZUL
+
+    doc.add_paragraph()
+
+    # Intro
+    p = doc.add_paragraph()
+    _style_normal(p)
+    _run_normal(p, 'En Santiago de Chile, a ')
+    _run_dato(p, d['fecha_str'])
+    _run_normal(p, ', comparecen:')
+
+    # I. COMPARECENCIA
+    _seccion(doc, 'I. COMPARECENCIA')
+    p = doc.add_paragraph()
+    _style_normal(p)
+    _run_normal(p, '1. EL PROVEEDOR', bold=True)
+
+    p = doc.add_paragraph()
+    _style_normal(p)
+    _run_normal(p, 'Don ')
+    _run_normal(p, 'Alan Mauricio Gatica Concha', bold=True)
+    _run_normal(p, ', cédula nacional de identidad N° ')
+    _run_normal(p, '13.668.157-5', bold=True)
+    _run_normal(p, ', en representación de ')
+    _run_normal(p, 'Inversiones Container House SpA', bold=True)
+    _run_normal(p, ', Rol Único Tributario N° ')
+    _run_normal(p, '78.268.851-0', bold=True)
+    _run_normal(p, ', ambos con domicilio para estos efectos en Villasana N° 2039, Departamento 51, Torre D, comuna de Quinta Normal, Región Metropolitana, quien en adelante se denominará indistintamente "el Proveedor".')
+
+    p = doc.add_paragraph()
+    _style_normal(p)
+    _run_normal(p, '2. EL CLIENTE', bold=True)
+
+    p = doc.add_paragraph()
+    _style_normal(p)
+    tratamiento = d.get('cli_tratamiento', 'Don')
+    _run_normal(p, f'{tratamiento} ')
+    _run_dato(p, d['cli_nombre'])
+    _run_normal(p, ', cédula nacional de identidad N° ')
+    _run_dato(p, d['cli_rut'])
+    if d.get('tipo_cliente') == 'juridica':
+        _run_normal(p, ', en representación de ')
+        _run_dato(p, d.get('cli_empresa',''))
+        _run_normal(p, ', RUT ')
+        _run_dato(p, d.get('cli_rut_empresa',''))
+    _run_normal(p, ', con domicilio en ')
+    _run_dato(p, d['cli_domicilio'])
+    _run_normal(p, ', comuna de ')
+    _run_dato(p, d['cli_comuna'])
+    _run_normal(p, f", Región {d['cli_region']}, quien en adelante se denominará \"el Cliente\".")
+
+    p = doc.add_paragraph()
+    _style_normal(p)
+    _run_normal(p, 'Se deja expresa constancia que la dirección de instalación del proyecto será ')
+    _run_dato(p, d['inst_domicilio'])
+    _run_normal(p, ', comuna de ')
+    _run_dato(p, d['inst_comuna'])
+    _run_normal(p, f", Región {d['inst_region']}.")
+
+    p = doc.add_paragraph()
+    _style_normal(p)
+    _run_normal(p, 'Las partes declaran ser mayores de edad, con plena capacidad legal para contratar, y acuerdan celebrar el presente ')
+    _run_normal(p, 'Contrato de Fabricación y Venta de Vivienda Tipo Container', bold=True)
+    _run_normal(p, ', el cual se regirá por las cláusulas que se indican a continuación.')
+    _hr(doc)
+
+    # II. DEFINICIONES
+    _seccion(doc, 'II. DEFINICIONES')
+    p = doc.add_paragraph()
+    _style_normal(p)
+    _run_normal(p, 'Para efectos del presente contrato, se entenderá por:')
+
+    p = doc.add_paragraph()
+    _style_normal(p)
+    _run_normal(p, 'a) ')
+    _run_normal(p, 'Proyecto', bold=True)
+    _run_normal(p, ': La vivienda tipo container identificada como ')
+    _run_normal(p, 'Proyecto N° ', bold=True)
+    _run_dato(p, d['ep_numero'])
+    _run_normal(p, ' – "')
+    _run_dato(p, d['ep_nombre'])
+    _run_normal(p, '".')
+
+    p = doc.add_paragraph(); _style_normal(p)
+    _run_normal(p, 'b) ')
+    _run_normal(p, 'Anexos', bold=True)
+    _run_normal(p, ': Los documentos técnicos y comerciales que forman parte integrante del presente contrato, en especial Anexo N°1 (Especificaciones Técnicas) y Anexo N°2 (Presupuesto Detallado).')
+
+    p = doc.add_paragraph(); _style_normal(p)
+    _run_normal(p, 'c) ')
+    _run_normal(p, 'Preentrega', bold=True)
+    _run_normal(p, ': Instancia de revisión visual del módulo previo a su despacho desde las instalaciones del Proveedor.')
+    _hr(doc)
+
+    # III. OBJETO
+    _seccion(doc, 'III. OBJETO DEL CONTRATO')
+    p = doc.add_paragraph(); _style_normal(p)
+    _run_normal(p, 'El Cliente encarga al Proveedor la ')
+    _run_normal(p, 'fabricación y venta', bold=True)
+    _run_normal(p, ' del Proyecto individualizado precedentemente, conforme a los ')
+    _run_normal(p, 'planos entregados por el Cliente', bold=True)
+    _run_normal(p, ', a las ')
+    _run_normal(p, 'especificaciones técnicas', bold=True)
+    _run_normal(p, ', y al ')
+    _run_normal(p, 'presupuesto detallado contenido en el Anexo N°2', bold=True)
+    _run_normal(p, ', documentos que el Cliente declara conocer, aceptar y que forman parte integrante e inseparable del presente contrato.')
+    _hr(doc)
+
+    # IV. ALCANCE
+    _seccion(doc, 'IV. ALCANCE TÉCNICO Y EJECUCIÓN')
+    p = doc.add_paragraph(); _style_normal(p)
+    _run_normal(p, 'El Proveedor declara contar con la experiencia, conocimientos técnicos, personal calificado, herramientas e infraestructura necesarias para la correcta ejecución del Proyecto, comprometiéndose a:')
+    for item in ['a) Fabricar el módulo conforme a la normativa vigente aplicable.',
+                 'b) Respetar las especificaciones técnicas y alcances definidos en los Anexos.',
+                 'c) Ejecutar los trabajos con estándares de calidad y seguridad.']:
+        p = doc.add_paragraph(); _style_normal(p); _run_normal(p, item)
+    p = doc.add_paragraph(); _style_normal(p)
+    _run_normal(p, 'Cualquier trabajo, modificación o prestación no contemplada expresamente en los Anexos será considerada ')
+    _run_normal(p, 'obra adicional', bold=True)
+    _run_normal(p, ', debiendo ser cotizada y aprobada por escrito por ambas partes.')
+    _hr(doc)
+
+    # V. VISITAS
+    _seccion(doc, 'V. VISITAS Y SEGUIMIENTO DEL PROYECTO')
+    p = doc.add_paragraph(); _style_normal(p)
+    _run_normal(p, 'El Cliente podrá realizar visitas de seguimiento a las instalaciones del Proveedor ubicadas en ')
+    _run_normal(p, 'Portezuelo, parcela 3, Colina, Región Metropolitana', bold=True)
+    _run_normal(p, ', previa coordinación con al menos ')
+    _run_normal(p, '48 horas hábiles de anticipación', bold=True)
+    _run_normal(p, ', con el único objeto de verificar el avance del Proyecto, quedando expresamente prohibida cualquier interferencia en los procesos productivos o instrucciones al personal del Proveedor.')
+    _hr(doc)
+
+    # VI. PRECIO
+    _seccion(doc, 'VI. PRECIO')
+    p = doc.add_paragraph(); _style_normal(p)
+    _run_normal(p, 'El precio total del Proyecto asciende a la suma de ')
+    _run_dato(p, fmt(d["precio_total"]))
+    _run_normal(p, f' ({monto_a_palabras(d["precio_total"])}), IVA incluido.')
+    _hr(doc)
+
+    # VII. FORMA DE PAGO
+    _seccion(doc, 'VII. FORMA Y ETAPAS DE PAGO')
+    p = doc.add_paragraph(); _style_normal(p)
+    _run_normal(p, 'El precio será pagado por el Cliente al Proveedor en las siguientes etapas:')
+
+    p = doc.add_paragraph(); _style_normal(p)
+    _run_normal(p, 'a) '); _run_normal(p, '50% inicial', bold=True); _run_normal(p, ': ')
+    _run_dato(p, fmt(d["pago_50"]))
+    _run_normal(p, f' ({monto_a_palabras(d["pago_50"])}), correspondiente a la asignación del contenedor y ejecución de obra gruesa.')
+
+    p = doc.add_paragraph(); _style_normal(p)
+    _run_normal(p, 'b) '); _run_normal(p, '25% intermedio', bold=True); _run_normal(p, ': ')
+    _run_dato(p, fmt(d["pago_25a"]))
+    _run_normal(p, f' ({monto_a_palabras(d["pago_25a"])}), una vez finalizada la obra gruesa.')
+
+    p = doc.add_paragraph(); _style_normal(p)
+    _run_normal(p, 'c) '); _run_normal(p, '25% final', bold=True); _run_normal(p, ': ')
+    _run_dato(p, fmt(d["pago_25b"]))
+    _run_normal(p, f' ({monto_a_palabras(d["pago_25b"])}), luego de la preentrega del Proyecto y el mismo día del despacho del módulo.')
+
+    p = doc.add_paragraph(); _style_normal(p)
+    _run_normal(p, 'El Proveedor emitirá la factura correspondiente al día hábil siguiente de recibido cada pago, bajo modalidad de ')
+    _run_normal(p, 'pago al contado', bold=True); _run_normal(p, '.')
+    _hr(doc)
+
+    # VIII. INICIO
+    _seccion(doc, 'VIII. INICIO DE FABRICACIÓN')
+    p = doc.add_paragraph(); _style_normal(p)
+    _run_normal(p, 'La fabricación del Proyecto se iniciará ')
+    _run_normal(p, 'única y exclusivamente', bold=True)
+    _run_normal(p, ' una vez recibido y efectivamente abonado el pago inicial del ')
+    _run_normal(p, '50% del valor total del contrato', bold=True); _run_normal(p, '.')
+    _hr(doc)
+
+    # IX. MEDIOS DE PAGO
+    _seccion(doc, 'IX. MEDIOS DE PAGO')
+    p = doc.add_paragraph(); _style_normal(p)
+    _run_normal(p, 'Los pagos deberán efectuarse mediante ')
+    _run_normal(p, 'transferencia electrónica, cheque o vale vista', bold=True)
+    _run_normal(p, ', a la siguiente cuenta bancaria:')
+
+    from docx.oxml.ns import qn as _qn
+    from docx.oxml import OxmlElement as _OE
+    from docx.shared import Pt as _Pt
+    tabla_banco = doc.add_table(rows=5, cols=2)
+    tabla_banco.style = 'Table Grid'
+    banco_data = [
+        ('Razón Social:', 'Inversiones Container House SpA'),
+        ('RUT:', '78.268.851-0'),
+        ('Banco:', 'Banco Itaú'),
+        ('Cuenta Corriente:', 'N° 230771767'),
+        ('Correo de confirmación:', 'jperez@espaciocontainerhouse.cl'),
+    ]
+    for i, (k, v) in enumerate(banco_data):
+        tabla_banco.cell(i,0).text = k
+        tabla_banco.cell(i,1).text = v
+        tabla_banco.cell(i,0).paragraphs[0].runs[0].bold = True
+
+    p = doc.add_paragraph(); _style_normal(p)
+    _run_normal(p, 'Cada pago deberá ser informado por el Cliente mediante correo electrónico, adjuntando el comprobante respectivo.')
+    _hr(doc)
+
+    # X. PLAZO
+    _seccion(doc, 'X. PLAZO DE FABRICACIÓN Y ENTREGA')
+    p = doc.add_paragraph(); _style_normal(p)
+    _run_normal(p, 'El plazo máximo de fabricación y entrega será de ')
+    _run_dato(p, f"{d['plazo_dias']} días hábiles administrativos")
+    _run_normal(p, ', contados desde el día hábil siguiente a aquel en que los fondos del anticipo se encuentren efectivamente liberados.')
+    p = doc.add_paragraph(); _style_normal(p)
+    _run_normal(p, 'El Cliente se obliga a contar con ')
+    _run_normal(p, 'radier y/o apoyos estructurales ejecutados, nivelados y aptos', bold=True)
+    _run_normal(p, ' para la instalación dentro de un plazo máximo de ')
+    _run_normal(p, '30 días hábiles', bold=True)
+    _run_normal(p, ' desde la firma del contrato. Cualquier atraso en estas condiciones suspenderá automáticamente los plazos de entrega.')
+    _hr(doc)
+
+    # XI–XV en forma abreviada
+    for titulo_sec, texto_sec in [
+        ('XI. PENALIDAD POR ATRASO',
+         'En caso de atraso imputable exclusivamente al Proveedor en los plazos establecidos para la fabricación o entrega del Proyecto, éste pagará al Cliente, a título de indemnización única y total, una suma equivalente al 1% del valor neto correspondiente al último 25% del Proyecto por cada 7 días hábiles de atraso, con un tope máximo del 10% del valor neto de dicho monto.'),
+        ('XII. RETIRO, DESPACHO Y BODEGAJE',
+         'Una vez notificada la finalización del Proyecto, el Cliente dispondrá de un plazo máximo de 10 días hábiles para coordinar el retiro o despacho del módulo. Vencido dicho plazo, el Proveedor quedará facultado para cobrar un cargo por bodegaje equivalente al 1% del valor neto del Proyecto por cada 7 días corridos, hasta el retiro efectivo.'),
+        ('XIII. GARANTÍA',
+         'El Proveedor otorga una garantía de 6 meses contados desde la entrega del módulo, limitada exclusivamente a defectos de fabricación o construcción imputables al proceso productivo.'),
+        ('XIV. TERMINACIÓN ANTICIPADA',
+         'El presente contrato podrá terminarse anticipadamente por: a) Incumplimiento grave de cualquiera de las partes. b) Mutuo acuerdo por escrito. c) No pago oportuno de cualquiera de las etapas de pago. En caso de término imputable al Cliente, los montos pagados no serán reembolsables, salvo acuerdo distinto por escrito.'),
+        ('XV. DOMICILIO Y JURISDICCIÓN',
+         'Para todos los efectos legales derivados del presente contrato, las partes fijan su domicilio en la ciudad de Santiago, y se someten a la competencia de sus Tribunales Ordinarios de Justicia.'),
+    ]:
+        _seccion(doc, titulo_sec)
+        p = doc.add_paragraph(); _style_normal(p); _run_normal(p, texto_sec)
+        _hr(doc)
+
+    # XVI. FIRMA
+    doc.add_page_break()
+    _seccion(doc, 'XVI. FIRMA')
+    p = doc.add_paragraph(); _style_normal(p)
+    _run_normal(p, 'El presente contrato se firma en ')
+    _run_normal(p, 'dos ejemplares de igual tenor y fecha', bold=True)
+    _run_normal(p, ', quedando uno en poder de cada parte.')
+
+    doc.add_paragraph()
+    doc.add_paragraph()
+
+    # Tabla de firmas
+    firma_tbl = doc.add_table(rows=4, cols=2)
+    firma_tbl.cell(0,0).paragraphs[0].add_run('EL PROVEEDOR').bold = True
+    firma_tbl.cell(0,1).paragraphs[0].add_run('EL CLIENTE').bold = True
+    firma_tbl.cell(1,0).paragraphs[0].add_run('_' * 30)
+    firma_tbl.cell(1,1).paragraphs[0].add_run('_' * 30)
+    firma_tbl.cell(2,0).paragraphs[0].add_run('Alan Mauricio Gatica Concha').bold = True
+    r2 = firma_tbl.cell(2,1).paragraphs[0].add_run(d['cli_nombre'])
+    r2.bold = True; r2.font.color.rgb = AZUL
+    firma_tbl.cell(3,0).paragraphs[0].add_run('RUT: 13.668.157-5')
+    r3 = firma_tbl.cell(3,1).paragraphs[0].add_run(f"RUT: {d['cli_rut']}")
+    r3.font.color.rgb = AZUL
+    for row in firma_tbl.rows:
+        for cell in row.cells:
+            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    buf = _io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    return buf
+
+
 def generar_pdf_contrato(datos):
     """
     Genera PDF del contrato a partir del dict `datos` con campos:
@@ -9550,6 +9914,7 @@ with tab_contrato:
                         "pago_25b":        _pago25b,
                     }
                     try:
+                        st.session_state["_datos_contrato_last"] = _datos_contrato
                         _pdf_bytes = generar_pdf_contrato(_datos_contrato)
                         st.session_state["cont_pdf_bytes"] = _pdf_bytes
                         st.session_state["cont_pdf_nombre"] = f"Contrato_{_ep_num_input.replace('-','_')}.pdf"
@@ -9574,8 +9939,9 @@ with tab_contrato:
             import base64 as _b64
             _pdf_b64 = _b64.b64encode(st.session_state["cont_pdf_bytes"]).decode()
             _pdf_nom = st.session_state.get("cont_pdf_nombre","contrato.pdf")
+            _word_nom = _pdf_nom.replace('.pdf', '.docx')
 
-            _dl_col, _pr_col, _sp = st.columns([1.5, 1.5, 3])
+            _dl_col, _pr_col, _wd_col, _sp = st.columns([1.5, 1.5, 1.5, 1.5])
             with _dl_col:
                 st.download_button(
                     label="⬇️ Descargar PDF",
@@ -9594,6 +9960,42 @@ with tab_contrato:
                           box-shadow:0 2px 8px rgba(15,52,96,0.3);">
                   🖨️ Abrir e imprimir
                 </a>""", unsafe_allow_html=True)
+            with _wd_col:
+                # Generar Word al vuelo
+                _word_buf = generar_word_contrato(st.session_state.get('_datos_contrato_last', {}))
+                if _word_buf:
+                    st.download_button(
+                        label="📝 Descargar Word",
+                        data=_word_buf,
+                        file_name=_word_nom,
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        use_container_width=True,
+                        key="cont_download_word",
+                        help="Descarga el contrato editable. Campos en azul = NO modificar"
+                    )
+
+        # ── Subir Word modificado ──
+        if st.session_state.get("cont_pdf_bytes") and st.session_state.modo_admin:
+            st.markdown("---")
+            st.markdown("**📤 Subir contrato Word modificado**")
+            _word_upload = st.file_uploader(
+                "Sube la versión modificada del contrato (.docx)",
+                type=["docx"],
+                key="cont_word_upload",
+                help="Sube el Word que descargaste y editaste. Se guardará en Supabase junto al contrato."
+            )
+            if _word_upload is not None:
+                _word_bytes = _word_upload.read()
+                try:
+                    import base64 as _b64w
+                    _word_b64 = _b64w.b64encode(_word_bytes).decode()
+                    _ep_word = st.session_state.get('cont_ep', '')
+                    supabase.table('cotizaciones').update({
+                        'contrato_word_b64': _word_b64
+                    }).eq('numero', _ep_word).execute()
+                    st.success(f"✅ Contrato Word guardado para {_ep_word}")
+                except Exception as _ew:
+                    st.error(f"Error guardando Word: {_ew}")
 
     else:
         st.info("👆 Ingresa un número EP y presiona **Buscar EP** para cargar los datos del cliente.")
