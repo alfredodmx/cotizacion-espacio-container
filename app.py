@@ -9987,8 +9987,16 @@ with tab_contrato:
             st.markdown("**✏️ Cláusulas editables:**")
             _edits = {}
             for _key, _label in _LABELS.items():
-                # Mostrar texto con <b> y marcadores {{}} - el usuario edita libremente
-                _val_actual = _clausulas_act.get(_key, _CLAUSULAS_EDITOR.get(_key, _CLAUSULAS_BASE.get(_key, "")))
+                # Mostrar texto con <b>: si Supabase tiene la cláusula pero sin <b>, usar _CLAUSULAS_EDITOR
+                import re as _re_ed
+                _val_sup = _clausulas_act.get(_key, "")
+                if _val_sup and "<b>" not in _val_sup and "<b>" in _CLAUSULAS_EDITOR.get(_key, ""):
+                    # Supabase tiene texto plano, pero el editor tiene <b> — usar editor como base
+                    _val_actual = _CLAUSULAS_EDITOR.get(_key, _val_sup)
+                elif _val_sup:
+                    _val_actual = _val_sup
+                else:
+                    _val_actual = _CLAUSULAS_EDITOR.get(_key, _CLAUSULAS_BASE.get(_key, ""))
                 _edits[_key] = st.text_area(
                     _label,
                     value=_val_actual,
