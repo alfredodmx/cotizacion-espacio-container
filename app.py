@@ -4388,9 +4388,18 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     }
 
     def _p(clave, fallback=None):
-        """Usa lo guardado en Supabase (respeta <b> del usuario), sino usa _ORIG con negritas."""
+        """Usa lo guardado en Supabase solo si tiene <b> o texto diferente al original.
+        Si es la plantilla del sistema (v1) o no hay plantilla, usa _ORIG con negritas."""
+        import re as _re_p
+        def _strip(t): return _re_p.sub(r'<[^>]+>', '', t).strip()
         if _plt_cls and clave in _plt_cls and _plt_cls[clave]:
-            return _rep(_plt_cls[clave], d)
+            _txt_sup = _plt_cls[clave]
+            _txt_orig_plain = _strip(_ORIG.get(clave, ""))
+            # Si el texto plano de Supabase es igual al original → usar _ORIG con negritas
+            if _txt_sup.strip() == _txt_orig_plain:
+                return _rep(_ORIG.get(clave, fallback or ""), d)
+            # Si tiene cambios reales → usar el texto de Supabase (con sus <b>)
+            return _rep(_txt_sup, d)
         return _rep(_ORIG.get(clave, fallback or ""), d)
 
     story = []
@@ -9944,13 +9953,23 @@ with tab_contrato:
                     supabase.table("plantillas_contrato").insert({
                         "version": 1,
                         "nombre": "Plantilla v1 — original sistema",
-                        "clausulas": _CLAUSULAS_BASE,
+                        "clausulas": _CLAUSULAS_EDITOR,
                         "activa": True,
                         "creado_por": "Sistema",
                     }).execute()
                     _historial = _cargar_historial()
                 except Exception:
                     pass
+            else:
+                # Verificar si v1 tiene texto plano sin <b> y actualizarla
+                _v1 = next((p for p in _historial if p.get("version") == 1), None)
+                if _v1 and not any("<b>" in str(v) for v in _v1.get("clausulas", {}).values()):
+                    try:
+                        supabase.table("plantillas_contrato").update({
+                            "clausulas": _CLAUSULAS_EDITOR
+                        }).eq("id", _v1["id"]).execute()
+                    except Exception:
+                        pass
 
             # ── Plantilla activa ──
             _plt_activa = _cargar_plantilla_activa()
