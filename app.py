@@ -4388,10 +4388,12 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     }
 
     def _p(clave, fallback=None):
-        """Usa texto de Supabase si existe (con sus <b>), sino usa original con negritas."""
+        """Usa lo guardado en Supabase (respeta <b> del usuario), sino usa _CLAUSULAS_EDITOR."""
         if _plt_cls and clave in _plt_cls and _plt_cls[clave]:
             return _rep(_plt_cls[clave], d)
-        return _rep(_ORIG.get(clave, fallback or ""), d)
+        # Sin plantilla personalizada: usar _CLAUSULAS_EDITOR con marcadores reemplazados
+        _txt_base = _CLAUSULAS_EDITOR.get(clave, fallback or "")
+        return _rep(_txt_base, d)
 
     story = []
 
@@ -9985,7 +9987,7 @@ with tab_contrato:
             st.markdown("**✏️ Cláusulas editables:**")
             _edits = {}
             for _key, _label in _LABELS.items():
-                # Mostrar texto con <b> para que el usuario pueda editar negritas
+                # Mostrar texto con <b> y marcadores {{}} - el usuario edita libremente
                 _val_actual = _clausulas_act.get(_key, _CLAUSULAS_EDITOR.get(_key, _CLAUSULAS_BASE.get(_key, "")))
                 _edits[_key] = st.text_area(
                     _label,
@@ -10007,7 +10009,7 @@ with tab_contrato:
                     # Solo guardar cláusulas que difieren del original
                     import re as _re
                     def _strip_html(t): return _re.sub(r'<[^>]+>', '', t).strip()
-                    # Comparar sin HTML para detectar cambios reales de texto
+                    # Guardar solo cláusulas que difieren del _CLAUSULAS_EDITOR (comparando texto plano)
                     _solo_cambios = {
                         k: v for k, v in _edits.items()
                         if _strip_html(v) != _strip_html(_CLAUSULAS_EDITOR.get(k, _CLAUSULAS_BASE.get(k, "")))
