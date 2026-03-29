@@ -9935,7 +9935,9 @@ with tab_contrato:
                         st.error(f"Error al generar PDF: {_e}")
 
         # ── Descarga e impresión ──
-        if st.session_state.get("cont_pdf_bytes"):
+        _has_pdf = bool(st.session_state.get("cont_pdf_bytes"))
+        st.caption(f"DEBUG pdf={_has_pdf} cot={bool(st.session_state.get('cont_cot'))}")
+        if _has_pdf:
             import base64 as _b64
             _pdf_b64 = _b64.b64encode(st.session_state["cont_pdf_bytes"]).decode()
             _pdf_nom = st.session_state.get("cont_pdf_nombre","contrato.pdf")
@@ -9961,18 +9963,24 @@ with tab_contrato:
                   🖨️ Abrir e imprimir
                 </a>""", unsafe_allow_html=True)
             with _wd_col:
-                # Generar Word al vuelo
-                _word_buf = generar_word_contrato(st.session_state.get('_datos_contrato_last', {}))
-                if _word_buf:
-                    st.download_button(
-                        label="📝 Descargar Word",
-                        data=_word_buf,
-                        file_name=_word_nom,
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                        use_container_width=True,
-                        key="cont_download_word",
-                        help="Descarga el contrato editable. Campos en azul = NO modificar"
-                    )
+                try:
+                    _word_buf = generar_word_contrato(st.session_state.get('_datos_contrato_last', {}))
+                    if _word_buf:
+                        st.download_button(
+                            label="📝 Descargar Word",
+                            data=_word_buf,
+                            file_name=_word_nom,
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            use_container_width=True,
+                            key="cont_download_word",
+                            help="Descarga el contrato editable. Campos en azul = NO modificar"
+                        )
+                    else:
+                        st.button("📝 Descargar Word", disabled=True, use_container_width=True,
+                                  help="Requiere python-docx en requirements.txt")
+                except Exception as _ew:
+                    st.button("📝 Descargar Word", disabled=True, use_container_width=True,
+                              help=f"Error: {_ew}")
 
         # ── Subir Word modificado ──
         if st.session_state.get("cont_pdf_bytes") and st.session_state.modo_admin:
