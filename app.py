@@ -9843,6 +9843,7 @@ with tab_contrato:
                                     _cls_activas = _res_plt.data[0]["clausulas"]
                             except Exception:
                                 pass
+                            st.write('DEBUG clausulas:', _cls_activas)
                             _pdf_bytes = generar_pdf_contrato(_datos_contrato, clausulas_externas=_cls_activas)
                             _pdf_nom   = f"Contrato_{_ep_num_input.replace('-','_')}.pdf"
                             # Guardar en Supabase
