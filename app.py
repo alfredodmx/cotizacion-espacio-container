@@ -4228,7 +4228,7 @@ def _rep(texto, d):
         texto = texto.replace(k, str(v))
     return texto
 
-def generar_pdf_contrato(datos):
+def generar_pdf_contrato(datos, clausulas_externas=None):
     """
     Genera PDF del contrato a partir del dict `datos` con campos:
     fecha_str, tipo_cliente (natural/juridica),
@@ -4367,8 +4367,8 @@ def generar_pdf_contrato(datos):
             f"Región {d['cli_region']}, quien en adelante se denominará \"el Cliente\"."
         )
 
-    # ── Cargar cláusulas de plantilla activa ──
-    _plt_cls = _obtener_clausulas_contrato()
+    # ── Usar cláusulas pasadas como parámetro o cargar de Supabase ──
+    _plt_cls = clausulas_externas if clausulas_externas else _obtener_clausulas_contrato()
 
     def _p(clave, fallback=""):
         """Obtiene texto de cláusula de la plantilla activa o usa fallback."""
@@ -9835,7 +9835,15 @@ with tab_contrato:
                         }
                         try:
                             st.session_state["_datos_contrato_last"] = _datos_contrato
-                            _pdf_bytes = generar_pdf_contrato(_datos_contrato)
+                            # Cargar plantilla activa en el flujo de Streamlit (no dentro de la función)
+                            _cls_activas = None
+                            try:
+                                _res_plt = supabase.table("plantillas_contrato").select("clausulas").eq("activa", True).execute()
+                                if _res_plt.data and _res_plt.data[0].get("clausulas"):
+                                    _cls_activas = _res_plt.data[0]["clausulas"]
+                            except Exception:
+                                pass
+                            _pdf_bytes = generar_pdf_contrato(_datos_contrato, clausulas_externas=_cls_activas)
                             _pdf_nom   = f"Contrato_{_ep_num_input.replace('-','_')}.pdf"
                             # Guardar en Supabase
                             try:
