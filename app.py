@@ -4431,14 +4431,6 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         SP(6),
         Paragraph("2. EL CLIENTE", bold),
         Paragraph(_p("comparecencia_cliente", cli_bloque), normal),
-        SP(4),
-        Paragraph(_p('instalacion', f"Se deja expresa constancia que la dirección de instalación del proyecto será <b>{d['inst_domicilio']}</b>, comuna de <b>{d['inst_comuna']}</b>, Región {d['inst_region']}."), normal),
-        SP(4),
-        Paragraph(
-            "Las partes declaran ser mayores de edad, con plena capacidad legal para "
-            "contratar, y acuerdan celebrar el presente <b>Contrato de Fabricación y "
-            "Venta de Vivienda Tipo Container</b>, el cual se regirá por las cláusulas "
-            "que se indican a continuación.", normal),
         HR(),
     ]
 
@@ -9823,7 +9815,7 @@ with tab_contrato:
             # ── Definición de cláusulas editables (plantilla base) ──
             _CLAUSULAS_BASE = {
                 "intro":        "En Santiago de Chile, a {{FECHA}}, comparecen:",
-                "comparecencia_cliente": "{{TRATAMIENTO}} {{CLIENTE}}, cédula nacional de identidad N° {{RUT_CLIENTE}}, con domicilio en {{DOMICILIO_CLIENTE}}, comuna de {{COMUNA_CLIENTE}}, Región {{REGION_CLIENTE}}, quien en adelante se denominará \"el Cliente\".",
+                "comparecencia_cliente": "{{TRATAMIENTO}} {{CLIENTE}}, cédula nacional de identidad N° {{RUT_CLIENTE}}, con domicilio en {{DOMICILIO_CLIENTE}}, comuna de {{COMUNA_CLIENTE}}, Región {{REGION_CLIENTE}}, quien en adelante se denominará \"el Cliente\".\n\nSe deja expresa constancia que la dirección de instalación del proyecto será <b>{{DOMICILIO_INST}}</b>, comuna de <b>{{COMUNA_INST}}</b>, Región {{REGION_INST}}.\n\nLas partes declaran ser mayores de edad, con plena capacidad legal para contratar, y acuerdan celebrar el presente <b>Contrato de Fabricación y Venta de Vivienda Tipo Container</b>, el cual se regirá por las cláusulas que se indican a continuación.",
                 "instalacion":  "Se deja expresa constancia que la dirección de instalación del proyecto será {{DOMICILIO_INST}}, comuna de {{COMUNA_INST}}, Región {{REGION_INST}}.",
                 "definiciones": "a) Proyecto: La vivienda tipo container identificada como Proyecto N° {{EP}} – \"{{EP_NOMBRE}}\".",
                 "objeto":       "El Cliente encarga al Proveedor la fabricación y venta del Proyecto individualizado precedentemente, conforme a los planos entregados por el Cliente, a las especificaciones técnicas, y al presupuesto detallado contenido en el Anexo N°2, documentos que el Cliente declara conocer, aceptar y que forman parte integrante e inseparable del presente contrato.",
@@ -9843,7 +9835,7 @@ with tab_contrato:
 
             _CLAUSULAS_EDITOR = {
                 "intro":        "En Santiago de Chile, a {{FECHA}}, comparecen:",
-                "comparecencia_cliente": "{{TRATAMIENTO}} {{CLIENTE}}, cédula nacional de identidad N° {{RUT_CLIENTE}}, con domicilio en {{DOMICILIO_CLIENTE}}, comuna de {{COMUNA_CLIENTE}}, Región {{REGION_CLIENTE}}, quien en adelante se denominará \"el Cliente\".",
+                "comparecencia_cliente": "{{TRATAMIENTO}} {{CLIENTE}}, cédula nacional de identidad N° {{RUT_CLIENTE}}, con domicilio en {{DOMICILIO_CLIENTE}}, comuna de {{COMUNA_CLIENTE}}, Región {{REGION_CLIENTE}}, quien en adelante se denominará \"el Cliente\".\n\nSe deja expresa constancia que la dirección de instalación del proyecto será <b>{{DOMICILIO_INST}}</b>, comuna de <b>{{COMUNA_INST}}</b>, Región {{REGION_INST}}.\n\nLas partes declaran ser mayores de edad, con plena capacidad legal para contratar, y acuerdan celebrar el presente <b>Contrato de Fabricación y Venta de Vivienda Tipo Container</b>, el cual se regirá por las cláusulas que se indican a continuación.",
                 "instalacion":  "Se deja expresa constancia que la dirección de instalación del proyecto será <b>{{DOMICILIO_INST}}</b>, comuna de <b>{{COMUNA_INST}}</b>, Región {{REGION_INST}}.",
                 "definiciones": "a) <b>Proyecto</b>: La vivienda tipo container identificada como <b>Proyecto N° {{EP}} – \"{{EP_NOMBRE}}\"</b>.\nb) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte integrante del presente contrato, en especial Anexo N°1 (Especificaciones Técnicas) y Anexo N°2 (Presupuesto Detallado).\nc) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su despacho desde las instalaciones del Proveedor.",
                 "definiciones": "a) <b>Proyecto</b>: La vivienda tipo container identificada como <b>Proyecto N° {{EP}} – \"{{EP_NOMBRE}}\"</b>.\nb) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte integrante del presente contrato, en especial Anexo N°1 (Especificaciones Técnicas) y Anexo N°2 (Presupuesto Detallado).\nc) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su despacho desde las instalaciones del Proveedor.",
@@ -10158,19 +10150,7 @@ markers.forEach(function(m) {
                         label_visibility="collapsed",
                         help="Usa <b>texto</b> para negrita. Los {{MARCADORES}} se reemplazan con datos reales al generar."
                     )
-                    # Panel informativo para partes fijas de comparecencia
-                    if _key == "comparecencia_cliente":
-                        st.markdown("""
-                        <div style="background:#f0f4f8;border-left:3px solid #0f3460;border-radius:0 8px 8px 0;
-                                    padding:10px 14px;margin-top:4px;margin-bottom:12px;font-size:12px;color:#475569;line-height:1.6;">
-                        <span style="font-size:10px;font-weight:700;color:#0f3460;text-transform:uppercase;letter-spacing:0.08em;">
-                        🔒 Texto fijo del sistema (no editable) — aparece en el PDF después del texto del cliente:</span><br><br>
-                        Se deja expresa constancia que la dirección de instalación del proyecto será <b>[dirección]</b>, comuna de <b>[comuna]</b>, Región [región].<br><br>
-                        Las partes declaran ser mayores de edad, con plena capacidad legal para contratar, y acuerdan celebrar el presente <b>Contrato de Fabricación y Venta de Vivienda Tipo Container</b>, el cual se regirá por las cláusulas que se indican a continuación.
-                        </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
+                    st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
 
             # ── Botones ──
             _bc1, _bc2, _bc3 = st.columns([2, 2, 2])
