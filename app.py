@@ -9562,6 +9562,7 @@ if tab7 is not None:
 # TAB CONTRATO CLIENTE
 # =========================================================
 with tab_contrato:
+    # ── Header ──
     st.markdown("""
     <style>
     .hdr-contrato {
@@ -9571,181 +9572,122 @@ with tab_contrato:
         box-shadow: 0 8px 32px rgba(15,52,96,0.3);
         position: relative; overflow: hidden;
     }
-    .hdr-contrato::before {
-        content: ''; position: absolute; top: -40px; right: -40px;
-        width: 180px; height: 180px; border-radius: 50%;
-        background: rgba(255,255,255,0.04); pointer-events: none;
-    }
-    .hdr-contrato::after {
-        content: ''; position: absolute; bottom: -60px; right: 80px;
-        width: 240px; height: 240px; border-radius: 50%;
-        background: rgba(255,255,255,0.03); pointer-events: none;
-    }
     .hdr-contrato h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
                  font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
     .hdr-contrato p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
+    .cont-section { background:#0f3460; color:#fff; font-size:0.75rem; font-weight:900;
+                    text-transform:uppercase; letter-spacing:0.1em; padding:7px 14px;
+                    border-radius:8px; margin-bottom:12px; display:inline-block; }
+    .cont-form-panel { background: #fff; border-radius: 14px; padding: 20px 22px;
+                       border: 1px solid #e8edf5; box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+                       margin-bottom: 10px; }
+    .cont-form-title { font-size: 0.68rem; font-weight: 900; color: #64748b;
+                       text-transform: uppercase; letter-spacing: 0.1em;
+                       margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .cont-form-panel div[data-testid="stVerticalBlock"] > div { margin-bottom: -8px !important; }
     </style>
     <div class="hdr-contrato">
       <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📄</span>
       <div>
         <h2>Contrato Cliente</h2>
-        <p>Genera el contrato de fabricación y venta listo para imprimir y firmar.</p>
+        <p>Genera y administra el contrato de fabricación y venta.</p>
       </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # ── Paso 1: Buscar EP ──
-    st.markdown('<div class="cont-section">🔍 Paso 1 — Buscar cotización</div>', unsafe_allow_html=True)
-    with st.container():
-        _col_ep, _col_btn = st.columns([3, 1])
-        with _col_ep:
-            _ep_input = st.text_input("Número EP", placeholder="EP-22286",
-                                      key="cont_ep_input",
-                                      label_visibility="collapsed")
-        with _col_btn:
-            _buscar = st.button("🔍 Buscar EP", use_container_width=True, key="cont_buscar")
+    # ── Sub-pestañas ──
+    _sub_imprimir, _sub_editar = st.tabs(["🖨️ Imprimir contrato", "📝 Editar contrato"])
 
-    if _buscar and _ep_input.strip():
-        _num = _ep_input.strip().upper()
-        if not _num.startswith("EP-"):
-            _num = "EP-" + _num.lstrip("EP- ")
-        try:
-            _res = supabase.table("cotizaciones").select("*") \
-                           .eq("numero", _num).limit(1).execute()
-            if _res.data:
-                _cot = _res.data[0]
-                st.session_state["cont_cot"] = _cot
-                st.session_state["cont_ep"]  = _num
-                # Mapeo con campos reales de la tabla cotizaciones
-                _dir = _cot.get("cliente_direccion", "")
-                # Intentar extraer comuna de la dirección si está disponible
-                _total = float(_cot.get("total_total", 0) or _cot.get("total", 0) or 0)
-                st.session_state["cont_cli_nombre"]     = _cot.get("cliente_nombre", "")
-                st.session_state["cont_cli_rut"]        = _cot.get("cliente_rut", "")
-                st.session_state["cont_cli_domicilio"]  = _dir
-                st.session_state["cont_cli_comuna"]     = _cot.get("cliente_comuna", "")
-                st.session_state["cont_cli_region"]     = _cot.get("cliente_region", "")
-                st.session_state["cont_inst_domicilio"] = _cot.get("proyecto_direccion", "") or _dir
-                st.session_state["cont_inst_comuna"]    = _cot.get("proyecto_comuna", "")
-                st.session_state["cont_inst_region"]    = _cot.get("proyecto_region", "")
-                st.session_state["cont_tipo_cli_val"]   = _cot.get("cliente_tipo", "natural")
-                st.session_state["cont_cli_empresa"]    = _cot.get("cliente_empresa", "")
-                st.session_state["cont_cli_rut_empresa"]= _cot.get("cliente_rut_empresa", "")
-                # Si ya tiene contrato guardado, cargar sus datos
-                if _cot.get("contrato_datos"):
-                    import json as _json
-                    try:
-                        _cd = _json.loads(_cot["contrato_datos"])
-                        st.session_state["cont_cli_domicilio"]  = _cd.get("cli_domicilio", st.session_state["cont_cli_domicilio"])
-                        st.session_state["cont_cli_comuna"]     = _cd.get("cli_comuna", st.session_state.get("cont_cli_comuna",""))
-                        st.session_state["cont_cli_region"]     = _cd.get("cli_region", st.session_state.get("cont_cli_region",""))
-                        st.session_state["cont_inst_domicilio"] = _cd.get("inst_domicilio", st.session_state.get("cont_inst_domicilio",""))
-                        st.session_state["cont_inst_comuna"]    = _cd.get("inst_comuna", st.session_state.get("cont_inst_comuna",""))
-                        st.session_state["cont_inst_region"]    = _cd.get("inst_region", st.session_state.get("cont_inst_region",""))
-                        st.session_state["cont_ep_nombre"]      = _cd.get("ep_nombre", st.session_state.get("cont_ep_nombre",""))
-                        st.session_state["cont_tiene_contrato"] = True
-                    except:
-                        st.session_state["cont_tiene_contrato"] = False
-                else:
-                    st.session_state["cont_tiene_contrato"] = False
-                st.session_state["cont_ep_nombre"]      = ""  # campo libre, no viene de observaciones
-                st.session_state["cont_precio"]         = _total
+    # ================================================================
+    # SUB-PESTAÑA: IMPRIMIR CONTRATO
+    # ================================================================
+    with _sub_imprimir:
+        # ── Paso 1: Buscar EP ──
+        st.markdown('<div class="cont-section">🔍 Paso 1 — Buscar cotización</div>', unsafe_allow_html=True)
+        with st.container():
+            _col_ep, _col_btn = st.columns([3, 1])
+            with _col_ep:
+                _ep_input = st.text_input("N° de cotización", placeholder="Ej: EP-12345",
+                                          key="cont_ep_input", label_visibility="collapsed")
+            with _col_btn:
+                _buscar = st.button("🔍 Buscar EP", use_container_width=True, key="cont_buscar")
+
+        if _buscar and _ep_input:
+            _cot_found = cargar_cotizacion(_ep_input.strip().upper())
+            if _cot_found:
+                st.session_state["cont_cot"]            = _cot_found
+                st.session_state["cont_ep"]             = _ep_input.strip().upper()
+                st.session_state["cont_tiene_contrato"] = bool(_cot_found.get("contrato_generado"))
+                st.session_state["cont_precio"]         = float(_cot_found.get("total_total") or 0)
                 st.rerun()
             else:
-                st.error(f"No se encontró la cotización {_num}")
-        except Exception as _e:
-            st.error(f"Error al buscar: {_e}")
+                st.error(f"No se encontró la cotización {_ep_input}")
 
-    # ── Formulario editable (solo si hay EP cargado) ──
-    if st.session_state.get("cont_cot"):
-        _cot    = st.session_state["cont_cot"]
-        _ep_num = st.session_state.get("cont_ep", "")
+        if st.session_state.get("cont_cot"):
+            _cot    = st.session_state["cont_cot"]
+            _ep_num = st.session_state.get("cont_ep", "")
 
-        _tiene_cont = st.session_state.get("cont_tiene_contrato", False)
-        if _tiene_cont:
-            st.success(f"✅ Cotización **{_ep_num}** cargada — {_cot.get('cliente_nombre','')} · 📄 Ya tiene contrato generado")
-        else:
-            st.success(f"✅ Cotización **{_ep_num}** cargada — {_cot.get('cliente_nombre','')} · Sin contrato previo")
+            _tiene_cont = st.session_state.get("cont_tiene_contrato", False)
+            if _tiene_cont:
+                st.success(f"✅ Cotización **{_ep_num}** cargada — {_cot.get('cliente_nombre','')} · 📄 Ya tiene contrato generado")
+            else:
+                st.success(f"✅ Cotización **{_ep_num}** cargada — {_cot.get('cliente_nombre','')} · Sin contrato previo")
 
-        # ── Datos del contrato ──
-        st.markdown('<div class="cont-section">📝 Paso 2 — Completar datos del contrato</div>', unsafe_allow_html=True)
+            # ── Paso 2: Completar datos ──
+            st.markdown('<div class="cont-section">📝 Paso 2 — Completar datos del contrato</div>', unsafe_allow_html=True)
 
-        # CSS compacto para el formulario
-        st.markdown("""
-        <style>
-        div[data-testid="stForm"] { padding: 0 !important; }
-        .cont-form-panel {
-            background: white; border-radius: 14px; padding: 16px 20px 10px;
-            border: 1px solid #e8edf5;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.05);
-            margin-bottom: 10px;
-        }
-        .cont-form-title {
-            font-size: 0.68rem; font-weight: 900; color: #64748b;
-            text-transform: uppercase; letter-spacing: 0.1em;
-            margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
-        }
-        /* reducir espacio entre widgets dentro del formulario */
-        .cont-form-panel div[data-testid="stVerticalBlock"] > div { margin-bottom: -8px !important; }
-        </style>
-        """, unsafe_allow_html=True)
+            from datetime import date as _date_t
+            _meses_es = {1:"enero",2:"febrero",3:"marzo",4:"abril",5:"mayo",6:"junio",
+                         7:"julio",8:"agosto",9:"septiembre",10:"octubre",
+                         11:"noviembre",12:"diciembre"}
 
-        from datetime import date as _date_t
-        _meses_es = {1:"enero",2:"febrero",3:"marzo",4:"abril",5:"mayo",6:"junio",
-                     7:"julio",8:"agosto",9:"septiembre",10:"octubre",
-                     11:"noviembre",12:"diciembre"}
+            _fcol, _pcol = st.columns([3, 2])
 
-        # ── Layout: col izquierda (formulario) | col derecha (pagos) ──
-        _fcol, _pcol = st.columns([3, 2])
+            with _fcol:
+                _hoy = _date_t.today()
+                _fecha_obj   = st.date_input("Fecha del contrato", value=_hoy, key="cont_fecha")
+                _fecha_str   = f"{_fecha_obj.day} de {_meses_es[_fecha_obj.month]} de {_fecha_obj.year}"
+                _ep_num_input = _ep_num
 
-        with _fcol:
-            # Panel 1 — Contrato
-            _hoy = _date_t.today()
-            _fecha_obj   = st.date_input("Fecha del contrato", value=_hoy, key="cont_fecha")
-            _fecha_str   = f"{_fecha_obj.day} de {_meses_es[_fecha_obj.month]} de {_fecha_obj.year}"
-            _ep_num_input = _ep_num  # solo lectura — viene del EP buscado
+                _fa, _fb = st.columns([3, 1])
+                with _fa:
+                    _ep_nombre = _cot.get('proyecto_observaciones', '') or st.session_state.get('observaciones_input', '') or ''
+                    _obs_val = _ep_nombre.strip() if _ep_nombre else '—'
+                    st.markdown(
+                        "<div style='background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;padding:12px 16px;margin-bottom:4px;'>"
+                        "<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;'>📝 Nombre / descripción del proyecto</div>"
+                        f"<div style='font-size:0.92rem;font-weight:700;color:#fff;line-height:1.5;'>{_obs_val}</div>"
+                        "</div>",
+                        unsafe_allow_html=True
+                    )
+                with _fb:
+                    _plazo = st.number_input("Plazo (días)", min_value=1, max_value=180, value=45, key="cont_plazo")
 
-            _fa, _fb = st.columns([3, 1])
-            with _fa:
-                _ep_nombre = _cot.get('proyecto_observaciones', '') or st.session_state.get('observaciones_input', '') or ''
-                _obs_val = _ep_nombre.strip() if _ep_nombre else '—'
-                st.markdown(
-                    "<div style='background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;padding:12px 16px;margin-bottom:4px;'>"
-                    "<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;'>📝 Nombre / descripción del proyecto</div>"
-                    f"<div style='font-size:0.92rem;font-weight:700;color:#fff;line-height:1.5;'>{_obs_val}</div>"
-                    "</div>",
-                    unsafe_allow_html=True
+                # N° EP
+                _html_ep = (
+                    "<div style='background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;"
+                    "padding:14px 18px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;'>"
+                    "<div>"
+                    "<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.5);"
+                    "text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;'>📋 Presupuesto</div>"
+                    f"<div style='font-size:1.2rem;font-weight:900;color:#fff;'>{_ep_num_input or '—'}</div>"
+                    "</div></div>"
                 )
-            with _fb:
-                _plazo = st.number_input("Plazo (días)", min_value=1, max_value=180, value=45, key="cont_plazo")
+                st.markdown(_html_ep, unsafe_allow_html=True)
 
-            # N° EP — solo lectura, mostrado como card
-            _html_ep = (
-                "<div style='background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;"
-                "padding:14px 18px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;'>"
-                "<div>"
-                "<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.5);"
-                "text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;'>📋 Presupuesto</div>"
-                f"<div style='font-size:1.2rem;font-weight:900;color:#fff;'>{_ep_num_input or '—'}</div>"
-                "</div>"
-                f"<div style='font-size:0.8rem;color:rgba(255,255,255,0.5);'>{_fecha_str}</div>"
-                "</div>"
-            )
-            st.markdown(_html_ep, unsafe_allow_html=True)
+                # Tipo cliente
+                _es_juridica = _cot.get('cliente_tipo', 'natural') == 'juridica'
+                _cli_nombre       = _cot.get('cliente_nombre', '')
+                _cli_rut          = _cot.get('cliente_rut', '')
+                _cli_empresa      = _cot.get('cliente_empresa', '')
+                _cli_rut_empresa  = _cot.get('cliente_rut_empresa', '')
 
-            # Panel 2 — Cliente (solo Don/Doña editable, resto lectura)
-            _tipo_pre      = st.session_state.get("cont_tipo_cli_val", st.session_state.get("cliente_tipo", "natural"))
-            _es_juridica   = (_tipo_pre == "juridica")
-            _cli_nombre    = st.session_state.get("cont_cli_nombre",    st.session_state.get("nombre_input", ""))
-            _cli_rut       = st.session_state.get("cont_cli_rut",       st.session_state.get("rut_display", ""))
-            _cli_empresa   = st.session_state.get("cont_cli_empresa",   st.session_state.get("cliente_empresa", ""))
-            _cli_rut_empresa = st.session_state.get("cont_cli_rut_empresa", st.session_state.get("cliente_rut_empresa", ""))
-            _tipo_lbl      = "Persona jurídica" if _es_juridica else "Persona natural"
+                # Selección tratamiento
+                _trat_opts = ["Don", "Doña", "Sr.", "Sra."]
+                _tratamiento = st.selectbox("Tratamiento", _trat_opts, key="cont_tratamiento")
 
-            _g1, _g2 = st.columns([1, 4])
-            with _g1:
-                _tratamiento = st.selectbox("Trato", ["Don", "Doña"], key="cont_tratamiento", label_visibility="collapsed")
-            with _g2:
+                # Panel cliente
+                _sin_nombre_cli = "<span style='color:rgba(255,255,255,0.3);font-style:italic;font-weight:400;'>Sin nombre</span>"
                 _tag_tipo = "🏢 Persona jurídica" if _es_juridica else "👤 Persona natural"
                 _emp_html = (
                     f"<div style='display:flex;gap:8px;margin-top:6px;'>"
@@ -9757,7 +9699,6 @@ with tab_contrato:
                     f"<span style='font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;color:rgba(255,255,255,0.7);'>RUT empresa: {_cli_rut_empresa or '—'}</span>"
                     f"</div>"
                 )
-                _sin_nombre_cli = "<span style='color:rgba(255,255,255,0.3);font-style:italic;font-weight:400;'>Sin nombre</span>"
                 _html_cli = (
                     "<div style='background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;padding:16px 18px;margin-bottom:4px;'>"
                     "<div style='font-size:0.65rem;font-weight:900;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;'>👤 Datos del cliente</div>"
@@ -9772,241 +9713,279 @@ with tab_contrato:
                 )
                 st.markdown(_html_cli, unsafe_allow_html=True)
 
-            # Panel 3 — Domicilios (solo lectura — vienen de pestaña DATOS)
-            _cli_dom  = st.session_state.get("cont_cli_domicilio",  st.session_state.get("direccion_input", ""))
-            _cli_com  = st.session_state.get("cont_cli_comuna",     st.session_state.get("cliente_comuna", ""))
-            _cli_reg  = st.session_state.get("cont_cli_region",     st.session_state.get("cliente_region", ""))
-            _inst_dom = st.session_state.get("cont_inst_domicilio", st.session_state.get("proyecto_direccion", ""))
-            _inst_com = st.session_state.get("cont_inst_comuna",    st.session_state.get("proyecto_comuna", ""))
-            _inst_reg = st.session_state.get("cont_inst_region",    st.session_state.get("proyecto_region", ""))
-            _todas_regiones = list(REGIONES_COMUNAS.keys())
-            _todas_comunas  = [c for cs in REGIONES_COMUNAS.values() for c in cs]
-            if _cli_com:  _cli_com  = _normalizar_nombre(_cli_com,  _todas_comunas)
-            if _cli_reg:  _cli_reg  = _normalizar_nombre(_cli_reg,  _todas_regiones)
-            if _inst_com: _inst_com = _normalizar_nombre(_inst_com, _todas_comunas)
-            if _inst_reg: _inst_reg = _normalizar_nombre(_inst_reg, _todas_regiones)
+                # Domicilios
+                _cli_dom  = st.session_state.get("cont_cli_domicilio",  _cot.get("cliente_direccion", ""))
+                _cli_com  = st.session_state.get("cont_cli_comuna",     _cot.get("cliente_comuna", ""))
+                _cli_reg  = st.session_state.get("cont_cli_region",     _cot.get("cliente_region", ""))
+                _inst_dom = st.session_state.get("cont_inst_domicilio", _cot.get("proyecto_direccion", ""))
+                _inst_com = st.session_state.get("cont_inst_comuna",    _cot.get("proyecto_comuna", ""))
+                _inst_reg = st.session_state.get("cont_inst_region",    _cot.get("proyecto_region", ""))
+                _todas_regiones = list(REGIONES_COMUNAS.keys())
+                _todas_comunas  = [c for cs in REGIONES_COMUNAS.values() for c in cs]
+                if _cli_com:  _cli_com  = _normalizar_nombre(_cli_com,  _todas_comunas)
+                if _cli_reg:  _cli_reg  = _normalizar_nombre(_cli_reg,  _todas_regiones)
+                if _inst_com: _inst_com = _normalizar_nombre(_inst_com, _todas_comunas)
+                if _inst_reg: _inst_reg = _normalizar_nombre(_inst_reg, _todas_regiones)
 
-            _sin_dir = "<span style='color:rgba(255,255,255,0.25);font-style:italic;font-weight:400;'>Sin dirección</span>"
-            _html_dom = (
-                "<div style='background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;padding:18px 20px;margin-bottom:12px;'>"
-                "<div style='font-size:0.65rem;font-weight:900;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;'>📍 Domicilios</div>"
-                "<div style='display:flex;flex-direction:column;gap:10px;'>"
-                # Tarjeta cliente
-                "<div style='background:rgba(255,255,255,0.07);border-radius:10px;padding:12px 14px;'>"
-                "<div style='font-size:0.6rem;font-weight:800;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;'>Cliente</div>"
-                f"<div style='font-size:0.95rem;font-weight:700;color:#fff;margin-bottom:2px;'>{_cli_dom or _sin_dir}</div>"
-                "<div style='display:flex;gap:8px;margin-top:4px;'>"
-                f"<span style='font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;color:rgba(255,255,255,0.7);'>🏙️ {_cli_com or '—'}</span>"
-                f"<span style='font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;color:rgba(255,255,255,0.7);'>🗺️ {_cli_reg or '—'}</span>"
-                "</div></div>"
-                # Tarjeta instalación
-                "<div style='background:rgba(255,255,255,0.07);border-radius:10px;padding:12px 14px;'>"
-                "<div style='font-size:0.6rem;font-weight:800;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;'>Instalación</div>"
-                f"<div style='font-size:0.95rem;font-weight:700;color:#fff;margin-bottom:2px;'>{_inst_dom or _sin_dir}</div>"
-                "<div style='display:flex;gap:8px;margin-top:4px;'>"
-                f"<span style='font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;color:rgba(255,255,255,0.7);'>🏙️ {_inst_com or '—'}</span>"
-                f"<span style='font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;color:rgba(255,255,255,0.7);'>🗺️ {_inst_reg or '—'}</span>"
-                "</div></div>"
-                "</div></div>"
-            )
-            st.markdown(_html_dom, unsafe_allow_html=True)
-
-        with _pcol:
-            # El precio viene del EP cargado, sin input visible
-            _precio = int(st.session_state.get("cont_precio", 0))
-
-            _pago50  = round(_precio * 0.50)
-            _pago25a = round(_precio * 0.25)
-            _pago25b = _precio - _pago50 - _pago25a
-
-            def _fp(v): return "${:,.0f}".format(int(v)).replace(",",".")
-
-            st.markdown(f"""
-            <div style="background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;
-                        padding:18px 20px;margin-top:4px;">
-              <div style="font-size:0.65rem;font-weight:900;color:rgba(255,255,255,0.5);
-                          text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;">
-                Etapas de pago
-              </div>
-              <div style="display:flex;flex-direction:column;gap:12px;">
-                <div style="background:rgba(255,255,255,0.07);border-radius:10px;padding:12px 14px;">
-                  <div style="font-size:0.65rem;font-weight:800;color:rgba(255,255,255,0.5);
-                              text-transform:uppercase;letter-spacing:0.08em;">50% Inicial</div>
-                  <div style="font-size:1.3rem;font-weight:900;color:#fff;margin:3px 0;">{_fp(_pago50)}</div>
-                  <div style="font-size:0.65rem;color:rgba(255,255,255,0.4);">Asignación + obra gruesa</div>
-                </div>
-                <div style="background:rgba(255,255,255,0.07);border-radius:10px;padding:12px 14px;">
-                  <div style="font-size:0.65rem;font-weight:800;color:rgba(255,255,255,0.5);
-                              text-transform:uppercase;letter-spacing:0.08em;">25% Intermedio</div>
-                  <div style="font-size:1.3rem;font-weight:900;color:#fff;margin:3px 0;">{_fp(_pago25a)}</div>
-                  <div style="font-size:0.65rem;color:rgba(255,255,255,0.4);">Finalizada obra gruesa</div>
-                </div>
-                <div style="background:rgba(255,255,255,0.07);border-radius:10px;padding:12px 14px;">
-                  <div style="font-size:0.65rem;font-weight:800;color:rgba(255,255,255,0.5);
-                              text-transform:uppercase;letter-spacing:0.08em;">25% Final</div>
-                  <div style="font-size:1.3rem;font-weight:900;color:#fff;margin:3px 0;">{_fp(_pago25b)}</div>
-                  <div style="font-size:0.65rem;color:rgba(255,255,255,0.4);">Día del despacho</div>
-                </div>
-              </div>
-              <div style="border-top:1px solid rgba(255,255,255,0.15);margin-top:14px;padding-top:12px;
-                          display:flex;justify-content:space-between;align-items:center;">
-                <div>
-                  <div style="font-size:0.65rem;color:rgba(255,255,255,0.45);font-weight:800;
-                               text-transform:uppercase;letter-spacing:0.08em;">Total IVA incluido</div>
-                </div>
-                <span style="font-size:1.15rem;font-weight:900;color:#fff;">{_fp(_precio)}</span>
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        # ── Paso 3: Generar ──
-        st.markdown('<div class="cont-section">📤 Paso 3 — Generar contrato</div>', unsafe_allow_html=True)
-
-        # Preview resumen
-        _fmt_p = lambda v: "${:,.0f}".format(int(v)).replace(",",".")
-        st.markdown(f"""
-        <div class="cont-preview">
-          <b>Contrato {_ep_num_input}</b> — {_fecha_str}<br>
-          <b>Cliente:</b> {_tratamiento} {_cli_nombre or '—'} · RUT {_cli_rut or '—'}<br>
-          {"<b>Empresa:</b> " + _cli_empresa + " · RUT " + _cli_rut_empresa + "<br>" if _es_juridica else ""}
-          <b>Domicilio cliente:</b> {_cli_dom or '—'}, {_cli_com or '—'}, Región {_cli_reg}<br>
-          <b>Instalación:</b> {_inst_dom or '—'}, {_inst_com or '—'}, Región {_inst_reg}<br>
-          <b>Proyecto:</b> {_ep_nombre or '—'}<br>
-          <b>Precio total:</b> {_fmt_p(_precio)} · Plazo: {_plazo} días hábiles<br>
-          <b>Pagos:</b> 50% {_fmt_p(_pago50)} / 25% {_fmt_p(_pago25a)} / 25% {_fmt_p(_pago25b)}
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown("")
-        _gen_col, _ = st.columns([2, 3])
-        with _gen_col:
-            _generar = st.button("📄 Generar contrato PDF", type="primary",
-                                 use_container_width=True, key="cont_generar")
-
-        if _generar:
-            _campos_req = [_cli_nombre, _cli_rut, _cli_dom, _cli_com, _ep_nombre]
-            if _es_juridica:
-                _campos_req += [_cli_empresa, _cli_rut_empresa]
-            if not all(_campos_req):
-                st.error("⚠️ Completa todos los campos obligatorios antes de generar.")
-            else:
-                with st.spinner("Generando contrato..."):
-                    _datos_contrato = {
-                        "fecha_str":       _fecha_str,
-                        "tipo_cliente":    "juridica" if _es_juridica else "natural",
-                        "cli_tratamiento": _tratamiento,
-                        "cli_nombre":      _cli_nombre,
-                        "cli_rut":         _cli_rut,
-                        "cli_empresa":     _cli_empresa,
-                        "cli_rut_empresa": _cli_rut_empresa,
-                        "cli_domicilio":   _cli_dom,
-                        "cli_comuna":      _cli_com,
-                        "cli_region":      _cli_reg,
-                        "inst_domicilio":  _inst_dom,
-                        "inst_comuna":     _inst_com,
-                        "inst_region":     _inst_reg,
-                        "ep_numero":       _ep_num_input,
-                        "ep_nombre":       _ep_nombre,
-                        "precio_total":    _precio,
-                        "plazo_dias":      _plazo,
-                        "pago_50":         _pago50,
-                        "pago_25a":        _pago25a,
-                        "pago_25b":        _pago25b,
-                    }
-                    try:
-                        st.session_state["_datos_contrato_last"] = _datos_contrato
-                        _pdf_bytes = generar_pdf_contrato(_datos_contrato)
-                        st.session_state["cont_pdf_bytes"] = _pdf_bytes
-                        st.session_state["cont_pdf_nombre"] = f"Contrato_{_ep_num_input.replace('-','_')}.pdf"
-                        # Guardar contrato en Supabase
-                        import json as _json
-                        try:
-                            _cont_payload = {
-                                "contrato_generado": True,
-                                "contrato_datos": _json.dumps(_datos_contrato, ensure_ascii=False),
-                                "contrato_fecha": _datos_contrato["fecha_str"],
-                            }
-                            supabase.table("cotizaciones").update(_cont_payload)                                     .eq("numero", _ep_num_input).execute()
-                            st.success("✅ Contrato generado y guardado exitosamente.")
-                        except Exception as _es:
-                            st.success("✅ Contrato generado.")
-                            st.warning(f"No se pudo guardar en BD: {_es}")
-                    except Exception as _e:
-                        st.error(f"Error al generar PDF: {_e}")
-
-        # ── Descarga e impresión ──
-        _has_pdf = bool(st.session_state.get("cont_pdf_bytes"))
-        st.caption(f"DEBUG pdf={_has_pdf} cot={bool(st.session_state.get('cont_cot'))}")
-        if _has_pdf:
-            import base64 as _b64
-            _pdf_b64 = _b64.b64encode(st.session_state["cont_pdf_bytes"]).decode()
-            _pdf_nom = st.session_state.get("cont_pdf_nombre","contrato.pdf")
-            _word_nom = _pdf_nom.replace('.pdf', '.docx')
-
-            _dl_col, _pr_col, _wd_col, _sp = st.columns([1.5, 1.5, 1.5, 1.5])
-            with _dl_col:
-                st.download_button(
-                    label="⬇️ Descargar PDF",
-                    data=st.session_state["cont_pdf_bytes"],
-                    file_name=_pdf_nom,
-                    mime="application/pdf",
-                    use_container_width=True,
-                    key="cont_download"
+                _sin_dir = "<span style='color:rgba(255,255,255,0.25);font-style:italic;font-weight:400;'>Sin dirección</span>"
+                _html_dom = (
+                    "<div style='background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;padding:16px 18px;margin-bottom:4px;'>"
+                    "<div style='font-size:0.65rem;font-weight:900;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;'>📍 Domicilios</div>"
+                    "<div style='display:flex;flex-direction:column;gap:8px;'>"
+                    "<div style='background:rgba(255,255,255,0.07);border-radius:10px;padding:10px 14px;'>"
+                    "<div style='font-size:0.65rem;color:rgba(255,255,255,0.4);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;'>🏠 Domicilio cliente</div>"
+                    f"<div style='font-size:0.88rem;font-weight:700;color:#fff;'>{_cli_dom if _cli_dom else _sin_dir}</div>"
+                    f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.55);margin-top:2px;'>{_cli_com or '—'} · {_cli_reg or '—'}</div>"
+                    "</div>"
+                    "<div style='background:rgba(255,255,255,0.07);border-radius:10px;padding:10px 14px;'>"
+                    "<div style='font-size:0.65rem;color:rgba(255,255,255,0.4);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;'>📦 Dirección instalación</div>"
+                    f"<div style='font-size:0.88rem;font-weight:700;color:#fff;'>{_inst_dom if _inst_dom else _sin_dir}</div>"
+                    f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.55);margin-top:2px;'>{_inst_com or '—'} · {_inst_reg or '—'}</div>"
+                    "</div></div></div>"
                 )
-            with _pr_col:
-                st.markdown(f"""
-                <a href="data:application/pdf;base64,{_pdf_b64}" target="_blank"
-                   style="display:block;background:linear-gradient(135deg,#0f3460,#16213e);
-                          color:white;text-align:center;padding:0.55rem 1rem;border-radius:8px;
-                          font-weight:700;font-size:0.88rem;text-decoration:none;
-                          box-shadow:0 2px 8px rgba(15,52,96,0.3);">
-                  🖨️ Abrir e imprimir
-                </a>""", unsafe_allow_html=True)
-            with _wd_col:
-                try:
-                    _word_buf = generar_word_contrato(st.session_state.get('_datos_contrato_last', {}))
-                    if _word_buf:
-                        st.download_button(
-                            label="📝 Descargar Word",
-                            data=_word_buf,
-                            file_name=_word_nom,
-                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                            use_container_width=True,
-                            key="cont_download_word",
-                            help="Descarga el contrato editable. Campos en azul = NO modificar"
-                        )
-                    else:
-                        st.button("📝 Descargar Word", disabled=True, use_container_width=True,
-                                  help="Requiere python-docx en requirements.txt")
-                except Exception as _ew:
-                    st.button("📝 Descargar Word", disabled=True, use_container_width=True,
-                              help=f"Error: {_ew}")
+                st.markdown(_html_dom, unsafe_allow_html=True)
 
-        # ── Subir Word modificado ──
-        if st.session_state.get("cont_pdf_bytes") and st.session_state.modo_admin:
-            st.markdown("---")
-            st.markdown("**📤 Subir contrato Word modificado**")
-            _word_upload = st.file_uploader(
-                "Sube la versión modificada del contrato (.docx)",
+            with _pcol:
+                _precio = int(st.session_state.get("cont_precio", 0))
+                _pago50  = round(_precio * 0.50)
+                _pago25a = round(_precio * 0.25)
+                _pago25b = _precio - _pago50 - _pago25a
+
+                _fmt_p = lambda v: "${:,.0f}".format(v).replace(",",".")
+                _html_pagos = (
+                    "<div style='background:linear-gradient(135deg,#0f3460,#16213e);border-radius:18px;padding:22px 20px;'>"
+                    "<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:14px;'>💰 Detalle de pagos</div>"
+                    f"<div style='font-size:1.8rem;font-weight:900;color:#fff;font-family:Montserrat,sans-serif;letter-spacing:-0.02em;margin-bottom:16px;'>{_fmt_p(_precio)}</div>"
+                    "<div style='display:flex;flex-direction:column;gap:8px;'>"
+                    f"<div style='background:rgba(255,255,255,0.09);border-radius:10px;padding:12px 14px;'><div style='font-size:0.65rem;color:rgba(255,255,255,0.5);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;'>50% Inicial</div><div style='font-size:1.1rem;font-weight:800;color:#fff;margin-top:2px;'>{_fmt_p(_pago50)}</div></div>"
+                    f"<div style='background:rgba(255,255,255,0.09);border-radius:10px;padding:12px 14px;'><div style='font-size:0.65rem;color:rgba(255,255,255,0.5);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;'>25% Intermedio</div><div style='font-size:1.1rem;font-weight:800;color:#fff;margin-top:2px;'>{_fmt_p(_pago25a)}</div></div>"
+                    f"<div style='background:rgba(255,255,255,0.09);border-radius:10px;padding:12px 14px;'><div style='font-size:0.65rem;color:rgba(255,255,255,0.5);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;'>25% Final</div><div style='font-size:1.1rem;font-weight:800;color:#fff;margin-top:2px;'>{_fmt_p(_pago25b)}</div></div>"
+                    "</div></div>"
+                )
+                st.markdown(_html_pagos, unsafe_allow_html=True)
+
+            # ── Botón único: Generar y descargar PDF ──
+            st.markdown("")
+            _gen_col, _ = st.columns([2, 3])
+            with _gen_col:
+                _generar = st.button("📄 Generar y descargar contrato PDF", type="primary",
+                                     use_container_width=True, key="cont_generar")
+
+            if _generar:
+                _campos_req = [_cli_nombre, _cli_rut, _cli_dom, _cli_com, _ep_nombre]
+                if _es_juridica:
+                    _campos_req += [_cli_empresa, _cli_rut_empresa]
+                if not all(_campos_req):
+                    st.error("⚠️ Completa todos los campos obligatorios antes de generar.")
+                else:
+                    with st.spinner("Generando contrato..."):
+                        _datos_contrato = {
+                            "fecha_str":       _fecha_str,
+                            "tipo_cliente":    "juridica" if _es_juridica else "natural",
+                            "cli_tratamiento": _tratamiento,
+                            "cli_nombre":      _cli_nombre,
+                            "cli_rut":         _cli_rut,
+                            "cli_empresa":     _cli_empresa,
+                            "cli_rut_empresa": _cli_rut_empresa,
+                            "cli_domicilio":   _cli_dom,
+                            "cli_comuna":      _cli_com,
+                            "cli_region":      _cli_reg,
+                            "inst_domicilio":  _inst_dom,
+                            "inst_comuna":     _inst_com,
+                            "inst_region":     _inst_reg,
+                            "ep_numero":       _ep_num_input,
+                            "ep_nombre":       _ep_nombre,
+                            "precio_total":    _precio,
+                            "plazo_dias":      _plazo,
+                            "pago_50":         _pago50,
+                            "pago_25a":        _pago25a,
+                            "pago_25b":        _pago25b,
+                        }
+                        try:
+                            st.session_state["_datos_contrato_last"] = _datos_contrato
+                            _pdf_bytes = generar_pdf_contrato(_datos_contrato)
+                            _pdf_nom   = f"Contrato_{_ep_num_input.replace('-','_')}.pdf"
+                            # Guardar en Supabase
+                            try:
+                                import json as _json
+                                supabase.table("cotizaciones").update({
+                                    "contrato_generado": True,
+                                    "contrato_datos":    _json.dumps(_datos_contrato, ensure_ascii=False),
+                                    "contrato_fecha":    _datos_contrato["fecha_str"],
+                                }).eq("numero", _ep_num_input).execute()
+                            except Exception:
+                                pass
+                            # Descarga directa
+                            import base64 as _b64
+                            _b64_pdf = _b64.b64encode(_pdf_bytes).decode()
+                            st.markdown(
+                                f'''<a href="data:application/pdf;base64,{_b64_pdf}"
+                                   download="{_pdf_nom}"
+                                   style="display:inline-block;background:#0f3460;color:white;
+                                          padding:10px 24px;border-radius:8px;font-weight:700;
+                                          font-size:0.9rem;text-decoration:none;margin-top:8px;">
+                                  ⬇️ Descargar contrato PDF
+                                </a>''', unsafe_allow_html=True)
+                            st.success("✅ Contrato generado exitosamente.")
+                        except Exception as _e:
+                            st.error(f"Error al generar PDF: {_e}")
+
+        else:
+            st.info("👆 Ingresa un número EP y presiona **Buscar EP** para cargar los datos del cliente.")
+
+    # ================================================================
+    # SUB-PESTAÑA: EDITAR CONTRATO
+    # ================================================================
+    with _sub_editar:
+        st.markdown('<div class="cont-section">📝 Gestión de versiones del contrato</div>', unsafe_allow_html=True)
+
+        # Buscar EP para editar
+        _col_ep2, _col_btn2 = st.columns([3, 1])
+        with _col_ep2:
+            _ep_edit = st.text_input("N° EP a gestionar", placeholder="Ej: EP-12345",
+                                     key="cont_ep_edit", label_visibility="collapsed")
+        with _col_btn2:
+            _buscar2 = st.button("🔍 Buscar", use_container_width=True, key="cont_buscar_edit")
+
+        if _buscar2 and _ep_edit:
+            _cot2 = cargar_cotizacion(_ep_edit.strip().upper())
+            if _cot2:
+                st.session_state["cont_cot_edit"] = _cot2
+                st.session_state["cont_ep_edit_num"] = _ep_edit.strip().upper()
+                st.rerun()
+            else:
+                st.error(f"No se encontró {_ep_edit}")
+
+        if st.session_state.get("cont_cot_edit"):
+            _cot2   = st.session_state["cont_cot_edit"]
+            _ep2    = st.session_state["cont_ep_edit_num"]
+            _datos2 = st.session_state.get("_datos_contrato_last", {})
+
+            st.success(f"✅ EP **{_ep2}** — {_cot2.get('cliente_nombre', '—')}")
+
+            # ── Versión activa ──
+            _word_url_act = _cot2.get("contrato_word_url", "")
+            _tiene_word   = bool(_word_url_act)
+
+            if _tiene_word:
+                st.markdown(f"""
+                <div style='background:#e8eef7;border:1.5px solid #0f3460;border-radius:12px;
+                            padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;'>
+                  <div>
+                    <div style='font-size:0.65rem;font-weight:900;color:#0f3460;text-transform:uppercase;letter-spacing:0.08em;'>Versión Word activa</div>
+                    <div style='font-size:1rem;font-weight:700;color:#0f3460;margin-top:4px;'>contrato_{_ep2}.docx</div>
+                  </div>
+                  <span style='background:#0f3460;color:white;border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;'>✅ ACTIVO</span>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.info("ℹ️ Sin versión Word personalizada — se usa el contrato generado por el sistema.")
+
+            # ── Descargar versión actual ──
+            st.markdown('<div class="cont-section" style="margin-top:12px;">⬇️ Descargar versión actual</div>', unsafe_allow_html=True)
+            _dc1, _dc2 = st.columns(2)
+            with _dc1:
+                if _datos2:
+                    try:
+                        _wb = generar_word_contrato(_datos2)
+                        if _wb:
+                            st.download_button(
+                                label="📝 Descargar Word (editable)",
+                                data=_wb,
+                                file_name=f"Contrato_{_ep2}.docx",
+                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                use_container_width=True,
+                                key="edit_dl_word",
+                                help="Campos en AZUL NEGRITA = NO modificar"
+                            )
+                    except Exception as _ew:
+                        st.button("📝 Descargar Word", disabled=True, use_container_width=True,
+                                  help=f"Genera el PDF primero en 'Imprimir contrato'")
+                else:
+                    st.button("📝 Descargar Word", disabled=True, use_container_width=True,
+                              help="Genera el PDF primero en 'Imprimir contrato'")
+            with _dc2:
+                if _cot2.get("contrato_generado"):
+                    st.info("Genera el PDF desde 'Imprimir contrato' para descargarlo.")
+                else:
+                    st.caption("Sin contrato generado aún.")
+
+            # ── Subir nueva versión ──
+            st.markdown('<div class="cont-section" style="margin-top:12px;">📤 Subir nueva versión</div>', unsafe_allow_html=True)
+            _word_up = st.file_uploader(
+                "Sube el .docx modificado",
                 type=["docx"],
                 key="cont_word_upload",
-                help="Sube el Word que descargaste y editaste. Se guardará en Supabase junto al contrato."
+                help="Sube el Word que descargaste y editaste. Los campos en azul se usarán como referencia."
             )
-            if _word_upload is not None:
-                _word_bytes = _word_upload.read()
+            if _word_up:
+                _word_bytes = _word_up.read()
                 try:
-                    import base64 as _b64w
-                    _word_b64 = _b64w.b64encode(_word_bytes).decode()
-                    _ep_word = st.session_state.get('cont_ep', '')
-                    supabase.table('cotizaciones').update({
-                        'contrato_word_b64': _word_b64
-                    }).eq('numero', _ep_word).execute()
-                    st.success(f"✅ Contrato Word guardado para {_ep_word}")
+                    # Guardar en Supabase Storage
+                    _fname = f"contratos/{_ep2}/contrato_{_ep2}_v{int(__import__('time').time())}.docx"
+                    _resp_up = supabase_admin.storage.from_("cotizaciones-storage").upload(
+                        _fname, _word_bytes,
+                        file_options={"content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
+                    )
+                    _word_url_new = supabase_admin.storage.from_("cotizaciones-storage").get_public_url(_fname)
+                    supabase.table("cotizaciones").update({
+                        "contrato_word_url": _word_url_new
+                    }).eq("numero", _ep2).execute()
+                    st.session_state["cont_cot_edit"]["contrato_word_url"] = _word_url_new
+                    st.success(f"✅ Nueva versión subida y activada para {_ep2}")
+                    st.rerun()
                 except Exception as _ew:
-                    st.error(f"Error guardando Word: {_ew}")
+                    st.error(f"Error subiendo Word: {_ew}")
 
-    else:
-        st.info("👆 Ingresa un número EP y presiona **Buscar EP** para cargar los datos del cliente.")
+            # ── Historial ──
+            st.markdown('<div class="cont-section" style="margin-top:12px;">📋 Historial</div>', unsafe_allow_html=True)
+            _hist_html = """
+            <table style='width:100%;border-collapse:collapse;font-size:13px;'>
+              <thead>
+                <tr style='border-bottom:1px solid #e2e8f0;'>
+                  <th style='text-align:left;padding:6px 8px;color:#64748b;font-weight:500;'>Versión</th>
+                  <th style='text-align:left;padding:6px 8px;color:#64748b;font-weight:500;'>Tipo</th>
+                  <th style='text-align:center;padding:6px 8px;color:#64748b;font-weight:500;'>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+            """
+            if _tiene_word:
+                _hist_html += f"""
+                <tr style='border-bottom:0.5px solid #e2e8f0;background:#e8eef7;'>
+                  <td style='padding:8px;font-weight:700;color:#0f3460;'>Word personalizado</td>
+                  <td style='padding:8px;color:#0f3460;'>.docx subido</td>
+                  <td style='padding:8px;text-align:center;'><span style='background:#0f3460;color:white;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;'>✅ ACTIVO</span></td>
+                </tr>
+                """
+            if _cot2.get("contrato_generado"):
+                _est_orig = "inactivo" if _tiene_word else "✅ ACTIVO"
+                _bg_orig  = "var(--color-background-secondary)" if _tiene_word else "#e8eef7"
+                _txt_orig = "#64748b" if _tiene_word else "#0f3460"
+                _badge    = f'<span style="background:{"#94a3b8" if _tiene_word else "#0f3460"};color:white;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;">{"inactivo" if _tiene_word else "✅ ACTIVO"}</span>'
+                _hist_html += f"""
+                <tr style='border-bottom:0.5px solid #e2e8f0;background:{_bg_orig};'>
+                  <td style='padding:8px;font-weight:700;color:{_txt_orig};'>v1 — original sistema</td>
+                  <td style='padding:8px;color:{_txt_orig};'>PDF generado</td>
+                  <td style='padding:8px;text-align:center;'>{_badge}</td>
+                </tr>
+                """
+            _hist_html += "</tbody></table>"
+            st.markdown(_hist_html, unsafe_allow_html=True)
+
+            # Botón para volver a versión original
+            if _tiene_word:
+                st.markdown("")
+                if st.button("↩️ Restaurar versión original del sistema", key="cont_restaurar"):
+                    try:
+                        supabase.table("cotizaciones").update({"contrato_word_url": None}).eq("numero", _ep2).execute()
+                        st.session_state["cont_cot_edit"]["contrato_word_url"] = ""
+                        st.success("✅ Restaurado a versión original del sistema.")
+                        st.rerun()
+                    except Exception as _er:
+                        st.error(f"Error: {_er}")
+        else:
+            st.info("👆 Ingresa un número EP y presiona **Buscar** para gestionar el contrato.")
 
 
 # =========================================================
