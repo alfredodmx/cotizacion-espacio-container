@@ -10007,27 +10007,37 @@ with tab_contrato:
                 _estimated_lines = _newlines + max(1, _chars // 85)
                 _h = max(120, _estimated_lines * 22)
 
+                # Título con fondo azul como en el PDF
                 if _key in _LABELS_READONLY:
-                    # Mostrar en rojo como solo lectura
+                    st.markdown(
+                        f'''<div style="background:#1e3a5f;color:white;font-size:0.78rem;font-weight:900;
+                                    text-transform:uppercase;letter-spacing:0.08em;padding:8px 14px;
+                                    border-radius:8px 8px 0 0;margin-bottom:0;">
+                            🔒 {_label.upper()} — SOLO LECTURA</div>''',
+                        unsafe_allow_html=True)
                     _txt_display = _val_actual.replace("\n", "<br>")
                     st.markdown(
-                        f'''<div style="background:#fff5f5;border:1.5px solid #dc2626;border-radius:10px;
-                                    padding:14px 16px;margin-bottom:4px;">
-                            <div style="font-size:0.65rem;font-weight:900;color:#dc2626;
-                                        text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">
-                                🔒 {_label} — Solo lectura (no editable)</div>
+                        f'''<div style="background:#fff5f5;border:1.5px solid #dc2626;border-top:none;
+                                    border-radius:0 0 8px 8px;padding:14px 16px;margin-bottom:16px;">
                             <div style="font-size:13px;line-height:1.7;color:#7f1d1d;">{_txt_display}</div>
                         </div>''', unsafe_allow_html=True)
-                    # Igual lo incluimos en _edits con valor fijo para no romper el guardado
                     _edits[_key] = _val_actual
                 else:
+                    st.markdown(
+                        f'''<div style="background:#1e3a5f;color:white;font-size:0.78rem;font-weight:900;
+                                    text-transform:uppercase;letter-spacing:0.08em;padding:8px 14px;
+                                    border-radius:8px 8px 0 0;margin-bottom:0;">
+                            {_label.upper()}</div>''',
+                        unsafe_allow_html=True)
                     _edits[_key] = st.text_area(
-                        _label,
+                        "",
                         value=_val_actual,
                         height=_h,
                         key=f"plt_{_key}",
+                        label_visibility="collapsed",
                         help="Usa <b>texto</b> para negrita. Los {{MARCADORES}} se reemplazan con datos reales al generar."
                     )
+                    st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
 
             # ── Botones ──
             _bc1, _bc2, _bc3 = st.columns([2, 2, 2])
