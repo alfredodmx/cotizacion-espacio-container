@@ -9942,9 +9942,9 @@ with tab_contrato:
                 except Exception:
                     pass
             else:
-                # Verificar si v1 tiene texto plano sin <b> y actualizarla
+                # Siempre sincronizar v1 con _CLAUSULAS_EDITOR actual del código
                 _v1 = next((p for p in _historial if p.get("version") == 1), None)
-                if _v1 and not any("<b>" in str(v) for v in _v1.get("clausulas", {}).values()):
+                if _v1:
                     try:
                         supabase.table("plantillas_contrato").update({
                             "clausulas": _CLAUSULAS_EDITOR
@@ -9954,7 +9954,7 @@ with tab_contrato:
 
             # ── Plantilla activa ──
             _plt_activa = _cargar_plantilla_activa()
-            _clausulas_act = _plt_activa["clausulas"] if _plt_activa else _CLAUSULAS_BASE
+            _clausulas_act = _plt_activa["clausulas"] if _plt_activa else _CLAUSULAS_EDITOR
 
             # ── Info ──
             st.markdown("""
