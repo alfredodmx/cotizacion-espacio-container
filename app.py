@@ -9843,7 +9843,7 @@ with tab_contrato:
 
             _CLAUSULAS_EDITOR = {
                 "intro":        "En Santiago de Chile, a {{FECHA}}, comparecen:",
-                "comparecencia_cliente": "{{TRATAMIENTO}} {{CLIENTE}}, cédula nacional de identidad N° {{RUT_CLIENTE}}, con domicilio en {{DOMICILIO_CLIENTE}}, comuna de {{COMUNA_CLIENTE}}, Región {{REGION_CLIENTE}}, quien en adelante se denominará \"el Cliente\".",
+                "comparecencia_cliente": "{{TRATAMIENTO}} {{CLIENTE}}, cédula nacional de identidad N° {{RUT_CLIENTE}}, con domicilio en {{DOMICILIO_CLIENTE}}, comuna de {{COMUNA_CLIENTE}}, Región {{REGION_CLIENTE}}, quien en adelante se denominará \"el Cliente\".\n\n[FIJO DEL SISTEMA] Se deja expresa constancia que la dirección de instalación del proyecto será {{DOMICILIO_INST}}, comuna de {{COMUNA_INST}}, Región {{REGION_INST}}.\n\n[FIJO DEL SISTEMA] Las partes declaran ser mayores de edad, con plena capacidad legal para contratar, y acuerdan celebrar el presente Contrato de Fabricación y Venta de Vivienda Tipo Container, el cual se regirá por las cláusulas que se indican a continuación.",
                 "instalacion":  "Se deja expresa constancia que la dirección de instalación del proyecto será <b>{{DOMICILIO_INST}}</b>, comuna de <b>{{COMUNA_INST}}</b>, Región {{REGION_INST}}.",
                 "definiciones": "a) <b>Proyecto</b>: La vivienda tipo container identificada como <b>Proyecto N° {{EP}} – \"{{EP_NOMBRE}}\"</b>.\nb) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte integrante del presente contrato, en especial Anexo N°1 (Especificaciones Técnicas) y Anexo N°2 (Presupuesto Detallado).\nc) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su despacho desde las instalaciones del Proveedor.",
                 "definiciones": "a) <b>Proyecto</b>: La vivienda tipo container identificada como <b>Proyecto N° {{EP}} – \"{{EP_NOMBRE}}\"</b>.\nb) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte integrante del presente contrato, en especial Anexo N°1 (Especificaciones Técnicas) y Anexo N°2 (Presupuesto Detallado).\nc) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su despacho desde las instalaciones del Proveedor.",
@@ -10173,10 +10173,15 @@ markers.forEach(function(m) {
                     # Solo guardar cláusulas que difieren del original
                     import re as _re
                     def _strip_html(t): return _re.sub(r'<[^>]+>', '', t).strip()
-                    # Guardar solo cláusulas que difieren del _CLAUSULAS_EDITOR (comparando texto plano)
+                    def _limpiar_fijos(t):
+                        # Quitar líneas marcadas como [FIJO DEL SISTEMA] antes de guardar
+                        lineas = [l for l in t.split("\n") if not l.strip().startswith("[FIJO DEL SISTEMA]")]
+                        return "\n".join(lineas).strip()
+                    # Limpiar partes fijas y guardar solo cláusulas que cambiaron
+                    _edits_limpios = {k: _limpiar_fijos(v) for k, v in _edits.items()}
                     _solo_cambios = {
-                        k: v for k, v in _edits.items()
-                        if _strip_html(v) != _strip_html(_CLAUSULAS_EDITOR.get(k, _CLAUSULAS_BASE.get(k, "")))
+                        k: v for k, v in _edits_limpios.items()
+                        if _strip_html(v) != _strip_html(_CLAUSULAS_BASE.get(k, ""))
                     }
                     if not _solo_cambios:
                         st.warning("No hay cambios respecto a la plantilla original.")
