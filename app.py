@@ -10002,23 +10002,69 @@ with tab_contrato:
             # ── Editor de cláusulas ──
             st.markdown("**✏️ Cláusulas editables:**")
             _edits = {}
+            import re as _re_ed
+
+            # CSS para destacar marcadores en preview
+            st.markdown("""
+            <style>
+            .clause-preview {
+                background: var(--color-background-primary);
+                border: 1px solid var(--color-border-secondary);
+                border-radius: 10px;
+                padding: 14px 16px;
+                margin-bottom: 4px;
+                font-size: 13px;
+                line-height: 1.7;
+                white-space: pre-wrap;
+            }
+            .clause-label {
+                font-size: 0.65rem;
+                font-weight: 900;
+                color: #64748b;
+                text-transform: uppercase;
+                letter-spacing: 0.1em;
+                margin-bottom: 6px;
+            }
+            .clause-marker {
+                color: #dc2626;
+                font-weight: 900;
+                background: #fee2e2;
+                border-radius: 4px;
+                padding: 0 3px;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+
             for _key, _label in _LABELS.items():
-                # Mostrar texto con <b>: si Supabase tiene la cláusula pero sin <b>, usar _CLAUSULAS_EDITOR
-                import re as _re_ed
+                # Obtener valor actual
                 _val_sup = _clausulas_act.get(_key, "")
                 if _val_sup and "<b>" not in _val_sup and "<b>" in _CLAUSULAS_EDITOR.get(_key, ""):
-                    # Supabase tiene texto plano, pero el editor tiene <b> — usar editor como base
                     _val_actual = _CLAUSULAS_EDITOR.get(_key, _val_sup)
                 elif _val_sup:
                     _val_actual = _val_sup
                 else:
                     _val_actual = _CLAUSULAS_EDITOR.get(_key, _CLAUSULAS_BASE.get(_key, ""))
-                _edits[_key] = st.text_area(
-                    _label,
-                    value=_val_actual,
-                    height=80,
-                    key=f"plt_{_key}"
+
+                # Preview con marcadores en rojo
+                _preview_html = _re_ed.sub(
+                    r'(\{\{[A-Z_]+\}\})',
+                    r'<span class="clause-marker">\1</span>',
+                    _val_actual.replace("<b>", "<strong>").replace("</b>", "</strong>")
                 )
+                st.markdown(f'<div class="clause-label">{_label}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="clause-preview">{_preview_html}</div>', unsafe_allow_html=True)
+
+                # Textarea para editar (altura proporcional al contenido)
+                _n_lines = max(4, _val_actual.count("\n") + 3)
+                _height = min(300, _n_lines * 22)
+                _edits[_key] = st.text_area(
+                    f"✏️ Editar {_label}",
+                    value=_val_actual,
+                    height=_height,
+                    key=f"plt_{_key}",
+                    label_visibility="collapsed"
+                )
+                st.markdown("---")
 
             # ── Botones ──
             _bc1, _bc2, _bc3 = st.columns([2, 2, 2])
