@@ -10049,16 +10049,27 @@ with tab_contrato:
             <div class="markers-wrap">{_markers_html}</div>
             <script>
             function copyMarker(el, text) {{
-                navigator.clipboard.writeText(text).then(function() {{
-                    el.classList.add('copied');
-                    el.querySelector('.marker-text').style.display = 'none';
-                    el.querySelector('.marker-copied').style.display = 'inline';
-                    setTimeout(function() {{
-                        el.classList.remove('copied');
-                        el.querySelector('.marker-text').style.display = 'inline';
-                        el.querySelector('.marker-copied').style.display = 'none';
-                    }}, 1500);
-                }});
+                try {{
+                    var ta = document.createElement("textarea");
+                    ta.value = text;
+                    ta.style.position = "fixed";
+                    ta.style.top = "0";
+                    ta.style.left = "0";
+                    ta.style.opacity = "0";
+                    document.body.appendChild(ta);
+                    ta.focus();
+                    ta.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(ta);
+                }} catch(e) {{}}
+                el.classList.add("copied");
+                el.querySelector(".marker-text").style.display = "none";
+                el.querySelector(".marker-copied").style.display = "inline";
+                setTimeout(function() {{
+                    el.classList.remove("copied");
+                    el.querySelector(".marker-text").style.display = "inline";
+                    el.querySelector(".marker-copied").style.display = "none";
+                }}, 1500);
             }}
             </script>
             """, unsafe_allow_html=True)
