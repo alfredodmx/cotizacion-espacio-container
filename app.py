@@ -9823,7 +9823,7 @@ with tab_contrato:
             # ── Definición de cláusulas editables (plantilla base) ──
             _CLAUSULAS_BASE = {
                 "intro":        "En Santiago de Chile, a {{FECHA}}, comparecen:",
-                "comparecencia_cliente": "{{TRATAMIENTO}} {{CLIENTE}}, cédula nacional de identidad N° {{RUT_CLIENTE}}, con domicilio en {{DOMICILIO_CLIENTE}}, comuna de {{COMUNA_CLIENTE}}, Región {{REGION_CLIENTE}}, quien en adelante se denominará \"el Cliente\".\n\nSe deja expresa constancia que la dirección de instalación del proyecto será <b>{{DOMICILIO_INST}}</b>, comuna de <b>{{COMUNA_INST}}</b>, Región {{REGION_INST}}.\n\nLas partes declaran ser mayores de edad, con plena capacidad legal para contratar, y acuerdan celebrar el presente <b>Contrato de Fabricación y Venta de Vivienda Tipo Container</b>, el cual se regirá por las cláusulas que se indican a continuación.",
+                "comparecencia_cliente": "{{TRATAMIENTO}} {{CLIENTE}}, cédula nacional de identidad N° {{RUT_CLIENTE}}, con domicilio en {{DOMICILIO_CLIENTE}}, comuna de {{COMUNA_CLIENTE}}, Región {{REGION_CLIENTE}}, quien en adelante se denominará \"el Cliente\".",
                 "instalacion":  "Se deja expresa constancia que la dirección de instalación del proyecto será {{DOMICILIO_INST}}, comuna de {{COMUNA_INST}}, Región {{REGION_INST}}.",
                 "definiciones": "a) Proyecto: La vivienda tipo container identificada como Proyecto N° {{EP}} – \"{{EP_NOMBRE}}\".",
                 "objeto":       "El Cliente encarga al Proveedor la fabricación y venta del Proyecto individualizado precedentemente, conforme a los planos entregados por el Cliente, a las especificaciones técnicas, y al presupuesto detallado contenido en el Anexo N°2, documentos que el Cliente declara conocer, aceptar y que forman parte integrante e inseparable del presente contrato.",
@@ -9843,7 +9843,7 @@ with tab_contrato:
 
             _CLAUSULAS_EDITOR = {
                 "intro":        "En Santiago de Chile, a {{FECHA}}, comparecen:",
-                "comparecencia_cliente": "{{TRATAMIENTO}} {{CLIENTE}}, cédula nacional de identidad N° {{RUT_CLIENTE}}, con domicilio en {{DOMICILIO_CLIENTE}}, comuna de {{COMUNA_CLIENTE}}, Región {{REGION_CLIENTE}}, quien en adelante se denominará \"el Cliente\".\n\nSe deja expresa constancia que la dirección de instalación del proyecto será <b>{{DOMICILIO_INST}}</b>, comuna de <b>{{COMUNA_INST}}</b>, Región {{REGION_INST}}.\n\nLas partes declaran ser mayores de edad, con plena capacidad legal para contratar, y acuerdan celebrar el presente <b>Contrato de Fabricación y Venta de Vivienda Tipo Container</b>, el cual se regirá por las cláusulas que se indican a continuación.",
+                "comparecencia_cliente": "{{TRATAMIENTO}} {{CLIENTE}}, cédula nacional de identidad N° {{RUT_CLIENTE}}, con domicilio en {{DOMICILIO_CLIENTE}}, comuna de {{COMUNA_CLIENTE}}, Región {{REGION_CLIENTE}}, quien en adelante se denominará \"el Cliente\".",
                 "instalacion":  "Se deja expresa constancia que la dirección de instalación del proyecto será <b>{{DOMICILIO_INST}}</b>, comuna de <b>{{COMUNA_INST}}</b>, Región {{REGION_INST}}.",
                 "definiciones": "a) <b>Proyecto</b>: La vivienda tipo container identificada como <b>Proyecto N° {{EP}} – \"{{EP_NOMBRE}}\"</b>.\nb) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte integrante del presente contrato, en especial Anexo N°1 (Especificaciones Técnicas) y Anexo N°2 (Presupuesto Detallado).\nc) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su despacho desde las instalaciones del Proveedor.",
                 "definiciones": "a) <b>Proyecto</b>: La vivienda tipo container identificada como <b>Proyecto N° {{EP}} – \"{{EP_NOMBRE}}\"</b>.\nb) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte integrante del presente contrato, en especial Anexo N°1 (Especificaciones Técnicas) y Anexo N°2 (Presupuesto Detallado).\nc) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su despacho desde las instalaciones del Proveedor.",
@@ -9867,7 +9867,7 @@ with tab_contrato:
             _LABELS_READONLY = {"definiciones", "medios_pago"}
             _LABELS = {
                 "intro":               "Introducción",
-                "comparecencia_cliente": "I. Comparecencia — El Cliente",
+                "comparecencia_cliente": "I. Comparecencia — El Cliente (el texto de instalación y declaración son fijos del sistema)",
                 "definiciones":        "II. Definiciones",
                 "objeto":              "III. Objeto del contrato",
                 "alcance":             "IV. Alcance técnico",
