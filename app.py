@@ -4536,7 +4536,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     # ── X. Plazo ──
     story += [
         Paragraph("X. PLAZO DE FABRICACIÓN Y ENTREGA", seccion),
-        Paragraph(_p("plazo", f"El plazo máximo de fabricación y entrega será de <b>{d['plazo_dias']} días hábiles administrativos</b>, contados desde el día hábil siguiente."), normal),
+        Paragraph(_p("plazo", f"El plazo máximo de fabricación y entrega será de <b>{d['plazo_dias']} días hábiles administrativos</b>, contados desde el día hábil siguiente a aquel en que los fondos del anticipo se encuentren efectivamente liberados."), normal),
         Paragraph(
             "El Cliente se obliga a contar con <b>radier y/o apoyos estructurales "
             "ejecutados, nivelados y aptos</b> para la instalación dentro de un plazo "
@@ -9853,7 +9853,7 @@ with tab_contrato:
 
             _CLAUSULAS_EDITOR = {
                 "intro":        "En Santiago de Chile, a {{FECHA}}, comparecen:",
-                "comparecencia_cliente": ''''{{TRATAMIENTO}} {{CLIENTE}}, cédula nacional de identidad N° {{RUT_CLIENTE}}, con domicilio en {{DOMICILIO_CLIENTE}}, comuna de {{COMUNA_CLIENTE}}, Región {{REGION_CLIENTE}}, quien en adelante se denominará "el Cliente".'''  ,
+                "comparecencia_cliente": "{{TRATAMIENTO}} {{CLIENTE}}, cédula nacional de identidad N° {{RUT_CLIENTE}}, con domicilio en {{DOMICILIO_CLIENTE}}, comuna de {{COMUNA_CLIENTE}}, Región {{REGION_CLIENTE}}, quien en adelante se denominará \"el Cliente\".",
                 "instalacion":  "Se deja expresa constancia que la dirección de instalación del proyecto será <b>{{DOMICILIO_INST}}</b>, comuna de <b>{{COMUNA_INST}}</b>, Región {{REGION_INST}}.",
                 "definiciones": "a) <b>Proyecto</b>: La vivienda tipo container identificada como <b>Proyecto N° {{EP}} – \"{{EP_NOMBRE}}\"</b>.",
                 "objeto":       "El Cliente encarga al Proveedor la <b>fabricación y venta</b> del Proyecto, conforme a los <b>planos entregados por el Cliente</b>, a las <b>especificaciones técnicas</b>, y al <b>presupuesto detallado contenido en el Anexo N°2</b>.",
