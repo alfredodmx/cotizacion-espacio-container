@@ -9923,11 +9923,11 @@ with tab_contrato:
                 try:
                     # Guardar en Supabase Storage
                     _fname = f"contratos/{_ep2}/contrato_{_ep2}_v{int(__import__('time').time())}.docx"
-                    _resp_up = supabase_admin.storage.from_("cotizaciones-storage").upload(
+                    _resp_up = supabase_admin.storage.from_("contratos").upload(
                         _fname, _word_bytes,
                         file_options={"content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
                     )
-                    _word_url_new = supabase_admin.storage.from_("cotizaciones-storage").get_public_url(_fname)
+                    _word_url_new = supabase_admin.storage.from_("contratos").get_public_url(_fname)
                     supabase.table("cotizaciones").update({
                         "contrato_word_url": _word_url_new
                     }).eq("numero", _ep2).execute()
