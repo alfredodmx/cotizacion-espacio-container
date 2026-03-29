@@ -4370,10 +4370,28 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     # ── Usar cláusulas pasadas como parámetro o cargar de Supabase ──
     _plt_cls = clausulas_externas if clausulas_externas else _obtener_clausulas_contrato()
 
-    def _p(clave, fallback=""):
-        """Obtiene texto de cláusula de la plantilla activa o usa fallback."""
-        txt = _plt_cls.get(clave, fallback) if _plt_cls else fallback
-        return _rep(txt, d) if txt else fallback
+    # Textos originales con negritas HTML — se usan si no hay plantilla personalizada
+    _ORIG = {
+        "intro":        f"En Santiago de Chile, a <b>{d['fecha_str']}</b>, comparecen:",
+        "instalacion":  f"Se deja expresa constancia que la dirección de instalación del proyecto será <b>{d['inst_domicilio']}</b>, comuna de <b>{d['inst_comuna']}</b>, Región {d['inst_region']}.",
+        "objeto":       "El Cliente encarga al Proveedor la <b>fabricación y venta</b> del Proyecto individualizado precedentemente, conforme a los <b>planos entregados por el Cliente</b>, a las <b>especificaciones técnicas</b>, y al <b>presupuesto detallado contenido en el Anexo N°2</b>, documentos que el Cliente declara conocer, aceptar y que forman parte integrante e inseparable del presente contrato.",
+        "alcance":      f"El Proveedor declara contar con la experiencia, conocimientos técnicos, personal calificado, herramientas e infraestructura necesarias para la correcta ejecución del Proyecto, comprometiéndose a:\na) Fabricar el módulo conforme a la normativa vigente aplicable.\nb) Respetar las especificaciones técnicas y alcances definidos en los Anexos.\nc) Ejecutar los trabajos con estándares de calidad y seguridad.\nCualquier trabajo, modificación o prestación no contemplada expresamente en los Anexos será considerada <b>obra adicional</b>, debiendo ser cotizada y aprobada por escrito por ambas partes.",
+        "visitas":      "El Cliente podrá realizar visitas de seguimiento a las instalaciones del Proveedor ubicadas en <b>Portezuelo, parcela 3, Colina, Región Metropolitana</b>, previa coordinación con al menos <b>48 horas hábiles de anticipación</b>, con el único objeto de verificar el avance del Proyecto, quedando expresamente prohibida cualquier interferencia en los procesos productivos o instrucciones al personal del Proveedor.",
+        "precio":       f"El precio total del Proyecto asciende a la suma de <b>{fmt(precio)}</b> ({precio_p}), IVA incluido.",
+        "inicio":       "La fabricación del Proyecto se iniciará <b>única y exclusivamente</b> una vez recibido y efectivamente abonado el pago inicial del <b>50% del valor total del contrato</b>.",
+        "penalidad":    "En caso de atraso imputable exclusivamente al Proveedor en los plazos establecidos para la fabricación o entrega del Proyecto, éste pagará al Cliente, a título de indemnización única y total, una suma equivalente al <b>1% del valor neto correspondiente al último 25% del Proyecto por cada 7 días hábiles de atraso</b>, con un <b>tope máximo del 10% del valor neto de dicho monto</b>.",
+        "bodegaje":     "Una vez notificada la finalización del Proyecto, el Cliente dispondrá de un plazo máximo de <b>10 días hábiles</b> para coordinar el retiro o despacho del módulo. Vencido dicho plazo, el Proveedor quedará facultado para cobrar un <b>cargo por bodegaje equivalente al 1% del valor neto del Proyecto por cada 7 días corridos</b>, hasta el retiro efectivo.",
+        "garantia":     "El Proveedor otorga una garantía de <b>6 meses</b> contados desde la entrega del módulo, limitada exclusivamente a <b>defectos de fabricación o construcción imputables al proceso productivo</b>.\nQuedan expresamente excluidos de garantía los daños derivados de:\n• Mal uso o uso distinto al previsto\n• Modificaciones no autorizadas\n• Transporte realizado por terceros\n• Vandalismo\n• Fenómenos naturales\n• Falta de mantención adecuada",
+        "terminacion":  "El presente contrato podrá terminarse anticipadamente por:\na) Incumplimiento grave de cualquiera de las partes.\nb) Mutuo acuerdo por escrito.\nc) No pago oportuno de cualquiera de las etapas de pago.\nEn caso de término imputable al Cliente, los montos pagados <b>no serán reembolsables</b>, salvo acuerdo distinto por escrito.",
+        "jurisdiccion": "Para todos los efectos legales derivados del presente contrato, las partes fijan su domicilio en la <b>ciudad de Santiago</b>, y se someten a la competencia de sus <b>Tribunales Ordinarios de Justicia</b>.",
+        "firma":        "El presente contrato se firma en <b>dos ejemplares de igual tenor y fecha</b>, quedando uno en poder de cada parte.",
+    }
+
+    def _p(clave, fallback=None):
+        """Usa texto de Supabase si existe, sino usa original con negritas."""
+        if _plt_cls and clave in _plt_cls and _plt_cls[clave]:
+            return _rep(_plt_cls[clave], d)
+        return _ORIG.get(clave, fallback or "")
 
     story = []
 
@@ -4439,14 +4457,14 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
 
     # ── IV. Alcance técnico ──
     story += [Paragraph("IV. ALCANCE TÉCNICO Y EJECUCIÓN", seccion)]
-    for _l in _p("alcance", "El Proveedor se compromete a fabricar conforme a normativa vigente.").split("\n"):
+    for _l in _p("alcance", None).split("\n"):
         if _l.strip(): story.append(Paragraph(_l.strip(), normal))
     story += [HR()]
 
     # ── V. Visitas ──
     story += [
         Paragraph("V. VISITAS Y SEGUIMIENTO DEL PROYECTO", seccion),
-        Paragraph(_p("visitas", "El Cliente podrá realizar visitas previa coordinación de 48 horas."), normal),
+        Paragraph(_p("visitas", None), normal),
         HR(),
     ]
 
@@ -4479,7 +4497,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     # ── VIII. Inicio fabricación ──
     story += [
         Paragraph("VIII. INICIO DE FABRICACIÓN", seccion),
-        Paragraph(_p("inicio", "La fabricación se iniciará una vez recibido el 50% inicial."), normal),
+        Paragraph(_p("inicio", None), normal),
         HR(),
     ]
 
@@ -4530,40 +4548,40 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
 
     # ── XI. Penalidad ──
     story += [Paragraph("XI. PENALIDAD POR ATRASO", seccion)]
-    for _l in _p("penalidad", "En caso de atraso imputable al Proveedor, pagará 1% por 7 días.").split("\n"):
+    for _l in _p("penalidad", None).split("\n"):
         if _l.strip(): story.append(Paragraph(_l.strip(), normal))
     story += [HR()]
 
     # ── XII. Retiro y bodegaje ──
     story += [
         Paragraph("XII. RETIRO, DESPACHO Y BODEGAJE", seccion),
-        Paragraph(_p("bodegaje", "El Cliente dispondrá de 10 días hábiles para coordinar el retiro."), normal),
+        Paragraph(_p("bodegaje", None), normal),
         HR(),
     ]
 
     # ── XIII. Garantía ──
     story += [Paragraph("XIII. GARANTÍA", seccion)]
-    for _l in _p("garantia", "El Proveedor otorga garantía de 6 meses.").split("\n"):
+    for _l in _p("garantia", None).split("\n"):
         if _l.strip(): story.append(Paragraph(_l.strip(), normal))
     story += [HR()]
 
     # ── XIV. Terminación anticipada ──
     story += [Paragraph("XIV. TERMINACIÓN ANTICIPADA", seccion)]
-    for _l in _p("terminacion", "El contrato podrá terminarse por incumplimiento, mutuo acuerdo o no pago.").split("\n"):
+    for _l in _p("terminacion", None).split("\n"):
         if _l.strip(): story.append(Paragraph(_l.strip(), normal))
     story += [HR()]
 
     # ── XV. Domicilio y jurisdicción ──
     story += [
         Paragraph("XV. DOMICILIO Y JURISDICCIÓN", seccion),
-        Paragraph(_p("jurisdiccion", "Las partes fijan domicilio en Santiago y se someten a sus Tribunales."), normal),
+        Paragraph(_p("jurisdiccion", None), normal),
         PageBreak(),
     ]
 
     # ── XVI. Firma ──
     story += [
         Paragraph("XVI. FIRMA", seccion),
-        Paragraph(_p("firma", "El presente contrato se firma en dos ejemplares de igual tenor y fecha."), normal),
+        Paragraph(_p("firma", None), normal),
         SP(60),
     ]
 
