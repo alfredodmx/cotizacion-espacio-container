@@ -9861,7 +9861,7 @@ with tab_contrato:
 
             _CLAUSULAS_EDITOR = {
                 "intro":        "En Santiago de Chile, a {{FECHA}}, comparecen:",
-                "comparecencia_cliente": "{{TRATAMIENTO}} {{CLIENTE}}, cédula nacional de identidad N° {{RUT_CLIENTE}}, con domicilio en {{DOMICILIO_CLIENTE}}, comuna de {{COMUNA_CLIENTE}}, Región {{REGION_CLIENTE}}, quien en adelante se denominará \"el Cliente\".\n\nSe deja expresa constancia que la dirección de instalación del proyecto será <b>{{DOMICILIO_INST}}</b>, comuna de <b>{{COMUNA_INST}}</b>, Región {{REGION_INST}}.\n\nLas partes declaran ser mayores de edad, con plena capacidad legal para contratar, y acuerdan celebrar el presente <b>Contrato de Fabricación y Venta de Vivienda Tipo Container</b>, el cual se regirá por las cláusulas que se indican a continuación.",
+                "comparecencia_cliente": "{{TRATAMIENTO}} {{CLIENTE}}, cédula nacional de identidad N° {{RUT_CLIENTE}}, con domicilio en {{DOMICILIO_CLIENTE}}, comuna de {{COMUNA_CLIENTE}}, Región {{REGION_CLIENTE}}, quien en adelante se denominará \"el Cliente\".",
                 "instalacion":  "Se deja expresa constancia que la dirección de instalación del proyecto será <b>{{DOMICILIO_INST}}</b>, comuna de <b>{{COMUNA_INST}}</b>, Región {{REGION_INST}}.",
                 "definiciones": "a) <b>Proyecto</b>: La vivienda tipo container identificada como <b>Proyecto N° {{EP}} – \"{{EP_NOMBRE}}\"</b>.\nb) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte integrante del presente contrato, en especial Anexo N°1 (Especificaciones Técnicas) y Anexo N°2 (Presupuesto Detallado).\nc) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su despacho desde las instalaciones del Proveedor.",
                 "objeto":       "El Cliente encarga al Proveedor la <b>fabricación y venta</b> del Proyecto individualizado precedentemente, conforme a los <b>planos entregados por el Cliente</b>, a las <b>especificaciones técnicas</b>, y al <b>presupuesto detallado contenido en el Anexo N°2</b>, documentos que el Cliente declara conocer, aceptar y que forman parte integrante e inseparable del presente contrato.",
@@ -9879,24 +9879,23 @@ with tab_contrato:
                 "firma":        "El presente contrato se firma en <b>dos ejemplares de igual tenor y fecha</b>, quedando uno en poder de cada parte.",
             }
 
+            # Solo las cláusulas que realmente usa _p() en la generación del PDF
             _LABELS = {
-                "intro":        "Introducción",
-                "comparecencia_cliente": "I. Comparecencia — El Cliente + Instalación + Declaración",
-                "instalacion":  "II. Dirección de instalación",
-                "definiciones": "II. Definiciones — Proyecto",
-                "objeto":       "III. Objeto del contrato",
-                "alcance":      "IV. Alcance técnico",
-                "visitas":      "V. Visitas y seguimiento",
-                "precio":       "VI. Precio",
-                "forma_pago":   "VII. Forma de pago",
-                "inicio":       "VIII. Inicio de fabricación",
-                "plazo":        "X. Plazo",
-                "penalidad":    "XI. Penalidad por atraso",
-                "bodegaje":     "XII. Retiro y bodegaje",
-                "garantia":     "XIII. Garantía",
-                "terminacion":  "XIV. Terminación anticipada",
-                "jurisdiccion": "XV. Domicilio y jurisdicción",
-                "firma":        "XVI. Firma",
+                "intro":               "Introducción",
+                "comparecencia_cliente": "I. Comparecencia — El Cliente",
+                "objeto":              "III. Objeto del contrato",
+                "alcance":             "IV. Alcance técnico",
+                "visitas":             "V. Visitas y seguimiento",
+                "precio":              "VI. Precio",
+                "forma_pago":          "VII. Forma de pago",
+                "inicio":              "VIII. Inicio de fabricación",
+                "plazo":               "X. Plazo",
+                "penalidad":           "XI. Penalidad por atraso",
+                "bodegaje":            "XII. Retiro y bodegaje",
+                "garantia":            "XIII. Garantía",
+                "terminacion":         "XIV. Terminación anticipada",
+                "jurisdiccion":        "XV. Domicilio y jurisdicción",
+                "firma":               "XVI. Firma",
             }
 
             _MARCADORES = "{{FECHA}} {{TRATAMIENTO}} {{CLIENTE}} {{RUT_CLIENTE}} {{DOMICILIO_CLIENTE}} {{COMUNA_CLIENTE}} {{REGION_CLIENTE}} {{DOMICILIO_INST}} {{COMUNA_INST}} {{REGION_INST}} {{EP}} {{EP_NOMBRE}} {{TOTAL}} {{TOTAL_PALABRAS}} {{PAGO_50}} {{PAGO_50_PALABRAS}} {{PAGO_25A}} {{PAGO_25A_PALABRAS}} {{PAGO_25B}} {{PAGO_25B_PALABRAS}} {{PLAZO}}"
