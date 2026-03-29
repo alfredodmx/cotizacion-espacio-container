@@ -4388,10 +4388,10 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     }
 
     def _p(clave, fallback=None):
-        """Usa texto de Supabase si existe, sino usa original con negritas."""
+        """Usa texto de Supabase si existe (con sus <b>), sino usa original con negritas."""
         if _plt_cls and clave in _plt_cls and _plt_cls[clave]:
             return _rep(_plt_cls[clave], d)
-        return _ORIG.get(clave, fallback or "")
+        return _rep(_ORIG.get(clave, fallback or ""), d)
 
     story = []
 
@@ -9855,19 +9855,19 @@ with tab_contrato:
                 "intro":        "En Santiago de Chile, a {{FECHA}}, comparecen:",
                 "comparecencia_cliente": "{{TRATAMIENTO}} {{CLIENTE}}, cédula nacional de identidad N° {{RUT_CLIENTE}}, con domicilio en {{DOMICILIO_CLIENTE}}, comuna de {{COMUNA_CLIENTE}}, Región {{REGION_CLIENTE}}, quien en adelante se denominará \"el Cliente\".",
                 "instalacion":  "Se deja expresa constancia que la dirección de instalación del proyecto será <b>{{DOMICILIO_INST}}</b>, comuna de <b>{{COMUNA_INST}}</b>, Región {{REGION_INST}}.",
-                "definiciones": "a) <b>Proyecto</b>: La vivienda tipo container identificada como <b>Proyecto N° {{EP}} – \"{{EP_NOMBRE}}\"</b>.",
-                "objeto":       "El Cliente encarga al Proveedor la <b>fabricación y venta</b> del Proyecto, conforme a los <b>planos entregados por el Cliente</b>, a las <b>especificaciones técnicas</b>, y al <b>presupuesto detallado contenido en el Anexo N°2</b>.",
-                "alcance":      "El Proveedor se compromete a:\na) Fabricar el módulo conforme a la normativa vigente aplicable.\nb) Respetar las especificaciones técnicas y alcances definidos en los Anexos.\nc) Ejecutar los trabajos con estándares de calidad y seguridad.\nCualquier trabajo no contemplado será considerada <b>obra adicional</b>.",
-                "visitas":      "El Cliente podrá realizar visitas en <b>Portezuelo, parcela 3, Colina, Región Metropolitana</b>, previa coordinación con al menos <b>48 horas hábiles de anticipación</b>.",
+                "definiciones": "a) <b>Proyecto</b>: La vivienda tipo container identificada como <b>Proyecto N° {{EP}} – \"{{EP_NOMBRE}}\"</b>.\nb) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte integrante del presente contrato, en especial Anexo N°1 (Especificaciones Técnicas) y Anexo N°2 (Presupuesto Detallado).\nc) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su despacho desde las instalaciones del Proveedor.",
+                "objeto":       "El Cliente encarga al Proveedor la <b>fabricación y venta</b> del Proyecto individualizado precedentemente, conforme a los <b>planos entregados por el Cliente</b>, a las <b>especificaciones técnicas</b>, y al <b>presupuesto detallado contenido en el Anexo N°2</b>, documentos que el Cliente declara conocer, aceptar y que forman parte integrante e inseparable del presente contrato.",
+                "alcance":      "El Proveedor declara contar con la experiencia, conocimientos técnicos, personal calificado, herramientas e infraestructura necesarias para la correcta ejecución del Proyecto, comprometiéndose a:\na) Fabricar el módulo conforme a la normativa vigente aplicable.\nb) Respetar las especificaciones técnicas y alcances definidos en los Anexos.\nc) Ejecutar los trabajos con estándares de calidad y seguridad.\nCualquier trabajo, modificación o prestación no contemplada expresamente en los Anexos será considerada <b>obra adicional</b>, debiendo ser cotizada y aprobada por escrito por ambas partes.",
+                "visitas":      "El Cliente podrá realizar visitas de seguimiento a las instalaciones del Proveedor ubicadas en <b>Portezuelo, parcela 3, Colina, Región Metropolitana</b>, previa coordinación con al menos <b>48 horas hábiles de anticipación</b>, con el único objeto de verificar el avance del Proyecto, quedando expresamente prohibida cualquier interferencia en los procesos productivos o instrucciones al personal del Proveedor.",
                 "precio":       "El precio total del Proyecto asciende a la suma de <b>{{TOTAL}}</b> ({{TOTAL_PALABRAS}}), IVA incluido.",
-                "forma_pago":   "El precio será pagado en las siguientes etapas:\na) <b>50% inicial</b>: <b>{{PAGO_50}}</b> ({{PAGO_50_PALABRAS}}).\nb) <b>25% intermedio</b>: <b>{{PAGO_25A}}</b> ({{PAGO_25A_PALABRAS}}).\nc) <b>25% final</b>: <b>{{PAGO_25B}}</b> ({{PAGO_25B_PALABRAS}}).",
-                "inicio":       "La fabricación se iniciará <b>única y exclusivamente</b> una vez recibido el pago inicial del <b>50% del valor total del contrato</b>.",
+                "forma_pago":   "El precio será pagado por el Cliente al Proveedor en las siguientes etapas:\na) <b>50% inicial</b>: <b>{{PAGO_50}}</b> ({{PAGO_50_PALABRAS}}), correspondiente a la asignación del contenedor y ejecución de obra gruesa.\nb) <b>25% intermedio</b>: <b>{{PAGO_25A}}</b> ({{PAGO_25A_PALABRAS}}), una vez finalizada la obra gruesa.\nc) <b>25% final</b>: <b>{{PAGO_25B}}</b> ({{PAGO_25B_PALABRAS}}), luego de la preentrega del Proyecto y el mismo día del despacho del módulo.",
+                "inicio":       "La fabricación del Proyecto se iniciará <b>única y exclusivamente</b> una vez recibido y efectivamente abonado el pago inicial del <b>50% del valor total del contrato</b>.",
                 "plazo":        "El plazo máximo de fabricación y entrega será de <b>{{PLAZO}} días hábiles administrativos</b>, contados desde el día hábil siguiente a aquel en que los fondos del anticipo se encuentren efectivamente liberados.",
-                "penalidad":    "En caso de atraso imputable al Proveedor, éste pagará una suma equivalente al <b>1% del valor neto del último 25% por cada 7 días hábiles de atraso</b>, con <b>tope máximo del 10%</b>.",
-                "bodegaje":     "Una vez finalizado el Proyecto, el Cliente dispondrá de <b>10 días hábiles</b> para coordinar el retiro. Vencido ese plazo, se cobrará <b>bodegaje del 1% del valor neto por cada 7 días corridos</b>.",
-                "garantia":     "El Proveedor otorga garantía de <b>6 meses</b> por <b>defectos de fabricación o construcción</b>.\nQuedan excluidos:\n• Mal uso\n• Modificaciones no autorizadas\n• Transporte por terceros\n• Vandalismo\n• Fenómenos naturales\n• Falta de mantención",
-                "terminacion":  "El contrato podrá terminarse por:\na) Incumplimiento grave.\nb) Mutuo acuerdo por escrito.\nc) No pago oportuno.\nEn caso de término imputable al Cliente, los montos pagados <b>no serán reembolsables</b>.",
-                "jurisdiccion": "Las partes fijan domicilio en la <b>ciudad de Santiago</b> y se someten a la competencia de sus <b>Tribunales Ordinarios de Justicia</b>.",
+                "penalidad":    "En caso de atraso imputable exclusivamente al Proveedor en los plazos establecidos para la fabricación o entrega del Proyecto, éste pagará al Cliente, a título de indemnización única y total, una suma equivalente al <b>1% del valor neto correspondiente al último 25% del Proyecto por cada 7 días hábiles de atraso</b>, con un <b>tope máximo del 10% del valor neto de dicho monto</b>.\nNo se considerarán atrasos imputables al Proveedor aquellos derivados de caso fortuito, fuerza mayor, condiciones climáticas adversas, retrasos de proveedores externos, o cualquier situación no atribuible directamente al Proveedor.\nAsimismo, en caso de que el atraso sea imputable al Cliente, ya sea por retraso en los pagos comprometidos, falta de entrega de antecedentes necesarios, impedimentos de acceso al lugar de instalación, o cualquier otra circunstancia bajo su responsabilidad, los plazos del Proyecto se extenderán automáticamente por el mismo período de tiempo que dure dicho atraso, sin que ello genere responsabilidad ni penalidad alguna para el Proveedor.",
+                "bodegaje":     "Una vez notificada la finalización del Proyecto, el Cliente dispondrá de un plazo máximo de <b>10 días hábiles</b> para coordinar el retiro o despacho del módulo. Vencido dicho plazo, el Proveedor quedará facultado para cobrar un <b>cargo por bodegaje equivalente al 1% del valor neto del Proyecto por cada 7 días corridos</b>, hasta el retiro efectivo.",
+                "garantia":     "El Proveedor otorga una garantía de <b>6 meses</b> contados desde la entrega del módulo, limitada exclusivamente a <b>defectos de fabricación o construcción imputables al proceso productivo</b>.\nQuedan expresamente excluidos de garantía los daños derivados de:\n• Mal uso o uso distinto al previsto\n• Modificaciones no autorizadas\n• Transporte realizado por terceros\n• Vandalismo\n• Fenómenos naturales\n• Falta de mantención adecuada",
+                "terminacion":  "El presente contrato podrá terminarse anticipadamente por:\na) Incumplimiento grave de cualquiera de las partes.\nb) Mutuo acuerdo por escrito.\nc) No pago oportuno de cualquiera de las etapas de pago.\nEn caso de término imputable al Cliente, los montos pagados <b>no serán reembolsables</b>, salvo acuerdo distinto por escrito.",
+                "jurisdiccion": "Para todos los efectos legales derivados del presente contrato, las partes fijan su domicilio en la <b>ciudad de Santiago</b>, y se someten a la competencia de sus <b>Tribunales Ordinarios de Justicia</b>.",
                 "firma":        "El presente contrato se firma en <b>dos ejemplares de igual tenor y fecha</b>, quedando uno en poder de cada parte.",
             }
 
@@ -9985,7 +9985,7 @@ with tab_contrato:
             st.markdown("**✏️ Cláusulas editables:**")
             _edits = {}
             for _key, _label in _LABELS.items():
-                # Mostrar texto con negritas de Supabase si fue editado, sino el original con negritas
+                # Mostrar texto con <b> para que el usuario pueda editar negritas
                 _val_actual = _clausulas_act.get(_key, _CLAUSULAS_EDITOR.get(_key, _CLAUSULAS_BASE.get(_key, "")))
                 _edits[_key] = st.text_area(
                     _label,
@@ -10005,7 +10005,13 @@ with tab_contrato:
                 if st.button("💾 Guardar nueva versión", type="primary", use_container_width=True, key="plt_guardar"):
                     _usr_plt = st.session_state.get("auth_nombre", "") or st.session_state.get("auth_email", "Sistema")
                     # Solo guardar cláusulas que difieren del original
-                    _solo_cambios = {k: v for k, v in _edits.items() if v.strip() != _CLAUSULAS_BASE.get(k, "").strip()}
+                    import re as _re
+                    def _strip_html(t): return _re.sub(r'<[^>]+>', '', t).strip()
+                    # Comparar sin HTML para detectar cambios reales de texto
+                    _solo_cambios = {
+                        k: v for k, v in _edits.items()
+                        if _strip_html(v) != _strip_html(_CLAUSULAS_EDITOR.get(k, _CLAUSULAS_BASE.get(k, "")))
+                    }
                     if not _solo_cambios:
                         st.warning("No hay cambios respecto a la plantilla original.")
                     else:
