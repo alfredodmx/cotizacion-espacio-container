@@ -4189,6 +4189,45 @@ def generar_word_contrato(datos):
     return buf
 
 
+def _obtener_clausulas_contrato():
+    try:
+        _res = supabase.table("plantillas_contrato").select("clausulas").eq("activa", True).execute()
+        if _res.data and _res.data[0].get("clausulas"):
+            return _res.data[0]["clausulas"]
+    except Exception:
+        pass
+    return None
+
+def _rep(texto, d):
+    """Reemplaza marcadores con datos reales."""
+    fmt = lambda v: "${:,.0f}".format(v).replace(",",".") if v else "$0"
+    m = {
+        "{{FECHA}}":           d.get("fecha_str", ""),
+        "{{TRATAMIENTO}}":     d.get("cli_tratamiento", "Don"),
+        "{{CLIENTE}}":         d.get("cli_nombre", ""),
+        "{{RUT_CLIENTE}}":     d.get("cli_rut", ""),
+        "{{DOMICILIO_CLIENTE}}": d.get("cli_domicilio", ""),
+        "{{COMUNA_CLIENTE}}":  d.get("cli_comuna", ""),
+        "{{REGION_CLIENTE}}":  d.get("cli_region", ""),
+        "{{DOMICILIO_INST}}":  d.get("inst_domicilio", ""),
+        "{{COMUNA_INST}}":     d.get("inst_comuna", ""),
+        "{{REGION_INST}}":     d.get("inst_region", ""),
+        "{{EP}}":              d.get("ep_numero", ""),
+        "{{EP_NOMBRE}}":       d.get("ep_nombre", ""),
+        "{{TOTAL}}":           fmt(d.get("precio_total", 0)),
+        "{{TOTAL_PALABRAS}}":  monto_a_palabras(d.get("precio_total", 0)),
+        "{{PAGO_50}}":         fmt(d.get("pago_50", 0)),
+        "{{PAGO_50_PALABRAS}}": monto_a_palabras(d.get("pago_50", 0)),
+        "{{PAGO_25A}}":        fmt(d.get("pago_25a", 0)),
+        "{{PAGO_25A_PALABRAS}}": monto_a_palabras(d.get("pago_25a", 0)),
+        "{{PAGO_25B}}":        fmt(d.get("pago_25b", 0)),
+        "{{PAGO_25B_PALABRAS}}": monto_a_palabras(d.get("pago_25b", 0)),
+        "{{PLAZO}}":           str(d.get("plazo_dias", 45)),
+    }
+    for k, v in m.items():
+        texto = texto.replace(k, str(v))
+    return texto
+
 def generar_pdf_contrato(datos):
     """
     Genera PDF del contrato a partir del dict `datos` con campos:
@@ -4328,6 +4367,14 @@ def generar_pdf_contrato(datos):
             f"Región {d['cli_region']}, quien en adelante se denominará \"el Cliente\"."
         )
 
+    # ── Cargar cláusulas de plantilla activa ──
+    _plt_cls = _obtener_clausulas_contrato()
+
+    def _p(clave, fallback=""):
+        """Obtiene texto de cláusula de la plantilla activa o usa fallback."""
+        txt = _plt_cls.get(clave, fallback) if _plt_cls else fallback
+        return _rep(txt, d) if txt else fallback
+
     story = []
 
     # ── Encabezado del documento ──
@@ -4336,7 +4383,7 @@ def generar_pdf_contrato(datos):
         Paragraph("VIVIENDA TIPO CONTAINER", subtit),
         SP(4),
         HRFlowable(width="100%", thickness=1.5, color=AZUL, spaceAfter=10, spaceBefore=0),
-        Paragraph(f"En Santiago de Chile, a <b>{d['fecha_str']}</b>, comparecen:", normal),
+        Paragraph(_p("intro", f"En Santiago de Chile, a <b>{d['fecha_str']}</b>, comparecen:"), normal),
         SP(4),
     ]
 
@@ -4354,12 +4401,9 @@ def generar_pdf_contrato(datos):
             "indistintamente \"el Proveedor\".", normal),
         SP(6),
         Paragraph("2. EL CLIENTE", bold),
-        Paragraph(cli_bloque, normal),
+        Paragraph(_p("comparecencia_cliente", cli_bloque), normal),
         SP(4),
-        Paragraph(
-            f"Se deja expresa constancia que la dirección de instalación del proyecto "
-            f"será <b>{d['inst_domicilio']}</b>, comuna de <b>{d['inst_comuna']}</b>, "
-            f"Región {d['inst_region']}.", normal),
+        Paragraph(_p('instalacion', f"Se deja expresa constancia que la dirección de instalación del proyecto será <b>{d['inst_domicilio']}</b>, comuna de <b>{d['inst_comuna']}</b>, Región {d['inst_region']}."), normal),
         SP(4),
         Paragraph(
             "Las partes declaran ser mayores de edad, con plena capacidad legal para "
@@ -4389,13 +4433,7 @@ def generar_pdf_contrato(datos):
     # ── III. Objeto ──
     story += [
         Paragraph("III. OBJETO DEL CONTRATO", seccion),
-        Paragraph(
-            "El Cliente encarga al Proveedor la <b>fabricación y venta</b> del Proyecto "
-            "individualizado precedentemente, conforme a los <b>planos entregados por el "
-            "Cliente</b>, a las <b>especificaciones técnicas</b>, y al <b>presupuesto "
-            "detallado contenido en el Anexo N°2</b>, documentos que el Cliente declara "
-            "conocer, aceptar y que forman parte integrante e inseparable del presente "
-            "contrato.", normal),
+        Paragraph(_p("objeto", "El Cliente encarga al Proveedor la fabricación y venta del Proyecto individualizado precedentemente."), normal),
         HR(),
     ]
 
@@ -4432,9 +4470,7 @@ def generar_pdf_contrato(datos):
     # ── VI. Precio ──
     story += [
         Paragraph("VI. PRECIO", seccion),
-        Paragraph(
-            f"El precio total del Proyecto asciende a la suma de "
-            f"<b>{fmt(precio)}</b> ({precio_p}), IVA incluido.", normal),
+        Paragraph(_p("precio", f"El precio total del Proyecto asciende a la suma de <b>{fmt(precio)}</b> ({precio_p}), IVA incluido."), normal),
         HR(),
     ]
 
@@ -4502,11 +4538,7 @@ def generar_pdf_contrato(datos):
     # ── X. Plazo ──
     story += [
         Paragraph("X. PLAZO DE FABRICACIÓN Y ENTREGA", seccion),
-        Paragraph(
-            f"El plazo máximo de fabricación y entrega será de "
-            f"<b>{d['plazo_dias']} días hábiles administrativos</b>, contados desde el "
-            "día hábil siguiente a aquel en que los fondos del anticipo se encuentren "
-            "efectivamente liberados.", normal),
+        Paragraph(_p("plazo", f"El plazo máximo de fabricación y entrega será de <b>{d['plazo_dias']} días hábiles administrativos</b>, contados desde el día hábil siguiente."), normal),
         Paragraph(
             "El Cliente se obliga a contar con <b>radier y/o apoyos estructurales "
             "ejecutados, nivelados y aptos</b> para la instalación dentro de un plazo "
@@ -9837,147 +9869,219 @@ with tab_contrato:
     # SUB-PESTAÑA: EDITAR CONTRATO
     # ================================================================
     with _sub_editar:
-        st.markdown('<div class="cont-section">📝 Gestión de versiones del contrato</div>', unsafe_allow_html=True)
+        # Solo admin/root puede editar la plantilla global
+        if not st.session_state.modo_admin:
+            st.info("🔒 Solo administradores pueden editar la plantilla global del contrato.")
+        else:
+            # ── Definición de cláusulas editables (plantilla base) ──
+            _CLAUSULAS_BASE = {
+                "intro":        "En Santiago de Chile, a {{FECHA}}, comparecen:",
+                "comparecencia_cliente": "{{TRATAMIENTO}} {{CLIENTE}}, cédula nacional de identidad N° {{RUT_CLIENTE}}, con domicilio en {{DOMICILIO_CLIENTE}}, comuna de {{COMUNA_CLIENTE}}, Región {{REGION_CLIENTE}}, quien en adelante se denominará \"el Cliente\".",
+                "instalacion":  "Se deja expresa constancia que la dirección de instalación del proyecto será {{DOMICILIO_INST}}, comuna de {{COMUNA_INST}}, Región {{REGION_INST}}.",
+                "definiciones": "a) Proyecto: La vivienda tipo container identificada como Proyecto N° {{EP}} – \"{{EP_NOMBRE}}\".",
+                "objeto":       "El Cliente encarga al Proveedor la fabricación y venta del Proyecto individualizado precedentemente, conforme a los planos entregados por el Cliente, a las especificaciones técnicas, y al presupuesto detallado contenido en el Anexo N°2, documentos que el Cliente declara conocer, aceptar y que forman parte integrante e inseparable del presente contrato.",
+                "alcance":      "El Proveedor declara contar con la experiencia, conocimientos técnicos, personal calificado, herramientas e infraestructura necesarias para la correcta ejecución del Proyecto, comprometiéndose a:\na) Fabricar el módulo conforme a la normativa vigente aplicable.\nb) Respetar las especificaciones técnicas y alcances definidos en los Anexos.\nc) Ejecutar los trabajos con estándares de calidad y seguridad.\n\nCualquier trabajo, modificación o prestación no contemplada expresamente en los Anexos será considerada obra adicional, debiendo ser cotizada y aprobada por escrito por ambas partes.",
+                "visitas":      "El Cliente podrá realizar visitas de seguimiento a las instalaciones del Proveedor ubicadas en Portezuelo, parcela 3, Colina, Región Metropolitana, previa coordinación con al menos 48 horas hábiles de anticipación.",
+                "precio":       "El precio total del Proyecto asciende a la suma de {{TOTAL}} ({{TOTAL_PALABRAS}}), IVA incluido.",
+                "forma_pago":   "El precio será pagado por el Cliente al Proveedor en las siguientes etapas:\na) 50% inicial: {{PAGO_50}} ({{PAGO_50_PALABRAS}}), correspondiente a la asignación del contenedor y ejecución de obra gruesa.\nb) 25% intermedio: {{PAGO_25A}} ({{PAGO_25A_PALABRAS}}), una vez finalizada la obra gruesa.\nc) 25% final: {{PAGO_25B}} ({{PAGO_25B_PALABRAS}}), luego de la preentrega del Proyecto y el mismo día del despacho del módulo.",
+                "inicio":       "La fabricación del Proyecto se iniciará única y exclusivamente una vez recibido y efectivamente abonado el pago inicial del 50% del valor total del contrato.",
+                "plazo":        "El plazo máximo de fabricación y entrega será de {{PLAZO}} días hábiles administrativos, contados desde el día hábil siguiente a aquel en que los fondos del anticipo se encuentren efectivamente liberados.",
+                "penalidad":    "En caso de atraso imputable exclusivamente al Proveedor, éste pagará al Cliente una suma equivalente al 1% del valor neto correspondiente al último 25% del Proyecto por cada 7 días hábiles de atraso, con un tope máximo del 10% del valor neto de dicho monto.",
+                "bodegaje":     "Una vez notificada la finalización del Proyecto, el Cliente dispondrá de un plazo máximo de 10 días hábiles para coordinar el retiro o despacho del módulo. Vencido dicho plazo, el Proveedor quedará facultado para cobrar un cargo por bodegaje equivalente al 1% del valor neto del Proyecto por cada 7 días corridos.",
+                "garantia":     "El Proveedor otorga una garantía de 6 meses contados desde la entrega del módulo, limitada exclusivamente a defectos de fabricación o construcción imputables al proceso productivo.",
+                "terminacion":  "El presente contrato podrá terminarse anticipadamente por:\na) Incumplimiento grave de cualquiera de las partes.\nb) Mutuo acuerdo por escrito.\nc) No pago oportuno de cualquiera de las etapas de pago.\nEn caso de término imputable al Cliente, los montos pagados no serán reembolsables, salvo acuerdo distinto por escrito.",
+                "jurisdiccion": "Para todos los efectos legales derivados del presente contrato, las partes fijan su domicilio en la ciudad de Santiago, y se someten a la competencia de sus Tribunales Ordinarios de Justicia.",
+                "firma":        "El presente contrato se firma en dos ejemplares de igual tenor y fecha, quedando uno en poder de cada parte.",
+            }
 
-        # Buscar EP para editar
-        _col_ep2, _col_btn2 = st.columns([3, 1])
-        with _col_ep2:
-            _ep_edit = st.text_input("N° EP a gestionar", placeholder="Ej: EP-12345",
-                                     key="cont_ep_edit", label_visibility="collapsed")
-        with _col_btn2:
-            _buscar2 = st.button("🔍 Buscar", use_container_width=True, key="cont_buscar_edit")
+            _LABELS = {
+                "intro":        "Introducción",
+                "comparecencia_cliente": "II. Comparecencia — El Cliente",
+                "instalacion":  "II. Dirección de instalación",
+                "definiciones": "II. Definiciones — Proyecto",
+                "objeto":       "III. Objeto del contrato",
+                "alcance":      "IV. Alcance técnico",
+                "visitas":      "V. Visitas y seguimiento",
+                "precio":       "VI. Precio",
+                "forma_pago":   "VII. Forma de pago",
+                "inicio":       "VIII. Inicio de fabricación",
+                "plazo":        "X. Plazo",
+                "penalidad":    "XI. Penalidad por atraso",
+                "bodegaje":     "XII. Retiro y bodegaje",
+                "garantia":     "XIII. Garantía",
+                "terminacion":  "XIV. Terminación anticipada",
+                "jurisdiccion": "XV. Domicilio y jurisdicción",
+                "firma":        "XVI. Firma",
+            }
 
-        if _buscar2 and _ep_edit:
-            _cot2 = cargar_cotizacion(_ep_edit.strip().upper())
-            if _cot2:
-                st.session_state["cont_cot_edit"] = _cot2
-                st.session_state["cont_ep_edit_num"] = _ep_edit.strip().upper()
-                st.rerun()
-            else:
-                st.error(f"No se encontró {_ep_edit}")
+            _MARCADORES = "{{FECHA}} {{TRATAMIENTO}} {{CLIENTE}} {{RUT_CLIENTE}} {{DOMICILIO_CLIENTE}} {{COMUNA_CLIENTE}} {{REGION_CLIENTE}} {{DOMICILIO_INST}} {{COMUNA_INST}} {{REGION_INST}} {{EP}} {{EP_NOMBRE}} {{TOTAL}} {{TOTAL_PALABRAS}} {{PAGO_50}} {{PAGO_50_PALABRAS}} {{PAGO_25A}} {{PAGO_25A_PALABRAS}} {{PAGO_25B}} {{PAGO_25B_PALABRAS}} {{PLAZO}}"
 
-        if st.session_state.get("cont_cot_edit"):
-            _cot2   = st.session_state["cont_cot_edit"]
-            _ep2    = st.session_state["cont_ep_edit_num"]
-            _datos2 = st.session_state.get("_datos_contrato_last", {})
-
-            st.success(f"✅ EP **{_ep2}** — {_cot2.get('cliente_nombre', '—')}")
-
-            # ── Versión activa ──
-            _word_url_act = _cot2.get("contrato_word_url", "")
-            _tiene_word   = bool(_word_url_act)
-
-            if _tiene_word:
-                st.markdown(f"""
-                <div style='background:#e8eef7;border:1.5px solid #0f3460;border-radius:12px;
-                            padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;'>
-                  <div>
-                    <div style='font-size:0.65rem;font-weight:900;color:#0f3460;text-transform:uppercase;letter-spacing:0.08em;'>Versión Word activa</div>
-                    <div style='font-size:1rem;font-weight:700;color:#0f3460;margin-top:4px;'>contrato_{_ep2}.docx</div>
-                  </div>
-                  <span style='background:#0f3460;color:white;border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;'>✅ ACTIVO</span>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.info("ℹ️ Sin versión Word personalizada — se usa el contrato generado por el sistema.")
-
-            # ── Descargar versión actual ──
-            st.markdown('<div class="cont-section" style="margin-top:12px;">⬇️ Descargar versión actual</div>', unsafe_allow_html=True)
-            _dc1, _dc2 = st.columns(2)
-            with _dc1:
-                if _datos2:
-                    try:
-                        _wb = generar_word_contrato(_datos2)
-                        if _wb:
-                            st.download_button(
-                                label="📝 Descargar Word (editable)",
-                                data=_wb,
-                                file_name=f"Contrato_{_ep2}.docx",
-                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                use_container_width=True,
-                                key="edit_dl_word",
-                                help="Campos en AZUL NEGRITA = NO modificar"
-                            )
-                    except Exception as _ew:
-                        st.button("📝 Descargar Word", disabled=True, use_container_width=True,
-                                  help=f"Genera el PDF primero en 'Imprimir contrato'")
-                else:
-                    st.button("📝 Descargar Word", disabled=True, use_container_width=True,
-                              help="Genera el PDF primero en 'Imprimir contrato'")
-            with _dc2:
-                if _cot2.get("contrato_generado"):
-                    st.info("Genera el PDF desde 'Imprimir contrato' para descargarlo.")
-                else:
-                    st.caption("Sin contrato generado aún.")
-
-            # ── Subir nueva versión ──
-            st.markdown('<div class="cont-section" style="margin-top:12px;">📤 Subir nueva versión</div>', unsafe_allow_html=True)
-            _word_up = st.file_uploader(
-                "Sube el .docx modificado",
-                type=["docx"],
-                key="cont_word_upload",
-                help="Sube el Word que descargaste y editaste. Los campos en azul se usarán como referencia."
-            )
-            if _word_up:
-                _word_bytes = _word_up.read()
+            # ── Cargar plantilla activa de Supabase ──
+            def _cargar_plantilla_activa():
                 try:
-                    # Guardar en Supabase Storage
-                    _fname = f"contratos/{_ep2}/contrato_{_ep2}_v{int(__import__('time').time())}.docx"
-                    _resp_up = supabase_admin.storage.from_("contratos").upload(
-                        _fname, _word_bytes,
-                        file_options={"content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
-                    )
-                    _word_url_new = supabase_admin.storage.from_("contratos").get_public_url(_fname)
-                    supabase.table("cotizaciones").update({
-                        "contrato_word_url": _word_url_new
-                    }).eq("numero", _ep2).execute()
-                    st.session_state["cont_cot_edit"]["contrato_word_url"] = _word_url_new
-                    st.success(f"✅ Nueva versión subida y activada para {_ep2}")
+                    _res = supabase.table("plantillas_contrato").select("*").eq("activa", True).execute()
+                    if _res.data:
+                        return _res.data[0]
+                    return None
+                except Exception:
+                    return None
+
+            def _cargar_historial():
+                try:
+                    _res = supabase.table("plantillas_contrato").select("*").order("version", desc=True).execute()
+                    return _res.data or []
+                except Exception:
+                    return []
+
+            def _guardar_plantilla(clausulas_dict, usuario):
+                try:
+                    import json as _json
+                    # Desactivar todas
+                    supabase.table("plantillas_contrato").update({"activa": False}).neq("id", 0).execute()
+                    # Obtener próxima versión
+                    _hist = _cargar_historial()
+                    _next_v = (_hist[0]["version"] + 1) if _hist else 2
+                    # Insertar nueva
+                    supabase.table("plantillas_contrato").insert({
+                        "version": _next_v,
+                        "nombre": f"Plantilla v{_next_v}",
+                        "clausulas": clausulas_dict,
+                        "activa": True,
+                        "creado_por": usuario,
+                    }).execute()
+                    return True
+                except Exception as _e:
+                    return str(_e)
+
+            def _activar_plantilla(pid):
+                try:
+                    supabase.table("plantillas_contrato").update({"activa": False}).neq("id", 0).execute()
+                    supabase.table("plantillas_contrato").update({"activa": True}).eq("id", pid).execute()
+                    return True
+                except Exception:
+                    return False
+
+            # ── Inicializar v1 si no existe ──
+            _historial = _cargar_historial()
+            if not _historial:
+                try:
+                    supabase.table("plantillas_contrato").insert({
+                        "version": 1,
+                        "nombre": "Plantilla v1 — original sistema",
+                        "clausulas": _CLAUSULAS_BASE,
+                        "activa": True,
+                        "creado_por": "Sistema",
+                    }).execute()
+                    _historial = _cargar_historial()
+                except Exception:
+                    pass
+
+            # ── Plantilla activa ──
+            _plt_activa = _cargar_plantilla_activa()
+            _clausulas_act = _plt_activa["clausulas"] if _plt_activa else _CLAUSULAS_BASE
+
+            # ── Info ──
+            st.markdown("""
+            <div style='background:#e8eef7;border:1px solid #0f3460;border-radius:10px;
+                        padding:12px 16px;margin-bottom:16px;font-size:13px;color:#0f3460;'>
+            <strong>⚠️ Plantilla global</strong> — Los cambios afectan a todos los contratos nuevos.
+            Los marcadores <code>{{CAMPO}}</code> se reemplazan automáticamente con los datos reales.
+            Las secciones del proveedor y banco son fijas del sistema.
+            </div>
+            """, unsafe_allow_html=True)
+
+            # ── Marcadores disponibles ──
+            _mlist = " ".join([f"`{m}`" for m in _MARCADORES.split()])
+            st.caption(f"Marcadores disponibles: {_mlist}")
+
+            # ── Secciones bloqueadas (solo lectura) ──
+            with st.expander("🔒 Secciones fijas del sistema (no editables)", expanded=False):
+                st.markdown("""
+                **I. Comparecencia — El Proveedor:**
+                Don **Alan Mauricio Gatica Concha**, RUT **13.668.157-5**, en representación de **Inversiones Container House SpA**, RUT **78.268.851-0**, domicilio en Villasana N° 2039, Dpto 51, Torre D, Quinta Normal.
+
+                **IX. Datos bancarios:**
+                Banco Itaú · Cta. Cte. 230771767 · jperez@espaciocontainerhouse.cl
+                """)
+
+            # ── Editor de cláusulas ──
+            st.markdown("**✏️ Cláusulas editables:**")
+            _edits = {}
+            for _key, _label in _LABELS.items():
+                _val_actual = _clausulas_act.get(_key, _CLAUSULAS_BASE.get(_key, ""))
+                _edits[_key] = st.text_area(
+                    _label,
+                    value=_val_actual,
+                    height=80,
+                    key=f"plt_{_key}"
+                )
+
+            # ── Botones ──
+            _bc1, _bc2, _bc3 = st.columns([2, 2, 2])
+            with _bc1:
+                if st.button("↩️ Restaurar original", use_container_width=True, key="plt_restaurar"):
+                    for _key in _LABELS:
+                        st.session_state[f"plt_{_key}"] = _CLAUSULAS_BASE[_key]
                     st.rerun()
-                except Exception as _ew:
-                    st.error(f"Error subiendo Word: {_ew}")
+            with _bc3:
+                if st.button("💾 Guardar nueva versión", type="primary", use_container_width=True, key="plt_guardar"):
+                    _usr_plt = st.session_state.get("auth_nombre", "") or st.session_state.get("auth_email", "Sistema")
+                    _resultado = _guardar_plantilla(_edits, _usr_plt)
+                    if _resultado is True:
+                        st.success("✅ Nueva plantilla guardada y activada.")
+                        st.rerun()
+                    else:
+                        st.error(f"Error: {_resultado}")
+
+            st.markdown("---")
 
             # ── Historial ──
-            st.markdown('<div class="cont-section" style="margin-top:12px;">📋 Historial</div>', unsafe_allow_html=True)
-            # Tabla historial — construida con concatenación simple sin f-strings anidados
-            _h  = '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
-            _h += '<thead><tr style="border-bottom:1px solid #e2e8f0;">'
-            _h += '<th style="text-align:left;padding:6px 8px;color:#64748b;font-weight:500;">Versión</th>'
-            _h += '<th style="text-align:left;padding:6px 8px;color:#64748b;font-weight:500;">Tipo</th>'
-            _h += '<th style="text-align:center;padding:6px 8px;color:#64748b;font-weight:500;">Estado</th>'
-            _h += '</tr></thead><tbody>'
-            if _tiene_word:
-                _h += '<tr style="border-bottom:0.5px solid #e2e8f0;background:#e8eef7;">'
-                _h += '<td style="padding:8px;font-weight:700;color:#0f3460;">Word personalizado</td>'
-                _h += '<td style="padding:8px;color:#0f3460;">.docx subido</td>'
-                _h += '<td style="padding:8px;text-align:center;"><span style="background:#0f3460;color:white;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;">✅ ACTIVO</span></td>'
-                _h += '</tr>'
-            if _cot2.get("contrato_generado"):
-                _bg_o   = "#e8eef7" if not _tiene_word else "#f8fafc"
-                _txt_o  = "#0f3460" if not _tiene_word else "#64748b"
-                _bdg_bg = "#0f3460" if not _tiene_word else "#94a3b8"
-                _bdg_lb = "✅ ACTIVO" if not _tiene_word else "inactivo"
-                _h += f'<tr style="border-bottom:0.5px solid #e2e8f0;background:{_bg_o};">'
-                _h += f'<td style="padding:8px;font-weight:700;color:{_txt_o};">v1 — original sistema</td>'
-                _h += f'<td style="padding:8px;color:{_txt_o};">PDF generado</td>'
-                _h += f'<td style="padding:8px;text-align:center;"><span style="background:{_bdg_bg};color:white;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;">{_bdg_lb}</span></td>'
-                _h += '</tr>'
-            _h += '</tbody></table>'
-            st.markdown(_h, unsafe_allow_html=True)
+            st.markdown("**📋 Historial de plantillas:**")
+            _historial = _cargar_historial()
+            _usr_actual = st.session_state.get("auth_nombre", "") or st.session_state.get("auth_email", "")
 
-            # Botón para volver a versión original
-            if _tiene_word:
-                st.markdown("")
-                if st.button("↩️ Restaurar versión original del sistema", key="cont_restaurar"):
-                    try:
-                        supabase.table("cotizaciones").update({"contrato_word_url": None}).eq("numero", _ep2).execute()
-                        st.session_state["cont_cot_edit"]["contrato_word_url"] = ""
-                        st.success("✅ Restaurado a versión original del sistema.")
-                        st.rerun()
-                    except Exception as _er:
-                        st.error(f"Error: {_er}")
-        else:
-            st.info("👆 Ingresa un número EP y presiona **Buscar** para gestionar el contrato.")
+            for _plt in _historial:
+                _es_activa = _plt.get("activa", False)
+                _es_v1     = _plt.get("version", 0) == 1
+                _creador   = _plt.get("creado_por", "—")
+                _fecha_p   = _plt.get("fecha_creacion", "")[:16].replace("T", " ") if _plt.get("fecha_creacion") else "—"
+                _iniciales = "".join([w[0].upper() for w in _creador.split()[:2]]) if _creador != "Sistema" else "🤖"
+                _version   = _plt.get("nombre", f"v{_plt.get('version','?')}")
+
+                _bg    = "#e8eef7" if _es_activa else "var(--color-background-primary)"
+                _brd   = "1.5px solid #0f3460" if _es_activa else "0.5px solid var(--color-border-tertiary)"
+                _badge = '<span style="background:#0f3460;color:white;border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;">✅ ACTIVA</span>' if _es_activa else '<span style="background:var(--color-background-secondary);color:var(--color-text-secondary);border-radius:20px;padding:4px 14px;font-size:11px;">inactiva</span>'
+                _clr_v = "#0f3460" if _es_activa else "var(--color-text-primary)"
+                _clr_s = "#185fa5" if _es_activa else "var(--color-text-secondary)"
+
+                st.markdown(f"""
+                <div style="background:{_bg};border:{_brd};border-radius:12px;
+                            padding:14px 18px;display:flex;justify-content:space-between;
+                            align-items:center;margin-bottom:8px;">
+                  <div style="display:flex;align-items:center;gap:14px;">
+                    <div style="width:38px;height:38px;border-radius:50%;
+                                background:{'#0f3460' if _es_activa else '#94a3b8'};
+                                display:flex;align-items:center;justify-content:center;
+                                font-size:13px;font-weight:700;color:white;flex-shrink:0;">
+                      {_iniciales}
+                    </div>
+                    <div>
+                      <div style="font-size:14px;font-weight:700;color:{_clr_v};">{_version}</div>
+                      <div style="font-size:12px;color:{_clr_s};margin-top:2px;">{_creador} · {_fecha_p}</div>
+                    </div>
+                  </div>
+                  {_badge}
+                </div>
+                """, unsafe_allow_html=True)
+
+                if not _es_activa:
+                    _col_act, _ = st.columns([1, 3])
+                    with _col_act:
+                        if st.button(f"Activar {_version}", key=f"plt_act_{_plt['id']}", use_container_width=True):
+                            if _activar_plantilla(_plt["id"]):
+                                st.success(f"✅ {_version} activada.")
+                                st.rerun()
+
 
 
 # =========================================================
