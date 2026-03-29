@@ -9846,6 +9846,8 @@ with tab_contrato:
                 "comparecencia_cliente": "{{TRATAMIENTO}} {{CLIENTE}}, cédula nacional de identidad N° {{RUT_CLIENTE}}, con domicilio en {{DOMICILIO_CLIENTE}}, comuna de {{COMUNA_CLIENTE}}, Región {{REGION_CLIENTE}}, quien en adelante se denominará \"el Cliente\".\n\nSe deja expresa constancia que la dirección de instalación del proyecto será <b>{{DOMICILIO_INST}}</b>, comuna de <b>{{COMUNA_INST}}</b>, Región {{REGION_INST}}.\n\nLas partes declaran ser mayores de edad, con plena capacidad legal para contratar, y acuerdan celebrar el presente <b>Contrato de Fabricación y Venta de Vivienda Tipo Container</b>, el cual se regirá por las cláusulas que se indican a continuación.",
                 "instalacion":  "Se deja expresa constancia que la dirección de instalación del proyecto será <b>{{DOMICILIO_INST}}</b>, comuna de <b>{{COMUNA_INST}}</b>, Región {{REGION_INST}}.",
                 "definiciones": "a) <b>Proyecto</b>: La vivienda tipo container identificada como <b>Proyecto N° {{EP}} – \"{{EP_NOMBRE}}\"</b>.\nb) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte integrante del presente contrato, en especial Anexo N°1 (Especificaciones Técnicas) y Anexo N°2 (Presupuesto Detallado).\nc) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su despacho desde las instalaciones del Proveedor.",
+                "definiciones": "a) <b>Proyecto</b>: La vivienda tipo container identificada como <b>Proyecto N° {{EP}} – \"{{EP_NOMBRE}}\"</b>.\nb) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte integrante del presente contrato, en especial Anexo N°1 (Especificaciones Técnicas) y Anexo N°2 (Presupuesto Detallado).\nc) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su despacho desde las instalaciones del Proveedor.",
+                "medios_pago":  "Los pagos deberán efectuarse mediante <b>transferencia electrónica, cheque o vale vista</b>, a la siguiente cuenta bancaria:\n\nRazón Social: Inversiones Container House SpA\nRUT: 78.268.851-0\nBanco: Banco Itaú\nCuenta Corriente: N° 230771767\nCorreo de confirmación: jperez@espaciocontainerhouse.cl\n\nCada pago deberá ser informado por el Cliente mediante correo electrónico, adjuntando el comprobante respectivo.",
                 "objeto":       "El Cliente encarga al Proveedor la <b>fabricación y venta</b> del Proyecto individualizado precedentemente, conforme a los <b>planos entregados por el Cliente</b>, a las <b>especificaciones técnicas</b>, y al <b>presupuesto detallado contenido en el Anexo N°2</b>, documentos que el Cliente declara conocer, aceptar y que forman parte integrante e inseparable del presente contrato.",
                 "alcance":      "El Proveedor declara contar con la experiencia, conocimientos técnicos, personal calificado, herramientas e infraestructura necesarias para la correcta ejecución del Proyecto, comprometiéndose a:\na) Fabricar el módulo conforme a la normativa vigente aplicable.\nb) Respetar las especificaciones técnicas y alcances definidos en los Anexos.\nc) Ejecutar los trabajos con estándares de calidad y seguridad.\nCualquier trabajo, modificación o prestación no contemplada expresamente en los Anexos será considerada <b>obra adicional</b>, debiendo ser cotizada y aprobada por escrito por ambas partes.",
                 "visitas":      "El Cliente podrá realizar visitas de seguimiento a las instalaciones del Proveedor ubicadas en <b>Portezuelo, parcela 3, Colina, Región Metropolitana</b>, previa coordinación con al menos <b>48 horas hábiles de anticipación</b>, con el único objeto de verificar el avance del Proyecto, quedando expresamente prohibida cualquier interferencia en los procesos productivos o instrucciones al personal del Proveedor.",
@@ -9861,16 +9863,19 @@ with tab_contrato:
                 "firma":        "El presente contrato se firma en <b>dos ejemplares de igual tenor y fecha</b>, quedando uno en poder de cada parte.",
             }
 
-            # Solo las cláusulas que realmente usa _p() en la generación del PDF
+            # Cláusulas editables + las fijas (solo lectura, en rojo)
+            _LABELS_READONLY = {"definiciones", "medios_pago"}
             _LABELS = {
                 "intro":               "Introducción",
                 "comparecencia_cliente": "I. Comparecencia — El Cliente",
+                "definiciones":        "II. Definiciones",
                 "objeto":              "III. Objeto del contrato",
                 "alcance":             "IV. Alcance técnico",
                 "visitas":             "V. Visitas y seguimiento",
                 "precio":              "VI. Precio",
                 "forma_pago":          "VII. Forma de pago",
                 "inicio":              "VIII. Inicio de fabricación",
+                "medios_pago":         "IX. Medios de pago",
                 "plazo":               "X. Plazo",
                 "penalidad":           "XI. Penalidad por atraso",
                 "bodegaje":            "XII. Retiro y bodegaje",
@@ -9989,31 +9994,40 @@ with tab_contrato:
             def _strip_b(t): return _re_strip.sub(r'<[^>]+>', '', t)
 
             for _key, _label in _LABELS.items():
-                # Siempre partir del _CLAUSULAS_EDITOR (texto completo con <b>)
-                # Solo sobreescribir si Supabase tiene algo diferente al original
                 _base_editor = _CLAUSULAS_EDITOR.get(_key, "")
                 _val_sup = _clausulas_act.get(_key, "")
 
                 if _val_sup and _strip_b(_val_sup).strip() != _strip_b(_base_editor).strip():
-                    # El usuario modificó esta cláusula — mostrar su versión
                     _val_actual = _val_sup
                 else:
-                    # Sin cambios o no existe en Supabase — mostrar el editor completo
                     _val_actual = _base_editor
 
-                # Altura: basada en caracteres totales para mostrar todo el texto
                 _chars = len(_val_actual)
                 _newlines = _val_actual.count("\n")
                 _estimated_lines = _newlines + max(1, _chars // 85)
                 _h = max(120, _estimated_lines * 22)
 
-                _edits[_key] = st.text_area(
-                    _label,
-                    value=_val_actual,
-                    height=_h,
-                    key=f"plt_{_key}",
-                    help="Usa <b>texto</b> para negrita. Los {{MARCADORES}} se reemplazan con los datos reales del cliente al generar el contrato."
-                )
+                if _key in _LABELS_READONLY:
+                    # Mostrar en rojo como solo lectura
+                    _txt_display = _val_actual.replace("\n", "<br>")
+                    st.markdown(
+                        f'''<div style="background:#fff5f5;border:1.5px solid #dc2626;border-radius:10px;
+                                    padding:14px 16px;margin-bottom:4px;">
+                            <div style="font-size:0.65rem;font-weight:900;color:#dc2626;
+                                        text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">
+                                🔒 {_label} — Solo lectura (no editable)</div>
+                            <div style="font-size:13px;line-height:1.7;color:#7f1d1d;">{_txt_display}</div>
+                        </div>''', unsafe_allow_html=True)
+                    # Igual lo incluimos en _edits con valor fijo para no romper el guardado
+                    _edits[_key] = _val_actual
+                else:
+                    _edits[_key] = st.text_area(
+                        _label,
+                        value=_val_actual,
+                        height=_h,
+                        key=f"plt_{_key}",
+                        help="Usa <b>texto</b> para negrita. Los {{MARCADORES}} se reemplazan con datos reales al generar."
+                    )
 
             # ── Botones ──
             _bc1, _bc2, _bc3 = st.columns([2, 2, 2])
