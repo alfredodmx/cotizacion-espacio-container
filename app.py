@@ -4388,12 +4388,10 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     }
 
     def _p(clave, fallback=None):
-        """Usa lo guardado en Supabase (respeta <b> del usuario), sino usa _CLAUSULAS_EDITOR."""
+        """Usa lo guardado en Supabase (respeta <b> del usuario), sino usa _ORIG con negritas."""
         if _plt_cls and clave in _plt_cls and _plt_cls[clave]:
             return _rep(_plt_cls[clave], d)
-        # Sin plantilla personalizada: usar _CLAUSULAS_EDITOR con marcadores reemplazados
-        _txt_base = _CLAUSULAS_EDITOR.get(clave, fallback or "")
-        return _rep(_txt_base, d)
+        return _rep(_ORIG.get(clave, fallback or ""), d)
 
     story = []
 
@@ -9793,7 +9791,6 @@ with tab_contrato:
                                     _cls_activas = _res_plt.data[0]["clausulas"]
                             except Exception:
                                 pass
-                            st.write('DEBUG clausulas:', _cls_activas)
                             _pdf_bytes = generar_pdf_contrato(_datos_contrato, clausulas_externas=_cls_activas)
                             _pdf_nom   = f"Contrato_{_ep_num_input.replace('-','_')}.pdf"
                             # Guardar en Supabase
