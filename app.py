@@ -9972,8 +9972,96 @@ with tab_contrato:
             """, unsafe_allow_html=True)
 
             # ── Marcadores disponibles ──
-            _mlist = " ".join([f"`{m}`" for m in _MARCADORES.split()])
-            st.caption(f"Marcadores disponibles: {_mlist}")
+            _MARCADORES_INFO = {
+                "{{FECHA}}":             "Fecha del contrato (ej: 29 de marzo de 2026)",
+                "{{TRATAMIENTO}}":       "Tratamiento del cliente (Don / Doña / Sr. / Sra.)",
+                "{{CLIENTE}}":           "Nombre completo del cliente",
+                "{{RUT_CLIENTE}}":       "RUT del cliente (ej: 12.345.678-9)",
+                "{{DOMICILIO_CLIENTE}}": "Dirección del domicilio del cliente",
+                "{{COMUNA_CLIENTE}}":    "Comuna del domicilio del cliente",
+                "{{REGION_CLIENTE}}":    "Región del domicilio del cliente",
+                "{{DOMICILIO_INST}}":    "Dirección donde se instalará el proyecto",
+                "{{COMUNA_INST}}":       "Comuna de instalación del proyecto",
+                "{{REGION_INST}}":       "Región de instalación del proyecto",
+                "{{EP}}":               "Número del presupuesto (ej: EP-12345)",
+                "{{EP_NOMBRE}}":        "Nombre/descripción del proyecto",
+                "{{TOTAL}}":            "Precio total con IVA (ej: $26.168.975)",
+                "{{TOTAL_PALABRAS}}":   "Precio total en palabras",
+                "{{PAGO_50}}":          "50% inicial en números",
+                "{{PAGO_50_PALABRAS}}": "50% inicial en palabras",
+                "{{PAGO_25A}}":         "25% intermedio en números",
+                "{{PAGO_25A_PALABRAS}}":"25% intermedio en palabras",
+                "{{PAGO_25B}}":         "25% final en números",
+                "{{PAGO_25B_PALABRAS}}":"25% final en palabras",
+                "{{PLAZO}}":            "Plazo de fabricación en días hábiles",
+            }
+
+            _markers_html = ""
+            for _mk, _desc in _MARCADORES_INFO.items():
+                _markers_html += f"""
+                <div class="marker-chip" onclick="copyMarker(this, '{_mk}')" title="{_desc}">
+                    <span class="marker-text">{_mk}</span>
+                    <span class="marker-copied" style="display:none;">✓ copiado</span>
+                    <div class="marker-tooltip">{_desc}</div>
+                </div>"""
+
+            st.markdown(f"""
+            <style>
+            .markers-wrap {{
+                display: flex; flex-wrap: wrap; gap: 8px;
+                margin: 8px 0 16px 0;
+            }}
+            .marker-chip {{
+                position: relative;
+                background: #e8eef7; border: 1.5px solid #0f3460;
+                border-radius: 6px; padding: 5px 10px;
+                cursor: pointer; font-size: 12px; font-weight: 700;
+                color: #0f3460; font-family: monospace;
+                transition: all 0.15s ease;
+                display: flex; align-items: center; gap: 6px;
+                user-select: none;
+            }}
+            .marker-chip:hover {{ background: #0f3460; color: white; }}
+            .marker-chip:hover .marker-tooltip {{ display: block; }}
+            .marker-chip.copied {{ background: #16a34a; border-color: #16a34a; color: white; }}
+            .marker-tooltip {{
+                display: none;
+                position: absolute; bottom: calc(100% + 8px); left: 50%;
+                transform: translateX(-50%);
+                background: #1e293b; color: white;
+                font-size: 11px; font-weight: 400; font-family: sans-serif;
+                padding: 6px 10px; border-radius: 6px;
+                white-space: nowrap; z-index: 9999;
+                pointer-events: none;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            }}
+            .marker-tooltip::after {{
+                content: ''; position: absolute; top: 100%; left: 50%;
+                transform: translateX(-50%);
+                border: 5px solid transparent;
+                border-top-color: #1e293b;
+            }}
+            .marker-copied {{ font-family: sans-serif; font-size: 11px; }}
+            </style>
+            <div style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">
+                📌 Marcadores disponibles — haz clic para copiar
+            </div>
+            <div class="markers-wrap">{_markers_html}</div>
+            <script>
+            function copyMarker(el, text) {{
+                navigator.clipboard.writeText(text).then(function() {{
+                    el.classList.add('copied');
+                    el.querySelector('.marker-text').style.display = 'none';
+                    el.querySelector('.marker-copied').style.display = 'inline';
+                    setTimeout(function() {{
+                        el.classList.remove('copied');
+                        el.querySelector('.marker-text').style.display = 'inline';
+                        el.querySelector('.marker-copied').style.display = 'none';
+                    }}, 1500);
+                }});
+            }}
+            </script>
+            """, unsafe_allow_html=True)
 
             # ── Secciones bloqueadas (solo lectura) ──
             with st.expander("🔒 Secciones fijas del sistema (no editables)", expanded=False):
