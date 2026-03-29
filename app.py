@@ -9983,12 +9983,17 @@ with tab_contrato:
             with _bc3:
                 if st.button("💾 Guardar nueva versión", type="primary", use_container_width=True, key="plt_guardar"):
                     _usr_plt = st.session_state.get("auth_nombre", "") or st.session_state.get("auth_email", "Sistema")
-                    _resultado = _guardar_plantilla(_edits, _usr_plt)
-                    if _resultado is True:
-                        st.success("✅ Nueva plantilla guardada y activada.")
-                        st.rerun()
+                    # Solo guardar cláusulas que difieren del original
+                    _solo_cambios = {k: v for k, v in _edits.items() if v.strip() != _CLAUSULAS_BASE.get(k, "").strip()}
+                    if not _solo_cambios:
+                        st.warning("No hay cambios respecto a la plantilla original.")
                     else:
-                        st.error(f"Error: {_resultado}")
+                        _resultado = _guardar_plantilla(_solo_cambios, _usr_plt)
+                        if _resultado is True:
+                            st.success(f"✅ Nueva plantilla guardada ({len(_solo_cambios)} cláusula(s) modificada(s)).")
+                            st.rerun()
+                        else:
+                            st.error(f"Error: {_resultado}")
 
             st.markdown("---")
 
