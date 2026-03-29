@@ -4378,6 +4378,8 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         "alcance":      f"El Proveedor declara contar con la experiencia, conocimientos técnicos, personal calificado, herramientas e infraestructura necesarias para la correcta ejecución del Proyecto, comprometiéndose a:\na) Fabricar el módulo conforme a la normativa vigente aplicable.\nb) Respetar las especificaciones técnicas y alcances definidos en los Anexos.\nc) Ejecutar los trabajos con estándares de calidad y seguridad.\nCualquier trabajo, modificación o prestación no contemplada expresamente en los Anexos será considerada <b>obra adicional</b>, debiendo ser cotizada y aprobada por escrito por ambas partes.",
         "visitas":      "El Cliente podrá realizar visitas de seguimiento a las instalaciones del Proveedor ubicadas en <b>Portezuelo, parcela 3, Colina, Región Metropolitana</b>, previa coordinación con al menos <b>48 horas hábiles de anticipación</b>, con el único objeto de verificar el avance del Proyecto, quedando expresamente prohibida cualquier interferencia en los procesos productivos o instrucciones al personal del Proveedor.",
         "precio":       f"El precio total del Proyecto asciende a la suma de <b>{fmt(precio)}</b> ({precio_p}), IVA incluido.",
+        "forma_pago":   f"El precio será pagado por el Cliente al Proveedor en las siguientes etapas:\na) <b>50% inicial</b>: <b>{fmt(d.get('pago_50',0))}</b> ({monto_a_palabras(d.get('pago_50',0))}), correspondiente a la asignación del contenedor y ejecución de obra gruesa.\nb) <b>25% intermedio</b>: <b>{fmt(d.get('pago_25a',0))}</b> ({monto_a_palabras(d.get('pago_25a',0))}), una vez finalizada la obra gruesa.\nc) <b>25% final</b>: <b>{fmt(d.get('pago_25b',0))}</b> ({monto_a_palabras(d.get('pago_25b',0))}), luego de la preentrega del Proyecto y el mismo día del despacho del módulo.\nEl Proveedor emitirá la factura correspondiente al día hábil siguiente de recibido cada pago, bajo modalidad de <b>pago al contado</b>.",
+        "plazo":        f"El plazo máximo de fabricación y entrega será de <b>{d.get('plazo_dias',45)} días hábiles administrativos</b>, contados desde el día hábil siguiente a aquel en que los fondos del anticipo se encuentren efectivamente liberados.\nEl Cliente se obliga a contar con <b>radier y/o apoyos estructurales ejecutados, nivelados y aptos</b> para la instalación dentro de un plazo máximo de <b>30 días hábiles</b> desde la firma del contrato. Cualquier atraso en estas condiciones suspenderá automáticamente los plazos de entrega.",
         "inicio":       "La fabricación del Proyecto se iniciará <b>única y exclusivamente</b> una vez recibido y efectivamente abonado el pago inicial del <b>50% del valor total del contrato</b>.",
         "penalidad":    "En caso de atraso imputable exclusivamente al Proveedor en los plazos establecidos para la fabricación o entrega del Proyecto, éste pagará al Cliente, a título de indemnización única y total, una suma equivalente al <b>1% del valor neto correspondiente al último 25% del Proyecto por cada 7 días hábiles de atraso</b>, con un <b>tope máximo del 10% del valor neto de dicho monto</b>.\nNo se considerarán atrasos imputables al Proveedor aquellos derivados de caso fortuito, fuerza mayor, condiciones climáticas adversas, retrasos de proveedores externos, o cualquier situación no atribuible directamente al Proveedor.\nAsimismo, en caso de que el atraso sea imputable al Cliente, ya sea por retraso en los pagos comprometidos, falta de entrega de antecedentes necesarios, impedimentos de acceso al lugar de instalación, o cualquier otra circunstancia bajo su responsabilidad, los plazos del Proyecto se extenderán automáticamente por el mismo período de tiempo que dure dicho atraso, sin que ello genere responsabilidad ni penalidad alguna para el Proveedor.",
         "bodegaje":     "Una vez notificada la finalización del Proyecto, el Cliente dispondrá de un plazo máximo de <b>10 días hábiles</b> para coordinar el retiro o despacho del módulo. Vencido dicho plazo, el Proveedor quedará facultado para cobrar un <b>cargo por bodegaje equivalente al 1% del valor neto del Proyecto por cada 7 días corridos</b>, hasta el retiro efectivo.",
@@ -4485,23 +4487,10 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     ]
 
     # ── VII. Forma de pago ──
-    story += [
-        Paragraph("VII. FORMA Y ETAPAS DE PAGO", seccion),
-        Paragraph("El precio será pagado por el Cliente al Proveedor en las siguientes etapas:", normal),
-        Paragraph(
-            f"a) <b>50% inicial</b>: <b>{fmt(p50)}</b> ({p50_p}), "
-            f"correspondiente a la asignación del contenedor y ejecución de obra gruesa.", normal),
-        Paragraph(
-            f"b) <b>25% intermedio</b>: <b>{fmt(p25a)}</b> ({p25a_p}), "
-            f"una vez finalizada la obra gruesa.", normal),
-        Paragraph(
-            f"c) <b>25% final</b>: <b>{fmt(p25b)}</b> ({p25b_p}), "
-            f"luego de la preentrega del Proyecto y el mismo día del despacho del módulo.", normal),
-        Paragraph(
-            "El Proveedor emitirá la factura correspondiente al día hábil siguiente de "
-            "recibido cada pago, bajo modalidad de <b>pago al contado</b>.", normal),
-        HR(),
-    ]
+    story += [Paragraph("VII. FORMA Y ETAPAS DE PAGO", seccion)]
+    for _l in _p("forma_pago", None).split("\n"):
+        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
+    story += [HR()]
 
     # ── VIII. Inicio fabricación ──
     story += [
@@ -4543,17 +4532,10 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     ]
 
     # ── X. Plazo ──
-    story += [
-        Paragraph("X. PLAZO DE FABRICACIÓN Y ENTREGA", seccion),
-        Paragraph(_p("plazo", f"El plazo máximo de fabricación y entrega será de <b>{d['plazo_dias']} días hábiles administrativos</b>, contados desde el día hábil siguiente a aquel en que los fondos del anticipo se encuentren efectivamente liberados."), normal),
-        Paragraph(
-            "El Cliente se obliga a contar con <b>radier y/o apoyos estructurales "
-            "ejecutados, nivelados y aptos</b> para la instalación dentro de un plazo "
-            "máximo de <b>30 días hábiles</b> desde la firma del contrato. Cualquier "
-            "atraso en estas condiciones suspenderá automáticamente los plazos de entrega.",
-            normal),
-        HR(),
-    ]
+    story += [Paragraph("X. PLAZO DE FABRICACIÓN Y ENTREGA", seccion)]
+    for _l in _p("plazo", None).split("\n"):
+        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
+    story += [HR()]
 
     # ── XI. Penalidad ──
     story += [Paragraph("XI. PENALIDAD POR ATRASO", seccion)]
@@ -9868,9 +9850,9 @@ with tab_contrato:
                 "alcance":      "El Proveedor declara contar con la experiencia, conocimientos técnicos, personal calificado, herramientas e infraestructura necesarias para la correcta ejecución del Proyecto, comprometiéndose a:\na) Fabricar el módulo conforme a la normativa vigente aplicable.\nb) Respetar las especificaciones técnicas y alcances definidos en los Anexos.\nc) Ejecutar los trabajos con estándares de calidad y seguridad.\nCualquier trabajo, modificación o prestación no contemplada expresamente en los Anexos será considerada <b>obra adicional</b>, debiendo ser cotizada y aprobada por escrito por ambas partes.",
                 "visitas":      "El Cliente podrá realizar visitas de seguimiento a las instalaciones del Proveedor ubicadas en <b>Portezuelo, parcela 3, Colina, Región Metropolitana</b>, previa coordinación con al menos <b>48 horas hábiles de anticipación</b>, con el único objeto de verificar el avance del Proyecto, quedando expresamente prohibida cualquier interferencia en los procesos productivos o instrucciones al personal del Proveedor.",
                 "precio":       "El precio total del Proyecto asciende a la suma de <b>{{TOTAL}}</b> ({{TOTAL_PALABRAS}}), IVA incluido.",
-                "forma_pago":   "El precio será pagado por el Cliente al Proveedor en las siguientes etapas:\na) <b>50% inicial</b>: <b>{{PAGO_50}}</b> ({{PAGO_50_PALABRAS}}), correspondiente a la asignación del contenedor y ejecución de obra gruesa.\nb) <b>25% intermedio</b>: <b>{{PAGO_25A}}</b> ({{PAGO_25A_PALABRAS}}), una vez finalizada la obra gruesa.\nc) <b>25% final</b>: <b>{{PAGO_25B}}</b> ({{PAGO_25B_PALABRAS}}), luego de la preentrega del Proyecto y el mismo día del despacho del módulo.",
+                "forma_pago":   "El precio será pagado por el Cliente al Proveedor en las siguientes etapas:\na) <b>50% inicial</b>: <b>{{PAGO_50}}</b> ({{PAGO_50_PALABRAS}}), correspondiente a la asignación del contenedor y ejecución de obra gruesa.\nb) <b>25% intermedio</b>: <b>{{PAGO_25A}}</b> ({{PAGO_25A_PALABRAS}}), una vez finalizada la obra gruesa.\nc) <b>25% final</b>: <b>{{PAGO_25B}}</b> ({{PAGO_25B_PALABRAS}}), luego de la preentrega del Proyecto y el mismo día del despacho del módulo.\nEl Proveedor emitirá la factura correspondiente al día hábil siguiente de recibido cada pago, bajo modalidad de <b>pago al contado</b>.",
                 "inicio":       "La fabricación del Proyecto se iniciará <b>única y exclusivamente</b> una vez recibido y efectivamente abonado el pago inicial del <b>50% del valor total del contrato</b>.",
-                "plazo":        "El plazo máximo de fabricación y entrega será de <b>{{PLAZO}} días hábiles administrativos</b>, contados desde el día hábil siguiente a aquel en que los fondos del anticipo se encuentren efectivamente liberados.",
+                "plazo":        "El plazo máximo de fabricación y entrega será de <b>{{PLAZO}} días hábiles administrativos</b>, contados desde el día hábil siguiente a aquel en que los fondos del anticipo se encuentren efectivamente liberados.\nEl Cliente se obliga a contar con <b>radier y/o apoyos estructurales ejecutados, nivelados y aptos</b> para la instalación dentro de un plazo máximo de <b>30 días hábiles</b> desde la firma del contrato. Cualquier atraso en estas condiciones suspenderá automáticamente los plazos de entrega.",
                 "penalidad":    "En caso de atraso imputable exclusivamente al Proveedor en los plazos establecidos para la fabricación o entrega del Proyecto, éste pagará al Cliente, a título de indemnización única y total, una suma equivalente al <b>1% del valor neto correspondiente al último 25% del Proyecto por cada 7 días hábiles de atraso</b>, con un <b>tope máximo del 10% del valor neto de dicho monto</b>.\nNo se considerarán atrasos imputables al Proveedor aquellos derivados de caso fortuito, fuerza mayor, condiciones climáticas adversas, retrasos de proveedores externos, o cualquier situación no atribuible directamente al Proveedor.\nAsimismo, en caso de que el atraso sea imputable al Cliente, ya sea por retraso en los pagos comprometidos, falta de entrega de antecedentes necesarios, impedimentos de acceso al lugar de instalación, o cualquier otra circunstancia bajo su responsabilidad, los plazos del Proyecto se extenderán automáticamente por el mismo período de tiempo que dure dicho atraso, sin que ello genere responsabilidad ni penalidad alguna para el Proveedor.",
                 "bodegaje":     "Una vez notificada la finalización del Proyecto, el Cliente dispondrá de un plazo máximo de <b>10 días hábiles</b> para coordinar el retiro o despacho del módulo. Vencido dicho plazo, el Proveedor quedará facultado para cobrar un <b>cargo por bodegaje equivalente al 1% del valor neto del Proyecto por cada 7 días corridos</b>, hasta el retiro efectivo.",
                 "garantia":     "El Proveedor otorga una garantía de <b>6 meses</b> contados desde la entrega del módulo, limitada exclusivamente a <b>defectos de fabricación o construcción imputables al proceso productivo</b>.\nQuedan expresamente excluidos de garantía los daños derivados de:\n• Mal uso o uso distinto al previsto\n• Modificaciones no autorizadas\n• Transporte realizado por terceros\n• Vandalismo\n• Fenómenos naturales\n• Falta de mantención adecuada",
