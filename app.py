@@ -9343,10 +9343,15 @@ with tab_contrato:
 
             _fa, _fb = st.columns([3, 1])
             with _fa:
-                _ep_nombre = st.text_input("📝 Nombre / descripción del proyecto",
-                    value=st.session_state.get("cont_ep_nombre",""),
-                    placeholder="Ej: Casa container 2 módulos, 45m²",
-                    key="cont_ep_nombre_input")
+                _ep_nombre = st.session_state.get('observaciones_input', '') or st.session_state.get('cont_ep_nombre', '')
+                _obs_val = _ep_nombre or '—'
+                st.markdown(
+                    "<div style='background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;padding:12px 16px;margin-bottom:4px;'>"
+                    "<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;'>📝 Nombre / descripción del proyecto</div>"
+                    f"<div style='font-size:0.92rem;font-weight:700;color:#fff;line-height:1.5;'>{_obs_val}</div>"
+                    "</div>",
+                    unsafe_allow_html=True
+                )
             with _fb:
                 _plazo = st.number_input("Plazo (días)", min_value=1, max_value=180, value=45, key="cont_plazo")
 
