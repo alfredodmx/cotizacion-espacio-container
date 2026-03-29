@@ -9343,8 +9343,8 @@ with tab_contrato:
 
             _fa, _fb = st.columns([3, 1])
             with _fa:
-                _ep_nombre = st.session_state.get('observaciones_input', '') or st.session_state.get('cont_ep_nombre', '')
-                _obs_val = _ep_nombre or '—'
+                _ep_nombre = _cot.get('proyecto_observaciones', '') or st.session_state.get('observaciones_input', '') or ''
+                _obs_val = _ep_nombre.strip() if _ep_nombre else '—'
                 st.markdown(
                     "<div style='background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;padding:12px 16px;margin-bottom:4px;'>"
                     "<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;'>📝 Nombre / descripción del proyecto</div>"
