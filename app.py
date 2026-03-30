@@ -11244,11 +11244,13 @@ if st.session_state.modo_admin and tab_usuarios is not None:
             _usuarios = st.session_state.get('_usuarios_cache', [])
             _n_adm = sum(1 for u in _usuarios if u.get('rol') in ('admin','administrador'))
             _n_ej  = sum(1 for u in _usuarios if u.get('rol','ejecutivo') == 'ejecutivo')
+            _n_op  = sum(1 for u in _usuarios if u.get('rol') == 'operacion')
             st.markdown(f"""
             <div style="display:flex;gap:12px;align-items:center;margin-bottom:4px;">
                 <span style="font-size:1.1rem;font-weight:800;color:#1e2447;">👥 Usuarios registrados</span>
                 <span style="background:#ede9fe;color:#6d28d9;padding:3px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;">👑 {_n_adm} Admin</span>
                 <span style="background:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;">👤 {_n_ej} Ejecutivo</span>
+                <span style="background:#f0fdf4;color:#166534;padding:3px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;">⚙️ {_n_op} Operación</span>
             </div>
             """, unsafe_allow_html=True)
         with _hcol2:
@@ -11273,7 +11275,7 @@ if st.session_state.modo_admin and tab_usuarios is not None:
                 _card_cls = 'es-root' if _es_root_u else ('es-admin' if _es_admin_u else 'es-ejecutivo')
                 _av_cls   = 'av-root'  if _es_root_u else ('av-admin'  if _es_admin_u else 'av-ejecutivo')
                 _rol_pill = ('rol-root'  if _es_root_u else ('rol-admin' if _es_admin_u else 'rol-ejecutivo'))
-                _rol_txt  = ('🔑 Root'   if _es_root_u else ('👑 Admin'  if _es_admin_u else '👤 Ejecutivo'))
+                _rol_txt  = ('🔑 Root'   if _es_root_u else ('👑 Admin'  if _es_admin_u else ('⚙️ Operación' if _rol_obj == 'operacion' else '👤 Ejecutivo')))
                 _u_tel_disp = _u.get('telefono', '') or ''  
 
                 # Permisos
@@ -11300,9 +11302,7 @@ if st.session_state.modo_admin and tab_usuarios is not None:
                     # Botones de acción en línea
                     _ba1, _ba2, _ba3, _ba4, _ba5 = st.columns([1, 1, 1, 1, 2])
                     with _ba1:
-                        _nuevo_rol  = 'admin' if _rol_obj == 'ejecutivo' else 'ejecutivo'
-                        _lbl_rol    = '⬆️ Admin' if _nuevo_rol == 'admin' else '⬇️ Ejecutivo'
-                        if st.button(_lbl_rol, key=f"rol_{_u['id']}", use_container_width=True):
+                        if st.button("🔄 Cambiar rol", key=f"rol_{_u['id']}", use_container_width=True):
                             st.session_state[f'_accion_{_u["id"]}'] = 'rol'
                             st.rerun()
                     with _ba2:
@@ -11365,13 +11365,18 @@ if st.session_state.modo_admin and tab_usuarios is not None:
 
                     elif _accion == 'rol':
                         st.markdown(f'<div class="accion-panel"><div class="accion-title">Cambiar rol de {_u["nombre"]}</div>', unsafe_allow_html=True)
-                        st.info(f"Rol actual: **{_rol_txt}** → Nuevo rol: **{'Admin' if _nuevo_rol == 'admin' else 'Ejecutivo'}**")
+                        st.markdown(f"Rol actual: **{_rol_txt}**", unsafe_allow_html=False)
+                        _roles_disp = [r for r in ['ejecutivo', 'operacion', 'admin'] if r != _rol_obj]
+                        _roles_labels = {'ejecutivo': '👤 Ejecutivo', 'operacion': '⚙️ Operación', 'admin': '👑 Admin'}
+                        _rol_sel = st.selectbox("Nuevo rol", _roles_disp,
+                            format_func=lambda r: _roles_labels[r],
+                            key=f"rol_sel_{_u['id']}")
                         _cr1, _cr2 = st.columns(2)
                         with _cr1:
-                            if st.button(f"✅ Confirmar cambio", key=f"rol_ok_{_u['id']}", use_container_width=True, type="primary"):
-                                _ok_r, _err_r = cambiar_rol_usuario(_u['id'], _nuevo_rol)
+                            if st.button(f"✅ Confirmar", key=f"rol_ok_{_u['id']}", use_container_width=True, type="primary"):
+                                _ok_r, _err_r = cambiar_rol_usuario(_u['id'], _rol_sel)
                                 if _ok_r:
-                                    st.success(f"✅ {_u['nombre']} ahora es {_nuevo_rol}.")
+                                    st.success(f"✅ {_u['nombre']} ahora es {_roles_labels[_rol_sel]}.")
                                     st.session_state.pop('_usuarios_cache', None)
                                     st.session_state['_asesores_cache_dirty'] = True
                                     st.session_state.pop(f'_accion_{_u["id"]}', None)
@@ -11560,7 +11565,7 @@ if tab_notif is not None and st.session_state.get('es_supervisor'):
                 _ur  = _uu.get('rol', 'ejecutivo')
                 _un  = _uu.get('nombre', _ue)
                 _rol_color = "#7c3aed" if _ur=='root' else ("#8b5cf6" if _ur=='admin' else "#2563eb")
-                _rol_txt   = "🔑 Root" if _ur=='root' else ("👑 Admin" if _ur=='admin' else "👤 Ejecutivo")
+                _rol_txt   = "🔑 Root" if _ur=='root' else ("👑 Admin" if _ur=='admin' else ("⚙️ Operación" if _ur=='operacion' else "👤 Ejecutivo"))
                 _col_nm, _col_em, _col_chat, _col_rol, _col_est = st.columns([1.5, 1.8, 1.5, 1, 0.7])
                 with _col_nm:
                     st.markdown(f"<div style='padding:6px 0;font-size:0.88rem;font-weight:600'>{_un}</div>", unsafe_allow_html=True)
