@@ -9046,9 +9046,65 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
 
         # ── Selección EP y botones ──
         st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-        _ep_opts_op = [r.get("numero","") for r in _oper_data]
-        _ep_sel_op  = st.selectbox("Selecciona una cotización para acciones:",
-                                    _ep_opts_op, key="oper_ep_sel")
+
+        # Construir opciones enriquecidas para el selectbox
+        _fmt_op_tc = lambda v: "${:,.0f}".format(v or 0).replace(",",".")
+        _ep_opts_op  = []
+        _ep_labels_op = {}
+        for _r in _oper_data:
+            _r_ep    = _r.get("numero","")
+            _r_cli   = _r.get("cliente_nombre","—")
+            _r_ej    = _r.get("asesor_nombre","—")
+            _r_aut   = "autorizado" in (_r.get("estado","") or "").lower()
+            _r_plano = bool(_r.get("plano_url",""))
+            _r_listo = _r_aut and _r_plano
+            _r_tc    = _calc_total_costo(_r)
+            if _r_listo:
+                _label = f"{_r_ep} · ✅ LISTO PARA COMPRAS · {_fmt_op_tc(_r_tc)} · Cliente: {_r_cli} · Ejecutivo: {_r_ej}"
+            else:
+                _razon = "Sin plano" if _r_aut and not _r_plano else ("No autorizada" if not _r_aut and _r_plano else "Sin autorización ni plano")
+                _label = f"{_r_ep} · ⏳ PENDIENTE · {_razon} · Cliente: {_r_cli} · Ejecutivo: {_r_ej}"
+            _ep_opts_op.append(_r_ep)
+            _ep_labels_op[_r_ep] = _label
+
+        # Ordenar: listos primero
+        _ep_opts_op = sorted(_ep_opts_op, key=lambda x: (
+            0 if "✅" in _ep_labels_op.get(x,"") else 1
+        ))
+
+        _ep_sel_op = st.selectbox(
+            "Selecciona una cotización para acciones:",
+            _ep_opts_op,
+            format_func=lambda x: _ep_labels_op.get(x, x),
+            key="oper_ep_sel"
+        )
+
+        # Mostrar card visual del EP seleccionado
+        if _ep_sel_op and _ep_sel_op in _ep_labels_op:
+            _sel_listo = "✅" in _ep_labels_op[_ep_sel_op]
+            _bg_card   = "#dbeafe" if _sel_listo else "#fef9c3"
+            _bc_card   = "#2563eb" if _sel_listo else "#f59e0b"
+            _txt_color = "#1d4ed8" if _sel_listo else "#854d0e"
+            _badge_txt = "✅ LISTO PARA COMPRAS" if _sel_listo else "⏳ PENDIENTE"
+            _sel_r     = next((r for r in _oper_data if r.get("numero") == _ep_sel_op), {})
+            _sel_tc    = _calc_total_costo(_sel_r) if _sel_listo else 0
+            st.markdown(f"""
+            <div style="background:{_bg_card};border-left:4px solid {_bc_card};border-radius:0 10px 10px 0;
+                        padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:16px;">
+              <div style="font-size:14px;font-weight:900;color:#0f172a;min-width:90px;">{_ep_sel_op}</div>
+              <div style="flex:1;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                  <span style="background:{_bc_card};color:white;padding:2px 10px;border-radius:99px;
+                               font-size:10px;font-weight:700;">{_badge_txt}</span>
+                  {"<span style='font-size:13px;font-weight:700;color:#1d4ed8;'>" + _fmt_op_tc(_sel_tc) + "</span>" if _sel_listo else ""}
+                </div>
+                <div style="font-size:11px;color:#374151;display:flex;gap:14px;">
+                  <span>Cliente: <b>{_sel_r.get("cliente_nombre","—")}</b></span>
+                  <span>Ejecutivo: <b>{_sel_r.get("asesor_nombre","—")}</b></span>
+                </div>
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
 
         if _ep_sel_op:
             _sel_data = next((r for r in _oper_data if r.get("numero") == _ep_sel_op), None)
