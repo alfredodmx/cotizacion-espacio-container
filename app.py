@@ -1345,9 +1345,9 @@ def crear_badge_estado(row):
             color = "#dc3545"
             border = "#bd2130"
     text_color = "#212529" if label == "🟡 BORRADOR" else "white"
-    return f'''<span style="background-color:{color};color:{text_color};padding:4px 12px;
-        border-radius:20px;font-size:0.8rem;font-weight:600;display:inline-block;
-        border:1px solid {border};box-shadow:0 2px 4px rgba(0,0,0,0.1);">{label}</span>'''
+    return f'''<span style="background-color:{color};color:{text_color};padding:2px 7px;
+        border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;
+        border:1px solid {border};box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">{label}</span>'''
 
 # =========================================================
 # FUNCIONES PARA MANEJO DE MARGEN
