@@ -8864,6 +8864,17 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
 
     # ── Header ──
     st.markdown("""
+    <style>
+    .st-key-oper_ver_plano button:not([disabled]) {
+        background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%) !important;
+        color: #ffffff !important; border: none !important;
+        font-family: 'Plus Jakarta Sans', sans-serif !important; font-weight: 600 !important;
+        box-shadow: 0 4px 16px rgba(91,124,250,0.35) !important;
+    }
+    .st-key-oper_ver_plano button:not([disabled]):hover {
+        transform: translateY(-1px) !important;
+    }
+    </style>
     <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:18px;
                 padding:24px 32px;margin-bottom:20px;display:flex;align-items:center;gap:16px;">
       <span style="font-size:1.8rem;">⚙️</span>
