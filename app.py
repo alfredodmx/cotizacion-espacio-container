@@ -9919,18 +9919,90 @@ with tab_contrato:
                         _combined_bytes = _combined_buf.getvalue()
                         _b64_combined = _b64pv.b64encode(_combined_bytes).decode()
 
-                        # ── 5. Mostrar iframe ──
-                        st.markdown(
-                            f'''<div style="font-size:0.7rem;font-weight:700;color:#64748b;
-                                        text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">
-                                📄 Vista previa del contrato completo con anexos</div>
-                            <iframe src="data:application/pdf;base64,{_b64_combined}"
-                                    width="100%" height="700px"
-                                    style="border:1.5px solid #0f3460;border-radius:12px;">
-                            </iframe>''', unsafe_allow_html=True)
+                        # ── 5. Vista previa — cards de los documentos ──
+                        st.markdown("""
+                        <div style="font-size:0.7rem;font-weight:700;color:#64748b;
+                                    text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">
+                            📄 Documentos incluidos en el contrato completo</div>
+                        """, unsafe_allow_html=True)
 
-                        # ── 6. Botón descarga ──
-                        st.markdown("")
+                        _b64_contrato = _b64pv.b64encode(_pdf_contrato).decode()
+                        _card_html = f'''
+                        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+                          <div style="background:#e8eef7;border:1.5px solid #0f3460;border-radius:10px;
+                                      padding:14px 18px;display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                              <div style="font-size:10px;font-weight:900;color:#0f3460;text-transform:uppercase;
+                                          letter-spacing:0.08em;">📄 Contrato de fabricación y venta</div>
+                              <div style="font-size:13px;font-weight:700;color:#0f3460;margin-top:4px;">
+                                {_ep_pv_num} — {_cli_pv}</div>
+                            </div>
+                            <a href="data:application/pdf;base64,{_b64_contrato}"
+                               download="Contrato_{_ep_pv_num}.pdf"
+                               style="background:#0f3460;color:white;padding:7px 16px;border-radius:7px;
+                                      font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;">
+                              ⬇️ Ver contrato
+                            </a>
+                          </div>
+                        '''
+
+                        if _pdf_presupuesto:
+                            _b64_pres = _b64pv.b64encode(_pdf_presupuesto if isinstance(_pdf_presupuesto, bytes) else _pdf_presupuesto.getvalue()).decode()
+                            _card_html += f'''
+                          <div style="background:#e8eef7;border:1.5px solid #0f3460;border-radius:10px;
+                                      padding:14px 18px;display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                              <div style="font-size:10px;font-weight:900;color:#0f3460;text-transform:uppercase;
+                                          letter-spacing:0.08em;">📋 Anexo N°2 — Presupuesto detallado</div>
+                              <div style="font-size:13px;font-weight:700;color:#0f3460;margin-top:4px;">
+                                {_ep_pv_num} — {_cli_pv} — {_fmt_pv(_total_pv)}</div>
+                            </div>
+                            <a href="data:application/pdf;base64,{_b64_pres}"
+                               download="Presupuesto_{_ep_pv_num}.pdf"
+                               style="background:#0f3460;color:white;padding:7px 16px;border-radius:7px;
+                                      font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;">
+                              ⬇️ Ver presupuesto
+                            </a>
+                          </div>
+                            '''
+
+                        if _pdf_plano:
+                            _b64_plano = _b64pv.b64encode(_pdf_plano).decode()
+                            _card_html += f'''
+                          <div style="background:#e8eef7;border:1.5px solid #0f3460;border-radius:10px;
+                                      padding:14px 18px;display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                              <div style="font-size:10px;font-weight:900;color:#0f3460;text-transform:uppercase;
+                                          letter-spacing:0.08em;">📐 Anexo N°3 — Plano del proyecto</div>
+                              <div style="font-size:13px;font-weight:700;color:#0f3460;margin-top:4px;">
+                                {_ep_pv_num} — {_proy_pv}</div>
+                            </div>
+                            <a href="data:application/pdf;base64,{_b64_plano}"
+                               download="Plano_{_ep_pv_num}.pdf"
+                               style="background:#0f3460;color:white;padding:7px 16px;border-radius:7px;
+                                      font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;">
+                              ⬇️ Ver plano
+                            </a>
+                          </div>
+                            '''
+                        else:
+                            _card_html += '''
+                          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;
+                                      padding:14px 18px;display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                              <div style="font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;
+                                          letter-spacing:0.08em;">📐 Anexo N°3 — Plano del proyecto</div>
+                              <div style="font-size:13px;color:#94a3b8;margin-top:4px;">Sin plano adjunto</div>
+                            </div>
+                            <span style="background:#e2e8f0;color:#94a3b8;padding:7px 16px;border-radius:7px;
+                                         font-size:12px;font-weight:700;">No disponible</span>
+                          </div>
+                            '''
+
+                        _card_html += "</div>"
+                        st.markdown(_card_html, unsafe_allow_html=True)
+
+                        # ── 6. Botón descarga PDF combinado ──
                         _dc1, _dc2, _dc3 = st.columns([1, 2, 1])
                         with _dc2:
                             _nom_combined = f"ContratoCompleto_{_ep_pv_num.replace('-','_')}.pdf"
@@ -9940,7 +10012,7 @@ with tab_contrato:
                                    style="display:block;text-align:center;background:#0f3460;
                                           color:white;padding:12px 24px;border-radius:10px;
                                           font-weight:700;font-size:14px;text-decoration:none;">
-                                  ⬇️ Descargar contrato completo
+                                  ⬇️ Descargar contrato completo (todo en un PDF)
                                 </a>''', unsafe_allow_html=True)
 
                     except Exception as _epv_err:
