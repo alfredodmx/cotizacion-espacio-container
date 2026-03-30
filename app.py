@@ -9080,6 +9080,12 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
         )
 
         # Mostrar card visual del EP seleccionado
+        # Resetear visor si cambia el EP seleccionado
+        if st.session_state.get('oper_ep_anterior') != _ep_sel_op:
+            st.session_state['oper_ep_anterior'] = _ep_sel_op
+            st.session_state['oper_show_plano']  = False
+            st.session_state['oper_plano_url']   = None
+
         if _ep_sel_op and _ep_sel_op in _ep_labels_op:
             _sel_listo = "✅" in _ep_labels_op[_ep_sel_op]
             _bg_card   = "#dbeafe" if _sel_listo else "#fef9c3"
