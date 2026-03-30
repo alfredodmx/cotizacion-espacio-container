@@ -9654,7 +9654,7 @@ with tab_contrato:
             <div class="contrato-box-wrapper">
             """, unsafe_allow_html=True)
             with st.container():
-                st.markdown("<div style='font-size:0.7rem;font-weight:900;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.12em;border-bottom:2px solid #1e3a5f;padding-bottom:8px;margin-bottom:4px;'>📋 Datos del contrato</div>", unsafe_allow_html=True)
+                st.markdown("<div style='font-size:1.1rem;font-weight:900;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.12em;border-bottom:2px solid #1e3a5f;padding-bottom:12px;margin-bottom:16px;margin-top:8px;text-align:center;font-family:Montserrat,sans-serif;'>📋 Datos del contrato</div>", unsafe_allow_html=True)
                 _, _mid, _ = st.columns([1, 6, 1])
                 with _mid:
 
