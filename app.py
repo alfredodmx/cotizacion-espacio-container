@@ -9539,9 +9539,9 @@ with tab_contrato:
     .hdr-contrato h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
                  font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
     .hdr-contrato p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
-    .cont-section { background:#0f3460; color:#fff; font-size:0.75rem; font-weight:900;
-                    text-transform:uppercase; letter-spacing:0.1em; padding:7px 14px;
-                    border-radius:8px; margin-bottom:12px; display:inline-block; }
+    .cont-section { background:transparent; color:#1e3a5f; font-size:0.75rem; font-weight:900;
+                    text-transform:uppercase; letter-spacing:0.1em; padding:4px 0;
+                    border-bottom: 2px solid #1e3a5f; margin-bottom:12px; display:block; }
     .cont-form-panel { background: #fff; border-radius: 14px; padding: 20px 22px;
                        border: 1px solid #e8edf5; box-shadow: 0 2px 12px rgba(0,0,0,0.05);
                        margin-bottom: 10px; }
