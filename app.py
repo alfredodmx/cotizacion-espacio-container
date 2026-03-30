@@ -8496,30 +8496,39 @@ if st.session_state.modo_admin:
     _color_fab = '#10b981' if _margen_actual > 0 else '#6b7280'
     st.markdown(f"""
 <style>
-/* Identificar el popover de margen por ser el ÚNICO popover fuera del header */
+/* FAB Margen — panel lateral izquierdo estilo progreso */
 section[data-testid="stMain"] div[data-testid="stPopover"] {{
     position: fixed !important;
-    bottom: 1.5rem !important;
-    left: 12rem !important;
+    left: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    bottom: unset !important;
     z-index: 99998 !important;
 }}
 section[data-testid="stMain"] div[data-testid="stPopover"] > div > button {{
-    background: linear-gradient(135deg, {_color_fab}, {_color_fab}dd) !important;
-    color: white !important;
-    border: none !important;
-    border-radius: 50px !important;
-    padding: 0.8rem 1.4rem !important;
-    font-size: 0.9rem !important;
-    font-weight: 700 !important;
+    background: white !important;
+    color: {_color_fab} !important;
+    border: 1px solid #e2e8f0 !important;
+    border-left: none !important;
+    border-radius: 0 14px 14px 0 !important;
+    padding: 14px 12px !important;
+    font-size: 1.4rem !important;
+    font-weight: 900 !important;
     white-space: nowrap !important;
-    box-shadow: 0 6px 20px rgba(16,185,129,.4) !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.12) !important;
     min-height: unset !important;
     height: auto !important;
+    width: 54px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 4px !important;
+    line-height: 1 !important;
 }}
 </style>
 """, unsafe_allow_html=True)
 
-    with st.popover(f"📊 Margen: {_mstr}%"):
+    with st.popover(f"{_mstr}%\n💹\nVER"):
         st.markdown("**Aplicar margen**")
         _mg_pop = st.number_input(
             "Margen %", min_value=0.0, max_value=100.0,
