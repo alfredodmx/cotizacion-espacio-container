@@ -9638,7 +9638,15 @@ with tab_contrato:
             _pago25b = _precio - _pago50 - _pago25a
             _fmt_p   = lambda v: "${:,.0f}".format(v).replace(",",".")
 
-            # ── Contenedor centrado ──
+            # ── Contenedor centrado con sombra ──
+            st.markdown("""
+            <div style="background:white;border-radius:16px;
+                        box-shadow:0 4px 24px rgba(15,52,96,0.10);
+                        border:1px solid rgba(15,52,96,0.08);
+                        padding:24px 28px 8px 28px;margin-bottom:8px;">
+            <div id="form-contrato-wrap"></div>
+            </div>
+            """, unsafe_allow_html=True)
             _, _mid, _ = st.columns([1, 6, 1])
             with _mid:
 
@@ -9719,10 +9727,12 @@ with tab_contrato:
                 st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
             # ── Botón generar ──
+            st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
             _, _gen_col, _ = st.columns([2, 3, 2])
             with _gen_col:
                 _generar = st.button("📄 Generar y descargar contrato PDF", type="primary",
                                      use_container_width=True, key="cont_generar")
+            st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
             if _generar:
                 if not _tratamiento:
