@@ -5369,7 +5369,8 @@ if st.session_state.get('trigger_cerrar_cotizacion', False):
 # =========================================================
 # TAB 2 - DATOS CLIENTE
 # =========================================================
-with tab2:
+if tab2 is not None:
+ with tab2:
     st.markdown("""
     <style>
     .hdr2 {
@@ -5739,7 +5740,8 @@ with tab2:
 # =========================================================
 # TAB 1 - PREPARAR COTIZACIÓN
 # =========================================================
-with tab1:
+if tab1 is not None:
+ with tab1:
     st.markdown("""
     <style>
     .hdr1 {
@@ -6415,7 +6417,8 @@ with tab1:
 # =========================================================
 # TAB 3 - GESTIÓN DE COTIZACIONES GUARDADAS
 # =========================================================
-with tab3:
+if tab3 is not None:
+ with tab3:
     st.markdown("""
     <style>
     .hdr3 {
@@ -7102,7 +7105,8 @@ if st.session_state.get('mostrar_toast_exito', False):
 </script>""", height=0)
     st.session_state.mostrar_toast_exito = False
 
-with tab4:
+if tab4 is not None:
+ with tab4:
     st.markdown("""
     <style>
     .hdr4 {
@@ -10102,7 +10106,8 @@ if tab7 is not None:
 
 # TAB CONTRATO CLIENTE
 # =========================================================
-with tab_contrato:
+if tab_contrato is not None:
+ with tab_contrato:
     # ── Header ──
     st.markdown("""
     <style>
