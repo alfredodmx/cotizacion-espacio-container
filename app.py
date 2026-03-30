@@ -9889,54 +9889,20 @@ with tab_contrato:
                     _txt_plano_pv = "Sin plano adjunto para este proyecto. Puedes adjuntarlo desde la pestaña Cotizaciones."
                 _html_prev = f"""
                 <style>
-<style>
-                .prev-window {
-                    border: 1.5px solid #0f3460; border-radius: 12px;
-                    overflow: hidden; margin-bottom: 16px;
-                }
-                .prev-header {
-                    background: #0f3460; color: white; padding: 10px 16px;
-                    font-size: 12px; font-weight: 700; text-transform: uppercase;
-                    letter-spacing: 0.08em; display: flex; justify-content: space-between;
-                    align-items: center;
-                }
-                .prev-body {
-                    height: 500px; overflow-y: auto; background: white;
-                    padding: 32px 40px;
-                }
-                .prev-titulo { text-align:center; margin-bottom:16px; }
-                .prev-titulo h1 { font-size:15px; font-weight:800; color:#0f3460;
-                    letter-spacing:0.05em; margin:0; font-family:'Montserrat',sans-serif; }
-                .prev-titulo h2 { font-size:11px; font-weight:700; color:#0f3460;
-                    letter-spacing:0.1em; margin:4px 0 0; font-family:'Montserrat',sans-serif; }
-                .prev-hr { border:none; border-top:2px solid #0f3460; margin:12px 0; }
-                .prev-seccion {
-                    background:#1e3a5f; color:white; padding:5px 10px;
-                    border-radius:4px; font-size:10px; font-weight:900;
-                    text-transform:uppercase; letter-spacing:0.08em;
-                    margin:14px 0 8px;
-                }
-                .prev-p { font-size:11px; color:#1e293b; line-height:1.65;
-                    margin-bottom:8px; text-align:justify; }
-                .prev-anexo-sep {
-                    border-top: 2px dashed #94a3b8; margin: 24px 0 16px;
-                    padding-top: 0;
-                }
-                .prev-anexo-titulo {
-                    text-align:center; font-size:12px; font-weight:700;
-                    color:#0f3460; text-transform:uppercase; letter-spacing:0.08em;
-                    margin-bottom:14px;
-                }
-                .prev-anexo-card {
-                    border:1px solid #b5d4f4; border-radius:8px;
-                    padding:12px 16px; margin-bottom:10px; background:#e6f1fb;
-                }
-                .prev-anexo-label {
-                    font-size:10px; font-weight:800; color:#0c447c;
-                    text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px;
-                }
-                .prev-anexo-text { font-size:12px; color:#1e293b; }
-                </style>
+                .prev-window {{border:1.5px solid #0f3460;border-radius:12px;overflow:hidden;margin-bottom:16px;}}
+                .prev-header {{background:#0f3460;color:white;padding:10px 16px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;display:flex;justify-content:space-between;align-items:center;}}
+                .prev-body {{height:500px;overflow-y:auto;background:white;padding:32px 40px;}}
+                .prev-titulo {{text-align:center;margin-bottom:16px;}}
+                .prev-titulo h1 {{font-size:15px;font-weight:800;color:#0f3460;letter-spacing:0.05em;margin:0;}}
+                .prev-titulo h2 {{font-size:11px;font-weight:700;color:#0f3460;letter-spacing:0.1em;margin:4px 0 0;}}
+                .prev-hr {{border:none;border-top:2px solid #0f3460;margin:12px 0;}}
+                .prev-seccion {{background:#1e3a5f;color:white;padding:5px 10px;border-radius:4px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;margin:14px 0 8px;}}
+                .prev-p {{font-size:11px;color:#1e293b;line-height:1.65;margin-bottom:8px;text-align:justify;}}
+                .prev-anexo-sep {{border-top:2px dashed #94a3b8;margin:24px 0 16px;}}
+                .prev-anexo-titulo {{text-align:center;font-size:12px;font-weight:700;color:#0f3460;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:14px;}}
+                .prev-anexo-card {{border:1px solid #b5d4f4;border-radius:8px;padding:12px 16px;margin-bottom:10px;background:#e6f1fb;}}
+                .prev-anexo-label {{font-size:10px;font-weight:800;color:#0c447c;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;}}
+                .prev-anexo-text {{font-size:12px;color:#1e293b;}}
                 </style>
                 <div class="prev-window">
                   <div class="prev-header">
@@ -9950,61 +9916,46 @@ with tab_contrato:
                     </div>
                     <hr class="prev-hr">
                     <p class="prev-p">En Santiago de Chile, a <strong>{_fecha_pv}</strong>, comparecen:</p>
-
                     <div class="prev-seccion">I. Comparecencia</div>
                     <p class="prev-p"><strong>1. EL PROVEEDOR</strong><br>
-                    Don <strong>Alan Mauricio Gatica Concha</strong>, cédula nacional de identidad N° <strong>13.668.157-5</strong>,
-                    en representación de <strong>Inversiones Container House SpA</strong>, Rol Único Tributario N° <strong>78.268.851-0</strong>,
-                    ambos con domicilio en Villasana N° 2039, Departamento 51, Torre D, comuna de Quinta Normal,
-                    Región Metropolitana, quien en adelante se denominará "el Proveedor".</p>
+                    Don <strong>Alan Mauricio Gatica Concha</strong>, cédula N° <strong>13.668.157-5</strong>,
+                    en representación de <strong>Inversiones Container House SpA</strong>, RUT <strong>78.268.851-0</strong>,
+                    con domicilio en Villasana N° 2039, Dpto 51, Torre D, Quinta Normal, Región Metropolitana,
+                    quien en adelante se denominará "el Proveedor".</p>
                     <p class="prev-p"><strong>2. EL CLIENTE</strong><br>
-                    {_trat_pv} <strong>{_cli_pv}</strong>, cédula nacional de identidad N° <strong>{_rut_pv}</strong>,
+                    {_trat_pv} <strong>{_cli_pv}</strong>, cédula N° <strong>{_rut_pv}</strong>,
                     con domicilio en <strong>{_dom_cli_pv}</strong>, comuna de <strong>{_com_cli_pv}</strong>,
                     Región {_reg_cli_pv}, quien en adelante se denominará "el Cliente".<br><br>
-                    Se deja expresa constancia que la dirección de instalación del proyecto será <strong>{_dom_ins_pv}</strong>,
+                    Se deja expresa constancia que la dirección de instalación será <strong>{_dom_ins_pv}</strong>,
                     comuna de <strong>{_com_ins_pv}</strong>, Región <strong>{_reg_ins_pv}</strong>.<br><br>
-                    Las partes declaran ser mayores de edad, con plena capacidad legal para contratar, y acuerdan celebrar
-                    el presente <strong>Contrato de Fabricación y Venta de Vivienda Tipo Container</strong>,
-                    el cual se regirá por las cláusulas que se indican a continuación.</p>
-
+                    Las partes declaran ser mayores de edad y acuerdan celebrar el presente
+                    <strong>Contrato de Fabricación y Venta de Vivienda Tipo Container</strong>.</p>
                     <div class="prev-seccion">II. Definiciones</div>
-                    <p class="prev-p">a) <strong>Proyecto</strong>: La vivienda tipo container identificada como
-                    <strong>Proyecto N° {_ep_pv_num} – "{_proy_pv}"</strong>.<br>
-                    b) <strong>Anexos</strong>: Los documentos técnicos y comerciales que forman parte integrante del presente contrato.<br>
-                    c) <strong>Preentrega</strong>: Instancia de revisión visual del módulo previo a su despacho.</p>
-
+                    <p class="prev-p">a) <strong>Proyecto</strong>: <strong>N° {_ep_pv_num} – "{_proy_pv}"</strong><br>
+                    b) <strong>Anexos</strong>: Documentos técnicos y comerciales del contrato.<br>
+                    c) <strong>Preentrega</strong>: Revisión visual del módulo previo al despacho.</p>
                     <div class="prev-seccion">VI. Precio</div>
-                    <p class="prev-p">El precio total del Proyecto asciende a la suma de <strong>{_total_fmt}</strong>, IVA incluido.</p>
-
+                    <p class="prev-p">El precio total asciende a <strong>{_total_fmt}</strong>, IVA incluido.</p>
                     <div class="prev-seccion">VII. Forma y etapas de pago</div>
                     <p class="prev-p">
                     a) <strong>50% inicial</strong>: <strong>{_p50_pv}</strong><br>
                     b) <strong>25% intermedio</strong>: <strong>{_p25a_pv}</strong><br>
-                    c) <strong>25% final</strong>: <strong>{_p25b_pv}</strong>
-                    </p>
-
+                    c) <strong>25% final</strong>: <strong>{_p25b_pv}</strong></p>
                     <div class="prev-seccion">X. Plazo</div>
-                    <p class="prev-p">El plazo máximo de fabricación y entrega será de <strong>{_plazo_pv} días hábiles administrativos</strong>.</p>
-
-                    <p class="prev-p" style="text-align:center;color:#64748b;font-style:italic;margin-top:16px;">
-                    [ ... resto de cláusulas en el PDF descargable ... ]</p>
-
+                    <p class="prev-p">Plazo máximo de fabricación: <strong>{_plazo_pv} días hábiles administrativos</strong>.</p>
+                    <p class="prev-p" style="text-align:center;color:#94a3b8;font-style:italic;margin-top:16px;">
+                    [ ... resto de cláusulas incluidas en el PDF descargable ... ]</p>
                     <div class="prev-anexo-sep"></div>
                     <div class="prev-anexo-titulo">ANEXOS DEL CONTRATO</div>
-
                     <div class="prev-anexo-card">
                       <div class="prev-anexo-label">📋 Anexo N°2 — Presupuesto detallado</div>
-                      <div class="prev-anexo-text">Se adjunta presupuesto correspondiente al cliente
-                      <strong>{_cli_pv}</strong>, Proyecto <strong>{_ep_pv_num}</strong>
-                      "{_proy_pv}", por un total de <strong>{_total_fmt}</strong>.</div>
+                      <div class="prev-anexo-text">Se adjunta presupuesto del cliente <strong>{_cli_pv}</strong>,
+                      Proyecto <strong>{_ep_pv_num}</strong> "{_proy_pv}", total: <strong>{_total_fmt}</strong>.</div>
                     </div>
-
                     <div class="prev-anexo-card">
                       <div class="prev-anexo-label">📐 Anexo N°3 — Plano del proyecto {_plano_badge}</div>
                       <div class="prev-anexo-text">{_txt_plano_pv}</div>
                     </div>
-                    </div>
-
                   </div>
                 </div>
                 """
