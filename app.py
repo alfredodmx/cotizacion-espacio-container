@@ -9864,8 +9864,32 @@ with tab_contrato:
                 _tiene_plano = bool(_plano_url)
 
                 # ── Ventana de previsualización ──
-                st.markdown("""
+
+                # Construir HTML del contrato
+                _fecha_pv   = _datos_pv.get("fecha_str", "—")
+                _trat_pv    = _datos_pv.get("cli_tratamiento", "Don")
+                _rut_pv     = _datos_pv.get("cli_rut", "—")
+                _dom_cli_pv = _datos_pv.get("cli_domicilio", "—")
+                _com_cli_pv = _datos_pv.get("cli_comuna", "—")
+                _reg_cli_pv = _datos_pv.get("cli_region", "—")
+                _dom_ins_pv = _datos_pv.get("inst_domicilio", "—")
+                _com_ins_pv = _datos_pv.get("inst_comuna", "—")
+                _reg_ins_pv = _datos_pv.get("inst_region", "—")
+                _plazo_pv   = _datos_pv.get("plazo_dias", 45)
+                _p50_pv     = _fmt_pv(_datos_pv.get("pago_50", 0))
+                _p25a_pv    = _fmt_pv(_datos_pv.get("pago_25a", 0))
+                _p25b_pv    = _fmt_pv(_datos_pv.get("pago_25b", 0))
+                _total_fmt  = _fmt_pv(_total_pv)
+
+                _plano_badge = f'<span style="background:#16a34a;color:white;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;">✅ Adjunto</span>' if _tiene_plano else '<span style="background:#94a3b8;color:white;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;">Sin plano</span>'
+
+                if _tiene_plano:
+                    _txt_plano_pv = f"Se adjunta plano del proyecto <strong>{_ep_pv_num}</strong> correspondiente al cliente <strong>{_cli_pv}</strong>, \"{_proy_pv}\"."
+                else:
+                    _txt_plano_pv = "Sin plano adjunto para este proyecto. Puedes adjuntarlo desde la pestaña Cotizaciones."
+                _html_prev = f"""
                 <style>
+<style>
                 .prev-window {
                     border: 1.5px solid #0f3460; border-radius: 12px;
                     overflow: hidden; margin-bottom: 16px;
@@ -9913,31 +9937,7 @@ with tab_contrato:
                 }
                 .prev-anexo-text { font-size:12px; color:#1e293b; }
                 </style>
-                """, unsafe_allow_html=True)
-
-                # Construir HTML del contrato
-                _fecha_pv   = _datos_pv.get("fecha_str", "—")
-                _trat_pv    = _datos_pv.get("cli_tratamiento", "Don")
-                _rut_pv     = _datos_pv.get("cli_rut", "—")
-                _dom_cli_pv = _datos_pv.get("cli_domicilio", "—")
-                _com_cli_pv = _datos_pv.get("cli_comuna", "—")
-                _reg_cli_pv = _datos_pv.get("cli_region", "—")
-                _dom_ins_pv = _datos_pv.get("inst_domicilio", "—")
-                _com_ins_pv = _datos_pv.get("inst_comuna", "—")
-                _reg_ins_pv = _datos_pv.get("inst_region", "—")
-                _plazo_pv   = _datos_pv.get("plazo_dias", 45)
-                _p50_pv     = _fmt_pv(_datos_pv.get("pago_50", 0))
-                _p25a_pv    = _fmt_pv(_datos_pv.get("pago_25a", 0))
-                _p25b_pv    = _fmt_pv(_datos_pv.get("pago_25b", 0))
-                _total_fmt  = _fmt_pv(_total_pv)
-
-                _plano_badge = f'<span style="background:#16a34a;color:white;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;">✅ Adjunto</span>' if _tiene_plano else '<span style="background:#94a3b8;color:white;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;">Sin plano</span>'
-
-                if _tiene_plano:
-                    _txt_plano_pv = f"Se adjunta plano del proyecto <strong>{_ep_pv_num}</strong> correspondiente al cliente <strong>{_cli_pv}</strong>, \"{_proy_pv}\"."
-                else:
-                    _txt_plano_pv = "Sin plano adjunto para este proyecto. Puedes adjuntarlo desde la pestaña Cotizaciones."
-                _html_prev = f"""
+                </style>
                 <div class="prev-window">
                   <div class="prev-header">
                     <span>📄 Vista previa — Contrato {_ep_pv_num}</span>
