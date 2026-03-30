@@ -9718,7 +9718,7 @@ with tab_contrato:
                 st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
             # ── Botón generar ──
-            _gen_col, _ = st.columns([2, 3])
+            _, _gen_col, _ = st.columns([2, 3, 2])
             with _gen_col:
                 _generar = st.button("📄 Generar y descargar contrato PDF", type="primary",
                                      use_container_width=True, key="cont_generar")
