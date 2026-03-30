@@ -8494,70 +8494,104 @@ _mstr = f"{_margen_actual:.1f}"
 
 if st.session_state.modo_admin:
     _color_fab = '#10b981' if _margen_actual > 0 else '#6b7280'
-    st.markdown(f"""
-<style>
-/* FAB Margen — panel lateral izquierdo estilo progreso */
-section[data-testid="stMain"] div[data-testid="stPopover"] {{
-    position: fixed !important;
-    left: 0 !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    bottom: unset !important;
-    z-index: 99998 !important;
-}}
-section[data-testid="stMain"] div[data-testid="stPopover"] > div > button {{
-    background: white !important;
-    color: {_color_fab} !important;
-    border: 1px solid #e2e8f0 !important;
-    border-left: none !important;
-    border-radius: 0 14px 14px 0 !important;
-    padding: 14px 12px !important;
-    font-size: 1.4rem !important;
-    font-weight: 900 !important;
-    white-space: nowrap !important;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.12) !important;
-    min-height: unset !important;
-    height: auto !important;
-    width: 54px !important;
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    gap: 4px !important;
-    line-height: 1 !important;
-}}
-</style>
-""", unsafe_allow_html=True)
+    _pct_bar   = min(int(_margen_actual), 100)
 
-    with st.popover(f"{_mstr}%\n💹\nVER"):
-        st.markdown("**Aplicar margen**")
-        _mg_pop = st.number_input(
-            "Margen %", min_value=0.0, max_value=100.0,
-            value=float(_margen_actual),
-            step=0.5, format="%.1f",
-            key="margen_popover"
-        )
-        if st.button("✅ Aplicar", key="btn_aplicar_margen", use_container_width=True):
-            _margen_anterior = st.session_state.margen
-            st.session_state.margen = _mg_pop
-            # Notificar via Telegram
-            try:
-                _ep_notif = st.session_state.get('cotizacion_cargada', '')
-                _cli_notif = st.session_state.get('nombre_input', '') or 'Cliente'
-                # Obtener email ejecutivo — desde session_state o desde la BD
-                _ej_email_notif = st.session_state.get('correo_asesor', '') or st.session_state.get('asesor_correo_temp', '')
-                _ej_nombre_notif = st.session_state.get('asesor_seleccionado', '')
-                # Si no hay email en session, buscarlo en la cotización cargada
-                if not _ej_email_notif and _ep_notif:
-                    try:
-                        _cot_data = supabase_admin.table('cotizaciones').select('asesor_email','asesor_nombre').eq('numero', _ep_notif).execute()
-                        if _cot_data.data:
-                            _ej_email_notif = _cot_data.data[0].get('asesor_email', '')
-                            _ej_nombre_notif = _ej_nombre_notif or _cot_data.data[0].get('asesor_nombre', '')
-                    except:
-                        pass
-            except Exception as _ne:
-                pass
-            st.rerun()
+    # ── Panel lateral izquierdo estilo progreso ──
+    _panel_margen = f'''
+<div id="_mg_panel" style="position:fixed;left:0;top:50%;transform:translateY(-50%);
+z-index:99997;background:#ffffff;border-radius:0 14px 14px 0;padding:14px 12px;width:160px;
+box-shadow:0 4px 24px rgba(0,0,0,0.12),0 1px 4px rgba(0,0,0,0.06);
+border:1px solid #e2e8f0;border-left:none;">
+  <div style="text-align:center;margin-bottom:8px;">
+    <div style="font-size:1.4rem;font-weight:900;color:{_color_fab};line-height:1;">{_mstr}%</div>
+    <div style="font-size:0.62rem;color:#9ca3af;margin-top:2px;text-transform:uppercase;letter-spacing:0.05em;">Margen</div>
+  </div>
+  <div style="background:#f1f5f9;border-radius:99px;height:6px;margin-bottom:10px;overflow:hidden;">
+    <div style="width:{_pct_bar}%;height:100%;border-radius:99px;background:{_color_fab};transition:width 0.4s;"></div>
+  </div>
+  <div style="background:#f8fafc;border-radius:8px;padding:8px;margin-bottom:8px;">
+    <div style="font-size:0.65rem;color:#9ca3af;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Aplicar margen %</div>
+    <input id="_mg_input" type="number" min="0" max="100" step="0.5"
+           value="{_margen_actual:.1f}"
+           style="width:100%;border:1px solid #e2e8f0;border-radius:6px;padding:4px 8px;
+                  font-size:0.85rem;font-weight:700;color:#374151;box-sizing:border-box;outline:none;">
+  </div>
+  <div id="_mg_apply" style="background:{_color_fab};border-radius:6px;padding:7px;text-align:center;
+       cursor:pointer;font-size:0.75rem;font-weight:700;color:white;">✅ Aplicar</div>
+  <div id="_mg_toggle" data-action="mg-toggle"
+       style="margin-top:10px;text-align:center;cursor:pointer;font-size:0.65rem;
+              color:#9ca3af;padding:4px 0;border-top:1px solid #f1f5f9;user-select:none;">
+    ‹ Ocultar</div>
+</div>
+<div id="_mg_mini" style="display:none;position:fixed;left:0;top:50%;transform:translateY(-50%);
+z-index:99997;background:{_color_fab};border-radius:0 10px 10px 0;padding:14px 8px;
+cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.2);text-align:center;width:54px;"
+data-action="mg-show">
+  <div style="font-size:1.15rem;font-weight:900;color:#fff;line-height:1;">{_mstr}%</div>
+  <div style="font-size:0.7rem;color:rgba(255,255,255,0.85);margin-top:5px;">💹</div>
+  <div style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.75);margin-top:3px;letter-spacing:0.06em;">VER</div>
+</div>
+'''
+    st.markdown(_panel_margen, unsafe_allow_html=True)
+
+    # JS: toggle panel + aplicar margen via query_params
+    components.html(f"""
+<script>
+(function(){{
+  var D = window.parent.document;
+  function init(){{
+    var panel = D.getElementById('_mg_panel');
+    var mini  = D.getElementById('_mg_mini');
+    var apply = D.getElementById('_mg_apply');
+    var inp   = D.getElementById('_mg_input');
+    if (!panel || !mini) {{ setTimeout(init, 100); return; }}
+
+    D.addEventListener('click', function(e){{
+      var el = e.target && e.target.closest ? e.target.closest('[data-action]') : null;
+      if (!el) return;
+      if (el.getAttribute('data-action') === 'mg-toggle'){{
+        panel.style.display = 'none'; mini.style.display = 'block';
+      }} else if (el.getAttribute('data-action') === 'mg-show'){{
+        panel.style.display = 'block'; mini.style.display = 'none';
+      }}
+    }});
+
+    if (apply && inp){{
+      apply.addEventListener('click', function(){{
+        var val = parseFloat(inp.value);
+        if (isNaN(val) || val < 0 || val > 100) return;
+        var url = new URL(window.parent.location.href);
+        url.searchParams.set('mgfab', val.toFixed(1));
+        window.parent.location.href = url.toString();
+      }});
+    }}
+  }}
+  init();
+}})();
+</script>
+""", height=0)
+
+    # Mantener st.popover oculto para compatibilidad con lógica existente
+    _mg_pop = _margen_actual
+    if st.button("✅ Aplicar margen", key="btn_aplicar_margen", use_container_width=False, type="primary"):
+        _margen_anterior = st.session_state.margen
+        st.session_state.margen = _mg_pop
+        try:
+            _ep_notif = st.session_state.get('cotizacion_cargada', '')
+            _cli_notif = st.session_state.get('nombre_input', '') or 'Cliente'
+            _ej_email_notif = st.session_state.get('correo_asesor', '') or st.session_state.get('asesor_correo_temp', '')
+            _ej_nombre_notif = st.session_state.get('asesor_seleccionado', '')
+            if not _ej_email_notif and _ep_notif:
+                try:
+                    _cot_data = supabase_admin.table('cotizaciones').select('asesor_email','asesor_nombre').eq('numero', _ep_notif).execute()
+                    if _cot_data.data:
+                        _ej_email_notif = _cot_data.data[0].get('asesor_email', '')
+                        _ej_nombre_notif = _ej_nombre_notif or _cot_data.data[0].get('asesor_nombre', '')
+                except:
+                    pass
+        except Exception as _ne:
+            pass
+        st.rerun()
 
 else:
     components.html("""<script>
