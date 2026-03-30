@@ -2301,18 +2301,19 @@ st.markdown("""
 
 
 
-    /* ══ FAB margen iframe — sacarlo del flujo ══ */
-    /* El último iframe de components antes del final se posiciona fixed */
-    [data-testid="stBottom"] ~ div iframe:last-of-type {
-        position: fixed !important;
-        bottom: 0 !important;
-        left: 0 !important;
-        width: 400px !important;
-        height: 300px !important;
-        border: none !important;
-        z-index: 999990 !important;
+    /* ══ FAB margen — sacar container del flujo ══ */
+    .st-key-fab_margen_panel {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    /* Eliminar espacio que genera el container en el flujo */
+    div:has(> div > .st-key-fab_margen_panel) {
+        height: 0 !important;
+        overflow: visible !important;
+        pointer-events: none !important;
+    }
+    div:has(> div > .st-key-fab_margen_panel) > * {
         pointer-events: auto !important;
-        background: transparent !important;
     }
 
     /* ══ Sombra tabla data_editor / dataframe ══ */
@@ -8499,7 +8500,7 @@ if st.session_state.modo_admin:
     # ── CSS: posicionar el panel de margen a la izquierda ──
     st.markdown(f"""
 <style>
-/* Panel margen — contenedor fixed izquierda */
+/* Sacar el container del flujo normal */
 .st-key-fab_margen_panel {{
     position: fixed !important;
     left: 0 !important;
@@ -8508,45 +8509,46 @@ if st.session_state.modo_admin:
     z-index: 99997 !important;
     background: white !important;
     border-radius: 0 14px 14px 0 !important;
-    padding: 14px 12px !important;
-    width: 170px !important;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.12) !important;
+    padding: 12px 10px 4px 10px !important;
+    width: 158px !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.13) !important;
     border: 1px solid #e2e8f0 !important;
     border-left: none !important;
+    pointer-events: auto !important;
 }}
-/* Encabezado del panel */
-#_mg_header {{
-    text-align: center;
-    margin-bottom: 8px;
+/* Quitar margen extra del bloque interno */
+.st-key-fab_margen_panel > div {{
+    gap: 0 !important;
+    padding: 0 !important;
 }}
-/* Barra progreso */
-#_mg_bar_wrap {{
-    background: #f1f5f9;
-    border-radius: 99px;
-    height: 6px;
-    margin-bottom: 10px;
-    overflow: hidden;
+/* Input compacto */
+.st-key-fab_margen_panel input[type=number] {{
+    height: 30px !important;
+    font-size: 0.85rem !important;
+    padding: 2px 6px !important;
 }}
-#_mg_bar {{
-    width: {_pct_bar}%;
-    height: 100%;
-    border-radius: 99px;
-    background: {_color_fab};
-}}
-/* Ocultar label del number_input */
+/* Label compacta */
 .st-key-fab_margen_panel label {{
-    font-size: 0.65rem !important;
+    font-size: 0.6rem !important;
     color: #9ca3af !important;
-    font-weight: 600 !important;
+    font-weight: 700 !important;
     text-transform: uppercase !important;
-    letter-spacing: 0.04em !important;
+    letter-spacing: 0.05em !important;
+    margin-bottom: 2px !important;
+}}
+/* Botón aplicar compacto */
+.st-key-fab_margen_panel button {{
+    height: 30px !important;
+    font-size: 0.72rem !important;
+    padding: 0 8px !important;
+    margin-top: 4px !important;
+    border-radius: 6px !important;
 }}
 /* Mini tab */
 #_mg_mini {{
     display: none;
     position: fixed;
-    left: 0;
-    top: 50%;
+    left: 0; top: 50%;
     transform: translateY(-50%);
     z-index: 99997;
     background: {_color_fab};
@@ -8558,11 +8560,15 @@ if st.session_state.modo_admin:
     width: 54px;
 }}
 </style>
-<div id="_mg_header">
+<!-- Encabezado con % y barra -->
+<div style="text-align:center;margin-bottom:6px;">
   <div style="font-size:1.4rem;font-weight:900;color:{_color_fab};line-height:1;">{_mstr}%</div>
-  <div style="font-size:0.62rem;color:#9ca3af;margin-top:2px;text-transform:uppercase;letter-spacing:0.05em;">Margen</div>
+  <div style="font-size:0.6rem;color:#9ca3af;margin-top:1px;text-transform:uppercase;letter-spacing:0.05em;">Margen</div>
 </div>
-<div id="_mg_bar_wrap"><div id="_mg_bar"></div></div>
+<div style="background:#f1f5f9;border-radius:99px;height:5px;margin-bottom:8px;overflow:hidden;">
+  <div style="width:{_pct_bar}%;height:100%;border-radius:99px;background:{_color_fab};"></div>
+</div>
+<!-- Mini tab oculto -->
 <div id="_mg_mini">
   <div style="font-size:1.15rem;font-weight:900;color:#fff;line-height:1;">{_mstr}%</div>
   <div style="font-size:0.7rem;color:rgba(255,255,255,0.85);margin-top:5px;">💹</div>
