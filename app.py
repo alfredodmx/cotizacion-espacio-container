@@ -9638,32 +9638,25 @@ with tab_contrato:
             _pago25b = _precio - _pago50 - _pago25a
             _fmt_p   = lambda v: "${:,.0f}".format(v).replace(",",".")
 
-            # ── Contenedor centrado con sombra ──
+            # ── Contenedor centrado con sombra usando CSS sobre st.container nativo ──
             st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
             st.markdown("""
             <style>
-            .contrato-form-box {
-                background: white;
-                border-radius: 16px;
-                box-shadow: 0 4px 24px rgba(15,52,96,0.12);
-                border: 1px solid rgba(15,52,96,0.10);
-                padding: 24px 32px 8px 32px;
-                margin: 0 auto 16px auto;
-                max-width: 860px;
-            }
-            .contrato-form-title {
-                font-size: 0.7rem; font-weight: 900; color: #1e3a5f;
-                text-transform: uppercase; letter-spacing: 0.12em;
-                border-bottom: 2px solid #1e3a5f; padding-bottom: 8px;
-                margin-bottom: 20px;
+            div.contrato-box-wrapper > div[data-testid="stVerticalBlock"] {
+                background: white !important;
+                border-radius: 16px !important;
+                box-shadow: 0 4px 24px rgba(15,52,96,0.12) !important;
+                border: 1px solid rgba(15,52,96,0.10) !important;
+                padding: 24px 32px 20px 32px !important;
+                margin-bottom: 16px !important;
             }
             </style>
-            <div class="contrato-form-box">
-              <div class="contrato-form-title">📋 Datos del contrato</div>
-            </div>
+            <div class="contrato-box-wrapper">
             """, unsafe_allow_html=True)
-            _, _mid, _ = st.columns([1, 6, 1])
-            with _mid:
+            with st.container():
+                st.markdown("<div style='font-size:0.7rem;font-weight:900;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.12em;border-bottom:2px solid #1e3a5f;padding-bottom:8px;margin-bottom:4px;'>📋 Datos del contrato</div>", unsafe_allow_html=True)
+                _, _mid, _ = st.columns([1, 6, 1])
+                with _mid:
 
                     # Fila 1: Fecha + Tratamiento + Plazo
                     _c1, _c2, _c3 = st.columns([2, 2, 1])
