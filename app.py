@@ -9102,7 +9102,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
                   <span style="background:{_bc_card};color:white;padding:2px 10px;border-radius:99px;
                                font-size:10px;font-weight:700;">{_badge_txt}</span>
-                  {"<span style='font-size:13px;font-weight:700;color:#1d4ed8;'>" + _fmt_op_tc(_sel_tc) + "</span>" if _sel_listo else ""}
+                  {f'<span style="font-size:13px;font-weight:700;color:#1d4ed8;">{_fmt_op_tc(_sel_tc)}</span>' if _sel_listo else ""}
                 </div>
                 <div style="font-size:11px;color:#374151;display:flex;gap:14px;">
                   <span>Cliente: <b>{_sel_r.get("cliente_nombre","—")}</b></span>
