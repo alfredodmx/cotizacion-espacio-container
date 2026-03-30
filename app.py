@@ -9656,7 +9656,7 @@ with tab_contrato:
             with st.container():
                 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
                 st.markdown("<div style='font-size:1.1rem;font-weight:900;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.12em;border-bottom:2px solid #1e3a5f;padding-bottom:12px;margin-bottom:16px;margin-top:8px;text-align:center;font-family:Montserrat,sans-serif;'>📋 Datos del contrato</div>", unsafe_allow_html=True)
-                _, _mid, _ = st.columns([1, 6, 1])
+                _, _mid, _ = st.columns([0.2, 8, 0.2])
                 with _mid:
 
                     # Fila 1: Fecha + Tratamiento + Plazo
