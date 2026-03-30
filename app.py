@@ -8876,14 +8876,13 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
     </div>
     """, unsafe_allow_html=True)
 
-    # ── Cargar lista de ejecutivos ──
+    # ── Cargar ejecutivos para dropdown ──
     try:
         _oper_usuarios = listar_usuarios_ejecutivos() or []
-        _oper_ejecutivos = [u for u in _oper_usuarios if u.get('rol','ejecutivo') == 'ejecutivo']
-        _oper_ej_nombres = ['Todos los ejecutivos'] + [u.get('nombre','') for u in _oper_ejecutivos if u.get('nombre')]
+        _oper_ejs = [u for u in _oper_usuarios if u.get('rol','ejecutivo') == 'ejecutivo']
+        _oper_ej_opts = ['Todos'] + [u.get('nombre','') for u in _oper_ejs if u.get('nombre')]
     except Exception:
-        _oper_ejecutivos = []
-        _oper_ej_nombres = ['Todos los ejecutivos']
+        _oper_ej_opts = ['Todos']
 
     # ── Filtros ──
     _oc1, _oc2, _oc3 = st.columns([2.5, 2, 0.8])
@@ -8891,24 +8890,21 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
         _oper_ep = st.text_input("EP", placeholder="Buscar por N° EP...",
                                   key="oper_ep", label_visibility="collapsed")
     with _oc2:
-        _oper_ej_sel = st.selectbox("Ejecutivo", _oper_ej_nombres,
+        _oper_ej_sel = st.selectbox("Ejecutivo", _oper_ej_opts,
                                      key="oper_ej_sel", label_visibility="collapsed")
     with _oc3:
         _oper_buscar = st.button("🔍 Buscar", use_container_width=True, key="oper_buscar")
 
     if _oper_buscar:
-        st.session_state['oper_results'] = None
-
-    # ── Cargar resultados ──
-    if _oper_buscar or 'oper_results' not in st.session_state:
         try:
             _oq = supabase.table("cotizaciones").select(
-                "numero,cliente_nombre,proyecto_observaciones,asesor_nombre,"
-                "estado,plano_url,productos,total_subtotal_sin_margen,total_iva"
+                "numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_empresa,"
+                "asesor_nombre,asesor_email,asesor_telefono,estado,plano_url,plano_nombre,"
+                "config_margen,contrato_generado,productos,total_subtotal_sin_margen"
             )
             if _oper_ep.strip():
                 _oq = _oq.ilike("numero", f"%{_oper_ep.strip()}%")
-            if _oper_ej_sel != 'Todos los ejecutivos':
+            if _oper_ej_sel != 'Todos':
                 _oq = _oq.eq("asesor_nombre", _oper_ej_sel)
             _ores = _oq.order("fecha_creacion", desc=True).limit(100).execute()
             st.session_state['oper_results'] = _ores.data or []
@@ -8916,169 +8912,229 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
             st.error(f"Error: {_oe}")
             st.session_state['oper_results'] = []
 
+    if 'oper_results' not in st.session_state:
+        # carga inicial
+        try:
+            _ores0 = supabase.table("cotizaciones").select(
+                "numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_empresa,"
+                "asesor_nombre,asesor_email,asesor_telefono,estado,plano_url,plano_nombre,"
+                "config_margen,contrato_generado,productos,total_subtotal_sin_margen"
+            ).order("fecha_creacion", desc=True).limit(100).execute()
+            st.session_state['oper_results'] = _ores0.data or []
+        except Exception:
+            st.session_state['oper_results'] = []
+
     _oper_data = st.session_state.get('oper_results', [])
 
-    # Badge resumen
-    if _oper_ej_sel != 'Todos los ejecutivos':
+    if _oper_ej_sel != 'Todos':
         st.markdown(
             f"<span style='background:#ede9fe;color:#6d28d9;padding:3px 12px;border-radius:99px;"
-            f"font-size:11px;font-weight:700;'>👤 {_oper_ej_sel} · {len(_oper_data)} cotizaciones</span>",
+            f"font-size:11px;font-weight:700;'>👤 {_oper_ej_sel} · {len(_oper_data)} resultados</span>",
             unsafe_allow_html=True)
-        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
     if not _oper_data:
-        st.info("No se encontraron cotizaciones. Usa el buscador para encontrar resultados.")
+        st.info("No se encontraron cotizaciones.")
     else:
-        # ── Tabla ──
         import pandas as _pd_op
-        _fmt_op = lambda v: "${:,.0f}".format(v or 0).replace(",",".")
+        from datetime import datetime as _dt_op, timezone as _tz_op, timedelta as _td_op
 
-        # Cabecera tabla
-        st.markdown("""
-        <div style="display:grid;grid-template-columns:100px 1fr 1.2fr 110px 50px 120px 220px;
-                    gap:8px;background:#0f172a;border-radius:10px 10px 0 0;
-                    padding:9px 12px;margin-bottom:0;">
-          <div style="font-size:10px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.05em;">N° EP</div>
-          <div style="font-size:10px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.05em;">Cliente</div>
-          <div style="font-size:10px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.05em;">Proyecto</div>
-          <div style="font-size:10px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.05em;">Estado</div>
-          <div style="font-size:10px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.05em;">Plano</div>
-          <div style="font-size:10px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.05em;">Total costo</div>
-          <div style="font-size:10px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.05em;">Acciones</div>
-        </div>
-        """, unsafe_allow_html=True)
+        _tz_cl = _tz_op(_td_op(hours=-3))
+        _fmt_op_clp = lambda v: "${:,.0f}".format(v or 0).replace(",",".")
 
-        for _idx_op, _or in enumerate(_oper_data):
-            _op_ep     = _or.get("numero", "—")
-            _op_cli    = _or.get("cliente_nombre", "—")
-            _op_proy   = (_or.get("proyecto_observaciones") or "—")[:28]
-            _op_estado = (_or.get("estado") or "").lower()
-            _op_plano  = _or.get("plano_url", "") or ""
-            _op_aut    = "autorizado" in _op_estado
-            _op_ej     = _or.get("asesor_nombre", "")
-
-            # Calcular total costo: base sin margen sin Varios + IVA
+        def _fmt_op_fecha(x):
+            if not x: return ""
             try:
-                _op_prods = _or.get("productos") or []
-                if isinstance(_op_prods, str):
-                    import json as _jop
-                    _op_prods = _jop.loads(_op_prods)
-                _op_df_prods = _pd_op.DataFrame(_op_prods) if _op_prods else _pd_op.DataFrame()
-                if not _op_df_prods.empty and 'Categoria' in _op_df_prods.columns:
-                    _op_df_prods = _op_df_prods[
-                        _op_df_prods['Categoria'].str.strip().str.lower() != 'varios'
-                    ]
-                _op_sub = _op_df_prods['Subtotal'].sum() if not _op_df_prods.empty and 'Subtotal' in _op_df_prods.columns else 0
-                _op_total_costo = _op_sub * 1.19
-            except Exception:
-                _op_total_costo = 0
+                _d = _dt_op.fromisoformat(x.replace("Z","+00:00")).astimezone(_tz_cl)
+                return f'<span style="font-weight:700;">{_d.strftime("%d/%m/%Y")}</span><br><span style="font-size:0.75em;color:#64748b;">{_d.strftime("%H:%M")}</span>'
+            except: return str(x)[:10]
 
-            # Badges
-            if "autorizado" in _op_estado:
-                _op_badge = "<span style='background:#dcfce7;color:#166534;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:700;'>🟢 Aut.</span>"
-            elif "borrador" in _op_estado:
-                _op_badge = "<span style='background:#fef9c3;color:#854d0e;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:700;'>🟡 Bor.</span>"
-            else:
-                _op_badge = "<span style='background:#fee2e2;color:#991b1b;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:700;'>🔴 Inc.</span>"
+        # Calcular Total Costo para cada fila
+        def _calc_total_costo(row):
+            try:
+                _prods = row.get("productos") or []
+                if isinstance(_prods, str):
+                    import json as _jop2; _prods = _jop2.loads(_prods)
+                _df_p = _pd_op.DataFrame(_prods) if _prods else _pd_op.DataFrame()
+                if not _df_p.empty and 'Categoria' in _df_p.columns:
+                    _df_p = _df_p[_df_p['Categoria'].str.strip().str.lower() != 'varios']
+                _sub = _df_p['Subtotal'].sum() if not _df_p.empty and 'Subtotal' in _df_p.columns else 0
+                return _sub * 1.19
+            except: return 0
 
-            _bg = "#ffffff" if _idx_op % 2 == 0 else "#f8fafc"
+        # Badge estado
+        def _badge_op(estado):
+            e = (estado or "").lower()
+            if "autorizado" in e and "plano" in e: return "<span style='background:#dcfce7;color:#166534;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:700;'>🟢 AUT+PLANO</span>"
+            if "autorizado" in e: return "<span style='background:#dcfce7;color:#166534;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:700;'>🟢 Autorizado</span>"
+            if "borrador" in e:   return "<span style='background:#fef9c3;color:#854d0e;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:700;'>🟡 Borrador</span>"
+            return "<span style='background:#fee2e2;color:#991b1b;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:700;'>🔴 Incompleto</span>"
 
-            st.markdown(f"""
-            <div style="display:grid;grid-template-columns:100px 1fr 1.2fr 110px 50px 120px 220px;
-                        gap:8px;background:{_bg};padding:8px 12px;
-                        border:1px solid #e2e8f0;border-top:none;
-                        {'border-radius:0 0 10px 10px;' if _idx_op == len(_oper_data)-1 else ''}">
-              <div style="font-size:12px;font-weight:900;color:#0f172a;">{_op_ep}</div>
-              <div style="font-size:11px;color:#374151;">{_op_cli}</div>
-              <div style="font-size:11px;color:#64748b;">{_op_proy}</div>
-              <div>{_op_badge}</div>
-              <div style="font-size:12px;">{"✅" if _op_plano else "⬜"}</div>
-              <div style="font-size:12px;font-weight:700;color:{"#0f172a" if _op_aut else "#94a3b8"};">
-                {_fmt_op(_op_total_costo) if _op_aut else "—"}
-              </div>
-              <div style="font-size:11px;color:#94a3b8;">ver botones abajo</div>
-            </div>
-            """, unsafe_allow_html=True)
+        # Construir filas HTML
+        _rows_op = ""
+        for _or in _oper_data:
+            _ep       = _or.get("numero","—")
+            _cli      = _or.get("cliente_nombre","—")
+            _ej       = _or.get("asesor_nombre","—")
+            _estado   = _or.get("estado","")
+            _plano    = _or.get("plano_url","") or ""
+            _empresa  = _or.get("cliente_empresa","") or ""
+            _contrato = _or.get("contrato_generado", False)
+            _fecha    = _fmt_op_fecha(_or.get("fecha_creacion",""))
+            _aut      = "autorizado" in (_estado or "").lower()
+            _tc       = _calc_total_costo(_or)
+            _tc_html  = f'<span style="font-weight:700;">{_fmt_op_clp(_tc)}</span><br><span style="font-size:0.75em;color:#64748b;">base+IVA</span>' if _aut else '<span style="color:#94a3b8;">—</span>'
+            _plano_html = '<span style="color:#16a34a;font-weight:700;">✅ Sí</span>' if _plano else '<span style="color:#94a3b8;">—</span>'
+            _emp_html   = '<span style="color:#16a34a;font-weight:700;">✅ Sí</span>' if _empresa.strip() else '<span style="color:#94a3b8;">—</span>'
+            _ct_html    = '<span style="color:#16a34a;font-weight:700;">✅ Sí</span>' if _contrato else '<span style="color:#94a3b8;">—</span>'
+            _rows_op += (
+                f"<tr>"
+                f"<td data-ep='{_ep}' style='cursor:pointer;font-weight:700;color:#3b82f6;' title='Click para copiar {_ep}'>{_ep} 📋</td>"
+                f"<td>{_cli}</td>"
+                f"<td style='text-align:right;line-height:1.6;'>{_tc_html}</td>"
+                f"<td>{_ej}</td>"
+                f"<td style='text-align:center;'>{_badge_op(_estado)}</td>"
+                f"<td style='line-height:1.6;'>{_fecha}</td>"
+                f"<td style='text-align:center;'>{_emp_html}</td>"
+                f"<td style='text-align:center;'>{_ct_html}</td>"
+                f"<td style='text-align:center;'>{_plano_html}</td>"
+                f"</tr>"
+            )
 
-            # Botones en columnas Streamlit
-            _ob1, _ob2, _ob3 = st.columns([2, 2, 6])
-            with _ob1:
-                if _op_aut:
-                    try:
-                        _op_cot_full = cargar_cotizacion(_op_ep)
-                        if _op_cot_full:
-                            _op_df_c = _pd_op.DataFrame(_op_cot_full.get('productos', []))
-                            if not _op_df_c.empty and 'Categoria' in _op_df_c.columns:
-                                _op_df_c = _op_df_c[_op_df_c['Categoria'].str.strip().str.lower() != 'varios'].copy()
-                            _op_sub_c  = _op_df_c['Subtotal'].sum() if not _op_df_c.empty and 'Subtotal' in _op_df_c.columns else 0
-                            _op_iva_c  = _op_sub_c * 0.19
-                            _op_tot_c  = _op_sub_c + _op_iva_c
-                            _op_dc = {
-                                "Nombre": _op_cot_full.get('cliente_nombre',''),
-                                "RUT": _op_cot_full.get('cliente_rut',''),
-                                "Correo": _op_cot_full.get('cliente_email',''),
-                                "Teléfono": _op_cot_full.get('cliente_telefono',''),
-                                "Dirección": _op_cot_full.get('cliente_direccion',''),
-                                "ComunaCliente": _op_cot_full.get('cliente_comuna',''),
-                                "RegionCliente": _op_cot_full.get('cliente_region',''),
-                                "DireccionProyecto": _op_cot_full.get('proyecto_direccion',''),
-                                "ComunaProyecto": _op_cot_full.get('proyecto_comuna',''),
-                                "RegionProyecto": _op_cot_full.get('proyecto_region',''),
-                                "TipoCliente": _op_cot_full.get('cliente_tipo','natural'),
-                                "EmpresaCliente": _op_cot_full.get('cliente_empresa',''),
-                                "RutEmpresa": _op_cot_full.get('cliente_rut_empresa',''),
-                                "Observaciones": _op_cot_full.get('proyecto_observaciones',''),
-                            }
-                            _op_da = {
-                                "Nombre Ejecutivo": _op_cot_full.get('asesor_nombre',''),
-                                "Correo Ejecutivo": _op_cot_full.get('asesor_email',''),
-                                "Teléfono Ejecutivo": _op_cot_full.get('asesor_telefono',''),
-                            }
-                            _op_fi = datetime.strptime(_op_cot_full.get('proyecto_fecha_inicio', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d').date()
-                            _op_ft = datetime.strptime(_op_cot_full.get('proyecto_fecha_termino', (datetime.now()+timedelta(days=15)).strftime('%Y-%m-%d')), '%Y-%m-%d').date()
-                            _op_dv = _op_cot_full.get('proyecto_dias_validez', 15)
-                            _op_pdf_bytes, _ = generar_pdf_completo(
-                                _op_df_c, _op_sub_c, _op_iva_c, _op_tot_c,
-                                _op_dc, _op_fi, _op_ft, _op_dv, _op_da,
-                                margen=0, numero_cotizacion=_op_ep, mostrar_precios=True
-                            )
-                            st.download_button("🛒 PDF Compras", data=_op_pdf_bytes,
-                                file_name=f"Compras_{_op_ep}.pdf", mime="application/pdf",
-                                use_container_width=True, key=f"op_pdf_{_op_ep}")
-                    except Exception as _ope:
-                        st.button("🛒 PDF Compras", disabled=True, use_container_width=True, key=f"op_pdf_{_op_ep}")
-                else:
-                    st.button("🛒 PDF Compras", disabled=True, use_container_width=True,
-                              help="Solo para cotizaciones autorizadas", key=f"op_pdf_{_op_ep}")
+        _altura_op = min(len(_oper_data) * 52 + 60, 550)
+        _html_op = f"""
+        <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;">
+          <div style="overflow-y:auto;max-height:{_altura_op}px;">
+            <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;'>
+              <thead style='position:sticky;top:0;z-index:2;'>
+                <tr>
+                  <th>N° Presupuesto</th>
+                  <th>Cliente</th>
+                  <th>Total costo</th>
+                  <th>Asesor</th>
+                  <th>Estado</th>
+                  <th>Fecha creación</th>
+                  <th>Empresa</th>
+                  <th>Contrato</th>
+                  <th>Plano</th>
+                </tr>
+              </thead>
+              <tbody>{_rows_op}</tbody>
+            </table>
+          </div>
+        </div>
+        <p style="font-size:0.8rem;color:#888;margin-top:6px;">Mostrando {len(_oper_data)} resultado(s)</p>
+        """
+        st.markdown(_html_op, unsafe_allow_html=True)
 
-            with _ob2:
-                if _op_plano:
-                    if st.button("👁️ Ver plano", use_container_width=True, key=f"op_vp_{_op_ep}"):
-                        _key_vis = f"op_vis_{_op_ep}"
-                        st.session_state[_key_vis] = not st.session_state.get(_key_vis, False)
-                else:
-                    st.button("👁️ Sin plano", disabled=True, use_container_width=True, key=f"op_vp_{_op_ep}")
+        # JS copiar EP
+        components.html("""<script>
+(function(){
+  var D=window.parent.document;
+  function init(){
+    D.addEventListener('click',function(e){
+      var td=e.target&&e.target.closest?e.target.closest('td[data-ep]'):null;
+      if(!td)return;
+      var ep=td.getAttribute('data-ep');
+      if(!ep)return;
+      var ta=D.createElement('textarea');
+      ta.value=ep;ta.style.cssText='position:fixed;top:-9999px;left:-9999px;';
+      D.body.appendChild(ta);ta.focus();ta.select();
+      try{D.execCommand('copy');}catch(err){}
+      D.body.removeChild(ta);
+    });
+  }
+  init();
+})();
+</script>""", height=0)
 
-            # Visor plano
-            if _op_plano and st.session_state.get(f"op_vis_{_op_ep}"):
-                _nav_op = detectar_navegador()
-                _enc_op = urllib.parse.quote(_op_plano, safe='')
-                _src_op = f"https://docs.google.com/viewer?url={_enc_op}&embedded=true" if _nav_op['needs_google_viewer'] else _op_plano
-                components.html(f"""
+        # ── Selección EP y botones ──
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+        _ep_opts_op = [r.get("numero","") for r in _oper_data]
+        _ep_sel_op  = st.selectbox("Selecciona una cotización para acciones:",
+                                    _ep_opts_op, key="oper_ep_sel")
+
+        if _ep_sel_op:
+            _sel_data = next((r for r in _oper_data if r.get("numero") == _ep_sel_op), None)
+            if _sel_data:
+                _sel_aut   = "autorizado" in (_sel_data.get("estado","") or "").lower()
+                _sel_plano = _sel_data.get("plano_url","") or ""
+                _sb1, _sb2, _sb3 = st.columns([2, 2, 6])
+
+                with _sb1:
+                    if _sel_aut:
+                        try:
+                            _sel_cot = cargar_cotizacion(_ep_sel_op)
+                            if _sel_cot:
+                                _sel_df = _pd_op.DataFrame(_sel_cot.get('productos',[]))
+                                if not _sel_df.empty and 'Categoria' in _sel_df.columns:
+                                    _sel_df = _sel_df[_sel_df['Categoria'].str.strip().str.lower() != 'varios'].copy()
+                                _sel_sub = _sel_df['Subtotal'].sum() if not _sel_df.empty and 'Subtotal' in _sel_df.columns else 0
+                                _sel_iva = _sel_sub * 0.19
+                                _sel_tot = _sel_sub + _sel_iva
+                                _sel_dc = {
+                                    "Nombre": _sel_cot.get('cliente_nombre',''),
+                                    "RUT": _sel_cot.get('cliente_rut',''),
+                                    "Correo": _sel_cot.get('cliente_email',''),
+                                    "Teléfono": _sel_cot.get('cliente_telefono',''),
+                                    "Dirección": _sel_cot.get('cliente_direccion',''),
+                                    "ComunaCliente": _sel_cot.get('cliente_comuna',''),
+                                    "RegionCliente": _sel_cot.get('cliente_region',''),
+                                    "DireccionProyecto": _sel_cot.get('proyecto_direccion',''),
+                                    "ComunaProyecto": _sel_cot.get('proyecto_comuna',''),
+                                    "RegionProyecto": _sel_cot.get('proyecto_region',''),
+                                    "TipoCliente": _sel_cot.get('cliente_tipo','natural'),
+                                    "EmpresaCliente": _sel_cot.get('cliente_empresa',''),
+                                    "RutEmpresa": _sel_cot.get('cliente_rut_empresa',''),
+                                    "Observaciones": _sel_cot.get('proyecto_observaciones',''),
+                                }
+                                _sel_da = {
+                                    "Nombre Ejecutivo": _sel_cot.get('asesor_nombre',''),
+                                    "Correo Ejecutivo": _sel_cot.get('asesor_email',''),
+                                    "Teléfono Ejecutivo": _sel_cot.get('asesor_telefono',''),
+                                }
+                                _sel_fi = datetime.strptime(_sel_cot.get('proyecto_fecha_inicio', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d').date()
+                                _sel_ft = datetime.strptime(_sel_cot.get('proyecto_fecha_termino', (datetime.now()+timedelta(days=15)).strftime('%Y-%m-%d')), '%Y-%m-%d').date()
+                                _sel_dv = _sel_cot.get('proyecto_dias_validez', 15)
+                                _sel_pdf, _ = generar_pdf_completo(
+                                    _sel_df, _sel_sub, _sel_iva, _sel_tot,
+                                    _sel_dc, _sel_fi, _sel_ft, _sel_dv, _sel_da,
+                                    margen=0, numero_cotizacion=_ep_sel_op, mostrar_precios=True
+                                )
+                                st.download_button("🛒 PDF Compras", data=_sel_pdf,
+                                    file_name=f"Compras_{_ep_sel_op}.pdf",
+                                    mime="application/pdf", use_container_width=True,
+                                    key="oper_dl_pdf")
+                        except Exception as _se:
+                            st.button("🛒 PDF Compras", disabled=True, use_container_width=True, key="oper_dl_pdf")
+                    else:
+                        st.button("🛒 PDF Compras", disabled=True, use_container_width=True,
+                                  help="Solo para cotizaciones autorizadas", key="oper_dl_pdf")
+
+                with _sb2:
+                    if _sel_plano:
+                        if st.button("👁️ Ver plano", use_container_width=True, key="oper_ver_plano"):
+                            st.session_state['oper_show_plano'] = not st.session_state.get('oper_show_plano', False)
+                    else:
+                        st.button("👁️ Sin plano", disabled=True, use_container_width=True, key="oper_ver_plano")
+
+                if _sel_plano and st.session_state.get('oper_show_plano'):
+                    _nav_op = detectar_navegador()
+                    _enc_op = urllib.parse.quote(_sel_plano, safe='')
+                    _src_op = f"https://docs.google.com/viewer?url={_enc_op}&embedded=true" if _nav_op['needs_google_viewer'] else _sel_plano
+                    components.html(f"""
 <style>
 @keyframes spin{{from{{transform:rotate(0deg)}}to{{transform:rotate(360deg)}}}}
 body,html{{margin:0;padding:0;overflow:hidden;}}
 #pw{{width:100%;height:520px;border:2px solid #0f3460;border-radius:12px;overflow:hidden;background:#f0f2f5;position:relative;}}
-#pl{{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f0f2f5;z-index:2;gap:10px;}}
+#pl{{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f0f2f5;z-index:2;gap:10px;transition:opacity 0.4s;}}
 #ps{{width:34px;height:34px;border:4px solid #cbd5e1;border-top-color:#0f3460;border-radius:50%;animation:spin 0.8s linear infinite;}}
 #pi{{position:absolute;inset:0;width:100%;height:100%;border:none;}}
 </style>
 <div id="pw"><div id="pl"><div id="ps"></div><span style="font-size:12px;color:#64748b;font-family:sans-serif;">Cargando plano...</span></div>
 <iframe id="pi" src="" allow="fullscreen"></iframe></div>
-<script>(function(){{var i=document.getElementById('pi'),l=document.getElementById('pl');i.src="{_src_op}";setTimeout(function(){{if(l)l.style.display='none';}},3000);}})();</script>
+<script>(function(){{var i=document.getElementById('pi'),l=document.getElementById('pl');i.src="{_src_op}";setTimeout(function(){{l.style.opacity='0';setTimeout(function(){{l.style.display='none';}},400);}},3500);}})();</script>
 """, height=540, scrolling=False)
-
-        st.markdown(f"<div style='font-size:10px;color:#94a3b8;margin-top:8px;'>{len(_oper_data)} resultado(s) · Total costo = subtotal base sin margen, sin categoría Varios + IVA 19%</div>", unsafe_allow_html=True)
 
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
 # =========================================================
