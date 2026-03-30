@@ -9933,6 +9933,10 @@ with tab_contrato:
 
                 _plano_badge = f'<span style="background:#16a34a;color:white;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;">✅ Adjunto</span>' if _tiene_plano else '<span style="background:#94a3b8;color:white;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;">Sin plano</span>'
 
+                if _tiene_plano:
+                    _txt_plano_pv = f"Se adjunta plano del proyecto <strong>{_ep_pv_num}</strong> correspondiente al cliente <strong>{_cli_pv}</strong>, \"{_proy_pv}\"."
+                else:
+                    _txt_plano_pv = "Sin plano adjunto para este proyecto. Puedes adjuntarlo desde la pestaña Cotizaciones."
                 _html_prev = f"""
                 <div class="prev-window">
                   <div class="prev-header">
@@ -9997,10 +10001,8 @@ with tab_contrato:
 
                     <div class="prev-anexo-card">
                       <div class="prev-anexo-label">📐 Anexo N°3 — Plano del proyecto {_plano_badge}</div>
-                      <div class="prev-anexo-text">
-                      {"Se adjunta plano del proyecto <strong>" + _ep_pv_num + "</strong> correspondiente al cliente <strong>" + _cli_pv + "</strong>, \"" + _proy_pv + "\"."
-                      if _tiene_plano else
-                      "Sin plano adjunto para este proyecto. Puedes adjuntarlo desde la pestaña Cotizaciones."}</div>
+                      <div class="prev-anexo-text">{_txt_plano_pv}</div>
+                    </div>
                     </div>
 
                   </div>
