@@ -8496,82 +8496,132 @@ if st.session_state.modo_admin:
     _color_fab = '#10b981' if _margen_actual > 0 else '#6b7280'
     _pct_bar   = min(int(_margen_actual), 100)
 
-    # ── Panel lateral izquierdo estilo progreso ──
-    st.markdown(f'''
+    # ── CSS: posicionar el panel de margen a la izquierda ──
+    st.markdown(f"""
 <style>
-#_mg_panel{{position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:99997;
-  background:#ffffff;border-radius:0 14px 14px 0;padding:14px 12px;width:160px;
-  box-shadow:0 4px 24px rgba(0,0,0,0.12);border:1px solid #e2e8f0;border-left:none;}}
-#_mg_mini{{display:none;position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:99997;
-  background:{_color_fab};border-radius:0 10px 10px 0;padding:14px 8px;cursor:pointer;
-  box-shadow:0 4px 20px rgba(0,0,0,0.2);text-align:center;width:54px;}}
-#_mg_input{{width:100%;border:1px solid #e2e8f0;border-radius:6px;padding:5px 8px;
-  font-size:0.9rem;font-weight:700;color:#374151;outline:none;box-sizing:border-box;
-  -moz-appearance:textfield;}}
-#_mg_input::-webkit-outer-spin-button,#_mg_input::-webkit-inner-spin-button{{-webkit-appearance:none;}}
-#_mg_input:focus{{border-color:{_color_fab};}}
-#_mg_apply{{background:{_color_fab};border-radius:6px;padding:7px;text-align:center;
-  cursor:pointer;font-size:0.75rem;font-weight:700;color:white;margin-top:8px;}}
-#_mg_apply:hover{{opacity:0.88;}}
-#_mg_toggle{{margin-top:10px;text-align:center;cursor:pointer;font-size:0.65rem;
-  color:#9ca3af;padding:4px 0;border-top:1px solid #f1f5f9;user-select:none;}}
+/* Panel margen — contenedor fixed izquierda */
+.st-key-fab_margen_panel {{
+    position: fixed !important;
+    left: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    z-index: 99997 !important;
+    background: white !important;
+    border-radius: 0 14px 14px 0 !important;
+    padding: 14px 12px !important;
+    width: 170px !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.12) !important;
+    border: 1px solid #e2e8f0 !important;
+    border-left: none !important;
+}}
+/* Encabezado del panel */
+#_mg_header {{
+    text-align: center;
+    margin-bottom: 8px;
+}}
+/* Barra progreso */
+#_mg_bar_wrap {{
+    background: #f1f5f9;
+    border-radius: 99px;
+    height: 6px;
+    margin-bottom: 10px;
+    overflow: hidden;
+}}
+#_mg_bar {{
+    width: {_pct_bar}%;
+    height: 100%;
+    border-radius: 99px;
+    background: {_color_fab};
+}}
+/* Ocultar label del number_input */
+.st-key-fab_margen_panel label {{
+    font-size: 0.65rem !important;
+    color: #9ca3af !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+}}
+/* Mini tab */
+#_mg_mini {{
+    display: none;
+    position: fixed;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 99997;
+    background: {_color_fab};
+    border-radius: 0 10px 10px 0;
+    padding: 14px 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    text-align: center;
+    width: 54px;
+}}
 </style>
-<div id="_mg_panel">
-  <div style="text-align:center;margin-bottom:8px;">
-    <div style="font-size:1.4rem;font-weight:900;color:{_color_fab};line-height:1;">{_mstr}%</div>
-    <div style="font-size:0.62rem;color:#9ca3af;margin-top:2px;text-transform:uppercase;letter-spacing:0.05em;">Margen</div>
-  </div>
-  <div style="background:#f1f5f9;border-radius:99px;height:6px;margin-bottom:10px;overflow:hidden;">
-    <div style="width:{_pct_bar}%;height:100%;border-radius:99px;background:{_color_fab};"></div>
-  </div>
-  <div style="background:#f8fafc;border-radius:8px;padding:8px;">
-    <div style="font-size:0.65rem;color:#9ca3af;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Margen %</div>
-    <input id="_mg_input" type="number" min="0" max="100" step="0.5" value="{_margen_actual:.1f}">
-  </div>
-  <div id="_mg_apply">✅ Aplicar</div>
-  <div id="_mg_toggle">‹ Ocultar</div>
+<div id="_mg_header">
+  <div style="font-size:1.4rem;font-weight:900;color:{_color_fab};line-height:1;">{_mstr}%</div>
+  <div style="font-size:0.62rem;color:#9ca3af;margin-top:2px;text-transform:uppercase;letter-spacing:0.05em;">Margen</div>
 </div>
-<div id="_mg_mini" onclick="
-  document.getElementById('_mg_panel').style.display='block';
-  document.getElementById('_mg_mini').style.display='none';">
+<div id="_mg_bar_wrap"><div id="_mg_bar"></div></div>
+<div id="_mg_mini">
   <div style="font-size:1.15rem;font-weight:900;color:#fff;line-height:1;">{_mstr}%</div>
   <div style="font-size:0.7rem;color:rgba(255,255,255,0.85);margin-top:5px;">💹</div>
   <div style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.75);margin-top:3px;letter-spacing:0.06em;">VER</div>
 </div>
-''', unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-    # JS via components.html — accede al DOM padre
+    # Input y botón nativos de Streamlit dentro del panel
+    with st.container(key="fab_margen_panel"):
+        _mg_pop = st.number_input(
+            "Margen %", min_value=0.0, max_value=100.0,
+            value=float(_margen_actual),
+            step=0.5, format="%.1f",
+            key="margen_popover"
+        )
+        if st.button("✅ Aplicar", key="btn_aplicar_margen", use_container_width=True):
+            _margen_anterior = st.session_state.margen
+            st.session_state.margen = _mg_pop
+            try:
+                _ep_notif = st.session_state.get('cotizacion_cargada', '')
+                _ej_email_notif = st.session_state.get('correo_asesor', '') or st.session_state.get('asesor_correo_temp', '')
+                _ej_nombre_notif = st.session_state.get('asesor_seleccionado', '')
+                if not _ej_email_notif and _ep_notif:
+                    try:
+                        _cot_data = supabase_admin.table('cotizaciones').select('asesor_email','asesor_nombre').eq('numero', _ep_notif).execute()
+                        if _cot_data.data:
+                            _ej_email_notif = _cot_data.data[0].get('asesor_email', '')
+                            _ej_nombre_notif = _ej_nombre_notif or _cot_data.data[0].get('asesor_nombre', '')
+                    except:
+                        pass
+            except Exception as _ne:
+                pass
+            st.rerun()
+
+    # JS toggle ocultar/mostrar via window.parent.document
     components.html("""
 <script>
 (function(){
   var D = window.parent.document;
   function init(){
-    var tog   = D.getElementById('_mg_toggle');
-    var panel = D.getElementById('_mg_panel');
-    var mini  = D.getElementById('_mg_mini');
-    var apply = D.getElementById('_mg_apply');
-    var inp   = D.getElementById('_mg_input');
-    if (!tog || !panel || !mini || !apply || !inp){
-      setTimeout(init, 80); return;
-    }
-    tog.onclick = function(){
-      panel.style.display='none';
-      mini.style.display='block';
-    };
+    var mini = D.getElementById('_mg_mini');
+    var panel = D.querySelector('.st-key-fab_margen_panel');
+    if (!mini || !panel){ setTimeout(init, 100); return; }
     mini.onclick = function(){
-      panel.style.display='block';
-      mini.style.display='none';
+      panel.style.display = 'block';
+      mini.style.display  = 'none';
     };
-    apply.onclick = function(){
-      var val = parseFloat(inp.value);
-      if (isNaN(val)||val<0||val>100) return;
-      var url = new URL(window.parent.location.href);
-      url.searchParams.set('mgfab', val.toFixed(1));
-      window.parent.location.href = url.toString();
-    };
-    // Permitir escritura en input
-    inp.removeAttribute('readonly');
-    inp.style.pointerEvents = 'auto';
+    // Botón ocultar — agregar al final del panel
+    if (!D.getElementById('_mg_toggle')){
+      var tog = D.createElement('div');
+      tog.id = '_mg_toggle';
+      tog.style.cssText = 'margin-top:10px;text-align:center;cursor:pointer;font-size:0.65rem;color:#9ca3af;padding:4px 0;border-top:1px solid #f1f5f9;user-select:none;';
+      tog.innerText = '‹ Ocultar';
+      tog.onclick = function(){
+        panel.style.display = 'none';
+        mini.style.display  = 'block';
+      };
+      panel.appendChild(tog);
+    }
   }
   init();
 })();
