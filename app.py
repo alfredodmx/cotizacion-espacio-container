@@ -6603,7 +6603,7 @@ if tab3 is not None:
             _tc_val  = _tc_map.get(row["N°"], 0)
             _tc_fmt  = f"${_tc_val:,.0f}".replace(",",".") if _tc_val else "—"
             _th_tc   = '<th>Total costo</th>' if st.session_state.modo_admin else ''
-            _td_tc   = f'<td style="text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;">{_tc_fmt}<br><span style="font-size:0.72em;color:#94a3b8;font-weight:400;">base+IVA</span></td>' if st.session_state.modo_admin else ''
+            _td_tc   = f'<td style="text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;">{_tc_fmt}<br><span style="font-size:0.72em;color:#94a3b8;font-weight:400;">base+IVA · sin margen · sin Varios</span></td>' if st.session_state.modo_admin else ''
 
             _ct_color  = 'color:#16a34a;font-weight:700;' if row['ContratoCol'] == '✅ Sí' else 'color:#94a3b8;'
             _emp_color = 'color:#16a34a;font-weight:700;' if row['EmpresaCol']  == '✅ Sí' else 'color:#94a3b8;'
