@@ -395,11 +395,31 @@ if not st.session_state.auth_user:
 
     st.markdown("""
     <style>
-    /* Botón Cargar presupuesto — copia estilo de stDownloadButton */
+    /* Botón Cargar presupuesto — hereda estilo de stDownloadButton via CSS cascade */
+    [data-testid="stDownloadButton"] button:not([disabled]),
     [class*="st-key-btn_cargar_presupuesto"] button:not([disabled]) {
-        background-color: var(--primary-color, #ff4b4b) !important;
+        all: unset !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 100% !important;
+        padding: 0.25rem 0.75rem !important;
+        font-weight: 400 !important;
+        font-size: 1rem !important;
+        line-height: 1.6 !important;
+        border-radius: 0.5rem !important;
+        cursor: pointer !important;
+        user-select: none !important;
+        background-color: #7B2FBE !important;
         color: white !important;
         border: none !important;
+        box-sizing: border-box !important;
+        min-height: 38px !important;
+    }
+    [data-testid="stDownloadButton"] button:not([disabled]):hover,
+    [class*="st-key-btn_cargar_presupuesto"] button:not([disabled]):hover {
+        background-color: #6B28A8 !important;
+        color: white !important;
     }
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;700;900&display=swap');
 
