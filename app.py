@@ -9639,22 +9639,31 @@ with tab_contrato:
             _fmt_p   = lambda v: "${:,.0f}".format(v).replace(",",".")
 
             # ── Contenedor centrado con sombra ──
+            st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
             st.markdown("""
             <style>
-            div[data-testid="stVerticalBlock"]:has(> div > div[data-testid="stVerticalBlock"] #form-contrato-anchor) {
+            .contrato-form-box {
                 background: white;
                 border-radius: 16px;
-                box-shadow: 0 4px 24px rgba(15,52,96,0.10);
-                border: 1px solid rgba(15,52,96,0.08);
-                padding: 24px 28px 16px 28px;
-                margin-bottom: 8px;
+                box-shadow: 0 4px 24px rgba(15,52,96,0.12);
+                border: 1px solid rgba(15,52,96,0.10);
+                padding: 24px 32px 8px 32px;
+                margin: 0 auto 16px auto;
+                max-width: 860px;
+            }
+            .contrato-form-title {
+                font-size: 0.7rem; font-weight: 900; color: #1e3a5f;
+                text-transform: uppercase; letter-spacing: 0.12em;
+                border-bottom: 2px solid #1e3a5f; padding-bottom: 8px;
+                margin-bottom: 20px;
             }
             </style>
-            <div id="form-contrato-anchor"></div>
+            <div class="contrato-form-box">
+              <div class="contrato-form-title">📋 Datos del contrato</div>
+            </div>
             """, unsafe_allow_html=True)
-            with st.container():
-                _, _mid, _ = st.columns([1, 6, 1])
-                with _mid:
+            _, _mid, _ = st.columns([1, 6, 1])
+            with _mid:
 
                     # Fila 1: Fecha + Tratamiento + Plazo
                     _c1, _c2, _c3 = st.columns([2, 2, 1])
