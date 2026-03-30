@@ -9847,7 +9847,13 @@ with tab_contrato:
                     try:
                         import base64 as _b64pv
                         import io as _iopv
-                        from pypdf import PdfWriter as _PdfWriter, PdfReader as _PdfReader
+                        try:
+                            from pypdf import PdfWriter as _PdfWriter, PdfReader as _PdfReader
+                        except ImportError:
+                            try:
+                                from PyPDF2 import PdfWriter as _PdfWriter, PdfReader as _PdfReader
+                            except ImportError:
+                                from PyPDF2 import PdfFileWriter as _PdfWriter, PdfFileReader as _PdfReader
 
                         # ── 1. PDF Contrato ──
                         import json as _jsonpv
