@@ -9094,23 +9094,23 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
             _badge_txt = "✅ LISTO PARA COMPRAS" if _sel_listo else "⏳ PENDIENTE"
             _sel_r     = next((r for r in _oper_data if r.get("numero") == _ep_sel_op), {})
             _sel_tc    = _calc_total_costo(_sel_r) if _sel_listo else 0
-            st.markdown(f"""
-            <div style="background:{_bg_card};border-left:4px solid {_bc_card};border-radius:0 10px 10px 0;
-                        padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:16px;">
-              <div style="font-size:14px;font-weight:900;color:#0f172a;min-width:90px;">{_ep_sel_op}</div>
-              <div style="flex:1;">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                  <span style="background:{_bc_card};color:white;padding:2px 10px;border-radius:99px;
-                               font-size:10px;font-weight:700;">{_badge_txt}</span>
-                  {f'<span style="font-size:13px;font-weight:700;color:#1d4ed8;">{_fmt_op_tc(_sel_tc)}</span>' if _sel_listo else ""}
-                </div>
-                <div style="font-size:11px;color:#374151;display:flex;gap:14px;">
-                  <span>Cliente: <b>{_sel_r.get("cliente_nombre","—")}</b></span>
-                  <span>Ejecutivo: <b>{_sel_r.get("asesor_nombre","—")}</b></span>
-                </div>
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
+            _tc_span = f'<span style="font-size:13px;font-weight:700;color:#1d4ed8;">{_fmt_op_tc(_sel_tc)}</span>' if _sel_listo else ""
+            _cli_nom = _sel_r.get("cliente_nombre","—")
+            _ej_nom  = _sel_r.get("asesor_nombre","—")
+            st.markdown(
+                f'<div style="background:{_bg_card};border-left:4px solid {_bc_card};border-radius:0 10px 10px 0;'
+                f'padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:16px;">'
+                f'<div style="font-size:14px;font-weight:900;color:#0f172a;min-width:90px;">{_ep_sel_op}</div>'
+                f'<div style="flex:1;">'
+                f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'
+                f'<span style="background:{_bc_card};color:white;padding:2px 10px;border-radius:99px;font-size:10px;font-weight:700;">{_badge_txt}</span>'
+                f'{_tc_span}</div>'
+                f'<div style="font-size:11px;color:#374151;display:flex;gap:14px;">'
+                f'<span>Cliente: <b>{_cli_nom}</b></span>'
+                f'<span>Ejecutivo: <b>{_ej_nom}</b></span>'
+                f'</div></div></div>',
+                unsafe_allow_html=True
+            )
 
         if _ep_sel_op:
             _sel_data = next((r for r in _oper_data if r.get("numero") == _ep_sel_op), None)
