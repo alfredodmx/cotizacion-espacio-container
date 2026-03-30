@@ -4936,6 +4936,8 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
             Paragraph("<b>Subtotal</b>", styles['HeaderStyle'])
         ]]
         for _, row in carrito_df.iterrows():
+            if str(row.get("Categoria", "")).strip().lower() == "varios":
+                continue
             data.append([
                 Paragraph(row["Categoria"], styles['SmallFont']),
                 Paragraph(row["Item"], styles['SmallFont']),
@@ -4953,6 +4955,8 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
             Paragraph("<b>Cant.</b>", styles['HeaderStyle']),
         ]]
         for _, row in carrito_df.iterrows():
+            if str(row.get("Categoria", "")).strip().lower() == "varios":
+                continue
             data.append([
                 Paragraph(row["Categoria"], styles['SmallFont']),
                 Paragraph(row["Item"], styles['SmallFont']),
