@@ -8528,14 +8528,14 @@ section[data-testid="stMain"] div[data-testid="stPopover"] > div > button {{
 }}
 section[data-testid="stMain"] div[data-testid="stPopover"] > div > button::before {{
     content: "{_mstr}%" !important;
-    font-size: 1.1rem !important;
+    font-size: 0.85rem !important;
     font-weight: 900 !important;
     color: {_color_fab} !important;
     display: block !important;
 }}
 section[data-testid="stMain"] div[data-testid="stPopover"] > div > button::after {{
     content: "VER" !important;
-    font-size: 0.58rem !important;
+    font-size: 0.5rem !important;
     font-weight: 700 !important;
     color: #9ca3af !important;
     display: block !important;
