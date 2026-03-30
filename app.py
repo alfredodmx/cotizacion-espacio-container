@@ -2297,6 +2297,18 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400;1,500;1,600;1,700;1,800&family=Montserrat:wght@700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
 
+    /* Botón Cargar presupuesto — mismo color morado que PDF Completo */
+    .st-key-btn_cargar_presupuesto button:not([disabled]) {
+        background-color: #533AB7 !important;
+        color: white !important;
+        border: none !important;
+        font-weight: 700 !important;
+    }
+    .st-key-btn_cargar_presupuesto button:not([disabled]):hover {
+        background-color: #3C3489 !important;
+        color: white !important;
+    }
+
 
 
     /* ══ FAB margen iframe — sacarlo del flujo ══ */
@@ -6698,30 +6710,12 @@ with tab3:
             st.markdown("### Acciones")
             col_acc1, col_acc0, col_acc2, col_acc3, col_acc4 = st.columns(5)
 
-            # CSS para uniformar color morado en todos los botones de acción habilitados
-            st.markdown("""
-            <style>
-            div[data-testid="column"] > div > div > div > button:not([disabled]),
-            div[data-testid="column"] > div > div > div > div > button:not([disabled]) {
-                background-color: #533AB7 !important;
-                color: white !important;
-                border: none !important;
-                font-weight: 700 !important;
-            }
-            div[data-testid="column"] > div > div > div > button:not([disabled]):hover,
-            div[data-testid="column"] > div > div > div > div > button:not([disabled]):hover {
-                background-color: #3C3489 !important;
-                color: white !important;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-
             with col_acc1:
                 if tiene_margen_seleccionado and not st.session_state.modo_admin:
                     st.button("📂 Cargar presupuesto", use_container_width=True, disabled=True,
                               help="No se puede editar un presupuesto autorizado")
                 else:
-                    if st.button("📂 Cargar presupuesto", use_container_width=True):
+                    if st.button("📂 Cargar presupuesto", use_container_width=True, key="btn_cargar_presupuesto"):
                         # Si hay carrito sin guardar, mostrar advertencia
                         tiene_sin_guardar = (
                             len(st.session_state.carrito) > 0 and
