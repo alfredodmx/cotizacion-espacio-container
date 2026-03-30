@@ -8496,113 +8496,66 @@ if st.session_state.modo_admin:
     _color_fab = '#10b981' if _margen_actual > 0 else '#6b7280'
     _pct_bar   = min(int(_margen_actual), 100)
 
-    # ── Panel lateral izquierdo estilo progreso — todo en components.html ──
-    components.html(f"""
-<!DOCTYPE html>
-<html>
-<head><style>
-*{{margin:0;padding:0;box-sizing:border-box;font-family:'Plus Jakarta Sans',sans-serif;}}
-body{{background:transparent;overflow:hidden;}}
-#_mg_panel{{
-  position:fixed;left:0;top:50%;transform:translateY(-50%);
-  z-index:99997;background:#ffffff;border-radius:0 14px 14px 0;
-  padding:14px 12px;width:160px;
-  box-shadow:0 4px 24px rgba(0,0,0,0.12);
-  border:1px solid #e2e8f0;border-left:none;
-}}
-#_mg_mini{{
-  display:none;position:fixed;left:0;top:50%;transform:translateY(-50%);
-  z-index:99997;background:{_color_fab};border-radius:0 10px 10px 0;
-  padding:14px 8px;cursor:pointer;
-  box-shadow:0 4px 20px rgba(0,0,0,0.2);text-align:center;width:54px;
-}}
-.mg-pct{{font-size:1.4rem;font-weight:900;color:{_color_fab};line-height:1;text-align:center;}}
-.mg-lbl{{font-size:0.62rem;color:#9ca3af;margin-top:2px;text-transform:uppercase;letter-spacing:0.05em;text-align:center;}}
-.mg-bar-wrap{{background:#f1f5f9;border-radius:99px;height:6px;margin:8px 0 10px;overflow:hidden;}}
-.mg-bar{{width:{_pct_bar}%;height:100%;border-radius:99px;background:{_color_fab};transition:width 0.4s;}}
-.mg-input-wrap{{background:#f8fafc;border-radius:8px;padding:8px;margin-bottom:8px;}}
-.mg-input-lbl{{font-size:0.65rem;color:#9ca3af;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;}}
-#_mg_input{{
-  width:100%;border:1px solid #e2e8f0;border-radius:6px;padding:5px 8px;
-  font-size:0.9rem;font-weight:700;color:#374151;outline:none;
-  -moz-appearance:textfield;
-}}
-#_mg_input::-webkit-outer-spin-button,
-#_mg_input::-webkit-inner-spin-button{{-webkit-appearance:none;margin:0;}}
+    # ── Panel lateral izquierdo estilo progreso ──
+    st.markdown(f'''
+<style>
+#_mg_panel{{position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:99997;
+  background:#ffffff;border-radius:0 14px 14px 0;padding:14px 12px;width:160px;
+  box-shadow:0 4px 24px rgba(0,0,0,0.12);border:1px solid #e2e8f0;border-left:none;}}
+#_mg_mini{{display:none;position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:99997;
+  background:{_color_fab};border-radius:0 10px 10px 0;padding:14px 8px;cursor:pointer;
+  box-shadow:0 4px 20px rgba(0,0,0,0.2);text-align:center;width:54px;}}
+#_mg_input{{width:100%;border:1px solid #e2e8f0;border-radius:6px;padding:5px 8px;
+  font-size:0.9rem;font-weight:700;color:#374151;outline:none;box-sizing:border-box;
+  -moz-appearance:textfield;}}
+#_mg_input::-webkit-outer-spin-button,#_mg_input::-webkit-inner-spin-button{{-webkit-appearance:none;}}
 #_mg_input:focus{{border-color:{_color_fab};}}
-#_mg_apply{{
-  background:{_color_fab};border-radius:6px;padding:7px;text-align:center;
-  cursor:pointer;font-size:0.75rem;font-weight:700;color:white;
-}}
+#_mg_apply{{background:{_color_fab};border-radius:6px;padding:7px;text-align:center;
+  cursor:pointer;font-size:0.75rem;font-weight:700;color:white;margin-top:8px;}}
 #_mg_apply:hover{{opacity:0.88;}}
-#_mg_toggle{{
-  margin-top:10px;text-align:center;cursor:pointer;font-size:0.65rem;
-  color:#9ca3af;padding:4px 0;border-top:1px solid #f1f5f9;user-select:none;
-}}
-.mini-pct{{font-size:1.15rem;font-weight:900;color:#fff;line-height:1;}}
-.mini-ico{{font-size:0.7rem;color:rgba(255,255,255,0.85);margin-top:5px;}}
-.mini-ver{{font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.75);margin-top:3px;letter-spacing:0.06em;}}
-</style></head>
-<body>
+#_mg_toggle{{margin-top:10px;text-align:center;cursor:pointer;font-size:0.65rem;
+  color:#9ca3af;padding:4px 0;border-top:1px solid #f1f5f9;user-select:none;}}
+</style>
 <div id="_mg_panel">
-  <div class="mg-pct">{_mstr}%</div>
-  <div class="mg-lbl">Margen</div>
-  <div class="mg-bar-wrap"><div class="mg-bar"></div></div>
-  <div class="mg-input-wrap">
-    <div class="mg-input-lbl">Aplicar margen %</div>
+  <div style="text-align:center;margin-bottom:8px;">
+    <div style="font-size:1.4rem;font-weight:900;color:{_color_fab};line-height:1;">{_mstr}%</div>
+    <div style="font-size:0.62rem;color:#9ca3af;margin-top:2px;text-transform:uppercase;letter-spacing:0.05em;">Margen</div>
+  </div>
+  <div style="background:#f1f5f9;border-radius:99px;height:6px;margin-bottom:10px;overflow:hidden;">
+    <div style="width:{_pct_bar}%;height:100%;border-radius:99px;background:{_color_fab};"></div>
+  </div>
+  <div style="background:#f8fafc;border-radius:8px;padding:8px;">
+    <div style="font-size:0.65rem;color:#9ca3af;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Margen %</div>
     <input id="_mg_input" type="number" min="0" max="100" step="0.5" value="{_margen_actual:.1f}">
   </div>
   <div id="_mg_apply">✅ Aplicar</div>
   <div id="_mg_toggle">‹ Ocultar</div>
 </div>
-<div id="_mg_mini">
-  <div class="mini-pct">{_mstr}%</div>
-  <div class="mini-ico">💹</div>
-  <div class="mini-ver">VER</div>
+<div id="_mg_mini" onclick="
+  document.getElementById('_mg_panel').style.display='block';
+  document.getElementById('_mg_mini').style.display='none';">
+  <div style="font-size:1.15rem;font-weight:900;color:#fff;line-height:1;">{_mstr}%</div>
+  <div style="font-size:0.7rem;color:rgba(255,255,255,0.85);margin-top:5px;">💹</div>
+  <div style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.75);margin-top:3px;letter-spacing:0.06em;">VER</div>
 </div>
 <script>
-var panel = document.getElementById('_mg_panel');
-var mini  = document.getElementById('_mg_mini');
-var inp   = document.getElementById('_mg_input');
-var apply = document.getElementById('_mg_apply');
-var tog   = document.getElementById('_mg_toggle');
-
-tog.onclick = function(){{ panel.style.display='none'; mini.style.display='block'; }};
-mini.onclick = function(){{ panel.style.display='block'; mini.style.display='none'; }};
-
-apply.onclick = function(){{
-  var val = parseFloat(inp.value);
-  if (isNaN(val) || val < 0 || val > 100) return;
-  var url = new URL(window.parent.location.href);
-  url.searchParams.set('mgfab', val.toFixed(1));
-  window.parent.location.href = url.toString();
-}};
+(function(){{
+  document.getElementById('_mg_toggle').onclick = function(){{
+    document.getElementById('_mg_panel').style.display='none';
+    document.getElementById('_mg_mini').style.display='block';
+  }};
+  document.getElementById('_mg_apply').onclick = function(){{
+    var val = parseFloat(document.getElementById('_mg_input').value);
+    if (isNaN(val)||val<0||val>100) return;
+    var url = new URL(window.location.href);
+    url.searchParams.set('mgfab', val.toFixed(1));
+    window.location.href = url.toString();
+  }};
+}})();
 </script>
-</body></html>
-""", height=1, scrolling=False)
+''', unsafe_allow_html=True)
 
 
-    # Mantener st.popover oculto para compatibilidad con lógica existente
-    _mg_pop = _margen_actual
-    if st.button("✅ Aplicar margen", key="btn_aplicar_margen", use_container_width=False, type="primary"):
-        _margen_anterior = st.session_state.margen
-        st.session_state.margen = _mg_pop
-        try:
-            _ep_notif = st.session_state.get('cotizacion_cargada', '')
-            _cli_notif = st.session_state.get('nombre_input', '') or 'Cliente'
-            _ej_email_notif = st.session_state.get('correo_asesor', '') or st.session_state.get('asesor_correo_temp', '')
-            _ej_nombre_notif = st.session_state.get('asesor_seleccionado', '')
-            if not _ej_email_notif and _ep_notif:
-                try:
-                    _cot_data = supabase_admin.table('cotizaciones').select('asesor_email','asesor_nombre').eq('numero', _ep_notif).execute()
-                    if _cot_data.data:
-                        _ej_email_notif = _cot_data.data[0].get('asesor_email', '')
-                        _ej_nombre_notif = _ej_nombre_notif or _cot_data.data[0].get('asesor_nombre', '')
-                except:
-                    pass
-        except Exception as _ne:
-            pass
-        st.rerun()
 
 else:
     components.html("""<script>
