@@ -6510,7 +6510,8 @@ if tab3 is not None:
                 _r.append(0)
             _rows_norm.append(_r[:len(_cols_esperadas)])
         df_resultados = pd.DataFrame(_rows_norm, columns=_cols_esperadas)
-        df_resultados["Total"] = df_resultados["Total"].apply(lambda x: f"${x:,.0f}".replace(",", ".") if x else "$0")
+        _sub_total = "<br><span style='font-size:0.72em;color:#94a3b8;font-weight:400;'>base+IVA+margen+Varios</span>" if st.session_state.modo_admin else "<br><span style='font-size:0.72em;color:#94a3b8;font-weight:400;'>IVA incluido</span>"
+        df_resultados["Total"] = df_resultados["Total"].apply(lambda x: (f"${x:,.0f}".replace(",", ".") + _sub_total) if x else ("$0" + _sub_total))
 
         def _fmt_fecha_auth(x):
             if not x or not isinstance(x, str) or x.strip() == "": return "—"
