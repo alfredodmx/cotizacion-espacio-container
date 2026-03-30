@@ -43,6 +43,8 @@ def get_rol(email, user_metadata=None):
         return "root"
     if meta_rol in ("admin", "administrador"):
         return "admin"
+    if meta_rol in ("operacion", "operaciones"):
+        return "operacion"
     return "ejecutivo"
 
 def es_rol_superior(email, user_metadata=None):
@@ -354,6 +356,7 @@ if 'auth_user'    not in st.session_state: st.session_state.auth_user    = None
 if 'auth_email'   not in st.session_state: st.session_state.auth_email   = ""
 if 'auth_nombre'  not in st.session_state: st.session_state.auth_nombre  = ""
 if 'es_supervisor'not in st.session_state: st.session_state.es_supervisor= False
+if 'es_operacion'  not in st.session_state: st.session_state.es_operacion  = False
 if 'es_root'      not in st.session_state: st.session_state.es_root      = False
 if 'rol_usuario'  not in st.session_state: st.session_state.rol_usuario  = "ejecutivo"
 if 'modo_admin'   not in st.session_state: st.session_state.modo_admin   = False
@@ -373,6 +376,7 @@ if not st.session_state.auth_user and _sess_token:
             st.session_state.rol_usuario  = _rol
             st.session_state.es_supervisor= _rol in ("root", "admin")
             st.session_state.es_root      = _rol == "root"
+            st.session_state.es_operacion = _rol == "operacion"
             st.session_state.modo_admin   = _rol in ("root", "admin")
             st.query_params.clear()
             st.rerun()
@@ -542,6 +546,7 @@ if not st.session_state.auth_user:
                     st.session_state.rol_usuario   = _rol_login
                     st.session_state.es_supervisor = _rol_login in ("root", "admin")
                     st.session_state.es_root       = _rol_login == "root"
+                    st.session_state.es_operacion  = _rol_login == "operacion"
                     if st.session_state.es_supervisor:
                         st.session_state.modo_admin = True
                     st.session_state.pop('resultados_busqueda', None)
@@ -4680,19 +4685,21 @@ def cargar_ranking_ejecutivos(periodo='mes'):
 # =========================================================
 _rol_actual = st.session_state.get('rol_usuario', 'ejecutivo')
 if _rol_actual == 'root':
-    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_salud, tab_usuarios, tab_notif, tab_reporte = st.tabs(["📊 DASHBOARD", "📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "🛡️ SISTEMA", "👥 USUARIOS", "📣 NOTIFICACIONES", "📈 REPORTE BI"])
+    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_salud, tab_usuarios, tab_notif, tab_reporte, tab_oper = st.tabs(["📊 DASHBOARD", "📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "🛡️ SISTEMA", "👥 USUARIOS", "📣 NOTIFICACIONES", "📈 REPORTE BI", "⚙️ OPERACIONES"])
 elif _rol_actual == 'admin':
-    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_usuarios, tab_notif, tab_reporte = st.tabs(["📊 DASHBOARD", "📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "👥 USUARIOS", "📣 NOTIFICACIONES", "📈 REPORTE BI"])
+    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_usuarios, tab_notif, tab_reporte, tab_oper = st.tabs(["📊 DASHBOARD", "📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "👥 USUARIOS", "📣 NOTIFICACIONES", "📈 REPORTE BI", "⚙️ OPERACIONES"])
     tab_salud = None
+elif _rol_actual == 'operacion':
+    tab_oper, = st.tabs(["⚙️ OPERACIONES"])
+    tab_dash = None; tab1 = None; tab2 = None; tab3 = None
+    tab4 = None; tab5 = None; tab6 = None; tab7 = None
+    tab_contrato = None; tab_salud = None; tab_usuarios = None
+    tab_notif = None; tab_reporte = None
 else:
     tab1, tab2, tab3, tab_contrato, tab7, tab4 = st.tabs(["📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "📄 CONTRATO", "🏆 RANKING", "🧊 3D BETA"])
-    tab_dash = None
-    tab_reporte = None
-    tab_salud = None
-    tab5 = None
-    tab6 = None
-    tab_usuarios = None
-    tab_notif = None
+    tab_dash = None; tab_reporte = None; tab_salud = None
+    tab5 = None; tab6 = None; tab_usuarios = None
+    tab_notif = None; tab_oper = None
 
 # =========================================================
 # FUNCIÓN PARA GENERAR PDF COMPLETO
@@ -8844,6 +8851,175 @@ if tab_reporte is not None and st.session_state.modo_admin:
             st.download_button("⬇️ Descargar datos CSV", data=_csv_rep,
                 file_name=f"reporte_bi_{_rep_periodo.replace(' ','_')}.csv",
                 mime="text/csv", use_container_width=True, key="dl_reporte_csv")
+
+# =========================================================
+# TAB OPERACIONES — operacion, admin y root
+# =========================================================
+if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
+ with tab_oper:
+
+    # ── Header ──
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:18px;
+                padding:24px 32px;margin-bottom:20px;display:flex;align-items:center;gap:16px;">
+      <span style="font-size:2rem;">⚙️</span>
+      <div>
+        <h2 style="color:#fff;font-family:Montserrat,sans-serif;font-size:1.4rem;
+                   font-weight:900;margin:0;">Operaciones</h2>
+        <p style="color:rgba(255,255,255,0.55);font-size:0.82rem;margin:4px 0 0;">
+          Acceso a PDF de compras y planos de cotizaciones autorizadas</p>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Buscador ──
+    _op_c1, _op_c2, _op_c3 = st.columns([3, 1.2, 0.8])
+    with _op_c1:
+        _op_termino = st.text_input("Buscar", placeholder="N° EP o nombre ejecutivo...",
+                                    key="op_termino", label_visibility="collapsed")
+    with _op_c2:
+        _op_tipo = st.selectbox("Tipo", ["Por N° EP", "Por ejecutivo"],
+                                key="op_tipo", label_visibility="collapsed")
+    with _op_c3:
+        _op_buscar = st.button("🔍 Buscar", use_container_width=True, key="op_buscar")
+
+    if _op_buscar or st.session_state.get("op_results") is not None:
+        if _op_buscar:
+            try:
+                _op_query = supabase.table("cotizaciones").select(
+                    "numero,cliente_nombre,asesor_nombre,total_total,estado,plano_url,plano_nombre"
+                )
+                if _op_termino.strip():
+                    if _op_tipo == "Por N° EP":
+                        _op_query = _op_query.ilike("numero", f"%{_op_termino.strip()}%")
+                    else:
+                        _op_query = _op_query.ilike("asesor_nombre", f"%{_op_termino.strip()}%")
+                _op_res = _op_query.order("fecha_creacion", desc=True).limit(50).execute()
+                st.session_state["op_results"] = _op_res.data or []
+            except Exception as _oe:
+                st.error(f"Error al buscar: {_oe}")
+                st.session_state["op_results"] = []
+
+        _op_data = st.session_state.get("op_results", [])
+
+        if not _op_data:
+            st.info("No se encontraron cotizaciones.")
+        else:
+            st.markdown(f"<div style='font-size:11px;color:#94a3b8;margin-bottom:8px;'>{len(_op_data)} resultado(s)</div>",
+                        unsafe_allow_html=True)
+
+            _fmt_op = lambda v: "${:,.0f}".format(v or 0).replace(",",".")
+
+            for _op_row in _op_data:
+                _op_ep     = _op_row.get("numero", "—")
+                _op_cli    = _op_row.get("cliente_nombre", "—")
+                _op_ej     = _op_row.get("asesor_nombre", "—")
+                _op_total  = _op_row.get("total_total", 0) or 0
+                _op_estado = (_op_row.get("estado") or "").lower()
+                _op_plano  = _op_row.get("plano_url", "") or ""
+                _op_aut    = "autorizado" in _op_estado
+
+                # Badge estado
+                if "autorizado" in _op_estado:
+                    _op_badge = "<span style='background:#dcfce7;color:#166534;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;'>🟢 Autorizado</span>"
+                elif "borrador" in _op_estado:
+                    _op_badge = "<span style='background:#fef9c3;color:#854d0e;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;'>🟡 Borrador</span>"
+                else:
+                    _op_badge = "<span style='background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;'>🔴 Incompleto</span>"
+
+                _op_plano_badge = "✅ Sí" if _op_plano else "⬜ No"
+
+                st.markdown(f"""
+                <div style="background:white;border:1px solid #e2e8f0;border-radius:10px;
+                            padding:12px 16px;margin-bottom:8px;display:flex;
+                            align-items:center;gap:12px;flex-wrap:wrap;">
+                  <div style="min-width:90px;">
+                    <div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;">N° EP</div>
+                    <div style="font-size:13px;font-weight:900;color:#0f172a;">{_op_ep}</div>
+                  </div>
+                  <div style="flex:1;min-width:120px;">
+                    <div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Cliente</div>
+                    <div style="font-size:12px;color:#374151;">{_op_cli}</div>
+                  </div>
+                  <div style="flex:1;min-width:100px;">
+                    <div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Ejecutivo</div>
+                    <div style="font-size:12px;color:#374151;">{_op_ej}</div>
+                  </div>
+                  <div style="min-width:100px;">
+                    <div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Total</div>
+                    <div style="font-size:12px;font-weight:700;color:#0f172a;">{_fmt_op(_op_total)}</div>
+                  </div>
+                  <div style="min-width:90px;">{_op_badge}</div>
+                  <div style="min-width:50px;font-size:12px;color:#374151;">{_op_plano_badge}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                # Botones acción
+                _op_bc1, _op_bc2, _op_bc3 = st.columns([2, 2, 6])
+                with _op_bc1:
+                    if _op_aut:
+                        try:
+                            _op_cot = cargar_cotizacion(_op_ep)
+                            if _op_cot:
+                                _op_pdata = preparar_pdf_data(_op_cot) if 'preparar_pdf_data' in dir() else None
+                                if _op_pdata:
+                                    _op_pdf, _ = generar_pdf_completo(
+                                        _op_pdata[0], _op_pdata[1], _op_pdata[2], _op_pdata[3],
+                                        _op_pdata[4], _op_pdata[6], _op_pdata[7], _op_pdata[8],
+                                        _op_pdata[5], margen=0, numero_cotizacion=_op_ep, mostrar_precios=True
+                                    )
+                                    st.download_button(
+                                        label="🛒 PDF Compras",
+                                        data=_op_pdf,
+                                        file_name=f"Compras_{_op_ep}.pdf",
+                                        mime="application/pdf",
+                                        use_container_width=True,
+                                        key=f"op_pdf_{_op_ep}"
+                                    )
+                        except Exception as _opdf_e:
+                            st.button("🛒 PDF Compras", disabled=True, use_container_width=True,
+                                      key=f"op_pdf_{_op_ep}")
+                    else:
+                        st.button("🛒 PDF Compras", disabled=True, use_container_width=True,
+                                  help="Solo disponible para cotizaciones autorizadas",
+                                  key=f"op_pdf_{_op_ep}")
+
+                with _op_bc2:
+                    if _op_plano:
+                        if st.button("👁️ Ver plano", use_container_width=True, key=f"op_plano_{_op_ep}"):
+                            st.session_state[f"op_show_plano_{_op_ep}"] = not st.session_state.get(f"op_show_plano_{_op_ep}", False)
+                    else:
+                        st.button("👁️ Ver plano", disabled=True, use_container_width=True,
+                                  help="Sin plano adjunto", key=f"op_plano_{_op_ep}")
+
+                # Visor plano
+                if st.session_state.get(f"op_show_plano_{_op_ep}") and _op_plano:
+                    _nav_op = detectar_navegador()
+                    _plano_enc = urllib.parse.quote(_op_plano, safe='')
+                    _google_op = f"https://docs.google.com/viewer?url={_plano_enc}&embedded=true"
+                    _src_op    = _google_op if _nav_op['needs_google_viewer'] else _op_plano
+                    components.html(f"""
+<style>
+@keyframes spin{{from{{transform:rotate(0deg)}}to{{transform:rotate(360deg)}}}}
+body,html{{margin:0;padding:0;overflow:hidden;}}
+#pw{{width:100%;height:520px;border:2px solid #0f3460;border-radius:12px;overflow:hidden;background:#f0f2f5;position:relative;}}
+#pl{{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f0f2f5;z-index:2;gap:12px;}}
+#ps{{width:36px;height:36px;border:4px solid #cbd5e1;border-top-color:#0f3460;border-radius:50%;animation:spin 0.8s linear infinite;}}
+#pi{{position:absolute;inset:0;width:100%;height:100%;border:none;}}
+</style>
+<div id="pw"><div id="pl"><div id="ps"></div><span style="font-size:13px;color:#64748b;font-family:sans-serif;">Cargando plano...</span></div>
+<iframe id="pi" src="" allow="fullscreen"></iframe></div>
+<script>
+(function(){{
+  var i=document.getElementById('pi'),l=document.getElementById('pl');
+  i.src="{_src_op}";
+  setTimeout(function(){{if(l)l.style.display='none';}},3000);
+}})();
+</script>
+""", height=540, scrolling=False)
+
+    else:
+        st.info("👆 Ingresa un término de búsqueda y presiona **Buscar**.")
 
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
 # =========================================================
