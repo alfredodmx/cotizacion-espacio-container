@@ -8541,7 +8541,7 @@ section[data-testid="stMain"] div[data-testid="stPopover"] > div > button::after
     display: block !important;
     white-space: pre !important;
 }}
-/* Popover panel — panel expandido */
+/* Popover panel — abre hacia la derecha desde el tab */
 section[data-testid="stMain"] [data-testid="stPopoverBody"] {{
     background: white !important;
     border-radius: 0 14px 14px 0 !important;
@@ -8549,9 +8549,16 @@ section[data-testid="stMain"] [data-testid="stPopoverBody"] {{
     border-left: none !important;
     box-shadow: 0 4px 24px rgba(0,0,0,0.12) !important;
     padding: 12px 10px !important;
-    width: 160px !important;
+    width: 170px !important;
+    position: fixed !important;
     left: 54px !important;
-    top: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    margin: 0 !important;
+}}
+/* Flecha del popover — ocultar */
+section[data-testid="stMain"] [data-testid="stPopoverBody"] > div:first-child {{
+    display: none !important;
 }}
 </style>
 <!-- Encabezado con % y barra dentro del popover body vía markdown -->
@@ -8573,6 +8580,10 @@ section[data-testid="stMain"] [data-testid="stPopoverBody"] {{
             step=0.5, format="%.1f",
             key="margen_popover"
         )
+        st.markdown("""
+        <div style="margin-top:10px;text-align:center;font-size:0.65rem;color:#9ca3af;
+                    padding-top:6px;border-top:1px solid #f1f5f9;cursor:pointer;">
+            ‹ Ocultar</div>""", unsafe_allow_html=True)
         if st.button("✅ Aplicar", key="btn_aplicar_margen", use_container_width=True):
             _margen_anterior = st.session_state.margen
             st.session_state.margen = _mg_pop
