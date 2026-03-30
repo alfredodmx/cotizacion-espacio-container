@@ -6832,7 +6832,11 @@ with tab3:
                     # PDF Compras: sin margen, precios base
                     _cot_compras = cargar_cotizacion(numero_seleccionado)
                     if _cot_compras:
-                        _df_compras = pd.DataFrame(_cot_compras['productos'])
+                        _df_compras_raw = pd.DataFrame(_cot_compras['productos'])
+                        # Excluir categoría "Varios" del detalle y del total
+                        _df_compras = _df_compras_raw[
+                            _df_compras_raw['Categoria'].str.strip().str.lower() != 'varios'
+                        ].copy()
                         _sub_compras = _df_compras['Subtotal'].sum()
                         _iva_compras = _sub_compras * 0.19
                         _tot_compras = _sub_compras + _iva_compras
