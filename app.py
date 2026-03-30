@@ -9109,28 +9109,87 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
 
                 with _sb2:
                     if _sel_plano:
-                        if st.button("👁️ Ver plano", use_container_width=True, key="oper_ver_plano"):
+                        _lbl_plano = "🔄 ACTUALIZAR PLANO" if st.session_state.get('oper_show_plano') else "👁️ VER PLANO"
+                        if st.button(_lbl_plano, use_container_width=True, type="primary", key="oper_ver_plano"):
                             st.session_state['oper_show_plano'] = not st.session_state.get('oper_show_plano', False)
+                            st.session_state['oper_plano_url']    = _sel_plano
+                            st.session_state['oper_plano_nombre'] = _sel_data.get('plano_nombre', 'plano.pdf')
+                            st.rerun()
                     else:
-                        st.button("👁️ Sin plano", disabled=True, use_container_width=True, key="oper_ver_plano")
+                        st.button("👁️ VER PLANO", disabled=True, use_container_width=True, key="oper_ver_plano")
 
-                if _sel_plano and st.session_state.get('oper_show_plano'):
-                    _nav_op = detectar_navegador()
-                    _enc_op = urllib.parse.quote(_sel_plano, safe='')
-                    _src_op = f"https://docs.google.com/viewer?url={_enc_op}&embedded=true" if _nav_op['needs_google_viewer'] else _sel_plano
-                    components.html(f"""
+                if st.session_state.get('oper_show_plano') and st.session_state.get('oper_plano_url'):
+                    with st.expander("📄 Vista Previa del Plano", expanded=True):
+                        st.markdown(f"**Archivo:** {st.session_state.get('oper_plano_nombre','plano.pdf')} — cotización `{_ep_sel_op}`")
+                        _nav_op     = detectar_navegador()
+                        _url_op     = st.session_state['oper_plano_url']
+                        _enc_op     = urllib.parse.quote(_url_op, safe='')
+                        _google_op  = f"https://docs.google.com/viewer?url={_enc_op}&embedded=true"
+                        _usar_g_op  = _nav_op['needs_google_viewer']
+                        _src_op     = _google_op if _usar_g_op else _url_op
+                        components.html(f"""
 <style>
-@keyframes spin{{from{{transform:rotate(0deg)}}to{{transform:rotate(360deg)}}}}
+@keyframes spin {{from{{transform:rotate(0deg)}}to{{transform:rotate(360deg)}}}}
 body,html{{margin:0;padding:0;overflow:hidden;}}
-#pw{{width:100%;height:520px;border:2px solid #0f3460;border-radius:12px;overflow:hidden;background:#f0f2f5;position:relative;}}
-#pl{{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f0f2f5;z-index:2;gap:10px;transition:opacity 0.4s;}}
-#ps{{width:34px;height:34px;border:4px solid #cbd5e1;border-top-color:#0f3460;border-radius:50%;animation:spin 0.8s linear infinite;}}
-#pi{{position:absolute;inset:0;width:100%;height:100%;border:none;}}
+#pdf-wrap {{width:100%;height:680px;border:2px solid #e2e8f0;border-radius:12px;
+            overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);background:#f0f2f5;position:relative;}}
+#pdf-loading {{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+               justify-content:center;background:#f0f2f5;z-index:2;gap:12px;transition:opacity 0.4s ease;}}
+#pdf-spinner {{width:40px;height:40px;border:4px solid #cbd5e1;border-top-color:#5b7cfa;
+               border-radius:50%;animation:spin 0.8s linear infinite;}}
+#pdf-loading span {{color:#64748b;font-size:0.9rem;font-family:sans-serif;}}
+#pdf-iframe {{position:absolute;inset:0;width:100%;height:100%;border:none;display:block;}}
 </style>
-<div id="pw"><div id="pl"><div id="ps"></div><span style="font-size:12px;color:#64748b;font-family:sans-serif;">Cargando plano...</span></div>
-<iframe id="pi" src="" allow="fullscreen"></iframe></div>
-<script>(function(){{var i=document.getElementById('pi'),l=document.getElementById('pl');i.src="{_src_op}";setTimeout(function(){{l.style.opacity='0';setTimeout(function(){{l.style.display='none';}},400);}},3500);}})();</script>
-""", height=540, scrolling=False)
+<div id="pdf-wrap">
+  <div id="pdf-loading">
+    <div id="pdf-spinner"></div>
+    <span id="pdf-status">Cargando PDF...</span>
+  </div>
+  <iframe id="pdf-iframe" src="" allow="fullscreen"></iframe>
+</div>
+<script>
+(function() {{
+  var iframe  = document.getElementById('pdf-iframe');
+  var loading = document.getElementById('pdf-loading');
+  var googleUrl = "{_google_op}";
+  var directUrl = "{_url_op}";
+  var usingGoogle = {"true" if _usar_g_op else "false"};
+  function hideLoading() {{
+    loading.style.opacity = '0';
+    setTimeout(function(){{ loading.style.display = 'none'; }}, 400);
+  }}
+  if (usingGoogle) {{
+    iframe.src = googleUrl;
+    setTimeout(function() {{ if (loading.style.display !== 'none') hideLoading(); }}, 3000);
+    setTimeout(function() {{
+      if (usingGoogle) {{
+        try {{
+          var doc = iframe.contentDocument || iframe.contentWindow.document;
+          if (!doc || !doc.body || doc.body.children.length === 0) {{
+            iframe.src = directUrl; setTimeout(hideLoading, 4000);
+          }}
+        }} catch(e) {{}}
+      }}
+    }}, 8000);
+  }} else {{
+    iframe.src = directUrl;
+    setTimeout(hideLoading, 4000);
+  }}
+}})();
+</script>
+""", height=710, scrolling=False)
+                        try:
+                            _plano_bytes = requests.get(_url_op, timeout=15).content
+                            st.download_button(
+                                label="📥 Descargar Plano",
+                                data=_plano_bytes,
+                                file_name=st.session_state.get('oper_plano_nombre', 'plano.pdf'),
+                                mime="application/pdf",
+                                use_container_width=True,
+                                key=f"oper_dl_plano_{_ep_sel_op}"
+                            )
+                        except Exception:
+                            st.warning("⚠️ No se pudo preparar la descarga del plano.")
 
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
 # =========================================================
