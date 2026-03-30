@@ -9560,7 +9560,11 @@ with tab_contrato:
     """, unsafe_allow_html=True)
 
     # ── Sub-pestañas ──
-    _sub_imprimir, _sub_editar = st.tabs(["🖨️ Imprimir contrato", "📝 Editar contrato"])
+    if st.session_state.modo_admin:
+        _sub_imprimir, _sub_preview, _sub_editar = st.tabs(["🖨️ Imprimir contrato", "👁️ Previsualizar contrato", "📝 Editar contrato"])
+    else:
+        _sub_imprimir, _sub_preview = st.tabs(["🖨️ Imprimir contrato", "👁️ Previsualizar contrato"])
+        _sub_editar = None
 
     # ================================================================
     # SUB-PESTAÑA: IMPRIMIR CONTRATO
@@ -9808,7 +9812,239 @@ with tab_contrato:
     # ================================================================
     # SUB-PESTAÑA: EDITAR CONTRATO
     # ================================================================
-    with _sub_editar:
+    with _sub_preview:
+        # ── Buscar EP ──
+        st.markdown('<div class="cont-section">🔍 Buscar cotización para previsualizar</div>', unsafe_allow_html=True)
+        _col_ep_pv, _col_btn_pv = st.columns([3, 1])
+        with _col_ep_pv:
+            _ep_pv = st.text_input("N° EP", placeholder="Ej: EP-12345",
+                                   key="prev_ep_input", label_visibility="collapsed")
+        with _col_btn_pv:
+            _buscar_pv = st.button("🔍 Buscar EP", use_container_width=True, key="prev_buscar")
+
+        if _buscar_pv and _ep_pv:
+            _cot_pv = cargar_cotizacion(_ep_pv.strip().upper())
+            if _cot_pv:
+                st.session_state["prev_cot"] = _cot_pv
+                st.session_state["prev_ep"] = _ep_pv.strip().upper()
+                st.rerun()
+            else:
+                st.error(f"No se encontró {_ep_pv}")
+
+        if st.session_state.get("prev_cot"):
+            _cot_pv    = st.session_state["prev_cot"]
+            _ep_pv_num = st.session_state["prev_ep"]
+            _cli_pv    = _cot_pv.get("cliente_nombre", "—")
+            _total_pv  = _cot_pv.get("total_total", 0) or 0
+            _proy_pv   = _cot_pv.get("proyecto_observaciones", "") or "—"
+            _fmt_pv    = lambda v: "${:,.0f}".format(v).replace(",", ".")
+            _estado_pv = _cot_pv.get("estado", "")
+
+            # Info EP
+            st.success(f"✅ **{_ep_pv_num}** — {_cli_pv} · {_proy_pv} · {_fmt_pv(_total_pv)}")
+
+            # Verificar si tiene contrato generado
+            if not _cot_pv.get("contrato_generado"):
+                st.warning("⚠️ Este EP aún no tiene contrato generado. Genera el contrato desde la pestaña **Imprimir contrato** primero.")
+            else:
+                # Obtener datos del contrato guardado
+                import json as _json_pv
+                _datos_pv = {}
+                try:
+                    _datos_pv_raw = _cot_pv.get("contrato_datos", "{}")
+                    if isinstance(_datos_pv_raw, str):
+                        _datos_pv = _json_pv.loads(_datos_pv_raw)
+                    elif isinstance(_datos_pv_raw, dict):
+                        _datos_pv = _datos_pv_raw
+                except Exception:
+                    _datos_pv = {}
+
+                # Obtener URLs de adjuntos
+                _plano_url = _cot_pv.get("plano_url", "") or ""
+                _tiene_plano = bool(_plano_url)
+
+                # ── Ventana de previsualización ──
+                st.markdown("""
+                <style>
+                .prev-window {
+                    border: 1.5px solid #0f3460; border-radius: 12px;
+                    overflow: hidden; margin-bottom: 16px;
+                }
+                .prev-header {
+                    background: #0f3460; color: white; padding: 10px 16px;
+                    font-size: 12px; font-weight: 700; text-transform: uppercase;
+                    letter-spacing: 0.08em; display: flex; justify-content: space-between;
+                    align-items: center;
+                }
+                .prev-body {
+                    height: 500px; overflow-y: auto; background: white;
+                    padding: 32px 40px;
+                }
+                .prev-titulo { text-align:center; margin-bottom:16px; }
+                .prev-titulo h1 { font-size:15px; font-weight:800; color:#0f3460;
+                    letter-spacing:0.05em; margin:0; font-family:'Montserrat',sans-serif; }
+                .prev-titulo h2 { font-size:11px; font-weight:700; color:#0f3460;
+                    letter-spacing:0.1em; margin:4px 0 0; font-family:'Montserrat',sans-serif; }
+                .prev-hr { border:none; border-top:2px solid #0f3460; margin:12px 0; }
+                .prev-seccion {
+                    background:#1e3a5f; color:white; padding:5px 10px;
+                    border-radius:4px; font-size:10px; font-weight:900;
+                    text-transform:uppercase; letter-spacing:0.08em;
+                    margin:14px 0 8px;
+                }
+                .prev-p { font-size:11px; color:#1e293b; line-height:1.65;
+                    margin-bottom:8px; text-align:justify; }
+                .prev-anexo-sep {
+                    border-top: 2px dashed #94a3b8; margin: 24px 0 16px;
+                    padding-top: 0;
+                }
+                .prev-anexo-titulo {
+                    text-align:center; font-size:12px; font-weight:700;
+                    color:#0f3460; text-transform:uppercase; letter-spacing:0.08em;
+                    margin-bottom:14px;
+                }
+                .prev-anexo-card {
+                    border:1px solid #b5d4f4; border-radius:8px;
+                    padding:12px 16px; margin-bottom:10px; background:#e6f1fb;
+                }
+                .prev-anexo-label {
+                    font-size:10px; font-weight:800; color:#0c447c;
+                    text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px;
+                }
+                .prev-anexo-text { font-size:12px; color:#1e293b; }
+                </style>
+                """, unsafe_allow_html=True)
+
+                # Construir HTML del contrato
+                _fecha_pv   = _datos_pv.get("fecha_str", "—")
+                _trat_pv    = _datos_pv.get("cli_tratamiento", "Don")
+                _rut_pv     = _datos_pv.get("cli_rut", "—")
+                _dom_cli_pv = _datos_pv.get("cli_domicilio", "—")
+                _com_cli_pv = _datos_pv.get("cli_comuna", "—")
+                _reg_cli_pv = _datos_pv.get("cli_region", "—")
+                _dom_ins_pv = _datos_pv.get("inst_domicilio", "—")
+                _com_ins_pv = _datos_pv.get("inst_comuna", "—")
+                _reg_ins_pv = _datos_pv.get("inst_region", "—")
+                _plazo_pv   = _datos_pv.get("plazo_dias", 45)
+                _p50_pv     = _fmt_pv(_datos_pv.get("pago_50", 0))
+                _p25a_pv    = _fmt_pv(_datos_pv.get("pago_25a", 0))
+                _p25b_pv    = _fmt_pv(_datos_pv.get("pago_25b", 0))
+                _total_fmt  = _fmt_pv(_total_pv)
+
+                _plano_badge = f'<span style="background:#16a34a;color:white;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;">✅ Adjunto</span>' if _tiene_plano else '<span style="background:#94a3b8;color:white;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;">Sin plano</span>'
+
+                _html_prev = f"""
+                <div class="prev-window">
+                  <div class="prev-header">
+                    <span>📄 Vista previa — Contrato {_ep_pv_num}</span>
+                    <span style="font-size:10px;opacity:0.7;font-weight:400;text-transform:none;">↕ Scroll para ver todo</span>
+                  </div>
+                  <div class="prev-body">
+                    <div class="prev-titulo">
+                      <h1>CONTRATO DE FABRICACIÓN Y VENTA</h1>
+                      <h2>VIVIENDA TIPO CONTAINER</h2>
+                    </div>
+                    <hr class="prev-hr">
+                    <p class="prev-p">En Santiago de Chile, a <strong>{_fecha_pv}</strong>, comparecen:</p>
+
+                    <div class="prev-seccion">I. Comparecencia</div>
+                    <p class="prev-p"><strong>1. EL PROVEEDOR</strong><br>
+                    Don <strong>Alan Mauricio Gatica Concha</strong>, cédula nacional de identidad N° <strong>13.668.157-5</strong>,
+                    en representación de <strong>Inversiones Container House SpA</strong>, Rol Único Tributario N° <strong>78.268.851-0</strong>,
+                    ambos con domicilio en Villasana N° 2039, Departamento 51, Torre D, comuna de Quinta Normal,
+                    Región Metropolitana, quien en adelante se denominará "el Proveedor".</p>
+                    <p class="prev-p"><strong>2. EL CLIENTE</strong><br>
+                    {_trat_pv} <strong>{_cli_pv}</strong>, cédula nacional de identidad N° <strong>{_rut_pv}</strong>,
+                    con domicilio en <strong>{_dom_cli_pv}</strong>, comuna de <strong>{_com_cli_pv}</strong>,
+                    Región {_reg_cli_pv}, quien en adelante se denominará "el Cliente".<br><br>
+                    Se deja expresa constancia que la dirección de instalación del proyecto será <strong>{_dom_ins_pv}</strong>,
+                    comuna de <strong>{_com_ins_pv}</strong>, Región <strong>{_reg_ins_pv}</strong>.<br><br>
+                    Las partes declaran ser mayores de edad, con plena capacidad legal para contratar, y acuerdan celebrar
+                    el presente <strong>Contrato de Fabricación y Venta de Vivienda Tipo Container</strong>,
+                    el cual se regirá por las cláusulas que se indican a continuación.</p>
+
+                    <div class="prev-seccion">II. Definiciones</div>
+                    <p class="prev-p">a) <strong>Proyecto</strong>: La vivienda tipo container identificada como
+                    <strong>Proyecto N° {_ep_pv_num} – "{_proy_pv}"</strong>.<br>
+                    b) <strong>Anexos</strong>: Los documentos técnicos y comerciales que forman parte integrante del presente contrato.<br>
+                    c) <strong>Preentrega</strong>: Instancia de revisión visual del módulo previo a su despacho.</p>
+
+                    <div class="prev-seccion">VI. Precio</div>
+                    <p class="prev-p">El precio total del Proyecto asciende a la suma de <strong>{_total_fmt}</strong>, IVA incluido.</p>
+
+                    <div class="prev-seccion">VII. Forma y etapas de pago</div>
+                    <p class="prev-p">
+                    a) <strong>50% inicial</strong>: <strong>{_p50_pv}</strong><br>
+                    b) <strong>25% intermedio</strong>: <strong>{_p25a_pv}</strong><br>
+                    c) <strong>25% final</strong>: <strong>{_p25b_pv}</strong>
+                    </p>
+
+                    <div class="prev-seccion">X. Plazo</div>
+                    <p class="prev-p">El plazo máximo de fabricación y entrega será de <strong>{_plazo_pv} días hábiles administrativos</strong>.</p>
+
+                    <p class="prev-p" style="text-align:center;color:#64748b;font-style:italic;margin-top:16px;">
+                    [ ... resto de cláusulas en el PDF descargable ... ]</p>
+
+                    <div class="prev-anexo-sep"></div>
+                    <div class="prev-anexo-titulo">ANEXOS DEL CONTRATO</div>
+
+                    <div class="prev-anexo-card">
+                      <div class="prev-anexo-label">📋 Anexo N°2 — Presupuesto detallado</div>
+                      <div class="prev-anexo-text">Se adjunta presupuesto correspondiente al cliente
+                      <strong>{_cli_pv}</strong>, Proyecto <strong>{_ep_pv_num}</strong>
+                      "{_proy_pv}", por un total de <strong>{_total_fmt}</strong>.</div>
+                    </div>
+
+                    <div class="prev-anexo-card">
+                      <div class="prev-anexo-label">📐 Anexo N°3 — Plano del proyecto {_plano_badge}</div>
+                      <div class="prev-anexo-text">
+                      {"Se adjunta plano del proyecto <strong>" + _ep_pv_num + "</strong> correspondiente al cliente <strong>" + _cli_pv + "</strong>, \"" + _proy_pv + "\"."
+                      if _tiene_plano else
+                      "Sin plano adjunto para este proyecto. Puedes adjuntarlo desde la pestaña Cotizaciones."}</div>
+                    </div>
+
+                  </div>
+                </div>
+                """
+                st.markdown(_html_prev, unsafe_allow_html=True)
+
+                # ── Botón descarga ──
+                _dcol1, _dcol2, _dcol3 = st.columns([1, 2, 1])
+                with _dcol2:
+                    if _cot_pv.get("contrato_generado"):
+                        # Regenerar PDF con datos guardados
+                        try:
+                            _cls_pv = None
+                            try:
+                                _res_plt_pv = supabase.table("plantillas_contrato").select("clausulas").eq("activa", True).execute()
+                                if _res_plt_pv.data and _res_plt_pv.data[0].get("clausulas"):
+                                    _cls_pv = _res_plt_pv.data[0]["clausulas"]
+                            except Exception:
+                                pass
+                            _pdf_pv = generar_pdf_contrato(_datos_pv, clausulas_externas=_cls_pv)
+                            import base64 as _b64_pv
+                            _b64_str = _b64_pv.b64encode(_pdf_pv).decode()
+                            _nom_pv  = f"Contrato_{_ep_pv_num.replace('-', '_')}.pdf"
+                            st.markdown(
+                                f'''<a href="data:application/pdf;base64,{_b64_str}"
+                                   download="{_nom_pv}"
+                                   style="display:block;text-align:center;background:#0f3460;color:white;
+                                          padding:12px 24px;border-radius:10px;font-weight:700;
+                                          font-size:14px;text-decoration:none;margin-top:4px;">
+                                  ⬇️ Descargar contrato completo
+                                </a>''', unsafe_allow_html=True)
+                        except Exception as _epv:
+                            st.error(f"Error generando PDF: {_epv}")
+                    else:
+                        st.button("⬇️ Descargar contrato completo", disabled=True,
+                                  use_container_width=True,
+                                  help="Genera el contrato primero desde 'Imprimir contrato'")
+
+        else:
+            st.info("👆 Ingresa un número EP y presiona **Buscar EP** para previsualizar el contrato.")
+
+    if _sub_editar is not None:
+     with _sub_editar:
         # Solo admin/root puede editar la plantilla global
         if not st.session_state.modo_admin:
             st.info("🔒 Solo administradores pueden editar la plantilla global del contrato.")
