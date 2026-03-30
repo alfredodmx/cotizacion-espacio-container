@@ -8497,93 +8497,74 @@ if st.session_state.modo_admin:
     _color_fab = '#10b981' if _margen_actual > 0 else '#6b7280'
     _pct_bar   = min(int(_margen_actual), 100)
 
+    # ── Panel HTML fixed izquierda estilo progreso ──
     st.markdown(f"""
 <style>
-section[data-testid="stMain"] div[data-testid="stPopover"] {{
-    position: fixed !important;
-    left: 0 !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    bottom: unset !important;
-    z-index: 99998 !important;
-    width: 160px !important;
-}}
-section[data-testid="stMain"] div[data-testid="stPopover"] > div > button {{
-    background: white !important;
-    color: {_color_fab} !important;
-    border: 1px solid #e2e8f0 !important;
-    border-left: none !important;
-    border-radius: 0 10px 10px 0 !important;
-    padding: 14px 8px !important;
-    width: 54px !important;
-    min-height: unset !important;
-    height: auto !important;
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 2px !important;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
-    font-size: 0 !important;
-}}
-section[data-testid="stMain"] div[data-testid="stPopover"] > div > button::before {{
-    content: "{_mstr}%" !important;
-    font-size: 0.85rem !important;
-    font-weight: 900 !important;
-    color: {_color_fab} !important;
-    display: block !important;
-}}
-section[data-testid="stMain"] div[data-testid="stPopover"] > div > button::after {{
-    content: "VER" !important;
-    font-size: 0.5rem !important;
-    font-weight: 700 !important;
-    color: #9ca3af !important;
-    display: block !important;
-    white-space: pre !important;
-}}
-/* Popover panel — abre hacia la derecha desde el tab */
-section[data-testid="stMain"] [data-testid="stPopoverBody"] {{
-    background: white !important;
-    border-radius: 0 14px 14px 0 !important;
-    border: 1px solid #e2e8f0 !important;
-    border-left: none !important;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.12) !important;
-    padding: 12px 10px !important;
-    width: 170px !important;
-    position: fixed !important;
-    left: 54px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    margin: 0 !important;
-}}
-/* Flecha del popover — ocultar */
-section[data-testid="stMain"] [data-testid="stPopoverBody"] > div:first-child {{
-    display: none !important;
-}}
+#_mg_panel{{position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:99997;
+  background:#ffffff;border-radius:0 14px 14px 0;padding:14px 12px 8px 12px;width:168px;
+  box-shadow:0 4px 24px rgba(0,0,0,0.13);border:1px solid #e2e8f0;border-left:none;}}
+#_mg_mini{{display:none;position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:99997;
+  background:{_color_fab};border-radius:0 10px 10px 0;padding:12px 8px;cursor:pointer;
+  box-shadow:0 4px 20px rgba(0,0,0,0.2);text-align:center;width:52px;}}
+#_mg_toggle{{margin-top:8px;text-align:center;cursor:pointer;font-size:0.63rem;
+  color:#9ca3af;padding:5px 0;border-top:1px solid #f1f5f9;user-select:none;}}
 </style>
-<!-- Encabezado con % y barra dentro del popover body vía markdown -->
+<div id="_mg_panel">
+  <div style="text-align:center;margin-bottom:7px;">
+    <div style="font-size:1.35rem;font-weight:900;color:{_color_fab};line-height:1;">{_mstr}%</div>
+    <div style="font-size:0.6rem;color:#9ca3af;margin-top:2px;text-transform:uppercase;letter-spacing:0.05em;">Margen</div>
+  </div>
+  <div style="background:#f1f5f9;border-radius:99px;height:5px;margin-bottom:10px;overflow:hidden;">
+    <div style="width:{_pct_bar}%;height:100%;border-radius:99px;background:{_color_fab};"></div>
+  </div>
+  <div id="_mg_toggle">‹ Ocultar</div>
+</div>
+<div id="_mg_mini">
+  <div style="font-size:0.85rem;font-weight:900;color:#fff;line-height:1;">{_mstr}%</div>
+  <div style="font-size:0.65rem;color:rgba(255,255,255,0.85);margin-top:4px;">💹</div>
+  <div style="font-size:0.5rem;font-weight:700;color:rgba(255,255,255,0.75);margin-top:2px;letter-spacing:0.06em;">VER</div>
+</div>
 """, unsafe_allow_html=True)
 
-    with st.popover(""):
-        st.markdown(f"""
-        <div style="text-align:center;margin-bottom:6px;">
-          <div style="font-size:1.4rem;font-weight:900;color:{_color_fab};line-height:1;">{_mstr}%</div>
-          <div style="font-size:0.6rem;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;">Margen</div>
-        </div>
-        <div style="background:#f1f5f9;border-radius:99px;height:5px;margin-bottom:10px;overflow:hidden;">
-          <div style="width:{_pct_bar}%;height:100%;border-radius:99px;background:{_color_fab};"></div>
-        </div>
-        """, unsafe_allow_html=True)
+    # Input y botón nativos — visualmente integrados en el panel via CSS
+    st.markdown("""
+<style>
+/* Mover el input y botón dentro del panel visualmente */
+.st-key-margen_native_wrap {
+    position: fixed !important;
+    left: 12px !important;
+    top: 50% !important;
+    transform: translateY(calc(-50% + 68px)) !important;
+    z-index: 99998 !important;
+    width: 144px !important;
+    background: transparent !important;
+    pointer-events: auto !important;
+}
+.st-key-margen_native_wrap > div { gap: 4px !important; }
+.st-key-margen_native_wrap label {
+    font-size: 0.6rem !important; color: #9ca3af !important;
+    font-weight: 700 !important; text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+.st-key-margen_native_wrap input {
+    height: 30px !important; font-size: 0.85rem !important;
+    padding: 2px 8px !important;
+}
+.st-key-margen_native_wrap button {
+    height: 28px !important; font-size: 0.72rem !important;
+    padding: 0 !important; margin-top: 4px !important;
+    border-radius: 6px !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+    with st.container(key="margen_native_wrap"):
         _mg_pop = st.number_input(
             "Margen %", min_value=0.0, max_value=100.0,
             value=float(_margen_actual),
             step=0.5, format="%.1f",
             key="margen_popover"
         )
-        st.markdown("""
-        <div style="margin-top:10px;text-align:center;font-size:0.65rem;color:#9ca3af;
-                    padding-top:6px;border-top:1px solid #f1f5f9;cursor:pointer;">
-            ‹ Ocultar</div>""", unsafe_allow_html=True)
         if st.button("✅ Aplicar", key="btn_aplicar_margen", use_container_width=True):
             _margen_anterior = st.session_state.margen
             st.session_state.margen = _mg_pop
@@ -8602,6 +8583,35 @@ section[data-testid="stMain"] [data-testid="stPopoverBody"] > div:first-child {{
             except Exception as _ne:
                 pass
             st.rerun()
+
+    # JS toggle
+    components.html("""
+<script>
+(function(){
+  var D = window.parent.document;
+  function init(){
+    var tog   = D.getElementById('_mg_toggle');
+    var panel = D.getElementById('_mg_panel');
+    var mini  = D.getElementById('_mg_mini');
+    var wrap  = D.querySelector('.st-key-margen_native_wrap');
+    if (!tog||!panel||!mini){ setTimeout(init,100); return; }
+    function hide(){
+      panel.style.display='none';
+      if(wrap) wrap.style.display='none';
+      mini.style.display='block';
+    }
+    function show(){
+      panel.style.display='block';
+      if(wrap) wrap.style.display='block';
+      mini.style.display='none';
+    }
+    tog.onclick  = hide;
+    mini.onclick = show;
+  }
+  init();
+})();
+</script>
+""", height=0)
 
 else:
     components.html("""<script>
