@@ -8442,7 +8442,7 @@ if _mostrar_progreso:
         '</div>'
         '<div id="_prog_items" style="display:flex;flex-direction:column;gap:1px;">' + _items_html + '</div>'
         # Botón ocultar al fondo del panel
-        '<div id="_prog_toggle" data-action="prog-toggle" style="margin-top:8px;text-align:center;'
+        '<div id="_prog_toggle" data-action="prog-toggle" style="margin-top:16px;text-align:center;'
         'cursor:pointer;font-size:0.65rem;color:#9ca3af;padding:3px 0;'
         'border-top:1px solid #f1f5f9;user-select:none;" title="Ocultar">'
         '› Ocultar</div>'
