@@ -8538,22 +8538,45 @@ if st.session_state.modo_admin:
   <div style="font-size:0.7rem;color:rgba(255,255,255,0.85);margin-top:5px;">💹</div>
   <div style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.75);margin-top:3px;letter-spacing:0.06em;">VER</div>
 </div>
-<script>
-(function(){{
-  document.getElementById('_mg_toggle').onclick = function(){{
-    document.getElementById('_mg_panel').style.display='none';
-    document.getElementById('_mg_mini').style.display='block';
-  }};
-  document.getElementById('_mg_apply').onclick = function(){{
-    var val = parseFloat(document.getElementById('_mg_input').value);
-    if (isNaN(val)||val<0||val>100) return;
-    var url = new URL(window.location.href);
-    url.searchParams.set('mgfab', val.toFixed(1));
-    window.location.href = url.toString();
-  }};
-}})();
-</script>
 ''', unsafe_allow_html=True)
+
+    # JS via components.html — accede al DOM padre
+    components.html("""
+<script>
+(function(){
+  var D = window.parent.document;
+  function init(){
+    var tog   = D.getElementById('_mg_toggle');
+    var panel = D.getElementById('_mg_panel');
+    var mini  = D.getElementById('_mg_mini');
+    var apply = D.getElementById('_mg_apply');
+    var inp   = D.getElementById('_mg_input');
+    if (!tog || !panel || !mini || !apply || !inp){
+      setTimeout(init, 80); return;
+    }
+    tog.onclick = function(){
+      panel.style.display='none';
+      mini.style.display='block';
+    };
+    mini.onclick = function(){
+      panel.style.display='block';
+      mini.style.display='none';
+    };
+    apply.onclick = function(){
+      var val = parseFloat(inp.value);
+      if (isNaN(val)||val<0||val>100) return;
+      var url = new URL(window.parent.location.href);
+      url.searchParams.set('mgfab', val.toFixed(1));
+      window.parent.location.href = url.toString();
+    };
+    // Permitir escritura en input
+    inp.removeAttribute('readonly');
+    inp.style.pointerEvents = 'auto';
+  }
+  init();
+})();
+</script>
+""", height=0)
 
 
 
