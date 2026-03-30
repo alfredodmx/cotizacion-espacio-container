@@ -9170,15 +9170,16 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                                   help="Solo para cotizaciones autorizadas", key="oper_dl_pdf")
 
                 with _sb2:
-                    if _sel_plano:
-                        _lbl_plano = "🔄 ACTUALIZAR PLANO" if st.session_state.get('oper_show_plano') else "👁️ VER PLANO"
-                        if st.button(_lbl_plano, use_container_width=True, type="primary", key="oper_ver_plano"):
-                            st.session_state['oper_show_plano'] = not st.session_state.get('oper_show_plano', False)
-                            st.session_state['oper_plano_url']    = _sel_plano
-                            st.session_state['oper_plano_nombre'] = _sel_data.get('plano_nombre', 'plano.pdf')
-                            st.rerun()
-                    else:
-                        st.button("👁️ VER PLANO", disabled=True, use_container_width=True, key="oper_ver_plano")
+                    _lbl_plano = "🔄 ACTUALIZAR PLANO" if st.session_state.get('oper_show_plano') else "👁️ VER PLANO"
+                    if st.button(_lbl_plano,
+                                 use_container_width=True,
+                                 disabled=not bool(_sel_plano),
+                                 help=None if _sel_plano else "Sin plano adjunto para este proyecto",
+                                 key="oper_ver_plano"):
+                        st.session_state['oper_show_plano'] = not st.session_state.get('oper_show_plano', False)
+                        st.session_state['oper_plano_url']    = _sel_plano
+                        st.session_state['oper_plano_nombre'] = _sel_data.get('plano_nombre', 'plano.pdf')
+                        st.rerun()
 
                 if st.session_state.get('oper_show_plano') and st.session_state.get('oper_plano_url'):
                     with st.expander("📄 Vista Previa del Plano", expanded=True):
