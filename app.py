@@ -8579,7 +8579,7 @@ apply.onclick = function(){{
 }};
 </script>
 </body></html>
-""", height=0, scrolling=False)
+""", height=1, scrolling=False)
 
 
     # Mantener st.popover oculto para compatibilidad con lógica existente
