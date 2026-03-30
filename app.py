@@ -8497,87 +8497,76 @@ if st.session_state.modo_admin:
     _color_fab = '#10b981' if _margen_actual > 0 else '#6b7280'
     _pct_bar   = min(int(_margen_actual), 100)
 
-    # ── CSS: posicionar el panel de margen a la izquierda ──
     st.markdown(f"""
 <style>
-/* Sacar el container del flujo normal */
-.st-key-fab_margen_panel {{
+section[data-testid="stMain"] div[data-testid="stPopover"] {{
     position: fixed !important;
     left: 0 !important;
     top: 50% !important;
     transform: translateY(-50%) !important;
-    z-index: 99997 !important;
+    bottom: unset !important;
+    z-index: 99998 !important;
+    width: 160px !important;
+}}
+section[data-testid="stMain"] div[data-testid="stPopover"] > div > button {{
     background: white !important;
-    border-radius: 0 14px 14px 0 !important;
-    padding: 12px 10px 4px 10px !important;
-    width: 158px !important;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.13) !important;
+    color: {_color_fab} !important;
     border: 1px solid #e2e8f0 !important;
     border-left: none !important;
-    pointer-events: auto !important;
+    border-radius: 0 10px 10px 0 !important;
+    padding: 14px 8px !important;
+    width: 54px !important;
+    min-height: unset !important;
+    height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 2px !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
+    font-size: 0 !important;
 }}
-/* Quitar margen extra del bloque interno */
-.st-key-fab_margen_panel > div {{
-    gap: 0 !important;
-    padding: 0 !important;
+section[data-testid="stMain"] div[data-testid="stPopover"] > div > button::before {{
+    content: "{_mstr}%" !important;
+    font-size: 1.1rem !important;
+    font-weight: 900 !important;
+    color: {_color_fab} !important;
+    display: block !important;
 }}
-/* Input compacto */
-.st-key-fab_margen_panel input[type=number] {{
-    height: 30px !important;
-    font-size: 0.85rem !important;
-    padding: 2px 6px !important;
-}}
-/* Label compacta */
-.st-key-fab_margen_panel label {{
-    font-size: 0.6rem !important;
-    color: #9ca3af !important;
+section[data-testid="stMain"] div[data-testid="stPopover"] > div > button::after {{
+    content: "VER" !important;
+    font-size: 0.58rem !important;
     font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.05em !important;
-    margin-bottom: 2px !important;
+    color: #9ca3af !important;
+    display: block !important;
+    white-space: pre !important;
 }}
-/* Botón aplicar compacto */
-.st-key-fab_margen_panel button {{
-    height: 30px !important;
-    font-size: 0.72rem !important;
-    padding: 0 8px !important;
-    margin-top: 4px !important;
-    border-radius: 6px !important;
-}}
-/* Mini tab */
-#_mg_mini {{
-    display: none;
-    position: fixed;
-    left: 0; top: 50%;
-    transform: translateY(-50%);
-    z-index: 99997;
-    background: {_color_fab};
-    border-radius: 0 10px 10px 0;
-    padding: 14px 8px;
-    cursor: pointer;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-    text-align: center;
-    width: 54px;
+/* Popover panel — panel expandido */
+section[data-testid="stMain"] [data-testid="stPopoverBody"] {{
+    background: white !important;
+    border-radius: 0 14px 14px 0 !important;
+    border: 1px solid #e2e8f0 !important;
+    border-left: none !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.12) !important;
+    padding: 12px 10px !important;
+    width: 160px !important;
+    left: 54px !important;
+    top: 0 !important;
 }}
 </style>
-<!-- Encabezado con % y barra -->
-<div style="text-align:center;margin-bottom:6px;">
-  <div style="font-size:1.4rem;font-weight:900;color:{_color_fab};line-height:1;">{_mstr}%</div>
-  <div style="font-size:0.6rem;color:#9ca3af;margin-top:1px;text-transform:uppercase;letter-spacing:0.05em;">Margen</div>
-</div>
-<div style="background:#f1f5f9;border-radius:99px;height:5px;margin-bottom:8px;overflow:hidden;">
-  <div style="width:{_pct_bar}%;height:100%;border-radius:99px;background:{_color_fab};"></div>
-</div>
-<!-- Mini tab oculto -->
-<div id="_mg_mini">
-  <div style="font-size:1.15rem;font-weight:900;color:#fff;line-height:1;">{_mstr}%</div>
-  <div style="font-size:0.7rem;color:rgba(255,255,255,0.85);margin-top:5px;">💹</div>
-  <div style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.75);margin-top:3px;letter-spacing:0.06em;">VER</div>
-</div>
+<!-- Encabezado con % y barra dentro del popover body vía markdown -->
 """, unsafe_allow_html=True)
 
-    # Input y botón nativos de Streamlit dentro del panel
-    with st.container(key="fab_margen_panel"):
+    with st.popover(""):
+        st.markdown(f"""
+        <div style="text-align:center;margin-bottom:6px;">
+          <div style="font-size:1.4rem;font-weight:900;color:{_color_fab};line-height:1;">{_mstr}%</div>
+          <div style="font-size:0.6rem;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;">Margen</div>
+        </div>
+        <div style="background:#f1f5f9;border-radius:99px;height:5px;margin-bottom:10px;overflow:hidden;">
+          <div style="width:{_pct_bar}%;height:100%;border-radius:99px;background:{_color_fab};"></div>
+        </div>
+        """, unsafe_allow_html=True)
         _mg_pop = st.number_input(
             "Margen %", min_value=0.0, max_value=100.0,
             value=float(_margen_actual),
@@ -8602,39 +8591,6 @@ if st.session_state.modo_admin:
             except Exception as _ne:
                 pass
             st.rerun()
-
-    # JS toggle ocultar/mostrar via window.parent.document
-    components.html("""
-<script>
-(function(){
-  var D = window.parent.document;
-  function init(){
-    var mini = D.getElementById('_mg_mini');
-    var panel = D.querySelector('.st-key-fab_margen_panel');
-    if (!mini || !panel){ setTimeout(init, 100); return; }
-    mini.onclick = function(){
-      panel.style.display = 'block';
-      mini.style.display  = 'none';
-    };
-    // Botón ocultar — agregar al final del panel
-    if (!D.getElementById('_mg_toggle')){
-      var tog = D.createElement('div');
-      tog.id = '_mg_toggle';
-      tog.style.cssText = 'margin-top:10px;text-align:center;cursor:pointer;font-size:0.65rem;color:#9ca3af;padding:4px 0;border-top:1px solid #f1f5f9;user-select:none;';
-      tog.innerText = '‹ Ocultar';
-      tog.onclick = function(){
-        panel.style.display = 'none';
-        mini.style.display  = 'block';
-      };
-      panel.appendChild(tog);
-    }
-  }
-  init();
-})();
-</script>
-""", height=0)
-
-
 
 else:
     components.html("""<script>
