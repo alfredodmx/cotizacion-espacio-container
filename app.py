@@ -9649,8 +9649,9 @@ with tab_contrato:
                     _fecha_obj = st.date_input("📅 Fecha del contrato", value=_hoy, key="cont_fecha")
                     _fecha_str = f"{_fecha_obj.day} de {_meses_es[_fecha_obj.month]} de {_fecha_obj.year}"
                 with _c2:
-                    _trat_opts = ["Don", "Doña", "Sr.", "Sra."]
+                    _trat_opts = ["— Selecciona —", "Don", "Doña", "Sr.", "Sra."]
                     _tratamiento = st.selectbox("👤 Tratamiento", _trat_opts, key="cont_tratamiento")
+                    _tratamiento = "" if _tratamiento == "— Selecciona —" else _tratamiento
                 with _c3:
                     _plazo = st.number_input("📆 Plazo días", min_value=1, max_value=180, value=45, key="cont_plazo")
 
