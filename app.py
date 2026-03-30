@@ -9561,9 +9561,9 @@ with tab_contrato:
 
     # ── Sub-pestañas ──
     if st.session_state.modo_admin:
-        _sub_imprimir, _sub_preview, _sub_editar = st.tabs(["🖨️ Imprimir contrato", "👁️ Previsualizar contrato", "📝 Editar contrato"])
+        _sub_imprimir, _sub_preview, _sub_editar = st.tabs(["📄 Generador de contrato", "👁️ Previsualizar contrato", "📝 Editar contrato"])
     else:
-        _sub_imprimir, _sub_preview = st.tabs(["🖨️ Imprimir contrato", "👁️ Previsualizar contrato"])
+        _sub_imprimir, _sub_preview = st.tabs(["📄 Generador de contrato", "👁️ Previsualizar contrato"])
         _sub_editar = None
 
     # ================================================================
@@ -9602,6 +9602,7 @@ with tab_contrato:
                 st.success(f"✅ Cotización **{_ep_num}** cargada — {_cot.get('cliente_nombre','')} · Sin contrato previo")
 
             # ── Paso 2: Completar datos ──
+            # ── Paso 2: Completar datos ──
             st.markdown('<div class="cont-section">📝 Paso 2 — Completar datos del contrato</div>', unsafe_allow_html=True)
 
             from datetime import date as _date_t
@@ -9609,131 +9610,114 @@ with tab_contrato:
                          7:"julio",8:"agosto",9:"septiembre",10:"octubre",
                          11:"noviembre",12:"diciembre"}
 
-            _fcol, _pcol = st.columns([3, 2])
+            _ep_num_input = _ep_num
+            _ep_nombre    = _cot.get("proyecto_observaciones", "") or ""
+            _obs_val      = _ep_nombre.strip() if _ep_nombre else "—"
+            _es_juridica  = _cot.get("cliente_tipo", "natural") == "juridica"
+            _cli_nombre       = _cot.get("cliente_nombre", "")
+            _cli_rut          = _cot.get("cliente_rut", "")
+            _cli_empresa      = _cot.get("cliente_empresa", "")
+            _cli_rut_empresa  = _cot.get("cliente_rut_empresa", "")
 
-            with _fcol:
-                _hoy = _date_t.today()
-                _fecha_obj   = st.date_input("Fecha del contrato", value=_hoy, key="cont_fecha")
-                _fecha_str   = f"{_fecha_obj.day} de {_meses_es[_fecha_obj.month]} de {_fecha_obj.year}"
-                _ep_num_input = _ep_num
+            _cli_dom  = st.session_state.get("cont_cli_domicilio",  _cot.get("cliente_direccion", ""))
+            _cli_com  = st.session_state.get("cont_cli_comuna",     _cot.get("cliente_comuna", ""))
+            _cli_reg  = st.session_state.get("cont_cli_region",     _cot.get("cliente_region", ""))
+            _inst_dom = st.session_state.get("cont_inst_domicilio", _cot.get("proyecto_direccion", ""))
+            _inst_com = st.session_state.get("cont_inst_comuna",    _cot.get("proyecto_comuna", ""))
+            _inst_reg = st.session_state.get("cont_inst_region",    _cot.get("proyecto_region", ""))
+            _todas_regiones = list(REGIONES_COMUNAS.keys())
+            _todas_comunas  = [c for cs in REGIONES_COMUNAS.values() for c in cs]
+            if _cli_com:  _cli_com  = _normalizar_nombre(_cli_com,  _todas_comunas)
+            if _cli_reg:  _cli_reg  = _normalizar_nombre(_cli_reg,  _todas_regiones)
+            if _inst_com: _inst_com = _normalizar_nombre(_inst_com, _todas_comunas)
+            if _inst_reg: _inst_reg = _normalizar_nombre(_inst_reg, _todas_regiones)
 
-                _fa, _fb = st.columns([3, 1])
-                with _fa:
-                    _ep_nombre = _cot.get('proyecto_observaciones', '') or st.session_state.get('observaciones_input', '') or ''
-                    _obs_val = _ep_nombre.strip() if _ep_nombre else '—'
+            _precio  = int(st.session_state.get("cont_precio", 0))
+            _pago50  = round(_precio * 0.50)
+            _pago25a = round(_precio * 0.25)
+            _pago25b = _precio - _pago50 - _pago25a
+            _fmt_p   = lambda v: "${:,.0f}".format(v).replace(",",".")
+
+            # ── Contenedor centrado ──
+            _, _mid, _ = st.columns([1, 6, 1])
+            with _mid:
+
+                # Fila 1: Fecha + Tratamiento + Plazo
+                _c1, _c2, _c3 = st.columns([2, 2, 1])
+                with _c1:
+                    _hoy = _date_t.today()
+                    _fecha_obj = st.date_input("📅 Fecha del contrato", value=_hoy, key="cont_fecha")
+                    _fecha_str = f"{_fecha_obj.day} de {_meses_es[_fecha_obj.month]} de {_fecha_obj.year}"
+                with _c2:
+                    _trat_opts = ["Don", "Doña", "Sr.", "Sra."]
+                    _tratamiento = st.selectbox("👤 Tratamiento", _trat_opts, key="cont_tratamiento")
+                with _c3:
+                    _plazo = st.number_input("📆 Plazo días", min_value=1, max_value=180, value=45, key="cont_plazo")
+
+                st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+                # Fila 2: EP + Proyecto
+                _c4, _c5 = st.columns([1, 3])
+                with _c4:
                     st.markdown(
-                        "<div style='background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;padding:12px 16px;margin-bottom:4px;'>"
-                        "<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;'>📝 Nombre / descripción del proyecto</div>"
-                        f"<div style='font-size:0.92rem;font-weight:700;color:#fff;line-height:1.5;'>{_obs_val}</div>"
-                        "</div>",
-                        unsafe_allow_html=True
-                    )
-                with _fb:
-                    _plazo = st.number_input("Plazo (días)", min_value=1, max_value=180, value=45, key="cont_plazo")
+                        f"<div style='background:#1e3a5f;border-radius:10px;padding:12px 14px;height:72px;display:flex;flex-direction:column;justify-content:center;'>"
+                        f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;'>📋 N° EP</div>"
+                        f"<div style='font-size:1.1rem;font-weight:900;color:#fff;'>{_ep_num_input}</div>"
+                        f"</div>", unsafe_allow_html=True)
+                with _c5:
+                    st.markdown(
+                        f"<div style='background:#1e3a5f;border-radius:10px;padding:12px 14px;height:72px;display:flex;flex-direction:column;justify-content:center;'>"
+                        f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;'>📝 Nombre del proyecto</div>"
+                        f"<div style='font-size:0.9rem;font-weight:700;color:#fff;'>{_obs_val}</div>"
+                        f"</div>", unsafe_allow_html=True)
 
-                # N° EP
-                _html_ep = (
-                    "<div style='background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;"
-                    "padding:14px 18px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;'>"
-                    "<div>"
-                    "<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.5);"
-                    "text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;'>📋 Presupuesto</div>"
-                    f"<div style='font-size:1.2rem;font-weight:900;color:#fff;'>{_ep_num_input or '—'}</div>"
-                    "</div></div>"
-                )
-                st.markdown(_html_ep, unsafe_allow_html=True)
+                st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-                # Tipo cliente
-                _es_juridica = _cot.get('cliente_tipo', 'natural') == 'juridica'
-                _cli_nombre       = _cot.get('cliente_nombre', '')
-                _cli_rut          = _cot.get('cliente_rut', '')
-                _cli_empresa      = _cot.get('cliente_empresa', '')
-                _cli_rut_empresa  = _cot.get('cliente_rut_empresa', '')
+                # Fila 3: Cliente + Pagos
+                _c6, _c7 = st.columns([3, 2])
+                with _c6:
+                    _tag_tipo = "🏢 Persona jurídica" if _es_juridica else "👤 Persona natural"
+                    _emp_extra = (
+                        f"<div style='margin-top:6px;font-size:0.75rem;color:rgba(255,255,255,0.6);'>"
+                        f"🏢 {_cli_empresa or '—'} · RUT empresa: {_cli_rut_empresa or '—'}</div>"
+                    ) if _es_juridica else ""
+                    st.markdown(
+                        f"<div style='background:#1e3a5f;border-radius:10px;padding:14px 16px;margin-bottom:8px;'>"
+                        f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;'>👤 Cliente</div>"
+                        f"<div style='font-size:1rem;font-weight:800;color:#fff;'>{_tratamiento} {_cli_nombre or '—'}</div>"
+                        f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.6);margin-top:2px;'>RUT: {_cli_rut or '—'} · {_tag_tipo}</div>"
+                        f"{_emp_extra}"
+                        f"</div>", unsafe_allow_html=True)
+                    st.markdown(
+                        f"<div style='background:#1e3a5f;border-radius:10px;padding:14px 16px;'>"
+                        f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;'>📍 Domicilios</div>"
+                        f"<div style='font-size:0.78rem;font-weight:700;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;'>🏠 Domicilio cliente</div>"
+                        f"<div style='font-size:0.88rem;font-weight:700;color:#fff;margin-bottom:2px;'>{_cli_dom or '—'}</div>"
+                        f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.55);margin-bottom:10px;'>{_cli_com or '—'} · {_cli_reg or '—'}</div>"
+                        f"<div style='font-size:0.78rem;font-weight:700;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;'>📦 Dirección instalación</div>"
+                        f"<div style='font-size:0.88rem;font-weight:700;color:#fff;margin-bottom:2px;'>{_inst_dom or '—'}</div>"
+                        f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.55);'>{_inst_com or '—'} · {_inst_reg or '—'}</div>"
+                        f"</div>", unsafe_allow_html=True)
+                with _c7:
+                    st.markdown(
+                        f"<div style='background:#1e3a5f;border-radius:10px;padding:16px 18px;'>"
+                        f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px;'>💰 Detalle de pagos</div>"
+                        f"<div style='font-size:1.7rem;font-weight:900;color:#fff;letter-spacing:-0.02em;margin-bottom:14px;'>{_fmt_p(_precio)}</div>"
+                        f"<div style='display:flex;flex-direction:column;gap:8px;'>"
+                        f"<div style='background:rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;'>"
+                        f"<div style='font-size:0.6rem;color:rgba(255,255,255,0.5);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;'>50% Inicial</div>"
+                        f"<div style='font-size:1rem;font-weight:800;color:#fff;margin-top:2px;'>{_fmt_p(_pago50)}</div></div>"
+                        f"<div style='background:rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;'>"
+                        f"<div style='font-size:0.6rem;color:rgba(255,255,255,0.5);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;'>25% Intermedio</div>"
+                        f"<div style='font-size:1rem;font-weight:800;color:#fff;margin-top:2px;'>{_fmt_p(_pago25a)}</div></div>"
+                        f"<div style='background:rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;'>"
+                        f"<div style='font-size:0.6rem;color:rgba(255,255,255,0.5);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;'>25% Final</div>"
+                        f"<div style='font-size:1rem;font-weight:800;color:#fff;margin-top:2px;'>{_fmt_p(_pago25b)}</div></div>"
+                        f"</div></div>", unsafe_allow_html=True)
 
-                # Selección tratamiento
-                _trat_opts = ["Don", "Doña", "Sr.", "Sra."]
-                _tratamiento = st.selectbox("Tratamiento", _trat_opts, key="cont_tratamiento")
+                st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
-                # Panel cliente
-                _sin_nombre_cli = "<span style='color:rgba(255,255,255,0.3);font-style:italic;font-weight:400;'>Sin nombre</span>"
-                _tag_tipo = "🏢 Persona jurídica" if _es_juridica else "👤 Persona natural"
-                _emp_html = (
-                    f"<div style='display:flex;gap:8px;margin-top:6px;'>"
-                    f"<span style='font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;color:rgba(255,255,255,0.7);'>{_tag_tipo}</span>"
-                    f"</div>"
-                ) if not _es_juridica else (
-                    f"<div style='display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;'>"
-                    f"<span style='font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;color:rgba(255,255,255,0.7);'>🏢 {_cli_empresa or '—'}</span>"
-                    f"<span style='font-size:0.7rem;background:rgba(255,255,255,0.1);border-radius:6px;padding:2px 8px;color:rgba(255,255,255,0.7);'>RUT empresa: {_cli_rut_empresa or '—'}</span>"
-                    f"</div>"
-                )
-                _html_cli = (
-                    "<div style='background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;padding:16px 18px;margin-bottom:4px;'>"
-                    "<div style='font-size:0.65rem;font-weight:900;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;'>👤 Datos del cliente</div>"
-                    "<div style='display:flex;flex-direction:column;gap:10px;'>"
-                    "<div style='background:rgba(255,255,255,0.07);border-radius:10px;padding:12px 14px;'>"
-                    f"<div style='font-size:1rem;font-weight:800;color:#fff;'>{_tratamiento} {_cli_nombre if _cli_nombre else _sin_nombre_cli}</div>"
-                    f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.6);margin-top:4px;'>RUT: {_cli_rut or '—'}</div>"
-                    + _emp_html +
-                    "</div>"
-                    "</div>"
-                    "</div>"
-                )
-                st.markdown(_html_cli, unsafe_allow_html=True)
-
-                # Domicilios
-                _cli_dom  = st.session_state.get("cont_cli_domicilio",  _cot.get("cliente_direccion", ""))
-                _cli_com  = st.session_state.get("cont_cli_comuna",     _cot.get("cliente_comuna", ""))
-                _cli_reg  = st.session_state.get("cont_cli_region",     _cot.get("cliente_region", ""))
-                _inst_dom = st.session_state.get("cont_inst_domicilio", _cot.get("proyecto_direccion", ""))
-                _inst_com = st.session_state.get("cont_inst_comuna",    _cot.get("proyecto_comuna", ""))
-                _inst_reg = st.session_state.get("cont_inst_region",    _cot.get("proyecto_region", ""))
-                _todas_regiones = list(REGIONES_COMUNAS.keys())
-                _todas_comunas  = [c for cs in REGIONES_COMUNAS.values() for c in cs]
-                if _cli_com:  _cli_com  = _normalizar_nombre(_cli_com,  _todas_comunas)
-                if _cli_reg:  _cli_reg  = _normalizar_nombre(_cli_reg,  _todas_regiones)
-                if _inst_com: _inst_com = _normalizar_nombre(_inst_com, _todas_comunas)
-                if _inst_reg: _inst_reg = _normalizar_nombre(_inst_reg, _todas_regiones)
-
-                _sin_dir = "<span style='color:rgba(255,255,255,0.25);font-style:italic;font-weight:400;'>Sin dirección</span>"
-                _html_dom = (
-                    "<div style='background:linear-gradient(135deg,#0f3460,#16213e);border-radius:14px;padding:16px 18px;margin-bottom:4px;'>"
-                    "<div style='font-size:0.65rem;font-weight:900;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;'>📍 Domicilios</div>"
-                    "<div style='display:flex;flex-direction:column;gap:8px;'>"
-                    "<div style='background:rgba(255,255,255,0.07);border-radius:10px;padding:10px 14px;'>"
-                    "<div style='font-size:0.65rem;color:rgba(255,255,255,0.4);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;'>🏠 Domicilio cliente</div>"
-                    f"<div style='font-size:0.88rem;font-weight:700;color:#fff;'>{_cli_dom if _cli_dom else _sin_dir}</div>"
-                    f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.55);margin-top:2px;'>{_cli_com or '—'} · {_cli_reg or '—'}</div>"
-                    "</div>"
-                    "<div style='background:rgba(255,255,255,0.07);border-radius:10px;padding:10px 14px;'>"
-                    "<div style='font-size:0.65rem;color:rgba(255,255,255,0.4);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;'>📦 Dirección instalación</div>"
-                    f"<div style='font-size:0.88rem;font-weight:700;color:#fff;'>{_inst_dom if _inst_dom else _sin_dir}</div>"
-                    f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.55);margin-top:2px;'>{_inst_com or '—'} · {_inst_reg or '—'}</div>"
-                    "</div></div></div>"
-                )
-                st.markdown(_html_dom, unsafe_allow_html=True)
-
-            with _pcol:
-                _precio = int(st.session_state.get("cont_precio", 0))
-                _pago50  = round(_precio * 0.50)
-                _pago25a = round(_precio * 0.25)
-                _pago25b = _precio - _pago50 - _pago25a
-
-                _fmt_p = lambda v: "${:,.0f}".format(v).replace(",",".")
-                _html_pagos = (
-                    "<div style='background:linear-gradient(135deg,#0f3460,#16213e);border-radius:18px;padding:22px 20px;'>"
-                    "<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:14px;'>💰 Detalle de pagos</div>"
-                    f"<div style='font-size:1.8rem;font-weight:900;color:#fff;font-family:Montserrat,sans-serif;letter-spacing:-0.02em;margin-bottom:16px;'>{_fmt_p(_precio)}</div>"
-                    "<div style='display:flex;flex-direction:column;gap:8px;'>"
-                    f"<div style='background:rgba(255,255,255,0.09);border-radius:10px;padding:12px 14px;'><div style='font-size:0.65rem;color:rgba(255,255,255,0.5);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;'>50% Inicial</div><div style='font-size:1.1rem;font-weight:800;color:#fff;margin-top:2px;'>{_fmt_p(_pago50)}</div></div>"
-                    f"<div style='background:rgba(255,255,255,0.09);border-radius:10px;padding:12px 14px;'><div style='font-size:0.65rem;color:rgba(255,255,255,0.5);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;'>25% Intermedio</div><div style='font-size:1.1rem;font-weight:800;color:#fff;margin-top:2px;'>{_fmt_p(_pago25a)}</div></div>"
-                    f"<div style='background:rgba(255,255,255,0.09);border-radius:10px;padding:12px 14px;'><div style='font-size:0.65rem;color:rgba(255,255,255,0.5);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;'>25% Final</div><div style='font-size:1.1rem;font-weight:800;color:#fff;margin-top:2px;'>{_fmt_p(_pago25b)}</div></div>"
-                    "</div></div>"
-                )
-                st.markdown(_html_pagos, unsafe_allow_html=True)
-
-            # ── Botón único: Generar y descargar PDF ──
-            st.markdown("")
+            # ── Botón generar ──
             _gen_col, _ = st.columns([2, 3])
             with _gen_col:
                 _generar = st.button("📄 Generar y descargar contrato PDF", type="primary",
