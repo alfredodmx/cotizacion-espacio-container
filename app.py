@@ -9725,6 +9725,9 @@ with tab_contrato:
                                      use_container_width=True, key="cont_generar")
 
             if _generar:
+                if not _tratamiento:
+                    st.error("⚠️ Debes seleccionar un tratamiento (Don, Doña, Sr. o Sra.) antes de generar el contrato.")
+                    st.stop()
                 _campos_req = [_cli_nombre, _cli_rut, _cli_dom, _cli_com, _ep_nombre]
                 if _es_juridica:
                     _campos_req += [_cli_empresa, _cli_rut_empresa]
