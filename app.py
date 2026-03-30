@@ -2297,6 +2297,15 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400;1,500;1,600;1,700;1,800&family=Montserrat:wght@700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
 
+    /* Botón Cargar presupuesto — igual que download_button */
+    .st-key-btn_cargar_presupuesto button,
+    [data-testid="stDownloadButton"] button {
+        background-color: rgb(255, 75, 75) !important;
+        color: white !important;
+        border: 1px solid rgba(255, 75, 75, 0.2) !important;
+        font-weight: 400 !important;
+    }
+
 
 
 
@@ -6705,7 +6714,7 @@ with tab3:
                     st.button("📂 Cargar presupuesto", use_container_width=True, disabled=True,
                               help="No se puede editar un presupuesto autorizado")
                 else:
-                    if st.button("📂 Cargar presupuesto", use_container_width=True, key="btn_cargar_presupuesto", type="primary"):
+                    if st.button("📂 Cargar presupuesto", use_container_width=True, key="btn_cargar_presupuesto"):
                         # Si hay carrito sin guardar, mostrar advertencia
                         tiene_sin_guardar = (
                             len(st.session_state.carrito) > 0 and
