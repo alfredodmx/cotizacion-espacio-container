@@ -8698,23 +8698,19 @@ if tab_reporte is not None and st.session_state.modo_admin:
         _c31, _c32, _c33 = st.columns(3)
 
         with _c31:
-            st.markdown(f"""
-            <div style="background:white;border-radius:12px;padding:18px 20px;border:1px solid #e2e8f0;">
-              <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;
-                          letter-spacing:0.06em;margin-bottom:12px;">Estado de cotizaciones</div>
-              {''.join([f"""
-              <div style="display:flex;justify-content:space-between;align-items:center;
-                          padding:6px 0;border-bottom:1px solid #f1f5f9;">
-                <span style="font-size:11px;color:#64748b;">{lbl}</span>
-                <span style="font-size:12px;font-weight:700;color:#0f172a;">{cnt} ({round(cnt/max(1,_total_cots)*100)}%)</span>
-              </div>""" for lbl, cnt in [
+            _est_items = [
                 ('🟢 Autorizadas', _n_aut),
                 ('🟡 Borradores', len(_borradores)),
                 ('🔴 Incompletas', len(_incompletas)),
                 ('📐 Con plano', len(_con_plano)),
                 ('📄 Con contrato', sum(1 for r in _data_rep if r.get('contrato_generado'))),
-              ]])}
-            </div>""", unsafe_allow_html=True)
+            ]
+            _est_html = "".join(
+                f'<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9;">'                f'<span style="font-size:11px;color:#64748b;">{lbl}</span>'                f'<span style="font-size:12px;font-weight:700;color:#0f172a;">{cnt} ({round(cnt/max(1,_total_cots)*100)}%)</span></div>'
+                for lbl, cnt in _est_items
+            )
+            st.markdown(
+                '<div style="background:white;border-radius:12px;padding:18px 20px;border:1px solid #e2e8f0;">'                '<div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;'                'letter-spacing:0.06em;margin-bottom:12px;">Estado de cotizaciones</div>'                + _est_html + '</div>', unsafe_allow_html=True)
 
         with _c32:
             st.markdown(f"""
