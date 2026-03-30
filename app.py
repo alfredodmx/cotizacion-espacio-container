@@ -8898,7 +8898,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
     if _oper_buscar:
         try:
             _oq = supabase.table("cotizaciones").select(
-                "numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_empresa,"
+                "numero,fecha_creacion,fecha_modificacion,cliente_nombre,"
                 "asesor_nombre,asesor_email,asesor_telefono,estado,plano_url,plano_nombre,"
                 "config_margen,contrato_generado,productos,total_subtotal_sin_margen"
             )
@@ -8916,7 +8916,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
         # carga inicial
         try:
             _ores0 = supabase.table("cotizaciones").select(
-                "numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_empresa,"
+                "numero,fecha_creacion,fecha_modificacion,cliente_nombre,"
                 "asesor_nombre,asesor_email,asesor_telefono,estado,plano_url,plano_nombre,"
                 "config_margen,contrato_generado,productos,total_subtotal_sin_margen"
             ).order("fecha_creacion", desc=True).limit(100).execute()
@@ -8980,7 +8980,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
             _plano    = _or.get("plano_url","") or ""
             _empresa  = _or.get("cliente_empresa","") or ""
             _contrato = _or.get("contrato_generado", False)
-            _fecha    = _fmt_op_fecha(_or.get("fecha_creacion",""))
+            _fecha    = _fmt_op_fecha(_or.get("fecha_modificacion",""))
             _aut      = "autorizado" in (_estado or "").lower()
             _tc       = _calc_total_costo(_or)
             _tc_html  = f'<span style="font-weight:700;">{_fmt_op_clp(_tc)}</span><br><span style="font-size:0.75em;color:#64748b;">base+IVA</span>' if _aut else '<span style="color:#94a3b8;">—</span>'
@@ -8995,8 +8995,6 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                 f"<td>{_ej}</td>"
                 f"<td style='text-align:center;'>{_badge_op(_estado)}</td>"
                 f"<td style='line-height:1.6;'>{_fecha}</td>"
-                f"<td style='text-align:center;'>{_emp_html}</td>"
-                f"<td style='text-align:center;'>{_ct_html}</td>"
                 f"<td style='text-align:center;'>{_plano_html}</td>"
                 f"</tr>"
             )
@@ -9013,9 +9011,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                   <th>Total costo</th>
                   <th>Asesor</th>
                   <th>Estado</th>
-                  <th>Fecha creación</th>
-                  <th>Empresa</th>
-                  <th>Contrato</th>
+                  <th>Fecha autorización</th>
                   <th>Plano</th>
                 </tr>
               </thead>
