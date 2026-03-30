@@ -2297,17 +2297,7 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400;1,500;1,600;1,700;1,800&family=Montserrat:wght@700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
 
-    /* Botón Cargar presupuesto — mismo color morado que PDF Completo */
-    .st-key-btn_cargar_presupuesto button:not([disabled]) {
-        background-color: #533AB7 !important;
-        color: white !important;
-        border: none !important;
-        font-weight: 700 !important;
-    }
-    .st-key-btn_cargar_presupuesto button:not([disabled]):hover {
-        background-color: #3C3489 !important;
-        color: white !important;
-    }
+
 
 
 
@@ -6715,7 +6705,7 @@ with tab3:
                     st.button("📂 Cargar presupuesto", use_container_width=True, disabled=True,
                               help="No se puede editar un presupuesto autorizado")
                 else:
-                    if st.button("📂 Cargar presupuesto", use_container_width=True, key="btn_cargar_presupuesto"):
+                    if st.button("📂 Cargar presupuesto", use_container_width=True, key="btn_cargar_presupuesto", type="primary"):
                         # Si hay carrito sin guardar, mostrar advertencia
                         tiene_sin_guardar = (
                             len(st.session_state.carrito) > 0 and
