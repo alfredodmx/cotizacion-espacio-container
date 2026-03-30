@@ -395,32 +395,6 @@ if not st.session_state.auth_user:
 
     st.markdown("""
     <style>
-    /* Botón Cargar presupuesto — hereda estilo de stDownloadButton via CSS cascade */
-    [data-testid="stDownloadButton"] button:not([disabled]),
-    [class*="st-key-btn_cargar_presupuesto"] button:not([disabled]) {
-        all: unset !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        width: 100% !important;
-        padding: 0.25rem 0.75rem !important;
-        font-weight: 400 !important;
-        font-size: 1rem !important;
-        line-height: 1.6 !important;
-        border-radius: 0.5rem !important;
-        cursor: pointer !important;
-        user-select: none !important;
-        background-color: #7B2FBE !important;
-        color: white !important;
-        border: none !important;
-        box-sizing: border-box !important;
-        min-height: 38px !important;
-    }
-    [data-testid="stDownloadButton"] button:not([disabled]):hover,
-    [class*="st-key-btn_cargar_presupuesto"] button:not([disabled]):hover {
-        background-color: #6B28A8 !important;
-        color: white !important;
-    }
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;700;900&display=swap');
 
     [data-testid="stAppViewContainer"] {
@@ -2322,8 +2296,6 @@ ejecutar_carga_cotizacion()
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400;1,500;1,600;1,700;1,800&family=Montserrat:wght@700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
-
-
 
 
 
@@ -6733,7 +6705,7 @@ with tab3:
                     st.button("📂 Cargar presupuesto", use_container_width=True, disabled=True,
                               help="No se puede editar un presupuesto autorizado")
                 else:
-                    if st.button("📂 Cargar presupuesto", use_container_width=True, key=f"btn_cargar_presupuesto_{numero_seleccionado}"):
+                    if st.button("📂 Cargar presupuesto", use_container_width=True, key="btn_cargar_presupuesto", type="primary"):
                         # Si hay carrito sin guardar, mostrar advertencia
                         tiene_sin_guardar = (
                             len(st.session_state.carrito) > 0 and
