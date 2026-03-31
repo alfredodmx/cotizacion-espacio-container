@@ -6618,7 +6618,7 @@ if tab3 is not None:
             <div style="overflow-y:auto;max-height:{altura_tabla}px;">
                 <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
-                        <tr><th>N° Presupuesto</th><th>Cliente</th><th>Total</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Fecha de creación</th><th>Demora</th><th>Fecha Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th></tr>
+                        <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th></tr>
                     </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
