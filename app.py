@@ -4742,7 +4742,7 @@ _rol_actual = st.session_state.get('rol_usuario', 'ejecutivo')
 if _rol_actual == 'root':
     tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_salud, tab_usuarios, tab_notif, tab_reporte, tab_oper = st.tabs(["📊 DASHBOARD", "📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "🛡️ SISTEMA", "👥 USUARIOS", "📣 NOTIFICACIONES", "📈 REPORTE BI", "⚙️ OPERACIONES"])
 elif _rol_actual == 'admin':
-    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_usuarios, tab_notif, tab_reporte, tab_oper = st.tabs(["📊 DASHBOARD", "📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "👥 USUARIOS", "📣 NOTIFICACIONES", "📈 REPORTE BI", "⚙️ OPERACIONES"])
+    tab1, tab3, tab2, tab_contrato, tab_oper, tab_usuarios, tab5, tab6, tab7, tab4, tab_notif, tab_dash, tab_reporte = st.tabs(["📋 PRESUPUESTO", "📂 COTIZACIONES", "👤 DATOS", "📄 CONTRATO", "⚙️ OPERACIONES", "👥 USUARIOS", "📊 PROYECTO EXCEL", "✏️ EDICIÓN PDF", "🏆 RANKING", "🧊 3D BETA", "📣 NOTIFICACIONES", "📊 DASHBOARD", "📈 REPORTE BI"])
     tab_salud = None
 elif _rol_actual == 'operacion':
     tab_oper, = st.tabs(["⚙️ OPERACIONES"])
