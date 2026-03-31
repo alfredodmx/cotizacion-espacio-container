@@ -6469,11 +6469,17 @@ if tab3 is not None:
             st.button("📅 Esta semana", use_container_width=True)
             st.button("📅 Este mes", use_container_width=True)
 
-    col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 4])
+    col_btn1, col_btn2, col_btn3, col_btn4 = st.columns([1, 1, 4, 0.6])
     with col_btn1:
         buscar_btn = st.button("🔍 Buscar", type="primary", use_container_width=True)
     with col_btn2:
         limpiar_btn = st.button("🗑️ Limpiar", use_container_width=True)
+    with col_btn4:
+        st.markdown("<div style='display:flex;justify-content:flex-end;'>", unsafe_allow_html=True)
+        if st.button("🔄", key="cot_refresh", help="Actualizar resultados", use_container_width=True):
+            st.session_state.resultados_busqueda = None
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown("### Resultados")
@@ -8937,7 +8943,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
         _oper_ej_opts = ['Todos']
 
     # ── Filtros ──
-    _oc1, _oc2, _oc3 = st.columns([2.5, 2, 0.8])
+    _oc1, _oc2, _oc3, _oc4 = st.columns([2.5, 2, 0.8, 0.4])
     with _oc1:
         _oper_ep = st.text_input("EP", placeholder="Buscar por N° EP...",
                                   key="oper_ep", label_visibility="collapsed")
@@ -8946,6 +8952,10 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                                      key="oper_ej_sel", label_visibility="collapsed")
     with _oc3:
         _oper_buscar = st.button("🔍 Buscar", use_container_width=True, key="oper_buscar")
+    with _oc4:
+        if st.button("🔄", key="oper_refresh", help="Actualizar resultados", use_container_width=True):
+            st.session_state.pop('oper_results', None)
+            st.rerun()
 
     if _oper_buscar:
         try:
