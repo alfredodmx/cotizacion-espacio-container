@@ -9050,7 +9050,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                 "asesor_nombre,asesor_email,asesor_telefono,estado,plano_url,plano_nombre,"
                 "config_margen,contrato_generado,productos,total_subtotal_sin_margen,"
                 "contrato_notariado_url"
-            )
+            ).gt("config_margen", 0)
             if _oper_ep.strip():
                 _oq = _oq.ilike("numero", f"%{_oper_ep.strip()}%")
             if _oper_ej_sel != 'Todos':
@@ -9069,7 +9069,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                 "asesor_nombre,asesor_email,asesor_telefono,estado,plano_url,plano_nombre,"
                 "config_margen,contrato_generado,productos,total_subtotal_sin_margen,"
                 "contrato_notariado_url"
-            ).order("fecha_creacion", desc=True).limit(100).execute()
+            ).gt("config_margen", 0).order("fecha_creacion", desc=True).limit(100).execute()
             st.session_state['oper_results'] = _ores0.data or []
         except Exception:
             st.session_state['oper_results'] = []
@@ -9117,6 +9117,10 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
             # ADJUDICADO tiene prioridad absoluta
             if row_data.get('contrato_notariado_url'):
                 return '<span style="background-color:#2563eb;color:white;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;border:1px solid #1d4ed8;box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">🔵 ADJUDICADO</span>'
+            # Autorizado sin notariado = PENDIENTE COMPRAS
+            config_margen_b = row_data.get('config_margen', 0) or 0
+            if config_margen_b > 0:
+                return '<span style="background-color:#ffc107;color:#212529;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;border:1px solid #d39e00;box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">🟡 PENDIENTE COMPRAS</span>'
             # Exactamente la misma lógica que crear_badge_estado en cotizaciones
             config_margen   = row_data.get('config_margen', 0) or 0
             tiene_plano     = 1 if row_data.get('plano_url') else 0
