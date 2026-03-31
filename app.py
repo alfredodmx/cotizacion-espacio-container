@@ -11094,9 +11094,12 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 else:
                     _cn_fauth = "—"
 
-                # Fecha adjudicación — campo real de Supabase
+                # Fecha adjudicación — campo real, con fallback a fecha_modificacion si está vacío
+                _cn_fadj_raw = _cn.get("fecha_adjudicacion","") or ""
+                # Fallback: si está adjudicado pero no tiene fecha_adjudicacion, usar fecha_modificacion
+                if _cn_adj and not _cn_fadj_raw:
+                    _cn_fadj_raw = _cn.get("fecha_modificacion","") or ""
                 _cn_fadj = "—"
-                _cn_fadj_raw = _cn.get("fecha_adjudicacion","")
                 if _cn_adj and _cn_fadj_raw:
                     try:
                         _d_fadj = _dt_cn.fromisoformat(_cn_fadj_raw.replace("Z","+00:00")).astimezone(_tz_cl_cn)
@@ -11104,6 +11107,9 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                                     f'<br><span style="font-size:0.75em;color:#64748b;">{_d_fadj.strftime("%H:%M")}</span>')
                     except: _cn_fadj = _cn_fadj_raw[:10]
 
+                # Timing/Demora — si adj sin fecha_adjudicacion usar fecha_modificacion
+                if _cn_adj and not _cn.get("fecha_adjudicacion",""):
+                    _cn_fadj_raw = _cn.get("fecha_modificacion","") or ""
                 # Timing/Demora
                 if _cn_adj and _cn_fadj_raw and _cn_fauth_raw:
                     # Calcular tiempo entre autorización y adjudicación
