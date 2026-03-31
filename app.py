@@ -6759,16 +6759,19 @@ if tab3 is not None:
 
         opciones = []
         for idx, row in df_resultados.iterrows():
-            # Usar nombres de columna correctos (no índices numéricos)
-            datos_completos = all([row['Cliente'], row['Email']])
-            asesor_completo = any([row['Asesor'], row['Asesor_Email'], row['Asesor_Tel']])
-            if row['Margen'] and row['Margen'] > 0:
-                estado = ("🟢 AUTORIZADO CON PLANO" if row['Tiene_Plano'] else "🟢 AUTORIZADO") if (datos_completos and asesor_completo) else ("🔴 INCOMPLETO CON PLANO" if row['Tiene_Plano'] else "🔴 INCOMPLETO")
+            # ADJUDICADO tiene prioridad absoluta
+            if row.get('Tiene_Notariado', 0):
+                estado = "🔵 ADJUDICADO"
             else:
-                if datos_completos and asesor_completo:
-                    estado = "🟠 BORRADOR CON PLANO" if row['Tiene_Plano'] else "🟡 BORRADOR"
+                datos_completos = all([row['Cliente'], row['Email']])
+                asesor_completo = any([row['Asesor'], row['Asesor_Email'], row['Asesor_Tel']])
+                if row['Margen'] and row['Margen'] > 0:
+                    estado = ("🟢 AUTORIZADO CON PLANO" if row['Tiene_Plano'] else "🟢 AUTORIZADO") if (datos_completos and asesor_completo) else ("🔴 INCOMPLETO CON PLANO" if row['Tiene_Plano'] else "🔴 INCOMPLETO")
                 else:
-                    estado = "🔴 INCOMPLETO CON PLANO" if row['Tiene_Plano'] else "🔴 INCOMPLETO"
+                    if datos_completos and asesor_completo:
+                        estado = "🟠 BORRADOR CON PLANO" if row['Tiene_Plano'] else "🟡 BORRADOR"
+                    else:
+                        estado = "🔴 INCOMPLETO CON PLANO" if row['Tiene_Plano'] else "🔴 INCOMPLETO"
             plano_indicador = "📎" if row['Tiene_Plano'] else "❌"
             # Extraer solo el monto sin HTML para el selectbox
             _total_raw = st.session_state.resultados_busqueda
