@@ -11105,9 +11105,24 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     except: _cn_fadj = _cn_fadj_raw[:10]
 
                 # Timing/Demora
-                if _cn_adj:
-                    # Finalizado — tiempo entre creación/autorización y adjudicación en azul
-                    _cn_timing = (f'<span style="color:#2563eb;font-weight:700;">finalizado</span>')
+                if _cn_adj and _cn_fadj_raw and _cn_fauth_raw:
+                    # Calcular tiempo entre autorización y adjudicación
+                    try:
+                        _d_aut_cn = _dt_cn.fromisoformat(_cn_fauth_raw.replace("Z","+00:00")).astimezone(_tz_cl_cn)
+                        _d_adj_cn = _dt_cn.fromisoformat(_cn_fadj_raw.replace("Z","+00:00")).astimezone(_tz_cl_cn)
+                        _diff_cn  = _d_adj_cn - _d_aut_cn
+                        _dias_cn  = _diff_cn.days
+                        _hrs_cn   = _diff_cn.seconds // 3600
+                        _min_cn   = (_diff_cn.seconds % 3600) // 60
+                        _partes_cn = []
+                        if _dias_cn > 0: _partes_cn.append(f"{_dias_cn}d")
+                        if _hrs_cn > 0:  _partes_cn.append(f"{_hrs_cn}h")
+                        _partes_cn.append(f"{_min_cn}m")
+                        _tiempo_cn = " ".join(_partes_cn)
+                        _cn_timing = (f'<span style="color:#2563eb;font-weight:700;">{_tiempo_cn}</span>'
+                                      f'<br><span style="font-size:0.72em;color:#2563eb;font-weight:400;">finalizado</span>')
+                    except:
+                        _cn_timing = '<span style="color:#2563eb;font-weight:700;">finalizado</span>'
                 else:
                     # Contador en vivo desde la fecha de autorización
                     try:
