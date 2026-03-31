@@ -7141,57 +7141,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     except Exception as e:
                         st.warning("⚠️ No se pudo preparar la descarga. Intenta de nuevo.")
 
-                    # ── Subir contrato notariado (solo admin/root, solo si está autorizado) ──
-                    if st.session_state.modo_admin:
-                        _ep_visor = st.session_state.numero_en_visor
-                        _cot_visor = cargar_cotizacion(_ep_visor) if _ep_visor else None
-                        _estado_visor = evaluar_estado_cotizacion(_cot_visor) if _cot_visor else ""
-                        _es_aut_visor = "AUTORIZADO" in _estado_visor or "ADJUDICADO" in _estado_visor
-                        _ya_adj = "ADJUDICADO" in _estado_visor
-                        if _ya_adj:
-                            st.success("✅ Contrato notariado adjuntado — estado: **🔵 ADJUDICADO**")
-                            _url_not = _cot_visor.get('contrato_notariado_url','')
-                            _nom_not = _cot_visor.get('contrato_notariado_nombre','contrato_notariado.pdf')
-                            if _url_not:
-                                try:
-                                    _bytes_not = requests.get(_url_not, timeout=15).content
-                                    st.download_button("📥 Descargar contrato notariado",
-                                        data=_bytes_not, file_name=_nom_not,
-                                        mime="application/pdf", use_container_width=True,
-                                        key=f"dl_notariado_{_ep_visor}")
-                                except Exception:
-                                    pass
-                        elif _es_aut_visor:
-                            st.markdown("---")
-                            st.markdown("**📎 Subir contrato notariado**")
-                            _not_file = st.file_uploader(
-                                "Selecciona el PDF del contrato notariado",
-                                type=["pdf"], key=f"uploader_notariado_{_ep_visor}",
-                                label_visibility="collapsed"
-                            )
-                            if _not_file is not None:
-                                if st.button("📤 Adjuntar y marcar como ADJUDICADO",
-                                             type="primary", use_container_width=True,
-                                             key=f"btn_adjudicar_{_ep_visor}"):
-                                    with st.spinner("Subiendo contrato notariado..."):
-                                        try:
-                                            _not_bytes = _not_file.read()
-                                            _not_nombre = _not_file.name
-                                            _not_path = f"notariados/{_ep_visor}/{_not_nombre}"
-                                            supabase_admin.storage.from_("planos").upload(
-                                                _not_path, _not_bytes,
-                                                {"content-type": "application/pdf", "upsert": "true"}
-                                            )
-                                            _not_url = supabase_admin.storage.from_("planos").get_public_url(_not_path)
-                                            supabase_admin.table("cotizaciones").update({
-                                                "contrato_notariado_url": _not_url,
-                                                "contrato_notariado_nombre": _not_nombre
-                                            }).eq("numero", _ep_visor).execute()
-                                            st.success(f"✅ Contrato notariado adjuntado. {_ep_visor} ahora es **🔵 ADJUDICADO**")
-                                            st.session_state.resultados_busqueda = None
-                                            st.rerun()
-                                        except Exception as _ne:
-                                            st.error(f"❌ Error al subir: {_ne}")
+
 
         st.markdown("---")
         st.markdown("### 📊 Estadísticas Rápidas")
@@ -10605,9 +10555,10 @@ if tab_contrato is not None:
 
     # ── Sub-pestañas ──
     if st.session_state.modo_admin:
-        _sub_imprimir, _sub_preview, _sub_editar = st.tabs(["📄 Generador de contrato", "👁️ Previsualizar contrato", "📝 Editar contrato"])
+        _sub_imprimir, _sub_preview, _sub_notariado, _sub_editar = st.tabs(["📄 Generador de contrato", "👁️ Previsualizar contrato", "📎 Contrato notariado", "📝 Editar contrato"])
     else:
         _sub_imprimir, _sub_preview = st.tabs(["📄 Generador de contrato", "👁️ Previsualizar contrato"])
+        _sub_notariado = None
         _sub_editar = None
 
     # ================================================================
@@ -11057,6 +11008,101 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
         else:
             st.info("👆 Ingresa un número EP y presiona **Buscar EP** para previsualizar el contrato.")
 
+
+    # ================================================================
+    # SUB-PESTAÑA: CONTRATO NOTARIADO
+    # ================================================================
+    if _sub_notariado is not None:
+     with _sub_notariado:
+        st.markdown("""
+        <div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);border-radius:14px;
+                    padding:20px 28px;margin-bottom:20px;display:flex;align-items:center;gap:14px;">
+          <span style="font-size:1.8rem;">📎</span>
+          <div>
+            <h3 style="color:#fff;font-family:Montserrat,sans-serif;font-size:1.1rem;
+                       font-weight:900;margin:0;">Contrato Notariado</h3>
+            <p style="color:rgba(255,255,255,0.6);font-size:0.8rem;margin:4px 0 0;">
+              Al subir el contrato firmado y notariado, el estado pasa a 🔵 ADJUDICADO</p>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        _ep_notariado = st.session_state.get('cotizacion_cargada', '')
+        if not _ep_notariado:
+            st.info("💡 Primero carga un presupuesto desde la pestaña 📂 COTIZACIONES.")
+        else:
+            _cot_not = cargar_cotizacion(_ep_notariado)
+            if _cot_not:
+                _estado_not = evaluar_estado_cotizacion(_cot_not)
+                _ya_adj_not = "ADJUDICADO" in _estado_not
+                _es_aut_not = "AUTORIZADO" in _estado_not or _ya_adj_not
+
+                st.markdown(f"""
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;
+                            padding:12px 16px;margin-bottom:16px;display:flex;gap:16px;align-items:center;">
+                  <div><span style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Presupuesto</span>
+                  <div style="font-size:15px;font-weight:900;color:#0f172a;">{_ep_notariado}</div></div>
+                  <div><span style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Cliente</span>
+                  <div style="font-size:13px;color:#374151;">{_cot_not.get('cliente_nombre','—')}</div></div>
+                  <div><span style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Estado actual</span>
+                  <div style="font-size:12px;font-weight:700;color:#0f172a;">{_estado_not}</div></div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                if _ya_adj_not:
+                    st.success("✅ Este presupuesto ya tiene contrato notariado adjuntado — estado **🔵 ADJUDICADO**")
+                    _url_not2 = _cot_not.get('contrato_notariado_url','')
+                    _nom_not2 = _cot_not.get('contrato_notariado_nombre','contrato_notariado.pdf')
+                    if _url_not2:
+                        try:
+                            _bytes_not2 = requests.get(_url_not2, timeout=15).content
+                            st.download_button("📥 Descargar contrato notariado",
+                                data=_bytes_not2, file_name=_nom_not2,
+                                mime="application/pdf", use_container_width=True,
+                                key="dl_notariado_cont")
+                        except Exception:
+                            st.warning("No se pudo preparar la descarga.")
+                elif _es_aut_not:
+                    st.markdown("""
+                    <div style="background:#eff6ff;border-left:4px solid #2563eb;border-radius:0 8px 8px 0;
+                                padding:10px 14px;margin-bottom:16px;">
+                      <p style="font-size:12px;color:#1e40af;margin:0;">
+                        📋 Sube el contrato firmado y notariado en PDF. Una vez subido, el estado
+                        cambia a <b>🔵 ADJUDICADO</b> de forma permanente e irreversible.</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    _not_file2 = st.file_uploader(
+                        "Selecciona el PDF del contrato notariado",
+                        type=["pdf"], key="uploader_notariado_cont"
+                    )
+                    if _not_file2 is not None:
+                        st.markdown(f"**Archivo seleccionado:** {_not_file2.name} · {round(_not_file2.size/1024)} KB")
+                        if st.button("📤 Adjuntar y marcar como ADJUDICADO",
+                                     type="primary", use_container_width=True,
+                                     key="btn_adjudicar_cont"):
+                            with st.spinner("Subiendo contrato notariado..."):
+                                try:
+                                    _not_bytes2  = _not_file2.read()
+                                    _not_nombre2 = _not_file2.name
+                                    _not_path2   = f"notariados/{_ep_notariado}/{_not_nombre2}"
+                                    supabase_admin.storage.from_("planos").upload(
+                                        _not_path2, _not_bytes2,
+                                        {"content-type": "application/pdf", "upsert": "true"}
+                                    )
+                                    _not_url2 = supabase_admin.storage.from_("planos").get_public_url(_not_path2)
+                                    supabase_admin.table("cotizaciones").update({
+                                        "contrato_notariado_url": _not_url2,
+                                        "contrato_notariado_nombre": _not_nombre2
+                                    }).eq("numero", _ep_notariado).execute()
+                                    st.success(f"✅ Contrato notariado adjuntado. **{_ep_notariado}** ahora es 🔵 ADJUDICADO")
+                                    st.session_state.resultados_busqueda = None
+                                    st.rerun()
+                                except Exception as _ne2:
+                                    st.error(f"❌ Error al subir: {_ne2}")
+                else:
+                    st.warning(f"⚠️ Este presupuesto tiene estado **{_estado_not}**. Solo se puede adjuntar el contrato notariado cuando el estado es AUTORIZADO o AUTORIZADO CON PLANO.")
+            else:
+                st.error("No se pudo cargar el presupuesto.")
 
     if _sub_editar is not None:
      with _sub_editar:
