@@ -2528,23 +2528,25 @@ st.markdown("""
     .resultados-table {
         width: 100%; border-collapse: collapse; border-spacing: 0;
         font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.875rem;
-        background: #ffffff;
+        background: #ffffff; table-layout: auto;
     }
     .resultados-table th {
         background: linear-gradient(135deg, #1e2447 0%, #2a3060 100%) !important;
         color: #ffffff !important; font-weight: 900 !important;
-        padding: 14px 16px !important; text-align: left !important;
-        font-size: 0.75rem !important; letter-spacing: 0.07em !important;
-        text-transform: uppercase !important;
+        padding: 10px 12px !important; text-align: left !important;
+        font-size: 0.72rem !important; letter-spacing: 0.07em !important;
+        text-transform: uppercase !important; white-space: nowrap !important;
         position: sticky !important; top: 0 !important; z-index: 2 !important;
     }
     .resultados-table td {
-        padding: 12px 16px !important; border-bottom: 1px solid #f0f2f8 !important;
+        padding: 8px 12px !important; border-bottom: 1px solid #f0f2f8 !important;
         color: #3a4070 !important; background-color: #ffffff !important;
         transition: background 0.15s !important;
+        vertical-align: middle !important;
+        word-break: break-word !important;
     }
     .resultados-table tr:hover td { background-color: #f5f7ff !important; }
-    .resultados-table td.demora-col { color: #dc2626 !important; }
+    .resultados-table td.demora-col { color: #dc2626 !important; white-space: nowrap !important; }
     .resultados-table tr:last-child td { border-bottom: none !important; }
 
     /* ══ METRIC CARDS ══ */
@@ -6613,10 +6615,15 @@ if tab3 is not None:
             _pln_color = 'color:#16a34a;font-weight:700;' if row['Plano']       == '✅ Sí' else 'color:#94a3b8;'
             rows_html += f"<tr><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Cliente'] or '—'}</td><td style='text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.6;'>{row['Total']}</td>{_td_tc}<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Asesor'] or '—'}</td><td style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td class='demora-col' style='text-align:center;font-size:0.82rem;font-weight:700;'>{row['Demora']}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td>{_td_margen}<td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td></tr>"
 
+        # Altura adaptativa: si hay pocas filas, altura real sin scroll
+        _altura_real = n_resultados * 60 + 60
+        _usar_scroll = _altura_real > 550
+        _altura_css  = f"max-height:{min(_altura_real, 550)}px;overflow-y:auto;" if _usar_scroll else ""
+
         html_table = f"""
-        <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;">
-            <div style="overflow-y:auto;max-height:{altura_tabla}px;">
-                <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;'>
+        <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
+            <div style="{_altura_css}">
+                <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:900px;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
                         <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th></tr>
                     </thead>
