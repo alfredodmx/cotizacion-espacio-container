@@ -11195,9 +11195,61 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
 
             if _cn_row:
                 _cn_ya_adj = bool(_cn_row.get("contrato_notariado_url"))
-                # ── Visor contrato generado ──
+                # ── Visor: si adjudicado → contrato notariado, si pendiente → contrato generado ──
                 _cot_cn_full = cargar_cotizacion(_cn_ep_sel)
-                if _cot_cn_full and _cot_cn_full.get("contrato_generado"):
+                if _cn_ya_adj and _cn_row.get("contrato_notariado_url"):
+                    # Mostrar el contrato notariado subido
+                    _not_url_vis = _cn_row["contrato_notariado_url"]
+                    _nav_cn_not = detectar_navegador()
+                    _enc_cn_not = urllib.parse.quote(_not_url_vis, safe='')
+                    _goog_cn_not = f"https://docs.google.com/viewer?url={_enc_cn_not}&embedded=true"
+                    _usar_g_cn_not = _nav_cn_not['needs_google_viewer']
+                    _src_cn_not = _goog_cn_not if _usar_g_cn_not else _not_url_vis
+                    components.html(f"""
+<style>
+@keyframes spin {{from{{transform:rotate(0deg)}}to{{transform:rotate(360deg)}}}}
+body,html{{margin:0;padding:0;overflow:hidden;}}
+#pdf-wrap {{width:100%;height:680px;border:2px solid #0f3460;border-radius:12px;
+            overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.15);background:#f0f2f5;position:relative;}}
+#pdf-loading {{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+               justify-content:center;background:#f0f2f5;z-index:2;gap:12px;transition:opacity 0.4s ease;}}
+#pdf-spinner {{width:40px;height:40px;border:4px solid #cbd5e1;border-top-color:#2563eb;
+               border-radius:50%;animation:spin 0.8s linear infinite;}}
+#pdf-loading span {{color:#64748b;font-size:0.9rem;font-family:sans-serif;}}
+#pdf-iframe {{position:absolute;inset:0;width:100%;height:100%;border:none;display:block;}}
+</style>
+<div id="pdf-wrap">
+  <div id="pdf-loading"><div id="pdf-spinner"></div>
+    <span>Cargando contrato notariado...</span></div>
+  <iframe id="pdf-iframe" src="" allow="fullscreen"></iframe>
+</div>
+<script>
+(function(){{
+  var iframe=document.getElementById('pdf-iframe');
+  var loading=document.getElementById('pdf-loading');
+  var usingGoogle={"true" if _usar_g_cn_not else "false"};
+  function hideLoading(){{loading.style.opacity='0';setTimeout(function(){{loading.style.display='none';}},400);}}
+  iframe.src="{_src_cn_not}";
+  if(usingGoogle){{setTimeout(function(){{if(loading.style.display!=='none')hideLoading();}},3000);}}
+  else{{setTimeout(hideLoading,4000);}}
+}})();
+</script>
+""", height=710, scrolling=False)
+                    try:
+                        _bytes_not_dl = requests.get(_not_url_vis, timeout=15).content
+                        _dc1n, _dc2n, _dc3n = st.columns([1,2,1])
+                        with _dc2n:
+                            st.download_button("📥 Descargar contrato notariado",
+                                data=_bytes_not_dl,
+                                file_name=_cn_row.get("contrato_notariado_nombre","contrato_notariado.pdf"),
+                                mime="application/pdf", use_container_width=True,
+                                key="cn_dl_not")
+                    except Exception:
+                        st.warning("No se pudo preparar la descarga.")
+                    st.markdown("---")
+                    st.success(f"✅ {_cn_ep_sel} ya está **🔵 ADJUDICADO**")
+
+                elif _cot_cn_full and _cot_cn_full.get("contrato_generado"):
                     with st.spinner("Generando vista previa del contrato..."):
                         try:
                             import base64 as _b64cn
@@ -11312,20 +11364,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 else:
                     st.info("ℹ️ Este presupuesto no tiene contrato generado aún.")
 
-                st.markdown("---")
-
-                if _cn_ya_adj:
-                    st.success(f"✅ {_cn_ep_sel} ya está **🔵 ADJUDICADO** — contrato notariado subido.")
-                    try:
-                        _bytes_dl = requests.get(_cn_row["contrato_notariado_url"], timeout=15).content
-                        st.download_button("📥 Descargar contrato notariado",
-                            data=_bytes_dl,
-                            file_name=_cn_row.get("contrato_notariado_nombre","contrato_notariado.pdf"),
-                            mime="application/pdf", use_container_width=True,
-                            key="cn_dl_not")
-                    except Exception:
-                        st.warning("No se pudo preparar la descarga.")
-                else:
+                if not _cn_ya_adj:
                     st.markdown("""
                     <div style="background:#eff6ff;border-left:4px solid #2563eb;border-radius:0 8px 8px 0;
                                 padding:10px 14px;margin-bottom:12px;">
