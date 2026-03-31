@@ -9015,12 +9015,18 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
             except: return 0
 
         # Badge estado
-        def _badge_op(estado):
-            e = (estado or "").lower()
-            if "autorizado" in e and "plano" in e: return "<span style='background:#dcfce7;color:#166534;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:700;'>🟢 AUT+PLANO</span>"
-            if "autorizado" in e: return "<span style='background:#dcfce7;color:#166534;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:700;'>🟢 Autorizado</span>"
-            if "borrador" in e:   return "<span style='background:#fef9c3;color:#854d0e;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:700;'>🟡 Borrador</span>"
-            return "<span style='background:#fee2e2;color:#991b1b;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:700;'>🔴 Incompleto</span>"
+        def _badge_op(row_data):
+            import pandas as _pd_badge
+            _fake = _pd_badge.Series({
+                'Margen':       row_data.get('config_margen', 0) or 0,
+                'Tiene_Plano':  bool(row_data.get('plano_url','')),
+                'Cliente':      row_data.get('cliente_nombre','') or '',
+                'Email':        row_data.get('asesor_email','') or '',
+                'Asesor':       row_data.get('asesor_nombre','') or '',
+                'Asesor_Email': row_data.get('asesor_email','') or '',
+                'Asesor_Tel':   row_data.get('asesor_telefono','') or '',
+            })
+            return crear_badge_estado(_fake)
 
         # Construir filas HTML
         _rows_op = ""
@@ -9045,7 +9051,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                 f"<td>{_cli}</td>"
                 f"<td style='text-align:right;line-height:1.6;'>{_tc_html}</td>"
                 f"<td>{_ej}</td>"
-                f"<td style='text-align:center;'>{_badge_op(_estado)}</td>"
+                f"<td style='text-align:center;'>{_badge_op(_or)}</td>"
                 f"<td style='line-height:1.6;'>{_fecha}</td>"
                 f"<td style='text-align:center;'>{_plano_html}</td>"
                 f"</tr>"
