@@ -11151,8 +11151,8 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     f"<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{_cn_ej}</td>"
                     f"<td style='text-align:center;'>{_cn_badge}</td>"
                     f"<td style='line-height:1.6;'>{_cn_fauth}</td>"
-                    f"<td style='line-height:1.6;'>{_cn_fadj}</td>"
                     f"<td style='text-align:center;font-size:0.82rem;'>{_cn_timing}</td>"
+                    f"<td style='line-height:1.6;'>{_cn_fadj}</td>"
                     f"</tr>"
                 )
 
@@ -11165,7 +11165,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                   <thead style="position:sticky;top:0;z-index:2;">
                     <tr>
                       <th>Presupuesto</th><th>Cliente</th><th>Ejecutivo</th>
-                      <th>Estado</th><th>Fecha autorización</th><th>Fecha adjudicación</th><th>Timing/Demora</th>
+                      <th>Estado</th><th>Fecha autorización</th><th>Timing/Demora</th><th>Fecha adjudicación</th>
                     </tr>
                   </thead>
                   <tbody>{_rows_cn}</tbody>
