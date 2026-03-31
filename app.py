@@ -11025,87 +11025,166 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
             <h3 style="color:#fff;font-family:Montserrat,sans-serif;font-size:1.1rem;
                        font-weight:900;margin:0;">Contrato Notariado</h3>
             <p style="color:rgba(255,255,255,0.6);font-size:0.8rem;margin:4px 0 0;">
-              Al subir el contrato firmado y notariado, el estado pasa a 🔵 ADJUDICADO</p>
+              Adjudicados 🔵 y pendientes de notarizar 🟡 · Al subir el PDF el estado pasa a ADJUDICADO</p>
           </div>
         </div>
         """, unsafe_allow_html=True)
 
-        _ep_notariado = st.session_state.get('cotizacion_cargada', '')
-        if not _ep_notariado:
-            st.info("💡 Primero carga un presupuesto desde la pestaña 📂 COTIZACIONES.")
+        # ── Buscador ──
+        _cn_c1, _cn_c2 = st.columns([3, 0.8])
+        with _cn_c1:
+            _cn_ep = st.text_input("Buscar", placeholder="Buscar por N° EP...",
+                                   key="cn_ep", label_visibility="collapsed")
+        with _cn_c2:
+            _cn_buscar = st.button("🔍 Buscar", use_container_width=True, key="cn_buscar")
+
+        if _cn_buscar or 'cn_results' not in st.session_state:
+            try:
+                _cn_q = supabase_admin.table("cotizaciones").select(
+                    "numero,cliente_nombre,asesor_nombre,fecha_modificacion,"
+                    "config_margen,plano_url,contrato_notariado_url,contrato_notariado_nombre,"
+                    "cliente_email,asesor_email,asesor_telefono"
+                )
+                if _cn_ep.strip():
+                    _cn_q = _cn_q.ilike("numero", f"%{_cn_ep.strip()}%")
+                else:
+                    # Solo traer autorizados y adjudicados
+                    _cn_q = _cn_q.gt("config_margen", 0)
+                _cn_resp = _cn_q.order("fecha_modificacion", desc=True).limit(100).execute()
+                # Filtrar: solo los que tienen margen > 0 (autorizados o adjudicados)
+                st.session_state['cn_results'] = [
+                    r for r in (_cn_resp.data or [])
+                    if (r.get('config_margen') or 0) > 0
+                ] if not _cn_ep.strip() else (_cn_resp.data or [])
+            except Exception as _cne:
+                st.error(f"Error: {_cne}")
+                st.session_state['cn_results'] = []
+
+        _cn_data = st.session_state.get('cn_results', [])
+
+        if not _cn_data:
+            st.info("No hay presupuestos autorizados o adjudicados.")
         else:
-            _cot_not = cargar_cotizacion(_ep_notariado)
-            if _cot_not:
-                _estado_not = evaluar_estado_cotizacion(_cot_not)
-                _ya_adj_not = "ADJUDICADO" in _estado_not
-                _es_aut_not = "AUTORIZADO" in _estado_not or _ya_adj_not
+            _fmt_cn = lambda v: "${:,.0f}".format(v or 0).replace(",",".")
+            from datetime import datetime as _dt_cn, timezone as _tz_cn, timedelta as _td_cn
+            _tz_cl_cn = _tz_cn(_td_cn(hours=-3))
+
+            def _fmt_cn_fecha(x):
+                if not x: return "—"
+                try:
+                    _d = _dt_cn.fromisoformat(x.replace("Z","+00:00")).astimezone(_tz_cl_cn)
+                    return _d.strftime("%d/%m/%Y")
+                except: return str(x)[:10]
+
+            # Cabecera tabla
+            st.markdown("""
+            <div style="display:grid;grid-template-columns:100px 1fr 1fr 80px 130px 160px;
+                        gap:8px;background:#1e3a5f;border-radius:10px 10px 0 0;padding:9px 12px;">
+              <div style="font-size:10px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.05em;">N° EP</div>
+              <div style="font-size:10px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.05em;">Cliente</div>
+              <div style="font-size:10px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.05em;">Ejecutivo</div>
+              <div style="font-size:10px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.05em;">Plano</div>
+              <div style="font-size:10px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.05em;">Estado</div>
+              <div style="font-size:10px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.05em;">Fecha autorización</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            for _idx_cn, _cn in enumerate(_cn_data):
+                _cn_ep_n  = _cn.get("numero","—")
+                _cn_cli   = _cn.get("cliente_nombre","—")
+                _cn_ej    = _cn.get("asesor_nombre","—")
+                _cn_plano = "✅" if _cn.get("plano_url") else "⬜"
+                _cn_adj   = bool(_cn.get("contrato_notariado_url"))
+                _cn_fecha = _fmt_cn_fecha(_cn.get("fecha_modificacion",""))
+                _bg_cn    = "#ffffff" if _idx_cn % 2 == 0 else "#f8fafc"
+                _border_r = "border-radius:0 0 10px 10px;" if _idx_cn == len(_cn_data)-1 else ""
+
+                if _cn_adj:
+                    _cn_badge = "<span style='background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;border:1px solid #93c5fd;'>🔵 ADJUDICADO</span>"
+                else:
+                    _cn_badge = "<span style='background:#fef9c3;color:#854d0e;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;border:1px solid #fde68a;'>🟡 CONTRATO PENDIENTE</span>"
 
                 st.markdown(f"""
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;
-                            padding:12px 16px;margin-bottom:16px;display:flex;gap:16px;align-items:center;">
-                  <div><span style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Presupuesto</span>
-                  <div style="font-size:15px;font-weight:900;color:#0f172a;">{_ep_notariado}</div></div>
-                  <div><span style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Cliente</span>
-                  <div style="font-size:13px;color:#374151;">{_cot_not.get('cliente_nombre','—')}</div></div>
-                  <div><span style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Estado actual</span>
-                  <div style="font-size:12px;font-weight:700;color:#0f172a;">{_estado_not}</div></div>
+                <div style="display:grid;grid-template-columns:100px 1fr 1fr 80px 130px 160px;
+                            gap:8px;background:{_bg_cn};padding:9px 12px;
+                            border:1px solid #e2e8f0;border-top:none;{_border_r}">
+                  <div style="font-size:12px;font-weight:900;color:#0f172a;">{_cn_ep_n}</div>
+                  <div style="font-size:11px;color:#374151;">{_cn_cli}</div>
+                  <div style="font-size:11px;color:#374151;">{_cn_ej}</div>
+                  <div style="font-size:13px;text-align:center;">{_cn_plano}</div>
+                  <div>{_cn_badge}</div>
+                  <div style="font-size:11px;color:#374151;">{_cn_fecha}</div>
                 </div>
                 """, unsafe_allow_html=True)
 
-                if _ya_adj_not:
-                    st.success("✅ Este presupuesto ya tiene contrato notariado adjuntado — estado **🔵 ADJUDICADO**")
-                    _url_not2 = _cot_not.get('contrato_notariado_url','')
-                    _nom_not2 = _cot_not.get('contrato_notariado_nombre','contrato_notariado.pdf')
-                    if _url_not2:
-                        try:
-                            _bytes_not2 = requests.get(_url_not2, timeout=15).content
-                            st.download_button("📥 Descargar contrato notariado",
-                                data=_bytes_not2, file_name=_nom_not2,
-                                mime="application/pdf", use_container_width=True,
-                                key="dl_notariado_cont")
-                        except Exception:
-                            st.warning("No se pudo preparar la descarga.")
-                elif _es_aut_not:
+            st.markdown(f"<div style='font-size:10px;color:#94a3b8;margin-top:6px;'>{len(_cn_data)} resultado(s) · 🔵 Adjudicado = contrato notariado subido · 🟡 Contrato pendiente = falta notarizar</div>", unsafe_allow_html=True)
+            st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
+        # ── Selección y upload ──
+        st.markdown("**Selecciona un presupuesto para adjuntar contrato notariado:**")
+        _cn_data_pend = [r for r in (_cn_data or []) if not r.get("contrato_notariado_url")]
+        _cn_data_adj  = [r for r in (_cn_data or []) if r.get("contrato_notariado_url")]
+
+        _cn_opts = (
+            [f"🔵 {r['numero']} · ADJUDICADO · {r.get('cliente_nombre','')}" for r in _cn_data_adj] +
+            [f"🟡 {r['numero']} · CONTRATO PENDIENTE · {r.get('cliente_nombre','')}" for r in _cn_data_pend]
+        )
+
+        if not _cn_opts:
+            st.info("No hay presupuestos disponibles.")
+        else:
+            _cn_sel = st.selectbox("EP", _cn_opts, key="cn_sel_ep", label_visibility="collapsed")
+            _cn_ep_sel = _cn_sel.split(" · ")[0].replace("🔵 ","").replace("🟡 ","").strip()
+            _cn_row = next((r for r in (_cn_data or []) if r.get("numero") == _cn_ep_sel), None)
+
+            if _cn_row:
+                _cn_ya_adj = bool(_cn_row.get("contrato_notariado_url"))
+                if _cn_ya_adj:
+                    st.success(f"✅ {_cn_ep_sel} ya está **🔵 ADJUDICADO** — contrato notariado subido.")
+                    try:
+                        _bytes_dl = requests.get(_cn_row["contrato_notariado_url"], timeout=15).content
+                        st.download_button("📥 Descargar contrato notariado",
+                            data=_bytes_dl,
+                            file_name=_cn_row.get("contrato_notariado_nombre","contrato_notariado.pdf"),
+                            mime="application/pdf", use_container_width=True,
+                            key="cn_dl_not")
+                    except Exception:
+                        st.warning("No se pudo preparar la descarga.")
+                else:
                     st.markdown("""
                     <div style="background:#eff6ff;border-left:4px solid #2563eb;border-radius:0 8px 8px 0;
-                                padding:10px 14px;margin-bottom:16px;">
-                      <p style="font-size:12px;color:#1e40af;margin:0;">
-                        📋 Sube el contrato firmado y notariado en PDF. Una vez subido, el estado
-                        cambia a <b>🔵 ADJUDICADO</b> de forma permanente e irreversible.</p>
+                                padding:10px 14px;margin-bottom:12px;">
+                      <p style="font-size:12px;color:#1e40af;margin:0;">📋 Sube el PDF firmado y notariado.
+                      Una vez subido el estado cambia a <b>🔵 ADJUDICADO</b> — acción permanente e irreversible.</p>
                     </div>
                     """, unsafe_allow_html=True)
-                    _not_file2 = st.file_uploader(
-                        "Selecciona el PDF del contrato notariado",
-                        type=["pdf"], key="uploader_notariado_cont"
-                    )
-                    if _not_file2 is not None:
-                        st.markdown(f"**Archivo seleccionado:** {_not_file2.name} · {round(_not_file2.size/1024)} KB")
+                    _cn_file = st.file_uploader("PDF del contrato notariado",
+                                                type=["pdf"], key=f"cn_upload_{_cn_ep_sel}")
+                    if _cn_file is not None:
+                        st.markdown(f"**{_cn_file.name}** · {round(_cn_file.size/1024)} KB")
                         if st.button("📤 Adjuntar y marcar como ADJUDICADO",
                                      type="primary", use_container_width=True,
-                                     key="btn_adjudicar_cont"):
-                            with st.spinner("Subiendo contrato notariado..."):
+                                     key="cn_btn_adj"):
+                            with st.spinner("Subiendo..."):
                                 try:
-                                    _not_bytes2  = _not_file2.read()
-                                    _not_nombre2 = _not_file2.name
-                                    _not_path2   = f"notariados/{_ep_notariado}/{_not_nombre2}"
+                                    _cn_bytes   = _cn_file.read()
+                                    _cn_nombre  = _cn_file.name
+                                    _cn_path    = f"notariados/{_cn_ep_sel}/{_cn_nombre}"
                                     supabase_admin.storage.from_("planos").upload(
-                                        _not_path2, _not_bytes2,
+                                        _cn_path, _cn_bytes,
                                         {"content-type": "application/pdf", "upsert": "true"}
                                     )
-                                    _not_url2 = supabase_admin.storage.from_("planos").get_public_url(_not_path2)
+                                    _cn_url = supabase_admin.storage.from_("planos").get_public_url(_cn_path)
                                     supabase_admin.table("cotizaciones").update({
-                                        "contrato_notariado_url": _not_url2,
-                                        "contrato_notariado_nombre": _not_nombre2
-                                    }).eq("numero", _ep_notariado).execute()
-                                    st.success(f"✅ Contrato notariado adjuntado. **{_ep_notariado}** ahora es 🔵 ADJUDICADO")
+                                        "contrato_notariado_url": _cn_url,
+                                        "contrato_notariado_nombre": _cn_nombre
+                                    }).eq("numero", _cn_ep_sel).execute()
+                                    st.success(f"✅ {_cn_ep_sel} ahora es 🔵 ADJUDICADO")
+                                    st.session_state.pop('cn_results', None)
                                     st.session_state.resultados_busqueda = None
                                     st.rerun()
-                                except Exception as _ne2:
-                                    st.error(f"❌ Error al subir: {_ne2}")
-                else:
-                    st.warning(f"⚠️ Este presupuesto tiene estado **{_estado_not}**. Solo se puede adjuntar el contrato notariado cuando el estado es AUTORIZADO o AUTORIZADO CON PLANO.")
-            else:
-                st.error("No se pudo cargar el presupuesto.")
+                                except Exception as _cne2:
+                                    st.error(f"❌ Error: {_cne2}")
 
     if _sub_editar is not None:
      with _sub_editar:
