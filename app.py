@@ -11043,7 +11043,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 _cn_q = supabase_admin.table("cotizaciones").select(
                     "numero,cliente_nombre,asesor_nombre,fecha_modificacion,"
                     "config_margen,plano_url,contrato_notariado_url,contrato_notariado_nombre,"
-                    "cliente_email,asesor_email,asesor_telefono"
+                    "cliente_email,asesor_email,asesor_telefono,fecha_adjudicacion"
                 )
                 if _cn_ep.strip():
                     _cn_q = _cn_q.ilike("numero", f"%{_cn_ep.strip()}%")
@@ -11081,21 +11081,57 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 _cn_ep_n  = _cn.get("numero","—")
                 _cn_cli   = _cn.get("cliente_nombre","—")
                 _cn_ej    = _cn.get("asesor_nombre","—")
-                _cn_plano = '<span style="color:#16a34a;font-weight:700;">✅ Sí</span>' if _cn.get("plano_url") else '<span style="color:#94a3b8;">—</span>'
                 _cn_adj   = bool(_cn.get("contrato_notariado_url"))
-                _cn_fecha = _fmt_cn_fecha(_cn.get("fecha_modificacion",""))
+
+                # Fecha autorización (con hora)
+                _cn_fauth_raw = _cn.get("fecha_modificacion","")
+                if _cn_fauth_raw:
+                    try:
+                        _d_auth = _dt_cn.fromisoformat(_cn_fauth_raw.replace("Z","+00:00")).astimezone(_tz_cl_cn)
+                        _cn_fauth = (f'<span style="font-weight:700;">{_d_auth.strftime("%d/%m/%Y")}</span>'
+                                     f'<br><span style="font-size:0.75em;color:#64748b;">{_d_auth.strftime("%H:%M")}</span>')
+                    except: _cn_fauth = _cn_fauth_raw[:10]
+                else:
+                    _cn_fauth = "—"
+
+                # Fecha adjudicación — campo real de Supabase
+                _cn_fadj = "—"
+                _cn_fadj_raw = _cn.get("fecha_adjudicacion","")
+                if _cn_adj and _cn_fadj_raw:
+                    try:
+                        _d_fadj = _dt_cn.fromisoformat(_cn_fadj_raw.replace("Z","+00:00")).astimezone(_tz_cl_cn)
+                        _cn_fadj = (f'<span style="font-weight:700;">{_d_fadj.strftime("%d/%m/%Y")}</span>'
+                                    f'<br><span style="font-size:0.75em;color:#64748b;">{_d_fadj.strftime("%H:%M")}</span>')
+                    except: _cn_fadj = _cn_fadj_raw[:10]
+
+                # Timing/Demora
+                if _cn_adj:
+                    # Finalizado — tiempo entre creación/autorización y adjudicación en azul
+                    _cn_timing = (f'<span style="color:#2563eb;font-weight:700;">finalizado</span>')
+                else:
+                    # Contador en vivo desde la fecha de autorización
+                    try:
+                        _d_desde = _dt_cn.fromisoformat(_cn_fauth_raw.replace("Z","+00:00")).astimezone(_tz_cl_cn)
+                        _ts_cn = int(_d_desde.timestamp() * 1000)
+                        _cn_timing = (f'<span class="demora-live" data-desde="{_ts_cn}" '
+                                      f'style="color:#dc2626;font-weight:700;display:inline-block;'
+                                      f'min-width:80px;font-variant-numeric:tabular-nums;">...</span>')
+                    except: _cn_timing = "—"
+
                 if _cn_adj:
                     _cn_badge = '<span style="background:#dbeafe;color:#1d4ed8;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;border:1px solid #93c5fd;white-space:nowrap;">🔵 ADJUDICADO</span>'
                 else:
                     _cn_badge = '<span style="background:#fef9c3;color:#854d0e;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;border:1px solid #fde68a;white-space:nowrap;">🟡 CONTRATO PENDIENTE</span>'
+
                 _rows_cn += (
                     f"<tr>"
                     f"<td style='font-size:0.82rem;font-weight:900;color:#0f172a;'>{_cn_ep_n}</td>"
                     f"<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{_cn_cli}</td>"
                     f"<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{_cn_ej}</td>"
-                    f"<td style='text-align:center;'>{_cn_plano}</td>"
                     f"<td style='text-align:center;'>{_cn_badge}</td>"
-                    f"<td style='line-height:1.6;'>{_cn_fecha}</td>"
+                    f"<td style='line-height:1.6;'>{_cn_fauth}</td>"
+                    f"<td style='line-height:1.6;'>{_cn_fadj}</td>"
+                    f"<td style='text-align:center;font-size:0.82rem;'>{_cn_timing}</td>"
                     f"</tr>"
                 )
 
@@ -11104,11 +11140,11 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
             st.markdown(f"""
             <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
               <div style="{_cn_scroll}">
-                <table class="resultados-table" style="margin:0;border-radius:0;box-shadow:none;min-width:600px;">
+                <table class="resultados-table" style="margin:0;border-radius:0;box-shadow:none;min-width:700px;">
                   <thead style="position:sticky;top:0;z-index:2;">
                     <tr>
-                      <th>N° Presupuesto</th><th>Cliente</th><th>Ejecutivo</th>
-                      <th>Plano</th><th>Estado</th><th>Fecha autorización</th>
+                      <th>Presupuesto</th><th>Cliente</th><th>Ejecutivo</th>
+                      <th>Estado</th><th>Fecha autorización</th><th>Fecha adjudicación</th><th>Timing/Demora</th>
                     </tr>
                   </thead>
                   <tbody>{_rows_cn}</tbody>
@@ -11174,9 +11210,11 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                                         {"content-type": "application/pdf", "upsert": "true"}
                                     )
                                     _cn_url = supabase_admin.storage.from_("planos").get_public_url(_cn_path)
+                                    _fecha_adj = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
                                     supabase_admin.table("cotizaciones").update({
                                         "contrato_notariado_url": _cn_url,
-                                        "contrato_notariado_nombre": _cn_nombre
+                                        "contrato_notariado_nombre": _cn_nombre,
+                                        "fecha_adjudicacion": _fecha_adj
                                     }).eq("numero", _cn_ep_sel).execute()
                                     st.success(f"✅ {_cn_ep_sel} ahora es 🔵 ADJUDICADO")
                                     st.session_state.pop('cn_results', None)
