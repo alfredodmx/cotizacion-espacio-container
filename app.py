@@ -6519,7 +6519,7 @@ if tab3 is not None:
         st.rerun()
 
     if st.session_state.resultados_busqueda:
-        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa", "Fecha_Auth", "NLogs", "Autorizado_Por"]
+        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa", "Fecha_Auth", "Autorizado_Por", "NLogs"]
         _rows_norm = []
         for _r in st.session_state.resultados_busqueda:
             _r = list(_r)
