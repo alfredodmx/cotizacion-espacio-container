@@ -2304,6 +2304,27 @@ def ejecutar_carga_cotizacion():
 # =========================================================
 ejecutar_carga_cotizacion()
 
+# Navegar a pestaña PRESUPUESTO si se acaba de cargar una cotización
+if st.session_state.pop('_ir_a_presupuesto', False):
+    components.html("""<script>
+(function(){
+  var D = window.parent.document;
+  function clickTab(){
+    // Buscar el tab "PRESUPUESTO" — primer botón de tab que contenga ese texto
+    var btns = D.querySelectorAll('button[role="tab"]');
+    for(var i=0; i<btns.length; i++){
+      if(btns[i].textContent.trim().includes('PRESUPUESTO')){
+        btns[i].click();
+        return;
+      }
+    }
+    // Si aún no existen los tabs, reintentar
+    setTimeout(clickTab, 150);
+  }
+  setTimeout(clickTab, 100);
+})();
+</script>""", height=0)
+
 # =========================================================
 # CSS PERSONALIZADO
 # =========================================================
@@ -6847,6 +6868,7 @@ if tab3 is not None:
                         else:
                             if preparar_carga_cotizacion(numero_seleccionado):
                                 st.success(f"✅ Cotización {numero_seleccionado} cargada")
+                                st.session_state['_ir_a_presupuesto'] = True
                                 st.rerun()
 
             # ── Popup advertencia productos sin guardar ──
@@ -6884,12 +6906,14 @@ if tab3 is not None:
                             # Luego cargar
                             st.session_state.mostrar_advertencia_carga = False
                             if preparar_carga_cotizacion(numero_pendiente):
+                                st.session_state['_ir_a_presupuesto'] = True
                                 st.rerun()
                     with col_no:
                         if st.button("🗑️ No, descartar", use_container_width=True, key="dialog_btn_no"):
                             # Descartar y cargar directamente
                             st.session_state.mostrar_advertencia_carga = False
                             if preparar_carga_cotizacion(numero_pendiente):
+                                st.session_state['_ir_a_presupuesto'] = True
                                 st.rerun()
                     with col_cancelar:
                         if st.button("✖️ Cancelar", use_container_width=True, key="dialog_btn_cancelar"):
