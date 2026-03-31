@@ -11195,6 +11195,125 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
 
             if _cn_row:
                 _cn_ya_adj = bool(_cn_row.get("contrato_notariado_url"))
+                # ── Visor contrato generado ──
+                _cot_cn_full = cargar_cotizacion(_cn_ep_sel)
+                if _cot_cn_full and _cot_cn_full.get("contrato_generado"):
+                    with st.spinner("Generando vista previa del contrato..."):
+                        try:
+                            import base64 as _b64cn
+                            import io as _iocn
+                            try:
+                                from pypdf import PdfWriter as _PdfWcn, PdfReader as _PdfRcn
+                            except ImportError:
+                                from PyPDF2 import PdfWriter as _PdfWcn, PdfReader as _PdfRcn
+
+                            import json as _jsoncn
+                            _datos_cn2 = {}
+                            try:
+                                _raw_cn = _cot_cn_full.get("contrato_datos", "{}")
+                                _datos_cn2 = _jsoncn.loads(_raw_cn) if isinstance(_raw_cn, str) else (_raw_cn or {})
+                            except Exception: pass
+
+                            _cls_cn = None
+                            try:
+                                _res_cn = supabase.table("plantillas_contrato").select("clausulas").eq("activa", True).execute()
+                                if _res_cn.data and _res_cn.data[0].get("clausulas"):
+                                    _cls_cn = _res_cn.data[0]["clausulas"]
+                            except Exception: pass
+
+                            _pdf_cn_cont = generar_pdf_contrato(_datos_cn2, clausulas_externas=_cls_cn)
+
+                            _pdf_cn_pres = None
+                            try:
+                                _pd_cn = preparar_pdf_data(_cot_cn_full)
+                                _pdf_cn_pres, _ = generar_pdf_completo(
+                                    _pd_cn[0], _pd_cn[1], _pd_cn[2], _pd_cn[3],
+                                    _pd_cn[4], _pd_cn[6], _pd_cn[7], _pd_cn[8],
+                                    _pd_cn[5], margen=_pd_cn[9], numero_cotizacion=_cn_ep_sel
+                                )
+                            except Exception: pass
+
+                            _pdf_cn_plano = None
+                            _plano_cn_url = _cot_cn_full.get("plano_url","") or ""
+                            if _plano_cn_url:
+                                try:
+                                    import urllib.request as _urlcn
+                                    with _urlcn.urlopen(_plano_cn_url) as _rp: _pdf_cn_plano = _rp.read()
+                                except Exception: pass
+
+                            _wr_cn = _PdfWcn()
+                            def _add_cn(data):
+                                if data:
+                                    _b = _iocn.BytesIO(data if isinstance(data, bytes) else data.getvalue())
+                                    for _pg in _PdfRcn(_b).pages: _wr_cn.add_page(_pg)
+                            _add_cn(_pdf_cn_cont)
+                            if _pdf_cn_pres: _add_cn(_pdf_cn_pres)
+                            if _pdf_cn_plano: _add_cn(_pdf_cn_plano)
+
+                            _buf_cn = _iocn.BytesIO()
+                            _wr_cn.write(_buf_cn)
+                            _bytes_cn_comb = _buf_cn.getvalue()
+
+                            _nom_cn_tmp = f"preview_{_cn_ep_sel.replace('-','_')}.pdf"
+                            try:
+                                supabase.storage.from_("planos").upload(
+                                    f"preview/{_nom_cn_tmp}", _bytes_cn_comb,
+                                    {"content-type": "application/pdf", "upsert": "true"}
+                                )
+                                _prev_cn_url = supabase.storage.from_("planos").get_public_url(f"preview/{_nom_cn_tmp}")
+                            except Exception: _prev_cn_url = None
+
+                            if _prev_cn_url:
+                                _nav_cn = detectar_navegador()
+                                _enc_cn = urllib.parse.quote(_prev_cn_url, safe='')
+                                _goog_cn = f"https://docs.google.com/viewer?url={_enc_cn}&embedded=true"
+                                _usar_g_cn = _nav_cn['needs_google_viewer']
+                                _src_cn = _goog_cn if _usar_g_cn else _prev_cn_url
+                                components.html(f"""
+<style>
+@keyframes spin {{from{{transform:rotate(0deg)}}to{{transform:rotate(360deg)}}}}
+body,html{{margin:0;padding:0;overflow:hidden;}}
+#pdf-wrap {{width:100%;height:680px;border:2px solid #0f3460;border-radius:12px;
+            overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.15);background:#f0f2f5;position:relative;}}
+#pdf-loading {{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+               justify-content:center;background:#f0f2f5;z-index:2;gap:12px;transition:opacity 0.4s ease;}}
+#pdf-spinner {{width:40px;height:40px;border:4px solid #cbd5e1;border-top-color:#0f3460;
+               border-radius:50%;animation:spin 0.8s linear infinite;}}
+#pdf-loading span {{color:#64748b;font-size:0.9rem;font-family:sans-serif;}}
+#pdf-iframe {{position:absolute;inset:0;width:100%;height:100%;border:none;display:block;}}
+</style>
+<div id="pdf-wrap">
+  <div id="pdf-loading"><div id="pdf-spinner"></div>
+    <span>Cargando contrato completo...</span></div>
+  <iframe id="pdf-iframe" src="" allow="fullscreen"></iframe>
+</div>
+<script>
+(function(){{
+  var iframe=document.getElementById('pdf-iframe');
+  var loading=document.getElementById('pdf-loading');
+  var usingGoogle={"true" if _usar_g_cn else "false"};
+  function hideLoading(){{loading.style.opacity='0';setTimeout(function(){{loading.style.display='none';}},400);}}
+  iframe.src="{_src_cn}";
+  if(usingGoogle){{setTimeout(function(){{if(loading.style.display!=='none')hideLoading();}},3000);}}
+  else{{setTimeout(hideLoading,4000);}}
+}})();
+</script>
+""", height=710, scrolling=False)
+
+                                _dc1c, _dc2c, _dc3c = st.columns([1,2,1])
+                                with _dc2c:
+                                    st.download_button("⬇️ Descargar contrato completo",
+                                        data=_bytes_cn_comb,
+                                        file_name=f"ContratoCompleto_{_cn_ep_sel.replace('-','_')}.pdf",
+                                        mime="application/pdf", use_container_width=True,
+                                        key="cn_dl_contrato_completo")
+                        except Exception as _ecnv:
+                            st.warning(f"No se pudo generar la vista previa: {_ecnv}")
+                else:
+                    st.info("ℹ️ Este presupuesto no tiene contrato generado aún.")
+
+                st.markdown("---")
+
                 if _cn_ya_adj:
                     st.success(f"✅ {_cn_ep_sel} ya está **🔵 ADJUDICADO** — contrato notariado subido.")
                     try:
