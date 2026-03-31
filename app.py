@@ -1284,6 +1284,9 @@ def construir_datos_para_guardar():
 # FUNCIONES PARA EVALUAR ESTADO DE COTIZACIÓN
 # =========================================================
 def evaluar_estado_cotizacion(cotizacion):
+    # ADJUDICADO tiene prioridad absoluta
+    if cotizacion.get('contrato_notariado_url'):
+        return "🔵 ADJUDICADO"
     datos_completos = all([
         cotizacion.get('cliente_nombre', ''),
         cotizacion.get('cliente_email', '')
@@ -1305,22 +1308,31 @@ def evaluar_estado_cotizacion(cotizacion):
 def crear_badge_estado(row):
     # Soporta tanto índices numéricos como nombres de columna del DataFrame
     if hasattr(row, 'index') and 'Margen' in row.index:
-        config_margen = row['Margen']
-        tiene_plano   = row['Tiene_Plano']
-        cliente_nombre= row['Cliente']
-        cliente_email = row['Email']
-        asesor_nombre = row['Asesor']
-        asesor_email  = row['Asesor_Email']
+        config_margen   = row['Margen']
+        tiene_plano     = row['Tiene_Plano']
+        cliente_nombre  = row['Cliente']
+        cliente_email   = row['Email']
+        asesor_nombre   = row['Asesor']
+        asesor_email    = row['Asesor_Email']
         asesor_telefono = row['Asesor_Tel']
+        tiene_notariado = bool(row.get('Tiene_Notariado', 0))
     else:
-        config_margen = row[5]
-        tiene_plano = row[10] if len(row) > 10 else False
-        cliente_nombre = row[1]
-        cliente_rut = row[6]
-        cliente_email = row[7]
-        asesor_nombre = row[2]
-        asesor_email = row[8]
+        config_margen   = row[5]
+        tiene_plano     = row[10] if len(row) > 10 else False
+        cliente_nombre  = row[1]
+        cliente_rut     = row[6]
+        cliente_email   = row[7]
+        asesor_nombre   = row[2]
+        asesor_email    = row[8]
         asesor_telefono = row[9]
+        tiene_notariado = bool(row[15]) if len(row) > 15 else False
+    # ADJUDICADO tiene prioridad absoluta
+    if tiene_notariado:
+        label = "🔵 ADJUDICADO"
+        color = "#2563eb"; border = "#1d4ed8"; text_color = "white"
+        return f'''<span style="background-color:{color};color:{text_color};padding:2px 7px;
+        border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;
+        border:1px solid {border};box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">{label}</span>'''
     datos_completos = all([cliente_nombre, cliente_email])
     asesor_completo = any([asesor_nombre, asesor_email, asesor_telefono])
     if config_margen and config_margen > 0:
@@ -2096,7 +2108,7 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
             'numero', 'cliente_nombre', 'asesor_nombre', 'fecha_creacion',
             'total_total', 'config_margen', 'cliente_rut', 'cliente_email',
             'asesor_email', 'asesor_telefono', 'plano_url', 'contrato_generado', 'cliente_empresa',
-            'fecha_autorizacion', 'autorizado_por'
+            'fecha_autorizacion', 'autorizado_por', 'contrato_notariado_url'
         )
         # Filtrar por usuario si es ejecutivo (no admin ni root)
         _rol_q = st.session_state.get('rol_usuario', 'ejecutivo')
@@ -2132,7 +2144,8 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
                 1 if row.get('contrato_generado') else 0,
                 row.get('cliente_empresa', '') or '',
                 row.get('fecha_autorizacion', '') or '',
-                row.get('autorizado_por', '') or ''
+                row.get('autorizado_por', '') or '',
+                1 if row.get('contrato_notariado_url') else 0
             ))
         # Agregar conteo de logs
         numeros_ep = [r[0] for r in resultados]
@@ -6521,7 +6534,7 @@ if tab3 is not None:
         st.rerun()
 
     if st.session_state.resultados_busqueda:
-        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa", "Fecha_Auth", "Autorizado_Por", "NLogs"]
+        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa", "Fecha_Auth", "Autorizado_Por", "Tiene_Notariado", "NLogs"]
         _rows_norm = []
         for _r in st.session_state.resultados_busqueda:
             _r = list(_r)
@@ -7127,6 +7140,58 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         )
                     except Exception as e:
                         st.warning("⚠️ No se pudo preparar la descarga. Intenta de nuevo.")
+
+                    # ── Subir contrato notariado (solo admin/root, solo si está autorizado) ──
+                    if st.session_state.modo_admin:
+                        _ep_visor = st.session_state.numero_en_visor
+                        _cot_visor = cargar_cotizacion(_ep_visor) if _ep_visor else None
+                        _estado_visor = evaluar_estado_cotizacion(_cot_visor) if _cot_visor else ""
+                        _es_aut_visor = "AUTORIZADO" in _estado_visor or "ADJUDICADO" in _estado_visor
+                        _ya_adj = "ADJUDICADO" in _estado_visor
+                        if _ya_adj:
+                            st.success("✅ Contrato notariado adjuntado — estado: **🔵 ADJUDICADO**")
+                            _url_not = _cot_visor.get('contrato_notariado_url','')
+                            _nom_not = _cot_visor.get('contrato_notariado_nombre','contrato_notariado.pdf')
+                            if _url_not:
+                                try:
+                                    _bytes_not = requests.get(_url_not, timeout=15).content
+                                    st.download_button("📥 Descargar contrato notariado",
+                                        data=_bytes_not, file_name=_nom_not,
+                                        mime="application/pdf", use_container_width=True,
+                                        key=f"dl_notariado_{_ep_visor}")
+                                except Exception:
+                                    pass
+                        elif _es_aut_visor:
+                            st.markdown("---")
+                            st.markdown("**📎 Subir contrato notariado**")
+                            _not_file = st.file_uploader(
+                                "Selecciona el PDF del contrato notariado",
+                                type=["pdf"], key=f"uploader_notariado_{_ep_visor}",
+                                label_visibility="collapsed"
+                            )
+                            if _not_file is not None:
+                                if st.button("📤 Adjuntar y marcar como ADJUDICADO",
+                                             type="primary", use_container_width=True,
+                                             key=f"btn_adjudicar_{_ep_visor}"):
+                                    with st.spinner("Subiendo contrato notariado..."):
+                                        try:
+                                            _not_bytes = _not_file.read()
+                                            _not_nombre = _not_file.name
+                                            _not_path = f"notariados/{_ep_visor}/{_not_nombre}"
+                                            supabase_admin.storage.from_("planos").upload(
+                                                _not_path, _not_bytes,
+                                                {"content-type": "application/pdf", "upsert": "true"}
+                                            )
+                                            _not_url = supabase_admin.storage.from_("planos").get_public_url(_not_path)
+                                            supabase_admin.table("cotizaciones").update({
+                                                "contrato_notariado_url": _not_url,
+                                                "contrato_notariado_nombre": _not_nombre
+                                            }).eq("numero", _ep_visor).execute()
+                                            st.success(f"✅ Contrato notariado adjuntado. {_ep_visor} ahora es **🔵 ADJUDICADO**")
+                                            st.session_state.resultados_busqueda = None
+                                            st.rerun()
+                                        except Exception as _ne:
+                                            st.error(f"❌ Error al subir: {_ne}")
 
         st.markdown("---")
         st.markdown("### 📊 Estadísticas Rápidas")
@@ -9030,7 +9095,8 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
             _oq = supabase.table("cotizaciones").select(
                 "numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_email,"
                 "asesor_nombre,asesor_email,asesor_telefono,estado,plano_url,plano_nombre,"
-                "config_margen,contrato_generado,productos,total_subtotal_sin_margen"
+                "config_margen,contrato_generado,productos,total_subtotal_sin_margen,"
+                "contrato_notariado_url"
             )
             if _oper_ep.strip():
                 _oq = _oq.ilike("numero", f"%{_oper_ep.strip()}%")
@@ -9048,7 +9114,8 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
             _ores0 = supabase.table("cotizaciones").select(
                 "numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_email,"
                 "asesor_nombre,asesor_email,asesor_telefono,estado,plano_url,plano_nombre,"
-                "config_margen,contrato_generado,productos,total_subtotal_sin_margen"
+                "config_margen,contrato_generado,productos,total_subtotal_sin_margen,"
+                "contrato_notariado_url"
             ).order("fecha_creacion", desc=True).limit(100).execute()
             st.session_state['oper_results'] = _ores0.data or []
         except Exception:
@@ -9094,6 +9161,9 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
 
         # Badge estado
         def _badge_op(row_data):
+            # ADJUDICADO tiene prioridad absoluta
+            if row_data.get('contrato_notariado_url'):
+                return '<span style="background-color:#2563eb;color:white;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;border:1px solid #1d4ed8;box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">🔵 ADJUDICADO</span>'
             # Exactamente la misma lógica que crear_badge_estado en cotizaciones
             config_margen   = row_data.get('config_margen', 0) or 0
             tiene_plano     = 1 if row_data.get('plano_url') else 0
@@ -9136,8 +9206,9 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
             _contrato = _or.get("contrato_generado", False)
             _fecha    = _fmt_op_fecha(_or.get("fecha_modificacion",""))
             _aut      = "autorizado" in (_estado or "").lower()
+            _adj      = bool(_or.get("contrato_notariado_url",""))
             _tc       = _calc_total_costo(_or)
-            _tc_html  = f'<span style="font-weight:700;">{_fmt_op_clp(_tc)}</span><br><span style="font-size:0.75em;color:#64748b;">base+IVA</span>' if _aut else '<span style="color:#94a3b8;">—</span>'
+            _tc_html  = f'<span style="font-weight:700;">{_fmt_op_clp(_tc)}</span><br><span style="font-size:0.75em;color:#64748b;">base+IVA</span>' if (_aut or _adj) else '<span style="color:#94a3b8;">—</span>'
             _plano_html = '<span style="color:#16a34a;font-weight:700;">✅ Sí</span>' if _plano else '<span style="color:#94a3b8;">—</span>'
             _emp_html   = '<span style="color:#16a34a;font-weight:700;">✅ Sí</span>' if _empresa.strip() else '<span style="color:#94a3b8;">—</span>'
             _ct_html    = '<span style="color:#16a34a;font-weight:700;">✅ Sí</span>' if _contrato else '<span style="color:#94a3b8;">—</span>'
@@ -9215,7 +9286,10 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
             _r_plano = bool(_r.get("plano_url",""))
             _r_listo = _r_aut and _r_plano
             _r_tc    = _calc_total_costo(_r)
-            if _r_listo:
+            _r_adj  = bool(_r.get("contrato_notariado_url",""))
+            if _r_adj:
+                _label = f"{_r_ep} · 🔵 ADJUDICADO · {_fmt_op_tc(_r_tc)} · Cliente: {_r_cli} · Ejecutivo: {_r_ej}"
+            elif _r_listo:
                 _label = f"{_r_ep} · ✅ LISTO PARA COMPRAS · {_fmt_op_tc(_r_tc)} · Cliente: {_r_cli} · Ejecutivo: {_r_ej}"
             else:
                 _razon = "Sin plano" if _r_aut and not _r_plano else ("No autorizada" if not _r_aut and _r_plano else "Sin autorización ni plano")
@@ -9225,7 +9299,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
 
         # Ordenar: listos primero
         _ep_opts_op = sorted(_ep_opts_op, key=lambda x: (
-            0 if "✅" in _ep_labels_op.get(x,"") else 1
+            0 if "🔵" in _ep_labels_op.get(x,"") else (1 if "✅" in _ep_labels_op.get(x,"") else 2)
         ))
 
         _ep_sel_op = st.selectbox(
@@ -9243,11 +9317,12 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
             st.session_state['oper_plano_url']   = None
 
         if _ep_sel_op and _ep_sel_op in _ep_labels_op:
+            _sel_adj_card = "🔵" in _ep_labels_op[_ep_sel_op]
             _sel_listo = "✅" in _ep_labels_op[_ep_sel_op]
-            _bg_card   = "#dbeafe" if _sel_listo else "#fef9c3"
-            _bc_card   = "#2563eb" if _sel_listo else "#f59e0b"
-            _txt_color = "#1d4ed8" if _sel_listo else "#854d0e"
-            _badge_txt = "✅ LISTO PARA COMPRAS" if _sel_listo else "⏳ PENDIENTE"
+            _bg_card   = "#dbeafe" if (_sel_adj_card or _sel_listo) else "#fef9c3"
+            _bc_card   = "#2563eb" if (_sel_adj_card or _sel_listo) else "#f59e0b"
+            _txt_color = "#1d4ed8" if (_sel_adj_card or _sel_listo) else "#854d0e"
+            _badge_txt = "🔵 ADJUDICADO" if _sel_adj_card else ("✅ LISTO PARA COMPRAS" if _sel_listo else "⏳ PENDIENTE")
             _sel_r     = next((r for r in _oper_data if r.get("numero") == _ep_sel_op), {})
             _sel_tc    = _calc_total_costo(_sel_r) if _sel_listo else 0
             _tc_span = f'<span style="font-size:13px;font-weight:700;color:#1d4ed8;">{_fmt_op_tc(_sel_tc)}</span>' if _sel_listo else ""
@@ -9275,8 +9350,10 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                 _sel_plano = _sel_data.get("plano_url","") or ""
                 _sb1, _sb2, _sb3 = st.columns([2, 2, 6])
 
+                _sel_adj = bool(_sel_data.get("contrato_notariado_url",""))
+
                 with _sb1:
-                    if _sel_aut:
+                    if _sel_adj:
                         try:
                             _sel_cot = cargar_cotizacion(_ep_sel_op)
                             if _sel_cot:
@@ -9329,7 +9406,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                     _lbl_plano = "🔄 ACTUALIZAR PLANO" if st.session_state.get('oper_show_plano') else "👁️ VER PLANO"
                     if st.button(_lbl_plano,
                                  use_container_width=True,
-                                 disabled=not bool(_sel_plano),
+                                 disabled=not bool(_sel_plano and _sel_adj),
                                  help=None if _sel_plano else "Sin plano adjunto para este proyecto",
                                  key="oper_ver_plano"):
                         st.session_state['oper_show_plano'] = not st.session_state.get('oper_show_plano', False)
