@@ -9016,18 +9016,35 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
 
         # Badge estado
         def _badge_op(row_data):
-            # Usar evaluar_estado_cotizacion — misma lógica que cotizaciones
-            _estado_txt = evaluar_estado_cotizacion(row_data)
-            _mapa = {
-                "🟢 AUTORIZADO CON PLANO": ("#28a745", "#1e7e34", "white"),
-                "🟢 AUTORIZADO":           ("#28a745", "#1e7e34", "white"),
-                "🟠 BORRADOR CON PLANO":   ("#f97316", "#c2410c", "white"),
-                "🟡 BORRADOR":             ("#ffc107", "#d39e00", "#212529"),
-                "🔴 INCOMPLETO CON PLANO": ("#dc3545", "#bd2130", "white"),
-                "🔴 INCOMPLETO":           ("#dc3545", "#bd2130", "white"),
-            }
-            _color, _border, _txt = _mapa.get(_estado_txt, ("#dc3545", "#bd2130", "white"))
-            return (f'<span style="background-color:{_color};color:{_txt};padding:2px 7px;'                    f'border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;'                    f'border:1px solid {_border};box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">'                    f'{_estado_txt}</span>')
+            # Exactamente la misma lógica que crear_badge_estado en cotizaciones
+            config_margen   = row_data.get('config_margen', 0) or 0
+            tiene_plano     = 1 if row_data.get('plano_url') else 0
+            cliente_nombre  = row_data.get('cliente_nombre', '') or ''
+            cliente_email   = row_data.get('cliente_email', '') or ''
+            asesor_nombre   = row_data.get('asesor_nombre', '') or ''
+            asesor_email    = row_data.get('asesor_email', '') or ''
+            asesor_telefono = row_data.get('asesor_telefono', '') or ''
+            datos_completos = all([cliente_nombre, cliente_email])
+            asesor_completo = any([asesor_nombre, asesor_email, asesor_telefono])
+            if config_margen and config_margen > 0:
+                if datos_completos and asesor_completo:
+                    label = "🟢 AUTORIZADO CON PLANO" if tiene_plano else "🟢 AUTORIZADO"
+                    color = "#28a745"; border = "#1e7e34"; text_color = "white"
+                else:
+                    label = "🔴 INCOMPLETO CON PLANO" if tiene_plano else "🔴 INCOMPLETO"
+                    color = "#dc3545"; border = "#bd2130"; text_color = "white"
+            else:
+                if datos_completos and asesor_completo:
+                    if tiene_plano:
+                        label = "🟠 BORRADOR CON PLANO"
+                        color = "#f97316"; border = "#c2410c"; text_color = "white"
+                    else:
+                        label = "🟡 BORRADOR"
+                        color = "#ffc107"; border = "#d39e00"; text_color = "#212529"
+                else:
+                    label = "🔴 INCOMPLETO CON PLANO" if tiene_plano else "🔴 INCOMPLETO"
+                    color = "#dc3545"; border = "#bd2130"; text_color = "white"
+            return (f'<span style="background-color:{color};color:{text_color};padding:2px 7px;'                    f'border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;'                    f'border:1px solid {border};box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">'                    f'{label}</span>')
 
         # Construir filas HTML
         _rows_op = ""
