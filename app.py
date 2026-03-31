@@ -11017,19 +11017,6 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
     # ================================================================
     if _sub_notariado is not None:
      with _sub_notariado:
-        st.markdown("""
-        <div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);border-radius:14px;
-                    padding:20px 28px;margin-bottom:20px;display:flex;align-items:center;gap:14px;">
-          <span style="font-size:1.8rem;">📎</span>
-          <div>
-            <h3 style="color:#fff;font-family:Montserrat,sans-serif;font-size:1.1rem;
-                       font-weight:900;margin:0;">Contrato Notariado</h3>
-            <p style="color:rgba(255,255,255,0.6);font-size:0.8rem;margin:4px 0 0;">
-              Adjudicados 🔵 y pendientes de notarizar 🟡 · Al subir el PDF el estado pasa a ADJUDICADO</p>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-
         # ── Buscador ──
         _cn_c1, _cn_c2 = st.columns([3, 0.8])
         with _cn_c1:
