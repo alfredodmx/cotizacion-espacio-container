@@ -6674,7 +6674,14 @@ if tab3 is not None:
                 else:
                     estado = "🔴 INCOMPLETO CON PLANO" if row['Tiene_Plano'] else "🔴 INCOMPLETO"
             plano_indicador = "📎" if row['Tiene_Plano'] else "❌"
-            opciones.append(f"{row['N°']} - {row['Cliente'] or 'S/C'} ({row['FechaPlana']}) - {row['Total']} - {estado} {plano_indicador}")
+            # Extraer solo el monto sin HTML para el selectbox
+            _total_raw = st.session_state.resultados_busqueda
+            _total_limpio = ""
+            for _rb in (_total_raw or []):
+                if str(_rb[0]) == str(row['N°']):
+                    _total_limpio = f"${_rb[4]:,.0f}".replace(",",".") if _rb[4] else "$0"
+                    break
+            opciones.append(f"{row['N°']} - {row['Cliente'] or 'S/C'} ({row['FechaPlana']}) - {_total_limpio} - {estado} {plano_indicador}")
 
         if opciones:
             cotizacion_seleccionada = st.selectbox("Selecciona una cotización:", options=opciones, key="selector_cotizaciones")
