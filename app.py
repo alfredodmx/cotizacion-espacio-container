@@ -11065,7 +11065,6 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
         if not _cn_data:
             st.info("No hay presupuestos autorizados o adjudicados.")
         else:
-            _fmt_cn = lambda v: "${:,.0f}".format(v or 0).replace(",",".")
             from datetime import datetime as _dt_cn, timezone as _tz_cn, timedelta as _td_cn
             _tz_cl_cn = _tz_cn(_td_cn(hours=-3))
 
@@ -11073,51 +11072,51 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 if not x: return "—"
                 try:
                     _d = _dt_cn.fromisoformat(x.replace("Z","+00:00")).astimezone(_tz_cl_cn)
-                    return _d.strftime("%d/%m/%Y")
+                    return f'<span style="font-weight:700;">{_d.strftime("%d/%m/%Y")}</span>'
                 except: return str(x)[:10]
 
-            # Cabecera tabla
-            st.markdown("""
-            <div style="display:grid;grid-template-columns:100px 1fr 1fr 80px 130px 160px;
-                        gap:8px;background:#1e3a5f;border-radius:10px 10px 0 0;padding:9px 12px;">
-              <div style="font-size:10px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.05em;">N° EP</div>
-              <div style="font-size:10px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.05em;">Cliente</div>
-              <div style="font-size:10px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.05em;">Ejecutivo</div>
-              <div style="font-size:10px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.05em;">Plano</div>
-              <div style="font-size:10px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.05em;">Estado</div>
-              <div style="font-size:10px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.05em;">Fecha autorización</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            for _idx_cn, _cn in enumerate(_cn_data):
+            # Construir filas HTML para tabla resultados-table
+            _rows_cn = ""
+            for _cn in _cn_data:
                 _cn_ep_n  = _cn.get("numero","—")
                 _cn_cli   = _cn.get("cliente_nombre","—")
                 _cn_ej    = _cn.get("asesor_nombre","—")
-                _cn_plano = "✅" if _cn.get("plano_url") else "⬜"
+                _cn_plano = '<span style="color:#16a34a;font-weight:700;">✅ Sí</span>' if _cn.get("plano_url") else '<span style="color:#94a3b8;">—</span>'
                 _cn_adj   = bool(_cn.get("contrato_notariado_url"))
                 _cn_fecha = _fmt_cn_fecha(_cn.get("fecha_modificacion",""))
-                _bg_cn    = "#ffffff" if _idx_cn % 2 == 0 else "#f8fafc"
-                _border_r = "border-radius:0 0 10px 10px;" if _idx_cn == len(_cn_data)-1 else ""
-
                 if _cn_adj:
-                    _cn_badge = "<span style='background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;border:1px solid #93c5fd;'>🔵 ADJUDICADO</span>"
+                    _cn_badge = '<span style="background:#dbeafe;color:#1d4ed8;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;border:1px solid #93c5fd;white-space:nowrap;">🔵 ADJUDICADO</span>'
                 else:
-                    _cn_badge = "<span style='background:#fef9c3;color:#854d0e;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;border:1px solid #fde68a;'>🟡 CONTRATO PENDIENTE</span>"
+                    _cn_badge = '<span style="background:#fef9c3;color:#854d0e;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;border:1px solid #fde68a;white-space:nowrap;">🟡 CONTRATO PENDIENTE</span>'
+                _rows_cn += (
+                    f"<tr>"
+                    f"<td style='font-size:0.82rem;font-weight:900;color:#0f172a;'>{_cn_ep_n}</td>"
+                    f"<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{_cn_cli}</td>"
+                    f"<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{_cn_ej}</td>"
+                    f"<td style='text-align:center;'>{_cn_plano}</td>"
+                    f"<td style='text-align:center;'>{_cn_badge}</td>"
+                    f"<td style='line-height:1.6;'>{_cn_fecha}</td>"
+                    f"</tr>"
+                )
 
-                st.markdown(f"""
-                <div style="display:grid;grid-template-columns:100px 1fr 1fr 80px 130px 160px;
-                            gap:8px;background:{_bg_cn};padding:9px 12px;
-                            border:1px solid #e2e8f0;border-top:none;{_border_r}">
-                  <div style="font-size:12px;font-weight:900;color:#0f172a;">{_cn_ep_n}</div>
-                  <div style="font-size:11px;color:#374151;">{_cn_cli}</div>
-                  <div style="font-size:11px;color:#374151;">{_cn_ej}</div>
-                  <div style="font-size:13px;text-align:center;">{_cn_plano}</div>
-                  <div>{_cn_badge}</div>
-                  <div style="font-size:11px;color:#374151;">{_cn_fecha}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-            st.markdown(f"<div style='font-size:10px;color:#94a3b8;margin-top:6px;'>{len(_cn_data)} resultado(s) · 🔵 Adjudicado = contrato notariado subido · 🟡 Contrato pendiente = falta notarizar</div>", unsafe_allow_html=True)
+            _cn_altura_real = len(_cn_data) * 60 + 60
+            _cn_scroll = f"max-height:{min(_cn_altura_real,550)}px;overflow-y:auto;" if _cn_altura_real > 550 else ""
+            st.markdown(f"""
+            <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
+              <div style="{_cn_scroll}">
+                <table class="resultados-table" style="margin:0;border-radius:0;box-shadow:none;min-width:600px;">
+                  <thead style="position:sticky;top:0;z-index:2;">
+                    <tr>
+                      <th>N° Presupuesto</th><th>Cliente</th><th>Ejecutivo</th>
+                      <th>Plano</th><th>Estado</th><th>Fecha autorización</th>
+                    </tr>
+                  </thead>
+                  <tbody>{_rows_cn}</tbody>
+                </table>
+              </div>
+            </div>
+            <p style="font-size:0.8rem;color:#888;margin-top:6px;">{len(_cn_data)} resultado(s) · 🔵 Adjudicado = notariado subido · 🟡 Contrato pendiente = falta notarizar</p>
+            """, unsafe_allow_html=True)
             st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
         # ── Selección y upload ──
