@@ -9051,11 +9051,13 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                 f"</tr>"
             )
 
-        _altura_op = min(len(_oper_data) * 52 + 60, 550)
+        _altura_op_real = len(_oper_data) * 60 + 60
+        _usar_scroll_op  = _altura_op_real > 550
+        _altura_css_op   = f"max-height:{min(_altura_op_real, 550)}px;overflow-y:auto;" if _usar_scroll_op else ""
         _html_op = f"""
-        <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;">
-          <div style="overflow-y:auto;max-height:{_altura_op}px;">
-            <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;'>
+        <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
+          <div style="{_altura_css_op}">
+            <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:700px;'>
               <thead style='position:sticky;top:0;z-index:2;'>
                 <tr>
                   <th>N° Presupuesto</th>
