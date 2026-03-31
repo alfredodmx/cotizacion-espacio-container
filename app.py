@@ -11472,10 +11472,11 @@ if st.session_state.modo_admin and tab_usuarios is not None:
         # ── Crear nuevo usuario ──
         with st.expander("➕ Crear nuevo usuario", expanded=False):
             # Root puede crear ejecutivos y admins; admin solo ejecutivos
-            _tabs_crear = ["👤 Nuevo ejecutivo", "👑 Nuevo administrador"]  # admin y root pueden crear ambos
+            _tabs_crear = ["👤 Nuevo ejecutivo", "👑 Nuevo administrador", "⚙️ Nuevo operación"]
             _tabs_obj = st.tabs(_tabs_crear)
             _tab_ej = _tabs_obj[0]
             _tab_adm = _tabs_obj[1] if len(_tabs_obj) > 1 else None
+            _tab_op  = _tabs_obj[2] if len(_tabs_obj) > 2 else None
 
             with _tab_ej:
                 col_n, col_e, col_t, col_p = st.columns(4)
@@ -11525,6 +11526,54 @@ if st.session_state.modo_admin and tab_usuarios is not None:
                                 st.error("❌ Ya existe una cuenta con ese correo.")
                             else:
                                 st.error(f"❌ Error: {err}")
+
+            if _tab_op is not None:
+                with _tab_op:
+                    st.info("Los usuarios de Operación solo ven la pestaña ⚙️ Operaciones — acceso a PDF de compras y planos de cotizaciones autorizadas.")
+                    col_on, col_oe, col_ot, col_op2 = st.columns(4)
+                    with col_on:
+                        _op_nombre = st.text_input("Nombre completo", key="new_op_nombre", placeholder="Carlos González")
+                    with col_oe:
+                        _op_email = st.text_input("Correo electrónico", key="new_op_email", placeholder="carlos@empresa.cl")
+                    with col_ot:
+                        _op_tel = st.text_input("Teléfono", key="new_op_tel", placeholder="+56912345678")
+                    with col_op2:
+                        _op_pass = st.text_input("Contraseña", type="password", key="new_op_pass", placeholder="Mínimo 6 caracteres")
+
+                    if st.button("⚙️ Crear usuario operación", type="primary", key="btn_crear_operacion"):
+                        if not _op_nombre.strip():
+                            st.error("Ingresa el nombre del usuario.")
+                        elif not _op_email.strip() or "@" not in _op_email:
+                            st.error("Ingresa un correo válido.")
+                        elif len(_op_pass) < 6:
+                            st.error("La contraseña debe tener al menos 6 caracteres.")
+                        else:
+                            with st.spinner("Creando cuenta..."):
+                                try:
+                                    _res_op = supabase_admin.auth.admin.create_user({
+                                        "email": _op_email.strip().lower(),
+                                        "password": _op_pass,
+                                        "email_confirm": True,
+                                        "user_metadata": {
+                                            "nombre": _op_nombre.strip().upper(),
+                                            "telefono": _op_tel.strip(),
+                                            "rol": "operacion"
+                                        }
+                                    })
+                                    _op_user = _res_op.user
+                                    _op_err = None
+                                except Exception as _ex:
+                                    _op_user = None
+                                    _op_err = str(_ex)
+                            if _op_user:
+                                st.success(f"✅ Usuario operación creado: **{_op_nombre}** ({_op_email})")
+                                st.session_state.pop('_usuarios_cache', None)
+                                st.rerun()
+                            else:
+                                if "already registered" in str(_op_err) or "already been registered" in str(_op_err):
+                                    st.error("❌ Ya existe una cuenta con ese correo.")
+                                else:
+                                    st.error(f"❌ Error: {_op_err}")
 
             if _tab_adm is not None:
                 with _tab_adm:
@@ -11612,6 +11661,7 @@ if st.session_state.modo_admin and tab_usuarios is not None:
         .rol-admin    { background:#ede9fe; color:#6d28d9; }
         .rol-ejecutivo{ background:#dbeafe; color:#1d4ed8; }
         .rol-root     { background:#fef3c7; color:#b45309; }
+        .rol-operacion{ background:#ffedd5; color:#c2410c; }
         .accion-panel {
             background: #f8f9fc;
             border: 1px solid #e8eaf0;
@@ -11640,7 +11690,7 @@ if st.session_state.modo_admin and tab_usuarios is not None:
                 <span style="font-size:1.1rem;font-weight:800;color:#1e2447;">👥 Usuarios registrados</span>
                 <span style="background:#ede9fe;color:#6d28d9;padding:3px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;">👑 {_n_adm} Admin</span>
                 <span style="background:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;">👤 {_n_ej} Ejecutivo</span>
-                <span style="background:#f0fdf4;color:#166534;padding:3px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;">⚙️ {_n_op} Operación</span>
+                <span style="background:#ffedd5;color:#c2410c;padding:3px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;">⚙️ {_n_op} Operación</span>
             </div>
             """, unsafe_allow_html=True)
         with _hcol2:
@@ -11662,9 +11712,10 @@ if st.session_state.modo_admin and tab_usuarios is not None:
                 _es_admin_u= _rol_obj in ('admin','administrador')
 
                 # Clases CSS según rol
+                _es_oper_u = _rol_obj == 'operacion'
                 _card_cls = 'es-root' if _es_root_u else ('es-admin' if _es_admin_u else 'es-ejecutivo')
                 _av_cls   = 'av-root'  if _es_root_u else ('av-admin'  if _es_admin_u else 'av-ejecutivo')
-                _rol_pill = ('rol-root'  if _es_root_u else ('rol-admin' if _es_admin_u else 'rol-ejecutivo'))
+                _rol_pill = ('rol-root' if _es_root_u else ('rol-admin' if _es_admin_u else ('rol-operacion' if _es_oper_u else 'rol-ejecutivo')))
                 _rol_txt  = ('🔑 Root'   if _es_root_u else ('👑 Admin'  if _es_admin_u else ('⚙️ Operación' if _rol_obj == 'operacion' else '👤 Ejecutivo')))
                 _u_tel_disp = _u.get('telefono', '') or ''  
 
