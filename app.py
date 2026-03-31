@@ -875,6 +875,8 @@ if 'rut_valido' not in st.session_state:
     st.session_state.rut_valido = False
 if 'rut_mensaje' not in st.session_state:
     st.session_state.rut_mensaje = ""
+if 'rut_empresa_mensaje' not in st.session_state:
+    st.session_state.rut_empresa_mensaje = ""
 if 'telefono_raw' not in st.session_state:
     st.session_state.telefono_raw = ""
 if 'asesor_seleccionado' not in st.session_state:
