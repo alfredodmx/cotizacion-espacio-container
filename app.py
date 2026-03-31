@@ -9016,17 +9016,18 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
 
         # Badge estado
         def _badge_op(row_data):
-            import pandas as _pd_badge
-            _fake = _pd_badge.Series({
-                'Margen':       row_data.get('config_margen', 0) or 0,
-                'Tiene_Plano':  bool(row_data.get('plano_url','')),
-                'Cliente':      row_data.get('cliente_nombre','') or '',
-                'Email':        row_data.get('cliente_email','') or '',
-                'Asesor':       row_data.get('asesor_nombre','') or '',
-                'Asesor_Email': row_data.get('asesor_email','') or '',
-                'Asesor_Tel':   row_data.get('asesor_telefono','') or '',
-            })
-            return crear_badge_estado(_fake)
+            # Usar evaluar_estado_cotizacion — misma lógica que cotizaciones
+            _estado_txt = evaluar_estado_cotizacion(row_data)
+            _mapa = {
+                "🟢 AUTORIZADO CON PLANO": ("#28a745", "#1e7e34", "white"),
+                "🟢 AUTORIZADO":           ("#28a745", "#1e7e34", "white"),
+                "🟠 BORRADOR CON PLANO":   ("#f97316", "#c2410c", "white"),
+                "🟡 BORRADOR":             ("#ffc107", "#d39e00", "#212529"),
+                "🔴 INCOMPLETO CON PLANO": ("#dc3545", "#bd2130", "white"),
+                "🔴 INCOMPLETO":           ("#dc3545", "#bd2130", "white"),
+            }
+            _color, _border, _txt = _mapa.get(_estado_txt, ("#dc3545", "#bd2130", "white"))
+            return (f'<span style="background-color:{_color};color:{_txt};padding:2px 7px;'                    f'border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;'                    f'border:1px solid {_border};box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">'                    f'{_estado_txt}</span>')
 
         # Construir filas HTML
         _rows_op = ""
