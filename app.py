@@ -6580,12 +6580,12 @@ if tab3 is not None:
                     if _horas > 0: partes.append(f"{_horas}h")
                     partes.append(f"{_mins}m")
                     _tiempo = " ".join(partes)
-                    return (f'<span style="color:#dc2626;font-weight:700;">{_tiempo}</span>'
-                            f'<br><span style="font-size:0.72em;color:#94a3b8;font-weight:400;">finalizado</span>')
+                    return (f'<span style="color:#2563eb;font-weight:700;">{_tiempo}</span>'
+                            f'<br><span style="font-size:0.72em;color:#2563eb;font-weight:400;">finalizado</span>')
                 else:
                     # Pendiente: contador en vivo via JS
                     _ts = int(_d1.timestamp() * 1000)
-                    return f'<span class="demora-live" data-desde="{_ts}" style="color:#dc2626;font-weight:700;">...</span>'
+                    return f'<span class="demora-live" data-desde="{_ts}" style="color:#dc2626;font-weight:700;display:inline-block;min-width:80px;font-variant-numeric:tabular-nums;">...</span>'
             except: return "—"
         df_resultados["Demora"] = df_resultados.apply(_fmt_demora_v2, axis=1)
         def _fmt_fecha(x):
