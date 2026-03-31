@@ -8950,7 +8950,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
     if _oper_buscar:
         try:
             _oq = supabase.table("cotizaciones").select(
-                "numero,fecha_creacion,fecha_modificacion,cliente_nombre,"
+                "numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_email,"
                 "asesor_nombre,asesor_email,asesor_telefono,estado,plano_url,plano_nombre,"
                 "config_margen,contrato_generado,productos,total_subtotal_sin_margen"
             )
@@ -8968,7 +8968,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
         # carga inicial
         try:
             _ores0 = supabase.table("cotizaciones").select(
-                "numero,fecha_creacion,fecha_modificacion,cliente_nombre,"
+                "numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_email,"
                 "asesor_nombre,asesor_email,asesor_telefono,estado,plano_url,plano_nombre,"
                 "config_margen,contrato_generado,productos,total_subtotal_sin_margen"
             ).order("fecha_creacion", desc=True).limit(100).execute()
@@ -9021,7 +9021,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                 'Margen':       row_data.get('config_margen', 0) or 0,
                 'Tiene_Plano':  bool(row_data.get('plano_url','')),
                 'Cliente':      row_data.get('cliente_nombre','') or '',
-                'Email':        row_data.get('asesor_email','') or '',
+                'Email':        row_data.get('cliente_email','') or '',
                 'Asesor':       row_data.get('asesor_nombre','') or '',
                 'Asesor_Email': row_data.get('asesor_email','') or '',
                 'Asesor_Tel':   row_data.get('asesor_telefono','') or '',
