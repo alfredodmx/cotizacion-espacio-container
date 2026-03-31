@@ -2012,8 +2012,14 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
                 data['fecha_autorizacion'] = fecha_actual
             else:
                 data['fecha_autorizacion'] = _fecha_auth_anterior
+            # Guardar quien autorizó (solo si tiene margen, es decir quien lo aplicó)
+            if float(config.get('margen', 0) or 0) > 0:
+                _auth_por = st.session_state.get('auth_nombre','') or st.session_state.get('auth_email','')
+                if _auth_por:
+                    data['autorizado_por'] = _auth_por
         else:
             data['fecha_autorizacion'] = None
+            data['autorizado_por'] = None
 
         if existe:
             _anterior = response.data[0]
@@ -2090,7 +2096,7 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
             'numero', 'cliente_nombre', 'asesor_nombre', 'fecha_creacion',
             'total_total', 'config_margen', 'cliente_rut', 'cliente_email',
             'asesor_email', 'asesor_telefono', 'plano_url', 'contrato_generado', 'cliente_empresa',
-            'fecha_autorizacion'
+            'fecha_autorizacion', 'autorizado_por'
         )
         # Filtrar por usuario si es ejecutivo (no admin ni root)
         _rol_q = st.session_state.get('rol_usuario', 'ejecutivo')
@@ -2125,7 +2131,8 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
                 1 if row.get('plano_url') else 0,
                 1 if row.get('contrato_generado') else 0,
                 row.get('cliente_empresa', '') or '',
-                row.get('fecha_autorizacion', '') or ''
+                row.get('fecha_autorizacion', '') or '',
+                row.get('autorizado_por', '') or ''
             ))
         # Agregar conteo de logs
         numeros_ep = [r[0] for r in resultados]
@@ -6512,7 +6519,7 @@ if tab3 is not None:
         st.rerun()
 
     if st.session_state.resultados_busqueda:
-        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa", "Fecha_Auth", "NLogs"]
+        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa", "Fecha_Auth", "NLogs", "Autorizado_Por"]
         _rows_norm = []
         for _r in st.session_state.resultados_busqueda:
             _r = list(_r)
@@ -6553,8 +6560,34 @@ if tab3 is not None:
             except: return "—"
 
         df_resultados["Fecha_raw"] = df_resultados["Fecha"].copy()
-        df_resultados["Fecha_Auth_fmt"] = df_resultados["Fecha_Auth"].apply(_fmt_fecha_auth)
-        df_resultados["Demora"] = df_resultados.apply(_fmt_demora, axis=1)
+        # Demora: si autorizada → tiempo finalizado, si no → placeholder para contador en vivo
+        def _fmt_demora_v2(row):
+            f_crea = row["Fecha_raw"] if "Fecha_raw" in row else ""
+            f_auth = row["Fecha_Auth"]
+            _es_aut = row["Margen"] and row["Margen"] > 0
+            if not f_crea: return "—"
+            try:
+                from datetime import datetime as _dt2, timezone as _tz2, timedelta as _td2
+                _tz_cl2 = _tz2(_td2(hours=-3))
+                _d1 = _dt2.fromisoformat(f_crea.replace("Z","+00:00")).astimezone(_tz_cl2)
+                if _es_aut and f_auth and isinstance(f_auth, str) and f_auth.strip():
+                    _d2 = _dt2.fromisoformat(f_auth.replace("Z","+00:00")).astimezone(_tz_cl2)
+                    _diff = _d2 - _d1
+                    _dias = _diff.days; _horas = _diff.seconds // 3600
+                    _mins = (_diff.seconds % 3600) // 60
+                    partes = []
+                    if _dias > 0: partes.append(f"{_dias}d")
+                    if _horas > 0: partes.append(f"{_horas}h")
+                    partes.append(f"{_mins}m")
+                    _tiempo = " ".join(partes)
+                    return (f'<span style="color:#dc2626;font-weight:700;">{_tiempo}</span>'
+                            f'<br><span style="font-size:0.72em;color:#94a3b8;font-weight:400;">finalizado</span>')
+                else:
+                    # Pendiente: contador en vivo via JS
+                    _ts = int(_d1.timestamp() * 1000)
+                    return f'<span class="demora-live" data-desde="{_ts}" style="color:#dc2626;font-weight:700;">...</span>'
+            except: return "—"
+        df_resultados["Demora"] = df_resultados.apply(_fmt_demora_v2, axis=1)
         def _fmt_fecha(x):
             """Para la tabla HTML: fecha en negrita + hora en gris — zona horaria Chile."""
             if not x: return ""
@@ -6576,6 +6609,15 @@ if tab3 is not None:
         df_resultados["FechaPlana"] = df_resultados["Fecha"].apply(_fmt_fecha_plana)
         df_resultados["Fecha"] = df_resultados["Fecha"].apply(_fmt_fecha)
         df_resultados["Estado"] = df_resultados.apply(crear_badge_estado, axis=1)
+        # Columna Autorización: fecha + quién autorizó
+        def _fmt_auth_con_nombre(row):
+            _fecha_h = _fmt_fecha_auth(row["Fecha_Auth"])
+            _quien   = str(row.get("Autorizado_Por","") or "").strip()
+            if not _fecha_h or _fecha_h == "—": return "—"
+            if _quien:
+                return f'{_fecha_h}<br><span style="font-size:0.72em;color:#16a34a;font-weight:700;">✅ {_quien}</span>'
+            return _fecha_h
+        df_resultados["Fecha_Auth_fmt"] = df_resultados.apply(_fmt_auth_con_nombre, axis=1)
         df_resultados["Plano"]    = df_resultados.apply(lambda row: "✅ Sí" if row["Tiene_Plano"] else "—", axis=1)
         df_resultados["MargenCol"] = df_resultados["Margen"].apply(lambda x: f'✅ Sí<br><span style="font-size:0.78em;color:#16a34a;">{x:.1f}%</span>' if x and x > 0 else "—")
         df_resultados["ContratoCol"] = df_resultados["Tiene_Contrato"].apply(lambda x: "✅ Sí" if x else "—")
@@ -6641,11 +6683,35 @@ if tab3 is not None:
         """
         st.markdown(html_table, unsafe_allow_html=True)
 
-        # JS para copiar EP al hacer click en la celda
+        # JS para copiar EP al hacer click en la celda + contador en vivo
         import streamlit.components.v1 as _ep_copy_comp
         _ep_copy_comp.html("""<script>
 (function(){
     var D = window.parent.document;
+
+    // ── Contador en vivo ──
+    function updateLiveTimers(){
+        var spans = D.querySelectorAll('.demora-live');
+        spans.forEach(function(el){
+            var desde = parseInt(el.getAttribute('data-desde'));
+            if(!desde) return;
+            var diff = Date.now() - desde;
+            var s  = Math.floor(diff/1000);
+            var m  = Math.floor(s/60);
+            var h  = Math.floor(m/60);
+            var d  = Math.floor(h/24);
+            s = s%60; m = m%60; h = h%24;
+            var txt = '';
+            if(d>0) txt += d+'d ';
+            if(h>0) txt += h+'h ';
+            if(m>0) txt += m+'m ';
+            txt += s+'s';
+            el.textContent = txt;
+        });
+    }
+    setInterval(updateLiveTimers, 1000);
+    updateLiveTimers();
+
     function initEPCopy(){
         D.addEventListener('click', function(e){
             var td = e.target && e.target.closest ? e.target.closest('td[data-ep]') : null;
