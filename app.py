@@ -2304,49 +2304,7 @@ def ejecutar_carga_cotizacion():
 # =========================================================
 ejecutar_carga_cotizacion()
 
-# Navegar a pestaña PRESUPUESTO si se acaba de cargar una cotización o hay una activa
-if st.session_state.pop('_ir_a_presupuesto', False):
-    st.session_state['_tab_activo'] = 'PRESUPUESTO'
 
-if st.session_state.get('_tab_activo'):
-    _tab_objetivo = st.session_state['_tab_activo']
-    components.html(f"""<script>
-(function(){{
-  var D = window.parent.document;
-  var _objetivo = "{_tab_objetivo}";
-
-  // Activar tab objetivo
-  function clickTab(){{
-    var btns = D.querySelectorAll('button[role="tab"]');
-    for(var i=0; i<btns.length; i++){{
-      if(btns[i].textContent.trim().includes(_objetivo)){{
-        if(btns[i].getAttribute('aria-selected') !== 'true'){{
-          btns[i].click();
-        }}
-        return;
-      }}
-    }}
-    setTimeout(clickTab, 150);
-  }}
-  setTimeout(clickTab, 80);
-
-  // Escuchar clicks del usuario en tabs para notificar a Streamlit
-  function listenTabs(){{
-    var btns = D.querySelectorAll('button[role="tab"]');
-    if(!btns.length){{ setTimeout(listenTabs, 200); return; }}
-    btns.forEach(function(btn){{
-      btn.addEventListener('click', function(){{
-        var nombre = btn.textContent.trim();
-        // Enviar al input oculto de session_state via window.parent
-        try{{
-          window.parent.postMessage({{type:'streamlit:setComponentValue', value: nombre}}, '*');
-        }}catch(e){{}}
-      }});
-    }});
-  }}
-  setTimeout(listenTabs, 300);
-}})();
-</script>""", height=0)
 
 # =========================================================
 # CSS PERSONALIZADO
@@ -6474,8 +6432,6 @@ if tab1 is not None:
 # =========================================================
 if tab3 is not None:
  with tab3:
-    # Si el usuario entró aquí manualmente, limpiar el tab forzado
-    st.session_state.pop('_tab_activo', None)
     st.markdown("""
     <style>
     .hdr3 {
@@ -6893,7 +6849,6 @@ if tab3 is not None:
                         else:
                             if preparar_carga_cotizacion(numero_seleccionado):
                                 st.success(f"✅ Cotización {numero_seleccionado} cargada")
-                                st.session_state['_ir_a_presupuesto'] = True
                                 st.rerun()
 
             # ── Popup advertencia productos sin guardar ──
@@ -6931,14 +6886,12 @@ if tab3 is not None:
                             # Luego cargar
                             st.session_state.mostrar_advertencia_carga = False
                             if preparar_carga_cotizacion(numero_pendiente):
-                                st.session_state['_ir_a_presupuesto'] = True
                                 st.rerun()
                     with col_no:
                         if st.button("🗑️ No, descartar", use_container_width=True, key="dialog_btn_no"):
                             # Descartar y cargar directamente
                             st.session_state.mostrar_advertencia_carga = False
                             if preparar_carga_cotizacion(numero_pendiente):
-                                st.session_state['_ir_a_presupuesto'] = True
                                 st.rerun()
                     with col_cancelar:
                         if st.button("✖️ Cancelar", use_container_width=True, key="dialog_btn_cancelar"):
@@ -9576,7 +9529,6 @@ else:
 # =========================================================
 if tab_dash is not None:
  with tab_dash:
-    st.session_state.pop('_tab_activo', None)
     st.markdown("""
     <style>
     .dash-hdr {
