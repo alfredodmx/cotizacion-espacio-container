@@ -11017,6 +11017,8 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
     # ================================================================
     if _sub_notariado is not None:
      with _sub_notariado:
+        st.markdown('<div class="cont-section">📎 Contratos notariales — adjudicados y pendientes</div>', unsafe_allow_html=True)
+
         # ── Buscador ──
         _cn_c1, _cn_c2 = st.columns([3, 0.8])
         with _cn_c1:
