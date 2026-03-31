@@ -11125,7 +11125,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         if _hrs_cn > 0:  _partes_cn.append(f"{_hrs_cn}h")
                         _partes_cn.append(f"{_min_cn}m")
                         _tiempo_cn = " ".join(_partes_cn)
-                        _cn_timing = (f'<span style="color:#2563eb;font-weight:700;">{_tiempo_cn}</span>'
+                        _cn_timing = (f'<span style="color:#2563eb;font-weight:700;">{_tiempo_cn}</span> '
                                       f'<br><span style="font-size:0.72em;color:#2563eb;font-weight:400;">finalizado</span>')
                     except:
                         _cn_timing = '<span style="color:#2563eb;font-weight:700;">finalizado</span>'
