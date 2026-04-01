@@ -4457,8 +4457,8 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     # ── Estilos tipográficos jurídicos ──
     base = getSampleStyleSheet()
     normal = ParagraphStyle('cNormal', parent=base['Normal'],
-                            fontName='Times-Roman', fontSize=10.5,
-                            leading=16, spaceAfter=6,
+                            fontName='Times-Roman', fontSize=12.5,
+                            leading=19, spaceAfter=6,
                             alignment=TA_JUSTIFY,
                             firstLineIndent=0)
     bold   = ParagraphStyle('cBold', parent=normal,
