@@ -6161,9 +6161,17 @@ if tab1 is not None:
                         categoria_agregar = st.selectbox("Categoría", categorias_disponibles, key="cat_agregar", label_visibility="collapsed")
                         if st.button("Agregar", key="btn_agregar_categoria", use_container_width=True):
                             nuevos_items = cargar_categoria_desde_modelo(modelo_origen, categoria_agregar)
-                            st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_agregar]
-                            st.session_state.carrito.extend(nuevos_items)
-                            st.session_state['_toast_msg'] = f"✅ Categoría '{categoria_agregar}' agregada al presupuesto."
+                            for _ni in nuevos_items:
+                                _existe = False
+                                for _ci in st.session_state.carrito:
+                                    if _ci["Item"] == _ni["Item"]:
+                                        _ci["Cantidad"] += _ni["Cantidad"]
+                                        _ci["Subtotal"] = _ci["Cantidad"] * _ci["Precio Unitario"]
+                                        _existe = True
+                                        break
+                                if not _existe:
+                                    st.session_state.carrito.append(_ni)
+                            st.session_state['_toast_msg'] = f"✅ Categoría '{categoria_agregar}' mezclada al presupuesto."
                             st.rerun()
                     else:
                         st.caption("Sin modelos")
