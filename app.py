@@ -9475,27 +9475,21 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
         _ep_opts_op  = []
         _ep_labels_op = {}
         for _r in _oper_data:
-            _r_ep    = _r.get("numero","")
-            _r_cli   = _r.get("cliente_nombre","—")
-            _r_ej    = _r.get("asesor_nombre","—")
-            _r_aut   = "autorizado" in (_r.get("estado","") or "").lower()
-            _r_plano = bool(_r.get("plano_url",""))
-            _r_listo = _r_aut and _r_plano
-            _r_tc    = _calc_total_costo(_r)
-            _r_adj  = bool(_r.get("contrato_notariado_url",""))
+            _r_ep  = _r.get("numero","")
+            _r_cli = _r.get("cliente_nombre","—")
+            _r_ej  = _r.get("asesor_nombre","—")
+            _r_tc  = _calc_total_costo(_r)
+            _r_adj = bool(_r.get("contrato_notariado_url",""))
             if _r_adj:
                 _label = f"{_r_ep} · 🔵 ADJUDICADO · {_fmt_op_tc(_r_tc)} · Cliente: {_r_cli} · Ejecutivo: {_r_ej}"
-            elif _r_listo:
-                _label = f"{_r_ep} · ✅ LISTO PARA COMPRAS · {_fmt_op_tc(_r_tc)} · Cliente: {_r_cli} · Ejecutivo: {_r_ej}"
             else:
-                _razon = "Sin plano" if _r_aut and not _r_plano else ("No autorizada" if not _r_aut and _r_plano else "Sin autorización ni plano")
-                _label = f"{_r_ep} · ⏳ PENDIENTE · {_razon} · Cliente: {_r_cli} · Ejecutivo: {_r_ej}"
+                _label = f"{_r_ep} · 🟡 PENDIENTE COMPRAS · Cliente: {_r_cli} · Ejecutivo: {_r_ej}"
             _ep_opts_op.append(_r_ep)
             _ep_labels_op[_r_ep] = _label
 
-        # Ordenar: listos primero
+        # Ordenar: adjudicados primero, luego pendientes
         _ep_opts_op = sorted(_ep_opts_op, key=lambda x: (
-            0 if "🔵" in _ep_labels_op.get(x,"") else (1 if "✅" in _ep_labels_op.get(x,"") else 2)
+            0 if "🔵" in _ep_labels_op.get(x,"") else 1
         ))
 
         _ep_sel_op = st.selectbox(
@@ -9514,11 +9508,10 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
 
         if _ep_sel_op and _ep_sel_op in _ep_labels_op:
             _sel_adj_card = "🔵" in _ep_labels_op[_ep_sel_op]
-            _sel_listo = "✅" in _ep_labels_op[_ep_sel_op]
-            _bg_card   = "#dbeafe" if (_sel_adj_card or _sel_listo) else "#fef9c3"
-            _bc_card   = "#2563eb" if (_sel_adj_card or _sel_listo) else "#f59e0b"
-            _txt_color = "#1d4ed8" if (_sel_adj_card or _sel_listo) else "#854d0e"
-            _badge_txt = "🔵 ADJUDICADO" if _sel_adj_card else ("✅ LISTO PARA COMPRAS" if _sel_listo else "⏳ PENDIENTE")
+            _bg_card   = "#dbeafe" if _sel_adj_card else "#fef9c3"
+            _bc_card   = "#2563eb" if _sel_adj_card else "#f59e0b"
+            _txt_color = "#1d4ed8" if _sel_adj_card else "#854d0e"
+            _badge_txt = "🔵 ADJUDICADO" if _sel_adj_card else "🟡 PENDIENTE COMPRAS"
             _sel_r     = next((r for r in _oper_data if r.get("numero") == _ep_sel_op), {})
             _sel_tc    = _calc_total_costo(_sel_r) if _sel_listo else 0
             _tc_span = f'<span style="font-size:13px;font-weight:700;color:#1d4ed8;">{_fmt_op_tc(_sel_tc)}</span>' if _sel_listo else ""
