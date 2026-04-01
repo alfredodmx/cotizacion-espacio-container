@@ -11298,41 +11298,75 @@ if tab_contrato is not None:
                         from reportlab.lib import colors as _rl_colors
 
                         def _generar_anexo_pdf(numero, texto):
-                            """Genera una página A4 de anexo con el mismo estilo del contrato."""
+                            """Genera una página A4 de anexo — logo, línea, footer igual al contrato."""
+                            import os as _os_anx
                             from reportlab.lib.units import cm as _cm
-                            from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
+                            from reportlab.lib.enums import TA_JUSTIFY
                             from reportlab.platypus import HRFlowable
-                            _AZUL     = colors.HexColor('#0f3460')
-                            _AZUL_LT  = colors.HexColor('#e8eef7')
-                            _buf_anx  = _iopv.BytesIO()
-                            _doc_anx  = SimpleDocTemplate(_buf_anx, pagesize=A4,
-                                leftMargin=1.8*_cm, rightMargin=1.8*_cm,
-                                topMargin=2*_cm, bottomMargin=2*_cm)
-                            _base     = getSampleStyleSheet()
-                            # Mismo estilo sección del contrato
-                            _st_sec   = ParagraphStyle('AxSeccion',
+                            from reportlab.lib.utils import ImageReader as _ImgReader
+                            _AZUL    = colors.HexColor('#0f3460')
+                            _AZUL_LT = colors.HexColor('#e8eef7')
+                            _GRIS    = colors.HexColor('#64748b')
+
+                            def _hf_anx(canvas, doc):
+                                canvas.saveState()
+                                _pw = doc.pagesize[0]
+                                _ph = doc.pagesize[1]
+                                # ── Logo centrado ──
+                                if _os_anx.path.exists("logo.png"):
+                                    _img = _ImgReader("logo.png")
+                                    _iw, _ih = _img.getSize()
+                                    _lw = 4.5 * _cm
+                                    _lh = _lw * (_ih / float(_iw))
+                                    canvas.drawImage(_img,
+                                        x=(_pw - _lw) / 2,
+                                        y=_ph - doc.topMargin + 0.3*_cm,
+                                        width=_lw, height=_lh,
+                                        preserveAspectRatio=True, mask='auto')
+                                # ── Línea azul bajo header ──
+                                canvas.setStrokeColor(_AZUL)
+                                canvas.setLineWidth(1.2)
+                                _ly = _ph - doc.topMargin + 0.1*_cm
+                                canvas.line(doc.leftMargin, _ly, _pw - doc.rightMargin, _ly)
+                                # ── Footer: línea gris + texto empresa ──
+                                _fy = doc.bottomMargin - 0.5*_cm
+                                canvas.setStrokeColor(_GRIS)
+                                canvas.setLineWidth(0.4)
+                                canvas.line(doc.leftMargin, _fy + 0.35*_cm, _pw - doc.rightMargin, _fy + 0.35*_cm)
+                                canvas.setFont('Helvetica', 8)
+                                canvas.setFillColor(_GRIS)
+                                canvas.drawCentredString(_pw / 2, _fy,
+                                    f"Inversiones Container House SpA  ·  RUT 78.268.851-0  ·  Página {doc.page}")
+                                canvas.restoreState()
+
+                            _buf_anx = _iopv.BytesIO()
+                            _doc_anx = SimpleDocTemplate(_buf_anx, pagesize=A4,
+                                leftMargin=3*_cm, rightMargin=3*_cm,
+                                topMargin=3.8*_cm, bottomMargin=2.2*_cm)
+                            _base    = getSampleStyleSheet()
+                            _st_sec  = ParagraphStyle(f'AxSec{numero}',
                                 parent=_base['Normal'],
                                 fontName='Helvetica-Bold', fontSize=9.5,
                                 leading=13, spaceBefore=14, spaceAfter=5,
-                                textColor=colors.white,
-                                backColor=_AZUL,
+                                textColor=colors.white, backColor=_AZUL,
                                 leftIndent=-0.3*_cm, rightIndent=-0.3*_cm,
                                 borderPadding=(4, 8, 4, 8))
-                            # Mismo estilo normal del contrato
-                            _st_norm  = ParagraphStyle('AxNormal',
+                            _st_norm = ParagraphStyle(f'AxNorm{numero}',
                                 parent=_base['Normal'],
                                 fontName='Times-Roman', fontSize=10.5,
                                 leading=16, spaceAfter=6,
                                 alignment=TA_JUSTIFY, firstLineIndent=0)
                             _story_anx = [
-                                Spacer(1, 1*_cm),
+                                Spacer(1, 0.5*_cm),
                                 Paragraph(f"ANEXO N°{numero}", _st_sec),
                                 Spacer(1, 0.4*_cm),
                                 HRFlowable(width="100%", thickness=0.6,
                                     color=_AZUL_LT, spaceAfter=8, spaceBefore=2),
                                 Paragraph(texto, _st_norm),
                             ]
-                            _doc_anx.build(_story_anx)
+                            _doc_anx.build(_story_anx,
+                                onFirstPage=_hf_anx,
+                                onLaterPages=_hf_anx)
                             return _buf_anx.getvalue()
 
                         _texto_anexo1 = (
