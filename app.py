@@ -1363,6 +1363,86 @@ def crear_badge_estado(row):
         border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;
         border:1px solid {border};box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">{label}</span>'''
 
+
+# =========================================================
+# DÍAS HÁBILES CHILE — excluye fines de semana y feriados
+# =========================================================
+def _feriados_chile(year):
+    """Retorna set de fechas feriadas en Chile para el año dado."""
+    from datetime import date, timedelta
+    f = set()
+    # Fijos
+    fijos = [(1,1),(5,1),(9,18),(9,19),(10,12),(11,1),(12,8),(12,25)]
+    for mes, dia in fijos:
+        f.add(date(year, mes, dia))
+    # Semana Santa (viernes santo y sábado)
+    # Algoritmo de Meeus/Jones/Butcher
+    a = year % 19
+    b = year // 100; c = year % 100
+    d = b // 4; e = b % 4
+    g = (8*b+13)//25; h = (19*a+b-d-g+15)%30
+    i = c//4; k = c%4
+    l = (32+2*e+2*i-h-k)%7
+    m = (a+11*h+19*l)//433
+    n = (h+l-7*m+90)//25
+    p = (h+l-7*m+33*n+19)%32
+    pascua = date(year, n, p)
+    f.add(pascua - timedelta(days=2))  # Viernes Santo
+    f.add(pascua - timedelta(days=1))  # Sábado Santo
+    # 5 de junio (Día de los Pueblos Originarios — inamovible desde 2021)
+    if year >= 2021:
+        f.add(date(year, 6, 20))  # Solsticio
+    # Otros feriados variables o que se trasladan
+    # Día del Trabajo: 1 mayo
+    f.add(date(year, 5, 1))
+    # San Pedro y San Pablo: 29 junio (o lunes más cercano)
+    base_spp = date(year, 6, 29)
+    if base_spp.weekday() == 1: f.add(base_spp - timedelta(1))
+    elif base_spp.weekday() not in (0,): f.add(base_spp)
+    else: f.add(base_spp)
+    # Asunción de la Virgen: 15 agosto
+    f.add(date(year, 8, 15))
+    # Día de las Glorias del Ejército: 19 sep (cuando 18 es viernes, 19 también es feriado)
+    if date(year, 9, 18).weekday() == 4:
+        f.add(date(year, 9, 19))
+    # Reforma Protestante: 31 octubre
+    f.add(date(year, 10, 31))
+    return f
+
+def sumar_dias_habiles(fecha_inicio, dias_habiles):
+    """Suma N días hábiles a fecha_inicio (date), retorna date de entrega."""
+    from datetime import date, timedelta
+    years_needed = set()
+    d = fecha_inicio
+    years_needed.add(d.year)
+    # Pre-calcular feriados para los próximos 2 años
+    feriados = _feriados_chile(d.year) | _feriados_chile(d.year + 1)
+    count = 0
+    while count < dias_habiles:
+        d += timedelta(days=1)
+        if d.year not in years_needed:
+            years_needed.add(d.year)
+            feriados |= _feriados_chile(d.year)
+        if d.weekday() < 5 and d not in feriados:  # lunes-viernes y no feriado
+            count += 1
+    return d
+
+def dias_habiles_entre(fecha_inicio, fecha_fin):
+    """Cuenta días hábiles entre dos fechas (date)."""
+    from datetime import date, timedelta
+    if fecha_fin <= fecha_inicio:
+        return 0
+    feriados = _feriados_chile(fecha_inicio.year)
+    if fecha_fin.year != fecha_inicio.year:
+        feriados |= _feriados_chile(fecha_fin.year)
+    count = 0
+    d = fecha_inicio
+    while d < fecha_fin:
+        d += timedelta(days=1)
+        if d.weekday() < 5 and d not in feriados:
+            count += 1
+    return count
+
 # =========================================================
 # FUNCIONES PARA MANEJO DE MARGEN
 # =========================================================
@@ -6755,32 +6835,35 @@ if tab3 is not None:
             txt+=s+'s';
             el.textContent=txt;
         });
-        // ── Cuenta regresiva fidelización ──
+        // ── Cuenta regresiva fidelización (segundos en tiempo real) ──
         var fidels = D.querySelectorAll('.fidel-live');
         fidels.forEach(function(el){
             var hasta = parseInt(el.getAttribute('data-hasta'));
             var plazo = parseInt(el.getAttribute('data-plazo')) || 1;
+            var adjTs = parseInt(el.getAttribute('data-adj')) || 0;
             if(!hasta) return;
             var diff = hasta - Date.now();
             if(diff <= 0){ el.textContent = '⚠️ VENCIDO'; el.style.color='#dc2626'; return; }
-            var s  = Math.floor(diff/1000);
-            var m  = Math.floor(s/60);
-            var h  = Math.floor(m/60);
-            var d  = Math.floor(h/24);
-            s = s%60; m = m%60; h = h%24;
+            var totalSeg = Math.floor(diff/1000);
+            var diasCal  = Math.floor(totalSeg/86400);
+            var remSeg   = totalSeg % 86400;
+            var h = Math.floor(remSeg/3600);
+            var m = Math.floor((remSeg%3600)/60);
+            var s = remSeg%60;
             var txt = '⏳ ';
-            if(d>0) txt += d+'d ';
+            if(diasCal>0) txt += diasCal+'d ';
             if(h>0) txt += h+'h ';
             if(m>0) txt += m+'m ';
             txt += s+'s';
             el.textContent = txt;
-            // Color dinámico
-            var pctRestante = (diff / (plazo * 86400000)) * 100;
-            var pctAvance = Math.round(100 - pctRestante);
-            el.style.color = pctRestante > 50 ? '#16a34a' : (pctRestante > 20 ? '#f97316' : '#dc2626');
-            // Actualizar % al lado
+            // % avance basado en tiempo transcurrido vs plazo total
+            var transcurrido = adjTs ? (Date.now() - adjTs) : 0;
+            var total = plazo * 86400000;
+            var pctAvance = adjTs ? Math.min((transcurrido/total)*100, 100) : 0;
+            var col = pctAvance < 50 ? '#16a34a' : (pctAvance < 80 ? '#f97316' : '#dc2626');
+            el.style.color = col;
             var pctEl = el.nextElementSibling;
-            if(pctEl) { pctEl.textContent = (Math.round((100-pctRestante)*100)/100).toFixed(2)+'%'; pctEl.style.color = el.style.color; }
+            if(pctEl && pctEl.style !== undefined){ pctEl.textContent = pctAvance.toFixed(2)+'%'; pctEl.style.color = col; }
         });
     }
     setInterval(updateLiveTimers, 1000);
@@ -9265,58 +9348,60 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
             else:
                 _timing_html = "—"
 
-            # ── Tiempo fabricación (contador hacia adelante desde adjudicación) ──
+            # ── Cálculos basados en días hábiles reales (lunes-viernes + feriados Chile) ──
             _fab_html = '<span style="color:#94a3b8;">—</span>'
             _retraso_html = '<span style="color:#94a3b8;">—</span>'
-            if _adj and _fadj_raw:
-                try:
-                    _d_adj_fab = _dt_op.fromisoformat(_fadj_raw.replace("Z","+00:00")).astimezone(_tz_cl_op)
-                    _ts_fab = int(_d_adj_fab.timestamp() * 1000)
-                    _fab_html = (f'<span class="fab-live" data-desde="{_ts_fab}" '
-                                 f'style="color:#2563eb;font-weight:700;display:inline-block;'
-                                 f'min-width:100px;font-variant-numeric:tabular-nums;">...</span>')
-                except: pass
-
-            # ── Fidelización cliente (cuenta regresiva) ──
             _fidel_html = '<span style="color:#94a3b8;">—</span>'
+
             if _adj and _fadj_raw:
                 try:
+                    from datetime import date as _date_op
                     _cd = _or.get("contrato_datos") or {}
                     if isinstance(_cd, str): _cd = _json_op.loads(_cd)
                     _plazo_dias = int((_cd or {}).get("plazo_dias", 0) or 0)
+                    _d_adj_dt = _dt_op.fromisoformat(_fadj_raw.replace("Z","+00:00")).astimezone(_tz_cl_op)
+                    _d_adj_date = _d_adj_dt.date()
+                    _ahora = _dt_op.now(_tz_cl_op)
+                    _hoy = _ahora.date()
+                    _ts_adj = int(_d_adj_dt.timestamp() * 1000)
+
+                    # Tiempo fabricación — días hábiles transcurridos
+                    _hab_transcurridos = dias_habiles_entre(_d_adj_date, _hoy)
+                    _fab_html = (f'<span class="fab-live" data-desde="{_ts_adj}" data-adj="{_d_adj_date}" '
+                                 f'style="color:#2563eb;font-weight:700;display:inline-block;'
+                                 f'min-width:100px;font-variant-numeric:tabular-nums;">{_hab_transcurridos}d hábiles</span>')
+
                     if _plazo_dias > 0:
-                        _d_adj = _dt_op.fromisoformat(_fadj_raw.replace("Z","+00:00")).astimezone(_tz_cl_op)
-                        _d_entrega = _d_adj + _td_op(days=_plazo_dias)
-                        _ahora = _dt_op.now(_tz_cl_op)
-                        _restante = _d_entrega - _ahora
-                        if _restante.total_seconds() > 0:
-                            _rd = _restante.days
-                            _rh = _restante.seconds // 3600
-                            _rm = (_restante.seconds % 3600) // 60
-                            _rpartes = []
-                            if _rd > 0: _rpartes.append(f"{_rd}d")
-                            if _rh > 0: _rpartes.append(f"{_rh}h")
-                            _rpartes.append(f"{_rm}m")
-                            _pct_restante = (_restante.total_seconds() / (_plazo_dias * 86400)) * 100
-                            _pct_avance = round(100 - _pct_restante, 2)
-                            _pct_r = _pct_avance
-                            _col_r = "#16a34a" if _pct_restante > 50 else ("#f97316" if _pct_restante > 20 else "#dc2626")
-                            _ts_fidel = int((_d_adj + _td_op(days=_plazo_dias)).timestamp() * 1000)
+                        # Fecha de entrega real en días hábiles
+                        _d_entrega_date = sumar_dias_habiles(_d_adj_date, _plazo_dias)
+                        _d_entrega_dt = _dt_op.combine(_d_entrega_date, _dt_op.min.time()).replace(tzinfo=_tz_cl_op)
+                        _ts_entrega = int(_d_entrega_dt.timestamp() * 1000)
+
+                        # Días hábiles restantes
+                        _hab_restantes = dias_habiles_entre(_hoy, _d_entrega_date) if _hoy < _d_entrega_date else 0
+                        _pct_avance = round((_hab_transcurridos / _plazo_dias) * 100, 2)
+                        _pct_avance = min(_pct_avance, 100.0)
+
+                        # Fecha entrega formateada
+                        _meses_es = ["enero","febrero","marzo","abril","mayo","junio",
+                                     "julio","agosto","septiembre","octubre","noviembre","diciembre"]
+                        _fecha_ent_str = f"{_d_entrega_date.day} {_meses_es[_d_entrega_date.month-1]} {_d_entrega_date.year}"
+
+                        if _hoy <= _d_entrega_date:
+                            _col_r = "#16a34a" if _pct_avance < 50 else ("#f97316" if _pct_avance < 80 else "#dc2626")
                             _fidel_html = (
-                                f'<div style="display:flex;align-items:center;gap:8px;">'                                f'<span class="fidel-live" data-hasta="{_ts_fidel}" data-plazo="{_plazo_dias}" '                                f'style="color:{_col_r};font-weight:700;font-variant-numeric:tabular-nums;min-width:90px;">⏳ {" ".join(_rpartes)}</span>'                                f'<span style="font-size:1.3rem;font-weight:900;color:{_col_r};">{_pct_r}%</span>'                                f'</div>'                                f'<span style="font-size:0.72em;color:#94a3b8;">{_plazo_dias} días hábiles</span>'
+                                f'<div style="display:flex;align-items:center;gap:8px;">'                                f'<span class="fidel-live" data-hasta="{_ts_entrega}" data-plazo="{_plazo_dias}" '                                f'data-adj="{_ts_adj}" '                                f'style="color:{_col_r};font-weight:700;font-variant-numeric:tabular-nums;min-width:70px;">⏳ {_hab_restantes}d háb.</span>'                                f'<span style="font-size:1.3rem;font-weight:900;color:{_col_r};">{_pct_avance}%</span>'                                f'</div>'                                f'<span style="font-size:0.72em;color:#64748b;font-weight:600;">📅 {_fecha_ent_str}</span>'                                f'<br><span style="font-size:0.68em;color:#94a3b8;">{_plazo_dias} días hábiles</span>'
                             )
                         else:
+                            # Vencido
+                            _hab_retraso = dias_habiles_entre(_d_entrega_date, _hoy)
                             _fidel_html = ('<span style="color:#dc2626;font-weight:700;">⚠️ VENCIDO</span>'
-                                           f'<br><span style="font-size:0.72em;color:#94a3b8;">{_plazo_dias} días hábiles</span>')
-                            # Retraso — tiempo corriendo desde que venció
-                            try:
-                                _d_venc = _d_adj + _td_op(days=_plazo_dias)
-                                _ts_venc = int(_d_venc.timestamp() * 1000)
-                                _retraso_html = (f'<span class="retraso-live" data-desde="{_ts_venc}" '
-                                                 f'style="color:#dc2626;font-weight:700;display:inline-block;'
-                                                 f'min-width:100px;font-variant-numeric:tabular-nums;">...</span>'
-                                                 f'<br><span style="font-size:0.72em;color:#dc2626;font-weight:400;">en retraso</span>')
-                            except: pass
+                                           f'<br><span style="font-size:0.72em;color:#94a3b8;">{_plazo_dias} días hábiles · {_hab_retraso}d háb. de retraso</span>')
+                            _ts_venc = int(_d_entrega_dt.timestamp() * 1000)
+                            _retraso_html = (f'<span class="retraso-live" data-desde="{_ts_venc}" '
+                                             f'style="color:#dc2626;font-weight:700;display:inline-block;'
+                                             f'min-width:100px;font-variant-numeric:tabular-nums;">...</span>'
+                                             f'<br><span style="font-size:0.72em;color:#dc2626;font-weight:400;">{_hab_retraso}d hábiles en retraso</span>')
                 except: pass
 
             _rows_op += (
