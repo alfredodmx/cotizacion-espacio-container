@@ -9165,7 +9165,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
     # ── Cargar ejecutivos para dropdown ──
     try:
         _oper_usuarios = listar_usuarios_ejecutivos() or []
-        _oper_ejs = [u for u in _oper_usuarios if u.get('rol','ejecutivo') == 'ejecutivo']
+        _oper_ejs = [u for u in _oper_usuarios if u.get('rol','ejecutivo') in ('ejecutivo','admin','administrador')]
         _oper_ej_opts = ['Todos'] + [u.get('nombre','') for u in _oper_ejs if u.get('nombre')]
     except Exception:
         _oper_ej_opts = ['Todos']
@@ -9599,14 +9599,16 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                             st.button("🛒 PDF Compras", disabled=True, use_container_width=True, key="oper_dl_pdf")
                     else:
                         st.button("🛒 PDF Compras", disabled=True, use_container_width=True,
-                                  help="Solo para cotizaciones autorizadas", key="oper_dl_pdf")
+                                  help="Solo disponible con estado ADJUDICADO", key="oper_dl_pdf")
 
                 with _sb2:
                     _lbl_plano = "🔄 ACTUALIZAR PLANO" if st.session_state.get('oper_show_plano') else "👁️ VER PLANO"
+                    _plano_disabled = not bool(_sel_plano and _sel_adj)
+                    _plano_help = None if (_sel_plano and _sel_adj) else ("Solo disponible con estado ADJUDICADO" if not _sel_adj else "Sin plano adjunto")
                     if st.button(_lbl_plano,
                                  use_container_width=True,
-                                 disabled=not bool(_sel_plano and _sel_adj),
-                                 help=None if _sel_plano else "Sin plano adjunto para este proyecto",
+                                 disabled=_plano_disabled,
+                                 help=_plano_help,
                                  key="oper_ver_plano"):
                         st.session_state['oper_show_plano'] = not st.session_state.get('oper_show_plano', False)
                         st.session_state['oper_plano_url']    = _sel_plano
