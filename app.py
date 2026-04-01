@@ -6954,7 +6954,13 @@ if tab3 is not None:
 
         html_table = f"""
         <style>
-        .resultados-table th.th-adj {{ background-color: #fbbf24 !important; color: #0f172a !important; }}
+        .resultados-table th.th-adj,
+        .resultados-table thead tr th.th-adj,
+        table.resultados-table > thead > tr > th.th-adj {{ 
+            background-color: #fbbf24 !important; 
+            background: #fbbf24 !important;
+            color: #0f172a !important; 
+        }}
         </style>
         <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
             <div style="{_altura_css}">
