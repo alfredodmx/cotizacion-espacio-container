@@ -9274,7 +9274,6 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                 f"<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{_ej}</td>"
                 f"<td style='text-align:center;'>{_badge_op(_or)}</td>"
                 f"<td style='line-height:1.6;'>{_fadj_html}</td>"
-                f"<td style='text-align:center;font-size:0.82rem;'>{_timing_html}</td>"
                 f"<td style='text-align:center;font-size:0.82rem;'>{_fidel_html}</td>"
                 f"</tr>"
             )
@@ -9294,7 +9293,6 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                   <th>Asesor</th>
                   <th>Estado</th>
                   <th>Fecha adjudicación</th>
-                  <th>Timing/Demora</th>
                   <th>Fidelización cliente</th>
                 </tr>
               </thead>
