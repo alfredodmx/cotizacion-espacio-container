@@ -3598,7 +3598,11 @@ if st.session_state.cotizacion_cargada:
     ])
 
     _tiene_plano_badge = bool(st.session_state.plano_adjunto or st.session_state.get('pdf_url') or st.session_state.plano_nombre)
-    if st.session_state.margen > 0:
+    # ADJUDICADO tiene prioridad absoluta en el badge
+    if st.session_state.get('_adj_es_adj') and st.session_state.get('_adj_check_ep') == st.session_state.cotizacion_cargada:
+        _modo_adj = "🔒 Solo lectura" if (st.session_state.modo_admin and not st.session_state.get('es_root')) else "🔑 Root"
+        badge_html = f"{_modo_adj} • 🔵 ADJUDICADO"
+    elif st.session_state.margen > 0:
         if datos_completos and asesor_completo:
             rol = "👑 Admin" if st.session_state.modo_admin else "🔒 Solo lectura"
             sufijo = " CON PLANO" if _tiene_plano_badge else ""
@@ -5879,6 +5883,20 @@ if tab1 is not None:
       </div>
     </div>
     """, unsafe_allow_html=True)
+
+    # Banner solo lectura para presupuestos adjudicados (admin) 
+    if _es_adjudicado and st.session_state.modo_admin and not st.session_state.get('es_root'):
+        st.markdown("""
+        <div style="background:#dbeafe;border-left:4px solid #2563eb;border-radius:0 10px 10px 0;
+                    padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">
+          <span style="font-size:1.3rem;">🔵</span>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#1d4ed8;">Presupuesto ADJUDICADO — Solo lectura</div>
+            <div style="font-size:11px;color:#1e40af;margin-top:2px;">
+              Este presupuesto tiene contrato notariado adjuntado. Solo el rol Root puede modificarlo.</div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     fecha_inicio = st.session_state.fecha_inicio
     fecha_termino = st.session_state.fecha_termino
@@ -8567,10 +8585,28 @@ if st.session_state.get('es_root') and tab_salud is not None:
 # =========================================================
 # FAB - BOTÓN GUARDAR FLOTANTE
 # =========================================================
+# Detectar si el presupuesto cargado está ADJUDICADO
+_ep_cargado = st.session_state.get('cotizacion_cargada', '')
+_es_adjudicado = False
+if _ep_cargado and not st.session_state.get('_adj_check_ep') == _ep_cargado:
+    try:
+        _adj_check = supabase.table('cotizaciones').select('contrato_notariado_url').eq('numero', _ep_cargado).execute()
+        _es_adjudicado = bool((_adj_check.data or [{}])[0].get('contrato_notariado_url','')) if _adj_check.data else False
+        st.session_state['_adj_check_ep']  = _ep_cargado
+        st.session_state['_adj_es_adj']    = _es_adjudicado
+    except Exception:
+        _es_adjudicado = st.session_state.get('_adj_es_adj', False)
+else:
+    _es_adjudicado = st.session_state.get('_adj_es_adj', False)
+
+# Solo lectura si: ejecutivo con margen, o admin con presupuesto adjudicado
 _es_solo_lectura = (
-    st.session_state.cotizacion_cargada and
-    st.session_state.margen > 0 and
-    not st.session_state.modo_admin
+    (st.session_state.cotizacion_cargada and
+     st.session_state.margen > 0 and
+     not st.session_state.modo_admin) or
+    (_es_adjudicado and
+     st.session_state.modo_admin and
+     not st.session_state.get('es_root', False))
 )
 
 _hash_actual = calcular_hash_estado()
@@ -9740,7 +9776,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
 _margen_actual = st.session_state.margen
 _mstr = f"{_margen_actual:.1f}"
 
-if st.session_state.modo_admin:
+if st.session_state.modo_admin and not (_es_adjudicado and not st.session_state.get('es_root', False)):
     _color_fab = '#10b981' if _margen_actual > 0 else '#6b7280'
     _pct_bar   = min(int(_margen_actual), 100)
 
