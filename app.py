@@ -6704,7 +6704,7 @@ if tab3 is not None:
 (function(){
     var D = window.parent.document;
 
-    // ── Contador en vivo ──
+    // ── Contador en vivo demora ──
     function updateLiveTimers(){
         var spans = D.querySelectorAll('.demora-live');
         spans.forEach(function(el){
@@ -6722,6 +6722,32 @@ if tab3 is not None:
             if(m>0) txt += m+'m ';
             txt += s+'s';
             el.textContent = txt;
+        });
+        // ── Cuenta regresiva fidelización ──
+        var fidels = D.querySelectorAll('.fidel-live');
+        fidels.forEach(function(el){
+            var hasta = parseInt(el.getAttribute('data-hasta'));
+            var plazo = parseInt(el.getAttribute('data-plazo')) || 1;
+            if(!hasta) return;
+            var diff = hasta - Date.now();
+            if(diff <= 0){ el.textContent = '⚠️ VENCIDO'; el.style.color='#dc2626'; return; }
+            var s  = Math.floor(diff/1000);
+            var m  = Math.floor(s/60);
+            var h  = Math.floor(m/60);
+            var d  = Math.floor(h/24);
+            s = s%60; m = m%60; h = h%24;
+            var txt = '⏳ ';
+            if(d>0) txt += d+'d ';
+            if(h>0) txt += h+'h ';
+            if(m>0) txt += m+'m ';
+            txt += s+'s';
+            el.textContent = txt;
+            // Color dinámico
+            var pct = (diff / (plazo * 86400000)) * 100;
+            el.style.color = pct > 50 ? '#16a34a' : (pct > 20 ? '#f97316' : '#dc2626');
+            // Actualizar % al lado
+            var pctEl = el.nextElementSibling;
+            if(pctEl) { pctEl.textContent = Math.round(pct)+'%'; pctEl.style.color = el.style.color; }
         });
     }
     setInterval(updateLiveTimers, 1000);
@@ -9201,7 +9227,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                     _ts_op = int(_d_desde.timestamp() * 1000)
                     _timing_html = (f'<span class="demora-live" data-desde="{_ts_op}" '
                                     f'style="color:#dc2626;font-weight:700;display:inline-block;'
-                                    f'min-width:80px;font-variant-numeric:tabular-nums;">...</span>')
+                                    f'min-width:100px;font-variant-numeric:tabular-nums;">...</span>')
                 except: _timing_html = "—"
             else:
                 _timing_html = "—"
@@ -9227,9 +9253,12 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                             if _rh > 0: _rpartes.append(f"{_rh}h")
                             _rpartes.append(f"{_rm}m")
                             _pct = (_restante.total_seconds() / (_plazo_dias * 86400)) * 100
+                            _pct_r = round(_pct)
                             _col_r = "#16a34a" if _pct > 50 else ("#f97316" if _pct > 20 else "#dc2626")
-                            _fidel_html = (f'<span style="color:{_col_r};font-weight:700;">⏳ {" ".join(_rpartes)}</span>'
-                                           f'<br><span style="font-size:0.72em;color:#94a3b8;">{_plazo_dias} días hábiles</span>')
+                            _ts_fidel = int((_d_adj + _td_op(days=_plazo_dias)).timestamp() * 1000)
+                            _fidel_html = (
+                                f'<div style="display:flex;align-items:center;gap:8px;">'                                f'<span class="fidel-live" data-hasta="{_ts_fidel}" data-plazo="{_plazo_dias}" '                                f'style="color:{_col_r};font-weight:700;font-variant-numeric:tabular-nums;min-width:90px;">⏳ {" ".join(_rpartes)}</span>'                                f'<span style="font-size:1.3rem;font-weight:900;color:{_col_r};">{_pct_r}%</span>'                                f'</div>'                                f'<span style="font-size:0.72em;color:#94a3b8;">{_plazo_dias} días hábiles</span>'
+                            )
                         else:
                             _fidel_html = ('<span style="color:#dc2626;font-weight:700;">⚠️ VENCIDO</span>'
                                            f'<br><span style="font-size:0.72em;color:#94a3b8;">{_plazo_dias} días hábiles</span>')
