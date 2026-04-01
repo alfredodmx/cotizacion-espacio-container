@@ -4482,8 +4482,8 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
                              leftIndent=-0.3*cm, rightIndent=-0.3*cm,
                              borderPadding=(4, 8, 4, 8))
     firma   = ParagraphStyle('cFirma', parent=normal,
-                             fontName='Times-Roman', fontSize=10,
-                             alignment=TA_CENTER)
+                             fontName='Times-Roman', fontSize=12.5,
+                             leading=19, alignment=TA_CENTER)
     firma_bold = ParagraphStyle('cFirmaBold', parent=firma,
                                 fontName='Times-Bold')
 
@@ -4756,7 +4756,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         ('VALIGN',     (0,0), (-1,-1), 'MIDDLE'),
         ('TOPPADDING', (0,0), (-1,-1), 6),
         ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-        ('LINEBELOW',  (0,0), (-1,0), 0.8, AZUL),
+
     ]))
     story.append(firma_tbl)
 
