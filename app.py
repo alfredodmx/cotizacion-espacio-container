@@ -9513,8 +9513,17 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
         # Resetear visor si cambia el EP seleccionado
         if st.session_state.get('oper_ep_anterior') != _ep_sel_op:
             st.session_state['oper_ep_anterior'] = _ep_sel_op
-            # Solo actualizar la URL del plano, mantener el visor abierto si estaba abierto
-            st.session_state['oper_plano_url'] = None
+            # Si el visor estaba abierto, actualizar automáticamente con el nuevo plano
+            _nueva_data = next((r for r in _oper_data if r.get("numero") == _ep_sel_op), None)
+            _nuevo_plano = (_nueva_data.get("plano_url","") or "") if _nueva_data else ""
+            _nuevo_adj   = bool(_nueva_data.get("contrato_notariado_url","")) if _nueva_data else False
+            if st.session_state.get('oper_show_plano') and _nuevo_plano and _nuevo_adj:
+                st.session_state['oper_plano_url']    = _nuevo_plano
+                st.session_state['oper_plano_nombre'] = (_nueva_data.get("plano_nombre","plano.pdf") or "plano.pdf") if _nueva_data else "plano.pdf"
+            elif not _nuevo_plano or not _nuevo_adj:
+                # Cerrar visor si el nuevo EP no tiene plano o no está adjudicado
+                st.session_state['oper_show_plano'] = False
+                st.session_state['oper_plano_url']  = None
 
         if _ep_sel_op and _ep_sel_op in _ep_labels_op:
             _sel_adj_card = "🔵" in _ep_labels_op[_ep_sel_op]
