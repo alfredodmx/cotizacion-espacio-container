@@ -4850,21 +4850,21 @@ _hash_actual = calcular_hash_estado()
 # =========================================================
 _rol_actual = st.session_state.get('rol_usuario', 'ejecutivo')
 if _rol_actual == 'root':
-    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_salud, tab_usuarios, tab_notif, tab_reporte, tab_oper = st.tabs(["📊 DASHBOARD", "📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "🛡️ SISTEMA", "👥 USUARIOS", "📣 NOTIFICACIONES", "📈 REPORTE BI", "⚙️ OPERACIONES"])
+    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_salud, tab_usuarios, tab_notif, tab_reporte, tab_oper, tab_admindata = st.tabs(["📊 DASHBOARD", "📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "🛡️ SISTEMA", "👥 USUARIOS", "📣 NOTIFICACIONES", "📈 REPORTE BI", "⚙️ OPERACIONES", "⚠️ ADMINISTRACIÓN DE DATOS"])
 elif _rol_actual == 'admin':
     tab1, tab3, tab2, tab_contrato, tab_oper, tab_usuarios, tab5, tab6, tab7, tab4, tab_notif, tab_dash, tab_reporte = st.tabs(["📋 PRESUPUESTO", "📂 COTIZACIONES", "👤 DATOS", "📄 CONTRATO", "⚙️ OPERACIONES", "👥 USUARIOS", "📊 PROYECTO EXCEL", "✏️ EDICIÓN PDF", "🏆 RANKING", "🧊 3D BETA", "📣 NOTIFICACIONES", "📊 DASHBOARD", "📈 REPORTE BI"])
-    tab_salud = None
+    tab_salud = None; tab_admindata = None
 elif _rol_actual == 'operacion':
     tab_oper, = st.tabs(["⚙️ OPERACIONES"])
     tab_dash = None; tab1 = None; tab2 = None; tab3 = None
     tab4 = None; tab5 = None; tab6 = None; tab7 = None
     tab_contrato = None; tab_salud = None; tab_usuarios = None
-    tab_notif = None; tab_reporte = None
+    tab_notif = None; tab_reporte = None; tab_admindata = None
 else:
     tab1, tab2, tab3, tab_contrato, tab7, tab4 = st.tabs(["📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "📄 CONTRATO", "🏆 RANKING", "🧊 3D BETA"])
     tab_dash = None; tab_reporte = None; tab_salud = None
     tab5 = None; tab6 = None; tab_usuarios = None
-    tab_notif = None; tab_oper = None
+    tab_notif = None; tab_oper = None; tab_admindata = None
 
 # =========================================================
 # FUNCIÓN PARA GENERAR PDF COMPLETO
@@ -8636,6 +8636,187 @@ if st.session_state.get('es_root') and tab_salud is not None:
         if st.button("🔄 Actualizar métricas", key="btn_refresh_salud"):
             st.rerun()
 
+
+# =========================================================
+# TAB: ADMINISTRACIÓN DE DATOS (solo root)
+# =========================================================
+if tab_admindata is not None:
+    with tab_admindata:
+        st.markdown("""
+        <style>
+        .hdr-admindata {
+            background: linear-gradient(135deg, #7f1d1d 0%, #dc2626 100%);
+            border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
+            display: flex; align-items: center; gap: 22px;
+            box-shadow: 0 8px 32px rgba(220,38,38,0.35);
+            position: relative; overflow: hidden;
+        }
+        .hdr-admindata::before { content:''; position:absolute; top:-40px; right:-40px;
+            width:180px; height:180px; border-radius:50%;
+            background:rgba(255,255,255,0.04); pointer-events:none; }
+        .hdr-admindata::after { content:''; position:absolute; bottom:-60px; right:80px;
+            width:240px; height:240px; border-radius:50%;
+            background:rgba(255,255,255,0.03); pointer-events:none; }
+        .hdr-admindata h2 { color:#fff !important; margin:0; font-size:1.8rem; font-weight:900;
+            font-family:'Montserrat',sans-serif; letter-spacing:-0.02em; }
+        .hdr-admindata p { color:rgba(255,255,255,0.65) !important; margin:6px 0 0; font-size:0.92rem; }
+        </style>
+        <div class="hdr-admindata">
+          <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">⚠️</span>
+          <div>
+            <h2>Administración de datos</h2>
+            <p>Eliminación permanente de presupuestos y archivos · Solo disponible para root</p>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ── Filtros ──
+        st.markdown('<div class="cont-section">🔍 Filtrar presupuestos</div>', unsafe_allow_html=True)
+        _ad_c1, _ad_c2, _ad_c3, _ad_c4, _ad_c5 = st.columns([1.5, 1.5, 1.2, 1.2, 0.6])
+        with _ad_c1:
+            _ad_ep = st.text_input("N° EP", placeholder="Ej: EP-12345", key="ad_ep", label_visibility="collapsed")
+        with _ad_c2:
+            try:
+                _ad_usu = listar_usuarios_ejecutivos() or []
+                _ad_ej_opts = ['Todos'] + [u.get('nombre','') for u in _ad_usu if u.get('nombre')]
+            except: _ad_ej_opts = ['Todos']
+            _ad_ej = st.selectbox("Ejecutivo", _ad_ej_opts, key="ad_ej", label_visibility="collapsed")
+        with _ad_c3:
+            _ad_estados = ['Todos', 'Borrador', 'Incompleto', 'Autorizado', 'Adjudicado']
+            _ad_estado = st.selectbox("Estado", _ad_estados, key="ad_estado", label_visibility="collapsed")
+        with _ad_c4:
+            _ad_fecha = st.date_input("Hasta fecha", value=None, key="ad_fecha", label_visibility="collapsed")
+        with _ad_c5:
+            _ad_buscar = st.button("🔍", use_container_width=True, key="ad_buscar")
+
+        # ── Carga de datos ──
+        if 'ad_results' not in st.session_state or _ad_buscar:
+            try:
+                _adq = supabase_admin.table("cotizaciones").select(
+                    "numero,cliente_nombre,asesor_nombre,estado,fecha_creacion,"
+                    "total_total,config_margen,contrato_notariado_url"
+                )
+                if _ad_ep.strip(): _adq = _adq.ilike("numero", f"%{_ad_ep.strip()}%")
+                if _ad_ej != 'Todos': _adq = _adq.eq("asesor_nombre", _ad_ej)
+                if _ad_estado != 'Todos':
+                    if _ad_estado == 'Adjudicado':
+                        _adq = _adq.not_.is_("contrato_notariado_url", "null")
+                    elif _ad_estado == 'Autorizado':
+                        _adq = _adq.gt("config_margen", 0).is_("contrato_notariado_url", "null")
+                    elif _ad_estado == 'Borrador':
+                        _adq = _adq.eq("estado", "borrador")
+                    elif _ad_estado == 'Incompleto':
+                        _adq = _adq.eq("estado", "incompleto")
+                if _ad_fecha:
+                    _adq = _adq.lte("fecha_creacion", str(_ad_fecha))
+                _ad_res = _adq.order("fecha_creacion", desc=True).limit(200).execute()
+                st.session_state['ad_results'] = _ad_res.data or []
+            except Exception as _ade:
+                st.error(f"Error: {_ade}")
+                st.session_state['ad_results'] = []
+
+        _ad_data = st.session_state.get('ad_results', [])
+
+        if not _ad_data:
+            st.info("No se encontraron presupuestos con los filtros aplicados.")
+        else:
+            st.markdown(f"<span style='background:#fee2e2;color:#dc2626;padding:3px 12px;border-radius:99px;font-size:11px;font-weight:700;'>{len(_ad_data)} presupuestos encontrados</span>", unsafe_allow_html=True)
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+            # ── Tabla con checkboxes ──
+            import pandas as _pd_ad
+            _ad_df = _pd_ad.DataFrame([{
+                'Seleccionar': False,
+                'N° EP': r.get('numero',''),
+                'Cliente': r.get('cliente_nombre','—'),
+                'Ejecutivo': r.get('asesor_nombre','—'),
+                'Estado': ('🔵 ADJUDICADO' if r.get('contrato_notariado_url') else
+                           ('🟢 AUTORIZADO' if r.get('config_margen',0) else
+                            r.get('estado','—').upper())),
+                'Fecha': (r.get('fecha_creacion','')[:10] if r.get('fecha_creacion') else '—'),
+                'Total': ('${:,.0f}'.format(r.get('total_total',0) or 0).replace(',','.') if r.get('total_total') else '—'),
+            } for r in _ad_data])
+
+            _ad_edited = st.data_editor(_ad_df, use_container_width=True, hide_index=True,
+                height=min(len(_ad_df)*38+60, 500),
+                key="ad_editor",
+                column_config={
+                    'Seleccionar': st.column_config.CheckboxColumn('☑️', width='small'),
+                    'N° EP': st.column_config.TextColumn('N° EP', width='small'),
+                    'Cliente': st.column_config.TextColumn('Cliente'),
+                    'Ejecutivo': st.column_config.TextColumn('Ejecutivo'),
+                    'Estado': st.column_config.TextColumn('Estado'),
+                    'Fecha': st.column_config.TextColumn('Fecha', width='small'),
+                    'Total': st.column_config.TextColumn('Total', width='small'),
+                })
+
+            _ad_seleccionados = _ad_edited[_ad_edited['Seleccionar'] == True]['N° EP'].tolist()
+
+            if _ad_seleccionados:
+                st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+                _ad_n = len(_ad_seleccionados)
+                _ad_col1, _ad_col2 = st.columns([2, 1])
+                with _ad_col1:
+                    st.markdown(f"""
+                    <div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;padding:12px 16px;">
+                      <div style="font-size:13px;font-weight:700;color:#dc2626;">⚠️ {_ad_n} presupuesto(s) seleccionado(s) para eliminar:</div>
+                      <div style="font-size:11px;color:#991b1b;margin-top:4px;">{' · '.join(_ad_seleccionados)}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                with _ad_col2:
+                    if st.button(f"🗑️ Eliminar seleccionados ({_ad_n})", type="primary",
+                                 use_container_width=True, key="ad_btn_eliminar"):
+                        st.session_state['ad_confirmar'] = True
+                        st.session_state['ad_eps_a_eliminar'] = _ad_seleccionados
+                        st.rerun()
+
+            # ── Confirmación ──
+            if st.session_state.get('ad_confirmar') and st.session_state.get('ad_eps_a_eliminar'):
+                _eps_el = st.session_state['ad_eps_a_eliminar']
+                st.markdown("---")
+                st.error(f"⚠️ **CONFIRMACIÓN REQUERIDA** — Estás a punto de eliminar **{len(_eps_el)} presupuesto(s)** de forma **permanente e irreversible**. Se eliminarán todos los archivos PDF y datos asociados.")
+                st.markdown(f"**EPs a eliminar:** {', '.join(_eps_el)}")
+                _conf_c1, _conf_c2 = st.columns(2)
+                with _conf_c1:
+                    if st.button("✖️ Cancelar", use_container_width=True, key="ad_btn_cancelar"):
+                        st.session_state.pop('ad_confirmar', None)
+                        st.session_state.pop('ad_eps_a_eliminar', None)
+                        st.rerun()
+                with _conf_c2:
+                    if st.button("⚠️ Sí, eliminar definitivamente", type="primary",
+                                 use_container_width=True, key="ad_btn_confirmar"):
+                        _errores = []
+                        _eliminados = []
+                        with st.spinner("Eliminando presupuestos y archivos..."):
+                            for _ep_del in _eps_el:
+                                try:
+                                    # Eliminar archivos en Storage
+                                    _ep_folder = _ep_del.replace('-','_')
+                                    for _path in [
+                                        f"planos/{_ep_del}/",
+                                        f"notariados/{_ep_del}/",
+                                        f"preview/preview_{_ep_folder}.pdf",
+                                    ]:
+                                        try:
+                                            _files = supabase_admin.storage.from_("planos").list(_path.rstrip('/'))
+                                            if _files:
+                                                _to_del = [f"{_path}{f['name']}" for f in _files]
+                                                supabase_admin.storage.from_("planos").remove(_to_del)
+                                        except: pass
+                                    # Eliminar registro en Supabase
+                                    supabase_admin.table("cotizaciones").delete().eq("numero", _ep_del).execute()
+                                    _eliminados.append(_ep_del)
+                                except Exception as _del_e:
+                                    _errores.append(f"{_ep_del}: {_del_e}")
+
+                        st.session_state.pop('ad_confirmar', None)
+                        st.session_state.pop('ad_eps_a_eliminar', None)
+                        st.session_state.pop('ad_results', None)
+                        if _eliminados:
+                            st.success(f"✅ Eliminados correctamente: {', '.join(_eliminados)}")
+                        if _errores:
+                            st.error(f"❌ Errores: {'; '.join(_errores)}")
+                        st.rerun()
 
 # =========================================================
 # FAB - BOTÓN GUARDAR FLOTANTE
