@@ -7259,6 +7259,8 @@ if tab3 is not None:
             # ADJUDICADO tiene prioridad absoluta
             if row.get('Tiene_Notariado', 0):
                 estado = "🔵 ADJUDICADO"
+            elif str(row.get('Motivo_Rechazo','') or '').strip() not in ('','None','nan'):
+                estado = "❌ RECHAZADO"
             else:
                 datos_completos = all([row['Cliente'], row['Email']])
                 asesor_completo = any([row['Asesor'], row['Asesor_Email'], row['Asesor_Tel']])
