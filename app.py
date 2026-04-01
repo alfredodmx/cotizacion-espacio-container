@@ -11291,21 +11291,103 @@ if tab_contrato is not None:
                             except Exception as _ep3:
                                 st.warning(f"No se pudo cargar el plano: {_ep3}")
 
-                        # ── 4. Combinar PDFs ──
+                        # ── 4. Generar páginas de Anexos ──
+                        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+                        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                        from reportlab.lib.pagesizes import A4
+                        from reportlab.lib import colors as _rl_colors
+
+                        def _generar_anexo_pdf(numero, texto):
+                            """Genera una página A4 de anexo con el mismo estilo del contrato."""
+                            _buf_anx = _iopv.BytesIO()
+                            _doc_anx = SimpleDocTemplate(_buf_anx, pagesize=A4,
+                                leftMargin=50, rightMargin=50, topMargin=80, bottomMargin=60)
+                            _styles_anx = getSampleStyleSheet()
+                            _titulo_anx = ParagraphStyle('TituloAnexo',
+                                fontName='Helvetica-Bold', fontSize=13, leading=18,
+                                textColor=colors.HexColor('#0d2266'),
+                                spaceAfter=20, alignment=1)
+                            _cuerpo_anx = ParagraphStyle('CuerpoAnexo',
+                                fontName='Helvetica', fontSize=10, leading=15,
+                                textColor=colors.black, spaceAfter=12, alignment=4)
+                            _story_anx = [
+                                Spacer(1, 40),
+                                Paragraph(f"ANEXO N°{numero}", _titulo_anx),
+                                Spacer(1, 20),
+                                Paragraph(texto, _cuerpo_anx),
+                            ]
+                            _doc_anx.build(_story_anx)
+                            return _buf_anx.getvalue()
+
+                        _texto_anexo1 = (
+                            "En el presente Anexo N°1 se incorpora, para todos los efectos legales, "
+                            "el plano del proyecto a construir, el cual se entiende formar parte integrante, "
+                            "esencial e inseparable del presente contrato. Dicho plano contiene la definición "
+                            "de las especificaciones técnicas, distribución y dimensiones generales de la obra "
+                            "a ejecutar, constituyendo el instrumento base para su correcta interpretación y "
+                            "ejecución. Cualquier modificación al mismo deberá constar por escrito y ser "
+                            "debidamente aprobada por las partes."
+                        )
+                        _texto_anexo2 = (
+                            "En el presente Anexo N°2 se incorpora la lista de materiales correspondiente "
+                            "a la cotización, la cual se entiende formar parte integrante e inseparable del "
+                            "presente contrato. Dicho documento detalla los insumos considerados para la "
+                            "ejecución del proyecto, incluyendo sus características y cantidades, las que "
+                            "tendrán carácter referencial, salvo estipulación expresa en contrario."
+                        )
+
+                        _pdf_anexo1 = _generar_anexo_pdf(1, _texto_anexo1) if _pdf_plano else None
+                        _pdf_anexo2 = _generar_anexo_pdf(2, _texto_anexo2) if _pdf_presupuesto else None
+
+                        # ── 5. Normalizar todas las páginas a A4 con PyMuPDF ──
+                        import fitz as _fitz_pv
+
+                        def _normalizar_a_a4(pdf_bytes):
+                            """Convierte todas las páginas a A4 con contenido centrado y proporcional."""
+                            if not pdf_bytes: return None
+                            _data = pdf_bytes if isinstance(pdf_bytes, bytes) else pdf_bytes.getvalue()
+                            _src = _fitz_pv.open(stream=_data, filetype="pdf")
+                            _dst = _fitz_pv.open()
+                            _a4_w, _a4_h = 595, 842  # A4 en puntos
+                            _margin = 20
+                            for _pg in _src:
+                                _new_pg = _dst.new_page(width=_a4_w, height=_a4_h)
+                                _rect = _pg.rect
+                                _pw, _ph = _rect.width, _rect.height
+                                # Calcular escala proporcional
+                                _area_w = _a4_w - 2*_margin
+                                _area_h = _a4_h - 2*_margin
+                                _scale = min(_area_w/_pw, _area_h/_ph) if _pw > 0 and _ph > 0 else 1
+                                _new_w = _pw * _scale
+                                _new_h = _ph * _scale
+                                _x0 = (_a4_w - _new_w) / 2
+                                _y0 = (_a4_h - _new_h) / 2
+                                _clip = _fitz_pv.Rect(_x0, _y0, _x0+_new_w, _y0+_new_h)
+                                _new_pg.show_pdf_page(_clip, _src, _pg.number)
+                            _buf_out = _iopv.BytesIO()
+                            _dst.save(_buf_out)
+                            return _buf_out.getvalue()
+
+                        # ── 6. Combinar en orden: Contrato → Anexo1 → Plano → Anexo2 → Presupuesto ──
                         _writer = _PdfWriter()
 
-                        def _add_pdf(data):
-                            if data:
-                                _buf = _iopv.BytesIO(data if isinstance(data, bytes) else data.getvalue())
-                                _reader = _PdfReader(_buf)
-                                for _page in _reader.pages:
-                                    _writer.add_page(_page)
+                        def _add_pdf_norm(data):
+                            """Agrega PDF normalizado a A4 al writer."""
+                            if not data: return
+                            _norm = _normalizar_a_a4(data)
+                            if not _norm: return
+                            _buf = _iopv.BytesIO(_norm)
+                            _reader = _PdfReader(_buf)
+                            for _page in _reader.pages:
+                                _writer.add_page(_page)
 
-                        _add_pdf(_pdf_contrato)
-                        if _pdf_presupuesto:
-                            _add_pdf(_pdf_presupuesto)
+                        _add_pdf_norm(_pdf_contrato)
                         if _pdf_plano:
-                            _add_pdf(_pdf_plano)
+                            _add_pdf_norm(_pdf_anexo1)
+                            _add_pdf_norm(_pdf_plano)
+                        if _pdf_presupuesto:
+                            _add_pdf_norm(_pdf_anexo2)
+                            _add_pdf_norm(_pdf_presupuesto)
 
                         _combined_buf = _iopv.BytesIO()
                         _writer.write(_combined_buf)
