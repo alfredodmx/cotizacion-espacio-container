@@ -11424,9 +11424,9 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     except: _cn_timing = "—"
 
                 if _cn_adj:
-                    _cn_badge = '<span style="background:#dbeafe;color:#1d4ed8;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;border:1px solid #93c5fd;white-space:nowrap;">🔵 ADJUDICADO</span>'
+                    _cn_badge = '<span style="background-color:#2563eb;color:white;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;border:1px solid #1d4ed8;box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">🔵 ADJUDICADO</span>'
                 else:
-                    _cn_badge = '<span style="background:#fef9c3;color:#854d0e;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;border:1px solid #fde68a;white-space:nowrap;">🟡 CONTRATO PENDIENTE</span>'
+                    _cn_badge = '<span style="background-color:#ffc107;color:#212529;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;border:1px solid #d39e00;box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">🟡 CONTRATO PENDIENTE</span>'
 
                 _rows_cn += (
                     f"<tr>"
