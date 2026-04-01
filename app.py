@@ -2986,6 +2986,7 @@ if _tema == "dark":
     .stPopover > button { background-color: #1e293b !important; color: #f1f5f9 !important; border: 1px solid #334155 !important; }
     .resultados-table { background: #1e293b !important; border-color: #334155 !important; }
     .resultados-table th { background-color: #0f172a !important; color: #f1f5f9 !important; border-bottom: 2px solid #334155 !important; }
+    .resultados-table th.th-adj { background-color: #fbbf24 !important; color: #0f172a !important; }
     .resultados-table td { color: #cbd5e1 !important; background-color: #1e293b !important; border-bottom: 1px solid #334155 !important; }
     .resultados-table td.demora-col { color: #f87171 !important; }
     .resultados-table tr:hover td { background-color: #334155 !important; }
@@ -6956,7 +6957,7 @@ if tab3 is not None:
             <div style="{_altura_css}">
                 <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:1700px;table-layout:auto;white-space:nowrap;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
-                        <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th style="background:#fbbf24 !important;color:#0f172a !important;">Fecha adjudicación</th><th style="background:#fbbf24 !important;color:#0f172a !important;">Tiempo fabricación</th><th style="background:#fbbf24 !important;color:#0f172a !important;">Fidelización cliente</th><th style="background:#fbbf24 !important;color:#0f172a !important;">Retraso proyecto</th></tr>
+                        <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th class="th-adj">Fecha adjudicación</th><th class="th-adj">Tiempo fabricación</th><th class="th-adj">Fidelización cliente</th><th class="th-adj">Retraso proyecto</th></tr>
                     </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
