@@ -11353,8 +11353,8 @@ if tab_contrato is not None:
                                 borderPadding=(4, 8, 4, 8))
                             _st_norm = ParagraphStyle(f'AxNorm{numero}',
                                 parent=_base['Normal'],
-                                fontName='Times-Roman', fontSize=10.5,
-                                leading=16, spaceAfter=6,
+                                fontName='Times-Roman', fontSize=12.5,
+                                leading=19, spaceAfter=6,
                                 alignment=TA_JUSTIFY, firstLineIndent=0)
                             _story_anx = [
                                 Spacer(1, 0.5*_cm),
