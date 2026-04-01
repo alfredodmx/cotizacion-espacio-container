@@ -7271,7 +7271,7 @@ if tab3 is not None:
                         estado = "🟠 BORRADOR CON PLANO" if row['Tiene_Plano'] else "🟡 BORRADOR"
                     else:
                         estado = "🔴 INCOMPLETO CON PLANO" if row['Tiene_Plano'] else "🔴 INCOMPLETO"
-            plano_indicador = "📎" if row['Tiene_Plano'] else "❌"
+            plano_indicador = "📎" if row['Tiene_Plano'] else ""
             # Extraer solo el monto sin HTML para el selectbox
             _total_raw = st.session_state.resultados_busqueda
             _total_limpio = ""
