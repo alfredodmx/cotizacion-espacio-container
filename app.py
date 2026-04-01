@@ -6841,6 +6841,38 @@ if tab3 is not None:
             _pln_color = 'color:#16a34a;font-weight:700;' if row['Plano']       == '✅ Sí' else 'color:#94a3b8;'
             rows_html += f"<tr><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Cliente'] or '—'}</td><td style='text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.6;'>{row['Total']}</td>{_td_tc}<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Asesor'] or '—'}</td><td style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td class='demora-col' style='text-align:center;font-size:0.82rem;font-weight:700;'>{row['Demora']}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td>{_td_margen}<td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td></tr>"
 
+        # Badge resumen por estado
+        # Contar por estado usando los badges ya calculados
+        _estados_cnt = {}
+        for _badge_val in df_resultados["Estado"]:
+            # Extraer texto del badge HTML
+            import re as _re_badge
+            _txt = _re_badge.sub('<[^>]+>', '', str(_badge_val)).strip()
+            _estados_cnt[_txt] = _estados_cnt.get(_txt, 0) + 1
+
+        _badge_res = (
+            f"<span style='background:#ede9fe;color:#6d28d9;padding:3px 12px;border-radius:99px;"
+            f"font-size:11px;font-weight:700;margin-right:6px;'>{n_resultados} resultados</span>"
+        )
+        _badge_map = [
+            ('🔵 ADJUDICADO',          '🔵', '#dbeafe', '#1d4ed8', 'adjudicados'),
+            ('🟢 AUTORIZADO CON PLANO','🟢', '#dcfce7', '#15803d', 'aut. con plano'),
+            ('🟢 AUTORIZADO',          '🟢', '#dcfce7', '#15803d', 'autorizados'),
+            ('🟠 BORRADOR CON PLANO',  '🟠', '#ffedd5', '#c2410c', 'borrador con plano'),
+            ('🟡 BORRADOR',            '🟡', '#fef9c3', '#854d0e', 'borrador'),
+            ('🔴 INCOMPLETO CON PLANO','🔴', '#fee2e2', '#dc2626', 'incompleto con plano'),
+            ('🔴 INCOMPLETO',          '🔴', '#fee2e2', '#dc2626', 'incompletos'),
+        ]
+        for _key, _ico, _bg, _col, _lbl in _badge_map:
+            _cnt = _estados_cnt.get(_key, 0)
+            if _cnt:
+                _badge_res += (
+                    f"<span style='background:{_bg};color:{_col};padding:3px 10px;border-radius:99px;"
+                    f"font-size:11px;font-weight:700;margin-right:6px;'>{_ico} {_cnt} {_lbl}</span>"
+                )
+        st.markdown(_badge_res, unsafe_allow_html=True)
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
         # Altura adaptativa: si hay pocas filas, altura real sin scroll
         _altura_real = n_resultados * 60 + 60
         _usar_scroll = _altura_real > 550
