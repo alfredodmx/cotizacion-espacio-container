@@ -6805,7 +6805,7 @@ if tab3 is not None:
         df_resultados["ContratoCol"] = df_resultados["Tiene_Contrato"].apply(lambda x: "✅ Sí" if x else "—")
         df_resultados["EmpresaCol"] = df_resultados["Empresa"].apply(lambda x: "✅ Sí" if x and x.strip() else "—")
         df_resultados["ModCol"] = df_resultados["NLogs"].apply(
-            lambda x: f'<span style="font-weight:700;color:#3b82f6;">{x}</span>' if x > 0 else '<span style="color:#94a3b8;">0</span>')
+            lambda x: f'<span style="font-weight:700;color:#3b82f6;">{int(x)}</span>' if (x is not None and str(x) != '' and int(x or 0) > 0) else '<span style="color:#94a3b8;">0</span>')
 
         n_resultados = len(df_resultados)
         altura_tabla = min(n_resultados * 52 + 60, 550)
