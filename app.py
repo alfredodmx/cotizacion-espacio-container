@@ -9203,27 +9203,37 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
             st.error(f"Error: {_oe}")
             st.session_state['oper_results'] = []
 
-    if 'oper_results' not in st.session_state:
-        # carga inicial
+    if 'oper_results' not in st.session_state or (_oper_buscar is False and _oper_ej_sel != st.session_state.get('_oper_ej_prev')):
+        st.session_state['_oper_ej_prev'] = _oper_ej_sel
         try:
-            _ores0 = supabase.table("cotizaciones").select(
+            _oq0 = supabase.table("cotizaciones").select(
                 "numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_email,"
                 "asesor_nombre,asesor_email,asesor_telefono,estado,plano_url,plano_nombre,"
                 "config_margen,contrato_generado,productos,total_subtotal_sin_margen,"
                 "contrato_notariado_url,fecha_adjudicacion,contrato_datos"
-            ).gt("config_margen", 0).order("fecha_creacion", desc=True).limit(100).execute()
+            ).gt("config_margen", 0)
+            if _oper_ej_sel != 'Todos':
+                _oq0 = _oq0.eq("asesor_nombre", _oper_ej_sel)
+            _ores0 = _oq0.order("fecha_creacion", desc=True).limit(100).execute()
             st.session_state['oper_results'] = _ores0.data or []
         except Exception:
             st.session_state['oper_results'] = []
 
     _oper_data = st.session_state.get('oper_results', [])
 
-    if _oper_ej_sel != 'Todos':
-        st.markdown(
-            f"<span style='background:#ede9fe;color:#6d28d9;padding:3px 12px;border-radius:99px;"
-            f"font-size:11px;font-weight:700;'>👤 {_oper_ej_sel} · {len(_oper_data)} resultados</span>",
-            unsafe_allow_html=True)
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    # Badge resumen siempre visible con conteo de estados
+    _n_adj_op  = sum(1 for r in _oper_data if r.get('contrato_notariado_url'))
+    _n_pend_op = len(_oper_data) - _n_adj_op
+    _ej_label  = f"👤 {_oper_ej_sel} · " if _oper_ej_sel != 'Todos' else ""
+    st.markdown(
+        f"<span style='background:#ede9fe;color:#6d28d9;padding:3px 12px;border-radius:99px;"
+        f"font-size:11px;font-weight:700;margin-right:6px;'>{_ej_label}{len(_oper_data)} resultados</span>"
+        f"<span style='background:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:99px;"
+        f"font-size:11px;font-weight:700;margin-right:6px;'>🔵 {_n_adj_op} adjudicados</span>"
+        f"<span style='background:#fef9c3;color:#854d0e;padding:3px 10px;border-radius:99px;"
+        f"font-size:11px;font-weight:700;'>🟡 {_n_pend_op} pendiente compras</span>",
+        unsafe_allow_html=True)
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
     if not _oper_data:
         st.info("No se encontraron cotizaciones.")
