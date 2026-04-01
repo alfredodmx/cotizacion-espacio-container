@@ -9513,8 +9513,8 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
         # Resetear visor si cambia el EP seleccionado
         if st.session_state.get('oper_ep_anterior') != _ep_sel_op:
             st.session_state['oper_ep_anterior'] = _ep_sel_op
-            st.session_state['oper_show_plano']  = False
-            st.session_state['oper_plano_url']   = None
+            # Solo actualizar la URL del plano, mantener el visor abierto si estaba abierto
+            st.session_state['oper_plano_url'] = None
 
         if _ep_sel_op and _ep_sel_op in _ep_labels_op:
             _sel_adj_card = "🔵" in _ep_labels_op[_ep_sel_op]
