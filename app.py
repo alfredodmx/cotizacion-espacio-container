@@ -9513,8 +9513,8 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
             _txt_color = "#1d4ed8" if _sel_adj_card else "#854d0e"
             _badge_txt = "🔵 ADJUDICADO" if _sel_adj_card else "🟡 PENDIENTE COMPRAS"
             _sel_r     = next((r for r in _oper_data if r.get("numero") == _ep_sel_op), {})
-            _sel_tc    = _calc_total_costo(_sel_r) if _sel_listo else 0
-            _tc_span = f'<span style="font-size:13px;font-weight:700;color:#1d4ed8;">{_fmt_op_tc(_sel_tc)}</span>' if _sel_listo else ""
+            _sel_tc    = _calc_total_costo(_sel_r) if _sel_adj_card else 0
+            _tc_span = f'<span style="font-size:13px;font-weight:700;color:#1d4ed8;">{_fmt_op_tc(_sel_tc)}</span>' if _sel_adj_card else ""
             _cli_nom = _sel_r.get("cliente_nombre","—")
             _ej_nom  = _sel_r.get("asesor_nombre","—")
             st.markdown(
