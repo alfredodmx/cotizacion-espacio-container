@@ -4790,6 +4790,32 @@ def cargar_ranking_ejecutivos(periodo='mes'):
         return []
 
 
+# Detectar si el presupuesto cargado está ADJUDICADO
+_ep_cargado = st.session_state.get('cotizacion_cargada', '')
+_es_adjudicado = False
+if _ep_cargado and not st.session_state.get('_adj_check_ep') == _ep_cargado:
+    try:
+        _adj_check = supabase.table('cotizaciones').select('contrato_notariado_url').eq('numero', _ep_cargado).execute()
+        _es_adjudicado = bool((_adj_check.data or [{}])[0].get('contrato_notariado_url','')) if _adj_check.data else False
+        st.session_state['_adj_check_ep']  = _ep_cargado
+        st.session_state['_adj_es_adj']    = _es_adjudicado
+    except Exception:
+        _es_adjudicado = st.session_state.get('_adj_es_adj', False)
+else:
+    _es_adjudicado = st.session_state.get('_adj_es_adj', False)
+
+# Solo lectura si: ejecutivo con margen, o admin con presupuesto adjudicado
+_es_solo_lectura = (
+    (st.session_state.cotizacion_cargada and
+     st.session_state.margen > 0 and
+     not st.session_state.modo_admin) or
+    (_es_adjudicado and
+     st.session_state.modo_admin and
+     not st.session_state.get('es_root', False))
+)
+
+_hash_actual = calcular_hash_estado()
+
 # =========================================================
 # TABS
 # =========================================================
@@ -8585,30 +8611,6 @@ if st.session_state.get('es_root') and tab_salud is not None:
 # =========================================================
 # FAB - BOTÓN GUARDAR FLOTANTE
 # =========================================================
-# Detectar si el presupuesto cargado está ADJUDICADO
-_ep_cargado = st.session_state.get('cotizacion_cargada', '')
-_es_adjudicado = False
-if _ep_cargado and not st.session_state.get('_adj_check_ep') == _ep_cargado:
-    try:
-        _adj_check = supabase.table('cotizaciones').select('contrato_notariado_url').eq('numero', _ep_cargado).execute()
-        _es_adjudicado = bool((_adj_check.data or [{}])[0].get('contrato_notariado_url','')) if _adj_check.data else False
-        st.session_state['_adj_check_ep']  = _ep_cargado
-        st.session_state['_adj_es_adj']    = _es_adjudicado
-    except Exception:
-        _es_adjudicado = st.session_state.get('_adj_es_adj', False)
-else:
-    _es_adjudicado = st.session_state.get('_adj_es_adj', False)
-
-# Solo lectura si: ejecutivo con margen, o admin con presupuesto adjudicado
-_es_solo_lectura = (
-    (st.session_state.cotizacion_cargada and
-     st.session_state.margen > 0 and
-     not st.session_state.modo_admin) or
-    (_es_adjudicado and
-     st.session_state.modo_admin and
-     not st.session_state.get('es_root', False))
-)
-
 _hash_actual = calcular_hash_estado()
 _hay_cambios = _hash_actual != st.session_state.get('hash_ultimo_guardado')
 
