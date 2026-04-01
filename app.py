@@ -8795,14 +8795,33 @@ if tab_reporte is not None and st.session_state.modo_admin:
     _rep_dias = {"Último mes": 30, "Últimos 3 meses": 90, "Últimos 6 meses": 180, "Todo el tiempo": 36500}[_rep_periodo]
 
     st.markdown(f"""
-    <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:18px;
-                padding:28px 32px;margin-bottom:24px;display:flex;align-items:center;
-                justify-content:space-between;">
+    <style>
+    .hdr-reporte {{
+        background: linear-gradient(135deg, #312e81 0%, #4f46e5 100%);
+        border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
+        display: flex; align-items: center; gap: 22px;
+        box-shadow: 0 8px 32px rgba(79,70,229,0.35);
+        position: relative; overflow: hidden;
+    }}
+    .hdr-reporte::before {{
+        content: ''; position: absolute; top: -40px; right: -40px;
+        width: 180px; height: 180px; border-radius: 50%;
+        background: rgba(255,255,255,0.04); pointer-events: none;
+    }}
+    .hdr-reporte::after {{
+        content: ''; position: absolute; bottom: -60px; right: 80px;
+        width: 240px; height: 240px; border-radius: 50%;
+        background: rgba(255,255,255,0.03); pointer-events: none;
+    }}
+    .hdr-reporte h2 {{ color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
+                       font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }}
+    .hdr-reporte p  {{ color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }}
+    </style>
+    <div class="hdr-reporte">
+      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📈</span>
       <div>
-        <h2 style="color:#fff;font-family:Montserrat,sans-serif;font-size:1.6rem;
-                   font-weight:900;margin:0;">📈 Reporte de Inteligencia Comercial</h2>
-        <p style="color:rgba(255,255,255,0.55);font-size:0.82rem;margin:6px 0 0;">
-          Espacio Container House SpA · Período: {_rep_periodo} · Solo admin y root</p>
+        <h2>Reporte de Inteligencia Comercial</h2>
+        <p>Espacio Container House SpA · Período: {_rep_periodo} · Solo admin y root</p>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -9150,14 +9169,33 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
         transform: translateY(-1px) !important;
     }
     </style>
-    <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:18px;
-                padding:24px 32px;margin-bottom:20px;display:flex;align-items:center;gap:16px;">
-      <span style="font-size:1.8rem;">⚙️</span>
+    <style>
+    .hdr-oper {
+        background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+        border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
+        display: flex; align-items: center; gap: 22px;
+        box-shadow: 0 8px 32px rgba(30,58,95,0.35);
+        position: relative; overflow: hidden;
+    }
+    .hdr-oper::before {
+        content: ''; position: absolute; top: -40px; right: -40px;
+        width: 180px; height: 180px; border-radius: 50%;
+        background: rgba(255,255,255,0.04); pointer-events: none;
+    }
+    .hdr-oper::after {
+        content: ''; position: absolute; bottom: -60px; right: 80px;
+        width: 240px; height: 240px; border-radius: 50%;
+        background: rgba(255,255,255,0.03); pointer-events: none;
+    }
+    .hdr-oper h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
+                   font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
+    .hdr-oper p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
+    </style>
+    <div class="hdr-oper">
+      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">⚙️</span>
       <div>
-        <h2 style="color:#fff;font-family:Montserrat,sans-serif;font-size:1.3rem;
-                   font-weight:900;margin:0;">Operaciones</h2>
-        <p style="color:rgba(255,255,255,0.5);font-size:0.8rem;margin:4px 0 0;">
-          PDF de compras y planos · Total costo = base sin margen + IVA, sin categoría Varios</p>
+        <h2>Operaciones</h2>
+        <p>PDF de compras · planos · seguimiento de fabricación y fidelización de clientes</p>
       </div>
     </div>
     """, unsafe_allow_html=True)
