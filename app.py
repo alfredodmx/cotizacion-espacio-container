@@ -6743,11 +6743,12 @@ if tab3 is not None:
             txt += s+'s';
             el.textContent = txt;
             // Color dinámico
-            var pct = (diff / (plazo * 86400000)) * 100;
-            el.style.color = pct > 50 ? '#16a34a' : (pct > 20 ? '#f97316' : '#dc2626');
+            var pctRestante = (diff / (plazo * 86400000)) * 100;
+            var pctAvance = Math.round(100 - pctRestante);
+            el.style.color = pctRestante > 50 ? '#16a34a' : (pctRestante > 20 ? '#f97316' : '#dc2626');
             // Actualizar % al lado
             var pctEl = el.nextElementSibling;
-            if(pctEl) { pctEl.textContent = Math.round(pct)+'%'; pctEl.style.color = el.style.color; }
+            if(pctEl) { pctEl.textContent = pctAvance+'%'; pctEl.style.color = el.style.color; }
         });
     }
     setInterval(updateLiveTimers, 1000);
@@ -9252,9 +9253,10 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                             if _rd > 0: _rpartes.append(f"{_rd}d")
                             if _rh > 0: _rpartes.append(f"{_rh}h")
                             _rpartes.append(f"{_rm}m")
-                            _pct = (_restante.total_seconds() / (_plazo_dias * 86400)) * 100
-                            _pct_r = round(_pct)
-                            _col_r = "#16a34a" if _pct > 50 else ("#f97316" if _pct > 20 else "#dc2626")
+                            _pct_restante = (_restante.total_seconds() / (_plazo_dias * 86400)) * 100
+                            _pct_avance = round(100 - _pct_restante)
+                            _pct_r = _pct_avance
+                            _col_r = "#16a34a" if _pct_restante > 50 else ("#f97316" if _pct_restante > 20 else "#dc2626")
                             _ts_fidel = int((_d_adj + _td_op(days=_plazo_dias)).timestamp() * 1000)
                             _fidel_html = (
                                 f'<div style="display:flex;align-items:center;gap:8px;">'                                f'<span class="fidel-live" data-hasta="{_ts_fidel}" data-plazo="{_plazo_dias}" '                                f'style="color:{_col_r};font-weight:700;font-variant-numeric:tabular-nums;min-width:90px;">⏳ {" ".join(_rpartes)}</span>'                                f'<span style="font-size:1.3rem;font-weight:900;color:{_col_r};">{_pct_r}%</span>'                                f'</div>'                                f'<span style="font-size:0.72em;color:#94a3b8;">{_plazo_dias} días hábiles</span>'
