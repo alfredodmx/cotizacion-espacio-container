@@ -6748,7 +6748,7 @@ if tab3 is not None:
             el.style.color = pctRestante > 50 ? '#16a34a' : (pctRestante > 20 ? '#f97316' : '#dc2626');
             // Actualizar % al lado
             var pctEl = el.nextElementSibling;
-            if(pctEl) { pctEl.textContent = pctAvance+'%'; pctEl.style.color = el.style.color; }
+            if(pctEl) { pctEl.textContent = (Math.round((100-pctRestante)*100)/100).toFixed(2)+'%'; pctEl.style.color = el.style.color; }
         });
     }
     setInterval(updateLiveTimers, 1000);
@@ -9254,7 +9254,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                             if _rh > 0: _rpartes.append(f"{_rh}h")
                             _rpartes.append(f"{_rm}m")
                             _pct_restante = (_restante.total_seconds() / (_plazo_dias * 86400)) * 100
-                            _pct_avance = round(100 - _pct_restante)
+                            _pct_avance = round(100 - _pct_restante, 2)
                             _pct_r = _pct_avance
                             _col_r = "#16a34a" if _pct_restante > 50 else ("#f97316" if _pct_restante > 20 else "#dc2626")
                             _ts_fidel = int((_d_adj + _td_op(days=_plazo_dias)).timestamp() * 1000)
