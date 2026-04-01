@@ -6956,7 +6956,7 @@ if tab3 is not None:
             <div style="{_altura_css}">
                 <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:1700px;table-layout:auto;white-space:nowrap;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
-                        <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th style="background:#fbbf24;color:#0f172a;">Fecha adjudicación</th><th style="background:#fbbf24;color:#0f172a;">Tiempo fabricación</th><th style="background:#fbbf24;color:#0f172a;">Fidelización cliente</th><th style="background:#fbbf24;color:#0f172a;">Retraso proyecto</th></tr>
+                        <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th style="background:#fbbf24 !important;color:#0f172a !important;">Fecha adjudicación</th><th style="background:#fbbf24 !important;color:#0f172a !important;">Tiempo fabricación</th><th style="background:#fbbf24 !important;color:#0f172a !important;">Fidelización cliente</th><th style="background:#fbbf24 !important;color:#0f172a !important;">Retraso proyecto</th></tr>
                     </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
