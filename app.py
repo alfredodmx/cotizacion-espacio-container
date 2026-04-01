@@ -7280,7 +7280,13 @@ if tab3 is not None:
             opciones.append(f"{row['N°']} - {row['Cliente'] or 'S/C'} ({row['FechaPlana']}) - {_total_limpio} - {estado} {plano_indicador}")
 
         if opciones:
-            cotizacion_seleccionada = st.selectbox("Selecciona una cotización:", options=opciones, key="selector_cotizaciones")
+            _col_sel, _col_rec_btn = st.columns([4, 1])
+            with _col_sel:
+                cotizacion_seleccionada = st.selectbox("Selecciona una cotización:", options=opciones, key="selector_cotizaciones", label_visibility="collapsed")
+                st.caption("Selecciona una cotización")
+            with _col_rec_btn:
+                st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+                _btn_rec_placeholder = st.empty()
 
             if cotizacion_seleccionada:
                 numero_seleccionado = cotizacion_seleccionada.split(" - ")[0]
@@ -7363,14 +7369,30 @@ if tab3 is not None:
                       <div style="font-size:11px;color:#991b1b;margin-top:3px;"><b>Motivo:</b> {_sel_motivo_rec}</div>
                     </div>
                     """, unsafe_allow_html=True)
-                    if st.button("↩️ Quitar rechazo", use_container_width=True, key="btn_quitar_rechazo"):
-                        supabase_admin.table("cotizaciones").update({"motivo_rechazo": None, "fecha_rechazo": None}).eq("numero", numero_seleccionado).execute()
-                        st.success("✅ Rechazo eliminado")
-                        st.rerun()
+                    with _btn_rec_placeholder:
+                        if st.button("↩️ Quitar rechazo", use_container_width=True, key="btn_quitar_rechazo"):
+                            supabase_admin.table("cotizaciones").update({"motivo_rechazo": None, "fecha_rechazo": None}).eq("numero", numero_seleccionado).execute()
+                            st.success("✅ Rechazo eliminado")
+                            st.rerun()
                 else:
-                    if st.button("❌ Marcar como rechazado", use_container_width=True, key="btn_rechazar_cot"):
-                        st.session_state['_show_rechazo_dialog'] = numero_seleccionado
-                        st.rerun()
+                    with _btn_rec_placeholder:
+                        st.markdown("""
+                        <style>
+                        .st-key-btn_rechazar_cot button {
+                            background-color: #dc2626 !important;
+                            color: white !important;
+                            border: none !important;
+                            font-size: 0.75rem !important;
+                            padding: 4px 10px !important;
+                        }
+                        .st-key-btn_rechazar_cot button:hover {
+                            background-color: #b91c1c !important;
+                        }
+                        </style>
+                        """, unsafe_allow_html=True)
+                        if st.button("❌ Rechazar", use_container_width=True, key="btn_rechazar_cot"):
+                            st.session_state['_show_rechazo_dialog'] = numero_seleccionado
+                            st.rerun()
 
             if st.session_state.get('_show_rechazo_dialog') == numero_seleccionado:
                 @st.dialog("❌ Motivo de rechazo")
