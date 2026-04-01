@@ -6893,6 +6893,46 @@ if tab3 is not None:
         """
         st.markdown(html_table, unsafe_allow_html=True)
 
+        # Botones scroll horizontal tabla cotizaciones
+        import streamlit.components.v1 as _scroll_h_comp
+        _scroll_h_comp.html("""
+<style>
+.tbl-scroll-wrap { display:flex; align-items:center; gap:8px; margin-top:6px; }
+.tbl-scroll-btn {
+    background:rgba(15,23,42,0.7); color:#e2e8f0;
+    border:1px solid rgba(255,255,255,0.12); border-radius:8px;
+    padding:4px 14px; font-size:1rem; cursor:pointer;
+    font-weight:700; line-height:1; transition:background 0.15s;
+    user-select:none;
+}
+.tbl-scroll-btn:hover { background:rgba(37,99,235,0.7); color:#fff; }
+.tbl-scroll-label { font-size:10px; color:#94a3b8; font-family:sans-serif; }
+</style>
+<div class="tbl-scroll-wrap">
+  <button class="tbl-scroll-btn" id="btn-left">◀</button>
+  <span class="tbl-scroll-label">scroll horizontal</span>
+  <button class="tbl-scroll-btn" id="btn-right">▶</button>
+</div>
+<script>
+(function(){
+  var D = window.parent.document;
+  function getTbl(){
+    var divs = D.querySelectorAll('[style*="overflow-x:auto"], [style*="overflow-x: auto"]');
+    for(var i=0;i<divs.length;i++){
+      if(divs[i].querySelector('.resultados-table')) return divs[i];
+    }
+    return null;
+  }
+  document.getElementById('btn-left').addEventListener('click', function(){
+    var t = getTbl(); if(t) t.scrollBy({left:-300, behavior:'smooth'});
+  });
+  document.getElementById('btn-right').addEventListener('click', function(){
+    var t = getTbl(); if(t) t.scrollBy({left:300, behavior:'smooth'});
+  });
+})();
+</script>
+""", height=48)
+
         # JS para copiar EP al hacer click en la celda + contador en vivo
         import streamlit.components.v1 as _ep_copy_comp
         _ep_copy_comp.html("""<script>
