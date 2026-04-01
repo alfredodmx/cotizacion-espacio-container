@@ -2188,7 +2188,8 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
             'numero', 'cliente_nombre', 'asesor_nombre', 'fecha_creacion',
             'total_total', 'config_margen', 'cliente_rut', 'cliente_email',
             'asesor_email', 'asesor_telefono', 'plano_url', 'contrato_generado', 'cliente_empresa',
-            'fecha_autorizacion', 'autorizado_por', 'contrato_notariado_url'
+            'fecha_autorizacion', 'autorizado_por', 'contrato_notariado_url',
+            'fecha_adjudicacion', 'contrato_datos'
         )
         # Filtrar por usuario si es ejecutivo (no admin ni root)
         _rol_q = st.session_state.get('rol_usuario', 'ejecutivo')
@@ -2225,7 +2226,10 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
                 row.get('cliente_empresa', '') or '',
                 row.get('fecha_autorizacion', '') or '',
                 row.get('autorizado_por', '') or '',
-                1 if row.get('contrato_notariado_url') else 0
+                1 if row.get('contrato_notariado_url') else 0,
+                row.get('fecha_adjudicacion', '') or '',
+                row.get('contrato_datos', '') or '',
+                row.get('contrato_notariado_url', '') or '',
             ))
         # Agregar conteo de logs
         numeros_ep = [r[0] for r in resultados]
@@ -6697,7 +6701,7 @@ if tab3 is not None:
         st.rerun()
 
     if st.session_state.resultados_busqueda:
-        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa", "Fecha_Auth", "Autorizado_Por", "Tiene_Notariado", "NLogs"]
+        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa", "Fecha_Auth", "Autorizado_Por", "Tiene_Notariado", "NLogs", "Fecha_Adj", "Contrato_Datos", "Not_URL"]
         _rows_norm = []
         for _r in st.session_state.resultados_busqueda:
             _r = list(_r)
@@ -6839,7 +6843,70 @@ if tab3 is not None:
             _ct_color  = 'color:#16a34a;font-weight:700;' if row['ContratoCol'] == '✅ Sí' else 'color:#94a3b8;'
             _emp_color = 'color:#16a34a;font-weight:700;' if row['EmpresaCol']  == '✅ Sí' else 'color:#94a3b8;'
             _pln_color = 'color:#16a34a;font-weight:700;' if row['Plano']       == '✅ Sí' else 'color:#94a3b8;'
-            rows_html += f"<tr><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Cliente'] or '—'}</td><td style='text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.6;'>{row['Total']}</td>{_td_tc}<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Asesor'] or '—'}</td><td style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td class='demora-col' style='text-align:center;font-size:0.82rem;font-weight:700;'>{row['Demora']}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td>{_td_margen}<td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td></tr>"
+            # ── Columnas adjudicación (solo si adjudicado) ──
+            import json as _json_cot
+            from datetime import datetime as _dt_cot, timezone as _tz_cot, timedelta as _td_cot
+            _tz_cl_cot  = _tz_cot(_td_cot(hours=-3))
+            _es_adj_cot = bool(str(row.get('Not_URL','') or ''))
+            _fadj_raw_cot = str(row.get('Fecha_Adj','') or '')
+            if _es_adj_cot and not _fadj_raw_cot:
+                _fadj_raw_cot = str(row.get('Fecha_Auth','') or '')
+            # Fecha adjudicación
+            if _es_adj_cot and _fadj_raw_cot:
+                try:
+                    _d_fadj_cot = _dt_cot.fromisoformat(_fadj_raw_cot.replace("Z","+00:00")).astimezone(_tz_cl_cot)
+                    _fadj_html_cot = (f'<span style="font-weight:700;">{_d_fadj_cot.strftime("%d/%m/%Y")}</span>'
+                                      f'<br><span style="font-size:0.75em;color:#64748b;">{_d_fadj_cot.strftime("%H:%M")}</span>')
+                except: _fadj_html_cot = _fadj_raw_cot[:10]
+            else:
+                _fadj_html_cot = '<span style="color:#94a3b8;">—</span>'
+            # Tiempo fabricación
+            if _es_adj_cot and _fadj_raw_cot:
+                try:
+                    _d_adj_cot  = _dt_cot.fromisoformat(_fadj_raw_cot.replace("Z","+00:00")).astimezone(_tz_cl_cot)
+                    _ts_adj_cot = int(_d_adj_cot.timestamp() * 1000)
+                    _fab_html_cot = (f'<span class="fab-live" data-desde="{_ts_adj_cot}" '
+                                     f'style="color:#2563eb;font-weight:700;display:inline-block;'
+                                     f'min-width:100px;font-variant-numeric:tabular-nums;">...</span>')
+                except: _fab_html_cot = '—'
+            else:
+                _fab_html_cot = '<span style="color:#94a3b8;">—</span>'
+            # Fidelización y Retraso
+            _fidel_html_cot   = '<span style="color:#94a3b8;">—</span>'
+            _retraso_html_cot = '<span style="color:#94a3b8;">—</span>'
+            if _es_adj_cot and _fadj_raw_cot:
+                try:
+                    _cd_cot = row.get('Contrato_Datos') or {}
+                    if isinstance(_cd_cot, str) and _cd_cot: _cd_cot = _json_cot.loads(_cd_cot)
+                    _plazo_cot = int((_cd_cot or {}).get('plazo_dias', 0) or 0)
+                    if _plazo_cot > 0:
+                        _d_adj_fc   = _dt_cot.fromisoformat(_fadj_raw_cot.replace("Z","+00:00")).astimezone(_tz_cl_cot)
+                        _hoy_fc     = _dt_cot.now(_tz_cl_cot).date()
+                        _d_adj_date = _d_adj_fc.date()
+                        _hab_trans  = dias_habiles_entre(_d_adj_date, _hoy_fc)
+                        _d_ent_fc   = sumar_dias_habiles(_d_adj_date, _plazo_cot)
+                        _d_ent_dt   = _dt_cot.combine(_d_ent_fc, _dt_cot.min.time()).replace(tzinfo=_tz_cl_cot)
+                        _ts_ent_cot = int(_d_ent_dt.timestamp() * 1000)
+                        _ts_adj_fc  = int(_d_adj_fc.timestamp() * 1000)
+                        _hab_rest   = dias_habiles_entre(_hoy_fc, _d_ent_fc) if _hoy_fc < _d_ent_fc else 0
+                        _pct_fc     = min(round((_hab_trans / _plazo_cot) * 100, 2), 100.0)
+                        _meses_fc   = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"]
+                        _fent_str   = f"{_d_ent_fc.day} {_meses_fc[_d_ent_fc.month-1]} {_d_ent_fc.year}"
+                        if _hoy_fc <= _d_ent_fc:
+                            _col_fc = "#16a34a" if _pct_fc < 50 else ("#f97316" if _pct_fc < 80 else "#dc2626")
+                            _fidel_html_cot = (
+                                f'<div style="display:flex;align-items:center;gap:8px;">'                                f'<span class="fidel-live" data-hasta="{_ts_ent_cot}" data-plazo="{_plazo_cot}" data-adj="{_ts_adj_fc}" '                                f'style="color:{_col_fc};font-weight:700;font-variant-numeric:tabular-nums;min-width:70px;">⏳ {_hab_rest}d háb.</span>'                                f'<span style="font-size:1.3rem;font-weight:900;color:{_col_fc};">{_pct_fc}%</span>'                                f'</div>'                                f'<span style="font-size:0.72em;color:#64748b;font-weight:600;">📅 {_fent_str}</span>'                                f'<br><span style="font-size:0.68em;color:#94a3b8;">{_plazo_cot} días hábiles</span>'
+                            )
+                        else:
+                            _hab_ret = dias_habiles_entre(_d_ent_fc, _hoy_fc)
+                            _fidel_html_cot   = ('<span style="color:#dc2626;font-weight:700;">⚠️ VENCIDO</span>'
+                                                  f'<br><span style="font-size:0.72em;color:#94a3b8;">{_plazo_cot}d háb.</span>')
+                            _ts_venc_cot      = int(_d_ent_dt.timestamp() * 1000)
+                            _retraso_html_cot = (f'<span class="retraso-live" data-desde="{_ts_venc_cot}" '
+                                                  f'style="color:#dc2626;font-weight:700;display:inline-block;min-width:100px;font-variant-numeric:tabular-nums;">...</span>'
+                                                  f'<br><span style="font-size:0.72em;color:#dc2626;">{_hab_ret}d hábiles</span>')
+                except: pass
+            rows_html += f"<tr><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Cliente'] or '—'}</td><td style='text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.6;'>{row['Total']}</td>{_td_tc}<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Asesor'] or '—'}</td><td style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td class='demora-col' style='text-align:center;font-size:0.82rem;font-weight:700;'>{row['Demora']}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td>{_td_margen}<td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td><td style='line-height:1.6;'>{_fadj_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fab_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fidel_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_retraso_html_cot}</td></tr>"
 
         # Badge resumen por estado
         # Contar por estado usando los badges ya calculados
@@ -6883,7 +6950,7 @@ if tab3 is not None:
             <div style="{_altura_css}">
                 <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:900px;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
-                        <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th></tr>
+                        <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th>Fecha adjudicación</th><th>Tiempo fabricación</th><th>Fidelización cliente</th><th>Retraso proyecto</th></tr>
                     </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
