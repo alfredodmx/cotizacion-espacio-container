@@ -11907,6 +11907,21 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
 
             _cn_altura_real = len(_cn_data) * 60 + 60
             _cn_scroll = f"max-height:{min(_cn_altura_real,550)}px;overflow-y:auto;" if _cn_altura_real > 550 else ""
+
+            # Badge resumen contrato notariado
+            _cn_n_adj  = sum(1 for r in _cn_data if r.get('contrato_notariado_url'))
+            _cn_n_pend = len(_cn_data) - _cn_n_adj
+            _cn_badge_res = (
+                f"<span style='background:#ede9fe;color:#6d28d9;padding:3px 12px;border-radius:99px;"
+                f"font-size:11px;font-weight:700;margin-right:6px;'>{len(_cn_data)} resultados</span>"
+                f"<span style='background:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:99px;"
+                f"font-size:11px;font-weight:700;margin-right:6px;'>🔵 {_cn_n_adj} adjudicados</span>"
+                f"<span style='background:#fef9c3;color:#854d0e;padding:3px 10px;border-radius:99px;"
+                f"font-size:11px;font-weight:700;'>🟡 {_cn_n_pend} contrato pendiente</span>"
+            )
+            st.markdown(_cn_badge_res, unsafe_allow_html=True)
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
             st.markdown(f"""
             <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
               <div style="{_cn_scroll}">
