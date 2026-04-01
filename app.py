@@ -6990,11 +6990,17 @@ if tab3 is not None:
 (function(){
   var D = window.parent.document;
   function getTbl(){
-    var divs = D.querySelectorAll('[style*="overflow-x:auto"], [style*="overflow-x: auto"]');
-    for(var i=0;i<divs.length;i++){
-      if(divs[i].querySelector('.resultados-table')) return divs[i];
+    // Buscar la tabla y subir hasta encontrar el contenedor con scroll
+    var tbl = D.querySelector('.resultados-table');
+    if(!tbl) return null;
+    var el = tbl.parentElement;
+    while(el){
+      var st = window.parent.getComputedStyle(el);
+      if(st.overflowX === 'auto' || st.overflowX === 'scroll') return el;
+      el = el.parentElement;
     }
-    return null;
+    // Fallback: devolver el padre directo de la tabla
+    return tbl.parentElement;
   }
   document.getElementById('btn-left').addEventListener('click', function(){
     var t = getTbl(); if(t) t.scrollBy({left:-300, behavior:'smooth'});
