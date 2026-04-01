@@ -3069,7 +3069,13 @@ if _cot_cargada:
     _datos_hdr  = bool(st.session_state.get('nombre_input') and st.session_state.get('correo_input'))
     _ase_hdr    = st.session_state.get('asesor_seleccionado', '')
     _asesor_hdr = bool(_ase_hdr and _ase_hdr != 'Seleccionar asesor')
-    if _margen_hdr > 0 and _datos_hdr and _asesor_hdr:
+    # ADJUDICADO tiene prioridad absoluta
+    _es_adj_hdr = st.session_state.get('_adj_es_adj', False) and st.session_state.get('_adj_check_ep') == _cot_cargada
+    if _es_adj_hdr:
+        _badge_hdr    = '🔵 ADJUDICADO'
+        _badge_color  = '#2563eb'
+        _header_color = '#1e3a5f'
+    elif _margen_hdr > 0 and _datos_hdr and _asesor_hdr:
         _badge_hdr    = '🟢 AUTORIZADO' + (' CON PLANO' if _plano_hdr else '')
         _badge_color  = '#10b981'
         _header_color = '#064e3b'
