@@ -6841,7 +6841,9 @@ if tab3 is not None:
             # Total costo
             _tc_val  = _tc_map.get(row["N°"], 0)
             _tc_fmt  = f"${_tc_val:,.0f}".replace(",",".") if _tc_val else "—"
-            _th_tc   = '<th>Total costo</th>' if st.session_state.modo_admin else ''
+            _th_tc      = '<th>Total costo</th>' if st.session_state.modo_admin else ''
+            _col_tc     = '<col style="width:130px">' if st.session_state.modo_admin else ''
+            _col_margen = '<col style="width:75px">'  if st.session_state.modo_admin else ''
             _td_tc   = f'<td style="text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;">{_tc_fmt}<br><span style="font-size:0.72em;color:#94a3b8;font-weight:400;">base+IVA · sin margen · sin Varios</span></td>' if st.session_state.modo_admin else ''
 
             _ct_color  = 'color:#16a34a;font-weight:700;' if row['ContratoCol'] == '✅ Sí' else 'color:#94a3b8;'
@@ -6952,7 +6954,16 @@ if tab3 is not None:
         html_table = f"""
         <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
             <div style="{_altura_css}">
-                <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:900px;'>
+                <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:1700px;table-layout:fixed;width:100%;'>
+                  <colgroup>
+                    <col style="width:105px"><col style="width:140px"><col style="width:135px">
+                    {_col_tc}
+                    <col style="width:120px"><col style="width:130px"><col style="width:110px">
+                    <col style="width:105px"><col style="width:130px"><col style="width:65px">
+                    {_col_margen}
+                    <col style="width:65px"><col style="width:55px"><col style="width:55px">
+                    <col style="width:120px"><col style="width:130px"><col style="width:200px"><col style="width:130px">
+                  </colgroup>
                     <thead style='position:sticky;top:0;z-index:2;'>
                         <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th>Fecha adjudicación</th><th>Tiempo fabricación</th><th>Fidelización cliente</th><th>Retraso proyecto</th></tr>
                     </thead>
