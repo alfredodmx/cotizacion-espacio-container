@@ -3126,8 +3126,22 @@ st.markdown(f"""
     display: flex;
     align-items: center;
     padding: 0 1.5rem;
-    z-index: 2147483647;
+    z-index: 99998;
     gap: 12px;
+}}
+/* ── Dialogs y modals siempre sobre el header ── */
+[data-testid="stDialog"] > div > div {{
+    margin-top: 65px !important;
+    max-height: calc(100vh - 65px) !important;
+}}
+div[role="dialog"] {{
+    margin-top: 65px !important;
+    max-height: calc(100vh - 65px) !important;
+}}
+/* ── Tabla fullscreen: empujar bajo el header ── */
+[data-testid="stDataFrame"],
+[data-testid="stDataEditor"] {{
+    scroll-margin-top: 65px;
 }}
 #_usr_header_bar .usr-right {{
     display: flex;
