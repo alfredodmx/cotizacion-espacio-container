@@ -9049,7 +9049,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                 "numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_email,"
                 "asesor_nombre,asesor_email,asesor_telefono,estado,plano_url,plano_nombre,"
                 "config_margen,contrato_generado,productos,total_subtotal_sin_margen,"
-                "contrato_notariado_url"
+                "contrato_notariado_url,fecha_adjudicacion,contrato_datos"
             ).gt("config_margen", 0)
             if _oper_ep.strip():
                 _oq = _oq.ilike("numero", f"%{_oper_ep.strip()}%")
@@ -9068,7 +9068,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                 "numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_email,"
                 "asesor_nombre,asesor_email,asesor_telefono,estado,plano_url,plano_nombre,"
                 "config_margen,contrato_generado,productos,total_subtotal_sin_margen,"
-                "contrato_notariado_url"
+                "contrato_notariado_url,fecha_adjudicacion,contrato_datos"
             ).gt("config_margen", 0).order("fecha_creacion", desc=True).limit(100).execute()
             st.session_state['oper_results'] = _ores0.data or []
         except Exception:
@@ -9152,32 +9152,99 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
             return (f'<span style="background-color:{color};color:{text_color};padding:2px 7px;'                    f'border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;'                    f'border:1px solid {border};box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">'                    f'{label}</span>')
 
         # Construir filas HTML
+        import json as _json_op
+        from datetime import datetime as _dt_op, timezone as _tz_op, timedelta as _td_op
+        _tz_cl_op = _tz_op(_td_op(hours=-3))
+
+        def _fmt_op_fecha_h(x):
+            if not x: return "—"
+            try:
+                _d = _dt_op.fromisoformat(x.replace("Z","+00:00")).astimezone(_tz_cl_op)
+                return (f'<span style="font-weight:700;">{_d.strftime("%d/%m/%Y")}</span>'
+                        f'<br><span style="font-size:0.75em;color:#64748b;">{_d.strftime("%H:%M")}</span>')
+            except: return str(x)[:10]
+
         _rows_op = ""
         for _or in _oper_data:
-            _ep       = _or.get("numero","—")
-            _cli      = _or.get("cliente_nombre","—")
-            _ej       = _or.get("asesor_nombre","—")
-            _estado   = _or.get("estado","")
-            _plano    = _or.get("plano_url","") or ""
-            _empresa  = _or.get("cliente_empresa","") or ""
-            _contrato = _or.get("contrato_generado", False)
-            _fecha    = _fmt_op_fecha(_or.get("fecha_modificacion",""))
-            _aut      = "autorizado" in (_estado or "").lower()
-            _adj      = bool(_or.get("contrato_notariado_url",""))
-            _tc       = _calc_total_costo(_or)
-            _tc_html  = f'<span style="font-weight:700;">{_fmt_op_clp(_tc)}</span><br><span style="font-size:0.75em;color:#64748b;">base+IVA</span>' if (_aut or _adj) else '<span style="color:#94a3b8;">—</span>'
-            _plano_html = '<span style="color:#16a34a;font-weight:700;">✅ Sí</span>' if _plano else '<span style="color:#94a3b8;">—</span>'
-            _emp_html   = '<span style="color:#16a34a;font-weight:700;">✅ Sí</span>' if _empresa.strip() else '<span style="color:#94a3b8;">—</span>'
-            _ct_html    = '<span style="color:#16a34a;font-weight:700;">✅ Sí</span>' if _contrato else '<span style="color:#94a3b8;">—</span>'
+            _ep    = _or.get("numero","—")
+            _cli   = _or.get("cliente_nombre","—")
+            _ej    = _or.get("asesor_nombre","—")
+            _adj   = bool(_or.get("contrato_notariado_url",""))
+            _tc    = _calc_total_costo(_or)
+            _tc_html = (f'<span style="font-weight:700;">{_fmt_op_clp(_tc)}</span>'
+                        f'<br><span style="font-size:0.75em;color:#64748b;">base+IVA</span>')
+
+            # ── Fecha adjudicación ──
+            _fadj_raw = _or.get("fecha_adjudicacion","") or ""
+            if _adj and not _fadj_raw:
+                _fadj_raw = _or.get("fecha_modificacion","") or ""
+            _fadj_html = _fmt_op_fecha_h(_fadj_raw) if _adj else '<span style="color:#94a3b8;">—</span>'
+
+            # ── Timing/Demora ──
+            _fauth_raw = _or.get("fecha_modificacion","") or ""
+            if _adj and _fadj_raw and _fauth_raw:
+                try:
+                    _d1 = _dt_op.fromisoformat(_fauth_raw.replace("Z","+00:00")).astimezone(_tz_cl_op)
+                    _d2 = _dt_op.fromisoformat(_fadj_raw.replace("Z","+00:00")).astimezone(_tz_cl_op)
+                    _diff = _d2 - _d1
+                    _dd = _diff.days; _hh = _diff.seconds//3600; _mm = (_diff.seconds%3600)//60
+                    _partes = []
+                    if _dd > 0: _partes.append(f"{_dd}d")
+                    if _hh > 0: _partes.append(f"{_hh}h")
+                    _partes.append(f"{_mm}m")
+                    _timing_html = (f'<span style="color:#2563eb;font-weight:700;">{" ".join(_partes)}</span>'
+                                    f'<br><span style="font-size:0.72em;color:#2563eb;font-weight:400;">finalizado</span>')
+                except: _timing_html = '<span style="color:#2563eb;font-weight:700;">—</span>'
+            elif not _adj and _fauth_raw:
+                try:
+                    _d_desde = _dt_op.fromisoformat(_fauth_raw.replace("Z","+00:00")).astimezone(_tz_cl_op)
+                    _ts_op = int(_d_desde.timestamp() * 1000)
+                    _timing_html = (f'<span class="demora-live" data-desde="{_ts_op}" '
+                                    f'style="color:#dc2626;font-weight:700;display:inline-block;'
+                                    f'min-width:80px;font-variant-numeric:tabular-nums;">...</span>')
+                except: _timing_html = "—"
+            else:
+                _timing_html = "—"
+
+            # ── Fidelización cliente (cuenta regresiva) ──
+            _fidel_html = '<span style="color:#94a3b8;">—</span>'
+            if _adj and _fadj_raw:
+                try:
+                    _cd = _or.get("contrato_datos") or {}
+                    if isinstance(_cd, str): _cd = _json_op.loads(_cd)
+                    _plazo_dias = int((_cd or {}).get("plazo_dias", 0) or 0)
+                    if _plazo_dias > 0:
+                        _d_adj = _dt_op.fromisoformat(_fadj_raw.replace("Z","+00:00")).astimezone(_tz_cl_op)
+                        _d_entrega = _d_adj + _td_op(days=_plazo_dias)
+                        _ahora = _dt_op.now(_tz_cl_op)
+                        _restante = _d_entrega - _ahora
+                        if _restante.total_seconds() > 0:
+                            _rd = _restante.days
+                            _rh = _restante.seconds // 3600
+                            _rm = (_restante.seconds % 3600) // 60
+                            _rpartes = []
+                            if _rd > 0: _rpartes.append(f"{_rd}d")
+                            if _rh > 0: _rpartes.append(f"{_rh}h")
+                            _rpartes.append(f"{_rm}m")
+                            _pct = (_restante.total_seconds() / (_plazo_dias * 86400)) * 100
+                            _col_r = "#16a34a" if _pct > 50 else ("#f97316" if _pct > 20 else "#dc2626")
+                            _fidel_html = (f'<span style="color:{_col_r};font-weight:700;">⏳ {" ".join(_rpartes)}</span>'
+                                           f'<br><span style="font-size:0.72em;color:#94a3b8;">{_plazo_dias} días hábiles</span>')
+                        else:
+                            _fidel_html = ('<span style="color:#dc2626;font-weight:700;">⚠️ VENCIDO</span>'
+                                           f'<br><span style="font-size:0.72em;color:#94a3b8;">{_plazo_dias} días hábiles</span>')
+                except: pass
+
             _rows_op += (
                 f"<tr>"
                 f"<td data-ep='{_ep}' style='cursor:pointer;font-weight:700;color:#3b82f6;' title='Click para copiar {_ep}'>{_ep} 📋</td>"
-                f"<td>{_cli}</td>"
+                f"<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{_cli}</td>"
                 f"<td style='text-align:right;line-height:1.6;'>{_tc_html}</td>"
-                f"<td>{_ej}</td>"
+                f"<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{_ej}</td>"
                 f"<td style='text-align:center;'>{_badge_op(_or)}</td>"
-                f"<td style='line-height:1.6;'>{_fecha}</td>"
-                f"<td style='text-align:center;'>{_plano_html}</td>"
+                f"<td style='line-height:1.6;'>{_fadj_html}</td>"
+                f"<td style='text-align:center;font-size:0.82rem;'>{_timing_html}</td>"
+                f"<td style='text-align:center;font-size:0.82rem;'>{_fidel_html}</td>"
                 f"</tr>"
             )
 
@@ -9187,16 +9254,17 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
         _html_op = f"""
         <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
           <div style="{_altura_css_op}">
-            <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:700px;'>
+            <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:900px;'>
               <thead style='position:sticky;top:0;z-index:2;'>
                 <tr>
-                  <th>N° Presupuesto</th>
+                  <th>Presupuesto</th>
                   <th>Cliente</th>
                   <th>Total costo</th>
                   <th>Asesor</th>
                   <th>Estado</th>
-                  <th>Fecha autorización</th>
-                  <th>Plano</th>
+                  <th>Fecha adjudicación</th>
+                  <th>Timing/Demora</th>
+                  <th>Fidelización cliente</th>
                 </tr>
               </thead>
               <tbody>{_rows_op}</tbody>
