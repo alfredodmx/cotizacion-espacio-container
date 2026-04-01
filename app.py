@@ -5119,12 +5119,12 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
             ])
         _align_col = ('ALIGN', (2,1), (4,-1), 'RIGHT')
     else:
-        porcentajes = [15, 58, 27]
+        porcentajes = [15, 70, 15]
         anchos = [ancho_total * p / 100 for p in porcentajes]
         data = [[
             Paragraph("<b>Categoría</b>", styles['HeaderStyle']),
             Paragraph("<b>Item</b>", styles['HeaderStyle']),
-            Paragraph("<b>Cant.</b>", styles['HeaderStyle']),
+            Paragraph("<b>Cantidad</b>", styles['HeaderStyle']),
         ]]
         for _, row in carrito_df.iterrows():
             if str(row.get("Categoria", "")).strip().lower() == "varios":
@@ -5134,7 +5134,7 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
                 Paragraph(row["Item"], styles['SmallFont']),
                 Paragraph(str(row["Cantidad"]), styles['SmallFont']),
             ])
-        _align_col = ('ALIGN', (2,1), (2,-1), 'RIGHT')
+        _align_col = ('ALIGN', (2,1), (2,-1), 'CENTER')
 
     tabla_productos = Table(data, colWidths=anchos, repeatRows=1, splitByRow=1)
     tabla_productos.setStyle(TableStyle([
