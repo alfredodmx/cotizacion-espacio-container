@@ -11430,7 +11430,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
 
                 _rows_cn += (
                     f"<tr>"
-                    f"<td style='font-size:0.82rem;font-weight:900;color:#0f172a;'>{_cn_ep_n}</td>"
+                    f"<td data-ep='{_cn_ep_n}' style='cursor:pointer;font-size:0.82rem;font-weight:900;color:#3b82f6;' title='Click para copiar {_cn_ep_n}'>{_cn_ep_n} 📋</td>"
                     f"<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{_cn_cli}</td>"
                     f"<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{_cn_ej}</td>"
                     f"<td style='text-align:center;'>{_cn_badge}</td>"
@@ -11459,6 +11459,22 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
             <p style="font-size:0.8rem;color:#888;margin-top:6px;">{len(_cn_data)} resultado(s) · 🔵 Adjudicado = notariado subido · 🟡 Contrato pendiente = falta notarizar</p>
             """, unsafe_allow_html=True)
             st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+            components.html("""<script>
+(function(){
+  var D=window.parent.document;
+  D.addEventListener('click',function(e){
+    var td=e.target&&e.target.closest?e.target.closest('td[data-ep]'):null;
+    if(!td)return;
+    var ep=td.getAttribute('data-ep');
+    if(!ep)return;
+    var ta=D.createElement('textarea');
+    ta.value=ep;ta.style.cssText='position:fixed;top:-9999px;left:-9999px;';
+    D.body.appendChild(ta);ta.focus();ta.select();
+    try{D.execCommand('copy');}catch(err){}
+    D.body.removeChild(ta);
+  });
+})();
+</script>""", height=0)
 
         # ── Selección y upload ──
         st.markdown("**Selecciona un presupuesto para adjuntar contrato notariado:**")
