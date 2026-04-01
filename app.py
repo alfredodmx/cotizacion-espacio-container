@@ -6517,6 +6517,8 @@ if tab1 is not None:
             "Teléfono Ejecutivo": st.session_state.telefono_asesor or ""
         }
         carrito_df_pdf = carrito_df_con_margen.copy()
+        if not carrito_df_pdf.empty and 'Categoria' in carrito_df_pdf.columns:
+            carrito_df_pdf = carrito_df_pdf.sort_values(['Categoria', 'Item'], ignore_index=True)
         margen_actual = st.session_state.margen
         numero_para_pdf = st.session_state.cotizacion_cargada if st.session_state.cotizacion_cargada else None
 
@@ -7144,6 +7146,9 @@ if tab3 is not None:
 
             def preparar_pdf_data(cotizacion):
                 carrito_df_t = pd.DataFrame(cotizacion['productos'])
+                # Ordenar alfabéticamente por categoría e ítem
+                if not carrito_df_t.empty and 'Categoria' in carrito_df_t.columns:
+                    carrito_df_t = carrito_df_t.sort_values(['Categoria', 'Item'], ignore_index=True)
                 margen_c = cotizacion.get('config_margen', 0)
                 if margen_c > 0:
                     carrito_df_p = carrito_df_t.copy()
