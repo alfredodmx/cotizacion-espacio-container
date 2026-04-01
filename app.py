@@ -2397,6 +2397,33 @@ def ejecutar_carga_cotizacion():
 # =========================================================
 ejecutar_carga_cotizacion()
 
+# Detectar si el presupuesto cargado está ADJUDICADO
+_ep_cargado = st.session_state.get('cotizacion_cargada', '')
+_es_adjudicado = False
+if _ep_cargado and st.session_state.get('_adj_check_ep') != _ep_cargado:
+    try:
+        _adj_check = supabase.table('cotizaciones').select('contrato_notariado_url').eq('numero', _ep_cargado).execute()
+        _es_adjudicado = bool((_adj_check.data or [{}])[0].get('contrato_notariado_url','')) if _adj_check.data else False
+        st.session_state['_adj_check_ep'] = _ep_cargado
+        st.session_state['_adj_es_adj']   = _es_adjudicado
+    except Exception:
+        _es_adjudicado = st.session_state.get('_adj_es_adj', False)
+elif _ep_cargado:
+    _es_adjudicado = st.session_state.get('_adj_es_adj', False)
+else:
+    st.session_state['_adj_check_ep'] = ''
+    st.session_state['_adj_es_adj']   = False
+
+# Solo lectura si: ejecutivo con margen, o admin con presupuesto adjudicado
+_es_solo_lectura = (
+    (st.session_state.cotizacion_cargada and
+     st.session_state.margen > 0 and
+     not st.session_state.modo_admin) or
+    (_es_adjudicado and
+     st.session_state.modo_admin and
+     not st.session_state.get('es_root', False))
+)
+
 
 
 # =========================================================
@@ -3645,20 +3672,26 @@ if st.session_state.cotizacion_cargada:
     if st.session_state.get('mostrar_advertencia_cerrar', False):
         @st.dialog("⚠️ Cambios sin guardar")
         def dialogo_advertencia_cerrar():
-            st.warning("Tienes cambios sin guardar. ¿Qué deseas hacer?")
-            col_guardar, col_descartar, col_cancelar = st.columns(3)
-            with col_guardar:
-                if st.button("💾 Guardar y cerrar", use_container_width=True, type="primary", key="dialog_cerrar_guardar"):
-                    _dp = st.session_state.datos_pendientes_cerrar
-                    _usr_log2 = st.session_state.get('auth_nombre','') or st.session_state.get('auth_email','')
-                    guardar_cotizacion(_dp['numero'], _dp['datos_c'], _dp['datos_a'],
-                                       _dp['proy'], st.session_state.carrito,
-                                       _dp['cfg'], _dp['tots'], _dp['pnom'], _dp['pdat'],
-                                       usuario_logueado=_usr_log2)
-                    limpiar_todo()
-                    st.session_state.datos_pendientes_cerrar = None
-                    st.session_state.mostrar_advertencia_cerrar = False
-                    st.rerun()
+            _es_adj_cerrar = st.session_state.get('_adj_es_adj', False) and st.session_state.get('_adj_check_ep') == st.session_state.get('cotizacion_cargada','')
+            _solo_lect_cerrar = _es_adj_cerrar and st.session_state.modo_admin and not st.session_state.get('es_root', False)
+            if _solo_lect_cerrar:
+                st.info("🔵 Presupuesto ADJUDICADO — Solo lectura. No se puede guardar.")
+                col_descartar, col_cancelar = st.columns(2)
+            else:
+                st.warning("Tienes cambios sin guardar. ¿Qué deseas hacer?")
+                col_guardar, col_descartar, col_cancelar = st.columns(3)
+                with col_guardar:
+                    if st.button("💾 Guardar y cerrar", use_container_width=True, type="primary", key="dialog_cerrar_guardar"):
+                        _dp = st.session_state.datos_pendientes_cerrar
+                        _usr_log2 = st.session_state.get('auth_nombre','') or st.session_state.get('auth_email','')
+                        guardar_cotizacion(_dp['numero'], _dp['datos_c'], _dp['datos_a'],
+                                           _dp['proy'], st.session_state.carrito,
+                                           _dp['cfg'], _dp['tots'], _dp['pnom'], _dp['pdat'],
+                                           usuario_logueado=_usr_log2)
+                        limpiar_todo()
+                        st.session_state.datos_pendientes_cerrar = None
+                        st.session_state.mostrar_advertencia_cerrar = False
+                        st.rerun()
             with col_descartar:
                 if st.button("🗑️ Descartar y cerrar", use_container_width=True, key="dialog_cerrar_descartar"):
                     limpiar_todo()
@@ -4789,30 +4822,6 @@ def cargar_ranking_ejecutivos(periodo='mes'):
     except Exception as e:
         return []
 
-
-# Detectar si el presupuesto cargado está ADJUDICADO
-_ep_cargado = st.session_state.get('cotizacion_cargada', '')
-_es_adjudicado = False
-if _ep_cargado and not st.session_state.get('_adj_check_ep') == _ep_cargado:
-    try:
-        _adj_check = supabase.table('cotizaciones').select('contrato_notariado_url').eq('numero', _ep_cargado).execute()
-        _es_adjudicado = bool((_adj_check.data or [{}])[0].get('contrato_notariado_url','')) if _adj_check.data else False
-        st.session_state['_adj_check_ep']  = _ep_cargado
-        st.session_state['_adj_es_adj']    = _es_adjudicado
-    except Exception:
-        _es_adjudicado = st.session_state.get('_adj_es_adj', False)
-else:
-    _es_adjudicado = st.session_state.get('_adj_es_adj', False)
-
-# Solo lectura si: ejecutivo con margen, o admin con presupuesto adjudicado
-_es_solo_lectura = (
-    (st.session_state.cotizacion_cargada and
-     st.session_state.margen > 0 and
-     not st.session_state.modo_admin) or
-    (_es_adjudicado and
-     st.session_state.modo_admin and
-     not st.session_state.get('es_root', False))
-)
 
 _hash_actual = calcular_hash_estado()
 
