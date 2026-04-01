@@ -6901,7 +6901,7 @@ if tab3 is not None:
                     else:
                         _tiempo_r = "—"
                     _proc_not_html = (
-                        f'<span style="color:#dc2626;font-weight:700;">{_tiempo_r}</span>'                        f'<br><span style="font-size:0.72em;color:#dc2626;font-weight:600;">rechazado</span>'                        f'<br><button onclick="window._showMotivo(\'{_ep_num_row}\',\'{_motivo_rec.replace(chr(39),chr(96))}\')"'                        f' style="margin-top:2px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;'                        f'border-radius:6px;padding:1px 8px;font-size:0.68rem;font-weight:700;cursor:pointer;'                        f'font-family:inherit;">📋 Motivo</button>'
+                        f'<span style="color:#dc2626;font-weight:700;">{_tiempo_r}</span>'                        f'<br><span style="font-size:0.72em;color:#dc2626;font-weight:600;">rechazado</span>'                        f'<br><button onclick="window.parent._showMotivo(\'{_ep_num_row}\',\'{_motivo_rec.replace(chr(39),chr(96))}\')"'                        f' style="margin-top:2px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;'                        f'border-radius:6px;padding:1px 8px;font-size:0.68rem;font-weight:700;cursor:pointer;'                        f'font-family:inherit;">📋 Motivo</button>'
                     )
                 except: _proc_not_html = '<span style="color:#dc2626;font-weight:700;">rechazado</span>'
             elif _es_adj_cot and _fauth_raw_cot and _fadj_raw_cot:
@@ -7023,19 +7023,6 @@ if tab3 is not None:
         _altura_css  = f"max-height:{min(_altura_real, 550)}px;overflow-y:auto;" if _usar_scroll else ""
 
         html_table = f"""
-        <script>
-        function _showMotivo(ep, motivo) {{
-            var existing = document.getElementById('_motivo_modal');
-            if(existing) existing.remove();
-            var overlay = document.createElement('div');
-            overlay.id = '_motivo_modal';
-            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
-            overlay.innerHTML = '<div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:28px 32px;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><div style="font-size:1rem;font-weight:900;color:#f1f5f9;">&#10060; Motivo de rechazo &#8212; ' + ep + '</div><button id="_motivo_close" style="background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.8rem;font-weight:700;">&#10006; Cerrar</button></div><div style="background:#0f172a;border-radius:10px;padding:14px 16px;font-size:0.92rem;color:#e2e8f0;line-height:1.6;word-break:break-word;">' + motivo + '</div></div>';
-            document.body.appendChild(overlay);
-            document.getElementById('_motivo_close').addEventListener('click', function(){{ overlay.remove(); }});
-            overlay.addEventListener('click', function(e){{ if(e.target===overlay) overlay.remove(); }});
-        }}
-        </script>
         <style>
         .resultados-table th.th-adj,
         .resultados-table thead tr th.th-adj,
@@ -7117,6 +7104,26 @@ if tab3 is not None:
         _ep_copy_comp.html("""<script>
 (function(){
     var D = window.parent.document;
+
+    // ── Modal motivo rechazo — definido en window.parent para que el HTML lo encuentre ──
+    window.parent._showMotivo = function(ep, motivo) {
+        var D = window.parent.document;
+        var existing = D.getElementById('_motivo_modal');
+        if(existing) existing.remove();
+        var overlay = D.createElement('div');
+        overlay.id = '_motivo_modal';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
+        overlay.innerHTML = '<div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:28px 32px;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">'
+            + '<div style="font-size:1rem;font-weight:900;color:#f1f5f9;">&#10060; Motivo de rechazo &mdash; ' + ep + '</div>'
+            + '<button id="_motivo_close" style="background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.8rem;font-weight:700;">&#10006; Cerrar</button>'
+            + '</div>'
+            + '<div style="background:#0f172a;border-radius:10px;padding:14px 16px;font-size:0.92rem;color:#e2e8f0;line-height:1.6;word-break:break-word;">' + motivo + '</div>'
+            + '</div>';
+        D.body.appendChild(overlay);
+        D.getElementById('_motivo_close').addEventListener('click', function(){ overlay.remove(); });
+        overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+    };
 
     // ── Contador en vivo demora ──
     function updateLiveTimers(){
