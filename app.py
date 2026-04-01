@@ -11299,22 +11299,38 @@ if tab_contrato is not None:
 
                         def _generar_anexo_pdf(numero, texto):
                             """Genera una página A4 de anexo con el mismo estilo del contrato."""
-                            _buf_anx = _iopv.BytesIO()
-                            _doc_anx = SimpleDocTemplate(_buf_anx, pagesize=A4,
-                                leftMargin=50, rightMargin=50, topMargin=80, bottomMargin=60)
-                            _styles_anx = getSampleStyleSheet()
-                            _titulo_anx = ParagraphStyle('TituloAnexo',
-                                fontName='Helvetica-Bold', fontSize=13, leading=18,
-                                textColor=colors.HexColor('#0d2266'),
-                                spaceAfter=20, alignment=1)
-                            _cuerpo_anx = ParagraphStyle('CuerpoAnexo',
-                                fontName='Helvetica', fontSize=10, leading=15,
-                                textColor=colors.black, spaceAfter=12, alignment=4)
+                            from reportlab.lib.units import cm as _cm
+                            from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
+                            from reportlab.platypus import HRFlowable
+                            _AZUL     = colors.HexColor('#0f3460')
+                            _AZUL_LT  = colors.HexColor('#e8eef7')
+                            _buf_anx  = _iopv.BytesIO()
+                            _doc_anx  = SimpleDocTemplate(_buf_anx, pagesize=A4,
+                                leftMargin=1.8*_cm, rightMargin=1.8*_cm,
+                                topMargin=2*_cm, bottomMargin=2*_cm)
+                            _base     = getSampleStyleSheet()
+                            # Mismo estilo sección del contrato
+                            _st_sec   = ParagraphStyle('AxSeccion',
+                                parent=_base['Normal'],
+                                fontName='Helvetica-Bold', fontSize=9.5,
+                                leading=13, spaceBefore=14, spaceAfter=5,
+                                textColor=colors.white,
+                                backColor=_AZUL,
+                                leftIndent=-0.3*_cm, rightIndent=-0.3*_cm,
+                                borderPadding=(4, 8, 4, 8))
+                            # Mismo estilo normal del contrato
+                            _st_norm  = ParagraphStyle('AxNormal',
+                                parent=_base['Normal'],
+                                fontName='Times-Roman', fontSize=10.5,
+                                leading=16, spaceAfter=6,
+                                alignment=TA_JUSTIFY, firstLineIndent=0)
                             _story_anx = [
-                                Spacer(1, 40),
-                                Paragraph(f"ANEXO N°{numero}", _titulo_anx),
-                                Spacer(1, 20),
-                                Paragraph(texto, _cuerpo_anx),
+                                Spacer(1, 1*_cm),
+                                Paragraph(f"ANEXO N°{numero}", _st_sec),
+                                Spacer(1, 0.4*_cm),
+                                HRFlowable(width="100%", thickness=0.6,
+                                    color=_AZUL_LT, spaceAfter=8, spaceBefore=2),
+                                Paragraph(texto, _st_norm),
                             ]
                             _doc_anx.build(_story_anx)
                             return _buf_anx.getvalue()
