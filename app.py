@@ -7282,10 +7282,9 @@ if tab3 is not None:
         if opciones:
             _col_sel, _col_rec_btn = st.columns([4, 1])
             with _col_sel:
-                cotizacion_seleccionada = st.selectbox("Selecciona una cotización:", options=opciones, key="selector_cotizaciones", label_visibility="collapsed")
-                st.caption("Selecciona una cotización")
+                cotizacion_seleccionada = st.selectbox("Selecciona una cotización:", options=opciones, key="selector_cotizaciones")
             with _col_rec_btn:
-                st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+                st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
                 _btn_rec_placeholder = st.empty()
 
             if cotizacion_seleccionada:
