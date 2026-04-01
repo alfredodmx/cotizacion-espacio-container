@@ -6856,8 +6856,36 @@ if tab3 is not None:
             _tz_cl_cot  = _tz_cot(_td_cot(hours=-3))
             _es_adj_cot = bool(str(row.get('Not_URL','') or ''))
             _fadj_raw_cot = str(row.get('Fecha_Adj','') or '')
+            _fauth_raw_cot = str(row.get('Fecha_Auth','') or '')
             if _es_adj_cot and not _fadj_raw_cot:
-                _fadj_raw_cot = str(row.get('Fecha_Auth','') or '')
+                _fadj_raw_cot = _fauth_raw_cot
+
+            # ── Proceso notarial ──
+            _margen_cot = float(row.get('Margen', 0) or 0)
+            _proc_not_html = '<span style="color:#94a3b8;">—</span>'
+            if _es_adj_cot and _fauth_raw_cot and _fadj_raw_cot:
+                # Finalizado — mostrar tiempo entre autorización y adjudicación
+                try:
+                    _d_aut_pn = _dt_cot.fromisoformat(_fauth_raw_cot.replace("Z","+00:00")).astimezone(_tz_cl_cot)
+                    _d_adj_pn = _dt_cot.fromisoformat(_fadj_raw_cot.replace("Z","+00:00")).astimezone(_tz_cl_cot)
+                    _diff_pn  = _d_adj_pn - _d_aut_pn
+                    _dd_pn = _diff_pn.days; _hh_pn = _diff_pn.seconds//3600; _mm_pn = (_diff_pn.seconds%3600)//60
+                    _partes_pn = []
+                    if _dd_pn > 0: _partes_pn.append(f"{_dd_pn}d")
+                    if _hh_pn > 0: _partes_pn.append(f"{_hh_pn}h")
+                    _partes_pn.append(f"{_mm_pn}m")
+                    _proc_not_html = (f'<span style="color:#2563eb;font-weight:700;">{" ".join(_partes_pn)}</span>'
+                                      f'<br><span style="font-size:0.72em;color:#2563eb;">finalizado</span>')
+                except: pass
+            elif _margen_cot > 0 and _fauth_raw_cot:
+                # Corriendo — autorizado pero no adjudicado
+                try:
+                    _d_desde_pn = _dt_cot.fromisoformat(_fauth_raw_cot.replace("Z","+00:00")).astimezone(_tz_cl_cot)
+                    _ts_pn = int(_d_desde_pn.timestamp() * 1000)
+                    _proc_not_html = (f'<span class="demora-live" data-desde="{_ts_pn}" '
+                                      f'style="color:#dc2626;font-weight:700;display:inline-block;'
+                                      f'min-width:90px;font-variant-numeric:tabular-nums;">...</span>')
+                except: pass
             # Fecha adjudicación
             if _es_adj_cot and _fadj_raw_cot:
                 try:
@@ -6913,7 +6941,7 @@ if tab3 is not None:
                                                   f'style="color:#dc2626;font-weight:700;display:inline-block;min-width:100px;font-variant-numeric:tabular-nums;">...</span>'
                                                   f'<br><span style="font-size:0.72em;color:#dc2626;">{_hab_ret}d hábiles</span>')
                 except: pass
-            rows_html += f"<tr><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Cliente'] or '—'}</td><td style='text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.6;'>{row['Total']}</td>{_td_tc}<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Asesor'] or '—'}</td><td style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td class='demora-col' style='text-align:center;font-size:0.82rem;font-weight:700;'>{row['Demora']}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td>{_td_margen}<td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td><td style='line-height:1.6;'>{_fadj_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fab_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fidel_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_retraso_html_cot}</td></tr>"
+            rows_html += f"<tr><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Cliente'] or '—'}</td><td style='text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.6;'>{row['Total']}</td>{_td_tc}<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Asesor'] or '—'}</td><td style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td class='demora-col' style='text-align:center;font-size:0.82rem;font-weight:700;'>{row['Demora']}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td>{_td_margen}<td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td><td style='text-align:center;font-size:0.82rem;'>{_proc_not_html}</td><td style='line-height:1.6;'>{_fadj_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fab_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fidel_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_retraso_html_cot}</td></tr>"
 
         # Badge resumen por estado
         # Contar por estado usando los badges ya calculados
@@ -6961,12 +6989,19 @@ if tab3 is not None:
             background: #fbbf24 !important;
             color: #0f172a !important; 
         }}
+        .resultados-table th.th-notarial,
+        .resultados-table thead tr th.th-notarial,
+        table.resultados-table > thead > tr > th.th-notarial {{
+            background-color: #78350f !important;
+            background: #78350f !important;
+            color: #fbbf24 !important;
+        }}
         </style>
         <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
             <div style="{_altura_css}">
                 <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:1700px;table-layout:auto;white-space:nowrap;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
-                        <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th class="th-adj">Fecha adjudicación</th><th class="th-adj">Tiempo fabricación</th><th class="th-adj">Fidelización cliente</th><th class="th-adj">Retraso proyecto</th></tr>
+                        <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th class="th-notarial">Proceso notarial</th><th class="th-adj">Fecha adjudicación</th><th class="th-adj">Tiempo fabricación</th><th class="th-adj">Fidelización cliente</th><th class="th-adj">Retraso proyecto</th></tr>
                     </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
