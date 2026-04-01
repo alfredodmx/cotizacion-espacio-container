@@ -6723,6 +6723,38 @@ if tab3 is not None:
             txt += s+'s';
             el.textContent = txt;
         });
+        // ── Tiempo fabricación (contador hacia adelante) ──
+        var fabs = D.querySelectorAll('.fab-live');
+        fabs.forEach(function(el){
+            var desde = parseInt(el.getAttribute('data-desde'));
+            if(!desde) return;
+            var diff = Date.now() - desde;
+            var s = Math.floor(diff/1000);
+            var m = Math.floor(s/60); var h = Math.floor(m/60); var d = Math.floor(h/24);
+            s=s%60; m=m%60; h=h%24;
+            var txt='';
+            if(d>0) txt+=d+'d ';
+            if(h>0) txt+=h+'h ';
+            if(m>0) txt+=m+'m ';
+            txt+=s+'s';
+            el.textContent=txt;
+        });
+        // ── Retraso proyecto (contador desde vencimiento) ──
+        var retrasos = D.querySelectorAll('.retraso-live');
+        retrasos.forEach(function(el){
+            var desde = parseInt(el.getAttribute('data-desde'));
+            if(!desde) return;
+            var diff = Date.now() - desde;
+            var s = Math.floor(diff/1000);
+            var m = Math.floor(s/60); var h = Math.floor(m/60); var d = Math.floor(h/24);
+            s=s%60; m=m%60; h=h%24;
+            var txt='⚠️ ';
+            if(d>0) txt+=d+'d ';
+            if(h>0) txt+=h+'h ';
+            if(m>0) txt+=m+'m ';
+            txt+=s+'s';
+            el.textContent=txt;
+        });
         // ── Cuenta regresiva fidelización ──
         var fidels = D.querySelectorAll('.fidel-live');
         fidels.forEach(function(el){
@@ -9233,6 +9265,18 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
             else:
                 _timing_html = "—"
 
+            # ── Tiempo fabricación (contador hacia adelante desde adjudicación) ──
+            _fab_html = '<span style="color:#94a3b8;">—</span>'
+            _retraso_html = '<span style="color:#94a3b8;">—</span>'
+            if _adj and _fadj_raw:
+                try:
+                    _d_adj_fab = _dt_op.fromisoformat(_fadj_raw.replace("Z","+00:00")).astimezone(_tz_cl_op)
+                    _ts_fab = int(_d_adj_fab.timestamp() * 1000)
+                    _fab_html = (f'<span class="fab-live" data-desde="{_ts_fab}" '
+                                 f'style="color:#2563eb;font-weight:700;display:inline-block;'
+                                 f'min-width:100px;font-variant-numeric:tabular-nums;">...</span>')
+                except: pass
+
             # ── Fidelización cliente (cuenta regresiva) ──
             _fidel_html = '<span style="color:#94a3b8;">—</span>'
             if _adj and _fadj_raw:
@@ -9264,6 +9308,15 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         else:
                             _fidel_html = ('<span style="color:#dc2626;font-weight:700;">⚠️ VENCIDO</span>'
                                            f'<br><span style="font-size:0.72em;color:#94a3b8;">{_plazo_dias} días hábiles</span>')
+                            # Retraso — tiempo corriendo desde que venció
+                            try:
+                                _d_venc = _d_adj + _td_op(days=_plazo_dias)
+                                _ts_venc = int(_d_venc.timestamp() * 1000)
+                                _retraso_html = (f'<span class="retraso-live" data-desde="{_ts_venc}" '
+                                                 f'style="color:#dc2626;font-weight:700;display:inline-block;'
+                                                 f'min-width:100px;font-variant-numeric:tabular-nums;">...</span>'
+                                                 f'<br><span style="font-size:0.72em;color:#dc2626;font-weight:400;">en retraso</span>')
+                            except: pass
                 except: pass
 
             _rows_op += (
@@ -9274,7 +9327,9 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                 f"<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{_ej}</td>"
                 f"<td style='text-align:center;'>{_badge_op(_or)}</td>"
                 f"<td style='line-height:1.6;'>{_fadj_html}</td>"
+                f"<td style='text-align:center;font-size:0.82rem;'>{_fab_html}</td>"
                 f"<td style='text-align:center;font-size:0.82rem;'>{_fidel_html}</td>"
+                f"<td style='text-align:center;font-size:0.82rem;'>{_retraso_html}</td>"
                 f"</tr>"
             )
 
@@ -9293,7 +9348,9 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                   <th>Asesor</th>
                   <th>Estado</th>
                   <th>Fecha adjudicación</th>
+                  <th>Tiempo fabricación</th>
                   <th>Fidelización cliente</th>
+                  <th>Retraso proyecto</th>
                 </tr>
               </thead>
               <tbody>{_rows_op}</tbody>
