@@ -1287,6 +1287,9 @@ def evaluar_estado_cotizacion(cotizacion):
     # ADJUDICADO tiene prioridad absoluta
     if cotizacion.get('contrato_notariado_url'):
         return "🔵 ADJUDICADO"
+    # RECHAZADO segunda prioridad
+    if cotizacion.get('motivo_rechazo') or cotizacion.get('fecha_rechazo'):
+        return "❌ RECHAZADO"
     datos_completos = all([
         cotizacion.get('cliente_nombre', ''),
         cotizacion.get('cliente_email', '')
@@ -1326,6 +1329,13 @@ def crear_badge_estado(row):
         asesor_email    = row[8]
         asesor_telefono = row[9]
         tiene_notariado = bool(row[15]) if len(row) > 15 else False
+    # RECHAZADO desde el DataFrame
+    if hasattr(row, 'index') and 'Margen' in row.index:
+        _motivo_r = str(row.get('Motivo_Rechazo', '') or '')
+    elif hasattr(row, '__len__') and len(row) > 19:
+        _motivo_r = str(row[19] if row[19] else '')
+    else:
+        _motivo_r = ''
     # ADJUDICADO tiene prioridad absoluta
     if tiene_notariado:
         label = "🔵 ADJUDICADO"
@@ -1333,6 +1343,9 @@ def crear_badge_estado(row):
         return f'''<span style="background-color:{color};color:{text_color};padding:2px 7px;
         border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;
         border:1px solid {border};box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">{label}</span>'''
+    # RECHAZADO segunda prioridad
+    if _motivo_r:
+        return '<span style="background-color:#dc2626;color:white;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;border:1px solid #b91c1c;box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">❌ RECHAZADO</span>'
     datos_completos = all([cliente_nombre, cliente_email])
     asesor_completo = any([asesor_nombre, asesor_email, asesor_telefono])
     if config_margen and config_margen > 0:
@@ -2189,7 +2202,7 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
             'total_total', 'config_margen', 'cliente_rut', 'cliente_email',
             'asesor_email', 'asesor_telefono', 'plano_url', 'contrato_generado', 'cliente_empresa',
             'fecha_autorizacion', 'autorizado_por', 'contrato_notariado_url',
-            'fecha_adjudicacion', 'contrato_datos'
+            'fecha_adjudicacion', 'contrato_datos', 'motivo_rechazo', 'fecha_rechazo'
         )
         # Filtrar por usuario si es ejecutivo (no admin ni root)
         _rol_q = st.session_state.get('rol_usuario', 'ejecutivo')
@@ -2230,6 +2243,8 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
                 row.get('fecha_adjudicacion', '') or '',
                 row.get('contrato_datos', '') or '',
                 row.get('contrato_notariado_url', '') or '',
+                row.get('motivo_rechazo', '') or '',
+                row.get('fecha_rechazo', '') or '',
             ))
         # Agregar conteo de logs
         numeros_ep = [r[0] for r in resultados]
@@ -6702,7 +6717,7 @@ if tab3 is not None:
         st.rerun()
 
     if st.session_state.resultados_busqueda:
-        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa", "Fecha_Auth", "Autorizado_Por", "Tiene_Notariado", "Fecha_Adj", "Contrato_Datos", "Not_URL", "NLogs"]
+        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa", "Fecha_Auth", "Autorizado_Por", "Tiene_Notariado", "Fecha_Adj", "Contrato_Datos", "Not_URL", "Motivo_Rechazo", "Fecha_Rechazo", "NLogs"]
         _rows_norm = []
         for _r in st.session_state.resultados_busqueda:
             _r = list(_r)
@@ -6861,9 +6876,33 @@ if tab3 is not None:
                 _fadj_raw_cot = _fauth_raw_cot
 
             # ── Proceso notarial ──
-            _margen_cot = float(row.get('Margen', 0) or 0)
-            _proc_not_html = '<span style="color:#94a3b8;">—</span>'
-            if _es_adj_cot and _fauth_raw_cot and _fadj_raw_cot:
+            _margen_cot       = float(row.get('Margen', 0) or 0)
+            _motivo_rec       = str(row.get('Motivo_Rechazo','') or '')
+            _fecha_rec_raw    = str(row.get('Fecha_Rechazo','') or '')
+            _proc_not_html    = '<span style="color:#94a3b8;">—</span>'
+            _ep_num_row       = str(row.get('N°',''))
+
+            if _motivo_rec:
+                # RECHAZADO — mostrar tiempo transcurrido hasta rechazo + botón motivo
+                try:
+                    if _fauth_raw_cot and _fecha_rec_raw:
+                        _d_aut_r  = _dt_cot.fromisoformat(_fauth_raw_cot.replace("Z","+00:00")).astimezone(_tz_cl_cot)
+                        _d_rec    = _dt_cot.fromisoformat(_fecha_rec_raw.replace("Z","+00:00")).astimezone(_tz_cl_cot)
+                        _diff_r   = _d_rec - _d_aut_r
+                        _dd_r = _diff_r.days; _hh_r = _diff_r.seconds//3600; _mm_r = (_diff_r.seconds%3600)//60; _ss_r = _diff_r.seconds%60
+                        _partes_r = []
+                        if _dd_r > 0: _partes_r.append(f"{_dd_r}d")
+                        if _hh_r > 0: _partes_r.append(f"{_hh_r}h")
+                        if _mm_r > 0: _partes_r.append(f"{_mm_r}m")
+                        _partes_r.append(f"{_ss_r}s")
+                        _tiempo_r = " ".join(_partes_r)
+                    else:
+                        _tiempo_r = "—"
+                    _proc_not_html = (
+                        f'<span style="color:#dc2626;font-weight:700;">{_tiempo_r}</span>'                        f'<br><span style="font-size:0.72em;color:#dc2626;font-weight:600;">rechazado</span>'                        f'<br><button onclick="window._showMotivo(\'{_ep_num_row}\',\'{_motivo_rec.replace(chr(39),chr(96))}\')"'                        f' style="margin-top:2px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;'                        f'border-radius:6px;padding:1px 8px;font-size:0.68rem;font-weight:700;cursor:pointer;'                        f'font-family:inherit;">📋 Motivo</button>'
+                    )
+                except: _proc_not_html = '<span style="color:#dc2626;font-weight:700;">rechazado</span>'
+            elif _es_adj_cot and _fauth_raw_cot and _fadj_raw_cot:
                 # Finalizado — mostrar tiempo entre autorización y adjudicación
                 try:
                     _d_aut_pn = _dt_cot.fromisoformat(_fauth_raw_cot.replace("Z","+00:00")).astimezone(_tz_cl_cot)
@@ -6877,8 +6916,8 @@ if tab3 is not None:
                     _proc_not_html = (f'<span style="color:#2563eb;font-weight:700;">{" ".join(_partes_pn)}</span>'
                                       f'<br><span style="font-size:0.72em;color:#2563eb;">finalizado</span>')
                 except: pass
-            elif _margen_cot > 0 and _fauth_raw_cot:
-                # Corriendo — autorizado pero no adjudicado
+            elif (_margen_cot > 0 or True) and _fauth_raw_cot:
+                # Corriendo — tiene fecha autorización pero no está adjudicado ni rechazado
                 try:
                     _d_desde_pn = _dt_cot.fromisoformat(_fauth_raw_cot.replace("Z","+00:00")).astimezone(_tz_cl_cot)
                     _ts_pn = int(_d_desde_pn.timestamp() * 1000)
@@ -6964,6 +7003,7 @@ if tab3 is not None:
             ('🟡 BORRADOR',            '🟡', '#fef9c3', '#854d0e', 'borrador'),
             ('🔴 INCOMPLETO CON PLANO','🔴', '#fee2e2', '#dc2626', 'incompleto con plano'),
             ('🔴 INCOMPLETO',          '🔴', '#fee2e2', '#dc2626', 'incompletos'),
+            ('❌ RECHAZADO',           '❌', '#fee2e2', '#b91c1c', 'rechazados'),
         ]
         for _key, _ico, _bg, _col, _lbl in _badge_map:
             _cnt = _estados_cnt.get(_key, 0)
@@ -7062,6 +7102,28 @@ if tab3 is not None:
         _ep_copy_comp.html("""<script>
 (function(){
     var D = window.parent.document;
+
+    // ── Modal motivo rechazo ──
+    window._showMotivo = function(ep, motivo) {
+        var existing = D.getElementById('_motivo_modal');
+        if(existing) existing.remove();
+        var overlay = D.createElement('div');
+        overlay.id = '_motivo_modal';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
+        overlay.innerHTML = (
+            '<div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:28px 32px;' +
+            'max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+            '<div style="font-size:1rem;font-weight:900;color:#f1f5f9;">❌ Motivo de rechazo — ' + ep + '</div>' +
+            '<button id="_motivo_close" style="background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.8rem;font-weight:700;">✖ Cerrar</button>' +
+            '</div>' +
+            '<div style="background:#0f172a;border-radius:10px;padding:14px 16px;font-size:0.92rem;color:#e2e8f0;line-height:1.6;word-break:break-word;">' + motivo + '</div>' +
+            '</div>'
+        );
+        D.body.appendChild(overlay);
+        D.getElementById('_motivo_close').addEventListener('click', function(){ overlay.remove(); });
+        overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+    };
 
     // ── Contador en vivo demora ──
     function updateLiveTimers(){
@@ -7266,6 +7328,65 @@ if tab3 is not None:
 
             st.markdown("---")
             st.markdown("### Acciones")
+
+            # ── Botón Marcar como rechazado ──
+            _sel_motivo_rec = ""
+            _sel_fecha_rec  = ""
+            try:
+                _sel_rec_q = supabase.table("cotizaciones").select("motivo_rechazo,fecha_rechazo,contrato_notariado_url").eq("numero", numero_seleccionado).execute()
+                if _sel_rec_q.data:
+                    _sel_motivo_rec = _sel_rec_q.data[0].get("motivo_rechazo","") or ""
+                    _sel_fecha_rec  = _sel_rec_q.data[0].get("fecha_rechazo","") or ""
+                    _sel_adj_check  = bool(_sel_rec_q.data[0].get("contrato_notariado_url",""))
+            except: _sel_adj_check = False
+
+            if not _sel_adj_check:
+                if _sel_motivo_rec:
+                    st.markdown(f"""
+                    <div style="background:#fee2e2;border-left:4px solid #dc2626;border-radius:0 8px 8px 0;
+                                padding:10px 14px;margin-bottom:10px;">
+                      <div style="font-size:12px;font-weight:700;color:#b91c1c;">❌ Presupuesto RECHAZADO</div>
+                      <div style="font-size:11px;color:#991b1b;margin-top:3px;"><b>Motivo:</b> {_sel_motivo_rec}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    if st.button("↩️ Quitar rechazo", use_container_width=True, key="btn_quitar_rechazo"):
+                        supabase_admin.table("cotizaciones").update({"motivo_rechazo": None, "fecha_rechazo": None}).eq("numero", numero_seleccionado).execute()
+                        st.success("✅ Rechazo eliminado")
+                        st.rerun()
+                else:
+                    if st.button("❌ Marcar como rechazado", use_container_width=True, key="btn_rechazar_cot"):
+                        st.session_state['_show_rechazo_dialog'] = numero_seleccionado
+                        st.rerun()
+
+            if st.session_state.get('_show_rechazo_dialog') == numero_seleccionado:
+                @st.dialog("❌ Motivo de rechazo")
+                def _dialogo_rechazo():
+                    st.markdown(f"**Presupuesto:** {numero_seleccionado}")
+                    _motivo_input = st.text_area("Describe el motivo del rechazo", 
+                                                  placeholder="Ej: Cliente desistió por cambio de presupuesto personal...",
+                                                  key="motivo_rechazo_input", height=120)
+                    _c1, _c2 = st.columns(2)
+                    with _c1:
+                        if st.button("✖️ Cancelar", use_container_width=True, key="btn_rec_cancel"):
+                            st.session_state.pop('_show_rechazo_dialog', None)
+                            st.rerun()
+                    with _c2:
+                        if st.button("❌ Confirmar rechazo", type="primary", use_container_width=True, key="btn_rec_confirm"):
+                            if _motivo_input.strip():
+                                from datetime import datetime as _dt_rec
+                                _fecha_rec_now = _dt_rec.now().strftime('%Y-%m-%dT%H:%M:%S')
+                                supabase_admin.table("cotizaciones").update({
+                                    "motivo_rechazo": _motivo_input.strip(),
+                                    "fecha_rechazo": _fecha_rec_now
+                                }).eq("numero", numero_seleccionado).execute()
+                                st.session_state.pop('_show_rechazo_dialog', None)
+                                st.session_state.resultados_busqueda = None
+                                st.success(f"✅ {numero_seleccionado} marcado como rechazado")
+                                st.rerun()
+                            else:
+                                st.warning("⚠️ Debes ingresar un motivo.")
+                _dialogo_rechazo()
+
             col_acc1, col_acc0, col_acc2, col_acc3, col_acc4 = st.columns(5)
 
             with col_acc1:
