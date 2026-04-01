@@ -10916,255 +10916,274 @@ if tab_contrato is not None:
     # SUB-PESTAÑA: IMPRIMIR CONTRATO
     # ================================================================
     with _sub_imprimir:
-        # ── Paso 1: Buscar EP ──
-        st.markdown('<div class="cont-section">🔍 Paso 1 — Buscar cotización</div>', unsafe_allow_html=True)
-        with st.container():
-            _col_ep, _col_btn = st.columns([3, 1])
-            with _col_ep:
-                _ep_input = st.text_input("N° de cotización", placeholder="Ej: EP-12345",
-                                          key="cont_ep_input", label_visibility="collapsed")
-            with _col_btn:
-                _buscar = st.button("🔍 Buscar EP", use_container_width=True, key="cont_buscar")
-
-        if _buscar and _ep_input:
-            _cot_found = cargar_cotizacion(_ep_input.strip().upper())
-            if _cot_found:
-                st.session_state["cont_cot"]            = _cot_found
-                st.session_state["cont_ep"]             = _ep_input.strip().upper()
-                st.session_state["cont_tiene_contrato"] = bool(_cot_found.get("contrato_generado"))
-                st.session_state["cont_precio"]         = float(_cot_found.get("total_total") or 0)
-                st.rerun()
-            else:
-                st.error(f"No se encontró la cotización {_ep_input}")
-
-        if st.session_state.get("cont_cot"):
-            _cot    = st.session_state["cont_cot"]
-            _ep_num = st.session_state.get("cont_ep", "")
-
-            _tiene_cont = st.session_state.get("cont_tiene_contrato", False)
-            if _tiene_cont:
-                st.success(f"✅ Cotización **{_ep_num}** cargada — {_cot.get('cliente_nombre','')} · 📄 Ya tiene contrato generado")
-            else:
-                st.success(f"✅ Cotización **{_ep_num}** cargada — {_cot.get('cliente_nombre','')} · Sin contrato previo")
-
-            # ── Paso 2: Completar datos ──
-            # ── Paso 2: Completar datos ──
-            st.markdown('<div class="cont-section">📝 Paso 2 — Completar datos del contrato</div>', unsafe_allow_html=True)
-
-            from datetime import date as _date_t
-            _meses_es = {1:"enero",2:"febrero",3:"marzo",4:"abril",5:"mayo",6:"junio",
-                         7:"julio",8:"agosto",9:"septiembre",10:"octubre",
-                         11:"noviembre",12:"diciembre"}
-
-            _ep_num_input = _ep_num
-            _ep_nombre    = _cot.get("proyecto_observaciones", "") or ""
-            _obs_val      = _ep_nombre.strip() if _ep_nombre else "—"
-            _es_juridica  = _cot.get("cliente_tipo", "natural") == "juridica"
-            _cli_nombre       = _cot.get("cliente_nombre", "")
-            _cli_rut          = _cot.get("cliente_rut", "")
-            _cli_empresa      = _cot.get("cliente_empresa", "")
-            _cli_rut_empresa  = _cot.get("cliente_rut_empresa", "")
-
-            _cli_dom  = st.session_state.get("cont_cli_domicilio",  _cot.get("cliente_direccion", ""))
-            _cli_com  = st.session_state.get("cont_cli_comuna",     _cot.get("cliente_comuna", ""))
-            _cli_reg  = st.session_state.get("cont_cli_region",     _cot.get("cliente_region", ""))
-            _inst_dom = st.session_state.get("cont_inst_domicilio", _cot.get("proyecto_direccion", ""))
-            _inst_com = st.session_state.get("cont_inst_comuna",    _cot.get("proyecto_comuna", ""))
-            _inst_reg = st.session_state.get("cont_inst_region",    _cot.get("proyecto_region", ""))
-            _todas_regiones = list(REGIONES_COMUNAS.keys())
-            _todas_comunas  = [c for cs in REGIONES_COMUNAS.values() for c in cs]
-            if _cli_com:  _cli_com  = _normalizar_nombre(_cli_com,  _todas_comunas)
-            if _cli_reg:  _cli_reg  = _normalizar_nombre(_cli_reg,  _todas_regiones)
-            if _inst_com: _inst_com = _normalizar_nombre(_inst_com, _todas_comunas)
-            if _inst_reg: _inst_reg = _normalizar_nombre(_inst_reg, _todas_regiones)
-
-            _precio  = int(st.session_state.get("cont_precio", 0))
-            _pago50  = round(_precio * 0.50)
-            _pago25a = round(_precio * 0.25)
-            _pago25b = _precio - _pago50 - _pago25a
-            _fmt_p   = lambda v: "${:,.0f}".format(v).replace(",",".")
-
-            # ── Contenedor centrado con sombra usando CSS sobre st.container nativo ──
-            st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-            st.markdown("""
-            <style>
-            div.contrato-box-wrapper > div[data-testid="stVerticalBlock"] {
-                background: white !important;
-                border-radius: 16px !important;
-                box-shadow: 0 4px 24px rgba(15,52,96,0.12) !important;
-                border: 1px solid rgba(15,52,96,0.10) !important;
-                padding: 24px 32px 20px 32px !important;
-                margin-bottom: 16px !important;
-            }
-            </style>
-            <div class="contrato-box-wrapper">
+        # Bloquear si el presupuesto cargado está ADJUDICADO
+        _ep_contrato = st.session_state.get('cotizacion_cargada','')
+        _adj_contrato = st.session_state.get('_adj_es_adj', False) and st.session_state.get('_adj_check_ep') == _ep_contrato
+        if _adj_contrato and _ep_contrato:
+            st.markdown(f"""
+            <div style="background:#dbeafe;border:2px solid #2563eb;border-radius:14px;
+                        padding:28px 32px;text-align:center;margin-top:20px;">
+              <div style="font-size:2.5rem;margin-bottom:12px;">🔵</div>
+              <div style="font-size:1.2rem;font-weight:900;color:#1d4ed8;margin-bottom:8px;">
+                Presupuesto ADJUDICADO — {_ep_contrato}</div>
+              <div style="font-size:0.92rem;color:#1e40af;max-width:480px;margin:0 auto;line-height:1.6;">
+                El contrato notariado de este presupuesto ya fue firmado y adjuntado.<br>
+                <b>No es posible generar un nuevo contrato.</b><br><br>
+                Puedes visualizar y descargar el contrato existente en la pestaña
+                <b>👁️ Previsualizar contrato</b>.
+              </div>
+            </div>
             """, unsafe_allow_html=True)
-            with st.container():
-                st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
-                st.markdown("<div style='font-size:1.1rem;font-weight:900;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.12em;border-bottom:2px solid #1e3a5f;padding-bottom:12px;margin-bottom:16px;margin-top:8px;text-align:center;font-family:Montserrat,sans-serif;'>📋 Datos del contrato</div>", unsafe_allow_html=True)
-                _, _mid, _ = st.columns([0.2, 8, 0.2])
-                with _mid:
-
-                    # Fila 1: Fecha + Tratamiento + Plazo
-                    _c1, _c2, _c3 = st.columns([2, 2, 1])
-                    with _c1:
-                        _hoy = _date_t.today()
-                        _fecha_obj = st.date_input("📅 Fecha del contrato", value=_hoy, key="cont_fecha")
-                        _fecha_str = f"{_fecha_obj.day} de {_meses_es[_fecha_obj.month]} de {_fecha_obj.year}"
-                    with _c2:
-                        _trat_opts = ["— Selecciona —", "Don", "Doña", "Sr.", "Sra."]
-                        _tratamiento = st.selectbox("👤 Tratamiento", _trat_opts, key="cont_tratamiento")
-                        _tratamiento = "" if _tratamiento == "— Selecciona —" else _tratamiento
-                    with _c3:
-                        _plazo = st.number_input("📆 Plazo días", min_value=1, max_value=180, value=45, key="cont_plazo")
-
-                    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-
-                    # Fila 2: EP + Proyecto
-                    _c4, _c5 = st.columns([1, 3])
-                    with _c4:
-                        st.markdown(
-                            f"<div style='background:#1e3a5f;border-radius:10px;padding:12px 14px;height:72px;display:flex;flex-direction:column;justify-content:center;'>"
-                            f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;'>📋 N° EP</div>"
-                            f"<div style='font-size:1.1rem;font-weight:900;color:#fff;'>{_ep_num_input}</div>"
-                            f"</div>", unsafe_allow_html=True)
-                    with _c5:
-                        st.markdown(
-                            f"<div style='background:#1e3a5f;border-radius:10px;padding:12px 14px;height:72px;display:flex;flex-direction:column;justify-content:center;'>"
-                            f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;'>📝 Nombre del proyecto</div>"
-                            f"<div style='font-size:0.9rem;font-weight:700;color:#fff;'>{_obs_val}</div>"
-                            f"</div>", unsafe_allow_html=True)
-
-                    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-
-                    # Fila 3: Cliente + Pagos
-                    _c6, _c7 = st.columns([3, 2])
-                    with _c6:
-                        _tag_tipo = "🏢 Persona jurídica" if _es_juridica else "👤 Persona natural"
-                        _emp_extra = (
-                            f"<div style='margin-top:6px;font-size:0.75rem;color:rgba(255,255,255,0.6);'>"
-                            f"🏢 {_cli_empresa or '—'} · RUT empresa: {_cli_rut_empresa or '—'}</div>"
-                        ) if _es_juridica else ""
-                        st.markdown(
-                            f"<div style='background:#1e3a5f;border-radius:10px;padding:14px 16px;margin-bottom:8px;'>"
-                            f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;'>👤 Cliente</div>"
-                            f"<div style='font-size:1rem;font-weight:800;color:#fff;'>{_tratamiento} {_cli_nombre or '—'}</div>"
-                            f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.6);margin-top:2px;'>RUT: {_cli_rut or '—'} · {_tag_tipo}</div>"
-                            f"{_emp_extra}"
-                            f"</div>", unsafe_allow_html=True)
-                        st.markdown(
-                            f"<div style='background:#1e3a5f;border-radius:10px;padding:14px 16px;'>"
-                            f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;'>📍 Domicilios</div>"
-                            f"<div style='font-size:0.78rem;font-weight:700;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;'>🏠 Domicilio cliente</div>"
-                            f"<div style='font-size:0.88rem;font-weight:700;color:#fff;margin-bottom:2px;'>{_cli_dom or '—'}</div>"
-                            f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.55);margin-bottom:10px;'>{_cli_com or '—'} · {_cli_reg or '—'}</div>"
-                            f"<div style='font-size:0.78rem;font-weight:700;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;'>📦 Dirección instalación</div>"
-                            f"<div style='font-size:0.88rem;font-weight:700;color:#fff;margin-bottom:2px;'>{_inst_dom or '—'}</div>"
-                            f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.55);'>{_inst_com or '—'} · {_inst_reg or '—'}</div>"
-                            f"</div>", unsafe_allow_html=True)
-                    with _c7:
-                        st.markdown(
-                            f"<div style='background:#1e3a5f;border-radius:10px;padding:16px 18px;'>"
-                            f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px;'>💰 Detalle de pagos</div>"
-                            f"<div style='font-size:1.7rem;font-weight:900;color:#fff;letter-spacing:-0.02em;margin-bottom:14px;'>{_fmt_p(_precio)}</div>"
-                            f"<div style='display:flex;flex-direction:column;gap:8px;'>"
-                            f"<div style='background:rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;'>"
-                            f"<div style='font-size:0.6rem;color:rgba(255,255,255,0.5);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;'>50% Inicial</div>"
-                            f"<div style='font-size:1rem;font-weight:800;color:#fff;margin-top:2px;'>{_fmt_p(_pago50)}</div></div>"
-                            f"<div style='background:rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;'>"
-                            f"<div style='font-size:0.6rem;color:rgba(255,255,255,0.5);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;'>25% Intermedio</div>"
-                            f"<div style='font-size:1rem;font-weight:800;color:#fff;margin-top:2px;'>{_fmt_p(_pago25a)}</div></div>"
-                            f"<div style='background:rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;'>"
-                            f"<div style='font-size:0.6rem;color:rgba(255,255,255,0.5);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;'>25% Final</div>"
-                            f"<div style='font-size:1rem;font-weight:800;color:#fff;margin-top:2px;'>{_fmt_p(_pago25b)}</div></div>"
-                            f"</div></div>", unsafe_allow_html=True)
-
-                        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-
-                    # ── Botón generar ──
-                    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-                    _, _gen_col, _ = st.columns([2, 3, 2])
-                    with _gen_col:
-                        _generar = st.button("📄 Generar y descargar contrato PDF", type="primary",
-                                             use_container_width=True, key="cont_generar")
-                    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-
-            if _generar:
-                if not _tratamiento:
-                    st.error("⚠️ Debes seleccionar un tratamiento (Don, Doña, Sr. o Sra.) antes de generar el contrato.")
-                    st.stop()
-                _campos_req = [_cli_nombre, _cli_rut, _cli_dom, _cli_com, _ep_nombre]
-                if _es_juridica:
-                    _campos_req += [_cli_empresa, _cli_rut_empresa]
-                if not all(_campos_req):
-                    st.error("⚠️ Completa todos los campos obligatorios antes de generar.")
-                else:
-                    with st.spinner("Generando contrato..."):
-                        _datos_contrato = {
-                            "fecha_str":       _fecha_str,
-                            "tipo_cliente":    "juridica" if _es_juridica else "natural",
-                            "cli_tratamiento": _tratamiento,
-                            "cli_nombre":      _cli_nombre,
-                            "cli_rut":         _cli_rut,
-                            "cli_empresa":     _cli_empresa,
-                            "cli_rut_empresa": _cli_rut_empresa,
-                            "cli_domicilio":   _cli_dom,
-                            "cli_comuna":      _cli_com,
-                            "cli_region":      _cli_reg,
-                            "inst_domicilio":  _inst_dom,
-                            "inst_comuna":     _inst_com,
-                            "inst_region":     _inst_reg,
-                            "ep_numero":       _ep_num_input,
-                            "ep_nombre":       _ep_nombre,
-                            "precio_total":    _precio,
-                            "plazo_dias":      _plazo,
-                            "pago_50":         _pago50,
-                            "pago_25a":        _pago25a,
-                            "pago_25b":        _pago25b,
-                        }
-                        try:
-                            st.session_state["_datos_contrato_last"] = _datos_contrato
-                            # Cargar plantilla activa en el flujo de Streamlit (no dentro de la función)
-                            _cls_activas = None
-                            try:
-                                _res_plt = supabase.table("plantillas_contrato").select("clausulas").eq("activa", True).execute()
-                                if _res_plt.data and _res_plt.data[0].get("clausulas"):
-                                    _cls_activas = _res_plt.data[0]["clausulas"]
-                            except Exception:
-                                pass
-                            _pdf_bytes = generar_pdf_contrato(_datos_contrato, clausulas_externas=_cls_activas)
-                            _pdf_nom   = f"Contrato_{_ep_num_input.replace('-','_')}.pdf"
-                            # Guardar en Supabase
-                            try:
-                                import json as _json
-                                supabase.table("cotizaciones").update({
-                                    "contrato_generado": True,
-                                    "contrato_datos":    _json.dumps(_datos_contrato, ensure_ascii=False),
-                                    "contrato_fecha":    _datos_contrato["fecha_str"],
-                                }).eq("numero", _ep_num_input).execute()
-                            except Exception:
-                                pass
-                            # Descarga directa
-                            import base64 as _b64
-                            _b64_pdf = _b64.b64encode(_pdf_bytes).decode()
-                            st.markdown(
-                                f'''<a href="data:application/pdf;base64,{_b64_pdf}"
-                                   download="{_pdf_nom}"
-                                   style="display:inline-block;background:#0f3460;color:white;
-                                          padding:10px 24px;border-radius:8px;font-weight:700;
-                                          font-size:0.9rem;text-decoration:none;margin-top:8px;">
-                                  ⬇️ Descargar contrato PDF
-                                </a>''', unsafe_allow_html=True)
-                            st.success("✅ Contrato generado exitosamente.")
-                        except Exception as _e:
-                            st.error(f"Error al generar PDF: {_e}")
-
         else:
-            st.info("👆 Ingresa un número EP y presiona **Buscar EP** para cargar los datos del cliente.")
-
-    # ================================================================
-    # SUB-PESTAÑA: EDITAR CONTRATO
-    # ================================================================
+            # ── Paso 1: Buscar EP ──
+            st.markdown('<div class="cont-section">🔍 Paso 1 — Buscar cotización</div>', unsafe_allow_html=True)
+            with st.container():
+                _col_ep, _col_btn = st.columns([3, 1])
+                with _col_ep:
+                    _ep_input = st.text_input("N° de cotización", placeholder="Ej: EP-12345",
+                                              key="cont_ep_input", label_visibility="collapsed")
+                with _col_btn:
+                    _buscar = st.button("🔍 Buscar EP", use_container_width=True, key="cont_buscar")
+    
+            if _buscar and _ep_input:
+                _cot_found = cargar_cotizacion(_ep_input.strip().upper())
+                if _cot_found:
+                    st.session_state["cont_cot"]            = _cot_found
+                    st.session_state["cont_ep"]             = _ep_input.strip().upper()
+                    st.session_state["cont_tiene_contrato"] = bool(_cot_found.get("contrato_generado"))
+                    st.session_state["cont_precio"]         = float(_cot_found.get("total_total") or 0)
+                    st.rerun()
+                else:
+                    st.error(f"No se encontró la cotización {_ep_input}")
+    
+            if st.session_state.get("cont_cot"):
+                _cot    = st.session_state["cont_cot"]
+                _ep_num = st.session_state.get("cont_ep", "")
+    
+                _tiene_cont = st.session_state.get("cont_tiene_contrato", False)
+                if _tiene_cont:
+                    st.success(f"✅ Cotización **{_ep_num}** cargada — {_cot.get('cliente_nombre','')} · 📄 Ya tiene contrato generado")
+                else:
+                    st.success(f"✅ Cotización **{_ep_num}** cargada — {_cot.get('cliente_nombre','')} · Sin contrato previo")
+    
+                # ── Paso 2: Completar datos ──
+                # ── Paso 2: Completar datos ──
+                st.markdown('<div class="cont-section">📝 Paso 2 — Completar datos del contrato</div>', unsafe_allow_html=True)
+    
+                from datetime import date as _date_t
+                _meses_es = {1:"enero",2:"febrero",3:"marzo",4:"abril",5:"mayo",6:"junio",
+                             7:"julio",8:"agosto",9:"septiembre",10:"octubre",
+                             11:"noviembre",12:"diciembre"}
+    
+                _ep_num_input = _ep_num
+                _ep_nombre    = _cot.get("proyecto_observaciones", "") or ""
+                _obs_val      = _ep_nombre.strip() if _ep_nombre else "—"
+                _es_juridica  = _cot.get("cliente_tipo", "natural") == "juridica"
+                _cli_nombre       = _cot.get("cliente_nombre", "")
+                _cli_rut          = _cot.get("cliente_rut", "")
+                _cli_empresa      = _cot.get("cliente_empresa", "")
+                _cli_rut_empresa  = _cot.get("cliente_rut_empresa", "")
+    
+                _cli_dom  = st.session_state.get("cont_cli_domicilio",  _cot.get("cliente_direccion", ""))
+                _cli_com  = st.session_state.get("cont_cli_comuna",     _cot.get("cliente_comuna", ""))
+                _cli_reg  = st.session_state.get("cont_cli_region",     _cot.get("cliente_region", ""))
+                _inst_dom = st.session_state.get("cont_inst_domicilio", _cot.get("proyecto_direccion", ""))
+                _inst_com = st.session_state.get("cont_inst_comuna",    _cot.get("proyecto_comuna", ""))
+                _inst_reg = st.session_state.get("cont_inst_region",    _cot.get("proyecto_region", ""))
+                _todas_regiones = list(REGIONES_COMUNAS.keys())
+                _todas_comunas  = [c for cs in REGIONES_COMUNAS.values() for c in cs]
+                if _cli_com:  _cli_com  = _normalizar_nombre(_cli_com,  _todas_comunas)
+                if _cli_reg:  _cli_reg  = _normalizar_nombre(_cli_reg,  _todas_regiones)
+                if _inst_com: _inst_com = _normalizar_nombre(_inst_com, _todas_comunas)
+                if _inst_reg: _inst_reg = _normalizar_nombre(_inst_reg, _todas_regiones)
+    
+                _precio  = int(st.session_state.get("cont_precio", 0))
+                _pago50  = round(_precio * 0.50)
+                _pago25a = round(_precio * 0.25)
+                _pago25b = _precio - _pago50 - _pago25a
+                _fmt_p   = lambda v: "${:,.0f}".format(v).replace(",",".")
+    
+                # ── Contenedor centrado con sombra usando CSS sobre st.container nativo ──
+                st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+                st.markdown("""
+                <style>
+                div.contrato-box-wrapper > div[data-testid="stVerticalBlock"] {
+                    background: white !important;
+                    border-radius: 16px !important;
+                    box-shadow: 0 4px 24px rgba(15,52,96,0.12) !important;
+                    border: 1px solid rgba(15,52,96,0.10) !important;
+                    padding: 24px 32px 20px 32px !important;
+                    margin-bottom: 16px !important;
+                }
+                </style>
+                <div class="contrato-box-wrapper">
+                """, unsafe_allow_html=True)
+                with st.container():
+                    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+                    st.markdown("<div style='font-size:1.1rem;font-weight:900;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.12em;border-bottom:2px solid #1e3a5f;padding-bottom:12px;margin-bottom:16px;margin-top:8px;text-align:center;font-family:Montserrat,sans-serif;'>📋 Datos del contrato</div>", unsafe_allow_html=True)
+                    _, _mid, _ = st.columns([0.2, 8, 0.2])
+                    with _mid:
+    
+                        # Fila 1: Fecha + Tratamiento + Plazo
+                        _c1, _c2, _c3 = st.columns([2, 2, 1])
+                        with _c1:
+                            _hoy = _date_t.today()
+                            _fecha_obj = st.date_input("📅 Fecha del contrato", value=_hoy, key="cont_fecha")
+                            _fecha_str = f"{_fecha_obj.day} de {_meses_es[_fecha_obj.month]} de {_fecha_obj.year}"
+                        with _c2:
+                            _trat_opts = ["— Selecciona —", "Don", "Doña", "Sr.", "Sra."]
+                            _tratamiento = st.selectbox("👤 Tratamiento", _trat_opts, key="cont_tratamiento")
+                            _tratamiento = "" if _tratamiento == "— Selecciona —" else _tratamiento
+                        with _c3:
+                            _plazo = st.number_input("📆 Plazo días", min_value=1, max_value=180, value=45, key="cont_plazo")
+    
+                        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    
+                        # Fila 2: EP + Proyecto
+                        _c4, _c5 = st.columns([1, 3])
+                        with _c4:
+                            st.markdown(
+                                f"<div style='background:#1e3a5f;border-radius:10px;padding:12px 14px;height:72px;display:flex;flex-direction:column;justify-content:center;'>"
+                                f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;'>📋 N° EP</div>"
+                                f"<div style='font-size:1.1rem;font-weight:900;color:#fff;'>{_ep_num_input}</div>"
+                                f"</div>", unsafe_allow_html=True)
+                        with _c5:
+                            st.markdown(
+                                f"<div style='background:#1e3a5f;border-radius:10px;padding:12px 14px;height:72px;display:flex;flex-direction:column;justify-content:center;'>"
+                                f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;'>📝 Nombre del proyecto</div>"
+                                f"<div style='font-size:0.9rem;font-weight:700;color:#fff;'>{_obs_val}</div>"
+                                f"</div>", unsafe_allow_html=True)
+    
+                        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    
+                        # Fila 3: Cliente + Pagos
+                        _c6, _c7 = st.columns([3, 2])
+                        with _c6:
+                            _tag_tipo = "🏢 Persona jurídica" if _es_juridica else "👤 Persona natural"
+                            _emp_extra = (
+                                f"<div style='margin-top:6px;font-size:0.75rem;color:rgba(255,255,255,0.6);'>"
+                                f"🏢 {_cli_empresa or '—'} · RUT empresa: {_cli_rut_empresa or '—'}</div>"
+                            ) if _es_juridica else ""
+                            st.markdown(
+                                f"<div style='background:#1e3a5f;border-radius:10px;padding:14px 16px;margin-bottom:8px;'>"
+                                f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;'>👤 Cliente</div>"
+                                f"<div style='font-size:1rem;font-weight:800;color:#fff;'>{_tratamiento} {_cli_nombre or '—'}</div>"
+                                f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.6);margin-top:2px;'>RUT: {_cli_rut or '—'} · {_tag_tipo}</div>"
+                                f"{_emp_extra}"
+                                f"</div>", unsafe_allow_html=True)
+                            st.markdown(
+                                f"<div style='background:#1e3a5f;border-radius:10px;padding:14px 16px;'>"
+                                f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;'>📍 Domicilios</div>"
+                                f"<div style='font-size:0.78rem;font-weight:700;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;'>🏠 Domicilio cliente</div>"
+                                f"<div style='font-size:0.88rem;font-weight:700;color:#fff;margin-bottom:2px;'>{_cli_dom or '—'}</div>"
+                                f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.55);margin-bottom:10px;'>{_cli_com or '—'} · {_cli_reg or '—'}</div>"
+                                f"<div style='font-size:0.78rem;font-weight:700;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;'>📦 Dirección instalación</div>"
+                                f"<div style='font-size:0.88rem;font-weight:700;color:#fff;margin-bottom:2px;'>{_inst_dom or '—'}</div>"
+                                f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.55);'>{_inst_com or '—'} · {_inst_reg or '—'}</div>"
+                                f"</div>", unsafe_allow_html=True)
+                        with _c7:
+                            st.markdown(
+                                f"<div style='background:#1e3a5f;border-radius:10px;padding:16px 18px;'>"
+                                f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px;'>💰 Detalle de pagos</div>"
+                                f"<div style='font-size:1.7rem;font-weight:900;color:#fff;letter-spacing:-0.02em;margin-bottom:14px;'>{_fmt_p(_precio)}</div>"
+                                f"<div style='display:flex;flex-direction:column;gap:8px;'>"
+                                f"<div style='background:rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;'>"
+                                f"<div style='font-size:0.6rem;color:rgba(255,255,255,0.5);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;'>50% Inicial</div>"
+                                f"<div style='font-size:1rem;font-weight:800;color:#fff;margin-top:2px;'>{_fmt_p(_pago50)}</div></div>"
+                                f"<div style='background:rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;'>"
+                                f"<div style='font-size:0.6rem;color:rgba(255,255,255,0.5);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;'>25% Intermedio</div>"
+                                f"<div style='font-size:1rem;font-weight:800;color:#fff;margin-top:2px;'>{_fmt_p(_pago25a)}</div></div>"
+                                f"<div style='background:rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;'>"
+                                f"<div style='font-size:0.6rem;color:rgba(255,255,255,0.5);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;'>25% Final</div>"
+                                f"<div style='font-size:1rem;font-weight:800;color:#fff;margin-top:2px;'>{_fmt_p(_pago25b)}</div></div>"
+                                f"</div></div>", unsafe_allow_html=True)
+    
+                            st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+    
+                        # ── Botón generar ──
+                        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+                        _, _gen_col, _ = st.columns([2, 3, 2])
+                        with _gen_col:
+                            _generar = st.button("📄 Generar y descargar contrato PDF", type="primary",
+                                                 use_container_width=True, key="cont_generar")
+                        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+    
+                if _generar:
+                    if not _tratamiento:
+                        st.error("⚠️ Debes seleccionar un tratamiento (Don, Doña, Sr. o Sra.) antes de generar el contrato.")
+                        st.stop()
+                    _campos_req = [_cli_nombre, _cli_rut, _cli_dom, _cli_com, _ep_nombre]
+                    if _es_juridica:
+                        _campos_req += [_cli_empresa, _cli_rut_empresa]
+                    if not all(_campos_req):
+                        st.error("⚠️ Completa todos los campos obligatorios antes de generar.")
+                    else:
+                        with st.spinner("Generando contrato..."):
+                            _datos_contrato = {
+                                "fecha_str":       _fecha_str,
+                                "tipo_cliente":    "juridica" if _es_juridica else "natural",
+                                "cli_tratamiento": _tratamiento,
+                                "cli_nombre":      _cli_nombre,
+                                "cli_rut":         _cli_rut,
+                                "cli_empresa":     _cli_empresa,
+                                "cli_rut_empresa": _cli_rut_empresa,
+                                "cli_domicilio":   _cli_dom,
+                                "cli_comuna":      _cli_com,
+                                "cli_region":      _cli_reg,
+                                "inst_domicilio":  _inst_dom,
+                                "inst_comuna":     _inst_com,
+                                "inst_region":     _inst_reg,
+                                "ep_numero":       _ep_num_input,
+                                "ep_nombre":       _ep_nombre,
+                                "precio_total":    _precio,
+                                "plazo_dias":      _plazo,
+                                "pago_50":         _pago50,
+                                "pago_25a":        _pago25a,
+                                "pago_25b":        _pago25b,
+                            }
+                            try:
+                                st.session_state["_datos_contrato_last"] = _datos_contrato
+                                # Cargar plantilla activa en el flujo de Streamlit (no dentro de la función)
+                                _cls_activas = None
+                                try:
+                                    _res_plt = supabase.table("plantillas_contrato").select("clausulas").eq("activa", True).execute()
+                                    if _res_plt.data and _res_plt.data[0].get("clausulas"):
+                                        _cls_activas = _res_plt.data[0]["clausulas"]
+                                except Exception:
+                                    pass
+                                _pdf_bytes = generar_pdf_contrato(_datos_contrato, clausulas_externas=_cls_activas)
+                                _pdf_nom   = f"Contrato_{_ep_num_input.replace('-','_')}.pdf"
+                                # Guardar en Supabase
+                                try:
+                                    import json as _json
+                                    supabase.table("cotizaciones").update({
+                                        "contrato_generado": True,
+                                        "contrato_datos":    _json.dumps(_datos_contrato, ensure_ascii=False),
+                                        "contrato_fecha":    _datos_contrato["fecha_str"],
+                                    }).eq("numero", _ep_num_input).execute()
+                                except Exception:
+                                    pass
+                                # Descarga directa
+                                import base64 as _b64
+                                _b64_pdf = _b64.b64encode(_pdf_bytes).decode()
+                                st.markdown(
+                                    f'''<a href="data:application/pdf;base64,{_b64_pdf}"
+                                       download="{_pdf_nom}"
+                                       style="display:inline-block;background:#0f3460;color:white;
+                                              padding:10px 24px;border-radius:8px;font-weight:700;
+                                              font-size:0.9rem;text-decoration:none;margin-top:8px;">
+                                      ⬇️ Descargar contrato PDF
+                                    </a>''', unsafe_allow_html=True)
+                                st.success("✅ Contrato generado exitosamente.")
+                            except Exception as _e:
+                                st.error(f"Error al generar PDF: {_e}")
+    
+            else:
+                st.info("👆 Ingresa un número EP y presiona **Buscar EP** para cargar los datos del cliente.")
+    
+        # ================================================================
+        # SUB-PESTAÑA: EDITAR CONTRATO
+        # ================================================================
     with _sub_preview:
         st.markdown('<div class="cont-section">🔍 Buscar cotización para previsualizar</div>', unsafe_allow_html=True)
         _col_ep_pv, _col_btn_pv = st.columns([3, 1])
