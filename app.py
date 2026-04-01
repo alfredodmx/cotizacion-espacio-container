@@ -6954,16 +6954,7 @@ if tab3 is not None:
         html_table = f"""
         <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
             <div style="{_altura_css}">
-                <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:1700px;table-layout:fixed;width:100%;'>
-                  <colgroup>
-                    <col style="width:105px"><col style="width:140px"><col style="width:135px">
-                    {_col_tc}
-                    <col style="width:120px"><col style="width:130px"><col style="width:110px">
-                    <col style="width:105px"><col style="width:130px"><col style="width:65px">
-                    {_col_margen}
-                    <col style="width:65px"><col style="width:55px"><col style="width:55px">
-                    <col style="width:120px"><col style="width:130px"><col style="width:200px"><col style="width:130px">
-                  </colgroup>
+                <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:1700px;table-layout:auto;white-space:nowrap;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
                         <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th>Fecha adjudicación</th><th>Tiempo fabricación</th><th>Fidelización cliente</th><th>Retraso proyecto</th></tr>
                     </thead>
