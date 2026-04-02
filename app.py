@@ -7387,6 +7387,8 @@ if tab3 is not None:
                     with _btn_rec_placeholder:
                         if st.button("↩️ Quitar rechazo", use_container_width=True, key="btn_quitar_rechazo"):
                             supabase_admin.table("cotizaciones").update({"motivo_rechazo": None, "fecha_rechazo": None}).eq("numero", numero_seleccionado).execute()
+                            st.session_state.resultados_busqueda = None
+                            st.session_state.pop('_show_rechazo_dialog', None)
                             st.success("✅ Rechazo eliminado")
                             st.rerun()
                 else:
