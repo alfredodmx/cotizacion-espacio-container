@@ -5604,11 +5604,11 @@ if tab2 is not None:
                  font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
     .hdr2 p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
     </style>
-    <div class="hdr2" style="align-items:center;">
-      <span style="font-size:2.8rem;line-height:1;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">👤</span>
-      <div style="display:flex;flex-direction:column;gap:2px;">
-        <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Datos del Cliente</h2>
-        <p>Completa la información del cliente y del proyecto antes de guardar.</p>
+    <div class="hdr2" style="display:flex!important;align-items:center!important;">
+      <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">👤</span>
+      <div style="margin-left:16px;">
+        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.8rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Datos del Cliente</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:500;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Completa la información del cliente y del proyecto antes de guardar.</div>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -5975,11 +5975,11 @@ if tab1 is not None:
                  font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
     .hdr1 p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
     </style>
-    <div class="hdr1" style="align-items:center;">
-      <span style="font-size:2.8rem;line-height:1;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">☑️</span>
-      <div style="display:flex;flex-direction:column;gap:2px;">
-        <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Gestión de Presupuesto</h2>
-        <p>Agrega productos, aplica márgenes y genera tu cotización en PDF.</p>
+    <div class="hdr1" style="display:flex!important;align-items:center!important;">
+      <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">☑️</span>
+      <div style="margin-left:16px;">
+        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.8rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Gestión de Presupuesto</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:500;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Agrega productos, aplica márgenes y genera tu cotización en PDF.</div>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -6676,11 +6676,11 @@ if tab3 is not None:
                  font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
     .hdr3 p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
     </style>
-    <div class="hdr3" style="align-items:center;">
-      <span style="font-size:2.8rem;line-height:1;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📂</span>
-      <div style="display:flex;flex-direction:column;gap:2px;">
-        <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Gestión de Cotizaciones</h2>
-        <p>Busca, carga y administra todas las cotizaciones del sistema.</p>
+    <div class="hdr3" style="display:flex!important;align-items:center!important;">
+      <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">📂</span>
+      <div style="margin-left:16px;">
+        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.8rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Gestión de Cotizaciones</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:500;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Busca, carga y administra todas las cotizaciones del sistema.</div>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -7897,11 +7897,11 @@ if tab4 is not None:
                  font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
     .hdr4 p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; }
     </style>
-    <div class="hdr4" style="align-items:center;">
-      <span style="font-size:2.8rem;line-height:1;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">🧊</span>
-      <div style="display:flex;flex-direction:column;gap:2px;">
-        <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Visor 3D Beta</h2>
-        <p>Selecciona un presupuesto con plano adjunto para generar su prototipo 3D interactivo.</p>
+    <div class="hdr4" style="display:flex!important;align-items:center!important;">
+      <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">🧊</span>
+      <div style="margin-left:16px;">
+        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.8rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Visor 3D Beta</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:500;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Selecciona un presupuesto con plano adjunto para generar su prototipo 3D interactivo.</div>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -8870,13 +8870,13 @@ if st.session_state.get('es_root') and tab_salud is not None:
         .sys-badge-warn { background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:4px; font-weight:700; font-size:0.7rem; }
         .sys-badge-crit { background:#fee2e2; color:#dc2626; padding:2px 8px; border-radius:4px; font-weight:700; font-size:0.7rem; }
         </style>
-        <div class="hdr-salud" style="align-items:center;">
-          <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.5));">🛡️</span>
-          <div>
-            <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Salud del Sistema</h2>
-            <p>Monitoreo de capacidad y estado de Supabase — Plan Core (actualizado al cargar)</p>
-          </div>
-        </div>
+        <div class="hdr-salud" style="display:flex!important;align-items:center!important;">
+      <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">🛡️</span>
+      <div style="margin-left:16px;">
+        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.8rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Salud del Sistema</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:500;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Monitoreo de capacidad y estado de Supabase — Plan Core (actualizado al cargar)</div>
+      </div>
+    </div>
         """, unsafe_allow_html=True)
 
         import datetime as _dt_sys
@@ -9080,13 +9080,13 @@ if tab_admindata is not None:
             font-family:'Montserrat',sans-serif; letter-spacing:0.05em; text-transform:uppercase; }
         .hdr-admindata p { color:rgba(255,255,255,0.65) !important; margin:1px 0 0; font-size:0.92rem; font-family:'Montserrat',sans-serif; font-weight:500; letter-spacing:0.01em; }
         </style>
-        <div class="hdr-admindata" style="align-items:center;">
-          <span style="font-size:2.8rem;line-height:1;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">⚠️</span>
-      <div style="display:flex;flex-direction:column;gap:2px;">
-            <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Administración de datos</h2>
-            <p>Eliminación permanente de presupuestos y archivos · Solo disponible para root</p>
-          </div>
-        </div>
+        <div class="hdr-admindata" style="display:flex!important;align-items:center!important;">
+      <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">⚠️</span>
+      <div style="margin-left:16px;">
+        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.8rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Administración de datos</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:500;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Eliminación permanente de presupuestos y archivos · Solo disponible para root</div>
+      </div>
+    </div>
         """, unsafe_allow_html=True)
 
         # ── Filtros ──
@@ -9484,11 +9484,11 @@ if tab_reporte is not None and st.session_state.modo_admin:
                        font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }}
     .hdr-reporte p  {{ color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }}
     </style>
-    <div class="hdr-reporte" style="align-items:center;">
-      <span style="font-size:2.8rem;line-height:1;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📈</span>
-      <div style="display:flex;flex-direction:column;gap:2px;">
-        <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Reporte de Inteligencia Comercial</h2>
-        <p>Espacio Container House SpA · Período: {_rep_periodo} · Solo admin y root</p>
+    <div class="hdr-reporte" style="display:flex!important;align-items:center!important;">
+      <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">📈</span>
+      <div style="margin-left:16px;">
+        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.8rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Reporte de Inteligencia Comercial</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:500;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Espacio Container House SpA · Período: {_rep_periodo} · Solo admin y root</div>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -9858,11 +9858,11 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                    font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
     .hdr-oper p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
     </style>
-    <div class="hdr-oper" style="align-items:center;">
-      <span style="font-size:2.8rem;line-height:1;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">⚙️</span>
-      <div style="display:flex;flex-direction:column;gap:2px;">
-        <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Operaciones</h2>
-        <p>PDF de compras · planos · seguimiento de fabricación y fidelización de clientes</p>
+    <div class="hdr-oper" style="display:flex!important;align-items:center!important;">
+      <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">⚙️</span>
+      <div style="margin-left:16px;">
+        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.8rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Operaciones</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:500;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">PDF de compras · planos · seguimiento de fabricación y fidelización de clientes</div>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -11050,13 +11050,13 @@ if tab6 is not None:
                      font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
         .hdr6 p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
         </style>
-        <div class="hdr6" style="align-items:center;">
-          <span style="font-size:2.8rem;line-height:1;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">✏️</span>
-      <div style="display:flex;flex-direction:column;gap:2px;">
-            <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Edición PDF Cliente</h2>
-            <p>Busca tu cotización por número EP y personaliza la descripción de cada categoría para el cliente.</p>
-          </div>
-        </div>
+        <div class="hdr6" style="display:flex!important;align-items:center!important;">
+      <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">✏️</span>
+      <div style="margin-left:16px;">
+        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.8rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Edición PDF Cliente</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:500;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Busca tu cotización por número EP y personaliza la descripción de cada categoría para el cliente.</div>
+      </div>
+    </div>
         """, unsafe_allow_html=True)
 
         # Buscar cotización por EP
@@ -11287,13 +11287,13 @@ if tab7 is not None:
         .rank-3 { border-left: 5px solid #b45309; background: linear-gradient(135deg, #fef3c7 0%, #ffffff 40%); }
         .rank-other { border-left: 5px solid #e2e8f0; }
         </style>
-        <div class="hdr7" style="align-items:center;">
-          <span style="font-size:2.8rem;line-height:1;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">🏆</span>
-      <div style="display:flex;flex-direction:column;gap:2px;">
-            <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Ranking de Ejecutivos</h2>
-            <p>Desempeño del equipo de ventas — este mes.</p>
-          </div>
-        </div>
+        <div class="hdr7" style="display:flex!important;align-items:center!important;">
+      <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">🏆</span>
+      <div style="margin-left:16px;">
+        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.8rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Ranking de Ejecutivos</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:500;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Desempeño del equipo de ventas — este mes.</div>
+      </div>
+    </div>
         """, unsafe_allow_html=True)
 
         with st.spinner("Cargando ranking..."):
@@ -11509,11 +11509,11 @@ if tab_contrato is not None:
                        margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
     .cont-form-panel div[data-testid="stVerticalBlock"] > div { margin-bottom: -8px !important; }
     </style>
-    <div class="hdr-contrato" style="align-items:center;">
-      <span style="font-size:2.8rem;line-height:1;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📄</span>
-      <div style="display:flex;flex-direction:column;gap:2px;">
-        <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Contrato Cliente</h2>
-        <p>Genera y administra el contrato de fabricación y venta.</p>
+    <div class="hdr-contrato" style="display:flex!important;align-items:center!important;">
+      <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">📄</span>
+      <div style="margin-left:16px;">
+        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.8rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Contrato Cliente</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:500;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Genera y administra el contrato de fabricación y venta.</div>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -13035,13 +13035,13 @@ if st.session_state.modo_admin and tab_usuarios is not None:
         .usr-badge-ok   { background:#dcfce7; color:#166534; padding:3px 10px; border-radius:20px; font-size:0.75rem; font-weight:700; }
         .usr-badge-off  { background:#fee2e2; color:#991b1b; padding:3px 10px; border-radius:20px; font-size:0.75rem; font-weight:700; }
         </style>
-        <div class="hdr-usuarios" style="align-items:center;">
-          <span style="font-size:2.8rem;line-height:1;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">👥</span>
-      <div style="display:flex;flex-direction:column;gap:2px;">
-            <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Gestión de Usuarios</h2>
-            <p>Crea y administra las cuentas de acceso de los ejecutivos.</p>
-          </div>
-        </div>
+        <div class="hdr-usuarios" style="display:flex!important;align-items:center!important;">
+      <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">👥</span>
+      <div style="margin-left:16px;">
+        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.8rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Gestión de Usuarios</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:500;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Crea y administra las cuentas de acceso de los ejecutivos.</div>
+      </div>
+    </div>
         """, unsafe_allow_html=True)
 
         # ── Crear nuevo usuario ──
@@ -13473,13 +13473,13 @@ if tab_notif is not None and st.session_state.get('es_supervisor'):
         .hdr-notif h2 { color:#fff !important; margin:0; font-size:1.6rem; font-weight:700; }
         .hdr-notif p  { color:rgba(255,255,255,0.5) !important; margin:1px 0 0; font-size:0.88rem; }
         </style>
-        <div class="hdr-notif" style="align-items:center;">
-          <span style="font-size:2.4rem">📣</span>
-          <div>
-            <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Notificaciones</h2>
-            <p>Configura Telegram, contactos, observadores y mensajes automáticos.</p>
-          </div>
-        </div>
+        <div class="hdr-notif" style="display:flex!important;align-items:center!important;">
+      <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">📣</span>
+      <div style="margin-left:16px;">
+        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.8rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Notificaciones</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:500;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Configura Telegram, contactos, observadores y mensajes automáticos.</div>
+      </div>
+    </div>
         """, unsafe_allow_html=True)
 
         # ── 1. Configuración del Bot ──
