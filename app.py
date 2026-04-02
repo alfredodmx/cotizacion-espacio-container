@@ -1200,7 +1200,11 @@ def leer_datos_actuales():
             except ValueError:
                 pass
     if mejor_tel_asesor is not None:
-        raw = re.sub(r'[^0-9]', '', mejor_tel_asesor)[:9]
+        raw = re.sub(r'[^0-9]', '', mejor_tel_asesor)
+        # Quitar prefijo 56 si viene incluido antes de truncar
+        if len(raw) >= 11 and raw.startswith('56'):
+            raw = raw[2:]
+        raw = raw[:9]
         st.session_state.telefono_asesor = raw
 
     mejor_counter = -1
@@ -5966,6 +5970,9 @@ if tab2 is not None:
                     telefono_input = st.text_input("Teléfono Ejecutivo", value=st.session_state.telefono_asesor, key=telefono_asesor_key, placeholder="912345678 (9 dígitos)")
                     if telefono_input != st.session_state.telefono_asesor:
                         raw = re.sub(r'[^0-9]', '', telefono_input)
+                        # Quitar prefijo 56 si viene incluido antes de truncar
+                        if len(raw) >= 11 and raw.startswith('56'):
+                            raw = raw[2:]
                         if len(raw) > 9:
                             raw = raw[:9]
                         st.session_state.telefono_asesor = raw
@@ -7649,7 +7656,7 @@ if tab3 is not None:
                     "Nombre":            cotizacion.get('cliente_nombre',''),
                     "RUT":               cotizacion.get('cliente_rut',''),
                     "Correo":            cotizacion.get('cliente_email',''),
-                    "Teléfono":          formatear_telefono(cotizacion.get('cliente_telefono','')),
+                    "Teléfono":          cotizacion.get('cliente_telefono',''),
                     "Dirección":         cotizacion.get('cliente_direccion',''),
                     "ComunaCliente":     cotizacion.get('cliente_comuna',''),
                     "RegionCliente":     cotizacion.get('cliente_region',''),
@@ -7663,7 +7670,7 @@ if tab3 is not None:
                 }
                 da = {"Nombre Ejecutivo": cotizacion.get('asesor_nombre',''),
                       "Correo Ejecutivo": cotizacion.get('asesor_email',''),
-                      "Teléfono Ejecutivo": formatear_telefono(cotizacion.get('asesor_telefono',''))}
+                      "Teléfono Ejecutivo": cotizacion.get('asesor_telefono','')}
                 fi = datetime.strptime(cotizacion.get('proyecto_fecha_inicio', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d').date()
                 ft = datetime.strptime(cotizacion.get('proyecto_fecha_termino', (datetime.now()+timedelta(days=15)).strftime('%Y-%m-%d')), '%Y-%m-%d').date()
                 dv = cotizacion.get('proyecto_dias_validez', 15)
@@ -7699,7 +7706,7 @@ if tab3 is not None:
                             "Nombre": _cot_compras.get('cliente_nombre',''),
                             "RUT": _cot_compras.get('cliente_rut',''),
                             "Correo": _cot_compras.get('cliente_email',''),
-                            "Teléfono": formatear_telefono(_cot_compras.get('cliente_telefono','')),
+                            "Teléfono": _cot_compras.get('cliente_telefono',''),
                             "Dirección": _cot_compras.get('cliente_direccion',''),
                             "ComunaCliente": _cot_compras.get('cliente_comuna',''),
                             "RegionCliente": _cot_compras.get('cliente_region',''),
@@ -7714,7 +7721,7 @@ if tab3 is not None:
                         _da_compras = {
                             "Nombre Ejecutivo": _cot_compras.get('asesor_nombre',''),
                             "Correo Ejecutivo": _cot_compras.get('asesor_email',''),
-                            "Teléfono Ejecutivo": formatear_telefono(_cot_compras.get('asesor_telefono','')),
+                            "Teléfono Ejecutivo": _cot_compras.get('asesor_telefono',''),
                         }
                         _fi_c = datetime.strptime(_cot_compras.get('proyecto_fecha_inicio', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d').date()
                         _ft_c = datetime.strptime(_cot_compras.get('proyecto_fecha_termino', (datetime.now()+timedelta(days=15)).strftime('%Y-%m-%d')), '%Y-%m-%d').date()
@@ -10360,7 +10367,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                                     "Nombre": _sel_cot.get('cliente_nombre',''),
                                     "RUT": _sel_cot.get('cliente_rut',''),
                                     "Correo": _sel_cot.get('cliente_email',''),
-                                    "Teléfono": formatear_telefono(_sel_cot.get('cliente_telefono','')),
+                                    "Teléfono": _sel_cot.get('cliente_telefono',''),
                                     "Dirección": _sel_cot.get('cliente_direccion',''),
                                     "ComunaCliente": _sel_cot.get('cliente_comuna',''),
                                     "RegionCliente": _sel_cot.get('cliente_region',''),
@@ -10375,7 +10382,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                                 _sel_da = {
                                     "Nombre Ejecutivo": _sel_cot.get('asesor_nombre',''),
                                     "Correo Ejecutivo": _sel_cot.get('asesor_email',''),
-                                    "Teléfono Ejecutivo": formatear_telefono(_sel_cot.get('asesor_telefono','')),
+                                    "Teléfono Ejecutivo": _sel_cot.get('asesor_telefono',''),
                                 }
                                 _sel_fi = datetime.strptime(_sel_cot.get('proyecto_fecha_inicio', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d').date()
                                 _sel_ft = datetime.strptime(_sel_cot.get('proyecto_fecha_termino', (datetime.now()+timedelta(days=15)).strftime('%Y-%m-%d')), '%Y-%m-%d').date()
