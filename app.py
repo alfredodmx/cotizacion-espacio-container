@@ -2798,6 +2798,16 @@ st.markdown("""
         box-shadow: none !important;
     }
     hr { display: none !important; }
+    /* ── Heartbeat indicators ── */
+    @keyframes _hb_pulse{0%,100%{transform:scale(1);opacity:.35}50%{transform:scale(2.4);opacity:0}}
+    ._hb_wrap{display:inline-flex;align-items:center;gap:5px;line-height:1.4;}
+    ._hb_dot{position:relative;display:inline-block;width:9px;height:9px;flex-shrink:0;vertical-align:middle;}
+    ._hb_dot span{position:absolute;border-radius:50%;}
+    ._hb_ring_r{inset:0;background:#E24B4A;opacity:.35;animation:_hb_pulse 1.5s ease-in-out infinite;}
+    ._hb_core_r{inset:1.5px;background:#E24B4A;}
+    ._hb_ring_a{inset:0;background:#EF9F27;opacity:.35;animation:_hb_pulse 1.5s ease-in-out infinite;}
+    ._hb_core_a{inset:1.5px;background:#EF9F27;}
+    ._hb_check_wrap{inset:1.5px;background:#1D9E75;}
     .stTabs [data-baseweb="tab"] {
         font-family: 'Plus Jakarta Sans', sans-serif !important;
         font-size: 0.88rem !important; font-weight: 900 !important;
@@ -5880,19 +5890,28 @@ if tab2 is not None:
                     st.rerun()
 
                 nombre_key = f"nombre_input_{st.session_state.counter}"
-                nombre = st.text_input("Nombre Completo*", placeholder="Ej: Juan Pérez", key=nombre_key, value=st.session_state.nombre_input)
+                _nombre_ok = bool(str(st.session_state.nombre_input).strip())
+                _nombre_dot = '<span class="_hb_dot"><span class="_hb_check_wrap"></span><svg style="position:absolute;inset:0;width:9px;height:9px;" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' if _nombre_ok else '<span class="_hb_dot"><span class="_hb_ring_r"></span><span class="_hb_core_r"></span></span>'
+                st.markdown(f'<span class="_hb_wrap"><b style="font-size:0.85rem;">Nombre Completo*</b>{_nombre_dot}</span>', unsafe_allow_html=True)
+                nombre = st.text_input("Nombre Completo*", placeholder="Ej: Juan Pérez", key=nombre_key, value=st.session_state.nombre_input, label_visibility="collapsed")
                 if nombre != st.session_state.nombre_input:
                     st.session_state.nombre_input = nombre
 
                 correo_key = f"correo_input_{st.session_state.counter}"
-                correo = st.text_input("Correo Electrónico*", placeholder="ejemplo@correo.cl", key=correo_key, value=st.session_state.correo_input)
+                _correo_ok = bool(str(st.session_state.correo_input).strip())
+                _correo_dot = '<span class="_hb_dot"><span class="_hb_check_wrap"></span><svg style="position:absolute;inset:0;width:9px;height:9px;" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' if _correo_ok else '<span class="_hb_dot"><span class="_hb_ring_r"></span><span class="_hb_core_r"></span></span>'
+                st.markdown(f'<span class="_hb_wrap"><b style="font-size:0.85rem;">Correo Electrónico*</b>{_correo_dot}</span>', unsafe_allow_html=True)
+                correo = st.text_input("Correo Electrónico*", placeholder="ejemplo@correo.cl", key=correo_key, value=st.session_state.correo_input, label_visibility="collapsed")
                 if correo != st.session_state.correo_input:
                     st.session_state.correo_input = correo
                 if correo and "@" not in correo:
                     st.warning("⚠️ El correo debe contener @")
 
                 rut_key = f"rut_input_{st.session_state.counter}"
-                st.text_input("RUT (opcional)", value=st.session_state.rut_display, key=rut_key, placeholder="12.345.678-9", on_change=procesar_cambio_rut)
+                _rut_ok = bool(str(st.session_state.rut_display).strip())
+                _rut_dot = '<span class="_hb_dot"><span class="_hb_check_wrap"></span><svg style="position:absolute;inset:0;width:9px;height:9px;" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' if _rut_ok else '<span class="_hb_dot"><span class="_hb_ring_r"></span><span class="_hb_core_r"></span></span>'
+                st.markdown(f'<span class="_hb_wrap"><b style="font-size:0.85rem;">RUT</b>{_rut_dot}</span>', unsafe_allow_html=True)
+                st.text_input("RUT", value=st.session_state.rut_display, key=rut_key, placeholder="12.345.678-9", on_change=procesar_cambio_rut, label_visibility="collapsed")
                 if st.session_state.rut_raw:
                     if len(st.session_state.rut_raw) >= 2:
                         if st.session_state.rut_valido:
@@ -5910,7 +5929,10 @@ if tab2 is not None:
                         st.info("⏳ RUT incompleto")
 
                 telefono_key = f"telefono_input_{st.session_state.counter}"
-                st.text_input("Teléfono", value=st.session_state.telefono_raw, key=telefono_key, placeholder="961528954 (9 dígitos sin +56)", on_change=procesar_cambio_telefono)
+                _tel_ok2 = bool(str(st.session_state.telefono_raw).strip())
+                _tel_dot2 = '<span class="_hb_dot"><span class="_hb_check_wrap"></span><svg style="position:absolute;inset:0;width:9px;height:9px;" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' if _tel_ok2 else '<span class="_hb_dot"><span class="_hb_ring_r"></span><span class="_hb_core_r"></span></span>'
+                st.markdown(f'<span class="_hb_wrap"><b style="font-size:0.85rem;">Teléfono</b>{_tel_dot2}</span>', unsafe_allow_html=True)
+                st.text_input("Teléfono", value=st.session_state.telefono_raw, key=telefono_key, placeholder="961528954 (9 dígitos sin +56)", on_change=procesar_cambio_telefono, label_visibility="collapsed")
                 if st.session_state.telefono_raw:
                     _tel_msg = st.session_state.get('telefono_mensaje', '')
                     _tel_ok  = st.session_state.get('telefono_valido', False)
@@ -5930,16 +5952,22 @@ if tab2 is not None:
                     st.markdown("---")
                     st.markdown("**🏢 Empresa**")
                     emp_key = f"cliente_empresa_{st.session_state.counter}"
+                    _emp_ok = bool(str(st.session_state.cliente_empresa).strip())
+                    _emp_dot = '<span class="_hb_dot"><span class="_hb_check_wrap"></span><svg style="position:absolute;inset:0;width:9px;height:9px;" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' if _emp_ok else '<span class="_hb_dot"><span class="_hb_ring_r"></span><span class="_hb_core_r"></span></span>'
+                    st.markdown(f'<span class="_hb_wrap"><b style="font-size:0.85rem;">Razón social*</b>{_emp_dot}</span>', unsafe_allow_html=True)
                     empresa = st.text_input("Razón social*", placeholder="Ej: Constructora ABC SpA",
-                                            key=emp_key, value=st.session_state.cliente_empresa)
+                                            key=emp_key, value=st.session_state.cliente_empresa, label_visibility="collapsed")
                     if empresa != st.session_state.cliente_empresa:
                         st.session_state.cliente_empresa = empresa
 
                     rut_emp_key = f"rut_empresa_input_{st.session_state.counter}"
+                    _rut_emp_ok = bool(str(st.session_state.rut_empresa_display).strip())
+                    _rut_emp_dot = '<span class="_hb_dot"><span class="_hb_check_wrap"></span><svg style="position:absolute;inset:0;width:9px;height:9px;" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' if _rut_emp_ok else '<span class="_hb_dot"><span class="_hb_ring_r"></span><span class="_hb_core_r"></span></span>'
+                    st.markdown(f'<span class="_hb_wrap"><b style="font-size:0.85rem;">RUT empresa*</b>{_rut_emp_dot}</span>', unsafe_allow_html=True)
                     st.text_input("RUT empresa*", placeholder="76.123.456-7",
                                   key=rut_emp_key,
                                   value=st.session_state.rut_empresa_display,
-                                  on_change=procesar_cambio_rut_empresa)
+                                  on_change=procesar_cambio_rut_empresa, label_visibility="collapsed")
                     if st.session_state.rut_empresa_raw:
                         if len(st.session_state.rut_empresa_raw) >= 2:
                             if st.session_state.rut_empresa_valido:
@@ -5957,7 +5985,10 @@ if tab2 is not None:
             with st.container(border=True):
                 st.markdown("**📍 Cliente**")
                 direccion_key = f"direccion_input_{st.session_state.counter}"
-                direccion = st.text_input("Dirección cliente", placeholder="Calle, número", key=direccion_key, value=st.session_state.direccion_input)
+                _dir_ok = bool(str(st.session_state.direccion_input).strip())
+                _dir_dot = '<span class="_hb_dot"><span class="_hb_check_wrap"></span><svg style="position:absolute;inset:0;width:9px;height:9px;" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' if _dir_ok else '<span class="_hb_dot"><span class="_hb_ring_r"></span><span class="_hb_core_r"></span></span>'
+                st.markdown(f'<span class="_hb_wrap"><b style="font-size:0.85rem;">Dirección cliente</b>{_dir_dot}</span>', unsafe_allow_html=True)
+                direccion = st.text_input("Dirección cliente", placeholder="Calle, número", key=direccion_key, value=st.session_state.direccion_input, label_visibility="collapsed")
                 if direccion != st.session_state.direccion_input:
                     st.session_state.direccion_input = direccion
                 _com_cli, _reg_cli = selector_comuna_region(
@@ -5972,7 +6003,10 @@ if tab2 is not None:
 
                 st.markdown("**🏗️ Proyecto**")
                 proy_dir_key = f"proyecto_direccion_{st.session_state.counter}"
-                proy_dir = st.text_input("Dirección instalación", placeholder="Calle, número", key=proy_dir_key, value=st.session_state.proyecto_direccion)
+                _proy_ok = bool(str(st.session_state.proyecto_direccion).strip())
+                _proy_dot = '<span class="_hb_dot"><span class="_hb_check_wrap"></span><svg style="position:absolute;inset:0;width:9px;height:9px;" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' if _proy_ok else '<span class="_hb_dot"><span class="_hb_ring_r"></span><span class="_hb_core_r"></span></span>'
+                st.markdown(f'<span class="_hb_wrap"><b style="font-size:0.85rem;">Dirección instalación</b>{_proy_dot}</span>', unsafe_allow_html=True)
+                proy_dir = st.text_input("Dirección instalación", placeholder="Calle, número", key=proy_dir_key, value=st.session_state.proyecto_direccion, label_visibility="collapsed")
                 if proy_dir != st.session_state.proyecto_direccion:
                     st.session_state.proyecto_direccion = proy_dir
                 _com_proy, _reg_proy = selector_comuna_region(
@@ -6018,16 +6052,23 @@ if tab2 is not None:
                 st.markdown("**👨‍💼 Ejecutivo**")
 
                 if _es_ejecutivo_tab2:
-                    # Ejecutivo: solo ve sus propios datos, sin dropdown
+                    # Ejecutivo: solo ve sus propios datos — check verde fijo
+                    _dot_check = '<span class="_hb_dot"><span class="_hb_check_wrap"></span><svg style="position:absolute;inset:0;width:9px;height:9px;" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>'
+                    st.markdown(f'<span class="_hb_wrap"><b style="font-size:0.85rem;">Nombre</b>{_dot_check}</span>', unsafe_allow_html=True)
                     st.text_input("Nombre", value=st.session_state.asesor_seleccionado, disabled=True,
-                                  key=f"ej_nombre_fixed_{st.session_state.counter}")
+                                  key=f"ej_nombre_fixed_{st.session_state.counter}", label_visibility="collapsed")
+                    st.markdown(f'<span class="_hb_wrap"><b style="font-size:0.85rem;">Correo Ejecutivo</b>{_dot_check}</span>', unsafe_allow_html=True)
                     st.text_input("Correo Ejecutivo*", value=st.session_state.correo_asesor, disabled=True,
-                                  key=f"ej_correo_fixed_{st.session_state.counter}")
+                                  key=f"ej_correo_fixed_{st.session_state.counter}", label_visibility="collapsed")
+                    st.markdown(f'<span class="_hb_wrap"><b style="font-size:0.85rem;">Teléfono Ejecutivo</b>{_dot_check}</span>', unsafe_allow_html=True)
                     st.text_input("Teléfono Ejecutivo", value=st.session_state.telefono_asesor, disabled=True,
-                                  key=f"ej_tel_fixed_{st.session_state.counter}")
+                                  key=f"ej_tel_fixed_{st.session_state.counter}", label_visibility="collapsed")
                     st.caption("🔒 Tus datos están asignados automáticamente.")
                 else:
-                    # Admin/root: dropdown completo
+                    # Admin/root: dropdown con heartbeat
+                    _asesor_sel_ok = (st.session_state.asesor_seleccionado not in ("", "Seleccionar asesor"))
+                    _asesor_sel_dot = '<span class="_hb_dot"><span class="_hb_check_wrap"></span><svg style="position:absolute;inset:0;width:9px;height:9px;" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' if _asesor_sel_ok else '<span class="_hb_dot"><span class="_hb_ring_r"></span><span class="_hb_core_r"></span></span>'
+                    st.markdown(f'<span class="_hb_wrap"><b style="font-size:0.85rem;">Asesor</b>{_asesor_sel_dot}</span>', unsafe_allow_html=True)
                     nombres_asesores = list(asesores.keys())
                     asesor_key = f"asesor_select_{st.session_state.counter}"
                     indice_actual = nombres_asesores.index(st.session_state.asesor_seleccionado) if st.session_state.asesor_seleccionado in nombres_asesores else 0
@@ -6070,7 +6111,8 @@ if tab2 is not None:
         # ── Columna 4: Validez ──
         with col4:
             with st.container(border=True):
-                st.markdown("**📅 Validez**")
+                _fecha_dot_a = '<span class="_hb_dot"><span class="_hb_ring_a"></span><span class="_hb_core_a"></span></span>'
+                st.markdown(f'<span class="_hb_wrap"><b style="font-size:0.85rem;">📅 Validez</b>{_fecha_dot_a}</span>', unsafe_allow_html=True)
                 fecha_inicio_key = f"fecha_inicio_{st.session_state.counter}"
                 fecha_inicio = st.date_input("Fecha de Inicio", value=st.session_state.fecha_inicio, key=fecha_inicio_key)
                 if fecha_inicio != st.session_state.fecha_inicio:
@@ -6091,9 +6133,11 @@ if tab2 is not None:
 
         # ── Observaciones (ancho completo) ──
         with st.container(border=True):
-            st.markdown("**📝 Descripción del proyecto**")
+            _obs_ok = bool(str(st.session_state.observaciones_input).strip())
+            _obs_dot = '<span class="_hb_dot"><span class="_hb_check_wrap"></span><svg style="position:absolute;inset:0;width:9px;height:9px;" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' if _obs_ok else '<span class="_hb_dot"><span class="_hb_ring_r"></span><span class="_hb_core_r"></span></span>'
+            st.markdown(f'<span class="_hb_wrap"><b style="font-size:0.85rem;">📝 Descripción del proyecto</b>{_obs_dot}</span>', unsafe_allow_html=True)
             observaciones_key = f"observaciones_input_{st.session_state.counter}"
-            observaciones = st.text_area("Descripción del proyecto", placeholder="Describe el proyecto, características especiales o información relevante...", height=80, key=observaciones_key, value=st.session_state.observaciones_input)
+            observaciones = st.text_area("Descripción del proyecto", placeholder="Describe el proyecto, características especiales o información relevante...", height=80, key=observaciones_key, value=st.session_state.observaciones_input, label_visibility="collapsed")
             if observaciones != st.session_state.observaciones_input:
                 st.session_state.observaciones_input = observaciones
 
@@ -6399,7 +6443,9 @@ if tab1 is not None:
 
         with col_m5:
             with st.container(border=True):
-                st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;">📎 Plano PDF</div>', unsafe_allow_html=True)
+                _plano_ok = bool(st.session_state.get('plano_adjunto') or st.session_state.get('pdf_url') or st.session_state.get('plano_nombre'))
+                _plano_dot = '<span class="_hb_dot"><span class="_hb_check_wrap"></span><svg style="position:absolute;inset:0;width:9px;height:9px;" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' if _plano_ok else '<span class="_hb_dot"><span class="_hb_ring_r"></span><span class="_hb_core_r"></span></span>'
+                st.markdown(f'<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;"><span class="_hb_wrap">📎 Plano PDF{_plano_dot}</span></div>', unsafe_allow_html=True)
                 st.markdown('''
                 <style>
                 [data-testid="stFileUploader"] section {
