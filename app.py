@@ -3267,7 +3267,8 @@ if st.session_state.show_pwd_dialog:
 st.markdown("""<style>
 /* ── Headers de tabs — tipografía Montserrat igual que módulos ── */
 div[class*="hdr"] h2 + p,
-div[class*="hdr"] p { margin-top: 2px !important; margin-bottom: 0 !important; }
+div[class*="hdr"] p { margin-top: 0 !important; margin-bottom: 0 !important; padding-top: 0 !important; line-height: 1.2 !important; }
+div[class*="hdr"] h2 { line-height: 1.2 !important; margin-bottom: 0 !important; padding-bottom: 0 !important; }
 div[class*="hdr"] h2,
 div[class*="hdr1"] h2, div[class*="hdr2"] h2, div[class*="hdr3"] h2,
 div[class*="hdr4"] h2, div[class*="hdr5"] h2, div[class*="hdr6"] h2,
