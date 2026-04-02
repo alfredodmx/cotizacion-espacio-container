@@ -3274,8 +3274,8 @@ div[class*="hdr-usuarios"] h2, div[class*="hdr-admindata"] h2,
 div[class*="hdr-contrato"] h2, div[class*="hdr-salud"] h2,
 div[class*="dash-hdr"] h2, div[class*="excel-header"] h2 {
     font-family: 'Montserrat', sans-serif !important;
-    font-weight: 700 !important;
-    font-size: 0.88rem !important;
+    font-weight: 900 !important;
+    font-size: 1.1rem !important;
     letter-spacing: 0.05em !important;
     text-transform: uppercase !important;
     color: #fff !important;
