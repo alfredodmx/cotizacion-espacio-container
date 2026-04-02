@@ -6262,7 +6262,7 @@ if tab1 is not None:
     st.markdown("---")
 
     if not st.session_state.modo_admin:
-        st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;">📊 Resumen del Presupuesto</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;text-align:center;">📊 Resumen del Presupuesto</div>', unsafe_allow_html=True)
         if st.session_state.margen > 0:
             st.caption(f"ℹ️ Margen del {st.session_state.margen}% aplicado")
 
@@ -6270,7 +6270,7 @@ if tab1 is not None:
     if st.session_state.modo_admin:
         col_res_tit, col_res_margen = st.columns([4, 1])
         with col_res_tit:
-            st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;">📊 Resumen del Presupuesto</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;text-align:center;">📊 Resumen del Presupuesto</div>', unsafe_allow_html=True)
         with col_res_margen:
             st.caption("Margen %")
             _nuevo_margen = st.number_input(
