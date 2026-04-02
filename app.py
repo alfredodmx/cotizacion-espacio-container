@@ -9517,9 +9517,9 @@ if _mostrar_progreso:
     _es_juridica = _ss.get('cliente_tipo', 'natural') == 'juridica'
     _asesor_ok = bool(_ss.get('asesor_seleccionado','') and _ss.get('asesor_seleccionado') != 'Seleccionar asesor')
     _campos = [
-        ('Carrito',        25, bool(len(_ss.get('carrito',[])) > 0)),
+        ('Presupuesto',    25, bool(len(_ss.get('carrito',[])) > 0)),
         ('Plano PDF',      10, bool(_ss.get('plano_adjunto') or _ss.get('pdf_url') or _ss.get('plano_nombre'))),
-        ('Asesor',         10, _asesor_ok),
+        ('Datos asesor',   10, _asesor_ok),
         ('Nombre cliente', 10, bool(str(_ss.get('nombre_input','')).strip())),
         ('Correo',          8, bool(str(_ss.get('correo_input','')).strip())),
         ('RUT',             8, bool(str(_ss.get('rut_display','')).strip())),
