@@ -6674,7 +6674,6 @@ if tab3 is not None:
             limpiar_btn = st.button("🗑️ Limpiar", use_container_width=True)
         with _bc4:
             if st.button("📅 Hoy", use_container_width=True, key="filtro_hoy"):
-                st.session_state['buscar_cotizacion'] = ""
                 st.session_state.resultados_busqueda = None
                 st.rerun()
 
