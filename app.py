@@ -8519,11 +8519,11 @@ if st.session_state.modo_admin and tab5 is not None:
 
         # Header — intacto, no se toca
         st.markdown("""
-        <div class="excel-header">
-          <span style="font-size:2.8rem;line-height:1;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📊</span>
-          <div>
-            <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Proyecto Excel — Control de Versiones</h2>
-            <p>Sube nuevas versiones del cotizador.xlsx y activa la que necesites. El sistema se actualiza al instante.</p>
+        <div class="excel-header" style="display:flex!important;align-items:center!important;">
+          <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">📊</span>
+          <div style="margin-left:16px;">
+            <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.6rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Proyecto Excel — Control de Versiones</div>
+            <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Sube nuevas versiones del cotizador.xlsx y activa la que necesites. El sistema se actualiza al instante.</div>
           </div>
         </div>
         """, unsafe_allow_html=True)
@@ -10544,11 +10544,11 @@ if tab_dash is not None:
                  font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
     .dash-hdr p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; }
     </style>
-    <div class="dash-hdr">
-      <span style="font-size:2.8rem;line-height:1;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📊</span>
-      <div>
-        <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Dashboard</h2>
-        <p>Resumen ejecutivo del rendimiento comercial en tiempo real.</p>
+    <div class="dash-hdr" style="display:flex!important;align-items:center!important;">
+      <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">📊</span>
+      <div style="margin-left:16px;">
+        <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.6rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Dashboard</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Resumen ejecutivo del rendimiento comercial en tiempo real.</div>
       </div>
     </div>
     """, unsafe_allow_html=True)
