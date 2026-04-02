@@ -6107,7 +6107,7 @@ if tab1 is not None:
 
         with col_m1:
             with st.container(border=True):
-                st.markdown('<p style="font-family:Montserrat,sans-serif;font-weight:900;font-size:0.95rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a !important;margin:0 0 6px 0;">📋 Modelo Predefinido</p>', unsafe_allow_html=True)
+                st.markdown('<p class="modulo-titulo">📋 Modelo Predefinido</p>', unsafe_allow_html=True)
                 try:
                     if hojas_modelo:
                         modelo_seleccionado = st.selectbox("Modelo", hojas_modelo, key="modelo_select", label_visibility="collapsed")
@@ -6124,7 +6124,7 @@ if tab1 is not None:
 
         with col_m2:
             with st.container(border=True):
-                st.markdown('<p style="font-family:Montserrat,sans-serif;font-weight:900;font-size:0.95rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a !important;margin:0 0 6px 0;">🔍 Ítems</p>', unsafe_allow_html=True)
+                st.markdown('<p class="modulo-titulo">🔍 Ítems</p>', unsafe_allow_html=True)
                 try:
                     df = _leer_hoja_excel("BD Total")
                     categorias = df["Categorias"].dropna().unique()
@@ -6156,7 +6156,7 @@ if tab1 is not None:
 
         with col_m3:
             with st.container(border=True):
-                st.markdown('<p style="font-family:Montserrat,sans-serif;font-weight:900;font-size:0.95rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a !important;margin:0 0 6px 0;">🗑️ Eliminar Categoría</p>', unsafe_allow_html=True)
+                st.markdown('<p class="modulo-titulo">🗑️ Eliminar Categoría</p>', unsafe_allow_html=True)
                 try:
                     if st.session_state.carrito:
                         carrito_df_temp = pd.DataFrame(st.session_state.carrito)
@@ -6174,7 +6174,7 @@ if tab1 is not None:
 
         with col_m4:
             with st.container(border=True):
-                st.markdown('<p style="font-family:Montserrat,sans-serif;font-weight:900;font-size:0.95rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a !important;margin:0 0 6px 0;">➕ Agregar Categoría</p>', unsafe_allow_html=True)
+                st.markdown('<p class="modulo-titulo">➕ Agregar Categoría</p>', unsafe_allow_html=True)
                 try:
                     if hojas_modelo:
                         modelo_origen = st.selectbox("Modelo", hojas_modelo, key="modelo_origen", label_visibility="collapsed")
@@ -6202,7 +6202,7 @@ if tab1 is not None:
 
         with col_m5:
             with st.container(border=True):
-                st.markdown('<p style="font-family:Montserrat,sans-serif;font-weight:900;font-size:0.95rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a !important;margin:0 0 6px 0;">📎 Plano PDF</p>', unsafe_allow_html=True)
+                st.markdown('<p class="modulo-titulo">📎 Plano PDF</p>', unsafe_allow_html=True)
                 st.markdown('''
                 <style>
                 [data-testid="stFileUploader"] section {
@@ -7051,7 +7051,10 @@ if tab3 is not None:
         .resultados-table .badge-rechazado {{ color: #fbbf24 !important; }}
         .resultados-table tr.fila-rechazada td .badge-rechazado {{ color: #fbbf24 !important; background-color: #dc2626 !important; }}
         .resultados-table tr.fila-rechazada:hover td {{ background-color: #fecaca !important; }}
-        .resultados-table th.th-adj,
+        p.modulo-titulo { color: #0f172a !important; font-family: Montserrat, sans-serif !important;
+        font-weight: 900 !important; font-size: 0.95rem !important;
+        letter-spacing: 0.05em !important; text-transform: uppercase !important; margin: 0 0 6px 0 !important; }
+    .resultados-table th.th-adj,
         .resultados-table thead tr th.th-adj,
         table.resultados-table > thead > tr > th.th-adj {{ 
             background-color: #fbbf24 !important; 
