@@ -6877,7 +6877,7 @@ if tab3 is not None:
             if _es_adj_cot and not _fadj_raw_cot:
                 _fadj_raw_cot = _fauth_raw_cot
 
-            # ── Proceso notarial ──
+            # ── Cierre de venta ──
             _margen_cot       = float(row.get('Margen', 0) or 0)
             _motivo_rec       = str(row.get('Motivo_Rechazo','') or '')
             _fecha_rec_raw    = str(row.get('Fecha_Rechazo','') or '')
@@ -7045,9 +7045,9 @@ if tab3 is not None:
             background: #fbbf24 !important;
             color: #0f172a !important; 
         }}
-        .resultados-table th.th-notarial,
-        .resultados-table thead tr th.th-notarial,
-        table.resultados-table > thead > tr > th.th-notarial {{
+        .resultados-table th.th-cierre,
+        .resultados-table thead tr th.th-cierre,
+        table.resultados-table > thead > tr > th.th-cierre {{
             background-color: #78350f !important;
             background: #78350f !important;
             color: #fbbf24 !important;
@@ -7057,7 +7057,7 @@ if tab3 is not None:
             <div style="{_altura_css}">
                 <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:1700px;table-layout:auto;white-space:nowrap;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
-                        <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th class="th-notarial">Proceso notarial</th><th class="th-adj">Fecha adjudicación</th><th class="th-adj">Tiempo fabricación</th><th class="th-adj">Fidelización cliente</th><th class="th-adj">Retraso proyecto</th></tr>
+                        <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th class="th-cierre">Cierre de venta</th><th class="th-adj">Fecha adjudicación</th><th class="th-adj">Tiempo fabricación</th><th class="th-adj">Fidelización cliente</th><th class="th-adj">Retraso proyecto</th></tr>
                     </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
