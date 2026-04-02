@@ -5581,9 +5581,9 @@ if tab2 is not None:
         width: 240px; height: 240px; border-radius: 50%;
         background: rgba(255,255,255,0.03); pointer-events: none;
     }
-    .hdr2 h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
-                 font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
-    .hdr2 p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
+    .hdr2 h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
+                 font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
+    .hdr2 p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
     </style>
     <div class="hdr2">
       <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">👤</span>
@@ -5952,9 +5952,9 @@ if tab1 is not None:
         width: 240px; height: 240px; border-radius: 50%;
         background: rgba(255,255,255,0.03); pointer-events: none;
     }
-    .hdr1 h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
-                 font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
-    .hdr1 p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
+    .hdr1 h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
+                 font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
+    .hdr1 p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
     </style>
     <div class="hdr1">
       <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">☑️</span>
@@ -6653,9 +6653,9 @@ if tab3 is not None:
         width: 240px; height: 240px; border-radius: 50%;
         background: rgba(255,255,255,0.03); pointer-events: none;
     }
-    .hdr3 h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
-                 font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
-    .hdr3 p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
+    .hdr3 h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
+                 font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
+    .hdr3 p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
     </style>
     <div class="hdr3">
       <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📂</span>
@@ -7874,8 +7874,8 @@ if tab4 is not None:
         width: 240px; height: 240px; border-radius: 50%;
         background: rgba(255,255,255,0.03); pointer-events: none;
     }
-    .hdr4 h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
-                 font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
+    .hdr4 h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
+                 font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
     .hdr4 p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
     </style>
     <div class="hdr4">
@@ -8436,7 +8436,7 @@ if st.session_state.modo_admin and tab5 is not None:
             width: 240px; height: 240px; border-radius: 50%;
             background: rgba(255,255,255,0.03); pointer-events: none;
         }
-        .excel-header h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
+        .excel-header h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
                            font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
         .excel-header p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
 
@@ -8796,8 +8796,8 @@ if st.session_state.get('es_root') and tab_salud is not None:
             width: 240px; height: 240px; border-radius: 50%;
             background: rgba(255,255,255,0.02); pointer-events: none;
         }
-        .hdr-salud h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
-                        font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
+        .hdr-salud h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
+                        font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
         .hdr-salud p  { color: rgba(255,255,255,0.55) !important; margin: 6px 0 0; font-size: 0.92rem; }
 
         .sys-card {
@@ -9057,9 +9057,9 @@ if tab_admindata is not None:
         .hdr-admindata::after { content:''; position:absolute; bottom:-60px; right:80px;
             width:240px; height:240px; border-radius:50%;
             background:rgba(255,255,255,0.03); pointer-events:none; }
-        .hdr-admindata h2 { color:#fff !important; margin:0; font-size:1.8rem; font-weight:900;
-            font-family:'Montserrat',sans-serif; letter-spacing:-0.02em; }
-        .hdr-admindata p { color:rgba(255,255,255,0.65) !important; margin:6px 0 0; font-size:0.92rem; }
+        .hdr-admindata h2 { color:#fff !important; margin:0; font-size:0.88rem; font-weight:700;
+            font-family:'Montserrat',sans-serif; letter-spacing:0.05em; text-transform:uppercase; }
+        .hdr-admindata p { color:rgba(255,255,255,0.65) !important; margin:6px 0 0; font-size:0.92rem; font-family:'Montserrat',sans-serif; font-weight:500; letter-spacing:0.01em; }
         </style>
         <div class="hdr-admindata">
           <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">⚠️</span>
@@ -9461,9 +9461,9 @@ if tab_reporte is not None and st.session_state.modo_admin:
         width: 240px; height: 240px; border-radius: 50%;
         background: rgba(255,255,255,0.03); pointer-events: none;
     }}
-    .hdr-reporte h2 {{ color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
-                       font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }}
-    .hdr-reporte p  {{ color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }}
+    .hdr-reporte h2 {{ color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
+                       font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }}
+    .hdr-reporte p  {{ color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }}
     </style>
     <div class="hdr-reporte">
       <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📈</span>
@@ -9835,9 +9835,9 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
         width: 240px; height: 240px; border-radius: 50%;
         background: rgba(255,255,255,0.03); pointer-events: none;
     }
-    .hdr-oper h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
-                   font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
-    .hdr-oper p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
+    .hdr-oper h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
+                   font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
+    .hdr-oper p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
     </style>
     <div class="hdr-oper">
       <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">⚙️</span>
@@ -10521,8 +10521,8 @@ if tab_dash is not None:
         width: 240px; height: 240px; border-radius: 50%;
         background: rgba(255,255,255,0.03); pointer-events: none;
     }
-    .dash-hdr h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
-                 font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
+    .dash-hdr h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
+                 font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
     .dash-hdr p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
     </style>
     <div class="dash-hdr">
@@ -11027,9 +11027,9 @@ if tab6 is not None:
             width: 240px; height: 240px; border-radius: 50%;
             background: rgba(255,255,255,0.03); pointer-events: none;
         }
-        .hdr6 h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
-                     font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
-        .hdr6 p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
+        .hdr6 h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
+                     font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
+        .hdr6 p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
         </style>
         <div class="hdr6">
           <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">✏️</span>
@@ -11190,9 +11190,9 @@ if tab7 is not None:
             box-shadow: 0 8px 32px rgba(217,119,6,0.25);
             position: relative; overflow: hidden;
         }
-        .hdr7 h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
-                     font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
-        .hdr7 p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
+        .hdr7 h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
+                     font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
+        .hdr7 p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
         .rank-chart-box {
             background: #ffffff; border-radius: 18px; padding: 22px 24px;
             border: 1px solid #e8edf5; margin-bottom: 20px;
@@ -11476,8 +11476,8 @@ if tab_contrato is not None:
         box-shadow: 0 8px 32px rgba(15,52,96,0.3);
         position: relative; overflow: hidden;
     }
-    .hdr-contrato h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
-                 font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
+    .hdr-contrato h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
+                 font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
     .hdr-contrato p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
     .cont-section { background:transparent; color:#1e3a5f; font-size:0.75rem; font-weight:900;
                     text-transform:uppercase; letter-spacing:0.1em; padding:4px 0;
@@ -12991,9 +12991,9 @@ if st.session_state.modo_admin and tab_usuarios is not None:
             width: 240px; height: 240px; border-radius: 50%;
             background: rgba(255,255,255,0.03); pointer-events: none;
         }
-        .hdr-usuarios h2 { color: #fff !important; margin: 0; font-size: 1.8rem; font-weight: 900;
-                           font-family: 'Montserrat', sans-serif; letter-spacing: -0.02em; }
-        .hdr-usuarios p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
+        .hdr-usuarios h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
+                           font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
+        .hdr-usuarios p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
         .usr-card {
             background: var(--background-color, #fff);
             border: 1px solid rgba(0,0,0,0.08);
@@ -13451,7 +13451,7 @@ if tab_notif is not None and st.session_state.get('es_supervisor'):
             border-radius: 20px; padding: 28px 32px; margin-bottom: 20px;
             display: flex; align-items: center; gap: 18px;
         }
-        .hdr-notif h2 { color:#fff !important; margin:0; font-size:1.6rem; font-weight:900; }
+        .hdr-notif h2 { color:#fff !important; margin:0; font-size:1.6rem; font-weight:700; }
         .hdr-notif p  { color:rgba(255,255,255,0.5) !important; margin:4px 0 0; font-size:0.88rem; }
         </style>
         <div class="hdr-notif">
