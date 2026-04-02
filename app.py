@@ -13467,11 +13467,11 @@ if tab_notif is not None and st.session_state.get('es_supervisor'):
         <style>
         .hdr-notif {
             background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #0f172a 100%);
-            border-radius: 20px; padding: 28px 32px; margin-bottom: 20px;
-            display: flex; align-items: center; gap: 18px;
+            border-radius: 20px; padding: 34px 36px; margin-bottom: 28px;
+            display: flex; align-items: center; gap: 16px;
         }
-        .hdr-notif h2 { color:#fff !important; margin:0; font-size:1.6rem; font-weight:700; }
-        .hdr-notif p  { color:rgba(255,255,255,0.5) !important; margin:1px 0 0; font-size:0.88rem; }
+        .hdr-notif h2 { color:#fff !important; margin:0; }
+        .hdr-notif p  { color:rgba(255,255,255,0.65) !important; margin:1px 0 0; }
         </style>
         <div class="hdr-notif" style="display:flex!important;align-items:center!important;">
       <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">📣</span>
