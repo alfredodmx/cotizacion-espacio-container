@@ -1010,14 +1010,21 @@ def formatear_rut(rut_raw):
 def formatear_telefono(telefono_raw):
     if not telefono_raw:
         return ""
-    if len(telefono_raw) > 9:
-        telefono_raw = telefono_raw[:9]
-    if len(telefono_raw) == 1:
-        return f"+56 {telefono_raw}"
-    elif len(telefono_raw) <= 5:
-        return f"+56 {telefono_raw[:1]} {telefono_raw[1:]}"
+    # Extraer solo dígitos (elimina +56, espacios, guiones, etc.)
+    digitos = re.sub(r'[^0-9]', '', str(telefono_raw))
+    # Si viene con código de país 56 al inicio (ej: 56961528878 → 11 dígitos), quitarlo
+    if len(digitos) >= 11 and digitos.startswith('56'):
+        digitos = digitos[2:]
+    # Tomar solo los últimos 9 dígitos si aún sobran
+    digitos = digitos[-9:] if len(digitos) > 9 else digitos
+    if not digitos:
+        return ""
+    if len(digitos) == 1:
+        return f"+56 {digitos}"
+    elif len(digitos) <= 5:
+        return f"+56 {digitos[:1]} {digitos[1:]}"
     else:
-        return f"+56 {telefono_raw[:1]} {telefono_raw[1:5]} {telefono_raw[5:]}"
+        return f"+56 {digitos[:1]} {digitos[1:5]} {digitos[5:]}"
 
 def formato_clp(valor):
     return f"${valor:,.0f}".replace(",", ".")
@@ -5124,7 +5131,11 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
 
     # Fila 3 — mismas proporciones que fila 2
     data_ca = [[Paragraph("<b>DATOS DEL CLIENTE</b>", styles['TituloSeccion']), Paragraph("<b>DATOS DEL ASESOR</b>", styles['TituloSeccion'])]]
-    asesor_text = "".join(f"<b>{k}:</b> {v}<br/>" for k, v in datos_asesor.items() if v)
+    def _fmt_asesor_val(k, v):
+        if k == "Teléfono Ejecutivo" and v:
+            return formatear_telefono(v)
+        return v
+    asesor_text = "".join(f"<b>{k}:</b> {_fmt_asesor_val(k, v)}<br/>" for k, v in datos_asesor.items() if v)
     data_ca.append([_construir_texto_cliente_pdf(datos_cliente, styles['TextoNormal']), Paragraph(asesor_text, styles['TextoNormal'])])
     tabla_ca = Table(data_ca, colWidths=[_col1, _col2])
     tabla_ca.setStyle(TableStyle([
@@ -5411,7 +5422,11 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
 
     # Fila 3 — mismas proporciones que fila 2
     data_ca = [[Paragraph("<b>DATOS DEL CLIENTE</b>", styles['TituloSeccion']), Paragraph("<b>DATOS DEL ASESOR</b>", styles['TituloSeccion'])]]
-    asesor_text = "".join(f"<b>{k}:</b> {v}<br/>" for k, v in datos_asesor.items() if v)
+    def _fmt_asesor_val2(k, v):
+        if k == "Teléfono Ejecutivo" and v:
+            return formatear_telefono(v)
+        return v
+    asesor_text = "".join(f"<b>{k}:</b> {_fmt_asesor_val2(k, v)}<br/>" for k, v in datos_asesor.items() if v)
     data_ca.append([_construir_texto_cliente_pdf(datos_cliente, styles['TextoNormal']), Paragraph(asesor_text, styles['TextoNormal'])])
     tabla_ca = Table(data_ca, colWidths=[_col1, _col2])
     tabla_ca.setStyle(TableStyle([
