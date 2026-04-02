@@ -8870,7 +8870,7 @@ if st.session_state.get('es_root') and tab_salud is not None:
         .sys-badge-warn { background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:4px; font-weight:700; font-size:0.7rem; }
         .sys-badge-crit { background:#fee2e2; color:#dc2626; padding:2px 8px; border-radius:4px; font-weight:700; font-size:0.7rem; }
         </style>
-        <div class="hdr-salud" style="display:flex!important;align-items:center!important;">
+    <div class="hdr-salud" style="display:flex!important;align-items:center!important;">
       <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">🛡️</span>
       <div style="margin-left:16px;">
         <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.6rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Salud del Sistema</div>
@@ -9080,7 +9080,7 @@ if tab_admindata is not None:
             font-family:'Montserrat',sans-serif; letter-spacing:0.05em; text-transform:uppercase; }
         .hdr-admindata p { color:rgba(255,255,255,0.65) !important; margin:1px 0 0; font-size:0.92rem; font-family:'Montserrat',sans-serif; font-weight:500; letter-spacing:0.01em; }
         </style>
-        <div class="hdr-admindata" style="display:flex!important;align-items:center!important;">
+    <div class="hdr-admindata" style="display:flex!important;align-items:center!important;">
       <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">⚠️</span>
       <div style="margin-left:16px;">
         <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.6rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Administración de datos</div>
@@ -11050,7 +11050,7 @@ if tab6 is not None:
                      font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
         .hdr6 p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
         </style>
-        <div class="hdr6" style="display:flex!important;align-items:center!important;">
+    <div class="hdr6" style="display:flex!important;align-items:center!important;">
       <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">✏️</span>
       <div style="margin-left:16px;">
         <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.6rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Edición PDF Cliente</div>
@@ -11287,7 +11287,7 @@ if tab7 is not None:
         .rank-3 { border-left: 5px solid #b45309; background: linear-gradient(135deg, #fef3c7 0%, #ffffff 40%); }
         .rank-other { border-left: 5px solid #e2e8f0; }
         </style>
-        <div class="hdr7" style="display:flex!important;align-items:center!important;">
+    <div class="hdr7" style="display:flex!important;align-items:center!important;">
       <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">🏆</span>
       <div style="margin-left:16px;">
         <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.6rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Ranking de Ejecutivos</div>
@@ -13035,7 +13035,7 @@ if st.session_state.modo_admin and tab_usuarios is not None:
         .usr-badge-ok   { background:#dcfce7; color:#166534; padding:3px 10px; border-radius:20px; font-size:0.75rem; font-weight:700; }
         .usr-badge-off  { background:#fee2e2; color:#991b1b; padding:3px 10px; border-radius:20px; font-size:0.75rem; font-weight:700; }
         </style>
-        <div class="hdr-usuarios" style="display:flex!important;align-items:center!important;">
+    <div class="hdr-usuarios" style="display:flex!important;align-items:center!important;">
       <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">👥</span>
       <div style="margin-left:16px;">
         <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.6rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Gestión de Usuarios</div>
@@ -13473,7 +13473,7 @@ if tab_notif is not None and st.session_state.get('es_supervisor'):
         .hdr-notif h2 { color:#fff !important; margin:0; }
         .hdr-notif p  { color:rgba(255,255,255,0.65) !important; margin:1px 0 0; }
         </style>
-        <div class="hdr-notif" style="display:flex!important;align-items:center!important;">
+    <div class="hdr-notif" style="display:flex!important;align-items:center!important;">
       <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">📣</span>
       <div style="margin-left:16px;">
         <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.6rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Notificaciones</div>
