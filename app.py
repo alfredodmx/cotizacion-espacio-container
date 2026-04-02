@@ -6665,7 +6665,7 @@ if tab3 is not None:
     with st.container(border=True):
         tipo_busqueda = st.radio("🔍 Buscar por:", ["📋 N° Presupuesto", "👤 Cliente", "👨‍💼 Asesor"], horizontal=True, key="tipo_busqueda")
         tipo_map = {"📋 N° Presupuesto": "numero", "👤 Cliente": "cliente", "👨‍💼 Asesor": "asesor"}
-        _bc1, _bc2, _bc3, _bc4 = st.columns([3, 0.8, 0.8, 0.8])
+        _bc1, _bc2, _bc3, _bc4, _bc5, _bc6 = st.columns([3, 0.8, 0.8, 0.7, 0.8, 0.8])
         with _bc1:
             termino = st.text_input("Término", placeholder="Ingrese término de búsqueda...", key="buscar_cotizacion", label_visibility="collapsed")
         with _bc2:
@@ -6674,6 +6674,14 @@ if tab3 is not None:
             limpiar_btn = st.button("🗑️ Limpiar", use_container_width=True)
         with _bc4:
             if st.button("📅 Hoy", use_container_width=True, key="filtro_hoy"):
+                st.session_state.resultados_busqueda = None
+                st.rerun()
+        with _bc5:
+            if st.button("📅 Semana", use_container_width=True, key="filtro_semana"):
+                st.session_state.resultados_busqueda = None
+                st.rerun()
+        with _bc6:
+            if st.button("📅 Mes", use_container_width=True, key="filtro_mes"):
                 st.session_state.resultados_busqueda = None
                 st.rerun()
 
