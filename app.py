@@ -7023,8 +7023,14 @@ if tab3 is not None:
                     f"<span style='background:{_bg};color:{_col};padding:3px 10px;border-radius:99px;"
                     f"font-size:11px;font-weight:700;margin-right:6px;'>{_ico} {_cnt} {_lbl}</span>"
                 )
-        st.markdown(_badge_res, unsafe_allow_html=True)
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        _col_badge, _col_ref = st.columns([5, 0.7])
+        with _col_badge:
+            st.markdown(_badge_res, unsafe_allow_html=True)
+        with _col_ref:
+            if st.button("🔄", key="cot_refresh_tabla", help="Actualizar resultados", use_container_width=True):
+                st.session_state.resultados_busqueda = None
+                st.rerun()
+        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
         # Altura adaptativa: si hay pocas filas, altura real sin scroll
         _altura_real = n_resultados * 60 + 60
