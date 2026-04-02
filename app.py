@@ -5588,7 +5588,7 @@ if tab2 is not None:
     <div class="hdr2">
       <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">👤</span>
       <div>
-        <h2>Datos del Cliente</h2>
+        <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Datos del Cliente</h2>
         <p>Completa la información del cliente y del proyecto antes de guardar.</p>
       </div>
     </div>
@@ -5959,7 +5959,7 @@ if tab1 is not None:
     <div class="hdr1">
       <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">☑️</span>
       <div>
-        <h2>Gestión de Presupuesto</h2>
+        <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Gestión de Presupuesto</h2>
         <p>Agrega productos, aplica márgenes y genera tu cotización en PDF.</p>
       </div>
     </div>
@@ -6660,7 +6660,7 @@ if tab3 is not None:
     <div class="hdr3">
       <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📂</span>
       <div>
-        <h2>Gestión de Cotizaciones</h2>
+        <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Gestión de Cotizaciones</h2>
         <p>Busca, carga y administra todas las cotizaciones del sistema.</p>
       </div>
     </div>
@@ -7881,7 +7881,7 @@ if tab4 is not None:
     <div class="hdr4">
       <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">🧊</span>
       <div>
-        <h2>Visor 3D Beta</h2>
+        <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Visor 3D Beta</h2>
         <p>Selecciona un presupuesto con plano adjunto para generar su prototipo 3D interactivo.</p>
       </div>
     </div>
@@ -8503,7 +8503,7 @@ if st.session_state.modo_admin and tab5 is not None:
         <div class="excel-header">
           <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📊</span>
           <div>
-            <h2>Proyecto Excel — Control de Versiones</h2>
+            <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Proyecto Excel — Control de Versiones</h2>
             <p>Sube nuevas versiones del cotizador.xlsx y activa la que necesites. El sistema se actualiza al instante.</p>
           </div>
         </div>
@@ -8854,7 +8854,7 @@ if st.session_state.get('es_root') and tab_salud is not None:
         <div class="hdr-salud">
           <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.5));">🛡️</span>
           <div>
-            <h2>Salud del Sistema</h2>
+            <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Salud del Sistema</h2>
             <p>Monitoreo de capacidad y estado de Supabase — Plan Core (actualizado al cargar)</p>
           </div>
         </div>
@@ -9064,7 +9064,7 @@ if tab_admindata is not None:
         <div class="hdr-admindata">
           <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">⚠️</span>
           <div>
-            <h2>Administración de datos</h2>
+            <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Administración de datos</h2>
             <p>Eliminación permanente de presupuestos y archivos · Solo disponible para root</p>
           </div>
         </div>
@@ -9468,7 +9468,7 @@ if tab_reporte is not None and st.session_state.modo_admin:
     <div class="hdr-reporte">
       <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📈</span>
       <div>
-        <h2>Reporte de Inteligencia Comercial</h2>
+        <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Reporte de Inteligencia Comercial</h2>
         <p>Espacio Container House SpA · Período: {_rep_periodo} · Solo admin y root</p>
       </div>
     </div>
@@ -9842,7 +9842,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
     <div class="hdr-oper">
       <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">⚙️</span>
       <div>
-        <h2>Operaciones</h2>
+        <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Operaciones</h2>
         <p>PDF de compras · planos · seguimiento de fabricación y fidelización de clientes</p>
       </div>
     </div>
@@ -10528,7 +10528,7 @@ if tab_dash is not None:
     <div class="dash-hdr">
       <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📊</span>
       <div>
-        <h2>Dashboard</h2>
+        <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Dashboard</h2>
         <p>Resumen ejecutivo del rendimiento comercial en tiempo real.</p>
       </div>
     </div>
@@ -11034,7 +11034,7 @@ if tab6 is not None:
         <div class="hdr6">
           <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">✏️</span>
           <div>
-            <h2>Edición PDF Cliente</h2>
+            <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Edición PDF Cliente</h2>
             <p>Busca tu cotización por número EP y personaliza la descripción de cada categoría para el cliente.</p>
           </div>
         </div>
@@ -11271,7 +11271,7 @@ if tab7 is not None:
         <div class="hdr7">
           <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">🏆</span>
           <div>
-            <h2>Ranking de Ejecutivos</h2>
+            <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Ranking de Ejecutivos</h2>
             <p>Desempeño del equipo de ventas — este mes.</p>
           </div>
         </div>
@@ -11493,7 +11493,7 @@ if tab_contrato is not None:
     <div class="hdr-contrato">
       <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📄</span>
       <div>
-        <h2>Contrato Cliente</h2>
+        <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Contrato Cliente</h2>
         <p>Genera y administra el contrato de fabricación y venta.</p>
       </div>
     </div>
@@ -13019,7 +13019,7 @@ if st.session_state.modo_admin and tab_usuarios is not None:
         <div class="hdr-usuarios">
           <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">👥</span>
           <div>
-            <h2>Gestión de Usuarios</h2>
+            <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Gestión de Usuarios</h2>
             <p>Crea y administra las cuentas de acceso de los ejecutivos.</p>
           </div>
         </div>
@@ -13457,7 +13457,7 @@ if tab_notif is not None and st.session_state.get('es_supervisor'):
         <div class="hdr-notif">
           <span style="font-size:2.4rem">📣</span>
           <div>
-            <h2>Notificaciones</h2>
+            <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Notificaciones</h2>
             <p>Configura Telegram, contactos, observadores y mensajes automáticos.</p>
           </div>
         </div>
