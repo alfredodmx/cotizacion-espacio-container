@@ -2665,7 +2665,7 @@ st.markdown("""
     .stTabs [data-baseweb="tab"] span,
     .stTabs [data-baseweb="tab"] div {
         font-family: 'Plus Jakarta Sans', sans-serif !important;
-        font-weight: 900 !important;
+        font-weight: 800 !important;
         font-size: 0.88rem !important;
     }
     .stTabs [data-baseweb="tab"]:hover { color: #5b7cfa !important; background: rgba(91,124,250,0.05) !important; }
@@ -3266,6 +3266,8 @@ if st.session_state.show_pwd_dialog:
 # CSS para ocultar todo el bloque sin dejar espacio
 st.markdown("""<style>
 /* ── Headers de tabs — tipografía Montserrat igual que módulos ── */
+div[class*="hdr"] h2 + p,
+div[class*="hdr"] p { margin-top: 2px !important; margin-bottom: 0 !important; }
 div[class*="hdr"] h2,
 div[class*="hdr1"] h2, div[class*="hdr2"] h2, div[class*="hdr3"] h2,
 div[class*="hdr4"] h2, div[class*="hdr5"] h2, div[class*="hdr6"] h2,
@@ -3275,7 +3277,7 @@ div[class*="hdr-contrato"] h2, div[class*="hdr-salud"] h2,
 div[class*="dash-hdr"] h2, div[class*="excel-header"] h2 {
     font-family: 'Montserrat', sans-serif !important;
     font-weight: 900 !important;
-    font-size: 1.4rem !important;
+    font-size: 1.6rem !important;
     letter-spacing: 0.05em !important;
     text-transform: uppercase !important;
     color: #fff !important;
