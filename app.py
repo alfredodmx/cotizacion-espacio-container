@@ -2665,7 +2665,7 @@ st.markdown("""
     .stTabs [data-baseweb="tab"] span,
     .stTabs [data-baseweb="tab"] div {
         font-family: 'Plus Jakarta Sans', sans-serif !important;
-        font-weight: 800 !important;
+        font-weight: 700 !important;
         font-size: 0.88rem !important;
     }
     .stTabs [data-baseweb="tab"]:hover { color: #5b7cfa !important; background: rgba(91,124,250,0.05) !important; }
@@ -3277,7 +3277,7 @@ div[class*="hdr-contrato"] h2, div[class*="hdr-salud"] h2,
 div[class*="dash-hdr"] h2, div[class*="excel-header"] h2 {
     font-family: 'Montserrat', sans-serif !important;
     font-weight: 900 !important;
-    font-size: 1.6rem !important;
+    font-size: 1.8rem !important;
     letter-spacing: 0.05em !important;
     text-transform: uppercase !important;
     color: #fff !important;
@@ -5583,8 +5583,8 @@ if tab2 is not None:
     <style>
     .hdr2 {
         background: linear-gradient(135deg, #2d0d66 0%, #5b0d7a 100%);
-        border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
-        display: flex; align-items: center; gap: 22px;
+        border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+        display: flex; align-items: center; gap: 16px;
         box-shadow: 0 8px 32px rgba(91,13,122,0.25);
         position: relative; overflow: hidden;
     }
@@ -5600,7 +5600,7 @@ if tab2 is not None:
     }
     .hdr2 h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
                  font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
-    .hdr2 p  { color: rgba(255,255,255,0.65) !important; margin: 2px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
+    .hdr2 p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
     </style>
     <div class="hdr2">
       <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">👤</span>
@@ -5954,8 +5954,8 @@ if tab1 is not None:
     <style>
     .hdr1 {
         background: linear-gradient(135deg, #0d2266 0%, #0d47a1 100%);
-        border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
-        display: flex; align-items: center; gap: 22px;
+        border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+        display: flex; align-items: center; gap: 16px;
         box-shadow: 0 8px 32px rgba(37,99,235,0.25);
         position: relative; overflow: hidden;
     }
@@ -5971,7 +5971,7 @@ if tab1 is not None:
     }
     .hdr1 h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
                  font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
-    .hdr1 p  { color: rgba(255,255,255,0.65) !important; margin: 2px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
+    .hdr1 p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
     </style>
     <div class="hdr1">
       <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">☑️</span>
@@ -6655,8 +6655,8 @@ if tab3 is not None:
     <style>
     .hdr3 {
         background: linear-gradient(135deg, #6b4e00 0%, #e65100 100%);
-        border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
-        display: flex; align-items: center; gap: 22px;
+        border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+        display: flex; align-items: center; gap: 16px;
         box-shadow: 0 8px 32px rgba(230,81,0,0.25);
         position: relative; overflow: hidden;
     }
@@ -6672,7 +6672,7 @@ if tab3 is not None:
     }
     .hdr3 h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
                  font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
-    .hdr3 p  { color: rgba(255,255,255,0.65) !important; margin: 2px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
+    .hdr3 p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
     </style>
     <div class="hdr3">
       <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📂</span>
@@ -7876,8 +7876,8 @@ if tab4 is not None:
     <style>
     .hdr4 {
         background: linear-gradient(135deg, #003d52 0%, #006978 100%);
-        border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
-        display: flex; align-items: center; gap: 22px;
+        border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+        display: flex; align-items: center; gap: 16px;
         box-shadow: 0 8px 32px rgba(0,105,120,0.25);
         position: relative; overflow: hidden;
     }
@@ -7893,7 +7893,7 @@ if tab4 is not None:
     }
     .hdr4 h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
                  font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
-    .hdr4 p  { color: rgba(255,255,255,0.65) !important; margin: 2px 0 0; font-size: 0.92rem; }
+    .hdr4 p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; }
     </style>
     <div class="hdr4">
       <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">🧊</span>
@@ -8438,8 +8438,8 @@ if st.session_state.modo_admin and tab5 is not None:
         <style>
         .excel-header {
             background: linear-gradient(135deg, #0f2240 0%, #1a4d33 100%);
-            border-radius: 20px; padding: 32px 36px; margin-bottom: 28px; margin-top: -1rem;
-            display: flex; align-items: center; gap: 22px;
+            border-radius: 20px; padding: 20px 36px; margin-bottom: 28px; margin-top: -1rem;
+            display: flex; align-items: center; gap: 16px;
             box-shadow: 0 8px 32px rgba(26,77,51,0.3);
             position: relative; overflow: hidden;
         }
@@ -8798,8 +8798,8 @@ if st.session_state.get('es_root') and tab_salud is not None:
         <style>
         .hdr-salud {
             background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 60%, #2d2d2d 100%);
-            border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
-            display: flex; align-items: center; gap: 22px;
+            border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+            display: flex; align-items: center; gap: 16px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.5);
             position: relative; overflow: hidden;
         }
@@ -8815,7 +8815,7 @@ if st.session_state.get('es_root') and tab_salud is not None:
         }
         .hdr-salud h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
                         font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
-        .hdr-salud p  { color: rgba(255,255,255,0.55) !important; margin: 2px 0 0; font-size: 0.92rem; }
+        .hdr-salud p  { color: rgba(255,255,255,0.55) !important; margin: 1px 0 0; font-size: 0.92rem; }
 
         .sys-card {
             background: white; border-radius: 16px; padding: 20px 24px;
@@ -9063,8 +9063,8 @@ if tab_admindata is not None:
         <style>
         .hdr-admindata {
             background: linear-gradient(135deg, #7f1d1d 0%, #dc2626 100%);
-            border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
-            display: flex; align-items: center; gap: 22px;
+            border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+            display: flex; align-items: center; gap: 16px;
             box-shadow: 0 8px 32px rgba(220,38,38,0.35);
             position: relative; overflow: hidden;
         }
@@ -9076,7 +9076,7 @@ if tab_admindata is not None:
             background:rgba(255,255,255,0.03); pointer-events:none; }
         .hdr-admindata h2 { color:#fff !important; margin:0; font-size:0.88rem; font-weight:700;
             font-family:'Montserrat',sans-serif; letter-spacing:0.05em; text-transform:uppercase; }
-        .hdr-admindata p { color:rgba(255,255,255,0.65) !important; margin:2px 0 0; font-size:0.92rem; font-family:'Montserrat',sans-serif; font-weight:500; letter-spacing:0.01em; }
+        .hdr-admindata p { color:rgba(255,255,255,0.65) !important; margin:1px 0 0; font-size:0.92rem; font-family:'Montserrat',sans-serif; font-weight:500; letter-spacing:0.01em; }
         </style>
         <div class="hdr-admindata">
           <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">⚠️</span>
@@ -9463,8 +9463,8 @@ if tab_reporte is not None and st.session_state.modo_admin:
     <style>
     .hdr-reporte {{
         background: linear-gradient(135deg, #312e81 0%, #4f46e5 100%);
-        border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
-        display: flex; align-items: center; gap: 22px;
+        border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+        display: flex; align-items: center; gap: 16px;
         box-shadow: 0 8px 32px rgba(79,70,229,0.35);
         position: relative; overflow: hidden;
     }}
@@ -9480,7 +9480,7 @@ if tab_reporte is not None and st.session_state.modo_admin:
     }}
     .hdr-reporte h2 {{ color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
                        font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }}
-    .hdr-reporte p  {{ color: rgba(255,255,255,0.65) !important; margin: 2px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }}
+    .hdr-reporte p  {{ color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }}
     </style>
     <div class="hdr-reporte">
       <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📈</span>
@@ -9837,8 +9837,8 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
     <style>
     .hdr-oper {
         background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
-        border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
-        display: flex; align-items: center; gap: 22px;
+        border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+        display: flex; align-items: center; gap: 16px;
         box-shadow: 0 8px 32px rgba(30,58,95,0.35);
         position: relative; overflow: hidden;
     }
@@ -9854,7 +9854,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
     }
     .hdr-oper h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
                    font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
-    .hdr-oper p  { color: rgba(255,255,255,0.65) !important; margin: 2px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
+    .hdr-oper p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
     </style>
     <div class="hdr-oper">
       <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">⚙️</span>
@@ -10523,8 +10523,8 @@ if tab_dash is not None:
     <style>
     .dash-hdr {
         background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #2563eb 100%);
-        border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
-        display: flex; align-items: center; gap: 22px;
+        border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+        display: flex; align-items: center; gap: 16px;
         box-shadow: 0 8px 32px rgba(37,99,235,0.25);
         position: relative; overflow: hidden;
     }
@@ -10540,7 +10540,7 @@ if tab_dash is not None:
     }
     .dash-hdr h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
                  font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
-    .dash-hdr p  { color: rgba(255,255,255,0.65) !important; margin: 6px 0 0; font-size: 0.92rem; }
+    .dash-hdr p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; }
     </style>
     <div class="dash-hdr">
       <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📊</span>
@@ -11029,8 +11029,8 @@ if tab6 is not None:
         <style>
         .hdr6 {
             background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%);
-            border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
-            display: flex; align-items: center; gap: 22px;
+            border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+            display: flex; align-items: center; gap: 16px;
             box-shadow: 0 8px 32px rgba(220,38,38,0.25);
             position: relative; overflow: hidden;
         }
@@ -11046,7 +11046,7 @@ if tab6 is not None:
         }
         .hdr6 h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
                      font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
-        .hdr6 p  { color: rgba(255,255,255,0.65) !important; margin: 2px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
+        .hdr6 p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
         </style>
         <div class="hdr6">
           <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">✏️</span>
@@ -11202,14 +11202,14 @@ if tab7 is not None:
         <style>
         .hdr7 {
             background: linear-gradient(135deg, #78350f 0%, #d97706 100%);
-            border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
-            display: flex; align-items: center; gap: 22px;
+            border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+            display: flex; align-items: center; gap: 16px;
             box-shadow: 0 8px 32px rgba(217,119,6,0.25);
             position: relative; overflow: hidden;
         }
         .hdr7 h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
                      font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
-        .hdr7 p  { color: rgba(255,255,255,0.65) !important; margin: 2px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
+        .hdr7 p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
         .rank-chart-box {
             background: #ffffff; border-radius: 18px; padding: 22px 24px;
             border: 1px solid #e8edf5; margin-bottom: 20px;
@@ -11488,14 +11488,14 @@ if tab_contrato is not None:
     <style>
     .hdr-contrato {
         background: linear-gradient(135deg, #0f3460 0%, #16213e 60%, #1a1a2e 100%);
-        border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
-        display: flex; align-items: center; gap: 22px;
+        border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+        display: flex; align-items: center; gap: 16px;
         box-shadow: 0 8px 32px rgba(15,52,96,0.3);
         position: relative; overflow: hidden;
     }
     .hdr-contrato h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
                  font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
-    .hdr-contrato p  { color: rgba(255,255,255,0.65) !important; margin: 2px 0 0; font-size: 0.92rem; }
+    .hdr-contrato p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; }
     .cont-section { background:transparent; color:#1e3a5f; font-size:0.75rem; font-weight:900;
                     text-transform:uppercase; letter-spacing:0.1em; padding:4px 0;
                     border-bottom: 2px solid #1e3a5f; margin-bottom:12px; display:block; }
@@ -12993,8 +12993,8 @@ if st.session_state.modo_admin and tab_usuarios is not None:
         <style>
         .hdr-usuarios {
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-            border-radius: 20px; padding: 32px 36px; margin-bottom: 28px;
-            display: flex; align-items: center; gap: 22px;
+            border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+            display: flex; align-items: center; gap: 16px;
             box-shadow: 0 8px 32px rgba(15,52,96,0.4);
             position: relative; overflow: hidden;
         }
@@ -13010,7 +13010,7 @@ if st.session_state.modo_admin and tab_usuarios is not None:
         }
         .hdr-usuarios h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
                            font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
-        .hdr-usuarios p  { color: rgba(255,255,255,0.65) !important; margin: 2px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
+        .hdr-usuarios p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
         .usr-card {
             background: var(--background-color, #fff);
             border: 1px solid rgba(0,0,0,0.08);
@@ -13469,7 +13469,7 @@ if tab_notif is not None and st.session_state.get('es_supervisor'):
             display: flex; align-items: center; gap: 18px;
         }
         .hdr-notif h2 { color:#fff !important; margin:0; font-size:1.6rem; font-weight:700; }
-        .hdr-notif p  { color:rgba(255,255,255,0.5) !important; margin:4px 0 0; font-size:0.88rem; }
+        .hdr-notif p  { color:rgba(255,255,255,0.5) !important; margin:1px 0 0; font-size:0.88rem; }
         </style>
         <div class="hdr-notif">
           <span style="font-size:2.4rem">📣</span>
