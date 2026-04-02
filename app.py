@@ -6663,6 +6663,16 @@ if tab3 is not None:
     """, unsafe_allow_html=True)
 
     with st.container(border=True):
+        st.markdown("""
+        <style>
+        div[data-testid="stRadio"] label p {
+            font-family: 'Montserrat', sans-serif !important;
+            font-weight: 700 !important;
+            font-size: 0.82rem !important;
+            letter-spacing: 0.02em !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
         tipo_busqueda = st.radio("Buscar por:", ["📋 N° Presupuesto", "👤 Cliente", "👨‍💼 Asesor"], horizontal=True, key="tipo_busqueda", label_visibility="collapsed")
         tipo_map = {"📋 N° Presupuesto": "numero", "👤 Cliente": "cliente", "👨‍💼 Asesor": "asesor"}
         _bc1, _bc2, _bc3, _bc4, _bc5, _bc6 = st.columns([3, 0.8, 0.8, 0.7, 0.8, 0.8])
