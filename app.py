@@ -6982,8 +6982,16 @@ if tab3 is not None:
                                                   f'style="color:#dc2626;font-weight:700;display:inline-block;min-width:100px;font-variant-numeric:tabular-nums;">...</span>'
                                                   f'<br><span style="font-size:0.72em;color:#dc2626;">{_hab_ret}d hábiles</span>')
                 except: pass
+            # Demora — congelar si está rechazado
+            import re as _re_dem
+            if _motivo_rec:
+                _demora_raw = str(row.get('Demora','') or '')
+                _demora_txt = _re_dem.sub('<[^>]+>', '', _demora_raw).strip() or '—'
+                _demora_display = f'<span style="color:#991b1b;font-weight:700;">{_demora_txt}</span><br><span style="font-size:0.7em;color:#b91c1c;font-weight:600;">congelado</span>'
+            else:
+                _demora_display = row.get('Demora', '—')
             _fila_class = ' class="fila-rechazada"' if _motivo_rec else ''
-            rows_html += f"<tr{_fila_class}><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Cliente'] or '—'}</td><td style='text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.6;'>{row['Total']}</td>{_td_tc}<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Asesor'] or '—'}</td><td style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td class='demora-col' style='text-align:center;font-size:0.82rem;font-weight:700;'>{row['Demora']}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td>{_td_margen}<td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td><td style='text-align:center;font-size:0.82rem;'>{_proc_not_html}</td><td style='line-height:1.6;'>{_fadj_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fab_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fidel_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_retraso_html_cot}</td></tr>"
+            rows_html += f"<tr{_fila_class}><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Cliente'] or '—'}</td><td style='text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.6;'>{row['Total']}</td>{_td_tc}<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Asesor'] or '—'}</td><td class='td-estado' style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td class='demora-col' style='text-align:center;font-size:0.82rem;font-weight:700;'>{_demora_display}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td>{_td_margen}<td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td><td style='text-align:center;font-size:0.82rem;'>{_proc_not_html}</td><td style='line-height:1.6;'>{_fadj_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fab_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fidel_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_retraso_html_cot}</td></tr>"
 
         # Badge resumen por estado
         # Contar por estado usando los badges ya calculados
@@ -7026,6 +7034,7 @@ if tab3 is not None:
         html_table = f"""
         <style>
         .resultados-table tr.fila-rechazada td {{ background-color: #fee2e2 !important; color: #991b1b !important; }}
+        .resultados-table tr.fila-rechazada td.td-estado {{ background-color: #fef2f2 !important; }}
         .resultados-table tr.fila-rechazada td span {{ color: #991b1b !important; }}
         .resultados-table tr.fila-rechazada:hover td {{ background-color: #fecaca !important; }}
         .resultados-table th.th-adj,
