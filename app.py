@@ -6663,7 +6663,7 @@ if tab3 is not None:
     """, unsafe_allow_html=True)
 
     with st.container(border=True):
-        tipo_busqueda = st.radio("🔍 Buscar por:", ["📋 N° Presupuesto", "👤 Cliente", "👨‍💼 Asesor"], horizontal=True, key="tipo_busqueda")
+        tipo_busqueda = st.radio("Buscar por:", ["📋 N° Presupuesto", "👤 Cliente", "👨‍💼 Asesor"], horizontal=True, key="tipo_busqueda", label_visibility="collapsed")
         tipo_map = {"📋 N° Presupuesto": "numero", "👤 Cliente": "cliente", "👨‍💼 Asesor": "asesor"}
         _bc1, _bc2, _bc3, _bc4, _bc5, _bc6 = st.columns([3, 0.8, 0.8, 0.7, 0.8, 0.8])
         with _bc1:
