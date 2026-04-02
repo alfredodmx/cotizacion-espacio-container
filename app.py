@@ -1011,15 +1011,72 @@ def formatear_rut(rut_raw):
     else:
         return rut_raw
 
+# =========================================================
+# CATÁLOGO DE PAÍSES Y FORMATEO INTERNACIONAL
+# =========================================================
+_PAISES_TEL = {
+    # código : (nombre, bandera, dígitos_locales, fn_formato)
+    # fn_formato recibe string de dígitos locales, retorna string formateado
+    '1':   ('EE.UU. / Canadá', '🇺🇸',  10, lambda d: f"+1 {d[:3]} {d[3:6]} {d[6:]}"),
+    '34':  ('España',          '🇪🇸',   9, lambda d: f"+34 {d[:3]} {d[3:6]} {d[6:]}"),
+    '51':  ('Perú',            '🇵🇪',   9, lambda d: f"+51 {d[:3]} {d[3:6]} {d[6:]}"),
+    '52':  ('México',          '🇲🇽',  10, lambda d: f"+52 {d[:2]} {d[2:6]} {d[6:]}"),
+    '53':  ('Cuba',            '🇨🇺',   8, lambda d: f"+53 {d[:4]} {d[4:]}"),
+    '54':  ('Argentina',       '🇦🇷',  10, lambda d: f"+54 {d[:2]} {d[2:6]} {d[6:]}"),
+    '55':  ('Brasil',          '🇧🇷',  11, lambda d: f"+55 {d[:2]} {d[2:7]} {d[7:]}"),
+    '56':  ('Chile',           '🇨🇱',   9, lambda d: f"+56 {d[:1]} {d[1:5]} {d[5:]}"),
+    '57':  ('Colombia',        '🇨🇴',  10, lambda d: f"+57 {d[:3]} {d[3:6]} {d[6:]}"),
+    '58':  ('Venezuela',       '🇻🇪',  10, lambda d: f"+58 {d[:3]} {d[3:6]} {d[6:]}"),
+    '591': ('Bolivia',         '🇧🇴',   8, lambda d: f"+591 {d[:4]} {d[4:]}"),
+    '593': ('Ecuador',         '🇪🇨',   9, lambda d: f"+593 {d[:2]} {d[2:6]} {d[6:]}"),
+    '595': ('Paraguay',        '🇵🇾',   9, lambda d: f"+595 {d[:3]} {d[3:6]} {d[6:]}"),
+    '598': ('Uruguay',         '🇺🇾',   8, lambda d: f"+598 {d[:4]} {d[4:]}"),
+}
+
+def _detectar_pais(digitos_raw):
+    """
+    Dado un string de dígitos (con o sin código de país al inicio),
+    retorna (codigo_pais, digitos_locales, info_pais) o None si no detecta prefijo.
+    Prueba de mayor a menor longitud de prefijo para evitar ambigüedades.
+    """
+    for largo in (3, 2, 1):
+        prefijo = digitos_raw[:largo]
+        if prefijo in _PAISES_TEL:
+            resto = digitos_raw[largo:]
+            return prefijo, resto, _PAISES_TEL[prefijo]
+    return None
+
 def formatear_telefono(telefono_raw):
+    """
+    Formatea un número de teléfono según su código de país.
+    - Si tiene código de país reconocido → aplica formato del país
+    - Si no tiene código (asume Chile) → aplica formato chileno
+    """
     if not telefono_raw:
         return ""
-    # Extraer solo dígitos (elimina +56, espacios, guiones, etc.)
-    digitos = re.sub(r'[^0-9]', '', str(telefono_raw))
-    # Si viene con código de país 56 al inicio (ej: 56961528878 → 11 dígitos), quitarlo
-    if len(digitos) >= 11 and digitos.startswith('56'):
+    val = str(telefono_raw).strip()
+    digitos = re.sub(r'[^0-9]', '', val)
+    if not digitos:
+        return ""
+
+    # Determinar si viene con código de país explícito
+    tiene_prefijo = val.startswith('+') or (len(digitos) >= 10 and digitos[:2] in ('56','52','54','55','57','58','34') or digitos[:1] == '1')
+
+    if tiene_prefijo:
+        det = _detectar_pais(digitos)
+        if det:
+            codigo, locales, (nombre, bandera, n_esperados, fn) = det
+            if len(locales) >= n_esperados:
+                locales = locales[:n_esperados]
+                return fn(locales)
+            elif len(locales) > 0:
+                # Dígitos insuficientes pero al menos formateamos lo que hay
+                return fn(locales.ljust(n_esperados, '_')).replace('_', '')
+    
+    # Sin prefijo → asumir Chile
+    # Quitar prefijo 56 si vino incluido
+    if digitos.startswith('56') and len(digitos) >= 11:
         digitos = digitos[2:]
-    # Tomar solo los últimos 9 dígitos si aún sobran
     digitos = digitos[-9:] if len(digitos) > 9 else digitos
     if not digitos:
         return ""
@@ -1081,41 +1138,70 @@ def procesar_cambio_rut_empresa():
 def _validar_telefono_cliente(valor_ingresado):
     """
     Normaliza y valida el teléfono del cliente.
-    Retorna (digitos_normalizados, valido, mensaje).
-    digitos_normalizados: string con solo los dígitos del número (9 dígitos, sin código país).
+    Soporta números chilenos y extranjeros con código de país.
+    Retorna (valor_normalizado, valido, mensaje).
+    - Para Chile: valor_normalizado = 9 dígitos sin prefijo (ej: '961528744')
+    - Para extranjeros: valor_normalizado = dígitos completos con prefijo (ej: '+521234567890')
     """
     if not valor_ingresado or not str(valor_ingresado).strip():
         return "", False, ""
-    digitos = re.sub(r'[^0-9]', '', str(valor_ingresado))
+
+    val = str(valor_ingresado).strip()
+    digitos = re.sub(r'[^0-9]', '', val)
+    if not digitos:
+        return "", False, ""
+
+    # ── Detectar si viene con código de país explícito ──
+    tiene_plus = val.startswith('+')
+    det = _detectar_pais(digitos) if tiene_plus else None
+
+    if tiene_plus and det:
+        codigo, locales, (nombre, bandera, n_esperados, fn) = det
+
+        # Chile con +56
+        if codigo == '56':
+            if len(locales) == n_esperados:
+                return locales, True, f"✅ {bandera} {nombre}"
+            elif len(locales) == n_esperados - 1:
+                return locales, False, f"❌ Falta un dígito (ingresaste +56 más {len(locales)} dígitos, el número debe tener {n_esperados})"
+            elif len(locales) < n_esperados - 1:
+                return locales, False, f"❌ Número incompleto ({len(locales)} dígitos después del +56, se necesitan {n_esperados})"
+            else:
+                return locales[:n_esperados], False, f"❌ Número demasiado largo después del +56"
+
+        # País extranjero con código reconocido
+        else:
+            valor_guardado = '+' + codigo + locales
+            if len(locales) == n_esperados:
+                return valor_guardado, True, f"✅ {bandera} {nombre}"
+            elif len(locales) < n_esperados:
+                faltan = n_esperados - len(locales)
+                return valor_guardado, False, f"⚠️ {bandera} {nombre} — faltan {faltan} dígito{'s' if faltan>1 else ''}"
+            else:
+                return '+' + codigo + locales[:n_esperados], False, f"⚠️ {bandera} {nombre} — número demasiado largo"
+
+    # ── Sin prefijo explícito → asumir Chile ──
     n_orig = len(digitos)
-    # Evaluar ANTES de quitar prefijo si el largo con 56 sugiere número incompleto
-    # Ej: +5696152874 → 10 dígitos → al quitar 56 quedan 8, pero la intención era 10 con prefijo
-    if digitos.startswith('56'):
-        if n_orig == 10:
-            # +56 + 8 dígitos → falta 1 dígito del número
-            return digitos[2:], False, "❌ Falta un dígito (ingresaste +56 más 8 dígitos, el número debe tener 9)"
-        elif n_orig == 11:
-            # +56 + 9 dígitos → correcto
-            digitos = digitos[2:]
-        elif n_orig > 11:
-            # demasiado largo
-            return digitos[2:9], False, f"❌ Número demasiado largo ({n_orig - 2} dígitos después del +56)"
-        # si n_orig < 10 con 56 al inicio, puede ser coincidencia (ej: 5612345) — no quitar
+    # Quitar prefijo 56 si vino incluido sin +
+    if digitos.startswith('56') and n_orig >= 11:
+        digitos = digitos[2:]
+    elif digitos.startswith('56') and n_orig == 10:
+        return digitos[2:], False, "❌ Falta un dígito (ingresaste +56 más 8 dígitos, el número debe tener 9)"
+
     n = len(digitos)
     if n == 0:
         return "", False, ""
     elif n < 8:
         return digitos, False, f"❌ Número incompleto ({n} dígitos, se necesitan 9)"
     elif n == 8:
-        # Le falta el 9 inicial
         digitos_norm = '9' + digitos
-        return digitos_norm, True, "⚠️ Se asumió que comienza con 9 — verifica si es correcto"
+        return digitos_norm, True, "⚠️ 🇨🇱 Chile — se asumió que comienza con 9, verifica si es correcto"
     elif n == 9:
         if not digitos.startswith('9'):
-            return digitos, True, "⚠️ El número no comienza con 9 — ¿es un celular chileno?"
-        return digitos, True, "✅ Teléfono válido"
+            return digitos, True, "⚠️ 🇨🇱 Chile — el número no comienza con 9, ¿es celular chileno?"
+        return digitos, True, "✅ 🇨🇱 Chile"
     elif n == 10:
-        return digitos, False, f"❌ Falta un dígito (se ingresaron {n}, se necesitan 9 después del +56)"
+        return digitos, False, f"❌ Falta un dígito (se ingresaron {n}, se necesitan 9 para Chile)"
     else:
         return digitos[:9], False, f"❌ Número demasiado largo ({n} dígitos)"
 
@@ -5836,7 +5922,8 @@ if tab2 is not None:
                         else:
                             st.error(_tel_msg)
                     if _tel_ok:
-                        st.caption(f"📱 Se guardará como: {formatear_telefono(st.session_state.telefono_raw)}")
+                        _tel_preview = formatear_telefono(st.session_state.telefono_raw)
+                        st.caption(f"📱 Se guardará como: {_tel_preview}")
 
                 # Campos adicionales si es jurídica
                 if st.session_state.cliente_tipo == "juridica":
