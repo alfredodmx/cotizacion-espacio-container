@@ -7048,16 +7048,16 @@ if tab3 is not None:
         .resultados-table th.th-cierre,
         .resultados-table thead tr th.th-cierre,
         table.resultados-table > thead > tr > th.th-cierre {{
-            background-color: #78350f !important;
-            background: #78350f !important;
-            color: #fbbf24 !important;
+            background-color: #2563eb !important;
+            background: #2563eb !important;
+            color: #ffffff !important;
         }}
         </style>
         <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
             <div style="{_altura_css}">
                 <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:1700px;table-layout:auto;white-space:nowrap;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
-                        <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th class="th-cierre">Cierre de venta</th><th class="th-adj">Fecha adjudicación</th><th class="th-adj">Tiempo fabricación</th><th class="th-adj">Fidelización cliente</th><th class="th-adj">Retraso proyecto</th></tr>
+                        <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th class="th-cierre">$ Cierre de venta</th><th class="th-adj">Fecha adjudicación</th><th class="th-adj">Tiempo fabricación</th><th class="th-adj">Fidelización cliente</th><th class="th-adj">Retraso proyecto</th></tr>
                     </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
