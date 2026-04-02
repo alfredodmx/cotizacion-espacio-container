@@ -1347,7 +1347,7 @@ def crear_badge_estado(row):
         border:1px solid {border};box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">{label}</span>'''
     # RECHAZADO segunda prioridad
     if _motivo_r:
-        return '<span style="background-color:#dc2626;color:#fbbf24;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;border:1px solid #b91c1c;box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">❌ RECHAZADO</span>'
+        return '<span class="badge-rechazado" style="background-color:#dc2626;color:#fbbf24 !important;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;border:1px solid #b91c1c;box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">❌ RECHAZADO</span>'
     datos_completos = all([cliente_nombre, cliente_email])
     asesor_completo = any([asesor_nombre, asesor_email, asesor_telefono])
     if config_margen and config_margen > 0:
@@ -7034,7 +7034,7 @@ if tab3 is not None:
         html_table = f"""
         <style>
         .resultados-table tr.fila-rechazada td {{ background-color: #fee2e2 !important; color: #991b1b !important; }}
-        .resultados-table tr.fila-rechazada td span {{ color: #991b1b !important; }}
+        .resultados-table tr.fila-rechazada td span:not(.badge-rechazado) {{ color: #991b1b !important; }}
         .resultados-table tr.fila-rechazada:hover td {{ background-color: #fecaca !important; }}
         .resultados-table th.th-adj,
         .resultados-table thead tr th.th-adj,
