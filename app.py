@@ -6663,24 +6663,20 @@ if tab3 is not None:
     """, unsafe_allow_html=True)
 
     with st.container(border=True):
-        st.markdown("**🔍 Buscar por:**")
-        _bc1, _bc2, _bc3, _bc4, _bc5 = st.columns([1, 1, 1, 1, 1])
+        tipo_busqueda = st.radio("🔍 Buscar por:", ["📋 N° Presupuesto", "👤 Cliente", "👨‍💼 Asesor"], horizontal=True, key="tipo_busqueda")
+        tipo_map = {"📋 N° Presupuesto": "numero", "👤 Cliente": "cliente", "👨‍💼 Asesor": "asesor"}
+        _bc1, _bc2, _bc3, _bc4 = st.columns([3, 0.8, 0.8, 0.8])
         with _bc1:
-            tipo_busqueda = st.radio("Buscar por:", ["📋 N° Presupuesto", "👤 Cliente", "👨‍💼 Asesor"], horizontal=False, key="tipo_busqueda", label_visibility="collapsed")
-            tipo_map = {"📋 N° Presupuesto": "numero", "👤 Cliente": "cliente", "👨‍💼 Asesor": "asesor"}
+            termino = st.text_input("Término", placeholder="Ingrese término de búsqueda...", key="buscar_cotizacion", label_visibility="collapsed")
         with _bc2:
-            termino = st.text_input("Buscar...", placeholder="Ingrese término...", key="buscar_cotizacion", label_visibility="collapsed")
-            st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-            _cb1, _cb2 = st.columns(2)
-            with _cb1:
-                buscar_btn = st.button("🔍 Buscar", type="primary", use_container_width=True)
-            with _cb2:
-                limpiar_btn = st.button("🗑️ Limpiar", use_container_width=True)
+            buscar_btn = st.button("🔍 Buscar", type="primary", use_container_width=True)
         with _bc3:
-            st.markdown("**📅 Filtros rápidos**")
-            st.button("📅 Hoy", use_container_width=True)
-            st.button("📅 Esta semana", use_container_width=True)
-            st.button("📅 Este mes", use_container_width=True)
+            limpiar_btn = st.button("🗑️ Limpiar", use_container_width=True)
+        with _bc4:
+            if st.button("📅 Hoy", use_container_width=True, key="filtro_hoy"):
+                st.session_state['buscar_cotizacion'] = ""
+                st.session_state.resultados_busqueda = None
+                st.rerun()
 
     st.markdown("---")
     st.markdown("### Resultados")
