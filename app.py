@@ -2798,6 +2798,15 @@ st.markdown("""
         box-shadow: none !important;
     }
     hr { display: none !important; }
+    /* ── Anti-parpadeo global en reruns ── */
+    @keyframes _stFadeIn {
+        from { opacity: 0.4; }
+        to   { opacity: 1; }
+    }
+    [data-testid="stMarkdownContainer"] > div,
+    [data-testid="stVerticalBlock"] > div[data-testid="element-container"] {
+        animation: _stFadeIn 0.2s ease-out;
+    }
     .stTabs [data-baseweb="tab"] {
         font-family: 'Plus Jakarta Sans', sans-serif !important;
         font-size: 0.88rem !important; font-weight: 900 !important;
@@ -2877,6 +2886,10 @@ st.markdown("""
     .metric-change { font-size: 0.75rem; color: #5c6494; margin-top: 0.35rem; }
 
     /* ══ TARJETAS COLOREADAS ══ */
+    @keyframes _fadeInCard {
+        from { opacity: 0.55; transform: translateY(4px); }
+        to   { opacity: 1;    transform: translateY(0); }
+    }
     .metric-card-special {
         border-radius: 18px; padding: 1.5rem;
         box-shadow: 0 8px 28px rgba(0,0,0,0.14);
@@ -2884,6 +2897,7 @@ st.markdown("""
         border: 1px solid rgba(255,255,255,0.2);
         height: 100%; display: flex; flex-direction: column;
         position: relative; overflow: hidden;
+        animation: _fadeInCard 0.25s ease-out;
     }
     .metric-card-special::before {
         content: ''; position: absolute; top: -40px; right: -40px;
@@ -2907,6 +2921,7 @@ st.markdown("""
         box-shadow: 0 2px 12px rgba(0,0,0,0.05);
         transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
         height: 100%; position: relative; overflow: hidden;
+        animation: _fadeInCard 0.25s ease-out;
     }
     .stats-card::after {
         content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
