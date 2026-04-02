@@ -5785,6 +5785,30 @@ if tab2 is not None:
     </div>
     """, unsafe_allow_html=True)
 
+    # ── Bloqueo si carrito vacío ──
+    if not st.session_state.get('carrito'):
+        st.markdown("""
+        <div style='display:flex;flex-direction:column;align-items:center;justify-content:center;
+             padding:3rem 2rem;text-align:center;'>
+          <div style='width:64px;height:64px;border-radius:50%;
+               background:rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.08);
+               display:flex;align-items:center;justify-content:center;margin-bottom:20px;'>
+            <svg width='28' height='28' viewBox='0 0 24 24' fill='none'
+                 stroke='#94a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'>
+              <rect x='3' y='11' width='18' height='11' rx='2'/>
+              <path d='M7 11V7a5 5 0 0 1 10 0v4'/>
+            </svg>
+          </div>
+          <div style='font-size:1rem;font-weight:700;color:#1e293b;margin-bottom:8px;'>
+            Primero agrega items al presupuesto
+          </div>
+          <div style='font-size:0.88rem;color:#64748b;max-width:340px;line-height:1.6;'>
+            Esta sección se habilita automáticamente cuando hay productos en el presupuesto activo.
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.stop()
+
     es_solo_lectura = bool(
         st.session_state.cotizacion_cargada and
         st.session_state.margen > 0 and
