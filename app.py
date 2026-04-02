@@ -6107,7 +6107,7 @@ if tab1 is not None:
 
         with col_m1:
             with st.container(border=True):
-                st.markdown("**📋 Modelo Predefinido**")
+                st.markdown('<p style="font-family:Montserrat,sans-serif;font-weight:900;font-size:0.82rem;letter-spacing:0.02em;margin:0 0 6px 0;">📋 Modelo Predefinido</p>', unsafe_allow_html=True)
                 try:
                     if hojas_modelo:
                         modelo_seleccionado = st.selectbox("Modelo", hojas_modelo, key="modelo_select", label_visibility="collapsed")
@@ -6124,7 +6124,7 @@ if tab1 is not None:
 
         with col_m2:
             with st.container(border=True):
-                st.markdown("**🔍 Ítems**")
+                st.markdown('<p style="font-family:Montserrat,sans-serif;font-weight:900;font-size:0.82rem;letter-spacing:0.02em;margin:0 0 6px 0;">🔍 Ítems</p>', unsafe_allow_html=True)
                 try:
                     df = _leer_hoja_excel("BD Total")
                     categorias = df["Categorias"].dropna().unique()
@@ -6156,7 +6156,7 @@ if tab1 is not None:
 
         with col_m3:
             with st.container(border=True):
-                st.markdown("**🗑️ Eliminar Categoría**")
+                st.markdown('<p style="font-family:Montserrat,sans-serif;font-weight:900;font-size:0.82rem;letter-spacing:0.02em;margin:0 0 6px 0;">🗑️ Eliminar Categoría</p>', unsafe_allow_html=True)
                 try:
                     if st.session_state.carrito:
                         carrito_df_temp = pd.DataFrame(st.session_state.carrito)
@@ -6174,7 +6174,7 @@ if tab1 is not None:
 
         with col_m4:
             with st.container(border=True):
-                st.markdown("**➕ Agregar Categoría**")
+                st.markdown('<p style="font-family:Montserrat,sans-serif;font-weight:900;font-size:0.82rem;letter-spacing:0.02em;margin:0 0 6px 0;">➕ Agregar Categoría</p>', unsafe_allow_html=True)
                 try:
                     if hojas_modelo:
                         modelo_origen = st.selectbox("Modelo", hojas_modelo, key="modelo_origen", label_visibility="collapsed")
@@ -6202,7 +6202,7 @@ if tab1 is not None:
 
         with col_m5:
             with st.container(border=True):
-                st.markdown("**📎 Plano PDF**")
+                st.markdown('<p style="font-family:Montserrat,sans-serif;font-weight:900;font-size:0.82rem;letter-spacing:0.02em;margin:0 0 6px 0;">📎 Plano PDF</p>', unsafe_allow_html=True)
                 st.markdown('''
                 <style>
                 [data-testid="stFileUploader"] section {
