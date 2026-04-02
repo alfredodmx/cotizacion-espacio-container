@@ -2798,15 +2798,6 @@ st.markdown("""
         box-shadow: none !important;
     }
     hr { display: none !important; }
-    /* ── Anti-parpadeo global en reruns ── */
-    @keyframes _stFadeIn {
-        from { opacity: 0.4; }
-        to   { opacity: 1; }
-    }
-    [data-testid="stMarkdownContainer"] > div,
-    [data-testid="stVerticalBlock"] > div[data-testid="element-container"] {
-        animation: _stFadeIn 0.2s ease-out;
-    }
     .stTabs [data-baseweb="tab"] {
         font-family: 'Plus Jakarta Sans', sans-serif !important;
         font-size: 0.88rem !important; font-weight: 900 !important;
@@ -2886,10 +2877,6 @@ st.markdown("""
     .metric-change { font-size: 0.75rem; color: #5c6494; margin-top: 0.35rem; }
 
     /* ══ TARJETAS COLOREADAS ══ */
-    @keyframes _fadeInCard {
-        from { opacity: 0.55; transform: translateY(4px); }
-        to   { opacity: 1;    transform: translateY(0); }
-    }
     .metric-card-special {
         border-radius: 18px; padding: 1.5rem;
         box-shadow: 0 8px 28px rgba(0,0,0,0.14);
@@ -2897,7 +2884,6 @@ st.markdown("""
         border: 1px solid rgba(255,255,255,0.2);
         height: 100%; display: flex; flex-direction: column;
         position: relative; overflow: hidden;
-        animation: _fadeInCard 0.25s ease-out;
     }
     .metric-card-special::before {
         content: ''; position: absolute; top: -40px; right: -40px;
@@ -2921,7 +2907,6 @@ st.markdown("""
         box-shadow: 0 2px 12px rgba(0,0,0,0.05);
         transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
         height: 100%; position: relative; overflow: hidden;
-        animation: _fadeInCard 0.25s ease-out;
     }
     .stats-card::after {
         content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
@@ -6520,16 +6505,7 @@ if tab1 is not None:
         utilidad_real = margen_valor - total_comisiones if (st.session_state.modo_admin and tiene_margen) else 0
         altura_tabla = 1400 if pantalla_completa else min(38 * len(carrito_df_con_margen) + 80, 420)
 
-        # Guardar métricas en session_state para evitar parpadeo entre reruns
-        st.session_state['_metricas_cache'] = {
-            'subtotal_base': subtotal_base, 'subtotal_general': subtotal_general,
-            'iva': iva, 'total': total, 'margen_valor': margen_valor,
-            'comision_vendedor': comision_vendedor, 'comision_supervisor': comision_supervisor,
-            'total_comisiones': total_comisiones, 'utilidad_real': utilidad_real,
-            'n_items': len(st.session_state.carrito),
-            'total_productos': sum(item["Cantidad"] for item in st.session_state.carrito),
-            'categorias_unicas': len(set(item["Categoria"] for item in st.session_state.carrito)),
-        }
+
 
         if es_solo_lectura:
             carrito_df_display = carrito_df_con_margen[["Categoria", "Item", "Cantidad", "Precio Unitario", "Subtotal"]].copy()
@@ -6763,30 +6739,18 @@ if tab1 is not None:
 
         st.markdown("---")
         st.markdown("#### Métricas")
-
-        # Usar cache de métricas para evitar parpadeo entre reruns
-        _mc = st.session_state.get('_metricas_cache', {})
-        _n_items       = _mc.get('n_items', len(st.session_state.carrito))
-        _total_prod    = _mc.get('total_productos', sum(item["Cantidad"] for item in st.session_state.carrito))
-        _cats_unicas   = _mc.get('categorias_unicas', len(set(item["Categoria"] for item in st.session_state.carrito)))
-        subtotal_base    = _mc.get('subtotal_base', subtotal_base)
-        subtotal_general = _mc.get('subtotal_general', subtotal_general)
-        iva              = _mc.get('iva', iva)
-        total            = _mc.get('total', total)
-        margen_valor     = _mc.get('margen_valor', margen_valor)
-        comision_vendedor   = _mc.get('comision_vendedor', comision_vendedor)
-        comision_supervisor = _mc.get('comision_supervisor', comision_supervisor)
-        total_comisiones    = _mc.get('total_comisiones', total_comisiones)
-        utilidad_real       = _mc.get('utilidad_real', utilidad_real)
-
         # Fila 1: siempre 3 tarjetas de métricas
         col_m1, col_m2, col_m3 = st.columns(3)
+
+        total_productos = sum(item["Cantidad"] for item in st.session_state.carrito)
+        categorias_unicas = len(set(item["Categoria"] for item in st.session_state.carrito))
+
         with col_m1:
-            st.markdown(f'<div class="stats-card"><div class="stats-title">ÍTEMS</div><div class="stats-number" style="color:#3b82f6;border:none;padding:0;">{_n_items}</div><div class="stats-desc">En presupuesto</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="stats-card"><div class="stats-title">ÍTEMS</div><div class="stats-number" style="color:#3b82f6;border:none;padding:0;">{len(st.session_state.carrito)}</div><div class="stats-desc">En presupuesto</div></div>', unsafe_allow_html=True)
         with col_m2:
-            st.markdown(f'<div class="stats-card"><div class="stats-title">PRODUCTOS</div><div class="stats-number" style="color:#f59e0b;border:none;padding:0;">{_total_prod}</div><div class="stats-desc">Unidades</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="stats-card"><div class="stats-title">PRODUCTOS</div><div class="stats-number" style="color:#f59e0b;border:none;padding:0;">{total_productos}</div><div class="stats-desc">Unidades</div></div>', unsafe_allow_html=True)
         with col_m3:
-            st.markdown(f'<div class="stats-card"><div class="stats-title">CATEGORÍAS</div><div class="stats-number" style="color:#10b981;border:none;padding:0;">{_cats_unicas}</div><div class="stats-desc">Diferentes</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="stats-card"><div class="stats-title">CATEGORÍAS</div><div class="stats-number" style="color:#10b981;border:none;padding:0;">{categorias_unicas}</div><div class="stats-desc">Diferentes</div></div>', unsafe_allow_html=True)
 
         st.markdown("---")
 
