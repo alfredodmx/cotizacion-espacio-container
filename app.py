@@ -2998,6 +2998,10 @@ if _tema == "dark":
     [data-baseweb="select"] span { color: #f1f5f9 !important; }
     .stTextInput label, .stSelectbox label, .stNumberInput label,
     .stDateInput label, .stTextArea label, .stRadio label, .stCheckbox label { color: #94a3b8 !important; }
+    p.modulo-titulo { color: #0f172a !important; font-family: 'Montserrat', sans-serif !important;
+        font-weight: 900 !important; font-size: 0.95rem !important;
+        letter-spacing: 0.05em !important; text-transform: uppercase !important; margin: 0 0 6px 0 !important; }
+    .stMarkdown p.modulo-titulo { color: #0f172a !important; }
     .stButton > button { background-color: #1e293b !important; color: #f1f5f9 !important; border: 1px solid #334155 !important; }
     .stButton > button:hover { background-color: #334155 !important; color: #ffffff !important; }
     .stPopover > button { background-color: #1e293b !important; color: #f1f5f9 !important; border: 1px solid #334155 !important; }
@@ -7051,10 +7055,7 @@ if tab3 is not None:
         .resultados-table .badge-rechazado {{ color: #fbbf24 !important; }}
         .resultados-table tr.fila-rechazada td .badge-rechazado {{ color: #fbbf24 !important; background-color: #dc2626 !important; }}
         .resultados-table tr.fila-rechazada:hover td {{ background-color: #fecaca !important; }}
-        p.modulo-titulo { color: #0f172a !important; font-family: Montserrat, sans-serif !important;
-        font-weight: 900 !important; font-size: 0.95rem !important;
-        letter-spacing: 0.05em !important; text-transform: uppercase !important; margin: 0 0 6px 0 !important; }
-    .resultados-table th.th-adj,
+        .resultados-table th.th-adj,
         .resultados-table thead tr th.th-adj,
         table.resultados-table > thead > tr > th.th-adj {{ 
             background-color: #fbbf24 !important; 
