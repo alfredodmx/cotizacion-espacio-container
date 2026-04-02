@@ -5607,8 +5607,8 @@ if tab2 is not None:
     .hdr2 p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
     </style>
     <div class="hdr2">
-      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">👤</span>
-      <div>
+      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));align-self:center;display:flex;">👤</span>
+      <div style="display:flex;flex-direction:column;justify-content:center;">
         <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Datos del Cliente</h2>
         <p>Completa la información del cliente y del proyecto antes de guardar.</p>
       </div>
@@ -5978,8 +5978,8 @@ if tab1 is not None:
     .hdr1 p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
     </style>
     <div class="hdr1">
-      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">☑️</span>
-      <div>
+      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));align-self:center;display:flex;">☑️</span>
+      <div style="display:flex;flex-direction:column;justify-content:center;">
         <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Gestión de Presupuesto</h2>
         <p>Agrega productos, aplica márgenes y genera tu cotización en PDF.</p>
       </div>
@@ -6679,8 +6679,8 @@ if tab3 is not None:
     .hdr3 p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
     </style>
     <div class="hdr3">
-      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📂</span>
-      <div>
+      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));align-self:center;display:flex;">📂</span>
+      <div style="display:flex;flex-direction:column;justify-content:center;">
         <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Gestión de Cotizaciones</h2>
         <p>Busca, carga y administra todas las cotizaciones del sistema.</p>
       </div>
@@ -7900,8 +7900,8 @@ if tab4 is not None:
     .hdr4 p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; }
     </style>
     <div class="hdr4">
-      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">🧊</span>
-      <div>
+      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));align-self:center;display:flex;">🧊</span>
+      <div style="display:flex;flex-direction:column;justify-content:center;">
         <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Visor 3D Beta</h2>
         <p>Selecciona un presupuesto con plano adjunto para generar su prototipo 3D interactivo.</p>
       </div>
@@ -8522,7 +8522,7 @@ if st.session_state.modo_admin and tab5 is not None:
         # Header — intacto, no se toca
         st.markdown("""
         <div class="excel-header">
-          <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📊</span>
+          <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));align-self:center;display:flex;">📊</span>
           <div>
             <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Proyecto Excel — Control de Versiones</h2>
             <p>Sube nuevas versiones del cotizador.xlsx y activa la que necesites. El sistema se actualiza al instante.</p>
@@ -9083,8 +9083,8 @@ if tab_admindata is not None:
         .hdr-admindata p { color:rgba(255,255,255,0.65) !important; margin:1px 0 0; font-size:0.92rem; font-family:'Montserrat',sans-serif; font-weight:500; letter-spacing:0.01em; }
         </style>
         <div class="hdr-admindata">
-          <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">⚠️</span>
-          <div>
+          <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));align-self:center;display:flex;">⚠️</span>
+      <div style="display:flex;flex-direction:column;justify-content:center;">
             <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Administración de datos</h2>
             <p>Eliminación permanente de presupuestos y archivos · Solo disponible para root</p>
           </div>
@@ -9487,8 +9487,8 @@ if tab_reporte is not None and st.session_state.modo_admin:
     .hdr-reporte p  {{ color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }}
     </style>
     <div class="hdr-reporte">
-      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📈</span>
-      <div>
+      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));align-self:center;display:flex;">📈</span>
+      <div style="display:flex;flex-direction:column;justify-content:center;">
         <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Reporte de Inteligencia Comercial</h2>
         <p>Espacio Container House SpA · Período: {_rep_periodo} · Solo admin y root</p>
       </div>
@@ -9861,8 +9861,8 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
     .hdr-oper p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
     </style>
     <div class="hdr-oper">
-      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">⚙️</span>
-      <div>
+      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));align-self:center;display:flex;">⚙️</span>
+      <div style="display:flex;flex-direction:column;justify-content:center;">
         <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Operaciones</h2>
         <p>PDF de compras · planos · seguimiento de fabricación y fidelización de clientes</p>
       </div>
@@ -10547,7 +10547,7 @@ if tab_dash is not None:
     .dash-hdr p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; }
     </style>
     <div class="dash-hdr">
-      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📊</span>
+      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));align-self:center;display:flex;">📊</span>
       <div>
         <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Dashboard</h2>
         <p>Resumen ejecutivo del rendimiento comercial en tiempo real.</p>
@@ -11053,8 +11053,8 @@ if tab6 is not None:
         .hdr6 p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
         </style>
         <div class="hdr6">
-          <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">✏️</span>
-          <div>
+          <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));align-self:center;display:flex;">✏️</span>
+      <div style="display:flex;flex-direction:column;justify-content:center;">
             <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Edición PDF Cliente</h2>
             <p>Busca tu cotización por número EP y personaliza la descripción de cada categoría para el cliente.</p>
           </div>
@@ -11290,8 +11290,8 @@ if tab7 is not None:
         .rank-other { border-left: 5px solid #e2e8f0; }
         </style>
         <div class="hdr7">
-          <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">🏆</span>
-          <div>
+          <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));align-self:center;display:flex;">🏆</span>
+      <div style="display:flex;flex-direction:column;justify-content:center;">
             <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Ranking de Ejecutivos</h2>
             <p>Desempeño del equipo de ventas — este mes.</p>
           </div>
@@ -11512,8 +11512,8 @@ if tab_contrato is not None:
     .cont-form-panel div[data-testid="stVerticalBlock"] > div { margin-bottom: -8px !important; }
     </style>
     <div class="hdr-contrato">
-      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">📄</span>
-      <div>
+      <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));align-self:center;display:flex;">📄</span>
+      <div style="display:flex;flex-direction:column;justify-content:center;">
         <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Contrato Cliente</h2>
         <p>Genera y administra el contrato de fabricación y venta.</p>
       </div>
@@ -13038,8 +13038,8 @@ if st.session_state.modo_admin and tab_usuarios is not None:
         .usr-badge-off  { background:#fee2e2; color:#991b1b; padding:3px 10px; border-radius:20px; font-size:0.75rem; font-weight:700; }
         </style>
         <div class="hdr-usuarios">
-          <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">👥</span>
-          <div>
+          <span style="font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));align-self:center;display:flex;">👥</span>
+      <div style="display:flex;flex-direction:column;justify-content:center;">
             <h2 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;">Gestión de Usuarios</h2>
             <p>Crea y administra las cuentas de acceso de los ejecutivos.</p>
           </div>
