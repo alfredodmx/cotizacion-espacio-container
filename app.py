@@ -879,6 +879,10 @@ if 'rut_empresa_mensaje' not in st.session_state:
     st.session_state.rut_empresa_mensaje = ""
 if 'telefono_raw' not in st.session_state:
     st.session_state.telefono_raw = ""
+if 'telefono_valido' not in st.session_state:
+    st.session_state.telefono_valido = False
+if 'telefono_mensaje' not in st.session_state:
+    st.session_state.telefono_mensaje = ""
 if 'asesor_seleccionado' not in st.session_state:
     st.session_state.asesor_seleccionado = "Seleccionar asesor"
 if 'correo_asesor' not in st.session_state:
@@ -1074,14 +1078,55 @@ def procesar_cambio_rut_empresa():
             st.session_state.rut_empresa_valido  = False
             st.session_state.rut_empresa_mensaje = "RUT incompleto"
 
+def _validar_telefono_cliente(valor_ingresado):
+    """
+    Normaliza y valida el teléfono del cliente.
+    Retorna (digitos_normalizados, valido, mensaje).
+    digitos_normalizados: string con solo los dígitos del número (9 dígitos, sin código país).
+    """
+    if not valor_ingresado or not str(valor_ingresado).strip():
+        return "", False, ""
+    digitos = re.sub(r'[^0-9]', '', str(valor_ingresado))
+    n_orig = len(digitos)
+    # Evaluar ANTES de quitar prefijo si el largo con 56 sugiere número incompleto
+    # Ej: +5696152874 → 10 dígitos → al quitar 56 quedan 8, pero la intención era 10 con prefijo
+    if digitos.startswith('56'):
+        if n_orig == 10:
+            # +56 + 8 dígitos → falta 1 dígito del número
+            return digitos[2:], False, "❌ Falta un dígito (ingresaste +56 más 8 dígitos, el número debe tener 9)"
+        elif n_orig == 11:
+            # +56 + 9 dígitos → correcto
+            digitos = digitos[2:]
+        elif n_orig > 11:
+            # demasiado largo
+            return digitos[2:9], False, f"❌ Número demasiado largo ({n_orig - 2} dígitos después del +56)"
+        # si n_orig < 10 con 56 al inicio, puede ser coincidencia (ej: 5612345) — no quitar
+    n = len(digitos)
+    if n == 0:
+        return "", False, ""
+    elif n < 8:
+        return digitos, False, f"❌ Número incompleto ({n} dígitos, se necesitan 9)"
+    elif n == 8:
+        # Le falta el 9 inicial
+        digitos_norm = '9' + digitos
+        return digitos_norm, True, "⚠️ Se asumió que comienza con 9 — verifica si es correcto"
+    elif n == 9:
+        if not digitos.startswith('9'):
+            return digitos, True, "⚠️ El número no comienza con 9 — ¿es un celular chileno?"
+        return digitos, True, "✅ Teléfono válido"
+    elif n == 10:
+        return digitos, False, f"❌ Falta un dígito (se ingresaron {n}, se necesitan 9 después del +56)"
+    else:
+        return digitos[:9], False, f"❌ Número demasiado largo ({n} dígitos)"
+
 def procesar_cambio_telefono():
     telefono_key = f"telefono_input_{st.session_state.counter}"
     if telefono_key in st.session_state:
         valor_actual = st.session_state[telefono_key]
-        raw = re.sub(r'[^0-9]', '', valor_actual)
-        if len(raw) > 10:
-            raw = raw[:10]
-        st.session_state.telefono_raw = raw
+        digitos_norm, valido, mensaje = _validar_telefono_cliente(valor_actual)
+        st.session_state.telefono_raw    = digitos_norm
+        st.session_state.telefono_valido = valido
+        st.session_state.telefono_mensaje = mensaje
 
 def leer_datos_actuales():
     mapeo_texto = {
@@ -1138,8 +1183,10 @@ def leer_datos_actuales():
             except ValueError:
                 pass
     if mejor_tel is not None:
-        raw = re.sub(r'[^0-9]', '', mejor_tel)[:9]
-        st.session_state.telefono_raw = raw
+        _dig_norm, _val_norm, _msg_norm = _validar_telefono_cliente(mejor_tel)
+        st.session_state.telefono_raw     = _dig_norm
+        st.session_state.telefono_valido  = _val_norm
+        st.session_state.telefono_mensaje = _msg_norm
 
     mejor_counter = -1
     mejor_tel_asesor = None
@@ -1220,7 +1267,7 @@ def construir_datos_para_guardar():
         "Nombre": st.session_state.nombre_input or "",
         "RUT": st.session_state.rut_display or "",
         "Correo": st.session_state.correo_input or "",
-        "Teléfono": st.session_state.telefono_raw or "",
+        "Teléfono": formatear_telefono(st.session_state.telefono_raw) if st.session_state.telefono_raw else "",
         "Dirección": st.session_state.direccion_input or "",
             "ComunaCliente": st.session_state.cliente_comuna or "",
             "RegionCliente": st.session_state.cliente_region or "",
@@ -2354,7 +2401,11 @@ def ejecutar_carga_cotizacion():
             st.session_state.rut_valido = False
             st.session_state.rut_mensaje = "RUT incompleto"
         st.session_state.correo_input = cotizacion.get('cliente_email', '')
-        st.session_state.telefono_raw = cotizacion.get('cliente_telefono', '')
+        _tel_cot = cotizacion.get('cliente_telefono', '') or ''
+        _dig_cot, _val_cot, _msg_cot = _validar_telefono_cliente(_tel_cot)
+        st.session_state.telefono_raw     = _dig_cot if _dig_cot else _tel_cot
+        st.session_state.telefono_valido  = _val_cot
+        st.session_state.telefono_mensaje = _msg_cot
         st.session_state.direccion_input    = cotizacion.get('cliente_direccion', '')
         st.session_state.cliente_comuna      = cotizacion.get('cliente_comuna', '')
         st.session_state.cliente_region      = cotizacion.get('cliente_region', '')
@@ -3654,6 +3705,8 @@ def limpiar_todo():
     st.session_state.rut_mensaje = ""
     st.session_state.correo_input = ""
     st.session_state.telefono_raw = ""
+    st.session_state.telefono_valido = False
+    st.session_state.telefono_mensaje = ""
     st.session_state.direccion_input = ""
     st.session_state.cliente_comuna = ""
     st.session_state.cliente_region = ""
@@ -5767,7 +5820,19 @@ if tab2 is not None:
                         st.info("⏳ RUT incompleto")
 
                 telefono_key = f"telefono_input_{st.session_state.counter}"
-                st.text_input("Teléfono", value=st.session_state.telefono_raw, key=telefono_key, placeholder="961528954 (9 dígitos)", on_change=procesar_cambio_telefono)
+                st.text_input("Teléfono", value=st.session_state.telefono_raw, key=telefono_key, placeholder="961528954 (9 dígitos sin +56)", on_change=procesar_cambio_telefono)
+                if st.session_state.telefono_raw:
+                    _tel_msg = st.session_state.get('telefono_mensaje', '')
+                    _tel_ok  = st.session_state.get('telefono_valido', False)
+                    if _tel_msg:
+                        if _tel_msg.startswith('✅'):
+                            st.success(_tel_msg)
+                        elif _tel_msg.startswith('⚠️'):
+                            st.warning(_tel_msg)
+                        else:
+                            st.error(_tel_msg)
+                    if _tel_ok:
+                        st.caption(f"📱 Se guardará como: {formatear_telefono(st.session_state.telefono_raw)}")
 
                 # Campos adicionales si es jurídica
                 if st.session_state.cliente_tipo == "juridica":
@@ -5943,7 +6008,7 @@ if tab2 is not None:
         "Nombre": st.session_state.nombre_input or "",
         "RUT": st.session_state.rut_display or "",
         "Correo": st.session_state.correo_input or "",
-        "Teléfono": st.session_state.telefono_raw or "",
+        "Teléfono": formatear_telefono(st.session_state.telefono_raw) if st.session_state.telefono_raw else "",
         "Dirección": st.session_state.direccion_input or "",
             "ComunaCliente": st.session_state.cliente_comuna or "",
             "RegionCliente": st.session_state.cliente_region or "",
@@ -6558,7 +6623,7 @@ if tab1 is not None:
             "Nombre": st.session_state.nombre_input,
             "RUT": st.session_state.rut_display or '',
             "Correo": st.session_state.correo_input,
-            "Teléfono": st.session_state.telefono_raw or '',
+            "Teléfono": formatear_telefono(st.session_state.telefono_raw) if st.session_state.telefono_raw else '',
             "Dirección": st.session_state.direccion_input,
             "ComunaCliente": st.session_state.cliente_comuna or "",
             "RegionCliente": st.session_state.cliente_region or "",
