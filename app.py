@@ -7321,7 +7321,7 @@ if tab3 is not None:
         import streamlit.components.v1 as _scroll_h_comp
         _scroll_h_comp.html("""
 <style>
-.tbl-scroll-wrap { display:flex; align-items:center; gap:8px; margin-top:6px; justify-content:flex-end; }
+.tbl-scroll-wrap { display:flex; align-items:center; gap:8px; margin-top:2px; margin-bottom:0; justify-content:flex-end; }
 .tbl-scroll-btn {
     background:rgba(15,23,42,0.7); color:#e2e8f0;
     border:1px solid rgba(255,255,255,0.12); border-radius:8px;
@@ -7361,7 +7361,7 @@ if tab3 is not None:
   });
 })();
 </script>
-""", height=48)
+""", height=32)
 
         # JS para copiar EP al hacer click en la celda + contador en vivo
         import streamlit.components.v1 as _ep_copy_comp
@@ -7516,6 +7516,7 @@ if tab3 is not None:
 })();
 </script>""", height=0)
 
+        st.markdown("<div style='margin-top:-12px'></div>", unsafe_allow_html=True)
         st.markdown("### Seleccionar cotización")
 
         opciones = []
