@@ -3265,6 +3265,21 @@ if st.session_state.show_pwd_dialog:
 # Botones ocultos — se mueven al header via JS
 # CSS para ocultar todo el bloque sin dejar espacio
 st.markdown("""<style>
+/* ── Headers de tabs — tipografía Montserrat igual que módulos ── */
+div[class*="hdr"] h2,
+div[class*="hdr1"] h2, div[class*="hdr2"] h2, div[class*="hdr3"] h2,
+div[class*="hdr4"] h2, div[class*="hdr5"] h2, div[class*="hdr6"] h2,
+div[class*="hdr7"] h2, div[class*="hdr-oper"] h2, div[class*="hdr-reporte"] h2,
+div[class*="hdr-usuarios"] h2, div[class*="hdr-admindata"] h2,
+div[class*="hdr-contrato"] h2, div[class*="hdr-salud"] h2,
+div[class*="dash-hdr"] h2, div[class*="excel-header"] h2 {
+    font-family: 'Montserrat', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 0.88rem !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+    color: #fff !important;
+}
 .st-key-btn_pwd_hdr, .st-key-btn_cerrar_sesion_header, .st-key-btn_cerrar_cotizacion {
     position:fixed!important;top:-9999px!important;left:-9999px!important;
     width:1px!important;height:1px!important;overflow:hidden!important;
