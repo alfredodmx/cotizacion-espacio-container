@@ -6676,17 +6676,11 @@ if tab3 is not None:
             st.button("📅 Esta semana", use_container_width=True)
             st.button("📅 Este mes", use_container_width=True)
 
-    col_btn1, col_btn2, col_btn3, col_btn4 = st.columns([1, 1, 4, 0.6])
+    col_btn1, col_btn2 = st.columns([1, 1])
     with col_btn1:
         buscar_btn = st.button("🔍 Buscar", type="primary", use_container_width=True)
     with col_btn2:
         limpiar_btn = st.button("🗑️ Limpiar", use_container_width=True)
-    with col_btn4:
-        st.markdown("<div style='display:flex;justify-content:flex-end;'>", unsafe_allow_html=True)
-        if st.button("🔄", key="cot_refresh", help="Actualizar resultados", use_container_width=True):
-            st.session_state.resultados_busqueda = None
-            st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown("### Resultados")
