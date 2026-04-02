@@ -7025,9 +7025,9 @@ if tab3 is not None:
 
         html_table = f"""
         <style>
-        .resultados-table tr.fila-rechazada td { background-color: #fee2e2 !important; color: #991b1b !important; }
-        .resultados-table tr.fila-rechazada td span { color: #991b1b !important; }
-        .resultados-table tr.fila-rechazada:hover td { background-color: #fecaca !important; }
+        .resultados-table tr.fila-rechazada td {{ background-color: #fee2e2 !important; color: #991b1b !important; }}
+        .resultados-table tr.fila-rechazada td span {{ color: #991b1b !important; }}
+        .resultados-table tr.fila-rechazada:hover td {{ background-color: #fecaca !important; }}
         .resultados-table th.th-adj,
         .resultados-table thead tr th.th-adj,
         table.resultados-table > thead > tr > th.th-adj {{ 
