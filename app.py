@@ -5585,7 +5585,7 @@ if tab2 is not None:
     <style>
     .hdr2 {
         background: linear-gradient(135deg, #2d0d66 0%, #5b0d7a 100%);
-        border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+        border-radius: 20px; padding: 28px 36px; margin-bottom: 28px;
         display: flex; align-items: center; gap: 16px;
         box-shadow: 0 8px 32px rgba(91,13,122,0.25);
         position: relative; overflow: hidden;
@@ -5956,7 +5956,7 @@ if tab1 is not None:
     <style>
     .hdr1 {
         background: linear-gradient(135deg, #0d2266 0%, #0d47a1 100%);
-        border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+        border-radius: 20px; padding: 28px 36px; margin-bottom: 28px;
         display: flex; align-items: center; gap: 16px;
         box-shadow: 0 8px 32px rgba(37,99,235,0.25);
         position: relative; overflow: hidden;
@@ -6657,7 +6657,7 @@ if tab3 is not None:
     <style>
     .hdr3 {
         background: linear-gradient(135deg, #6b4e00 0%, #e65100 100%);
-        border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+        border-radius: 20px; padding: 28px 36px; margin-bottom: 28px;
         display: flex; align-items: center; gap: 16px;
         box-shadow: 0 8px 32px rgba(230,81,0,0.25);
         position: relative; overflow: hidden;
@@ -7878,7 +7878,7 @@ if tab4 is not None:
     <style>
     .hdr4 {
         background: linear-gradient(135deg, #003d52 0%, #006978 100%);
-        border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+        border-radius: 20px; padding: 28px 36px; margin-bottom: 28px;
         display: flex; align-items: center; gap: 16px;
         box-shadow: 0 8px 32px rgba(0,105,120,0.25);
         position: relative; overflow: hidden;
@@ -8440,7 +8440,7 @@ if st.session_state.modo_admin and tab5 is not None:
         <style>
         .excel-header {
             background: linear-gradient(135deg, #0f2240 0%, #1a4d33 100%);
-            border-radius: 20px; padding: 20px 36px; margin-bottom: 28px; margin-top: -1rem;
+            border-radius: 20px; padding: 28px 36px; margin-bottom: 28px; margin-top: -1rem;
             display: flex; align-items: center; gap: 16px;
             box-shadow: 0 8px 32px rgba(26,77,51,0.3);
             position: relative; overflow: hidden;
@@ -8800,7 +8800,7 @@ if st.session_state.get('es_root') and tab_salud is not None:
         <style>
         .hdr-salud {
             background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 60%, #2d2d2d 100%);
-            border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+            border-radius: 20px; padding: 28px 36px; margin-bottom: 28px;
             display: flex; align-items: center; gap: 16px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.5);
             position: relative; overflow: hidden;
@@ -9065,7 +9065,7 @@ if tab_admindata is not None:
         <style>
         .hdr-admindata {
             background: linear-gradient(135deg, #7f1d1d 0%, #dc2626 100%);
-            border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+            border-radius: 20px; padding: 28px 36px; margin-bottom: 28px;
             display: flex; align-items: center; gap: 16px;
             box-shadow: 0 8px 32px rgba(220,38,38,0.35);
             position: relative; overflow: hidden;
@@ -9465,7 +9465,7 @@ if tab_reporte is not None and st.session_state.modo_admin:
     <style>
     .hdr-reporte {{
         background: linear-gradient(135deg, #312e81 0%, #4f46e5 100%);
-        border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+        border-radius: 20px; padding: 28px 36px; margin-bottom: 28px;
         display: flex; align-items: center; gap: 16px;
         box-shadow: 0 8px 32px rgba(79,70,229,0.35);
         position: relative; overflow: hidden;
@@ -9839,7 +9839,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
     <style>
     .hdr-oper {
         background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
-        border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+        border-radius: 20px; padding: 28px 36px; margin-bottom: 28px;
         display: flex; align-items: center; gap: 16px;
         box-shadow: 0 8px 32px rgba(30,58,95,0.35);
         position: relative; overflow: hidden;
@@ -10525,7 +10525,7 @@ if tab_dash is not None:
     <style>
     .dash-hdr {
         background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #2563eb 100%);
-        border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+        border-radius: 20px; padding: 28px 36px; margin-bottom: 28px;
         display: flex; align-items: center; gap: 16px;
         box-shadow: 0 8px 32px rgba(37,99,235,0.25);
         position: relative; overflow: hidden;
@@ -11031,7 +11031,7 @@ if tab6 is not None:
         <style>
         .hdr6 {
             background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%);
-            border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+            border-radius: 20px; padding: 28px 36px; margin-bottom: 28px;
             display: flex; align-items: center; gap: 16px;
             box-shadow: 0 8px 32px rgba(220,38,38,0.25);
             position: relative; overflow: hidden;
@@ -11204,7 +11204,7 @@ if tab7 is not None:
         <style>
         .hdr7 {
             background: linear-gradient(135deg, #78350f 0%, #d97706 100%);
-            border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+            border-radius: 20px; padding: 28px 36px; margin-bottom: 28px;
             display: flex; align-items: center; gap: 16px;
             box-shadow: 0 8px 32px rgba(217,119,6,0.25);
             position: relative; overflow: hidden;
@@ -11490,7 +11490,7 @@ if tab_contrato is not None:
     <style>
     .hdr-contrato {
         background: linear-gradient(135deg, #0f3460 0%, #16213e 60%, #1a1a2e 100%);
-        border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+        border-radius: 20px; padding: 28px 36px; margin-bottom: 28px;
         display: flex; align-items: center; gap: 16px;
         box-shadow: 0 8px 32px rgba(15,52,96,0.3);
         position: relative; overflow: hidden;
@@ -12995,7 +12995,7 @@ if st.session_state.modo_admin and tab_usuarios is not None:
         <style>
         .hdr-usuarios {
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-            border-radius: 20px; padding: 20px 36px; margin-bottom: 28px;
+            border-radius: 20px; padding: 28px 36px; margin-bottom: 28px;
             display: flex; align-items: center; gap: 16px;
             box-shadow: 0 8px 32px rgba(15,52,96,0.4);
             position: relative; overflow: hidden;
