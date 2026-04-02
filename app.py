@@ -7318,55 +7318,37 @@ if tab3 is not None:
                 </table>
             </div>
         </div>
-        <p style="font-size:0.8rem;color:#888;margin-top:6px;">Mostrando {n_resultados} resultado{'s' if n_resultados != 1 else ''}</p>
         """
         st.markdown(html_table, unsafe_allow_html=True)
 
-        # Botones scroll horizontal tabla cotizaciones
+        # Botones scroll horizontal + texto Mostrando en misma fila
         import streamlit.components.v1 as _scroll_h_comp
-        _scroll_h_comp.html("""
-<style>
-.tbl-scroll-wrap { display:flex; align-items:center; gap:8px; margin-top:6px; justify-content:flex-end; }
-.tbl-scroll-btn {
-    background:rgba(15,23,42,0.7); color:#e2e8f0;
-    border:1px solid rgba(255,255,255,0.12); border-radius:8px;
-    padding:4px 14px; font-size:1rem; cursor:pointer;
-    font-weight:700; line-height:1; transition:background 0.15s;
-    user-select:none;
-}
-.tbl-scroll-btn:hover { background:rgba(37,99,235,0.7); color:#fff; }
-.tbl-scroll-label { font-size:10px; color:#94a3b8; font-family:sans-serif; }
-</style>
-<div class="tbl-scroll-wrap">
-  <button class="tbl-scroll-btn" id="btn-left">◀</button>
-  <span class="tbl-scroll-label">scroll horizontal</span>
-  <button class="tbl-scroll-btn" id="btn-right">▶</button>
-</div>
-<script>
-(function(){
-  var D = window.parent.document;
-  function getTbl(){
-    // Buscar la tabla y subir hasta encontrar el contenedor con scroll
-    var tbl = D.querySelector('.resultados-table');
-    if(!tbl) return null;
-    var el = tbl.parentElement;
-    while(el){
-      var st = window.parent.getComputedStyle(el);
-      if(st.overflowX === 'auto' || st.overflowX === 'scroll') return el;
-      el = el.parentElement;
-    }
-    // Fallback: devolver el padre directo de la tabla
-    return tbl.parentElement;
-  }
-  document.getElementById('btn-left').addEventListener('click', function(){
-    var t = getTbl(); if(t) t.scrollBy({left:-300, behavior:'smooth'});
-  });
-  document.getElementById('btn-right').addEventListener('click', function(){
-    var t = getTbl(); if(t) t.scrollBy({left:300, behavior:'smooth'});
-  });
-})();
-</script>
-""", height=48)
+        _nres_txt = str(n_resultados) + (" resultado" if n_resultados == 1 else " resultados")
+        _scroll_html = (
+            '<style>'
+            '.tbl-scroll-wrap{display:flex;align-items:center;gap:8px;margin-top:4px;justify-content:space-between;}'
+            '.tbl-scroll-right{display:flex;align-items:center;gap:8px;}'
+            '.tbl-scroll-btn{background:rgba(15,23,42,0.7);color:#e2e8f0;border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:4px 14px;font-size:1rem;cursor:pointer;font-weight:700;line-height:1;transition:background 0.15s;user-select:none;}'
+            '.tbl-scroll-btn:hover{background:rgba(37,99,235,0.7);color:#fff;}'
+            '.tbl-scroll-label{font-size:10px;color:#94a3b8;font-family:sans-serif;}'
+            '.tbl-n-res{font-size:0.8rem;color:#888;font-family:sans-serif;}'
+            '</style>'
+            '<div class="tbl-scroll-wrap">'
+            '  <span class="tbl-n-res">' + _nres_txt + '</span>'
+            '  <div class="tbl-scroll-right">'
+            '    <button class="tbl-scroll-btn" id="btn-left">&#9664;</button>'
+            '    <span class="tbl-scroll-label">scroll horizontal</span>'
+            '    <button class="tbl-scroll-btn" id="btn-right">&#9654;</button>'
+            '  </div>'
+            '</div>'
+            '<script>(function(){'
+            'var D=window.parent.document;'
+            'function gS(){var t=D.querySelector(".resultados-table");if(!t)return null;var el=t.parentElement;while(el){var s=window.parent.getComputedStyle(el);if(s.overflowX==="auto"||s.overflowX==="scroll")return el;el=el.parentElement;}return t.parentElement;}'
+            'document.getElementById("btn-left").addEventListener("click",function(){var t=gS();if(t)t.scrollBy({left:-300,behavior:"smooth"});});'
+            'document.getElementById("btn-right").addEventListener("click",function(){var t=gS();if(t)t.scrollBy({left:300,behavior:"smooth"});});'
+            '})();</script>'
+        )
+        _scroll_h_comp.html(_scroll_html, height=48)
 
         # JS para copiar EP al hacer click en la celda + contador en vivo
         import streamlit.components.v1 as _ep_copy_comp
