@@ -5607,7 +5607,7 @@ if tab2 is not None:
     <div class="hdr2" style="display:flex!important;align-items:center!important;">
       <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">👤</span>
       <div style="margin-left:16px;">
-        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Datos del Cliente</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Datos del Cliente</div>
         <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Completa la información del cliente y del proyecto antes de guardar.</div>
       </div>
     </div>
@@ -5978,7 +5978,7 @@ if tab1 is not None:
     <div class="hdr1" style="display:flex!important;align-items:center!important;">
       <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">☑️</span>
       <div style="margin-left:16px;">
-        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Gestión de Presupuesto</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Gestión de Presupuesto</div>
         <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Agrega productos, aplica márgenes y genera tu cotización en PDF.</div>
       </div>
     </div>
@@ -6679,7 +6679,7 @@ if tab3 is not None:
     <div class="hdr3" style="display:flex!important;align-items:center!important;">
       <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">📂</span>
       <div style="margin-left:16px;">
-        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Gestión de Cotizaciones</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Gestión de Cotizaciones</div>
         <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Busca, carga y administra todas las cotizaciones del sistema.</div>
       </div>
     </div>
@@ -7900,7 +7900,7 @@ if tab4 is not None:
     <div class="hdr4" style="display:flex!important;align-items:center!important;">
       <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">🧊</span>
       <div style="margin-left:16px;">
-        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Visor 3D Beta</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Visor 3D Beta</div>
         <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Selecciona un presupuesto con plano adjunto para generar su prototipo 3D interactivo.</div>
       </div>
     </div>
@@ -8873,7 +8873,7 @@ if st.session_state.get('es_root') and tab_salud is not None:
         <div class="hdr-salud" style="display:flex!important;align-items:center!important;">
       <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">🛡️</span>
       <div style="margin-left:16px;">
-        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Salud del Sistema</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Salud del Sistema</div>
         <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Monitoreo de capacidad y estado de Supabase — Plan Core (actualizado al cargar)</div>
       </div>
     </div>
@@ -9083,7 +9083,7 @@ if tab_admindata is not None:
         <div class="hdr-admindata" style="display:flex!important;align-items:center!important;">
       <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">⚠️</span>
       <div style="margin-left:16px;">
-        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Administración de datos</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Administración de datos</div>
         <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Eliminación permanente de presupuestos y archivos · Solo disponible para root</div>
       </div>
     </div>
@@ -9487,7 +9487,7 @@ if tab_reporte is not None and st.session_state.modo_admin:
     <div class="hdr-reporte" style="display:flex!important;align-items:center!important;">
       <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">📈</span>
       <div style="margin-left:16px;">
-        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Reporte de Inteligencia Comercial</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Reporte de Inteligencia Comercial</div>
         <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Espacio Container House SpA · Período: {_rep_periodo} · Solo admin y root</div>
       </div>
     </div>
@@ -9861,7 +9861,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
     <div class="hdr-oper" style="display:flex!important;align-items:center!important;">
       <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">⚙️</span>
       <div style="margin-left:16px;">
-        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Operaciones</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Operaciones</div>
         <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">PDF de compras · planos · seguimiento de fabricación y fidelización de clientes</div>
       </div>
     </div>
@@ -11053,7 +11053,7 @@ if tab6 is not None:
         <div class="hdr6" style="display:flex!important;align-items:center!important;">
       <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">✏️</span>
       <div style="margin-left:16px;">
-        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Edición PDF Cliente</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Edición PDF Cliente</div>
         <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Busca tu cotización por número EP y personaliza la descripción de cada categoría para el cliente.</div>
       </div>
     </div>
@@ -11290,7 +11290,7 @@ if tab7 is not None:
         <div class="hdr7" style="display:flex!important;align-items:center!important;">
       <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">🏆</span>
       <div style="margin-left:16px;">
-        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Ranking de Ejecutivos</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Ranking de Ejecutivos</div>
         <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Desempeño del equipo de ventas — este mes.</div>
       </div>
     </div>
@@ -11512,7 +11512,7 @@ if tab_contrato is not None:
     <div class="hdr-contrato" style="display:flex!important;align-items:center!important;">
       <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">📄</span>
       <div style="margin-left:16px;">
-        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Contrato Cliente</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Contrato Cliente</div>
         <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Genera y administra el contrato de fabricación y venta.</div>
       </div>
     </div>
@@ -13038,7 +13038,7 @@ if st.session_state.modo_admin and tab_usuarios is not None:
         <div class="hdr-usuarios" style="display:flex!important;align-items:center!important;">
       <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">👥</span>
       <div style="margin-left:16px;">
-        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Gestión de Usuarios</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Gestión de Usuarios</div>
         <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Crea y administra las cuentas de acceso de los ejecutivos.</div>
       </div>
     </div>
@@ -13476,7 +13476,7 @@ if tab_notif is not None and st.session_state.get('es_supervisor'):
         <div class="hdr-notif" style="display:flex!important;align-items:center!important;">
       <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">📣</span>
       <div style="margin-left:16px;">
-        <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Notificaciones</div>
+        <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.3rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Notificaciones</div>
         <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Configura Telegram, contactos, observadores y mensajes automáticos.</div>
       </div>
     </div>
