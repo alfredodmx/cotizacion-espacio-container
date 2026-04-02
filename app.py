@@ -2802,26 +2802,7 @@ st.markdown("""
         box-shadow: none !important;
     }
     hr { display: none !important; }
-    /* ── Montserrat en lista desplegable selector cotizaciones ── */
-    .st-key-selector_cotizaciones [data-baseweb="select"] *,
-    .st-key-selector_cotizaciones [data-baseweb="select"] span {
-        font-family: 'Montserrat', sans-serif !important;
-        font-weight: 700 !important;
-        font-size: 0.82rem !important;
-        letter-spacing: 0.03em !important;
-    }
-    [data-baseweb="popover"] [data-baseweb="menu"] li,
-    [data-baseweb="popover"] [data-baseweb="option"] {
-        font-family: 'Montserrat', sans-serif !important;
-        font-weight: 600 !important;
-        font-size: 0.82rem !important;
-        letter-spacing: 0.02em !important;
-        color: #0f172a !important;
-    }
-    [data-baseweb="popover"] [data-baseweb="option"][aria-selected="true"],
-    [data-baseweb="popover"] [data-baseweb="option"]:hover {
-        font-weight: 700 !important;
-    }
+
     /* ── Heartbeat indicators ── */
     @keyframes _hb_pulse{0%,100%{transform:scale(1);opacity:.35}50%{transform:scale(2.4);opacity:0}}
     ._hb_wrap{display:inline-flex;align-items:center;gap:7px;line-height:1.4;}
@@ -7569,46 +7550,7 @@ if tab3 is not None:
             with _col_sel:
                 st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 4px 0;-webkit-text-fill-color:#0f172a;">📂 Selecciona una cotización</div>', unsafe_allow_html=True)
                 cotizacion_seleccionada = st.selectbox("Selecciona una cotización:", options=opciones, key="selector_cotizaciones", label_visibility="collapsed")
-            import streamlit.components.v1 as _cot_sel_js
-            _cot_sel_js.html("""<script>
-(function(){
-    var D = window.parent.document;
-    function injectMenuFont(){
-        // Buscar todos los popovers/menus abiertos
-        var items = D.querySelectorAll('[data-baseweb="option"], [data-baseweb="menu"] li, ul[role="listbox"] li');
-        items.forEach(function(el){
-            el.style.setProperty('font-family', 'Montserrat, sans-serif', 'important');
-            el.style.setProperty('font-weight', '600', 'important');
-            el.style.setProperty('font-size', '0.82rem', 'important');
-            el.style.setProperty('letter-spacing', '0.02em', 'important');
-        });
-        // También inyectar <style> en el head del padre si no existe
-        if(!D.getElementById('_cot_montserrat_style')){
-            var s = D.createElement('style');
-            s.id = '_cot_montserrat_style';
-            s.textContent = [
-                '[data-baseweb="option"]{font-family:Montserrat,sans-serif!important;font-weight:600!important;font-size:0.82rem!important;letter-spacing:0.02em!important;color:#0f172a!important;}',
-                '[data-baseweb="option"]:hover,[data-baseweb="option"][aria-selected="true"]{font-weight:700!important;}',
-                '[data-baseweb="menu"] li{font-family:Montserrat,sans-serif!important;font-weight:600!important;font-size:0.82rem!important;letter-spacing:0.02em!important;}'
-            ].join('');
-            D.head.appendChild(s);
-        }
-    }
-    // Observar cambios en el DOM para detectar cuando se abre el menú
-    var obs = new MutationObserver(function(muts){
-        muts.forEach(function(m){
-            if(m.addedNodes.length) injectMenuFont();
-        });
-    });
-    obs.observe(D.body, {childList:true, subtree:true});
-    // Ejecutar también al click en el selectbox
-    D.addEventListener('click', function(e){
-        var sel = e.target && e.target.closest ? e.target.closest('.st-key-selector_cotizaciones') : null;
-        if(sel) setTimeout(injectMenuFont, 80);
-    });
-    injectMenuFont();
-})();
-</script>""", height=0)
+
             with _col_rec_btn:
                 st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
                 _btn_rec_placeholder = st.empty()
