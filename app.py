@@ -7161,6 +7161,8 @@ if tab3 is not None:
             df_resultados = df_resultados[df_resultados['Estado'].apply(_match_filtro)].copy()
         n_resultados = len(df_resultados)
         altura_tabla = min(n_resultados * 52 + 60, 550)
+        import time as _time_tbl
+        _render_id = str(int(_time_tbl.time() * 1000))
 
         # Calcular total costo (admin/root solamente)
         _tc_map = {}
@@ -7427,7 +7429,7 @@ if tab3 is not None:
         </style>
         <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
             <div style="{_altura_css}">
-                <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:1700px;table-layout:auto;white-space:nowrap;'>
+                <table class='resultados-table' data-rid='{_render_id}' style='margin:0;border-radius:0;box-shadow:none;min-width:1700px;table-layout:auto;white-space:nowrap;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
                         <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th class="th-cierre">$ Cierre de venta</th><th class="th-adj">Fecha adjudicación</th><th class="th-adj">Tiempo fabricación</th><th class="th-adj">Fidelización cliente</th><th class="th-adj">Retraso proyecto</th></tr>
                     </thead>
@@ -7508,18 +7510,21 @@ if tab3 is not None:
     });
 
     // ── Contador en vivo demora ──
+    function getActiveTableRid(){
+        // Obtener el render_id más alto (más reciente) entre todas las tablas de resultados
+        var tbls = D.querySelectorAll('.resultados-table[data-rid]');
+        var maxRid = 0;
+        tbls.forEach(function(t){ var r=parseInt(t.getAttribute('data-rid')||0); if(r>maxRid) maxRid=r; });
+        return maxRid;
+    }
     function isLiveVisible(el){
-        // Verificar que el elemento está en el DOM activo y visible
         if(!D.body.contains(el)) return false;
         var tbl = el.closest('.resultados-table');
         if(!tbl) return false;
-        // Verificar que ningún ancestro está oculto
-        var node = el;
-        while(node && node !== D.body){
-            var st = window.parent.getComputedStyle(node);
-            if(st.display==='none' || st.visibility==='hidden') return false;
-            node = node.parentElement;
-        }
+        // Solo la tabla más reciente
+        var rid = parseInt(tbl.getAttribute('data-rid')||0);
+        var activeRid = getActiveTableRid();
+        if(rid !== activeRid) return false;
         return true;
     }
     function updateLiveTimers(){
