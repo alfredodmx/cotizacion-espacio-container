@@ -10807,10 +10807,10 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
     with _sub_compras:
         st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 12px 0;">🛒 Registro de Compras</div>', unsafe_allow_html=True)
 
-        # Obtener cotizaciones adjudicadas o proyecto entregado
+        # Obtener cotizaciones adjudicadas
         try:
             _rc_resp = supabase.table('cotizaciones').select(
-                'numero,cliente_nombre,contrato_notariado_url,estado'
+                'numero,cliente_nombre,contrato_notariado_url,productos,estado'
             ).not_.is_('contrato_notariado_url','null').order('fecha_creacion',desc=True).execute()
             _rc_cots = [r for r in (_rc_resp.data or []) if r.get('contrato_notariado_url')]
         except:
@@ -10819,111 +10819,183 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
         if not _rc_cots:
             st.info('No hay proyectos adjudicados aún.')
         else:
-            _rc_opts = {f"{r['numero']} — {r.get('cliente_nombre') or 'S/C'}": r['numero'] for r in _rc_cots}
+            _rc_opts = {f"{r['numero']} — {r.get('cliente_nombre') or 'S/C'}": r for r in _rc_cots}
             _rc_sel_label = st.selectbox('Seleccionar proyecto', list(_rc_opts.keys()), key='rc_sel_proyecto')
-            _rc_ep = _rc_opts.get(_rc_sel_label, '')
+            _rc_row = _rc_opts.get(_rc_sel_label, {})
+            _rc_ep = _rc_row.get('numero','')
 
             if _rc_ep:
+                # Cargar productos del presupuesto automáticamente
+                import json as _jrc
+                _rc_productos_raw = _rc_row.get('productos') or []
+                if isinstance(_rc_productos_raw, str):
+                    try: _rc_productos_raw = _jrc.loads(_rc_productos_raw)
+                    except: _rc_productos_raw = []
+                # Excluir categoría Varios
+                _rc_productos = [p for p in _rc_productos_raw
+                                 if str(p.get('Categoria','')).strip().lower() != 'varios']
+
                 # Mostrar registros existentes
                 _rc_existentes = obtener_registros_compra(_rc_ep)
                 if _rc_existentes:
-                    st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 4px;">📊 Registros anteriores</div>', unsafe_allow_html=True)
+                    st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 6px;">📊 Registros anteriores</div>', unsafe_allow_html=True)
                     for _rce in _rc_existentes:
                         _rce_bal = float(_rce.get('balance',0) or 0)
                         _rce_col = '#16a34a' if _rce_bal >= 0 else '#dc2626'
                         _rce_icon = '✅' if _rce_bal >= 0 else '❌'
                         _rce_lbl = 'Ahorro' if _rce_bal >= 0 else 'Sobrecosto'
-                        with st.expander(f"🧾 {_rce.get('factura_nombre','Sin factura')} — {_rce_icon} {_rce_lbl} ${abs(_rce_bal):,.0f}".replace(',','.')):
+                        _rce_bal_fmt = f"${abs(_rce_bal):,.0f}".replace(',','.')
+                        with st.expander(f"🧾 {_rce.get('factura_nombre','Sin factura')} — {_rce_icon} {_rce_lbl} {_rce_bal_fmt}"):
                             _rce_items = _rce.get('items') or []
                             if isinstance(_rce_items, str):
-                                import json as _jrce
-                                try: _rce_items = _jrce.loads(_rce_items)
+                                try: _rce_items = _jrc.loads(_rce_items)
                                 except: _rce_items = []
                             if _rce_items:
-                                _rce_html = "<table style='width:100%;font-size:0.82rem;border-collapse:collapse;'>"
-                                _rce_html += "<tr style='background:#f1f5f9;'><th style='padding:6px 8px;text-align:left;'>Ítem</th><th style='padding:6px 8px;text-align:right;'>Presup.</th><th style='padding:6px 8px;text-align:right;'>Real</th><th style='padding:6px 8px;text-align:right;'>Diferencia</th></tr>"
+                                _rce_html = ("<table style='width:100%;font-size:0.82rem;border-collapse:collapse;'>"
+                                    "<tr style='background:#f1f5f9;'>"
+                                    "<th style='padding:6px 8px;text-align:left;'>Categoría</th>"
+                                    "<th style='padding:6px 8px;text-align:left;'>Ítem</th>"
+                                    "<th style='padding:6px 8px;text-align:right;'>Cant.</th>"
+                                    "<th style='padding:6px 8px;text-align:right;'>Presup. unit.</th>"
+                                    "<th style='padding:6px 8px;text-align:right;'>Real unit.</th>"
+                                    "<th style='padding:6px 8px;text-align:right;'>Diferencia</th>"
+                                    "</tr>")
                                 for _it in _rce_items:
-                                    _it_dif = float(_it.get('precio_presupuestado',0) or 0) - float(_it.get('precio_real',0) or 0)
+                                    _it_pp = float(_it.get('precio_presupuestado',0) or 0)
+                                    _it_pr = float(_it.get('precio_real',0) or 0)
+                                    _it_cant = float(_it.get('cantidad',1) or 1)
+                                    _it_dif = (_it_pp - _it_pr) * _it_cant
                                     _it_col = '#16a34a' if _it_dif >= 0 else '#dc2626'
+                                    _it_arrow = '▼' if _it_dif >= 0 else '▲'
                                     _rce_html += (f"<tr style='border-bottom:1px solid #f0f2f8;'>"
+                                        f"<td style='padding:5px 8px;font-size:0.75rem;color:#64748b;'>{_it.get('categoria','')}</td>"
                                         f"<td style='padding:5px 8px;'>{_it.get('item','')}</td>"
-                                        f"<td style='padding:5px 8px;text-align:right;'>${float(_it.get('precio_presupuestado',0) or 0):,.0f}</td>"
-                                        f"<td style='padding:5px 8px;text-align:right;'>${float(_it.get('precio_real',0) or 0):,.0f}</td>"
-                                        f"<td style='padding:5px 8px;text-align:right;font-weight:700;color:{_it_col};'>${abs(_it_dif):,.0f} {'▼' if _it_dif>=0 else '▲'}</td>"
+                                        f"<td style='padding:5px 8px;text-align:right;'>{_it_cant:.0f}</td>"
+                                        f"<td style='padding:5px 8px;text-align:right;'>${_it_pp:,.0f}</td>"
+                                        f"<td style='padding:5px 8px;text-align:right;'>${_it_pr:,.0f}</td>"
+                                        f"<td style='padding:5px 8px;text-align:right;font-weight:700;color:{_it_col};'>"
+                                        f"${abs(_it_dif):,.0f} {_it_arrow}</td>"
                                         f"</tr>").replace(',','.')
                                 _rce_html += "</table>"
                                 st.markdown(_rce_html, unsafe_allow_html=True)
                             if _rce.get('factura_url'):
                                 st.markdown(f"[📎 Ver factura]({_rce['factura_url']})", unsafe_allow_html=True)
+                    st.markdown('---')
 
-                st.markdown('---')
-                st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 12px;">➕ Nuevo registro de compra</div>', unsafe_allow_html=True)
+                # Formulario nuevo registro
+                st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 8px;">➕ Nuevo registro de compra</div>', unsafe_allow_html=True)
+                _rc_factura = st.file_uploader('📎 Factura PDF (opcional)', type=['pdf'], key=f'rc_factura_{_rc_ep}')
 
-                # Subir factura
-                _rc_factura = st.file_uploader('📎 Factura PDF', type=['pdf'], key=f'rc_factura_{_rc_ep}')
-
-                # Items
-                st.markdown('<div style="font-size:0.82rem;font-weight:600;color:#64748b;margin:8px 0 4px;">Productos comprados</div>', unsafe_allow_html=True)
-                if 'rc_items' not in st.session_state:
-                    st.session_state.rc_items = [{'item':'','precio_presupuestado':0,'precio_real':0}]
-
-                _rc_items_new = []
-                for _ri, _ritem in enumerate(st.session_state.rc_items):
-                    _rc1, _rc2, _rc3, _rc4 = st.columns([3,1.5,1.5,0.5])
-                    with _rc1:
-                        _rn = st.text_input('Ítem', value=_ritem.get('item',''), key=f'rc_item_n_{_ri}', label_visibility='collapsed' if _ri>0 else 'visible')
-                    with _rc2:
-                        _rp = st.number_input('Presupuestado $', value=float(_ritem.get('precio_presupuestado',0)), min_value=0.0, key=f'rc_item_p_{_ri}', label_visibility='collapsed' if _ri>0 else 'visible')
-                    with _rc3:
-                        _rr = st.number_input('Real $', value=float(_ritem.get('precio_real',0)), min_value=0.0, key=f'rc_item_r_{_ri}', label_visibility='collapsed' if _ri>0 else 'visible')
-                    with _rc4:
-                        if _ri > 0 and st.button('✕', key=f'rc_del_{_ri}'):
-                            st.session_state.rc_items.pop(_ri)
-                            st.rerun()
-                    _rc_items_new.append({'item':_rn,'precio_presupuestado':_rp,'precio_real':_rr,'diferencia':_rp-_rr})
-                st.session_state.rc_items = _rc_items_new
-
-                if st.button('➕ Agregar ítem', key='rc_add_item'):
-                    st.session_state.rc_items.append({'item':'','precio_presupuestado':0,'precio_real':0})
-                    st.rerun()
-
-                # Totales
-                _rc_total_p = sum(float(i.get('precio_presupuestado',0)) for i in st.session_state.rc_items)
-                _rc_total_r = sum(float(i.get('precio_real',0)) for i in st.session_state.rc_items)
-                _rc_balance = _rc_total_p - _rc_total_r
-                _rc_bal_col = '#16a34a' if _rc_balance >= 0 else '#dc2626'
-                _rc_bal_lbl = '✅ Ahorro' if _rc_balance >= 0 else '❌ Sobrecosto'
-                st.markdown(
-                    f"<div style='background:#f8fafc;border-radius:10px;padding:12px 16px;margin:12px 0;display:flex;gap:24px;'>"
-                    f"<span style='font-size:0.85rem;'>💰 Presupuestado: <b>${_rc_total_p:,.0f}</b></span>"
-                    f"<span style='font-size:0.85rem;'>🧾 Real: <b>${_rc_total_r:,.0f}</b></span>"
-                    f"<span style='font-size:0.85rem;font-weight:700;color:{_rc_bal_col};'>{_rc_bal_lbl}: ${abs(_rc_balance):,.0f}</span>"
-                    f"</div>".replace(',','.'),
-                    unsafe_allow_html=True
-                )
-
-                if st.button('💾 Guardar registro de compra', key='rc_guardar', use_container_width=True):
-                    _rc_factura_url = ''
-                    _rc_factura_nom = ''
-                    if _rc_factura:
-                        _rc_factura_url, _rc_err = guardar_factura_en_storage(_rc_factura.getvalue(), _rc_ep, _rc_factura.name)
-                        if _rc_err:
-                            st.error(f'Error subiendo factura: {_rc_err}')
-                            st.stop()
-                        _rc_factura_nom = _rc_factura.name
-                    _rc_ok, _rc_err2 = guardar_registro_compra(
-                        _rc_ep,
-                        st.session_state.get('auth_nombre',''),
-                        _rc_factura_url, _rc_factura_nom,
-                        st.session_state.rc_items,
-                        _rc_total_p, _rc_total_r
+                if not _rc_productos:
+                    st.warning('Este presupuesto no tiene productos cargados.')
+                else:
+                    # Tabla con productos precargados — solo editar precio real
+                    st.markdown(
+                        '<div style="display:grid;grid-template-columns:2fr 3fr 0.7fr 1.2fr 1.2fr 1.3fr;'
+                        'gap:4px;padding:6px 8px;background:#1e2447;border-radius:8px 8px 0 0;'
+                        'font-size:0.72rem;font-weight:700;color:#fff;letter-spacing:0.05em;text-transform:uppercase;">'
+                        '<span>Categoría</span><span>Ítem</span><span>Cant.</span>'
+                        '<span style="text-align:right;">Presup. unit.</span>'
+                        '<span style="text-align:right;">Real unit.</span>'
+                        '<span style="text-align:right;">Diferencia</span>'
+                        '</div>',
+                        unsafe_allow_html=True
                     )
-                    if _rc_ok:
-                        st.success('✅ Registro guardado correctamente')
-                        st.session_state.rc_items = [{'item':'','precio_presupuestado':0,'precio_real':0}]
-                        st.rerun()
-                    else:
-                        st.error(f'Error guardando: {_rc_err2}')
+
+                    _rc_items_result = []
+                    _rc_total_p = 0.0
+                    _rc_total_r = 0.0
+
+                    for _ri, _prod in enumerate(_rc_productos):
+                        _cat   = str(_prod.get('Categoria',''))
+                        _item  = str(_prod.get('Item',''))
+                        _cant  = float(_prod.get('Cantidad', 1) or 1)
+                        _p_unit = float(_prod.get('Precio Unitario', 0) or 0)
+                        _p_sub  = float(_prod.get('Subtotal', 0) or 0)
+
+                        _bg = '#ffffff' if _ri % 2 == 0 else '#f8fafc'
+                        _rk = f'rc_real_{_rc_ep}_{_ri}'
+
+                        _col1, _col2, _col3, _col4, _col5, _col6 = st.columns([2, 3, 0.7, 1.2, 1.2, 1.3])
+                        with _col1:
+                            st.markdown(f'<div style="font-size:0.75rem;color:#64748b;padding:8px 4px;background:{_bg};">{_cat}</div>', unsafe_allow_html=True)
+                        with _col2:
+                            st.markdown(f'<div style="font-size:0.82rem;padding:8px 4px;background:{_bg};">{_item}</div>', unsafe_allow_html=True)
+                        with _col3:
+                            st.markdown(f'<div style="font-size:0.82rem;text-align:right;padding:8px 4px;background:{_bg};">{_cant:.0f}</div>', unsafe_allow_html=True)
+                        with _col4:
+                            st.markdown(f'<div style="font-size:0.82rem;text-align:right;padding:8px 4px;background:{_bg};">${_p_unit:,.0f}</div>'.replace(',','.'), unsafe_allow_html=True)
+                        with _col5:
+                            _real_val = st.number_input(
+                                'Real',
+                                value=0.0,
+                                min_value=0.0,
+                                step=100.0,
+                                key=_rk,
+                                label_visibility='collapsed'
+                            )
+                        with _col6:
+                            _dif_unit = _p_unit - _real_val
+                            _dif_total = _dif_unit * _cant
+                            _dif_col = '#16a34a' if _dif_total >= 0 else '#dc2626'
+                            _dif_arrow = '▼' if _dif_total >= 0 else '▲'
+                            st.markdown(
+                                f'<div style="font-size:0.82rem;text-align:right;padding:8px 4px;'
+                                f'font-weight:700;color:{_dif_col};background:{_bg};">'
+                                f'${abs(_dif_total):,.0f} {_dif_arrow}</div>'.replace(',','.'),
+                                unsafe_allow_html=True
+                            )
+
+                        _rc_total_p += _p_unit * _cant
+                        _rc_total_r += _real_val * _cant
+                        _rc_items_result.append({
+                            'categoria': _cat,
+                            'item': _item,
+                            'cantidad': _cant,
+                            'precio_presupuestado': _p_unit,
+                            'precio_real': _real_val,
+                            'diferencia': _dif_total
+                        })
+
+                    # Totales
+                    _rc_balance = _rc_total_p - _rc_total_r
+                    _rc_bal_col = '#16a34a' if _rc_balance >= 0 else '#dc2626'
+                    _rc_bal_icon = '✅ Ahorro' if _rc_balance >= 0 else '❌ Sobrecosto'
+                    st.markdown(
+                        f"<div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:0 0 8px 8px;"
+                        f"padding:12px 16px;display:flex;gap:32px;align-items:center;'>"
+                        f"<span style='font-size:0.85rem;'>💰 Presupuestado: <b>${_rc_total_p:,.0f}</b></span>"
+                        f"<span style='font-size:0.85rem;'>🧾 Real: <b>${_rc_total_r:,.0f}</b></span>"
+                        f"<span style='font-size:0.85rem;font-weight:700;color:{_rc_bal_col};'>"
+                        f"{_rc_bal_icon}: ${abs(_rc_balance):,.0f}</span>"
+                        f"</div>".replace(',','.'),
+                        unsafe_allow_html=True
+                    )
+                    st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+
+                    if st.button('💾 Guardar registro de compra', key='rc_guardar', use_container_width=True):
+                        _rc_factura_url = ''
+                        _rc_factura_nom = ''
+                        if _rc_factura:
+                            _rc_factura_url, _rc_err = guardar_factura_en_storage(
+                                _rc_factura.getvalue(), _rc_ep, _rc_factura.name)
+                            if _rc_err:
+                                st.error(f'Error subiendo factura: {_rc_err}')
+                                st.stop()
+                            _rc_factura_nom = _rc_factura.name
+                        _rc_ok, _rc_err2 = guardar_registro_compra(
+                            _rc_ep,
+                            st.session_state.get('auth_nombre',''),
+                            _rc_factura_url, _rc_factura_nom,
+                            _rc_items_result,
+                            _rc_total_p, _rc_total_r
+                        )
+                        if _rc_ok:
+                            st.success('✅ Registro guardado correctamente')
+                            st.rerun()
+                        else:
+                            st.error(f'Error guardando: {_rc_err2}')
+
 
     with _sub_acta:
         st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 12px 0;">📋 Acta de Clientes</div>', unsafe_allow_html=True)
