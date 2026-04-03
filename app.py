@@ -2878,10 +2878,16 @@ st.markdown("""
         word-break: break-word !important;
     }
     .resultados-table td:first-child {
-        position: sticky !important; left: 0 !important; z-index: 1 !important;
+        position: sticky !important; left: -2px !important; z-index: 1 !important;
         background-color: #ffffff !important;
         border-right: 3px solid #e2e8f0 !important;
         filter: drop-shadow(4px 0 4px rgba(0,0,0,0.10)) !important;
+        padding-left: 14px !important;
+    }
+    .resultados-table th:first-child {
+        position: sticky !important; left: -2px !important; z-index: 3 !important;
+        background: linear-gradient(135deg, #1e2447 0%, #2a3060 100%) !important;
+        padding-left: 14px !important;
     }
     .resultados-table tr:hover td { background-color: #f5f7ff !important; }
     .resultados-table tr:hover td:first-child { background-color: #f5f7ff !important; }
