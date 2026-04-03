@@ -10875,6 +10875,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         'Presup. unit.':  round(float(p.get('Precio Unitario',0) or 0)),
                         'Real unit.':     0.0,
                         'Adicional':      0,
+                        'Diferencia':     0.0,
                     } for p in _rc_prods])
 
                     _rc_edited = st.data_editor(
@@ -10886,10 +10887,11 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                             'Categoría':     st.column_config.TextColumn('Categoría',    disabled=True),
                             'Ítem':          st.column_config.TextColumn('Ítem',         disabled=True),
                             'Cant.':         st.column_config.NumberColumn('Cant.',       disabled=True, format='%d'),
-                            'Presup. unit.': st.column_config.NumberColumn('Presup. unit.', disabled=True, format='%d'),
-                            'Real unit.':    st.column_config.NumberColumn('Real unit.',  min_value=0.0, step=100.0, format='%d'),
+                            'Presup. unit.': st.column_config.NumberColumn('Presup. unit.', disabled=True, format='$ %d'),
+                            'Real unit.':    st.column_config.NumberColumn('Real unit.',  min_value=0.0, step=100.0, format='$ %d'),
                             'Adicional':     st.column_config.NumberColumn('Adicional',   min_value=0,   step=1,     format='%d',
                                                 help='Unidades extra compradas fuera del presupuesto — siempre pérdida'),
+                            'Diferencia':    st.column_config.NumberColumn('Diferencia',  disabled=True, format='$ %d'),
                         }
                     )
 
