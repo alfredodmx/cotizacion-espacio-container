@@ -2887,11 +2887,14 @@ st.markdown("""
         will-change: transform !important;
     }
     .resultados-table th:first-child {
-        position: sticky !important; left: -2px !important; z-index: 3 !important;
+        position: sticky !important; left: -2px !important; top: -1px !important; z-index: 3 !important;
         background: linear-gradient(135deg, #1e2447 0%, #2a3060 100%) !important;
         padding-left: 14px !important;
         transform: translateZ(0) !important;
         will-change: transform !important;
+    }
+    .resultados-table th {
+        top: -1px !important;
     }
     .resultados-table tr:hover td { background-color: #f5f7ff !important; }
     .resultados-table tr:hover td:first-child { background-color: #f5f7ff !important; }
