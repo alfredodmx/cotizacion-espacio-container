@@ -7667,7 +7667,7 @@ if tab3 is not None:
                                 key="btn_download_log"
                             )
                         except Exception as _e_log:
-                            st.error(f"Error generando PDF log: {_e_log}")
+                            st.warning("⚠️ No se pudo generar el historial PDF. Intenta nuevamente.")
                     else:
                         st.caption("📋 Sin registros de modificaciones aún")
 
