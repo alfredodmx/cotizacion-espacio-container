@@ -10269,540 +10269,540 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
     ])
 
     with _sub_panel:
-     # ── Cargar ejecutivos para dropdown ──
-     try:
-        _oper_usuarios = listar_usuarios_ejecutivos() or []
-        _oper_ejs = [u for u in _oper_usuarios if u.get('rol','ejecutivo') in ('ejecutivo','admin','administrador')]
-        _oper_ej_opts = ['Todos'] + [u.get('nombre','') for u in _oper_ejs if u.get('nombre')]
-     except Exception:
-        _oper_ej_opts = ['Todos']
-
-    # ── Filtros ──
-    _oc1, _oc2, _oc3, _oc4 = st.columns([2.5, 2, 0.8, 0.4])
-    with _oc1:
-        _oper_ep = st.text_input("EP", placeholder="Buscar por N° EP...",
-                                  key="oper_ep", label_visibility="collapsed")
-    with _oc2:
-        _oper_ej_sel = st.selectbox("Ejecutivo", _oper_ej_opts,
-                                     key="oper_ej_sel", label_visibility="collapsed")
-    with _oc3:
-        _oper_buscar = st.button("🔍 Buscar", use_container_width=True, key="oper_buscar")
-    with _oc4:
-        if st.button("🔄", key="oper_refresh", help="Actualizar resultados", use_container_width=True):
-            st.session_state.pop('oper_results', None)
-            st.rerun()
-
-    if _oper_buscar:
+        # ── Cargar ejecutivos para dropdown ──
         try:
-            _oq = supabase.table("cotizaciones").select(
-                "numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_email,"
-                "asesor_nombre,asesor_email,asesor_telefono,estado,plano_url,plano_nombre,"
-                "config_margen,contrato_generado,productos,total_subtotal_sin_margen,"
-                "contrato_notariado_url,fecha_adjudicacion,contrato_datos"
-            ).gt("config_margen", 0)
-            if _oper_ep.strip():
-                _oq = _oq.ilike("numero", f"%{_oper_ep.strip()}%")
-            if _oper_ej_sel != 'Todos':
-                _oq = _oq.eq("asesor_nombre", _oper_ej_sel)
-            _ores = _oq.order("fecha_creacion", desc=True).limit(100).execute()
-            st.session_state['oper_results'] = _ores.data or []
-        except Exception as _oe:
-            st.error(f"Error: {_oe}")
-            st.session_state['oper_results'] = []
-
-    if 'oper_results' not in st.session_state or (_oper_buscar is False and _oper_ej_sel != st.session_state.get('_oper_ej_prev')):
-        st.session_state['_oper_ej_prev'] = _oper_ej_sel
-        try:
-            _oq0 = supabase.table("cotizaciones").select(
-                "numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_email,"
-                "asesor_nombre,asesor_email,asesor_telefono,estado,plano_url,plano_nombre,"
-                "config_margen,contrato_generado,productos,total_subtotal_sin_margen,"
-                "contrato_notariado_url,fecha_adjudicacion,contrato_datos"
-            ).gt("config_margen", 0)
-            if _oper_ej_sel != 'Todos':
-                _oq0 = _oq0.eq("asesor_nombre", _oper_ej_sel)
-            _ores0 = _oq0.order("fecha_creacion", desc=True).limit(100).execute()
-            st.session_state['oper_results'] = _ores0.data or []
+            _oper_usuarios = listar_usuarios_ejecutivos() or []
+            _oper_ejs = [u for u in _oper_usuarios if u.get('rol','ejecutivo') in ('ejecutivo','admin','administrador')]
+            _oper_ej_opts = ['Todos'] + [u.get('nombre','') for u in _oper_ejs if u.get('nombre')]
         except Exception:
-            st.session_state['oper_results'] = []
+            _oper_ej_opts = ['Todos']
 
-    _oper_data = st.session_state.get('oper_results', [])
+        # ── Filtros ──
+        _oc1, _oc2, _oc3, _oc4 = st.columns([2.5, 2, 0.8, 0.4])
+        with _oc1:
+            _oper_ep = st.text_input("EP", placeholder="Buscar por N° EP...",
+                                      key="oper_ep", label_visibility="collapsed")
+        with _oc2:
+            _oper_ej_sel = st.selectbox("Ejecutivo", _oper_ej_opts,
+                                         key="oper_ej_sel", label_visibility="collapsed")
+        with _oc3:
+            _oper_buscar = st.button("🔍 Buscar", use_container_width=True, key="oper_buscar")
+        with _oc4:
+            if st.button("🔄", key="oper_refresh", help="Actualizar resultados", use_container_width=True):
+                st.session_state.pop('oper_results', None)
+                st.rerun()
 
-    # Badge resumen siempre visible con conteo de estados
-    _n_adj_op  = sum(1 for r in _oper_data if r.get('contrato_notariado_url'))
-    _n_pend_op = len(_oper_data) - _n_adj_op
-    _ej_label  = f"👤 {_oper_ej_sel} · " if _oper_ej_sel != 'Todos' else ""
-    st.markdown(
-        f"<span style='background:#ede9fe;color:#6d28d9;padding:3px 12px;border-radius:99px;"
-        f"font-size:11px;font-weight:700;margin-right:6px;'>{_ej_label}{len(_oper_data)} resultados</span>"
-        f"<span style='background:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:99px;"
-        f"font-size:11px;font-weight:700;margin-right:6px;'>🔵 {_n_adj_op} adjudicados</span>"
-        f"<span style='background:#fef9c3;color:#854d0e;padding:3px 10px;border-radius:99px;"
-        f"font-size:11px;font-weight:700;'>🟡 {_n_pend_op} pendiente compras</span>",
-        unsafe_allow_html=True)
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-
-    if not _oper_data:
-        st.info("No se encontraron cotizaciones.")
-    else:
-        import pandas as _pd_op
-        from datetime import datetime as _dt_op, timezone as _tz_op, timedelta as _td_op
-
-        _tz_cl = _tz_op(_td_op(hours=-3))
-        _fmt_op_clp = lambda v: "${:,.0f}".format(v or 0).replace(",",".")
-
-        def _fmt_op_fecha(x):
-            if not x: return ""
+        if _oper_buscar:
             try:
-                _d = _dt_op.fromisoformat(x.replace("Z","+00:00")).astimezone(_tz_cl)
-                return f'<span style="font-weight:700;">{_d.strftime("%d/%m/%Y")}</span><br><span style="font-size:0.75em;color:#64748b;">{_d.strftime("%H:%M")}</span>'
-            except: return str(x)[:10]
+                _oq = supabase.table("cotizaciones").select(
+                    "numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_email,"
+                    "asesor_nombre,asesor_email,asesor_telefono,estado,plano_url,plano_nombre,"
+                    "config_margen,contrato_generado,productos,total_subtotal_sin_margen,"
+                    "contrato_notariado_url,fecha_adjudicacion,contrato_datos"
+                ).gt("config_margen", 0)
+                if _oper_ep.strip():
+                    _oq = _oq.ilike("numero", f"%{_oper_ep.strip()}%")
+                if _oper_ej_sel != 'Todos':
+                    _oq = _oq.eq("asesor_nombre", _oper_ej_sel)
+                _ores = _oq.order("fecha_creacion", desc=True).limit(100).execute()
+                st.session_state['oper_results'] = _ores.data or []
+            except Exception as _oe:
+                st.error(f"Error: {_oe}")
+                st.session_state['oper_results'] = []
 
-        # Calcular Total Costo para cada fila
-        def _calc_total_costo(row):
+        if 'oper_results' not in st.session_state or (_oper_buscar is False and _oper_ej_sel != st.session_state.get('_oper_ej_prev')):
+            st.session_state['_oper_ej_prev'] = _oper_ej_sel
             try:
-                _prods = row.get("productos") or []
-                if isinstance(_prods, str):
-                    import json as _jop2; _prods = _jop2.loads(_prods)
-                _df_p = _pd_op.DataFrame(_prods) if _prods else _pd_op.DataFrame()
-                if not _df_p.empty and 'Categoria' in _df_p.columns:
-                    _df_p = _df_p[_df_p['Categoria'].str.strip().str.lower() != 'varios']
-                _sub = _df_p['Subtotal'].sum() if not _df_p.empty and 'Subtotal' in _df_p.columns else 0
-                return _sub * 1.19
-            except: return 0
+                _oq0 = supabase.table("cotizaciones").select(
+                    "numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_email,"
+                    "asesor_nombre,asesor_email,asesor_telefono,estado,plano_url,plano_nombre,"
+                    "config_margen,contrato_generado,productos,total_subtotal_sin_margen,"
+                    "contrato_notariado_url,fecha_adjudicacion,contrato_datos"
+                ).gt("config_margen", 0)
+                if _oper_ej_sel != 'Todos':
+                    _oq0 = _oq0.eq("asesor_nombre", _oper_ej_sel)
+                _ores0 = _oq0.order("fecha_creacion", desc=True).limit(100).execute()
+                st.session_state['oper_results'] = _ores0.data or []
+            except Exception:
+                st.session_state['oper_results'] = []
 
-        # Badge estado
-        def _badge_op(row_data):
-            # ADJUDICADO tiene prioridad absoluta
-            if row_data.get('contrato_notariado_url'):
-                return '<span style="background-color:#2563eb;color:white;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;border:1px solid #1d4ed8;box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">🔵 ADJUDICADO</span>'
-            # Autorizado sin notariado = PENDIENTE COMPRAS
-            config_margen_b = row_data.get('config_margen', 0) or 0
-            if config_margen_b > 0:
-                return '<span style="background-color:#ffc107;color:#212529;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;border:1px solid #d39e00;box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">🟡 PENDIENTE COMPRAS</span>'
-            # Exactamente la misma lógica que crear_badge_estado en cotizaciones
-            config_margen   = row_data.get('config_margen', 0) or 0
-            tiene_plano     = 1 if row_data.get('plano_url') else 0
-            cliente_nombre  = row_data.get('cliente_nombre', '') or ''
-            cliente_email   = row_data.get('cliente_email', '') or ''
-            asesor_nombre   = row_data.get('asesor_nombre', '') or ''
-            asesor_email    = row_data.get('asesor_email', '') or ''
-            asesor_telefono = row_data.get('asesor_telefono', '') or ''
-            datos_completos = all([cliente_nombre, cliente_email])
-            asesor_completo = any([asesor_nombre, asesor_email, asesor_telefono])
-            if config_margen and config_margen > 0:
-                if datos_completos and asesor_completo:
-                    label = "🟢 AUTORIZADO CON PLANO" if tiene_plano else "🟢 AUTORIZADO"
-                    color = "#28a745"; border = "#1e7e34"; text_color = "white"
-                else:
-                    label = "🔴 INCOMPLETO CON PLANO" if tiene_plano else "🔴 INCOMPLETO"
-                    color = "#dc3545"; border = "#bd2130"; text_color = "white"
-            else:
-                if datos_completos and asesor_completo:
-                    if tiene_plano:
-                        label = "🟠 BORRADOR CON PLANO"
-                        color = "#f97316"; border = "#c2410c"; text_color = "white"
+        _oper_data = st.session_state.get('oper_results', [])
+
+        # Badge resumen siempre visible con conteo de estados
+        _n_adj_op  = sum(1 for r in _oper_data if r.get('contrato_notariado_url'))
+        _n_pend_op = len(_oper_data) - _n_adj_op
+        _ej_label  = f"👤 {_oper_ej_sel} · " if _oper_ej_sel != 'Todos' else ""
+        st.markdown(
+            f"<span style='background:#ede9fe;color:#6d28d9;padding:3px 12px;border-radius:99px;"
+            f"font-size:11px;font-weight:700;margin-right:6px;'>{_ej_label}{len(_oper_data)} resultados</span>"
+            f"<span style='background:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:99px;"
+            f"font-size:11px;font-weight:700;margin-right:6px;'>🔵 {_n_adj_op} adjudicados</span>"
+            f"<span style='background:#fef9c3;color:#854d0e;padding:3px 10px;border-radius:99px;"
+            f"font-size:11px;font-weight:700;'>🟡 {_n_pend_op} pendiente compras</span>",
+            unsafe_allow_html=True)
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+        if not _oper_data:
+            st.info("No se encontraron cotizaciones.")
+        else:
+            import pandas as _pd_op
+            from datetime import datetime as _dt_op, timezone as _tz_op, timedelta as _td_op
+
+            _tz_cl = _tz_op(_td_op(hours=-3))
+            _fmt_op_clp = lambda v: "${:,.0f}".format(v or 0).replace(",",".")
+
+            def _fmt_op_fecha(x):
+                if not x: return ""
+                try:
+                    _d = _dt_op.fromisoformat(x.replace("Z","+00:00")).astimezone(_tz_cl)
+                    return f'<span style="font-weight:700;">{_d.strftime("%d/%m/%Y")}</span><br><span style="font-size:0.75em;color:#64748b;">{_d.strftime("%H:%M")}</span>'
+                except: return str(x)[:10]
+
+            # Calcular Total Costo para cada fila
+            def _calc_total_costo(row):
+                try:
+                    _prods = row.get("productos") or []
+                    if isinstance(_prods, str):
+                        import json as _jop2; _prods = _jop2.loads(_prods)
+                    _df_p = _pd_op.DataFrame(_prods) if _prods else _pd_op.DataFrame()
+                    if not _df_p.empty and 'Categoria' in _df_p.columns:
+                        _df_p = _df_p[_df_p['Categoria'].str.strip().str.lower() != 'varios']
+                    _sub = _df_p['Subtotal'].sum() if not _df_p.empty and 'Subtotal' in _df_p.columns else 0
+                    return _sub * 1.19
+                except: return 0
+
+            # Badge estado
+            def _badge_op(row_data):
+                # ADJUDICADO tiene prioridad absoluta
+                if row_data.get('contrato_notariado_url'):
+                    return '<span style="background-color:#2563eb;color:white;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;border:1px solid #1d4ed8;box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">🔵 ADJUDICADO</span>'
+                # Autorizado sin notariado = PENDIENTE COMPRAS
+                config_margen_b = row_data.get('config_margen', 0) or 0
+                if config_margen_b > 0:
+                    return '<span style="background-color:#ffc107;color:#212529;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;border:1px solid #d39e00;box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">🟡 PENDIENTE COMPRAS</span>'
+                # Exactamente la misma lógica que crear_badge_estado en cotizaciones
+                config_margen   = row_data.get('config_margen', 0) or 0
+                tiene_plano     = 1 if row_data.get('plano_url') else 0
+                cliente_nombre  = row_data.get('cliente_nombre', '') or ''
+                cliente_email   = row_data.get('cliente_email', '') or ''
+                asesor_nombre   = row_data.get('asesor_nombre', '') or ''
+                asesor_email    = row_data.get('asesor_email', '') or ''
+                asesor_telefono = row_data.get('asesor_telefono', '') or ''
+                datos_completos = all([cliente_nombre, cliente_email])
+                asesor_completo = any([asesor_nombre, asesor_email, asesor_telefono])
+                if config_margen and config_margen > 0:
+                    if datos_completos and asesor_completo:
+                        label = "🟢 AUTORIZADO CON PLANO" if tiene_plano else "🟢 AUTORIZADO"
+                        color = "#28a745"; border = "#1e7e34"; text_color = "white"
                     else:
-                        label = "🟡 BORRADOR"
-                        color = "#ffc107"; border = "#d39e00"; text_color = "#212529"
+                        label = "🔴 INCOMPLETO CON PLANO" if tiene_plano else "🔴 INCOMPLETO"
+                        color = "#dc3545"; border = "#bd2130"; text_color = "white"
                 else:
-                    label = "🔴 INCOMPLETO CON PLANO" if tiene_plano else "🔴 INCOMPLETO"
-                    color = "#dc3545"; border = "#bd2130"; text_color = "white"
-            return (f'<span style="background-color:{color};color:{text_color};padding:2px 7px;'                    f'border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;'                    f'border:1px solid {border};box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">'                    f'{label}</span>')
-
-        # Construir filas HTML
-        import json as _json_op
-        from datetime import datetime as _dt_op, timezone as _tz_op, timedelta as _td_op
-        _tz_cl_op = _tz_op(_td_op(hours=-3))
-
-        def _fmt_op_fecha_h(x):
-            if not x: return "—"
-            try:
-                _d = _dt_op.fromisoformat(x.replace("Z","+00:00")).astimezone(_tz_cl_op)
-                return (f'<span style="font-weight:700;">{_d.strftime("%d/%m/%Y")}</span>'
-                        f'<br><span style="font-size:0.75em;color:#64748b;">{_d.strftime("%H:%M")}</span>')
-            except: return str(x)[:10]
-
-        _rows_op = ""
-        for _or in _oper_data:
-            _ep    = _or.get("numero","—")
-            _cli   = _or.get("cliente_nombre","—")
-            _ej    = _or.get("asesor_nombre","—")
-            _adj   = bool(_or.get("contrato_notariado_url",""))
-            _tc    = _calc_total_costo(_or)
-            _tc_html = (f'<span style="font-weight:700;">{_fmt_op_clp(_tc)}</span>'
-                        f'<br><span style="font-size:0.75em;color:#64748b;">base+IVA</span>')
-
-            # ── Fecha adjudicación ──
-            _fadj_raw = _or.get("fecha_adjudicacion","") or ""
-            if _adj and not _fadj_raw:
-                _fadj_raw = _or.get("fecha_modificacion","") or ""
-            _fadj_html = _fmt_op_fecha_h(_fadj_raw) if _adj else '<span style="color:#94a3b8;">—</span>'
-
-            # ── Timing/Demora ──
-            _fauth_raw = _or.get("fecha_modificacion","") or ""
-            if _adj and _fadj_raw and _fauth_raw:
-                try:
-                    _d1 = _dt_op.fromisoformat(_fauth_raw.replace("Z","+00:00")).astimezone(_tz_cl_op)
-                    _d2 = _dt_op.fromisoformat(_fadj_raw.replace("Z","+00:00")).astimezone(_tz_cl_op)
-                    _diff = _d2 - _d1
-                    _dd = _diff.days; _hh = _diff.seconds//3600; _mm = (_diff.seconds%3600)//60
-                    _partes = []
-                    if _dd > 0: _partes.append(f"{_dd}d")
-                    if _hh > 0: _partes.append(f"{_hh}h")
-                    _partes.append(f"{_mm}m")
-                    _timing_html = (f'<span style="color:#2563eb;font-weight:700;">{" ".join(_partes)}</span>'
-                                    f'<br><span style="font-size:0.72em;color:#2563eb;font-weight:400;">finalizado</span>')
-                except: _timing_html = '<span style="color:#2563eb;font-weight:700;">—</span>'
-            elif not _adj and _fauth_raw:
-                try:
-                    _d_desde = _dt_op.fromisoformat(_fauth_raw.replace("Z","+00:00")).astimezone(_tz_cl_op)
-                    _ts_op = int(_d_desde.timestamp() * 1000)
-                    _timing_html = (f'<span class="demora-live" data-desde="{_ts_op}" '
-                                    f'style="color:#dc2626;font-weight:700;display:inline-block;'
-                                    f'min-width:100px;font-variant-numeric:tabular-nums;">...</span>')
-                except: _timing_html = "—"
-            else:
-                _timing_html = "—"
-
-            # ── Cálculos basados en días hábiles reales (lunes-viernes + feriados Chile) ──
-            _fab_html = '<span style="color:#94a3b8;">—</span>'
-            _retraso_html = '<span style="color:#94a3b8;">—</span>'
-            _fidel_html = '<span style="color:#94a3b8;">—</span>'
-
-            if _adj and _fadj_raw:
-                try:
-                    from datetime import date as _date_op
-                    _cd = _or.get("contrato_datos") or {}
-                    if isinstance(_cd, str): _cd = _json_op.loads(_cd)
-                    _plazo_dias = int((_cd or {}).get("plazo_dias", 0) or 0)
-                    _d_adj_dt = _dt_op.fromisoformat(_fadj_raw.replace("Z","+00:00")).astimezone(_tz_cl_op)
-                    _d_adj_date = _d_adj_dt.date()
-                    _ahora = _dt_op.now(_tz_cl_op)
-                    _hoy = _ahora.date()
-                    _ts_adj = int(_d_adj_dt.timestamp() * 1000)
-
-                    # Tiempo fabricación — días hábiles transcurridos
-                    _hab_transcurridos = dias_habiles_entre(_d_adj_date, _hoy)
-                    _fab_html = (f'<span class="fab-live" data-desde="{_ts_adj}" data-adj="{_d_adj_date}" '
-                                 f'style="color:#2563eb;font-weight:700;display:inline-block;'
-                                 f'min-width:100px;font-variant-numeric:tabular-nums;">{_hab_transcurridos}d hábiles</span>')
-
-                    if _plazo_dias > 0:
-                        # Fecha de entrega real en días hábiles
-                        _d_entrega_date = sumar_dias_habiles(_d_adj_date, _plazo_dias)
-                        _d_entrega_dt = _dt_op.combine(_d_entrega_date, _dt_op.min.time()).replace(tzinfo=_tz_cl_op)
-                        _ts_entrega = int(_d_entrega_dt.timestamp() * 1000)
-
-                        # Días hábiles restantes
-                        _hab_restantes = dias_habiles_entre(_hoy, _d_entrega_date) if _hoy < _d_entrega_date else 0
-                        _pct_avance = round((_hab_transcurridos / _plazo_dias) * 100, 2)
-                        _pct_avance = min(_pct_avance, 100.0)
-
-                        # Fecha entrega formateada
-                        _meses_es = ["enero","febrero","marzo","abril","mayo","junio",
-                                     "julio","agosto","septiembre","octubre","noviembre","diciembre"]
-                        _fecha_ent_str = f"{_d_entrega_date.day} {_meses_es[_d_entrega_date.month-1]} {_d_entrega_date.year}"
-
-                        if _hoy <= _d_entrega_date:
-                            _col_r = "#16a34a" if _pct_avance < 50 else ("#f97316" if _pct_avance < 80 else "#dc2626")
-                            _fidel_html = (
-                                f'<div style="display:flex;align-items:center;gap:8px;">'                                f'<span class="fidel-live" data-hasta="{_ts_entrega}" data-plazo="{_plazo_dias}" '                                f'data-adj="{_ts_adj}" '                                f'style="color:{_col_r};font-weight:700;font-variant-numeric:tabular-nums;min-width:70px;">⏳ {_hab_restantes}d háb.</span>'                                f'<span style="font-size:1.3rem;font-weight:900;color:{_col_r};">{_pct_avance}%</span>'                                f'</div>'                                f'<span style="font-size:0.72em;color:#64748b;font-weight:600;">📅 {_fecha_ent_str}</span>'                                f'<br><span style="font-size:0.68em;color:#94a3b8;">{_plazo_dias} días hábiles</span>'
-                            )
+                    if datos_completos and asesor_completo:
+                        if tiene_plano:
+                            label = "🟠 BORRADOR CON PLANO"
+                            color = "#f97316"; border = "#c2410c"; text_color = "white"
                         else:
-                            # Vencido
-                            _hab_retraso = dias_habiles_entre(_d_entrega_date, _hoy)
-                            _fidel_html = ('<span style="color:#dc2626;font-weight:700;">⚠️ VENCIDO</span>'
-                                           f'<br><span style="font-size:0.72em;color:#94a3b8;">{_plazo_dias} días hábiles · {_hab_retraso}d háb. de retraso</span>')
-                            _ts_venc = int(_d_entrega_dt.timestamp() * 1000)
-                            _retraso_html = (f'<span class="retraso-live" data-desde="{_ts_venc}" '
-                                             f'style="color:#dc2626;font-weight:700;display:inline-block;'
-                                             f'min-width:100px;font-variant-numeric:tabular-nums;">...</span>'
-                                             f'<br><span style="font-size:0.72em;color:#dc2626;font-weight:400;">{_hab_retraso}d hábiles en retraso</span>')
-                except: pass
-
-            _rows_op += (
-                f"<tr>"
-                f"<td data-ep='{_ep}' style='cursor:pointer;font-weight:700;color:#3b82f6;' title='Click para copiar {_ep}'>{_ep} 📋</td>"
-                f"<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{_cli}</td>"
-                f"<td style='text-align:right;line-height:1.6;'>{_tc_html}</td>"
-                f"<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{_ej}</td>"
-                f"<td style='text-align:center;'>{_badge_op(_or)}</td>"
-                f"<td style='line-height:1.6;'>{_fadj_html}</td>"
-                f"<td style='text-align:center;font-size:0.82rem;'>{_fab_html}</td>"
-                f"<td style='text-align:center;font-size:0.82rem;'>{_fidel_html}</td>"
-                f"<td style='text-align:center;font-size:0.82rem;'>{_retraso_html}</td>"
-                f"</tr>"
-            )
-
-        _altura_op_real = len(_oper_data) * 60 + 60
-        _usar_scroll_op  = _altura_op_real > 550
-        _altura_css_op   = f"max-height:{min(_altura_op_real, 550)}px;overflow-y:auto;" if _usar_scroll_op else ""
-        _html_op = f"""
-        <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
-          <div style="{_altura_css_op}">
-            <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:900px;'>
-              <thead style='position:sticky;top:0;z-index:2;'>
-                <tr>
-                  <th>Presupuesto</th>
-                  <th>Cliente</th>
-                  <th>Total costo</th>
-                  <th>Asesor</th>
-                  <th>Estado</th>
-                  <th>Fecha adjudicación</th>
-                  <th>Tiempo fabricación</th>
-                  <th>Fidelización cliente</th>
-                  <th>Retraso proyecto</th>
-                </tr>
-              </thead>
-              <tbody>{_rows_op}</tbody>
-            </table>
-          </div>
-        </div>
-        <p style="font-size:0.8rem;color:#888;margin-top:6px;">Mostrando {len(_oper_data)} resultado(s)</p>
-        """
-        st.markdown(_html_op, unsafe_allow_html=True)
-
-        # JS copiar EP
-        components.html("""<script>
-(function(){
-  var D=window.parent.document;
-  function init(){
-    D.addEventListener('click',function(e){
-      var td=e.target&&e.target.closest?e.target.closest('td[data-ep]'):null;
-      if(!td)return;
-      var ep=td.getAttribute('data-ep');
-      if(!ep)return;
-      var ta=D.createElement('textarea');
-      ta.value=ep;ta.style.cssText='position:fixed;top:-9999px;left:-9999px;';
-      D.body.appendChild(ta);ta.focus();ta.select();
-      try{D.execCommand('copy');}catch(err){}
-      D.body.removeChild(ta);
-    });
-  }
-  init();
-})();
-</script>""", height=0)
-
-        # ── Selección EP y botones ──
-        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-
-        # Construir opciones enriquecidas para el selectbox
-        _fmt_op_tc = lambda v: "${:,.0f}".format(v or 0).replace(",",".")
-        _ep_opts_op  = []
-        _ep_labels_op = {}
-        for _r in _oper_data:
-            _r_ep  = _r.get("numero","")
-            _r_cli = _r.get("cliente_nombre","—")
-            _r_ej  = _r.get("asesor_nombre","—")
-            _r_tc  = _calc_total_costo(_r)
-            _r_adj = bool(_r.get("contrato_notariado_url",""))
-            if _r_adj:
-                _label = f"{_r_ep} · 🔵 ADJUDICADO · {_fmt_op_tc(_r_tc)} · Cliente: {_r_cli} · Ejecutivo: {_r_ej}"
-            else:
-                _label = f"{_r_ep} · 🟡 PENDIENTE COMPRAS · Cliente: {_r_cli} · Ejecutivo: {_r_ej}"
-            _ep_opts_op.append(_r_ep)
-            _ep_labels_op[_r_ep] = _label
-
-        # Ordenar: adjudicados primero, luego pendientes
-        _ep_opts_op = sorted(_ep_opts_op, key=lambda x: (
-            0 if "🔵" in _ep_labels_op.get(x,"") else 1
-        ))
-
-        _ep_sel_op = st.selectbox(
-            "Selecciona una cotización para acciones:",
-            _ep_opts_op,
-            format_func=lambda x: _ep_labels_op.get(x, x),
-            key="oper_ep_sel"
-        )
-
-        # Mostrar card visual del EP seleccionado
-        # Resetear visor si cambia el EP seleccionado
-        if st.session_state.get('oper_ep_anterior') != _ep_sel_op:
-            st.session_state['oper_ep_anterior'] = _ep_sel_op
-            # Si el visor estaba abierto, actualizar automáticamente con el nuevo plano
-            _nueva_data = next((r for r in _oper_data if r.get("numero") == _ep_sel_op), None)
-            _nuevo_plano = (_nueva_data.get("plano_url","") or "") if _nueva_data else ""
-            _nuevo_adj   = bool(_nueva_data.get("contrato_notariado_url","")) if _nueva_data else False
-            if st.session_state.get('oper_show_plano') and _nuevo_plano and _nuevo_adj:
-                st.session_state['oper_plano_url']    = _nuevo_plano
-                st.session_state['oper_plano_nombre'] = (_nueva_data.get("plano_nombre","plano.pdf") or "plano.pdf") if _nueva_data else "plano.pdf"
-            elif not _nuevo_plano or not _nuevo_adj:
-                # Cerrar visor si el nuevo EP no tiene plano o no está adjudicado
-                st.session_state['oper_show_plano'] = False
-                st.session_state['oper_plano_url']  = None
-
-        if _ep_sel_op and _ep_sel_op in _ep_labels_op:
-            _sel_adj_card = "🔵" in _ep_labels_op[_ep_sel_op]
-            _bg_card   = "#dbeafe" if _sel_adj_card else "#fef9c3"
-            _bc_card   = "#2563eb" if _sel_adj_card else "#f59e0b"
-            _txt_color = "#1d4ed8" if _sel_adj_card else "#854d0e"
-            _badge_txt = "🔵 ADJUDICADO" if _sel_adj_card else "🟡 PENDIENTE COMPRAS"
-            _sel_r     = next((r for r in _oper_data if r.get("numero") == _ep_sel_op), {})
-            _sel_tc    = _calc_total_costo(_sel_r) if _sel_adj_card else 0
-            _tc_span = f'<span style="font-size:13px;font-weight:700;color:#1d4ed8;">{_fmt_op_tc(_sel_tc)}</span>' if _sel_adj_card else ""
-            _cli_nom = _sel_r.get("cliente_nombre","—")
-            _ej_nom  = _sel_r.get("asesor_nombre","—")
-            st.markdown(
-                f'<div style="background:{_bg_card};border-left:4px solid {_bc_card};border-radius:0 10px 10px 0;'
-                f'padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:16px;">'
-                f'<div style="font-size:14px;font-weight:900;color:#0f172a;min-width:90px;">{_ep_sel_op}</div>'
-                f'<div style="flex:1;">'
-                f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'
-                f'<span style="background:{_bc_card};color:white;padding:2px 10px;border-radius:99px;font-size:10px;font-weight:700;">{_badge_txt}</span>'
-                f'{_tc_span}</div>'
-                f'<div style="font-size:11px;color:#374151;display:flex;gap:14px;">'
-                f'<span>Cliente: <b>{_cli_nom}</b></span>'
-                f'<span>Ejecutivo: <b>{_ej_nom}</b></span>'
-                f'</div></div></div>',
-                unsafe_allow_html=True
-            )
-
-        if _ep_sel_op:
-            _sel_data = next((r for r in _oper_data if r.get("numero") == _ep_sel_op), None)
-            if _sel_data:
-                _sel_aut   = "autorizado" in (_sel_data.get("estado","") or "").lower()
-                _sel_plano = _sel_data.get("plano_url","") or ""
-                _sb1, _sb2, _sb3 = st.columns([2, 2, 6])
-
-                _sel_adj = bool(_sel_data.get("contrato_notariado_url",""))
-
-                with _sb1:
-                    if _sel_adj:
-                        try:
-                            _sel_cot = cargar_cotizacion(_ep_sel_op)
-                            if _sel_cot:
-                                _sel_df = _pd_op.DataFrame(_sel_cot.get('productos',[]))
-                                if not _sel_df.empty and 'Categoria' in _sel_df.columns:
-                                    _sel_df = _sel_df[_sel_df['Categoria'].str.strip().str.lower() != 'varios'].copy()
-                                _sel_sub = _sel_df['Subtotal'].sum() if not _sel_df.empty and 'Subtotal' in _sel_df.columns else 0
-                                _sel_iva = _sel_sub * 0.19
-                                _sel_tot = _sel_sub + _sel_iva
-                                _sel_dc = {
-                                    "Nombre": _sel_cot.get('cliente_nombre',''),
-                                    "RUT": _sel_cot.get('cliente_rut',''),
-                                    "Correo": _sel_cot.get('cliente_email',''),
-                                    "Teléfono": formatear_telefono(_sel_cot.get('cliente_telefono','')),
-                                    "Dirección": _sel_cot.get('cliente_direccion',''),
-                                    "ComunaCliente": _sel_cot.get('cliente_comuna',''),
-                                    "RegionCliente": _sel_cot.get('cliente_region',''),
-                                    "DireccionProyecto": _sel_cot.get('proyecto_direccion',''),
-                                    "ComunaProyecto": _sel_cot.get('proyecto_comuna',''),
-                                    "RegionProyecto": _sel_cot.get('proyecto_region',''),
-                                    "TipoCliente": _sel_cot.get('cliente_tipo','natural'),
-                                    "EmpresaCliente": _sel_cot.get('cliente_empresa',''),
-                                    "RutEmpresa": _sel_cot.get('cliente_rut_empresa',''),
-                                    "Observaciones": _sel_cot.get('proyecto_observaciones',''),
-                                }
-                                _sel_da = {
-                                    "Nombre Ejecutivo": _sel_cot.get('asesor_nombre',''),
-                                    "Correo Ejecutivo": _sel_cot.get('asesor_email',''),
-                                    "Teléfono Ejecutivo": formatear_telefono(_sel_cot.get('asesor_telefono','')),
-                                }
-                                _sel_fi = datetime.strptime(_sel_cot.get('proyecto_fecha_inicio', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d').date()
-                                _sel_ft = datetime.strptime(_sel_cot.get('proyecto_fecha_termino', (datetime.now()+timedelta(days=15)).strftime('%Y-%m-%d')), '%Y-%m-%d').date()
-                                _sel_dv = _sel_cot.get('proyecto_dias_validez', 15)
-                                _sel_pdf, _ = generar_pdf_completo(
-                                    _sel_df, _sel_sub, _sel_iva, _sel_tot,
-                                    _sel_dc, _sel_fi, _sel_ft, _sel_dv, _sel_da,
-                                    margen=0, numero_cotizacion=_ep_sel_op, mostrar_precios=True
-                                )
-                                st.download_button("🛒 PDF Compras", data=_sel_pdf,
-                                    file_name=f"Compras_{_ep_sel_op}.pdf",
-                                    mime="application/pdf", use_container_width=True,
-                                    key="oper_dl_pdf")
-                        except Exception as _se:
-                            st.button("🛒 PDF Compras", disabled=True, use_container_width=True, key="oper_dl_pdf")
+                            label = "🟡 BORRADOR"
+                            color = "#ffc107"; border = "#d39e00"; text_color = "#212529"
                     else:
-                        st.button("🛒 PDF Compras", disabled=True, use_container_width=True,
-                                  help="Solo disponible con estado ADJUDICADO", key="oper_dl_pdf")
+                        label = "🔴 INCOMPLETO CON PLANO" if tiene_plano else "🔴 INCOMPLETO"
+                        color = "#dc3545"; border = "#bd2130"; text_color = "white"
+                return (f'<span style="background-color:{color};color:{text_color};padding:2px 7px;'                    f'border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;'                    f'border:1px solid {border};box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">'                    f'{label}</span>')
 
-                with _sb2:
-                    _lbl_plano = "🔄 ACTUALIZAR PLANO" if st.session_state.get('oper_show_plano') else "👁️ VER PLANO"
-                    _plano_disabled = not bool(_sel_plano and _sel_adj)
-                    _plano_help = None if (_sel_plano and _sel_adj) else ("Solo disponible con estado ADJUDICADO" if not _sel_adj else "Sin plano adjunto")
-                    if st.button(_lbl_plano,
-                                 use_container_width=True,
-                                 disabled=_plano_disabled,
-                                 help=_plano_help,
-                                 key="oper_ver_plano"):
-                        st.session_state['oper_show_plano'] = not st.session_state.get('oper_show_plano', False)
-                        st.session_state['oper_plano_url']    = _sel_plano
-                        st.session_state['oper_plano_nombre'] = _sel_data.get('plano_nombre', 'plano.pdf')
-                        st.rerun()
+            # Construir filas HTML
+            import json as _json_op
+            from datetime import datetime as _dt_op, timezone as _tz_op, timedelta as _td_op
+            _tz_cl_op = _tz_op(_td_op(hours=-3))
 
-                if st.session_state.get('oper_show_plano') and st.session_state.get('oper_plano_url'):
-                    with st.expander("📄 Vista Previa del Plano", expanded=True):
-                        st.markdown(f"**Archivo:** {st.session_state.get('oper_plano_nombre','plano.pdf')} — cotización `{_ep_sel_op}`")
-                        _nav_op     = detectar_navegador()
-                        _url_op     = st.session_state['oper_plano_url']
-                        _enc_op     = urllib.parse.quote(_url_op, safe='')
-                        _google_op  = f"https://docs.google.com/viewer?url={_enc_op}&embedded=true"
-                        _usar_g_op  = _nav_op['needs_google_viewer']
-                        _src_op     = _google_op if _usar_g_op else _url_op
-                        components.html(f"""
-<style>
-@keyframes spin {{from{{transform:rotate(0deg)}}to{{transform:rotate(360deg)}}}}
-body,html{{margin:0;padding:0;overflow:hidden;}}
-#pdf-wrap {{width:100%;height:680px;border:2px solid #e2e8f0;border-radius:12px;
-            overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);background:#f0f2f5;position:relative;}}
-#pdf-loading {{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
-               justify-content:center;background:#f0f2f5;z-index:2;gap:12px;transition:opacity 0.4s ease;}}
-#pdf-spinner {{width:40px;height:40px;border:4px solid #cbd5e1;border-top-color:#5b7cfa;
-               border-radius:50%;animation:spin 0.8s linear infinite;}}
-#pdf-loading span {{color:#64748b;font-size:0.9rem;font-family:sans-serif;}}
-#pdf-iframe {{position:absolute;inset:0;width:100%;height:100%;border:none;display:block;}}
-</style>
-<div id="pdf-wrap">
-  <div id="pdf-loading">
-    <div id="pdf-spinner"></div>
-    <span id="pdf-status">Cargando PDF...</span>
-  </div>
-  <iframe id="pdf-iframe" src="" allow="fullscreen"></iframe>
-</div>
-<script>
-(function() {{
-  var iframe  = document.getElementById('pdf-iframe');
-  var loading = document.getElementById('pdf-loading');
-  var googleUrl = "{_google_op}";
-  var directUrl = "{_url_op}";
-  var usingGoogle = {"true" if _usar_g_op else "false"};
-  function hideLoading() {{
-    loading.style.opacity = '0';
-    setTimeout(function(){{ loading.style.display = 'none'; }}, 400);
-  }}
-  if (usingGoogle) {{
-    iframe.src = googleUrl;
-    setTimeout(function() {{ if (loading.style.display !== 'none') hideLoading(); }}, 3000);
-    setTimeout(function() {{
-      if (usingGoogle) {{
-        try {{
-          var doc = iframe.contentDocument || iframe.contentWindow.document;
-          if (!doc || !doc.body || doc.body.children.length === 0) {{
-            iframe.src = directUrl; setTimeout(hideLoading, 4000);
-          }}
-        }} catch(e) {{}}
+            def _fmt_op_fecha_h(x):
+                if not x: return "—"
+                try:
+                    _d = _dt_op.fromisoformat(x.replace("Z","+00:00")).astimezone(_tz_cl_op)
+                    return (f'<span style="font-weight:700;">{_d.strftime("%d/%m/%Y")}</span>'
+                            f'<br><span style="font-size:0.75em;color:#64748b;">{_d.strftime("%H:%M")}</span>')
+                except: return str(x)[:10]
+
+            _rows_op = ""
+            for _or in _oper_data:
+                _ep    = _or.get("numero","—")
+                _cli   = _or.get("cliente_nombre","—")
+                _ej    = _or.get("asesor_nombre","—")
+                _adj   = bool(_or.get("contrato_notariado_url",""))
+                _tc    = _calc_total_costo(_or)
+                _tc_html = (f'<span style="font-weight:700;">{_fmt_op_clp(_tc)}</span>'
+                            f'<br><span style="font-size:0.75em;color:#64748b;">base+IVA</span>')
+
+                # ── Fecha adjudicación ──
+                _fadj_raw = _or.get("fecha_adjudicacion","") or ""
+                if _adj and not _fadj_raw:
+                    _fadj_raw = _or.get("fecha_modificacion","") or ""
+                _fadj_html = _fmt_op_fecha_h(_fadj_raw) if _adj else '<span style="color:#94a3b8;">—</span>'
+
+                # ── Timing/Demora ──
+                _fauth_raw = _or.get("fecha_modificacion","") or ""
+                if _adj and _fadj_raw and _fauth_raw:
+                    try:
+                        _d1 = _dt_op.fromisoformat(_fauth_raw.replace("Z","+00:00")).astimezone(_tz_cl_op)
+                        _d2 = _dt_op.fromisoformat(_fadj_raw.replace("Z","+00:00")).astimezone(_tz_cl_op)
+                        _diff = _d2 - _d1
+                        _dd = _diff.days; _hh = _diff.seconds//3600; _mm = (_diff.seconds%3600)//60
+                        _partes = []
+                        if _dd > 0: _partes.append(f"{_dd}d")
+                        if _hh > 0: _partes.append(f"{_hh}h")
+                        _partes.append(f"{_mm}m")
+                        _timing_html = (f'<span style="color:#2563eb;font-weight:700;">{" ".join(_partes)}</span>'
+                                        f'<br><span style="font-size:0.72em;color:#2563eb;font-weight:400;">finalizado</span>')
+                    except: _timing_html = '<span style="color:#2563eb;font-weight:700;">—</span>'
+                elif not _adj and _fauth_raw:
+                    try:
+                        _d_desde = _dt_op.fromisoformat(_fauth_raw.replace("Z","+00:00")).astimezone(_tz_cl_op)
+                        _ts_op = int(_d_desde.timestamp() * 1000)
+                        _timing_html = (f'<span class="demora-live" data-desde="{_ts_op}" '
+                                        f'style="color:#dc2626;font-weight:700;display:inline-block;'
+                                        f'min-width:100px;font-variant-numeric:tabular-nums;">...</span>')
+                    except: _timing_html = "—"
+                else:
+                    _timing_html = "—"
+
+                # ── Cálculos basados en días hábiles reales (lunes-viernes + feriados Chile) ──
+                _fab_html = '<span style="color:#94a3b8;">—</span>'
+                _retraso_html = '<span style="color:#94a3b8;">—</span>'
+                _fidel_html = '<span style="color:#94a3b8;">—</span>'
+
+                if _adj and _fadj_raw:
+                    try:
+                        from datetime import date as _date_op
+                        _cd = _or.get("contrato_datos") or {}
+                        if isinstance(_cd, str): _cd = _json_op.loads(_cd)
+                        _plazo_dias = int((_cd or {}).get("plazo_dias", 0) or 0)
+                        _d_adj_dt = _dt_op.fromisoformat(_fadj_raw.replace("Z","+00:00")).astimezone(_tz_cl_op)
+                        _d_adj_date = _d_adj_dt.date()
+                        _ahora = _dt_op.now(_tz_cl_op)
+                        _hoy = _ahora.date()
+                        _ts_adj = int(_d_adj_dt.timestamp() * 1000)
+
+                        # Tiempo fabricación — días hábiles transcurridos
+                        _hab_transcurridos = dias_habiles_entre(_d_adj_date, _hoy)
+                        _fab_html = (f'<span class="fab-live" data-desde="{_ts_adj}" data-adj="{_d_adj_date}" '
+                                     f'style="color:#2563eb;font-weight:700;display:inline-block;'
+                                     f'min-width:100px;font-variant-numeric:tabular-nums;">{_hab_transcurridos}d hábiles</span>')
+
+                        if _plazo_dias > 0:
+                            # Fecha de entrega real en días hábiles
+                            _d_entrega_date = sumar_dias_habiles(_d_adj_date, _plazo_dias)
+                            _d_entrega_dt = _dt_op.combine(_d_entrega_date, _dt_op.min.time()).replace(tzinfo=_tz_cl_op)
+                            _ts_entrega = int(_d_entrega_dt.timestamp() * 1000)
+
+                            # Días hábiles restantes
+                            _hab_restantes = dias_habiles_entre(_hoy, _d_entrega_date) if _hoy < _d_entrega_date else 0
+                            _pct_avance = round((_hab_transcurridos / _plazo_dias) * 100, 2)
+                            _pct_avance = min(_pct_avance, 100.0)
+
+                            # Fecha entrega formateada
+                            _meses_es = ["enero","febrero","marzo","abril","mayo","junio",
+                                         "julio","agosto","septiembre","octubre","noviembre","diciembre"]
+                            _fecha_ent_str = f"{_d_entrega_date.day} {_meses_es[_d_entrega_date.month-1]} {_d_entrega_date.year}"
+
+                            if _hoy <= _d_entrega_date:
+                                _col_r = "#16a34a" if _pct_avance < 50 else ("#f97316" if _pct_avance < 80 else "#dc2626")
+                                _fidel_html = (
+                                    f'<div style="display:flex;align-items:center;gap:8px;">'                                f'<span class="fidel-live" data-hasta="{_ts_entrega}" data-plazo="{_plazo_dias}" '                                f'data-adj="{_ts_adj}" '                                f'style="color:{_col_r};font-weight:700;font-variant-numeric:tabular-nums;min-width:70px;">⏳ {_hab_restantes}d háb.</span>'                                f'<span style="font-size:1.3rem;font-weight:900;color:{_col_r};">{_pct_avance}%</span>'                                f'</div>'                                f'<span style="font-size:0.72em;color:#64748b;font-weight:600;">📅 {_fecha_ent_str}</span>'                                f'<br><span style="font-size:0.68em;color:#94a3b8;">{_plazo_dias} días hábiles</span>'
+                                )
+                            else:
+                                # Vencido
+                                _hab_retraso = dias_habiles_entre(_d_entrega_date, _hoy)
+                                _fidel_html = ('<span style="color:#dc2626;font-weight:700;">⚠️ VENCIDO</span>'
+                                               f'<br><span style="font-size:0.72em;color:#94a3b8;">{_plazo_dias} días hábiles · {_hab_retraso}d háb. de retraso</span>')
+                                _ts_venc = int(_d_entrega_dt.timestamp() * 1000)
+                                _retraso_html = (f'<span class="retraso-live" data-desde="{_ts_venc}" '
+                                                 f'style="color:#dc2626;font-weight:700;display:inline-block;'
+                                                 f'min-width:100px;font-variant-numeric:tabular-nums;">...</span>'
+                                                 f'<br><span style="font-size:0.72em;color:#dc2626;font-weight:400;">{_hab_retraso}d hábiles en retraso</span>')
+                    except: pass
+
+                _rows_op += (
+                    f"<tr>"
+                    f"<td data-ep='{_ep}' style='cursor:pointer;font-weight:700;color:#3b82f6;' title='Click para copiar {_ep}'>{_ep} 📋</td>"
+                    f"<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{_cli}</td>"
+                    f"<td style='text-align:right;line-height:1.6;'>{_tc_html}</td>"
+                    f"<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{_ej}</td>"
+                    f"<td style='text-align:center;'>{_badge_op(_or)}</td>"
+                    f"<td style='line-height:1.6;'>{_fadj_html}</td>"
+                    f"<td style='text-align:center;font-size:0.82rem;'>{_fab_html}</td>"
+                    f"<td style='text-align:center;font-size:0.82rem;'>{_fidel_html}</td>"
+                    f"<td style='text-align:center;font-size:0.82rem;'>{_retraso_html}</td>"
+                    f"</tr>"
+                )
+
+            _altura_op_real = len(_oper_data) * 60 + 60
+            _usar_scroll_op  = _altura_op_real > 550
+            _altura_css_op   = f"max-height:{min(_altura_op_real, 550)}px;overflow-y:auto;" if _usar_scroll_op else ""
+            _html_op = f"""
+            <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
+              <div style="{_altura_css_op}">
+                <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:900px;'>
+                  <thead style='position:sticky;top:0;z-index:2;'>
+                    <tr>
+                      <th>Presupuesto</th>
+                      <th>Cliente</th>
+                      <th>Total costo</th>
+                      <th>Asesor</th>
+                      <th>Estado</th>
+                      <th>Fecha adjudicación</th>
+                      <th>Tiempo fabricación</th>
+                      <th>Fidelización cliente</th>
+                      <th>Retraso proyecto</th>
+                    </tr>
+                  </thead>
+                  <tbody>{_rows_op}</tbody>
+                </table>
+              </div>
+            </div>
+            <p style="font-size:0.8rem;color:#888;margin-top:6px;">Mostrando {len(_oper_data)} resultado(s)</p>
+            """
+            st.markdown(_html_op, unsafe_allow_html=True)
+
+            # JS copiar EP
+            components.html("""<script>
+    (function(){
+      var D=window.parent.document;
+      function init(){
+        D.addEventListener('click',function(e){
+          var td=e.target&&e.target.closest?e.target.closest('td[data-ep]'):null;
+          if(!td)return;
+          var ep=td.getAttribute('data-ep');
+          if(!ep)return;
+          var ta=D.createElement('textarea');
+          ta.value=ep;ta.style.cssText='position:fixed;top:-9999px;left:-9999px;';
+          D.body.appendChild(ta);ta.focus();ta.select();
+          try{D.execCommand('copy');}catch(err){}
+          D.body.removeChild(ta);
+        });
+      }
+      init();
+    })();
+    </script>""", height=0)
+
+            # ── Selección EP y botones ──
+            st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
+            # Construir opciones enriquecidas para el selectbox
+            _fmt_op_tc = lambda v: "${:,.0f}".format(v or 0).replace(",",".")
+            _ep_opts_op  = []
+            _ep_labels_op = {}
+            for _r in _oper_data:
+                _r_ep  = _r.get("numero","")
+                _r_cli = _r.get("cliente_nombre","—")
+                _r_ej  = _r.get("asesor_nombre","—")
+                _r_tc  = _calc_total_costo(_r)
+                _r_adj = bool(_r.get("contrato_notariado_url",""))
+                if _r_adj:
+                    _label = f"{_r_ep} · 🔵 ADJUDICADO · {_fmt_op_tc(_r_tc)} · Cliente: {_r_cli} · Ejecutivo: {_r_ej}"
+                else:
+                    _label = f"{_r_ep} · 🟡 PENDIENTE COMPRAS · Cliente: {_r_cli} · Ejecutivo: {_r_ej}"
+                _ep_opts_op.append(_r_ep)
+                _ep_labels_op[_r_ep] = _label
+
+            # Ordenar: adjudicados primero, luego pendientes
+            _ep_opts_op = sorted(_ep_opts_op, key=lambda x: (
+                0 if "🔵" in _ep_labels_op.get(x,"") else 1
+            ))
+
+            _ep_sel_op = st.selectbox(
+                "Selecciona una cotización para acciones:",
+                _ep_opts_op,
+                format_func=lambda x: _ep_labels_op.get(x, x),
+                key="oper_ep_sel"
+            )
+
+            # Mostrar card visual del EP seleccionado
+            # Resetear visor si cambia el EP seleccionado
+            if st.session_state.get('oper_ep_anterior') != _ep_sel_op:
+                st.session_state['oper_ep_anterior'] = _ep_sel_op
+                # Si el visor estaba abierto, actualizar automáticamente con el nuevo plano
+                _nueva_data = next((r for r in _oper_data if r.get("numero") == _ep_sel_op), None)
+                _nuevo_plano = (_nueva_data.get("plano_url","") or "") if _nueva_data else ""
+                _nuevo_adj   = bool(_nueva_data.get("contrato_notariado_url","")) if _nueva_data else False
+                if st.session_state.get('oper_show_plano') and _nuevo_plano and _nuevo_adj:
+                    st.session_state['oper_plano_url']    = _nuevo_plano
+                    st.session_state['oper_plano_nombre'] = (_nueva_data.get("plano_nombre","plano.pdf") or "plano.pdf") if _nueva_data else "plano.pdf"
+                elif not _nuevo_plano or not _nuevo_adj:
+                    # Cerrar visor si el nuevo EP no tiene plano o no está adjudicado
+                    st.session_state['oper_show_plano'] = False
+                    st.session_state['oper_plano_url']  = None
+
+            if _ep_sel_op and _ep_sel_op in _ep_labels_op:
+                _sel_adj_card = "🔵" in _ep_labels_op[_ep_sel_op]
+                _bg_card   = "#dbeafe" if _sel_adj_card else "#fef9c3"
+                _bc_card   = "#2563eb" if _sel_adj_card else "#f59e0b"
+                _txt_color = "#1d4ed8" if _sel_adj_card else "#854d0e"
+                _badge_txt = "🔵 ADJUDICADO" if _sel_adj_card else "🟡 PENDIENTE COMPRAS"
+                _sel_r     = next((r for r in _oper_data if r.get("numero") == _ep_sel_op), {})
+                _sel_tc    = _calc_total_costo(_sel_r) if _sel_adj_card else 0
+                _tc_span = f'<span style="font-size:13px;font-weight:700;color:#1d4ed8;">{_fmt_op_tc(_sel_tc)}</span>' if _sel_adj_card else ""
+                _cli_nom = _sel_r.get("cliente_nombre","—")
+                _ej_nom  = _sel_r.get("asesor_nombre","—")
+                st.markdown(
+                    f'<div style="background:{_bg_card};border-left:4px solid {_bc_card};border-radius:0 10px 10px 0;'
+                    f'padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:16px;">'
+                    f'<div style="font-size:14px;font-weight:900;color:#0f172a;min-width:90px;">{_ep_sel_op}</div>'
+                    f'<div style="flex:1;">'
+                    f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'
+                    f'<span style="background:{_bc_card};color:white;padding:2px 10px;border-radius:99px;font-size:10px;font-weight:700;">{_badge_txt}</span>'
+                    f'{_tc_span}</div>'
+                    f'<div style="font-size:11px;color:#374151;display:flex;gap:14px;">'
+                    f'<span>Cliente: <b>{_cli_nom}</b></span>'
+                    f'<span>Ejecutivo: <b>{_ej_nom}</b></span>'
+                    f'</div></div></div>',
+                    unsafe_allow_html=True
+                )
+
+            if _ep_sel_op:
+                _sel_data = next((r for r in _oper_data if r.get("numero") == _ep_sel_op), None)
+                if _sel_data:
+                    _sel_aut   = "autorizado" in (_sel_data.get("estado","") or "").lower()
+                    _sel_plano = _sel_data.get("plano_url","") or ""
+                    _sb1, _sb2, _sb3 = st.columns([2, 2, 6])
+
+                    _sel_adj = bool(_sel_data.get("contrato_notariado_url",""))
+
+                    with _sb1:
+                        if _sel_adj:
+                            try:
+                                _sel_cot = cargar_cotizacion(_ep_sel_op)
+                                if _sel_cot:
+                                    _sel_df = _pd_op.DataFrame(_sel_cot.get('productos',[]))
+                                    if not _sel_df.empty and 'Categoria' in _sel_df.columns:
+                                        _sel_df = _sel_df[_sel_df['Categoria'].str.strip().str.lower() != 'varios'].copy()
+                                    _sel_sub = _sel_df['Subtotal'].sum() if not _sel_df.empty and 'Subtotal' in _sel_df.columns else 0
+                                    _sel_iva = _sel_sub * 0.19
+                                    _sel_tot = _sel_sub + _sel_iva
+                                    _sel_dc = {
+                                        "Nombre": _sel_cot.get('cliente_nombre',''),
+                                        "RUT": _sel_cot.get('cliente_rut',''),
+                                        "Correo": _sel_cot.get('cliente_email',''),
+                                        "Teléfono": formatear_telefono(_sel_cot.get('cliente_telefono','')),
+                                        "Dirección": _sel_cot.get('cliente_direccion',''),
+                                        "ComunaCliente": _sel_cot.get('cliente_comuna',''),
+                                        "RegionCliente": _sel_cot.get('cliente_region',''),
+                                        "DireccionProyecto": _sel_cot.get('proyecto_direccion',''),
+                                        "ComunaProyecto": _sel_cot.get('proyecto_comuna',''),
+                                        "RegionProyecto": _sel_cot.get('proyecto_region',''),
+                                        "TipoCliente": _sel_cot.get('cliente_tipo','natural'),
+                                        "EmpresaCliente": _sel_cot.get('cliente_empresa',''),
+                                        "RutEmpresa": _sel_cot.get('cliente_rut_empresa',''),
+                                        "Observaciones": _sel_cot.get('proyecto_observaciones',''),
+                                    }
+                                    _sel_da = {
+                                        "Nombre Ejecutivo": _sel_cot.get('asesor_nombre',''),
+                                        "Correo Ejecutivo": _sel_cot.get('asesor_email',''),
+                                        "Teléfono Ejecutivo": formatear_telefono(_sel_cot.get('asesor_telefono','')),
+                                    }
+                                    _sel_fi = datetime.strptime(_sel_cot.get('proyecto_fecha_inicio', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d').date()
+                                    _sel_ft = datetime.strptime(_sel_cot.get('proyecto_fecha_termino', (datetime.now()+timedelta(days=15)).strftime('%Y-%m-%d')), '%Y-%m-%d').date()
+                                    _sel_dv = _sel_cot.get('proyecto_dias_validez', 15)
+                                    _sel_pdf, _ = generar_pdf_completo(
+                                        _sel_df, _sel_sub, _sel_iva, _sel_tot,
+                                        _sel_dc, _sel_fi, _sel_ft, _sel_dv, _sel_da,
+                                        margen=0, numero_cotizacion=_ep_sel_op, mostrar_precios=True
+                                    )
+                                    st.download_button("🛒 PDF Compras", data=_sel_pdf,
+                                        file_name=f"Compras_{_ep_sel_op}.pdf",
+                                        mime="application/pdf", use_container_width=True,
+                                        key="oper_dl_pdf")
+                            except Exception as _se:
+                                st.button("🛒 PDF Compras", disabled=True, use_container_width=True, key="oper_dl_pdf")
+                        else:
+                            st.button("🛒 PDF Compras", disabled=True, use_container_width=True,
+                                      help="Solo disponible con estado ADJUDICADO", key="oper_dl_pdf")
+
+                    with _sb2:
+                        _lbl_plano = "🔄 ACTUALIZAR PLANO" if st.session_state.get('oper_show_plano') else "👁️ VER PLANO"
+                        _plano_disabled = not bool(_sel_plano and _sel_adj)
+                        _plano_help = None if (_sel_plano and _sel_adj) else ("Solo disponible con estado ADJUDICADO" if not _sel_adj else "Sin plano adjunto")
+                        if st.button(_lbl_plano,
+                                     use_container_width=True,
+                                     disabled=_plano_disabled,
+                                     help=_plano_help,
+                                     key="oper_ver_plano"):
+                            st.session_state['oper_show_plano'] = not st.session_state.get('oper_show_plano', False)
+                            st.session_state['oper_plano_url']    = _sel_plano
+                            st.session_state['oper_plano_nombre'] = _sel_data.get('plano_nombre', 'plano.pdf')
+                            st.rerun()
+
+                    if st.session_state.get('oper_show_plano') and st.session_state.get('oper_plano_url'):
+                        with st.expander("📄 Vista Previa del Plano", expanded=True):
+                            st.markdown(f"**Archivo:** {st.session_state.get('oper_plano_nombre','plano.pdf')} — cotización `{_ep_sel_op}`")
+                            _nav_op     = detectar_navegador()
+                            _url_op     = st.session_state['oper_plano_url']
+                            _enc_op     = urllib.parse.quote(_url_op, safe='')
+                            _google_op  = f"https://docs.google.com/viewer?url={_enc_op}&embedded=true"
+                            _usar_g_op  = _nav_op['needs_google_viewer']
+                            _src_op     = _google_op if _usar_g_op else _url_op
+                            components.html(f"""
+    <style>
+    @keyframes spin {{from{{transform:rotate(0deg)}}to{{transform:rotate(360deg)}}}}
+    body,html{{margin:0;padding:0;overflow:hidden;}}
+    #pdf-wrap {{width:100%;height:680px;border:2px solid #e2e8f0;border-radius:12px;
+                overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);background:#f0f2f5;position:relative;}}
+    #pdf-loading {{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+                   justify-content:center;background:#f0f2f5;z-index:2;gap:12px;transition:opacity 0.4s ease;}}
+    #pdf-spinner {{width:40px;height:40px;border:4px solid #cbd5e1;border-top-color:#5b7cfa;
+                   border-radius:50%;animation:spin 0.8s linear infinite;}}
+    #pdf-loading span {{color:#64748b;font-size:0.9rem;font-family:sans-serif;}}
+    #pdf-iframe {{position:absolute;inset:0;width:100%;height:100%;border:none;display:block;}}
+    </style>
+    <div id="pdf-wrap">
+      <div id="pdf-loading">
+        <div id="pdf-spinner"></div>
+        <span id="pdf-status">Cargando PDF...</span>
+      </div>
+      <iframe id="pdf-iframe" src="" allow="fullscreen"></iframe>
+    </div>
+    <script>
+    (function() {{
+      var iframe  = document.getElementById('pdf-iframe');
+      var loading = document.getElementById('pdf-loading');
+      var googleUrl = "{_google_op}";
+      var directUrl = "{_url_op}";
+      var usingGoogle = {"true" if _usar_g_op else "false"};
+      function hideLoading() {{
+        loading.style.opacity = '0';
+        setTimeout(function(){{ loading.style.display = 'none'; }}, 400);
       }}
-    }}, 8000);
-  }} else {{
-    iframe.src = directUrl;
-    setTimeout(hideLoading, 4000);
-  }}
-}})();
-</script>
-""", height=710, scrolling=False)
-                        try:
-                            _plano_bytes = requests.get(_url_op, timeout=15).content
-                            st.download_button(
-                                label="📥 Descargar Plano",
-                                data=_plano_bytes,
-                                file_name=st.session_state.get('oper_plano_nombre', 'plano.pdf'),
-                                mime="application/pdf",
-                                use_container_width=True,
-                                key=f"oper_dl_plano_{_ep_sel_op}"
-                            )
-                        except Exception:
-                            st.warning("⚠️ No se pudo preparar la descarga del plano.")
+      if (usingGoogle) {{
+        iframe.src = googleUrl;
+        setTimeout(function() {{ if (loading.style.display !== 'none') hideLoading(); }}, 3000);
+        setTimeout(function() {{
+          if (usingGoogle) {{
+            try {{
+              var doc = iframe.contentDocument || iframe.contentWindow.document;
+              if (!doc || !doc.body || doc.body.children.length === 0) {{
+                iframe.src = directUrl; setTimeout(hideLoading, 4000);
+              }}
+            }} catch(e) {{}}
+          }}
+        }}, 8000);
+      }} else {{
+        iframe.src = directUrl;
+        setTimeout(hideLoading, 4000);
+      }}
+    }})();
+    </script>
+    """, height=710, scrolling=False)
+                            try:
+                                _plano_bytes = requests.get(_url_op, timeout=15).content
+                                st.download_button(
+                                    label="📥 Descargar Plano",
+                                    data=_plano_bytes,
+                                    file_name=st.session_state.get('oper_plano_nombre', 'plano.pdf'),
+                                    mime="application/pdf",
+                                    use_container_width=True,
+                                    key=f"oper_dl_plano_{_ep_sel_op}"
+                                )
+                            except Exception:
+                                st.warning("⚠️ No se pudo preparar la descarga del plano.")
 
     with _sub_compras:
         st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 12px 0;">🛒 Registro de Compras</div>', unsafe_allow_html=True)
