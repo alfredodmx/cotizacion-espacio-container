@@ -7269,44 +7269,55 @@ if tab3 is not None:
             _estados_cnt[_txt] = _estados_cnt.get(_txt, 0) + 1
 
         _filtro_activo_badge = st.session_state.get('filtro_estado_tabla')
-        # Badge 'Todos' — siempre visible
         _todos_activo = not _filtro_activo_badge
-        _todos_style = ('background:#6d28d9;color:#fff;' if _todos_activo else 'background:#ede9fe;color:#6d28d9;')
-        _badge_res = (
-            f"<span onclick=\"window.location.href='?_filtro_estado=TODOS'\" "
-            f"style='cursor:pointer;{_todos_style}padding:5px 14px;border-radius:99px;"
-            f"font-size:13px;font-weight:700;margin-right:6px;display:inline-block;transition:opacity 0.15s;'"
-            f"onmouseover=\"this.style.opacity=0.8\" onmouseout=\"this.style.opacity=1\">"
-            f"Todos ({len(st.session_state.resultados_busqueda)})</span>"
-        )
+        _todos_bg  = '#6d28d9' if _todos_activo else '#ede9fe'
+        _todos_col = '#fff'    if _todos_activo else '#6d28d9'
+        _n_total = len(st.session_state.resultados_busqueda)
+        _badge_items = [('TODOS', _todos_bg, _todos_col, '', f'Todos ({_n_total})')]
         _badge_map = [
-            ('🔵 ADJUDICADO',          '🔵', '#dbeafe', '#1d4ed8', '#1e40af', 'adjudicados'),
-            ('🟢 AUTORIZADO CON PLANO','🟢', '#dcfce7', '#15803d', '#166534', 'aut. con plano'),
-            ('🟢 AUTORIZADO',          '🟢', '#dcfce7', '#15803d', '#166534', 'autorizados'),
-            ('🟠 BORRADOR CON PLANO',  '🟠', '#ffedd5', '#c2410c', '#9a3412', 'borrador con plano'),
-            ('🟡 BORRADOR',            '🟡', '#fef9c3', '#854d0e', '#713f12', 'borrador'),
-            ('🔴 INCOMPLETO CON PLANO','🔴', '#fee2e2', '#dc2626', '#991b1b', 'incompleto con plano'),
-            ('🔴 INCOMPLETO',          '🔴', '#fee2e2', '#dc2626', '#991b1b', 'incompletos'),
-            ('❌ RECHAZADO',           '❌', '#fee2e2', '#b91c1c', '#7f1d1d', 'rechazados'),
+            ('🔵 ADJUDICADO',          '#dbeafe', '#1d4ed8', '#1e40af', 'adjudicados'),
+            ('🟢 AUTORIZADO CON PLANO','#dcfce7', '#15803d', '#166534', 'aut. con plano'),
+            ('🟢 AUTORIZADO',          '#dcfce7', '#15803d', '#166534', 'autorizados'),
+            ('🟠 BORRADOR CON PLANO',  '#ffedd5', '#c2410c', '#9a3412', 'borrador con plano'),
+            ('🟡 BORRADOR',            '#fef9c3', '#854d0e', '#713f12', 'borrador'),
+            ('🔴 INCOMPLETO CON PLANO','#fee2e2', '#dc2626', '#991b1b', 'incompleto con plano'),
+            ('🔴 INCOMPLETO',          '#fee2e2', '#dc2626', '#991b1b', 'incompletos'),
+            ('❌ RECHAZADO',           '#fee2e2', '#b91c1c', '#7f1d1d', 'rechazados'),
         ]
-        for _key, _ico, _bg, _col, _col_act, _lbl in _badge_map:
+        for _key, _bg, _col, _col_act, _lbl in _badge_map:
             _cnt = _estados_cnt.get(_key, 0)
             if _cnt:
                 _es_activo = _filtro_activo_badge == _key
                 _bg_b  = _col_act if _es_activo else _bg
                 _col_b = '#fff'   if _es_activo else _col
-                _border = f'box-shadow:0 0 0 2px {_col_act};' if _es_activo else ''
-                _badge_res += (
-                    f"<span onclick=\"window.location.href='?_filtro_estado={_key.replace(' ','+')}'\""
-                    f" style='cursor:pointer;background:{_bg_b};color:{_col_b};{_border}"
-                    f"padding:5px 14px;border-radius:99px;font-size:13px;font-weight:700;"
-                    f"margin-right:6px;display:inline-block;transition:opacity 0.15s;'"
-                    f" onmouseover=\"this.style.opacity=0.8\" onmouseout=\"this.style.opacity=1\">"
-                    f"{_ico} {_cnt} {_lbl}</span>"
-                )
+                _shadow = f'box-shadow:0 0 0 2px {_col_act};' if _es_activo else ''
+                _badge_items.append((_key, _bg_b, _col_b, _shadow, f'{_key.split()[0]} {_cnt} {_lbl}'))
+        # Usar st.button para cada badge — evita problemas de HTML con onclick
         _col_badge, _col_ref = st.columns([5, 0.7])
         with _col_badge:
-            st.markdown(_badge_res, unsafe_allow_html=True)
+            _badge_html = ''
+            for _bk, _bbg, _bcol, _bshadow, _btxt in _badge_items:
+                _badge_html += (
+                    f'<span data-filtro="{_bk}" style="cursor:pointer;background:{_bbg};color:{_bcol};'
+                    f'{_bshadow}padding:5px 14px;border-radius:99px;font-size:13px;font-weight:700;'
+                    f'margin-right:6px;display:inline-block;" class="_badge_filtro">'
+                    f'{_btxt}</span>'
+                )
+            st.markdown(_badge_html, unsafe_allow_html=True)
+            import streamlit.components.v1 as _badge_js_comp
+            _badge_js_comp.html("""
+<script>
+(function(){
+    var D=window.parent.document;
+    D.addEventListener('click',function(e){
+        var el=e.target&&e.target.closest?e.target.closest('._badge_filtro'):null;
+        if(!el)return;
+        var filtro=el.getAttribute('data-filtro')||'TODOS';
+        var url=window.parent.location.href.split('?')[0]+'?_filtro_estado='+encodeURIComponent(filtro);
+        window.parent.location.href=url;
+    });
+})();
+</script>""", height=0)
         with _col_ref:
             if st.button("🔄", key="cot_refresh_tabla", help="Actualizar resultados", use_container_width=True):
                 st.session_state.resultados_busqueda = None
