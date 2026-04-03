@@ -2888,7 +2888,7 @@ st.markdown("""
         padding-left: 14px !important;
         transform: translateZ(0) !important;
         will-change: transform !important;
-        box-shadow: inset 0 2px 0 #1e2447, 4px 0 8px -2px rgba(0,0,0,0.18) !important;
+        box-shadow: inset 0 3px 0 #1e2447, 4px 0 8px -2px rgba(0,0,0,0.18) !important;
     }
     .resultados-table tr:hover td { background-color: #f5f7ff !important; }
     .resultados-table tr:hover td:first-child { background-color: #f5f7ff !important; }
