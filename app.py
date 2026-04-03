@@ -2805,15 +2805,7 @@ st.markdown("""
     /* ── Colapsar botones ocultos de filtro de estado ── */
     .st-key-_fbtn_TODOS,.st-key-_fbtn_ADJ,.st-key-_fbtn_ACP,.st-key-_fbtn_AUT,
     .st-key-_fbtn_BCP,.st-key-_fbtn_BOR,.st-key-_fbtn_ICP,.st-key-_fbtn_INC,.st-key-_fbtn_REC {
-        height:0 !important;min-height:0 !important;
-        margin:0 !important;padding:0 !important;
-        overflow:hidden !important;display:block !important;
-    }
-    /* Colapsar el bloque vertical que contiene los botones ocultos */
-    .st-emotion-cache-1nvdo2b.eiemyj3 {
-        height:0 !important;min-height:0 !important;
-        margin:0 !important;padding:0 !important;
-        overflow:hidden !important;
+        display:none !important;
     }
 
     /* ── Reducir espacio tabla cotizaciones → scroll → selector ── */
