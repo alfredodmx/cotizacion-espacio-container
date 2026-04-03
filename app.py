@@ -2802,7 +2802,7 @@ st.markdown("""
         box-shadow: none !important;
     }
     hr { display: none !important; }
-    /* ── Colapsar contenedores vacíos entre tabla cotizaciones y selector ── */
+    /* ── Colapsar espacios extra entre tabla cotizaciones y selector ── */
     .st-emotion-cache-2peeg4:empty,
     .stElementContainer:empty,
     .element-container:empty {
@@ -2810,6 +2810,16 @@ st.markdown("""
         height: 0 !important;
         margin: 0 !important;
         padding: 0 !important;
+    }
+    /* Colapsar padding de iframes height=0 de components.html */
+    .st-emotion-cache-2peeg4,
+    .st-emotion-cache-eiemyj1 {
+        margin-bottom: -1.5rem !important;
+        padding-bottom: 0 !important;
+    }
+    /* Reducir gap entre stElementContainer del EP copy JS y el selector */
+    .st-key-selector_cotizaciones {
+        margin-top: -3rem !important;
     }
     /* ── Reducir espacio tabla cotizaciones → scroll → selector ── */
     .st-key-cot_refresh_tabla ~ div,
