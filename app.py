@@ -2802,6 +2802,13 @@ st.markdown("""
         box-shadow: none !important;
     }
     hr { display: none !important; }
+    /* ── Colapsar botones ocultos de filtro de estado ── */
+    .st-key-_fbtn_TODOS,.st-key-_fbtn_ADJ,.st-key-_fbtn_ACP,.st-key-_fbtn_AUT,
+    .st-key-_fbtn_BCP,.st-key-_fbtn_BOR,.st-key-_fbtn_ICP,.st-key-_fbtn_INC,.st-key-_fbtn_REC {
+        height:0 !important;min-height:0 !important;
+        margin:0 !important;padding:0 !important;
+        overflow:hidden !important;display:block !important;
+    }
 
     /* ── Reducir espacio tabla cotizaciones → scroll → selector ── */
     .st-key-cot_refresh_tabla ~ div,
@@ -7335,14 +7342,6 @@ if tab3 is not None:
         # JS badge filtro + CSS colapso botones ocultos
         import streamlit.components.v1 as _badge_js_comp
         _badge_js_comp.html("""
-<style>
-/* Colapsar botones ocultos de filtro */
-.st-key-_fbtn_TODOS,.st-key-_fbtn_ADJ,.st-key-_fbtn_ACP,.st-key-_fbtn_AUT,
-.st-key-_fbtn_BCP,.st-key-_fbtn_BOR,.st-key-_fbtn_ICP,.st-key-_fbtn_INC,.st-key-_fbtn_REC{
-    height:0!important;margin:0!important;padding:0!important;overflow:hidden!important;
-    min-height:0!important;display:block!important;
-}
-</style>
 <script>
 (function(){
     var D=window.parent.document;
