@@ -10957,18 +10957,51 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                             'diferencia': _dif_total
                         })
 
-                    # Totales
-                    _rc_balance = _rc_total_p - _rc_total_r
-                    _rc_bal_col = '#16a34a' if _rc_balance >= 0 else '#dc2626'
+                    # Totales con IVA
+                    _rc_iva_p    = _rc_total_p * 0.19
+                    _rc_total_p_iva = _rc_total_p + _rc_iva_p
+                    _rc_iva_r    = _rc_total_r * 0.19
+                    _rc_total_r_iva = _rc_total_r + _rc_iva_r
+                    _rc_balance  = _rc_total_p - _rc_total_r
+                    _rc_bal_col  = '#16a34a' if _rc_balance >= 0 else '#dc2626'
                     _rc_bal_icon = '✅ Ahorro' if _rc_balance >= 0 else '❌ Sobrecosto'
+
+                    def _fmt(v): return f"${v:,.0f}".replace(',','.')
+
                     st.markdown(
-                        f"<div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:0 0 8px 8px;"
-                        f"padding:12px 16px;display:flex;gap:32px;align-items:center;'>"
-                        f"<span style='font-size:0.85rem;'>💰 Presupuestado: <b>${_rc_total_p:,.0f}</b></span>"
-                        f"<span style='font-size:0.85rem;'>🧾 Real: <b>${_rc_total_r:,.0f}</b></span>"
-                        f"<span style='font-size:0.85rem;font-weight:700;color:{_rc_bal_col};'>"
-                        f"{_rc_bal_icon}: ${abs(_rc_balance):,.0f}</span>"
-                        f"</div>".replace(',','.'),
+                        f"""<div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:0 0 8px 8px;padding:12px 16px;'>
+                        <div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;'>
+                          <div style='font-size:0.72rem;font-weight:700;color:#64748b;text-align:center;'>PRESUPUESTADO</div>
+                          <div style='font-size:0.72rem;font-weight:700;color:#64748b;text-align:center;'>REAL</div>
+                          <div style='font-size:0.72rem;font-weight:700;color:{_rc_bal_col};text-align:center;'>BALANCE</div>
+                        </div>
+                        <div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;border-top:1px solid #e2e8f0;padding-top:8px;'>
+                          <div>
+                            <div style='font-size:0.78rem;color:#64748b;'>Subtotal neto</div>
+                            <div style='font-size:0.9rem;font-weight:700;'>{_fmt(_rc_total_p)}</div>
+                            <div style='font-size:0.78rem;color:#64748b;margin-top:4px;'>IVA (19%)</div>
+                            <div style='font-size:0.85rem;font-weight:600;'>{_fmt(_rc_iva_p)}</div>
+                            <div style='font-size:0.78rem;color:#64748b;margin-top:4px;'>Total con IVA</div>
+                            <div style='font-size:0.95rem;font-weight:900;'>{_fmt(_rc_total_p_iva)}</div>
+                          </div>
+                          <div>
+                            <div style='font-size:0.78rem;color:#64748b;'>Subtotal neto</div>
+                            <div style='font-size:0.9rem;font-weight:700;'>{_fmt(_rc_total_r)}</div>
+                            <div style='font-size:0.78rem;color:#64748b;margin-top:4px;'>IVA (19%)</div>
+                            <div style='font-size:0.85rem;font-weight:600;'>{_fmt(_rc_iva_r)}</div>
+                            <div style='font-size:0.78rem;color:#64748b;margin-top:4px;'>Total con IVA</div>
+                            <div style='font-size:0.95rem;font-weight:900;'>{_fmt(_rc_total_r_iva)}</div>
+                          </div>
+                          <div>
+                            <div style='font-size:0.78rem;color:{_rc_bal_col};'>Neto</div>
+                            <div style='font-size:0.9rem;font-weight:700;color:{_rc_bal_col};'>{_fmt(abs(_rc_balance))}</div>
+                            <div style='font-size:0.78rem;color:{_rc_bal_col};margin-top:4px;'>IVA</div>
+                            <div style='font-size:0.85rem;font-weight:600;color:{_rc_bal_col};'>{_fmt(abs(_rc_iva_p - _rc_iva_r))}</div>
+                            <div style='font-size:0.78rem;color:{_rc_bal_col};margin-top:4px;'>{_rc_bal_icon}</div>
+                            <div style='font-size:0.95rem;font-weight:900;color:{_rc_bal_col};'>{_fmt(abs(_rc_total_p_iva - _rc_total_r_iva))}</div>
+                          </div>
+                        </div>
+                        </div>""",
                         unsafe_allow_html=True
                     )
                     st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
