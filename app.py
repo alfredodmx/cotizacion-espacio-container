@@ -10867,180 +10867,115 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                 if not _rc_prods:
                     st.warning('Este presupuesto no tiene productos cargados.')
                 else:
-                    # Construir DataFrame editable
-                    _rc_df_base = _pd_rc.DataFrame([{
-                        'Categoría':      str(p.get('Categoria','')),
-                        'Ítem':           str(p.get('Item','')),
-                        'Cant.':          round(float(p.get('Cantidad',1) or 1)),
-                        'Presup. unit.':  round(float(p.get('Precio Unitario',0) or 0)),
-                        'Real unit.':     0.0,
-                        'Adicional':      0,
-                    } for p in _rc_prods])
-
-                    _rc_edited = st.data_editor(
-                        _rc_df_base,
-                        use_container_width=True,
-                        hide_index=True,
-                        key=f'rc_editor_{_rc_ep}',
-                        column_config={
-                            'Categoría':     st.column_config.TextColumn('Categoría',    disabled=True),
-                            'Ítem':          st.column_config.TextColumn('Ítem',         disabled=True),
-                            'Cant.':         st.column_config.NumberColumn('Cant.',       disabled=True, format='%d'),
-                            'Presup. unit.': st.column_config.NumberColumn('Presup. unit.', disabled=True, format='$ %d'),
-                            'Real unit.':    st.column_config.NumberColumn('Real unit.',  min_value=0.0, step=100.0, format='$ %d'),
-                            'Adicional':     st.column_config.NumberColumn('Adicional',   min_value=0,   step=1,     format='%d',
-                                                help='Unidades extra compradas fuera del presupuesto — siempre pérdida'),
-                        }
-                    )
-
-                    # Calcular diferencia desde valores editados
-                    _rc_edited['Diferencia'] = (
-                        (_rc_edited['Presup. unit.'] - _rc_edited['Real unit.']) * _rc_edited['Cant.']
-                        - (_rc_edited['Adicional'] * _rc_edited['Real unit.'])
-                    ).round(0)
-
-                    # Tabla HTML con diferencia por ítem
-                    _dif_html = (
-                        "<div style='overflow-x:auto;margin-top:-4px;'>"
-                        "<table style='width:100%;border-collapse:collapse;font-size:0.82rem;font-family:sans-serif;'>"
-                        "<thead><tr style='background:#1e2447;color:#fff;'>"
-                        "<th style='padding:6px 10px;text-align:left;font-size:0.72rem;letter-spacing:0.05em;'>CATEGORÍA</th>"
-                        "<th style='padding:6px 10px;text-align:left;font-size:0.72rem;letter-spacing:0.05em;'>ÍTEM</th>"
-                        "<th style='padding:6px 10px;text-align:right;font-size:0.72rem;letter-spacing:0.05em;'>CANT.</th>"
-                        "<th style='padding:6px 10px;text-align:right;font-size:0.72rem;letter-spacing:0.05em;'>PRESUP.</th>"
-                        "<th style='padding:6px 10px;text-align:right;font-size:0.72rem;letter-spacing:0.05em;'>REAL</th>"
-                        "<th style='padding:6px 10px;text-align:right;font-size:0.72rem;letter-spacing:0.05em;'>ADIC.</th>"
-                        "<th style='padding:6px 10px;text-align:right;font-size:0.72rem;letter-spacing:0.05em;'>DIFERENCIA</th>"
-                        "</tr></thead><tbody>"
-                    )
-                    for _ri2, _row2 in _rc_edited.iterrows():
-                        _d2   = float(_row2['Diferencia'])
-                        _dc2  = '#16a34a' if _d2 >= 0 else '#dc2626'
-                        _da2  = '▼' if _d2 >= 0 else '▲'
-                        _bg2  = '#ffffff' if _ri2 % 2 == 0 else '#f8fafc'
-                        _pu2  = f"${int(_row2['Presup. unit.']):,}".replace(',','.')
-                        _ru2  = f"${int(_row2['Real unit.']):,}".replace(',','.')
-                        _df2  = f"${abs(int(_d2)):,}".replace(',','.')
-                        _dif_html += (
-                            f"<tr style='background:{_bg2};border-bottom:1px solid #f0f2f8;'>"
-                            f"<td style='padding:5px 10px;color:#64748b;font-size:0.75rem;'>{_row2['Categoría']}</td>"
-                            f"<td style='padding:5px 10px;'>{_row2['Ítem']}</td>"
-                            f"<td style='padding:5px 10px;text-align:right;'>{int(_row2['Cant.'])}</td>"
-                            f"<td style='padding:5px 10px;text-align:right;'>{_pu2}</td>"
-                            f"<td style='padding:5px 10px;text-align:right;'>{_ru2}</td>"
-                            f"<td style='padding:5px 10px;text-align:right;color:#dc2626;font-weight:700;'>{int(_row2['Adicional'])}</td>"
-                            f"<td style='padding:5px 10px;text-align:right;font-weight:700;color:{_dc2};'>{_df2} {_da2}</td>"
-                            f"</tr>"
+                    # Tabla HTML con inputs inline
+                    import streamlit.components.v1 as _rc_comp
+                    _rc_rows_html = ''
+                    for _ri, _prod in enumerate(_rc_prods):
+                        _cat  = str(_prod.get('Categoria',''))
+                        _item = str(_prod.get('Item',''))
+                        _cant = round(float(_prod.get('Cantidad',1) or 1))
+                        _pu   = round(float(_prod.get('Precio Unitario',0) or 0))
+                        _bg   = '#ffffff' if _ri % 2 == 0 else '#f8fafc'
+                        _pu_fmt = '$'+f'{_pu:,}'.replace(',','.')
+                        _rc_rows_html += (
+                            "<tr style='background:"+_bg+";border-bottom:1px solid #eef0f6;'"
+                            " data-idx='"+str(_ri)+"' data-pu='"+str(_pu)+"' data-cant='"+str(_cant)+"'>"
+                            "<td style='padding:5px 8px;font-size:0.75rem;color:#64748b;'>"+_cat+"</td>"
+                            "<td style='padding:5px 8px;font-size:0.82rem;'>"+_item+"</td>"
+                            "<td style='padding:5px 8px;text-align:right;'>"+str(_cant)+"</td>"
+                            "<td style='padding:5px 8px;text-align:right;font-weight:600;'>"+_pu_fmt+"</td>"
+                            "<td style='padding:3px 4px;'><input type='number' min='0' step='100' value='0' class='rc-real' data-idx='"+str(_ri)+"' style='width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box;'/></td>"
+                            "<td style='padding:3px 4px;'><input type='number' min='0' step='1' value='0' class='rc-adic' data-idx='"+str(_ri)+"' style='width:70px;border:1px solid #fca5a5;border-radius:6px;padding:5px;font-size:13px;text-align:right;background:#fff5f5;box-sizing:border-box;'/></td>"
+                            "<td class='rc-dif' data-idx='"+str(_ri)+"' style='padding:5px 8px;text-align:right;font-weight:700;color:#16a34a;white-space:nowrap;'>-</td>"
+                            "</tr>"
                         )
-                    _dif_html += "</tbody></table></div>"
-                    st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:12px 0 4px;">📊 Diferencia por ítem</div>', unsafe_allow_html=True)
-                    st.markdown(_dif_html, unsafe_allow_html=True)
-
-
-                    # Totales
-                    _rc_total_p     = (_rc_edited['Presup. unit.'] * _rc_edited['Cant.']).sum()
-                    _rc_total_r     = ((_rc_edited['Real unit.'] * _rc_edited['Cant.']) + (_rc_edited['Adicional'] * _rc_edited['Real unit.'])).sum()
-                    _rc_iva_p       = _rc_total_p * 0.19
-                    _rc_total_p_iva = _rc_total_p + _rc_iva_p
-                    _rc_iva_r       = _rc_total_r * 0.19
-                    _rc_total_r_iva = _rc_total_r + _rc_iva_r
-                    _rc_balance     = _rc_total_p - _rc_total_r
-                    _rc_bal_col     = '#16a34a' if _rc_balance >= 0 else '#dc2626'
-                    _rc_bal_icon    = '✅ Ahorro' if _rc_balance >= 0 else '❌ Sobrecosto'
-
-                    def _fmt_rc(v): return f"${v:,.0f}".replace(',','.')
-
-                    st.markdown(
-                        f"""<div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px;margin-top:8px;'>
-                        <div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;'>
-                          <div style='font-size:0.72rem;font-weight:700;color:#64748b;text-align:center;'>PRESUPUESTADO</div>
-                          <div style='font-size:0.72rem;font-weight:700;color:#64748b;text-align:center;'>REAL</div>
-                          <div style='font-size:0.72rem;font-weight:700;color:{_rc_bal_col};text-align:center;'>BALANCE</div>
-                        </div>
-                        <div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;border-top:1px solid #e2e8f0;padding-top:8px;'>
-                          <div>
-                            <div style='font-size:0.78rem;color:#64748b;'>Subtotal neto</div>
-                            <div style='font-size:0.9rem;font-weight:700;'>{_fmt_rc(_rc_total_p)}</div>
-                            <div style='font-size:0.78rem;color:#64748b;margin-top:4px;'>IVA (19%)</div>
-                            <div style='font-size:0.85rem;font-weight:600;'>{_fmt_rc(_rc_iva_p)}</div>
-                            <div style='font-size:0.78rem;color:#64748b;margin-top:4px;'>Total con IVA</div>
-                            <div style='font-size:0.95rem;font-weight:900;'>{_fmt_rc(_rc_total_p_iva)}</div>
-                          </div>
-                          <div>
-                            <div style='font-size:0.78rem;color:#64748b;'>Subtotal neto</div>
-                            <div style='font-size:0.9rem;font-weight:700;'>{_fmt_rc(_rc_total_r)}</div>
-                            <div style='font-size:0.78rem;color:#64748b;margin-top:4px;'>IVA (19%)</div>
-                            <div style='font-size:0.85rem;font-weight:600;'>{_fmt_rc(_rc_iva_r)}</div>
-                            <div style='font-size:0.78rem;color:#64748b;margin-top:4px;'>Total con IVA</div>
-                            <div style='font-size:0.95rem;font-weight:900;'>{_fmt_rc(_rc_total_r_iva)}</div>
-                          </div>
-                          <div>
-                            <div style='font-size:0.78rem;color:{_rc_bal_col};'>Neto</div>
-                            <div style='font-size:0.9rem;font-weight:700;color:{_rc_bal_col};'>{_fmt_rc(abs(_rc_balance))}</div>
-                            <div style='font-size:0.78rem;color:{_rc_bal_col};margin-top:4px;'>IVA</div>
-                            <div style='font-size:0.85rem;font-weight:600;color:{_rc_bal_col};'>{_fmt_rc(abs(_rc_iva_p - _rc_iva_r))}</div>
-                            <div style='font-size:0.78rem;color:{_rc_bal_col};margin-top:4px;'>{_rc_bal_icon}</div>
-                            <div style='font-size:0.95rem;font-weight:900;color:{_rc_bal_col};'>{_fmt_rc(abs(_rc_total_p_iva - _rc_total_r_iva))}</div>
-                          </div>
-                        </div>
-                        </div>""",
-                        unsafe_allow_html=True
+                    _rc_height = min(len(_rc_prods)*37+310, 720)
+                    _rc_html = (
+                        "<style>body{margin:0;padding:0;font-family:'Segoe UI',sans-serif;font-size:13px;}"
+                        "table{width:100%;border-collapse:collapse;}"
+                        "th{background:#1e2447;color:#fff;padding:7px 8px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;}"
+                        "th.r,td.r{text-align:right;}"
+                        "input[type=number]{border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box;}"
+                        "input[type=number]:focus{outline:none;border-color:#5b7cfa;box-shadow:0 0 0 2px rgba(91,124,250,.2);}"
+                        "input[type=number]::-webkit-inner-spin-button{opacity:.4;}"
+                        "#tots{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:10px 12px;background:#f8fafc;border-top:2px solid #e2e8f0;}"
+                        ".tc .lbl{font-size:11px;color:#64748b;margin-top:3px;}"
+                        ".tc .val{font-weight:700;font-size:13px;}"
+                        ".tc .big{font-weight:900;font-size:15px;margin-top:2px;}"
+                        ".tc .hdr{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;}"
+                        "</style>"
+                        "<div style='border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;'>"
+                        "<div style='overflow-x:auto;'><table>"
+                        "<thead><tr><th>Categoría</th><th>Ítem</th><th class='r'>Cant.</th>"
+                        "<th class='r'>Presup. unit.</th><th class='r'>Real unit.</th>"
+                        "<th class='r'>Adicional</th><th class='r'>Diferencia</th></tr></thead>"
+                        "<tbody>"+_rc_rows_html+"</tbody></table></div>"
+                        "<div id='tots'>"
+                        "<div class='tc'><div class='hdr' style='color:#64748b;'>Presupuestado</div>"
+                        "<div class='lbl'>Subtotal neto</div><div class='val' id='tp-n'>$0</div>"
+                        "<div class='lbl'>IVA (19%)</div><div class='val' id='tp-i'>$0</div>"
+                        "<div class='lbl'>Total con IVA</div><div class='big' id='tp-t'>$0</div></div>"
+                        "<div class='tc'><div class='hdr' style='color:#64748b;'>Real</div>"
+                        "<div class='lbl'>Subtotal neto</div><div class='val' id='tr-n'>$0</div>"
+                        "<div class='lbl'>IVA (19%)</div><div class='val' id='tr-i'>$0</div>"
+                        "<div class='lbl'>Total con IVA</div><div class='big' id='tr-t'>$0</div></div>"
+                        "<div class='tc'><div class='hdr' id='b-h' style='color:#16a34a;'>Balance</div>"
+                        "<div class='lbl'>Neto</div><div class='val' id='b-n'>$0</div>"
+                        "<div class='lbl'>IVA</div><div class='val' id='b-i'>$0</div>"
+                        "<div class='lbl' id='b-l'>✅ Ahorro</div><div class='big' id='b-t'>$0</div></div>"
+                        "</div></div>"
+                        "<script>(function(){"
+                        "function f(n){return '$'+Math.round(Math.abs(n)).toLocaleString('de-DE');}"
+                        "function calc(){"
+                        "var tP=0,tR=0,vals=[];"
+                        "document.querySelectorAll('tr[data-idx]').forEach(function(r){"
+                        "var pu=+r.dataset.pu||0,c=+r.dataset.cant||1;"
+                        "var re=+r.querySelector('.rc-real').value||0;"
+                        "var ad=+r.querySelector('.rc-adic').value||0;"
+                        "var d=(pu-re)*c-(ad*re);"
+                        "var td=r.querySelector('.rc-dif');"
+                        "td.textContent=f(d)+(d>=0?' \u25BC':' \u25B2');"
+                        "td.style.color=d>=0?'#16a34a':'#dc2626';"
+                        "tP+=pu*c;tR+=re*c+ad*re;"
+                        "vals.push({idx:+r.dataset.idx,real:re,adic:ad,dif:d});});"
+                        "var iP=tP*.19,iR=tR*.19,b=tP-tR,ib=iP-iR;"
+                        "var col=b>=0?'#16a34a':'#dc2626';"
+                        "['tp-n','tp-i','tp-t','tr-n','tr-i','tr-t','b-n','b-i','b-t'].forEach(function(id,i){"
+                        "var v=[tP,iP,tP+iP,tR,iR,tR+iR,b,ib,b+ib][i];"
+                        "document.getElementById(id).textContent=f(v);});"
+                        "['b-h','b-n','b-i','b-l','b-t'].forEach(function(id){document.getElementById(id).style.color=col;});"
+                        "document.getElementById('b-l').textContent=b>=0?'\u2705 Ahorro':'\u274C Sobrecosto';"
+                        "window.parent.postMessage({type:'rc_vals',vals:vals,tP:tP,tR:tR},'*');}"
+                        "document.querySelectorAll('input').forEach(function(i){i.addEventListener('input',calc);});"
+                        "calc();})()</script>"
                     )
+                    _rc_comp.html(_rc_html, height=_rc_height, scrolling=True)
 
-                    st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+                    # Capturar valores via postMessage → session_state
+                    _rc_vals_key = f'rc_vals_{_rc_ep}'
+                    if _rc_vals_key not in st.session_state:
+                        st.session_state[_rc_vals_key] = []
 
-                    # Agregar productos adicionales desde catálogo
-                    with st.expander('➕ Agregar producto adicional del catálogo'):
-                        try:
-                            _rc_df_cat = _leer_hoja_excel('BD Total')
-                            _rc_cats   = list(_rc_df_cat['Categorias'].dropna().unique())
-                            _rca1, _rca2, _rca3 = st.columns([2, 3, 1])
-                            with _rca1:
-                                _rc_add_cat = st.selectbox('Categoría', _rc_cats, key=f'rc_add_cat_{_rc_ep}')
-                            with _rca2:
-                                _rc_items_cat = _rc_df_cat[_rc_df_cat['Categorias'] == _rc_add_cat]
-                                _rc_add_item  = st.selectbox('Ítem', _rc_items_cat['Item'], key=f'rc_add_item_{_rc_ep}')
-                            with _rca3:
-                                _rc_add_cant = st.number_input('Cantidad', min_value=1, value=1, key=f'rc_add_cant_{_rc_ep}')
-                            if st.button('➕ Agregar al registro', key=f'rc_add_btn_{_rc_ep}', use_container_width=True):
-                                _rc_precio_add = float(_rc_items_cat[_rc_items_cat['Item'] == _rc_add_item]['P. Unitario real'].values[0])
-                                if 'rc_adicionales' not in st.session_state:
-                                    st.session_state.rc_adicionales = []
-                                st.session_state.rc_adicionales.append({
-                                    'Categoría': _rc_add_cat, 'Ítem': _rc_add_item,
-                                    'Cant.': float(_rc_add_cant), 'Presup. unit.': _rc_precio_add,
-                                    'Real unit.': 0.0, 'Adicional': 0, 'Diferencia': 0.0
-                                })
-                                st.rerun()
-                        except Exception as _e_cat:
-                            st.caption(f'Error cargando catálogo: {_e_cat}')
+                    st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
 
-                    # Mostrar adicionales del catálogo si existen
-                    if st.session_state.get('rc_adicionales'):
-                        st.markdown('<div style="font-size:0.82rem;font-weight:600;color:#64748b;margin:8px 0 4px;">Productos adicionales del catálogo</div>', unsafe_allow_html=True)
-                        _rc_adic_df = _pd_rc.DataFrame(st.session_state.rc_adicionales)
-                        _rc_adic_edited = st.data_editor(
-                            _rc_adic_df,
-                            use_container_width=True,
-                            hide_index=True,
-                            key=f'rc_adic_editor_{_rc_ep}',
-                            column_config={
-                                'Categoría':     st.column_config.TextColumn(disabled=True),
-                                'Ítem':          st.column_config.TextColumn(disabled=True),
-                                'Cant.':         st.column_config.NumberColumn(disabled=True, format='%d'),
-                                'Presup. unit.': st.column_config.NumberColumn(disabled=True, format='%d'),
-                                'Real unit.':    st.column_config.NumberColumn(min_value=0.0, step=100.0, format='%d'),
-                                'Adicional':     st.column_config.NumberColumn(min_value=0, step=1, format='%d'),
-                                'Diferencia':    st.column_config.NumberColumn(disabled=True, format='%d'),
-                            }
-                        )
-                        _rc_adic_edited['Diferencia'] = (
-                            (_rc_adic_edited['Presup. unit.'] - _rc_adic_edited['Real unit.']) * _rc_adic_edited['Cant.']
-                            - (_rc_adic_edited['Adicional'] * _rc_adic_edited['Real unit.'])
-                        )
-                        st.session_state.rc_adicionales = _rc_adic_edited.to_dict('records')
 
                     # Botón guardar — deshabilitado sin factura
+                    import pandas as _pd_rc2
+                    _rc_df_cap = _pd_rc2.DataFrame([{
+                        'Ítem': str(_prod.get('Item','')),
+                        'Real unit.': 0.0,
+                        'Adicional': 0,
+                    } for _prod in _rc_prods])
+                    _rc_cap = st.data_editor(
+                        _rc_df_cap, hide_index=True, key=f'rc_cap_{_rc_ep}',
+                        use_container_width=True,
+                        column_config={
+                            'Ítem':       st.column_config.TextColumn(disabled=True),
+                            'Real unit.': st.column_config.NumberColumn('Real unit. $', min_value=0.0, step=100.0, format='%d'),
+                            'Adicional':  st.column_config.NumberColumn('Adicional', min_value=0, step=1, format='%d'),
+                        }
+                    )
+                    st.caption('⬆️ Ingresa aquí los valores finales para guardar')
                     if st.button('💾 Guardar registro de compra', key='rc_guardar',
                                  use_container_width=True, disabled=not bool(_rc_factura)):
                         # Combinar items del presupuesto + adicionales del catálogo
