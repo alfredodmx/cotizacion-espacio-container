@@ -10884,7 +10884,9 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
 
                 # Formulario nuevo registro
                 st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 8px;">➕ Nuevo registro de compra</div>', unsafe_allow_html=True)
-                _rc_factura = st.file_uploader('📎 Factura PDF (opcional)', type=['pdf'], key=f'rc_factura_{_rc_ep}')
+                _rc_factura = st.file_uploader('📎 Factura PDF (requerida para guardar)', type=['pdf'], key=f'rc_factura_{_rc_ep}')
+                if _rc_factura:
+                    st.success(f'✅ {_rc_factura.name}')
 
                 if not _rc_productos:
                     st.warning('Este presupuesto no tiene productos cargados.')
@@ -11006,7 +11008,67 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                     )
                     st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 
-                    if st.button('💾 Guardar registro de compra', key='rc_guardar', use_container_width=True):
+                    # ── Productos adicionales ──
+                    st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:12px 0 8px;">➕ Agregar producto adicional</div>', unsafe_allow_html=True)
+                    try:
+                        _rc_df_cat = _leer_hoja_excel('BD Total')
+                        _rc_cats = list(_rc_df_cat['Categorias'].dropna().unique())
+                        _rca1, _rca2, _rca3, _rca4 = st.columns([2, 3, 1, 1])
+                        with _rca1:
+                            _rc_add_cat = st.selectbox('Categoría', _rc_cats, key=f'rc_add_cat_{_rc_ep}', label_visibility='collapsed')
+                        with _rca2:
+                            _rc_items_cat = _rc_df_cat[_rc_df_cat['Categorias'] == _rc_add_cat]
+                            _rc_add_item = st.selectbox('Ítem', _rc_items_cat['Item'], key=f'rc_add_item_{_rc_ep}', label_visibility='collapsed')
+                        with _rca3:
+                            _rc_add_cant = st.number_input('Cantidad', min_value=1, value=1, key=f'rc_add_cant_{_rc_ep}', label_visibility='collapsed')
+                        with _rca4:
+                            if st.button('➕ Agregar', key=f'rc_add_btn_{_rc_ep}', use_container_width=True):
+                                _rc_precio_add = float(_rc_items_cat[_rc_items_cat['Item'] == _rc_add_item]['P. Unitario real'].values[0])
+                                if 'rc_adicionales' not in st.session_state:
+                                    st.session_state.rc_adicionales = []
+                                st.session_state.rc_adicionales.append({
+                                    'categoria': _rc_add_cat,
+                                    'item': _rc_add_item,
+                                    'cantidad': _rc_add_cant,
+                                    'precio_presupuestado': _rc_precio_add,
+                                    'precio_real': 0.0
+                                })
+                                st.rerun()
+                    except Exception as _rc_cat_err:
+                        st.caption(f'No se pudo cargar catálogo: {_rc_cat_err}')
+
+                    # Mostrar y editar productos adicionales
+                    if st.session_state.get('rc_adicionales'):
+                        st.markdown('<div style="font-size:0.82rem;font-weight:600;color:#64748b;margin:4px 0;">Productos adicionales</div>', unsafe_allow_html=True)
+                        _rc_adic_new = []
+                        for _rai, _rad in enumerate(st.session_state.rc_adicionales):
+                            _rad1, _rad2, _rad3, _rad4, _rad5, _rad6 = st.columns([2, 3, 0.7, 1.2, 1.2, 0.5])
+                            with _rad1:
+                                st.markdown(f'<div style="font-size:0.75rem;color:#64748b;padding:8px 4px;">{_rad["categoria"]}</div>', unsafe_allow_html=True)
+                            with _rad2:
+                                st.markdown(f'<div style="font-size:0.82rem;padding:8px 4px;">{_rad["item"]}</div>', unsafe_allow_html=True)
+                            with _rad3:
+                                st.markdown(f'<div style="font-size:0.82rem;text-align:right;padding:8px 4px;">{int(_rad["cantidad"])}</div>', unsafe_allow_html=True)
+                            with _rad4:
+                                st.markdown(f'<div style="font-size:0.82rem;text-align:right;padding:8px 4px;">${_rad["precio_presupuestado"]:,.0f}</div>'.replace(',','.'), unsafe_allow_html=True)
+                            with _rad5:
+                                _rad_real = st.number_input('Real', value=float(_rad.get('precio_real',0)), min_value=0.0, step=100.0,
+                                    key=f'rc_adic_real_{_rai}', label_visibility='collapsed')
+                            with _rad6:
+                                if st.button('✕', key=f'rc_adic_del_{_rai}'):
+                                    st.session_state.rc_adicionales.pop(_rai)
+                                    st.rerun()
+                            _dif_adic = (_rad['precio_presupuestado'] - _rad_real) * _rad['cantidad']
+                            _rc_total_p += _rad['precio_presupuestado'] * _rad['cantidad']
+                            _rc_total_r += _rad_real * _rad['cantidad']
+                            _rc_adic_new.append({**_rad, 'precio_real': _rad_real, 'diferencia': _dif_adic})
+                        st.session_state.rc_adicionales = _rc_adic_new
+                        _rc_items_result.extend(st.session_state.rc_adicionales)
+
+                    st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+
+                    if st.button('💾 Guardar registro de compra', key='rc_guardar',
+                                 use_container_width=True, disabled=not bool(_rc_factura)):
                         _rc_factura_url = ''
                         _rc_factura_nom = ''
                         if _rc_factura:
