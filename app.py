@@ -2880,7 +2880,11 @@ st.markdown("""
     .resultados-table td:first-child {
         position: sticky !important; left: 0 !important; z-index: 1 !important;
         background-color: #ffffff !important;
-        border-right: 2px solid #e2e8f0 !important;
+        border-right: none !important;
+        box-shadow: 4px 0 8px -2px rgba(0,0,0,0.12) !important;
+    }
+    .resultados-table th:first-child {
+        box-shadow: 4px 0 8px -2px rgba(0,0,0,0.18) !important;
     }
     .resultados-table tr:hover td { background-color: #f5f7ff !important; }
     .resultados-table tr:hover td:first-child { background-color: #f5f7ff !important; }
