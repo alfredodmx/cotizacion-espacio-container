@@ -10188,12 +10188,19 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
     </div>
     """, unsafe_allow_html=True)
 
-    # ── Cargar ejecutivos para dropdown ──
-    try:
+    _sub_panel, _sub_compras, _sub_acta = st.tabs([
+        "⚙️ Panel Operacional",
+        "🛒 Registro de Compras",
+        "📋 Acta de Clientes"
+    ])
+
+    with _sub_panel:
+     # ── Cargar ejecutivos para dropdown ──
+     try:
         _oper_usuarios = listar_usuarios_ejecutivos() or []
         _oper_ejs = [u for u in _oper_usuarios if u.get('rol','ejecutivo') in ('ejecutivo','admin','administrador')]
         _oper_ej_opts = ['Todos'] + [u.get('nombre','') for u in _oper_ejs if u.get('nombre')]
-    except Exception:
+     except Exception:
         _oper_ej_opts = ['Todos']
 
     # ── Filtros ──
@@ -10722,6 +10729,36 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                             )
                         except Exception:
                             st.warning("⚠️ No se pudo preparar la descarga del plano.")
+
+    with _sub_compras:
+        st.markdown('''
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+             padding:3rem 2rem;text-align:center;">
+          <div style="font-size:2.5rem;margin-bottom:16px;">🛒</div>
+          <div style="font-size:1rem;font-weight:700;color:#1e293b;margin-bottom:8px;">
+            Registro de Compras
+          </div>
+          <div style="font-size:0.88rem;color:#64748b;max-width:400px;line-height:1.6;">
+            Próximamente — Registra el valor real de compra de cada producto vs el presupuestado
+            y obtén un balance de ahorro o sobrecosto por proyecto.
+          </div>
+        </div>
+        ''', unsafe_allow_html=True)
+
+    with _sub_acta:
+        st.markdown('''
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+             padding:3rem 2rem;text-align:center;">
+          <div style="font-size:2.5rem;margin-bottom:16px;">📋</div>
+          <div style="font-size:1rem;font-weight:700;color:#1e293b;margin-bottom:8px;">
+            Acta de Clientes
+          </div>
+          <div style="font-size:0.88rem;color:#64748b;max-width:400px;line-height:1.6;">
+            Próximamente — Sube el acta firmada por el cliente, cambia el estado a
+            Proyecto Entregado y congela los contadores de fabricación y fidelización.
+          </div>
+        </div>
+        ''', unsafe_allow_html=True)
 
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
 # =========================================================
