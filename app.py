@@ -10924,7 +10924,8 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         with _col2:
                             st.markdown(f'<div style="font-size:0.82rem;padding:8px 4px;background:{_bg};">{_item}</div>', unsafe_allow_html=True)
                         with _col3:
-                            st.markdown(f'<div style="font-size:0.82rem;text-align:right;padding:8px 4px;background:{_bg};">{_cant:.0f}</div>', unsafe_allow_html=True)
+                            _cant_edit = st.number_input('Cant', value=float(_cant), min_value=0.0, step=1.0,
+                                key=f'rc_cant_{_rc_ep}_{_ri}', label_visibility='collapsed')
                         with _col4:
                             st.markdown(f'<div style="font-size:0.82rem;text-align:right;padding:8px 4px;background:{_bg};">${_p_unit:,.0f}</div>'.replace(',','.'), unsafe_allow_html=True)
                         with _col5:
@@ -10938,7 +10939,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                             )
                         with _col6:
                             _dif_unit = _p_unit - _real_val
-                            _dif_total = _dif_unit * _cant
+                            _dif_total = _dif_unit * _cant_edit
                             _dif_col = '#16a34a' if _dif_total >= 0 else '#dc2626'
                             _dif_arrow = '▼' if _dif_total >= 0 else '▲'
                             st.markdown(
@@ -10948,15 +10949,15 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                                 unsafe_allow_html=True
                             )
 
-                        _rc_total_p += _p_unit * _cant
-                        _rc_total_r += _real_val * _cant
+                        _rc_total_p += _p_unit * _cant_edit
+                        _rc_total_r += _real_val * _cant_edit
                         _rc_items_result.append({
                             'categoria': _cat,
                             'item': _item,
-                            'cantidad': _cant,
+                            'cantidad': _cant_edit,
                             'precio_presupuestado': _p_unit,
                             'precio_real': _real_val,
-                            'diferencia': _dif_total
+                            'diferencia': (_p_unit - _real_val) * _cant_edit
                         })
 
                     # Totales con IVA
