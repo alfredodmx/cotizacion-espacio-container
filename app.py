@@ -2880,21 +2880,8 @@ st.markdown("""
     .resultados-table td:first-child {
         position: sticky !important; left: 0 !important; z-index: 1 !important;
         background-color: #ffffff !important;
-        border-right: 2px solid #cbd5e1 !important;
-        clip-path: inset(0px -8px 0px 0px) !important;
+        border-right: 3px solid #e2e8f0 !important;
         filter: drop-shadow(4px 0 4px rgba(0,0,0,0.10)) !important;
-        transform: translateZ(0) !important;
-        will-change: transform !important;
-        box-sizing: border-box !important;
-        margin-left: -1px !important;
-        padding-left: 13px !important;
-    }
-    .resultados-table th:first-child {
-        transform: translateZ(0) !important;
-        will-change: transform !important;
-        box-sizing: border-box !important;
-        margin-left: -1px !important;
-        padding-left: 13px !important;
     }
     .resultados-table tr:hover td { background-color: #f5f7ff !important; }
     .resultados-table tr:hover td:first-child { background-color: #f5f7ff !important; }
@@ -3847,6 +3834,23 @@ _js_global.html("""
         var btn=D.querySelector('.st-key-'+selKey+' button');
         if(btn)btn.click();
     });
+})();
+
+// Columna sticky — fondo opaco durante scroll
+(function(){
+    var D=window.parent.document;
+    function fixStickyBg(){
+        var cells=D.querySelectorAll('.resultados-table td:first-child');
+        cells.forEach(function(c){
+            c.style.setProperty('background-color','#ffffff','important');
+            c.style.setProperty('background','#ffffff','important');
+        });
+    }
+    var scroller=D.querySelector('[data-testid="stHtml"]');
+    D.addEventListener('scroll',fixStickyBg,true);
+    fixStickyBg();
+    var obs=new MutationObserver(fixStickyBg);
+    obs.observe(D.body,{childList:true,subtree:true});
 })();
 })();
 </script>
