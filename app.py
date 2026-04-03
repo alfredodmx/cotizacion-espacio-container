@@ -3808,6 +3808,18 @@ _js_global.html("""
         }
     });
 })();
+
+// Badge filtro estado cotizaciones
+(function(){
+    var D=window.parent.document;
+    D.addEventListener('click',function(e){
+        var el=e.target&&e.target.closest?e.target.closest('._badge_filtro'):null;
+        if(!el)return;
+        var selKey=el.getAttribute('data-sel')||'_fbtn_TODOS';
+        var btn=D.querySelector('.st-key-'+selKey+' button');
+        if(btn)btn.click();
+    });
+})();
 })();
 </script>
 """, height=0)
@@ -7339,21 +7351,7 @@ if tab3 is not None:
             if st.button(f'__FILTRO__{_fval}', key=_fkey):
                 st.session_state.filtro_estado_tabla = None if _fval == 'TODOS' else _fval
                 st.rerun()
-        # JS badge filtro + CSS colapso botones ocultos
-        import streamlit.components.v1 as _badge_js_comp
-        _badge_js_comp.html("""
-<script>
-(function(){
-    var D=window.parent.document;
-    D.addEventListener('click',function(e){
-        var el=e.target&&e.target.closest?e.target.closest('._badge_filtro'):null;
-        if(!el)return;
-        var selKey=el.getAttribute('data-sel')||'_fbtn_TODOS';
-        var btn=D.querySelector('.st-key-'+selKey+' button');
-        if(btn)btn.click();
-    });
-})();
-</script>""", height=0)
+
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
         # Altura adaptativa: si hay pocas filas, altura real sin scroll
