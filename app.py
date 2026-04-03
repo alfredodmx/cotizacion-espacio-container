@@ -6942,16 +6942,24 @@ if tab3 is not None:
     st.markdown("### Resultados")
 
     # Forzar refresco si se acaba de guardar una cotización
+    # Leer filtro de estado desde query_params (seteado por JS al hacer click en badge)
+    _qp_filtro = st.query_params.get('_filtro_estado')
+    if _qp_filtro is not None:
+        st.session_state.filtro_estado_tabla = _qp_filtro if _qp_filtro != 'TODOS' else None
+        st.query_params.clear()
     if st.session_state.get('_tab3_necesita_refresh', False):
         st.session_state.resultados_busqueda = None
         st.session_state['_tab3_necesita_refresh'] = False
 
+    if 'filtro_estado_tabla' not in st.session_state:
+        st.session_state.filtro_estado_tabla = None
     if 'resultados_busqueda' not in st.session_state or st.session_state.resultados_busqueda is None:
         st.session_state.resultados_busqueda = buscar_cotizaciones()
 
     if buscar_btn or (termino and termino != st.session_state.get('ultimo_termino', '')):
         st.session_state.ultimo_termino = termino
         st.session_state.resultados_busqueda = buscar_cotizaciones(termino if termino else None, tipo_map[tipo_busqueda])
+        st.session_state.filtro_estado_tabla = None
         st.session_state.mostrar_visor = False
         st.session_state.pdf_actual = None
         st.session_state.pdf_nombre = ""
@@ -7079,6 +7087,14 @@ if tab3 is not None:
             except: return '<span style="color:#94a3b8;">0</span>'
         df_resultados["ModCol"] = df_resultados["NLogs"].apply(_fmt_nlogs)
 
+        # Aplicar filtro de estado si está activo
+        _filtro_activo = st.session_state.get('filtro_estado_tabla')
+        if _filtro_activo:
+            import re as _re_filt
+            def _match_filtro(badge_html):
+                txt = _re_filt.sub('<[^>]+>', str(badge_html)).strip()
+                return _filtro_activo in txt
+            df_resultados = df_resultados[df_resultados['Estado'].apply(_match_filtro)].copy()
         n_resultados = len(df_resultados)
         altura_tabla = min(n_resultados * 52 + 60, 550)
 
@@ -7252,26 +7268,41 @@ if tab3 is not None:
             _txt = _re_badge.sub('<[^>]+>', '', str(_badge_val)).strip()
             _estados_cnt[_txt] = _estados_cnt.get(_txt, 0) + 1
 
+        _filtro_activo_badge = st.session_state.get('filtro_estado_tabla')
+        # Badge 'Todos' — siempre visible
+        _todos_activo = not _filtro_activo_badge
+        _todos_style = ('background:#6d28d9;color:#fff;' if _todos_activo else 'background:#ede9fe;color:#6d28d9;')
         _badge_res = (
-            f"<span style='background:#ede9fe;color:#6d28d9;padding:3px 12px;border-radius:99px;"
-            f"font-size:11px;font-weight:700;margin-right:6px;'>{n_resultados} resultados</span>"
+            f"<span onclick=\"window.location.href='?_filtro_estado=TODOS'\" "
+            f"style='cursor:pointer;{_todos_style}padding:5px 14px;border-radius:99px;"
+            f"font-size:13px;font-weight:700;margin-right:6px;display:inline-block;transition:opacity 0.15s;'"
+            f"onmouseover=\"this.style.opacity=0.8\" onmouseout=\"this.style.opacity=1\">"
+            f"Todos ({len(st.session_state.resultados_busqueda)})</span>"
         )
         _badge_map = [
-            ('🔵 ADJUDICADO',          '🔵', '#dbeafe', '#1d4ed8', 'adjudicados'),
-            ('🟢 AUTORIZADO CON PLANO','🟢', '#dcfce7', '#15803d', 'aut. con plano'),
-            ('🟢 AUTORIZADO',          '🟢', '#dcfce7', '#15803d', 'autorizados'),
-            ('🟠 BORRADOR CON PLANO',  '🟠', '#ffedd5', '#c2410c', 'borrador con plano'),
-            ('🟡 BORRADOR',            '🟡', '#fef9c3', '#854d0e', 'borrador'),
-            ('🔴 INCOMPLETO CON PLANO','🔴', '#fee2e2', '#dc2626', 'incompleto con plano'),
-            ('🔴 INCOMPLETO',          '🔴', '#fee2e2', '#dc2626', 'incompletos'),
-            ('❌ RECHAZADO',           '❌', '#fee2e2', '#b91c1c', 'rechazados'),
+            ('🔵 ADJUDICADO',          '🔵', '#dbeafe', '#1d4ed8', '#1e40af', 'adjudicados'),
+            ('🟢 AUTORIZADO CON PLANO','🟢', '#dcfce7', '#15803d', '#166534', 'aut. con plano'),
+            ('🟢 AUTORIZADO',          '🟢', '#dcfce7', '#15803d', '#166534', 'autorizados'),
+            ('🟠 BORRADOR CON PLANO',  '🟠', '#ffedd5', '#c2410c', '#9a3412', 'borrador con plano'),
+            ('🟡 BORRADOR',            '🟡', '#fef9c3', '#854d0e', '#713f12', 'borrador'),
+            ('🔴 INCOMPLETO CON PLANO','🔴', '#fee2e2', '#dc2626', '#991b1b', 'incompleto con plano'),
+            ('🔴 INCOMPLETO',          '🔴', '#fee2e2', '#dc2626', '#991b1b', 'incompletos'),
+            ('❌ RECHAZADO',           '❌', '#fee2e2', '#b91c1c', '#7f1d1d', 'rechazados'),
         ]
-        for _key, _ico, _bg, _col, _lbl in _badge_map:
+        for _key, _ico, _bg, _col, _col_act, _lbl in _badge_map:
             _cnt = _estados_cnt.get(_key, 0)
             if _cnt:
+                _es_activo = _filtro_activo_badge == _key
+                _bg_b  = _col_act if _es_activo else _bg
+                _col_b = '#fff'   if _es_activo else _col
+                _border = f'box-shadow:0 0 0 2px {_col_act};' if _es_activo else ''
                 _badge_res += (
-                    f"<span style='background:{_bg};color:{_col};padding:3px 10px;border-radius:99px;"
-                    f"font-size:11px;font-weight:700;margin-right:6px;'>{_ico} {_cnt} {_lbl}</span>"
+                    f"<span onclick=\"window.location.href='?_filtro_estado={_key.replace(' ','+')}'\""
+                    f" style='cursor:pointer;background:{_bg_b};color:{_col_b};{_border}"
+                    f"padding:5px 14px;border-radius:99px;font-size:13px;font-weight:700;"
+                    f"margin-right:6px;display:inline-block;transition:opacity 0.15s;'"
+                    f" onmouseover=\"this.style.opacity=0.8\" onmouseout=\"this.style.opacity=1\">"
+                    f"{_ico} {_cnt} {_lbl}</span>"
                 )
         _col_badge, _col_ref = st.columns([5, 0.7])
         with _col_badge:
