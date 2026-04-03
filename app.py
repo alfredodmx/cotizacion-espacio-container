@@ -7503,7 +7503,7 @@ if tab3 is not None:
 })();
 </script>""", height=0)
 
-        st.markdown("<div style='margin-top:-5rem;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='margin-top:-9rem;'></div>", unsafe_allow_html=True)
         st.markdown("### Seleccionar cotización")
 
         opciones = []
