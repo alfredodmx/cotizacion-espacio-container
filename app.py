@@ -2883,11 +2883,15 @@ st.markdown("""
         border-right: 3px solid #e2e8f0 !important;
         filter: drop-shadow(4px 0 4px rgba(0,0,0,0.10)) !important;
         padding-left: 14px !important;
+        transform: translateZ(0) !important;
+        will-change: transform !important;
     }
     .resultados-table th:first-child {
         position: sticky !important; left: -2px !important; z-index: 3 !important;
         background: linear-gradient(135deg, #1e2447 0%, #2a3060 100%) !important;
         padding-left: 14px !important;
+        transform: translateZ(0) !important;
+        will-change: transform !important;
     }
     .resultados-table tr:hover td { background-color: #f5f7ff !important; }
     .resultados-table tr:hover td:first-child { background-color: #f5f7ff !important; }
@@ -7161,8 +7165,6 @@ if tab3 is not None:
             df_resultados = df_resultados[df_resultados['Estado'].apply(_match_filtro)].copy()
         n_resultados = len(df_resultados)
         altura_tabla = min(n_resultados * 52 + 60, 550)
-        import time as _time_tbl
-        _render_id = str(int(_time_tbl.time() * 1000))
 
         # Calcular total costo (admin/root solamente)
         _tc_map = {}
@@ -7429,7 +7431,7 @@ if tab3 is not None:
         </style>
         <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
             <div style="{_altura_css}">
-                <table class='resultados-table' data-rid='{_render_id}' style='margin:0;border-radius:0;box-shadow:none;min-width:1700px;table-layout:auto;white-space:nowrap;'>
+                <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:1700px;table-layout:auto;white-space:nowrap;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
                         <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th class="th-cierre">$ Cierre de venta</th><th class="th-adj">Fecha adjudicación</th><th class="th-adj">Tiempo fabricación</th><th class="th-adj">Fidelización cliente</th><th class="th-adj">Retraso proyecto</th></tr>
                     </thead>
@@ -7510,27 +7512,9 @@ if tab3 is not None:
     });
 
     // ── Contador en vivo demora ──
-    function getActiveTableRid(){
-        // Obtener el render_id más alto (más reciente) entre todas las tablas de resultados
-        var tbls = D.querySelectorAll('.resultados-table[data-rid]');
-        var maxRid = 0;
-        tbls.forEach(function(t){ var r=parseInt(t.getAttribute('data-rid')||0); if(r>maxRid) maxRid=r; });
-        return maxRid;
-    }
-    function isLiveVisible(el){
-        if(!D.body.contains(el)) return false;
-        var tbl = el.closest('.resultados-table');
-        if(!tbl) return false;
-        // Solo la tabla más reciente
-        var rid = parseInt(tbl.getAttribute('data-rid')||0);
-        var activeRid = getActiveTableRid();
-        if(rid !== activeRid) return false;
-        return true;
-    }
     function updateLiveTimers(){
         var spans = D.querySelectorAll('.demora-live');
         spans.forEach(function(el){
-            if(!isLiveVisible(el)){ el.textContent=''; return; }
             var desde = parseInt(el.getAttribute('data-desde'));
             if(!desde) return;
             var diff = Date.now() - desde;
@@ -7549,7 +7533,6 @@ if tab3 is not None:
         // ── Tiempo fabricación (contador hacia adelante) ──
         var fabs = D.querySelectorAll('.fab-live');
         fabs.forEach(function(el){
-            if(!isLiveVisible(el)){ el.textContent=''; return; }
             var desde = parseInt(el.getAttribute('data-desde'));
             if(!desde) return;
             var diff = Date.now() - desde;
@@ -7566,7 +7549,6 @@ if tab3 is not None:
         // ── Retraso proyecto (contador desde vencimiento) ──
         var retrasos = D.querySelectorAll('.retraso-live');
         retrasos.forEach(function(el){
-            if(!isLiveVisible(el)){ el.textContent=''; return; }
             var desde = parseInt(el.getAttribute('data-desde'));
             if(!desde) return;
             var diff = Date.now() - desde;
@@ -7583,7 +7565,6 @@ if tab3 is not None:
         // ── Cuenta regresiva fidelización (segundos en tiempo real) ──
         var fidels = D.querySelectorAll('.fidel-live');
         fidels.forEach(function(el){
-            if(!isLiveVisible(el)){ el.textContent=''; return; }
             var hasta = parseInt(el.getAttribute('data-hasta'));
             var plazo = parseInt(el.getAttribute('data-plazo')) || 1;
             var adjTs = parseInt(el.getAttribute('data-adj')) || 0;
