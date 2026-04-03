@@ -7092,7 +7092,7 @@ if tab3 is not None:
         if _filtro_activo:
             import re as _re_filt
             def _match_filtro(badge_html):
-                txt = _re_filt.sub('<[^>]+>', str(badge_html)).strip()
+                txt = _re_filt.sub(r'<[^>]+>', '', str(badge_html)).strip()
                 return _filtro_activo in txt
             df_resultados = df_resultados[df_resultados['Estado'].apply(_match_filtro)].copy()
         n_resultados = len(df_resultados)
