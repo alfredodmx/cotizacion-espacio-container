@@ -10875,7 +10875,6 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         'Presup. unit.':  round(float(p.get('Precio Unitario',0) or 0)),
                         'Real unit.':     0.0,
                         'Adicional':      0,
-                        'Diferencia':     0.0,
                     } for p in _rc_prods])
 
                     _rc_edited = st.data_editor(
@@ -10891,7 +10890,6 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                             'Real unit.':    st.column_config.NumberColumn('Real unit.',  min_value=0.0, step=100.0, format='$ %d'),
                             'Adicional':     st.column_config.NumberColumn('Adicional',   min_value=0,   step=1,     format='%d',
                                                 help='Unidades extra compradas fuera del presupuesto — siempre pérdida'),
-                            'Diferencia':    st.column_config.NumberColumn('Diferencia',  disabled=True, format='$ %d'),
                         }
                     )
 
@@ -10901,13 +10899,43 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         - (_rc_edited['Adicional'] * _rc_edited['Real unit.'])
                     ).round(0)
 
-                    # Mostrar columna Diferencia calculada debajo del editor
-                    _rc_dif_html = ''
-                    for _, _row_dif in _rc_edited.iterrows():
-                        _d = _row_dif['Diferencia']
-                        _dc = '#16a34a' if _d >= 0 else '#dc2626'
-                        _da = '▼' if _d >= 0 else '▲'
-                    # No mostrar tabla separada — los totales ya reflejan el resultado
+                    # Tabla HTML con diferencia por ítem
+                    _dif_html = (
+                        "<div style='overflow-x:auto;margin-top:-4px;'>"
+                        "<table style='width:100%;border-collapse:collapse;font-size:0.82rem;font-family:sans-serif;'>"
+                        "<thead><tr style='background:#1e2447;color:#fff;'>"
+                        "<th style='padding:6px 10px;text-align:left;font-size:0.72rem;letter-spacing:0.05em;'>CATEGORÍA</th>"
+                        "<th style='padding:6px 10px;text-align:left;font-size:0.72rem;letter-spacing:0.05em;'>ÍTEM</th>"
+                        "<th style='padding:6px 10px;text-align:right;font-size:0.72rem;letter-spacing:0.05em;'>CANT.</th>"
+                        "<th style='padding:6px 10px;text-align:right;font-size:0.72rem;letter-spacing:0.05em;'>PRESUP.</th>"
+                        "<th style='padding:6px 10px;text-align:right;font-size:0.72rem;letter-spacing:0.05em;'>REAL</th>"
+                        "<th style='padding:6px 10px;text-align:right;font-size:0.72rem;letter-spacing:0.05em;'>ADIC.</th>"
+                        "<th style='padding:6px 10px;text-align:right;font-size:0.72rem;letter-spacing:0.05em;'>DIFERENCIA</th>"
+                        "</tr></thead><tbody>"
+                    )
+                    for _ri2, _row2 in _rc_edited.iterrows():
+                        _d2   = float(_row2['Diferencia'])
+                        _dc2  = '#16a34a' if _d2 >= 0 else '#dc2626'
+                        _da2  = '▼' if _d2 >= 0 else '▲'
+                        _bg2  = '#ffffff' if _ri2 % 2 == 0 else '#f8fafc'
+                        _pu2  = f"${int(_row2['Presup. unit.']):,}".replace(',','.')
+                        _ru2  = f"${int(_row2['Real unit.']):,}".replace(',','.')
+                        _df2  = f"${abs(int(_d2)):,}".replace(',','.')
+                        _dif_html += (
+                            f"<tr style='background:{_bg2};border-bottom:1px solid #f0f2f8;'>"
+                            f"<td style='padding:5px 10px;color:#64748b;font-size:0.75rem;'>{_row2['Categoría']}</td>"
+                            f"<td style='padding:5px 10px;'>{_row2['Ítem']}</td>"
+                            f"<td style='padding:5px 10px;text-align:right;'>{int(_row2['Cant.'])}</td>"
+                            f"<td style='padding:5px 10px;text-align:right;'>{_pu2}</td>"
+                            f"<td style='padding:5px 10px;text-align:right;'>{_ru2}</td>"
+                            f"<td style='padding:5px 10px;text-align:right;color:#dc2626;font-weight:700;'>{int(_row2['Adicional'])}</td>"
+                            f"<td style='padding:5px 10px;text-align:right;font-weight:700;color:{_dc2};'>{_df2} {_da2}</td>"
+                            f"</tr>"
+                        )
+                    _dif_html += "</tbody></table></div>"
+                    st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:12px 0 4px;">📊 Diferencia por ítem</div>', unsafe_allow_html=True)
+                    st.markdown(_dif_html, unsafe_allow_html=True)
+
 
                     # Totales
                     _rc_total_p     = (_rc_edited['Presup. unit.'] * _rc_edited['Cant.']).sum()
