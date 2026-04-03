@@ -10959,27 +10959,60 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                     st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
 
 
+                    # Campo oculto para capturar valores JSON desde el componente HTML
+                    _rc_json_key = f'rc_json_{_rc_ep}'
+                    _rc_json_str = st.text_input('Valores JSON (no editar)', value='[]',
+                        key=_rc_json_key, label_visibility='collapsed')
+                    st.markdown("""
+                    <style>
+                    div[data-testid='stTextInput']:has(input[aria-label='Valores JSON (no editar)'])
+                    {height:0!important;overflow:hidden!important;margin:0!important;padding:0!important;}
+                    </style>""", unsafe_allow_html=True)
+
+                    # JS para sincronizar valores del iframe al campo oculto
+                    import streamlit.components.v1 as _rc_sync
+                    _rc_sync.html("""
+<script>
+(function(){
+    window.addEventListener('message', function(e){
+        if(!e.data || e.data.type !== 'rc_vals') return;
+        var D = window.parent.document;
+        var inputs = D.querySelectorAll('input[aria-label="Valores JSON (no editar)"]');
+        if(inputs.length > 0){
+            var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+            nativeInputValueSetter.call(inputs[0], JSON.stringify(e.data.vals));
+            inputs[0].dispatchEvent(new Event('input', {bubbles: true}));
+        }
+    });
+})();
+</script>""", height=0)
+
                     # Botón guardar — deshabilitado sin factura
-                    import pandas as _pd_rc2
-                    _rc_df_cap = _pd_rc2.DataFrame([{
-                        'Ítem': str(_prod.get('Item','')),
-                        'Real unit.': 0.0,
-                        'Adicional': 0,
-                    } for _prod in _rc_prods])
-                    _rc_cap = st.data_editor(
-                        _rc_df_cap, hide_index=True, key=f'rc_cap_{_rc_ep}',
-                        use_container_width=True,
-                        column_config={
-                            'Ítem':       st.column_config.TextColumn(disabled=True),
-                            'Real unit.': st.column_config.NumberColumn('Real unit. $', min_value=0.0, step=100.0, format='%d'),
-                            'Adicional':  st.column_config.NumberColumn('Adicional', min_value=0, step=1, format='%d'),
-                        }
-                    )
-                    st.caption('⬆️ Ingresa aquí los valores finales para guardar')
                     if st.button('💾 Guardar registro de compra', key='rc_guardar',
                                  use_container_width=True, disabled=not bool(_rc_factura)):
-                        # Combinar items del presupuesto + adicionales del catálogo
-                        _rc_all_items = _rc_edited.to_dict('records')
+                        import json as _jrc_save
+                        try:
+                            _rc_vals_parsed = _jrc_save.loads(_rc_json_str or '[]')
+                        except:
+                            _rc_vals_parsed = []
+                        # Construir items combinando productos del presupuesto con valores del HTML
+                        _rc_vals_map = {str(v.get('idx','')): v for v in _rc_vals_parsed}
+                        _rc_all_items = []
+                        for _ri2, _prod2 in enumerate(_rc_prods):
+                            _pu2   = round(float(_prod2.get('Precio Unitario',0) or 0))
+                            _cant2 = round(float(_prod2.get('Cantidad',1) or 1))
+                            _vmap  = _rc_vals_map.get(str(_ri2), {})
+                            _real2 = float(_vmap.get('real', 0) or 0)
+                            _adic2 = int(_vmap.get('adic', 0) or 0)
+                            _rc_all_items.append({
+                                'categoria': str(_prod2.get('Categoria','')),
+                                'item': str(_prod2.get('Item','')),
+                                'cantidad': _cant2,
+                                'precio_presupuestado': _pu2,
+                                'precio_real': _real2,
+                                'adicional': _adic2,
+                                'diferencia': (_pu2 - _real2) * _cant2 - (_adic2 * _real2)
+                            })
                         if st.session_state.get('rc_adicionales'):
                             _rc_all_items.extend(st.session_state.rc_adicionales)
 
