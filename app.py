@@ -7508,17 +7508,24 @@ if tab3 is not None:
     });
 
     // ── Contador en vivo demora ──
-    function isLiveInActiveTable(el){
-        // Solo actualizar si el elemento está dentro de la tabla activa en el DOM visible
+    function isLiveVisible(el){
+        // Verificar que el elemento está en el DOM activo y visible
+        if(!D.body.contains(el)) return false;
         var tbl = el.closest('.resultados-table');
         if(!tbl) return false;
-        // Verificar que la tabla está conectada al documento (no es un nodo huérfano)
-        return D.contains(tbl) && tbl.offsetParent !== null;
+        // Verificar que ningún ancestro está oculto
+        var node = el;
+        while(node && node !== D.body){
+            var st = window.parent.getComputedStyle(node);
+            if(st.display==='none' || st.visibility==='hidden') return false;
+            node = node.parentElement;
+        }
+        return true;
     }
     function updateLiveTimers(){
         var spans = D.querySelectorAll('.demora-live');
         spans.forEach(function(el){
-            if(!isLiveInActiveTable(el)){ el.textContent=''; return; }
+            if(!isLiveVisible(el)){ el.textContent=''; return; }
             var desde = parseInt(el.getAttribute('data-desde'));
             if(!desde) return;
             var diff = Date.now() - desde;
@@ -7537,7 +7544,7 @@ if tab3 is not None:
         // ── Tiempo fabricación (contador hacia adelante) ──
         var fabs = D.querySelectorAll('.fab-live');
         fabs.forEach(function(el){
-            if(!isLiveInActiveTable(el)){ el.textContent=''; return; }
+            if(!isLiveVisible(el)){ el.textContent=''; return; }
             var desde = parseInt(el.getAttribute('data-desde'));
             if(!desde) return;
             var diff = Date.now() - desde;
@@ -7554,7 +7561,7 @@ if tab3 is not None:
         // ── Retraso proyecto (contador desde vencimiento) ──
         var retrasos = D.querySelectorAll('.retraso-live');
         retrasos.forEach(function(el){
-            if(!isLiveInActiveTable(el)){ el.textContent=''; return; }
+            if(!isLiveVisible(el)){ el.textContent=''; return; }
             var desde = parseInt(el.getAttribute('data-desde'));
             if(!desde) return;
             var diff = Date.now() - desde;
@@ -7571,7 +7578,7 @@ if tab3 is not None:
         // ── Cuenta regresiva fidelización (segundos en tiempo real) ──
         var fidels = D.querySelectorAll('.fidel-live');
         fidels.forEach(function(el){
-            if(!isLiveInActiveTable(el)){ el.textContent=''; return; }
+            if(!isLiveVisible(el)){ el.textContent=''; return; }
             var hasta = parseInt(el.getAttribute('data-hasta'));
             var plazo = parseInt(el.getAttribute('data-plazo')) || 1;
             var adjTs = parseInt(el.getAttribute('data-adj')) || 0;
