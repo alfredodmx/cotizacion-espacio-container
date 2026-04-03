@@ -7311,16 +7311,23 @@ if tab3 is not None:
 <script>
 (function(){
     var D=window.parent.document;
+    var MAP={
+        "TODOS":".st-key-_fbtn_TODOS button",
+        "\uD83D\uDD35 ADJUDICADO":".st-key-_fbtn_ADJ button",
+        "\uD83D\uDFE2 AUTORIZADO CON PLANO":".st-key-_fbtn_ACP button",
+        "\uD83D\uDFE2 AUTORIZADO":".st-key-_fbtn_AUT button",
+        "\uD83D\uDFE0 BORRADOR CON PLANO":".st-key-_fbtn_BCP button",
+        "\uD83D\uDFE1 BORRADOR":".st-key-_fbtn_BOR button",
+        "\uD83D\uDD34 INCOMPLETO CON PLANO":".st-key-_fbtn_ICP button",
+        "\uD83D\uDD34 INCOMPLETO":".st-key-_fbtn_INC button",
+        "\u274C RECHAZADO":".st-key-_fbtn_REC button"
+    };
     D.addEventListener('click',function(e){
         var el=e.target&&e.target.closest?e.target.closest('._badge_filtro'):null;
         if(!el)return;
         var filtro=el.getAttribute('data-filtro')||'TODOS';
-        // Buscar y hacer click en el botón oculto de Streamlit correspondiente
-        var btns=D.querySelectorAll('button');
-        for(var i=0;i<btns.length;i++){
-            var txt=(btns[i].innerText||btns[i].textContent||'').trim();
-            if(txt==='__FILTRO__'+filtro){btns[i].click();return;}
-        }
+        var sel=MAP[filtro];
+        if(sel){var btn=D.querySelector(sel);if(btn)btn.click();}
     });
 })();
 </script>""", height=0)
