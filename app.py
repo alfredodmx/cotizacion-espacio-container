@@ -7313,14 +7313,45 @@ if tab3 is not None:
         var el=e.target&&e.target.closest?e.target.closest('._badge_filtro'):null;
         if(!el)return;
         var filtro=el.getAttribute('data-filtro')||'TODOS';
-        var url=window.parent.location.href.split('?')[0]+'?_filtro_estado='+encodeURIComponent(filtro);
-        window.parent.location.href=url;
+        // Buscar y hacer click en el botón oculto de Streamlit correspondiente
+        var btns=D.querySelectorAll('button');
+        for(var i=0;i<btns.length;i++){
+            var txt=(btns[i].innerText||btns[i].textContent||'').trim();
+            if(txt==='__FILTRO__'+filtro){btns[i].click();return;}
+        }
     });
 })();
 </script>""", height=0)
         with _col_ref:
             if st.button("🔄", key="cot_refresh_tabla", help="Actualizar resultados", use_container_width=True):
                 st.session_state.resultados_busqueda = None
+                st.rerun()
+        # Botones invisibles para cada filtro — activados por el JS de los badges
+        st.markdown("""
+        <style>
+        .st-key-_fbtn_TODOS button, .st-key-_fbtn_ADJ button,
+        .st-key-_fbtn_ACP button,  .st-key-_fbtn_AUT button,
+        .st-key-_fbtn_BCP button,  .st-key-_fbtn_BOR button,
+        .st-key-_fbtn_ICP button,  .st-key-_fbtn_INC button,
+        .st-key-_fbtn_REC button {
+            position:fixed!important;top:-9999px!important;left:-9999px!important;
+            width:1px!important;height:1px!important;overflow:hidden!important;
+        }
+        </style>""", unsafe_allow_html=True)
+        _fbtn_map = [
+            ('TODOS',                 '_fbtn_TODOS'),
+            ('🔵 ADJUDICADO',         '_fbtn_ADJ'),
+            ('🟢 AUTORIZADO CON PLANO','_fbtn_ACP'),
+            ('🟢 AUTORIZADO',         '_fbtn_AUT'),
+            ('🟠 BORRADOR CON PLANO', '_fbtn_BCP'),
+            ('🟡 BORRADOR',           '_fbtn_BOR'),
+            ('🔴 INCOMPLETO CON PLANO','_fbtn_ICP'),
+            ('🔴 INCOMPLETO',         '_fbtn_INC'),
+            ('❌ RECHAZADO',          '_fbtn_REC'),
+        ]
+        for _fval, _fkey in _fbtn_map:
+            if st.button(f'__FILTRO__{_fval}', key=_fkey):
+                st.session_state.filtro_estado_tabla = None if _fval == 'TODOS' else _fval
                 st.rerun()
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
