@@ -2804,8 +2804,7 @@ st.markdown("""
     hr { display: none !important; }
     /* ── Colapsar botones ocultos de filtro de estado ── */
     .st-key-_fbtn_TODOS,.st-key-_fbtn_ADJ,.st-key-_fbtn_ACP,.st-key-_fbtn_AUT,
-    .st-key-_fbtn_BCP,.st-key-_fbtn_BOR,.st-key-_fbtn_ICP,.st-key-_fbtn_INC,.st-key-_fbtn_REC,
-    .st-emotion-cache-2peeg4.eiemyj1 {
+    .st-key-_fbtn_BCP,.st-key-_fbtn_BOR,.st-key-_fbtn_ICP,.st-key-_fbtn_INC,.st-key-_fbtn_REC {
         display:none !important;
     }
 
