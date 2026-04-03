@@ -10893,12 +10893,13 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                 else:
                     # Tabla con productos precargados — solo editar precio real
                     st.markdown(
-                        '<div style="display:grid;grid-template-columns:2fr 3fr 0.7fr 1.2fr 1.2fr 1.3fr;'
+                        '<div style="display:grid;grid-template-columns:2fr 3fr 0.7fr 1.2fr 1.2fr 0.8fr 1.3fr;'
                         'gap:4px;padding:6px 8px;background:#1e2447;border-radius:8px 8px 0 0;'
                         'font-size:0.72rem;font-weight:700;color:#fff;letter-spacing:0.05em;text-transform:uppercase;">'
                         '<span>Categoría</span><span>Ítem</span><span>Cant.</span>'
                         '<span style="text-align:right;">Presup. unit.</span>'
                         '<span style="text-align:right;">Real unit.</span>'
+                        '<span style="text-align:right;color:#fca5a5;">Adicional</span>'
                         '<span style="text-align:right;">Diferencia</span>'
                         '</div>',
                         unsafe_allow_html=True
@@ -10918,14 +10919,13 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         _bg = '#ffffff' if _ri % 2 == 0 else '#f8fafc'
                         _rk = f'rc_real_{_rc_ep}_{_ri}'
 
-                        _col1, _col2, _col3, _col4, _col5, _col6 = st.columns([2, 3, 0.7, 1.2, 1.2, 1.3])
+                        _col1, _col2, _col3, _col4, _col5, _col5b, _col6 = st.columns([2, 3, 0.7, 1.2, 1.2, 0.8, 1.3])
                         with _col1:
                             st.markdown(f'<div style="font-size:0.75rem;color:#64748b;padding:8px 4px;background:{_bg};">{_cat}</div>', unsafe_allow_html=True)
                         with _col2:
                             st.markdown(f'<div style="font-size:0.82rem;padding:8px 4px;background:{_bg};">{_item}</div>', unsafe_allow_html=True)
                         with _col3:
-                            _cant_edit = st.number_input('Cant', value=float(_cant), min_value=0.0, step=1.0,
-                                key=f'rc_cant_{_rc_ep}_{_ri}', label_visibility='collapsed')
+                            st.markdown(f'<div style="font-size:0.82rem;text-align:right;padding:8px 4px;background:{_bg};">{_cant:.0f}</div>', unsafe_allow_html=True)
                         with _col4:
                             st.markdown(f'<div style="font-size:0.82rem;text-align:right;padding:8px 4px;background:{_bg};">${_p_unit:,.0f}</div>'.replace(',','.'), unsafe_allow_html=True)
                         with _col5:
@@ -10937,10 +10937,21 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                                 key=_rk,
                                 label_visibility='collapsed'
                             )
+                        with _col5b:
+                            _rc_adic_cant = st.number_input(
+                                'Adic',
+                                value=0,
+                                min_value=0,
+                                step=1,
+                                key=f'rc_adic_{_rc_ep}_{_ri}',
+                                label_visibility='collapsed'
+                            )
                         with _col6:
-                            _dif_unit = _p_unit - _real_val
-                            _dif_total = _dif_unit * _cant_edit
-                            _dif_col = '#16a34a' if _dif_total >= 0 else '#dc2626'
+                            _dif_unit  = _p_unit - _real_val
+                            _dif_pres  = _dif_unit * _cant  # diferencia sobre unidades presupuestadas
+                            _dif_adic  = -(_rc_adic_cant * _real_val)  # adicionales = siempre pérdida
+                            _dif_total = _dif_pres + _dif_adic
+                            _dif_col   = '#16a34a' if _dif_total >= 0 else '#dc2626'
                             _dif_arrow = '▼' if _dif_total >= 0 else '▲'
                             st.markdown(
                                 f'<div style="font-size:0.82rem;text-align:right;padding:8px 4px;'
@@ -10949,15 +10960,16 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                                 unsafe_allow_html=True
                             )
 
-                        _rc_total_p += _p_unit * _cant_edit
-                        _rc_total_r += _real_val * _cant_edit
+                        _rc_total_p += _p_unit * _cant
+                        _rc_total_r += (_real_val * _cant) + (_rc_adic_cant * _real_val)
                         _rc_items_result.append({
                             'categoria': _cat,
                             'item': _item,
-                            'cantidad': _cant_edit,
+                            'cantidad': _cant,
+                            'cantidad_adicional': _rc_adic_cant,
                             'precio_presupuestado': _p_unit,
                             'precio_real': _real_val,
-                            'diferencia': (_p_unit - _real_val) * _cant_edit
+                            'diferencia': (_p_unit - _real_val) * _cant - (_rc_adic_cant * _real_val)
                         })
 
                     # Totales con IVA
