@@ -2866,6 +2866,10 @@ st.markdown("""
         text-transform: uppercase !important; white-space: nowrap !important;
         position: sticky !important; top: 0 !important; z-index: 2 !important;
     }
+    .resultados-table th:first-child {
+        position: sticky !important; left: 0 !important; z-index: 3 !important;
+        background: linear-gradient(135deg, #1e2447 0%, #2a3060 100%) !important;
+    }
     .resultados-table td {
         padding: 8px 12px !important; border-bottom: 1px solid #f0f2f8 !important;
         color: #3a4070 !important; background-color: #ffffff !important;
@@ -2873,7 +2877,13 @@ st.markdown("""
         vertical-align: middle !important;
         word-break: break-word !important;
     }
+    .resultados-table td:first-child {
+        position: sticky !important; left: 0 !important; z-index: 1 !important;
+        background-color: #ffffff !important;
+        border-right: 2px solid #e2e8f0 !important;
+    }
     .resultados-table tr:hover td { background-color: #f5f7ff !important; }
+    .resultados-table tr:hover td:first-child { background-color: #f5f7ff !important; }
     .resultados-table td.demora-col { color: #dc2626 !important; white-space: nowrap !important; }
     .resultados-table tr:last-child td { border-bottom: none !important; }
 
@@ -3185,6 +3195,8 @@ if _tema == "dark":
     .stPopover > button { background-color: #1e293b !important; color: #f1f5f9 !important; border: 1px solid #334155 !important; }
     .resultados-table { background: #1e293b !important; border-color: #334155 !important; }
     .resultados-table th { background-color: #0f172a !important; color: #f1f5f9 !important; border-bottom: 2px solid #334155 !important; }
+    .resultados-table td:first-child { background-color: #1e293b !important; }
+    .resultados-table tr:hover td:first-child { background-color: #2d3748 !important; }
     .resultados-table th.th-adj { background-color: #fbbf24 !important; color: #0f172a !important; }
     .resultados-table td { color: #cbd5e1 !important; background-color: #1e293b !important; border-bottom: 1px solid #334155 !important; }
     .resultados-table td.demora-col { color: #f87171 !important; }
