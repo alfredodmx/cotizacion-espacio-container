@@ -2809,6 +2809,12 @@ st.markdown("""
         margin:0 !important;padding:0 !important;
         overflow:hidden !important;display:block !important;
     }
+    /* Colapsar el bloque vertical que contiene los botones ocultos */
+    .st-emotion-cache-1nvdo2b.eiemyj3 {
+        height:0 !important;min-height:0 !important;
+        margin:0 !important;padding:0 !important;
+        overflow:hidden !important;
+    }
 
     /* ── Reducir espacio tabla cotizaciones → scroll → selector ── */
     .st-key-cot_refresh_tabla ~ div,
