@@ -7313,36 +7313,10 @@ if tab3 is not None:
                     f'{_btxt}</span>'
                 )
             st.markdown(_badge_html, unsafe_allow_html=True)
-            import streamlit.components.v1 as _badge_js_comp
-            _badge_js_comp.html("""
-<script>
-(function(){
-    var D=window.parent.document;
-    D.addEventListener('click',function(e){
-        var el=e.target&&e.target.closest?e.target.closest('._badge_filtro'):null;
-        if(!el)return;
-        var selKey=el.getAttribute('data-sel')||'_fbtn_TODOS';
-        var btn=D.querySelector('.st-key-'+selKey+' button');
-        if(btn)btn.click();
-    });
-})();
-</script>""", height=0)
         with _col_ref:
             if st.button("🔄", key="cot_refresh_tabla", help="Actualizar resultados", use_container_width=True):
                 st.session_state.resultados_busqueda = None
                 st.rerun()
-        # Botones invisibles para cada filtro — activados por el JS de los badges
-        st.markdown("""
-        <style>
-        .st-key-_fbtn_TODOS button, .st-key-_fbtn_ADJ button,
-        .st-key-_fbtn_ACP button,  .st-key-_fbtn_AUT button,
-        .st-key-_fbtn_BCP button,  .st-key-_fbtn_BOR button,
-        .st-key-_fbtn_ICP button,  .st-key-_fbtn_INC button,
-        .st-key-_fbtn_REC button {
-            position:fixed!important;top:-9999px!important;left:-9999px!important;
-            width:1px!important;height:1px!important;overflow:hidden!important;
-        }
-        </style>""", unsafe_allow_html=True)
         _fbtn_map = [
             ('TODOS',                 '_fbtn_TODOS'),
             ('🔵 ADJUDICADO',         '_fbtn_ADJ'),
@@ -7358,6 +7332,29 @@ if tab3 is not None:
             if st.button(f'__FILTRO__{_fval}', key=_fkey):
                 st.session_state.filtro_estado_tabla = None if _fval == 'TODOS' else _fval
                 st.rerun()
+        # JS badge filtro + CSS colapso botones ocultos
+        import streamlit.components.v1 as _badge_js_comp
+        _badge_js_comp.html("""
+<style>
+/* Colapsar botones ocultos de filtro */
+.st-key-_fbtn_TODOS,.st-key-_fbtn_ADJ,.st-key-_fbtn_ACP,.st-key-_fbtn_AUT,
+.st-key-_fbtn_BCP,.st-key-_fbtn_BOR,.st-key-_fbtn_ICP,.st-key-_fbtn_INC,.st-key-_fbtn_REC{
+    height:0!important;margin:0!important;padding:0!important;overflow:hidden!important;
+    min-height:0!important;display:block!important;
+}
+</style>
+<script>
+(function(){
+    var D=window.parent.document;
+    D.addEventListener('click',function(e){
+        var el=e.target&&e.target.closest?e.target.closest('._badge_filtro'):null;
+        if(!el)return;
+        var selKey=el.getAttribute('data-sel')||'_fbtn_TODOS';
+        var btn=D.querySelector('.st-key-'+selKey+' button');
+        if(btn)btn.click();
+    });
+})();
+</script>""", height=0)
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
         # Altura adaptativa: si hay pocas filas, altura real sin scroll
