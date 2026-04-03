@@ -2883,6 +2883,14 @@ st.markdown("""
         border-right: 2px solid #cbd5e1 !important;
         clip-path: inset(0px -8px 0px 0px) !important;
         filter: drop-shadow(4px 0 4px rgba(0,0,0,0.10)) !important;
+        transform: translateZ(0) !important;
+        will-change: transform !important;
+        outline: 1px solid #ffffff !important;
+    }
+    .resultados-table th:first-child {
+        transform: translateZ(0) !important;
+        will-change: transform !important;
+        outline: 1px solid #1e2447 !important;
     }
     .resultados-table tr:hover td { background-color: #f5f7ff !important; }
     .resultados-table tr:hover td:first-child { background-color: #f5f7ff !important; }
