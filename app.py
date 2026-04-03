@@ -7425,7 +7425,7 @@ if tab3 is not None:
             color: #ffffff !important;
         }}
         </style>
-        <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;margin-top:-1px;">
+        <div style="border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
             <div style="{_altura_css}">
                 <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:1700px;table-layout:auto;white-space:nowrap;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
@@ -10457,7 +10457,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
         _usar_scroll_op  = _altura_op_real > 550
         _altura_css_op   = f"max-height:{min(_altura_op_real, 550)}px;overflow-y:auto;" if _usar_scroll_op else ""
         _html_op = f"""
-        <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;margin-top:-1px;">
+        <div style="border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
           <div style="{_altura_css_op}">
             <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:900px;'>
               <thead style='position:sticky;top:0;z-index:2;'>
@@ -12617,7 +12617,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
             st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
             st.markdown(f"""
-            <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;margin-top:-1px;">
+            <div style="border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
               <div style="{_cn_scroll}">
                 <table class="resultados-table" style="margin:0;border-radius:0;box-shadow:none;min-width:700px;">
                   <thead style="position:sticky;top:0;z-index:2;">
