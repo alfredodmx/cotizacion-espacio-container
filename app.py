@@ -7087,6 +7087,13 @@ if tab3 is not None:
             except: return '<span style="color:#94a3b8;">0</span>'
         df_resultados["ModCol"] = df_resultados["NLogs"].apply(_fmt_nlogs)
 
+        # Calcular conteos ANTES de filtrar para que los badges siempre muestren todos
+        import re as _re_cnt_pre
+        _estados_cnt_total = {}
+        for _bv in df_resultados['Estado']:
+            _bt = _re_cnt_pre.sub(r'<[^>]+>', '', str(_bv)).strip()
+            _estados_cnt_total[_bt] = _estados_cnt_total.get(_bt, 0) + 1
+
         # Aplicar filtro de estado si está activo
         _filtro_activo = st.session_state.get('filtro_estado_tabla')
         if _filtro_activo:
@@ -7261,12 +7268,7 @@ if tab3 is not None:
 
         # Badge resumen por estado
         # Contar por estado usando los badges ya calculados
-        _estados_cnt = {}
-        for _badge_val in df_resultados["Estado"]:
-            # Extraer texto del badge HTML
-            import re as _re_badge
-            _txt = _re_badge.sub('<[^>]+>', '', str(_badge_val)).strip()
-            _estados_cnt[_txt] = _estados_cnt.get(_txt, 0) + 1
+        _estados_cnt = _estados_cnt_total  # ya calculado antes del filtro
 
         _filtro_activo_badge = st.session_state.get('filtro_estado_tabla')
         _todos_activo = not _filtro_activo_badge
