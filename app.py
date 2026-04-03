@@ -2885,10 +2885,16 @@ st.markdown("""
         filter: drop-shadow(4px 0 4px rgba(0,0,0,0.10)) !important;
         transform: translateZ(0) !important;
         will-change: transform !important;
+        box-sizing: border-box !important;
+        margin-left: -1px !important;
+        padding-left: 13px !important;
     }
     .resultados-table th:first-child {
         transform: translateZ(0) !important;
         will-change: transform !important;
+        box-sizing: border-box !important;
+        margin-left: -1px !important;
+        padding-left: 13px !important;
     }
     .resultados-table tr:hover td { background-color: #f5f7ff !important; }
     .resultados-table tr:hover td:first-child { background-color: #f5f7ff !important; }
