@@ -7275,7 +7275,7 @@ if tab3 is not None:
         _todos_bg  = '#6d28d9' if _todos_activo else '#ede9fe'
         _todos_col = '#fff'    if _todos_activo else '#6d28d9'
         _n_total = len(st.session_state.resultados_busqueda)
-        _badge_items = [('TODOS', _todos_bg, _todos_col, '', f'Todos ({_n_total})')]
+        _badge_items = [('TODOS', _todos_bg, _todos_col, '', f'Todos ({_n_total})', '_fbtn_TODOS')]
         _badge_map = [
             ('🔵 ADJUDICADO',          '#dbeafe', '#1d4ed8', '#1e40af', 'adjudicados'),
             ('🟢 AUTORIZADO CON PLANO','#dcfce7', '#15803d', '#166534', 'aut. con plano'),
@@ -7293,14 +7293,21 @@ if tab3 is not None:
                 _bg_b  = _col_act if _es_activo else _bg
                 _col_b = '#fff'   if _es_activo else _col
                 _shadow = f'box-shadow:0 0 0 2px {_col_act};' if _es_activo else ''
-                _badge_items.append((_key, _bg_b, _col_b, _shadow, f'{_key.split()[0]} {_cnt} {_lbl}'))
+                _sel_map = {
+                    '🔵 ADJUDICADO':'_fbtn_ADJ','🟢 AUTORIZADO CON PLANO':'_fbtn_ACP',
+                    '🟢 AUTORIZADO':'_fbtn_AUT','🟠 BORRADOR CON PLANO':'_fbtn_BCP',
+                    '🟡 BORRADOR':'_fbtn_BOR','🔴 INCOMPLETO CON PLANO':'_fbtn_ICP',
+                    '🔴 INCOMPLETO':'_fbtn_INC','❌ RECHAZADO':'_fbtn_REC'
+                }
+                _sel_key = _sel_map.get(_key, '_fbtn_TODOS')
+                _badge_items.append((_key, _bg_b, _col_b, _shadow, f'{_key.split()[0]} {_cnt} {_lbl}', _sel_key))
         # Usar st.button para cada badge — evita problemas de HTML con onclick
         _col_badge, _col_ref = st.columns([5, 0.7])
         with _col_badge:
             _badge_html = ''
-            for _bk, _bbg, _bcol, _bshadow, _btxt in _badge_items:
+            for _bk, _bbg, _bcol, _bshadow, _btxt, _bsel in _badge_items:
                 _badge_html += (
-                    f'<span data-filtro="{_bk}" style="cursor:pointer;background:{_bbg};color:{_bcol};'
+                    f'<span data-filtro="{_bk}" data-sel="{_bsel}" style="cursor:pointer;background:{_bbg};color:{_bcol};'
                     f'{_bshadow}padding:5px 14px;border-radius:99px;font-size:13px;font-weight:700;'
                     f'margin-right:6px;display:inline-block;" class="_badge_filtro">'
                     f'{_btxt}</span>'
@@ -7311,23 +7318,12 @@ if tab3 is not None:
 <script>
 (function(){
     var D=window.parent.document;
-    var MAP={
-        "TODOS":".st-key-_fbtn_TODOS button",
-        "\uD83D\uDD35 ADJUDICADO":".st-key-_fbtn_ADJ button",
-        "\uD83D\uDFE2 AUTORIZADO CON PLANO":".st-key-_fbtn_ACP button",
-        "\uD83D\uDFE2 AUTORIZADO":".st-key-_fbtn_AUT button",
-        "\uD83D\uDFE0 BORRADOR CON PLANO":".st-key-_fbtn_BCP button",
-        "\uD83D\uDFE1 BORRADOR":".st-key-_fbtn_BOR button",
-        "\uD83D\uDD34 INCOMPLETO CON PLANO":".st-key-_fbtn_ICP button",
-        "\uD83D\uDD34 INCOMPLETO":".st-key-_fbtn_INC button",
-        "\u274C RECHAZADO":".st-key-_fbtn_REC button"
-    };
     D.addEventListener('click',function(e){
         var el=e.target&&e.target.closest?e.target.closest('._badge_filtro'):null;
         if(!el)return;
-        var filtro=el.getAttribute('data-filtro')||'TODOS';
-        var sel=MAP[filtro];
-        if(sel){var btn=D.querySelector(sel);if(btn)btn.click();}
+        var selKey=el.getAttribute('data-sel')||'_fbtn_TODOS';
+        var btn=D.querySelector('.st-key-'+selKey+' button');
+        if(btn)btn.click();
     });
 })();
 </script>""", height=0)
