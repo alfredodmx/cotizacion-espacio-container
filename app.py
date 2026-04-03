@@ -2802,6 +2802,15 @@ st.markdown("""
         box-shadow: none !important;
     }
     hr { display: none !important; }
+    /* ── Colapsar contenedores vacíos entre tabla cotizaciones y selector ── */
+    .st-emotion-cache-2peeg4:empty,
+    .stElementContainer:empty,
+    .element-container:empty {
+        display: none !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
     /* ── Reducir espacio tabla cotizaciones → scroll → selector ── */
     .st-key-cot_refresh_tabla ~ div,
     .st-key-cot_refresh_tabla + div {
@@ -7503,7 +7512,6 @@ if tab3 is not None:
 })();
 </script>""", height=0)
 
-        st.markdown("<div style='margin-top:-9rem;'></div>", unsafe_allow_html=True)
         st.markdown("### Seleccionar cotización")
 
         opciones = []
