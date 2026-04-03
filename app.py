@@ -10875,7 +10875,6 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         'Presup. unit.':  round(float(p.get('Precio Unitario',0) or 0)),
                         'Real unit.':     0.0,
                         'Adicional':      0,
-                        'Diferencia':     0.0,
                     } for p in _rc_prods])
 
                     _rc_edited = st.data_editor(
@@ -10886,20 +10885,27 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         column_config={
                             'Categoría':     st.column_config.TextColumn('Categoría',    disabled=True),
                             'Ítem':          st.column_config.TextColumn('Ítem',         disabled=True),
-                            'Cant.':         st.column_config.NumberColumn('Cant.',       disabled=True, format='%.0f'),
-                            'Presup. unit.': st.column_config.NumberColumn('Presup. unit.', disabled=True, format='$%.0f'),
-                            'Real unit.':    st.column_config.NumberColumn('Real unit.',  min_value=0.0, step=100.0, format='$%.0f'),
-                            'Adicional':     st.column_config.NumberColumn('Adicional',   min_value=0,   step=1,     format='%d',
+                            'Cant.':         st.column_config.NumberColumn('Cant.',       disabled=True, format='{:,.0f}'),
+                            'Presup. unit.': st.column_config.NumberColumn('Presup. unit.', disabled=True, format='$ {:,.0f}'),
+                            'Real unit.':    st.column_config.NumberColumn('Real unit.',  min_value=0.0, step=100.0, format='$ {:,.0f}'),
+                            'Adicional':     st.column_config.NumberColumn('Adicional',   min_value=0,   step=1,     format='{:,d}',
                                                 help='Unidades extra compradas fuera del presupuesto — siempre pérdida'),
-                            'Diferencia':    st.column_config.NumberColumn('Diferencia',  disabled=True, format='$%.0f'),
                         }
                     )
 
-                    # Calcular diferencia en tiempo real
+                    # Calcular diferencia desde valores editados
                     _rc_edited['Diferencia'] = (
                         (_rc_edited['Presup. unit.'] - _rc_edited['Real unit.']) * _rc_edited['Cant.']
                         - (_rc_edited['Adicional'] * _rc_edited['Real unit.'])
-                    )
+                    ).round(0)
+
+                    # Mostrar columna Diferencia calculada debajo del editor
+                    _rc_dif_html = ''
+                    for _, _row_dif in _rc_edited.iterrows():
+                        _d = _row_dif['Diferencia']
+                        _dc = '#16a34a' if _d >= 0 else '#dc2626'
+                        _da = '▼' if _d >= 0 else '▲'
+                    # No mostrar tabla separada — los totales ya reflejan el resultado
 
                     # Totales
                     _rc_total_p     = (_rc_edited['Presup. unit.'] * _rc_edited['Cant.']).sum()
@@ -10991,11 +10997,11 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                             column_config={
                                 'Categoría':     st.column_config.TextColumn(disabled=True),
                                 'Ítem':          st.column_config.TextColumn(disabled=True),
-                                'Cant.':         st.column_config.NumberColumn(disabled=True, format='%.0f'),
-                                'Presup. unit.': st.column_config.NumberColumn(disabled=True, format='$%.0f'),
-                                'Real unit.':    st.column_config.NumberColumn(min_value=0.0, step=100.0, format='$%.0f'),
-                                'Adicional':     st.column_config.NumberColumn(min_value=0, step=1, format='%d'),
-                                'Diferencia':    st.column_config.NumberColumn(disabled=True, format='$%.0f'),
+                                'Cant.':         st.column_config.NumberColumn(disabled=True, format='{:,.0f}'),
+                                'Presup. unit.': st.column_config.NumberColumn(disabled=True, format='$ {:,.0f}'),
+                                'Real unit.':    st.column_config.NumberColumn(min_value=0.0, step=100.0, format='$ {:,.0f}'),
+                                'Adicional':     st.column_config.NumberColumn(min_value=0, step=1, format='{:,d}'),
+                                'Diferencia':    st.column_config.NumberColumn(disabled=True, format='$ {:,.0f}'),
                             }
                         )
                         _rc_adic_edited['Diferencia'] = (
