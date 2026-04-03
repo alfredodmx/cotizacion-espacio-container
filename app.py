@@ -7201,6 +7201,12 @@ if tab3 is not None:
             import json as _json_cot
             from datetime import datetime as _dt_cot, timezone as _tz_cot, timedelta as _td_cot
             _tz_cl_cot  = _tz_cot(_td_cot(hours=-3))
+            # Inicializar todas las variables de columnas al inicio de cada fila
+            _proc_not_html    = '<span style="color:#94a3b8;">—</span>'
+            _fadj_html_cot    = '<span style="color:#94a3b8;">—</span>'
+            _fab_html_cot     = '<span style="color:#94a3b8;">—</span>'
+            _fidel_html_cot   = '<span style="color:#94a3b8;">—</span>'
+            _retraso_html_cot = '<span style="color:#94a3b8;">—</span>'
             _es_adj_cot = bool(str(row.get('Not_URL','') or ''))
             _fadj_raw_cot = str(row.get('Fecha_Adj','') or '')
             _fauth_raw_cot = str(row.get('Fecha_Auth','') or '')
@@ -7248,8 +7254,8 @@ if tab3 is not None:
                     _proc_not_html = (f'<span style="color:#2563eb;font-weight:700;">{" ".join(_partes_pn)}</span>'
                                       f'<br><span style="font-size:0.72em;color:#2563eb;">finalizado</span>')
                 except: pass
-            elif (_margen_cot > 0 or True) and _fauth_raw_cot:
-                # Corriendo — tiene fecha autorización pero no está adjudicado ni rechazado
+            elif _fauth_raw_cot and not _motivo_rec and not _es_adj_cot and _margen_cot > 0:
+                # Corriendo — autorizado/autorizado con plano, no adjudicado ni rechazado
                 try:
                     _d_desde_pn = _dt_cot.fromisoformat(_fauth_raw_cot.replace("Z","+00:00")).astimezone(_tz_cl_cot)
                     _ts_pn = int(_d_desde_pn.timestamp() * 1000)
