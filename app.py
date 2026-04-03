@@ -669,6 +669,80 @@ def guardar_plano_en_storage(archivo_pdf_bytes, cotizacion_numero, nombre_origin
     except Exception as e:
         return None, str(e)
 
+def guardar_factura_en_storage(archivo_bytes, cotizacion_numero, nombre_original):
+    """Sube una factura PDF al bucket 'facturas' de Supabase."""
+    try:
+        carpeta = cotizacion_numero.replace('/', '_').replace('\\', '_')
+        file_name = f"cotizacion-{carpeta}/{uuid.uuid4()}.pdf"
+        supabase.storage.from_('facturas').upload(
+            path=file_name,
+            file=archivo_bytes,
+            file_options={"content-type": "application/pdf"}
+        )
+        public_url = supabase.storage.from_('facturas').get_public_url(file_name)
+        return public_url, None
+    except Exception as e:
+        return None, str(e)
+
+def guardar_registro_compra(cotizacion_numero, usuario, factura_url, factura_nombre, items, total_presupuestado, total_real):
+    """Guarda un registro de compra en la tabla registro_compras."""
+    try:
+        import json as _jrc
+        balance = total_presupuestado - total_real
+        data = {
+            "cotizacion_numero": cotizacion_numero,
+            "usuario_registro": usuario,
+            "factura_url": factura_url or "",
+            "factura_nombre": factura_nombre or "",
+            "items": items,
+            "total_presupuestado": total_presupuestado,
+            "total_real": total_real,
+            "balance": balance,
+        }
+        resp = supabase.table("registro_compras").insert(data).execute()
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+def obtener_registros_compra(cotizacion_numero):
+    """Obtiene todos los registros de compra de una cotización."""
+    try:
+        resp = supabase.table("registro_compras").select("*").eq("cotizacion_numero", cotizacion_numero).order("fecha_registro", desc=True).execute()
+        return resp.data or []
+    except Exception as e:
+        return []
+
+def guardar_acta_en_storage(archivo_bytes, cotizacion_numero, nombre_original):
+    """Sube un acta PDF al bucket 'facturas' de Supabase."""
+    try:
+        carpeta = cotizacion_numero.replace('/', '_').replace('\\', '_')
+        file_name = f"acta-{carpeta}/{uuid.uuid4()}.pdf"
+        supabase.storage.from_('facturas').upload(
+            path=file_name,
+            file=archivo_bytes,
+            file_options={"content-type": "application/pdf"}
+        )
+        public_url = supabase.storage.from_('facturas').get_public_url(file_name)
+        return public_url, None
+    except Exception as e:
+        return None, str(e)
+
+def registrar_entrega_proyecto(cotizacion_numero, acta_url, acta_nombre):
+    """Actualiza cotización con acta de entrega y cambia estado a PROYECTO ENTREGADO."""
+    try:
+        from datetime import datetime, timezone, timedelta
+        _tz = timezone(timedelta(hours=-3))
+        _ahora = datetime.now(_tz).isoformat()
+        supabase.table("cotizaciones").update({
+            "acta_url": acta_url,
+            "acta_nombre": acta_nombre,
+            "fecha_entrega": _ahora,
+            "estado": "PROYECTO ENTREGADO"
+        }).eq("numero", cotizacion_numero).execute()
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
 def eliminar_plano_de_storage(url_plano):
     try:
         if not url_plano:
@@ -10731,34 +10805,183 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                             st.warning("⚠️ No se pudo preparar la descarga del plano.")
 
     with _sub_compras:
-        st.markdown('''
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
-             padding:3rem 2rem;text-align:center;">
-          <div style="font-size:2.5rem;margin-bottom:16px;">🛒</div>
-          <div style="font-size:1rem;font-weight:700;color:#1e293b;margin-bottom:8px;">
-            Registro de Compras
-          </div>
-          <div style="font-size:0.88rem;color:#64748b;max-width:400px;line-height:1.6;">
-            Próximamente — Registra el valor real de compra de cada producto vs el presupuestado
-            y obtén un balance de ahorro o sobrecosto por proyecto.
-          </div>
-        </div>
-        ''', unsafe_allow_html=True)
+        st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 12px 0;">🛒 Registro de Compras</div>', unsafe_allow_html=True)
+
+        # Obtener cotizaciones adjudicadas o proyecto entregado
+        try:
+            _rc_resp = supabase.table('cotizaciones').select(
+                'numero,cliente_nombre,contrato_notariado_url,estado'
+            ).not_.is_('contrato_notariado_url','null').order('fecha_creacion',desc=True).execute()
+            _rc_cots = [r for r in (_rc_resp.data or []) if r.get('contrato_notariado_url')]
+        except:
+            _rc_cots = []
+
+        if not _rc_cots:
+            st.info('No hay proyectos adjudicados aún.')
+        else:
+            _rc_opts = {f"{r['numero']} — {r.get('cliente_nombre') or 'S/C'}": r['numero'] for r in _rc_cots}
+            _rc_sel_label = st.selectbox('Seleccionar proyecto', list(_rc_opts.keys()), key='rc_sel_proyecto')
+            _rc_ep = _rc_opts.get(_rc_sel_label, '')
+
+            if _rc_ep:
+                # Mostrar registros existentes
+                _rc_existentes = obtener_registros_compra(_rc_ep)
+                if _rc_existentes:
+                    st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 4px;">📊 Registros anteriores</div>', unsafe_allow_html=True)
+                    for _rce in _rc_existentes:
+                        _rce_bal = float(_rce.get('balance',0) or 0)
+                        _rce_col = '#16a34a' if _rce_bal >= 0 else '#dc2626'
+                        _rce_icon = '✅' if _rce_bal >= 0 else '❌'
+                        _rce_lbl = 'Ahorro' if _rce_bal >= 0 else 'Sobrecosto'
+                        with st.expander(f"🧾 {_rce.get('factura_nombre','Sin factura')} — {_rce_icon} {_rce_lbl} ${abs(_rce_bal):,.0f}".replace(',','.')):
+                            _rce_items = _rce.get('items') or []
+                            if isinstance(_rce_items, str):
+                                import json as _jrce
+                                try: _rce_items = _jrce.loads(_rce_items)
+                                except: _rce_items = []
+                            if _rce_items:
+                                _rce_html = "<table style='width:100%;font-size:0.82rem;border-collapse:collapse;'>"
+                                _rce_html += "<tr style='background:#f1f5f9;'><th style='padding:6px 8px;text-align:left;'>Ítem</th><th style='padding:6px 8px;text-align:right;'>Presup.</th><th style='padding:6px 8px;text-align:right;'>Real</th><th style='padding:6px 8px;text-align:right;'>Diferencia</th></tr>"
+                                for _it in _rce_items:
+                                    _it_dif = float(_it.get('precio_presupuestado',0) or 0) - float(_it.get('precio_real',0) or 0)
+                                    _it_col = '#16a34a' if _it_dif >= 0 else '#dc2626'
+                                    _rce_html += (f"<tr style='border-bottom:1px solid #f0f2f8;'>"
+                                        f"<td style='padding:5px 8px;'>{_it.get('item','')}</td>"
+                                        f"<td style='padding:5px 8px;text-align:right;'>${float(_it.get('precio_presupuestado',0) or 0):,.0f}</td>"
+                                        f"<td style='padding:5px 8px;text-align:right;'>${float(_it.get('precio_real',0) or 0):,.0f}</td>"
+                                        f"<td style='padding:5px 8px;text-align:right;font-weight:700;color:{_it_col};'>${abs(_it_dif):,.0f} {'▼' if _it_dif>=0 else '▲'}</td>"
+                                        f"</tr>").replace(',','.')
+                                _rce_html += "</table>"
+                                st.markdown(_rce_html, unsafe_allow_html=True)
+                            if _rce.get('factura_url'):
+                                st.markdown(f"[📎 Ver factura]({_rce['factura_url']})", unsafe_allow_html=True)
+
+                st.markdown('---')
+                st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 12px;">➕ Nuevo registro de compra</div>', unsafe_allow_html=True)
+
+                # Subir factura
+                _rc_factura = st.file_uploader('📎 Factura PDF', type=['pdf'], key=f'rc_factura_{_rc_ep}')
+
+                # Items
+                st.markdown('<div style="font-size:0.82rem;font-weight:600;color:#64748b;margin:8px 0 4px;">Productos comprados</div>', unsafe_allow_html=True)
+                if 'rc_items' not in st.session_state:
+                    st.session_state.rc_items = [{'item':'','precio_presupuestado':0,'precio_real':0}]
+
+                _rc_items_new = []
+                for _ri, _ritem in enumerate(st.session_state.rc_items):
+                    _rc1, _rc2, _rc3, _rc4 = st.columns([3,1.5,1.5,0.5])
+                    with _rc1:
+                        _rn = st.text_input('Ítem', value=_ritem.get('item',''), key=f'rc_item_n_{_ri}', label_visibility='collapsed' if _ri>0 else 'visible')
+                    with _rc2:
+                        _rp = st.number_input('Presupuestado $', value=float(_ritem.get('precio_presupuestado',0)), min_value=0.0, key=f'rc_item_p_{_ri}', label_visibility='collapsed' if _ri>0 else 'visible')
+                    with _rc3:
+                        _rr = st.number_input('Real $', value=float(_ritem.get('precio_real',0)), min_value=0.0, key=f'rc_item_r_{_ri}', label_visibility='collapsed' if _ri>0 else 'visible')
+                    with _rc4:
+                        if _ri > 0 and st.button('✕', key=f'rc_del_{_ri}'):
+                            st.session_state.rc_items.pop(_ri)
+                            st.rerun()
+                    _rc_items_new.append({'item':_rn,'precio_presupuestado':_rp,'precio_real':_rr,'diferencia':_rp-_rr})
+                st.session_state.rc_items = _rc_items_new
+
+                if st.button('➕ Agregar ítem', key='rc_add_item'):
+                    st.session_state.rc_items.append({'item':'','precio_presupuestado':0,'precio_real':0})
+                    st.rerun()
+
+                # Totales
+                _rc_total_p = sum(float(i.get('precio_presupuestado',0)) for i in st.session_state.rc_items)
+                _rc_total_r = sum(float(i.get('precio_real',0)) for i in st.session_state.rc_items)
+                _rc_balance = _rc_total_p - _rc_total_r
+                _rc_bal_col = '#16a34a' if _rc_balance >= 0 else '#dc2626'
+                _rc_bal_lbl = '✅ Ahorro' if _rc_balance >= 0 else '❌ Sobrecosto'
+                st.markdown(
+                    f"<div style='background:#f8fafc;border-radius:10px;padding:12px 16px;margin:12px 0;display:flex;gap:24px;'>"
+                    f"<span style='font-size:0.85rem;'>💰 Presupuestado: <b>${_rc_total_p:,.0f}</b></span>"
+                    f"<span style='font-size:0.85rem;'>🧾 Real: <b>${_rc_total_r:,.0f}</b></span>"
+                    f"<span style='font-size:0.85rem;font-weight:700;color:{_rc_bal_col};'>{_rc_bal_lbl}: ${abs(_rc_balance):,.0f}</span>"
+                    f"</div>".replace(',','.'),
+                    unsafe_allow_html=True
+                )
+
+                if st.button('💾 Guardar registro de compra', key='rc_guardar', use_container_width=True):
+                    _rc_factura_url = ''
+                    _rc_factura_nom = ''
+                    if _rc_factura:
+                        _rc_factura_url, _rc_err = guardar_factura_en_storage(_rc_factura.getvalue(), _rc_ep, _rc_factura.name)
+                        if _rc_err:
+                            st.error(f'Error subiendo factura: {_rc_err}')
+                            st.stop()
+                        _rc_factura_nom = _rc_factura.name
+                    _rc_ok, _rc_err2 = guardar_registro_compra(
+                        _rc_ep,
+                        st.session_state.get('auth_nombre',''),
+                        _rc_factura_url, _rc_factura_nom,
+                        st.session_state.rc_items,
+                        _rc_total_p, _rc_total_r
+                    )
+                    if _rc_ok:
+                        st.success('✅ Registro guardado correctamente')
+                        st.session_state.rc_items = [{'item':'','precio_presupuestado':0,'precio_real':0}]
+                        st.rerun()
+                    else:
+                        st.error(f'Error guardando: {_rc_err2}')
 
     with _sub_acta:
-        st.markdown('''
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
-             padding:3rem 2rem;text-align:center;">
-          <div style="font-size:2.5rem;margin-bottom:16px;">📋</div>
-          <div style="font-size:1rem;font-weight:700;color:#1e293b;margin-bottom:8px;">
-            Acta de Clientes
-          </div>
-          <div style="font-size:0.88rem;color:#64748b;max-width:400px;line-height:1.6;">
-            Próximamente — Sube el acta firmada por el cliente, cambia el estado a
-            Proyecto Entregado y congela los contadores de fabricación y fidelización.
-          </div>
-        </div>
-        ''', unsafe_allow_html=True)
+        st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 12px 0;">📋 Acta de Clientes</div>', unsafe_allow_html=True)
+
+        # Obtener cotizaciones adjudicadas (con contrato notariado, sin acta aún)
+        try:
+            _ac_resp = supabase.table('cotizaciones').select(
+                'numero,cliente_nombre,contrato_notariado_url,acta_url,acta_nombre,fecha_entrega,estado'
+            ).not_.is_('contrato_notariado_url','null').order('fecha_creacion',desc=True).execute()
+            _ac_cots = [r for r in (_ac_resp.data or []) if r.get('contrato_notariado_url')]
+        except:
+            _ac_cots = []
+
+        if not _ac_cots:
+            st.info('No hay proyectos adjudicados aún.')
+        else:
+            _ac_opts = {f"{r['numero']} — {r.get('cliente_nombre') or 'S/C'}": r for r in _ac_cots}
+            _ac_sel_label = st.selectbox('Seleccionar proyecto', list(_ac_opts.keys()), key='ac_sel_proyecto')
+            _ac_row = _ac_opts.get(_ac_sel_label, {})
+            _ac_ep = _ac_row.get('numero','')
+
+            if _ac_ep:
+                _ac_tiene_acta = bool(_ac_row.get('acta_url'))
+                _ac_estado = _ac_row.get('estado','')
+
+                if _ac_tiene_acta:
+                    # Ya tiene acta — mostrar info
+                    from datetime import datetime, timezone, timedelta
+                    _ac_tz = timezone(timedelta(hours=-3))
+                    try:
+                        _ac_fecha = datetime.fromisoformat(_ac_row['fecha_entrega'].replace('Z','+00:00')).astimezone(_ac_tz).strftime('%d/%m/%Y %H:%M')
+                    except:
+                        _ac_fecha = '—'
+                    st.success(f'✅ Acta subida el {_ac_fecha}')
+                    st.markdown(f'<div style="font-size:0.85rem;margin:4px 0;">📄 <b>{_ac_row.get("acta_nombre","acta.pdf")}</b></div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="font-size:0.85rem;margin:4px 0;">Estado: <span style="background:#7c3aed;color:#fff;padding:2px 10px;border-radius:99px;font-weight:700;font-size:0.78rem;">🟣 PROYECTO ENTREGADO</span></div>', unsafe_allow_html=True)
+                    if _ac_row.get('acta_url'):
+                        st.markdown(f'[📎 Ver acta]({_ac_row["acta_url"]})', unsafe_allow_html=True)
+                else:
+                    # No tiene acta — formulario de subida
+                    st.markdown('<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:10px 14px;font-size:0.85rem;margin-bottom:12px;">⚠️ Este proyecto aún no tiene acta de recepción conforme.</div>', unsafe_allow_html=True)
+                    _ac_file = st.file_uploader('📎 Subir acta firmada (PDF)', type=['pdf'], key=f'ac_file_{_ac_ep}')
+                    if _ac_file:
+                        st.success(f'✅ Archivo listo: {_ac_file.name}')
+                        st.warning('Al confirmar, el estado cambiará a **PROYECTO ENTREGADO** y se congelarán los contadores de fabricación y fidelización.')
+                        if st.button('📋 Confirmar entrega y subir acta', key=f'ac_confirmar_{_ac_ep}', use_container_width=True):
+                            with st.spinner('Subiendo acta...'):
+                                _ac_url, _ac_err = guardar_acta_en_storage(_ac_file.getvalue(), _ac_ep, _ac_file.name)
+                                if _ac_err:
+                                    st.error(f'Error subiendo acta: {_ac_err}')
+                                else:
+                                    _ac_ok, _ac_err2 = registrar_entrega_proyecto(_ac_ep, _ac_url, _ac_file.name)
+                                    if _ac_ok:
+                                        st.success(f'✅ Proyecto {_ac_ep} marcado como ENTREGADO')
+                                        st.balloons()
+                                        st.rerun()
+                                    else:
+                                        st.error(f'Error registrando entrega: {_ac_err2}')
 
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
 # =========================================================
