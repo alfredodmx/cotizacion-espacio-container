@@ -2854,7 +2854,7 @@ st.markdown("""
 
     /* ══ TABLA RESULTADOS ══ */
     .resultados-table {
-        width: 100%; border-collapse: collapse; border-spacing: 0;
+        width: 100%; border-collapse: separate; border-spacing: 0;
         font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.875rem;
         background: #ffffff; table-layout: auto;
     }
