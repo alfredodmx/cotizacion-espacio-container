@@ -681,7 +681,13 @@ def guardar_plano_en_storage(archivo_pdf_bytes, cotizacion_numero, nombre_origin
 # Función que construye el HTML del registro de compras
 # Usando triple-quoted strings para evitar conflictos de comillas
 
-def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin=False):
+# Función que construye el HTML del registro de compras
+# Usando triple-quoted strings para evitar conflictos de comillas
+
+# Función que construye el HTML del registro de compras
+# Usando triple-quoted strings para evitar conflictos de comillas
+
+def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin=False, supa_url='', supa_key='', ep='', usuario=''):
     rows = ""
     items_comprados = items_comprados or {}
     for ri, prod in enumerate(rc_prods):
@@ -773,8 +779,27 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
         <button onclick="window.addRow()" style="background:#1e2447;color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer">+ Agregar</button></div>
     </div>
   </div>
+  <div id="save-section" style="padding:12px 16px;background:#1e2447;border-top:2px solid #e2e8f0;flex-shrink:0">
+    <div style="font-size:11px;font-weight:700;color:#fff;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">📎 Adjuntar Factura y Guardar</div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <label id="factura-label" style="background:rgba(255,255,255,0.1);color:#fff;border:1px dashed rgba(255,255,255,0.4);border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;white-space:nowrap">📎 Seleccionar factura PDF
+        <input id="factura-input" type="file" accept=".pdf" style="display:none"/>
+      </label>
+      <div id="save-status" style="font-size:12px;color:rgba(255,255,255,0.7);flex:1"></div>
+      <button id="save-btn" onclick="window.guardarRegistro()" disabled style="background:#10b981;color:#fff;border:none;border-radius:8px;padding:8px 24px;font-size:13px;font-weight:700;cursor:pointer;opacity:0.5;white-space:nowrap">💾 Guardar compra</button>
+    </div>
+  </div>
+    </div>
+  </div>
 </div>
 <script>(function(){{
+var SUPA_URL="{supa_url}";
+var SUPA_KEY="{supa_key}";
+var EP_NUM="{ep}";
+var USUARIO="{usuario}";
+var _facturaFile=null;
+var _facturaUrl="";
+var _facturaNom="";
 var CAT={rc_cat_json};
 var addCat=document.getElementById("add-cat");
 Object.keys(CAT).sort().forEach(function(c){{var o=document.createElement("option");o.value=c;o.textContent=c;addCat.appendChild(o);}});
@@ -817,7 +842,7 @@ function attachListeners(inp, adic){{
     var raw=this.value.replace(/[^0-9]/g,"");
     this.dataset.val=raw||"0";
     if(!raw){{this.value="";calc();return;}}
-    this.value="$"+parseInt(raw).toLocaleString("de-DE");calc();
+    this.value="$"+parseInt(raw).toLocaleString("de-DE");calc();checkSaveBtn();
   }});
   inp.addEventListener("focus",function(){{
     var r=this.dataset.val||"0";
@@ -826,9 +851,9 @@ function attachListeners(inp, adic){{
   inp.addEventListener("blur",function(){{
     var n=parseInt(this.dataset.val)||0;
     this.dataset.val=String(n);
-    this.value=n>0?"$"+n.toLocaleString("de-DE"):"";calc();
+    this.value=n>0?"$"+n.toLocaleString("de-DE"):"";calc();checkSaveBtn();
   }});
-  adic.addEventListener("input",calc);
+  adic.addEventListener("input",function(){{calc();checkSaveBtn();}});
 }}
 function f(n){{return "$"+Math.round(Math.abs(n)).toLocaleString("de-DE");}}
 function calc(){{
@@ -865,6 +890,114 @@ document.querySelectorAll(".rc-real").forEach(function(inp){{
   attachListeners(inp, inp.closest("tr").querySelector(".rc-adic"));
 }});
 window.addEventListener("load",function(){{calc();}});
+
+// Habilitar botón guardar cuando hay valores ingresados
+function checkSaveBtn(){{
+  var hasVals=false;
+  document.querySelectorAll("tr[data-idx]").forEach(function(r){{
+    var re=parseFloat(r.querySelector(".rc-real").dataset.val)||0;
+    if(re>0) hasVals=true;
+  }});
+  var btn=document.getElementById("save-btn");
+  if(btn){{btn.disabled=!hasVals;btn.style.opacity=hasVals?"1":"0.5";}}
+}}
+
+// Upload factura
+document.getElementById("factura-input") && document.getElementById("factura-input").addEventListener("change",function(){{
+  _facturaFile=this.files[0]||null;
+  var lbl=document.getElementById("factura-label");
+  if(lbl) lbl.textContent=_facturaFile?("📎 "+_facturaFile.name):"Sin factura";
+  var btn=document.getElementById("save-btn");
+  checkSaveBtn();
+}});
+
+window.guardarRegistro=async function(){{
+  var btn=document.getElementById("save-btn");
+  var status=document.getElementById("save-status");
+  if(!_facturaFile){{status.textContent="⚠️ Debes subir una factura primero";status.style.color="#dc2626";return;}}
+  
+  // Recopilar items con precio real > 0
+  var items=[];
+  document.querySelectorAll("tr[data-idx]").forEach(function(r){{
+    var re=parseFloat(r.querySelector(".rc-real").dataset.val)||0;
+    if(re<=0) return;
+    var pu=+r.dataset.pu||0;
+    var c=+r.dataset.cant||1;
+    var ad=+r.querySelector(".rc-adic").value||0;
+    var dif=(pu-re)*c-(ad*re);
+    items.push({{
+      categoria:r.cells[0]?r.cells[0].textContent:"",
+      item:r.cells[1]?r.cells[1].textContent:"",
+      cantidad:c,
+      precio_presupuestado:pu,
+      precio_real:re,
+      adicional:ad,
+      diferencia:dif
+    }});
+  }});
+  
+  if(items.length===0){{status.textContent="⚠️ Ingresa al menos un precio real";status.style.color="#dc2626";return;}}
+  
+  btn.disabled=true;btn.textContent="⏳ Subiendo factura...";status.textContent="";
+  
+  try{{
+    // 1. Subir factura a Supabase Storage
+    var ext=_facturaFile.name.split(".").pop();
+    var path="cotizacion-"+EP_NUM+"/"+Date.now()+"."+ext;
+    var uploadResp=await fetch(SUPA_URL+"/storage/v1/object/facturas/"+path,{{
+      method:"POST",
+      headers:{{"Authorization":"Bearer "+SUPA_KEY,"Content-Type":_facturaFile.type,"x-upsert":"true"}},
+      body:_facturaFile
+    }});
+    if(!uploadResp.ok) throw new Error("Error subiendo factura: "+uploadResp.status);
+    _facturaUrl=SUPA_URL+"/storage/v1/object/public/facturas/"+path;
+    _facturaNom=_facturaFile.name;
+    
+    // 2. Calcular totales
+    var tP=0,tR=0;
+    items.forEach(function(it){{tP+=it.precio_presupuestado*it.cantidad;tR+=(it.precio_real*it.cantidad)+(it.adicional*it.precio_real);}});
+    
+    // 3. Guardar registro en tabla registro_compras
+    btn.textContent="⏳ Guardando registro...";
+    var saveResp=await fetch(SUPA_URL+"/rest/v1/registro_compras",{{
+      method:"POST",
+      headers:{{
+        "Authorization":"Bearer "+SUPA_KEY,
+        "apikey":SUPA_KEY,
+        "Content-Type":"application/json",
+        "Prefer":"return=minimal"
+      }},
+      body:JSON.stringify({{
+        cotizacion_numero:EP_NUM,
+        usuario_registro:USUARIO,
+        factura_url:_facturaUrl,
+        factura_nombre:_facturaNom,
+        items:items,
+        total_presupuestado:tP,
+        total_real:tR,
+        balance:tP-tR
+      }})
+    }});
+    if(!saveResp.ok) throw new Error("Error guardando registro: "+saveResp.status);
+    
+    btn.textContent="✅ Guardado";btn.style.background="#16a34a";
+    status.textContent="✅ Registro guardado correctamente — recarga la página para ver el estado actualizado";
+    status.style.color="#16a34a";
+    // Marcar ítems guardados en verde
+    items.forEach(function(it){{
+      document.querySelectorAll("tr[data-idx]").forEach(function(r){{
+        if(r.cells[1]&&r.cells[1].textContent.trim()===it.item){{
+          r.style.background="#f0fdf4";
+          r.querySelectorAll("input").forEach(function(inp){{inp.setAttribute("readonly","");inp.style.background="#f0fdf4";}});
+        }}
+      }});
+    }});
+  }}catch(e){{
+    btn.disabled=false;btn.textContent="💾 Guardar compra";
+    status.textContent="❌ Error: "+e.message;status.style.color="#dc2626";
+  }}
+}};
+
 calc();
 }})();</script>"""
     return html
@@ -11212,7 +11345,14 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                     # Obtener ítems ya comprados en registros anteriores
                     _rc_items_comprados = obtener_items_comprados(_rc_ep)
                     _rc_es_admin = _rol_actual in ('root','admin')
-                    _rc_html = build_rc_html(_rc_prods, _rc_cat_json, _rc_prev, _rc_items_comprados, _rc_es_admin)
+                    _rc_html = build_rc_html(
+                        _rc_prods, _rc_cat_json, _rc_prev,
+                        _rc_items_comprados, _rc_es_admin,
+                        supa_url=SUPABASE_URL,
+                        supa_key=SUPABASE_KEY,
+                        ep=_rc_ep,
+                        usuario=st.session_state.get('auth_nombre','')
+                    )
                     _rc_height = min(len(_rc_prods)*37+330, 740)
                     _rc_comp.html(_rc_html, height=min(len(_rc_prods)*37+330, 740), scrolling=False)
 
@@ -11237,94 +11377,6 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         else:
                             st.caption('Arrastra o haz click para adjuntar la factura en PDF')
                     st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
-
-
-                    # ── Captura de valores con st.data_editor nativo ──
-                    # Construir DataFrame con ítems pendientes de comprar
-                    import pandas as _pd_rc_cap
-                    _rc_pendientes = [
-                        p for p in _rc_prods
-                        if str(p.get('Item','')) not in _rc_items_comprados or _rc_es_admin
-                    ]
-                    if _rc_pendientes:
-                        st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:12px 0 4px;">📝 Ingresa los precios reales de los productos comprados hoy</div>', unsafe_allow_html=True)
-                        st.caption('Solo completa los ítems que compraste en esta visita. Deja en 0 los que no compraste.')
-                        _rc_cap_df = _pd_rc_cap.DataFrame([{
-                            'Categoría': str(p.get('Categoria','')),
-                            'Ítem': str(p.get('Item','')),
-                            'Cant.': round(float(p.get('Cantidad',1) or 1)),
-                            'Presup. unit.': round(float(p.get('Precio Unitario',0) or 0)),
-                            'Real unit.': 0.0,
-                            'Adicional': 0,
-                        } for p in _rc_pendientes])
-                        _rc_cap_edited = st.data_editor(
-                            _rc_cap_df,
-                            use_container_width=True,
-                            hide_index=True,
-                            key=f'rc_cap_editor_{_rc_ep}',
-                            column_config={
-                                'Categoría':     st.column_config.TextColumn(disabled=True),
-                                'Ítem':          st.column_config.TextColumn(disabled=True),
-                                'Cant.':         st.column_config.NumberColumn(disabled=True, format='%d'),
-                                'Presup. unit.': st.column_config.NumberColumn(disabled=True, format='$ %d'),
-                                'Real unit.':    st.column_config.NumberColumn(min_value=0.0, step=100.0, format='$ %d'),
-                                'Adicional':     st.column_config.NumberColumn(min_value=0, step=1, format='%d',
-                                    help='Unidades extra compradas fuera del presupuesto'),
-                            }
-                        )
-                    else:
-                        _rc_cap_edited = _pd_rc_cap.DataFrame()
-                        st.info('✅ Todos los ítems del presupuesto ya fueron comprados.')
-
-                    # Botón guardar — deshabilitado sin factura
-                    if st.button('💾 Guardar registro de compra', key='rc_guardar',
-                                 use_container_width=True, disabled=not bool(_rc_factura)):
-                        _rc_all_items = []
-                        for _, _row_cap in _rc_cap_edited.iterrows():
-                            _real2 = float(_row_cap.get('Real unit.', 0) or 0)
-                            _adic2 = int(_row_cap.get('Adicional', 0) or 0)
-                            if _real2 <= 0:
-                                continue
-                            _item2 = str(_row_cap.get('Ítem',''))
-                            _pu2   = round(float(_row_cap.get('Presup. unit.', 0) or 0))
-                            _cant2 = round(float(_row_cap.get('Cant.', 1) or 1))
-                            _rc_all_items.append({
-                                'categoria': str(_row_cap.get('Categoría','')),
-                                'item': _item2,
-                                'cantidad': _cant2,
-                                'precio_presupuestado': _pu2,
-                                'precio_real': _real2,
-                                'adicional': _adic2,
-                                'diferencia': (_pu2 - _real2) * _cant2 - (_adic2 * _real2)
-                            })
-                        if st.session_state.get('rc_adicionales'):
-                            _rc_all_items.extend(st.session_state.rc_adicionales)
-                        if not _rc_all_items:
-                            st.warning('⚠️ No hay ítems nuevos para guardar. Ingresa el precio real de los productos comprados.')
-                            st.stop()
-
-                        _rc_factura_url, _rc_factura_nom = '', ''
-                        if _rc_factura:
-                            _rc_factura_url, _rc_err = guardar_factura_en_storage(
-                                _rc_factura.getvalue(), _rc_ep, _rc_factura.name)
-                            if _rc_err:
-                                st.error(f'Error subiendo factura: {_rc_err}')
-                                st.stop()
-                            _rc_factura_nom = _rc_factura.name
-
-                        _rc_ok, _rc_err2 = guardar_registro_compra(
-                            _rc_ep,
-                            st.session_state.get('auth_nombre',''),
-                            _rc_factura_url, _rc_factura_nom,
-                            _rc_all_items,
-                            _rc_total_p, _rc_total_r
-                        )
-                        if _rc_ok:
-                            st.success('✅ Registro guardado correctamente')
-                            st.session_state.rc_adicionales = []
-                            st.rerun()
-                        else:
-                            st.error(f'Error guardando: {_rc_err2}')
 
 
     with _sub_acta:
