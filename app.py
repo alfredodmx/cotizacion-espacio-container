@@ -11007,7 +11007,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         "});"
                         "document.querySelectorAll('.rc-adic').forEach(function(i){i.addEventListener('input',calc);});"
                         "window.addEventListener('load',function(){calc();});"
-                        "function filterRows(q){var s=q.toLowerCase();document.querySelectorAll('tbody tr').forEach(function(r){var txt=r.cells[1]?r.cells[1].textContent.toLowerCase():'';r.style.display=s===''||txt.indexOf(s)>-1?'':\"none\";});}" 
+                        "window.filterRows=function(q){var s=q.toLowerCase();document.querySelectorAll('tbody tr').forEach(function(r){var txt=r.cells[1]?r.cells[1].textContent.toLowerCase():'';r.style.display=!s||txt.indexOf(s)>-1?'table-row':'none';});}"
                                                 "calc();})()</script>"
                     )
                     _rc_comp.html(_rc_html, height=min(len(_rc_prods)*37+330, 740), scrolling=False)
