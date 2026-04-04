@@ -1323,17 +1323,31 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
     now_str = datetime.now(tz_cl).strftime('%d/%m/%Y %H:%M')
 
     # ── HEADER ──
+    # Logo
+    _logo_cell = ""
+    try:
+        from reportlab.platypus import Image as _RLImage
+        _logo = _RLImage("logo.png")
+        _logo_w = 4*cm
+        _logo_aspect = _logo.imageHeight / float(_logo.imageWidth)
+        _logo.drawWidth  = _logo_w
+        _logo.drawHeight = _logo_w * _logo_aspect
+        _logo_cell = _logo
+    except: pass
+
     header_data = [[
+        _logo_cell,
         Paragraph(f"<b>BALANCE DE COMPRAS</b>", styles['BTitle']),
         Paragraph(f"Generado: {now_str}", styles['BSmall'])
     ]]
-    header_tbl = Table(header_data, colWidths=[13*cm, 4*cm])
+    header_tbl = Table(header_data, colWidths=[4.5*cm, 9*cm, 4*cm])
     header_tbl.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'BOTTOM'),
-        ('ALIGN', (1,0), (1,0), 'RIGHT'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (2,0), (2,0), 'RIGHT'),
     ]))
     elements.append(header_tbl)
-    elements.append(HRFlowable(width='100%', thickness=2, color=colors.HexColor('#1e2447'), spaceAfter=8))
+    elements.append(Spacer(1, 0.3*cm))
+    elements.append(HRFlowable(width='100%', thickness=2, color=colors.HexColor('#1e2447'), spaceBefore=4, spaceAfter=8))
 
     # ── DATOS DEL PROYECTO ──
     _nombre   = datos_cliente.get('Nombre','')
