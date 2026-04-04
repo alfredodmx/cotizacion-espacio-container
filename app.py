@@ -10965,7 +10965,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         "var CAT="+_rc_cat_json+";"
                         "var addCat=document.getElementById('add-cat');"
                         "Object.keys(CAT).sort().forEach(function(c){var o=document.createElement('option');o.value=c;o.textContent=c;addCat.appendChild(o);});"
-                        "addCat.addEventListener('change',function(){var sel=document.getElementById('add-item');sel.innerHTML='<option value=\'\'>Seleccionar ítem...</option>';document.getElementById('add-precio').textContent='$0';var items=CAT[this.value]||[];items.forEach(function(it){var o=document.createElement('option');o.value=JSON.stringify(it);o.textContent=it.item;sel.appendChild(o);});});"
+                        "addCat.addEventListener('change',function(){var sel=document.getElementById('add-item');sel.innerHTML='<option value=\"\">Seleccionar item...</option>';document.getElementById('add-precio').textContent='$0';var items=CAT[this.value]||[];items.forEach(function(it){var o=document.createElement('option');o.value=JSON.stringify(it);o.textContent=it.item;sel.appendChild(o);});});"
                         "document.getElementById('add-item').addEventListener('change',function(){try{var it=JSON.parse(this.value);document.getElementById('add-precio').textContent=f(it.precio);}catch(e){}});"
                         "var _addIdx=10000;"
                         "function addRow(){var catEl=document.getElementById('add-cat');var itemEl=document.getElementById('add-item');var cantEl=document.getElementById('add-cant');if(!catEl.value||!itemEl.value)return;var it=JSON.parse(itemEl.value);var cant=parseInt(cantEl.value)||1;var pu=it.precio;"
