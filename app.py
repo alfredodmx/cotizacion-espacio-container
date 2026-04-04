@@ -10869,6 +10869,22 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                 else:
                     # Tabla HTML con inputs inline
                     import streamlit.components.v1 as _rc_comp
+                    import json as _jcat
+                    # Cargar catálogo para agregar productos adicionales
+                    try:
+                        _rc_df_cat = _leer_hoja_excel('BD Total')
+                        _rc_cat_data = {}
+                        for _, _crow in _rc_df_cat.iterrows():
+                            _ccat = str(_crow.get('Categorias','')).strip()
+                            _citem = str(_crow.get('Item','')).strip()
+                            _cprice = round(float(_crow.get('P. Unitario real', 0) or 0))
+                            if _ccat and _citem:
+                                if _ccat not in _rc_cat_data:
+                                    _rc_cat_data[_ccat] = []
+                                _rc_cat_data[_ccat].append({'item': _citem, 'precio': _cprice})
+                        _rc_cat_json = _jcat.dumps(_rc_cat_data, ensure_ascii=False)
+                    except:
+                        _rc_cat_json = '{}'
                     # Pre-poblar con valores guardados para no resetear al hacer rerun
                     import json as _jt2
                     try:
@@ -10928,7 +10944,66 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         "<div style='font-size:11px;margin-top:4px;' id='b-lbl2'>IVA</div><div style='font-size:13px;font-weight:600;' id='b-i'>$0</div>"
                         "<div style='font-size:11px;margin-top:4px;' id='b-icon'>✅ Ahorro</div><div style='font-size:17px;font-weight:900;' id='b-t'>$0</div></div>"
                         "</div>"
+                        "<div id='add-section' style='padding:12px 16px;background:#fff;border-top:1px solid #e2e8f0;'>"
+                        "<div style='font-size:12px;font-weight:700;color:#1e2447;margin-bottom:8px;letter-spacing:.03em;'>➕ Agregar producto adicional</div>"
+                        "<div style='display:grid;grid-template-columns:1.5fr 3fr 0.8fr 1.2fr auto;gap:6px;align-items:end;'>"
+                        "<div><div style='font-size:10px;color:#64748b;margin-bottom:3px;'>Categoría</div>"
+                        "<select id='add-cat' style='width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:12px;'>"
+                        "<option value=''>Seleccionar...</option></select></div>"
+                        "<div><div style='font-size:10px;color:#64748b;margin-bottom:3px;'>Ítem</div>"
+                        "<select id='add-item' style='width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:12px;'>"
+                        "<option value=''>Seleccionar categoría primero</option></select></div>"
+                        "<div><div style='font-size:10px;color:#64748b;margin-bottom:3px;'>Cant.</div>"
+                        "<input id='add-cant' type='number' min='1' value='1' style='width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:12px;text-align:right;'/></div>"
+                        "<div><div style='font-size:10px;color:#64748b;margin-bottom:3px;'>Presup. unit.</div>"
+                        "<div id='add-precio' style='border:1px solid #e2e8f0;border-radius:6px;padding:5px 8px;font-size:12px;font-weight:600;background:#f8fafc;text-align:right;'>$0</div></div>"
+                        "<div style='padding-bottom:1px;'>"
+                        "<button id='add-btn' onclick='addRow()' style='background:#1e2447;color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;'>+ Agregar</button></div>"
+                        "</div></div>"
                         "<script>(function(){"
+                        "var CAT="+_rc_cat_json+";"
+"var addCat=document.getElementById('add-cat');"
+"Object.keys(CAT).forEach(function(c){var o=document.createElement('option');o.value=c;o.textContent=c;addCat.appendChild(o);});"
+"addCat.addEventListener('change',function(){"
+"var sel=document.getElementById('add-item');"
+"sel.innerHTML='<option value=\'\'>Seleccionar ítem...</option>';"
+"document.getElementById('add-precio').textContent='$0';"
+"var items=CAT[this.value]||[];"
+"items.forEach(function(it){var o=document.createElement('option');o.value=JSON.stringify(it);o.textContent=it.item;sel.appendChild(o);});"
+"});"
+"document.getElementById('add-item').addEventListener('change',function(){"
+"try{var it=JSON.parse(this.value);document.getElementById('add-precio').textContent=f(it.precio);}catch(e){}"
+"});"
+"var _addIdx=10000;"
+"function addRow(){"
+"var catEl=document.getElementById('add-cat');"
+"var itemEl=document.getElementById('add-item');"
+"var cantEl=document.getElementById('add-cant');"
+"if(!catEl.value||!itemEl.value)return;"
+"var it=JSON.parse(itemEl.value);"
+"var cant=parseInt(cantEl.value)||1;"
+"var pu=it.precio;"
+"var bg='#fff8e1';"
+"var tr=document.createElement('tr');"
+"tr.style.cssText='background:'+bg+';border-bottom:1px solid #eef0f6;';"
+"tr.dataset.idx=String(_addIdx);tr.dataset.pu=String(pu);tr.dataset.cant=String(cant);"
+"tr.innerHTML="
+"  '<td style=\"padding:5px 8px;font-size:0.75rem;color:#64748b;\">'+catEl.value+'</td>'"
++"  '<td style=\"padding:5px 8px;font-size:0.82rem;\">'+it.item+'</td>'"
++"  '<td style=\"padding:5px 8px;text-align:right;\">'+cant+'</td>'"
++"  '<td style=\"padding:5px 8px;text-align:right;font-weight:600;\">'+f(pu)+'</td>'"
++"  '<td style=\"padding:3px 4px;\"><input type=\"text\" inputmode=\"numeric\" value=\"\" class=\"rc-real\" data-idx=\"'+_addIdx+'\" data-val=\"0\" style=\"width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box;\"/></td>'"
++"  '<td style=\"padding:3px 4px;\"><input type=\"number\" min=\"0\" step=\"1\" value=\"0\" class=\"rc-adic\" data-idx=\"'+_addIdx+'\" style=\"width:100%;border:1px solid #fca5a5;border-radius:6px;padding:5px;font-size:13px;text-align:right;background:#fff5f5;box-sizing:border-box;\"/></td>'"
++"  '<td class=\"rc-dif\" data-idx=\"'+_addIdx+'\" style=\"padding:5px 8px;text-align:right;font-weight:700;color:#16a34a;white-space:nowrap;\">-</td>';"
+"document.querySelector('tbody').appendChild(tr);"
+"var newReal=tr.querySelector('.rc-real');"
+"var newAdic=tr.querySelector('.rc-adic');"
+"newReal.addEventListener('input',function(){var raw=this.value.replace(/[^0-9]/g,'');this.dataset.val=raw||'0';if(raw===''){this.value='';calc();return;}var n=parseInt(raw,10);this.value='$'+n.toLocaleString('de-DE');calc();});"
+"newReal.addEventListener('focus',function(){var raw=this.dataset.val||'0';this.value=raw==='0'?'':raw;});"
+"newReal.addEventListener('blur',function(){var raw=this.dataset.val||'0';var n=parseInt(raw,10)||0;this.dataset.val=String(n);this.value=n>0?'$'+n.toLocaleString('de-DE'):'';calc();});"
+"newAdic.addEventListener('input',calc);"
+"_addIdx++;cantEl.value='1';itemEl.value='';document.getElementById('add-precio').textContent='$0';calc();"
+"}"
                         "function f(n){return '$'+Math.round(Math.abs(n)).toLocaleString('de-DE');}"
                         "function calc(){"
                         "var tP=0,tR=0,vals=[];"
