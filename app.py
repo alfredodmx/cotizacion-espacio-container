@@ -675,6 +675,9 @@ def guardar_plano_en_storage(archivo_pdf_bytes, cotizacion_numero, nombre_origin
 # Función que construye el HTML del registro de compras
 # Usando triple-quoted strings para evitar conflictos de comillas
 
+# Función que construye el HTML del registro de compras
+# Usando triple-quoted strings para evitar conflictos de comillas
+
 def build_rc_html(rc_prods, rc_cat_json, rc_prev):
     rows = ""
     for ri, prod in enumerate(rc_prods):
@@ -761,7 +764,7 @@ var addCat=document.getElementById("add-cat");
 Object.keys(CAT).sort().forEach(function(c){{var o=document.createElement("option");o.value=c;o.textContent=c;addCat.appendChild(o);}});
 addCat.addEventListener("change",function(){{
   var sel=document.getElementById("add-item");
-  sel.innerHTML="<option value=\"\">Seleccionar item...</option>";
+  sel.innerHTML='<option value="">Seleccionar item...</option>';
   document.getElementById("add-precio").textContent="$0";
   var items=CAT[this.value]||[];
   items.forEach(function(it){{var o=document.createElement("option");o.value=JSON.stringify(it);o.textContent=it.item;sel.appendChild(o);}});
@@ -785,9 +788,9 @@ window.addRow=function(){{
     +"<td style='padding:5px 8px;font-size:.82rem'>"+it.item+"</td>"
     +"<td style='padding:5px 8px;text-align:right'>"+cant+"</td>"
     +"<td style='padding:5px 8px;text-align:right;font-weight:600'>"+f(pu)+"</td>"
-    +"<td style='padding:3px 4px'><input type='text' inputmode='numeric' value="" class='rc-real' data-idx='"+_addIdx+"' data-val='0' style='width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box'/></td>"
-    +"<td style='padding:3px 4px'><input type='number' min='0' step='1' value='0' class='rc-adic' data-idx='"+_addIdx+"' style='width:100%;border:1px solid #fca5a5;border-radius:6px;padding:5px;font-size:13px;text-align:right;background:#fff5f5;box-sizing:border-box'/></td>"
-    +"<td class='rc-dif' style='padding:5px 8px;text-align:right;font-weight:700;color:#16a34a;white-space:nowrap'>-</td>";
+    +'<td style="padding:3px 4px"><input type="text" inputmode="numeric" value="" class="rc-real" data-idx="'+_addIdx+'" data-val="0" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box"/></td>'
+    +'<td style="padding:3px 4px"><input type="number" min="0" step="1" value="0" class="rc-adic" data-idx="'+_addIdx+'" style="width:100%;border:1px solid #fca5a5;border-radius:6px;padding:5px;font-size:13px;text-align:right;background:#fff5f5;box-sizing:border-box"/></td>'
+    +'<td class="rc-dif" style="padding:5px 8px;text-align:right;font-weight:700;color:#16a34a;white-space:nowrap">-</td>';
   document.querySelector("tbody").appendChild(tr);
   attachListeners(tr.querySelector(".rc-real"), tr.querySelector(".rc-adic"));
   _addIdx++;cantEl.value="1";itemEl.selectedIndex=0;
