@@ -983,19 +983,10 @@ window.guardarRegistro=async function(){{
     btn.textContent="✅ Guardado";btn.style.background="#16a34a";
     status.textContent="✅ Guardado correctamente. Actualizando...";
     status.style.color="#16a34a";
-    // Disparar rerun de Streamlit clickeando botón oculto
+    // Recargar página de Streamlit para mostrar nuevos registros
     setTimeout(function(){{
-      var rerunBtn=window.parent.document.querySelector("button[data-testid='stBaseButton-secondary'][aria-label='rc_rerun']");
-      if(!rerunBtn){{
-        // Buscar por key
-        var allBtns=window.parent.document.querySelectorAll("button");
-        for(var b=0;b<allBtns.length;b++){{
-          if(allBtns[b].textContent.trim()==="__rc_rerun__"){{
-            allBtns[b].click();break;
-          }}
-        }}
-      }}else{{rerunBtn.click();}}
-    }},800);
+      window.parent.location.reload();
+    }},1200);
     // Marcar ítems guardados en verde
     items.forEach(function(it){{
       document.querySelectorAll("tr[data-idx]").forEach(function(r){{
@@ -11363,15 +11354,6 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         usuario=st.session_state.get('auth_nombre','')
                     )
                     _rc_height = min(len(_rc_prods)*37+330, 740)
-                    # Botón oculto para disparar rerun después de guardar
-                    if st.button('__rc_rerun__', key=f'rc_rerun_{_rc_ep}', help='rerun'):
-                        st.rerun()
-                    st.markdown("""
-                    <style>
-                    div[data-testid='stBaseButton-secondary']:has(button p:contains('__rc_rerun__')),
-                    button p {display:none!important}
-                    [data-testid='stBaseButton-secondary']:has(p){display:none!important}
-                    </style>""", unsafe_allow_html=True)
                     _rc_comp.html(_rc_html, height=min(len(_rc_prods)*37+330, 740), scrolling=False)
 
                     # Factura y guardado manejados dentro del HTML component
