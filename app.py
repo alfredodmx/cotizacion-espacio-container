@@ -10894,7 +10894,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                             "<td style='padding:5px 8px;text-align:right;'>"+str(_cant)+"</td>"
                             "<td style='padding:5px 8px;text-align:right;font-weight:600;'>"+_pu_fmt+"</td>"
                             "<td style='padding:3px 4px;'><input type='text' inputmode='numeric' value='"+('$'+'{:,}'.format(int(_vreal)).replace(',','.')  if _vreal else '')+"' class='rc-real' data-idx='"+str(_ri)+"' data-val='"+str(_vreal)+"' style='width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box;'/></td>"
-                            "<td style='padding:3px 4px;'><input type='number' min='0' step='1' value='"+str(_vadic)+"' class='rc-adic' data-idx='"+str(_ri)+"' style='width:70px;border:1px solid #fca5a5;border-radius:6px;padding:5px;font-size:13px;text-align:right;background:#fff5f5;box-sizing:border-box;'/></td>"
+                            "<td style='padding:3px 4px;'><input type='number' min='0' step='1' value='"+str(_vadic)+"' class='rc-adic' data-idx='"+str(_ri)+"' style='width:100%;border:1px solid #fca5a5;border-radius:6px;padding:5px;font-size:13px;text-align:right;background:#fff5f5;box-sizing:border-box;'/></td>"
                             "<td class='rc-dif' data-idx='"+str(_ri)+"' style='padding:5px 8px;text-align:right;font-weight:700;color:#16a34a;white-space:nowrap;'>-</td>"
                             "</tr>"
                         )
