@@ -687,7 +687,7 @@ def guardar_plano_en_storage(archivo_pdf_bytes, cotizacion_numero, nombre_origin
 # Función que construye el HTML del registro de compras
 # Usando triple-quoted strings para evitar conflictos de comillas
 
-def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin=False, supa_url='', supa_key='', ep='', usuario='', items_ya_comprados_json='[]'):
+def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin=False, supa_url='', supa_key='', ep='', usuario='', items_ya_comprados_json='[]', total_items_presupuesto=0):
     rows = ""
     items_comprados = items_comprados or {}
     for ri, prod in enumerate(rc_prods):
@@ -744,7 +744,7 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
     </tr></thead>
     <tbody>{rows}</tbody>
   </table></div>
-  <div id="tots" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:16px;background:#f8fafc;border-top:2px solid #e2e8f0;flex-shrink:0">
+  <div id="tots" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;padding:16px;background:#f8fafc;border-top:2px solid #e2e8f0;flex-shrink:0">
     <div>
       <div style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">Presupuestado</div>
       <div style="font-size:11px;color:#64748b">Subtotal neto</div><div style="font-size:15px;font-weight:700" id="tp-n">$0</div>
@@ -762,6 +762,14 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
       <div style="font-size:11px" id="b-lbl1">Neto</div><div style="font-size:15px;font-weight:700" id="b-n">$0</div>
       <div style="font-size:11px;margin-top:4px" id="b-lbl2">IVA</div><div style="font-size:13px;font-weight:600" id="b-i">$0</div>
       <div style="font-size:11px;margin-top:4px" id="b-icon">&#x2705; Ahorro</div><div style="font-size:17px;font-weight:900" id="b-t">$0</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;border-left:2px solid #e2e8f0;padding-left:12px">
+      <div style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:12px;text-align:center">Progreso de compra</div>
+      <div id="prog-pct" style="font-size:42px;font-weight:900;line-height:1;color:#dc2626;text-align:center">0%</div>
+      <div id="prog-lbl" style="font-size:12px;font-weight:600;color:#dc2626;margin-top:6px;text-align:center">Sin compras</div>
+      <div style="width:100%;background:#e2e8f0;border-radius:99px;height:6px;margin-top:10px;overflow:hidden">
+        <div id="prog-bar" style="height:100%;width:0%;border-radius:99px;background:#dc2626;transition:width .4s ease,background .4s ease"></div>
+      </div>
     </div>
   </div>
   <div id="add-section" style="padding:12px 16px;background:#fff;border-top:1px solid #e2e8f0;flex-shrink:0">
@@ -839,6 +847,7 @@ var SUPA_KEY="{supa_key}";
 var EP_NUM="{ep}";
 var USUARIO="{usuario}";
 var ITEMS_YA_COMPRADOS={items_ya_comprados_json};
+var TOTAL_ITEMS={total_items_presupuesto};
 var _facturaFile=null;
 var _facturaUrl="";
 var _facturaNom="";
@@ -919,6 +928,17 @@ function calc(){{
   ["b-hdr","b-n","b-i","b-lbl1","b-lbl2","b-icon","b-t"].forEach(function(id){{var el=document.getElementById(id);if(el)el.style.color=col;}});
   var bi=document.getElementById("b-icon");
   if(bi)bi.textContent=b>=0?"\u2705 Ahorro":"\u274C Sobrecosto";
+  // Calcular progreso
+  var comprados=vals.filter(function(v){{return v.real>0&&v.idx<10000;}}).length;
+  var pct=TOTAL_ITEMS>0?Math.round(comprados/TOTAL_ITEMS*1000)/10:0;
+  var pctCol=pct>=100?"#3b82f6":pct>=66.6?"#16a34a":pct>=33.3?"#eab308":"#dc2626";
+  var pctLbl=pct>=100?"&#128309; Compra finalizada":pct>0?(pct.toFixed(1)+"% comprado"):"Sin compras";
+  var pp=document.getElementById("prog-pct");
+  var pl=document.getElementById("prog-lbl");
+  var pb=document.getElementById("prog-bar");
+  if(pp){{pp.textContent=pct>=100?"100%":(pct.toFixed(1)+"%");pp.style.color=pctCol;}}
+  if(pl){{pl.textContent=pctLbl;pl.style.color=pctCol;}}
+  if(pb){{pb.style.width=Math.min(pct,100)+"%";pb.style.background=pctCol;}}
   window.parent.postMessage({{type:"rc_vals",vals:vals,tP:tP,tR:tR}},"*");
 }}
 window.filterRows=function(q){{
@@ -11551,7 +11571,8 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         supa_key=SUPABASE_KEY,
                         ep=_rc_ep,
                         usuario=st.session_state.get('auth_nombre',''),
-                        items_ya_comprados_json=_rc_ya_comprados_json
+                        items_ya_comprados_json=_rc_ya_comprados_json,
+                        total_items_presupuesto=len(_rc_prods)
                     )
                     _rc_height = min(len(_rc_prods)*37+580, 980)
                     # Forzar re-render cuando cambian items comprados
