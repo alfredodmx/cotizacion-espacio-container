@@ -11311,10 +11311,6 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
 
                 # Formulario nuevo registro
                 st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 8px;">➕ Nuevo registro de compra</div>', unsafe_allow_html=True)
-                # _rc_factura se define más abajo — referencia anticipada para disabled
-                _rc_factura_key = f'rc_factura_{_rc_ep}'
-                _rc_factura = st.session_state.get(_rc_factura_key)
-
                 if not _rc_prods:
                     st.warning('Este presupuesto no tiene productos cargados.')
                 else:
@@ -11356,27 +11352,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                     _rc_height = min(len(_rc_prods)*37+330, 740)
                     _rc_comp.html(_rc_html, height=min(len(_rc_prods)*37+330, 740), scrolling=False)
 
-                    # Totales dentro del HTML component
-
-                    # ── Factura con diseño ──
-                    st.markdown(
-                        "<div style='background:linear-gradient(135deg,#1e2447 0%,#2a3060 100%);"
-                        "border-radius:12px 12px 0 0;padding:20px 24px 12px;margin:12px 0 0;'>"
-                        "<div style='font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;"
-                        "letter-spacing:0.05em;text-transform:uppercase;color:#fff;margin-bottom:6px;'>"
-                        "📎 Adjuntar Factura</div>"
-                        "<div style='font-size:0.82rem;color:rgba(255,255,255,0.65);'>"
-                        "Requerida para guardar el registro de compra.</div></div>",
-                        unsafe_allow_html=True
-                    )
-                    with st.container():
-                        _rc_factura = st.file_uploader('Subir factura PDF', type=['pdf'],
-                            key=f'rc_factura_{_rc_ep}', label_visibility='collapsed')
-                        if _rc_factura:
-                            st.success(f'✅ {_rc_factura.name} — lista para guardar')
-                        else:
-                            st.caption('Arrastra o haz click para adjuntar la factura en PDF')
-                    st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
+                    # Factura y guardado manejados dentro del HTML component
 
 
     with _sub_acta:
