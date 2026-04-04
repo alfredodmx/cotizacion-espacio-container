@@ -11518,13 +11518,26 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                                     _rce_tz = timezone(timedelta(hours=-3))
                                     _rce_fecha = datetime.fromisoformat(_rce['fecha_registro'].replace('Z','+00:00')).astimezone(_rce_tz).strftime('%d/%m/%Y %H:%M')
                                 except: pass
-                                _rce_lugar_disp = _rce.get('lugar_compra','') or ''
+                                _rce_lugar_disp  = _rce.get('lugar_compra','') or ''
+                                _rce_tipo        = _rce.get('tipo_compra','') or ''
+                                _rce_subtipo     = _rce.get('subtipo_compra','') or ''
+                                _rce_obs         = _rce.get('observaciones','') or ''
+                                _rce_tipo_labels = {'online':'🌐 Compra Online','presencial':'🏬 Compra Presencial'}
+                                _rce_sub_labels  = {'retiro':'Retiro','despacho':'Despacho','completo':'Retiro Completo','parcial':'Retiro Parcial'}
+                                _rce_tipo_disp   = _rce_tipo_labels.get(_rce_tipo, _rce_tipo)
+                                _rce_sub_disp    = _rce_sub_labels.get(_rce_subtipo, _rce_subtipo)
+                                _rce_tipo_full   = f'{_rce_tipo_disp} — {_rce_sub_disp}' if _rce_tipo and _rce_subtipo else _rce_tipo_disp
                                 st.markdown(
-                                    f"<div style='margin-top:8px;padding:8px 12px;background:#f8fafc;border-radius:6px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;'>"
+                                    f"<div style='margin-top:8px;padding:10px 12px;background:#f8fafc;border-radius:6px;display:flex;flex-direction:column;gap:6px;'>"
+                                    f"<div style='display:flex;align-items:center;gap:12px;flex-wrap:wrap;'>"
                                     + (f"<span style='font-size:0.82rem;font-weight:700;color:#1e2447;'>🏪 {_rce_lugar_disp}</span>" if _rce_lugar_disp else "")
+                                    + (f"<span style='font-size:0.78rem;font-weight:600;color:#0f172a;'>{_rce_tipo_full}</span>" if _rce_tipo_full else "")
                                     + f"<span style='font-size:0.78rem;color:#64748b;'>🕐 {_rce_fecha}</span>"
                                     + f"<span style='font-size:0.78rem;color:#64748b;'>📄 {_rce.get('factura_nombre','')}</span>"
                                     + f"<a href='{_rce['factura_url']}' target='_blank' style='font-size:0.82rem;color:#3b82f6;text-decoration:none;'>📎 Ver factura</a>"
+                                    + "</div>"
+                                    + f"<div style='font-size:0.78rem;color:{'#0f172a' if _rce_obs else '#94a3b8'};font-style:{'normal' if _rce_obs else 'italic'};'>"
+                                    + f"📝 {_rce_obs if _rce_obs else 'Sin observaciones'}</div>"
                                     f"</div>",
                                     unsafe_allow_html=True
                                 )
