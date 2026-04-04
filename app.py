@@ -11537,7 +11537,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                                     + f"<a href='{_rce['factura_url']}' target='_blank' style='font-size:0.82rem;color:#3b82f6;text-decoration:none;'>📎 Ver factura</a>"
                                     + "</div>"
                                     + f"<div style='font-size:0.78rem;color:{'#0f172a' if _rce_obs else '#94a3b8'};font-style:{'normal' if _rce_obs else 'italic'};'>"
-                                    + f"📝 {_rce_obs if _rce_obs else 'Sin observaciones'}</div>"
+                                    + f"📝 <b>Observación:</b> {_rce_obs if _rce_obs else 'Sin observaciones'}</div>"
                                     f"</div>",
                                     unsafe_allow_html=True
                                 )
