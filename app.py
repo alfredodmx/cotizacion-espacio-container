@@ -10898,33 +10898,14 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         "input[type=number]{border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box;}"
                         "input[type=number]:focus{outline:none;border-color:#5b7cfa;box-shadow:0 0 0 2px rgba(91,124,250,.2);}"
                         "input[type=number]::-webkit-inner-spin-button{opacity:.4;}"
-                        "#tots{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:10px 12px;background:#f8fafc;border-top:2px solid #e2e8f0;}"
-                        ".tc .lbl{font-size:11px;color:#64748b;margin-top:3px;}"
-                        ".tc .val{font-weight:700;font-size:13px;}"
-                        ".tc .big{font-weight:900;font-size:15px;margin-top:2px;}"
-                        ".tc .hdr{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;}"
-                        "</style>"
+                                                "</style>"
                         "<div style='border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;'>"
                         "<div style='overflow-x:auto;'><table>"
                         "<thead><tr><th>Categoría</th><th>Ítem</th><th class='r'>Cant.</th>"
                         "<th class='r'>Presup. unit.</th><th class='r'>Real unit.</th>"
                         "<th class='r'>Adicional</th><th class='r'>Diferencia</th></tr></thead>"
                         "<tbody>"+_rc_rows_html+"</tbody></table></div>"
-                        "<div id='tots'>"
-                        "<div class='tc'><div class='hdr' style='color:#64748b;'>Presupuestado</div>"
-                        "<div class='lbl'>Subtotal neto</div><div class='val' id='tp-n'>$0</div>"
-                        "<div class='lbl'>IVA (19%)</div><div class='val' id='tp-i'>$0</div>"
-                        "<div class='lbl'>Total con IVA</div><div class='big' id='tp-t'>$0</div></div>"
-                        "<div class='tc'><div class='hdr' style='color:#64748b;'>Real</div>"
-                        "<div class='lbl'>Subtotal neto</div><div class='val' id='tr-n'>$0</div>"
-                        "<div class='lbl'>IVA (19%)</div><div class='val' id='tr-i'>$0</div>"
-                        "<div class='lbl'>Total con IVA</div><div class='big' id='tr-t'>$0</div></div>"
-                        "<div class='tc'><div class='hdr' id='b-h' style='color:#16a34a;'>Balance</div>"
-                        "<div class='lbl'>Neto</div><div class='val' id='b-n'>$0</div>"
-                        "<div class='lbl'>IVA</div><div class='val' id='b-i'>$0</div>"
-                        "<div class='lbl' id='b-l'>✅ Ahorro</div><div class='big' id='b-t'>$0</div></div>"
-                        "</div></div>"
-                        "<script>(function(){"
+                                               "<script>(function(){"
                         "function f(n){return '$'+Math.round(Math.abs(n)).toLocaleString('de-DE');}"
                         "function calc(){"
                         "var tP=0,tR=0,vals=[];"
@@ -10940,23 +10921,55 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         "vals.push({idx:+r.dataset.idx,real:re,adic:ad,dif:d});});"
                         "var iP=tP*.19,iR=tR*.19,b=tP-tR,ib=iP-iR;"
                         "var col=b>=0?'#16a34a':'#dc2626';"
-                        "['tp-n','tp-i','tp-t','tr-n','tr-i','tr-t','b-n','b-i','b-t'].forEach(function(id,i){"
-                        "var v=[tP,iP,tP+iP,tR,iR,tR+iR,b,ib,b+ib][i];"
-                        "document.getElementById(id).textContent=f(v);});"
-                        "['b-h','b-n','b-i','b-l','b-t'].forEach(function(id){document.getElementById(id).style.color=col;});"
-                        "document.getElementById('b-l').textContent=b>=0?'\u2705 Ahorro':'\u274C Sobrecosto';"
-                        "window.parent.postMessage({type:'rc_vals',vals:vals,tP:tP,tR:tR},'*');}"
+                                                "window.parent.postMessage({type:'rc_vals',vals:vals,tP:tP,tR:tR},'*');}"
                         "document.querySelectorAll('input').forEach(function(i){i.addEventListener('input',calc);});"
                         "calc();})()</script>"
                     )
-                    _rc_comp.html(_rc_html, height=_rc_height, scrolling=True)
+                    _rc_comp.html(_rc_html, height=min(len(_rc_prods)*37+60, 620), scrolling=True)
 
-                    # Capturar valores via postMessage → session_state
+                    # ── Totales Streamlit (se actualizan con cada rerun) ──
                     _rc_vals_key = f'rc_vals_{_rc_ep}'
                     if _rc_vals_key not in st.session_state:
-                        st.session_state[_rc_vals_key] = []
+                        st.session_state[_rc_vals_key] = {'tP': 0, 'tR': 0}
+                    _rc_sv  = st.session_state[_rc_vals_key]
+                    _tP     = float(_rc_sv.get('tP', 0) or 0)
+                    _tR     = float(_rc_sv.get('tR', 0) or 0)
+                    _iP     = _tP * 0.19; _iR = _tR * 0.19
+                    _bal    = _tP - _tR;  _ibal = _iP - _iR
+                    _bc     = '#16a34a' if _bal >= 0 else '#dc2626'
+                    _bi     = '✅ Ahorro' if _bal >= 0 else '❌ Sobrecosto'
+                    def _fclp(v): return '$'+f'{abs(round(v)):,}'.replace(',','.')
+                    st.markdown(
+                        f"<div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;"
+                        f"background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;"
+                        f"padding:16px;margin:8px 0;'>"
+                        f"<div><div style='font-size:0.72rem;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;'>Presupuestado</div>"
+                        f"<div style='font-size:0.78rem;color:#64748b;'>Subtotal neto</div><div style='font-size:0.95rem;font-weight:700;'>{_fclp(_tP)}</div>"
+                        f"<div style='font-size:0.78rem;color:#64748b;margin-top:4px;'>IVA (19%)</div><div style='font-size:0.88rem;font-weight:600;'>{_fclp(_iP)}</div>"
+                        f"<div style='font-size:0.78rem;color:#64748b;margin-top:4px;'>Total con IVA</div><div style='font-size:1.05rem;font-weight:900;'>{_fclp(_tP+_iP)}</div></div>"
+                        f"<div><div style='font-size:0.72rem;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;'>Real</div>"
+                        f"<div style='font-size:0.78rem;color:#64748b;'>Subtotal neto</div><div style='font-size:0.95rem;font-weight:700;'>{_fclp(_tR)}</div>"
+                        f"<div style='font-size:0.78rem;color:#64748b;margin-top:4px;'>IVA (19%)</div><div style='font-size:0.88rem;font-weight:600;'>{_fclp(_iR)}</div>"
+                        f"<div style='font-size:0.78rem;color:#64748b;margin-top:4px;'>Total con IVA</div><div style='font-size:1.05rem;font-weight:900;'>{_fclp(_tR+_iR)}</div></div>"
+                        f"<div><div style='font-size:0.72rem;font-weight:700;color:{_bc};letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;'>Balance</div>"
+                        f"<div style='font-size:0.78rem;color:{_bc};'>Neto</div><div style='font-size:0.95rem;font-weight:700;color:{_bc};'>{_fclp(_bal)}</div>"
+                        f"<div style='font-size:0.78rem;color:{_bc};margin-top:4px;'>IVA</div><div style='font-size:0.88rem;font-weight:600;color:{_bc};'>{_fclp(_ibal)}</div>"
+                        f"<div style='font-size:0.78rem;color:{_bc};margin-top:4px;'>{_bi}</div><div style='font-size:1.05rem;font-weight:900;color:{_bc};'>{_fclp(_bal+_ibal)}</div></div>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
 
-                    st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
+                    # ── Factura con diseño ──
+                    st.markdown(
+                        "<div style='background:linear-gradient(135deg,#1e2447 0%,#2a3060 100%);"
+                        "border-radius:12px;padding:20px 24px;margin:12px 0 4px;'>"
+                        "<div style='font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;"
+                        "letter-spacing:0.05em;text-transform:uppercase;color:#fff;margin-bottom:6px;'>"
+                        "📎 Adjuntar Factura</div>"
+                        "<div style='font-size:0.82rem;color:rgba(255,255,255,0.65);'>"
+                        "Requerida para guardar el registro de compra.</div></div>",
+                        unsafe_allow_html=True
+                    )
 
 
                     # Campo oculto para capturar valores JSON desde el componente HTML
