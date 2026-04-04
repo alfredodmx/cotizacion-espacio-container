@@ -11014,15 +11014,15 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                     _rc_sync.html("""
 <script>
 (function(){
+    function setNative(el, val){
+        var setter = Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype, 'value').set;
+        setter.call(el, val);
+        el.dispatchEvent(new Event('input', {bubbles:true}));
+    }
     window.addEventListener('message', function(e){
         if(!e.data || e.data.type !== 'rc_vals') return;
-        var D = window.parent.document;
-        var inputs = D.querySelectorAll('input[aria-label="Valores JSON (no editar)"]');
-        if(inputs.length > 0){
-            var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-            nativeInputValueSetter.call(inputs[0], JSON.stringify(e.data.vals));
-            inputs[0].dispatchEvent(new Event('input', {bubbles: true}));
-        }
+        var inputs = window.parent.document.querySelectorAll('input[aria-label="Valores JSON (no editar)"]');
+        if(inputs.length > 0) setNative(inputs[0], JSON.stringify(e.data.vals));
     });
 })();
 </script>""", height=0)
