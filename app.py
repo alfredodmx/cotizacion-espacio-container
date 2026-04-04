@@ -11408,7 +11408,9 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         usuario=st.session_state.get('auth_nombre','')
                     )
                     _rc_height = min(len(_rc_prods)*37+330, 740)
-                    _rc_comp.html(_rc_html, height=min(len(_rc_prods)*37+330, 740), scrolling=False)
+                    # Forzar re-render cuando cambian items comprados
+                    _rc_items_hash = str(sorted(_rc_items_comprados.keys()))
+                    _rc_comp.html(_rc_html + f'<!-- {_rc_items_hash} -->', height=min(len(_rc_prods)*37+330, 740), scrolling=False)
 
                     # Factura y guardado manejados dentro del HTML component
 
