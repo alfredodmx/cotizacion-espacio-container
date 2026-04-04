@@ -678,18 +678,34 @@ def guardar_plano_en_storage(archivo_pdf_bytes, cotizacion_numero, nombre_origin
 # Función que construye el HTML del registro de compras
 # Usando triple-quoted strings para evitar conflictos de comillas
 
-def build_rc_html(rc_prods, rc_cat_json, rc_prev):
+# Función que construye el HTML del registro de compras
+# Usando triple-quoted strings para evitar conflictos de comillas
+
+def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin=False):
     rows = ""
+    items_comprados = items_comprados or {}
     for ri, prod in enumerate(rc_prods):
         cat   = str(prod.get('Categoria', ''))
         item  = str(prod.get('Item', ''))
         cant  = round(float(prod.get('Cantidad', 1) or 1))
         pu    = round(float(prod.get('Precio Unitario', 0) or 0))
-        bg    = '#ffffff' if ri % 2 == 0 else '#f8fafc'
+        # Verificar si este ítem ya fue comprado en un registro anterior
+        _ic = items_comprados.get(item, {})
+        _ya_comprado = bool(_ic and float(_ic.get('real', 0) or 0) > 0)
+        _readonly = _ya_comprado and not es_admin
+
+        if _ya_comprado:
+            bg = '#f0fdf4'  # verde claro — ya comprado
+        elif ri % 2 == 0:
+            bg = '#ffffff'
+        else:
+            bg = '#f8fafc'
+
         pu_fmt = '$' + f'{pu:,}'.replace(',', '.')
         pv    = rc_prev.get(str(ri), {})
-        vreal = pv.get('real', 0) or 0
-        vadic = pv.get('adic', 0) or 0
+        # Priorizar valor del registro anterior si ya fue comprado
+        vreal = float(_ic.get('real', 0)) if _ya_comprado else (pv.get('real', 0) or 0)
+        vadic = int(_ic.get('adicional', 0)) if _ya_comprado else (pv.get('adic', 0) or 0)
         vreal_fmt = ('$' + f'{int(vreal):,}'.replace(',', '.')) if vreal else ''
 
         rows += f"""<tr style="background:{bg};border-bottom:1px solid #eef0f6" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}">
@@ -697,8 +713,8 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev):
 <td style="padding:5px 8px;font-size:.82rem">{item}</td>
 <td style="padding:5px 8px;text-align:right">{cant}</td>
 <td style="padding:5px 8px;text-align:right;font-weight:600">{pu_fmt}</td>
-<td style="padding:3px 4px"><input type="text" inputmode="numeric" value="{vreal_fmt}" class="rc-real" data-idx="{ri}" data-val="{vreal}" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box"/></td>
-<td style="padding:3px 4px"><input type="number" min="0" step="1" value="{vadic}" class="rc-adic" data-idx="{ri}" style="width:100%;border:1px solid #fca5a5;border-radius:6px;padding:5px;font-size:13px;text-align:right;background:#fff5f5;box-sizing:border-box"/></td>
+<td style="padding:3px 4px"><input type="text" inputmode="numeric" value="{vreal_fmt}" class="rc-real" data-idx="{ri}" data-val="{vreal}" {"readonly" if _readonly else ""} style="width:100%;border:1px solid {"#86efac" if _ya_comprado else "#cbd5e1"};border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box;{"background:#f0fdf4;color:#15803d;cursor:default" if _ya_comprado else ""}"/></td>
+<td style="padding:3px 4px"><input type="number" min="0" step="1" value="{vadic}" class="rc-adic" data-idx="{ri}" {"readonly" if _readonly else ""} style="width:100%;border:1px solid {"#86efac" if _ya_comprado else "#fca5a5"};border-radius:6px;padding:5px;font-size:13px;text-align:right;background:{"#f0fdf4" if _ya_comprado else "#fff5f5"};box-sizing:border-box{"pointer-events:none" if _readonly else ""}"/></td>
 <td class="rc-dif" data-idx="{ri}" style="padding:5px 8px;text-align:right;font-weight:700;color:#16a34a;white-space:nowrap">-</td>
 </tr>"""
 
@@ -892,10 +908,70 @@ def guardar_registro_compra(cotizacion_numero, usuario, factura_url, factura_nom
 def obtener_registros_compra(cotizacion_numero):
     """Obtiene todos los registros de compra de una cotización."""
     try:
-        resp = supabase.table("registro_compras").select("*").eq("cotizacion_numero", cotizacion_numero).order("fecha_registro", desc=True).execute()
+        resp = supabase.table("registro_compras").select("*").eq("cotizacion_numero", cotizacion_numero).order("fecha_registro", desc=False).execute()
         return resp.data or []
     except Exception as e:
         return []
+
+def obtener_items_comprados(cotizacion_numero):
+    """Consolida todos los registros y retorna dict {item_name: {real, adic, fecha}} de ítems ya comprados."""
+    import json as _jic
+    try:
+        registros = obtener_registros_compra(cotizacion_numero)
+        comprados = {}
+        for reg in registros:
+            items = reg.get('items') or []
+            if isinstance(items, str):
+                try: items = _jic.loads(items)
+                except: items = []
+            fecha = reg.get('fecha_registro','')
+            for it in items:
+                nombre = str(it.get('item',''))
+                real = float(it.get('precio_real', 0) or 0)
+                adic = int(it.get('adicional', 0) or 0)
+                if real > 0 and nombre:
+                    comprados[nombre] = {
+                        'real': real,
+                        'adicional': adic,
+                        'diferencia': it.get('diferencia', 0),
+                        'fecha': fecha
+                    }
+        return comprados
+    except Exception as e:
+        return {}
+
+def calcular_estado_compras(cotizacion_numero, productos_presupuesto):
+    """Calcula el estado de compras: porcentaje, adicionales, etc."""
+    import json as _jcs
+    try:
+        prods = [p for p in (productos_presupuesto or [])
+                 if str(p.get('Categoria','')).strip().lower() != 'varios']
+        total_items = len(prods)
+        if total_items == 0:
+            return {'pct': 0, 'estado': 'Sin productos', 'comprados': 0, 'total': 0, 'adicionales': []}
+
+        comprados = obtener_items_comprados(cotizacion_numero)
+        items_comprados = sum(1 for p in prods if str(p.get('Item','')) in comprados)
+        adicionales = [v for k,v in comprados.items()
+                       if not any(str(p.get('Item','')) == k for p in prods)]
+
+        pct = round(items_comprados / total_items * 100)
+        if items_comprados == 0:
+            estado = 'Sin compras'
+        elif pct >= 100:
+            estado = '100% + adicionales' if adicionales else 'Compras 100%'
+        else:
+            estado = f'Compras al {pct}%'
+
+        return {
+            'pct': pct,
+            'estado': estado,
+            'comprados': items_comprados,
+            'total': total_items,
+            'adicionales': adicionales
+        }
+    except Exception as e:
+        return {'pct': 0, 'estado': 'Error', 'comprados': 0, 'total': 0, 'adicionales': []}
 
 def guardar_acta_en_storage(archivo_bytes, cotizacion_numero, nombre_original):
     """Sube un acta PDF al bucket 'facturas' de Supabase."""
@@ -7404,6 +7480,36 @@ if tab3 is not None:
             except: return '<span style="color:#94a3b8;">0</span>'
         df_resultados["ModCol"] = df_resultados["NLogs"].apply(_fmt_nlogs)
 
+        # Columna COMPRAS OK — solo para admin/root
+        if _rol_actual in ('root', 'admin'):
+            def _fmt_compras_ok(row):
+                try:
+                    import json as _jco
+                    _num = row.get("N°","")
+                    _prods_raw = row.get("productos") or []
+                    if isinstance(_prods_raw, str):
+                        try: _prods_raw = _jco.loads(_prods_raw)
+                        except: _prods_raw = []
+                    _est = calcular_estado_compras(_num, _prods_raw)
+                    _pct = _est["pct"]
+                    _estado = _est["estado"]
+                    if _estado == "Sin compras":
+                        return '<span style="color:#94a3b8;font-size:0.78rem;">Sin compras</span>'
+                    elif _estado == "Compras 100%":
+                        return '<span style="color:#16a34a;font-weight:700;font-size:0.78rem;">✅ 100%</span>'
+                    elif "adicionales" in _estado:
+                        _nadd = len(_est["adicionales"])
+                        return (f'<span style="color:#16a34a;font-weight:700;font-size:0.78rem;cursor:pointer" '
+                                f'onclick="alert(\'Adicionales: {_nadd} ítem(s) extra\')">✅ 100% +{_nadd} adic.</span>')
+                    else:
+                        _col = "#f97316" if _pct < 50 else "#eab308"
+                        return f'<span style="color:{_col};font-weight:700;font-size:0.78rem;">{_pct}%</span>'
+                except:
+                    return '<span style="color:#94a3b8;font-size:0.78rem;">—</span>'
+            df_resultados["ComprasOK"] = df_resultados.apply(_fmt_compras_ok, axis=1)
+        else:
+            df_resultados["ComprasOK"] = ""
+
         # Calcular conteos ANTES de filtrar para que los badges siempre muestren todos
         import re as _re_cnt_pre
         _estados_cnt_total = {}
@@ -7453,6 +7559,9 @@ if tab3 is not None:
             _col_tc     = '<col style="width:130px">' if st.session_state.modo_admin else ''
             _col_margen = '<col style="width:75px">'  if st.session_state.modo_admin else ''
             _td_tc   = f'<td style="text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;">{_tc_fmt}<br><span style="font-size:0.72em;color:#94a3b8;font-weight:400;">base+IVA · sin margen · sin Varios</span></td>' if st.session_state.modo_admin else ''
+            _th_compras = '<th>Compras</th>' if st.session_state.modo_admin else ''
+            _col_compras = '<col style="width:110px">' if st.session_state.modo_admin else ''
+            _td_compras = f'<td style="text-align:center;">{row.get("ComprasOK","—")}</td>' if st.session_state.modo_admin else ''
 
             _ct_color  = 'color:#16a34a;font-weight:700;' if row['ContratoCol'] == '✅ Sí' else 'color:#94a3b8;'
             _emp_color = 'color:#16a34a;font-weight:700;' if row['EmpresaCol']  == '✅ Sí' else 'color:#94a3b8;'
@@ -7587,7 +7696,7 @@ if tab3 is not None:
             else:
                 _demora_display = row.get('Demora', '—')
             _fila_class = ' class="fila-rechazada"' if _motivo_rec else ''
-            rows_html += f"<tr{_fila_class}><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Cliente'] or '—'}</td><td style='text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.6;'>{row['Total']}</td>{_td_tc}<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Asesor'] or '—'}</td><td class='td-estado' style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td class='demora-col' style='text-align:center;font-size:0.82rem;font-weight:700;'>{_demora_display}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td>{_td_margen}<td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td><td style='text-align:center;font-size:0.82rem;'>{_proc_not_html}</td><td style='line-height:1.6;'>{_fadj_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fab_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fidel_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_retraso_html_cot}</td></tr>"
+            rows_html += f"<tr{_fila_class}><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Cliente'] or '—'}</td><td style='text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.6;'>{row['Total']}</td>{_td_tc}<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Asesor'] or '—'}</td><td class='td-estado' style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td class='demora-col' style='text-align:center;font-size:0.82rem;font-weight:700;'>{_demora_display}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td>{_td_margen}<td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td><td style='text-align:center;font-size:0.82rem;'>{_proc_not_html}</td><td style='line-height:1.6;'>{_fadj_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fab_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fidel_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_retraso_html_cot}</td>{_td_compras}</tr>"
 
         # Badge resumen por estado
         # Contar por estado usando los badges ya calculados
@@ -7689,7 +7798,7 @@ if tab3 is not None:
             <div style="{_altura_css}">
                 <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:1700px;table-layout:auto;white-space:nowrap;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
-                        <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th class="th-cierre">$ Cierre de venta</th><th class="th-adj">Fecha adjudicación</th><th class="th-adj">Tiempo fabricación</th><th class="th-adj">Fidelización cliente</th><th class="th-adj">Retraso proyecto</th></tr>
+                        <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th class="th-cierre">$ Cierre de venta</th><th class="th-adj">Fecha adjudicación</th><th class="th-adj">Tiempo fabricación</th><th class="th-adj">Fidelización cliente</th><th class="th-adj">Retraso proyecto</th>{_th_compras}</tr>
                     </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
@@ -10654,6 +10763,28 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                 _fab_html = '<span style="color:#94a3b8;">—</span>'
                 _retraso_html = '<span style="color:#94a3b8;">—</span>'
                 _fidel_html = '<span style="color:#94a3b8;">—</span>'
+                # Columna Compras
+                try:
+                    import json as _jop_c
+                    _op_prods = _or.get('productos') or []
+                    if isinstance(_op_prods, str):
+                        try: _op_prods = _jop_c.loads(_op_prods)
+                        except: _op_prods = []
+                    _op_est = calcular_estado_compras(_ep, _op_prods)
+                    _op_pct = _op_est['pct']
+                    _op_estado = _op_est['estado']
+                    if _op_estado == 'Sin compras':
+                        _compras_html = '<span style="color:#94a3b8;font-size:0.78rem;">Sin compras</span>'
+                    elif _op_estado == 'Compras 100%':
+                        _compras_html = '<span style="color:#16a34a;font-weight:700;font-size:0.78rem;">✅ 100%</span>'
+                    elif 'adicionales' in _op_estado:
+                        _nadd_op = len(_op_est['adicionales'])
+                        _compras_html = f'<span style="color:#16a34a;font-weight:700;font-size:0.78rem;">✅ 100% +{_nadd_op}</span>'
+                    else:
+                        _op_col = '#f97316' if _op_pct < 50 else '#eab308'
+                        _compras_html = f'<span style="color:{_op_col};font-weight:700;font-size:0.78rem;">{_op_pct}%</span>'
+                except:
+                    _compras_html = '<span style="color:#94a3b8;">—</span>'
 
                 if _adj and _fadj_raw:
                     try:
@@ -10717,6 +10848,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                     f"<td style='text-align:center;font-size:0.82rem;'>{_fab_html}</td>"
                     f"<td style='text-align:center;font-size:0.82rem;'>{_fidel_html}</td>"
                     f"<td style='text-align:center;font-size:0.82rem;'>{_retraso_html}</td>"
+                    f"<td style='text-align:center;font-size:0.82rem;'>{_compras_html}</td>"
                     f"</tr>"
                 )
 
@@ -10738,6 +10870,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                       <th>Tiempo fabricación</th>
                       <th>Fidelización cliente</th>
                       <th>Retraso proyecto</th>
+                      <th>Compras</th>
                     </tr>
                   </thead>
                   <tbody>{_rows_op}</tbody>
@@ -11076,7 +11209,10 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         _rc_prev = {str(v.get('idx','')): v for v in _jt2.loads(st.session_state.get(f'rc_json_{_rc_ep}','[]') or '[]')}
                     except:
                         _rc_prev = {}
-                    _rc_html = build_rc_html(_rc_prods, _rc_cat_json, _rc_prev)
+                    # Obtener ítems ya comprados en registros anteriores
+                    _rc_items_comprados = obtener_items_comprados(_rc_ep)
+                    _rc_es_admin = _rol_actual in ('root','admin')
+                    _rc_html = build_rc_html(_rc_prods, _rc_cat_json, _rc_prev, _rc_items_comprados, _rc_es_admin)
                     _rc_height = min(len(_rc_prods)*37+330, 740)
                     _rc_comp.html(_rc_html, height=min(len(_rc_prods)*37+330, 740), scrolling=False)
 
@@ -11124,26 +11260,37 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                             _rc_vals_parsed = _jrc_save.loads(_rc_json_str or '[]')
                         except:
                             _rc_vals_parsed = []
-                        # Construir items combinando productos del presupuesto con valores del HTML
+                        # Solo guardar ítems con precio real > 0 que NO estaban ya comprados
+                        # (a menos que sea admin que puede sobreescribir)
                         _rc_vals_map = {str(v.get('idx','')): v for v in _rc_vals_parsed}
                         _rc_all_items = []
                         for _ri2, _prod2 in enumerate(_rc_prods):
                             _pu2   = round(float(_prod2.get('Precio Unitario',0) or 0))
                             _cant2 = round(float(_prod2.get('Cantidad',1) or 1))
+                            _item2 = str(_prod2.get('Item',''))
+                            _ya2   = _item2 in _rc_items_comprados and not _rc_es_admin
+                            if _ya2:
+                                continue  # Skip ítems ya comprados (no admin)
                             _vmap  = _rc_vals_map.get(str(_ri2), {})
                             _real2 = float(_vmap.get('real', 0) or 0)
                             _adic2 = int(_vmap.get('adic', 0) or 0)
+                            if _real2 <= 0:
+                                continue  # Solo guardar ítems donde se ingresó precio real
                             _rc_all_items.append({
                                 'categoria': str(_prod2.get('Categoria','')),
-                                'item': str(_prod2.get('Item','')),
+                                'item': _item2,
                                 'cantidad': _cant2,
                                 'precio_presupuestado': _pu2,
                                 'precio_real': _real2,
                                 'adicional': _adic2,
                                 'diferencia': (_pu2 - _real2) * _cant2 - (_adic2 * _real2)
                             })
+                        # Agregar adicionales del catálogo
                         if st.session_state.get('rc_adicionales'):
                             _rc_all_items.extend(st.session_state.rc_adicionales)
+                        if not _rc_all_items:
+                            st.warning('⚠️ No hay ítems nuevos para guardar. Ingresa el precio real de los productos comprados.')
+                            st.stop()
 
                         _rc_factura_url, _rc_factura_nom = '', ''
                         if _rc_factura:
