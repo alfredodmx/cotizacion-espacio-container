@@ -11239,45 +11239,57 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                     st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
 
 
-                    # Campo oculto para capturar valores JSON desde el componente HTML
-                    _rc_json_key = f'rc_json_{_rc_ep}'
-                    if _rc_json_key not in st.session_state:
-                        st.session_state[_rc_json_key] = '[]'
-                    _rc_json_str = st.text_input('Valores JSON (no editar)',
-                        key=_rc_json_key, label_visibility='collapsed')
-                    st.markdown("""
-                    <style>
-                    div[data-testid='stTextInput']:has(input[aria-label='Valores JSON (no editar)'])
-                    {height:0!important;overflow:hidden!important;margin:0!important;padding:0!important;}
-                    </style>""", unsafe_allow_html=True)
-
+                    # ── Captura de valores con st.data_editor nativo ──
+                    # Construir DataFrame con ítems pendientes de comprar
+                    import pandas as _pd_rc_cap
+                    _rc_pendientes = [
+                        p for p in _rc_prods
+                        if str(p.get('Item','')) not in _rc_items_comprados or _rc_es_admin
+                    ]
+                    if _rc_pendientes:
+                        st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:12px 0 4px;">📝 Ingresa los precios reales de los productos comprados hoy</div>', unsafe_allow_html=True)
+                        st.caption('Solo completa los ítems que compraste en esta visita. Deja en 0 los que no compraste.')
+                        _rc_cap_df = _pd_rc_cap.DataFrame([{
+                            'Categoría': str(p.get('Categoria','')),
+                            'Ítem': str(p.get('Item','')),
+                            'Cant.': round(float(p.get('Cantidad',1) or 1)),
+                            'Presup. unit.': round(float(p.get('Precio Unitario',0) or 0)),
+                            'Real unit.': 0.0,
+                            'Adicional': 0,
+                        } for p in _rc_pendientes])
+                        _rc_cap_edited = st.data_editor(
+                            _rc_cap_df,
+                            use_container_width=True,
+                            hide_index=True,
+                            key=f'rc_cap_editor_{_rc_ep}',
+                            column_config={
+                                'Categoría':     st.column_config.TextColumn(disabled=True),
+                                'Ítem':          st.column_config.TextColumn(disabled=True),
+                                'Cant.':         st.column_config.NumberColumn(disabled=True, format='%d'),
+                                'Presup. unit.': st.column_config.NumberColumn(disabled=True, format='$ %d'),
+                                'Real unit.':    st.column_config.NumberColumn(min_value=0.0, step=100.0, format='$ %d'),
+                                'Adicional':     st.column_config.NumberColumn(min_value=0, step=1, format='%d',
+                                    help='Unidades extra compradas fuera del presupuesto'),
+                            }
+                        )
+                    else:
+                        _rc_cap_edited = _pd_rc_cap.DataFrame()
+                        st.info('✅ Todos los ítems del presupuesto ya fueron comprados.')
 
                     # Botón guardar — deshabilitado sin factura
                     if st.button('💾 Guardar registro de compra', key='rc_guardar',
                                  use_container_width=True, disabled=not bool(_rc_factura)):
-                        import json as _jrc_save
-                        try:
-                            _rc_vals_parsed = _jrc_save.loads(_rc_json_str or '[]')
-                        except:
-                            _rc_vals_parsed = []
-                        # Solo guardar ítems con precio real > 0 que NO estaban ya comprados
-                        # (a menos que sea admin que puede sobreescribir)
-                        _rc_vals_map = {str(v.get('idx','')): v for v in _rc_vals_parsed}
                         _rc_all_items = []
-                        for _ri2, _prod2 in enumerate(_rc_prods):
-                            _pu2   = round(float(_prod2.get('Precio Unitario',0) or 0))
-                            _cant2 = round(float(_prod2.get('Cantidad',1) or 1))
-                            _item2 = str(_prod2.get('Item',''))
-                            _ya2   = _item2 in _rc_items_comprados and not _rc_es_admin
-                            if _ya2:
-                                continue  # Skip ítems ya comprados (no admin)
-                            _vmap  = _rc_vals_map.get(str(_ri2), {})
-                            _real2 = float(_vmap.get('real', 0) or 0)
-                            _adic2 = int(_vmap.get('adic', 0) or 0)
+                        for _, _row_cap in _rc_cap_edited.iterrows():
+                            _real2 = float(_row_cap.get('Real unit.', 0) or 0)
+                            _adic2 = int(_row_cap.get('Adicional', 0) or 0)
                             if _real2 <= 0:
-                                continue  # Solo guardar ítems donde se ingresó precio real
+                                continue
+                            _item2 = str(_row_cap.get('Ítem',''))
+                            _pu2   = round(float(_row_cap.get('Presup. unit.', 0) or 0))
+                            _cant2 = round(float(_row_cap.get('Cant.', 1) or 1))
                             _rc_all_items.append({
-                                'categoria': str(_prod2.get('Categoria','')),
+                                'categoria': str(_row_cap.get('Categoría','')),
                                 'item': _item2,
                                 'cantidad': _cant2,
                                 'precio_presupuestado': _pu2,
@@ -11285,7 +11297,6 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                                 'adicional': _adic2,
                                 'diferencia': (_pu2 - _real2) * _cant2 - (_adic2 * _real2)
                             })
-                        # Agregar adicionales del catálogo
                         if st.session_state.get('rc_adicionales'):
                             _rc_all_items.extend(st.session_state.rc_adicionales)
                         if not _rc_all_items:
