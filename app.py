@@ -1445,7 +1445,14 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
         if falto:
             elements.append(Paragraph(f"Faltó retirar: {falto}", styles['BSmall']))
         elements.append(Paragraph(f"Observación: {obs}", styles['BSmall']))
-        elements.append(Paragraph(f"Factura: {factura}", styles['BSmall']))
+        _factura_url = reg.get('factura_url','') or ''
+        if _factura_url:
+            elements.append(Paragraph(
+                f'Factura: <link href="{_factura_url}"><u><font color="#3b82f6">{factura}</font></u></link>',
+                styles['BSmall']
+            ))
+        else:
+            elements.append(Paragraph(f"Factura: {factura}", styles['BSmall']))
         elements.append(Spacer(1, 0.2*cm))
 
         # Tabla items
