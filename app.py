@@ -669,6 +669,188 @@ def guardar_plano_en_storage(archivo_pdf_bytes, cotizacion_numero, nombre_origin
     except Exception as e:
         return None, str(e)
 
+# Función que construye el HTML del registro de compras
+# Usando triple-quoted strings para evitar conflictos de comillas
+
+# Función que construye el HTML del registro de compras
+# Usando triple-quoted strings para evitar conflictos de comillas
+
+def build_rc_html(rc_prods, rc_cat_json, rc_prev):
+    rows = ""
+    for ri, prod in enumerate(rc_prods):
+        cat   = str(prod.get('Categoria', ''))
+        item  = str(prod.get('Item', ''))
+        cant  = round(float(prod.get('Cantidad', 1) or 1))
+        pu    = round(float(prod.get('Precio Unitario', 0) or 0))
+        bg    = '#ffffff' if ri % 2 == 0 else '#f8fafc'
+        pu_fmt = '$' + f'{pu:,}'.replace(',', '.')
+        pv    = rc_prev.get(str(ri), {})
+        vreal = pv.get('real', 0) or 0
+        vadic = pv.get('adic', 0) or 0
+        vreal_fmt = ('$' + f'{int(vreal):,}'.replace(',', '.')) if vreal else ''
+
+        rows += f"""<tr style="background:{bg};border-bottom:1px solid #eef0f6" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}">
+<td style="padding:5px 8px;font-size:.75rem;color:#64748b">{cat}</td>
+<td style="padding:5px 8px;font-size:.82rem">{item}</td>
+<td style="padding:5px 8px;text-align:right">{cant}</td>
+<td style="padding:5px 8px;text-align:right;font-weight:600">{pu_fmt}</td>
+<td style="padding:3px 4px"><input type="text" inputmode="numeric" value="{vreal_fmt}" class="rc-real" data-idx="{ri}" data-val="{vreal}" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box"/></td>
+<td style="padding:3px 4px"><input type="number" min="0" step="1" value="{vadic}" class="rc-adic" data-idx="{ri}" style="width:100%;border:1px solid #fca5a5;border-radius:6px;padding:5px;font-size:13px;text-align:right;background:#fff5f5;box-sizing:border-box"/></td>
+<td class="rc-dif" data-idx="{ri}" style="padding:5px 8px;text-align:right;font-weight:700;color:#16a34a;white-space:nowrap">-</td>
+</tr>"""
+
+    html = f"""<style>
+html,body{{margin:0;padding:0;font-family:'Segoe UI',sans-serif;font-size:13px;height:100%;overflow:hidden}}
+body{{display:flex;flex-direction:column}}
+table{{width:100%;border-collapse:collapse}}
+th{{background:#1e2447;color:#fff;padding:7px 8px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;position:sticky;top:0;z-index:1}}
+th.r,td.r{{text-align:right}}
+input[type=number]{{border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box}}
+input[type=number]:focus{{outline:none;border-color:#5b7cfa;box-shadow:0 0 0 2px rgba(91,124,250,.2)}}
+input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
+</style>
+<input id="rc-search" type="text" placeholder="Buscar item..." oninput="window.filterRows(this.value)" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:7px 10px;font-size:13px;box-sizing:border-box;margin-bottom:6px"/>
+<div style="border:1px solid #e2e8f0;border-radius:8px;display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0">
+  <div id="tbl-wrap" style="overflow:auto;flex:1;min-height:0"><table>
+    <thead><tr>
+      <th>Categoría</th><th>Ítem</th><th class="r">Cant.</th>
+      <th class="r">Presup. unit.</th><th class="r">Real unit.</th>
+      <th class="r">Adicional</th><th class="r">Diferencia</th>
+    </tr></thead>
+    <tbody>{rows}</tbody>
+  </table></div>
+  <div id="tots" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:16px;background:#f8fafc;border-top:2px solid #e2e8f0;flex-shrink:0">
+    <div>
+      <div style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">Presupuestado</div>
+      <div style="font-size:11px;color:#64748b">Subtotal neto</div><div style="font-size:15px;font-weight:700" id="tp-n">$0</div>
+      <div style="font-size:11px;color:#64748b;margin-top:4px">IVA (19%)</div><div style="font-size:13px;font-weight:600" id="tp-i">$0</div>
+      <div style="font-size:11px;color:#64748b;margin-top:4px">Total con IVA</div><div style="font-size:17px;font-weight:900" id="tp-t">$0</div>
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">Real</div>
+      <div style="font-size:11px;color:#64748b">Subtotal neto</div><div style="font-size:15px;font-weight:700" id="tr-n">$0</div>
+      <div style="font-size:11px;color:#64748b;margin-top:4px">IVA (19%)</div><div style="font-size:13px;font-weight:600" id="tr-i">$0</div>
+      <div style="font-size:11px;color:#64748b;margin-top:4px">Total con IVA</div><div style="font-size:17px;font-weight:900" id="tr-t">$0</div>
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px" id="b-hdr">Balance</div>
+      <div style="font-size:11px" id="b-lbl1">Neto</div><div style="font-size:15px;font-weight:700" id="b-n">$0</div>
+      <div style="font-size:11px;margin-top:4px" id="b-lbl2">IVA</div><div style="font-size:13px;font-weight:600" id="b-i">$0</div>
+      <div style="font-size:11px;margin-top:4px" id="b-icon">&#x2705; Ahorro</div><div style="font-size:17px;font-weight:900" id="b-t">$0</div>
+    </div>
+  </div>
+  <div id="add-section" style="padding:12px 16px;background:#fff;border-top:1px solid #e2e8f0;flex-shrink:0">
+    <div style="font-size:12px;font-weight:700;color:#1e2447;margin-bottom:8px">&#x2795; Agregar producto adicional</div>
+    <div style="display:grid;grid-template-columns:1.5fr 3fr 0.8fr 1.2fr auto;gap:6px;align-items:end">
+      <div><div style="font-size:10px;color:#64748b;margin-bottom:3px">Categoría</div>
+        <select id="add-cat" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:12px"><option value="">Seleccionar...</option></select></div>
+      <div><div style="font-size:10px;color:#64748b;margin-bottom:3px">Ítem</div>
+        <select id="add-item" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:12px"><option value="">Seleccionar categoría primero</option></select></div>
+      <div><div style="font-size:10px;color:#64748b;margin-bottom:3px">Cant.</div>
+        <input id="add-cant" type="number" min="1" value="1" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:12px;text-align:right"/></div>
+      <div><div style="font-size:10px;color:#64748b;margin-bottom:3px">Presup. unit.</div>
+        <div id="add-precio" style="border:1px solid #e2e8f0;border-radius:6px;padding:5px 8px;font-size:12px;font-weight:600;background:#f8fafc;text-align:right">$0</div></div>
+      <div style="padding-bottom:1px">
+        <button onclick="window.addRow()" style="background:#1e2447;color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer">+ Agregar</button></div>
+    </div>
+  </div>
+</div>
+<script>(function(){{
+var CAT={rc_cat_json};
+var addCat=document.getElementById("add-cat");
+Object.keys(CAT).sort().forEach(function(c){{var o=document.createElement("option");o.value=c;o.textContent=c;addCat.appendChild(o);}});
+addCat.addEventListener("change",function(){{
+  var sel=document.getElementById("add-item");
+  sel.innerHTML="<option value=\"\">Seleccionar item...</option>";
+  document.getElementById("add-precio").textContent="$0";
+  var items=CAT[this.value]||[];
+  items.forEach(function(it){{var o=document.createElement("option");o.value=JSON.stringify(it);o.textContent=it.item;sel.appendChild(o);}});
+}});
+document.getElementById("add-item").addEventListener("change",function(){{
+  try{{var it=JSON.parse(this.value);document.getElementById("add-precio").textContent=f(it.precio);}}catch(e){{}}
+}});
+var _addIdx=10000;
+window.addRow=function(){{
+  var catEl=document.getElementById("add-cat");
+  var itemEl=document.getElementById("add-item");
+  var cantEl=document.getElementById("add-cant");
+  if(!catEl.value||!itemEl.value)return;
+  var it=JSON.parse(itemEl.value);
+  var cant=parseInt(cantEl.value)||1;
+  var pu=it.precio;
+  var tr=document.createElement("tr");
+  tr.style.cssText="background:#fff3e0;border-bottom:1px solid #eef0f6;border-left:3px solid #f97316";
+  tr.dataset.idx=String(_addIdx);tr.dataset.pu=String(pu);tr.dataset.cant=String(cant);
+  tr.innerHTML="<td style='padding:5px 8px;font-size:.75rem;color:#64748b'>"+catEl.value+"</td>"
+    +"<td style='padding:5px 8px;font-size:.82rem'>"+it.item+"</td>"
+    +"<td style='padding:5px 8px;text-align:right'>"+cant+"</td>"
+    +"<td style='padding:5px 8px;text-align:right;font-weight:600'>"+f(pu)+"</td>"
+    +"<td style='padding:3px 4px'><input type='text' inputmode='numeric' value="" class='rc-real' data-idx='"+_addIdx+"' data-val='0' style='width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box'/></td>"
+    +"<td style='padding:3px 4px'><input type='number' min='0' step='1' value='0' class='rc-adic' data-idx='"+_addIdx+"' style='width:100%;border:1px solid #fca5a5;border-radius:6px;padding:5px;font-size:13px;text-align:right;background:#fff5f5;box-sizing:border-box'/></td>"
+    +"<td class='rc-dif' style='padding:5px 8px;text-align:right;font-weight:700;color:#16a34a;white-space:nowrap'>-</td>";
+  document.querySelector("tbody").appendChild(tr);
+  attachListeners(tr.querySelector(".rc-real"), tr.querySelector(".rc-adic"));
+  _addIdx++;cantEl.value="1";itemEl.selectedIndex=0;
+  document.getElementById("add-precio").textContent="$0";calc();
+}};
+function attachListeners(inp, adic){{
+  inp.addEventListener("input",function(){{
+    var raw=this.value.replace(/[^0-9]/g,"");
+    this.dataset.val=raw||"0";
+    if(!raw){{this.value="";calc();return;}}
+    this.value="$"+parseInt(raw).toLocaleString("de-DE");calc();
+  }});
+  inp.addEventListener("focus",function(){{
+    var r=this.dataset.val||"0";
+    this.value=r==="0"?"":r;
+  }});
+  inp.addEventListener("blur",function(){{
+    var n=parseInt(this.dataset.val)||0;
+    this.dataset.val=String(n);
+    this.value=n>0?"$"+n.toLocaleString("de-DE"):"";calc();
+  }});
+  adic.addEventListener("input",calc);
+}}
+function f(n){{return "$"+Math.round(Math.abs(n)).toLocaleString("de-DE");}}
+function calc(){{
+  var tP=0,tR=0,vals=[];
+  document.querySelectorAll("tr[data-idx]").forEach(function(r){{
+    var pu=+r.dataset.pu||0,c=+r.dataset.cant||1;
+    var re=parseFloat(r.querySelector(".rc-real").dataset.val)||0;
+    var ad=+r.querySelector(".rc-adic").value||0;
+    var d=(pu-re)*c-(ad*re);
+    var td=r.querySelector(".rc-dif");
+    td.textContent=f(d)+(d>=0?" \u25BC":" \u25B2");
+    td.style.color=d>=0?"#16a34a":"#dc2626";
+    tP+=pu*c;tR+=re*c+ad*re;
+    vals.push({{idx:+r.dataset.idx,real:re,adic:ad,dif:d}});
+  }});
+  var iP=tP*.19,iR=tR*.19,b=tP-tR,ib=iP-iR;
+  var col=b>=0?"#16a34a":"#dc2626";
+  var ids=["tp-n","tp-i","tp-t","tr-n","tr-i","tr-t","b-n","b-i","b-t"];
+  var v=[tP,iP,tP+iP,tR,iR,tR+iR,b,ib,b+ib];
+  ids.forEach(function(id,i){{var el=document.getElementById(id);if(el)el.textContent=f(v[i]);}});
+  ["b-hdr","b-n","b-i","b-lbl1","b-lbl2","b-icon","b-t"].forEach(function(id){{var el=document.getElementById(id);if(el)el.style.color=col;}});
+  var bi=document.getElementById("b-icon");
+  if(bi)bi.textContent=b>=0?"\u2705 Ahorro":"\u274C Sobrecosto";
+  window.parent.postMessage({{type:"rc_vals",vals:vals,tP:tP,tR:tR}},"*");
+}}
+window.filterRows=function(q){{
+  var s=q.toLowerCase();
+  document.querySelectorAll("tbody tr").forEach(function(r){{
+    var txt=r.cells[1]?r.cells[1].textContent.toLowerCase():"";
+    r.style.display=!s||txt.indexOf(s)>-1?"":"none";
+  }});
+}};
+document.querySelectorAll(".rc-real").forEach(function(inp){{
+  attachListeners(inp, inp.closest("tr").querySelector(".rc-adic"));
+}});
+window.addEventListener("load",function(){{calc();}});
+calc();
+}})();</script>"""
+    return html
+
+
 def guardar_factura_en_storage(archivo_bytes, cotizacion_numero, nombre_original):
     """Sube una factura PDF al bucket 'facturas' de Supabase."""
     try:
@@ -10891,125 +11073,8 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         _rc_prev = {str(v.get('idx','')): v for v in _jt2.loads(st.session_state.get(f'rc_json_{_rc_ep}','[]') or '[]')}
                     except:
                         _rc_prev = {}
-                    _rc_rows_html = ''
-                    for _ri, _prod in enumerate(_rc_prods):
-                        _cat  = str(_prod.get('Categoria',''))
-                        _item = str(_prod.get('Item',''))
-                        _cant = round(float(_prod.get('Cantidad',1) or 1))
-                        _pu   = round(float(_prod.get('Precio Unitario',0) or 0))
-                        _bg   = '#ffffff' if _ri % 2 == 0 else '#f8fafc'
-                        _pu_fmt = '$'+f'{_pu:,}'.replace(',','.')
-                        _pv   = _rc_prev.get(str(_ri), {})
-                        _vreal = _pv.get('real', 0) or 0
-                        _vadic = _pv.get('adic', 0) or 0
-                        _rc_rows_html += (
-                            "<tr style='background:"+_bg+";border-bottom:1px solid #eef0f6;'"
-                            " data-idx='"+str(_ri)+"' data-pu='"+str(_pu)+"' data-cant='"+str(_cant)+"'>"
-                            "<td style='padding:5px 8px;font-size:0.75rem;color:#64748b;'>"+_cat+"</td>"
-                            "<td style='padding:5px 8px;font-size:0.82rem;'>"+_item+"</td>"
-                            "<td style='padding:5px 8px;text-align:right;'>"+str(_cant)+"</td>"
-                            "<td style='padding:5px 8px;text-align:right;font-weight:600;'>"+_pu_fmt+"</td>"
-                            "<td style='padding:3px 4px;'><input type='text' inputmode='numeric' value='"+('$'+'{:,}'.format(int(_vreal)).replace(',','.')  if _vreal else '')+"' class='rc-real' data-idx='"+str(_ri)+"' data-val='"+str(_vreal)+"' style='width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box;'/></td>"
-                            "<td style='padding:3px 4px;'><input type='number' min='0' step='1' value='"+str(_vadic)+"' class='rc-adic' data-idx='"+str(_ri)+"' style='width:100%;border:1px solid #fca5a5;border-radius:6px;padding:5px;font-size:13px;text-align:right;background:#fff5f5;box-sizing:border-box;'/></td>"
-                            "<td class='rc-dif' data-idx='"+str(_ri)+"' style='padding:5px 8px;text-align:right;font-weight:700;color:#16a34a;white-space:nowrap;'>-</td>"
-                            "</tr>"
-                        )
-                    _rc_height = min(len(_rc_prods)*37+310, 720)
-                    _rc_html = (
-                        "<style>html,body{margin:0;padding:0;font-family:'Segoe UI',sans-serif;font-size:13px;}"
-                        "body{display:flex;flex-direction:column;height:"+str(min(len(_rc_prods)*37+310, 720))+"px;overflow:hidden;}"
-                        "table{width:100%;border-collapse:collapse;}"
-                        "th{background:#1e2447;color:#fff;padding:7px 8px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;position:sticky;top:0;z-index:1;}"
-                        "th.r,td.r{text-align:right;}"
-                        "input[type=number]{border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box;}"
-                        "input[type=number]:focus{outline:none;border-color:#5b7cfa;box-shadow:0 0 0 2px rgba(91,124,250,.2);}"
-                        "input[type=number]::-webkit-inner-spin-button{opacity:.4;}"
-                                                "</style>"
-                        "<input id='rc-search' type='text' placeholder='🔍 Buscar ítem...' oninput='filterRows(this.value)' style='width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:7px 10px;font-size:13px;box-sizing:border-box;margin-bottom:6px;'/>" 
-                        "<div style='border:1px solid #e2e8f0;border-radius:8px;display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0;'>"
-                        "<div id='tbl-wrap' style='overflow:auto;flex:1;min-height:0;'><table>"
-                        "<thead><tr><th>Categoría</th><th>Ítem</th><th class='r'>Cant.</th>"
-                        "<th class='r'>Presup. unit.</th><th class='r'>Real unit.</th>"
-                        "<th class='r'>Adicional</th><th class='r'>Diferencia</th></tr></thead>"
-                        "<tbody>"+_rc_rows_html+"</tbody></table></div>"
-                        "<div id='tots' style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:16px;background:#f8fafc;border-top:2px solid #e2e8f0;flex-shrink:0;'>"
-                        "<div><div style='font-size:11px;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;'>Presupuestado</div>"
-                        "<div style='font-size:11px;color:#64748b;'>Subtotal neto</div><div style='font-size:15px;font-weight:700;' id='tp-n'>$0</div>"
-                        "<div style='font-size:11px;color:#64748b;margin-top:4px;'>IVA (19%)</div><div style='font-size:13px;font-weight:600;' id='tp-i'>$0</div>"
-                        "<div style='font-size:11px;color:#64748b;margin-top:4px;'>Total con IVA</div><div style='font-size:17px;font-weight:900;' id='tp-t'>$0</div></div>"
-                        "<div><div style='font-size:11px;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;'>Real</div>"
-                        "<div style='font-size:11px;color:#64748b;'>Subtotal neto</div><div style='font-size:15px;font-weight:700;' id='tr-n'>$0</div>"
-                        "<div style='font-size:11px;color:#64748b;margin-top:4px;'>IVA (19%)</div><div style='font-size:13px;font-weight:600;' id='tr-i'>$0</div>"
-                        "<div style='font-size:11px;color:#64748b;margin-top:4px;'>Total con IVA</div><div style='font-size:17px;font-weight:900;' id='tr-t'>$0</div></div>"
-                        "<div><div style='font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;' id='b-hdr' style='color:#16a34a;'>Balance</div>"
-                        "<div style='font-size:11px;' id='b-lbl1'>Neto</div><div style='font-size:15px;font-weight:700;' id='b-n'>$0</div>"
-                        "<div style='font-size:11px;margin-top:4px;' id='b-lbl2'>IVA</div><div style='font-size:13px;font-weight:600;' id='b-i'>$0</div>"
-                        "<div style='font-size:11px;margin-top:4px;' id='b-icon'>✅ Ahorro</div><div style='font-size:17px;font-weight:900;' id='b-t'>$0</div></div>"
-                        "</div>"
-                        "<div id='add-section' style='padding:12px 16px;background:#fff;border-top:1px solid #e2e8f0;flex-shrink:0;'>"
-                        "<div style='font-size:12px;font-weight:700;color:#1e2447;margin-bottom:8px;letter-spacing:.03em;'>➕ Agregar producto adicional</div>"
-                        "<div style='display:grid;grid-template-columns:1.5fr 3fr 0.8fr 1.2fr auto;gap:6px;align-items:end;'>"
-                        "<div><div style='font-size:10px;color:#64748b;margin-bottom:3px;'>Categoría</div>"
-                        "<select id='add-cat' style='width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:12px;'>"
-                        "<option value=''>Seleccionar...</option></select></div>"
-                        "<div><div style='font-size:10px;color:#64748b;margin-bottom:3px;'>Ítem</div>"
-                        "<select id='add-item' style='width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:12px;'>"
-                        "<option value=''>Seleccionar categoría primero</option></select></div>"
-                        "<div><div style='font-size:10px;color:#64748b;margin-bottom:3px;'>Cant.</div>"
-                        "<input id='add-cant' type='number' min='1' value='1' style='width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:12px;text-align:right;'/></div>"
-                        "<div><div style='font-size:10px;color:#64748b;margin-bottom:3px;'>Presup. unit.</div>"
-                        "<div id='add-precio' style='border:1px solid #e2e8f0;border-radius:6px;padding:5px 8px;font-size:12px;font-weight:600;background:#f8fafc;text-align:right;'>$0</div></div>"
-                        "<div style='padding-bottom:1px;'>"
-                        "<button id='add-btn' onclick='addRow()' style='background:#1e2447;color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;'>+ Agregar</button></div>"
-                        "</div></div>"
-                        "<script>(function(){"
-                        "var CAT="+_rc_cat_json+";"
-                        "var addCat=document.getElementById('add-cat');"
-                        "Object.keys(CAT).sort().forEach(function(c){var o=document.createElement('option');o.value=c;o.textContent=c;addCat.appendChild(o);});"
-                        "addCat.addEventListener('change',function(){var sel=document.getElementById('add-item');sel.innerHTML='<option value=\"\">Seleccionar item...</option>';document.getElementById('add-precio').textContent='$0';var items=CAT[this.value]||[];items.forEach(function(it){var o=document.createElement('option');o.value=JSON.stringify(it);o.textContent=it.item;sel.appendChild(o);});});"
-                        "document.getElementById('add-item').addEventListener('change',function(){try{var it=JSON.parse(this.value);document.getElementById('add-precio').textContent=f(it.precio);}catch(e){}});"
-                        "var _addIdx=10000;"
-                        "window.addRow=function(){var catEl=document.getElementById('add-cat');var itemEl=document.getElementById('add-item');var cantEl=document.getElementById('add-cant');if(!catEl.value||!itemEl.value)return;var it=JSON.parse(itemEl.value);var cant=parseInt(cantEl.value)||1;var pu=it.precio;"
-                        "var tr=document.createElement('tr');tr.style.cssText='background:#fff3e0;border-left:3px solid #f97316;border-bottom:1px solid #eef0f6;';tr.dataset.idx=String(_addIdx);tr.dataset.pu=String(pu);tr.dataset.cant=String(cant);"
-                        "tr.innerHTML='<td style=\"padding:5px 8px;font-size:.75rem;color:#64748b;\">'+ catEl.value+'</td><td style=\"padding:5px 8px;font-size:.82rem;\">'+it.item+'</td><td style=\"padding:5px 8px;text-align:right;\">'+cant+'</td><td style=\"padding:5px 8px;text-align:right;font-weight:600;\">'+f(pu)+'</td><td style=\"padding:3px 4px;\"><input type=\"text\" inputmode=\"numeric\" value=\"\" class=\"rc-real\" data-idx=\"'+_addIdx+'\" data-val=\"0\" style=\"width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box;\"/></td><td style=\"padding:3px 4px;\"><input type=\"number\" min=\"0\" step=\"1\" value=\"0\" class=\"rc-adic\" data-idx=\"'+_addIdx+'\" style=\"width:100%;border:1px solid #fca5a5;border-radius:6px;padding:5px;font-size:13px;text-align:right;background:#fff5f5;box-sizing:border-box;\"/></td><td class=\"rc-dif\" style=\"padding:5px 8px;text-align:right;font-weight:700;color:#16a34a;white-space:nowrap;\">-</td>';"
-                        "document.querySelector('tbody').appendChild(tr);"
-                        "var nr=tr.querySelector('.rc-real'),na=tr.querySelector('.rc-adic');"
-                        "nr.addEventListener('input',function(){var raw=this.value.replace(/[^0-9]/g,'');this.dataset.val=raw||'0';if(!raw){this.value='';calc();return;}this.value='$'+parseInt(raw).toLocaleString('de-DE');calc();});"
-                        "nr.addEventListener('focus',function(){var r=this.dataset.val||'0';this.value=r==='0'?'':r;});"
-                        "nr.addEventListener('blur',function(){var n=parseInt(this.dataset.val)||0;this.dataset.val=String(n);this.value=n>0?'$'+n.toLocaleString('de-DE'):'';calc();});"
-                        "na.addEventListener('input',calc);"
-                        "_addIdx++;cantEl.value='1';itemEl.selectedIndex=0;document.getElementById('add-precio').textContent='$0';calc();}"
-                        "function f(n){return '$'+Math.round(Math.abs(n)).toLocaleString('de-DE');}"
-                        "function calc(){"
-                        "var tP=0,tR=0,vals=[];"
-                        "document.querySelectorAll('tr[data-idx]').forEach(function(r){"
-                        "var pu=+r.dataset.pu||0,c=+r.dataset.cant||1;"
-                        "var re=parseFloat(r.querySelector('.rc-real').dataset.val)||0;"
-                        "var ad=+r.querySelector('.rc-adic').value||0;"
-                        "var d=(pu-re)*c-(ad*re);"
-                        "var td=r.querySelector('.rc-dif');"
-                        "td.textContent=f(d)+(d>=0?' ▼':' ▲');"
-                        "td.style.color=d>=0?'#16a34a':'#dc2626';"
-                        "tP+=pu*c;tR+=re*c+ad*re;"
-                        "vals.push({idx:+r.dataset.idx,real:re,adic:ad,dif:d});});"
-                        "var iP=tP*.19,iR=tR*.19,b=tP-tR,ib=iP-iR;"
-                        "var col=b>=0?'#16a34a':'#dc2626';"
-                        "var ids=['tp-n','tp-i','tp-t','tr-n','tr-i','tr-t','b-n','b-i','b-t'];"
-                        "var vals2=[tP,iP,tP+iP,tR,iR,tR+iR,b,ib,b+ib];"
-                        "ids.forEach(function(id,i){var el=document.getElementById(id);if(el)el.textContent=f(vals2[i]);});"
-                        "['b-hdr','b-n','b-i','b-lbl1','b-lbl2','b-icon','b-t'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.color=col;});"
-                        "var bi=document.getElementById('b-icon');if(bi)bi.textContent=b>=0?'\u2705 Ahorro':'\u274C Sobrecosto';"
-                        "}"
-                        "document.querySelectorAll('.rc-real').forEach(function(inp){"
-                        "inp.addEventListener('input',function(){var raw=this.value.replace(/[^0-9]/g,'');this.dataset.val=raw||'0';if(!raw){this.value='';calc();return;}this.value='$'+parseInt(raw).toLocaleString('de-DE');calc();});"
-                        "inp.addEventListener('focus',function(){var r=this.dataset.val||'0';this.value=r==='0'?'':r;});"
-                        "inp.addEventListener('blur',function(){var n=parseInt(this.dataset.val)||0;this.dataset.val=String(n);this.value=n>0?'$'+n.toLocaleString('de-DE'):'';calc();});"
-                        "});"
-                        "document.querySelectorAll('.rc-adic').forEach(function(i){i.addEventListener('input',calc);});"
-                        "window.addEventListener('load',function(){calc();});"
-                        "window.filterRows=function(q){var s=q.toLowerCase();document.querySelectorAll('tbody tr').forEach(function(r){var txt=r.cells[1]?r.cells[1].textContent.toLowerCase():'';r.style.display=!s||txt.indexOf(s)>-1?'table-row':'none';});}"
-                                                "calc();})()</script>"
-                    )
+                    _rc_html = build_rc_html(_rc_prods, _rc_cat_json, _rc_prev)
+                    _rc_height = min(len(_rc_prods)*37+330, 740)
                     _rc_comp.html(_rc_html, height=min(len(_rc_prods)*37+330, 740), scrolling=False)
 
                     # Totales dentro del HTML component
