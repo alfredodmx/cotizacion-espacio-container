@@ -781,10 +781,45 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
   </div>
   <div id="save-section" style="padding:12px 16px;background:#1e2447;border-top:2px solid #e2e8f0;flex-shrink:0">
     <div style="font-size:11px;font-weight:700;color:#fff;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">📎 Adjuntar Factura y Guardar</div>
-    <div style="margin-bottom:8px">
-      <input id="lugar-compra" type="text" placeholder="🏪 ¿Dónde compraste? Ej: Ferretería López (obligatorio)" 
-        oninput="window.checkSaveBtn()" 
-        style="width:100%;border:1px solid rgba(255,255,255,0.3);border-radius:6px;padding:7px 10px;font-size:13px;background:rgba(255,255,255,0.08);color:#fff;box-sizing:border-box;outline:none" />
+    <style>
+    .rc-field{{margin-bottom:8px}}
+    .rc-lbl{{font-size:11px;color:rgba(255,255,255,0.6);margin-bottom:3px}}
+    .rc-inp{{width:100%;border:1px solid rgba(255,255,255,0.3);border-radius:6px;padding:7px 10px;font-size:13px;background:rgba(255,255,255,0.08);color:#fff;box-sizing:border-box;outline:none}}
+    .rc-inp::placeholder{{color:rgba(255,255,255,0.35)}}
+    .rc-sel{{width:100%;border:1px solid rgba(255,255,255,0.3);border-radius:6px;padding:7px 10px;font-size:13px;background:#1e2447;color:#fff;box-sizing:border-box;outline:none;cursor:pointer}}
+    .rc-grid{{display:grid;grid-template-columns:1fr 1fr;gap:8px}}
+    .rc-hidden{{display:none}}
+    </style>
+    <div class="rc-grid">
+      <div class="rc-field">
+        <div class="rc-lbl">🏪 ¿Dónde compraste? *</div>
+        <input id="lugar-compra" type="text" class="rc-inp" placeholder="Ej: Ferretería López" oninput="window.checkSaveBtn()"/>
+      </div>
+      <div class="rc-field">
+        <div class="rc-lbl">🛒 Tipo de compra *</div>
+        <select id="tipo-compra" class="rc-sel" onchange="window.onTipoChange()">
+          <option value="">Seleccionar...</option>
+          <option value="online">Compra Online</option>
+          <option value="presencial">Compra Presencial</option>
+        </select>
+      </div>
+    </div>
+    <div id="subtipo-wrap" class="rc-field rc-hidden">
+      <div class="rc-lbl" id="subtipo-lbl">Modalidad *</div>
+      <select id="subtipo-compra" class="rc-sel" onchange="window.onSubtipoChange()">
+      </select>
+    </div>
+    <div id="fecha-wrap" class="rc-field rc-hidden">
+      <div class="rc-lbl" id="fecha-lbl">📅 ¿Para cuándo? *</div>
+      <input id="fecha-compra" type="date" class="rc-inp" oninput="window.checkSaveBtn()" onchange="window.checkSaveBtn()"/>
+    </div>
+    <div id="faltó-wrap" class="rc-field rc-hidden">
+      <div class="rc-lbl">📋 ¿Qué faltó por retirar? *</div>
+      <textarea id="falto-texto" class="rc-inp" rows="2" placeholder="Describe los ítems que faltaron..." oninput="window.checkSaveBtn()" style="resize:vertical"></textarea>
+    </div>
+    <div class="rc-field">
+      <div class="rc-lbl">📝 Observaciones adicionales (opcional)</div>
+      <textarea id="obs-compra" class="rc-inp" rows="2" placeholder="Notas, motivos u observaciones de esta compra..." style="resize:vertical"></textarea>
     </div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <label id="factura-label" style="background:rgba(255,255,255,0.1);color:#fff;border:1px dashed rgba(255,255,255,0.4);border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;white-space:nowrap">📎 Seleccionar factura PDF
@@ -899,6 +934,41 @@ document.querySelectorAll(".rc-real").forEach(function(inp){{
 window.addEventListener("load",function(){{calc();}});
 
 // Habilitar botón guardar cuando hay valores ingresados
+window.onTipoChange=function(){{
+  var tipo=document.getElementById("tipo-compra").value;
+  var sw=document.getElementById("subtipo-wrap");
+  var ss=document.getElementById("subtipo-compra");
+  sw.className="rc-field"+(tipo?"" : " rc-hidden");
+  ss.innerHTML="";
+  if(tipo==="online"){{
+    [["retiro","Retiro"],["despacho","Despacho"]].forEach(function(o){{
+      var opt=document.createElement("option");opt.value=o[0];opt.textContent=o[1];ss.appendChild(opt);
+    }});
+  }}else if(tipo==="presencial"){{
+    [["completo","Retiro Completo"],["parcial","Retiro Parcial"],["despacho","Despacho"]].forEach(function(o){{
+      var opt=document.createElement("option");opt.value=o[0];opt.textContent=o[1];ss.appendChild(opt);
+    }});
+  }}
+  window.onSubtipoChange();
+}};
+window.onSubtipoChange=function(){{
+  var tipo=document.getElementById("tipo-compra").value;
+  var sub=document.getElementById("subtipo-compra").value;
+  var fw=document.getElementById("fecha-wrap");
+  var fl=document.getElementById("fecha-lbl");
+  var pw=document.getElementById("faltó-wrap");
+  // Mostrar fecha: siempre excepto retiro completo
+  var needFecha=(tipo==="online")||(tipo==="presencial"&&sub!=="completo");
+  fw.className="rc-field"+(needFecha?"":" rc-hidden");
+  if(tipo==="presencial"&&sub==="parcial"){{
+    fl.textContent="📅 ¿Para cuándo llega lo que faltó? *";
+    pw.className="rc-field";
+  }}else{{
+    fl.textContent="📅 ¿Para cuándo? *";
+    pw.className="rc-field rc-hidden";
+  }}
+  window.checkSaveBtn();
+}};
 function checkSaveBtn(){{
   var hasVals=false;
   document.querySelectorAll("tr[data-idx]").forEach(function(r){{
@@ -908,7 +978,13 @@ function checkSaveBtn(){{
   var lugar=document.getElementById("lugar-compra");
   var hasLugar=lugar&&lugar.value.trim().length>0;
   var hasFactura=_facturaFile!==null;
-  var ok=hasVals&&hasLugar&&hasFactura;
+  var tipo=document.getElementById("tipo-compra");
+  var hasTipo=tipo&&tipo.value.length>0;
+  var fw=document.getElementById("fecha-wrap");
+  var fechaOk=!fw||fw.className.indexOf("rc-hidden")>-1||(document.getElementById("fecha-compra")&&document.getElementById("fecha-compra").value.length>0);
+  var pw=document.getElementById("faltó-wrap");
+  var faltóOk=!pw||pw.className.indexOf("rc-hidden")>-1||(document.getElementById("falto-texto")&&document.getElementById("falto-texto").value.trim().length>0);
+  var ok=hasVals&&hasLugar&&hasFactura&&hasTipo&&fechaOk&&faltóOk;
   var btn=document.getElementById("save-btn");
   if(btn){{btn.disabled=!ok;btn.style.opacity=ok?"1":"0.5";}}
 }}
@@ -1012,6 +1088,11 @@ window.guardarRegistro=async function(){{
     btn.textContent="⏳ Guardando registro...";
     var lugarEl=document.getElementById("lugar-compra");
     var lugarVal=lugarEl?lugarEl.value.trim():"";
+    var tipoVal=document.getElementById("tipo-compra")?document.getElementById("tipo-compra").value:"";
+    var subtipoVal=document.getElementById("subtipo-compra")?document.getElementById("subtipo-compra").value:"";
+    var fechaVal=document.getElementById("fecha-compra")?document.getElementById("fecha-compra").value:"";
+    var faltóVal=document.getElementById("falto-texto")?document.getElementById("falto-texto").value.trim():"";
+    var obsVal=document.getElementById("obs-compra")?document.getElementById("obs-compra").value.trim():"";
     var saveResp=await fetch(SUPA_URL+"/rest/v1/registro_compras",{{
       method:"POST",
       headers:{{
@@ -1024,6 +1105,11 @@ window.guardarRegistro=async function(){{
         cotizacion_numero:EP_NUM,
         usuario_registro:USUARIO,
         lugar_compra:lugarVal,
+        tipo_compra:tipoVal,
+        subtipo_compra:subtipoVal,
+        fecha_entrega_compra:fechaVal,
+        falto_retirar:faltóVal,
+        observaciones:obsVal,
         factura_url:_facturaUrl,
         factura_nombre:_facturaNom,
         items:items,
