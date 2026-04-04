@@ -10925,6 +10925,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         "input[type=number]:focus{outline:none;border-color:#5b7cfa;box-shadow:0 0 0 2px rgba(91,124,250,.2);}"
                         "input[type=number]::-webkit-inner-spin-button{opacity:.4;}"
                                                 "</style>"
+                        "<input id='rc-search' type='text' placeholder='🔍 Buscar ítem...' oninput='filterRows(this.value)' style='width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:7px 10px;font-size:13px;box-sizing:border-box;margin-bottom:6px;'/>" 
                         "<div style='border:1px solid #e2e8f0;border-radius:8px;display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0;'>"
                         "<div id='tbl-wrap' style='overflow:auto;flex:1;min-height:0;'><table>"
                         "<thead><tr><th>Categoría</th><th>Ítem</th><th class='r'>Cant.</th>"
@@ -10968,8 +10969,8 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         "addCat.addEventListener('change',function(){var sel=document.getElementById('add-item');sel.innerHTML='<option value=\"\">Seleccionar item...</option>';document.getElementById('add-precio').textContent='$0';var items=CAT[this.value]||[];items.forEach(function(it){var o=document.createElement('option');o.value=JSON.stringify(it);o.textContent=it.item;sel.appendChild(o);});});"
                         "document.getElementById('add-item').addEventListener('change',function(){try{var it=JSON.parse(this.value);document.getElementById('add-precio').textContent=f(it.precio);}catch(e){}});"
                         "var _addIdx=10000;"
-                        "function addRow(){var catEl=document.getElementById('add-cat');var itemEl=document.getElementById('add-item');var cantEl=document.getElementById('add-cant');if(!catEl.value||!itemEl.value)return;var it=JSON.parse(itemEl.value);var cant=parseInt(cantEl.value)||1;var pu=it.precio;"
-                        "var tr=document.createElement('tr');tr.style.cssText='background:#fff8e1;border-bottom:1px solid #eef0f6;';tr.dataset.idx=String(_addIdx);tr.dataset.pu=String(pu);tr.dataset.cant=String(cant);"
+                        "window.addRow=function(){var catEl=document.getElementById('add-cat');var itemEl=document.getElementById('add-item');var cantEl=document.getElementById('add-cant');if(!catEl.value||!itemEl.value)return;var it=JSON.parse(itemEl.value);var cant=parseInt(cantEl.value)||1;var pu=it.precio;"
+                        "var tr=document.createElement('tr');tr.style.cssText='background:#fff3e0;border-left:3px solid #f97316;border-bottom:1px solid #eef0f6;';tr.dataset.idx=String(_addIdx);tr.dataset.pu=String(pu);tr.dataset.cant=String(cant);"
                         "tr.innerHTML='<td style=\"padding:5px 8px;font-size:.75rem;color:#64748b;\">'+ catEl.value+'</td><td style=\"padding:5px 8px;font-size:.82rem;\">'+it.item+'</td><td style=\"padding:5px 8px;text-align:right;\">'+cant+'</td><td style=\"padding:5px 8px;text-align:right;font-weight:600;\">'+f(pu)+'</td><td style=\"padding:3px 4px;\"><input type=\"text\" inputmode=\"numeric\" value=\"\" class=\"rc-real\" data-idx=\"'+_addIdx+'\" data-val=\"0\" style=\"width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box;\"/></td><td style=\"padding:3px 4px;\"><input type=\"number\" min=\"0\" step=\"1\" value=\"0\" class=\"rc-adic\" data-idx=\"'+_addIdx+'\" style=\"width:100%;border:1px solid #fca5a5;border-radius:6px;padding:5px;font-size:13px;text-align:right;background:#fff5f5;box-sizing:border-box;\"/></td><td class=\"rc-dif\" style=\"padding:5px 8px;text-align:right;font-weight:700;color:#16a34a;white-space:nowrap;\">-</td>';"
                         "document.querySelector('tbody').appendChild(tr);"
                         "var nr=tr.querySelector('.rc-real'),na=tr.querySelector('.rc-adic');"
@@ -11006,7 +11007,8 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         "});"
                         "document.querySelectorAll('.rc-adic').forEach(function(i){i.addEventListener('input',calc);});"
                         "window.addEventListener('load',function(){calc();});"
-                        "calc();})()</script>"
+                        "function filterRows(q){var s=q.toLowerCase();document.querySelectorAll('tbody tr').forEach(function(r){var txt=r.cells[1]?r.cells[1].textContent.toLowerCase():'';r.style.display=s===''||txt.indexOf(s)>-1?'':\"none\";});}" 
+                                                "calc();})()</script>"
                     )
                     _rc_comp.html(_rc_html, height=min(len(_rc_prods)*37+330, 740), scrolling=False)
 
