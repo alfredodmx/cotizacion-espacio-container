@@ -10914,7 +10914,21 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         "<th class='r'>Presup. unit.</th><th class='r'>Real unit.</th>"
                         "<th class='r'>Adicional</th><th class='r'>Diferencia</th></tr></thead>"
                         "<tbody>"+_rc_rows_html+"</tbody></table></div>"
-                                               "<script>(function(){"
+                        "<div id='tots' style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:16px;background:#f8fafc;border-top:2px solid #e2e8f0;border-radius:0 0 8px 8px;'>"  
+                        "<div><div style='font-size:11px;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;'>Presupuestado</div>"
+                        "<div style='font-size:11px;color:#64748b;'>Subtotal neto</div><div style='font-size:15px;font-weight:700;' id='tp-n'>$0</div>"
+                        "<div style='font-size:11px;color:#64748b;margin-top:4px;'>IVA (19%)</div><div style='font-size:13px;font-weight:600;' id='tp-i'>$0</div>"
+                        "<div style='font-size:11px;color:#64748b;margin-top:4px;'>Total con IVA</div><div style='font-size:17px;font-weight:900;' id='tp-t'>$0</div></div>"
+                        "<div><div style='font-size:11px;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;'>Real</div>"
+                        "<div style='font-size:11px;color:#64748b;'>Subtotal neto</div><div style='font-size:15px;font-weight:700;' id='tr-n'>$0</div>"
+                        "<div style='font-size:11px;color:#64748b;margin-top:4px;'>IVA (19%)</div><div style='font-size:13px;font-weight:600;' id='tr-i'>$0</div>"
+                        "<div style='font-size:11px;color:#64748b;margin-top:4px;'>Total con IVA</div><div style='font-size:17px;font-weight:900;' id='tr-t'>$0</div></div>"
+                        "<div><div style='font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;' id='b-hdr' style='color:#16a34a;'>Balance</div>"
+                        "<div style='font-size:11px;' id='b-lbl1'>Neto</div><div style='font-size:15px;font-weight:700;' id='b-n'>$0</div>"
+                        "<div style='font-size:11px;margin-top:4px;' id='b-lbl2'>IVA</div><div style='font-size:13px;font-weight:600;' id='b-i'>$0</div>"
+                        "<div style='font-size:11px;margin-top:4px;' id='b-icon'>✅ Ahorro</div><div style='font-size:17px;font-weight:900;' id='b-t'>$0</div></div>"
+                        "</div>"
+                        "<script>(function(){"
                         "function f(n){return '$'+Math.round(Math.abs(n)).toLocaleString('de-DE');}"
                         "function calc(){"
                         "var tP=0,tR=0,vals=[];"
@@ -10930,51 +10944,18 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         "vals.push({idx:+r.dataset.idx,real:re,adic:ad,dif:d});});"
                         "var iP=tP*.19,iR=tR*.19,b=tP-tR,ib=iP-iR;"
                         "var col=b>=0?'#16a34a':'#dc2626';"
-                                                "window.parent.postMessage({type:'rc_vals',vals:vals,tP:tP,tR:tR},'*');}"
+                        "var ids=['tp-n','tp-i','tp-t','tr-n','tr-i','tr-t','b-n','b-i','b-t'];"
+                        "var vals2=[tP,iP,tP+iP,tR,iR,tR+iR,b,ib,b+ib];"
+                        "ids.forEach(function(id,i){var el=document.getElementById(id);if(el)el.textContent=f(vals2[i]);});"
+                        "['b-hdr','b-n','b-i','b-lbl1','b-lbl2','b-icon','b-t'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.color=col;});"
+                        "var bi=document.getElementById('b-icon');if(bi)bi.textContent=b>=0?'\u2705 Ahorro':'\u274C Sobrecosto';"
+                        "}"
                         "document.querySelectorAll('input').forEach(function(i){i.addEventListener('input',calc);});"
                         "calc();})()</script>"
                     )
-                    _rc_comp.html(_rc_html, height=min(len(_rc_prods)*37+60, 620), scrolling=True)
+                    _rc_comp.html(_rc_html, height=min(len(_rc_prods)*37+230, 800), scrolling=True)
 
-                    # ── Totales: calcular desde JSON capturado ──
-                    _rc_json_key = f'rc_json_{_rc_ep}'
-                    _rc_json_cur = st.session_state.get(_rc_json_key, '[]')
-                    try:
-                        import json as _jt
-                        _rc_vals_cur = _jt.loads(_rc_json_cur or '[]')
-                    except:
-                        _rc_vals_cur = []
-                    _tP = sum(round(float(_prod.get('Precio Unitario',0) or 0)) * round(float(_prod.get('Cantidad',1) or 1)) for _prod in _rc_prods)
-                    _rc_vals_map_cur = {str(v.get('idx','')): v for v in _rc_vals_cur}
-                    _tR = sum(
-                        float(_rc_vals_map_cur.get(str(_ri), {}).get('real', 0) or 0) * round(float(_prod.get('Cantidad',1) or 1))
-                        + int(_rc_vals_map_cur.get(str(_ri), {}).get('adic', 0) or 0) * float(_rc_vals_map_cur.get(str(_ri), {}).get('real', 0) or 0)
-                        for _ri, _prod in enumerate(_rc_prods)
-                    )
-                    _iP     = _tP * 0.19; _iR = _tR * 0.19
-                    _bal    = _tP - _tR;  _ibal = _iP - _iR
-                    _bc     = '#16a34a' if _bal >= 0 else '#dc2626'
-                    _bi     = '✅ Ahorro' if _bal >= 0 else '❌ Sobrecosto'
-                    def _fclp(v): return '$'+f'{abs(round(v)):,}'.replace(',','.')
-                    st.markdown(
-                        f"<div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;"
-                        f"background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;"
-                        f"padding:16px;margin:8px 0;'>"
-                        f"<div><div style='font-size:0.72rem;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;'>Presupuestado</div>"
-                        f"<div style='font-size:0.78rem;color:#64748b;'>Subtotal neto</div><div style='font-size:0.95rem;font-weight:700;'>{_fclp(_tP)}</div>"
-                        f"<div style='font-size:0.78rem;color:#64748b;margin-top:4px;'>IVA (19%)</div><div style='font-size:0.88rem;font-weight:600;'>{_fclp(_iP)}</div>"
-                        f"<div style='font-size:0.78rem;color:#64748b;margin-top:4px;'>Total con IVA</div><div style='font-size:1.05rem;font-weight:900;'>{_fclp(_tP+_iP)}</div></div>"
-                        f"<div><div style='font-size:0.72rem;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;'>Real</div>"
-                        f"<div style='font-size:0.78rem;color:#64748b;'>Subtotal neto</div><div style='font-size:0.95rem;font-weight:700;'>{_fclp(_tR)}</div>"
-                        f"<div style='font-size:0.78rem;color:#64748b;margin-top:4px;'>IVA (19%)</div><div style='font-size:0.88rem;font-weight:600;'>{_fclp(_iR)}</div>"
-                        f"<div style='font-size:0.78rem;color:#64748b;margin-top:4px;'>Total con IVA</div><div style='font-size:1.05rem;font-weight:900;'>{_fclp(_tR+_iR)}</div></div>"
-                        f"<div><div style='font-size:0.72rem;font-weight:700;color:{_bc};letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;'>Balance</div>"
-                        f"<div style='font-size:0.78rem;color:{_bc};'>Neto</div><div style='font-size:0.95rem;font-weight:700;color:{_bc};'>{_fclp(_bal)}</div>"
-                        f"<div style='font-size:0.78rem;color:{_bc};margin-top:4px;'>IVA</div><div style='font-size:0.88rem;font-weight:600;color:{_bc};'>{_fclp(_ibal)}</div>"
-                        f"<div style='font-size:0.78rem;color:{_bc};margin-top:4px;'>{_bi}</div><div style='font-size:1.05rem;font-weight:900;color:{_bc};'>{_fclp(_bal+_ibal)}</div></div>"
-                        f"</div>",
-                        unsafe_allow_html=True
-                    )
+                    # Totales dentro del HTML component
 
                     # ── Factura con diseño ──
                     st.markdown(
@@ -11009,23 +10990,6 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                     {height:0!important;overflow:hidden!important;margin:0!important;padding:0!important;}
                     </style>""", unsafe_allow_html=True)
 
-                    # JS para sincronizar valores del iframe al campo oculto
-                    import streamlit.components.v1 as _rc_sync
-                    _rc_sync.html("""
-<script>
-(function(){
-    function setNative(el, val){
-        var setter = Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype, 'value').set;
-        setter.call(el, val);
-        el.dispatchEvent(new Event('input', {bubbles:true}));
-    }
-    window.addEventListener('message', function(e){
-        if(!e.data || e.data.type !== 'rc_vals') return;
-        var inputs = window.parent.document.querySelectorAll('input[aria-label="Valores JSON (no editar)"]');
-        if(inputs.length > 0) setNative(inputs[0], JSON.stringify(e.data.vals));
-    });
-})();
-</script>""", height=0)
 
                     # Botón guardar — deshabilitado sin factura
                     if st.button('💾 Guardar registro de compra', key='rc_guardar',
