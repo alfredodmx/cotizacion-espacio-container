@@ -10900,7 +10900,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         )
                     _rc_height = min(len(_rc_prods)*37+310, 720)
                     _rc_html = (
-                        "<style>html,body{margin:0;padding:0;font-family:'Segoe UI',sans-serif;font-size:13px;height:100%;}"
+                        "<style>html,body{margin:0;padding:0;font-family:'Segoe UI',sans-serif;font-size:13px;overflow:hidden;}"
                         "table{width:100%;border-collapse:collapse;}"
                         "th{background:#1e2447;color:#fff;padding:7px 8px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;position:sticky;top:0;z-index:1;}"
                         "th.r,td.r{text-align:right;}"
@@ -10908,13 +10908,13 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         "input[type=number]:focus{outline:none;border-color:#5b7cfa;box-shadow:0 0 0 2px rgba(91,124,250,.2);}"
                         "input[type=number]::-webkit-inner-spin-button{opacity:.4;}"
                                                 "</style>"
-                        "<div style='border:1px solid #e2e8f0;border-radius:8px;display:flex;flex-direction:column;overflow:hidden;'>"
-                        "<div style='overflow:auto;flex:1;min-height:0;'><table>"
+                        "<div style='border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;'>"
+                        "<div id='tbl-wrap' style='overflow:auto;'><table>"
                         "<thead><tr><th>Categoría</th><th>Ítem</th><th class='r'>Cant.</th>"
                         "<th class='r'>Presup. unit.</th><th class='r'>Real unit.</th>"
                         "<th class='r'>Adicional</th><th class='r'>Diferencia</th></tr></thead>"
                         "<tbody>"+_rc_rows_html+"</tbody></table></div>"
-                        "<div id='tots' style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:16px;background:#f8fafc;border-top:2px solid #e2e8f0;flex-shrink:0;'>"
+                        "<div id='tots' style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:16px;background:#f8fafc;border-top:2px solid #e2e8f0;position:sticky;bottom:0;z-index:2;'>"
                         "<div><div style='font-size:11px;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;'>Presupuestado</div>"
                         "<div style='font-size:11px;color:#64748b;'>Subtotal neto</div><div style='font-size:15px;font-weight:700;' id='tp-n'>$0</div>"
                         "<div style='font-size:11px;color:#64748b;margin-top:4px;'>IVA (19%)</div><div style='font-size:13px;font-weight:600;' id='tp-i'>$0</div>"
@@ -10951,6 +10951,12 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         "var bi=document.getElementById('b-icon');if(bi)bi.textContent=b>=0?'\u2705 Ahorro':'\u274C Sobrecosto';"
                         "}"
                         "document.querySelectorAll('input').forEach(function(i){i.addEventListener('input',calc);});"
+"function setH(){"
+"var tots=document.getElementById('tots');"
+"var tw=document.getElementById('tbl-wrap');"
+"if(tots&&tw){tw.style.maxHeight=(window.innerHeight-tots.offsetHeight-2)+'px';}"
+"}"
+"setH();window.addEventListener('resize',setH);"
                         "calc();})()</script>"
                     )
                     _rc_comp.html(_rc_html, height=min(len(_rc_prods)*37+230, 800), scrolling=True)
