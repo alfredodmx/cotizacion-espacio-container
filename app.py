@@ -907,7 +907,8 @@ function checkSaveBtn(){{
   }});
   var lugar=document.getElementById("lugar-compra");
   var hasLugar=lugar&&lugar.value.trim().length>0;
-  var ok=hasVals&&hasLugar;
+  var hasFactura=_facturaFile!==null;
+  var ok=hasVals&&hasLugar&&hasFactura;
   var btn=document.getElementById("save-btn");
   if(btn){{btn.disabled=!ok;btn.style.opacity=ok?"1":"0.5";}}
 }}
