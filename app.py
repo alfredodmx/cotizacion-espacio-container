@@ -11462,7 +11462,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                 # Mostrar registros existentes
                 _rc_existentes = obtener_registros_compra(_rc_ep)
                 if _rc_existentes:
-                    st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 6px;">📊 Registros anteriores</div>', unsafe_allow_html=True)
+                    st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 6px;">🧾 Historial de compras</div>', unsafe_allow_html=True)
                     for _rce in _rc_existentes:
                         _rce_bal = float(_rce.get('balance',0) or 0)
                         _rce_col = '#16a34a' if _rce_bal >= 0 else '#dc2626'
