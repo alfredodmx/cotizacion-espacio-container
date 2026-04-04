@@ -10860,15 +10860,21 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
 
                 # Formulario nuevo registro
                 st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 8px;">➕ Nuevo registro de compra</div>', unsafe_allow_html=True)
-                _rc_factura = st.file_uploader('📎 Factura PDF (requerida para guardar)', type=['pdf'], key=f'rc_factura_{_rc_ep}')
-                if _rc_factura:
-                    st.success(f'✅ {_rc_factura.name}')
+                # _rc_factura se define más abajo — referencia anticipada para disabled
+                _rc_factura_key = f'rc_factura_{_rc_ep}'
+                _rc_factura = st.session_state.get(_rc_factura_key)
 
                 if not _rc_prods:
                     st.warning('Este presupuesto no tiene productos cargados.')
                 else:
                     # Tabla HTML con inputs inline
                     import streamlit.components.v1 as _rc_comp
+                    # Pre-poblar con valores guardados para no resetear al hacer rerun
+                    import json as _jt2
+                    try:
+                        _rc_prev = {str(v.get('idx','')): v for v in _jt2.loads(st.session_state.get(f'rc_json_{_rc_ep}','[]') or '[]')}
+                    except:
+                        _rc_prev = {}
                     _rc_rows_html = ''
                     for _ri, _prod in enumerate(_rc_prods):
                         _cat  = str(_prod.get('Categoria',''))
@@ -10877,6 +10883,9 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         _pu   = round(float(_prod.get('Precio Unitario',0) or 0))
                         _bg   = '#ffffff' if _ri % 2 == 0 else '#f8fafc'
                         _pu_fmt = '$'+f'{_pu:,}'.replace(',','.')
+                        _pv   = _rc_prev.get(str(_ri), {})
+                        _vreal = _pv.get('real', 0) or 0
+                        _vadic = _pv.get('adic', 0) or 0
                         _rc_rows_html += (
                             "<tr style='background:"+_bg+";border-bottom:1px solid #eef0f6;'"
                             " data-idx='"+str(_ri)+"' data-pu='"+str(_pu)+"' data-cant='"+str(_cant)+"'>"
@@ -10884,8 +10893,8 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                             "<td style='padding:5px 8px;font-size:0.82rem;'>"+_item+"</td>"
                             "<td style='padding:5px 8px;text-align:right;'>"+str(_cant)+"</td>"
                             "<td style='padding:5px 8px;text-align:right;font-weight:600;'>"+_pu_fmt+"</td>"
-                            "<td style='padding:3px 4px;'><input type='number' min='0' step='100' value='0' class='rc-real' data-idx='"+str(_ri)+"' style='width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box;'/></td>"
-                            "<td style='padding:3px 4px;'><input type='number' min='0' step='1' value='0' class='rc-adic' data-idx='"+str(_ri)+"' style='width:70px;border:1px solid #fca5a5;border-radius:6px;padding:5px;font-size:13px;text-align:right;background:#fff5f5;box-sizing:border-box;'/></td>"
+                            "<td style='padding:3px 4px;'><input type='number' min='0' step='100' value='"+str(_vreal)+"' class='rc-real' data-idx='"+str(_ri)+"' style='width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box;'/></td>"
+                            "<td style='padding:3px 4px;'><input type='number' min='0' step='1' value='"+str(_vadic)+"' class='rc-adic' data-idx='"+str(_ri)+"' style='width:70px;border:1px solid #fca5a5;border-radius:6px;padding:5px;font-size:13px;text-align:right;background:#fff5f5;box-sizing:border-box;'/></td>"
                             "<td class='rc-dif' data-idx='"+str(_ri)+"' style='padding:5px 8px;text-align:right;font-weight:700;color:#16a34a;white-space:nowrap;'>-</td>"
                             "</tr>"
                         )
@@ -10927,13 +10936,21 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                     )
                     _rc_comp.html(_rc_html, height=min(len(_rc_prods)*37+60, 620), scrolling=True)
 
-                    # ── Totales Streamlit (se actualizan con cada rerun) ──
-                    _rc_vals_key = f'rc_vals_{_rc_ep}'
-                    if _rc_vals_key not in st.session_state:
-                        st.session_state[_rc_vals_key] = {'tP': 0, 'tR': 0}
-                    _rc_sv  = st.session_state[_rc_vals_key]
-                    _tP     = float(_rc_sv.get('tP', 0) or 0)
-                    _tR     = float(_rc_sv.get('tR', 0) or 0)
+                    # ── Totales: calcular desde JSON capturado ──
+                    _rc_json_key = f'rc_json_{_rc_ep}'
+                    _rc_json_cur = st.session_state.get(_rc_json_key, '[]')
+                    try:
+                        import json as _jt
+                        _rc_vals_cur = _jt.loads(_rc_json_cur or '[]')
+                    except:
+                        _rc_vals_cur = []
+                    _tP = sum(round(float(_prod.get('Precio Unitario',0) or 0)) * round(float(_prod.get('Cantidad',1) or 1)) for _prod in _rc_prods)
+                    _rc_vals_map_cur = {str(v.get('idx','')): v for v in _rc_vals_cur}
+                    _tR = sum(
+                        float(_rc_vals_map_cur.get(str(_ri), {}).get('real', 0) or 0) * round(float(_prod.get('Cantidad',1) or 1))
+                        + int(_rc_vals_map_cur.get(str(_ri), {}).get('adic', 0) or 0) * float(_rc_vals_map_cur.get(str(_ri), {}).get('real', 0) or 0)
+                        for _ri, _prod in enumerate(_rc_prods)
+                    )
                     _iP     = _tP * 0.19; _iR = _tR * 0.19
                     _bal    = _tP - _tR;  _ibal = _iP - _iR
                     _bc     = '#16a34a' if _bal >= 0 else '#dc2626'
@@ -10962,7 +10979,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                     # ── Factura con diseño ──
                     st.markdown(
                         "<div style='background:linear-gradient(135deg,#1e2447 0%,#2a3060 100%);"
-                        "border-radius:12px;padding:20px 24px;margin:12px 0 4px;'>"
+                        "border-radius:12px 12px 0 0;padding:20px 24px 12px;margin:12px 0 0;'>"
                         "<div style='font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;"
                         "letter-spacing:0.05em;text-transform:uppercase;color:#fff;margin-bottom:6px;'>"
                         "📎 Adjuntar Factura</div>"
@@ -10970,11 +10987,21 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         "Requerida para guardar el registro de compra.</div></div>",
                         unsafe_allow_html=True
                     )
+                    with st.container():
+                        _rc_factura = st.file_uploader('Subir factura PDF', type=['pdf'],
+                            key=f'rc_factura_{_rc_ep}', label_visibility='collapsed')
+                        if _rc_factura:
+                            st.success(f'✅ {_rc_factura.name} — lista para guardar')
+                        else:
+                            st.caption('Arrastra o haz click para adjuntar la factura en PDF')
+                    st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
 
 
                     # Campo oculto para capturar valores JSON desde el componente HTML
                     _rc_json_key = f'rc_json_{_rc_ep}'
-                    _rc_json_str = st.text_input('Valores JSON (no editar)', value='[]',
+                    if _rc_json_key not in st.session_state:
+                        st.session_state[_rc_json_key] = '[]'
+                    _rc_json_str = st.text_input('Valores JSON (no editar)',
                         key=_rc_json_key, label_visibility='collapsed')
                     st.markdown("""
                     <style>
