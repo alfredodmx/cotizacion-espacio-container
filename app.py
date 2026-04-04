@@ -983,10 +983,13 @@ window.guardarRegistro=async function(){{
     btn.textContent="✅ Guardado";btn.style.background="#16a34a";
     status.textContent="✅ Guardado correctamente. Actualizando...";
     status.style.color="#16a34a";
-    // Recargar página de Streamlit para mostrar nuevos registros
+    // Disparar rerun de Streamlit via query param
     setTimeout(function(){{
-      window.parent.location.reload();
-    }},1200);
+      var url=new URL(window.parent.location.href);
+      url.searchParams.set("rc_saved",Date.now());
+      window.parent.history.replaceState({{}},"",url);
+      window.parent.dispatchEvent(new PopStateEvent("popstate"));
+    }},1000);
     // Marcar ítems guardados en verde
     items.forEach(function(it){{
       document.querySelectorAll("tr[data-idx]").forEach(function(r){{
@@ -11258,6 +11261,11 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                                 )
                             except Exception:
                                 st.warning("⚠️ No se pudo preparar la descarga del plano.")
+
+    # Detectar guardado de compra via query param y hacer rerun
+    if st.query_params.get('rc_saved'):
+        st.query_params.pop('rc_saved')
+        st.rerun()
 
     with _sub_compras:
         st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 12px 0;">🛒 Registro de Compras</div>', unsafe_allow_html=True)
