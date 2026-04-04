@@ -781,6 +781,11 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
   </div>
   <div id="save-section" style="padding:12px 16px;background:#1e2447;border-top:2px solid #e2e8f0;flex-shrink:0">
     <div style="font-size:11px;font-weight:700;color:#fff;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">📎 Adjuntar Factura y Guardar</div>
+    <div style="margin-bottom:8px">
+      <input id="lugar-compra" type="text" placeholder="🏪 ¿Dónde compraste? Ej: Ferretería López (obligatorio)" 
+        oninput="window.checkSaveBtn()" 
+        style="width:100%;border:1px solid rgba(255,255,255,0.3);border-radius:6px;padding:7px 10px;font-size:13px;background:rgba(255,255,255,0.08);color:#fff;box-sizing:border-box;outline:none" />
+    </div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <label id="factura-label" style="background:rgba(255,255,255,0.1);color:#fff;border:1px dashed rgba(255,255,255,0.4);border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;white-space:nowrap">📎 Seleccionar factura PDF
         <input id="factura-input" type="file" accept=".pdf" style="display:none"/>
@@ -899,8 +904,11 @@ function checkSaveBtn(){{
     var re=parseFloat(r.querySelector(".rc-real").dataset.val)||0;
     if(re>0) hasVals=true;
   }});
+  var lugar=document.getElementById("lugar-compra");
+  var hasLugar=lugar&&lugar.value.trim().length>0;
+  var ok=hasVals&&hasLugar;
   var btn=document.getElementById("save-btn");
-  if(btn){{btn.disabled=!hasVals;btn.style.opacity=hasVals?"1":"0.5";}}
+  if(btn){{btn.disabled=!ok;btn.style.opacity=ok?"1":"0.5";}}
 }}
 
 // Upload factura
@@ -917,11 +925,22 @@ window.guardarRegistro=async function(){{
   var status=document.getElementById("save-status");
   if(!_facturaFile){{status.textContent="⚠️ Debes subir una factura primero";status.style.color="#dc2626";return;}}
   
-  // Recopilar solo items ingresados en esta visita (no estaban ya comprados)
+  // Consultar Supabase para obtener items YA comprados en tiempo real
+  btn.disabled=true;btn.textContent="⏳ Verificando compras previas...";
+  var yaCompradosResp=await fetch(SUPA_URL+"/rest/v1/registro_compras?cotizacion_numero=eq."+EP_NUM+"&select=items",{{
+    headers:{{"Authorization":"Bearer "+SUPA_KEY,"apikey":SUPA_KEY}}
+  }});
+  var yaCompradosData=await yaCompradosResp.json();
+  var itemsYaComprados=[];
+  (yaCompradosData||[]).forEach(function(reg){{
+    (reg.items||[]).forEach(function(it){{if(it.item)itemsYaComprados.push(it.item);}});
+  }});
+
+  // Recopilar solo items nuevos (precio real > 0 y no comprados antes)
   var items=[];
   document.querySelectorAll("tr[data-idx]").forEach(function(r){{
     var itemNombre=r.cells[1]?r.cells[1].textContent.trim():"";
-    if(ITEMS_YA_COMPRADOS.indexOf(itemNombre)>-1) return;  // ya comprado antes
+    if(itemsYaComprados.indexOf(itemNombre)>-1) return;  // ya guardado en Supabase
     var inp=r.querySelector(".rc-real");
     var re=parseFloat(inp.dataset.val)||0;
     if(re<=0) return;
@@ -971,9 +990,12 @@ window.guardarRegistro=async function(){{
         "Content-Type":"application/json",
         "Prefer":"return=minimal"
       }},
+      var lugarEl=document.getElementById("lugar-compra");
+      var lugarVal=lugarEl?lugarEl.value.trim():"";
       body:JSON.stringify({{
         cotizacion_numero:EP_NUM,
         usuario_registro:USUARIO,
+        lugar_compra:lugarVal,
         factura_url:_facturaUrl,
         factura_nombre:_facturaNom,
         items:items,
@@ -11313,7 +11335,9 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         _rce_icon = '✅' if _rce_bal >= 0 else '❌'
                         _rce_lbl = 'Ahorro' if _rce_bal >= 0 else 'Sobrecosto'
                         _rce_fmt = f"${abs(_rce_bal):,.0f}".replace(',','.')
-                        with st.expander(f"🧾 {_rce.get('factura_nombre','Sin factura')} — {_rce_icon} {_rce_lbl} {_rce_fmt}"):
+                        _rce_lugar = _rce.get('lugar_compra','') or ''
+                        _rce_titulo = f"🏪 {_rce_lugar} — {_rce_icon} {_rce_lbl} {_rce_fmt}" if _rce_lugar else f"🧾 {_rce.get('factura_nombre','Sin factura')} — {_rce_icon} {_rce_lbl} {_rce_fmt}"
+                        with st.expander(_rce_titulo):
                             _rce_items = _rce.get('items') or []
                             if isinstance(_rce_items, str):
                                 try: _rce_items = _jrc.loads(_rce_items)
@@ -11360,10 +11384,13 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                                     _rce_tz = timezone(timedelta(hours=-3))
                                     _rce_fecha = datetime.fromisoformat(_rce['fecha_registro'].replace('Z','+00:00')).astimezone(_rce_tz).strftime('%d/%m/%Y %H:%M')
                                 except: pass
+                                _rce_lugar_disp = _rce.get('lugar_compra','') or ''
                                 st.markdown(
-                                    f"<div style='margin-top:8px;padding:8px 12px;background:#f8fafc;border-radius:6px;display:flex;align-items:center;gap:12px;'>"
-                                    f"<span style='font-size:0.78rem;color:#64748b;'>🕐 {_rce_fecha}</span>"
-                                    f"<a href='{_rce['factura_url']}' target='_blank' style='font-size:0.82rem;color:#3b82f6;text-decoration:none;'>📎 Ver factura</a>"
+                                    f"<div style='margin-top:8px;padding:8px 12px;background:#f8fafc;border-radius:6px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;'>"
+                                    + (f"<span style='font-size:0.82rem;font-weight:700;color:#1e2447;'>🏪 {_rce_lugar_disp}</span>" if _rce_lugar_disp else "")
+                                    + f"<span style='font-size:0.78rem;color:#64748b;'>🕐 {_rce_fecha}</span>"
+                                    + f"<span style='font-size:0.78rem;color:#64748b;'>📄 {_rce.get('factura_nombre','')}</span>"
+                                    + f"<a href='{_rce['factura_url']}' target='_blank' style='font-size:0.82rem;color:#3b82f6;text-decoration:none;'>📎 Ver factura</a>"
                                     f"</div>",
                                     unsafe_allow_html=True
                                 )
