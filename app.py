@@ -687,7 +687,7 @@ def guardar_plano_en_storage(archivo_pdf_bytes, cotizacion_numero, nombre_origin
 # Función que construye el HTML del registro de compras
 # Usando triple-quoted strings para evitar conflictos de comillas
 
-def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin=False, supa_url='', supa_key='', ep='', usuario=''):
+def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin=False, supa_url='', supa_key='', ep='', usuario='', items_ya_comprados_json='[]'):
     rows = ""
     items_comprados = items_comprados or {}
     for ri, prod in enumerate(rc_prods):
@@ -797,6 +797,7 @@ var SUPA_URL="{supa_url}";
 var SUPA_KEY="{supa_key}";
 var EP_NUM="{ep}";
 var USUARIO="{usuario}";
+var ITEMS_YA_COMPRADOS={items_ya_comprados_json};
 var _facturaFile=null;
 var _facturaUrl="";
 var _facturaNom="";
@@ -916,11 +917,12 @@ window.guardarRegistro=async function(){{
   var status=document.getElementById("save-status");
   if(!_facturaFile){{status.textContent="⚠️ Debes subir una factura primero";status.style.color="#dc2626";return;}}
   
-  // Recopilar solo items ingresados en esta visita (no readonly = no comprados antes)
+  // Recopilar solo items ingresados en esta visita (no estaban ya comprados)
   var items=[];
   document.querySelectorAll("tr[data-idx]").forEach(function(r){{
+    var itemNombre=r.cells[1]?r.cells[1].textContent.trim():"";
+    if(ITEMS_YA_COMPRADOS.indexOf(itemNombre)>-1) return;  // ya comprado antes
     var inp=r.querySelector(".rc-real");
-    if(inp.hasAttribute("readonly")) return;  // ya comprado antes
     var re=parseFloat(inp.dataset.val)||0;
     if(re<=0) return;
     var pu=+r.dataset.pu||0;
@@ -11399,13 +11401,16 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                     # Obtener ítems ya comprados en registros anteriores
                     _rc_items_comprados = obtener_items_comprados(_rc_ep)
                     _rc_es_admin = _rol_actual in ('root','admin')
+                    import json as _jrc_call
+                    _rc_ya_comprados_json = _jrc_call.dumps(list(_rc_items_comprados.keys()))
                     _rc_html = build_rc_html(
                         _rc_prods, _rc_cat_json, _rc_prev,
                         _rc_items_comprados, _rc_es_admin,
                         supa_url=SUPABASE_URL,
                         supa_key=SUPABASE_KEY,
                         ep=_rc_ep,
-                        usuario=st.session_state.get('auth_nombre','')
+                        usuario=st.session_state.get('auth_nombre',''),
+                        items_ya_comprados_json=_rc_ya_comprados_json
                     )
                     _rc_height = min(len(_rc_prods)*37+330, 740)
                     # Forzar re-render cuando cambian items comprados
