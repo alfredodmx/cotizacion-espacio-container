@@ -11315,10 +11315,54 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                                 try: _rce_items = _jrc.loads(_rce_items)
                                 except: _rce_items = []
                             if _rce_items:
-                                _rce_df = _pd_rc.DataFrame(_rce_items)
-                                st.dataframe(_rce_df, use_container_width=True, hide_index=True)
+                                _rce_html = (
+                                    "<table style='width:100%;border-collapse:collapse;font-size:0.82rem;font-family:sans-serif;'>"
+                                    "<thead><tr style='background:#1e2447;color:#fff;'>"
+                                    "<th style='padding:6px 8px;text-align:left;'>Categoría</th>"
+                                    "<th style='padding:6px 8px;text-align:left;'>Ítem</th>"
+                                    "<th style='padding:6px 8px;text-align:right;'>Cant.</th>"
+                                    "<th style='padding:6px 8px;text-align:right;'>Presup. unit.</th>"
+                                    "<th style='padding:6px 8px;text-align:right;'>Real unit.</th>"
+                                    "<th style='padding:6px 8px;text-align:right;'>Adicional</th>"
+                                    "<th style='padding:6px 8px;text-align:right;'>Diferencia</th>"
+                                    "</tr></thead><tbody>"
+                                )
+                                for _ri3, _it in enumerate(_rce_items):
+                                    _it_pp  = float(_it.get('precio_presupuestado',0) or 0)
+                                    _it_pr  = float(_it.get('precio_real',0) or 0)
+                                    _it_c   = float(_it.get('cantidad',1) or 1)
+                                    _it_ad  = int(_it.get('adicional',0) or 0)
+                                    _it_dif = (_it_pp - _it_pr) * _it_c - (_it_ad * _it_pr)
+                                    _it_col = '#16a34a' if _it_dif >= 0 else '#dc2626'
+                                    _it_arr = '▼' if _it_dif >= 0 else '▲'
+                                    _it_bg  = '#ffffff' if _ri3 % 2 == 0 else '#f8fafc'
+                                    _rce_html += (
+                                        f"<tr style='background:{_it_bg};border-bottom:1px solid #f0f2f8;'>"
+                                        f"<td style='padding:5px 8px;color:#64748b;font-size:0.75rem;'>{_it.get('categoria','')}</td>"
+                                        f"<td style='padding:5px 8px;'>{_it.get('item','')}</td>"
+                                        f"<td style='padding:5px 8px;text-align:right;'>{int(_it_c)}</td>"
+                                        f"<td style='padding:5px 8px;text-align:right;'>${_it_pp:,.0f}</td>"
+                                        f"<td style='padding:5px 8px;text-align:right;'>${_it_pr:,.0f}</td>"
+                                        f"<td style='padding:5px 8px;text-align:right;color:#f97316;font-weight:600;'>{_it_ad}</td>"
+                                        f"<td style='padding:5px 8px;text-align:right;font-weight:700;color:{_it_col};'>${abs(_it_dif):,.0f} {_it_arr}</td>"
+                                        f"</tr>"
+                                    ).replace(',','.')
+                                _rce_html += "</tbody></table>"
+                                st.markdown(_rce_html, unsafe_allow_html=True)
                             if _rce.get('factura_url'):
-                                st.markdown(f"[📎 Ver factura]({_rce['factura_url']})", unsafe_allow_html=True)
+                                _rce_fecha = ''
+                                try:
+                                    from datetime import datetime, timezone, timedelta
+                                    _rce_tz = timezone(timedelta(hours=-3))
+                                    _rce_fecha = datetime.fromisoformat(_rce['fecha_registro'].replace('Z','+00:00')).astimezone(_rce_tz).strftime('%d/%m/%Y %H:%M')
+                                except: pass
+                                st.markdown(
+                                    f"<div style='margin-top:8px;padding:8px 12px;background:#f8fafc;border-radius:6px;display:flex;align-items:center;gap:12px;'>"
+                                    f"<span style='font-size:0.78rem;color:#64748b;'>🕐 {_rce_fecha}</span>"
+                                    f"<a href='{_rce['factura_url']}' target='_blank' style='font-size:0.82rem;color:#3b82f6;text-decoration:none;'>📎 Ver factura</a>"
+                                    f"</div>",
+                                    unsafe_allow_html=True
+                                )
                     st.markdown('---')
 
                 # Formulario nuevo registro
