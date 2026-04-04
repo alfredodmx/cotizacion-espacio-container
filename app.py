@@ -916,10 +916,12 @@ window.guardarRegistro=async function(){{
   var status=document.getElementById("save-status");
   if(!_facturaFile){{status.textContent="⚠️ Debes subir una factura primero";status.style.color="#dc2626";return;}}
   
-  // Recopilar items con precio real > 0
+  // Recopilar solo items ingresados en esta visita (no readonly = no comprados antes)
   var items=[];
   document.querySelectorAll("tr[data-idx]").forEach(function(r){{
-    var re=parseFloat(r.querySelector(".rc-real").dataset.val)||0;
+    var inp=r.querySelector(".rc-real");
+    if(inp.hasAttribute("readonly")) return;  // ya comprado antes
+    var re=parseFloat(inp.dataset.val)||0;
     if(re<=0) return;
     var pu=+r.dataset.pu||0;
     var c=+r.dataset.cant||1;
