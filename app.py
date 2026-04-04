@@ -11433,7 +11433,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
         # Obtener cotizaciones adjudicadas
         try:
             _rc_resp = supabase.table('cotizaciones').select(
-                'numero,cliente_nombre,contrato_notariado_url,productos,estado'
+                'numero,cliente_nombre,contrato_notariado_url,productos,estado,asesor_nombre'
             ).not_.is_('contrato_notariado_url','null').order('fecha_creacion',desc=True).execute()
             _rc_cots = [r for r in (_rc_resp.data or []) if r.get('contrato_notariado_url')]
         except:
@@ -11442,7 +11442,30 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
         if not _rc_cots:
             st.info('No hay proyectos adjudicados aún.')
         else:
-            _rc_opts = {f"{r['numero']} — {r.get('cliente_nombre') or 'S/C'}": r for r in _rc_cots}
+            import json as _jrc_opts
+            def _rc_estado_badge(estado):
+                _badges = {
+                    'ADJUDICADO': '🔵', 'AUTORIZADO': '🟢', 'AUTORIZADO CON PLANO': '🟢',
+                    'PROYECTO ENTREGADO': '🟣', 'PENDIENTE COMPRAS': '🟡'
+                }
+                return _badges.get(str(estado).upper(), '⚪')
+            def _rc_pct_label(r):
+                try:
+                    _prods = r.get('productos') or []
+                    if isinstance(_prods, str): _prods = _jrc_opts.loads(_prods)
+                    _prods = [p for p in _prods if str(p.get('Categoria','')).strip().lower() != 'varios']
+                    if not _prods: return 'Sin productos'
+                    _comp = obtener_items_comprados(r['numero'])
+                    _n = sum(1 for p in _prods if str(p.get('Item','')) in _comp)
+                    _pct = round(_n / len(_prods) * 1000) / 10
+                    if _pct >= 100: return '✅ 100% finalizado'
+                    if _pct == 0: return 'Sin compras'
+                    return f'{_pct}% comprado'
+                except: return '—'
+            _rc_opts = {
+                f"{_rc_estado_badge(r.get('estado',''))} {r['numero']} — {r.get('cliente_nombre') or 'S/C'} — {r.get('asesor_nombre') or '—'} — {_rc_pct_label(r)}": r
+                for r in _rc_cots
+            }
             _rc_sel_label = st.selectbox('Seleccionar proyecto', list(_rc_opts.keys()), key='rc_sel_proyecto')
             _rc_row = _rc_opts.get(_rc_sel_label, {})
             _rc_ep  = _rc_row.get('numero','')
