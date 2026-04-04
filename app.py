@@ -10875,9 +10875,9 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         _rc_df_cat = _leer_hoja_excel('BD Total')
                         _rc_cat_data = {}
                         for _, _crow in _rc_df_cat.iterrows():
-                            _ccat = str(_crow.get('Categorias','')).strip()
+                            _ccat = str(_crow.get('Categorias', _crow.get('Categoria',''))).strip()
                             _citem = str(_crow.get('Item','')).strip()
-                            _cprice = round(float(_crow.get('P. Unitario real', 0) or 0))
+                            _cprice = round(float(_crow.get('P. Unitario real', _crow.get('Precio Unitario', 0)) or 0))
                             if _ccat and _citem:
                                 if _ccat not in _rc_cat_data:
                                     _rc_cat_data[_ccat] = []
@@ -10983,7 +10983,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         "var tP=0,tR=0,vals=[];"
                         "document.querySelectorAll('tr[data-idx]').forEach(function(r){"
                         "var pu=+r.dataset.pu||0,c=+r.dataset.cant||1;"
-                        "var re=+(r.querySelector('.rc-real').dataset.val)||0;"
+                        "var re=parseFloat(r.querySelector('.rc-real').dataset.val)||0;"
                         "var ad=+r.querySelector('.rc-adic').value||0;"
                         "var d=(pu-re)*c-(ad*re);"
                         "var td=r.querySelector('.rc-dif');"
@@ -11005,6 +11005,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         "inp.addEventListener('blur',function(){var n=parseInt(this.dataset.val)||0;this.dataset.val=String(n);this.value=n>0?'$'+n.toLocaleString('de-DE'):'';calc();});"
                         "});"
                         "document.querySelectorAll('.rc-adic').forEach(function(i){i.addEventListener('input',calc);});"
+                        "window.addEventListener('load',function(){calc();});"
                         "calc();})()</script>"
                     )
                     _rc_comp.html(_rc_html, height=min(len(_rc_prods)*37+230, 800), scrolling=True)
