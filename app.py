@@ -790,6 +790,7 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
       <label id="factura-label" style="background:rgba(255,255,255,0.1);color:#fff;border:1px dashed rgba(255,255,255,0.4);border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;white-space:nowrap">📎 Seleccionar factura PDF
         <input id="factura-input" type="file" accept=".pdf" style="display:none"/>
       </label>
+      <button id="factura-clear" onclick="window.clearFactura()" style="display:none;background:rgba(220,38,38,0.7);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;white-space:nowrap">✕ Quitar</button>
       <div id="save-status" style="font-size:12px;color:rgba(255,255,255,0.7);flex:1"></div>
       <button id="save-btn" onclick="window.guardarRegistro()" disabled style="background:#10b981;color:#fff;border:none;border-radius:8px;padding:8px 24px;font-size:13px;font-weight:700;cursor:pointer;opacity:0.5;white-space:nowrap">💾 Guardar compra</button>
     </div>
@@ -915,10 +916,36 @@ function checkSaveBtn(){{
 document.getElementById("factura-input") && document.getElementById("factura-input").addEventListener("change",function(){{
   _facturaFile=this.files[0]||null;
   var lbl=document.getElementById("factura-label");
-  if(lbl) lbl.textContent=_facturaFile?("📎 "+_facturaFile.name):"Sin factura";
-  var btn=document.getElementById("save-btn");
+  var clr=document.getElementById("factura-clear");
+  if(_facturaFile){{
+    if(lbl)lbl.innerHTML="📎 "+_facturaFile.name+'<input id="factura-input" type="file" accept=".pdf" style="display:none"/>';
+    if(clr)clr.style.display="inline-block";
+  }}else{{
+    if(lbl)lbl.innerHTML='📎 Seleccionar factura PDF<input id="factura-input" type="file" accept=".pdf" style="display:none"/>';
+    if(clr)clr.style.display="none";
+  }}
   checkSaveBtn();
 }});
+window.clearFactura=function(){{
+  _facturaFile=null;
+  var lbl=document.getElementById("factura-label");
+  var clr=document.getElementById("factura-clear");
+  if(lbl)lbl.innerHTML='📎 Seleccionar factura PDF<input id="factura-input" type="file" accept=".pdf" style="display:none"/>';
+  if(clr)clr.style.display="none";
+  // Re-attach listener al nuevo input
+  var ni=document.getElementById("factura-input");
+  if(ni)ni.addEventListener("change",function(){{
+    _facturaFile=this.files[0]||null;
+    var l2=document.getElementById("factura-label");
+    var c2=document.getElementById("factura-clear");
+    if(_facturaFile){{
+      if(l2)l2.innerHTML="📎 "+_facturaFile.name+'<input id="factura-input" type="file" accept=".pdf" style="display:none"/>';
+      if(c2)c2.style.display="inline-block";
+    }}
+    checkSaveBtn();
+  }});
+  checkSaveBtn();
+}};
 
 window.guardarRegistro=async function(){{
   var btn=document.getElementById("save-btn");
@@ -11336,7 +11363,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         _rce_lbl = 'Ahorro' if _rce_bal >= 0 else 'Sobrecosto'
                         _rce_fmt = f"${abs(_rce_bal):,.0f}".replace(',','.')
                         _rce_lugar = _rce.get('lugar_compra','') or ''
-                        _rce_titulo = f"🏪 {_rce_lugar} — {_rce_icon} {_rce_lbl} {_rce_fmt}" if _rce_lugar else f"🧾 {_rce.get('factura_nombre','Sin factura')} — {_rce_icon} {_rce_lbl} {_rce_fmt}"
+                        _rce_titulo = f"🏪 Compraste en: {_rce_lugar} — {_rce_icon} {_rce_lbl} {_rce_fmt}" if _rce_lugar else f"🧾 {_rce.get('factura_nombre','Sin factura')} — {_rce_icon} {_rce_lbl} {_rce_fmt}"
                         with st.expander(_rce_titulo):
                             _rce_items = _rce.get('items') or []
                             if isinstance(_rce_items, str):
