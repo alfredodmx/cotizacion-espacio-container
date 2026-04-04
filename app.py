@@ -11008,7 +11008,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         "window.addEventListener('load',function(){calc();});"
                         "calc();})()</script>"
                     )
-                    _rc_comp.html(_rc_html, height=min(len(_rc_prods)*37+230, 800), scrolling=True)
+                    _rc_comp.html(_rc_html, height=600, scrolling=False)
 
                     # Totales dentro del HTML component
 
