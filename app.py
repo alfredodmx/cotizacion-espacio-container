@@ -7712,8 +7712,14 @@ if tab1 is not None:
                         categorias_disponibles = df_temp["Categorias"].dropna().unique()
                         def _total_cat_modelo(cat):
                             try:
-                                _df_c = df_tmp_merged[df_tmp_merged['Categorias']==cat]
-                                t = (_df_c['Cantidad'] * _df_c['P. Unitario real']).sum()
+                                _df_c = df_tmp_merged[df_tmp_merged['Categorias']==cat].copy()
+                                # Usar precio del modelo si existe, sino de BD
+                                if 'P. Unitario real' in _df_c.columns:
+                                    _df_c['_pu'] = _df_c['P. Unitario real'].fillna(0)
+                                else:
+                                    _df_c['_pu'] = 0
+                                t = (_df_c['Cantidad'].fillna(0) * _df_c['_pu']).sum()
+                                if t == 0: return ''
                                 return f"${t*1.19:,.0f}".replace(',','.')
                             except: return ''
                         _cat_agr_labels = {f"{c} — {_total_cat_modelo(c)}": c for c in categorias_disponibles}
