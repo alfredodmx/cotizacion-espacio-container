@@ -8472,7 +8472,7 @@ if tab3 is not None:
             return _fecha_h
         df_resultados["Fecha_Auth_fmt"] = df_resultados.apply(_fmt_auth_con_nombre, axis=1)
         df_resultados["Plano"]    = df_resultados.apply(lambda row: "✅ Sí" if row["Tiene_Plano"] else "—", axis=1)
-        df_resultados["MargenCol"] = df_resultados["Margen"].apply(lambda x: f'✅ Sí<br><span style="font-size:0.78em;color:#16a34a;">{x:.1f}%</span>' if x and x > 0 else "—")
+        df_resultados["MargenCol"] = df_resultados["Margen"].apply(lambda x: f'✅ Sí<br><span style="font-size:0.78em;color:#16a34a;">{x:.3f}%</span>' if x and x > 0 else "—")
         df_resultados["ContratoCol"] = df_resultados["Tiene_Contrato"].apply(lambda x: "✅ Sí" if x else "—")
         df_resultados["EmpresaCol"] = df_resultados["Empresa"].apply(lambda x: "✅ Sí" if x and x.strip() else "—")
         def _fmt_nlogs(x):
