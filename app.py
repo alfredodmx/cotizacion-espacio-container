@@ -7838,8 +7838,14 @@ if tab1 is not None:
 
 
 
+        # Aplicar filtro de categoría si está activo
+        _cat_filtro = st.session_state.get('_cat_filtro_activo', '')
+        _carrito_df_filtrado = carrito_df_con_margen.copy()
+        if _cat_filtro:
+            _carrito_df_filtrado = _carrito_df_filtrado[_carrito_df_filtrado['Categoria'] == _cat_filtro]
+
         if es_solo_lectura:
-            carrito_df_display = carrito_df_con_margen[["Categoria", "Item", "Cantidad", "Precio Unitario", "Subtotal"]].copy()
+            carrito_df_display = _carrito_df_filtrado[["Categoria", "Item", "Cantidad", "Precio Unitario", "Subtotal"]].copy()
             carrito_df_display["P. Unit + IVA"] = carrito_df_display["Precio Unitario"].apply(lambda x: formato_clp(round(x * 1.19)))
             carrito_df_display["Subtotal + IVA"] = carrito_df_display["Subtotal"].apply(lambda x: formato_clp(round(x * 1.19)))
             carrito_df_display["Precio Unitario"] = carrito_df_display["Precio Unitario"].apply(formato_clp)
@@ -7858,7 +7864,7 @@ if tab1 is not None:
                                "Subtotal + IVA": st.column_config.TextColumn("Subtotal + IVA")})
             st.caption("🔒 Vista de solo lectura")
         else:
-            carrito_df_edit = carrito_df_con_margen.copy()
+            carrito_df_edit = _carrito_df_filtrado.copy()
             carrito_df_edit["P. Unit + IVA"] = carrito_df_edit["Precio Unitario"].apply(lambda x: formato_clp(round(x * 1.19)))
             carrito_df_edit["Subtotal + IVA"] = carrito_df_edit["Subtotal"].apply(lambda x: formato_clp(round(x * 1.19)))
             carrito_df_edit["Precio Unitario"] = carrito_df_edit["Precio Unitario"].apply(formato_clp)
@@ -8077,6 +8083,28 @@ if tab1 is not None:
         if 'utilidad_real' not in dir():
             utilidad_real = margen_valor - total_comisiones if st.session_state.modo_admin else 0
 
+        # Detectar click en tarjeta via query param
+        _qp_cat = st.query_params.get('cat_modal','')
+        if _qp_cat and _qp_cat != st.session_state.get('_cat_modal',''):
+            st.session_state['_cat_modal'] = _qp_cat
+            st.query_params.pop('cat_modal')
+            st.rerun()
+        elif not _qp_cat and st.query_params.get('cat_modal_close'):
+            st.session_state.pop('_cat_modal', None)
+            st.query_params.pop('cat_modal_close')
+            st.rerun()
+
+        # Filtro de categoría via click en tarjeta
+        _qp_cat_filtro = st.query_params.get('cat_filtro', '')
+        if _qp_cat_filtro:
+            if _qp_cat_filtro == '__clear__' or _qp_cat_filtro == st.session_state.get('_cat_filtro_activo', ''):
+                st.session_state.pop('_cat_filtro_activo', None)
+            else:
+                st.session_state['_cat_filtro_activo'] = _qp_cat_filtro
+            try: st.query_params.pop('cat_filtro')
+            except: pass
+            st.rerun()
+
         st.markdown("---")
         st.markdown("#### Métricas")
         # Fila 1: siempre 3 tarjetas de métricas
@@ -8103,16 +8131,24 @@ if tab1 is not None:
             .agg(items=('Item','count'), cantidades=('Cantidad','sum'), subtotal=('Subtotal','sum'))
             .reset_index().sort_values('Categoria')
         )
+        _cat_modal_active = st.session_state.get('_cat_modal','')
+        _cat_filtro_activo = st.session_state.get('_cat_filtro_activo', '')
         _cards_html = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px;">'
         for _ci, (_idx, _crow) in enumerate(_cats_summary.iterrows()):
             _cc = _cat_colors[_ci % len(_cat_colors)]
             _sub_iva = _crow['subtotal'] * 1.19
             _sub_fmt = f'${_sub_iva:,.0f}'.replace(',','.')
+            _is_active = _cat_filtro_activo == _crow['Categoria']
+            _cat_enc = _crow['Categoria'].replace(' ','%20').replace('&','%26')
+            _onclick = f'window.parent.location.href=window.parent.location.pathname+"?cat_filtro={_cat_enc}"'
+            _bg = f'{_cc}18' if _is_active else '#fff'
+            _border = f'border:2px solid {_cc}' if _is_active else f'border:1.5px solid {_cc}33'
+            _tick = ' ✓' if _is_active else ''
             _cards_html += (
-                f'<div style="background:#fff;border:1.5px solid {_cc}33;border-left:4px solid {_cc};'
-                f'border-radius:8px;padding:8px 14px;min-width:160px;flex:1;">'
+                f'<div onclick="{_onclick}" style="background:{_bg};{_border};border-left:4px solid {_cc};'
+                f'border-radius:8px;padding:8px 14px;min-width:160px;flex:1;cursor:pointer;">'
                 f'<div style="font-size:11px;font-weight:700;color:{_cc};text-transform:uppercase;'
-                f'letter-spacing:.05em;margin-bottom:4px;">{_crow["Categoria"]}</div>'
+                f'letter-spacing:.05em;margin-bottom:4px;">{_crow["Categoria"]}{_tick}</div>'
                 f'<div style="display:flex;gap:10px;align-items:baseline;">'
                 f'<span style="font-size:13px;font-weight:700;color:#0f172a;">{_sub_fmt}</span>'
                 f'<span style="font-size:10px;color:#64748b;">c/IVA</span>'
@@ -8122,6 +8158,9 @@ if tab1 is not None:
                 f'</div>'
             )
         _cards_html += '</div>'
+        if _cat_filtro_activo:
+            _cards_html += '<div style="font-size:11px;color:#64748b;margin-top:6px;">'
+            _cards_html += f'Filtrando: <b>{_cat_filtro_activo}</b> · <span onclick="window.parent.location.href=window.parent.location.pathname+\'?cat_filtro=__clear__\'" style="color:#3b82f6;cursor:pointer;">✕ Ver todos</span></div>'
         st.markdown(_cards_html, unsafe_allow_html=True)
 
         st.markdown("---")
