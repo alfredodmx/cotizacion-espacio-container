@@ -7817,6 +7817,63 @@ if tab1 is not None:
                 st.caption(f"ℹ️ Margen del {st.session_state.margen}% aplicado")
         if st.session_state.modo_admin:
             st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;text-align:center;">📊 Resumen del Presupuesto</div>', unsafe_allow_html=True)
+
+        # Tarjetas de categoría como filtro — usando components.html para window.parent
+        import streamlit.components.v1 as _cat_comp
+        import pandas as _pd_cat
+        _cat_filtro_activo = st.session_state.get('_cat_filtro_activo', '')
+        _df_cat = _pd_cat.DataFrame(st.session_state.carrito)
+        _cat_colors = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444',
+                       '#06b6d4','#f97316','#84cc16','#ec4899','#6366f1',
+                       '#14b8a6','#eab308','#dc2626','#7c3aed','#0ea5e9']
+        _cats_summary = (
+            _df_cat.groupby('Categoria')
+            .agg(items=('Item','count'), cantidades=('Cantidad','sum'), subtotal=('Subtotal','sum'))
+            .reset_index().sort_values('Categoria')
+        )
+        _cards_items = []
+        for _ci, (_idx, _crow) in enumerate(_cats_summary.iterrows()):
+            _cc = _cat_colors[_ci % len(_cat_colors)]
+            _sub_iva = _crow['subtotal'] * 1.19
+            _sub_fmt = f'${_sub_iva:,.0f}'.replace(',','.')
+            _is_active = _cat_filtro_activo == _crow['Categoria']
+            _cards_items.append({'cat': _crow['Categoria'], 'cc': _cc, 'sub': _sub_fmt,
+                                  'items': int(_crow['items']), 'cant': int(_crow['cantidades']),
+                                  'active': _is_active})
+        _cards_divs = ''
+        for _card in _cards_items:
+            _bg = f"{_card['cc']}18" if _card['active'] else '#fff'
+            _brd = f"2px solid {_card['cc']}" if _card['active'] else f"1.5px solid {_card['cc']}33"
+            _tick = ' ✓' if _card['active'] else ''
+            _cards_divs += (
+                f'<div class="cat-card" data-cat="{_card["cat"]}" '
+                f'style="background:{_bg};border:{_brd};border-left:4px solid {_card["cc"]};'
+                f'border-radius:8px;padding:8px 14px;min-width:140px;flex:1;cursor:pointer;">'
+                f'<div style="font-size:11px;font-weight:700;color:{_card["cc"]};text-transform:uppercase;'
+                f'letter-spacing:.05em;margin-bottom:4px;">{_card["cat"]}{_tick}</div>'
+                f'<div style="display:flex;gap:10px;align-items:baseline;">'
+                f'<span style="font-size:13px;font-weight:700;color:#0f172a;">{_card["sub"]}</span>'
+                f'<span style="font-size:10px;color:#64748b;">c/IVA</span></div>'
+                f'<div style="font-size:10px;color:#64748b;margin-top:2px;">'
+                f'{_card["items"]} ítems · {_card["cant"]} uds.</div></div>'
+            )
+        _cat_html = f"""<style>body{{margin:0;padding:0;font-family:'Segoe UI',sans-serif;}}</style>
+<div style='display:flex;flex-wrap:wrap;gap:8px;padding:4px 0;'>{_cards_divs}</div>
+<script>
+document.querySelectorAll('.cat-card').forEach(function(el){{
+  el.addEventListener('click',function(){{
+    var cat=this.dataset.cat;
+    var url=new URL(window.parent.location.href);
+    var current=url.searchParams.get('cat_filtro');
+    url.searchParams.set('cat_filtro', current===cat ? '__clear__' : cat);
+    window.parent.history.replaceState({{}},'',url);
+    window.parent.dispatchEvent(new PopStateEvent('popstate'));
+  }});
+}});
+</script>"""
+        _n_cat_rows = (_len_cats := len(_cards_items))
+        _cat_comp.html(_cat_html, height=60 if _len_cats <= 4 else 130 if _len_cats <= 8 else 200, scrolling=False)
+
         # Fila buscador — solo visible con productos
         col_vacio1, col_search_c, col_fs_c, col_vacio2 = st.columns([1, 3, 0.5, 1])
         with col_search_c:
@@ -8142,47 +8199,6 @@ if tab1 is not None:
             .reset_index().sort_values('Categoria')
         )
         _cat_modal_active = st.session_state.get('_cat_modal','')
-        _cat_filtro_activo = st.session_state.get('_cat_filtro_activo', '')
-
-        # Construir HTML de tarjetas con onclick que usa replaceState + reload parcial
-        _cards_html = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px;">'
-        for _ci, (_idx, _crow) in enumerate(_cats_summary.iterrows()):
-            _cc = _cat_colors[_ci % len(_cat_colors)]
-            _sub_iva = _crow['subtotal'] * 1.19
-            _sub_fmt = f'${_sub_iva:,.0f}'.replace(',','.')
-            _is_active = _cat_filtro_activo == _crow['Categoria']
-            _cat_enc = _crow['Categoria'].replace(' ','%20').replace('&','%26').replace('#','%23')
-            _val = '__clear__' if _is_active else _cat_enc
-            _bg = f'{_cc}18' if _is_active else '#fff'
-            _border = f'2px solid {_cc}' if _is_active else f'1.5px solid {_cc}33'
-            _tick = ' ✓' if _is_active else ''
-            _onclick = (
-                f'var u=new URL(window.parent.location.href);'
-                f'u.searchParams.set(\'cat_filtro\',\'{_val}\');'
-                f'window.parent.history.replaceState({{}},"",u);'
-                f'window.parent.dispatchEvent(new PopStateEvent(\'popstate\'));'
-            )
-            _cards_html += (
-                f'<div onclick="{_onclick}" style="background:{_bg};border:{_border};border-left:4px solid {_cc};'
-                f'border-radius:8px;padding:8px 14px;min-width:160px;flex:1;cursor:pointer;">'
-                f'<div style="font-size:11px;font-weight:700;color:{_cc};text-transform:uppercase;'
-                f'letter-spacing:.05em;margin-bottom:4px;">{_crow["Categoria"]}{_tick}</div>'
-                f'<div style="display:flex;gap:10px;align-items:baseline;">'
-                f'<span style="font-size:13px;font-weight:700;color:#0f172a;">{_sub_fmt}</span>'
-                f'<span style="font-size:10px;color:#64748b;">c/IVA</span>'
-                f'</div>'
-                f'<div style="font-size:10px;color:#64748b;margin-top:2px;">'
-                f'{int(_crow["items"])} ítems · {int(_crow["cantidades"])} uds.</div>'
-                f'</div>'
-            )
-        _cards_html += '</div>'
-        if _cat_filtro_activo:
-            _clear_onclick = "var u=new URL(window.parent.location.href);u.searchParams.set('cat_filtro','__clear__');window.parent.history.replaceState({},'',u);window.parent.dispatchEvent(new PopStateEvent('popstate'));"
-            _cards_html += f'<div style="font-size:11px;color:#64748b;margin-top:6px;">Filtrando: <b>{_cat_filtro_activo}</b> · <span onclick="{_clear_onclick}" style="color:#3b82f6;cursor:pointer;">✕ Ver todos</span></div>'
-        st.markdown(_cards_html, unsafe_allow_html=True)
-
-
-
         st.markdown("---")
 
         if st.session_state.modo_admin:
