@@ -7601,8 +7601,9 @@ if tab1 is not None:
         def _total_modelo(nombre_hoja):
             try:
                 items = cargar_modelo(nombre_hoja)
-                total = sum(float(i.get('Subtotal',0) or 0) for i in items)
-                return f"${total:,.0f}".replace(',','.')
+                subtotal = sum(float(i.get('Subtotal',0) or 0) for i in items)
+                total_iva = subtotal * 1.19
+                return f"${total_iva:,.0f}".replace(',','.')
             except: return ''
         _mod_labels = {f"{h} — {_total_modelo(h)}": h for h in hojas_modelo}
         col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns([1,1,1,1,0.7])
