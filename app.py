@@ -7881,7 +7881,7 @@ document.querySelectorAll('.cat-card').forEach(function(el){{
 </script>"""
         _n_cat_rows = (_len_cats := len(_cards_items))
         _cat_comp.html(_cat_html, height=60 if _len_cats <= 4 else 130 if _len_cats <= 8 else 200, scrolling=False)
-        st.markdown('<div style="margin-top:-60px"></div>', unsafe_allow_html=True)
+        st.markdown('<div style="margin-top:-120px"></div>', unsafe_allow_html=True)
         carrito_df = pd.DataFrame(st.session_state.carrito)
         subtotal_base = carrito_df["Subtotal"].sum()
 
