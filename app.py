@@ -8133,35 +8133,62 @@ if tab1 is not None:
         )
         _cat_modal_active = st.session_state.get('_cat_modal','')
         _cat_filtro_activo = st.session_state.get('_cat_filtro_activo', '')
-        _cards_html = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px;">'
-        for _ci, (_idx, _crow) in enumerate(_cats_summary.iterrows()):
-            _cc = _cat_colors[_ci % len(_cat_colors)]
-            _sub_iva = _crow['subtotal'] * 1.19
-            _sub_fmt = f'${_sub_iva:,.0f}'.replace(',','.')
-            _is_active = _cat_filtro_activo == _crow['Categoria']
-            _cat_enc = _crow['Categoria'].replace(' ','%20').replace('&','%26')
-            _onclick = f'window.parent.location.href=window.parent.location.pathname+"?cat_filtro={_cat_enc}"'
-            _bg = f'{_cc}18' if _is_active else '#fff'
-            _border = f'border:2px solid {_cc}' if _is_active else f'border:1.5px solid {_cc}33'
-            _tick = ' ✓' if _is_active else ''
-            _cards_html += (
-                f'<div onclick="{_onclick}" style="background:{_bg};{_border};border-left:4px solid {_cc};'
-                f'border-radius:8px;padding:8px 14px;min-width:160px;flex:1;cursor:pointer;">'
-                f'<div style="font-size:11px;font-weight:700;color:{_cc};text-transform:uppercase;'
-                f'letter-spacing:.05em;margin-bottom:4px;">{_crow["Categoria"]}{_tick}</div>'
-                f'<div style="display:flex;gap:10px;align-items:baseline;">'
-                f'<span style="font-size:13px;font-weight:700;color:#0f172a;">{_sub_fmt}</span>'
-                f'<span style="font-size:10px;color:#64748b;">c/IVA</span>'
-                f'</div>'
-                f'<div style="font-size:10px;color:#64748b;margin-top:2px;">'
-                f'{int(_crow["items"])} ítems · {int(_crow["cantidades"])} uds.</div>'
-                f'</div>'
+
+        # CSS: convertir botones en tarjetas
+        _css = '<style>'
+        for _ci2, (_idx2, _crow2) in enumerate(_cats_summary.iterrows()):
+            _cc2 = _cat_colors[_ci2 % len(_cat_colors)]
+            _is_act2 = _cat_filtro_activo == _crow2['Categoria']
+            _bg2 = f'{_cc2}18' if _is_act2 else '#ffffff'
+            _brd2 = f'2px solid {_cc2}' if _is_act2 else f'1.5px solid {_cc2}33'
+            _css += (
+                f'[data-testid="stBaseButton-secondary"] button[data-key="cat_filt_{_ci2}"],'
+                f'div:has(> [data-testid="stBaseButton-secondary"] button[data-key="cat_filt_{_ci2}"]) button {{'
+                f'background:{_bg2}!important;'
+                f'border:{_brd2}!important;'
+                f'border-left:4px solid {_cc2}!important;'
+                f'border-radius:8px!important;'
+                f'padding:8px 14px!important;'
+                f'text-align:left!important;'
+                f'height:auto!important;'
+                f'white-space:normal!important;'
+                f'line-height:1.4!important;'
+                f'box-shadow:none!important;'
+                f'color:#0f172a!important;'
+                f'}}'
             )
-        _cards_html += '</div>'
+        _css += '</style>'
+        st.markdown(_css, unsafe_allow_html=True)
+
+        # Tarjetas como botones nativos en filas de 4
+        _cat_list2 = list(_cats_summary.iterrows())
+        _cols_n = min(len(_cat_list2), 4)
+        for _row_s in range(0, len(_cat_list2), _cols_n):
+            _row_c = _cat_list2[_row_s:_row_s+_cols_n]
+            _tcols2 = st.columns(len(_row_c))
+            for _ri2, (_idx2, _crow2) in enumerate(_row_c):
+                _ci2 = _row_s + _ri2
+                _cc2 = _cat_colors[_ci2 % len(_cat_colors)]
+                _sub_iva2 = _crow2['subtotal'] * 1.19
+                _sub_fmt2 = f'${_sub_iva2:,.0f}'.replace(',','.')
+                _is_act2 = _cat_filtro_activo == _crow2['Categoria']
+                _tick2 = ' ✓' if _is_act2 else ''
+                _lbl2 = (
+                    f"{_crow2['Categoria']}{_tick2}\n"
+                    f"{_sub_fmt2} c/IVA\n"
+                    f"{int(_crow2['items'])} ítems · {int(_crow2['cantidades'])} uds."
+                )
+                with _tcols2[_ri2]:
+                    if st.button(_lbl2, key=f'cat_filt_{_ci2}', use_container_width=True):
+                        if _is_act2:
+                            st.session_state.pop('_cat_filtro_activo', None)
+                        else:
+                            st.session_state['_cat_filtro_activo'] = _crow2['Categoria']
+                        st.rerun()
+
         if _cat_filtro_activo:
-            _cards_html += '<div style="font-size:11px;color:#64748b;margin-top:6px;">'
-            _cards_html += f'Filtrando: <b>{_cat_filtro_activo}</b> · <span onclick="window.parent.location.href=window.parent.location.pathname+\'?cat_filtro=__clear__\'" style="color:#3b82f6;cursor:pointer;">✕ Ver todos</span></div>'
-        st.markdown(_cards_html, unsafe_allow_html=True)
+            st.caption(f"Filtrando: **{_cat_filtro_activo}** · Haz click en la tarjeta activa para ver todos")
+
 
         st.markdown("---")
 
