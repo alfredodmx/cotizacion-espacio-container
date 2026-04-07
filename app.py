@@ -7865,7 +7865,7 @@ if tab1 is not None:
                 f'<div style="font-size:10px;color:#64748b;margin-top:2px;">'
                 f'{_card["items"]} ítems · {_card["cant"]} uds.</div></div>'
             )
-        _cat_html = f"""<style>body{{margin:0;padding:0;font-family:'Segoe UI',sans-serif;}}</style>
+        _cat_html = f"""<style>html,body{{margin:0;padding:0;overflow:hidden;font-family:'Segoe UI',sans-serif;}}*{{box-sizing:border-box;}}</style>
 <div style='display:flex;flex-wrap:wrap;gap:8px;padding:4px 0;'>{_cards_divs}</div>
 <script>
 document.querySelectorAll('.cat-card').forEach(function(el){{
@@ -7880,8 +7880,12 @@ document.querySelectorAll('.cat-card').forEach(function(el){{
 }});
 </script>"""
         _n_cat_rows = (_len_cats := len(_cards_items))
-        _cat_comp.html(_cat_html, height=60 if _len_cats <= 4 else 130 if _len_cats <= 8 else 200, scrolling=False)
-        st.markdown('<div style="margin-top:-120px"></div>', unsafe_allow_html=True)
+        import math as _math_cat
+        _cats_per_row = 9
+        _n_rows = _math_cat.ceil(_len_cats / _cats_per_row)
+        _cat_height = _n_rows * 78 + 8
+        _cat_comp.html(_cat_html, height=_cat_height, scrolling=False)
+        st.markdown('<div style="margin-top:-24px"></div>', unsafe_allow_html=True)
         carrito_df = pd.DataFrame(st.session_state.carrito)
         subtotal_base = carrito_df["Subtotal"].sum()
 
