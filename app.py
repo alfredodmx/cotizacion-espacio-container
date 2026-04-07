@@ -7707,20 +7707,19 @@ if tab1 is not None:
                         _mod_ori_label = st.selectbox("Modelo", list(_mod_labels.keys()), key="modelo_origen", label_visibility="collapsed")
                         modelo_origen = _mod_labels.get(_mod_ori_label, hojas_modelo[0])
                         df_temp = _leer_hoja_excel(modelo_origen)
-                        df_bd_agr = _leer_bd_total()
-                        df_tmp_merged = df_temp.merge(df_bd_agr[['Item','P. Unitario real']], on='Item', how='left')
                         categorias_disponibles = df_temp["Categorias"].dropna().unique()
+                        # Usar cargar_modelo que ya tiene el merge correcto con P. Unitario real
+                        try:
+                            _items_modelo = cargar_modelo(modelo_origen)
+                            import pandas as _pd_agr
+                            _df_modelo_agr = _pd_agr.DataFrame(_items_modelo)
+                            _cat_totales = _df_modelo_agr.groupby('Categoria')['Subtotal'].sum()
+                        except:
+                            _cat_totales = {}
                         def _total_cat_modelo(cat):
                             try:
-                                _df_c = df_tmp_merged[df_tmp_merged['Categorias']==cat].copy()
-                                # Usar precio del modelo si existe, sino de BD
-                                if 'P. Unitario real' in _df_c.columns:
-                                    _df_c['_pu'] = _df_c['P. Unitario real'].fillna(0)
-                                else:
-                                    _df_c['_pu'] = 0
-                                t = (_df_c['Cantidad'].fillna(0) * _df_c['_pu']).sum()
-                                if t == 0: return ''
-                                return f"${t*1.19:,.0f}".replace(',','.')
+                                t = _cat_totales.get(cat, 0) if hasattr(_cat_totales, 'get') else _cat_totales[cat]
+                                return f"${t*1.19:,.0f}".replace(',','.') if t > 0 else ''
                             except: return ''
                         _cat_agr_labels = {f"{c} — {_total_cat_modelo(c)}": c for c in categorias_disponibles}
                         _cat_agr_sel = st.selectbox("Categoría", list(_cat_agr_labels.keys()), key="cat_agregar", label_visibility="collapsed")
