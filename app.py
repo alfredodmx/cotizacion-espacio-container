@@ -8103,7 +8103,7 @@ if tab1 is not None:
             .agg(items=('Item','count'), cantidades=('Cantidad','sum'), subtotal=('Subtotal','sum'))
             .reset_index().sort_values('Categoria')
         )
-        # Renderizar tarjetas en filas de 4
+        # Renderizar tarjetas con botón invisible superpuesto
         _cat_list = list(_cats_summary.iterrows())
         _cols_per_row = 4
         for _row_start in range(0, len(_cat_list), _cols_per_row):
@@ -8114,28 +8114,34 @@ if tab1 is not None:
                 _cc = _cat_colors[_ci % len(_cat_colors)]
                 _sub_iva = _crow['subtotal'] * 1.19
                 _sub_fmt = f'${_sub_iva:,.0f}'.replace(',','.')
+                _is_active = st.session_state.get('_cat_modal') == _crow['Categoria']
+                _box_shadow = f'box-shadow:0 0 0 2.5px {_cc};' if _is_active else ''
                 with _tcols[_ci_rel]:
+                    # Tarjeta HTML
                     st.markdown(
                         f'<div style="background:#fff;border:1.5px solid {_cc}33;border-left:4px solid {_cc};'
-                        f'border-radius:8px 8px 0 0;padding:8px 14px 6px;">'
+                        f'border-radius:8px;padding:8px 14px;{_box_shadow}cursor:pointer;">'
                         f'<div style="font-size:11px;font-weight:700;color:{_cc};text-transform:uppercase;'
-                        f'letter-spacing:.05em;margin-bottom:4px;">{_crow["Categoria"]}</div>'
+                        f'letter-spacing:.05em;margin-bottom:4px;">{_crow["Categoria"]}'
+                        f'{" ✓" if _is_active else ""}</div>'
                         f'<div style="display:flex;gap:10px;align-items:baseline;">'
                         f'<span style="font-size:13px;font-weight:700;color:#0f172a;">{_sub_fmt}</span>'
-                        f'<span style="font-size:10px;color:#64748b;">c/IVA</span>'
-                        f'</div>'
+                        f'<span style="font-size:10px;color:#64748b;">c/IVA</span></div>'
                         f'<div style="font-size:10px;color:#64748b;margin-top:2px;">'
-                        f'{int(_crow["items"])} ítems · {int(_crow["cantidades"])} uds.</div>'
-                        f'</div>',
+                        f'{int(_crow["items"])} ítems · {int(_crow["cantidades"])} uds.</div></div>',
                         unsafe_allow_html=True
                     )
-                    _is_active = st.session_state.get('_cat_modal') == _crow['Categoria']
-                    _btn_style = f'border-radius:0 0 8px 8px;background:{_cc};color:#fff' if _is_active else f'border-radius:0 0 8px 8px'
-                    if st.button(
-                        f'✕ Cerrar' if _is_active else f'🔍 Ver ítems',
-                        key=f'cat_modal_btn_{_ci}',
-                        use_container_width=True
-                    ):
+                    # Botón invisible superpuesto via CSS
+                    _btn_key = f'cat_modal_btn_{_ci}'
+                    st.markdown(f"""
+                    <style>
+                    div[data-testid='stBaseButton-secondary']:has(+ * [data-testid]) {{display:none}}
+                    [data-testid="column"]:nth-child({_ci_rel+1}) div.stBaseButton-secondary button {{
+                        position:absolute;top:0;left:0;width:100%;height:100%;
+                        opacity:0;cursor:pointer;z-index:10;
+                    }}
+                    </style>""", unsafe_allow_html=True)
+                    if st.button(' ', key=_btn_key, use_container_width=True):
                         if _is_active:
                             st.session_state.pop('_cat_modal', None)
                         else:
