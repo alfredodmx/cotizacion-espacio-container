@@ -8103,26 +8103,105 @@ if tab1 is not None:
             .agg(items=('Item','count'), cantidades=('Cantidad','sum'), subtotal=('Subtotal','sum'))
             .reset_index().sort_values('Categoria')
         )
-        _cards_html = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px;">'
-        for _ci, (_idx, _crow) in enumerate(_cats_summary.iterrows()):
-            _cc = _cat_colors[_ci % len(_cat_colors)]
-            _sub_iva = _crow['subtotal'] * 1.19
-            _sub_fmt = f'${_sub_iva:,.0f}'.replace(',','.')
-            _cards_html += (
-                f'<div style="background:#fff;border:1.5px solid {_cc}33;border-left:4px solid {_cc};'
-                f'border-radius:8px;padding:8px 14px;min-width:160px;flex:1;">'
-                f'<div style="font-size:11px;font-weight:700;color:{_cc};text-transform:uppercase;'
-                f'letter-spacing:.05em;margin-bottom:4px;">{_crow["Categoria"]}</div>'
-                f'<div style="display:flex;gap:10px;align-items:baseline;">'
-                f'<span style="font-size:13px;font-weight:700;color:#0f172a;">{_sub_fmt}</span>'
-                f'<span style="font-size:10px;color:#64748b;">c/IVA</span>'
-                f'</div>'
-                f'<div style="font-size:10px;color:#64748b;margin-top:2px;">'
-                f'{int(_crow["items"])} ítems · {int(_crow["cantidades"])} uds.</div>'
-                f'</div>'
+        # Renderizar tarjetas en filas de 4
+        _cat_list = list(_cats_summary.iterrows())
+        _cols_per_row = 4
+        for _row_start in range(0, len(_cat_list), _cols_per_row):
+            _row_cats = _cat_list[_row_start:_row_start+_cols_per_row]
+            _tcols = st.columns(len(_row_cats))
+            for _ci_rel, (_idx, _crow) in enumerate(_row_cats):
+                _ci = _row_start + _ci_rel
+                _cc = _cat_colors[_ci % len(_cat_colors)]
+                _sub_iva = _crow['subtotal'] * 1.19
+                _sub_fmt = f'${_sub_iva:,.0f}'.replace(',','.')
+                with _tcols[_ci_rel]:
+                    st.markdown(
+                        f'<div style="background:#fff;border:1.5px solid {_cc}33;border-left:4px solid {_cc};'
+                        f'border-radius:8px 8px 0 0;padding:8px 14px 6px;">'
+                        f'<div style="font-size:11px;font-weight:700;color:{_cc};text-transform:uppercase;'
+                        f'letter-spacing:.05em;margin-bottom:4px;">{_crow["Categoria"]}</div>'
+                        f'<div style="display:flex;gap:10px;align-items:baseline;">'
+                        f'<span style="font-size:13px;font-weight:700;color:#0f172a;">{_sub_fmt}</span>'
+                        f'<span style="font-size:10px;color:#64748b;">c/IVA</span>'
+                        f'</div>'
+                        f'<div style="font-size:10px;color:#64748b;margin-top:2px;">'
+                        f'{int(_crow["items"])} ítems · {int(_crow["cantidades"])} uds.</div>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+                    _is_active = st.session_state.get('_cat_modal') == _crow['Categoria']
+                    _btn_style = f'border-radius:0 0 8px 8px;background:{_cc};color:#fff' if _is_active else f'border-radius:0 0 8px 8px'
+                    if st.button(
+                        f'✕ Cerrar' if _is_active else f'🔍 Ver ítems',
+                        key=f'cat_modal_btn_{_ci}',
+                        use_container_width=True
+                    ):
+                        if _is_active:
+                            st.session_state.pop('_cat_modal', None)
+                        else:
+                            st.session_state['_cat_modal'] = _crow['Categoria']
+                        st.rerun()
+
+        # ── Modal de categoría ──
+        if st.session_state.get('_cat_modal'):
+            _modal_cat = st.session_state['_cat_modal']
+            _modal_ci  = next((i for i, (_,r) in enumerate(_cats_summary.iterrows()) if r['Categoria']==_modal_cat), 0)
+            _modal_color = _cat_colors[_modal_ci % len(_cat_colors)]
+            st.markdown(
+                f'<div style="background:#fff;border:2px solid {_modal_color};border-radius:12px;'
+                f'padding:16px 20px;margin:12px 0;">'
+                f'<div style="font-size:13px;font-weight:700;color:{_modal_color};'
+                f'text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">'
+                f'📦 {_modal_cat}</div></div>',
+                unsafe_allow_html=True
             )
-        _cards_html += '</div>'
-        st.markdown(_cards_html, unsafe_allow_html=True)
+            # Filtrar ítems de esta categoría
+            _modal_items = [i for i in st.session_state.carrito if i['Categoria'] == _modal_cat]
+            _modal_df = _pd_cat.DataFrame(_modal_items).copy()
+            _modal_df['P. Unit + IVA'] = _modal_df['Precio Unitario'].apply(lambda x: formato_clp(round(x*1.19)))
+            _modal_df['Subtotal + IVA'] = _modal_df['Subtotal'].apply(lambda x: formato_clp(round(x*1.19)))
+            _modal_df['Precio Unitario'] = _modal_df['Precio Unitario'].apply(formato_clp)
+            _modal_df['Subtotal'] = _modal_df['Subtotal'].apply(formato_clp)
+            _modal_df['🗑️'] = False
+            _modal_df = _modal_df[['Item','Cantidad','Precio Unitario','Subtotal','P. Unit + IVA','Subtotal + IVA','🗑️']]
+            _modal_edited = st.data_editor(
+                _modal_df, use_container_width=True, hide_index=True,
+                key=f'modal_editor_{_modal_cat}_{st.session_state.counter}',
+                column_config={
+                    'Item':          st.column_config.TextColumn('Ítem', disabled=True),
+                    'Cantidad':      st.column_config.NumberColumn('Cant.', min_value=1, step=1),
+                    'Precio Unitario': st.column_config.TextColumn('P. Unitario', disabled=True),
+                    'Subtotal':      st.column_config.TextColumn('Subtotal', disabled=True),
+                    'P. Unit + IVA': st.column_config.TextColumn('P. Unit + IVA', disabled=True),
+                    'Subtotal + IVA':st.column_config.TextColumn('Subtotal + IVA', disabled=True),
+                    '🗑️':           st.column_config.CheckboxColumn('Eliminar'),
+                }
+            )
+            _mcol1, _mcol2 = st.columns([1,1])
+            with _mcol1:
+                if st.button('✅ Aplicar cambios', key='modal_apply', use_container_width=True):
+                    _eliminar = set(_modal_edited[_modal_edited['🗑️']==True]['Item'].tolist())
+                    for _prod in st.session_state.carrito:
+                        if _prod['Categoria'] == _modal_cat and _prod['Item'] not in _eliminar:
+                            _nueva_fila = _modal_edited[_modal_edited['Item']==_prod['Item']]
+                            if not _nueva_fila.empty:
+                                _new_cant = int(_nueva_fila['Cantidad'].values[0])
+                                _prod['Cantidad'] = _new_cant
+                                _prod['Subtotal'] = _new_cant * float(_prod['Precio Unitario'])
+                    if _eliminar:
+                        st.session_state.carrito = [p for p in st.session_state.carrito
+                            if not (p['Categoria']==_modal_cat and p['Item'] in _eliminar)]
+                    st.session_state.counter += 1
+                    st.session_state.pop('_cat_modal', None)
+                    st.session_state['_toast_msg'] = f'✅ Categoría {_modal_cat} actualizada'
+                    st.rerun()
+            with _mcol2:
+                if st.button('🗑️ Eliminar categoría completa', key='modal_del_all', use_container_width=True):
+                    st.session_state.carrito = [p for p in st.session_state.carrito if p['Categoria'] != _modal_cat]
+                    st.session_state.counter += 1
+                    st.session_state.pop('_cat_modal', None)
+                    st.session_state['_toast_msg'] = f'🗑️ Categoría {_modal_cat} eliminada'
+                    st.rerun()
 
         st.markdown("---")
 
