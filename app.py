@@ -2085,6 +2085,16 @@ if _mgfab is not None:
         pass
     st.query_params.clear()
 
+# ── Filtro de categoría en presupuesto via query_params ──
+_qp_cat_filtro = st.query_params.get('cat_filtro', '')
+if _qp_cat_filtro:
+    if _qp_cat_filtro == '__clear__' or _qp_cat_filtro == st.session_state.get('_cat_filtro_activo', ''):
+        st.session_state.pop('_cat_filtro_activo', None)
+    else:
+        st.session_state['_cat_filtro_activo'] = _qp_cat_filtro
+    st.query_params.pop('cat_filtro')
+    st.rerun()
+
 # ── Leer acción guardar desde FAB via query_params ───────
 if st.query_params.get("_fabg") == "1":
     st.query_params.clear()
@@ -8133,17 +8143,6 @@ if tab1 is not None:
         )
         _cat_modal_active = st.session_state.get('_cat_modal','')
         _cat_filtro_activo = st.session_state.get('_cat_filtro_activo', '')
-
-        # Detectar cambio via query param (mismo patrón que Registro de Compras)
-        _qp_cf = st.query_params.get('cat_filtro', '')
-        if _qp_cf:
-            if _qp_cf == '__clear__' or _qp_cf == _cat_filtro_activo:
-                st.session_state.pop('_cat_filtro_activo', None)
-            else:
-                st.session_state['_cat_filtro_activo'] = _qp_cf
-            try: st.query_params.pop('cat_filtro')
-            except: pass
-            st.rerun()
 
         # Construir HTML de tarjetas con onclick que usa replaceState + reload parcial
         _cards_html = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px;">'
