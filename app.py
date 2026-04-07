@@ -7597,6 +7597,14 @@ if tab1 is not None:
     if not es_solo_lectura:
         # Calcular hojas_modelo ANTES de las columnas para que esté disponible en col_m4
         hojas_modelo = [h for h in _leer_hojas_disponibles() if h.lower().startswith("modelo")]
+        # Calcular total de cada modelo para mostrarlo en el dropdown
+        def _total_modelo(nombre_hoja):
+            try:
+                items = cargar_modelo(nombre_hoja)
+                total = sum(float(i.get('Subtotal',0) or 0) for i in items)
+                return f"${total:,.0f}".replace(',','.')
+            except: return ''
+        _mod_labels = {f"{h} — {_total_modelo(h)}": h for h in hojas_modelo}
         col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns([1,1,1,1,0.7])
 
         with col_m1:
@@ -7604,7 +7612,8 @@ if tab1 is not None:
                 st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;">📋 Modelo Predefinido</div>', unsafe_allow_html=True)
                 try:
                     if hojas_modelo:
-                        modelo_seleccionado = st.selectbox("Modelo", hojas_modelo, key="modelo_select", label_visibility="collapsed")
+                        _mod_sel_label = st.selectbox("Modelo", list(_mod_labels.keys()), key="modelo_select", label_visibility="collapsed")
+                        modelo_seleccionado = _mod_labels.get(_mod_sel_label, hojas_modelo[0])
                         if st.button("Cargar", key="btn_modelo", use_container_width=True):
                             st.session_state.carrito = cargar_modelo(modelo_seleccionado)
                             st.session_state.modelo_base = modelo_seleccionado
@@ -7671,7 +7680,8 @@ if tab1 is not None:
                 st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;">➕ Agregar Categoría</div>', unsafe_allow_html=True)
                 try:
                     if hojas_modelo:
-                        modelo_origen = st.selectbox("Modelo", hojas_modelo, key="modelo_origen", label_visibility="collapsed")
+                        _mod_ori_label = st.selectbox("Modelo", list(_mod_labels.keys()), key="modelo_origen", label_visibility="collapsed")
+                        modelo_origen = _mod_labels.get(_mod_ori_label, hojas_modelo[0])
                         df_temp = _leer_hoja_excel(modelo_origen)
                         categorias_disponibles = df_temp["Categorias"].dropna().unique()
                         categoria_agregar = st.selectbox("Categoría", categorias_disponibles, key="cat_agregar", label_visibility="collapsed")
