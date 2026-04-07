@@ -1288,6 +1288,128 @@ def guardar_acta_en_storage(archivo_bytes, cotizacion_numero, nombre_original):
     except Exception as e:
         return None, str(e)
 
+def generar_excel_balance(cotizacion_numero, registros, productos_presupuesto):
+    """Genera Excel de precios reales para nutrir la base de datos."""
+    import io, json
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        return None
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Precios Reales"
+
+    # Estilos
+    azul_oscuro = "1e2447"
+    azul_claro  = "dbeafe"
+    verde_claro = "f0fdf4"
+    rojo_claro  = "fef2f2"
+    gris_claro  = "f8fafc"
+
+    header_font  = Font(name="Arial", bold=True, color="FFFFFF", size=10)
+    header_fill  = PatternFill("solid", fgColor=azul_oscuro)
+    header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    normal_font  = Font(name="Arial", size=9)
+    bold_font    = Font(name="Arial", bold=True, size=9)
+    thin_border  = Border(
+        left=Side(style='thin', color='e2e8f0'),
+        right=Side(style='thin', color='e2e8f0'),
+        top=Side(style='thin', color='e2e8f0'),
+        bottom=Side(style='thin', color='e2e8f0')
+    )
+
+    # Headers
+    headers = ["Categoría", "Ítem", "Precio Unitario Presup.", "Precio Real Unitario", "Diferencia"]
+    col_widths = [20, 45, 22, 22, 18]
+
+    for col, (h, w) in enumerate(zip(headers, col_widths), 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_align
+        cell.border = thin_border
+        ws.column_dimensions[get_column_letter(col)].width = w
+    ws.row_dimensions[1].height = 30
+
+    # Consolidar ítems — último precio real por ítem
+    items_consolidados = {}
+    prods_valid = [p for p in (productos_presupuesto or [])
+                   if str(p.get('Categoria','')).strip().lower() != 'varios']
+
+    # Construir mapa presupuesto
+    presup_map = {}
+    for p in prods_valid:
+        presup_map[str(p.get('Item',''))] = {
+            'categoria': str(p.get('Categoria','')),
+            'precio_presupuesto': round(float(p.get('Precio Unitario', 0) or 0))
+        }
+
+    # Recorrer registros y tomar último precio real por ítem
+    for reg in registros:
+        items_r = reg.get('items') or []
+        if isinstance(items_r, str):
+            try: items_r = json.loads(items_r)
+            except: items_r = []
+        for it in items_r:
+            nombre = str(it.get('item',''))
+            real   = float(it.get('precio_real', 0) or 0)
+            if real > 0 and nombre:
+                items_consolidados[nombre] = {
+                    'categoria': it.get('categoria',''),
+                    'precio_presupuesto': float(it.get('precio_presupuestado', 0) or 0),
+                    'precio_real': real,
+                }
+
+    # Escribir filas — todos los items del presupuesto
+    row = 2
+    for p in prods_valid:
+        nombre = str(p.get('Item',''))
+        cat    = str(p.get('Categoria',''))
+        pp     = round(float(p.get('Precio Unitario', 0) or 0))
+        pr     = items_consolidados.get(nombre, {}).get('precio_real', 0)
+        dif    = pp - pr if pr > 0 else None
+
+        bg = verde_claro if (dif is not None and dif >= 0 and pr > 0) else (rojo_claro if (dif is not None and dif < 0) else gris_claro)
+        fill = PatternFill("solid", fgColor=bg)
+
+        ws.cell(row=row, column=1, value=cat).font = normal_font
+        ws.cell(row=row, column=2, value=nombre).font = normal_font
+        ws.cell(row=row, column=3, value=pp).font = normal_font
+        ws.cell(row=row, column=4, value=pr if pr > 0 else "").font = bold_font if pr > 0 else normal_font
+        ws.cell(row=row, column=5, value=dif if dif is not None else "").font = bold_font
+
+        for col in range(1, 6):
+            c = ws.cell(row=row, column=col)
+            c.border = thin_border
+            c.fill = fill
+            c.alignment = Alignment(horizontal="left" if col <= 2 else "right", vertical="center")
+
+        row += 1
+
+    # Fila de totales
+    ws.cell(row=row, column=1, value="TOTAL PRESUPUESTADO").font = Font(name="Arial", bold=True, size=9, color="FFFFFF")
+    ws.cell(row=row, column=1).fill = PatternFill("solid", fgColor=azul_oscuro)
+    total_pp = sum(round(float(p.get('Precio Unitario',0) or 0)) for p in prods_valid)
+    total_pr = sum(v['precio_real'] for v in items_consolidados.values())
+    ws.cell(row=row, column=3, value=total_pp).font = Font(name="Arial", bold=True, size=9, color="FFFFFF")
+    ws.cell(row=row, column=3).fill = PatternFill("solid", fgColor=azul_oscuro)
+    ws.cell(row=row, column=4, value=total_pr).font = Font(name="Arial", bold=True, size=9, color="FFFFFF")
+    ws.cell(row=row, column=4).fill = PatternFill("solid", fgColor=azul_oscuro)
+    ws.cell(row=row, column=5, value=total_pp-total_pr).font = Font(name="Arial", bold=True, size=9, color="FFFFFF")
+    ws.cell(row=row, column=5).fill = PatternFill("solid", fgColor=azul_oscuro)
+
+    # Freeze headers
+    ws.freeze_panes = "A2"
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf.read()
+
+
 def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registros, productos_presupuesto):
     """Genera PDF de balance de compras consolidando todos los registros."""
     import io, json
@@ -1585,6 +1707,133 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
     buf.seek(0)
     return buf.read()
 
+
+
+def generar_excel_balance(cotizacion_numero, registros, productos_presupuesto):
+    """Genera Excel con precios reales consolidados por ítem para nutrir BD."""
+    import io, json
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        import subprocess
+        subprocess.run(['pip', 'install', 'openpyxl', '--break-system-packages', '-q'])
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Balance de Precios"
+
+    # Estilos
+    azul_oscuro = "1E2447"
+    verde       = "16A34A"
+    rojo        = "DC2626"
+    gris_claro  = "F8FAFC"
+    borde_gris  = "E2E8F0"
+
+    hdr_font  = Font(name='Calibri', bold=True, color="FFFFFF", size=10)
+    hdr_fill  = PatternFill("solid", fgColor=azul_oscuro)
+    hdr_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    thin = Side(style='thin', color=borde_gris)
+    borde = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    # Título
+    ws.merge_cells('A1:E1')
+    ws['A1'] = f'Balance de Precios — {cotizacion_numero}'
+    ws['A1'].font = Font(name='Calibri', bold=True, size=13, color=azul_oscuro)
+    ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
+    ws.row_dimensions[1].height = 28
+
+    # Headers
+    headers = ['Categoría', 'Ítem', 'Precio Unitario (Presupuestado)', 'Precio Real (Compra)', 'Diferencia']
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=2, column=col, value=h)
+        cell.font = hdr_font
+        cell.fill = hdr_fill
+        cell.alignment = hdr_align
+        cell.border = borde
+    ws.row_dimensions[2].height = 32
+
+    # Consolidar ítems — usar el precio real más reciente por ítem
+    prods_valid = [p for p in (productos_presupuesto or [])
+                   if str(p.get('Categoria','')).strip().lower() != 'varios']
+
+    # Mapa ítem → último precio real
+    precios_reales = {}
+    for reg in registros:
+        items_r = reg.get('items') or []
+        if isinstance(items_r, str):
+            try: items_r = json.loads(items_r)
+            except: items_r = []
+        for it in items_r:
+            nombre = str(it.get('item',''))
+            real   = float(it.get('precio_real', 0) or 0)
+            if real > 0:
+                precios_reales[nombre] = {
+                    'real': real,
+                    'categoria': it.get('categoria',''),
+                    'presup': float(it.get('precio_presupuestado', 0) or 0)
+                }
+
+    # Escribir filas — solo ítems que tienen precio real
+    row = 3
+    alt = False
+    for prod in prods_valid:
+        item_nombre = str(prod.get('Item',''))
+        if item_nombre not in precios_reales:
+            continue
+        datos = precios_reales[item_nombre]
+        cat   = datos['categoria'] or str(prod.get('Categoria',''))
+        pp    = datos['presup'] or round(float(prod.get('Precio Unitario',0) or 0))
+        pr    = datos['real']
+        dif   = pp - pr
+
+        bg = PatternFill("solid", fgColor="FFFFFF" if not alt else gris_claro)
+        alt = not alt
+
+        vals = [cat, item_nombre, pp, pr, dif]
+        for col, val in enumerate(vals, 1):
+            cell = ws.cell(row=row, column=col, value=val)
+            cell.fill = bg
+            cell.border = borde
+            cell.font = Font(name='Calibri', size=9)
+            if col in (3, 4, 5):
+                cell.number_format = '"$"#,##0'
+                cell.alignment = Alignment(horizontal='right')
+            else:
+                cell.alignment = Alignment(horizontal='left', vertical='center')
+            # Color diferencia
+            if col == 5:
+                cell.font = Font(name='Calibri', size=9, bold=True,
+                    color=verde if dif >= 0 else rojo)
+        ws.row_dimensions[row].height = 18
+        row += 1
+
+    # Anchos de columna
+    ws.column_dimensions['A'].width = 18
+    ws.column_dimensions['B'].width = 42
+    ws.column_dimensions['C'].width = 18
+    ws.column_dimensions['D'].width = 18
+    ws.column_dimensions['E'].width = 18
+
+    # Fila resumen
+    if row > 3:
+        ws.cell(row=row, column=1, value='').border = borde
+        ws.cell(row=row, column=2, value='TOTAL ÍTEMS COMPRADOS').font = Font(bold=True, name='Calibri', size=9)
+        ws.cell(row=row, column=2).border = borde
+        ws.cell(row=row, column=3, value=f'{row-3} de {len(prods_valid)} ítems').font = Font(name='Calibri', size=9, color="64748B")
+        ws.cell(row=row, column=3).border = borde
+        ws.cell(row=row, column=4).border = borde
+        ws.cell(row=row, column=5).border = borde
+        ws.row_dimensions[row].height = 18
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf.read()
 
 def registrar_entrega_proyecto(cotizacion_numero, acta_url, acta_nombre):
     """Actualiza cotización con acta de entrega y cambia estado a PROYECTO ENTREGADO."""
@@ -11866,34 +12115,35 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                     # ── Botón PDF Balance (solo admin/root) ──
                     if _rol_actual in ('root','admin') and _rc_existentes:
                         st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
-                        if st.button('📥 Descargar PDF Balance de Compras', key=f'pdf_balance_{_rc_ep}', use_container_width=True):
-                            with st.spinner('Generando PDF...'):
-                                try:
-                                    import json as _jbal
-                                    _bal_prods = _rc_row.get('productos') or []
-                                    if isinstance(_bal_prods, str):
-                                        try: _bal_prods = _jbal.loads(_bal_prods)
-                                        except: _bal_prods = []
-                                    _bal_dc = {
-                                        'Nombre': _rc_row.get('cliente_nombre',''),
-                                        'RUT': _rc_row.get('cliente_rut',''),
-                                    }
-                                    _bal_da = {
-                                        'Nombre Ejecutivo': _rc_row.get('asesor_nombre',''),
-                                    }
-                                    _bal_pdf = generar_pdf_balance(
-                                        _rc_ep, _bal_dc, _bal_da,
-                                        _rc_existentes, _bal_prods
-                                    )
-                                    st.download_button(
-                                        label='📄 Descargar Balance PDF',
-                                        data=_bal_pdf,
-                                        file_name=f'Balance_Compras_{_rc_ep}.pdf',
-                                        mime='application/pdf',
-                                        key=f'dl_balance_{_rc_ep}'
-                                    )
-                                except Exception as _e_bal:
-                                    st.error(f'Error generando PDF: {_e_bal}')
+                        import json as _jbal
+                        _bal_prods = _rc_row.get('productos') or []
+                        if isinstance(_bal_prods, str):
+                            try: _bal_prods = _jbal.loads(_bal_prods)
+                            except: _bal_prods = []
+                        _bal_dc = {'Nombre': _rc_row.get('cliente_nombre',''), 'RUT': _rc_row.get('cliente_rut','')}
+                        _bal_da = {'Nombre Ejecutivo': _rc_row.get('asesor_nombre','')}
+                        _bcol1, _bcol2 = st.columns(2)
+                        with _bcol1:
+                            if st.button('📥 Descargar PDF Balance', key=f'pdf_balance_{_rc_ep}', use_container_width=True):
+                                with st.spinner('Generando PDF...'):
+                                    try:
+                                        _bal_pdf = generar_pdf_balance(_rc_ep, _bal_dc, _bal_da, _rc_existentes, _bal_prods)
+                                        st.download_button(label='📄 Descargar Balance PDF', data=_bal_pdf,
+                                            file_name=f'Balance_Compras_{_rc_ep}.pdf', mime='application/pdf',
+                                            key=f'dl_balance_{_rc_ep}')
+                                    except Exception as _e_bal:
+                                        st.error(f'Error generando PDF: {_e_bal}')
+                        with _bcol2:
+                            if st.button('📊 Descargar Excel Precios Reales', key=f'xls_balance_{_rc_ep}', use_container_width=True):
+                                with st.spinner('Generando Excel...'):
+                                    try:
+                                        _bal_xls = generar_excel_balance(_rc_ep, _rc_existentes, _bal_prods)
+                                        st.download_button(label='📊 Descargar Excel', data=_bal_xls,
+                                            file_name=f'Precios_Reales_{_rc_ep}.xlsx',
+                                            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                            key=f'dl_xls_{_rc_ep}')
+                                    except Exception as _e_xls:
+                                        st.error(f'Error generando Excel: {_e_xls}')
                     st.markdown('---')
 
                 # Formulario nuevo registro
