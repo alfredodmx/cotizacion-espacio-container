@@ -7859,11 +7859,12 @@ if tab1 is not None:
             st.caption("🔒 Vista de solo lectura")
         else:
             carrito_df_edit = carrito_df_con_margen.copy()
-            carrito_df_edit["✏️"] = False
             carrito_df_edit["P. Unit + IVA"] = carrito_df_edit["Precio Unitario"].apply(lambda x: formato_clp(round(x * 1.19)))
             carrito_df_edit["Subtotal + IVA"] = carrito_df_edit["Subtotal"].apply(lambda x: formato_clp(round(x * 1.19)))
             carrito_df_edit["Precio Unitario"] = carrito_df_edit["Precio Unitario"].apply(formato_clp)
             carrito_df_edit["Subtotal"] = carrito_df_edit["Subtotal"].apply(formato_clp)
+            carrito_df_edit["✏️"] = False
+            carrito_df_edit = carrito_df_edit[["Categoria", "Item", "Cantidad", "Precio Unitario", "Subtotal", "P. Unit + IVA", "Subtotal + IVA", "✏️"]]
             if buscar_tabla:
                 mask = (
                     carrito_df_edit["Categoria"].str.contains(buscar_tabla, case=False, na=False) |
