@@ -8092,6 +8092,38 @@ if tab1 is not None:
         with col_m3:
             st.markdown(f'<div class="stats-card"><div class="stats-title">CATEGORÍAS</div><div class="stats-number" style="color:#10b981;border:none;padding:0;">{categorias_unicas}</div><div class="stats-desc">Diferentes</div></div>', unsafe_allow_html=True)
 
+        # Mini tarjetas por categoría
+        import pandas as _pd_cat
+        _df_cat = _pd_cat.DataFrame(st.session_state.carrito)
+        _cat_colors = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444',
+                       '#06b6d4','#f97316','#84cc16','#ec4899','#6366f1',
+                       '#14b8a6','#eab308','#dc2626','#7c3aed','#0ea5e9']
+        _cats_summary = (
+            _df_cat.groupby('Categoria')
+            .agg(items=('Item','count'), cantidades=('Cantidad','sum'), subtotal=('Subtotal','sum'))
+            .reset_index().sort_values('Categoria')
+        )
+        _cards_html = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px;">'
+        for _ci, (_idx, _crow) in enumerate(_cats_summary.iterrows()):
+            _cc = _cat_colors[_ci % len(_cat_colors)]
+            _sub_iva = _crow['subtotal'] * 1.19
+            _sub_fmt = f'${_sub_iva:,.0f}'.replace(',','.')
+            _cards_html += (
+                f'<div style="background:#fff;border:1.5px solid {_cc}33;border-left:4px solid {_cc};'
+                f'border-radius:8px;padding:8px 14px;min-width:160px;flex:1;">'
+                f'<div style="font-size:11px;font-weight:700;color:{_cc};text-transform:uppercase;'
+                f'letter-spacing:.05em;margin-bottom:4px;">{_crow["Categoria"]}</div>'
+                f'<div style="display:flex;gap:10px;align-items:baseline;">'
+                f'<span style="font-size:13px;font-weight:700;color:#0f172a;">{_sub_fmt}</span>'
+                f'<span style="font-size:10px;color:#64748b;">c/IVA</span>'
+                f'</div>'
+                f'<div style="font-size:10px;color:#64748b;margin-top:2px;">'
+                f'{int(_crow["items"])} ítems · {int(_crow["cantidades"])} uds.</div>'
+                f'</div>'
+            )
+        _cards_html += '</div>'
+        st.markdown(_cards_html, unsafe_allow_html=True)
+
         st.markdown("---")
 
         if st.session_state.modo_admin:
