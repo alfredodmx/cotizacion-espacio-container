@@ -7840,6 +7840,8 @@ if tab1 is not None:
 
         if es_solo_lectura:
             carrito_df_display = carrito_df_con_margen[["Categoria", "Item", "Cantidad", "Precio Unitario", "Subtotal"]].copy()
+            carrito_df_display["P. Unit + IVA"] = carrito_df_display["Precio Unitario"].apply(lambda x: formato_clp(round(x * 1.19)))
+            carrito_df_display["Subtotal + IVA"] = carrito_df_display["Subtotal"].apply(lambda x: formato_clp(round(x * 1.19)))
             carrito_df_display["Precio Unitario"] = carrito_df_display["Precio Unitario"].apply(formato_clp)
             carrito_df_display["Subtotal"] = carrito_df_display["Subtotal"].apply(formato_clp)
             if buscar_tabla:
@@ -7851,11 +7853,15 @@ if tab1 is not None:
             st.dataframe(carrito_df_display, use_container_width=True, hide_index=True, height=altura_tabla,
                 column_config={"Categoria": st.column_config.TextColumn("Categoría"), "Item": st.column_config.TextColumn("Item"),
                                "Cantidad": st.column_config.NumberColumn("Cant."), "Precio Unitario": st.column_config.TextColumn("P. Unitario"),
-                               "Subtotal": st.column_config.TextColumn("Subtotal")})
+                               "Subtotal": st.column_config.TextColumn("Subtotal"),
+                               "P. Unit + IVA": st.column_config.TextColumn("P. Unit + IVA"),
+                               "Subtotal + IVA": st.column_config.TextColumn("Subtotal + IVA")})
             st.caption("🔒 Vista de solo lectura")
         else:
             carrito_df_edit = carrito_df_con_margen.copy()
             carrito_df_edit["✏️"] = False
+            carrito_df_edit["P. Unit + IVA"] = carrito_df_edit["Precio Unitario"].apply(lambda x: formato_clp(round(x * 1.19)))
+            carrito_df_edit["Subtotal + IVA"] = carrito_df_edit["Subtotal"].apply(lambda x: formato_clp(round(x * 1.19)))
             carrito_df_edit["Precio Unitario"] = carrito_df_edit["Precio Unitario"].apply(formato_clp)
             carrito_df_edit["Subtotal"] = carrito_df_edit["Subtotal"].apply(formato_clp)
             if buscar_tabla:
@@ -7870,7 +7876,9 @@ if tab1 is not None:
                 key=f"data_editor_{st.session_state.counter}",
                 column_config={"✏️": st.column_config.CheckboxColumn("✏️"), "Categoria": st.column_config.TextColumn("Categoría"),
                                "Item": st.column_config.TextColumn("Item"), "Cantidad": st.column_config.NumberColumn("Cant."),
-                               "Precio Unitario": st.column_config.TextColumn("P. Unitario"), "Subtotal": st.column_config.TextColumn("Subtotal")})
+                               "Precio Unitario": st.column_config.TextColumn("P. Unitario"), "Subtotal": st.column_config.TextColumn("Subtotal"),
+                               "P. Unit + IVA": st.column_config.TextColumn("P. Unit + IVA", disabled=True),
+                               "Subtotal + IVA": st.column_config.TextColumn("Subtotal + IVA", disabled=True)})
             filas_editar = edited_df[edited_df["✏️"] == True].index.tolist()
             if st.session_state.get('_item_pendiente_eliminar') and not filas_editar:
                 st.session_state.pop('_item_pendiente_eliminar', None)
