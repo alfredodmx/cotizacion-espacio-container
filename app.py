@@ -7818,6 +7818,14 @@ if tab1 is not None:
         if st.session_state.modo_admin:
             st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;text-align:center;">📊 Resumen del Presupuesto</div>', unsafe_allow_html=True)
 
+        # Fila buscador — solo visible con productos
+        col_vacio1, col_search_c, col_fs_c, col_vacio2 = st.columns([1, 3, 0.5, 1])
+        with col_search_c:
+            buscar_tabla = st.text_input("🔍", placeholder="Filtrar por categoría o ítem...", key="buscar_tabla_presupuesto", label_visibility="collapsed")
+        with col_fs_c:
+            pantalla_completa = st.toggle("⛶", key="tabla_fullscreen", value=st.session_state.get("tabla_fullscreen_val", False), help="Expandir tabla")
+            st.session_state.tabla_fullscreen_val = pantalla_completa
+
         # Tarjetas de categoría como filtro — usando components.html para window.parent
         import streamlit.components.v1 as _cat_comp
         import pandas as _pd_cat
@@ -7874,13 +7882,6 @@ document.querySelectorAll('.cat-card').forEach(function(el){{
         _n_cat_rows = (_len_cats := len(_cards_items))
         _cat_comp.html(_cat_html, height=60 if _len_cats <= 4 else 130 if _len_cats <= 8 else 200, scrolling=False)
 
-        # Fila buscador — solo visible con productos
-        col_vacio1, col_search_c, col_fs_c, col_vacio2 = st.columns([1, 3, 0.5, 1])
-        with col_search_c:
-            buscar_tabla = st.text_input("🔍", placeholder="Filtrar por categoría o ítem...", key="buscar_tabla_presupuesto", label_visibility="collapsed")
-        with col_fs_c:
-            pantalla_completa = st.toggle("⛶", key="tabla_fullscreen", value=st.session_state.get("tabla_fullscreen_val", False), help="Expandir tabla")
-            st.session_state.tabla_fullscreen_val = pantalla_completa
         carrito_df = pd.DataFrame(st.session_state.carrito)
         subtotal_base = carrito_df["Subtotal"].sum()
 
