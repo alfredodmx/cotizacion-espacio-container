@@ -12493,7 +12493,7 @@ section[data-testid="stMain"] [data-testid="stPopoverBody"] {{
         _mg_pop = st.number_input(
             "Margen %", min_value=0.0, max_value=100.0,
             value=float(_margen_actual),
-            step=0.5, format="%.1f",
+            step=0.001, format="%.3f",
             key="margen_popover"
         )
         if st.button("✅ Aplicar", key="btn_aplicar_margen", use_container_width=True):
