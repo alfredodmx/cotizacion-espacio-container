@@ -12414,7 +12414,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
 # FAB - MARGEN FLOTANTE (st.popover nativo — 100% confiable)
 # =========================================================
 _margen_actual = st.session_state.margen
-_mstr = f"{_margen_actual:.1f}"
+_mstr = f"{_margen_actual:.3f}"
 
 if st.session_state.modo_admin and not (_es_adjudicado and not st.session_state.get('es_root', False)):
     _color_fab = '#10b981' if _margen_actual > 0 else '#6b7280'
