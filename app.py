@@ -12451,7 +12451,7 @@ section[data-testid="stMain"] div[data-testid="stPopover"] > div > button {{
 }}
 section[data-testid="stMain"] div[data-testid="stPopover"] > div > button::before {{
     content: "{_mstr}%" !important;
-    font-size: 0.85rem !important;
+    font-size: 0.72rem !important;
     font-weight: 900 !important;
     color: {_color_fab} !important;
     display: block !important;
