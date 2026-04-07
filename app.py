@@ -7633,8 +7633,14 @@ if tab1 is not None:
                     df = _leer_hoja_excel("BD Total")
                     categorias = df["Categorias"].dropna().unique()
                     categoria_seleccionada = st.selectbox("Categoría", categorias, key="cat_manual", label_visibility="collapsed")
-                    items_filtrados = df[df["Categorias"] == categoria_seleccionada]
-                    item = st.selectbox("Ítem", items_filtrados["Item"], key="item_manual", label_visibility="collapsed")
+                    items_filtrados = df[df["Categorias"] == categoria_seleccionada].copy()
+                    _item_labels = {
+                        f"{row['Item']} — ${row['P. Unitario real']*1.19:,.0f}".replace(',','.'): row['Item']
+                        for _, row in items_filtrados.iterrows()
+                        if row.get('P. Unitario real', 0)
+                    }
+                    _item_sel_label = st.selectbox("Ítem", list(_item_labels.keys()), key="item_manual", label_visibility="collapsed")
+                    item = _item_labels.get(_item_sel_label, items_filtrados["Item"].iloc[0] if len(items_filtrados) else '')
                     cantidad = st.number_input("Cantidad", min_value=1, value=1, key="cantidad_manual", label_visibility="collapsed")
                     if st.button("Agregar", key="btn_agregar_manual", use_container_width=True):
                         existe = False
@@ -7665,7 +7671,14 @@ if tab1 is not None:
                     if st.session_state.carrito:
                         carrito_df_temp = pd.DataFrame(st.session_state.carrito)
                         categorias_carrito = carrito_df_temp["Categoria"].unique()
-                        categoria_eliminar = st.selectbox("Eliminar", ["-- Seleccionar --"] + list(categorias_carrito), key="cat_eliminar", label_visibility="collapsed")
+                        def _total_cat(cat):
+                            try:
+                                t = carrito_df_temp[carrito_df_temp['Categoria']==cat]['Subtotal'].sum()
+                                return f"${t*1.19:,.0f}".replace(',','.')
+                            except: return ''
+                        _cat_elim_labels = {f"{c} — {_total_cat(c)}": c for c in categorias_carrito}
+                        _cat_elim_sel = st.selectbox("Eliminar", ["-- Seleccionar --"] + list(_cat_elim_labels.keys()), key="cat_eliminar", label_visibility="collapsed")
+                        categoria_eliminar = _cat_elim_labels.get(_cat_elim_sel, _cat_elim_sel)
                         if st.button("Eliminar", key="btn_eliminar_categoria", use_container_width=True):
                             if categoria_eliminar != "-- Seleccionar --":
                                 st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_eliminar]
@@ -7684,8 +7697,18 @@ if tab1 is not None:
                         _mod_ori_label = st.selectbox("Modelo", list(_mod_labels.keys()), key="modelo_origen", label_visibility="collapsed")
                         modelo_origen = _mod_labels.get(_mod_ori_label, hojas_modelo[0])
                         df_temp = _leer_hoja_excel(modelo_origen)
+                        df_bd_agr = _leer_bd_total()
+                        df_tmp_merged = df_temp.merge(df_bd_agr[['Item','P. Unitario real']], on='Item', how='left')
                         categorias_disponibles = df_temp["Categorias"].dropna().unique()
-                        categoria_agregar = st.selectbox("Categoría", categorias_disponibles, key="cat_agregar", label_visibility="collapsed")
+                        def _total_cat_modelo(cat):
+                            try:
+                                _df_c = df_tmp_merged[df_tmp_merged['Categorias']==cat]
+                                t = (_df_c['Cantidad'] * _df_c['P. Unitario real']).sum()
+                                return f"${t*1.19:,.0f}".replace(',','.')
+                            except: return ''
+                        _cat_agr_labels = {f"{c} — {_total_cat_modelo(c)}": c for c in categorias_disponibles}
+                        _cat_agr_sel = st.selectbox("Categoría", list(_cat_agr_labels.keys()), key="cat_agregar", label_visibility="collapsed")
+                        categoria_agregar = _cat_agr_labels.get(_cat_agr_sel, categorias_disponibles[0] if len(categorias_disponibles) else '')
                         if st.button("Agregar", key="btn_agregar_categoria", use_container_width=True):
                             nuevos_items = cargar_categoria_desde_modelo(modelo_origen, categoria_agregar)
                             for _ni in nuevos_items:
