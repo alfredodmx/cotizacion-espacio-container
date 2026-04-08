@@ -1066,6 +1066,8 @@ window.guardarRegistro=async function(){{
     var itemNombre=r.cells[1]?r.cells[1].textContent.trim():"";
     if(itemsYaComprados.indexOf(itemNombre)>-1) return;  // ya guardado en Supabase
     var inp=r.querySelector(".rc-real");
+    // Si el input tiene readonly, es un ítem ya comprado — ignorar aunque tenga data-val
+    if(inp.hasAttribute("readonly")) return;
     var re=parseFloat(inp.dataset.val)||0;
     if(re<=0) return;
     var pu=+r.dataset.pu||0;
