@@ -722,7 +722,7 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
 
         _dc_attr = 'data-comprado="1"' if _ya_comprado else ""
         _da_attr = 'data-adicional="1"' if _es_adicional else ""
-        _ds_attr = 'data-sinRegistro="1"' if _es_sin_reg else ""
+        _ds_attr = 'data-sin-registro="1"' if _es_sin_reg else ""
         rows += f"""<tr style="background:{bg};border-bottom:1px solid #eef0f6" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}" {_dc_attr} {_da_attr} {_ds_attr}>
 <td style="padding:5px 8px;font-size:.75rem;color:#64748b">{cat}</td>
 <td style="padding:5px 8px;font-size:.82rem">{item}</td>
@@ -956,8 +956,8 @@ function calc(){{
     var td=r.querySelector(".rc-dif");
     td.textContent=f(d)+(d>=0?" \u25BC":" \u25B2");
     td.style.color=d>=0?"#16a34a":"#dc2626";
-    var isAdic=r.dataset.adicional==="1"&&!r.dataset.sinRegistro;  // Con registro
-    var isSinReg=r.dataset.sinRegistro==="1";  // Sin registro
+    var isAdic=r.dataset.adicional==="1"&&!r.dataset.sinRegistro||r.dataset["sin-registro"];  // Con registro
+    var isSinReg=r.dataset.sinRegistro||r.dataset["sin-registro"]==="1";  // Sin registro
     if(isAdic){{tA+=re*c;}}        // Adicionales con registro: informativo
     else if(isSinReg){{tS+=re*c;}} // Adicionales sin registro: informativo
     else{{tP+=pu*c;}}              // Presupuestado: solo ítems del presupuesto
@@ -1026,7 +1026,7 @@ window.addRowSinReg=function(){{
   var tr=document.createElement("tr");
   tr.style.cssText="background:#fdf2f8;border-bottom:1px solid #eef0f6;border-left:3px solid #ec4899";
   tr.dataset.idx=String(_addIdx);tr.dataset.pu="0";tr.dataset.cant=String(cant);
-  tr.dataset.adicional="1";tr.dataset.sinRegistro="1";
+  tr.dataset.adicional="1";tr.dataset.sinRegistro||r.dataset["sin-registro"]="1";
   tr.innerHTML="<td style='padding:5px 8px;font-size:.75rem;color:#ec4899'>"+catEl.value.trim()+"</td>"
     +"<td style='padding:5px 8px;font-size:.82rem'>"+itemEl.value.trim()+"</td>"
     +"<td style='padding:5px 8px;text-align:right'>"+cant+"</td>"
@@ -1155,10 +1155,13 @@ window.guardarRegistro=async function(){{
     var idx=parseInt(r.dataset.idx)||0;
     var inp=r.querySelector(".rc-real");
     if(idx < 10000) {{
-      // Es ítem del presupuesto — excluir si ya fue comprado antes
-      if(r.dataset.comprado==="1") return;
-      var itemNombre=r.cells[1]?r.cells[1].textContent.trim():"";
-      if(itemsYaComprados.indexOf(itemNombre)>-1) return;
+      // Adicionales (data-adicional o data-sin-registro) siempre pasan
+      var esAdicualquier=r.dataset.adicional==="1"||r.getAttribute("data-sin-registro")==="1";
+      if(!esAdicualquier) {{
+        if(r.dataset.comprado==="1") return;
+        var itemNombre=r.cells[1]?r.cells[1].textContent.trim():"";
+        if(itemsYaComprados.indexOf(itemNombre)>-1) return;
+      }}
     }}
     // Solo adicionales llegan aquí sin pasar los filtros anteriores
     var re=parseFloat(inp.dataset.val)||0;
@@ -1176,7 +1179,7 @@ window.guardarRegistro=async function(){{
       adicional:ad,
       diferencia:dif,
       es_adicional:idx>=10000||r.dataset.adicional==="1",
-      sin_registro:r.dataset.sinRegistro==="1"
+      sin_registro:r.dataset.sinRegistro||r.dataset["sin-registro"]==="1"
     }});
   }});
   
