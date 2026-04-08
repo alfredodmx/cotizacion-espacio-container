@@ -12485,8 +12485,9 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         except: _items_ad = []
                     for _it_ad in _items_ad:
                         _it_nombre = str(_it_ad.get('item',''))
-                        _it_es_adic = _it_ad.get('es_adicional', False) or _it_nombre not in _prods_nombres
                         _it_sin_reg = _it_ad.get('sin_registro', False)
+                        _it_es_adic = _it_ad.get('es_adicional', False) or _it_sin_reg
+                        # Agregar si tiene flag es_adicional/sin_registro Y no está ya en tabla
                         if _it_nombre and _it_es_adic and _it_nombre not in _prods_nombres:
                             # Es adicional — agregarlo con marcador especial
                             _rc_prods.append({
