@@ -12573,8 +12573,7 @@ window.addEventListener("message",function(e){{
                 st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 8px;">➕ Nuevo registro de compra</div>', unsafe_allow_html=True)
                 # Toggle modo admin/operador (solo admin y root)
                 if _rol_actual in ('root', 'admin'):
-                    _modo_admin_rc = st.toggle('👁️ Modo Admin (incluye Varios)', key=f'rc_modo_admin_{_rc_ep}', value=st.session_state.get(f'rc_modo_admin_{_rc_ep}', False))
-                    st.session_state[f'rc_modo_admin_{_rc_ep}'] = _modo_admin_rc
+                    _modo_admin_rc = st.toggle('👁️ Modo Admin (incluye Varios)', key=f'rc_modo_admin_{_rc_ep}')
                     if not _modo_admin_rc:
                         _rc_prods = [p for p in _rc_prods if str(p.get('Categoria','')).strip().lower() != 'varios']
                 else:
