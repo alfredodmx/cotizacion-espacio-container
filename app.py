@@ -2207,6 +2207,13 @@ if _mgfab is not None:
         pass
     st.query_params.clear()
 
+# ── Filtro historial compras via query_params ──
+_qp_hist = st.query_params.get('hist_filtro_rc', '')
+if 'hist_filtro_rc' in st.query_params:
+    st.session_state['_hist_filtro_rc'] = _qp_hist
+    st.query_params.pop('hist_filtro_rc')
+    st.rerun()
+
 # ── Filtro de categoría en presupuesto via query_params ──
 _qp_cat_filtro = st.query_params.get('cat_filtro', '')
 if _qp_cat_filtro:
@@ -12343,8 +12350,62 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                             })
                             _prods_nombres.add(_it_nombre)
                 if _rc_existentes:
-                    st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 6px;">🧾 Historial de compras</div>', unsafe_allow_html=True)
+                    # Calcular tipos presentes para badges
+                    import json as _jbadge
+                    _badge_tipos = set()
+                    for _r in _rc_existentes:
+                        _its = _r.get('items') or []
+                        if isinstance(_its, str):
+                            try: _its = _jbadge.loads(_its)
+                            except: _its = []
+                        _has_sin = any(i.get('sin_registro') for i in _its)
+                        _has_con = any(not i.get('sin_registro') and str(i.get('item','')) not in {str(p.get('Item','')) for p in _rc_prods_raw} for i in _its if i.get('item'))
+                        _has_normal = any(str(i.get('item','')) in {str(p.get('Item','')) for p in _rc_prods_raw} for i in _its if i.get('item'))
+                        if _has_normal: _badge_tipos.add('normal')
+                        if _has_con: _badge_tipos.add('con')
+                        if _has_sin: _badge_tipos.add('sin')
+                    # Filtro activo
+                    _hist_filtro = st.session_state.get('_hist_filtro_rc','')
+                    # Badges clicables
+                    _badges_def = [
+                        ('normal','🟢 Normal'),
+                        ('con','🟠 Adicional c/registro'),
+                        ('sin','⚪ Adicional s/registro'),
+                        ('normal_con','🟢🟠 Mixta'),
+                        ('normal_sin','🟢⚪ Mixta'),
+                        ('con_sin','🟠⚪ Mixta'),
+                        ('normal_con_sin','🟢🟠⚪ Mixta'),
+                    ]
+                    # Solo mostrar badges de tipos presentes
+                    def _tipo_reg(r):
+                        _its2 = r.get('items') or []
+                        if isinstance(_its2,str):
+                            try: _its2=_jbadge.loads(_its2)
+                            except: _its2=[]
+                        _pn = {str(p.get('Item','')) for p in _rc_prods_raw}
+                        _sn = any(i.get('sin_registro') for i in _its2)
+                        _cn = any(not i.get('sin_registro') and str(i.get('item','')) not in _pn for i in _its2 if i.get('item'))
+                        _nm = any(str(i.get('item','')) in _pn for i in _its2 if i.get('item'))
+                        parts = []
+                        if _nm: parts.append('normal')
+                        if _cn: parts.append('con')
+                        if _sn: parts.append('sin')
+                        return '_'.join(parts) if parts else 'normal'
+                    _tipos_presentes = {_tipo_reg(r) for r in _rc_existentes}
+                    _badges_html = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px;">'
+                    for _bk, _bl in _badges_def:
+                        if _bk not in _tipos_presentes: continue
+                        _bactive = _hist_filtro == _bk
+                        _bbg = '#f1f5f9' if not _bactive else '#1e2447'
+                        _bcolor = '#0f172a' if not _bactive else '#fff'
+                        _bborder = '#cbd5e1' if not _bactive else '#1e2447'
+                        _onclick = f"var u=new URL(window.parent.location.href);u.searchParams.set('hist_filtro_rc','{_bk if not _bactive else ''}');window.parent.history.replaceState({{}},'',u);window.parent.dispatchEvent(new PopStateEvent('popstate'));"
+                        _badges_html += f'<span onclick="{_onclick}" style="background:{_bbg};color:{_bcolor};border:1px solid {_bborder};border-radius:99px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;">{_bl}</span>'
+                    _badges_html += '</div>'
+                    st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 4px;">🧾 Historial de compras</div>', unsafe_allow_html=True)
+                    st.markdown(_badges_html, unsafe_allow_html=True)
                     for _rce in _rc_existentes:
+                        if _hist_filtro and _tipo_reg(_rce) != _hist_filtro: continue
                         _rce_bal = float(_rce.get('balance',0) or 0)
                         _rce_col = '#16a34a' if _rce_bal >= 0 else '#dc2626'
                         _rce_icon = '✅' if _rce_bal >= 0 else '❌'
@@ -12404,7 +12465,8 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                                     _it_arr = '▼' if _it_dif >= 0 else '▲'
                                     _it_es_adic = _it.get('es_adicional', False) or str(_it.get('item','')) not in _rce_prods_nombres
                                     _it_sin_reg = _it.get('sin_registro', False)
-                                    _it_bg  = '#fdf2f8' if _it_sin_reg else ('#fff3e0' if _it_es_adic else ('#ffffff' if _ri3 % 2 == 0 else '#f8fafc'))
+                                    _it_normal  = not _it_es_adic and not _it_sin_reg
+                                    _it_bg  = '#fdf2f8' if _it_sin_reg else ('#fff3e0' if _it_es_adic else ('#f0fdf4' if _ri3 % 2 == 0 else '#dcfce7'))
                                     _rce_html += (
                                         f"<tr style='background:{_it_bg};border-bottom:1px solid #f0f2f8;'>"
                                         f"<td style='padding:5px 8px;color:#64748b;font-size:0.75rem;'>{_it.get('categoria','')}</td>"
