@@ -695,12 +695,15 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
         item  = str(prod.get('Item', ''))
         cant  = round(float(prod.get('Cantidad', 1) or 1))
         pu    = round(float(prod.get('Precio Unitario', 0) or 0))
+        _es_adicional = bool(prod.get('_adicional', False))
         # Verificar si este ítem ya fue comprado en un registro anterior
         _ic = items_comprados.get(item, {})
-        _ya_comprado = bool(_ic and float(_ic.get('real', 0) or 0) > 0)
+        _ya_comprado = bool(_ic and float(_ic.get('real', 0) or 0) > 0) or _es_adicional
         _readonly = _ya_comprado and not es_admin
 
-        if _ya_comprado:
+        if _es_adicional:
+            bg = '#fff3e0'  # naranja claro — producto adicional
+        elif _ya_comprado:
             bg = '#f0fdf4'  # verde claro — ya comprado
         elif ri % 2 == 0:
             bg = '#ffffff'
@@ -12205,6 +12208,27 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
 
                 # Mostrar registros existentes
                 _rc_existentes = obtener_registros_compra(_rc_ep)
+
+                # Agregar adicionales de registros anteriores a _rc_prods
+                import json as _jadic
+                _prods_nombres = {str(p.get('Item','')) for p in _rc_prods}
+                for _reg_ad in _rc_existentes:
+                    _items_ad = _reg_ad.get('items') or []
+                    if isinstance(_items_ad, str):
+                        try: _items_ad = _jadic.loads(_items_ad)
+                        except: _items_ad = []
+                    for _it_ad in _items_ad:
+                        _it_nombre = str(_it_ad.get('item',''))
+                        if _it_nombre and _it_nombre not in _prods_nombres:
+                            # Es adicional — agregarlo con marcador especial
+                            _rc_prods.append({
+                                'Categoria': str(_it_ad.get('categoria','')),
+                                'Item': _it_nombre,
+                                'Cantidad': float(_it_ad.get('cantidad',1) or 1),
+                                'Precio Unitario': float(_it_ad.get('precio_presupuestado',0) or 0),
+                                '_adicional': True
+                            })
+                            _prods_nombres.add(_it_nombre)
                 if _rc_existentes:
                     st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 6px;">🧾 Historial de compras</div>', unsafe_allow_html=True)
                     for _rce in _rc_existentes:
