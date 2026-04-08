@@ -714,7 +714,7 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
         vadic = int(_ic.get('adicional', 0)) if _ya_comprado else (pv.get('adic', 0) or 0)
         vreal_fmt = ('$' + f'{int(vreal):,}'.replace(',', '.')) if vreal else ''
 
-        rows += f"""<tr style="background:{bg};border-bottom:1px solid #eef0f6" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}">
+        rows += f"""<tr style="background:{bg};border-bottom:1px solid #eef0f6" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}" {"data-comprado=\"1\"" if _ya_comprado else ""}>
 <td style="padding:5px 8px;font-size:.75rem;color:#64748b">{cat}</td>
 <td style="padding:5px 8px;font-size:.82rem">{item}</td>
 <td style="padding:5px 8px;text-align:right">{cant}</td>
@@ -1068,8 +1068,8 @@ window.guardarRegistro=async function(){{
     var idx=parseInt(r.dataset.idx)||0;
     var inp=r.querySelector(".rc-real");
     if(idx < 10000) {{
-      // Es ítem del presupuesto — excluir si readonly o ya comprado
-      if(inp.hasAttribute("readonly") || inp.readOnly) return;
+      // Es ítem del presupuesto — excluir si ya fue comprado antes
+      if(r.dataset.comprado==="1") return;
       var itemNombre=r.cells[1]?r.cells[1].textContent.trim():"";
       if(itemsYaComprados.indexOf(itemNombre)>-1) return;
     }}
