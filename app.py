@@ -1154,18 +1154,17 @@ window.guardarRegistro=async function(){{
   document.querySelectorAll("tr[data-idx]").forEach(function(r){{
     var idx=parseInt(r.dataset.idx)||0;
     var inp=r.querySelector(".rc-real");
-    if(idx < 10000) {{
-      // Adicionales (data-adicional o data-sin-registro) siempre pasan
-      var esAdicualquier=r.dataset.adicional==="1"||r.getAttribute("data-sin-registro")==="1";
-      if(!esAdicualquier) {{
-        if(r.dataset.comprado==="1") return;
-        var itemNombre=r.cells[1]?r.cells[1].textContent.trim():"";
-        if(itemsYaComprados.indexOf(itemNombre)>-1) return;
-      }}
-    }}
-    // Solo adicionales llegan aquí sin pasar los filtros anteriores
     var re=parseFloat(inp.dataset.val)||0;
     if(re<=0) return;
+    if(idx >= 10000) {{
+      // Adicional nuevo agregado en esta sesión — siempre incluir
+    }} else {{
+      // Ítem del presupuesto o adicional ya guardado (idx < 10000)
+      // Excluir si ya comprado o ya en Supabase
+      if(r.dataset.comprado==="1") return;
+      var itemNombre=r.cells[1]?r.cells[1].textContent.trim():"";
+      if(itemsYaComprados.indexOf(itemNombre)>-1) return;
+    }}
     var pu=+r.dataset.pu||0;
     var c=+r.dataset.cant||1;
     var ad=+r.querySelector(".rc-adic").value||0;
