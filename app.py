@@ -1062,19 +1062,18 @@ window.guardarRegistro=async function(){{
 
   // Recopilar items a guardar:
   // - Adicionales (idx >= 10000): siempre incluir si tienen precio real > 0
-  // - Presupuesto (idx < 10000): solo si NO están en itemsYaComprados Y NO tienen readonly
+  // - Presupuesto (idx < 10000): solo si NO tienen readonly (no comprados antes)
   var items=[];
   document.querySelectorAll("tr[data-idx]").forEach(function(r){{
     var idx=parseInt(r.dataset.idx)||0;
     var inp=r.querySelector(".rc-real");
-    var re=parseFloat(inp.dataset.val)||0;
+    // Para ítems del presupuesto, excluir cualquiera con readonly
+    if(idx < 10000 && inp.hasAttribute("readonly")) return;
+    if(idx < 10000 && inp.readOnly) return;
+    // Leer valor actual del input (no data-val que puede ser residual)
+    var rawVal=inp.value.replace(/[^0-9]/g,'');
+    var re=rawVal?parseInt(rawVal):0;
     if(re<=0) return;  // sin precio real, ignorar siempre
-    if(idx < 10000) {{
-      // Ítem del presupuesto — verificar que no esté ya comprado
-      var itemNombre=r.cells[1]?r.cells[1].textContent.trim():"";
-      if(itemsYaComprados.indexOf(itemNombre)>-1) return;
-      if(inp.hasAttribute("readonly")) return;
-    }}
     // Adicionales (idx >= 10000) pasan siempre si tienen precio real > 0
     var pu=+r.dataset.pu||0;
     var c=+r.dataset.cant||1;
@@ -12341,12 +12340,9 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         _rc_cat_json = _jcat.dumps(_rc_cat_data, ensure_ascii=False)
                     except:
                         _rc_cat_json = '{}'
-                    # Pre-poblar con valores guardados para no resetear al hacer rerun
-                    import json as _jt2
-                    try:
-                        _rc_prev = {str(v.get('idx','')): v for v in _jt2.loads(st.session_state.get(f'rc_json_{_rc_ep}','[]') or '[]')}
-                    except:
-                        _rc_prev = {}
+                    # rc_prev siempre vacío — los ítems comprados se muestran via items_comprados
+                    # Evitar que valores de sesiones anteriores se pre-poblen causando guardados fantasma
+                    _rc_prev = {}
                     # Obtener ítems ya comprados en registros anteriores
                     _rc_items_comprados = obtener_items_comprados(_rc_ep)
                     _rc_es_admin = _rol_actual in ('root','admin')
