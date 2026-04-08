@@ -696,13 +696,16 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
         cant  = round(float(prod.get('Cantidad', 1) or 1))
         pu    = round(float(prod.get('Precio Unitario', 0) or 0))
         _es_adicional = bool(prod.get('_adicional', False))
+        _es_sin_reg   = bool(prod.get('_sin_registro', False))
         # Verificar si este ítem ya fue comprado en un registro anterior
         _ic = items_comprados.get(item, {})
         _ya_comprado = bool(_ic and float(_ic.get('real', 0) or 0) > 0) or _es_adicional
         _readonly = _ya_comprado and not es_admin
 
-        if _es_adicional:
-            bg = '#fff3e0'  # naranja claro — producto adicional
+        if _es_sin_reg:
+            bg = '#fdf2f8'  # rosado — adicional sin registro
+        elif _es_adicional:
+            bg = '#fff3e0'  # naranja claro — adicional con registro
         elif _ya_comprado:
             bg = '#f0fdf4'  # verde claro — ya comprado
         elif ri % 2 == 0:
@@ -719,7 +722,8 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
 
         _dc_attr = 'data-comprado="1"' if _ya_comprado else ""
         _da_attr = 'data-adicional="1"' if _es_adicional else ""
-        rows += f"""<tr style="background:{bg};border-bottom:1px solid #eef0f6" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}" {_dc_attr} {_da_attr}>
+        _ds_attr = 'data-sinRegistro="1"' if _es_sin_reg else ""
+        rows += f"""<tr style="background:{bg};border-bottom:1px solid #eef0f6" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}" {_dc_attr} {_da_attr} {_ds_attr}>
 <td style="padding:5px 8px;font-size:.75rem;color:#64748b">{cat}</td>
 <td style="padding:5px 8px;font-size:.82rem">{item}</td>
 <td style="padding:5px 8px;text-align:right">{cant}</td>
@@ -749,7 +753,7 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
     </tr></thead>
     <tbody>{rows}</tbody>
   </table></div>
-  <div id="tots" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:12px;padding:16px;background:#f8fafc;border-top:2px solid #e2e8f0;flex-shrink:0">
+  <div id="tots" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr;gap:10px;padding:16px;background:#f8fafc;border-top:2px solid #e2e8f0;flex-shrink:0">
     <div>
       <div style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">Presupuestado</div>
       <div style="font-size:11px;color:#64748b">Subtotal neto</div><div style="font-size:15px;font-weight:700" id="tp-n">$0</div>
@@ -768,11 +772,19 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
       <div style="font-size:11px;margin-top:4px" id="b-lbl2">IVA</div><div style="font-size:13px;font-weight:600" id="b-i">$0</div>
       <div style="font-size:11px;margin-top:4px" id="b-icon">&#x2705; Ahorro</div><div style="font-size:17px;font-weight:900" id="b-t">$0</div>
     </div>
-    <div style="border-left:2px solid #fed7aa;padding-left:12px;background:#fff7ed;border-radius:0 8px 8px 0;">
-      <div style="font-size:11px;font-weight:700;color:#f97316;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">➕ Adicionales</div>
-      <div style="font-size:11px;color:#f97316">Subtotal neto</div><div style="font-size:15px;font-weight:700;color:#f97316" id="ta-n">$0</div>
-      <div style="font-size:11px;color:#f97316;margin-top:4px">IVA (19%)</div><div style="font-size:13px;font-weight:600;color:#f97316" id="ta-i">$0</div>
-      <div style="font-size:11px;color:#f97316;margin-top:4px">Total con IVA</div><div style="font-size:17px;font-weight:900;color:#f97316" id="ta-t">$0</div>
+    <div style="border-left:2px solid #fed7aa;padding-left:10px;background:#fff7ed;border-radius:8px;">
+      <div style="font-size:10px;font-weight:700;color:#f97316;letter-spacing:.05em;text-transform:uppercase;margin-bottom:2px">➕ Adicionales</div>
+      <div style="font-size:9px;color:#f97316;margin-bottom:6px;font-weight:600">Con registro</div>
+      <div style="font-size:11px;color:#f97316">Subtotal neto</div><div style="font-size:14px;font-weight:700;color:#f97316" id="ta-n">$0</div>
+      <div style="font-size:11px;color:#f97316;margin-top:4px">IVA (19%)</div><div style="font-size:12px;font-weight:600;color:#f97316" id="ta-i">$0</div>
+      <div style="font-size:11px;color:#f97316;margin-top:4px">Total con IVA</div><div style="font-size:16px;font-weight:900;color:#f97316" id="ta-t">$0</div>
+    </div>
+    <div style="border-left:2px solid #fbcfe8;padding-left:10px;background:#fdf2f8;border-radius:8px;">
+      <div style="font-size:10px;font-weight:700;color:#ec4899;letter-spacing:.05em;text-transform:uppercase;margin-bottom:2px">➕ Adicionales</div>
+      <div style="font-size:9px;color:#ec4899;margin-bottom:6px;font-weight:600">Sin registro</div>
+      <div style="font-size:11px;color:#ec4899">Subtotal neto</div><div style="font-size:14px;font-weight:700;color:#ec4899" id="ts-n">$0</div>
+      <div style="font-size:11px;color:#ec4899;margin-top:4px">IVA (19%)</div><div style="font-size:12px;font-weight:600;color:#ec4899" id="ts-i">$0</div>
+      <div style="font-size:11px;color:#ec4899;margin-top:4px">Total con IVA</div><div style="font-size:16px;font-weight:900;color:#ec4899" id="ts-t">$0</div>
     </div>
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;border-left:2px solid #e2e8f0;padding-left:12px">
       <div style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:12px;text-align:center">Progreso de compra</div>
@@ -784,8 +796,11 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
     </div>
   </div>
   <div id="add-section" style="padding:12px 16px;background:#fff;border-top:1px solid #e2e8f0;flex-shrink:0">
-    <div style="font-size:12px;font-weight:700;color:#1e2447;margin-bottom:8px">&#x2795; Agregar producto adicional</div>
-    <div style="display:grid;grid-template-columns:1.5fr 3fr 0.8fr 1.2fr auto;gap:6px;align-items:end">
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <button onclick="window.switchAddTab('reg')" id="tab-reg" style="font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid #f97316;background:#fff7ed;color:#f97316;cursor:pointer">🟠 Con registro</button>
+      <button onclick="window.switchAddTab('sin')" id="tab-sin" style="font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid #e2e8f0;background:#fff;color:#94a3b8;cursor:pointer">🩷 Sin registro</button>
+    </div>
+    <div id="add-con-reg" style="display:grid;grid-template-columns:1.5fr 3fr 0.8fr 1.2fr auto;gap:6px;align-items:end">
       <div><div style="font-size:10px;color:#64748b;margin-bottom:3px">Categoría</div>
         <select id="add-cat" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:12px"><option value="">Seleccionar...</option></select></div>
       <div><div style="font-size:10px;color:#64748b;margin-bottom:3px">Ítem</div>
@@ -795,7 +810,19 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
       <div><div style="font-size:10px;color:#64748b;margin-bottom:3px">Presup. unit.</div>
         <div id="add-precio" style="border:1px solid #e2e8f0;border-radius:6px;padding:5px 8px;font-size:12px;font-weight:600;background:#f8fafc;text-align:right">$0</div></div>
       <div style="padding-bottom:1px">
-        <button onclick="window.addRow()" style="background:#1e2447;color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer">+ Agregar</button></div>
+        <button onclick="window.addRow()" style="background:#f97316;color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer">+ Agregar</button></div>
+    </div>
+    <div id="add-sin-reg" style="display:none;grid-template-columns:1.5fr 3fr 0.8fr 1.5fr auto;gap:6px;align-items:end">
+      <div><div style="font-size:10px;color:#ec4899;margin-bottom:3px">Categoría *</div>
+        <input id="sin-cat" type="text" placeholder="Ej: Herramientas" style="width:100%;border:1.5px solid #fbcfe8;border-radius:6px;padding:5px;font-size:12px;background:#fdf2f8"/></div>
+      <div><div style="font-size:10px;color:#ec4899;margin-bottom:3px">Nombre del ítem *</div>
+        <input id="sin-item" type="text" placeholder="Ej: Taladro percutor" style="width:100%;border:1.5px solid #fbcfe8;border-radius:6px;padding:5px;font-size:12px;background:#fdf2f8"/></div>
+      <div><div style="font-size:10px;color:#ec4899;margin-bottom:3px">Cant.</div>
+        <input id="sin-cant" type="number" min="1" value="1" style="width:100%;border:1.5px solid #fbcfe8;border-radius:6px;padding:5px;font-size:12px;text-align:right;background:#fdf2f8"/></div>
+      <div><div style="font-size:10px;color:#ec4899;margin-bottom:3px">Precio real *</div>
+        <input id="sin-precio" type="text" inputmode="numeric" placeholder="$0" style="width:100%;border:1.5px solid #fbcfe8;border-radius:6px;padding:5px;font-size:12px;text-align:right;background:#fdf2f8"/></div>
+      <div style="padding-bottom:1px">
+        <button onclick="window.addRowSinReg()" style="background:#ec4899;color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer">+ Agregar</button></div>
     </div>
   </div>
   <div id="save-section" style="padding:12px 16px;background:#1e2447;border-top:2px solid #e2e8f0;flex-shrink:0">
@@ -887,6 +914,7 @@ window.addRow=function(){{
   var tr=document.createElement("tr");
   tr.style.cssText="background:#fff3e0;border-bottom:1px solid #eef0f6;border-left:3px solid #f97316";
   tr.dataset.idx=String(_addIdx);tr.dataset.pu=String(pu);tr.dataset.cant=String(cant);
+  tr.dataset.adicional="1";
   tr.innerHTML="<td style='padding:5px 8px;font-size:.75rem;color:#64748b'>"+catEl.value+"</td>"
     +"<td style='padding:5px 8px;font-size:.82rem'>"+it.item+"</td>"
     +"<td style='padding:5px 8px;text-align:right'>"+cant+"</td>"
@@ -919,7 +947,7 @@ function attachListeners(inp, adic){{
 }}
 function f(n){{return "$"+Math.round(Math.abs(n)).toLocaleString("de-DE");}}
 function calc(){{
-  var tP=0,tR=0,tA=0,vals=[];
+  var tP=0,tR=0,tA=0,tS=0,vals=[];
   document.querySelectorAll("tr[data-idx]").forEach(function(r){{
     var pu=+r.dataset.pu||0,c=+r.dataset.cant||1;
     var re=parseFloat(r.querySelector(".rc-real").dataset.val)||0;
@@ -928,17 +956,19 @@ function calc(){{
     var td=r.querySelector(".rc-dif");
     td.textContent=f(d)+(d>=0?" \u25BC":" \u25B2");
     td.style.color=d>=0?"#16a34a":"#dc2626";
-    var isAdic=r.dataset.adicional==="1";  // Detectar por atributo data-adicional
-    if(isAdic){{tA+=re*c;}}  // Adicionales: informativo
-    else{{tP+=pu*c;}}        // Presupuestado: solo ítems del presupuesto
-    tR+=re*c+ad*re;          // Real: incluye todo (presupuesto + adicionales)
+    var isAdic=r.dataset.adicional==="1"&&!r.dataset.sinRegistro;  // Con registro
+    var isSinReg=r.dataset.sinRegistro==="1";  // Sin registro
+    if(isAdic){{tA+=re*c;}}        // Adicionales con registro: informativo
+    else if(isSinReg){{tS+=re*c;}} // Adicionales sin registro: informativo
+    else{{tP+=pu*c;}}              // Presupuestado: solo ítems del presupuesto
+    tR+=re*c+ad*re;               // Real: incluye todo
     vals.push({{idx:+r.dataset.idx,real:re,adic:ad,dif:d}});
   }});
   var iP=tP*.19,iR=tR*.19,b=tP-tR,ib=iP-iR;
   var col=b>=0?"#16a34a":"#dc2626";
-  var iA=tA*.19;
-  var ids=["tp-n","tp-i","tp-t","tr-n","tr-i","tr-t","b-n","b-i","b-t","ta-n","ta-i","ta-t"];
-  var v=[tP,iP,tP+iP,tR,iR,tR+iR,b,ib,b+ib,tA,iA,tA+iA];
+  var iA=tA*.19,iS=tS*.19;
+  var ids=["tp-n","tp-i","tp-t","tr-n","tr-i","tr-t","b-n","b-i","b-t","ta-n","ta-i","ta-t","ts-n","ts-i","ts-t"];
+  var v=[tP,iP,tP+iP,tR,iR,tR+iR,b,ib,b+ib,tA,iA,tA+iA,tS,iS,tS+iS];
   ids.forEach(function(id,i){{var el=document.getElementById(id);if(el)el.textContent=f(v[i]);}});
   ["b-hdr","b-n","b-i","b-lbl1","b-lbl2","b-icon","b-t"].forEach(function(id){{var el=document.getElementById(id);if(el)el.style.color=col;}});
   var bi=document.getElementById("b-icon");
@@ -969,7 +999,49 @@ document.querySelectorAll(".rc-real").forEach(function(inp){{
 window.addEventListener("load",function(){{calc();}});
 
 // Habilitar botón guardar cuando hay valores ingresados
+window.switchAddTab=function(tab){{
+  var reg=document.getElementById("add-con-reg");
+  var sin=document.getElementById("add-sin-reg");
+  var tbReg=document.getElementById("tab-reg");
+  var tbSin=document.getElementById("tab-sin");
+  if(tab==="reg"){{
+    reg.style.display="grid";sin.style.display="none";
+    tbReg.style.cssText="font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid #f97316;background:#fff7ed;color:#f97316;cursor:pointer";
+    tbSin.style.cssText="font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid #e2e8f0;background:#fff;color:#94a3b8;cursor:pointer";
+  }}else{{
+    reg.style.display="none";sin.style.display="grid";
+    tbSin.style.cssText="font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid #ec4899;background:#fdf2f8;color:#ec4899;cursor:pointer";
+    tbReg.style.cssText="font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid #e2e8f0;background:#fff;color:#94a3b8;cursor:pointer";
+  }}
+}};
+window.addRowSinReg=function(){{
+  var catEl=document.getElementById("sin-cat");
+  var itemEl=document.getElementById("sin-item");
+  var cantEl=document.getElementById("sin-cant");
+  var precioEl=document.getElementById("sin-precio");
+  if(!catEl.value.trim()||!itemEl.value.trim()){{alert("Ingresa categoría y nombre del ítem");return;}}
+  var rawPrecio=precioEl.value.replace(/[^0-9]/g,"");
+  var precio=parseInt(rawPrecio)||0;
+  var cant=parseInt(cantEl.value)||1;
+  var tr=document.createElement("tr");
+  tr.style.cssText="background:#fdf2f8;border-bottom:1px solid #eef0f6;border-left:3px solid #ec4899";
+  tr.dataset.idx=String(_addIdx);tr.dataset.pu="0";tr.dataset.cant=String(cant);
+  tr.dataset.adicional="1";tr.dataset.sinRegistro="1";
+  tr.innerHTML="<td style='padding:5px 8px;font-size:.75rem;color:#ec4899'>"+catEl.value.trim()+"</td>"
+    +"<td style='padding:5px 8px;font-size:.82rem'>"+itemEl.value.trim()+"</td>"
+    +"<td style='padding:5px 8px;text-align:right'>"+cant+"</td>"
+    +"<td style='padding:5px 8px;text-align:right;font-weight:600'>—</td>"
+    +'<td style="padding:3px 4px"><input type="text" inputmode="numeric" value="'+("$"+precio.toLocaleString("de-DE"))+'" class="rc-real" data-idx="'+_addIdx+'" data-val="'+precio+'" style="width:100%;border:1.5px solid #fbcfe8;border-radius:6px;padding:5px;font-size:13px;text-align:right;background:#fdf2f8;box-sizing:border-box"/></td>'
+    +'<td style="padding:3px 4px"><input type="number" min="0" step="1" value="0" class="rc-adic" data-idx="'+_addIdx+'" style="width:100%;border:1.5px solid #fbcfe8;border-radius:6px;padding:5px;font-size:13px;text-align:right;background:#fdf2f8;box-sizing:border-box"/></td>'
+    +'<td class="rc-dif" style="padding:5px 8px;text-align:right;font-weight:700;color:#ec4899;white-space:nowrap">—</td>';
+  document.querySelector("tbody").appendChild(tr);
+  attachListeners(tr.querySelector(".rc-real"),tr.querySelector(".rc-adic"));
+  _addIdx++;
+  catEl.value="";itemEl.value="";cantEl.value="1";precioEl.value="";
+  calc();checkSaveBtn();
+}};
 window.onTipoChange=function(){{
+
   var tipo=document.getElementById("tipo-compra").value;
   var sw=document.getElementById("subtipo-wrap");
   var ss=document.getElementById("subtipo-compra");
@@ -1096,13 +1168,15 @@ window.guardarRegistro=async function(){{
     var ad=+r.querySelector(".rc-adic").value||0;
     var dif=(pu-re)*c-(ad*re);
     items.push({{
-      categoria:r.cells[0]?r.cells[0].textContent:"",
-      item:r.cells[1]?r.cells[1].textContent:"",
+      categoria:r.cells[0]?r.cells[0].textContent.trim():"",
+      item:r.cells[1]?r.cells[1].textContent.trim():"",
       cantidad:c,
       precio_presupuestado:pu,
       precio_real:re,
       adicional:ad,
-      diferencia:dif
+      diferencia:dif,
+      es_adicional:idx>=10000||r.dataset.adicional==="1",
+      sin_registro:r.dataset.sinRegistro==="1"
     }});
   }});
   
@@ -12230,14 +12304,17 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         except: _items_ad = []
                     for _it_ad in _items_ad:
                         _it_nombre = str(_it_ad.get('item',''))
-                        if _it_nombre and _it_nombre not in _prods_nombres:
+                        _it_es_adic = _it_ad.get('es_adicional', False) or _it_nombre not in _prods_nombres
+                        _it_sin_reg = _it_ad.get('sin_registro', False)
+                        if _it_nombre and _it_es_adic and _it_nombre not in _prods_nombres:
                             # Es adicional — agregarlo con marcador especial
                             _rc_prods.append({
                                 'Categoria': str(_it_ad.get('categoria','')),
                                 'Item': _it_nombre,
                                 'Cantidad': float(_it_ad.get('cantidad',1) or 1),
                                 'Precio Unitario': float(_it_ad.get('precio_presupuestado',0) or 0),
-                                '_adicional': True
+                                '_adicional': True,
+                                '_sin_registro': _it_sin_reg
                             })
                             _prods_nombres.add(_it_nombre)
                 if _rc_existentes:
@@ -12289,8 +12366,9 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                                     _it_dif = (_it_pp - _it_pr) * _it_c - (_it_ad * _it_pr)
                                     _it_col = '#16a34a' if _it_dif >= 0 else '#dc2626'
                                     _it_arr = '▼' if _it_dif >= 0 else '▲'
-                                    _it_es_adic = str(_it.get('item','')) not in _rce_prods_nombres
-                                    _it_bg  = '#fff3e0' if _it_es_adic else ('#ffffff' if _ri3 % 2 == 0 else '#f8fafc')
+                                    _it_es_adic = _it.get('es_adicional', False) or str(_it.get('item','')) not in _rce_prods_nombres
+                                    _it_sin_reg = _it.get('sin_registro', False)
+                                    _it_bg  = '#fdf2f8' if _it_sin_reg else ('#fff3e0' if _it_es_adic else ('#ffffff' if _ri3 % 2 == 0 else '#f8fafc'))
                                     _rce_html += (
                                         f"<tr style='background:{_it_bg};border-bottom:1px solid #f0f2f8;'>"
                                         f"<td style='padding:5px 8px;color:#64748b;font-size:0.75rem;'>{_it.get('categoria','')}</td>"
