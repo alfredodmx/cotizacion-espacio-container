@@ -814,14 +814,14 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
         <button onclick="window.addRow()" style="background:#f97316;color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer">+ Agregar</button></div>
     </div>
     <div id="add-sin-reg" style="display:none;grid-template-columns:1.5fr 3fr 0.8fr 1.2fr auto;gap:6px;align-items:end">
-      <div><div style="font-size:10px;color:#ec4899;margin-bottom:3px">Categoría *</div>
-        <input id="sin-cat" type="text" placeholder="Ej: Herramientas" style="width:100%;border:1.5px solid #fbcfe8;border-radius:6px;padding:5px;font-size:12px;background:#fdf2f8"/></div>
-      <div><div style="font-size:10px;color:#ec4899;margin-bottom:3px">Nombre del ítem *</div>
-        <input id="sin-item" type="text" placeholder="Ej: Taladro percutor" style="width:100%;border:1.5px solid #fbcfe8;border-radius:6px;padding:5px;font-size:12px;background:#fdf2f8"/></div>
-      <div><div style="font-size:10px;color:#ec4899;margin-bottom:3px">Cant.</div>
-        <input id="sin-cant" type="number" min="1" value="1" style="width:100%;border:1.5px solid #fbcfe8;border-radius:6px;padding:5px;font-size:12px;text-align:right;background:#fdf2f8"/></div>
-      <div><div style="font-size:10px;color:#ec4899;margin-bottom:3px">Precio real *</div>
-        <input id="sin-precio" type="text" inputmode="numeric" placeholder="$0" style="width:100%;border:1.5px solid #fbcfe8;border-radius:6px;padding:5px;font-size:12px;text-align:right;background:#fdf2f8"/></div>
+      <div style="padding-right:2px"><div style="font-size:10px;color:#ec4899;margin-bottom:3px">Categoría *</div>
+        <input id="sin-cat" type="text" placeholder="Ej: Herramientas" style="width:100%;border:1px solid #fbcfe8;border-radius:6px;padding:5px;font-size:12px;background:#fdf2f8;box-sizing:border-box"/></div>
+      <div style="padding-right:2px"><div style="font-size:10px;color:#ec4899;margin-bottom:3px">Nombre del ítem *</div>
+        <input id="sin-item" type="text" placeholder="Ej: Taladro percutor" style="width:100%;border:1px solid #fbcfe8;border-radius:6px;padding:5px;font-size:12px;background:#fdf2f8;box-sizing:border-box"/></div>
+      <div style="padding-right:2px"><div style="font-size:10px;color:#ec4899;margin-bottom:3px">Cant.</div>
+        <input id="sin-cant" type="number" min="1" value="1" style="width:100%;border:1px solid #fbcfe8;border-radius:6px;padding:5px;font-size:12px;text-align:right;background:#fdf2f8;box-sizing:border-box"/></div>
+      <div style="padding-right:2px"><div style="font-size:10px;color:#ec4899;margin-bottom:3px">Precio real *</div>
+        <input id="sin-precio" type="text" inputmode="numeric" placeholder="$0" style="width:100%;border:1px solid #fbcfe8;border-radius:6px;padding:5px;font-size:12px;text-align:right;background:#fdf2f8;box-sizing:border-box"/></div>
       <div style="padding-bottom:1px">
         <button onclick="window.addRowSinReg()" style="background:#ec4899;color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer">+ Agregar</button></div>
     </div>
