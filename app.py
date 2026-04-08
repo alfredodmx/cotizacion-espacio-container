@@ -12140,6 +12140,10 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
     # Detectar guardado de compra via query param y hacer rerun
     if st.query_params.get('rc_saved'):
         st.query_params.pop('rc_saved')
+        # Limpiar valores previos del HTML para evitar que se re-guarden
+        for _k in list(st.session_state.keys()):
+            if _k.startswith('rc_json_'):
+                st.session_state[_k] = '[]'
         st.rerun()
 
     with _sub_compras:
