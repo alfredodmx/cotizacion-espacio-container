@@ -1060,16 +1060,22 @@ window.guardarRegistro=async function(){{
     (reg.items||[]).forEach(function(it){{if(it.item)itemsYaComprados.push(it.item);}});
   }});
 
-  // Recopilar solo items nuevos (precio real > 0 y no comprados antes)
+  // Recopilar items a guardar:
+  // - Adicionales (idx >= 10000): siempre incluir si tienen precio real > 0
+  // - Presupuesto (idx < 10000): solo si NO están en itemsYaComprados Y NO tienen readonly
   var items=[];
   document.querySelectorAll("tr[data-idx]").forEach(function(r){{
-    var itemNombre=r.cells[1]?r.cells[1].textContent.trim():"";
-    if(itemsYaComprados.indexOf(itemNombre)>-1) return;  // ya guardado en Supabase
+    var idx=parseInt(r.dataset.idx)||0;
     var inp=r.querySelector(".rc-real");
-    // Si el input tiene readonly, es un ítem ya comprado — ignorar aunque tenga data-val
-    if(inp.hasAttribute("readonly")) return;
     var re=parseFloat(inp.dataset.val)||0;
-    if(re<=0) return;
+    if(re<=0) return;  // sin precio real, ignorar siempre
+    if(idx < 10000) {{
+      // Ítem del presupuesto — verificar que no esté ya comprado
+      var itemNombre=r.cells[1]?r.cells[1].textContent.trim():"";
+      if(itemsYaComprados.indexOf(itemNombre)>-1) return;
+      if(inp.hasAttribute("readonly")) return;
+    }}
+    // Adicionales (idx >= 10000) pasan siempre si tienen precio real > 0
     var pu=+r.dataset.pu||0;
     var c=+r.dataset.cant||1;
     var ad=+r.querySelector(".rc-adic").value||0;
