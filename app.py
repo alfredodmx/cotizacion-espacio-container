@@ -714,7 +714,8 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
         vadic = int(_ic.get('adicional', 0)) if _ya_comprado else (pv.get('adic', 0) or 0)
         vreal_fmt = ('$' + f'{int(vreal):,}'.replace(',', '.')) if vreal else ''
 
-        rows += f"""<tr style="background:{bg};border-bottom:1px solid #eef0f6" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}" {"data-comprado=\"1\"" if _ya_comprado else ""}>
+        _dc_attr = 'data-comprado="1"' if _ya_comprado else ""
+        rows += f"""<tr style="background:{bg};border-bottom:1px solid #eef0f6" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}" {_dc_attr}>
 <td style="padding:5px 8px;font-size:.75rem;color:#64748b">{cat}</td>
 <td style="padding:5px 8px;font-size:.82rem">{item}</td>
 <td style="padding:5px 8px;text-align:right">{cant}</td>
