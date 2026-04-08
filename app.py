@@ -12491,11 +12491,24 @@ function renderRegs(){{
     card.appendChild(hdr);card.appendChild(body);d.appendChild(card);
   }});
 }}
-renderBadges();renderRegs();
+renderRegs();
+window.addEventListener("message",function(e){{
+  if(e.data&&e.data.type==="hist_filtro"){{
+    filtro=e.data.val;
+    renderRegs();
+  }}
+}});
 </script>"""
-                    st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 6px;">🧾 Historial de compras</div>', unsafe_allow_html=True)
+                    st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 4px;">🧾 Historial de compras</div>', unsafe_allow_html=True)
+                    # Badges fuera del scroll via postMessage
+                    _b_items = [(k,l) for k,l in _badges_def if k in _tipos_presentes]
+                    _b_html = '<style>body{margin:0;padding:0;font-family:sans-serif;overflow:hidden;}</style><div style="display:flex;flex-wrap:wrap;gap:6px;padding:2px 0;">'
+                    for _bk2, _bl2 in _b_items:
+                        _b_html += f'<span id="b-{_bk2}" onclick="sendFiltro(this,\'{_bk2}\')" style="border-radius:99px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #cbd5e1;background:#f1f5f9;color:#0f172a;">{_bl2}</span>'
+                    _b_html += '</div><script>var _f="";function sendFiltro(el,v){_f=_f===v?"":v;document.querySelectorAll("span").forEach(function(s){s.style.background=_f&&s.id==="b-"+_f?"#1e2447":"#f1f5f9";s.style.color=_f&&s.id==="b-"+_f?"#fff":"#0f172a";});window.parent.frames[0]&&window.parent.frames[0].postMessage({type:"hist_filtro",val:_f},"*");var iframes=window.parent.document.querySelectorAll("iframe");iframes.forEach(function(fr){try{fr.contentWindow.postMessage({type:"hist_filtro",val:_f},"*");}catch(e){}});}</script>'
+                    _hist_comp.html(_b_html, height=40, scrolling=False)
                     _n_regs = len(_rc_existentes)
-                    _hist_comp.html(_hist_html, height=min(_n_regs*80+120, 600), scrolling=True)
+                    _hist_comp.html(_hist_html, height=min(_n_regs*80+80, 600), scrolling=True)
                     # ── Botón PDF Balance (solo admin/root) ──
                     if _rol_actual in ('root','admin') and _rc_existentes:
                         st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
