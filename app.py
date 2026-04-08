@@ -12490,9 +12490,9 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         _it_sin_reg = _it_ad.get('sin_registro', False)
                         # Es adicional si: tiene flag es_adicional, es sin_registro,
                         # O simplemente no existe en el presupuesto original
-                        _it_es_adic = (_it_ad.get('es_adicional', False) or
-                                       _it_sin_reg or
-                                       _it_nombre not in _prods_nombres_orig)
+                        # Adicional: sin_registro OR no existe en presupuesto original
+                        # Si existe en presupuesto, NO es adicional (pertenece al presupuesto)
+                        _it_es_adic = _it_sin_reg or _it_nombre not in _prods_nombres_orig
                         if _it_nombre and _it_es_adic and _it_nombre not in _prods_nombres:
                             # Es adicional — agregarlo con marcador especial
                             _rc_prods.append({
