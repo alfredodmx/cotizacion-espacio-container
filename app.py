@@ -1410,6 +1410,83 @@ def guardar_acta_en_storage(archivo_bytes, cotizacion_numero, nombre_original):
     except Exception as e:
         return None, str(e)
 
+def calcular_totales_rc(productos_presupuesto, registros, incluir_varios=False):
+    """
+    Calcula totales exactamente igual al JS calc() de la tabla.
+    - tP: precio presupuesto * cantidad para ítems normales
+    - tR: precio real * cantidad + adicional * precio real para TODOS los ítems
+    - tA: precio real * cantidad para adicionales con registro
+    - tS: precio real * cantidad para adicionales sin registro
+    """
+    import json as _jct
+    # _pn_todos: TODOS los ítems del presupuesto para clasificar correctamente
+    # (Transporte, Generador, etc. NO son adicionales aunque no estén en prods filtrados)
+    _todos = list(productos_presupuesto or [])
+    _pn = {str(p.get('Item','')) for p in _todos}  # conjunto completo siempre
+    _pu_map = {str(p.get('Item','')): round(float(p.get('Precio Unitario',0) or 0))
+               for p in _todos}
+
+    # prods: filtrado según modo (para calcular tP solo de ítems visibles)
+    if incluir_varios:
+        prods = _todos
+    else:
+        prods = [p for p in _todos
+                 if str(p.get('Categoria','')).strip().lower() != 'varios']
+
+    # Consolidar último precio real por ítem (igual que items_comprados)
+    _comprados = {}
+    for reg in (registros or []):
+        items_r = reg.get('items') or []
+        if isinstance(items_r, str):
+            try: items_r = _jct.loads(items_r)
+            except: items_r = []
+        for it in items_r:
+            nombre = str(it.get('item',''))
+            pr = float(it.get('precio_real', 0) or 0)
+            if pr > 0 and nombre:
+                _comprados[nombre] = {
+                    'real': pr,
+                    'cant': float(it.get('cantidad',1) or 1),
+                    'adic': int(it.get('adicional',0) or 0),
+                    'es_adicional': it.get('es_adicional', False),
+                    'sin_registro': it.get('sin_registro', False),
+                }
+
+    tP = 0; tR = 0; tA = 0; tS = 0
+
+    # Ítems del presupuesto
+    for nombre, data in _comprados.items():
+        re = data['real']
+        c  = data['cant']
+        ad = data['adic']
+        isSinReg = data['sin_registro']
+        # Clasificar SOLO por presencia en presupuesto — ignorar es_adicional guardado
+        isAdic   = (nombre not in _pn) and not isSinReg
+
+        if isSinReg:
+            tS += re * c
+        elif isAdic:
+            tA += re * c
+        else:
+            # ítem del presupuesto — tP usa precio del presupuesto original
+            pu = _pu_map.get(nombre, 0)
+            tR += re * c + ad * re
+            if nombre in _pn:
+                tP += pu * c  # usar precio presupuesto, no el guardado
+            continue
+        tR += re * c + ad * re
+
+    # Ítems del presupuesto sin precio real (no comprados) — solo suman a tP
+    for p in prods:
+        nombre = str(p.get('Item',''))
+        if nombre not in _comprados:
+            pu = round(float(p.get('Precio Unitario',0) or 0))
+            c  = round(float(p.get('Cantidad',1) or 1))
+            tP += pu * c
+
+    return {'tP': tP, 'tR': tR, 'tA': tA, 'tS': tS}
+
+
 def generar_excel_balance(cotizacion_numero, registros, productos_presupuesto):
     """Genera Excel de precios reales para nutrir la base de datos."""
     import io, json
@@ -1456,20 +1533,18 @@ def generar_excel_balance(cotizacion_numero, registros, productos_presupuesto):
         ws.column_dimensions[get_column_letter(col)].width = w
     ws.row_dimensions[1].height = 30
 
-    # Consolidar ítems — último precio real por ítem
+    # Consolidar ítems
     items_consolidados = {}
-    prods_valid = [p for p in (productos_presupuesto or [])
-                   if str(p.get('Categoria','')).strip().lower() != 'varios']
+    adicionales_con = []  # adicionales con registro
+    adicionales_sin = []  # adicionales sin registro
+    if incluir_varios:
+        prods_valid = list(productos_presupuesto or [])
+    else:
+        prods_valid = [p for p in (productos_presupuesto or [])
+                       if str(p.get('Categoria','')).strip().lower() != 'varios']
+    _pn_xls = {str(p.get('Item','')) for p in prods_valid}
 
-    # Construir mapa presupuesto
-    presup_map = {}
-    for p in prods_valid:
-        presup_map[str(p.get('Item',''))] = {
-            'categoria': str(p.get('Categoria','')),
-            'precio_presupuesto': round(float(p.get('Precio Unitario', 0) or 0))
-        }
-
-    # Recorrer registros y tomar último precio real por ítem
+    # Recorrer registros
     for reg in registros:
         items_r = reg.get('items') or []
         if isinstance(items_r, str):
@@ -1479,13 +1554,23 @@ def generar_excel_balance(cotizacion_numero, registros, productos_presupuesto):
             nombre = str(it.get('item',''))
             real   = float(it.get('precio_real', 0) or 0)
             if real > 0 and nombre:
-                items_consolidados[nombre] = {
-                    'categoria': it.get('categoria',''),
-                    'precio_presupuesto': float(it.get('precio_presupuestado', 0) or 0),
-                    'precio_real': real,
-                }
+                if it.get('sin_registro'):
+                    if not any(a['nombre']==nombre for a in adicionales_sin):
+                        adicionales_sin.append({'nombre':nombre,'cat':it.get('categoria',''),'real':real})
+                elif nombre not in _pn_xls or it.get('es_adicional'):
+                    if not any(a['nombre']==nombre for a in adicionales_con):
+                        adicionales_con.append({'nombre':nombre,'cat':it.get('categoria',''),'real':real,'pp':float(it.get('precio_presupuestado',0) or 0)})
+                else:
+                    items_consolidados[nombre] = {
+                        'categoria': it.get('categoria',''),
+                        'precio_presupuesto': float(it.get('precio_presupuestado', 0) or 0),
+                        'precio_real': real,
+                    }
 
-    # Escribir filas — todos los items del presupuesto
+    naranja = "fff3e0"; rosa = "fdf2f8"
+    naranja_txt = "c2410c"; rosa_txt = "9d174d"
+
+    # Escribir filas presupuesto
     row = 2
     for p in prods_valid:
         nombre = str(p.get('Item',''))
@@ -1493,35 +1578,68 @@ def generar_excel_balance(cotizacion_numero, registros, productos_presupuesto):
         pp     = round(float(p.get('Precio Unitario', 0) or 0))
         pr     = items_consolidados.get(nombre, {}).get('precio_real', 0)
         dif    = pp - pr if pr > 0 else None
-
         bg = verde_claro if (dif is not None and dif >= 0 and pr > 0) else (rojo_claro if (dif is not None and dif < 0) else gris_claro)
         fill = PatternFill("solid", fgColor=bg)
-
         ws.cell(row=row, column=1, value=cat).font = normal_font
         ws.cell(row=row, column=2, value=nombre).font = normal_font
         ws.cell(row=row, column=3, value=pp).font = normal_font
         ws.cell(row=row, column=4, value=pr if pr > 0 else "").font = bold_font if pr > 0 else normal_font
         ws.cell(row=row, column=5, value=dif if dif is not None else "").font = bold_font
-
         for col in range(1, 6):
             c = ws.cell(row=row, column=col)
-            c.border = thin_border
-            c.fill = fill
+            c.border = thin_border; c.fill = fill
             c.alignment = Alignment(horizontal="left" if col <= 2 else "right", vertical="center")
-
         row += 1
 
-    # Fila de totales
-    ws.cell(row=row, column=1, value="TOTAL PRESUPUESTADO").font = Font(name="Arial", bold=True, size=9, color="FFFFFF")
-    ws.cell(row=row, column=1).fill = PatternFill("solid", fgColor=azul_oscuro)
+    # Fila total presupuesto
     total_pp = sum(round(float(p.get('Precio Unitario',0) or 0)) for p in prods_valid)
     total_pr = sum(v['precio_real'] for v in items_consolidados.values())
-    ws.cell(row=row, column=3, value=total_pp).font = Font(name="Arial", bold=True, size=9, color="FFFFFF")
-    ws.cell(row=row, column=3).fill = PatternFill("solid", fgColor=azul_oscuro)
-    ws.cell(row=row, column=4, value=total_pr).font = Font(name="Arial", bold=True, size=9, color="FFFFFF")
-    ws.cell(row=row, column=4).fill = PatternFill("solid", fgColor=azul_oscuro)
-    ws.cell(row=row, column=5, value=total_pp-total_pr).font = Font(name="Arial", bold=True, size=9, color="FFFFFF")
-    ws.cell(row=row, column=5).fill = PatternFill("solid", fgColor=azul_oscuro)
+    for col, val in [(1,'TOTAL PRESUPUESTO'),(3,total_pp),(4,total_pr),(5,total_pp-total_pr)]:
+        c = ws.cell(row=row, column=col, value=val)
+        c.font = Font(name="Arial", bold=True, size=9, color="FFFFFF")
+        c.fill = PatternFill("solid", fgColor=azul_oscuro)
+        c.border = thin_border
+        c.alignment = Alignment(horizontal="left" if col==1 else "right", vertical="center")
+    row += 1
+
+    # Filas adicionales con registro
+    if adicionales_con:
+        ws.cell(row=row, column=1, value="➕ ADICIONALES CON REGISTRO").font = Font(name="Arial", bold=True, size=9, color=naranja_txt)
+        ws.cell(row=row, column=1).fill = PatternFill("solid", fgColor=naranja)
+        for col in range(1, 6):
+            ws.cell(row=row, column=col).fill = PatternFill("solid", fgColor=naranja)
+            ws.cell(row=row, column=col).border = thin_border
+        row += 1
+        for a in adicionales_con:
+            ws.cell(row=row, column=1, value=a['cat']).font = Font(name="Arial", size=9, color=naranja_txt)
+            ws.cell(row=row, column=2, value=a['nombre']).font = Font(name="Arial", size=9, color=naranja_txt)
+            ws.cell(row=row, column=3, value="—").font = normal_font
+            ws.cell(row=row, column=4, value=a['real']).font = Font(name="Arial", bold=True, size=9, color=naranja_txt)
+            ws.cell(row=row, column=5, value="—").font = normal_font
+            for col in range(1, 6):
+                ws.cell(row=row, column=col).fill = PatternFill("solid", fgColor=naranja)
+                ws.cell(row=row, column=col).border = thin_border
+                ws.cell(row=row, column=col).alignment = Alignment(horizontal="left" if col <= 2 else "right", vertical="center")
+            row += 1
+
+    # Filas adicionales sin registro
+    if adicionales_sin:
+        ws.cell(row=row, column=1, value="⚪ ADICIONALES SIN REGISTRO").font = Font(name="Arial", bold=True, size=9, color=rosa_txt)
+        for col in range(1, 6):
+            ws.cell(row=row, column=col).fill = PatternFill("solid", fgColor=rosa)
+            ws.cell(row=row, column=col).border = thin_border
+        row += 1
+        for a in adicionales_sin:
+            ws.cell(row=row, column=1, value=a['cat']).font = Font(name="Arial", size=9, color=rosa_txt)
+            ws.cell(row=row, column=2, value=a['nombre']).font = Font(name="Arial", size=9, color=rosa_txt)
+            ws.cell(row=row, column=3, value="—").font = normal_font
+            ws.cell(row=row, column=4, value=a['real']).font = Font(name="Arial", bold=True, size=9, color=rosa_txt)
+            ws.cell(row=row, column=5, value="—").font = normal_font
+            for col in range(1, 6):
+                ws.cell(row=row, column=col).fill = PatternFill("solid", fgColor=rosa)
+                ws.cell(row=row, column=col).border = thin_border
+                ws.cell(row=row, column=col).alignment = Alignment(horizontal="left" if col <= 2 else "right", vertical="center")
+            row += 1
 
     # Freeze headers
     ws.freeze_panes = "A2"
@@ -1532,7 +1650,7 @@ def generar_excel_balance(cotizacion_numero, registros, productos_presupuesto):
     return buf.read()
 
 
-def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registros, productos_presupuesto):
+def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registros, productos_presupuesto, incluir_varios=False):
     """Genera PDF de balance de compras consolidando todos los registros."""
     import io, json
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
@@ -1581,7 +1699,7 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
 
     header_data = [[
         _logo_cell,
-        Paragraph(f"<b>BALANCE DE COMPRAS</b>", styles['BTitle']),
+        Paragraph("<b>BALANCE DE COMPRAS" + (" (CON VARIOS)" if incluir_varios else "") + "</b>", styles['BTitle']),
         Paragraph(f"Generado: {now_str}", styles['BSmall'])
     ]]
     header_tbl = Table(header_data, colWidths=[4.5*cm, 9*cm, 4*cm])
@@ -1613,8 +1731,11 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
     elements.append(Spacer(1, 0.3*cm))
 
     # ── PROGRESO GLOBAL ──
-    prods_valid = [p for p in (productos_presupuesto or [])
-                   if str(p.get('Categoria','')).strip().lower() != 'varios']
+    if incluir_varios:
+        prods_valid = list(productos_presupuesto or [])
+    else:
+        prods_valid = [p for p in (productos_presupuesto or [])
+                       if str(p.get('Categoria','')).strip().lower() != 'varios']
     total_items = len(prods_valid)
     # Items comprados = items del presupuesto que aparecen en algún registro
     items_en_registros = set()
@@ -1707,30 +1828,40 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
 
         if items_r:
             rows = [tbl_header]
-            sub_p = 0; sub_r = 0
+            row_types = ['header']  # track tipo por fila
+            sub_p = 0; sub_r = 0; sub_a = 0; sub_s = 0
+            _pn_pdf = {str(p.get('Item','')) for p in (productos_presupuesto or [])}
+            _pp_map = {str(p.get('Item','')): round(float(p.get('Precio Unitario',0) or 0)) for p in (productos_presupuesto or [])}
             for it in items_r:
                 pp   = float(it.get('precio_presupuestado',0) or 0)
                 pr   = float(it.get('precio_real',0) or 0)
                 cant = float(it.get('cantidad',1) or 1)
                 adic = int(it.get('adicional',0) or 0)
                 dif  = (pp - pr) * cant - (adic * pr)
-                sub_p += pp * cant
-                sub_r += pr * cant + adic * pr
+                _is_sin = it.get('sin_registro', False)
+                _is_con = (it.get('es_adicional', False) or str(it.get('item','')) not in _pn_pdf) and not _is_sin
+                # Usar precio del presupuesto original si está disponible
+                pp_real = _pp_map.get(str(it.get('item','')), pp) if not _is_con and not _is_sin else pp
+                if _is_sin:   sub_s += pr * cant
+                elif _is_con: sub_a += pr * cant
+                else:         sub_p += pp_real * cant; sub_r += pr * cant + adic * pr
                 dif_str = f"${abs(dif):,.0f} {'▼' if dif>=0 else '▲'}".replace(',','.')
-                rows.append([
-                    it.get('categoria',''), it.get('item',''), str(int(cant)),
-                    f"${pp:,.0f}".replace(',','.'), f"${pr:,.0f}".replace(',','.'),
-                    str(adic), dif_str
-                ])
-            # Fila subtotales
+                rows.append([it.get('categoria',''), it.get('item',''), str(int(cant)),
+                    f"${pp_real:,.0f}".replace(',','.'), f"${pr:,.0f}".replace(',','.'),
+                    str(adic), dif_str])
+                row_types.append('sin' if _is_sin else ('con' if _is_con else 'normal'))
+            # Fila subtotales presupuesto
             bal_r = sub_p - sub_r
-            rows.append([
-                '', 'SUBTOTAL', '',
-                f"${sub_p:,.0f}".replace(',','.'),
-                f"${sub_r:,.0f}".replace(',','.'),
-                '',
-                f"${abs(bal_r):,.0f} {'▼' if bal_r>=0 else '▲'}".replace(',','.')
-            ])
+            rows.append(['','SUBTOTAL PRESUPUESTO','',f"${sub_p:,.0f}".replace(',','.'),f"${sub_r:,.0f}".replace(',','.'), '',f"${abs(bal_r):,.0f} {'▼' if bal_r>=0 else '▲'}".replace(',','.')])
+            row_types.append('subtotal')
+            # Fila adicionales con registro
+            if sub_a > 0:
+                rows.append(['','➕ ADICIONALES CON REGISTRO','','—',f"${sub_a:,.0f}".replace(',','.'), '',''])
+                row_types.append('subtotal_con')
+            # Fila adicionales sin registro
+            if sub_s > 0:
+                rows.append(['','⚪ ADICIONALES SIN REGISTRO','','—',f"${sub_s:,.0f}".replace(',','.'), '',''])
+                row_types.append('subtotal_sin')
             tbl = Table(rows, colWidths=col_ws, repeatRows=1)
             n = len(rows)
             tbl_style = [
@@ -1741,15 +1872,30 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
                 ('ALIGN',(2,0),(-1,-1), 'RIGHT'),
                 ('ALIGN',(0,0),(1,-1), 'LEFT'),
                 ('GRID',(0,0),(-1,-1), 0.3, colors.HexColor('#e2e8f0')),
-                ('BACKGROUND',(0,n-1),(-1,n-1), colors.HexColor('#f1f5f9')),
-                ('FONTNAME',(0,n-1),(-1,n-1), 'Helvetica-Bold'),
                 ('TOPPADDING',(0,0),(-1,-1), 3),
                 ('BOTTOMPADDING',(0,0),(-1,-1), 3),
             ]
-            # Colorear diferencias
-            for ri, row in enumerate(rows[1:], 1):
-                if row[6]:
-                    is_ahorro = '▼' in row[6]
+            # Colorear filas según tipo
+            for ri, rtype in enumerate(row_types):
+                if rtype == 'con':
+                    tbl_style.append(('BACKGROUND',(0,ri),(-1,ri), colors.HexColor('#fff7ed')))
+                    tbl_style.append(('TEXTCOLOR',(0,ri),(1,ri), colors.HexColor('#c2410c')))
+                elif rtype == 'sin':
+                    tbl_style.append(('BACKGROUND',(0,ri),(-1,ri), colors.HexColor('#fdf2f8')))
+                    tbl_style.append(('TEXTCOLOR',(0,ri),(1,ri), colors.HexColor('#9d174d')))
+                elif rtype == 'subtotal':
+                    tbl_style.append(('BACKGROUND',(0,ri),(-1,ri), colors.HexColor('#f1f5f9')))
+                    tbl_style.append(('FONTNAME',(0,ri),(-1,ri), 'Helvetica-Bold'))
+                elif rtype == 'subtotal_con':
+                    tbl_style.append(('BACKGROUND',(0,ri),(-1,ri), colors.HexColor('#fff3e0')))
+                    tbl_style.append(('FONTNAME',(0,ri),(-1,ri), 'Helvetica-Bold'))
+                    tbl_style.append(('TEXTCOLOR',(0,ri),(-1,ri), colors.HexColor('#c2410c')))
+                elif rtype == 'subtotal_sin':
+                    tbl_style.append(('BACKGROUND',(0,ri),(-1,ri), colors.HexColor('#fdf2f8')))
+                    tbl_style.append(('FONTNAME',(0,ri),(-1,ri), 'Helvetica-Bold'))
+                    tbl_style.append(('TEXTCOLOR',(0,ri),(-1,ri), colors.HexColor('#9d174d')))
+                if ri > 0 and row_types[ri] not in ('subtotal','subtotal_con','subtotal_sin') and len(rows[ri]) > 6 and rows[ri][6]:
+                    is_ahorro = '▼' in rows[ri][6]
                     tbl_style.append(('TEXTCOLOR',(6,ri),(6,ri), col_verde if is_ahorro else col_rojo))
             tbl.setStyle(TableStyle(tbl_style))
             elements.append(tbl)
@@ -1762,20 +1908,10 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
     elements.append(Paragraph('Resumen Final Consolidado', styles['BSection']))
     elements.append(HRFlowable(width='100%', thickness=0.5, color=colors.HexColor('#e2e8f0'), spaceAfter=8))
 
-    # Totales globales
-    total_p = sum(round(float(p.get('Precio Unitario',0) or 0)) * round(float(p.get('Cantidad',1) or 1))
-                  for p in prods_valid)
-    total_r = 0
-    for reg in registros:
-        items_r = reg.get('items') or []
-        if isinstance(items_r, str):
-            try: items_r = json.loads(items_r)
-            except: items_r = []
-        for it in items_r:
-            pr   = float(it.get('precio_real',0) or 0)
-            cant = float(it.get('cantidad',1) or 1)
-            adic = int(it.get('adicional',0) or 0)
-            total_r += pr * cant + adic * pr
+    # Totales usando calcular_totales_rc — exactamente igual que el JS
+    _tots = calcular_totales_rc(productos_presupuesto, registros, incluir_varios=incluir_varios)
+    total_p = _tots['tP']; total_r = _tots['tR']
+    total_adic_con = _tots['tA']; total_adic_sin = _tots['tS']
 
     iva_p = total_p * 0.19; iva_r = total_r * 0.19
     bal   = total_p - total_r; iva_bal = iva_p - iva_r
@@ -1784,13 +1920,15 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
 
     def _fmt(v): return f"${abs(v):,.0f}".replace(',','.')
 
+    iva_adic_con = total_adic_con * 0.19; iva_adic_sin = total_adic_sin * 0.19
+
     resumen_rows = [
-        ['', 'PRESUPUESTADO', 'REAL', 'BALANCE'],
-        ['Subtotal neto', _fmt(total_p), _fmt(total_r), _fmt(bal)],
-        ['IVA (19%)',     _fmt(iva_p),   _fmt(iva_r),   _fmt(iva_bal)],
-        ['Total con IVA', _fmt(total_p+iva_p), _fmt(total_r+iva_r), _fmt(bal+iva_bal)],
+        ['', 'PRESUPUESTADO', 'REAL', 'BALANCE', '➕ ADIC. C/REG.', '⚪ ADIC. S/REG.'],
+        ['Subtotal neto', _fmt(total_p), _fmt(total_r), _fmt(bal), _fmt(total_adic_con), _fmt(total_adic_sin)],
+        ['IVA (19%)',     _fmt(iva_p),   _fmt(iva_r),   _fmt(iva_bal), _fmt(iva_adic_con), _fmt(iva_adic_sin)],
+        ['Total con IVA', _fmt(total_p+iva_p), _fmt(total_r+iva_r), _fmt(bal+iva_bal), _fmt(total_adic_con+iva_adic_con), _fmt(total_adic_sin+iva_adic_sin)],
     ]
-    res_tbl = Table(resumen_rows, colWidths=[4*cm, 4*cm, 4*cm, 4*cm])
+    res_tbl = Table(resumen_rows, colWidths=[3*cm, 2.8*cm, 2.8*cm, 2.8*cm, 2.5*cm, 2.5*cm])
     res_style = [
         ('BACKGROUND',(0,0),(-1,0), col_azul),
         ('TEXTCOLOR',(0,0),(-1,0), colors.white),
@@ -1803,6 +1941,10 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
         ('BACKGROUND',(0,1),(-1,-1), colors.white),
         ('ROWBACKGROUNDS',(0,1),(-1,-1), [colors.white, colors.HexColor('#f8fafc')]),
         ('TEXTCOLOR',(3,1),(3,-1), bal_col),
+        ('TEXTCOLOR',(4,1),(4,-1), colors.HexColor('#c2410c')),
+        ('BACKGROUND',(4,0),(4,-1), colors.HexColor('#fff7ed')),
+        ('TEXTCOLOR',(5,1),(5,-1), colors.HexColor('#9d174d')),
+        ('BACKGROUND',(5,0),(5,-1), colors.HexColor('#fdf2f8')),
         ('TOPPADDING',(0,0),(-1,-1), 5),
         ('BOTTOMPADDING',(0,0),(-1,-1), 5),
     ]
@@ -1880,8 +2022,11 @@ def generar_excel_balance(cotizacion_numero, registros, productos_presupuesto):
     ws.row_dimensions[2].height = 32
 
     # Consolidar ítems — usar el precio real más reciente por ítem
-    prods_valid = [p for p in (productos_presupuesto or [])
-                   if str(p.get('Categoria','')).strip().lower() != 'varios']
+    if incluir_varios:
+        prods_valid = list(productos_presupuesto or [])
+    else:
+        prods_valid = [p for p in (productos_presupuesto or [])
+                       if str(p.get('Categoria','')).strip().lower() != 'varios']
 
     # Mapa ítem → último precio real
     precios_reales = {}
@@ -12320,8 +12465,12 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                 if isinstance(_rc_prods_raw, str):
                     try: _rc_prods_raw = _jrc.loads(_rc_prods_raw)
                     except: _rc_prods_raw = []
-                _rc_prods = [p for p in _rc_prods_raw
-                             if str(p.get('Categoria','')).strip().lower() != 'varios']
+                # Admin/root ven 'Varios', operacion no
+                if _rol_actual in ('root', 'admin'):
+                    _rc_prods = list(_rc_prods_raw)
+                else:
+                    _rc_prods = [p for p in _rc_prods_raw
+                                 if str(p.get('Categoria','')).strip().lower() != 'varios']
 
                 # Mostrar registros existentes
                 _rc_existentes = obtener_registros_compra(_rc_ep)
@@ -12359,7 +12508,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                             try: _its2=_jbadge.loads(_its2)
                             except: _its2=[]
                         _sn = any(i.get('sin_registro') for i in _its2)
-                        _cn = any(not i.get('sin_registro') and str(i.get('item','')) not in _pn_set for i in _its2 if i.get('item'))
+                        _cn = any(i.get('es_adicional') and not i.get('sin_registro') for i in _its2)
                         _nm = any(str(i.get('item','')) in _pn_set for i in _its2 if i.get('item'))
                         parts = []
                         if _nm: parts.append('normal')
@@ -12393,7 +12542,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                             except: _rce_items_h = []
                         _rce_tipo_k = _tipo_reg(_rce)
                         _tiene_sin = any(i.get('sin_registro') for i in _rce_items_h)
-                        _tiene_con = any(not i.get('sin_registro') and str(i.get('item','')) not in _pn_set for i in _rce_items_h if i.get('item'))
+                        _tiene_con = any(i.get('es_adicional') and not i.get('sin_registro') for i in _rce_items_h)
                         if _tiene_sin and _tiene_con: _rce_prefix = '🟠 ⚪ '
                         elif _tiene_sin: _rce_prefix = '⚪ '
                         elif _tiene_con: _rce_prefix = '🟠 '
@@ -12541,19 +12690,29 @@ window.addEventListener("message",function(e){{
                             except: _bal_prods = []
                         _bal_dc = {'Nombre': _rc_row.get('cliente_nombre',''), 'RUT': _rc_row.get('cliente_rut','')}
                         _bal_da = {'Nombre Ejecutivo': _rc_row.get('asesor_nombre','')}
-                        _bcol1, _bcol2 = st.columns(2)
+                        _bcol1, _bcol2, _bcol3, _bcol4 = st.columns(4)
                         with _bcol1:
-                            if st.button('📥 Descargar PDF Balance', key=f'pdf_balance_{_rc_ep}', use_container_width=True):
+                            if st.button('📥 PDF Balance', key=f'pdf_balance_{_rc_ep}', use_container_width=True, help='Sin Varios'):
                                 with st.spinner('Generando PDF...'):
                                     try:
-                                        _bal_pdf = generar_pdf_balance(_rc_ep, _bal_dc, _bal_da, _rc_existentes, _bal_prods)
-                                        st.download_button(label='📄 Descargar Balance PDF', data=_bal_pdf,
-                                            file_name=f'Balance_Compras_{_rc_ep}.pdf', mime='application/pdf',
+                                        _bal_pdf = generar_pdf_balance(_rc_ep, _bal_dc, _bal_da, _rc_existentes, _bal_prods, incluir_varios=False)
+                                        st.download_button(label='📄 Descargar (sin Varios)', data=_bal_pdf,
+                                            file_name=f'Balance_{_rc_ep}_sin_varios.pdf', mime='application/pdf',
                                             key=f'dl_balance_{_rc_ep}')
                                     except Exception as _e_bal:
-                                        st.error(f'Error generando PDF: {_e_bal}')
+                                        st.error(f'Error: {_e_bal}')
                         with _bcol2:
-                            if st.button('📊 Descargar Excel Precios Reales', key=f'xls_balance_{_rc_ep}', use_container_width=True):
+                            if st.button('📥 PDF Balance + Varios', key=f'pdf_balance_v_{_rc_ep}', use_container_width=True, help='Con Varios'):
+                                with st.spinner('Generando PDF...'):
+                                    try:
+                                        _bal_pdf_v = generar_pdf_balance(_rc_ep, _bal_dc, _bal_da, _rc_existentes, _bal_prods, incluir_varios=True)
+                                        st.download_button(label='📄 Descargar (con Varios)', data=_bal_pdf_v,
+                                            file_name=f'Balance_{_rc_ep}_con_varios.pdf', mime='application/pdf',
+                                            key=f'dl_balance_v_{_rc_ep}')
+                                    except Exception as _e_bal_v:
+                                        st.error(f'Error: {_e_bal_v}')
+                        with _bcol3:
+                            if st.button('📊 Excel Precios', key=f'xls_balance_{_rc_ep}', use_container_width=True):
                                 with st.spinner('Generando Excel...'):
                                     try:
                                         _bal_xls = generar_excel_balance(_rc_ep, _rc_existentes, _bal_prods)
@@ -12562,11 +12721,20 @@ window.addEventListener("message",function(e){{
                                             mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                                             key=f'dl_xls_{_rc_ep}')
                                     except Exception as _e_xls:
-                                        st.error(f'Error generando Excel: {_e_xls}')
+                                        st.error(f'Error: {_e_xls}')
+                        with _bcol4:
+                            pass
                     st.markdown('---')
 
                 # Formulario nuevo registro
                 st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 8px;">➕ Nuevo registro de compra</div>', unsafe_allow_html=True)
+                # Toggle modo admin/operador (solo admin y root)
+                if _rol_actual in ('root', 'admin'):
+                    _modo_admin_rc = st.toggle('👁️ Modo Admin (incluye Varios)', key=f'rc_modo_admin_{_rc_ep}')
+                    if not _modo_admin_rc:
+                        _rc_prods = [p for p in _rc_prods if str(p.get('Categoria','')).strip().lower() != 'varios']
+                else:
+                    _modo_admin_rc = False
                 if not _rc_prods:
                     st.warning('Este presupuesto no tiene productos cargados.')
                 else:
