@@ -947,7 +947,7 @@ function calc(){{
   var comprados=vals.filter(function(v){{return v.real>0&&v.idx<10000;}}).length;
   var pct=TOTAL_ITEMS>0?Math.round(comprados/TOTAL_ITEMS*1000)/10:0;
   var pctCol=pct>=100?"#3b82f6":pct>=66.6?"#16a34a":pct>=33.3?"#eab308":"#dc2626";
-  var pctLbl=pct>=100?"&#128309; Compra finalizada":pct>0?(pct.toFixed(1)+"% comprado"):"Sin compras";
+  var pctLbl=pct>=100?"\uD83D\uDD35 Compra finalizada":pct>0?(pct.toFixed(1)+"% comprado"):"Sin compras";
   var pp=document.getElementById("prog-pct");
   var pl=document.getElementById("prog-lbl");
   var pb=document.getElementById("prog-bar");
