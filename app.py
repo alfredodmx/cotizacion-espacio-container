@@ -956,12 +956,12 @@ function calc(){{
     var td=r.querySelector(".rc-dif");
     td.textContent=f(d)+(d>=0?" \u25BC":" \u25B2");
     td.style.color=d>=0?"#16a34a":"#dc2626";
-    var isAdic=r.dataset.adicional==="1"&&!r.dataset.sinRegistro||r.dataset["sin-registro"];  // Con registro
-    var isSinReg=r.dataset.sinRegistro||r.dataset["sin-registro"]==="1";  // Sin registro
-    if(isAdic){{tA+=re*c;}}        // Adicionales con registro: informativo
-    else if(isSinReg){{tS+=re*c;}} // Adicionales sin registro: informativo
-    else{{tP+=pu*c;}}              // Presupuestado: solo ítems del presupuesto
-    tR+=re*c+ad*re;               // Real: incluye todo
+    var isSinReg=r.getAttribute("data-sin-registro")==="1";
+    var isAdic=r.dataset.adicional==="1"&&!isSinReg;
+    if(isAdic){{tA+=re*c;}}
+    else if(isSinReg){{tS+=re*c;}}
+    else{{tP+=pu*c;}}
+    tR+=re*c+ad*re;
     vals.push({{idx:+r.dataset.idx,real:re,adic:ad,dif:d}});
   }});
   var iP=tP*.19,iR=tR*.19,b=tP-tR,ib=iP-iR;
