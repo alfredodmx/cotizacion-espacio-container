@@ -748,7 +748,7 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
     </tr></thead>
     <tbody>{rows}</tbody>
   </table></div>
-  <div id="tots" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;padding:16px;background:#f8fafc;border-top:2px solid #e2e8f0;flex-shrink:0">
+  <div id="tots" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:12px;padding:16px;background:#f8fafc;border-top:2px solid #e2e8f0;flex-shrink:0">
     <div>
       <div style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">Presupuestado</div>
       <div style="font-size:11px;color:#64748b">Subtotal neto</div><div style="font-size:15px;font-weight:700" id="tp-n">$0</div>
@@ -766,6 +766,12 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
       <div style="font-size:11px" id="b-lbl1">Neto</div><div style="font-size:15px;font-weight:700" id="b-n">$0</div>
       <div style="font-size:11px;margin-top:4px" id="b-lbl2">IVA</div><div style="font-size:13px;font-weight:600" id="b-i">$0</div>
       <div style="font-size:11px;margin-top:4px" id="b-icon">&#x2705; Ahorro</div><div style="font-size:17px;font-weight:900" id="b-t">$0</div>
+    </div>
+    <div style="border-left:2px solid #fed7aa;padding-left:12px;background:#fff7ed;border-radius:0 8px 8px 0;">
+      <div style="font-size:11px;font-weight:700;color:#f97316;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">➕ Adicionales</div>
+      <div style="font-size:11px;color:#f97316">Subtotal neto</div><div style="font-size:15px;font-weight:700;color:#f97316" id="ta-n">$0</div>
+      <div style="font-size:11px;color:#f97316;margin-top:4px">IVA (19%)</div><div style="font-size:13px;font-weight:600;color:#f97316" id="ta-i">$0</div>
+      <div style="font-size:11px;color:#f97316;margin-top:4px">Total con IVA</div><div style="font-size:17px;font-weight:900;color:#f97316" id="ta-t">$0</div>
     </div>
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;border-left:2px solid #e2e8f0;padding-left:12px">
       <div style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:12px;text-align:center">Progreso de compra</div>
@@ -912,7 +918,7 @@ function attachListeners(inp, adic){{
 }}
 function f(n){{return "$"+Math.round(Math.abs(n)).toLocaleString("de-DE");}}
 function calc(){{
-  var tP=0,tR=0,vals=[];
+  var tP=0,tR=0,tA=0,vals=[];
   document.querySelectorAll("tr[data-idx]").forEach(function(r){{
     var pu=+r.dataset.pu||0,c=+r.dataset.cant||1;
     var re=parseFloat(r.querySelector(".rc-real").dataset.val)||0;
@@ -921,13 +927,15 @@ function calc(){{
     var td=r.querySelector(".rc-dif");
     td.textContent=f(d)+(d>=0?" \u25BC":" \u25B2");
     td.style.color=d>=0?"#16a34a":"#dc2626";
-    tP+=pu*c;tR+=re*c+ad*re;
+    var isAdic=(parseInt(r.dataset.idx)||0)>=10000||r.style.background.indexOf('255, 243, 224')>-1||r.dataset.comprado==="1"&&r.style.background.indexOf('fff3e0')>-1;
+    if(isAdic){{tA+=re*c;}}else{{tP+=pu*c;tR+=re*c+ad*re;}}
     vals.push({{idx:+r.dataset.idx,real:re,adic:ad,dif:d}});
   }});
   var iP=tP*.19,iR=tR*.19,b=tP-tR,ib=iP-iR;
   var col=b>=0?"#16a34a":"#dc2626";
-  var ids=["tp-n","tp-i","tp-t","tr-n","tr-i","tr-t","b-n","b-i","b-t"];
-  var v=[tP,iP,tP+iP,tR,iR,tR+iR,b,ib,b+ib];
+  var iA=tA*.19;
+  var ids=["tp-n","tp-i","tp-t","tr-n","tr-i","tr-t","b-n","b-i","b-t","ta-n","ta-i","ta-t"];
+  var v=[tP,iP,tP+iP,tR,iR,tR+iR,b,ib,b+ib,tA,iA,tA+iA];
   ids.forEach(function(id,i){{var el=document.getElementById(id);if(el)el.textContent=f(v[i]);}});
   ["b-hdr","b-n","b-i","b-lbl1","b-lbl2","b-icon","b-t"].forEach(function(id){{var el=document.getElementById(id);if(el)el.style.color=col;}});
   var bi=document.getElementById("b-icon");
@@ -12238,7 +12246,20 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         _rce_lbl = 'Ahorro' if _rce_bal >= 0 else 'Sobrecosto'
                         _rce_fmt = f"${abs(_rce_bal):,.0f}".replace(',','.')
                         _rce_lugar = _rce.get('lugar_compra','') or ''
-                        _rce_titulo = f"🏪 Compraste en: {_rce_lugar} — {_rce_icon} {_rce_lbl} {_rce_fmt}" if _rce_lugar else f"🧾 {_rce.get('factura_nombre','Sin factura')} — {_rce_icon} {_rce_lbl} {_rce_fmt}"
+                        # Detectar si el registro tiene adicionales
+                        import json as _jrce_ad
+                        _rce_items_check = _rce.get('items') or []
+                        if isinstance(_rce_items_check, str):
+                            try: _rce_items_check = _jrce_ad.loads(_rce_items_check)
+                            except: _rce_items_check = []
+                        _rce_prods_nombres = {str(p.get('Item','')) for p in _rc_prods_raw}
+                        _rce_tiene_adic = any(
+                            str(it.get('item','')) not in _rce_prods_nombres
+                            for it in _rce_items_check if it.get('item')
+                        )
+                        _rce_prefix = '🟠 ' if _rce_tiene_adic else ''
+                        _rce_adic_txt = ' · ➕ Compra adicional' if _rce_tiene_adic else ''
+                        _rce_titulo = f"{_rce_prefix}🏪 Compraste en: {_rce_lugar}{_rce_adic_txt} — {_rce_icon} {_rce_lbl} {_rce_fmt}" if _rce_lugar else f"{_rce_prefix}🧾 {_rce.get('factura_nombre','Sin factura')}{_rce_adic_txt} — {_rce_icon} {_rce_lbl} {_rce_fmt}"
                         with st.expander(_rce_titulo):
                             _rce_items = _rce.get('items') or []
                             if isinstance(_rce_items, str):
@@ -12265,7 +12286,8 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                                     _it_dif = (_it_pp - _it_pr) * _it_c - (_it_ad * _it_pr)
                                     _it_col = '#16a34a' if _it_dif >= 0 else '#dc2626'
                                     _it_arr = '▼' if _it_dif >= 0 else '▲'
-                                    _it_bg  = '#ffffff' if _ri3 % 2 == 0 else '#f8fafc'
+                                    _it_es_adic = str(_it.get('item','')) not in _rce_prods_nombres
+                                    _it_bg  = '#fff3e0' if _it_es_adic else ('#ffffff' if _ri3 % 2 == 0 else '#f8fafc')
                                     _rce_html += (
                                         f"<tr style='background:{_it_bg};border-bottom:1px solid #f0f2f8;'>"
                                         f"<td style='padding:5px 8px;color:#64748b;font-size:0.75rem;'>{_it.get('categoria','')}</td>"
