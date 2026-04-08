@@ -958,9 +958,9 @@ function calc(){{
     td.style.color=d>=0?"#16a34a":"#dc2626";
     var isSinReg=r.getAttribute("data-sin-registro")==="1";
     var isAdic=r.dataset.adicional==="1"&&!isSinReg;
-    if(isAdic){{tA+=re*c;}}
-    else if(isSinReg){{tS+=re*c;}}
-    else{{tP+=pu*c;}}
+    if(isSinReg){{tS+=re*c;}}       // Sin registro (puede ser idx>=10000)
+    else if(isAdic){{tA+=re*c;}}    // Con registro
+    else if(idx<10000){{tP+=pu*c;}} // Presupuesto
     tR+=re*c+ad*re;
     vals.push({{idx:+r.dataset.idx,real:re,adic:ad,dif:d}});
   }});
