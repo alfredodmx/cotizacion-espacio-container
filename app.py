@@ -12350,23 +12350,24 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                             })
                             _prods_nombres.add(_it_nombre)
                 if _rc_existentes:
-                    # Calcular tipos presentes para badges
-                    import json as _jbadge
-                    _badge_tipos = set()
-                    for _r in _rc_existentes:
-                        _its = _r.get('items') or []
-                        if isinstance(_its, str):
-                            try: _its = _jbadge.loads(_its)
-                            except: _its = []
-                        _has_sin = any(i.get('sin_registro') for i in _its)
-                        _has_con = any(not i.get('sin_registro') and str(i.get('item','')) not in {str(p.get('Item','')) for p in _rc_prods_raw} for i in _its if i.get('item'))
-                        _has_normal = any(str(i.get('item','')) in {str(p.get('Item','')) for p in _rc_prods_raw} for i in _its if i.get('item'))
-                        if _has_normal: _badge_tipos.add('normal')
-                        if _has_con: _badge_tipos.add('con')
-                        if _has_sin: _badge_tipos.add('sin')
-                    # Filtro activo
-                    _hist_filtro = st.session_state.get('_hist_filtro_rc','')
-                    # Badges clicables
+                    import json as _jbadge, streamlit.components.v1 as _hist_comp
+                    _pn_set = {str(p.get('Item','')) for p in _rc_prods_raw}
+
+                    def _tipo_reg(r):
+                        _its2 = r.get('items') or []
+                        if isinstance(_its2,str):
+                            try: _its2=_jbadge.loads(_its2)
+                            except: _its2=[]
+                        _sn = any(i.get('sin_registro') for i in _its2)
+                        _cn = any(not i.get('sin_registro') and str(i.get('item','')) not in _pn_set for i in _its2 if i.get('item'))
+                        _nm = any(str(i.get('item','')) in _pn_set for i in _its2 if i.get('item'))
+                        parts = []
+                        if _nm: parts.append('normal')
+                        if _cn: parts.append('con')
+                        if _sn: parts.append('sin')
+                        return '_'.join(parts) if parts else 'normal'
+
+                    _tipos_presentes = {_tipo_reg(r) for r in _rc_existentes}
                     _badges_def = [
                         ('normal','🟢 Normal'),
                         ('con','🟠 Adicional c/registro'),
@@ -12376,143 +12377,125 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         ('con_sin','🟠⚪ Mixta'),
                         ('normal_con_sin','🟢🟠⚪ Mixta'),
                     ]
-                    # Solo mostrar badges de tipos presentes
-                    def _tipo_reg(r):
-                        _its2 = r.get('items') or []
-                        if isinstance(_its2,str):
-                            try: _its2=_jbadge.loads(_its2)
-                            except: _its2=[]
-                        _pn = {str(p.get('Item','')) for p in _rc_prods_raw}
-                        _sn = any(i.get('sin_registro') for i in _its2)
-                        _cn = any(not i.get('sin_registro') and str(i.get('item','')) not in _pn for i in _its2 if i.get('item'))
-                        _nm = any(str(i.get('item','')) in _pn for i in _its2 if i.get('item'))
-                        parts = []
-                        if _nm: parts.append('normal')
-                        if _cn: parts.append('con')
-                        if _sn: parts.append('sin')
-                        return '_'.join(parts) if parts else 'normal'
-                    _tipos_presentes = {_tipo_reg(r) for r in _rc_existentes}
-                    import streamlit.components.v1 as _hist_comp
-                    _badges_html = '<style>body{margin:0;padding:0;font-family:sans-serif;}</style>'
-                    _badges_html += '<div style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0;">'
-                    for _bk, _bl in _badges_def:
-                        if _bk not in _tipos_presentes: continue
-                        _bactive = _hist_filtro == _bk
-                        _bbg = '#1e2447' if _bactive else '#f1f5f9'
-                        _bcolor = '#fff' if _bactive else '#0f172a'
-                        _bborder = '#1e2447' if _bactive else '#cbd5e1'
-                        _val = '' if _bactive else _bk
-                        _onclick_b = f"var h=window.parent.location.href;var s=h.indexOf('?');var base=s>=0?h.substring(0,s):h;var q=s>=0?h.substring(s+1):'';var ps=q.split('&').filter(function(p){{return p.indexOf('hist_filtro_rc=')<0;}});ps.push('hist_filtro_rc={_val}');window.parent.history.replaceState({{}},'',base+'?'+ps.join('&'));window.parent.dispatchEvent(new PopStateEvent('popstate'));"
-                        _badges_html += f'<span onclick="{_onclick_b}" style="background:{_bbg};color:{_bcolor};border:1px solid {_bborder};border-radius:99px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;">{_bl}</span>'
-                    _badges_html += '</div>'
-                    st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 4px;">🧾 Historial de compras</div>', unsafe_allow_html=True)
-                    _hist_comp.html(_badges_html, height=50, scrolling=False)
+
+                    # Construir HTML historial completo
+                    _hist_regs = []
                     for _rce in _rc_existentes:
-                        if _hist_filtro and _tipo_reg(_rce) != _hist_filtro: continue
-                        _rce_bal = float(_rce.get('balance',0) or 0)
-                        _rce_col = '#16a34a' if _rce_bal >= 0 else '#dc2626'
+                        _rce_bal  = float(_rce.get('balance',0) or 0)
+                        _rce_col  = '#16a34a' if _rce_bal >= 0 else '#dc2626'
                         _rce_icon = '✅' if _rce_bal >= 0 else '❌'
-                        _rce_lbl = 'Ahorro' if _rce_bal >= 0 else 'Sobrecosto'
-                        _rce_fmt = f"${abs(_rce_bal):,.0f}".replace(',','.')
+                        _rce_lbl  = 'Ahorro' if _rce_bal >= 0 else 'Sobrecosto'
+                        _rce_fmt  = f"${abs(_rce_bal):,.0f}".replace(',','.')
                         _rce_lugar = _rce.get('lugar_compra','') or ''
-                        # Detectar si el registro tiene adicionales
-                        import json as _jrce_ad
-                        _rce_items_check = _rce.get('items') or []
-                        if isinstance(_rce_items_check, str):
-                            try: _rce_items_check = _jrce_ad.loads(_rce_items_check)
-                            except: _rce_items_check = []
-                        _rce_prods_nombres = {str(p.get('Item','')) for p in _rc_prods_raw}
-                        # Detectar tipo de registro
-                        _rce_tiene_sin_reg = any(_it.get('sin_registro', False) for _it in _rce_items_check)
-                        _rce_tiene_adic = any(
-                            str(it.get('item','')) not in _rce_prods_nombres
-                            and not it.get('sin_registro', False)
-                            for it in _rce_items_check if it.get('item')
-                        )
-                        _rce_solo_normal   = not _rce_tiene_adic and not _rce_tiene_sin_reg
-                        if _rce_tiene_sin_reg and _rce_tiene_adic:
-                            _rce_prefix = '🟠 ⚪ '
-                        elif _rce_tiene_sin_reg:
-                            _rce_prefix = '⚪ '
-                        elif _rce_tiene_adic:
-                            _rce_prefix = '🟠 '
-                        else:
-                            _rce_prefix = '🟢 '
-                        _rce_adic_txt = ' · ➕ Compra adicional' if _rce_tiene_adic else (' · ⚪ Sin registro' if _rce_tiene_sin_reg else '')
-                        _rce_titulo = f"{_rce_prefix}🏪 Compraste en: {_rce_lugar}{_rce_adic_txt} — {_rce_icon} {_rce_lbl} {_rce_fmt}" if _rce_lugar else f"{_rce_prefix}🧾 {_rce.get('factura_nombre','Sin factura')}{_rce_adic_txt} — {_rce_icon} {_rce_lbl} {_rce_fmt}"
-                        with st.expander(_rce_titulo):
-                            _rce_items = _rce.get('items') or []
-                            if isinstance(_rce_items, str):
-                                try: _rce_items = _jrc.loads(_rce_items)
-                                except: _rce_items = []
-                            if _rce_items:
-                                _rce_html = (
-                                    "<table style='width:100%;border-collapse:collapse;font-size:0.82rem;font-family:sans-serif;'>"
-                                    "<thead><tr style='background:#1e2447;color:#fff;'>"
-                                    "<th style='padding:6px 8px;text-align:left;'>Categoría</th>"
-                                    "<th style='padding:6px 8px;text-align:left;'>Ítem</th>"
-                                    "<th style='padding:6px 8px;text-align:right;'>Cant.</th>"
-                                    "<th style='padding:6px 8px;text-align:right;'>Presup. unit.</th>"
-                                    "<th style='padding:6px 8px;text-align:right;'>Real unit.</th>"
-                                    "<th style='padding:6px 8px;text-align:right;'>Adicional</th>"
-                                    "<th style='padding:6px 8px;text-align:right;'>Diferencia</th>"
-                                    "</tr></thead><tbody>"
-                                )
-                                for _ri3, _it in enumerate(_rce_items):
-                                    _it_pp  = float(_it.get('precio_presupuestado',0) or 0)
-                                    _it_pr  = float(_it.get('precio_real',0) or 0)
-                                    _it_c   = float(_it.get('cantidad',1) or 1)
-                                    _it_ad  = int(_it.get('adicional',0) or 0)
-                                    _it_dif = (_it_pp - _it_pr) * _it_c - (_it_ad * _it_pr)
-                                    _it_col = '#16a34a' if _it_dif >= 0 else '#dc2626'
-                                    _it_arr = '▼' if _it_dif >= 0 else '▲'
-                                    _it_es_adic = _it.get('es_adicional', False) or str(_it.get('item','')) not in _rce_prods_nombres
-                                    _it_sin_reg = _it.get('sin_registro', False)
-                                    _it_normal  = not _it_es_adic and not _it_sin_reg
-                                    _it_bg  = '#fdf2f8' if _it_sin_reg else ('#fff3e0' if _it_es_adic else ('#f0fdf4' if _ri3 % 2 == 0 else '#dcfce7'))
-                                    _rce_html += (
-                                        f"<tr style='background:{_it_bg};border-bottom:1px solid #f0f2f8;'>"
-                                        f"<td style='padding:5px 8px;color:#64748b;font-size:0.75rem;'>{_it.get('categoria','')}</td>"
-                                        f"<td style='padding:5px 8px;'>{_it.get('item','')}</td>"
-                                        f"<td style='padding:5px 8px;text-align:right;'>{int(_it_c)}</td>"
-                                        f"<td style='padding:5px 8px;text-align:right;'>${_it_pp:,.0f}</td>"
-                                        f"<td style='padding:5px 8px;text-align:right;'>${_it_pr:,.0f}</td>"
-                                        f"<td style='padding:5px 8px;text-align:right;color:#f97316;font-weight:600;'>{_it_ad}</td>"
-                                        f"<td style='padding:5px 8px;text-align:right;font-weight:700;color:{_it_col};'>${abs(_it_dif):,.0f} {_it_arr}</td>"
-                                        f"</tr>"
-                                    ).replace(',','.')
-                                _rce_html += "</tbody></table>"
-                                st.markdown(_rce_html, unsafe_allow_html=True)
-                            if _rce.get('factura_url'):
-                                _rce_fecha = ''
-                                try:
-                                    from datetime import datetime, timezone, timedelta
-                                    _rce_tz = timezone(timedelta(hours=-3))
-                                    _rce_fecha = datetime.fromisoformat(_rce['fecha_registro'].replace('Z','+00:00')).astimezone(_rce_tz).strftime('%d/%m/%Y %H:%M')
-                                except: pass
-                                _rce_lugar_disp  = _rce.get('lugar_compra','') or ''
-                                _rce_tipo        = _rce.get('tipo_compra','') or ''
-                                _rce_subtipo     = _rce.get('subtipo_compra','') or ''
-                                _rce_obs         = _rce.get('observaciones','') or ''
-                                _rce_tipo_labels = {'online':'🌐 Compra Online','presencial':'🏬 Compra Presencial'}
-                                _rce_sub_labels  = {'retiro':'Retiro','despacho':'Despacho','completo':'Retiro Completo','parcial':'Retiro Parcial'}
-                                _rce_tipo_disp   = _rce_tipo_labels.get(_rce_tipo, _rce_tipo)
-                                _rce_sub_disp    = _rce_sub_labels.get(_rce_subtipo, _rce_subtipo)
-                                _rce_tipo_full   = f'{_rce_tipo_disp} — {_rce_sub_disp}' if _rce_tipo and _rce_subtipo else _rce_tipo_disp
-                                st.markdown(
-                                    f"<div style='margin-top:8px;padding:10px 12px;background:#f8fafc;border-radius:6px;display:flex;flex-direction:column;gap:6px;'>"
-                                    f"<div style='display:flex;align-items:center;gap:12px;flex-wrap:wrap;'>"
-                                    + (f"<span style='font-size:0.82rem;font-weight:700;color:#1e2447;'>🏪 {_rce_lugar_disp}</span>" if _rce_lugar_disp else "")
-                                    + (f"<span style='font-size:0.78rem;font-weight:600;color:#0f172a;'>{_rce_tipo_full}</span>" if _rce_tipo_full else "")
-                                    + f"<span style='font-size:0.78rem;color:#64748b;'>🕐 {_rce_fecha}</span>"
-                                    + f"<span style='font-size:0.78rem;color:#64748b;'>📄 {_rce.get('factura_nombre','')}</span>"
-                                    + f"<a href='{_rce['factura_url']}' target='_blank' style='font-size:0.82rem;color:#3b82f6;text-decoration:none;'>📎 Ver factura</a>"
-                                    + "</div>"
-                                    + f"<div style='font-size:0.78rem;color:{'#0f172a' if _rce_obs else '#94a3b8'};font-style:{'normal' if _rce_obs else 'italic'};'>"
-                                    + f"📝 <b>Observación:</b> {_rce_obs if _rce_obs else 'Sin observaciones'}</div>"
-                                    f"</div>",
-                                    unsafe_allow_html=True
-                                )
+                        _rce_items_h = _rce.get('items') or []
+                        if isinstance(_rce_items_h, str):
+                            try: _rce_items_h = _jbadge.loads(_rce_items_h)
+                            except: _rce_items_h = []
+                        _rce_tipo_k = _tipo_reg(_rce)
+                        _tiene_sin = any(i.get('sin_registro') for i in _rce_items_h)
+                        _tiene_con = any(not i.get('sin_registro') and str(i.get('item','')) not in _pn_set for i in _rce_items_h if i.get('item'))
+                        if _tiene_sin and _tiene_con: _rce_prefix = '🟠 ⚪ '
+                        elif _tiene_sin: _rce_prefix = '⚪ '
+                        elif _tiene_con: _rce_prefix = '🟠 '
+                        else: _rce_prefix = '🟢 '
+                        _rce_adic_txt = ' · ➕ Compra adicional' if _tiene_con else (' · ⚪ Sin registro' if _tiene_sin else '')
+                        _titulo = f"{_rce_prefix}🏪 Compraste en: {_rce_lugar}{_rce_adic_txt} — {_rce_icon} {_rce_lbl} {_rce_fmt}" if _rce_lugar else f"{_rce_prefix}🧾 {_rce.get('factura_nombre','Sin factura')}{_rce_adic_txt} — {_rce_icon} {_rce_lbl} {_rce_fmt}"
+                        # Tabla items
+                        _rows_h = ''
+                        for _ri3, _it in enumerate(_rce_items_h):
+                            _it_pp  = float(_it.get('precio_presupuestado',0) or 0)
+                            _it_pr  = float(_it.get('precio_real',0) or 0)
+                            _it_c   = float(_it.get('cantidad',1) or 1)
+                            _it_ad  = int(_it.get('adicional',0) or 0)
+                            _it_dif = (_it_pp - _it_pr) * _it_c - (_it_ad * _it_pr)
+                            _it_col2 = '#16a34a' if _it_dif >= 0 else '#dc2626'
+                            _it_arr2 = '▼' if _it_dif >= 0 else '▲'
+                            _it_sin2 = _it.get('sin_registro', False)
+                            _it_adic2 = _it.get('es_adicional', False) or str(_it.get('item','')) not in _pn_set
+                            _it_bg2 = '#fdf2f8' if _it_sin2 else ('#fff3e0' if _it_adic2 else ('#f0fdf4' if _ri3%2==0 else '#dcfce7'))
+                            _pp_fmt = f"${_it_pp:,.0f}".replace(',','.')
+                            _pr_fmt = f"${_it_pr:,.0f}".replace(',','.')
+                            _dif_fmt = f"${abs(_it_dif):,.0f}".replace(',','.')
+                            _rows_h += f"<tr style='background:{_it_bg2};border-bottom:1px solid #f0f2f8;'><td style='padding:5px 8px;color:#64748b;font-size:0.75rem;'>{_it.get('categoria','')}</td><td style='padding:5px 8px;'>{_it.get('item','')}</td><td style='padding:5px 8px;text-align:right;'>{int(_it_c)}</td><td style='padding:5px 8px;text-align:right;'>{_pp_fmt}</td><td style='padding:5px 8px;text-align:right;'>{_pr_fmt}</td><td style='padding:5px 8px;text-align:right;color:#f97316;font-weight:600;'>{_it_ad}</td><td style='padding:5px 8px;text-align:right;font-weight:700;color:{_it_col2};'>{_dif_fmt} {_it_arr2}</td></tr>"
+                        # Footer
+                        _rce_fecha2 = ''
+                        try:
+                            from datetime import datetime, timezone, timedelta
+                            _rce_tz2 = timezone(timedelta(hours=-3))
+                            _rce_fecha2 = datetime.fromisoformat(_rce['fecha_registro'].replace('Z','+00:00')).astimezone(_rce_tz2).strftime('%d/%m/%Y %H:%M')
+                        except: pass
+                        _rce_tipo2    = _rce.get('tipo_compra','') or ''
+                        _rce_subtipo2 = _rce.get('subtipo_compra','') or ''
+                        _rce_obs2     = _rce.get('observaciones','') or ''
+                        _tipo_labels2 = {'online':'🌐 Online','presencial':'🏬 Presencial'}
+                        _sub_labels2  = {'retiro':'Retiro','despacho':'Despacho','completo':'Retiro Completo','parcial':'Retiro Parcial'}
+                        _tipo_disp2   = _tipo_labels2.get(_rce_tipo2, _rce_tipo2)
+                        _sub_disp2    = _sub_labels2.get(_rce_subtipo2, _rce_subtipo2)
+                        _tipo_full2   = f"{_tipo_disp2} — {_sub_disp2}" if _rce_tipo2 and _rce_subtipo2 else _tipo_disp2
+                        _factura_url2 = _rce.get('factura_url','') or ''
+                        _factura_nom2 = _rce.get('factura_nombre','') or ''
+                        _footer_h = f"<div style='margin-top:6px;padding:8px 10px;background:#f8fafc;border-radius:6px;font-size:0.78rem;display:flex;flex-wrap:wrap;gap:8px;align-items:center;'>"
+                        if _rce_lugar: _footer_h += f"<span style='font-weight:700;color:#1e2447;'>🏪 {_rce_lugar}</span>"
+                        if _tipo_full2: _footer_h += f"<span style='color:#0f172a;font-weight:600;'>{_tipo_full2}</span>"
+                        _footer_h += f"<span style='color:#64748b;'>🕐 {_rce_fecha2}</span>"
+                        if _factura_url2: _footer_h += f"<a href='{_factura_url2}' target='_blank' style='color:#3b82f6;text-decoration:none;'>📎 {_factura_nom2}</a>"
+                        _footer_h += f"<span style='color:{'#0f172a' if _rce_obs2 else '#94a3b8'};font-style:{'normal' if _rce_obs2 else 'italic'};'>📝 {_rce_obs2 if _rce_obs2 else 'Sin observaciones'}</span></div>"
+                        _hist_regs.append({'tipo': _rce_tipo_k, 'titulo': _titulo, 'rows': _rows_h, 'footer': _footer_h})
+
+                    # Serializar a JSON para JS
+                    import json as _jser
+                    _regs_json = _jser.dumps(_hist_regs, ensure_ascii=False)
+                    _badges_json = _jser.dumps([b for b in _badges_def if b[0] in _tipos_presentes], ensure_ascii=False)
+
+                    _hist_html = f"""<style>
+body{{margin:0;padding:0;font-family:'Segoe UI',sans-serif;font-size:13px;}}
+.badge{{border-radius:99px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #cbd5e1;background:#f1f5f9;color:#0f172a;display:inline-block;}}
+.badge.active{{background:#1e2447;color:#fff;border-color:#1e2447;}}
+.reg-card{{border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;overflow:hidden;}}
+.reg-header{{padding:8px 12px;background:#f8fafc;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:12px;}}
+.reg-header:hover{{background:#f1f5f9;}}
+.reg-body{{display:none;padding:8px;}}
+.reg-body.open{{display:block;}}
+table{{width:100%;border-collapse:collapse;}}
+th{{background:#1e2447;color:#fff;padding:5px 8px;font-size:11px;}}
+th:not(:first-child){{text-align:right;}}
+</style>
+<div id="badges" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
+<div id="regs"></div>
+<script>
+var REGS={_regs_json};
+var BADGES={_badges_json};
+var filtro='';
+function fmt(n){{return '$'+Math.round(Math.abs(n)).toLocaleString('de-DE');}}
+function renderBadges(){{
+  var d=document.getElementById('badges');d.innerHTML='';
+  BADGES.forEach(function(b){{
+    var el=document.createElement('span');
+    el.className='badge'+(filtro===b[0]?' active':'');
+    el.textContent=b[1];
+    el.onclick=function(){{filtro=filtro===b[0]?'':b[0];renderBadges();renderRegs();}};
+    d.appendChild(el);
+    d.appendChild(document.createTextNode(' '));
+  }});
+}}
+function renderRegs(){{
+  var d=document.getElementById('regs');d.innerHTML='';
+  REGS.forEach(function(r,i){{
+    if(filtro&&r.tipo!==filtro)return;
+    var card=document.createElement('div');card.className='reg-card';
+    var hdr=document.createElement('div');hdr.className='reg-header';
+    hdr.innerHTML='<span>'+r.titulo+'</span><span style="font-size:10px;color:#64748b;">▼</span>';
+    var body=document.createElement('div');body.className='reg-body';
+    body.innerHTML='<table><thead><tr><th style="text-align:left">Categoría</th><th style="text-align:left">Ítem</th><th>Cant.</th><th>Presup.</th><th>Real</th><th>Adic.</th><th>Dif.</th></tr></thead><tbody>'+r.rows+'</tbody></table>'+r.footer;
+    hdr.onclick=function(){{body.classList.toggle('open');hdr.querySelector('span:last-child').textContent=body.classList.contains('open')?'▲':'▼';}};
+    card.appendChild(hdr);card.appendChild(body);d.appendChild(card);
+  }});
+}}
+renderBadges();renderRegs();
+</script>"""
+                    st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 6px;">🧾 Historial de compras</div>', unsafe_allow_html=True)
+                    _n_regs = len(_rc_existentes)
+                    _hist_comp.html(_hist_html, height=min(_n_regs*80+120, 600), scrolling=True)
                     # ── Botón PDF Balance (solo admin/root) ──
                     if _rol_actual in ('root','admin') and _rc_existentes:
                         st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
