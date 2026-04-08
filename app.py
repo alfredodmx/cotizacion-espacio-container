@@ -12495,9 +12495,9 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         # 2. No existe en presupuesto original, o
                         # 3. Existe en presupuesto PERO fue guardado explicitamente como es_adicional=True
                         #    (operador lo agregó manualmente como adicional aunque esté en presupuesto)
-                        _en_presupuesto = _it_nombre in _prods_nombres_orig
+                        # Usar flag es_adicional guardado en Supabase como fuente de verdad
                         _flag_adic = bool(_it_ad.get('es_adicional', False))
-                        _it_es_adic = _it_sin_reg or (not _en_presupuesto) or (_en_presupuesto and _flag_adic and _it_nombre not in {str(p.get('Item','')) for p in _rc_prods if not p.get('_adicional')})
+                        _it_es_adic = _it_sin_reg or _flag_adic
                         if _it_nombre and _it_es_adic and _it_nombre not in _prods_nombres:
                             # Es adicional — agregarlo con marcador especial
                             _rc_prods.append({
