@@ -813,8 +813,7 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
       <div style="padding-bottom:1px">
         <button onclick="window.addRow()" style="background:#f97316;color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer">+ Agregar</button></div>
     </div>
-    <div id="add-sin-reg" style="display:none;">
-    <div style="display:grid;grid-template-columns:1.5fr 3fr 0.8fr 1.2fr auto;gap:6px;align-items:end;width:100%;">
+    <div id="add-sin-reg" style="display:none;grid-template-columns:1.5fr 3fr 0.8fr 1.2fr auto;gap:6px;align-items:end">
       <div><div style="font-size:10px;color:#ec4899;margin-bottom:3px">Categoría *</div>
         <input id="sin-cat" type="text" placeholder="Ej: Herramientas" style="width:100%;border:1.5px solid #fbcfe8;border-radius:6px;padding:5px;font-size:12px;background:#fdf2f8"/></div>
       <div><div style="font-size:10px;color:#ec4899;margin-bottom:3px">Nombre del ítem *</div>
@@ -825,7 +824,7 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
         <input id="sin-precio" type="text" inputmode="numeric" placeholder="$0" style="width:100%;border:1.5px solid #fbcfe8;border-radius:6px;padding:5px;font-size:12px;text-align:right;background:#fdf2f8"/></div>
       <div style="padding-bottom:1px">
         <button onclick="window.addRowSinReg()" style="background:#ec4899;color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer">+ Agregar</button></div>
-    </div></div>
+    </div>
   </div>
   <div id="save-section" style="padding:12px 16px;background:#1e2447;border-top:2px solid #e2e8f0;flex-shrink:0">
     <div style="font-size:11px;font-weight:700;color:#fff;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">📎 Adjuntar Factura y Guardar</div>
@@ -1025,7 +1024,7 @@ window.switchAddTab=function(tab){{
     tbReg.style.cssText="font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid #f97316;background:#fff7ed;color:#f97316;cursor:pointer";
     tbSin.style.cssText="font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid #e2e8f0;background:#fff;color:#94a3b8;cursor:pointer";
   }}else{{
-    reg.style.display="none";sin.style.display="block";
+    reg.style.display="none";sin.style.display="grid";
     tbSin.style.cssText="font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid #ec4899;background:#fdf2f8;color:#ec4899;cursor:pointer";
     tbReg.style.cssText="font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid #e2e8f0;background:#fff;color:#94a3b8;cursor:pointer";
   }}
