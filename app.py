@@ -12477,7 +12477,9 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
 
                 # Agregar adicionales de registros anteriores a _rc_prods
                 import json as _jadic
-                _prods_nombres = {str(p.get('Item','')) for p in _rc_prods}
+                # Usar presupuesto SIN Varios para detectar adicionales (independiente del rol)
+                _prods_sin_varios = [p for p in _rc_prods_raw if str(p.get('Categoria','')).strip().lower() != 'varios']
+                _prods_nombres = {str(p.get('Item','')) for p in _prods_sin_varios}
                 for _reg_ad in _rc_existentes:
                     _items_ad = _reg_ad.get('items') or []
                     if isinstance(_items_ad, str):
