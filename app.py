@@ -12320,8 +12320,12 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                 if isinstance(_rc_prods_raw, str):
                     try: _rc_prods_raw = _jrc.loads(_rc_prods_raw)
                     except: _rc_prods_raw = []
-                _rc_prods = [p for p in _rc_prods_raw
-                             if str(p.get('Categoria','')).strip().lower() != 'varios']
+                # Admin/root ven 'Varios', operacion no
+                if _rol_actual in ('root', 'admin'):
+                    _rc_prods = list(_rc_prods_raw)
+                else:
+                    _rc_prods = [p for p in _rc_prods_raw
+                                 if str(p.get('Categoria','')).strip().lower() != 'varios']
 
                 # Mostrar registros existentes
                 _rc_existentes = obtener_registros_compra(_rc_ep)
