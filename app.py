@@ -12490,9 +12490,14 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         _it_sin_reg = _it_ad.get('sin_registro', False)
                         # Es adicional si: tiene flag es_adicional, es sin_registro,
                         # O simplemente no existe en el presupuesto original
-                        # Adicional: sin_registro OR no existe en presupuesto original
-                        # Si existe en presupuesto, NO es adicional (pertenece al presupuesto)
-                        _it_es_adic = _it_sin_reg or _it_nombre not in _prods_nombres_orig
+                        # Adicional si:
+                        # 1. Es sin_registro, o
+                        # 2. No existe en presupuesto original, o
+                        # 3. Existe en presupuesto PERO fue guardado explicitamente como es_adicional=True
+                        #    (operador lo agregó manualmente como adicional aunque esté en presupuesto)
+                        _en_presupuesto = _it_nombre in _prods_nombres_orig
+                        _flag_adic = bool(_it_ad.get('es_adicional', False))
+                        _it_es_adic = _it_sin_reg or (not _en_presupuesto) or (_en_presupuesto and _flag_adic and _it_nombre not in {str(p.get('Item','')) for p in _rc_prods if not p.get('_adicional')})
                         if _it_nombre and _it_es_adic and _it_nombre not in _prods_nombres:
                             # Es adicional — agregarlo con marcador especial
                             _rc_prods.append({
@@ -12514,7 +12519,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                             try: _its2=_jbadge.loads(_its2)
                             except: _its2=[]
                         _sn = any(i.get('sin_registro') for i in _its2)
-                        _cn = any(not i.get('sin_registro') and str(i.get('item','')) not in _pn_set for i in _its2 if i.get('item'))
+                        _cn = any(i.get('es_adicional') and not i.get('sin_registro') for i in _its2)
                         _nm = any(str(i.get('item','')) in _pn_set for i in _its2 if i.get('item'))
                         parts = []
                         if _nm: parts.append('normal')
@@ -12548,7 +12553,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                             except: _rce_items_h = []
                         _rce_tipo_k = _tipo_reg(_rce)
                         _tiene_sin = any(i.get('sin_registro') for i in _rce_items_h)
-                        _tiene_con = any(not i.get('sin_registro') and str(i.get('item','')) not in _pn_set for i in _rce_items_h if i.get('item'))
+                        _tiene_con = any(i.get('es_adicional') and not i.get('sin_registro') for i in _rce_items_h)
                         if _tiene_sin and _tiene_con: _rce_prefix = '🟠 ⚪ '
                         elif _tiene_sin: _rce_prefix = '⚪ '
                         elif _tiene_con: _rce_prefix = '🟠 '
