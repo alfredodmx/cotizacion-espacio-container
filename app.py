@@ -1061,20 +1061,21 @@ window.guardarRegistro=async function(){{
   }});
 
   // Recopilar items a guardar:
-  // - Adicionales (idx >= 10000): siempre incluir si tienen precio real > 0
-  // - Presupuesto (idx < 10000): solo si NO tienen readonly (no comprados antes)
+  // - Adicionales (idx >= 10000): incluir si tienen precio real > 0
+  // - Presupuesto (idx < 10000): excluir si tienen readonly O si están en itemsYaComprados
   var items=[];
   document.querySelectorAll("tr[data-idx]").forEach(function(r){{
     var idx=parseInt(r.dataset.idx)||0;
     var inp=r.querySelector(".rc-real");
-    // Para ítems del presupuesto, excluir cualquiera con readonly
-    if(idx < 10000 && inp.hasAttribute("readonly")) return;
-    if(idx < 10000 && inp.readOnly) return;
-    // Leer valor actual del input (no data-val que puede ser residual)
-    var rawVal=inp.value.replace(/[^0-9]/g,'');
-    var re=rawVal?parseInt(rawVal):0;
-    if(re<=0) return;  // sin precio real, ignorar siempre
-    // Adicionales (idx >= 10000) pasan siempre si tienen precio real > 0
+    if(idx < 10000) {{
+      // Es ítem del presupuesto — excluir si readonly o ya comprado
+      if(inp.hasAttribute("readonly") || inp.readOnly) return;
+      var itemNombre=r.cells[1]?r.cells[1].textContent.trim():"";
+      if(itemsYaComprados.indexOf(itemNombre)>-1) return;
+    }}
+    // Solo adicionales llegan aquí sin pasar los filtros anteriores
+    var re=parseFloat(inp.dataset.val)||0;
+    if(re<=0) return;
     var pu=+r.dataset.pu||0;
     var c=+r.dataset.cant||1;
     var ad=+r.querySelector(".rc-adic").value||0;
