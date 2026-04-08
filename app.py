@@ -718,7 +718,8 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
         vreal_fmt = ('$' + f'{int(vreal):,}'.replace(',', '.')) if vreal else ''
 
         _dc_attr = 'data-comprado="1"' if _ya_comprado else ""
-        rows += f"""<tr style="background:{bg};border-bottom:1px solid #eef0f6" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}" {_dc_attr}>
+        _da_attr = 'data-adicional="1"' if _es_adicional else ""
+        rows += f"""<tr style="background:{bg};border-bottom:1px solid #eef0f6" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}" {_dc_attr} {_da_attr}>
 <td style="padding:5px 8px;font-size:.75rem;color:#64748b">{cat}</td>
 <td style="padding:5px 8px;font-size:.82rem">{item}</td>
 <td style="padding:5px 8px;text-align:right">{cant}</td>
@@ -927,9 +928,9 @@ function calc(){{
     var td=r.querySelector(".rc-dif");
     td.textContent=f(d)+(d>=0?" \u25BC":" \u25B2");
     td.style.color=d>=0?"#16a34a":"#dc2626";
-    var isAdic=(parseInt(r.dataset.idx)||0)>=10000||r.dataset.comprado==="1"&&r.style.background.indexOf('fff3e0')>-1;
+    var isAdic=r.dataset.adicional==="1";  // Detectar por atributo data-adicional
     if(isAdic){{tA+=re*c;}}  // Adicionales: informativo
-    if(!isAdic){{tP+=pu*c;}} // Presupuestado: solo ítems del presupuesto
+    else{{tP+=pu*c;}}        // Presupuestado: solo ítems del presupuesto
     tR+=re*c+ad*re;          // Real: incluye todo (presupuesto + adicionales)
     vals.push({{idx:+r.dataset.idx,real:re,adic:ad,dif:d}});
   }});
