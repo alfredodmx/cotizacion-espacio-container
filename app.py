@@ -12477,6 +12477,8 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
 
                 # Agregar adicionales de registros anteriores a _rc_prods
                 import json as _jadic
+                # Usar _rc_prods_raw (presupuesto original completo) para detectar adicionales
+                _prods_nombres_orig = {str(p.get('Item','')) for p in _rc_prods_raw}
                 _prods_nombres = {str(p.get('Item','')) for p in _rc_prods}
                 for _reg_ad in _rc_existentes:
                     _items_ad = _reg_ad.get('items') or []
@@ -12486,8 +12488,11 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                     for _it_ad in _items_ad:
                         _it_nombre = str(_it_ad.get('item',''))
                         _it_sin_reg = _it_ad.get('sin_registro', False)
-                        _it_es_adic = _it_ad.get('es_adicional', False) or _it_sin_reg
-                        # Agregar si tiene flag es_adicional/sin_registro Y no está ya en tabla
+                        # Es adicional si: tiene flag es_adicional, es sin_registro,
+                        # O simplemente no existe en el presupuesto original
+                        _it_es_adic = (_it_ad.get('es_adicional', False) or
+                                       _it_sin_reg or
+                                       _it_nombre not in _prods_nombres_orig)
                         if _it_nombre and _it_es_adic and _it_nombre not in _prods_nombres:
                             # Es adicional — agregarlo con marcador especial
                             _rc_prods.append({
