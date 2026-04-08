@@ -12734,7 +12734,8 @@ window.addEventListener("message",function(e){{
                 if _rol_actual in ('root', 'admin'):
                     _modo_admin_rc = st.toggle('👁️ Modo Admin (incluye Varios)', key=f'rc_modo_admin_{_rc_ep}')
                     if not _modo_admin_rc:
-                        _rc_prods = [p for p in _rc_prods if str(p.get('Categoria','')).strip().lower() != 'varios']
+                        # Filtrar Varios del presupuesto pero NO los adicionales con registro
+                        _rc_prods = [p for p in _rc_prods if str(p.get('Categoria','')).strip().lower() != 'varios' or p.get('_adicional')]
                 else:
                     _modo_admin_rc = False
                 if not _rc_prods:
