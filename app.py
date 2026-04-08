@@ -16193,4 +16193,4 @@ if tab_notif is not None and st.session_state.get('es_supervisor'):
                 if st.button("💾 Guardar mensajes", key="btn_guardar_msgs", type="primary", use_container_width=True):
                     for _mk, _mv in _msgs_nuevos.items():
                         _set_notif_config(_mk, _mv)
-                    st.success("✅ Mensajes guardados2")
+                    st.success("✅ Mensajes guardados")
