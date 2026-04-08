@@ -12362,8 +12362,19 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                             str(it.get('item','')) not in _rce_prods_nombres
                             for it in _rce_items_check if it.get('item')
                         )
-                        _rce_prefix = '🟠 ' if _rce_tiene_adic else ''
-                        _rce_adic_txt = ' · ➕ Compra adicional' if _rce_tiene_adic else ''
+                        # Detectar tipo de registro
+                        _rce_tiene_sin_reg = any(_it.get('sin_registro', False) for _it in _rce_items_check)
+                        _rce_tiene_con_reg = _rce_tiene_adic and not _rce_tiene_sin_reg
+                        _rce_solo_normal   = not _rce_tiene_adic and not _rce_tiene_sin_reg
+                        if _rce_tiene_sin_reg and _rce_tiene_adic:
+                            _rce_prefix = '🟠 ⚪ '
+                        elif _rce_tiene_sin_reg:
+                            _rce_prefix = '⚪ '
+                        elif _rce_tiene_adic:
+                            _rce_prefix = '🟠 '
+                        else:
+                            _rce_prefix = '🟢 '
+                        _rce_adic_txt = ' · ➕ Compra adicional' if _rce_tiene_adic else (' · ⚪ Sin registro' if _rce_tiene_sin_reg else '')
                         _rce_titulo = f"{_rce_prefix}🏪 Compraste en: {_rce_lugar}{_rce_adic_txt} — {_rce_icon} {_rce_lbl} {_rce_fmt}" if _rce_lugar else f"{_rce_prefix}🧾 {_rce.get('factura_nombre','Sin factura')}{_rce_adic_txt} — {_rce_icon} {_rce_lbl} {_rce_fmt}"
                         with st.expander(_rce_titulo):
                             _rce_items = _rce.get('items') or []
