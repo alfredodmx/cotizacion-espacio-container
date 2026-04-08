@@ -1694,7 +1694,7 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
 
     header_data = [[
         _logo_cell,
-        Paragraph(f"<b>BALANCE DE COMPRAS{" (CON VARIOS)" if incluir_varios else ""}</b>", styles['BTitle']),
+        Paragraph("<b>BALANCE DE COMPRAS" + (" (CON VARIOS)" if incluir_varios else "") + "</b>", styles['BTitle']),
         Paragraph(f"Generado: {now_str}", styles['BSmall'])
     ]]
     header_tbl = Table(header_data, colWidths=[4.5*cm, 9*cm, 4*cm])
