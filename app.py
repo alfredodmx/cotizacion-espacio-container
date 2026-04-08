@@ -12358,13 +12358,13 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                             try: _rce_items_check = _jrce_ad.loads(_rce_items_check)
                             except: _rce_items_check = []
                         _rce_prods_nombres = {str(p.get('Item','')) for p in _rc_prods_raw}
-                        _rce_tiene_adic = any(
-                            str(it.get('item','')) not in _rce_prods_nombres
-                            for it in _rce_items_check if it.get('item')
-                        )
                         # Detectar tipo de registro
                         _rce_tiene_sin_reg = any(_it.get('sin_registro', False) for _it in _rce_items_check)
-                        _rce_tiene_con_reg = _rce_tiene_adic and not _rce_tiene_sin_reg
+                        _rce_tiene_adic = any(
+                            str(it.get('item','')) not in _rce_prods_nombres
+                            and not it.get('sin_registro', False)
+                            for it in _rce_items_check if it.get('item')
+                        )
                         _rce_solo_normal   = not _rce_tiene_adic and not _rce_tiene_sin_reg
                         if _rce_tiene_sin_reg and _rce_tiene_adic:
                             _rce_prefix = '🟠 ⚪ '
