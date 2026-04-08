@@ -1460,7 +1460,8 @@ def calcular_totales_rc(productos_presupuesto, registros, incluir_varios=False):
         c  = data['cant']
         ad = data['adic']
         isSinReg = data['sin_registro']
-        isAdic   = (data['es_adicional'] or nombre not in _pn) and not isSinReg
+        # Clasificar SOLO por presencia en presupuesto — ignorar es_adicional guardado
+        isAdic   = (nombre not in _pn) and not isSinReg
 
         if isSinReg:
             tS += re * c
