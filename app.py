@@ -12392,18 +12392,21 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         if _sn: parts.append('sin')
                         return '_'.join(parts) if parts else 'normal'
                     _tipos_presentes = {_tipo_reg(r) for r in _rc_existentes}
-                    _badges_html = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px;">'
+                    import streamlit.components.v1 as _hist_comp
+                    _badges_html = '<style>body{margin:0;padding:0;font-family:sans-serif;}</style>'
+                    _badges_html += '<div style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0;">'
                     for _bk, _bl in _badges_def:
                         if _bk not in _tipos_presentes: continue
                         _bactive = _hist_filtro == _bk
-                        _bbg = '#f1f5f9' if not _bactive else '#1e2447'
-                        _bcolor = '#0f172a' if not _bactive else '#fff'
-                        _bborder = '#cbd5e1' if not _bactive else '#1e2447'
-                        _onclick = f"var u=new URL(window.parent.location.href);u.searchParams.set('hist_filtro_rc','{_bk if not _bactive else ''}');window.parent.history.replaceState({{}},'',u);window.parent.dispatchEvent(new PopStateEvent('popstate'));"
-                        _badges_html += f'<span onclick="{_onclick}" style="background:{_bbg};color:{_bcolor};border:1px solid {_bborder};border-radius:99px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;">{_bl}</span>'
+                        _bbg = '#1e2447' if _bactive else '#f1f5f9'
+                        _bcolor = '#fff' if _bactive else '#0f172a'
+                        _bborder = '#1e2447' if _bactive else '#cbd5e1'
+                        _val = '' if _bactive else _bk
+                        _onclick_b = f"var u=new URL(window.parent.location.href);u.searchParams.set('hist_filtro_rc','{_val}');window.parent.history.replaceState({{}},'',u);window.parent.dispatchEvent(new PopStateEvent('popstate'));"
+                        _badges_html += f'<span onclick="{_onclick_b}" style="background:{_bbg};color:{_bcolor};border:1px solid {_bborder};border-radius:99px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;">{_bl}</span>'
                     _badges_html += '</div>'
                     st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 4px;">🧾 Historial de compras</div>', unsafe_allow_html=True)
-                    st.markdown(_badges_html, unsafe_allow_html=True)
+                    _hist_comp.html(_badges_html, height=50, scrolling=False)
                     for _rce in _rc_existentes:
                         if _hist_filtro and _tipo_reg(_rce) != _hist_filtro: continue
                         _rce_bal = float(_rce.get('balance',0) or 0)
