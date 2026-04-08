@@ -12495,10 +12495,12 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         # 2. No existe en presupuesto original, o
                         # 3. Existe en presupuesto PERO fue guardado explicitamente como es_adicional=True
                         #    (operador lo agregó manualmente como adicional aunque esté en presupuesto)
-                        # Usar flag es_adicional guardado en Supabase como fuente de verdad
+                        # Flag es_adicional es la fuente de verdad
                         _flag_adic = bool(_it_ad.get('es_adicional', False))
                         _it_es_adic = _it_sin_reg or _flag_adic
-                        if _it_nombre and _it_es_adic and _it_nombre not in _prods_nombres:
+                        # Usar ID único (nombre+registro_id) para evitar duplicados reales
+                        _it_uid = f"{_it_nombre}||{_reg_ad.get('id','')}"
+                        if _it_nombre and _it_es_adic and _it_uid not in _prods_nombres:
                             # Es adicional — agregarlo con marcador especial
                             _rc_prods.append({
                                 'Categoria': str(_it_ad.get('categoria','')),
@@ -12508,7 +12510,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                                 '_adicional': True,
                                 '_sin_registro': _it_sin_reg
                             })
-                            _prods_nombres.add(_it_nombre)
+                            _prods_nombres.add(_it_uid)
                 if _rc_existentes:
                     import json as _jbadge, streamlit.components.v1 as _hist_comp
                     _pn_set = {str(p.get('Item','')) for p in _rc_prods_raw}
