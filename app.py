@@ -12402,7 +12402,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         _bcolor = '#fff' if _bactive else '#0f172a'
                         _bborder = '#1e2447' if _bactive else '#cbd5e1'
                         _val = '' if _bactive else _bk
-                        _onclick_b = f"var u=new URL(window.parent.location.href);u.searchParams.set('hist_filtro_rc','{_val}');window.parent.history.replaceState({{}},'',u);window.parent.dispatchEvent(new PopStateEvent('popstate'));"
+                        _onclick_b = f"var h=window.parent.location.href;var s=h.indexOf('?');var base=s>=0?h.substring(0,s):h;var q=s>=0?h.substring(s+1):'';var ps=q.split('&').filter(function(p){{return p.indexOf('hist_filtro_rc=')<0;}});ps.push('hist_filtro_rc={_val}');window.parent.history.replaceState({{}},'',base+'?'+ps.join('&'));window.parent.dispatchEvent(new PopStateEvent('popstate'));"
                         _badges_html += f'<span onclick="{_onclick_b}" style="background:{_bbg};color:{_bcolor};border:1px solid {_bborder};border-radius:99px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;">{_bl}</span>'
                     _badges_html += '</div>'
                     st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 4px;">🧾 Historial de compras</div>', unsafe_allow_html=True)
