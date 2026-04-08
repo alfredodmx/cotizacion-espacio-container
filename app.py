@@ -927,8 +927,10 @@ function calc(){{
     var td=r.querySelector(".rc-dif");
     td.textContent=f(d)+(d>=0?" \u25BC":" \u25B2");
     td.style.color=d>=0?"#16a34a":"#dc2626";
-    var isAdic=(parseInt(r.dataset.idx)||0)>=10000||r.style.background.indexOf('255, 243, 224')>-1||r.dataset.comprado==="1"&&r.style.background.indexOf('fff3e0')>-1;
-    if(isAdic){{tA+=re*c;}}else{{tP+=pu*c;tR+=re*c+ad*re;}}
+    var isAdic=(parseInt(r.dataset.idx)||0)>=10000||r.dataset.comprado==="1"&&r.style.background.indexOf('fff3e0')>-1;
+    if(isAdic){{tA+=re*c;}}  // Adicionales: informativo
+    if(!isAdic){{tP+=pu*c;}} // Presupuestado: solo ítems del presupuesto
+    tR+=re*c+ad*re;          // Real: incluye todo (presupuesto + adicionales)
     vals.push({{idx:+r.dataset.idx,real:re,adic:ad,dif:d}});
   }});
   var iP=tP*.19,iR=tR*.19,b=tP-tR,ib=iP-iR;
