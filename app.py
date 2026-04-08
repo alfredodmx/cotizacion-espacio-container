@@ -1157,11 +1157,12 @@ window.guardarRegistro=async function(){{
     var re=parseFloat(inp.dataset.val)||0;
     if(re<=0) return;
     if(idx >= 10000) {{
-      // Adicional nuevo agregado en esta sesión — siempre incluir
+      // Adicional nuevo — siempre incluir si tiene precio
     }} else {{
-      // Ítem del presupuesto o adicional ya guardado (idx < 10000)
-      // Excluir si ya comprado o ya en Supabase
+      // Ítem presupuesto (idx < 10000): excluir si ya comprado
       if(r.dataset.comprado==="1") return;
+      // Excluir si el input está vacío visualmente (valor residual del DOM)
+      if(!inp.value||inp.value.trim()==="") return;
       var itemNombre=r.cells[1]?r.cells[1].textContent.trim():"";
       if(itemsYaComprados.indexOf(itemNombre)>-1) return;
     }}
