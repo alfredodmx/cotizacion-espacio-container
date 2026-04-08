@@ -1456,20 +1456,15 @@ def generar_excel_balance(cotizacion_numero, registros, productos_presupuesto):
         ws.column_dimensions[get_column_letter(col)].width = w
     ws.row_dimensions[1].height = 30
 
-    # Consolidar ítems — último precio real por ítem
+    # Consolidar ítems
     items_consolidados = {}
+    adicionales_con = []  # adicionales con registro
+    adicionales_sin = []  # adicionales sin registro
     prods_valid = [p for p in (productos_presupuesto or [])
                    if str(p.get('Categoria','')).strip().lower() != 'varios']
+    _pn_xls = {str(p.get('Item','')) for p in prods_valid}
 
-    # Construir mapa presupuesto
-    presup_map = {}
-    for p in prods_valid:
-        presup_map[str(p.get('Item',''))] = {
-            'categoria': str(p.get('Categoria','')),
-            'precio_presupuesto': round(float(p.get('Precio Unitario', 0) or 0))
-        }
-
-    # Recorrer registros y tomar último precio real por ítem
+    # Recorrer registros
     for reg in registros:
         items_r = reg.get('items') or []
         if isinstance(items_r, str):
@@ -1479,13 +1474,23 @@ def generar_excel_balance(cotizacion_numero, registros, productos_presupuesto):
             nombre = str(it.get('item',''))
             real   = float(it.get('precio_real', 0) or 0)
             if real > 0 and nombre:
-                items_consolidados[nombre] = {
-                    'categoria': it.get('categoria',''),
-                    'precio_presupuesto': float(it.get('precio_presupuestado', 0) or 0),
-                    'precio_real': real,
-                }
+                if it.get('sin_registro'):
+                    if not any(a['nombre']==nombre for a in adicionales_sin):
+                        adicionales_sin.append({'nombre':nombre,'cat':it.get('categoria',''),'real':real})
+                elif nombre not in _pn_xls or it.get('es_adicional'):
+                    if not any(a['nombre']==nombre for a in adicionales_con):
+                        adicionales_con.append({'nombre':nombre,'cat':it.get('categoria',''),'real':real,'pp':float(it.get('precio_presupuestado',0) or 0)})
+                else:
+                    items_consolidados[nombre] = {
+                        'categoria': it.get('categoria',''),
+                        'precio_presupuesto': float(it.get('precio_presupuestado', 0) or 0),
+                        'precio_real': real,
+                    }
 
-    # Escribir filas — todos los items del presupuesto
+    naranja = "fff3e0"; rosa = "fdf2f8"
+    naranja_txt = "c2410c"; rosa_txt = "9d174d"
+
+    # Escribir filas presupuesto
     row = 2
     for p in prods_valid:
         nombre = str(p.get('Item',''))
@@ -1493,35 +1498,68 @@ def generar_excel_balance(cotizacion_numero, registros, productos_presupuesto):
         pp     = round(float(p.get('Precio Unitario', 0) or 0))
         pr     = items_consolidados.get(nombre, {}).get('precio_real', 0)
         dif    = pp - pr if pr > 0 else None
-
         bg = verde_claro if (dif is not None and dif >= 0 and pr > 0) else (rojo_claro if (dif is not None and dif < 0) else gris_claro)
         fill = PatternFill("solid", fgColor=bg)
-
         ws.cell(row=row, column=1, value=cat).font = normal_font
         ws.cell(row=row, column=2, value=nombre).font = normal_font
         ws.cell(row=row, column=3, value=pp).font = normal_font
         ws.cell(row=row, column=4, value=pr if pr > 0 else "").font = bold_font if pr > 0 else normal_font
         ws.cell(row=row, column=5, value=dif if dif is not None else "").font = bold_font
-
         for col in range(1, 6):
             c = ws.cell(row=row, column=col)
-            c.border = thin_border
-            c.fill = fill
+            c.border = thin_border; c.fill = fill
             c.alignment = Alignment(horizontal="left" if col <= 2 else "right", vertical="center")
-
         row += 1
 
-    # Fila de totales
-    ws.cell(row=row, column=1, value="TOTAL PRESUPUESTADO").font = Font(name="Arial", bold=True, size=9, color="FFFFFF")
-    ws.cell(row=row, column=1).fill = PatternFill("solid", fgColor=azul_oscuro)
+    # Fila total presupuesto
     total_pp = sum(round(float(p.get('Precio Unitario',0) or 0)) for p in prods_valid)
     total_pr = sum(v['precio_real'] for v in items_consolidados.values())
-    ws.cell(row=row, column=3, value=total_pp).font = Font(name="Arial", bold=True, size=9, color="FFFFFF")
-    ws.cell(row=row, column=3).fill = PatternFill("solid", fgColor=azul_oscuro)
-    ws.cell(row=row, column=4, value=total_pr).font = Font(name="Arial", bold=True, size=9, color="FFFFFF")
-    ws.cell(row=row, column=4).fill = PatternFill("solid", fgColor=azul_oscuro)
-    ws.cell(row=row, column=5, value=total_pp-total_pr).font = Font(name="Arial", bold=True, size=9, color="FFFFFF")
-    ws.cell(row=row, column=5).fill = PatternFill("solid", fgColor=azul_oscuro)
+    for col, val in [(1,'TOTAL PRESUPUESTO'),(3,total_pp),(4,total_pr),(5,total_pp-total_pr)]:
+        c = ws.cell(row=row, column=col, value=val)
+        c.font = Font(name="Arial", bold=True, size=9, color="FFFFFF")
+        c.fill = PatternFill("solid", fgColor=azul_oscuro)
+        c.border = thin_border
+        c.alignment = Alignment(horizontal="left" if col==1 else "right", vertical="center")
+    row += 1
+
+    # Filas adicionales con registro
+    if adicionales_con:
+        ws.cell(row=row, column=1, value="➕ ADICIONALES CON REGISTRO").font = Font(name="Arial", bold=True, size=9, color=naranja_txt)
+        ws.cell(row=row, column=1).fill = PatternFill("solid", fgColor=naranja)
+        for col in range(1, 6):
+            ws.cell(row=row, column=col).fill = PatternFill("solid", fgColor=naranja)
+            ws.cell(row=row, column=col).border = thin_border
+        row += 1
+        for a in adicionales_con:
+            ws.cell(row=row, column=1, value=a['cat']).font = Font(name="Arial", size=9, color=naranja_txt)
+            ws.cell(row=row, column=2, value=a['nombre']).font = Font(name="Arial", size=9, color=naranja_txt)
+            ws.cell(row=row, column=3, value="—").font = normal_font
+            ws.cell(row=row, column=4, value=a['real']).font = Font(name="Arial", bold=True, size=9, color=naranja_txt)
+            ws.cell(row=row, column=5, value="—").font = normal_font
+            for col in range(1, 6):
+                ws.cell(row=row, column=col).fill = PatternFill("solid", fgColor=naranja)
+                ws.cell(row=row, column=col).border = thin_border
+                ws.cell(row=row, column=col).alignment = Alignment(horizontal="left" if col <= 2 else "right", vertical="center")
+            row += 1
+
+    # Filas adicionales sin registro
+    if adicionales_sin:
+        ws.cell(row=row, column=1, value="⚪ ADICIONALES SIN REGISTRO").font = Font(name="Arial", bold=True, size=9, color=rosa_txt)
+        for col in range(1, 6):
+            ws.cell(row=row, column=col).fill = PatternFill("solid", fgColor=rosa)
+            ws.cell(row=row, column=col).border = thin_border
+        row += 1
+        for a in adicionales_sin:
+            ws.cell(row=row, column=1, value=a['cat']).font = Font(name="Arial", size=9, color=rosa_txt)
+            ws.cell(row=row, column=2, value=a['nombre']).font = Font(name="Arial", size=9, color=rosa_txt)
+            ws.cell(row=row, column=3, value="—").font = normal_font
+            ws.cell(row=row, column=4, value=a['real']).font = Font(name="Arial", bold=True, size=9, color=rosa_txt)
+            ws.cell(row=row, column=5, value="—").font = normal_font
+            for col in range(1, 6):
+                ws.cell(row=row, column=col).fill = PatternFill("solid", fgColor=rosa)
+                ws.cell(row=row, column=col).border = thin_border
+                ws.cell(row=row, column=col).alignment = Alignment(horizontal="left" if col <= 2 else "right", vertical="center")
+            row += 1
 
     # Freeze headers
     ws.freeze_panes = "A2"
@@ -1707,30 +1745,37 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
 
         if items_r:
             rows = [tbl_header]
-            sub_p = 0; sub_r = 0
+            row_types = ['header']  # track tipo por fila
+            sub_p = 0; sub_r = 0; sub_a = 0; sub_s = 0
+            _pn_pdf = {str(p.get('Item','')) for p in (productos_presupuesto or [])}
             for it in items_r:
                 pp   = float(it.get('precio_presupuestado',0) or 0)
                 pr   = float(it.get('precio_real',0) or 0)
                 cant = float(it.get('cantidad',1) or 1)
                 adic = int(it.get('adicional',0) or 0)
                 dif  = (pp - pr) * cant - (adic * pr)
-                sub_p += pp * cant
-                sub_r += pr * cant + adic * pr
+                _is_sin = it.get('sin_registro', False)
+                _is_con = (it.get('es_adicional', False) or str(it.get('item','')) not in _pn_pdf) and not _is_sin
+                if _is_sin:   sub_s += pr * cant
+                elif _is_con: sub_a += pr * cant
+                else:         sub_p += pp * cant; sub_r += pr * cant + adic * pr
                 dif_str = f"${abs(dif):,.0f} {'▼' if dif>=0 else '▲'}".replace(',','.')
-                rows.append([
-                    it.get('categoria',''), it.get('item',''), str(int(cant)),
+                rows.append([it.get('categoria',''), it.get('item',''), str(int(cant)),
                     f"${pp:,.0f}".replace(',','.'), f"${pr:,.0f}".replace(',','.'),
-                    str(adic), dif_str
-                ])
-            # Fila subtotales
+                    str(adic), dif_str])
+                row_types.append('sin' if _is_sin else ('con' if _is_con else 'normal'))
+            # Fila subtotales presupuesto
             bal_r = sub_p - sub_r
-            rows.append([
-                '', 'SUBTOTAL', '',
-                f"${sub_p:,.0f}".replace(',','.'),
-                f"${sub_r:,.0f}".replace(',','.'),
-                '',
-                f"${abs(bal_r):,.0f} {'▼' if bal_r>=0 else '▲'}".replace(',','.')
-            ])
+            rows.append(['','SUBTOTAL PRESUPUESTO','',f"${sub_p:,.0f}".replace(',','.'),f"${sub_r:,.0f}".replace(',','.'), '',f"${abs(bal_r):,.0f} {'▼' if bal_r>=0 else '▲'}".replace(',','.')])
+            row_types.append('subtotal')
+            # Fila adicionales con registro
+            if sub_a > 0:
+                rows.append(['','➕ ADICIONALES CON REGISTRO','','—',f"${sub_a:,.0f}".replace(',','.'), '',''])
+                row_types.append('subtotal_con')
+            # Fila adicionales sin registro
+            if sub_s > 0:
+                rows.append(['','⚪ ADICIONALES SIN REGISTRO','','—',f"${sub_s:,.0f}".replace(',','.'), '',''])
+                row_types.append('subtotal_sin')
             tbl = Table(rows, colWidths=col_ws, repeatRows=1)
             n = len(rows)
             tbl_style = [
@@ -1741,15 +1786,30 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
                 ('ALIGN',(2,0),(-1,-1), 'RIGHT'),
                 ('ALIGN',(0,0),(1,-1), 'LEFT'),
                 ('GRID',(0,0),(-1,-1), 0.3, colors.HexColor('#e2e8f0')),
-                ('BACKGROUND',(0,n-1),(-1,n-1), colors.HexColor('#f1f5f9')),
-                ('FONTNAME',(0,n-1),(-1,n-1), 'Helvetica-Bold'),
                 ('TOPPADDING',(0,0),(-1,-1), 3),
                 ('BOTTOMPADDING',(0,0),(-1,-1), 3),
             ]
-            # Colorear diferencias
-            for ri, row in enumerate(rows[1:], 1):
-                if row[6]:
-                    is_ahorro = '▼' in row[6]
+            # Colorear filas según tipo
+            for ri, rtype in enumerate(row_types):
+                if rtype == 'con':
+                    tbl_style.append(('BACKGROUND',(0,ri),(-1,ri), colors.HexColor('#fff7ed')))
+                    tbl_style.append(('TEXTCOLOR',(0,ri),(1,ri), colors.HexColor('#c2410c')))
+                elif rtype == 'sin':
+                    tbl_style.append(('BACKGROUND',(0,ri),(-1,ri), colors.HexColor('#fdf2f8')))
+                    tbl_style.append(('TEXTCOLOR',(0,ri),(1,ri), colors.HexColor('#9d174d')))
+                elif rtype == 'subtotal':
+                    tbl_style.append(('BACKGROUND',(0,ri),(-1,ri), colors.HexColor('#f1f5f9')))
+                    tbl_style.append(('FONTNAME',(0,ri),(-1,ri), 'Helvetica-Bold'))
+                elif rtype == 'subtotal_con':
+                    tbl_style.append(('BACKGROUND',(0,ri),(-1,ri), colors.HexColor('#fff3e0')))
+                    tbl_style.append(('FONTNAME',(0,ri),(-1,ri), 'Helvetica-Bold'))
+                    tbl_style.append(('TEXTCOLOR',(0,ri),(-1,ri), colors.HexColor('#c2410c')))
+                elif rtype == 'subtotal_sin':
+                    tbl_style.append(('BACKGROUND',(0,ri),(-1,ri), colors.HexColor('#fdf2f8')))
+                    tbl_style.append(('FONTNAME',(0,ri),(-1,ri), 'Helvetica-Bold'))
+                    tbl_style.append(('TEXTCOLOR',(0,ri),(-1,ri), colors.HexColor('#9d174d')))
+                if ri > 0 and row_types[ri] not in ('subtotal','subtotal_con','subtotal_sin') and len(rows[ri]) > 6 and rows[ri][6]:
+                    is_ahorro = '▼' in rows[ri][6]
                     tbl_style.append(('TEXTCOLOR',(6,ri),(6,ri), col_verde if is_ahorro else col_rojo))
             tbl.setStyle(TableStyle(tbl_style))
             elements.append(tbl)
@@ -1784,13 +1844,28 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
 
     def _fmt(v): return f"${abs(v):,.0f}".replace(',','.')
 
+    # Calcular totales adicionales
+    total_adic_con = 0; total_adic_sin = 0
+    _pn_res = {str(p.get('Item','')) for p in prods_valid}
+    for reg in registros:
+        _its_res = reg.get('items') or []
+        if isinstance(_its_res, str):
+            try: _its_res = json.loads(_its_res)
+            except: _its_res = []
+        for it in _its_res:
+            pr = float(it.get('precio_real',0) or 0)
+            cant = float(it.get('cantidad',1) or 1)
+            if it.get('sin_registro'): total_adic_sin += pr * cant
+            elif it.get('es_adicional') or str(it.get('item','')) not in _pn_res: total_adic_con += pr * cant
+    iva_adic_con = total_adic_con * 0.19; iva_adic_sin = total_adic_sin * 0.19
+
     resumen_rows = [
-        ['', 'PRESUPUESTADO', 'REAL', 'BALANCE'],
-        ['Subtotal neto', _fmt(total_p), _fmt(total_r), _fmt(bal)],
-        ['IVA (19%)',     _fmt(iva_p),   _fmt(iva_r),   _fmt(iva_bal)],
-        ['Total con IVA', _fmt(total_p+iva_p), _fmt(total_r+iva_r), _fmt(bal+iva_bal)],
+        ['', 'PRESUPUESTADO', 'REAL', 'BALANCE', '➕ ADIC. C/REG.', '⚪ ADIC. S/REG.'],
+        ['Subtotal neto', _fmt(total_p), _fmt(total_r), _fmt(bal), _fmt(total_adic_con), _fmt(total_adic_sin)],
+        ['IVA (19%)',     _fmt(iva_p),   _fmt(iva_r),   _fmt(iva_bal), _fmt(iva_adic_con), _fmt(iva_adic_sin)],
+        ['Total con IVA', _fmt(total_p+iva_p), _fmt(total_r+iva_r), _fmt(bal+iva_bal), _fmt(total_adic_con+iva_adic_con), _fmt(total_adic_sin+iva_adic_sin)],
     ]
-    res_tbl = Table(resumen_rows, colWidths=[4*cm, 4*cm, 4*cm, 4*cm])
+    res_tbl = Table(resumen_rows, colWidths=[3*cm, 2.8*cm, 2.8*cm, 2.8*cm, 2.5*cm, 2.5*cm])
     res_style = [
         ('BACKGROUND',(0,0),(-1,0), col_azul),
         ('TEXTCOLOR',(0,0),(-1,0), colors.white),
@@ -1803,6 +1878,10 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
         ('BACKGROUND',(0,1),(-1,-1), colors.white),
         ('ROWBACKGROUNDS',(0,1),(-1,-1), [colors.white, colors.HexColor('#f8fafc')]),
         ('TEXTCOLOR',(3,1),(3,-1), bal_col),
+        ('TEXTCOLOR',(4,1),(4,-1), colors.HexColor('#c2410c')),
+        ('BACKGROUND',(4,0),(4,-1), colors.HexColor('#fff7ed')),
+        ('TEXTCOLOR',(5,1),(5,-1), colors.HexColor('#9d174d')),
+        ('BACKGROUND',(5,0),(5,-1), colors.HexColor('#fdf2f8')),
         ('TOPPADDING',(0,0),(-1,-1), 5),
         ('BOTTOMPADDING',(0,0),(-1,-1), 5),
     ]
