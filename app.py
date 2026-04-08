@@ -1026,7 +1026,7 @@ window.addRowSinReg=function(){{
   var tr=document.createElement("tr");
   tr.style.cssText="background:#fdf2f8;border-bottom:1px solid #eef0f6;border-left:3px solid #ec4899";
   tr.dataset.idx=String(_addIdx);tr.dataset.pu="0";tr.dataset.cant=String(cant);
-  tr.dataset.adicional="1";tr.dataset.sinRegistro||r.dataset["sin-registro"]="1";
+  tr.dataset.adicional="1";tr.setAttribute("data-sin-registro","1");
   tr.innerHTML="<td style='padding:5px 8px;font-size:.75rem;color:#ec4899'>"+catEl.value.trim()+"</td>"
     +"<td style='padding:5px 8px;font-size:.82rem'>"+itemEl.value.trim()+"</td>"
     +"<td style='padding:5px 8px;text-align:right'>"+cant+"</td>"
@@ -1179,7 +1179,7 @@ window.guardarRegistro=async function(){{
       adicional:ad,
       diferencia:dif,
       es_adicional:idx>=10000||r.dataset.adicional==="1",
-      sin_registro:r.dataset.sinRegistro||r.dataset["sin-registro"]==="1"
+      sin_registro:r.getAttribute("data-sin-registro")==="1"
     }});
   }});
   
