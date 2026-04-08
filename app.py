@@ -949,6 +949,7 @@ function f(n){{return "$"+Math.round(Math.abs(n)).toLocaleString("de-DE");}}
 function calc(){{
   var tP=0,tR=0,tA=0,tS=0,vals=[];
   document.querySelectorAll("tr[data-idx]").forEach(function(r){{
+    var idx=parseInt(r.dataset.idx)||0;
     var pu=+r.dataset.pu||0,c=+r.dataset.cant||1;
     var re=parseFloat(r.querySelector(".rc-real").dataset.val)||0;
     var ad=+r.querySelector(".rc-adic").value||0;
@@ -958,9 +959,9 @@ function calc(){{
     td.style.color=d>=0?"#16a34a":"#dc2626";
     var isSinReg=r.getAttribute("data-sin-registro")==="1";
     var isAdic=r.dataset.adicional==="1"&&!isSinReg;
-    if(isSinReg){{tS+=re*c;}}       // Sin registro (puede ser idx>=10000)
-    else if(isAdic){{tA+=re*c;}}    // Con registro
-    else if(idx<10000){{tP+=pu*c;}} // Presupuesto
+    if(isSinReg){{tS+=re*c;}}
+    else if(isAdic){{tA+=re*c;}}
+    else{{tP+=pu*c;}}
     tR+=re*c+ad*re;
     vals.push({{idx:+r.dataset.idx,real:re,adic:ad,dif:d}});
   }});
