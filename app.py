@@ -749,7 +749,7 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
     <thead><tr>
       <th>Categoría</th><th>Ítem</th><th class="r">Cant.</th>
       <th class="r">Presup. unit.</th><th class="r">Real unit.</th>
-      <th class="r">Adicional</th><th class="r">Diferencia</th>
+      <th class="r">Adicional</th><th class="r">Diferencia</th><th></th>
     </tr></thead>
     <tbody>{rows}</tbody>
   </table></div>
@@ -921,7 +921,8 @@ window.addRow=function(){{
     +"<td style='padding:5px 8px;text-align:right;font-weight:600'>"+f(pu)+"</td>"
     +'<td style="padding:3px 4px"><input type="text" inputmode="numeric" value="" class="rc-real" data-idx="'+_addIdx+'" data-val="0" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box"/></td>'
     +'<td style="padding:3px 4px"><input type="number" min="0" step="1" value="0" class="rc-adic" data-idx="'+_addIdx+'" style="width:100%;border:1px solid #fca5a5;border-radius:6px;padding:5px;font-size:13px;text-align:right;background:#fff5f5;box-sizing:border-box"/></td>'
-    +'<td class="rc-dif" style="padding:5px 8px;text-align:right;font-weight:700;color:#16a34a;white-space:nowrap">-</td>';
+    +'<td class="rc-dif" style="padding:5px 8px;text-align:right;font-weight:700;color:#16a34a;white-space:nowrap">-</td>'
+    +'<td style="padding:3px 6px;text-align:center"><button onclick="window.removeRow(this)" style="background:none;border:none;color:#ef4444;font-size:14px;cursor:pointer;padding:2px 4px;line-height:1;" title="Eliminar">✕</button></td>';
   document.querySelector("tbody").appendChild(tr);
   attachListeners(tr.querySelector(".rc-real"), tr.querySelector(".rc-adic"));
   _addIdx++;cantEl.value="1";itemEl.selectedIndex=0;
@@ -1034,7 +1035,8 @@ window.addRowSinReg=function(){{
     +"<td style='padding:5px 8px;text-align:right;font-weight:600'>—</td>"
     +'<td style="padding:3px 4px"><input type="text" inputmode="numeric" value="'+("$"+precio.toLocaleString("de-DE"))+'" class="rc-real" data-idx="'+_addIdx+'" data-val="'+precio+'" style="width:100%;border:1.5px solid #fbcfe8;border-radius:6px;padding:5px;font-size:13px;text-align:right;background:#fdf2f8;box-sizing:border-box"/></td>'
     +'<td style="padding:3px 4px"><input type="number" min="0" step="1" value="0" class="rc-adic" data-idx="'+_addIdx+'" style="width:100%;border:1.5px solid #fbcfe8;border-radius:6px;padding:5px;font-size:13px;text-align:right;background:#fdf2f8;box-sizing:border-box"/></td>'
-    +'<td class="rc-dif" style="padding:5px 8px;text-align:right;font-weight:700;color:#ec4899;white-space:nowrap">—</td>';
+    +'<td class="rc-dif" style="padding:5px 8px;text-align:right;font-weight:700;color:#ec4899;white-space:nowrap">—</td>'
+    +'<td style="padding:3px 6px;text-align:center"><button onclick="window.removeRow(this)" style="background:none;border:none;color:#ef4444;font-size:14px;cursor:pointer;padding:2px 4px;line-height:1;" title="Eliminar">✕</button></td>';
   document.querySelector("tbody").appendChild(tr);
   attachListeners(tr.querySelector(".rc-real"),tr.querySelector(".rc-adic"));
   _addIdx++;
@@ -1076,6 +1078,12 @@ window.onSubtipoChange=function(){{
     pw.className="rc-field rc-hidden";
   }}
   window.checkSaveBtn();
+}};
+window.removeRow=function(btn){{
+  var tr=btn.parentElement;
+  while(tr&&tr.tagName!=="TR")tr=tr.parentElement;
+  if(tr)tr.remove();
+  calc();checkSaveBtn();
 }};
 function checkSaveBtn(){{
   var hasVals=false;
