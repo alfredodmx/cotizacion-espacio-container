@@ -12805,9 +12805,12 @@ window.addEventListener("message",function(e){{
                         _rcc = str(_rcp.get('Categoria','')).strip()
                         if _rcc:
                             if _rcc not in _rc_cats_seen:
-                                _rc_cats_seen[_rcc] = {'items': 0, 'cant': 0, 'color': ''}
+                                _rc_cats_seen[_rcc] = {'items': 0, 'cant': 0, 'subtotal': 0.0, 'color': ''}
+                            _rcp_cant = float(_rcp.get('Cantidad',1) or 1)
+                            _rcp_pu   = float(_rcp.get('Precio Unitario',0) or 0)
                             _rc_cats_seen[_rcc]['items'] += 1
-                            _rc_cats_seen[_rcc]['cant'] += int(float(_rcp.get('Cantidad',1) or 1))
+                            _rc_cats_seen[_rcc]['cant'] += int(_rcp_cant)
+                            _rc_cats_seen[_rcc]['subtotal'] += _rcp_cant * _rcp_pu
                     _rc_cards_divs = ''
                     for _rci, (_rcc, _rcv) in enumerate(sorted(_rc_cats_seen.items())):
                         _rccolor = _rc_cat_colors[_rci % len(_rc_cat_colors)]
@@ -12819,6 +12822,9 @@ window.addEventListener("message",function(e){{
                             f'<div style="font-size:11px;font-weight:700;color:{_rccolor};text-transform:uppercase;'
                             f'font-family:Montserrat,\'Segoe UI\',sans-serif;letter-spacing:.05em;margin-bottom:4px;">'
                             f'{_rcc}<span class="rc-tick" style="display:none"> ✓</span></div>'
+                            f'<div style="display:flex;gap:10px;align-items:baseline;">'
+                            f'<span style="font-size:13px;font-weight:700;color:#0f172a;font-family:Montserrat,\'Segoe UI\',sans-serif;">${_rcv["subtotal"]*1.19:,.0f}'.replace(',','.') + f'</span>'
+                            f'<span style="font-size:10px;color:#64748b;font-family:Montserrat,\'Segoe UI\',sans-serif;">c/IVA</span></div>'
                             f'<div style="font-size:10px;color:#64748b;font-family:Montserrat,\'Segoe UI\',sans-serif;margin-top:2px;">'
                             f'{_rcv["items"]} ítems · {_rcv["cant"]} uds.</div></div>'
                         )
