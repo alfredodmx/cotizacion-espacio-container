@@ -15533,8 +15533,9 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         if not _solo_cambios_t and not _modelos_cambiaron:
                             st.warning("No hay cambios en cláusulas ni en modelos asignados.")
                         else:
-                            # Si solo cambian modelos, reusar clausulas actuales
-                            _cls_guardar = _solo_cambios_t if _solo_cambios_t else (_clausulas_act_t or {})
+                            # Siempre guardar todas las cláusulas del editor (no solo los cambios)
+                            # para asegurar que suministro_energia y otros campos queden en Supabase
+                            _cls_guardar = {k: _limpiar_fijos_t(v) for k, v in _edits_t.items() if v.strip()}
                             _resultado_t = _guardar_plantilla(_cls_guardar, _usr_plt, tipo=tipo_plt, modelos_lista=_modelos_sel)
                             if _resultado_t is True:
                                 st.success(f"✅ Plantilla {tipo_plt} guardada ({len(_solo_cambios_t)} cláusula(s) · {len(_modelos_sel)} modelo(s)).")
