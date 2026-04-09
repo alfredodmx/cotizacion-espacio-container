@@ -9035,49 +9035,36 @@ if tab3 is not None:
                 }
                 _sel_key = _sel_map.get(_key, '_fbtn_TODOS')
                 _badge_items.append((_key, _bg_b, _col_b, _shadow, f'{_key.split()[0]} {_cnt} {_lbl}', _sel_key))
-        # Badges como components.html con JS que filtra DOM directamente — sin rerun
-        import streamlit.components.v1 as _cmp_badges
+        # Usar st.button para cada badge
         _col_badge, _col_ref = st.columns([5, 0.7])
         with _col_badge:
-            _badge_html = '<style>body{margin:0;padding:0;overflow:hidden;font-family:sans-serif;}*{box-sizing:border-box;}</style>'
-            _badge_html += '<div style="display:flex;flex-wrap:wrap;gap:6px;padding:2px 0;">'
+            _badge_html = ''
             for _bk, _bbg, _bcol, _bshadow, _btxt, _bsel in _badge_items:
                 _badge_html += (
-                    f'<span data-filtro="{_bk}" data-bg="{_bbg}" data-col="{_bcol}" '
-                    f'data-col-act="{_bcol}" '
-                    f'style="cursor:pointer;background:{_bbg};color:{_bcol};{_bshadow}'
-                    f'padding:5px 14px;border-radius:99px;font-size:13px;font-weight:700;'
-                    f'display:inline-block;border:1.5px solid transparent;" class="bf">'
+                    f'<span data-filtro="{_bk}" data-sel="{_bsel}" style="cursor:pointer;background:{_bbg};color:{_bcol};'
+                    f'{_bshadow}padding:5px 14px;border-radius:99px;font-size:13px;font-weight:700;'
+                    f'margin-right:6px;display:inline-block;" class="_badge_filtro">'
                     f'{_btxt}</span>'
                 )
-            _badge_html += '</div>'
-            _badge_html += """
-<script>
-var _af='';
-document.querySelectorAll('.bf').forEach(function(b){
-  b.addEventListener('click',function(){
-    var val=this.getAttribute('data-filtro');
-    _af=(_af===val||val==='TODOS')?'':val;
-    // actualizar estilos badges
-    document.querySelectorAll('.bf').forEach(function(x){
-      var xv=x.getAttribute('data-filtro');
-      var isAct=_af?(xv===_af):(xv==='TODOS');
-      x.style.background=isAct?x.getAttribute('data-col-act'):x.getAttribute('data-bg');
-      x.style.color=isAct?'#fff':x.getAttribute('data-col');
-      x.style.border=isAct?('1.5px solid '+x.getAttribute('data-col-act')):'1.5px solid transparent';
-    });
-    // filtrar filas en parent
-    var iframes=window.parent.document.querySelectorAll('iframe');
-    iframes.forEach(function(fr){
-      try{fr.contentWindow.postMessage({type:'cot_filtro_estado',val:_af},'*');}catch(e){}
-    });
-  });
-});
-</script>"""
-            _cmp_badges.html(_badge_html, height=44, scrolling=False)
+            st.markdown(_badge_html, unsafe_allow_html=True)
         with _col_ref:
             if st.button("🔄", key="cot_refresh_tabla", help="Actualizar resultados", use_container_width=True):
                 st.session_state.resultados_busqueda = None
+                st.rerun()
+        _fbtn_map = [
+            ('TODOS',                  '_fbtn_TODOS'),
+            ('🔵 ADJUDICADO',          '_fbtn_ADJ'),
+            ('🟢 AUTORIZADO CON PLANO','_fbtn_ACP'),
+            ('🟢 AUTORIZADO',          '_fbtn_AUT'),
+            ('🟠 BORRADOR CON PLANO',  '_fbtn_BCP'),
+            ('🟡 BORRADOR',            '_fbtn_BOR'),
+            ('🔴 INCOMPLETO CON PLANO','_fbtn_ICP'),
+            ('🔴 INCOMPLETO',          '_fbtn_INC'),
+            ('❌ RECHAZADO',           '_fbtn_REC'),
+        ]
+        for _fval, _fkey in _fbtn_map:
+            if st.button(f'__FILTRO__{_fval}', key=_fkey):
+                st.session_state.filtro_estado_tabla = None if _fval == 'TODOS' else _fval
                 st.rerun()
 
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
@@ -9302,16 +9289,6 @@ document.querySelectorAll('.bf').forEach(function(b){
     }
     setTimeout(initEPCopy, 500);
 
-    // Filtro de estado por postMessage desde iframe de badges
-    window.addEventListener('message', function(e){
-        if(!e.data || e.data.type !== 'cot_filtro_estado') return;
-        var val = e.data.val || '';
-        var rows = D.querySelectorAll('tr[data-estado]');
-        rows.forEach(function(r){
-            if(!val) r.style.display = '';
-            else r.style.display = (r.getAttribute('data-estado') === val) ? '' : 'none';
-        });
-    });
 })();
 </script>""", height=0)
 
