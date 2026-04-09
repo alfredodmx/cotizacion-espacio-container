@@ -12474,6 +12474,8 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
 
                 # Mostrar registros existentes
                 _rc_existentes = obtener_registros_compra(_rc_ep)
+                # _modo_admin_rc se define más abajo con el toggle — default False aquí
+                _modo_admin_rc = st.session_state.get(f'rc_modo_admin_{_rc_ep}', False) if _rol_actual in ('root','admin') else False
 
                 # Agregar adicionales de registros anteriores a _rc_prods
                 import json as _jadic
