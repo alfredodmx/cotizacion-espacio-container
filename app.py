@@ -989,13 +989,24 @@ function calc(){{
   if(pb){{pb.style.width=Math.min(pct,100)+"%";pb.style.background=pctCol;}}
   window.parent.postMessage({{type:"rc_vals",vals:vals,tP:tP,tR:tR}},"*");
 }}
-window.filterRows=function(q){{
-  var s=q.toLowerCase();
+var _rcCatFiltro='';
+function applyFilters(){{
+  var q=document.getElementById('rc-search')?document.getElementById('rc-search').value.toLowerCase():'';
   document.querySelectorAll("tbody tr").forEach(function(r){{
     var txt=r.cells[1]?r.cells[1].textContent.toLowerCase():"";
-    r.style.display=!s||txt.indexOf(s)>-1?"":"none";
+    var cat=r.cells[0]?r.cells[0].textContent.trim():"";
+    var matchTxt=!q||txt.indexOf(q)>-1;
+    var matchCat=!_rcCatFiltro||cat===_rcCatFiltro;
+    r.style.display=(matchTxt&&matchCat)?"":"none";
   }});
-}};
+}}
+window.filterRows=function(q){{applyFilters();}};
+window.addEventListener('message',function(e){{
+  if(e.data&&e.data.type==='rc_cat_filtro'){{
+    _rcCatFiltro=e.data.val||'';
+    applyFilters();
+  }}
+}});
 document.querySelectorAll(".rc-real").forEach(function(inp){{
   attachListeners(inp, inp.closest("tr").querySelector(".rc-adic"));
 }});
@@ -12783,49 +12794,58 @@ window.addEventListener("message",function(e){{
                     # Evitar que valores de sesiones anteriores se pre-poblen causando guardados fantasma
                     _rc_prev = {}
 
-                    # ── Tarjetas de categoría (mismo diseño que Presupuesto) ──
+                    # ── Tarjetas de categoría — mismo diseño Presupuesto, filtro JS sin rerun ──
                     import streamlit.components.v1 as _rc_cat_comp
                     import math as _rc_math_cat
                     _rc_cat_colors = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444',
                                       '#06b6d4','#f97316','#84cc16','#ec4899','#6366f1',
                                       '#14b8a6','#eab308','#dc2626','#7c3aed','#0ea5e9']
-                    # Obtener categorías únicas de _rc_prods (ya filtrado según rol/toggle)
                     _rc_cats_seen = {}
                     for _rcp in _rc_prods:
                         _rcc = str(_rcp.get('Categoria','')).strip()
                         if _rcc:
                             if _rcc not in _rc_cats_seen:
-                                _rc_cats_seen[_rcc] = {'items': 0, 'cant': 0}
+                                _rc_cats_seen[_rcc] = {'items': 0, 'cant': 0, 'color': ''}
                             _rc_cats_seen[_rcc]['items'] += 1
                             _rc_cats_seen[_rcc]['cant'] += int(float(_rcp.get('Cantidad',1) or 1))
-                    _rc_cat_filtro_activo = st.session_state.get('_rc_cat_filtro_activo', '')
                     _rc_cards_divs = ''
                     for _rci, (_rcc, _rcv) in enumerate(sorted(_rc_cats_seen.items())):
                         _rccolor = _rc_cat_colors[_rci % len(_rc_cat_colors)]
-                        _rc_is_active = _rc_cat_filtro_activo == _rcc
-                        _rc_bg = f"{_rccolor}18" if _rc_is_active else '#fff'
-                        _rc_brd = f"2px solid {_rccolor}" if _rc_is_active else f"1.5px solid {_rccolor}33"
-                        _rc_tick = ' ✓' if _rc_is_active else ''
+                        _rc_cats_seen[_rcc]['color'] = _rccolor
                         _rc_cards_divs += (
-                            f'<div class="rc-cat-card" data-cat="{_rcc}" '
-                            f'style="background:{_rc_bg};border:{_rc_brd};border-left:4px solid {_rccolor};'
-                            f'border-radius:8px;padding:8px 14px;min-width:120px;flex:1;cursor:pointer;">'
+                            f'<div class="rc-cat-card" data-cat="{_rcc}" data-color="{_rccolor}" '
+                            f'style="background:#fff;border:1.5px solid {_rccolor}33;border-left:4px solid {_rccolor};'
+                            f'border-radius:8px;padding:8px 14px;min-width:140px;flex:1;cursor:pointer;transition:background .15s;">'
                             f'<div style="font-size:11px;font-weight:700;color:{_rccolor};text-transform:uppercase;'
-                            f'letter-spacing:.05em;margin-bottom:4px;">{_rcc}{_rc_tick}</div>'
-                            f'<div style="font-size:10px;color:#64748b;margin-top:2px;">'
+                            f'font-family:Montserrat,\'Segoe UI\',sans-serif;letter-spacing:.05em;margin-bottom:4px;">'
+                            f'{_rcc}<span class="rc-tick" style="display:none"> ✓</span></div>'
+                            f'<div style="font-size:10px;color:#64748b;font-family:Montserrat,\'Segoe UI\',sans-serif;margin-top:2px;">'
                             f'{_rcv["items"]} ítems · {_rcv["cant"]} uds.</div></div>'
                         )
-                    _rc_cat_html = f"""<style>html,body{{margin:0;padding:0;overflow:hidden;font-family:'Segoe UI',sans-serif;}}*{{box-sizing:border-box;}}</style>
+                    _rc_cat_html = f"""<style>
+html,body{{margin:0;padding:0;overflow:hidden;font-family:Montserrat,'Segoe UI',sans-serif;}}*{{box-sizing:border-box;}}
+.rc-cat-card{{transition:background .15s,border .15s;}}
+</style>
 <div style='display:flex;flex-wrap:wrap;gap:8px;padding:4px 0;'>{_rc_cards_divs}</div>
 <script>
+var _rcActiveCat='';
 document.querySelectorAll('.rc-cat-card').forEach(function(el){{
   el.addEventListener('click',function(){{
     var cat=this.dataset.cat;
-    var url=new URL(window.parent.location.href);
-    var current=url.searchParams.get('rc_cat_filtro');
-    url.searchParams.set('rc_cat_filtro', current===cat ? '__clear__' : cat);
-    window.parent.history.replaceState({{}},'',url);
-    window.parent.dispatchEvent(new PopStateEvent('popstate'));
+    var col=this.dataset.color;
+    _rcActiveCat=(_rcActiveCat===cat)?'':cat;
+    // Actualizar estilos de tarjetas
+    document.querySelectorAll('.rc-cat-card').forEach(function(c){{
+      var isAct=_rcActiveCat&&c.dataset.cat===_rcActiveCat;
+      var cc=c.dataset.color;
+      c.style.background=isAct?(cc+'18'):'#fff';
+      c.style.border=isAct?('2px solid '+cc):('1.5px solid '+cc+'33');
+      c.style.borderLeft='4px solid '+cc;
+      c.querySelector('.rc-tick').style.display=isAct?'inline':'none';
+    }});
+    // Enviar filtro a iframe de la tabla RC
+    var iframes=window.parent.document.querySelectorAll('iframe');
+    iframes.forEach(function(fr){{try{{fr.contentWindow.postMessage({{type:'rc_cat_filtro',val:_rcActiveCat}},'*');}}catch(e){{}}}});
   }});
 }});
 </script>"""
