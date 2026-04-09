@@ -15461,6 +15461,9 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 # Filtrar cláusulas según tipo: suministro_energia solo en Plantilla B
                 _labels_tipo = {k: v for k, v in _LABELS.items()
                                 if not (k == 'suministro_energia' and tipo_plt == 'A')}
+                # Ajustar número de firma según tipo
+                if tipo_plt == 'A' and 'firma' in _labels_tipo:
+                    _labels_tipo['firma'] = 'XVI. Firma'
                 for _key, _label in _labels_tipo.items():
                     _base_editor = _CLAUSULAS_EDITOR.get(_key, _CLAUSULAS_BASE.get(_key, ""))
                     _val_sup = _clausulas_act_t.get(_key, "")
