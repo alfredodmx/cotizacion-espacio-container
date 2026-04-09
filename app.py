@@ -14469,14 +14469,9 @@ if tab_contrato is not None:
                                 }
                                 try:
                                     st.session_state["_datos_contrato_last"] = _datos_contrato
-                                    # Cargar plantilla activa en el flujo de Streamlit (no dentro de la función)
-                                    _cls_activas = None
-                                    try:
-                                        _res_plt = supabase.table("plantillas_contrato").select("clausulas").eq("activa", True).execute()
-                                        if _res_plt.data and _res_plt.data[0].get("clausulas"):
-                                            _cls_activas = _res_plt.data[0]["clausulas"]
-                                    except Exception:
-                                        pass
+                                    # Cargar plantilla según modelo_predefinido del presupuesto
+                                    _modelo_cot = _cot.get("modelo_predefinido") or None
+                                    _cls_activas = _obtener_clausulas_contrato(_modelo_cot)
                                     _pdf_bytes = generar_pdf_contrato(_datos_contrato, clausulas_externas=_cls_activas)
                                     _pdf_nom   = f"Contrato_{_ep_num_input.replace('-','_')}.pdf"
                                     # Guardar en Supabase
@@ -14559,14 +14554,8 @@ if tab_contrato is not None:
                         except Exception:
                             pass
 
-                        _cls_pv = None
-                        try:
-                            _res_plt = supabase.table("plantillas_contrato").select("clausulas").eq("activa", True).execute()
-                            if _res_plt.data and _res_plt.data[0].get("clausulas"):
-                                _cls_pv = _res_plt.data[0]["clausulas"]
-                        except Exception:
-                            pass
-
+                        _modelo_pv = _cot.get("modelo_predefinido") or None
+                        _cls_pv = _obtener_clausulas_contrato(_modelo_pv)
                         _pdf_contrato = generar_pdf_contrato(_datos_pv, clausulas_externas=_cls_pv)
 
                         # ── 2. PDF Presupuesto ──
@@ -15108,13 +15097,8 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                                 _datos_cn2 = _jsoncn.loads(_raw_cn) if isinstance(_raw_cn, str) else (_raw_cn or {})
                             except Exception: pass
 
-                            _cls_cn = None
-                            try:
-                                _res_cn = supabase.table("plantillas_contrato").select("clausulas").eq("activa", True).execute()
-                                if _res_cn.data and _res_cn.data[0].get("clausulas"):
-                                    _cls_cn = _res_cn.data[0]["clausulas"]
-                            except Exception: pass
-
+                            _modelo_cn = _cot_cn_full.get("modelo_predefinido") or None
+                            _cls_cn = _obtener_clausulas_contrato(_modelo_cn)
                             _pdf_cn_cont = generar_pdf_contrato(_datos_cn2, clausulas_externas=_cls_cn)
 
                             _pdf_cn_pres = None
