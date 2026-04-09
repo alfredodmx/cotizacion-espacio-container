@@ -12454,7 +12454,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                     'AUTORIZADO': '🟢', 'PROYECTO ENTREGADO': '🟣',
                     'PENDIENTE COMPRAS': '🟡', 'INCOMPLETO': '⚪'
                 }
-                return _badges.get(str(estado).upper(), '⚪')
+                return _badges.get(str(estado).strip().upper(), '⚪')
             def _rc_pct_label(r):
                 try:
                     _prods = r.get('productos') or []
@@ -12469,7 +12469,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                     return f'{_pct}% comprado'
                 except: return '—'
             _rc_opts = {
-                f"{r['numero']} {_rc_estado_badge(r.get('estado',''))} {'ADJUDICADO' if r.get('estado','').upper() in ('ADJUDICADO','AUTORIZADO CON PLANO','AUTORIZADO') else r.get('estado','')} — cliente: {r.get('cliente_nombre') or 'S/C'} — ejecutivo: {r.get('asesor_nombre') or '—'} — {_rc_pct_label(r)}": r
+                f"{r['numero']} {_rc_estado_badge(r.get('estado',''))} {r.get('estado','').upper()} — cliente: {r.get('cliente_nombre') or 'S/C'} — ejecutivo: {r.get('asesor_nombre') or '—'} — {_rc_pct_label(r)}": r
                 for r in _rc_cots
             }
             _rc_sel_label = st.selectbox('Seleccionar proyecto', list(_rc_opts.keys()), key='rc_sel_proyecto')
@@ -15092,7 +15092,8 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                                     supabase_admin.table("cotizaciones").update({
                                         "contrato_notariado_url": _cn_url,
                                         "contrato_notariado_nombre": _cn_nombre,
-                                        "fecha_adjudicacion": _fecha_adj
+                                        "fecha_adjudicacion": _fecha_adj,
+                                        "estado": "ADJUDICADO"
                                     }).eq("numero", _cn_ep_sel).execute()
                                     st.success(f"✅ {_cn_ep_sel} ahora es 🔵 ADJUDICADO")
                                     st.session_state.pop('cn_results', None)
