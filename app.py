@@ -6131,6 +6131,11 @@ def _obtener_clausulas_contrato(modelo_predefinido=None):
             _todas = supabase.table("plantillas_contrato").select("*").eq("activa", True).execute()
             for _p in (_todas.data or []):
                 _mods = _p.get("modelos") or []
+                # Normalizar: puede llegar como string JSON o lista
+                if isinstance(_mods, str):
+                    try:
+                        import json as _jm; _mods = _jm.loads(_mods)
+                    except: _mods = []
                 if modelo_predefinido in _mods:
                     return _p.get("clausulas")
         # 2. Fallback: plantilla A activa
@@ -14470,7 +14475,10 @@ if tab_contrato is not None:
                                 try:
                                     st.session_state["_datos_contrato_last"] = _datos_contrato
                                     # Cargar plantilla según modelo_predefinido del presupuesto
-                                    _modelo_cot = _cot.get("modelo_predefinido") or None
+                                    # Fallback a session_state si no está guardado en Supabase
+                                    _modelo_cot = (_cot.get("modelo_predefinido")
+                                                   or st.session_state.get('modelo_base')
+                                                   or None)
                                     _cls_activas = _obtener_clausulas_contrato(_modelo_cot)
                                     _pdf_bytes = generar_pdf_contrato(_datos_contrato, clausulas_externas=_cls_activas)
                                     _pdf_nom   = f"Contrato_{_ep_num_input.replace('-','_')}.pdf"
