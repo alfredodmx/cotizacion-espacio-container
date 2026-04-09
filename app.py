@@ -15565,6 +15565,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                                     st.rerun()
 
             with _tab_plt_a:
+                st.caption(f"🔍 Debug — modelos_por_tipo: {_modelos_por_tipo}")
                 _render_editor_plantilla('A', 'plt_a')
 
             with _tab_plt_b:
