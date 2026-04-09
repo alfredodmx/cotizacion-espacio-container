@@ -6518,6 +6518,12 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     _tiene_suministro = bool(_plt_cls and _plt_cls.get("suministro_energia"))
     if _tiene_suministro:
         _txt_sum = _plt_cls["suministro_energia"]
+        # Quitar el título si viene incluido en el texto guardado
+        import re as _re_sum
+        _txt_sum = _re_sum.sub(
+            r'^XVI\..*?Y USO DE HERRAMIENTAS\s*',
+            '', _txt_sum.strip(), flags=_re_sum.IGNORECASE | _re_sum.DOTALL
+        ).strip()
         story += [
             Paragraph("XVI. DEL SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS", seccion),
             Paragraph(_rep(_txt_sum, d), normal),
