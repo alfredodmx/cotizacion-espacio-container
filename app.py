@@ -1748,6 +1748,7 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
             row_types = ['header']  # track tipo por fila
             sub_p = 0; sub_r = 0; sub_a = 0; sub_s = 0
             _pn_pdf = {str(p.get('Item','')) for p in (productos_presupuesto or [])}
+            _pp_map = {str(p.get('Item','')): round(float(p.get('Precio Unitario',0) or 0)) for p in (productos_presupuesto or [])}
             for it in items_r:
                 pp   = float(it.get('precio_presupuestado',0) or 0)
                 pr   = float(it.get('precio_real',0) or 0)
@@ -1756,12 +1757,14 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
                 dif  = (pp - pr) * cant - (adic * pr)
                 _is_sin = it.get('sin_registro', False)
                 _is_con = (it.get('es_adicional', False) or str(it.get('item','')) not in _pn_pdf) and not _is_sin
+                # Usar precio del presupuesto original si está disponible
+                pp_real = _pp_map.get(str(it.get('item','')), pp) if not _is_con and not _is_sin else pp
                 if _is_sin:   sub_s += pr * cant
                 elif _is_con: sub_a += pr * cant
-                else:         sub_p += pp * cant; sub_r += pr * cant + adic * pr
+                else:         sub_p += pp_real * cant; sub_r += pr * cant + adic * pr
                 dif_str = f"${abs(dif):,.0f} {'▼' if dif>=0 else '▲'}".replace(',','.')
                 rows.append([it.get('categoria',''), it.get('item',''), str(int(cant)),
-                    f"${pp:,.0f}".replace(',','.'), f"${pr:,.0f}".replace(',','.'),
+                    f"${pp_real:,.0f}".replace(',','.'), f"${pr:,.0f}".replace(',','.'),
                     str(adic), dif_str])
                 row_types.append('sin' if _is_sin else ('con' if _is_con else 'normal'))
             # Fila subtotales presupuesto
@@ -1822,20 +1825,34 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
     elements.append(Paragraph('Resumen Final Consolidado', styles['BSection']))
     elements.append(HRFlowable(width='100%', thickness=0.5, color=colors.HexColor('#e2e8f0'), spaceAfter=8))
 
-    # Totales globales
-    total_p = sum(round(float(p.get('Precio Unitario',0) or 0)) * round(float(p.get('Cantidad',1) or 1))
-                  for p in prods_valid)
-    total_r = 0
+    # Totales globales — consolidar último precio real por ítem (deduplicar)
+    _pn_res = {str(p.get('Item','')) for p in prods_valid}
+    _consolidado_r = {}   # item -> {precio_real, cantidad, adicional, es_adicional, sin_registro}
+    _consolidado_con = {} # adicionales con registro
+    _consolidado_sin = {} # adicionales sin registro
     for reg in registros:
-        items_r = reg.get('items') or []
-        if isinstance(items_r, str):
-            try: items_r = json.loads(items_r)
-            except: items_r = []
-        for it in items_r:
+        _its_res = reg.get('items') or []
+        if isinstance(_its_res, str):
+            try: _its_res = json.loads(_its_res)
+            except: _its_res = []
+        for it in _its_res:
+            nombre = str(it.get('item',''))
             pr   = float(it.get('precio_real',0) or 0)
             cant = float(it.get('cantidad',1) or 1)
             adic = int(it.get('adicional',0) or 0)
-            total_r += pr * cant + adic * pr
+            if not nombre or pr <= 0: continue
+            if it.get('sin_registro'):
+                _consolidado_sin[nombre] = {'pr': pr, 'cant': cant, 'adic': adic}
+            elif it.get('es_adicional') or nombre not in _pn_res:
+                _consolidado_con[nombre] = {'pr': pr, 'cant': cant, 'adic': adic}
+            else:
+                _consolidado_r[nombre] = {'pr': pr, 'cant': cant, 'adic': adic}
+
+    total_p = sum(round(float(p.get('Precio Unitario',0) or 0)) * round(float(p.get('Cantidad',1) or 1))
+                  for p in prods_valid)
+    total_r = sum(v['pr']*v['cant'] + v['adic']*v['pr'] for v in _consolidado_r.values())
+    total_adic_con = sum(v['pr']*v['cant'] for v in _consolidado_con.values())
+    total_adic_sin = sum(v['pr']*v['cant'] for v in _consolidado_sin.values())
 
     iva_p = total_p * 0.19; iva_r = total_r * 0.19
     bal   = total_p - total_r; iva_bal = iva_p - iva_r
@@ -1844,19 +1861,6 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
 
     def _fmt(v): return f"${abs(v):,.0f}".replace(',','.')
 
-    # Calcular totales adicionales
-    total_adic_con = 0; total_adic_sin = 0
-    _pn_res = {str(p.get('Item','')) for p in prods_valid}
-    for reg in registros:
-        _its_res = reg.get('items') or []
-        if isinstance(_its_res, str):
-            try: _its_res = json.loads(_its_res)
-            except: _its_res = []
-        for it in _its_res:
-            pr = float(it.get('precio_real',0) or 0)
-            cant = float(it.get('cantidad',1) or 1)
-            if it.get('sin_registro'): total_adic_sin += pr * cant
-            elif it.get('es_adicional') or str(it.get('item','')) not in _pn_res: total_adic_con += pr * cant
     iva_adic_con = total_adic_con * 0.19; iva_adic_sin = total_adic_sin * 0.19
 
     resumen_rows = [
