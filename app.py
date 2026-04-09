@@ -15403,6 +15403,17 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
 
             # ── Obtener modelos predefinidos disponibles ──
             _hojas_modelo_ed = [h for h in _leer_hojas_disponibles() if h.lower().startswith("modelo")]
+            # Cargar todas las plantillas activas para saber qué modelos están asignados
+            try:
+                _todas_activas = supabase.table("plantillas_contrato").select("tipo,modelos").eq("activa", True).execute()
+                _modelos_por_tipo = {'A': [], 'B': []}
+                for _pa in (_todas_activas.data or []):
+                    _t = _pa.get('tipo') or 'A'
+                    _ms = _pa.get('modelos') or []
+                    if _t in _modelos_por_tipo:
+                        _modelos_por_tipo[_t] = list(_ms)
+            except Exception:
+                _modelos_por_tipo = {'A': [], 'B': []}
 
             # ── Info ──
             st.markdown("""
@@ -15420,12 +15431,13 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 """Renderiza el editor completo para una plantilla (A o B)."""
                 _otro_tipo = 'B' if tipo_plt == 'A' else 'A'
                 _plt_activa_t = _cargar_plantilla_activa(tipo_plt)
-                _plt_activa_otro = _cargar_plantilla_activa(_otro_tipo)
                 _clausulas_act_t = _plt_activa_t["clausulas"] if _plt_activa_t else _CLAUSULAS_EDITOR
                 _modelos_act_t = list(_plt_activa_t.get("modelos") or []) if _plt_activa_t else []
-                # Modelos ya asignados a la OTRA plantilla — no disponibles aquí
-                _modelos_otro = list(_plt_activa_otro.get("modelos") or []) if _plt_activa_otro else []
-                _modelos_disponibles = [m for m in _hojas_modelo_ed if m not in _modelos_otro or m in _modelos_act_t]
+                # Modelos ya asignados a la OTRA plantilla (del mapa precargado)
+                _modelos_otro = _modelos_por_tipo.get(_otro_tipo, [])
+                # Disponibles = todos - asignados al otro tipo (excepto los ya propios)
+                _modelos_disponibles = [m for m in _hojas_modelo_ed
+                                        if m not in _modelos_otro or m in _modelos_act_t]
 
                 # ── Selección de modelos asociados ──
                 st.markdown(f"**🔗 Modelos predefinidos asociados a esta plantilla:**")
