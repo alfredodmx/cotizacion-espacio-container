@@ -14554,7 +14554,7 @@ if tab_contrato is not None:
                         except Exception:
                             pass
 
-                        _modelo_pv = _cot.get("modelo_predefinido") or None
+                        _modelo_pv = _cot_pv.get("modelo_predefinido") or None
                         _cls_pv = _obtener_clausulas_contrato(_modelo_pv)
                         _pdf_contrato = generar_pdf_contrato(_datos_pv, clausulas_externas=_cls_pv)
 
