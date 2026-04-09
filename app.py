@@ -410,6 +410,10 @@ if not st.session_state.auth_user:
     .stDeployButton { display:none !important; }
     #MainMenu { display:none !important; }
     footer    { display:none !important; }
+    /* Ocultar overlay de errores JS internos de Streamlit/React */
+    [data-testid="stNotificationActionButton"] { display:none !important; }
+    div[class*='ErrorBoundary'] { display:none !important; }
+    section[data-testid='stException'] { display:none !important; }
 
     /* Línea blanca superior */
     [data-testid="stAppViewContainer"]::before {
@@ -5011,6 +5015,21 @@ _nombre_copiar_hdr = st.session_state.pop('_copiar_nombre_producto', '')
 import streamlit.components.v1 as _js_global
 _js_global.html("""
 <script>
+// Suprimir errores internos de React/Streamlit (NotFoundError removeChild)
+(function(){
+    var _origErr = window.parent.console.error.bind(window.parent.console);
+    window.parent.console.error = function() {
+        var msg = arguments[0] ? String(arguments[0]) : '';
+        if (msg.indexOf('removeChild') !== -1 || msg.indexOf('NotFoundError') !== -1) return;
+        _origErr.apply(null, arguments);
+    };
+    // Ocultar el overlay de error de Streamlit cuando aparezca
+    var _obs = new MutationObserver(function(){
+        var errDiv = window.parent.document.querySelector('[data-testid="stException"]');
+        if (errDiv) errDiv.style.display = 'none';
+    });
+    _obs.observe(window.parent.document.body, {childList:true, subtree:true});
+})();
 (function(){
 (function(){
     var D = window.parent.document;
