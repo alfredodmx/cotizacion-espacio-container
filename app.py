@@ -6691,7 +6691,8 @@ def _generar_qr_imagen(url, size=80):
 
 def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
                      fecha_inicio, fecha_termino, dias_validez,
-                     datos_asesor, margen=0, numero_cotizacion=None, mostrar_precios=False):
+                     datos_asesor, margen=0, numero_cotizacion=None, mostrar_precios=False,
+                     fecha_adjudicacion=None, fecha_fidelizacion=None, plazo_obra_dias=45):
 
     buffer = io.BytesIO()
 
@@ -6745,7 +6746,7 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
     _col1 = doc.width * 0.45
     _col2 = doc.width * 0.55
 
-    # ── FILA 1: vacío | logo (centrado) | QR (derecha) ──
+    # ── FILA 1: logo izquierda | QR o bloque fechas (derecha) ──
     _qr_img, _qr_sz = _generar_qr_imagen("https://www2.sii.cl/stc/noauthz/consulta", size=70)
     _logo_cell = ""
     try:
@@ -6758,7 +6759,77 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
     except:
         _logo_cell = Paragraph("", styles['EPTitulo'])
 
-    if _qr_img:
+    # Si es PDF Compras: bloque fechas si adjudicado, mensaje si no
+    if mostrar_precios and not fecha_adjudicacion:
+        styles.add(ParagraphStyle(name='SinAdj', parent=styles['Normal'],
+            fontSize=7.5, fontName='Helvetica-Bold', leading=10,
+            textColor=colors.HexColor('#6b7280'), alignment=1))
+        _sin_adj_tbl = Table(
+            [[Paragraph('📋', styles['SinAdj'])],
+             [Paragraph('Proyecto sin', styles['SinAdj'])],
+             [Paragraph('adjudicación', styles['SinAdj'])],
+             [Paragraph('Sin fecha de entrega', styles['SinAdj'])]],
+            colWidths=[90])
+        _sin_adj_tbl.setStyle(TableStyle([
+            ('ALIGN',  (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('TOPPADDING',   (0,0), (-1,-1), 3),
+            ('BOTTOMPADDING',(0,0), (-1,-1), 3),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#e2e8f0')),
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f8fafc')),
+        ]))
+        _qr_cell = _sin_adj_tbl
+        _qr_sz = 90
+    elif mostrar_precios and fecha_adjudicacion:
+        from datetime import date as _date_t
+        styles.add(ParagraphStyle(name='FechaLbl', parent=styles['Normal'],
+            fontSize=7, fontName='Helvetica-Bold', leading=9,
+            textColor=colors.HexColor('#6b7280')))
+        styles.add(ParagraphStyle(name='FechaVal', parent=styles['Normal'],
+            fontSize=8.5, fontName='Helvetica-Bold', leading=11,
+            textColor=colors.HexColor('#0d2266')))
+        # Calcular fecha entrega (adjudicacion + plazo_obra_dias hábiles)
+        try:
+            if isinstance(fecha_adjudicacion, str):
+                _fadj = datetime.fromisoformat(fecha_adjudicacion.replace('Z','')).date()
+            else:
+                _fadj = fecha_adjudicacion
+            _f_entrega = sumar_dias_habiles(_fadj, plazo_obra_dias)
+            _dias_reales = (_f_entrega - _fadj).days
+            _fadj_fmt = _fadj.strftime('%d/%m/%Y')
+            _meses_es = ['enero','febrero','marzo','abril','mayo','junio',
+                         'julio','agosto','septiembre','octubre','noviembre','diciembre']
+            _fent_fmt = f"{_f_entrega.day} {_meses_es[_f_entrega.month-1]} {_f_entrega.year}"
+            _fecha_lines = [
+                [Paragraph('Fecha adjudicación', styles['FechaLbl']),
+                 Paragraph(_fadj_fmt, styles['FechaVal'])],
+                [Paragraph('📅 Fecha de entrega', styles['FechaLbl']),
+                 Paragraph(_fent_fmt, styles['FechaVal'])],
+                [Paragraph('Días hábiles', styles['FechaLbl']),
+                 Paragraph(f'{plazo_obra_dias} días hábiles', styles['FechaVal'])],
+                [Paragraph('Días reales', styles['FechaLbl']),
+                 Paragraph(f'{_dias_reales} días', styles['FechaVal'])],
+            ]
+            _fechas_tbl = Table(_fecha_lines, colWidths=[55, 65])
+            _fechas_tbl.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('ALIGN',  (0,0), (0,-1), 'RIGHT'),
+                ('ALIGN',  (1,0), (1,-1), 'LEFT'),
+                ('LEFTPADDING',  (0,0), (-1,-1), 2),
+                ('RIGHTPADDING', (0,0), (-1,-1), 2),
+                ('TOPPADDING',   (0,0), (-1,-1), 2),
+                ('BOTTOMPADDING',(0,0), (-1,-1), 2),
+                ('LINEBELOW', (0,0), (-1,-2), 0.3, colors.HexColor('#e2e8f0')),
+                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f8faff')),
+                ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#1e2447')),
+                ('ROUNDEDCORNERS', [4]),
+            ]))
+            _qr_cell = _fechas_tbl
+            _qr_sz = 120
+        except Exception as _ef:
+            _qr_cell = Paragraph("", styles['EPTitulo'])
+            _qr_sz = 70
+    elif _qr_img:
         from reportlab.platypus import Image as _RLImage
         _qr_img.name = 'qr.png'
         _qr_rl = _RLImage(_qr_img, width=_qr_sz, height=_qr_sz)
@@ -8252,30 +8323,23 @@ document.querySelectorAll('.cat-card').forEach(function(el){{
                 carrito_df_edit_filtrado = carrito_df_edit
             st.markdown("""
             <style>
-            /* ── Header del data_editor presupuesto ── */
-            div[data-testid='stDataEditor'] [data-testid='glideDataEditor'] .dvn-header-row .dvn-header-cell,
-            div[data-testid='stDataEditor'] .header-cell,
-            div[data-testid='stDataEditor'] [role='columnheader'] {
+            @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap');
+            /* Header canvas — glide-data-grid usa canvas, no DOM elements */
+            /* Solo podemos estilizar el contenedor externo */
+            div[data-testid='stDataEditor'] .stDataFrameGlideDataEditor {
+                font-family: Montserrat, 'Segoe UI', sans-serif !important;
+            }
+            /* Wrapper exterior del data_editor */
+            div[data-testid='stDataEditor'] > div {
+                border-radius: 12px !important;
+                overflow: hidden !important;
+                border: 1.5px solid #1e2447 !important;
+                box-shadow: 0 4px 20px rgba(30,36,71,0.12) !important;
+            }
+            /* Toolbar encima de la tabla */
+            div[data-testid='stDataEditor'] [data-testid='stDataFrameToolbar'] {
                 background: linear-gradient(135deg, #1e2447 0%, #2a3060 100%) !important;
-                color: #ffffff !important;
-                font-family: Montserrat, 'Segoe UI', sans-serif !important;
-                font-weight: 700 !important;
-                font-size: 0.72rem !important;
-                letter-spacing: 0.05em !important;
-                text-transform: uppercase !important;
-                border-bottom: 2px solid #3b4a8a !important;
-            }
-            /* ── Celdas del data_editor presupuesto ── */
-            div[data-testid='stDataEditor'] [data-testid='glideDataEditor'] .dvn-scroller .cell-container,
-            div[data-testid='stDataEditor'] [role='gridcell'] {
-                font-family: Montserrat, 'Segoe UI', sans-serif !important;
-                font-size: 0.82rem !important;
-                font-weight: 600 !important;
-                color: #0f172a !important;
-            }
-            /* ── Fila hover ── */
-            div[data-testid='stDataEditor'] [data-testid='glideDataEditor'] .dvn-scroller tr:hover td {
-                background: #f0f4ff !important;
+                border-radius: 10px 10px 0 0 !important;
             }
             </style>""", unsafe_allow_html=True)
             edited_df = st.data_editor(carrito_df_edit_filtrado, use_container_width=True, hide_index=True, height=altura_tabla,
@@ -9682,7 +9746,10 @@ if tab3 is not None:
                         _fi_c = datetime.strptime(_cot_compras.get('proyecto_fecha_inicio', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d').date()
                         _ft_c = datetime.strptime(_cot_compras.get('proyecto_fecha_termino', (datetime.now()+timedelta(days=15)).strftime('%Y-%m-%d')), '%Y-%m-%d').date()
                         _dv_c = _cot_compras.get('proyecto_dias_validez', 15)
-                        _pdf_compras, _ = generar_pdf_completo(_df_compras, _sub_compras, _iva_compras, _tot_compras, _dc_compras, _fi_c, _ft_c, _dv_c, _da_compras, margen=0, numero_cotizacion=numero_seleccionado, mostrar_precios=True)
+                        _fadj_c = _cot_compras.get('fecha_adjudicacion') or None
+                        _ffid_c = _cot_compras.get('fecha_entrega') or None
+                        _plazo_c = int((_cot_compras.get('contrato_datos') or {}).get('plazo_dias', 45) or 45)
+                        _pdf_compras, _ = generar_pdf_completo(_df_compras, _sub_compras, _iva_compras, _tot_compras, _dc_compras, _fi_c, _ft_c, _dv_c, _da_compras, margen=0, numero_cotizacion=numero_seleccionado, mostrar_precios=True, fecha_adjudicacion=_fadj_c, fecha_fidelizacion=_ffid_c, plazo_obra_dias=_plazo_c)
                         st.download_button(label="🛒 PDF Compras", data=_pdf_compras, file_name=f"Compras_{numero_seleccionado}.pdf",
                             mime="application/pdf", use_container_width=True, key=f"pdf_compras_{numero_seleccionado}")
                 else:
