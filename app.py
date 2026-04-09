@@ -2371,6 +2371,13 @@ if _qp_cat_filtro:
     else:
         st.session_state['_cat_filtro_activo'] = _qp_cat_filtro
     st.query_params.pop('cat_filtro')
+_qp_rc_cat_filtro = st.query_params.get('rc_cat_filtro', '')
+if _qp_rc_cat_filtro:
+    if _qp_rc_cat_filtro == '__clear__' or _qp_rc_cat_filtro == st.session_state.get('_rc_cat_filtro_activo', ''):
+        st.session_state.pop('_rc_cat_filtro_activo', None)
+    else:
+        st.session_state['_rc_cat_filtro_activo'] = _qp_rc_cat_filtro
+    st.query_params.pop('rc_cat_filtro')
     st.rerun()
 
 # ── Leer acción guardar desde FAB via query_params ───────
@@ -12775,13 +12782,69 @@ window.addEventListener("message",function(e){{
                     # rc_prev siempre vacío — los ítems comprados se muestran via items_comprados
                     # Evitar que valores de sesiones anteriores se pre-poblen causando guardados fantasma
                     _rc_prev = {}
+
+                    # ── Tarjetas de categoría (mismo diseño que Presupuesto) ──
+                    import streamlit.components.v1 as _rc_cat_comp
+                    import math as _rc_math_cat
+                    _rc_cat_colors = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444',
+                                      '#06b6d4','#f97316','#84cc16','#ec4899','#6366f1',
+                                      '#14b8a6','#eab308','#dc2626','#7c3aed','#0ea5e9']
+                    # Obtener categorías únicas de _rc_prods (ya filtrado según rol/toggle)
+                    _rc_cats_seen = {}
+                    for _rcp in _rc_prods:
+                        _rcc = str(_rcp.get('Categoria','')).strip()
+                        if _rcc:
+                            if _rcc not in _rc_cats_seen:
+                                _rc_cats_seen[_rcc] = {'items': 0, 'cant': 0}
+                            _rc_cats_seen[_rcc]['items'] += 1
+                            _rc_cats_seen[_rcc]['cant'] += int(float(_rcp.get('Cantidad',1) or 1))
+                    _rc_cat_filtro_activo = st.session_state.get('_rc_cat_filtro_activo', '')
+                    _rc_cards_divs = ''
+                    for _rci, (_rcc, _rcv) in enumerate(sorted(_rc_cats_seen.items())):
+                        _rccolor = _rc_cat_colors[_rci % len(_rc_cat_colors)]
+                        _rc_is_active = _rc_cat_filtro_activo == _rcc
+                        _rc_bg = f"{_rccolor}18" if _rc_is_active else '#fff'
+                        _rc_brd = f"2px solid {_rccolor}" if _rc_is_active else f"1.5px solid {_rccolor}33"
+                        _rc_tick = ' ✓' if _rc_is_active else ''
+                        _rc_cards_divs += (
+                            f'<div class="rc-cat-card" data-cat="{_rcc}" '
+                            f'style="background:{_rc_bg};border:{_rc_brd};border-left:4px solid {_rccolor};'
+                            f'border-radius:8px;padding:8px 14px;min-width:120px;flex:1;cursor:pointer;">'
+                            f'<div style="font-size:11px;font-weight:700;color:{_rccolor};text-transform:uppercase;'
+                            f'letter-spacing:.05em;margin-bottom:4px;">{_rcc}{_rc_tick}</div>'
+                            f'<div style="font-size:10px;color:#64748b;margin-top:2px;">'
+                            f'{_rcv["items"]} ítems · {_rcv["cant"]} uds.</div></div>'
+                        )
+                    _rc_cat_html = f"""<style>html,body{{margin:0;padding:0;overflow:hidden;font-family:'Segoe UI',sans-serif;}}*{{box-sizing:border-box;}}</style>
+<div style='display:flex;flex-wrap:wrap;gap:8px;padding:4px 0;'>{_rc_cards_divs}</div>
+<script>
+document.querySelectorAll('.rc-cat-card').forEach(function(el){{
+  el.addEventListener('click',function(){{
+    var cat=this.dataset.cat;
+    var url=new URL(window.parent.location.href);
+    var current=url.searchParams.get('rc_cat_filtro');
+    url.searchParams.set('rc_cat_filtro', current===cat ? '__clear__' : cat);
+    window.parent.history.replaceState({{}},'',url);
+    window.parent.dispatchEvent(new PopStateEvent('popstate'));
+  }});
+}});
+</script>"""
+                    _rc_n_cats = len(_rc_cats_seen)
+                    _rc_n_rows = _rc_math_cat.ceil(_rc_n_cats / 9) if _rc_n_cats else 1
+                    _rc_cat_height = _rc_n_rows * 78 + 8
+                    _rc_cat_comp.html(_rc_cat_html, height=_rc_cat_height, scrolling=False)
+                    st.markdown('<div style="margin-top:-24px"></div>', unsafe_allow_html=True)
+
                     # Obtener ítems ya comprados en registros anteriores
                     _rc_items_comprados = obtener_items_comprados(_rc_ep)
                     _rc_es_admin = _rol_actual in ('root','admin')
                     import json as _jrc_call
                     _rc_ya_comprados_json = _jrc_call.dumps(list(_rc_items_comprados.keys()))
+                    # Aplicar filtro de categoría si está activo
+                    _rc_cat_filtro = st.session_state.get('_rc_cat_filtro_activo', '')
+                    _rc_prods_filtrado = [p for p in _rc_prods if not _rc_cat_filtro or str(p.get('Categoria','')).strip() == _rc_cat_filtro]
                     _rc_html = build_rc_html(
-                        _rc_prods, _rc_cat_json, _rc_prev,
+                        _rc_prods_filtrado, _rc_cat_json, _rc_prev,
                         _rc_items_comprados, _rc_es_admin,
                         supa_url=SUPABASE_URL,
                         supa_key=SUPABASE_KEY,
@@ -12790,7 +12853,7 @@ window.addEventListener("message",function(e){{
                         items_ya_comprados_json=_rc_ya_comprados_json,
                         total_items_presupuesto=len(_rc_prods)
                     )
-                    _rc_height = min(len(_rc_prods)*37+580, 980)
+                    _rc_height = min(len(_rc_prods_filtrado)*37+580, 980)
                     # Forzar re-render cuando cambian items comprados
                     _rc_items_hash = str(sorted(_rc_items_comprados.keys()))
                     _rc_comp.html(_rc_html + f'<!-- {_rc_items_hash} -->', height=min(len(_rc_prods)*37+580, 980), scrolling=False)
