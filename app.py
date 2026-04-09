@@ -12825,14 +12825,6 @@ window.addEventListener("message",function(e){{
 
                     # ── Contenedor Exportar Balance (solo admin/root) ──
                     if _rol_actual in ('root','admin') and _rc_existentes:
-                        st.markdown("""
-                        <div style='background:linear-gradient(135deg,#1e2447 0%,#2a3060 100%);
-                        border-radius:12px;padding:16px 20px 12px;margin:8px 0 4px;'>
-                        <div style='font-family:Montserrat,sans-serif;font-weight:700;font-size:0.82rem;
-                        letter-spacing:0.06em;text-transform:uppercase;color:#fff;margin-bottom:12px;
-                        display:flex;align-items:center;gap:8px;'>
-                        📊 Exportar Balance
-                        </div></div>""", unsafe_allow_html=True)
                         import json as _jbal
                         _bal_prods = _rc_row.get('productos') or []
                         if isinstance(_bal_prods, str):
@@ -12840,7 +12832,17 @@ window.addEventListener("message",function(e){{
                             except: _bal_prods = []
                         _bal_dc = {'Nombre': _rc_row.get('cliente_nombre',''), 'RUT': _rc_row.get('cliente_rut','')}
                         _bal_da = {'Nombre Ejecutivo': _rc_row.get('asesor_nombre','')}
-                        st.markdown('<div style="margin-top:-8px"></div>', unsafe_allow_html=True)
+                        st.markdown("""
+                        <div style='background:linear-gradient(135deg,#1e2447 0%,#2a3060 100%);
+                        border-radius:12px 12px 0 0;padding:14px 20px 10px;margin:8px 0 0;'>
+                        <div style='font-family:Montserrat,sans-serif;font-weight:700;font-size:0.82rem;
+                        letter-spacing:0.06em;text-transform:uppercase;color:#fff;
+                        display:flex;align-items:center;gap:8px;'>📊 Exportar Balance
+                        </div></div>
+                        <div style='background:#f8fafc;border:1px solid #e2e8f0;border-top:none;
+                        border-radius:0 0 12px 12px;padding:12px 12px 14px;margin:0 0 8px;'>
+                        </div>""", unsafe_allow_html=True)
+                        st.markdown('<div style="margin-top:-46px"></div>', unsafe_allow_html=True)
                         _bcol1, _bcol2, _bcol3 = st.columns(3)
                         with _bcol1:
                             if st.button('📥 PDF Balance', key=f'pdf_balance_{_rc_ep}', use_container_width=True, help='Sin Varios'):
