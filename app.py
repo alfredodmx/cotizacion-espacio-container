@@ -12832,49 +12832,61 @@ window.addEventListener("message",function(e){{
                             except: _bal_prods = []
                         _bal_dc = {'Nombre': _rc_row.get('cliente_nombre',''), 'RUT': _rc_row.get('cliente_rut','')}
                         _bal_da = {'Nombre Ejecutivo': _rc_row.get('asesor_nombre','')}
+                        st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
                         st.markdown("""
-                        <div style='background:linear-gradient(135deg,#1e2447 0%,#2a3060 100%);
-                        border-radius:12px 12px 0 0;padding:14px 20px 10px;margin:8px 0 0;'>
-                        <div style='font-family:Montserrat,sans-serif;font-weight:700;font-size:0.82rem;
-                        letter-spacing:0.06em;text-transform:uppercase;color:#fff;
-                        display:flex;align-items:center;gap:8px;'>📊 Exportar Balance
-                        </div></div>
-                        <div style='background:#f8fafc;border:1px solid #e2e8f0;border-top:none;
-                        border-radius:0 0 12px 12px;padding:12px 12px 14px;margin:0 0 8px;'>
+                        <style>
+                        div[data-testid='stVerticalBlock']:has(div[data-testid='stHorizontalBlock'] button[kind='secondary'][data-testid*='pdf_balance']) {
+                            background: linear-gradient(135deg,#1e2447 0%,#2a3060 100%) !important;
+                            border-radius: 12px !important;
+                            padding: 12px 14px 14px !important;
+                        }
+                        </style>
+                        <div style='background:linear-gradient(135deg,#1e2447 0%,#2a3060 100%);border-radius:12px 12px 0 0;padding:13px 18px 10px;'>
+                        <span style='font-family:Montserrat,sans-serif;font-weight:700;font-size:0.82rem;letter-spacing:0.06em;text-transform:uppercase;color:#fff;'>📊 Exportar Balance</span>
                         </div>""", unsafe_allow_html=True)
-                        st.markdown('<div style="margin-top:-46px"></div>', unsafe_allow_html=True)
-                        _bcol1, _bcol2, _bcol3 = st.columns(3)
-                        with _bcol1:
-                            if st.button('📥 PDF Balance', key=f'pdf_balance_{_rc_ep}', use_container_width=True, help='Sin Varios'):
-                                with st.spinner('Generando PDF...'):
-                                    try:
-                                        _bal_pdf = generar_pdf_balance(_rc_ep, _bal_dc, _bal_da, _rc_existentes, _bal_prods, incluir_varios=False)
-                                        st.download_button(label='📄 Descargar (sin Varios)', data=_bal_pdf,
-                                            file_name=f'Balance_{_rc_ep}_sin_varios.pdf', mime='application/pdf',
-                                            key=f'dl_balance_{_rc_ep}')
-                                    except Exception as _e_bal:
-                                        st.error(f'Error: {_e_bal}')
-                        with _bcol2:
-                            if st.button('📥 PDF Balance + Varios', key=f'pdf_balance_v_{_rc_ep}', use_container_width=True, help='Con Varios'):
-                                with st.spinner('Generando PDF...'):
-                                    try:
-                                        _bal_pdf_v = generar_pdf_balance(_rc_ep, _bal_dc, _bal_da, _rc_existentes, _bal_prods, incluir_varios=True)
-                                        st.download_button(label='📄 Descargar (con Varios)', data=_bal_pdf_v,
-                                            file_name=f'Balance_{_rc_ep}_con_varios.pdf', mime='application/pdf',
-                                            key=f'dl_balance_v_{_rc_ep}')
-                                    except Exception as _e_bal_v:
-                                        st.error(f'Error: {_e_bal_v}')
-                        with _bcol3:
-                            if st.button('📊 Excel Precios', key=f'xls_balance_{_rc_ep}', use_container_width=True):
-                                with st.spinner('Generando Excel...'):
-                                    try:
-                                        _bal_xls = generar_excel_balance(_rc_ep, _rc_existentes, _bal_prods)
-                                        st.download_button(label='📊 Descargar Excel', data=_bal_xls,
-                                            file_name=f'Precios_Reales_{_rc_ep}.xlsx',
-                                            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                                            key=f'dl_xls_{_rc_ep}')
-                                    except Exception as _e_xls:
-                                        st.error(f'Error: {_e_xls}')
+                        with st.container(key=f'export_balance_{_rc_ep}'):
+                            st.markdown(f"""
+                            <style>
+                            .st-key-export_balance_{_rc_ep} {{
+                                background: #f0f4ff !important;
+                                border-radius: 0 0 12px 12px !important;
+                                border: 1px solid #c7d2fe !important;
+                                border-top: none !important;
+                                padding: 10px 8px 14px !important;
+                            }}
+                            </style>""", unsafe_allow_html=True)
+                            _bcol1, _bcol2, _bcol3 = st.columns(3)
+                            with _bcol1:
+                                if st.button('📥 PDF Balance', key=f'pdf_balance_{_rc_ep}', use_container_width=True, help='Sin Varios'):
+                                    with st.spinner('Generando PDF...'):
+                                        try:
+                                            _bal_pdf = generar_pdf_balance(_rc_ep, _bal_dc, _bal_da, _rc_existentes, _bal_prods, incluir_varios=False)
+                                            st.download_button(label='📄 Descargar (sin Varios)', data=_bal_pdf,
+                                                file_name=f'Balance_{_rc_ep}_sin_varios.pdf', mime='application/pdf',
+                                                key=f'dl_balance_{_rc_ep}')
+                                        except Exception as _e_bal:
+                                            st.error(f'Error: {_e_bal}')
+                            with _bcol2:
+                                if st.button('📥 PDF Balance + Varios', key=f'pdf_balance_v_{_rc_ep}', use_container_width=True, help='Con Varios'):
+                                    with st.spinner('Generando PDF...'):
+                                        try:
+                                            _bal_pdf_v = generar_pdf_balance(_rc_ep, _bal_dc, _bal_da, _rc_existentes, _bal_prods, incluir_varios=True)
+                                            st.download_button(label='📄 Descargar (con Varios)', data=_bal_pdf_v,
+                                                file_name=f'Balance_{_rc_ep}_con_varios.pdf', mime='application/pdf',
+                                                key=f'dl_balance_v_{_rc_ep}')
+                                        except Exception as _e_bal_v:
+                                            st.error(f'Error: {_e_bal_v}')
+                            with _bcol3:
+                                if st.button('📊 Excel Precios', key=f'xls_balance_{_rc_ep}', use_container_width=True):
+                                    with st.spinner('Generando Excel...'):
+                                        try:
+                                            _bal_xls = generar_excel_balance(_rc_ep, _rc_existentes, _bal_prods)
+                                            st.download_button(label='📊 Descargar Excel', data=_bal_xls,
+                                                file_name=f'Precios_Reales_{_rc_ep}.xlsx',
+                                                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                                key=f'dl_xls_{_rc_ep}')
+                                        except Exception as _e_xls:
+                                            st.error(f'Error: {_e_xls}')
 
 
     with _sub_acta:
