@@ -2714,7 +2714,7 @@ def leer_datos_actuales():
     for prefijo, campo in mapeo_texto.items():
         mejor_counter = -1
         mejor_valor = None
-        for key, valor in st.session_state.items():
+        for key, valor in list(st.session_state.items()):
             if isinstance(key, str) and key.startswith(prefijo):
                 try:
                     c = int(key[len(prefijo):])
