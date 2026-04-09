@@ -9057,7 +9057,9 @@ if tab3 is not None:
                 st.rerun()
         # Filtro JS sin rerun — opera sobre el DOM del padre
         import streamlit.components.v1 as _cmp_filt
+        st.markdown('<style>iframe[height="0"]{display:none!important;margin:0!important;padding:0!important;}</style>', unsafe_allow_html=True)
         _cmp_filt.html("""
+<style>html,body{margin:0;padding:0;height:0;overflow:hidden;}</style>
 <script>
 (function(){
   var D=window.parent.document;
