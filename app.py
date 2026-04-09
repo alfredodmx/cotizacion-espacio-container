@@ -9071,7 +9071,6 @@ if tab3 is not None:
       var bv=b.getAttribute('data-filtro');
       var isAct=(!val||val==='TODOS')?(bv==='TODOS'):(bv===val);
       b.style.outline=isAct?('2px solid '+b.style.color):'';
-      b.style.opacity=(!val||isAct)?'1':'0.55';
     });
   }
   function init(){
