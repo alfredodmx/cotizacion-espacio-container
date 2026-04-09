@@ -12474,12 +12474,14 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
 
                 # Mostrar registros existentes
                 _rc_existentes = obtener_registros_compra(_rc_ep)
+                # _modo_admin_rc se define más abajo con el toggle — default False aquí
+                _modo_admin_rc = st.session_state.get(f'rc_modo_admin_{_rc_ep}', False) if _rol_actual in ('root','admin') else False
 
                 # Agregar adicionales de registros anteriores a _rc_prods
                 import json as _jadic
-                # Usar _rc_prods_raw (presupuesto original completo) para detectar adicionales
-                _prods_nombres_orig = {str(p.get('Item','')) for p in _rc_prods_raw}
-                _prods_nombres = {str(p.get('Item','')) for p in _rc_prods}
+                # Usar presupuesto SIN Varios para detectar adicionales (independiente del rol)
+                _prods_sin_varios = [p for p in _rc_prods_raw if str(p.get('Categoria','')).strip().lower() != 'varios']
+                _prods_nombres = {str(p.get('Item','')) for p in _prods_sin_varios}
                 for _reg_ad in _rc_existentes:
                     _items_ad = _reg_ad.get('items') or []
                     if isinstance(_items_ad, str):
@@ -12487,17 +12489,8 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         except: _items_ad = []
                     for _it_ad in _items_ad:
                         _it_nombre = str(_it_ad.get('item',''))
+                        _it_es_adic = _it_ad.get('es_adicional', False) or _it_nombre not in _prods_nombres
                         _it_sin_reg = _it_ad.get('sin_registro', False)
-                        # Es adicional si: tiene flag es_adicional, es sin_registro,
-                        # O simplemente no existe en el presupuesto original
-                        # Adicional si:
-                        # 1. Es sin_registro, o
-                        # 2. No existe en presupuesto original, o
-                        # 3. Existe en presupuesto PERO fue guardado explicitamente como es_adicional=True
-                        #    (operador lo agregó manualmente como adicional aunque esté en presupuesto)
-                        # Usar flag es_adicional guardado en Supabase como fuente de verdad
-                        _flag_adic = bool(_it_ad.get('es_adicional', False))
-                        _it_es_adic = _it_sin_reg or _flag_adic
                         if _it_nombre and _it_es_adic and _it_nombre not in _prods_nombres:
                             # Es adicional — agregarlo con marcador especial
                             _rc_prods.append({
@@ -12551,6 +12544,9 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         if isinstance(_rce_items_h, str):
                             try: _rce_items_h = _jbadge.loads(_rce_items_h)
                             except: _rce_items_h = []
+                        # Filtrar Varios del historial si modo admin está OFF
+                        if not _modo_admin_rc:
+                            _rce_items_h = [i for i in _rce_items_h if str(i.get('categoria','')).strip().lower() != 'varios']
                         _rce_tipo_k = _tipo_reg(_rce)
                         _tiene_sin = any(i.get('sin_registro') for i in _rce_items_h)
                         _tiene_con = any(i.get('es_adicional') and not i.get('sin_registro') for i in _rce_items_h)
@@ -12743,6 +12739,7 @@ window.addEventListener("message",function(e){{
                 if _rol_actual in ('root', 'admin'):
                     _modo_admin_rc = st.toggle('👁️ Modo Admin (incluye Varios)', key=f'rc_modo_admin_{_rc_ep}')
                     if not _modo_admin_rc:
+                        # Ocultar Varios (presupuesto y adicionales) cuando toggle está OFF
                         _rc_prods = [p for p in _rc_prods if str(p.get('Categoria','')).strip().lower() != 'varios']
                 else:
                     _modo_admin_rc = False
@@ -12761,6 +12758,9 @@ window.addEventListener("message",function(e){{
                             _citem = str(_crow.get('Item','')).strip()
                             _cprice = round(float(_crow.get('P. Unitario real', _crow.get('Precio Unitario', 0)) or 0))
                             if _ccat and _citem:
+                                # Ocultar categoria Varios en catálogo para operación
+                                if not _modo_admin_rc and _ccat.strip().lower() == 'varios':
+                                    continue
                                 if _ccat not in _rc_cat_data:
                                     _rc_cat_data[_ccat] = []
                                 _rc_cat_data[_ccat].append({'item': _citem, 'precio': _cprice})
