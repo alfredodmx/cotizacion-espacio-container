@@ -15309,45 +15309,53 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
             _MARCADORES = "{{FECHA}} {{TRATAMIENTO}} {{CLIENTE}} {{RUT_CLIENTE}} {{DOMICILIO_CLIENTE}} {{COMUNA_CLIENTE}} {{REGION_CLIENTE}} {{DOMICILIO_INST}} {{COMUNA_INST}} {{REGION_INST}} {{EP}} {{EP_NOMBRE}} {{TOTAL}} {{TOTAL_PALABRAS}} {{PAGO_50}} {{PAGO_50_PALABRAS}} {{PAGO_25A}} {{PAGO_25A_PALABRAS}} {{PAGO_25B}} {{PAGO_25B_PALABRAS}} {{PLAZO}}"
 
             # ── Cargar plantilla activa de Supabase ──
-            def _cargar_plantilla_activa():
+            def _cargar_plantilla_activa(tipo='A'):
                 try:
-                    _res = supabase.table("plantillas_contrato").select("*").eq("activa", True).execute()
+                    _res = supabase.table("plantillas_contrato").select("*").eq("activa", True).eq("tipo", tipo).execute()
                     if _res.data:
                         return _res.data[0]
-                    return None
+                    # fallback: cualquier activa si no hay del tipo
+                    _res2 = supabase.table("plantillas_contrato").select("*").eq("activa", True).execute()
+                    return _res2.data[0] if _res2.data else None
                 except Exception:
                     return None
 
-            def _cargar_historial():
+            def _cargar_historial(tipo=None):
                 try:
-                    _res = supabase.table("plantillas_contrato").select("*").order("version", desc=True).execute()
+                    _q = supabase.table("plantillas_contrato").select("*").order("version", desc=True)
+                    if tipo:
+                        _q = _q.eq("tipo", tipo)
+                    _res = _q.execute()
                     return _res.data or []
                 except Exception:
                     return []
 
-            def _guardar_plantilla(clausulas_dict, usuario):
+            def _guardar_plantilla(clausulas_dict, usuario, tipo='A', modelos_lista=None):
                 try:
                     import json as _json
-                    # Desactivar todas
-                    supabase.table("plantillas_contrato").update({"activa": False}).neq("id", 0).execute()
-                    # Obtener próxima versión
-                    _hist = _cargar_historial()
-                    _next_v = (_hist[0]["version"] + 1) if _hist else 2
+                    # Desactivar solo las del mismo tipo
+                    supabase.table("plantillas_contrato").update({"activa": False}).eq("tipo", tipo).execute()
+                    # Obtener próxima versión global
+                    _hist_all = _cargar_historial()
+                    _next_v = (_hist_all[0]["version"] + 1) if _hist_all else 2
+                    _tipo_label = 'A' if tipo == 'A' else 'B'
                     # Insertar nueva
                     supabase.table("plantillas_contrato").insert({
                         "version": _next_v,
-                        "nombre": f"Plantilla v{_next_v}",
+                        "nombre": f"Plantilla {_tipo_label} v{_next_v}",
                         "clausulas": clausulas_dict,
                         "activa": True,
                         "creado_por": usuario,
+                        "tipo": tipo,
+                        "modelos": modelos_lista or [],
                     }).execute()
                     return True
                 except Exception as _e:
                     return str(_e)
 
-            def _activar_plantilla(pid):
+            def _activar_plantilla(pid, tipo='A'):
                 try:
-                    supabase.table("plantillas_contrato").update({"activa": False}).neq("id", 0).execute()
+                    supabase.table("plantillas_contrato").update({"activa": False}).eq("tipo", tipo).execute()
                     supabase.table("plantillas_contrato").update({"activa": True}).eq("id", pid).execute()
                     return True
                 except Exception:
@@ -15359,313 +15367,178 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 try:
                     supabase.table("plantillas_contrato").insert({
                         "version": 1,
-                        "nombre": "Plantilla v1 — original sistema",
+                        "nombre": "Plantilla A v1 — original sistema",
                         "clausulas": _CLAUSULAS_EDITOR,
                         "activa": True,
                         "creado_por": "Sistema",
+                        "tipo": "A",
+                        "modelos": [],
                     }).execute()
                     _historial = _cargar_historial()
                 except Exception:
                     pass
             else:
-                # Siempre sincronizar v1 con _CLAUSULAS_EDITOR actual del código
-                _v1 = next((p for p in _historial if p.get("version") == 1), None)
-                if _v1:
-                    try:
-                        supabase.table("plantillas_contrato").update({
-                            "clausulas": _CLAUSULAS_EDITOR
-                        }).eq("id", _v1["id"]).execute()
-                    except Exception:
-                        pass
+                # Sincronizar tipo en registros sin tipo (migración)
+                for _p in _historial:
+                    if not _p.get("tipo"):
+                        try:
+                            supabase.table("plantillas_contrato").update({"tipo": "A", "modelos": []}).eq("id", _p["id"]).execute()
+                        except Exception:
+                            pass
 
-            # ── Plantilla activa ──
-            _plt_activa = _cargar_plantilla_activa()
-            _clausulas_act = _plt_activa["clausulas"] if _plt_activa else _CLAUSULAS_EDITOR
+            # ── Obtener modelos predefinidos disponibles ──
+            _hojas_modelo_ed = [h for h in _leer_hojas_disponibles() if h.lower().startswith("modelo")]
 
             # ── Info ──
             st.markdown("""
             <div style='background:#e8eef7;border:1px solid #0f3460;border-radius:10px;
                         padding:12px 16px;margin-bottom:16px;font-size:13px;color:#0f3460;'>
-            <strong>⚠️ Plantilla global</strong> — Los cambios afectan a todos los contratos nuevos.
-            Los marcadores <code>{{CAMPO}}</code> se reemplazan automáticamente con los datos reales.
-            Las secciones del proveedor y banco son fijas del sistema.
+            <strong>⚠️ Plantillas duales</strong> — <b>Plantilla A</b> para modelos ≤30m² · <b>Plantilla B</b> para modelos &gt;30m².
+            El sistema detecta automáticamente qué plantilla usar según el modelo predefinido del presupuesto.
+            Los marcadores se reemplazan con los datos reales al generar.
             </div>
             """, unsafe_allow_html=True)
 
-            # ── Marcadores disponibles ──
-            _MARCADORES_INFO = {
-                "{{FECHA}}":             "Fecha del contrato (ej: 29 de marzo de 2026)",
-                "{{TRATAMIENTO}}":       "Tratamiento del cliente (Don / Doña / Sr. / Sra.)",
-                "{{CLIENTE}}":           "Nombre completo del cliente",
-                "{{RUT_CLIENTE}}":       "RUT del cliente (ej: 12.345.678-9)",
-                "{{DOMICILIO_CLIENTE}}": "Dirección del domicilio del cliente",
-                "{{COMUNA_CLIENTE}}":    "Comuna del domicilio del cliente",
-                "{{REGION_CLIENTE}}":    "Región del domicilio del cliente",
-                "{{DOMICILIO_INST}}":    "Dirección donde se instalará el proyecto",
-                "{{COMUNA_INST}}":       "Comuna de instalación del proyecto",
-                "{{REGION_INST}}":       "Región de instalación del proyecto",
-                "{{EP}}":               "Número del presupuesto (ej: EP-12345)",
-                "{{EP_NOMBRE}}":        "Nombre/descripción del proyecto",
-                "{{TOTAL}}":            "Precio total con IVA (ej: $26.168.975)",
-                "{{TOTAL_PALABRAS}}":   "Precio total en palabras",
-                "{{PAGO_50}}":          "50% inicial en números",
-                "{{PAGO_50_PALABRAS}}": "50% inicial en palabras",
-                "{{PAGO_25A}}":         "25% intermedio en números",
-                "{{PAGO_25A_PALABRAS}}":"25% intermedio en palabras",
-                "{{PAGO_25B}}":         "25% final en números",
-                "{{PAGO_25B_PALABRAS}}":"25% final en palabras",
-                "{{PLAZO}}":            "Plazo de fabricación en días hábiles",
-            }
+            _tab_plt_a, _tab_plt_b = st.tabs(["📋 Plantilla A — ≤30m²", "📋 Plantilla B — >30m²"])
 
-            _markers_html = ""
-            for _mk, _desc in _MARCADORES_INFO.items():
-                _markers_html += f"""
-                <div class="marker-chip" onclick="copyMarker(this, '{_mk}')" title="{_desc}">
-                    <span class="marker-text">{_mk}</span>
-                    <span class="marker-copied" style="display:none;">✓ copiado</span>
-                    <div class="marker-tooltip">{_desc}</div>
-                </div>"""
+            def _render_editor_plantilla(tipo_plt, tab_key_prefix):
+                """Renderiza el editor completo para una plantilla (A o B)."""
+                _plt_activa_t = _cargar_plantilla_activa(tipo_plt)
+                _clausulas_act_t = _plt_activa_t["clausulas"] if _plt_activa_t else _CLAUSULAS_EDITOR
+                _modelos_act_t = list(_plt_activa_t.get("modelos") or []) if _plt_activa_t else []
 
-            import streamlit.components.v1 as _comp_markers
+                # ── Selección de modelos asociados ──
+                st.markdown(f"**🔗 Modelos predefinidos asociados a esta plantilla:**")
+                st.caption("El sistema usará esta plantilla automáticamente cuando el presupuesto use uno de estos modelos.")
+                _modelos_sel = st.multiselect(
+                    "Modelos",
+                    options=_hojas_modelo_ed,
+                    default=[m for m in _modelos_act_t if m in _hojas_modelo_ed],
+                    key=f"{tab_key_prefix}_modelos_sel",
+                    label_visibility="collapsed",
+                    placeholder="Selecciona los modelos que usan esta plantilla..."
+                )
+                st.markdown("<div style='margin-bottom:8px'></div>", unsafe_allow_html=True)
 
-            _markers_component_html = """
-<!DOCTYPE html>
-<html>
-<head>
-<style>
-body { margin:0; padding:0; font-family: sans-serif; }
-.label { font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px; }
-.wrap { display:flex; flex-wrap:wrap; gap:8px; }
-.chip {
-    position:relative; background:#e8eef7; border:1.5px solid #0f3460;
-    border-radius:6px; padding:5px 10px; cursor:pointer;
-    font-size:12px; font-weight:700; color:#0f3460; font-family:monospace;
-    display:inline-flex; align-items:center; gap:6px; user-select:none;
-    transition: background 0.15s, color 0.15s;
-}
-.chip:hover { background:#0f3460; color:white; }
-.chip:hover .tip { display:block; }
-.chip.ok { background:#16a34a; border-color:#16a34a; color:white; }
-.tip {
-    display:none; position:absolute; bottom:calc(100% + 8px); left:50%;
-    transform:translateX(-50%); background:#1e293b; color:white;
-    font-size:11px; font-weight:400; font-family:sans-serif;
-    padding:6px 10px; border-radius:6px; white-space:nowrap;
-    z-index:9999; pointer-events:none; box-shadow:0 4px 12px rgba(0,0,0,0.3);
-}
-.tip::after {
-    content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%);
-    border:5px solid transparent; border-top-color:#1e293b;
-}
-</style>
-</head>
-<body>
-<div class="label">📌 Marcadores disponibles — haz clic para copiar</div>
-<div class="wrap" id="wrap"></div>
-<script>
-var markers = [
-    ["{{FECHA}}", "Fecha del contrato (ej: 29 de marzo de 2026)"],
-    ["{{TRATAMIENTO}}", "Tratamiento del cliente (Don / Doña / Sr. / Sra.)"],
-    ["{{CLIENTE}}", "Nombre completo del cliente"],
-    ["{{RUT_CLIENTE}}", "RUT del cliente (ej: 12.345.678-9)"],
-    ["{{DOMICILIO_CLIENTE}}", "Dirección del domicilio del cliente"],
-    ["{{COMUNA_CLIENTE}}", "Comuna del domicilio del cliente"],
-    ["{{REGION_CLIENTE}}", "Región del domicilio del cliente"],
-    ["{{DOMICILIO_INST}}", "Dirección donde se instalará el proyecto"],
-    ["{{COMUNA_INST}}", "Comuna de instalación del proyecto"],
-    ["{{REGION_INST}}", "Región de instalación del proyecto"],
-    ["{{EP}}", "Número del presupuesto (ej: EP-12345)"],
-    ["{{EP_NOMBRE}}", "Nombre/descripción del proyecto"],
-    ["{{TOTAL}}", "Precio total con IVA (ej: $26.168.975)"],
-    ["{{TOTAL_PALABRAS}}", "Precio total en palabras"],
-    ["{{PAGO_50}}", "50% inicial en números"],
-    ["{{PAGO_50_PALABRAS}}", "50% inicial en palabras"],
-    ["{{PAGO_25A}}", "25% intermedio en números"],
-    ["{{PAGO_25A_PALABRAS}}", "25% intermedio en palabras"],
-    ["{{PAGO_25B}}", "25% final en números"],
-    ["{{PAGO_25B_PALABRAS}}", "25% final en palabras"],
-    ["{{PLAZO}}", "Plazo de fabricación en días hábiles"]
-];
-var wrap = document.getElementById("wrap");
-markers.forEach(function(m) {
-    var chip = document.createElement("div");
-    chip.className = "chip";
-    chip.innerHTML = '<span class="mk">' + m[0] + '</span><span class="ok-txt" style="display:none">✓ copiado</span><div class="tip">' + m[1] + '</div>';
-    chip.addEventListener("click", function() {
-        var ta = document.createElement("textarea");
-        ta.value = m[0];
-        ta.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;";
-        document.body.appendChild(ta);
-        ta.focus(); ta.select();
-        try { document.execCommand("copy"); } catch(e) {}
-        document.body.removeChild(ta);
-        chip.classList.add("ok");
-        chip.querySelector(".mk").style.display = "none";
-        chip.querySelector(".ok-txt").style.display = "inline";
-        setTimeout(function() {
-            chip.classList.remove("ok");
-            chip.querySelector(".mk").style.display = "inline";
-            chip.querySelector(".ok-txt").style.display = "none";
-        }, 1500);
-    });
-    wrap.appendChild(chip);
-});
-</script>
-</body>
-</html>
-"""
-            _comp_markers.html(_markers_component_html, height=130, scrolling=False)
-
-
-            # ── Secciones bloqueadas (solo lectura) ──
-            with st.expander("🔒 Secciones fijas del sistema (no editables)", expanded=False):
-                st.markdown("""
-                **I. Comparecencia — El Proveedor:**
-                Don **Alan Mauricio Gatica Concha**, RUT **13.668.157-5**, en representación de **Inversiones Container House SpA**, RUT **78.268.851-0**, domicilio en Villasana N° 2039, Dpto 51, Torre D, Quinta Normal.
-
-                **IX. Datos bancarios:**
-                Banco Itaú · Cta. Cte. 230771767 · jperez@espaciocontainerhouse.cl
-                """)
-
-            # ── Editor de cláusulas ──
-            st.markdown("**✏️ Cláusulas editables:**")
-            _edits = {}
-            import re as _re_ed
-
-            import re as _re_strip
-            def _strip_b(t): return _re_strip.sub(r'<[^>]+>', '', t)
-
-            for _key, _label in _LABELS.items():
-                _base_editor = _CLAUSULAS_EDITOR.get(_key, "")
-                _val_sup = _clausulas_act.get(_key, "")
-
-                if _val_sup and _strip_b(_val_sup).strip() != _strip_b(_base_editor).strip():
-                    _val_actual = _val_sup
-                else:
-                    _val_actual = _base_editor
-
-                _chars = len(_val_actual)
-                _newlines = _val_actual.count("\n")
-                _estimated_lines = _newlines + max(1, _chars // 85)
-                _h = max(120, _estimated_lines * 22)
-
-                # Título con fondo azul como en el PDF
-                if _key in _LABELS_READONLY:
-                    st.markdown(
-                        f'''<div style="background:#1e3a5f;color:white;font-size:0.78rem;font-weight:900;
-                                    text-transform:uppercase;letter-spacing:0.08em;padding:8px 14px;
-                                    border-radius:8px 8px 0 0;margin-bottom:0;">
-                            🔒 {_label.upper()} — SOLO LECTURA</div>''',
-                        unsafe_allow_html=True)
-                    _txt_display = _val_actual.replace("\n", "<br>")
-                    st.markdown(
-                        f'''<div style="background:#fff5f5;border:1.5px solid #dc2626;border-top:none;
-                                    border-radius:0 0 8px 8px;padding:14px 16px;margin-bottom:16px;">
-                            <div style="font-size:13px;line-height:1.7;color:#7f1d1d;">{_txt_display}</div>
-                        </div>''', unsafe_allow_html=True)
-                    _edits[_key] = _val_actual
-                else:
-                    st.markdown(
-                        f'''<div style="background:#1e3a5f;color:white;font-size:0.78rem;font-weight:900;
-                                    text-transform:uppercase;letter-spacing:0.08em;padding:8px 14px;
-                                    border-radius:8px 8px 0 0;margin-bottom:0;">
-                            {_label.upper()}</div>''',
-                        unsafe_allow_html=True)
-                    _edits[_key] = st.text_area(
-                        "",
-                        value=_val_actual,
-                        height=_h,
-                        key=f"plt_{_key}",
-                        label_visibility="collapsed",
-                        help="Usa <b>texto</b> para negrita. Los {{MARCADORES}} se reemplazan con datos reales al generar."
-                    )
-                    st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
-
-            # ── Botones ──
-            _bc1, _bc2, _bc3 = st.columns([2, 2, 2])
-            with _bc1:
-                if st.button("↩️ Restaurar original", use_container_width=True, key="plt_restaurar"):
-                    for _key in _LABELS:
-                        st.session_state[f"plt_{_key}"] = _CLAUSULAS_BASE[_key]
-                    st.rerun()
-            with _bc3:
-                if st.button("💾 Guardar nueva versión", type="primary", use_container_width=True, key="plt_guardar"):
-                    _usr_plt = st.session_state.get("auth_nombre", "") or st.session_state.get("auth_email", "Sistema")
-                    # Solo guardar cláusulas que difieren del original
-                    import re as _re
-                    def _strip_html(t): return _re.sub(r'<[^>]+>', '', t).strip()
-                    def _limpiar_fijos(t):
-                        # Quitar líneas marcadas como [FIJO DEL SISTEMA] antes de guardar
-                        lineas = [l for l in t.split("\n") if not l.strip().startswith("[FIJO DEL SISTEMA]")]
-                        return "\n".join(lineas).strip()
-                    # Limpiar partes fijas y guardar solo cláusulas que cambiaron
-                    _edits_limpios = {k: _limpiar_fijos(v) for k, v in _edits.items()}
-                    _solo_cambios = {
-                        k: v for k, v in _edits_limpios.items()
-                        if _strip_html(v) != _strip_html(_CLAUSULAS_BASE.get(k, ""))
-                    }
-                    if not _solo_cambios:
-                        st.warning("No hay cambios respecto a la plantilla original.")
+                # Editor de cláusulas
+                _edits_t = {}
+                def _strip_b_t(t): return t.replace('<b>','').replace('</b>','')
+                for _key, _label in _LABELS.items():
+                    _base_editor = _CLAUSULAS_EDITOR.get(_key, _CLAUSULAS_BASE.get(_key, ""))
+                    _val_sup = _clausulas_act_t.get(_key, "")
+                    if _val_sup and _strip_b_t(_val_sup).strip() != _strip_b_t(_base_editor).strip():
+                        _val_actual = _val_sup
                     else:
-                        _resultado = _guardar_plantilla(_solo_cambios, _usr_plt)
-                        if _resultado is True:
-                            st.success(f"✅ Nueva plantilla guardada ({len(_solo_cambios)} cláusula(s) modificada(s)).")
-                            st.rerun()
+                        _val_actual = _base_editor
+                    _chars = len(_val_actual)
+                    _newlines = _val_actual.count("\n")
+                    _estimated_lines = _newlines + max(1, _chars // 85)
+                    _h = max(120, _estimated_lines * 22)
+                    if _key in _LABELS_READONLY:
+                        st.markdown(
+                            f'''<div style="background:#1e3a5f;color:white;font-size:0.78rem;font-weight:900;
+                                        text-transform:uppercase;letter-spacing:0.08em;padding:8px 14px;
+                                        border-radius:8px 8px 0 0;margin-bottom:0;">
+                                🔒 {_label.upper()} — SOLO LECTURA</div>''',
+                            unsafe_allow_html=True)
+                        _txt_display = _val_actual.replace("\n", "<br>")
+                        st.markdown(
+                            f'''<div style="background:#fff5f5;border:1.5px solid #dc2626;border-top:none;
+                                        border-radius:0 0 8px 8px;padding:14px 16px;margin-bottom:16px;">
+                                <div style="font-size:13px;line-height:1.7;color:#7f1d1d;">{_txt_display}</div>
+                            </div>''', unsafe_allow_html=True)
+                        _edits_t[_key] = _val_actual
+                    else:
+                        st.markdown(
+                            f'''<div style="background:#1e3a5f;color:white;font-size:0.78rem;font-weight:900;
+                                        text-transform:uppercase;letter-spacing:0.08em;padding:8px 14px;
+                                        border-radius:8px 8px 0 0;margin-bottom:0;">
+                                {_label.upper()}</div>''',
+                            unsafe_allow_html=True)
+                        _edits_t[_key] = st.text_area(
+                            "",
+                            value=_val_actual,
+                            height=_h,
+                            key=f"{tab_key_prefix}_plt_{_key}",
+                            label_visibility="collapsed",
+                        )
+                        st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
+
+                # Botones
+                _bc1t, _bc2t, _bc3t = st.columns([2, 2, 2])
+                with _bc1t:
+                    if st.button("↩️ Restaurar original", use_container_width=True, key=f"{tab_key_prefix}_plt_restaurar"):
+                        for _key in _LABELS:
+                            st.session_state[f"{tab_key_prefix}_plt_{_key}"] = _CLAUSULAS_BASE[_key]
+                        st.rerun()
+                with _bc3t:
+                    if st.button("💾 Guardar nueva versión", type="primary", use_container_width=True, key=f"{tab_key_prefix}_plt_guardar"):
+                        _usr_plt = st.session_state.get("auth_nombre", "") or st.session_state.get("auth_email", "Sistema")
+                        import re as _re_plt
+                        def _strip_html_t(t): return _re_plt.sub(r'<[^>]+>', '', t).strip()
+                        def _limpiar_fijos_t(t):
+                            lineas = [l for l in t.split("\n") if not l.strip().startswith("[FIJO DEL SISTEMA]")]
+                            return "\n".join(lineas).strip()
+                        _edits_limpios_t = {k: _limpiar_fijos_t(v) for k, v in _edits_t.items()}
+                        _solo_cambios_t = {
+                            k: v for k, v in _edits_limpios_t.items()
+                            if _strip_html_t(v) != _strip_html_t(_CLAUSULAS_BASE.get(k, ""))
+                        }
+                        if not _solo_cambios_t and not _modelos_sel:
+                            st.warning("No hay cambios respecto a la plantilla original.")
                         else:
-                            st.error(f"Error: {_resultado}")
-
-            st.markdown("---")
-
-            # ── Historial ──
-            st.markdown("**📋 Historial de plantillas:**")
-            _historial = _cargar_historial()
-            _usr_actual = st.session_state.get("auth_nombre", "") or st.session_state.get("auth_email", "")
-
-            for _plt in _historial:
-                _es_activa = _plt.get("activa", False)
-                _es_v1     = _plt.get("version", 0) == 1
-                _creador   = _plt.get("creado_por", "—")
-                _fecha_p   = _plt.get("fecha_creacion", "")[:16].replace("T", " ") if _plt.get("fecha_creacion") else "—"
-                _iniciales = "".join([w[0].upper() for w in _creador.split()[:2]]) if _creador != "Sistema" else "🤖"
-                _version   = _plt.get("nombre", f"v{_plt.get('version','?')}")
-
-                _bg    = "#e8eef7" if _es_activa else "var(--color-background-primary)"
-                _brd   = "1.5px solid #0f3460" if _es_activa else "0.5px solid var(--color-border-tertiary)"
-                _badge = '<span style="background:#0f3460;color:white;border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;">✅ ACTIVA</span>' if _es_activa else '<span style="background:var(--color-background-secondary);color:var(--color-text-secondary);border-radius:20px;padding:4px 14px;font-size:11px;">inactiva</span>'
-                _clr_v = "#0f3460" if _es_activa else "var(--color-text-primary)"
-                _clr_s = "#185fa5" if _es_activa else "var(--color-text-secondary)"
-
-                st.markdown(f"""
-                <div style="background:{_bg};border:{_brd};border-radius:12px;
-                            padding:14px 18px;display:flex;justify-content:space-between;
-                            align-items:center;margin-bottom:8px;">
-                  <div style="display:flex;align-items:center;gap:14px;">
-                    <div style="width:38px;height:38px;border-radius:50%;
-                                background:{'#0f3460' if _es_activa else '#94a3b8'};
-                                display:flex;align-items:center;justify-content:center;
-                                font-size:13px;font-weight:700;color:white;flex-shrink:0;">
-                      {_iniciales}
-                    </div>
-                    <div>
-                      <div style="font-size:14px;font-weight:700;color:{_clr_v};">{_version}</div>
-                      <div style="font-size:12px;color:{_clr_s};margin-top:2px;">{_creador} · {_fecha_p}</div>
-                    </div>
-                  </div>
-                  {_badge}
-                </div>
-                """, unsafe_allow_html=True)
-
-                if not _es_activa:
-                    _col_act, _ = st.columns([1, 3])
-                    with _col_act:
-                        if st.button(f"Activar {_version}", key=f"plt_act_{_plt['id']}", use_container_width=True):
-                            if _activar_plantilla(_plt["id"]):
-                                st.success(f"✅ {_version} activada.")
+                            _resultado_t = _guardar_plantilla(_solo_cambios_t, _usr_plt, tipo=tipo_plt, modelos_lista=_modelos_sel)
+                            if _resultado_t is True:
+                                st.success(f"✅ Plantilla {tipo_plt} guardada ({len(_solo_cambios_t)} cláusula(s) · {len(_modelos_sel)} modelo(s)).")
                                 st.rerun()
+                            else:
+                                st.error(f"Error: {_resultado_t}")
 
+                st.markdown("---")
+                # Historial
+                st.markdown(f"**📋 Historial — Plantilla {tipo_plt}:**")
+                _historial_t = _cargar_historial(tipo=tipo_plt)
+                for _plt in _historial_t:
+                    _es_activa = _plt.get("activa", False)
+                    _creador   = _plt.get("creado_por", "—")
+                    _fecha_p   = _plt.get("fecha_creacion", "")[:16].replace("T", " ") if _plt.get("fecha_creacion") else "—"
+                    _iniciales = "".join([w[0].upper() for w in _creador.split()[:2]]) if _creador != "Sistema" else "🤖"
+                    _version   = _plt.get("nombre", f"v{_plt.get('version','?')}")
+                    _modelos_p = _plt.get("modelos") or []
+                    _bg    = "#e8eef7" if _es_activa else "var(--color-background-primary)"
+                    _brd   = "1.5px solid #0f3460" if _es_activa else "0.5px solid var(--color-border-tertiary)"
+                    _badge = '<span style="background:#0f3460;color:white;border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;">✅ ACTIVA</span>' if _es_activa else '<span style="background:var(--color-background-secondary);color:var(--color-text-secondary);border-radius:20px;padding:4px 14px;font-size:11px;">inactiva</span>'
+                    _modelos_html = f'<div style="font-size:11px;color:#64748b;margin-top:3px;">🔗 {" · ".join(_modelos_p)}</div>' if _modelos_p else ''
+                    _avatar_bg = '#0f3460' if _es_activa else '#94a3b8'
+                    _txt_color = '#0f3460' if _es_activa else 'var(--color-text-primary)'
+                    st.markdown(
+                        f'<div style="background:{_bg};border:{_brd};border-radius:12px;'
+                        f'padding:14px 18px;display:flex;justify-content:space-between;'
+                        f'align-items:center;margin-bottom:8px;">'
+                        f'<div style="display:flex;align-items:center;gap:14px;">'
+                        f'<div style="width:38px;height:38px;border-radius:50%;'
+                        f'background:{_avatar_bg};display:flex;align-items:center;'
+                        f'justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;">'
+                        f'{_iniciales}</div>'
+                        f'<div><div style="font-size:14px;font-weight:700;color:{_txt_color};">{_version}</div>'
+                        f'<div style="font-size:12px;color:#185fa5;margin-top:2px;">{_creador} · {_fecha_p}</div>'
+                        f'{_modelos_html}</div></div>{_badge}</div>',
+                        unsafe_allow_html=True)
+                    if not _es_activa:
+                        _col_act_t, _ = st.columns([1, 3])
+                        with _col_act_t:
+                            if st.button(f"Activar {_version}", key=f"{tab_key_prefix}_plt_act_{_plt['id']}", use_container_width=True):
+                                if _activar_plantilla(_plt["id"], tipo=tipo_plt):
+                                    st.success(f"✅ {_version} activada.")
+                                    st.rerun()
 
+            with _tab_plt_a:
+                _render_editor_plantilla('A', 'plt_a')
 
-# =========================================================
+            with _tab_plt_b:
+                _render_editor_plantilla('B', 'plt_b')
+
+            # bloque legacy eliminado — ahora se usa _render_editor_plantilla
 # TAB USUARIOS — solo admin/supervisor
 # =========================================================
 if st.session_state.modo_admin and tab_usuarios is not None:
