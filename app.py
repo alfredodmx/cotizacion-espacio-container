@@ -8997,7 +8997,8 @@ if tab3 is not None:
             else:
                 _demora_display = row.get('Demora', '—')
             _fila_class = ' class="fila-rechazada"' if _motivo_rec else ''
-            rows_html += f"<tr{_fila_class}><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Cliente'] or '—'}</td><td style='text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.6;'>{row['Total']}</td>{_td_tc}<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Asesor'] or '—'}</td><td class='td-estado' style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td class='demora-col' style='text-align:center;font-size:0.82rem;font-weight:700;'>{_demora_display}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td>{_td_margen}<td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td><td style='text-align:center;font-size:0.82rem;'>{_proc_not_html}</td><td style='line-height:1.6;'>{_fadj_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fab_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fidel_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_retraso_html_cot}</td>{_td_compras}</tr>"
+            _estado_raw = str(row.get('Estado','')).replace('🔵 ','').replace('🟢 ','').replace('🟡 ','').replace('🟠 ','').replace('🔴 ','').replace('❌ ','')
+            rows_html += f"<tr{_fila_class} data-estado=\"{row['Estado']}\"><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Cliente'] or '—'}</td><td style='text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.6;'>{row['Total']}</td>{_td_tc}<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Asesor'] or '—'}</td><td class='td-estado' style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td class='demora-col' style='text-align:center;font-size:0.82rem;font-weight:700;'>{_demora_display}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td>{_td_margen}<td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td><td style='text-align:center;font-size:0.82rem;'>{_proc_not_html}</td><td style='line-height:1.6;'>{_fadj_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fab_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fidel_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_retraso_html_cot}</td>{_td_compras}</tr>"
 
         # Badge resumen por estado
         # Contar por estado usando los badges ya calculados
@@ -9037,33 +9038,54 @@ if tab3 is not None:
         # Usar st.button para cada badge — evita problemas de HTML con onclick
         _col_badge, _col_ref = st.columns([5, 0.7])
         with _col_badge:
-            _badge_html = ''
+            _badge_html = '<div id="_badges_filtro_wrap" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0;">'
             for _bk, _bbg, _bcol, _bshadow, _btxt, _bsel in _badge_items:
                 _badge_html += (
-                    f'<span data-filtro="{_bk}" data-sel="{_bsel}" style="cursor:pointer;background:{_bbg};color:{_bcol};'
+                    f'<span data-filtro="{_bk}" data-bg="{_bbg}" data-col="{_bcol}" '
+                    f'data-bg-orig="{_bbg}" data-col-orig="{_bcol}" '
+                    f'style="cursor:pointer;background:{_bbg};color:{_bcol};'
                     f'{_bshadow}padding:5px 14px;border-radius:99px;font-size:13px;font-weight:700;'
-                    f'margin-right:6px;display:inline-block;" class="_badge_filtro">'
+                    f'display:inline-block;transition:all .15s;" class="_badge_filtro">'
                     f'{_btxt}</span>'
                 )
+            _badge_html += '</div>'
+            _badge_html += """
+<script>
+(function(){
+  var _activeFiltro = '';
+  function applyFiltroEstado(val){
+    _activeFiltro = val;
+    // Filtrar filas de la tabla
+    var rows = document.querySelectorAll('tr[data-estado]');
+    rows.forEach(function(r){
+      if(!val || val==='TODOS') r.style.display='';
+      else r.style.display = (r.getAttribute('data-estado')===val)?'':'none';
+    });
+    // Actualizar estilos de badges
+    document.querySelectorAll('._badge_filtro').forEach(function(b){
+      var bVal = b.getAttribute('data-filtro');
+      var isAct = (!val||val==='TODOS') ? (bVal==='TODOS') : (bVal===val);
+      if(isAct){
+        b.style.filter='brightness(0.75)';
+        b.style.boxShadow='0 0 0 2px currentColor';
+      } else {
+        b.style.filter='';
+        b.style.boxShadow='';
+      }
+    });
+  }
+  document.addEventListener('click', function(e){
+    var b = e.target.closest('._badge_filtro');
+    if(!b) return;
+    var val = b.getAttribute('data-filtro');
+    applyFiltroEstado(_activeFiltro===val||val==='TODOS' ? 'TODOS' : val);
+  });
+})();
+</script>"""
             st.markdown(_badge_html, unsafe_allow_html=True)
         with _col_ref:
             if st.button("🔄", key="cot_refresh_tabla", help="Actualizar resultados", use_container_width=True):
                 st.session_state.resultados_busqueda = None
-                st.rerun()
-        _fbtn_map = [
-            ('TODOS',                 '_fbtn_TODOS'),
-            ('🔵 ADJUDICADO',         '_fbtn_ADJ'),
-            ('🟢 AUTORIZADO CON PLANO','_fbtn_ACP'),
-            ('🟢 AUTORIZADO',         '_fbtn_AUT'),
-            ('🟠 BORRADOR CON PLANO', '_fbtn_BCP'),
-            ('🟡 BORRADOR',           '_fbtn_BOR'),
-            ('🔴 INCOMPLETO CON PLANO','_fbtn_ICP'),
-            ('🔴 INCOMPLETO',         '_fbtn_INC'),
-            ('❌ RECHAZADO',          '_fbtn_REC'),
-        ]
-        for _fval, _fkey in _fbtn_map:
-            if st.button(f'__FILTRO__{_fval}', key=_fkey):
-                st.session_state.filtro_estado_tabla = None if _fval == 'TODOS' else _fval
                 st.rerun()
 
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
