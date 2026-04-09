@@ -8250,6 +8250,34 @@ document.querySelectorAll('.cat-card').forEach(function(el){{
                 carrito_df_edit_filtrado = carrito_df_edit[mask].copy()
             else:
                 carrito_df_edit_filtrado = carrito_df_edit
+            st.markdown("""
+            <style>
+            /* ── Header del data_editor presupuesto ── */
+            div[data-testid='stDataEditor'] [data-testid='glideDataEditor'] .dvn-header-row .dvn-header-cell,
+            div[data-testid='stDataEditor'] .header-cell,
+            div[data-testid='stDataEditor'] [role='columnheader'] {
+                background: linear-gradient(135deg, #1e2447 0%, #2a3060 100%) !important;
+                color: #ffffff !important;
+                font-family: Montserrat, 'Segoe UI', sans-serif !important;
+                font-weight: 700 !important;
+                font-size: 0.72rem !important;
+                letter-spacing: 0.05em !important;
+                text-transform: uppercase !important;
+                border-bottom: 2px solid #3b4a8a !important;
+            }
+            /* ── Celdas del data_editor presupuesto ── */
+            div[data-testid='stDataEditor'] [data-testid='glideDataEditor'] .dvn-scroller .cell-container,
+            div[data-testid='stDataEditor'] [role='gridcell'] {
+                font-family: Montserrat, 'Segoe UI', sans-serif !important;
+                font-size: 0.82rem !important;
+                font-weight: 600 !important;
+                color: #0f172a !important;
+            }
+            /* ── Fila hover ── */
+            div[data-testid='stDataEditor'] [data-testid='glideDataEditor'] .dvn-scroller tr:hover td {
+                background: #f0f4ff !important;
+            }
+            </style>""", unsafe_allow_html=True)
             edited_df = st.data_editor(carrito_df_edit_filtrado, use_container_width=True, hide_index=True, height=altura_tabla,
                 key=f"data_editor_{st.session_state.counter}",
                 column_config={"✏️": st.column_config.CheckboxColumn("✏️"), "Categoria": st.column_config.TextColumn("Categoría"),
