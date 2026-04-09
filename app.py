@@ -8997,7 +8997,8 @@ if tab3 is not None:
             else:
                 _demora_display = row.get('Demora', '—')
             _fila_class = ' class="fila-rechazada"' if _motivo_rec else ''
-            rows_html += f"<tr{_fila_class}><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Cliente'] or '—'}</td><td style='text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.6;'>{row['Total']}</td>{_td_tc}<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Asesor'] or '—'}</td><td class='td-estado' style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td class='demora-col' style='text-align:center;font-size:0.82rem;font-weight:700;'>{_demora_display}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td>{_td_margen}<td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td><td style='text-align:center;font-size:0.82rem;'>{_proc_not_html}</td><td style='line-height:1.6;'>{_fadj_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fab_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fidel_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_retraso_html_cot}</td>{_td_compras}</tr>"
+            _est_attr = str(row.get('Estado','')).replace('"','')
+            rows_html += f"<tr{_fila_class} data-est='{_est_attr}'><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Cliente'] or '—'}</td><td style='text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.6;'>{row['Total']}</td>{_td_tc}<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Asesor'] or '—'}</td><td class='td-estado' style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td class='demora-col' style='text-align:center;font-size:0.82rem;font-weight:700;'>{_demora_display}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td>{_td_margen}<td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td><td style='text-align:center;font-size:0.82rem;'>{_proc_not_html}</td><td style='line-height:1.6;'>{_fadj_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fab_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fidel_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_retraso_html_cot}</td>{_td_compras}</tr>"
 
         # Badge resumen por estado
         # Contar por estado usando los badges ya calculados
@@ -9050,21 +9051,39 @@ if tab3 is not None:
             if st.button("🔄", key="cot_refresh_tabla", help="Actualizar resultados", use_container_width=True):
                 st.session_state.resultados_busqueda = None
                 st.rerun()
-        _fbtn_map = [
-            ('TODOS',                  '_fbtn_TODOS'),
-            ('🔵 ADJUDICADO',          '_fbtn_ADJ'),
-            ('🟢 AUTORIZADO CON PLANO','_fbtn_ACP'),
-            ('🟢 AUTORIZADO',          '_fbtn_AUT'),
-            ('🟠 BORRADOR CON PLANO',  '_fbtn_BCP'),
-            ('🟡 BORRADOR',            '_fbtn_BOR'),
-            ('🔴 INCOMPLETO CON PLANO','_fbtn_ICP'),
-            ('🔴 INCOMPLETO',          '_fbtn_INC'),
-            ('❌ RECHAZADO',           '_fbtn_REC'),
-        ]
-        for _fval, _fkey in _fbtn_map:
-            if st.button(f'__FILTRO__{_fval}', key=_fkey):
-                st.session_state.filtro_estado_tabla = None if _fval == 'TODOS' else _fval
-                st.rerun()
+        # Filtro JS sin rerun — opera sobre el DOM del padre
+        import streamlit.components.v1 as _cmp_filt
+        _cmp_filt.html("""
+<script>
+(function(){
+  var D=window.parent.document;
+  var _af='';
+  function doFilter(val){
+    _af=val;
+    D.querySelectorAll('tr[data-est]').forEach(function(r){
+      r.style.display=(!val||val==='TODOS'||r.getAttribute('data-est')===val)?'':'none';
+    });
+    D.querySelectorAll('._badge_filtro').forEach(function(b){
+      var bv=b.getAttribute('data-filtro');
+      var isAct=(!val||val==='TODOS')?(bv==='TODOS'):(bv===val);
+      b.style.outline=isAct?('2px solid '+b.style.color):'';
+      b.style.opacity=(!val||isAct)?'1':'0.55';
+    });
+  }
+  function init(){
+    D.querySelectorAll('._badge_filtro').forEach(function(b){
+      if(b._filt_bound) return;
+      b._filt_bound=true;
+      b.addEventListener('click',function(){
+        var val=this.getAttribute('data-filtro');
+        doFilter((_af===val&&val!=='TODOS')?'':val);
+      });
+    });
+  }
+  setTimeout(init,400);
+  setInterval(init,2000);
+})();
+</script>""", height=0)
 
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
