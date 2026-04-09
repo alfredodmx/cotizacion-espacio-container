@@ -12858,10 +12858,13 @@ window.addEventListener("message",function(e){{
                         total_items_presupuesto=len(_rc_prods),
                         cats_cards_html=_rc_cats_cards_html
                     )
-                    _rc_height = min(len(_rc_prods)*37+580, 980)
+                    _rc_n_cats = len(_rc_cats_seen)
+                    _rc_cats_rows = _rc_math_cat.ceil(_rc_n_cats / 9) if _rc_n_cats else 1
+                    _rc_cards_extra = _rc_cats_rows * 84  # altura tarjetas dentro del componente
+                    _rc_height = min(len(_rc_prods)*37 + 580 + _rc_cards_extra, 1200)
                     # Forzar re-render cuando cambian items comprados
                     _rc_items_hash = str(sorted(_rc_items_comprados.keys()))
-                    _rc_comp.html(_rc_html + f'<!-- {_rc_items_hash} -->', height=min(len(_rc_prods)*37+580, 980), scrolling=False)
+                    _rc_comp.html(_rc_html + f'<!-- {_rc_items_hash} -->', height=_rc_height, scrolling=False)
 
                     # Factura y guardado manejados dentro del HTML component
 
