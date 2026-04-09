@@ -9057,6 +9057,7 @@ if tab3 is not None:
                     _cd_cot = row.get('Contrato_Datos') or {}
                     if isinstance(_cd_cot, str) and _cd_cot: _cd_cot = _json_cot.loads(_cd_cot)
                     _plazo_cot = int((_cd_cot or {}).get('plazo_dias', 0) or 0)
+                    if _plazo_cot <= 0: _plazo_cot = 45  # fallback si no hay contrato_datos
                     if _plazo_cot > 0:
                         _d_adj_fc   = _dt_cot.fromisoformat(_fadj_raw_cot.replace("Z","+00:00")).astimezone(_tz_cl_cot)
                         _hoy_fc     = _dt_cot.now(_tz_cl_cot).date()
@@ -15189,43 +15190,48 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     st.info("ℹ️ Este presupuesto no tiene contrato generado aún.")
 
                 if not _cn_ya_adj:
-                    st.markdown("""
+                    _cn_tiene_contrato = bool(_cot_cn_full and _cot_cn_full.get('contrato_generado'))
+                    if not _cn_tiene_contrato:
+                        st.error('🔒 No se puede adjuntar el contrato notariado porque este presupuesto '
+                                 'aún no tiene contrato generado. Ve a **Imprimir contrato** primero y genera el contrato.')
+                    else:
+                        st.markdown("""
                     <div style="background:#eff6ff;border-left:4px solid #2563eb;border-radius:0 8px 8px 0;
                                 padding:10px 14px;margin-bottom:12px;">
                       <p style="font-size:12px;color:#1e40af;margin:0;">📋 Sube el PDF firmado y notariado.
                       Una vez subido el estado cambia a <b>🔵 ADJUDICADO</b> — acción permanente e irreversible.</p>
                     </div>
                     """, unsafe_allow_html=True)
-                    _cn_file = st.file_uploader("PDF del contrato notariado",
+                        _cn_file = st.file_uploader("PDF del contrato notariado",
                                                 type=["pdf"], key=f"cn_upload_{_cn_ep_sel}")
-                    if _cn_file is not None:
-                        st.markdown(f"**{_cn_file.name}** · {round(_cn_file.size/1024)} KB")
-                        if st.button("📤 Adjuntar y marcar como ADJUDICADO",
-                                     type="primary", use_container_width=True,
-                                     key="cn_btn_adj"):
-                            with st.spinner("Subiendo..."):
-                                try:
-                                    _cn_bytes   = _cn_file.read()
-                                    _cn_nombre  = _cn_file.name
-                                    _cn_path    = f"notariados/{_cn_ep_sel}/{_cn_nombre}"
-                                    supabase_admin.storage.from_("planos").upload(
-                                        _cn_path, _cn_bytes,
-                                        {"content-type": "application/pdf", "upsert": "true"}
-                                    )
-                                    _cn_url = supabase_admin.storage.from_("planos").get_public_url(_cn_path)
-                                    _fecha_adj = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
-                                    supabase_admin.table("cotizaciones").update({
-                                        "contrato_notariado_url": _cn_url,
-                                        "contrato_notariado_nombre": _cn_nombre,
-                                        "fecha_adjudicacion": _fecha_adj,
-                                        "estado": "ADJUDICADO"
-                                    }).eq("numero", _cn_ep_sel).execute()
-                                    st.success(f"✅ {_cn_ep_sel} ahora es 🔵 ADJUDICADO")
-                                    st.session_state.pop('cn_results', None)
-                                    st.session_state.resultados_busqueda = None
-                                    st.rerun()
-                                except Exception as _cne2:
-                                    st.error(f"❌ Error: {_cne2}")
+                        if _cn_file is not None:
+                            st.markdown(f"**{_cn_file.name}** · {round(_cn_file.size/1024)} KB")
+                            if st.button("📤 Adjuntar y marcar como ADJUDICADO",
+                                         type="primary", use_container_width=True,
+                                         key="cn_btn_adj"):
+                                with st.spinner("Subiendo..."):
+                                    try:
+                                        _cn_bytes   = _cn_file.read()
+                                        _cn_nombre  = _cn_file.name
+                                        _cn_path    = f"notariados/{_cn_ep_sel}/{_cn_nombre}"
+                                        supabase_admin.storage.from_("planos").upload(
+                                            _cn_path, _cn_bytes,
+                                            {"content-type": "application/pdf", "upsert": "true"}
+                                        )
+                                        _cn_url = supabase_admin.storage.from_("planos").get_public_url(_cn_path)
+                                        _fecha_adj = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+                                        supabase_admin.table("cotizaciones").update({
+                                            "contrato_notariado_url": _cn_url,
+                                            "contrato_notariado_nombre": _cn_nombre,
+                                            "fecha_adjudicacion": _fecha_adj,
+                                            "estado": "ADJUDICADO"
+                                        }).eq("numero", _cn_ep_sel).execute()
+                                        st.success(f"✅ {_cn_ep_sel} ahora es 🔵 ADJUDICADO")
+                                        st.session_state.pop('cn_results', None)
+                                        st.session_state.resultados_busqueda = None
+                                        st.rerun()
+                                    except Exception as _cne2:
+                                        st.error(f"❌ Error: {_cne2}")
 
     if _sub_editar is not None:
      with _sub_editar:
