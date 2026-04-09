@@ -1419,15 +1419,19 @@ def calcular_totales_rc(productos_presupuesto, registros, incluir_varios=False):
     - tS: precio real * cantidad para adicionales sin registro
     """
     import json as _jct
-    # Filtrar productos según modo
-    if incluir_varios:
-        prods = list(productos_presupuesto or [])
-    else:
-        prods = [p for p in (productos_presupuesto or [])
-                 if str(p.get('Categoria','')).strip().lower() != 'varios']
-    _pn = {str(p.get('Item','')) for p in prods}
+    # _pn_todos: TODOS los ítems del presupuesto para clasificar correctamente
+    # (Transporte, Generador, etc. NO son adicionales aunque no estén en prods filtrados)
+    _todos = list(productos_presupuesto or [])
+    _pn = {str(p.get('Item','')) for p in _todos}  # conjunto completo siempre
     _pu_map = {str(p.get('Item','')): round(float(p.get('Precio Unitario',0) or 0))
-               for p in prods}
+               for p in _todos}
+
+    # prods: filtrado según modo (para calcular tP solo de ítems visibles)
+    if incluir_varios:
+        prods = _todos
+    else:
+        prods = [p for p in _todos
+                 if str(p.get('Categoria','')).strip().lower() != 'varios']
 
     # Consolidar último precio real por ítem (igual que items_comprados)
     _comprados = {}
