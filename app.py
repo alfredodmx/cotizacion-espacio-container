@@ -991,7 +991,7 @@ function calc(){{
   window.parent.postMessage({{type:"rc_vals",vals:vals,tP:tP,tR:tR}},"*");
 }}
 var _rcCatFiltro='';
-function applyFilters(catOverride){{
+window.applyFilters=function(catOverride){{
   if(catOverride!==undefined) _rcCatFiltro=catOverride;
   var q=document.getElementById('rc-search')?document.getElementById('rc-search').value.toLowerCase():'';
   document.querySelectorAll("tbody tr").forEach(function(r){{
