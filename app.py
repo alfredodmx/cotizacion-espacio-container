@@ -1410,6 +1410,78 @@ def guardar_acta_en_storage(archivo_bytes, cotizacion_numero, nombre_original):
     except Exception as e:
         return None, str(e)
 
+def calcular_totales_rc(productos_presupuesto, registros, incluir_varios=False):
+    """
+    Calcula totales exactamente igual al JS calc() de la tabla.
+    - tP: precio presupuesto * cantidad para ítems normales
+    - tR: precio real * cantidad + adicional * precio real para TODOS los ítems
+    - tA: precio real * cantidad para adicionales con registro
+    - tS: precio real * cantidad para adicionales sin registro
+    """
+    import json as _jct
+    # Filtrar productos según modo
+    if incluir_varios:
+        prods = list(productos_presupuesto or [])
+    else:
+        prods = [p for p in (productos_presupuesto or [])
+                 if str(p.get('Categoria','')).strip().lower() != 'varios']
+    _pn = {str(p.get('Item','')) for p in prods}
+    _pu_map = {str(p.get('Item','')): round(float(p.get('Precio Unitario',0) or 0))
+               for p in prods}
+
+    # Consolidar último precio real por ítem (igual que items_comprados)
+    _comprados = {}
+    for reg in (registros or []):
+        items_r = reg.get('items') or []
+        if isinstance(items_r, str):
+            try: items_r = _jct.loads(items_r)
+            except: items_r = []
+        for it in items_r:
+            nombre = str(it.get('item',''))
+            pr = float(it.get('precio_real', 0) or 0)
+            if pr > 0 and nombre:
+                _comprados[nombre] = {
+                    'real': pr,
+                    'cant': float(it.get('cantidad',1) or 1),
+                    'adic': int(it.get('adicional',0) or 0),
+                    'es_adicional': it.get('es_adicional', False),
+                    'sin_registro': it.get('sin_registro', False),
+                }
+
+    tP = 0; tR = 0; tA = 0; tS = 0
+
+    # Ítems del presupuesto
+    for nombre, data in _comprados.items():
+        re = data['real']
+        c  = data['cant']
+        ad = data['adic']
+        isSinReg = data['sin_registro']
+        isAdic   = (data['es_adicional'] or nombre not in _pn) and not isSinReg
+
+        if isSinReg:
+            tS += re * c
+        elif isAdic:
+            tA += re * c
+        else:
+            # ítem del presupuesto — tP usa precio del presupuesto original
+            pu = _pu_map.get(nombre, 0)
+            tR += re * c + ad * re
+            if nombre in _pn:
+                tP += pu * c  # usar precio presupuesto, no el guardado
+            continue
+        tR += re * c + ad * re
+
+    # Ítems del presupuesto sin precio real (no comprados) — solo suman a tP
+    for p in prods:
+        nombre = str(p.get('Item',''))
+        if nombre not in _comprados:
+            pu = round(float(p.get('Precio Unitario',0) or 0))
+            c  = round(float(p.get('Cantidad',1) or 1))
+            tP += pu * c
+
+    return {'tP': tP, 'tR': tR, 'tA': tA, 'tS': tS}
+
+
 def generar_excel_balance(cotizacion_numero, registros, productos_presupuesto):
     """Genera Excel de precios reales para nutrir la base de datos."""
     import io, json
@@ -1460,8 +1532,11 @@ def generar_excel_balance(cotizacion_numero, registros, productos_presupuesto):
     items_consolidados = {}
     adicionales_con = []  # adicionales con registro
     adicionales_sin = []  # adicionales sin registro
-    prods_valid = [p for p in (productos_presupuesto or [])
-                   if str(p.get('Categoria','')).strip().lower() != 'varios']
+    if incluir_varios:
+        prods_valid = list(productos_presupuesto or [])
+    else:
+        prods_valid = [p for p in (productos_presupuesto or [])
+                       if str(p.get('Categoria','')).strip().lower() != 'varios']
     _pn_xls = {str(p.get('Item','')) for p in prods_valid}
 
     # Recorrer registros
@@ -1570,7 +1645,7 @@ def generar_excel_balance(cotizacion_numero, registros, productos_presupuesto):
     return buf.read()
 
 
-def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registros, productos_presupuesto):
+def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registros, productos_presupuesto, incluir_varios=False):
     """Genera PDF de balance de compras consolidando todos los registros."""
     import io, json
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
@@ -1619,7 +1694,7 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
 
     header_data = [[
         _logo_cell,
-        Paragraph(f"<b>BALANCE DE COMPRAS</b>", styles['BTitle']),
+        Paragraph(f"<b>BALANCE DE COMPRAS{" (CON VARIOS)" if incluir_varios else ""}</b>", styles['BTitle']),
         Paragraph(f"Generado: {now_str}", styles['BSmall'])
     ]]
     header_tbl = Table(header_data, colWidths=[4.5*cm, 9*cm, 4*cm])
@@ -1651,8 +1726,11 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
     elements.append(Spacer(1, 0.3*cm))
 
     # ── PROGRESO GLOBAL ──
-    prods_valid = [p for p in (productos_presupuesto or [])
-                   if str(p.get('Categoria','')).strip().lower() != 'varios']
+    if incluir_varios:
+        prods_valid = list(productos_presupuesto or [])
+    else:
+        prods_valid = [p for p in (productos_presupuesto or [])
+                       if str(p.get('Categoria','')).strip().lower() != 'varios']
     total_items = len(prods_valid)
     # Items comprados = items del presupuesto que aparecen en algún registro
     items_en_registros = set()
@@ -1825,34 +1903,10 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
     elements.append(Paragraph('Resumen Final Consolidado', styles['BSection']))
     elements.append(HRFlowable(width='100%', thickness=0.5, color=colors.HexColor('#e2e8f0'), spaceAfter=8))
 
-    # Totales globales — consolidar último precio real por ítem (deduplicar)
-    _pn_res = {str(p.get('Item','')) for p in prods_valid}
-    _consolidado_r = {}   # item -> {precio_real, cantidad, adicional, es_adicional, sin_registro}
-    _consolidado_con = {} # adicionales con registro
-    _consolidado_sin = {} # adicionales sin registro
-    for reg in registros:
-        _its_res = reg.get('items') or []
-        if isinstance(_its_res, str):
-            try: _its_res = json.loads(_its_res)
-            except: _its_res = []
-        for it in _its_res:
-            nombre = str(it.get('item',''))
-            pr   = float(it.get('precio_real',0) or 0)
-            cant = float(it.get('cantidad',1) or 1)
-            adic = int(it.get('adicional',0) or 0)
-            if not nombre or pr <= 0: continue
-            if it.get('sin_registro'):
-                _consolidado_sin[nombre] = {'pr': pr, 'cant': cant, 'adic': adic}
-            elif it.get('es_adicional') or nombre not in _pn_res:
-                _consolidado_con[nombre] = {'pr': pr, 'cant': cant, 'adic': adic}
-            else:
-                _consolidado_r[nombre] = {'pr': pr, 'cant': cant, 'adic': adic}
-
-    total_p = sum(round(float(p.get('Precio Unitario',0) or 0)) * round(float(p.get('Cantidad',1) or 1))
-                  for p in prods_valid)
-    total_r = sum(v['pr']*v['cant'] + v['adic']*v['pr'] for v in _consolidado_r.values())
-    total_adic_con = sum(v['pr']*v['cant'] for v in _consolidado_con.values())
-    total_adic_sin = sum(v['pr']*v['cant'] for v in _consolidado_sin.values())
+    # Totales usando calcular_totales_rc — exactamente igual que el JS
+    _tots = calcular_totales_rc(productos_presupuesto, registros, incluir_varios=incluir_varios)
+    total_p = _tots['tP']; total_r = _tots['tR']
+    total_adic_con = _tots['tA']; total_adic_sin = _tots['tS']
 
     iva_p = total_p * 0.19; iva_r = total_r * 0.19
     bal   = total_p - total_r; iva_bal = iva_p - iva_r
@@ -1963,8 +2017,11 @@ def generar_excel_balance(cotizacion_numero, registros, productos_presupuesto):
     ws.row_dimensions[2].height = 32
 
     # Consolidar ítems — usar el precio real más reciente por ítem
-    prods_valid = [p for p in (productos_presupuesto or [])
-                   if str(p.get('Categoria','')).strip().lower() != 'varios']
+    if incluir_varios:
+        prods_valid = list(productos_presupuesto or [])
+    else:
+        prods_valid = [p for p in (productos_presupuesto or [])
+                       if str(p.get('Categoria','')).strip().lower() != 'varios']
 
     # Mapa ítem → último precio real
     precios_reales = {}
@@ -12628,19 +12685,29 @@ window.addEventListener("message",function(e){{
                             except: _bal_prods = []
                         _bal_dc = {'Nombre': _rc_row.get('cliente_nombre',''), 'RUT': _rc_row.get('cliente_rut','')}
                         _bal_da = {'Nombre Ejecutivo': _rc_row.get('asesor_nombre','')}
-                        _bcol1, _bcol2 = st.columns(2)
+                        _bcol1, _bcol2, _bcol3, _bcol4 = st.columns(4)
                         with _bcol1:
-                            if st.button('📥 Descargar PDF Balance', key=f'pdf_balance_{_rc_ep}', use_container_width=True):
+                            if st.button('📥 PDF Balance', key=f'pdf_balance_{_rc_ep}', use_container_width=True, help='Sin Varios'):
                                 with st.spinner('Generando PDF...'):
                                     try:
-                                        _bal_pdf = generar_pdf_balance(_rc_ep, _bal_dc, _bal_da, _rc_existentes, _bal_prods)
-                                        st.download_button(label='📄 Descargar Balance PDF', data=_bal_pdf,
-                                            file_name=f'Balance_Compras_{_rc_ep}.pdf', mime='application/pdf',
+                                        _bal_pdf = generar_pdf_balance(_rc_ep, _bal_dc, _bal_da, _rc_existentes, _bal_prods, incluir_varios=False)
+                                        st.download_button(label='📄 Descargar (sin Varios)', data=_bal_pdf,
+                                            file_name=f'Balance_{_rc_ep}_sin_varios.pdf', mime='application/pdf',
                                             key=f'dl_balance_{_rc_ep}')
                                     except Exception as _e_bal:
-                                        st.error(f'Error generando PDF: {_e_bal}')
+                                        st.error(f'Error: {_e_bal}')
                         with _bcol2:
-                            if st.button('📊 Descargar Excel Precios Reales', key=f'xls_balance_{_rc_ep}', use_container_width=True):
+                            if st.button('📥 PDF Balance + Varios', key=f'pdf_balance_v_{_rc_ep}', use_container_width=True, help='Con Varios'):
+                                with st.spinner('Generando PDF...'):
+                                    try:
+                                        _bal_pdf_v = generar_pdf_balance(_rc_ep, _bal_dc, _bal_da, _rc_existentes, _bal_prods, incluir_varios=True)
+                                        st.download_button(label='📄 Descargar (con Varios)', data=_bal_pdf_v,
+                                            file_name=f'Balance_{_rc_ep}_con_varios.pdf', mime='application/pdf',
+                                            key=f'dl_balance_v_{_rc_ep}')
+                                    except Exception as _e_bal_v:
+                                        st.error(f'Error: {_e_bal_v}')
+                        with _bcol3:
+                            if st.button('📊 Excel Precios', key=f'xls_balance_{_rc_ep}', use_container_width=True):
                                 with st.spinner('Generando Excel...'):
                                     try:
                                         _bal_xls = generar_excel_balance(_rc_ep, _rc_existentes, _bal_prods)
@@ -12649,7 +12716,9 @@ window.addEventListener("message",function(e){{
                                             mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                                             key=f'dl_xls_{_rc_ep}')
                                     except Exception as _e_xls:
-                                        st.error(f'Error generando Excel: {_e_xls}')
+                                        st.error(f'Error: {_e_xls}')
+                        with _bcol4:
+                            pass
                     st.markdown('---')
 
                 # Formulario nuevo registro
