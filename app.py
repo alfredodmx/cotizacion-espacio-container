@@ -12450,7 +12450,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
             import json as _jrc_opts
             def _rc_estado_badge(estado):
                 _badges = {
-                    'ADJUDICADO': '🔵', 'AUTORIZADO CON PLANO': '🔵',
+                    'ADJUDICADO': '🔵', 'AUTORIZADO CON PLANO': '🟢',
                     'AUTORIZADO': '🟢', 'PROYECTO ENTREGADO': '🟣',
                     'PENDIENTE COMPRAS': '🟡', 'INCOMPLETO': '⚪'
                 }
