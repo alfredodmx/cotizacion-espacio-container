@@ -724,8 +724,8 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
         _da_attr = 'data-adicional="1"' if _es_adicional else ""
         _ds_attr = 'data-sin-registro="1"' if _es_sin_reg else ""
         rows += f"""<tr style="background:{bg};border-bottom:1px solid #eef0f6" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}" {_dc_attr} {_da_attr} {_ds_attr}>
-<td style="padding:5px 8px;font-size:.75rem;color:#64748b">{cat}</td>
-<td style="padding:5px 8px;font-size:.82rem">{item}</td>
+<td style="padding:5px 8px;font-size:.8rem;color:#475569;font-weight:600">{cat}</td>
+<td style="padding:5px 8px;font-size:.88rem;color:#1e293b;font-weight:600">{item}</td>
 <td style="padding:5px 8px;text-align:right">{cant}</td>
 <td style="padding:5px 8px;text-align:right;font-weight:600">{pu_fmt}</td>
 <td style="padding:3px 4px"><input type="text" inputmode="numeric" value="{vreal_fmt}" class="rc-real" data-idx="{ri}" data-val="{vreal}" {"readonly" if _readonly else ""} style="width:100%;border:1px solid {"#86efac" if _ya_comprado else "#cbd5e1"};border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box;{"background:#f0fdf4;color:#15803d;cursor:default" if _ya_comprado else ""}"/></td>
