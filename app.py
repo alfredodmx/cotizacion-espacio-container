@@ -12542,6 +12542,9 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         if isinstance(_rce_items_h, str):
                             try: _rce_items_h = _jbadge.loads(_rce_items_h)
                             except: _rce_items_h = []
+                        # Filtrar Varios del historial si modo admin está OFF
+                        if not _modo_admin_rc:
+                            _rce_items_h = [i for i in _rce_items_h if str(i.get('categoria','')).strip().lower() != 'varios']
                         _rce_tipo_k = _tipo_reg(_rce)
                         _tiene_sin = any(i.get('sin_registro') for i in _rce_items_h)
                         _tiene_con = any(i.get('es_adicional') and not i.get('sin_registro') for i in _rce_items_h)
@@ -12734,8 +12737,8 @@ window.addEventListener("message",function(e){{
                 if _rol_actual in ('root', 'admin'):
                     _modo_admin_rc = st.toggle('👁️ Modo Admin (incluye Varios)', key=f'rc_modo_admin_{_rc_ep}')
                     if not _modo_admin_rc:
-                        # Filtrar Varios del presupuesto pero NO los adicionales con registro
-                        _rc_prods = [p for p in _rc_prods if str(p.get('Categoria','')).strip().lower() != 'varios' or p.get('_adicional')]
+                        # Ocultar Varios (presupuesto y adicionales) cuando toggle está OFF
+                        _rc_prods = [p for p in _rc_prods if str(p.get('Categoria','')).strip().lower() != 'varios']
                 else:
                     _modo_admin_rc = False
                 if not _rc_prods:
@@ -12753,6 +12756,9 @@ window.addEventListener("message",function(e){{
                             _citem = str(_crow.get('Item','')).strip()
                             _cprice = round(float(_crow.get('P. Unitario real', _crow.get('Precio Unitario', 0)) or 0))
                             if _ccat and _citem:
+                                # Ocultar categoria Varios en catálogo para operación
+                                if not _modo_admin_rc and _ccat.strip().lower() == 'varios':
+                                    continue
                                 if _ccat not in _rc_cat_data:
                                     _rc_cat_data[_ccat] = []
                                 _rc_cat_data[_ccat].append({'item': _citem, 'precio': _cprice})
