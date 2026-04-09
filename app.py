@@ -3745,6 +3745,7 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
             'plano_nombre': plano_nombre if plano_datos else (response.data[0].get('plano_nombre') if existe else None),
             'plano_url': plano_url if plano_datos else (response.data[0].get('plano_url') if existe else None),
             'user_id': st.session_state.get('auth_user') or None,
+            'modelo_predefinido': st.session_state.get('modelo_base') or None,
             'asesor_email': str(asesor.get('Correo Ejecutivo', '') or st.session_state.get('auth_email', '') or '')
         }
 
@@ -3972,6 +3973,7 @@ def ejecutar_carga_cotizacion():
     if st.session_state.cargar_cotizacion_trigger and st.session_state.cotizacion_a_cargar:
         cotizacion = st.session_state.cotizacion_a_cargar
         st.session_state.carrito = cotizacion['productos']
+        st.session_state.modelo_base = cotizacion.get('modelo_predefinido') or None
         st.session_state.nombre_input = cotizacion.get('cliente_nombre', '')
         rut_valor = cotizacion.get('cliente_rut', '')
         st.session_state.rut_display = rut_valor
