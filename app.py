@@ -6121,11 +6121,26 @@ def generar_word_contrato(datos):
     return buf
 
 
-def _obtener_clausulas_contrato():
+def _obtener_clausulas_contrato(modelo_predefinido=None):
+    """Retorna las cláusulas de la plantilla activa.
+    Si se pasa modelo_predefinido, busca la plantilla que tenga ese modelo asociado.
+    Si no encuentra, usa la plantilla A activa como fallback."""
     try:
-        _res = supabase.table("plantillas_contrato").select("clausulas").eq("activa", True).execute()
+        # 1. Buscar por modelo si se proporcionó
+        if modelo_predefinido:
+            _todas = supabase.table("plantillas_contrato").select("*").eq("activa", True).execute()
+            for _p in (_todas.data or []):
+                _mods = _p.get("modelos") or []
+                if modelo_predefinido in _mods:
+                    return _p.get("clausulas")
+        # 2. Fallback: plantilla A activa
+        _res = supabase.table("plantillas_contrato").select("clausulas").eq("activa", True).eq("tipo", "A").execute()
         if _res.data and _res.data[0].get("clausulas"):
             return _res.data[0]["clausulas"]
+        # 3. Fallback final: cualquier activa
+        _res2 = supabase.table("plantillas_contrato").select("clausulas").eq("activa", True).execute()
+        if _res2.data and _res2.data[0].get("clausulas"):
+            return _res2.data[0]["clausulas"]
     except Exception:
         pass
     return None
@@ -15403,17 +15418,22 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
 
             def _render_editor_plantilla(tipo_plt, tab_key_prefix):
                 """Renderiza el editor completo para una plantilla (A o B)."""
+                _otro_tipo = 'B' if tipo_plt == 'A' else 'A'
                 _plt_activa_t = _cargar_plantilla_activa(tipo_plt)
+                _plt_activa_otro = _cargar_plantilla_activa(_otro_tipo)
                 _clausulas_act_t = _plt_activa_t["clausulas"] if _plt_activa_t else _CLAUSULAS_EDITOR
                 _modelos_act_t = list(_plt_activa_t.get("modelos") or []) if _plt_activa_t else []
+                # Modelos ya asignados a la OTRA plantilla — no disponibles aquí
+                _modelos_otro = list(_plt_activa_otro.get("modelos") or []) if _plt_activa_otro else []
+                _modelos_disponibles = [m for m in _hojas_modelo_ed if m not in _modelos_otro or m in _modelos_act_t]
 
                 # ── Selección de modelos asociados ──
                 st.markdown(f"**🔗 Modelos predefinidos asociados a esta plantilla:**")
-                st.caption("El sistema usará esta plantilla automáticamente cuando el presupuesto use uno de estos modelos.")
+                st.caption("El sistema usará esta plantilla automáticamente cuando el presupuesto use uno de estos modelos. Los modelos ya asignados a la otra plantilla no aparecen aquí.")
                 _modelos_sel = st.multiselect(
                     "Modelos",
-                    options=_hojas_modelo_ed,
-                    default=[m for m in _modelos_act_t if m in _hojas_modelo_ed],
+                    options=_modelos_disponibles,
+                    default=[m for m in _modelos_act_t if m in _modelos_disponibles],
                     key=f"{tab_key_prefix}_modelos_sel",
                     label_visibility="collapsed",
                     placeholder="Selecciona los modelos que usan esta plantilla..."
