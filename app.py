@@ -687,7 +687,7 @@ def guardar_plano_en_storage(archivo_pdf_bytes, cotizacion_numero, nombre_origin
 # Función que construye el HTML del registro de compras
 # Usando triple-quoted strings para evitar conflictos de comillas
 
-def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin=False, supa_url='', supa_key='', ep='', usuario='', items_ya_comprados_json='[]', total_items_presupuesto=0):
+def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin=False, supa_url='', supa_key='', ep='', usuario='', items_ya_comprados_json='[]', total_items_presupuesto=0, cats_cards_html=''):
     rows = ""
     items_comprados = items_comprados or {}
     for ri, prod in enumerate(rc_prods):
@@ -745,6 +745,7 @@ input[type=number]:focus{{outline:none;border-color:#5b7cfa;box-shadow:0 0 0 2px
 input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
 </style>
 <input id="rc-search" type="text" placeholder="Buscar item..." oninput="window.filterRows(this.value)" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:7px 10px;font-size:13px;box-sizing:border-box;margin-bottom:6px"/>
+{cats_cards_html}
 <div style="border:1px solid #e2e8f0;border-radius:8px;display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0">
   <div id="tbl-wrap" style="overflow:auto;flex:1;min-height:0"><table>
     <thead><tr>
@@ -990,7 +991,8 @@ function calc(){{
   window.parent.postMessage({{type:"rc_vals",vals:vals,tP:tP,tR:tR}},"*");
 }}
 var _rcCatFiltro='';
-function applyFilters(){{
+function applyFilters(catOverride){{
+  if(catOverride!==undefined) _rcCatFiltro=catOverride;
   var q=document.getElementById('rc-search')?document.getElementById('rc-search').value.toLowerCase():'';
   document.querySelectorAll("tbody tr").forEach(function(r){{
     var txt=r.cells[1]?r.cells[1].textContent.toLowerCase():"";
@@ -1001,12 +1003,6 @@ function applyFilters(){{
   }});
 }}
 window.filterRows=function(q){{applyFilters();}};
-window.addEventListener('message',function(e){{
-  if(e.data&&e.data.type==='rc_cat_filtro'){{
-    _rcCatFiltro=e.data.val||'';
-    applyFilters();
-  }}
-}});
 document.querySelectorAll(".rc-real").forEach(function(inp){{
   attachListeners(inp, inp.closest("tr").querySelector(".rc-adic"));
 }});
@@ -12794,8 +12790,12 @@ window.addEventListener("message",function(e){{
                     # Evitar que valores de sesiones anteriores se pre-poblen causando guardados fantasma
                     _rc_prev = {}
 
-                    # ── Tarjetas de categoría — mismo diseño Presupuesto, filtro JS sin rerun ──
-                    import streamlit.components.v1 as _rc_cat_comp
+                    # Obtener ítems ya comprados en registros anteriores
+                    _rc_items_comprados = obtener_items_comprados(_rc_ep)
+                    _rc_es_admin = _rol_actual in ('root','admin')
+                    import json as _jrc_call
+                    _rc_ya_comprados_json = _jrc_call.dumps(list(_rc_items_comprados.keys()))
+                    # Generar tarjetas de categoría
                     import math as _rc_math_cat
                     _rc_cat_colors = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444',
                                       '#06b6d4','#f97316','#84cc16','#ec4899','#6366f1',
@@ -12805,81 +12805,60 @@ window.addEventListener("message",function(e){{
                         _rcc = str(_rcp.get('Categoria','')).strip()
                         if _rcc:
                             if _rcc not in _rc_cats_seen:
-                                _rc_cats_seen[_rcc] = {'items': 0, 'cant': 0, 'subtotal': 0.0, 'color': ''}
-                            _rcp_cant = float(_rcp.get('Cantidad',1) or 1)
-                            _rcp_pu   = float(_rcp.get('Precio Unitario',0) or 0)
+                                _rc_cats_seen[_rcc] = {'items':0,'cant':0,'subtotal':0.0,'color':''}
                             _rc_cats_seen[_rcc]['items'] += 1
-                            _rc_cats_seen[_rcc]['cant'] += int(_rcp_cant)
-                            _rc_cats_seen[_rcc]['subtotal'] += _rcp_cant * _rcp_pu
+                            _rc_cats_seen[_rcc]['cant'] += int(float(_rcp.get('Cantidad',1) or 1))
+                            _rc_cats_seen[_rcc]['subtotal'] += float(_rcp.get('Cantidad',1) or 1) * float(_rcp.get('Precio Unitario',0) or 0)
                     _rc_cards_divs = ''
                     for _rci, (_rcc, _rcv) in enumerate(sorted(_rc_cats_seen.items())):
                         _rccolor = _rc_cat_colors[_rci % len(_rc_cat_colors)]
-                        _rc_cats_seen[_rcc]['color'] = _rccolor
+                        _rc_sub_fmt = f'${_rcv["subtotal"]*1.19:,.0f}'.replace(',','.')
                         _rc_cards_divs += (
                             f'<div class="rc-cat-card" data-cat="{_rcc}" data-color="{_rccolor}" '
                             f'style="background:#fff;border:1.5px solid {_rccolor}33;border-left:4px solid {_rccolor};'
-                            f'border-radius:8px;padding:8px 14px;min-width:140px;flex:1;cursor:pointer;transition:background .15s;">'
+                            f'border-radius:8px;padding:8px 14px;min-width:140px;flex:1;cursor:pointer;">'
                             f'<div style="font-size:11px;font-weight:700;color:{_rccolor};text-transform:uppercase;'
                             f'font-family:Montserrat,\'Segoe UI\',sans-serif;letter-spacing:.05em;margin-bottom:4px;">'
                             f'{_rcc}<span class="rc-tick" style="display:none"> ✓</span></div>'
                             f'<div style="display:flex;gap:10px;align-items:baseline;">'
-                            f'<span style="font-size:13px;font-weight:700;color:#0f172a;font-family:Montserrat,\'Segoe UI\',sans-serif;">${_rcv["subtotal"]*1.19:,.0f}'.replace(',','.') + f'</span>'
+                            f'<span style="font-size:13px;font-weight:700;color:#0f172a;font-family:Montserrat,\'Segoe UI\',sans-serif;">{_rc_sub_fmt}</span>'
                             f'<span style="font-size:10px;color:#64748b;font-family:Montserrat,\'Segoe UI\',sans-serif;">c/IVA</span></div>'
                             f'<div style="font-size:10px;color:#64748b;font-family:Montserrat,\'Segoe UI\',sans-serif;margin-top:2px;">'
                             f'{_rcv["items"]} ítems · {_rcv["cant"]} uds.</div></div>'
                         )
-                    _rc_cat_html = f"""<style>
-html,body{{margin:0;padding:0;overflow:hidden;font-family:Montserrat,'Segoe UI',sans-serif;}}*{{box-sizing:border-box;}}
-.rc-cat-card{{transition:background .15s,border .15s;}}
-</style>
-<div style='display:flex;flex-wrap:wrap;gap:8px;padding:4px 0;'>{_rc_cards_divs}</div>
-<script>
-var _rcActiveCat='';
-document.querySelectorAll('.rc-cat-card').forEach(function(el){{
-  el.addEventListener('click',function(){{
-    var cat=this.dataset.cat;
-    var col=this.dataset.color;
-    _rcActiveCat=(_rcActiveCat===cat)?'':cat;
-    // Actualizar estilos de tarjetas
-    document.querySelectorAll('.rc-cat-card').forEach(function(c){{
-      var isAct=_rcActiveCat&&c.dataset.cat===_rcActiveCat;
-      var cc=c.dataset.color;
-      c.style.background=isAct?(cc+'18'):'#fff';
-      c.style.border=isAct?('2px solid '+cc):('1.5px solid '+cc+'33');
-      c.style.borderLeft='4px solid '+cc;
-      c.querySelector('.rc-tick').style.display=isAct?'inline':'none';
-    }});
-    // Enviar filtro a iframe de la tabla RC
-    var iframes=window.parent.document.querySelectorAll('iframe');
-    iframes.forEach(function(fr){{try{{fr.contentWindow.postMessage({{type:'rc_cat_filtro',val:_rcActiveCat}},'*');}}catch(e){{}}}});
-  }});
-}});
-</script>"""
-                    _rc_n_cats = len(_rc_cats_seen)
-                    _rc_n_rows = _rc_math_cat.ceil(_rc_n_cats / 9) if _rc_n_cats else 1
-                    _rc_cat_height = _rc_n_rows * 78 + 8
-                    _rc_cat_comp.html(_rc_cat_html, height=_rc_cat_height, scrolling=False)
-                    st.markdown('<div style="margin-top:-24px"></div>', unsafe_allow_html=True)
-
-                    # Obtener ítems ya comprados en registros anteriores
-                    _rc_items_comprados = obtener_items_comprados(_rc_ep)
-                    _rc_es_admin = _rol_actual in ('root','admin')
-                    import json as _jrc_call
-                    _rc_ya_comprados_json = _jrc_call.dumps(list(_rc_items_comprados.keys()))
-                    # Aplicar filtro de categoría si está activo
-                    _rc_cat_filtro = st.session_state.get('_rc_cat_filtro_activo', '')
-                    _rc_prods_filtrado = [p for p in _rc_prods if not _rc_cat_filtro or str(p.get('Categoria','')).strip() == _rc_cat_filtro]
+                    _rc_cats_cards_html = (
+                        '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">'
+                        + _rc_cards_divs + '</div>'
+                        '<script>'
+                        'var _rcCF="";'
+                        'document.querySelectorAll(".rc-cat-card").forEach(function(el){'
+                        '  el.addEventListener("click",function(){'
+                        '    var cat=this.dataset.cat,col=this.dataset.color;'
+                        '    _rcCF=(_rcCF===cat)?"":cat;'
+                        '    document.querySelectorAll(".rc-cat-card").forEach(function(c){'
+                        '      var a=_rcCF&&c.dataset.cat===_rcCF,cc=c.dataset.color;'
+                        '      c.style.background=a?(cc+"18"):"#fff";'
+                        '      c.style.border=a?("2px solid "+cc):("1.5px solid "+cc+"33");'
+                        '      c.style.borderLeft="4px solid "+cc;'
+                        '      c.querySelector(".rc-tick").style.display=a?"inline":"none";'
+                        '    });'
+                        '    applyFilters(_rcCF);'
+                        '  });'
+                        '});'
+                        '</script>'
+                    )
                     _rc_html = build_rc_html(
-                        _rc_prods_filtrado, _rc_cat_json, _rc_prev,
+                        _rc_prods, _rc_cat_json, _rc_prev,
                         _rc_items_comprados, _rc_es_admin,
                         supa_url=SUPABASE_URL,
                         supa_key=SUPABASE_KEY,
                         ep=_rc_ep,
                         usuario=st.session_state.get('auth_nombre',''),
                         items_ya_comprados_json=_rc_ya_comprados_json,
-                        total_items_presupuesto=len(_rc_prods)
+                        total_items_presupuesto=len(_rc_prods),
+                        cats_cards_html=_rc_cats_cards_html
                     )
-                    _rc_height = min(len(_rc_prods_filtrado)*37+580, 980)
+                    _rc_height = min(len(_rc_prods)*37+580, 980)
                     # Forzar re-render cuando cambian items comprados
                     _rc_items_hash = str(sorted(_rc_items_comprados.keys()))
                     _rc_comp.html(_rc_html + f'<!-- {_rc_items_hash} -->', height=min(len(_rc_prods)*37+580, 980), scrolling=False)
