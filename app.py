@@ -9748,7 +9748,12 @@ if tab3 is not None:
                         _dv_c = _cot_compras.get('proyecto_dias_validez', 15)
                         _fadj_c = _cot_compras.get('fecha_adjudicacion') or None
                         _ffid_c = _cot_compras.get('fecha_entrega') or None
-                        _plazo_c = int((_cot_compras.get('contrato_datos') or {}).get('plazo_dias', 45) or 45)
+                        try:
+                            import json as _jcd
+                            _cd_raw = _cot_compras.get('contrato_datos') or {}
+                            if isinstance(_cd_raw, str): _cd_raw = _jcd.loads(_cd_raw)
+                            _plazo_c = int(_cd_raw.get('plazo_dias', 45) or 45)
+                        except: _plazo_c = 45
                         _pdf_compras, _ = generar_pdf_completo(_df_compras, _sub_compras, _iva_compras, _tot_compras, _dc_compras, _fi_c, _ft_c, _dv_c, _da_compras, margen=0, numero_cotizacion=numero_seleccionado, mostrar_precios=True, fecha_adjudicacion=_fadj_c, fecha_fidelizacion=_ffid_c, plazo_obra_dias=_plazo_c)
                         st.download_button(label="🛒 PDF Compras", data=_pdf_compras, file_name=f"Compras_{numero_seleccionado}.pdf",
                             mime="application/pdf", use_container_width=True, key=f"pdf_compras_{numero_seleccionado}")
