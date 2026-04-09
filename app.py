@@ -14457,6 +14457,24 @@ if tab_contrato is not None:
                             st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
         
                     if _generar:
+                        # Verificar que el modelo tenga plantilla asignada
+                        _modelo_check = (_cot.get("modelo_predefinido")
+                                         or st.session_state.get('modelo_base') or None)
+                        if _modelo_check:
+                            try:
+                                _todas_check = supabase.table("plantillas_contrato").select("modelos").eq("activa", True).execute()
+                                _modelo_asignado = any(
+                                    _modelo_check in (_p.get("modelos") or [])
+                                    for _p in (_todas_check.data or [])
+                                )
+                            except Exception:
+                                _modelo_asignado = True  # no bloquear si falla la query
+                            if not _modelo_asignado:
+                                st.warning(
+                                    f"⚠️ El modelo **{_modelo_check}** no tiene una plantilla de contrato asignada. "
+                                    f"Avisa a tu administrador para que lo configure en **Editar Contrato**."
+                                )
+                                st.stop()
                         if not _tratamiento:
                             st.error("⚠️ Debes seleccionar un tratamiento (Don, Doña, Sr. o Sra.) antes de generar el contrato.")
                             st.stop()
