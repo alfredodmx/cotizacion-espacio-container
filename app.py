@@ -9035,54 +9035,46 @@ if tab3 is not None:
                 }
                 _sel_key = _sel_map.get(_key, '_fbtn_TODOS')
                 _badge_items.append((_key, _bg_b, _col_b, _shadow, f'{_key.split()[0]} {_cnt} {_lbl}', _sel_key))
-        # Usar st.button para cada badge — evita problemas de HTML con onclick
+        # Badges como components.html con JS que filtra DOM directamente — sin rerun
+        import streamlit.components.v1 as _cmp_badges
         _col_badge, _col_ref = st.columns([5, 0.7])
         with _col_badge:
-            _badge_html = '<div id="_badges_filtro_wrap" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0;">'
+            _badge_html = '<style>body{margin:0;padding:0;overflow:hidden;font-family:sans-serif;}*{box-sizing:border-box;}</style>'
+            _badge_html += '<div style="display:flex;flex-wrap:wrap;gap:6px;padding:2px 0;">'
             for _bk, _bbg, _bcol, _bshadow, _btxt, _bsel in _badge_items:
                 _badge_html += (
                     f'<span data-filtro="{_bk}" data-bg="{_bbg}" data-col="{_bcol}" '
-                    f'data-bg-orig="{_bbg}" data-col-orig="{_bcol}" '
-                    f'style="cursor:pointer;background:{_bbg};color:{_bcol};'
-                    f'{_bshadow}padding:5px 14px;border-radius:99px;font-size:13px;font-weight:700;'
-                    f'display:inline-block;transition:all .15s;" class="_badge_filtro">'
+                    f'data-col-act="{_bcol}" '
+                    f'style="cursor:pointer;background:{_bbg};color:{_bcol};{_bshadow}'
+                    f'padding:5px 14px;border-radius:99px;font-size:13px;font-weight:700;'
+                    f'display:inline-block;border:1.5px solid transparent;" class="bf">'
                     f'{_btxt}</span>'
                 )
             _badge_html += '</div>'
             _badge_html += """
 <script>
-(function(){
-  var _activeFiltro = '';
-  function applyFiltroEstado(val){
-    _activeFiltro = val;
-    // Filtrar filas de la tabla
-    var rows = document.querySelectorAll('tr[data-estado]');
-    rows.forEach(function(r){
-      if(!val || val==='TODOS') r.style.display='';
-      else r.style.display = (r.getAttribute('data-estado')===val)?'':'none';
+var _af='';
+document.querySelectorAll('.bf').forEach(function(b){
+  b.addEventListener('click',function(){
+    var val=this.getAttribute('data-filtro');
+    _af=(_af===val||val==='TODOS')?'':val;
+    // actualizar estilos badges
+    document.querySelectorAll('.bf').forEach(function(x){
+      var xv=x.getAttribute('data-filtro');
+      var isAct=_af?(xv===_af):(xv==='TODOS');
+      x.style.background=isAct?x.getAttribute('data-col-act'):x.getAttribute('data-bg');
+      x.style.color=isAct?'#fff':x.getAttribute('data-col');
+      x.style.border=isAct?('1.5px solid '+x.getAttribute('data-col-act')):'1.5px solid transparent';
     });
-    // Actualizar estilos de badges
-    document.querySelectorAll('._badge_filtro').forEach(function(b){
-      var bVal = b.getAttribute('data-filtro');
-      var isAct = (!val||val==='TODOS') ? (bVal==='TODOS') : (bVal===val);
-      if(isAct){
-        b.style.filter='brightness(0.75)';
-        b.style.boxShadow='0 0 0 2px currentColor';
-      } else {
-        b.style.filter='';
-        b.style.boxShadow='';
-      }
+    // filtrar filas en parent
+    var iframes=window.parent.document.querySelectorAll('iframe');
+    iframes.forEach(function(fr){
+      try{fr.contentWindow.postMessage({type:'cot_filtro_estado',val:_af},'*');}catch(e){}
     });
-  }
-  document.addEventListener('click', function(e){
-    var b = e.target.closest('._badge_filtro');
-    if(!b) return;
-    var val = b.getAttribute('data-filtro');
-    applyFiltroEstado(_activeFiltro===val||val==='TODOS' ? 'TODOS' : val);
   });
-})();
+});
 </script>"""
-            st.markdown(_badge_html, unsafe_allow_html=True)
+            _cmp_badges.html(_badge_html, height=44, scrolling=False)
         with _col_ref:
             if st.button("🔄", key="cot_refresh_tabla", help="Actualizar resultados", use_container_width=True):
                 st.session_state.resultados_busqueda = None
@@ -9309,6 +9301,17 @@ if tab3 is not None:
         });
     }
     setTimeout(initEPCopy, 500);
+
+    // Filtro de estado por postMessage desde iframe de badges
+    window.addEventListener('message', function(e){
+        if(!e.data || e.data.type !== 'cot_filtro_estado') return;
+        var val = e.data.val || '';
+        var rows = D.querySelectorAll('tr[data-estado]');
+        rows.forEach(function(r){
+            if(!val) r.style.display = '';
+            else r.style.display = (r.getAttribute('data-estado') === val) ? '' : 'none';
+        });
+    });
 })();
 </script>""", height=0)
 
