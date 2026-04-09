@@ -15516,10 +15516,14 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                             k: v for k, v in _edits_limpios_t.items()
                             if _strip_html_t(v) != _strip_html_t(_CLAUSULAS_BASE.get(k, ""))
                         }
-                        if not _solo_cambios_t and not _modelos_sel:
-                            st.warning("No hay cambios respecto a la plantilla original.")
+                        # Permite guardar si cambiaron cláusulas O si cambiaron los modelos asignados
+                        _modelos_cambiaron = set(_modelos_sel) != set(_modelos_act_t)
+                        if not _solo_cambios_t and not _modelos_cambiaron:
+                            st.warning("No hay cambios en cláusulas ni en modelos asignados.")
                         else:
-                            _resultado_t = _guardar_plantilla(_solo_cambios_t, _usr_plt, tipo=tipo_plt, modelos_lista=_modelos_sel)
+                            # Si solo cambian modelos, reusar clausulas actuales
+                            _cls_guardar = _solo_cambios_t if _solo_cambios_t else (_clausulas_act_t or {})
+                            _resultado_t = _guardar_plantilla(_cls_guardar, _usr_plt, tipo=tipo_plt, modelos_lista=_modelos_sel)
                             if _resultado_t is True:
                                 st.success(f"✅ Plantilla {tipo_plt} guardada ({len(_solo_cambios_t)} cláusula(s) · {len(_modelos_sel)} modelo(s)).")
                                 st.rerun()
@@ -15565,7 +15569,6 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                                     st.rerun()
 
             with _tab_plt_a:
-                st.caption(f"🔍 Debug — modelos_por_tipo: {_modelos_por_tipo}")
                 _render_editor_plantilla('A', 'plt_a')
 
             with _tab_plt_b:
