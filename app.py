@@ -15274,6 +15274,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 "garantia":     "El Proveedor otorga una garantía de 6 meses contados desde la entrega del módulo, limitada exclusivamente a defectos de fabricación o construcción imputables al proceso productivo.",
                 "terminacion":  "El presente contrato podrá terminarse anticipadamente por:\na) Incumplimiento grave de cualquiera de las partes.\nb) Mutuo acuerdo por escrito.\nc) No pago oportuno de cualquiera de las etapas de pago.\nEn caso de término imputable al Cliente, los montos pagados no serán reembolsables, salvo acuerdo distinto por escrito.",
                 "jurisdiccion": "Para todos los efectos legales derivados del presente contrato, las partes fijan su domicilio en la ciudad de Santiago, y se someten a la competencia de sus Tribunales Ordinarios de Justicia.",
+                "suministro_energia": "",
                 "firma":        "El presente contrato se firma en dos ejemplares de igual tenor y fecha, quedando uno en poder de cada parte.",
             }
 
@@ -15296,6 +15297,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 "garantia":     "El Proveedor otorga una garantía de <b>6 meses</b> contados desde la entrega del módulo, limitada exclusivamente a <b>defectos de fabricación o construcción imputables al proceso productivo</b>.\nQuedan expresamente excluidos de garantía los daños derivados de:\n• Mal uso o uso distinto al previsto\n• Modificaciones no autorizadas\n• Transporte realizado por terceros\n• Vandalismo\n• Fenómenos naturales\n• Falta de mantención adecuada",
                 "terminacion":  "El presente contrato podrá terminarse anticipadamente por:\na) Incumplimiento grave de cualquiera de las partes.\nb) Mutuo acuerdo por escrito.\nc) No pago oportuno de cualquiera de las etapas de pago.\nEn caso de término imputable al Cliente, los montos pagados <b>no serán reembolsables</b>, salvo acuerdo distinto por escrito.",
                 "jurisdiccion": "Para todos los efectos legales derivados del presente contrato, las partes fijan su domicilio en la <b>ciudad de Santiago</b>, y se someten a la competencia de sus <b>Tribunales Ordinarios de Justicia</b>.",
+                "suministro_energia": "XVI. DEL SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS\n\nResponsabilidad del suministro eléctrico.\nEl Cliente será el único y exclusivo responsable de proporcionar, habilitar y mantener disponible el suministro de energía eléctrica necesario para la correcta ejecución y desarrollo del Proyecto objeto del presente contrato. Para tales efectos, deberá gestionar, contratar y costear el acceso al servicio eléctrico durante todo el período de ejecución de las obras o servicios contratados.\n\nCostos asociados al consumo eléctrico.\nEl Cliente asumirá íntegramente todos los costos derivados del consumo de energía eléctrica requerido para el funcionamiento de herramientas, equipos, maquinarias y cualquier otro implemento necesario para la ejecución de los trabajos contemplados en el presente contrato.\n\nExención de responsabilidad del Proveedor.\nEl Proveedor no será responsable, bajo ninguna circunstancia, por la falta, interrupción, insuficiencia o deficiencia del suministro de energía eléctrica, ni por los costos derivados del uso de dicho servicio para la operación de herramientas, equipos o maquinarias utilizadas en el desarrollo del Proyecto. Cualquier retraso o imposibilidad de ejecución derivado de estas circunstancias no será imputable al Proveedor, entendiéndose, en tal caso, suspendidos los plazos contractuales por el tiempo que dure dicha contingencia.",
                 "firma":        "El presente contrato se firma en <b>dos ejemplares de igual tenor y fecha</b>, quedando uno en poder de cada parte.",
             }
 
@@ -15318,7 +15320,8 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 "garantia":            "XIII. Garantía",
                 "terminacion":         "XIV. Terminación anticipada",
                 "jurisdiccion":        "XV. Domicilio y jurisdicción",
-                "firma":               "XVI. Firma",
+                "suministro_energia": "XVI. Suministro de energía eléctrica (solo Plantilla B)",
+                "firma":               "XVII. Firma",
             }
 
             _MARCADORES = "{{FECHA}} {{TRATAMIENTO}} {{CLIENTE}} {{RUT_CLIENTE}} {{DOMICILIO_CLIENTE}} {{COMUNA_CLIENTE}} {{REGION_CLIENTE}} {{DOMICILIO_INST}} {{COMUNA_INST}} {{REGION_INST}} {{EP}} {{EP_NOMBRE}} {{TOTAL}} {{TOTAL_PALABRAS}} {{PAGO_50}} {{PAGO_50_PALABRAS}} {{PAGO_25A}} {{PAGO_25A_PALABRAS}} {{PAGO_25B}} {{PAGO_25B_PALABRAS}} {{PLAZO}}"
@@ -15455,7 +15458,10 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 # Editor de cláusulas
                 _edits_t = {}
                 def _strip_b_t(t): return t.replace('<b>','').replace('</b>','')
-                for _key, _label in _LABELS.items():
+                # Filtrar cláusulas según tipo: suministro_energia solo en Plantilla B
+                _labels_tipo = {k: v for k, v in _LABELS.items()
+                                if not (k == 'suministro_energia' and tipo_plt == 'A')}
+                for _key, _label in _labels_tipo.items():
                     _base_editor = _CLAUSULAS_EDITOR.get(_key, _CLAUSULAS_BASE.get(_key, ""))
                     _val_sup = _clausulas_act_t.get(_key, "")
                     if _val_sup and _strip_b_t(_val_sup).strip() != _strip_b_t(_base_editor).strip():
