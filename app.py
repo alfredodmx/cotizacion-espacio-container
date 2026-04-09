@@ -8221,6 +8221,7 @@ document.querySelectorAll('.cat-card').forEach(function(el){{
             carrito_df_edit["Precio Unitario"] = carrito_df_edit["Precio Unitario"].apply(formato_clp)
             carrito_df_edit["Subtotal"] = carrito_df_edit["Subtotal"].apply(formato_clp)
             carrito_df_edit["✏️"] = False
+            carrito_df_edit["Cantidad"] = pd.to_numeric(carrito_df_edit["Cantidad"], errors="coerce").fillna(0).astype(int)
             carrito_df_edit = carrito_df_edit[["Categoria", "Item", "Cantidad", "Precio Unitario", "Subtotal", "P. Unit + IVA", "Subtotal + IVA", "✏️"]]
             if buscar_tabla:
                 mask = (
