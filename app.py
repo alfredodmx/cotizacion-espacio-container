@@ -8761,6 +8761,10 @@ if tab3 is not None:
         df_resultados["FechaPlana"] = df_resultados["Fecha"].apply(_fmt_fecha_plana)
         df_resultados["Fecha"] = df_resultados["Fecha"].apply(_fmt_fecha)
         df_resultados["Estado"] = df_resultados.apply(crear_badge_estado, axis=1)
+        # EstadoKey: texto plano para filtro JS
+        import re as _re_est
+        df_resultados["EstadoKey"] = df_resultados["Estado"].apply(
+            lambda h: _re_est.sub(r"<[^>]+>","",str(h)).strip())
         # Columna Autorización: fecha + quién autorizó
         def _fmt_auth_con_nombre(row):
             _fecha_h = _fmt_fecha_auth(row["Fecha_Auth"])
@@ -8997,7 +9001,7 @@ if tab3 is not None:
             else:
                 _demora_display = row.get('Demora', '—')
             _fila_class = ' class="fila-rechazada"' if _motivo_rec else ''
-            _est_attr = str(row.get('Estado','')).replace('"','')
+            _est_attr = str(row.get('EstadoKey','')).replace("'",'')
             rows_html += f"<tr{_fila_class} data-est='{_est_attr}'><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Cliente'] or '—'}</td><td style='text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.6;'>{row['Total']}</td>{_td_tc}<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Asesor'] or '—'}</td><td class='td-estado' style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td class='demora-col' style='text-align:center;font-size:0.82rem;font-weight:700;'>{_demora_display}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td>{_td_margen}<td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td><td style='text-align:center;font-size:0.82rem;'>{_proc_not_html}</td><td style='line-height:1.6;'>{_fadj_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fab_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fidel_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_retraso_html_cot}</td>{_td_compras}</tr>"
 
         # Badge resumen por estado
