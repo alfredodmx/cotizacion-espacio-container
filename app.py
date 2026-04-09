@@ -12707,52 +12707,6 @@ window.addEventListener("message",function(e){{
                     _hist_comp.html(_b_html, height=48, scrolling=False)
                     _n_regs = len(_rc_existentes)
                     _hist_comp.html(_hist_html, height=min(_n_regs*80+80, 600), scrolling=True)
-                    # ── Botón PDF Balance (solo admin/root) ──
-                    if _rol_actual in ('root','admin') and _rc_existentes:
-                        st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
-                        import json as _jbal
-                        _bal_prods = _rc_row.get('productos') or []
-                        if isinstance(_bal_prods, str):
-                            try: _bal_prods = _jbal.loads(_bal_prods)
-                            except: _bal_prods = []
-                        _bal_dc = {'Nombre': _rc_row.get('cliente_nombre',''), 'RUT': _rc_row.get('cliente_rut','')}
-                        _bal_da = {'Nombre Ejecutivo': _rc_row.get('asesor_nombre','')}
-                        _bcol1, _bcol2, _bcol3, _bcol4 = st.columns(4)
-                        with _bcol1:
-                            if st.button('📥 PDF Balance', key=f'pdf_balance_{_rc_ep}', use_container_width=True, help='Sin Varios'):
-                                with st.spinner('Generando PDF...'):
-                                    try:
-                                        _bal_pdf = generar_pdf_balance(_rc_ep, _bal_dc, _bal_da, _rc_existentes, _bal_prods, incluir_varios=False)
-                                        st.download_button(label='📄 Descargar (sin Varios)', data=_bal_pdf,
-                                            file_name=f'Balance_{_rc_ep}_sin_varios.pdf', mime='application/pdf',
-                                            key=f'dl_balance_{_rc_ep}')
-                                    except Exception as _e_bal:
-                                        st.error(f'Error: {_e_bal}')
-                        with _bcol2:
-                            if st.button('📥 PDF Balance + Varios', key=f'pdf_balance_v_{_rc_ep}', use_container_width=True, help='Con Varios'):
-                                with st.spinner('Generando PDF...'):
-                                    try:
-                                        _bal_pdf_v = generar_pdf_balance(_rc_ep, _bal_dc, _bal_da, _rc_existentes, _bal_prods, incluir_varios=True)
-                                        st.download_button(label='📄 Descargar (con Varios)', data=_bal_pdf_v,
-                                            file_name=f'Balance_{_rc_ep}_con_varios.pdf', mime='application/pdf',
-                                            key=f'dl_balance_v_{_rc_ep}')
-                                    except Exception as _e_bal_v:
-                                        st.error(f'Error: {_e_bal_v}')
-                        with _bcol3:
-                            if st.button('📊 Excel Precios', key=f'xls_balance_{_rc_ep}', use_container_width=True):
-                                with st.spinner('Generando Excel...'):
-                                    try:
-                                        _bal_xls = generar_excel_balance(_rc_ep, _rc_existentes, _bal_prods)
-                                        st.download_button(label='📊 Descargar Excel', data=_bal_xls,
-                                            file_name=f'Precios_Reales_{_rc_ep}.xlsx',
-                                            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                                            key=f'dl_xls_{_rc_ep}')
-                                    except Exception as _e_xls:
-                                        st.error(f'Error: {_e_xls}')
-                        with _bcol4:
-                            pass
-                    st.markdown('---')
-
                 # Formulario nuevo registro
                 st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 8px;">➕ Nuevo registro de compra</div>', unsafe_allow_html=True)
                 # Toggle modo admin/operador (solo admin y root)
@@ -12868,6 +12822,57 @@ window.addEventListener("message",function(e){{
                     _rc_comp.html(_rc_html + f'<!-- {_rc_items_hash} -->', height=_rc_height, scrolling=False)
 
                     # Factura y guardado manejados dentro del HTML component
+
+                    # ── Contenedor Exportar Balance (solo admin/root) ──
+                    if _rol_actual in ('root','admin') and _rc_existentes:
+                        st.markdown("""
+                        <div style='background:linear-gradient(135deg,#1e2447 0%,#2a3060 100%);
+                        border-radius:12px;padding:16px 20px 12px;margin:8px 0 4px;'>
+                        <div style='font-family:Montserrat,sans-serif;font-weight:700;font-size:0.82rem;
+                        letter-spacing:0.06em;text-transform:uppercase;color:#fff;margin-bottom:12px;
+                        display:flex;align-items:center;gap:8px;'>
+                        📊 Exportar Balance
+                        </div></div>""", unsafe_allow_html=True)
+                        import json as _jbal
+                        _bal_prods = _rc_row.get('productos') or []
+                        if isinstance(_bal_prods, str):
+                            try: _bal_prods = _jbal.loads(_bal_prods)
+                            except: _bal_prods = []
+                        _bal_dc = {'Nombre': _rc_row.get('cliente_nombre',''), 'RUT': _rc_row.get('cliente_rut','')}
+                        _bal_da = {'Nombre Ejecutivo': _rc_row.get('asesor_nombre','')}
+                        st.markdown('<div style="margin-top:-8px"></div>', unsafe_allow_html=True)
+                        _bcol1, _bcol2, _bcol3 = st.columns(3)
+                        with _bcol1:
+                            if st.button('📥 PDF Balance', key=f'pdf_balance_{_rc_ep}', use_container_width=True, help='Sin Varios'):
+                                with st.spinner('Generando PDF...'):
+                                    try:
+                                        _bal_pdf = generar_pdf_balance(_rc_ep, _bal_dc, _bal_da, _rc_existentes, _bal_prods, incluir_varios=False)
+                                        st.download_button(label='📄 Descargar (sin Varios)', data=_bal_pdf,
+                                            file_name=f'Balance_{_rc_ep}_sin_varios.pdf', mime='application/pdf',
+                                            key=f'dl_balance_{_rc_ep}')
+                                    except Exception as _e_bal:
+                                        st.error(f'Error: {_e_bal}')
+                        with _bcol2:
+                            if st.button('📥 PDF Balance + Varios', key=f'pdf_balance_v_{_rc_ep}', use_container_width=True, help='Con Varios'):
+                                with st.spinner('Generando PDF...'):
+                                    try:
+                                        _bal_pdf_v = generar_pdf_balance(_rc_ep, _bal_dc, _bal_da, _rc_existentes, _bal_prods, incluir_varios=True)
+                                        st.download_button(label='📄 Descargar (con Varios)', data=_bal_pdf_v,
+                                            file_name=f'Balance_{_rc_ep}_con_varios.pdf', mime='application/pdf',
+                                            key=f'dl_balance_v_{_rc_ep}')
+                                    except Exception as _e_bal_v:
+                                        st.error(f'Error: {_e_bal_v}')
+                        with _bcol3:
+                            if st.button('📊 Excel Precios', key=f'xls_balance_{_rc_ep}', use_container_width=True):
+                                with st.spinner('Generando Excel...'):
+                                    try:
+                                        _bal_xls = generar_excel_balance(_rc_ep, _rc_existentes, _bal_prods)
+                                        st.download_button(label='📊 Descargar Excel', data=_bal_xls,
+                                            file_name=f'Precios_Reales_{_rc_ep}.xlsx',
+                                            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                            key=f'dl_xls_{_rc_ep}')
+                                    except Exception as _e_xls:
+                                        st.error(f'Error: {_e_xls}')
 
 
     with _sub_acta:
