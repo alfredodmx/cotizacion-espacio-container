@@ -6514,9 +6514,20 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         PageBreak(),
     ]
 
-    # ── XVI. Firma ──
+    # ── XVI. Suministro energía (solo Plantilla B) ──
+    _tiene_suministro = bool(_plt_cls and _plt_cls.get("suministro_energia"))
+    if _tiene_suministro:
+        _txt_sum = _plt_cls["suministro_energia"]
+        story += [
+            Paragraph("XVI. DEL SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS", seccion),
+            Paragraph(_rep(_txt_sum, d), normal),
+            SP(6),
+        ]
+
+    # ── XVI/XVII. Firma ──
+    _firma_num = "XVII" if _tiene_suministro else "XVI"
     story += [
-        Paragraph("XVI. FIRMA", seccion),
+        Paragraph(f"{_firma_num}. FIRMA", seccion),
         Paragraph(_p("firma", None), normal),
         SP(60),
     ]
