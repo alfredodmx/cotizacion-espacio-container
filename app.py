@@ -8943,19 +8943,24 @@ if tab3 is not None:
 
         # Columna COMPRAS OK — solo para admin/root
         if _rol_actual in ('root', 'admin'):
-            # Cargar productos para cada EP en un mapa
-            try:
-                _eps_compras = df_resultados["N°"].tolist()
-                _prods_resp = supabase.table("cotizaciones").select("numero,productos").in_("numero", _eps_compras).execute()
-                _prods_map = {}
-                for _pr in (_prods_resp.data or []):
-                    try:
-                        import json as _jpm
-                        _p = _pr.get("productos") or []
-                        if isinstance(_p, str): _p = _jpm.loads(_p)
-                        _prods_map[_pr["numero"]] = _p
-                    except: pass
-            except: _prods_map = {}
+            # Cargar productos en caché por lista de EPs para evitar queries en cada rerun
+            _eps_compras = df_resultados["N°"].tolist()
+            _cache_key = 'prods_map_' + ','.join(sorted(_eps_compras))
+            if st.session_state.get('_prods_map_key') != _cache_key:
+                try:
+                    _prods_resp = supabase.table("cotizaciones").select("numero,productos").in_("numero", _eps_compras).execute()
+                    _prods_map = {}
+                    for _pr in (_prods_resp.data or []):
+                        try:
+                            import json as _jpm
+                            _p = _pr.get("productos") or []
+                            if isinstance(_p, str): _p = _jpm.loads(_p)
+                            _prods_map[_pr["numero"]] = _p
+                        except: pass
+                    st.session_state['_prods_map_cache'] = _prods_map
+                    st.session_state['_prods_map_key'] = _cache_key
+                except: st.session_state['_prods_map_cache'] = {}
+            _prods_map = st.session_state.get('_prods_map_cache', {})
             def _fmt_compras_ok(row):
                 try:
                     import json as _jco
