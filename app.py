@@ -12958,9 +12958,9 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         if _factura_url2: _footer_h += f"<a href='{_factura_url2}' target='_blank' style='color:#3b82f6;text-decoration:none;'>📎 {_factura_nom2}</a>"
                         _footer_h += f"<span style='color:{'#0f172a' if _rce_obs2 else '#94a3b8'};font-style:{'normal' if _rce_obs2 else 'italic'};'>📝 {_rce_obs2 if _rce_obs2 else 'Sin observaciones'}</span>"
                         _rce_id2 = str(_rce.get('id',''))
-                        _footer_h += (f"<button onclick=\"setAction('edit','{_rce_id2}')\" "
-                                      f"style='margin-left:auto;background:#2563eb;color:white;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;'>✏️ Editar</button>"
-                                      f"<button onclick=\"setAction('delete','{_rce_id2}')\" "
+                        _footer_h += (f"<button onclick='setAction(\"edit\",\"{_rce_id2}\")' "
+                                      f"style='margin-left:auto;background:#2563eb;color:white;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;'>✏️ Editar</button> "
+                                      f"<button onclick='setAction(\"delete\",\"{_rce_id2}\")' "
                                       f"style='background:#dc2626;color:white;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;'>🗑️ Eliminar</button></div>")
                         import json as _jdr
                         _reg_data = {
@@ -13010,9 +13010,11 @@ th:not(:first-child){{text-align:right;}}
 </style>
 <div id="badges" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
 <div id="regs"></div>
-"""
-                    _hist_html += '<script>\nvar REGS=' + _regs_json + ';\nvar BADGES=' + _badges_json + ';\nvar SUPA_URL="' + _supa_url_js + '";\nvar SUPA_KEY="' + _supa_key_js + '";\n'
-                    _hist_html += """
+<script>
+var REGS={_regs_json};
+var BADGES={_badges_json};
+var SUPA_URL="{_supa_url_js}";
+var SUPA_KEY="{_supa_key_js}";
 var filtro='';
 var deletedItems={{}};
 function setAction(action,id){{
