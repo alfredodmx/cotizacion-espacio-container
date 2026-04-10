@@ -12962,7 +12962,16 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                                       f"style='margin-left:auto;background:#2563eb;color:white;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;'>✏️ Editar</button>"
                                       f"<button onclick=\"setAction('delete','{_rce_id2}')\" "
                                       f"style='background:#dc2626;color:white;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;'>🗑️ Eliminar</button></div>")
-                        _hist_regs.append({'tipo': _rce_tipo_k, 'titulo': _titulo, 'rows': _rows_h, 'footer': _footer_h, 'id': _rce_id2})
+                        import json as _jdr
+                        _reg_data = {
+                            'id': _rce_id2,
+                            'lugar_compra': _rce.get('lugar_compra','') or '',
+                            'observaciones': _rce.get('observaciones','') or '',
+                            'fecha_entrega_compra': _rce.get('fecha_entrega_compra','') or '',
+                            'items': _rce_items_h,
+                        }
+                        _reg_data_json = _jdr.dumps(_reg_data, ensure_ascii=True).replace('<', '\\u003c').replace('>', '\\u003e').replace("'", '\\u0027')
+                        _hist_regs.append({'tipo': _rce_tipo_k, 'titulo': _titulo, 'rows': _rows_h, 'footer': _footer_h, 'id': _rce_id2, 'data_json': _reg_data_json})
 
                     # Serializar a JSON para JS
                     import json as _jser
@@ -12973,14 +12982,6 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                     _supa_key_js = SUPABASE_KEY
                     # Pasar items completos para el editor inline
                     import json as _jser2
-                    _regs_full_json = _jser2.dumps(
-                        [{'id': str(r.get('id','')),
-                          'lugar_compra': r.get('lugar_compra','') or '',
-                          'observaciones': r.get('observaciones','') or '',
-                          'fecha_entrega_compra': r.get('fecha_entrega_compra','') or '',
-                          'items': (r.get('items') if not isinstance(r.get('items'), str)
-                                   else _jser2.loads(r.get('items','[]')))
-                         } for r in _rc_existentes], ensure_ascii=False)
                     _hist_html = f"""<style>
 body{{margin:0;padding:0;font-family:'Segoe UI',sans-serif;font-size:13px;}}
 .badge{{border-radius:99px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #cbd5e1;background:#f1f5f9;color:#0f172a;display:inline-block;}}
@@ -13014,7 +13015,6 @@ var REGS={_regs_json};
 var BADGES={_badges_json};
 var SUPA_URL='{_supa_url_js}';
 var SUPA_KEY='{_supa_key_js}';
-var REGS_FULL={_regs_full_json};
 var filtro='';
 var deletedItems={{}};
 function setAction(action,id){{
@@ -13060,8 +13060,9 @@ function toggleItemDel(id,idx){{
   if(btn)btn.classList.toggle('deleted');
 }}
 function buildEditorHTML(id){{
-  var reg=REGS_FULL.find(function(r){{return r.id===id;}});
-  if(!reg)return '';
+  var card=document.getElementById('card-'+id);
+  if(!card)return '';
+  var reg=JSON.parse(card.getAttribute('data-reg')||'{{}}');
   var items=reg.items||[];
   var rows='<div class="ed-row"><div class="ed-hdr">Categoría</div><div class="ed-hdr">Ítem</div><div class="ed-hdr">Cant.</div><div class="ed-hdr">P.Presup.</div><div class="ed-hdr">P.Real</div><div class="ed-hdr">🗑️</div></div>';
   items.forEach(function(it,i){{
@@ -13088,8 +13089,9 @@ function buildEditorHTML(id){{
     +'</div>';
 }}
 function saveEdit(id){{
-  var reg=REGS_FULL.find(function(r){{return r.id===id;}});
-  if(!reg)return;
+  var card=document.getElementById('card-'+id);
+  if(!card)return;
+  var reg=JSON.parse(card.getAttribute('data-reg')||'{{}}');
   var items=reg.items||[];
   var newItems=[];
   var totalReal=0;
@@ -13115,8 +13117,6 @@ function saveEdit(id){{
     if(r.ok){{
       var ed=document.getElementById('editor-'+id);
       if(ed){{ed.classList.remove('open');}}
-      // Actualizar REGS_FULL local
-      Object.assign(reg,{{items:newItems,lugar_compra:lugar,observaciones:obs,fecha_entrega_compra:fech}});
       deletedItems[id]=[];
       alert('✅ Guardado correctamente. Recarga para ver los cambios en la tabla.');
     }} else {{ alert('Error al guardar: '+r.status); }}
@@ -13130,9 +13130,6 @@ function deleteReg(id){{
     if(r.ok){{
       var card=document.getElementById('card-'+id);
       if(card)card.remove();
-      // Quitar de REGS_FULL
-      var idx=REGS_FULL.findIndex(function(r2){{return r2.id===id;}});
-      if(idx>-1)REGS_FULL.splice(idx,1);
       alert('✅ Registro eliminado. Recarga para ver los cambios en la tabla.');
     }} else {{ alert('Error al eliminar: '+r.status); }}
   }}).catch(function(e){{alert('Error: '+e);}});
@@ -13155,6 +13152,7 @@ function renderRegs(){{
     if(filtro&&r.tipo!==filtro)return;
     var rid=r.id||('reg-'+i);
     var card=document.createElement('div');card.className='reg-card';card.id='card-'+rid;
+    if(r.data_json)card.setAttribute('data-reg',r.data_json);
     var hdr=document.createElement('div');hdr.className='reg-header';
     hdr.innerHTML='<span>'+r.titulo+'</span><span style="font-size:10px;color:#64748b;">▼</span>';
     var body=document.createElement('div');body.className='reg-body';body.id='body-'+rid;
