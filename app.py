@@ -9106,8 +9106,30 @@ if tab3 is not None:
             else:
                 _fadj_html_cot = '<span style="color:#94a3b8;">—</span>'
             # Tiempo fabricación
-            if _tiene_acta_cot:
-                _fab_html_cot = '<span style="color:#2563eb;font-weight:700;">✅ Finalizado</span>'
+            if _tiene_acta_cot and _fadj_raw_cot and _fecha_entrega_cot and _fecha_entrega_cot not in ('None','nan',''):
+                try:
+                    _d_adj_fab = _dt_cot.fromisoformat(_fadj_raw_cot.replace('Z','+00:00')).astimezone(_tz_cl_cot)
+                    _d_ent_fab = _dt_cot.fromisoformat(_fecha_entrega_cot.replace('Z','+00:00')).astimezone(_tz_cl_cot)
+                    _diff_fab  = _d_ent_fab - _d_adj_fab
+                    _seg_fab   = int(_diff_fab.total_seconds())
+                    _dd_fab = _seg_fab // 86400
+                    _hh_fab = (_seg_fab % 86400) // 3600
+                    _mm_fab = (_seg_fab % 3600) // 60
+                    _ss_fab = _seg_fab % 60
+                    _txt_fab = ''
+                    if _dd_fab > 0: _txt_fab += f'{_dd_fab}d '
+                    if _hh_fab > 0: _txt_fab += f'{_hh_fab}h '
+                    if _mm_fab > 0: _txt_fab += f'{_mm_fab}m '
+                    _txt_fab += f'{_ss_fab}s'
+                    _fab_html_cot = (
+                        f'<span style="color:#7c3aed;font-weight:700;display:inline-block;'
+                        f'font-variant-numeric:tabular-nums;">{_txt_fab}</span>'
+                        f'<br><span style="font-size:0.72em;color:#7c3aed;font-weight:700;">🟣 FINALIZADO</span>'
+                    )
+                except:
+                    _fab_html_cot = '<span style="color:#7c3aed;font-weight:700;">🟣 FINALIZADO</span>'
+            elif _tiene_acta_cot:
+                _fab_html_cot = '<span style="color:#7c3aed;font-weight:700;">🟣 FINALIZADO</span>'
             elif _es_adj_cot and _fadj_raw_cot:
                 try:
                     _d_adj_cot  = _dt_cot.fromisoformat(_fadj_raw_cot.replace("Z","+00:00")).astimezone(_tz_cl_cot)
