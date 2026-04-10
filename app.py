@@ -2967,7 +2967,7 @@ def crear_badge_estado(row):
         asesor_email    = row[8]
         asesor_telefono = row[9]
         tiene_notariado = bool(row[15]) if len(row) > 15 else False
-        tiene_acta = bool(row[22]) if len(row) > 22 else False
+        tiene_acta = bool(row[21]) if len(row) > 21 else False
     # RECHAZADO desde el DataFrame
     if hasattr(row, 'index') and 'Motivo_Rechazo' in row.index:
         _raw_mr = row['Motivo_Rechazo']
@@ -8827,7 +8827,7 @@ if tab3 is not None:
         st.rerun()
 
     if st.session_state.resultados_busqueda:
-        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa", "Fecha_Auth", "Autorizado_Por", "Tiene_Notariado", "Fecha_Adj", "Contrato_Datos", "Not_URL", "Motivo_Rechazo", "Fecha_Rechazo", "NLogs", "Acta_URL", "Fecha_Entrega"]
+        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa", "Fecha_Auth", "Autorizado_Por", "Tiene_Notariado", "Fecha_Adj", "Contrato_Datos", "Not_URL", "Motivo_Rechazo", "Fecha_Rechazo", "Acta_URL", "Fecha_Entrega", "NLogs"]
         _rows_norm = []
         for _r in st.session_state.resultados_busqueda:
             _r = list(_r)
@@ -9165,8 +9165,7 @@ if tab3 is not None:
                         _hab_ret = dias_habiles_entre(_d_ent_fc, _d_entrega_date)
                         _retraso_html_cot = (f'<span style="color:#dc2626;font-weight:700;">⚠️ {_hab_ret}d hábiles</span>'
                                               f'<br><span style="font-size:0.72em;color:#dc2626;">entregado tarde</span>')
-                except Exception as _e_fid:
-                    _fidel_html_cot = f'<span style="color:#dc2626;font-size:0.7em;">err:{str(_e_fid)[:40]}</span>'
+                except: pass
             elif _es_adj_cot and _fadj_raw_cot:
                 try:
                     _cd_cot = row.get('Contrato_Datos') or {}
