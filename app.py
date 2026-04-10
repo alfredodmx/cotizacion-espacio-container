@@ -13048,6 +13048,84 @@ window.addEventListener("message",function(e){{
                     _hist_comp.html(_b_html, height=48, scrolling=False)
                     _n_regs = len(_rc_existentes)
                     _hist_comp.html(_hist_html, height=min(_n_regs*80+80, 600), scrolling=True)
+
+                # ── Botones Editar / Eliminar por registro ──
+                st.markdown('<div style="font-weight:700;font-size:0.82rem;color:#0f172a;margin:8px 0 4px;">🗂️ Gestionar registros</div>', unsafe_allow_html=True)
+                for _rce_btn in _rc_existentes:
+                    _rce_id   = _rce_btn.get('id','')
+                    _rce_lug  = _rce_btn.get('lugar_compra','') or _rce_btn.get('factura_nombre','Sin nombre') or 'Sin nombre'
+                    _rce_fecha_btn = ''
+                    try:
+                        from datetime import datetime as _dtb, timezone as _tzb, timedelta as _tdb
+                        _rce_fecha_btn = _dtb.fromisoformat(_rce_btn['fecha_registro'].replace('Z','+00:00')).astimezone(_tzb(_tdb(hours=-3))).strftime('%d/%m/%Y')
+                    except: pass
+                    _rce_total_btn = float(_rce_btn.get('total_real',0) or 0)
+                    _rce_lbl_btn = f"🧾 {_rce_lug} — ${_rce_total_btn:,.0f} — {_rce_fecha_btn}".replace(',','.')
+                    with st.expander(_rce_lbl_btn, expanded=False):
+                        _bcol1, _bcol2 = st.columns([1,1])
+                        with _bcol1:
+                            if st.button('🗑️ Eliminar este registro', key=f'rc_del_{_rce_id}', use_container_width=True, type='primary'):
+                                st.session_state[f'_rc_confirm_del_{_rce_id}'] = True
+                        with _bcol2:
+                            if st.button('✏️ Editar este registro', key=f'rc_edit_{_rce_id}', use_container_width=True):
+                                st.session_state[f'_rc_edit_id'] = _rce_id
+                                st.session_state[f'_rc_edit_data'] = _rce_btn
+                        # Confirmación eliminación
+                        if st.session_state.get(f'_rc_confirm_del_{_rce_id}'):
+                            st.warning('⚠️ ¿Confirmas eliminar este registro? Los ítems volverán a aparecer como pendientes.')
+                            _dc1, _dc2 = st.columns([1,1])
+                            with _dc1:
+                                if st.button('✅ Sí, eliminar', key=f'rc_del_ok_{_rce_id}', use_container_width=True):
+                                    try:
+                                        supabase.table('registro_compras').delete().eq('id', _rce_id).execute()
+                                        st.session_state.pop(f'_rc_confirm_del_{_rce_id}', None)
+                                        st.session_state.pop('_prods_map_key', None)
+                                        st.success('✅ Registro eliminado.')
+                                        st.rerun()
+                                    except Exception as _del_e:
+                                        st.error(f'Error: {_del_e}')
+                            with _dc2:
+                                if st.button('❌ Cancelar', key=f'rc_del_cancel_{_rce_id}', use_container_width=True):
+                                    st.session_state.pop(f'_rc_confirm_del_{_rce_id}', None)
+                                    st.rerun()
+
+                # ── Modal edición ──
+                _edit_id = st.session_state.get('_rc_edit_id')
+                _edit_data = st.session_state.get('_rc_edit_data', {})
+                if _edit_id and _edit_data.get('id') == _edit_id:
+                    st.markdown('---')
+                    st.markdown('<div style="font-weight:700;font-size:0.88rem;color:#0f172a;margin-bottom:8px;">✏️ Editando registro</div>', unsafe_allow_html=True)
+                    _e1, _e2 = st.columns([1,1])
+                    with _e1:
+                        _ed_lugar = st.text_input('Lugar de compra', value=_edit_data.get('lugar_compra','') or '', key=f'ed_lugar_{_edit_id}')
+                        _ed_obs   = st.text_area('Observaciones', value=_edit_data.get('observaciones','') or '', key=f'ed_obs_{_edit_id}', height=80)
+                    with _e2:
+                        _ed_total = st.number_input('Total real ($)', value=float(_edit_data.get('total_real',0) or 0), min_value=0.0, key=f'ed_total_{_edit_id}')
+                        _ed_fecha = st.text_input('Fecha entrega compra', value=_edit_data.get('fecha_entrega_compra','') or '', key=f'ed_fecha_{_edit_id}')
+                    _es1, _es2 = st.columns([1,1])
+                    with _es1:
+                        if st.button('💾 Guardar cambios', key=f'ed_save_{_edit_id}', use_container_width=True, type='primary'):
+                            try:
+                                supabase.table('registro_compras').update({
+                                    'lugar_compra': _ed_lugar,
+                                    'observaciones': _ed_obs,
+                                    'total_real': _ed_total,
+                                    'fecha_entrega_compra': _ed_fecha,
+                                    'balance': float(_edit_data.get('total_presupuestado',0) or 0) - _ed_total,
+                                }).eq('id', _edit_id).execute()
+                                st.session_state.pop('_rc_edit_id', None)
+                                st.session_state.pop('_rc_edit_data', None)
+                                st.session_state.pop('_prods_map_key', None)
+                                st.success('✅ Registro actualizado.')
+                                st.rerun()
+                            except Exception as _ed_e:
+                                st.error(f'Error: {_ed_e}')
+                    with _es2:
+                        if st.button('❌ Cancelar edición', key=f'ed_cancel_{_edit_id}', use_container_width=True):
+                            st.session_state.pop('_rc_edit_id', None)
+                            st.session_state.pop('_rc_edit_data', None)
+                            st.rerun()
+
                 # Formulario nuevo registro
                 st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 8px;">➕ Nuevo registro de compra</div>', unsafe_allow_html=True)
                 # Toggle modo admin/operador (solo admin y root)
