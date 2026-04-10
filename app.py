@@ -13096,7 +13096,7 @@ function saveEdit(idx){{
     headers:{{"Content-Type":"application/json","apikey":KEY,"Authorization":"Bearer "+KEY,"Prefer":"return=minimal"}},
     body:JSON.stringify(payload)
   }}).then(function(res){{
-    if(res.ok){{closeEditor(idx);alert("✅ Guardado. Recarga para ver los cambios.");}}else{{alert("Error: "+res.status);}}
+    if(res.ok){{window.parent.location.reload();}}else{{alert("Error: "+res.status);}}
   }}).catch(function(e){{alert("Error: "+e);}});
 }}
 function askDel(idx){{
@@ -13109,7 +13109,7 @@ function askDel(idx){{
     if(res.ok){{
       var card=document.getElementById("card-"+idx);
       if(card)card.remove();
-      alert("✅ Eliminado. Recarga para ver los cambios.");
+      window.parent.location.reload();
     }}else{{alert("Error: "+res.status);}}
   }}).catch(function(e){{alert("Error: "+e);}});
 }}
