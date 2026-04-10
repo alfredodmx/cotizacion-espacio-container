@@ -2956,6 +2956,7 @@ def crear_badge_estado(row):
         asesor_email    = row['Asesor_Email']
         asesor_telefono = row['Asesor_Tel']
         tiene_notariado = bool(row.get('Tiene_Notariado', 0))
+        tiene_acta = bool(row.get('Acta_URL', ''))
     else:
         config_margen   = row[5]
         tiene_plano     = row[10] if len(row) > 10 else False
@@ -2966,6 +2967,7 @@ def crear_badge_estado(row):
         asesor_email    = row[8]
         asesor_telefono = row[9]
         tiene_notariado = bool(row[15]) if len(row) > 15 else False
+        tiene_acta = bool(row[22]) if len(row) > 22 else False
     # RECHAZADO desde el DataFrame
     if hasattr(row, 'index') and 'Motivo_Rechazo' in row.index:
         _raw_mr = row['Motivo_Rechazo']
@@ -2975,7 +2977,10 @@ def crear_badge_estado(row):
         _motivo_r = str(_raw_mr).strip() if (_raw_mr is not None and str(_raw_mr).strip() not in ('', 'None', 'nan')) else ''
     else:
         _motivo_r = ''
-    # ADJUDICADO tiene prioridad absoluta
+    # PROYECTO TERMINADO tiene prioridad máxima
+    if tiene_acta:
+        return '<span style="background-color:#7c3aed;color:white;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;border:1px solid #5b21b6;box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">🟣 PROYECTO TERMINADO</span>'
+    # ADJUDICADO segunda prioridad
     if tiene_notariado:
         label = "🔵 ADJUDICADO"
         color = "#2563eb"; border = "#1d4ed8"; text_color = "white"
@@ -9193,6 +9198,7 @@ if tab3 is not None:
         _n_total = len(st.session_state.resultados_busqueda)
         _badge_items = [('TODOS', _todos_bg, _todos_col, '', f'Todos ({_n_total})', '_fbtn_TODOS')]
         _badge_map = [
+            ('🟣 PROYECTO TERMINADO',  '#ede9fe', '#7c3aed', '#5b21b6', 'terminados'),
             ('🔵 ADJUDICADO',          '#dbeafe', '#1d4ed8', '#1e40af', 'adjudicados'),
             ('🟢 AUTORIZADO CON PLANO','#dcfce7', '#15803d', '#166534', 'aut. con plano'),
             ('🟢 AUTORIZADO',          '#dcfce7', '#15803d', '#166534', 'autorizados'),
@@ -9210,6 +9216,7 @@ if tab3 is not None:
                 _col_b = '#fff'   if _es_activo else _col
                 _shadow = f'box-shadow:0 0 0 2px {_col_act};' if _es_activo else ''
                 _sel_map = {
+                    '🟣 PROYECTO TERMINADO':'_fbtn_TER',
                     '🔵 ADJUDICADO':'_fbtn_ADJ','🟢 AUTORIZADO CON PLANO':'_fbtn_ACP',
                     '🟢 AUTORIZADO':'_fbtn_AUT','🟠 BORRADOR CON PLANO':'_fbtn_BCP',
                     '🟡 BORRADOR':'_fbtn_BOR','🔴 INCOMPLETO CON PLANO':'_fbtn_ICP',
@@ -9497,8 +9504,10 @@ if tab3 is not None:
 
         opciones = []
         for idx, row in df_resultados.iterrows():
-            # ADJUDICADO tiene prioridad absoluta
-            if row.get('Tiene_Notariado', 0):
+            # PROYECTO TERMINADO tiene prioridad absoluta
+            if row.get('Acta_URL',''):
+                estado = "🟣 PROYECTO TERMINADO"
+            elif row.get('Tiene_Notariado', 0):
                 estado = "🔵 ADJUDICADO"
             elif str(row.get('Motivo_Rechazo','') or '').strip() not in ('','None','nan'):
                 estado = "❌ RECHAZADO"
@@ -12104,7 +12113,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                     "numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_email,"
                     "asesor_nombre,asesor_email,asesor_telefono,estado,plano_url,plano_nombre,"
                     "config_margen,contrato_generado,productos,total_subtotal_sin_margen,"
-                    "contrato_notariado_url,fecha_adjudicacion,contrato_datos"
+                    "contrato_notariado_url,fecha_adjudicacion,contrato_datos,acta_url,fecha_entrega"
                 ).gt("config_margen", 0)
                 if _oper_ep.strip():
                     _oq = _oq.ilike("numero", f"%{_oper_ep.strip()}%")
@@ -12123,7 +12132,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                     "numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_email,"
                     "asesor_nombre,asesor_email,asesor_telefono,estado,plano_url,plano_nombre,"
                     "config_margen,contrato_generado,productos,total_subtotal_sin_margen,"
-                    "contrato_notariado_url,fecha_adjudicacion,contrato_datos"
+                    "contrato_notariado_url,fecha_adjudicacion,contrato_datos,acta_url,fecha_entrega"
                 ).gt("config_margen", 0)
                 if _oper_ej_sel != 'Todos':
                     _oq0 = _oq0.eq("asesor_nombre", _oper_ej_sel)
@@ -12179,7 +12188,10 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
 
             # Badge estado
             def _badge_op(row_data):
-                # ADJUDICADO tiene prioridad absoluta
+                # PROYECTO TERMINADO tiene prioridad máxima
+                if row_data.get('acta_url'):
+                    return '<span style="background-color:#7c3aed;color:white;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;border:1px solid #5b21b6;box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">🟣 PROYECTO TERMINADO</span>'
+                # ADJUDICADO segunda prioridad
                 if row_data.get('contrato_notariado_url'):
                     return '<span style="background-color:#2563eb;color:white;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;border:1px solid #1d4ed8;box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">🔵 ADJUDICADO</span>'
                 # Autorizado sin notariado = PENDIENTE COMPRAS
@@ -13152,7 +13164,11 @@ window.addEventListener("message",function(e){{
                                 else:
                                     _ac_ok, _ac_err2 = registrar_entrega_proyecto(_ac_ep, _ac_url, _ac_file.name)
                                     if _ac_ok:
-                                        st.success(f'✅ Proyecto {_ac_ep} marcado como ENTREGADO')
+                                        st.success(f'✅ Proyecto {_ac_ep} marcado como PROYECTO TERMINADO')
+                                        # Invalidar cachés de todas las pestañas
+                                        for _k in ['oper_results', 'resultados_busqueda', '_oper_ej_prev']:
+                                            if _k in st.session_state:
+                                                del st.session_state[_k]
                                         st.balloons()
                                         st.rerun()
                                     else:
