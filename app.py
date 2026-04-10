@@ -13010,11 +13010,9 @@ th:not(:first-child){{text-align:right;}}
 </style>
 <div id="badges" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
 <div id="regs"></div>
-<script>
-var REGS={_regs_json};
-var BADGES={_badges_json};
-var SUPA_URL='{_supa_url_js}';
-var SUPA_KEY='{_supa_key_js}';
+"""
+                    _hist_html += '<script>\nvar REGS=' + _regs_json + ';\nvar BADGES=' + _badges_json + ';\nvar SUPA_URL="' + _supa_url_js + '";\nvar SUPA_KEY="' + _supa_key_js + '";\n'
+                    _hist_html += """
 var filtro='';
 var deletedItems={{}};
 function setAction(action,id){{
