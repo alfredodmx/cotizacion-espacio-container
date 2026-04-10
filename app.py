@@ -12916,12 +12916,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         elif _tiene_con: _rce_prefix = '🟠 '
                         else: _rce_prefix = '🟢 '
                         _rce_adic_txt = ' · ➕ Compra adicional' if _tiene_con else (' · ⚪ Sin registro' if _tiene_sin else '')
-                        _total_real_t = float(_rce.get('total_real',0) or 0)
-                        _total_iva_t = _total_real_t * 1.19
-                        _siva_fmt = f'${_total_real_t:,.0f}'.replace(',','.')
-                        _civa_fmt = f'${_total_iva_t:,.0f}'.replace(',','.')
-                        _totales_txt = f' · {_siva_fmt} s/IVA · {_civa_fmt} c/IVA'
-                        _titulo = f"{_rce_prefix}🏪 Compraste en: {_rce_lugar}{_rce_adic_txt}{_totales_txt} — {_rce_icon} {_rce_lbl} {_rce_fmt}" if _rce_lugar else f"{_rce_prefix}🧾 {_rce.get('factura_nombre','Sin factura')}{_rce_adic_txt}{_totales_txt} — {_rce_icon} {_rce_lbl} {_rce_fmt}"
+                        _titulo = f"{_rce_prefix}🏪 Compraste en: {_rce_lugar}{_rce_adic_txt} — {_rce_icon} {_rce_lbl} {_rce_fmt}" if _rce_lugar else f"{_rce_prefix}🧾 {_rce.get('factura_nombre','Sin factura')}{_rce_adic_txt} — {_rce_icon} {_rce_lbl} {_rce_fmt}"
                         # Tabla items
                         _rows_h = ''
                         for _ri3, _it in enumerate(_rce_items_h):
@@ -12962,19 +12957,14 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         _footer_h += f"<span style='color:#64748b;'>🕐 {_rce_fecha2}</span>"
                         if _factura_url2: _footer_h += f"<a href='{_factura_url2}' target='_blank' style='color:#3b82f6;text-decoration:none;'>📎 {_factura_nom2}</a>"
                         _footer_h += f"<span style='color:{'#0f172a' if _rce_obs2 else '#94a3b8'};font-style:{'normal' if _rce_obs2 else 'italic'};'>📝 {_rce_obs2 if _rce_obs2 else 'Sin observaciones'}</span></div>"
+                        _total_real_t = float(_rce.get('total_real',0) or 0)
+                        _siva_fmt2 = f'${_total_real_t:,.0f}'.replace(',','.')
+                        _civa_fmt2 = f'${_total_real_t*1.19:,.0f}'.replace(',','.')
+                        _titulo2 = _titulo + f' · {_siva_fmt2} s/IVA · {_civa_fmt2} c/IVA'
                         import json as _jreg
-                        _items_ser = _rce_items_h
-                        _total_real_meta = float(_rce.get('total_real',0) or 0)
-                        _reg_meta = {
-                            'id': str(_rce.get('id','')),
-                            'lugar': _rce.get('lugar_compra','') or '',
-                            'obs': _rce.get('observaciones','') or '',
-                            'fent': _rce.get('fecha_entrega_compra','') or '',
-                            'items': _items_ser,
-                            'total_real': _total_real_meta,
-                        }
+                        _reg_meta = {'id': str(_rce.get('id','')), 'lugar': _rce.get('lugar_compra','') or '', 'obs': _rce.get('observaciones','') or '', 'fent': _rce.get('fecha_entrega_compra','') or '', 'items': _rce_items_h}
                         _reg_meta_str = _jreg.dumps(_reg_meta, ensure_ascii=True)
-                        _hist_regs.append({'tipo': _rce_tipo_k, 'titulo': _titulo, 'rows': _rows_h, 'footer': _footer_h, 'meta': _reg_meta_str})
+                        _hist_regs.append({'tipo': _rce_tipo_k, 'titulo': _titulo2, 'rows': _rows_h, 'footer': _footer_h, 'meta': _reg_meta_str})
 
                     # Serializar a JSON para JS
                     import json as _jser
@@ -13013,6 +13003,8 @@ var SUPA="{SUPABASE_URL}";
 var KEY="{SUPABASE_KEY}";
 var removed={{}};
 var filtro="";
+function fmtMoney(v){{return "$"+Math.round(Math.abs(v||0)).toLocaleString("de-DE");}}
+function parseMoney(s){{return parseInt((s||"").replace(/[^0-9]/g,""))||0;}}
 function fmt(n){{return "$"+Math.round(Math.abs(n)).toLocaleString("de-DE");}}
 function renderBadges(){{
   var d=document.getElementById("badges");d.innerHTML="";
@@ -13031,36 +13023,40 @@ function openEditor(idx){{
   var m=JSON.parse(r.meta);
   removed[idx]=[];
   var items=m.items||[];
-  var hd="<div class='ed-grid'><div class='ed-hdr'>Cat.</div><div class='ed-hdr'>Ítem</div><div class='ed-hdr'>Cant.</div><div class='ed-hdr'>Presup.</div><div class='ed-hdr'>P.Real</div><div></div></div>";
+  var hd="<div class=\"ed-grid\"><div class=\"ed-hdr\">Cat.</div><div class=\"ed-hdr\">Item</div><div class=\"ed-hdr\">Cant.</div><div class=\"ed-hdr\">Presup.</div><div class=\"ed-hdr\">P.Real</div><div></div></div>";
   var rows="";
   items.forEach(function(it,i){{
-    var isSinReg=it.sin_registro||false;
-    var ppCell=isSinReg
-      ?"<input class='ed-inp' id='pp-"+idx+"-"+i+"' type='number' min='0' step='100' value='"+(it.precio_presupuestado||0)+"' title='Adicional sin registro — editable'/>"
-      :"<div class='ed-txt' style='text-align:right;color:#94a3b8;'>$"+Math.round(it.precio_presupuestado||0).toLocaleString("de-DE")+"</div>";
-    rows+="<div class='ed-grid' id='row-"+idx+"-"+i+"'>"
-      +"<div class='ed-txt' style='color:#64748b;font-size:10px;'>"+it.categoria+"</div>"
-      +"<div class='ed-txt'>"+(isSinReg?"<span style='color:#a855f7;font-size:9px;'>⚪ s/reg </span>":"")+it.item+"</div>"
-      +(isSinReg
-        ?"<input class='ed-inp' id='c-"+idx+"-"+i+"' type='number' min='0' step='1' value='"+(it.cantidad||1)+"' title='Adicional sin registro — editable'/>"
-        :"<div class='ed-txt' style='text-align:right;color:#94a3b8;' id='c-"+idx+"-"+i+"-ro'>"+Math.round(it.cantidad||1)+"</div><input type='hidden' id='c-"+idx+"-"+i+"' value='"+(it.cantidad||1)+"'/>")
-      +ppCell
-      +"<input class='ed-inp' id='p-"+idx+"-"+i+"' type='number' min='0' step='100' value='"+(it.precio_real||0)+"'/>"
-      +"<button class='ed-rm' onclick='toggleRm("+idx+","+i+")'>🗑</button>"
+    var sr=it.sin_registro||false;
+    var cantCell=sr
+      ?"<input class=\"ed-inp\" id=\"c-"+idx+"-"+i+"\" type=\"number\" min=\"0\" step=\"1\" value=\"" +(it.cantidad||1)+ "\" />"
+      :"<div class=\"ed-txt\" style=\"text-align:right;color:#94a3b8;\" id=\"c-"+idx+"-"+i+"-ro\">" +Math.round(it.cantidad||1)+ "</div><input type=\"hidden\" id=\"c-"+idx+"-"+i+"\" value=\"" +(it.cantidad||1)+ "\" />";
+    var ppVal=Math.round(it.precio_presupuestado||0);
+    var ppCell="<div class=\"ed-txt\" style=\"text-align:right;color:#94a3b8;\">$" +ppVal.toLocaleString("de-DE")+ "</div>";
+    var prVal=Math.round(it.precio_real||0);
+    var prCell="<input class=\"ed-inp\" id=\"p-"+idx+"-"+i+"\" type=\"text\" value=\"$" +prVal.toLocaleString("de-DE")+ "\" style=\"text-align:right;\" "
+      +"onfocus=\"this.value=this.value.replace(/[^0-9]/g,'')\" "
+      +"onblur=\"var v=parseInt(this.value.replace(/[^0-9]/g,''))||0;this.value='$'+v.toLocaleString('de-DE')\" />";
+    rows+="<div class=\"ed-grid\" id=\"row-"+idx+"-"+i+"\">"
+      +"<div class=\"ed-txt\" style=\"color:#64748b;font-size:10px;\">" +it.categoria+ "</div>"
+      +"<div class=\"ed-txt\">" +(sr?"<span style=\"color:#a855f7;font-size:9px;\">&#9898; </span>":"")+ it.item+ "</div>"
+      +cantCell+ppCell+prCell
+      +"<button class=\"ed-rm\" onclick=\"toggleRm("+idx+","+i+")\" >&#x1F5D1;</button>"
       +"</div>";
   }});
   var ed=document.getElementById("editor-"+idx);
   ed.innerHTML=
-    "<input class='ed-field' id='lug-"+idx+"' placeholder='Lugar' value='"+m.lugar+"'/>"
-    +"<input class='ed-field' id='obs-"+idx+"' placeholder='Observaciones' value='"+m.obs+"'/>"
-    +"<input class='ed-field' id='fent-"+idx+"' placeholder='Fecha entrega' value='"+m.fent+"'/>"
+    "<input class=\"ed-field\" id=\"lug-"+idx+"\" placeholder=\"Lugar\" value=\"" +m.lugar+ "\" />"
+    +"<input class=\"ed-field\" id=\"obs-"+idx+"\" placeholder=\"Observaciones\" value=\"" +m.obs+ "\" />"
+    +"<input class=\"ed-field\" id=\"fent-"+idx+"\" placeholder=\"Fecha entrega\" value=\"" +m.fent+ "\" />"
     +hd+rows
-    +"<div style='margin-top:8px;'>"
-    +"<button class='btn-g' style='background:#16a34a;color:#fff;' onclick='saveEdit("+idx+")'>💾 Guardar</button>"
-    +"<button class='btn-g' style='background:#dc2626;color:#fff;' onclick='askDel("+idx+")'>🗑 Eliminar registro</button>"
-    +"<button class='btn-g' style='background:#64748b;color:#fff;' onclick='closeEditor("+idx+")'>✕ Cancelar</button>"
+    +"<div style=\"margin-top:8px;\">"
+    +"<button class=\"btn-g\" style=\"background:#16a34a;color:#fff;\" onclick=\"saveEdit("+idx+")\" >Guardar</button>"
+    +"<button class=\"btn-g\" style=\"background:#dc2626;color:#fff;\" onclick=\"askDel("+idx+")\" >Eliminar registro</button>"
+    +"<button class=\"btn-g\" style=\"background:#64748b;color:#fff;\" onclick=\"closeEditor("+idx+")\" >Cancelar</button>"
     +"</div>";
   ed.classList.add("open");
+  var body=document.getElementById("body-"+idx);
+  if(body)body.classList.add("open");
 }}
 function toggleRm(idx,i){{
   if(!removed[idx])removed[idx]=[];
@@ -13071,7 +13067,8 @@ function toggleRm(idx,i){{
 }}
 function closeEditor(idx){{
   var ed=document.getElementById("editor-"+idx);
-  if(ed){{ed.classList.remove("open");ed.innerHTML="";}} removed[idx]=[];
+  if(ed){{ed.classList.remove("open");ed.innerHTML="";}}
+  removed[idx]=[];
 }}
 function saveEdit(idx){{
   var r=REGS[idx];if(!r||!r.meta)return;
@@ -13081,10 +13078,10 @@ function saveEdit(idx){{
   items.forEach(function(it,i){{
     if(removed[idx]&&removed[idx].indexOf(i)>-1)return;
     var c=parseFloat(document.getElementById("c-"+idx+"-"+i).value)||1;
-    var p=parseFloat(document.getElementById("p-"+idx+"-"+i).value)||0;
-    var ppEl=document.getElementById("pp-"+idx+"-"+i);
-    var pp=ppEl?parseFloat(ppEl.value)||0:(it.precio_presupuestado||0);
-    var it2=Object.assign({{}},it,{{cantidad:c,precio_real:p,precio_presupuestado:pp}});
+    var pEl=document.getElementById("p-"+idx+"-"+i);
+    var p=parseInt((pEl.value||"").replace(/[^0-9]/g,""))||0;
+    var pp=it.precio_presupuestado||0;
+    var it2=Object.assign({{}},it,{{cantidad:c,precio_real:p}});
     newItems.push(it2);tR+=c*p;tP+=c*pp;
   }});
   var payload={{
@@ -13099,21 +13096,18 @@ function saveEdit(idx){{
     headers:{{"Content-Type":"application/json","apikey":KEY,"Authorization":"Bearer "+KEY,"Prefer":"return=minimal"}},
     body:JSON.stringify(payload)
   }}).then(function(res){{
-    if(res.ok){{closeEditor(idx);alert("✅ Guardado. Recarga para ver los cambios.");}}else{{alert("Error: "+res.status);}}
+    if(res.ok){{closeEditor(idx);alert("Guardado. Recarga para ver los cambios.");}}else{{alert("Error: "+res.status);}}
   }}).catch(function(e){{alert("Error: "+e);}});
 }}
 function askDel(idx){{
   var r=REGS[idx];if(!r||!r.meta)return;
   var m=JSON.parse(r.meta);
-  if(!confirm("¿Eliminar este registro? Los ítems volverán como pendientes."))return;
+  if(!confirm("Eliminar este registro? Los items volveran como pendientes."))return;
   fetch(SUPA+"/rest/v1/registro_compras?id=eq."+m.id,{{
     method:"DELETE",headers:{{"apikey":KEY,"Authorization":"Bearer "+KEY}}
   }}).then(function(res){{
-    if(res.ok){{
-      var card=document.getElementById("card-"+idx);
-      if(card)card.remove();
-      alert("✅ Eliminado. Recarga para ver los cambios.");
-    }}else{{alert("Error: "+res.status);}}
+    if(res.ok){{var card=document.getElementById("card-"+idx);if(card)card.remove();alert("Eliminado. Recarga para ver los cambios.");}}
+    else{{alert("Error: "+res.status);}}
   }}).catch(function(e){{alert("Error: "+e);}});
 }}
 function renderRegs(){{
@@ -13122,15 +13116,13 @@ function renderRegs(){{
     if(filtro&&r.tipo!==filtro)return;
     var card=document.createElement("div");card.className="reg-card";card.id="card-"+i;
     var hdr=document.createElement("div");hdr.className="reg-header";
-    hdr.innerHTML="<span>"+r.titulo+"</span>"
-      +"<div style='display:flex;gap:6px;align-items:center;'>"
-      +(r.meta?"<button onclick='event.stopPropagation();openEditor("+i+")' style='background:#2563eb;color:#fff;border:none;border-radius:4px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;'>✏️ Editar</button>":"" )
-      +(r.meta?"<button onclick='event.stopPropagation();askDel("+i+")' style='background:#dc2626;color:#fff;border:none;border-radius:4px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;'>🗑 Eliminar</button>":"" )
-      +"<span style='font-size:10px;color:#64748b;'>▼</span></div>";
-    var body=document.createElement("div");body.className="reg-body";
-    body.innerHTML="<table><thead><tr><th style='text-align:left'>Categoría</th><th style='text-align:left'>Ítem</th><th>Cant.</th><th>Presup.</th><th>Real</th><th>Adic.</th><th>Dif.</th></tr></thead><tbody>"+r.rows+"</tbody></table>"+r.footer;
+    var btnEdit=r.meta?"<button onclick=\"event.stopPropagation();openEditor("+i+")\" style=\"background:#2563eb;color:#fff;border:none;border-radius:4px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;margin-right:4px;\">Editar</button>":"";
+    var btnDel=r.meta?"<button onclick=\"event.stopPropagation();askDel("+i+")\" style=\"background:#dc2626;color:#fff;border:none;border-radius:4px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;margin-right:4px;\">Eliminar</button>":"";
+    hdr.innerHTML="<span>"+r.titulo+"</span><div style=\"display:flex;gap:4px;align-items:center;\">"+btnEdit+btnDel+"<span style=\"font-size:10px;color:#64748b;\">&#9660;</span></div>";
+    var body=document.createElement("div");body.className="reg-body";body.id="body-"+i;
+    body.innerHTML="<table><thead><tr><th style=\"text-align:left\">Categoria</th><th style=\"text-align:left\">Item</th><th>Cant.</th><th>Presup.</th><th>Real</th><th>Adic.</th><th>Dif.</th></tr></thead><tbody>"+r.rows+"</tbody></table>"+r.footer;
     var editor=document.createElement("div");editor.className="reg-editor";editor.id="editor-"+i;
-    hdr.onclick=function(){{body.classList.toggle("open");var arr=hdr.querySelector("span:last-child");if(arr)arr.textContent=body.classList.contains("open")?"▲":"▼";}};
+    hdr.onclick=function(){{body.classList.toggle("open");var arr=hdr.querySelector("span:last-child");if(arr)arr.textContent=body.classList.contains("open")?"&#9650;":"&#9660;";}};
     card.appendChild(hdr);card.appendChild(body);card.appendChild(editor);d.appendChild(card);
   }});
 }}
