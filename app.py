@@ -13094,14 +13094,57 @@ window.addEventListener("message",function(e){{
                 _edit_data = st.session_state.get('_rc_edit_data', {})
                 if _edit_id and _edit_data.get('id') == _edit_id:
                     st.markdown('---')
-                    st.markdown('<div style="font-weight:700;font-size:0.88rem;color:#0f172a;margin-bottom:8px;">✏️ Editando registro</div>', unsafe_allow_html=True)
-                    _e1, _e2 = st.columns([1,1])
+                    st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;color:#0f172a;margin-bottom:12px;">✏️ Editando registro</div>', unsafe_allow_html=True)
+                    # Datos generales
+                    _e1, _e2, _e3 = st.columns([2,2,1])
                     with _e1:
                         _ed_lugar = st.text_input('Lugar de compra', value=_edit_data.get('lugar_compra','') or '', key=f'ed_lugar_{_edit_id}')
-                        _ed_obs   = st.text_area('Observaciones', value=_edit_data.get('observaciones','') or '', key=f'ed_obs_{_edit_id}', height=80)
                     with _e2:
-                        _ed_total = st.number_input('Total real ($)', value=float(_edit_data.get('total_real',0) or 0), min_value=0.0, key=f'ed_total_{_edit_id}')
-                        _ed_fecha = st.text_input('Fecha entrega compra', value=_edit_data.get('fecha_entrega_compra','') or '', key=f'ed_fecha_{_edit_id}')
+                        _ed_obs = st.text_input('Observaciones', value=_edit_data.get('observaciones','') or '', key=f'ed_obs_{_edit_id}')
+                    with _e3:
+                        _ed_fecha = st.text_input('Fecha entrega', value=_edit_data.get('fecha_entrega_compra','') or '', key=f'ed_fecha_{_edit_id}')
+                    # Tabla de ítems editable
+                    st.markdown('<div style="font-weight:700;font-size:0.82rem;color:#0f172a;margin:10px 0 6px;">📦 Ítems de esta factura</div>', unsafe_allow_html=True)
+                    import json as _jed
+                    _ed_items_raw = _edit_data.get('items') or []
+                    if isinstance(_ed_items_raw, str):
+                        try: _ed_items_raw = _jed.loads(_ed_items_raw)
+                        except: _ed_items_raw = []
+                    # Inicializar items editables en session_state
+                    if f'_ed_items_{_edit_id}' not in st.session_state:
+                        st.session_state[f'_ed_items_{_edit_id}'] = [dict(i) for i in _ed_items_raw]
+                    _ed_items = st.session_state[f'_ed_items_{_edit_id}']
+                    # Encabezado tabla
+                    _hc = st.columns([2, 3, 1, 1.5, 1.5, 0.8])
+                    for _lbl, _col in zip(['Categoría','Ítem','Cant.','P. Presup.','P. Real',''], _hc):
+                        _col.markdown(f'<div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;">{_lbl}</div>', unsafe_allow_html=True)
+                    _items_a_eliminar = []
+                    for _ei, _eitem in enumerate(_ed_items):
+                        _ic = st.columns([2, 3, 1, 1.5, 1.5, 0.8])
+                        with _ic[0]:
+                            st.markdown(f'<div style="font-size:0.78rem;padding-top:8px;color:#64748b;">{_eitem.get("categoria","")}</div>', unsafe_allow_html=True)
+                        with _ic[1]:
+                            st.markdown(f'<div style="font-size:0.78rem;padding-top:8px;font-weight:600;">{_eitem.get("item","")}</div>', unsafe_allow_html=True)
+                        with _ic[2]:
+                            _new_cant = st.number_input('', value=float(_eitem.get('cantidad',1) or 1), min_value=0.0, step=1.0, key=f'ed_cant_{_edit_id}_{_ei}', label_visibility='collapsed')
+                            _ed_items[_ei]['cantidad'] = _new_cant
+                        with _ic[3]:
+                            st.markdown(f'<div style="font-size:0.78rem;padding-top:8px;text-align:right;">${float(_eitem.get("precio_presupuestado",0) or 0):,.0f}</div>'.replace(',','.'), unsafe_allow_html=True)
+                        with _ic[4]:
+                            _new_pr = st.number_input('', value=float(_eitem.get('precio_real',0) or 0), min_value=0.0, step=100.0, key=f'ed_pr_{_edit_id}_{_ei}', label_visibility='collapsed')
+                            _ed_items[_ei]['precio_real'] = _new_pr
+                        with _ic[5]:
+                            if st.button('🗑️', key=f'ed_del_item_{_edit_id}_{_ei}', help='Eliminar ítem'):
+                                _items_a_eliminar.append(_ei)
+                    # Eliminar ítems marcados
+                    if _items_a_eliminar:
+                        st.session_state[f'_ed_items_{_edit_id}'] = [i for j,i in enumerate(_ed_items) if j not in _items_a_eliminar]
+                        st.rerun()
+                    # Recalcular total real
+                    _ed_total_calc = sum(float(i.get('precio_real',0) or 0) * float(i.get('cantidad',1) or 1) for i in _ed_items)
+                    _ed_presup_calc = sum(float(i.get('precio_presupuestado',0) or 0) * float(i.get('cantidad',1) or 1) for i in _ed_items)
+                    st.markdown(f'<div style="text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;margin-top:4px;">Total real: ${_ed_total_calc:,.0f}</div>'.replace(',','.'), unsafe_allow_html=True)
+                    st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
                     _es1, _es2 = st.columns([1,1])
                     with _es1:
                         if st.button('💾 Guardar cambios', key=f'ed_save_{_edit_id}', use_container_width=True, type='primary'):
@@ -13109,12 +13152,15 @@ window.addEventListener("message",function(e){{
                                 supabase.table('registro_compras').update({
                                     'lugar_compra': _ed_lugar,
                                     'observaciones': _ed_obs,
-                                    'total_real': _ed_total,
                                     'fecha_entrega_compra': _ed_fecha,
-                                    'balance': float(_edit_data.get('total_presupuestado',0) or 0) - _ed_total,
+                                    'items': _ed_items,
+                                    'total_real': _ed_total_calc,
+                                    'total_presupuestado': _ed_presup_calc,
+                                    'balance': _ed_presup_calc - _ed_total_calc,
                                 }).eq('id', _edit_id).execute()
                                 st.session_state.pop('_rc_edit_id', None)
                                 st.session_state.pop('_rc_edit_data', None)
+                                st.session_state.pop(f'_ed_items_{_edit_id}', None)
                                 st.session_state.pop('_prods_map_key', None)
                                 st.success('✅ Registro actualizado.')
                                 st.rerun()
@@ -13124,6 +13170,7 @@ window.addEventListener("message",function(e){{
                         if st.button('❌ Cancelar edición', key=f'ed_cancel_{_edit_id}', use_container_width=True):
                             st.session_state.pop('_rc_edit_id', None)
                             st.session_state.pop('_rc_edit_data', None)
+                            st.session_state.pop(f'_ed_items_{_edit_id}', None)
                             st.rerun()
 
                 # Formulario nuevo registro
