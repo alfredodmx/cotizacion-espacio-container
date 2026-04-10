@@ -9121,10 +9121,20 @@ if tab3 is not None:
                     if _hh_fab > 0: _txt_fab += f'{_hh_fab}h '
                     if _mm_fab > 0: _txt_fab += f'{_mm_fab}m '
                     _txt_fab += f'{_ss_fab}s'
+                    # Determinar si hubo retraso para colorear
+                    _cd_fab = row.get('Contrato_Datos') or {}
+                    if isinstance(_cd_fab, str) and _cd_fab:
+                        try: _cd_fab = _json_cot.loads(_cd_fab)
+                        except: _cd_fab = {}
+                    _plazo_fab = int((_cd_fab or {}).get('plazo_dias', 0) or 45)
+                    _d_lim_fab = sumar_dias_habiles(_d_adj_fab.date(), _plazo_fab)
+                    _fab_retrasado = _d_ent_fab.date() > _d_lim_fab
+                    _col_fab = '#dc2626' if _fab_retrasado else '#7c3aed'
+                    _lbl_fab = '⚠️ FINALIZADO' if _fab_retrasado else '🟣 FINALIZADO'
                     _fab_html_cot = (
-                        f'<span style="color:#7c3aed;font-weight:700;display:inline-block;'
+                        f'<span style="color:{_col_fab};font-weight:700;display:inline-block;'
                         f'font-variant-numeric:tabular-nums;">{_txt_fab}</span>'
-                        f'<br><span style="font-size:0.72em;color:#7c3aed;font-weight:700;">🟣 FINALIZADO</span>'
+                        f'<br><span style="font-size:0.72em;color:{_col_fab};font-weight:700;">{_lbl_fab}</span>'
                     )
                 except:
                     _fab_html_cot = '<span style="color:#7c3aed;font-weight:700;">🟣 FINALIZADO</span>'
@@ -9172,15 +9182,17 @@ if tab3 is not None:
                     if _mm > 0: _txt_tiempo += f'{_mm}m '
                     _txt_tiempo += f'{_ss}s'
                     _hab_usados = dias_habiles_entre(_d_adj_date, _d_entrega_date)
+                    _con_retraso = _d_entrega_date > _d_ent_fc
                     _pct_usado  = min(round((_hab_usados / _plazo_cot) * 100, 2), 100.0) if _plazo_cot > 0 else 100.0
+                    _col_fin = '#dc2626' if _con_retraso else '#7c3aed'
                     _fidel_html_cot = (
                         f'<div style="display:flex;align-items:center;gap:8px;">'
-                        f'<span style="color:#7c3aed;font-weight:700;font-variant-numeric:tabular-nums;min-width:70px;">⏳ {_txt_tiempo}</span>'
-                        f'<span style="font-size:1.3rem;font-weight:900;color:#7c3aed;">{_pct_usado}%</span>'
+                        f'<span style="color:{_col_fin};font-weight:700;font-variant-numeric:tabular-nums;min-width:70px;">⏳ {_txt_tiempo}</span>'
+                        f'<span style="font-size:1.3rem;font-weight:900;color:{_col_fin};">{_pct_usado}%</span>'
                         f'</div>'
                         f'<span style="font-size:0.72em;color:#64748b;font-weight:600;">📅 {_fent_str}</span>'
                         f'<br><span style="font-size:0.68em;color:#94a3b8;">{_plazo_cot} días hábiles</span>'
-                        f'<br><span style="font-size:0.72em;color:#7c3aed;font-weight:700;">🟣 FINALIZADO</span>'
+                        f'<br><span style="font-size:0.72em;color:{_col_fin};font-weight:700;">{'⚠️ FINALIZADO' if _con_retraso else '🟣 FINALIZADO'}</span>'
                     )
                     # Calcular diferencia entre fecha entrega real y fecha límite
                     _d_ent_dt_lim = _dt_cot.combine(_d_ent_fc, _dt_cot.min.time()).replace(tzinfo=_tz_cl_cot)
