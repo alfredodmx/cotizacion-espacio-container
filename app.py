@@ -8967,31 +8967,37 @@ if tab3 is not None:
                     _est = calcular_estado_compras(_num, _prods_raw)
                     _pct = _est["pct"]
                     _estado = _est["estado"]
+                    def _compra_col(p):
+                        if p <= 33:   return '#dc2626', '#fee2e2'
+                        elif p <= 66: return '#f97316', '#ffedd5'
+                        elif p < 100: return '#16a34a', '#dcfce7'
+                        else:         return '#2563eb', '#dbeafe'
                     if _estado == "Sin compras":
                         return '<span style="color:#94a3b8;font-size:0.78rem;">Sin compras</span>'
                     elif _estado == "Compras 100%":
+                        _cc, _cb = _compra_col(100)
                         return (
-                            '<div style="width:80px;">'
-                            '<div style="background:#dcfce7;border-radius:4px;height:6px;margin-bottom:3px;">'
-                            '<div style="background:#16a34a;border-radius:4px;height:6px;width:100%;"></div></div>'
-                            '<span style="color:#16a34a;font-weight:700;font-size:0.75rem;">✅ 100% comprado</span></div>'
+                            f'<div style="width:80px;">'
+                            f'<div style="background:{_cb};border-radius:4px;height:6px;margin-bottom:3px;">'
+                            f'<div style="background:{_cc};border-radius:4px;height:6px;width:100%;"></div></div>'
+                            f'<span style="color:{_cc};font-weight:700;font-size:0.75rem;">✅ 100% comprado</span></div>'
                         )
                     elif "adicionales" in _estado:
                         _nadd = len(_est["adicionales"])
-                        return (
-                            '<div style="width:80px;">'
-                            '<div style="background:#dcfce7;border-radius:4px;height:6px;margin-bottom:3px;">'
-                            '<div style="background:#16a34a;border-radius:4px;height:6px;width:100%;"></div></div>'
-                            f'<span style="color:#16a34a;font-weight:700;font-size:0.75rem;">✅ 100% +{_nadd} adic.</span></div>'
-                        )
-                    else:
-                        _col = '#f97316' if _pct < 50 else '#eab308'
-                        _bar_bg = '#ffedd5' if _pct < 50 else '#fef9c3'
+                        _cc, _cb = _compra_col(100)
                         return (
                             f'<div style="width:80px;">'
-                            f'<div style="background:{_bar_bg};border-radius:4px;height:6px;margin-bottom:3px;">'
-                            f'<div style="background:{_col};border-radius:4px;height:6px;width:{_pct}%;"></div></div>'
-                            f'<span style="color:{_col};font-weight:700;font-size:0.75rem;">{_pct}% comprado</span></div>'
+                            f'<div style="background:{_cb};border-radius:4px;height:6px;margin-bottom:3px;">'
+                            f'<div style="background:{_cc};border-radius:4px;height:6px;width:100%;"></div></div>'
+                            f'<span style="color:{_cc};font-weight:700;font-size:0.75rem;">✅ 100% +{_nadd} adic.</span></div>'
+                        )
+                    else:
+                        _cc, _cb = _compra_col(_pct)
+                        return (
+                            f'<div style="width:80px;">'
+                            f'<div style="background:{_cb};border-radius:4px;height:6px;margin-bottom:3px;">'
+                            f'<div style="background:{_cc};border-radius:4px;height:6px;width:{_pct}%;"></div></div>'
+                            f'<span style="color:{_cc};font-weight:700;font-size:0.75rem;">{_pct}% comprado</span></div>'
                         )
                 except:
                     return '<span style="color:#94a3b8;font-size:0.78rem;">—</span>'
