@@ -12956,32 +12956,24 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         if _tipo_full2: _footer_h += f"<span style='color:#0f172a;font-weight:600;'>{_tipo_full2}</span>"
                         _footer_h += f"<span style='color:#64748b;'>🕐 {_rce_fecha2}</span>"
                         if _factura_url2: _footer_h += f"<a href='{_factura_url2}' target='_blank' style='color:#3b82f6;text-decoration:none;'>📎 {_factura_nom2}</a>"
-                        _footer_h += f"<span style='color:{'#0f172a' if _rce_obs2 else '#94a3b8'};font-style:{'normal' if _rce_obs2 else 'italic'};'>📝 {_rce_obs2 if _rce_obs2 else 'Sin observaciones'}</span>"
-                        _rce_id2 = str(_rce.get('id',''))
-                        _footer_h += (f"<button onclick='setAction(\"edit\",\"{_rce_id2}\")' "
-                                      f"style='margin-left:auto;background:#2563eb;color:white;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;'>✏️ Editar</button> "
-                                      f"<button onclick='setAction(\"delete\",\"{_rce_id2}\")' "
-                                      f"style='background:#dc2626;color:white;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;'>🗑️ Eliminar</button></div>")
-                        import json as _jdr
-                        _reg_data = {
-                            'id': _rce_id2,
-                            'lugar_compra': _rce.get('lugar_compra','') or '',
-                            'observaciones': _rce.get('observaciones','') or '',
-                            'fecha_entrega_compra': _rce.get('fecha_entrega_compra','') or '',
-                            'items': _rce_items_h,
+                        _footer_h += f"<span style='color:{'#0f172a' if _rce_obs2 else '#94a3b8'};font-style:{'normal' if _rce_obs2 else 'italic'};'>📝 {_rce_obs2 if _rce_obs2 else 'Sin observaciones'}</span></div>"
+                        import json as _jreg
+                        _items_ser = _rce_items_h
+                        _reg_meta = {
+                            'id': str(_rce.get('id','')),
+                            'lugar': _rce.get('lugar_compra','') or '',
+                            'obs': _rce.get('observaciones','') or '',
+                            'fent': _rce.get('fecha_entrega_compra','') or '',
+                            'items': _items_ser,
                         }
-                        _reg_data_json = _jdr.dumps(_reg_data, ensure_ascii=True).replace('<', '\\u003c').replace('>', '\\u003e').replace("'", '\\u0027')
-                        _hist_regs.append({'tipo': _rce_tipo_k, 'titulo': _titulo, 'rows': _rows_h, 'footer': _footer_h, 'id': _rce_id2, 'data_json': _reg_data_json})
+                        _reg_meta_str = _jreg.dumps(_reg_meta, ensure_ascii=True)
+                        _hist_regs.append({'tipo': _rce_tipo_k, 'titulo': _titulo, 'rows': _rows_h, 'footer': _footer_h, 'meta': _reg_meta_str})
 
                     # Serializar a JSON para JS
                     import json as _jser
                     _regs_json = _jser.dumps(_hist_regs, ensure_ascii=False)
                     _badges_json = _jser.dumps([b for b in _badges_def if b[0] in _tipos_presentes], ensure_ascii=False)
 
-                    _supa_url_js = SUPABASE_URL
-                    _supa_key_js = SUPABASE_KEY
-                    # Pasar items completos para el editor inline
-                    import json as _jser2
                     _hist_html = f"""<style>
 body{{margin:0;padding:0;font-family:'Segoe UI',sans-serif;font-size:13px;}}
 .badge{{border-radius:99px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #cbd5e1;background:#f1f5f9;color:#0f172a;display:inline-block;}}
@@ -12989,21 +12981,18 @@ body{{margin:0;padding:0;font-family:'Segoe UI',sans-serif;font-size:13px;}}
 .reg-card{{border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;overflow:hidden;}}
 .reg-header{{padding:8px 12px;background:#f8fafc;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:12px;}}
 .reg-header:hover{{background:#f1f5f9;}}
-.reg-editor{{display:none;padding:10px;background:#f0f9ff;border-top:1px solid #bae6fd;}}
-.reg-editor.open{{display:block;}}
-.ed-input{{width:100%;padding:5px 8px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;box-sizing:border-box;margin-bottom:6px;}}
-.ed-row{{display:grid;grid-template-columns:1fr 2fr 60px 100px 100px 36px;gap:4px;align-items:center;margin-bottom:3px;}}
-.ed-hdr{{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;padding:2px 0;}}
-.ed-cell{{font-size:12px;padding:3px 4px;}}
-.ed-num{{width:100%;padding:3px 4px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px;text-align:right;}}
-.ed-del-item{{background:#fee2e2;border:none;border-radius:4px;color:#dc2626;cursor:pointer;font-size:13px;width:28px;height:28px;}}
-.ed-del-item.deleted{{background:#dc2626;color:white;}}
-.btn-save{{background:#16a34a;color:white;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-right:6px;}}
-.btn-del{{background:#dc2626;color:white;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-right:6px;}}
-.btn-cancel{{background:#64748b;color:white;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;}}
-.confirm-box{{background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;padding:8px 12px;margin-top:6px;font-size:12px;}}
 .reg-body{{display:none;padding:8px;}}
 .reg-body.open{{display:block;}}
+.reg-editor{{display:none;padding:10px;background:#eff6ff;border-top:2px solid #93c5fd;}}
+.reg-editor.open{{display:block;}}
+.ed-grid{{display:grid;grid-template-columns:1fr 2fr 60px 90px 90px 30px;gap:3px;align-items:center;margin-bottom:2px;}}
+.ed-hdr{{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;}}
+.ed-txt{{font-size:11px;padding:2px 4px;}}
+.ed-inp{{width:100%;padding:3px 4px;border:1px solid #cbd5e1;border-radius:4px;font-size:11px;text-align:right;}}
+.ed-rm{{background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:0;}}
+.ed-rm.done{{color:#94a3b8;text-decoration:line-through;}}
+.ed-field{{width:100%;padding:4px 7px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px;box-sizing:border-box;margin-bottom:5px;}}
+.btn-g{{border:none;border-radius:5px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;margin-right:4px;}}
 table{{width:100%;border-collapse:collapse;}}
 th{{background:#1e2447;color:#fff;padding:5px 8px;font-size:11px;}}
 th:not(:first-child){{text-align:right;}}
@@ -13013,160 +13002,128 @@ th:not(:first-child){{text-align:right;}}
 <script>
 var REGS={_regs_json};
 var BADGES={_badges_json};
-var SUPA_URL="{_supa_url_js}";
-var SUPA_KEY="{_supa_key_js}";
-var filtro='';
-var deletedItems={{}};
-function setAction(action,id){{
-  if(action==='edit') openEditor(id);
-  else if(action==='delete') confirmDelete(id);
-}}
-function openEditor(id){{
-  document.querySelectorAll('.reg-editor').forEach(function(e){{e.classList.remove('open');e.innerHTML='';}});
-  var ed=document.getElementById('editor-'+id);
-  if(!ed)return;
-  deletedItems[id]=[];
-  ed.innerHTML=buildEditorHTML(id);
-  ed.classList.add('open');
-  var body=document.getElementById('body-'+id);
-  if(body)body.classList.add('open');
-}}
-function confirmDelete(id){{
-  document.querySelectorAll('.confirm-box').forEach(function(e){{e.remove();}});
-  var ed=document.getElementById('editor-'+id);
-  if(!ed)return;
-  ed.classList.add('open');
-  var body=document.getElementById('body-'+id);
-  if(body)body.classList.add('open');
-  var conf=document.createElement('div');
-  conf.className='confirm-box';
-  conf.id='confirm-'+id;
-  conf.innerHTML='<b>⚠️ ¿Eliminar este registro completo?</b> Los ítems volverán como pendientes.<br><br>'
-    +'<button class="btn-del" onclick="deleteReg(\''+id+'\')" >✅ Sí, eliminar</button>'
-    +'<button class="btn-cancel" onclick="cancelAction(\''+id+'\')" >❌ Cancelar</button>';
-  ed.appendChild(conf);
-}}
-function cancelAction(id){{
-  var ed=document.getElementById('editor-'+id);
-  if(ed){{ed.classList.remove('open');ed.innerHTML='';}}
-  deletedItems[id]=[];
-}}
-function toggleItemDel(id,idx){{
-  if(!deletedItems[id])deletedItems[id]=[];
-  var pos=deletedItems[id].indexOf(idx);
-  if(pos>-1)deletedItems[id].splice(pos,1);
-  else deletedItems[id].push(idx);
-  var btn=document.getElementById('delbtn-'+id+'-'+idx);
-  if(btn)btn.classList.toggle('deleted');
-}}
-function buildEditorHTML(id){{
-  var card=document.getElementById('card-'+id);
-  if(!card)return '';
-  var reg=JSON.parse(card.getAttribute('data-reg')||'{{}}');
-  var items=reg.items||[];
-  var rows='<div class="ed-row"><div class="ed-hdr">Categoría</div><div class="ed-hdr">Ítem</div><div class="ed-hdr">Cant.</div><div class="ed-hdr">P.Presup.</div><div class="ed-hdr">P.Real</div><div class="ed-hdr">🗑️</div></div>';
-  items.forEach(function(it,i){{
-    rows+='<div class="ed-row">'
-      +'<div class="ed-cell" style="color:#64748b;font-size:11px;">'+it.categoria+'</div>'
-      +'<div class="ed-cell" style="font-weight:600;">'+it.item+'</div>'
-      +'<input class="ed-num" id="cant-'+id+'-'+i+'" type="number" min="0" step="1" value="'+(it.cantidad||1)+'">'
-      +'<div class="ed-cell" style="text-align:right;color:#64748b;">$'+Math.round(it.precio_presupuestado||0).toLocaleString('de-DE')+'</div>'
-      +'<input class="ed-num" id="pr-'+id+'-'+i+'" type="number" min="0" step="100" value="'+(it.precio_real||0)+'">'
-      +'<button class="ed-del-item" id="delbtn-'+id+'-'+i+'" onclick="toggleItemDel(\''+id+'\','+i+')">🗑️</button>'
-      +'</div>';
-  }});
-  return '<div style="margin-bottom:6px;">'
-    +'<input class="ed-input" id="lugar-'+id+'" placeholder="Lugar de compra" value="'+(reg.lugar_compra||'')+'">'
-    +'<input class="ed-input" id="obs-'+id+'" placeholder="Observaciones" value="'+(reg.observaciones||'')+'">'
-    +'<input class="ed-input" id="fech-'+id+'" placeholder="Fecha entrega" value="'+(reg.fecha_entrega_compra||'')+'">'
-    +'</div>'
-    +rows
-    +'<div style="margin-top:8px;" id="totrow-'+id+'"></div>'
-    +'<div style="margin-top:8px;">'
-    +'<button class="btn-save" onclick="saveEdit(\''+id+'\')" >💾 Guardar</button>'
-    +'<button class="btn-del" onclick="confirmDelete(\''+id+'\')" >🗑️ Eliminar registro</button>'
-    +'<button class="btn-cancel" onclick="cancelAction(\''+id+'\')" >❌ Cancelar</button>'
-    +'</div>';
-}}
-function saveEdit(id){{
-  var card=document.getElementById('card-'+id);
-  if(!card)return;
-  var reg=JSON.parse(card.getAttribute('data-reg')||'{{}}');
-  var items=reg.items||[];
-  var newItems=[];
-  var totalReal=0;
-  var totalPresup=0;
-  items.forEach(function(it,i){{
-    if(deletedItems[id]&&deletedItems[id].indexOf(i)>-1)return;
-    var cant=parseFloat(document.getElementById('cant-'+id+'-'+i).value)||1;
-    var pr=parseFloat(document.getElementById('pr-'+id+'-'+i).value)||0;
-    var item2=Object.assign({{}},it,{{cantidad:cant,precio_real:pr}});
-    newItems.push(item2);
-    totalReal+=cant*pr;
-    totalPresup+=cant*(it.precio_presupuestado||0);
-  }});
-  var lugar=document.getElementById('lugar-'+id).value;
-  var obs=document.getElementById('obs-'+id).value;
-  var fech=document.getElementById('fech-'+id).value;
-  var payload={{items:newItems,lugar_compra:lugar,observaciones:obs,fecha_entrega_compra:fech,total_real:totalReal,total_presupuestado:totalPresup,balance:totalPresup-totalReal}};
-  fetch(SUPA_URL+'/rest/v1/registro_compras?id=eq.'+id,{{
-    method:'PATCH',
-    headers:{{'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Prefer':'return=minimal'}},
-    body:JSON.stringify(payload)
-  }}).then(function(r){{
-    if(r.ok){{
-      var ed=document.getElementById('editor-'+id);
-      if(ed){{ed.classList.remove('open');}}
-      deletedItems[id]=[];
-      alert('✅ Guardado correctamente. Recarga para ver los cambios en la tabla.');
-    }} else {{ alert('Error al guardar: '+r.status); }}
-  }}).catch(function(e){{alert('Error: '+e);}});
-}}
-function deleteReg(id){{
-  fetch(SUPA_URL+'/rest/v1/registro_compras?id=eq.'+id,{{
-    method:'DELETE',
-    headers:{{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}}
-  }}).then(function(r){{
-    if(r.ok){{
-      var card=document.getElementById('card-'+id);
-      if(card)card.remove();
-      alert('✅ Registro eliminado. Recarga para ver los cambios en la tabla.');
-    }} else {{ alert('Error al eliminar: '+r.status); }}
-  }}).catch(function(e){{alert('Error: '+e);}});
-}}
-function fmt(n){{return '$'+Math.round(Math.abs(n)).toLocaleString('de-DE');}}
+var SUPA="{SUPABASE_URL}";
+var KEY="{SUPABASE_KEY}";
+var removed={{}};
+var filtro="";
+function fmt(n){{return "$"+Math.round(Math.abs(n)).toLocaleString("de-DE");}}
 function renderBadges(){{
-  var d=document.getElementById('badges');d.innerHTML='';
+  var d=document.getElementById("badges");d.innerHTML="";
   BADGES.forEach(function(b){{
-    var el=document.createElement('span');
-    el.className='badge'+(filtro===b[0]?' active':'');
+    var el=document.createElement("span");
+    el.className="badge"+(filtro===b[0]?" active":"");
     el.textContent=b[1];
-    el.onclick=function(){{filtro=filtro===b[0]?'':b[0];renderBadges();renderRegs();}};
-    d.appendChild(el);
-    d.appendChild(document.createTextNode(' '));
+    el.onclick=function(){{filtro=filtro===b[0]?"":b[0];renderBadges();renderRegs();}};
+    d.appendChild(el);d.appendChild(document.createTextNode(" "));
   }});
+}}
+function openEditor(idx){{
+  document.querySelectorAll(".reg-editor").forEach(function(e){{e.classList.remove("open");e.innerHTML="";}});
+  var r=REGS[idx];
+  if(!r||!r.meta)return;
+  var m=JSON.parse(r.meta);
+  removed[idx]=[];
+  var items=m.items||[];
+  var hd="<div class='ed-grid'><div class='ed-hdr'>Cat.</div><div class='ed-hdr'>Ítem</div><div class='ed-hdr'>Cant.</div><div class='ed-hdr'>Presup.</div><div class='ed-hdr'>Real</div><div></div></div>";
+  var rows="";
+  items.forEach(function(it,i){{
+    rows+="<div class='ed-grid' id='row-"+idx+"-"+i+"'>"
+      +"<div class='ed-txt' style='color:#64748b;font-size:10px;'>"+it.categoria+"</div>"
+      +"<div class='ed-txt'>"+it.item+"</div>"
+      +"<input class='ed-inp' id='c-"+idx+"-"+i+"' type='number' min='0' step='1' value='"+(it.cantidad||1)+"'/>"
+      +"<div class='ed-txt' style='text-align:right;color:#64748b;'>$"+Math.round(it.precio_presupuestado||0).toLocaleString("de-DE")+"</div>"
+      +"<input class='ed-inp' id='p-"+idx+"-"+i+"' type='number' min='0' step='100' value='"+(it.precio_real||0)+"'/>"
+      +"<button class='ed-rm' onclick='toggleRm("+idx+","+i+")'>🗑</button>"
+      +"</div>";
+  }});
+  var ed=document.getElementById("editor-"+idx);
+  ed.innerHTML=
+    "<input class='ed-field' id='lug-"+idx+"' placeholder='Lugar' value='"+m.lugar+"'/>"
+    +"<input class='ed-field' id='obs-"+idx+"' placeholder='Observaciones' value='"+m.obs+"'/>"
+    +"<input class='ed-field' id='fent-"+idx+"' placeholder='Fecha entrega' value='"+m.fent+"'/>"
+    +hd+rows
+    +"<div style='margin-top:8px;'>"
+    +"<button class='btn-g' style='background:#16a34a;color:#fff;' onclick='saveEdit("+idx+")'>💾 Guardar</button>"
+    +"<button class='btn-g' style='background:#dc2626;color:#fff;' onclick='askDel("+idx+")'>🗑 Eliminar registro</button>"
+    +"<button class='btn-g' style='background:#64748b;color:#fff;' onclick='closeEditor("+idx+")'>✕ Cancelar</button>"
+    +"</div>";
+  ed.classList.add("open");
+}}
+function toggleRm(idx,i){{
+  if(!removed[idx])removed[idx]=[];
+  var p=removed[idx].indexOf(i);
+  if(p>-1)removed[idx].splice(p,1);else removed[idx].push(i);
+  var btn=document.querySelector("#row-"+idx+"-"+i+" .ed-rm");
+  if(btn)btn.classList.toggle("done");
+}}
+function closeEditor(idx){{
+  var ed=document.getElementById("editor-"+idx);
+  if(ed){{ed.classList.remove("open");ed.innerHTML="";}} removed[idx]=[];
+}}
+function saveEdit(idx){{
+  var r=REGS[idx];if(!r||!r.meta)return;
+  var m=JSON.parse(r.meta);
+  var items=m.items||[];
+  var newItems=[];var tR=0;var tP=0;
+  items.forEach(function(it,i){{
+    if(removed[idx]&&removed[idx].indexOf(i)>-1)return;
+    var c=parseFloat(document.getElementById("c-"+idx+"-"+i).value)||1;
+    var p=parseFloat(document.getElementById("p-"+idx+"-"+i).value)||0;
+    var it2=Object.assign({{}},it,{{cantidad:c,precio_real:p}});
+    newItems.push(it2);tR+=c*p;tP+=c*(it.precio_presupuestado||0);
+  }});
+  var payload={{
+    items:newItems,
+    lugar_compra:document.getElementById("lug-"+idx).value,
+    observaciones:document.getElementById("obs-"+idx).value,
+    fecha_entrega_compra:document.getElementById("fent-"+idx).value,
+    total_real:tR,total_presupuestado:tP,balance:tP-tR
+  }};
+  fetch(SUPA+"/rest/v1/registro_compras?id=eq."+m.id,{{
+    method:"PATCH",
+    headers:{{"Content-Type":"application/json","apikey":KEY,"Authorization":"Bearer "+KEY,"Prefer":"return=minimal"}},
+    body:JSON.stringify(payload)
+  }}).then(function(res){{
+    if(res.ok){{closeEditor(idx);alert("✅ Guardado. Recarga para ver los cambios.");}}else{{alert("Error: "+res.status);}}
+  }}).catch(function(e){{alert("Error: "+e);}});
+}}
+function askDel(idx){{
+  var r=REGS[idx];if(!r||!r.meta)return;
+  var m=JSON.parse(r.meta);
+  if(!confirm("¿Eliminar este registro? Los ítems volverán como pendientes."))return;
+  fetch(SUPA+"/rest/v1/registro_compras?id=eq."+m.id,{{
+    method:"DELETE",headers:{{"apikey":KEY,"Authorization":"Bearer "+KEY}}
+  }}).then(function(res){{
+    if(res.ok){{
+      var card=document.getElementById("card-"+idx);
+      if(card)card.remove();
+      alert("✅ Eliminado. Recarga para ver los cambios.");
+    }}else{{alert("Error: "+res.status);}}
+  }}).catch(function(e){{alert("Error: "+e);}});
 }}
 function renderRegs(){{
-  var d=document.getElementById('regs');d.innerHTML='';
+  var d=document.getElementById("regs");d.innerHTML="";
   REGS.forEach(function(r,i){{
     if(filtro&&r.tipo!==filtro)return;
-    var rid=r.id||('reg-'+i);
-    var card=document.createElement('div');card.className='reg-card';card.id='card-'+rid;
-    if(r.data_json)card.setAttribute('data-reg',r.data_json);
-    var hdr=document.createElement('div');hdr.className='reg-header';
-    hdr.innerHTML='<span>'+r.titulo+'</span><span style="font-size:10px;color:#64748b;">▼</span>';
-    var body=document.createElement('div');body.className='reg-body';body.id='body-'+rid;
-    body.innerHTML='<table><thead><tr><th style="text-align:left">Categoría</th><th style="text-align:left">Ítem</th><th>Cant.</th><th>Presup.</th><th>Real</th><th>Adic.</th><th>Dif.</th></tr></thead><tbody>'+r.rows+'</tbody></table>'+r.footer;
-    var editor=document.createElement('div');editor.className='reg-editor';editor.id='editor-'+rid;
-    hdr.onclick=function(){{body.classList.toggle('open');hdr.querySelector('span:last-child').textContent=body.classList.contains('open')?'▲':'▼';}};
+    var card=document.createElement("div");card.className="reg-card";card.id="card-"+i;
+    var hdr=document.createElement("div");hdr.className="reg-header";
+    hdr.innerHTML="<span>"+r.titulo+"</span>"
+      +"<div style='display:flex;gap:6px;align-items:center;'>"
+      +(r.meta?"<button onclick='event.stopPropagation();openEditor("+i+")' style='background:#2563eb;color:#fff;border:none;border-radius:4px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;'>✏️ Editar</button>":"" )
+      +(r.meta?"<button onclick='event.stopPropagation();askDel("+i+")' style='background:#dc2626;color:#fff;border:none;border-radius:4px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;'>🗑 Eliminar</button>":"" )
+      +"<span style='font-size:10px;color:#64748b;'>▼</span></div>";
+    var body=document.createElement("div");body.className="reg-body";
+    body.innerHTML="<table><thead><tr><th style='text-align:left'>Categoría</th><th style='text-align:left'>Ítem</th><th>Cant.</th><th>Presup.</th><th>Real</th><th>Adic.</th><th>Dif.</th></tr></thead><tbody>"+r.rows+"</tbody></table>"+r.footer;
+    var editor=document.createElement("div");editor.className="reg-editor";editor.id="editor-"+i;
+    hdr.onclick=function(){{body.classList.toggle("open");var arr=hdr.querySelector("span:last-child");if(arr)arr.textContent=body.classList.contains("open")?"▲":"▼";}};
     card.appendChild(hdr);card.appendChild(body);card.appendChild(editor);d.appendChild(card);
   }});
 }}
-renderRegs();
+renderBadges();renderRegs();
 window.addEventListener("message",function(e){{
   if(e.data&&e.data.type==="hist_filtro"){{
     filtro=e.data.val;
-    renderRegs();
+    renderBadges();renderRegs();
   }}
 }});
 </script>"""
@@ -13202,7 +13159,6 @@ window.addEventListener("message",function(e){{
                     _hist_comp.html(_b_html, height=48, scrolling=False)
                     _n_regs = len(_rc_existentes)
                     _hist_comp.html(_hist_html, height=min(_n_regs*80+80, 600), scrolling=True)
-
                 # Formulario nuevo registro
                 st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 8px;">➕ Nuevo registro de compra</div>', unsafe_allow_html=True)
                 # Toggle modo admin/operador (solo admin y root)
