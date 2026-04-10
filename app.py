@@ -13035,7 +13035,9 @@ function openEditor(idx){{
   var rows="";
   items.forEach(function(it,i){{
     var isSinReg=it.sin_registro||false;
-    var ppCell="<div class='ed-txt' style='text-align:right;color:#94a3b8;'>$"+Math.round(it.precio_presupuestado||0).toLocaleString("de-DE")+"</div>";
+    var ppCell=isSinReg
+      ?"<input class='ed-inp' id='pp-"+idx+"-"+i+"' type='number' min='0' step='100' value='"+(it.precio_presupuestado||0)+"' title='Adicional sin registro — editable'/>"
+      :"<div class='ed-txt' style='text-align:right;color:#94a3b8;'>$"+Math.round(it.precio_presupuestado||0).toLocaleString("de-DE")+"</div>";
     rows+="<div class='ed-grid' id='row-"+idx+"-"+i+"'>"
       +"<div class='ed-txt' style='color:#64748b;font-size:10px;'>"+it.categoria+"</div>"
       +"<div class='ed-txt'>"+(isSinReg?"<span style='color:#a855f7;font-size:9px;'>⚪ s/reg </span>":"")+it.item+"</div>"
@@ -13043,10 +13045,7 @@ function openEditor(idx){{
         ?"<input class='ed-inp' id='c-"+idx+"-"+i+"' type='number' min='0' step='1' value='"+(it.cantidad||1)+"' title='Adicional sin registro — editable'/>"
         :"<div class='ed-txt' style='text-align:right;color:#94a3b8;' id='c-"+idx+"-"+i+"-ro'>"+Math.round(it.cantidad||1)+"</div><input type='hidden' id='c-"+idx+"-"+i+"' value='"+(it.cantidad||1)+"'/>")
       +ppCell
-      +"<input class='ed-inp' id='p-"+idx+"-"+i+"' type='text' value='$"+Math.round(it.precio_real||0).toLocaleString(\"de-DE\")+"' style='text-align:right;' "
-      +"onfocus='this.value=this.value.replace(/[^0-9]/g,\"\");' "
-      +"onblur='var v=parseInt(this.value.replace(/[^0-9]/g,\"\"))||0;this.value=\"$\"+v.toLocaleString(\"de-DE\");' "
-      +"data-raw='"+Math.round(it.precio_real||0)+"'/>"
+      +"<input class='ed-inp' id='p-"+idx+"-"+i+"' type='number' min='0' step='100' value='"+(it.precio_real||0)+"'/>"
       +"<button class='ed-rm' onclick='toggleRm("+idx+","+i+")'>🗑</button>"
       +"</div>";
   }});
@@ -13082,8 +13081,9 @@ function saveEdit(idx){{
   items.forEach(function(it,i){{
     if(removed[idx]&&removed[idx].indexOf(i)>-1)return;
     var c=parseFloat(document.getElementById("c-"+idx+"-"+i).value)||1;
-    var _pEl=document.getElementById("p-"+idx+"-"+i);var p=parseInt((_pEl.value||"").replace(/[^0-9]/g,""))||0;
-    var pp=it.precio_presupuestado||0;
+    var p=parseFloat(document.getElementById("p-"+idx+"-"+i).value)||0;
+    var ppEl=document.getElementById("pp-"+idx+"-"+i);
+    var pp=ppEl?parseFloat(ppEl.value)||0:(it.precio_presupuestado||0);
     var it2=Object.assign({{}},it,{{cantidad:c,precio_real:p,precio_presupuestado:pp}});
     newItems.push(it2);tR+=c*p;tP+=c*pp;
   }});
