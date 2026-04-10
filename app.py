@@ -9020,9 +9020,9 @@ if tab3 is not None:
             _col_tc     = '<col style="width:130px">' if st.session_state.modo_admin else ''
             _col_margen = '<col style="width:75px">'  if st.session_state.modo_admin else ''
             _td_tc   = f'<td style="text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;">{_tc_fmt}<br><span style="font-size:0.72em;color:#94a3b8;font-weight:400;">base+IVA · sin margen · sin Varios</span></td>' if st.session_state.modo_admin else ''
-            _th_compras = '<th>Compras</th>' if st.session_state.modo_admin else ''
+            _th_compras = '<th class="th-compras" style="background:#f59e0b!important;color:#0f172a!important;">🛒 Compras</th>' if st.session_state.modo_admin else ''
             _col_compras = '<col style="width:110px">' if st.session_state.modo_admin else ''
-            _td_compras = f'<td style="text-align:center;">{row.get("ComprasOK","—")}</td>' if st.session_state.modo_admin else ''
+            _td_compras = f'<td style="text-align:center;background:#fef3c7;font-weight:700;color:#0f172a;">{row.get("ComprasOK","—")}</td>' if st.session_state.modo_admin else ''
 
             _ct_color  = 'color:#16a34a;font-weight:700;' if row['ContratoCol'] == '✅ Sí' else 'color:#94a3b8;'
             _emp_color = 'color:#16a34a;font-weight:700;' if row['EmpresaCol']  == '✅ Sí' else 'color:#94a3b8;'
@@ -9264,7 +9264,7 @@ if tab3 is not None:
                 _demora_display = row.get('Demora', '—')
             _fila_class = ' class="fila-rechazada"' if _motivo_rec else ''
             _est_attr = str(row.get('EstadoKey','')).replace("'",'')
-            rows_html += f"<tr{_fila_class} data-est='{_est_attr}'><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Cliente'] or '—'}</td><td style='text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.6;'>{row['Total']}</td>{_td_tc}<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Asesor'] or '—'}</td><td class='td-estado' style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td class='demora-col' style='text-align:center;font-size:0.82rem;font-weight:700;'>{_demora_display}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td>{_td_margen}<td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td><td style='text-align:center;font-size:0.82rem;'>{_proc_not_html}</td><td style='line-height:1.6;'>{_fadj_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fab_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fidel_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_retraso_html_cot}</td>{_td_compras}</tr>"
+            rows_html += f"<tr{_fila_class} data-est='{_est_attr}'><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Cliente'] or '—'}</td><td style='text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.6;'>{row['Total']}</td>{_td_tc}<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Asesor'] or '—'}</td><td class='td-estado' style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td class='demora-col' style='text-align:center;font-size:0.82rem;font-weight:700;'>{_demora_display}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td>{_td_margen}<td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td><td style='text-align:center;font-size:0.82rem;'>{_proc_not_html}</td><td style='line-height:1.6;'>{_fadj_html_cot}</td>{_td_compras}<td style='text-align:center;font-size:0.82rem;'>{_fab_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fidel_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_retraso_html_cot}</td></tr>"
 
         # Badge resumen por estado
         # Contar por estado usando los badges ya calculados
@@ -9387,7 +9387,7 @@ if tab3 is not None:
             <div style="{_altura_css}">
                 <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:1700px;table-layout:auto;white-space:nowrap;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
-                        <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th class="th-cierre">$ Cierre de venta</th><th class="th-adj">Fecha adjudicación</th><th class="th-adj">Tiempo fabricación</th><th class="th-adj">Fidelización cliente</th><th class="th-adj">Retraso proyecto</th>{_th_compras}</tr>
+                        <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th class="th-cierre">$ Cierre de venta</th><th class="th-adj">Fecha adjudicación</th>{_th_compras}<th class="th-adj">Tiempo fabricación</th><th class="th-adj">Fidelización cliente</th><th class="th-adj">Retraso proyecto</th></tr>
                     </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
