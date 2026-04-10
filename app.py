@@ -9185,6 +9185,7 @@ if tab3 is not None:
                     _con_retraso = _d_entrega_date > _d_ent_fc
                     _pct_usado  = min(round((_hab_usados / _plazo_cot) * 100, 2), 100.0) if _plazo_cot > 0 else 100.0
                     _col_fin = '#dc2626' if _con_retraso else '#7c3aed'
+                    _lbl_fin = '⚠️ FINALIZADO' if _con_retraso else '🟣 FINALIZADO'
                     _fidel_html_cot = (
                         f'<div style="display:flex;align-items:center;gap:8px;">'
                         f'<span style="color:{_col_fin};font-weight:700;font-variant-numeric:tabular-nums;min-width:70px;">⏳ {_txt_tiempo}</span>'
@@ -9192,7 +9193,7 @@ if tab3 is not None:
                         f'</div>'
                         f'<span style="font-size:0.72em;color:#64748b;font-weight:600;">📅 {_fent_str}</span>'
                         f'<br><span style="font-size:0.68em;color:#94a3b8;">{_plazo_cot} días hábiles</span>'
-                        f'<br><span style="font-size:0.72em;color:{_col_fin};font-weight:700;">{'⚠️ FINALIZADO' if _con_retraso else '🟣 FINALIZADO'}</span>'
+                        f'<br><span style="font-size:0.72em;color:{_col_fin};font-weight:700;">{_lbl_fin}</span>'
                     )
                     # Calcular diferencia entre fecha entrega real y fecha límite
                     _d_ent_dt_lim = _dt_cot.combine(_d_ent_fc, _dt_cot.min.time()).replace(tzinfo=_tz_cl_cot)
