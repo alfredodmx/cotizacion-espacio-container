@@ -4052,7 +4052,8 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
             'asesor_email', 'asesor_telefono', 'plano_url', 'contrato_generado', 'cliente_empresa',
             'fecha_autorizacion', 'autorizado_por', 'contrato_notariado_url',
             'fecha_adjudicacion', 'contrato_datos', 'motivo_rechazo', 'fecha_rechazo',
-            'acta_url', 'fecha_entrega'
+            'acta_url', 'fecha_entrega',
+            'cliente_telefono', 'cliente_direccion', 'cliente_comuna', 'cliente_region'
         )
         # Filtrar por usuario si es ejecutivo (no admin ni root)
         _rol_q = st.session_state.get('rol_usuario', 'ejecutivo')
@@ -4097,6 +4098,10 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
                 row.get('fecha_rechazo', '') or '',
                 row.get('acta_url', '') or '',
                 row.get('fecha_entrega', '') or '',
+                row.get('cliente_telefono', '') or '',
+                row.get('cliente_direccion', '') or '',
+                row.get('cliente_comuna', '') or '',
+                row.get('cliente_region', '') or '',
             ))
         # Agregar conteo de logs
         numeros_ep = [r[0] for r in resultados]
@@ -9029,7 +9034,7 @@ if tab3 is not None:
         st.rerun()
 
     if st.session_state.resultados_busqueda:
-        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa", "Fecha_Auth", "Autorizado_Por", "Tiene_Notariado", "Fecha_Adj", "Contrato_Datos", "Not_URL", "Motivo_Rechazo", "Fecha_Rechazo", "Acta_URL", "Fecha_Entrega", "NLogs"]
+        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa", "Fecha_Auth", "Autorizado_Por", "Tiene_Notariado", "Fecha_Adj", "Contrato_Datos", "Not_URL", "Motivo_Rechazo", "Fecha_Rechazo", "Acta_URL", "Fecha_Entrega", "Cli_Tel", "Cli_Dir", "Cli_Comuna", "Cli_Region", "NLogs"]
         _rows_norm = []
         for _r in st.session_state.resultados_busqueda:
             _r = list(_r)
@@ -9250,6 +9255,21 @@ if tab3 is not None:
             except Exception: pass
 
         rows_html = ""
+        # Construir mapa de datos del cliente por EP para el modal JS
+        import json as _jcli_map
+        _cli_data_map = {}
+        for _, _mrow in df_resultados.iterrows():
+            _cli_data_map[str(_mrow.get('N°',''))] = {
+                'nombre': str(_mrow.get('Cliente','') or ''),
+                'rut': str(_mrow.get('RUT','') or ''),
+                'tel': str(_mrow.get('Cli_Tel','') or ''),
+                'email': str(_mrow.get('Email','') or ''),
+                'dir': str(_mrow.get('Cli_Dir','') or ''),
+                'comuna': str(_mrow.get('Cli_Comuna','') or ''),
+                'region': str(_mrow.get('Cli_Region','') or ''),
+                'empresa': str(_mrow.get('Empresa','') or ''),
+            }
+        _cli_data_json_map = _jcli_map.dumps(_cli_data_map, ensure_ascii=True)
         for _, row in df_resultados.iterrows():
             _mg_color  = 'color:#16a34a;font-weight:700;' if '✅' in str(row['MargenCol']) else 'color:#94a3b8;'
             _th_margen = '<th>Margen</th>' if st.session_state.modo_admin else ''
@@ -9284,6 +9304,19 @@ if tab3 is not None:
             _acta_url_cot = str(row.get('Acta_URL','') or '')
             _fecha_entrega_cot = str(row.get('Fecha_Entrega','') or '')
             _tiene_acta_cot = bool(_acta_url_cot)
+            # Datos del cliente para modal
+            _cli_tel  = str(row.get('Cli_Tel','') or '')
+            _cli_dir  = str(row.get('Cli_Dir','') or '')
+            _cli_com  = str(row.get('Cli_Comuna','') or '')
+            _cli_reg  = str(row.get('Cli_Region','') or '')
+            _cli_rut2 = str(row.get('RUT','') or '')
+            _cli_mail = str(row.get('Email','') or '')
+            _cli_emp  = str(row.get('Empresa','') or '')
+            import json as _jcli
+            _cli_data_json = _jcli.dumps({
+                'rut': _cli_rut2, 'tel': _cli_tel, 'email': _cli_mail,
+                'dir': _cli_dir, 'comuna': _cli_com, 'region': _cli_reg, 'empresa': _cli_emp
+            }, ensure_ascii=True).replace("'", '&#39;')
             if not _fadj_raw_cot:
                 _fadj_raw_cot = _fauth_raw_cot
 
@@ -9505,7 +9538,7 @@ if tab3 is not None:
                 _demora_display = row.get('Demora', '—')
             _fila_class = ' class="fila-rechazada"' if _motivo_rec else ''
             _est_attr = str(row.get('EstadoKey','')).replace("'",'')
-            rows_html += f"<tr{_fila_class} data-est='{_est_attr}'><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Cliente'] or '—'}</td><td style='text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.6;'>{row['Total']}</td>{_td_tc}<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Asesor'] or '—'}</td><td class='td-estado' style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td class='demora-col' style='text-align:center;font-size:0.82rem;font-weight:700;'>{_demora_display}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td>{_td_margen}<td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td><td style='text-align:center;font-size:0.82rem;'>{_proc_not_html}</td><td style='line-height:1.6;'>{_fadj_html_cot}</td>{_td_compras}<td style='text-align:center;font-size:0.82rem;'>{_fab_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fidel_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_retraso_html_cot}</td></tr>"
+            rows_html += f"<tr{_fila_class} data-est='{_est_attr}'><td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td><td style='font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.5;'>{row['Cliente'] or '—'}<br><button class='_datos_btn' data-ep=\"{row['N°']}\" style='margin-top:2px;background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd;border-radius:6px;padding:1px 8px;font-size:0.68rem;font-weight:700;cursor:pointer;font-family:inherit;'>📋 Datos</button></td><td style='text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.6;'>{row['Total']}</td>{_td_tc}<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Asesor'] or '—'}</td><td class='td-estado' style='text-align:center;'>{row['Estado']}</td><td style='line-height:1.6;'>{row['Fecha']}</td><td class='demora-col' style='text-align:center;font-size:0.82rem;font-weight:700;'>{_demora_display}</td><td style='line-height:1.6;'>{row['Fecha_Auth_fmt']}</td><td style='text-align:center;{_emp_color}'>{row['EmpresaCol']}</td>{_td_margen}<td style='text-align:center;{_ct_color}'>{row['ContratoCol']}</td><td style='text-align:center;{_pln_color}'>{row['Plano']}</td><td style='text-align:center;'>{row['ModCol']}</td><td style='text-align:center;font-size:0.82rem;'>{_proc_not_html}</td><td style='line-height:1.6;'>{_fadj_html_cot}</td>{_td_compras}<td style='text-align:center;font-size:0.82rem;'>{_fab_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_fidel_html_cot}</td><td style='text-align:center;font-size:0.82rem;'>{_retraso_html_cot}</td></tr>"
 
         # Badge resumen por estado
         # Contar por estado usando los badges ya calculados
@@ -9669,6 +9702,7 @@ if tab3 is not None:
         # JS para copiar EP al hacer click en la celda + contador en vivo
         import streamlit.components.v1 as _ep_copy_comp
         _ep_copy_comp.html("""<script>
+var CLI_DATA = """ + _cli_data_json_map + """;
 (function(){
     var D = window.parent.document;
 
@@ -9702,6 +9736,54 @@ if tab3 is not None:
         box.appendChild(body);
         overlay.appendChild(box);
         D.body.appendChild(overlay);
+        closeBtn.addEventListener('click', function(){ overlay.remove(); });
+        overlay.addEventListener('click', function(ev){ if(ev.target===overlay) overlay.remove(); });
+    });
+
+    // ── Modal datos del cliente ──
+    D.addEventListener('click', function(e) {
+        var btn = e.target && e.target.closest ? e.target.closest('._datos_btn') : null;
+        if(!btn) return;
+        var ep  = btn.getAttribute('data-ep') || '';
+        var cli = {};
+        try { cli = (typeof CLI_DATA !== 'undefined' ? CLI_DATA : {})[ep] || {}; } catch(ex) {}
+        var existing = D.getElementById('_datos_modal');
+        if(existing) existing.remove();
+        var overlay = D.createElement('div');
+        overlay.id = '_datos_modal';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
+        var box = D.createElement('div');
+        box.style.cssText = 'background:#1e293b;border:1px solid #334155;border-radius:16px;padding:28px 32px;max-width:460px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
+        var header = D.createElement('div');
+        header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;';
+        var title = D.createElement('div');
+        title.style.cssText = 'font-size:1rem;font-weight:900;color:#f1f5f9;';
+        title.textContent = '👤 Datos del cliente — ' + ep;
+        var closeBtn = D.createElement('button');
+        closeBtn.textContent = '✖ Cerrar';
+        closeBtn.style.cssText = 'background:rgba(100,116,139,0.2);color:#94a3b8;border:1px solid rgba(100,116,139,0.3);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.8rem;font-weight:700;';
+        header.appendChild(title); header.appendChild(closeBtn);
+        var body = D.createElement('div');
+        body.style.cssText = 'background:#0f172a;border-radius:10px;padding:14px 16px;font-size:0.88rem;color:#e2e8f0;line-height:2;';
+        var rows = [
+            ['🪪 RUT', cli.rut],
+            ['📞 Teléfono', cli.tel],
+            ['✉️ Email', cli.email],
+            ['🏠 Dirección', cli.dir],
+            ['🏙️ Comuna', cli.comuna],
+            ['🗺️ Región', cli.region],
+            ['🏢 Empresa', cli.empresa],
+        ];
+        var html = '<table style="width:100%;border-collapse:collapse;">';
+        rows.forEach(function(r) {
+            if(!r[1]) return;
+            html += '<tr><td style="color:#94a3b8;font-size:0.78rem;padding:3px 8px 3px 0;white-space:nowrap;">'+r[0]+'</td>'
+                  + '<td style="color:#f1f5f9;font-weight:600;padding:3px 0;">'+r[1]+'</td></tr>';
+        });
+        html += '</table>';
+        body.innerHTML = html;
+        box.appendChild(header); box.appendChild(body);
+        overlay.appendChild(box); D.body.appendChild(overlay);
         closeBtn.addEventListener('click', function(){ overlay.remove(); });
         overlay.addEventListener('click', function(ev){ if(ev.target===overlay) overlay.remove(); });
     });
