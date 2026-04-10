@@ -8943,11 +8943,24 @@ if tab3 is not None:
 
         # Columna COMPRAS OK — solo para admin/root
         if _rol_actual in ('root', 'admin'):
+            # Cargar productos para cada EP en un mapa
+            try:
+                _eps_compras = df_resultados["N°"].tolist()
+                _prods_resp = supabase.table("cotizaciones").select("numero,productos").in_("numero", _eps_compras).execute()
+                _prods_map = {}
+                for _pr in (_prods_resp.data or []):
+                    try:
+                        import json as _jpm
+                        _p = _pr.get("productos") or []
+                        if isinstance(_p, str): _p = _jpm.loads(_p)
+                        _prods_map[_pr["numero"]] = _p
+                    except: pass
+            except: _prods_map = {}
             def _fmt_compras_ok(row):
                 try:
                     import json as _jco
                     _num = row.get("N°","")
-                    _prods_raw = row.get("productos") or []
+                    _prods_raw = _prods_map.get(_num) or []
                     if isinstance(_prods_raw, str):
                         try: _prods_raw = _jco.loads(_prods_raw)
                         except: _prods_raw = []
