@@ -13004,7 +13004,7 @@ table{{width:100%;border-collapse:collapse;}}
 th{{background:#1e2447;color:#fff;padding:5px 8px;font-size:11px;}}
 th:not(:first-child){{text-align:right;}}
 </style>
-<div id="badges" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
+
 <div id="regs"></div>
 <script>
 var REGS={_regs_json};
