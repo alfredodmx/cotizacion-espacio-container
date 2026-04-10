@@ -8034,8 +8034,7 @@ if tab1 is not None:
             try:
                 items = cargar_modelo(nombre_hoja)
                 subtotal = sum(float(i.get('Subtotal',0) or 0) for i in items)
-                total_iva = subtotal * 1.19
-                return f"${total_iva:,.0f}".replace(',','.')
+                return f"${subtotal:,.0f}".replace(',','.')
             except: return ''
         _mod_labels = {f"{h} — {_total_modelo(h)}": h for h in hojas_modelo}
         col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns([1,1,1,1,0.7])
@@ -8067,7 +8066,7 @@ if tab1 is not None:
                     categoria_seleccionada = st.selectbox("Categoría", categorias, key="cat_manual", label_visibility="collapsed")
                     items_filtrados = df[df["Categorias"] == categoria_seleccionada].copy()
                     _item_labels = {
-                        f"{row['Item']} — ${row['P. Unitario real']*1.19:,.0f}".replace(',','.'): row['Item']
+                        f"{row['Item']} — ${row['P. Unitario real']:,.0f}".replace(',','.'): row['Item']
                         for _, row in items_filtrados.iterrows()
                         if row.get('P. Unitario real', 0)
                     }
@@ -8106,7 +8105,7 @@ if tab1 is not None:
                         def _total_cat(cat):
                             try:
                                 t = carrito_df_temp[carrito_df_temp['Categoria']==cat]['Subtotal'].sum()
-                                return f"${t*1.19:,.0f}".replace(',','.')
+                                return f"${t:,.0f}".replace(',','.')
                             except: return ''
                         _cat_elim_labels = {f"{c} — {_total_cat(c)}": c for c in categorias_carrito}
                         _cat_elim_sel = st.selectbox("Eliminar", ["-- Seleccionar --"] + list(_cat_elim_labels.keys()), key="cat_eliminar", label_visibility="collapsed")
@@ -8141,7 +8140,7 @@ if tab1 is not None:
                         def _total_cat_modelo(cat):
                             try:
                                 t = _cat_totales.get(cat, 0) if hasattr(_cat_totales, 'get') else _cat_totales[cat]
-                                return f"${t*1.19:,.0f}".replace(',','.') if t > 0 else ''
+                                return f"${t:,.0f}".replace(',','.') if t > 0 else ''
                             except: return ''
                         _cat_agr_labels = {f"{c} — {_total_cat_modelo(c)}": c for c in categorias_disponibles}
                         _cat_agr_sel = st.selectbox("Categoría", list(_cat_agr_labels.keys()), key="cat_agregar", label_visibility="collapsed")
