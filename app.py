@@ -9020,7 +9020,7 @@ if tab3 is not None:
             _col_tc     = '<col style="width:130px">' if st.session_state.modo_admin else ''
             _col_margen = '<col style="width:75px">'  if st.session_state.modo_admin else ''
             _td_tc   = f'<td style="text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;">{_tc_fmt}<br><span style="font-size:0.72em;color:#94a3b8;font-weight:400;">base+IVA · sin margen · sin Varios</span></td>' if st.session_state.modo_admin else ''
-            _th_compras = '<th class="th-compras" style="background:#f59e0b!important;color:#0f172a!important;">🛒 Compras</th>' if st.session_state.modo_admin else ''
+            _th_compras = '<th class="th-adj">🛒 Compras</th>' if st.session_state.modo_admin else ''
             _col_compras = '<col style="width:110px">' if st.session_state.modo_admin else ''
             _td_compras = f'<td style="text-align:center;background:#fef3c7;font-weight:700;color:#0f172a;">{row.get("ComprasOK","—")}</td>' if st.session_state.modo_admin else ''
 
