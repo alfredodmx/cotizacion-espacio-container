@@ -13065,7 +13065,8 @@ window.addEventListener("message",function(e){{
                     _rce_target = next((r for r in _rc_existentes if str(r.get('id','')) == _rc_qid), None)
                     if _rce_target:
                         _glug2 = _rce_target.get('lugar_compra','') or 'Sin nombre'
-                        st.markdown(f'<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.85rem;color:#0f172a;margin:10px 0 6px;">{'✏️ Editando' if _rc_action=="edit" else "🗑️ Eliminar"}: {_glug2}</div>', unsafe_allow_html=True)
+                        _rc_lbl_accion = '✏️ Editando' if _rc_action == 'edit' else '🗑️ Eliminar'
+                        st.markdown(f'<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.85rem;color:#0f172a;margin:10px 0 6px;">{_rc_lbl_accion}: {_glug2}</div>', unsafe_allow_html=True)
                         if _rc_action == 'delete':
                             st.warning('⚠️ ¿Eliminar este registro completo? Los ítems volverán como pendientes.')
                             _qd1, _qd2 = st.columns([1,1])
