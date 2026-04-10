@@ -8268,8 +8268,7 @@ if tab1 is not None:
         _cards_items = []
         for _ci, (_idx, _crow) in enumerate(_cats_summary.iterrows()):
             _cc = _cat_colors[_ci % len(_cat_colors)]
-            _sub_iva = _crow['subtotal'] * 1.19
-            _sub_fmt = f'${_sub_iva:,.0f}'.replace(',','.')
+            _sub_fmt = f'${_crow["subtotal"]:,.0f}'.replace(',','.')
             _is_active = _cat_filtro_activo == _crow['Categoria']
             _cards_items.append({'cat': _crow['Categoria'], 'cc': _cc, 'sub': _sub_fmt,
                                   'items': int(_crow['items']), 'cant': int(_crow['cantidades']),
