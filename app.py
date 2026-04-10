@@ -384,6 +384,206 @@ if not st.session_state.auth_user and _sess_token:
         st.query_params.clear()
 
 # =========================================================
+# VISTA CLIENTE — formulario de materiales (RUT + EP)
+# =========================================================
+_modo_cliente = st.query_params.get('cliente', '') == '1' or st.session_state.get('_cliente_ep')
+
+if _modo_cliente:
+    if '_cliente_ep'  not in st.session_state: st.session_state._cliente_ep  = ''
+    if '_cliente_ok'  not in st.session_state: st.session_state._cliente_ok  = False
+    if '_cliente_nombre' not in st.session_state: st.session_state._cliente_nombre = ''
+    if '_cliente_proyecto' not in st.session_state: st.session_state._cliente_proyecto = ''
+
+    st.markdown("""
+    <style>
+    #MainMenu,footer,[data-testid="stToolbar"],[data-testid="stDecoration"]{display:none!important;}
+    </style>
+    """, unsafe_allow_html=True)
+
+    if not st.session_state._cliente_ok:
+        st.markdown("""
+        <div style='text-align:center;padding:40px 0 20px;'>
+          <div style='font-size:2rem;font-weight:900;color:#0f3460;font-family:Montserrat,sans-serif;'>
+            🏠 Portal del Cliente
+          </div>
+          <div style='color:#64748b;margin-top:6px;font-size:0.95rem;'>
+            Ingresa tu RUT y código de presupuesto para acceder a tu formulario
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+        _c1, _c2 = st.columns([1,1])
+        with _c1:
+            _cli_rut_inp = st.text_input("RUT cliente", placeholder="12.345.678-9", key="cli_rut")
+        with _c2:
+            _cli_ep_inp = st.text_input("Código presupuesto", placeholder="EP-12345", key="cli_ep")
+        if st.button("Ingresar →", type="primary", use_container_width=True, key="cli_login"):
+            _cli_rut_clean = re.sub(r'[^0-9kK]', '', _cli_rut_inp.strip()).upper()
+            _cli_ep_clean  = _cli_ep_inp.strip().upper()
+            if not _cli_rut_clean or not _cli_ep_clean:
+                st.error("Ingresa tu RUT y código de presupuesto.")
+            else:
+                try:
+                    _cli_check = supabase.table('cotizaciones').select(
+                        'numero,cliente_nombre,cliente_rut,proyecto_observaciones'
+                    ).eq('numero', _cli_ep_clean).execute()
+                    if _cli_check.data:
+                        _cli_row = _cli_check.data[0]
+                        _rut_db = re.sub(r'[^0-9kK]', '', (_cli_row.get('cliente_rut') or '')).upper()
+                        if _rut_db == _cli_rut_clean:
+                            st.session_state._cliente_ep = _cli_ep_clean
+                            st.session_state._cliente_ok = True
+                            st.session_state._cliente_nombre = _cli_row.get('cliente_nombre','')
+                            st.session_state._cliente_proyecto = _cli_row.get('proyecto_observaciones','')
+                            st.rerun()
+                        else:
+                            st.error("RUT o código incorrecto.")
+                    else:
+                        st.error("Código de presupuesto no encontrado.")
+                except Exception as _ce:
+                    st.error(f"Error: {_ce}")
+    else:
+        _ep_cli  = st.session_state._cliente_ep
+        _nom_cli = st.session_state._cliente_nombre
+        _proy    = st.session_state._cliente_proyecto
+
+        st.markdown(f"""
+        <div style='background:linear-gradient(135deg,#0f3460,#1e5fa5);border-radius:14px;
+                    padding:20px 24px;margin-bottom:20px;color:white;'>
+          <div style='font-size:0.78rem;font-weight:700;letter-spacing:0.1em;opacity:0.7;text-transform:uppercase;'>Portal del Cliente</div>
+          <div style='font-size:1.3rem;font-weight:900;margin-top:4px;font-family:Montserrat,sans-serif;'>Hola, {_nom_cli} 👋</div>
+          <div style='font-size:0.88rem;opacity:0.8;margin-top:2px;'>{_ep_cli} — {_proy}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        try:
+            _pregs = supabase.table('formulario_preguntas').select('*').eq(
+                'cotizacion_numero', _ep_cli
+            ).order('orden').execute().data or []
+        except:
+            _pregs = []
+
+        if not _pregs:
+            st.info("📋 Tu formulario de materiales aún no está disponible. Te avisaremos cuando esté listo.")
+        else:
+            try:
+                _resps_db = supabase.table('formulario_respuestas').select('*').eq(
+                    'cotizacion_numero', _ep_cli
+                ).execute().data or []
+                _resps_map = {r['pregunta_id']: r['respuesta'] for r in _resps_db}
+            except:
+                _resps_map = {}
+
+            _total_req  = sum(1 for p in _pregs if p.get('requerida'))
+            _total_resp = sum(1 for p in _pregs if p.get('requerida') and _resps_map.get(p['id']))
+            _pct_prog   = int(_total_resp / _total_req * 100) if _total_req > 0 else 0
+            _col_prog   = '#16a34a' if _pct_prog == 100 else ('#f97316' if _pct_prog >= 50 else '#2563eb')
+
+            st.markdown(f"""
+            <div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px;margin-bottom:16px;'>
+              <div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;'>
+                <span style='font-size:0.82rem;font-weight:700;color:#0f172a;'>Progreso del formulario</span>
+                <span style='font-size:1rem;font-weight:900;color:{_col_prog};'>{_pct_prog}%</span>
+              </div>
+              <div style='background:#e2e8f0;border-radius:99px;height:8px;'>
+                <div style='background:{_col_prog};border-radius:99px;height:8px;width:{_pct_prog}%;'></div>
+              </div>
+              <div style='font-size:0.75rem;color:#64748b;margin-top:4px;'>{_total_resp} de {_total_req} preguntas completadas</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            _secciones = {}
+            for _p in _pregs:
+                _sec = _p.get('seccion', 'General')
+                if _sec not in _secciones:
+                    _secciones[_sec] = []
+                _secciones[_sec].append(_p)
+
+            _nuevas_resps = {}
+            for _sec, _preg_list in _secciones.items():
+                st.markdown(f"""
+                <div style='background:#1e3a5f;color:white;font-size:0.8rem;font-weight:900;
+                            text-transform:uppercase;letter-spacing:0.08em;padding:8px 14px;
+                            border-radius:8px;margin:16px 0 8px;'>{_sec}</div>
+                """, unsafe_allow_html=True)
+                for _p in _preg_list:
+                    _pid   = _p['id']
+                    _ptipo = _p.get('tipo', 'texto')
+                    _ptext = _p.get('pregunta', '')
+                    _popts = _p.get('opciones') or []
+                    _preq  = _p.get('requerida', True)
+                    _prev  = _resps_map.get(_pid, '')
+                    _lbl   = ("* " if _preq else "") + _ptext
+
+                    if _ptipo == 'color':
+                        st.markdown(f"<div style='font-size:0.85rem;font-weight:600;color:#0f172a;margin-bottom:6px;'>{_lbl}</div>", unsafe_allow_html=True)
+                        if _popts:
+                            _chtml = "<div style='display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;'>"
+                            for _opt in _popts:
+                                _on  = _opt.get('nombre','') if isinstance(_opt, dict) else str(_opt)
+                                _ohx = _opt.get('hex','#ccc') if isinstance(_opt, dict) else '#ccc'
+                                _brd = '3px solid #0f3460' if _prev == _on else '2px solid #e2e8f0'
+                                _chtml += f"<div style='text-align:center;'><div style='width:44px;height:44px;border-radius:50%;background:{_ohx};border:{_brd};margin:0 auto 4px;'></div><div style='font-size:10px;color:#64748b;'>{_on}</div></div>"
+                            _chtml += "</div>"
+                            st.markdown(_chtml, unsafe_allow_html=True)
+                        _nuevas_resps[_pid] = st.text_input('', value=_prev, key=f'cli_{_pid}', label_visibility='collapsed', placeholder='Nombre del color')
+
+                    elif _ptipo == 'imagen':
+                        st.markdown(f"<div style='font-size:0.85rem;font-weight:600;color:#0f172a;margin-bottom:6px;'>{_lbl}</div>", unsafe_allow_html=True)
+                        if _popts:
+                            _icols = st.columns(min(len(_popts), 3))
+                            for _oi, _opt in enumerate(_popts):
+                                _on  = _opt.get('nombre','') if isinstance(_opt, dict) else str(_opt)
+                                _ourl = _opt.get('url','') if isinstance(_opt, dict) else ''
+                                _issel = _prev == _on
+                                with _icols[_oi % 3]:
+                                    if _ourl:
+                                        _brd2 = "3px solid #0f3460" if _issel else "2px solid #e2e8f0"
+                                        st.markdown(f"<img src='{_ourl}' style='width:100%;border-radius:8px;border:{_brd2};margin-bottom:4px;'>", unsafe_allow_html=True)
+                                    if st.button(_on, key=f'img_{_pid}_{_oi}', use_container_width=True,
+                                                 type='primary' if _issel else 'secondary'):
+                                        try:
+                                            supabase.table('formulario_respuestas').upsert({
+                                                'cotizacion_numero': _ep_cli, 'pregunta_id': _pid, 'respuesta': _on
+                                            }, on_conflict='cotizacion_numero,pregunta_id').execute()
+                                        except: pass
+                                        st.rerun()
+                        _nuevas_resps[_pid] = _prev
+
+                    elif _ptipo == 'select':
+                        _ol = [o.get('nombre','') if isinstance(o,dict) else str(o) for o in _popts] if _popts else []
+                        _ix = _ol.index(_prev) if _prev in _ol else 0
+                        _nuevas_resps[_pid] = st.selectbox(_lbl, _ol, index=_ix, key=f'cli_{_pid}')
+
+                    elif _ptipo == 'si_no':
+                        _sno = ['Sí','No']
+                        _ix2 = _sno.index(_prev) if _prev in _sno else 0
+                        _nuevas_resps[_pid] = st.radio(_lbl, _sno, index=_ix2, key=f'cli_{_pid}', horizontal=True)
+
+                    else:
+                        _nuevas_resps[_pid] = st.text_area(_lbl, value=_prev, key=f'cli_{_pid}', height=80)
+
+            st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+            if st.button("💾 Guardar formulario", type="primary", use_container_width=True, key="cli_guardar"):
+                try:
+                    for _pid2, _val2 in _nuevas_resps.items():
+                        if _val2 is not None and str(_val2).strip():
+                            supabase.table('formulario_respuestas').upsert({
+                                'cotizacion_numero': _ep_cli, 'pregunta_id': _pid2, 'respuesta': str(_val2)
+                            }, on_conflict='cotizacion_numero,pregunta_id').execute()
+                    st.success("✅ Formulario guardado correctamente.")
+                    st.rerun()
+                except Exception as _ge:
+                    st.error(f"Error al guardar: {_ge}")
+
+        if st.button("← Cerrar sesión", key="cli_logout"):
+            for _k in ['_cliente_ep','_cliente_ok','_cliente_nombre','_cliente_proyecto']:
+                st.session_state.pop(_k, None)
+            st.rerun()
+
+    st.stop()
+
+
+# =========================================================
 # PANTALLA DE LOGIN — bloquea la app si no hay sesión
 # =========================================================
 if not st.session_state.auth_user:
@@ -6675,18 +6875,20 @@ _hash_actual = calcular_hash_estado()
 # =========================================================
 _rol_actual = st.session_state.get('rol_usuario', 'ejecutivo')
 if _rol_actual == 'root':
-    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_salud, tab_usuarios, tab_notif, tab_reporte, tab_oper, tab_admindata = st.tabs(["📊 DASHBOARD", "📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "🛡️ SISTEMA", "👥 USUARIOS", "📣 NOTIFICACIONES", "📈 REPORTE BI", "⚙️ OPERACIONES", "⚠️ ADMINISTRACIÓN DE DATOS"])
+    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_salud, tab_usuarios, tab_notif, tab_reporte, tab_oper, tab_admindata, tab_formulario = st.tabs(["📊 DASHBOARD", "📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "🛡️ SISTEMA", "👥 USUARIOS", "📣 NOTIFICACIONES", "📈 REPORTE BI", "⚙️ OPERACIONES", "⚠️ ADMINISTRACIÓN DE DATOS", "📝 FORMULARIO CLIENTE"])
 elif _rol_actual == 'admin':
-    tab1, tab3, tab2, tab_contrato, tab_oper, tab_usuarios, tab5, tab6, tab7, tab4, tab_notif, tab_dash, tab_reporte, tab_admindata = st.tabs(["📋 PRESUPUESTO", "📂 COTIZACIONES", "👤 DATOS", "📄 CONTRATO", "⚙️ OPERACIONES", "👥 USUARIOS", "📊 PROYECTO EXCEL", "✏️ EDICIÓN PDF", "🏆 RANKING", "🧊 3D BETA", "📣 NOTIFICACIONES", "📊 DASHBOARD", "📈 REPORTE BI", "⚠️ ADMINISTRACIÓN DE DATOS"])
+    tab1, tab3, tab2, tab_contrato, tab_oper, tab_usuarios, tab5, tab6, tab7, tab4, tab_notif, tab_dash, tab_reporte, tab_admindata, tab_formulario = st.tabs(["📋 PRESUPUESTO", "📂 COTIZACIONES", "👤 DATOS", "📄 CONTRATO", "⚙️ OPERACIONES", "👥 USUARIOS", "📊 PROYECTO EXCEL", "✏️ EDICIÓN PDF", "🏆 RANKING", "🧊 3D BETA", "📣 NOTIFICACIONES", "📊 DASHBOARD", "📈 REPORTE BI", "⚠️ ADMINISTRACIÓN DE DATOS", "📝 FORMULARIO CLIENTE"])
     tab_salud = None
 elif _rol_actual == 'operacion':
     tab_oper, = st.tabs(["⚙️ OPERACIONES"])
+    tab_formulario = None
     tab_dash = None; tab1 = None; tab2 = None; tab3 = None
     tab4 = None; tab5 = None; tab6 = None; tab7 = None
     tab_contrato = None; tab_salud = None; tab_usuarios = None
     tab_notif = None; tab_reporte = None; tab_admindata = None
 else:
     tab1, tab2, tab3, tab_contrato, tab7, tab4 = st.tabs(["📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "📄 CONTRATO", "🏆 RANKING", "🧊 3D BETA"])
+    tab_formulario = None
     tab_dash = None; tab_reporte = None; tab_salud = None
     tab5 = None; tab6 = None; tab_usuarios = None
     tab_notif = None; tab_oper = None; tab_admindata = None
@@ -16689,3 +16891,187 @@ if tab_notif is not None and st.session_state.get('es_supervisor'):
                     for _mk, _mv in _msgs_nuevos.items():
                         _set_notif_config(_mk, _mv)
                     st.success("✅ Mensajes guardados")
+
+# =========================================================
+# TAB FORMULARIO CLIENTE — admin configura, operaciones ve progreso
+# =========================================================
+if tab_formulario is not None:
+    with tab_formulario:
+        _rol_form = st.session_state.get('rol_usuario', 'ejecutivo')
+
+        st.markdown("""
+        <div style='background:linear-gradient(135deg,#0f3460,#1e5fa5);border-radius:16px;
+                    padding:24px 28px;margin-bottom:20px;color:white;'>
+          <div style='font-size:0.78rem;font-weight:700;letter-spacing:0.1em;opacity:0.7;text-transform:uppercase;'>Módulo</div>
+          <div style='font-size:1.2rem;font-weight:900;margin-top:4px;font-family:Montserrat,sans-serif;'>📝 Formulario de Materiales</div>
+          <div style='font-size:0.88rem;opacity:0.8;margin-top:2px;'>Configura preguntas por proyecto · Revisa respuestas del cliente</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        _ftab_config, _ftab_progreso = st.tabs(["⚙️ Configurar preguntas", "📊 Progreso clientes"])
+
+        # ── TAB CONFIGURAR ──
+        with _ftab_config:
+            if _rol_form not in ('root', 'admin'):
+                st.info("🔒 Solo administradores pueden configurar formularios.")
+            else:
+                st.markdown("**Seleccionar presupuesto:**")
+                _ep_form_input = st.text_input("Número EP", placeholder="EP-12345", key="form_ep_input")
+                if st.button("🔍 Cargar", key="form_cargar_ep") and _ep_form_input:
+                    st.session_state['_form_ep'] = _ep_form_input.strip().upper()
+
+                _form_ep = st.session_state.get('_form_ep', '')
+                if _form_ep:
+                    st.markdown(f"**Preguntas para {_form_ep}:**")
+                    try:
+                        _form_pregs = supabase.table('formulario_preguntas').select('*').eq(
+                            'cotizacion_numero', _form_ep
+                        ).order('orden').execute().data or []
+                    except:
+                        _form_pregs = []
+
+                    # Mostrar preguntas existentes
+                    for _fp in _form_pregs:
+                        with st.expander(f"[{_fp.get('seccion','')}] {_fp.get('pregunta','')} — {_fp.get('tipo','')}"):
+                            _fc1, _fc2 = st.columns([3,1])
+                            with _fc1:
+                                _fp_new_text = st.text_input("Pregunta", value=_fp.get('pregunta',''), key=f"fp_txt_{_fp['id']}")
+                                _fp_new_sec  = st.text_input("Sección", value=_fp.get('seccion',''), key=f"fp_sec_{_fp['id']}")
+                                _fp_new_tipo = st.selectbox("Tipo", ['texto','select','color','imagen','si_no'],
+                                    index=['texto','select','color','imagen','si_no'].index(_fp.get('tipo','texto')),
+                                    key=f"fp_tipo_{_fp['id']}")
+                                _fp_new_req  = st.checkbox("Requerida", value=_fp.get('requerida', True), key=f"fp_req_{_fp['id']}")
+                                _fp_opts_raw = st.text_area("Opciones (JSON)", value=str(_fp.get('opciones') or '[]'), key=f"fp_opts_{_fp['id']}", height=80)
+                            with _fc2:
+                                st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+                                if st.button("💾 Guardar", key=f"fp_save_{_fp['id']}", use_container_width=True):
+                                    try:
+                                        import json as _jfp
+                                        supabase.table('formulario_preguntas').update({
+                                            'pregunta': _fp_new_text,
+                                            'seccion': _fp_new_sec,
+                                            'tipo': _fp_new_tipo,
+                                            'requerida': _fp_new_req,
+                                            'opciones': _jfp.loads(_fp_opts_raw)
+                                        }).eq('id', _fp['id']).execute()
+                                        st.success("✅ Guardado")
+                                        st.rerun()
+                                    except Exception as _e:
+                                        st.error(f"Error: {_e}")
+                                if st.button("🗑️ Eliminar", key=f"fp_del_{_fp['id']}", use_container_width=True):
+                                    try:
+                                        supabase.table('formulario_preguntas').delete().eq('id', _fp['id']).execute()
+                                        st.rerun()
+                                    except Exception as _e:
+                                        st.error(f"Error: {_e}")
+
+                    st.markdown("---")
+                    st.markdown("**➕ Nueva pregunta:**")
+                    _nq1, _nq2 = st.columns([2,1])
+                    with _nq1:
+                        _nq_preg = st.text_input("Pregunta", key="nq_preg")
+                        _nq_sec  = st.text_input("Sección", value="General", key="nq_sec")
+                        _nq_opts = st.text_area("Opciones (JSON array)", value="[]", key="nq_opts", height=60,
+                            help='Ej: [{"nombre":"Blanco","hex":"#fff"},{"nombre":"Gris","hex":"#ccc"}]')
+                    with _nq2:
+                        _nq_tipo = st.selectbox("Tipo", ['texto','select','color','imagen','si_no'], key="nq_tipo")
+                        _nq_ord  = st.number_input("Orden", value=len(_form_pregs)+1, min_value=1, key="nq_ord")
+                        _nq_req  = st.checkbox("Requerida", value=True, key="nq_req")
+
+                    if st.button("➕ Agregar pregunta", type="primary", use_container_width=True, key="nq_add"):
+                        if _nq_preg.strip():
+                            try:
+                                import json as _jnq
+                                supabase.table('formulario_preguntas').insert({
+                                    'cotizacion_numero': _form_ep,
+                                    'pregunta': _nq_preg.strip(),
+                                    'seccion': _nq_sec.strip() or 'General',
+                                    'tipo': _nq_tipo,
+                                    'opciones': _jnq.loads(_nq_opts),
+                                    'requerida': _nq_req,
+                                    'orden': int(_nq_ord),
+                                    'creado_por': st.session_state.get('auth_email','')
+                                }).execute()
+                                st.success("✅ Pregunta agregada")
+                                st.rerun()
+                            except Exception as _e:
+                                st.error(f"Error: {_e}")
+                        else:
+                            st.warning("Escribe el texto de la pregunta.")
+
+                    # Link para el cliente
+                    st.markdown("---")
+                    _base_url = "https://cotizacion-espacio-container-zlkgejbxhjbbdeu9gvzkla.streamlit.app"
+                    _link_cliente = f"{_base_url}/?cliente=1"
+                    st.markdown(f"""
+                    <div style='background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px 16px;'>
+                      <div style='font-weight:700;font-size:0.85rem;color:#15803d;margin-bottom:4px;'>🔗 Link para el cliente</div>
+                      <code style='font-size:0.82rem;color:#166534;'>{_link_cliente}</code>
+                      <div style='font-size:0.75rem;color:#64748b;margin-top:4px;'>Comparte este link con el cliente. Debe ingresar con su RUT y código {_form_ep}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+        # ── TAB PROGRESO ──
+        with _ftab_progreso:
+            st.markdown("**Progreso de formularios por proyecto:**")
+            try:
+                # Obtener todos los EP con preguntas
+                _all_pregs = supabase.table('formulario_preguntas').select(
+                    'cotizacion_numero,id,requerida'
+                ).execute().data or []
+                _all_resps = supabase.table('formulario_respuestas').select(
+                    'cotizacion_numero,pregunta_id,respuesta'
+                ).execute().data or []
+
+                # Agrupar
+                from collections import defaultdict
+                _pregs_by_ep = defaultdict(list)
+                for _pp in _all_pregs:
+                    _pregs_by_ep[_pp['cotizacion_numero']].append(_pp)
+                _resps_by_ep = defaultdict(dict)
+                for _rr in _all_resps:
+                    _resps_by_ep[_rr['cotizacion_numero']][_rr['pregunta_id']] = _rr['respuesta']
+
+                if not _pregs_by_ep:
+                    st.info("No hay formularios configurados aún.")
+                else:
+                    for _fep, _fpregs in sorted(_pregs_by_ep.items()):
+                        _freq = sum(1 for p in _fpregs if p.get('requerida'))
+                        _fresp = sum(1 for p in _fpregs if p.get('requerida') and _resps_by_ep[_fep].get(p['id']))
+                        _fpct = int(_fresp / _freq * 100) if _freq > 0 else 0
+                        _fcol = '#16a34a' if _fpct == 100 else ('#f97316' if _fpct >= 50 else '#2563eb')
+
+                        with st.expander(f"**{_fep}** — {_fpct}% completado ({_fresp}/{_freq})"):
+                            st.markdown(f"""
+                            <div style='background:#f8fafc;border-radius:8px;padding:8px 12px;margin-bottom:8px;'>
+                              <div style='background:#e2e8f0;border-radius:99px;height:8px;'>
+                                <div style='background:{_fcol};border-radius:99px;height:8px;width:{_fpct}%;'></div>
+                              </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                            # Mostrar respuestas
+                            _resp_map_ep = _resps_by_ep[_fep]
+                            _secs_prog = {}
+                            for _pp2 in _fpregs:
+                                _sec2 = next((p.get('seccion','General') for p in _all_pregs if p['id']==_pp2['id']), 'General')
+                                _pp2['seccion'] = _sec2
+                                if _sec2 not in _secs_prog: _secs_prog[_sec2] = []
+                                _secs_prog[_sec2].append(_pp2)
+
+                            # Get full pregunta text
+                            _pregs_full = supabase.table('formulario_preguntas').select('*').eq(
+                                'cotizacion_numero', _fep
+                            ).execute().data or []
+                            _pregs_full_map = {p['id']: p for p in _pregs_full}
+
+                            for _sec3, _plist3 in _secs_prog.items():
+                                st.markdown(f"**{_sec3}**")
+                                for _pp3 in _plist3:
+                                    _pf = _pregs_full_map.get(_pp3['id'], {})
+                                    _ptxt3 = _pf.get('pregunta', '—')
+                                    _pval3 = _resp_map_ep.get(_pp3['id'], '')
+                                    _ico3 = "✅" if _pval3 else "⬜"
+                                    st.markdown(f"<div style='font-size:0.82rem;padding:3px 0;'>{_ico3} <b>{_ptxt3}</b>: <span style='color:#0f3460;'>{_pval3 or '—'}</span></div>", unsafe_allow_html=True)
+            except Exception as _fe:
+                st.error(f"Error cargando progreso: {_fe}")
