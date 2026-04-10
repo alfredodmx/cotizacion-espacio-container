@@ -9043,7 +9043,7 @@ if tab3 is not None:
             _acta_url_cot = str(row.get('Acta_URL','') or '')
             _fecha_entrega_cot = str(row.get('Fecha_Entrega','') or '')
             _tiene_acta_cot = bool(_acta_url_cot)
-            if _es_adj_cot and not _fadj_raw_cot:
+            if not _fadj_raw_cot:
                 _fadj_raw_cot = _fauth_raw_cot
 
             # ── Cierre de venta ──
@@ -9123,6 +9123,7 @@ if tab3 is not None:
             _retraso_html_cot = '<span style="color:#94a3b8;">—</span>'
             if _tiene_acta_cot and _fadj_raw_cot:
                 # Proyecto terminado — mostrar tiempo transcurrido + Finalizado en morado
+                _fidel_html_cot = f'<span style="color:#7c3aed;font-size:0.7em;">acta={_acta_url_cot[:20]} adj={_fadj_raw_cot[:10]}</span>'
                 try:
                     _cd_cot = row.get('Contrato_Datos') or {}
                     if isinstance(_cd_cot, str) and _cd_cot: _cd_cot = _json_cot.loads(_cd_cot)
