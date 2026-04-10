@@ -13043,7 +13043,7 @@ function openEditor(idx){{
         ?"<input class='ed-inp' id='c-"+idx+"-"+i+"' type='number' min='0' step='1' value='"+(it.cantidad||1)+"' title='Adicional sin registro — editable'/>"
         :"<div class='ed-txt' style='text-align:right;color:#94a3b8;' id='c-"+idx+"-"+i+"-ro'>"+Math.round(it.cantidad||1)+"</div><input type='hidden' id='c-"+idx+"-"+i+"' value='"+(it.cantidad||1)+"'/>")
       +ppCell
-      +"<input class='ed-inp' id='p-"+idx+"-"+i+"' type='text' value='$"+Math.round(it.precio_real||0).toLocaleString('de-DE')+"' style='text-align:right;' "
+      +"<input class='ed-inp' id='p-"+idx+"-"+i+"' type='text' value='$"+Math.round(it.precio_real||0).toLocaleString(\"de-DE\")+"' style='text-align:right;' "
       +"onfocus='this.value=this.value.replace(/[^0-9]/g,\"\");' "
       +"onblur='var v=parseInt(this.value.replace(/[^0-9]/g,\"\"))||0;this.value=\"$\"+v.toLocaleString(\"de-DE\");' "
       +"data-raw='"+Math.round(it.precio_real||0)+"'/>"
