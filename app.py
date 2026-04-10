@@ -2119,7 +2119,7 @@ def generar_excel_balance(cotizacion_numero, registros, productos_presupuesto):
     return buf.read()
 
 def registrar_entrega_proyecto(cotizacion_numero, acta_url, acta_nombre):
-    """Actualiza cotización con acta de entrega y cambia estado a PROYECTO ENTREGADO."""
+    """Actualiza cotización con acta de entrega y cambia estado a PROYECTO TERMINADO."""
     try:
         from datetime import datetime, timezone, timedelta
         _tz = timezone(timedelta(hours=-3))
@@ -2128,7 +2128,7 @@ def registrar_entrega_proyecto(cotizacion_numero, acta_url, acta_nombre):
             "acta_url": acta_url,
             "acta_nombre": acta_nombre,
             "fecha_entrega": _ahora,
-            "estado": "PROYECTO ENTREGADO"
+            "estado": "PROYECTO TERMINADO"
         }).eq("numero", cotizacion_numero).execute()
         return True, None
     except Exception as e:
@@ -3846,7 +3846,8 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
             'total_total', 'config_margen', 'cliente_rut', 'cliente_email',
             'asesor_email', 'asesor_telefono', 'plano_url', 'contrato_generado', 'cliente_empresa',
             'fecha_autorizacion', 'autorizado_por', 'contrato_notariado_url',
-            'fecha_adjudicacion', 'contrato_datos', 'motivo_rechazo', 'fecha_rechazo'
+            'fecha_adjudicacion', 'contrato_datos', 'motivo_rechazo', 'fecha_rechazo',
+            'acta_url', 'fecha_entrega'
         )
         # Filtrar por usuario si es ejecutivo (no admin ni root)
         _rol_q = st.session_state.get('rol_usuario', 'ejecutivo')
@@ -3889,6 +3890,8 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
                 row.get('contrato_notariado_url', '') or '',
                 row.get('motivo_rechazo', '') or '',
                 row.get('fecha_rechazo', '') or '',
+                row.get('acta_url', '') or '',
+                row.get('fecha_entrega', '') or '',
             ))
         # Agregar conteo de logs
         numeros_ep = [r[0] for r in resultados]
@@ -8819,7 +8822,7 @@ if tab3 is not None:
         st.rerun()
 
     if st.session_state.resultados_busqueda:
-        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa", "Fecha_Auth", "Autorizado_Por", "Tiene_Notariado", "Fecha_Adj", "Contrato_Datos", "Not_URL", "Motivo_Rechazo", "Fecha_Rechazo", "NLogs"]
+        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa", "Fecha_Auth", "Autorizado_Por", "Tiene_Notariado", "Fecha_Adj", "Contrato_Datos", "Not_URL", "Motivo_Rechazo", "Fecha_Rechazo", "NLogs", "Acta_URL", "Fecha_Entrega"]
         _rows_norm = []
         for _r in st.session_state.resultados_busqueda:
             _r = list(_r)
@@ -9032,6 +9035,9 @@ if tab3 is not None:
             _es_adj_cot = bool(str(row.get('Not_URL','') or ''))
             _fadj_raw_cot = str(row.get('Fecha_Adj','') or '')
             _fauth_raw_cot = str(row.get('Fecha_Auth','') or '')
+            _acta_url_cot = str(row.get('Acta_URL','') or '')
+            _fecha_entrega_cot = str(row.get('Fecha_Entrega','') or '')
+            _tiene_acta_cot = bool(_acta_url_cot)
             if _es_adj_cot and not _fadj_raw_cot:
                 _fadj_raw_cot = _fauth_raw_cot
 
@@ -9095,7 +9101,9 @@ if tab3 is not None:
             else:
                 _fadj_html_cot = '<span style="color:#94a3b8;">—</span>'
             # Tiempo fabricación
-            if _es_adj_cot and _fadj_raw_cot:
+            if _tiene_acta_cot:
+                _fab_html_cot = '<span style="color:#2563eb;font-weight:700;">✅ Finalizado</span>'
+            elif _es_adj_cot and _fadj_raw_cot:
                 try:
                     _d_adj_cot  = _dt_cot.fromisoformat(_fadj_raw_cot.replace("Z","+00:00")).astimezone(_tz_cl_cot)
                     _ts_adj_cot = int(_d_adj_cot.timestamp() * 1000)
@@ -9108,7 +9116,28 @@ if tab3 is not None:
             # Fidelización y Retraso
             _fidel_html_cot   = '<span style="color:#94a3b8;">—</span>'
             _retraso_html_cot = '<span style="color:#94a3b8;">—</span>'
-            if _es_adj_cot and _fadj_raw_cot:
+            if _tiene_acta_cot and _es_adj_cot and _fadj_raw_cot:
+                # Proyecto terminado — calcular si hubo retraso
+                try:
+                    _cd_cot = row.get('Contrato_Datos') or {}
+                    if isinstance(_cd_cot, str) and _cd_cot: _cd_cot = _json_cot.loads(_cd_cot)
+                    _plazo_cot = int((_cd_cot or {}).get('plazo_dias', 0) or 0)
+                    if _plazo_cot <= 0: _plazo_cot = 45
+                    _d_adj_fc  = _dt_cot.fromisoformat(_fadj_raw_cot.replace("Z","+00:00")).astimezone(_tz_cl_cot)
+                    _d_adj_date = _d_adj_fc.date()
+                    _d_ent_fc  = sumar_dias_habiles(_d_adj_date, _plazo_cot)
+                    # fecha real de entrega (acta)
+                    _d_entrega_real = _dt_cot.fromisoformat(_fecha_entrega_cot.replace("Z","+00:00")).astimezone(_tz_cl_cot).date() if _fecha_entrega_cot else _dt_cot.now(_tz_cl_cot).date()
+                    _fidel_html_cot = '<span style="color:#2563eb;font-weight:700;">✅ Finalizado</span>'
+                    if _d_entrega_real > _d_ent_fc:
+                        # Se entregó con retraso
+                        _hab_ret = dias_habiles_entre(_d_ent_fc, _d_entrega_real)
+                        _d_ent_dt  = _dt_cot.combine(_d_ent_fc, _dt_cot.min.time()).replace(tzinfo=_tz_cl_cot)
+                        _ts_venc_cot = int(_d_ent_dt.timestamp() * 1000)
+                        _retraso_html_cot = (f'<span style="color:#dc2626;font-weight:700;">⚠️ {_hab_ret}d hábiles</span>'
+                                              f'<br><span style="font-size:0.72em;color:#dc2626;">entregado tarde</span>')
+                except: pass
+            elif _es_adj_cot and _fadj_raw_cot:
                 try:
                     _cd_cot = row.get('Contrato_Datos') or {}
                     if isinstance(_cd_cot, str) and _cd_cot: _cd_cot = _json_cot.loads(_cd_cot)
@@ -12633,7 +12662,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
             def _rc_estado_badge(estado):
                 _badges = {
                     'ADJUDICADO': '🔵', 'AUTORIZADO CON PLANO': '🟢',
-                    'AUTORIZADO': '🟢', 'PROYECTO ENTREGADO': '🟣',
+                    'AUTORIZADO': '🟢', 'PROYECTO ENTREGADO': '🟣', 'PROYECTO TERMINADO': '🟣',
                     'PENDIENTE COMPRAS': '🟡', 'INCOMPLETO': '⚪'
                 }
                 return _badges.get(str(estado).strip().upper(), '⚪')
@@ -13105,7 +13134,7 @@ window.addEventListener("message",function(e){{
                         _ac_fecha = '—'
                     st.success(f'✅ Acta subida el {_ac_fecha}')
                     st.markdown(f'<div style="font-size:0.85rem;margin:4px 0;">📄 <b>{_ac_row.get("acta_nombre","acta.pdf")}</b></div>', unsafe_allow_html=True)
-                    st.markdown(f'<div style="font-size:0.85rem;margin:4px 0;">Estado: <span style="background:#7c3aed;color:#fff;padding:2px 10px;border-radius:99px;font-weight:700;font-size:0.78rem;">🟣 PROYECTO ENTREGADO</span></div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="font-size:0.85rem;margin:4px 0;">Estado: <span style="background:#7c3aed;color:#fff;padding:2px 10px;border-radius:99px;font-weight:700;font-size:0.78rem;">🟣 PROYECTO TERMINADO</span></div>', unsafe_allow_html=True)
                     if _ac_row.get('acta_url'):
                         st.markdown(f'[📎 Ver acta]({_ac_row["acta_url"]})', unsafe_allow_html=True)
                 else:
@@ -13114,7 +13143,7 @@ window.addEventListener("message",function(e){{
                     _ac_file = st.file_uploader('📎 Subir acta firmada (PDF)', type=['pdf'], key=f'ac_file_{_ac_ep}')
                     if _ac_file:
                         st.success(f'✅ Archivo listo: {_ac_file.name}')
-                        st.warning('Al confirmar, el estado cambiará a **PROYECTO ENTREGADO** y se congelarán los contadores de fabricación y fidelización.')
+                        st.warning('Al confirmar, el estado cambiará a **PROYECTO TERMINADO** y se congelarán los contadores de fabricación y fidelización.')
                         if st.button('📋 Confirmar entrega y subir acta', key=f'ac_confirmar_{_ac_ep}', use_container_width=True):
                             with st.spinner('Subiendo acta...'):
                                 _ac_url, _ac_err = guardar_acta_en_storage(_ac_file.getvalue(), _ac_ep, _ac_file.name)
