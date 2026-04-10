@@ -12956,8 +12956,13 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         if _tipo_full2: _footer_h += f"<span style='color:#0f172a;font-weight:600;'>{_tipo_full2}</span>"
                         _footer_h += f"<span style='color:#64748b;'>🕐 {_rce_fecha2}</span>"
                         if _factura_url2: _footer_h += f"<a href='{_factura_url2}' target='_blank' style='color:#3b82f6;text-decoration:none;'>📎 {_factura_nom2}</a>"
-                        _footer_h += f"<span style='color:{'#0f172a' if _rce_obs2 else '#94a3b8'};font-style:{'normal' if _rce_obs2 else 'italic'};'>📝 {_rce_obs2 if _rce_obs2 else 'Sin observaciones'}</span></div>"
-                        _hist_regs.append({'tipo': _rce_tipo_k, 'titulo': _titulo, 'rows': _rows_h, 'footer': _footer_h})
+                        _footer_h += f"<span style='color:{'#0f172a' if _rce_obs2 else '#94a3b8'};font-style:{'normal' if _rce_obs2 else 'italic'};'>📝 {_rce_obs2 if _rce_obs2 else 'Sin observaciones'}</span>"
+                        _rce_id2 = str(_rce.get('id',''))
+                        _footer_h += (f"<button onclick=\"setAction('edit','{_rce_id2}')\" "
+                                      f"style='margin-left:auto;background:#2563eb;color:white;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;'>✏️ Editar</button>"
+                                      f"<button onclick=\"setAction('delete','{_rce_id2}')\" "
+                                      f"style='background:#dc2626;color:white;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;'>🗑️ Eliminar</button></div>")
+                        _hist_regs.append({'tipo': _rce_tipo_k, 'titulo': _titulo, 'rows': _rows_h, 'footer': _footer_h, 'id': _rce_id2})
 
                     # Serializar a JSON para JS
                     import json as _jser
@@ -12983,6 +12988,10 @@ th:not(:first-child){{text-align:right;}}
 var REGS={_regs_json};
 var BADGES={_badges_json};
 var filtro='';
+function setAction(action,id){{
+  var url=window.parent.location.href.split('?')[0];
+  window.parent.location.href=url+'?rc_action='+action+'&rc_id='+id;
+}}
 function fmt(n){{return '$'+Math.round(Math.abs(n)).toLocaleString('de-DE');}}
 function renderBadges(){{
   var d=document.getElementById('badges');d.innerHTML='';
@@ -13049,120 +13058,96 @@ window.addEventListener("message",function(e){{
                     _n_regs = len(_rc_existentes)
                     _hist_comp.html(_hist_html, height=min(_n_regs*80+80, 600), scrolling=True)
 
-                # ── Gestionar registros (editar / eliminar) ──
-                if _rc_existentes:
-                    st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.82rem;color:#0f172a;margin:12px 0 6px;">🗂️ Gestionar registros de compra</div>', unsafe_allow_html=True)
-                    for _rce_g in _rc_existentes:
-                        _gid   = str(_rce_g.get('id',''))
-                        _glug  = _rce_g.get('lugar_compra','') or _rce_g.get('factura_nombre','Sin nombre') or 'Sin nombre'
-                        _gtotal = float(_rce_g.get('total_real',0) or 0)
-                        _gfecha = ''
-                        try:
-                            from datetime import datetime as _dtg, timezone as _tzg, timedelta as _tdg
-                            _gfecha = _dtg.fromisoformat(_rce_g['fecha_registro'].replace('Z','+00:00')).astimezone(_tzg(_tdg(hours=-3))).strftime('%d/%m/%Y')
-                        except: pass
-                        _glbl = f'🧾 {_glug} — ${_gtotal:,.0f} — {_gfecha}'.replace(',','.')
-                        with st.expander(_glbl, expanded=st.session_state.get(f'_rc_exp_{_gid}', False)):
-                            import json as _jg
-                            _g_items_raw = _rce_g.get('items') or []
-                            if isinstance(_g_items_raw, str):
-                                try: _g_items_raw = _jg.loads(_g_items_raw)
-                                except: _g_items_raw = []
-                            # Inicializar items en session_state
-                            _g_key = f'_g_items_{_gid}'
-                            if _g_key not in st.session_state:
-                                st.session_state[_g_key] = [dict(i) for i in _g_items_raw]
-                            _g_items = st.session_state[_g_key]
-                            # Datos generales editables
-                            _gg1, _gg2, _gg3 = st.columns([2,2,1])
-                            with _gg1:
-                                _g_lugar = st.text_input('Lugar', value=_rce_g.get('lugar_compra','') or '', key=f'g_lugar_{_gid}')
-                            with _gg2:
-                                _g_obs = st.text_input('Observaciones', value=_rce_g.get('observaciones','') or '', key=f'g_obs_{_gid}')
-                            with _gg3:
-                                _g_fecha = st.text_input('Fecha entrega', value=_rce_g.get('fecha_entrega_compra','') or '', key=f'g_fecha_{_gid}')
-                            # Tabla ítems con data_editor
-                            st.markdown('<div style="font-size:0.78rem;font-weight:700;color:#64748b;margin:8px 0 4px;">📦 Ítems — edita precio real o cantidad, usa ☑️ para marcar los que eliminarás</div>', unsafe_allow_html=True)
-                            import pandas as _pd_g
-                            _g_df = _pd_g.DataFrame([{
+                # ── Leer acción desde query_params (edit / delete) ──
+                _rc_action = st.query_params.get('rc_action', '')
+                _rc_qid    = st.query_params.get('rc_id', '')
+                if _rc_action and _rc_qid:
+                    _rce_target = next((r for r in _rc_existentes if str(r.get('id','')) == _rc_qid), None)
+                    if _rce_target:
+                        _glug2 = _rce_target.get('lugar_compra','') or 'Sin nombre'
+                        st.markdown(f'<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.85rem;color:#0f172a;margin:10px 0 6px;">{'✏️ Editando' if _rc_action=="edit" else "🗑️ Eliminar"}: {_glug2}</div>', unsafe_allow_html=True)
+                        if _rc_action == 'delete':
+                            st.warning('⚠️ ¿Eliminar este registro completo? Los ítems volverán como pendientes.')
+                            _qd1, _qd2 = st.columns([1,1])
+                            with _qd1:
+                                if st.button('✅ Confirmar eliminación', key=f'q_del_{_rc_qid}', use_container_width=True, type='primary'):
+                                    try:
+                                        supabase.table('registro_compras').delete().eq('id', _rc_qid).execute()
+                                        st.session_state.pop('_prods_map_key', None)
+                                        st.query_params.clear()
+                                        st.success('✅ Registro eliminado.')
+                                        st.rerun()
+                                    except Exception as _qde: st.error(f'Error: {_qde}')
+                            with _qd2:
+                                if st.button('❌ Cancelar', key=f'q_del_no_{_rc_qid}', use_container_width=True):
+                                    st.query_params.clear()
+                                    st.rerun()
+                        elif _rc_action == 'edit':
+                            import json as _jq
+                            _q_items_raw = _rce_target.get('items') or []
+                            if isinstance(_q_items_raw, str):
+                                try: _q_items_raw = _jq.loads(_q_items_raw)
+                                except: _q_items_raw = []
+                            _qq1, _qq2, _qq3 = st.columns([2,2,1])
+                            with _qq1:
+                                _q_lugar = st.text_input('Lugar', value=_rce_target.get('lugar_compra','') or '', key=f'q_lugar_{_rc_qid}')
+                            with _qq2:
+                                _q_obs = st.text_input('Observaciones', value=_rce_target.get('observaciones','') or '', key=f'q_obs_{_rc_qid}')
+                            with _qq3:
+                                _q_fecha = st.text_input('Fecha entrega', value=_rce_target.get('fecha_entrega_compra','') or '', key=f'q_fecha_{_rc_qid}')
+                            import pandas as _pd_q
+                            _q_df = _pd_q.DataFrame([{
                                 'Eliminar': False,
                                 'Categoría': i.get('categoria',''),
                                 'Ítem': i.get('item',''),
                                 'Cant.': float(i.get('cantidad',1) or 1),
-                                'P. Presup.': float(i.get('precio_presupuestado',0) or 0),
-                                'P. Real': float(i.get('precio_real',0) or 0),
-                            } for i in _g_items])
-                            _g_edited = st.data_editor(
-                                _g_df,
-                                use_container_width=True,
-                                hide_index=True,
-                                key=f'g_editor_{_gid}',
+                                'P. Presup. $': float(i.get('precio_presupuestado',0) or 0),
+                                'P. Real $': float(i.get('precio_real',0) or 0),
+                            } for i in _q_items_raw])
+                            _q_edited = st.data_editor(
+                                _q_df, use_container_width=True, hide_index=True,
+                                key=f'q_editor_{_rc_qid}',
                                 column_config={
                                     'Eliminar': st.column_config.CheckboxColumn('🗑️', width='small'),
                                     'Categoría': st.column_config.TextColumn('Categoría', disabled=True),
                                     'Ítem': st.column_config.TextColumn('Ítem', disabled=True),
                                     'Cant.': st.column_config.NumberColumn('Cant.', min_value=0, step=1),
-                                    'P. Presup.': st.column_config.NumberColumn('P. Presup. $', disabled=True, format='$%.0f'),
-                                    'P. Real': st.column_config.NumberColumn('P. Real $', min_value=0, step=100, format='$%.0f'),
+                                    'P. Presup. $': st.column_config.NumberColumn('P. Presup. $', disabled=True, format='$%.0f'),
+                                    'P. Real $': st.column_config.NumberColumn('P. Real $', min_value=0, step=100, format='$%.0f'),
                                 }
                             )
-                            # Recalcular total
-                            _g_total_calc = (_g_edited['P. Real'] * _g_edited['Cant.']).sum()
-                            _g_presup_calc = (_g_edited['P. Presup.'] * _g_edited['Cant.']).sum()
-                            st.markdown(f'<div style="text-align:right;font-size:0.82rem;font-weight:700;">Total real: <span style="color:#0f172a;">${_g_total_calc:,.0f}</span></div>'.replace(',','.'), unsafe_allow_html=True)
-                            # Botones acción
-                            _gb1, _gb2, _gb3 = st.columns([1,1,1])
-                            with _gb1:
-                                if st.button('💾 Guardar cambios', key=f'g_save_{_gid}', use_container_width=True, type='primary'):
+                            _q_total = (_q_edited['P. Real $'] * _q_edited['Cant.']).sum()
+                            _q_presup = (_q_edited['P. Presup. $'] * _q_edited['Cant.']).sum()
+                            st.markdown(f'<div style="text-align:right;font-size:0.82rem;font-weight:700;">Total real: ${_q_total:,.0f}</div>'.replace(',','.'), unsafe_allow_html=True)
+                            _qs1, _qs2 = st.columns([1,1])
+                            with _qs1:
+                                if st.button('💾 Guardar cambios', key=f'q_save_{_rc_qid}', use_container_width=True, type='primary'):
                                     try:
-                                        # Filtrar ítems no eliminados y actualizar valores
-                                        _g_items_nuevos = []
-                                        for _gi_idx, _gi_row in _g_edited.iterrows():
-                                            if not _gi_row['Eliminar']:
-                                                _orig = dict(_g_items[_gi_idx]) if _gi_idx < len(_g_items) else {}
-                                                _orig['cantidad'] = float(_gi_row['Cant.'])
-                                                _orig['precio_real'] = float(_gi_row['P. Real'])
-                                                _g_items_nuevos.append(_orig)
+                                        _q_items_new = []
+                                        for _qi, _qr in _q_edited.iterrows():
+                                            if not _qr['Eliminar']:
+                                                _orig2 = dict(_q_items_raw[_qi]) if _qi < len(_q_items_raw) else {}
+                                                _orig2['cantidad'] = float(_qr['Cant.'])
+                                                _orig2['precio_real'] = float(_qr['P. Real $'])
+                                                _q_items_new.append(_orig2)
                                         supabase.table('registro_compras').update({
-                                            'lugar_compra': _g_lugar,
-                                            'observaciones': _g_obs,
-                                            'fecha_entrega_compra': _g_fecha,
-                                            'items': _g_items_nuevos,
-                                            'total_real': float(_g_total_calc),
-                                            'total_presupuestado': float(_g_presup_calc),
-                                            'balance': float(_g_presup_calc - _g_total_calc),
-                                        }).eq('id', _gid).execute()
-                                        st.session_state.pop(_g_key, None)
+                                            'lugar_compra': _q_lugar,
+                                            'observaciones': _q_obs,
+                                            'fecha_entrega_compra': _q_fecha,
+                                            'items': _q_items_new,
+                                            'total_real': float(_q_total),
+                                            'total_presupuestado': float(_q_presup),
+                                            'balance': float(_q_presup - _q_total),
+                                        }).eq('id', _rc_qid).execute()
                                         st.session_state.pop('_prods_map_key', None)
+                                        st.query_params.clear()
                                         st.success('✅ Registro actualizado.')
                                         st.rerun()
-                                    except Exception as _ge: st.error(f'Error: {_ge}')
-                            with _gb2:
-                                if st.button('🗑️ Eliminar registro completo', key=f'g_del_{_gid}', use_container_width=True):
-                                    st.session_state[f'_g_confirm_{_gid}'] = True
-                            with _gb3:
-                                if st.button('❌ Cancelar', key=f'g_cancel_{_gid}', use_container_width=True):
-                                    st.session_state.pop(_g_key, None)
-                                    st.session_state.pop(f'_g_confirm_{_gid}', None)
+                                    except Exception as _qe: st.error(f'Error: {_qe}')
+                            with _qs2:
+                                if st.button('❌ Cancelar', key=f'q_cancel_{_rc_qid}', use_container_width=True):
+                                    st.query_params.clear()
                                     st.rerun()
-                            # Confirmación eliminación completa
-                            if st.session_state.get(f'_g_confirm_{_gid}'):
-                                st.warning('⚠️ ¿Eliminar este registro completo? Los ítems volverán como pendientes.')
-                                _gc1, _gc2 = st.columns([1,1])
-                                with _gc1:
-                                    if st.button('✅ Confirmar eliminación', key=f'g_del_ok_{_gid}', use_container_width=True):
-                                        try:
-                                            supabase.table('registro_compras').delete().eq('id', _gid).execute()
-                                            st.session_state.pop(_g_key, None)
-                                            st.session_state.pop(f'_g_confirm_{_gid}', None)
-                                            st.session_state.pop('_prods_map_key', None)
-                                            st.success('✅ Registro eliminado.')
-                                            st.rerun()
-                                        except Exception as _gde: st.error(f'Error: {_gde}')
-                                with _gc2:
-                                    if st.button('❌ No eliminar', key=f'g_del_no_{_gid}', use_container_width=True):
-                                        st.session_state.pop(f'_g_confirm_{_gid}', None)
-                                        st.rerun()
 
                 # Formulario nuevo registro
                 st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 8px;">➕ Nuevo registro de compra</div>', unsafe_allow_html=True)
