@@ -12969,6 +12969,18 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                     _regs_json = _jser.dumps(_hist_regs, ensure_ascii=False)
                     _badges_json = _jser.dumps([b for b in _badges_def if b[0] in _tipos_presentes], ensure_ascii=False)
 
+                    _supa_url_js = SUPABASE_URL
+                    _supa_key_js = SUPABASE_KEY
+                    # Pasar items completos para el editor inline
+                    import json as _jser2
+                    _regs_full_json = _jser2.dumps(
+                        [{'id': str(r.get('id','')),
+                          'lugar_compra': r.get('lugar_compra','') or '',
+                          'observaciones': r.get('observaciones','') or '',
+                          'fecha_entrega_compra': r.get('fecha_entrega_compra','') or '',
+                          'items': (r.get('items') if not isinstance(r.get('items'), str)
+                                   else _jser2.loads(r.get('items','[]')))
+                         } for r in _rc_existentes], ensure_ascii=False)
                     _hist_html = f"""<style>
 body{{margin:0;padding:0;font-family:'Segoe UI',sans-serif;font-size:13px;}}
 .badge{{border-radius:99px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #cbd5e1;background:#f1f5f9;color:#0f172a;display:inline-block;}}
@@ -12976,6 +12988,19 @@ body{{margin:0;padding:0;font-family:'Segoe UI',sans-serif;font-size:13px;}}
 .reg-card{{border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;overflow:hidden;}}
 .reg-header{{padding:8px 12px;background:#f8fafc;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:12px;}}
 .reg-header:hover{{background:#f1f5f9;}}
+.reg-editor{{display:none;padding:10px;background:#f0f9ff;border-top:1px solid #bae6fd;}}
+.reg-editor.open{{display:block;}}
+.ed-input{{width:100%;padding:5px 8px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;box-sizing:border-box;margin-bottom:6px;}}
+.ed-row{{display:grid;grid-template-columns:1fr 2fr 60px 100px 100px 36px;gap:4px;align-items:center;margin-bottom:3px;}}
+.ed-hdr{{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;padding:2px 0;}}
+.ed-cell{{font-size:12px;padding:3px 4px;}}
+.ed-num{{width:100%;padding:3px 4px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px;text-align:right;}}
+.ed-del-item{{background:#fee2e2;border:none;border-radius:4px;color:#dc2626;cursor:pointer;font-size:13px;width:28px;height:28px;}}
+.ed-del-item.deleted{{background:#dc2626;color:white;}}
+.btn-save{{background:#16a34a;color:white;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-right:6px;}}
+.btn-del{{background:#dc2626;color:white;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-right:6px;}}
+.btn-cancel{{background:#64748b;color:white;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;}}
+.confirm-box{{background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;padding:8px 12px;margin-top:6px;font-size:12px;}}
 .reg-body{{display:none;padding:8px;}}
 .reg-body.open{{display:block;}}
 table{{width:100%;border-collapse:collapse;}}
@@ -12987,10 +13012,130 @@ th:not(:first-child){{text-align:right;}}
 <script>
 var REGS={_regs_json};
 var BADGES={_badges_json};
+var SUPA_URL='{_supa_url_js}';
+var SUPA_KEY='{_supa_key_js}';
+var REGS_FULL={_regs_full_json};
 var filtro='';
+var deletedItems={{}};
 function setAction(action,id){{
-  var url=window.parent.location.href.split('?')[0];
-  window.parent.location.href=url+'?rc_action='+action+'&rc_id='+id;
+  if(action==='edit') openEditor(id);
+  else if(action==='delete') confirmDelete(id);
+}}
+function openEditor(id){{
+  // Cerrar otros editores abiertos
+  document.querySelectorAll('.reg-editor').forEach(function(e){{e.classList.remove('open');}});
+  var ed=document.getElementById('editor-'+id);
+  if(!ed)return;
+  ed.classList.add('open');
+  // Abrir el body de la card si está cerrado
+  var body=document.getElementById('body-'+id);
+  if(body)body.classList.add('open');
+}}
+function confirmDelete(id){{
+  document.querySelectorAll('.confirm-box').forEach(function(e){{e.remove();}});
+  var ed=document.getElementById('editor-'+id);
+  if(!ed)return;
+  ed.classList.add('open');
+  var body=document.getElementById('body-'+id);
+  if(body)body.classList.add('open');
+  var conf=document.createElement('div');
+  conf.className='confirm-box';
+  conf.id='confirm-'+id;
+  conf.innerHTML='<b>⚠️ ¿Eliminar este registro completo?</b> Los ítems volverán como pendientes.<br><br>'
+    +'<button class="btn-del" onclick="deleteReg(\''+id+'\')" >✅ Sí, eliminar</button>'
+    +'<button class="btn-cancel" onclick="cancelAction(\''+id+'\')" >❌ Cancelar</button>';
+  ed.appendChild(conf);
+}}
+function cancelAction(id){{
+  var ed=document.getElementById('editor-'+id);
+  if(ed){{ed.classList.remove('open');ed.innerHTML=buildEditorHTML(id);}}
+  deletedItems[id]=[];
+}}
+function toggleItemDel(id,idx){{
+  if(!deletedItems[id])deletedItems[id]=[];
+  var pos=deletedItems[id].indexOf(idx);
+  if(pos>-1)deletedItems[id].splice(pos,1);
+  else deletedItems[id].push(idx);
+  var btn=document.getElementById('delbtn-'+id+'-'+idx);
+  if(btn)btn.classList.toggle('deleted');
+}}
+function buildEditorHTML(id){{
+  var reg=REGS_FULL.find(function(r){{return r.id===id;}});
+  if(!reg)return '';
+  var items=reg.items||[];
+  var rows='<div class="ed-row"><div class="ed-hdr">Categoría</div><div class="ed-hdr">Ítem</div><div class="ed-hdr">Cant.</div><div class="ed-hdr">P.Presup.</div><div class="ed-hdr">P.Real</div><div class="ed-hdr">🗑️</div></div>';
+  items.forEach(function(it,i){{
+    rows+='<div class="ed-row">'
+      +'<div class="ed-cell" style="color:#64748b;font-size:11px;">'+it.categoria+'</div>'
+      +'<div class="ed-cell" style="font-weight:600;">'+it.item+'</div>'
+      +'<input class="ed-num" id="cant-'+id+'-'+i+'" type="number" min="0" step="1" value="'+(it.cantidad||1)+'">'
+      +'<div class="ed-cell" style="text-align:right;color:#64748b;">$'+Math.round(it.precio_presupuestado||0).toLocaleString('de-DE')+'</div>'
+      +'<input class="ed-num" id="pr-'+id+'-'+i+'" type="number" min="0" step="100" value="'+(it.precio_real||0)+'">'
+      +'<button class="ed-del-item" id="delbtn-'+id+'-'+i+'" onclick="toggleItemDel(\''+id+'\','+i+')">🗑️</button>'
+      +'</div>';
+  }});
+  return '<div style="margin-bottom:6px;">'
+    +'<input class="ed-input" id="lugar-'+id+'" placeholder="Lugar de compra" value="'+(reg.lugar_compra||'')+'">'
+    +'<input class="ed-input" id="obs-'+id+'" placeholder="Observaciones" value="'+(reg.observaciones||'')+'">'
+    +'<input class="ed-input" id="fech-'+id+'" placeholder="Fecha entrega" value="'+(reg.fecha_entrega_compra||'')+'">'
+    +'</div>'
+    +rows
+    +'<div style="margin-top:8px;" id="totrow-'+id+'"></div>'
+    +'<div style="margin-top:8px;">'
+    +'<button class="btn-save" onclick="saveEdit(\''+id+'\')" >💾 Guardar</button>'
+    +'<button class="btn-del" onclick="confirmDelete(\''+id+'\')" >🗑️ Eliminar registro</button>'
+    +'<button class="btn-cancel" onclick="cancelAction(\''+id+'\')" >❌ Cancelar</button>'
+    +'</div>';
+}}
+function saveEdit(id){{
+  var reg=REGS_FULL.find(function(r){{return r.id===id;}});
+  if(!reg)return;
+  var items=reg.items||[];
+  var newItems=[];
+  var totalReal=0;
+  var totalPresup=0;
+  items.forEach(function(it,i){{
+    if(deletedItems[id]&&deletedItems[id].indexOf(i)>-1)return;
+    var cant=parseFloat(document.getElementById('cant-'+id+'-'+i).value)||1;
+    var pr=parseFloat(document.getElementById('pr-'+id+'-'+i).value)||0;
+    var item2=Object.assign({{}},it,{{cantidad:cant,precio_real:pr}});
+    newItems.push(item2);
+    totalReal+=cant*pr;
+    totalPresup+=cant*(it.precio_presupuestado||0);
+  }});
+  var lugar=document.getElementById('lugar-'+id).value;
+  var obs=document.getElementById('obs-'+id).value;
+  var fech=document.getElementById('fech-'+id).value;
+  var payload={{items:newItems,lugar_compra:lugar,observaciones:obs,fecha_entrega_compra:fech,total_real:totalReal,total_presupuestado:totalPresup,balance:totalPresup-totalReal}};
+  fetch(SUPA_URL+'/rest/v1/registro_compras?id=eq.'+id,{{
+    method:'PATCH',
+    headers:{{'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Prefer':'return=minimal'}},
+    body:JSON.stringify(payload)
+  }}).then(function(r){{
+    if(r.ok){{
+      var ed=document.getElementById('editor-'+id);
+      if(ed){{ed.classList.remove('open');}}
+      // Actualizar REGS_FULL local
+      Object.assign(reg,{{items:newItems,lugar_compra:lugar,observaciones:obs,fecha_entrega_compra:fech}});
+      deletedItems[id]=[];
+      alert('✅ Guardado correctamente. Recarga para ver los cambios en la tabla.');
+    }} else {{ alert('Error al guardar: '+r.status); }}
+  }}).catch(function(e){{alert('Error: '+e);}});
+}}
+function deleteReg(id){{
+  fetch(SUPA_URL+'/rest/v1/registro_compras?id=eq.'+id,{{
+    method:'DELETE',
+    headers:{{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}}
+  }}).then(function(r){{
+    if(r.ok){{
+      var card=document.getElementById('card-'+id);
+      if(card)card.remove();
+      // Quitar de REGS_FULL
+      var idx=REGS_FULL.findIndex(function(r2){{return r2.id===id;}});
+      if(idx>-1)REGS_FULL.splice(idx,1);
+      alert('✅ Registro eliminado. Recarga para ver los cambios en la tabla.');
+    }} else {{ alert('Error al eliminar: '+r.status); }}
+  }}).catch(function(e){{alert('Error: '+e);}});
 }}
 function fmt(n){{return '$'+Math.round(Math.abs(n)).toLocaleString('de-DE');}}
 function renderBadges(){{
@@ -13008,13 +13153,16 @@ function renderRegs(){{
   var d=document.getElementById('regs');d.innerHTML='';
   REGS.forEach(function(r,i){{
     if(filtro&&r.tipo!==filtro)return;
-    var card=document.createElement('div');card.className='reg-card';
+    var rid=r.id||('reg-'+i);
+    var card=document.createElement('div');card.className='reg-card';card.id='card-'+rid;
     var hdr=document.createElement('div');hdr.className='reg-header';
     hdr.innerHTML='<span>'+r.titulo+'</span><span style="font-size:10px;color:#64748b;">▼</span>';
-    var body=document.createElement('div');body.className='reg-body';
+    var body=document.createElement('div');body.className='reg-body';body.id='body-'+rid;
     body.innerHTML='<table><thead><tr><th style="text-align:left">Categoría</th><th style="text-align:left">Ítem</th><th>Cant.</th><th>Presup.</th><th>Real</th><th>Adic.</th><th>Dif.</th></tr></thead><tbody>'+r.rows+'</tbody></table>'+r.footer;
+    var editor=document.createElement('div');editor.className='reg-editor';editor.id='editor-'+rid;
+    editor.innerHTML=buildEditorHTML(rid);
     hdr.onclick=function(){{body.classList.toggle('open');hdr.querySelector('span:last-child').textContent=body.classList.contains('open')?'▲':'▼';}};
-    card.appendChild(hdr);card.appendChild(body);d.appendChild(card);
+    card.appendChild(hdr);card.appendChild(body);card.appendChild(editor);d.appendChild(card);
   }});
 }}
 renderRegs();
@@ -13057,98 +13205,6 @@ window.addEventListener("message",function(e){{
                     _hist_comp.html(_b_html, height=48, scrolling=False)
                     _n_regs = len(_rc_existentes)
                     _hist_comp.html(_hist_html, height=min(_n_regs*80+80, 600), scrolling=True)
-
-                # ── Leer acción desde query_params (edit / delete) ──
-                _rc_action = st.query_params.get('rc_action', '')
-                _rc_qid    = st.query_params.get('rc_id', '')
-                if _rc_action and _rc_qid:
-                    _rce_target = next((r for r in _rc_existentes if str(r.get('id','')) == _rc_qid), None)
-                    if _rce_target:
-                        _glug2 = _rce_target.get('lugar_compra','') or 'Sin nombre'
-                        _rc_lbl_accion = '✏️ Editando' if _rc_action == 'edit' else '🗑️ Eliminar'
-                        st.markdown(f'<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.85rem;color:#0f172a;margin:10px 0 6px;">{_rc_lbl_accion}: {_glug2}</div>', unsafe_allow_html=True)
-                        if _rc_action == 'delete':
-                            st.warning('⚠️ ¿Eliminar este registro completo? Los ítems volverán como pendientes.')
-                            _qd1, _qd2 = st.columns([1,1])
-                            with _qd1:
-                                if st.button('✅ Confirmar eliminación', key=f'q_del_{_rc_qid}', use_container_width=True, type='primary'):
-                                    try:
-                                        supabase.table('registro_compras').delete().eq('id', _rc_qid).execute()
-                                        st.session_state.pop('_prods_map_key', None)
-                                        st.query_params.clear()
-                                        st.success('✅ Registro eliminado.')
-                                        st.rerun()
-                                    except Exception as _qde: st.error(f'Error: {_qde}')
-                            with _qd2:
-                                if st.button('❌ Cancelar', key=f'q_del_no_{_rc_qid}', use_container_width=True):
-                                    st.query_params.clear()
-                                    st.rerun()
-                        elif _rc_action == 'edit':
-                            import json as _jq
-                            _q_items_raw = _rce_target.get('items') or []
-                            if isinstance(_q_items_raw, str):
-                                try: _q_items_raw = _jq.loads(_q_items_raw)
-                                except: _q_items_raw = []
-                            _qq1, _qq2, _qq3 = st.columns([2,2,1])
-                            with _qq1:
-                                _q_lugar = st.text_input('Lugar', value=_rce_target.get('lugar_compra','') or '', key=f'q_lugar_{_rc_qid}')
-                            with _qq2:
-                                _q_obs = st.text_input('Observaciones', value=_rce_target.get('observaciones','') or '', key=f'q_obs_{_rc_qid}')
-                            with _qq3:
-                                _q_fecha = st.text_input('Fecha entrega', value=_rce_target.get('fecha_entrega_compra','') or '', key=f'q_fecha_{_rc_qid}')
-                            import pandas as _pd_q
-                            _q_df = _pd_q.DataFrame([{
-                                'Eliminar': False,
-                                'Categoría': i.get('categoria',''),
-                                'Ítem': i.get('item',''),
-                                'Cant.': float(i.get('cantidad',1) or 1),
-                                'P. Presup. $': float(i.get('precio_presupuestado',0) or 0),
-                                'P. Real $': float(i.get('precio_real',0) or 0),
-                            } for i in _q_items_raw])
-                            _q_edited = st.data_editor(
-                                _q_df, use_container_width=True, hide_index=True,
-                                key=f'q_editor_{_rc_qid}',
-                                column_config={
-                                    'Eliminar': st.column_config.CheckboxColumn('🗑️', width='small'),
-                                    'Categoría': st.column_config.TextColumn('Categoría', disabled=True),
-                                    'Ítem': st.column_config.TextColumn('Ítem', disabled=True),
-                                    'Cant.': st.column_config.NumberColumn('Cant.', min_value=0, step=1),
-                                    'P. Presup. $': st.column_config.NumberColumn('P. Presup. $', disabled=True, format='$%.0f'),
-                                    'P. Real $': st.column_config.NumberColumn('P. Real $', min_value=0, step=100, format='$%.0f'),
-                                }
-                            )
-                            _q_total = (_q_edited['P. Real $'] * _q_edited['Cant.']).sum()
-                            _q_presup = (_q_edited['P. Presup. $'] * _q_edited['Cant.']).sum()
-                            st.markdown(f'<div style="text-align:right;font-size:0.82rem;font-weight:700;">Total real: ${_q_total:,.0f}</div>'.replace(',','.'), unsafe_allow_html=True)
-                            _qs1, _qs2 = st.columns([1,1])
-                            with _qs1:
-                                if st.button('💾 Guardar cambios', key=f'q_save_{_rc_qid}', use_container_width=True, type='primary'):
-                                    try:
-                                        _q_items_new = []
-                                        for _qi, _qr in _q_edited.iterrows():
-                                            if not _qr['Eliminar']:
-                                                _orig2 = dict(_q_items_raw[_qi]) if _qi < len(_q_items_raw) else {}
-                                                _orig2['cantidad'] = float(_qr['Cant.'])
-                                                _orig2['precio_real'] = float(_qr['P. Real $'])
-                                                _q_items_new.append(_orig2)
-                                        supabase.table('registro_compras').update({
-                                            'lugar_compra': _q_lugar,
-                                            'observaciones': _q_obs,
-                                            'fecha_entrega_compra': _q_fecha,
-                                            'items': _q_items_new,
-                                            'total_real': float(_q_total),
-                                            'total_presupuestado': float(_q_presup),
-                                            'balance': float(_q_presup - _q_total),
-                                        }).eq('id', _rc_qid).execute()
-                                        st.session_state.pop('_prods_map_key', None)
-                                        st.query_params.clear()
-                                        st.success('✅ Registro actualizado.')
-                                        st.rerun()
-                                    except Exception as _qe: st.error(f'Error: {_qe}')
-                            with _qs2:
-                                if st.button('❌ Cancelar', key=f'q_cancel_{_rc_qid}', use_container_width=True):
-                                    st.query_params.clear()
-                                    st.rerun()
 
                 # Formulario nuevo registro
                 st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 8px;">➕ Nuevo registro de compra</div>', unsafe_allow_html=True)
