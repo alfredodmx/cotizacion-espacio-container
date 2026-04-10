@@ -8286,7 +8286,7 @@ if tab1 is not None:
                 f'letter-spacing:.05em;margin-bottom:4px;">{_card["cat"]}{_tick}</div>'
                 f'<div style="display:flex;gap:10px;align-items:baseline;">'
                 f'<span style="font-size:13px;font-weight:700;color:#0f172a;">{_card["sub"]}</span>'
-                f'<span style="font-size:10px;color:#64748b;">c/IVA</span></div>'
+                f'<span style="font-size:10px;color:#64748b;">s/IVA</span></div>'
                 f'<div style="font-size:10px;color:#64748b;margin-top:2px;">'
                 f'{_card["items"]} ítems · {_card["cant"]} uds.</div></div>'
             )
