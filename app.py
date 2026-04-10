@@ -8970,14 +8970,29 @@ if tab3 is not None:
                     if _estado == "Sin compras":
                         return '<span style="color:#94a3b8;font-size:0.78rem;">Sin compras</span>'
                     elif _estado == "Compras 100%":
-                        return '<span style="color:#16a34a;font-weight:700;font-size:0.78rem;">✅ 100%</span>'
+                        return (
+                            '<div style="width:80px;">'
+                            '<div style="background:#dcfce7;border-radius:4px;height:6px;margin-bottom:3px;">'
+                            '<div style="background:#16a34a;border-radius:4px;height:6px;width:100%;"></div></div>'
+                            '<span style="color:#16a34a;font-weight:700;font-size:0.75rem;">✅ 100% comprado</span></div>'
+                        )
                     elif "adicionales" in _estado:
                         _nadd = len(_est["adicionales"])
-                        return (f'<span style="color:#16a34a;font-weight:700;font-size:0.78rem;cursor:pointer" '
-                                f'onclick="alert(\'Adicionales: {_nadd} ítem(s) extra\')">✅ 100% +{_nadd} adic.</span>')
+                        return (
+                            '<div style="width:80px;">'
+                            '<div style="background:#dcfce7;border-radius:4px;height:6px;margin-bottom:3px;">'
+                            '<div style="background:#16a34a;border-radius:4px;height:6px;width:100%;"></div></div>'
+                            f'<span style="color:#16a34a;font-weight:700;font-size:0.75rem;">✅ 100% +{_nadd} adic.</span></div>'
+                        )
                     else:
-                        _col = "#f97316" if _pct < 50 else "#eab308"
-                        return f'<span style="color:{_col};font-weight:700;font-size:0.78rem;">{_pct}%</span>'
+                        _col = '#f97316' if _pct < 50 else '#eab308'
+                        _bar_bg = '#ffedd5' if _pct < 50 else '#fef9c3'
+                        return (
+                            f'<div style="width:80px;">'
+                            f'<div style="background:{_bar_bg};border-radius:4px;height:6px;margin-bottom:3px;">'
+                            f'<div style="background:{_col};border-radius:4px;height:6px;width:{_pct}%;"></div></div>'
+                            f'<span style="color:{_col};font-weight:700;font-size:0.75rem;">{_pct}% comprado</span></div>'
+                        )
                 except:
                     return '<span style="color:#94a3b8;font-size:0.78rem;">—</span>'
             df_resultados["ComprasOK"] = df_resultados.apply(_fmt_compras_ok, axis=1)
