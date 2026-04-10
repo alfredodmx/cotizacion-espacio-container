@@ -9134,7 +9134,8 @@ if tab3 is not None:
                     _meses_fc   = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"]
                     _fent_str   = f"{_d_ent_fc.day} {_meses_fc[_d_ent_fc.month-1]} {_d_ent_fc.year}"
                     # Tiempo congelado al momento de subir el acta
-                    _d_entrega_real = _dt_cot.fromisoformat(_fecha_entrega_cot.replace("Z","+00:00")).astimezone(_tz_cl_cot) if _fecha_entrega_cot else _dt_cot.now(_tz_cl_cot)
+                    _fe_clean = _fecha_entrega_cot if (_fecha_entrega_cot and _fecha_entrega_cot not in ('None','nan','')) else ''
+                    _d_entrega_real = _dt_cot.fromisoformat(_fe_clean.replace("Z","+00:00")).astimezone(_tz_cl_cot) if _fe_clean else _dt_cot.now(_tz_cl_cot)
                     _d_entrega_date = _d_entrega_real.date()
                     # Calcular tiempo transcurrido desde adjudicación hasta fecha de entrega (congelado)
                     _diff_congelado = _d_entrega_real - _d_adj_fc
@@ -9164,7 +9165,8 @@ if tab3 is not None:
                         _hab_ret = dias_habiles_entre(_d_ent_fc, _d_entrega_date)
                         _retraso_html_cot = (f'<span style="color:#dc2626;font-weight:700;">⚠️ {_hab_ret}d hábiles</span>'
                                               f'<br><span style="font-size:0.72em;color:#dc2626;">entregado tarde</span>')
-                except: pass
+                except Exception as _e_fid:
+                    _fidel_html_cot = f'<span style="color:#dc2626;font-size:0.7em;">err:{str(_e_fid)[:40]}</span>'
             elif _es_adj_cot and _fadj_raw_cot:
                 try:
                     _cd_cot = row.get('Contrato_Datos') or {}
