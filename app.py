@@ -13049,129 +13049,120 @@ window.addEventListener("message",function(e){{
                     _n_regs = len(_rc_existentes)
                     _hist_comp.html(_hist_html, height=min(_n_regs*80+80, 600), scrolling=True)
 
-                # ── Botones Editar / Eliminar por registro ──
-                st.markdown('<div style="font-weight:700;font-size:0.82rem;color:#0f172a;margin:8px 0 4px;">🗂️ Gestionar registros</div>', unsafe_allow_html=True)
-                for _rce_btn in _rc_existentes:
-                    _rce_id   = _rce_btn.get('id','')
-                    _rce_lug  = _rce_btn.get('lugar_compra','') or _rce_btn.get('factura_nombre','Sin nombre') or 'Sin nombre'
-                    _rce_fecha_btn = ''
-                    try:
-                        from datetime import datetime as _dtb, timezone as _tzb, timedelta as _tdb
-                        _rce_fecha_btn = _dtb.fromisoformat(_rce_btn['fecha_registro'].replace('Z','+00:00')).astimezone(_tzb(_tdb(hours=-3))).strftime('%d/%m/%Y')
-                    except: pass
-                    _rce_total_btn = float(_rce_btn.get('total_real',0) or 0)
-                    _rce_lbl_btn = f"🧾 {_rce_lug} — ${_rce_total_btn:,.0f} — {_rce_fecha_btn}".replace(',','.')
-                    with st.expander(_rce_lbl_btn, expanded=False):
-                        _bcol1, _bcol2 = st.columns([1,1])
-                        with _bcol1:
-                            if st.button('🗑️ Eliminar este registro', key=f'rc_del_{_rce_id}', use_container_width=True, type='primary'):
-                                st.session_state[f'_rc_confirm_del_{_rce_id}'] = True
-                        with _bcol2:
-                            if st.button('✏️ Editar este registro', key=f'rc_edit_{_rce_id}', use_container_width=True):
-                                st.session_state[f'_rc_edit_id'] = _rce_id
-                                st.session_state[f'_rc_edit_data'] = _rce_btn
-                        # Confirmación eliminación
-                        if st.session_state.get(f'_rc_confirm_del_{_rce_id}'):
-                            st.warning('⚠️ ¿Confirmas eliminar este registro? Los ítems volverán a aparecer como pendientes.')
-                            _dc1, _dc2 = st.columns([1,1])
-                            with _dc1:
-                                if st.button('✅ Sí, eliminar', key=f'rc_del_ok_{_rce_id}', use_container_width=True):
+                # ── Gestionar registros (editar / eliminar) ──
+                if _rc_existentes:
+                    st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.82rem;color:#0f172a;margin:12px 0 6px;">🗂️ Gestionar registros de compra</div>', unsafe_allow_html=True)
+                    for _rce_g in _rc_existentes:
+                        _gid   = str(_rce_g.get('id',''))
+                        _glug  = _rce_g.get('lugar_compra','') or _rce_g.get('factura_nombre','Sin nombre') or 'Sin nombre'
+                        _gtotal = float(_rce_g.get('total_real',0) or 0)
+                        _gfecha = ''
+                        try:
+                            from datetime import datetime as _dtg, timezone as _tzg, timedelta as _tdg
+                            _gfecha = _dtg.fromisoformat(_rce_g['fecha_registro'].replace('Z','+00:00')).astimezone(_tzg(_tdg(hours=-3))).strftime('%d/%m/%Y')
+                        except: pass
+                        _glbl = f'🧾 {_glug} — ${_gtotal:,.0f} — {_gfecha}'.replace(',','.')
+                        with st.expander(_glbl, expanded=st.session_state.get(f'_rc_exp_{_gid}', False)):
+                            import json as _jg
+                            _g_items_raw = _rce_g.get('items') or []
+                            if isinstance(_g_items_raw, str):
+                                try: _g_items_raw = _jg.loads(_g_items_raw)
+                                except: _g_items_raw = []
+                            # Inicializar items en session_state
+                            _g_key = f'_g_items_{_gid}'
+                            if _g_key not in st.session_state:
+                                st.session_state[_g_key] = [dict(i) for i in _g_items_raw]
+                            _g_items = st.session_state[_g_key]
+                            # Datos generales editables
+                            _gg1, _gg2, _gg3 = st.columns([2,2,1])
+                            with _gg1:
+                                _g_lugar = st.text_input('Lugar', value=_rce_g.get('lugar_compra','') or '', key=f'g_lugar_{_gid}')
+                            with _gg2:
+                                _g_obs = st.text_input('Observaciones', value=_rce_g.get('observaciones','') or '', key=f'g_obs_{_gid}')
+                            with _gg3:
+                                _g_fecha = st.text_input('Fecha entrega', value=_rce_g.get('fecha_entrega_compra','') or '', key=f'g_fecha_{_gid}')
+                            # Tabla ítems con data_editor
+                            st.markdown('<div style="font-size:0.78rem;font-weight:700;color:#64748b;margin:8px 0 4px;">📦 Ítems — edita precio real o cantidad, usa ☑️ para marcar los que eliminarás</div>', unsafe_allow_html=True)
+                            import pandas as _pd_g
+                            _g_df = _pd_g.DataFrame([{
+                                'Eliminar': False,
+                                'Categoría': i.get('categoria',''),
+                                'Ítem': i.get('item',''),
+                                'Cant.': float(i.get('cantidad',1) or 1),
+                                'P. Presup.': float(i.get('precio_presupuestado',0) or 0),
+                                'P. Real': float(i.get('precio_real',0) or 0),
+                            } for i in _g_items])
+                            _g_edited = st.data_editor(
+                                _g_df,
+                                use_container_width=True,
+                                hide_index=True,
+                                key=f'g_editor_{_gid}',
+                                column_config={
+                                    'Eliminar': st.column_config.CheckboxColumn('🗑️', width='small'),
+                                    'Categoría': st.column_config.TextColumn('Categoría', disabled=True),
+                                    'Ítem': st.column_config.TextColumn('Ítem', disabled=True),
+                                    'Cant.': st.column_config.NumberColumn('Cant.', min_value=0, step=1),
+                                    'P. Presup.': st.column_config.NumberColumn('P. Presup. $', disabled=True, format='$%.0f'),
+                                    'P. Real': st.column_config.NumberColumn('P. Real $', min_value=0, step=100, format='$%.0f'),
+                                }
+                            )
+                            # Recalcular total
+                            _g_total_calc = (_g_edited['P. Real'] * _g_edited['Cant.']).sum()
+                            _g_presup_calc = (_g_edited['P. Presup.'] * _g_edited['Cant.']).sum()
+                            st.markdown(f'<div style="text-align:right;font-size:0.82rem;font-weight:700;">Total real: <span style="color:#0f172a;">${_g_total_calc:,.0f}</span></div>'.replace(',','.'), unsafe_allow_html=True)
+                            # Botones acción
+                            _gb1, _gb2, _gb3 = st.columns([1,1,1])
+                            with _gb1:
+                                if st.button('💾 Guardar cambios', key=f'g_save_{_gid}', use_container_width=True, type='primary'):
                                     try:
-                                        supabase.table('registro_compras').delete().eq('id', _rce_id).execute()
-                                        st.session_state.pop(f'_rc_confirm_del_{_rce_id}', None)
+                                        # Filtrar ítems no eliminados y actualizar valores
+                                        _g_items_nuevos = []
+                                        for _gi_idx, _gi_row in _g_edited.iterrows():
+                                            if not _gi_row['Eliminar']:
+                                                _orig = dict(_g_items[_gi_idx]) if _gi_idx < len(_g_items) else {}
+                                                _orig['cantidad'] = float(_gi_row['Cant.'])
+                                                _orig['precio_real'] = float(_gi_row['P. Real'])
+                                                _g_items_nuevos.append(_orig)
+                                        supabase.table('registro_compras').update({
+                                            'lugar_compra': _g_lugar,
+                                            'observaciones': _g_obs,
+                                            'fecha_entrega_compra': _g_fecha,
+                                            'items': _g_items_nuevos,
+                                            'total_real': float(_g_total_calc),
+                                            'total_presupuestado': float(_g_presup_calc),
+                                            'balance': float(_g_presup_calc - _g_total_calc),
+                                        }).eq('id', _gid).execute()
+                                        st.session_state.pop(_g_key, None)
                                         st.session_state.pop('_prods_map_key', None)
-                                        st.success('✅ Registro eliminado.')
+                                        st.success('✅ Registro actualizado.')
                                         st.rerun()
-                                    except Exception as _del_e:
-                                        st.error(f'Error: {_del_e}')
-                            with _dc2:
-                                if st.button('❌ Cancelar', key=f'rc_del_cancel_{_rce_id}', use_container_width=True):
-                                    st.session_state.pop(f'_rc_confirm_del_{_rce_id}', None)
+                                    except Exception as _ge: st.error(f'Error: {_ge}')
+                            with _gb2:
+                                if st.button('🗑️ Eliminar registro completo', key=f'g_del_{_gid}', use_container_width=True):
+                                    st.session_state[f'_g_confirm_{_gid}'] = True
+                            with _gb3:
+                                if st.button('❌ Cancelar', key=f'g_cancel_{_gid}', use_container_width=True):
+                                    st.session_state.pop(_g_key, None)
+                                    st.session_state.pop(f'_g_confirm_{_gid}', None)
                                     st.rerun()
-
-                # ── Modal edición ──
-                _edit_id = st.session_state.get('_rc_edit_id')
-                _edit_data = st.session_state.get('_rc_edit_data', {})
-                if _edit_id and _edit_data.get('id') == _edit_id:
-                    st.markdown('---')
-                    st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;color:#0f172a;margin-bottom:12px;">✏️ Editando registro</div>', unsafe_allow_html=True)
-                    # Datos generales
-                    _e1, _e2, _e3 = st.columns([2,2,1])
-                    with _e1:
-                        _ed_lugar = st.text_input('Lugar de compra', value=_edit_data.get('lugar_compra','') or '', key=f'ed_lugar_{_edit_id}')
-                    with _e2:
-                        _ed_obs = st.text_input('Observaciones', value=_edit_data.get('observaciones','') or '', key=f'ed_obs_{_edit_id}')
-                    with _e3:
-                        _ed_fecha = st.text_input('Fecha entrega', value=_edit_data.get('fecha_entrega_compra','') or '', key=f'ed_fecha_{_edit_id}')
-                    # Tabla de ítems editable
-                    st.markdown('<div style="font-weight:700;font-size:0.82rem;color:#0f172a;margin:10px 0 6px;">📦 Ítems de esta factura</div>', unsafe_allow_html=True)
-                    import json as _jed
-                    _ed_items_raw = _edit_data.get('items') or []
-                    if isinstance(_ed_items_raw, str):
-                        try: _ed_items_raw = _jed.loads(_ed_items_raw)
-                        except: _ed_items_raw = []
-                    # Inicializar items editables en session_state
-                    if f'_ed_items_{_edit_id}' not in st.session_state:
-                        st.session_state[f'_ed_items_{_edit_id}'] = [dict(i) for i in _ed_items_raw]
-                    _ed_items = st.session_state[f'_ed_items_{_edit_id}']
-                    # Encabezado tabla
-                    _hc = st.columns([2, 3, 1, 1.5, 1.5, 0.8])
-                    for _lbl, _col in zip(['Categoría','Ítem','Cant.','P. Presup.','P. Real',''], _hc):
-                        _col.markdown(f'<div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;">{_lbl}</div>', unsafe_allow_html=True)
-                    _items_a_eliminar = []
-                    for _ei, _eitem in enumerate(_ed_items):
-                        _ic = st.columns([2, 3, 1, 1.5, 1.5, 0.8])
-                        with _ic[0]:
-                            st.markdown(f'<div style="font-size:0.78rem;padding-top:8px;color:#64748b;">{_eitem.get("categoria","")}</div>', unsafe_allow_html=True)
-                        with _ic[1]:
-                            st.markdown(f'<div style="font-size:0.78rem;padding-top:8px;font-weight:600;">{_eitem.get("item","")}</div>', unsafe_allow_html=True)
-                        with _ic[2]:
-                            _new_cant = st.number_input('', value=float(_eitem.get('cantidad',1) or 1), min_value=0.0, step=1.0, key=f'ed_cant_{_edit_id}_{_ei}', label_visibility='collapsed')
-                            _ed_items[_ei]['cantidad'] = _new_cant
-                        with _ic[3]:
-                            st.markdown(f'<div style="font-size:0.78rem;padding-top:8px;text-align:right;">${float(_eitem.get("precio_presupuestado",0) or 0):,.0f}</div>'.replace(',','.'), unsafe_allow_html=True)
-                        with _ic[4]:
-                            _new_pr = st.number_input('', value=float(_eitem.get('precio_real',0) or 0), min_value=0.0, step=100.0, key=f'ed_pr_{_edit_id}_{_ei}', label_visibility='collapsed')
-                            _ed_items[_ei]['precio_real'] = _new_pr
-                        with _ic[5]:
-                            if st.button('🗑️', key=f'ed_del_item_{_edit_id}_{_ei}', help='Eliminar ítem'):
-                                _items_a_eliminar.append(_ei)
-                    # Eliminar ítems marcados
-                    if _items_a_eliminar:
-                        st.session_state[f'_ed_items_{_edit_id}'] = [i for j,i in enumerate(_ed_items) if j not in _items_a_eliminar]
-                        st.rerun()
-                    # Recalcular total real
-                    _ed_total_calc = sum(float(i.get('precio_real',0) or 0) * float(i.get('cantidad',1) or 1) for i in _ed_items)
-                    _ed_presup_calc = sum(float(i.get('precio_presupuestado',0) or 0) * float(i.get('cantidad',1) or 1) for i in _ed_items)
-                    st.markdown(f'<div style="text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;margin-top:4px;">Total real: ${_ed_total_calc:,.0f}</div>'.replace(',','.'), unsafe_allow_html=True)
-                    st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
-                    _es1, _es2 = st.columns([1,1])
-                    with _es1:
-                        if st.button('💾 Guardar cambios', key=f'ed_save_{_edit_id}', use_container_width=True, type='primary'):
-                            try:
-                                supabase.table('registro_compras').update({
-                                    'lugar_compra': _ed_lugar,
-                                    'observaciones': _ed_obs,
-                                    'fecha_entrega_compra': _ed_fecha,
-                                    'items': _ed_items,
-                                    'total_real': _ed_total_calc,
-                                    'total_presupuestado': _ed_presup_calc,
-                                    'balance': _ed_presup_calc - _ed_total_calc,
-                                }).eq('id', _edit_id).execute()
-                                st.session_state.pop('_rc_edit_id', None)
-                                st.session_state.pop('_rc_edit_data', None)
-                                st.session_state.pop(f'_ed_items_{_edit_id}', None)
-                                st.session_state.pop('_prods_map_key', None)
-                                st.success('✅ Registro actualizado.')
-                                st.rerun()
-                            except Exception as _ed_e:
-                                st.error(f'Error: {_ed_e}')
-                    with _es2:
-                        if st.button('❌ Cancelar edición', key=f'ed_cancel_{_edit_id}', use_container_width=True):
-                            st.session_state.pop('_rc_edit_id', None)
-                            st.session_state.pop('_rc_edit_data', None)
-                            st.session_state.pop(f'_ed_items_{_edit_id}', None)
-                            st.rerun()
+                            # Confirmación eliminación completa
+                            if st.session_state.get(f'_g_confirm_{_gid}'):
+                                st.warning('⚠️ ¿Eliminar este registro completo? Los ítems volverán como pendientes.')
+                                _gc1, _gc2 = st.columns([1,1])
+                                with _gc1:
+                                    if st.button('✅ Confirmar eliminación', key=f'g_del_ok_{_gid}', use_container_width=True):
+                                        try:
+                                            supabase.table('registro_compras').delete().eq('id', _gid).execute()
+                                            st.session_state.pop(_g_key, None)
+                                            st.session_state.pop(f'_g_confirm_{_gid}', None)
+                                            st.session_state.pop('_prods_map_key', None)
+                                            st.success('✅ Registro eliminado.')
+                                            st.rerun()
+                                        except Exception as _gde: st.error(f'Error: {_gde}')
+                                with _gc2:
+                                    if st.button('❌ No eliminar', key=f'g_del_no_{_gid}', use_container_width=True):
+                                        st.session_state.pop(f'_g_confirm_{_gid}', None)
+                                        st.rerun()
 
                 # Formulario nuevo registro
                 st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 8px;">➕ Nuevo registro de compra</div>', unsafe_allow_html=True)
