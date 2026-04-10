@@ -13041,7 +13041,9 @@ function openEditor(idx){{
     rows+="<div class='ed-grid' id='row-"+idx+"-"+i+"'>"
       +"<div class='ed-txt' style='color:#64748b;font-size:10px;'>"+it.categoria+"</div>"
       +"<div class='ed-txt'>"+(isSinReg?"<span style='color:#a855f7;font-size:9px;'>⚪ s/reg </span>":"")+it.item+"</div>"
-      +"<input class='ed-inp' id='c-"+idx+"-"+i+"' type='number' min='0' step='1' value='"+(it.cantidad||1)+"'/>"
+      +(isSinReg
+        ?"<input class='ed-inp' id='c-"+idx+"-"+i+"' type='number' min='0' step='1' value='"+(it.cantidad||1)+"' title='Adicional sin registro — editable'/>"
+        :"<div class='ed-txt' style='text-align:right;color:#94a3b8;' id='c-"+idx+"-"+i+"-ro'>"+Math.round(it.cantidad||1)+"</div><input type='hidden' id='c-"+idx+"-"+i+"' value='"+(it.cantidad||1)+"'/>")
       +ppCell
       +"<input class='ed-inp' id='p-"+idx+"-"+i+"' type='number' min='0' step='100' value='"+(it.precio_real||0)+"'/>"
       +"<button class='ed-rm' onclick='toggleRm("+idx+","+i+")'>🗑</button>"
