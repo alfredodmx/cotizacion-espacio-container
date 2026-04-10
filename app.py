@@ -13022,12 +13022,12 @@ function setAction(action,id){{
   else if(action==='delete') confirmDelete(id);
 }}
 function openEditor(id){{
-  // Cerrar otros editores abiertos
-  document.querySelectorAll('.reg-editor').forEach(function(e){{e.classList.remove('open');}});
+  document.querySelectorAll('.reg-editor').forEach(function(e){{e.classList.remove('open');e.innerHTML='';}});
   var ed=document.getElementById('editor-'+id);
   if(!ed)return;
+  deletedItems[id]=[];
+  ed.innerHTML=buildEditorHTML(id);
   ed.classList.add('open');
-  // Abrir el body de la card si está cerrado
   var body=document.getElementById('body-'+id);
   if(body)body.classList.add('open');
 }}
@@ -13048,7 +13048,7 @@ function confirmDelete(id){{
 }}
 function cancelAction(id){{
   var ed=document.getElementById('editor-'+id);
-  if(ed){{ed.classList.remove('open');ed.innerHTML=buildEditorHTML(id);}}
+  if(ed){{ed.classList.remove('open');ed.innerHTML='';}}
   deletedItems[id]=[];
 }}
 function toggleItemDel(id,idx){{
@@ -13160,7 +13160,6 @@ function renderRegs(){{
     var body=document.createElement('div');body.className='reg-body';body.id='body-'+rid;
     body.innerHTML='<table><thead><tr><th style="text-align:left">Categoría</th><th style="text-align:left">Ítem</th><th>Cant.</th><th>Presup.</th><th>Real</th><th>Adic.</th><th>Dif.</th></tr></thead><tbody>'+r.rows+'</tbody></table>'+r.footer;
     var editor=document.createElement('div');editor.className='reg-editor';editor.id='editor-'+rid;
-    editor.innerHTML=buildEditorHTML(rid);
     hdr.onclick=function(){{body.classList.toggle('open');hdr.querySelector('span:last-child').textContent=body.classList.contains('open')?'▲':'▼';}};
     card.appendChild(hdr);card.appendChild(body);card.appendChild(editor);d.appendChild(card);
   }});
