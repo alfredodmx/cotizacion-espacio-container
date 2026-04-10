@@ -9182,11 +9182,31 @@ if tab3 is not None:
                         f'<br><span style="font-size:0.68em;color:#94a3b8;">{_plazo_cot} días hábiles</span>'
                         f'<br><span style="font-size:0.72em;color:#7c3aed;font-weight:700;">🟣 FINALIZADO</span>'
                     )
+                    # Calcular diferencia entre fecha entrega real y fecha límite
+                    _d_ent_dt_lim = _dt_cot.combine(_d_ent_fc, _dt_cot.min.time()).replace(tzinfo=_tz_cl_cot)
+                    _diff_retraso = _d_entrega_real - _d_ent_dt_lim
+                    _seg_ret = int(abs(_diff_retraso.total_seconds()))
+                    _dd_r = _seg_ret // 86400
+                    _hh_r = (_seg_ret % 86400) // 3600
+                    _mm_r = (_seg_ret % 3600) // 60
+                    _ss_r = _seg_ret % 60
+                    _txt_ret = ''
+                    if _dd_r > 0: _txt_ret += f'{_dd_r}d '
+                    if _hh_r > 0: _txt_ret += f'{_hh_r}h '
+                    if _mm_r > 0: _txt_ret += f'{_mm_r}m '
+                    _txt_ret += f'{_ss_r}s'
                     if _d_entrega_date > _d_ent_fc:
-                        # Se entregó con retraso
-                        _hab_ret = dias_habiles_entre(_d_ent_fc, _d_entrega_date)
-                        _retraso_html_cot = (f'<span style="color:#dc2626;font-weight:700;">⚠️ {_hab_ret}d hábiles</span>'
-                                              f'<br><span style="font-size:0.72em;color:#dc2626;">entregado tarde</span>')
+                        # Se entregó con retraso — rojo
+                        _retraso_html_cot = (
+                            f'<span style="color:#dc2626;font-weight:700;font-variant-numeric:tabular-nums;">⚠️ {_txt_ret}</span>'
+                            f'<br><span style="font-size:0.72em;color:#dc2626;font-weight:600;">tiempo en contra</span>'
+                        )
+                    else:
+                        # Se entregó a tiempo — verde con tiempo a favor
+                        _retraso_html_cot = (
+                            f'<span style="color:#16a34a;font-weight:700;font-variant-numeric:tabular-nums;">✅ {_txt_ret}</span>'
+                            f'<br><span style="font-size:0.72em;color:#16a34a;font-weight:600;">tiempo a favor</span>'
+                        )
                 except: pass
             elif _es_adj_cot and _fadj_raw_cot:
                 try:
