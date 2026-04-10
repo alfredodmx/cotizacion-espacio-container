@@ -12949,7 +12949,7 @@ window.addEventListener("message",function(e){{
                     _rc_cards_divs = ''
                     for _rci, (_rcc, _rcv) in enumerate(sorted(_rc_cats_seen.items())):
                         _rccolor = _rc_cat_colors[_rci % len(_rc_cat_colors)]
-                        _rc_sub_fmt = f'${_rcv["subtotal"]*1.19:,.0f}'.replace(',','.')
+                        _rc_sub_fmt = f'${_rcv["subtotal"]:,.0f}'.replace(',','.')
                         _rc_cards_divs += (
                             f'<div class="rc-cat-card" data-cat="{_rcc}" data-color="{_rccolor}" '
                             f'style="background:#fff;border:1.5px solid {_rccolor}33;border-left:4px solid {_rccolor};'
@@ -12959,7 +12959,7 @@ window.addEventListener("message",function(e){{
                             f'{_rcc}<span class="rc-tick" style="display:none"> ✓</span></div>'
                             f'<div style="display:flex;gap:10px;align-items:baseline;">'
                             f'<span style="font-size:13px;font-weight:700;color:#0f172a;font-family:Montserrat,\'Segoe UI\',sans-serif;">{_rc_sub_fmt}</span>'
-                            f'<span style="font-size:10px;color:#64748b;font-family:Montserrat,\'Segoe UI\',sans-serif;">c/IVA</span></div>'
+                            f'<span style="font-size:10px;color:#64748b;font-family:Montserrat,\'Segoe UI\',sans-serif;">s/IVA</span></div>'
                             f'<div style="font-size:10px;color:#64748b;font-family:Montserrat,\'Segoe UI\',sans-serif;margin-top:2px;">'
                             f'{_rcv["items"]} ítems · {_rcv["cant"]} uds.</div></div>'
                         )
