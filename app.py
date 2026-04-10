@@ -12916,7 +12916,12 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         elif _tiene_con: _rce_prefix = '🟠 '
                         else: _rce_prefix = '🟢 '
                         _rce_adic_txt = ' · ➕ Compra adicional' if _tiene_con else (' · ⚪ Sin registro' if _tiene_sin else '')
-                        _titulo = f"{_rce_prefix}🏪 Compraste en: {_rce_lugar}{_rce_adic_txt} — {_rce_icon} {_rce_lbl} {_rce_fmt}" if _rce_lugar else f"{_rce_prefix}🧾 {_rce.get('factura_nombre','Sin factura')}{_rce_adic_txt} — {_rce_icon} {_rce_lbl} {_rce_fmt}"
+                        _total_real_t = float(_rce.get('total_real',0) or 0)
+                        _total_iva_t = _total_real_t * 1.19
+                        _siva_fmt = f'${_total_real_t:,.0f}'.replace(',','.')
+                        _civa_fmt = f'${_total_iva_t:,.0f}'.replace(',','.')
+                        _totales_txt = f' · {_siva_fmt} s/IVA · {_civa_fmt} c/IVA'
+                        _titulo = f"{_rce_prefix}🏪 Compraste en: {_rce_lugar}{_rce_adic_txt}{_totales_txt} — {_rce_icon} {_rce_lbl} {_rce_fmt}" if _rce_lugar else f"{_rce_prefix}🧾 {_rce.get('factura_nombre','Sin factura')}{_rce_adic_txt}{_totales_txt} — {_rce_icon} {_rce_lbl} {_rce_fmt}"
                         # Tabla items
                         _rows_h = ''
                         for _ri3, _it in enumerate(_rce_items_h):
@@ -12959,12 +12964,14 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
                         _footer_h += f"<span style='color:{'#0f172a' if _rce_obs2 else '#94a3b8'};font-style:{'normal' if _rce_obs2 else 'italic'};'>📝 {_rce_obs2 if _rce_obs2 else 'Sin observaciones'}</span></div>"
                         import json as _jreg
                         _items_ser = _rce_items_h
+                        _total_real_meta = float(_rce.get('total_real',0) or 0)
                         _reg_meta = {
                             'id': str(_rce.get('id','')),
                             'lugar': _rce.get('lugar_compra','') or '',
                             'obs': _rce.get('observaciones','') or '',
                             'fent': _rce.get('fecha_entrega_compra','') or '',
                             'items': _items_ser,
+                            'total_real': _total_real_meta,
                         }
                         _reg_meta_str = _jreg.dumps(_reg_meta, ensure_ascii=True)
                         _hist_regs.append({'tipo': _rce_tipo_k, 'titulo': _titulo, 'rows': _rows_h, 'footer': _footer_h, 'meta': _reg_meta_str})
@@ -13024,14 +13031,18 @@ function openEditor(idx){{
   var m=JSON.parse(r.meta);
   removed[idx]=[];
   var items=m.items||[];
-  var hd="<div class='ed-grid'><div class='ed-hdr'>Cat.</div><div class='ed-hdr'>Ítem</div><div class='ed-hdr'>Cant.</div><div class='ed-hdr'>Presup.</div><div class='ed-hdr'>Real</div><div></div></div>";
+  var hd="<div class='ed-grid'><div class='ed-hdr'>Cat.</div><div class='ed-hdr'>Ítem</div><div class='ed-hdr'>Cant.</div><div class='ed-hdr'>Presup.</div><div class='ed-hdr'>P.Real</div><div></div></div>";
   var rows="";
   items.forEach(function(it,i){{
+    var isSinReg=it.sin_registro||false;
+    var ppCell=isSinReg
+      ?"<input class='ed-inp' id='pp-"+idx+"-"+i+"' type='number' min='0' step='100' value='"+(it.precio_presupuestado||0)+"' title='Adicional sin registro — editable'/>"
+      :"<div class='ed-txt' style='text-align:right;color:#94a3b8;'>$"+Math.round(it.precio_presupuestado||0).toLocaleString("de-DE")+"</div>";
     rows+="<div class='ed-grid' id='row-"+idx+"-"+i+"'>"
       +"<div class='ed-txt' style='color:#64748b;font-size:10px;'>"+it.categoria+"</div>"
-      +"<div class='ed-txt'>"+it.item+"</div>"
+      +"<div class='ed-txt'>"+(isSinReg?"<span style='color:#a855f7;font-size:9px;'>⚪ s/reg </span>":"")+it.item+"</div>"
       +"<input class='ed-inp' id='c-"+idx+"-"+i+"' type='number' min='0' step='1' value='"+(it.cantidad||1)+"'/>"
-      +"<div class='ed-txt' style='text-align:right;color:#64748b;'>$"+Math.round(it.precio_presupuestado||0).toLocaleString("de-DE")+"</div>"
+      +ppCell
       +"<input class='ed-inp' id='p-"+idx+"-"+i+"' type='number' min='0' step='100' value='"+(it.precio_real||0)+"'/>"
       +"<button class='ed-rm' onclick='toggleRm("+idx+","+i+")'>🗑</button>"
       +"</div>";
@@ -13069,8 +13080,10 @@ function saveEdit(idx){{
     if(removed[idx]&&removed[idx].indexOf(i)>-1)return;
     var c=parseFloat(document.getElementById("c-"+idx+"-"+i).value)||1;
     var p=parseFloat(document.getElementById("p-"+idx+"-"+i).value)||0;
-    var it2=Object.assign({{}},it,{{cantidad:c,precio_real:p}});
-    newItems.push(it2);tR+=c*p;tP+=c*(it.precio_presupuestado||0);
+    var ppEl=document.getElementById("pp-"+idx+"-"+i);
+    var pp=ppEl?parseFloat(ppEl.value)||0:(it.precio_presupuestado||0);
+    var it2=Object.assign({{}},it,{{cantidad:c,precio_real:p,precio_presupuestado:pp}});
+    newItems.push(it2);tR+=c*p;tP+=c*pp;
   }});
   var payload={{
     items:newItems,
