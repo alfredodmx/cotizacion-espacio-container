@@ -9121,24 +9121,34 @@ if tab3 is not None:
             # Fidelización y Retraso
             _fidel_html_cot   = '<span style="color:#94a3b8;">—</span>'
             _retraso_html_cot = '<span style="color:#94a3b8;">—</span>'
-            if _tiene_acta_cot and _es_adj_cot and _fadj_raw_cot:
-                # Proyecto terminado — calcular si hubo retraso
+            if _tiene_acta_cot and _fadj_raw_cot:
+                # Proyecto terminado — mostrar tiempo transcurrido + Finalizado en morado
                 try:
                     _cd_cot = row.get('Contrato_Datos') or {}
                     if isinstance(_cd_cot, str) and _cd_cot: _cd_cot = _json_cot.loads(_cd_cot)
                     _plazo_cot = int((_cd_cot or {}).get('plazo_dias', 0) or 0)
                     if _plazo_cot <= 0: _plazo_cot = 45
-                    _d_adj_fc  = _dt_cot.fromisoformat(_fadj_raw_cot.replace("Z","+00:00")).astimezone(_tz_cl_cot)
+                    _d_adj_fc   = _dt_cot.fromisoformat(_fadj_raw_cot.replace("Z","+00:00")).astimezone(_tz_cl_cot)
                     _d_adj_date = _d_adj_fc.date()
-                    _d_ent_fc  = sumar_dias_habiles(_d_adj_date, _plazo_cot)
+                    _d_ent_fc   = sumar_dias_habiles(_d_adj_date, _plazo_cot)
+                    _meses_fc   = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"]
+                    _fent_str   = f"{_d_ent_fc.day} {_meses_fc[_d_ent_fc.month-1]} {_d_ent_fc.year}"
                     # fecha real de entrega (acta)
-                    _d_entrega_real = _dt_cot.fromisoformat(_fecha_entrega_cot.replace("Z","+00:00")).astimezone(_tz_cl_cot).date() if _fecha_entrega_cot else _dt_cot.now(_tz_cl_cot).date()
-                    _fidel_html_cot = '<span style="color:#2563eb;font-weight:700;">✅ Finalizado</span>'
+                    _d_entrega_real = _dt_cot.fromisoformat(_fecha_entrega_cot.replace("Z","+00:00")).astimezone(_tz_cl_cot).date() if _fecha_entrega_cot else _d_ent_fc
+                    # días hábiles transcurridos desde adjudicación hasta entrega real
+                    _hab_usados = dias_habiles_entre(_d_adj_date, _d_entrega_real)
+                    _pct_usado  = min(round((_hab_usados / _plazo_cot) * 100, 1), 100.0) if _plazo_cot > 0 else 100.0
+                    _fidel_html_cot = (
+                        f'<div style="display:flex;align-items:center;gap:6px;">'
+                        f'<span style="color:#7c3aed;font-weight:700;font-variant-numeric:tabular-nums;">{_hab_usados}d háb. usados</span>'
+                        f'<span style="font-size:1.2rem;font-weight:900;color:#7c3aed;">{_pct_usado}%</span>'
+                        f'</div>'
+                        f'<span style="font-size:0.72em;color:#64748b;font-weight:600;">📅 {_fent_str}</span>'
+                        f'<br><span style="font-size:0.72em;color:#7c3aed;font-weight:700;">🟣 Finalizado</span>'
+                    )
                     if _d_entrega_real > _d_ent_fc:
                         # Se entregó con retraso
                         _hab_ret = dias_habiles_entre(_d_ent_fc, _d_entrega_real)
-                        _d_ent_dt  = _dt_cot.combine(_d_ent_fc, _dt_cot.min.time()).replace(tzinfo=_tz_cl_cot)
-                        _ts_venc_cot = int(_d_ent_dt.timestamp() * 1000)
                         _retraso_html_cot = (f'<span style="color:#dc2626;font-weight:700;">⚠️ {_hab_ret}d hábiles</span>'
                                               f'<br><span style="font-size:0.72em;color:#dc2626;">entregado tarde</span>')
                 except: pass
