@@ -514,33 +514,62 @@ if _modo_cliente:
                     _prev  = _resps_map.get(_pid, '')
                     _lbl   = ("* " if _preq else "") + _ptext
 
+                    # Contenedor visual por pregunta
+                    st.markdown(f"""
+                    <div style='background:white;border:1px solid #e2e8f0;border-radius:12px;
+                                padding:16px 18px;margin-bottom:12px;'>
+                      <div style='font-size:0.9rem;font-weight:700;color:#0f172a;margin-bottom:10px;'>
+                        {'⭐ ' if _preq else ''}{_ptext}
+                      </div>
+                    """, unsafe_allow_html=True)
+
                     if _ptipo == 'color':
-                        st.markdown(f"<div style='font-size:0.85rem;font-weight:600;color:#0f172a;margin-bottom:6px;'>{_lbl}</div>", unsafe_allow_html=True)
                         if _popts:
-                            _chtml = "<div style='display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;'>"
-                            for _opt in _popts:
+                            # Mostrar círculos clickeables — al hacer click guarda directo
+                            _ncols_c = min(len(_popts), 6)
+                            _ccols = st.columns(_ncols_c)
+                            for _oi, _opt in enumerate(_popts):
                                 _on  = _opt.get('nombre','') if isinstance(_opt, dict) else str(_opt)
                                 _ohx = _opt.get('hex','#ccc') if isinstance(_opt, dict) else '#ccc'
-                                _brd = '3px solid #0f3460' if _prev == _on else '2px solid #e2e8f0'
-                                _chtml += f"<div style='text-align:center;'><div style='width:44px;height:44px;border-radius:50%;background:{_ohx};border:{_brd};margin:0 auto 4px;'></div><div style='font-size:10px;color:#64748b;'>{_on}</div></div>"
-                            _chtml += "</div>"
-                            st.markdown(_chtml, unsafe_allow_html=True)
-                        _nuevas_resps[_pid] = st.text_input('', value=_prev, key=f'cli_{_pid}', label_visibility='collapsed', placeholder='Nombre del color')
+                                _issel = _prev == _on
+                                with _ccols[_oi % _ncols_c]:
+                                    _shadow = 'box-shadow:0 0 0 3px #0f3460;' if _issel else ''
+                                    _check = '✓' if _issel else ''
+                                    st.markdown(f"""
+                                    <div style='text-align:center;margin-bottom:4px;'>
+                                      <div style='width:48px;height:48px;border-radius:50%;background:{_ohx};
+                                                  {_shadow}margin:0 auto 6px;position:relative;'>
+                                        <span style='position:absolute;inset:0;display:flex;align-items:center;
+                                                     justify-content:center;color:white;font-weight:900;
+                                                     font-size:1.1rem;text-shadow:0 1px 3px rgba(0,0,0,0.5);'>{_check}</span>
+                                      </div>
+                                      <div style='font-size:10px;color:#64748b;font-weight:600;'>{_on}</div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    if st.button(' ', key=f'col_{_pid}_{_oi}', use_container_width=True,
+                                                 help=_on, type='primary' if _issel else 'secondary'):
+                                        try:
+                                            supabase.table('formulario_respuestas').upsert({
+                                                'cotizacion_numero': _ep_cli, 'pregunta_id': _pid, 'respuesta': _on
+                                            }, on_conflict='cotizacion_numero,pregunta_id').execute()
+                                        except: pass
+                                        st.rerun()
+                        _nuevas_resps[_pid] = _prev
 
                     elif _ptipo == 'imagen':
-                        st.markdown(f"<div style='font-size:0.85rem;font-weight:600;color:#0f172a;margin-bottom:6px;'>{_lbl}</div>", unsafe_allow_html=True)
                         if _popts:
                             _icols = st.columns(min(len(_popts), 3))
                             for _oi, _opt in enumerate(_popts):
-                                _on  = _opt.get('nombre','') if isinstance(_opt, dict) else str(_opt)
+                                _on   = _opt.get('nombre','') if isinstance(_opt, dict) else str(_opt)
                                 _ourl = _opt.get('url','') if isinstance(_opt, dict) else ''
                                 _issel = _prev == _on
                                 with _icols[_oi % 3]:
+                                    _brd2 = '3px solid #0f3460' if _issel else '1px solid #e2e8f0'
+                                    _bg2  = '#dbeafe' if _issel else 'white'
                                     if _ourl:
-                                        _brd2 = "3px solid #0f3460" if _issel else "2px solid #e2e8f0"
-                                        st.markdown(f"<img src='{_ourl}' style='width:100%;border-radius:8px;border:{_brd2};margin-bottom:4px;'>", unsafe_allow_html=True)
-                                    if st.button(_on, key=f'img_{_pid}_{_oi}', use_container_width=True,
-                                                 type='primary' if _issel else 'secondary'):
+                                        st.markdown(f"<img src='{_ourl}' style='width:100%;border-radius:10px;border:{_brd2};margin-bottom:6px;'>", unsafe_allow_html=True)
+                                    if st.button(('✅ ' if _issel else '') + _on, key=f'img_{_pid}_{_oi}',
+                                                 use_container_width=True, type='primary' if _issel else 'secondary'):
                                         try:
                                             supabase.table('formulario_respuestas').upsert({
                                                 'cotizacion_numero': _ep_cli, 'pregunta_id': _pid, 'respuesta': _on
@@ -552,15 +581,38 @@ if _modo_cliente:
                     elif _ptipo == 'select':
                         _ol = [o.get('nombre','') if isinstance(o,dict) else str(o) for o in _popts] if _popts else []
                         _ix = _ol.index(_prev) if _prev in _ol else 0
-                        _nuevas_resps[_pid] = st.selectbox(_lbl, _ol, index=_ix, key=f'cli_{_pid}')
+                        _nuevas_resps[_pid] = st.selectbox('', _ol, index=_ix, key=f'cli_{_pid}', label_visibility='collapsed')
 
                     elif _ptipo == 'si_no':
-                        _sno = ['Sí','No']
-                        _ix2 = _sno.index(_prev) if _prev in _sno else 0
-                        _nuevas_resps[_pid] = st.radio(_lbl, _sno, index=_ix2, key=f'cli_{_pid}', horizontal=True)
+                        _sno_c = st.columns(2)
+                        with _sno_c[0]:
+                            _si_sel = _prev == 'Sí'
+                            if st.button('✅ Sí', key=f'sn_si_{_pid}', use_container_width=True,
+                                         type='primary' if _si_sel else 'secondary'):
+                                try:
+                                    supabase.table('formulario_respuestas').upsert({
+                                        'cotizacion_numero': _ep_cli, 'pregunta_id': _pid, 'respuesta': 'Sí'
+                                    }, on_conflict='cotizacion_numero,pregunta_id').execute()
+                                except: pass
+                                st.rerun()
+                        with _sno_c[1]:
+                            _no_sel = _prev == 'No'
+                            if st.button('❌ No', key=f'sn_no_{_pid}', use_container_width=True,
+                                         type='primary' if _no_sel else 'secondary'):
+                                try:
+                                    supabase.table('formulario_respuestas').upsert({
+                                        'cotizacion_numero': _ep_cli, 'pregunta_id': _pid, 'respuesta': 'No'
+                                    }, on_conflict='cotizacion_numero,pregunta_id').execute()
+                                except: pass
+                                st.rerun()
+                        _nuevas_resps[_pid] = _prev
 
                     else:
-                        _nuevas_resps[_pid] = st.text_area(_lbl, value=_prev, key=f'cli_{_pid}', height=80)
+                        _nuevas_resps[_pid] = st.text_area('', value=_prev, key=f'cli_{_pid}',
+                                                            height=80, label_visibility='collapsed',
+                                                            placeholder='Escribe tu respuesta aquí...')
+
+                    st.markdown("</div>", unsafe_allow_html=True)
 
             st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
             if st.button("💾 Guardar formulario", type="primary", use_container_width=True, key="cli_guardar"):
