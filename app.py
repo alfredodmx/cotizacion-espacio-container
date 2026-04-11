@@ -944,7 +944,6 @@ def guardar_plano_en_storage(archivo_pdf_bytes, cotizacion_numero, nombre_origin
 # Usando triple-quoted strings para evitar conflictos de comillas
 
 def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4):
-    # Build existing catalog section
     grupos = {}
     for c in cat_items:
         cat = c.get('categoria', 'General')
@@ -976,61 +975,64 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
     if not cat_html:
         cat_html = '<p style="color:#64748b;padding:8px;">El catalogo esta vacio. Agrega materiales abajo.</p>'
 
-    # Build items rows in Python based on current tipo/cantidad
     items_rows = ''
     if tipo == 'si_no':
         items_rows = '<p style="color:#64748b;font-size:12px;padding:6px;">Solo tendra opciones Si / No.</p>'
     elif tipo == 'select':
         items_rows = '<div style="font-weight:700;font-size:11px;color:#64748b;margin-bottom:6px;">OPCIONES</div>'
         for i in range(cantidad):
-            items_rows += '<div style="margin-bottom:6px;">'
-            items_rows += '<input type="text" id="item-nombre-' + str(i) + '" placeholder="Opcion ' + str(i+1) + '" '
-            items_rows += 'style="width:100%;padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;box-sizing:border-box;">'
-            items_rows += '</div>'
+            items_rows += '<div style="margin-bottom:6px;"><input type="text" id="item-nombre-' + str(i) + '" placeholder="Opcion ' + str(i+1) + '" style="width:100%;padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;box-sizing:border-box;"></div>'
     elif tipo == 'color':
         items_rows = '<div style="font-weight:700;font-size:11px;color:#64748b;margin-bottom:6px;">COLORES</div>'
         for i in range(cantidad):
             items_rows += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;padding:6px;background:#f8fafc;border-radius:7px;border:1px solid #e2e8f0;align-items:center;">'
             items_rows += '<input type="text" id="item-nombre-' + str(i) + '" placeholder="Nombre color ' + str(i+1) + '" style="padding:5px 7px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px;">'
             items_rows += '<div style="display:flex;align-items:center;gap:8px;">'
-            items_rows += '<input type="color" id="item-hex-' + str(i) + '" value="#ffffff" style="width:50px;height:36px;border-radius:6px;cursor:pointer;" '
-            items_rows += 'oninput="document.getElementById(\'prev-' + str(i) + '\').style.background=this.value">'
+            items_rows += '<input type="color" id="item-hex-' + str(i) + '" value="#ffffff" style="width:50px;height:36px;border-radius:6px;cursor:pointer;" oninput="document.getElementById(\'prev-' + str(i) + '\').style.background=this.value">'
             items_rows += '<div id="prev-' + str(i) + '" style="width:36px;height:36px;border-radius:50%;background:#fff;border:2px solid #e2e8f0;"></div>'
             items_rows += '</div></div>'
-    else:  # imagen
-        items_rows = '<div style="font-weight:700;font-size:11px;color:#64748b;margin-bottom:8px;">IMAGENES — escribe el nombre y selecciona la imagen</div>'
+    else:
+        items_rows = '<div style="font-weight:700;font-size:11px;color:#64748b;margin-bottom:8px;">IMAGENES</div>'
         for i in range(cantidad):
-            items_rows += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;padding:8px;background:#f8fafc;border-radius:7px;border:1px solid #e2e8f0;align-items:start;">'
-            items_rows += '<input type="text" id="item-nombre-' + str(i) + '" placeholder="Nombre opcion ' + str(i+1) + '" '
-            items_rows += 'style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;width:100%;box-sizing:border-box;">'
-            items_rows += '<div>'
-            items_rows += '<input type="file" id="item-file-' + str(i) + '" accept="image/*" '
-            items_rows += 'onchange="window.catPreview(' + str(i) + ')" style="font-size:11px;width:100%;">'
-            items_rows += '<div id="imgprev-' + str(i) + '" style="margin-top:4px;"></div>'
-            items_rows += '</div>'
+            items_rows += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;padding:8px;background:#f8fafc;border-radius:7px;border:1px solid #e2e8f0;">'
+            items_rows += '<input type="text" id="item-nombre-' + str(i) + '" placeholder="Nombre opcion ' + str(i+1) + '" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;width:100%;box-sizing:border-box;">'
+            items_rows += '<div><input type="file" id="item-file-' + str(i) + '" accept="image/*" onchange="window.catPreview(' + str(i) + ')" style="font-size:11px;width:100%;"><div id="imgprev-' + str(i) + '" style="margin-top:4px;"></div></div>'
             items_rows += '</div>'
 
-    n = str(cantidad)
-    s = supa_url
-    k = supa_key
-    t = tipo
+    tipo_opts = ''
+    for v, label in [('imagen','Imagen'),('color','Color'),('select','Lista desplegable'),('si_no','Si / No')]:
+        sel = ' selected' if tipo == v else ''
+        tipo_opts += '<option value="' + v + '"' + sel + '>' + label + '</option>'
 
-    js = '\n'.join([
-        'var S="' + s + '",K="' + k + '",TIPO="' + t + '",N=' + n + ';',
+    js_lines = [
+        'var S="' + supa_url + '",K="' + supa_key + '",TIPO="' + tipo + '",N=' + str(cantidad) + ';',
+        'console.log("CAT LOADED tipo="+TIPO+" n="+N);',
+        'function doRerun(t,n){',
+        '  var u=new URL(window.parent.location.href);',
+        '  u.searchParams.set("cat_tipo",t);',
+        '  u.searchParams.set("cat_cantidad",n);',
+        '  window.parent.history.replaceState({},"",u);',
+        '  window.parent.dispatchEvent(new PopStateEvent("popstate"));',
+        '}',
+        'document.getElementById("cat-tipo").addEventListener("change",function(){',
+        '  console.log("TIPO changed to",this.value);',
+        '  doRerun(this.value, document.getElementById("cat-cantidad").value||"4");',
+        '});',
+        'document.getElementById("cat-cantidad").addEventListener("change",function(){',
+        '  console.log("CANT changed to",this.value);',
+        '  doRerun(document.getElementById("cat-tipo").value, this.value||"4");',
+        '});',
         'window.catPreview=function(i){',
         '  var f=document.getElementById("item-file-"+i);',
         '  if(!f||!f.files[0])return;',
         '  var r=new FileReader();',
-        '  r.onload=function(e){',
-        '    document.getElementById("imgprev-"+i).innerHTML=\'<img src="\'+e.target.result+\'" style="width:60px;height:60px;object-fit:cover;border-radius:5px;">\';',
-        '  };',
+        '  r.onload=function(e){document.getElementById("imgprev-"+i).innerHTML=\'<img src="\'+e.target.result+\'" style="width:60px;height:60px;object-fit:cover;border-radius:5px;">\';};',
         '  r.readAsDataURL(f.files[0]);',
         '};',
         'window.catSubirImg=async function(file,nombre){',
         '  var ext=file.name.split(".").pop();',
         '  var path="catalogo/"+Date.now()+"_"+Math.random().toString(36).substr(2,5)+"."+ext;',
-        '  var r=await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,',
-        '    {method:"POST",headers:{"Authorization":"Bearer "+K,"Content-Type":file.type,"x-upsert":"true"},body:file});',
+        '  var r=await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,{method:"POST",headers:{"Authorization":"Bearer "+K,"Content-Type":file.type,"x-upsert":"true"},body:file});',
         '  if(!r.ok)throw new Error("Error subiendo imagen: "+r.status);',
         '  return S+"/storage/v1/object/public/formulario-imagenes/"+path;',
         '};',
@@ -1039,64 +1041,44 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
         '  var st=document.getElementById("status");',
         '  var btn=document.getElementById("save-btn");',
         '  if(!nombre){st.textContent="Escribe el nombre de la categoria";st.style.color="#dc2626";return;}',
-        '  btn.disabled=true;',
-        '  var items=[];',
-        '  if(TIPO==="si_no"){',
-        '    items=[{nombre:"Si"},{nombre:"No"}];',
-        '  } else {',
-        '    for(var i=0;i<N;i++){',
-        '      var nm=(document.getElementById("item-nombre-"+i)||{}).value||"";',
-        '      if(!nm.trim())continue;',
-        '      var item={nombre:nm.trim()};',
-        '      if(TIPO==="color") item.hex=document.getElementById("item-hex-"+i).value;',
-        '      else if(TIPO==="imagen"){',
-        '        var fEl=document.getElementById("item-file-"+i);',
-        '        if(fEl&&fEl.files[0]){',
-        '          st.textContent="Subiendo imagen "+(i+1)+"...";st.style.color="#2563eb";',
-        '          try{item.url=await window.catSubirImg(fEl.files[0],nm);}',
-        '          catch(e){st.textContent="Error: "+e.message;st.style.color="#dc2626";btn.disabled=false;return;}',
-        '        } else { item.url=""; }',
-        '      }',
-        '      items.push(item);',
+        '  btn.disabled=true;var items=[];',
+        '  if(TIPO==="si_no"){items=[{nombre:"Si"},{nombre:"No"}];}',
+        '  else{for(var i=0;i<N;i++){',
+        '    var nm=(document.getElementById("item-nombre-"+i)||{}).value||"";',
+        '    if(!nm.trim())continue;',
+        '    var item={nombre:nm.trim()};',
+        '    if(TIPO==="color")item.hex=document.getElementById("item-hex-"+i).value;',
+        '    else if(TIPO==="imagen"){',
+        '      var fEl=document.getElementById("item-file-"+i);',
+        '      if(fEl&&fEl.files[0]){',
+        '        st.textContent="Subiendo imagen "+(i+1)+"...";st.style.color="#2563eb";',
+        '        try{item.url=await window.catSubirImg(fEl.files[0],nm);}',
+        '        catch(e){st.textContent="Error: "+e.message;st.style.color="#dc2626";btn.disabled=false;return;}',
+        '      }else item.url="";',
         '    }',
-        '  }',
-        '  if(!items.length){st.textContent="Agrega al menos una opcion con nombre";st.style.color="#dc2626";btn.disabled=false;return;}',
+        '    items.push(item);',
+        '  }}',
+        '  if(!items.length){st.textContent="Agrega al menos una opcion";st.style.color="#dc2626";btn.disabled=false;return;}',
         '  st.textContent="Guardando...";st.style.color="#2563eb";',
         '  try{',
         '    for(var j=0;j<items.length;j++){',
         '      var it=items[j];',
         '      var body={categoria:nombre,nombre:it.nombre,imagen_url:it.url||"",activo:true};',
         '      if(it.hex)body.hex=it.hex;',
-        '      var r=await fetch(S+"/rest/v1/catalogo_materiales",',
-        '        {method:"POST",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},',
-        '        body:JSON.stringify(body)});',
-        '      if(!r.ok)throw new Error("Error guardando item "+(j+1)+": "+r.status);',
+        '      var r=await fetch(S+"/rest/v1/catalogo_materiales",{method:"POST",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify(body)});',
+        '      if(!r.ok)throw new Error("Error guardando: "+r.status);',
         '    }',
         '    st.textContent="Guardado correctamente";st.style.color="#16a34a";',
-        '    setTimeout(function(){',
-        '      var url=new URL(window.parent.location.href);',
-        '      url.searchParams.set("rc_saved",Date.now());',
-        '      window.parent.history.replaceState({},"",url);',
-        '      window.parent.dispatchEvent(new PopStateEvent("popstate"));',
-        '    },800);',
-        '  } catch(e){st.textContent="Error: "+e.message;st.style.color="#dc2626";btn.disabled=false;}',
+        '    setTimeout(function(){doRerun(TIPO,N);},800);',
+        '  }catch(e){st.textContent="Error: "+e.message;st.style.color="#dc2626";btn.disabled=false;}',
         '};',
         'window.catEliminar=async function(id){',
-        '  if(!confirm("Eliminar este material del catalogo?"))return;',
-        '  await fetch(S+"/rest/v1/catalogo_materiales?id=eq."+id,',
-        '    {method:"PATCH",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},',
-        '    body:JSON.stringify({activo:false})});',
-        '  var url=new URL(window.parent.location.href);',
-        '  url.searchParams.set("rc_saved",Date.now());',
-        '  window.parent.history.replaceState({},"",url);',
-        '  window.parent.dispatchEvent(new PopStateEvent("popstate"));',
+        '  if(!confirm("Eliminar este material?"))return;',
+        '  await fetch(S+"/rest/v1/catalogo_materiales?id=eq."+id,{method:"PATCH",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({activo:false})});',
+        '  doRerun(TIPO,N);',
         '};',
-    ])
-
-    tipo_opts = ''
-    for v, label in [('imagen','Imagen'), ('color','Color'), ('select','Lista desplegable'), ('si_no','Si / No')]:
-        sel = ' selected' if tipo == v else ''
-        tipo_opts += '<option value="' + v + '"' + sel + '>' + label + '</option>'
+    ]
+    js = '\n'.join(js_lines)
 
     html = (
         '<!DOCTYPE html><html><head><meta charset="utf-8">'
@@ -1104,34 +1086,24 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
         '</head><body>'
         + cat_html +
         '<div style="background:white;border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-top:14px;">'
-        '<div style="font-weight:900;color:#0f172a;margin-bottom:10px;font-size:0.9rem;">+ Agregar nueva categoria al catalogo</div>'
+        '<div style="font-weight:900;color:#0f172a;margin-bottom:10px;">+ Agregar nueva categoria al catalogo</div>'
         '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">'
-
         '<div style="display:flex;flex-direction:column;flex:2;min-width:150px;">'
         '<label style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:3px;">Nombre de categoria</label>'
         '<input type="text" id="cat-nombre" placeholder="ej: Pisos, Muros, Bano..." style="padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;">'
         '</div>'
-
         '<div style="display:flex;flex-direction:column;min-width:130px;">'
         '<label style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:3px;">Tipo</label>'
-        '<select id="cat-tipo" style="padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;" '
-        'onchange="window.parent.postMessage({type:\'cat_tipo\',val:this.value},\'*\')">'
+        '<select id="cat-tipo" style="padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;">'
         + tipo_opts +
         '</select></div>'
-
         '<div style="display:flex;flex-direction:column;min-width:100px;">'
         '<label style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:3px;">Cantidad</label>'
-        '<input type="number" id="cat-cantidad" value="' + n + '" min="1" max="30" '
-        'style="padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;" '
-        'onchange="window.parent.postMessage({type:\'cat_cantidad\',val:parseInt(this.value)},\'*\')">'
+        '<input type="number" id="cat-cantidad" value="' + str(cantidad) + '" min="1" max="30" style="padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;">'
         '</div>'
         '</div>'
-
         '<div id="items-wrap">' + items_rows + '</div>'
-
-        '<button id="save-btn" onclick="window.catGuardar()" '
-        'style="background:#1e2447;color:white;border:none;border-radius:7px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-top:10px;">'
-        'Guardar en catalogo</button>'
+        '<button id="save-btn" onclick="window.catGuardar()" style="background:#1e2447;color:white;border:none;border-radius:7px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-top:10px;">Guardar en catalogo</button>'
         '<div id="status" style="margin-top:6px;font-size:12px;font-weight:600;min-height:18px;"></div>'
         '</div>'
         '<script>' + js + '</script>'
