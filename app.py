@@ -17114,27 +17114,62 @@ if tab_formulario is not None:
 
                     st.markdown("---")
                     st.markdown("**➕ Nueva pregunta:**")
-                    _nq1, _nq2 = st.columns([2,1])
-                    with _nq1:
-                        _nq_preg = st.text_input("Pregunta", key="nq_preg")
-                        _nq_sec  = st.text_input("Sección", value="General", key="nq_sec")
-                        _nq_opts = st.text_area("Opciones (JSON array)", value="[]", key="nq_opts", height=60,
-                            help='Ej: [{"nombre":"Blanco","hex":"#fff"},{"nombre":"Gris","hex":"#ccc"}]')
-                    with _nq2:
-                        _nq_tipo = st.selectbox("Tipo", ['texto','select','color','imagen','si_no'], key="nq_tipo")
-                        _nq_ord  = st.number_input("Orden", value=len(_form_pregs)+1, min_value=1, key="nq_ord")
-                        _nq_req  = st.checkbox("Requerida", value=True, key="nq_req")
+                    _nqa, _nqb, _nqc = st.columns([3,2,1])
+                    with _nqa:
+                        _nq_preg = st.text_input("Pregunta", key="nq_preg", placeholder="ej: ¿Qué color quieres para el muro?")
+                        _nq_sec  = st.text_input("Sección", value="General", key="nq_sec", placeholder="ej: Pintura, Pisos, Baño")
+                    with _nqb:
+                        _nq_tipo = st.selectbox("Tipo de pregunta", [
+                            'color — círculos de colores',
+                            'imagen — fotos para elegir',
+                            'select — lista desplegable',
+                            'si_no — botones Sí/No',
+                            'texto — respuesta libre',
+                        ], key="nq_tipo")
+                        _nq_tipo_val = _nq_tipo.split(' — ')[0]
+                        _nq_req = st.checkbox("Requerida", value=True, key="nq_req")
+                        _nq_ord = st.number_input("Orden", value=len(_form_pregs)+1, min_value=1, key="nq_ord")
+                    with _nqc:
+                        st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                        st.markdown(f"""
+                        <div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-size:0.75rem;color:#64748b;'>
+                        {'🎨 El cliente verá círculos de colores para elegir' if _nq_tipo_val=='color' else
+                         '🖼️ El cliente verá imágenes/fotos para elegir' if _nq_tipo_val=='imagen' else
+                         '📋 El cliente verá una lista de opciones' if _nq_tipo_val=='select' else
+                         '✅ El cliente verá botones Sí / No' if _nq_tipo_val=='si_no' else
+                         '✍️ El cliente escribirá su respuesta'}
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                    # Opciones según tipo
+                    _nq_opciones = []
+                    if _nq_tipo_val == 'color':
+                        st.markdown("**🎨 Colores disponibles** — agrega cada color con su nombre y código hex:")
+                        _ncolores = st.number_input("Cantidad de colores", min_value=1, max_value=20, value=4, key="nq_ncolores")
+                        _col_rows = st.columns(min(int(_ncolores), 4))
+                        for _ci in range(int(_ncolores)):
+                            with _col_rows[_ci % 4]:
+                                _cn = st.text_input(f"Nombre {_ci+1}", key=f"nq_cn_{_ci}", placeholder="ej: Blanco")
+                                _ch = st.color_picker(f"Color {_ci+1}", value='#ffffff', key=f"nq_ch_{_ci}")
+                                if _cn.strip():
+                                    _nq_opciones.append({'nombre': _cn.strip(), 'hex': _ch})
+                    elif _nq_tipo_val in ('select', 'imagen'):
+                        st.markdown(f"**{'🖼️ Opciones con imagen' if _nq_tipo_val=='imagen' else '📋 Opciones de lista'}** — una por línea:")
+                        _opts_txt = st.text_area("Opciones (una por línea)", key="nq_opts_txt", height=80,
+                                                  placeholder="Opción 1\nOpción 2\nOpción 3")
+                        for _ol in _opts_txt.strip().split('\n'):
+                            if _ol.strip():
+                                _nq_opciones.append({'nombre': _ol.strip()})
 
                     if st.button("➕ Agregar pregunta", type="primary", use_container_width=True, key="nq_add"):
                         if _nq_preg.strip():
                             try:
-                                import json as _jnq
                                 supabase.table('formulario_preguntas').insert({
                                     'cotizacion_numero': _form_ep,
                                     'pregunta': _nq_preg.strip(),
                                     'seccion': _nq_sec.strip() or 'General',
-                                    'tipo': _nq_tipo,
-                                    'opciones': _jnq.loads(_nq_opts),
+                                    'tipo': _nq_tipo_val,
+                                    'opciones': _nq_opciones,
                                     'requerida': _nq_req,
                                     'orden': int(_nq_ord),
                                     'creado_por': st.session_state.get('auth_email','')
