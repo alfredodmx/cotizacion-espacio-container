@@ -9791,7 +9791,7 @@ var CLI_DATA = """ + _cli_data_json_map + """;
         rows.forEach(function(r) {
             if(!r[1]) return;
             html += '<tr><td style="color:#94a3b8;font-size:0.78rem;padding:3px 8px 3px 0;white-space:nowrap;">'+r[0]+'</td>'
-                  + '<td style="color:#f1f5f9;font-weight:600;padding:3px 0;cursor:pointer;border-bottom:1px dashed #475569;" title="Click para copiar" onclick="var el=this;navigator.clipboard.writeText(el.innerText).then(function(){var orig=el.innerText;el.style.color=\'#4ade80\';el.innerText=\'✅ copiado\';setTimeout(function(){el.style.color=\'#f1f5f9\';el.innerText=orig;},1200);});">'+r[1]+'</td></tr>';
+                  + '<td style="color:#f1f5f9;font-weight:600;padding:3px 0;">'+r[1]+'</td></tr>';
         });
         html += '</table>';
         body.innerHTML = html;
