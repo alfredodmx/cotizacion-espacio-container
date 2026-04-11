@@ -17170,36 +17170,36 @@ if tab_formulario is not None:
                         if 'nq_imgs_guardadas' not in st.session_state:
                             st.session_state.nq_imgs_guardadas = {}
                         for _ii in range(int(_nimg)):
-                            _ii_c1, _ii_c2, _ii_c3 = st.columns([2,3,1])
+                            _ii_c1, _ii_c2 = st.columns([2,3])
                             with _ii_c1:
                                 _iname = st.text_input(f"Nombre {_ii+1}", key=f"nq_iname_{_ii}", placeholder="ej: Vinílico gris")
+                                # Mostrar estado de imagen guardada
+                                _url_guardada = st.session_state.nq_imgs_guardadas.get(str(_ii), '')
+                                if _url_guardada:
+                                    st.success(f"✅ Imagen subida")
+                                    st.markdown(f"<img src='{_url_guardada}' style='width:80px;border-radius:6px;'>", unsafe_allow_html=True)
                             with _ii_c2:
                                 _ifile = st.file_uploader(f"Imagen {_ii+1}", type=['png','jpg','jpeg','webp'], key=f"nq_ifile_{_ii}")
-                            with _ii_c3:
-                                st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-                                if _ifile and _iname.strip():
-                                    _ikey = f"{_ii}_{_iname.strip()}_{_ifile.name}"
-                                    if _ikey not in st.session_state.nq_imgs_guardadas:
-                                        if st.button("⬆️", key=f"nq_iup_{_ii}", help="Subir imagen"):
-                                            try:
-                                                _ext = _ifile.name.split('.')[-1].lower()
-                                                _fname = f"formulario/{_uuimg.uuid4()}.{_ext}"
-                                                supabase.storage.from_('formulario-imagenes').upload(
-                                                    path=_fname, file=_ifile.getvalue(),
-                                                    file_options={'content-type': _ifile.type}
-                                                )
-                                                _iurl = supabase.storage.from_('formulario-imagenes').get_public_url(_fname)
-                                                st.session_state.nq_imgs_guardadas[_ikey] = _iurl
-                                                st.rerun()
-                                            except Exception as _upe:
-                                                st.error(f"Error: {_upe}")
-                                    else:
-                                        st.success("✅")
-                            # Acumular opción si tiene URL guardada
+                                if _ifile:
+                                    if st.button(f"⬆️ Subir imagen {_ii+1}", key=f"nq_iup_{_ii}"):
+                                        try:
+                                            _ext = _ifile.name.split('.')[-1].lower()
+                                            _fname_up = f"formulario/{_uuimg.uuid4()}.{_ext}"
+                                            supabase_admin.storage.from_('formulario-imagenes').upload(
+                                                path=_fname_up, file=_ifile.getvalue(),
+                                                file_options={'content-type': _ifile.type}
+                                            )
+                                            _iurl_up = supabase_admin.storage.from_('formulario-imagenes').get_public_url(_fname_up)
+                                            st.session_state.nq_imgs_guardadas[str(_ii)] = _iurl_up
+                                            st.rerun()
+                                        except Exception as _upe:
+                                            st.error(f"Error subiendo: {_upe}")
+                            # Acumular opción
                             if _iname.strip():
-                                _ikey2 = f"{_ii}_{_iname.strip()}_{_ifile.name if _ifile else ''}"
-                                _iurl2 = st.session_state.nq_imgs_guardadas.get(_ikey2, '')
-                                _nq_opciones.append({'nombre': _iname.strip(), 'url': _iurl2})
+                                _nq_opciones.append({
+                                    'nombre': _iname.strip(),
+                                    'url': st.session_state.nq_imgs_guardadas.get(str(_ii), '')
+                                })
 
                     if st.button("➕ Agregar pregunta", type="primary", use_container_width=True, key="nq_add"):
                         if _nq_preg.strip():
