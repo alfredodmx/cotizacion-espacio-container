@@ -9035,6 +9035,9 @@ if tab3 is not None:
 
     if st.session_state.resultados_busqueda:
         _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa", "Fecha_Auth", "Autorizado_Por", "Tiene_Notariado", "Fecha_Adj", "Contrato_Datos", "Not_URL", "Motivo_Rechazo", "Fecha_Rechazo", "Acta_URL", "Fecha_Entrega", "Cli_Tel", "Cli_Dir", "Cli_Comuna", "Cli_Region", "NLogs"]
+        # Invalidar caché si tiene menos columnas que las esperadas
+        if st.session_state.resultados_busqueda and len(st.session_state.resultados_busqueda[0]) < len(_cols_esperadas):
+            st.session_state.resultados_busqueda = buscar_cotizaciones()
         _rows_norm = []
         for _r in st.session_state.resultados_busqueda:
             _r = list(_r)
