@@ -17055,7 +17055,100 @@ if tab_formulario is not None:
         </div>
         """, unsafe_allow_html=True)
 
-        _ftab_config, _ftab_progreso = st.tabs(["⚙️ Configurar preguntas", "📊 Progreso clientes"])
+        _ftab_catalogo, _ftab_config, _ftab_progreso = st.tabs(["📦 Catálogo de materiales", "⚙️ Configurar preguntas", "📊 Progreso clientes"])
+
+        # ── TAB CATÁLOGO ──
+        with _ftab_catalogo:
+            if _rol_form not in ('root', 'admin'):
+                st.info("🔒 Solo administradores pueden gestionar el catálogo.")
+            else:
+                # Cargar catálogo
+                try:
+                    _cat_all = supabase.table('catalogo_materiales').select('*').eq('activo', True).order('categoria').order('nombre').execute().data or []
+                except:
+                    _cat_all = []
+
+                # Agrupar por categoría
+                _cat_por_cat = {}
+                for _cm in _cat_all:
+                    _cc = _cm.get('categoria', 'General')
+                    if _cc not in _cat_por_cat: _cat_por_cat[_cc] = []
+                    _cat_por_cat[_cc].append(_cm)
+
+                # Mostrar catálogo existente
+                if _cat_por_cat:
+                    for _cc, _citems in _cat_por_cat.items():
+                        st.markdown(f"""
+                        <div style='background:#1e3a5f;color:white;font-size:0.8rem;font-weight:900;
+                                    text-transform:uppercase;letter-spacing:0.08em;padding:8px 14px;
+                                    border-radius:8px;margin:12px 0 8px;'>
+                          {_cc} — {len(_citems)} materiales
+                        </div>
+                        """, unsafe_allow_html=True)
+                        _gcols = st.columns(4)
+                        for _gi, _citem in enumerate(_citems):
+                            with _gcols[_gi % 4]:
+                                if _citem.get('imagen_url'):
+                                    st.markdown(f"<img src='{_citem['imagen_url']}' style='width:100%;height:100px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;'>", unsafe_allow_html=True)
+                                else:
+                                    st.markdown("<div style='width:100%;height:100px;background:#f1f5f9;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:2rem;'>📦</div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='font-size:0.78rem;font-weight:700;color:#0f172a;margin:4px 0 2px;'>{_citem['nombre']}</div>", unsafe_allow_html=True)
+                                if st.button("🗑️", key=f"del_cat_{_citem['id']}", help="Eliminar"):
+                                    try:
+                                        supabase.table('catalogo_materiales').update({'activo': False}).eq('id', _citem['id']).execute()
+                                        st.rerun()
+                                    except Exception as _ce: st.error(str(_ce))
+                else:
+                    st.info("📦 El catálogo está vacío. Agrega materiales abajo.")
+
+                st.markdown("---")
+                st.markdown("**➕ Agregar material al catálogo:**")
+                _ca1, _ca2, _ca3 = st.columns([2,2,3])
+                with _ca1:
+                    _cat_nombre = st.text_input("Nombre", key="cat_nombre", placeholder="ej: Vinílico roble")
+                with _ca2:
+                    # Categorías existentes + nueva
+                    _cats_existentes = sorted(set(c.get('categoria','') for c in _cat_all if c.get('categoria')))
+                    _cats_opts = _cats_existentes + ["+ Nueva categoría"]
+                    _cat_sel = st.selectbox("Categoría", _cats_opts, key="cat_cat_sel")
+                    if _cat_sel == "+ Nueva categoría":
+                        _cat_categoria = st.text_input("Nueva categoría", key="cat_nueva_cat", placeholder="ej: Pisos")
+                    else:
+                        _cat_categoria = _cat_sel
+                with _ca3:
+                    _cat_img = st.file_uploader("Imagen", type=['png','jpg','jpeg','webp'], key="cat_img")
+                    if _cat_img:
+                        st.image(_cat_img, width=80)
+
+                if st.button("➕ Agregar al catálogo", type="primary", use_container_width=True, key="cat_add"):
+                    if not _cat_nombre.strip():
+                        st.warning("Escribe el nombre del material.")
+                    elif not _cat_categoria.strip():
+                        st.warning("Selecciona o escribe una categoría.")
+                    else:
+                        try:
+                            import uuid as _uucat
+                            _cat_url = ''
+                            if _cat_img:
+                                _ext = _cat_img.name.split('.')[-1].lower()
+                                _cpath = f"catalogo/{_uucat.uuid4()}.{_ext}"
+                                supabase_admin.storage.from_('formulario-imagenes').upload(
+                                    path=_cpath, file=_cat_img.getvalue(),
+                                    file_options={'content-type': _cat_img.type}
+                                )
+                                _cat_url = supabase_admin.storage.from_('formulario-imagenes').get_public_url(_cpath)
+                            supabase.table('catalogo_materiales').insert({
+                                'nombre': _cat_nombre.strip(),
+                                'categoria': _cat_categoria.strip(),
+                                'imagen_url': _cat_url,
+                                'imagen_nombre': _cat_img.name if _cat_img else '',
+                                'activo': True,
+                                'creado_por': st.session_state.get('auth_email','')
+                            }).execute()
+                            st.success(f"✅ '{_cat_nombre}' agregado al catálogo")
+                            st.rerun()
+                        except Exception as _cae:
+                            st.error(f"Error: {_cae}")
 
         # ── TAB CONFIGURAR ──
         with _ftab_config:
@@ -17164,42 +17257,40 @@ if tab_formulario is not None:
                                 _nq_opciones.append({'nombre': _ol.strip()})
 
                     elif _nq_tipo_val == 'imagen':
-                        st.markdown("**🖼️ Opciones con imagen** — escribe el nombre y sube la imagen:")
-                        _nimg = st.number_input("Cantidad de opciones", min_value=1, max_value=10, value=3, key="nq_nimg")
-                        import uuid as _uuimg
-                        if 'nq_imgs_guardadas' not in st.session_state:
-                            st.session_state.nq_imgs_guardadas = {}
-                        for _ii in range(int(_nimg)):
-                            _ii_c1, _ii_c2 = st.columns([2,3])
-                            with _ii_c1:
-                                _iname = st.text_input(f"Nombre {_ii+1}", key=f"nq_iname_{_ii}", placeholder="ej: Vinílico gris")
-                                # Mostrar estado de imagen guardada
-                                _url_guardada = st.session_state.nq_imgs_guardadas.get(str(_ii), '')
-                                if _url_guardada:
-                                    st.success(f"✅ Imagen subida")
-                                    st.markdown(f"<img src='{_url_guardada}' style='width:80px;border-radius:6px;'>", unsafe_allow_html=True)
-                            with _ii_c2:
-                                _ifile = st.file_uploader(f"Imagen {_ii+1}", type=['png','jpg','jpeg','webp'], key=f"nq_ifile_{_ii}")
-                                if _ifile:
-                                    if st.button(f"⬆️ Subir imagen {_ii+1}", key=f"nq_iup_{_ii}"):
-                                        try:
-                                            _ext = _ifile.name.split('.')[-1].lower()
-                                            _fname_up = f"formulario/{_uuimg.uuid4()}.{_ext}"
-                                            supabase_admin.storage.from_('formulario-imagenes').upload(
-                                                path=_fname_up, file=_ifile.getvalue(),
-                                                file_options={'content-type': _ifile.type}
-                                            )
-                                            _iurl_up = supabase_admin.storage.from_('formulario-imagenes').get_public_url(_fname_up)
-                                            st.session_state.nq_imgs_guardadas[str(_ii)] = _iurl_up
-                                            st.rerun()
-                                        except Exception as _upe:
-                                            st.error(f"Error subiendo: {_upe}")
-                            # Acumular opción
-                            if _iname.strip():
-                                _nq_opciones.append({
-                                    'nombre': _iname.strip(),
-                                    'url': st.session_state.nq_imgs_guardadas.get(str(_ii), '')
-                                })
+                        # Cargar catálogo para selección
+                        try:
+                            _cat_todos = supabase.table('catalogo_materiales').select('*').eq('activo',True).order('categoria').order('nombre').execute().data or []
+                        except: _cat_todos = []
+                        _cat_cats = sorted(set(c.get('categoria','') for c in _cat_todos if c.get('categoria')))
+                        if not _cat_todos:
+                            st.warning("⚠️ El catálogo está vacío. Ve a 📦 Catálogo de materiales y agrega materiales primero.")
+                        else:
+                            st.markdown("**🖼️ Selecciona materiales del catálogo:**")
+                            _cat_filtro = st.selectbox("Filtrar por categoría", ['Todas'] + _cat_cats, key="nq_cat_filtro")
+                            _cat_filtrados = [c for c in _cat_todos if _cat_filtro == 'Todas' or c.get('categoria') == _cat_filtro]
+                            if 'nq_sel_ids' not in st.session_state: st.session_state.nq_sel_ids = set()
+                            # Grid de selección
+                            _gcols2 = st.columns(4)
+                            for _gi2, _cit in enumerate(_cat_filtrados):
+                                with _gcols2[_gi2 % 4]:
+                                    _cid = _cit['id']
+                                    _sel2 = _cid in st.session_state.nq_sel_ids
+                                    _brd3 = '3px solid #0f3460' if _sel2 else '1px solid #e2e8f0'
+                                    if _cit.get('imagen_url'):
+                                        st.markdown(f"<img src='{_cit['imagen_url']}' style='width:100%;height:80px;object-fit:cover;border-radius:8px;border:{_brd3};'>", unsafe_allow_html=True)
+                                    else:
+                                        st.markdown(f"<div style='width:100%;height:80px;background:#{'dbeafe' if _sel2 else 'f1f5f9'};border-radius:8px;border:{_brd3};display:flex;align-items:center;justify-content:center;font-size:1.5rem;'>📦</div>", unsafe_allow_html=True)
+                                    if st.button(('✅ ' if _sel2 else '') + _cit['nombre'], key=f"nq_catsel_{_cid}",
+                                                 use_container_width=True, type='primary' if _sel2 else 'secondary'):
+                                        if _sel2: st.session_state.nq_sel_ids.discard(_cid)
+                                        else: st.session_state.nq_sel_ids.add(_cid)
+                                        st.rerun()
+                            _nsel = len(st.session_state.nq_sel_ids)
+                            st.markdown(f"<div style='font-size:0.82rem;color:#0f3460;font-weight:700;margin-top:8px;'>{_nsel} opcion{'es' if _nsel!=1 else ''} seleccionada{'s' if _nsel!=1 else ''}</div>", unsafe_allow_html=True)
+                            # Acumular opciones seleccionadas
+                            for _cit2 in _cat_todos:
+                                if _cit2['id'] in st.session_state.nq_sel_ids:
+                                    _nq_opciones.append({'nombre': _cit2['nombre'], 'url': _cit2.get('imagen_url',''), 'categoria': _cit2.get('categoria','')})
 
                     if st.button("➕ Agregar pregunta", type="primary", use_container_width=True, key="nq_add"):
                         if _nq_preg.strip():
@@ -17215,6 +17306,7 @@ if tab_formulario is not None:
                                     'creado_por': st.session_state.get('auth_email','')
                                 }).execute()
                                 st.success("✅ Pregunta agregada")
+                                st.session_state.nq_sel_ids = set()
                                 st.rerun()
                             except Exception as _e:
                                 st.error(f"Error: {_e}")
