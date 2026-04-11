@@ -943,6 +943,241 @@ def guardar_plano_en_storage(archivo_pdf_bytes, cotizacion_numero, nombre_origin
 # Función que construye el HTML del registro de compras
 # Usando triple-quoted strings para evitar conflictos de comillas
 
+def build_catalogo_html(cat_items, supa_url, supa_key):
+    import json
+    cat_json = json.dumps(cat_items, ensure_ascii=True)
+    
+    # Build existing catalog HTML
+    grupos = {}
+    for c in cat_items:
+        cat = c.get('categoria','General')
+        if cat not in grupos: grupos[cat] = []
+        grupos[cat].append(c)
+    
+    catalogo_html = ""
+    for cat, items in sorted(grupos.items()):
+        catalogo_html += "<div class='sec-hdr'><span>" + cat + "</span><span>" + str(len(items)) + " materiales</span></div>"
+        catalogo_html += "<div class='grid'>"
+        for it in items:
+            catalogo_html += "<div class='card'>"
+            if it.get('imagen_url'):
+                catalogo_html += "<img src='" + it['imagen_url'] + "' style='width:100%;height:90px;object-fit:cover;'>"
+            elif it.get('hex'):
+                catalogo_html += "<div style='width:100%;height:90px;background:" + it['hex'] + ";'></div>"
+            else:
+                catalogo_html += "<div style='width:100%;height:90px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:1.8rem;'>📦</div>"
+            catalogo_html += "<div class='card-name'>" + it.get('nombre','') + "</div>"
+            catalogo_html += "<button class='del-btn' onclick=\"eliminar('" + str(it['id']) + "')\" >✕</button>"
+            catalogo_html += "</div>"
+        catalogo_html += "</div>"
+    
+    if not catalogo_html:
+        catalogo_html = "<p style='color:#64748b;font-size:0.85rem;padding:8px;'>El catálogo está vacío. Agrega materiales abajo.</p>"
+
+    html = """<!DOCTYPE html>
+<html><head><meta charset='utf-8'>
+<style>
+body{margin:0;padding:0;font-family:'Segoe UI',sans-serif;font-size:13px;background:#f8fafc;}
+.wrap{padding:12px;}
+.sec-hdr{background:#1e3a5f;color:white;font-size:0.78rem;font-weight:900;text-transform:uppercase;
+  letter-spacing:0.08em;padding:8px 14px;border-radius:8px;margin:16px 0 8px;
+  display:flex;justify-content:space-between;align-items:center;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:8px;}
+.card{background:white;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;position:relative;}
+.card img{width:100%;height:90px;object-fit:cover;}
+.card-name{font-size:11px;font-weight:700;padding:4px 6px;color:#0f172a;}
+.del-btn{position:absolute;top:4px;right:4px;background:rgba(220,38,38,0.85);color:white;border:none;
+  border-radius:4px;width:22px;height:22px;cursor:pointer;font-size:11px;}
+.form-box{background:white;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-top:16px;}
+.form-title{font-size:0.9rem;font-weight:900;color:#0f172a;margin-bottom:12px;}
+.row{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+.field{display:flex;flex-direction:column;flex:1;min-width:140px;}
+.field label{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px;}
+.field input,.field select{padding:7px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;}
+.items-wrap{margin-top:10px;}
+.item-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;padding:8px;
+  background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;align-items:center;}
+.item-row input[type=text]{padding:6px 8px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;width:100%;box-sizing:border-box;}
+.preview{width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;}
+.save-btn{background:#1e2447;color:white;border:none;border-radius:8px;padding:10px 24px;
+  font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-top:12px;}
+.save-btn:disabled{opacity:0.5;cursor:not-allowed;}
+.status{margin-top:8px;font-size:12px;font-weight:600;min-height:20px;}
+</style></head>
+<body><div class='wrap'>
+<div id='cat-existente'>""" + catalogo_html + """</div>
+<div class='form-box'>
+  <div class='form-title'>➕ Agregar nueva categoría al catálogo</div>
+  <div class='row'>
+    <div class='field' style='flex:2'>
+      <label>Nombre de categoría</label>
+      <input type='text' id='cat-nombre' placeholder='ej: Pisos, Muros, Baño...'>
+    </div>
+    <div class='field' style='flex:1'>
+      <label>Tipo</label>
+      <select id='cat-tipo' onchange='updateTipo()'>
+        <option value='imagen'>🖼️ Imagen</option>
+        <option value='color'>🎨 Color</option>
+        <option value='select'>📋 Lista desplegable</option>
+        <option value='si_no'>✅ Sí / No</option>
+      </select>
+    </div>
+    <div class='field' style='flex:1' id='field-cantidad'>
+      <label>Cantidad de opciones</label>
+      <input type='number' id='cat-cantidad' value='4' min='1' max='30' onchange='renderItems()'>
+    </div>
+  </div>
+  <div class='items-wrap' id='items-wrap'></div>
+  <button class='save-btn' id='save-btn' onclick='guardarCategoria()'>💾 Guardar en catálogo</button>
+  <div class='status' id='status'></div>
+</div>
+</div>
+<script>
+var SUPA_URL = '""" + supa_url + """';
+var SUPA_KEY = '""" + supa_key + """';
+
+function updateTipo() {
+  var tipo = document.getElementById('cat-tipo').value;
+  var fc = document.getElementById('field-cantidad');
+  fc.style.display = (tipo === 'si_no') ? 'none' : 'flex';
+  renderItems();
+}
+
+function renderItems() {
+  var tipo = document.getElementById('cat-tipo').value;
+  var n = parseInt(document.getElementById('cat-cantidad').value) || 4;
+  var wrap = document.getElementById('items-wrap');
+  var html = '';
+  if(tipo === 'si_no') {
+    wrap.innerHTML = '<p style="color:#64748b;font-size:12px;">Solo tendrá opciones Sí / No.</p>';
+    return;
+  }
+  if(tipo === 'select') {
+    html = '<div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px;">OPCIONES</div>';
+    for(var i=0;i<n;i++) {
+      html += '<div class="item-row" style="grid-template-columns:1fr;"><input type="text" id="item-nombre-'+i+'" placeholder="Opción '+(i+1)+'"></div>';
+    }
+    wrap.innerHTML = html; return;
+  }
+  if(tipo === 'color') {
+    html = '<div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px;">COLORES</div>';
+    for(var i=0;i<n;i++) {
+      html += '<div class="item-row">'
+        + '<input type="text" id="item-nombre-'+i+'" placeholder="Nombre color '+(i+1)+'">'
+        + '<div style="display:flex;align-items:center;gap:8px;">'
+        + '<input type="color" id="item-hex-'+i+'" value="#ffffff" style="width:50px;height:36px;border-radius:6px;cursor:pointer;" oninput="document.getElementById('prev-'+i+'').style.background=this.value">'
+        + '<div id="prev-'+i+'" style="width:36px;height:36px;border-radius:50%;background:#ffffff;border:2px solid #e2e8f0;"></div>'
+        + '</div></div>';
+    }
+    wrap.innerHTML = html; return;
+  }
+  // imagen
+  html = '<div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px;">IMÁGENES</div>';
+  for(var i=0;i<n;i++) {
+    html += '<div class="item-row" id="imgrow-'+i+'">'
+      + '<input type="text" id="item-nombre-'+i+'" placeholder="Nombre opción '+(i+1)+'">'
+      + '<div>'
+      + '<input type="file" id="item-file-'+i+'" accept="image/*" onchange="previewImg('+i+')">'
+      + '<div id="imgprev-'+i+'" style="margin-top:4px;"></div>'
+      + '</div></div>';
+  }
+  wrap.innerHTML = html;
+}
+
+function previewImg(i) {
+  var f = document.getElementById('item-file-'+i).files[0];
+  if(!f) return;
+  var r = new FileReader();
+  r.onload = function(e) {
+    document.getElementById('imgprev-'+i).innerHTML = '<img class="preview" src="'+e.target.result+'">';
+  };
+  r.readAsDataURL(f);
+}
+
+async function subirImagen(file, nombre) {
+  var ext = file.name.split('.').pop();
+  var path = 'catalogo/' + Date.now() + '_' + Math.random().toString(36).substr(2,6) + '.' + ext;
+  var resp = await fetch(SUPA_URL+'/storage/v1/object/formulario-imagenes/'+path, {
+    method: 'POST',
+    headers: {'Authorization': 'Bearer '+SUPA_KEY, 'Content-Type': file.type, 'x-upsert': 'true'},
+    body: file
+  });
+  if(!resp.ok) throw new Error('Error subiendo imagen: '+resp.status);
+  return SUPA_URL+'/storage/v1/object/public/formulario-imagenes/'+path;
+}
+
+async function guardarCategoria() {
+  var nombre = document.getElementById('cat-nombre').value.trim();
+  var tipo = document.getElementById('cat-tipo').value;
+  var n = parseInt(document.getElementById('cat-cantidad').value) || 4;
+  var status = document.getElementById('status');
+  var btn = document.getElementById('save-btn');
+  if(!nombre) { status.textContent = '⚠️ Escribe el nombre de la categoría'; status.style.color='#dc2626'; return; }
+  btn.disabled = true;
+  var items = [];
+  if(tipo === 'si_no') {
+    items = [{nombre:'Sí'},{nombre:'No'}];
+  } else {
+    for(var i=0;i<n;i++) {
+      var nm = (document.getElementById('item-nombre-'+i)||{}).value||'';
+      if(!nm.trim()) continue;
+      var item = {nombre: nm.trim()};
+      if(tipo === 'color') {
+        item.hex = document.getElementById('item-hex-'+i).value;
+      } else if(tipo === 'imagen') {
+        var fEl = document.getElementById('item-file-'+i);
+        if(fEl && fEl.files[0]) {
+          status.textContent = '⏳ Subiendo imagen '+(i+1)+'...'; status.style.color='#2563eb';
+          try { item.url = await subirImagen(fEl.files[0], nm.trim()); }
+          catch(e) { status.textContent = '❌ '+e.message; status.style.color='#dc2626'; btn.disabled=false; return; }
+        } else { item.url = ''; }
+      }
+      items.push(item);
+    }
+  }
+  if(items.length === 0) { status.textContent = '⚠️ Agrega al menos una opción'; status.style.color='#dc2626'; btn.disabled=false; return; }
+  status.textContent = '⏳ Guardando...'; status.style.color='#2563eb';
+  try {
+    for(var j=0;j<items.length;j++) {
+      var it = items[j];
+      var body = {categoria: nombre, nombre: it.nombre, imagen_url: it.url||'', activo: true};
+      if(it.hex) body.hex = it.hex;
+      var r = await fetch(SUPA_URL+'/rest/v1/catalogo_materiales', {
+        method: 'POST',
+        headers: {'Authorization':'Bearer '+SUPA_KEY,'apikey':SUPA_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+        body: JSON.stringify(body)
+      });
+      if(!r.ok) throw new Error('Error guardando item '+(j+1)+': '+r.status);
+    }
+    status.textContent = '✅ Guardado correctamente'; status.style.color='#16a34a';
+    setTimeout(function() {
+      var url=new URL(window.parent.location.href);
+      url.searchParams.set('rc_saved',Date.now());
+      window.parent.history.replaceState({},'',url);
+      window.parent.dispatchEvent(new PopStateEvent('popstate'));
+    }, 800);
+  } catch(e) {
+    status.textContent = '❌ '+e.message; status.style.color='#dc2626'; btn.disabled=false;
+  }
+}
+
+async function eliminar(id) {
+  if(!confirm('¿Eliminar este material?')) return;
+  await fetch(SUPA_URL+'/rest/v1/catalogo_materiales?id=eq.'+id, {
+    method: 'PATCH',
+    headers: {'Authorization':'Bearer '+SUPA_KEY,'apikey':SUPA_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+    body: JSON.stringify({activo:false})
+  });
+  var url=new URL(window.parent.location.href);
+  url.searchParams.set('rc_saved',Date.now());
+  window.parent.history.replaceState({},'',url);
+  window.parent.dispatchEvent(new PopStateEvent('popstate'));
+}
+
+updateTipo();
+</script></body></html>"""
+    return html
+
 def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin=False, supa_url='', supa_key='', ep='', usuario='', items_ya_comprados_json='[]', total_items_presupuesto=0, cats_cards_html=''):
     rows = ""
     items_comprados = items_comprados or {}
@@ -17062,300 +17297,13 @@ if tab_formulario is not None:
             if _rol_form not in ('root', 'admin'):
                 st.info("🔒 Solo administradores pueden gestionar el catálogo.")
             else:
-                import json as _jcat
                 import streamlit.components.v1 as _cat_comp
-
-                # Cargar catálogo existente
                 try:
                     _cat_all = supabase.table('catalogo_materiales').select('*').eq('activo', True).order('categoria').order('nombre').execute().data or []
                 except:
                     _cat_all = []
-
-                _cat_json = _jcat.dumps(_cat_all, ensure_ascii=True)
-
-                _cat_html = f"""
-<style>
-body{{margin:0;padding:0;font-family:'Segoe UI',sans-serif;font-size:13px;background:#f8fafc;}}
-.wrap{{max-width:100%;padding:12px;}}
-.sec-hdr{{background:#1e3a5f;color:white;font-size:0.78rem;font-weight:900;text-transform:uppercase;
-          letter-spacing:0.08em;padding:8px 14px;border-radius:8px;margin:16px 0 8px;display:flex;
-          justify-content:space-between;align-items:center;}}
-.grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:8px;}}
-.card{{background:white;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;position:relative;}}
-.card img{{width:100%;height:90px;object-fit:cover;}}
-.card-name{{font-size:11px;font-weight:700;padding:4px 6px;color:#0f172a;}}
-.del-btn{{position:absolute;top:4px;right:4px;background:rgba(220,38,38,0.85);color:white;border:none;
-          border-radius:4px;width:22px;height:22px;cursor:pointer;font-size:11px;display:flex;
-          align-items:center;justify-content:center;}}
-.form-box{{background:white;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-top:16px;}}
-.form-title{{font-size:0.9rem;font-weight:900;color:#0f172a;margin-bottom:12px;}}
-.row{{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;}}
-.field{{display:flex;flex-direction:column;flex:1;min-width:140px;}}
-.field label{{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px;}}
-.field input,.field select{{padding:7px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;}}
-.items-wrap{{margin-top:10px;}}
-.item-row{{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;padding:8px;
-           background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;align-items:center;}}
-.item-row input[type=text]{{padding:6px 8px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;width:100%;box-sizing:border-box;}}
-.item-row input[type=file]{{font-size:11px;}}
-.preview{{width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;}}
-.color-preview{{width:36px;height:36px;border-radius:50%;border:2px solid #e2e8f0;display:inline-block;vertical-align:middle;}}
-.save-btn{{background:#1e3a5f;color:white;border:none;border-radius:8px;padding:10px 24px;
-           font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-top:12px;}}
-.save-btn:disabled{{opacity:0.5;cursor:not-allowed;}}
-.status{{margin-top:8px;font-size:12px;font-weight:600;min-height:20px;}}
-.progress{{font-size:11px;color:#64748b;margin-top:4px;}}
-</style>
-<div class="wrap">
-  <!-- Catálogo existente -->
-  <div id="catalogo-existente"></div>
-
-  <!-- Formulario agregar -->
-  <div class="form-box">
-    <div class="form-title">➕ Agregar nueva categoría al catálogo</div>
-    <div class="row">
-      <div class="field" style="flex:2">
-        <label>Nombre de categoría</label>
-        <input type="text" id="cat-nombre" placeholder="ej: Pisos, Muros, Baño...">
-      </div>
-      <div class="field" style="flex:1">
-        <label>Tipo</label>
-        <select id="cat-tipo" oninput="updateTipo()" onchange="updateTipo()">
-          <option value="imagen">🖼️ Imagen</option>
-          <option value="color">🎨 Color</option>
-          <option value="select">📋 Lista desplegable</option>
-          <option value="si_no">✅ Sí / No</option>
-        </select>
-      </div>
-      <div class="field" style="flex:1" id="field-cantidad">
-        <label>Cantidad de opciones</label>
-        <input type="number" id="cat-cantidad" value="4" min="1" max="30" oninput="renderItems()" onchange="renderItems()">
-      </div>
-    </div>
-    <div class="items-wrap" id="items-wrap"></div>
-    <button class="save-btn" id="save-btn" onclick="guardarCategoria()">💾 Guardar en catálogo</button>
-    <div class="status" id="status"></div>
-  </div>
-</div>
-
-<script>
-var SUPA_URL = "{SUPABASE_URL}";
-var SUPA_KEY = "{SUPABASE_KEY}";
-var CAT_DATA = {_cat_json};
-var uploadedUrls = {{}};
-
-// Renderizar catálogo existente
-function renderCatalogo() {{
-  var d = document.getElementById('catalogo-existente');
-  var grupos = {{}};
-  CAT_DATA.forEach(function(c) {{
-    var cat = c.categoria || 'General';
-    if(!grupos[cat]) grupos[cat] = [];
-    grupos[cat].push(c);
-  }});
-  var html = '';
-  Object.keys(grupos).sort().forEach(function(cat) {{
-    var items = grupos[cat];
-    html += '<div class="sec-hdr"><span>' + cat + '</span><span>' + items.length + ' materiales</span></div>';
-    html += '<div class="grid">';
-    items.forEach(function(it) {{
-      html += '<div class="card">';
-      if(it.imagen_url) html += '<img src="' + it.imagen_url + '">';
-      else if(it.hex) html += '<div style="width:100%;height:90px;background:' + it.hex + ';"></div>';
-      else html += '<div style="width:100%;height:90px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:1.8rem;">📦</div>';
-      html += '<div class="card-name">' + it.nombre + '</div>';
-      html += '<button class="del-btn" onclick="eliminar(\''+it.id+'\')">✕</button>';
-      html += '</div>';
-    }});
-    html += '</div>';
-  }});
-  d.innerHTML = html || '<p style="color:#64748b;font-size:0.85rem;">El catálogo está vacío.</p>';
-}}
-
-function updateTipo() {{
-  var tipoEl = document.getElementById('cat-tipo');
-  var fc = document.getElementById('field-cantidad');
-  if(!tipoEl || !fc) return;
-  var tipo = tipoEl.value;
-  fc.style.display = (tipo === 'si_no') ? 'none' : 'flex';
-  renderItems();
-}}
-
-function renderItems() {{
-  var tipoEl = document.getElementById('cat-tipo');
-  var cantEl = document.getElementById('cat-cantidad');
-  var wrap = document.getElementById('items-wrap');
-  if(!tipoEl || !cantEl || !wrap) return;
-  var tipo = tipoEl.value;
-  var n = parseInt(cantEl.value) || 4;
-  if(tipo === 'si_no') {{ wrap.innerHTML = '<p style="color:#64748b;font-size:12px;">Solo tendrá opciones Sí / No — no requiere ítems adicionales.</p>'; return; }}
-  if(tipo === 'select') {{
-    var html = '<div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Opciones</div>';
-    for(var i=0;i<n;i++) {{
-      html += '<div class="item-row" style="grid-template-columns:1fr;"><input type="text" id="item-nombre-'+i+'" placeholder="Opción '+(i+1)+'"></div>';
-    }}
-    wrap.innerHTML = html; return;
-  }}
-  if(tipo === 'color') {{
-    var html = '<div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Colores</div>';
-    for(var i=0;i<n;i++) {{
-      html += '<div class="item-row">'
-        + '<input type="text" id="item-nombre-'+i+'" placeholder="Nombre color '+(i+1)+'">'
-        + '<div style="display:flex;align-items:center;gap:8px;">'
-        + '<input type="color" id="item-hex-'+i+'" value="#ffffff" style="width:50px;height:36px;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;">'
-        + '<span class="color-preview" id="prev-'+i+'" style="background:#ffffff;"></span>'
-        + '</div></div>';
-    }}
-    wrap.innerHTML = html;
-    for(var i=0;i<n;i++) {{
-      (function(idx){{
-        document.getElementById('item-hex-'+idx).addEventListener('input', function() {{
-          document.getElementById('prev-'+idx).style.background = this.value;
-        }});
-      }})(i);
-    }}
-    return;
-  }}
-  // imagen
-  var html = '<div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Imágenes</div>';
-  for(var i=0;i<n;i++) {{
-    html += '<div class="item-row" id="imgrow-'+i+'">'
-      + '<input type="text" id="item-nombre-'+i+'" placeholder="Nombre opción '+(i+1)+'">'
-      + '<div>'
-      + '<input type="file" id="item-file-'+i+'" accept="image/*" onchange="previewImg('+i+')">'
-      + '<div id="imgprev-'+i+'" style="margin-top:4px;"></div>'
-      + '</div></div>';
-  }}
-  wrap.innerHTML = html;
-}}
-
-function previewImg(i) {{
-  var f = document.getElementById('item-file-'+i).files[0];
-  if(!f) return;
-  var r = new FileReader();
-  r.onload = function(e) {{
-    document.getElementById('imgprev-'+i).innerHTML = '<img class="preview" src="'+e.target.result+'">';
-  }};
-  r.readAsDataURL(f);
-}}
-
-async function subirImagen(file, nombre) {{
-  var ext = file.name.split('.').pop();
-  var path = 'catalogo/' + Date.now() + '_' + nombre.replace(/[^a-zA-Z0-9]/g,'_') + '.' + ext;
-  var resp = await fetch(SUPA_URL+'/storage/v1/object/formulario-imagenes/'+path, {{
-    method: 'POST',
-    headers: {{'Authorization': 'Bearer '+SUPA_KEY, 'Content-Type': file.type, 'x-upsert': 'true'}},
-    body: file
-  }});
-  if(!resp.ok) throw new Error('Error subiendo imagen: '+resp.status);
-  return SUPA_URL+'/storage/v1/object/public/formulario-imagenes/'+path;
-}}
-
-async function guardarCategoria() {{
-  var nombre = document.getElementById('cat-nombre').value.trim();
-  var tipo = document.getElementById('cat-tipo').value;
-  var n = parseInt(document.getElementById('cat-cantidad').value) || 4;
-  var status = document.getElementById('status');
-  var btn = document.getElementById('save-btn');
-
-  if(!nombre) {{ status.textContent = '⚠️ Escribe el nombre de la categoría'; status.style.color='#dc2626'; return; }}
-
-  btn.disabled = true;
-  var items = [];
-
-  if(tipo === 'si_no') {{
-    items = [{{'nombre':'Sí'}},{{'nombre':'No'}}];
-  }} else {{
-    for(var i=0;i<n;i++) {{
-      var nm = (document.getElementById('item-nombre-'+i)||{{}}).value||'';
-      if(!nm.trim()) continue;
-      var item = {{'nombre': nm.trim()}};
-      if(tipo === 'color') {{
-        item.hex = document.getElementById('item-hex-'+i).value;
-      }} else if(tipo === 'imagen') {{
-        var fEl = document.getElementById('item-file-'+i);
-        if(fEl && fEl.files[0]) {{
-          status.textContent = '⏳ Subiendo imagen '+(i+1)+'...'; status.style.color='#2563eb';
-          try {{
-            item.url = await subirImagen(fEl.files[0], nm.trim());
-          }} catch(e) {{
-            status.textContent = '❌ Error: '+e.message; status.style.color='#dc2626';
-            btn.disabled=false; return;
-          }}
-        }} else {{ item.url = ''; }}
-      }}
-      items.push(item);
-    }}
-  }}
-
-  if(items.length===0 && tipo!=='si_no') {{
-    status.textContent = '⚠️ Agrega al menos una opción con nombre'; status.style.color='#dc2626';
-    btn.disabled=false; return;
-  }}
-
-  status.textContent = '⏳ Guardando en catálogo...'; status.style.color='#2563eb';
-
-  // Guardar cada ítem como un registro en catalogo_materiales
-  try {{
-    for(var j=0;j<items.length;j++) {{
-      var it = items[j];
-      var body = {{
-        categoria: nombre,
-        nombre: it.nombre,
-        imagen_url: it.url||'',
-        activo: true
-      }};
-      if(it.hex) body.hex = it.hex;
-      var r = await fetch(SUPA_URL+'/rest/v1/catalogo_materiales', {{
-        method: 'POST',
-        headers: {{'Authorization':'Bearer '+SUPA_KEY,'apikey':SUPA_KEY,'Content-Type':'application/json','Prefer':'return=minimal'}},
-        body: JSON.stringify(body)
-      }});
-      if(!r.ok) throw new Error('Error guardando: '+r.status);
-    }}
-    status.textContent = '✅ Guardado correctamente'; status.style.color='#16a34a';
-    // Rerun via rc_saved
-    setTimeout(function() {{
-      var url=new URL(window.parent.location.href);
-      url.searchParams.set('rc_saved',Date.now());
-      window.parent.history.replaceState({{}}, '', url);
-      window.parent.dispatchEvent(new PopStateEvent('popstate'));
-    }}, 800);
-  }} catch(e) {{
-    status.textContent = '❌ '+e.message; status.style.color='#dc2626';
-    btn.disabled=false;
-  }}
-}}
-
-async function eliminar(id) {{
-  if(!confirm('¿Eliminar este material del catálogo?')) return;
-  await fetch(SUPA_URL+'/rest/v1/catalogo_materiales?id=eq.'+id, {{
-    method: 'PATCH',
-    headers: {{'Authorization':'Bearer '+SUPA_KEY,'apikey':SUPA_KEY,'Content-Type':'application/json','Prefer':'return=minimal'}},
-    body: JSON.stringify({{activo:false}})
-  }});
-  var url=new URL(window.parent.location.href);
-  url.searchParams.set('rc_saved',Date.now());
-  window.parent.history.replaceState({{}}, '', url);
-  window.parent.dispatchEvent(new PopStateEvent('popstate'));
-}}
-
-renderCatalogo();
-// Polling hasta que el DOM esté listo
-var _initCount = 0;
-var _initTimer = setInterval(function() {{
-  var wrap = document.getElementById('items-wrap');
-  var tipo = document.getElementById('cat-tipo');
-  if(wrap && tipo) {{
-    clearInterval(_initTimer);
-    updateTipo();
-  }}
-  if(++_initCount > 20) clearInterval(_initTimer);
-}}, 100);
-</script>
-"""
-                # Necesitamos height dinámico según cantidad de items
-                _cat_height = max(600, len(_cat_all) * 25 + 500)
+                _cat_html = build_catalogo_html(_cat_all, SUPABASE_URL, SUPABASE_KEY)
+                _cat_height = max(700, len(_cat_all) * 20 + 600)
                 _cat_comp.html(_cat_html, height=_cat_height, scrolling=True)
         # ── TAB CONFIGURAR ──
         with _ftab_config:
