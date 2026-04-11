@@ -1091,16 +1091,6 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
         '  window.parent.history.replaceState({},"",url);',
         '  window.parent.dispatchEvent(new PopStateEvent("popstate"));',
         '};',
-        '// Listen for tipo/cantidad changes from parent',
-        'window.addEventListener("message",function(e){',
-        '  if(!e.data||!e.data.type)return;',
-        '  var url=new URL(window.parent.location.href);',
-        '  if(e.data.type==="cat_tipo"){url.searchParams.set("cat_tipo",e.data.val);}',
-        '  else if(e.data.type==="cat_cantidad"){url.searchParams.set("cat_cantidad",e.data.val);}',
-        '  else return;',
-        '  window.parent.history.replaceState({},'  + '""' + ',url);',
-        '  window.parent.dispatchEvent(new PopStateEvent("popstate"));',
-        '});',
     ])
 
     tipo_opts = ''
