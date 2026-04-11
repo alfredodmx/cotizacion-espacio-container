@@ -17088,7 +17088,9 @@ if tab_formulario is not None:
                                     index=['texto','select','color','imagen','si_no'].index(_fp.get('tipo','texto')),
                                     key=f"fp_tipo_{_fp['id']}")
                                 _fp_new_req  = st.checkbox("Requerida", value=_fp.get('requerida', True), key=f"fp_req_{_fp['id']}")
-                                _fp_opts_raw = st.text_area("Opciones (JSON)", value=str(_fp.get('opciones') or '[]'), key=f"fp_opts_{_fp['id']}", height=80)
+                                import json as _jfp_disp
+                                _fp_opts_val = _fp.get('opciones') or []
+                                _fp_opts_raw = st.text_area("Opciones (JSON)", value=_jfp_disp.dumps(_fp_opts_val, ensure_ascii=False), key=f"fp_opts_{_fp['id']}", height=80)
                             with _fc2:
                                 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
                                 if st.button("💾 Guardar", key=f"fp_save_{_fp['id']}", use_container_width=True):
@@ -17099,7 +17101,7 @@ if tab_formulario is not None:
                                             'seccion': _fp_new_sec,
                                             'tipo': _fp_new_tipo,
                                             'requerida': _fp_new_req,
-                                            'opciones': _jfp.loads(_fp_opts_raw)
+                                            'opciones': _jfp.loads(_fp_opts_raw) if _fp_opts_raw.strip().startswith('[') else []
                                         }).eq('id', _fp['id']).execute()
                                         st.success("✅ Guardado")
                                         st.rerun()
