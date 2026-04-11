@@ -9790,8 +9790,17 @@ var CLI_DATA = """ + _cli_data_json_map + """;
         var html = '<table style="width:100%;border-collapse:collapse;">';
         rows.forEach(function(r) {
             if(!r[1]) return;
+            var val = r[1];
             html += '<tr><td style="color:#94a3b8;font-size:0.78rem;padding:3px 8px 3px 0;white-space:nowrap;">'+r[0]+'</td>'
-                  + '<td style="color:#f1f5f9;font-weight:600;padding:3px 0;">'+r[1]+'</td></tr>';
+                  + '<td style="color:#f1f5f9;font-weight:600;padding:3px 0;">'
+                  + '<span onclick="(function(){'
+                  + 'var t=document.createElement(\'textarea\');'
+                  + 't.value=\''+val.replace(/'/g,"\\\'")+"';"
+                  + 'document.body.appendChild(t);t.select();document.execCommand(\'copy\');document.body.removeChild(t);'
+                  + 'this.style.color=\'#4ade80\';this.textContent=\'✅ copiado\';'
+                  + 'var me=this;setTimeout(function(){me.style.color=\'#f1f5f9\';me.textContent=\''+val.replace(/'/g,"\\\'")+"';},1200);}).call(this)" "
+                  + 'style="cursor:pointer;border-bottom:1px dashed #475569;" title="Click para copiar">'+val+'</span>'
+                  + '</td></tr>';
         });
         html += '</table>';
         body.innerHTML = html;
