@@ -1006,7 +1006,6 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
 
     js_lines = [
         'var S="' + supa_url + '",K="' + supa_key + '",TIPO="' + tipo + '",N=' + str(cantidad) + ';',
-        'console.log("CAT LOADED tipo="+TIPO+" n="+N);',
         'function doRerun(t,n){',
         '  var u=new URL(window.parent.location.href);',
         '  u.searchParams.set("cat_tipo",t);',
@@ -1015,11 +1014,9 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
         '  window.parent.dispatchEvent(new PopStateEvent("popstate"));',
         '}',
         'document.getElementById("cat-tipo").addEventListener("change",function(){',
-        '  console.log("TIPO changed to",this.value);',
         '  doRerun(this.value, document.getElementById("cat-cantidad").value||"4");',
         '});',
         'document.getElementById("cat-cantidad").addEventListener("change",function(){',
-        '  console.log("CANT changed to",this.value);',
         '  doRerun(document.getElementById("cat-tipo").value, this.value||"4");',
         '});',
         'window.catPreview=function(i){',
@@ -17256,14 +17253,33 @@ if tab_formulario is not None:
             if _rol_form not in ('root', 'admin'):
                 st.info("🔒 Solo administradores pueden configurar formularios.")
             else:
-                st.markdown("**Seleccionar presupuesto:**")
-                _ep_form_input = st.text_input("Número EP", placeholder="EP-12345", key="form_ep_input")
-                if st.button("🔍 Cargar", key="form_cargar_ep") and _ep_form_input:
-                    st.session_state['_form_ep'] = _ep_form_input.strip().upper()
+                # Cargar catálogo una vez
+                try:
+                    _cat_todos = supabase.table('catalogo_materiales').select('*').eq('activo',True).order('categoria').order('nombre').execute().data or []
+                except:
+                    _cat_todos = []
+                _cat_cats = sorted(set(c.get('categoria','') for c in _cat_todos if c.get('categoria')))
+                _cat_por_cat = {}
+                for _c in _cat_todos:
+                    _cc = _c.get('categoria','General')
+                    if _cc not in _cat_por_cat: _cat_por_cat[_cc] = []
+                    _cat_por_cat[_cc].append(_c)
+
+                # Buscar EP
+                _c1ep, _c2ep = st.columns([3,1])
+                with _c1ep:
+                    _ep_form_input = st.text_input("Número EP", placeholder="EP-12345", key="form_ep_input")
+                with _c2ep:
+                    st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                    if st.button("🔍 Cargar", key="form_cargar_ep", use_container_width=True) and _ep_form_input:
+                        st.session_state['_form_ep'] = _ep_form_input.strip().upper()
+                        st.session_state.nq_sel_ids = set()
+                        st.rerun()
 
                 _form_ep = st.session_state.get('_form_ep', '')
-                if _form_ep:
-                    st.markdown(f"**Preguntas para {_form_ep}:**")
+                if not _form_ep:
+                    st.info("Ingresa un número EP y haz click en Cargar.")
+                else:
                     try:
                         _form_pregs = supabase.table('formulario_preguntas').select('*').eq(
                             'cotizacion_numero', _form_ep
@@ -17271,31 +17287,33 @@ if tab_formulario is not None:
                     except:
                         _form_pregs = []
 
-                    # Mostrar preguntas existentes
+                    st.markdown(f"**Preguntas configuradas para {_form_ep}** ({len(_form_pregs)} preguntas):")
+
+                    # Preguntas existentes
+                    import json as _jfp_disp
                     for _fp in _form_pregs:
-                        with st.expander(f"[{_fp.get('seccion','')}] {_fp.get('pregunta','')} — {_fp.get('tipo','')}"):
-                            _fc1, _fc2 = st.columns([3,1])
-                            with _fc1:
+                        _fp_tipo = _fp.get('tipo','texto')
+                        _fp_opts = _fp.get('opciones') or []
+                        _fp_icon = {'color':'🎨','imagen':'🖼️','select':'📋','si_no':'✅','texto':'✍️'}.get(_fp_tipo,'❓')
+                        with st.expander(f"{_fp_icon} [{_fp.get('seccion','')}] {_fp.get('pregunta','')} — {len(_fp_opts)} opciones"):
+                            _ec1, _ec2 = st.columns([3,1])
+                            with _ec1:
                                 _fp_new_text = st.text_input("Pregunta", value=_fp.get('pregunta',''), key=f"fp_txt_{_fp['id']}")
                                 _fp_new_sec  = st.text_input("Sección", value=_fp.get('seccion',''), key=f"fp_sec_{_fp['id']}")
-                                _fp_new_tipo = st.selectbox("Tipo", ['texto','select','color','imagen','si_no'],
-                                    index=['texto','select','color','imagen','si_no'].index(_fp.get('tipo','texto')),
-                                    key=f"fp_tipo_{_fp['id']}")
-                                _fp_new_req  = st.checkbox("Requerida", value=_fp.get('requerida', True), key=f"fp_req_{_fp['id']}")
-                                import json as _jfp_disp
-                                _fp_opts_val = _fp.get('opciones') or []
-                                _fp_opts_raw = st.text_area("Opciones (JSON)", value=_jfp_disp.dumps(_fp_opts_val, ensure_ascii=False), key=f"fp_opts_{_fp['id']}", height=80)
-                            with _fc2:
+                                _fp_new_req  = st.checkbox("Requerida", value=_fp.get('requerida',True), key=f"fp_req_{_fp['id']}")
+                                # Show opciones as read-only summary
+                                if _fp_opts:
+                                    _opts_names = ', '.join([o.get('nombre','') for o in _fp_opts[:6]])
+                                    if len(_fp_opts) > 6: _opts_names += f'... +{len(_fp_opts)-6} más'
+                                    st.markdown(f"<div style='font-size:0.78rem;color:#64748b;'>Opciones: {_opts_names}</div>", unsafe_allow_html=True)
+                            with _ec2:
                                 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
                                 if st.button("💾 Guardar", key=f"fp_save_{_fp['id']}", use_container_width=True):
                                     try:
-                                        import json as _jfp
                                         supabase.table('formulario_preguntas').update({
                                             'pregunta': _fp_new_text,
                                             'seccion': _fp_new_sec,
-                                            'tipo': _fp_new_tipo,
                                             'requerida': _fp_new_req,
-                                            'opciones': _jfp.loads(_fp_opts_raw) if _fp_opts_raw.strip().startswith('[') else []
                                         }).eq('id', _fp['id']).execute()
                                         st.success("✅ Guardado")
                                         st.rerun()
@@ -17310,14 +17328,15 @@ if tab_formulario is not None:
 
                     st.markdown("---")
                     st.markdown("**➕ Nueva pregunta:**")
-                    _nqa, _nqb, _nqc = st.columns([3,2,1])
+
+                    _nqa, _nqb = st.columns([2,1])
                     with _nqa:
-                        _nq_preg = st.text_input("Pregunta", key="nq_preg", placeholder="ej: ¿Qué color quieres para el muro?")
+                        _nq_preg = st.text_input("Texto de la pregunta", key="nq_preg", placeholder="ej: ¿Qué color quieres para el muro?")
                         _nq_sec  = st.text_input("Sección", value="General", key="nq_sec", placeholder="ej: Pintura, Pisos, Baño")
                     with _nqb:
-                        _nq_tipo = st.selectbox("Tipo de pregunta", [
-                            'color — círculos de colores',
+                        _nq_tipo = st.selectbox("Tipo", [
                             'imagen — fotos para elegir',
+                            'color — círculos de colores',
                             'select — lista desplegable',
                             'si_no — botones Sí/No',
                             'texto — respuesta libre',
@@ -17325,76 +17344,76 @@ if tab_formulario is not None:
                         _nq_tipo_val = _nq_tipo.split(' — ')[0]
                         _nq_req = st.checkbox("Requerida", value=True, key="nq_req")
                         _nq_ord = st.number_input("Orden", value=len(_form_pregs)+1, min_value=1, key="nq_ord")
-                    with _nqc:
-                        st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-                        st.markdown(f"""
-                        <div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-size:0.75rem;color:#64748b;'>
-                        {'🎨 El cliente verá círculos de colores para elegir' if _nq_tipo_val=='color' else
-                         '🖼️ El cliente verá imágenes/fotos para elegir' if _nq_tipo_val=='imagen' else
-                         '📋 El cliente verá una lista de opciones' if _nq_tipo_val=='select' else
-                         '✅ El cliente verá botones Sí / No' if _nq_tipo_val=='si_no' else
-                         '✍️ El cliente escribirá su respuesta'}
-                        </div>
-                        """, unsafe_allow_html=True)
 
                     # Opciones según tipo
                     _nq_opciones = []
-                    if _nq_tipo_val == 'color':
-                        st.markdown("**🎨 Colores disponibles** — agrega cada color con su nombre y código hex:")
-                        _ncolores = st.number_input("Cantidad de colores", min_value=1, max_value=20, value=4, key="nq_ncolores")
-                        _col_rows = st.columns(min(int(_ncolores), 4))
-                        for _ci in range(int(_ncolores)):
-                            with _col_rows[_ci % 4]:
-                                _cn = st.text_input(f"Nombre {_ci+1}", key=f"nq_cn_{_ci}", placeholder="ej: Blanco")
-                                _ch = st.color_picker(f"Color {_ci+1}", value='#ffffff', key=f"nq_ch_{_ci}")
-                                if _cn.strip():
-                                    _nq_opciones.append({'nombre': _cn.strip(), 'hex': _ch})
-                    elif _nq_tipo_val == 'select':
-                        st.markdown("**📋 Opciones de lista** — una por línea:")
-                        _opts_txt = st.text_area("Opciones", key="nq_opts_txt", height=80,
-                                                  placeholder="Opción 1\nOpción 2\nOpción 3")
-                        for _ol in _opts_txt.strip().split('\n'):
-                            if _ol.strip():
-                                _nq_opciones.append({'nombre': _ol.strip()})
 
-                    elif _nq_tipo_val == 'imagen':
-                        # Cargar catálogo para selección
-                        try:
-                            _cat_todos = supabase.table('catalogo_materiales').select('*').eq('activo',True).order('categoria').order('nombre').execute().data or []
-                        except: _cat_todos = []
-                        _cat_cats = sorted(set(c.get('categoria','') for c in _cat_todos if c.get('categoria')))
+                    if _nq_tipo_val in ('imagen', 'color'):
+                        # Selección desde catálogo
                         if not _cat_todos:
                             st.warning("⚠️ El catálogo está vacío. Ve a 📦 Catálogo de materiales y agrega materiales primero.")
                         else:
-                            st.markdown("**🖼️ Selecciona materiales del catálogo:**")
+                            _tipo_label = "🖼️ Selecciona imágenes del catálogo:" if _nq_tipo_val == 'imagen' else "🎨 Selecciona colores del catálogo:"
+                            st.markdown(f"**{_tipo_label}**")
+                            # Filtro por categoría
                             _cat_filtro = st.selectbox("Filtrar por categoría", ['Todas'] + _cat_cats, key="nq_cat_filtro")
                             _cat_filtrados = [c for c in _cat_todos if _cat_filtro == 'Todas' or c.get('categoria') == _cat_filtro]
                             if 'nq_sel_ids' not in st.session_state: st.session_state.nq_sel_ids = set()
-                            # Grid de selección
-                            _gcols2 = st.columns(4)
-                            for _gi2, _cit in enumerate(_cat_filtrados):
-                                with _gcols2[_gi2 % 4]:
+                            # Grid visual
+                            _gcols = st.columns(5)
+                            for _gi, _cit in enumerate(_cat_filtrados):
+                                with _gcols[_gi % 5]:
                                     _cid = _cit['id']
-                                    _sel2 = _cid in st.session_state.nq_sel_ids
-                                    _brd3 = '3px solid #0f3460' if _sel2 else '1px solid #e2e8f0'
+                                    _sel = _cid in st.session_state.nq_sel_ids
+                                    _brd = '3px solid #0f3460' if _sel else '1px solid #e2e8f0'
                                     if _cit.get('imagen_url'):
-                                        st.markdown(f"<img src='{_cit['imagen_url']}' style='width:100%;height:80px;object-fit:cover;border-radius:8px;border:{_brd3};'>", unsafe_allow_html=True)
+                                        st.markdown(f"<img src='{_cit['imagen_url']}' style='width:100%;height:70px;object-fit:cover;border-radius:7px;border:{_brd};'>", unsafe_allow_html=True)
+                                    elif _cit.get('hex'):
+                                        st.markdown(f"<div style='width:100%;height:70px;background:{_cit['hex']};border-radius:7px;border:{_brd};'></div>", unsafe_allow_html=True)
                                     else:
-                                        st.markdown(f"<div style='width:100%;height:80px;background:#{'dbeafe' if _sel2 else 'f1f5f9'};border-radius:8px;border:{_brd3};display:flex;align-items:center;justify-content:center;font-size:1.5rem;'>📦</div>", unsafe_allow_html=True)
-                                    if st.button(('✅ ' if _sel2 else '') + _cit['nombre'], key=f"nq_catsel_{_cid}",
-                                                 use_container_width=True, type='primary' if _sel2 else 'secondary'):
-                                        if _sel2: st.session_state.nq_sel_ids.discard(_cid)
+                                        st.markdown(f"<div style='width:100%;height:70px;background:#f1f5f9;border-radius:7px;border:{_brd};display:flex;align-items:center;justify-content:center;'>📦</div>", unsafe_allow_html=True)
+                                    if st.button(('✅ ' if _sel else '') + _cit['nombre'][:12], key=f"nq_sel_{_cid}",
+                                                 use_container_width=True, type='primary' if _sel else 'secondary'):
+                                        if _sel: st.session_state.nq_sel_ids.discard(_cid)
                                         else: st.session_state.nq_sel_ids.add(_cid)
                                         st.rerun()
                             _nsel = len(st.session_state.nq_sel_ids)
-                            st.markdown(f"<div style='font-size:0.82rem;color:#0f3460;font-weight:700;margin-top:8px;'>{_nsel} opcion{'es' if _nsel!=1 else ''} seleccionada{'s' if _nsel!=1 else ''}</div>", unsafe_allow_html=True)
-                            # Acumular opciones seleccionadas
+                            st.markdown(f"<div style='font-size:0.82rem;color:#0f3460;font-weight:700;margin:6px 0;'>{_nsel} opción{'es' if _nsel!=1 else ''} seleccionada{'s' if _nsel!=1 else ''}</div>", unsafe_allow_html=True)
                             for _cit2 in _cat_todos:
                                 if _cit2['id'] in st.session_state.nq_sel_ids:
-                                    _nq_opciones.append({'nombre': _cit2['nombre'], 'url': _cit2.get('imagen_url',''), 'categoria': _cit2.get('categoria','')})
+                                    _opt = {'nombre': _cit2['nombre']}
+                                    if _cit2.get('imagen_url'): _opt['url'] = _cit2['imagen_url']
+                                    if _cit2.get('hex'): _opt['hex'] = _cit2['hex']
+                                    _nq_opciones.append(_opt)
+
+                    elif _nq_tipo_val == 'select':
+                        # Puede venir del catálogo o manual
+                        _sel_source = st.radio("Origen de opciones", ["Desde catálogo", "Manual"], key="nq_sel_source", horizontal=True)
+                        if _sel_source == "Desde catálogo" and _cat_todos:
+                            _cat_filtro2 = st.selectbox("Categoría", _cat_cats if _cat_cats else [''], key="nq_cat_filtro2")
+                            _cat_f2 = [c for c in _cat_todos if c.get('categoria') == _cat_filtro2]
+                            if 'nq_sel_ids' not in st.session_state: st.session_state.nq_sel_ids = set()
+                            for _cit3 in _cat_f2:
+                                _cid3 = _cit3['id']
+                                _sel3 = _cid3 in st.session_state.nq_sel_ids
+                                if st.checkbox(_cit3['nombre'], value=_sel3, key=f"nq_chk_{_cid3}"):
+                                    st.session_state.nq_sel_ids.add(_cid3)
+                                else:
+                                    st.session_state.nq_sel_ids.discard(_cid3)
+                            for _cit4 in _cat_f2:
+                                if _cit4['id'] in st.session_state.nq_sel_ids:
+                                    _nq_opciones.append({'nombre': _cit4['nombre']})
+                        else:
+                            _opts_txt = st.text_area("Opciones (una por linea)", key="nq_opts_txt", height=80, placeholder="Opcion 1\nOpcion 2\nOpcion 3")
+                            for _ol in _opts_txt.strip().split('\n'):
+                                if _ol.strip(): _nq_opciones.append({'nombre': _ol.strip()})
 
                     if st.button("➕ Agregar pregunta", type="primary", use_container_width=True, key="nq_add"):
-                        if _nq_preg.strip():
+                        if not _nq_preg.strip():
+                            st.warning("Escribe el texto de la pregunta.")
+                        elif _nq_tipo_val in ('imagen','color') and not _nq_opciones:
+                            st.warning("Selecciona al menos una opción del catálogo.")
+                        else:
                             try:
                                 supabase.table('formulario_preguntas').insert({
                                     'cotizacion_numero': _form_ep,
@@ -17411,21 +17430,17 @@ if tab_formulario is not None:
                                 st.rerun()
                             except Exception as _e:
                                 st.error(f"Error: {_e}")
-                        else:
-                            st.warning("Escribe el texto de la pregunta.")
 
-                    # Link para el cliente
+                    # Link cliente
                     st.markdown("---")
                     _base_url = "https://cotizacion-espacio-container-zlkgejbxhjbbdeu9gvzkla.streamlit.app"
-                    _link_cliente = f"{_base_url}/?cliente=1"
                     st.markdown(f"""
                     <div style='background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px 16px;'>
                       <div style='font-weight:700;font-size:0.85rem;color:#15803d;margin-bottom:4px;'>🔗 Link para el cliente</div>
-                      <code style='font-size:0.82rem;color:#166534;'>{_link_cliente}</code>
-                      <div style='font-size:0.75rem;color:#64748b;margin-top:4px;'>Comparte este link con el cliente. Debe ingresar con su RUT y código {_form_ep}</div>
+                      <code style='font-size:0.82rem;color:#166534;'>{_base_url}/?cliente=1</code>
+                      <div style='font-size:0.75rem;color:#64748b;margin-top:4px;'>El cliente ingresa con su RUT y código {_form_ep}</div>
                     </div>
                     """, unsafe_allow_html=True)
-
         # ── TAB PROGRESO ──
         with _ftab_progreso:
             st.markdown("**Progreso de formularios por proyecto:**")
