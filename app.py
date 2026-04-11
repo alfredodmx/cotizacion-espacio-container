@@ -17155,13 +17155,47 @@ if tab_formulario is not None:
                                 _ch = st.color_picker(f"Color {_ci+1}", value='#ffffff', key=f"nq_ch_{_ci}")
                                 if _cn.strip():
                                     _nq_opciones.append({'nombre': _cn.strip(), 'hex': _ch})
-                    elif _nq_tipo_val in ('select', 'imagen'):
-                        st.markdown(f"**{'🖼️ Opciones con imagen' if _nq_tipo_val=='imagen' else '📋 Opciones de lista'}** — una por línea:")
-                        _opts_txt = st.text_area("Opciones (una por línea)", key="nq_opts_txt", height=80,
+                    elif _nq_tipo_val == 'select':
+                        st.markdown("**📋 Opciones de lista** — una por línea:")
+                        _opts_txt = st.text_area("Opciones", key="nq_opts_txt", height=80,
                                                   placeholder="Opción 1\nOpción 2\nOpción 3")
                         for _ol in _opts_txt.strip().split('\n'):
                             if _ol.strip():
                                 _nq_opciones.append({'nombre': _ol.strip()})
+
+                    elif _nq_tipo_val == 'imagen':
+                        st.markdown("**🖼️ Opciones con imagen** — sube una imagen por opción:")
+                        _nimg = st.number_input("Cantidad de opciones", min_value=1, max_value=10, value=3, key="nq_nimg")
+                        for _ii in range(int(_nimg)):
+                            _ii_c1, _ii_c2 = st.columns([2,3])
+                            with _ii_c1:
+                                _iname = st.text_input(f"Nombre opción {_ii+1}", key=f"nq_iname_{_ii}", placeholder=f"ej: Vinílico gris")
+                            with _ii_c2:
+                                _ifile = st.file_uploader(f"Imagen opción {_ii+1}", type=['png','jpg','jpeg','webp'], key=f"nq_ifile_{_ii}")
+                                if _ifile and _iname.strip():
+                                    if st.session_state.get(f'_img_url_{_ii}') and st.session_state.get(f'_img_name_{_ii}') == _iname.strip():
+                                        st.success(f"✅ {_ifile.name}")
+                                        _nq_opciones.append({'nombre': _iname.strip(), 'url': st.session_state[f'_img_url_{_ii}']})
+                                    else:
+                                        if st.button(f"⬆️ Subir imagen {_ii+1}", key=f"nq_iup_{_ii}"):
+                                            try:
+                                                import uuid as _uuimg
+                                                _ext = _ifile.name.split('.')[-1].lower()
+                                                _fname = f"formulario/{_uuimg.uuid4()}.{_ext}"
+                                                supabase.storage.from_('formulario-imagenes').upload(
+                                                    path=_fname, file=_ifile.getvalue(),
+                                                    file_options={'content-type': _ifile.type}
+                                                )
+                                                _iurl = supabase.storage.from_('formulario-imagenes').get_public_url(_fname)
+                                                st.session_state[f'_img_url_{_ii}'] = _iurl
+                                                st.session_state[f'_img_name_{_ii}'] = _iname.strip()
+                                                st.rerun()
+                                            except Exception as _upe:
+                                                st.error(f"Error subiendo: {_upe}")
+                                    if st.session_state.get(f'_img_url_{_ii}'):
+                                        _nq_opciones.append({'nombre': _iname.strip(), 'url': st.session_state[f'_img_url_{_ii}']})
+                                elif _iname.strip() and not _ifile:
+                                    _nq_opciones.append({'nombre': _iname.strip(), 'url': ''})
 
                     if st.button("➕ Agregar pregunta", type="primary", use_container_width=True, key="nq_add"):
                         if _nq_preg.strip():
