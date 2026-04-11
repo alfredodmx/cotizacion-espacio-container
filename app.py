@@ -17120,7 +17120,7 @@ body{{margin:0;padding:0;font-family:'Segoe UI',sans-serif;font-size:13px;backgr
       </div>
       <div class="field" style="flex:1">
         <label>Tipo</label>
-        <select id="cat-tipo" onchange="updateTipo()">
+        <select id="cat-tipo" oninput="updateTipo()" onchange="updateTipo()">
           <option value="imagen">🖼️ Imagen</option>
           <option value="color">🎨 Color</option>
           <option value="select">📋 Lista desplegable</option>
@@ -17129,7 +17129,7 @@ body{{margin:0;padding:0;font-family:'Segoe UI',sans-serif;font-size:13px;backgr
       </div>
       <div class="field" style="flex:1" id="field-cantidad">
         <label>Cantidad de opciones</label>
-        <input type="number" id="cat-cantidad" value="4" min="1" max="30" onchange="renderItems()">
+        <input type="number" id="cat-cantidad" value="4" min="1" max="30" oninput="renderItems()" onchange="renderItems()">
       </div>
     </div>
     <div class="items-wrap" id="items-wrap"></div>
@@ -17336,7 +17336,7 @@ async function eliminar(id) {{
 }}
 
 renderCatalogo();
-updateTipo();
+setTimeout(function(){{ updateTipo(); }}, 100);
 </script>
 """
                 # Necesitamos height dinámico según cantidad de items
