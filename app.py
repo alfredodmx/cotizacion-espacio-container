@@ -943,6 +943,289 @@ def guardar_plano_en_storage(archivo_pdf_bytes, cotizacion_numero, nombre_origin
 # Función que construye el HTML del registro de compras
 # Usando triple-quoted strings para evitar conflictos de comillas
 
+def build_config_preguntas_html(preguntas, cat_items, supa_url, supa_key, form_ep):
+    import json
+
+    # Serialize data
+    pregs_json = json.dumps(preguntas, ensure_ascii=True)
+    cat_json = json.dumps(cat_items, ensure_ascii=True)
+
+    # Group catalog by category
+    grupos = {}
+    for c in cat_items:
+        cat = c.get('categoria', 'General')
+        if cat not in grupos:
+            grupos[cat] = []
+        grupos[cat].append(c)
+
+    # Build catalog grid HTML per category
+    cat_grids_html = ''
+    for cat, items in sorted(grupos.items()):
+        cat_grids_html += '<div class="cat-group" data-cat="' + cat + '">'
+        cat_grids_html += '<div class="cat-label">' + cat + '</div>'
+        cat_grids_html += '<div class="cat-grid">'
+        for it in items:
+            iid = str(it.get('id',''))
+            nombre = it.get('nombre','')
+            if it.get('imagen_url'):
+                preview = '<img src="' + it['imagen_url'] + '" style="width:100%;height:60px;object-fit:cover;border-radius:5px;display:block;">'
+            elif it.get('hex'):
+                preview = '<div style="width:100%;height:60px;background:' + it['hex'] + ';border-radius:5px;"></div>'
+            else:
+                preview = '<div style="width:100%;height:60px;background:#f1f5f9;border-radius:5px;display:flex;align-items:center;justify-content:center;">&#128230;</div>'
+            cat_grids_html += '<div class="cat-item" id="ci-' + iid + '" onclick="window.toggleItem(\'' + iid + '\')" data-id="' + iid + '" data-nombre="' + nombre.replace('"','') + '" data-url="' + (it.get('imagen_url') or '') + '" data-hex="' + (it.get('hex') or '') + '">'
+            cat_grids_html += preview
+            cat_grids_html += '<div class="cat-item-name">' + nombre + '</div>'
+            cat_grids_html += '<div class="cat-item-check" id="chk-' + iid + '">✓</div>'
+            cat_grids_html += '</div>'
+        cat_grids_html += '</div></div>'
+
+    if not cat_grids_html:
+        cat_grids_html = '<p style="color:#94a3b8;font-size:12px;padding:8px;">No hay materiales en el catalogo para este tipo.</p>'
+
+    css = (
+        'body{margin:0;padding:0;font-family:Segoe UI,sans-serif;font-size:13px;background:#f8fafc;}'
+        '.wrap{padding:10px;}'
+        '.pregs-list{margin-bottom:12px;}'
+        '.preg-row{background:white;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;}'
+        '.preg-info{flex:1;}'
+        '.preg-tipo{font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;}'
+        '.preg-texto{font-weight:700;color:#0f172a;font-size:13px;}'
+        '.preg-sec{font-size:11px;color:#64748b;}'
+        '.preg-opts{font-size:10px;color:#94a3b8;}'
+        '.preg-btns{display:flex;gap:4px;}'
+        '.btn-sm{border:none;border-radius:4px;padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;}'
+        '.btn-del{background:#fee2e2;color:#dc2626;}'
+        '.form-box{background:white;border:2px solid #e2e8f0;border-radius:10px;padding:14px;margin-bottom:12px;}'
+        '.form-title{font-weight:900;color:#0f172a;margin-bottom:10px;font-size:14px;}'
+        '.row{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;}'
+        '.field{display:flex;flex-direction:column;}'
+        '.field label{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:3px;}'
+        '.field input,.field select,.field textarea{padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;}'
+        '.cat-section{margin-top:10px;}'
+        '.cat-filter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}'
+        '.cat-filter-btn{border:1px solid #cbd5e1;background:white;border-radius:99px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;color:#64748b;}'
+        '.cat-filter-btn.active{background:#1e3a5f;color:white;border-color:#1e3a5f;}'
+        '.cat-group{margin-bottom:8px;}'
+        '.cat-label{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px;}'
+        '.cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:5px;}'
+        '.cat-item{background:white;border:2px solid #e2e8f0;border-radius:7px;overflow:hidden;cursor:pointer;position:relative;transition:border-color 0.15s;}'
+        '.cat-item.sel{border-color:#0f3460;background:#eff6ff;}'
+        '.cat-item-name{font-size:10px;font-weight:700;padding:2px 4px;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+        '.cat-item-check{display:none;position:absolute;top:2px;right:2px;background:#0f3460;color:white;border-radius:50%;width:16px;height:16px;font-size:10px;font-weight:900;align-items:center;justify-content:center;}'
+        '.cat-item.sel .cat-item-check{display:flex;}'
+        '.sel-count{font-size:12px;font-weight:700;color:#0f3460;margin:6px 0;}'
+        '.btn-add{background:#1e2447;color:white;border:none;border-radius:7px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;width:100%;}'
+        '.btn-add:disabled{opacity:0.5;}'
+        '.status{margin-top:6px;font-size:12px;font-weight:600;min-height:16px;}'
+        '.empty{color:#94a3b8;font-style:italic;font-size:12px;padding:8px 0;}'
+        '.link-box{background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 14px;margin-top:10px;}'
+        '.link-box a{color:#166534;font-size:12px;font-weight:700;}'
+    )
+
+    js_lines = [
+        'var S="' + supa_url + '",K="' + supa_key + '",EP="' + form_ep + '";',
+        'var PREGS=' + pregs_json + ';',
+        'var CAT=' + cat_json + ';',
+        'var selIds=new Set();',
+
+        # Render preguntas
+        'function renderPregs(){',
+        '  var d=document.getElementById("pregs-list");',
+        '  if(!PREGS.length){d.innerHTML=\'<div class="empty">No hay preguntas configuradas aun.</div>\';return;}',
+        '  var h="";',
+        '  PREGS.forEach(function(p){',
+        '    var ico={"color":"🎨","imagen":"🖼️","select":"📋","si_no":"✅","texto":"✍️"}[p.tipo]||"❓";',
+        '    var opts=p.opciones||[];',
+        '    var optsStr=opts.slice(0,4).map(function(o){return o.nombre;}).join(", ")+(opts.length>4?" +"+( opts.length-4)+" mas":"");',
+        '    h+=\'<div class="preg-row">\';',
+        '    h+=\'<div class="preg-info">\';',
+        '    h+=\'<div class="preg-tipo">\'+ico+" "+p.tipo+(p.requerida?" ⭐":"")+\'</div>\';',
+        '    h+=\'<div class="preg-texto">\'+p.pregunta+\'</div>\';',
+        '    h+=\'<div class="preg-sec">📁 \'+p.seccion+\'</div>\';',
+        '    if(optsStr)h+=\'<div class="preg-opts">Opciones: \'+optsStr+\'</div>\';',
+        '    h+=\'</div>\';',
+        '    h+=\'<div class="preg-btns">\';',
+        '    h+=\'<button class="btn-sm btn-del" onclick="window.eliminarPregunta(\\\'\'+p.id+\'\\\')">🗑</button>\';',
+        '    h+=\'</div></div>\';',
+        '  });',
+        '  d.innerHTML=h;',
+        '}',
+
+        # Filter catalog by category
+        'function filterCat(cat){',
+        '  document.querySelectorAll(".cat-filter-btn").forEach(function(b){b.classList.remove("active");});',
+        '  var activeBtn=document.querySelector(".cat-filter-btn[data-cat=\\""+cat+"\\"]");',
+        '  if(activeBtn)activeBtn.classList.add("active");',
+        '  document.querySelectorAll(".cat-group").forEach(function(g){',
+        '    g.style.display=(cat==="all"||g.dataset.cat===cat)?"block":"none";',
+        '  });',
+        '}',
+
+        # Toggle item selection
+        'window.toggleItem=function(id){',
+        '  if(selIds.has(id)){selIds.delete(id);document.getElementById("ci-"+id).classList.remove("sel");}',
+        '  else{selIds.add(id);document.getElementById("ci-"+id).classList.add("sel");}',
+        '  document.getElementById("sel-count").textContent=selIds.size+" opcion"+(selIds.size!==1?"es":"")+" seleccionada"+(selIds.size!==1?"s":"");',
+        '};',
+
+        # Show/hide catalog section based on tipo
+        'function updateTipoUI(){',
+        '  var tipo=document.getElementById("nq-tipo").value;',
+        '  var catSec=document.getElementById("cat-section");',
+        '  var manualSec=document.getElementById("manual-section");',
+        '  if(tipo==="imagen"||tipo==="color"){catSec.style.display="block";manualSec.style.display="none";}',
+        '  else if(tipo==="select"){catSec.style.display="none";manualSec.style.display="block";}',
+        '  else{catSec.style.display="none";manualSec.style.display="none";}',
+        '  selIds.clear();',
+        '  document.querySelectorAll(".cat-item").forEach(function(el){el.classList.remove("sel");});',
+        '  document.getElementById("sel-count").textContent="0 opciones seleccionadas";',
+        '}',
+
+        # Delete pregunta
+        'window.eliminarPregunta=async function(id){',
+        '  if(!confirm("Eliminar esta pregunta?"))return;',
+        '  var r=await fetch(S+"/rest/v1/formulario_preguntas?id=eq."+id,',
+        '    {method:"DELETE",headers:{"Authorization":"Bearer "+K,"apikey":K}});',
+        '  if(r.ok){PREGS=PREGS.filter(function(p){return p.id!==id;});renderPregs();}',
+        '  else alert("Error: "+r.status);',
+        '}',
+
+        # Add pregunta
+        'window.agregarPregunta=async function(){',
+        '  var preg=document.getElementById("nq-preg").value.trim();',
+        '  var sec=document.getElementById("nq-sec").value.trim()||"General";',
+        '  var tipo=document.getElementById("nq-tipo").value;',
+        '  var req=document.getElementById("nq-req").checked;',
+        '  var ord=parseInt(document.getElementById("nq-ord").value)||PREGS.length+1;',
+        '  var st=document.getElementById("form-status");',
+        '  if(!preg){st.textContent="Escribe el texto de la pregunta";st.style.color="#dc2626";return;}',
+        '  var opciones=[];',
+        '  if(tipo==="imagen"||tipo==="color"){',
+        '    CAT.forEach(function(c){',
+        '      if(selIds.has(String(c.id))){',
+        '        var o={nombre:c.nombre};',
+        '        if(c.imagen_url)o.url=c.imagen_url;',
+        '        if(c.hex)o.hex=c.hex;',
+        '        opciones.push(o);',
+        '      }',
+        '    });',
+        '    if(!opciones.length){st.textContent="Selecciona al menos una opcion del catalogo";st.style.color="#dc2626";return;}',
+        '  } else if(tipo==="select"){',
+        '    var txt=document.getElementById("manual-opts").value;',
+        '    txt.split("\\n").forEach(function(l){if(l.trim())opciones.push({nombre:l.trim()});});',
+        '    if(!opciones.length){st.textContent="Agrega al menos una opcion";st.style.color="#dc2626";return;}',
+        '  }',
+        '  st.textContent="Guardando...";st.style.color="#2563eb";',
+        '  var body={cotizacion_numero:EP,pregunta:preg,seccion:sec,tipo:tipo,opciones:opciones,requerida:req,orden:ord,creado_por:""};',
+        '  var r=await fetch(S+"/rest/v1/formulario_preguntas",',
+        '    {method:"POST",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=representation"},',
+        '    body:JSON.stringify(body)});',
+        '  if(r.ok){',
+        '    var data=await r.json();',
+        '    if(data&&data[0])PREGS.push(data[0]);',
+        '    renderPregs();',
+        '    document.getElementById("nq-preg").value="";',
+        '    selIds.clear();',
+        '    document.querySelectorAll(".cat-item").forEach(function(el){el.classList.remove("sel");});',
+        '    document.getElementById("sel-count").textContent="0 opciones seleccionadas";',
+        '    st.textContent="Pregunta agregada";st.style.color="#16a34a";',
+        '    setTimeout(function(){st.textContent="";},2000);',
+        '  }else{',
+        '    var err=await r.text();',
+        '    st.textContent="Error: "+r.status+" "+err;st.style.color="#dc2626";',
+        '  }',
+        '}',
+
+        'document.getElementById("nq-tipo").addEventListener("change",updateTipoUI);',
+        'renderPregs();',
+        'updateTipoUI();',
+        'filterCat("all");',
+    ]
+    js = '\n'.join(js_lines)
+
+    # Build category filter buttons
+    cat_filter_btns = '<button class="cat-filter-btn active" data-cat="all" onclick="filterCat(\'all\')">Todas</button>'
+    for cat in sorted(grupos.keys()):
+        cat_filter_btns += '<button class="cat-filter-btn" data-cat="' + cat + '" onclick="filterCat(\'' + cat + '\')"> ' + cat + '</button>'
+
+    html = (
+        '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' + css + '</style></head>'
+        '<body><div class="wrap">'
+
+        # Preguntas existentes
+        '<div class="form-title">📋 Preguntas de ' + form_ep + '</div>'
+        '<div class="pregs-list" id="pregs-list"></div>'
+
+        # Formulario nueva pregunta
+        '<div class="form-box">'
+        '<div class="form-title">➕ Nueva pregunta</div>'
+        '<div class="row">'
+        '<div class="field" style="flex:3;min-width:180px;">'
+        '<label>Texto de la pregunta</label>'
+        '<input type="text" id="nq-preg" placeholder="ej: Que color quieres para el muro?">'
+        '</div>'
+        '<div class="field" style="min-width:120px;">'
+        '<label>Seccion</label>'
+        '<input type="text" id="nq-sec" value="General" placeholder="ej: Pintura, Pisos">'
+        '</div>'
+        '</div>'
+        '<div class="row">'
+        '<div class="field" style="min-width:160px;">'
+        '<label>Tipo</label>'
+        '<select id="nq-tipo">'
+        '<option value="imagen">🖼️ Imagen</option>'
+        '<option value="color">🎨 Color</option>'
+        '<option value="select">📋 Lista desplegable</option>'
+        '<option value="si_no">✅ Si / No</option>'
+        '<option value="texto">✍️ Texto libre</option>'
+        '</select>'
+        '</div>'
+        '<div class="field" style="min-width:80px;">'
+        '<label>Orden</label>'
+        '<input type="number" id="nq-ord" value="' + str(len(preguntas)+1) + '" min="1" style="width:70px;">'
+        '</div>'
+        '<div class="field" style="justify-content:flex-end;">'
+        '<label>&nbsp;</label>'
+        '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;font-weight:700;color:#0f172a;">'
+        '<input type="checkbox" id="nq-req" checked style="width:14px;height:14px;"> Requerida</label>'
+        '</div>'
+        '</div>'
+
+        # Catalog selection section
+        '<div id="cat-section" class="cat-section">'
+        '<div style="font-weight:700;font-size:11px;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Selecciona del catalogo:</div>'
+        '<div class="cat-filter">' + cat_filter_btns + '</div>'
+        + cat_grids_html +
+        '<div class="sel-count" id="sel-count">0 opciones seleccionadas</div>'
+        '</div>'
+
+        # Manual options section
+        '<div id="manual-section" style="display:none;">'
+        '<div class="field"><label>Opciones (una por linea)</label>'
+        '<textarea id="manual-opts" rows="4" placeholder="Opcion 1\nOpcion 2\nOpcion 3" style="resize:vertical;"></textarea>'
+        '</div>'
+        '</div>'
+
+        '<button class="btn-add" onclick="window.agregarPregunta()">➕ Agregar pregunta</button>'
+        '<div class="status" id="form-status"></div>'
+        '</div>'
+
+        # Link cliente
+        '<div class="link-box">'
+        '<div style="font-weight:700;font-size:12px;color:#15803d;margin-bottom:3px;">🔗 Link para el cliente</div>'
+        '<a href="https://cotizacion-espacio-container-zlkgejbxhjbbdeu9gvzkla.streamlit.app/?cliente=1" target="_blank">'
+        'https://cotizacion-espacio-container-zlkgejbxhjbbdeu9gvzkla.streamlit.app/?cliente=1</a>'
+        '<div style="font-size:10px;color:#64748b;margin-top:2px;">El cliente ingresa con su RUT y codigo ' + form_ep + '</div>'
+        '</div>'
+
+        '</div>'
+        '<script>' + js + '</script>'
+        '</body></html>'
+    )
+    return html
+
+
 def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4):
     grupos = {}
     for c in cat_items:
@@ -17368,19 +17651,7 @@ if tab_formulario is not None:
             if _rol_form not in ('root', 'admin'):
                 st.info("🔒 Solo administradores pueden configurar formularios.")
             else:
-                # Cargar catálogo una vez
-                try:
-                    _cat_todos = supabase.table('catalogo_materiales').select('*').eq('activo',True).order('categoria').order('nombre').execute().data or []
-                except:
-                    _cat_todos = []
-                _cat_cats = sorted(set(c.get('categoria','') for c in _cat_todos if c.get('categoria')))
-                _cat_por_cat = {}
-                for _c in _cat_todos:
-                    _cc = _c.get('categoria','General')
-                    if _cc not in _cat_por_cat: _cat_por_cat[_cc] = []
-                    _cat_por_cat[_cc].append(_c)
-
-                # Buscar EP
+                import streamlit.components.v1 as _cfg_comp
                 _c1ep, _c2ep = st.columns([3,1])
                 with _c1ep:
                     _ep_form_input = st.text_input("Número EP", placeholder="EP-12345", key="form_ep_input")
@@ -17388,7 +17659,6 @@ if tab_formulario is not None:
                     st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
                     if st.button("🔍 Cargar", key="form_cargar_ep", use_container_width=True) and _ep_form_input:
                         st.session_state['_form_ep'] = _ep_form_input.strip().upper()
-                        st.session_state.nq_sel_ids = set()
                         st.rerun()
 
                 _form_ep = st.session_state.get('_form_ep', '')
@@ -17401,161 +17671,13 @@ if tab_formulario is not None:
                         ).order('orden').execute().data or []
                     except:
                         _form_pregs = []
-
-                    st.markdown(f"**Preguntas configuradas para {_form_ep}** ({len(_form_pregs)} preguntas):")
-
-                    # Preguntas existentes
-                    import json as _jfp_disp
-                    for _fp in _form_pregs:
-                        _fp_tipo = _fp.get('tipo','texto')
-                        _fp_opts = _fp.get('opciones') or []
-                        _fp_icon = {'color':'🎨','imagen':'🖼️','select':'📋','si_no':'✅','texto':'✍️'}.get(_fp_tipo,'❓')
-                        with st.expander(f"{_fp_icon} [{_fp.get('seccion','')}] {_fp.get('pregunta','')} — {len(_fp_opts)} opciones"):
-                            _ec1, _ec2 = st.columns([3,1])
-                            with _ec1:
-                                _fp_new_text = st.text_input("Pregunta", value=_fp.get('pregunta',''), key=f"fp_txt_{_fp['id']}")
-                                _fp_new_sec  = st.text_input("Sección", value=_fp.get('seccion',''), key=f"fp_sec_{_fp['id']}")
-                                _fp_new_req  = st.checkbox("Requerida", value=_fp.get('requerida',True), key=f"fp_req_{_fp['id']}")
-                                # Show opciones as read-only summary
-                                if _fp_opts:
-                                    _opts_names = ', '.join([o.get('nombre','') for o in _fp_opts[:6]])
-                                    if len(_fp_opts) > 6: _opts_names += f'... +{len(_fp_opts)-6} más'
-                                    st.markdown(f"<div style='font-size:0.78rem;color:#64748b;'>Opciones: {_opts_names}</div>", unsafe_allow_html=True)
-                            with _ec2:
-                                st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
-                                if st.button("💾 Guardar", key=f"fp_save_{_fp['id']}", use_container_width=True):
-                                    try:
-                                        supabase.table('formulario_preguntas').update({
-                                            'pregunta': _fp_new_text,
-                                            'seccion': _fp_new_sec,
-                                            'requerida': _fp_new_req,
-                                        }).eq('id', _fp['id']).execute()
-                                        st.success("✅ Guardado")
-                                        st.rerun()
-                                    except Exception as _e:
-                                        st.error(f"Error: {_e}")
-                                if st.button("🗑️ Eliminar", key=f"fp_del_{_fp['id']}", use_container_width=True):
-                                    try:
-                                        supabase.table('formulario_preguntas').delete().eq('id', _fp['id']).execute()
-                                        st.rerun()
-                                    except Exception as _e:
-                                        st.error(f"Error: {_e}")
-
-                    st.markdown("---")
-                    st.markdown("**➕ Nueva pregunta:**")
-
-                    _nqa, _nqb = st.columns([2,1])
-                    with _nqa:
-                        _nq_preg = st.text_input("Texto de la pregunta", key="nq_preg", placeholder="ej: ¿Qué color quieres para el muro?")
-                        _nq_sec  = st.text_input("Sección", value="General", key="nq_sec", placeholder="ej: Pintura, Pisos, Baño")
-                    with _nqb:
-                        _nq_tipo = st.selectbox("Tipo", [
-                            'imagen — fotos para elegir',
-                            'color — círculos de colores',
-                            'select — lista desplegable',
-                            'si_no — botones Sí/No',
-                            'texto — respuesta libre',
-                        ], key="nq_tipo")
-                        _nq_tipo_val = _nq_tipo.split(' — ')[0]
-                        _nq_req = st.checkbox("Requerida", value=True, key="nq_req")
-                        _nq_ord = st.number_input("Orden", value=len(_form_pregs)+1, min_value=1, key="nq_ord")
-
-                    # Opciones según tipo
-                    _nq_opciones = []
-
-                    if _nq_tipo_val in ('imagen', 'color'):
-                        # Selección desde catálogo
-                        if not _cat_todos:
-                            st.warning("⚠️ El catálogo está vacío. Ve a 📦 Catálogo de materiales y agrega materiales primero.")
-                        else:
-                            _tipo_label = "🖼️ Selecciona imágenes del catálogo:" if _nq_tipo_val == 'imagen' else "🎨 Selecciona colores del catálogo:"
-                            st.markdown(f"**{_tipo_label}**")
-                            # Filtro por categoría
-                            _cat_filtro = st.selectbox("Filtrar por categoría", ['Todas'] + _cat_cats, key="nq_cat_filtro")
-                            _cat_filtrados = [c for c in _cat_todos if _cat_filtro == 'Todas' or c.get('categoria') == _cat_filtro]
-                            if 'nq_sel_ids' not in st.session_state: st.session_state.nq_sel_ids = set()
-                            # Grid visual
-                            _gcols = st.columns(5)
-                            for _gi, _cit in enumerate(_cat_filtrados):
-                                with _gcols[_gi % 5]:
-                                    _cid = _cit['id']
-                                    _sel = _cid in st.session_state.nq_sel_ids
-                                    _brd = '3px solid #0f3460' if _sel else '1px solid #e2e8f0'
-                                    if _cit.get('imagen_url'):
-                                        st.markdown(f"<img src='{_cit['imagen_url']}' style='width:100%;height:70px;object-fit:cover;border-radius:7px;border:{_brd};'>", unsafe_allow_html=True)
-                                    elif _cit.get('hex'):
-                                        st.markdown(f"<div style='width:100%;height:70px;background:{_cit['hex']};border-radius:7px;border:{_brd};'></div>", unsafe_allow_html=True)
-                                    else:
-                                        st.markdown(f"<div style='width:100%;height:70px;background:#f1f5f9;border-radius:7px;border:{_brd};display:flex;align-items:center;justify-content:center;'>📦</div>", unsafe_allow_html=True)
-                                    if st.button(('✅ ' if _sel else '') + _cit['nombre'][:12], key=f"nq_sel_{_cid}",
-                                                 use_container_width=True, type='primary' if _sel else 'secondary'):
-                                        if _sel: st.session_state.nq_sel_ids.discard(_cid)
-                                        else: st.session_state.nq_sel_ids.add(_cid)
-                                        st.rerun()
-                            _nsel = len(st.session_state.nq_sel_ids)
-                            st.markdown(f"<div style='font-size:0.82rem;color:#0f3460;font-weight:700;margin:6px 0;'>{_nsel} opción{'es' if _nsel!=1 else ''} seleccionada{'s' if _nsel!=1 else ''}</div>", unsafe_allow_html=True)
-                            for _cit2 in _cat_todos:
-                                if _cit2['id'] in st.session_state.nq_sel_ids:
-                                    _opt = {'nombre': _cit2['nombre']}
-                                    if _cit2.get('imagen_url'): _opt['url'] = _cit2['imagen_url']
-                                    if _cit2.get('hex'): _opt['hex'] = _cit2['hex']
-                                    _nq_opciones.append(_opt)
-
-                    elif _nq_tipo_val == 'select':
-                        # Puede venir del catálogo o manual
-                        _sel_source = st.radio("Origen de opciones", ["Desde catálogo", "Manual"], key="nq_sel_source", horizontal=True)
-                        if _sel_source == "Desde catálogo" and _cat_todos:
-                            _cat_filtro2 = st.selectbox("Categoría", _cat_cats if _cat_cats else [''], key="nq_cat_filtro2")
-                            _cat_f2 = [c for c in _cat_todos if c.get('categoria') == _cat_filtro2]
-                            if 'nq_sel_ids' not in st.session_state: st.session_state.nq_sel_ids = set()
-                            for _cit3 in _cat_f2:
-                                _cid3 = _cit3['id']
-                                _sel3 = _cid3 in st.session_state.nq_sel_ids
-                                if st.checkbox(_cit3['nombre'], value=_sel3, key=f"nq_chk_{_cid3}"):
-                                    st.session_state.nq_sel_ids.add(_cid3)
-                                else:
-                                    st.session_state.nq_sel_ids.discard(_cid3)
-                            for _cit4 in _cat_f2:
-                                if _cit4['id'] in st.session_state.nq_sel_ids:
-                                    _nq_opciones.append({'nombre': _cit4['nombre']})
-                        else:
-                            _opts_txt = st.text_area("Opciones (una por linea)", key="nq_opts_txt", height=80, placeholder="Opcion 1\nOpcion 2\nOpcion 3")
-                            for _ol in _opts_txt.strip().split('\n'):
-                                if _ol.strip(): _nq_opciones.append({'nombre': _ol.strip()})
-
-                    if st.button("➕ Agregar pregunta", type="primary", use_container_width=True, key="nq_add"):
-                        if not _nq_preg.strip():
-                            st.warning("Escribe el texto de la pregunta.")
-                        elif _nq_tipo_val in ('imagen','color') and not _nq_opciones:
-                            st.warning("Selecciona al menos una opción del catálogo.")
-                        else:
-                            try:
-                                supabase.table('formulario_preguntas').insert({
-                                    'cotizacion_numero': _form_ep,
-                                    'pregunta': _nq_preg.strip(),
-                                    'seccion': _nq_sec.strip() or 'General',
-                                    'tipo': _nq_tipo_val,
-                                    'opciones': _nq_opciones,
-                                    'requerida': _nq_req,
-                                    'orden': int(_nq_ord),
-                                    'creado_por': st.session_state.get('auth_email','')
-                                }).execute()
-                                st.success("✅ Pregunta agregada")
-                                st.session_state.nq_sel_ids = set()
-                                st.rerun()
-                            except Exception as _e:
-                                st.error(f"Error: {_e}")
-
-                    # Link cliente
-                    st.markdown("---")
-                    _base_url = "https://cotizacion-espacio-container-zlkgejbxhjbbdeu9gvzkla.streamlit.app"
-                    st.markdown(f"""
-                    <div style='background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px 16px;'>
-                      <div style='font-weight:700;font-size:0.85rem;color:#15803d;margin-bottom:4px;'>🔗 Link para el cliente</div>
-                      <code style='font-size:0.82rem;color:#166534;'>{_base_url}/?cliente=1</code>
-                      <div style='font-size:0.75rem;color:#64748b;margin-top:4px;'>El cliente ingresa con su RUT y código {_form_ep}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    try:
+                        _cat_todos = supabase.table('catalogo_materiales').select('*').eq('activo',True).order('categoria').order('nombre').execute().data or []
+                    except:
+                        _cat_todos = []
+                    _cfg_html = build_config_preguntas_html(_form_pregs, _cat_todos, SUPABASE_URL, SUPABASE_KEY, _form_ep)
+                    _cfg_height = max(700, len(_form_pregs) * 60 + 600)
+                    _cfg_comp.html(_cfg_html, height=_cfg_height, scrolling=True)
         # ── TAB PROGRESO ──
         with _ftab_progreso:
             st.markdown("**Progreso de formularios por proyecto:**")
