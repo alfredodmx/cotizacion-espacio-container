@@ -4053,7 +4053,8 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
             'fecha_autorizacion', 'autorizado_por', 'contrato_notariado_url',
             'fecha_adjudicacion', 'contrato_datos', 'motivo_rechazo', 'fecha_rechazo',
             'acta_url', 'fecha_entrega',
-            'cliente_telefono', 'cliente_direccion', 'cliente_comuna', 'cliente_region'
+            'cliente_telefono', 'cliente_direccion', 'cliente_comuna', 'cliente_region',
+            'proyecto_direccion', 'proyecto_comuna', 'proyecto_region'
         )
         # Filtrar por usuario si es ejecutivo (no admin ni root)
         _rol_q = st.session_state.get('rol_usuario', 'ejecutivo')
@@ -4102,6 +4103,9 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
                 row.get('cliente_direccion', '') or '',
                 row.get('cliente_comuna', '') or '',
                 row.get('cliente_region', '') or '',
+                row.get('proyecto_direccion', '') or '',
+                row.get('proyecto_comuna', '') or '',
+                row.get('proyecto_region', '') or '',
             ))
         # Agregar conteo de logs
         numeros_ep = [r[0] for r in resultados]
@@ -9034,7 +9038,7 @@ if tab3 is not None:
         st.rerun()
 
     if st.session_state.resultados_busqueda:
-        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa", "Fecha_Auth", "Autorizado_Por", "Tiene_Notariado", "Fecha_Adj", "Contrato_Datos", "Not_URL", "Motivo_Rechazo", "Fecha_Rechazo", "Acta_URL", "Fecha_Entrega", "Cli_Tel", "Cli_Dir", "Cli_Comuna", "Cli_Region", "NLogs"]
+        _cols_esperadas = ["N°", "Cliente", "Asesor", "Fecha", "Total", "Margen", "RUT", "Email", "Asesor_Email", "Asesor_Tel", "Tiene_Plano", "Tiene_Contrato", "Empresa", "Fecha_Auth", "Autorizado_Por", "Tiene_Notariado", "Fecha_Adj", "Contrato_Datos", "Not_URL", "Motivo_Rechazo", "Fecha_Rechazo", "Acta_URL", "Fecha_Entrega", "Cli_Tel", "Cli_Dir", "Cli_Comuna", "Cli_Region", "Inst_Dir", "Inst_Comuna", "Inst_Region", "NLogs"]
         # Invalidar caché si tiene menos columnas que las esperadas
         if st.session_state.resultados_busqueda and len(st.session_state.resultados_busqueda[0]) < len(_cols_esperadas):
             st.session_state.resultados_busqueda = buscar_cotizaciones()
@@ -9271,6 +9275,9 @@ if tab3 is not None:
                 'comuna': str(_mrow.get('Cli_Comuna','') or ''),
                 'region': str(_mrow.get('Cli_Region','') or ''),
                 'empresa': str(_mrow.get('Empresa','') or ''),
+                'inst_dir': str(_mrow.get('Inst_Dir','') or ''),
+                'inst_comuna': str(_mrow.get('Inst_Comuna','') or ''),
+                'inst_region': str(_mrow.get('Inst_Region','') or ''),
             }
         _cli_data_json_map = _jcli_map.dumps(_cli_data_map, ensure_ascii=True)
         for _, row in df_resultados.iterrows():
@@ -9776,6 +9783,9 @@ var CLI_DATA = """ + _cli_data_json_map + """;
             ['🏙️ Comuna', cli.comuna],
             ['🗺️ Región', cli.region],
             ['🏢 Empresa', cli.empresa],
+            ['📍 Dirección instalación', cli.inst_dir],
+            ['🏙️ Comuna instalación', cli.inst_comuna],
+            ['🗺️ Región instalación', cli.inst_region],
         ];
         var html = '<table style="width:100%;border-collapse:collapse;">';
         rows.forEach(function(r) {
