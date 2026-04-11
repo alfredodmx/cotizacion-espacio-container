@@ -17341,11 +17341,17 @@ async function eliminar(id) {{
 }}
 
 renderCatalogo();
-// Forzar render con múltiples intentos
-updateTipo();
-setTimeout(function(){{ updateTipo(); }}, 200);
-setTimeout(function(){{ updateTipo(); }}, 600);
-document.addEventListener('DOMContentLoaded', function(){{ updateTipo(); }});
+// Polling hasta que el DOM esté listo
+var _initCount = 0;
+var _initTimer = setInterval(function() {{
+  var wrap = document.getElementById('items-wrap');
+  var tipo = document.getElementById('cat-tipo');
+  if(wrap && tipo) {{
+    clearInterval(_initTimer);
+    updateTipo();
+  }}
+  if(++_initCount > 20) clearInterval(_initTimer);
+}}, 100);
 </script>
 """
                 # Necesitamos height dinámico según cantidad de items
