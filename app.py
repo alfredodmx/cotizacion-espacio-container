@@ -17173,16 +17173,21 @@ function renderCatalogo() {{
 }}
 
 function updateTipo() {{
-  var tipo = document.getElementById('cat-tipo').value;
+  var tipoEl = document.getElementById('cat-tipo');
   var fc = document.getElementById('field-cantidad');
+  if(!tipoEl || !fc) return;
+  var tipo = tipoEl.value;
   fc.style.display = (tipo === 'si_no') ? 'none' : 'flex';
   renderItems();
 }}
 
 function renderItems() {{
-  var tipo = document.getElementById('cat-tipo').value;
-  var n = parseInt(document.getElementById('cat-cantidad').value) || 4;
+  var tipoEl = document.getElementById('cat-tipo');
+  var cantEl = document.getElementById('cat-cantidad');
   var wrap = document.getElementById('items-wrap');
+  if(!tipoEl || !cantEl || !wrap) return;
+  var tipo = tipoEl.value;
+  var n = parseInt(cantEl.value) || 4;
   if(tipo === 'si_no') {{ wrap.innerHTML = '<p style="color:#64748b;font-size:12px;">Solo tendrá opciones Sí / No — no requiere ítems adicionales.</p>'; return; }}
   if(tipo === 'select') {{
     var html = '<div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Opciones</div>';
@@ -17336,7 +17341,11 @@ async function eliminar(id) {{
 }}
 
 renderCatalogo();
-setTimeout(function(){{ updateTipo(); }}, 100);
+// Forzar render con múltiples intentos
+updateTipo();
+setTimeout(function(){{ updateTipo(); }}, 200);
+setTimeout(function(){{ updateTipo(); }}, 600);
+document.addEventListener('DOMContentLoaded', function(){{ updateTipo(); }});
 </script>
 """
                 # Necesitamos height dinámico según cantidad de items
