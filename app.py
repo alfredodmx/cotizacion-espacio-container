@@ -81,7 +81,6 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         'body{margin:0;padding:0;font-family:Poppins,sans-serif;font-size:14px;background:#f0f4f8;}'
         '.wrap{max-width:720px;margin:0 auto;padding:0 0 32px;}'
         # topbar
-        '.topbar{display:flex;justify-content:flex-end;align-items:center;padding:16px 20px 0;}'
         # header
         '.header{background:linear-gradient(135deg,#0a1628 0%,#0f3460 60%,#1a5276 100%);'
         'padding:28px 24px 24px;margin:12px 16px 0;border-radius:20px;color:white;'
@@ -440,9 +439,11 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
         '<style>' + css + '</style></head><body>'
         '<div class="wrap">'
-        '<div class="topbar">' + logo_html + '</div>'
         '<div class="header">'
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">'
         '<div class="h-badge">✦ Tu selección de materiales ✦</div>'
+        '<div style="flex-shrink:0;">' + logo_html + '</div>'
+        '</div>'
         '<div class="h-title">Bienvenida/o,<br>' + primer_nombre + ' 🏡</div>'
         '<div class="h-sub">Estás eligiendo los materiales que van a darle vida y personalidad a tu casa container. ¡Cada elección cuenta!</div>'
         '<div class="h-ep">📋 ' + ep + '</div>'
