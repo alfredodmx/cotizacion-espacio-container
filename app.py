@@ -84,7 +84,7 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         # topbar
         # header
         '.header{background:linear-gradient(135deg,#0a1628 0%,#0f3460 60%,#1a5276 100%);'
-        'padding:28px 24px 24px;margin:12px 16px 0;border-radius:20px;color:white;'
+        'padding:28px 24px 24px;margin:12px 16px 20px;border-radius:20px;color:white;'
         'box-shadow:0 20px 50px rgba(10,22,40,0.3),0 4px 12px rgba(10,22,40,0.15);'
         'position:relative;overflow:hidden;}'
         '.header::before{content:"";position:absolute;top:-50px;right:-50px;width:220px;height:220px;'
