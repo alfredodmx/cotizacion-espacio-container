@@ -86,7 +86,7 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '.preg-titulo{font-size:0.9rem;font-weight:700;color:#0f172a;margin-bottom:12px;}'
         '.preg-titulo .req{color:#f97316;}'
         # Color circles
-        '.color-grid{display:flex;flex-wrap:wrap;gap:14px;justify-content:flex-start;}'
+        '.color-grid{display:flex;flex-wrap:nowrap;gap:14px;overflow-x:auto;scroll-behavior:smooth;padding-bottom:8px;-webkit-overflow-scrolling:touch;}'
         '.color-item{text-align:center;cursor:pointer;}'
         '.color-circle{width:72px;height:72px;border-radius:50%;margin:0 auto 6px;border:3px solid #e2e8f0;transition:all 0.2s;position:relative;}'
         '.color-circle.sel{border-color:#0f3460;box-shadow:0 0 0 4px rgba(15,52,96,0.25);}'
@@ -94,8 +94,11 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '.color-circle.sel .color-check{display:flex;}'
         '.color-name{font-size:11px;color:#64748b;font-weight:600;max-width:72px;}'
         # Image grid
-        '.img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}'
-        '.img-item{cursor:pointer;border-radius:12px;overflow:hidden;border:3px solid #e2e8f0;transition:all 0.2s;position:relative;background:white;}'
+        '.img-grid{display:flex;gap:12px;overflow-x:auto;scroll-behavior:smooth;padding-bottom:8px;-webkit-overflow-scrolling:touch;}'
+        '.img-grid::-webkit-scrollbar{height:4px;}'
+        '.img-grid::-webkit-scrollbar-track{background:#f1f5f9;border-radius:99px;}'
+        '.img-grid::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:99px;}'
+        '.img-item{cursor:pointer;border-radius:12px;overflow:hidden;border:3px solid #e2e8f0;transition:all 0.2s;position:relative;background:white;flex:0 0 200px;width:200px;}'
         '.img-item.sel{border-color:#0f3460;box-shadow:0 0 0 4px rgba(15,52,96,0.25);}'
         '.img-item img{width:100%;height:180px;object-fit:cover;display:block;}'
         '.img-item-name{padding:8px 10px;font-size:12px;font-weight:700;color:#0f172a;}'
@@ -115,6 +118,11 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '.sino-btn{padding:14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;background:white;transition:all 0.15s;}'
         '.sino-btn.sel{background:#0f3460;color:white;border-color:#0f3460;}'
         # Textarea
+        '.carousel-wrap{position:relative;}'
+        '.carousel-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}'
+        '.carousel-nav-btn{background:#1e3a5f;color:white;border:none;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}'
+        '.carousel-nav-btn:disabled{background:#e2e8f0;color:#94a3b8;cursor:default;}'
+        '.carousel-count{font-size:12px;color:#64748b;font-weight:700;}'
         '.free-txt{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;resize:vertical;box-sizing:border-box;}'
         # Save button
         '.save-wrap{margin-top:16px;margin-bottom:24px;}'
@@ -142,7 +150,13 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
             pregs_html += '<div class="preg-titulo">' + ptext + req_span + answered + '</div>'
 
             if ptipo == 'color':
-                pregs_html += '<div class="color-grid">'
+                cgrid_id = 'cgrid-' + pid
+                pregs_html += '<div class="carousel-nav">'
+                pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + cgrid_id + '\',-1)">&#8249;</button>'
+                pregs_html += '<span class="carousel-count" id="cnt-' + pid + '"></span>'
+                pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + cgrid_id + '\',1)">&#8250;</button>'
+                pregs_html += '</div>'
+                pregs_html += '<div class="color-grid" id="' + cgrid_id + '">'
                 for opt in popts:
                     oname = opt.get('nombre','') if isinstance(opt, dict) else str(opt)
                     ohex = opt.get('hex','#ccc') if isinstance(opt, dict) else '#ccc'
@@ -155,7 +169,13 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
                 pregs_html += '</div>'
 
             elif ptipo == 'imagen':
-                pregs_html += '<div class="img-grid">'
+                grid_id = 'grid-' + pid
+                pregs_html += '<div class="carousel-nav">'
+                pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + grid_id + '\',-1)">&#8249;</button>'
+                pregs_html += '<span class="carousel-count" id="cnt-' + pid + '"></span>'
+                pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + grid_id + '\',1)">&#8250;</button>'
+                pregs_html += '</div>'
+                pregs_html += '<div class="img-grid" id="' + grid_id + '" onscroll="window.updateCarouselCount(\'' + grid_id + '\',\'' + pid + '\',this)">'
                 for oi, opt in enumerate(popts):
                     oname = opt.get('nombre','') if isinstance(opt, dict) else str(opt)
                     ourl = opt.get('url','') if isinstance(opt, dict) else ''
@@ -208,6 +228,28 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
 
     js_lines = [
         'var S="' + supa_url + '",K="' + supa_key + '",EP="' + ep + '";',
+        'window.scrollCarousel=function(gid,dir){',
+        '  var el=document.getElementById(gid);',
+        '  if(!el)return;',
+        '  el.scrollBy({left:dir*220,behavior:"smooth"});',
+        '};',
+        'window.updateCarouselCount=function(gid,pid,el){',
+        '  var cnt=document.getElementById("cnt-"+pid);',
+        '  if(!cnt)return;',
+        '  var items=el.children.length;',
+        '  var visible=Math.round(el.clientWidth/220);',
+        '  var cur=Math.round(el.scrollLeft/220)+1;',
+        '  cnt.textContent=cur+" / "+items;',
+        '};',
+        '// Init carousel counts after render',
+        'setTimeout(function(){',
+        '  document.querySelectorAll(".img-grid,.color-grid").forEach(function(el){',
+        '    var pid=el.id.replace("grid-","").replace("cgrid-","");',
+        '    var cnt=document.getElementById("cnt-"+pid);',
+        '    if(cnt)cnt.textContent="1 / "+el.children.length;',
+        '  });',
+        '},200);',
+
         'var resps=' + resps_init + ';',
         'var pendingSave={};',
 
@@ -315,12 +357,6 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '</body></html>'
     )
     return html
-
-
-
-
-
-# =========================================================
 # SISTEMA DE AUTENTICACIÓN
 # =========================================================
 def login_usuario(email, password):
