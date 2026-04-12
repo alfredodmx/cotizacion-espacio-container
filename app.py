@@ -110,7 +110,7 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '.sec-header{padding:18px 22px 0;margin:0;background:white;}'
         '.sec-header-label{font-size:0.65rem;font-weight:700;color:#93c5fd;text-transform:uppercase;letter-spacing:0.14em;margin-bottom:2px;}'
         '.sec-header-title{font-size:1.1rem;font-weight:900;color:#0a1628;font-family:Poppins,sans-serif;line-height:1.2;}'
-        '.sec-header-line{height:1.5px;background:linear-gradient(90deg,#bfdbfe,transparent);margin:10px 22px 0;border-radius:99px;}'
+        '.sec-header-line{height:1px;background:#f1f5f9;margin:8px 22px 0;}'
         # preg card
         '.preg-card{background:transparent;padding:16px 22px;margin:0;'
         'border-bottom:1px solid #f1f5f9;}'
@@ -472,8 +472,6 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '</body></html>'
     )
     return html
-
-# =========================================================
 def login_usuario(email, password):
     """Inicia sesión con email y contraseña."""
     try:
@@ -932,7 +930,10 @@ if _modo_cliente:
                 _ep_cli, _nom_cli, _pct_prog, _total_req, _total_resp,
                 _logo_b64_cli
             )
-            _form_height = max(900, len(_pregs) * 420)
+            # Inject JS to auto-resize iframe
+            _resize_js = '<script>window.onload=function(){var h=document.body.scrollHeight;window.parent.postMessage({type:"streamlit:setFrameHeight",height:h},"*");setTimeout(function(){var h2=document.body.scrollHeight;window.parent.postMessage({type:"streamlit:setFrameHeight",height:h2},"*");},500);};</script>'
+            _form_html = _form_html.replace('</body>', _resize_js + '</body>')
+            _form_height = max(1200, len(_pregs) * 500)
             _form_comp.html(_form_html, height=_form_height, scrolling=False)
 
         if st.button("← Salir", key="cli_logout"):
