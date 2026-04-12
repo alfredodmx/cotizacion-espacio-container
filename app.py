@@ -61,7 +61,7 @@ ANTHROPIC_API_KEY = (
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 supabase_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key, ep, nombre_cliente, pct_prog, total_req, total_resp):
+def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key, ep, nombre_cliente, pct_prog, total_req, total_resp, logo_b64=''):
     import json
 
     # Group by section
@@ -72,15 +72,114 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
             secciones[sec] = []
         secciones[sec].append(p)
 
+    primer_nombre = nombre_cliente.split()[0].capitalize() if nombre_cliente else 'Cliente'
+    logo_html = f'<img src="data:image/png;base64,{logo_b64}" style="height:36px;object-fit:contain;">' if logo_b64 else ''
+    pct_color = '#22c55e' if pct_prog==100 else ('#f97316' if pct_prog>=50 else '#60a5fa')
+
     css = (
-        'body{margin:0;padding:0;font-family:Segoe UI,sans-serif;font-size:14px;background:#f0f4f8;}'
-        '.wrap{max-width:720px;margin:0 auto;padding:16px;}'
-        '.header{background:linear-gradient(135deg,#0f3460,#1e5fa5);border-radius:14px;padding:18px 22px;margin-bottom:16px;color:white;}'
-        '.header-title{font-size:1.2rem;font-weight:900;}'
-        '.header-sub{font-size:0.85rem;opacity:0.8;margin-top:2px;}'
-        '.progress-bar{background:rgba(255,255,255,0.2);border-radius:99px;height:8px;margin-top:10px;}'
-        '.progress-fill{background:white;border-radius:99px;height:8px;transition:width 0.4s;}'
-        '.progress-label{font-size:0.75rem;opacity:0.8;margin-top:4px;}'
+        '@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&display=swap");'
+        'body{margin:0;padding:0;font-family:Poppins,sans-serif;font-size:14px;background:#f0f4f8;}'
+        '.wrap{max-width:720px;margin:0 auto;padding:0 0 32px;}'
+        # topbar
+        '.topbar{display:flex;justify-content:flex-end;align-items:center;padding:16px 20px 0;}'
+        # header
+        '.header{background:linear-gradient(135deg,#0a1628 0%,#0f3460 60%,#1a5276 100%);'
+        'padding:28px 24px 24px;margin:12px 16px 0;border-radius:20px;color:white;'
+        'box-shadow:0 20px 50px rgba(10,22,40,0.3),0 4px 12px rgba(10,22,40,0.15);'
+        'position:relative;overflow:hidden;}'
+        '.header::before{content:"";position:absolute;top:-50px;right:-50px;width:220px;height:220px;'
+        'background:radial-gradient(circle,rgba(255,255,255,0.06),transparent 70%);border-radius:50%;pointer-events:none;}'
+        '.h-badge{display:inline-block;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.18);'
+        'border-radius:99px;padding:3px 12px;font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px;}'
+        '.h-title{font-size:1.7rem;font-weight:900;line-height:1.15;margin-bottom:8px;'
+        'background:linear-gradient(90deg,#ffffff 0%,#a8d8f0 100%);-webkit-background-clip:text;'
+        '-webkit-text-fill-color:transparent;background-clip:text;}'
+        '.h-sub{font-size:0.82rem;opacity:0.7;line-height:1.5;margin-bottom:14px;}'
+        '.h-ep{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.1);'
+        'border:1px solid rgba(255,255,255,0.15);border-radius:99px;padding:4px 14px;'
+        'font-size:0.75rem;font-weight:700;letter-spacing:0.05em;}'
+        # progress
+        '.prog-wrap{margin-top:16px;}'
+        '.prog-bar{background:rgba(255,255,255,0.12);border-radius:99px;height:5px;}'
+        '.prog-fill{border-radius:99px;height:5px;transition:width 0.6s ease;'
+        'background:linear-gradient(90deg,#48cae4,#90e0ef);}'
+        '.prog-label{font-size:0.7rem;opacity:0.6;margin-top:4px;}'
+        # section
+        '.sec-header{background:linear-gradient(90deg,#0f3460,#1a5276);color:white;font-weight:900;'
+        'font-size:0.78rem;text-transform:uppercase;letter-spacing:0.1em;padding:9px 16px;'
+        'border-radius:10px;margin:20px 16px 10px;box-shadow:0 4px 12px rgba(15,52,96,0.2);}'
+        # preg card
+        '.preg-card{background:white;border-radius:16px;padding:18px 20px;margin:0 16px 12px;'
+        'box-shadow:0 2px 12px rgba(15,52,96,0.07),0 1px 4px rgba(15,52,96,0.04);}'
+        '.preg-titulo{font-size:0.95rem;font-weight:700;color:#0a1628;margin-bottom:14px;line-height:1.4;}'
+        '.preg-titulo .req{color:#f97316;}'
+        # color
+        '.color-grid{display:flex;flex-wrap:nowrap;gap:14px;overflow-x:auto;padding:4px 4px 10px;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;}'
+        '.color-grid::-webkit-scrollbar{height:3px;}'
+        '.color-grid::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:99px;}'
+        '.color-item{text-align:center;cursor:pointer;flex-shrink:0;}'
+        '.color-circle{width:64px;height:64px;border-radius:50%;margin:0 auto 6px;border:3px solid transparent;transition:all 0.2s;position:relative;box-shadow:0 4px 12px rgba(0,0,0,0.15);}'
+        '.color-circle.sel{border-color:#0f3460;box-shadow:0 0 0 4px rgba(15,52,96,0.2),0 4px 12px rgba(0,0,0,0.15);}'
+        '.color-check{display:none;position:absolute;inset:0;align-items:center;justify-content:center;color:white;font-size:1.3rem;font-weight:900;text-shadow:0 1px 4px rgba(0,0,0,0.5);}'
+        '.color-circle.sel .color-check{display:flex;}'
+        '.color-name{font-size:10px;color:#64748b;font-weight:600;max-width:64px;line-height:1.2;}'
+        # images
+        '.img-grid{display:flex;gap:12px;overflow-x:auto;scroll-behavior:smooth;padding:4px 4px 10px;-webkit-overflow-scrolling:touch;}'
+        '.img-grid::-webkit-scrollbar{height:3px;}'
+        '.img-grid::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:99px;}'
+        '.img-item{background:white;border:2.5px solid #e2e8f0;border-radius:14px;overflow:hidden;cursor:pointer;'
+        'position:relative;transition:all 0.2s;flex:0 0 200px;width:200px;'
+        'box-shadow:0 2px 8px rgba(15,52,96,0.06);}'
+        '.img-item.sel{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,0.15),0 4px 16px rgba(15,52,96,0.12);}'
+        '.img-item img{width:100%;height:160px;object-fit:cover;display:block;}'
+        '.img-item-name{padding:8px 10px;font-size:12px;font-weight:700;color:#0a1628;}'
+        '.img-sel-badge{display:none;position:absolute;top:8px;right:8px;background:#0f3460;color:white;'
+        'border-radius:50%;width:26px;height:26px;align-items:center;justify-content:center;font-size:13px;font-weight:900;'
+        'box-shadow:0 2px 8px rgba(15,52,96,0.3);}'
+        '.img-item.sel .img-sel-badge{display:flex;}'
+        '.img-zoom-btn{position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.45);color:white;border:none;'
+        'border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;'
+        'backdrop-filter:blur(4px);}'
+        # carousel nav
+        '.carousel-wrap{position:relative;}'
+        '.carousel-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}'
+        '.carousel-nav-btn{background:#0f3460;color:white;border:none;border-radius:50%;width:30px;height:30px;'
+        'font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;'
+        'box-shadow:0 4px 10px rgba(15,52,96,0.2);flex-shrink:0;}'
+        '.carousel-nav-btn:disabled{background:#e2e8f0;color:#94a3b8;cursor:default;box-shadow:none;}'
+        '.carousel-count{font-size:11px;color:#94a3b8;font-weight:600;}'
+        # popup
+        '.popup{display:none;position:fixed;inset:0;background:rgba(5,10,20,0.95);z-index:99999;flex-direction:column;align-items:center;justify-content:center;}'
+        '.popup.open{display:flex;}'
+        '.popup img{max-width:90vw;max-height:75vh;object-fit:contain;border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,0.5);}'
+        '.popup-name{color:white;font-size:1.1rem;font-weight:700;margin-top:14px;font-family:Poppins,sans-serif;}'
+        '.popup-close{position:absolute;top:20px;right:24px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);'
+        'color:white;font-size:1.2rem;cursor:pointer;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;}'
+        '.popup-select{margin-top:18px;background:linear-gradient(135deg,#0f3460,#1a5276);color:white;border:none;'
+        'border-radius:10px;padding:12px 32px;font-size:14px;font-weight:700;cursor:pointer;'
+        'box-shadow:0 8px 24px rgba(15,52,96,0.3);font-family:Poppins,sans-serif;}'
+        # select / sino
+        '.sel-select{width:100%;padding:11px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;'
+        'font-family:Poppins,sans-serif;outline:none;color:#0a1628;}'
+        '.sel-select:focus{border-color:#0f3460;}'
+        '.sino-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}'
+        '.sino-btn{padding:14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:700;'
+        'cursor:pointer;background:white;transition:all 0.15s;font-family:Poppins,sans-serif;color:#0a1628;'
+        'box-shadow:0 2px 8px rgba(15,52,96,0.05);}'
+        '.sino-btn.sel{background:linear-gradient(135deg,#0f3460,#1a5276);color:white;border-color:#0f3460;'
+        'box-shadow:0 6px 20px rgba(15,52,96,0.25);}'
+        '.free-txt{width:100%;padding:11px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;'
+        'resize:vertical;box-sizing:border-box;font-family:Poppins,sans-serif;color:#0a1628;outline:none;}'
+        '.free-txt:focus{border-color:#0f3460;}'
+        # answered dot
+        '.resp-indicator{display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;margin-left:6px;vertical-align:middle;}'
+        # save button
+        '.save-wrap{margin:20px 16px 8px;}'
+        '.save-btn{width:100%;padding:15px;background:linear-gradient(135deg,#0f3460,#1a5276);color:white;border:none;'
+        'border-radius:14px;font-size:15px;font-weight:900;cursor:pointer;font-family:Poppins,sans-serif;'
+        'box-shadow:0 8px 28px rgba(15,52,96,0.28);letter-spacing:0.02em;}'
+        '.save-btn:disabled{opacity:0.5;}'
+        '.save-status{text-align:center;font-size:13px;font-weight:600;margin-top:8px;min-height:18px;padding:0 16px;}'
         '.sec-header{background:#1e3a5f;color:white;font-size:0.78rem;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;padding:8px 14px;border-radius:8px;margin:16px 0 8px;}'
         '.preg-card{background:white;border:1px solid #e2e8f0;border-radius:12px;padding:16px 18px;margin-bottom:12px;}'
         '.preg-titulo{font-size:0.9rem;font-weight:700;color:#0f172a;margin-bottom:12px;}'
@@ -341,11 +440,16 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
         '<style>' + css + '</style></head><body>'
         '<div class="wrap">'
+        '<div class="topbar">' + logo_html + '</div>'
         '<div class="header">'
-        '<div class="header-title">Hola, ' + nombre_cliente + ' 👋</div>'
-        '<div class="header-sub">' + ep + ' — Formulario de materiales</div>'
-        '<div class="progress-bar"><div class="progress-fill" style="width:' + str(pct_prog) + '%;background:' + col_prog + ';"></div></div>'
-        '<div class="progress-label">' + str(total_resp) + ' de ' + str(total_req) + ' preguntas completadas (' + str(pct_prog) + '%)</div>'
+        '<div class="h-badge">✦ Tu selección de materiales ✦</div>'
+        '<div class="h-title">Bienvenida/o,<br>' + primer_nombre + ' 🏡</div>'
+        '<div class="h-sub">Estás eligiendo los materiales que van a darle vida y personalidad a tu casa container. ¡Cada elección cuenta!</div>'
+        '<div class="h-ep">📋 ' + ep + '</div>'
+        '<div class="prog-wrap">'
+        '<div class="prog-bar"><div class="prog-fill" style="width:' + str(pct_prog) + '%;"></div></div>'
+        '<div class="prog-label">' + str(total_resp) + ' de ' + str(total_req) + ' selecciones — ' + str(pct_prog) + '% completado</div>'
+        '</div>'
         '</div>'
         + pregs_html +
         '<div class="save-wrap">'
@@ -357,7 +461,7 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '</body></html>'
     )
     return html
-# SISTEMA DE AUTENTICACIÓN
+
 # =========================================================
 def login_usuario(email, password):
     """Inicia sesión con email y contraseña."""
@@ -684,71 +788,95 @@ if not st.session_state.auth_user and _sess_token:
 _modo_cliente = st.query_params.get('cliente', '') == '1' or st.session_state.get('_cliente_ep')
 
 if _modo_cliente:
-    if '_cliente_ep'  not in st.session_state: st.session_state._cliente_ep  = ''
-    if '_cliente_ok'  not in st.session_state: st.session_state._cliente_ok  = False
-    if '_cliente_nombre' not in st.session_state: st.session_state._cliente_nombre = ''
+    if '_cliente_ep'      not in st.session_state: st.session_state._cliente_ep      = ''
+    if '_cliente_ok'      not in st.session_state: st.session_state._cliente_ok      = False
+    if '_cliente_nombre'  not in st.session_state: st.session_state._cliente_nombre  = ''
     if '_cliente_proyecto' not in st.session_state: st.session_state._cliente_proyecto = ''
 
+    # Ocultar elementos de Streamlit
     st.markdown("""
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&display=swap');
     #MainMenu,footer,[data-testid="stToolbar"],[data-testid="stDecoration"]{display:none!important;}
+    .stApp{background:#f0f4f8 !important;}
+    [data-testid="stAppViewContainer"]{background:#f0f4f8 !important;}
     </style>
     """, unsafe_allow_html=True)
 
+    # Cargar logo
+    import base64 as _b64cli, os as _osli
+    _logo_b64_cli = ""
+    for _lp in ["logo3.png","assets/logo3.png","images/logo3.png"]:
+        if _osli.path.exists(_lp):
+            with open(_lp,"rb") as _lf: _logo_b64_cli = _b64cli.b64encode(_lf.read()).decode()
+            break
+    _logo_tag = f'<img src="data:image/png;base64,{_logo_b64_cli}" style="height:40px;object-fit:contain;">' if _logo_b64_cli else '<span style="font-weight:900;color:#0f3460;font-size:1rem;font-family:Poppins,sans-serif;">ESPACIO CONTAINER</span>'
+
     if not st.session_state._cliente_ok:
-        st.markdown("""
-        <div style='text-align:center;padding:40px 0 20px;'>
-          <div style='font-size:2rem;font-weight:900;color:#0f3460;font-family:Montserrat,sans-serif;'>
-            🏠 Portal del Cliente
-          </div>
-          <div style='color:#64748b;margin-top:6px;font-size:0.95rem;'>
-            Ingresa tu RUT y código de presupuesto para acceder a tu formulario
+        # ── PANTALLA DE LOGIN ──────────────────────────────────
+        st.markdown(f"""
+        <style>
+        .cli-login-wrap{{max-width:460px;margin:40px auto 0;padding:0 16px;font-family:Poppins,sans-serif;}}
+        .cli-topbar{{display:flex;justify-content:flex-end;padding:16px 24px 0;}}
+        .cli-card{{background:white;border-radius:24px;padding:36px 32px;
+                   box-shadow:0 24px 64px rgba(15,52,96,0.12),0 4px 16px rgba(15,52,96,0.06);}}
+        .cli-badge{{display:inline-block;background:#e8f4fd;color:#0f3460;border-radius:99px;
+                    padding:4px 14px;font-size:0.7rem;font-weight:700;letter-spacing:0.1em;
+                    text-transform:uppercase;margin-bottom:16px;}}
+        .cli-login-title{{font-size:1.8rem;font-weight:900;color:#0a1628;line-height:1.2;margin-bottom:8px;}}
+        .cli-login-sub{{font-size:0.9rem;color:#64748b;margin-bottom:28px;line-height:1.5;}}
+        .cli-input-label{{font-size:0.75rem;font-weight:700;color:#64748b;text-transform:uppercase;
+                          letter-spacing:0.08em;margin-bottom:4px;}}
+        </style>
+        <div class="cli-topbar">{_logo_tag}</div>
+        <div class="cli-login-wrap">
+          <div class="cli-card">
+            <div class="cli-badge">✦ Portal de materiales</div>
+            <div class="cli-login-title">Tu casa,<br>tus materiales 🏡</div>
+            <div class="cli-login-sub">Ingresa tus datos para acceder a tu formulario personalizado de selección de materiales.</div>
           </div>
         </div>
         """, unsafe_allow_html=True)
-        _c1, _c2 = st.columns([1,1])
-        with _c1:
-            _cli_rut_inp = st.text_input("RUT cliente", placeholder="12.345.678-9", key="cli_rut")
-        with _c2:
-            _cli_ep_inp = st.text_input("Código presupuesto", placeholder="EP-12345", key="cli_ep")
-        if st.button("Ingresar →", type="primary", use_container_width=True, key="cli_login"):
-            _cli_rut_clean = re.sub(r'[^0-9kK]', '', _cli_rut_inp.strip()).upper()
-            _cli_ep_clean  = _cli_ep_inp.strip().upper()
-            if not _cli_rut_clean or not _cli_ep_clean:
-                st.error("Ingresa tu RUT y código de presupuesto.")
-            else:
-                try:
-                    _cli_check = supabase.table('cotizaciones').select(
-                        'numero,cliente_nombre,cliente_rut,proyecto_observaciones'
-                    ).eq('numero', _cli_ep_clean).execute()
-                    if _cli_check.data:
-                        _cli_row = _cli_check.data[0]
-                        _rut_db = re.sub(r'[^0-9kK]', '', (_cli_row.get('cliente_rut') or '')).upper()
-                        if _rut_db == _cli_rut_clean:
-                            st.session_state._cliente_ep = _cli_ep_clean
-                            st.session_state._cliente_ok = True
-                            st.session_state._cliente_nombre = _cli_row.get('cliente_nombre','')
-                            st.session_state._cliente_proyecto = _cli_row.get('proyecto_observaciones','')
-                            st.rerun()
+
+        with st.container():
+            st.markdown("<div style='max-width:460px;margin:12px auto 0;padding:0 16px;'>", unsafe_allow_html=True)
+            _cli_rut_inp = st.text_input("RUT", placeholder="12.345.678-9", key="cli_rut",
+                label_visibility="visible")
+            _cli_ep_inp  = st.text_input("Código de presupuesto", placeholder="EP-12345", key="cli_ep",
+                label_visibility="visible")
+            if st.button("Ingresar a mi formulario →", type="primary", use_container_width=True, key="cli_login"):
+                _cli_rut_clean = re.sub(r'[^0-9kK]', '', _cli_rut_inp.strip()).upper()
+                _cli_ep_clean  = _cli_ep_inp.strip().upper()
+                if not _cli_rut_clean or not _cli_ep_clean:
+                    st.error("Ingresa tu RUT y código de presupuesto.")
+                else:
+                    try:
+                        _cli_check = supabase.table('cotizaciones').select(
+                            'numero,cliente_nombre,cliente_rut,proyecto_observaciones'
+                        ).eq('numero', _cli_ep_clean).execute()
+                        if _cli_check.data:
+                            _cli_row = _cli_check.data[0]
+                            _rut_db = re.sub(r'[^0-9kK]', '', (_cli_row.get('cliente_rut') or '')).upper()
+                            if _rut_db == _cli_rut_clean:
+                                st.session_state._cliente_ep       = _cli_ep_clean
+                                st.session_state._cliente_ok       = True
+                                st.session_state._cliente_nombre   = _cli_row.get('cliente_nombre','')
+                                st.session_state._cliente_proyecto = _cli_row.get('proyecto_observaciones','')
+                                st.rerun()
+                            else:
+                                st.error("RUT o código incorrecto. Verifica tus datos.")
                         else:
-                            st.error("RUT o código incorrecto.")
-                    else:
-                        st.error("Código de presupuesto no encontrado.")
-                except Exception as _ce:
-                    st.error(f"Error: {_ce}")
+                            st.error("Código de presupuesto no encontrado.")
+                    except Exception as _ce:
+                        st.error(f"Error de conexión: {_ce}")
+            st.markdown("</div>", unsafe_allow_html=True)
+
     else:
+        # ── FORMULARIO DE MATERIALES ───────────────────────────
         _ep_cli  = st.session_state._cliente_ep
         _nom_cli = st.session_state._cliente_nombre
         _proy    = st.session_state._cliente_proyecto
-
-        st.markdown(f"""
-        <div style='background:linear-gradient(135deg,#0f3460,#1e5fa5);border-radius:14px;
-                    padding:20px 24px;margin-bottom:20px;color:white;'>
-          <div style='font-size:0.78rem;font-weight:700;letter-spacing:0.1em;opacity:0.7;text-transform:uppercase;'>Portal del Cliente</div>
-          <div style='font-size:1.3rem;font-weight:900;margin-top:4px;font-family:Montserrat,sans-serif;'>Hola, {_nom_cli} 👋</div>
-          <div style='font-size:0.88rem;opacity:0.8;margin-top:2px;'>{_ep_cli} — {_proy}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        _primer_nombre = _nom_cli.split()[0].capitalize() if _nom_cli else "Cliente"
 
         try:
             _pregs = supabase.table('formulario_preguntas').select('*').eq(
@@ -758,7 +886,22 @@ if _modo_cliente:
             _pregs = []
 
         if not _pregs:
-            st.info("📋 Tu formulario de materiales aún no está disponible. Te avisaremos cuando esté listo.")
+            st.markdown(f"""
+            <style>
+            .cli-empty{{max-width:560px;margin:60px auto;text-align:center;font-family:Poppins,sans-serif;}}
+            </style>
+            <div style='display:flex;justify-content:flex-end;padding:16px 24px 0;'>{_logo_tag}</div>
+            <div class="cli-empty">
+              <div style='font-size:3rem;margin-bottom:16px;'>📋</div>
+              <div style='font-size:1.4rem;font-weight:900;color:#0a1628;margin-bottom:8px;'>
+                Hola {_primer_nombre}, ¡ya casi!
+              </div>
+              <div style='color:#64748b;font-size:0.95rem;line-height:1.6;'>
+                Tu formulario de materiales está siendo preparado por nuestro equipo.<br>
+                Te avisaremos cuando esté listo. ¡La espera va a valer la pena! 🏡
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
         else:
             try:
                 _resps_db = supabase.table('formulario_respuestas').select('*').eq(
@@ -775,18 +918,18 @@ if _modo_cliente:
             import streamlit.components.v1 as _form_comp
             _form_html = build_formulario_cliente_html(
                 _pregs, _resps_map, SUPABASE_URL, SUPABASE_KEY,
-                _ep_cli, _nom_cli, _pct_prog, _total_req, _total_resp
+                _ep_cli, _nom_cli, _pct_prog, _total_req, _total_resp,
+                _logo_b64_cli
             )
-            _form_height = max(800, len(_pregs) * 250)
+            _form_height = max(900, len(_pregs) * 280)
             _form_comp.html(_form_html, height=_form_height, scrolling=True)
 
-        if st.button("← Cerrar sesión", key="cli_logout"):
+        if st.button("← Salir", key="cli_logout"):
             for _k in ['_cliente_ep','_cliente_ok','_cliente_nombre','_cliente_proyecto']:
                 st.session_state.pop(_k, None)
             st.rerun()
 
     st.stop()
-
 
 # =========================================================
 # PANTALLA DE LOGIN — bloquea la app si no hay sesión
