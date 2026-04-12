@@ -61,6 +61,265 @@ ANTHROPIC_API_KEY = (
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 supabase_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
+def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key, ep, nombre_cliente, pct_prog, total_req, total_resp):
+    import json
+
+    # Group by section
+    secciones = {}
+    for p in preguntas:
+        sec = p.get('seccion', 'General')
+        if sec not in secciones:
+            secciones[sec] = []
+        secciones[sec].append(p)
+
+    css = (
+        'body{margin:0;padding:0;font-family:Segoe UI,sans-serif;font-size:14px;background:#f0f4f8;}'
+        '.wrap{max-width:720px;margin:0 auto;padding:16px;}'
+        '.header{background:linear-gradient(135deg,#0f3460,#1e5fa5);border-radius:14px;padding:18px 22px;margin-bottom:16px;color:white;}'
+        '.header-title{font-size:1.2rem;font-weight:900;}'
+        '.header-sub{font-size:0.85rem;opacity:0.8;margin-top:2px;}'
+        '.progress-bar{background:rgba(255,255,255,0.2);border-radius:99px;height:8px;margin-top:10px;}'
+        '.progress-fill{background:white;border-radius:99px;height:8px;transition:width 0.4s;}'
+        '.progress-label{font-size:0.75rem;opacity:0.8;margin-top:4px;}'
+        '.sec-header{background:#1e3a5f;color:white;font-size:0.78rem;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;padding:8px 14px;border-radius:8px;margin:16px 0 8px;}'
+        '.preg-card{background:white;border:1px solid #e2e8f0;border-radius:12px;padding:16px 18px;margin-bottom:12px;}'
+        '.preg-titulo{font-size:0.9rem;font-weight:700;color:#0f172a;margin-bottom:12px;}'
+        '.preg-titulo .req{color:#f97316;}'
+        # Color circles
+        '.color-grid{display:flex;flex-wrap:wrap;gap:14px;justify-content:flex-start;}'
+        '.color-item{text-align:center;cursor:pointer;}'
+        '.color-circle{width:72px;height:72px;border-radius:50%;margin:0 auto 6px;border:3px solid #e2e8f0;transition:all 0.2s;position:relative;}'
+        '.color-circle.sel{border-color:#0f3460;box-shadow:0 0 0 4px rgba(15,52,96,0.25);}'
+        '.color-check{display:none;position:absolute;inset:0;align-items:center;justify-content:center;color:white;font-size:1.4rem;font-weight:900;text-shadow:0 1px 4px rgba(0,0,0,0.6);}'
+        '.color-circle.sel .color-check{display:flex;}'
+        '.color-name{font-size:11px;color:#64748b;font-weight:600;max-width:72px;}'
+        # Image grid
+        '.img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}'
+        '.img-item{cursor:pointer;border-radius:12px;overflow:hidden;border:3px solid #e2e8f0;transition:all 0.2s;position:relative;background:white;}'
+        '.img-item.sel{border-color:#0f3460;box-shadow:0 0 0 4px rgba(15,52,96,0.25);}'
+        '.img-item img{width:100%;height:180px;object-fit:cover;display:block;}'
+        '.img-item-name{padding:8px 10px;font-size:12px;font-weight:700;color:#0f172a;}'
+        '.img-sel-badge{display:none;position:absolute;top:8px;right:8px;background:#0f3460;color:white;border-radius:50%;width:28px;height:28px;align-items:center;justify-content:center;font-size:14px;font-weight:900;}'
+        '.img-item.sel .img-sel-badge{display:flex;}'
+        '.img-zoom-btn{position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.5);color:white;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;}'
+        # Fullscreen popup
+        '.popup{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;flex-direction:column;align-items:center;justify-content:center;}'
+        '.popup.open{display:flex;}'
+        '.popup img{max-width:90vw;max-height:80vh;object-fit:contain;border-radius:12px;}'
+        '.popup-name{color:white;font-size:1.1rem;font-weight:700;margin-top:12px;}'
+        '.popup-close{position:absolute;top:16px;right:20px;background:none;border:none;color:white;font-size:2rem;cursor:pointer;}'
+        '.popup-select{margin-top:16px;background:#0f3460;color:white;border:none;border-radius:8px;padding:10px 28px;font-size:14px;font-weight:700;cursor:pointer;}'
+        # Select / si_no
+        '.sel-select{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;}'
+        '.sino-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}'
+        '.sino-btn{padding:14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;background:white;transition:all 0.15s;}'
+        '.sino-btn.sel{background:#0f3460;color:white;border-color:#0f3460;}'
+        # Textarea
+        '.free-txt{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;resize:vertical;box-sizing:border-box;}'
+        # Save button
+        '.save-wrap{margin-top:16px;margin-bottom:24px;}'
+        '.save-btn{width:100%;padding:14px;background:#0f3460;color:white;border:none;border-radius:10px;font-size:15px;font-weight:900;cursor:pointer;}'
+        '.save-btn:disabled{opacity:0.5;}'
+        '.save-status{text-align:center;font-size:13px;font-weight:600;margin-top:8px;min-height:18px;}'
+        '.resp-indicator{display:inline-block;width:8px;height:8px;border-radius:50%;background:#16a34a;margin-left:6px;}'
+    )
+
+    # Build questions HTML
+    pregs_html = ''
+    for sec, preg_list in secciones.items():
+        pregs_html += '<div class="sec-header">' + sec + '</div>'
+        for p in preg_list:
+            pid = str(p.get('id',''))
+            ptipo = p.get('tipo','texto')
+            ptext = p.get('pregunta','')
+            popts = p.get('opciones') or []
+            preq = p.get('requerida', True)
+            prev = respuestas_map.get(pid, '')
+
+            pregs_html += '<div class="preg-card" id="card-' + pid + '">'
+            req_span = '<span class="req"> ⭐</span>' if preq else ''
+            answered = '&nbsp;<span class="resp-indicator"></span>' if prev else ''
+            pregs_html += '<div class="preg-titulo">' + ptext + req_span + answered + '</div>'
+
+            if ptipo == 'color':
+                pregs_html += '<div class="color-grid">'
+                for opt in popts:
+                    oname = opt.get('nombre','') if isinstance(opt, dict) else str(opt)
+                    ohex = opt.get('hex','#ccc') if isinstance(opt, dict) else '#ccc'
+                    sel_cls = ' sel' if prev == oname else ''
+                    pregs_html += '<div class="color-item" onclick="window.selectOpt(\'' + pid + '\',\'' + oname.replace("'","") + '\')">'
+                    pregs_html += '<div class="color-circle' + sel_cls + '" style="background:' + ohex + ';">'
+                    pregs_html += '<div class="color-check">✓</div></div>'
+                    pregs_html += '<div class="color-name">' + oname + '</div>'
+                    pregs_html += '</div>'
+                pregs_html += '</div>'
+
+            elif ptipo == 'imagen':
+                pregs_html += '<div class="img-grid">'
+                for oi, opt in enumerate(popts):
+                    oname = opt.get('nombre','') if isinstance(opt, dict) else str(opt)
+                    ourl = opt.get('url','') if isinstance(opt, dict) else ''
+                    sel_cls = ' sel' if prev == oname else ''
+                    popup_id = 'popup-' + pid + '-' + str(oi)
+                    pregs_html += '<div class="img-item' + sel_cls + '" id="imgitem-' + pid + '-' + str(oi) + '">'
+                    if ourl:
+                        pregs_html += '<img src="' + ourl + '" onclick="window.selectOpt(\'' + pid + '\',\'' + oname.replace("'","") + '\')" alt="' + oname + '">'
+                        pregs_html += '<button class="img-zoom-btn" onclick="event.stopPropagation();window.openPopup(\'' + popup_id + '\')" title="Ver ampliada">&#128269;</button>'
+                    else:
+                        pregs_html += '<div style="height:180px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:2rem;" onclick="window.selectOpt(\'' + pid + '\',\'' + oname.replace("'","") + '\')">&#128230;</div>'
+                    pregs_html += '<div class="img-sel-badge">✓</div>'
+                    pregs_html += '<div class="img-item-name">' + oname + '</div>'
+                    pregs_html += '</div>'
+                    # Fullscreen popup for this image
+                    if ourl:
+                        pregs_html += '<div class="popup" id="' + popup_id + '">'
+                        pregs_html += '<button class="popup-close" onclick="window.closePopup(\'' + popup_id + '\')">&#x2715;</button>'
+                        pregs_html += '<img src="' + ourl + '">'
+                        pregs_html += '<div class="popup-name">' + oname + '</div>'
+                        pregs_html += '<button class="popup-select" onclick="window.selectOpt(\'' + pid + '\',\'' + oname.replace("'","") + '\');window.closePopup(\'' + popup_id + '\')">✅ Seleccionar esta opción</button>'
+                        pregs_html += '</div>'
+                pregs_html += '</div>'
+
+            elif ptipo == 'select':
+                opts_html = '<option value="">-- Selecciona --</option>'
+                for opt in popts:
+                    oname = opt.get('nombre','') if isinstance(opt, dict) else str(opt)
+                    sel = ' selected' if prev == oname else ''
+                    opts_html += '<option value="' + oname + '"' + sel + '>' + oname + '</option>'
+                pregs_html += '<select class="sel-select" id="sel-' + pid + '" onchange="window.selectOpt(\'' + pid + '\',this.value)">' + opts_html + '</select>'
+
+            elif ptipo == 'si_no':
+                si_sel = ' sel' if prev == 'Sí' else ''
+                no_sel = ' sel' if prev == 'No' else ''
+                pregs_html += '<div class="sino-row">'
+                pregs_html += '<button class="sino-btn' + si_sel + '" id="si-' + pid + '" onclick="window.selectOpt(\'' + pid + '\',\'Sí\')">✅ Sí</button>'
+                pregs_html += '<button class="sino-btn' + no_sel + '" id="no-' + pid + '" onclick="window.selectOpt(\'' + pid + '\',\'No\')">❌ No</button>'
+                pregs_html += '</div>'
+
+            else:  # texto
+                pregs_html += '<textarea class="free-txt" id="txt-' + pid + '" rows="3" placeholder="Escribe tu respuesta aqui..." onchange="window.selectOpt(\'' + pid + '\',this.value)">' + prev + '</textarea>'
+
+            pregs_html += '</div>'  # end preg-card
+
+    # Serialize respuestas for JS
+    resps_init = json.dumps(respuestas_map, ensure_ascii=True)
+
+    col_prog = '#16a34a' if pct_prog == 100 else ('#f97316' if pct_prog >= 50 else '#ffffff')
+
+    js_lines = [
+        'var S="' + supa_url + '",K="' + supa_key + '",EP="' + ep + '";',
+        'var resps=' + resps_init + ';',
+        'var pendingSave={};',
+
+        'window.selectOpt=function(pid,val){',
+        '  resps[pid]=val;',
+        '  pendingSave[pid]=val;',
+        '  updateCardUI(pid,val);',
+        '};',
+
+        'function updateCardUI(pid,val){',
+        '  var card=document.getElementById("card-"+pid);',
+        '  if(!card)return;',
+        '  // Color circles',
+        '  card.querySelectorAll(".color-item").forEach(function(el){',
+        '    var circle=el.querySelector(".color-circle");',
+        '    var name=el.querySelector(".color-name");',
+        '    if(name&&circle){',
+        '      if(name.textContent===val){circle.classList.add("sel");}',
+        '      else{circle.classList.remove("sel");}',
+        '    }',
+        '  });',
+        '  // Images',
+        '  card.querySelectorAll(".img-item").forEach(function(el){',
+        '    var name=el.querySelector(".img-item-name");',
+        '    if(name){',
+        '      if(name.textContent===val){el.classList.add("sel");}',
+        '      else{el.classList.remove("sel");}',
+        '    }',
+        '  });',
+        '  // Sino',
+        '  var si=document.getElementById("si-"+pid);',
+        '  var no=document.getElementById("no-"+pid);',
+        '  if(si&&no){',
+        '    if(val==="Sí"){si.classList.add("sel");no.classList.remove("sel");}',
+        '    else if(val==="No"){no.classList.add("sel");si.classList.remove("sel");}',
+        '  }',
+        '  // Answered indicator',
+        '  var titulo=card.querySelector(".preg-titulo");',
+        '  if(titulo){',
+        '    var existing=titulo.querySelector(".resp-indicator");',
+        '    if(val&&!existing){',
+        '      var dot=document.createElement("span");dot.className="resp-indicator";titulo.appendChild(dot);',
+        '    } else if(!val&&existing){existing.remove();}',
+        '  }',
+        '}',
+
+        'window.openPopup=function(id){',
+        '  var el=document.getElementById(id);',
+        '  if(el){el.classList.add("open");document.body.style.overflow="hidden";}',
+        '};',
+
+        'window.closePopup=function(id){',
+        '  var el=document.getElementById(id);',
+        '  if(el){el.classList.remove("open");document.body.style.overflow="";}',
+        '};',
+
+        # Close popup on backdrop click
+        'document.addEventListener("click",function(e){',
+        '  if(e.target.classList.contains("popup")){',
+        '    e.target.classList.remove("open");document.body.style.overflow="";',
+        '  }',
+        '});',
+
+        'window.guardarFormulario=async function(){',
+        '  var btn=document.getElementById("save-btn");',
+        '  var st=document.getElementById("save-status");',
+        '  btn.disabled=true;st.textContent="Guardando...";st.style.color="#2563eb";',
+        '  var entries=Object.entries(pendingSave);',
+        '  if(!entries.length){st.textContent="No hay cambios que guardar";st.style.color="#94a3b8";btn.disabled=false;return;}',
+        '  try{',
+        '    for(var i=0;i<entries.length;i++){',
+        '      var pid=entries[i][0],val=entries[i][1];',
+        '      await fetch(S+"/rest/v1/formulario_respuestas",{',
+        '        method:"POST",',
+        '        headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},',
+        '        body:JSON.stringify({cotizacion_numero:EP,pregunta_id:pid,respuesta:val})',
+        '      });',
+        '    }',
+        '    pendingSave={};',
+        '    st.textContent="✅ Guardado correctamente";st.style.color="#16a34a";',
+        '  }catch(e){st.textContent="Error: "+e.message;st.style.color="#dc2626";}',
+        '  btn.disabled=false;',
+        '};',
+    ]
+    js = '\n'.join(js_lines)
+
+    html = (
+        '<!DOCTYPE html><html><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<style>' + css + '</style></head><body>'
+        '<div class="wrap">'
+        '<div class="header">'
+        '<div class="header-title">Hola, ' + nombre_cliente + ' 👋</div>'
+        '<div class="header-sub">' + ep + ' — Formulario de materiales</div>'
+        '<div class="progress-bar"><div class="progress-fill" style="width:' + str(pct_prog) + '%;background:' + col_prog + ';"></div></div>'
+        '<div class="progress-label">' + str(total_resp) + ' de ' + str(total_req) + ' preguntas completadas (' + str(pct_prog) + '%)</div>'
+        '</div>'
+        + pregs_html +
+        '<div class="save-wrap">'
+        '<button class="save-btn" id="save-btn" onclick="window.guardarFormulario()">💾 Guardar formulario</button>'
+        '<div class="save-status" id="save-status"></div>'
+        '</div>'
+        '</div>'
+        '<script>' + js + '</script>'
+        '</body></html>'
+    )
+    return html
+
+
+
+
+
 # =========================================================
 # SISTEMA DE AUTENTICACIÓN
 # =========================================================
@@ -801,260 +1060,6 @@ def guardar_plano_en_storage(archivo_pdf_bytes, cotizacion_numero, nombre_origin
 # Función que construye el HTML del registro de compras
 # Usando triple-quoted strings para evitar conflictos de comillas
 
-def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key, ep, nombre_cliente, pct_prog, total_req, total_resp):
-    import json
-
-    # Group by section
-    secciones = {}
-    for p in preguntas:
-        sec = p.get('seccion', 'General')
-        if sec not in secciones:
-            secciones[sec] = []
-        secciones[sec].append(p)
-
-    css = (
-        'body{margin:0;padding:0;font-family:Segoe UI,sans-serif;font-size:14px;background:#f0f4f8;}'
-        '.wrap{max-width:720px;margin:0 auto;padding:16px;}'
-        '.header{background:linear-gradient(135deg,#0f3460,#1e5fa5);border-radius:14px;padding:18px 22px;margin-bottom:16px;color:white;}'
-        '.header-title{font-size:1.2rem;font-weight:900;}'
-        '.header-sub{font-size:0.85rem;opacity:0.8;margin-top:2px;}'
-        '.progress-bar{background:rgba(255,255,255,0.2);border-radius:99px;height:8px;margin-top:10px;}'
-        '.progress-fill{background:white;border-radius:99px;height:8px;transition:width 0.4s;}'
-        '.progress-label{font-size:0.75rem;opacity:0.8;margin-top:4px;}'
-        '.sec-header{background:#1e3a5f;color:white;font-size:0.78rem;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;padding:8px 14px;border-radius:8px;margin:16px 0 8px;}'
-        '.preg-card{background:white;border:1px solid #e2e8f0;border-radius:12px;padding:16px 18px;margin-bottom:12px;}'
-        '.preg-titulo{font-size:0.9rem;font-weight:700;color:#0f172a;margin-bottom:12px;}'
-        '.preg-titulo .req{color:#f97316;}'
-        # Color circles
-        '.color-grid{display:flex;flex-wrap:wrap;gap:14px;justify-content:flex-start;}'
-        '.color-item{text-align:center;cursor:pointer;}'
-        '.color-circle{width:72px;height:72px;border-radius:50%;margin:0 auto 6px;border:3px solid #e2e8f0;transition:all 0.2s;position:relative;}'
-        '.color-circle.sel{border-color:#0f3460;box-shadow:0 0 0 4px rgba(15,52,96,0.25);}'
-        '.color-check{display:none;position:absolute;inset:0;align-items:center;justify-content:center;color:white;font-size:1.4rem;font-weight:900;text-shadow:0 1px 4px rgba(0,0,0,0.6);}'
-        '.color-circle.sel .color-check{display:flex;}'
-        '.color-name{font-size:11px;color:#64748b;font-weight:600;max-width:72px;}'
-        # Image grid
-        '.img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}'
-        '.img-item{cursor:pointer;border-radius:12px;overflow:hidden;border:3px solid #e2e8f0;transition:all 0.2s;position:relative;background:white;}'
-        '.img-item.sel{border-color:#0f3460;box-shadow:0 0 0 4px rgba(15,52,96,0.25);}'
-        '.img-item img{width:100%;height:180px;object-fit:cover;display:block;}'
-        '.img-item-name{padding:8px 10px;font-size:12px;font-weight:700;color:#0f172a;}'
-        '.img-sel-badge{display:none;position:absolute;top:8px;right:8px;background:#0f3460;color:white;border-radius:50%;width:28px;height:28px;align-items:center;justify-content:center;font-size:14px;font-weight:900;}'
-        '.img-item.sel .img-sel-badge{display:flex;}'
-        '.img-zoom-btn{position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.5);color:white;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;}'
-        # Fullscreen popup
-        '.popup{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;flex-direction:column;align-items:center;justify-content:center;}'
-        '.popup.open{display:flex;}'
-        '.popup img{max-width:90vw;max-height:80vh;object-fit:contain;border-radius:12px;}'
-        '.popup-name{color:white;font-size:1.1rem;font-weight:700;margin-top:12px;}'
-        '.popup-close{position:absolute;top:16px;right:20px;background:none;border:none;color:white;font-size:2rem;cursor:pointer;}'
-        '.popup-select{margin-top:16px;background:#0f3460;color:white;border:none;border-radius:8px;padding:10px 28px;font-size:14px;font-weight:700;cursor:pointer;}'
-        # Select / si_no
-        '.sel-select{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;}'
-        '.sino-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}'
-        '.sino-btn{padding:14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;background:white;transition:all 0.15s;}'
-        '.sino-btn.sel{background:#0f3460;color:white;border-color:#0f3460;}'
-        # Textarea
-        '.free-txt{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;resize:vertical;box-sizing:border-box;}'
-        # Save button
-        '.save-wrap{margin-top:16px;margin-bottom:24px;}'
-        '.save-btn{width:100%;padding:14px;background:#0f3460;color:white;border:none;border-radius:10px;font-size:15px;font-weight:900;cursor:pointer;}'
-        '.save-btn:disabled{opacity:0.5;}'
-        '.save-status{text-align:center;font-size:13px;font-weight:600;margin-top:8px;min-height:18px;}'
-        '.resp-indicator{display:inline-block;width:8px;height:8px;border-radius:50%;background:#16a34a;margin-left:6px;}'
-    )
-
-    # Build questions HTML
-    pregs_html = ''
-    for sec, preg_list in secciones.items():
-        pregs_html += '<div class="sec-header">' + sec + '</div>'
-        for p in preg_list:
-            pid = str(p.get('id',''))
-            ptipo = p.get('tipo','texto')
-            ptext = p.get('pregunta','')
-            popts = p.get('opciones') or []
-            preq = p.get('requerida', True)
-            prev = respuestas_map.get(pid, '')
-
-            pregs_html += '<div class="preg-card" id="card-' + pid + '">'
-            req_span = '<span class="req"> ⭐</span>' if preq else ''
-            answered = '&nbsp;<span class="resp-indicator"></span>' if prev else ''
-            pregs_html += '<div class="preg-titulo">' + ptext + req_span + answered + '</div>'
-
-            if ptipo == 'color':
-                pregs_html += '<div class="color-grid">'
-                for opt in popts:
-                    oname = opt.get('nombre','') if isinstance(opt, dict) else str(opt)
-                    ohex = opt.get('hex','#ccc') if isinstance(opt, dict) else '#ccc'
-                    sel_cls = ' sel' if prev == oname else ''
-                    pregs_html += '<div class="color-item" onclick="window.selectOpt(\'' + pid + '\',\'' + oname.replace("'","") + '\')">'
-                    pregs_html += '<div class="color-circle' + sel_cls + '" style="background:' + ohex + ';">'
-                    pregs_html += '<div class="color-check">✓</div></div>'
-                    pregs_html += '<div class="color-name">' + oname + '</div>'
-                    pregs_html += '</div>'
-                pregs_html += '</div>'
-
-            elif ptipo == 'imagen':
-                pregs_html += '<div class="img-grid">'
-                for oi, opt in enumerate(popts):
-                    oname = opt.get('nombre','') if isinstance(opt, dict) else str(opt)
-                    ourl = opt.get('url','') if isinstance(opt, dict) else ''
-                    sel_cls = ' sel' if prev == oname else ''
-                    popup_id = 'popup-' + pid + '-' + str(oi)
-                    pregs_html += '<div class="img-item' + sel_cls + '" id="imgitem-' + pid + '-' + str(oi) + '">'
-                    if ourl:
-                        pregs_html += '<img src="' + ourl + '" onclick="window.selectOpt(\'' + pid + '\',\'' + oname.replace("'","") + '\')" alt="' + oname + '">'
-                        pregs_html += '<button class="img-zoom-btn" onclick="event.stopPropagation();window.openPopup(\'' + popup_id + '\')" title="Ver ampliada">&#128269;</button>'
-                    else:
-                        pregs_html += '<div style="height:180px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:2rem;" onclick="window.selectOpt(\'' + pid + '\',\'' + oname.replace("'","") + '\')">&#128230;</div>'
-                    pregs_html += '<div class="img-sel-badge">✓</div>'
-                    pregs_html += '<div class="img-item-name">' + oname + '</div>'
-                    pregs_html += '</div>'
-                    # Fullscreen popup for this image
-                    if ourl:
-                        pregs_html += '<div class="popup" id="' + popup_id + '">'
-                        pregs_html += '<button class="popup-close" onclick="window.closePopup(\'' + popup_id + '\')">&#x2715;</button>'
-                        pregs_html += '<img src="' + ourl + '">'
-                        pregs_html += '<div class="popup-name">' + oname + '</div>'
-                        pregs_html += '<button class="popup-select" onclick="window.selectOpt(\'' + pid + '\',\'' + oname.replace("'","") + '\');window.closePopup(\'' + popup_id + '\')">✅ Seleccionar esta opción</button>'
-                        pregs_html += '</div>'
-                pregs_html += '</div>'
-
-            elif ptipo == 'select':
-                opts_html = '<option value="">-- Selecciona --</option>'
-                for opt in popts:
-                    oname = opt.get('nombre','') if isinstance(opt, dict) else str(opt)
-                    sel = ' selected' if prev == oname else ''
-                    opts_html += '<option value="' + oname + '"' + sel + '>' + oname + '</option>'
-                pregs_html += '<select class="sel-select" id="sel-' + pid + '" onchange="window.selectOpt(\'' + pid + '\',this.value)">' + opts_html + '</select>'
-
-            elif ptipo == 'si_no':
-                si_sel = ' sel' if prev == 'Sí' else ''
-                no_sel = ' sel' if prev == 'No' else ''
-                pregs_html += '<div class="sino-row">'
-                pregs_html += '<button class="sino-btn' + si_sel + '" id="si-' + pid + '" onclick="window.selectOpt(\'' + pid + '\',\'Sí\')">✅ Sí</button>'
-                pregs_html += '<button class="sino-btn' + no_sel + '" id="no-' + pid + '" onclick="window.selectOpt(\'' + pid + '\',\'No\')">❌ No</button>'
-                pregs_html += '</div>'
-
-            else:  # texto
-                pregs_html += '<textarea class="free-txt" id="txt-' + pid + '" rows="3" placeholder="Escribe tu respuesta aqui..." onchange="window.selectOpt(\'' + pid + '\',this.value)">' + prev + '</textarea>'
-
-            pregs_html += '</div>'  # end preg-card
-
-    # Serialize respuestas for JS
-    resps_init = json.dumps(respuestas_map, ensure_ascii=True)
-
-    col_prog = '#16a34a' if pct_prog == 100 else ('#f97316' if pct_prog >= 50 else '#ffffff')
-
-    js_lines = [
-        'var S="' + supa_url + '",K="' + supa_key + '",EP="' + ep + '";',
-        'var resps=' + resps_init + ';',
-        'var pendingSave={};',
-
-        'window.selectOpt=function(pid,val){',
-        '  resps[pid]=val;',
-        '  pendingSave[pid]=val;',
-        '  updateCardUI(pid,val);',
-        '};',
-
-        'function updateCardUI(pid,val){',
-        '  var card=document.getElementById("card-"+pid);',
-        '  if(!card)return;',
-        '  // Color circles',
-        '  card.querySelectorAll(".color-item").forEach(function(el){',
-        '    var circle=el.querySelector(".color-circle");',
-        '    var name=el.querySelector(".color-name");',
-        '    if(name&&circle){',
-        '      if(name.textContent===val){circle.classList.add("sel");}',
-        '      else{circle.classList.remove("sel");}',
-        '    }',
-        '  });',
-        '  // Images',
-        '  card.querySelectorAll(".img-item").forEach(function(el){',
-        '    var name=el.querySelector(".img-item-name");',
-        '    if(name){',
-        '      if(name.textContent===val){el.classList.add("sel");}',
-        '      else{el.classList.remove("sel");}',
-        '    }',
-        '  });',
-        '  // Sino',
-        '  var si=document.getElementById("si-"+pid);',
-        '  var no=document.getElementById("no-"+pid);',
-        '  if(si&&no){',
-        '    if(val==="Sí"){si.classList.add("sel");no.classList.remove("sel");}',
-        '    else if(val==="No"){no.classList.add("sel");si.classList.remove("sel");}',
-        '  }',
-        '  // Answered indicator',
-        '  var titulo=card.querySelector(".preg-titulo");',
-        '  if(titulo){',
-        '    var existing=titulo.querySelector(".resp-indicator");',
-        '    if(val&&!existing){',
-        '      var dot=document.createElement("span");dot.className="resp-indicator";titulo.appendChild(dot);',
-        '    } else if(!val&&existing){existing.remove();}',
-        '  }',
-        '}',
-
-        'window.openPopup=function(id){',
-        '  var el=document.getElementById(id);',
-        '  if(el){el.classList.add("open");document.body.style.overflow="hidden";}',
-        '};',
-
-        'window.closePopup=function(id){',
-        '  var el=document.getElementById(id);',
-        '  if(el){el.classList.remove("open");document.body.style.overflow="";}',
-        '};',
-
-        # Close popup on backdrop click
-        'document.addEventListener("click",function(e){',
-        '  if(e.target.classList.contains("popup")){',
-        '    e.target.classList.remove("open");document.body.style.overflow="";',
-        '  }',
-        '});',
-
-        'window.guardarFormulario=async function(){',
-        '  var btn=document.getElementById("save-btn");',
-        '  var st=document.getElementById("save-status");',
-        '  btn.disabled=true;st.textContent="Guardando...";st.style.color="#2563eb";',
-        '  var entries=Object.entries(pendingSave);',
-        '  if(!entries.length){st.textContent="No hay cambios que guardar";st.style.color="#94a3b8";btn.disabled=false;return;}',
-        '  try{',
-        '    for(var i=0;i<entries.length;i++){',
-        '      var pid=entries[i][0],val=entries[i][1];',
-        '      await fetch(S+"/rest/v1/formulario_respuestas",{',
-        '        method:"POST",',
-        '        headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},',
-        '        body:JSON.stringify({cotizacion_numero:EP,pregunta_id:pid,respuesta:val})',
-        '      });',
-        '    }',
-        '    pendingSave={};',
-        '    st.textContent="✅ Guardado correctamente";st.style.color="#16a34a";',
-        '  }catch(e){st.textContent="Error: "+e.message;st.style.color="#dc2626";}',
-        '  btn.disabled=false;',
-        '};',
-    ]
-    js = '\n'.join(js_lines)
-
-    html = (
-        '<!DOCTYPE html><html><head><meta charset="utf-8">'
-        '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        '<style>' + css + '</style></head><body>'
-        '<div class="wrap">'
-        '<div class="header">'
-        '<div class="header-title">Hola, ' + nombre_cliente + ' 👋</div>'
-        '<div class="header-sub">' + ep + ' — Formulario de materiales</div>'
-        '<div class="progress-bar"><div class="progress-fill" style="width:' + str(pct_prog) + '%;background:' + col_prog + ';"></div></div>'
-        '<div class="progress-label">' + str(total_resp) + ' de ' + str(total_req) + ' preguntas completadas (' + str(pct_prog) + '%)</div>'
-        '</div>'
-        + pregs_html +
-        '<div class="save-wrap">'
-        '<button class="save-btn" id="save-btn" onclick="window.guardarFormulario()">💾 Guardar formulario</button>'
-        '<div class="save-status" id="save-status"></div>'
-        '</div>'
-        '</div>'
-        '<script>' + js + '</script>'
-        '</body></html>'
-    )
-    return html
 
 
 def build_config_preguntas_html(preguntas, cat_items, supa_url, supa_key, form_ep):
