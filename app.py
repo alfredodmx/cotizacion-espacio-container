@@ -104,12 +104,16 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         'background:linear-gradient(90deg,#48cae4,#90e0ef);}'
         '.prog-label{font-size:0.7rem;opacity:0.6;margin-top:4px;}'
         # section
+        '.sec-wrap{background:white;border-radius:20px;margin:20px 16px 0;'
+        'box-shadow:0 4px 20px rgba(15,52,96,0.08),0 1px 4px rgba(15,52,96,0.04);'
+        'overflow:hidden;}'
         '.sec-header{background:linear-gradient(90deg,#0f3460,#1a5276);color:white;font-weight:900;'
-        'font-size:0.78rem;text-transform:uppercase;letter-spacing:0.1em;padding:9px 16px;'
-        'border-radius:10px;margin:20px 16px 10px;box-shadow:0 4px 12px rgba(15,52,96,0.2);}'
+        'font-size:0.78rem;text-transform:uppercase;letter-spacing:0.1em;padding:12px 20px;'
+        'box-shadow:none;margin:0;}'
         # preg card
-        '.preg-card{background:white;border-radius:16px;padding:18px 20px;margin:0 16px 12px;'
-        'box-shadow:0 2px 12px rgba(15,52,96,0.07),0 1px 4px rgba(15,52,96,0.04);}'
+        '.preg-card{background:white;padding:18px 22px;margin:0;'
+        'border-bottom:1px solid #f1f5f9;}'
+        '.preg-card:last-child{border-bottom:none;}'
         '.preg-titulo{font-size:0.95rem;font-weight:700;color:#0a1628;margin-bottom:14px;line-height:1.4;}'
         '.preg-titulo .req{color:#f97316;}'
         # color
@@ -173,7 +177,7 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         # answered dot
         '.resp-indicator{display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;margin-left:6px;vertical-align:middle;}'
         # save button
-        '.save-wrap{margin:20px 16px 8px;}'
+        '.save-wrap{margin:20px 16px 8px;padding-bottom:16px;}'
         '.save-btn{width:100%;padding:15px;background:linear-gradient(135deg,#0f3460,#1a5276);color:white;border:none;'
         'border-radius:14px;font-size:15px;font-weight:900;cursor:pointer;font-family:Poppins,sans-serif;'
         'box-shadow:0 8px 28px rgba(15,52,96,0.28);letter-spacing:0.02em;}'
@@ -233,6 +237,7 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
     # Build questions HTML
     pregs_html = ''
     for sec, preg_list in secciones.items():
+        pregs_html += '<div class="sec-wrap">'
         pregs_html += '<div class="sec-header">' + sec + '</div>'
         for p in preg_list:
             pid = str(p.get('id',''))
@@ -318,6 +323,7 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
                 pregs_html += '<textarea class="free-txt" id="txt-' + pid + '" rows="3" placeholder="Escribe tu respuesta aqui..." onchange="window.selectOpt(\'' + pid + '\',this.value)">' + prev + '</textarea>'
 
             pregs_html += '</div>'  # end preg-card
+        pregs_html += '</div>'  # end sec-wrap
 
     # Serialize respuestas for JS
     resps_init = json.dumps(respuestas_map, ensure_ascii=True)
