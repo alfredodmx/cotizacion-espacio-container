@@ -138,12 +138,14 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '.img-grid{display:flex;gap:12px;overflow-x:auto;scroll-behavior:smooth;padding:4px 4px 10px;-webkit-overflow-scrolling:touch;}'
         '.img-grid::-webkit-scrollbar{height:3px;}'
         '.img-grid::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:99px;}'
-        '.img-item{background:white;border:2.5px solid #e2e8f0;border-radius:14px;overflow:hidden;cursor:pointer;'
-        'position:relative;transition:all 0.2s;flex:0 0 200px;width:200px;'
-        'box-shadow:0 2px 8px rgba(15,52,96,0.06);}'
-        '.img-item.sel{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,0.15),0 4px 16px rgba(15,52,96,0.12);}'
-        '.img-item img{width:100%;height:160px;object-fit:cover;display:block;}'
-        '.img-item-name{padding:8px 10px;font-size:12px;font-weight:700;color:#0a1628;}'
+        '.img-item{cursor:pointer;position:relative;transition:all 0.2s;flex:0 0 160px;'
+        'display:flex;flex-direction:column;align-items:center;gap:8px;background:transparent;}'
+        '.img-item.sel .img-circle{border-color:#0f3460;box-shadow:0 0 0 4px rgba(15,52,96,0.2);}'
+        '.img-circle{width:140px;height:140px;border-radius:50%;overflow:hidden;border:3px solid #e2e8f0;'
+        'box-shadow:0 4px 12px rgba(15,52,96,0.1);transition:all 0.2s;flex-shrink:0;}'
+        '.img-circle img{width:100%;height:100%;object-fit:cover;display:block;}'
+        '.img-item-name{font-size:10px;font-weight:700;color:#64748b;text-align:center;'
+        'font-family:Montserrat,sans-serif;text-transform:uppercase;letter-spacing:0.04em;}'
         '.img-sel-badge{display:none;position:absolute;top:8px;right:8px;background:#0f3460;color:white;'
         'border-radius:50%;width:26px;height:26px;align-items:center;justify-content:center;font-size:13px;font-weight:900;'
         'box-shadow:0 2px 8px rgba(15,52,96,0.3);}'
@@ -152,13 +154,14 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         'border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;'
         'backdrop-filter:blur(4px);}'
         # carousel nav
-        '.carousel-wrap{position:relative;}'
+        '.carousel-wrap{display:flex;align-items:center;gap:8px;}'
+        '.carousel-inner{flex:1;overflow:hidden;}'
         '.carousel-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}'
-        '.carousel-nav-btn{background:#0f3460;color:white;border:none;border-radius:50%;width:30px;height:30px;'
-        'font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;'
-        'box-shadow:0 4px 10px rgba(15,52,96,0.2);flex-shrink:0;}'
-        '.carousel-nav-btn:disabled{background:#e2e8f0;color:#94a3b8;cursor:default;box-shadow:none;}'
-        '.carousel-count{font-size:11px;color:#94a3b8;font-weight:600;}'
+        '.carousel-nav-btn{background:white;color:#0f3460;border:none;border-radius:50%;width:36px;height:36px;'
+        'font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;'
+        'box-shadow:0 4px 14px rgba(15,52,96,0.12);}'
+        '.carousel-nav-btn:disabled{background:#f1f5f9;color:#cbd5e1;cursor:default;box-shadow:none;}'
+        '.carousel-count{font-size:11px;color:#94a3b8;font-weight:600;text-align:center;}'
         # popup
         '.popup{display:none;position:fixed;inset:0;background:rgba(5,10,20,0.95);z-index:99999;flex-direction:column;align-items:center;justify-content:center;}'
         '.popup.open{display:flex;}'
@@ -264,11 +267,9 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
 
             if ptipo == 'color':
                 cgrid_id = 'cgrid-' + pid
-                pregs_html += '<div class="carousel-nav">'
+                pregs_html += '<div class="carousel-wrap">'
                 pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + cgrid_id + '\',-1)">&#8249;</button>'
-                pregs_html += '<span class="carousel-count" id="cnt-' + pid + '"></span>'
-                pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + cgrid_id + '\',1)">&#8250;</button>'
-                pregs_html += '</div>'
+                pregs_html += '<div class="carousel-inner">'
                 pregs_html += '<div class="color-grid" id="' + cgrid_id + '">'
                 for opt in popts:
                     oname = opt.get('nombre','') if isinstance(opt, dict) else str(opt)
@@ -279,28 +280,32 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
                     pregs_html += '<div class="color-check">✓</div></div>'
                     pregs_html += '<div class="color-name">' + oname + '</div>'
                     pregs_html += '</div>'
-                pregs_html += '</div>'
+                pregs_html += '</div>'  # end color-grid
+                pregs_html += '</div>'  # end carousel-inner
+                pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + cgrid_id + '\',1)">&#8250;</button>'
+                pregs_html += '</div>'  # end carousel-wrap
 
             elif ptipo == 'imagen':
                 grid_id = 'grid-' + pid
-                pregs_html += '<div class="carousel-nav">'
+                pregs_html += '<div class="carousel-wrap">'
                 pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + grid_id + '\',-1)">&#8249;</button>'
-                pregs_html += '<span class="carousel-count" id="cnt-' + pid + '"></span>'
-                pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + grid_id + '\',1)">&#8250;</button>'
-                pregs_html += '</div>'
+                pregs_html += '<div class="carousel-inner">'
                 pregs_html += '<div class="img-grid" id="' + grid_id + '" onscroll="window.updateCarouselCount(\'' + grid_id + '\',\'' + pid + '\',this)">'
                 for oi, opt in enumerate(popts):
                     oname = opt.get('nombre','') if isinstance(opt, dict) else str(opt)
                     ourl = opt.get('url','') if isinstance(opt, dict) else ''
                     sel_cls = ' sel' if prev == oname else ''
                     popup_id = 'popup-' + pid + '-' + str(oi)
-                    pregs_html += '<div class="img-item' + sel_cls + '" id="imgitem-' + pid + '-' + str(oi) + '">'
+                    pregs_html += '<div class="img-item' + sel_cls + '" id="imgitem-' + pid + '-' + str(oi) + '" onclick="window.selectOpt(\'' + pid + '\',\'' + oname.replace("'","") + '\')" >'
+                    pregs_html += '<div class="img-circle">'
                     if ourl:
-                        pregs_html += '<img src="' + ourl + '" onclick="window.selectOpt(\'' + pid + '\',\'' + oname.replace("'","") + '\')" alt="' + oname + '">'
-                        pregs_html += '<button class="img-zoom-btn" onclick="event.stopPropagation();window.openPopup(\'' + popup_id + '\')" title="Ver ampliada">&#128269;</button>'
+                        pregs_html += '<img src="' + ourl + '" alt="' + oname + '">'
                     else:
-                        pregs_html += '<div style="height:180px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:2rem;" onclick="window.selectOpt(\'' + pid + '\',\'' + oname.replace("'","") + '\')">&#128230;</div>'
+                        pregs_html += '<div style="width:100%;height:100%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:2rem;">&#128230;</div>'
+                    pregs_html += '</div>'
                     pregs_html += '<div class="img-sel-badge">✓</div>'
+                    if ourl:
+                        pregs_html += '<button class="img-zoom-btn" onclick="event.stopPropagation();window.openPopup(\'' + popup_id + '\')" title="Ver ampliada">&#128269;</button>'
                     pregs_html += '<div class="img-item-name">' + oname + '</div>'
                     pregs_html += '</div>'
                     # Fullscreen popup for this image
