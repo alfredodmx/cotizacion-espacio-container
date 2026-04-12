@@ -125,9 +125,8 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '.preg-titulo{font-size:0.82rem;font-weight:900;color:#0a1628;margin-bottom:14px;line-height:1.4;font-family:Montserrat,sans-serif;text-transform:uppercase;letter-spacing:0.06em;}'
         '.preg-titulo .req{color:#f97316;}'
         # color
-        '.color-grid{display:flex;flex-wrap:nowrap;gap:14px;overflow-x:auto;padding:4px 4px 10px;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;}'
-        '.color-grid::-webkit-scrollbar{height:3px;}'
-        '.color-grid::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:99px;}'
+        '.color-grid{display:flex;flex-wrap:nowrap;gap:14px;overflow-x:hidden;padding:4px 4px 10px;}'
+
         '.color-item{text-align:center;cursor:pointer;flex-shrink:0;}'
         '.color-circle{width:64px;height:64px;border-radius:50%;margin:0 auto 6px;border:3px solid transparent;transition:all 0.2s;position:relative;box-shadow:0 4px 12px rgba(0,0,0,0.15);}'
         '.color-circle.sel{border-color:#0f3460;box-shadow:0 0 0 4px rgba(15,52,96,0.2),0 4px 12px rgba(0,0,0,0.15);}'
@@ -135,9 +134,8 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '.color-circle.sel .color-check{display:flex;}'
         '.color-name{font-size:10px;color:#64748b;font-weight:600;max-width:64px;line-height:1.2;}'
         # images
-        '.img-grid{display:flex;gap:12px;overflow-x:auto;scroll-behavior:smooth;padding:4px 4px 10px;-webkit-overflow-scrolling:touch;}'
-        '.img-grid::-webkit-scrollbar{height:3px;}'
-        '.img-grid::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:99px;}'
+        '.img-grid{display:flex;gap:20px;overflow-x:hidden;padding:8px 4px 14px;}'
+
         '.img-item{cursor:pointer;position:relative;transition:all 0.2s;flex:0 0 180px;'
         'display:flex;flex-direction:column;align-items:center;gap:10px;background:transparent;border:none;}'
         '.img-circle{width:160px;height:160px;border-radius:50%;overflow:hidden;'
@@ -200,7 +198,7 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '.preg-titulo{font-size:0.9rem;font-weight:700;color:#0f172a;margin-bottom:12px;}'
         '.preg-titulo .req{color:#f97316;}'
         # Color circles
-        '.color-grid{display:flex;flex-wrap:nowrap;gap:14px;overflow-x:auto;scroll-behavior:smooth;padding-bottom:8px;-webkit-overflow-scrolling:touch;}'
+        '.color-grid{display:flex;flex-wrap:nowrap;gap:14px;overflow-x:hidden;padding:4px 4px 10px;}'
         '.color-item{text-align:center;cursor:pointer;}'
         '.color-circle{width:72px;height:72px;border-radius:50%;margin:0 auto 6px;border:3px solid #e2e8f0;transition:all 0.2s;position:relative;}'
         '.color-circle.sel{border-color:#0f3460;box-shadow:0 0 0 4px rgba(15,52,96,0.25);}'
@@ -208,14 +206,11 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '.color-circle.sel .color-check{display:flex;}'
         '.color-name{font-size:11px;color:#64748b;font-weight:600;max-width:72px;}'
         # Image grid
-        '.img-grid{display:flex;gap:12px;overflow-x:auto;scroll-behavior:smooth;padding-bottom:8px;-webkit-overflow-scrolling:touch;}'
+        '.img-grid{display:flex;gap:20px;overflow-x:hidden;padding:8px 4px 14px;}'
         '.img-grid::-webkit-scrollbar{height:4px;}'
         '.img-grid::-webkit-scrollbar-track{background:#f1f5f9;border-radius:99px;}'
         '.img-grid::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:99px;}'
-        '.img-item{cursor:pointer;border-radius:12px;overflow:hidden;border:3px solid #e2e8f0;transition:all 0.2s;position:relative;background:white;flex:0 0 200px;width:200px;}'
-        '.img-item.sel{border-color:#0f3460;box-shadow:0 0 0 4px rgba(15,52,96,0.25);}'
-        '.img-item img{width:100%;height:180px;object-fit:cover;display:block;}'
-        '.img-item-name{padding:8px 10px;font-size:12px;font-weight:700;color:#0f172a;}'
+
         '.img-sel-badge{display:none;position:absolute;top:8px;right:8px;background:#0f3460;color:white;border-radius:50%;width:28px;height:28px;align-items:center;justify-content:center;font-size:14px;font-weight:900;}'
         '.img-item.sel .img-sel-badge{display:flex;}'
         '.img-zoom-btn{position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.5);color:white;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;}'
