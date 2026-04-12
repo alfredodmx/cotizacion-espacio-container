@@ -135,33 +135,30 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '.color-circle.sel .color-check{display:flex;}'
         '.color-name{font-size:10px;color:#64748b;font-weight:600;max-width:64px;line-height:1.2;}'
         # images
-        '.img-grid{display:flex;gap:20px;overflow-x:auto;scroll-behavior:smooth;padding:8px 4px 14px;-webkit-overflow-scrolling:touch;}'
+        '.img-grid{display:flex;gap:12px;overflow-x:auto;scroll-behavior:smooth;padding:4px 4px 10px;-webkit-overflow-scrolling:touch;}'
         '.img-grid::-webkit-scrollbar{height:3px;}'
         '.img-grid::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:99px;}'
-        '.img-item{cursor:pointer;position:relative;transition:all 0.2s;flex:0 0 180px;'
-        'display:flex;flex-direction:column;align-items:center;gap:8px;}'
-        '.img-circle{width:160px;height:160px;border-radius:50%;overflow:hidden;'
-        'border:3px solid #e8f0fe;transition:all 0.2s;'
-        'box-shadow:0 4px 16px rgba(15,52,96,0.1);}'
-        '.img-item.sel .img-circle{border-color:#0f3460;box-shadow:0 0 0 4px rgba(15,52,96,0.2),0 4px 20px rgba(15,52,96,0.15);}'
-        '.img-circle img{width:100%;height:100%;object-fit:cover;display:block;}'
-        '.img-item-name{font-size:11px;font-weight:700;color:#0a1628;text-align:center;'
-        'font-family:Montserrat,sans-serif;text-transform:uppercase;letter-spacing:0.05em;}'
-        '.img-sel-badge{display:none;position:absolute;top:4px;right:8px;background:#0f3460;color:white;'
-        'border-radius:50%;width:24px;height:24px;align-items:center;justify-content:center;font-size:12px;font-weight:900;'
+        '.img-item{background:white;border:2.5px solid #e2e8f0;border-radius:14px;overflow:hidden;cursor:pointer;'
+        'position:relative;transition:all 0.2s;flex:0 0 200px;width:200px;'
+        'box-shadow:0 2px 8px rgba(15,52,96,0.06);}'
+        '.img-item.sel{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,0.15),0 4px 16px rgba(15,52,96,0.12);}'
+        '.img-item img{width:100%;height:160px;object-fit:cover;display:block;}'
+        '.img-item-name{padding:8px 10px;font-size:12px;font-weight:700;color:#0a1628;}'
+        '.img-sel-badge{display:none;position:absolute;top:8px;right:8px;background:#0f3460;color:white;'
+        'border-radius:50%;width:26px;height:26px;align-items:center;justify-content:center;font-size:13px;font-weight:900;'
         'box-shadow:0 2px 8px rgba(15,52,96,0.3);}'
         '.img-item.sel .img-sel-badge{display:flex;}'
-        '.img-zoom-btn{position:absolute;bottom:28px;right:6px;background:rgba(255,255,255,0.9);color:#0f3460;border:none;'
-        'border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;'
-        'box-shadow:0 2px 8px rgba(15,52,96,0.2);}'
+        '.img-zoom-btn{position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.45);color:white;border:none;'
+        'border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;'
+        'backdrop-filter:blur(4px);}'
         # carousel nav
-        '.carousel-wrap{position:relative;display:flex;align-items:center;gap:10px;}'
-        '.carousel-nav-btn{background:white;color:#0f3460;border:none;border-radius:50%;width:38px;height:38px;'
-        'font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;'
-        'box-shadow:0 4px 14px rgba(15,52,96,0.15);align-self:center;}'
-        '.carousel-nav-btn:disabled{background:#f1f5f9;color:#cbd5e1;cursor:default;box-shadow:none;}'
-        '.carousel-count{font-size:11px;color:#94a3b8;font-weight:600;text-align:center;min-width:40px;}'
-        '.carousel-inner{flex:1;overflow:hidden;}'
+        '.carousel-wrap{position:relative;}'
+        '.carousel-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}'
+        '.carousel-nav-btn{background:#0f3460;color:white;border:none;border-radius:50%;width:30px;height:30px;'
+        'font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;'
+        'box-shadow:0 4px 10px rgba(15,52,96,0.2);flex-shrink:0;}'
+        '.carousel-nav-btn:disabled{background:#e2e8f0;color:#94a3b8;cursor:default;box-shadow:none;}'
+        '.carousel-count{font-size:11px;color:#94a3b8;font-weight:600;}'
         # popup
         '.popup{display:none;position:fixed;inset:0;background:rgba(5,10,20,0.95);z-index:99999;flex-direction:column;align-items:center;justify-content:center;}'
         '.popup.open{display:flex;}'
@@ -267,9 +264,11 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
 
             if ptipo == 'color':
                 cgrid_id = 'cgrid-' + pid
-                pregs_html += '<div class="carousel-wrap">'
+                pregs_html += '<div class="carousel-nav">'
                 pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + cgrid_id + '\',-1)">&#8249;</button>'
-                pregs_html += '<div class="carousel-inner">'
+                pregs_html += '<span class="carousel-count" id="cnt-' + pid + '"></span>'
+                pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + cgrid_id + '\',1)">&#8250;</button>'
+                pregs_html += '</div>'
                 pregs_html += '<div class="color-grid" id="' + cgrid_id + '">'
                 for opt in popts:
                     oname = opt.get('nombre','') if isinstance(opt, dict) else str(opt)
@@ -284,25 +283,24 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
 
             elif ptipo == 'imagen':
                 grid_id = 'grid-' + pid
-                pregs_html += '<div class="carousel-wrap">'
+                pregs_html += '<div class="carousel-nav">'
                 pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + grid_id + '\',-1)">&#8249;</button>'
-                pregs_html += '<div class="carousel-inner">'
+                pregs_html += '<span class="carousel-count" id="cnt-' + pid + '"></span>'
+                pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + grid_id + '\',1)">&#8250;</button>'
+                pregs_html += '</div>'
                 pregs_html += '<div class="img-grid" id="' + grid_id + '" onscroll="window.updateCarouselCount(\'' + grid_id + '\',\'' + pid + '\',this)">'
                 for oi, opt in enumerate(popts):
                     oname = opt.get('nombre','') if isinstance(opt, dict) else str(opt)
                     ourl = opt.get('url','') if isinstance(opt, dict) else ''
                     sel_cls = ' sel' if prev == oname else ''
                     popup_id = 'popup-' + pid + '-' + str(oi)
-                    pregs_html += '<div class="img-item' + sel_cls + '" id="imgitem-' + pid + '-' + str(oi) + '" onclick="window.selectOpt(\'' + pid + '\',\'' + oname.replace("'","") + '\')" >'
-                    pregs_html += '<div class="img-circle">'
+                    pregs_html += '<div class="img-item' + sel_cls + '" id="imgitem-' + pid + '-' + str(oi) + '">'
                     if ourl:
-                        pregs_html += '<img src="' + ourl + '" alt="' + oname + '">'
-                    else:
-                        pregs_html += '<div style="width:100%;height:100%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:2rem;">&#128230;</div>'
-                    pregs_html += '</div>'
-                    pregs_html += '<div class="img-sel-badge">✓</div>'
-                    if ourl:
+                        pregs_html += '<img src="' + ourl + '" onclick="window.selectOpt(\'' + pid + '\',\'' + oname.replace("'","") + '\')" alt="' + oname + '">'
                         pregs_html += '<button class="img-zoom-btn" onclick="event.stopPropagation();window.openPopup(\'' + popup_id + '\')" title="Ver ampliada">&#128269;</button>'
+                    else:
+                        pregs_html += '<div style="height:180px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:2rem;" onclick="window.selectOpt(\'' + pid + '\',\'' + oname.replace("'","") + '\')">&#128230;</div>'
+                    pregs_html += '<div class="img-sel-badge">✓</div>'
                     pregs_html += '<div class="img-item-name">' + oname + '</div>'
                     pregs_html += '</div>'
                     # Fullscreen popup for this image
