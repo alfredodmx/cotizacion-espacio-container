@@ -79,7 +79,7 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
     css = (
         '@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&display=swap");'
         'body{margin:0;padding:0;font-family:Poppins,sans-serif;font-size:14px;background:#f0f4f8;}'
-        '.wrap{max-width:720px;margin:0 auto;padding:0 0 32px;}'
+        '.wrap{max-width:1000px;margin:0 auto;padding:0 0 32px;}'
         # topbar
         # header
         '.header{background:linear-gradient(135deg,#0a1628 0%,#0f3460 60%,#1a5276 100%);'
