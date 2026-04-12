@@ -106,14 +106,12 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '.prog-label{font-size:0.7rem;opacity:0.6;margin-top:4px;}'
         # section
         # section + cards
-        '.sec-wrap{margin:20px 16px 0;background:white;border-radius:20px;'
-        'box-shadow:0 4px 20px rgba(15,52,96,0.08),0 1px 4px rgba(15,52,96,0.04);'
-        'overflow:hidden;}'
-        '.sec-title{padding:18px 22px 0;display:flex;align-items:center;gap:8px;}'
+        '.sec-wrap{margin:20px 16px 0;background:transparent;}'
+        '.sec-title{padding:4px 0 10px;display:flex;align-items:center;gap:8px;}'
         '.sec-title-dot{width:4px;height:24px;background:linear-gradient(180deg,#60a5fa,#3b82f6);border-radius:99px;flex-shrink:0;}'
-        '.sec-title-text{font-size:1.05rem;font-weight:900;color:#0a1628;font-family:Poppins,sans-serif;}'
-        '.preg-card{padding:14px 22px;border-bottom:1px solid #f1f5f9;}'
-        '.preg-card:last-child{border-bottom:none;}'
+        '.sec-title-text{font-size:0.82rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;font-family:Poppins,sans-serif;}'
+        '.preg-card{background:white;border-radius:16px;padding:18px 22px;margin-bottom:10px;'
+        'box-shadow:0 2px 12px rgba(15,52,96,0.07);}'
         '.preg-titulo{font-size:0.95rem;font-weight:700;color:#0a1628;margin-bottom:14px;line-height:1.4;}'
         '.preg-titulo .req{color:#f97316;}'
         # color
