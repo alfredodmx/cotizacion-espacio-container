@@ -107,9 +107,10 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '.sec-wrap{background:white;border-radius:20px;margin:20px 16px 0;'
         'box-shadow:0 4px 20px rgba(15,52,96,0.08),0 1px 4px rgba(15,52,96,0.04);'
         'overflow:hidden;}'
-        '.sec-header{background:linear-gradient(90deg,#0f3460,#1a5276);color:white;font-weight:900;'
-        'font-size:0.78rem;text-transform:uppercase;letter-spacing:0.1em;padding:12px 20px;'
-        'box-shadow:none;margin:0;}'
+        '.sec-header{padding:18px 22px 4px;margin:0;}'
+        '.sec-header-label{font-size:0.7rem;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:3px;}'
+        '.sec-header-title{font-size:1.15rem;font-weight:900;color:#0a1628;font-family:Poppins,sans-serif;line-height:1.2;}'
+        '.sec-header-line{height:2px;background:linear-gradient(90deg,#60a5fa,transparent);margin:10px 22px 0;border-radius:99px;}'
         # preg card
         '.preg-card{background:white;padding:18px 22px;margin:0;'
         'border-bottom:1px solid #f1f5f9;}'
@@ -238,7 +239,11 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
     pregs_html = ''
     for sec, preg_list in secciones.items():
         pregs_html += '<div class="sec-wrap">'
-        pregs_html += '<div class="sec-header">' + sec + '</div>'
+        pregs_html += '<div class="sec-header">'
+        pregs_html += '<div class="sec-header-label">&#10022; Sección</div>'
+        pregs_html += '<div class="sec-header-title">' + sec + '</div>'
+        pregs_html += '</div>'
+        pregs_html += '<div class="sec-header-line"></div>'
         for p in preg_list:
             pid = str(p.get('id',''))
             ptipo = p.get('tipo','texto')
