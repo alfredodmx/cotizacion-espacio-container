@@ -112,7 +112,7 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '.sec-header-title{font-size:1.1rem;font-weight:900;color:#0a1628;font-family:Poppins,sans-serif;line-height:1.2;}'
         '.sec-header-line{height:1.5px;background:linear-gradient(90deg,#bfdbfe,transparent);margin:10px 22px 0;border-radius:99px;}'
         # preg card
-        '.preg-card{background:white;padding:18px 22px;margin:0;'
+        '.preg-card{background:transparent;padding:16px 22px;margin:0;'
         'border-bottom:1px solid #f1f5f9;}'
         '.preg-card:last-child{border-bottom:none;}'
         '.preg-titulo{font-size:0.95rem;font-weight:700;color:#0a1628;margin-bottom:14px;line-height:1.4;}'
@@ -243,7 +243,6 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         pregs_html += '<div class="sec-header-label">&#10022; Sección</div>'
         pregs_html += '<div class="sec-header-title">' + sec + '</div>'
         pregs_html += '</div>'
-        pregs_html += '<div class="sec-header-line"></div>'
         for p in preg_list:
             pid = str(p.get('id',''))
             ptipo = p.get('tipo','texto')
