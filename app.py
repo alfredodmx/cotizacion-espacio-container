@@ -922,8 +922,8 @@ if _modo_cliente:
                 _ep_cli, _nom_cli, _pct_prog, _total_req, _total_resp,
                 _logo_b64_cli
             )
-            _form_height = max(900, len(_pregs) * 280)
-            _form_comp.html(_form_html, height=_form_height, scrolling=True)
+            _form_height = max(900, len(_pregs) * 420)
+            _form_comp.html(_form_html, height=_form_height, scrolling=False)
 
         if st.button("← Salir", key="cli_logout"):
             for _k in ['_cliente_ep','_cliente_ok','_cliente_nombre','_cliente_proyecto']:
