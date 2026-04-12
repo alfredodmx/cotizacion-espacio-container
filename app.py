@@ -86,7 +86,7 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '.preg-titulo{font-size:0.9rem;font-weight:700;color:#0f172a;margin-bottom:12px;}'
         '.preg-titulo .req{color:#f97316;}'
         # Color circles
-        '.color-grid{display:flex;flex-wrap:wrap;gap:14px;justify-content:flex-start;}'
+        '.color-grid{display:flex;flex-wrap:nowrap;gap:14px;overflow-x:auto;scroll-behavior:smooth;padding-bottom:8px;-webkit-overflow-scrolling:touch;}'
         '.color-item{text-align:center;cursor:pointer;}'
         '.color-circle{width:72px;height:72px;border-radius:50%;margin:0 auto 6px;border:3px solid #e2e8f0;transition:all 0.2s;position:relative;}'
         '.color-circle.sel{border-color:#0f3460;box-shadow:0 0 0 4px rgba(15,52,96,0.25);}'
@@ -94,8 +94,11 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '.color-circle.sel .color-check{display:flex;}'
         '.color-name{font-size:11px;color:#64748b;font-weight:600;max-width:72px;}'
         # Image grid
-        '.img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}'
-        '.img-item{cursor:pointer;border-radius:12px;overflow:hidden;border:3px solid #e2e8f0;transition:all 0.2s;position:relative;background:white;}'
+        '.img-grid{display:flex;gap:12px;overflow-x:auto;scroll-behavior:smooth;padding-bottom:8px;-webkit-overflow-scrolling:touch;}'
+        '.img-grid::-webkit-scrollbar{height:4px;}'
+        '.img-grid::-webkit-scrollbar-track{background:#f1f5f9;border-radius:99px;}'
+        '.img-grid::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:99px;}'
+        '.img-item{cursor:pointer;border-radius:12px;overflow:hidden;border:3px solid #e2e8f0;transition:all 0.2s;position:relative;background:white;flex:0 0 200px;width:200px;}'
         '.img-item.sel{border-color:#0f3460;box-shadow:0 0 0 4px rgba(15,52,96,0.25);}'
         '.img-item img{width:100%;height:180px;object-fit:cover;display:block;}'
         '.img-item-name{padding:8px 10px;font-size:12px;font-weight:700;color:#0f172a;}'
@@ -115,6 +118,11 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '.sino-btn{padding:14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;background:white;transition:all 0.15s;}'
         '.sino-btn.sel{background:#0f3460;color:white;border-color:#0f3460;}'
         # Textarea
+        '.carousel-wrap{position:relative;}'
+        '.carousel-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}'
+        '.carousel-nav-btn{background:#1e3a5f;color:white;border:none;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}'
+        '.carousel-nav-btn:disabled{background:#e2e8f0;color:#94a3b8;cursor:default;}'
+        '.carousel-count{font-size:12px;color:#64748b;font-weight:700;}'
         '.free-txt{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;resize:vertical;box-sizing:border-box;}'
         # Save button
         '.save-wrap{margin-top:16px;margin-bottom:24px;}'
@@ -142,7 +150,13 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
             pregs_html += '<div class="preg-titulo">' + ptext + req_span + answered + '</div>'
 
             if ptipo == 'color':
-                pregs_html += '<div class="color-grid">'
+                cgrid_id = 'cgrid-' + pid
+                pregs_html += '<div class="carousel-nav">'
+                pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + cgrid_id + '\',-1)">&#8249;</button>'
+                pregs_html += '<span class="carousel-count" id="cnt-' + pid + '"></span>'
+                pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + cgrid_id + '\',1)">&#8250;</button>'
+                pregs_html += '</div>'
+                pregs_html += '<div class="color-grid" id="' + cgrid_id + '">'
                 for opt in popts:
                     oname = opt.get('nombre','') if isinstance(opt, dict) else str(opt)
                     ohex = opt.get('hex','#ccc') if isinstance(opt, dict) else '#ccc'
@@ -155,7 +169,13 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
                 pregs_html += '</div>'
 
             elif ptipo == 'imagen':
-                pregs_html += '<div class="img-grid">'
+                grid_id = 'grid-' + pid
+                pregs_html += '<div class="carousel-nav">'
+                pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + grid_id + '\',-1)">&#8249;</button>'
+                pregs_html += '<span class="carousel-count" id="cnt-' + pid + '"></span>'
+                pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + grid_id + '\',1)">&#8250;</button>'
+                pregs_html += '</div>'
+                pregs_html += '<div class="img-grid" id="' + grid_id + '" onscroll="window.updateCarouselCount(\'' + grid_id + '\',\'' + pid + '\',this)">'
                 for oi, opt in enumerate(popts):
                     oname = opt.get('nombre','') if isinstance(opt, dict) else str(opt)
                     ourl = opt.get('url','') if isinstance(opt, dict) else ''
@@ -208,6 +228,28 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
 
     js_lines = [
         'var S="' + supa_url + '",K="' + supa_key + '",EP="' + ep + '";',
+        'window.scrollCarousel=function(gid,dir){',
+        '  var el=document.getElementById(gid);',
+        '  if(!el)return;',
+        '  el.scrollBy({left:dir*220,behavior:"smooth"});',
+        '};',
+        'window.updateCarouselCount=function(gid,pid,el){',
+        '  var cnt=document.getElementById("cnt-"+pid);',
+        '  if(!cnt)return;',
+        '  var items=el.children.length;',
+        '  var visible=Math.round(el.clientWidth/220);',
+        '  var cur=Math.round(el.scrollLeft/220)+1;',
+        '  cnt.textContent=cur+" / "+items;',
+        '};',
+        '// Init carousel counts after render',
+        'setTimeout(function(){',
+        '  document.querySelectorAll(".img-grid,.color-grid").forEach(function(el){',
+        '    var pid=el.id.replace("grid-","").replace("cgrid-","");',
+        '    var cnt=document.getElementById("cnt-"+pid);',
+        '    if(cnt)cnt.textContent="1 / "+el.children.length;',
+        '  });',
+        '},200);',
+
         'var resps=' + resps_init + ';',
         'var pendingSave={};',
 
@@ -315,751 +357,6 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '</body></html>'
     )
     return html
-
-
-
-
-
-# =========================================================
-# SISTEMA DE AUTENTICACIÓN
-# =========================================================
-def login_usuario(email, password):
-    """Inicia sesión con email y contraseña."""
-    try:
-        res = supabase.auth.sign_in_with_password({"email": email, "password": password})
-        return res.user, None
-    except Exception as e:
-        return None, str(e)
-
-def logout_usuario():
-    """Cierra sesión — limpia TODO el session_state."""
-    try:
-        supabase.auth.sign_out()
-    except:
-        pass
-    # Guardar solo la lista de claves a preservar (ninguna en este caso)
-    # Limpiar ABSOLUTAMENTE todo el session_state
-    _keys_to_clear = list(st.session_state.keys())
-    for k in _keys_to_clear:
-        try:
-            del st.session_state[k]
-        except:
-            pass
-    # Limpiar query params
-    try:
-        st.query_params.clear()
-    except:
-        pass
-
-def crear_usuario_ejecutivo(email, password, nombre):
-    """Crea un nuevo usuario ejecutivo (requiere service role)."""
-    try:
-        res = supabase_admin.auth.admin.create_user({
-            "email": email,
-            "password": password,
-            "email_confirm": True,
-            "user_metadata": {"nombre": nombre, "rol": "ejecutivo"}
-        })
-        return res.user, None
-    except Exception as e:
-        return None, str(e)
-
-# =========================================================
-# SISTEMA DE NOTIFICACIONES TELEGRAM
-# =========================================================
-TELEGRAM_BOT_TOKEN_DEFAULT = "8639597343:AAG-E3HJVmDGbbMI5oniiivLitlphTDJkCU"
-
-def _get_notif_config(clave, default=""):
-    """Lee un valor de configuración de notificaciones desde Supabase."""
-    try:
-        r = supabase_admin.table('notificaciones_config').select('valor').eq('clave', clave).execute()
-        if r.data:
-            return r.data[0]['valor'] or default
-    except:
-        pass
-    return default
-
-def _set_notif_config(clave, valor):
-    """Guarda un valor de configuración en Supabase."""
-    try:
-        supabase_admin.table('notificaciones_config').upsert(
-            {'clave': clave, 'valor': valor, 'updated_at': 'now()'},
-            on_conflict='clave'
-        ).execute()
-        return True
-    except:
-        return False
-
-def _enviar_telegram(chat_id, mensaje, token=None):
-    """Envía un mensaje de Telegram a un chat_id."""
-    if not chat_id or not str(chat_id).strip():
-        return False
-    try:
-        _token = token or _get_notif_config('bot_token', TELEGRAM_BOT_TOKEN_DEFAULT)
-        if not _token:
-            return False
-        _chat = str(chat_id).strip()
-        _url = f"https://api.telegram.org/bot{_token}/sendMessage"
-        _payload = json.dumps({
-            'chat_id': _chat,
-            'text': mensaje,
-            'parse_mode': 'Markdown'
-        }).encode('utf-8')
-        try:
-            # Intentar con requests primero
-            import requests as _req
-            _resp = _req.post(_url, data=_payload,
-                              headers={'Content-Type': 'application/json'}, timeout=10)
-            return _resp.status_code == 200
-        except ImportError:
-            # Fallback a urllib
-            import urllib.request as _ur
-            _req2 = _ur.Request(_url, data=_payload,
-                                headers={'Content-Type': 'application/json'})
-            _resp2 = _ur.urlopen(_req2, timeout=10)
-            return _resp2.status == 200
-    except Exception as _e:
-        print(f"_enviar_telegram error: {_e}")
-        return False
-
-def _get_contactos_notif():
-    """Retorna dict {user_email: chat_id} de contactos configurados."""
-    try:
-        raw = _get_notif_config('contactos_json', '{}')
-        import json as _j
-        return _j.loads(raw)
-    except:
-        return {}
-
-def _get_observadores_notif():
-    """Retorna lista de dicts {nombre, chat_id} de observadores."""
-    try:
-        raw = _get_notif_config('observadores_json', '[]')
-        import json as _j
-        return _j.loads(raw)
-    except:
-        return []
-
-def notificar_nueva_cotizacion(ep, ejecutivo_nombre, cliente_nombre, monto, estado, ejecutivo_email):
-    """Notifica a supervisores/admins/observadores cuando se guarda una cotización."""
-    import traceback as _tb2
-    try:
-        # Obtener plantilla
-        plantilla = _get_notif_config('msg_nueva_cotizacion', '🆕 *Nueva cotización para revisar*\n\n*{ep}* · {ejecutivo}\nCliente: {cliente} · Monto: *{monto}*\nEstado: {estado}')
-        _fmt_monto = f"${monto:,.0f}".replace(",", ".") if monto else "$0"
-        msg = plantilla.replace('{ep}', str(ep)).replace('{ejecutivo}', str(ejecutivo_nombre))                       .replace('{cliente}', str(cliente_nombre)).replace('{monto}', _fmt_monto)                       .replace('{estado}', str(estado))
-        contactos = _get_contactos_notif()
-        enviados = 0
-        # Enviar a admins/root (no al propio ejecutivo)
-        try:
-            usuarios = listar_usuarios_ejecutivos()
-            for u in usuarios:
-                if u.get('rol') in ('admin', 'root') and u.get('email','').lower() != ejecutivo_email.lower():
-                    chat_id = contactos.get(u['email'].lower(), '')
-                    if chat_id and _enviar_telegram(chat_id, msg):
-                        enviados += 1
-        except:
-            pass
-        # Enviar a roots fijos
-        for root_email in ROOTS:
-            if root_email.lower() != ejecutivo_email.lower():
-                chat_id = contactos.get(root_email.lower(), '')
-                if chat_id and _enviar_telegram(chat_id, msg):
-                    enviados += 1
-        # Enviar a observadores
-        for obs in _get_observadores_notif():
-            if obs.get('chat_id') and _enviar_telegram(obs['chat_id'], msg):
-                enviados += 1
-        # Enviar a grupo si está configurado
-        grupo_id = _get_notif_config('grupo_chat_id', '')
-        grupo_filtro = _get_notif_config('grupo_filtro', 'todas')
-        if grupo_id and grupo_filtro in ('todas', 'solo_nuevas'):
-            _enviar_telegram(grupo_id, msg)
-    except:
-        pass
-
-def notificar_cotizacion_autorizada(ep, cliente_nombre, margen, ejecutivo_email, ejecutivo_nombre, supervisor_nombre='', monto=0):
-    """Notifica al ejecutivo cuando su cotización es autorizada."""
-    import traceback as _tb
-    try:
-        _token = _get_notif_config('bot_token', TELEGRAM_BOT_TOKEN_DEFAULT)
-        _margen_str = f"{float(margen):.1f}" if margen else "0"
-        _sup = supervisor_nombre.upper() if supervisor_nombre else 'EL SUPERVISOR'
-        _plantilla = _get_notif_config('msg_autorizada',
-            "✅ *¡PRESUPUESTO AUTORIZADO!*\n\n📋 *{ep}* · {cliente}\n💰 Margen aplicado: *{margen}%*\n👤 Autorizado por: *{supervisor}*\n\nYa puedes presentárselo a tu cliente 🎉")
-        _fmt_monto = f"${float(monto):,.0f}".replace(",",".") if monto else "$0"
-        msg = (_plantilla
-            .replace('{ep}', str(ep))
-            .replace('{cliente}', str(cliente_nombre))
-            .replace('{margen}', _margen_str)
-            .replace('{monto}', _fmt_monto)
-            .replace('{ejecutivo}', str(ejecutivo_nombre))
-            .replace('{supervisor}', _sup)
-        )
-        contactos = _get_contactos_notif()
-        enviados = 0
-        # Enviar al ejecutivo si tiene chat_id
-        if ejecutivo_email:
-            chat_id = contactos.get(ejecutivo_email.lower(), '')
-            if chat_id:
-                ok = _enviar_telegram(chat_id, msg, _token)
-                if ok: enviados += 1
-        # Enviar a observadores
-        for obs in _get_observadores_notif():
-            if obs.get('chat_id'):
-                if _enviar_telegram(obs['chat_id'], msg, _token):
-                    enviados += 1
-        # Grupo
-        grupo_id = _get_notif_config('grupo_chat_id', '')
-        grupo_filtro = _get_notif_config('grupo_filtro', 'todas')
-        if grupo_id and grupo_filtro in ('todas', 'solo_autorizaciones'):
-            _enviar_telegram(grupo_id, msg, _token)
-        return enviados
-    except Exception as _e:
-        print(f"ERROR notificar_autorizada: {_e}\n{_tb.format_exc()}")
-        return 0
-
-def notificar_margen_removido(ep, cliente_nombre, ejecutivo_email):
-    """Notifica al ejecutivo cuando se remueve el margen."""
-    try:
-        plantilla = _get_notif_config('msg_margen_removido', '↩️ La cotización *{ep}* volvió a estado borrador.\nEl supervisor realizó cambios. Revisa el sistema.')
-        msg = plantilla.replace('{ep}', str(ep)).replace('{cliente}', str(cliente_nombre))
-        contactos = _get_contactos_notif()
-        chat_id = contactos.get(ejecutivo_email.lower(), '')
-        if chat_id:
-            _enviar_telegram(chat_id, msg)
-    except:
-        pass
-
-def cambiar_rol_usuario(user_id, nuevo_rol):
-    """Cambia el rol de un usuario en sus metadatos."""
-    try:
-        supabase_admin.auth.admin.update_user_by_id(
-            user_id, {"user_metadata": {"rol": nuevo_rol}}
-        )
-        return True, None
-    except Exception as e:
-        return False, str(e)
-
-def cambiar_password_propio(nueva_password):
-    """El usuario cambia su propia contraseña (requiere sesión activa)."""
-    try:
-        supabase.auth.update_user({"password": nueva_password})
-        return True, None
-    except Exception as e:
-        return False, str(e)
-
-def resetear_password_admin(user_id, nueva_password):
-    """Admin/Root resetea la contraseña de otro usuario (requiere service role)."""
-    try:
-        supabase_admin.auth.admin.update_user_by_id(user_id, {"password": nueva_password})
-        return True, None
-    except Exception as e:
-        return False, str(e)
-
-def listar_usuarios_ejecutivos():
-    """Lista todos los usuarios excepto supervisores fijos."""
-    try:
-        res = supabase_admin.auth.admin.list_users()
-        users = []
-        for u in res:
-            email = u.email or ""
-            if email.lower() in [s.lower() for s in ROOTS]:
-                continue
-            meta = u.user_metadata or {}
-            nombre = meta.get("nombre", email)
-            rol = meta.get("rol", "ejecutivo")
-            # Compatibilidad con distintas versiones de supabase-py
-            try:
-                _activo = not getattr(u, 'banned_until', None)
-            except:
-                _activo = True
-            users.append({
-                "id": str(u.id),
-                "email": email,
-                "nombre": nombre,
-                "rol": rol,
-                "telefono": meta.get("telefono", "") or "",
-                "created_at": str(u.created_at)[:10] if u.created_at else "",
-                "activo": _activo
-            })
-        return users
-    except Exception as e:
-        st.session_state['_usuarios_list_error'] = str(e)
-        return []
-
-def eliminar_usuario_ejecutivo(user_id):
-    """Elimina un usuario ejecutivo."""
-    try:
-        supabase_admin.auth.admin.delete_user(user_id)
-        return True, None
-    except Exception as e:
-        return False, str(e)
-
-def verificar_conexion_supabase():
-    # Solo verifica una vez por sesión, no en cada render
-    if st.session_state.get('_supabase_ok'):
-        return True
-    try:
-        supabase.table('cotizaciones').select('numero').limit(1).execute()
-        st.session_state['_supabase_ok'] = True
-        return True
-    except Exception as e:
-        st.error(f"❌ Error conectando a Supabase: {e}")
-        return False
-
-verificar_conexion_supabase()
-
-# ── Inicializar variables de auth ANTES del check de login ──
-if 'auth_user'    not in st.session_state: st.session_state.auth_user    = None
-if 'auth_email'   not in st.session_state: st.session_state.auth_email   = ""
-if 'auth_nombre'  not in st.session_state: st.session_state.auth_nombre  = ""
-if 'es_supervisor'not in st.session_state: st.session_state.es_supervisor= False
-if 'es_operacion'  not in st.session_state: st.session_state.es_operacion  = False
-if 'es_root'      not in st.session_state: st.session_state.es_root      = False
-if 'rol_usuario'  not in st.session_state: st.session_state.rol_usuario  = "ejecutivo"
-if 'modo_admin'   not in st.session_state: st.session_state.modo_admin   = False
-
-# ── Recuperar sesión desde query param _sess (sin localStorage) ──
-_sess_token = st.query_params.get("_sess")
-if not st.session_state.auth_user and _sess_token:
-    try:
-        _sess_user = supabase.auth.get_user(_sess_token)
-        if _sess_user and _sess_user.user:
-            _u = _sess_user.user
-            _meta = _u.user_metadata or {}
-            _rol = get_rol(_u.email, _meta)
-            st.session_state.auth_user    = str(_u.id)
-            st.session_state.auth_email   = _u.email or ""
-            st.session_state.auth_nombre  = _meta.get("nombre", _u.email or "")
-            st.session_state.rol_usuario  = _rol
-            st.session_state.es_supervisor= _rol in ("root", "admin")
-            st.session_state.es_root      = _rol == "root"
-            st.session_state.es_operacion = _rol == "operacion"
-            st.session_state.modo_admin   = _rol in ("root", "admin")
-            st.query_params.clear()
-            st.rerun()
-    except:
-        st.query_params.clear()
-
-# =========================================================
-# VISTA CLIENTE — formulario de materiales (RUT + EP)
-# =========================================================
-_modo_cliente = st.query_params.get('cliente', '') == '1' or st.session_state.get('_cliente_ep')
-
-if _modo_cliente:
-    if '_cliente_ep'  not in st.session_state: st.session_state._cliente_ep  = ''
-    if '_cliente_ok'  not in st.session_state: st.session_state._cliente_ok  = False
-    if '_cliente_nombre' not in st.session_state: st.session_state._cliente_nombre = ''
-    if '_cliente_proyecto' not in st.session_state: st.session_state._cliente_proyecto = ''
-
-    st.markdown("""
-    <style>
-    #MainMenu,footer,[data-testid="stToolbar"],[data-testid="stDecoration"]{display:none!important;}
-    </style>
-    """, unsafe_allow_html=True)
-
-    if not st.session_state._cliente_ok:
-        st.markdown("""
-        <div style='text-align:center;padding:40px 0 20px;'>
-          <div style='font-size:2rem;font-weight:900;color:#0f3460;font-family:Montserrat,sans-serif;'>
-            🏠 Portal del Cliente
-          </div>
-          <div style='color:#64748b;margin-top:6px;font-size:0.95rem;'>
-            Ingresa tu RUT y código de presupuesto para acceder a tu formulario
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-        _c1, _c2 = st.columns([1,1])
-        with _c1:
-            _cli_rut_inp = st.text_input("RUT cliente", placeholder="12.345.678-9", key="cli_rut")
-        with _c2:
-            _cli_ep_inp = st.text_input("Código presupuesto", placeholder="EP-12345", key="cli_ep")
-        if st.button("Ingresar →", type="primary", use_container_width=True, key="cli_login"):
-            _cli_rut_clean = re.sub(r'[^0-9kK]', '', _cli_rut_inp.strip()).upper()
-            _cli_ep_clean  = _cli_ep_inp.strip().upper()
-            if not _cli_rut_clean or not _cli_ep_clean:
-                st.error("Ingresa tu RUT y código de presupuesto.")
-            else:
-                try:
-                    _cli_check = supabase.table('cotizaciones').select(
-                        'numero,cliente_nombre,cliente_rut,proyecto_observaciones'
-                    ).eq('numero', _cli_ep_clean).execute()
-                    if _cli_check.data:
-                        _cli_row = _cli_check.data[0]
-                        _rut_db = re.sub(r'[^0-9kK]', '', (_cli_row.get('cliente_rut') or '')).upper()
-                        if _rut_db == _cli_rut_clean:
-                            st.session_state._cliente_ep = _cli_ep_clean
-                            st.session_state._cliente_ok = True
-                            st.session_state._cliente_nombre = _cli_row.get('cliente_nombre','')
-                            st.session_state._cliente_proyecto = _cli_row.get('proyecto_observaciones','')
-                            st.rerun()
-                        else:
-                            st.error("RUT o código incorrecto.")
-                    else:
-                        st.error("Código de presupuesto no encontrado.")
-                except Exception as _ce:
-                    st.error(f"Error: {_ce}")
-    else:
-        _ep_cli  = st.session_state._cliente_ep
-        _nom_cli = st.session_state._cliente_nombre
-        _proy    = st.session_state._cliente_proyecto
-
-        st.markdown(f"""
-        <div style='background:linear-gradient(135deg,#0f3460,#1e5fa5);border-radius:14px;
-                    padding:20px 24px;margin-bottom:20px;color:white;'>
-          <div style='font-size:0.78rem;font-weight:700;letter-spacing:0.1em;opacity:0.7;text-transform:uppercase;'>Portal del Cliente</div>
-          <div style='font-size:1.3rem;font-weight:900;margin-top:4px;font-family:Montserrat,sans-serif;'>Hola, {_nom_cli} 👋</div>
-          <div style='font-size:0.88rem;opacity:0.8;margin-top:2px;'>{_ep_cli} — {_proy}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        try:
-            _pregs = supabase.table('formulario_preguntas').select('*').eq(
-                'cotizacion_numero', _ep_cli
-            ).order('orden').execute().data or []
-        except:
-            _pregs = []
-
-        if not _pregs:
-            st.info("📋 Tu formulario de materiales aún no está disponible. Te avisaremos cuando esté listo.")
-        else:
-            try:
-                _resps_db = supabase.table('formulario_respuestas').select('*').eq(
-                    'cotizacion_numero', _ep_cli
-                ).execute().data or []
-                _resps_map = {r['pregunta_id']: r['respuesta'] for r in _resps_db}
-            except:
-                _resps_map = {}
-
-            _total_req  = sum(1 for p in _pregs if p.get('requerida'))
-            _total_resp = sum(1 for p in _pregs if p.get('requerida') and _resps_map.get(p['id']))
-            _pct_prog   = int(_total_resp / _total_req * 100) if _total_req > 0 else 0
-
-            import streamlit.components.v1 as _form_comp
-            _form_html = build_formulario_cliente_html(
-                _pregs, _resps_map, SUPABASE_URL, SUPABASE_KEY,
-                _ep_cli, _nom_cli, _pct_prog, _total_req, _total_resp
-            )
-            _form_height = max(800, len(_pregs) * 250)
-            _form_comp.html(_form_html, height=_form_height, scrolling=True)
-
-        if st.button("← Cerrar sesión", key="cli_logout"):
-            for _k in ['_cliente_ep','_cliente_ok','_cliente_nombre','_cliente_proyecto']:
-                st.session_state.pop(_k, None)
-            st.rerun()
-
-    st.stop()
-
-
-# =========================================================
-# PANTALLA DE LOGIN — bloquea la app si no hay sesión
-# =========================================================
-if not st.session_state.auth_user:
-    # Cargar logo3.png
-    import base64 as _b64l, os as _osl
-    _logo_html = ""
-    for _lpath in ["logo3.png", "assets/logo3.png", "images/logo3.png"]:
-        if _osl.path.exists(_lpath):
-            with open(_lpath, "rb") as _lf:
-                _logo_b64 = _b64l.b64encode(_lf.read()).decode()
-            _logo_html = f'<img src="data:image/png;base64,{_logo_b64}" style="width:750px;max-width:100%;display:block;margin:0 auto 8px;filter:drop-shadow(0 2px 16px rgba(255,255,255,0.08));">'
-            break
-
-    st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;700;900&display=swap');
-
-    [data-testid="stAppViewContainer"] {
-        background: #0d0d0d !important;
-    }
-    [data-testid="stHeader"]      { display:none !important; }
-    [data-testid="stToolbar"]     { display:none !important; }
-    [data-testid="stDecoration"]  { display:none !important; }
-    .stDeployButton { display:none !important; }
-    #MainMenu { display:none !important; }
-    footer    { display:none !important; }
-    /* Ocultar overlay de errores JS internos de Streamlit/React */
-    [data-testid="stNotificationActionButton"] { display:none !important; }
-    div[class*='ErrorBoundary'] { display:none !important; }
-    section[data-testid='stException'] { display:none !important; }
-
-    /* Línea blanca superior */
-    [data-testid="stAppViewContainer"]::before {
-        content:''; position:fixed; top:0; left:0; right:0; height:1px;
-        background: rgba(255,255,255,0.15);
-        z-index:9999;
-    }
-
-    /* Divisor */
-    .login-divider {
-        height:1px; margin:20px 0;
-        background: rgba(255,255,255,0.08);
-    }
-
-    /* Labels */
-    div[data-testid="stTextInput"] label,
-    div[data-testid="stTextInput"] label p {
-        color: rgba(255,255,255,0.4) !important;
-        font-size: 0.68rem !important;
-        letter-spacing: 0.14em !important;
-        text-transform: uppercase !important;
-        font-family: 'Montserrat', sans-serif !important;
-        font-weight: 400 !important;
-    }
-    /* Contenedor input — negro glossy */
-    div[data-testid="stTextInput"] > div,
-    div[data-testid="stTextInput"] > div > div,
-    div[data-testid="stTextInput"] > div > div > div {
-        background: #0a0a0a !important;
-        border-color: rgba(255,255,255,0.15) !important;
-        border-radius: 6px !important;
-    }
-    div[data-testid="stTextInput"] > div > div {
-        background: linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%) !important;
-        border: 1px solid rgba(255,255,255,0.18) !important;
-        border-radius: 6px !important;
-        box-shadow:
-            inset 0 2px 4px rgba(0,0,0,0.8),
-            inset 0 1px 0 rgba(255,255,255,0.05),
-            0 1px 0 rgba(255,255,255,0.08) !important;
-    }
-    div[data-testid="stTextInput"] input {
-        background: transparent !important;
-        color: #ffffff !important;
-        font-size: 0.93rem !important;
-        font-family: 'Montserrat', sans-serif !important;
-        caret-color: #ffffff !important;
-    }
-    div[data-testid="stTextInput"] input::placeholder {
-        color: rgba(255,255,255,0.18) !important;
-    }
-    div[data-testid="stTextInput"] > div > div:focus-within {
-        border-color: rgba(255,255,255,0.45) !important;
-        box-shadow:
-            inset 0 2px 4px rgba(0,0,0,0.8),
-            0 0 0 1px rgba(255,255,255,0.12),
-            0 0 12px rgba(255,255,255,0.05) !important;
-    }
-
-    /* Botón negro glossy con texto blanco */
-    div[data-testid="stButton"] > button,
-    div[data-testid="stButton"] > button[kind="primary"] {
-        background: linear-gradient(180deg, #2a2a2a 0%, #111111 60%, #1a1a1a 100%) !important;
-        color: #ffffff !important;
-        border: 1px solid rgba(255,255,255,0.2) !important;
-        border-top: 1px solid rgba(255,255,255,0.3) !important;
-        border-radius: 6px !important;
-        font-weight: 600 !important;
-        font-size: 0.75rem !important;
-        letter-spacing: 0.22em !important;
-        text-transform: uppercase !important;
-        font-family: 'Montserrat', sans-serif !important;
-        padding: 0.75rem !important;
-        box-shadow:
-            inset 0 1px 0 rgba(255,255,255,0.1),
-            inset 0 -1px 0 rgba(0,0,0,0.5),
-            0 4px 16px rgba(0,0,0,0.6) !important;
-        transition: all 0.2s ease !important;
-    }
-    div[data-testid="stButton"] > button:hover,
-    div[data-testid="stButton"] > button[kind="primary"]:hover {
-        background: linear-gradient(180deg, #333333 0%, #1a1a1a 60%, #222222 100%) !important;
-        border-color: rgba(255,255,255,0.35) !important;
-        box-shadow:
-            inset 0 1px 0 rgba(255,255,255,0.15),
-            0 6px 24px rgba(0,0,0,0.7) !important;
-        transform: translateY(-1px) !important;
-        color: #ffffff !important;
-    }
-    div[data-testid="stButton"] > button:active,
-    div[data-testid="stButton"] > button[kind="primary"]:active {
-        transform: translateY(0) !important;
-        box-shadow: inset 0 2px 6px rgba(0,0,0,0.8) !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # Logo
-    if _logo_html:
-        st.markdown(f"""
-        <style>
-        .login-logo-wrap img {{ width:750px !important; max-width:100% !important; display:block !important; margin:0 auto !important; }}
-        </style>
-        <div class="login-logo-wrap">{_logo_html}</div>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown('<div style="text-align:center;margin-bottom:20px;color:white;font-size:3rem;">🧊</div>', unsafe_allow_html=True)
-
-    st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="login-divider"></div>', unsafe_allow_html=True)
-    st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
-
-    # Inputs centrados en columna angosta
-    _lc, _mc, _rc = st.columns([1.5, 1, 1.5])
-    with _mc:
-        _email_in = st.text_input("Correo electrónico", key="login_email", placeholder="usuario@empresa.cl")
-        _pass_in  = st.text_input("Contraseña", type="password", key="login_pass", placeholder="••••••••")
-
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-
-        if st.button("⚡ Ingresar al sistema", use_container_width=True, type="primary", key="btn_login"):
-            if not _email_in or not _pass_in:
-                st.error("Completa correo y contraseña.")
-            else:
-                with st.spinner("Verificando..."):
-                    user, err = login_usuario(_email_in.strip(), _pass_in)
-                if user:
-                    st.session_state.auth_user   = str(user.id)
-                    st.session_state.auth_email  = user.email or _email_in.strip()
-                    meta = user.user_metadata or {}
-                    st.session_state.auth_nombre = meta.get("nombre", user.email or "")
-                    _meta = user.user_metadata or {}
-                    _rol_login = get_rol(user.email, _meta)
-                    st.session_state.rol_usuario   = _rol_login
-                    st.session_state.es_supervisor = _rol_login in ("root", "admin")
-                    st.session_state.es_root       = _rol_login == "root"
-                    st.session_state.es_operacion  = _rol_login == "operacion"
-                    if st.session_state.es_supervisor:
-                        st.session_state.modo_admin = True
-                    st.session_state.pop('resultados_busqueda', None)
-                    st.session_state.pop('_usuarios_cache', None)
-                    # Sesión manejada via query params — sin localStorage
-                    st.rerun()
-                else:
-                    if "Invalid login" in str(err) or "invalid_credentials" in str(err):
-                        st.error("❌ Correo o contraseña incorrectos.")
-                    elif "Email not confirmed" in str(err):
-                        st.error("❌ Cuenta no confirmada. Contacta al administrador.")
-                    else:
-                        st.error(f"❌ {err}")
-
-        st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
-        st.markdown("""
-        <div style="text-align:center;color:rgba(255,255,255,0.15);font-size:0.65rem;
-                    letter-spacing:0.2em;text-transform:uppercase;font-family:'Montserrat',sans-serif;
-                    font-weight:300;margin-top:8px;">
-            Sistema de gestión · Uso interno
-        </div>""", unsafe_allow_html=True)
-        # (login-card ya cerrado en el bloque HTML superior)
-
-    st.stop()
-
-# =========================================================
-# AUTO-PROVISIONAMIENTO DE EJECUTIVOS
-# =========================================================
-_EJECUTIVOS_INICIALES = [
-    {"nombre": "BERNARD BUSTAMANTE",  "email": "balday@espaciocontainerhouse.cl",    "telefono": "+56956786366", "pass": "ECH2024!BB",  "rol": "ejecutivo"},
-    {"nombre": "ANDREA OSORIO",       "email": "aosorio@espaciocontainerhouse.cl",   "telefono": "+56927619483", "pass": "ECH2024!AO",  "rol": "ejecutivo"},
-    {"nombre": "REBECA CALDERON",     "email": "rcalderon@espaciocontainerhouse.cl", "telefono": "+56955286708", "pass": "ECH2024!RC",  "rol": "ejecutivo"},
-    {"nombre": "MAURICIO CEVO",       "email": "mcevo@espaciocontainerhouse.cl",     "telefono": "+56971406162", "pass": "ECH2024!MC",  "rol": "ejecutivo"},
-    {"nombre": "JACQUELINE PÉREZ",    "email": "jperez@espaciocontainerhouse.cl",    "telefono": "+56992286057", "pass": "ECH2024!JP",  "rol": "ejecutivo"},
-    {"nombre": "JAVIER QUEZADA",      "email": "jquezada@espaciocontainerhouse.cl",  "telefono": "+56966983700", "pass": "ECH2024!JQ",  "rol": "ejecutivo"},
-]
-
-def _auto_provisionar_ejecutivos():
-    """Crea las cuentas de ejecutivos si no existen. Se ejecuta solo una vez por sesión."""
-    if st.session_state.get('_ejecutivos_provisionados'):
-        return
-    try:
-        existentes = supabase_admin.auth.admin.list_users()
-        emails_existentes = {u.email.lower() for u in existentes if u.email}
-        for ej in _EJECUTIVOS_INICIALES:
-            if ej["email"].lower() not in emails_existentes:
-                try:
-                    supabase_admin.auth.admin.create_user({
-                        "email": ej["email"].lower(),
-                        "password": ej["pass"],
-                        "email_confirm": True,
-                        "user_metadata": {"nombre": ej["nombre"], "telefono": ej["telefono"], "rol": ej.get("rol","ejecutivo")}
-                    })
-                except:
-                    pass
-    except:
-        pass
-    st.session_state['_ejecutivos_provisionados'] = True
-
-# Solo ejecutar si hay sesión activa (supervisor)
-if st.session_state.get('es_supervisor') and not st.session_state.get('_ejecutivos_provisionados'):
-    _auto_provisionar_ejecutivos()
-
-# =========================================================
-# HELPERS: DESCRIPCIONES PDF CLIENTE (JSON en Storage bucket config)
-# =========================================================
-def cargar_descripciones_por_ep(numero, bust_cache=False):
-    """Carga descripciones de un EP desde Storage bucket config."""
-    try:
-        import requests as _rq
-        import time as _time
-        _base = SUPABASE_URL.rstrip("/")
-        _fname = f"pdf_desc_{numero}.json"
-        url = f"{_base}/storage/v1/object/public/config/{_fname}"
-        # Romper CDN cache con timestamp cuando se pide explícitamente
-        if bust_cache:
-            url += f"?t={int(_time.time())}"
-        r = _rq.get(url, timeout=5, headers={"Cache-Control": "no-cache", "Pragma": "no-cache"})
-        if r.status_code == 200:
-            return r.json()
-    except:
-        pass
-    return {}
-
-def guardar_descripciones_por_ep(numero, descripciones: dict):
-    """Guarda descripciones de un EP como JSON en Storage bucket config."""
-    try:
-        _fname = f"pdf_desc_{numero}.json"
-        data = json.dumps(descripciones, ensure_ascii=False, indent=2).encode("utf-8")
-        try:
-            supabase.storage.from_("config").remove([_fname])
-        except:
-            pass
-        supabase.storage.from_("config").upload(
-            path=_fname,
-            file=data,
-            file_options={"content-type": "application/json", "upsert": "true"}
-        )
-        return True
-    except Exception as e:
-        st.error(f"Error al guardar descripciones: {e}")
-        return False
-
-
-# =========================================================
-# FUNCIONES PARA MANEJO DE PDFs EN STORAGE
-# =========================================================
-def guardar_plano_en_storage(archivo_pdf_bytes, cotizacion_numero, nombre_original):
-    try:
-        file_ext = ".pdf"
-        carpeta = cotizacion_numero.replace('/', '_').replace('\\', '_')
-        file_name = f"cotizacion-{carpeta}/{uuid.uuid4()}{file_ext}"
-        response = supabase.storage.from_('planos').upload(
-            path=file_name,
-            file=archivo_pdf_bytes,
-            file_options={"content-type": "application/pdf"}
-        )
-        public_url = supabase.storage.from_('planos').get_public_url(file_name)
-        return public_url, None
-    except Exception as e:
-        return None, str(e)
-
-# Función que construye el HTML del registro de compras
-# Usando triple-quoted strings para evitar conflictos de comillas
-
-# Función que construye el HTML del registro de compras
-# Usando triple-quoted strings para evitar conflictos de comillas
-
-# Función que construye el HTML del registro de compras
-# Usando triple-quoted strings para evitar conflictos de comillas
-
-# Función que construye el HTML del registro de compras
-# Usando triple-quoted strings para evitar conflictos de comillas
-
-# Función que construye el HTML del registro de compras
-# Usando triple-quoted strings para evitar conflictos de comillas
-
-# Función que construye el HTML del registro de compras
-# Usando triple-quoted strings para evitar conflictos de comillas
-
 
 
 def build_config_preguntas_html(preguntas, cat_items, supa_url, supa_key, form_ep):
