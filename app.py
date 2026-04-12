@@ -106,14 +106,15 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '.prog-label{font-size:0.7rem;opacity:0.6;margin-top:4px;}'
         # section
         # section + cards
-        '.sec-wrap{margin:20px 16px 0;background:white;border-radius:16px;'
-        'box-shadow:0 2px 12px rgba(15,52,96,0.07);overflow:hidden;}'
-        '.sec-title{padding:14px 22px 0;display:flex;align-items:center;gap:8px;background:white;border-radius:16px 16px 0 0;}'
+        '.sec-label{font-size:0.68rem;font-weight:800;color:#93c5fd;text-transform:uppercase;'
+        'letter-spacing:0.12em;margin-bottom:4px;display:flex;align-items:center;gap:6px;}'
+        '.sec-label-dot{width:3px;height:14px;background:#3b82f6;border-radius:99px;display:inline-block;}'
+        '.sec-name{font-size:1.05rem;font-weight:900;color:#0a1628;font-family:Poppins,sans-serif;margin-bottom:14px;}'
 
         '.sec-title-dot{width:4px;height:24px;background:linear-gradient(180deg,#60a5fa,#3b82f6);border-radius:99px;flex-shrink:0;}'
         '.sec-title-text{font-size:0.82rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;font-family:Poppins,sans-serif;}'
-        '.preg-card{background:white;padding:16px 22px;border-bottom:1px solid #f1f5f9;}'
-        '.preg-card:last-child{border-bottom:none;}'
+        '.preg-card{background:white;border-radius:16px;padding:20px 22px;margin:0 16px 10px;'
+        'box-shadow:0 2px 12px rgba(15,52,96,0.07);}'
         '.preg-titulo{font-size:0.95rem;font-weight:700;color:#0a1628;margin-bottom:14px;line-height:1.4;}'
         '.preg-titulo .req{color:#f97316;}'
         # color
@@ -237,12 +238,7 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
     # Build questions HTML
     pregs_html = ''
     for sec, preg_list in secciones.items():
-        pregs_html += '<div class="sec-wrap">'
-        pregs_html += '<div class="sec-title">'
-        pregs_html += '<div class="sec-title-dot"></div>'
-        pregs_html += '<div class="sec-title-text">' + sec + '</div>'
-        pregs_html += '</div>'
-        pregs_html += '<div style="height:1px;background:#f1f5f9;margin:0 22px;"></div>'
+        _first_in_sec = True
         for p in preg_list:
             pid = str(p.get('id',''))
             ptipo = p.get('tipo','texto')
@@ -252,6 +248,10 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
             prev = respuestas_map.get(pid, '')
 
             pregs_html += '<div class="preg-card" id="card-' + pid + '">'
+            if _first_in_sec:
+                pregs_html += '<div class="sec-label"><span class="sec-label-dot"></span>Sección</div>'
+                pregs_html += '<div class="sec-name">' + sec + '</div>'
+                _first_in_sec = False
             req_span = '<span class="req"> ⭐</span>' if preq else ''
             answered = '&nbsp;<span class="resp-indicator"></span>' if prev else ''
             pregs_html += '<div class="preg-titulo">' + ptext + req_span + answered + '</div>'
@@ -327,7 +327,6 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
                 pregs_html += '<textarea class="free-txt" id="txt-' + pid + '" rows="3" placeholder="Escribe tu respuesta aqui..." onchange="window.selectOpt(\'' + pid + '\',this.value)">' + prev + '</textarea>'
 
             pregs_html += '</div>'  # end preg-card
-        pregs_html += '</div>'  # end sec-wrap
 
     # Serialize respuestas for JS
     resps_init = json.dumps(respuestas_map, ensure_ascii=True)
