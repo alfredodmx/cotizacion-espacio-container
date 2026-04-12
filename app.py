@@ -249,7 +249,7 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
 
             pregs_html += '<div class="preg-card" id="card-' + pid + '">'
             if _first_in_sec:
-                pregs_html += '<div class="sec-label"><span class="sec-label-dot"></span>Sección</div>'
+                pregs_html += '<div class="sec-label"><span class="sec-label-dot"></span></div>'
                 pregs_html += '<div class="sec-name">' + sec + '</div>'
                 _first_in_sec = False
             req_span = '<span class="req"> ⭐</span>' if preq else ''
