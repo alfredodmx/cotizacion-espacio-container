@@ -104,16 +104,14 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         'background:linear-gradient(90deg,#48cae4,#90e0ef);}'
         '.prog-label{font-size:0.7rem;opacity:0.6;margin-top:4px;}'
         # section
-        '.sec-wrap{background:white;border-radius:20px;margin:20px 16px 0;'
+        # section + cards
+        '.sec-wrap{margin:20px 16px 0;background:white;border-radius:20px;'
         'box-shadow:0 4px 20px rgba(15,52,96,0.08),0 1px 4px rgba(15,52,96,0.04);'
         'overflow:hidden;}'
-        '.sec-header{padding:18px 22px 0;margin:0;background:white;}'
-        '.sec-header-label{font-size:0.65rem;font-weight:700;color:#93c5fd;text-transform:uppercase;letter-spacing:0.14em;margin-bottom:2px;}'
-        '.sec-header-title{font-size:1.1rem;font-weight:900;color:#0a1628;font-family:Poppins,sans-serif;line-height:1.2;}'
-        '.sec-header-line{height:1px;background:#f1f5f9;margin:8px 22px 0;}'
-        # preg card
-        '.preg-card{background:transparent;padding:16px 22px;margin:0;'
-        'border-bottom:1px solid #f1f5f9;}'
+        '.sec-title{padding:18px 22px 0;display:flex;align-items:center;gap:8px;}'
+        '.sec-title-dot{width:4px;height:24px;background:linear-gradient(180deg,#60a5fa,#3b82f6);border-radius:99px;flex-shrink:0;}'
+        '.sec-title-text{font-size:1.05rem;font-weight:900;color:#0a1628;font-family:Poppins,sans-serif;}'
+        '.preg-card{padding:14px 22px;border-bottom:1px solid #f1f5f9;}'
         '.preg-card:last-child{border-bottom:none;}'
         '.preg-titulo{font-size:0.95rem;font-weight:700;color:#0a1628;margin-bottom:14px;line-height:1.4;}'
         '.preg-titulo .req{color:#f97316;}'
@@ -239,9 +237,9 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
     pregs_html = ''
     for sec, preg_list in secciones.items():
         pregs_html += '<div class="sec-wrap">'
-        pregs_html += '<div class="sec-header">'
-        pregs_html += '<div class="sec-header-label">&#10022; Sección</div>'
-        pregs_html += '<div class="sec-header-title">' + sec + '</div>'
+        pregs_html += '<div class="sec-title">'
+        pregs_html += '<div class="sec-title-dot"></div>'
+        pregs_html += '<div class="sec-title-text">' + sec + '</div>'
         pregs_html += '</div>'
         for p in preg_list:
             pid = str(p.get('id',''))
