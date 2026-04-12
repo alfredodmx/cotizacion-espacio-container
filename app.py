@@ -311,7 +311,10 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
                         pregs_html += '<img src="' + ourl + '">'
                         pregs_html += '<div class="popup-name">' + oname + '</div>'
                         pregs_html += '<button class="popup-select" onclick="window.selectOpt(\'' + pid + '\',\'' + oname.replace("'","") + '\');window.closePopup(\'' + popup_id + '\')">✅ Seleccionar esta opción</button>'
-                        pregs_html += '</div>'
+                pregs_html += '</div>'  # end img-grid
+                pregs_html += '</div>'  # end carousel-inner
+                pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + grid_id + '\',1)">&#8250;</button>'
+                pregs_html += '</div>'  # end carousel-wrap
                 pregs_html += '</div>'
 
             elif ptipo == 'select':
