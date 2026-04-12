@@ -136,9 +136,9 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         # images
         '.img-grid{display:flex;gap:20px;overflow-x:hidden;padding:8px 4px 14px;}'
 
-        '.img-item{cursor:pointer;position:relative;transition:all 0.2s;flex:0 0 180px;'
+        '.img-item{cursor:pointer;position:relative;transition:all 0.2s;flex:0 0 210px;'
         'display:flex;flex-direction:column;align-items:center;gap:10px;background:transparent;border:none;}'
-        '.img-circle{width:160px;height:160px;border-radius:50%;overflow:hidden;'
+        '.img-circle{width:200px;height:200px;border-radius:50%;overflow:hidden;'
         'border:3px solid #e2e8f0;box-shadow:0 4px 14px rgba(15,52,96,0.1);transition:all 0.2s;flex-shrink:0;}'
         '.img-item.sel .img-circle{border-color:#0f3460;border-width:4px;'
         'box-shadow:0 0 0 4px rgba(15,52,96,0.15),0 4px 20px rgba(15,52,96,0.15);}'
