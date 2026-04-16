@@ -1621,7 +1621,11 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
 
         # Subgroups
         for tg, items in sorted(subgrupos.items()):
-            tg_display = tg if tg != '__sin_grupo__' else '(sin título de grupo)'
+            if tg.startswith('__item__'):
+                tg_display = items[0].get('nombre','(ítem)') if items else '(ítem)'
+            else:
+                tg_display = tg
+            tg_key = tg
             itipo = items[0].get('tipo','imagen') if items else 'imagen'
             badge = {'imagen':'🖼','color':'🎨','select':'📋','si_no':'✅'}.get(itipo,'❓')
             tg_id = tg_key.replace(' ','_').replace("'",'')[:30]
