@@ -1624,7 +1624,7 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
             tg_display = tg if tg != '__sin_grupo__' else '(sin título de grupo)'
             itipo = items[0].get('tipo','imagen') if items else 'imagen'
             badge = {'imagen':'🖼','color':'🎨','select':'📋','si_no':'✅'}.get(itipo,'❓')
-            tg_id = tg.replace(' ','_').replace("'","")
+            tg_id = tg_key.replace(' ','_').replace("'",'')[:30]
             cat_html += '<div class="subgroup-block">'
             cat_html += '<div class="subgroup-header">'
             cat_html += '<span>' + badge + ' ' + tg_display + ' <span style="font-size:10px;opacity:0.6;">(' + str(len(items)) + ' ítems)</span></span>'
@@ -18137,7 +18137,11 @@ if tab_formulario is not None:
                     except: pass
                     st.query_params.pop('cat_cantidad')
                 try:
-                    _cat_all = supabase.table('catalogo_materiales').select('*').eq('activo', True).order('categoria').order('nombre').execute().data or []
+                    _cat_all = supabase.table('catalogo_materiales').select('*').eq('activo', True).order('categoria').order('titulo_grupo').order('nombre').execute().data or []
+                    # Normalize titulo_grupo: None or empty -> use nombre as fallback group key
+                    for _ci in _cat_all:
+                        if not _ci.get('titulo_grupo'):
+                            _ci['titulo_grupo'] = '__sin_grupo__'
                 except:
                     _cat_all = []
                 _cat_html = build_catalogo_html(_cat_all, SUPABASE_URL, SUPABASE_KEY, st.session_state.cat_tipo, st.session_state.cat_cantidad)
