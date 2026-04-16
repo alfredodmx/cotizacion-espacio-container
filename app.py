@@ -1565,7 +1565,9 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
         cat = c.get('categoria', 'General')
         if cat not in grupos:
             grupos[cat] = {}
-        tg = c.get('titulo_grupo') or '__sin_grupo__'
+        tg = (c.get('titulo_grupo') or '').strip()
+        if not tg:
+            tg = '(Sin grupo)'
         if tg not in grupos[cat]:
             grupos[cat][tg] = []
         grupos[cat][tg].append(c)
@@ -1621,10 +1623,7 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
 
         # Subgroups
         for tg, items in sorted(subgrupos.items()):
-            if tg.startswith('__item__'):
-                tg_display = items[0].get('nombre','(ítem)') if items else '(ítem)'
-            else:
-                tg_display = tg
+            tg_display = tg
             tg_key = tg
             itipo = items[0].get('tipo','imagen') if items else 'imagen'
             badge = {'imagen':'🖼','color':'🎨','select':'📋','si_no':'✅'}.get(itipo,'❓')
