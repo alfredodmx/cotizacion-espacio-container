@@ -1852,7 +1852,7 @@ window.guardarCategoria=async function(){
       for(var oi=0;oi<item.opciones.length;oi++){
         var opt=item.opciones[oi];
         if(!opt.nombre.trim())continue;
-        var body={categoria:catNombre,nombre:opt.nombre.trim(),tipo:item.tipo,imagen_url:"",hex:"",activo:true,titulo_grupo:item.titulo};
+        var body={categoria:catNombre,nombre:opt.nombre.trim(),tipo:item.tipo,imagen_url:"",hex:"",activo:true};
         if(item.tipo==="color") body.hex=opt.hex;
         else if(item.tipo==="imagen"&&opt.file){
           st.textContent="Subiendo imagen "+(total+1)+"...";st.style.color="#2563eb";
