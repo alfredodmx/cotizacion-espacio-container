@@ -1755,6 +1755,9 @@ window.toggleEdit=function(cat){
   ep.style.display=hidden?"block":"none";
   pp.style.display=hidden?"none":"grid";
   document.getElementById("btn-edit-"+cat).textContent=hidden?"✕ Cerrar":"✏️ Editar";
+  if(hidden){
+    setTimeout(function(){window.renderAddForm(cat);},10);
+  }
 };
 
 window.toggleNuevoTipo=function(cat){
@@ -1957,11 +1960,6 @@ window.agregarItemCompleto=async function(cat){
   setTimeout(doRerun,700);
 };
 
-// Init add forms for all categories
-document.querySelectorAll('[id^="new-tipo-"]').forEach(function(el){
-  var cat=el.id.replace('new-tipo-','');
-  window.renderAddForm(cat);
-});
 
 // ── NUEVA CATEGORÍA ───────────────────────────────────────
 function renderNuevaCat(){
