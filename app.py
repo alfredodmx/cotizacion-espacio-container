@@ -18112,63 +18112,58 @@ if tab_formulario is not None:
         with _ftab_progreso:
             st.markdown("**Progreso de formularios por proyecto:**")
             try:
-                # Obtener todos los EP con preguntas
-                _all_pregs = supabase.table('formulario_preguntas').select(
-                    'cotizacion_numero,id,requerida'
+                from collections import defaultdict
+                _all_cfg = supabase.table('formulario_config').select(
+                    'cotizacion_numero,categoria,titulo_grupo,item_ids,orden'
                 ).execute().data or []
                 _all_resps = supabase.table('formulario_respuestas').select(
-                    'cotizacion_numero,pregunta_id,respuesta'
+                    'cotizacion_numero,item_id,pregunta_id,respuesta'
                 ).execute().data or []
 
-                # Agrupar
-                from collections import defaultdict
-                _pregs_by_ep = defaultdict(list)
-                for _pp in _all_pregs:
-                    _pregs_by_ep[_pp['cotizacion_numero']].append(_pp)
+                _cfg_by_ep = defaultdict(list)
+                for _cc in _all_cfg:
+                    _cfg_by_ep[_cc['cotizacion_numero']].append(_cc)
+
                 _resps_by_ep = defaultdict(dict)
                 for _rr in _all_resps:
-                    _resps_by_ep[_rr['cotizacion_numero']][_rr['pregunta_id']] = _rr['respuesta']
+                    _key = _rr.get('item_id') or _rr.get('pregunta_id') or ''
+                    if _key:
+                        _resps_by_ep[_rr['cotizacion_numero']][_key] = _rr['respuesta']
 
-                if not _pregs_by_ep:
+                if not _cfg_by_ep:
                     st.info("No hay formularios configurados aún.")
                 else:
-                    for _fep, _fpregs in sorted(_pregs_by_ep.items()):
-                        _freq = sum(1 for p in _fpregs if p.get('requerida'))
-                        _fresp = sum(1 for p in _fpregs if p.get('requerida') and _resps_by_ep[_fep].get(p['id']))
-                        _fpct = int(_fresp / _freq * 100) if _freq > 0 else 0
+                    for _fep, _fcfgs in sorted(_cfg_by_ep.items()):
+                        _total = len(_fcfgs)
+                        _resp_map = _resps_by_ep[_fep]
+                        _done = sum(1 for cfg in _fcfgs
+                                    if any(_resp_map.get(str(iid)) for iid in (cfg.get('item_ids') or [])))
+                        _fpct = int(_done / _total * 100) if _total > 0 else 0
                         _fcol = '#16a34a' if _fpct == 100 else ('#f97316' if _fpct >= 50 else '#2563eb')
 
-                        with st.expander(f"**{_fep}** — {_fpct}% completado ({_fresp}/{_freq})"):
+                        with st.expander(f"**{_fep}** — {_fpct}% completado ({_done}/{_total} grupos)"):
                             st.markdown(f"""
-                            <div style='background:#f8fafc;border-radius:8px;padding:8px 12px;margin-bottom:8px;'>
+                            <div style='background:#f8fafc;border-radius:8px;padding:8px 12px;margin-bottom:12px;'>
                               <div style='background:#e2e8f0;border-radius:99px;height:8px;'>
                                 <div style='background:{_fcol};border-radius:99px;height:8px;width:{_fpct}%;'></div>
                               </div>
+                              <div style='font-size:0.75rem;color:#64748b;margin-top:4px;'>{_done} de {_total} secciones respondidas</div>
                             </div>
                             """, unsafe_allow_html=True)
 
-                            # Mostrar respuestas
-                            _resp_map_ep = _resps_by_ep[_fep]
-                            _secs_prog = {}
-                            for _pp2 in _fpregs:
-                                _sec2 = next((p.get('seccion','General') for p in _all_pregs if p['id']==_pp2['id']), 'General')
-                                _pp2['seccion'] = _sec2
-                                if _sec2 not in _secs_prog: _secs_prog[_sec2] = []
-                                _secs_prog[_sec2].append(_pp2)
+                            _cats_prog = defaultdict(list)
+                            for _cfg2 in sorted(_fcfgs, key=lambda x: (x.get('categoria',''), x.get('orden', 0))):
+                                _cats_prog[_cfg2.get('categoria','')].append(_cfg2)
 
-                            # Get full pregunta text
-                            _pregs_full = supabase.table('formulario_preguntas').select('*').eq(
-                                'cotizacion_numero', _fep
-                            ).execute().data or []
-                            _pregs_full_map = {p['id']: p for p in _pregs_full}
+                            for _cat4, _clist4 in _cats_prog.items():
+                                st.markdown(f"**{_cat4}**")
+                                for _cfg4 in _clist4:
+                                    _tg4 = _cfg4.get('titulo_grupo','')
+                                    _ids4 = [str(x) for x in (_cfg4.get('item_ids') or [])]
+                                    _answered = [_resp_map.get(iid,'') for iid in _ids4 if _resp_map.get(iid)]
+                                    _ico4 = '✅' if _answered else '⬜'
+                                    _val4 = ', '.join(_answered) if _answered else '—'
+                                    st.markdown(f"<div style='font-size:0.82rem;padding:3px 8px;'>{_ico4} <b>{_tg4}</b>: <span style='color:#0f3460;'>{_val4}</span></div>", unsafe_allow_html=True)
 
-                            for _sec3, _plist3 in _secs_prog.items():
-                                st.markdown(f"**{_sec3}**")
-                                for _pp3 in _plist3:
-                                    _pf = _pregs_full_map.get(_pp3['id'], {})
-                                    _ptxt3 = _pf.get('pregunta', '—')
-                                    _pval3 = _resp_map_ep.get(_pp3['id'], '')
-                                    _ico3 = "✅" if _pval3 else "⬜"
-                                    st.markdown(f"<div style='font-size:0.82rem;padding:3px 0;'>{_ico3} <b>{_ptxt3}</b>: <span style='color:#0f3460;'>{_pval3 or '—'}</span></div>", unsafe_allow_html=True)
             except Exception as _fe:
                 st.error(f"Error cargando progreso: {_fe}")
