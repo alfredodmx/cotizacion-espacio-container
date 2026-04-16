@@ -1557,7 +1557,6 @@ def build_config_preguntas_html(preguntas, cat_items, supa_url, supa_key, form_e
     return html
 
 def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4):
-    # Group by category
     grupos = {}
     for c in cat_items:
         cat = c.get('categoria', 'General')
@@ -1565,7 +1564,6 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
             grupos[cat] = []
         grupos[cat].append(c)
 
-    # Build existing categories HTML
     cat_html = ''
     for cat, items in sorted(grupos.items()):
         cat_html += '<div style="margin-bottom:18px;">'
@@ -1576,16 +1574,12 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
         cat_html += '<button onclick="window.editarCategoria(\'' + cat + '\')" style="background:rgba(255,255,255,0.2);color:white;border:none;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;">✏️ Editar</button>'
         cat_html += '<button onclick="window.eliminarCategoria(\'' + cat + '\')" style="background:rgba(220,38,38,0.7);color:white;border:none;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;">🗑 Eliminar</button>'
         cat_html += '</div></div>'
-
-        # Edit panel (hidden by default)
         cat_html += '<div id="edit-' + cat + '" style="display:none;background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:12px;margin-bottom:8px;">'
         cat_html += '<div style="font-weight:700;font-size:12px;color:#1e3a5f;margin-bottom:8px;">Editando: ' + cat + '</div>'
-        # Rename
         cat_html += '<div style="display:flex;gap:8px;margin-bottom:10px;">'
         cat_html += '<input id="rename-' + cat + '" type="text" value="' + cat + '" style="flex:1;padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;">'
         cat_html += '<button onclick="window.renombrarCategoria(\'' + cat + '\')" style="background:#1e3a5f;color:white;border:none;border-radius:5px;padding:6px 12px;font-size:12px;cursor:pointer;">Renombrar</button>'
         cat_html += '</div>'
-        # Add new item with its own tipo
         cat_html += '<div style="font-weight:700;font-size:11px;color:#64748b;margin-bottom:6px;text-transform:uppercase;">Agregar nuevo ítem:</div>'
         cat_html += '<div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;align-items:center;">'
         cat_html += '<input id="new-nombre-' + cat + '" type="text" placeholder="Nombre del ítem" style="flex:2;min-width:120px;padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;">'
@@ -1598,17 +1592,13 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
         cat_html += '<input id="new-file-' + cat + '" type="file" accept="image/*" style="font-size:11px;" onchange="window.previewNewItem(\'' + cat + '\')">'
         cat_html += '<div id="new-prev-' + cat + '" style="margin-top:4px;"></div>'
         cat_html += '</div>'
-        cat_html += '<div id="new-color-wrap-' + cat + '" style="display:none;margin-bottom:6px;align-items:center;gap:8px;">'
+        cat_html += '<div id="new-color-wrap-' + cat + '" style="display:none;align-items:center;gap:8px;margin-bottom:6px;">'
         cat_html += '<input type="color" id="new-hex-' + cat + '" value="#ffffff" style="width:40px;height:34px;border-radius:5px;border:1px solid #cbd5e1;cursor:pointer;">'
         cat_html += '<span style="font-size:11px;color:#64748b;">Elige el color</span>'
         cat_html += '</div>'
-        cat_html += '<div style="display:flex;gap:8px;">'
         cat_html += '<button onclick="window.agregarItem(\'' + cat + '\')" style="background:#16a34a;color:white;border:none;border-radius:5px;padding:6px 14px;font-size:12px;cursor:pointer;">+ Agregar ítem</button>'
-        cat_html += '</div>'
         cat_html += '<div id="edit-status-' + cat + '" style="font-size:11px;font-weight:600;min-height:16px;margin-top:6px;"></div>'
         cat_html += '</div>'
-
-        # Items grid
         cat_html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;">'
         for it in items:
             iid = str(it.get('id',''))
@@ -1624,9 +1614,8 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
                 preview = '<div style="width:100%;height:70px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;">&#128230;</div>'
             cat_html += '<div style="background:white;border:1px solid #e2e8f0;border-radius:7px;overflow:hidden;position:relative;">'
             cat_html += preview
-            cat_html += '<div style="font-size:10px;font-weight:700;padding:3px 5px;display:flex;justify-content:space-between;align-items:center;">'
-            cat_html += '<span>' + nombre + '</span><span>' + tipo_badge + '</span>'
-            cat_html += '</div>'
+            cat_html += '<div style="font-size:10px;font-weight:700;padding:3px 5px;display:flex;justify-content:space-between;">'
+            cat_html += '<span>' + nombre + '</span><span>' + tipo_badge + '</span></div>'
             cat_html += '<button onclick="window.catEliminar(\'' + iid + '\',\'' + iurl + '\')" style="position:absolute;top:3px;right:3px;background:rgba(220,38,38,0.85);color:white;border:none;border-radius:3px;width:20px;height:20px;cursor:pointer;font-size:11px;">x</button>'
             cat_html += '</div>'
         cat_html += '</div></div>'
@@ -1634,177 +1623,190 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
     if not cat_html:
         cat_html = '<p style="color:#64748b;padding:8px;">El catálogo está vacío. Agrega una categoría abajo.</p>'
 
-    # New category form
+    js = '''
+var S="''' + supa_url + '''",K="''' + supa_key + '''";
+
+function doRerun(){
+  var u=new URL(window.parent.location.href);
+  u.searchParams.set("cat_ts",Date.now());
+  window.parent.history.replaceState({},"",u);
+  window.parent.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+// Toggle img/color inputs when editing existing category
+window.toggleNuevoTipo=function(cat){
+  var t=document.getElementById("new-tipo-"+cat).value;
+  document.getElementById("new-img-wrap-"+cat).style.display=t==="imagen"?"block":"none";
+  document.getElementById("new-color-wrap-"+cat).style.display=t==="color"?"flex":"none";
+};
+
+window.editarCategoria=function(cat){
+  var el=document.getElementById("edit-"+cat);
+  if(el)el.style.display=el.style.display==="none"?"block":"none";
+};
+
+window.previewNewItem=function(cat){
+  var f=document.getElementById("new-file-"+cat).files[0];
+  if(!f)return;
+  var r=new FileReader();
+  r.onload=function(e){document.getElementById("new-prev-"+cat).innerHTML='<img src="'+e.target.result+'" style="width:50px;height:50px;object-fit:cover;border-radius:5px;">';};
+  r.readAsDataURL(f);
+};
+
+window.agregarItem=async function(cat){
+  var nombre=document.getElementById("new-nombre-"+cat).value.trim();
+  var tipoi=document.getElementById("new-tipo-"+cat).value;
+  var st=document.getElementById("edit-status-"+cat);
+  if(!nombre){st.textContent="Escribe el nombre";st.style.color="#dc2626";return;}
+  var body={categoria:cat,nombre:nombre,activo:true,tipo:tipoi,imagen_url:"",hex:""};
+  if(tipoi==="imagen"){
+    var fEl=document.getElementById("new-file-"+cat);
+    if(fEl&&fEl.files[0]){
+      st.textContent="Subiendo...";st.style.color="#2563eb";
+      var file=fEl.files[0],ext=file.name.split(".").pop();
+      var path="catalogo/"+Date.now()+"_"+Math.random().toString(36).substr(2,5)+"."+ext;
+      var ur=await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,{method:"POST",headers:{"Authorization":"Bearer "+K,"Content-Type":file.type,"x-upsert":"true"},body:file});
+      if(!ur.ok){st.textContent="Error subiendo imagen";st.style.color="#dc2626";return;}
+      body.imagen_url=S+"/storage/v1/object/public/formulario-imagenes/"+path;
+    }
+  } else if(tipoi==="color"){
+    body.hex=document.getElementById("new-hex-"+cat).value;
+  }
+  st.textContent="Guardando...";st.style.color="#2563eb";
+  var r=await fetch(S+"/rest/v1/catalogo_materiales",{method:"POST",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify(body)});
+  if(r.ok){st.textContent="✅ Agregado";st.style.color="#16a34a";setTimeout(doRerun,600);}
+  else{st.textContent="Error: "+r.status;st.style.color="#dc2626";}
+};
+
+window.renombrarCategoria=async function(cat){
+  var nuevo=document.getElementById("rename-"+cat).value.trim();
+  if(!nuevo||nuevo===cat)return;
+  var st=document.getElementById("edit-status-"+cat);
+  st.textContent="Renombrando...";st.style.color="#2563eb";
+  var r=await fetch(S+"/rest/v1/catalogo_materiales?categoria=eq."+encodeURIComponent(cat),{method:"PATCH",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({categoria:nuevo})});
+  if(r.ok){st.textContent="✅ Renombrado";st.style.color="#16a34a";setTimeout(doRerun,600);}
+  else{st.textContent="Error: "+r.status;st.style.color="#dc2626";}
+};
+
+window.eliminarCategoria=async function(cat){
+  if(!confirm("¿Eliminar toda la categoría "+cat+"?"))return;
+  var r=await fetch(S+"/rest/v1/catalogo_materiales?categoria=eq."+encodeURIComponent(cat)+"&activo=eq.true",{method:"GET",headers:{"Authorization":"Bearer "+K,"apikey":K,"Accept":"application/json"}});
+  var items=await r.json();
+  for(var i=0;i<items.length;i++){
+    var url=items[i].imagen_url||"";
+    if(url){var path=url.split("/public/formulario-imagenes/")[1];if(path)await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,{method:"DELETE",headers:{"Authorization":"Bearer "+K,"apikey":K}});}
+  }
+  await fetch(S+"/rest/v1/catalogo_materiales?categoria=eq."+encodeURIComponent(cat),{method:"PATCH",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({activo:false})});
+  doRerun();
+};
+
+window.catEliminar=async function(id,url){
+  if(!confirm("¿Eliminar este ítem?"))return;
+  if(url){var path=url.split("/public/formulario-imagenes/")[1];if(path)await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,{method:"DELETE",headers:{"Authorization":"Bearer "+K,"apikey":K}});}
+  await fetch(S+"/rest/v1/catalogo_materiales?id=eq."+id,{method:"PATCH",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({activo:false})});
+  doRerun();
+};
+
+window.catPreview=function(i){
+  var f=document.getElementById("item-file-"+i);
+  if(!f||!f.files[0])return;
+  var r=new FileReader();
+  r.onload=function(e){document.getElementById("imgprev-"+i).innerHTML='<img src="'+e.target.result+'" style="width:50px;height:50px;object-fit:cover;border-radius:5px;">';};
+  r.readAsDataURL(f.files[0]);
+};
+
+// ── NUEVA CATEGORÍA ──────────────────────────────────────
+// Renders new-category items form dynamically in JS (no page reload)
+function renderItemsForm(){
+  var tipo=document.getElementById("cat-tipo").value;
+  var n=parseInt(document.getElementById("cat-cantidad").value)||4;
+  var wrap=document.getElementById("items-wrap");
+  var html="";
+  if(tipo==="si_no"){
+    html='<p style="color:#64748b;font-size:12px;padding:6px;">Solo tendrá opciones Sí / No.</p>';
+  } else if(tipo==="select"){
+    html='<div style="font-weight:700;font-size:11px;color:#64748b;margin-bottom:6px;">OPCIONES</div>';
+    for(var i=0;i<n;i++){
+      html+='<div style="margin-bottom:6px;"><input type="text" id="item-nombre-'+i+'" placeholder="Opción '+(i+1)+'" style="width:100%;padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;box-sizing:border-box;"></div>';
+    }
+  } else if(tipo==="color"){
+    html='<div style="font-weight:700;font-size:11px;color:#64748b;margin-bottom:6px;">COLORES</div>';
+    for(var i=0;i<n;i++){
+      html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;padding:6px;background:#f8fafc;border-radius:7px;border:1px solid #e2e8f0;align-items:center;">';
+      html+='<input type="text" id="item-nombre-'+i+'" placeholder="Nombre color '+(i+1)+'" style="padding:5px 7px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px;">';
+      html+='<div style="display:flex;align-items:center;gap:8px;">';
+      html+='<input type="color" id="item-hex-'+i+'" value="#ffffff" style="width:50px;height:36px;border-radius:6px;cursor:pointer;" oninput="document.getElementById(\'prev-'+i+'\').style.background=this.value">';
+      html+='<div id="prev-'+i+'" style="width:36px;height:36px;border-radius:50%;background:#fff;border:2px solid #e2e8f0;"></div>';
+      html+='</div></div>';
+    }
+  } else {
+    html='<div style="font-weight:700;font-size:11px;color:#64748b;margin-bottom:8px;">IMÁGENES</div>';
+    for(var i=0;i<n;i++){
+      html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;padding:8px;background:#f8fafc;border-radius:7px;border:1px solid #e2e8f0;">';
+      html+='<input type="text" id="item-nombre-'+i+'" placeholder="Nombre opción '+(i+1)+'" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;width:100%;box-sizing:border-box;">';
+      html+='<div><input type="file" id="item-file-'+i+'" accept="image/*" onchange="window.catPreview('+i+')" style="font-size:11px;width:100%;"><div id="imgprev-'+i+'" style="margin-top:4px;"></div></div>';
+      html+='</div>';
+    }
+  }
+  wrap.innerHTML=html;
+}
+
+document.getElementById("cat-tipo").addEventListener("change", renderItemsForm);
+document.getElementById("cat-cantidad").addEventListener("change", renderItemsForm);
+renderItemsForm();
+
+window.catGuardar=async function(){
+  var nombre=document.getElementById("cat-nombre").value.trim();
+  var tipo=document.getElementById("cat-tipo").value;
+  var n=parseInt(document.getElementById("cat-cantidad").value)||4;
+  var st=document.getElementById("status");
+  var btn=document.getElementById("save-btn");
+  if(!nombre){st.textContent="Escribe el nombre de la categoría";st.style.color="#dc2626";return;}
+  btn.disabled=true;var items=[];
+  if(tipo==="si_no"){
+    items=[{nombre:"Sí",tipo:"si_no"},{nombre:"No",tipo:"si_no"}];
+  } else {
+    for(var i=0;i<n;i++){
+      var nm=(document.getElementById("item-nombre-"+i)||{}).value||"";
+      if(!nm.trim())continue;
+      var item={nombre:nm.trim(),tipo:tipo};
+      if(tipo==="color") item.hex=document.getElementById("item-hex-"+i).value;
+      else if(tipo==="imagen"){
+        var fEl=document.getElementById("item-file-"+i);
+        if(fEl&&fEl.files[0]){
+          st.textContent="Subiendo imagen "+(i+1)+"...";st.style.color="#2563eb";
+          try{
+            var file=fEl.files[0];var ext=file.name.split(".").pop();
+            var path="catalogo/"+Date.now()+"_"+Math.random().toString(36).substr(2,5)+"."+ext;
+            var ur=await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,{method:"POST",headers:{"Authorization":"Bearer "+K,"Content-Type":file.type,"x-upsert":"true"},body:file});
+            if(!ur.ok)throw new Error("Error subiendo: "+ur.status);
+            item.url=S+"/storage/v1/object/public/formulario-imagenes/"+path;
+          }catch(e){st.textContent="Error: "+e.message;st.style.color="#dc2626";btn.disabled=false;return;}
+        } else item.url="";
+      }
+      items.push(item);
+    }
+  }
+  if(!items.length){st.textContent="Agrega al menos una opción";st.style.color="#dc2626";btn.disabled=false;return;}
+  st.textContent="Guardando...";st.style.color="#2563eb";
+  try{
+    for(var j=0;j<items.length;j++){
+      var it=items[j];
+      var body={categoria:nombre,nombre:it.nombre,imagen_url:it.url||"",activo:true,tipo:it.tipo};
+      if(it.hex)body.hex=it.hex;
+      var r=await fetch(S+"/rest/v1/catalogo_materiales",{method:"POST",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify(body)});
+      if(!r.ok)throw new Error("Error guardando: "+r.status);
+    }
+    st.textContent="✅ Guardado";st.style.color="#16a34a";
+    setTimeout(doRerun,800);
+  }catch(e){st.textContent="Error: "+e.message;st.style.color="#dc2626";btn.disabled=false;}
+};
+'''
+
     tipo_opts = ''
     for v, label in [('imagen','🖼 Imagen'),('color','🎨 Color'),('select','📋 Lista'),('si_no','✅ Sí/No')]:
         sel = ' selected' if tipo == v else ''
         tipo_opts += '<option value="' + v + '"' + sel + '>' + label + '</option>'
-
-    items_rows = _build_items_rows(tipo, cantidad)
-
-    js_lines = [
-        'var S="' + supa_url + '",K="' + supa_key + '";',
-        'var TIPO="' + tipo + '",N=' + str(cantidad) + ';',
-
-        'function doRerun(t,n){',
-        '  var u=new URL(window.parent.location.href);',
-        '  u.searchParams.set("cat_tipo",t||TIPO);',
-        '  u.searchParams.set("cat_cantidad",n||N);',
-        '  window.parent.history.replaceState({},"",u);',
-        '  window.parent.dispatchEvent(new PopStateEvent("popstate"));',
-        '}',
-
-        'document.getElementById("cat-tipo").addEventListener("change",function(){doRerun(this.value,document.getElementById("cat-cantidad").value||"4");});',
-        'document.getElementById("cat-cantidad").addEventListener("change",function(){doRerun(document.getElementById("cat-tipo").value,this.value||"4");});',
-
-        # Toggle edit panel
-        'window.editarCategoria=function(cat){',
-        '  var el=document.getElementById("edit-"+cat);',
-        '  if(el)el.style.display=el.style.display==="none"?"block":"none";',
-        '};',
-
-        # Toggle img/color input for new item
-        'window.toggleNuevoTipo=function(cat){',
-        '  var t=document.getElementById("new-tipo-"+cat).value;',
-        '  document.getElementById("new-img-wrap-"+cat).style.display=t==="imagen"?"block":"none";',
-        '  document.getElementById("new-color-wrap-"+cat).style.display=t==="color"?"flex":"none";',
-        '};',
-
-        # Preview new item image
-        'window.previewNewItem=function(cat){',
-        '  var f=document.getElementById("new-file-"+cat).files[0];',
-        '  if(!f)return;',
-        '  var r=new FileReader();',
-        '  r.onload=function(e){document.getElementById("new-prev-"+cat).innerHTML=\'<img src="\'+e.target.result+\'" style="width:50px;height:50px;object-fit:cover;border-radius:5px;">\';};',
-        '  r.readAsDataURL(f);',
-        '};',
-
-        # Add item to existing category
-        'window.agregarItem=async function(cat){',
-        '  var nombre=document.getElementById("new-nombre-"+cat).value.trim();',
-        '  var tipoi=document.getElementById("new-tipo-"+cat).value;',
-        '  var st=document.getElementById("edit-status-"+cat);',
-        '  if(!nombre){st.textContent="Escribe el nombre";st.style.color="#dc2626";return;}',
-        '  var body={categoria:cat,nombre:nombre,activo:true,tipo:tipoi,imagen_url:"",hex:""};',
-        '  if(tipoi==="imagen"){',
-        '    var fEl=document.getElementById("new-file-"+cat);',
-        '    if(fEl&&fEl.files[0]){',
-        '      st.textContent="Subiendo...";st.style.color="#2563eb";',
-        '      var file=fEl.files[0],ext=file.name.split(".").pop();',
-        '      var path="catalogo/"+Date.now()+"_"+Math.random().toString(36).substr(2,5)+"."+ext;',
-        '      var ur=await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,',
-        '        {method:"POST",headers:{"Authorization":"Bearer "+K,"Content-Type":file.type,"x-upsert":"true"},body:file});',
-        '      if(!ur.ok){st.textContent="Error subiendo imagen";st.style.color="#dc2626";return;}',
-        '      body.imagen_url=S+"/storage/v1/object/public/formulario-imagenes/"+path;',
-        '    }',
-        '  } else if(tipoi==="color"){',
-        '    body.hex=document.getElementById("new-hex-"+cat).value;',
-        '  }',
-        '  st.textContent="Guardando...";st.style.color="#2563eb";',
-        '  var r=await fetch(S+"/rest/v1/catalogo_materiales",',
-        '    {method:"POST",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},',
-        '    body:JSON.stringify(body)});',
-        '  if(r.ok){st.textContent="✅ Agregado";st.style.color="#16a34a";setTimeout(function(){doRerun();},600);}',
-        '  else{st.textContent="Error: "+r.status;st.style.color="#dc2626";}',
-        '};',
-
-        # Rename category
-        'window.renombrarCategoria=async function(cat){',
-        '  var nuevo=document.getElementById("rename-"+cat).value.trim();',
-        '  if(!nuevo||nuevo===cat)return;',
-        '  var st=document.getElementById("edit-status-"+cat);',
-        '  st.textContent="Renombrando...";st.style.color="#2563eb";',
-        '  var r=await fetch(S+"/rest/v1/catalogo_materiales?categoria=eq."+encodeURIComponent(cat),',
-        '    {method:"PATCH",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},',
-        '    body:JSON.stringify({categoria:nuevo})});',
-        '  if(r.ok){st.textContent="✅ Renombrado";st.style.color="#16a34a";setTimeout(function(){doRerun();},600);}',
-        '  else{st.textContent="Error: "+r.status;st.style.color="#dc2626";}',
-        '};',
-
-        # Delete category
-        'window.eliminarCategoria=async function(cat){',
-        '  if(!confirm("¿Eliminar toda la categoría "+cat+"?"))return;',
-        '  var r=await fetch(S+"/rest/v1/catalogo_materiales?categoria=eq."+encodeURIComponent(cat)+"&activo=eq.true",',
-        '    {method:"GET",headers:{"Authorization":"Bearer "+K,"apikey":K,"Accept":"application/json"}});',
-        '  var items=await r.json();',
-        '  for(var i=0;i<items.length;i++){',
-        '    var url=items[i].imagen_url||"";',
-        '    if(url){var path=url.split("/public/formulario-imagenes/")[1];',
-        '      if(path)await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,{method:"DELETE",headers:{"Authorization":"Bearer "+K,"apikey":K}});}',
-        '  }',
-        '  await fetch(S+"/rest/v1/catalogo_materiales?categoria=eq."+encodeURIComponent(cat),',
-        '    {method:"PATCH",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},',
-        '    body:JSON.stringify({activo:false})});',
-        '  doRerun();',
-        '};',
-
-        # Delete single item
-        'window.catEliminar=async function(id,url){',
-        '  if(!confirm("¿Eliminar este ítem?"))return;',
-        '  if(url){var path=url.split("/public/formulario-imagenes/")[1];',
-        '    if(path)await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,{method:"DELETE",headers:{"Authorization":"Bearer "+K,"apikey":K}});}',
-        '  await fetch(S+"/rest/v1/catalogo_materiales?id=eq."+id,',
-        '    {method:"PATCH",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},',
-        '    body:JSON.stringify({activo:false})});',
-        '  doRerun();',
-        '};',
-
-        # Preview image for new category form
-        'window.catPreview=function(i){',
-        '  var f=document.getElementById("item-file-"+i);',
-        '  if(!f||!f.files[0])return;',
-        '  var r=new FileReader();',
-        '  r.onload=function(e){document.getElementById("imgprev-"+i).innerHTML=\'<img src="\'+e.target.result+\'" style="width:50px;height:50px;object-fit:cover;border-radius:5px;">\';};',
-        '  r.readAsDataURL(f.files[0]);',
-        '};',
-
-        # Save new category
-        'window.catGuardar=async function(){',
-        '  var nombre=document.getElementById("cat-nombre").value.trim();',
-        '  var st=document.getElementById("status");',
-        '  var btn=document.getElementById("save-btn");',
-        '  if(!nombre){st.textContent="Escribe el nombre de la categoría";st.style.color="#dc2626";return;}',
-        '  btn.disabled=true;var items=[];',
-        '  if(TIPO==="si_no"){items=[{nombre:"Sí",tipo:"si_no"},{nombre:"No",tipo:"si_no"}];}',
-        '  else{for(var i=0;i<N;i++){',
-        '    var nm=(document.getElementById("item-nombre-"+i)||{}).value||"";',
-        '    if(!nm.trim())continue;',
-        '    var item={nombre:nm.trim(),tipo:TIPO};',
-        '    if(TIPO==="color")item.hex=document.getElementById("item-hex-"+i).value;',
-        '    else if(TIPO==="imagen"){',
-        '      var fEl=document.getElementById("item-file-"+i);',
-        '      if(fEl&&fEl.files[0]){',
-        '        st.textContent="Subiendo imagen "+(i+1)+"...";st.style.color="#2563eb";',
-        '        try{',
-        '          var file=fEl.files[0];var ext=file.name.split(".").pop();',
-        '          var path="catalogo/"+Date.now()+"_"+Math.random().toString(36).substr(2,5)+"."+ext;',
-        '          var ur=await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,',
-        '            {method:"POST",headers:{"Authorization":"Bearer "+K,"Content-Type":file.type,"x-upsert":"true"},body:file});',
-        '          if(!ur.ok)throw new Error("Error subiendo: "+ur.status);',
-        '          item.url=S+"/storage/v1/object/public/formulario-imagenes/"+path;',
-        '        }catch(e){st.textContent="Error: "+e.message;st.style.color="#dc2626";btn.disabled=false;return;}',
-        '      }else item.url="";',
-        '    }',
-        '    items.push(item);',
-        '  }}',
-        '  if(!items.length){st.textContent="Agrega al menos una opción";st.style.color="#dc2626";btn.disabled=false;return;}',
-        '  st.textContent="Guardando...";st.style.color="#2563eb";',
-        '  try{',
-        '    for(var j=0;j<items.length;j++){',
-        '      var it=items[j];',
-        '      var body={categoria:nombre,nombre:it.nombre,imagen_url:it.url||"",activo:true,tipo:it.tipo};',
-        '      if(it.hex)body.hex=it.hex;',
-        '      var r=await fetch(S+"/rest/v1/catalogo_materiales",',
-        '        {method:"POST",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},',
-        '        body:JSON.stringify(body)});',
-        '      if(!r.ok)throw new Error("Error guardando: "+r.status);',
-        '    }',
-        '    st.textContent="✅ Guardado";st.style.color="#16a34a";',
-        '    setTimeout(function(){doRerun();},800);',
-        '  }catch(e){st.textContent="Error: "+e.message;st.style.color="#dc2626";btn.disabled=false;}',
-        '};',
-    ]
-    js = '\n'.join(js_lines)
 
     html = (
         '<!DOCTYPE html><html><head><meta charset="utf-8">'
@@ -1812,23 +1814,23 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
         '</head><body>'
         + cat_html +
         '<div style="background:white;border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-top:14px;">'
-        '<div style="font-weight:900;color:#0f172a;margin-bottom:10px;">+ Agregar nueva categoría al catálogo</div>'
+        '<div style="font-weight:900;color:#0f172a;margin-bottom:10px;">+ Agregar nueva categoría</div>'
         '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">'
         '<div style="display:flex;flex-direction:column;flex:2;min-width:150px;">'
-        '<label style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:3px;">Nombre de categoría</label>'
-        '<input type="text" id="cat-nombre" placeholder="ej: Baño, Pisos, Muros..." style="padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;">'
+        '<label style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:3px;">Nombre</label>'
+        '<input type="text" id="cat-nombre" placeholder="ej: Baño, Pisos..." style="padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;">'
         '</div>'
         '<div style="display:flex;flex-direction:column;min-width:130px;">'
         '<label style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:3px;">Tipo de ítems</label>'
         '<select id="cat-tipo" style="padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;">'
         + tipo_opts +
         '</select></div>'
-        '<div style="display:flex;flex-direction:column;min-width:100px;">'
+        '<div style="display:flex;flex-direction:column;min-width:90px;">'
         '<label style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:3px;">Cantidad</label>'
         '<input type="number" id="cat-cantidad" value="' + str(cantidad) + '" min="1" max="30" style="padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;">'
         '</div>'
         '</div>'
-        '<div id="items-wrap">' + items_rows + '</div>'
+        '<div id="items-wrap"></div>'
         '<button id="save-btn" onclick="window.catGuardar()" style="background:#1e2447;color:white;border:none;border-radius:7px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-top:10px;">Guardar en catálogo</button>'
         '<div id="status" style="margin-top:6px;font-size:12px;font-weight:600;min-height:18px;"></div>'
         '</div>'
@@ -1836,7 +1838,6 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
         '</body></html>'
     )
     return html
-
 
 def _build_items_rows(tipo, cantidad):
     rows = ''
