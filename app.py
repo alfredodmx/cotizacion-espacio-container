@@ -1557,37 +1557,120 @@ def build_config_preguntas_html(preguntas, cat_items, supa_url, supa_key, form_e
     return html
 
 def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4):
-    # Group existing items by category
+    import json
+
+    # Group by category, then by titulo_grupo within each category
     grupos = {}
     for c in cat_items:
         cat = c.get('categoria', 'General')
         if cat not in grupos:
-            grupos[cat] = []
-        grupos[cat].append(c)
+            grupos[cat] = {}
+        tg = c.get('titulo_grupo') or '__sin_grupo__'
+        if tg not in grupos[cat]:
+            grupos[cat][tg] = []
+        grupos[cat][tg].append(c)
 
-    # Existing categories HTML
+    all_cats = sorted(grupos.keys())
+    all_cats_json = json.dumps(all_cats, ensure_ascii=False)
+    cat_items_json = json.dumps(cat_items, ensure_ascii=True)
+
+    # Build existing categories HTML
     cat_html = ''
-    for cat, items in sorted(grupos.items()):
+    for cat in all_cats:
+        subgrupos = grupos[cat]
+        total = sum(len(v) for v in subgrupos.values())
         cat_html += '<div class="cat-block">'
         cat_html += '<div class="cat-header">'
         cat_html += '<span class="cat-title">' + cat + '</span>'
         cat_html += '<div style="display:flex;gap:6px;align-items:center;">'
-        cat_html += '<span style="font-size:11px;font-weight:400;opacity:0.7;">' + str(len(items)) + ' ítems</span>'
-        cat_html += '<button onclick="window.editarCategoria(\'' + cat + '\')" class="btn-edit">✏️ Editar</button>'
+        cat_html += '<span style="font-size:11px;opacity:0.7;">' + str(total) + ' ítems</span>'
+        cat_html += '<button onclick="window.toggleEdit(\'' + cat + '\')" class="btn-edit">✏️ Editar</button>'
         cat_html += '<button onclick="window.eliminarCategoria(\'' + cat + '\')" class="btn-del-cat">🗑 Eliminar</button>'
         cat_html += '</div></div>'
 
-        # Edit panel
-        cat_html += '<div id="edit-' + cat + '" style="display:none;background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:12px;margin-bottom:8px;">'
-        cat_html += '<div style="font-weight:700;font-size:12px;color:#1e3a5f;margin-bottom:8px;">Editando: ' + cat + '</div>'
-        cat_html += '<div style="display:flex;gap:8px;margin-bottom:10px;">'
-        cat_html += '<input id="rename-' + cat + '" type="text" value="' + cat + '" style="flex:1;padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;">'
-        cat_html += '<button onclick="window.renombrarCategoria(\'' + cat + '\')" class="btn-primary">Renombrar</button>'
+        # Items preview grid (collapsed)
+        cat_html += '<div id="preview-' + cat + '" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:5px;margin-top:6px;">'
+        for tg, items in sorted(subgrupos.items()):
+            for it in items:
+                iurl = it.get('imagen_url') or ''
+                itipo = it.get('tipo','imagen')
+                badge = {'imagen':'🖼','color':'🎨','select':'📋','si_no':'✅'}.get(itipo,'❓')
+                if iurl:
+                    preview = '<img src="' + iurl + '" style="width:100%;height:60px;object-fit:cover;display:block;">'
+                elif it.get('hex'):
+                    preview = '<div style="width:100%;height:60px;background:' + it['hex'] + ';"></div>'
+                else:
+                    preview = '<div style="width:100%;height:60px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;">📦</div>'
+                cat_html += '<div style="background:white;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">'
+                cat_html += preview
+                cat_html += '<div style="font-size:9px;font-weight:700;padding:2px 4px;display:flex;justify-content:space-between;">'
+                cat_html += '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + it.get('nombre','') + '</span><span>' + badge + '</span>'
+                cat_html += '</div></div>'
         cat_html += '</div>'
-        cat_html += '<div style="font-weight:700;font-size:11px;color:#64748b;margin-bottom:6px;text-transform:uppercase;">Agregar nuevo ítem:</div>'
-        cat_html += '<div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;align-items:center;">'
-        cat_html += '<input id="new-nombre-' + cat + '" type="text" placeholder="Título del ítem" style="flex:2;min-width:120px;padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;">'
-        cat_html += '<select id="new-tipo-' + cat + '" onchange="window.toggleNuevoTipo(\'' + cat + '\')" style="flex:1;min-width:110px;padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;">'
+
+        # Edit panel (hidden by default)
+        cat_html += '<div id="edit-' + cat + '" style="display:none;margin-top:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;">'
+
+        # Rename
+        cat_html += '<div style="display:flex;gap:8px;margin-bottom:14px;align-items:flex-end;">'
+        cat_html += '<div style="flex:1"><label class="field-label">Renombrar categoría</label>'
+        cat_html += '<input id="rename-' + cat + '" type="text" value="' + cat + '" class="mini-input"></div>'
+        cat_html += '<button onclick="window.renombrarCategoria(\'' + cat + '\')" class="btn-primary">Renombrar</button>'
+        cat_html += '<div id="rename-st-' + cat + '" style="font-size:11px;font-weight:600;align-self:center;"></div>'
+        cat_html += '</div>'
+
+        # Subgroups
+        for tg, items in sorted(subgrupos.items()):
+            tg_display = tg if tg != '__sin_grupo__' else '(sin título de grupo)'
+            itipo = items[0].get('tipo','imagen') if items else 'imagen'
+            badge = {'imagen':'🖼','color':'🎨','select':'📋','si_no':'✅'}.get(itipo,'❓')
+            tg_id = tg.replace(' ','_').replace("'","")
+            cat_html += '<div class="subgroup-block">'
+            cat_html += '<div class="subgroup-header">'
+            cat_html += '<span>' + badge + ' ' + tg_display + ' <span style="font-size:10px;opacity:0.6;">(' + str(len(items)) + ' ítems)</span></span>'
+            cat_html += '<div style="display:flex;gap:5px;">'
+            cat_html += '<button onclick="window.showClonar(\'' + cat + '\',\'' + tg.replace("'","\\'") + '\')" class="btn-clone">📋 Clonar</button>'
+            cat_html += '<button onclick="window.eliminarGrupo(\'' + cat + '\',\'' + tg.replace("'","\\'") + '\')" class="btn-del-sm">🗑 Grupo</button>'
+            cat_html += '</div></div>'
+            # Clone target selector (hidden)
+            cat_html += '<div id="clone-panel-' + cat + '-' + tg_id + '" style="display:none;background:#eff6ff;border:1px solid #93c5fd;border-radius:6px;padding:8px;margin:6px 0;">'
+            cat_html += '<div style="font-size:11px;font-weight:700;color:#1e3a5f;margin-bottom:6px;">Clonar grupo "' + tg_display + '" a categoría:</div>'
+            cat_html += '<div style="display:flex;gap:6px;align-items:center;">'
+            cat_html += '<select id="clone-dest-' + cat + '-' + tg_id + '" style="flex:1;padding:5px 8px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;">'
+            for other_cat in all_cats:
+                if other_cat != cat:
+                    cat_html += '<option value="' + other_cat + '">' + other_cat + '</option>'
+            cat_html += '</select>'
+            cat_html += '<button onclick="window.confirmarClonar(\'' + cat + '\',\'' + tg.replace("'","\\'") + '\')" class="btn-primary">✅ Confirmar</button>'
+            cat_html += '<button onclick="document.getElementById(\'clone-panel-' + cat + '-' + tg_id + '\').style.display=\'none\'" class="btn-cancel">✕</button>'
+            cat_html += '</div>'
+            cat_html += '<div id="clone-st-' + cat + '-' + tg_id + '" style="font-size:11px;font-weight:600;margin-top:4px;"></div>'
+            cat_html += '</div>'
+            # Items list
+            cat_html += '<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;">'
+            for it in items:
+                iid = str(it.get('id',''))
+                iurl = it.get('imagen_url') or ''
+                if iurl:
+                    thumb = '<img src="' + iurl + '" style="width:36px;height:36px;object-fit:cover;border-radius:4px;flex-shrink:0;">'
+                elif it.get('hex'):
+                    thumb = '<div style="width:36px;height:36px;background:' + it['hex'] + ';border-radius:50%;border:1px solid #e2e8f0;flex-shrink:0;"></div>'
+                else:
+                    thumb = '<div style="width:36px;height:36px;background:#f1f5f9;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">📦</div>'
+                cat_html += '<div style="display:flex;align-items:center;gap:8px;background:white;border:1px solid #e2e8f0;border-radius:6px;padding:5px 8px;">'
+                cat_html += thumb
+                cat_html += '<span style="flex:1;font-size:12px;font-weight:600;">' + it.get('nombre','') + '</span>'
+                cat_html += '<button onclick="window.catEliminar(\'' + iid + '\',\'' + iurl + '\')" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;">🗑</button>'
+                cat_html += '</div>'
+            cat_html += '</div></div>'  # end items + subgroup-block
+
+        # Add new item to existing category
+        cat_html += '<div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:12px;">'
+        cat_html += '<div style="font-weight:700;font-size:11px;color:#64748b;margin-bottom:8px;text-transform:uppercase;">Agregar nuevo ítem a ' + cat + ':</div>'
+        cat_html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;">'
+        cat_html += '<input id="new-tg-' + cat + '" type="text" placeholder="Título del grupo (ej: Color de muros)" class="mini-input" style="flex:2;min-width:160px;">'
+        cat_html += '<input id="new-nombre-' + cat + '" type="text" placeholder="Nombre del ítem" class="mini-input" style="flex:2;min-width:120px;">'
+        cat_html += '<select id="new-tipo-' + cat + '" onchange="window.toggleNuevoTipo(\'' + cat + '\')" style="flex:1;min-width:100px;padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;">'
         cat_html += '<option value="imagen">🖼 Imagen</option><option value="color">🎨 Color</option>'
         cat_html += '</select></div>'
         cat_html += '<div id="new-img-wrap-' + cat + '" style="margin-bottom:6px;">'
@@ -1595,62 +1678,47 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
         cat_html += '<div id="new-prev-' + cat + '"></div></div>'
         cat_html += '<div id="new-color-wrap-' + cat + '" style="display:none;align-items:center;gap:8px;margin-bottom:6px;">'
         cat_html += '<input type="color" id="new-hex-' + cat + '" value="#ffffff" style="width:40px;height:34px;border-radius:5px;border:1px solid #cbd5e1;cursor:pointer;">'
-        cat_html += '<span style="font-size:11px;color:#64748b;">Elige el color</span></div>'
+        cat_html += '<span style="font-size:11px;color:#64748b;">Color</span></div>'
         cat_html += '<button onclick="window.agregarItem(\'' + cat + '\')" class="btn-success">+ Agregar ítem</button>'
         cat_html += '<div id="edit-status-' + cat + '" style="font-size:11px;font-weight:600;min-height:16px;margin-top:6px;"></div>'
         cat_html += '</div>'
-
-        # Items grid
-        cat_html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;margin-bottom:4px;">'
-        for it in items:
-            iid = str(it.get('id',''))
-            nombre = it.get('nombre','')
-            iurl = it.get('imagen_url') or ''
-            itipo = it.get('tipo','imagen')
-            badge = {'imagen':'🖼','color':'🎨','select':'📋','si_no':'✅'}.get(itipo,'❓')
-            if iurl:
-                preview = '<img src="' + iurl + '" style="width:100%;height:70px;object-fit:cover;display:block;">'
-            elif it.get('hex'):
-                preview = '<div style="width:100%;height:70px;background:' + it['hex'] + ';"></div>'
-            else:
-                preview = '<div style="width:100%;height:70px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">📦</div>'
-            cat_html += '<div style="background:white;border:1px solid #e2e8f0;border-radius:7px;overflow:hidden;position:relative;">'
-            cat_html += preview
-            cat_html += '<div style="font-size:10px;font-weight:700;padding:3px 5px;display:flex;justify-content:space-between;">'
-            cat_html += '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + nombre + '</span><span>' + badge + '</span></div>'
-            cat_html += '<button onclick="window.catEliminar(\'' + iid + '\',\'' + iurl + '\')" style="position:absolute;top:3px;right:3px;background:rgba(220,38,38,0.85);color:white;border:none;border-radius:3px;width:20px;height:20px;cursor:pointer;font-size:11px;line-height:1;">x</button>'
-            cat_html += '</div>'
-        cat_html += '</div></div>'
+        cat_html += '</div>'  # end edit panel
+        cat_html += '</div>'  # end cat-block
 
     if not cat_html:
-        cat_html = '<p style="color:#64748b;padding:8px 0;">El catálogo está vacío. Agrega una categoría abajo.</p>'
+        cat_html = '<p style="color:#64748b;padding:8px 0;">El catálogo está vacío.</p>'
 
     css = '''
 body{margin:0;padding:8px;font-family:Segoe UI,sans-serif;font-size:13px;background:#f8fafc;}
-.cat-block{margin-bottom:20px;background:white;border:1px solid #e2e8f0;border-radius:10px;padding:12px;}
-.cat-header{background:#1e3a5f;color:white;font-weight:900;padding:8px 12px;border-radius:7px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
-.cat-title{font-size:13px;}
-.btn-edit{background:rgba(255,255,255,0.2);color:white;border:none;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;}
-.btn-del-cat{background:rgba(220,38,38,0.7);color:white;border:none;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;}
-.btn-primary{background:#1e3a5f;color:white;border:none;border-radius:5px;padding:6px 12px;font-size:12px;cursor:pointer;}
-.btn-success{background:#16a34a;color:white;border:none;border-radius:5px;padding:6px 14px;font-size:12px;cursor:pointer;}
-.btn-danger{background:#dc2626;color:white;border:none;border-radius:5px;padding:4px 10px;font-size:11px;cursor:pointer;}
-.btn-save-cat{background:#0f3460;color:white;border:none;border-radius:7px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;}
+.cat-block{margin-bottom:14px;background:white;border:1px solid #e2e8f0;border-radius:10px;padding:12px;}
+.cat-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.cat-title{font-weight:900;font-size:14px;color:#0a1628;}
+.btn-edit{background:#e8f0fe;color:#0f3460;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;}
+.btn-del-cat{background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;}
+.btn-primary{background:#1e3a5f;color:white;border:none;border-radius:5px;padding:6px 12px;font-size:12px;cursor:pointer;font-weight:700;}
+.btn-success{background:#16a34a;color:white;border:none;border-radius:5px;padding:6px 14px;font-size:12px;cursor:pointer;font-weight:700;}
+.btn-clone{background:#f0fdf4;color:#15803d;border:1px solid #86efac;border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer;font-weight:700;}
+.btn-del-sm{background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer;font-weight:700;}
+.btn-cancel{background:#f1f5f9;color:#64748b;border:none;border-radius:4px;padding:5px 8px;font-size:12px;cursor:pointer;}
+.btn-save-cat{background:#0f3460;color:white;border:none;border-radius:7px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;}
+.subgroup-block{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-bottom:8px;}
+.subgroup-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-weight:700;font-size:12px;color:#1e3a5f;}
 .new-cat-box{background:white;border:2px solid #0f3460;border-radius:10px;padding:16px;margin-top:16px;}
 .new-cat-title{font-weight:900;color:#0f172a;margin-bottom:12px;font-size:15px;}
 .field-label{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:3px;display:block;}
-.item-block{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:10px;position:relative;}
-.item-block-title{font-weight:700;font-size:12px;color:#1e3a5f;margin-bottom:8px;}
+.item-block{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:10px;}
 .opt-row{display:grid;gap:6px;margin-bottom:5px;align-items:center;}
-.opt-row.color{grid-template-columns:1fr 50px 40px;}
-.opt-row.imagen{grid-template-columns:1fr 1fr 40px;}
+.opt-row.color{grid-template-columns:1fr 44px 36px;}
+.opt-row.imagen{grid-template-columns:1fr 1fr;}
 .mini-input{padding:5px 8px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px;width:100%;box-sizing:border-box;}
-.mini-prev{width:36px;height:36px;border-radius:4px;object-fit:cover;}
+.mini-prev{width:32px;height:32px;border-radius:4px;object-fit:cover;flex-shrink:0;}
 '''
 
     js = '''
 var S="''' + supa_url + '''",K="''' + supa_key + '''";
-var _items=[];  // array of {titulo, tipo, opciones:[{nombre, hex, file, url}]}
+var ALL_CATS=''' + all_cats_json + ''';
+var ALL_ITEMS=''' + cat_items_json + ''';
+var _items=[];
 
 function doRerun(){
   var u=new URL(window.parent.location.href);
@@ -1659,29 +1727,35 @@ function doRerun(){
   window.parent.dispatchEvent(new PopStateEvent("popstate"));
 }
 
-// ── EXISTING CATEGORY EDIT ────────────────────────────────
-window.editarCategoria=function(cat){
-  var el=document.getElementById("edit-"+cat);
-  if(el)el.style.display=el.style.display==="none"?"block":"none";
+window.toggleEdit=function(cat){
+  var ep=document.getElementById("edit-"+cat);
+  var pp=document.getElementById("preview-"+cat);
+  var hidden=ep.style.display==="none";
+  ep.style.display=hidden?"block":"none";
+  pp.style.display=hidden?"none":"grid";
 };
+
 window.toggleNuevoTipo=function(cat){
   var t=document.getElementById("new-tipo-"+cat).value;
   document.getElementById("new-img-wrap-"+cat).style.display=t==="imagen"?"block":"none";
   document.getElementById("new-color-wrap-"+cat).style.display=t==="color"?"flex":"none";
 };
+
 window.previewNewItem=function(cat){
   var f=document.getElementById("new-file-"+cat).files[0];
   if(!f)return;
   var r=new FileReader();
-  r.onload=function(e){document.getElementById("new-prev-"+cat).innerHTML='<img src="'+e.target.result+'" style="width:40px;height:40px;object-fit:cover;border-radius:4px;margin-top:4px;">';};
+  r.onload=function(e){document.getElementById("new-prev-"+cat).innerHTML='<img src="'+e.target.result+'" style="width:36px;height:36px;object-fit:cover;border-radius:4px;margin-top:4px;">';};
   r.readAsDataURL(f);
 };
+
 window.agregarItem=async function(cat){
+  var tg=document.getElementById("new-tg-"+cat).value.trim();
   var nombre=document.getElementById("new-nombre-"+cat).value.trim();
   var tipoi=document.getElementById("new-tipo-"+cat).value;
   var st=document.getElementById("edit-status-"+cat);
-  if(!nombre){st.textContent="Escribe el nombre";st.style.color="#dc2626";return;}
-  var body={categoria:cat,nombre:nombre,activo:true,tipo:tipoi,imagen_url:"",hex:""};
+  if(!nombre){st.textContent="Escribe el nombre del ítem";st.style.color="#dc2626";return;}
+  var body={categoria:cat,nombre:nombre,titulo_grupo:tg,activo:true,tipo:tipoi,imagen_url:"",hex:""};
   if(tipoi==="imagen"){
     var fEl=document.getElementById("new-file-"+cat);
     if(fEl&&fEl.files[0]){
@@ -1700,15 +1774,17 @@ window.agregarItem=async function(cat){
   if(r.ok){st.textContent="✅ Agregado";st.style.color="#16a34a";setTimeout(doRerun,600);}
   else{st.textContent="Error: "+r.status;st.style.color="#dc2626";}
 };
+
 window.renombrarCategoria=async function(cat){
   var nuevo=document.getElementById("rename-"+cat).value.trim();
+  var st=document.getElementById("rename-st-"+cat);
   if(!nuevo||nuevo===cat)return;
-  var st=document.getElementById("edit-status-"+cat);
   st.textContent="Renombrando...";st.style.color="#2563eb";
   var r=await fetch(S+"/rest/v1/catalogo_materiales?categoria=eq."+encodeURIComponent(cat),{method:"PATCH",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({categoria:nuevo})});
-  if(r.ok){st.textContent="✅ Renombrado";st.style.color="#16a34a";setTimeout(doRerun,600);}
+  if(r.ok){st.textContent="✅";st.style.color="#16a34a";setTimeout(doRerun,600);}
   else{st.textContent="Error: "+r.status;st.style.color="#dc2626";}
 };
+
 window.eliminarCategoria=async function(cat){
   if(!confirm("¿Eliminar toda la categoría "+cat+"?"))return;
   var r=await fetch(S+"/rest/v1/catalogo_materiales?categoria=eq."+encodeURIComponent(cat)+"&activo=eq.true",{method:"GET",headers:{"Authorization":"Bearer "+K,"apikey":K,"Accept":"application/json"}});
@@ -1720,11 +1796,49 @@ window.eliminarCategoria=async function(cat){
   await fetch(S+"/rest/v1/catalogo_materiales?categoria=eq."+encodeURIComponent(cat),{method:"PATCH",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({activo:false})});
   doRerun();
 };
+
+window.eliminarGrupo=async function(cat,tg){
+  if(!confirm("¿Eliminar todos los ítems del grupo \\""+tg+"\\"?"))return;
+  var items=ALL_ITEMS.filter(function(it){return it.categoria===cat&&(it.titulo_grupo||"__sin_grupo__")===tg;});
+  for(var i=0;i<items.length;i++){
+    var url=items[i].imagen_url||"";
+    if(url){var path=url.split("/public/formulario-imagenes/")[1];if(path)await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,{method:"DELETE",headers:{"Authorization":"Bearer "+K,"apikey":K}});}
+    await fetch(S+"/rest/v1/catalogo_materiales?id=eq."+items[i].id,{method:"PATCH",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({activo:false})});
+  }
+  doRerun();
+};
+
 window.catEliminar=async function(id,url){
   if(!confirm("¿Eliminar este ítem?"))return;
   if(url){var path=url.split("/public/formulario-imagenes/")[1];if(path)await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,{method:"DELETE",headers:{"Authorization":"Bearer "+K,"apikey":K}});}
   await fetch(S+"/rest/v1/catalogo_materiales?id=eq."+id,{method:"PATCH",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({activo:false})});
   doRerun();
+};
+
+window.showClonar=function(cat,tg){
+  var tgId=tg.replace(/ /g,"_").replace(/'/g,"");
+  var panel=document.getElementById("clone-panel-"+cat+"-"+tgId);
+  if(panel)panel.style.display=panel.style.display==="none"?"block":"none";
+};
+
+window.confirmarClonar=async function(cat,tg){
+  var tgId=tg.replace(/ /g,"_").replace(/'/g,"");
+  var destEl=document.getElementById("clone-dest-"+cat+"-"+tgId);
+  var stEl=document.getElementById("clone-st-"+cat+"-"+tgId);
+  if(!destEl)return;
+  var dest=destEl.value;
+  var items=ALL_ITEMS.filter(function(it){return it.categoria===cat&&(it.titulo_grupo||"__sin_grupo__")===tg;});
+  if(!items.length){stEl.textContent="No hay ítems en este grupo";stEl.style.color="#dc2626";return;}
+  stEl.textContent="Clonando "+items.length+" ítems...";stEl.style.color="#2563eb";
+  var ok=0;
+  for(var i=0;i<items.length;i++){
+    var it=items[i];
+    var body={categoria:dest,nombre:it.nombre,titulo_grupo:it.titulo_grupo||"",tipo:it.tipo||"imagen",imagen_url:it.imagen_url||"",hex:it.hex||"",activo:true};
+    var r=await fetch(S+"/rest/v1/catalogo_materiales",{method:"POST",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify(body)});
+    if(r.ok)ok++;
+  }
+  stEl.textContent="✅ "+ok+" ítems clonados a "+dest;stEl.style.color="#16a34a";
+  setTimeout(doRerun,800);
 };
 
 // ── NUEVA CATEGORÍA ───────────────────────────────────────
@@ -1735,30 +1849,24 @@ function renderNuevaCat(){
   _items.forEach(function(item,idx){
     html+='<div class="item-block">';
     html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
-    html+='<span class="item-block-title">ÍTEM '+(idx+1)+'</span>';
-    html+='<button onclick="window.removeItem('+idx+')" class="btn-danger">🗑</button>';
+    html+='<span style="font-weight:700;font-size:12px;color:#1e3a5f;">ÍTEM '+(idx+1)+'</span>';
+    html+='<button onclick="window.removeItem('+idx+')" class="btn-del-sm">🗑 Eliminar</button>';
     html+='</div>';
-    // Titulo
-    html+='<div style="margin-bottom:8px;">';
-    html+='<label class="field-label">Título del ítem</label>';
-    html+='<input type="text" value="'+item.titulo+'" onchange="window.updateItemTitulo('+idx+',this.value)" placeholder="ej: Color de muros" class="mini-input">';
-    html+='</div>';
-    // Tipo + Cantidad
+    html+='<div style="margin-bottom:8px;"><label class="field-label">Título del grupo</label>';
+    html+='<input type="text" value="'+item.titulo+'" onchange="window.updateItemTitulo('+idx+',this.value)" placeholder="ej: Color de muros" class="mini-input"></div>';
     html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">';
     html+='<div><label class="field-label">Tipo</label>';
     html+='<select onchange="window.updateItemTipo('+idx+',this.value)" style="width:100%;padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;">';
-    for(var [v,l] of [["imagen","🖼 Imagen"],["color","🎨 Color"],["select","📋 Lista"],["si_no","✅ Sí/No"]]){
-      html+='<option value="'+v+'"'+(item.tipo===v?" selected":"")+'>'+l+'</option>';
-    }
+    var tipos=[["imagen","🖼 Imagen"],["color","🎨 Color"],["select","📋 Lista"],["si_no","✅ Sí/No"]];
+    tipos.forEach(function(t){html+='<option value="'+t[0]+'"'+(item.tipo===t[0]?" selected":"")+'>'+t[1]+'</option>';});
     html+='</select></div>';
     if(item.tipo!=="si_no"){
       html+='<div><label class="field-label">Cantidad</label>';
       html+='<input type="number" value="'+item.cantidad+'" min="1" max="20" onchange="window.updateItemCantidad('+idx+',this.value)" style="width:100%;padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;"></div>';
     }
     html+='</div>';
-    // Options
     if(item.tipo==="si_no"){
-      html+='<div style="font-size:11px;color:#64748b;padding:4px 0;">Solo tendrá opciones Sí / No.</div>';
+      html+='<div style="font-size:11px;color:#64748b;padding:4px 0;">Solo tendrá Sí y No.</div>';
     } else {
       item.opciones.forEach(function(opt,oi){
         html+='<div class="opt-row '+(item.tipo==="color"?"color":"imagen")+'">';
@@ -1768,12 +1876,11 @@ function renderNuevaCat(){
           html+='<div style="width:32px;height:32px;border-radius:50%;background:'+(opt.hex||"#ffffff")+';border:1px solid #e2e8f0;" id="clrprev-'+idx+'-'+oi+'"></div>';
         } else if(item.tipo==="imagen"){
           html+='<div style="display:flex;align-items:center;gap:4px;">';
-          html+='<input type="file" accept="image/*" onchange="window.updateOptFile('+idx+','+oi+',this)" style="font-size:10px;max-width:140px;">';
-          if(opt.previewUrl) html+='<img src="'+opt.previewUrl+'" class="mini-prev">';
+          html+='<input type="file" accept="image/*" onchange="window.updateOptFile('+idx+','+oi+',this)" style="font-size:10px;max-width:150px;">';
+          if(opt.previewUrl)html+='<img src="'+opt.previewUrl+'" class="mini-prev">';
           html+='</div>';
-          html+='<div></div>';
         } else {
-          html+='<div></div><div></div>';
+          html+='<div></div>';
         }
         html+='</div>';
       });
@@ -1783,50 +1890,28 @@ function renderNuevaCat(){
   wrap.innerHTML=html;
 }
 
-window.addItem=function(){
-  _items.push({titulo:"",tipo:"imagen",cantidad:3,opciones:[{nombre:"",hex:"#ffffff",file:null,previewUrl:"",url:""},{nombre:"",hex:"#ffffff",file:null,previewUrl:"",url:""},{nombre:"",hex:"#ffffff",file:null,previewUrl:"",url:""}]});
-  renderNuevaCat();
-};
+function makeOpts(n){var o=[];for(var i=0;i<n;i++)o.push({nombre:"",hex:"#ffffff",file:null,previewUrl:"",url:""});return o;}
 
-window.removeItem=function(idx){
-  _items.splice(idx,1);
-  renderNuevaCat();
-};
-
+window.addItem=function(){_items.push({titulo:"",tipo:"imagen",cantidad:3,opciones:makeOpts(3)});renderNuevaCat();};
+window.removeItem=function(idx){_items.splice(idx,1);renderNuevaCat();};
 window.updateItemTitulo=function(idx,val){_items[idx].titulo=val;};
-window.updateItemTipo=function(idx,val){
-  _items[idx].tipo=val;
-  var n=_items[idx].cantidad;
-  var opts=[];
-  for(var i=0;i<n;i++) opts.push({nombre:"",hex:"#ffffff",file:null,previewUrl:"",url:""});
-  _items[idx].opciones=opts;
-  renderNuevaCat();
-};
+window.updateItemTipo=function(idx,val){_items[idx].tipo=val;_items[idx].opciones=makeOpts(_items[idx].cantidad);renderNuevaCat();};
 window.updateItemCantidad=function(idx,val){
   var n=Math.max(1,Math.min(20,parseInt(val)||1));
   _items[idx].cantidad=n;
-  var opts=[];
-  for(var i=0;i<n;i++){
-    var existing=_items[idx].opciones[i]||{};
-    opts.push({nombre:existing.nombre||"",hex:existing.hex||"#ffffff",file:existing.file||null,previewUrl:existing.previewUrl||"",url:existing.url||""});
-  }
-  _items[idx].opciones=opts;
-  renderNuevaCat();
+  var o=[];for(var i=0;i<n;i++){var e=_items[idx].opciones[i]||{};o.push({nombre:e.nombre||"",hex:e.hex||"#ffffff",file:e.file||null,previewUrl:e.previewUrl||"",url:e.url||""});}
+  _items[idx].opciones=o;renderNuevaCat();
 };
 window.updateOptNombre=function(idx,oi,val){_items[idx].opciones[oi].nombre=val;};
 window.updateOptHex=function(idx,oi,val){
   _items[idx].opciones[oi].hex=val;
-  var el=document.getElementById("clrprev-"+idx+"-"+oi);
-  if(el)el.style.background=val;
+  var el=document.getElementById("clrprev-"+idx+"-"+oi);if(el)el.style.background=val;
 };
 window.updateOptFile=function(idx,oi,input){
   if(!input.files[0])return;
   _items[idx].opciones[oi].file=input.files[0];
   var r=new FileReader();
-  r.onload=function(e){
-    _items[idx].opciones[oi].previewUrl=e.target.result;
-    renderNuevaCat();
-  };
+  r.onload=function(e){_items[idx].opciones[oi].previewUrl=e.target.result;renderNuevaCat();};
   r.readAsDataURL(input.files[0]);
 };
 
@@ -1836,14 +1921,12 @@ window.guardarCategoria=async function(){
   var btn=document.getElementById("save-btn");
   if(!catNombre){st.textContent="Escribe el nombre de la categoría";st.style.color="#dc2626";return;}
   if(!_items.length){st.textContent="Agrega al menos un ítem";st.style.color="#dc2626";return;}
-  btn.disabled=true;
-  var total=0;
+  btn.disabled=true;var total=0;
   for(var i=0;i<_items.length;i++){
     var item=_items[i];
     if(item.tipo==="si_no"){
-      // save Sí and No
-      for(var sv of ["Sí","No"]){
-        var body={categoria:catNombre,nombre:item.titulo+" — "+sv,tipo:"si_no",imagen_url:"",hex:"",activo:true};
+      for(var sv of["Sí","No"]){
+        var body={categoria:catNombre,nombre:item.titulo+" — "+sv,titulo_grupo:item.titulo,tipo:"si_no",imagen_url:"",hex:"",activo:true};
         var r=await fetch(S+"/rest/v1/catalogo_materiales",{method:"POST",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify(body)});
         if(!r.ok){st.textContent="Error guardando";st.style.color="#dc2626";btn.disabled=false;return;}
         total++;
@@ -1852,8 +1935,8 @@ window.guardarCategoria=async function(){
       for(var oi=0;oi<item.opciones.length;oi++){
         var opt=item.opciones[oi];
         if(!opt.nombre.trim())continue;
-        var body={categoria:catNombre,nombre:opt.nombre.trim(),tipo:item.tipo,imagen_url:"",hex:"",activo:true};
-        if(item.tipo==="color") body.hex=opt.hex;
+        var body={categoria:catNombre,nombre:opt.nombre.trim(),titulo_grupo:item.titulo,tipo:item.tipo,imagen_url:"",hex:"",activo:true};
+        if(item.tipo==="color")body.hex=opt.hex;
         else if(item.tipo==="imagen"&&opt.file){
           st.textContent="Subiendo imagen "+(total+1)+"...";st.style.color="#2563eb";
           var ext=opt.file.name.split(".").pop();
