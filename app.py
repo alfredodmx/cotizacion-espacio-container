@@ -1904,7 +1904,7 @@ window.renderAddForm=function(cat){
       if(tipo==='color'){
         html+='<div style="display:grid;grid-template-columns:1fr 44px 36px;gap:6px;margin-bottom:5px;align-items:center;">';
         html+='<input type="text" id="nadd-nom-'+cat+'-'+i+'" placeholder="Nombre '+(i+1)+'" class="mini-input">';
-        html+='<input type="color" id="nadd-hex-'+cat+'-'+i+'" value="#ffffff" style="width:44px;height:34px;border-radius:4px;border:1px solid #cbd5e1;cursor:pointer;" oninput="document.getElementById(\'nadd-prev-'+cat+'-'+i+'\').style.background=this.value">';
+        html+='<input type="color" id="nadd-hex-'+cat+'-'+i+'" value="#ffffff" style="width:44px;height:34px;border-radius:4px;border:1px solid #cbd5e1;cursor:pointer;" oninput="var p=document.getElementById(&quot;nadd-prev-'+cat+'-'+i+'&quot;);if(p)p.style.background=this.value">';
         html+='<div id="nadd-prev-'+cat+'-'+i+'" style="width:32px;height:32px;border-radius:50%;background:#ffffff;border:1px solid #e2e8f0;"></div>';
         html+='</div>';
       } else if(tipo==='imagen'){
