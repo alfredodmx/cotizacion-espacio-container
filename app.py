@@ -1698,6 +1698,11 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
         cat_html += '<input type="number" id="new-cantidad-' + cat + '" value="3" min="1" max="20" onchange="window.renderAddForm(\'' + cat + '\')" style="width:100%;padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;"></div>'
         cat_html += '</div>'
         cat_html += '<div id="new-opts-wrap-' + cat + '"></div>'
+        cat_html += '</div>'  # end add-item-form
+        cat_html += '<div style="display:flex;gap:8px;margin-top:10px;">'
+        cat_html += '<button onclick="window.agregarItemCompleto(\'' + cat + '\')" class="btn-success" style="flex:1;padding:9px;">+ Agregar ítem</button>'
+        cat_html += '<button onclick="window.toggleEdit(\'' + cat + '\')" class="btn-cancel" style="flex:1;padding:9px;">✕ Cancelar</button>'
+        cat_html += '</div>'
         cat_html += '</div>'
         cat_html += '<div id="edit-status-' + cat + '" style="font-size:11px;font-weight:600;min-height:16px;margin-top:6px;"></div>'
         cat_html += '</div>'
