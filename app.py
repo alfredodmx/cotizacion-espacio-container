@@ -61,73 +61,181 @@ ANTHROPIC_API_KEY = (
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 supabase_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key, ep, nombre_cliente, pct_prog, total_req, total_resp, logo_b64=''):
+def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, supa_key, ep, nombre_cliente, logo_b64=''):
     import json
-
-    # Group by section
-    secciones = {}
-    for p in preguntas:
-        sec = p.get('seccion', 'General')
-        if sec not in secciones:
-            secciones[sec] = []
-        secciones[sec].append(p)
 
     primer_nombre = nombre_cliente.split()[0].capitalize() if nombre_cliente else 'Cliente'
     logo_html = f'<img src="data:image/png;base64,{logo_b64}" style="height:36px;object-fit:contain;">' if logo_b64 else ''
-    pct_color = '#22c55e' if pct_prog==100 else ('#f97316' if pct_prog>=50 else '#60a5fa')
+
+    # Build lookup: item_id -> item data
+    items_by_id = {str(it['id']): it for it in cat_items}
+
+    # Group config by categoria, ordered by orden
+    configs_by_cat = {}
+    for cfg in sorted(config_data, key=lambda x: (x.get('categoria',''), x.get('orden', 0))):
+        cat = cfg.get('categoria', '')
+        if cat not in configs_by_cat:
+            configs_by_cat[cat] = []
+        configs_by_cat[cat].append(cfg)
+
+    # Count totals for progress
+    total_grupos = len(config_data)
+    resp_grupos = 0
+    for cfg in config_data:
+        ids = [str(x) for x in (cfg.get('item_ids') or [])]
+        if any(resps_map.get(iid) for iid in ids):
+            resp_grupos += 1
+    pct = int(resp_grupos / total_grupos * 100) if total_grupos > 0 else 0
+
+    # Build questions HTML
+    pregs_html = ''
+    for cat, cfgs in configs_by_cat.items():
+        pregs_html += '<div class="sec-wrap">'
+        pregs_html += '<div class="sec-header">'
+        pregs_html += '<div class="sec-name">' + cat + '</div>'
+        pregs_html += '</div>'
+
+        for cfg in cfgs:
+            tg = cfg.get('titulo_grupo', '')
+            ids = [str(x) for x in (cfg.get('item_ids') or [])]
+            obs = cfg.get('observaciones', '') or ''
+            mostrar_obs = cfg.get('mostrar_obs', False)
+            if not ids:
+                continue
+
+            # Get items for this group
+            group_items = [items_by_id[iid] for iid in ids if iid in items_by_id]
+            if not group_items:
+                continue
+
+            itipo = group_items[0].get('tipo', 'imagen')
+            # Check if any answer exists for this group
+            answered = any(resps_map.get(iid) for iid in ids)
+
+            pregs_html += '<div class="preg-card" id="card-' + tg.replace(' ','_') + '">'
+            pregs_html += '<div class="preg-titulo">' + tg
+            if answered:
+                pregs_html += '<span class="resp-indicator"></span>'
+            pregs_html += '</div>'
+
+            if obs and mostrar_obs:
+                pregs_html += '<div class="obs-box">' + obs + '</div>'
+
+            if itipo == 'color':
+                cgrid_id = 'cgrid-' + tg.replace(' ','_')
+                pregs_html += '<div class="carousel-wrap">'
+                pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + cgrid_id + '\',-1)">&#8249;</button>'
+                pregs_html += '<div class="carousel-inner">'
+                pregs_html += '<div class="color-grid" id="' + cgrid_id + '">'
+                for it in group_items:
+                    iid = str(it.get('id',''))
+                    oname = it.get('nombre','')
+                    ohex = it.get('hex','#ccc') or '#ccc'
+                    prev = resps_map.get(iid, '')
+                    sel_cls = ' sel' if prev == oname else ''
+                    pregs_html += '<div class="color-item" onclick="window.selectOpt(\'' + iid + '\',\'' + oname.replace("'","") + '\')">'
+                    pregs_html += '<div class="color-circle' + sel_cls + '" style="background:' + ohex + ';">'
+                    pregs_html += '<div class="color-check">✓</div></div>'
+                    pregs_html += '<div class="color-name">' + oname + '</div>'
+                    pregs_html += '</div>'
+                pregs_html += '</div>'
+                pregs_html += '</div>'
+                pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + cgrid_id + '\',1)">&#8250;</button>'
+                pregs_html += '</div>'
+
+            elif itipo == 'imagen':
+                grid_id = 'grid-' + tg.replace(' ','_')
+                popups_html = ''
+                pregs_html += '<div class="carousel-wrap">'
+                pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + grid_id + '\',-1)">&#8249;</button>'
+                pregs_html += '<div class="carousel-inner">'
+                pregs_html += '<div class="img-grid" id="' + grid_id + '">'
+                for oi, it in enumerate(group_items):
+                    iid = str(it.get('id',''))
+                    oname = it.get('nombre','')
+                    ourl = it.get('imagen_url','') or ''
+                    prev = resps_map.get(iid, '')
+                    sel_cls = ' sel' if prev == oname else ''
+                    popup_id = 'popup-' + iid
+                    pregs_html += '<div class="img-item' + sel_cls + '" id="imgitem-' + iid + '" onclick="window.selectOpt(\'' + iid + '\',\'' + oname.replace("'","") + '\')">'
+                    pregs_html += '<div class="img-circle">'
+                    if ourl:
+                        pregs_html += '<img src="' + ourl + '" alt="' + oname + '">'
+                    else:
+                        pregs_html += '<div style="width:100%;height:100%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:2rem;">&#128230;</div>'
+                    pregs_html += '</div>'
+                    pregs_html += '<div class="img-sel-badge">✓</div>'
+                    if ourl:
+                        pregs_html += '<button class="img-zoom-btn" onclick="event.stopPropagation();window.openPopup(\'' + popup_id + '\')" title="Ver ampliada">&#128269;</button>'
+                    pregs_html += '<div class="img-item-name">' + oname + '</div>'
+                    pregs_html += '</div>'
+                    if ourl:
+                        popups_html += '<div class="popup" id="' + popup_id + '">'
+                        popups_html += '<button class="popup-close" onclick="window.closePopup(\'' + popup_id + '\')">&#x2715;</button>'
+                        popups_html += '<img src="' + ourl + '">'
+                        popups_html += '<div class="popup-name">' + oname + '</div>'
+                        popups_html += '<button class="popup-select" onclick="window.selectOpt(\'' + iid + '\',\'' + oname.replace("'","") + '\');window.closePopup(\'' + popup_id + '\')">✅ Seleccionar esta opción</button>'
+                        popups_html += '</div>'
+                pregs_html += '</div>'
+                pregs_html += '</div>'
+                pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + grid_id + '\',1)">&#8250;</button>'
+                pregs_html += '</div>'
+                pregs_html += popups_html
+
+            elif itipo == 'si_no':
+                iid_si = str(group_items[0].get('id','')) if len(group_items) > 0 else ''
+                iid_no = str(group_items[1].get('id','')) if len(group_items) > 1 else ''
+                prev_si = resps_map.get(iid_si, '')
+                prev_no = resps_map.get(iid_no, '')
+                si_sel = ' sel' if prev_si == 'Sí' else ''
+                no_sel = ' sel' if prev_no == 'No' else ''
+                pregs_html += '<div class="sino-row">'
+                pregs_html += '<button class="sino-btn' + si_sel + '" id="si-' + tg.replace(' ','_') + '" onclick="window.selectOpt(\'' + iid_si + '\',\'Sí\')">✅ Sí</button>'
+                pregs_html += '<button class="sino-btn' + no_sel + '" id="no-' + tg.replace(' ','_') + '" onclick="window.selectOpt(\'' + iid_no + '\',\'No\')">❌ No</button>'
+                pregs_html += '</div>'
+
+            elif itipo == 'select':
+                iid_first = str(group_items[0].get('id','')) if group_items else ''
+                prev = resps_map.get(iid_first, '')
+                opts_html = '<option value="">-- Selecciona --</option>'
+                for it in group_items:
+                    iid = str(it.get('id',''))
+                    oname = it.get('nombre','')
+                    sel = ' selected' if resps_map.get(iid) == oname else ''
+                    opts_html += '<option value="' + iid + ':' + oname + '"' + sel + '>' + oname + '</option>'
+                pregs_html += '<select class="sel-select" onchange="window.selectFromDropdown(this)">' + opts_html + '</select>'
+
+            pregs_html += '</div>'  # end preg-card
+        pregs_html += '</div>'  # end sec-wrap
+
+    resps_json = json.dumps(resps_map, ensure_ascii=True)
 
     css = (
-        '@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&family=Poppins:wght@400;600;700;900&display=swap");'
+        '@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&family=Poppins:wght@400;600;700;900&display=swap");'
         'body{margin:0;padding:0;font-family:Poppins,sans-serif;font-size:14px;background:#f0f4f8;}'
-        'html{background:#f0f4f8;}'
         '.wrap{max-width:1000px;margin:0 auto;padding:0 0 32px;background:transparent;}'
-        # topbar
         # header
-        '.header{background:linear-gradient(135deg,#0a1628 0%,#0f3460 60%,#1a5276 100%);'
-        'padding:28px 24px 24px;margin:12px 16px 20px;border-radius:20px;color:white;'
-        'box-shadow:0 20px 50px rgba(10,22,40,0.3),0 4px 12px rgba(10,22,40,0.15);'
-        'position:relative;overflow:hidden;}'
-        '.header::before{content:"";position:absolute;top:-50px;right:-50px;width:220px;height:220px;'
-        'background:radial-gradient(circle,rgba(255,255,255,0.06),transparent 70%);border-radius:50%;pointer-events:none;}'
-        '.h-badge{display:inline-block;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.18);'
-        'border-radius:99px;padding:3px 12px;font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px;}'
-        '.h-title{font-size:1.7rem;font-weight:900;line-height:1.15;margin-bottom:8px;'
-        'font-family:Montserrat,sans-serif;'
-        'background:linear-gradient(90deg,#ffffff 0%,#a8d8f0 100%);-webkit-background-clip:text;'
-        '-webkit-text-fill-color:transparent;background-clip:text;}'
+        '.header{background:linear-gradient(135deg,#0a1628 0%,#0f3460 60%,#1a5276 100%);padding:28px 24px 24px;margin:12px 16px 20px;border-radius:20px;color:white;box-shadow:0 20px 50px rgba(10,22,40,0.3);position:relative;overflow:hidden;}'
+        '.header::before{content:"";position:absolute;top:-50px;right:-50px;width:220px;height:220px;background:radial-gradient(circle,rgba(255,255,255,0.06),transparent 70%);border-radius:50%;pointer-events:none;}'
+        '.h-badge{display:inline-block;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.18);border-radius:99px;padding:3px 12px;font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px;}'
+        '.h-title{font-size:1.7rem;font-weight:900;line-height:1.15;margin-bottom:8px;font-family:Montserrat,sans-serif;background:linear-gradient(90deg,#ffffff,#a8d8f0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}'
         '.h-sub{font-size:0.82rem;opacity:0.7;line-height:1.5;margin-bottom:14px;}'
-        '.h-ep{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.1);'
-        'border:1px solid rgba(255,255,255,0.15);border-radius:99px;padding:4px 14px;'
-        'font-size:0.75rem;font-weight:700;letter-spacing:0.05em;}'
-        # progress
+        '.h-ep{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);border-radius:99px;padding:4px 14px;font-size:0.75rem;font-weight:700;letter-spacing:0.05em;}'
         '.prog-wrap{margin-top:16px;}'
         '.prog-bar{background:rgba(255,255,255,0.12);border-radius:99px;height:5px;}'
-        '.prog-fill{border-radius:99px;height:5px;transition:width 0.6s ease;'
-        'background:linear-gradient(90deg,#48cae4,#90e0ef);}'
+        '.prog-fill{border-radius:99px;height:5px;transition:width 0.6s ease;background:linear-gradient(90deg,#48cae4,#90e0ef);}'
         '.prog-label{font-size:0.7rem;opacity:0.6;margin-top:4px;}'
         # section
-        # section + cards
-        '.sec-label{font-size:0.68rem;font-weight:800;color:#93c5fd;text-transform:uppercase;'
-        'letter-spacing:0.12em;margin-bottom:4px;display:flex;align-items:center;gap:6px;}'
-        '.sec-label-dot{width:3px;height:14px;background:#3b82f6;border-radius:99px;display:inline-block;}'
-        '.sec-name{font-size:0.88rem;font-weight:900;color:#0a1628;font-family:Montserrat,sans-serif;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid #f1f5f9;}'
-
-        '.sec-title-dot{width:4px;height:24px;background:linear-gradient(180deg,#60a5fa,#3b82f6);border-radius:99px;flex-shrink:0;}'
-        '.sec-title-text{font-size:0.82rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;font-family:Poppins,sans-serif;}'
-        '.preg-card{background:white;border-radius:16px;padding:20px 22px;margin:0 16px 10px;'
-        'position:relative;overflow:hidden;'
-        'border:1px solid #e8f0fe;'
-        'box-shadow:0 4px 20px rgba(15,52,96,0.06);}'
-        '.preg-card::after{content:"";position:absolute;top:-50px;right:-50px;'
-        'width:130px;height:130px;border-radius:50%;'
-        'background:radial-gradient(circle,rgba(147,197,253,0.1),transparent 70%);'
-        'pointer-events:none;}'
-        '.preg-titulo{font-size:0.82rem;font-weight:900;color:#0a1628;margin-bottom:14px;line-height:1.4;font-family:Montserrat,sans-serif;text-transform:uppercase;letter-spacing:0.06em;}'
-        '.preg-titulo .req{color:#f97316;}'
+        '.sec-wrap{margin:0 16px 16px;}'
+        '.sec-header{margin-bottom:8px;}'
+        '.sec-name{font-size:0.88rem;font-weight:900;color:#0a1628;font-family:Montserrat,sans-serif;text-transform:uppercase;letter-spacing:0.08em;}'
+        # preg card
+        '.preg-card{background:white;border-radius:16px;padding:20px 22px;margin-bottom:10px;border:1px solid #e8f0fe;box-shadow:0 2px 12px rgba(15,52,96,0.06);position:relative;overflow:hidden;}'
+        '.preg-card::after{content:"";position:absolute;top:-50px;right:-50px;width:130px;height:130px;border-radius:50%;background:radial-gradient(circle,rgba(147,197,253,0.1),transparent 70%);pointer-events:none;}'
+        '.preg-titulo{font-size:0.82rem;font-weight:900;color:#0a1628;margin-bottom:14px;font-family:Montserrat,sans-serif;text-transform:uppercase;letter-spacing:0.06em;}'
+        '.obs-box{background:#f0f4f8;border-left:3px solid #60a5fa;border-radius:6px;padding:8px 12px;font-size:0.82rem;color:#374151;margin-bottom:14px;line-height:1.5;}'
         # color
-        '.color-grid{display:flex;flex-wrap:nowrap;gap:14px;overflow-x:auto;padding:4px 4px 10px;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;}'
-        '.color-grid::-webkit-scrollbar{height:3px;}'
-        '.color-grid::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:99px;}'
+        '.color-grid{display:flex;flex-wrap:nowrap;gap:14px;overflow-x:hidden;padding:4px 4px 10px;}'
         '.color-item{text-align:center;cursor:pointer;flex-shrink:0;}'
         '.color-circle{width:64px;height:64px;border-radius:50%;margin:0 auto 6px;border:3px solid transparent;transition:all 0.2s;position:relative;box-shadow:0 4px 12px rgba(0,0,0,0.15);}'
         '.color-circle.sel{border-color:#0f3460;box-shadow:0 0 0 4px rgba(15,52,96,0.2),0 4px 12px rgba(0,0,0,0.15);}'
@@ -135,310 +243,107 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '.color-circle.sel .color-check{display:flex;}'
         '.color-name{font-size:10px;color:#64748b;font-weight:600;max-width:64px;line-height:1.2;}'
         # images
-        '.img-grid{display:flex;gap:12px;overflow-x:auto;scroll-behavior:smooth;padding:4px 4px 10px;-webkit-overflow-scrolling:touch;}'
-        '.img-grid::-webkit-scrollbar{height:3px;}'
-        '.img-grid::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:99px;}'
-        '.img-item{background:white;border:2.5px solid #e2e8f0;border-radius:14px;overflow:hidden;cursor:pointer;'
-        'position:relative;transition:all 0.2s;flex:0 0 200px;width:200px;'
-        'box-shadow:0 2px 8px rgba(15,52,96,0.06);}'
-        '.img-item.sel{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,0.15),0 4px 16px rgba(15,52,96,0.12);}'
-        '.img-item img{width:100%;height:160px;object-fit:cover;display:block;}'
-        '.img-item-name{padding:8px 10px;font-size:12px;font-weight:700;color:#0a1628;}'
-        '.img-sel-badge{display:none;position:absolute;top:8px;right:8px;background:#0f3460;color:white;'
-        'border-radius:50%;width:26px;height:26px;align-items:center;justify-content:center;font-size:13px;font-weight:900;'
-        'box-shadow:0 2px 8px rgba(15,52,96,0.3);}'
+        '.img-grid{display:flex;gap:20px;overflow-x:hidden;padding:8px 4px 14px;}'
+        '.img-item{cursor:pointer;position:relative;transition:all 0.2s;flex:0 0 210px;display:flex;flex-direction:column;align-items:center;gap:8px;background:transparent;border:none;}'
+        '.img-circle{width:200px;height:200px;border-radius:50%;overflow:hidden;border:3px solid #e2e8f0;box-shadow:0 4px 14px rgba(15,52,96,0.1);transition:all 0.2s;flex-shrink:0;}'
+        '.img-item.sel .img-circle{border-color:#0f3460;border-width:4px;box-shadow:0 0 0 4px rgba(15,52,96,0.15),0 4px 20px rgba(15,52,96,0.15);}'
+        '.img-circle img{width:100%;height:100%;object-fit:cover;display:block;}'
+        '.img-item-name{font-size:10px;font-weight:700;color:#64748b;text-align:center;font-family:Montserrat,sans-serif;text-transform:uppercase;letter-spacing:0.04em;}'
+        '.img-sel-badge{display:none;position:absolute;top:8px;right:8px;background:#0f3460;color:white;border-radius:50%;width:26px;height:26px;align-items:center;justify-content:center;font-size:13px;font-weight:900;box-shadow:0 2px 8px rgba(15,52,96,0.3);}'
         '.img-item.sel .img-sel-badge{display:flex;}'
-        '.img-zoom-btn{position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.45);color:white;border:none;'
-        'border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;'
-        'backdrop-filter:blur(4px);}'
-        # carousel nav
-        '.carousel-wrap{position:relative;}'
-        '.carousel-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}'
-        '.carousel-nav-btn{background:#0f3460;color:white;border:none;border-radius:50%;width:30px;height:30px;'
-        'font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;'
-        'box-shadow:0 4px 10px rgba(15,52,96,0.2);flex-shrink:0;}'
-        '.carousel-nav-btn:disabled{background:#e2e8f0;color:#94a3b8;cursor:default;box-shadow:none;}'
-        '.carousel-count{font-size:11px;color:#94a3b8;font-weight:600;}'
+        '.img-zoom-btn{position:absolute;bottom:30px;right:8px;background:rgba(255,255,255,0.9);color:#0f3460;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(15,52,96,0.2);}'
+        # carousel
+        '.carousel-wrap{display:flex;align-items:center;gap:8px;}'
+        '.carousel-inner{flex:1;overflow:hidden;}'
+        '.carousel-nav-btn{background:white;color:#0f3460;border:none;border-radius:50%;width:40px;height:40px;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 16px rgba(0,0,0,0.12);}'
+        '.carousel-nav-btn:disabled{background:#f8fafc;color:#e2e8f0;cursor:default;box-shadow:none;}'
         # popup
         '.popup{display:none;position:fixed;inset:0;background:rgba(5,10,20,0.95);z-index:99999;flex-direction:column;align-items:center;justify-content:center;}'
         '.popup.open{display:flex;}'
         '.popup img{max-width:90vw;max-height:75vh;object-fit:contain;border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,0.5);}'
         '.popup-name{color:white;font-size:1.1rem;font-weight:700;margin-top:14px;font-family:Poppins,sans-serif;}'
-        '.popup-close{position:absolute;top:20px;right:24px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);'
-        'color:white;font-size:1.2rem;cursor:pointer;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;}'
-        '.popup-select{margin-top:18px;background:linear-gradient(135deg,#0f3460,#1a5276);color:white;border:none;'
-        'border-radius:10px;padding:12px 32px;font-size:14px;font-weight:700;cursor:pointer;'
-        'box-shadow:0 8px 24px rgba(15,52,96,0.3);font-family:Poppins,sans-serif;}'
-        # select / sino
-        '.sel-select{width:100%;padding:11px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;'
-        'font-family:Poppins,sans-serif;outline:none;color:#0a1628;}'
+        '.popup-close{position:absolute;top:20px;right:24px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:white;font-size:1.2rem;cursor:pointer;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;}'
+        '.popup-select{margin-top:18px;background:linear-gradient(135deg,#0f3460,#1a5276);color:white;border:none;border-radius:10px;padding:12px 32px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(15,52,96,0.3);font-family:Poppins,sans-serif;}'
+        # select/sino
+        '.sel-select{width:100%;padding:11px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;font-family:Poppins,sans-serif;outline:none;color:#0a1628;}'
         '.sel-select:focus{border-color:#0f3460;}'
         '.sino-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}'
-        '.sino-btn{padding:14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:700;'
-        'cursor:pointer;background:white;transition:all 0.15s;font-family:Poppins,sans-serif;color:#0a1628;'
-        'box-shadow:0 2px 8px rgba(15,52,96,0.05);}'
-        '.sino-btn.sel{background:linear-gradient(135deg,#0f3460,#1a5276);color:white;border-color:#0f3460;'
-        'box-shadow:0 6px 20px rgba(15,52,96,0.25);}'
-        '.free-txt{width:100%;padding:11px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;'
-        'resize:vertical;box-sizing:border-box;font-family:Poppins,sans-serif;color:#0a1628;outline:none;}'
-        '.free-txt:focus{border-color:#0f3460;}'
-        # answered dot
+        '.sino-btn{padding:14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;background:white;transition:all 0.15s;font-family:Poppins,sans-serif;color:#0a1628;box-shadow:0 2px 8px rgba(15,52,96,0.05);}'
+        '.sino-btn.sel{background:linear-gradient(135deg,#0f3460,#1a5276);color:white;border-color:#0f3460;box-shadow:0 6px 20px rgba(15,52,96,0.25);}'
+        # indicators
         '.resp-indicator{display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;margin-left:6px;vertical-align:middle;}'
-        # save button
-        '.save-wrap{margin:20px 16px 8px;padding-bottom:16px;}'
-        '.save-btn{width:100%;padding:15px;background:linear-gradient(135deg,#0f3460,#1a5276);color:white;border:none;'
-        'border-radius:14px;font-size:15px;font-weight:900;cursor:pointer;font-family:Montserrat,sans-serif;'
-        'box-shadow:0 8px 28px rgba(15,52,96,0.28);letter-spacing:0.05em;text-transform:uppercase;}'
+        # save
+        '.save-wrap{margin:20px 16px 24px;}'
+        '.save-btn{width:100%;padding:15px;background:linear-gradient(135deg,#0f3460,#1a5276);color:white;border:none;border-radius:14px;font-size:15px;font-weight:900;cursor:pointer;font-family:Montserrat,sans-serif;box-shadow:0 8px 28px rgba(15,52,96,0.28);letter-spacing:0.05em;text-transform:uppercase;}'
         '.save-btn:disabled{opacity:0.5;}'
         '.save-status{text-align:center;font-size:13px;font-weight:600;margin-top:8px;min-height:18px;padding:0 16px;}'
-        '.sec-header{background:#1e3a5f;color:white;font-size:0.78rem;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;padding:8px 14px;border-radius:8px;margin:16px 0 8px;}'
-        '.preg-card{background:white;border:1px solid #e2e8f0;border-radius:12px;padding:16px 18px;margin-bottom:12px;}'
-        '.preg-titulo{font-size:0.9rem;font-weight:700;color:#0f172a;margin-bottom:12px;}'
-        '.preg-titulo .req{color:#f97316;}'
-        # Color circles
-        '.color-grid{display:flex;flex-wrap:nowrap;gap:14px;overflow-x:auto;scroll-behavior:smooth;padding-bottom:8px;-webkit-overflow-scrolling:touch;}'
-        '.color-item{text-align:center;cursor:pointer;}'
-        '.color-circle{width:72px;height:72px;border-radius:50%;margin:0 auto 6px;border:3px solid #e2e8f0;transition:all 0.2s;position:relative;}'
-        '.color-circle.sel{border-color:#0f3460;box-shadow:0 0 0 4px rgba(15,52,96,0.25);}'
-        '.color-check{display:none;position:absolute;inset:0;align-items:center;justify-content:center;color:white;font-size:1.4rem;font-weight:900;text-shadow:0 1px 4px rgba(0,0,0,0.6);}'
-        '.color-circle.sel .color-check{display:flex;}'
-        '.color-name{font-size:11px;color:#64748b;font-weight:600;max-width:72px;}'
-        # Image grid
-        '.img-grid{display:flex;gap:12px;overflow-x:auto;scroll-behavior:smooth;padding-bottom:8px;-webkit-overflow-scrolling:touch;}'
-        '.img-grid::-webkit-scrollbar{height:4px;}'
-        '.img-grid::-webkit-scrollbar-track{background:#f1f5f9;border-radius:99px;}'
-        '.img-grid::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:99px;}'
-        '.img-item{cursor:pointer;border-radius:12px;overflow:hidden;border:3px solid #e2e8f0;transition:all 0.2s;position:relative;background:white;flex:0 0 200px;width:200px;}'
-        '.img-item.sel{border-color:#0f3460;box-shadow:0 0 0 4px rgba(15,52,96,0.25);}'
-        '.img-item img{width:100%;height:180px;object-fit:cover;display:block;}'
-        '.img-item-name{padding:8px 10px;font-size:12px;font-weight:700;color:#0f172a;}'
-        '.img-sel-badge{display:none;position:absolute;top:8px;right:8px;background:#0f3460;color:white;border-radius:50%;width:28px;height:28px;align-items:center;justify-content:center;font-size:14px;font-weight:900;}'
-        '.img-item.sel .img-sel-badge{display:flex;}'
-        '.img-zoom-btn{position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.5);color:white;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;}'
-        # Fullscreen popup
-        '.popup{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;flex-direction:column;align-items:center;justify-content:center;}'
-        '.popup.open{display:flex;}'
-        '.popup img{max-width:90vw;max-height:80vh;object-fit:contain;border-radius:12px;}'
-        '.popup-name{color:white;font-size:1.1rem;font-weight:700;margin-top:12px;}'
-        '.popup-close{position:absolute;top:16px;right:20px;background:none;border:none;color:white;font-size:2rem;cursor:pointer;}'
-        '.popup-select{margin-top:16px;background:#0f3460;color:white;border:none;border-radius:8px;padding:10px 28px;font-size:14px;font-weight:700;cursor:pointer;}'
-        # Select / si_no
-        '.sel-select{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;}'
-        '.sino-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}'
-        '.sino-btn{padding:14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;background:white;transition:all 0.15s;}'
-        '.sino-btn.sel{background:#0f3460;color:white;border-color:#0f3460;}'
-        # Textarea
-        '.carousel-wrap{position:relative;}'
-        '.carousel-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}'
-        '.carousel-nav-btn{background:#1e3a5f;color:white;border:none;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}'
-        '.carousel-nav-btn:disabled{background:#e2e8f0;color:#94a3b8;cursor:default;}'
-        '.carousel-count{font-size:12px;color:#64748b;font-weight:700;}'
-        '.free-txt{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;resize:vertical;box-sizing:border-box;}'
-        # Save button
-        '.save-wrap{margin-top:16px;margin-bottom:24px;}'
-        '.save-btn{width:100%;padding:14px;background:#0f3460;color:white;border:none;border-radius:10px;font-size:15px;font-weight:900;cursor:pointer;}'
-        '.save-btn:disabled{opacity:0.5;}'
-        '.save-status{text-align:center;font-size:13px;font-weight:600;margin-top:8px;min-height:18px;}'
-        '.resp-indicator{display:inline-block;width:8px;height:8px;border-radius:50%;background:#16a34a;margin-left:6px;}'
     )
-
-    # Build questions HTML
-    pregs_html = ''
-    for sec, preg_list in secciones.items():
-        _first_in_sec = True
-        for p in preg_list:
-            pid = str(p.get('id',''))
-            ptipo = p.get('tipo','texto')
-            ptext = p.get('pregunta','')
-            popts = p.get('opciones') or []
-            preq = p.get('requerida', True)
-            prev = respuestas_map.get(pid, '')
-
-            pregs_html += '<div class="preg-card" id="card-' + pid + '">'
-            if _first_in_sec:
-                pregs_html += '<div class="sec-name">' + sec + '</div>'
-                _first_in_sec = False
-            req_span = '<span class="req"> ⭐</span>' if preq else ''
-            answered = '&nbsp;<span class="resp-indicator"></span>' if prev else ''
-            pregs_html += '<div class="preg-titulo">' + ptext + req_span + answered + '</div>'
-
-            if ptipo == 'color':
-                cgrid_id = 'cgrid-' + pid
-                pregs_html += '<div class="carousel-nav">'
-                pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + cgrid_id + '\',-1)">&#8249;</button>'
-                pregs_html += '<span class="carousel-count" id="cnt-' + pid + '"></span>'
-                pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + cgrid_id + '\',1)">&#8250;</button>'
-                pregs_html += '</div>'
-                pregs_html += '<div class="color-grid" id="' + cgrid_id + '">'
-                for opt in popts:
-                    oname = opt.get('nombre','') if isinstance(opt, dict) else str(opt)
-                    ohex = opt.get('hex','#ccc') if isinstance(opt, dict) else '#ccc'
-                    sel_cls = ' sel' if prev == oname else ''
-                    pregs_html += '<div class="color-item" onclick="window.selectOpt(\'' + pid + '\',\'' + oname.replace("'","") + '\')">'
-                    pregs_html += '<div class="color-circle' + sel_cls + '" style="background:' + ohex + ';">'
-                    pregs_html += '<div class="color-check">✓</div></div>'
-                    pregs_html += '<div class="color-name">' + oname + '</div>'
-                    pregs_html += '</div>'
-                pregs_html += '</div>'
-
-            elif ptipo == 'imagen':
-                grid_id = 'grid-' + pid
-                pregs_html += '<div class="carousel-nav">'
-                pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + grid_id + '\',-1)">&#8249;</button>'
-                pregs_html += '<span class="carousel-count" id="cnt-' + pid + '"></span>'
-                pregs_html += '<button class="carousel-nav-btn" onclick="window.scrollCarousel(\'' + grid_id + '\',1)">&#8250;</button>'
-                pregs_html += '</div>'
-                pregs_html += '<div class="img-grid" id="' + grid_id + '" onscroll="window.updateCarouselCount(\'' + grid_id + '\',\'' + pid + '\',this)">'
-                for oi, opt in enumerate(popts):
-                    oname = opt.get('nombre','') if isinstance(opt, dict) else str(opt)
-                    ourl = opt.get('url','') if isinstance(opt, dict) else ''
-                    sel_cls = ' sel' if prev == oname else ''
-                    popup_id = 'popup-' + pid + '-' + str(oi)
-                    pregs_html += '<div class="img-item' + sel_cls + '" id="imgitem-' + pid + '-' + str(oi) + '">'
-                    if ourl:
-                        pregs_html += '<img src="' + ourl + '" onclick="window.selectOpt(\'' + pid + '\',\'' + oname.replace("'","") + '\')" alt="' + oname + '">'
-                        pregs_html += '<button class="img-zoom-btn" onclick="event.stopPropagation();window.openPopup(\'' + popup_id + '\')" title="Ver ampliada">&#128269;</button>'
-                    else:
-                        pregs_html += '<div style="height:180px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:2rem;" onclick="window.selectOpt(\'' + pid + '\',\'' + oname.replace("'","") + '\')">&#128230;</div>'
-                    pregs_html += '<div class="img-sel-badge">✓</div>'
-                    pregs_html += '<div class="img-item-name">' + oname + '</div>'
-                    pregs_html += '</div>'
-                    # Fullscreen popup for this image
-                    if ourl:
-                        pregs_html += '<div class="popup" id="' + popup_id + '">'
-                        pregs_html += '<button class="popup-close" onclick="window.closePopup(\'' + popup_id + '\')">&#x2715;</button>'
-                        pregs_html += '<img src="' + ourl + '">'
-                        pregs_html += '<div class="popup-name">' + oname + '</div>'
-                        pregs_html += '<button class="popup-select" onclick="window.selectOpt(\'' + pid + '\',\'' + oname.replace("'","") + '\');window.closePopup(\'' + popup_id + '\')">✅ Seleccionar esta opción</button>'
-                        pregs_html += '</div>'
-                pregs_html += '</div>'
-
-            elif ptipo == 'select':
-                opts_html = '<option value="">-- Selecciona --</option>'
-                for opt in popts:
-                    oname = opt.get('nombre','') if isinstance(opt, dict) else str(opt)
-                    sel = ' selected' if prev == oname else ''
-                    opts_html += '<option value="' + oname + '"' + sel + '>' + oname + '</option>'
-                pregs_html += '<select class="sel-select" id="sel-' + pid + '" onchange="window.selectOpt(\'' + pid + '\',this.value)">' + opts_html + '</select>'
-
-            elif ptipo == 'si_no':
-                si_sel = ' sel' if prev == 'Sí' else ''
-                no_sel = ' sel' if prev == 'No' else ''
-                pregs_html += '<div class="sino-row">'
-                pregs_html += '<button class="sino-btn' + si_sel + '" id="si-' + pid + '" onclick="window.selectOpt(\'' + pid + '\',\'Sí\')">✅ Sí</button>'
-                pregs_html += '<button class="sino-btn' + no_sel + '" id="no-' + pid + '" onclick="window.selectOpt(\'' + pid + '\',\'No\')">❌ No</button>'
-                pregs_html += '</div>'
-
-            else:  # texto
-                pregs_html += '<textarea class="free-txt" id="txt-' + pid + '" rows="3" placeholder="Escribe tu respuesta aqui..." onchange="window.selectOpt(\'' + pid + '\',this.value)">' + prev + '</textarea>'
-
-            pregs_html += '</div>'  # end preg-card
-
-    # Serialize respuestas for JS
-    resps_init = json.dumps(respuestas_map, ensure_ascii=True)
-
-    col_prog = '#16a34a' if pct_prog == 100 else ('#f97316' if pct_prog >= 50 else '#ffffff')
 
     js_lines = [
         'var S="' + supa_url + '",K="' + supa_key + '",EP="' + ep + '";',
-        'window.scrollCarousel=function(gid,dir){',
-        '  var el=document.getElementById(gid);',
-        '  if(!el)return;',
-        '  el.scrollBy({left:dir*220,behavior:"smooth"});',
-        '};',
-        'window.updateCarouselCount=function(gid,pid,el){',
-        '  var cnt=document.getElementById("cnt-"+pid);',
-        '  if(!cnt)return;',
-        '  var items=el.children.length;',
-        '  var visible=Math.round(el.clientWidth/220);',
-        '  var cur=Math.round(el.scrollLeft/220)+1;',
-        '  cnt.textContent=cur+" / "+items;',
-        '};',
-        '// Init carousel counts after render',
-        'setTimeout(function(){',
-        '  document.querySelectorAll(".img-grid,.color-grid").forEach(function(el){',
-        '    var pid=el.id.replace("grid-","").replace("cgrid-","");',
-        '    var cnt=document.getElementById("cnt-"+pid);',
-        '    if(cnt)cnt.textContent="1 / "+el.children.length;',
-        '  });',
-        '},200);',
-
-        'var resps=' + resps_init + ';',
+        'var resps=' + resps_json + ';',
         'var pendingSave={};',
 
-        'window.selectOpt=function(pid,val){',
-        '  resps[pid]=val;',
-        '  pendingSave[pid]=val;',
-        '  updateCardUI(pid,val);',
+        'window.selectOpt=function(iid,val){',
+        '  resps[iid]=val;pendingSave[iid]=val;',
+        '  updateUI(iid,val);',
         '};',
 
-        'function updateCardUI(pid,val){',
-        '  var card=document.getElementById("card-"+pid);',
-        '  if(!card)return;',
-        '  // Color circles',
-        '  card.querySelectorAll(".color-item").forEach(function(el){',
-        '    var circle=el.querySelector(".color-circle");',
-        '    var name=el.querySelector(".color-name");',
-        '    if(name&&circle){',
-        '      if(name.textContent===val){circle.classList.add("sel");}',
-        '      else{circle.classList.remove("sel");}',
-        '    }',
+        'window.selectFromDropdown=function(sel){',
+        '  var parts=sel.value.split(":");',
+        '  if(parts.length>=2){var iid=parts[0];var val=parts.slice(1).join(":");window.selectOpt(iid,val);}',
+        '};',
+
+        'function updateUI(iid,val){',
+        '  // color circles',
+        '  document.querySelectorAll(".color-item").forEach(function(el){',
+        '    var c=el.querySelector(".color-circle");',
+        '    var n=el.querySelector(".color-name");',
+        '    if(n&&c){if(n.textContent===val)c.classList.add("sel");else c.classList.remove("sel");}',
         '  });',
-        '  // Images',
-        '  card.querySelectorAll(".img-item").forEach(function(el){',
-        '    var name=el.querySelector(".img-item-name");',
-        '    if(name){',
-        '      if(name.textContent===val){el.classList.add("sel");}',
-        '      else{el.classList.remove("sel");}',
-        '    }',
+        '  // images',
+        '  var imgEl=document.getElementById("imgitem-"+iid);',
+        '  if(imgEl){',
+        '    document.querySelectorAll(".img-item").forEach(function(el){',
+        '      if(el.id==="imgitem-"+iid)el.classList.add("sel");',
+        '    });',
+        '  }',
+        '  // sino',
+        '  document.querySelectorAll(".sino-btn").forEach(function(b){',
+        '    if((b.textContent.includes("Sí")&&val==="Sí")||(b.textContent.includes("No")&&val==="No"))b.classList.add("sel");',
+        '    else b.classList.remove("sel");',
         '  });',
-        '  // Sino',
-        '  var si=document.getElementById("si-"+pid);',
-        '  var no=document.getElementById("no-"+pid);',
-        '  if(si&&no){',
-        '    if(val==="Sí"){si.classList.add("sel");no.classList.remove("sel");}',
-        '    else if(val==="No"){no.classList.add("sel");si.classList.remove("sel");}',
-        '  }',
-        '  // Answered indicator',
-        '  var titulo=card.querySelector(".preg-titulo");',
-        '  if(titulo){',
-        '    var existing=titulo.querySelector(".resp-indicator");',
-        '    if(val&&!existing){',
-        '      var dot=document.createElement("span");dot.className="resp-indicator";titulo.appendChild(dot);',
-        '    } else if(!val&&existing){existing.remove();}',
-        '  }',
+        '  // answered dot',
+        '  var card=document.querySelector("[id=\'card-"+iid.replace(/ /g,"_")+"\'"]");',
+        '  // add green dot to titulo if answered',
         '}',
 
+        'window.scrollCarousel=function(gid,dir){',
+        '  var el=document.getElementById(gid);if(!el)return;',
+        '  el.scrollBy({left:dir*220,behavior:"smooth"});',
+        '};',
+
         'window.openPopup=function(id){',
-        '  var el=document.getElementById(id);',
-        '  if(el){el.classList.add("open");document.body.style.overflow="hidden";}',
+        '  var el=document.getElementById(id);if(el){el.classList.add("open");document.body.style.overflow="hidden";}',
         '};',
-
         'window.closePopup=function(id){',
-        '  var el=document.getElementById(id);',
-        '  if(el){el.classList.remove("open");document.body.style.overflow="";}',
+        '  var el=document.getElementById(id);if(el){el.classList.remove("open");document.body.style.overflow="";}',
         '};',
-
-        # Close popup on backdrop click
-        'document.addEventListener("click",function(e){',
-        '  if(e.target.classList.contains("popup")){',
-        '    e.target.classList.remove("open");document.body.style.overflow="";',
-        '  }',
-        '});',
+        'document.addEventListener("click",function(e){if(e.target.classList.contains("popup")){e.target.classList.remove("open");document.body.style.overflow="";}});',
 
         'window.guardarFormulario=async function(){',
         '  var btn=document.getElementById("save-btn");',
         '  var st=document.getElementById("save-status");',
         '  btn.disabled=true;st.textContent="Guardando...";st.style.color="#2563eb";',
         '  var entries=Object.entries(pendingSave);',
-        '  if(!entries.length){st.textContent="No hay cambios que guardar";st.style.color="#94a3b8";btn.disabled=false;return;}',
+        '  if(!entries.length){st.textContent="No hay cambios";st.style.color="#94a3b8";btn.disabled=false;return;}',
         '  try{',
         '    for(var i=0;i<entries.length;i++){',
-        '      var pid=entries[i][0],val=entries[i][1];',
+        '      var iid=entries[i][0],val=entries[i][1];',
         '      await fetch(S+"/rest/v1/formulario_respuestas",{',
         '        method:"POST",',
         '        headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},',
-        '        body:JSON.stringify({cotizacion_numero:EP,pregunta_id:pid,respuesta:val})',
+        '        body:JSON.stringify({cotizacion_numero:EP,item_id:iid,respuesta:val})',
         '      });',
         '    }',
         '    pendingSave={};',
@@ -463,13 +368,13 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '<div class="h-sub">Estás eligiendo los materiales que van a darle vida y personalidad a tu casa container. ¡Cada elección cuenta!</div>'
         '<div class="h-ep">📋 ' + ep + '</div>'
         '<div class="prog-wrap">'
-        '<div class="prog-bar"><div class="prog-fill" style="width:' + str(pct_prog) + '%;"></div></div>'
-        '<div class="prog-label">' + str(total_resp) + ' de ' + str(total_req) + ' selecciones — ' + str(pct_prog) + '% completado</div>'
+        '<div class="prog-bar"><div class="prog-fill" style="width:' + str(pct) + '%;"></div></div>'
+        '<div class="prog-label">' + str(resp_grupos) + ' de ' + str(total_grupos) + ' secciones completadas — ' + str(pct) + '%</div>'
         '</div>'
         '</div>'
         + pregs_html +
         '<div class="save-wrap">'
-        '<button class="save-btn" id="save-btn" onclick="window.guardarFormulario()">💾 Guardar formulario</button>'
+        '<button class="save-btn" id="save-btn" onclick="window.guardarFormulario()">💾 Guardar mis elecciones</button>'
         '<div class="save-status" id="save-status"></div>'
         '</div>'
         '</div>'
@@ -477,6 +382,7 @@ def build_formulario_cliente_html(preguntas, respuestas_map, supa_url, supa_key,
         '</body></html>'
     )
     return html
+
 def login_usuario(email, password):
     """Inicia sesión con email y contraseña."""
     try:
@@ -895,54 +801,37 @@ if _modo_cliente:
         _primer_nombre = _nom_cli.split()[0].capitalize() if _nom_cli else "Cliente"
 
         try:
-            _pregs = supabase.table('formulario_preguntas').select('*').eq(
-                'cotizacion_numero', _ep_cli
-            ).order('orden').execute().data or []
+            _cat_cli = supabase.table('catalogo_materiales').select('*').eq('activo',True).order('categoria').order('orden_grupo').order('titulo_grupo').order('nombre').execute().data or []
         except:
-            _pregs = []
+            _cat_cli = []
+        try:
+            _cfg_cli = supabase.table('formulario_config').select('*').eq('cotizacion_numero',_ep_cli).order('orden').execute().data or []
+        except:
+            _cfg_cli = []
 
-        if not _pregs:
+        if not _cfg_cli:
             st.markdown(f"""
-            <style>
-            .cli-empty{{max-width:560px;margin:60px auto;text-align:center;font-family:Poppins,sans-serif;}}
-            </style>
-            <div style='display:flex;justify-content:flex-end;padding:16px 24px 0;'>{_logo_tag}</div>
-            <div class="cli-empty">
+            <div style='max-width:560px;margin:60px auto;text-align:center;font-family:Poppins,sans-serif;'>
               <div style='font-size:3rem;margin-bottom:16px;'>📋</div>
-              <div style='font-size:1.4rem;font-weight:900;color:#0a1628;margin-bottom:8px;'>
-                Hola {_primer_nombre}, ¡ya casi!
-              </div>
-              <div style='color:#64748b;font-size:0.95rem;line-height:1.6;'>
-                Tu formulario de materiales está siendo preparado por nuestro equipo.<br>
-                Te avisaremos cuando esté listo. ¡La espera va a valer la pena! 🏡
-              </div>
+              <div style='font-size:1.4rem;font-weight:900;color:#0a1628;margin-bottom:8px;'>Hola {_primer_nombre}, ¡ya casi!</div>
+              <div style='color:#64748b;font-size:0.95rem;line-height:1.6;'>Tu formulario está siendo preparado. ¡La espera va a valer la pena! 🏡</div>
             </div>
             """, unsafe_allow_html=True)
         else:
             try:
-                _resps_db = supabase.table('formulario_respuestas').select('*').eq(
-                    'cotizacion_numero', _ep_cli
-                ).execute().data or []
-                _resps_map = {r['pregunta_id']: r['respuesta'] for r in _resps_db}
+                _resps_db = supabase.table('formulario_respuestas').select('*').eq('cotizacion_numero',_ep_cli).execute().data or []
+                _resps_map = {r.get('item_id') or r.get('pregunta_id',''): r['respuesta'] for r in _resps_db}
             except:
                 _resps_map = {}
-
-            _total_req  = sum(1 for p in _pregs if p.get('requerida'))
-            _total_resp = sum(1 for p in _pregs if p.get('requerida') and _resps_map.get(p['id']))
-            _pct_prog   = int(_total_resp / _total_req * 100) if _total_req > 0 else 0
-
             import streamlit.components.v1 as _form_comp
             _form_html = build_formulario_cliente_html(
-                _pregs, _resps_map, SUPABASE_URL, SUPABASE_KEY,
-                _ep_cli, _nom_cli, _pct_prog, _total_req, _total_resp,
-                _logo_b64_cli
+                _cat_cli, _cfg_cli, _resps_map, SUPABASE_URL, SUPABASE_KEY,
+                _ep_cli, _nom_cli, _logo_b64_cli
             )
-            # Inject JS to auto-resize iframe
-            _resize_js = '<script>window.onload=function(){var h=document.body.scrollHeight;window.parent.postMessage({type:"streamlit:setFrameHeight",height:h},"*");setTimeout(function(){var h2=document.body.scrollHeight;window.parent.postMessage({type:"streamlit:setFrameHeight",height:h2},"*");},500);};</script>'
+            _resize_js = '<script>window.onload=function(){var h=document.body.scrollHeight;window.parent.postMessage({type:"streamlit:setFrameHeight",height:h},"*");setTimeout(function(){var h2=document.body.scrollHeight;window.parent.postMessage({type:"streamlit:setFrameHeight",height:h2},"*");},600);};</script>'
             _form_html = _form_html.replace('</body>', _resize_js + '</body>')
-            _form_height = max(1200, len(_pregs) * 500)
+            _form_height = max(1200, len(_cfg_cli) * 450)
             _form_comp.html(_form_html, height=_form_height, scrolling=False)
-
         if st.button("← Salir", key="cli_logout"):
             for _k in ['_cliente_ep','_cliente_ok','_cliente_nombre','_cliente_proyecto']:
                 st.session_state.pop(_k, None)
