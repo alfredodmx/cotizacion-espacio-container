@@ -1683,22 +1683,21 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
 
         # Add new item + save/cancel buttons
         cat_html += '<div style="margin-top:14px;border-top:1px solid #e2e8f0;padding-top:12px;">'
-        cat_html += '<div style="font-weight:700;font-size:11px;color:#64748b;margin-bottom:8px;text-transform:uppercase;">Agregar nuevo ítem:</div>'
-        cat_html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;">'
-        cat_html += '<input id="new-tg-' + cat + '" type="text" placeholder="Título del ítem (ej: Color de muros)" class="mini-input" style="flex:2;min-width:160px;">'
-        cat_html += '<input id="new-nombre-' + cat + '" type="text" placeholder="Nombre opción" class="mini-input" style="flex:1;min-width:100px;">'
-        cat_html += '<select id="new-tipo-' + cat + '" onchange="window.toggleNuevoTipo(\'' + cat + '\')" style="min-width:100px;padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;">'
-        cat_html += '<option value="imagen">🖼 Imagen</option><option value="color">🎨 Color</option>'
+        cat_html += '<div style="font-weight:700;font-size:11px;color:#64748b;margin-bottom:8px;text-transform:uppercase;">Agregar nuevo ítem a ' + cat + ':</div>'
+        cat_html += '<div style="margin-bottom:8px;"><label class="field-label">Título del grupo</label>'
+        cat_html += '<input id="new-tg-' + cat + '" type="text" placeholder="ej: Color de muros" class="mini-input"></div>'
+        cat_html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">'
+        cat_html += '<div><label class="field-label">Tipo</label>'
+        cat_html += '<select id="new-tipo-' + cat + '" onchange="window.renderAddForm(\'' + cat + '\')" style="width:100%;padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;">'
+        cat_html += '<option value="imagen">🖼 Imagen</option>'
+        cat_html += '<option value="color">🎨 Color</option>'
+        cat_html += '<option value="select">📋 Lista</option>'
+        cat_html += '<option value="si_no">✅ Sí/No</option>'
         cat_html += '</select></div>'
-        cat_html += '<div id="new-img-wrap-' + cat + '" style="margin-bottom:6px;">'
-        cat_html += '<input id="new-file-' + cat + '" type="file" accept="image/*" style="font-size:11px;" onchange="window.previewNewItem(\'' + cat + '\')">'
-        cat_html += '<div id="new-prev-' + cat + '"></div></div>'
-        cat_html += '<div id="new-color-wrap-' + cat + '" style="display:none;align-items:center;gap:8px;margin-bottom:6px;">'
-        cat_html += '<input type="color" id="new-hex-' + cat + '" value="#ffffff" style="width:40px;height:34px;border-radius:5px;border:1px solid #cbd5e1;cursor:pointer;">'
-        cat_html += '<span style="font-size:11px;color:#64748b;">Color</span></div>'
-        cat_html += '<div style="display:flex;gap:8px;margin-top:10px;">'
-        cat_html += '<button onclick="window.agregarItem(\'' + cat + '\')" class="btn-success" style="flex:1;">+ Agregar ítem</button>'
-        cat_html += '<button onclick="window.toggleEdit(\'' + cat + '\')" class="btn-cancel" style="flex:1;padding:7px;">✕ Cancelar</button>'
+        cat_html += '<div id="new-cant-wrap-' + cat + '"><label class="field-label">Cantidad</label>'
+        cat_html += '<input type="number" id="new-cantidad-' + cat + '" value="3" min="1" max="20" onchange="window.renderAddForm(\'' + cat + '\')" style="width:100%;padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;"></div>'
+        cat_html += '</div>'
+        cat_html += '<div id="new-opts-wrap-' + cat + '"></div>'
         cat_html += '</div>'
         cat_html += '<div id="edit-status-' + cat + '" style="font-size:11px;font-weight:600;min-height:16px;margin-top:6px;"></div>'
         cat_html += '</div>'
@@ -1885,6 +1884,84 @@ window.agregarItem=async function(cat){
   if(r.ok){st.textContent="✅ Agregado";st.style.color="#16a34a";setTimeout(doRerun,600);}
   else{st.textContent="Error: "+r.status;st.style.color="#dc2626";}
 };
+
+// Render dynamic options form for adding item to existing category
+window.renderAddForm=function(cat){
+  var tipo=document.getElementById('new-tipo-'+cat).value;
+  var n=parseInt(document.getElementById('new-cantidad-'+cat).value)||3;
+  var cantWrap=document.getElementById('new-cant-wrap-'+cat);
+  if(cantWrap)cantWrap.style.display=tipo==='si_no'?'none':'block';
+  var wrap=document.getElementById('new-opts-wrap-'+cat);
+  if(!wrap)return;
+  var html='';
+  if(tipo==='si_no'){
+    html='<div style="font-size:11px;color:#64748b;padding:6px;background:#f8fafc;border-radius:5px;">Solo tendrá Sí y No.</div>';
+  } else {
+    for(var i=0;i<n;i++){
+      if(tipo==='color'){
+        html+='<div style="display:grid;grid-template-columns:1fr 44px 36px;gap:6px;margin-bottom:5px;align-items:center;">';
+        html+='<input type="text" id="nadd-nom-'+cat+'-'+i+'" placeholder="Nombre '+(i+1)+'" class="mini-input">';
+        html+='<input type="color" id="nadd-hex-'+cat+'-'+i+'" value="#ffffff" style="width:44px;height:34px;border-radius:4px;border:1px solid #cbd5e1;cursor:pointer;" oninput="document.getElementById(\'nadd-prev-'+cat+'-'+i+'\').style.background=this.value">';
+        html+='<div id="nadd-prev-'+cat+'-'+i+'" style="width:32px;height:32px;border-radius:50%;background:#ffffff;border:1px solid #e2e8f0;"></div>';
+        html+='</div>';
+      } else if(tipo==='imagen'){
+        html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:5px;align-items:center;">';
+        html+='<input type="text" id="nadd-nom-'+cat+'-'+i+'" placeholder="Nombre '+(i+1)+'" class="mini-input">';
+        html+='<input type="file" id="nadd-file-'+cat+'-'+i+'" accept="image/*" style="font-size:11px;">';
+        html+='</div>';
+      } else {
+        html+='<input type="text" id="nadd-nom-'+cat+'-'+i+'" placeholder="Opción '+(i+1)+'" class="mini-input" style="margin-bottom:5px;">';
+      }
+    }
+  }
+  wrap.innerHTML=html;
+};
+
+window.agregarItemCompleto=async function(cat){
+  var tg=document.getElementById('new-tg-'+cat).value.trim();
+  var tipo=document.getElementById('new-tipo-'+cat).value;
+  var n=parseInt(document.getElementById('new-cantidad-'+cat).value)||3;
+  var st=document.getElementById('edit-status-'+cat);
+  var items=[];
+  if(tipo==='si_no'){
+    items=[{nombre:'Sí',hex:'',url:''},{nombre:'No',hex:'',url:''}];
+  } else {
+    for(var i=0;i<n;i++){
+      var nomEl=document.getElementById('nadd-nom-'+cat+'-'+i);
+      if(!nomEl||!nomEl.value.trim())continue;
+      var item={nombre:nomEl.value.trim(),hex:'',url:''};
+      if(tipo==='color'){item.hex=document.getElementById('nadd-hex-'+cat+'-'+i).value;}
+      else if(tipo==='imagen'){
+        var fEl=document.getElementById('nadd-file-'+cat+'-'+i);
+        if(fEl&&fEl.files[0]){
+          st.textContent='Subiendo imagen '+(i+1)+'...';st.style.color='#2563eb';
+          var file=fEl.files[0],ext=file.name.split('.').pop();
+          var path='catalogo/'+Date.now()+'_'+Math.random().toString(36).substr(2,5)+'.'+ext;
+          var ur=await fetch(S+'/storage/v1/object/formulario-imagenes/'+path,{method:'POST',headers:{'Authorization':'Bearer '+K,'Content-Type':file.type,'x-upsert':'true'},body:file});
+          if(!ur.ok){st.textContent='Error subiendo';st.style.color='#dc2626';return;}
+          item.url=S+'/storage/v1/object/public/formulario-imagenes/'+path;
+        }
+      }
+      items.push(item);
+    }
+  }
+  if(!items.length){st.textContent='Agrega al menos una opción';st.style.color='#dc2626';return;}
+  st.textContent='Guardando...';st.style.color='#2563eb';
+  for(var j=0;j<items.length;j++){
+    var it=items[j];
+    var body={categoria:cat,nombre:it.nombre,titulo_grupo:tg,tipo:tipo,imagen_url:it.url||'',hex:it.hex||'',activo:true};
+    var r=await fetch(S+'/rest/v1/catalogo_materiales',{method:'POST',headers:{'Authorization':'Bearer '+K,'apikey':K,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(body)});
+    if(!r.ok){st.textContent='Error: '+r.status;st.style.color='#dc2626';return;}
+  }
+  st.textContent='✅ Ítem agregado';st.style.color='#16a34a';
+  setTimeout(doRerun,700);
+};
+
+// Init add forms for all categories
+document.querySelectorAll('[id^="new-tipo-"]').forEach(function(el){
+  var cat=el.id.replace('new-tipo-','');
+  window.renderAddForm(cat);
+});
 
 // ── NUEVA CATEGORÍA ───────────────────────────────────────
 function renderNuevaCat(){
