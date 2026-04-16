@@ -1561,15 +1561,18 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
 
     # Group by category → titulo_grupo
     grupos = {}
+    orden_grupos = {}  # cat -> {tg -> orden}
     for c in cat_items:
         cat = c.get('categoria', 'General')
         if cat not in grupos:
             grupos[cat] = {}
+            orden_grupos[cat] = {}
         tg = (c.get('titulo_grupo') or '').strip()
         if not tg:
             tg = '(Sin grupo)'
         if tg not in grupos[cat]:
             grupos[cat][tg] = []
+            orden_grupos[cat][tg] = c.get('orden_grupo') or 0
         grupos[cat][tg].append(c)
 
     all_cats = sorted(grupos.keys())
@@ -1623,7 +1626,7 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
         cat_html += '</div>'
 
         # Subgroups
-        for tg, items in sorted(subgrupos.items()):
+        for tg, items in sorted(subgrupos.items(), key=lambda x: orden_grupos.get(cat, {}).get(x[0], 0)):
             tg_display = tg
             tg_id = tg.replace(' ','_').replace("'","").replace('(','').replace(')','')[:30]
             itipo = items[0].get('tipo','imagen') if items else 'imagen'
@@ -1634,13 +1637,18 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
 
             # Subgroup header with editable title
             cat_html += '<div class="subgroup-header">'
+            _orden_val = str(orden_grupos.get(cat, {}).get(tg, 0))
             cat_html += '<div style="display:flex;align-items:center;gap:8px;flex:1;">'
+            cat_html += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">'
+            cat_html += '<span style="font-size:9px;color:#94a3b8;font-weight:700;">ORDEN</span>'
+            cat_html += '<input type="number" value="' + _orden_val + '" id="tg-orden-' + cat + '-' + tg_id + '" min="0" max="99" style="width:48px;padding:3px 5px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px;font-weight:700;text-align:center;">'
+            cat_html += '</div>'
             cat_html += '<span style="font-size:13px;">' + badge + '</span>'
-            cat_html += '<input type="text" value="' + tg_display + '" id="tg-rename-' + cat + '-' + tg_id + '" class="mini-input" style="max-width:200px;font-weight:700;" placeholder="Nombre del ítem">'
+            cat_html += '<input type="text" value="' + tg_display + '" id="tg-rename-' + cat + '-' + tg_id + '" class="mini-input" style="max-width:180px;font-weight:700;" placeholder="Nombre del ítem">'
             cat_html += '<span style="font-size:10px;color:#94a3b8;">(' + str(len(items)) + ')</span>'
             cat_html += '</div>'
             cat_html += '<div style="display:flex;gap:4px;">'
-            cat_html += '<button onclick="window.renombrarGrupo(\'' + cat + '\',\'' + tg.replace("'","\\'") + '\',\'' + tg_id + '\')" class="btn-save-sm">💾</button>'
+            cat_html += '<button onclick="window.renombrarGrupo(\'' + cat + '\',\'' + tg.replace("'","\\'") + '\',\'' + tg_id + '\')" class="btn-save-sm" title="Guardar nombre y orden">💾 Guardar</button>'
             cat_html += '<button onclick="window.showClonar(\'' + cat + '\',\'' + tg_id + '\')" class="btn-clone">📋 Clonar</button>'
             cat_html += '<button onclick="window.eliminarGrupo(\'' + cat + '\',\'' + tg.replace("'","\\'") + '\',' + ids_json + ')" class="btn-del-sm">🗑</button>'
             cat_html += '</div></div>'
@@ -1799,7 +1807,9 @@ window.renombrarGrupo=async function(cat,tgOld,tgId){
   var items=ALL_ITEMS.filter(function(it){return it.categoria===cat&&(it.titulo_grupo||"(Sin grupo)")===tgOld;});
   var ids=items.map(function(it){return it.id;});
   if(!ids.length)return;
-  var r=await fetch(S+"/rest/v1/catalogo_materiales?id=in.("+ids.join(",")+")",{method:"PATCH",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({titulo_grupo:nuevo})});
+  var ordenEl=document.getElementById('tg-orden-'+cat+'-'+tgId);
+  var orden=ordenEl?parseInt(ordenEl.value)||0:0;
+  var r=await fetch(S+"/rest/v1/catalogo_materiales?id=in.("+ids.join(",")+")",{method:"PATCH",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({titulo_grupo:nuevo,orden_grupo:orden})});
   if(r.ok){el.style.borderColor="#16a34a";setTimeout(function(){doRerun();},800);}
   else alert("Error: "+r.status);
 };
@@ -1873,7 +1883,7 @@ window.agregarItem=async function(cat){
   var tipoi=document.getElementById("new-tipo-"+cat).value;
   var st=document.getElementById("edit-status-"+cat);
   if(!nombre){st.textContent="Escribe el nombre del ítem";st.style.color="#dc2626";return;}
-  var body={categoria:cat,nombre:nombre,titulo_grupo:tg,activo:true,tipo:tipoi,imagen_url:"",hex:""};
+  var body={categoria:cat,nombre:nombre,titulo_grupo:tg,activo:true,tipo:tipoi,imagen_url:"",hex:"",orden_grupo:0};
   if(tipoi==="imagen"){
     var fEl=document.getElementById("new-file-"+cat);
     if(fEl&&fEl.files[0]){
@@ -1957,7 +1967,7 @@ window.agregarItemCompleto=async function(cat){
   st.textContent='Guardando...';st.style.color='#2563eb';
   for(var j=0;j<items.length;j++){
     var it=items[j];
-    var body={categoria:cat,nombre:it.nombre,titulo_grupo:tg,tipo:tipo,imagen_url:it.url||'',hex:it.hex||'',activo:true};
+    var body={categoria:cat,nombre:it.nombre,titulo_grupo:tg,tipo:tipo,imagen_url:it.url||'',hex:it.hex||'',activo:true,orden_grupo:0};
     var r=await fetch(S+'/rest/v1/catalogo_materiales',{method:'POST',headers:{'Authorization':'Bearer '+K,'apikey':K,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(body)});
     if(!r.ok){st.textContent='Error: '+r.status;st.style.color='#dc2626';return;}
   }
@@ -18248,7 +18258,7 @@ if tab_formulario is not None:
                     except: pass
                     st.query_params.pop('cat_cantidad')
                 try:
-                    _cat_all = supabase.table('catalogo_materiales').select('*').eq('activo', True).order('categoria').order('titulo_grupo').order('nombre').execute().data or []
+                    _cat_all = supabase.table('catalogo_materiales').select('*').eq('activo', True).order('categoria').order('orden_grupo').order('titulo_grupo').order('nombre').execute().data or []
                     # Normalize titulo_grupo: None or empty -> use nombre as fallback group key
                     for _ci in _cat_all:
                         if not _ci.get('titulo_grupo'):
