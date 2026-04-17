@@ -12691,7 +12691,7 @@ if st.session_state.get('es_root') and tab_salud is not None:
                 pass
 
             # Contar filas por tabla (siempre funciona)
-            for _tbl in ['cotizaciones', 'cotizacion_logs', 'excel_versiones']:
+            for _tbl in ['cotizaciones', 'cotizacion_logs', 'excel_versiones', 'registro_compras', 'catalogo_materiales', 'formulario_config', 'formulario_respuestas', 'formulario_preguntas', 'plantillas_contrato', 'usuarios']:
                 try:
                     _r = supabase.table(_tbl).select('id', count='exact').execute()
                     _db_rows[_tbl] = _r.count or 0
@@ -12735,6 +12735,34 @@ if st.session_state.get('es_root') and tab_salud is not None:
                 }
             except:
                 _storage_info['config'] = {'archivos': 0, 'mb': 0, 'estimado': True}
+
+            try:
+                # Bucket "formulario-imagenes" — imágenes del catálogo de materiales
+                _r_fimg = supabase.table('catalogo_materiales').select('id', count='exact').not_.is_('imagen_url', 'null').neq('imagen_url', '').execute()
+                _n_fimg = _r_fimg.count or 0
+                # Imágenes catálogo: estimado ~200KB por imagen
+                _mb_fimg = round((_n_fimg * 200 * 1024) / (1024*1024), 2)
+                _storage_info['formulario-imagenes'] = {'archivos': _n_fimg, 'mb': _mb_fimg, 'estimado': True}
+            except:
+                _storage_info['formulario-imagenes'] = {'archivos': 0, 'mb': 0, 'estimado': True}
+
+            try:
+                # Bucket "contratos"
+                _r_cont = supabase.table('cotizaciones').select('id', count='exact').not_.is_('contrato_url', 'null').neq('contrato_url', '').execute()
+                _n_cont = _r_cont.count or 0
+                _mb_cont = round((_n_cont * 300 * 1024) / (1024*1024), 2)
+                _storage_info['contratos'] = {'archivos': _n_cont, 'mb': _mb_cont, 'estimado': True}
+            except:
+                _storage_info['contratos'] = {'archivos': 0, 'mb': 0, 'estimado': True}
+
+            try:
+                # Bucket "facturas"
+                _r_fact = supabase.table('registro_compras').select('id', count='exact').execute()
+                _n_fact = _r_fact.count or 0
+                _mb_fact = round((_n_fact * 150 * 1024) / (1024*1024), 2)
+                _storage_info['facturas'] = {'archivos': _n_fact, 'mb': _mb_fact, 'estimado': True}
+            except:
+                _storage_info['facturas'] = {'archivos': 0, 'mb': 0, 'estimado': True}
 
             _storage_total_mb = sum(v['mb'] for v in _storage_info.values())
 
@@ -12793,7 +12821,18 @@ if st.session_state.get('es_root') and tab_salud is not None:
         with _col_tbl:
             st.markdown('<div class="sys-section-title">📋 Filas por tabla</div>', unsafe_allow_html=True)
             _tbl_html = '<div class="sys-card"><table class="sys-table"><thead><tr><th>Tabla</th><th>Filas</th></tr></thead><tbody>'
-            _tbl_labels = {'cotizaciones': '📄 Cotizaciones', 'cotizacion_logs': '📝 Logs auditoría', 'excel_versiones': '📊 Versiones Excel'}
+            _tbl_labels = {
+                'cotizaciones':          '📄 Cotizaciones',
+                'cotizacion_logs':        '📝 Logs auditoría',
+                'excel_versiones':        '📊 Versiones Excel',
+                'registro_compras':       '🛒 Registro compras',
+                'catalogo_materiales':    '🏷️ Catálogo materiales',
+                'formulario_config':      '⚙️ Config formularios',
+                'formulario_respuestas':  '✅ Respuestas clientes',
+                'formulario_preguntas':   '❓ Preguntas formulario',
+                'plantillas_contrato':    '📄 Plantillas contrato',
+                'usuarios':               '👥 Usuarios',
+            }
             for _t, _cnt in _db_rows.items():
                 _lbl = _tbl_labels.get(_t, _t)
                 _tbl_html += f'<tr><td>{_lbl}</td><td><b>{_cnt:,}</b></td></tr>'
@@ -12804,7 +12843,13 @@ if st.session_state.get('es_root') and tab_salud is not None:
             st.markdown('<div class="sys-section-title">🗂️ Archivos por bucket</div>', unsafe_allow_html=True)
             if _storage_info:
                 _bkt_html = '<div class="sys-card"><table class="sys-table"><thead><tr><th>Bucket</th><th>Archivos</th><th>Tamaño</th></tr></thead><tbody>'
-                _bkt_icons = {'planos': '📐 planos', 'config': '⚙️ config'}
+                _bkt_icons = {
+                    'planos': '📐 planos',
+                    'config': '⚙️ config',
+                    'formulario-imagenes': '🖼️ formulario-imagenes',
+                    'contratos': '📄 contratos',
+                    'facturas': '🧾 facturas',
+                }
                 for _bn, _bv in _storage_info.items():
                     _blbl = _bkt_icons.get(_bn, f'📁 {_bn}')
                     _est = ' <i style="color:#94a3b8;font-size:0.7rem">(est.)</i>' if _bv.get('estimado') else ''
