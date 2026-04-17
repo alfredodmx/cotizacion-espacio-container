@@ -288,14 +288,18 @@ var P={};
 function pick(iid,val,tipo){
   R[iid]=val; P[iid]=val;
   if(tipo==="color"){
-    document.querySelectorAll(".c-item").forEach(function(el){
-      var nm=el.querySelector(".c-name");
-      if(nm) el.classList.toggle("sel", nm.textContent===val);
-    });
+    var el=document.getElementById("ci-"+iid);
+    if(el){
+      var row=el.closest(".color-row");
+      if(row) row.querySelectorAll(".c-item").forEach(function(e){e.classList.remove("sel");});
+      el.classList.add("sel");
+    }
   } else if(tipo==="imagen"){
     var el=document.getElementById("ii-"+iid);
     if(el){
-      document.querySelectorAll(".i-item").forEach(function(e){e.classList.remove("sel");});
+      // Only deselect within the same img-row group
+      var row=el.closest(".img-row");
+      if(row) row.querySelectorAll(".i-item").forEach(function(e){e.classList.remove("sel");});
       el.classList.add("sel");
     }
   } else if(tipo==="si_no"){
@@ -306,9 +310,6 @@ function pick(iid,val,tipo){
       clickedBtn.classList.add("sel");
     }
   }
-  // update done dot
-  var dots=document.querySelectorAll(".done-dot");
-  // simple: add dot if not present near the item-title
 }
 
 function scrollC(gid,dir){
@@ -1308,6 +1309,14 @@ window.guardarConfig=async function(){
     if(cb&&cb.checked)groups[key].ids.push(String(it.id));
   });
 
+  // Step 1: delete all existing config for this EP
+  var delR=await fetch(S+'/rest/v1/formulario_config?cotizacion_numero=eq.'+encodeURIComponent(EP),{
+    method:'DELETE',
+    headers:{'Authorization':'Bearer '+K,'apikey':K}
+  });
+  if(!delR.ok){st.textContent='Error limpiando config: '+delR.status;st.style.color='#dc2626';btn.disabled=false;return;}
+
+  // Step 2: insert fresh records
   var saved=0;
   for(var key in groups){
     var g=groups[key];
@@ -1327,7 +1336,7 @@ window.guardarConfig=async function(){
     var r=await fetch(S+'/rest/v1/formulario_config',{
       method:'POST',
       headers:{'Authorization':'Bearer '+K,'apikey':K,'Content-Type':'application/json',
-               'Prefer':'resolution=merge-duplicates,return=minimal'},
+               'Prefer':'return=minimal'},
       body:JSON.stringify(body)
     });
     if(r.ok)saved++;
@@ -10219,29 +10228,34 @@ if tab3 is not None:
                     st.session_state['_prods_map_key'] = _cache_key
                 except: st.session_state['_prods_map_cache'] = {}
             _prods_map = st.session_state.get('_prods_map_cache', {})
-            # Fetch materiales client data for compras column
+            # ── Datos formulario materiales cliente ──
             _mat_data_map = {}
             try:
-                _eps_m = df_resultados['N°'].tolist()
-                _mcfg = supabase.table('formulario_config').select('cotizacion_numero,categoria,titulo_grupo,item_ids,orden').in_('cotizacion_numero',_eps_m).execute().data or []
-                _mres = supabase.table('formulario_respuestas').select('cotizacion_numero,item_id,respuesta').in_('cotizacion_numero',_eps_m).execute().data or []
+                _eps_m = df_resultados["N°"].tolist()
+                _mcfg = supabase.table("formulario_config").select(
+                    "cotizacion_numero,categoria,titulo_grupo,item_ids,orden"
+                ).in_("cotizacion_numero", _eps_m).execute().data or []
+                _mres = supabase.table("formulario_respuestas").select(
+                    "cotizacion_numero,item_id,respuesta"
+                ).in_("cotizacion_numero", _eps_m).execute().data or []
                 from collections import defaultdict as _ddf2
-                _mr_map = _ddf2(dict)
+                _mr2 = _ddf2(dict)
                 for _r in _mres:
-                    if _r.get('item_id'): _mr_map[_r['cotizacion_numero']][_r['item_id']] = _r['respuesta']
-                _mc_ep = _ddf2(list)
-                for _c in _mcfg: _mc_ep[_c['cotizacion_numero']].append(_c)
-                for _ep2, _cfgs2 in _mc_ep.items():
-                    _rs = _mr_map[_ep2]
+                    if _r.get("item_id"): _mr2[_r["cotizacion_numero"]][_r["item_id"]] = _r["respuesta"]
+                _mc2 = _ddf2(list)
+                for _c in _mcfg: _mc2[_c["cotizacion_numero"]].append(_c)
+                for _ep2, _cfgs2 in _mc2.items():
+                    _rs2 = _mr2[_ep2]
                     _tot2 = len(_cfgs2)
-                    _dn2 = sum(1 for _c in _cfgs2 if any(_rs.get(str(_i)) for _i in (_c.get('item_ids') or [])))
-                    _pct2 = int(_dn2/_tot2*100) if _tot2>0 else 0
+                    _dn2 = sum(1 for _c in _cfgs2 if any(_rs2.get(str(_i)) for _i in (_c.get("item_ids") or [])))
+                    _pct2 = int(_dn2 / _tot2 * 100) if _tot2 > 0 else 0
                     _cats2 = _ddf2(list)
-                    for _c in sorted(_cfgs2,key=lambda x:(x.get('categoria',''),x.get('orden',0))):
-                        _ids2=[str(_i) for _i in (_c.get('item_ids') or [])]
-                        _v2=[_rs[_i] for _i in _ids2 if _rs.get(_i)]
-                        _cats2[_c.get('categoria','')].append({'tg':_c.get('titulo_grupo',''),'val':','.join(_v2)})
-                    _mat_data_map[_ep2]={'pct':_pct2,'done':_dn2,'total':_tot2,'cats':[{'cat':_k,'grupos':_vl} for _k,_vl in _cats2.items()]}
+                    for _c in sorted(_cfgs2, key=lambda x: (x.get("categoria",""), x.get("orden", 0))):
+                        _ids2 = [str(_i) for _i in (_c.get("item_ids") or [])]
+                        _v2 = [_rs2[_i] for _i in _ids2 if _rs2.get(_i)]
+                        _cats2[_c.get("categoria","")].append({"tg": _c.get("titulo_grupo",""), "val": ", ".join(_v2)})
+                    _mat_data_map[_ep2] = {"pct": _pct2, "done": _dn2, "total": _tot2,
+                        "cats": [{"cat": _k, "grupos": _vl} for _k, _vl in _cats2.items()]}
             except: pass
 
             def _fmt_compras_ok(row):
@@ -10249,20 +10263,20 @@ if tab3 is not None:
                     import json as _jco
                     _num = row.get("N°","")
                     _mat = _mat_data_map.get(_num, {})
-                    _mat_pct = _mat.get("pct", 0)
-                    _mat_done = _mat.get("done", 0)
-                    _mat_total = _mat.get("total", 0)
-                    def _mat_html():
-                        if not _mat_total: return ""
-                        _mc = "#16a34a" if _mat_pct==100 else ("#f97316" if _mat_pct>=50 else "#2563eb")
-                        _mb = "#dcfce7" if _mat_pct==100 else ("#ffedd5" if _mat_pct>=50 else "#dbeafe")
-                        return (f'<div style="margin-top:5px;padding-top:5px;border-top:1px solid #e2e8f0;">'
-                                f'<div style="font-size:0.68rem;font-weight:700;color:#64748b;margin-bottom:2px;">MATERIALES</div>'
-                                f'<div style="background:{_mb};border-radius:4px;height:5px;margin-bottom:2px;">'
-                                f'<div style="background:{_mc};border-radius:4px;height:5px;width:{_mat_pct}%;"></div></div>'
-                                f'<div style="display:flex;align-items:center;justify-content:space-between;">'
-                                f'<span style="color:{_mc};font-weight:700;font-size:0.72rem;">{_mat_pct}% ({_mat_done}/{_mat_total})</span>'
-                                f'<button class="_mat_btn" data-ep="{_num}" onclick="event.stopPropagation()" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:5px;padding:1px 6px;font-size:0.65rem;font-weight:700;cursor:pointer;font-family:inherit;">📋 Ver</button>'
+                    _mp = _mat.get("pct", 0)
+                    _md = _mat.get("done", 0)
+                    _mt = _mat.get("total", 0)
+                    def _mh():
+                        if not _mt: return ""
+                        _mc = "#16a34a" if _mp==100 else ("#f97316" if _mp>=50 else "#2563eb")
+                        _mb = "#dcfce7" if _mp==100 else ("#ffedd5" if _mp>=50 else "#dbeafe")
+                        return (f'<div style="margin-top:4px;padding-top:4px;border-top:1px solid #e2e8f0;">'
+                                f'<div style="font-size:0.65rem;font-weight:700;color:#64748b;margin-bottom:2px;">MATERIALES</div>'
+                                f'<div style="background:{_mb};border-radius:4px;height:4px;margin-bottom:3px;">'
+                                f'<div style="background:{_mc};border-radius:4px;height:4px;width:{_mp}%;"></div></div>'
+                                f'<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">'
+                                f'<span style="color:{_mc};font-weight:700;font-size:0.68rem;">{_mp}%</span>'
+                                f'<button class="_mat_btn" data-ep="{_num}" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:4px;padding:1px 5px;font-size:0.62rem;font-weight:700;cursor:pointer;font-family:inherit;line-height:1.4;">📋 Ver</button>'
                                 f'</div></div>')
                     _prods_raw = _prods_map.get(_num) or []
                     if isinstance(_prods_raw, str):
@@ -10277,7 +10291,7 @@ if tab3 is not None:
                         elif p < 100: return '#16a34a', '#dcfce7'
                         else:         return '#2563eb', '#dbeafe'
                     if _estado == "Sin compras":
-                        return f'<span style="color:#94a3b8;font-size:0.78rem;">Sin compras</span>' + _mat_html()
+                        return f'<span style="color:#94a3b8;font-size:0.78rem;">Sin compras</span>' + _mh()
                     elif _estado == "Compras 100%":
                         _cc, _cb = _compra_col(100)
                         return (
@@ -10285,7 +10299,7 @@ if tab3 is not None:
                             f'<div style="background:{_cb};border-radius:4px;height:6px;margin-bottom:3px;">'
                             f'<div style="background:{_cc};border-radius:4px;height:6px;width:100%;"></div></div>'
                             f'<span style="color:{_cc};font-weight:700;font-size:0.75rem;">✅ 100% comprado</span></div>'
-                        ) + _mat_html()
+                        ) + _mh()
                     elif "adicionales" in _estado:
                         _nadd = len(_est["adicionales"])
                         _cc, _cb = _compra_col(100)
@@ -10294,7 +10308,7 @@ if tab3 is not None:
                             f'<div style="background:{_cb};border-radius:4px;height:6px;margin-bottom:3px;">'
                             f'<div style="background:{_cc};border-radius:4px;height:6px;width:100%;"></div></div>'
                             f'<span style="color:{_cc};font-weight:700;font-size:0.75rem;">✅ 100% +{_nadd} adic.</span></div>'
-                        ) + _mat_html()
+                        ) + _mh()
                     else:
                         _cc, _cb = _compra_col(_pct)
                         return (
@@ -10302,7 +10316,7 @@ if tab3 is not None:
                             f'<div style="background:{_cb};border-radius:4px;height:6px;margin-bottom:3px;">'
                             f'<div style="background:{_cc};border-radius:4px;height:6px;width:{_pct}%;"></div></div>'
                             f'<span style="color:{_cc};font-weight:700;font-size:0.75rem;">{_pct}% comprado</span></div>'
-                        ) + _mat_html()
+                        ) + _mh()
                 except:
                     return '<span style="color:#94a3b8;font-size:0.78rem;">—</span>'
             df_resultados["ComprasOK"] = df_resultados.apply(_fmt_compras_ok, axis=1)
@@ -10365,7 +10379,7 @@ if tab3 is not None:
                 'inst_region': str(_mrow.get('Inst_Region','') or ''),
             }
         _cli_data_json_map = _jcli_map.dumps(_cli_data_map, ensure_ascii=True)
-        _mat_data_json_map = _jcli_map.dumps(_mat_data_map, ensure_ascii=True) if '_mat_data_map' in dir() else '{}'
+        _mat_data_json_map = _jcli_map.dumps(_mat_data_map, ensure_ascii=True)
         for _, row in df_resultados.iterrows():
             _mg_color  = 'color:#16a34a;font-weight:700;' if '✅' in str(row['MargenCol']) else 'color:#94a3b8;'
             _th_margen = '<th>Margen</th>' if st.session_state.modo_admin else ''
@@ -10892,6 +10906,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
     D.addEventListener('click', function(e) {
         var btn = e.target && e.target.closest ? e.target.closest('._mat_btn') : null;
         if(!btn) return;
+        e.stopPropagation();
         var ep = btn.getAttribute('data-ep') || '';
         var mat = {};
         try { mat = (typeof MAT_DATA !== 'undefined' ? MAT_DATA : {})[ep] || {}; } catch(ex) {}
@@ -10902,49 +10917,47 @@ var MAT_DATA = """ + _mat_data_json_map + """;
         overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:99999;display:flex;align-items:center;justify-content:center;';
         var box = D.createElement('div');
         box.style.cssText = 'background:#1e293b;border:1px solid #334155;border-radius:16px;padding:28px 32px;max-width:500px;width:92%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
-        var header = D.createElement('div');
-        header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;';
-        var title = D.createElement('div');
-        title.style.cssText = 'font-size:1rem;font-weight:900;color:#f1f5f9;';
-        title.textContent = '\ud83d\udccb Materiales \u2014 ' + ep;
-        var closeBtn = D.createElement('button');
-        closeBtn.textContent = '\u2716 Cerrar';
-        closeBtn.style.cssText = 'background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.3);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.8rem;font-weight:700;';
-        header.appendChild(title); header.appendChild(closeBtn);
+        var hdr = D.createElement('div');
+        hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;';
+        var ttl = D.createElement('div');
+        ttl.style.cssText = 'font-size:1rem;font-weight:900;color:#f1f5f9;';
+        ttl.textContent = '\U0001F4CB Materiales \u2014 ' + ep;
+        var cls = D.createElement('button');
+        cls.textContent = '\u2716 Cerrar';
+        cls.style.cssText = 'background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.3);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.8rem;font-weight:700;';
+        hdr.appendChild(ttl); hdr.appendChild(cls);
         var pct = mat.pct || 0;
-        var pColor = pct===100 ? '#16a34a' : (pct>=50 ? '#f97316' : '#2563eb');
-        var pBar = D.createElement('div');
-        pBar.style.cssText = 'background:#0f172a;border-radius:8px;padding:10px 12px;margin-bottom:14px;';
-        pBar.innerHTML = '<div style="background:#1e293b;border-radius:4px;height:6px;margin-bottom:6px;"><div style="background:'+pColor+';border-radius:4px;height:6px;width:'+pct+'%;"></div></div><div style="font-size:0.78rem;color:#94a3b8;">'+(mat.done||0)+' de '+(mat.total||0)+' secciones \u2014 '+pct+'%</div>';
-        var body = D.createElement('div');
+        var pc = pct===100 ? '#16a34a' : (pct>=50 ? '#f97316' : '#2563eb');
+        var pb = D.createElement('div');
+        pb.style.cssText = 'background:#0f172a;border-radius:8px;padding:10px 12px;margin-bottom:14px;';
+        pb.innerHTML = '<div style="background:#1e293b;border-radius:4px;height:6px;margin-bottom:6px;">'
+            +'<div style="background:'+pc+';border-radius:4px;height:6px;width:'+pct+'%;"></div></div>'
+            +'<div style="font-size:0.78rem;color:#94a3b8;">'+(mat.done||0)+' de '+(mat.total||0)+' secciones &mdash; '+pct+'%</div>';
+        var bdy = D.createElement('div');
         var cats = mat.cats || [];
         if(!cats.length){
-            body.innerHTML = '<div style="color:#64748b;font-size:0.9rem;text-align:center;padding:20px 0;">Sin datos a\u00fan</div>';
+            bdy.innerHTML = '<div style="color:#64748b;font-size:0.9rem;text-align:center;padding:20px 0;">Sin datos a\u00FAn</div>';
         } else {
             cats.forEach(function(c){
-                var catEl = D.createElement('div');
-                catEl.style.cssText = 'margin-bottom:12px;';
-                var catTitle = D.createElement('div');
-                catTitle.style.cssText = 'font-size:0.78rem;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;';
-                catTitle.textContent = c.cat;
-                catEl.appendChild(catTitle);
+                var ce = D.createElement('div'); ce.style.cssText = 'margin-bottom:12px;';
+                var ct = D.createElement('div');
+                ct.style.cssText = 'font-size:0.78rem;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;';
+                ct.textContent = c.cat; ce.appendChild(ct);
                 (c.grupos||[]).forEach(function(g){
-                    var row = D.createElement('div');
-                    row.style.cssText = 'display:flex;align-items:baseline;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.85rem;';
-                    var ico = g.val ? '\u2705' : '\u2b1c';
-                    row.innerHTML = '<span style="flex-shrink:0;">'+ico+'</span>'
+                    var rw = D.createElement('div');
+                    rw.style.cssText = 'display:flex;align-items:baseline;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.85rem;';
+                    rw.innerHTML = '<span>'+(g.val?'\u2705':'\u2B1C')+'</span>'
                         +'<span style="color:#cbd5e1;font-weight:600;">'+g.tg+'</span>'
                         +'<span style="color:#64748b;">:</span>'
                         +'<span style="color:'+(g.val?'#60a5fa':'#475569')+';">'+(g.val||'\u2014')+'</span>';
-                    catEl.appendChild(row);
+                    ce.appendChild(rw);
                 });
-                body.appendChild(catEl);
+                bdy.appendChild(ce);
             });
         }
-        box.appendChild(header); box.appendChild(pBar); box.appendChild(body);
-        overlay.appendChild(box);
-        D.body.appendChild(overlay);
-        closeBtn.addEventListener('click', function(){ overlay.remove(); });
+        box.appendChild(hdr); box.appendChild(pb); box.appendChild(bdy);
+        overlay.appendChild(box); D.body.appendChild(overlay);
+        cls.addEventListener('click', function(){ overlay.remove(); });
         overlay.addEventListener('click', function(ev){ if(ev.target===overlay) overlay.remove(); });
     });
 
@@ -18215,63 +18228,58 @@ if tab_formulario is not None:
         with _ftab_progreso:
             st.markdown("**Progreso de formularios por proyecto:**")
             try:
-                # Obtener todos los EP con preguntas
-                _all_pregs = supabase.table('formulario_preguntas').select(
-                    'cotizacion_numero,id,requerida'
+                from collections import defaultdict
+                _all_cfg = supabase.table('formulario_config').select(
+                    'cotizacion_numero,categoria,titulo_grupo,item_ids,orden'
                 ).execute().data or []
                 _all_resps = supabase.table('formulario_respuestas').select(
-                    'cotizacion_numero,pregunta_id,respuesta'
+                    'cotizacion_numero,item_id,pregunta_id,respuesta'
                 ).execute().data or []
 
-                # Agrupar
-                from collections import defaultdict
-                _pregs_by_ep = defaultdict(list)
-                for _pp in _all_pregs:
-                    _pregs_by_ep[_pp['cotizacion_numero']].append(_pp)
+                _cfg_by_ep = defaultdict(list)
+                for _cc in _all_cfg:
+                    _cfg_by_ep[_cc['cotizacion_numero']].append(_cc)
+
                 _resps_by_ep = defaultdict(dict)
                 for _rr in _all_resps:
-                    _resps_by_ep[_rr['cotizacion_numero']][_rr['pregunta_id']] = _rr['respuesta']
+                    _key = _rr.get('item_id') or _rr.get('pregunta_id') or ''
+                    if _key:
+                        _resps_by_ep[_rr['cotizacion_numero']][_key] = _rr['respuesta']
 
-                if not _pregs_by_ep:
+                if not _cfg_by_ep:
                     st.info("No hay formularios configurados aún.")
                 else:
-                    for _fep, _fpregs in sorted(_pregs_by_ep.items()):
-                        _freq = sum(1 for p in _fpregs if p.get('requerida'))
-                        _fresp = sum(1 for p in _fpregs if p.get('requerida') and _resps_by_ep[_fep].get(p['id']))
-                        _fpct = int(_fresp / _freq * 100) if _freq > 0 else 0
+                    for _fep, _fcfgs in sorted(_cfg_by_ep.items()):
+                        _total = len(_fcfgs)
+                        _resp_map = _resps_by_ep[_fep]
+                        _done = sum(1 for cfg in _fcfgs
+                                    if any(_resp_map.get(str(iid)) for iid in (cfg.get('item_ids') or [])))
+                        _fpct = int(_done / _total * 100) if _total > 0 else 0
                         _fcol = '#16a34a' if _fpct == 100 else ('#f97316' if _fpct >= 50 else '#2563eb')
 
-                        with st.expander(f"**{_fep}** — {_fpct}% completado ({_fresp}/{_freq})"):
+                        with st.expander(f"**{_fep}** — {_fpct}% completado ({_done}/{_total} grupos)"):
                             st.markdown(f"""
-                            <div style='background:#f8fafc;border-radius:8px;padding:8px 12px;margin-bottom:8px;'>
+                            <div style='background:#f8fafc;border-radius:8px;padding:8px 12px;margin-bottom:12px;'>
                               <div style='background:#e2e8f0;border-radius:99px;height:8px;'>
                                 <div style='background:{_fcol};border-radius:99px;height:8px;width:{_fpct}%;'></div>
                               </div>
+                              <div style='font-size:0.75rem;color:#64748b;margin-top:4px;'>{_done} de {_total} secciones respondidas</div>
                             </div>
                             """, unsafe_allow_html=True)
 
-                            # Mostrar respuestas
-                            _resp_map_ep = _resps_by_ep[_fep]
-                            _secs_prog = {}
-                            for _pp2 in _fpregs:
-                                _sec2 = next((p.get('seccion','General') for p in _all_pregs if p['id']==_pp2['id']), 'General')
-                                _pp2['seccion'] = _sec2
-                                if _sec2 not in _secs_prog: _secs_prog[_sec2] = []
-                                _secs_prog[_sec2].append(_pp2)
+                            _cats_prog = defaultdict(list)
+                            for _cfg2 in sorted(_fcfgs, key=lambda x: (x.get('categoria',''), x.get('orden', 0))):
+                                _cats_prog[_cfg2.get('categoria','')].append(_cfg2)
 
-                            # Get full pregunta text
-                            _pregs_full = supabase.table('formulario_preguntas').select('*').eq(
-                                'cotizacion_numero', _fep
-                            ).execute().data or []
-                            _pregs_full_map = {p['id']: p for p in _pregs_full}
+                            for _cat4, _clist4 in _cats_prog.items():
+                                st.markdown(f"**{_cat4}**")
+                                for _cfg4 in _clist4:
+                                    _tg4 = _cfg4.get('titulo_grupo','')
+                                    _ids4 = [str(x) for x in (_cfg4.get('item_ids') or [])]
+                                    _answered = [_resp_map.get(iid,'') for iid in _ids4 if _resp_map.get(iid)]
+                                    _ico4 = '✅' if _answered else '⬜'
+                                    _val4 = ', '.join(_answered) if _answered else '—'
+                                    st.markdown(f"<div style='font-size:0.82rem;padding:3px 8px;'>{_ico4} <b>{_tg4}</b>: <span style='color:#0f3460;'>{_val4}</span></div>", unsafe_allow_html=True)
 
-                            for _sec3, _plist3 in _secs_prog.items():
-                                st.markdown(f"**{_sec3}**")
-                                for _pp3 in _plist3:
-                                    _pf = _pregs_full_map.get(_pp3['id'], {})
-                                    _ptxt3 = _pf.get('pregunta', '—')
-                                    _pval3 = _resp_map_ep.get(_pp3['id'], '')
-                                    _ico3 = "✅" if _pval3 else "⬜"
-                                    st.markdown(f"<div style='font-size:0.82rem;padding:3px 0;'>{_ico3} <b>{_ptxt3}</b>: <span style='color:#0f3460;'>{_pval3 or '—'}</span></div>", unsafe_allow_html=True)
             except Exception as _fe:
                 st.error(f"Error cargando progreso: {_fe}")
