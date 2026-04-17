@@ -6048,23 +6048,13 @@ st.markdown('''
 import base64 as _b64, os as _os
 
 if '_logo_html_cache' not in st.session_state:
-    _logo_html = ""
-    if _os.path.exists("logo.png"):
-        with open("logo.png", "rb") as _f:
+    if _os.path.exists('logo.png'):
+        with open('logo.png', 'rb') as _f:
             _logo_b64 = _b64.b64encode(_f.read()).decode()
-    _logo_html = f'<img src="data:image/png;base64,{_logo_b64}" width="350" style="display:block;margin-left:auto;">'
-else:
-    _logo_html = '''<svg width="350" height="48" viewBox="0 0 130 48" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;margin-left:auto;">
-        <rect width="350" height="48" rx="8" fill="url(#hg)"/>
-        <path d="M26 16L32 21L26 26L20 21L26 16Z" fill="white"/>
-        <circle cx="65" cy="21" r="5" fill="#FFD966"/>
-        <text x="82" y="26" font-family="Inter" font-size="13" font-weight="700" fill="white">PRO</text>
-        <defs><linearGradient id="hg" x1="0" y1="0" x2="130" y2="48" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#3B82F6"/><stop offset="1" stop-color="#8B5CF6"/>
-        </linearGradient></defs>
-    </svg>'''
-    st.session_state['_logo_html_cache'] = _logo_html
-_logo_html = st.session_state['_logo_html_cache']
+        st.session_state['_logo_html_cache'] = f'<img src="data:image/png;base64,{_logo_b64}" width="350" style="display:block;margin-left:auto;">'
+    else:
+        st.session_state['_logo_html_cache'] = ''
+_logo_html = st.session_state.get('_logo_html_cache', '')
 
 st.markdown(f'''
 <div style="
