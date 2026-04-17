@@ -58,8 +58,16 @@ ANTHROPIC_API_KEY = (
     (st.secrets.get("ANTHROPIC_API_KEY", "") if hasattr(st, "secrets") else "")
 )
 
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-supabase_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+@st.cache_resource
+def _get_supabase():
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+@st.cache_resource
+def _get_supabase_admin():
+    return create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
+supabase = _get_supabase()
+supabase_admin = _get_supabase_admin()
 
 def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, supa_key, ep, nombre_cliente, logo_b64=''):
     import json
@@ -423,6 +431,7 @@ def crear_usuario_ejecutivo(email, password, nombre):
 # =========================================================
 TELEGRAM_BOT_TOKEN_DEFAULT = "8639597343:AAG-E3HJVmDGbbMI5oniiivLitlphTDJkCU"
 
+@st.cache_data(ttl=300, show_spinner=False)
 def _get_notif_config(clave, default=""):
     """Lee un valor de configuración de notificaciones desde Supabase."""
     try:
@@ -476,6 +485,7 @@ def _enviar_telegram(chat_id, mensaje, token=None):
         print(f"_enviar_telegram error: {_e}")
         return False
 
+@st.cache_data(ttl=300, show_spinner=False)
 def _get_contactos_notif():
     """Retorna dict {user_email: chat_id} de contactos configurados."""
     try:
@@ -485,6 +495,7 @@ def _get_contactos_notif():
     except:
         return {}
 
+@st.cache_data(ttl=300, show_spinner=False)
 def _get_observadores_notif():
     """Retorna lista de dicts {nombre, chat_id} de observadores."""
     try:
@@ -611,6 +622,7 @@ def resetear_password_admin(user_id, nueva_password):
     except Exception as e:
         return False, str(e)
 
+@st.cache_data(ttl=300, show_spinner=False)
 def listar_usuarios_ejecutivos():
     """Lista todos los usuarios excepto supervisores fijos."""
     try:
@@ -650,6 +662,7 @@ def eliminar_usuario_ejecutivo(user_id):
     except Exception as e:
         return False, str(e)
 
+@st.cache_data(ttl=60, show_spinner=False)
 def verificar_conexion_supabase():
     # Solo verifica una vez por sesión, no en cada render
     if st.session_state.get('_supabase_ok'):
@@ -4404,6 +4417,7 @@ import io as _io_excel
 
 @st.cache_data(ttl=60)
 @st.cache_data(ttl=60)
+@st.cache_data(ttl=300, show_spinner=False)
 def _get_excel_bytes_activo():
     """Descarga el Excel activo desde Supabase Storage. Cache 60s."""
     try:
@@ -4418,6 +4432,7 @@ def _get_excel_bytes_activo():
         pass
     return "cotizador.xlsx"  # fallback local
 
+@st.cache_data(ttl=300, show_spinner=False)
 def _excel_src():
     """Retorna la fuente del Excel (BytesIO desde Supabase o path local)."""
     if 'excel_bytes_cache' not in st.session_state:
@@ -4426,6 +4441,7 @@ def _excel_src():
 
 @st.cache_data(ttl=300)
 @st.cache_data(ttl=120)
+@st.cache_data(ttl=300, show_spinner=False)
 def _leer_hoja_excel(nombre_hoja):
     """Lee y cachea una hoja del Excel — evita re-parsear en cada render."""
     try:
@@ -4434,11 +4450,13 @@ def _leer_hoja_excel(nombre_hoja):
         return pd.DataFrame()
 
 @st.cache_data(ttl=300)
+@st.cache_data(ttl=300, show_spinner=False)
 def _leer_bd_total():
     """Lee y cachea la hoja BD Total."""
     return pd.read_excel(_excel_src(), sheet_name="BD Total")[["Item", "P. Unitario real"]]
 
 @st.cache_data(ttl=120)
+@st.cache_data(ttl=300, show_spinner=False)
 def _leer_hojas_disponibles():
     """Lista de hojas disponibles con caché corto."""
     try:
@@ -4449,6 +4467,7 @@ def _leer_hojas_disponibles():
         except:
             return []
 
+@st.cache_data(ttl=300, show_spinner=False)
 def cargar_modelo(nombre_hoja):
     df_modelo = _leer_hoja_excel(nombre_hoja)
     df_modelo = df_modelo[["Categorias", "Item", "Cantidad"]].dropna()
@@ -4495,6 +4514,7 @@ def registrar_log(numero, asesor, tipo_cambio, detalle_dict):
     except Exception as e:
         pass  # El log no debe interrumpir el flujo principal
 
+@st.cache_data(ttl=30, show_spinner=False)
 def contar_logs(numeros):
     """Devuelve dict {numero: count} para una lista de números EP."""
     if not numeros:
@@ -4936,6 +4956,14 @@ def generar_pdf_log(numero, logs):
 # =========================================================
 # FUNCIONES DE SUPABASE PARA COTIZACIONES
 # =========================================================
+def _invalidar_cache_cotizaciones():
+    """Limpia caches de lectura después de guardar/modificar datos."""
+    for fn in [buscar_cotizaciones, cargar_cotizacion, contar_logs,
+               _fetch_cotizaciones_raw, cargar_ranking_ejecutivos,
+               cargar_datos_dashboard]:
+        try: fn.clear()
+        except: pass
+
 def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, totales, plano_nombre=None, plano_datos=None, usuario_logueado=None):
     try:
         fecha_actual = datetime.now().isoformat()
@@ -5053,6 +5081,7 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
                 detalle_dict={'mensaje': f'Cotización {numero} creada'}
             )
 
+        _invalidar_cache_cotizaciones()
         return True
     except Exception as e:
         st.error(f"❌ Error al guardar cotización: {e}")
@@ -5096,6 +5125,27 @@ def exportar_csv_completo():
     except Exception as e:
         st.error(f"Error al exportar: {e}")
         return None
+
+@st.cache_data(ttl=30, show_spinner=False)
+def _fetch_cotizaciones_raw(rol, email):
+    """Fetch raw cotizaciones from Supabase, cached 30s per rol+email."""
+    try:
+        query = supabase.table('cotizaciones').select(
+            'numero', 'cliente_nombre', 'asesor_nombre', 'fecha_creacion',
+            'total_total', 'config_margen', 'cliente_rut', 'cliente_email',
+            'asesor_email', 'asesor_telefono', 'plano_url', 'contrato_generado', 'cliente_empresa',
+            'fecha_autorizacion', 'autorizado_por', 'contrato_notariado_url',
+            'fecha_adjudicacion', 'contrato_datos', 'motivo_rechazo', 'fecha_rechazo',
+            'acta_url', 'fecha_entrega',
+            'cliente_telefono', 'cliente_direccion', 'cliente_comuna', 'cliente_region',
+            'proyecto_direccion', 'proyecto_comuna', 'proyecto_region'
+        )
+        if rol == 'ejecutivo' and email:
+            query = query.ilike('asesor_email', email.strip())
+        query = query.order('fecha_creacion', desc=True).limit(200)
+        return query.execute().data or []
+    except:
+        return []
 
 def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
     try:
@@ -5169,6 +5219,7 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
         st.error(f"Error en búsqueda: {e}")
         return []
 
+@st.cache_data(ttl=30, show_spinner=False)
 def cargar_cotizacion(numero):
     try:
         if not numero:
@@ -5198,6 +5249,7 @@ def eliminar_cotizacion(numero):
         if response.data and response.data[0].get('plano_url'):
             eliminar_plano_de_storage(response.data[0]['plano_url'])
         response = supabase.table('cotizaciones').delete().eq('numero', numero).execute()
+        _invalidar_cache_cotizaciones()
         return True
     except Exception as e:
         st.error(f"Error al eliminar: {e}")
@@ -5210,6 +5262,7 @@ def actualizar_estado_cotizacion(numero, estado):
             'estado': estado,
             'fecha_modificacion': fecha_actual
         }).eq('numero', numero).execute()
+        _invalidar_cache_cotizaciones()
         return True
     except Exception as e:
         st.error(f"Error al actualizar estado: {e}")
@@ -6778,6 +6831,7 @@ if st.session_state.cotizacion_cargada:
 # =========================================================
 # FUNCIÓN: DASHBOARD PRINCIPAL
 # =========================================================
+@st.cache_data(ttl=120, show_spinner=False)
 def cargar_datos_dashboard(periodo='mes'):
     """Carga todas las métricas para el dashboard."""
     try:
@@ -7870,6 +7924,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
 
 # FUNCIÓN: RANKING DE EJECUTIVOS
 # =========================================================
+@st.cache_data(ttl=120, show_spinner=False)
 def cargar_ranking_ejecutivos(periodo='mes'):
     """Carga métricas de ejecutivos via RPC SECURITY DEFINER — bypasea RLS."""
     try:
