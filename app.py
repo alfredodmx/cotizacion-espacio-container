@@ -808,7 +808,7 @@ if _modo_cliente:
         _primer_nombre = _nom_cli.split()[0].capitalize() if _nom_cli else "Cliente"
 
         try:
-            _cat_cli = supabase.table('catalogo_materiales').select('*').eq('activo',True).order('categoria').order('orden_grupo').order('titulo_grupo').order('nombre').execute().data or []
+            _cat_cli = _fetch_catalogo_materiales()
         except:
             _cat_cli = []
         try:
@@ -1080,6 +1080,7 @@ if st.session_state.get('es_supervisor') and not st.session_state.get('_ejecutiv
 # =========================================================
 # HELPERS: DESCRIPCIONES PDF CLIENTE (JSON en Storage bucket config)
 # =========================================================
+@st.cache_data(ttl=60, show_spinner=False)
 def cargar_descripciones_por_ep(numero, bust_cache=False):
     """Carga descripciones de un EP desde Storage bucket config."""
     try:
@@ -1112,6 +1113,7 @@ def guardar_descripciones_por_ep(numero, descripciones: dict):
             file=data,
             file_options={"content-type": "application/json", "upsert": "true"}
         )
+        _invalidar_cache_cotizaciones()
         return True
     except Exception as e:
         st.error(f"Error al guardar descripciones: {e}")
@@ -2605,6 +2607,7 @@ def guardar_registro_compra(cotizacion_numero, usuario, factura_url, factura_nom
     except Exception as e:
         return False, str(e)
 
+@st.cache_data(ttl=30, show_spinner=False)
 def obtener_registros_compra(cotizacion_numero):
     """Obtiene todos los registros de compra de una cotización."""
     try:
@@ -2613,6 +2616,7 @@ def obtener_registros_compra(cotizacion_numero):
     except Exception as e:
         return []
 
+@st.cache_data(ttl=30, show_spinner=False)
 def obtener_items_comprados(cotizacion_numero):
     """Consolida todos los registros y retorna dict {item_name: {real, adic, fecha}} de ítems ya comprados."""
     import json as _jic
@@ -4415,9 +4419,7 @@ def buscar_direccion(direccion):
 # =========================================================
 import io as _io_excel
 
-@st.cache_data(ttl=60)
-@st.cache_data(ttl=60)
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=60, show_spinner=False)
 def _get_excel_bytes_activo():
     """Descarga el Excel activo desde Supabase Storage. Cache 60s."""
     try:
@@ -4439,8 +4441,6 @@ def _excel_src():
         st.session_state.excel_bytes_cache = _get_excel_bytes_activo()
     return st.session_state.excel_bytes_cache
 
-@st.cache_data(ttl=300)
-@st.cache_data(ttl=120)
 @st.cache_data(ttl=300, show_spinner=False)
 def _leer_hoja_excel(nombre_hoja):
     """Lee y cachea una hoja del Excel — evita re-parsear en cada render."""
@@ -4449,14 +4449,12 @@ def _leer_hoja_excel(nombre_hoja):
     except:
         return pd.DataFrame()
 
-@st.cache_data(ttl=300)
 @st.cache_data(ttl=300, show_spinner=False)
 def _leer_bd_total():
     """Lee y cachea la hoja BD Total."""
     return pd.read_excel(_excel_src(), sheet_name="BD Total")[["Item", "P. Unitario real"]]
 
-@st.cache_data(ttl=120)
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=120, show_spinner=False)
 def _leer_hojas_disponibles():
     """Lista de hojas disponibles con caché corto."""
     try:
@@ -4960,9 +4958,17 @@ def _invalidar_cache_cotizaciones():
     """Limpia caches de lectura después de guardar/modificar datos."""
     for fn in [buscar_cotizaciones, cargar_cotizacion, contar_logs,
                _fetch_cotizaciones_raw, cargar_ranking_ejecutivos,
-               cargar_datos_dashboard]:
+               cargar_datos_dashboard, cargar_descripciones_por_ep,
+               obtener_registros_compra, obtener_items_comprados]:
         try: fn.clear()
         except: pass
+
+def _invalidar_cache_catalogo():
+    """Limpia cache del catálogo de materiales."""
+    try: _fetch_catalogo_materiales.clear()
+    except: pass
+    try: _obtener_clausulas_contrato.clear()
+    except: pass
 
 def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, totales, plano_nombre=None, plano_datos=None, usuario_logueado=None):
     try:
@@ -7464,6 +7470,7 @@ def generar_word_contrato(datos):
     return buf
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def _obtener_clausulas_contrato(modelo_predefinido=None):
     """Retorna las cláusulas de la plantilla activa.
     Si se pasa modelo_predefinido, busca la plantilla que tenga ese modelo asociado.
@@ -8041,7 +8048,7 @@ def _construir_texto_cliente_pdf(datos_cliente, style):
     return Paragraph("<br/>".join(lines), style)
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300, show_spinner=False)
 def cargar_visibilidad_impresion():
     """Carga hoja Impresion del Excel activo. Retorna dict {item_lower: 'Mostrar'|'Ocultar'}."""
     try:
@@ -10400,18 +10407,17 @@ if tab3 is not None:
         _tc_map = {}
         if st.session_state.modo_admin:
             try:
-                _eps_lista = df_resultados["N°"].tolist()
-                _tc_resp = supabase.table("cotizaciones").select("numero,productos").in_("numero", _eps_lista).execute()
-                for _tc_row in (_tc_resp.data or []):
+                import json as _jt
+                # Reuse _prods_map already loaded above — no extra Supabase query needed
+                _pm_src = st.session_state.get('_prods_map_cache', {})
+                for _tc_num, _tc_prods in _pm_src.items():
                     try:
-                        import json as _jt
-                        _prods = _tc_row.get("productos") or []
-                        if isinstance(_prods, str): _prods = _jt.loads(_prods)
+                        _prods = _tc_prods if isinstance(_tc_prods, list) else []
                         _df_tc = pd.DataFrame(_prods) if _prods else pd.DataFrame()
                         if not _df_tc.empty and 'Categoria' in _df_tc.columns:
                             _df_tc = _df_tc[_df_tc['Categoria'].str.strip().str.lower() != 'varios']
                         _sub_tc = _df_tc['Subtotal'].sum() if not _df_tc.empty and 'Subtotal' in _df_tc.columns else 0
-                        _tc_map[_tc_row["numero"]] = _sub_tc * 1.19
+                        _tc_map[_tc_num] = _sub_tc * 1.19
                     except Exception: pass
             except Exception: pass
 
@@ -18254,7 +18260,7 @@ if tab_formulario is not None:
                     except: pass
                     st.query_params.pop('cat_cantidad')
                 try:
-                    _cat_all = supabase.table('catalogo_materiales').select('*').eq('activo', True).order('categoria').order('orden_grupo').order('titulo_grupo').order('nombre').execute().data or []
+                    _cat_all = _fetch_catalogo_materiales()
                     # Normalize titulo_grupo: None or empty -> use nombre as fallback group key
                     for _ci in _cat_all:
                         if not _ci.get('titulo_grupo'):
@@ -18284,7 +18290,7 @@ if tab_formulario is not None:
                     st.info("Ingresa un número EP y haz click en Cargar.")
                 else:
                     try:
-                        _cat_todos = supabase.table('catalogo_materiales').select('*').eq('activo',True).order('categoria').order('orden_grupo').order('titulo_grupo').order('nombre').execute().data or []
+                        _cat_todos = _fetch_catalogo_materiales()
                     except:
                         _cat_todos = []
                     try:
