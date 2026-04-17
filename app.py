@@ -10228,56 +10228,10 @@ if tab3 is not None:
                     st.session_state['_prods_map_key'] = _cache_key
                 except: st.session_state['_prods_map_cache'] = {}
             _prods_map = st.session_state.get('_prods_map_cache', {})
-            # ── Datos formulario materiales cliente ──
-            _mat_data_map = {}
-            try:
-                _eps_m = df_resultados["N°"].tolist()
-                _mcfg = supabase.table("formulario_config").select(
-                    "cotizacion_numero,categoria,titulo_grupo,item_ids,orden"
-                ).in_("cotizacion_numero", _eps_m).execute().data or []
-                _mres = supabase.table("formulario_respuestas").select(
-                    "cotizacion_numero,item_id,respuesta"
-                ).in_("cotizacion_numero", _eps_m).execute().data or []
-                from collections import defaultdict as _ddf2
-                _mr2 = _ddf2(dict)
-                for _r in _mres:
-                    if _r.get("item_id"): _mr2[_r["cotizacion_numero"]][_r["item_id"]] = _r["respuesta"]
-                _mc2 = _ddf2(list)
-                for _c in _mcfg: _mc2[_c["cotizacion_numero"]].append(_c)
-                for _ep2, _cfgs2 in _mc2.items():
-                    _rs2 = _mr2[_ep2]
-                    _tot2 = len(_cfgs2)
-                    _dn2 = sum(1 for _c in _cfgs2 if any(_rs2.get(str(_i)) for _i in (_c.get("item_ids") or [])))
-                    _pct2 = int(_dn2 / _tot2 * 100) if _tot2 > 0 else 0
-                    _cats2 = _ddf2(list)
-                    for _c in sorted(_cfgs2, key=lambda x: (x.get("categoria",""), x.get("orden", 0))):
-                        _ids2 = [str(_i) for _i in (_c.get("item_ids") or [])]
-                        _v2 = [_rs2[_i] for _i in _ids2 if _rs2.get(_i)]
-                        _cats2[_c.get("categoria","")].append({"tg": _c.get("titulo_grupo",""), "val": ", ".join(_v2)})
-                    _mat_data_map[_ep2] = {"pct": _pct2, "done": _dn2, "total": _tot2,
-                        "cats": [{"cat": _k, "grupos": _vl} for _k, _vl in _cats2.items()]}
-            except: pass
-
             def _fmt_compras_ok(row):
                 try:
                     import json as _jco
                     _num = row.get("N°","")
-                    _mat = _mat_data_map.get(_num, {})
-                    _mp = _mat.get("pct", 0)
-                    _md = _mat.get("done", 0)
-                    _mt = _mat.get("total", 0)
-                    def _mh():
-                        if not _mt: return ""
-                        _mc = "#16a34a" if _mp==100 else ("#f97316" if _mp>=50 else "#2563eb")
-                        _mb = "#dcfce7" if _mp==100 else ("#ffedd5" if _mp>=50 else "#dbeafe")
-                        return (f'<div style="margin-top:4px;padding-top:4px;border-top:1px solid #e2e8f0;">'
-                                f'<div style="font-size:0.65rem;font-weight:700;color:#64748b;margin-bottom:2px;">MATERIALES</div>'
-                                f'<div style="background:{_mb};border-radius:4px;height:4px;margin-bottom:3px;">'
-                                f'<div style="background:{_mc};border-radius:4px;height:4px;width:{_mp}%;"></div></div>'
-                                f'<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">'
-                                f'<span style="color:{_mc};font-weight:700;font-size:0.68rem;">{_mp}%</span>'
-                                f'<button class="_mat_btn" data-ep="{_num}" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:4px;padding:1px 5px;font-size:0.62rem;font-weight:700;cursor:pointer;font-family:inherit;line-height:1.4;">📋 Ver</button>'
-                                f'</div></div>')
                     _prods_raw = _prods_map.get(_num) or []
                     if isinstance(_prods_raw, str):
                         try: _prods_raw = _jco.loads(_prods_raw)
@@ -10291,7 +10245,7 @@ if tab3 is not None:
                         elif p < 100: return '#16a34a', '#dcfce7'
                         else:         return '#2563eb', '#dbeafe'
                     if _estado == "Sin compras":
-                        return f'<span style="color:#94a3b8;font-size:0.78rem;">Sin compras</span>' + _mh()
+                        return '<span style="color:#94a3b8;font-size:0.78rem;">Sin compras</span>'
                     elif _estado == "Compras 100%":
                         _cc, _cb = _compra_col(100)
                         return (
@@ -10299,7 +10253,7 @@ if tab3 is not None:
                             f'<div style="background:{_cb};border-radius:4px;height:6px;margin-bottom:3px;">'
                             f'<div style="background:{_cc};border-radius:4px;height:6px;width:100%;"></div></div>'
                             f'<span style="color:{_cc};font-weight:700;font-size:0.75rem;">✅ 100% comprado</span></div>'
-                        ) + _mh()
+                        )
                     elif "adicionales" in _estado:
                         _nadd = len(_est["adicionales"])
                         _cc, _cb = _compra_col(100)
@@ -10308,7 +10262,7 @@ if tab3 is not None:
                             f'<div style="background:{_cb};border-radius:4px;height:6px;margin-bottom:3px;">'
                             f'<div style="background:{_cc};border-radius:4px;height:6px;width:100%;"></div></div>'
                             f'<span style="color:{_cc};font-weight:700;font-size:0.75rem;">✅ 100% +{_nadd} adic.</span></div>'
-                        ) + _mh()
+                        )
                     else:
                         _cc, _cb = _compra_col(_pct)
                         return (
@@ -10316,7 +10270,7 @@ if tab3 is not None:
                             f'<div style="background:{_cb};border-radius:4px;height:6px;margin-bottom:3px;">'
                             f'<div style="background:{_cc};border-radius:4px;height:6px;width:{_pct}%;"></div></div>'
                             f'<span style="color:{_cc};font-weight:700;font-size:0.75rem;">{_pct}% comprado</span></div>'
-                        ) + _mh()
+                        )
                 except:
                     return '<span style="color:#94a3b8;font-size:0.78rem;">—</span>'
             df_resultados["ComprasOK"] = df_resultados.apply(_fmt_compras_ok, axis=1)
@@ -10379,7 +10333,6 @@ if tab3 is not None:
                 'inst_region': str(_mrow.get('Inst_Region','') or ''),
             }
         _cli_data_json_map = _jcli_map.dumps(_cli_data_map, ensure_ascii=True)
-        _mat_data_json_map = _jcli_map.dumps(_mat_data_map, ensure_ascii=True)
         for _, row in df_resultados.iterrows():
             _mg_color  = 'color:#16a34a;font-weight:700;' if '✅' in str(row['MargenCol']) else 'color:#94a3b8;'
             _th_margen = '<th>Margen</th>' if st.session_state.modo_admin else ''
@@ -10813,7 +10766,6 @@ if tab3 is not None:
         import streamlit.components.v1 as _ep_copy_comp
         _ep_copy_comp.html("""<script>
 var CLI_DATA = """ + _cli_data_json_map + """;
-var MAT_DATA = """ + _mat_data_json_map + """;
 (function(){
     var D = window.parent.document;
 
@@ -10899,65 +10851,6 @@ var MAT_DATA = """ + _mat_data_json_map + """;
         box.appendChild(header); box.appendChild(body);
         overlay.appendChild(box); D.body.appendChild(overlay);
         closeBtn.addEventListener('click', function(){ overlay.remove(); });
-        overlay.addEventListener('click', function(ev){ if(ev.target===overlay) overlay.remove(); });
-    });
-
-    // ── Modal materiales cliente ──
-    D.addEventListener('click', function(e) {
-        var btn = e.target && e.target.closest ? e.target.closest('._mat_btn') : null;
-        if(!btn) return;
-        e.stopPropagation();
-        var ep = btn.getAttribute('data-ep') || '';
-        var mat = {};
-        try { mat = (typeof MAT_DATA !== 'undefined' ? MAT_DATA : {})[ep] || {}; } catch(ex) {}
-        var existing = D.getElementById('_mat_modal');
-        if(existing) existing.remove();
-        var overlay = D.createElement('div');
-        overlay.id = '_mat_modal';
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:99999;display:flex;align-items:center;justify-content:center;';
-        var box = D.createElement('div');
-        box.style.cssText = 'background:#1e293b;border:1px solid #334155;border-radius:16px;padding:28px 32px;max-width:500px;width:92%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
-        var hdr = D.createElement('div');
-        hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;';
-        var ttl = D.createElement('div');
-        ttl.style.cssText = 'font-size:1rem;font-weight:900;color:#f1f5f9;';
-        ttl.textContent = '\U0001F4CB Materiales \u2014 ' + ep;
-        var cls = D.createElement('button');
-        cls.textContent = '\u2716 Cerrar';
-        cls.style.cssText = 'background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.3);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.8rem;font-weight:700;';
-        hdr.appendChild(ttl); hdr.appendChild(cls);
-        var pct = mat.pct || 0;
-        var pc = pct===100 ? '#16a34a' : (pct>=50 ? '#f97316' : '#2563eb');
-        var pb = D.createElement('div');
-        pb.style.cssText = 'background:#0f172a;border-radius:8px;padding:10px 12px;margin-bottom:14px;';
-        pb.innerHTML = '<div style="background:#1e293b;border-radius:4px;height:6px;margin-bottom:6px;">'
-            +'<div style="background:'+pc+';border-radius:4px;height:6px;width:'+pct+'%;"></div></div>'
-            +'<div style="font-size:0.78rem;color:#94a3b8;">'+(mat.done||0)+' de '+(mat.total||0)+' secciones &mdash; '+pct+'%</div>';
-        var bdy = D.createElement('div');
-        var cats = mat.cats || [];
-        if(!cats.length){
-            bdy.innerHTML = '<div style="color:#64748b;font-size:0.9rem;text-align:center;padding:20px 0;">Sin datos a\u00FAn</div>';
-        } else {
-            cats.forEach(function(c){
-                var ce = D.createElement('div'); ce.style.cssText = 'margin-bottom:12px;';
-                var ct = D.createElement('div');
-                ct.style.cssText = 'font-size:0.78rem;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;';
-                ct.textContent = c.cat; ce.appendChild(ct);
-                (c.grupos||[]).forEach(function(g){
-                    var rw = D.createElement('div');
-                    rw.style.cssText = 'display:flex;align-items:baseline;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.85rem;';
-                    rw.innerHTML = '<span>'+(g.val?'\u2705':'\u2B1C')+'</span>'
-                        +'<span style="color:#cbd5e1;font-weight:600;">'+g.tg+'</span>'
-                        +'<span style="color:#64748b;">:</span>'
-                        +'<span style="color:'+(g.val?'#60a5fa':'#475569')+';">'+(g.val||'\u2014')+'</span>';
-                    ce.appendChild(rw);
-                });
-                bdy.appendChild(ce);
-            });
-        }
-        box.appendChild(hdr); box.appendChild(pb); box.appendChild(bdy);
-        overlay.appendChild(box); D.body.appendChild(overlay);
-        cls.addEventListener('click', function(){ overlay.remove(); });
         overlay.addEventListener('click', function(ev){ if(ev.target===overlay) overlay.remove(); });
     });
 
@@ -12691,7 +12584,7 @@ if st.session_state.get('es_root') and tab_salud is not None:
                 pass
 
             # Contar filas por tabla (siempre funciona)
-            for _tbl in ['cotizaciones', 'cotizacion_logs', 'excel_versiones', 'registro_compras', 'catalogo_materiales', 'formulario_config', 'formulario_respuestas', 'formulario_preguntas', 'plantillas_contrato', 'usuarios']:
+            for _tbl in ['cotizaciones', 'cotizacion_logs', 'excel_versiones']:
                 try:
                     _r = supabase.table(_tbl).select('id', count='exact').execute()
                     _db_rows[_tbl] = _r.count or 0
@@ -12735,34 +12628,6 @@ if st.session_state.get('es_root') and tab_salud is not None:
                 }
             except:
                 _storage_info['config'] = {'archivos': 0, 'mb': 0, 'estimado': True}
-
-            try:
-                # Bucket "formulario-imagenes" — imágenes del catálogo de materiales
-                _r_fimg = supabase.table('catalogo_materiales').select('id', count='exact').not_.is_('imagen_url', 'null').neq('imagen_url', '').execute()
-                _n_fimg = _r_fimg.count or 0
-                # Imágenes catálogo: estimado ~200KB por imagen
-                _mb_fimg = round((_n_fimg * 200 * 1024) / (1024*1024), 2)
-                _storage_info['formulario-imagenes'] = {'archivos': _n_fimg, 'mb': _mb_fimg, 'estimado': True}
-            except:
-                _storage_info['formulario-imagenes'] = {'archivos': 0, 'mb': 0, 'estimado': True}
-
-            try:
-                # Bucket "contratos"
-                _r_cont = supabase.table('cotizaciones').select('id', count='exact').not_.is_('contrato_url', 'null').neq('contrato_url', '').execute()
-                _n_cont = _r_cont.count or 0
-                _mb_cont = round((_n_cont * 300 * 1024) / (1024*1024), 2)
-                _storage_info['contratos'] = {'archivos': _n_cont, 'mb': _mb_cont, 'estimado': True}
-            except:
-                _storage_info['contratos'] = {'archivos': 0, 'mb': 0, 'estimado': True}
-
-            try:
-                # Bucket "facturas"
-                _r_fact = supabase.table('registro_compras').select('id', count='exact').execute()
-                _n_fact = _r_fact.count or 0
-                _mb_fact = round((_n_fact * 150 * 1024) / (1024*1024), 2)
-                _storage_info['facturas'] = {'archivos': _n_fact, 'mb': _mb_fact, 'estimado': True}
-            except:
-                _storage_info['facturas'] = {'archivos': 0, 'mb': 0, 'estimado': True}
 
             _storage_total_mb = sum(v['mb'] for v in _storage_info.values())
 
@@ -12821,18 +12686,7 @@ if st.session_state.get('es_root') and tab_salud is not None:
         with _col_tbl:
             st.markdown('<div class="sys-section-title">📋 Filas por tabla</div>', unsafe_allow_html=True)
             _tbl_html = '<div class="sys-card"><table class="sys-table"><thead><tr><th>Tabla</th><th>Filas</th></tr></thead><tbody>'
-            _tbl_labels = {
-                'cotizaciones':          '📄 Cotizaciones',
-                'cotizacion_logs':        '📝 Logs auditoría',
-                'excel_versiones':        '📊 Versiones Excel',
-                'registro_compras':       '🛒 Registro compras',
-                'catalogo_materiales':    '🏷️ Catálogo materiales',
-                'formulario_config':      '⚙️ Config formularios',
-                'formulario_respuestas':  '✅ Respuestas clientes',
-                'formulario_preguntas':   '❓ Preguntas formulario',
-                'plantillas_contrato':    '📄 Plantillas contrato',
-                'usuarios':               '👥 Usuarios',
-            }
+            _tbl_labels = {'cotizaciones': '📄 Cotizaciones', 'cotizacion_logs': '📝 Logs auditoría', 'excel_versiones': '📊 Versiones Excel'}
             for _t, _cnt in _db_rows.items():
                 _lbl = _tbl_labels.get(_t, _t)
                 _tbl_html += f'<tr><td>{_lbl}</td><td><b>{_cnt:,}</b></td></tr>'
@@ -12843,13 +12697,7 @@ if st.session_state.get('es_root') and tab_salud is not None:
             st.markdown('<div class="sys-section-title">🗂️ Archivos por bucket</div>', unsafe_allow_html=True)
             if _storage_info:
                 _bkt_html = '<div class="sys-card"><table class="sys-table"><thead><tr><th>Bucket</th><th>Archivos</th><th>Tamaño</th></tr></thead><tbody>'
-                _bkt_icons = {
-                    'planos': '📐 planos',
-                    'config': '⚙️ config',
-                    'formulario-imagenes': '🖼️ formulario-imagenes',
-                    'contratos': '📄 contratos',
-                    'facturas': '🧾 facturas',
-                }
+                _bkt_icons = {'planos': '📐 planos', 'config': '⚙️ config'}
                 for _bn, _bv in _storage_info.items():
                     _blbl = _bkt_icons.get(_bn, f'📁 {_bn}')
                     _est = ' <i style="color:#94a3b8;font-size:0.7rem">(est.)</i>' if _bv.get('estimado') else ''
