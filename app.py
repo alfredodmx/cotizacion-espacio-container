@@ -1324,7 +1324,7 @@ window.guardarConfig=async function(){
       mostrar_obs:mostrar,
       orden:g.orden
     };
-    var r=await fetch(S+'/rest/v1/formulario_config',{
+    var r=await fetch(S+'/rest/v1/formulario_config?on_conflict=cotizacion_numero,categoria,titulo_grupo',{
       method:'POST',
       headers:{'Authorization':'Bearer '+K,'apikey':K,'Content-Type':'application/json',
                'Prefer':'resolution=merge-duplicates,return=minimal'},
