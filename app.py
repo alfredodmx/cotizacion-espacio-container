@@ -288,14 +288,18 @@ var P={};
 function pick(iid,val,tipo){
   R[iid]=val; P[iid]=val;
   if(tipo==="color"){
-    document.querySelectorAll(".c-item").forEach(function(el){
-      var nm=el.querySelector(".c-name");
-      if(nm) el.classList.toggle("sel", nm.textContent===val);
-    });
+    var el=document.getElementById("ci-"+iid);
+    if(el){
+      var row=el.closest(".color-row");
+      if(row) row.querySelectorAll(".c-item").forEach(function(e){e.classList.remove("sel");});
+      el.classList.add("sel");
+    }
   } else if(tipo==="imagen"){
     var el=document.getElementById("ii-"+iid);
     if(el){
-      document.querySelectorAll(".i-item").forEach(function(e){e.classList.remove("sel");});
+      // Only deselect within the same img-row group
+      var row=el.closest(".img-row");
+      if(row) row.querySelectorAll(".i-item").forEach(function(e){e.classList.remove("sel");});
       el.classList.add("sel");
     }
   } else if(tipo==="si_no"){
@@ -306,9 +310,6 @@ function pick(iid,val,tipo){
       clickedBtn.classList.add("sel");
     }
   }
-  // update done dot
-  var dots=document.querySelectorAll(".done-dot");
-  // simple: add dot if not present near the item-title
 }
 
 function scrollC(gid,dir){
