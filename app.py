@@ -1309,6 +1309,14 @@ window.guardarConfig=async function(){
     if(cb&&cb.checked)groups[key].ids.push(String(it.id));
   });
 
+  // Step 1: delete all existing config for this EP
+  var delR=await fetch(S+'/rest/v1/formulario_config?cotizacion_numero=eq.'+encodeURIComponent(EP),{
+    method:'DELETE',
+    headers:{'Authorization':'Bearer '+K,'apikey':K}
+  });
+  if(!delR.ok){st.textContent='Error limpiando config: '+delR.status;st.style.color='#dc2626';btn.disabled=false;return;}
+
+  // Step 2: insert fresh records
   var saved=0;
   for(var key in groups){
     var g=groups[key];
@@ -1325,10 +1333,10 @@ window.guardarConfig=async function(){
       mostrar_obs:mostrar,
       orden:g.orden
     };
-    var r=await fetch(S+'/rest/v1/formulario_config?on_conflict=cotizacion_numero,categoria,titulo_grupo',{
+    var r=await fetch(S+'/rest/v1/formulario_config',{
       method:'POST',
       headers:{'Authorization':'Bearer '+K,'apikey':K,'Content-Type':'application/json',
-               'Prefer':'resolution=merge-duplicates,return=minimal'},
+               'Prefer':'return=minimal'},
       body:JSON.stringify(body)
     });
     if(r.ok)saved++;
