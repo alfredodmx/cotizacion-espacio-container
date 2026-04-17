@@ -808,7 +808,7 @@ if _modo_cliente:
         _primer_nombre = _nom_cli.split()[0].capitalize() if _nom_cli else "Cliente"
 
         try:
-            _cat_cli = _fetch_catalogo_materiales()
+            _cat_cli = supabase.table('catalogo_materiales').select('*').eq('activo',True).order('categoria').order('orden_grupo').order('titulo_grupo').order('nombre').execute().data or []
         except:
             _cat_cli = []
         try:
@@ -1080,7 +1080,6 @@ if st.session_state.get('es_supervisor') and not st.session_state.get('_ejecutiv
 # =========================================================
 # HELPERS: DESCRIPCIONES PDF CLIENTE (JSON en Storage bucket config)
 # =========================================================
-@st.cache_data(ttl=60, show_spinner=False)
 def cargar_descripciones_por_ep(numero, bust_cache=False):
     """Carga descripciones de un EP desde Storage bucket config."""
     try:
@@ -1113,7 +1112,6 @@ def guardar_descripciones_por_ep(numero, descripciones: dict):
             file=data,
             file_options={"content-type": "application/json", "upsert": "true"}
         )
-        _invalidar_cache_cotizaciones()
         return True
     except Exception as e:
         st.error(f"Error al guardar descripciones: {e}")
@@ -2607,7 +2605,6 @@ def guardar_registro_compra(cotizacion_numero, usuario, factura_url, factura_nom
     except Exception as e:
         return False, str(e)
 
-@st.cache_data(ttl=30, show_spinner=False)
 def obtener_registros_compra(cotizacion_numero):
     """Obtiene todos los registros de compra de una cotización."""
     try:
@@ -2616,7 +2613,6 @@ def obtener_registros_compra(cotizacion_numero):
     except Exception as e:
         return []
 
-@st.cache_data(ttl=30, show_spinner=False)
 def obtener_items_comprados(cotizacion_numero):
     """Consolida todos los registros y retorna dict {item_name: {real, adic, fecha}} de ítems ya comprados."""
     import json as _jic
@@ -4419,7 +4415,9 @@ def buscar_direccion(direccion):
 # =========================================================
 import io as _io_excel
 
-@st.cache_data(ttl=60, show_spinner=False)
+@st.cache_data(ttl=60)
+@st.cache_data(ttl=60)
+@st.cache_data(ttl=300, show_spinner=False)
 def _get_excel_bytes_activo():
     """Descarga el Excel activo desde Supabase Storage. Cache 60s."""
     try:
@@ -4441,6 +4439,8 @@ def _excel_src():
         st.session_state.excel_bytes_cache = _get_excel_bytes_activo()
     return st.session_state.excel_bytes_cache
 
+@st.cache_data(ttl=300)
+@st.cache_data(ttl=120)
 @st.cache_data(ttl=300, show_spinner=False)
 def _leer_hoja_excel(nombre_hoja):
     """Lee y cachea una hoja del Excel — evita re-parsear en cada render."""
@@ -4449,12 +4449,14 @@ def _leer_hoja_excel(nombre_hoja):
     except:
         return pd.DataFrame()
 
+@st.cache_data(ttl=300)
 @st.cache_data(ttl=300, show_spinner=False)
 def _leer_bd_total():
     """Lee y cachea la hoja BD Total."""
     return pd.read_excel(_excel_src(), sheet_name="BD Total")[["Item", "P. Unitario real"]]
 
-@st.cache_data(ttl=120, show_spinner=False)
+@st.cache_data(ttl=120)
+@st.cache_data(ttl=300, show_spinner=False)
 def _leer_hojas_disponibles():
     """Lista de hojas disponibles con caché corto."""
     try:
@@ -4958,20 +4960,9 @@ def _invalidar_cache_cotizaciones():
     """Limpia caches de lectura después de guardar/modificar datos."""
     for fn in [buscar_cotizaciones, cargar_cotizacion, contar_logs,
                _fetch_cotizaciones_raw, cargar_ranking_ejecutivos,
-               cargar_datos_dashboard, cargar_descripciones_por_ep,
-               obtener_registros_compra, obtener_items_comprados]:
+               cargar_datos_dashboard]:
         try: fn.clear()
         except: pass
-    # Also clear session_state caches
-    for _sk in ['_prods_map_cache', '_prods_map_key', '_asesores_cache']:
-        st.session_state.pop(_sk, None)
-
-def _invalidar_cache_catalogo():
-    """Limpia cache del catálogo de materiales."""
-    try: _fetch_catalogo_materiales.clear()
-    except: pass
-    try: _obtener_clausulas_contrato.clear()
-    except: pass
 
 def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, totales, plano_nombre=None, plano_datos=None, usuario_logueado=None):
     try:
@@ -5158,18 +5149,35 @@ def _fetch_cotizaciones_raw(rol, email):
 
 def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
     try:
+        query = supabase.table('cotizaciones').select(
+            'numero', 'cliente_nombre', 'asesor_nombre', 'fecha_creacion',
+            'total_total', 'config_margen', 'cliente_rut', 'cliente_email',
+            'asesor_email', 'asesor_telefono', 'plano_url', 'contrato_generado', 'cliente_empresa',
+            'fecha_autorizacion', 'autorizado_por', 'contrato_notariado_url',
+            'fecha_adjudicacion', 'contrato_datos', 'motivo_rechazo', 'fecha_rechazo',
+            'acta_url', 'fecha_entrega',
+            'cliente_telefono', 'cliente_direccion', 'cliente_comuna', 'cliente_region',
+            'proyecto_direccion', 'proyecto_comuna', 'proyecto_region'
+        )
+        # Filtrar por usuario si es ejecutivo (no admin ni root)
         _rol_q = st.session_state.get('rol_usuario', 'ejecutivo')
-        _email_q = st.session_state.get('auth_email', '') if _rol_q == 'ejecutivo' else ''
-        # Use cached raw fetch — avoids Supabase round-trip on every rerun
-        rows = _fetch_cotizaciones_raw(_rol_q, _email_q)
-        # Apply search filter in Python (no extra query)
+        if _rol_q == 'ejecutivo':
+            _email = st.session_state.get('auth_email', '')
+            if _email:
+                # ilike es case-insensitive, cubre tanto mayúsculas como minúsculas
+                query = query.ilike('asesor_email', _email.strip())
         if termino and termino.strip():
-            t = termino.strip().lower()
-            campo_map = {'numero': 'numero', 'cliente': 'cliente_nombre', 'asesor': 'asesor_nombre'}
+            campo_map = {
+                'numero': 'numero',
+                'cliente': 'cliente_nombre',
+                'asesor': 'asesor_nombre'
+            }
             campo = campo_map.get(tipo_busqueda, 'numero')
-            rows = [r for r in rows if t in (r.get(campo) or '').lower()]
+            query = query.ilike(campo, f'%{termino}%')
+        query = query.order('fecha_creacion', desc=True).limit(50)
+        response = query.execute()
         resultados = []
-        for row in rows:
+        for row in response.data:
             resultados.append((
                 row.get('numero', ''),
                 row.get('cliente_nombre', '') or '',
@@ -5202,6 +5210,7 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
                 row.get('proyecto_comuna', '') or '',
                 row.get('proyecto_region', '') or '',
             ))
+        # Agregar conteo de logs
         numeros_ep = [r[0] for r in resultados]
         _log_counts = contar_logs(numeros_ep)
         resultados = [r + (_log_counts.get(r[0], 0),) for r in resultados]
@@ -5210,6 +5219,7 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
         st.error(f"Error en búsqueda: {e}")
         return []
 
+@st.cache_data(ttl=30, show_spinner=False)
 def cargar_cotizacion(numero):
     try:
         if not numero:
@@ -5410,9 +5420,7 @@ _es_solo_lectura = (
 # =========================================================
 # CSS PERSONALIZADO
 # =========================================================
-if '_css_main_injected' not in st.session_state:
-    st.session_state['_css_main_injected'] = True
-    st.markdown("""
+st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400;1,500;1,600;1,700;1,800&family=Montserrat:wght@300;400;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -5903,9 +5911,7 @@ if '_css_main_injected' not in st.session_state:
 </style>
 """, unsafe_allow_html=True)
 
-if '_css_tabs_injected' not in st.session_state:
-    st.session_state['_css_tabs_injected'] = True
-    st.markdown('''
+st.markdown('''
 <style>
 .stMarkdown h3 {
     font-family: 'Plus Jakarta Sans', sans-serif !important;
@@ -6047,14 +6053,21 @@ st.markdown('''
 
 import base64 as _b64, os as _os
 
-if '_logo_html_cache' not in st.session_state:
-    if _os.path.exists('logo.png'):
-        with open('logo.png', 'rb') as _f:
-            _logo_b64 = _b64.b64encode(_f.read()).decode()
-        st.session_state['_logo_html_cache'] = f'<img src="data:image/png;base64,{_logo_b64}" width="350" style="display:block;margin-left:auto;">'
-    else:
-        st.session_state['_logo_html_cache'] = ''
-_logo_html = st.session_state.get('_logo_html_cache', '')
+_logo_html = ""
+if _os.path.exists("logo.png"):
+    with open("logo.png", "rb") as _f:
+        _logo_b64 = _b64.b64encode(_f.read()).decode()
+    _logo_html = f'<img src="data:image/png;base64,{_logo_b64}" width="350" style="display:block;margin-left:auto;">'
+else:
+    _logo_html = '''<svg width="350" height="48" viewBox="0 0 130 48" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;margin-left:auto;">
+        <rect width="350" height="48" rx="8" fill="url(#hg)"/>
+        <path d="M26 16L32 21L26 26L20 21L26 16Z" fill="white"/>
+        <circle cx="65" cy="21" r="5" fill="#FFD966"/>
+        <text x="82" y="26" font-family="Inter" font-size="13" font-weight="700" fill="white">PRO</text>
+        <defs><linearGradient id="hg" x1="0" y1="0" x2="130" y2="48" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#3B82F6"/><stop offset="1" stop-color="#8B5CF6"/>
+        </linearGradient></defs>
+    </svg>'''
 
 st.markdown(f'''
 <div style="
@@ -6138,105 +6151,98 @@ else:
 
 _header_bg = 'linear-gradient(90deg, ' + _header_color + ' 0%, #0f172a 65%)'
 
-# Cache header CSS — only re-inject when background color changes
-_hdr_cache_key = '_hdr_css_' + _header_bg.replace(' ', '_').replace(',','').replace('#','')
-if _hdr_cache_key not in st.session_state:
-    # Clear old header css cache keys
-    for _hk in [k for k in st.session_state if k.startswith('_hdr_css_')]:
-        del st.session_state[_hk]
-    st.session_state[_hdr_cache_key] = True
+st.markdown(f"""
+<style>
+#_usr_header_bar {{
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 65px;
+    background: {_header_bg};
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.05);
+    transition: background 0.5s ease;
+    display: flex;
+    align-items: center;
+    padding: 0 1.5rem;
+    z-index: 99998;
+    gap: 12px;
+}}
+/* ── Dialogs y modals siempre sobre el header ── */
+[data-testid="stDialog"] > div > div {{
+    margin-top: 65px !important;
+    max-height: calc(100vh - 65px) !important;
+}}
+div[role="dialog"] {{
+    margin-top: 65px !important;
+    max-height: calc(100vh - 65px) !important;
+}}
+/* ── Tabla fullscreen: empujar bajo el header ── */
+[data-testid="stDataFrame"],
+[data-testid="stDataEditor"] {{
+    scroll-margin-top: 65px;
+}}
+#_usr_header_bar .usr-right {{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+    flex-shrink: 0;
+}}
+/* Botones del header — forzar texto blanco */
+#_usr_header_bar button,
+#_usr_header_bar ._hdr_btns_moved button {{
+    color: #ffffff !important;
+}}
+/* Badge estado — sin efectos de click */
+#hdr-badge-estado {{
+    -webkit-tap-highlight-color: transparent !important;
+    outline: none !important;
+}}
+#hdr-badge-estado:active {{
+    opacity: 0.85 !important;
+    transform: scale(0.97) !important;
+}}
+/* Ocultar badge y botón cerrar originales — sin espacio */
+.cotizacion-status-container {{ display: none !important; }}
+.st-key-btn_cerrar_cotizacion {{
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}}
+/* Ocultar toda la fila de columnas del badge/cerrar */
+.st-key-btn_cerrar_cotizacion,
+.st-key-btn_cerrar_cotizacion * {{ display: none !important; }}
+/* Reducir espacio del bloque completo que contiene badge+cerrar */
+[data-testid="stHorizontalBlock"]:has(.st-key-btn_cerrar_cotizacion) {{
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+}}
+</style>
+""" + '<div id="_usr_header_bar"><div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow:hidden;">' + _left_html + '</div><div class="usr-right">' + _rol_html + '</div></div>', unsafe_allow_html=True)
+
+# Dialog contraseña — se abre centrado sin interferir con popovers
+if 'show_pwd_dialog' not in st.session_state:
+    st.session_state.show_pwd_dialog = False
+
+@st.dialog("🔑 Cambiar contraseña")
+def _pwd_dialog():
+    _nombre_usr = st.session_state.get('auth_nombre', '') or st.session_state.get('auth_email', '')
     st.markdown(f"""
-    <style>
-    #_usr_header_bar {{
-        position: fixed;
-        top: 0; left: 0; right: 0;
-        height: 65px;
-        background: {_header_bg};
-        border-bottom: 1px solid rgba(255,255,255,0.08);
-        box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.05);
-        transition: background 0.5s ease;
-        display: flex;
-        align-items: center;
-        padding: 0 1.5rem;
-        z-index: 99998;
-        gap: 12px;
-    }}
-    /* ── Dialogs y modals siempre sobre el header ── */
-    [data-testid="stDialog"] > div > div {{
-        margin-top: 65px !important;
-        max-height: calc(100vh - 65px) !important;
-    }}
-    div[role="dialog"] {{
-        margin-top: 65px !important;
-        max-height: calc(100vh - 65px) !important;
-    }}
-    /* ── Tabla fullscreen: empujar bajo el header ── */
-    [data-testid="stDataFrame"],
-    [data-testid="stDataEditor"] {{
-        scroll-margin-top: 65px;
-    }}
-    #_usr_header_bar .usr-right {{
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-left: auto;
-        flex-shrink: 0;
-    }}
-    /* Botones del header — forzar texto blanco */
-    #_usr_header_bar button,
-    #_usr_header_bar ._hdr_btns_moved button {{
-        color: #ffffff !important;
-    }}
-    /* Badge estado — sin efectos de click */
-    #hdr-badge-estado {{
-        -webkit-tap-highlight-color: transparent !important;
-        outline: none !important;
-    }}
-    #hdr-badge-estado:active {{
-        opacity: 0.85 !important;
-        transform: scale(0.97) !important;
-    }}
-    /* Ocultar badge y botón cerrar originales — sin espacio */
-    .cotizacion-status-container {{ display: none !important; }}
-    .st-key-btn_cerrar_cotizacion {{
-        display: none !important;
-        height: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }}
-    /* Ocultar toda la fila de columnas del badge/cerrar */
-    .st-key-btn_cerrar_cotizacion,
-    .st-key-btn_cerrar_cotizacion * {{ display: none !important; }}
-    /* Reducir espacio del bloque completo que contiene badge+cerrar */
-    [data-testid="stHorizontalBlock"]:has(.st-key-btn_cerrar_cotizacion) {{
-        display: none !important;
-        height: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        min-height: 0 !important;
-    }}
-    </style>
-    """ + '<div id="_usr_header_bar"><div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow:hidden;">' + _left_html + '</div><div class="usr-right">' + _rol_html + '</div></div>', unsafe_allow_html=True)
-    
-    # Dialog contraseña — se abre centrado sin interferir con popovers
-    if 'show_pwd_dialog' not in st.session_state:
-        st.session_state.show_pwd_dialog = False
-    
-    @st.dialog("🔑 Cambiar contraseña")
-    def _pwd_dialog():
-        _nombre_usr = st.session_state.get('auth_nombre', '') or st.session_state.get('auth_email', '')
-        st.markdown(f"""
-        <div style='text-align:center;padding:0.8rem 0 1rem;'>
-            <div style='width:52px;height:52px;border-radius:50%;
-                background:linear-gradient(135deg,#5b7cfa,#8b5cf6);
-                display:flex;align-items:center;justify-content:center;
-                font-size:1.5rem;margin:0 auto 8px;
-                box-shadow:0 4px 16px rgba(91,124,250,0.3);'>🔑</div>
-            <div style='color:#64748b;font-size:0.82rem;'>
-                Usuario: <strong style='color:#1e293b;'>{_nombre_usr.upper()}</strong>
-            </div>
+    <div style='text-align:center;padding:0.8rem 0 1rem;'>
+        <div style='width:52px;height:52px;border-radius:50%;
+            background:linear-gradient(135deg,#5b7cfa,#8b5cf6);
+            display:flex;align-items:center;justify-content:center;
+            font-size:1.5rem;margin:0 auto 8px;
+            box-shadow:0 4px 16px rgba(91,124,250,0.3);'>🔑</div>
+        <div style='color:#64748b;font-size:0.82rem;'>
+            Usuario: <strong style='color:#1e293b;'>{_nombre_usr.upper()}</strong>
         </div>
-        """, unsafe_allow_html=True)
+    </div>
+    """, unsafe_allow_html=True)
     # Columnas para simular padding lateral
     _sp1, _mid, _sp2 = st.columns([0.08, 1, 0.08])
     with _mid:
@@ -6270,36 +6276,35 @@ if st.session_state.show_pwd_dialog:
 
 # Botones ocultos — se mueven al header via JS
 # CSS para ocultar todo el bloque sin dejar espacio
-if '_css_tab_headers' not in st.session_state:
-    st.session_state['_css_tab_headers'] = True
-    st.markdown("""<style>
-    /* ── Headers de tabs — tipografía Montserrat igual que módulos ── */
-    div[class*="hdr"] h2 + p,
-    div[class*="hdr"] p { margin-top: 0 !important; margin-bottom: 0 !important; padding-top: 0 !important; line-height: 1.2 !important; }
-    div[class*="hdr"] h2 { line-height: 1.2 !important; margin-bottom: 0 !important; padding-bottom: 0 !important; }
-    div[class*="hdr"] { align-items: center !important; }
-    div[class*="hdr"] h2,
-    div[class*="hdr1"] h2, div[class*="hdr2"] h2, div[class*="hdr3"] h2,
-    div[class*="hdr4"] h2, div[class*="hdr5"] h2, div[class*="hdr6"] h2,
-    div[class*="hdr7"] h2, div[class*="hdr-oper"] h2, div[class*="hdr-reporte"] h2,
-    div[class*="hdr-usuarios"] h2, div[class*="hdr-admindata"] h2,
-    div[class*="hdr-contrato"] h2, div[class*="hdr-salud"] h2,
-    div[class*="dash-hdr"] h2, div[class*="excel-header"] h2 {
-        font-family: 'Montserrat', sans-serif !important;
-        font-weight: 900 !important;
-        font-size: 1.8rem !important;
-        letter-spacing: 0.05em !important;
-        text-transform: uppercase !important;
-        color: #fff !important;
-    }
-    .st-key-btn_pwd_hdr, .st-key-btn_cerrar_sesion_header, .st-key-btn_cerrar_cotizacion {
-        position:fixed!important;top:-9999px!important;left:-9999px!important;
-        width:1px!important;height:1px!important;overflow:hidden!important;
-    }
-    [data-testid="stHorizontalBlock"]:has(.st-key-btn_pwd_hdr):not(:has(.st-key-btn_fab_guardar)) {
-        display:none!important;height:0!important;margin:0!important;padding:0!important;min-height:0!important;
-    }
-    </style>""", unsafe_allow_html=True)
+st.markdown("""<style>
+/* ── Headers de tabs — tipografía Montserrat igual que módulos ── */
+div[class*="hdr"] h2 + p,
+div[class*="hdr"] p { margin-top: 0 !important; margin-bottom: 0 !important; padding-top: 0 !important; line-height: 1.2 !important; }
+div[class*="hdr"] h2 { line-height: 1.2 !important; margin-bottom: 0 !important; padding-bottom: 0 !important; }
+div[class*="hdr"] { align-items: center !important; }
+div[class*="hdr"] h2,
+div[class*="hdr1"] h2, div[class*="hdr2"] h2, div[class*="hdr3"] h2,
+div[class*="hdr4"] h2, div[class*="hdr5"] h2, div[class*="hdr6"] h2,
+div[class*="hdr7"] h2, div[class*="hdr-oper"] h2, div[class*="hdr-reporte"] h2,
+div[class*="hdr-usuarios"] h2, div[class*="hdr-admindata"] h2,
+div[class*="hdr-contrato"] h2, div[class*="hdr-salud"] h2,
+div[class*="dash-hdr"] h2, div[class*="excel-header"] h2 {
+    font-family: 'Montserrat', sans-serif !important;
+    font-weight: 900 !important;
+    font-size: 1.8rem !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+    color: #fff !important;
+}
+.st-key-btn_pwd_hdr, .st-key-btn_cerrar_sesion_header, .st-key-btn_cerrar_cotizacion {
+    position:fixed!important;top:-9999px!important;left:-9999px!important;
+    width:1px!important;height:1px!important;overflow:hidden!important;
+}
+[data-testid="stHorizontalBlock"]:has(.st-key-btn_pwd_hdr):not(:has(.st-key-btn_fab_guardar)) {
+    display:none!important;height:0!important;margin:0!important;padding:0!important;min-height:0!important;
+}
+</style>""", unsafe_allow_html=True)
+
 _col_esp2, _col_pwd, _col_cerrar = st.columns([12, 1, 1])
 with _col_pwd:
     if st.button("🔑 Mi contraseña", key="btn_pwd_hdr", use_container_width=True):
@@ -7459,7 +7464,6 @@ def generar_word_contrato(datos):
     return buf
 
 
-@st.cache_data(ttl=300, show_spinner=False)
 def _obtener_clausulas_contrato(modelo_predefinido=None):
     """Retorna las cláusulas de la plantilla activa.
     Si se pasa modelo_predefinido, busca la plantilla que tenga ese modelo asociado.
@@ -8037,7 +8041,7 @@ def _construir_texto_cliente_pdf(datos_cliente, style):
     return Paragraph("<br/>".join(lines), style)
 
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=300)
 def cargar_visibilidad_impresion():
     """Carga hoja Impresion del Excel activo. Retorna dict {item_lower: 'Mostrar'|'Ocultar'}."""
     try:
@@ -10396,17 +10400,18 @@ if tab3 is not None:
         _tc_map = {}
         if st.session_state.modo_admin:
             try:
-                import json as _jt
-                # Reuse _prods_map already loaded above — no extra Supabase query needed
-                _pm_src = st.session_state.get('_prods_map_cache', {})
-                for _tc_num, _tc_prods in _pm_src.items():
+                _eps_lista = df_resultados["N°"].tolist()
+                _tc_resp = supabase.table("cotizaciones").select("numero,productos").in_("numero", _eps_lista).execute()
+                for _tc_row in (_tc_resp.data or []):
                     try:
-                        _prods = _tc_prods if isinstance(_tc_prods, list) else []
+                        import json as _jt
+                        _prods = _tc_row.get("productos") or []
+                        if isinstance(_prods, str): _prods = _jt.loads(_prods)
                         _df_tc = pd.DataFrame(_prods) if _prods else pd.DataFrame()
                         if not _df_tc.empty and 'Categoria' in _df_tc.columns:
                             _df_tc = _df_tc[_df_tc['Categoria'].str.strip().str.lower() != 'varios']
                         _sub_tc = _df_tc['Subtotal'].sum() if not _df_tc.empty and 'Subtotal' in _df_tc.columns else 0
-                        _tc_map[_tc_num] = _sub_tc * 1.19
+                        _tc_map[_tc_row["numero"]] = _sub_tc * 1.19
                     except Exception: pass
             except Exception: pass
 
@@ -18249,7 +18254,7 @@ if tab_formulario is not None:
                     except: pass
                     st.query_params.pop('cat_cantidad')
                 try:
-                    _cat_all = _fetch_catalogo_materiales()
+                    _cat_all = supabase.table('catalogo_materiales').select('*').eq('activo', True).order('categoria').order('orden_grupo').order('titulo_grupo').order('nombre').execute().data or []
                     # Normalize titulo_grupo: None or empty -> use nombre as fallback group key
                     for _ci in _cat_all:
                         if not _ci.get('titulo_grupo'):
@@ -18279,7 +18284,7 @@ if tab_formulario is not None:
                     st.info("Ingresa un número EP y haz click en Cargar.")
                 else:
                     try:
-                        _cat_todos = _fetch_catalogo_materiales()
+                        _cat_todos = supabase.table('catalogo_materiales').select('*').eq('activo',True).order('categoria').order('orden_grupo').order('titulo_grupo').order('nombre').execute().data or []
                     except:
                         _cat_todos = []
                     try:
