@@ -10262,7 +10262,7 @@ if tab3 is not None:
                                 f'<div style="background:{_mc};border-radius:4px;height:5px;width:{_mat_pct}%;"></div></div>'
                                 f'<div style="display:flex;align-items:center;justify-content:space-between;">'
                                 f'<span style="color:{_mc};font-weight:700;font-size:0.72rem;">{_mat_pct}% ({_mat_done}/{_mat_total})</span>'
-                                f'<button class="_mat_btn" data-ep="{_num}" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:5px;padding:1px 6px;font-size:0.65rem;font-weight:700;cursor:pointer;font-family:inherit;">📋 Ver</button>'
+                                f'<button class="_mat_btn" data-ep="{_num}" onclick="event.stopPropagation()" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:5px;padding:1px 6px;font-size:0.65rem;font-weight:700;cursor:pointer;font-family:inherit;">📋 Ver</button>'
                                 f'</div></div>')
                     _prods_raw = _prods_map.get(_num) or []
                     if isinstance(_prods_raw, str):
