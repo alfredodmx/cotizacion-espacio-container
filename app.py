@@ -1080,6 +1080,7 @@ if st.session_state.get('es_supervisor') and not st.session_state.get('_ejecutiv
 # =========================================================
 # HELPERS: DESCRIPCIONES PDF CLIENTE (JSON en Storage bucket config)
 # =========================================================
+@st.cache_data(ttl=60, show_spinner=False)
 def cargar_descripciones_por_ep(numero, bust_cache=False):
     """Carga descripciones de un EP desde Storage bucket config."""
     try:
@@ -2605,6 +2606,7 @@ def guardar_registro_compra(cotizacion_numero, usuario, factura_url, factura_nom
     except Exception as e:
         return False, str(e)
 
+@st.cache_data(ttl=30, show_spinner=False)
 def obtener_registros_compra(cotizacion_numero):
     """Obtiene todos los registros de compra de una cotización."""
     try:
@@ -2613,6 +2615,7 @@ def obtener_registros_compra(cotizacion_numero):
     except Exception as e:
         return []
 
+@st.cache_data(ttl=30, show_spinner=False)
 def obtener_items_comprados(cotizacion_numero):
     """Consolida todos los registros y retorna dict {item_name: {real, adic, fecha}} de ítems ya comprados."""
     import json as _jic
@@ -4415,9 +4418,7 @@ def buscar_direccion(direccion):
 # =========================================================
 import io as _io_excel
 
-@st.cache_data(ttl=60)
-@st.cache_data(ttl=60)
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=60, show_spinner=False)
 def _get_excel_bytes_activo():
     """Descarga el Excel activo desde Supabase Storage. Cache 60s."""
     try:
@@ -4439,8 +4440,6 @@ def _excel_src():
         st.session_state.excel_bytes_cache = _get_excel_bytes_activo()
     return st.session_state.excel_bytes_cache
 
-@st.cache_data(ttl=300)
-@st.cache_data(ttl=120)
 @st.cache_data(ttl=300, show_spinner=False)
 def _leer_hoja_excel(nombre_hoja):
     """Lee y cachea una hoja del Excel — evita re-parsear en cada render."""
@@ -4449,14 +4448,12 @@ def _leer_hoja_excel(nombre_hoja):
     except:
         return pd.DataFrame()
 
-@st.cache_data(ttl=300)
 @st.cache_data(ttl=300, show_spinner=False)
 def _leer_bd_total():
     """Lee y cachea la hoja BD Total."""
     return pd.read_excel(_excel_src(), sheet_name="BD Total")[["Item", "P. Unitario real"]]
 
-@st.cache_data(ttl=120)
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=120, show_spinner=False)
 def _leer_hojas_disponibles():
     """Lista de hojas disponibles con caché corto."""
     try:
@@ -7464,6 +7461,7 @@ def generar_word_contrato(datos):
     return buf
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def _obtener_clausulas_contrato(modelo_predefinido=None):
     """Retorna las cláusulas de la plantilla activa.
     Si se pasa modelo_predefinido, busca la plantilla que tenga ese modelo asociado.
