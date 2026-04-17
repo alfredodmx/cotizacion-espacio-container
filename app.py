@@ -10244,8 +10244,28 @@ if tab3 is not None:
                         elif p <= 66: return '#f97316', '#ffedd5'
                         elif p < 100: return '#16a34a', '#dcfce7'
                         else:         return '#2563eb', '#dbeafe'
+                    _mat = _mat_data_map.get(_num, {})
+                    _mat_pct = _mat.get('pct', 0)
+                    _mat_done = _mat.get('done', 0)
+                    _mat_total = _mat.get('total', 0)
+                    def _mat_html():
+                        if not _mat_total: return ''
+                        _mc = '#16a34a' if _mat_pct==100 else ('#f97316' if _mat_pct>=50 else '#2563eb')
+                        _mb = '#dcfce7' if _mat_pct==100 else ('#ffedd5' if _mat_pct>=50 else '#dbeafe')
+                        return (
+                            f'<div style="margin-top:5px;padding-top:5px;border-top:1px solid #e2e8f0;">'
+                            f'<div style="font-size:0.68rem;font-weight:700;color:#64748b;margin-bottom:2px;">MATERIALES</div>'
+                            f'<div style="background:{_mb};border-radius:4px;height:5px;margin-bottom:2px;">'
+                            f'<div style="background:{_mc};border-radius:4px;height:5px;width:{_mat_pct}%;"></div></div>'
+                            f'<div style="display:flex;align-items:center;justify-content:space-between;">'
+                            f'<span style="color:{_mc};font-weight:700;font-size:0.72rem;">{_mat_pct}% ({_mat_done}/{_mat_total})</span>'
+                            f'<button class="_mat_btn" data-ep="{_num}" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;'
+                            f'border-radius:5px;padding:1px 6px;font-size:0.65rem;font-weight:700;cursor:pointer;'
+                            f'font-family:inherit;">📋 Ver</button>'
+                            f'</div></div>'
+                        )
                     if _estado == "Sin compras":
-                        return '<span style="color:#94a3b8;font-size:0.78rem;">Sin compras</span>'
+                        return f'<span style="color:#94a3b8;font-size:0.78rem;">Sin compras</span>{_mat_html()}'
                     elif _estado == "Compras 100%":
                         _cc, _cb = _compra_col(100)
                         return (
@@ -10253,7 +10273,7 @@ if tab3 is not None:
                             f'<div style="background:{_cb};border-radius:4px;height:6px;margin-bottom:3px;">'
                             f'<div style="background:{_cc};border-radius:4px;height:6px;width:100%;"></div></div>'
                             f'<span style="color:{_cc};font-weight:700;font-size:0.75rem;">✅ 100% comprado</span></div>'
-                        )
+                        ) + _mat_html()
                     elif "adicionales" in _estado:
                         _nadd = len(_est["adicionales"])
                         _cc, _cb = _compra_col(100)
@@ -10262,7 +10282,7 @@ if tab3 is not None:
                             f'<div style="background:{_cb};border-radius:4px;height:6px;margin-bottom:3px;">'
                             f'<div style="background:{_cc};border-radius:4px;height:6px;width:100%;"></div></div>'
                             f'<span style="color:{_cc};font-weight:700;font-size:0.75rem;">✅ 100% +{_nadd} adic.</span></div>'
-                        )
+                        ) + _mat_html()
                     else:
                         _cc, _cb = _compra_col(_pct)
                         return (
@@ -10270,7 +10290,7 @@ if tab3 is not None:
                             f'<div style="background:{_cb};border-radius:4px;height:6px;margin-bottom:3px;">'
                             f'<div style="background:{_cc};border-radius:4px;height:6px;width:{_pct}%;"></div></div>'
                             f'<span style="color:{_cc};font-weight:700;font-size:0.75rem;">{_pct}% comprado</span></div>'
-                        )
+                        ) + _mat_html()
                 except:
                     return '<span style="color:#94a3b8;font-size:0.78rem;">—</span>'
             df_resultados["ComprasOK"] = df_resultados.apply(_fmt_compras_ok, axis=1)
@@ -10333,6 +10353,50 @@ if tab3 is not None:
                 'inst_region': str(_mrow.get('Inst_Region','') or ''),
             }
         _cli_data_json_map = _jcli_map.dumps(_cli_data_map, ensure_ascii=True)
+
+        # Cargar datos de formulario materiales para el popup
+        _mat_data_map = {}  # ep -> {total, done, cats: [{cat, grupos: [{tg, val}]}]}
+        try:
+            _eps_lista2 = df_resultados['N°'].tolist()
+            _all_mat_cfg = supabase.table('formulario_config').select(
+                'cotizacion_numero,categoria,titulo_grupo,item_ids,orden'
+            ).in_('cotizacion_numero', _eps_lista2).execute().data or []
+            _all_mat_resps = supabase.table('formulario_respuestas').select(
+                'cotizacion_numero,item_id,respuesta'
+            ).in_('cotizacion_numero', _eps_lista2).execute().data or []
+            # Build resp map: ep -> {item_id -> respuesta}
+            from collections import defaultdict as _ddf
+            _mat_resps_map = _ddf(dict)
+            for _mr in _all_mat_resps:
+                if _mr.get('item_id'):
+                    _mat_resps_map[_mr['cotizacion_numero']][_mr['item_id']] = _mr['respuesta']
+            # Group config by EP
+            _mat_cfg_by_ep = _ddf(list)
+            for _mc in _all_mat_cfg:
+                _mat_cfg_by_ep[_mc['cotizacion_numero']].append(_mc)
+            # Build mat_data_map
+            for _mep, _mcfgs in _mat_cfg_by_ep.items():
+                _mresps = _mat_resps_map[_mep]
+                _total = len(_mcfgs)
+                _done = sum(1 for _c in _mcfgs if any(_mresps.get(str(_i)) for _i in (_c.get('item_ids') or [])))
+                _pct_m = int(_done / _total * 100) if _total > 0 else 0
+                # Group by categoria
+                _cats_m = _ddf(list)
+                for _c in sorted(_mcfgs, key=lambda x: (x.get('categoria',''), x.get('orden',0))):
+                    _ids = [str(_i) for _i in (_c.get('item_ids') or [])]
+                    _vals = [_mresps[_i] for _i in _ids if _mresps.get(_i)]
+                    _cats_m[_c.get('categoria','')].append({
+                        'tg': _c.get('titulo_grupo',''),
+                        'val': ', '.join(_vals) if _vals else ''
+                    })
+                _mat_data_map[_mep] = {
+                    'pct': _pct_m, 'done': _done, 'total': _total,
+                    'cats': [{'cat': _cat, 'grupos': _glist} for _cat, _glist in _cats_m.items()]
+                }
+        except Exception as _me:
+            pass
+        _mat_data_json_map = _jcli_map.dumps(_mat_data_map, ensure_ascii=True)
+
         for _, row in df_resultados.iterrows():
             _mg_color  = 'color:#16a34a;font-weight:700;' if '✅' in str(row['MargenCol']) else 'color:#94a3b8;'
             _th_margen = '<th>Margen</th>' if st.session_state.modo_admin else ''
@@ -10766,6 +10830,7 @@ if tab3 is not None:
         import streamlit.components.v1 as _ep_copy_comp
         _ep_copy_comp.html("""<script>
 var CLI_DATA = """ + _cli_data_json_map + """;
+var MAT_DATA = """ + _mat_data_json_map + """;
 (function(){
     var D = window.parent.document;
 
@@ -10803,7 +10868,69 @@ var CLI_DATA = """ + _cli_data_json_map + """;
         overlay.addEventListener('click', function(ev){ if(ev.target===overlay) overlay.remove(); });
     });
 
-    // ── Modal datos del cliente ──
+    // ─    // ── Modal materiales cliente ──
+    D.addEventListener('click', function(e) {
+        var btn = e.target && e.target.closest ? e.target.closest('._mat_btn') : null;
+        if(!btn) return;
+        var ep = btn.getAttribute('data-ep') || '';
+        var mat = {};
+        try { mat = (typeof MAT_DATA !== 'undefined' ? MAT_DATA : {})[ep] || {}; } catch(ex) {}
+        var existing = D.getElementById('_mat_modal');
+        if(existing) existing.remove();
+        var overlay = D.createElement('div');
+        overlay.id = '_mat_modal';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:99999;display:flex;align-items:center;justify-content:center;';
+        var box = D.createElement('div');
+        box.style.cssText = 'background:#1e293b;border:1px solid #334155;border-radius:16px;padding:28px 32px;max-width:500px;width:92%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
+        // Header
+        var header = D.createElement('div');
+        header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;';
+        var title = D.createElement('div');
+        title.style.cssText = 'font-size:1rem;font-weight:900;color:#f1f5f9;';
+        title.textContent = '📋 Materiales — ' + ep;
+        var closeBtn = D.createElement('button');
+        closeBtn.textContent = '✖ Cerrar';
+        closeBtn.style.cssText = 'background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.3);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.8rem;font-weight:700;';
+        header.appendChild(title); header.appendChild(closeBtn);
+        // Progress bar
+        var pct = mat.pct || 0;
+        var pColor = pct===100 ? '#16a34a' : (pct>=50 ? '#f97316' : '#2563eb');
+        var pBar = D.createElement('div');
+        pBar.style.cssText = 'background:#0f172a;border-radius:8px;padding:10px 12px;margin-bottom:14px;';
+        pBar.innerHTML = '<div style="background:#1e293b;border-radius:4px;height:6px;margin-bottom:6px;"><div style="background:'+pColor+';border-radius:4px;height:6px;width:'+pct+'%;"></div></div><div style="font-size:0.78rem;color:#94a3b8;">'+( mat.done||0)+' de '+(mat.total||0)+' secciones completadas — '+pct+'%</div>';
+        // Categories
+        var body = D.createElement('div');
+        var cats = mat.cats || [];
+        cats.forEach(function(c){
+            var catEl = D.createElement('div');
+            catEl.style.cssText = 'margin-bottom:12px;';
+            var catTitle = D.createElement('div');
+            catTitle.style.cssText = 'font-size:0.78rem;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;';
+            catTitle.textContent = c.cat;
+            catEl.appendChild(catTitle);
+            (c.grupos||[]).forEach(function(g){
+                var row = D.createElement('div');
+                row.style.cssText = 'display:flex;align-items:baseline;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.85rem;';
+                var ico = g.val ? '✅' : '⬜';
+                row.innerHTML = '<span style="flex-shrink:0;">'+ico+'</span>'
+                    +'<span style="color:#cbd5e1;font-weight:600;">'+g.tg+'</span>'
+                    +'<span style="color:#64748b;">:</span>'
+                    +'<span style="color:'+(g.val?'#60a5fa':'#475569')+';">'+( g.val||'—')+'</span>';
+                catEl.appendChild(row);
+            });
+            body.appendChild(catEl);
+        });
+        if(!cats.length){
+            body.innerHTML = '<div style="color:#64748b;font-size:0.9rem;text-align:center;padding:20px 0;">Sin datos aún</div>';
+        }
+        box.appendChild(header); box.appendChild(pBar); box.appendChild(body);
+        overlay.appendChild(box);
+        D.body.appendChild(overlay);
+        closeBtn.addEventListener('click', function(){ overlay.remove(); });
+        overlay.addEventListener('click', function(ev){ if(ev.target===overlay) overlay.remove(); });
+    });
+
+─ Modal datos del cliente ──
     D.addEventListener('click', function(e) {
         var btn = e.target && e.target.closest ? e.target.closest('._datos_btn') : null;
         if(!btn) return;
