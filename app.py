@@ -10379,6 +10379,7 @@ if tab3 is not None:
                 'inst_region': str(_mrow.get('Inst_Region','') or ''),
             }
         _cli_data_json_map = _jcli_map.dumps(_cli_data_map, ensure_ascii=True)
+        if "_mat_data_map" not in dir(): _mat_data_map = {}
         _mat_data_json_map = _jcli_map.dumps(_mat_data_map, ensure_ascii=True)
         for _, row in df_resultados.iterrows():
             _mg_color  = 'color:#16a34a;font-weight:700;' if '✅' in str(row['MargenCol']) else 'color:#94a3b8;'
