@@ -12780,23 +12780,10 @@ if st.session_state.get('es_root') and tab_salud is not None:
 
             _storage_total_mb = sum(v['mb'] for v in _storage_info.values())
 
-            # ── 3. Egress via API de uso de Supabase ──
-            _egress_gb       = 0.0
-            _egress_cached_gb = 0.0
-            _mau             = 0
-            try:
-                import httpx as _hx2
-                _usage_resp = _hx2.get(
-                    "https://api.supabase.com/v1/projects/" + SUPABASE_URL.split("//")[1].split(".")[0] + "/usage",
-                    headers={"Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"},
-                    timeout=10
-                )
-                if _usage_resp.status_code == 200:
-                    _usage = _usage_resp.json()
-                    _egress_gb        = round(_usage.get('egress_gb', 0), 2)
-                    _egress_cached_gb = round(_usage.get('egress_cached_gb', 0), 2)
-                    _mau              = _usage.get('monthly_active_users', 0)
-            except: pass
+            # ── 3. Egress — ingresado manualmente desde Supabase Dashboard ──
+            _egress_gb        = st.session_state.get('_sys_egress_gb', 0.0)
+            _egress_cached_gb = st.session_state.get('_sys_egress_cached_gb', 0.0)
+            _mau              = st.session_state.get('_sys_mau', 0)
 
         # ── LÍMITES PLAN FREE ──
         _DB_LIMIT_MB      = 500
@@ -12822,7 +12809,32 @@ if st.session_state.get('es_root') and tab_salud is not None:
             if pct >= 50:  return "sys-badge-warn", "🟡 Atención"
             return "sys-badge-ok", "🟢 Normal"
 
+        # ── Ingreso manual de métricas Egress/MAU ──
+        st.markdown('<div class="sys-section-title">✏️ Actualizar métricas de Supabase</div>', unsafe_allow_html=True)
+        st.caption('Copia los valores desde [Supabase Dashboard → Usage](https://supabase.com/dashboard/org/_/usage)')
+        _sys_c1, _sys_c2, _sys_c3, _sys_c4 = st.columns(4)
+        with _sys_c1:
+            _eg_input = st.number_input('📤 Egress (GB)', min_value=0.0, max_value=999.0, step=0.1,
+                value=float(st.session_state.get('_sys_egress_gb', 0.0)), key='_inp_egress')
+            st.session_state['_sys_egress_gb'] = _eg_input
+        with _sys_c2:
+            _egc_input = st.number_input('⚡ Cached Egress (GB)', min_value=0.0, max_value=999.0, step=0.1,
+                value=float(st.session_state.get('_sys_egress_cached_gb', 0.0)), key='_inp_egress_cached')
+            st.session_state['_sys_egress_cached_gb'] = _egc_input
+        with _sys_c3:
+            _mau_input = st.number_input('👥 MAU', min_value=0, max_value=50000, step=1,
+                value=int(st.session_state.get('_sys_mau', 0)), key='_inp_mau')
+            st.session_state['_sys_mau'] = _mau_input
+        with _sys_c4:
+            st.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
+            if st.button('🔄 Actualizar', key='_btn_sys_update', use_container_width=True):
+                st.session_state['_sys_egress_gb'] = _eg_input
+                st.session_state['_sys_egress_cached_gb'] = _egc_input
+                st.session_state['_sys_mau'] = _mau_input
+                st.rerun()
+
         # ── ALERTA EGRESS ──
+
         if _egress_cached_gb > 0 and _egc_pct >= 100:
             st.error(f"🚨 **Cached Egress excedido:** {_egress_cached_gb} GB / {_EGRESS_C_LIMIT_GB} GB ({_egc_pct:.0f}%). Supabase puede restringir el servicio. Considera actualizar al plan Pro.")
         elif _egress_cached_gb > 0 and _egc_pct >= 80:
