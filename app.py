@@ -5123,7 +5123,7 @@ def exportar_csv_completo():
         st.error(f"Error al exportar: {e}")
         return None
 
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=60, show_spinner=False)
 def _fetch_cotizaciones_raw(rol, email):
     """Fetch raw cotizaciones from Supabase, cached 30s per rol+email."""
     try:
@@ -5139,7 +5139,7 @@ def _fetch_cotizaciones_raw(rol, email):
         )
         if rol == 'ejecutivo' and email:
             query = query.ilike('asesor_email', email.strip())
-        query = query.order('fecha_creacion', desc=True).limit(200)
+        query = query.order('fecha_creacion', desc=True).limit(100)
         return query.execute().data or []
     except:
         return []
@@ -10265,8 +10265,15 @@ if tab3 is not None:
         if _rol_actual in ('root', 'admin'):
             # Cargar productos en caché por lista de EPs para evitar queries en cada rerun
             _eps_compras = df_resultados["N°"].tolist()
+            # Cache key basado en EPs — se invalida solo si cambia la lista
             _cache_key = 'prods_map_' + ','.join(sorted(_eps_compras))
-            if st.session_state.get('_prods_map_key') != _cache_key:
+            # Extender TTL: si el cache_key coincide, no hacer query aunque haya rerun
+            if '_prods_map_ts' not in st.session_state:
+                st.session_state['_prods_map_ts'] = 0
+            import time as _time_pm
+            _now_pm = _time_pm.time()
+            _cache_expired = (_now_pm - st.session_state['_prods_map_ts']) > 60
+            if st.session_state.get('_prods_map_key') != _cache_key or _cache_expired:
                 try:
                     _prods_resp = supabase.table("cotizaciones").select("numero,productos").in_("numero", _eps_compras).execute()
                     _prods_map = {}
@@ -10279,6 +10286,7 @@ if tab3 is not None:
                         except: pass
                     st.session_state['_prods_map_cache'] = _prods_map
                     st.session_state['_prods_map_key'] = _cache_key
+                    st.session_state['_prods_map_ts'] = _time_pm.time()
                 except: st.session_state['_prods_map_cache'] = {}
             _prods_map = st.session_state.get('_prods_map_cache', {})
             # ── Datos formulario materiales cliente ──
@@ -10394,22 +10402,19 @@ if tab3 is not None:
         n_resultados = len(df_resultados)
         altura_tabla = min(n_resultados * 52 + 60, 550)
 
-        # Calcular total costo (admin/root solamente)
+        # Calcular total costo — reusar _prods_map ya cacheado (sin query extra)
         _tc_map = {}
         if st.session_state.modo_admin:
             try:
-                _eps_lista = df_resultados["N°"].tolist()
-                _tc_resp = supabase.table("cotizaciones").select("numero,productos").in_("numero", _eps_lista).execute()
-                for _tc_row in (_tc_resp.data or []):
+                _pm_for_tc = st.session_state.get('_prods_map_cache', {})
+                for _tc_num, _tc_prods in _pm_for_tc.items():
                     try:
-                        import json as _jt
-                        _prods = _tc_row.get("productos") or []
-                        if isinstance(_prods, str): _prods = _jt.loads(_prods)
+                        _prods = _tc_prods if isinstance(_tc_prods, list) else []
                         _df_tc = pd.DataFrame(_prods) if _prods else pd.DataFrame()
                         if not _df_tc.empty and 'Categoria' in _df_tc.columns:
                             _df_tc = _df_tc[_df_tc['Categoria'].str.strip().str.lower() != 'varios']
                         _sub_tc = _df_tc['Subtotal'].sum() if not _df_tc.empty and 'Subtotal' in _df_tc.columns else 0
-                        _tc_map[_tc_row["numero"]] = _sub_tc * 1.19
+                        _tc_map[_tc_num] = _sub_tc * 1.19
                     except Exception: pass
             except Exception: pass
 
