@@ -12721,11 +12721,10 @@ if st.session_state.get('es_root') and tab_salud is not None:
 
         with st.spinner("Consultando métricas del sistema..."):
 
-            # ── 1. Tamaño BD via SQL directo a pg_database_size ──
+            # ── 1. Tamaño BD ──
             _db_size_mb = 0
             _db_rows = {}
             try:
-                # Usar execute_sql via rpc si existe, sino estimamos por filas
                 import httpx as _hx, json as _js_sys
                 _headers_sys = {
                     "apikey": SUPABASE_KEY,
@@ -12734,134 +12733,165 @@ if st.session_state.get('es_root') and tab_salud is not None:
                 }
                 _sql_resp = _hx.post(
                     f"{SUPABASE_URL}/rest/v1/rpc/get_db_stats",
-                    headers=_headers_sys,
-                    json={},
-                    timeout=10
+                    headers=_headers_sys, json={}, timeout=10
                 )
                 if _sql_resp.status_code == 200:
                     _db_size_mb = round(_sql_resp.json() / (1024*1024), 2)
-            except:
-                pass
+            except: pass
 
-            # Contar filas por tabla (siempre funciona)
-            for _tbl in ['cotizaciones','cotizacion_logs','excel_versiones','registro_compras','catalogo_materiales','formulario_config','formulario_respuestas','formulario_preguntas','plantillas_contrato','usuarios']:
+            for _tbl in ['cotizaciones','cotizacion_logs','excel_versiones','registro_compras',
+                         'catalogo_materiales','formulario_config','formulario_respuestas',
+                         'formulario_preguntas','plantillas_contrato','usuarios']:
                 try:
                     _r = supabase.table(_tbl).select('id', count='exact').execute()
                     _db_rows[_tbl] = _r.count or 0
-                except:
-                    _db_rows[_tbl] = 0
+                except: _db_rows[_tbl] = 0
 
-            # Estimación de tamaño BD basada en filas si no pudimos leer pg_database_size
             if _db_size_mb == 0:
                 _total_filas = sum(_db_rows.values())
-                # Estimación conservadora: ~2KB por fila promedio
                 _db_size_mb = round((_total_filas * 2048) / (1024*1024), 2)
                 _db_size_estimado = True
             else:
                 _db_size_estimado = False
 
-            # ── 2. Storage — contar archivos desde tablas + estimar tamaño ──
+            # ── 2. Storage ──
             _storage_info = {}
             try:
-                # Bucket "planos" — contar cotizaciones con plano adjunto
-                _r_planos = supabase.table('cotizaciones')                    .select('numero', count='exact')                    .not_.is_('plano_url', 'null')                    .execute()
-                _n_planos = _r_planos.count or 0
-                # PDFs de planos: estimado ~500KB por archivo
-                _mb_planos = round((_n_planos * 500 * 1024) / (1024*1024), 2)
-                _storage_info['planos'] = {'archivos': _n_planos, 'mb': _mb_planos, 'estimado': True}
-            except:
-                _storage_info['planos'] = {'archivos': 0, 'mb': 0, 'estimado': True}
-
+                _n_planos = supabase.table('cotizaciones').select('numero',count='exact').not_.is_('plano_url','null').execute().count or 0
+                _storage_info['planos'] = {'archivos':_n_planos,'mb':round((_n_planos*500*1024)/(1024*1024),2),'estimado':True}
+            except: _storage_info['planos'] = {'archivos':0,'mb':0,'estimado':True}
             try:
-                # Bucket "config" — versiones Excel + JSONs de descripción
-                _r_excel = supabase.table('excel_versiones').select('id', count='exact').execute()
-                _n_excel = _r_excel.count or 0
-                # PDFs desc por cotización autorizada
-                _r_auth = supabase.table('cotizaciones')                    .select('numero', count='exact')                    .eq('estado', 'Autorizado')                    .execute()
-                _n_jsons = _r_auth.count or 0
-                # Excel ~2MB c/u, JSONs ~5KB c/u
-                _mb_config = round((_n_excel * 2 * 1024 + _n_jsons * 5) / 1024, 2)
-                _storage_info['config'] = {
-                    'archivos': _n_excel + _n_jsons,
-                    'mb': _mb_config,
-                    'estimado': True
-                }
-            except:
-                _storage_info['config'] = {'archivos': 0, 'mb': 0, 'estimado': True}
-
+                _n_excel = supabase.table('excel_versiones').select('id',count='exact').execute().count or 0
+                _n_jsons = supabase.table('cotizaciones').select('numero',count='exact').eq('estado','Autorizado').execute().count or 0
+                _storage_info['config'] = {'archivos':_n_excel+_n_jsons,'mb':round((_n_excel*2*1024+_n_jsons*5)/1024,2),'estimado':True}
+            except: _storage_info['config'] = {'archivos':0,'mb':0,'estimado':True}
             try:
-                _n_fimg = (supabase.table('catalogo_materiales').select('id',count='exact').not_.is_('imagen_url','null').neq('imagen_url','').execute().count or 0)
+                _n_fimg = supabase.table('catalogo_materiales').select('id',count='exact').not_.is_('imagen_url','null').neq('imagen_url','').execute().count or 0
                 _storage_info['formulario-imagenes'] = {'archivos':_n_fimg,'mb':round((_n_fimg*200*1024)/(1024*1024),2),'estimado':True}
             except: _storage_info['formulario-imagenes'] = {'archivos':0,'mb':0,'estimado':True}
-
             try:
-                _n_cont = (supabase.table('cotizaciones').select('id',count='exact').not_.is_('contrato_url','null').neq('contrato_url','').execute().count or 0)
+                _n_cont = supabase.table('cotizaciones').select('id',count='exact').not_.is_('contrato_url','null').neq('contrato_url','').execute().count or 0
                 _storage_info['contratos'] = {'archivos':_n_cont,'mb':round((_n_cont*300*1024)/(1024*1024),2),'estimado':True}
             except: _storage_info['contratos'] = {'archivos':0,'mb':0,'estimado':True}
-
             try:
-                _n_fact = (supabase.table('registro_compras').select('id',count='exact').execute().count or 0)
+                _n_fact = supabase.table('registro_compras').select('id',count='exact').execute().count or 0
                 _storage_info['facturas'] = {'archivos':_n_fact,'mb':round((_n_fact*150*1024)/(1024*1024),2),'estimado':True}
             except: _storage_info['facturas'] = {'archivos':0,'mb':0,'estimado':True}
 
             _storage_total_mb = sum(v['mb'] for v in _storage_info.values())
 
-        # ── LÍMITES FREE ──
-        _DB_LIMIT_MB  = 500
-        _STG_LIMIT_MB = 1024  # 1 GB
+            # ── 3. Egress via API de uso de Supabase ──
+            _egress_gb       = 0.0
+            _egress_cached_gb = 0.0
+            _mau             = 0
+            try:
+                import httpx as _hx2
+                _usage_resp = _hx2.get(
+                    "https://api.supabase.com/v1/projects/" + SUPABASE_URL.split("//")[1].split(".")[0] + "/usage",
+                    headers={"Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"},
+                    timeout=10
+                )
+                if _usage_resp.status_code == 200:
+                    _usage = _usage_resp.json()
+                    _egress_gb        = round(_usage.get('egress_gb', 0), 2)
+                    _egress_cached_gb = round(_usage.get('egress_cached_gb', 0), 2)
+                    _mau              = _usage.get('monthly_active_users', 0)
+            except: pass
 
-        _db_pct  = min(round((_db_size_mb / _DB_LIMIT_MB) * 100, 1), 100) if _db_size_mb > 0 else 0
-        _stg_pct = min(round((_storage_total_mb / _STG_LIMIT_MB) * 100, 1), 100)
+        # ── LÍMITES PLAN FREE ──
+        _DB_LIMIT_MB      = 500
+        _STG_LIMIT_MB     = 1024
+        _EGRESS_LIMIT_GB  = 5.0
+        _EGRESS_C_LIMIT_GB= 5.0
+        _MAU_LIMIT        = 50000
+
+        _db_pct    = min(round((_db_size_mb / _DB_LIMIT_MB) * 100, 1), 100) if _db_size_mb > 0 else 0
+        _stg_pct   = min(round((_storage_total_mb / _STG_LIMIT_MB) * 100, 1), 100)
+        _eg_pct    = min(round((_egress_gb / _EGRESS_LIMIT_GB) * 100, 1), 200) if _egress_gb > 0 else 0
+        _egc_pct   = min(round((_egress_cached_gb / _EGRESS_C_LIMIT_GB) * 100, 1), 200) if _egress_cached_gb > 0 else 0
 
         def _bar_class(pct):
-            if pct >= 80: return "sys-bar-crit"
-            if pct >= 50: return "sys-bar-warn"
+            if pct >= 100: return "sys-bar-crit"
+            if pct >= 80:  return "sys-bar-crit"
+            if pct >= 50:  return "sys-bar-warn"
             return "sys-bar-ok"
 
         def _badge(pct):
-            if pct >= 80: return "sys-badge-crit", "⚠️ Crítico"
-            if pct >= 50: return "sys-badge-warn", "🟡 Atención"
+            if pct >= 100: return "sys-badge-crit", "🔴 Excedido"
+            if pct >= 80:  return "sys-badge-crit", "⚠️ Crítico"
+            if pct >= 50:  return "sys-badge-warn", "🟡 Atención"
             return "sys-badge-ok", "🟢 Normal"
 
-        # ── FILA 1: BD y Storage ──
-        st.markdown('<div class="sys-section-title">💾 Capacidad de almacenamiento</div>', unsafe_allow_html=True)
-        _col_db, _col_stg = st.columns(2)
+        # ── ALERTA EGRESS ──
+        if _egress_cached_gb > 0 and _egc_pct >= 100:
+            st.error(f"🚨 **Cached Egress excedido:** {_egress_cached_gb} GB / {_EGRESS_C_LIMIT_GB} GB ({_egc_pct:.0f}%). Supabase puede restringir el servicio. Considera actualizar al plan Pro.")
+        elif _egress_cached_gb > 0 and _egc_pct >= 80:
+            st.warning(f"⚠️ **Cached Egress casi al límite:** {_egress_cached_gb} GB de {_EGRESS_C_LIMIT_GB} GB usados ({_egc_pct:.0f}%).")
 
+        # ── FILA 1: BD y Storage ──
+        st.markdown('<div class="sys-section-title">💾 Almacenamiento</div>', unsafe_allow_html=True)
+        _col_db, _col_stg = st.columns(2)
         with _col_db:
             _bc, _bl = _badge(_db_pct)
             st.markdown(f"""
             <div class="sys-card">
               <div class="sys-card-title">🗄️ Base de datos PostgreSQL</div>
               <div class="sys-metric-val">{_db_size_mb} MB</div>
-              <div class="sys-metric-sub">Límite Core: {_DB_LIMIT_MB} MB &nbsp;·&nbsp; <span class="{_bc}">{_bl}</span>{" &nbsp;· <i style='color:#94a3b8;font-size:0.7rem'>estimado</i>" if _db_size_estimado else ""}</div>
-              <div class="sys-bar-wrap">
-                <div class="sys-bar-inner {_bar_class(_db_pct)}" style="width:{_db_pct}%"></div>
-              </div>
+              <div class="sys-metric-sub">Límite: {_DB_LIMIT_MB} MB &nbsp;·&nbsp; <span class="{_bc}">{_bl}</span>{"&nbsp;· <i style='color:#94a3b8;font-size:0.7rem'>estimado</i>" if _db_size_estimado else ""}</div>
+              <div class="sys-bar-wrap"><div class="sys-bar-inner {_bar_class(_db_pct)}" style="width:{_db_pct}%"></div></div>
               <div class="sys-pct-label"><span>{_db_pct}% usado</span><span>{round(_DB_LIMIT_MB - _db_size_mb, 1)} MB libres</span></div>
             </div>
             """, unsafe_allow_html=True)
-
         with _col_stg:
             _bc2, _bl2 = _badge(_stg_pct)
             st.markdown(f"""
             <div class="sys-card">
               <div class="sys-card-title">📦 Storage (todos los buckets)</div>
               <div class="sys-metric-val">{round(_storage_total_mb, 1)} MB</div>
-              <div class="sys-metric-sub">Límite Core: {_STG_LIMIT_MB} MB (1 GB) &nbsp;·&nbsp; <span class="{_bc2}">{_bl2}</span></div>
-              <div class="sys-bar-wrap">
-                <div class="sys-bar-inner {_bar_class(_stg_pct)}" style="width:{_stg_pct}%"></div>
-              </div>
+              <div class="sys-metric-sub">Límite: {_STG_LIMIT_MB} MB (1 GB) &nbsp;·&nbsp; <span class="{_bc2}">{_bl2}</span></div>
+              <div class="sys-bar-wrap"><div class="sys-bar-inner {_bar_class(_stg_pct)}" style="width:{_stg_pct}%"></div></div>
               <div class="sys-pct-label"><span>{_stg_pct}% usado</span><span>{round(_STG_LIMIT_MB - _storage_total_mb, 1)} MB libres</span></div>
             </div>
             """, unsafe_allow_html=True)
 
-        # ── FILA 2: Tablas y Buckets ──
-        _col_tbl, _col_bkt = st.columns(2)
+        # ── FILA 2: Egress ──
+        st.markdown('<div class="sys-section-title">📡 Ancho de banda (Egress)</div>', unsafe_allow_html=True)
+        _col_eg, _col_egc = st.columns(2)
+        with _col_eg:
+            _bc3, _bl3 = _badge(_eg_pct)
+            _eg_display = f"{_egress_gb} GB" if _egress_gb > 0 else "Sin datos"
+            st.markdown(f"""
+            <div class="sys-card">
+              <div class="sys-card-title">📤 Egress directo</div>
+              <div class="sys-metric-val">{_eg_display}</div>
+              <div class="sys-metric-sub">Límite: {_EGRESS_LIMIT_GB} GB / mes &nbsp;·&nbsp; <span class="{_bc3}">{_bl3}</span></div>
+              {"<div class='sys-bar-wrap'><div class='sys-bar-inner " + _bar_class(_eg_pct) + "' style='width:" + str(min(_eg_pct,100)) + "%'></div></div><div class='sys-pct-label'><span>" + str(_eg_pct) + "% usado</span></div>" if _egress_gb > 0 else "<div style='color:#94a3b8;font-size:0.78rem;margin-top:8px;'>API de uso no disponible — ver en Supabase Dashboard</div>"}
+            </div>
+            """, unsafe_allow_html=True)
+        with _col_egc:
+            _bc4, _bl4 = _badge(_egc_pct)
+            _egc_display = f"{_egress_cached_gb} GB" if _egress_cached_gb > 0 else "Sin datos"
+            st.markdown(f"""
+            <div class="sys-card">
+              <div class="sys-card-title">⚡ Cached Egress <span style="font-size:0.65rem;background:#fee2e2;color:#dc2626;padding:1px 6px;border-radius:4px;margin-left:4px;">CRÍTICO</span></div>
+              <div class="sys-metric-val" style="color:{'#dc2626' if _egc_pct >= 100 else 'inherit'}">{_egc_display}</div>
+              <div class="sys-metric-sub">Límite: {_EGRESS_C_LIMIT_GB} GB / mes &nbsp;·&nbsp; <span class="{_bc4}">{_bl4}</span></div>
+              {"<div class='sys-bar-wrap'><div class='sys-bar-inner " + _bar_class(_egc_pct) + "' style='width:" + str(min(_egc_pct,100)) + "%'></div></div><div class='sys-pct-label'><span>" + str(_egc_pct) + "% usado</span></div>" if _egress_cached_gb > 0 else "<div style='color:#94a3b8;font-size:0.78rem;margin-top:8px;'>Ver en Supabase Dashboard → Usage</div>"}
+            </div>
+            """, unsafe_allow_html=True)
 
+        # ── FILA 3: Tablas y Buckets ──
+        _col_tbl, _col_bkt = st.columns(2)
         with _col_tbl:
             st.markdown('<div class="sys-section-title">📋 Filas por tabla</div>', unsafe_allow_html=True)
             _tbl_html = '<div class="sys-card"><table class="sys-table"><thead><tr><th>Tabla</th><th>Filas</th></tr></thead><tbody>'
-            _tbl_labels = {'cotizaciones':'📄 Cotizaciones','cotizacion_logs':'📝 Logs auditoría','excel_versiones':'📊 Versiones Excel','registro_compras':'🛒 Registro compras','catalogo_materiales':'🏷️ Catálogo materiales','formulario_config':'⚙️ Config formularios','formulario_respuestas':'✅ Respuestas clientes','formulario_preguntas':'❓ Preguntas formulario','plantillas_contrato':'📄 Plantillas contrato','usuarios':'👥 Usuarios'}
+            _tbl_labels = {
+                'cotizaciones':'📄 Cotizaciones','cotizacion_logs':'📝 Logs auditoría',
+                'excel_versiones':'📊 Versiones Excel','registro_compras':'🛒 Registro compras',
+                'catalogo_materiales':'🏷️ Catálogo materiales','formulario_config':'⚙️ Config formularios',
+                'formulario_respuestas':'✅ Respuestas clientes','formulario_preguntas':'❓ Preguntas formulario',
+                'plantillas_contrato':'📄 Plantillas contrato','usuarios':'👥 Usuarios',
+            }
             for _t, _cnt in _db_rows.items():
                 _lbl = _tbl_labels.get(_t, _t)
                 _tbl_html += f'<tr><td>{_lbl}</td><td><b>{_cnt:,}</b></td></tr>'
@@ -12870,43 +12900,56 @@ if st.session_state.get('es_root') and tab_salud is not None:
 
         with _col_bkt:
             st.markdown('<div class="sys-section-title">🗂️ Archivos por bucket</div>', unsafe_allow_html=True)
-            if _storage_info:
-                _bkt_html = '<div class="sys-card"><table class="sys-table"><thead><tr><th>Bucket</th><th>Archivos</th><th>Tamaño</th></tr></thead><tbody>'
-                _bkt_icons = {'planos':'📐 planos','config':'⚙️ config','formulario-imagenes':'🖼️ formulario-imagenes','contratos':'📄 contratos','facturas':'🧾 facturas'}
-                for _bn, _bv in _storage_info.items():
-                    _blbl = _bkt_icons.get(_bn, f'📁 {_bn}')
-                    _est = ' <i style="color:#94a3b8;font-size:0.7rem">(est.)</i>' if _bv.get('estimado') else ''
-                    _bkt_html += f'<tr><td>{_blbl}</td><td>{_bv["archivos"]}</td><td>{_bv["mb"]} MB{_est}</td></tr>'
-                _bkt_html += '</tbody></table></div>'
-                st.markdown(_bkt_html, unsafe_allow_html=True)
-            else:
-                st.markdown('<div class="sys-card"><p style="color:#94a3b8;font-size:0.85rem;">No se pudieron leer los buckets.</p></div>', unsafe_allow_html=True)
+            _bkt_html = '<div class="sys-card"><table class="sys-table"><thead><tr><th>Bucket</th><th>Archivos</th><th>Tamaño</th></tr></thead><tbody>'
+            _bkt_icons = {
+                'planos':'📐 planos','config':'⚙️ config',
+                'formulario-imagenes':'🖼️ formulario-imagenes',
+                'contratos':'📄 contratos','facturas':'🧾 facturas',
+            }
+            for _bn, _bv in _storage_info.items():
+                _blbl = _bkt_icons.get(_bn, f'📁 {_bn}')
+                _est = ' <i style="color:#94a3b8;font-size:0.7rem">(est.)</i>' if _bv.get('estimado') else ''
+                _bkt_html += f'<tr><td>{_blbl}</td><td>{_bv["archivos"]}</td><td>{_bv["mb"]} MB{_est}</td></tr>'
+            _bkt_html += '</tbody></table></div>'
+            st.markdown(_bkt_html, unsafe_allow_html=True)
 
-        # ── FILA 3: Info del plan ──
-        st.markdown('<div class="sys-section-title">ℹ️ Límites del plan Core</div>', unsafe_allow_html=True)
-        _plan_html = """
-        <div class="sys-card">
-          <table class="sys-table">
-            <thead><tr><th>Recurso</th><th>Límite Core</th><th>Estado</th></tr></thead>
-            <tbody>
-              <tr><td>🗄️ Base de datos</td><td>500 MB</td><td><span class="{_bc_db}">{_bl_db}</span></td></tr>
-              <tr><td>📦 File Storage</td><td>1 GB</td><td><span class="{_bc_s}">{_bl_s}</span></td></tr>
-              <tr><td>👥 Usuarios auth</td><td>50,000</td><td><span class="sys-badge-ok">🟢 Normal</span></td></tr>
-              <tr><td>📡 Requests API</td><td>500K / mes</td><td><span class="sys-badge-ok">🟢 Normal</span></td></tr>
-              <tr><td>⚡ Ancho de banda</td><td>5 GB / mes</td><td><span class="sys-badge-ok">🟢 Normal</span></td></tr>
-              <tr><td>😴 Inactividad</td><td>Pausa tras 7 días sin uso</td><td><span class="sys-badge-warn">🟡 Atención</span></td></tr>
-            </tbody>
-          </table>
-        </div>
-        """.replace('{_bc_db}', _badge(_db_pct)[0]).replace('{_bl_db}', _badge(_db_pct)[1])            .replace('{_bc_s}', _badge(_stg_pct)[0]).replace('{_bl_s}', _badge(_stg_pct)[1])
-        st.markdown(_plan_html, unsafe_allow_html=True)
+        # ── FILA 4: Usuarios y Conexiones ──
+        st.markdown('<div class="sys-section-title">👥 Usuarios y conexiones</div>', unsafe_allow_html=True)
+        _col_mau, _col_lim = st.columns(2)
+        with _col_mau:
+            _mau_pct = min(round((_mau / _MAU_LIMIT) * 100, 1), 100) if _mau > 0 else 0
+            _bc5, _bl5 = _badge(_mau_pct)
+            st.markdown(f"""
+            <div class="sys-card">
+              <div class="sys-card-title">👤 Monthly Active Users (MAU)</div>
+              <div class="sys-metric-val">{_mau if _mau > 0 else '—'}</div>
+              <div class="sys-metric-sub">Límite: {_MAU_LIMIT:,} MAU &nbsp;·&nbsp; <span class="{'sys-badge-ok' if _mau == 0 else _bc5}">{'🟢 Normal' if _mau == 0 else _bl5}</span></div>
+              {"<div class='sys-bar-wrap'><div class='sys-bar-inner " + _bar_class(_mau_pct) + "' style='width:" + str(_mau_pct) + "%'></div></div>" if _mau > 0 else ""}
+            </div>
+            """, unsafe_allow_html=True)
+        with _col_lim:
+            st.markdown(f"""
+            <div class="sys-card">
+              <div class="sys-card-title">📊 Resumen plan Free</div>
+              <table class="sys-table" style="margin-top:4px;">
+                <tr><td>🗄️ BD</td><td>{_DB_LIMIT_MB} MB</td><td><span class="{_badge(_db_pct)[0]}">{_badge(_db_pct)[1]}</span></td></tr>
+                <tr><td>📦 Storage</td><td>1 GB</td><td><span class="{_badge(_stg_pct)[0]}">{_badge(_stg_pct)[1]}</span></td></tr>
+                <tr><td>📤 Egress</td><td>5 GB/mes</td><td><span class="{_badge(_eg_pct)[0]}">{_badge(_eg_pct)[1]}</span></td></tr>
+                <tr><td>⚡ Cached</td><td>5 GB/mes</td><td><span class="{_badge(_egc_pct)[0]}">{_badge(_egc_pct)[1]}</span></td></tr>
+                <tr><td>👥 MAU</td><td>50,000</td><td><span class="sys-badge-ok">🟢 Normal</span></td></tr>
+                <tr><td>😴 Pausa</td><td>7 días sin uso</td><td><span class="sys-badge-warn">🟡 Atención</span></td></tr>
+              </table>
+            </div>
+            """, unsafe_allow_html=True)
 
-        # ── Nota actualización ──
+        # ── Nota ──
         _now_cl = _dt_sys.datetime.now(_dt_sys.timezone(_dt_sys.timedelta(hours=-3)))
-        st.caption(f"🕐 Última actualización: {_now_cl.strftime('%d/%m/%Y %H:%M')} hora Chile · Las métricas de tamaño de BD en Supabase Core se actualizan diariamente.")
+        st.caption(f"🕐 Actualizado: {_now_cl.strftime('%d/%m/%Y %H:%M')} hora Chile · Egress/MAU requieren API key con permisos de management. BD y Storage son estimados.")
+        st.info("💡 **Para reducir el Cached Egress:** Los `@st.cache_data` ya agregados reducen queries repetidas. Si el egress sigue alto, considera revisar qué queries traen más datos (productos con imágenes, logs, etc.)")
 
         if st.button("🔄 Actualizar métricas", key="btn_refresh_salud"):
             st.rerun()
+
 
 
 # =========================================================
