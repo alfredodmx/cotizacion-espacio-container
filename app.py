@@ -867,6 +867,21 @@ if _modo_cliente:
 # =========================================================
 # PANTALLA DE LOGIN — bloquea la app si no hay sesión
 # =========================================================
+# ── Session timeout — 8 horas de inactividad ──
+import time as _time_sess
+_sess_timeout = 8 * 3600  # 8 horas en segundos
+_last_activity = st.session_state.get('_last_activity', 0)
+_now_sess = _time_sess.time()
+if st.session_state.auth_user and _last_activity > 0:
+    if (_now_sess - _last_activity) > _sess_timeout:
+        # Sesión expirada — cerrar
+        for _sk in list(st.session_state.keys()):
+            del st.session_state[_sk]
+        st.warning("⏱️ Tu sesión expiró por inactividad. Por favor inicia sesión nuevamente.")
+        st.rerun()
+if st.session_state.get('auth_user'):
+    st.session_state['_last_activity'] = _now_sess
+
 if not st.session_state.auth_user:
     # Cargar logo3.png
     import base64 as _b64l, os as _osl
@@ -1015,7 +1030,16 @@ if not st.session_state.auth_user:
 
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-        if st.button("⚡ Ingresar al sistema", use_container_width=True, type="primary", key="btn_login"):
+        # ── Rate limiting: max 5 intentos, bloqueo 5 minutos ──
+        import time as _time_login
+        _now_login = _time_login.time()
+        _login_attempts = st.session_state.get('_login_attempts', 0)
+        _login_blocked_until = st.session_state.get('_login_blocked_until', 0)
+        _is_blocked = _now_login < _login_blocked_until
+        if _is_blocked:
+            _wait = int(_login_blocked_until - _now_login)
+            st.error(f"🔒 Demasiados intentos fallidos. Espera {_wait} segundos.")
+        if st.button("⚡ Ingresar al sistema", use_container_width=True, type="primary", key="btn_login", disabled=_is_blocked):
             if not _email_in or not _pass_in:
                 st.error("Completa correo y contraseña.")
             else:
@@ -1035,12 +1059,27 @@ if not st.session_state.auth_user:
                     if st.session_state.es_supervisor:
                         st.session_state.modo_admin = True
                     st.session_state.pop('resultados_busqueda', None)
+                    st.session_state['_login_attempts'] = 0
+                    st.session_state['_login_blocked_until'] = 0
                     st.session_state.pop('_usuarios_cache', None)
                     # Sesión manejada via query params — sin localStorage
                     st.rerun()
                 else:
-                    if "Invalid login" in str(err) or "invalid_credentials" in str(err):
-                        st.error("❌ Correo o contraseña incorrectos.")
+                    _login_attempts += 1
+                    st.session_state['_login_attempts'] = _login_attempts
+                    # Log intento fallido
+                    try:
+                        registrar_log('SISTEMA', _email_in.strip(), 'login_fallido',
+                            {'email': _email_in.strip(), 'intentos': _login_attempts,
+                             'ip': 'N/A', 'timestamp': __import__('datetime').datetime.now().isoformat()})
+                    except: pass
+                    if _login_attempts >= 5:
+                        st.session_state['_login_blocked_until'] = _now_login + 300  # 5 minutos
+                        st.session_state['_login_attempts'] = 0
+                        st.error("🔒 Demasiados intentos. Bloqueado por 5 minutos.")
+                    elif "Invalid login" in str(err) or "invalid_credentials" in str(err):
+                        _remaining = 5 - _login_attempts
+                        st.error(f"❌ Correo o contraseña incorrectos. {_remaining} intento(s) restante(s).")
                     elif "Email not confirmed" in str(err):
                         st.error("❌ Cuenta no confirmada. Contacta al administrador.")
                     else:
