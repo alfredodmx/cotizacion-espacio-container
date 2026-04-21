@@ -671,7 +671,7 @@ def verificar_conexion_supabase():
     if st.session_state.get('_supabase_ok'):
         return True
     try:
-        supabase.table('cotizaciones').select('numero').limit(1).execute()
+        supabase_admin.table('cotizaciones').select('numero').limit(1).execute()
         st.session_state['_supabase_ok'] = True
         return True
     except Exception as e:
@@ -783,7 +783,7 @@ if _modo_cliente:
                     st.error("Ingresa tu RUT y código de presupuesto.")
                 else:
                     try:
-                        _cli_check = supabase.table('cotizaciones').select(
+                        _cli_check = supabase_admin.table('cotizaciones').select(
                             'numero,cliente_nombre,cliente_rut,proyecto_observaciones'
                         ).eq('numero', _cli_ep_clean).execute()
                         if _cli_check.data:
@@ -811,11 +811,11 @@ if _modo_cliente:
         _primer_nombre = _nom_cli.split()[0].capitalize() if _nom_cli else "Cliente"
 
         try:
-            _cat_cli = supabase.table('catalogo_materiales').select('*').eq('activo',True).order('categoria').order('orden_grupo').order('titulo_grupo').order('nombre').execute().data or []
+            _cat_cli = supabase_admin.table('catalogo_materiales').select('*').eq('activo',True).order('categoria').order('orden_grupo').order('titulo_grupo').order('nombre').execute().data or []
         except:
             _cat_cli = []
         try:
-            _cfg_cli = supabase.table('formulario_config').select('*').eq('cotizacion_numero',_ep_cli).order('orden').execute().data or []
+            _cfg_cli = supabase_admin.table('formulario_config').select('*').eq('cotizacion_numero',_ep_cli).order('orden').execute().data or []
         except:
             _cfg_cli = []
 
@@ -829,7 +829,7 @@ if _modo_cliente:
             """, unsafe_allow_html=True)
         else:
             try:
-                _resps_db = supabase.table('formulario_respuestas').select('*').eq('cotizacion_numero',_ep_cli).execute().data or []
+                _resps_db = supabase_admin.table('formulario_respuestas').select('*').eq('cotizacion_numero',_ep_cli).execute().data or []
                 _resps_map = {r.get('item_id') or r.get('pregunta_id',''): r['respuesta'] for r in _resps_db}
             except:
                 _resps_map = {}
@@ -2604,7 +2604,7 @@ def guardar_registro_compra(cotizacion_numero, usuario, factura_url, factura_nom
             "total_real": total_real,
             "balance": balance,
         }
-        resp = supabase.table("registro_compras").insert(data).execute()
+        resp = supabase_admin.table("registro_compras").insert(data).execute()
         return True, None
     except Exception as e:
         return False, str(e)
@@ -2613,7 +2613,7 @@ def guardar_registro_compra(cotizacion_numero, usuario, factura_url, factura_nom
 def obtener_registros_compra(cotizacion_numero):
     """Obtiene todos los registros de compra de una cotización."""
     try:
-        resp = supabase.table("registro_compras").select("*").eq("cotizacion_numero", cotizacion_numero).order("fecha_registro", desc=False).execute()
+        resp = supabase_admin.table("registro_compras").select("*").eq("cotizacion_numero", cotizacion_numero).order("fecha_registro", desc=False).execute()
         return resp.data or []
     except Exception as e:
         return []
@@ -3396,7 +3396,7 @@ def registrar_entrega_proyecto(cotizacion_numero, acta_url, acta_nombre):
         from datetime import datetime, timezone, timedelta
         _tz = timezone(timedelta(hours=-3))
         _ahora = datetime.now(_tz).isoformat()
-        supabase.table("cotizaciones").update({
+        supabase_admin.table("cotizaciones").update({
             "acta_url": acta_url,
             "acta_nombre": acta_nombre,
             "fecha_entrega": _ahora,
@@ -4425,7 +4425,7 @@ import io as _io_excel
 def _get_excel_bytes_activo():
     """Descarga el Excel activo desde Supabase Storage. Cache 60s."""
     try:
-        _resp = supabase.table('excel_versiones').select('archivo_url').eq('activa', True).limit(1).execute()
+        _resp = supabase_admin.table('excel_versiones').select('archivo_url').eq('activa', True).limit(1).execute()
         if _resp.data:
             _url = _resp.data[0]['archivo_url']
             import requests as _rq
@@ -4505,7 +4505,7 @@ def cargar_categoria_desde_modelo(nombre_hoja, categoria_objetivo):
 def registrar_log(numero, asesor, tipo_cambio, detalle_dict):
     """Inserta un registro en cotizacion_logs."""
     try:
-        supabase.table('cotizacion_logs').insert({
+        supabase_admin.table('cotizacion_logs').insert({
             'numero': numero,
             'asesor': asesor,
             'tipo_cambio': tipo_cambio,
@@ -4520,7 +4520,7 @@ def contar_logs(numeros):
     if not numeros:
         return {}
     try:
-        resp = supabase.table('cotizacion_logs').select('numero').in_('numero', numeros).execute()
+        resp = supabase_admin.table('cotizacion_logs').select('numero').in_('numero', numeros).execute()
         counts = {}
         for row in resp.data:
             n = row['numero']
@@ -4532,7 +4532,7 @@ def contar_logs(numeros):
 def obtener_logs_ep(numero):
     """Devuelve lista de logs ordenados por fecha DESC para un EP."""
     try:
-        resp = supabase.table('cotizacion_logs') \
+        resp = supabase_admin.table('cotizacion_logs') \
             .select('*').eq('numero', numero) \
             .order('fecha', desc=True).execute()
         return resp.data or []
@@ -5090,7 +5090,7 @@ def guardar_cotizacion(numero, cliente, asesor, proyecto, productos, config, tot
 def exportar_csv_completo():
     """Exporta todas las cotizaciones de Supabase a CSV."""
     try:
-        response = supabase.table('cotizaciones').select(
+        response = supabase_admin.table('cotizaciones').select(
             'numero', 'fecha_creacion', 'fecha_modificacion',
             'cliente_nombre', 'cliente_rut', 'cliente_email', 'cliente_telefono',
             'cliente_direccion', 'cliente_comuna', 'cliente_region',
@@ -5130,7 +5130,7 @@ def exportar_csv_completo():
 def _fetch_cotizaciones_raw(rol, email):
     """Fetch raw cotizaciones from Supabase, cached 30s per rol+email."""
     try:
-        query = supabase.table('cotizaciones').select(
+        query = supabase_admin.table('cotizaciones').select(
             'numero', 'cliente_nombre', 'asesor_nombre', 'fecha_creacion',
             'total_total', 'config_margen', 'cliente_rut', 'cliente_email',
             'asesor_email', 'asesor_telefono', 'plano_url', 'contrato_generado', 'cliente_empresa',
@@ -5149,7 +5149,7 @@ def _fetch_cotizaciones_raw(rol, email):
 
 def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
     try:
-        query = supabase.table('cotizaciones').select(
+        query = supabase_admin.table('cotizaciones').select(
             'numero', 'cliente_nombre', 'asesor_nombre', 'fecha_creacion',
             'total_total', 'config_margen', 'cliente_rut', 'cliente_email',
             'asesor_email', 'asesor_telefono', 'plano_url', 'contrato_generado', 'cliente_empresa',
@@ -5224,7 +5224,7 @@ def cargar_cotizacion(numero):
     try:
         if not numero:
             return None
-        response = supabase.table('cotizaciones').select('*').eq('numero', numero).execute()
+        response = supabase_admin.table('cotizaciones').select('*').eq('numero', numero).execute()
         if response.data:
             cotizacion = response.data[0]
             # Manejar productos como string JSON o como lista directamente
@@ -5245,10 +5245,10 @@ def cargar_cotizacion(numero):
 
 def eliminar_cotizacion(numero):
     try:
-        response = supabase.table('cotizaciones').select('plano_url').eq('numero', numero).execute()
+        response = supabase_admin.table('cotizaciones').select('plano_url').eq('numero', numero).execute()
         if response.data and response.data[0].get('plano_url'):
             eliminar_plano_de_storage(response.data[0]['plano_url'])
-        response = supabase.table('cotizaciones').delete().eq('numero', numero).execute()
+        response = supabase_admin.table('cotizaciones').delete().eq('numero', numero).execute()
         _invalidar_cache_cotizaciones()
         return True
     except Exception as e:
@@ -5258,7 +5258,7 @@ def eliminar_cotizacion(numero):
 def actualizar_estado_cotizacion(numero, estado):
     try:
         fecha_actual = datetime.now().isoformat()
-        response = supabase.table('cotizaciones').update({
+        response = supabase_admin.table('cotizaciones').update({
             'estado': estado,
             'fecha_modificacion': fecha_actual
         }).eq('numero', numero).execute()
@@ -5273,7 +5273,7 @@ def generar_numero_unico():
     while intentos < 20:
         numero = f"EP-{random.randint(10000, 99999)}"
         try:
-            response = supabase.table('cotizaciones').select('numero').eq('numero', numero).execute()
+            response = supabase_admin.table('cotizaciones').select('numero').eq('numero', numero).execute()
             if not response.data:
                 return numero
         except:
@@ -5393,7 +5393,7 @@ _ep_cargado = st.session_state.get('cotizacion_cargada', '')
 _es_adjudicado = False
 if _ep_cargado and st.session_state.get('_adj_check_ep') != _ep_cargado:
     try:
-        _adj_check = supabase.table('cotizaciones').select('contrato_notariado_url').eq('numero', _ep_cargado).execute()
+        _adj_check = supabase_admin.table('cotizaciones').select('contrato_notariado_url').eq('numero', _ep_cargado).execute()
         _es_adjudicado = bool((_adj_check.data or [{}])[0].get('contrato_notariado_url','')) if _adj_check.data else False
         st.session_state['_adj_check_ep'] = _ep_cargado
         st.session_state['_adj_es_adj']   = _es_adjudicado
@@ -6856,7 +6856,7 @@ def cargar_datos_dashboard(periodo='mes'):
             _inicio_ant = None
 
         # Sin filtro de fecha — traer todo y filtrar en Python
-        resp = supabase.table('cotizaciones').select(
+        resp = supabase_admin.table('cotizaciones').select(
             'numero, fecha_creacion, fecha_modificacion, estado, '
             'total_total, asesor_nombre, cliente_nombre, cliente_rut, '
             'cliente_comuna, cliente_region, cliente_tipo, '
@@ -6879,7 +6879,7 @@ def cargar_datos_dashboard(periodo='mes'):
         # Período anterior para comparación
         rows_ant = []
         if _inicio_ant:
-            resp_ant = supabase.table('cotizaciones').select(
+            resp_ant = supabase_admin.table('cotizaciones').select(
                 'total_total, estado, config_margen, cliente_nombre, cliente_email, asesor_nombre, asesor_email, asesor_telefono'
             ).gte('fecha_creacion', _inicio_ant).lte('fecha_creacion', _fin_ant).execute()
             rows_ant = resp_ant.data or []
@@ -7472,7 +7472,7 @@ def _obtener_clausulas_contrato(modelo_predefinido=None):
     try:
         # 1. Buscar por modelo si se proporcionó
         if modelo_predefinido:
-            _todas = supabase.table("plantillas_contrato").select("*").eq("activa", True).execute()
+            _todas = supabase_admin.table("plantillas_contrato").select("*").eq("activa", True).execute()
             for _p in (_todas.data or []):
                 _mods = _p.get("modelos") or []
                 # Normalizar: puede llegar como string JSON o lista
@@ -7483,11 +7483,11 @@ def _obtener_clausulas_contrato(modelo_predefinido=None):
                 if modelo_predefinido in _mods:
                     return _p.get("clausulas")
         # 2. Fallback: plantilla A activa
-        _res = supabase.table("plantillas_contrato").select("clausulas").eq("activa", True).eq("tipo", "A").execute()
+        _res = supabase_admin.table("plantillas_contrato").select("clausulas").eq("activa", True).eq("tipo", "A").execute()
         if _res.data and _res.data[0].get("clausulas"):
             return _res.data[0]["clausulas"]
         # 3. Fallback final: cualquier activa
-        _res2 = supabase.table("plantillas_contrato").select("clausulas").eq("activa", True).execute()
+        _res2 = supabase_admin.table("plantillas_contrato").select("clausulas").eq("activa", True).execute()
         if _res2.data and _res2.data[0].get("clausulas"):
             return _res2.data[0]["clausulas"]
     except Exception:
@@ -10278,7 +10278,7 @@ if tab3 is not None:
             _cache_expired = (_now_pm - st.session_state['_prods_map_ts']) > 60
             if st.session_state.get('_prods_map_key') != _cache_key or _cache_expired:
                 try:
-                    _prods_resp = supabase.table("cotizaciones").select("numero,productos").in_("numero", _eps_compras).execute()
+                    _prods_resp = supabase_admin.table("cotizaciones").select("numero,productos").in_("numero", _eps_compras).execute()
                     _prods_map = {}
                     for _pr in (_prods_resp.data or []):
                         try:
@@ -10296,10 +10296,10 @@ if tab3 is not None:
             _mat_data_map = {}
             try:
                 _eps_m = df_resultados["N°"].tolist()
-                _mcfg = supabase.table("formulario_config").select(
+                _mcfg = supabase_admin.table("formulario_config").select(
                     "cotizacion_numero,categoria,titulo_grupo,item_ids,orden"
                 ).in_("cotizacion_numero", _eps_m).execute().data or []
-                _mres = supabase.table("formulario_respuestas").select(
+                _mres = supabase_admin.table("formulario_respuestas").select(
                     "cotizacion_numero,item_id,respuesta"
                 ).in_("cotizacion_numero", _eps_m).execute().data or []
                 from collections import defaultdict as _ddf2
@@ -11242,7 +11242,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             _sel_motivo_rec = ""
             _sel_fecha_rec  = ""
             try:
-                _sel_rec_q = supabase.table("cotizaciones").select("motivo_rechazo,fecha_rechazo,contrato_notariado_url").eq("numero", numero_seleccionado).execute()
+                _sel_rec_q = supabase_admin.table("cotizaciones").select("motivo_rechazo,fecha_rechazo,contrato_notariado_url").eq("numero", numero_seleccionado).execute()
                 if _sel_rec_q.data:
                     _sel_motivo_rec = _sel_rec_q.data[0].get("motivo_rechazo","") or ""
                     _sel_fecha_rec  = _sel_rec_q.data[0].get("fecha_rechazo","") or ""
@@ -11754,7 +11754,7 @@ if tab4 is not None:
 
     # Obtener presupuestos con plano
     try:
-        _resp_3d = supabase.table('cotizaciones').select(
+        _resp_3d = supabase_admin.table('cotizaciones').select(
             'numero', 'cliente_nombre', 'plano_url', 'plano_nombre'
         ).not_.is_('plano_url', 'null').order('fecha_creacion', desc=True).execute()
         _opciones_3d = _resp_3d.data or []
@@ -12433,7 +12433,7 @@ if st.session_state.modo_admin and tab5 is not None:
                                 file_options={"content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
                             )
                             _url_publica = supabase.storage.from_("config").get_public_url(_nombre_archivo)
-                            supabase.table("excel_versiones").insert({
+                            supabase_admin.table("excel_versiones").insert({
                                 "version_nombre": _version_nombre,
                                 "archivo_url": _url_publica,
                                 "archivo_nombre": _nombre_archivo,
@@ -12456,7 +12456,7 @@ if st.session_state.modo_admin and tab5 is not None:
 
         st.markdown('<div class="ind-titulo">📋 Versiones disponibles</div>', unsafe_allow_html=True)
         try:
-            _versiones = supabase.table("excel_versiones").select("*").order("fecha_subida", desc=True).execute().data or []
+            _versiones = supabase_admin.table("excel_versiones").select("*").order("fecha_subida", desc=True).execute().data or []
         except:
             _versiones = []
 
@@ -12506,8 +12506,8 @@ if st.session_state.modo_admin and tab5 is not None:
                                      use_container_width=True, type="primary"):
                             with st.spinner("Activando..."):
                                 try:
-                                    supabase.table("excel_versiones").update({"activa": False}).neq("id","00000000-0000-0000-0000-000000000000").execute()
-                                    supabase.table("excel_versiones").update({"activa": True}).eq("id", _v["id"]).execute()
+                                    supabase_admin.table("excel_versiones").update({"activa": False}).neq("id","00000000-0000-0000-0000-000000000000").execute()
+                                    supabase_admin.table("excel_versiones").update({"activa": True}).eq("id", _v["id"]).execute()
                                     _get_excel_bytes_activo.clear()
                                     _leer_hoja_excel.clear()
                                     _leer_bd_total.clear()
@@ -12530,7 +12530,7 @@ if st.session_state.modo_admin and tab5 is not None:
                         if st.button("🗑️", key=f"btn_del_{_v['id']}", help="Eliminar esta versión"):
                             try:
                                 supabase.storage.from_("config").remove([_v.get("archivo_nombre","")])
-                                supabase.table("excel_versiones").delete().eq("id", _v["id"]).execute()
+                                supabase_admin.table("excel_versiones").delete().eq("id", _v["id"]).execute()
                                 st.rerun()
                             except Exception as _e:
                                 st.error(f"❌ {_e}")
@@ -12751,7 +12751,7 @@ if st.session_state.get('es_root') and tab_salud is not None:
                          'catalogo_materiales','formulario_config','formulario_respuestas',
                          'formulario_preguntas','plantillas_contrato','usuarios']:
                 try:
-                    _r = supabase.table(_tbl).select('id', count='exact').execute()
+                    _r = supabase_admin.table(_tbl).select('id', count='exact').execute()
                     _db_rows[_tbl] = _r.count or 0
                 except: _db_rows[_tbl] = 0
 
@@ -12765,24 +12765,24 @@ if st.session_state.get('es_root') and tab_salud is not None:
             # ── 2. Storage ──
             _storage_info = {}
             try:
-                _n_planos = supabase.table('cotizaciones').select('numero',count='exact').not_.is_('plano_url','null').execute().count or 0
+                _n_planos = supabase_admin.table('cotizaciones').select('numero',count='exact').not_.is_('plano_url','null').execute().count or 0
                 _storage_info['planos'] = {'archivos':_n_planos,'mb':round((_n_planos*500*1024)/(1024*1024),2),'estimado':True}
             except: _storage_info['planos'] = {'archivos':0,'mb':0,'estimado':True}
             try:
-                _n_excel = supabase.table('excel_versiones').select('id',count='exact').execute().count or 0
-                _n_jsons = supabase.table('cotizaciones').select('numero',count='exact').eq('estado','Autorizado').execute().count or 0
+                _n_excel = supabase_admin.table('excel_versiones').select('id',count='exact').execute().count or 0
+                _n_jsons = supabase_admin.table('cotizaciones').select('numero',count='exact').eq('estado','Autorizado').execute().count or 0
                 _storage_info['config'] = {'archivos':_n_excel+_n_jsons,'mb':round((_n_excel*2*1024+_n_jsons*5)/1024,2),'estimado':True}
             except: _storage_info['config'] = {'archivos':0,'mb':0,'estimado':True}
             try:
-                _n_fimg = supabase.table('catalogo_materiales').select('id',count='exact').not_.is_('imagen_url','null').neq('imagen_url','').execute().count or 0
+                _n_fimg = supabase_admin.table('catalogo_materiales').select('id',count='exact').not_.is_('imagen_url','null').neq('imagen_url','').execute().count or 0
                 _storage_info['formulario-imagenes'] = {'archivos':_n_fimg,'mb':round((_n_fimg*200*1024)/(1024*1024),2),'estimado':True}
             except: _storage_info['formulario-imagenes'] = {'archivos':0,'mb':0,'estimado':True}
             try:
-                _n_cont = supabase.table('cotizaciones').select('id',count='exact').not_.is_('contrato_url','null').neq('contrato_url','').execute().count or 0
+                _n_cont = supabase_admin.table('cotizaciones').select('id',count='exact').not_.is_('contrato_url','null').neq('contrato_url','').execute().count or 0
                 _storage_info['contratos'] = {'archivos':_n_cont,'mb':round((_n_cont*300*1024)/(1024*1024),2),'estimado':True}
             except: _storage_info['contratos'] = {'archivos':0,'mb':0,'estimado':True}
             try:
-                _n_fact = supabase.table('registro_compras').select('id',count='exact').execute().count or 0
+                _n_fact = supabase_admin.table('registro_compras').select('id',count='exact').execute().count or 0
                 _storage_info['facturas'] = {'archivos':_n_fact,'mb':round((_n_fact*150*1024)/(1024*1024),2),'estimado':True}
             except: _storage_info['facturas'] = {'archivos':0,'mb':0,'estimado':True}
 
@@ -13416,7 +13416,7 @@ if tab_reporte is not None and st.session_state.modo_admin:
             import json as _json_rep
 
             _fecha_desde = (_dt.now() - _td(days=_rep_dias)).strftime('%Y-%m-%d')
-            _resp_rep = supabase.table('cotizaciones').select(
+            _resp_rep = supabase_admin.table('cotizaciones').select(
                 'numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_tipo,'
                 'cliente_region,cliente_comuna,asesor_nombre,estado,total_total,'
                 'config_margen,plano_url,contrato_generado,contrato_datos'
@@ -13815,7 +13815,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
 
         if _oper_buscar:
             try:
-                _oq = supabase.table("cotizaciones").select(
+                _oq = supabase_admin.table("cotizaciones").select(
                     "numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_email,"
                     "asesor_nombre,asesor_email,asesor_telefono,estado,plano_url,plano_nombre,"
                     "config_margen,contrato_generado,productos,total_subtotal_sin_margen,"
@@ -13834,7 +13834,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
         if 'oper_results' not in st.session_state or (_oper_buscar is False and _oper_ej_sel != st.session_state.get('_oper_ej_prev')):
             st.session_state['_oper_ej_prev'] = _oper_ej_sel
             try:
-                _oq0 = supabase.table("cotizaciones").select(
+                _oq0 = supabase_admin.table("cotizaciones").select(
                     "numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_email,"
                     "asesor_nombre,asesor_email,asesor_telefono,estado,plano_url,plano_nombre,"
                     "config_margen,contrato_generado,productos,total_subtotal_sin_margen,"
@@ -14366,7 +14366,7 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
 
         # Obtener cotizaciones adjudicadas
         try:
-            _rc_resp = supabase.table('cotizaciones').select(
+            _rc_resp = supabase_admin.table('cotizaciones').select(
                 'numero,cliente_nombre,contrato_notariado_url,productos,estado,asesor_nombre'
             ).not_.is_('contrato_notariado_url','null').order('fecha_creacion',desc=True).execute()
             _rc_cots = [r for r in (_rc_resp.data or []) if r.get('contrato_notariado_url')]
@@ -14946,7 +14946,7 @@ window.addEventListener("message",function(e){{
 
         # Obtener cotizaciones adjudicadas (con contrato notariado, sin acta aún)
         try:
-            _ac_resp = supabase.table('cotizaciones').select(
+            _ac_resp = supabase_admin.table('cotizaciones').select(
                 'numero,cliente_nombre,contrato_notariado_url,acta_url,acta_nombre,fecha_entrega,estado'
             ).not_.is_('contrato_notariado_url','null').order('fecha_creacion',desc=True).execute()
             _ac_cots = [r for r in (_ac_resp.data or []) if r.get('contrato_notariado_url')]
@@ -16179,7 +16179,7 @@ if tab_contrato is not None:
                 _cont_es_adj = bool(_cot.get("contrato_notariado_url",""))
                 if not _cont_es_adj:
                     try:
-                        _adj_q = supabase.table("cotizaciones").select("contrato_notariado_url").eq("numero", _ep_num).execute()
+                        _adj_q = supabase_admin.table("cotizaciones").select("contrato_notariado_url").eq("numero", _ep_num).execute()
                         _cont_es_adj = bool((_adj_q.data or [{}])[0].get("contrato_notariado_url","")) if _adj_q.data else False
                     except Exception: pass
 
@@ -16353,7 +16353,7 @@ if tab_contrato is not None:
                                          or st.session_state.get('modelo_base') or None)
                         if _modelo_check:
                             try:
-                                _todas_check = supabase.table("plantillas_contrato").select("modelos").eq("activa", True).execute()
+                                _todas_check = supabase_admin.table("plantillas_contrato").select("modelos").eq("activa", True).execute()
                                 _modelo_asignado = any(
                                     _modelo_check in (_p.get("modelos") or [])
                                     for _p in (_todas_check.data or [])
@@ -16411,7 +16411,7 @@ if tab_contrato is not None:
                                     # Guardar en Supabase
                                     try:
                                         import json as _json
-                                        supabase.table("cotizaciones").update({
+                                        supabase_admin.table("cotizaciones").update({
                                             "contrato_generado": True,
                                             "contrato_datos":    _json.dumps(_datos_contrato, ensure_ascii=False),
                                             "contrato_fecha":    _datos_contrato["fecha_str"],
@@ -17247,18 +17247,18 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
             # ── Cargar plantilla activa de Supabase ──
             def _cargar_plantilla_activa(tipo='A'):
                 try:
-                    _res = supabase.table("plantillas_contrato").select("*").eq("activa", True).eq("tipo", tipo).execute()
+                    _res = supabase_admin.table("plantillas_contrato").select("*").eq("activa", True).eq("tipo", tipo).execute()
                     if _res.data:
                         return _res.data[0]
                     # fallback: cualquier activa si no hay del tipo
-                    _res2 = supabase.table("plantillas_contrato").select("*").eq("activa", True).execute()
+                    _res2 = supabase_admin.table("plantillas_contrato").select("*").eq("activa", True).execute()
                     return _res2.data[0] if _res2.data else None
                 except Exception:
                     return None
 
             def _cargar_historial(tipo=None):
                 try:
-                    _q = supabase.table("plantillas_contrato").select("*").order("version", desc=True)
+                    _q = supabase_admin.table("plantillas_contrato").select("*").order("version", desc=True)
                     if tipo:
                         _q = _q.eq("tipo", tipo)
                     _res = _q.execute()
@@ -17270,13 +17270,13 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 try:
                     import json as _json
                     # Desactivar solo las del mismo tipo
-                    supabase.table("plantillas_contrato").update({"activa": False}).eq("tipo", tipo).execute()
+                    supabase_admin.table("plantillas_contrato").update({"activa": False}).eq("tipo", tipo).execute()
                     # Obtener próxima versión global
                     _hist_all = _cargar_historial()
                     _next_v = (_hist_all[0]["version"] + 1) if _hist_all else 2
                     _tipo_label = 'A' if tipo == 'A' else 'B'
                     # Insertar nueva
-                    supabase.table("plantillas_contrato").insert({
+                    supabase_admin.table("plantillas_contrato").insert({
                         "version": _next_v,
                         "nombre": f"Plantilla {_tipo_label} v{_next_v}",
                         "clausulas": clausulas_dict,
@@ -17291,8 +17291,8 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
 
             def _activar_plantilla(pid, tipo='A'):
                 try:
-                    supabase.table("plantillas_contrato").update({"activa": False}).eq("tipo", tipo).execute()
-                    supabase.table("plantillas_contrato").update({"activa": True}).eq("id", pid).execute()
+                    supabase_admin.table("plantillas_contrato").update({"activa": False}).eq("tipo", tipo).execute()
+                    supabase_admin.table("plantillas_contrato").update({"activa": True}).eq("id", pid).execute()
                     return True
                 except Exception:
                     return False
@@ -17301,7 +17301,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
             _historial = _cargar_historial()
             if not _historial:
                 try:
-                    supabase.table("plantillas_contrato").insert({
+                    supabase_admin.table("plantillas_contrato").insert({
                         "version": 1,
                         "nombre": "Plantilla A v1 — original sistema",
                         "clausulas": _CLAUSULAS_EDITOR,
@@ -17318,7 +17318,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 for _p in _historial:
                     if not _p.get("tipo"):
                         try:
-                            supabase.table("plantillas_contrato").update({"tipo": "A", "modelos": []}).eq("id", _p["id"]).execute()
+                            supabase_admin.table("plantillas_contrato").update({"tipo": "A", "modelos": []}).eq("id", _p["id"]).execute()
                         except Exception:
                             pass
 
@@ -17326,7 +17326,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
             _hojas_modelo_ed = [h for h in _leer_hojas_disponibles() if h.lower().startswith("modelo")]
             # Cargar todas las plantillas activas para saber qué modelos están asignados
             try:
-                _todas_activas = supabase.table("plantillas_contrato").select("tipo,modelos").eq("activa", True).execute()
+                _todas_activas = supabase_admin.table("plantillas_contrato").select("tipo,modelos").eq("activa", True).execute()
                 _modelos_por_tipo = {'A': [], 'B': []}
                 for _pa in (_todas_activas.data or []):
                     _t = _pa.get('tipo') or 'A'
@@ -18315,7 +18315,7 @@ if tab_formulario is not None:
                     except: pass
                     st.query_params.pop('cat_cantidad')
                 try:
-                    _cat_all = supabase.table('catalogo_materiales').select('*').eq('activo', True).order('categoria').order('orden_grupo').order('titulo_grupo').order('nombre').execute().data or []
+                    _cat_all = supabase_admin.table('catalogo_materiales').select('*').eq('activo', True).order('categoria').order('orden_grupo').order('titulo_grupo').order('nombre').execute().data or []
                     # Normalize titulo_grupo: None or empty -> use nombre as fallback group key
                     for _ci in _cat_all:
                         if not _ci.get('titulo_grupo'):
@@ -18345,11 +18345,11 @@ if tab_formulario is not None:
                     st.info("Ingresa un número EP y haz click en Cargar.")
                 else:
                     try:
-                        _cat_todos = supabase.table('catalogo_materiales').select('*').eq('activo',True).order('categoria').order('orden_grupo').order('titulo_grupo').order('nombre').execute().data or []
+                        _cat_todos = supabase_admin.table('catalogo_materiales').select('*').eq('activo',True).order('categoria').order('orden_grupo').order('titulo_grupo').order('nombre').execute().data or []
                     except:
                         _cat_todos = []
                     try:
-                        _cfg_data = supabase.table('formulario_config').select('*').eq('cotizacion_numero', _form_ep).execute().data or []
+                        _cfg_data = supabase_admin.table('formulario_config').select('*').eq('cotizacion_numero', _form_ep).execute().data or []
                     except:
                         _cfg_data = []
                     _cfg_html = build_config_preguntas_html(_cat_todos, _cfg_data, SUPABASE_URL, SUPABASE_KEY, _form_ep)
@@ -18360,10 +18360,10 @@ if tab_formulario is not None:
             st.markdown("**Progreso de formularios por proyecto:**")
             try:
                 from collections import defaultdict
-                _all_cfg = supabase.table('formulario_config').select(
+                _all_cfg = supabase_admin.table('formulario_config').select(
                     'cotizacion_numero,categoria,titulo_grupo,item_ids,orden'
                 ).execute().data or []
-                _all_resps = supabase.table('formulario_respuestas').select(
+                _all_resps = supabase_admin.table('formulario_respuestas').select(
                     'cotizacion_numero,item_id,pregunta_id,respuesta'
                 ).execute().data or []
 
