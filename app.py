@@ -3316,123 +3316,242 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
 
 
 
-def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map):
-    """Genera PDF con la selección de materiales del cliente."""
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, mat_items_sel=None):
+    """PDF moderno de selección de materiales del cliente — con imágenes y colores reales."""
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, KeepTogether
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
     from reportlab.lib.units import cm
+    from reportlab.platypus import Image as RLImage
     from collections import defaultdict
-    import io as _io_sel, datetime as _dt_sel
+    import io as _io_sel, datetime as _dt_sel, requests as _req_sel
 
+    if mat_items_sel is None:
+        mat_items_sel = {}
+
+    W, H = A4
     buf = _io_sel.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4,
-                            rightMargin=2*cm, leftMargin=2*cm,
-                            topMargin=2*cm, bottomMargin=2*cm)
-    styles = getSampleStyleSheet()
+                            rightMargin=1.8*cm, leftMargin=1.8*cm,
+                            topMargin=1.8*cm, bottomMargin=1.8*cm)
 
-    # Custom styles
-    s_title = ParagraphStyle('SelTitle', parent=styles['Normal'],
-                              fontSize=18, fontName='Helvetica-Bold',
-                              textColor=colors.HexColor('#0a1628'), spaceAfter=4)
-    s_sub = ParagraphStyle('SelSub', parent=styles['Normal'],
-                            fontSize=10, fontName='Helvetica',
-                            textColor=colors.HexColor('#64748b'), spaceAfter=2)
-    s_cat = ParagraphStyle('SelCat', parent=styles['Normal'],
-                            fontSize=11, fontName='Helvetica-Bold',
-                            textColor=colors.HexColor('#0f3460'),
-                            spaceBefore=12, spaceAfter=4)
-    s_item = ParagraphStyle('SelItem', parent=styles['Normal'],
-                             fontSize=9, fontName='Helvetica', spaceAfter=2)
-    s_footer = ParagraphStyle('SelFooter', parent=styles['Normal'],
-                               fontSize=7, fontName='Helvetica',
-                               textColor=colors.HexColor('#94a3b8'), alignment=1)
+    # ── Paleta ──
+    C_DARK   = colors.HexColor('#0f172a')
+    C_BRAND  = colors.HexColor('#7c3aed')
+    C_BRAND2 = colors.HexColor('#a78bfa')
+    C_OK     = colors.HexColor('#16a34a')
+    C_PEND   = colors.HexColor('#f97316')
+    C_LIGHT  = colors.HexColor('#f8fafc')
+    C_MID    = colors.HexColor('#e2e8f0')
+    C_MUTED  = colors.HexColor('#94a3b8')
+    C_WHITE  = colors.white
+
+    # ── Estilos ──
+    s = getSampleStyleSheet()
+    def PS(name, **kw):
+        return ParagraphStyle(name, parent=s['Normal'], **kw)
+
+    s_h1    = PS('h1', fontSize=22, fontName='Helvetica-Bold', textColor=C_WHITE, leading=26)
+    s_h2    = PS('h2', fontSize=10, fontName='Helvetica', textColor=C_BRAND2, leading=14)
+    s_cat   = PS('cat', fontSize=10, fontName='Helvetica-Bold', textColor=C_BRAND,
+                 spaceBefore=14, spaceAfter=4)
+    s_item  = PS('item', fontSize=8.5, fontName='Helvetica-Bold', textColor=C_DARK, leading=11)
+    s_val   = PS('val', fontSize=8, fontName='Helvetica', textColor=colors.HexColor('#334155'), leading=11)
+    s_pend  = PS('pend', fontSize=8, fontName='Helvetica-Oblique', textColor=C_PEND, leading=11)
+    s_foot  = PS('foot', fontSize=7, fontName='Helvetica', textColor=C_MUTED,
+                 alignment=1, spaceBefore=6)
+    s_info_lbl = PS('il', fontSize=8, fontName='Helvetica-Bold', textColor=C_MUTED)
+    s_info_val = PS('iv', fontSize=9, fontName='Helvetica-Bold', textColor=C_DARK)
+
+    # ── Helper: fetch image from URL ──
+    def _fetch_img(url, size=1.8*cm):
+        try:
+            r = _req_sel.get(url, timeout=5)
+            if r.status_code == 200:
+                img_io = _io_sel.BytesIO(r.content)
+                img = RLImage(img_io, width=size, height=size)
+                img.hAlign = 'CENTER'
+                return img
+        except: pass
+        return Paragraph('', s_val)
+
+    # ── Helper: color swatch ──
+    def _color_swatch(hex_val, nombre, size=1.8*cm):
+        try:
+            c = colors.HexColor(hex_val if hex_val.startswith('#') else f'#{hex_val}')
+        except:
+            c = C_MID
+        swatch = Table([['']], colWidths=[size], rowHeights=[size])
+        swatch.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (0,0), c),
+            ('ROUNDEDCORNERS', [6,6,6,6]),
+            ('BOX', (0,0), (0,0), 0.5, C_MID),
+        ]))
+        return swatch
 
     story = []
+    _now = _dt_sel.datetime.now()
+    _now_str = _now.strftime('%d/%m/%Y %H:%M')
 
-    # Header
-    story.append(Paragraph('ESPACIO CONTAINER HOUSE SpA', s_title))
-    story.append(Paragraph('Selección de Materiales del Cliente', s_sub))
-    story.append(Spacer(1, 4))
+    # ── HEADER BANNER ──
+    _tot_sel = len(config_data)
+    _don_sel = sum(1 for c in config_data
+                   if any(resps_map.get(str(i)) for i in (c.get('item_ids') or [])))
+    _pct = int(_don_sel / _tot_sel * 100) if _tot_sel > 0 else 0
 
-    # Client info table
-    _now_str = _dt_sel.datetime.now().strftime('%d/%m/%Y %H:%M')
-    _total = len(config_data)
-    _done = sum(1 for c in config_data
-                if any(resps_map.get(str(i)) for i in (c.get('item_ids') or [])))
-    _pct = int(_done / _total * 100) if _total > 0 else 0
-
-    info_data = [
-        ['N° Proyecto:', ep, 'Cliente:', nombre_cliente or '—'],
-        ['Fecha:', _now_str, 'Progreso:', f'{_done}/{_total} secciones ({_pct}%)'],
-    ]
-    info_table = Table(info_data, colWidths=[3*cm, 6*cm, 3*cm, 6*cm])
-    info_table.setStyle(TableStyle([
-        ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
-        ('FONTSIZE', (0,0), (-1,-1), 9),
-        ('FONTNAME', (0,0), (0,-1), 'Helvetica-Bold'),
-        ('FONTNAME', (2,0), (2,-1), 'Helvetica-Bold'),
-        ('TEXTCOLOR', (0,0), (0,-1), colors.HexColor('#0f3460')),
-        ('TEXTCOLOR', (2,0), (2,-1), colors.HexColor('#0f3460')),
-        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f8fafc')),
-        ('ROWBACKGROUNDS', (0,0), (-1,-1), [colors.HexColor('#f8fafc'), colors.HexColor('#f1f5f9')]),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e2e8f0')),
-        ('PADDING', (0,0), (-1,-1), 6),
+    header_data = [[
+        Paragraph('Selección de<br/>Materiales', s_h1),
+        Table([
+            [Paragraph('Cliente', s_info_lbl)],
+            [Paragraph(nombre_cliente or '—', s_info_val)],
+            [Paragraph('N° Proyecto', s_info_lbl)],
+            [Paragraph(ep, s_info_val)],
+        ], colWidths=[6*cm]),
+        Table([
+            [Paragraph('Fecha', s_info_lbl)],
+            [Paragraph(_now_str, s_info_val)],
+            [Paragraph('Progreso', s_info_lbl)],
+            [Paragraph(f'{_don_sel}/{_tot_sel} secciones — {_pct}%', s_info_val)],
+        ], colWidths=[6*cm]),
+    ]]
+    header_tbl = Table(header_data, colWidths=[5.5*cm, 6*cm, 6*cm])
+    header_tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), C_DARK),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('LEFTPADDING', (0,0), (0,-1), 20),
+        ('TOPPADDING', (0,0), (-1,-1), 18),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 18),
+        ('RIGHTPADDING', (-1,0), (-1,-1), 16),
+        ('ROUNDEDCORNERS', [10,10,10,10]),
     ]))
-    story.append(info_table)
-    story.append(Spacer(1, 12))
-    story.append(HRFlowable(width='100%', thickness=2, color=colors.HexColor('#0f3460')))
-    story.append(Spacer(1, 8))
+    story.append(header_tbl)
+    story.append(Spacer(1, 16))
 
-    # Group by category
+    # ── Progress bar ──
+    _bar_w = W - 3.6*cm
+    _fill_w = max(0.3*cm, (_pct/100) * _bar_w)
+    prog_data = [['']]
+    prog_bg = Table(prog_data, colWidths=[_bar_w], rowHeights=[8])
+    prog_bg.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (0,0), C_MID),
+        ('ROUNDEDCORNERS', [4,4,4,4]),
+    ]))
+    prog_fill = Table(prog_data, colWidths=[_fill_w], rowHeights=[8])
+    prog_fill.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (0,0), C_BRAND),
+        ('ROUNDEDCORNERS', [4,4,4,4]),
+    ]))
+    prog_row = Table([[prog_bg]], colWidths=[_bar_w])
+    story.append(prog_row)
+    story.append(Spacer(1, 16))
+
+    # ── CATEGORIES ──
     cats = defaultdict(list)
     for cfg in sorted(config_data, key=lambda x: (x.get('categoria',''), x.get('orden',0))):
-        cats[cfg.get('categoria','')].append(cfg)
+        cats[cfg.get('categoria','Sin categoría')].append(cfg)
 
-    for cat, cfgs in cats.items():
-        story.append(Paragraph(cat.upper(), s_cat))
+    for cat_name, cfgs in cats.items():
+        # Category header
+        cat_hdr = Table([[Paragraph(f'  {cat_name.upper()}', PS('ch',
+                          fontSize=9, fontName='Helvetica-Bold',
+                          textColor=C_WHITE))]],
+                        colWidths=[W - 3.6*cm], rowHeights=[22])
+        cat_hdr.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (0,0), C_BRAND),
+            ('VALIGN', (0,0), (0,0), 'MIDDLE'),
+            ('ROUNDEDCORNERS', [6,6,0,0]),
+        ]))
+        story.append(cat_hdr)
 
-        rows = [['Ítem', 'Selección', 'Estado']]
+        # Items in category
+        rows = []
         for cfg in cfgs:
             tg = cfg.get('titulo_grupo', '')
             ids = [str(i) for i in (cfg.get('item_ids') or [])]
-            vals = [resps_map[i] for i in ids if resps_map.get(i)]
-            val_str = ', '.join(vals) if vals else '—'
-            estado = '✓ Seleccionado' if vals else 'Pendiente'
-            rows.append([tg, val_str, estado])
+            # Get selected items with their data
+            sel_items = []
+            for iid in ids:
+                val = resps_map.get(iid)
+                if val:
+                    item_data = mat_items_sel.get(iid, {})
+                    sel_items.append((iid, val, item_data))
 
-        t = Table(rows, colWidths=[6*cm, 8*cm, 3.5*cm])
-        t.setStyle(TableStyle([
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,-1), 8.5),
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0f3460')),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f8fafc')]),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e2e8f0')),
-            ('PADDING', (0,0), (-1,-1), 6),
-            ('ALIGN', (2,0), (2,-1), 'CENTER'),
-            # Color verde para seleccionados
-            *[('TEXTCOLOR', (2, i+1), (2, i+1),
-               colors.HexColor('#16a34a') if rows[i+1][2].startswith('✓')
-               else colors.HexColor('#f97316'))
-              for i in range(len(rows)-1)],
-        ]))
-        story.append(t)
-        story.append(Spacer(1, 6))
+            if sel_items:
+                # Build visual cells for each selected item
+                vis_cells = []
+                for iid, val, idata in sel_items[:3]:  # max 3 per row
+                    tipo = idata.get('tipo','')
+                    img_url = idata.get('imagen_url','')
+                    hex_val = idata.get('hex','')
+                    nombre = idata.get('nombre', val)
 
-    # Footer
-    story.append(Spacer(1, 12))
-    story.append(HRFlowable(width='100%', thickness=0.5, color=colors.HexColor('#e2e8f0')))
-    story.append(Spacer(1, 4))
+                    if tipo == 'color' and hex_val:
+                        visual = _color_swatch(hex_val, nombre)
+                    elif img_url:
+                        visual = _fetch_img(img_url)
+                    else:
+                        visual = Table([['']], colWidths=[1.8*cm], rowHeights=[1.8*cm])
+
+                    vis_cells.append(Table([
+                        [visual],
+                        [Paragraph(nombre[:25], PS('vn', fontSize=7,
+                                   fontName='Helvetica', textColor=C_DARK,
+                                   alignment=1, leading=9))],
+                    ], colWidths=[2.2*cm]))
+
+                # Pad to 3 cells
+                while len(vis_cells) < 3:
+                    vis_cells.append(Paragraph('', s_val))
+
+                row = [
+                    Paragraph(tg, s_item),
+                    Table([vis_cells], colWidths=[2.4*cm, 2.4*cm, 2.4*cm]),
+                    Paragraph(f'✓ {len(sel_items)} seleccionado(s)', PS('ok',
+                              fontSize=8, fontName='Helvetica-Bold',
+                              textColor=C_OK)),
+                ]
+            else:
+                row = [
+                    Paragraph(tg, s_item),
+                    Paragraph('—', s_pend),
+                    Paragraph('Pendiente', PS('pd', fontSize=8,
+                              fontName='Helvetica-Oblique', textColor=C_PEND)),
+                ]
+            rows.append(row)
+
+        if rows:
+            items_tbl = Table(rows, colWidths=[6*cm, 8.2*cm, 3.3*cm])
+            row_styles = [
+                ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
+                ('FONTSIZE', (0,0), (-1,-1), 8.5),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('GRID', (0,0), (-1,-1), 0.5, C_MID),
+                ('LEFTPADDING', (0,0), (-1,-1), 8),
+                ('RIGHTPADDING', (0,0), (-1,-1), 8),
+                ('TOPPADDING', (0,0), (-1,-1), 6),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+                ('ROUNDEDCORNERS', [0,0,6,6]),
+            ]
+            for i in range(0, len(rows), 2):
+                row_styles.append(('BACKGROUND', (0,i), (-1,i), C_LIGHT))
+            items_tbl.setStyle(TableStyle(row_styles))
+            story.append(KeepTogether([items_tbl]))
+
+        story.append(Spacer(1, 10))
+
+    # ── FOOTER ──
+    story.append(HRFlowable(width='100%', thickness=0.5, color=C_MID))
     story.append(Paragraph(
         f'Documento generado el {_now_str} · Espacio Container House SpA · '
-        f'Este documento es un respaldo de las selecciones realizadas por el cliente.',
-        s_footer))
+        f'Este documento certifica las selecciones realizadas por {nombre_cliente or "el cliente"} '
+        f'para el proyecto {ep}.',
+        s_foot))
 
     doc.build(story)
     buf.seek(0)
     return buf.read()
+
 
 def generar_excel_balance(cotizacion_numero, registros, productos_presupuesto):
     """Genera Excel con precios reales consolidados por ítem para nutrir BD."""
@@ -11687,10 +11806,11 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                               help="Solo disponible para cotizaciones autorizadas" if _es_ejecutivo_pdf else None)
 
             with col_acc5:
-                # PDF Selección Cliente — habilitado si hay al menos 1% de respuestas
+                # PDF Selección Cliente — mismo patrón que PDF Cliente
                 _sel_ep = numero_seleccionado if cotizacion_seleccionada else ''
                 _mat_cfg_sel = []
                 _mat_res_sel = {}
+                _mat_items_sel = {}
                 _sel_pct = 0
                 if _sel_ep:
                     try:
@@ -11700,6 +11820,13 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                         _mr = supabase_admin.table('formulario_respuestas').select(
                             'item_id,respuesta'
                         ).eq('cotizacion_numero', _sel_ep).execute().data or []
+                        # Get catalog items for images and colors
+                        _all_ids = [str(i) for c in _mc for i in (c.get('item_ids') or [])]
+                        if _all_ids:
+                            _mit = supabase_admin.table('catalogo_materiales').select(
+                                'id,nombre,imagen_url,hex,tipo'
+                            ).in_('id', _all_ids).execute().data or []
+                            _mat_items_sel = {str(i['id']): i for i in _mit}
                         _mat_cfg_sel = _mc
                         _mat_res_sel = {r['item_id']: r['respuesta'] for r in _mr if r.get('item_id')}
                         _tot_sel = len(_mc)
@@ -11707,34 +11834,25 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                         _sel_pct = int(_don_sel / _tot_sel * 100) if _tot_sel > 0 else 0
                     except: pass
                 _pdf_sel_habilitado = _sel_pct >= 1
-                if _pdf_sel_habilitado:
-                    if st.button("🎨 PDF Selección", use_container_width=True,
-                                 key=f"btn_pdf_sel_{_sel_ep}", type="primary",
-                                 help=f"Selección del cliente ({_sel_pct}% completado)"):
-                        try:
-                            _cot_sel = cargar_cotizacion(_sel_ep)
-                            _pdf_sel = generar_pdf_seleccion_cliente(
-                                _sel_ep,
-                                _cot_sel.get('cliente_nombre','') if _cot_sel else '',
-                                _mat_cfg_sel, _mat_res_sel
-                            )
-                            st.session_state[f'_pdf_sel_data_{_sel_ep}'] = _pdf_sel
-                            st.rerun()
-                        except Exception as _esel:
-                            st.error(f'Error: {_esel}')
-                    # Show download if generated
-                    if st.session_state.get(f'_pdf_sel_data_{_sel_ep}'):
-                        st.download_button(
-                            label='⬇️ Descargar',
-                            data=st.session_state[f'_pdf_sel_data_{_sel_ep}'],
-                            file_name=f'Seleccion_Cliente_{_sel_ep}.pdf',
-                            mime='application/pdf',
-                            use_container_width=True,
-                            key=f'dl_pdf_sel_{_sel_ep}'
-                        )
+                if _pdf_sel_habilitado and _mat_cfg_sel:
+                    _cot_sel = cargar_cotizacion(_sel_ep)
+                    _pdf_sel = generar_pdf_seleccion_cliente(
+                        _sel_ep,
+                        _cot_sel.get('cliente_nombre','') if _cot_sel else '',
+                        _mat_cfg_sel, _mat_res_sel, _mat_items_sel
+                    )
+                    st.download_button(
+                        label=f"🎨 PDF Selección",
+                        data=_pdf_sel,
+                        file_name=f'Seleccion_Cliente_{_sel_ep}.pdf',
+                        mime='application/pdf',
+                        use_container_width=True,
+                        key=f'pdf_sel_{_sel_ep}',
+                        help=f'Selección del cliente ({_sel_pct}% completado)'
+                    )
                 else:
                     st.button("🎨 PDF Selección", use_container_width=True, disabled=True,
-                              help="Sin selecciones del cliente aún" if not _mat_cfg_sel else f"Cliente no ha seleccionado nada aún")
+                              help="Sin selecciones del cliente aún")
 
             with col_acc4:
                 if cotizacion_seleccionada and tiene_plano_seleccionado:
