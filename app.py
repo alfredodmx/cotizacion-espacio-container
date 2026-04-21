@@ -72,6 +72,21 @@ def _get_supabase_admin():
 supabase = _get_supabase()
 supabase_admin = _get_supabase_admin()
 
+@st.cache_data(ttl=120, show_spinner=False)
+def _fetch_catalogo_materiales():
+    try:
+        return supabase_admin.table('catalogo_materiales').select('*').eq('activo', True)\
+            .order('categoria').order('orden_grupo').order('titulo_grupo').order('nombre')\
+            .execute().data or []
+    except: return []
+
+@st.cache_data(ttl=30, show_spinner=False)
+def _fetch_formulario_config(ep):
+    try:
+        return supabase_admin.table('formulario_config').select('*')\
+            .eq('cotizacion_numero', ep).execute().data or []
+    except: return []
+
 def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, supa_key, ep, nombre_cliente, logo_b64=''):
     import json
 
@@ -18345,11 +18360,11 @@ if tab_formulario is not None:
                     st.info("Ingresa un número EP y haz click en Cargar.")
                 else:
                     try:
-                        _cat_todos = supabase_admin.table('catalogo_materiales').select('*').eq('activo',True).order('categoria').order('orden_grupo').order('titulo_grupo').order('nombre').execute().data or []
+                        _cat_todos = _fetch_catalogo_materiales()
                     except:
                         _cat_todos = []
                     try:
-                        _cfg_data = supabase_admin.table('formulario_config').select('*').eq('cotizacion_numero', _form_ep).execute().data or []
+                        _cfg_data = _fetch_formulario_config(_form_ep)
                     except:
                         _cfg_data = []
                     _cfg_html = build_config_preguntas_html(_cat_todos, _cfg_data, SUPABASE_URL, SUPABASE_KEY, _form_ep)
