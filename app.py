@@ -3516,8 +3516,9 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
         ('BOTTOMPADDING',(0,0),(-1,-1),8),
     ]))
     story.append(res_tbl)
-    story.append(HRFlowable(width=CW, thickness=2, color=C_TEAL,
-                             spaceBefore=0, spaceAfter=14, leftIndent=LPAD))
+    story.append(Spacer(1, 0.2*cm))
+    story.append(Table([['']], colWidths=[CW], rowHeights=[2], style=[('BACKGROUND',(0,0),(0,0),C_TEAL),('LEFTPADDING',(0,0),(0,0),0),('RIGHTPADDING',(0,0),(0,0),0),('TOPPADDING',(0,0),(0,0),0),('BOTTOMPADDING',(0,0),(0,0),0)]))
+    story.append(Spacer(1, 0.4*cm))
 
     # Categorías
     cats = defaultdict(list)
@@ -3635,8 +3636,9 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
         story.append(Spacer(1, 0.4*cm))
 
     # Footer
-    story.append(HRFlowable(width=CW, thickness=1, color=C_TEAL,
-                             spaceBefore=8, spaceAfter=4, leftIndent=LPAD))
+    story.append(Spacer(1, 0.2*cm))
+    story.append(Table([['']], colWidths=[CW], rowHeights=[1], style=[('BACKGROUND',(0,0),(0,0),C_TEAL),('LEFTPADDING',(0,0),(0,0),0),('RIGHTPADDING',(0,0),(0,0),0),('TOPPADDING',(0,0),(0,0),0),('BOTTOMPADDING',(0,0),(0,0),0)]))
+    story.append(Spacer(1, 0.2*cm))
     ft = Table([[
         Paragraph(f'Generado el {_now_str}  ·  Espacio Container House SpA',
                    PS('_ftl', fontName='Helvetica', fontSize=7, textColor=C_MUTED)),
