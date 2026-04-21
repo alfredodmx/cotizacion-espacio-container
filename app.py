@@ -11903,9 +11903,9 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                     else:
                         st.button('🎨 PDF Selección', use_container_width=True, disabled=True,
                                   help='Sin selecciones del cliente aún')
-                except Exception:
+                except Exception as _esel2:
                     st.button('🎨 PDF Selección', use_container_width=True, disabled=True,
-                              help='Sin selecciones del cliente aún')
+                              help=f'Error: {_esel2}')
 
             with col_acc4:
                 if cotizacion_seleccionada and tiene_plano_seleccionado:
