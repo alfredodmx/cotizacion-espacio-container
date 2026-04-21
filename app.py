@@ -23,15 +23,18 @@ st.set_page_config(layout="wide", page_title="Cotizador PRO", page_icon="📊")
 # =========================================================
 # CONFIGURACIÓN SUPABASE
 # =========================================================
-SUPABASE_URL = "https://rpjktwxitceqylexcaqw.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwamt0d3hpdGNlcXlsZXhjYXF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MzUyMzYsImV4cCI6MjA4ODQxMTIzNn0.LoZN1W7X1pjVgNLFyVRfzQ8iHFp5JN2qw2Egu5yJq0E"
-SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwamt0d3hpdGNlcXlsZXhjYXF3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjgzNTIzNiwiZXhwIjoyMDg4NDExMjM2fQ.HcXL2zeYrL6GONevt3CDDQmRZtanXymRH9PJIdOKLZk"
+SUPABASE_URL         = st.secrets.get("SUPABASE_URL", "") or st.secrets.get("supabase_url", "")
+SUPABASE_KEY         = st.secrets.get("SUPABASE_KEY", "") or st.secrets.get("supabase_key", "")
+SUPABASE_SERVICE_KEY = st.secrets.get("SUPABASE_SERVICE_KEY", "") or st.secrets.get("supabase_service_key", "")
 # ── Roles del sistema ──────────────────────────────────
 # root  → acceso total, puede eliminar cualquier cuenta, ve 🛡️ SISTEMA
 # admin → ve todo, puede crear ejecutivos y admins, NO ve 🛡️ SISTEMA
 # ejecutivo → solo sus cotizaciones
 # -----------------------------------------------------------
-ROOTS = ["alfredodmx@gmail.com"]   # root fijo — agregar más si necesario
+# Root emails — stored in Streamlit Secrets as comma-separated string
+# Example in secrets.toml: ROOTS = "alfredodmx@gmail.com,otro@email.com"
+_roots_raw = st.secrets.get("ROOTS", "alfredodmxf@gmail.com")
+ROOTS = [r.strip().lower() for r in _roots_raw.split(",") if r.strip()]
 
 def get_rol(email, user_metadata=None):
     """Retorna el rol del usuario: 'root', 'admin' o 'ejecutivo'."""
@@ -429,7 +432,7 @@ def crear_usuario_ejecutivo(email, password, nombre):
 # =========================================================
 # SISTEMA DE NOTIFICACIONES TELEGRAM
 # =========================================================
-TELEGRAM_BOT_TOKEN_DEFAULT = "8639597343:AAG-E3HJVmDGbbMI5oniiivLitlphTDJkCU"
+TELEGRAM_BOT_TOKEN_DEFAULT = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
 
 @st.cache_data(ttl=300, show_spinner=False)
 def _get_notif_config(clave, default=""):
