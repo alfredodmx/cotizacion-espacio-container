@@ -11858,53 +11858,52 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                               help="Solo disponible para cotizaciones autorizadas" if _es_ejecutivo_pdf else None)
 
             with col_acc5:
-                # PDF Selección Cliente — mismo patrón que PDF Cliente
-                _sel_ep = numero_seleccionado if cotizacion_seleccionada else ''
-                _mat_cfg_sel = []
-                _mat_res_sel = {}
-                _mat_items_sel = {}
-                _sel_pct = 0
-                if _sel_ep:
-                    try:
-                        _mc = supabase_admin.table('formulario_config').select(
-                            'cotizacion_numero,categoria,titulo_grupo,item_ids,orden'
-                        ).eq('cotizacion_numero', _sel_ep).execute().data or []
-                        _mr = supabase_admin.table('formulario_respuestas').select(
-                            'item_id,respuesta'
-                        ).eq('cotizacion_numero', _sel_ep).execute().data or []
-                        # Get catalog items for images and colors
-                        _all_ids = [str(i) for c in _mc for i in (c.get('item_ids') or [])]
-                        if _all_ids:
-                            _mit = supabase_admin.table('catalogo_materiales').select(
-                                'id,nombre,imagen_url,hex,tipo'
-                            ).in_('id', _all_ids).execute().data or []
-                            _mat_items_sel = {str(i['id']): i for i in _mit}
-                        _mat_cfg_sel = _mc
-                        _mat_res_sel = {r['item_id']: r['respuesta'] for r in _mr if r.get('item_id')}
-                        _tot_sel = len(_mc)
-                        _don_sel = sum(1 for c in _mc if any(_mat_res_sel.get(str(i)) for i in (c.get('item_ids') or [])))
-                        _sel_pct = int(_don_sel / _tot_sel * 100) if _tot_sel > 0 else 0
-                    except: pass
-                _pdf_sel_habilitado = _sel_pct >= 1
-                if _pdf_sel_habilitado and _mat_cfg_sel:
-                    _cot_sel = cargar_cotizacion(_sel_ep)
-                    _pdf_sel = generar_pdf_seleccion_cliente(
-                        _sel_ep,
-                        _cot_sel.get('cliente_nombre','') if _cot_sel else '',
-                        _mat_cfg_sel, _mat_res_sel, _mat_items_sel
-                    )
-                    st.download_button(
-                        label=f"🎨 PDF Selección",
-                        data=_pdf_sel,
-                        file_name=f'Seleccion_Cliente_{_sel_ep}.pdf',
-                        mime='application/pdf',
-                        use_container_width=True,
-                        key=f'pdf_sel_{_sel_ep}',
-                        help=f'Selección del cliente ({_sel_pct}% completado)'
-                    )
-                else:
-                    st.button("🎨 PDF Selección", use_container_width=True, disabled=True,
-                              help="Sin selecciones del cliente aún")
+                # PDF Selección — datos obtenidos del _mat_data_map ya cargado
+                try:
+                    _sel_ep2 = numero_seleccionado if cotizacion_seleccionada else ''
+                    _sel_pct2 = 0
+                    _sel_cfg2 = []
+                    _sel_res2 = {}
+                    _sel_mit2 = {}
+                    if _sel_ep2:
+                        _sel_cfg2 = _fetch_formulario_config(_sel_ep2)
+                        if _sel_cfg2:
+                            _sel_r = supabase_admin.table('formulario_respuestas').select(
+                                'item_id,respuesta'
+                            ).eq('cotizacion_numero', _sel_ep2).execute().data or []
+                            _sel_res2 = {r['item_id']: r['respuesta'] for r in _sel_r if r.get('item_id')}
+                            _tot2 = len(_sel_cfg2)
+                            _don2 = sum(1 for c in _sel_cfg2 if any(_sel_res2.get(str(i)) for i in (c.get('item_ids') or [])))
+                            _sel_pct2 = int(_don2 / _tot2 * 100) if _tot2 > 0 else 0
+                            if _sel_pct2 >= 1:
+                                _all_ids2 = [str(i) for c in _sel_cfg2 for i in (c.get('item_ids') or [])]
+                                if _all_ids2:
+                                    _mit2 = supabase_admin.table('catalogo_materiales').select(
+                                        'id,nombre,imagen_url,hex,tipo'
+                                    ).in_('id', _all_ids2).execute().data or []
+                                    _sel_mit2 = {str(m['id']): m for m in _mit2}
+                    if _sel_pct2 >= 1 and _sel_cfg2:
+                        _cot_sel2 = cargar_cotizacion(_sel_ep2)
+                        _pdf_sel2 = generar_pdf_seleccion_cliente(
+                            _sel_ep2,
+                            _cot_sel2.get('cliente_nombre','') if _cot_sel2 else '',
+                            _sel_cfg2, _sel_res2, _sel_mit2
+                        )
+                        st.download_button(
+                            label='🎨 PDF Selección',
+                            data=_pdf_sel2,
+                            file_name=f'Seleccion_Cliente_{_sel_ep2}.pdf',
+                            mime='application/pdf',
+                            use_container_width=True,
+                            key=f'pdf_sel_{_sel_ep2}',
+                            help=f'Selección del cliente ({_sel_pct2}% completado)'
+                        )
+                    else:
+                        st.button('🎨 PDF Selección', use_container_width=True, disabled=True,
+                                  help='Sin selecciones del cliente aún')
+                except Exception:
+                    st.button('🎨 PDF Selección', use_container_width=True, disabled=True,
+                              help='Sin selecciones del cliente aún')
 
             with col_acc4:
                 if cotizacion_seleccionada and tiene_plano_seleccionado:
