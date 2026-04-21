@@ -3317,213 +3317,207 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
 
 
 def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, mat_items_sel=None):
-    """PDF moderno de selección de materiales del cliente — con imágenes y colores reales."""
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, KeepTogether
+    """PDF moderno de selección de materiales del cliente."""
+    from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table,
+                                     TableStyle, HRFlowable, KeepTogether)
+    from reportlab.platypus import Image as _RLImage
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
     from reportlab.lib.units import cm
-    from reportlab.platypus import Image as RLImage
     from collections import defaultdict
-    import io as _io_sel, datetime as _dt_sel, requests as _req_sel
+    import io as _io_s, datetime as _dt_s, requests as _rq_s, os as _os_s
 
     if mat_items_sel is None:
         mat_items_sel = {}
 
-    W, H = A4
-    buf = _io_sel.BytesIO()
+    buf = _io_s.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4,
                             rightMargin=1.8*cm, leftMargin=1.8*cm,
                             topMargin=1.8*cm, bottomMargin=1.8*cm)
 
-    # ── Paleta ──
-    C_DARK   = colors.HexColor('#0f172a')
-    C_BRAND  = colors.HexColor('#7c3aed')
-    C_BRAND2 = colors.HexColor('#a78bfa')
-    C_OK     = colors.HexColor('#16a34a')
-    C_PEND   = colors.HexColor('#f97316')
-    C_LIGHT  = colors.HexColor('#f8fafc')
-    C_MID    = colors.HexColor('#e2e8f0')
-    C_MUTED  = colors.HexColor('#94a3b8')
-    C_WHITE  = colors.white
+    # Paleta
+    C_DARK  = colors.HexColor('#0f172a')
+    C_BRAND = colors.HexColor('#7c3aed')
+    C_OK    = colors.HexColor('#16a34a')
+    C_PEND  = colors.HexColor('#f97316')
+    C_LIGHT = colors.HexColor('#f8fafc')
+    C_MID   = colors.HexColor('#e2e8f0')
+    C_MUTED = colors.HexColor('#94a3b8')
+    C_WHITE = colors.white
 
-    # ── Estilos ──
-    s = getSampleStyleSheet()
     def PS(name, **kw):
-        return ParagraphStyle(name, parent=s['Normal'], **kw)
+        return ParagraphStyle(name, **kw)
 
-    s_h1    = PS('h1', fontSize=22, fontName='Helvetica-Bold', textColor=C_WHITE, leading=26)
-    s_h2    = PS('h2', fontSize=10, fontName='Helvetica', textColor=C_BRAND2, leading=14)
-    s_cat   = PS('cat', fontSize=10, fontName='Helvetica-Bold', textColor=C_BRAND,
-                 spaceBefore=14, spaceAfter=4)
-    s_item  = PS('item', fontSize=8.5, fontName='Helvetica-Bold', textColor=C_DARK, leading=11)
-    s_val   = PS('val', fontSize=8, fontName='Helvetica', textColor=colors.HexColor('#334155'), leading=11)
-    s_pend  = PS('pend', fontSize=8, fontName='Helvetica-Oblique', textColor=C_PEND, leading=11)
-    s_foot  = PS('foot', fontSize=7, fontName='Helvetica', textColor=C_MUTED,
-                 alignment=1, spaceBefore=6)
-    s_info_lbl = PS('il', fontSize=8, fontName='Helvetica-Bold', textColor=C_MUTED)
-    s_info_val = PS('iv', fontSize=9, fontName='Helvetica-Bold', textColor=C_DARK)
-
-    # ── Helper: fetch image from URL ──
-    def _fetch_img(url, size=1.8*cm):
+    # Helper: fetch image
+    def _img_from_url(url, w=1.6*cm, h=1.6*cm):
         try:
-            r = _req_sel.get(url, timeout=5)
+            r = _rq_s.get(url, timeout=5)
             if r.status_code == 200:
-                img_io = _io_sel.BytesIO(r.content)
-                img = RLImage(img_io, width=size, height=size)
-                img.hAlign = 'CENTER'
+                img = _RLImage(_io_s.BytesIO(r.content), width=w, height=h)
                 return img
         except: pass
-        return Paragraph('', s_val)
+        return None
 
-    # ── Helper: color swatch ──
-    def _color_swatch(hex_val, nombre, size=1.8*cm):
+    # Helper: color swatch as small table
+    def _swatch(hex_val, w=1.6*cm, h=1.6*cm):
         try:
             c = colors.HexColor(hex_val if hex_val.startswith('#') else f'#{hex_val}')
         except:
             c = C_MID
-        swatch = Table([['']], colWidths=[size], rowHeights=[size])
-        swatch.setStyle(TableStyle([
+        t = Table([['']], colWidths=[w], rowHeights=[h])
+        t.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (0,0), c),
-            ('ROUNDEDCORNERS', [6,6,6,6]),
             ('BOX', (0,0), (0,0), 0.5, C_MID),
         ]))
-        return swatch
+        return t
 
     story = []
-    _now = _dt_sel.datetime.now()
+    _now = _dt_s.datetime.now()
     _now_str = _now.strftime('%d/%m/%Y %H:%M')
 
-    # ── HEADER BANNER ──
-    _tot_sel = len(config_data)
-    _don_sel = sum(1 for c in config_data
-                   if any(resps_map.get(str(i)) for i in (c.get('item_ids') or [])))
-    _pct = int(_don_sel / _tot_sel * 100) if _tot_sel > 0 else 0
+    # Calcular progreso
+    _tot = len(config_data)
+    _don = sum(1 for c in config_data
+               if any(resps_map.get(str(i)) for i in (c.get('item_ids') or [])))
+    _pct = int(_don / _tot * 100) if _tot > 0 else 0
 
-    header_data = [[
-        Paragraph('Selección de<br/>Materiales', s_h1),
-        Table([
-            [Paragraph('Cliente', s_info_lbl)],
-            [Paragraph(nombre_cliente or '—', s_info_val)],
-            [Paragraph('N° Proyecto', s_info_lbl)],
-            [Paragraph(ep, s_info_val)],
-        ], colWidths=[6*cm]),
-        Table([
-            [Paragraph('Fecha', s_info_lbl)],
-            [Paragraph(_now_str, s_info_val)],
-            [Paragraph('Progreso', s_info_lbl)],
-            [Paragraph(f'{_don_sel}/{_tot_sel} secciones — {_pct}%', s_info_val)],
-        ], colWidths=[6*cm]),
-    ]]
-    header_tbl = Table(header_data, colWidths=[5.5*cm, 6*cm, 6*cm])
-    header_tbl.setStyle(TableStyle([
+    # ── HEADER ──
+    _logo_cell = ''
+    try:
+        if _os_s.path.exists('logo.png'):
+            _lg = _RLImage('logo.png')
+            _lw = 3.5*cm
+            _lg.drawWidth  = _lw
+            _lg.drawHeight = _lw * (_lg.imageHeight / float(_lg.imageWidth))
+            _logo_cell = _lg
+    except: pass
+
+    hdr = Table([[
+        _logo_cell,
+        [
+            Paragraph('Selección de Materiales',
+                      PS('t1', fontName='Helvetica-Bold', fontSize=16,
+                         textColor=C_WHITE, leading=20)),
+            Spacer(1, 3),
+            Paragraph(f'{ep}  ·  {nombre_cliente or "Cliente"}',
+                      PS('t2', fontName='Helvetica', fontSize=9,
+                         textColor=colors.HexColor('#a78bfa'))),
+        ],
+        [
+            Paragraph(f'Fecha',
+                      PS('lbl', fontName='Helvetica-Bold', fontSize=7,
+                         textColor=colors.HexColor('#a78bfa'))),
+            Paragraph(_now_str,
+                      PS('val', fontName='Helvetica', fontSize=8,
+                         textColor=C_WHITE)),
+            Spacer(1, 4),
+            Paragraph('Progreso',
+                      PS('lbl2', fontName='Helvetica-Bold', fontSize=7,
+                         textColor=colors.HexColor('#a78bfa'))),
+            Paragraph(f'{_don}/{_tot} secciones ({_pct}%)',
+                      PS('val2', fontName='Helvetica-Bold', fontSize=9,
+                         textColor=C_WHITE)),
+        ],
+    ]], colWidths=[3.8*cm, 9*cm, 5*cm])
+    hdr.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), C_DARK),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('LEFTPADDING', (0,0), (0,-1), 20),
-        ('TOPPADDING', (0,0), (-1,-1), 18),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 18),
-        ('RIGHTPADDING', (-1,0), (-1,-1), 16),
-        ('ROUNDEDCORNERS', [10,10,10,10]),
+        ('LEFTPADDING', (0,0), (0,0), 16),
+        ('LEFTPADDING', (1,0), (1,0), 12),
+        ('RIGHTPADDING', (-1,0), (-1,0), 16),
+        ('TOPPADDING', (0,0), (-1,-1), 16),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 16),
     ]))
-    story.append(header_tbl)
-    story.append(Spacer(1, 16))
+    story.append(hdr)
+    story.append(Spacer(1, 12))
 
-    # ── Progress bar ──
-    _bar_w = W - 3.6*cm
-    _fill_w = max(0.3*cm, (_pct/100) * _bar_w)
-    prog_data = [['']]
-    prog_bg = Table(prog_data, colWidths=[_bar_w], rowHeights=[8])
-    prog_bg.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (0,0), C_MID),
-        ('ROUNDEDCORNERS', [4,4,4,4]),
-    ]))
-    prog_fill = Table(prog_data, colWidths=[_fill_w], rowHeights=[8])
-    prog_fill.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (0,0), C_BRAND),
-        ('ROUNDEDCORNERS', [4,4,4,4]),
-    ]))
-    prog_row = Table([[prog_bg]], colWidths=[_bar_w])
-    story.append(prog_row)
-    story.append(Spacer(1, 16))
-
-    # ── CATEGORIES ──
+    # ── POR CATEGORÍA ──
     cats = defaultdict(list)
     for cfg in sorted(config_data, key=lambda x: (x.get('categoria',''), x.get('orden',0))):
         cats[cfg.get('categoria','Sin categoría')].append(cfg)
 
     for cat_name, cfgs in cats.items():
-        # Category header
-        cat_hdr = Table([[Paragraph(f'  {cat_name.upper()}', PS('ch',
-                          fontSize=9, fontName='Helvetica-Bold',
-                          textColor=C_WHITE))]],
-                        colWidths=[W - 3.6*cm], rowHeights=[22])
+        # Encabezado de categoría
+        cat_hdr = Table([[
+            Paragraph(f'  {cat_name.upper()}',
+                      PS('ch', fontName='Helvetica-Bold', fontSize=9,
+                         textColor=C_WHITE))
+        ]], colWidths=[17.4*cm], rowHeights=[20])
         cat_hdr.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (0,0), C_BRAND),
             ('VALIGN', (0,0), (0,0), 'MIDDLE'),
-            ('ROUNDEDCORNERS', [6,6,0,0]),
         ]))
         story.append(cat_hdr)
 
-        # Items in category
+        # Filas de ítems
         rows = []
-        for cfg in cfgs:
+        for idx_cfg, cfg in enumerate(cfgs):
             tg = cfg.get('titulo_grupo', '')
             ids = [str(i) for i in (cfg.get('item_ids') or [])]
-            # Get selected items with their data
-            sel_items = []
+
+            # Buscar respuesta — resps_map key es el item_id
+            sel_id = None
+            sel_val = None
             for iid in ids:
-                val = resps_map.get(iid)
-                if val:
-                    item_data = mat_items_sel.get(iid, {})
-                    sel_items.append((iid, val, item_data))
+                v = resps_map.get(iid)
+                if v:
+                    sel_id = iid
+                    sel_val = v
+                    break
 
-            if sel_items:
-                # Build visual cells for each selected item
-                vis_cells = []
-                for iid, val, idata in sel_items[:3]:  # max 3 per row
-                    tipo = idata.get('tipo','')
-                    img_url = idata.get('imagen_url','')
-                    hex_val = idata.get('hex','')
-                    nombre = idata.get('nombre', val)
+            # Nombre del ítem
+            nombre_item = PS('ni', fontName='Helvetica-Bold', fontSize=8.5,
+                             textColor=C_DARK, leading=11)
+            item_label = Paragraph(tg, nombre_item)
 
-                    if tipo == 'color' and hex_val:
-                        visual = _color_swatch(hex_val, nombre)
-                    elif img_url:
-                        visual = _fetch_img(img_url)
-                    else:
-                        visual = Table([['']], colWidths=[1.8*cm], rowHeights=[1.8*cm])
+            if sel_id and sel_val:
+                idata = mat_items_sel.get(sel_id, {})
+                tipo = idata.get('tipo', '')
+                img_url = idata.get('imagen_url', '')
+                hex_val = idata.get('hex', '')
+                nombre_sel = idata.get('nombre', sel_val)
 
-                    vis_cells.append(Table([
-                        [visual],
-                        [Paragraph(nombre[:25], PS('vn', fontSize=7,
-                                   fontName='Helvetica', textColor=C_DARK,
-                                   alignment=1, leading=9))],
-                    ], colWidths=[2.2*cm]))
+                # Visual
+                visual = None
+                if tipo == 'color' and hex_val:
+                    visual = _swatch(hex_val)
+                elif img_url:
+                    visual = _img_from_url(img_url)
 
-                # Pad to 3 cells
-                while len(vis_cells) < 3:
-                    vis_cells.append(Paragraph('', s_val))
+                if visual:
+                    visual_cell = Table([[visual], [
+                        Paragraph(nombre_sel[:20],
+                                  PS('vn', fontName='Helvetica', fontSize=7,
+                                     textColor=C_DARK, alignment=1, leading=8))
+                    ]], colWidths=[2*cm])
+                else:
+                    visual_cell = Paragraph(nombre_sel,
+                                            PS('vs', fontName='Helvetica', fontSize=8,
+                                               textColor=C_DARK))
 
-                row = [
-                    Paragraph(tg, s_item),
-                    Table([vis_cells], colWidths=[2.4*cm, 2.4*cm, 2.4*cm]),
-                    Paragraph(f'✓ {len(sel_items)} seleccionado(s)', PS('ok',
-                              fontSize=8, fontName='Helvetica-Bold',
-                              textColor=C_OK)),
-                ]
+                estado_cell = Paragraph('✓  Seleccionado',
+                                        PS('ok', fontName='Helvetica-Bold', fontSize=8,
+                                           textColor=C_OK))
+                bg = C_WHITE if idx_cfg % 2 == 0 else C_LIGHT
             else:
-                row = [
-                    Paragraph(tg, s_item),
-                    Paragraph('—', s_pend),
-                    Paragraph('Pendiente', PS('pd', fontSize=8,
-                              fontName='Helvetica-Oblique', textColor=C_PEND)),
-                ]
-            rows.append(row)
+                visual_cell = Paragraph('—',
+                                        PS('np', fontName='Helvetica-Oblique',
+                                           fontSize=8, textColor=C_MUTED))
+                estado_cell = Paragraph('Pendiente de selección',
+                                        PS('pd', fontName='Helvetica-Oblique',
+                                           fontSize=8, textColor=C_PEND))
+                bg = C_WHITE if idx_cfg % 2 == 0 else C_LIGHT
+
+            rows.append((
+                [item_label, visual_cell, estado_cell],
+                bg
+            ))
 
         if rows:
-            items_tbl = Table(rows, colWidths=[6*cm, 8.2*cm, 3.3*cm])
-            row_styles = [
-                ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
+            tbl_data = [r[0] for r in rows]
+            tbl = Table(tbl_data, colWidths=[7*cm, 6.4*cm, 4*cm])
+            tbl_styles = [
                 ('FONTSIZE', (0,0), (-1,-1), 8.5),
                 ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
                 ('GRID', (0,0), (-1,-1), 0.5, C_MID),
@@ -3531,22 +3525,22 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
                 ('RIGHTPADDING', (0,0), (-1,-1), 8),
                 ('TOPPADDING', (0,0), (-1,-1), 6),
                 ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-                ('ROUNDEDCORNERS', [0,0,6,6]),
             ]
-            for i in range(0, len(rows), 2):
-                row_styles.append(('BACKGROUND', (0,i), (-1,i), C_LIGHT))
-            items_tbl.setStyle(TableStyle(row_styles))
-            story.append(KeepTogether([items_tbl]))
+            for i, (_, bg) in enumerate(rows):
+                tbl_styles.append(('BACKGROUND', (0,i), (-1,i), bg))
+            tbl.setStyle(TableStyle(tbl_styles))
+            story.append(KeepTogether([tbl]))
 
-        story.append(Spacer(1, 10))
+        story.append(Spacer(1, 8))
 
     # ── FOOTER ──
     story.append(HRFlowable(width='100%', thickness=0.5, color=C_MID))
+    story.append(Spacer(1, 4))
     story.append(Paragraph(
-        f'Documento generado el {_now_str} · Espacio Container House SpA · '
-        f'Este documento certifica las selecciones realizadas por {nombre_cliente or "el cliente"} '
-        f'para el proyecto {ep}.',
-        s_foot))
+        f'Generado el {_now_str}  ·  Espacio Container House SpA  ·  '
+        f'Documento de respaldo — selecciones de {nombre_cliente or "cliente"} para proyecto {ep}.',
+        PS('ft', fontName='Helvetica', fontSize=7,
+           textColor=C_MUTED, alignment=1)))
 
     doc.build(story)
     buf.seek(0)
