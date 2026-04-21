@@ -3008,8 +3008,9 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
 
     # Estilos
     def _sty(name, **kw):
-        if name not in styles:
+        try:
             styles.add(ParagraphStyle(name=name, parent=styles['Normal'], **kw))
+        except: pass
         return styles[name]
 
     _sty('BTitle',    fontSize=18, fontName='Helvetica-Bold', spaceAfter=4, textColor=colors.HexColor('#1e2447'))
@@ -3479,10 +3480,13 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
             ('VALIGN',(0,0),(0,0),'MIDDLE'),
         ]))
         # Encabezado columnas
+        _sel_hdr_sty = ParagraphStyle('_SHdr', parent=styles['Normal'],
+            fontSize=9, fontName='Helvetica-Bold', textColor=C_WHITE,
+            alignment=1, leading=12)
         col_hdr = [[
-            Paragraph('<b>Sección</b>', styles['HeaderStyle']),
-            Paragraph('<b>Selección del cliente</b>', styles['HeaderStyle']),
-            Paragraph('<b>Estado</b>', styles['HeaderStyle']),
+            Paragraph('<b>Sección</b>', _sel_hdr_sty),
+            Paragraph('<b>Selección del cliente</b>', _sel_hdr_sty),
+            Paragraph('<b>Estado</b>', _sel_hdr_sty),
         ]]
         col_hdr_tbl = Table(col_hdr, colWidths=[6.5*cm, 9*cm, 3*cm])
         col_hdr_tbl.setStyle(TableStyle([
