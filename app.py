@@ -3315,6 +3315,125 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
 
 
 
+
+def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map):
+    """Genera PDF con la selección de materiales del cliente."""
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from collections import defaultdict
+    import io as _io_sel, datetime as _dt_sel
+
+    buf = _io_sel.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                            rightMargin=2*cm, leftMargin=2*cm,
+                            topMargin=2*cm, bottomMargin=2*cm)
+    styles = getSampleStyleSheet()
+
+    # Custom styles
+    s_title = ParagraphStyle('SelTitle', parent=styles['Normal'],
+                              fontSize=18, fontName='Helvetica-Bold',
+                              textColor=colors.HexColor('#0a1628'), spaceAfter=4)
+    s_sub = ParagraphStyle('SelSub', parent=styles['Normal'],
+                            fontSize=10, fontName='Helvetica',
+                            textColor=colors.HexColor('#64748b'), spaceAfter=2)
+    s_cat = ParagraphStyle('SelCat', parent=styles['Normal'],
+                            fontSize=11, fontName='Helvetica-Bold',
+                            textColor=colors.HexColor('#0f3460'),
+                            spaceBefore=12, spaceAfter=4)
+    s_item = ParagraphStyle('SelItem', parent=styles['Normal'],
+                             fontSize=9, fontName='Helvetica', spaceAfter=2)
+    s_footer = ParagraphStyle('SelFooter', parent=styles['Normal'],
+                               fontSize=7, fontName='Helvetica',
+                               textColor=colors.HexColor('#94a3b8'), alignment=1)
+
+    story = []
+
+    # Header
+    story.append(Paragraph('ESPACIO CONTAINER HOUSE SpA', s_title))
+    story.append(Paragraph('Selección de Materiales del Cliente', s_sub))
+    story.append(Spacer(1, 4))
+
+    # Client info table
+    _now_str = _dt_sel.datetime.now().strftime('%d/%m/%Y %H:%M')
+    _total = len(config_data)
+    _done = sum(1 for c in config_data
+                if any(resps_map.get(str(i)) for i in (c.get('item_ids') or [])))
+    _pct = int(_done / _total * 100) if _total > 0 else 0
+
+    info_data = [
+        ['N° Proyecto:', ep, 'Cliente:', nombre_cliente or '—'],
+        ['Fecha:', _now_str, 'Progreso:', f'{_done}/{_total} secciones ({_pct}%)'],
+    ]
+    info_table = Table(info_data, colWidths=[3*cm, 6*cm, 3*cm, 6*cm])
+    info_table.setStyle(TableStyle([
+        ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
+        ('FONTSIZE', (0,0), (-1,-1), 9),
+        ('FONTNAME', (0,0), (0,-1), 'Helvetica-Bold'),
+        ('FONTNAME', (2,0), (2,-1), 'Helvetica-Bold'),
+        ('TEXTCOLOR', (0,0), (0,-1), colors.HexColor('#0f3460')),
+        ('TEXTCOLOR', (2,0), (2,-1), colors.HexColor('#0f3460')),
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f8fafc')),
+        ('ROWBACKGROUNDS', (0,0), (-1,-1), [colors.HexColor('#f8fafc'), colors.HexColor('#f1f5f9')]),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e2e8f0')),
+        ('PADDING', (0,0), (-1,-1), 6),
+    ]))
+    story.append(info_table)
+    story.append(Spacer(1, 12))
+    story.append(HRFlowable(width='100%', thickness=2, color=colors.HexColor('#0f3460')))
+    story.append(Spacer(1, 8))
+
+    # Group by category
+    cats = defaultdict(list)
+    for cfg in sorted(config_data, key=lambda x: (x.get('categoria',''), x.get('orden',0))):
+        cats[cfg.get('categoria','')].append(cfg)
+
+    for cat, cfgs in cats.items():
+        story.append(Paragraph(cat.upper(), s_cat))
+
+        rows = [['Ítem', 'Selección', 'Estado']]
+        for cfg in cfgs:
+            tg = cfg.get('titulo_grupo', '')
+            ids = [str(i) for i in (cfg.get('item_ids') or [])]
+            vals = [resps_map[i] for i in ids if resps_map.get(i)]
+            val_str = ', '.join(vals) if vals else '—'
+            estado = '✓ Seleccionado' if vals else 'Pendiente'
+            rows.append([tg, val_str, estado])
+
+        t = Table(rows, colWidths=[6*cm, 8*cm, 3.5*cm])
+        t.setStyle(TableStyle([
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,-1), 8.5),
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0f3460')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f8fafc')]),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e2e8f0')),
+            ('PADDING', (0,0), (-1,-1), 6),
+            ('ALIGN', (2,0), (2,-1), 'CENTER'),
+            # Color verde para seleccionados
+            *[('TEXTCOLOR', (2, i+1), (2, i+1),
+               colors.HexColor('#16a34a') if rows[i+1][2].startswith('✓')
+               else colors.HexColor('#f97316'))
+              for i in range(len(rows)-1)],
+        ]))
+        story.append(t)
+        story.append(Spacer(1, 6))
+
+    # Footer
+    story.append(Spacer(1, 12))
+    story.append(HRFlowable(width='100%', thickness=0.5, color=colors.HexColor('#e2e8f0')))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(
+        f'Documento generado el {_now_str} · Espacio Container House SpA · '
+        f'Este documento es un respaldo de las selecciones realizadas por el cliente.',
+        s_footer))
+
+    doc.build(story)
+    buf.seek(0)
+    return buf.read()
+
 def generar_excel_balance(cotizacion_numero, registros, productos_presupuesto):
     """Genera Excel con precios reales consolidados por ítem para nutrir BD."""
     import io, json
@@ -11368,7 +11487,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                                 st.warning("⚠️ Debes ingresar un motivo.")
                 _dialogo_rechazo()
 
-            col_acc1, col_acc0, col_acc2, col_acc3, col_acc4 = st.columns(5)
+            col_acc1, col_acc0, col_acc2, col_acc3, col_acc5, col_acc4 = st.columns(6)
 
             with col_acc1:
                 if tiene_margen_seleccionado and not st.session_state.modo_admin:
@@ -11566,6 +11685,56 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 else:
                     st.button("🔒 PDF Cliente", use_container_width=True, disabled=True,
                               help="Solo disponible para cotizaciones autorizadas" if _es_ejecutivo_pdf else None)
+
+            with col_acc5:
+                # PDF Selección Cliente — habilitado si hay al menos 1% de respuestas
+                _sel_ep = numero_seleccionado if cotizacion_seleccionada else ''
+                _mat_cfg_sel = []
+                _mat_res_sel = {}
+                _sel_pct = 0
+                if _sel_ep:
+                    try:
+                        _mc = supabase_admin.table('formulario_config').select(
+                            'cotizacion_numero,categoria,titulo_grupo,item_ids,orden'
+                        ).eq('cotizacion_numero', _sel_ep).execute().data or []
+                        _mr = supabase_admin.table('formulario_respuestas').select(
+                            'item_id,respuesta'
+                        ).eq('cotizacion_numero', _sel_ep).execute().data or []
+                        _mat_cfg_sel = _mc
+                        _mat_res_sel = {r['item_id']: r['respuesta'] for r in _mr if r.get('item_id')}
+                        _tot_sel = len(_mc)
+                        _don_sel = sum(1 for c in _mc if any(_mat_res_sel.get(str(i)) for i in (c.get('item_ids') or [])))
+                        _sel_pct = int(_don_sel / _tot_sel * 100) if _tot_sel > 0 else 0
+                    except: pass
+                _pdf_sel_habilitado = _sel_pct >= 1
+                if _pdf_sel_habilitado:
+                    if st.button("🎨 PDF Selección", use_container_width=True,
+                                 key=f"btn_pdf_sel_{_sel_ep}", type="primary",
+                                 help=f"Selección del cliente ({_sel_pct}% completado)"):
+                        try:
+                            _cot_sel = cargar_cotizacion(_sel_ep)
+                            _pdf_sel = generar_pdf_seleccion_cliente(
+                                _sel_ep,
+                                _cot_sel.get('cliente_nombre','') if _cot_sel else '',
+                                _mat_cfg_sel, _mat_res_sel
+                            )
+                            st.session_state[f'_pdf_sel_data_{_sel_ep}'] = _pdf_sel
+                            st.rerun()
+                        except Exception as _esel:
+                            st.error(f'Error: {_esel}')
+                    # Show download if generated
+                    if st.session_state.get(f'_pdf_sel_data_{_sel_ep}'):
+                        st.download_button(
+                            label='⬇️ Descargar',
+                            data=st.session_state[f'_pdf_sel_data_{_sel_ep}'],
+                            file_name=f'Seleccion_Cliente_{_sel_ep}.pdf',
+                            mime='application/pdf',
+                            use_container_width=True,
+                            key=f'dl_pdf_sel_{_sel_ep}'
+                        )
+                else:
+                    st.button("🎨 PDF Selección", use_container_width=True, disabled=True,
+                              help="Sin selecciones del cliente aún" if not _mat_cfg_sel else f"Cliente no ha seleccionado nada aún")
 
             with col_acc4:
                 if cotizacion_seleccionada and tiene_plano_seleccionado:
