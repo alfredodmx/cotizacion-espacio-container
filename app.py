@@ -11886,8 +11886,6 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                                         'id,nombre,imagen_url,hex,tipo'
                                     ).in_('id', _all_ids2).execute().data or []
                                     _sel_mit2 = {str(m['id']): m for m in _mit2}
-                    # Debug temporal
-                    st.caption(f'cfg:{len(_sel_cfg2)} res:{len(_sel_res2)} pct:{_sel_pct2}%')
                     if _sel_pct2 >= 1 and _sel_cfg2:
                         _cot_sel2 = cargar_cotizacion(_sel_ep2)
                         _pdf_sel2 = generar_pdf_seleccion_cliente(
@@ -11907,9 +11905,9 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                     else:
                         st.button('🎨 PDF Selección', use_container_width=True, disabled=True,
                                   help='Sin selecciones del cliente aún')
-                except Exception as _esel2:
+                except Exception:
                     st.button('🎨 PDF Selección', use_container_width=True, disabled=True,
-                              help=f'Error: {_esel2}')
+                              help='Sin selecciones del cliente aún')
 
             with col_acc4:
                 if cotizacion_seleccionada and tiene_plano_seleccionado:
