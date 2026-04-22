@@ -3423,7 +3423,7 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
             # Overlay muy suave solo detrás del texto
             txt_h = 44
             txt_y = (self.height - txt_h) / 2  # centro vertical
-            c.setFillColor(colors.HexColor('#0d948880'))
+            c.setFillColor(colors.HexColor('#0d948859'))
             c.roundRect(self.width*0.1, txt_y, self.width*0.8, txt_h, 6, fill=1, stroke=0)
 
             # Texto centrado
@@ -3465,7 +3465,7 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
         ('TOPPADDING',(0,0),(-1,-1),2),('BOTTOMPADDING',(0,0),(-1,-1),2),
         ('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),0),
     ]))
-    header = Table([[logo_cell, cli_info]], colWidths=[W*0.40, W*0.50])
+    header = Table([[logo_cell, cli_info]], colWidths=[W*0.42, W*0.58])
     header.setStyle(TableStyle([
         ('BACKGROUND',(0,0),(-1,-1), C_WHITE),
         ('LEFTPADDING',(0,0),(0,0), 22),
@@ -3540,19 +3540,15 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
             Paragraph(cat_name.upper(),
                        PS('_ch', fontName='Helvetica-Bold', fontSize=10,
                           textColor=C_ACCENT2, leading=13, alignment=1)),
-        ]], colWidths=[CW])
+        ]], colWidths=[W])
         cat_h.setStyle(TableStyle([
             ('BACKGROUND',(0,0),(0,0), C_SOFT),
-            ('LEFTPADDING',(0,0),(0,0),LPAD),('RIGHTPADDING',(0,0),(0,0),RPAD),
+            ('LEFTPADDING',(0,0),(0,0),0),('RIGHTPADDING',(0,0),(0,0),0),
             ('TOPPADDING',(0,0),(0,0),7),('BOTTOMPADDING',(0,0),(0,0),6),
             ('LINEBELOW',(0,0),(0,0), 1.5, C_ACCENT),
             ('ALIGN',(0,0),(0,0),'CENTER'),
         ]))
-        cat_wrap = Table([[cat_h]], colWidths=[W])
-        cat_wrap.setStyle(TableStyle([
-            ('LEFTPADDING',(0,0),(0,0),0),('RIGHTPADDING',(0,0),(0,0),0),
-            ('TOPPADDING',(0,0),(0,0),0),('BOTTOMPADDING',(0,0),(0,0),0),
-        ]))
+        cat_wrap = cat_h
 
         grid_rows = []
         row_cells = []
