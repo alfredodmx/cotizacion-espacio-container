@@ -6754,7 +6754,7 @@ if st.session_state.show_pwd_dialog:
     st.session_state.show_pwd_dialog = False  # Reset inmediato
     _pwd_dialog()
 
-# Código de acceso vigente — visible solo para admin/root (esquina inferior derecha)
+# Código de acceso vigente — visible solo para admin/root
 if st.session_state.get('rol_usuario') in ('root', 'admin'):
     _cod_actual = _generar_codigo_acceso()
     import datetime as _dt_cod
@@ -6763,84 +6763,44 @@ if st.session_state.get('rol_usuario') in ('root', 'admin'):
     _bloque_display = f"{_bloque_raw[-2][:2]}:{_bloque_raw[-2][2:]} → {_bloque_raw[-1][:2]}:{_bloque_raw[-1][2:]}"
     st.markdown(f"""
     <style>
-    .stAppDeployButton, [data-testid='stAppDeployButton'],
-    [data-testid='stStatusWidget'], [data-testid='stToolbar'],
-    [data-testid='stDecoration'], [data-testid='stBottom'],
-    .stAppToolbar, iframe[title='streamlit_analytics'],
-    #MainMenu, footer, header {{
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-        height: 0 !important;
-        overflow: hidden !important;
-    }}
+    div[data-testid='stStatusWidget'] {{display:none!important;}}
     </style>
-    <script>
-    (function hideStreamlitButtons(){{
-        function _hide(){{
-            var selectors = [
-                '[data-testid="stToolbar"]',
-                '[data-testid="stStatusWidget"]',
-                '[data-testid="stAppDeployButton"]',
-                '.stAppDeployButton',
-                '[data-testid="stDecoration"]',
-                'footer',
-                '#MainMenu'
-            ];
-            selectors.forEach(function(s){{
-                document.querySelectorAll(s).forEach(function(el){{
-                    el.style.cssText='display:none!important;visibility:hidden!important;height:0!important;overflow:hidden!important;';
-                }});
-            }});
-        }}
-        _hide();
-        var obs = new MutationObserver(_hide);
-        obs.observe(document.body, {{childList:true, subtree:true}});
-        setInterval(_hide, 500);
-    }})();
-    </script>
-    <div id="_cod_widget" style="position:fixed;top:65px;left:0;z-index:2147483647;
-                background:rgba(240,253,250,0.97);border:1px solid #99f6e4;
-                border-radius:0 0 8px 0;
-                padding:3px 12px 4px 10px;
-                box-shadow:2px 2px 10px rgba(13,148,136,0.10);
-                font-family:'Plus Jakarta Sans',sans-serif;
-                cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;">
-        <div style="font-size:0.6rem;color:#1e293b;font-weight:600;line-height:1.2;">
-            Código<br>{_bloque_display}
-        </div>
-        <div id="_cod_lbl" style="font-size:1.05rem;font-weight:800;color:#0d9488;
-             letter-spacing:0.15em;">{_cod_actual}</div>
+    <div id="_cod_w" style="position:fixed;top:65px;left:0;z-index:2147483647;
+        background:rgba(240,253,250,0.97);border:1px solid #99f6e4;
+        border-radius:0 0 8px 0;padding:3px 12px 4px 10px;
+        box-shadow:2px 2px 10px rgba(13,148,136,0.10);
+        font-family:'Plus Jakarta Sans',sans-serif;
+        display:flex;align-items:center;gap:8px;">
+        <div style="font-size:0.6rem;color:#1e293b;font-weight:600;line-height:1.2;">Código<br>{_bloque_display}</div>
+        <div id="_cval" style="font-size:1.05rem;font-weight:800;color:#0d9488;letter-spacing:0.15em;">{_cod_actual}</div>
+        <div id="_cbtn" style="font-size:0.6rem;color:#0d9488;border:1px solid #99f6e4;
+            border-radius:4px;padding:1px 5px;cursor:pointer;">copiar</div>
     </div>
     <script>
-    (function(){{
-        function _initCod(){{
-            var w = document.getElementById("_cod_widget");
-            if(!w || w._codInit) return;
-            w._codInit = true;
-            w.addEventListener("click", function(e){{
-                e.stopPropagation();
-                var cod = "{_cod_actual}";
-                var el = document.getElementById("_cod_lbl");
-                var orig = el.textContent;
-                var t = document.createElement("textarea");
-                t.value = cod;
-                t.style.cssText="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;";
-                document.body.appendChild(t);
-                t.focus(); t.select();
-                try{{
-                    document.execCommand("copy");
-                    el.textContent="✓ Copiado";
-                    setTimeout(function(){{el.textContent=orig;}},1500);
-                }}catch(e){{}}
-                document.body.removeChild(t);
-            }});
-        }}
-        setTimeout(_initCod, 100);
-        setTimeout(_initCod, 500);
-        setTimeout(_initCod, 1000);
-    }})();
+    window.addEventListener('load', function(){{
+        var btn = document.getElementById('_cbtn');
+        var val = document.getElementById('_cval');
+        if(btn) btn.onclick = function(e){{
+            e.stopPropagation();
+            var cod = '{_cod_actual}';
+            try{{
+                navigator.clipboard.writeText(cod).then(function(){{
+                    btn.textContent='✓'; val.style.color='#059669';
+                    setTimeout(function(){{btn.textContent='copiar';val.style.color='#0d9488';}},1500);
+                }});
+            }}catch(ex){{
+                var inp = document.createElement('input');
+                inp.value = cod;
+                inp.style.cssText='position:fixed;opacity:0;top:65px;left:0;';
+                document.body.appendChild(inp);
+                inp.focus(); inp.select(); inp.setSelectionRange(0,99);
+                document.execCommand('copy');
+                document.body.removeChild(inp);
+                btn.textContent='✓';
+                setTimeout(function(){{btn.textContent='copiar';}},1500);
+            }}
+        }};
+    }});
     </script>
     """, unsafe_allow_html=True)
 
