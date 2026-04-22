@@ -6754,13 +6754,22 @@ if st.session_state.get('rol_usuario') in ('root', 'admin'):
     _bloque_raw = _get_bloque_horario(_now_cod).split('-', 3)
     _bloque_display = f"{_bloque_raw[-2][:2]}:{_bloque_raw[-2][2:]} → {_bloque_raw[-1][:2]}:{_bloque_raw[-1][2:]}"
     st.markdown(f"""
-    <div style="position:fixed;bottom:14px;right:18px;z-index:99999;
+    <div id="_cod_widget" onclick="
+        navigator.clipboard.writeText('{_cod_actual}').then(function(){{
+            var el=document.getElementById('_cod_lbl');
+            el.textContent='¡Copiado!';
+            setTimeout(function(){{el.textContent='{_cod_actual}';}},1500);
+        }});
+    " style="position:fixed;bottom:0;right:0;z-index:99999;
                 background:rgba(255,255,255,0.97);border:1px solid #ccfbf1;
-                border-radius:12px;padding:7px 16px;
-                box-shadow:0 2px 16px rgba(13,148,136,0.15);
-                font-family:'Plus Jakarta Sans',sans-serif;">
-        <div style="font-size:0.65rem;color:#94a3b8;line-height:1.3;">Código vigente · {_bloque_display}</div>
-        <div style="font-size:1.15rem;font-weight:800;color:#0d9488;letter-spacing:0.18em;">{_cod_actual}</div>
+                border-top-left-radius:12px;
+                padding:8px 18px 10px 16px;
+                box-shadow:-2px -2px 16px rgba(13,148,136,0.12);
+                font-family:'Plus Jakarta Sans',sans-serif;
+                cursor:pointer;min-width:140px;">
+        <div style="font-size:0.65rem;color:#94a3b8;line-height:1.4;">Código vigente · {_bloque_display}</div>
+        <div id="_cod_lbl" style="font-size:1.15rem;font-weight:800;color:#0d9488;letter-spacing:0.18em;">{_cod_actual}</div>
+        <div style="font-size:0.6rem;color:#cbd5e1;margin-top:1px;">click para copiar</div>
     </div>
     """, unsafe_allow_html=True)
 
