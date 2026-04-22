@@ -3482,7 +3482,9 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
             _hero_path = _fn
             break
     if _hero_path:
-        story.append(HeroWithTitle(_hero_path, W, HERO_H, 'Tu selección de materiales'))
+        _hero_fl = HeroWithTitle(_hero_path, W, HERO_H, 'Tu selección de materiales')
+        _hero_fl.hAlign = 'CENTER'
+        story.append(_hero_fl)
     else:
         # Fallback sin imagen
         story.append(Table([[
