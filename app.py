@@ -6803,42 +6803,44 @@ if st.session_state.get('rol_usuario') in ('root', 'admin'):
     <div id="_cod_widget" style="position:fixed;top:65px;left:0;z-index:2147483647;
                 background:rgba(240,253,250,0.97);border:1px solid #99f6e4;
                 border-radius:0 0 8px 0;
-                padding:5px 14px 7px 12px;
+                padding:3px 12px 4px 10px;
                 box-shadow:2px 2px 10px rgba(13,148,136,0.10);
                 font-family:'Plus Jakarta Sans',sans-serif;
-                cursor:pointer;user-select:none;">
-        <div style="font-size:0.6rem;color:#1e293b;font-weight:600;line-height:1.3;">
-            Código · {_bloque_display}
+                cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;">
+        <div style="font-size:0.6rem;color:#1e293b;font-weight:600;line-height:1.2;">
+            Código<br>{_bloque_display}
         </div>
-        <div id="_cod_lbl" style="font-size:1.1rem;font-weight:800;color:#0d9488;
-             letter-spacing:0.18em;">{_cod_actual}</div>
+        <div id="_cod_lbl" style="font-size:1.05rem;font-weight:800;color:#0d9488;
+             letter-spacing:0.15em;">{_cod_actual}</div>
     </div>
     <script>
-    setTimeout(function(){{
-        var w = document.getElementById("_cod_widget");
-        if(!w) return;
-        w.addEventListener("click", function(){{
-            var cod = "{_cod_actual}";
-            var el = document.getElementById("_cod_lbl");
-            var orig = el.textContent;
-            function done(){{
-                el.textContent = "✓ Copiado";
-                setTimeout(function(){{ el.textContent = orig; }}, 1500);
-            }}
-            var t = document.createElement("textarea");
-            t.value = cod;
-            t.setAttribute("readonly","");
-            t.style.cssText = "position:absolute;left:-9999px;top:0;";
-            document.body.appendChild(t);
-            t.focus();
-            t.setSelectionRange(0, t.value.length);
-            try{{ document.execCommand("copy"); done(); }} catch(e){{}}
-            document.body.removeChild(t);
-            if(navigator.clipboard){{
-                navigator.clipboard.writeText(cod).then(done).catch(function(){{}});
-            }}
-        }});
-    }}, 300);
+    (function(){{
+        function _initCod(){{
+            var w = document.getElementById("_cod_widget");
+            if(!w || w._codInit) return;
+            w._codInit = true;
+            w.addEventListener("click", function(e){{
+                e.stopPropagation();
+                var cod = "{_cod_actual}";
+                var el = document.getElementById("_cod_lbl");
+                var orig = el.textContent;
+                var t = document.createElement("textarea");
+                t.value = cod;
+                t.style.cssText="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;";
+                document.body.appendChild(t);
+                t.focus(); t.select();
+                try{{
+                    document.execCommand("copy");
+                    el.textContent="✓ Copiado";
+                    setTimeout(function(){{el.textContent=orig;}},1500);
+                }}catch(e){{}}
+                document.body.removeChild(t);
+            }});
+        }}
+        setTimeout(_initCod, 100);
+        setTimeout(_initCod, 500);
+        setTimeout(_initCod, 1000);
+    }})();
     </script>
     """, unsafe_allow_html=True)
 
