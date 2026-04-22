@@ -3317,7 +3317,7 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
 
 
 
-def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, mat_items_sel=None):
+def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, mat_items_sel=None, fecha_formulario=''):
     """PDF catálogo de selección — diseño fresco con hero.jpeg."""
     import io as _io_s, datetime as _dt_s, requests as _rq_s, os as _os_s
     from collections import defaultdict
@@ -3449,7 +3449,7 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
         [Paragraph(nombre_cliente or '—',
                     PS('_cn', fontName='Helvetica-Bold', fontSize=10,
                        textColor=C_DARK, alignment=2))],
-        [Paragraph(f'Proyecto {ep}  ·  {_nstr}',
+        [Paragraph(f'Proyecto {ep}  ·  {fecha_formulario or _nstr}',
                     PS('_ep', fontName='Helvetica', fontSize=8,
                        textColor=C_MUTED, alignment=2))],
         [Paragraph(f'{_don} de {_tot} secciones completadas — {_pct}%',
@@ -11945,7 +11945,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                         _sel_cfg2 = _fetch_formulario_config(_sel_ep2)
                         if _sel_cfg2:
                             _sel_r = supabase_admin.table('formulario_respuestas').select(
-                                'item_id,respuesta'
+                                'item_id,respuesta,updated_at'
                             ).eq('cotizacion_numero', _sel_ep2).execute().data or []
                             _sel_res2 = {r['item_id']: r['respuesta'] for r in _sel_r if r.get('item_id')}
                             _tot2 = len(_sel_cfg2)
@@ -11960,10 +11960,20 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                                     _sel_mit2 = {str(m['id']): m for m in _mit2}
                     if _sel_pct2 >= 1 and _sel_cfg2:
                         _cot_sel2 = cargar_cotizacion(_sel_ep2)
+                        # Fecha última respuesta guardada
+                        _sel_fecha = ''
+                        try:
+                            _dts = [r.get('updated_at','') for r in _sel_r if r.get('updated_at')]
+                            if _dts:
+                                import datetime as _dtt
+                                _last = max(_dts)
+                                _sel_fecha = _dtt.datetime.fromisoformat(_last[:19]).strftime('%d/%m/%Y')
+                        except: pass
                         _pdf_sel2 = generar_pdf_seleccion_cliente(
                             _sel_ep2,
                             _cot_sel2.get('cliente_nombre','') if _cot_sel2 else '',
-                            _sel_cfg2, _sel_res2, _sel_mit2
+                            _sel_cfg2, _sel_res2, _sel_mit2,
+                            fecha_formulario=_sel_fecha
                         )
                         st.download_button(
                             label='🎨 PDF Selección',
