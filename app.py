@@ -6767,45 +6767,49 @@ if st.session_state.get('rol_usuario') in ('root', 'admin'):
     _bloque_raw = _get_bloque_horario(_now_cod).split('-', 3)
     _bloque_display = f"{_bloque_raw[-2][:2]}:{_bloque_raw[-2][2:]} → {_bloque_raw[-1][:2]}:{_bloque_raw[-1][2:]}"
     st.markdown(f"""
-    <style>
-    div[data-testid='stStatusWidget'] {{display:none!important;}}
-    </style>
     <div id="_cod_w" style="position:fixed;top:65px;left:0;z-index:2147483647;
         background:rgba(240,253,250,0.97);border:1px solid #99f6e4;
         border-radius:0 0 8px 0;padding:3px 12px 4px 10px;
         box-shadow:2px 2px 10px rgba(13,148,136,0.10);
         font-family:'Plus Jakarta Sans',sans-serif;
-        display:flex;align-items:center;gap:8px;">
+        display:flex;align-items:center;gap:8px;
+        cursor:pointer;user-select:none;">
         <div style="font-size:0.6rem;color:#1e293b;font-weight:600;line-height:1.2;">Código<br>{_bloque_display}</div>
         <div id="_cval" style="font-size:1.05rem;font-weight:800;color:#0d9488;letter-spacing:0.15em;">{_cod_actual}</div>
-        <div id="_cbtn" style="font-size:0.6rem;color:#0d9488;border:1px solid #99f6e4;
-            border-radius:4px;padding:1px 5px;cursor:pointer;">copiar</div>
     </div>
     <script>
-    window.addEventListener('load', function(){{
-        var btn = document.getElementById('_cbtn');
-        var val = document.getElementById('_cval');
-        if(btn) btn.onclick = function(e){{
-            e.stopPropagation();
-            var cod = '{_cod_actual}';
-            try{{
-                navigator.clipboard.writeText(cod).then(function(){{
-                    btn.textContent='✓'; val.style.color='#059669';
-                    setTimeout(function(){{btn.textContent='copiar';val.style.color='#0d9488';}},1500);
-                }});
-            }}catch(ex){{
+    (function(){{
+        function _init(){{
+            var w = document.getElementById('_cod_w');
+            if(!w || w._ready) return;
+            w._ready = true;
+            w.onclick = function(){{
+                var cod = '{_cod_actual}';
+                var el = document.getElementById('_cval');
+                var orig = el.textContent;
                 var inp = document.createElement('input');
                 inp.value = cod;
-                inp.style.cssText='position:fixed;opacity:0;top:65px;left:0;';
+                inp.style.cssText = 'position:fixed;top:65px;left:0;opacity:0.01;width:1px;height:1px;';
                 document.body.appendChild(inp);
-                inp.focus(); inp.select(); inp.setSelectionRange(0,99);
-                document.execCommand('copy');
+                inp.focus();
+                inp.select();
+                inp.setSelectionRange(0, 99);
+                var ok = false;
+                try{{ ok = document.execCommand('copy'); }}catch(e){{}}
                 document.body.removeChild(inp);
-                btn.textContent='✓';
-                setTimeout(function(){{btn.textContent='copiar';}},1500);
-            }}
-        }};
-    }});
+                if(ok){{
+                    el.textContent = '✓';
+                    setTimeout(function(){{el.textContent=orig;}}, 1500);
+                }} else if(navigator.clipboard){{
+                    navigator.clipboard.writeText(cod).then(function(){{
+                        el.textContent = '✓';
+                        setTimeout(function(){{el.textContent=orig;}}, 1500);
+                    }}).catch(function(){{}});
+                }}
+            }};
+        }}
+        [100,300,600,1000].forEach(function(d){{setTimeout(_init,d);}});
+    }})();
     </script>
     """, unsafe_allow_html=True)
 
