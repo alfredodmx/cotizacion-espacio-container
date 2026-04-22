@@ -6767,54 +6767,34 @@ if st.session_state.get('rol_usuario') in ('root', 'admin'):
     _bloque_raw = _get_bloque_horario(_now_cod).split('-', 3)
     _bloque_display = f"{_bloque_raw[-2][:2]}:{_bloque_raw[-2][2:]} → {_bloque_raw[-1][:2]}:{_bloque_raw[-1][2:]}"
     st.markdown(f"""
-    <style>
-    #_cod_fixed {{ position:fixed;top:65px;left:0;z-index:2147483647;
+    <div style='position:fixed;top:65px;left:0;z-index:2147483647;
         background:rgba(240,253,250,0.97);border:1px solid #99f6e4;
-        border-radius:0 0 8px 0;padding:3px 12px 4px 10px;
+        border-radius:0 0 8px 0;padding:3px 12px 6px 10px;
         box-shadow:2px 2px 10px rgba(13,148,136,0.10);
-        font-family:'Plus Jakarta Sans',sans-serif;
-        display:flex;align-items:center;gap:8px; }}
-    #_cod_fixed .lbl {{ font-size:0.6rem;color:#1e293b;font-weight:600;line-height:1.2; }}
-    #_cod_fixed .val {{ font-size:1.05rem;font-weight:800;color:#0d9488;letter-spacing:0.15em;
-        cursor:pointer;border-bottom:1px dashed #99f6e4; }}
-    #_cod_fixed .val:active {{ opacity:0.7; }}
-    </style>
-    <div id='_cod_fixed'>
-        <div class='lbl'>Código<br>{_bloque_display}</div>
-        <div class='val' id='_codval' title='Click para copiar'>{_cod_actual}</div>
+        font-family:"Plus Jakarta Sans",sans-serif;'>
+        <div style='font-size:0.6rem;color:#1e293b;font-weight:600;line-height:1.4;'>
+            Código · {_bloque_display}
+        </div>
+        <div style='font-size:1.05rem;font-weight:800;color:#0d9488;
+            letter-spacing:0.15em;'>{_cod_actual}</div>
     </div>
-    <script>
-    document.addEventListener('DOMContentLoaded', function(){{
-        attachCopy();
-    }});
-    if(document.readyState !== 'loading') attachCopy();
-    function attachCopy(){{
-        var el = document.getElementById('_codval');
-        if(!el || el._c) return;
-        el._c = 1;
-        el.addEventListener('click', function(){{
-            var txt = '{_cod_actual}';
-            window.parent.postMessage({{type:'copy',text:txt}},'*');
-            try{{
-                navigator.clipboard.writeText(txt).then(function(){{
-                    el.textContent='✓ OK';
-                    setTimeout(function(){{el.textContent=txt;}},1200);
-                }});
-            }}catch(e){{
-                var i=document.createElement('input');
-                i.value=txt;i.style='position:fixed;opacity:0;top:0;left:0';
-                document.body.appendChild(i);i.focus();i.select();
-                document.execCommand('copy');
-                document.body.removeChild(i);
-                el.textContent='✓ OK';
-                setTimeout(function(){{el.textContent=txt;}},1200);
-            }}
-        }});
-    }}
-    setTimeout(attachCopy, 200);
-    setTimeout(attachCopy, 800);
-    </script>
     """, unsafe_allow_html=True)
+    # Botón nativo de Streamlit — siempre copia correctamente
+    st.markdown("""
+    <style>
+    div[data-testid='stCopyButton'] {
+        position: fixed !important;
+        top: 65px !important;
+        left: 0 !important;
+        z-index: 2147483647 !important;
+        opacity: 0 !important;
+        width: 140px !important;
+        height: 44px !important;
+        cursor: pointer !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    st.code(_cod_actual, language=None)
 
 # Botones ocultos — se mueven al header via JS
 # CSS para ocultar todo el bloque sin dejar espacio
