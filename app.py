@@ -42,8 +42,11 @@ _ACCESS_SECRET = st.secrets.get("ACCESS_CODE_SECRET", "espacio-container-2024")
 def _get_bloque_horario(dt=None):
     """Retorna el identificador del bloque horario actual."""
     import datetime as _dth
+    # Chile: UTC-3 (CLST) Oct-Mar, UTC-4 (CLT) Apr-Sep
+    _mo = _dth.datetime.utcnow().month
+    _chile_offset = -3 if _mo in (10,11,12,1,2,3) else -4
     if dt is None:
-        dt = _dth.datetime.now(_dth.timezone(_dth.timedelta(hours=-3)))  # hora Chile
+        dt = _dth.datetime.now(_dth.timezone(_dth.timedelta(hours=_chile_offset)))
     h = dt.hour
     d = dt.strftime("%Y-%m-%d")
     if 8 <= h < 18:
@@ -6758,7 +6761,9 @@ if st.session_state.show_pwd_dialog:
 if st.session_state.get('rol_usuario') in ('root', 'admin'):
     _cod_actual = _generar_codigo_acceso()
     import datetime as _dt_cod
-    _now_cod = _dt_cod.datetime.now(_dt_cod.timezone(_dt_cod.timedelta(hours=-3)))
+    _mo_cod = _dt_cod.datetime.utcnow().month
+    _chile_off = -3 if _mo_cod in (10,11,12,1,2,3) else -4
+    _now_cod = _dt_cod.datetime.now(_dt_cod.timezone(_dt_cod.timedelta(hours=_chile_off)))
     _bloque_raw = _get_bloque_horario(_now_cod).split('-', 3)
     _bloque_display = f"{_bloque_raw[-2][:2]}:{_bloque_raw[-2][2:]} → {_bloque_raw[-1][:2]}:{_bloque_raw[-1][2:]}"
     st.markdown(f"""
