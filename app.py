@@ -6800,39 +6800,19 @@ if st.session_state.get('rol_usuario') in ('root', 'admin'):
         setInterval(_hide, 500);
     }})();
     </script>
-    <div id="_cod_widget" style="position:fixed;bottom:0;right:0;z-index:2147483647;
-                background:#f0fdfa;border:1.5px solid #2dd4bf;
-                border-top-left-radius:14px;
-                padding:10px 70px 14px 16px;
-                box-shadow:-2px -2px 20px rgba(13,148,136,0.15);
+    <div id="_cod_widget" onclick="var cod='{_cod_actual}';var el=document.getElementById('_cod_lbl');try{{navigator.clipboard.writeText(cod).then(function(){{el.textContent='✓';setTimeout(function(){{el.textContent=cod;}},1200);}});}}catch(e){{var t=document.createElement('textarea');t.value=cod;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);el.textContent='✓';setTimeout(function(){{el.textContent=cod;}},1200);}}" style="position:fixed;top:72px;left:12px;z-index:2147483647;
+                background:rgba(240,253,250,0.96);border:1px solid #99f6e4;
+                border-radius:10px;
+                padding:6px 14px 8px 12px;
+                box-shadow:0 2px 12px rgba(13,148,136,0.12);
                 font-family:'Plus Jakarta Sans',sans-serif;
-                cursor:pointer;min-width:220px;user-select:none;">
-        <div style="font-size:0.65rem;color:#0d9488;font-weight:600;line-height:1.4;">
-            Código de acceso · {_bloque_display}
+                cursor:pointer;user-select:none;">
+        <div style="font-size:0.6rem;color:#5eead4;font-weight:500;line-height:1.3;">
+            Código · {_bloque_display}
         </div>
-        <div id="_cod_lbl" style="font-size:1.4rem;font-weight:800;color:#0d9488;
-             letter-spacing:0.2em;margin:2px 0;">{_cod_actual}</div>
-        <div style="font-size:0.6rem;color:#5eead4;">toca para copiar</div>
+        <div id="_cod_lbl" style="font-size:1.1rem;font-weight:800;color:#0d9488;
+             letter-spacing:0.18em;">{_cod_actual}</div>
     </div>
-    <script>
-    document.getElementById('_cod_widget').addEventListener('click', function(){{
-        var cod = '{_cod_actual}';
-        var el = document.getElementById('_cod_lbl');
-        try {{
-            navigator.clipboard.writeText(cod).then(function(){{
-                el.textContent = '¡Copiado!';
-                setTimeout(function(){{ el.textContent = cod; }}, 1500);
-            }});
-        }} catch(e) {{
-            var ta = document.createElement('textarea');
-            ta.value = cod; document.body.appendChild(ta);
-            ta.select(); document.execCommand('copy');
-            document.body.removeChild(ta);
-            el.textContent = '¡Copiado!';
-            setTimeout(function(){{ el.textContent = cod; }}, 1500);
-        }}
-    }});
-    </script>
     """, unsafe_allow_html=True)
 
 # Botones ocultos — se mueven al header via JS
