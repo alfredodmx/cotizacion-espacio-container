@@ -11945,7 +11945,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                         _sel_cfg2 = _fetch_formulario_config(_sel_ep2)
                         if _sel_cfg2:
                             _sel_r = supabase_admin.table('formulario_respuestas').select(
-                                'item_id,respuesta,created_at'
+                                'item_id,respuesta'
                             ).eq('cotizacion_numero', _sel_ep2).execute().data or []
                             _sel_res2 = {r['item_id']: r['respuesta'] for r in _sel_r if r.get('item_id')}
                             _tot2 = len(_sel_cfg2)
@@ -11960,15 +11960,8 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                                     _sel_mit2 = {str(m['id']): m for m in _mit2}
                     if _sel_pct2 >= 1 and _sel_cfg2:
                         _cot_sel2 = cargar_cotizacion(_sel_ep2)
-                        # Fecha última respuesta guardada
-                        _sel_fecha = ''
-                        try:
-                            _dts = [r.get('created_at','') for r in _sel_r if r.get('created_at')]
-                            if _dts:
-                                import datetime as _dtt
-                                _last = max(_dts)
-                                _sel_fecha = _dtt.datetime.fromisoformat(_last[:19]).strftime('%d/%m/%Y')
-                        except: pass
+                        import datetime as _dtt
+                        _sel_fecha = _dtt.datetime.now().strftime('%d/%m/%Y')
                         _pdf_sel2 = generar_pdf_seleccion_cliente(
                             _sel_ep2,
                             _cot_sel2.get('cliente_nombre','') if _cot_sel2 else '',
