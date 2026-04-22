@@ -6801,15 +6801,18 @@ if st.session_state.get('rol_usuario') in ('root', 'admin'):
     }})();
     </script>
     <div id="_cod_widget" style="position:fixed;bottom:0;right:0;z-index:2147483647;
-                background:rgba(255,255,255,0.97);border:1px solid #ccfbf1;
-                border-top-left-radius:12px;
-                padding:8px 18px 10px 16px;
-                box-shadow:-2px -2px 16px rgba(13,148,136,0.12);
+                background:#f0fdfa;border:1.5px solid #2dd4bf;
+                border-top-left-radius:14px;
+                padding:10px 20px 14px 16px;
+                box-shadow:-2px -2px 20px rgba(13,148,136,0.15);
                 font-family:'Plus Jakarta Sans',sans-serif;
-                cursor:pointer;min-width:140px;user-select:none;">
-        <div style="font-size:0.65rem;color:#94a3b8;line-height:1.4;">Código vigente · {_bloque_display}</div>
-        <div id="_cod_lbl" style="font-size:1.15rem;font-weight:800;color:#0d9488;letter-spacing:0.18em;">{_cod_actual}</div>
-        <div style="font-size:0.6rem;color:#cbd5e1;margin-top:1px;">click para copiar</div>
+                cursor:pointer;min-width:160px;user-select:none;">
+        <div style="font-size:0.65rem;color:#0d9488;font-weight:600;line-height:1.4;">
+            Código de acceso · {_bloque_display}
+        </div>
+        <div id="_cod_lbl" style="font-size:1.4rem;font-weight:800;color:#0d9488;
+             letter-spacing:0.2em;margin:2px 0;">{_cod_actual}</div>
+        <div style="font-size:0.6rem;color:#5eead4;">toca para copiar</div>
     </div>
     <script>
     document.getElementById('_cod_widget').addEventListener('click', function(){{
