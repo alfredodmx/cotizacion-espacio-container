@@ -31,9 +31,8 @@ SUPABASE_SERVICE_KEY = st.secrets.get("SUPABASE_SERVICE_KEY", "") or st.secrets.
 # admin → ve todo, puede crear ejecutivos y admins, NO ve 🛡️ SISTEMA
 # ejecutivo → solo sus cotizaciones
 # -----------------------------------------------------------
-# Root emails — stored in Streamlit Secrets as comma-separated string
-# Example in secrets.toml: ROOTS = "alfredodmx@gmail.com,otro@email.com"
-_roots_raw = st.secrets.get("ROOTS", "alfredodmxf@gmail.com")
+# Root emails — stored in Streamlit Secrets
+_roots_raw = st.secrets.get("ROOTS", "")
 ROOTS = [r.strip().lower() for r in _roots_raw.split(",") if r.strip()]
 
 # Clave secreta para generación de códigos de acceso
