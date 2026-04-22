@@ -6803,10 +6803,10 @@ if st.session_state.get('rol_usuario') in ('root', 'admin'):
     <div id="_cod_widget" style="position:fixed;bottom:0;right:0;z-index:2147483647;
                 background:#f0fdfa;border:1.5px solid #2dd4bf;
                 border-top-left-radius:14px;
-                padding:10px 20px 14px 16px;
+                padding:10px 70px 14px 16px;
                 box-shadow:-2px -2px 20px rgba(13,148,136,0.15);
                 font-family:'Plus Jakarta Sans',sans-serif;
-                cursor:pointer;min-width:160px;user-select:none;">
+                cursor:pointer;min-width:220px;user-select:none;">
         <div style="font-size:0.65rem;color:#0d9488;font-weight:600;line-height:1.4;">
             Código de acceso · {_bloque_display}
         </div>
