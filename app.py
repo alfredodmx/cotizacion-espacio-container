@@ -3716,7 +3716,10 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
             story.append(KeepTogether([cat_wrap, wrap]))
         story.append(Spacer(1, 0.2*cm))
 
-    # Nota importante
+    # Nota importante + Footer — siempre al final de la última página
+    # Usar CondPageBreak para asegurar que quede al fondo
+    from reportlab.platypus import CondPageBreak
+
     nota_txt = (
         '<b>Nota importante:</b> Estimado cliente, después de la elaboración de este formulario '
         'de selección de materiales de su proyecto, usted cuenta con <b>3 días</b> para realizar '
@@ -3739,7 +3742,10 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
         ('LEFTPADDING',(0,0),(0,0), LPAD),('RIGHTPADDING',(0,0),(0,0), RPAD),
         ('TOPPADDING',(0,0),(0,0), 0),('BOTTOMPADDING',(0,0),(0,0), 6),
     ]))
-    story.append(Spacer(1, 0.3*cm))
+
+    # Spacer que empuja nota al fondo — 5cm mínimo para forzar al final
+    story.append(CondPageBreak(5*cm))
+    story.append(Spacer(1, 0.4*cm))
     story.append(nota_wrap)
 
     # Footer
