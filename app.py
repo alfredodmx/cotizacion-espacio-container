@@ -3756,22 +3756,32 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
         canvas.saveState()
         _nw = W - LPAD - RPAD
         # Nota — 2 líneas de texto, altura mayor
-        _nh = 1.35*cm
+        _nh = 1.35*cm  # será recalculado abajo
         _ny = 1.5*cm
+        # Texto nota con wrapping manual
+        from reportlab.lib.utils import simpleSplit
+        _max_w = _nw - 16  # margen interno
+        _font_sz = 6.5
+        _line_h = 0.32*cm
+        _ntxt_full = (
+            'Estimado cliente, después de la elaboración de este formulario de selección de materiales '
+            'de su proyecto, usted cuenta con 3 días para realizar modificaciones. '
+            'Transcurrido este tiempo puede realizar cambios pero puede incurrir en costos adicionales '
+            'y alteraciones en los tiempos de entrega de su proyecto. '
+            'Dichos cambios deberán verse reflejados en un anexo a este formulario.'
+        )
+        _lines = simpleSplit(_ntxt_full, 'Helvetica', _font_sz, _max_w)
+        _nh = (len(_lines) + 1) * _line_h + 0.25*cm  # recalcular altura real
+        # Redibujar contenedor con altura real
         canvas.setFillColor(colors.HexColor('#fff7ed'))
         canvas.setStrokeColor(colors.HexColor('#fed7aa'))
-        canvas.setLineWidth(0.8)
         canvas.roundRect(LPAD, _ny, _nw, _nh, 4, fill=1, stroke=1)
         canvas.setFillColor(colors.HexColor('#1e293b'))
         canvas.setFont('Helvetica-Bold', 7)
         canvas.drawString(LPAD+8, _ny+_nh-0.32*cm, 'Nota importante:')
-        canvas.setFont('Helvetica', 6.5)
-        _l1 = ('Estimado cliente, después de la elaboración de este formulario de selección de materiales '
-               'usted cuenta con 3 días para realizar modificaciones.')
-        _l2 = ('Transcurrido este tiempo puede realizar cambios pero puede incurrir en costos adicionales '
-               'y alteraciones en los tiempos de entrega. Los cambios deberán verse reflejados en un anexo.')
-        canvas.drawString(LPAD+8, _ny+0.55*cm, _l1)
-        canvas.drawString(LPAD+8, _ny+0.18*cm, _l2)
+        canvas.setFont('Helvetica', _font_sz)
+        for _li, _lt in enumerate(_lines):
+            canvas.drawString(LPAD+8, _ny+_nh-0.32*cm-(_li+1)*_line_h, _lt)
         # Línea teal
         _ly = _ny + _nh + 0.12*cm
         canvas.setStrokeColor(C_ACCENT)
