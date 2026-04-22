@@ -3716,6 +3716,32 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
             story.append(KeepTogether([cat_wrap, wrap]))
         story.append(Spacer(1, 0.2*cm))
 
+    # Nota importante
+    nota_txt = (
+        '<b>Nota importante:</b> Estimado cliente, después de la elaboración de este formulario '
+        'de selección de materiales de su proyecto, usted cuenta con <b>3 días</b> para realizar '
+        'modificaciones. Transcurrido este tiempo, también puede realizar cambios pero esto puede '
+        'incurrir en costos adicionales y en alteraciones en los tiempos de entrega de su proyecto. '
+        'Dichos cambios deberán verse reflejados en un anexo a este formulario.'
+    )
+    nota_tbl = Table([[
+        Paragraph(nota_txt, PS('_nota', fontName='Helvetica', fontSize=8,
+                               textColor=colors.HexColor('#1e293b'), leading=12))
+    ]], colWidths=[CW])
+    nota_tbl.setStyle(TableStyle([
+        ('BACKGROUND',(0,0),(0,0), colors.HexColor('#fff7ed')),
+        ('BOX',(0,0),(0,0), 1, colors.HexColor('#fed7aa')),
+        ('LEFTPADDING',(0,0),(0,0), 12),('RIGHTPADDING',(0,0),(0,0), 12),
+        ('TOPPADDING',(0,0),(0,0), 10),('BOTTOMPADDING',(0,0),(0,0), 10),
+    ]))
+    nota_wrap = Table([[nota_tbl]], colWidths=[W])
+    nota_wrap.setStyle(TableStyle([
+        ('LEFTPADDING',(0,0),(0,0), LPAD),('RIGHTPADDING',(0,0),(0,0), RPAD),
+        ('TOPPADDING',(0,0),(0,0), 0),('BOTTOMPADDING',(0,0),(0,0), 6),
+    ]))
+    story.append(Spacer(1, 0.3*cm))
+    story.append(nota_wrap)
+
     # Footer
     story.append(Spacer(1, 0.3*cm))
     story.append(Table([[_block(C_ACCENT,CW,1)]], colWidths=[W],
