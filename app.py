@@ -11945,7 +11945,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                         _sel_cfg2 = _fetch_formulario_config(_sel_ep2)
                         if _sel_cfg2:
                             _sel_r = supabase_admin.table('formulario_respuestas').select(
-                                'item_id,respuesta,updated_at'
+                                'item_id,respuesta,created_at'
                             ).eq('cotizacion_numero', _sel_ep2).execute().data or []
                             _sel_res2 = {r['item_id']: r['respuesta'] for r in _sel_r if r.get('item_id')}
                             _tot2 = len(_sel_cfg2)
@@ -11963,7 +11963,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                         # Fecha última respuesta guardada
                         _sel_fecha = ''
                         try:
-                            _dts = [r.get('updated_at','') for r in _sel_r if r.get('updated_at')]
+                            _dts = [r.get('created_at','') for r in _sel_r if r.get('created_at')]
                             if _dts:
                                 import datetime as _dtt
                                 _last = max(_dts)
