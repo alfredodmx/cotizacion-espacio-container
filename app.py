@@ -5939,6 +5939,7 @@ st.markdown("""
 
     #MainMenu { display: none !important; }
     footer { display: none !important; }
+    header { visibility: hidden !important; }
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stDecoration"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
@@ -5946,6 +5947,13 @@ st.markdown("""
     [class*="viewerBadge"] { display: none !important; }
     [class*="ViewerBadge"] { display: none !important; }
     [class*="_viewerBadge"] { display: none !important; }
+    .stAppDeployButton { display: none !important; }
+    [data-testid="stAppDeployButton"] { display: none !important; }
+    .st-emotion-cache-1wb593a { display: none !important; }
+    .st-emotion-cache-12w0qcf { display: none !important; }
+    [class*="stAppToolbar"] { display: none !important; }
+    [class*="toolbar"] a[href*="github"] { display: none !important; }
+    [class*="toolbar"] a[href*="streamlit"] { display: none !important; }
     [class*="profileContainer"] { display: none !important; }
     [class*="_profileContainer"] { display: none !important; }
     [class*="profilePreview"] { display: none !important; }
