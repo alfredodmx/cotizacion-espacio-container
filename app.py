@@ -3389,47 +3389,42 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
 
     # ── Flowable especial: Hero con texto centrado usando canvas ──
     class HeroWithTitle(Flowable):
-        def __init__(self, img_path, width, height, title):
+        def __init__(self, img_path, page_w, height, title):
             Flowable.__init__(self)
             self.img_path  = img_path
-            self.width     = width
+            self.page_w    = page_w
+            self.width     = page_w
             self.height    = height
             self.title     = title
         def wrap(self, *args):
-            return self.width, self.height
+            return self.page_w, self.height
         def draw(self):
             c = self.canv
-            # Dibujar imagen
+            # Obtener posicion x del frame para compensar
+            x_off = -self._frame._x1 if hasattr(self, '_frame') else 0
             try:
-                pil = _PIL.open(self.img_path)
-                iw, ih = pil.size
-                # Escalar para llenar el ancho completo
-                ratio  = self.width / iw
-                dst_h  = ih * ratio
-                # Si la imagen es más alta que el espacio, recortar desde el centro
-                if dst_h > self.height:
-                    src_h_pts = self.height
-                    y_offset  = (dst_h - self.height) / 2
-                else:
-                    src_h_pts = dst_h
-                    y_offset  = 0
-                c.drawImage(self.img_path, 0, 0,
-                            width=self.width, height=self.height,
-                            preserveAspectRatio=False, anchor='c')
+                x_off = -self.canv._doctemplate.frame._x1
+            except: pass
+            # Dibujar imagen desde x_off para cubrir ancho total
+            try:
+                c.drawImage(self.img_path, x_off, 0,
+                            width=self.page_w, height=self.height,
+                            preserveAspectRatio=False)
             except:
                 c.setFillColor(colors.HexColor('#cbd5e1'))
-                c.rect(0, 0, self.width, self.height, fill=1, stroke=0)
+                c.rect(x_off, 0, self.page_w, self.height, fill=1, stroke=0)
 
-            # Overlay muy suave solo detrás del texto
+            # Overlay suave centrado verticalmente
             txt_h = 44
-            txt_y = (self.height - txt_h) / 2  # centro vertical
+            txt_y = (self.height - txt_h) / 2
             c.setFillColor(colors.HexColor('#0d948859'))
-            c.roundRect(self.width*0.1, txt_y, self.width*0.8, txt_h, 6, fill=1, stroke=0)
+            c.roundRect(x_off + self.page_w*0.1, txt_y,
+                        self.page_w*0.8, txt_h, 6, fill=1, stroke=0)
 
             # Texto centrado
             c.setFillColor(colors.white)
             c.setFont('Helvetica-Bold', 18)
-            c.drawCentredString(self.width/2, txt_y + 13, self.title)
+            c.drawCentredString(x_off + self.page_w/2, txt_y + 13, self.title)
 
     LPAD = 1.5*cm
     RPAD = 1.5*cm
