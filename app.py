@@ -6800,9 +6800,9 @@ if st.session_state.get('rol_usuario') in ('root', 'admin'):
         setInterval(_hide, 500);
     }})();
     </script>
-    <div id="_cod_widget" style="position:fixed;top:68px;left:0;z-index:2147483647;
+    <div id="_cod_widget" style="position:fixed;top:65px;left:0;z-index:2147483647;
                 background:rgba(240,253,250,0.97);border:1px solid #99f6e4;
-                border-radius:0 0 10px 0;
+                border-radius:0 0 8px 0;
                 padding:5px 14px 7px 12px;
                 box-shadow:2px 2px 10px rgba(13,148,136,0.10);
                 font-family:'Plus Jakarta Sans',sans-serif;
@@ -6814,36 +6814,31 @@ if st.session_state.get('rol_usuario') in ('root', 'admin'):
              letter-spacing:0.18em;">{_cod_actual}</div>
     </div>
     <script>
-    (function(){{
+    setTimeout(function(){{
         var w = document.getElementById("_cod_widget");
-        if(w) w.addEventListener("click", function(){{
+        if(!w) return;
+        w.addEventListener("click", function(){{
             var cod = "{_cod_actual}";
             var el = document.getElementById("_cod_lbl");
             var orig = el.textContent;
-            if(navigator.clipboard && window.isSecureContext){{
-                navigator.clipboard.writeText(cod).then(function(){{
-                    el.textContent = "✓ Copiado";
-                    setTimeout(function(){{ el.textContent = orig; }}, 1500);
-                }}).catch(function(){{
-                    fallbackCopy(cod, el, orig);
-                }});
-            }} else {{
-                fallbackCopy(cod, el, orig);
-            }}
-            function fallbackCopy(cod, el, orig){{
-                var t = document.createElement("textarea");
-                t.value = cod;
-                t.style.position = "absolute";
-                t.style.left = "-9999px";
-                document.body.appendChild(t);
-                t.focus(); t.select();
-                try{{ document.execCommand("copy"); }} catch(e){{}}
-                document.body.removeChild(t);
+            function done(){{
                 el.textContent = "✓ Copiado";
                 setTimeout(function(){{ el.textContent = orig; }}, 1500);
             }}
+            var t = document.createElement("textarea");
+            t.value = cod;
+            t.setAttribute("readonly","");
+            t.style.cssText = "position:absolute;left:-9999px;top:0;";
+            document.body.appendChild(t);
+            t.focus();
+            t.setSelectionRange(0, t.value.length);
+            try{{ document.execCommand("copy"); done(); }} catch(e){{}}
+            document.body.removeChild(t);
+            if(navigator.clipboard){{
+                navigator.clipboard.writeText(cod).then(done).catch(function(){{}});
+            }}
         }});
-    }})();
+    }}, 300);
     </script>
     """, unsafe_allow_html=True)
 
