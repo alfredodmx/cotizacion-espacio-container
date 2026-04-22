@@ -2605,7 +2605,7 @@ window.guardarRegistro=async function(){{
     var path="cotizacion-"+EP_NUM+"/"+Date.now()+"."+ext;
     var uploadResp=await fetch(SUPA_URL+"/storage/v1/object/facturas/"+path,{{
       method:"POST",
-      headers:{{"Authorization":"Bearer "+SUPA_KEY,"Content-Type":_facturaFile.type,"x-upsert":"true"}},
+      headers:{{"Authorization":"Bearer "+SUPA_KEY,"apikey":SUPA_KEY,"Content-Type":_facturaFile.type,"x-upsert":"true"}},
       body:_facturaFile
     }});
     if(!uploadResp.ok) throw new Error("Error subiendo factura: "+uploadResp.status);
@@ -2687,12 +2687,12 @@ def guardar_factura_en_storage(archivo_bytes, cotizacion_numero, nombre_original
     try:
         carpeta = cotizacion_numero.replace('/', '_').replace('\\', '_')
         file_name = f"cotizacion-{carpeta}/{uuid.uuid4()}.pdf"
-        supabase.storage.from_('facturas').upload(
+        supabase_admin.storage.from_('facturas').upload(
             path=file_name,
             file=archivo_bytes,
             file_options={"content-type": "application/pdf"}
         )
-        public_url = supabase.storage.from_('facturas').get_public_url(file_name)
+        public_url = supabase_admin.storage.from_('facturas').get_public_url(file_name)
         return public_url, None
     except Exception as e:
         return None, str(e)
@@ -2792,12 +2792,12 @@ def guardar_acta_en_storage(archivo_bytes, cotizacion_numero, nombre_original):
     try:
         carpeta = cotizacion_numero.replace('/', '_').replace('\\', '_')
         file_name = f"acta-{carpeta}/{uuid.uuid4()}.pdf"
-        supabase.storage.from_('facturas').upload(
+        supabase_admin.storage.from_('facturas').upload(
             path=file_name,
             file=archivo_bytes,
             file_options={"content-type": "application/pdf"}
         )
-        public_url = supabase.storage.from_('facturas').get_public_url(file_name)
+        public_url = supabase_admin.storage.from_('facturas').get_public_url(file_name)
         return public_url, None
     except Exception as e:
         return None, str(e)
