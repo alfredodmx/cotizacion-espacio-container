@@ -415,6 +415,20 @@ async function guardar(){
     }
     P={};
     st.textContent="✅ Guardado";st.style.color="#16a34a";
+    // Verificar si completó al 100% y guardar fecha
+    try{
+      var totalGrupos=document.querySelectorAll('.grupo').length;
+      var completados=document.querySelectorAll('.grupo.completado').length;
+      if(totalGrupos>0 && completados>=totalGrupos){
+        await fetch(S+"/rest/v1/cotizaciones?numero=eq."+EP,{
+          method:"PATCH",
+          headers:{"Authorization":"Bearer "+K,"apikey":K,
+                   "Content-Type":"application/json",
+                   "Prefer":"return=minimal"},
+          body:JSON.stringify({fecha_formulario_completado:new Date().toISOString()})
+        });
+      }
+    }catch(e2){}
   }catch(e){st.textContent="Error: "+e.message;st.style.color="#dc2626";}
   btn.disabled=false;
 }
@@ -12044,7 +12058,15 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                     if _sel_pct2 >= 1 and _sel_cfg2:
                         _cot_sel2 = cargar_cotizacion(_sel_ep2)
                         import datetime as _dtt
-                        _sel_fecha = _dtt.datetime.now().strftime('%d/%m/%Y')
+                        # Usar fecha real de completacion del formulario
+                        _sel_fecha = ''
+                        try:
+                            _fcomp = (_cot_sel2 or {}).get('fecha_formulario_completado','')
+                            if _fcomp:
+                                _sel_fecha = _dtt.datetime.fromisoformat(_fcomp[:19]).strftime('%d/%m/%Y')
+                        except: pass
+                        if not _sel_fecha:
+                            _sel_fecha = _dtt.datetime.now().strftime('%d/%m/%Y')
                         _pdf_sel2 = generar_pdf_seleccion_cliente(
                             _sel_ep2,
                             _cot_sel2.get('cliente_nombre','') if _cot_sel2 else '',
