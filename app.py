@@ -6755,10 +6755,14 @@ if st.session_state.get('rol_usuario') in ('root', 'admin'):
     _bloque_display = f"{_bloque_raw[-2][:2]}:{_bloque_raw[-2][2:]} → {_bloque_raw[-1][:2]}:{_bloque_raw[-1][2:]}"
     st.markdown(f"""
     <style>
-    /* Ocultar toolbar Streamlit Cloud */
-    .stAppToolbar, [data-testid="stToolbar"], header[data-testid="stHeader"] {{
+    .stAppDeployButton,
+    div[data-testid="stStatusWidget"],
+    .st-emotion-cache-1wb593a,
+    .st-emotion-cache-12w0qcf {{
         display: none !important;
     }}
+    footer {{ visibility: hidden; height: 0%; }}
+    #MainMenu, header {{ visibility: hidden; }}
     </style>
     <div id="_cod_widget" onclick="
         navigator.clipboard.writeText('{_cod_actual}').then(function(){{
