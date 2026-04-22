@@ -6754,13 +6754,19 @@ if st.session_state.get('rol_usuario') in ('root', 'admin'):
     _bloque_raw = _get_bloque_horario(_now_cod).split('-', 3)
     _bloque_display = f"{_bloque_raw[-2][:2]}:{_bloque_raw[-2][2:]} → {_bloque_raw[-1][:2]}:{_bloque_raw[-1][2:]}"
     st.markdown(f"""
+    <style>
+    /* Ocultar toolbar Streamlit Cloud */
+    .stAppToolbar, [data-testid="stToolbar"], header[data-testid="stHeader"] {{
+        display: none !important;
+    }}
+    </style>
     <div id="_cod_widget" onclick="
         navigator.clipboard.writeText('{_cod_actual}').then(function(){{
             var el=document.getElementById('_cod_lbl');
             el.textContent='¡Copiado!';
             setTimeout(function(){{el.textContent='{_cod_actual}';}},1500);
         }});
-    " style="position:fixed;bottom:0;right:0;z-index:99999;
+    " style="position:fixed;bottom:0;right:0;z-index:2147483647;
                 background:rgba(255,255,255,0.97);border:1px solid #ccfbf1;
                 border-top-left-radius:12px;
                 padding:8px 18px 10px 16px;
