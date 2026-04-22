@@ -3743,32 +3743,43 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
         ('TOPPADDING',(0,0),(0,0), 0),('BOTTOMPADDING',(0,0),(0,0), 6),
     ]))
 
-    # Spacer que empuja nota al fondo — 5cm mínimo para forzar al final
-    story.append(CondPageBreak(5*cm))
-    story.append(Spacer(1, 0.4*cm))
-    story.append(nota_wrap)
-
-    # Footer
-    story.append(Spacer(1, 0.3*cm))
-    story.append(Table([[_block(C_ACCENT,CW,1)]], colWidths=[W],
-                        style=[('LEFTPADDING',(0,0),(0,0),LPAD),
-                                ('RIGHTPADDING',(0,0),(0,0),RPAD),
-                                ('TOPPADDING',(0,0),(0,0),0),
-                                ('BOTTOMPADDING',(0,0),(0,0),4)]))
-    story.append(Table([[
-        Paragraph(f'Generado el {_nstr}  ·  Espacio Container House SpA',
-                   PS('_ftl', fontName='Helvetica', fontSize=7, textColor=C_MUTED)),
-        Paragraph(f'{nombre_cliente or "Cliente"}  ·  Proyecto {ep}',
-                   PS('_ftr', fontName='Helvetica', fontSize=7,
-                      textColor=C_MUTED, alignment=2)),
-    ]], colWidths=[CW*0.5, CW*0.5],
-    style=[('LEFTPADDING',(0,0),(0,0),LPAD),('RIGHTPADDING',(-1,0),(-1,0),RPAD),
-           ('TOPPADDING',(0,0),(-1,-1),0),('BOTTOMPADDING',(0,0),(-1,-1),10)]))
+    # Footer + nota — siempre al fondo via onPage canvas
+    def _draw_bottom(canvas, document):
+        canvas.saveState()
+        # Nota importante — fondo naranja, pegada al fondo
+        _nw = W - LPAD - RPAD
+        _nh = 1.0*cm
+        _ny = 1.5*cm
+        canvas.setFillColor(colors.HexColor('#fff7ed'))
+        canvas.setStrokeColor(colors.HexColor('#fed7aa'))
+        canvas.setLineWidth(0.8)
+        canvas.roundRect(LPAD, _ny, _nw, _nh, 4, fill=1, stroke=1)
+        canvas.setFillColor(colors.HexColor('#1e293b'))
+        canvas.setFont('Helvetica-Bold', 6.5)
+        canvas.drawString(LPAD+8, _ny+_nh-0.3*cm, 'Nota importante:')
+        canvas.setFont('Helvetica', 6)
+        _ntxt = ('Estimado cliente: después de la elaboración de este formulario cuenta con 3 días '
+                 'para modificaciones. Transcurrido este tiempo puede realizar cambios pero puede '
+                 'incurrir en costos adicionales y alteraciones en los tiempos de entrega. '
+                 'Los cambios deberán verse reflejados en un anexo a este formulario.')
+        canvas.drawString(LPAD+8, _ny+0.12*cm, _ntxt[:160])
+        # Línea teal
+        _ly = _ny + _nh + 0.15*cm
+        canvas.setStrokeColor(C_ACCENT)
+        canvas.setLineWidth(1)
+        canvas.line(LPAD, _ly, W-RPAD, _ly)
+        # Texto footer
+        canvas.setFont('Helvetica', 7)
+        canvas.setFillColor(C_MUTED)
+        _fy = _ly + 0.12*cm
+        canvas.drawString(LPAD, _fy, f'Generado el {_nstr}  ·  Espacio Container House SpA')
+        canvas.drawRightString(W-RPAD, _fy, f'{nombre_cliente or "Cliente"}  ·  Proyecto {ep}')
+        canvas.restoreState()
 
     doc = SimpleDocTemplate(buffer, pagesize=A4,
                             leftMargin=0, rightMargin=0,
-                            topMargin=0, bottomMargin=0)
-    doc.build(story)
+                            topMargin=0, bottomMargin=3.2*cm)
+    doc.build(story, onFirstPage=_draw_bottom, onLaterPages=_draw_bottom)
     buffer.seek(0)
     return buffer.read()
 
