@@ -36,6 +36,49 @@ SUPABASE_SERVICE_KEY = st.secrets.get("SUPABASE_SERVICE_KEY", "") or st.secrets.
 _roots_raw = st.secrets.get("ROOTS", "alfredodmxf@gmail.com")
 ROOTS = [r.strip().lower() for r in _roots_raw.split(",") if r.strip()]
 
+# Clave secreta para generación de códigos de acceso
+_ACCESS_SECRET = st.secrets.get("ACCESS_CODE_SECRET", "espacio-container-2024")
+
+def _get_bloque_horario(dt=None):
+    """Retorna el identificador del bloque horario actual."""
+    import datetime as _dth
+    if dt is None:
+        dt = _dth.datetime.now(_dth.timezone(_dth.timedelta(hours=-3)))  # hora Chile
+    h = dt.hour
+    d = dt.strftime("%Y-%m-%d")
+    if 8 <= h < 18:
+        bloque = "0800-1800"
+    elif 18 <= h < 20:
+        bloque = "1800-2000"
+    elif 20 <= h < 22:
+        bloque = "2000-2200"
+    elif 22 <= h < 24:
+        bloque = "2200-0000"
+    elif 0 <= h < 2:
+        bloque = "0000-0200"
+    elif 2 <= h < 4:
+        bloque = "0200-0400"
+    elif 4 <= h < 6:
+        bloque = "0400-0600"
+    else:
+        bloque = "0600-0800"
+    return f"{d}-{bloque}"
+
+def _generar_codigo_acceso():
+    """Genera el código de acceso vigente para el bloque horario actual."""
+    import hashlib as _hl
+    bloque = _get_bloque_horario()
+    raw = f"{bloque}-{_ACCESS_SECRET}"
+    h = _hl.sha256(raw.encode()).hexdigest().upper()
+    # Tomar 6 caracteres alfanuméricos legibles (sin 0,O,1,I)
+    clean = "".join(c for c in h if c not in "01IO")[:6]
+    return clean
+
+def _validar_codigo_acceso(codigo_ingresado):
+    """Valida si el código ingresado es correcto para el bloque actual."""
+    return (codigo_ingresado or "").strip().upper() == _generar_codigo_acceso()
+
+
 def get_rol(email, user_metadata=None):
     """Retorna el rol del usuario: 'root', 'admin' o 'ejecutivo'."""
     email_l = (email or "").lower()
@@ -1028,6 +1071,11 @@ if not st.session_state.auth_user:
         _email_in = st.text_input("Correo electrónico", key="login_email", placeholder="usuario@empresa.cl")
         _pass_in  = st.text_input("Contraseña", type="password", key="login_pass", placeholder="••••••••")
 
+        # Código de acceso — solo para ejecutivo y operacion
+        _code_in = st.text_input("Código de acceso", key="login_code",
+                                  placeholder="Solicítalo al administrador",
+                                  max_chars=6)
+
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
         # ── Rate limiting: max 5 intentos, bloqueo 5 minutos ──
@@ -1046,24 +1094,28 @@ if not st.session_state.auth_user:
                 with st.spinner("Verificando..."):
                     user, err = login_usuario(_email_in.strip(), _pass_in)
                 if user:
-                    st.session_state.auth_user   = str(user.id)
-                    st.session_state.auth_email  = user.email or _email_in.strip()
-                    meta = user.user_metadata or {}
-                    st.session_state.auth_nombre = meta.get("nombre", user.email or "")
                     _meta = user.user_metadata or {}
                     _rol_login = get_rol(user.email, _meta)
-                    st.session_state.rol_usuario   = _rol_login
-                    st.session_state.es_supervisor = _rol_login in ("root", "admin")
-                    st.session_state.es_root       = _rol_login == "root"
-                    st.session_state.es_operacion  = _rol_login == "operacion"
-                    if st.session_state.es_supervisor:
-                        st.session_state.modo_admin = True
-                    st.session_state.pop('resultados_busqueda', None)
-                    st.session_state['_login_attempts'] = 0
-                    st.session_state['_login_blocked_until'] = 0
-                    st.session_state.pop('_usuarios_cache', None)
-                    # Sesión manejada via query params — sin localStorage
-                    st.rerun()
+                    # Verificar código de acceso para ejecutivo y operacion
+                    _requiere_codigo = _rol_login in ("ejecutivo", "operacion")
+                    if _requiere_codigo and not _validar_codigo_acceso(_code_in):
+                        st.error("🔐 Código de acceso incorrecto. Solicítalo al administrador.")
+                    else:
+                        st.session_state.auth_user   = str(user.id)
+                        st.session_state.auth_email  = user.email or _email_in.strip()
+                        meta = user.user_metadata or {}
+                        st.session_state.auth_nombre = meta.get("nombre", user.email or "")
+                        st.session_state.rol_usuario   = _rol_login
+                        st.session_state.es_supervisor = _rol_login in ("root", "admin")
+                        st.session_state.es_root       = _rol_login == "root"
+                        st.session_state.es_operacion  = _rol_login == "operacion"
+                        if st.session_state.es_supervisor:
+                            st.session_state.modo_admin = True
+                        st.session_state.pop('resultados_busqueda', None)
+                        st.session_state['_login_attempts'] = 0
+                        st.session_state['_login_blocked_until'] = 0
+                        st.session_state.pop('_usuarios_cache', None)
+                        st.rerun()
                 else:
                     _login_attempts += 1
                     st.session_state['_login_attempts'] = _login_attempts
@@ -6693,6 +6745,24 @@ def _pwd_dialog():
 if st.session_state.show_pwd_dialog:
     st.session_state.show_pwd_dialog = False  # Reset inmediato
     _pwd_dialog()
+
+# Código de acceso vigente — visible solo para admin/root (esquina inferior derecha)
+if st.session_state.get('rol_usuario') in ('root', 'admin'):
+    _cod_actual = _generar_codigo_acceso()
+    import datetime as _dt_cod
+    _now_cod = _dt_cod.datetime.now(_dt_cod.timezone(_dt_cod.timedelta(hours=-3)))
+    _bloque_raw = _get_bloque_horario(_now_cod).split('-', 3)
+    _bloque_display = f"{_bloque_raw[-2][:2]}:{_bloque_raw[-2][2:]} → {_bloque_raw[-1][:2]}:{_bloque_raw[-1][2:]}"
+    st.markdown(f"""
+    <div style="position:fixed;bottom:14px;right:18px;z-index:99999;
+                background:rgba(255,255,255,0.97);border:1px solid #ccfbf1;
+                border-radius:12px;padding:7px 16px;
+                box-shadow:0 2px 16px rgba(13,148,136,0.15);
+                font-family:'Plus Jakarta Sans',sans-serif;">
+        <div style="font-size:0.65rem;color:#94a3b8;line-height:1.3;">Código vigente · {_bloque_display}</div>
+        <div style="font-size:1.15rem;font-weight:800;color:#0d9488;letter-spacing:0.18em;">{_cod_actual}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # Botones ocultos — se mueven al header via JS
 # CSS para ocultar todo el bloque sin dejar espacio
