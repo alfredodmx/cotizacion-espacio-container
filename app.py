@@ -6763,32 +6763,73 @@ if st.session_state.get('rol_usuario') in ('root', 'admin'):
     _bloque_display = f"{_bloque_raw[-2][:2]}:{_bloque_raw[-2][2:]} → {_bloque_raw[-1][:2]}:{_bloque_raw[-1][2:]}"
     st.markdown(f"""
     <style>
-    .stAppDeployButton,
-    div[data-testid="stStatusWidget"],
-    .st-emotion-cache-1wb593a,
-    .st-emotion-cache-12w0qcf {{
+    .stAppDeployButton, [data-testid='stAppDeployButton'],
+    [data-testid='stStatusWidget'], [data-testid='stToolbar'],
+    [data-testid='stDecoration'], [data-testid='stBottom'],
+    .stAppToolbar, iframe[title='streamlit_analytics'],
+    #MainMenu, footer, header {{
         display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        height: 0 !important;
+        overflow: hidden !important;
     }}
-    footer {{ visibility: hidden; height: 0%; }}
-    #MainMenu, header {{ visibility: hidden; }}
     </style>
-    <div id="_cod_widget" onclick="
-        navigator.clipboard.writeText('{_cod_actual}').then(function(){{
-            var el=document.getElementById('_cod_lbl');
-            el.textContent='¡Copiado!';
-            setTimeout(function(){{el.textContent='{_cod_actual}';}},1500);
-        }});
-    " style="position:fixed;bottom:0;right:0;z-index:2147483647;
+    <script>
+    (function hideStreamlitButtons(){{
+        function _hide(){{
+            var selectors = [
+                '[data-testid="stToolbar"]',
+                '[data-testid="stStatusWidget"]',
+                '[data-testid="stAppDeployButton"]',
+                '.stAppDeployButton',
+                '[data-testid="stDecoration"]',
+                'footer',
+                '#MainMenu'
+            ];
+            selectors.forEach(function(s){{
+                document.querySelectorAll(s).forEach(function(el){{
+                    el.style.cssText='display:none!important;visibility:hidden!important;height:0!important;overflow:hidden!important;';
+                }});
+            }});
+        }}
+        _hide();
+        var obs = new MutationObserver(_hide);
+        obs.observe(document.body, {{childList:true, subtree:true}});
+        setInterval(_hide, 500);
+    }})();
+    </script>
+    <div id="_cod_widget" style="position:fixed;bottom:0;right:0;z-index:2147483647;
                 background:rgba(255,255,255,0.97);border:1px solid #ccfbf1;
                 border-top-left-radius:12px;
                 padding:8px 18px 10px 16px;
                 box-shadow:-2px -2px 16px rgba(13,148,136,0.12);
                 font-family:'Plus Jakarta Sans',sans-serif;
-                cursor:pointer;min-width:140px;">
+                cursor:pointer;min-width:140px;user-select:none;">
         <div style="font-size:0.65rem;color:#94a3b8;line-height:1.4;">Código vigente · {_bloque_display}</div>
         <div id="_cod_lbl" style="font-size:1.15rem;font-weight:800;color:#0d9488;letter-spacing:0.18em;">{_cod_actual}</div>
         <div style="font-size:0.6rem;color:#cbd5e1;margin-top:1px;">click para copiar</div>
     </div>
+    <script>
+    document.getElementById('_cod_widget').addEventListener('click', function(){{
+        var cod = '{_cod_actual}';
+        var el = document.getElementById('_cod_lbl');
+        try {{
+            navigator.clipboard.writeText(cod).then(function(){{
+                el.textContent = '¡Copiado!';
+                setTimeout(function(){{ el.textContent = cod; }}, 1500);
+            }});
+        }} catch(e) {{
+            var ta = document.createElement('textarea');
+            ta.value = cod; document.body.appendChild(ta);
+            ta.select(); document.execCommand('copy');
+            document.body.removeChild(ta);
+            el.textContent = '¡Copiado!';
+            setTimeout(function(){{ el.textContent = cod; }}, 1500);
+        }}
+    }});
+    </script>
     """, unsafe_allow_html=True)
 
 # Botones ocultos — se mueven al header via JS
