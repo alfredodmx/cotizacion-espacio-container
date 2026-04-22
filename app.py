@@ -3743,43 +3743,52 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
         ('TOPPADDING',(0,0),(0,0), 0),('BOTTOMPADDING',(0,0),(0,0), 6),
     ]))
 
-    # Footer + nota — siempre al fondo via onPage canvas
-    def _draw_bottom(canvas, document):
+    # Footer + nota — solo en la ÚLTIMA página via onLastPage
+    _total_pages = [0]
+
+    def _count_pages(canvas, document):
+        _total_pages[0] = document.page
+
+    def _draw_last(canvas, document):
+        # Solo dibujar en la última página
+        if document.page < _total_pages[0]:
+            return
         canvas.saveState()
-        # Nota importante — fondo naranja, pegada al fondo
         _nw = W - LPAD - RPAD
-        _nh = 1.0*cm
+        # Nota — 2 líneas de texto, altura mayor
+        _nh = 1.35*cm
         _ny = 1.5*cm
         canvas.setFillColor(colors.HexColor('#fff7ed'))
         canvas.setStrokeColor(colors.HexColor('#fed7aa'))
         canvas.setLineWidth(0.8)
         canvas.roundRect(LPAD, _ny, _nw, _nh, 4, fill=1, stroke=1)
         canvas.setFillColor(colors.HexColor('#1e293b'))
-        canvas.setFont('Helvetica-Bold', 6.5)
-        canvas.drawString(LPAD+8, _ny+_nh-0.3*cm, 'Nota importante:')
-        canvas.setFont('Helvetica', 6)
-        _ntxt = ('Estimado cliente: después de la elaboración de este formulario cuenta con 3 días '
-                 'para modificaciones. Transcurrido este tiempo puede realizar cambios pero puede '
-                 'incurrir en costos adicionales y alteraciones en los tiempos de entrega. '
-                 'Los cambios deberán verse reflejados en un anexo a este formulario.')
-        canvas.drawString(LPAD+8, _ny+0.12*cm, _ntxt[:160])
+        canvas.setFont('Helvetica-Bold', 7)
+        canvas.drawString(LPAD+8, _ny+_nh-0.32*cm, 'Nota importante:')
+        canvas.setFont('Helvetica', 6.5)
+        _l1 = ('Estimado cliente, después de la elaboración de este formulario de selección de materiales '
+               'usted cuenta con 3 días para realizar modificaciones.')
+        _l2 = ('Transcurrido este tiempo puede realizar cambios pero puede incurrir en costos adicionales '
+               'y alteraciones en los tiempos de entrega. Los cambios deberán verse reflejados en un anexo.')
+        canvas.drawString(LPAD+8, _ny+0.55*cm, _l1)
+        canvas.drawString(LPAD+8, _ny+0.18*cm, _l2)
         # Línea teal
-        _ly = _ny + _nh + 0.15*cm
+        _ly = _ny + _nh + 0.12*cm
         canvas.setStrokeColor(C_ACCENT)
         canvas.setLineWidth(1)
         canvas.line(LPAD, _ly, W-RPAD, _ly)
-        # Texto footer
+        # Footer
         canvas.setFont('Helvetica', 7)
         canvas.setFillColor(C_MUTED)
-        _fy = _ly + 0.12*cm
+        _fy = _ly + 0.15*cm
         canvas.drawString(LPAD, _fy, f'Generado el {_nstr}  ·  Espacio Container House SpA')
         canvas.drawRightString(W-RPAD, _fy, f'{nombre_cliente or "Cliente"}  ·  Proyecto {ep}')
         canvas.restoreState()
 
     doc = SimpleDocTemplate(buffer, pagesize=A4,
                             leftMargin=0, rightMargin=0,
-                            topMargin=0, bottomMargin=3.2*cm)
-    doc.build(story, onFirstPage=_draw_bottom, onLaterPages=_draw_bottom)
+                            topMargin=0, bottomMargin=3.5*cm)
+    doc.build(story, onFirstPage=_count_pages, onLaterPages=_draw_last)
     buffer.seek(0)
     return buffer.read()
 
