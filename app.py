@@ -3327,16 +3327,15 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
-    from reportlab.lib.units import cm, inch
+    from reportlab.lib.units import cm
+    from reportlab.pdfgen import canvas as _canvas_mod
+    from reportlab.platypus import Flowable
 
     if mat_items_sel is None:
         mat_items_sel = {}
 
     W, H = A4
     buffer = _io_s.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4,
-                            leftMargin=0, rightMargin=0,
-                            topMargin=0, bottomMargin=0)
 
     C_ACCENT  = colors.HexColor('#2dd4bf')
     C_ACCENT2 = colors.HexColor('#0d9488')
@@ -3360,23 +3359,12 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
     styles = getSampleStyleSheet()
     def PS(name, **kw):
         return ParagraphStyle(name, parent=styles['Normal'], **kw)
-
     def _block(color, w, h):
         t = Table([['']], colWidths=[w], rowHeights=[h])
         t.setStyle(TableStyle([('BACKGROUND',(0,0),(0,0),color),
             ('LEFTPADDING',(0,0),(0,0),0),('RIGHTPADDING',(0,0),(0,0),0),
             ('TOPPADDING',(0,0),(0,0),0),('BOTTOMPADDING',(0,0),(0,0),0)]))
         return t
-
-    def _load_img_fit(path, max_w, max_h):
-        """Load image fitting within max_w x max_h, preserving aspect ratio."""
-        try:
-            pil = _PIL.open(path)
-            iw, ih = pil.size
-            ratio = min(max_w/iw, max_h/ih)
-            return _RLImage(path, width=iw*ratio, height=ih*ratio)
-        except: return None
-
     def _img_from_url(url, max_w, max_h):
         try:
             r = _rq_s.get(url, timeout=5)
@@ -3389,7 +3377,6 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
                 return _RLImage(buf, width=iw*ratio, height=ih*ratio)
         except: pass
         return None
-
     def _swatch(hex_val, w, h):
         try:
             c = colors.HexColor(hex_val if hex_val.startswith('#') else f'#{hex_val}')
@@ -3400,17 +3387,67 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
             ('TOPPADDING',(0,0),(0,0),0),('BOTTOMPADDING',(0,0),(0,0),0)]))
         return t
 
-    story = []
+    # ── Flowable especial: Hero con texto centrado usando canvas ──
+    class HeroWithTitle(Flowable):
+        def __init__(self, img_path, width, height, title):
+            Flowable.__init__(self)
+            self.img_path  = img_path
+            self.width     = width
+            self.height    = height
+            self.title     = title
+        def wrap(self, *args):
+            return self.width, self.height
+        def draw(self):
+            c = self.canv
+            # Dibujar imagen
+            try:
+                pil = _PIL.open(self.img_path)
+                iw, ih = pil.size
+                # Escalar para llenar el ancho completo
+                ratio  = self.width / iw
+                dst_h  = ih * ratio
+                # Si la imagen es más alta que el espacio, recortar desde el centro
+                if dst_h > self.height:
+                    src_h_pts = self.height
+                    y_offset  = (dst_h - self.height) / 2
+                else:
+                    src_h_pts = dst_h
+                    y_offset  = 0
+                c.drawImage(self.img_path, 0, 0,
+                            width=self.width, height=self.height,
+                            preserveAspectRatio=False, anchor='c')
+            except:
+                c.setFillColor(colors.HexColor('#cbd5e1'))
+                c.rect(0, 0, self.width, self.height, fill=1, stroke=0)
+
+            # Overlay muy suave solo detrás del texto
+            txt_h = 44
+            txt_y = (self.height - txt_h) / 2  # centro vertical
+            c.setFillColor(colors.HexColor('#0d948880'))
+            c.roundRect(self.width*0.1, txt_y, self.width*0.8, txt_h, 6, fill=1, stroke=0)
+
+            # Texto centrado
+            c.setFillColor(colors.white)
+            c.setFont('Helvetica-Bold', 18)
+            c.drawCentredString(self.width/2, txt_y + 13, self.title)
+
     LPAD = 1.5*cm
     RPAD = 1.5*cm
     CW   = W - LPAD - RPAD
 
-    # ── Logo — fit dentro de 4cm x 1.8cm ──
+    story = []
+
+    # ── Logo ──
     logo_cell = Paragraph('ESPACIO CONTAINER HOUSE',
                            PS('_lc', fontName='Helvetica-Bold', fontSize=13, textColor=C_DARK))
-    _logo = _load_img_fit('logo.png', 4.2*cm, 1.8*cm)
-    if _logo:
-        logo_cell = _logo
+    try:
+        pil_l = _PIL.open('logo.png')
+        lw, lh = pil_l.size
+        target_w = 5.2*cm
+        target_h = 2.0*cm
+        ratio = min(target_w/lw, target_h/lh)
+        logo_cell = _RLImage('logo.png', width=lw*ratio, height=lh*ratio)
+    except: pass
 
     # ── HEADER ──
     cli_info = Table([
@@ -3428,7 +3465,6 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
         ('TOPPADDING',(0,0),(-1,-1),2),('BOTTOMPADDING',(0,0),(-1,-1),2),
         ('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),0),
     ]))
-
     header = Table([[logo_cell, cli_info]], colWidths=[W*0.40, W*0.50])
     header.setStyle(TableStyle([
         ('BACKGROUND',(0,0),(-1,-1), C_WHITE),
@@ -3443,56 +3479,41 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
     ]))
     story.append(header)
 
-    # ── HERO — fit a ancho completo, max 30% alto página ──
-    hero = None
+    # ── HERO con título centrado ──
+    HERO_H = H * 0.32
+    _hero_path = None
     for _fn in ['hero.jpeg','hero.jpg']:
-        _h = _load_img_fit(_fn, W, H*0.30)
-        if _h:
-            # Forzar ancho completo manteniendo proporción
-            try:
-                _pil = _PIL.open(_fn)
-                _iw, _ih = _pil.size
-                _ratio = W / _iw
-                _use_h = min(_ih * _ratio, H*0.30)
-                hero = _RLImage(_fn, width=W, height=_use_h)
-            except:
-                hero = _h
+        if _os_s.path.exists(_fn):
+            _hero_path = _fn
             break
-
-    if hero:
-        story.append(Table([[hero]], colWidths=[W],
-                            style=[('LEFTPADDING',(0,0),(0,0),0),
-                                    ('RIGHTPADDING',(0,0),(0,0),0),
-                                    ('TOPPADDING',(0,0),(0,0),0),
-                                    ('BOTTOMPADDING',(0,0),(0,0),0)]))
+    if _hero_path:
+        story.append(HeroWithTitle(_hero_path, W, HERO_H, 'Tu selección de materiales'))
     else:
-        story.append(_block(C_SOFT, W, H*0.22))
-
-    # ── "Tu selección de materiales" — franja teal debajo del hero ──
-    story.append(Table([[
-        Paragraph('Tu selección de materiales',
-                   PS('_ht', fontName='Helvetica-Bold', fontSize=17,
-                      textColor=C_WHITE, alignment=1, leading=21)),
-    ]], colWidths=[W],
-    style=[('BACKGROUND',(0,0),(0,0), C_ACCENT2),
-           ('LEFTPADDING',(0,0),(0,0),20),('RIGHTPADDING',(0,0),(0,0),20),
-           ('TOPPADDING',(0,0),(0,0),10),('BOTTOMPADDING',(0,0),(0,0),10)]))
+        # Fallback sin imagen
+        story.append(Table([[
+            Paragraph('Tu selección de materiales',
+                       PS('_ht', fontName='Helvetica-Bold', fontSize=18,
+                          textColor=C_WHITE, alignment=1))
+        ]], colWidths=[W],
+        style=[('BACKGROUND',(0,0),(0,0),C_ACCENT2),
+               ('LEFTPADDING',(0,0),(0,0),20),('RIGHTPADDING',(0,0),(0,0),20),
+               ('TOPPADDING',(0,0),(0,0),40),('BOTTOMPADDING',(0,0),(0,0),40)]))
 
     # ── Subtítulo ──
-    story.append(Table([[
+    sub = Table([[
         Paragraph('Tu detalle de selecciones',
                    PS('_ds', fontName='Helvetica-Bold', fontSize=13,
                       textColor=C_DARK, leading=16)),
         Paragraph(f'{_pct}% completado  ·  {_don}/{_tot} secciones',
                    PS('_ds2', fontName='Helvetica', fontSize=9,
                       textColor=C_MUTED, alignment=2)),
-    ]], colWidths=[CW*0.6, CW*0.4],
-    style=[('VALIGN',(0,0),(-1,-1),'MIDDLE'),
-           ('LEFTPADDING',(0,0),(0,0),LPAD),
-           ('RIGHTPADDING',(-1,0),(-1,0),RPAD),
-           ('TOPPADDING',(0,0),(-1,-1),14),
-           ('BOTTOMPADDING',(0,0),(-1,-1),6)]))
-
+    ]], colWidths=[CW*0.6, CW*0.4])
+    sub.setStyle(TableStyle([
+        ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
+        ('LEFTPADDING',(0,0),(0,0),LPAD),('RIGHTPADDING',(-1,0),(-1,0),RPAD),
+        ('TOPPADDING',(0,0),(-1,-1),14),('BOTTOMPADDING',(0,0),(-1,-1),6),
+    ]))
+    story.append(sub)
     story.append(Table([[_block(C_ACCENT,CW,2)]], colWidths=[W],
                         style=[('LEFTPADDING',(0,0),(0,0),LPAD),
                                 ('RIGHTPADDING',(0,0),(0,0),RPAD),
@@ -3508,23 +3529,24 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
         cats[cat].append(cfg)
 
     CARD_W = CW / 3
-    IMG_H  = 3.0*cm
+    IMG_H  = 2.8*cm
+    TITLE_H = 0.7*cm
 
     for cat_name in seen:
         cfgs = cats[cat_name]
 
+        # Header categoría — centrado
         cat_h = Table([[
             Paragraph(cat_name.upper(),
                        PS('_ch', fontName='Helvetica-Bold', fontSize=10,
-                          textColor=C_ACCENT2, leading=13)),
+                          textColor=C_ACCENT2, leading=13, alignment=1)),
         ]], colWidths=[CW])
         cat_h.setStyle(TableStyle([
             ('BACKGROUND',(0,0),(0,0), C_SOFT),
-            ('LEFTPADDING',(0,0),(0,0), LPAD),
-            ('RIGHTPADDING',(0,0),(0,0), RPAD),
-            ('TOPPADDING',(0,0),(0,0), 8),
-            ('BOTTOMPADDING',(0,0),(0,0), 6),
+            ('LEFTPADDING',(0,0),(0,0),LPAD),('RIGHTPADDING',(0,0),(0,0),RPAD),
+            ('TOPPADDING',(0,0),(0,0),7),('BOTTOMPADDING',(0,0),(0,0),6),
             ('LINEBELOW',(0,0),(0,0), 1.5, C_ACCENT),
+            ('ALIGN',(0,0),(0,0),'CENTER'),
         ]))
         cat_wrap = Table([[cat_h]], colWidths=[W])
         cat_wrap.setStyle(TableStyle([
@@ -3551,66 +3573,61 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
                 nom_sel = idata.get('nombre', sel_val)
                 visual  = None
                 if tipo == 'color' and hex_val:
-                    sw  = _swatch(hex_val, CARD_W-0.5*cm, IMG_H-0.8*cm)
-                    hx  = hex_val if hex_val.startswith('#') else f'#{hex_val}'
-                    visual = Table([[sw],[Paragraph(hx.upper(),
-                                    PS('_hx', fontName='Helvetica-Bold', fontSize=7,
-                                       textColor=C_MUTED, alignment=1))]],
-                                   colWidths=[CARD_W-0.5*cm])
-                    visual.setStyle(TableStyle([
-                        ('TOPPADDING',(0,0),(-1,-1),0),('BOTTOMPADDING',(0,0),(-1,-1),0),
-                        ('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),0),
-                        ('TOPPADDING',(0,1),(0,1),2),('BOTTOMPADDING',(0,1),(0,1),2),
-                    ]))
+                    visual = _swatch(hex_val, CARD_W-0.4*cm, IMG_H)
                 elif img_url:
-                    visual = _img_from_url(img_url, CARD_W-0.5*cm, IMG_H)
+                    visual = _img_from_url(img_url, CARD_W-0.4*cm, IMG_H)
                 if not visual:
                     visual = Table([[Paragraph(nom_sel[:14],
                                     PS('_fb', fontName='Helvetica-Bold', fontSize=9,
                                        textColor=C_ACCENT2, alignment=1))]],
-                                   colWidths=[CARD_W-0.5*cm], rowHeights=[IMG_H],
+                                   colWidths=[CARD_W-0.4*cm], rowHeights=[IMG_H],
                                    style=[('BACKGROUND',(0,0),(0,0),C_SOFT),
                                           ('VALIGN',(0,0),(0,0),'MIDDLE')])
                 card = Table([
+                    # 1. Título del ítem
+                    [Paragraph(tg, PS('_ct', fontName='Helvetica-Bold', fontSize=7.5,
+                                       textColor=C_MUTED, leading=10))],
+                    # 2. Visual
                     [visual],
-                    [Paragraph(tg, PS('_ct', fontName='Helvetica-Bold', fontSize=8,
-                                       textColor=C_TEXT, leading=10, spaceBefore=4))],
-                    [Paragraph(nom_sel[:28], PS('_cv', fontName='Helvetica', fontSize=7.5,
-                                                 textColor=C_MUTED, leading=10))],
+                    # 3. Nombre seleccionado
+                    [Paragraph(nom_sel[:28], PS('_cv', fontName='Helvetica-Bold',
+                                                 fontSize=8, textColor=C_TEXT, leading=10,
+                                                 spaceBefore=3))],
+                    # 4. Seleccionado
                     [Paragraph('✓  Seleccionado', PS('_ck', fontName='Helvetica-Bold',
                                                        fontSize=7.5, textColor=C_OK,
-                                                       spaceBefore=2, spaceAfter=5))],
+                                                       spaceBefore=1, spaceAfter=4))],
                 ], colWidths=[CARD_W-0.2*cm])
                 card.setStyle(TableStyle([
                     ('BOX',(0,0),(0,-1), 0.5, C_BORDER),
                     ('BACKGROUND',(0,0),(0,-1), C_WHITE),
-                    ('LEFTPADDING',(0,0),(0,0),0),('RIGHTPADDING',(0,0),(0,0),0),
-                    ('TOPPADDING',(0,0),(0,0),0),('BOTTOMPADDING',(0,0),(0,0),0),
-                    ('LEFTPADDING',(0,1),(0,-1),7),('RIGHTPADDING',(0,1),(0,-1),7),
-                    ('TOPPADDING',(0,1),(0,-1),2),('BOTTOMPADDING',(0,1),(0,-1),2),
-                    ('LINEBELOW',(0,0),(0,0), 2, C_ACCENT),
+                    ('LEFTPADDING',(0,0),(0,-1),6),('RIGHTPADDING',(0,0),(0,-1),6),
+                    ('TOPPADDING',(0,0),(0,0),5),('BOTTOMPADDING',(0,0),(0,0),4),
+                    ('LEFTPADDING',(0,1),(0,1),0),('RIGHTPADDING',(0,1),(0,1),0),
+                    ('TOPPADDING',(0,1),(0,1),0),('BOTTOMPADDING',(0,1),(0,1),0),
+                    ('LINEBELOW',(0,1),(0,1), 1.5, C_ACCENT),
                 ]))
             else:
                 card = Table([
+                    [Paragraph(tg, PS('_pt', fontName='Helvetica-Bold', fontSize=7.5,
+                                       textColor=C_MUTED, leading=10))],
                     [Table([[Paragraph('—', PS('_qm', fontName='Helvetica', fontSize=18,
                                                textColor=C_BORDER, alignment=1))]],
-                            colWidths=[CARD_W-0.5*cm], rowHeights=[IMG_H],
+                            colWidths=[CARD_W-0.4*cm], rowHeights=[IMG_H],
                             style=[('BACKGROUND',(0,0),(0,0),C_CARD),
                                    ('VALIGN',(0,0),(0,0),'MIDDLE')])],
-                    [Paragraph(tg, PS('_pt', fontName='Helvetica-Bold', fontSize=8,
-                                       textColor=C_TEXT, leading=10, spaceBefore=4))],
                     [Paragraph('Pendiente de selección',
                                 PS('_pp', fontName='Helvetica-Oblique',
-                                   fontSize=7.5, textColor=C_PEND, spaceAfter=5))],
+                                   fontSize=7.5, textColor=C_PEND, spaceAfter=4))],
                 ], colWidths=[CARD_W-0.2*cm])
                 card.setStyle(TableStyle([
                     ('BOX',(0,0),(0,-1), 0.5, C_BORDER),
                     ('BACKGROUND',(0,0),(0,-1), C_WHITE),
-                    ('LEFTPADDING',(0,0),(0,0),0),('RIGHTPADDING',(0,0),(0,0),0),
-                    ('TOPPADDING',(0,0),(0,0),0),('BOTTOMPADDING',(0,0),(0,0),0),
-                    ('LEFTPADDING',(0,1),(0,-1),7),('RIGHTPADDING',(0,1),(0,-1),7),
-                    ('TOPPADDING',(0,1),(0,-1),2),('BOTTOMPADDING',(0,1),(0,-1),2),
-                    ('LINEBELOW',(0,0),(0,0), 2, C_PEND),
+                    ('LEFTPADDING',(0,0),(0,-1),6),('RIGHTPADDING',(0,0),(0,-1),6),
+                    ('TOPPADDING',(0,0),(0,0),5),('BOTTOMPADDING',(0,0),(0,0),4),
+                    ('LEFTPADDING',(0,1),(0,1),0),('RIGHTPADDING',(0,1),(0,1),0),
+                    ('TOPPADDING',(0,1),(0,1),0),('BOTTOMPADDING',(0,1),(0,1),0),
+                    ('LINEBELOW',(0,1),(0,1), 1.5, C_PEND),
                 ]))
 
             row_cells.append(card)
@@ -3655,6 +3672,9 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
     style=[('LEFTPADDING',(0,0),(0,0),LPAD),('RIGHTPADDING',(-1,0),(-1,0),RPAD),
            ('TOPPADDING',(0,0),(-1,-1),0),('BOTTOMPADDING',(0,0),(-1,-1),10)]))
 
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            leftMargin=0, rightMargin=0,
+                            topMargin=0, bottomMargin=0)
     doc.build(story)
     buffer.seek(0)
     return buffer.read()
