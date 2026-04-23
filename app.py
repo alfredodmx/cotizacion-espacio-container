@@ -3542,13 +3542,20 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
                 c.setFillColor(colors.HexColor('#0a1628'))
                 c.roundRect(x, y, hw, hh, HEADER_R, fill=1, stroke=0)
             c.restoreState()
-            # Single overlay — bottom darker, top lighter
+            # Gradient overlay — 3 bands, no gaps, clipped to rounded rect
             c.saveState()
             p2 = c.beginPath()
             p2.roundRect(x, y, hw, hh, HEADER_R)
             c.clipPath(p2, stroke=0, fill=0)
-            c.setFillColorRGB(5/255, 10/255, 20/255, 0.45)
-            c.rect(x, y, hw, hh, fill=1, stroke=0)
+            # Top third — alpha 0.10
+            c.setFillColorRGB(0.02, 0.04, 0.08, 0.10)
+            c.rect(x, y + hh*0.66, hw, hh*0.34 + 2, fill=1, stroke=0)
+            # Middle third — alpha 0.25
+            c.setFillColorRGB(0.02, 0.04, 0.08, 0.25)
+            c.rect(x, y + hh*0.33, hw, hh*0.34, fill=1, stroke=0)
+            # Bottom third — alpha 0.50
+            c.setFillColorRGB(0.02, 0.04, 0.08, 0.50)
+            c.rect(x, y, hw, hh*0.34, fill=1, stroke=0)
             c.restoreState()
             # Box shadow — box-shadow:0 16px 48px rgba(10,22,40,0.28)
             for _si in range(8, 0, -1):
