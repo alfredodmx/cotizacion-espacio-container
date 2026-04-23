@@ -284,15 +284,12 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@700;900&family=Poppins:wght@400;600;700;900&display=swap");
 *{box-sizing:border-box;}
 body{margin:0;padding:0;font-family:Poppins,sans-serif;font-size:14px;background:#f0f4f8;}
-/* Hide Streamlit header inside iframe */
-#MainMenu,header,[data-testid="stHeader"],[data-testid="stToolbar"],footer{display:none!important;visibility:hidden!important;height:0!important;}
-.block-container{padding-top:0!important;margin-top:0!important;}
 .wrap{max-width:1000px;margin:0 auto;padding:0 0 32px;}
 /* Header */
-.header{''' + _hero_css + '''padding:0;margin:0 0 20px;border-radius:20px;color:white;box-shadow:0 16px 48px rgba(10,22,40,0.28);position:relative;overflow:hidden;min-height:260px;display:flex;flex-direction:column;justify-content:flex-end;}
-.header::before{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,rgba(5,10,20,0.15) 0%,rgba(5,10,20,0.65) 100%);border-radius:20px;}
+.header{''' + _hero_css + '''padding:0;margin:0 0 20px;border-radius:0 0 24px 24px;color:white;box-shadow:0 16px 48px rgba(10,22,40,0.28);position:relative;overflow:hidden;min-height:260px;display:flex;flex-direction:column;justify-content:flex-end;}
+.header::before{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,rgba(5,10,20,0.15) 0%,rgba(5,10,20,0.65) 100%);border-radius:0 0 24px 24px;}
 .h-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
-.h-inner{padding:24px 24px 22px;position:relative;z-index:1;}
+.h-inner{padding:26px 24px 24px;position:relative;z-index:1;}
 .h-badge{display:inline-block;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:99px;padding:3px 12px;font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;backdrop-filter:blur(4px);}
 .h-title{font-size:1.65rem;font-weight:900;line-height:1.15;margin-bottom:8px;font-family:Poppins,sans-serif;background:linear-gradient(90deg,#fff,#a8d8f0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
 .h-sub{font-size:0.82rem;opacity:0.7;line-height:1.5;margin-bottom:12px;}
