@@ -3472,92 +3472,142 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
             ('TOPPADDING',(0,0),(0,0),0),('BOTTOMPADDING',(0,0),(0,0),0)]))
         return t
 
-    # ── Flowable especial: Hero con texto centrado usando canvas ──
-    class HeroWithTitle(Flowable):
-        def __init__(self, img_path, page_w, height, title):
-            Flowable.__init__(self)
-            self.img_path  = img_path
-            self.page_w    = page_w
-            self.width     = page_w
-            self.height    = height
-            self.title     = title
-        def wrap(self, *args):
-            return self.page_w, self.height
-        def draw(self):
-            c = self.canv
-            # Obtener posicion x del frame para compensar
-            x_off = -self._frame._x1 if hasattr(self, '_frame') else 0
-            try:
-                x_off = -self.canv._doctemplate.frame._x1
-            except: pass
-            # Dibujar imagen desde x_off para cubrir ancho total
-            try:
-                c.drawImage(self.img_path, x_off, 0,
-                            width=self.page_w, height=self.height,
-                            preserveAspectRatio=False)
-            except:
-                c.setFillColor(colors.HexColor('#cbd5e1'))
-                c.rect(x_off, 0, self.page_w, self.height, fill=1, stroke=0)
-
-            # Overlay suave centrado verticalmente
-            txt_h = 44
-            txt_y = (self.height - txt_h) / 2
-            c.setFillColor(colors.HexColor('#0d948859'))
-            c.roundRect(x_off + self.page_w*0.1, txt_y,
-                        self.page_w*0.8, txt_h, 6, fill=1, stroke=0)
-
-            # Texto centrado
-            c.setFillColor(colors.white)
-            c.setFont('Helvetica-Bold', 18)
-            c.drawCentredString(x_off + self.page_w/2, txt_y + 13, self.title)
-
     LPAD = 1.5*cm
     RPAD = 1.5*cm
     CW   = W - LPAD - RPAD
 
     story = []
 
-    # ── Logo ──
+    # ── Logo — mismo tamaño que formulario cliente (49px height) ──
     logo_cell = Paragraph('ESPACIO CONTAINER HOUSE',
                            PS('_lc', fontName='Helvetica-Bold', fontSize=13, textColor=C_DARK))
     try:
         pil_l = _PIL.open('logo.png')
         lw, lh = pil_l.size
-        target_w = 5.2*cm
-        target_h = 2.0*cm
-        ratio = min(target_w/lw, target_h/lh)
+        # 49px = 1.73cm
+        target_h = 1.73*cm
+        ratio = target_h / lh
         logo_cell = _RLImage('logo.png', width=lw*ratio, height=lh*ratio)
     except: pass
 
-    # ── HEADER ──
-    cli_info = Table([
-        [Paragraph(nombre_cliente or '—',
-                    PS('_cn', fontName='Helvetica-Bold', fontSize=10,
-                       textColor=C_DARK, alignment=2))],
-        [Paragraph(f'Proyecto {ep}  ·  {fecha_formulario or _nstr}',
-                    PS('_ep', fontName='Helvetica', fontSize=8,
-                       textColor=C_MUTED, alignment=2))],
-        [Paragraph(f'{_don} de {_tot} secciones completadas — {_pct}%',
-                    PS('_pg', fontName='Helvetica-Bold', fontSize=8,
-                       textColor=C_ACCENT2, alignment=2))],
-    ], colWidths=[W*0.50])
-    cli_info.setStyle(TableStyle([
-        ('TOPPADDING',(0,0),(-1,-1),2),('BOTTOMPADDING',(0,0),(-1,-1),2),
-        ('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),0),
-    ]))
-    header = Table([[logo_cell, cli_info]], colWidths=[W*0.42, W*0.58])
-    header.setStyle(TableStyle([
-        ('BACKGROUND',(0,0),(-1,-1), C_WHITE),
-        ('LEFTPADDING',(0,0),(0,0), 22),
-        ('RIGHTPADDING',(1,0),(1,0), 22),
-        ('LEFTPADDING',(1,0),(1,0), 0),
-        ('TOPPADDING',(0,0),(-1,-1), 14),
-        ('BOTTOMPADDING',(0,0),(-1,-1), 12),
-        ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
-        ('ALIGN',(1,0),(1,0),'RIGHT'),
-        ('LINEBELOW',(0,0),(-1,-1), 2, C_ACCENT),
-    ]))
-    story.append(header)
+    # ── HEADER — clase HeroWithTitle replica formulario cliente ──
+    # Mismas proporciones: margin 20px lados, border-radius 20px, min-height 260px
+    MARGIN_SIDE = 20  # 20px lados
+    HEADER_W    = W - (MARGIN_SIDE * 2)
+    HEADER_H    = 7.6*cm  # ~260px en PDF
+    HEADER_R    = 14  # border-radius 20px ≈ 14pt en PDF
+
+    class HeaderFlowable(Flowable):
+        def __init__(self):
+            Flowable.__init__(self)
+            self.width  = W
+            self.height = HEADER_H + MARGIN_SIDE
+        def wrap(self, *args):
+            return self.width, self.height
+        def draw(self):
+            c = self.canv
+            x = MARGIN_SIDE
+            y = 0
+            hw = HEADER_W
+            hh = HEADER_H
+            # Draw hero image clipped to rounded rect
+            c.saveState()
+            p = c.beginPath()
+            p.roundRect(x, y, hw, hh, HEADER_R)
+            c.clipPath(p, stroke=0, fill=0)
+            try:
+                c.drawImage(_hero_path, x, y, width=hw, height=hh,
+                            preserveAspectRatio=False)
+            except:
+                c.setFillColor(colors.HexColor('#0a1628'))
+                c.roundRect(x, y, hw, hh, HEADER_R, fill=1, stroke=0)
+            c.restoreState()
+            # Gradient overlay — rgba(5,10,20,0.15) top to rgba(5,10,20,0.65) bottom
+            steps = 20
+            for i in range(steps):
+                t    = i / steps
+                alpha = 0.15 + t * 0.50
+                gy   = y + (hh / steps) * i
+                gh   = hh / steps + 1
+                c.saveState()
+                p2 = c.beginPath()
+                p2.roundRect(x, y, hw, hh, HEADER_R)
+                c.clipPath(p2, stroke=0, fill=0)
+                c.setFillColorRGB(5/255, 10/255, 20/255, alpha)
+                c.rect(x, gy, hw, gh, fill=1, stroke=0)
+                c.restoreState()
+            # Box shadow simulation (subtle dark border)
+            c.saveState()
+            c.setStrokeColor(colors.HexColor('#0a1628'))
+            c.setLineWidth(0.5)
+            c.roundRect(x, y, hw, hh, HEADER_R, fill=0, stroke=1)
+            c.restoreState()
+            # ── Inner content — same padding as h-inner: 24px ──
+            PAD = 24
+            cx  = x + PAD
+            # Logo — top right (h-top: justify-content:space-between)
+            try:
+                pil_l = _PIL.open('logo.png')
+                lw2, lh2 = pil_l.size
+                target_h2 = 1.73*cm
+                ratio2 = target_h2 / lh2
+                logo_w2 = lw2 * ratio2
+                logo_x  = x + hw - PAD - logo_w2
+                logo_y  = y + hh - PAD - target_h2
+                c.drawImage('logo.png', logo_x, logo_y,
+                            width=logo_w2, height=target_h2,
+                            preserveAspectRatio=True, mask='auto')
+            except: pass
+            # h-badge — '✦ Tu selección de materiales ✦'
+            badge_y = y + hh - PAD - 1.73*cm - 0.5*cm
+            c.saveState()
+            c.setFillColorRGB(1,1,1,0.15)
+            c.setStrokeColorRGB(1,1,1,0.3)
+            c.setLineWidth(0.5)
+            c.roundRect(cx, badge_y - 2, 5.5*cm, 0.45*cm, 8, fill=1, stroke=1)
+            c.setFillColor(colors.white)
+            c.setFont('Helvetica-Bold', 6.5)
+            c.drawString(cx + 8, badge_y + 3, '\u2736 TU SELECCI\u00d3N DE MATERIALES \u2736')
+            c.restoreState()
+            # h-title — 'Bienvenida/o, {nombre}'
+            title_y = badge_y - 1.4*cm
+            c.setFillColor(colors.white)
+            c.setFont('Helvetica-Bold', 22)
+            _primer = (nombre_cliente or 'Cliente').split()[0]
+            c.drawString(cx, title_y + 0.5*cm, f'Bienvenida/o, {_primer}')
+            # h-sub
+            c.setFont('Helvetica', 8)
+            c.setFillColorRGB(1,1,1,0.7)
+            c.drawString(cx, title_y - 0.1*cm,
+                         'Selecciones de materiales para tu proyecto container')
+            # h-ep
+            c.saveState()
+            c.setFillColorRGB(1,1,1,0.1)
+            c.setStrokeColorRGB(1,1,1,0.15)
+            c.roundRect(cx, y + PAD, 3.5*cm, 0.45*cm, 8, fill=1, stroke=1)
+            c.setFillColor(colors.white)
+            c.setFont('Helvetica-Bold', 7.5)
+            c.drawString(cx + 8, y + PAD + 5, f'\U0001f4cb {ep}')
+            c.restoreState()
+            # prog-bar — mismo estilo: rgba(255,255,255,0.12) bg, gradient fill
+            bar_y  = y + PAD + 0.55*cm
+            bar_w  = hw - PAD*2
+            bar_h  = 5
+            c.saveState()
+            c.setFillColorRGB(1,1,1,0.12)
+            c.roundRect(cx, bar_y, bar_w, bar_h, 2, fill=1, stroke=0)
+            fill_w = max(4.0, (_pct/100.0) * bar_w)
+            c.setFillColor(colors.HexColor('#48cae4'))
+            c.roundRect(cx, bar_y, fill_w, bar_h, 2, fill=1, stroke=0)
+            c.restoreState()
+            # prog-lbl
+            c.setFont('Helvetica', 6)
+            c.setFillColorRGB(1,1,1,0.6)
+            c.drawString(cx, bar_y + bar_h + 3,
+                         f'{_don} de {_tot} secciones completadas \u2014 {_pct}%')
+
+    story.append(Spacer(1, MARGIN_SIDE))
+    story.append(HeaderFlowable())
 
     # ── HERO con título centrado ──
     HERO_H = H * 0.32
@@ -3566,20 +3616,6 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
         if _os_s.path.exists(_fn):
             _hero_path = _fn
             break
-    if _hero_path:
-        _hero_fl = HeroWithTitle(_hero_path, W, HERO_H, 'Tu selección de materiales')
-        _hero_fl.hAlign = 'CENTER'
-        story.append(_hero_fl)
-    else:
-        # Fallback sin imagen
-        story.append(Table([[
-            Paragraph('Tu selección de materiales',
-                       PS('_ht', fontName='Helvetica-Bold', fontSize=18,
-                          textColor=C_WHITE, alignment=1))
-        ]], colWidths=[W],
-        style=[('BACKGROUND',(0,0),(0,0),C_ACCENT2),
-               ('LEFTPADDING',(0,0),(0,0),20),('RIGHTPADDING',(0,0),(0,0),20),
-               ('TOPPADDING',(0,0),(0,0),40),('BOTTOMPADDING',(0,0),(0,0),40)]))
 
     # ── Subtítulo ──
     sub = Table([[
