@@ -3532,8 +3532,11 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
                 _ox = (_sw - _pw) // 2
                 _oy = (_sh - _ph) // 2
                 _hp = _hp.crop((_ox, _oy, _ox+_pw, _oy+_ph))
-                # No overlay — imagen original
+                # Brighten image slightly to compensate for PDF rendering
+                from PIL import ImageEnhance as _IE
                 _hp = _hp.convert('RGB')
+                _hp = _IE.Brightness(_hp).enhance(1.25)  # +25% brightness
+                _hp = _IE.Contrast(_hp).enhance(1.05)
                 _buf = _io_s.BytesIO()
                 _hp.save(_buf, format='JPEG', quality=92)
                 _buf.seek(0)
@@ -3632,8 +3635,9 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
             c.drawString(cx, bar_y + bar_h + 3,
                          f'{_don} de {_tot} secciones completadas \u2014 {_pct}%')
 
-    story.append(Spacer(1, 14))
+    story.append(Spacer(1, 6))
     story.append(HeaderFlowable())
+    story.append(Spacer(1, 0.5*cm))
 
     # ── HERO con título centrado ──
     HERO_H = H * 0.32
