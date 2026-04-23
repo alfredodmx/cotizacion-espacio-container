@@ -3532,13 +3532,12 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
                 _ox = (_sw - _pw) // 2
                 _oy = (_sh - _ph) // 2
                 _hp = _hp.crop((_ox, _oy, _ox+_pw, _oy+_ph))
-                # Gradient overlay — top to bottom alpha 0.15→0.65
+                # Gradient overlay — mismo CSS: top 0.15 → bottom 0.55
                 _ov = _PILImg.new('RGBA', (_pw, _ph), (0,0,0,0))
                 _draw = _ID.Draw(_ov)
                 for _row in range(_ph):
                     _t = _row / _ph  # 0=top, 1=bottom (PIL y goes down)
-                    # top of image = top of PDF header = less dark
-                    _a = int((0.15 + _t * 0.50) * 255)
+                    _a = int((0.10 + _t * 0.30) * 255)  # max 0.40 at bottom
                     _draw.line([0, _row, _pw, _row], fill=(5, 10, 20, _a))
                 _hp = _PILImg.alpha_composite(_hp, _ov).convert('RGB')
                 _buf = _io_s.BytesIO()
