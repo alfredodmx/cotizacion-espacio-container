@@ -136,7 +136,7 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
     import json
 
     primer_nombre = nombre_cliente.split()[0].capitalize() if nombre_cliente else 'Cliente'
-    logo_html = ('<img src="data:image/png;base64,' + logo_b64 + '" style="height:36px;object-fit:contain;">') if logo_b64 else ''
+    logo_html = ('<img src="data:image/png;base64,' + logo_b64 + '" style="height:49px;width:auto;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.25));">') if logo_b64 else ''
 
     # Lookup item by id
     items_by_id = {str(it['id']): it for it in cat_items}
