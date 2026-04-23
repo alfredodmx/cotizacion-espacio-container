@@ -3532,13 +3532,10 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
                 _ox = (_sw - _pw) // 2
                 _oy = (_sh - _ph) // 2
                 _hp = _hp.crop((_ox, _oy, _ox+_pw, _oy+_ph))
-                # Brighten image slightly to compensate for PDF rendering
-                from PIL import ImageEnhance as _IE
                 _hp = _hp.convert('RGB')
-                _hp = _IE.Brightness(_hp).enhance(1.60)  # +60% brightness
-                _hp = _IE.Contrast(_hp).enhance(1.05)
                 _buf = _io_s.BytesIO()
-                _hp.save(_buf, format='JPEG', quality=92)
+                # PNG preserves colors exactly — no JPEG darkening
+                _hp.save(_buf, format='PNG')
                 _buf.seek(0)
                 c.drawImage(_IR(_buf), x, y, width=hw, height=hh,
                             preserveAspectRatio=False)
@@ -3546,16 +3543,14 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
                 c.setFillColor(colors.HexColor('#0a1628'))
                 c.roundRect(x, y, hw, hh, HEADER_R, fill=1, stroke=0)
             c.restoreState()
-            # Box shadow — box-shadow:0 16px 48px rgba(10,22,40,0.28)
-            for _si in range(8, 0, -1):
-                _sa = 0.028 * (9 - _si)
-                _sx = x - _si
-                _sy = y - _si * 2
-                _sw2 = hw + _si * 2
-                _sh2 = hh + _si * 2
+            # Soft shadow — CSS box-shadow:0 16px 48px rgba(10,22,40,0.28)
+            for _si in range(12, 0, -1):
+                _sa = 0.028 * _si / 12 * 0.8
                 c.saveState()
                 c.setFillColorRGB(10/255, 22/255, 40/255, _sa)
-                c.roundRect(_sx, _sy, _sw2, _sh2, HEADER_R + _si, fill=1, stroke=0)
+                c.roundRect(x - _si*0.5, y - _si*1.2,
+                            hw + _si, hh + _si*0.3,
+                            HEADER_R + _si*0.5, fill=1, stroke=0)
                 c.restoreState()
             # ── Inner content — same padding as h-inner: 24px ──
             PAD = 24
