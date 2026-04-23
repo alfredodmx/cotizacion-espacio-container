@@ -132,7 +132,7 @@ def _fetch_formulario_config(ep):
             .eq('cotizacion_numero', ep).execute().data or []
     except: return []
 
-def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, supa_key, ep, nombre_cliente, logo_b64=''):
+def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, supa_key, ep, nombre_cliente, logo_b64='', hero_b64=''):
     import json
 
     primer_nombre = nombre_cliente.split()[0].capitalize() if nombre_cliente else 'Cliente'
@@ -279,16 +279,18 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
 
     resps_j = json.dumps(resps_map, ensure_ascii=True)
 
+    _hero_css = ('background-image:url(data:image/jpeg;base64,' + hero_b64 + ');background-size:cover;background-position:center;' if hero_b64 else 'background:linear-gradient(135deg,#0a1628,#0f3460,#1a5276);')
     css = '''
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@700;900&family=Poppins:wght@400;600;700;900&display=swap");
 *{box-sizing:border-box;}
 body{margin:0;padding:0;font-family:Poppins,sans-serif;font-size:14px;background:#f0f4f8;}
 .wrap{max-width:1000px;margin:0 auto;padding:0 0 32px;}
 /* Header */
-.header{background:linear-gradient(135deg,#0a1628,#0f3460,#1a5276);padding:26px 24px 22px;margin:12px 16px 20px;border-radius:20px;color:white;box-shadow:0 16px 48px rgba(10,22,40,0.28);position:relative;overflow:hidden;}
-.header::before{content:"";position:absolute;top:-50px;right:-50px;width:220px;height:220px;background:radial-gradient(circle,rgba(255,255,255,0.06),transparent 70%);border-radius:50%;pointer-events:none;}
+.header{''' + _hero_css + '''padding:0;margin:0 0 20px;border-radius:0 0 24px 24px;color:white;box-shadow:0 16px 48px rgba(10,22,40,0.28);position:relative;overflow:hidden;min-height:260px;display:flex;flex-direction:column;justify-content:flex-end;}
+.header::before{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,rgba(5,10,20,0.15) 0%,rgba(5,10,20,0.65) 100%);border-radius:0 0 24px 24px;}
 .h-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
-.h-badge{display:inline-block;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.18);border-radius:99px;padding:3px 12px;font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;}
+.h-inner{padding:26px 24px 24px;position:relative;z-index:1;}
+.h-badge{display:inline-block;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:99px;padding:3px 12px;font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;backdrop-filter:blur(4px);}
 .h-title{font-size:1.65rem;font-weight:900;line-height:1.15;margin-bottom:8px;font-family:Poppins,sans-serif;background:linear-gradient(90deg,#fff,#a8d8f0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
 .h-sub{font-size:0.82rem;opacity:0.7;line-height:1.5;margin-bottom:12px;}
 .h-ep{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);border-radius:99px;padding:4px 14px;font-size:0.75rem;font-weight:700;}
@@ -440,6 +442,7 @@ async function guardar(){
         '<style>' + css + '</style></head><body>'
         '<div class="wrap">'
         '<div class="header">'
+        '<div class="h-inner">'
         '<div class="h-top">'
         '<div class="h-badge">✦ Tu selección de materiales ✦</div>'
         '<div>' + logo_html + '</div>'
@@ -449,6 +452,7 @@ async function guardar(){
         '<div class="h-ep">📋 ' + ep + '</div>'
         '<div class="prog-bar"><div class="prog-fill" style="width:' + str(pct) + '%;"></div></div>'
         '<div class="prog-lbl">' + str(resp_grupos) + ' de ' + str(total_grupos) + ' completadas — ' + str(pct) + '%</div>'
+        '</div>'
         '</div>'
         + body_html
         + popups_html
@@ -908,9 +912,20 @@ if _modo_cliente:
             except:
                 _resps_map = {}
             import streamlit.components.v1 as _form_comp
+            # Load hero image
+            _hero_b64_cli = ''
+            try:
+                import base64 as _b64_hero, os as _os_hero
+                if _os_hero.path.exists('hero.jpeg'):
+                    with open('hero.jpeg','rb') as _hf:
+                        _hero_b64_cli = _b64_hero.b64encode(_hf.read()).decode()
+                elif _os_hero.path.exists('hero.jpg'):
+                    with open('hero.jpg','rb') as _hf:
+                        _hero_b64_cli = _b64_hero.b64encode(_hf.read()).decode()
+            except: pass
             _form_html = build_formulario_cliente_html(
                 _cat_cli, _cfg_cli, _resps_map, SUPABASE_URL, SUPABASE_KEY,
-                _ep_cli, _nom_cli, _logo_b64_cli
+                _ep_cli, _nom_cli, _logo_b64_cli, hero_b64=_hero_b64_cli
             )
             _resize_js = '<script>window.onload=function(){var h=document.body.scrollHeight;window.parent.postMessage({type:"streamlit:setFrameHeight",height:h},"*");setTimeout(function(){var h2=document.body.scrollHeight;window.parent.postMessage({type:"streamlit:setFrameHeight",height:h2},"*");},600);};</script>'
             _form_html = _form_html.replace('</body>', _resize_js + '</body>')
