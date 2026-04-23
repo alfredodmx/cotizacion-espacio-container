@@ -3535,7 +3535,7 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
                 # Brighten image slightly to compensate for PDF rendering
                 from PIL import ImageEnhance as _IE
                 _hp = _hp.convert('RGB')
-                _hp = _IE.Brightness(_hp).enhance(1.25)  # +25% brightness
+                _hp = _IE.Brightness(_hp).enhance(1.60)  # +60% brightness
                 _hp = _IE.Contrast(_hp).enhance(1.05)
                 _buf = _io_s.BytesIO()
                 _hp.save(_buf, format='JPEG', quality=92)
