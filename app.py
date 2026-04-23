@@ -3482,12 +3482,13 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
     logo_cell = Paragraph('ESPACIO CONTAINER HOUSE',
                            PS('_lc', fontName='Helvetica-Bold', fontSize=13, textColor=C_DARK))
     try:
-        pil_l = _PIL.open('logo.png')
+        _logo_file = 'logo3.png' if _os_s.path.exists('logo3.png') else 'logo.png'
+        pil_l = _PIL.open(_logo_file)
         lw, lh = pil_l.size
         # 49px = 1.73cm
         target_h = 1.73*cm
         ratio = target_h / lh
-        logo_cell = _RLImage('logo.png', width=lw*ratio, height=lh*ratio)
+        logo_cell = _RLImage(_logo_file, width=lw*ratio, height=lh*ratio)
     except: pass
 
     # ── HEADER — clase HeroWithTitle replica formulario cliente ──
@@ -3495,7 +3496,7 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
     MARGIN_SIDE = 20  # 20px lados
     HEADER_W    = W - (MARGIN_SIDE * 2)
     HEADER_H    = 7.6*cm  # ~260px en PDF
-    HEADER_R    = 14  # border-radius 20px ≈ 14pt en PDF
+    HEADER_R    = 20  # border-radius 20px exacto
 
     class HeaderFlowable(Flowable):
         def __init__(self):
@@ -3516,8 +3517,26 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
             p.roundRect(x, y, hw, hh, HEADER_R)
             c.clipPath(p, stroke=0, fill=0)
             try:
-                c.drawImage(_hero_path, x, y, width=hw, height=hh,
-                            preserveAspectRatio=False)
+                # CSS background-size:cover — crop center
+                try:
+                    _hp = _PIL.open(_hero_path)
+                    _iw, _ih = _hp.size
+                    _scale = max(hw/_iw, hh/_ih)
+                    _sw = int(_iw * _scale)
+                    _sh = int(_ih * _scale)
+                    _ox = (_sw - hw) / 2
+                    _oy = (_sh - hh) / 2
+                    _cropped = _hp.resize((_sw, _sh), _PIL.LANCZOS)
+                    _cropped = _cropped.crop((int(_ox), int(_oy),
+                                              int(_ox+hw), int(_oy+hh)))
+                    _buf = _io_s.BytesIO()
+                    _cropped.save(_buf, format='JPEG', quality=92)
+                    _buf.seek(0)
+                    c.drawImage(_RLImage(_buf, width=hw, height=hh), x, y,
+                                width=hw, height=hh)
+                except:
+                    c.drawImage(_hero_path, x, y, width=hw, height=hh,
+                                preserveAspectRatio=False)
             except:
                 c.setFillColor(colors.HexColor('#0a1628'))
                 c.roundRect(x, y, hw, hh, HEADER_R, fill=1, stroke=0)
@@ -3536,25 +3555,31 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
                 c.setFillColorRGB(5/255, 10/255, 20/255, alpha)
                 c.rect(x, gy, hw, gh, fill=1, stroke=0)
                 c.restoreState()
-            # Box shadow simulation (subtle dark border)
-            c.saveState()
-            c.setStrokeColor(colors.HexColor('#0a1628'))
-            c.setLineWidth(0.5)
-            c.roundRect(x, y, hw, hh, HEADER_R, fill=0, stroke=1)
-            c.restoreState()
+            # Box shadow — box-shadow:0 16px 48px rgba(10,22,40,0.28)
+            for _si in range(8, 0, -1):
+                _sa = 0.028 * (9 - _si)
+                _sx = x - _si
+                _sy = y - _si * 2
+                _sw2 = hw + _si * 2
+                _sh2 = hh + _si * 2
+                c.saveState()
+                c.setFillColorRGB(10/255, 22/255, 40/255, _sa)
+                c.roundRect(_sx, _sy, _sw2, _sh2, HEADER_R + _si, fill=1, stroke=0)
+                c.restoreState()
             # ── Inner content — same padding as h-inner: 24px ──
             PAD = 24
             cx  = x + PAD
             # Logo — top right (h-top: justify-content:space-between)
             try:
-                pil_l = _PIL.open('logo.png')
+                _lf2 = 'logo3.png' if _os_s.path.exists('logo3.png') else 'logo.png'
+                pil_l = _PIL.open(_lf2)
                 lw2, lh2 = pil_l.size
                 target_h2 = 1.73*cm
                 ratio2 = target_h2 / lh2
                 logo_w2 = lw2 * ratio2
                 logo_x  = x + hw - PAD - logo_w2
                 logo_y  = y + hh - PAD - target_h2
-                c.drawImage('logo.png', logo_x, logo_y,
+                c.drawImage(_lf2, logo_x, logo_y,
                             width=logo_w2, height=target_h2,
                             preserveAspectRatio=True, mask='auto')
             except: pass
