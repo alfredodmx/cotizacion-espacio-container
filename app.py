@@ -3532,9 +3532,17 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
                 _ox = (_sw - _pw) // 2
                 _oy = (_sh - _ph) // 2
                 _hp = _hp.crop((_ox, _oy, _ox+_pw, _oy+_ph))
+                from PIL import ImageDraw as _ID2
+                _hp = _hp.convert('RGBA')
+                # 30% dark overlay bottom-only
+                _ov2 = _ID2.Draw(_hp)
+                _ph2 = _hp.size[1]
+                for _r in range(_ph2):
+                    _t2 = _r / _ph2
+                    _a2 = int(_t2 * 0.30 * 255)
+                    _ov2.line([(0,_r),(_hp.size[0],_r)], fill=(5,10,20,_a2))
                 _hp = _hp.convert('RGB')
                 _buf = _io_s.BytesIO()
-                # PNG preserves colors exactly — no JPEG darkening
                 _hp.save(_buf, format='PNG')
                 _buf.seek(0)
                 c.drawImage(_IR(_buf), x, y, width=hw, height=hh,
