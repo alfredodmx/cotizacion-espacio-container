@@ -3532,14 +3532,8 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
                 _ox = (_sw - _pw) // 2
                 _oy = (_sh - _ph) // 2
                 _hp = _hp.crop((_ox, _oy, _ox+_pw, _oy+_ph))
-                # Gradient overlay — mismo CSS: top 0.15 → bottom 0.55
-                _ov = _PILImg.new('RGBA', (_pw, _ph), (0,0,0,0))
-                _draw = _ID.Draw(_ov)
-                for _row in range(_ph):
-                    _t = _row / _ph  # 0=top, 1=bottom (PIL y goes down)
-                    _a = int((0.05 + _t * 0.20) * 255)  # max 0.25 at bottom
-                    _draw.line([0, _row, _pw, _row], fill=(5, 10, 20, _a))
-                _hp = _PILImg.alpha_composite(_hp, _ov).convert('RGB')
+                # No overlay — imagen original
+                _hp = _hp.convert('RGB')
                 _buf = _io_s.BytesIO()
                 _hp.save(_buf, format='JPEG', quality=92)
                 _buf.seek(0)
@@ -3638,7 +3632,7 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
             c.drawString(cx, bar_y + bar_h + 3,
                          f'{_don} de {_tot} secciones completadas \u2014 {_pct}%')
 
-    story.append(Spacer(1, MARGIN_SIDE + 20))
+    story.append(Spacer(1, 14))
     story.append(HeaderFlowable())
 
     # ── HERO con título centrado ──
