@@ -3532,8 +3532,9 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
                     _buf = _io_s.BytesIO()
                     _cropped.save(_buf, format='JPEG', quality=92)
                     _buf.seek(0)
-                    c.drawImage(_RLImage(_buf, width=hw, height=hh), x, y,
-                                width=hw, height=hh)
+                    from reportlab.lib.utils import ImageReader as _IR
+                    c.drawImage(_IR(_buf), x, y, width=hw, height=hh,
+                                preserveAspectRatio=False)
                 except:
                     c.drawImage(_hero_path, x, y, width=hw, height=hh,
                                 preserveAspectRatio=False)
@@ -3541,20 +3542,14 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
                 c.setFillColor(colors.HexColor('#0a1628'))
                 c.roundRect(x, y, hw, hh, HEADER_R, fill=1, stroke=0)
             c.restoreState()
-            # Gradient overlay — rgba(5,10,20,0.15) top to rgba(5,10,20,0.65) bottom
-            steps = 20
-            for i in range(steps):
-                t    = i / steps
-                alpha = 0.15 + t * 0.50
-                gy   = y + (hh / steps) * i
-                gh   = hh / steps + 1
-                c.saveState()
-                p2 = c.beginPath()
-                p2.roundRect(x, y, hw, hh, HEADER_R)
-                c.clipPath(p2, stroke=0, fill=0)
-                c.setFillColorRGB(5/255, 10/255, 20/255, alpha)
-                c.rect(x, gy, hw, gh, fill=1, stroke=0)
-                c.restoreState()
+            # Single overlay — bottom darker, top lighter
+            c.saveState()
+            p2 = c.beginPath()
+            p2.roundRect(x, y, hw, hh, HEADER_R)
+            c.clipPath(p2, stroke=0, fill=0)
+            c.setFillColorRGB(5/255, 10/255, 20/255, 0.45)
+            c.rect(x, y, hw, hh, fill=1, stroke=0)
+            c.restoreState()
             # Box shadow — box-shadow:0 16px 48px rgba(10,22,40,0.28)
             for _si in range(8, 0, -1):
                 _sa = 0.028 * (9 - _si)
@@ -3583,7 +3578,20 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
                             width=logo_w2, height=target_h2,
                             preserveAspectRatio=True, mask='auto')
             except: pass
+            # Font — try to use downloaded Poppins, fallback Helvetica-Bold
+            _font_bold = 'Helvetica-Bold'
+            _font_reg  = 'Helvetica'
+            try:
+                from reportlab.pdfbase import pdfmetrics
+                from reportlab.pdfbase.ttfonts import TTFont
+                import urllib.request as _ur
+                if not _os_s.path.exists('/tmp/Poppins-Bold.ttf'):
+                    _ur.urlretrieve('https://fonts.gstatic.com/s/poppins/v21/pxiByp8kv8JHgFVrLCz7Z1xlFd2JQEk.woff2', '/tmp/Poppins-Bold.ttf')
+                pdfmetrics.registerFont(TTFont('Poppins-Bold', '/tmp/Poppins-Bold.ttf'))
+                _font_bold = 'Poppins-Bold'
+            except: pass
             # h-badge — '✦ Tu selección de materiales ✦'
+
             badge_y = y + hh - PAD - 1.73*cm - 0.5*cm
             c.saveState()
             c.setFillColorRGB(1,1,1,0.15)
@@ -3597,7 +3605,7 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
             # h-title — 'Bienvenida/o, {nombre}'
             title_y = badge_y - 1.4*cm
             c.setFillColor(colors.white)
-            c.setFont('Helvetica-Bold', 22)
+            c.setFont(_font_bold, 22)
             _primer = (nombre_cliente or 'Cliente').split()[0]
             c.drawString(cx, title_y + 0.5*cm, f'Bienvenida/o, {_primer}')
             # h-sub
