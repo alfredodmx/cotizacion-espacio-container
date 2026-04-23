@@ -3512,50 +3512,43 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
             hw = HEADER_W
             hh = HEADER_H
             # Draw hero image clipped to rounded rect
+            # PIL: cover crop + gradient overlay in one step — no seams
             c.saveState()
             p = c.beginPath()
             p.roundRect(x, y, hw, hh, HEADER_R)
             c.clipPath(p, stroke=0, fill=0)
             try:
-                # CSS background-size:cover — crop center
-                try:
-                    _hp = _PIL.open(_hero_path)
-                    _iw, _ih = _hp.size
-                    _scale = max(hw/_iw, hh/_ih)
-                    _sw = int(_iw * _scale)
-                    _sh = int(_ih * _scale)
-                    _ox = (_sw - hw) / 2
-                    _oy = (_sh - hh) / 2
-                    _cropped = _hp.resize((_sw, _sh), _PIL.LANCZOS)
-                    _cropped = _cropped.crop((int(_ox), int(_oy),
-                                              int(_ox+hw), int(_oy+hh)))
-                    _buf = _io_s.BytesIO()
-                    _cropped.save(_buf, format='JPEG', quality=92)
-                    _buf.seek(0)
-                    from reportlab.lib.utils import ImageReader as _IR
-                    c.drawImage(_IR(_buf), x, y, width=hw, height=hh,
-                                preserveAspectRatio=False)
-                except:
-                    c.drawImage(_hero_path, x, y, width=hw, height=hh,
-                                preserveAspectRatio=False)
-            except:
+                from reportlab.lib.utils import ImageReader as _IR
+                from PIL import ImageDraw as _ID, Image as _PILImg
+                import numpy as _np
+                # Cover crop
+                _hp = _PILImg.open(_hero_path).convert('RGBA')
+                _iw, _ih = _hp.size
+                _pw, _ph = int(hw), int(hh)
+                _scale = max(_pw/_iw, _ph/_ih)
+                _sw = int(_iw * _scale)
+                _sh = int(_ih * _scale)
+                _hp = _hp.resize((_sw, _sh), _PILImg.LANCZOS)
+                _ox = (_sw - _pw) // 2
+                _oy = (_sh - _ph) // 2
+                _hp = _hp.crop((_ox, _oy, _ox+_pw, _oy+_ph))
+                # Gradient overlay — top to bottom alpha 0.15→0.65
+                _ov = _PILImg.new('RGBA', (_pw, _ph), (0,0,0,0))
+                _draw = _ID.Draw(_ov)
+                for _row in range(_ph):
+                    _t = _row / _ph  # 0=top, 1=bottom (PIL y goes down)
+                    # top of image = top of PDF header = less dark
+                    _a = int((0.15 + _t * 0.50) * 255)
+                    _draw.line([0, _row, _pw, _row], fill=(5, 10, 20, _a))
+                _hp = _PILImg.alpha_composite(_hp, _ov).convert('RGB')
+                _buf = _io_s.BytesIO()
+                _hp.save(_buf, format='JPEG', quality=92)
+                _buf.seek(0)
+                c.drawImage(_IR(_buf), x, y, width=hw, height=hh,
+                            preserveAspectRatio=False)
+            except Exception as _he:
                 c.setFillColor(colors.HexColor('#0a1628'))
                 c.roundRect(x, y, hw, hh, HEADER_R, fill=1, stroke=0)
-            c.restoreState()
-            # Gradient overlay — 3 bands, no gaps, clipped to rounded rect
-            c.saveState()
-            p2 = c.beginPath()
-            p2.roundRect(x, y, hw, hh, HEADER_R)
-            c.clipPath(p2, stroke=0, fill=0)
-            # Top third — alpha 0.10
-            c.setFillColorRGB(0.02, 0.04, 0.08, 0.10)
-            c.rect(x, y + hh*0.66, hw, hh*0.34 + 2, fill=1, stroke=0)
-            # Middle third — alpha 0.25
-            c.setFillColorRGB(0.02, 0.04, 0.08, 0.25)
-            c.rect(x, y + hh*0.33, hw, hh*0.34, fill=1, stroke=0)
-            # Bottom third — alpha 0.50
-            c.setFillColorRGB(0.02, 0.04, 0.08, 0.50)
-            c.rect(x, y, hw, hh*0.34, fill=1, stroke=0)
             c.restoreState()
             # Box shadow — box-shadow:0 16px 48px rgba(10,22,40,0.28)
             for _si in range(8, 0, -1):
