@@ -3841,8 +3841,8 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
         # Texto nota con wrapping manual
         from reportlab.lib.utils import simpleSplit
         _max_w = _nw - 16  # margen interno
-        _font_sz = 6.5
-        _line_h = 0.32*cm
+        _font_sz = 7.5
+        _line_h = 0.36*cm
         _ntxt_full = (
             'Estimado cliente, después de la elaboración de este formulario de selección de materiales '
             'de su proyecto, usted cuenta con 3 días para realizar modificaciones. '
@@ -3852,17 +3852,25 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
         )
         _lines = simpleSplit(_ntxt_full, 'Helvetica', _font_sz, _max_w)
         _nh = (len(_lines) + 1) * _line_h + 0.25*cm  # recalcular altura real
-        # Redibujar contenedor con altura real
-        canvas.setFillColor(colors.HexColor('#fff7ed'))
-        canvas.setStrokeColor(colors.HexColor('#fed7aa'))
-        canvas.roundRect(LPAD, _ny, _nw, _nh, 4, fill=1, stroke=1)
+        # Nota — diseño moderno azul oscuro
+        canvas.setFillColor(colors.HexColor('#eff6ff'))
+        canvas.setStrokeColor(colors.HexColor('#3b82f6'))
+        canvas.setLineWidth(1.5)
+        canvas.roundRect(LPAD, _ny, _nw, _nh, 6, fill=1, stroke=1)
+        # Franja izquierda azul
+        canvas.setFillColor(colors.HexColor('#1e40af'))
+        canvas.roundRect(LPAD, _ny, 0.28*cm, _nh, 6, fill=1, stroke=0)
+        canvas.rect(LPAD+0.14*cm, _ny, 0.14*cm, _nh, fill=1, stroke=0)
+        # Título
+        canvas.setFillColor(colors.HexColor('#1e40af'))
+        canvas.setFont('Helvetica-Bold', 8.5)
+        canvas.drawString(LPAD+0.42*cm, _ny+_nh-0.34*cm, '!  Nota importante')
+        # Texto
         canvas.setFillColor(colors.HexColor('#1e293b'))
-        canvas.setFont('Helvetica-Bold', 7)
-        canvas.drawString(LPAD+8, _ny+_nh-0.32*cm, 'Nota importante:')
         canvas.setFont('Helvetica', _font_sz)
         for _li, _lt in enumerate(_lines):
-            canvas.drawString(LPAD+8, _ny+_nh-0.32*cm-(_li+1)*_line_h, _lt)
-        # Línea teal
+            canvas.drawString(LPAD+0.42*cm, _ny+_nh-0.34*cm-(_li+1)*_line_h, _lt)
+        # Línea azul
         _ly = _ny + _nh + 0.12*cm
         canvas.setStrokeColor(C_ACCENT)
         canvas.setLineWidth(1)
