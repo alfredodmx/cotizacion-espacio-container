@@ -806,6 +806,7 @@ if _modo_cliente:
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&display=swap');
     #MainMenu,footer,[data-testid="stToolbar"],[data-testid="stDecoration"]{display:none!important;}
+    .stAppHeader,.st-emotion-cache-xi6p3a,[data-testid="stAppHeader"]{display:none!important;height:0!important;}
     .stApp{background:#f0f4f8 !important;}
     [data-testid="stAppViewContainer"]{background:#f0f4f8 !important;}
     iframe{border:none !important;background:#f0f4f8 !important;}
