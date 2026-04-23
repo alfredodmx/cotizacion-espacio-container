@@ -3537,7 +3537,7 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
                 _draw = _ID.Draw(_ov)
                 for _row in range(_ph):
                     _t = _row / _ph  # 0=top, 1=bottom (PIL y goes down)
-                    _a = int((0.10 + _t * 0.30) * 255)  # max 0.40 at bottom
+                    _a = int((0.05 + _t * 0.20) * 255)  # max 0.25 at bottom
                     _draw.line([0, _row, _pw, _row], fill=(5, 10, 20, _a))
                 _hp = _PILImg.alpha_composite(_hp, _ov).convert('RGB')
                 _buf = _io_s.BytesIO()
@@ -3638,7 +3638,7 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
             c.drawString(cx, bar_y + bar_h + 3,
                          f'{_don} de {_tot} secciones completadas \u2014 {_pct}%')
 
-    story.append(Spacer(1, MARGIN_SIDE))
+    story.append(Spacer(1, MARGIN_SIDE + 20))
     story.append(HeaderFlowable())
 
     # ── HERO con título centrado ──
