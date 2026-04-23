@@ -3422,12 +3422,12 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
     W, H = A4
     buffer = _io_s.BytesIO()
 
-    C_ACCENT  = colors.HexColor('#2dd4bf')
-    C_ACCENT2 = colors.HexColor('#0d9488')
-    C_SOFT    = colors.HexColor('#f0fdfa')
+    C_ACCENT  = colors.HexColor('#3b82f6')
+    C_ACCENT2 = colors.HexColor('#1e40af')
+    C_SOFT    = colors.HexColor('#eff6ff')
     C_WHITE   = colors.white
-    C_DARK    = colors.HexColor('#134e4a')
-    C_BORDER  = colors.HexColor('#ccfbf1')
+    C_DARK    = colors.HexColor('#1e3a5f')
+    C_BORDER  = colors.HexColor('#bfdbfe')
     C_MUTED   = colors.HexColor('#6b7280')
     C_OK      = colors.HexColor('#059669')
     C_PEND    = colors.HexColor('#f97316')
@@ -3532,7 +3532,10 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
                 _ox = (_sw - _pw) // 2
                 _oy = (_sh - _ph) // 2
                 _hp = _hp.crop((_ox, _oy, _ox+_pw, _oy+_ph))
-                _hp = _hp.convert('RGB')
+                # 30% overlay via alpha_composite
+                _hp_rgba = _hp.convert('RGBA')
+                _overlay = _PILImg.new('RGBA', _hp_rgba.size, (5, 10, 20, int(0.30 * 255)))
+                _hp = _PILImg.alpha_composite(_hp_rgba, _overlay).convert('RGB')
                 _buf = _io_s.BytesIO()
                 _hp.save(_buf, format='PNG')
                 _buf.seek(0)
@@ -3620,7 +3623,7 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
             c.setFillColorRGB(1,1,1,0.12)
             c.roundRect(cx, bar_y, bar_w, bar_h, 2, fill=1, stroke=0)
             fill_w = max(4.0, (_pct/100.0) * bar_w)
-            c.setFillColor(colors.HexColor('#48cae4'))
+            c.setFillColor(colors.HexColor('#3b82f6'))
             c.roundRect(cx, bar_y, fill_w, bar_h, 2, fill=1, stroke=0)
             c.restoreState()
             # prog-lbl
