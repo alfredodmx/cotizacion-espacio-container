@@ -251,8 +251,9 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
 
             # Si/No
             elif itipo == 'si_no':
-                si_it = group_items[0] if len(group_items) > 0 else {}
-                no_it = group_items[1] if len(group_items) > 1 else {}
+                # Buscar si_id y no_id por nombre, no por posición
+                si_it = next((x for x in group_items if x.get('nombre','').strip() in ('Sí','Si','sí','si','YES','Yes')), group_items[0] if group_items else {})
+                no_it = next((x for x in group_items if x.get('nombre','').strip() in ('No','NO','no')), group_items[1] if len(group_items)>1 else {})
                 si_id = str(si_it.get('id',''))
                 no_id = str(no_it.get('id',''))
                 si_sel = ' sel' if resps_map.get(si_id) in ('Sí','Si') else ''
@@ -3721,28 +3722,9 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
             tg  = cfg.get('titulo_grupo','')
             ids = [str(x) for x in (cfg.get('item_ids') or [])]
             sel_id = sel_val = None
-            # Buscar el iid que tiene valor en resps_map
-            # Para si_no: puede haber dos iids con valor — tomar el que
-            # coincide con el nombre del item en catálogo
             for iid in ids:
                 v = resps_map.get(str(iid))
-                if not v:
-                    continue
-                # Verificar contra catálogo si está disponible
-                _cat = mat_items_sel.get(str(iid), {})
-                _cat_nom = _cat.get('nombre', '')
-                if _cat_nom:
-                    # Item en catálogo: solo aceptar si valor == nombre del catálogo
-                    if v == _cat_nom:
-                        sel_id = iid; sel_val = v; break
-                else:
-                    # Item si_no/select: no está en catálogo, aceptar directamente
-                    sel_id = iid; sel_val = v; break
-            # Si no encontramos match por catálogo, tomar cualquiera con valor
-            if not sel_id:
-                for iid in ids:
-                    v = resps_map.get(str(iid))
-                    if v: sel_id = iid; sel_val = v; break
+                if v: sel_id = iid; sel_val = v; break
 
             if sel_id:
                 idata   = mat_items_sel.get(sel_id, {})
