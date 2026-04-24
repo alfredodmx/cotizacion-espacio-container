@@ -3721,9 +3721,22 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
             tg  = cfg.get('titulo_grupo','')
             ids = [str(x) for x in (cfg.get('item_ids') or [])]
             sel_id = sel_val = None
-            for iid in ids:
-                v = resps_map.get(str(iid))
-                if v: sel_id = iid; sel_val = v; break
+            # Collect all ids that have a saved value
+            _candidates = [(iid, resps_map.get(str(iid))) for iid in ids if resps_map.get(str(iid))]
+            if len(_candidates) == 1:
+                # Only one saved — use it
+                sel_id, sel_val = _candidates[0]
+            elif len(_candidates) > 1:
+                # Multiple saved (dirty data) — pick by matching value to item nombre
+                # Check mat_items_sel first
+                for _ciid, _cv in _candidates:
+                    _cdata = mat_items_sel.get(str(_ciid), {})
+                    _cnombre = _cdata.get('nombre', '')
+                    if _cnombre and _cnombre == _cv:
+                        sel_id = _ciid; sel_val = _cv; break
+                # If not found in catalog, just take last candidate
+                if not sel_id:
+                    sel_id, sel_val = _candidates[-1]
 
             if sel_id:
                 idata   = mat_items_sel.get(sel_id, {})
