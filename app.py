@@ -206,7 +206,7 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
                     nm = it.get('nombre','')
                     hx = it.get('hex','#ccc') or '#ccc'
                     sel = ' sel' if resps_map.get(iid) == nm else ''
-                    body_html += '<div class="c-item' + sel + '" id="ci-' + iid + '" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'color\')">'
+                    body_html += '<div class="c-item' + sel + '" id="ci-' + iid + '" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'color\')"">'
                     body_html += '<div class="c-color-block" style="background:' + hx + ';"><span class="c-check">✓</span></div>'
                     body_html += '<div class="c-name">' + nm + '</div>'
                     body_html += '</div>'
@@ -226,7 +226,7 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
                     url = it.get('imagen_url','') or ''
                     sel = ' sel' if resps_map.get(iid) == nm else ''
                     pid = 'pop-' + iid
-                    body_html += '<div class="i-item' + sel + '" id="ii-' + iid + '" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'imagen\')">'
+                    body_html += '<div class="i-item' + sel + '" id="ii-' + iid + '" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'imagen\')"">'
                     body_html += '<div class="i-circle">'
                     if url:
                         body_html += '<img src="' + url + '" alt="' + nm + '">'
@@ -278,6 +278,13 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
         body_html += '</div>'  # end cat-card
 
     resps_j = json.dumps(resps_map, ensure_ascii=True)
+    # grupos_map: {iid -> [all iids in same group]}
+    _gmap = {}
+    for cfg in config_data:
+        _ids = [str(x) for x in (cfg.get('item_ids') or [])]
+        for _id in _ids:
+            _gmap[_id] = _ids
+    grupos_j = json.dumps(_gmap, ensure_ascii=True)
 
     _hero_css = ('background-image:url(data:image/jpeg;base64,' + hero_b64 + ');background-size:cover;background-position:center;' if hero_b64 else 'background:linear-gradient(135deg,#0a1628,#0f3460,#1a5276);')
     css = '''
@@ -356,6 +363,7 @@ body{margin:0;padding:0;font-family:Poppins,sans-serif;font-size:14px;background
     js = '''
 var S="''' + supa_url + '''",K="''' + supa_key + '''",EP="''' + ep + '''";
 var R=''' + resps_j + ''';
+var G=''' + grupos_j + ''';
 var P={};
 
 function pick(iid,val,tipo){
@@ -408,6 +416,17 @@ async function guardar(){
   try{
     for(var i=0;i<entries.length;i++){
       var iid=entries[i][0],val=entries[i][1];
+      // Delete other items from same group first
+      var grp=G[iid]||[];
+      for(var j=0;j<grp.length;j++){
+        if(grp[j]!==iid){
+          await fetch(S+"/rest/v1/formulario_respuestas?cotizacion_numero=eq."+EP+"&item_id=eq."+grp[j],{
+            method:"DELETE",
+            headers:{"Authorization":"Bearer "+K,"apikey":K}
+          });
+          delete R[grp[j]];
+        }
+      }
       await fetch(S+"/rest/v1/formulario_respuestas",{
         method:"POST",
         headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json",
