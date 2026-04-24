@@ -3721,16 +3721,15 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
             tg  = cfg.get('titulo_grupo','')
             ids = [str(x) for x in (cfg.get('item_ids') or [])]
             sel_id = sel_val = None
-            # Build map of iid→nombre from mat_items_sel
-            _iid_nombres = {str(k): v.get('nombre','') for k,v in mat_items_sel.items()}
             for iid in ids:
                 v = resps_map.get(str(iid))
                 if v:
-                    # Verify: the saved value must match this item's nombre
-                    # This prevents si_id matching when No was selected
-                    _nombre_item = _iid_nombres.get(str(iid), '')
-                    if _nombre_item and v != _nombre_item:
-                        continue  # skip — this iid's value doesn't match its nombre
+                    # Si el item está en catálogo, verificar que el nombre coincida
+                    _idata_check = mat_items_sel.get(str(iid), {})
+                    _nombre_check = _idata_check.get('nombre', '')
+                    if _nombre_check and _nombre_check != v:
+                        continue  # catálogo dice otro nombre — no es este
+                    # Para si_no/select: no están en catálogo → aceptar directamente
                     sel_id = iid; sel_val = v; break
 
             if sel_id:
