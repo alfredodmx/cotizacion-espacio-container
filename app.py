@@ -3723,14 +3723,7 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
             sel_id = sel_val = None
             for iid in ids:
                 v = resps_map.get(str(iid))
-                if v:
-                    # Si el item está en catálogo, verificar que el nombre coincida
-                    _idata_check = mat_items_sel.get(str(iid), {})
-                    _nombre_check = _idata_check.get('nombre', '')
-                    if _nombre_check and _nombre_check != v:
-                        continue  # catálogo dice otro nombre — no es este
-                    # Para si_no/select: no están en catálogo → aceptar directamente
-                    sel_id = iid; sel_val = v; break
+                if v: sel_id = iid; sel_val = v; break
 
             if sel_id:
                 idata   = mat_items_sel.get(sel_id, {})
