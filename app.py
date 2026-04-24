@@ -3731,10 +3731,11 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
                 tipo    = idata.get('tipo','')
                 img_url = idata.get('imagen_url','')
                 hex_val = idata.get('hex','')
-                # sel_val IS the correct answer — use it directly
-                # idata.get('nombre') may be wrong for si_no/select
-                _cat_nombre = idata.get('nombre', '')
-                nom_sel = _cat_nombre if _cat_nombre else sel_val
+                # Usar sel_val directamente — es lo que el cliente guardó
+                nom_sel = sel_val
+                # Para items de catálogo (color/imagen), usar nombre del catálogo
+                if tipo in ('color','imagen') and idata.get('nombre',''):
+                    nom_sel = idata.get('nombre', sel_val)
                 visual  = None
                 if tipo == 'color' and hex_val:
                     visual = _swatch(hex_val, CARD_W-0.4*cm, IMG_H)
