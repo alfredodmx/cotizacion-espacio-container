@@ -206,7 +206,7 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
                     nm = it.get('nombre','')
                     hx = it.get('hex','#ccc') or '#ccc'
                     sel = ' sel' if resps_map.get(iid) == nm else ''
-                    body_html += '<div class="c-item' + sel + '" id="ci-' + iid + '" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'color\')"">'
+                    body_html += '<div class="c-item' + sel + '" id="ci-' + iid + '" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'color\',[' + ','.join([repr(str(x)) for x in ids]) + '])"">'
                     body_html += '<div class="c-color-block" style="background:' + hx + ';"><span class="c-check">✓</span></div>'
                     body_html += '<div class="c-name">' + nm + '</div>'
                     body_html += '</div>'
@@ -226,7 +226,7 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
                     url = it.get('imagen_url','') or ''
                     sel = ' sel' if resps_map.get(iid) == nm else ''
                     pid = 'pop-' + iid
-                    body_html += '<div class="i-item' + sel + '" id="ii-' + iid + '" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'imagen\')"">'
+                    body_html += '<div class="i-item' + sel + '" id="ii-' + iid + '" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'imagen\',[' + ','.join([repr(str(x)) for x in ids]) + '])"">'
                     body_html += '<div class="i-circle">'
                     if url:
                         body_html += '<img src="' + url + '" alt="' + nm + '">'
@@ -358,7 +358,9 @@ var S="''' + supa_url + '''",K="''' + supa_key + '''",EP="''' + ep + '''";
 var R=''' + resps_j + ''';
 var P={};
 
-function pick(iid,val,tipo){
+function pick(iid,val,tipo,groupIds){
+  // Clear other iids in same group from R and P
+  if(groupIds){groupIds.forEach(function(gid){if(gid!==iid){delete R[gid];delete P[gid];}});}
   R[iid]=val; P[iid]=val;
   if(tipo==="color"){
     var el=document.getElementById("ci-"+iid);
