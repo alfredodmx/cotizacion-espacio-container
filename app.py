@@ -3721,9 +3721,23 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
             tg  = cfg.get('titulo_grupo','')
             ids = [str(x) for x in (cfg.get('item_ids') or [])]
             sel_id = sel_val = None
+            # Find the most recent/correct selection
+            # For si_no: both iids may have values — pick based on grupo config
+            _grp_tipo = None
+            try:
+                _first_id = ids[0] if ids else None
+                if _first_id and mat_items_sel.get(_first_id):
+                    _grp_tipo = mat_items_sel[_first_id].get('tipo','')
+            except: pass
             for iid in ids:
-                v = resps_map.get(iid)
-                if v: sel_id = iid; sel_val = v; break
+                v = resps_map.get(str(iid))
+                if v:
+                    # For si_no: only accept if value is Sí/Si/No
+                    if _grp_tipo == 'si_no':
+                        if v in ('Sí','Si','Sí','No'):
+                            sel_id = iid; sel_val = v; break
+                    else:
+                        sel_id = iid; sel_val = v; break
 
             if sel_id:
                 idata   = mat_items_sel.get(sel_id, {})
