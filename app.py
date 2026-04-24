@@ -3721,9 +3721,13 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
             tg  = cfg.get('titulo_grupo','')
             ids = [str(x) for x in (cfg.get('item_ids') or [])]
             sel_id = sel_val = None
+            # Take LAST iid with value (most recent save wins)
             for iid in ids:
                 v = resps_map.get(str(iid))
-                if v: sel_id = iid; sel_val = v; break
+                if v:
+                    sel_id = iid
+                    sel_val = v
+                    # Don't break — keep iterating to get the last one
 
             if sel_id:
                 idata   = mat_items_sel.get(sel_id, {})
