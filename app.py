@@ -854,7 +854,7 @@ if _modo_cliente:
                     _video_b64 = _b64v.b64encode(_vf.read()).decode()
                 break
         _video_src = f"data:video/mp4;base64,{_video_b64}" if _video_b64 else ""
-        _vtag = (f'<video autoplay muted loop playsinline style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;" src="{_video_src}"></video>'
+        _vtag = (f'<video autoplay muted loop playsinline style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;" src="{_video_src}"></video><div style=\"position:fixed;inset:0;z-index:1;background:linear-gradient(135deg,rgba(5,10,20,0.62),rgba(10,22,50,0.48));pointer-events:none;\"></div>'
                  if _video_src else
                  '<div style="position:fixed;inset:0;background:linear-gradient(135deg,#0a1628,#0f3460);z-index:0;"></div>')
 
@@ -869,10 +869,10 @@ if _modo_cliente:
             min-height:100vh!important;
         }}
         /* Labels blancos */
-        /* Inputs above everything */
-        section[data-testid="stMain"]{{position:relative;z-index:10;background:transparent!important;}}
-        .stMainBlockContainer{{background:transparent!important;}}
-        section[data-testid="stMain"] > div{{background:transparent!important;}}
+        /* Transparent backgrounds */
+        .stMainBlockContainer,.block-container{{background:transparent!important;}}
+        section[data-testid="stMain"]{{background:transparent!important;}}
+        section[data-testid="stMain"] > div > div > div{{background:transparent!important;}}
         div[data-testid="stTextInput"] label{{
             color:white!important;font-weight:700!important;font-size:0.78rem!important;
             text-transform:uppercase!important;letter-spacing:0.08em!important;
@@ -896,7 +896,7 @@ if _modo_cliente:
         }}
         </style>
         {_vtag}
-        <div style="position:fixed;inset:0;z-index:1;background:linear-gradient(135deg,rgba(5,10,20,0.65),rgba(10,22,50,0.50));pointer-events:none;"></div>
+        
         <!-- Logo top right -->
         <div style="position:fixed;top:16px;right:20px;z-index:10;"><a href="https://espaciocontainerhouse.cl/" target="_blank" style="text-decoration:none;display:block;">{_logo_tag}</a></div>
         <!-- Hero text centered -->
