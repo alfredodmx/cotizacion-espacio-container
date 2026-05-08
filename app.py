@@ -845,33 +845,115 @@ if _modo_cliente:
     _logo_tag = f'<img src="data:image/png;base64,{_logo_b64_cli}" style="height:40px;object-fit:contain;">' if _logo_b64_cli else '<span style="font-weight:900;color:#0f3460;font-size:1rem;font-family:Poppins,sans-serif;">ESPACIO CONTAINER</span>'
 
     if not st.session_state._cliente_ok:
-        # ── PANTALLA DE LOGIN ──────────────────────────────────
+        # ── PANTALLA DE LOGIN — VIDEO BACKGROUND ──────────────
+        # Cargar video en base64
+        import base64 as _b64v, os as _osv
+        _video_b64 = ""
+        for _vp in ["hero_video.mp4","assets/hero_video.mp4"]:
+            if _osv.path.exists(_vp):
+                with open(_vp,"rb") as _vf:
+                    _video_b64 = _b64v.b64encode(_vf.read()).decode()
+                break
+
+        _video_src = f"data:video/mp4;base64,{_video_b64}" if _video_b64 else ""
+
         st.markdown(f"""
         <style>
-        .cli-login-wrap{{max-width:460px;margin:40px auto 0;padding:0 16px;font-family:Poppins,sans-serif;}}
-        .cli-topbar{{display:flex;justify-content:flex-end;padding:16px 24px 0;}}
-        .cli-card{{background:white;border-radius:24px;padding:36px 32px;
-                   box-shadow:0 24px 64px rgba(15,52,96,0.12),0 4px 16px rgba(15,52,96,0.06);}}
-        .cli-badge{{display:inline-block;background:#e8f4fd;color:#0f3460;border-radius:99px;
-                    padding:4px 14px;font-size:0.7rem;font-weight:700;letter-spacing:0.1em;
-                    text-transform:uppercase;margin-bottom:16px;}}
-        .cli-login-title{{font-size:1.8rem;font-weight:900;color:#0a1628;line-height:1.2;margin-bottom:8px;}}
-        .cli-login-sub{{font-size:0.9rem;color:#64748b;margin-bottom:28px;line-height:1.5;}}
-        .cli-input-label{{font-size:0.75rem;font-weight:700;color:#64748b;text-transform:uppercase;
-                          letter-spacing:0.08em;margin-bottom:4px;}}
+        /* Reset completo para la pantalla de login */
+        .stMainBlockContainer{{padding:0!important;margin:0!important;max-width:100%!important;}}
+        .cli-fullscreen{{
+            position:fixed;inset:0;width:100vw;height:100vh;
+            overflow:hidden;z-index:0;font-family:'Poppins',sans-serif;
+        }}
+        .cli-video-bg{{
+            position:absolute;inset:0;width:100%;height:100%;
+            object-fit:cover;z-index:0;
+        }}
+        .cli-overlay{{
+            position:absolute;inset:0;
+            background:linear-gradient(135deg,rgba(5,10,20,0.72) 0%,rgba(10,22,50,0.55) 100%);
+            z-index:1;
+        }}
+        .cli-content{{
+            position:relative;z-index:2;
+            display:flex;flex-direction:column;align-items:center;justify-content:center;
+            min-height:100vh;padding:24px 16px;
+        }}
+        .cli-logo-top{{margin-bottom:28px;}}
+        .cli-hero-text{{text-align:center;margin-bottom:36px;}}
+        .cli-badge2{{
+            display:inline-block;
+            background:rgba(255,255,255,0.12);
+            border:1px solid rgba(255,255,255,0.25);
+            color:white;border-radius:99px;
+            padding:5px 16px;font-size:0.68rem;font-weight:700;
+            letter-spacing:0.12em;text-transform:uppercase;
+            margin-bottom:16px;backdrop-filter:blur(8px);
+        }}
+        .cli-title{{
+            font-size:2.8rem;font-weight:900;color:white;
+            line-height:1.15;margin-bottom:10px;
+            text-shadow:0 2px 20px rgba(0,0,0,0.4);
+        }}
+        .cli-sub{{
+            font-size:1rem;color:rgba(255,255,255,0.75);
+            max-width:400px;margin:0 auto;line-height:1.6;
+        }}
+        .cli-card2{{
+            background:rgba(255,255,255,0.96);
+            backdrop-filter:blur(20px);
+            border-radius:24px;padding:36px 32px;
+            box-shadow:0 32px 80px rgba(0,0,0,0.35),0 4px 20px rgba(0,0,0,0.2);
+            width:100%;max-width:420px;
+        }}
+        .cli-card2 label{{color:#1e293b!important;font-weight:600!important;font-size:0.8rem!important;}}
         </style>
-        <div class="cli-topbar">{_logo_tag}</div>
-        <div class="cli-login-wrap">
-          <div class="cli-card">
-            <div class="cli-badge">✦ Portal de materiales</div>
-            <div class="cli-login-title">Tu casa,<br>tus materiales 🏡</div>
-            <div class="cli-login-sub">Ingresa tus datos para acceder a tu formulario personalizado de selección de materiales.</div>
-          </div>
+        <div class="cli-fullscreen">
+            {"<video class=\"cli-video-bg\" autoplay muted loop playsinline src=\"" + _video_src + "\"></video>" if _video_src else "<div style=\"position:absolute;inset:0;background:linear-gradient(135deg,#0a1628,#0f3460);\"></div>"}
+            <div class="cli-overlay"></div>
+            <div class="cli-content">
+                <div class="cli-logo-top">{_logo_tag}</div>
+                <div class="cli-hero-text">
+                    <div class="cli-badge2">✦ Portal de Materiales</div>
+                    <div class="cli-title">Tu casa,<br>tus materiales 🏡</div>
+                    <div class="cli-sub">Ingresa tus datos para acceder a tu formulario personalizado de selección de materiales.</div>
+                </div>
+                <div class="cli-card2" id="cli-form-card"></div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
         with st.container():
-            st.markdown("<div style='max-width:460px;margin:12px auto 0;padding:0 16px;'>", unsafe_allow_html=True)
+            st.markdown("""
+            <style>
+            /* Posicionar inputs dentro de la card sobre el video */
+            section[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stTextInput"]),
+            section[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stButton"]) {
+                max-width:420px!important;margin:0 auto!important;
+            }
+            div[data-testid="stTextInput"] input {
+                border-radius:12px!important;border:1.5px solid #e2e8f0!important;
+                font-family:Poppins,sans-serif!important;font-size:0.95rem!important;
+                padding:10px 14px!important;
+            }
+            div[data-testid="stTextInput"] input:focus {
+                border-color:#3b82f6!important;box-shadow:0 0 0 3px rgba(59,130,246,0.15)!important;
+            }
+            div[data-testid="stTextInput"] label {
+                font-weight:600!important;color:#374151!important;font-size:0.8rem!important;
+                text-transform:uppercase!important;letter-spacing:0.06em!important;
+            }
+            div[data-testid="stButton"] button[kind="primaryFormSubmit"],
+            div[data-testid="stButton"] button[kind="primary"] {
+                border-radius:14px!important;font-weight:700!important;
+                font-size:1rem!important;padding:12px!important;
+                background:linear-gradient(135deg,#1e40af,#3b82f6)!important;
+                box-shadow:0 8px 24px rgba(59,130,246,0.35)!important;
+                border:none!important;
+            }
+            </style>
+            <div style='max-width:420px;margin:0 auto;padding:0 16px;'>
+            """, unsafe_allow_html=True)
             _cli_rut_inp = st.text_input("RUT", placeholder="12.345.678-9", key="cli_rut",
                 label_visibility="visible")
             _cli_ep_inp  = st.text_input("Código de presupuesto", placeholder="EP-12345", key="cli_ep",
