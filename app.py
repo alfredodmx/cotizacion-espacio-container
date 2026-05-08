@@ -846,7 +846,6 @@ if _modo_cliente:
 
     if not st.session_state._cliente_ok:
         # ── PANTALLA DE LOGIN — VIDEO BACKGROUND ──────────────
-        # Cargar video en base64
         import base64 as _b64v, os as _osv
         _video_b64 = ""
         for _vp in ["hero_video.mp4","assets/hero_video.mp4"]:
@@ -854,109 +853,62 @@ if _modo_cliente:
                 with open(_vp,"rb") as _vf:
                     _video_b64 = _b64v.b64encode(_vf.read()).decode()
                 break
-
         _video_src = f"data:video/mp4;base64,{_video_b64}" if _video_b64 else ""
-
-        # Pre-build video tag outside f-string (no backslash in f-string expressions)
-        _vtag = (f'<video class="cli-video-bg" autoplay muted loop playsinline src="{_video_src}"></video>'
+        _vtag = (f'<video autoplay muted loop playsinline style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;" src="{_video_src}"></video>'
                  if _video_src else
-                 '<div style="position:absolute;inset:0;background:linear-gradient(135deg,#0a1628,#0f3460);"></div>')
+                 '<div style="position:fixed;inset:0;background:linear-gradient(135deg,#0a1628,#0f3460);z-index:0;"></div>')
 
         st.markdown(f"""
         <style>
-        /* Reset completo para la pantalla de login */
-        .stMainBlockContainer{{padding:0!important;margin:0!important;max-width:100%!important;}}
-        .cli-fullscreen{{
-            position:fixed;inset:0;width:100vw;height:100vh;
-            overflow:hidden;z-index:0;font-family:'Poppins',sans-serif;
+        .stMainBlockContainer{{padding-top:0!important;}}
+        /* Ocultar todo excepto el contenido del login */
+        #cli-bg-layer{{position:fixed;inset:0;z-index:0;overflow:hidden;}}
+        #cli-overlay{{position:fixed;inset:0;z-index:1;
+            background:linear-gradient(135deg,rgba(5,10,20,0.65) 0%,rgba(10,22,50,0.50) 100%);}}
+        #cli-logo-top{{position:fixed;top:18px;right:24px;z-index:10;}}
+        #cli-hero{{position:fixed;top:50%;left:50%;transform:translate(-50%,-58%);
+            z-index:5;text-align:center;width:100%;padding:0 16px;pointer-events:none;}}
+        .cli-badge2{{display:inline-block;background:rgba(255,255,255,0.15);
+            border:1px solid rgba(255,255,255,0.3);color:white;border-radius:99px;
+            padding:5px 16px;font-size:0.68rem;font-weight:700;letter-spacing:0.12em;
+            text-transform:uppercase;margin-bottom:12px;backdrop-filter:blur(8px);}}
+        .cli-title{{font-size:2.6rem;font-weight:900;color:white;line-height:1.15;
+            margin-bottom:10px;text-shadow:0 2px 20px rgba(0,0,0,0.5);
+            font-family:Poppins,sans-serif;}}
+        .cli-sub{{font-size:0.95rem;color:rgba(255,255,255,0.8);
+            max-width:380px;margin:0 auto;line-height:1.6;font-family:Poppins,sans-serif;}}
+        /* Inputs centrados */
+        div[data-testid="stTextInput"] input{{
+            border-radius:12px!important;border:1.5px solid #e2e8f0!important;
+            background:rgba(255,255,255,0.95)!important;
+            font-family:Poppins,sans-serif!important;font-size:0.95rem!important;
         }}
-        .cli-video-bg{{
-            position:absolute;inset:0;width:100%;height:100%;
-            object-fit:cover;z-index:0;
+        div[data-testid="stTextInput"] label{{
+            color:white!important;font-weight:600!important;
+            font-size:0.78rem!important;text-transform:uppercase!important;
+            letter-spacing:0.08em!important;text-shadow:0 1px 4px rgba(0,0,0,0.5)!important;
         }}
-        .cli-overlay{{
-            position:absolute;inset:0;
-            background:linear-gradient(135deg,rgba(5,10,20,0.72) 0%,rgba(10,22,50,0.55) 100%);
-            z-index:1;
+        div[data-testid="stButton"] button{{
+            border-radius:14px!important;font-weight:700!important;
+            background:linear-gradient(135deg,#1e40af,#3b82f6)!important;
+            box-shadow:0 8px 24px rgba(59,130,246,0.45)!important;
+            border:none!important;color:white!important;
+            font-family:Poppins,sans-serif!important;
         }}
-        .cli-content{{
-            position:relative;z-index:2;
-            display:flex;flex-direction:column;align-items:center;justify-content:center;
-            min-height:100vh;padding:24px 16px;
-        }}
-        .cli-logo-top{{margin-bottom:28px;}}
-        .cli-hero-text{{text-align:center;margin-bottom:36px;}}
-        .cli-badge2{{
-            display:inline-block;
-            background:rgba(255,255,255,0.12);
-            border:1px solid rgba(255,255,255,0.25);
-            color:white;border-radius:99px;
-            padding:5px 16px;font-size:0.68rem;font-weight:700;
-            letter-spacing:0.12em;text-transform:uppercase;
-            margin-bottom:16px;backdrop-filter:blur(8px);
-        }}
-        .cli-title{{
-            font-size:2.8rem;font-weight:900;color:white;
-            line-height:1.15;margin-bottom:10px;
-            text-shadow:0 2px 20px rgba(0,0,0,0.4);
-        }}
-        .cli-sub{{
-            font-size:1rem;color:rgba(255,255,255,0.75);
-            max-width:400px;margin:0 auto;line-height:1.6;
-        }}
-        .cli-card2{{
-            background:rgba(255,255,255,0.96);
-            backdrop-filter:blur(20px);
-            border-radius:24px;padding:36px 32px;
-            box-shadow:0 32px 80px rgba(0,0,0,0.35),0 4px 20px rgba(0,0,0,0.2);
-            width:100%;max-width:420px;
-        }}
-        .cli-card2 label{{color:#1e293b!important;font-weight:600!important;font-size:0.8rem!important;}}
         </style>
-        <div class="cli-fullscreen">
-            {_vtag}
-            <div class="cli-overlay"></div>
-            <div class="cli-content">
-                <div class="cli-logo-top">{_logo_tag}</div>
-                <div class="cli-hero-text">
-                    <div class="cli-badge2">✦ Portal de Materiales</div>
-                    <div class="cli-title">Tu casa,<br>tus materiales 🏡</div>
-                    <div class="cli-sub">Ingresa tus datos para acceder a tu formulario personalizado de selección de materiales.</div>
-                </div>
-
-            </div>
+        <div id="cli-bg-layer">{_vtag}</div>
+        <div id="cli-overlay"></div>
+        <div id="cli-logo-top">{_logo_tag}</div>
+        <div id="cli-hero">
+            <div class="cli-badge2">✦ Portal de Materiales</div>
+            <div class="cli-title">Tu casa,<br>tus materiales 🏡</div>
+            <div class="cli-sub">Ingresa tus datos para acceder a tu formulario personalizado de selección de materiales.</div>
         </div>
         """, unsafe_allow_html=True)
 
-        with st.container():
-            st.markdown("""
-            <style>
-            /* Centrar y estilizar inputs sobre el video */
-            .stMainBlockContainer .stVerticalBlock {
-                display:flex!important;flex-direction:column!important;align-items:center!important;
-            }
-            .stMainBlockContainer .stVerticalBlock > div {
-                width:100%!important;max-width:420px!important;
-            }
-            div[data-testid="stTextInput"] input {
-                border-radius:12px!important;border:1.5px solid #e2e8f0!important;
-                font-family:Poppins,sans-serif!important;font-size:0.95rem!important;
-                padding:10px 14px!important;background:white!important;
-            }
-            div[data-testid="stTextInput"] label {
-                font-weight:600!important;color:white!important;font-size:0.82rem!important;
-                text-transform:uppercase!important;letter-spacing:0.06em!important;
-                text-shadow:0 1px 4px rgba(0,0,0,0.5)!important;
-            }
-            div[data-testid="stButton"] button {
-                border-radius:14px!important;font-weight:700!important;
-                font-size:1rem!important;
-                background:linear-gradient(135deg,#1e40af,#3b82f6)!important;
-                box-shadow:0 8px 24px rgba(59,130,246,0.4)!important;
-                border:none!important;color:white!important;
-            }
-            </style>
-            """, unsafe_allow_html=True)
+        # Inputs centrados con columns
+        _, col_mid, _ = st.columns([1, 2, 1])
+        with col_mid:
             _cli_rut_inp = st.text_input("RUT", placeholder="12.345.678-9", key="cli_rut",
                 label_visibility="visible")
             _cli_ep_inp  = st.text_input("Código de presupuesto", placeholder="EP-12345", key="cli_ep",
