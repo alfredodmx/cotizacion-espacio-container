@@ -889,13 +889,27 @@ if _modo_cliente:
         section[data-testid="stMain"]{{background:transparent!important;}}
         /* Push all Streamlit content above overlay */
         section[data-testid="stMain"] > div{{
-            position:relative;z-index:10;background:transparent!important;
+            position:relative;z-index:10;
         }}
         div[data-testid="stVerticalBlock"]{{background:transparent!important;}}
+        /* Labels white, inputs fully opaque */
+        div[data-testid="stTextInput"] label,
+        div[data-testid="stTextInput"] label p{{
+            color:white!important;
+            text-shadow:0 1px 4px rgba(0,0,0,0.5)!important;
+        }}
+        div[data-testid="stTextInput"] > div{{
+            background:transparent!important;
+        }}
+        div[data-testid="stTextInput"] input{{
+            background:white!important;
+            opacity:1!important;
+            color:#1e293b!important;
+        }}
         </style>
         """, unsafe_allow_html=True)
 
-        st.markdown("<div style='height:46vh;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:36vh;'></div>", unsafe_allow_html=True)
         _, _col, _ = st.columns([1, 2, 1])
         with _col:
             _cli_rut_inp = st.text_input("RUT", placeholder="12.345.678-9", key="cli_rut")
