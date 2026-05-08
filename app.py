@@ -923,7 +923,7 @@ if _modo_cliente:
                     <div class="cli-title">Tu casa,<br>tus materiales 🏡</div>
                     <div class="cli-sub">Ingresa tus datos para acceder a tu formulario personalizado de selección de materiales.</div>
                 </div>
-                <div class="cli-card2" id="cli-form-card"></div>
+
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -931,33 +931,31 @@ if _modo_cliente:
         with st.container():
             st.markdown("""
             <style>
-            /* Posicionar inputs dentro de la card sobre el video */
-            section[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stTextInput"]),
-            section[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stButton"]) {
-                max-width:420px!important;margin:0 auto!important;
+            /* Centrar y estilizar inputs sobre el video */
+            .stMainBlockContainer .stVerticalBlock {
+                display:flex!important;flex-direction:column!important;align-items:center!important;
+            }
+            .stMainBlockContainer .stVerticalBlock > div {
+                width:100%!important;max-width:420px!important;
             }
             div[data-testid="stTextInput"] input {
                 border-radius:12px!important;border:1.5px solid #e2e8f0!important;
                 font-family:Poppins,sans-serif!important;font-size:0.95rem!important;
-                padding:10px 14px!important;
-            }
-            div[data-testid="stTextInput"] input:focus {
-                border-color:#3b82f6!important;box-shadow:0 0 0 3px rgba(59,130,246,0.15)!important;
+                padding:10px 14px!important;background:white!important;
             }
             div[data-testid="stTextInput"] label {
-                font-weight:600!important;color:#374151!important;font-size:0.8rem!important;
+                font-weight:600!important;color:white!important;font-size:0.82rem!important;
                 text-transform:uppercase!important;letter-spacing:0.06em!important;
+                text-shadow:0 1px 4px rgba(0,0,0,0.5)!important;
             }
-            div[data-testid="stButton"] button[kind="primaryFormSubmit"],
-            div[data-testid="stButton"] button[kind="primary"] {
+            div[data-testid="stButton"] button {
                 border-radius:14px!important;font-weight:700!important;
-                font-size:1rem!important;padding:12px!important;
+                font-size:1rem!important;
                 background:linear-gradient(135deg,#1e40af,#3b82f6)!important;
-                box-shadow:0 8px 24px rgba(59,130,246,0.35)!important;
-                border:none!important;
+                box-shadow:0 8px 24px rgba(59,130,246,0.4)!important;
+                border:none!important;color:white!important;
             }
             </style>
-            <div style='max-width:420px;margin:0 auto;padding:0 16px;'>
             """, unsafe_allow_html=True)
             _cli_rut_inp = st.text_input("RUT", placeholder="12.345.678-9", key="cli_rut",
                 label_visibility="visible")
