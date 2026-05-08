@@ -1885,7 +1885,7 @@ window.agregarItem=async function(cat){
       st.textContent="Subiendo...";st.style.color="#2563eb";
       var file=fEl.files[0],ext=file.name.split(".").pop();
       var path="catalogo/"+Date.now()+"_"+Math.random().toString(36).substr(2,5)+"."+ext;
-      var ur=await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,{method:"POST",headers:{"Authorization":"Bearer "+K,"Content-Type":file.type,"x-upsert":"true"},body:file});
+      var ur=await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,{method:"POST",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":file.type,"x-upsert":"true"},body:file});
       if(!ur.ok){st.textContent="Error subiendo";st.style.color="#dc2626";return;}
       body.imagen_url=S+"/storage/v1/object/public/formulario-imagenes/"+path;
     }
@@ -1950,7 +1950,7 @@ window.agregarItemCompleto=async function(cat){
           st.textContent='Subiendo imagen '+(i+1)+'...';st.style.color='#2563eb';
           var file=fEl.files[0],ext=file.name.split('.').pop();
           var path='catalogo/'+Date.now()+'_'+Math.random().toString(36).substr(2,5)+'.'+ext;
-          var ur=await fetch(S+'/storage/v1/object/formulario-imagenes/'+path,{method:'POST',headers:{'Authorization':'Bearer '+K,'Content-Type':file.type,'x-upsert':'true'},body:file});
+          var ur=await fetch(S+'/storage/v1/object/formulario-imagenes/'+path,{method:'POST',headers:{'Authorization':'Bearer '+K,'apikey':K,'Content-Type':file.type,'x-upsert':'true'},body:file});
           if(!ur.ok){st.textContent='Error subiendo';st.style.color='#dc2626';return;}
           item.url=S+'/storage/v1/object/public/formulario-imagenes/'+path;
         }
@@ -2059,7 +2059,7 @@ window.guardarCategoria=async function(){
           st.textContent="Subiendo "+(total+1)+"...";st.style.color="#2563eb";
           var ext=opt.file.name.split(".").pop();
           var path="catalogo/"+Date.now()+"_"+Math.random().toString(36).substr(2,5)+"."+ext;
-          var ur=await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,{method:"POST",headers:{"Authorization":"Bearer "+K,"Content-Type":opt.file.type,"x-upsert":"true"},body:opt.file});
+          var ur=await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,{method:"POST",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":opt.file.type,"x-upsert":"true"},body:opt.file});
           if(!ur.ok){st.textContent="Error subiendo";st.style.color="#dc2626";btn.disabled=false;return;}
           body.imagen_url=S+"/storage/v1/object/public/formulario-imagenes/"+path;
         }
