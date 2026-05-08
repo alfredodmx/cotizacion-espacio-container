@@ -857,6 +857,11 @@ if _modo_cliente:
 
         _video_src = f"data:video/mp4;base64,{_video_b64}" if _video_b64 else ""
 
+        # Pre-build video tag outside f-string (no backslash in f-string expressions)
+        _vtag = (f'<video class="cli-video-bg" autoplay muted loop playsinline src="{_video_src}"></video>'
+                 if _video_src else
+                 '<div style="position:absolute;inset:0;background:linear-gradient(135deg,#0a1628,#0f3460);"></div>')
+
         st.markdown(f"""
         <style>
         /* Reset completo para la pantalla de login */
@@ -909,7 +914,7 @@ if _modo_cliente:
         .cli-card2 label{{color:#1e293b!important;font-weight:600!important;font-size:0.8rem!important;}}
         </style>
         <div class="cli-fullscreen">
-            {"<video class=\"cli-video-bg\" autoplay muted loop playsinline src=\"" + _video_src + "\"></video>" if _video_src else "<div style=\"position:absolute;inset:0;background:linear-gradient(135deg,#0a1628,#0f3460);\"></div>"}
+            {_vtag}
             <div class="cli-overlay"></div>
             <div class="cli-content">
                 <div class="cli-logo-top">{_logo_tag}</div>
