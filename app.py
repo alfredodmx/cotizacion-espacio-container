@@ -842,7 +842,7 @@ if _modo_cliente:
         if _osli.path.exists(_lp):
             with open(_lp,"rb") as _lf: _logo_b64_cli = _b64cli.b64encode(_lf.read()).decode()
             break
-    _logo_tag = f'<img src="data:image/png;base64,{_logo_b64_cli}" style="height:40px;object-fit:contain;">' if _logo_b64_cli else '<span style="font-weight:900;color:#0f3460;font-size:1rem;font-family:Poppins,sans-serif;">ESPACIO CONTAINER</span>'
+    _logo_tag = f'<img src="data:image/png;base64,{_logo_b64_cli}" style="height:58px;width:auto;object-fit:contain;">' if _logo_b64_cli else '<span style="font-weight:900;color:#0f3460;font-size:1rem;font-family:Poppins,sans-serif;">ESPACIO CONTAINER</span>'
 
     if not st.session_state._cliente_ok:
         # ── PANTALLA DE LOGIN — VIDEO BACKGROUND ──────────────
@@ -869,6 +869,8 @@ if _modo_cliente:
             min-height:100vh!important;
         }}
         /* Labels blancos */
+        /* Inputs above everything */
+        section[data-testid="stMain"]{{position:relative;z-index:10;}}
         div[data-testid="stTextInput"] label{{
             color:white!important;font-weight:700!important;font-size:0.78rem!important;
             text-transform:uppercase!important;letter-spacing:0.08em!important;
@@ -890,9 +892,9 @@ if _modo_cliente:
         }}
         </style>
         {_vtag}
-        <div style="position:fixed;inset:0;z-index:1;background:linear-gradient(135deg,rgba(5,10,20,0.65),rgba(10,22,50,0.50));"></div>
+        <div style="position:fixed;inset:0;z-index:1;background:linear-gradient(135deg,rgba(5,10,20,0.65),rgba(10,22,50,0.50));pointer-events:none;"></div>
         <!-- Logo top right -->
-        <div style="position:fixed;top:18px;right:24px;z-index:10;">{_logo_tag}</div>
+        <div style="position:fixed;top:16px;right:20px;z-index:10;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.4));">{_logo_tag}</div>
         <!-- Hero text centered -->
         <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;text-align:center;width:100%;padding:0 20px;pointer-events:none;">
             <div style="display:inline-block;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.28);
@@ -909,7 +911,7 @@ if _modo_cliente:
         """, unsafe_allow_html=True)
 
         # Inputs centrados debajo del hero con padding top
-        st.markdown("<div style='height:62vh'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:44vh'></div>", unsafe_allow_html=True)
         _, _col, _ = st.columns([1, 2, 1])
         with _col:
             _cli_rut_inp = st.text_input("RUT", placeholder="12.345.678-9", key="cli_rut",
