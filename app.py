@@ -854,74 +854,45 @@ if _modo_cliente:
                     _video_b64 = _b64v.b64encode(_vf.read()).decode()
                 break
         _video_src = f"data:video/mp4;base64,{_video_b64}" if _video_b64 else ""
-        _vtag = (f'<video autoplay muted loop playsinline style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;" src="{_video_src}"></video><div style=\"position:fixed;inset:0;z-index:1;background:linear-gradient(135deg,rgba(5,10,20,0.62),rgba(10,22,50,0.48));pointer-events:none;\"></div>'
-                 if _video_src else
-                 '<div style="position:fixed;inset:0;background:linear-gradient(135deg,#0a1628,#0f3460);z-index:0;"></div>')
+        _vtag = (f'<video autoplay muted loop playsinline src="{_video_src}" style="position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:-2;"></video>'
+                 if _video_src else '')
+        _logo_link = f'<a href="https://espaciocontainerhouse.cl/" target="_blank"><img src="data:image/png;base64,{_logo_b64_cli}" style="height:58px;width:auto;"></a>' if _logo_b64_cli else ''
 
         st.markdown(f"""
-        <style>
-        .stMainBlockContainer{{padding:0!important;margin:0!important;}}
-        /* Ocultar todo el chrome de streamlit */
-        header,footer{{display:none!important;}}
-        /* Centrar columna del medio */
-        section[data-testid="stMain"] > div > div > div[data-testid="stVerticalBlock"]{{
-            display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;
-            min-height:100vh!important;
-        }}
-        /* Labels blancos */
-        /* Transparent backgrounds */
-        .stMainBlockContainer,.block-container{{background:transparent!important;}}
-        section[data-testid="stMain"]{{background:transparent!important;}}
-        section[data-testid="stMain"] > div > div > div{{background:transparent!important;}}
-        div[data-testid="stTextInput"] label{{
-            color:white!important;font-weight:700!important;font-size:0.78rem!important;
-            text-transform:uppercase!important;letter-spacing:0.08em!important;
-            text-shadow:0 1px 6px rgba(0,0,0,0.6)!important;
-            font-family:Poppins,sans-serif!important;
-        }}
-        div[data-testid="stTextInput"] input{{
-            border-radius:12px!important;border:none!important;
-            background:#ffffff!important;opacity:1!important;
-            color:#1e293b!important;
-            font-family:Poppins,sans-serif!important;font-size:0.95rem!important;
-            box-shadow:0 4px 20px rgba(0,0,0,0.25)!important;
-            -webkit-text-fill-color:#1e293b!important;
-        }}
-        div[data-testid="stButton"] button{{
-            border-radius:14px!important;font-weight:700!important;font-size:1rem!important;
-            background:linear-gradient(135deg,#1e40af,#3b82f6)!important;
-            box-shadow:0 8px 28px rgba(59,130,246,0.5)!important;
-            border:none!important;color:white!important;
-            font-family:Poppins,sans-serif!important;margin-top:4px!important;
-        }}
-        </style>
         {_vtag}
-        
-        <!-- Logo top right -->
-        <div style="position:fixed;top:16px;right:20px;z-index:10;"><a href="https://espaciocontainerhouse.cl/" target="_blank" style="text-decoration:none;display:block;">{_logo_tag}</a></div>
-        <!-- Hero text centered -->
-        <div style="position:fixed;top:28%;left:50%;transform:translate(-50%,-50%);z-index:5;text-align:center;width:100%;padding:0 20px;pointer-events:none;">
-            <div style="display:inline-block;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.28);
-                color:white;border-radius:99px;padding:5px 18px;font-size:0.68rem;font-weight:700;
-                letter-spacing:0.12em;text-transform:uppercase;margin-bottom:14px;backdrop-filter:blur(8px);
-                font-family:Poppins,sans-serif;">✦ Portal de Materiales</div>
-            <div style="font-size:2.8rem;font-weight:900;color:white;line-height:1.15;margin-bottom:10px;
-                text-shadow:0 2px 24px rgba(0,0,0,0.5);font-family:Poppins,sans-serif;">Tu casa,<br>tus materiales 🏡</div>
-            <div style="font-size:0.95rem;color:rgba(255,255,255,0.78);max-width:380px;margin:0 auto;
-                line-height:1.6;font-family:Poppins,sans-serif;margin-bottom:32px;">
+        <div style="position:fixed;top:0;left:0;width:100%;height:100%;
+            background:linear-gradient(135deg,rgba(5,10,20,0.55),rgba(10,22,50,0.40));
+            z-index:-1;pointer-events:none;"></div>
+        <div style="position:fixed;top:16px;right:20px;z-index:100;">
+            {_logo_link}
+        </div>
+        <div style="position:fixed;top:25%;left:50%;transform:translate(-50%,-50%);
+            z-index:5;text-align:center;width:100%;padding:0 20px;pointer-events:none;">
+            <div style="display:inline-block;background:rgba(255,255,255,0.15);
+                border:1px solid rgba(255,255,255,0.3);color:white;border-radius:99px;
+                padding:5px 18px;font-size:0.68rem;font-weight:700;letter-spacing:0.12em;
+                text-transform:uppercase;margin-bottom:14px;font-family:Poppins,sans-serif;">
+                ✦ Portal de Materiales
+            </div>
+            <div style="font-size:2.8rem;font-weight:900;color:white;line-height:1.15;
+                margin-bottom:12px;text-shadow:0 2px 24px rgba(0,0,0,0.4);
+                font-family:Poppins,sans-serif;">Tu casa,<br>tus materiales 🏡</div>
+            <div style="font-size:0.95rem;color:rgba(255,255,255,0.8);max-width:380px;
+                margin:0 auto;line-height:1.6;font-family:Poppins,sans-serif;">
                 Ingresa tus datos para acceder a tu formulario personalizado de selección de materiales.
             </div>
         </div>
+        <style>
+        .stMainBlockContainer{{background:transparent!important;padding-top:0!important;}}
+        .block-container{{background:transparent!important;}}
+        </style>
         """, unsafe_allow_html=True)
 
-        # Inputs centrados debajo del hero con padding top
-        st.markdown("<div style='height:38vh'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:46vh;'></div>", unsafe_allow_html=True)
         _, _col, _ = st.columns([1, 2, 1])
         with _col:
-            _cli_rut_inp = st.text_input("RUT", placeholder="12.345.678-9", key="cli_rut",
-                label_visibility="visible")
-            _cli_ep_inp  = st.text_input("Código de presupuesto", placeholder="EP-12345", key="cli_ep",
-                label_visibility="visible")
+            _cli_rut_inp = st.text_input("RUT", placeholder="12.345.678-9", key="cli_rut")
+            _cli_ep_inp  = st.text_input("Código de presupuesto", placeholder="EP-12345", key="cli_ep")
             if st.button("Ingresar a mi formulario →", type="primary", use_container_width=True, key="cli_login"):
                 _cli_rut_clean = re.sub(r'[^0-9kK]', '', _cli_rut_inp.strip()).upper()
                 _cli_ep_clean  = _cli_ep_inp.strip().upper()
