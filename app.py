@@ -854,7 +854,7 @@ if _modo_cliente:
                     _video_b64 = _b64v.b64encode(_vf.read()).decode()
                 break
         _video_src = f"data:video/mp4;base64,{_video_b64}" if _video_b64 else ""
-        _vtag = (f'<video autoplay muted loop playsinline src="{_video_src}" style="position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:-2;"></video>'
+        _vtag = (f'<video autoplay muted loop playsinline src="{_video_src}" style="position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0;"></video>'
                  if _video_src else '')
         _logo_link = f'<a href="https://espaciocontainerhouse.cl/" target="_blank"><img src="data:image/png;base64,{_logo_b64_cli}" style="height:58px;width:auto;"></a>' if _logo_b64_cli else ''
 
@@ -862,7 +862,7 @@ if _modo_cliente:
         {_vtag}
         <div style="position:fixed;top:0;left:0;width:100%;height:100%;
             background:linear-gradient(135deg,rgba(5,10,20,0.55),rgba(10,22,50,0.40));
-            z-index:-1;pointer-events:none;"></div>
+            z-index:1;pointer-events:none;"></div>
         <div style="position:fixed;top:16px;right:20px;z-index:100;">
             {_logo_link}
         </div>
@@ -883,8 +883,15 @@ if _modo_cliente:
             </div>
         </div>
         <style>
+        html,body,.stApp{{background:transparent!important;}}
         .stMainBlockContainer{{background:transparent!important;padding-top:0!important;}}
         .block-container{{background:transparent!important;}}
+        section[data-testid="stMain"]{{background:transparent!important;}}
+        /* Push all Streamlit content above overlay */
+        section[data-testid="stMain"] > div{{
+            position:relative;z-index:10;background:transparent!important;
+        }}
+        div[data-testid="stVerticalBlock"]{{background:transparent!important;}}
         </style>
         """, unsafe_allow_html=True)
 
