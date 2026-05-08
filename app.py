@@ -860,55 +860,58 @@ if _modo_cliente:
 
         st.markdown(f"""
         <style>
-        .stMainBlockContainer{{padding-top:0!important;}}
-        /* Ocultar todo excepto el contenido del login */
-        #cli-bg-layer{{position:fixed;inset:0;z-index:0;overflow:hidden;}}
-        #cli-overlay{{position:fixed;inset:0;z-index:1;
-            background:linear-gradient(135deg,rgba(5,10,20,0.65) 0%,rgba(10,22,50,0.50) 100%);}}
-        #cli-logo-top{{position:fixed;top:18px;right:24px;z-index:10;}}
-        #cli-hero{{position:fixed;top:50%;left:50%;transform:translate(-50%,-58%);
-            z-index:5;text-align:center;width:100%;padding:0 16px;pointer-events:none;}}
-        .cli-badge2{{display:inline-block;background:rgba(255,255,255,0.15);
-            border:1px solid rgba(255,255,255,0.3);color:white;border-radius:99px;
-            padding:5px 16px;font-size:0.68rem;font-weight:700;letter-spacing:0.12em;
-            text-transform:uppercase;margin-bottom:12px;backdrop-filter:blur(8px);}}
-        .cli-title{{font-size:2.6rem;font-weight:900;color:white;line-height:1.15;
-            margin-bottom:10px;text-shadow:0 2px 20px rgba(0,0,0,0.5);
-            font-family:Poppins,sans-serif;}}
-        .cli-sub{{font-size:0.95rem;color:rgba(255,255,255,0.8);
-            max-width:380px;margin:0 auto;line-height:1.6;font-family:Poppins,sans-serif;}}
-        /* Inputs centrados */
-        div[data-testid="stTextInput"] input{{
-            border-radius:12px!important;border:1.5px solid #e2e8f0!important;
-            background:rgba(255,255,255,0.95)!important;
-            font-family:Poppins,sans-serif!important;font-size:0.95rem!important;
+        .stMainBlockContainer{{padding:0!important;margin:0!important;}}
+        /* Ocultar todo el chrome de streamlit */
+        header,footer{{display:none!important;}}
+        /* Centrar columna del medio */
+        section[data-testid="stMain"] > div > div > div[data-testid="stVerticalBlock"]{{
+            display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;
+            min-height:100vh!important;
         }}
+        /* Labels blancos */
         div[data-testid="stTextInput"] label{{
-            color:white!important;font-weight:600!important;
-            font-size:0.78rem!important;text-transform:uppercase!important;
-            letter-spacing:0.08em!important;text-shadow:0 1px 4px rgba(0,0,0,0.5)!important;
-        }}
-        div[data-testid="stButton"] button{{
-            border-radius:14px!important;font-weight:700!important;
-            background:linear-gradient(135deg,#1e40af,#3b82f6)!important;
-            box-shadow:0 8px 24px rgba(59,130,246,0.45)!important;
-            border:none!important;color:white!important;
+            color:white!important;font-weight:700!important;font-size:0.78rem!important;
+            text-transform:uppercase!important;letter-spacing:0.08em!important;
+            text-shadow:0 1px 6px rgba(0,0,0,0.6)!important;
             font-family:Poppins,sans-serif!important;
         }}
+        div[data-testid="stTextInput"] input{{
+            border-radius:12px!important;border:none!important;
+            background:rgba(255,255,255,0.95)!important;
+            font-family:Poppins,sans-serif!important;font-size:0.95rem!important;
+            box-shadow:0 4px 20px rgba(0,0,0,0.2)!important;
+        }}
+        div[data-testid="stButton"] button{{
+            border-radius:14px!important;font-weight:700!important;font-size:1rem!important;
+            background:linear-gradient(135deg,#1e40af,#3b82f6)!important;
+            box-shadow:0 8px 28px rgba(59,130,246,0.5)!important;
+            border:none!important;color:white!important;
+            font-family:Poppins,sans-serif!important;margin-top:4px!important;
+        }}
         </style>
-        <div id="cli-bg-layer">{_vtag}</div>
-        <div id="cli-overlay"></div>
-        <div id="cli-logo-top">{_logo_tag}</div>
-        <div id="cli-hero">
-            <div class="cli-badge2">✦ Portal de Materiales</div>
-            <div class="cli-title">Tu casa,<br>tus materiales 🏡</div>
-            <div class="cli-sub">Ingresa tus datos para acceder a tu formulario personalizado de selección de materiales.</div>
+        {_vtag}
+        <div style="position:fixed;inset:0;z-index:1;background:linear-gradient(135deg,rgba(5,10,20,0.65),rgba(10,22,50,0.50));"></div>
+        <!-- Logo top right -->
+        <div style="position:fixed;top:18px;right:24px;z-index:10;">{_logo_tag}</div>
+        <!-- Hero text centered -->
+        <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;text-align:center;width:100%;padding:0 20px;pointer-events:none;">
+            <div style="display:inline-block;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.28);
+                color:white;border-radius:99px;padding:5px 18px;font-size:0.68rem;font-weight:700;
+                letter-spacing:0.12em;text-transform:uppercase;margin-bottom:14px;backdrop-filter:blur(8px);
+                font-family:Poppins,sans-serif;">✦ Portal de Materiales</div>
+            <div style="font-size:2.8rem;font-weight:900;color:white;line-height:1.15;margin-bottom:10px;
+                text-shadow:0 2px 24px rgba(0,0,0,0.5);font-family:Poppins,sans-serif;">Tu casa,<br>tus materiales 🏡</div>
+            <div style="font-size:0.95rem;color:rgba(255,255,255,0.78);max-width:380px;margin:0 auto;
+                line-height:1.6;font-family:Poppins,sans-serif;">
+                Ingresa tus datos para acceder a tu formulario personalizado de selección de materiales.
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
-        # Inputs centrados con columns
-        _, col_mid, _ = st.columns([1, 2, 1])
-        with col_mid:
+        # Inputs centrados debajo del hero con padding top
+        st.markdown("<div style='height:62vh'></div>", unsafe_allow_html=True)
+        _, _col, _ = st.columns([1, 2, 1])
+        with _col:
             _cli_rut_inp = st.text_input("RUT", placeholder="12.345.678-9", key="cli_rut",
                 label_visibility="visible")
             _cli_ep_inp  = st.text_input("Código de presupuesto", placeholder="EP-12345", key="cli_ep",
