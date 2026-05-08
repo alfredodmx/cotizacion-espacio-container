@@ -879,7 +879,7 @@ if _modo_cliente:
         }}
         div[data-testid="stTextInput"] input{{
             border-radius:12px!important;border:none!important;
-            background:rgba(255,255,255,0.95)!important;
+            background:#ffffff!important;opacity:1!important;
             font-family:Poppins,sans-serif!important;font-size:0.95rem!important;
             box-shadow:0 4px 20px rgba(0,0,0,0.2)!important;
         }}
@@ -894,9 +894,9 @@ if _modo_cliente:
         {_vtag}
         <div style="position:fixed;inset:0;z-index:1;background:linear-gradient(135deg,rgba(5,10,20,0.65),rgba(10,22,50,0.50));pointer-events:none;"></div>
         <!-- Logo top right -->
-        <div style="position:fixed;top:16px;right:20px;z-index:10;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.4));">{_logo_tag}</div>
+        <div style="position:fixed;top:16px;right:20px;z-index:10;"><a href="https://espaciocontainerhouse.cl/" target="_blank" style="text-decoration:none;display:block;">{_logo_tag}</a></div>
         <!-- Hero text centered -->
-        <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;text-align:center;width:100%;padding:0 20px;pointer-events:none;">
+        <div style="position:fixed;top:28%;left:50%;transform:translate(-50%,-50%);z-index:5;text-align:center;width:100%;padding:0 20px;pointer-events:none;">
             <div style="display:inline-block;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.28);
                 color:white;border-radius:99px;padding:5px 18px;font-size:0.68rem;font-weight:700;
                 letter-spacing:0.12em;text-transform:uppercase;margin-bottom:14px;backdrop-filter:blur(8px);
@@ -911,7 +911,7 @@ if _modo_cliente:
         """, unsafe_allow_html=True)
 
         # Inputs centrados debajo del hero con padding top
-        st.markdown("<div style='height:44vh'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:34vh'></div>", unsafe_allow_html=True)
         _, _col, _ = st.columns([1, 2, 1])
         with _col:
             _cli_rut_inp = st.text_input("RUT", placeholder="12.345.678-9", key="cli_rut",
