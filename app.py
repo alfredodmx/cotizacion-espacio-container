@@ -870,7 +870,9 @@ if _modo_cliente:
         }}
         /* Labels blancos */
         /* Inputs above everything */
-        section[data-testid="stMain"]{{position:relative;z-index:10;}}
+        section[data-testid="stMain"]{{position:relative;z-index:10;background:transparent!important;}}
+        .stMainBlockContainer{{background:transparent!important;}}
+        section[data-testid="stMain"] > div{{background:transparent!important;}}
         div[data-testid="stTextInput"] label{{
             color:white!important;font-weight:700!important;font-size:0.78rem!important;
             text-transform:uppercase!important;letter-spacing:0.08em!important;
@@ -880,8 +882,10 @@ if _modo_cliente:
         div[data-testid="stTextInput"] input{{
             border-radius:12px!important;border:none!important;
             background:#ffffff!important;opacity:1!important;
+            color:#1e293b!important;
             font-family:Poppins,sans-serif!important;font-size:0.95rem!important;
-            box-shadow:0 4px 20px rgba(0,0,0,0.2)!important;
+            box-shadow:0 4px 20px rgba(0,0,0,0.25)!important;
+            -webkit-text-fill-color:#1e293b!important;
         }}
         div[data-testid="stButton"] button{{
             border-radius:14px!important;font-weight:700!important;font-size:1rem!important;
@@ -904,14 +908,14 @@ if _modo_cliente:
             <div style="font-size:2.8rem;font-weight:900;color:white;line-height:1.15;margin-bottom:10px;
                 text-shadow:0 2px 24px rgba(0,0,0,0.5);font-family:Poppins,sans-serif;">Tu casa,<br>tus materiales 🏡</div>
             <div style="font-size:0.95rem;color:rgba(255,255,255,0.78);max-width:380px;margin:0 auto;
-                line-height:1.6;font-family:Poppins,sans-serif;">
+                line-height:1.6;font-family:Poppins,sans-serif;margin-bottom:32px;">
                 Ingresa tus datos para acceder a tu formulario personalizado de selección de materiales.
             </div>
         </div>
         """, unsafe_allow_html=True)
 
         # Inputs centrados debajo del hero con padding top
-        st.markdown("<div style='height:34vh'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:38vh'></div>", unsafe_allow_html=True)
         _, _col, _ = st.columns([1, 2, 1])
         with _col:
             _cli_rut_inp = st.text_input("RUT", placeholder="12.345.678-9", key="cli_rut",
