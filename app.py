@@ -136,7 +136,7 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
     import json
 
     primer_nombre = nombre_cliente.split()[0].capitalize() if nombre_cliente else 'Cliente'
-    logo_html = ('<img src="data:image/png;base64,' + logo_b64 + '" style="height:49px;width:auto;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.25));">') if logo_b64 else ''
+    logo_html = ('<img src="data:image/png;base64,' + logo_b64 + '" style="height:46px;width:auto;object-fit:contain;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.2));">') if logo_b64 else ''
 
     # Lookup item by id
     items_by_id = {str(it['id']): it for it in cat_items}
@@ -161,8 +161,9 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
 
     for cat, cfgs in configs_by_cat.items():
         # One container per category
+        body_html += '<div class="cat-section">'
+        body_html += '<div class="cat-header-title">' + cat + '</div>'
         body_html += '<div class="cat-card">'
-        body_html += '<div class="cat-card-title">' + cat + '</div>'
 
         for ci, cfg in enumerate(cfgs):
             tg = cfg.get('titulo_grupo','')
@@ -179,306 +180,428 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
             itipo = group_items[0].get('tipo','imagen')
             answered = any(resps_map.get(iid) for iid in ids)
 
-            # Separator between items (not before first)
             if ci > 0:
                 body_html += '<div class="item-divider"></div>'
 
-            body_html += '<div class="item-section">'
+            body_html += '<div class="item-row" id="group-wrap-' + str(ci) + '">'
             # Item title
-            body_html += '<div class="item-title">'
-            body_html += tg
+            body_html += '<div class="item-title-row">'
+            body_html += '<span class="item-label">' + tg + '</span>'
             if answered:
-                body_html += '<span class="done-dot"></span>'
+                body_html += '<span class="status-pill completed">Completado</span>'
+            else:
+                body_html += '<span class="status-pill pending">Pendiente</span>'
             body_html += '</div>'
 
             # Observations
             if obs and mostrar_obs:
-                body_html += '<div class="obs-box">' + obs + '</div>'
+                body_html += '<div class="obs-hint">' + obs + '</div>'
 
             # Color carousel
             if itipo == 'color':
                 gid = 'cg-' + str(ci)
-                body_html += '<div class="carousel-wrap">'
-                body_html += '<button class="nav-btn" onclick="scrollC(\'' + gid + '\',-1)">&#8249;</button>'
-                body_html += '<div class="carousel-inner"><div class="color-row" id="' + gid + '">'
+                body_html += '<div class="carousel-container">'
+                body_html += '<button class="nav-arrow left" onclick="scrollC(\'' + gid + '\',-1)">&#8249;</button>'
+                body_html += '<div class="carousel-viewport" id="' + gid + '">'
                 for it in group_items:
                     iid = str(it.get('id',''))
                     nm = it.get('nombre','')
                     hx = it.get('hex','#ccc') or '#ccc'
-                    sel = ' sel' if resps_map.get(iid) == nm else ''
-                    body_html += '<div class="c-item' + sel + '" id="ci-' + iid + '" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'color\')"">'
-                    body_html += '<div class="c-color-block" style="background:' + hx + ';"><span class="c-check">✓</span></div>'
-                    body_html += '<div class="c-name">' + nm + '</div>'
+                    sel = ' selected' if resps_map.get(iid) == nm else ''
+                    body_html += '<div class="choice-item color' + sel + '" id="ci-' + iid + '" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'color\')">'
+                    body_html += '<div class="color-box" style="background:' + hx + ';">'
+                    body_html += '<div class="selection-overlay"><span class="check-icon">✓</span></div>'
                     body_html += '</div>'
-                body_html += '</div></div>'
-                body_html += '<button class="nav-btn" onclick="scrollC(\'' + gid + '\',1)">&#8250;</button>'
+                    body_html += '<div class="choice-name">' + nm + '</div>'
+                    body_html += '</div>'
+                body_html += '</div>'
+                body_html += '<button class="nav-arrow right" onclick="scrollC(\'' + gid + '\',1)">&#8250;</button>'
                 body_html += '</div>'
 
             # Image carousel
             elif itipo == 'imagen':
                 gid = 'ig-' + str(ci)
-                body_html += '<div class="carousel-wrap">'
-                body_html += '<button class="nav-btn" onclick="scrollC(\'' + gid + '\',-1)">&#8249;</button>'
-                body_html += '<div class="carousel-inner"><div class="img-row" id="' + gid + '">'
+                body_html += '<div class="carousel-container">'
+                body_html += '<button class="nav-arrow left" onclick="scrollC(\'' + gid + '\',-1)">&#8249;</button>'
+                body_html += '<div class="carousel-viewport" id="' + gid + '">'
                 for it in group_items:
                     iid = str(it.get('id',''))
                     nm = it.get('nombre','')
                     url = it.get('imagen_url','') or ''
-                    sel = ' sel' if resps_map.get(iid) == nm else ''
+                    sel = ' selected' if resps_map.get(iid) == nm else ''
                     pid = 'pop-' + iid
-                    body_html += '<div class="i-item' + sel + '" id="ii-' + iid + '" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'imagen\')"">'
-                    body_html += '<div class="i-circle">'
+                    body_html += '<div class="choice-item image' + sel + '" id="ii-' + iid + '" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'imagen\')">'
+                    body_html += '<div class="image-frame">'
                     if url:
-                        body_html += '<img src="' + url + '" alt="' + nm + '">'
+                        body_html += '<img src="' + url + '" alt="' + nm + '" loading="lazy">'
                     else:
-                        body_html += '<div class="i-placeholder">&#128230;</div>'
-                    body_html += '</div>'
-                    body_html += '<div class="i-badge">✓</div>'
+                        body_html += '<div class="placeholder-icon">🏠</div>'
+                    body_html += '<div class="selection-overlay"><span class="check-icon">✓</span></div>'
                     if url:
-                        body_html += '<button class="zoom-btn" onclick="event.stopPropagation();openP(\'' + pid + '\')">&#128269;</button>'
-                    body_html += '<div class="i-name">' + nm + '</div>'
+                        body_html += '<button class="expand-trigger" onclick="event.stopPropagation();openP(\'' + pid + '\')">🔍</button>'
+                    body_html += '</div>'
+                    body_html += '<div class="choice-name">' + nm + '</div>'
                     body_html += '</div>'
                     if url:
-                        popups_html += '<div class="popup" id="' + pid + '" onclick="if(this===event.target)closeP(\'' + pid + '\')">'
-                        popups_html += '<button class="pop-close" onclick="closeP(\'' + pid + '\')">&#x2715;</button>'
-                        popups_html += '<img src="' + url + '">'
-                        popups_html += '<div class="pop-name">' + nm + '</div>'
-                        popups_html += '<button class="pop-sel" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'imagen\');closeP(\'' + pid + '\')">✅ Seleccionar</button>'
-                        popups_html += '</div>'
-                body_html += '</div></div>'
-                body_html += '<button class="nav-btn" onclick="scrollC(\'' + gid + '\',1)">&#8250;</button>'
+                        popups_html += '<div class="modal-overlay" id="' + pid + '" onclick="if(this===event.target)closeP(\'' + pid + '\')">'
+                        popups_html += '<div class="modal-content">'
+                        popups_html += '<button class="modal-close" onclick="closeP(\'' + pid + '\')">&times;</button>'
+                        popups_html += '<img src="' + url + '" class="modal-img">'
+                        popups_html += '<div class="modal-footer">'
+                        popups_html += '<div class="modal-title">' + nm + '</div>'
+                        popups_html += '<button class="modal-select-btn" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'imagen\');closeP(\'' + pid + '\')">Seleccionar este material</button>'
+                        popups_html += '</div></div></div>'
+                body_html += '</div>'
+                body_html += '<button class="nav-arrow right" onclick="scrollC(\'' + gid + '\',1)">&#8250;</button>'
                 body_html += '</div>'
 
             # Si/No
             elif itipo == 'si_no':
-                # Buscar si_id y no_id por nombre, no por posición
-                si_it = next((x for x in group_items if x.get('nombre','').strip() in ('Sí','Si','sí','si','YES','Yes')), group_items[0] if group_items else {})
-                no_it = next((x for x in group_items if x.get('nombre','').strip() in ('No','NO','no')), group_items[1] if len(group_items)>1 else {})
+                si_it = next((x for x in group_items if x.get('nombre','').strip().lower() in ('sí','si','yes')), group_items[0] if group_items else {})
+                no_it = next((x for x in group_items if x.get('nombre','').strip().lower() in ('no')), group_items[1] if len(group_items)>1 else {})
                 si_id = str(si_it.get('id',''))
                 no_id = str(no_it.get('id',''))
-                si_sel = ' sel' if resps_map.get(si_id) in ('Sí','Si') else ''
-                no_sel = ' sel' if resps_map.get(no_id) == 'No' else ''
-                body_html += '<div class="sino-row">'
-                body_html += '<button class="sino-btn' + si_sel + '" id="sib-' + si_id + '" onclick="pick(\'' + si_id + '\',\'Sí\',\'si_no\')">✅ Sí</button>'
-                body_html += '<button class="sino-btn' + no_sel + '" id="nob-' + no_id + '" onclick="pick(\'' + no_id + '\',\'No\',\'si_no\')">❌ No</button>'
+                si_sel = ' active' if resps_map.get(si_id) in ('Sí','Si') else ''
+                no_sel = ' active' if resps_map.get(no_id) == 'No' else ''
+                body_html += '<div class="toggle-group">'
+                body_html += '<button class="toggle-btn' + si_sel + '" id="sib-' + si_id + '" onclick="pick(\'' + si_id + '\',\'Sí\',\'si_no\')">Sí</button>'
+                body_html += '<button class="toggle-btn' + no_sel + '" id="nob-' + no_id + '" onclick="pick(\'' + no_id + '\',\'No\',\'si_no\')">No</button>'
                 body_html += '</div>'
 
             # Select
             elif itipo == 'select':
-                body_html += '<select class="sel-inp" onchange="var p=this.value.split(\'|\');if(p.length==2)pick(p[0],p[1],\'select\')">'
-                body_html += '<option value="">-- Selecciona --</option>'
+                body_html += '<div class="select-wrapper">'
+                body_html += '<select class="premium-select" onchange="var p=this.value.split(\'|\');if(p.length==2)pick(p[0],p[1],\'select\')">'
+                body_html += '<option value="">Seleccione una opción...</option>'
                 for it in group_items:
                     iid = str(it.get('id',''))
                     nm = it.get('nombre','')
                     sel = ' selected' if resps_map.get(iid) == nm else ''
                     body_html += '<option value="' + iid + '|' + nm + '"' + sel + '>' + nm + '</option>'
-                body_html += '</select>'
+                body_html += '</select></div>'
 
-            body_html += '</div>'  # end item-section
+            body_html += '</div>'
 
-        body_html += '</div>'  # end cat-card
+        body_html += '</div></div>'
 
     resps_j = json.dumps(resps_map, ensure_ascii=True)
-    # grupos_map: {iid -> [all iids in same group]}
     _gmap = {}
     for cfg in config_data:
         _ids = [str(x) for x in (cfg.get('item_ids') or [])]
-        for _id in _ids:
-            _gmap[_id] = _ids
+        for _id in _ids: _gmap[_id] = _ids
     grupos_j = json.dumps(_gmap, ensure_ascii=True)
 
-    _hero_css = ('background-image:url(data:image/jpeg;base64,' + hero_b64 + ');background-size:cover;background-position:center;' if hero_b64 else 'background:linear-gradient(135deg,#0a1628,#0f3460,#1a5276);')
+    _hero_bg = ('background-image:url(data:image/jpeg;base64,' + hero_b64 + ');' if hero_b64 else 'background:linear-gradient(135deg,#0f172a,#1e293b);')
+    
     css = '''
-@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@700;900&family=Poppins:wght@400;600;700;900&display=swap");
-*{box-sizing:border-box;}
-body{margin:0;padding:0;font-family:Poppins,sans-serif;font-size:14px;background:#f0f4f8;}
-.wrap{max-width:1000px;margin:0 auto;padding:0 0 32px;}
-/* Header */
-.header{''' + _hero_css + '''padding:0;margin:20px 16px 20px;border-radius:20px;color:white;box-shadow:0 16px 48px rgba(10,22,40,0.28);position:relative;overflow:hidden;min-height:260px;display:flex;flex-direction:column;justify-content:flex-end;margin:20px 16px 20px;}
-.header::before{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,rgba(5,10,20,0.15) 0%,rgba(5,10,20,0.65) 100%);border-radius:20px;}
-.h-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
-.h-inner{padding:24px 24px 22px;position:relative;z-index:1;}
-.h-badge{display:inline-block;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:99px;padding:3px 12px;font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;backdrop-filter:blur(4px);}
-.h-title{font-size:1.65rem;font-weight:900;line-height:1.15;margin-bottom:8px;font-family:Poppins,sans-serif;background:linear-gradient(90deg,#fff,#a8d8f0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-.h-sub{font-size:0.82rem;opacity:0.7;line-height:1.5;margin-bottom:12px;}
-.h-ep{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);border-radius:99px;padding:4px 14px;font-size:0.75rem;font-weight:700;}
-.prog-bar{background:rgba(255,255,255,0.12);border-radius:99px;height:5px;margin-top:14px;}
-.prog-fill{border-radius:99px;height:5px;background:linear-gradient(90deg,#48cae4,#90e0ef);transition:width 0.5s;}
-.prog-lbl{font-size:0.7rem;opacity:0.6;margin-top:4px;}
-/* Category card — ONE per category */
-.cat-card{background:white;border-radius:18px;margin:0 16px 14px;border:1px solid #e8f0fe;box-shadow:0 3px 16px rgba(15,52,96,0.07);overflow:hidden;}
-.cat-card-title{font-size:0.85rem;font-weight:600;color:#0a1628;font-family:Poppins,sans-serif;letter-spacing:0.04em;padding:16px 22px 0;}
-/* Item section inside category */
-.item-section{padding:14px 22px 16px;}
-.item-divider{height:1px;background:linear-gradient(90deg,#e8f0fe,transparent);margin:0 22px;}
-.item-title{font-size:0.82rem;font-weight:600;color:#64748b;margin-bottom:12px;display:flex;align-items:center;gap:8px;font-family:Poppins,sans-serif;letter-spacing:0.02em;}
-.done-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;flex-shrink:0;}
-.obs-box{background:#eff6ff;border-left:3px solid #60a5fa;border-radius:6px;padding:8px 12px;font-size:0.82rem;color:#374151;margin-bottom:12px;line-height:1.5;}
-/* Carousel */
-.carousel-wrap{display:flex;align-items:center;gap:8px;}
-.carousel-inner{flex:1;overflow:hidden;}
-.nav-btn{background:white;color:#0f3460;border:none;border-radius:50%;width:38px;height:38px;font-size:21px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 14px rgba(0,0,0,0.11);}
-.nav-btn:active{transform:scale(0.93);}
-/* Colors */
-.color-row{display:flex;gap:15px;overflow-x:hidden;padding:4px 2px 10px;}
-.c-item{cursor:pointer;flex-shrink:0;width:110px;border-radius:12px;overflow:hidden;background:white;box-shadow:0 2px 12px rgba(15,52,96,0.1);transition:all 0.18s;border:2px solid transparent;}
-.c-item:active{transform:scale(0.93);}
-.c-color-block{width:100%;height:80px;position:relative;}
-.c-item.sel{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,0.15),0 4px 16px rgba(15,52,96,0.15);}
-.c-check{display:none;position:absolute;inset:0;align-items:center;justify-content:center;color:white;font-size:1.4rem;font-weight:900;text-shadow:0 1px 4px rgba(0,0,0,0.4);}
-.c-item.sel .c-check{display:flex;}.c-name{font-size:10px;font-weight:400;color:#64748b;padding:6px 6px 7px;text-align:center;line-height:1.2;font-family:Poppins,sans-serif;}
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    :root {
+        --primary: #0f172a;
+        --accent: #3b82f6;
+        --bg: #f8fafc;
+        --card-bg: #ffffff;
+        --text-main: #1e293b;
+        --text-muted: #64748b;
+        --border: #e2e8f0;
+        --success: #10b981;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { 
+        margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; 
+        background: var(--bg); color: var(--text-main); line-height: 1.5;
+    }
+    .main-wrap { max-width: 800px; margin: 0 auto; padding-bottom: 120px; }
+    
+    /* Premium Header */
+    .hero {
+        ''' + _hero_bg + '''
+        background-size: cover; background-position: center;
+        height: 320px; position: relative; display: flex; flex-direction: column;
+        justify-content: flex-end; padding: 32px; margin-bottom: -40px;
+    }
+    .hero::after {
+        content: ""; position: absolute; inset: 0;
+        background: linear-gradient(to top, rgba(15,23,42,0.9), rgba(15,23,42,0.2));
+    }
+    .hero-content { position: relative; z-index: 2; color: white; }
+    .hero-badge {
+        display: inline-block; background: rgba(255,255,255,0.15);
+        backdrop-filter: blur(8px); padding: 4px 12px; border-radius: 100px;
+        font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.1em; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.2);
+    }
+    .hero-title { font-size: 2rem; font-weight: 800; margin: 0 0 8px; line-height: 1.1; }
+    .hero-subtitle { font-size: 0.9rem; opacity: 0.8; max-width: 500px; }
+    
+    /* Progress Bar Float */
+    .progress-float {
+        position: sticky; top: 16px; z-index: 100; margin: 0 16px;
+        background: rgba(255,255,255,0.9); backdrop-filter: blur(12px);
+        padding: 12px 20px; border-radius: 16px; border: 1px solid var(--border);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+    }
+    .prog-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .prog-val { font-weight: 700; font-size: 0.85rem; color: var(--primary); }
+    .prog-label { font-size: 0.75rem; color: var(--text-muted); }
+    .prog-track { height: 6px; background: #e2e8f0; border-radius: 10px; overflow: hidden; }
+    .prog-fill { height: 100%; background: var(--accent); transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); }
 
-/* Images */
-.img-row{display:flex;gap:15px;overflow-x:hidden;padding:4px 2px 12px;}
-.i-item{cursor:pointer;flex:0 0 110px;width:110px;border-radius:12px;overflow:hidden;background:white;box-shadow:0 2px 12px rgba(15,52,96,0.1);transition:all 0.18s;border:2px solid transparent;position:relative;}
-.i-item:active{transform:scale(0.97);}
-.i-circle{width:100%;height:80px;overflow:hidden;display:block;}
-.i-item.sel{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,0.15),0 4px 16px rgba(15,52,96,0.15);}
-.i-circle img{width:100%;height:100%;object-fit:cover;display:block;}
-.i-placeholder{width:100%;height:80px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:2rem;}
-.i-name{font-size:10px;font-weight:400;color:#64748b;padding:6px 6px 7px;text-align:center;line-height:1.2;font-family:Poppins,sans-serif;}
-.i-badge{display:none;position:absolute;top:6px;right:6px;background:#0f3460;color:white;border-radius:50%;width:22px;height:22px;align-items:center;justify-content:center;font-size:12px;font-weight:900;box-shadow:0 2px 8px rgba(15,52,96,0.3);}
-.i-item.sel .i-badge{display:flex;}
-.zoom-btn{position:absolute;bottom:6px;right:6px;background:rgba(255,255,255,0.9);color:#0f3460;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(15,52,96,0.2);}
-/* Si/No */
-.sino-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.sino-btn{padding:14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:400;cursor:pointer;background:white;font-family:Poppins,sans-serif;color:#0a1628;box-shadow:0 2px 8px rgba(15,52,96,0.05);transition:all 0.15s;}
-.sino-btn.sel{background:linear-gradient(135deg,#0f3460,#1a5276);color:white;border-color:#0f3460;box-shadow:0 6px 20px rgba(15,52,96,0.25);}
-/* Select */
-.sel-inp{width:100%;padding:11px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;font-family:Poppins,sans-serif;color:#0a1628;outline:none;}
-.sel-inp:focus{border-color:#0f3460;}
-/* Popup */
-.popup{display:none;position:fixed;inset:0;background:rgba(5,10,20,0.95);z-index:9999;flex-direction:column;align-items:center;justify-content:center;}
-.popup.open{display:flex;}
-.popup img{max-width:90vw;max-height:75vh;object-fit:contain;border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,0.5);}
-.pop-name{color:white;font-size:1.1rem;font-weight:700;margin-top:14px;}
-.pop-close{position:absolute;top:20px;right:24px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:white;font-size:1.2rem;cursor:pointer;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;}
-.pop-sel{margin-top:16px;background:linear-gradient(135deg,#0f3460,#1a5276);color:white;border:none;border-radius:10px;padding:12px 32px;font-size:14px;font-weight:700;cursor:pointer;font-family:Poppins,sans-serif;box-shadow:0 8px 24px rgba(15,52,96,0.3);}
-/* Save */
-.save-wrap{margin:20px 16px 24px;}
-.save-btn{width:100%;padding:15px;background:linear-gradient(135deg,#0f3460,#1a5276);color:white;border:none;border-radius:14px;font-size:14px;font-weight:500;cursor:pointer;font-family:Poppins,sans-serif;box-shadow:0 8px 28px rgba(15,52,96,0.28);letter-spacing:0.02em;}
-.save-btn:disabled{opacity:0.5;}
-.save-st{text-align:center;font-size:13px;font-weight:600;margin-top:8px;min-height:18px;}
-'''
+    /* Sections & Cards */
+    .cat-section { margin: 24px 16px; animation: fadeInUp 0.6s ease both; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .cat-header-title { 
+        font-size: 0.8rem; font-weight: 800; text-transform: uppercase; 
+        letter-spacing: 0.15em; color: var(--text-muted); margin-bottom: 12px; padding-left: 4px;
+    }
+    .cat-card { 
+        background: var(--card-bg); border-radius: 24px; 
+        border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+        overflow: hidden;
+    }
+    .item-row { padding: 24px; }
+    .item-divider { height: 1px; background: linear-gradient(90deg, var(--border), transparent); margin: 0 24px; }
+    .item-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .item-label { font-size: 1rem; font-weight: 700; color: var(--primary); }
+    .status-pill { font-size: 0.65rem; font-weight: 700; padding: 4px 10px; border-radius: 100px; }
+    .status-pill.completed { background: #d1fae5; color: #065f46; }
+    .status-pill.pending { background: #f1f5f9; color: #64748b; }
+    
+    .obs-hint { 
+        background: #f1f5f9; border-radius: 10px; padding: 10px 14px; 
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px; border-left: 3px solid var(--accent);
+    }
+
+    /* Carousels */
+    .carousel-container { position: relative; display: flex; align-items: center; }
+    .carousel-viewport { 
+        flex: 1; display: flex; gap: 14px; overflow-x: auto; scroll-behavior: smooth; 
+        padding: 4px 4px 12px; scrollbar-width: none; 
+    }
+    .carousel-viewport::-webkit-scrollbar { display: none; }
+    .nav-arrow {
+        width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border);
+        background: white; color: var(--primary); font-size: 18px; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; z-index: 5;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: all 0.2s;
+    }
+    .nav-arrow:hover { background: var(--primary); color: white; border-color: var(--primary); }
+    .nav-arrow.left { margin-right: -16px; }
+    .nav-arrow.right { margin-left: -16px; }
+
+    /* Choice Items */
+    .choice-item { 
+        flex: 0 0 120px; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+    }
+    .choice-item:hover { transform: translateY(-4px); }
+    .choice-item.selected { transform: scale(1.03); }
+    
+    .color-box { 
+        width: 100%; height: 90px; border-radius: 16px; position: relative; 
+        border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    }
+    .image-frame { 
+        width: 100%; height: 90px; border-radius: 16px; overflow: hidden; 
+        position: relative; border: 1px solid var(--border);
+    }
+    .image-frame img { width: 100%; height: 100%; object-fit: cover; }
+    .placeholder-icon { height: 100%; display: flex; align-items: center; justify-content: center; font-size: 24px; background: #f1f5f9; }
+    
+    .selection-overlay {
+        position: absolute; inset: 0; background: rgba(59,130,246,0.6);
+        display: flex; align-items: center; justify-content: center;
+        opacity: 0; transition: opacity 0.3s; border-radius: inherit;
+    }
+    .choice-item.selected .selection-overlay { opacity: 1; }
+    .check-icon { color: white; font-size: 24px; font-weight: 800; }
+    
+    .expand-trigger {
+        position: absolute; bottom: 8px; right: 8px; width: 26px; height: 26px;
+        background: rgba(255,255,255,0.9); border: none; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center; cursor: pointer;
+        font-size: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .choice-name { 
+        margin-top: 8px; font-size: 0.7rem; font-weight: 600; text-align: center;
+        color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .choice-item.selected .choice-name { color: var(--accent); font-weight: 700; }
+
+    /* Inputs */
+    .toggle-group { display: flex; gap: 12px; }
+    .toggle-btn {
+        flex: 1; padding: 14px; border: 2px solid var(--border); border-radius: 16px;
+        background: white; font-family: inherit; font-weight: 700; cursor: pointer;
+        transition: all 0.2s; color: var(--text-muted);
+    }
+    .toggle-btn.active { 
+        border-color: var(--accent); background: #eff6ff; color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent);
+    }
+    .premium-select {
+        width: 100%; padding: 14px 18px; border-radius: 16px; border: 2px solid var(--border);
+        font-family: inherit; font-size: 0.95rem; color: var(--primary); outline: none;
+        appearance: none; background: url('data:image/svg+xml;charset=US-ASCII,<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 7.5L10 12.5L15 7.5" stroke="%2364748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>') no-repeat right 16px center;
+    }
+    .premium-select:focus { border-color: var(--accent); }
+
+    /* Footer Save */
+    .save-footer {
+        position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.8);
+        backdrop-filter: blur(20px); border-top: 1px solid var(--border);
+        padding: 20px 24px 32px; z-index: 500; display: flex; flex-direction: column; align-items: center;
+    }
+    .save-btn {
+        width: 100%; max-width: 400px; padding: 18px; border-radius: 18px; border: none;
+        background: var(--primary); color: white; font-family: inherit; font-size: 1rem;
+        font-weight: 700; cursor: pointer; transition: all 0.3s;
+        box-shadow: 0 10px 30px rgba(15,23,42,0.3);
+    }
+    .save-btn:hover { transform: translateY(-2px); box-shadow: 0 15px 40px rgba(15,23,42,0.4); }
+    .save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .status-msg { margin-top: 10px; font-size: 0.8rem; font-weight: 600; height: 18px; }
+
+    /* Modals */
+    .modal-overlay {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000;
+        display: none; align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-content { 
+        width: 100%; max-width: 600px; background: white; border-radius: 24px; 
+        overflow: hidden; position: relative; animation: zoomIn 0.3s ease;
+    }
+    @keyframes zoomIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+    .modal-close {
+        position: absolute; top: 16px; right: 16px; background: white; border: none;
+        width: 36px; height: 36px; border-radius: 50%; font-size: 24px; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .modal-img { width: 100%; height: auto; display: block; }
+    .modal-footer { padding: 24px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+    .modal-title { font-weight: 700; font-size: 1.1rem; }
+    .modal-select-btn {
+        background: var(--accent); color: white; border: none; border-radius: 12px;
+        padding: 12px 20px; font-family: inherit; font-weight: 700; cursor: pointer;
+    }
+    '''
 
     js = '''
-var S="''' + supa_url + '''",K="''' + supa_key + '''",EP="''' + ep + '''";
-var R=''' + resps_j + ''';
-var G=''' + grupos_j + ''';
-var P={};
+    var S="''' + supa_url + '''",K="''' + supa_key + '''",EP="''' + ep + '''";
+    var R=''' + resps_j + ''';
+    var G=''' + grupos_j + ''';
+    var P={};
 
-function pick(iid,val,tipo){
-  R[iid]=val; P[iid]=val;
-  if(tipo==="color"){
-    var el=document.getElementById("ci-"+iid);
-    if(el){
-      var row=el.closest(".color-row");
-      if(row) row.querySelectorAll(".c-item").forEach(function(e){e.classList.remove("sel");});
-      el.classList.add("sel");
-    }
-  } else if(tipo==="imagen"){
-    var el=document.getElementById("ii-"+iid);
-    if(el){
-      // Only deselect within the same img-row group
-      var row=el.closest(".img-row");
-      if(row) row.querySelectorAll(".i-item").forEach(function(e){e.classList.remove("sel");});
-      el.classList.add("sel");
-    }
-  } else if(tipo==="si_no"){
-    var clickedBtn=document.getElementById("sib-"+iid)||document.getElementById("nob-"+iid);
-    if(clickedBtn){
-      var row=clickedBtn.closest(".sino-row");
-      if(row) row.querySelectorAll(".sino-btn").forEach(function(b){b.classList.remove("sel");});
-      clickedBtn.classList.add("sel");
-    }
-  }
-}
-
-function scrollC(gid,dir){
-  var el=document.getElementById(gid);
-  if(el) el.scrollBy({left:dir*230,behavior:"smooth"});
-}
-
-function openP(id){
-  var el=document.getElementById(id);
-  if(el){el.classList.add("open");document.body.style.overflow="hidden";}
-}
-function closeP(id){
-  var el=document.getElementById(id);
-  if(el){el.classList.remove("open");document.body.style.overflow="";}
-}
-
-async function guardar(){
-  var btn=document.getElementById("sbtn");
-  var st=document.getElementById("sst");
-  var entries=Object.entries(P);
-  if(!entries.length){st.textContent="Sin cambios";st.style.color="#94a3b8";return;}
-  btn.disabled=true;st.textContent="Guardando...";st.style.color="#2563eb";
-  try{
-    for(var i=0;i<entries.length;i++){
-      var iid=entries[i][0],val=entries[i][1];
-      // Delete other items from same group first
-      var grp=G[iid]||[];
-      for(var j=0;j<grp.length;j++){
-        if(grp[j]!==iid){
-          await fetch(S+"/rest/v1/formulario_respuestas?cotizacion_numero=eq."+EP+"&item_id=eq."+grp[j],{
-            method:"DELETE",
-            headers:{"Authorization":"Bearer "+K,"apikey":K}
-          });
-          delete R[grp[j]];
+    function pick(iid, val, tipo) {
+        R[iid] = val; P[iid] = val;
+        const wrap = document.getElementById("group-wrap-" + iid); // This is approximate
+        // Find specific items and mark them
+        if(tipo === "color") {
+            const el = document.getElementById("ci-" + iid);
+            if(el) {
+                const row = el.closest(".carousel-viewport");
+                row.querySelectorAll(".choice-item").forEach(e => e.classList.remove("selected"));
+                el.classList.add("selected");
+            }
+        } else if(tipo === "imagen") {
+            const el = document.getElementById("ii-" + iid);
+            if(el) {
+                const row = el.closest(".carousel-viewport");
+                row.querySelectorAll(".choice-item").forEach(e => e.classList.remove("selected"));
+                el.classList.add("selected");
+            }
+        } else if(tipo === "si_no") {
+            const btn = document.getElementById("sib-" + iid) || document.getElementById("nob-" + iid);
+            if(btn) {
+                const row = btn.closest(".toggle-group");
+                row.querySelectorAll(".toggle-btn").forEach(b => b.classList.remove("active"));
+                btn.classList.add("active");
+            }
         }
-      }
-      await fetch(S+"/rest/v1/formulario_respuestas",{
-        method:"POST",
-        headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json",
-                 "Prefer":"resolution=merge-duplicates,return=minimal"},
-        body:JSON.stringify({cotizacion_numero:EP,item_id:iid,respuesta:val})
-      });
+        updateClientProgress();
     }
-    P={};
-    st.textContent="✅ Guardado";st.style.color="#16a34a";
-    // Verificar si completó al 100% y guardar fecha
-    try{
-      var totalGrupos=document.querySelectorAll('.grupo').length;
-      var completados=document.querySelectorAll('.grupo.completado').length;
-      if(totalGrupos>0 && completados>=totalGrupos){
-        await fetch(S+"/rest/v1/cotizaciones?numero=eq."+EP,{
-          method:"PATCH",
-          headers:{"Authorization":"Bearer "+K,"apikey":K,
-                   "Content-Type":"application/json",
-                   "Prefer":"return=minimal"},
-          body:JSON.stringify({fecha_formulario_completado:new Date().toISOString()})
-        });
-      }
-    }catch(e2){}
-  }catch(e){st.textContent="Error: "+e.message;st.style.color="#dc2626";}
-  btn.disabled=false;
-}
-'''
+
+    function scrollC(gid, dir) {
+        const el = document.getElementById(gid);
+        if(el) el.scrollBy({ left: dir * 250, behavior: "smooth" });
+    }
+
+    function openP(id) {
+        const el = document.getElementById(id);
+        if(el) { el.classList.add("open"); document.body.style.overflow = "hidden"; }
+    }
+    function closeP(id) {
+        const el = document.getElementById(id);
+        if(el) { el.classList.remove("open"); document.body.style.overflow = ""; }
+    }
+
+    function updateClientProgress() {
+        const total = ''' + str(total_grupos) + ''';
+        const answered = Object.keys(R).length; // Simplify for UI
+        const pct = Math.min(100, Math.round((answered / total) * 100));
+        const fill = document.getElementById("prog-fill-ui");
+        const lbl = document.getElementById("prog-lbl-ui");
+        if(fill) fill.style.width = pct + "%";
+        if(lbl) lbl.textContent = pct + "% completado";
+    }
+
+    async function guardar() {
+        const btn = document.getElementById("sbtn");
+        const st = document.getElementById("sst");
+        const entries = Object.entries(P);
+        if(!entries.length) { 
+            st.textContent = "✓ Ya está actualizado"; st.style.color = "var(--success)"; 
+            return; 
+        }
+        btn.disabled = true; st.textContent = "Guardando selección..."; st.style.color = var(--accent);
+        try {
+            for(const [iid, val] of entries) {
+                const grp = G[iid] || [];
+                for(const gid of grp) {
+                    if(gid !== iid) {
+                        await fetch(S + "/rest/v1/formulario_respuestas?cotizacion_numero=eq." + EP + "&item_id=eq." + gid, {
+                            method: "DELETE", headers: { "Authorization": "Bearer " + K, "apikey": K }
+                        });
+                        delete R[gid];
+                    }
+                }
+                await fetch(S + "/rest/v1/formulario_respuestas", {
+                    method: "POST",
+                    headers: { "Authorization": "Bearer " + K, "apikey": K, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal" },
+                    body: JSON.stringify({ cotizacion_numero: EP, item_id: iid, respuesta: val })
+                });
+            }
+            P = {};
+            st.textContent = "✅ Cambios guardados con éxito"; st.style.color = "var(--success)";
+            setTimeout(() => { st.textContent = ""; }, 3000);
+        } catch(e) {
+            st.textContent = "Error al guardar: " + e.message; st.style.color = "#dc2626";
+        }
+        btn.disabled = false;
+    }
+    '''
 
     html = (
         '<!DOCTYPE html><html><head><meta charset="utf-8">'
-        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=0">'
         '<style>' + css + '</style></head><body>'
-        '<div class="wrap">'
-        '<div class="header">'
-        '<div class="h-inner">'
-        '<div class="h-top">'
-        '<div class="h-badge">✦ Tu selección de materiales ✦</div>'
-        '<div>' + logo_html + '</div>'
+        '<div class="main-wrap">'
+        '<div class="hero">'
+        '<div class="hero-content">'
+        '<div class="hero-badge">Portal de Selección</div>'
+        '<div class="hero-title">Hola, ' + primer_nombre + ' 🏡</div>'
+        '<div class="hero-subtitle">Define el alma de tu nueva casa container eligiendo cada detalle a tu gusto.</div>'
         '</div>'
-        '<div class="h-title">Bienvenida/o,<br>' + primer_nombre + ' 🏡</div>'
-        '<div class="h-sub">Estás eligiendo los materiales que van a darle vida y personalidad a tu casa container. ¡Cada elección cuenta!</div>'
-        '<div class="h-ep">📋 ' + ep + '</div>'
-        '<div class="prog-bar"><div class="prog-fill" style="width:' + str(pct) + '%;"></div></div>'
-        '<div class="prog-lbl">' + str(resp_grupos) + ' de ' + str(total_grupos) + ' completadas — ' + str(pct) + '%</div>'
         '</div>'
+        '<div class="progress-float">'
+        '<div class="prog-top"><span class="prog-val" id="prog-lbl-ui">' + str(pct) + '% completado</span><span class="prog-label">' + str(resp_grupos) + ' de ' + str(total_grupos) + ' ítems</span></div>'
+        '<div class="prog-track"><div class="prog-fill" id="prog-fill-ui" style="width:' + str(pct) + '%;"></div></div>'
         '</div>'
         + body_html
         + popups_html
-        + '<div class="save-wrap">'
-        '<button class="save-btn" id="sbtn" onclick="guardar()">💾 Guardar mis elecciones</button>'
-        '<div class="save-st" id="sst"></div>'
+        + '<div class="save-footer">'
+        '<button class="save-btn" id="sbtn" onclick="guardar()">Guardar mis elecciones</button>'
+        '<div class="status-msg" id="sst"></div>'
         '</div>'
         '</div>'
         '<script>' + js + '</script>'
@@ -824,14 +947,14 @@ if _modo_cliente:
     # Ocultar elementos de Streamlit
     st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
     #MainMenu,footer,[data-testid="stToolbar"],[data-testid="stDecoration"]{display:none!important;}
     .stAppHeader,.st-emotion-cache-xi6p3a,[data-testid="stAppHeader"]{display:none!important;height:0!important;}
-    .stMainBlockContainer,.block-container,.st-emotion-cache-1ibsh2c{padding-top:0!important;margin-top:0!important;}
-    .stApp{background:#f0f4f8 !important;}
-    [data-testid="stAppViewContainer"]{background:#f0f4f8 !important;}
-    iframe{border:none !important;background:#f0f4f8 !important;}
-    [data-testid="stCustomComponentV1"]{background:#f0f4f8 !important;border-radius:0 !important;box-shadow:none !important;}
+    .stMainBlockContainer,.block-container,.st-emotion-cache-1ibsh2c{padding-top:0!important;margin-top:0!important;max-width:100%!important;}
+    .stApp{background:#f8fafc !important;}
+    [data-testid="stAppViewContainer"]{background:#f8fafc !important;}
+    iframe{border:none !important;background:transparent !important;}
+    [data-testid="stCustomComponentV1"]{background:transparent !important;border-radius:0 !important;box-shadow:none !important;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -861,60 +984,73 @@ if _modo_cliente:
         st.markdown(f"""
         {_vtag}
         <div style="position:fixed;top:0;left:0;width:100%;height:100%;
-            background:linear-gradient(135deg,rgba(5,10,20,0.55),rgba(10,22,50,0.40));
+            background:radial-gradient(circle at center, rgba(15,23,42,0.4), rgba(15,23,42,0.85));
             z-index:1;pointer-events:none;"></div>
-        <div style="position:fixed;top:16px;right:20px;z-index:100;">
+        <div style="position:fixed;top:24px;left:24px;z-index:100;">
             {_logo_link}
         </div>
-        <div style="position:fixed;top:25%;left:50%;transform:translate(-50%,-50%);
-            z-index:5;text-align:center;width:100%;padding:0 20px;pointer-events:none;">
-            <div style="display:inline-block;background:rgba(255,255,255,0.15);
-                border:1px solid rgba(255,255,255,0.3);color:white;border-radius:99px;
-                padding:5px 18px;font-size:0.68rem;font-weight:700;letter-spacing:0.12em;
-                text-transform:uppercase;margin-bottom:14px;font-family:Poppins,sans-serif;">
-                ✦ Portal de Materiales
+        <div style="position:fixed;top:35%;left:50%;transform:translate(-50%,-50%);
+            z-index:5;text-align:center;width:100%;padding:0 24px;pointer-events:none;">
+            <div style="display:inline-block;background:rgba(255,255,255,0.1);
+                backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.2);
+                color:white;border-radius:100px;padding:6px 20px;font-size:0.7rem;
+                font-weight:700;letter-spacing:0.15em;text-transform:uppercase;
+                margin-bottom:16px;font-family:'Plus Jakarta Sans',sans-serif;
+                box-shadow:0 10px 30px rgba(0,0,0,0.2);">
+                ✦ Cotizador Premium
             </div>
-            <div style="font-size:2.8rem;font-weight:900;color:white;line-height:1.15;
-                margin-bottom:12px;text-shadow:0 2px 24px rgba(0,0,0,0.4);
-                font-family:Poppins,sans-serif;">Tu casa,<br>tus materiales 🏡</div>
-            <div style="font-size:0.95rem;color:rgba(255,255,255,0.8);max-width:380px;
-                margin:0 auto;line-height:1.6;font-family:Poppins,sans-serif;">
-                Ingresa tus datos para acceder a tu formulario personalizado de selección de materiales.
-            </div>
+            <h1 style="font-size:clamp(2.5rem, 8vw, 4.5rem);font-weight:800;color:white;
+                line-height:1.1;margin:0 0 16px;text-shadow:0 10px 40px rgba(0,0,0,0.5);
+                font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:-0.03em;">
+                Personaliza<br><span style="color:#3b82f6;">tu Futuro</span> 🏡
+            </h1>
+            <p style="font-size:1.1rem;color:rgba(255,255,255,0.9);max-width:480px;
+                margin:0 auto;line-height:1.6;font-family:'Plus Jakarta Sans',sans-serif;
+                text-shadow:0 2px 10px rgba(0,0,0,0.3);">
+                Accede a tu portal exclusivo y elige cada detalle de tu casa container con la mejor calidad.
+            </p>
         </div>
         <style>
         html,body,.stApp{{background:transparent!important;}}
         .stMainBlockContainer{{background:transparent!important;padding-top:0!important;}}
-        .block-container{{background:transparent!important;}}
         section[data-testid="stMain"]{{background:transparent!important;}}
-        /* Push all Streamlit content above overlay */
-        section[data-testid="stMain"] > div{{
-            position:relative;z-index:10;
+        section[data-testid="stMain"] > div{{ position:relative;z-index:10; }}
+        div[data-testid="stVerticalBlock"]{{background:transparent!important;gap:0!important;}}
+        
+        /* Premium Input Styling */
+        div[data-testid="stTextInput"] label {{
+            color:white!important; font-weight:700!important; 
+            font-family:'Plus Jakarta Sans',sans-serif!important;
+            margin-bottom:8px!important; font-size:0.9rem!important;
         }}
-        div[data-testid="stVerticalBlock"]{{background:transparent!important;}}
-        /* Labels white, inputs fully opaque */
-        div[data-testid="stTextInput"] label,
-        div[data-testid="stTextInput"] label p{{
-            color:white!important;
-            text-shadow:0 1px 4px rgba(0,0,0,0.5)!important;
+        div[data-testid="stTextInput"] input {{
+            background: rgba(255,255,255,0.95)!important;
+            border-radius:16px!important; border:none!important;
+            padding:14px 20px!important; height:auto!important;
+            font-size:1rem!important; color:#0f172a!important;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1)!important;
         }}
-        div[data-testid="stTextInput"] > div{{
-            background:transparent!important;
+        button[kind="primary"] {{
+            background:#3b82f6!important; border:none!important;
+            border-radius:16px!important; padding:18px!important;
+            font-weight:800!important; font-size:1.05rem!important;
+            text-transform:none!important; transition:all 0.3s!important;
+            box-shadow: 0 15px 35px rgba(59,130,246,0.4)!important;
+            margin-top:20px!important;
         }}
-        div[data-testid="stTextInput"] input{{
-            background:white!important;
-            opacity:1!important;
-            color:#1e293b!important;
+        button[kind="primary"]:hover {{
+            transform:translateY(-3px)!important;
+            box-shadow: 0 20px 45px rgba(59,130,246,0.5)!important;
         }}
         </style>
         """, unsafe_allow_html=True)
 
-        st.markdown("<div style='height:36vh;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:45vh;'></div>", unsafe_allow_html=True)
         _, _col, _ = st.columns([1, 2, 1])
         with _col:
-            _cli_rut_inp = st.text_input("RUT", placeholder="12.345.678-9", key="cli_rut")
-            _cli_ep_inp  = st.text_input("Código de presupuesto", placeholder="EP-12345", key="cli_ep")
-            if st.button("Ingresar a mi formulario →", type="primary", use_container_width=True, key="cli_login"):
+            _cli_rut_inp = st.text_input("RUT CLIENTE", placeholder="Ej: 12.345.678-9", key="cli_rut")
+            _cli_ep_inp  = st.text_input("CÓDIGO DE PRESUPUESTO", placeholder="Ej: EP-1025", key="cli_ep")
+            if st.button("Comenzar Experiencia →", type="primary", use_container_width=True, key="cli_login"):
                 _cli_rut_clean = re.sub(r'[^0-9kK]', '', _cli_rut_inp.strip()).upper()
                 _cli_ep_clean  = _cli_ep_inp.strip().upper()
                 if not _cli_rut_clean or not _cli_ep_clean:
@@ -959,10 +1095,14 @@ if _modo_cliente:
 
         if not _cfg_cli:
             st.markdown(f"""
-            <div style='max-width:560px;margin:60px auto;text-align:center;font-family:Poppins,sans-serif;'>
-              <div style='font-size:3rem;margin-bottom:16px;'>📋</div>
-              <div style='font-size:1.4rem;font-weight:900;color:#0a1628;margin-bottom:8px;'>Hola {_primer_nombre}, ¡ya casi!</div>
-              <div style='color:#64748b;font-size:0.95rem;line-height:1.6;'>Tu formulario está siendo preparado. ¡La espera va a valer la pena! 🏡</div>
+            <div style='max-width:560px;margin:120px auto;text-align:center;font-family:"Plus Jakarta Sans",sans-serif;
+                background:white;padding:60px 40px;border-radius:32px;box-shadow:0 20px 50px rgba(0,0,0,0.05);'>
+              <div style='font-size:4rem;margin-bottom:24px;'>🏡</div>
+              <h2 style='font-size:2rem;font-weight:800;color:#0f172a;margin:0 0 12px;'>¡Hola {_primer_nombre}!</h2>
+              <p style='color:#64748b;font-size:1.1rem;line-height:1.6;margin:0;'>
+                Tu formulario personalizado está siendo preparado por nuestro equipo.<br>
+                <strong>Vuelve pronto para comenzar tu selección.</strong>
+              </p>
             </div>
             """, unsafe_allow_html=True)
         else:
