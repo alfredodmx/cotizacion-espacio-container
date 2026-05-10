@@ -20,6 +20,41 @@ import urllib.parse
 
 st.set_page_config(layout="wide", page_title="Cotizador PRO", page_icon="📊")
 
+# ─── Ocultar botones flotantes de Streamlit (deploy, GitHub, menú, footer) ───
+st.markdown("""
+<style>
+    /* Botón Deploy / Share (esquina superior derecha) */
+    .stDeployButton, [data-testid="stStatusWidget"],
+    button[kind="header"], .stAppDeployButton {
+        display: none !important;
+    }
+    /* Menú hamburguesa (MainMenu) */
+    #MainMenu, [data-testid="stMainMenu"] {
+        display: none !important;
+    }
+    /* Footer "Made with Streamlit" */
+    footer, [data-testid="stFooter"] {
+        display: none !important;
+    }
+    /* GitHub fork ribbon / badge (esquina inferior derecha) */
+    .viewerBadge_container__r5tak,
+    .viewerBadge_link__qRIco,
+    [data-testid="manage-app-button"],
+    ._profileContainer_gzau3_53,
+    ._profilePreview_gzau3_63 {
+        display: none !important;
+    }
+    /* Header toolbar completo */
+    header[data-testid="stHeader"] {
+        display: none !important;
+    }
+    /* Ajustar padding superior tras ocultar header */
+    .stAppViewBlockContainer, .block-container {
+        padding-top: 1rem !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # =========================================================
 # CONFIGURACIÓN SUPABASE
 # =========================================================
@@ -944,17 +979,32 @@ if _modo_cliente:
     if '_cliente_nombre'  not in st.session_state: st.session_state._cliente_nombre  = ''
     if '_cliente_proyecto' not in st.session_state: st.session_state._cliente_proyecto = ''
 
-    # Ocultar elementos de Streamlit
-    st.markdown("""
+    # Estado de fondo dinámico
+    _is_logged_in = st.session_state._cliente_ok
+    _bg_style = "#f8fafc" if _is_logged_in else "transparent"
+    
+    # Ocultar elementos de Streamlit y configurar layout base
+    st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-    #MainMenu,footer,[data-testid="stToolbar"],[data-testid="stDecoration"]{display:none!important;}
-    .stAppHeader,.st-emotion-cache-xi6p3a,[data-testid="stAppHeader"]{display:none!important;height:0!important;}
-    .stMainBlockContainer,.block-container,.st-emotion-cache-1ibsh2c{padding-top:0!important;margin-top:0!important;max-width:100%!important;}
-    .stApp{background:#f8fafc !important;}
-    [data-testid="stAppViewContainer"]{background:#f8fafc !important;}
-    iframe{border:none !important;background:transparent !important;}
-    [data-testid="stCustomComponentV1"]{background:transparent !important;border-radius:0 !important;box-shadow:none !important;}
+    #MainMenu,footer,[data-testid="stToolbar"],[data-testid="stDecoration"]{{display:none!important;}}
+    .stAppHeader,.st-emotion-cache-xi6p3a,[data-testid="stAppHeader"]{{display:none!important;height:0!important;}}
+    
+    /* Reglas críticas para que el iframe ocupe todo el ancho y se vea nativo */
+    .stMainBlockContainer,.block-container,.st-emotion-cache-1ibsh2c{{
+        padding-top:0!important;
+        margin-top:0!important;
+        max-width:100%!important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }}
+    
+    .stApp{{background:{_bg_style} !important;}}
+    [data-testid="stAppViewContainer"]{{background:{_bg_style} !important;}}
+    
+    /* Configuración del iframe del formulario */
+    iframe{{border:none !important;background:transparent !important;}}
+    [data-testid="stCustomComponentV1"]{{background:transparent !important;border-radius:0 !important;box-shadow:none !important;}}
     </style>
     """, unsafe_allow_html=True)
 
@@ -977,84 +1027,247 @@ if _modo_cliente:
                     _video_b64 = _b64v.b64encode(_vf.read()).decode()
                 break
         _video_src = f"data:video/mp4;base64,{_video_b64}" if _video_b64 else ""
-        _vtag = (f'<video autoplay muted loop playsinline src="{_video_src}" style="position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0;"></video>'
-                 if _video_src else '')
-        _logo_link = f'<a href="https://espaciocontainerhouse.cl/" target="_blank"><img src="data:image/png;base64,{_logo_b64_cli}" style="height:58px;width:auto;"></a>' if _logo_b64_cli else ''
+        _vtag = (f'<video autoplay muted loop playsinline src="{_video_src}" style="position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:-2;"></video>' if _video_src else '')
+        _logo_link = f'<a href="https://espaciocontainerhouse.cl/" target="_blank" id="client-logo-link"><img src="data:image/png;base64,{_logo_b64_cli}" id="client-logo-img"></a>' if _logo_b64_cli else ''
 
-        st.markdown(f"""
-        {_vtag}
-        <div style="position:fixed;top:0;left:0;width:100%;height:100%;
-            background:radial-gradient(circle at center, rgba(15,23,42,0.4), rgba(15,23,42,0.85));
-            z-index:1;pointer-events:none;"></div>
-        <div style="position:fixed;top:24px;left:24px;z-index:100;">
-            {_logo_link}
-        </div>
-        <div style="position:fixed;top:35%;left:50%;transform:translate(-50%,-50%);
-            z-index:5;text-align:center;width:100%;padding:0 24px;pointer-events:none;">
-            <div style="display:inline-block;background:rgba(255,255,255,0.1);
-                backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.2);
-                color:white;border-radius:100px;padding:6px 20px;font-size:0.7rem;
-                font-weight:700;letter-spacing:0.15em;text-transform:uppercase;
-                margin-bottom:16px;font-family:'Plus Jakarta Sans',sans-serif;
-                box-shadow:0 10px 30px rgba(0,0,0,0.2);">
-                ✦ Cotizador Premium
-            </div>
-            <h1 style="font-size:clamp(2.5rem, 8vw, 4.5rem);font-weight:800;color:white;
-                line-height:1.1;margin:0 0 16px;text-shadow:0 10px 40px rgba(0,0,0,0.5);
-                font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:-0.03em;">
-                Personaliza<br><span style="color:#3b82f6;">tu Futuro</span> 🏡
-            </h1>
-            <p style="font-size:1.1rem;color:rgba(255,255,255,0.9);max-width:480px;
-                margin:0 auto;line-height:1.6;font-family:'Plus Jakarta Sans',sans-serif;
-                text-shadow:0 2px 10px rgba(0,0,0,0.3);">
-                Accede a tu portal exclusivo y elige cada detalle de tu casa container con la mejor calidad.
-            </p>
-        </div>
-        <style>
-        html,body,.stApp{{background:transparent!important;}}
-        .stMainBlockContainer{{background:transparent!important;padding-top:0!important;}}
-        section[data-testid="stMain"]{{background:transparent!important;}}
-        section[data-testid="stMain"] > div{{ position:relative;z-index:10; }}
-        div[data-testid="stVerticalBlock"]{{background:transparent!important;gap:0!important;}}
-        
-        /* Premium Input Styling */
-        div[data-testid="stTextInput"] label {{
-            color:white!important; font-weight:700!important; 
-            font-family:'Plus Jakarta Sans',sans-serif!important;
-            margin-bottom:8px!important; font-size:0.9rem!important;
-        }}
-        div[data-testid="stTextInput"] input {{
-            background: rgba(255,255,255,0.95)!important;
-            border-radius:16px!important; border:none!important;
-            padding:14px 20px!important; height:auto!important;
-            font-size:1rem!important; color:#0f172a!important;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1)!important;
-        }}
-        button[kind="primary"] {{
-            background:#3b82f6!important; border:none!important;
-            border-radius:16px!important; padding:18px!important;
-            font-weight:800!important; font-size:1.05rem!important;
-            text-transform:none!important; transition:all 0.3s!important;
-            box-shadow: 0 15px 35px rgba(59,130,246,0.4)!important;
-            margin-top:20px!important;
-        }}
-        button[kind="primary"]:hover {{
-            transform:translateY(-3px)!important;
-            box-shadow: 0 20px 45px rgba(59,130,246,0.5)!important;
-        }}
-        </style>
+        st.markdown(_vtag, unsafe_allow_html=True)
+        st.markdown("""
+        <div class="video-overlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.50);z-index:-1;pointer-events:none;"></div>
         """, unsafe_allow_html=True)
+        
+        _css = """
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap');
+        
+        /* Base styles (Mobile First) */
+        #client-logo-link { position: fixed; top: 15px; right: 15px; z-index: 100; }
+        #client-logo-img { height: 40px; width: auto; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); transition: all 0.3s ease; }
+        
+        .hero-badge { 
+            background: rgba(255, 255, 255, 0.1); 
+            backdrop-filter: blur(10px); 
+            border: 1px solid rgba(255, 255, 255, 0.2); 
+            border-radius: 50px; 
+            padding: 8px 24px; 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 8px; 
+            font-family: 'Montserrat', sans-serif !important; 
+            font-size: 0.75rem; 
+            font-weight: 700; 
+            color: #ffffff !important; 
+            text-transform: uppercase; 
+            letter-spacing: 0.15em; 
+            margin-bottom: 25px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+            position: relative;
+            overflow: hidden;
+        }
+        .hero-badge::after {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%; width: 200%; height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3), transparent);
+            transform: rotate(45deg);
+            animation: shimmer 3s infinite;
+        }
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        .hero-title { 
+            font-family: 'Montserrat', sans-serif !important; 
+            font-size: clamp(1.8rem, 8vw, 2.8rem); 
+            font-weight: 900; 
+            color: #ffffff !important; 
+            line-height: 1.1; 
+            margin: 0 auto 15px; 
+            letter-spacing: 0.1em; 
+            text-shadow: 0 8px 25px rgba(0,0,0,0.5); 
+            width: 100%; 
+            text-align: center; 
+            text-transform: uppercase;
+        }
+        .hero-subtitle { 
+            font-family: 'Plus Jakarta Sans', sans-serif !important; 
+            font-size: clamp(0.7rem, 2.2vw, 1rem); 
+            color: #e2e8f0 !important; 
+            line-height: 1.4; 
+            margin: 0 auto 25px; 
+            font-weight: 400; 
+            width: 90%; 
+            max-width: 600px; 
+            text-shadow: 0 4px 10px rgba(0,0,0,0.5); 
+            text-align: center; 
+        }
+        
+        /* Form Centering & Narrowing */
+        div[data-testid="stVerticalBlock"] > div { width: 100%; display: flex; justify-content: center; }
+        div[data-testid="stTextInput"], div[data-testid="stButton"] { 
+            max-width: 350px !important; 
+            margin: 0 auto !important; 
+            width: 100% !important; 
+        }
+        
+        /* Tighten label-input gap */
+        div[data-testid="stWidgetLabel"], .stTextInput label { margin-bottom: 0px !important; padding-bottom: 2px !important; }
+        div[data-testid="stWidgetLabel"] p, .stTextInput label, div[data-testid="stTextInput"] p { 
+            font-size: 0.75rem !important; 
+            color: #ffffff !important; 
+            -webkit-text-fill-color: #ffffff !important;
+            font-weight: 500 !important; 
+            text-transform: uppercase; 
+            letter-spacing: 0.05em; 
+            margin-bottom: 0px !important;
+            opacity: 1 !important;
+        }
+        
+        input { 
+            background-color: rgba(255, 255, 255, 0.95) !important; 
+            border: 1px solid rgba(59, 130, 246, 0.2) !important; 
+            border-radius: 8px !important; 
+            padding: 12px 16px !important; 
+            color: #1e293b !important; 
+            font-size: 1rem !important; 
+            font-weight: 500 !important; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05) !important; 
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important; 
+            -webkit-text-fill-color: #1e293b !important; 
+        }
+        input:focus {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15), 0 10px 25px -5px rgba(0,0,0,0.1) !important;
+            transform: translateY(-1px);
+        }
+        
+        div[data-testid="stButton"] button { 
+            background: #3b82f6 !important; 
+            border: none !important; 
+            border-radius: 6px !important; 
+            padding: 12px !important; 
+            color: white !important; 
+            font-weight: 700 !important; 
+            font-size: 1rem !important; 
+            margin-top: 5px !important; 
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3) !important; 
+            width: 100% !important; 
+        }
+        
+        .stApp, [data-testid="stAppViewContainer"] { background: transparent !important; }
+        .stMainBlockContainer, .block-container { padding: 0 !important; max-width: 100% !important; }
+        [data-testid="stHeader"] { display: none !important; }
+        
+        /* Error Message Refinement - Absolute Centering */
+        [data-testid="stNotification"], 
+        [data-testid="stAlert"] {
+            background-color: rgba(220, 38, 38, 0.6) !important;
+            backdrop-filter: blur(8px) !important;
+            color: white !important;
+            border-radius: 8px !important;
+            border: 1px solid rgba(255, 255, 255, 0.3) !important;
+            max-width: 350px !important;
+            margin: 20px auto !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            min-height: 50px !important;
+            padding: 0 !important;
+        }
+        
+        /* Force transparency on all nested Streamlit divs to avoid "box-in-box" */
+        [data-testid="stNotification"] div, 
+        [data-testid="stAlert"] div {
+            background-color: transparent !important;
+            border: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 100% !important;
+        }
+        
+        [data-testid="stNotification"] p, 
+        [data-testid="stAlert"] p {
+            color: white !important;
+            font-weight: 600 !important;
+            text-align: center !important;
+            font-size: 0.95rem !important;
+            margin: 0 !important;
+            padding: 10px 20px !important;
+            line-height: 1 !important;
+        }
+        
+        /* Hide the default Streamlit icon */
+        [data-testid="stNotification"] svg,
+        [data-testid="stAlert"] svg {
+            display: none !important;
+        }
+        
+        /* Centering container for the whole hero block */
+        .hero-container { 
+            text-align: center; 
+            width: 100%; 
+            margin-top: 15vh; 
+            position: relative;
+        }
+        .hero-container::before {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 400px; height: 400px;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
+            transform: translate(calc(-50% + var(--glow-x, 0px)), calc(-50% + var(--glow-y, 0px)));
+            pointer-events: none;
+            z-index: -1;
+            transition: transform 0.1s ease-out;
+        }
+        
+        /* Desktop specific overrides */
+        @media (min-width: 768px) {
+            #client-logo-link { top: 30px; right: 40px; }
+            #client-logo-img { height: 65px; }
+            .hero-container { margin-top: 18vh; }
+            div[data-testid="stTextInput"], div[data-testid="stButton"] { max-width: 400px !important; }
+        }
+        """
+        st.markdown(f"<style>{_css}</style>", unsafe_allow_html=True)
 
-        st.markdown("<div style='height:45vh;'></div>", unsafe_allow_html=True)
-        _, _col, _ = st.columns([1, 2, 1])
-        with _col:
-            _cli_rut_inp = st.text_input("RUT CLIENTE", placeholder="Ej: 12.345.678-9", key="cli_rut")
-            _cli_ep_inp  = st.text_input("CÓDIGO DE PRESUPUESTO", placeholder="Ej: EP-1025", key="cli_ep")
-            if st.button("Comenzar Experiencia →", type="primary", use_container_width=True, key="cli_login"):
+        st.html(f"""
+            {_logo_link}
+            <div class="hero-container" id="main-hero">
+                <div class="hero-badge">✦ PORTAL DE MATERIALES</div>
+                <h1 class="hero-title">Diseña tu Próximo Espacio</h1>
+                <p class="hero-subtitle">Bienvenido a tu portal de personalización. Ingresa tus credenciales para comenzar a dar vida a tu proyecto.</p>
+            </div>
+            <script>
+                const hero = document.getElementById('main-hero');
+                document.addEventListener('mousemove', (e) => {{
+                    const rect = hero.getBoundingClientRect();
+                    const x = e.clientX - (rect.left + rect.width / 2);
+                    const y = e.clientY - (rect.top + rect.height / 2);
+                    
+                    // Limit the glow movement to stay within reasonable bounds
+                    const limit = 50; 
+                    const moveX = Math.max(-limit, Math.min(limit, x / 5));
+                    const moveY = Math.max(-limit, Math.min(limit, y / 5));
+                    
+                    hero.style.setProperty('--glow-x', moveX + 'px');
+                    hero.style.setProperty('--glow-y', moveY + 'px');
+                }});
+            </script>
+        """)
+        
+        _cli_rut_inp = st.text_input("RUT DEL CLIENTE", placeholder="12.345.678-9", key="cli_rut")
+        _cli_ep_inp  = st.text_input("CÓDIGO DE PROYECTO", placeholder="EP-XXXX", key="cli_ep")
+        
+        _submitted = st.button("Comenzar Experiencia →", type="primary", use_container_width=True, key="cli_login")
+        
+        if _submitted:
                 _cli_rut_clean = re.sub(r'[^0-9kK]', '', _cli_rut_inp.strip()).upper()
                 _cli_ep_clean  = _cli_ep_inp.strip().upper()
                 if not _cli_rut_clean or not _cli_ep_clean:
-                    st.error("Ingresa tu RUT y código de presupuesto.")
+                    st.error("Por favor, ingresa tus credenciales.")
                 else:
                     try:
                         _cli_check = supabase_admin.table('cotizaciones').select(
@@ -1070,12 +1283,11 @@ if _modo_cliente:
                                 st.session_state._cliente_proyecto = _cli_row.get('proyecto_observaciones','')
                                 st.rerun()
                             else:
-                                st.error("RUT o código incorrecto. Verifica tus datos.")
+                                st.error("RUT o código incorrecto.")
                         else:
-                            st.error("Código de presupuesto no encontrado.")
+                            st.error("Proyecto no encontrado.")
                     except Exception as _ce:
                         st.error(f"Error de conexión: {_ce}")
-            st.markdown("</div>", unsafe_allow_html=True)
 
     else:
         # ── FORMULARIO DE MATERIALES ───────────────────────────
