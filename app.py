@@ -19082,7 +19082,7 @@ if tab_formulario is not None:
         </div>
         """, unsafe_allow_html=True)
 
-        if _rol_actual in ("root","admin"):
+        if _rol_form in ('root', 'admin'):
             _ftab_catalogo, _ftab_config, _ftab_progreso = st.tabs(["📦 Catálogo de materiales", "⚙️ Configurar preguntas", "📊 Progreso clientes"])
         else:
             _ftab_catalogo = None
@@ -19120,8 +19120,8 @@ if tab_formulario is not None:
                 _cat_comp.html(_cat_html, height=_cat_height, scrolling=True)
         # ── TAB CONFIGURAR ──
         with _ftab_config:
-            if _rol_form not in ('root', 'admin'):
-                st.info("🔒 Solo administradores pueden configurar formularios.")
+            if _rol_form not in ('root', 'admin', 'ejecutivo'):
+                st.info("🔒 No tienes permisos para configurar formularios.")
             else:
                 import streamlit.components.v1 as _cfg_comp
                 _c1ep, _c2ep = st.columns([3,1])
