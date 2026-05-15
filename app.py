@@ -8734,8 +8734,7 @@ elif _rol_actual == 'operacion':
     tab_contrato = None; tab_salud = None; tab_usuarios = None
     tab_notif = None; tab_reporte = None; tab_admindata = None
 else:
-    tab1, tab2, tab3, tab_contrato, tab7, tab4 = st.tabs(["📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "📄 CONTRATO", "🏆 RANKING", "🧊 3D BETA"])
-    tab_formulario = None
+    tab1, tab2, tab3, tab_contrato, tab7, tab4, tab_formulario = st.tabs(["📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "📄 CONTRATO", "🏆 RANKING", "🧊 3D BETA", "📝 FORMULARIO CLIENTE"])
     tab_dash = None; tab_reporte = None; tab_salud = None
     tab5 = None; tab6 = None; tab_usuarios = None
     tab_notif = None; tab_oper = None; tab_admindata = None
@@ -19083,10 +19082,15 @@ if tab_formulario is not None:
         </div>
         """, unsafe_allow_html=True)
 
-        _ftab_catalogo, _ftab_config, _ftab_progreso = st.tabs(["📦 Catálogo de materiales", "⚙️ Configurar preguntas", "📊 Progreso clientes"])
+        if _rol_actual in ("root","admin"):
+            _ftab_catalogo, _ftab_config, _ftab_progreso = st.tabs(["📦 Catálogo de materiales", "⚙️ Configurar preguntas", "📊 Progreso clientes"])
+        else:
+            _ftab_catalogo = None
+            _ftab_config, _ftab_progreso = st.tabs(["⚙️ Configurar preguntas", "📊 Progreso clientes"])
 
         # ── TAB CATÁLOGO ──
-        with _ftab_catalogo:
+        if _ftab_catalogo is not None:
+         with _ftab_catalogo:
             if _rol_form not in ('root', 'admin'):
                 st.info("🔒 Solo administradores pueden gestionar el catálogo.")
             else:
