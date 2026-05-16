@@ -9086,7 +9086,7 @@ elif _rol_actual == 'operacion':
     tab_contrato = None; tab_salud = None; tab_usuarios = None
     tab_notif = None; tab_reporte = None; tab_admindata = None
 else:
-    tab_formulario, tab1, tab2, tab3, tab_contrato, tab7, tab4 = st.tabs(["📝 FORMULARIO CLIENTE", "📋 PRESUPUESTO*", "👤 DATOS", "📂 COTIZACIONES", "📄 CONTRATO", "🏆 RANKING", "🧊 3D BETA"])
+    tab1, tab2, tab3, tab_contrato, tab_formulario, tab7, tab4 = st.tabs(["📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "📄 CONTRATO", "📝 FORMULARIO CLIENTE", "🏆 RANKING", "🧊 3D BETA"])
     tab_dash = None; tab_reporte = None; tab_salud = None
     tab5 = None; tab6 = None; tab_usuarios = None
     tab_notif = None; tab_oper = None; tab_admindata = None
