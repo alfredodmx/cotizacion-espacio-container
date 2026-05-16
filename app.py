@@ -57,9 +57,14 @@ st.markdown("""
         background-color: #f8fafc !important;
         border-right: 1px solid #e2e8f0;
         min-width: 300px !important;
+        top: 65px !important; /* Pushes the sidebar below the fixed header */
+        height: calc(100vh - 65px) !important;
+        z-index: 9999 !important; /* Ensure it is behind the header if necessary */
+        box-shadow: 10px 0 30px rgba(0,0,0,0.02) !important;
     }
     [data-testid="stSidebarContent"] {
         background-color: #f8fafc !important;
+        padding-top: 10px !important;
     }
     /* Estilo para los items del menú (radio buttons) */
     div[data-testid="stSidebar"] div[role="radiogroup"] {
@@ -7280,7 +7285,7 @@ st.markdown(f"""
     display: flex;
     align-items: center;
     padding: 0 1.5rem;
-    z-index: 99998;
+    z-index: 999999 !important;
     gap: 12px;
 }}
 /* ── Dialogs y modals siempre sobre el header ── */
