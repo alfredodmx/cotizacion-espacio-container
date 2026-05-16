@@ -59,11 +59,6 @@ st.markdown("""
         top: 65px !important;
         height: calc(100vh - 65px) !important;
     }
-    /* Ocultar contenedor de secciones inactivas */
-    #_trash_bin {
-        display: none !important;
-    }
-</style>
 </style>
 """, unsafe_allow_html=True)
 
@@ -9082,10 +9077,7 @@ def cargar_ranking_ejecutivos(periodo='mes'):
 _hash_actual = calcular_hash_estado()
 
 # =========================================================
-# TABS
-# =========================================================
-# =========================================================
-# SISTEMA DE NAVEGACIÓN (SIDEBAR SEGURO)
+# SISTEMA DE NAVEGACIÓN (IF-SWITCHER)
 # =========================================================
 _rol_actual = st.session_state.get('rol_usuario', 'ejecutivo')
 
@@ -9112,19 +9104,11 @@ L2V = {
     "⚠️ ADMINISTRACIÓN DE DATOS": "tab_admindata", "📝 FORMULARIO CLIENTE": "tab_formulario"
 }
 
-# Definir contenedores: uno activo y uno "basurero" oculto
 active_var_name = L2V.get(selected_label)
-st.markdown("<div id='_trash_bin'>", unsafe_allow_html=True)
-trash_container = st.container()
-st.markdown("</div>", unsafe_allow_html=True)
 
-# Asignar variables globales
-all_tab_vars = list(L2V.values())
-for v in all_tab_vars:
-    if v == active_var_name:
-        globals()[v] = st.container()
-    else:
-        globals()[v] = trash_container
+# Definir todas como True para compatibilidad con checks 'is not None'
+tab_dash = True; tab1 = True; tab2 = True; tab3 = True; tab4 = True; tab5 = True; tab6 = True; tab7 = True
+tab_contrato = True; tab_salud = True; tab_usuarios = True; tab_notif = True; tab_reporte = True; tab_oper = True; tab_admindata = True; tab_formulario = True
 
 # =========================================================
 # FUNCIÓN PARA GENERAR PDF COMPLETO
@@ -9874,7 +9858,7 @@ if st.session_state.get('trigger_cerrar_cotizacion', False):
 # TAB 2 - DATOS CLIENTE
 # =========================================================
 if tab2 is not None:
- with tab2:
+ if active_var_name == 'tab2':
     st.markdown("""
     <style>
     .hdr2 {
@@ -10297,7 +10281,7 @@ if tab2 is not None:
 # TAB 1 - PREPARAR COTIZACIÓN
 # =========================================================
 if tab1 is not None:
- with tab1:
+ if active_var_name == 'tab1':
     st.markdown("""
     <style>
     .hdr1 {
@@ -11157,7 +11141,7 @@ document.querySelectorAll('.cat-card').forEach(function(el){{
 # TAB 3 - GESTIÓN DE COTIZACIONES GUARDADAS
 # =========================================================
 if tab3 is not None:
- with tab3:
+ if active_var_name == 'tab3':
     st.markdown("""
     <style>
     .hdr3 {
@@ -12894,7 +12878,7 @@ if st.session_state.get('mostrar_toast_exito', False):
     st.session_state.mostrar_toast_exito = False
 
 if tab4 is not None:
- with tab4:
+ if active_var_name == 'tab4':
     st.markdown("""
     <style>
     .hdr4 {
@@ -13454,7 +13438,7 @@ if tab4 is not None:
 # TAB 5 - PROYECTO EXCEL (solo admin)
 # =========================================================
 if st.session_state.modo_admin and tab5 is not None:
-    with tab5:
+    if active_var_name == 'tab5':
 
         # CSS del tab5
         st.markdown("""
@@ -13815,7 +13799,7 @@ if st.session_state.modo_admin and tab5 is not None:
 # TAB SALUD - SISTEMA (solo admin)
 # =========================================================
 if st.session_state.get('es_root') and tab_salud is not None:
-    with tab_salud:
+    if active_var_name == 'tab_salud':
 
         st.markdown("""
         <style>
@@ -14151,7 +14135,7 @@ if st.session_state.get('es_root') and tab_salud is not None:
 # TAB: ADMINISTRACIÓN DE DATOS (solo root)
 # =========================================================
 if tab_admindata is not None:
-    with tab_admindata:
+    if active_var_name == 'tab_admindata':
         st.markdown("""
         <style>
         .hdr-admindata {
@@ -14545,7 +14529,7 @@ if _mostrar_progreso:
 # TAB REPORTE BI — solo admin y root
 # =========================================================
 if tab_reporte is not None and st.session_state.modo_admin:
- with tab_reporte:
+ if active_var_name == 'tab_reporte':
 
     # ── Header ──
     _rep_periodo = st.selectbox("Período", ["Último mes", "Últimos 3 meses", "Últimos 6 meses", "Todo el tiempo"],
@@ -14912,7 +14896,7 @@ if tab_reporte is not None and st.session_state.modo_admin:
 # TAB OPERACIONES — operacion, admin y root
 # =========================================================
 if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
- with tab_oper:
+ if active_var_name == 'tab_oper':
 
     # ── Header ──
     st.markdown("""
@@ -16296,7 +16280,7 @@ else:
 # TAB DASHBOARD — visible para todos
 # =========================================================
 if tab_dash is not None:
- with tab_dash:
+ if active_var_name == 'tab_dash':
     st.markdown("""
     <style>
     .dash-hdr {
@@ -16802,7 +16786,7 @@ if tab_dash is not None:
 # TAB 6 - EDICIÓN PDF (visible para todos)
 # =========================================================
 if tab6 is not None:
-    with tab6:
+    if active_var_name == 'tab6':
         st.markdown("""
         <style>
         .hdr6 {
@@ -16975,7 +16959,7 @@ if tab6 is not None:
 # TAB 7 - RANKING EJECUTIVOS (visible para todos)
 # =========================================================
 if tab7 is not None:
-    with tab7:
+    if active_var_name == 'tab7':
         st.markdown("""
         <style>
         .hdr7 {
@@ -17260,7 +17244,7 @@ if tab7 is not None:
 # TAB CONTRATO CLIENTE
 # =========================================================
 if tab_contrato is not None:
- with tab_contrato:
+ if active_var_name == 'tab_contrato':
     # ── Header ──
     st.markdown("""
     <style>
@@ -18681,7 +18665,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
 # TAB USUARIOS — solo admin/supervisor
 # =========================================================
 if st.session_state.modo_admin and tab_usuarios is not None:
-    with tab_usuarios:
+    if active_var_name == 'tab_usuarios':
         st.markdown("""
         <style>
         .hdr-usuarios {
@@ -19150,7 +19134,7 @@ if st.session_state.modo_admin and tab_usuarios is not None:
 # TAB NOTIFICACIONES — solo admin y root
 # =========================================================
 if tab_notif is not None and st.session_state.get('es_supervisor'):
-    with tab_notif:
+    if active_var_name == 'tab_notif':
         import json as _json_notif
 
         # Header
@@ -19457,7 +19441,7 @@ if tab_notif is not None and st.session_state.get('es_supervisor'):
 # TAB FORMULARIO CLIENTE — admin configura, operaciones ve progreso
 # =========================================================
 if tab_formulario is not None:
-    with tab_formulario:
+    if active_var_name == 'tab_formulario':
         _rol_form = st.session_state.get('rol_usuario', 'ejecutivo')
 
         st.markdown("""
