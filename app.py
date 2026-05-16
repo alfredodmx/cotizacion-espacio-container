@@ -52,12 +52,42 @@ st.markdown("""
     .stAppViewBlockContainer, .block-container {
         padding-top: 1rem !important;
     }
-    /* --- SIDEBAR DESIGN --- */
+    /* --- SIDEBAR DESIGN (CON MODO RAIL) --- */
     [data-testid="stSidebar"] {
         background-color: #f8fafc !important;
         border-right: 1px solid #e2e8f0;
-        top: 65px !important;
+        top: 65px !important; /* Debajo del header */
         height: calc(100vh - 65px) !important;
+        transition: all 0.3s ease !important;
+    }
+    /* MODO RAIL: Cuando el sidebar está colapsado */
+    [data-testid="stSidebar"][data-collapsed="true"] {
+        min-width: 70px !important;
+        max-width: 70px !important;
+    }
+    /* Centrar iconos en modo rail y ocultar texto */
+    [data-testid="stSidebar"][data-collapsed="true"] [data-testid="stMarkdownContainer"] p {
+        font-size: 0 !important;
+        text-align: center !important;
+    }
+    [data-testid="stSidebar"][data-collapsed="true"] [data-testid="stMarkdownContainer"] p::first-letter {
+        font-size: 22px !important;
+        display: block !important;
+    }
+    /* Ajustar botones de radio en modo rail */
+    [data-testid="stSidebar"][data-collapsed="true"] label {
+        padding: 10px 0 !important;
+        justify-content: center !important;
+    }
+    [data-testid="stSidebar"][data-collapsed="true"] [data-testid="stWidgetLabel"] {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+    /* Asegurar que el botón de colapsar sea visible y esté bien posicionado */
+    [data-testid="stSidebarCollapseButton"] {
+        top: 10px !important;
+        left: 10px !important;
+        z-index: 100000 !important;
     }
 </style>
 """, unsafe_allow_html=True)
