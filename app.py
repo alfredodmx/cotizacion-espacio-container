@@ -9086,8 +9086,7 @@ elif _rol_actual == 'operacion':
     tab_contrato = None; tab_salud = None; tab_usuarios = None
     tab_notif = None; tab_reporte = None; tab_admindata = None
 else:
-    tab1, tab2, tab3, tab_contrato, tab7, tab4 = st.tabs(["📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "📄 CONTRATO", "🏆 RANKING", "🧊 3D BETA"])
-    tab_formulario = None
+    tab1, tab2, tab3, tab_contrato, tab7, tab4, tab_formulario = st.tabs(["📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "📄 CONTRATO", "🏆 RANKING", "🧊 3D BETA", "📝 FORMULARIO CLIENTE"])
     tab_dash = None; tab_reporte = None; tab_salud = None
     tab5 = None; tab6 = None; tab_usuarios = None
     tab_notif = None; tab_oper = None; tab_admindata = None
@@ -19468,8 +19467,8 @@ if tab_formulario is not None:
                 _cat_comp.html(_cat_html, height=_cat_height, scrolling=True)
         # ── TAB CONFIGURAR ──
         with _ftab_config:
-            if _rol_form not in ('root', 'admin'):
-                st.info("🔒 Solo administradores pueden configurar formularios.")
+            if _rol_form not in ('root', 'admin', 'ejecutivo'):
+                st.info("🔒 Solo administradores y ejecutivos pueden configurar formularios.")
             else:
                 import streamlit.components.v1 as _cfg_comp
                 _c1ep, _c2ep = st.columns([3,1])
