@@ -51,67 +51,49 @@ st.markdown("""
     /* Ajustar padding superior tras ocultar header */
     .stAppViewBlockContainer, .block-container {
         padding-top: 1rem !important;
+        max-width: 1400px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
     }
-    /* --- SIDEBAR CUSTOM DESIGN --- */
+    /* --- SIDEBAR CUSTOM DESIGN (ACME STYLE) --- */
     [data-testid="stSidebar"] {
-        background-color: #f8fafc !important;
+        background-color: #ffffff !important;
         border-right: 1px solid #e2e8f0;
-        min-width: 300px !important;
-        top: 65px !important; /* Pushes the sidebar below the fixed header */
+        min-width: 320px !important;
+        top: 65px !important;
         height: calc(100vh - 65px) !important;
-        z-index: 9999 !important; /* Ensure it is behind the header if necessary */
+        z-index: 9999 !important;
         box-shadow: 10px 0 30px rgba(0,0,0,0.02) !important;
     }
     [data-testid="stSidebarContent"] {
-        background-color: #f8fafc !important;
-        padding-top: 10px !important;
-    }
-    /* Estilo para los items del menú (radio buttons) */
-    div[data-testid="stSidebar"] div[role="radiogroup"] {
-        gap: 8px !important;
+        background-color: #ffffff !important;
         padding: 0 10px !important;
     }
-    div[data-testid="stSidebar"] div[role="radiogroup"] > label {
+    /* Estilo para los Expanders de navegación */
+    [data-testid="stExpander"] {
         background-color: transparent !important;
-        border-radius: 12px !important;
-        padding: 10px 16px !important;
-        margin-bottom: 2px !important;
-        border: 1px solid transparent !important;
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        color: #64748b !important;
+        border: none !important;
+        box-shadow: none !important;
+        margin-bottom: 5px !important;
     }
-    div[data-testid="stSidebar"] div[role="radiogroup"] > label:hover {
-        background-color: #f1f5f9 !important;
-        color: #1e293b !important;
+    [data-testid="stExpander"] details {
+        border: none !important;
     }
-    /* Item seleccionado */
-    div[data-testid="stSidebar"] div[role="radiogroup"] [data-checked="true"] {
-        background-color: #e0e7ff !important;
-        border: 1px solid #c7d2fe !important;
-        color: #4338ca !important;
+    [data-testid="stExpander"] summary {
+        color: #475569 !important;
         font-weight: 700 !important;
-    }
-    /* Ocultar el círculo del radio */
-    div[data-testid="stSidebar"] div[role="radiogroup"] div[data-testid="stWidgetLabel"] {
-        margin-left: -24px !important;
-    }
-    div[data-testid="stSidebar"] div[role="radiogroup"] input {
-        display: none !important;
-    }
-    /* Texto de los items */
-    div[data-testid="stSidebar"] div[role="radiogroup"] div[data-testid="stMarkdownContainer"] p {
-        font-family: 'Plus Jakarta Sans', 'Inter', sans-serif !important;
-        font-size: 0.92rem !important;
-        letter-spacing: -0.01em !important;
-    }
-    /* Títulos de sección en sidebar */
-    .sidebar-section-title {
-        font-size: 0.72rem !important;
-        font-weight: 800 !important;
-        color: #94a3b8 !important;
+        font-size: 0.85rem !important;
         text-transform: uppercase !important;
-        letter-spacing: 0.1em !important;
-        padding: 20px 16px 8px 16px !important;
+        letter-spacing: 0.05em !important;
+        padding: 12px 15px !important;
+        border-radius: 12px !important;
+    }
+    [data-testid="stExpander"] summary:hover {
+        background-color: #f8fafc !important;
+    }
+    /* Botones dentro de expanders */
+    .stButton > button {
+        border-radius: 8px !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -9134,59 +9116,71 @@ _hash_actual = calcular_hash_estado()
 # TABS
 # =========================================================
 # =========================================================
-# SISTEMA DE NAVEGACIÓN (SIDEBAR PREMIUM)
+# SISTEMA DE NAVEGACIÓN (SIDEBAR ACME NESTED)
 # =========================================================
 class MockTab:
-    def __enter__(self): return self
-    def __exit__(self, *args): pass
+    def __init__(self, active):
+        self.active = active
+    def __enter__(self):
+        self.c = st.container()
+        if not self.active:
+            self.c.__enter__()
+            st.markdown('<div style="display:none">', unsafe_allow_html=True)
+            return self.c
+        return self.c.__enter__()
+    def __exit__(self, *args):
+        if not self.active:
+            st.markdown('</div>', unsafe_allow_html=True)
+        self.c.__exit__(*args)
 
-_rol_actual = st.session_state.get('rol_usuario', 'ejecutivo')
-
-# Listas de opciones por rol
-if _rol_actual == 'root':
-    opciones = ["📊 DASHBOARD", "📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "🛡️ SISTEMA", "👥 USUARIOS", "📣 NOTIFICACIONES", "📈 REPORTE BI", "⚙️ OPERACIONES", "⚠️ ADMINISTRACIÓN DE DATOS", "📝 FORMULARIO CLIENTE"]
-elif _rol_actual == 'admin':
-    opciones = ["📋 PRESUPUESTO", "📂 COTIZACIONES", "👤 DATOS", "📄 CONTRATO", "⚙️ OPERACIONES", "👥 USUARIOS", "📊 PROYECTO EXCEL", "✏️ EDICIÓN PDF", "🏆 RANKING", "🧊 3D BETA", "📣 NOTIFICACIONES", "📊 DASHBOARD", "📈 REPORTE BI", "⚠️ ADMINISTRACIÓN DE DATOS", "📝 FORMULARIO CLIENTE"]
-elif _rol_actual == 'operacion':
-    opciones = ["⚙️ OPERACIONES"]
-else:
-    opciones = ["📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "📄 CONTRATO", "📝 FORMULARIO CLIENTE", "🏆 RANKING", "🧊 3D BETA"]
-
-with st.sidebar:
-    st.markdown("<div class='sidebar-section-title'>Menú Principal</div>", unsafe_allow_html=True)
-    selected_label = st.radio("NAVEGACION", opciones, key="main_nav", label_visibility="collapsed")
-    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
-    st.markdown("<div class='sidebar-section-title'>Usuario</div>", unsafe_allow_html=True)
-
-# Mapeo de etiquetas a variables para mantener compatibilidad
-L2V = {
-    "📊 DASHBOARD": "tab_dash",
-    "📋 PRESUPUESTO": "tab1",
-    "👤 DATOS": "tab2",
-    "📂 COTIZACIONES": "tab3",
-    "✏️ EDICIÓN PDF": "tab6",
-    "🏆 RANKING": "tab7",
-    "📄 CONTRATO": "tab_contrato",
-    "🧊 3D BETA": "tab4",
-    "📊 PROYECTO EXCEL": "tab5",
-    "🛡️ SISTEMA": "tab_salud",
-    "👥 USUARIOS": "tab_usuarios",
-    "📣 NOTIFICACIONES": "tab_notif",
-    "📈 REPORTE BI": "tab_reporte",
-    "⚙️ OPERACIONES": "tab_oper",
-    "⚠️ ADMINISTRACIÓN DE DATOS": "tab_admindata",
-    "📝 FORMULARIO CLIENTE": "tab_formulario"
+# Definir grupos de navegación
+GRUPOS = {
+    "📊 GESTIÓN": ["📊 DASHBOARD", "📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES"],
+    "🏗️ PROYECTO": ["📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "✏️ EDICIÓN PDF"],
+    "🤝 CLIENTE": ["📝 FORMULARIO CLIENTE", "🏆 RANKING"],
+    "⚙️ CONFIGURACIÓN": ["🛡️ SISTEMA", "👥 USUARIOS", "📣 NOTIFICACIONES", "📈 REPORTE BI", "⚙️ OPERACIONES", "⚠️ ADMINISTRACIÓN DE DATOS"]
 }
 
-# Inicializar todas las variables de tab como None por defecto
+# Mapeo de etiquetas a variables
+L2V = {
+    "📊 DASHBOARD": "tab_dash", "📋 PRESUPUESTO": "tab1", "👤 DATOS": "tab2", "📂 COTIZACIONES": "tab3",
+    "✏️ EDICIÓN PDF": "tab6", "🏆 RANKING": "tab7", "📄 CONTRATO": "tab_contrato", "🧊 3D BETA": "tab4",
+    "📊 PROYECTO EXCEL": "tab5", "🛡️ SISTEMA": "tab_salud", "👥 USUARIOS": "tab_usuarios",
+    "📣 NOTIFICACIONES": "tab_notif", "📈 REPORTE BI": "tab_reporte", "⚙️ OPERACIONES": "tab_oper",
+    "⚠️ ADMINISTRACIÓN DE DATOS": "tab_admindata", "📝 FORMULARIO CLIENTE": "tab_formulario"
+}
+
+_rol_actual = st.session_state.get('rol_usuario', 'ejecutivo')
+if 'active_label' not in st.session_state:
+    st.session_state.active_label = "📋 PRESUPUESTO"
+
+with st.sidebar:
+    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+    for grupo, items in GRUPOS.items():
+        # Filtrar items por rol
+        items_filtrados = []
+        if _rol_actual == 'root': items_filtrados = items
+        elif _rol_actual == 'admin':
+            items_filtrados = [i for i in items if i != "🛡️ SISTEMA"]
+        elif _rol_actual == 'operacion':
+            items_filtrados = [i for i in items if i == "⚙️ OPERACIONES"]
+        else: # ejecutivo
+            validos = ["📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "📄 CONTRATO", "📝 FORMULARIO CLIENTE", "🏆 RANKING", "🧊 3D BETA"]
+            items_filtrados = [i for i in items if i in validos]
+        
+        if items_filtrados:
+            with st.expander(grupo, expanded=True):
+                for item in items_filtrados:
+                    is_active = st.session_state.active_label == item
+                    if st.button(item, key=f"nav_{item}", use_container_width=True, type="primary" if is_active else "secondary"):
+                        st.session_state.active_label = item
+                        st.rerun()
+
+# Inicializar todas las variables de tab
+active_var_name = L2V.get(st.session_state.active_label)
 all_tab_vars = list(L2V.values())
 for v in all_tab_vars:
-    globals()[v] = None
-
-# Activar la variable correspondiente a la selección
-active_var = L2V.get(selected_label)
-if active_var:
-    globals()[active_var] = MockTab()
+    globals()[v] = MockTab(active=(v == active_var_name))
 
 # =========================================================
 # FUNCIÓN PARA GENERAR PDF COMPLETO
