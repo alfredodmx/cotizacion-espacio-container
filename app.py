@@ -51,50 +51,19 @@ st.markdown("""
     /* Ajustar padding superior tras ocultar header */
     .stAppViewBlockContainer, .block-container {
         padding-top: 1rem !important;
-        max-width: 1400px !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
     }
-    /* --- SIDEBAR CUSTOM DESIGN (ACME STYLE) --- */
+    /* --- SIDEBAR DESIGN --- */
     [data-testid="stSidebar"] {
-        background-color: #ffffff !important;
+        background-color: #f8fafc !important;
         border-right: 1px solid #e2e8f0;
-        min-width: 320px !important;
         top: 65px !important;
         height: calc(100vh - 65px) !important;
-        z-index: 9999 !important;
-        box-shadow: 10px 0 30px rgba(0,0,0,0.02) !important;
     }
-    [data-testid="stSidebarContent"] {
-        background-color: #ffffff !important;
-        padding: 0 10px !important;
+    /* Ocultar contenedor de secciones inactivas */
+    #_trash_bin {
+        display: none !important;
     }
-    /* Estilo para los Expanders de navegación */
-    [data-testid="stExpander"] {
-        background-color: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        margin-bottom: 5px !important;
-    }
-    [data-testid="stExpander"] details {
-        border: none !important;
-    }
-    [data-testid="stExpander"] summary {
-        color: #475569 !important;
-        font-weight: 700 !important;
-        font-size: 0.85rem !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.05em !important;
-        padding: 12px 15px !important;
-        border-radius: 12px !important;
-    }
-    [data-testid="stExpander"] summary:hover {
-        background-color: #f8fafc !important;
-    }
-    /* Botones dentro de expanders */
-    .stButton > button {
-        border-radius: 8px !important;
-    }
+</style>
 </style>
 """, unsafe_allow_html=True)
 
@@ -9116,30 +9085,23 @@ _hash_actual = calcular_hash_estado()
 # TABS
 # =========================================================
 # =========================================================
-# SISTEMA DE NAVEGACIÓN (SIDEBAR ACME NESTED)
+# SISTEMA DE NAVEGACIÓN (SIDEBAR SEGURO)
 # =========================================================
-class MockTab:
-    def __init__(self, active):
-        self.active = active
-    def __enter__(self):
-        self.c = st.container()
-        if not self.active:
-            self.c.__enter__()
-            st.markdown('<div style="display:none">', unsafe_allow_html=True)
-            return self.c
-        return self.c.__enter__()
-    def __exit__(self, *args):
-        if not self.active:
-            st.markdown('</div>', unsafe_allow_html=True)
-        self.c.__exit__(*args)
+_rol_actual = st.session_state.get('rol_usuario', 'ejecutivo')
 
-# Definir grupos de navegación
-GRUPOS = {
-    "📊 GESTIÓN": ["📊 DASHBOARD", "📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES"],
-    "🏗️ PROYECTO": ["📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "✏️ EDICIÓN PDF"],
-    "🤝 CLIENTE": ["📝 FORMULARIO CLIENTE", "🏆 RANKING"],
-    "⚙️ CONFIGURACIÓN": ["🛡️ SISTEMA", "👥 USUARIOS", "📣 NOTIFICACIONES", "📈 REPORTE BI", "⚙️ OPERACIONES", "⚠️ ADMINISTRACIÓN DE DATOS"]
-}
+# Listas de opciones por rol
+if _rol_actual == 'root':
+    opciones = ["📊 DASHBOARD", "📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "🛡️ SISTEMA", "👥 USUARIOS", "📣 NOTIFICACIONES", "📈 REPORTE BI", "⚙️ OPERACIONES", "⚠️ ADMINISTRACIÓN DE DATOS", "📝 FORMULARIO CLIENTE"]
+elif _rol_actual == 'admin':
+    opciones = ["📋 PRESUPUESTO", "📂 COTIZACIONES", "👤 DATOS", "📄 CONTRATO", "⚙️ OPERACIONES", "👥 USUARIOS", "📊 PROYECTO EXCEL", "✏️ EDICIÓN PDF", "🏆 RANKING", "🧊 3D BETA", "📣 NOTIFICACIONES", "📊 DASHBOARD", "📈 REPORTE BI", "⚠️ ADMINISTRACIÓN DE DATOS", "📝 FORMULARIO CLIENTE"]
+elif _rol_actual == 'operacion':
+    opciones = ["⚙️ OPERACIONES"]
+else:
+    opciones = ["📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "📄 CONTRATO", "📝 FORMULARIO CLIENTE", "🏆 RANKING", "🧊 3D BETA"]
+
+with st.sidebar:
+    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+    selected_label = st.radio("MENÚ PRINCIPAL", opciones, key="main_nav")
 
 # Mapeo de etiquetas a variables
 L2V = {
@@ -9150,37 +9112,19 @@ L2V = {
     "⚠️ ADMINISTRACIÓN DE DATOS": "tab_admindata", "📝 FORMULARIO CLIENTE": "tab_formulario"
 }
 
-_rol_actual = st.session_state.get('rol_usuario', 'ejecutivo')
-if 'active_label' not in st.session_state:
-    st.session_state.active_label = "📋 PRESUPUESTO"
+# Definir contenedores: uno activo y uno "basurero" oculto
+active_var_name = L2V.get(selected_label)
+st.markdown("<div id='_trash_bin'>", unsafe_allow_html=True)
+trash_container = st.container()
+st.markdown("</div>", unsafe_allow_html=True)
 
-with st.sidebar:
-    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-    for grupo, items in GRUPOS.items():
-        # Filtrar items por rol
-        items_filtrados = []
-        if _rol_actual == 'root': items_filtrados = items
-        elif _rol_actual == 'admin':
-            items_filtrados = [i for i in items if i != "🛡️ SISTEMA"]
-        elif _rol_actual == 'operacion':
-            items_filtrados = [i for i in items if i == "⚙️ OPERACIONES"]
-        else: # ejecutivo
-            validos = ["📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "📄 CONTRATO", "📝 FORMULARIO CLIENTE", "🏆 RANKING", "🧊 3D BETA"]
-            items_filtrados = [i for i in items if i in validos]
-        
-        if items_filtrados:
-            with st.expander(grupo, expanded=True):
-                for item in items_filtrados:
-                    is_active = st.session_state.active_label == item
-                    if st.button(item, key=f"nav_{item}", use_container_width=True, type="primary" if is_active else "secondary"):
-                        st.session_state.active_label = item
-                        st.rerun()
-
-# Inicializar todas las variables de tab
-active_var_name = L2V.get(st.session_state.active_label)
+# Asignar variables globales
 all_tab_vars = list(L2V.values())
 for v in all_tab_vars:
-    globals()[v] = MockTab(active=(v == active_var_name))
+    if v == active_var_name:
+        globals()[v] = st.container()
+    else:
+        globals()[v] = trash_container
 
 # =========================================================
 # FUNCIÓN PARA GENERAR PDF COMPLETO
