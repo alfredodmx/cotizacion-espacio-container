@@ -23,75 +23,203 @@ st.set_page_config(layout="wide", page_title="Cotizador PRO", page_icon="📊")
 # ─── Ocultar botones flotantes de Streamlit (deploy, GitHub, menú, footer) ───
 st.markdown("""
 <style>
-    /* Botón Deploy / Share (esquina superior derecha) */
+    /* ============================================================
+       AI DESIGN SYSTEM — Semantic Token Layer
+       Inspirado en: Linear · Vercel · Raycast · Resend
+       ============================================================ */
+    :root {
+        /* — Surfaces — */
+        --ds-bg:             #09090b;
+        --ds-surface:        #111113;
+        --ds-card:           #18181b;
+        --ds-card-hover:     #27272a;
+        --ds-sidebar:        #0f0f11;
+        --ds-sidebar-item:   rgba(255,255,255,0.04);
+        --ds-sidebar-active: rgba(34,197,94,0.10);
+
+        /* — Borders — */
+        --ds-border:         rgba(255,255,255,0.07);
+        --ds-border-strong:  rgba(255,255,255,0.14);
+
+        /* — Text — */
+        --ds-fg:             #fafafa;
+        --ds-muted:          #a1a1aa;
+        --ds-subtle:         #52525b;
+
+        /* — Primary accent: neon green sutil — */
+        --ds-primary:        #22c55e;
+        --ds-primary-glow:   rgba(34,197,94,0.20);
+        --ds-primary-dim:    rgba(34,197,94,0.08);
+        --ds-primary-border: rgba(34,197,94,0.30);
+
+        /* — Radius — */
+        --ds-r-sm:  10px;
+        --ds-r-md:  16px;   /* rounded-2xl */
+        --ds-r-lg:  24px;   /* rounded-3xl */
+
+        /* — Shadows (soft, layered) — */
+        --ds-shadow-sm: 0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.3);
+        --ds-shadow-md: 0 4px 20px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4);
+        --ds-shadow-lg: 0 8px 40px rgba(0,0,0,0.7), 0 4px 16px rgba(0,0,0,0.5);
+
+        /* — Spacing — */
+        --ds-sp-xs: 8px;
+        --ds-sp-sm: 12px;
+        --ds-sp-md: 24px;
+        --ds-sp-lg: 32px;
+        --ds-sp-xl: 48px;
+
+        /* — Transitions — */
+        --ds-ease: cubic-bezier(0.4, 0, 0.2, 1);
+        --ds-duration: 220ms;
+    }
+
+    /* ============================================================
+       TIPOGRAFÍA GLOBAL — Inter (DS: font-sans, clean, modern)
+       ============================================================ */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700&family=Montserrat:wght@700;900&display=swap');
+
+    html, body, .stApp, .stApp * {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+    h1, h2, h3 { font-family: 'Montserrat', sans-serif !important; }
+
+    /* ============================================================
+       OCULTAR ELEMENTOS DE STREAMLIT
+       ============================================================ */
     .stDeployButton, [data-testid="stStatusWidget"],
-    button[kind="header"], .stAppDeployButton {
-        display: none !important;
-    }
-    /* Menú hamburguesa (MainMenu) */
-    #MainMenu, [data-testid="stMainMenu"] {
-        display: none !important;
-    }
-    /* Footer "Made with Streamlit" */
-    footer, [data-testid="stFooter"] {
-        display: none !important;
-    }
-    /* GitHub fork ribbon / badge (esquina inferior derecha) */
-    .viewerBadge_container__r5tak,
-    .viewerBadge_link__qRIco,
+    button[kind="header"], .stAppDeployButton,
+    #MainMenu, [data-testid="stMainMenu"],
+    footer, [data-testid="stFooter"],
+    .viewerBadge_container__r5tak, .viewerBadge_link__qRIco,
     [data-testid="manage-app-button"],
-    ._profileContainer_gzau3_53,
-    ._profilePreview_gzau3_63 {
-        display: none !important;
-    }
-    /* Header toolbar completo */
+    ._profileContainer_gzau3_53, ._profilePreview_gzau3_63,
     header[data-testid="stHeader"] {
         display: none !important;
     }
-    /* Ajustar padding superior tras ocultar header */
+
+    /* ============================================================
+       FONDO GLOBAL — Dark premium (DS: bg-background)
+       ============================================================ */
+    [data-testid="stAppViewContainer"],
+    .stApp {
+        background-color: var(--ds-bg) !important;
+    }
     .stAppViewBlockContainer, .block-container {
         padding-top: 1rem !important;
+        background-color: transparent !important;
     }
-    /* --- SIDEBAR DESIGN (MODO RAIL DEFINITIVO) --- */
-    /* Forzar que el sidebar no desaparezca al colapsar */
+
+    /* ============================================================
+       SIDEBAR — Floating dark panel (DS: floating dark, soft border)
+       ============================================================ */
     section[data-testid="stSidebar"] {
-        background-color: #f8fafc !important;
-        border-right: 1px solid #e2e8f0 !important;
+        background-color: var(--ds-sidebar) !important;
+        border-right: 1px solid var(--ds-border) !important;
+        box-shadow: var(--ds-shadow-md) !important;
         top: 65px !important;
         height: calc(100vh - 65px) !important;
-        transition: width 0.3s ease, transform 0.3s ease !important;
-        z-index: 99 !important;
+        transition: width var(--ds-duration) var(--ds-ease),
+                    transform var(--ds-duration) var(--ds-ease) !important;
+        z-index: 1000 !important;
     }
-    /* Estilo para el estado COLAPSADO (RAIL) */
+
+    /* Scrollbar sutil en sidebar */
+    section[data-testid="stSidebar"]::-webkit-scrollbar { width: 3px; }
+    section[data-testid="stSidebar"]::-webkit-scrollbar-track { background: transparent; }
+    section[data-testid="stSidebar"]::-webkit-scrollbar-thumb {
+        background: var(--ds-border-strong);
+        border-radius: 99px;
+    }
+
+    /* ── RAIL MODE (colapsado) ─────────────────────────────── */
     section[data-testid="stSidebar"][aria-expanded="false"],
     section[data-testid="stSidebar"][data-collapsed="true"] {
         transform: translateX(0) !important;
-        width: 80px !important;
-        min-width: 80px !important;
+        width: 72px !important;
+        min-width: 72px !important;
     }
-    /* Ajustar el contenido principal para respetar el rail de 80px */
-    section[data-testid="stSidebar"][aria-expanded="false"] + section,
-    section[data-testid="stSidebar"][data-collapsed="true"] + section {
-        margin-left: 80px !important;
-    }
-    /* Ocultar texto y centrar iconos en modo rail */
+
+    /* Ocultar texto, mostrar solo emoji en rail */
     section[data-testid="stSidebar"][aria-expanded="false"] [data-testid="stMarkdownContainer"] p,
-    section[data-testid="stSidebar"][data-collapsed="true"] [data-testid="stMarkdownContainer"] p {
+    section[data-testid="stSidebar"][data-collapsed="true"]  [data-testid="stMarkdownContainer"] p {
         font-size: 0 !important;
         text-align: center !important;
+        margin: 0 !important;
     }
     section[data-testid="stSidebar"][aria-expanded="false"] [data-testid="stMarkdownContainer"] p::first-letter,
-    section[data-testid="stSidebar"][data-collapsed="true"] [data-testid="stMarkdownContainer"] p::first-letter {
-        font-size: 24px !important;
-        display: block !important;
+    section[data-testid="stSidebar"][data-collapsed="true"]  [data-testid="stMarkdownContainer"] p::first-letter {
+        font-size: 22px !important;
         visibility: visible !important;
+        display: block !important;
+        margin-bottom: 14px !important;
+        line-height: 1 !important;
     }
-    /* Botón de expandir/colapsar (asegurar visibilidad) */
+    section[data-testid="stSidebar"][aria-expanded="false"] [data-testid="stWidgetLabel"],
+    section[data-testid="stSidebar"][data-collapsed="true"]  [data-testid="stWidgetLabel"] {
+        justify-content: center !important;
+        width: 100% !important;
+        margin-left: 0 !important;
+    }
+
+    /* ── SIDEBAR RADIO — nav items ──────────────────────────── */
+    section[data-testid="stSidebar"] label {
+        border-radius: var(--ds-r-sm) !important;
+        padding: 8px 12px !important;
+        margin: 2px 0 !important;
+        transition: background var(--ds-duration) var(--ds-ease) !important;
+        cursor: pointer !important;
+    }
+    section[data-testid="stSidebar"] label:hover {
+        background: var(--ds-sidebar-item) !important;
+    }
+    /* Ítem activo — accent verde sutil */
+    section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {
+        color: var(--ds-muted) !important;
+    }
+
+    /* ── COLLAPSE BUTTON ────────────────────────────────────── */
     [data-testid="stSidebarCollapseButton"] {
-        background-color: white !important;
-        border: 1px solid #e2e8f0 !important;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05) !important;
-        z-index: 1000 !important;
+        background-color: var(--ds-card) !important;
+        border: 1px solid var(--ds-border-strong) !important;
+        box-shadow: var(--ds-shadow-sm) !important;
+        border-radius: var(--ds-r-sm) !important;
+        z-index: 1001 !important;
+        top: 10px !important;
+        left: 10px !important;
+        transition: background var(--ds-duration) var(--ds-ease) !important;
+    }
+    [data-testid="stSidebarCollapseButton"]:hover {
+        background-color: var(--ds-card-hover) !important;
+    }
+    [data-testid="stSidebarCollapseButton"] svg {
+        color: var(--ds-muted) !important;
+        fill: var(--ds-muted) !important;
+    }
+
+    /* ============================================================
+       STREAMLIT WIDGETS — Dark override
+       ============================================================ */
+    /* Radio buttons label text */
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] label {
+        color: var(--ds-muted) !important;
+    }
+    /* Section header (MENÚ PRINCIPAL label) */
+    section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {
+        color: var(--ds-subtle) !important;
+        font-size: 0.65rem !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.10em !important;
+        text-transform: uppercase !important;
+    }
+    /* Separador */
+    section[data-testid="stSidebar"] hr {
+        border-color: var(--ds-border) !important;
+        margin: var(--ds-sp-sm) 0 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -7385,11 +7513,11 @@ if st.session_state.get('rol_usuario') in ('root', 'admin'):
     _bloque_raw = _get_bloque_horario(_now_cod).split('-', 3)
     _bloque_display = f"{_bloque_raw[-2][:2]}:{_bloque_raw[-2][2:]} → {_bloque_raw[-1][:2]}:{_bloque_raw[-1][2:]}"
     st.markdown(f"""
-    <div id='_cod_w' style='position:fixed;top:65px;left:0;z-index:2147483647;
+    <div id='_cod_w' style='position:fixed;top:65px;right:0;z-index:999;
         background:rgba(240,253,250,0.97);border:1px solid #99f6e4;
-        border-radius:0 0 8px 0;padding:3px 12px 4px 10px;
-        box-shadow:2px 2px 10px rgba(13,148,136,0.10);
-        font-family:"Plus Jakarta Sans",sans-serif;
+        border-radius:0 0 0 8px;padding:3px 12px 4px 10px;
+        box-shadow:-2px 2px 10px rgba(13,148,136,0.10);
+        font-family:"Inter",sans-serif;
         display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;'>
         <div style='font-size:0.6rem;color:#1e293b;font-weight:600;line-height:1.2;'>Código<br>{_bloque_display}</div>
         <div id='_cval' style='font-size:1.05rem;font-weight:800;color:#0d9488;letter-spacing:0.15em;'>{_cod_actual}</div>
@@ -9111,25 +9239,72 @@ def cargar_ranking_ejecutivos(periodo='mes'):
 _hash_actual = calcular_hash_estado()
 
 # =========================================================
-# SISTEMA DE NAVEGACIÓN (IF-SWITCHER)
+# SISTEMA DE NAVEGACIÓN — AI DESIGN SYSTEM COMPLIANT
 # =========================================================
 _rol_actual = st.session_state.get('rol_usuario', 'ejecutivo')
 
-# Listas de opciones por rol
+# Sub-menús
+SUB_MENU_CONFIG = {
+    "📋 PRESUPUESTO":        ["🧮 Calculadora", "📋 Items de Cotización", "📐 Plano PDF", "📂 Modelo Predefinido"],
+    "📄 CONTRATO":           ["📄 Generador de contrato", "👁️ Previsualizar contrato", "📎 Contrato notariado", "📝 Editar contrato"],
+    "⚙️ OPERACIONES":        ["⚙️ Panel Operacional", "🛒 Registro de Compras", "📋 Acta de Clientes"],
+    "👥 USUARIOS":           ["👥 Gestión de Usuarios", "👤 Nuevo ejecutivo", "🛡️ Nuevo administrador", "👷 Nuevo operación"],
+    "📝 FORMULARIO CLIENTE": ["📦 Catálogo de materiales", "⚙️ Configurar preguntas", "📊 Progreso clientes"],
+}
+
 if _rol_actual == 'root':
-    opciones = ["📊 DASHBOARD", "📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "🛡️ SISTEMA", "👥 USUARIOS", "📣 NOTIFICACIONES", "📈 REPORTE BI", "⚙️ OPERACIONES", "⚠️ ADMINISTRACIÓN DE DATOS", "📝 FORMULARIO CLIENTE"]
+    opciones = ["📊 DASHBOARD","📋 PRESUPUESTO","👤 DATOS","📂 COTIZACIONES","✏️ EDICIÓN PDF","🏆 RANKING","📄 CONTRATO","🧊 3D BETA","📊 PROYECTO EXCEL","🛡️ SISTEMA","👥 USUARIOS","📣 NOTIFICACIONES","📈 REPORTE BI","⚙️ OPERACIONES","⚠️ ADMINISTRACIÓN DE DATOS","📝 FORMULARIO CLIENTE"]
 elif _rol_actual == 'admin':
-    opciones = ["📋 PRESUPUESTO", "📂 COTIZACIONES", "👤 DATOS", "📄 CONTRATO", "⚙️ OPERACIONES", "👥 USUARIOS", "📊 PROYECTO EXCEL", "✏️ EDICIÓN PDF", "🏆 RANKING", "🧊 3D BETA", "📣 NOTIFICACIONES", "📊 DASHBOARD", "📈 REPORTE BI", "⚠️ ADMINISTRACIÓN DE DATOS", "📝 FORMULARIO CLIENTE"]
+    opciones = ["📋 PRESUPUESTO","📂 COTIZACIONES","👤 DATOS","📄 CONTRATO","⚙️ OPERACIONES","👥 USUARIOS","📊 PROYECTO EXCEL","✏️ EDICIÓN PDF","🏆 RANKING","🧊 3D BETA","📣 NOTIFICACIONES","📊 DASHBOARD","📈 REPORTE BI","⚠️ ADMINISTRACIÓN DE DATOS","📝 FORMULARIO CLIENTE"]
 elif _rol_actual == 'operacion':
     opciones = ["⚙️ OPERACIONES"]
 else:
-    opciones = ["📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "📄 CONTRATO", "📝 FORMULARIO CLIENTE", "🏆 RANKING", "🧊 3D BETA"]
+    opciones = ["📋 PRESUPUESTO","👤 DATOS","📂 COTIZACIONES","📄 CONTRATO","📝 FORMULARIO CLIENTE","🏆 RANKING","🧊 3D BETA"]
 
 with st.sidebar:
-    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+    st.markdown("""
+    <style>
+    /* DS Nav — Label de cada ítem principal */
+    section[data-testid="stSidebar"] [data-testid="stRadio"] label {
+        width: 100% !important;
+        padding: 8px 14px !important;
+        border-radius: var(--ds-r-sm) !important;
+        font-size: 0.82rem !important;
+        font-weight: 500 !important;
+        color: var(--ds-muted) !important;
+        cursor: pointer !important;
+        transition: background var(--ds-duration) var(--ds-ease),
+                    color var(--ds-duration) var(--ds-ease) !important;
+        border-left: 2px solid transparent !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
+        background: var(--ds-sidebar-item) !important;
+        color: var(--ds-fg) !important;
+    }
+    /* Widget labels (MENÚ PRINCIPAL / SECCIÓN) */
+    section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {
+        color: var(--ds-subtle) !important;
+        font-size: 0.63rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.12em !important;
+        text-transform: uppercase !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
     selected_label = st.radio("MENÚ PRINCIPAL", opciones, key="main_nav")
 
-# Mapeo de etiquetas a variables
+    selected_sub_label = None
+    if selected_label in SUB_MENU_CONFIG:
+        subs = SUB_MENU_CONFIG[selected_label]
+        st.markdown(
+            "<div style='height:4px;border-top:1px solid var(--ds-border);margin:12px 0 8px;'></div>",
+            unsafe_allow_html=True
+        )
+        selected_sub_label = st.radio("SECCIÓN", subs, key="sub_nav")
+
+# Mapeo de etiquetas a variables internas
 L2V = {
     "📊 DASHBOARD": "tab_dash", "📋 PRESUPUESTO": "tab1", "👤 DATOS": "tab2", "📂 COTIZACIONES": "tab3",
     "✏️ EDICIÓN PDF": "tab6", "🏆 RANKING": "tab7", "📄 CONTRATO": "tab_contrato", "🧊 3D BETA": "tab4",
@@ -9140,9 +9315,16 @@ L2V = {
 
 active_var_name = L2V.get(selected_label)
 
-# Definir todas como True para compatibilidad con checks 'is not None'
+# Compatibilidad con código legacy
 tab_dash = True; tab1 = True; tab2 = True; tab3 = True; tab4 = True; tab5 = True; tab6 = True; tab7 = True
 tab_contrato = True; tab_salud = True; tab_usuarios = True; tab_notif = True; tab_reporte = True; tab_oper = True; tab_admindata = True; tab_formulario = True
+
+# Clase para silenciar sub-tabs no seleccionados
+class MockContainer:
+    def __enter__(self): return self
+    def __exit__(self, *args): pass
+    def __getattr__(self, name): return lambda *args, **kwargs: None
+
 
 # =========================================================
 # FUNCIÓN PARA GENERAR PDF COMPLETO
@@ -14976,11 +15158,9 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
     </div>
     """, unsafe_allow_html=True)
 
-    _sub_panel, _sub_compras, _sub_acta = st.tabs([
-        "⚙️ Panel Operacional",
-        "🛒 Registro de Compras",
-        "📋 Acta de Clientes"
-    ])
+    _sub_panel = st.container() if selected_sub_label == "⚙️ Panel Operacional" else MockContainer()
+    _sub_compras = st.container() if selected_sub_label == "🛒 Registro de Compras" else MockContainer()
+    _sub_acta = st.container() if selected_sub_label == "📋 Acta de Clientes" else MockContainer()
 
     with _sub_panel:
         # ── Cargar ejecutivos para dropdown ──
@@ -17314,9 +17494,13 @@ if tab_contrato is not None:
 
     # ── Sub-pestañas ──
     if st.session_state.modo_admin:
-        _sub_imprimir, _sub_preview, _sub_notariado, _sub_editar = st.tabs(["📄 Generador de contrato", "👁️ Previsualizar contrato", "📎 Contrato notariado", "📝 Editar contrato"])
+        _sub_imprimir = st.container() if selected_sub_label == "📄 Generador de contrato" else MockContainer()
+        _sub_preview = st.container() if selected_sub_label == "👁️ Previsualizar contrato" else MockContainer()
+        _sub_notariado = st.container() if selected_sub_label == "📎 Contrato notariado" else MockContainer()
+        _sub_editar = st.container() if selected_sub_label == "📝 Editar contrato" else MockContainer()
     else:
-        _sub_imprimir, _sub_preview = st.tabs(["📄 Generador de contrato", "👁️ Previsualizar contrato"])
+        _sub_imprimir = st.container() if selected_sub_label == "📄 Generador de contrato" else MockContainer()
+        _sub_preview = st.container() if selected_sub_label == "👁️ Previsualizar contrato" else MockContainer()
         _sub_notariado = None
         _sub_editar = None
 
@@ -19487,7 +19671,9 @@ if tab_formulario is not None:
         </div>
         """, unsafe_allow_html=True)
 
-        _ftab_catalogo, _ftab_config, _ftab_progreso = st.tabs(["📦 Catálogo de materiales", "⚙️ Configurar preguntas", "📊 Progreso clientes"])
+        _ftab_catalogo = st.container() if selected_sub_label == "📦 Catálogo de materiales" else MockContainer()
+        _ftab_config = st.container() if selected_sub_label == "⚙️ Configurar preguntas" else MockContainer()
+        _ftab_progreso = st.container() if selected_sub_label == "📊 Progreso clientes" else MockContainer()
 
         # ── TAB CATÁLOGO ──
         with _ftab_catalogo:
