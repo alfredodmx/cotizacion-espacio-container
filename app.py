@@ -224,6 +224,439 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ── GLOBAL DARK PREMIUM OVERRIDE — All Streamlit widgets ──────────────
+st.markdown("""
+<style>
+    /* ============================================================
+       GLOBAL DARK OVERRIDE — Streamlit Widgets & Components
+       AI DESIGN SYSTEM: Linear · Vercel · Raycast style
+       All colors reference :root semantic tokens
+       ============================================================ */
+
+    /* ── TEXT GLOBAL ───────────────────────────────────────── */
+    .stApp p, .stApp span, .stApp div,
+    [data-testid="stAppViewContainer"] p,
+    [data-testid="stAppViewContainer"] span {
+        color: var(--ds-fg) !important;
+    }
+    .stApp [data-testid="stMarkdownContainer"] p {
+        color: var(--ds-fg) !important;
+    }
+    .stApp .stCaption, .stApp small,
+    [data-testid="stCaptionContainer"] p {
+        color: var(--ds-subtle) !important;
+    }
+
+    /* ── HEADINGS ──────────────────────────────────────────── */
+    .stApp h1, .stApp h2, .stApp h3,
+    .stApp h4, .stApp h5, .stApp h6 {
+        color: var(--ds-fg) !important;
+        -webkit-text-fill-color: var(--ds-fg) !important;
+    }
+
+    /* ── INPUTS — text, number, password ───────────────────── */
+    .stApp input[type="text"],
+    .stApp input[type="number"],
+    .stApp input[type="password"],
+    .stApp input[type="email"],
+    .stApp input[type="tel"],
+    .stApp [data-testid="stTextInput"] input,
+    .stApp [data-testid="stNumberInput"] input {
+        background-color: var(--ds-surface) !important;
+        color: var(--ds-fg) !important;
+        border: 1px solid var(--ds-border-strong) !important;
+        border-radius: var(--ds-r-sm) !important;
+        padding: 10px 14px !important;
+        caret-color: var(--ds-primary) !important;
+        transition: border-color var(--ds-duration) var(--ds-ease) !important;
+    }
+    .stApp input:focus {
+        border-color: var(--ds-primary-border) !important;
+        box-shadow: 0 0 0 3px var(--ds-primary-dim) !important;
+        outline: none !important;
+    }
+    .stApp input::placeholder {
+        color: var(--ds-subtle) !important;
+    }
+
+    /* ── TEXT AREA ─────────────────────────────────────────── */
+    .stApp textarea,
+    .stApp [data-testid="stTextArea"] textarea {
+        background-color: var(--ds-surface) !important;
+        color: var(--ds-fg) !important;
+        border: 1px solid var(--ds-border-strong) !important;
+        border-radius: var(--ds-r-sm) !important;
+        caret-color: var(--ds-primary) !important;
+    }
+    .stApp textarea:focus {
+        border-color: var(--ds-primary-border) !important;
+        box-shadow: 0 0 0 3px var(--ds-primary-dim) !important;
+    }
+
+    /* ── SELECT / DROPDOWN ────────────────────────────────── */
+    .stApp [data-testid="stSelectbox"],
+    .stApp [data-baseweb="select"] {
+        background-color: var(--ds-surface) !important;
+    }
+    .stApp [data-baseweb="select"] > div {
+        background-color: var(--ds-surface) !important;
+        border: 1px solid var(--ds-border-strong) !important;
+        border-radius: var(--ds-r-sm) !important;
+        color: var(--ds-fg) !important;
+    }
+    .stApp [data-baseweb="popover"] {
+        background-color: var(--ds-card) !important;
+        border: 1px solid var(--ds-border-strong) !important;
+        border-radius: var(--ds-r-sm) !important;
+        box-shadow: var(--ds-shadow-lg) !important;
+    }
+    .stApp [data-baseweb="menu"] {
+        background-color: var(--ds-card) !important;
+    }
+    .stApp [role="option"] {
+        color: var(--ds-muted) !important;
+        transition: background var(--ds-duration) var(--ds-ease) !important;
+    }
+    .stApp [role="option"]:hover,
+    .stApp [role="option"][aria-selected="true"] {
+        background-color: var(--ds-sidebar-item) !important;
+        color: var(--ds-fg) !important;
+    }
+
+    /* ── MULTISELECT ──────────────────────────────────────── */
+    .stApp [data-baseweb="tag"] {
+        background-color: var(--ds-primary-dim) !important;
+        border: 1px solid var(--ds-primary-border) !important;
+        color: var(--ds-primary) !important;
+        border-radius: 6px !important;
+    }
+
+    /* ── BUTTONS — primary, secondary, ghost ──────────────── */
+    .stApp button[kind="primary"],
+    .stApp [data-testid="stBaseButton-primary"] {
+        background-color: var(--ds-primary) !important;
+        color: #000 !important;
+        border: none !important;
+        border-radius: var(--ds-r-sm) !important;
+        font-weight: 600 !important;
+        box-shadow: 0 0 16px var(--ds-primary-glow) !important;
+        transition: opacity var(--ds-duration) var(--ds-ease),
+                    transform var(--ds-duration) var(--ds-ease) !important;
+    }
+    .stApp button[kind="primary"]:hover,
+    .stApp [data-testid="stBaseButton-primary"]:hover {
+        opacity: 0.9 !important;
+        transform: translateY(-1px) !important;
+    }
+    .stApp button[kind="secondary"],
+    .stApp [data-testid="stBaseButton-secondary"],
+    .stApp [data-testid="baseButton-secondary"] {
+        background-color: var(--ds-card) !important;
+        color: var(--ds-fg) !important;
+        border: 1px solid var(--ds-border-strong) !important;
+        border-radius: var(--ds-r-sm) !important;
+        transition: background var(--ds-duration) var(--ds-ease) !important;
+    }
+    .stApp button[kind="secondary"]:hover,
+    .stApp [data-testid="stBaseButton-secondary"]:hover,
+    .stApp [data-testid="baseButton-secondary"]:hover {
+        background-color: var(--ds-card-hover) !important;
+    }
+    /* Generic buttons fallback */
+    .stApp [data-testid="stButton"] button {
+        border-radius: var(--ds-r-sm) !important;
+        font-weight: 600 !important;
+        transition: all var(--ds-duration) var(--ds-ease) !important;
+    }
+
+    /* ── CONTAINERS / CARDS ───────────────────────────────── */
+    .stApp [data-testid="stVerticalBlockBorderWrapper"] {
+        border: 1px solid var(--ds-border) !important;
+        border-radius: var(--ds-r-md) !important;
+        background-color: var(--ds-card) !important;
+        box-shadow: var(--ds-shadow-sm) !important;
+        overflow: hidden !important;
+    }
+
+    /* ── METRICS ──────────────────────────────────────────── */
+    .stApp [data-testid="stMetric"] {
+        background-color: var(--ds-card) !important;
+        border: 1px solid var(--ds-border) !important;
+        border-radius: var(--ds-r-md) !important;
+        padding: var(--ds-sp-md) !important;
+        box-shadow: var(--ds-shadow-sm) !important;
+    }
+    .stApp [data-testid="stMetricLabel"] p {
+        color: var(--ds-muted) !important;
+        font-size: 0.78rem !important;
+        font-weight: 500 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.06em !important;
+    }
+    .stApp [data-testid="stMetricValue"] {
+        color: var(--ds-fg) !important;
+        font-weight: 700 !important;
+    }
+    .stApp [data-testid="stMetricDelta"] {
+        color: var(--ds-primary) !important;
+    }
+
+    /* ── TABS (inside content) ────────────────────────────── */
+    .stApp [data-testid="stTabs"] [data-baseweb="tab-list"] {
+        background-color: transparent !important;
+        border-bottom: 1px solid var(--ds-border) !important;
+        gap: 0 !important;
+    }
+    .stApp [data-testid="stTabs"] button[role="tab"] {
+        background-color: transparent !important;
+        color: var(--ds-muted) !important;
+        border-bottom: 2px solid transparent !important;
+        border-radius: 0 !important;
+        padding: 10px 20px !important;
+        font-weight: 500 !important;
+        transition: all var(--ds-duration) var(--ds-ease) !important;
+    }
+    .stApp [data-testid="stTabs"] button[role="tab"]:hover {
+        color: var(--ds-fg) !important;
+    }
+    .stApp [data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+        color: var(--ds-primary) !important;
+        border-bottom-color: var(--ds-primary) !important;
+    }
+
+    /* ── EXPANDERS ─────────────────────────────────────────── */
+    .stApp [data-testid="stExpander"] {
+        background-color: var(--ds-card) !important;
+        border: 1px solid var(--ds-border) !important;
+        border-radius: var(--ds-r-md) !important;
+        overflow: hidden !important;
+    }
+    .stApp [data-testid="stExpander"] summary {
+        color: var(--ds-fg) !important;
+        font-weight: 600 !important;
+    }
+    .stApp [data-testid="stExpander"] summary:hover {
+        background-color: var(--ds-sidebar-item) !important;
+    }
+    .stApp [data-testid="stExpander"] svg {
+        color: var(--ds-muted) !important;
+    }
+
+    /* ── DATA TABLES / DATAFRAMES ─────────────────────────── */
+    .stApp [data-testid="stDataFrame"],
+    .stApp [data-testid="stDataEditor"],
+    .stApp [data-testid="stTable"] {
+        border: 1px solid var(--ds-border) !important;
+        border-radius: var(--ds-r-md) !important;
+        overflow: hidden !important;
+    }
+    .stApp [data-testid="stDataFrame"] .dvn-scroller,
+    .stApp [data-testid="stDataEditor"] .dvn-scroller {
+        background-color: var(--ds-surface) !important;
+    }
+    /* Table header */
+    .stApp [data-testid="stDataFrame"] [data-testid="glide-cell"][aria-selected="true"],
+    .stApp th, .stApp [role="columnheader"] {
+        background-color: var(--ds-card) !important;
+        color: var(--ds-muted) !important;
+        font-size: 0.75rem !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
+        border-bottom: 1px solid var(--ds-border-strong) !important;
+    }
+    .stApp td, .stApp [role="gridcell"] {
+        border-bottom: 1px solid var(--ds-border) !important;
+        color: var(--ds-fg) !important;
+    }
+
+    /* ── CHECKBOX / TOGGLE ────────────────────────────────── */
+    .stApp [data-testid="stCheckbox"] label {
+        color: var(--ds-fg) !important;
+    }
+    .stApp [data-testid="stCheckbox"] [role="checkbox"] {
+        border-color: var(--ds-border-strong) !important;
+    }
+
+    /* ── RADIO (en el cuerpo, no sidebar) ─────────────────── */
+    .stApp [data-testid="stRadio"] label {
+        color: var(--ds-fg) !important;
+    }
+
+    /* ── PROGRESS BAR ─────────────────────────────────────── */
+    .stApp [data-testid="stProgress"] > div {
+        background-color: var(--ds-surface) !important;
+        border-radius: 99px !important;
+    }
+    .stApp [data-testid="stProgress"] [role="progressbar"] > div {
+        background-color: var(--ds-primary) !important;
+        border-radius: 99px !important;
+    }
+
+    /* ── ALERTS / INFO / WARNING / ERROR / SUCCESS ─────────── */
+    .stApp [data-testid="stAlert"] {
+        background-color: var(--ds-card) !important;
+        border: 1px solid var(--ds-border) !important;
+        border-radius: var(--ds-r-sm) !important;
+        color: var(--ds-fg) !important;
+    }
+    .stApp .stAlert p { color: var(--ds-fg) !important; }
+
+    /* ── SPINNER ───────────────────────────────────────────── */
+    .stApp .stSpinner > div > div {
+        border-top-color: var(--ds-primary) !important;
+    }
+
+    /* ── SLIDER ────────────────────────────────────────────── */
+    .stApp [data-testid="stSlider"] [role="slider"] {
+        background-color: var(--ds-primary) !important;
+    }
+    .stApp [data-baseweb="slider"] div[role="slider"] ~ div {
+        background-color: var(--ds-primary) !important;
+    }
+
+    /* ── DATE INPUT / COLOR PICKER ─────────────────────────── */
+    .stApp [data-testid="stDateInput"] input,
+    .stApp [data-testid="stColorPicker"] input {
+        background-color: var(--ds-surface) !important;
+        color: var(--ds-fg) !important;
+        border: 1px solid var(--ds-border-strong) !important;
+        border-radius: var(--ds-r-sm) !important;
+    }
+
+    /* ── FILE UPLOADER ────────────────────────────────────── */
+    .stApp [data-testid="stFileUploader"] {
+        background-color: var(--ds-surface) !important;
+        border: 1px dashed var(--ds-border-strong) !important;
+        border-radius: var(--ds-r-md) !important;
+        padding: var(--ds-sp-md) !important;
+    }
+    .stApp [data-testid="stFileUploader"] label {
+        color: var(--ds-muted) !important;
+    }
+    .stApp [data-testid="stFileUploader"]:hover {
+        border-color: var(--ds-primary-border) !important;
+        background-color: var(--ds-primary-dim) !important;
+    }
+
+    /* ── WIDGET LABELS (all) ──────────────────────────────── */
+    .stApp [data-testid="stWidgetLabel"] p,
+    .stApp [data-testid="stWidgetLabel"] label {
+        color: var(--ds-muted) !important;
+        font-size: 0.82rem !important;
+        font-weight: 500 !important;
+    }
+
+    /* ── DIALOG / MODAL ───────────────────────────────────── */
+    .stApp [data-testid="stDialog"] [data-testid="stModal"] {
+        background-color: var(--ds-card) !important;
+        border: 1px solid var(--ds-border-strong) !important;
+        border-radius: var(--ds-r-lg) !important;
+        box-shadow: var(--ds-shadow-lg) !important;
+    }
+    div[role="dialog"] {
+        background-color: var(--ds-card) !important;
+        border: 1px solid var(--ds-border-strong) !important;
+        border-radius: var(--ds-r-lg) !important;
+    }
+
+    /* ── TOAST / SNACKBAR ─────────────────────────────────── */
+    .stApp [data-testid="stToast"] {
+        background-color: var(--ds-card) !important;
+        border: 1px solid var(--ds-border-strong) !important;
+        border-radius: var(--ds-r-sm) !important;
+        box-shadow: var(--ds-shadow-md) !important;
+        color: var(--ds-fg) !important;
+    }
+
+    /* ── SCROLLBAR GLOBAL ─────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+        background: var(--ds-border-strong);
+        border-radius: 99px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--ds-subtle);
+    }
+
+    /* ── NUMBER INPUT STEP BUTTONS ─────────────────────────── */
+    .stApp [data-testid="stNumberInput"] button {
+        background-color: var(--ds-card) !important;
+        border: 1px solid var(--ds-border-strong) !important;
+        color: var(--ds-muted) !important;
+    }
+    .stApp [data-testid="stNumberInput"] button:hover {
+        background-color: var(--ds-card-hover) !important;
+        color: var(--ds-fg) !important;
+    }
+
+    /* ── DIVIDER / HR ─────────────────────────────────────── */
+    .stApp hr {
+        border-color: var(--ds-border) !important;
+    }
+
+    /* ── COLUMNS GAP ──────────────────────────────────────── */
+    .stApp [data-testid="stHorizontalBlock"] {
+        gap: var(--ds-sp-sm) !important;
+    }
+
+    /* ── IMAGE CONTAINER ──────────────────────────────────── */
+    .stApp [data-testid="stImage"] {
+        border-radius: var(--ds-r-md) !important;
+        overflow: hidden !important;
+    }
+
+    /* ── DOWNLOAD BUTTON ──────────────────────────────────── */
+    .stApp [data-testid="stDownloadButton"] button {
+        background-color: var(--ds-card) !important;
+        border: 1px solid var(--ds-border-strong) !important;
+        color: var(--ds-fg) !important;
+        border-radius: var(--ds-r-sm) !important;
+    }
+    .stApp [data-testid="stDownloadButton"] button:hover {
+        background-color: var(--ds-card-hover) !important;
+    }
+
+    /* ── CODE BLOCKS ──────────────────────────────────────── */
+    .stApp code, .stApp pre {
+        background-color: var(--ds-surface) !important;
+        color: var(--ds-primary) !important;
+        border-radius: 6px !important;
+    }
+
+    /* ── JSON / MARKDOWN code ─────────────────────────────── */
+    .stApp [data-testid="stJson"] {
+        background-color: var(--ds-surface) !important;
+        border: 1px solid var(--ds-border) !important;
+        border-radius: var(--ds-r-sm) !important;
+    }
+
+    /* ── COLUMN CONFIG ────────────────────────────────────── */
+    .stApp [data-testid="column"] {
+        background-color: transparent !important;
+    }
+
+    /* ── FORM SUBMIT BUTTON ───────────────────────────────── */
+    .stApp [data-testid="stFormSubmitButton"] button {
+        background-color: var(--ds-primary) !important;
+        color: #000 !important;
+        border: none !important;
+        border-radius: var(--ds-r-sm) !important;
+        font-weight: 600 !important;
+        box-shadow: 0 0 16px var(--ds-primary-glow) !important;
+    }
+
+    /* ── LINK BUTTONS ─────────────────────────────────────── */
+    .stApp a {
+        color: var(--ds-primary) !important;
+        text-decoration: none !important;
+        transition: opacity var(--ds-duration) var(--ds-ease) !important;
+    }
+    .stApp a:hover { opacity: 0.8 !important; }
+</style>
+""", unsafe_allow_html=True)
+
 # =========================================================
 # CONFIGURACIÓN SUPABASE
 # =========================================================
@@ -7387,9 +7820,9 @@ st.markdown(f"""
     top: 0; left: 0; right: 0;
     height: 65px;
     background: {_header_bg};
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-    box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.05);
-    transition: background 0.5s ease;
+    border-bottom: 1px solid var(--ds-border) !important;
+    box-shadow: var(--ds-shadow-md);
+    transition: background 0.5s var(--ds-ease);
     display: flex;
     align-items: center;
     padding: 0 1.5rem;
@@ -7514,13 +7947,13 @@ if st.session_state.get('rol_usuario') in ('root', 'admin'):
     _bloque_display = f"{_bloque_raw[-2][:2]}:{_bloque_raw[-2][2:]} → {_bloque_raw[-1][:2]}:{_bloque_raw[-1][2:]}"
     st.markdown(f"""
     <div id='_cod_w' style='position:fixed;top:65px;right:0;z-index:999;
-        background:rgba(240,253,250,0.97);border:1px solid #99f6e4;
-        border-radius:0 0 0 8px;padding:3px 12px 4px 10px;
-        box-shadow:-2px 2px 10px rgba(13,148,136,0.10);
-        font-family:"Inter",sans-serif;
+        background:var(--ds-card);border:1px solid var(--ds-border-strong);
+        border-radius:0 0 0 var(--ds-r-sm);padding:3px 12px 4px 10px;
+        box-shadow:var(--ds-shadow-sm);
+        font-family:Inter,sans-serif;
         display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;'>
-        <div style='font-size:0.6rem;color:#1e293b;font-weight:600;line-height:1.2;'>Código<br>{_bloque_display}</div>
-        <div id='_cval' style='font-size:1.05rem;font-weight:800;color:#0d9488;letter-spacing:0.15em;'>{_cod_actual}</div>
+        <div style='font-size:0.6rem;color:var(--ds-subtle);font-weight:600;line-height:1.2;'>Código<br>{_bloque_display}</div>
+        <div id='_cval' style='font-size:1.05rem;font-weight:800;color:var(--ds-primary);letter-spacing:0.15em;'>{_cod_actual}</div>
     </div>
     """, unsafe_allow_html=True)
 
