@@ -654,6 +654,98 @@ st.markdown("""
         transition: opacity var(--ds-duration) var(--ds-ease) !important;
     }
     .stApp a:hover { opacity: 0.8 !important; }
+
+    /* ============================================================
+       DEEP OVERRIDES — Force dark on all remaining light elements
+       ============================================================ */
+
+    /* ── ALL bordered containers & their children ─────────── */
+    .stApp [data-testid="stVerticalBlockBorderWrapper"],
+    .stApp [data-testid="stVerticalBlockBorderWrapper"] > div,
+    .stApp [data-testid="stVerticalBlockBorderWrapper"] > div > div {
+        background-color: var(--ds-card) !important;
+        border-color: var(--ds-border) !important;
+        color: var(--ds-fg) !important;
+    }
+
+    /* ── Strong override for container(border=True) bg ────── */
+    .stApp .stVerticalBlock > div > div[data-testid="stVerticalBlockBorderWrapper"] {
+        background: var(--ds-card) !important;
+        box-shadow: var(--ds-shadow-sm) !important;
+        border-radius: var(--ds-r-md) !important;
+        border: 1px solid var(--ds-border) !important;
+    }
+
+    /* ── All markdown containers in body — dark text ─────── */
+    .stApp [data-testid="stAppViewContainer"] [data-testid="stMarkdownContainer"],
+    .stApp [data-testid="stAppViewContainer"] [data-testid="stMarkdownContainer"] p,
+    .stApp [data-testid="stAppViewContainer"] [data-testid="stMarkdownContainer"] span,
+    .stApp [data-testid="stAppViewContainer"] [data-testid="stMarkdownContainer"] div {
+        color: var(--ds-fg) !important;
+    }
+
+    /* ── Labels that use -webkit-text-fill-color ──────────── */
+    .stApp [data-testid="stAppViewContainer"] div[style*="webkit-text-fill-color"] {
+        -webkit-text-fill-color: var(--ds-fg) !important;
+    }
+
+    /* ── Floating progress button (0.000% VER) ───────────── */
+    .st-key-btn_fab_guardar {
+        position: fixed !important;
+        bottom: 1.5rem !important;
+        left: 2rem !important;
+    }
+    .st-key-btn_fab_guardar button {
+        background-color: var(--ds-card) !important;
+        border: 1px solid var(--ds-border-strong) !important;
+        color: var(--ds-fg) !important;
+        border-radius: var(--ds-r-md) !important;
+        box-shadow: var(--ds-shadow-md) !important;
+    }
+    .st-key-btn_fab_guardar button:hover {
+        background-color: var(--ds-card-hover) !important;
+    }
+
+    /* ── Progress panel (right side floating) ────────────── */
+    #_prog_panel {
+        background: var(--ds-card) !important;
+        border: 1px solid var(--ds-border) !important;
+        box-shadow: var(--ds-shadow-md) !important;
+    }
+
+    /* ── Section header banners (gradient) — keep gradient but fix shadow ── */
+    .hdr1, .hdr2, .hdr3, .hdr4, .hdr5, .hdr6, .hdr7,
+    .hdr-contrato, .hdr-oper, .hdr-reporte,
+    .hdr-usuarios, .hdr-salud, div[class*="hdr"] {
+        border-radius: var(--ds-r-md) !important;
+        box-shadow: var(--ds-shadow-md) !important;
+        border: 1px solid var(--ds-border) !important;
+    }
+
+    /* ── Selectbox text color fix ─────────────────────────── */
+    .stApp [data-baseweb="select"] span,
+    .stApp [data-baseweb="select"] [data-testid="stMarkdownContainer"] p,
+    .stApp [data-baseweb="select"] div {
+        color: var(--ds-fg) !important;
+    }
+
+    /* ── Streamlit column borders ─────────────────────────── */
+    .stApp [data-testid="stVerticalBlock"] > [data-testid="element-container"] {
+        color: var(--ds-fg) !important;
+    }
+
+    /* ── ALL remaining white backgrounds ─────────────────── */
+    .stApp [style*="background: white"],
+    .stApp [style*="background-color: white"],
+    .stApp [style*="background: #fff"],
+    .stApp [style*="background-color: #fff"],
+    .stApp [style*="background:#fff"],
+    .stApp [style*="background-color:#fff"],
+    .stApp [style*="background: rgb(255"],
+    .stApp [style*="background-color: rgb(255"] {
+        background: var(--ds-card) !important;
+        background-color: var(--ds-card) !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -7457,23 +7549,23 @@ st.markdown("""
 
     /* ══ HEADER ══ */
     .main-title {
-        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        font-family: 'Inter', sans-serif !important;
         font-size: 2rem !important; font-weight: 800 !important;
-        background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%);
+        background: linear-gradient(135deg, var(--ds-primary) 0%, #8b5cf6 100%);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         letter-spacing: -0.04em; line-height: 1.15;
     }
     .sub-title {
-        color: #9099be; font-size: 0.82rem; font-weight: 500;
+        color: var(--ds-muted); font-size: 0.82rem; font-weight: 500;
         margin-top: 0.2rem; letter-spacing: 0.02em;
     }
 
     /* ══ STATUS BADGE ══ */
     .cotizacion-status-container {
-        background: #ffffff; border-radius: 50px;
+        background: var(--ds-card); border-radius: 50px;
         padding: 0.5rem 1.2rem 0.5rem 1.5rem;
-        margin-bottom: 1rem; border: 1.5px solid #e2e6f3;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        margin-bottom: 1rem; border: 1px solid var(--ds-border);
+        box-shadow: var(--ds-shadow-sm);
         display: inline-flex; align-items: center; gap: 1rem;
     }
     .status-badge { font-size: 0.875rem; font-weight: 600; color: #2a3060; }
@@ -7735,10 +7827,10 @@ st.markdown(f'''
 <div style="
     display:flex; justify-content:space-between; align-items:center;
     padding: 1.2rem 1.8rem;
-    background: #ffffff;
-    border-radius: 18px;
-    border: 1.5px solid #e2e6f3;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    background: var(--ds-card);
+    border-radius: var(--ds-r-md);
+    border: 1px solid var(--ds-border);
+    box-shadow: var(--ds-shadow-md);
     margin-bottom: 0.8rem;
 ">
     <div style="display:flex; flex-direction:column; gap:0.15rem;">
