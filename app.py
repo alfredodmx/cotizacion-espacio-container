@@ -8561,10 +8561,36 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         if _l.strip(): story.append(Paragraph(_l.strip(), normal))
     story += [HR()]
 
+    # ── XII. Retiro y bodegaje ──
+    story += [
+        Paragraph("XII. RETIRO, DESPACHO Y BODEGAJE", seccion),
+        Paragraph(_p("bodegaje", None), normal),
+        HR(),
+    ]
+
+    # ── XIII. Garantía ──
+    story += [Paragraph("XIII. GARANTÍA", seccion)]
+    for _l in _p("garantia", None).split("\n"):
+        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
+    story += [HR()]
+
+    # ── XIV. Terminación anticipada ──
+    story += [Paragraph("XIV. TERMINACIÓN ANTICIPADA", seccion)]
+    for _l in _p("terminacion", None).split("\n"):
+        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
+    story += [HR()]
+
+    # ── XV. Domicilio y jurisdicción ──
+    story += [
+        Paragraph("XV. DOMICILIO Y JURISDICCIÓN", seccion),
+        Paragraph(_p("jurisdiccion", None), normal),
+        PageBreak(),
+    ]
+
     # ── Clausulas XII en adelante — data-driven segun tipo de plantilla ──
-    # A: bodegaje, garantia, terminacion, jurisdiccion,                  firma  (XVI)
-    # B: bodegaje, garantia, terminacion, jurisdiccion, suministro,      firma  (XVII)
-    # E:           garantia, suministro,  terminacion,  jurisdiccion,    firma  (XVI)
+    # A: bodegaje > garantia > terminacion > jurisdiccion > firma                    (XII-XVI)
+    # B: bodegaje > garantia > terminacion > jurisdiccion > suministro > firma       (XII-XVII)
+    # E:            garantia > suministro  > terminacion > jurisdiccion > firma      (XII-XVI)
     _tipo_plt_pdf = (_plt_cls.get("_tipo_plantilla") if _plt_cls else None) or 'A'
 
     def _to_roman(n):
@@ -8575,36 +8601,34 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
             while n >= v: r += s; n -= v
         return r
 
-    # Orden de clausulas por tipo (despues de las 11 fijas)
-    # Formato: (clave, titulo, multilinea, separador)
     _orden_por_tipo = {
         'A': [
-            ('bodegaje',    'RETIRO, DESPACHO Y BODEGAJE',                               False, 'hr'),
-            ('garantia',    'GARANTÍA',                                                   True,  'hr'),
-            ('terminacion', 'TERMINACIÓN ANTICIPADA',                                     True,  'hr'),
-            ('jurisdiccion','DOMICILIO Y JURISDICCIÓN',                                   False, 'pagebreak'),
-            ('firma',       'FIRMA',                                                      False, 'sp60'),
+            ('bodegaje',          'RETIRO, DESPACHO Y BODEGAJE',                              False, 'hr'),
+            ('garantia',          'GARANTÍA',                                                  True,  'hr'),
+            ('terminacion',       'TERMINACIÓN ANTICIPADA',                                    True,  'hr'),
+            ('jurisdiccion',      'DOMICILIO Y JURISDICCIÓN',                                  False, 'pagebreak'),
+            ('firma',             'FIRMA',                                                     False, 'sp60'),
         ],
         'B': [
-            ('bodegaje',          'RETIRO, DESPACHO Y BODEGAJE',                         False, 'hr'),
-            ('garantia',          'GARANTÍA',                                             True,  'hr'),
-            ('terminacion',       'TERMINACIÓN ANTICIPADA',                               True,  'hr'),
-            ('jurisdiccion',      'DOMICILIO Y JURISDICCIÓN',                             False, 'pagebreak'),
-            ('suministro_energia','DEL SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS', True, 'sp'),
-            ('firma',             'FIRMA',                                                False, 'sp60'),
+            ('bodegaje',          'RETIRO, DESPACHO Y BODEGAJE',                              False, 'hr'),
+            ('garantia',          'GARANTÍA',                                                  True,  'hr'),
+            ('terminacion',       'TERMINACIÓN ANTICIPADA',                                    True,  'hr'),
+            ('jurisdiccion',      'DOMICILIO Y JURISDICCIÓN',                                  False, 'pagebreak'),
+            ('suministro_energia','SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS',    True,  'sp'),
+            ('firma',             'FIRMA',                                                     False, 'sp60'),
         ],
         'E': [
-            ('garantia',          'GARANTÍA',                                             True,  'hr'),
-            ('suministro_energia','DEL SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS', True, 'sp'),
-            ('terminacion',       'TERMINACIÓN ANTICIPADA',                               True,  'hr'),
-            ('jurisdiccion',      'DOMICILIO Y JURISDICCIÓN',                             False, 'pagebreak'),
-            ('firma',             'FIRMA',                                                False, 'sp60'),
+            ('garantia',          'GARANTÍA',                                                  True,  'hr'),
+            ('suministro_energia','SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS',    True,  'sp'),
+            ('terminacion',       'TERMINACIÓN ANTICIPADA',                                    True,  'hr'),
+            ('jurisdiccion',      'DOMICILIO Y JURISDICCIÓN',                                  False, 'pagebreak'),
+            ('firma',             'FIRMA',                                                     False, 'sp60'),
         ],
     }
     _lista_cls = _orden_por_tipo.get(_tipo_plt_pdf, _orden_por_tipo['A'])
 
     import re as _re_sum
-    _num_cls = 11  # ya van I-XI en el story
+    _num_cls = 11
     for _clave, _titulo, _multi, _sep in _lista_cls:
         _num_cls += 1
         _num_str = _to_roman(_num_cls)
@@ -8612,7 +8636,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         if _clave == 'suministro_energia':
             _txt_sum = (_plt_cls or {}).get("suministro_energia", "")
             if not _txt_sum:
-                _num_cls -= 1  # no se incluyo, revertir contador
+                _num_cls -= 1
                 continue
             _txt_sum = _re_sum.sub(
                 r'^[IVXLCDM]+\..*?Y USO DE HERRAMIENTAS\s*',
@@ -8639,7 +8663,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
                 Paragraph(f"{_num_str}. {_titulo}", seccion),
                 Paragraph(_p(_clave, None), normal),
             ]
-            if _sep == 'hr':       story += [HR()]
+            if _sep == 'hr':          story += [HR()]
             elif _sep == 'pagebreak': story += [PageBreak()]
 
     # Bloque de firmas en tabla 2 columnas
@@ -18057,7 +18081,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 "garantia":            "XIII. Garantía",
                 "terminacion":         "XIV. Terminación anticipada",
                 "jurisdiccion":        "XV. Domicilio y jurisdicción",
-                "suministro_energia": "XVI. Suministro de energía eléctrica (solo Plantilla B)",
+                "suministro_energia": "XVI. Suministro de energía eléctrica y uso de herramientas",
                 "firma":               "XVII. Firma",
             }
 
@@ -18207,13 +18231,13 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 # B: todas
                 # E: sin bodegaje, con suministro_energia
                 _claves_excluir = set()
-                if tipo_plt in ('A', ):
+                if tipo_plt == 'A':
                     _claves_excluir.add('suministro_energia')
                 if tipo_plt == 'E':
                     _claves_excluir.add('bodegaje')
                 _labels_tipo = {k: v for k, v in _LABELS.items() if k not in _claves_excluir}
 
-                # Orden real de clausulas para renumeracion (I-XI fijas, luego las variables)
+                # Renumerar romanos segun orden real de cada tipo
                 _orden_editor = {
                     'A': ['bodegaje','garantia','terminacion','jurisdiccion','firma'],
                     'B': ['bodegaje','garantia','terminacion','jurisdiccion','suministro_energia','firma'],
