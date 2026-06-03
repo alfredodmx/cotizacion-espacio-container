@@ -8195,9 +8195,16 @@ def generar_word_contrato(datos):
 
 @st.cache_data(ttl=300, show_spinner=False)
 def _obtener_clausulas_contrato(modelo_predefinido=None):
-    """Retorna las cláusulas de la plantilla activa.
+    """Retorna las cláusulas de la plantilla activa con _tipo_plantilla inyectado.
     Si se pasa modelo_predefinido, busca la plantilla que tenga ese modelo asociado.
     Si no encuentra, usa la plantilla A activa como fallback."""
+    def _inyectar_tipo(clausulas, tipo):
+        """Agrega _tipo_plantilla al dict de clausulas para que generar_pdf lo use."""
+        if clausulas is None:
+            return None
+        result = dict(clausulas)
+        result['_tipo_plantilla'] = tipo or 'A'
+        return result
     try:
         # 1. Buscar por modelo si se proporcionó
         if modelo_predefinido:
@@ -8210,15 +8217,15 @@ def _obtener_clausulas_contrato(modelo_predefinido=None):
                         import json as _jm; _mods = _jm.loads(_mods)
                     except: _mods = []
                 if modelo_predefinido in _mods:
-                    return _p.get("clausulas")
+                    return _inyectar_tipo(_p.get("clausulas"), _p.get("tipo"))
         # 2. Fallback: plantilla A activa
-        _res = supabase_admin.table("plantillas_contrato").select("clausulas").eq("activa", True).eq("tipo", "A").execute()
+        _res = supabase_admin.table("plantillas_contrato").select("clausulas,tipo").eq("activa", True).eq("tipo", "A").execute()
         if _res.data and _res.data[0].get("clausulas"):
-            return _res.data[0]["clausulas"]
+            return _inyectar_tipo(_res.data[0]["clausulas"], _res.data[0].get("tipo"))
         # 3. Fallback final: cualquier activa
-        _res2 = supabase_admin.table("plantillas_contrato").select("clausulas").eq("activa", True).execute()
+        _res2 = supabase_admin.table("plantillas_contrato").select("clausulas,tipo").eq("activa", True).execute()
         if _res2.data and _res2.data[0].get("clausulas"):
-            return _res2.data[0]["clausulas"]
+            return _inyectar_tipo(_res2.data[0]["clausulas"], _res2.data[0].get("tipo"))
     except Exception:
         pass
     return None
@@ -8561,33 +8568,41 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         if _l.strip(): story.append(Paragraph(_l.strip(), normal))
     story += [HR()]
 
-    # ── XII. Retiro y bodegaje ──
-    story += [
-        Paragraph("XII. RETIRO, DESPACHO Y BODEGAJE", seccion),
-        Paragraph(_p("bodegaje", None), normal),
-        HR(),
-    ]
+    # Detectar tipo de plantilla para omitir clausulas segun corresponda
+    _tipo_plt_pdf = (_plt_cls.get("_tipo_plantilla") if _plt_cls else None) or 'A'
+    _es_especial = (_tipo_plt_pdf == 'E')
 
-    # ── XIII. Garantía ──
-    story += [Paragraph("XIII. GARANTÍA", seccion)]
+    # ── XII. Retiro y bodegaje (omitido en Plantilla Especial) ──
+    if not _es_especial:
+        story += [
+            Paragraph("XII. RETIRO, DESPACHO Y BODEGAJE", seccion),
+            Paragraph(_p("bodegaje", None), normal),
+            HR(),
+        ]
+
+    # ── XII/XIII. Garantía ──
+    _num_garantia = "XII" if _es_especial else "XIII"
+    story += [Paragraph(f"{_num_garantia}. GARANTÍA", seccion)]
     for _l in _p("garantia", None).split("\n"):
         if _l.strip(): story.append(Paragraph(_l.strip(), normal))
     story += [HR()]
 
-    # ── XIV. Terminación anticipada ──
-    story += [Paragraph("XIV. TERMINACIÓN ANTICIPADA", seccion)]
+    # ── XIII/XIV. Terminación anticipada ──
+    _num_terminacion = "XIII" if _es_especial else "XIV"
+    story += [Paragraph(f"{_num_terminacion}. TERMINACIÓN ANTICIPADA", seccion)]
     for _l in _p("terminacion", None).split("\n"):
         if _l.strip(): story.append(Paragraph(_l.strip(), normal))
     story += [HR()]
 
-    # ── XV. Domicilio y jurisdicción ──
+    # ── XIV/XV. Domicilio y jurisdicción ──
+    _num_jurisdiccion = "XIV" if _es_especial else "XV"
     story += [
-        Paragraph("XV. DOMICILIO Y JURISDICCIÓN", seccion),
+        Paragraph(f"{_num_jurisdiccion}. DOMICILIO Y JURISDICCIÓN", seccion),
         Paragraph(_p("jurisdiccion", None), normal),
         PageBreak(),
     ]
 
-    # ── XVI. Suministro energía (solo Plantilla B) ──
+    # ── XV/XVI. Suministro energía (solo Plantilla B) ──
     _tiene_suministro = bool(_plt_cls and _plt_cls.get("suministro_energia"))
     if _tiene_suministro:
         _txt_sum = _plt_cls["suministro_energia"]
@@ -8597,14 +8612,18 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
             r'^XVI\..*?Y USO DE HERRAMIENTAS\s*',
             '', _txt_sum.strip(), flags=_re_sum.IGNORECASE | _re_sum.DOTALL
         ).strip()
+        _num_suministro = "XV" if _es_especial else "XVI"
         story += [
-            Paragraph("XVI. DEL SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS", seccion),
+            Paragraph(f"{_num_suministro}. DEL SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS", seccion),
             Paragraph(_rep(_txt_sum, d), normal),
             SP(6),
         ]
 
-    # ── XVI/XVII. Firma ──
-    _firma_num = "XVII" if _tiene_suministro else "XVI"
+    # ── Firma (numeración según tipo) ──
+    if _es_especial:
+        _firma_num = "XVI" if _tiene_suministro else "XV"
+    else:
+        _firma_num = "XVII" if _tiene_suministro else "XVI"
     story += [
         Paragraph(f"{_firma_num}. FIRMA", seccion),
         Paragraph(_p("firma", None), normal),
@@ -18039,7 +18058,6 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     if _res.data:
                         return _res.data[0]
                     # Sin fallback: si no existe plantilla del tipo, retorna None.
-                    # Evita que Plantilla Especial herede modelos de A o B.
                     return None
                 except Exception:
                     return None
@@ -18185,12 +18203,12 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 # Ajustar numero de firma segun tipo
                 if tipo_plt == 'A' and 'firma' in _labels_tipo:
                     _labels_tipo['firma'] = 'XVI. Firma'
-                # Plantilla Especial (E): sacar bodegaje (XII) corre los numeros desde garantia
+                # Plantilla Especial: sacar XII corre los romanos desde garantia
                 if tipo_plt == 'E':
-                    if 'garantia'    in _labels_tipo: _labels_tipo['garantia']    = 'XII. Garantía'
-                    if 'terminacion' in _labels_tipo: _labels_tipo['terminacion'] = 'XIII. Terminación anticipada'
-                    if 'jurisdiccion'in _labels_tipo: _labels_tipo['jurisdiccion']= 'XIV. Domicilio y jurisdicción'
-                    if 'firma'       in _labels_tipo: _labels_tipo['firma']       = 'XV. Firma'
+                    if 'garantia'     in _labels_tipo: _labels_tipo['garantia']     = 'XII. Garantía'
+                    if 'terminacion'  in _labels_tipo: _labels_tipo['terminacion']  = 'XIII. Terminación anticipada'
+                    if 'jurisdiccion' in _labels_tipo: _labels_tipo['jurisdiccion'] = 'XIV. Domicilio y jurisdicción'
+                    if 'firma'        in _labels_tipo: _labels_tipo['firma']        = 'XV. Firma'
 
                 for _key, _label in _labels_tipo.items():
                     _base_editor = _CLAUSULAS_EDITOR.get(_key, _CLAUSULAS_BASE.get(_key, ""))
