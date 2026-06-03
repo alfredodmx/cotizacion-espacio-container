@@ -8195,7 +8195,9 @@ def generar_word_contrato(datos):
 
 @st.cache_data(ttl=300, show_spinner=False)
 def _obtener_clausulas_contrato(modelo_predefinido=None):
-    """Retorna las clausulas de la plantilla activa con _tipo_plantilla inyectado."""
+    """Retorna las clausulas de la plantilla activa con _tipo_plantilla inyectado.
+    Si se pasa modelo_predefinido, busca la plantilla que tenga ese modelo asociado.
+    Si no encuentra, usa la plantilla A activa como fallback."""
     def _inyectar_tipo(clausulas, tipo):
         if clausulas is None:
             return None
@@ -8203,6 +8205,7 @@ def _obtener_clausulas_contrato(modelo_predefinido=None):
         result['_tipo_plantilla'] = tipo or 'A'
         return result
     try:
+        # 1. Buscar por modelo si se proporcionó
         if modelo_predefinido:
             _todas = supabase_admin.table("plantillas_contrato").select("*").eq("activa", True).execute()
             for _p in (_todas.data or []):
@@ -8213,9 +8216,11 @@ def _obtener_clausulas_contrato(modelo_predefinido=None):
                     except: _mods = []
                 if modelo_predefinido in _mods:
                     return _inyectar_tipo(_p.get("clausulas"), _p.get("tipo"))
+        # 2. Fallback: plantilla A activa
         _res = supabase_admin.table("plantillas_contrato").select("clausulas,tipo").eq("activa", True).eq("tipo", "A").execute()
         if _res.data and _res.data[0].get("clausulas"):
             return _inyectar_tipo(_res.data[0]["clausulas"], _res.data[0].get("tipo"))
+        # 3. Fallback final: cualquier activa
         _res2 = supabase_admin.table("plantillas_contrato").select("clausulas,tipo").eq("activa", True).execute()
         if _res2.data and _res2.data[0].get("clausulas"):
             return _inyectar_tipo(_res2.data[0]["clausulas"], _res2.data[0].get("tipo"))
@@ -8561,85 +8566,50 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         if _l.strip(): story.append(Paragraph(_l.strip(), normal))
     story += [HR()]
 
-    # ── XII. Retiro y bodegaje ──
-    story += [
-        Paragraph("XII. RETIRO, DESPACHO Y BODEGAJE", seccion),
-        Paragraph(_p("bodegaje", None), normal),
-        HR(),
-    ]
-
-    # ── XIII. Garantía ──
-    story += [Paragraph("XIII. GARANTÍA", seccion)]
-    for _l in _p("garantia", None).split("\n"):
-        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
-    story += [HR()]
-
-    # ── XIV. Terminación anticipada ──
-    story += [Paragraph("XIV. TERMINACIÓN ANTICIPADA", seccion)]
-    for _l in _p("terminacion", None).split("\n"):
-        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
-    story += [HR()]
-
-    # ── XV. Domicilio y jurisdicción ──
-    story += [
-        Paragraph("XV. DOMICILIO Y JURISDICCIÓN", seccion),
-        Paragraph(_p("jurisdiccion", None), normal),
-        PageBreak(),
-    ]
-
-    # ── Clausulas XII en adelante — data-driven segun tipo de plantilla ──
-    # A: bodegaje > garantia > terminacion > jurisdiccion > firma                    (XII-XVI)
-    # B: bodegaje > garantia > terminacion > jurisdiccion > suministro > firma       (XII-XVII)
-    # E:            garantia > suministro  > terminacion > jurisdiccion > firma      (XII-XVI)
+    # ── Cláusulas XII en adelante — data-driven según tipo de plantilla ──
+    # Obtener tipo: inyectado por _obtener_clausulas_contrato en _tipo_plantilla
     _tipo_plt_pdf = (_plt_cls.get("_tipo_plantilla") if _plt_cls else None) or 'A'
 
-    def _to_roman(n):
-        _rv = [(1000,'M'),(900,'CM'),(500,'D'),(400,'CD'),(100,'C'),(90,'XC'),
-               (50,'L'),(40,'XL'),(10,'X'),(9,'IX'),(5,'V'),(4,'IV'),(1,'I')]
+    def _romano(n):
+        _vals = [(1000,'M'),(900,'CM'),(500,'D'),(400,'CD'),(100,'C'),(90,'XC'),
+                 (50,'L'),(40,'XL'),(10,'X'),(9,'IX'),(5,'V'),(4,'IV'),(1,'I')]
         r = ''
-        for v, s in _rv:
-            while n >= v: r += s; n -= v
+        for v, s in _vals:
+            while n >= v:
+                r += s; n -= v
         return r
 
-    _orden_por_tipo = {
-        'A': [
-            ('bodegaje',          'RETIRO, DESPACHO Y BODEGAJE',                              False, 'hr'),
-            ('garantia',          'GARANTÍA',                                                  True,  'hr'),
-            ('terminacion',       'TERMINACIÓN ANTICIPADA',                                    True,  'hr'),
-            ('jurisdiccion',      'DOMICILIO Y JURISDICCIÓN',                                  False, 'pagebreak'),
-            ('firma',             'FIRMA',                                                     False, 'sp60'),
-        ],
-        'B': [
-            ('bodegaje',          'RETIRO, DESPACHO Y BODEGAJE',                              False, 'hr'),
-            ('garantia',          'GARANTÍA',                                                  True,  'hr'),
-            ('terminacion',       'TERMINACIÓN ANTICIPADA',                                    True,  'hr'),
-            ('jurisdiccion',      'DOMICILIO Y JURISDICCIÓN',                                  False, 'pagebreak'),
-            ('suministro_energia','SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS',    True,  'sp'),
-            ('firma',             'FIRMA',                                                     False, 'sp60'),
-        ],
-        'E': [
-            ('garantia',          'GARANTÍA',                                                  True,  'hr'),
-            ('suministro_energia','SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS',    True,  'sp'),
-            ('terminacion',       'TERMINACIÓN ANTICIPADA',                                    True,  'hr'),
-            ('jurisdiccion',      'DOMICILIO Y JURISDICCIÓN',                                  False, 'pagebreak'),
-            ('firma',             'FIRMA',                                                     False, 'sp60'),
-        ],
-    }
-    _lista_cls = _orden_por_tipo.get(_tipo_plt_pdf, _orden_por_tipo['A'])
+    # Definir clausulas variables en orden, con condicion de inclusion por tipo
+    # Formato: (clave_clausula, titulo_sin_numero, multilinea, separador_final)
+    # separador_final: 'hr' | 'pagebreak'
+    _clausulas_vars = [
+        # (clave,           titulo,                                          multilinea, sep,         tipos_incluidos)
+        ('bodegaje',        'RETIRO, DESPACHO Y BODEGAJE',                   False,     'hr',         ('A', 'B')),
+        ('garantia',        'GARANTÍA',                                       True,      'hr',         ('A', 'B', 'E')),
+        ('terminacion',     'TERMINACIÓN ANTICIPADA',                         True,      'hr',         ('A', 'B', 'E')),
+        ('jurisdiccion',    'DOMICILIO Y JURISDICCIÓN',                       False,     'pagebreak',  ('A', 'B', 'E')),
+        ('suministro_energia', 'DEL SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS',
+                                                                              True,      'sp',         ('B',)),
+        ('firma',           'FIRMA',                                          False,     'sp60',       ('A', 'B', 'E')),
+    ]
+
+    # Contador romano: las clausulas I–XI ya están en el story (11 clausulas)
+    _num_clausula = 11
 
     import re as _re_sum
-    _num_cls = 11
-    for _clave, _titulo, _multi, _sep in _lista_cls:
-        _num_cls += 1
-        _num_str = _to_roman(_num_cls)
+    for _clave, _titulo, _multi, _sep, _tipos in _clausulas_vars:
+        if _tipo_plt_pdf not in _tipos:
+            continue
+        _num_clausula += 1
+        _num_str = _romano(_num_clausula)
 
         if _clave == 'suministro_energia':
+            # Texto especial: quitar título embebido si lo tiene
             _txt_sum = (_plt_cls or {}).get("suministro_energia", "")
             if not _txt_sum:
-                _num_cls -= 1
                 continue
             _txt_sum = _re_sum.sub(
-                r'^[IVXLCDM]+\..*?Y USO DE HERRAMIENTAS\s*',
+                r'^X{0,3}(?:IX|IV|V?I{0,3})\..*?Y USO DE HERRAMIENTAS\s*',
                 '', _txt_sum.strip(), flags=_re_sum.IGNORECASE | _re_sum.DOTALL
             ).strip()
             story += [
@@ -8663,7 +8633,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
                 Paragraph(f"{_num_str}. {_titulo}", seccion),
                 Paragraph(_p(_clave, None), normal),
             ]
-            if _sep == 'hr':          story += [HR()]
+            if _sep == 'hr': story += [HR()]
             elif _sep == 'pagebreak': story += [PageBreak()]
 
     # Bloque de firmas en tabla 2 columnas
@@ -18081,7 +18051,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 "garantia":            "XIII. Garantía",
                 "terminacion":         "XIV. Terminación anticipada",
                 "jurisdiccion":        "XV. Domicilio y jurisdicción",
-                "suministro_energia": "XVI. Suministro de energía eléctrica y uso de herramientas",
+                "suministro_energia": "XVI. Suministro de energía eléctrica (solo Plantilla B)",
                 "firma":               "XVII. Firma",
             }
 
@@ -18093,6 +18063,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     _res = supabase_admin.table("plantillas_contrato").select("*").eq("activa", True).eq("tipo", tipo).execute()
                     if _res.data:
                         return _res.data[0]
+                    # Sin fallback: si no existe plantilla del tipo, retorna None.
                     return None
                 except Exception:
                     return None
@@ -18181,7 +18152,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
             st.markdown("""
             <div style='background:#e8eef7;border:1px solid #0f3460;border-radius:10px;
                         padding:12px 16px;margin-bottom:16px;font-size:13px;color:#0f3460;'>
-            <strong>⚠️ Plantillas</strong> — <b>Plantilla A</b> para modelos ≤30m² · <b>Plantilla B</b> para modelos &gt;30m² · <b>Plantilla Especial</b> para clientes especiales (sin bodegaje, con suministro).
+            <strong>⚠️ Plantillas</strong> — <b>Plantilla A</b> para modelos ≤30m² · <b>Plantilla B</b> para modelos &gt;30m² · <b>Plantilla Especial</b> para clientes especiales (sin cláusula de bodegaje).
             El sistema detecta automáticamente qué plantilla usar según el modelo predefinido del presupuesto.
             Los marcadores se reemplazan con los datos reales al generar.
             </div>
@@ -18195,6 +18166,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 _clausulas_act_t = _plt_activa_t["clausulas"] if _plt_activa_t else _CLAUSULAS_EDITOR
                 _modelos_act_t = list(_plt_activa_t.get("modelos") or []) if _plt_activa_t else []
 
+                # Modelos ocupados por los OTROS tipos (union BD + session_state)
                 _map_prefijos = {'A': 'plt_a', 'B': 'plt_b', 'E': 'plt_e'}
                 _modelos_ocupados = set()
                 for _ot, _opfx in _map_prefijos.items():
@@ -18226,35 +18198,35 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 # Editor de cláusulas
                 _edits_t = {}
                 def _strip_b_t(t): return t.replace('<b>','').replace('</b>','')
-                # Clausulas visibles segun tipo:
+                # Filtrar clausulas segun tipo:
                 # A: sin suministro_energia
                 # B: todas
-                # E: sin bodegaje, con suministro_energia
-                _claves_excluir = set()
-                if tipo_plt == 'A':
-                    _claves_excluir.add('suministro_energia')
-                if tipo_plt == 'E':
-                    _claves_excluir.add('bodegaje')
-                _labels_tipo = {k: v for k, v in _LABELS.items() if k not in _claves_excluir}
-
-                # Renumerar romanos segun orden real de cada tipo
-                _orden_editor = {
-                    'A': ['bodegaje','garantia','terminacion','jurisdiccion','firma'],
-                    'B': ['bodegaje','garantia','terminacion','jurisdiccion','suministro_energia','firma'],
-                    'E': ['garantia','suministro_energia','terminacion','jurisdiccion','firma'],
-                }
-                import re as _re_rom2
+                # E: sin suministro_energia, sin bodegaje
+                _labels_tipo = {k: v for k, v in _LABELS.items()
+                                if not (k == 'suministro_energia' and tipo_plt in ('A', 'E'))
+                                and not (k == 'bodegaje' and tipo_plt == 'E')}
+                # Renumerar romanos dinamicamente segun clausulas incluidas
+                # Las primeras 11 son fijas (I-XI), desde XII en adelante depende del tipo
+                _claves_orden = ['bodegaje','garantia','terminacion','jurisdiccion',
+                                 'suministro_energia','firma']
                 _n_rom = 11
-                for _ck in _orden_editor.get(tipo_plt, []):
+                for _ck in _claves_orden:
                     if _ck in _labels_tipo:
                         _n_rom += 1
+                        _rom_vals = [(1000,'M'),(900,'CM'),(500,'D'),(400,'CD'),
+                                     (100,'C'),(90,'XC'),(50,'L'),(40,'XL'),
+                                     (10,'X'),(9,'IX'),(5,'V'),(4,'IV'),(1,'I')]
                         _rn = _n_rom; _rs = ''
-                        for _rv, _rs2 in [(1000,'M'),(900,'CM'),(500,'D'),(400,'CD'),
-                                          (100,'C'),(90,'XC'),(50,'L'),(40,'XL'),
-                                          (10,'X'),(9,'IX'),(5,'V'),(4,'IV'),(1,'I')]:
+                        for _rv, _rs2 in _rom_vals:
                             while _rn >= _rv: _rs += _rs2; _rn -= _rv
-                        _labels_tipo[_ck] = _re_rom2.sub(
-                            r'^[IVXLCDM]+\.', f'{_rs}.', _labels_tipo[_ck])
+                        _orig_label = _labels_tipo[_ck]
+                        # Reemplazar el numero romano al inicio (ej. "XII. Algo" -> "XIII. Algo")
+                        import re as _re_rom
+                        _labels_tipo[_ck] = _re_rom.sub(
+                            r'^[IVXLCDM]+\.',
+                            f'{_rs}.',
+                            _orig_label
+                        )
 
                 for _key, _label in _labels_tipo.items():
                     _base_editor = _CLAUSULAS_EDITOR.get(_key, _CLAUSULAS_BASE.get(_key, ""))
