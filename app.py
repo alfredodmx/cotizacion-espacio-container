@@ -18142,27 +18142,32 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 _clausulas_act_t = _plt_activa_t["clausulas"] if _plt_activa_t else _CLAUSULAS_EDITOR
                 _modelos_act_t = list(_plt_activa_t.get("modelos") or []) if _plt_activa_t else []
 
-                # Modelos ocupados por los OTROS tipos:
-                # Lee session_state primero (seleccion en curso aun no guardada),
-                # y si no existe la key, usa el mapa cargado desde Supabase.
-                _prefijos_otros = {'A': 'plt_a', 'B': 'plt_b', 'E': 'plt_e'}
-                _modelos_ocupados = []
-                for _ot, _opfx in _prefijos_otros.items():
+                # Construir set de modelos ocupados por los OTROS tipos.
+                # Combinamos dos fuentes:
+                # 1. Supabase (_modelos_por_tipo): lo que esta guardado en BD
+                # 2. session_state: lo que el usuario selecciono en esta sesion (puede diferir de BD)
+                # Usamos la UNION de ambas para ser restrictivos: si esta en alguna, esta ocupado.
+                _map_prefijos = {'A': 'plt_a', 'B': 'plt_b', 'E': 'plt_e'}
+                _modelos_ocupados = set()
+                for _ot, _opfx in _map_prefijos.items():
                     if _ot == tipo_plt:
                         continue
-                    _key_ss = f"{_opfx}_modelos_sel"
-                    if _key_ss in st.session_state:
-                        _modelos_ocupados += list(st.session_state[_key_ss])
-                    else:
-                        _modelos_ocupados += _modelos_por_tipo.get(_ot, [])
+                    # Fuente 1: BD
+                    for _m in _modelos_por_tipo.get(_ot, []):
+                        _modelos_ocupados.add(_m)
+                    # Fuente 2: session_state (seleccion en curso)
+                    _ss_key = f"{_opfx}_modelos_sel"
+                    if _ss_key in st.session_state:
+                        for _m in st.session_state[_ss_key]:
+                            _modelos_ocupados.add(_m)
 
-                # Disponibles = todos menos los ocupados por otros (salvo los ya propios)
+                # Disponibles = todos menos los ocupados por otros (excepto los ya propios de este tipo)
                 _modelos_disponibles = [m for m in _hojas_modelo_ed
                                         if m not in _modelos_ocupados or m in _modelos_act_t]
 
                 # ── Selección de modelos asociados ──
                 st.markdown("**🔗 Modelos predefinidos asociados a esta plantilla:**")
-                st.caption("Cada modelo solo puede pertenecer a una plantilla. Los modelos seleccionados en las otras plantillas no aparecen aquí.")
+                st.caption("Cada modelo solo puede pertenecer a una plantilla. Los modelos asignados a las otras plantillas no aparecen aquí.")
                 _modelos_sel = st.multiselect(
                     "Modelos",
                     options=_modelos_disponibles,
@@ -18182,7 +18187,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 _labels_tipo = {k: v for k, v in _LABELS.items()
                                 if not (k == 'suministro_energia' and tipo_plt in ('A', 'E'))
                                 and not (k == 'bodegaje' and tipo_plt == 'E')}
-                # Ajustar numero de firma segun tipo
+                # Ajustar numero de firma segun tipo (A y E tienen 16 clausulas, B tiene 17)
                 if tipo_plt in ('A', 'E') and 'firma' in _labels_tipo:
                     _labels_tipo['firma'] = 'XVI. Firma'
                 for _key, _label in _labels_tipo.items():
