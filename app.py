@@ -18038,8 +18038,8 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     _res = supabase_admin.table("plantillas_contrato").select("*").eq("activa", True).eq("tipo", tipo).execute()
                     if _res.data:
                         return _res.data[0]
-                    # Sin fallback: si no existe plantilla del tipo solicitado, retorna None.
-                    # Esto evita que Plantilla Especial herede modelos de A o B.
+                    # Sin fallback: si no existe plantilla del tipo, retorna None.
+                    # Evita que Plantilla Especial herede modelos de A o B.
                     return None
                 except Exception:
                     return None
@@ -18140,11 +18140,10 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 """Renderiza el editor completo para una plantilla (A, B o E)."""
                 _plt_activa_t = _cargar_plantilla_activa(tipo_plt)
                 _clausulas_act_t = _plt_activa_t["clausulas"] if _plt_activa_t else _CLAUSULAS_EDITOR
-                # IMPORTANTE: solo usar modelos del tipo exacto. Si _plt_activa_t es None
-                # (no existe plantilla E aun) _modelos_act_t queda vacio, nunca hereda de otro tipo.
+                # Si no existe plantilla del tipo (ej. E sin guardar aun), modelos vacio.
                 _modelos_act_t = list(_plt_activa_t.get("modelos") or []) if _plt_activa_t else []
 
-                # Modelos ocupados por los OTROS tipos (union de BD + session_state)
+                # Modelos ocupados por los OTROS tipos (union BD + session_state)
                 _map_prefijos = {'A': 'plt_a', 'B': 'plt_b', 'E': 'plt_e'}
                 _modelos_ocupados = set()
                 for _ot, _opfx in _map_prefijos.items():
@@ -18183,9 +18182,16 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 _labels_tipo = {k: v for k, v in _LABELS.items()
                                 if not (k == 'suministro_energia' and tipo_plt in ('A', 'E'))
                                 and not (k == 'bodegaje' and tipo_plt == 'E')}
-                # Firma: XVI en A y E (16 clausulas), XVII en B (17 clausulas)
-                if tipo_plt in ('A', 'E') and 'firma' in _labels_tipo:
+                # Ajustar numero de firma segun tipo
+                if tipo_plt == 'A' and 'firma' in _labels_tipo:
                     _labels_tipo['firma'] = 'XVI. Firma'
+                # Plantilla Especial (E): sacar bodegaje (XII) corre los numeros desde garantia
+                if tipo_plt == 'E':
+                    if 'garantia'    in _labels_tipo: _labels_tipo['garantia']    = 'XII. Garantía'
+                    if 'terminacion' in _labels_tipo: _labels_tipo['terminacion'] = 'XIII. Terminación anticipada'
+                    if 'jurisdiccion'in _labels_tipo: _labels_tipo['jurisdiccion']= 'XIV. Domicilio y jurisdicción'
+                    if 'firma'       in _labels_tipo: _labels_tipo['firma']       = 'XV. Firma'
+
                 for _key, _label in _labels_tipo.items():
                     _base_editor = _CLAUSULAS_EDITOR.get(_key, _CLAUSULAS_BASE.get(_key, ""))
                     _val_sup = _clausulas_act_t.get(_key, "")
