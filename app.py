@@ -18115,36 +18115,38 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
             # Cargar todas las plantillas activas para saber qué modelos están asignados
             try:
                 _todas_activas = supabase_admin.table("plantillas_contrato").select("tipo,modelos").eq("activa", True).execute()
-                _modelos_por_tipo = {'A': [], 'B': []}
+                _modelos_por_tipo = {'A': [], 'B': [], 'E': []}
                 for _pa in (_todas_activas.data or []):
                     _t = _pa.get('tipo') or 'A'
                     _ms = _pa.get('modelos') or []
                     if _t in _modelos_por_tipo:
                         _modelos_por_tipo[_t] = list(_ms)
             except Exception:
-                _modelos_por_tipo = {'A': [], 'B': []}
+                _modelos_por_tipo = {'A': [], 'B': [], 'E': []}
 
             # ── Info ──
             st.markdown("""
             <div style='background:#e8eef7;border:1px solid #0f3460;border-radius:10px;
                         padding:12px 16px;margin-bottom:16px;font-size:13px;color:#0f3460;'>
-            <strong>⚠️ Plantillas duales</strong> — <b>Plantilla A</b> para modelos ≤30m² · <b>Plantilla B</b> para modelos &gt;30m².
+            <strong>⚠️ Plantillas</strong> — <b>Plantilla A</b> para modelos ≤30m² · <b>Plantilla B</b> para modelos &gt;30m² · <b>Plantilla Especial</b> para clientes especiales (sin cláusula de bodegaje).
             El sistema detecta automáticamente qué plantilla usar según el modelo predefinido del presupuesto.
             Los marcadores se reemplazan con los datos reales al generar.
             </div>
             """, unsafe_allow_html=True)
 
-            _tab_plt_a, _tab_plt_b = st.tabs(["📋 Plantilla A — ≤30m²", "📋 Plantilla B — >30m²"])
+            _tab_plt_a, _tab_plt_b, _tab_plt_e = st.tabs(["📋 Plantilla A — ≤30m²", "📋 Plantilla B — >30m²", "⭐ Plantilla Especial"])
 
             def _render_editor_plantilla(tipo_plt, tab_key_prefix):
-                """Renderiza el editor completo para una plantilla (A o B)."""
-                _otro_tipo = 'B' if tipo_plt == 'A' else 'A'
+                """Renderiza el editor completo para una plantilla (A, B o E)."""
+                # Modelos ya asignados a los OTROS tipos
+                _otros_tipos = [t for t in ['A', 'B', 'E'] if t != tipo_plt]
+                _modelos_otro = []
+                for _ot in _otros_tipos:
+                    _modelos_otro += _modelos_por_tipo.get(_ot, [])
                 _plt_activa_t = _cargar_plantilla_activa(tipo_plt)
                 _clausulas_act_t = _plt_activa_t["clausulas"] if _plt_activa_t else _CLAUSULAS_EDITOR
                 _modelos_act_t = list(_plt_activa_t.get("modelos") or []) if _plt_activa_t else []
-                # Modelos ya asignados a la OTRA plantilla (del mapa precargado)
-                _modelos_otro = _modelos_por_tipo.get(_otro_tipo, [])
-                # Disponibles = todos - asignados al otro tipo (excepto los ya propios)
+                # Disponibles = todos - asignados a otros tipos (excepto los ya propios)
                 _modelos_disponibles = [m for m in _hojas_modelo_ed
                                         if m not in _modelos_otro or m in _modelos_act_t]
 
@@ -18164,11 +18166,14 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 # Editor de cláusulas
                 _edits_t = {}
                 def _strip_b_t(t): return t.replace('<b>','').replace('</b>','')
-                # Filtrar cláusulas según tipo: suministro_energia solo en Plantilla B
+                # Filtrar cláusulas según tipo:
+                # - suministro_energia solo en Plantilla B
+                # - bodegaje excluido en Plantilla Especial (E)
                 _labels_tipo = {k: v for k, v in _LABELS.items()
-                                if not (k == 'suministro_energia' and tipo_plt == 'A')}
+                                if not (k == 'suministro_energia' and tipo_plt in ('A', 'E'))
+                                and not (k == 'bodegaje' and tipo_plt == 'E')}
                 # Ajustar número de firma según tipo
-                if tipo_plt == 'A' and 'firma' in _labels_tipo:
+                if tipo_plt in ('A', 'E') and 'firma' in _labels_tipo:
                     _labels_tipo['firma'] = 'XVI. Firma'
                 for _key, _label in _labels_tipo.items():
                     _base_editor = _CLAUSULAS_EDITOR.get(_key, _CLAUSULAS_BASE.get(_key, ""))
@@ -18289,6 +18294,9 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
 
             with _tab_plt_b:
                 _render_editor_plantilla('B', 'plt_b')
+
+            with _tab_plt_e:
+                _render_editor_plantilla('E', 'plt_e')
 
             # bloque legacy eliminado — ahora se usa _render_editor_plantilla
 # TAB USUARIOS — solo admin/supervisor
