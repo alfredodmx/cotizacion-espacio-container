@@ -8273,7 +8273,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     from reportlab.lib import colors
     from reportlab.lib.units import cm
     from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
-                                    HRFlowable, Table, TableStyle, PageBreak)
+                                    HRFlowable, Table, TableStyle, PageBreak, KeepTogether)
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY
     import io
@@ -8522,14 +8522,13 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         HR(),
     ]
 
-    # ── IX. Medios de pago — siempre en hoja limpia ──
-    story.append(PageBreak())
-    story.append(KeepTogether([
+    # ── IX. Medios de pago ──
+    story += [
         Paragraph("IX. MEDIOS DE PAGO", seccion),
         Paragraph(
             "Los pagos deberán efectuarse mediante <b>transferencia electrónica, "
             "cheque o vale vista</b>, a la siguiente cuenta bancaria:", normal),
-    ]))
+    ]
     datos_banco = [
         ["Razón Social:", "Inversiones Container House SpA"],
         ["RUT:",          "78.268.851-0"],
