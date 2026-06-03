@@ -8273,7 +8273,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     from reportlab.lib import colors
     from reportlab.lib.units import cm
     from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
-                                    HRFlowable, Table, TableStyle, PageBreak, KeepTogether)
+                                    HRFlowable, Table, TableStyle, PageBreak)
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY
     import io
@@ -8483,46 +8483,47 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     ]
 
     # ── III. Objeto ──
-    story.append(KeepTogether([
+    story += [
         Paragraph("III. OBJETO DEL CONTRATO", seccion),
         Paragraph(_p("objeto", "El Cliente encarga al Proveedor la fabricación y venta del Proyecto individualizado precedentemente."), normal),
-    ]))
-    story += [HR()]
+        HR(),
+    ]
 
     # ── IV. Alcance técnico ──
-    _iv_parrs = [Paragraph("IV. ALCANCE TÉCNICO Y EJECUCIÓN", seccion)]
-    _iv_parrs += [Paragraph(_l.strip(), normal) for _l in _p("alcance", None).split("\n") if _l.strip()]
-    story.append(KeepTogether(_iv_parrs[:2]))
-    story += _iv_parrs[2:] + [HR()]
+    story += [Paragraph("IV. ALCANCE TÉCNICO Y EJECUCIÓN", seccion)]
+    for _l in _p("alcance", None).split("\n"):
+        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
+    story += [HR()]
 
     # ── V. Visitas ──
-    story.append(KeepTogether([
+    story += [
         Paragraph("V. VISITAS Y SEGUIMIENTO DEL PROYECTO", seccion),
         Paragraph(_p("visitas", None), normal),
-    ]))
-    story += [HR()]
+        HR(),
+    ]
 
     # ── VI. Precio ──
-    story.append(KeepTogether([
+    story += [
         Paragraph("VI. PRECIO", seccion),
         Paragraph(_p("precio", f"El precio total del Proyecto asciende a la suma de <b>{fmt(precio)}</b> ({precio_p}), IVA incluido."), normal),
-    ]))
-    story += [HR()]
+        HR(),
+    ]
 
     # ── VII. Forma de pago ──
-    _vii_parrs = [Paragraph("VII. FORMA Y ETAPAS DE PAGO", seccion)]
-    _vii_parrs += [Paragraph(_l.strip(), normal) for _l in _p("forma_pago", None).split("\n") if _l.strip()]
-    story.append(KeepTogether(_vii_parrs[:2]))
-    story += _vii_parrs[2:] + [HR()]
-
-    # ── VIII. Inicio fabricación ──
-    story.append(KeepTogether([
-        Paragraph("VIII. INICIO DE FABRICACIÓN", seccion),
-        Paragraph(_p("inicio", None), normal),
-    ]))
+    story += [Paragraph("VII. FORMA Y ETAPAS DE PAGO", seccion)]
+    for _l in _p("forma_pago", None).split("\n"):
+        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
     story += [HR()]
 
-    # ── IX. Medios de pago ──
+    # ── VIII. Inicio fabricación ──
+    story += [
+        Paragraph("VIII. INICIO DE FABRICACIÓN", seccion),
+        Paragraph(_p("inicio", None), normal),
+        HR(),
+    ]
+
+    # ── IX. Medios de pago — siempre en hoja limpia ──
+    story.append(PageBreak())
     story.append(KeepTogether([
         Paragraph("IX. MEDIOS DE PAGO", seccion),
         Paragraph(
@@ -8555,16 +8556,16 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     ]
 
     # ── X. Plazo ──
-    _x_parrs = [Paragraph("X. PLAZO DE FABRICACIÓN Y ENTREGA", seccion)]
-    _x_parrs += [Paragraph(_l.strip(), normal) for _l in _p("plazo", None).split("\n") if _l.strip()]
-    story.append(KeepTogether(_x_parrs[:2]))
-    story += _x_parrs[2:] + [HR()]
+    story += [Paragraph("X. PLAZO DE FABRICACIÓN Y ENTREGA", seccion)]
+    for _l in _p("plazo", None).split("\n"):
+        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
+    story += [HR()]
 
     # ── XI. Penalidad ──
-    _xi_parrs = [Paragraph("XI. PENALIDAD POR ATRASO", seccion)]
-    _xi_parrs += [Paragraph(_l.strip(), normal) for _l in _p("penalidad", None).split("\n") if _l.strip()]
-    story.append(KeepTogether(_xi_parrs[:2]))
-    story += _xi_parrs[2:] + [HR()]
+    story += [Paragraph("XI. PENALIDAD POR ATRASO", seccion)]
+    for _l in _p("penalidad", None).split("\n"):
+        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
+    story += [HR()]
 
     # ── Cláusulas XII en adelante — data-driven según tipo de plantilla ──
     # Obtener tipo: inyectado por _obtener_clausulas_contrato en _tipo_plantilla
@@ -8590,8 +8591,6 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         ('jurisdiccion',    'DOMICILIO Y JURISDICCIÓN',                       False,     'pagebreak',  ('A', 'B', 'E')),
         ('suministro_energia', 'DEL SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS',
                                                                               True,      'sp',         ('B',)),
-        ('suministro_energia', 'SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS',
-                                                                              True,      'sp',         ('E',)),
         ('firma',           'FIRMA',                                          False,     'sp60',       ('A', 'B', 'E')),
     ]
 
@@ -8606,39 +8605,36 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         _num_str = _romano(_num_clausula)
 
         if _clave == 'suministro_energia':
+            # Texto especial: quitar título embebido si lo tiene
             _txt_sum = (_plt_cls or {}).get("suministro_energia", "")
             if not _txt_sum:
-                _num_clausula -= 1
                 continue
             _txt_sum = _re_sum.sub(
                 r'^X{0,3}(?:IX|IV|V?I{0,3})\..*?Y USO DE HERRAMIENTAS\s*',
                 '', _txt_sum.strip(), flags=_re_sum.IGNORECASE | _re_sum.DOTALL
             ).strip()
-            story.append(KeepTogether([
+            story += [
                 Paragraph(f"{_num_str}. {_titulo}", seccion),
                 Paragraph(_rep(_txt_sum, d), normal),
-            ]))
-            story += [SP(6)]
+                SP(6),
+            ]
         elif _clave == 'firma':
-            # Firma siempre en hoja limpia
-            story.append(PageBreak())
-            story.append(KeepTogether([
+            story += [
                 Paragraph(f"{_num_str}. {_titulo}", seccion),
                 Paragraph(_p("firma", None), normal),
-            ]))
-            story += [SP(60)]
+                SP(60),
+            ]
         elif _multi:
-            _parrs = [Paragraph(f"{_num_str}. {_titulo}", seccion)]
-            _parrs += [Paragraph(_l.strip(), normal) for _l in _p(_clave, None).split("\n") if _l.strip()]
-            story.append(KeepTogether(_parrs[:2]))
-            story += _parrs[2:]
+            story += [Paragraph(f"{_num_str}. {_titulo}", seccion)]
+            for _l in _p(_clave, None).split("\n"):
+                if _l.strip(): story.append(Paragraph(_l.strip(), normal))
             if _sep == 'hr': story += [HR()]
         else:
-            story.append(KeepTogether([
+            story += [
                 Paragraph(f"{_num_str}. {_titulo}", seccion),
                 Paragraph(_p(_clave, None), normal),
-            ]))
-            if _sep == 'hr':          story += [HR()]
+            ]
+            if _sep == 'hr': story += [HR()]
             elif _sep == 'pagebreak': story += [PageBreak()]
 
     # Bloque de firmas en tabla 2 columnas
