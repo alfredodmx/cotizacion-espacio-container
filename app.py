@@ -8588,8 +8588,8 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         ('garantia',        'GARANTÍA',                                       True,      'hr',         ('A', 'B', 'E')),
         ('terminacion',     'TERMINACIÓN ANTICIPADA',                         True,      'hr',         ('A', 'B', 'E')),
         ('jurisdiccion',    'DOMICILIO Y JURISDICCIÓN',                       False,     'pagebreak',  ('A', 'B', 'E')),
-        ('suministro_energia', 'DEL SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS',
-                                                                              True,      'sp',         ('B',)),
+        ('suministro_energia', 'SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS',
+                                                                              True,      'sp',         ('B', 'E')),
         ('firma',           'FIRMA',                                          False,     'sp60',       ('A', 'B', 'E')),
     ]
 
