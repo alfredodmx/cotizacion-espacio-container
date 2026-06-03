@@ -18038,9 +18038,9 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     _res = supabase_admin.table("plantillas_contrato").select("*").eq("activa", True).eq("tipo", tipo).execute()
                     if _res.data:
                         return _res.data[0]
-                    # fallback: cualquier activa si no hay del tipo
-                    _res2 = supabase_admin.table("plantillas_contrato").select("*").eq("activa", True).execute()
-                    return _res2.data[0] if _res2.data else None
+                    # Sin fallback: si no existe plantilla del tipo solicitado, retorna None.
+                    # Esto evita que Plantilla Especial herede modelos de A o B.
+                    return None
                 except Exception:
                     return None
 
@@ -18140,28 +18140,24 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 """Renderiza el editor completo para una plantilla (A, B o E)."""
                 _plt_activa_t = _cargar_plantilla_activa(tipo_plt)
                 _clausulas_act_t = _plt_activa_t["clausulas"] if _plt_activa_t else _CLAUSULAS_EDITOR
+                # IMPORTANTE: solo usar modelos del tipo exacto. Si _plt_activa_t es None
+                # (no existe plantilla E aun) _modelos_act_t queda vacio, nunca hereda de otro tipo.
                 _modelos_act_t = list(_plt_activa_t.get("modelos") or []) if _plt_activa_t else []
 
-                # Construir set de modelos ocupados por los OTROS tipos.
-                # Combinamos dos fuentes:
-                # 1. Supabase (_modelos_por_tipo): lo que esta guardado en BD
-                # 2. session_state: lo que el usuario selecciono en esta sesion (puede diferir de BD)
-                # Usamos la UNION de ambas para ser restrictivos: si esta en alguna, esta ocupado.
+                # Modelos ocupados por los OTROS tipos (union de BD + session_state)
                 _map_prefijos = {'A': 'plt_a', 'B': 'plt_b', 'E': 'plt_e'}
                 _modelos_ocupados = set()
                 for _ot, _opfx in _map_prefijos.items():
                     if _ot == tipo_plt:
                         continue
-                    # Fuente 1: BD
                     for _m in _modelos_por_tipo.get(_ot, []):
                         _modelos_ocupados.add(_m)
-                    # Fuente 2: session_state (seleccion en curso)
                     _ss_key = f"{_opfx}_modelos_sel"
                     if _ss_key in st.session_state:
                         for _m in st.session_state[_ss_key]:
                             _modelos_ocupados.add(_m)
 
-                # Disponibles = todos menos los ocupados por otros (excepto los ya propios de este tipo)
+                # Disponibles = todos menos ocupados por otros (salvo los ya propios de este tipo)
                 _modelos_disponibles = [m for m in _hojas_modelo_ed
                                         if m not in _modelos_ocupados or m in _modelos_act_t]
 
@@ -18187,7 +18183,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 _labels_tipo = {k: v for k, v in _LABELS.items()
                                 if not (k == 'suministro_energia' and tipo_plt in ('A', 'E'))
                                 and not (k == 'bodegaje' and tipo_plt == 'E')}
-                # Ajustar numero de firma segun tipo (A y E tienen 16 clausulas, B tiene 17)
+                # Firma: XVI en A y E (16 clausulas), XVII en B (17 clausulas)
                 if tipo_plt in ('A', 'E') and 'firma' in _labels_tipo:
                     _labels_tipo['firma'] = 'XVI. Firma'
                 for _key, _label in _labels_tipo.items():
