@@ -18138,21 +18138,31 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
 
             def _render_editor_plantilla(tipo_plt, tab_key_prefix):
                 """Renderiza el editor completo para una plantilla (A, B o E)."""
-                # Modelos ya asignados a los OTROS tipos
-                _otros_tipos = [t for t in ['A', 'B', 'E'] if t != tipo_plt]
-                _modelos_otro = []
-                for _ot in _otros_tipos:
-                    _modelos_otro += _modelos_por_tipo.get(_ot, [])
                 _plt_activa_t = _cargar_plantilla_activa(tipo_plt)
                 _clausulas_act_t = _plt_activa_t["clausulas"] if _plt_activa_t else _CLAUSULAS_EDITOR
                 _modelos_act_t = list(_plt_activa_t.get("modelos") or []) if _plt_activa_t else []
-                # Disponibles = todos - asignados a otros tipos (excepto los ya propios)
+
+                # Modelos ocupados por los OTROS tipos:
+                # Lee session_state primero (seleccion en curso aun no guardada),
+                # y si no existe la key, usa el mapa cargado desde Supabase.
+                _prefijos_otros = {'A': 'plt_a', 'B': 'plt_b', 'E': 'plt_e'}
+                _modelos_ocupados = []
+                for _ot, _opfx in _prefijos_otros.items():
+                    if _ot == tipo_plt:
+                        continue
+                    _key_ss = f"{_opfx}_modelos_sel"
+                    if _key_ss in st.session_state:
+                        _modelos_ocupados += list(st.session_state[_key_ss])
+                    else:
+                        _modelos_ocupados += _modelos_por_tipo.get(_ot, [])
+
+                # Disponibles = todos menos los ocupados por otros (salvo los ya propios)
                 _modelos_disponibles = [m for m in _hojas_modelo_ed
-                                        if m not in _modelos_otro or m in _modelos_act_t]
+                                        if m not in _modelos_ocupados or m in _modelos_act_t]
 
                 # ── Selección de modelos asociados ──
-                st.markdown(f"**🔗 Modelos predefinidos asociados a esta plantilla:**")
-                st.caption("El sistema usará esta plantilla automáticamente cuando el presupuesto use uno de estos modelos. Los modelos ya asignados a la otra plantilla no aparecen aquí.")
+                st.markdown("**🔗 Modelos predefinidos asociados a esta plantilla:**")
+                st.caption("Cada modelo solo puede pertenecer a una plantilla. Los modelos seleccionados en las otras plantillas no aparecen aquí.")
                 _modelos_sel = st.multiselect(
                     "Modelos",
                     options=_modelos_disponibles,
@@ -18166,13 +18176,13 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 # Editor de cláusulas
                 _edits_t = {}
                 def _strip_b_t(t): return t.replace('<b>','').replace('</b>','')
-                # Filtrar cláusulas según tipo:
+                # Filtrar clausulas segun tipo:
                 # - suministro_energia solo en Plantilla B
                 # - bodegaje excluido en Plantilla Especial (E)
                 _labels_tipo = {k: v for k, v in _LABELS.items()
                                 if not (k == 'suministro_energia' and tipo_plt in ('A', 'E'))
                                 and not (k == 'bodegaje' and tipo_plt == 'E')}
-                # Ajustar número de firma según tipo
+                # Ajustar numero de firma segun tipo
                 if tipo_plt in ('A', 'E') and 'firma' in _labels_tipo:
                     _labels_tipo['firma'] = 'XVI. Firma'
                 for _key, _label in _labels_tipo.items():
