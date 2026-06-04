@@ -8273,7 +8273,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     from reportlab.lib import colors
     from reportlab.lib.units import cm
     from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
-                                    HRFlowable, Table, TableStyle, PageBreak)
+                                    HRFlowable, Table, TableStyle, PageBreak, KeepTogether)
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY
     import io
@@ -8476,60 +8476,53 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
             "b) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte "
             "integrante del presente contrato, en especial Anexo N°1 (Especificaciones "
             "Técnicas) y Anexo N°2 (Presupuesto Detallado).", normal),
-    ] + ([Paragraph(
+        Paragraph(
             "c) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su "
             "despacho desde las instalaciones del Proveedor.", normal),
-    ] if ((_plt_cls.get("_tipo_plantilla") if _plt_cls else None) or "A") == "A" else []) + [
         HR(),
     ]
 
     # ── III. Objeto ──
-    story += [
+    story.append(KeepTogether([
         Paragraph("III. OBJETO DEL CONTRATO", seccion),
         Paragraph(_p("objeto", "El Cliente encarga al Proveedor la fabricación y venta del Proyecto individualizado precedentemente."), normal),
         HR(),
-    ]
+    ]))
 
     # ── IV. Alcance técnico ──
-    story += [Paragraph("IV. ALCANCE TÉCNICO Y EJECUCIÓN", seccion)]
-    for _l in _p("alcance", None).split("\n"):
-        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
-    story += [HR()]
+    _iv = [Paragraph("IV. ALCANCE TÉCNICO Y EJECUCIÓN", seccion)]
+    _iv += [Paragraph(_l.strip(), normal) for _l in _p("alcance", None).split("\n") if _l.strip()]
+    _iv.append(HR())
+    story.append(KeepTogether(_iv))
 
     # ── V. Visitas ──
-    story += [
+    story.append(KeepTogether([
         Paragraph("V. VISITAS Y SEGUIMIENTO DEL PROYECTO", seccion),
         Paragraph(_p("visitas", None), normal),
         HR(),
-    ]
+    ]))
 
     # ── VI. Precio ──
-    story += [
+    story.append(KeepTogether([
         Paragraph("VI. PRECIO", seccion),
         Paragraph(_p("precio", f"El precio total del Proyecto asciende a la suma de <b>{fmt(precio)}</b> ({precio_p}), IVA incluido."), normal),
         HR(),
-    ]
+    ]))
 
-    # ── VII. Forma de pago ──
-    story += [Paragraph("VII. FORMA Y ETAPAS DE PAGO", seccion)]
-    for _l in _p("forma_pago", None).split("\n"):
-        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
-    story += [HR()]
+    # ── VII. Forma de pago — siempre completa ──
+    _vii = [Paragraph("VII. FORMA Y ETAPAS DE PAGO", seccion)]
+    _vii += [Paragraph(_l.strip(), normal) for _l in _p("forma_pago", None).split("\n") if _l.strip()]
+    _vii.append(HR())
+    story.append(KeepTogether(_vii))
 
     # ── VIII. Inicio fabricación ──
-    story += [
+    story.append(KeepTogether([
         Paragraph("VIII. INICIO DE FABRICACIÓN", seccion),
         Paragraph(_p("inicio", None), normal),
         HR(),
-    ]
+    ]))
 
-    # ── IX. Medios de pago ──
-    story += [
-        Paragraph("IX. MEDIOS DE PAGO", seccion),
-        Paragraph(
-            "Los pagos deberán efectuarse mediante <b>transferencia electrónica, "
-            "cheque o vale vista</b>, a la siguiente cuenta bancaria:", normal),
-    ]
+    # ── IX. Medios de pago — siempre en hoja limpia ──
     datos_banco = [
         ["Razón Social:", "Inversiones Container House SpA"],
         ["RUT:",          "78.268.851-0"],
@@ -8548,24 +8541,31 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         ('BOTTOMPADDING', (0,0), (-1,-1), 4),
         ('LEFTPADDING',   (0,0), (-1,-1), 6),
     ]))
-    story += [tbl, SP(6),
+    story.append(PageBreak())
+    story.append(KeepTogether([
+        Paragraph("IX. MEDIOS DE PAGO", seccion),
+        Paragraph(
+            "Los pagos deberán efectuarse mediante <b>transferencia electrónica, "
+            "cheque o vale vista</b>, a la siguiente cuenta bancaria:", normal),
+        tbl,
+        SP(4),
         Paragraph(
             "Cada pago deberá ser informado por el Cliente mediante correo electrónico, "
             "adjuntando el comprobante respectivo.", normal),
         HR(),
-    ]
+    ]))
 
     # ── X. Plazo ──
-    story += [Paragraph("X. PLAZO DE FABRICACIÓN Y ENTREGA", seccion)]
-    for _l in _p("plazo", None).split("\n"):
-        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
-    story += [HR()]
+    _x = [Paragraph("X. PLAZO DE FABRICACIÓN Y ENTREGA", seccion)]
+    _x += [Paragraph(_l.strip(), normal) for _l in _p("plazo", None).split("\n") if _l.strip()]
+    _x.append(HR())
+    story.append(KeepTogether(_x))
 
     # ── XI. Penalidad ──
-    story += [Paragraph("XI. PENALIDAD POR ATRASO", seccion)]
-    for _l in _p("penalidad", None).split("\n"):
-        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
-    story += [HR()]
+    _xi = [Paragraph("XI. PENALIDAD POR ATRASO", seccion)]
+    _xi += [Paragraph(_l.strip(), normal) for _l in _p("penalidad", None).split("\n") if _l.strip()]
+    _xi.append(HR())
+    story.append(KeepTogether(_xi))
 
     # ── Cláusulas XII en adelante — data-driven según tipo de plantilla ──
     # Obtener tipo: inyectado por _obtener_clausulas_contrato en _tipo_plantilla
@@ -8605,37 +8605,38 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         _num_str = _romano(_num_clausula)
 
         if _clave == 'suministro_energia':
-            # Texto especial: quitar título embebido si lo tiene
             _txt_sum = (_plt_cls or {}).get("suministro_energia", "")
             if not _txt_sum:
+                _num_clausula -= 1
                 continue
             _txt_sum = _re_sum.sub(
                 r'^X{0,3}(?:IX|IV|V?I{0,3})\..*?Y USO DE HERRAMIENTAS\s*',
                 '', _txt_sum.strip(), flags=_re_sum.IGNORECASE | _re_sum.DOTALL
             ).strip()
-            story += [
-                Paragraph(f"{_num_str}. {_titulo}", seccion),
-                Paragraph(_rep(_txt_sum, d), normal),
-                SP(6),
-            ]
+            _blk = [Paragraph(f"{_num_str}. {_titulo}", seccion)]
+            _blk += [Paragraph(_l.strip(), normal) for _l in _rep(_txt_sum, d).split("\n") if _l.strip()]
+            _blk.append(SP(4))
+            story.append(KeepTogether(_blk))
         elif _clave == 'firma':
-            story += [
+            story.append(PageBreak())
+            story.append(KeepTogether([
                 Paragraph(f"{_num_str}. {_titulo}", seccion),
                 Paragraph(_p("firma", None), normal),
                 SP(60),
-            ]
+            ]))
         elif _multi:
-            story += [Paragraph(f"{_num_str}. {_titulo}", seccion)]
-            for _l in _p(_clave, None).split("\n"):
-                if _l.strip(): story.append(Paragraph(_l.strip(), normal))
-            if _sep == 'hr': story += [HR()]
+            _blk = [Paragraph(f"{_num_str}. {_titulo}", seccion)]
+            _blk += [Paragraph(_l.strip(), normal) for _l in _p(_clave, None).split("\n") if _l.strip()]
+            if _sep == 'hr': _blk.append(HR())
+            story.append(KeepTogether(_blk))
         else:
-            story += [
+            _blk = [
                 Paragraph(f"{_num_str}. {_titulo}", seccion),
                 Paragraph(_p(_clave, None), normal),
             ]
-            if _sep == 'hr': story += [HR()]
-            elif _sep == 'pagebreak': story += [PageBreak()]
+            if _sep == 'hr': _blk.append(HR())
+            elif _sep == 'pagebreak': _blk.append(PageBreak())
+            story.append(KeepTogether(_blk))
 
     # Bloque de firmas en tabla 2 columnas
     if d['tipo_cliente'] == 'natural':
@@ -18015,6 +18016,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 "comparecencia_cliente": "{{TRATAMIENTO}} <b>{{CLIENTE}}</b>, cédula nacional de identidad N° <b>{{RUT_CLIENTE}}</b>, con domicilio en <b>{{DOMICILIO_CLIENTE}}</b>, comuna de <b>{{COMUNA_CLIENTE}}</b>, Región {{REGION_CLIENTE}}, quien en adelante se denominará \"el Cliente\".\n\nSe deja expresa constancia que la dirección de instalación del proyecto será <b>{{DOMICILIO_INST}}</b>, comuna de <b>{{COMUNA_INST}}</b>, Región <b>{{REGION_INST}}</b>.\n\nLas partes declaran ser mayores de edad, con plena capacidad legal para contratar, y acuerdan celebrar el presente <b>Contrato de Fabricación y Venta de Vivienda Tipo Container</b>, el cual se regirá por las cláusulas que se indican a continuación.",
                 "instalacion":  "Se deja expresa constancia que la dirección de instalación del proyecto será <b>{{DOMICILIO_INST}}</b>, comuna de <b>{{COMUNA_INST}}</b>, Región {{REGION_INST}}.",
                 "definiciones": "a) <b>Proyecto</b>: La vivienda tipo container identificada como <b>Proyecto N° {{EP}} – \"{{EP_NOMBRE}}\"</b>.\nb) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte integrante del presente contrato, en especial Anexo N°1 (Especificaciones Técnicas) y Anexo N°2 (Presupuesto Detallado).\nc) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su despacho desde las instalaciones del Proveedor.",
+                "definiciones": "a) <b>Proyecto</b>: La vivienda tipo container identificada como <b>Proyecto N° {{EP}} – \"{{EP_NOMBRE}}\"</b>.\nb) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte integrante del presente contrato, en especial Anexo N°1 (Especificaciones Técnicas) y Anexo N°2 (Presupuesto Detallado).\nc) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su despacho desde las instalaciones del Proveedor.",
                 "medios_pago":  "Los pagos deberán efectuarse mediante <b>transferencia electrónica, cheque o vale vista</b>, a la siguiente cuenta bancaria:\n\nRazón Social: Inversiones Container House SpA\nRUT: 78.268.851-0\nBanco: Banco Itaú\nCuenta Corriente: N° 230771767\nCorreo de confirmación: jperez@espaciocontainerhouse.cl\n\nCada pago deberá ser informado por el Cliente mediante correo electrónico, adjuntando el comprobante respectivo.",
                 "objeto":       "El Cliente encarga al Proveedor la <b>fabricación y venta</b> del Proyecto individualizado precedentemente, conforme a los <b>planos entregados por el Cliente</b>, a las <b>especificaciones técnicas</b>, y al <b>presupuesto detallado contenido en el Anexo N°2</b>, documentos que el Cliente declara conocer, aceptar y que forman parte integrante e inseparable del presente contrato.",
                 "alcance":      "El Proveedor declara contar con la experiencia, conocimientos técnicos, personal calificado, herramientas e infraestructura necesarias para la correcta ejecución del Proyecto, comprometiéndose a:\na) Fabricar el módulo conforme a la normativa vigente aplicable.\nb) Respetar las especificaciones técnicas y alcances definidos en los Anexos.\nc) Ejecutar los trabajos con estándares de calidad y seguridad.\nCualquier trabajo, modificación o prestación no contemplada expresamente en los Anexos será considerada <b>obra adicional</b>, debiendo ser cotizada y aprobada por escrito por ambas partes.",
@@ -18244,11 +18246,6 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     _estimated_lines = _newlines + max(1, _chars // 85)
                     _h = max(120, _estimated_lines * 22)
                     if _key in _LABELS_READONLY:
-                        # Para B y E: ocultar c) Preentrega de definiciones
-                        if _key == "definiciones" and tipo_plt in ("B", "E"):
-                            import re as _re_pre
-                            _val_actual = _re_pre.sub(
-                                r'\nc\).*?Proveedor\.', '', _val_actual).strip()
                         st.markdown(
                             f'''<div style="background:#1e3a5f;color:white;font-size:0.78rem;font-weight:900;
                                         text-transform:uppercase;letter-spacing:0.08em;padding:8px 14px;
