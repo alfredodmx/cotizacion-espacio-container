@@ -8273,7 +8273,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     from reportlab.lib import colors
     from reportlab.lib.units import cm
     from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
-                                    HRFlowable, Table, TableStyle, PageBreak, KeepTogether)
+                                    HRFlowable, Table, TableStyle, PageBreak)
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY
     import io
@@ -8330,8 +8330,8 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     # ── Estilos tipográficos jurídicos ──
     base = getSampleStyleSheet()
     normal = ParagraphStyle('cNormal', parent=base['Normal'],
-                            fontName='Times-Roman', fontSize=11.5,
-                            leading=17, spaceAfter=5, spaceBefore=0,
+                            fontName='Times-Roman', fontSize=12.5,
+                            leading=19, spaceAfter=6,
                             alignment=TA_JUSTIFY,
                             firstLineIndent=0)
     bold   = ParagraphStyle('cBold', parent=normal,
@@ -8349,11 +8349,11 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
                             textColor=AZUL)
     seccion = ParagraphStyle('cSeccion', parent=base['Normal'],
                              fontName='Helvetica-Bold', fontSize=9.5,
-                             leading=13, spaceBefore=10, spaceAfter=4,
+                             leading=13, spaceBefore=14, spaceAfter=5,
                              textColor=colors.white,
                              backColor=AZUL,
                              leftIndent=-0.3*cm, rightIndent=-0.3*cm,
-                             borderPadding=(3, 8, 3, 8))
+                             borderPadding=(4, 8, 4, 8))
     firma   = ParagraphStyle('cFirma', parent=normal,
                              fontName='Times-Roman', fontSize=12.5,
                              leading=19, alignment=TA_CENTER)
@@ -8361,8 +8361,8 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
                                 fontName='Times-Bold')
 
     def HR():
-        return HRFlowable(width="100%", thickness=0.5,
-                          color=AZUL_LIGHT, spaceAfter=4, spaceBefore=2)
+        return HRFlowable(width="100%", thickness=0.6,
+                          color=AZUL_LIGHT, spaceAfter=6, spaceBefore=2)
     def SP(h=6): return Spacer(1, h)
 
     d = datos
@@ -8466,7 +8466,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     ]
 
     # ── II. Definiciones ──
-    _ii = [
+    story += [
         Paragraph("II. DEFINICIONES", seccion),
         Paragraph("Para efectos del presente contrato, se entenderá por:", normal),
         Paragraph(
@@ -8476,55 +8476,61 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
             "b) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte "
             "integrante del presente contrato, en especial Anexo N°1 (Especificaciones "
             "Técnicas) y Anexo N°2 (Presupuesto Detallado).", normal),
-    ]
-    if _tipo_plt_pdf not in ('B', 'E'):
-        _ii.append(Paragraph(
+    ] + ([
+        Paragraph(
             "c) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su "
-            "despacho desde las instalaciones del Proveedor.", normal))
-    _ii.append(HR())
-    story.append(KeepTogether(_ii))
+            "despacho desde las instalaciones del Proveedor.", normal),
+    ] if _tipo_plt_pdf not in ('B', 'E') else []) + [
+        HR(),
+    ]
 
     # ── III. Objeto ──
-    story.append(KeepTogether([
+    story += [
         Paragraph("III. OBJETO DEL CONTRATO", seccion),
         Paragraph(_p("objeto", "El Cliente encarga al Proveedor la fabricación y venta del Proyecto individualizado precedentemente."), normal),
         HR(),
-    ]))
+    ]
 
     # ── IV. Alcance técnico ──
-    _iv = [Paragraph("IV. ALCANCE TÉCNICO Y EJECUCIÓN", seccion)]
-    _iv += [Paragraph(_l.strip(), normal) for _l in _p("alcance", None).split("\n") if _l.strip()]
-    _iv.append(HR())
-    story.append(KeepTogether(_iv))
+    story += [Paragraph("IV. ALCANCE TÉCNICO Y EJECUCIÓN", seccion)]
+    for _l in _p("alcance", None).split("\n"):
+        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
+    story += [HR()]
 
     # ── V. Visitas ──
-    story.append(KeepTogether([
+    story += [
         Paragraph("V. VISITAS Y SEGUIMIENTO DEL PROYECTO", seccion),
         Paragraph(_p("visitas", None), normal),
         HR(),
-    ]))
+    ]
 
     # ── VI. Precio ──
-    story.append(KeepTogether([
+    story += [
         Paragraph("VI. PRECIO", seccion),
         Paragraph(_p("precio", f"El precio total del Proyecto asciende a la suma de <b>{fmt(precio)}</b> ({precio_p}), IVA incluido."), normal),
         HR(),
-    ]))
+    ]
 
     # ── VII. Forma de pago ──
-    _vii = [Paragraph("VII. FORMA Y ETAPAS DE PAGO", seccion)]
-    _vii += [Paragraph(_l.strip(), normal) for _l in _p("forma_pago", None).split("\n") if _l.strip()]
-    _vii.append(HR())
-    story.append(KeepTogether(_vii))
+    story += [Paragraph("VII. FORMA Y ETAPAS DE PAGO", seccion)]
+    for _l in _p("forma_pago", None).split("\n"):
+        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
+    story += [HR()]
 
     # ── VIII. Inicio fabricación ──
-    story.append(KeepTogether([
+    story += [
         Paragraph("VIII. INICIO DE FABRICACIÓN", seccion),
         Paragraph(_p("inicio", None), normal),
         HR(),
-    ]))
+    ]
 
-    # ── IX. Medios de pago — siempre en hoja limpia ──
+    # ── IX. Medios de pago ──
+    story += [
+        Paragraph("IX. MEDIOS DE PAGO", seccion),
+        Paragraph(
+            "Los pagos deberán efectuarse mediante <b>transferencia electrónica, "
+            "cheque o vale vista</b>, a la siguiente cuenta bancaria:", normal),
+    ]
     datos_banco = [
         ["Razón Social:", "Inversiones Container House SpA"],
         ["RUT:",          "78.268.851-0"],
@@ -8543,31 +8549,24 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         ('BOTTOMPADDING', (0,0), (-1,-1), 4),
         ('LEFTPADDING',   (0,0), (-1,-1), 6),
     ]))
-    story.append(PageBreak())
-    story.append(KeepTogether([
-        Paragraph("IX. MEDIOS DE PAGO", seccion),
-        Paragraph(
-            "Los pagos deberán efectuarse mediante <b>transferencia electrónica, "
-            "cheque o vale vista</b>, a la siguiente cuenta bancaria:", normal),
-        tbl,
-        SP(4),
+    story += [tbl, SP(6),
         Paragraph(
             "Cada pago deberá ser informado por el Cliente mediante correo electrónico, "
             "adjuntando el comprobante respectivo.", normal),
         HR(),
-    ]))
+    ]
 
     # ── X. Plazo ──
-    _x = [Paragraph("X. PLAZO DE FABRICACIÓN Y ENTREGA", seccion)]
-    _x += [Paragraph(_l.strip(), normal) for _l in _p("plazo", None).split("\n") if _l.strip()]
-    _x.append(HR())
-    story.append(KeepTogether(_x))
+    story += [Paragraph("X. PLAZO DE FABRICACIÓN Y ENTREGA", seccion)]
+    for _l in _p("plazo", None).split("\n"):
+        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
+    story += [HR()]
 
     # ── XI. Penalidad ──
-    _xi = [Paragraph("XI. PENALIDAD POR ATRASO", seccion)]
-    _xi += [Paragraph(_l.strip(), normal) for _l in _p("penalidad", None).split("\n") if _l.strip()]
-    _xi.append(HR())
-    story.append(KeepTogether(_xi))
+    story += [Paragraph("XI. PENALIDAD POR ATRASO", seccion)]
+    for _l in _p("penalidad", None).split("\n"):
+        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
+    story += [HR()]
 
     # ── Cláusulas XII en adelante — data-driven según tipo de plantilla ──
     # Obtener tipo: inyectado por _obtener_clausulas_contrato en _tipo_plantilla
@@ -8607,39 +8606,37 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         _num_str = _romano(_num_clausula)
 
         if _clave == 'suministro_energia':
+            # Texto especial: quitar título embebido si lo tiene
             _txt_sum = (_plt_cls or {}).get("suministro_energia", "")
             if not _txt_sum:
-                _num_clausula -= 1
                 continue
             _txt_sum = _re_sum.sub(
                 r'^X{0,3}(?:IX|IV|V?I{0,3})\..*?Y USO DE HERRAMIENTAS\s*',
                 '', _txt_sum.strip(), flags=_re_sum.IGNORECASE | _re_sum.DOTALL
             ).strip()
-            _sum_parrs = [Paragraph(f"{_num_str}. {_titulo}", seccion)]
-            _sum_parrs += [Paragraph(_l.strip(), normal) for _l in _rep(_txt_sum, d).split("\n") if _l.strip()]
-            _sum_parrs.append(SP(4))
-            story.append(KeepTogether(_sum_parrs))
+            story += [
+                Paragraph(f"{_num_str}. {_titulo}", seccion),
+                Paragraph(_rep(_txt_sum, d), normal),
+                SP(6),
+            ]
         elif _clave == 'firma':
-            # Firma siempre en hoja limpia
-            story.append(PageBreak())
-            story.append(KeepTogether([
+            story += [
                 Paragraph(f"{_num_str}. {_titulo}", seccion),
                 Paragraph(_p("firma", None), normal),
                 SP(60),
-            ]))
+            ]
         elif _multi:
-            _cls_blk = [Paragraph(f"{_num_str}. {_titulo}", seccion)]
-            _cls_blk += [Paragraph(_l.strip(), normal) for _l in _p(_clave, None).split("\n") if _l.strip()]
-            if _sep == 'hr': _cls_blk.append(HR())
-            story.append(KeepTogether(_cls_blk))
+            story += [Paragraph(f"{_num_str}. {_titulo}", seccion)]
+            for _l in _p(_clave, None).split("\n"):
+                if _l.strip(): story.append(Paragraph(_l.strip(), normal))
+            if _sep == 'hr': story += [HR()]
         else:
-            _cls_blk = [
+            story += [
                 Paragraph(f"{_num_str}. {_titulo}", seccion),
                 Paragraph(_p(_clave, None), normal),
             ]
-            if _sep == 'hr':          _cls_blk.append(HR())
-            elif _sep == 'pagebreak': _cls_blk.append(PageBreak())
-            story.append(KeepTogether(_cls_blk))
+            if _sep == 'hr': story += [HR()]
+            elif _sep == 'pagebreak': story += [PageBreak()]
 
     # Bloque de firmas en tabla 2 columnas
     if d['tipo_cliente'] == 'natural':
@@ -18239,6 +18236,13 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         _val_actual = _val_sup
                     else:
                         _val_actual = _base_editor
+                    # Para B y E: eliminar c) Preentrega de definiciones
+                    if _key == 'definiciones' and tipo_plt in ('B', 'E'):
+                        import re as _re_preentrega
+                        _val_actual = _re_preentrega.sub(
+                            r'\nc\) <b>Preentrega</b>:.*?(?=\n[a-z]\)|$)',
+                            '', _val_actual, flags=_re_preentrega.DOTALL
+                        ).rstrip()
                     _chars = len(_val_actual)
                     _newlines = _val_actual.count("\n")
                     _estimated_lines = _newlines + max(1, _chars // 85)
