@@ -8399,7 +8399,6 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
 
     # ── Usar cláusulas pasadas como parámetro o cargar de Supabase ──
     _plt_cls = clausulas_externas if clausulas_externas else _obtener_clausulas_contrato()
-    _tipo_plt_pdf = (_plt_cls.get("_tipo_plantilla") if _plt_cls else None) or 'A'
 
     # Textos originales con negritas HTML — se usan si no hay plantilla personalizada
     _ORIG = {
@@ -8467,7 +8466,8 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     ]
 
     # ── II. Definiciones ──
-    story += [
+    _tipo_plt_pdf = (_plt_cls.get("_tipo_plantilla") if _plt_cls else None) or 'A'
+    _ii_def = [
         Paragraph("II. DEFINICIONES", seccion),
         Paragraph("Para efectos del presente contrato, se entenderá por:", normal),
         Paragraph(
@@ -8477,11 +8477,13 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
             "b) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte "
             "integrante del presente contrato, en especial Anexo N°1 (Especificaciones "
             "Técnicas) y Anexo N°2 (Presupuesto Detallado).", normal),
-    ] + ([Paragraph(
-            "c) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su "
-            "despacho desde las instalaciones del Proveedor.", normal)] if _tipo_plt_pdf == 'A' else []) + [
-        HR(),
     ]
+    if _tipo_plt_pdf == 'A':
+        _ii_def.append(Paragraph(
+            "c) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su "
+            "despacho desde las instalaciones del Proveedor.", normal))
+    _ii_def.append(HR())
+    story += _ii_def
 
     # ── III. Objeto ──
     story += [
@@ -18206,7 +18208,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 # B: todas
                 # E: sin suministro_energia, sin bodegaje
                 _labels_tipo = {k: v for k, v in _LABELS.items()
-                                if not (k == 'suministro_energia' and tipo_plt in ('A', 'E'))
+                                if not (k == 'suministro_energia' and tipo_plt == 'A')
                                 and not (k == 'bodegaje' and tipo_plt == 'E')}
                 # Renumerar romanos dinamicamente segun clausulas incluidas
                 # Las primeras 11 son fijas (I-XI), desde XII en adelante depende del tipo
