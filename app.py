@@ -8399,7 +8399,6 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
 
     # ── Usar cláusulas pasadas como parámetro o cargar de Supabase ──
     _plt_cls = clausulas_externas if clausulas_externas else _obtener_clausulas_contrato()
-    _tipo_plt_pdf = (_plt_cls.get("_tipo_plantilla") if _plt_cls else None) or 'A'
 
     # Textos originales con negritas HTML — se usan si no hay plantilla personalizada
     _ORIG = {
@@ -8467,6 +8466,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     ]
 
     # ── II. Definiciones ──
+    _ii_tipo = (_plt_cls.get("_tipo_plantilla") if _plt_cls else None) or 'A'
     story += [
         Paragraph("II. DEFINICIONES", seccion),
         Paragraph("Para efectos del presente contrato, se entenderá por:", normal),
@@ -8480,7 +8480,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     ] + ([Paragraph(
             "c) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su "
             "despacho desde las instalaciones del Proveedor.", normal),
-    ] if _tipo_plt_pdf == 'A' else []) + [
+    ] if _ii_tipo == 'A' else []) + [
         HR(),
     ]
 
