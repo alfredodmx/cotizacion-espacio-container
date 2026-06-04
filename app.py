@@ -8399,6 +8399,8 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
 
     # ── Usar cláusulas pasadas como parámetro o cargar de Supabase ──
     _plt_cls = clausulas_externas if clausulas_externas else _obtener_clausulas_contrato()
+    # Tipo de plantilla disponible desde aquí para toda la función
+    _tipo_plt_pdf = (_plt_cls.get("_tipo_plantilla") if _plt_cls else None) or 'A'
 
     # Textos originales con negritas HTML — se usan si no hay plantilla personalizada
     _ORIG = {
@@ -8476,11 +8478,9 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
             "b) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte "
             "integrante del presente contrato, en especial Anexo N°1 (Especificaciones "
             "Técnicas) y Anexo N°2 (Presupuesto Detallado).", normal),
-    ] + ([
         Paragraph(
             "c) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su "
             "despacho desde las instalaciones del Proveedor.", normal),
-    ] if _tipo_plt_pdf not in ('B', 'E') else []) + [
         HR(),
     ]
 
@@ -8569,8 +8569,6 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     story += [HR()]
 
     # ── Cláusulas XII en adelante — data-driven según tipo de plantilla ──
-    # Obtener tipo: inyectado por _obtener_clausulas_contrato en _tipo_plantilla
-    _tipo_plt_pdf = (_plt_cls.get("_tipo_plantilla") if _plt_cls else None) or 'A'
 
     def _romano(n):
         _vals = [(1000,'M'),(900,'CM'),(500,'D'),(400,'CD'),(100,'C'),(90,'XC'),
@@ -18016,6 +18014,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 "comparecencia_cliente": "{{TRATAMIENTO}} <b>{{CLIENTE}}</b>, cédula nacional de identidad N° <b>{{RUT_CLIENTE}}</b>, con domicilio en <b>{{DOMICILIO_CLIENTE}}</b>, comuna de <b>{{COMUNA_CLIENTE}}</b>, Región {{REGION_CLIENTE}}, quien en adelante se denominará \"el Cliente\".\n\nSe deja expresa constancia que la dirección de instalación del proyecto será <b>{{DOMICILIO_INST}}</b>, comuna de <b>{{COMUNA_INST}}</b>, Región <b>{{REGION_INST}}</b>.\n\nLas partes declaran ser mayores de edad, con plena capacidad legal para contratar, y acuerdan celebrar el presente <b>Contrato de Fabricación y Venta de Vivienda Tipo Container</b>, el cual se regirá por las cláusulas que se indican a continuación.",
                 "instalacion":  "Se deja expresa constancia que la dirección de instalación del proyecto será <b>{{DOMICILIO_INST}}</b>, comuna de <b>{{COMUNA_INST}}</b>, Región {{REGION_INST}}.",
                 "definiciones": "a) <b>Proyecto</b>: La vivienda tipo container identificada como <b>Proyecto N° {{EP}} – \"{{EP_NOMBRE}}\"</b>.\nb) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte integrante del presente contrato, en especial Anexo N°1 (Especificaciones Técnicas) y Anexo N°2 (Presupuesto Detallado).\nc) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su despacho desde las instalaciones del Proveedor.",
+                "definiciones": "a) <b>Proyecto</b>: La vivienda tipo container identificada como <b>Proyecto N° {{EP}} – \"{{EP_NOMBRE}}\"</b>.\nb) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte integrante del presente contrato, en especial Anexo N°1 (Especificaciones Técnicas) y Anexo N°2 (Presupuesto Detallado).\nc) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su despacho desde las instalaciones del Proveedor.",
                 "medios_pago":  "Los pagos deberán efectuarse mediante <b>transferencia electrónica, cheque o vale vista</b>, a la siguiente cuenta bancaria:\n\nRazón Social: Inversiones Container House SpA\nRUT: 78.268.851-0\nBanco: Banco Itaú\nCuenta Corriente: N° 230771767\nCorreo de confirmación: jperez@espaciocontainerhouse.cl\n\nCada pago deberá ser informado por el Cliente mediante correo electrónico, adjuntando el comprobante respectivo.",
                 "objeto":       "El Cliente encarga al Proveedor la <b>fabricación y venta</b> del Proyecto individualizado precedentemente, conforme a los <b>planos entregados por el Cliente</b>, a las <b>especificaciones técnicas</b>, y al <b>presupuesto detallado contenido en el Anexo N°2</b>, documentos que el Cliente declara conocer, aceptar y que forman parte integrante e inseparable del presente contrato.",
                 "alcance":      "El Proveedor declara contar con la experiencia, conocimientos técnicos, personal calificado, herramientas e infraestructura necesarias para la correcta ejecución del Proyecto, comprometiéndose a:\na) Fabricar el módulo conforme a la normativa vigente aplicable.\nb) Respetar las especificaciones técnicas y alcances definidos en los Anexos.\nc) Ejecutar los trabajos con estándares de calidad y seguridad.\nCualquier trabajo, modificación o prestación no contemplada expresamente en los Anexos será considerada <b>obra adicional</b>, debiendo ser cotizada y aprobada por escrito por ambas partes.",
@@ -18236,13 +18235,6 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         _val_actual = _val_sup
                     else:
                         _val_actual = _base_editor
-                    # Para B y E: eliminar c) Preentrega de definiciones
-                    if _key == 'definiciones' and tipo_plt in ('B', 'E'):
-                        import re as _re_preentrega
-                        _val_actual = _re_preentrega.sub(
-                            r'\nc\) <b>Preentrega</b>:.*?(?=\n[a-z]\)|$)',
-                            '', _val_actual, flags=_re_preentrega.DOTALL
-                        ).rstrip()
                     _chars = len(_val_actual)
                     _newlines = _val_actual.count("\n")
                     _estimated_lines = _newlines + max(1, _chars // 85)
