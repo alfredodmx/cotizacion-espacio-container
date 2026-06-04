@@ -8466,7 +8466,6 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     ]
 
     # ── II. Definiciones ──
-    _ii_tipo = (_plt_cls.get("_tipo_plantilla") if _plt_cls else None) or 'A'
     story += [
         Paragraph("II. DEFINICIONES", seccion),
         Paragraph("Para efectos del presente contrato, se entenderá por:", normal),
@@ -8480,7 +8479,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     ] + ([Paragraph(
             "c) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su "
             "despacho desde las instalaciones del Proveedor.", normal),
-    ] if _ii_tipo == 'A' else []) + [
+    ] if ((_plt_cls.get("_tipo_plantilla") if _plt_cls else None) or "A") == "A" else []) + [
         HR(),
     ]
 
@@ -18016,7 +18015,6 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 "comparecencia_cliente": "{{TRATAMIENTO}} <b>{{CLIENTE}}</b>, cédula nacional de identidad N° <b>{{RUT_CLIENTE}}</b>, con domicilio en <b>{{DOMICILIO_CLIENTE}}</b>, comuna de <b>{{COMUNA_CLIENTE}}</b>, Región {{REGION_CLIENTE}}, quien en adelante se denominará \"el Cliente\".\n\nSe deja expresa constancia que la dirección de instalación del proyecto será <b>{{DOMICILIO_INST}}</b>, comuna de <b>{{COMUNA_INST}}</b>, Región <b>{{REGION_INST}}</b>.\n\nLas partes declaran ser mayores de edad, con plena capacidad legal para contratar, y acuerdan celebrar el presente <b>Contrato de Fabricación y Venta de Vivienda Tipo Container</b>, el cual se regirá por las cláusulas que se indican a continuación.",
                 "instalacion":  "Se deja expresa constancia que la dirección de instalación del proyecto será <b>{{DOMICILIO_INST}}</b>, comuna de <b>{{COMUNA_INST}}</b>, Región {{REGION_INST}}.",
                 "definiciones": "a) <b>Proyecto</b>: La vivienda tipo container identificada como <b>Proyecto N° {{EP}} – \"{{EP_NOMBRE}}\"</b>.\nb) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte integrante del presente contrato, en especial Anexo N°1 (Especificaciones Técnicas) y Anexo N°2 (Presupuesto Detallado).\nc) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su despacho desde las instalaciones del Proveedor.",
-                "definiciones": "a) <b>Proyecto</b>: La vivienda tipo container identificada como <b>Proyecto N° {{EP}} – \"{{EP_NOMBRE}}\"</b>.\nb) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte integrante del presente contrato, en especial Anexo N°1 (Especificaciones Técnicas) y Anexo N°2 (Presupuesto Detallado).\nc) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su despacho desde las instalaciones del Proveedor.",
                 "medios_pago":  "Los pagos deberán efectuarse mediante <b>transferencia electrónica, cheque o vale vista</b>, a la siguiente cuenta bancaria:\n\nRazón Social: Inversiones Container House SpA\nRUT: 78.268.851-0\nBanco: Banco Itaú\nCuenta Corriente: N° 230771767\nCorreo de confirmación: jperez@espaciocontainerhouse.cl\n\nCada pago deberá ser informado por el Cliente mediante correo electrónico, adjuntando el comprobante respectivo.",
                 "objeto":       "El Cliente encarga al Proveedor la <b>fabricación y venta</b> del Proyecto individualizado precedentemente, conforme a los <b>planos entregados por el Cliente</b>, a las <b>especificaciones técnicas</b>, y al <b>presupuesto detallado contenido en el Anexo N°2</b>, documentos que el Cliente declara conocer, aceptar y que forman parte integrante e inseparable del presente contrato.",
                 "alcance":      "El Proveedor declara contar con la experiencia, conocimientos técnicos, personal calificado, herramientas e infraestructura necesarias para la correcta ejecución del Proyecto, comprometiéndose a:\na) Fabricar el módulo conforme a la normativa vigente aplicable.\nb) Respetar las especificaciones técnicas y alcances definidos en los Anexos.\nc) Ejecutar los trabajos con estándares de calidad y seguridad.\nCualquier trabajo, modificación o prestación no contemplada expresamente en los Anexos será considerada <b>obra adicional</b>, debiendo ser cotizada y aprobada por escrito por ambas partes.",
@@ -18246,6 +18244,11 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     _estimated_lines = _newlines + max(1, _chars // 85)
                     _h = max(120, _estimated_lines * 22)
                     if _key in _LABELS_READONLY:
+                        # Para B y E: ocultar c) Preentrega de definiciones
+                        if _key == "definiciones" and tipo_plt in ("B", "E"):
+                            import re as _re_pre
+                            _val_actual = _re_pre.sub(
+                                r'\nc\).*?Proveedor\.', '', _val_actual).strip()
                         st.markdown(
                             f'''<div style="background:#1e3a5f;color:white;font-size:0.78rem;font-weight:900;
                                         text-transform:uppercase;letter-spacing:0.08em;padding:8px 14px;
