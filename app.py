@@ -8467,7 +8467,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     ]
 
     # ── II. Definiciones ──
-    _ii = [
+    story += [
         Paragraph("II. DEFINICIONES", seccion),
         Paragraph("Para efectos del presente contrato, se entenderá por:", normal),
         Paragraph(
@@ -8477,13 +8477,11 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
             "b) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte "
             "integrante del presente contrato, en especial Anexo N°1 (Especificaciones "
             "Técnicas) y Anexo N°2 (Presupuesto Detallado).", normal),
-    ]
-    if _tipo_plt_pdf not in ('B', 'E'):
-        _ii.append(Paragraph(
+    ] + ([Paragraph(
             "c) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su "
-            "despacho desde las instalaciones del Proveedor.", normal))
-    _ii.append(HR())
-    story += _ii
+            "despacho desde las instalaciones del Proveedor.", normal)] if _tipo_plt_pdf == 'A' else []) + [
+        HR(),
+    ]
 
     # ── III. Objeto ──
     story += [
@@ -8593,6 +8591,8 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         ('jurisdiccion',    'DOMICILIO Y JURISDICCIÓN',                       False,     'pagebreak',  ('A', 'B', 'E')),
         ('suministro_energia', 'DEL SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS',
                                                                               True,      'sp',         ('B',)),
+        ('suministro_energia', 'SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS',
+                                                                              True,      'sp',         ('E',)),
         ('firma',           'FIRMA',                                          False,     'sp60',       ('A', 'B', 'E')),
     ]
 
