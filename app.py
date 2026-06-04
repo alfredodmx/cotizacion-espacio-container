@@ -8399,6 +8399,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
 
     # ── Usar cláusulas pasadas como parámetro o cargar de Supabase ──
     _plt_cls = clausulas_externas if clausulas_externas else _obtener_clausulas_contrato()
+    _tipo_plt_pdf = (_plt_cls.get("_tipo_plantilla") if _plt_cls else None) or 'A'
 
     # Textos originales con negritas HTML — se usan si no hay plantilla personalizada
     _ORIG = {
@@ -8466,8 +8467,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     ]
 
     # ── II. Definiciones ──
-    _tipo_plt_pdf = (_plt_cls.get("_tipo_plantilla") if _plt_cls else None) or 'A'
-    _ii_def = [
+    story += [
         Paragraph("II. DEFINICIONES", seccion),
         Paragraph("Para efectos del presente contrato, se entenderá por:", normal),
         Paragraph(
@@ -8477,13 +8477,12 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
             "b) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte "
             "integrante del presente contrato, en especial Anexo N°1 (Especificaciones "
             "Técnicas) y Anexo N°2 (Presupuesto Detallado).", normal),
-    ]
-    if _tipo_plt_pdf == 'A':
-        _ii_def.append(Paragraph(
+    ] + ([Paragraph(
             "c) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su "
-            "despacho desde las instalaciones del Proveedor.", normal))
-    _ii_def.append(HR())
-    story += _ii_def
+            "despacho desde las instalaciones del Proveedor.", normal),
+    ] if _tipo_plt_pdf == 'A' else []) + [
+        HR(),
+    ]
 
     # ── III. Objeto ──
     story += [
@@ -8591,10 +8590,8 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         ('garantia',        'GARANTÍA',                                       True,      'hr',         ('A', 'B', 'E')),
         ('terminacion',     'TERMINACIÓN ANTICIPADA',                         True,      'hr',         ('A', 'B', 'E')),
         ('jurisdiccion',    'DOMICILIO Y JURISDICCIÓN',                       False,     'pagebreak',  ('A', 'B', 'E')),
-        ('suministro_energia', 'DEL SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS',
-                                                                              True,      'sp',         ('B',)),
         ('suministro_energia', 'SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS',
-                                                                              True,      'sp',         ('E',)),
+                                                                              True,      'sp',         ('B', 'E')),
         ('firma',           'FIRMA',                                          False,     'sp60',       ('A', 'B', 'E')),
     ]
 
@@ -18056,7 +18053,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 "garantia":            "XIII. Garantía",
                 "terminacion":         "XIV. Terminación anticipada",
                 "jurisdiccion":        "XV. Domicilio y jurisdicción",
-                "suministro_energia": "XVI. Suministro de energía eléctrica (solo Plantilla B)",
+                "suministro_energia": "XVI. Suministro de energía eléctrica y uso de herramientas",
                 "firma":               "XVII. Firma",
             }
 
@@ -18206,14 +18203,18 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 # Filtrar clausulas segun tipo:
                 # A: sin suministro_energia
                 # B: todas
-                # E: sin suministro_energia, sin bodegaje
+                # E: sin bodegaje, con suministro_energia
                 _labels_tipo = {k: v for k, v in _LABELS.items()
                                 if not (k == 'suministro_energia' and tipo_plt == 'A')
                                 and not (k == 'bodegaje' and tipo_plt == 'E')}
                 # Renumerar romanos dinamicamente segun clausulas incluidas
                 # Las primeras 11 son fijas (I-XI), desde XII en adelante depende del tipo
-                _claves_orden = ['bodegaje','garantia','terminacion','jurisdiccion',
-                                 'suministro_energia','firma']
+                _orden_ed = {
+                    'A': ['bodegaje','garantia','terminacion','jurisdiccion','firma'],
+                    'B': ['bodegaje','garantia','terminacion','jurisdiccion','suministro_energia','firma'],
+                    'E': ['garantia','terminacion','jurisdiccion','suministro_energia','firma'],
+                }
+                _claves_orden = _orden_ed.get(tipo_plt, _orden_ed['A'])
                 _n_rom = 11
                 for _ck in _claves_orden:
                     if _ck in _labels_tipo:
