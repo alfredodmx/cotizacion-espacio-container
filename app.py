@@ -8476,9 +8476,10 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
             "b) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte "
             "integrante del presente contrato, en especial Anexo N°1 (Especificaciones "
             "Técnicas) y Anexo N°2 (Presupuesto Detallado).", normal),
-        Paragraph(
+    ] + ([Paragraph(
             "c) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su "
             "despacho desde las instalaciones del Proveedor.", normal),
+    ] if ((_plt_cls.get("_tipo_plantilla") if _plt_cls else None) or "A") == "A" else []) + [
         HR(),
     ]
 
@@ -8509,7 +8510,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         HR(),
     ]))
 
-    # ── VII. Forma de pago — siempre completa ──
+    # ── VII. Forma de pago ──
     _vii = [Paragraph("VII. FORMA Y ETAPAS DE PAGO", seccion)]
     _vii += [Paragraph(_l.strip(), normal) for _l in _p("forma_pago", None).split("\n") if _l.strip()]
     _vii.append(HR())
@@ -8547,8 +8548,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         Paragraph(
             "Los pagos deberán efectuarse mediante <b>transferencia electrónica, "
             "cheque o vale vista</b>, a la siguiente cuenta bancaria:", normal),
-        tbl,
-        SP(4),
+        tbl, SP(4),
         Paragraph(
             "Cada pago deberá ser informado por el Cliente mediante correo electrónico, "
             "adjuntando el comprobante respectivo.", normal),
@@ -18246,6 +18246,9 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     _estimated_lines = _newlines + max(1, _chars // 85)
                     _h = max(120, _estimated_lines * 22)
                     if _key in _LABELS_READONLY:
+                        if _key == "definiciones" and tipo_plt in ("B", "E"):
+                            import re as _re_pre
+                            _val_actual = _re_pre.sub(r'\nc\).*?Proveedor\.', '', _val_actual).strip()
                         st.markdown(
                             f'''<div style="background:#1e3a5f;color:white;font-size:0.78rem;font-weight:900;
                                         text-transform:uppercase;letter-spacing:0.08em;padding:8px 14px;
