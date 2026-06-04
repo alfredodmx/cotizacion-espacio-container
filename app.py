@@ -8273,7 +8273,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     from reportlab.lib import colors
     from reportlab.lib.units import cm
     from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
-                                    HRFlowable, Table, TableStyle, PageBreak)
+                                    HRFlowable, Table, TableStyle, PageBreak, KeepTogether)
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY
     import io
@@ -8399,6 +8399,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
 
     # ── Usar cláusulas pasadas como parámetro o cargar de Supabase ──
     _plt_cls = clausulas_externas if clausulas_externas else _obtener_clausulas_contrato()
+    _tipo_plt_pdf = (_plt_cls.get("_tipo_plantilla") if _plt_cls else None) or 'A'
 
     # Textos originales con negritas HTML — se usan si no hay plantilla personalizada
     _ORIG = {
@@ -8466,7 +8467,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     ]
 
     # ── II. Definiciones ──
-    story += [
+    _ii = [
         Paragraph("II. DEFINICIONES", seccion),
         Paragraph("Para efectos del presente contrato, se entenderá por:", normal),
         Paragraph(
@@ -8476,11 +8477,13 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
             "b) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte "
             "integrante del presente contrato, en especial Anexo N°1 (Especificaciones "
             "Técnicas) y Anexo N°2 (Presupuesto Detallado).", normal),
-        Paragraph(
-            "c) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su "
-            "despacho desde las instalaciones del Proveedor.", normal),
-        HR(),
     ]
+    if _tipo_plt_pdf not in ('B', 'E'):
+        _ii.append(Paragraph(
+            "c) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su "
+            "despacho desde las instalaciones del Proveedor.", normal))
+    _ii.append(HR())
+    story.append(KeepTogether(_ii))
 
     # ── III. Objeto ──
     story += [
@@ -8567,8 +8570,6 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     story += [HR()]
 
     # ── Cláusulas XII en adelante — data-driven según tipo de plantilla ──
-    # Obtener tipo: inyectado por _obtener_clausulas_contrato en _tipo_plantilla
-    _tipo_plt_pdf = (_plt_cls.get("_tipo_plantilla") if _plt_cls else None) or 'A'
 
     def _romano(n):
         _vals = [(1000,'M'),(900,'CM'),(500,'D'),(400,'CD'),(100,'C'),(90,'XC'),
@@ -18053,7 +18054,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 "garantia":            "XIII. Garantía",
                 "terminacion":         "XIV. Terminación anticipada",
                 "jurisdiccion":        "XV. Domicilio y jurisdicción",
-                "suministro_energia": "XVI. Suministro de energía eléctrica (solo Plantilla B)",
+                "suministro_energia": "XVI. Suministro de energía eléctrica y uso de herramientas",
                 "firma":               "XVII. Firma",
             }
 
