@@ -8273,7 +8273,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     from reportlab.lib import colors
     from reportlab.lib.units import cm
     from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
-                                    HRFlowable, Table, TableStyle, PageBreak, KeepTogether)
+                                    HRFlowable, Table, TableStyle, PageBreak)
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY
     import io
@@ -8399,7 +8399,6 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
 
     # ── Usar cláusulas pasadas como parámetro o cargar de Supabase ──
     _plt_cls = clausulas_externas if clausulas_externas else _obtener_clausulas_contrato()
-    _tipo_plt_pdf = (_plt_cls.get("_tipo_plantilla") if _plt_cls else None) or 'A'
 
     # Textos originales con negritas HTML — se usan si no hay plantilla personalizada
     _ORIG = {
@@ -8467,7 +8466,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     ]
 
     # ── II. Definiciones ──
-    _ii_parrs = [
+    story += [
         Paragraph("II. DEFINICIONES", seccion),
         Paragraph("Para efectos del presente contrato, se entenderá por:", normal),
         Paragraph(
@@ -8477,13 +8476,11 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
             "b) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte "
             "integrante del presente contrato, en especial Anexo N°1 (Especificaciones "
             "Técnicas) y Anexo N°2 (Presupuesto Detallado).", normal),
-    ]
-    if _tipo_plt_pdf not in ('B', 'E'):
-        _ii_parrs.append(Paragraph(
+        Paragraph(
             "c) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su "
-            "despacho desde las instalaciones del Proveedor.", normal))
-    _ii_parrs.append(HR())
-    story.append(KeepTogether(_ii_parrs))
+            "despacho desde las instalaciones del Proveedor.", normal),
+        HR(),
+    ]
 
     # ── III. Objeto ──
     story += [
@@ -8570,6 +8567,8 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     story += [HR()]
 
     # ── Cláusulas XII en adelante — data-driven según tipo de plantilla ──
+    # Obtener tipo: inyectado por _obtener_clausulas_contrato en _tipo_plantilla
+    _tipo_plt_pdf = (_plt_cls.get("_tipo_plantilla") if _plt_cls else None) or 'A'
 
     def _romano(n):
         _vals = [(1000,'M'),(900,'CM'),(500,'D'),(400,'CD'),(100,'C'),(90,'XC'),
@@ -8591,6 +8590,8 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         ('jurisdiccion',    'DOMICILIO Y JURISDICCIÓN',                       False,     'pagebreak',  ('A', 'B', 'E')),
         ('suministro_energia', 'DEL SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS',
                                                                               True,      'sp',         ('B',)),
+        ('suministro_energia', 'SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS',
+                                                                              True,      'sp',         ('E',)),
         ('firma',           'FIRMA',                                          False,     'sp60',       ('A', 'B', 'E')),
     ]
 
@@ -18204,7 +18205,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 # B: todas
                 # E: sin suministro_energia, sin bodegaje
                 _labels_tipo = {k: v for k, v in _LABELS.items()
-                                if not (k == 'suministro_energia' and tipo_plt in ('A', 'E'))
+                                if not (k == 'suministro_energia' and tipo_plt == 'A')
                                 and not (k == 'bodegaje' and tipo_plt == 'E')}
                 # Renumerar romanos dinamicamente segun clausulas incluidas
                 # Las primeras 11 son fijas (I-XI), desde XII en adelante depende del tipo
