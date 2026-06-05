@@ -5834,7 +5834,7 @@ def _fetch_cotizaciones_raw(rol, email):
         )
         if rol == 'ejecutivo' and email:
             query = query.ilike('asesor_email', email.strip())
-        query = query.order('fecha_creacion', desc=True).limit(100)
+        query = query.order('fecha_creacion', desc=True)
         return query.execute().data or []
     except:
         return []
@@ -5866,7 +5866,7 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
             }
             campo = campo_map.get(tipo_busqueda, 'numero')
             query = query.ilike(campo, f'%{termino}%')
-        query = query.order('fecha_creacion', desc=True).limit(50)
+        query = query.order('fecha_creacion', desc=True)
         response = query.execute()
         resultados = []
         for row in response.data:
@@ -11527,6 +11527,56 @@ if tab3 is not None:
 (function(){
   var D=window.parent.document;
   var _af='';
+  // Cache de opciones originales por <select> (para poder restaurar al cambiar filtro)
+  var _optCache = new WeakMap();
+  function _cacheOptions(sel){
+    if (_optCache.has(sel)) return _optCache.get(sel);
+    var arr = [];
+    Array.prototype.forEach.call(sel.options, function(o){ arr.push(o.cloneNode(true)); });
+    _optCache.set(sel, arr);
+    return arr;
+  }
+  function applyDropdownFilter(val){
+    // 1) <select> nativo: remover opciones que no coinciden (display:none no funciona)
+    D.querySelectorAll('select').forEach(function(sel){
+      var orig = _cacheOptions(sel);
+      // Detectar si este select es el de cotizaciones
+      var hasEP = false;
+      for (var i = 0; i < orig.length; i++){
+        if ((orig[i].textContent || '').indexOf('EP-') === 0){ hasEP = true; break; }
+      }
+      if (!hasEP) return;
+      // Guardar valor seleccionado actual
+      var currentVal = sel.value;
+      // Limpiar y reconstruir
+      while (sel.firstChild) sel.removeChild(sel.firstChild);
+      var firstMatchValue = null;
+      orig.forEach(function(o){
+        var txt = o.textContent || '';
+        var keep = (!val || val === 'TODOS' || txt.indexOf('EP-') !== 0 || txt.indexOf(val) !== -1);
+        if (keep){
+          var clone = o.cloneNode(true);
+          sel.appendChild(clone);
+          if (firstMatchValue === null && txt.indexOf('EP-') === 0) firstMatchValue = clone.value;
+        }
+      });
+      // Restaurar valor si todavía existe, sino seleccionar primero
+      var found = false;
+      for (var j = 0; j < sel.options.length; j++){
+        if (sel.options[j].value === currentVal){ sel.value = currentVal; found = true; break; }
+      }
+      if (!found && firstMatchValue !== null){
+        sel.value = firstMatchValue;
+        sel.dispatchEvent(new Event('change', {bubbles: true}));
+      }
+    });
+    // 2) Listbox BaseWeb (cuando el dropdown está abierto): ocultar li no coincidentes
+    D.querySelectorAll('[data-baseweb="select"] [role="option"], [data-baseweb="popover"] li').forEach(function(li){
+      var txt = li.textContent || '';
+      if (txt.indexOf('EP-') !== 0) return;
+      li.style.display = (!val || val === 'TODOS' || txt.indexOf(val) !== -1) ? '' : 'none';
+    });
+  }
   function doFilter(val){
     _af=val;
     D.querySelectorAll('tr[data-est]').forEach(function(r){
@@ -11537,40 +11587,7 @@ if tab3 is not None:
       var isAct=(!val||val==='TODOS')?(bv==='TODOS'):(bv===val);
       b.style.outline=isAct?('2px solid '+b.style.color):'';
     });
-    // Filtrar también las opciones del dropdown "Selecciona una cotización"
-    // El dropdown de Streamlit usa <select> nativo con <option>
-    D.querySelectorAll('select').forEach(function(sel){
-      var hasOpt = false;
-      Array.prototype.forEach.call(sel.options, function(opt){
-        var txt = opt.textContent || '';
-        // Solo aplicar a opciones que tengan el patrón "EP-xxx - " típico de las cotizaciones
-        if (txt.indexOf('EP-') !== 0 && txt.indexOf('Selecciona') !== 0) return;
-        if (!val || val === 'TODOS' || txt.indexOf(val) !== -1){
-          opt.style.display = '';
-          opt.disabled = false;
-          hasOpt = true;
-        } else {
-          opt.style.display = 'none';
-          opt.disabled = true;
-        }
-      });
-      // Si el valor actual del select no está visible, seleccionar el primero visible
-      if (sel.selectedOptions && sel.selectedOptions[0] && sel.selectedOptions[0].style.display === 'none'){
-        for (var i = 0; i < sel.options.length; i++){
-          if (sel.options[i].style.display !== 'none' && sel.options[i].textContent.indexOf('EP-') === 0){
-            sel.selectedIndex = i;
-            sel.dispatchEvent(new Event('change', {bubbles: true}));
-            break;
-          }
-        }
-      }
-    });
-    // También para listbox de Streamlit basado en BaseWeb (div[role=listbox])
-    D.querySelectorAll('[data-baseweb="select"] [role="option"], [data-baseweb="popover"] li').forEach(function(li){
-      var txt = li.textContent || '';
-      if (txt.indexOf('EP-') !== 0) return;
-      li.style.display = (!val || val === 'TODOS' || txt.indexOf(val) !== -1) ? '' : 'none';
-    });
+    applyDropdownFilter(val);
   }
   function init(){
     D.querySelectorAll('._badge_filtro').forEach(function(b){
@@ -11581,18 +11598,11 @@ if tab3 is not None:
         doFilter((_af===val&&val!=='TODOS')?'':val);
       });
     });
-    // Re-aplicar filtro a opciones nuevas que aparezcan al abrir el dropdown
-    if (_af) {
-      D.querySelectorAll('[data-baseweb="select"] [role="option"], [data-baseweb="popover"] li').forEach(function(li){
-        var txt = li.textContent || '';
-        if (txt.indexOf('EP-') !== 0) return;
-        li.style.display = (_af === 'TODOS' || txt.indexOf(_af) !== -1) ? '' : 'none';
-      });
-    }
+    if (_af) applyDropdownFilter(_af);
   }
-  // Observer para detectar cuando se abre el popover del dropdown
+  // Observer para reaplicar filtro al dropdown cuando se abre el popover
   try {
-    var _obs = new MutationObserver(function(){ if(_af) init(); });
+    var _obs = new MutationObserver(function(){ if(_af) applyDropdownFilter(_af); });
     _obs.observe(D.body, {childList: true, subtree: true});
   } catch(e){}
   setTimeout(init,400);
