@@ -10870,6 +10870,8 @@ if tab3 is not None:
     if _qp_filtro is not None:
         st.session_state.filtro_estado_tabla = _qp_filtro if _qp_filtro != 'TODOS' else None
         st.query_params.clear()
+        # Resetear el dropdown para que muestre solo las opciones filtradas
+        st.session_state.pop('selector_cotizaciones', None)
     if st.session_state.get('_tab3_necesita_refresh', False):
         st.session_state.resultados_busqueda = None
         st.session_state['_tab3_necesita_refresh'] = False
@@ -11924,8 +11926,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             _col_sel, _col_rec_btn = st.columns([4, 1])
             with _col_sel:
                 st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 4px 0;-webkit-text-fill-color:#0f172a;">📂 Selecciona una cotización</div>', unsafe_allow_html=True)
-                _sel_key = f"selector_cotizaciones_{(st.session_state.get('filtro_estado_tabla') or 'TODOS').replace(' ','_')}"
-                cotizacion_seleccionada = st.selectbox("Selecciona una cotización:", options=opciones, key=_sel_key, label_visibility="collapsed")
+                cotizacion_seleccionada = st.selectbox("Selecciona una cotización:", options=opciones, key="selector_cotizaciones", label_visibility="collapsed")
 
             with _col_rec_btn:
                 st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
