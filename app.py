@@ -11155,7 +11155,6 @@ if tab3 is not None:
                 txt = _re_filt.sub(r'<[^>]+>', '', str(badge_html)).strip()
                 return _filtro_activo in txt
             df_resultados = df_resultados[df_resultados['Estado'].apply(_match_filtro)].copy()
-            # Resetear dropdown para que muestre opciones filtradas desde el inicio
             st.session_state.pop('selector_cotizaciones', None)
         n_resultados = len(df_resultados)
         altura_tabla = min(n_resultados * 52 + 60, 550)
