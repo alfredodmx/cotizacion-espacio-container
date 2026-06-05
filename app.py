@@ -5834,7 +5834,7 @@ def _fetch_cotizaciones_raw(rol, email):
         )
         if rol == 'ejecutivo' and email:
             query = query.ilike('asesor_email', email.strip())
-        query = query.order('fecha_creacion', desc=True).limit(100)
+        query = query.order('fecha_creacion', desc=True)
         return query.execute().data or []
     except:
         return []
@@ -5866,7 +5866,7 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
             }
             campo = campo_map.get(tipo_busqueda, 'numero')
             query = query.ilike(campo, f'%{termino}%')
-        query = query.order('fecha_creacion', desc=True).limit(50)
+        query = query.order('fecha_creacion', desc=True)
         response = query.execute()
         resultados = []
         for row in response.data:
@@ -11527,6 +11527,34 @@ if tab3 is not None:
 (function(){
   var D=window.parent.document;
   var _af='';
+  /* DROPDOWN_FILTER_V4 */
+  function filterDropdown(val){
+    // Streamlit usa BaseWeb: <li role="option"> dentro de <ul role="listbox">
+    // El popover se crea en window.parent.document.body cuando se abre
+    var lis = D.querySelectorAll('li[role="option"], div[role="option"], [data-baseweb="select"] li, [data-baseweb="popover"] li');
+    lis.forEach(function(li){
+      var txt = (li.textContent || '').trim();
+      // Solo filtrar opciones de cotizaciones (empiezan con "EP-")
+      if (txt.indexOf('EP-') !== 0) return;
+      if (!val || val === 'TODOS') {
+        li.style.display = '';
+        li.style.height = '';
+        li.style.padding = '';
+        li.style.overflow = '';
+      } else if (txt.indexOf(val) !== -1) {
+        li.style.display = '';
+        li.style.height = '';
+        li.style.padding = '';
+        li.style.overflow = '';
+      } else {
+        // Remover completamente del flujo visual para que no haya espacios
+        li.style.display = 'none';
+        li.style.height = '0';
+        li.style.padding = '0';
+        li.style.overflow = 'hidden';
+      }
+    });
+  }
   function doFilter(val){
     _af=val;
     D.querySelectorAll('tr[data-est]').forEach(function(r){
@@ -11537,6 +11565,7 @@ if tab3 is not None:
       var isAct=(!val||val==='TODOS')?(bv==='TODOS'):(bv===val);
       b.style.outline=isAct?('2px solid '+b.style.color):'';
     });
+    filterDropdown(val);
   }
   function init(){
     D.querySelectorAll('._badge_filtro').forEach(function(b){
@@ -11547,7 +11576,33 @@ if tab3 is not None:
         doFilter((_af===val&&val!=='TODOS')?'':val);
       });
     });
+    if (_af) filterDropdown(_af);
   }
+  // Observer: cuando se abre el dropdown, BaseWeb crea los <li> al vuelo
+  try {
+    var _obs = new MutationObserver(function(muts){
+      if (!_af) return;
+      var shouldFilter = false;
+      muts.forEach(function(m){
+        if (m.addedNodes && m.addedNodes.length > 0) shouldFilter = true;
+      });
+      if (shouldFilter) setTimeout(function(){ filterDropdown(_af); }, 10);
+    });
+    _obs.observe(D.body, {childList: true, subtree: true});
+  } catch(e){}
+  // Backup: al hacer click en cualquier dropdown, reaplica filtro
+  D.addEventListener('click', function(e){
+    if (!_af) return;
+    var tgt = e.target;
+    while (tgt && tgt !== D.body){
+      if (tgt.getAttribute && (tgt.getAttribute('data-baseweb') === 'select' || tgt.getAttribute('role') === 'combobox')){
+        setTimeout(function(){ filterDropdown(_af); }, 50);
+        setTimeout(function(){ filterDropdown(_af); }, 200);
+        break;
+      }
+      tgt = tgt.parentElement;
+    }
+  }, true);
   setTimeout(init,400);
   setInterval(init,2000);
 })();
