@@ -10870,8 +10870,6 @@ if tab3 is not None:
     if _qp_filtro is not None:
         st.session_state.filtro_estado_tabla = _qp_filtro if _qp_filtro != 'TODOS' else None
         st.query_params.clear()
-        # Resetear el dropdown para que muestre solo las opciones filtradas
-        st.session_state.pop('selector_cotizaciones', None)
     if st.session_state.get('_tab3_necesita_refresh', False):
         st.session_state.resultados_busqueda = None
         st.session_state['_tab3_necesita_refresh'] = False
@@ -11894,6 +11892,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
         st.markdown("### Seleccionar cotización")
 
         opciones = []
+        _filtro_dropdown = st.session_state.get('filtro_estado_tabla')
         for idx, row in df_resultados.iterrows():
             # PROYECTO TERMINADO tiene prioridad absoluta
             if row.get('Acta_URL',''):
@@ -11912,6 +11911,9 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                         estado = "🟠 BORRADOR CON PLANO" if row['Tiene_Plano'] else "🟡 BORRADOR"
                     else:
                         estado = "🔴 INCOMPLETO CON PLANO" if row['Tiene_Plano'] else "🔴 INCOMPLETO"
+            # Aplicar filtro badge directamente en el dropdown
+            if _filtro_dropdown and _filtro_dropdown not in estado:
+                continue
             plano_indicador = "📎" if row['Tiene_Plano'] else ""
             # Extraer solo el monto sin HTML para el selectbox
             _total_raw = st.session_state.resultados_busqueda
