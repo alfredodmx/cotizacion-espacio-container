@@ -5834,7 +5834,7 @@ def _fetch_cotizaciones_raw(rol, email):
         )
         if rol == 'ejecutivo' and email:
             query = query.ilike('asesor_email', email.strip())
-        query = query.order('fecha_creacion', desc=True).limit(100)
+        query = query.order('fecha_creacion', desc=True)
         return query.execute().data or []
     except:
         return []
@@ -5866,7 +5866,7 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
             }
             campo = campo_map.get(tipo_busqueda, 'numero')
             query = query.ilike(campo, f'%{termino}%')
-        query = query.order('fecha_creacion', desc=True).limit(50)
+        query = query.order('fecha_creacion', desc=True)
         response = query.execute()
         resultados = []
         for row in response.data:
@@ -11155,6 +11155,8 @@ if tab3 is not None:
                 txt = _re_filt.sub(r'<[^>]+>', '', str(badge_html)).strip()
                 return _filtro_activo in txt
             df_resultados = df_resultados[df_resultados['Estado'].apply(_match_filtro)].copy()
+            # Resetear dropdown para que muestre opciones filtradas desde el inicio
+            st.session_state.pop('selector_cotizaciones', None)
         n_resultados = len(df_resultados)
         altura_tabla = min(n_resultados * 52 + 60, 550)
 
@@ -11924,7 +11926,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             _col_sel, _col_rec_btn = st.columns([4, 1])
             with _col_sel:
                 st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 4px 0;-webkit-text-fill-color:#0f172a;">📂 Selecciona una cotización</div>', unsafe_allow_html=True)
-                cotizacion_seleccionada = st.selectbox("Selecciona una cotización:", options=opciones, key=f"selector_cotizaciones_{st.session_state.get('filtro_estado_tabla','TODOS')}", label_visibility="collapsed")
+                cotizacion_seleccionada = st.selectbox("Selecciona una cotización:", options=opciones, key="selector_cotizaciones", label_visibility="collapsed")
 
             with _col_rec_btn:
                 st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
