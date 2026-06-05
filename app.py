@@ -4547,7 +4547,7 @@ def formato_clp(valor):
 # FUNCIONES PARA PROCESAR CAMBIOS EN TIEMPO REAL
 # =========================================================
 def procesar_cambio_rut():
-    rut_key = f"rut_input_{st.session_state.counter}"
+    rut_key = f"rut_input_{st.session_state.get('counter', 0)}"
     if rut_key in st.session_state:
         valor_actual = st.session_state[rut_key]
         raw = re.sub(r'[^0-9kK]', '', valor_actual)
@@ -4567,7 +4567,7 @@ def procesar_cambio_rut():
             st.session_state.rut_mensaje = "RUT incompleto"
 
 def procesar_cambio_rut_empresa():
-    rut_emp_key = f"rut_empresa_input_{st.session_state.counter}"
+    rut_emp_key = f"rut_empresa_input_{st.session_state.get('counter', 0)}"
     if rut_emp_key in st.session_state:
         valor_actual = st.session_state[rut_emp_key]
         raw = re.sub(r'[^0-9kK]', '', valor_actual)
@@ -4663,7 +4663,7 @@ def _rerun_hb():
     pass  # El rerun ocurre automáticamente al ejecutar on_change
 
 def procesar_cambio_telefono():
-    telefono_key = f"telefono_input_{st.session_state.counter}"
+    telefono_key = f"telefono_input_{st.session_state.get('counter', 0)}"
     if telefono_key in st.session_state:
         valor_actual = st.session_state[telefono_key]
         digitos_norm, valido, mensaje = _validar_telefono_cliente(valor_actual)
@@ -5834,7 +5834,7 @@ def _fetch_cotizaciones_raw(rol, email):
         )
         if rol == 'ejecutivo' and email:
             query = query.ilike('asesor_email', email.strip())
-        query = query.order('fecha_creacion', desc=True)
+        query = query.order('fecha_creacion', desc=True).limit(100)
         return query.execute().data or []
     except:
         return []
@@ -5866,7 +5866,7 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
             }
             campo = campo_map.get(tipo_busqueda, 'numero')
             query = query.ilike(campo, f'%{termino}%')
-        query = query.order('fecha_creacion', desc=True)
+        query = query.order('fecha_creacion', desc=True).limit(50)
         response = query.execute()
         resultados = []
         for row in response.data:
@@ -11527,56 +11527,6 @@ if tab3 is not None:
 (function(){
   var D=window.parent.document;
   var _af='';
-  // Cache de opciones originales por <select> (para poder restaurar al cambiar filtro)
-  var _optCache = new WeakMap();
-  function _cacheOptions(sel){
-    if (_optCache.has(sel)) return _optCache.get(sel);
-    var arr = [];
-    Array.prototype.forEach.call(sel.options, function(o){ arr.push(o.cloneNode(true)); });
-    _optCache.set(sel, arr);
-    return arr;
-  }
-  function applyDropdownFilter(val){
-    // 1) <select> nativo: remover opciones que no coinciden (display:none no funciona)
-    D.querySelectorAll('select').forEach(function(sel){
-      var orig = _cacheOptions(sel);
-      // Detectar si este select es el de cotizaciones
-      var hasEP = false;
-      for (var i = 0; i < orig.length; i++){
-        if ((orig[i].textContent || '').indexOf('EP-') === 0){ hasEP = true; break; }
-      }
-      if (!hasEP) return;
-      // Guardar valor seleccionado actual
-      var currentVal = sel.value;
-      // Limpiar y reconstruir
-      while (sel.firstChild) sel.removeChild(sel.firstChild);
-      var firstMatchValue = null;
-      orig.forEach(function(o){
-        var txt = o.textContent || '';
-        var keep = (!val || val === 'TODOS' || txt.indexOf('EP-') !== 0 || txt.indexOf(val) !== -1);
-        if (keep){
-          var clone = o.cloneNode(true);
-          sel.appendChild(clone);
-          if (firstMatchValue === null && txt.indexOf('EP-') === 0) firstMatchValue = clone.value;
-        }
-      });
-      // Restaurar valor si todavía existe, sino seleccionar primero
-      var found = false;
-      for (var j = 0; j < sel.options.length; j++){
-        if (sel.options[j].value === currentVal){ sel.value = currentVal; found = true; break; }
-      }
-      if (!found && firstMatchValue !== null){
-        sel.value = firstMatchValue;
-        sel.dispatchEvent(new Event('change', {bubbles: true}));
-      }
-    });
-    // 2) Listbox BaseWeb (cuando el dropdown está abierto): ocultar li no coincidentes
-    D.querySelectorAll('[data-baseweb="select"] [role="option"], [data-baseweb="popover"] li').forEach(function(li){
-      var txt = li.textContent || '';
-      if (txt.indexOf('EP-') !== 0) return;
-      li.style.display = (!val || val === 'TODOS' || txt.indexOf(val) !== -1) ? '' : 'none';
-    });
-  }
   function doFilter(val){
     _af=val;
     D.querySelectorAll('tr[data-est]').forEach(function(r){
@@ -11587,7 +11537,6 @@ if tab3 is not None:
       var isAct=(!val||val==='TODOS')?(bv==='TODOS'):(bv===val);
       b.style.outline=isAct?('2px solid '+b.style.color):'';
     });
-    applyDropdownFilter(val);
   }
   function init(){
     D.querySelectorAll('._badge_filtro').forEach(function(b){
@@ -11598,13 +11547,7 @@ if tab3 is not None:
         doFilter((_af===val&&val!=='TODOS')?'':val);
       });
     });
-    if (_af) applyDropdownFilter(_af);
   }
-  // Observer para reaplicar filtro al dropdown cuando se abre el popover
-  try {
-    var _obs = new MutationObserver(function(){ if(_af) applyDropdownFilter(_af); });
-    _obs.observe(D.body, {childList: true, subtree: true});
-  } catch(e){}
   setTimeout(init,400);
   setInterval(init,2000);
 })();
