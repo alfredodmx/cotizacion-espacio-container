@@ -11924,7 +11924,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             _col_sel, _col_rec_btn = st.columns([4, 1])
             with _col_sel:
                 st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 4px 0;-webkit-text-fill-color:#0f172a;">📂 Selecciona una cotización</div>', unsafe_allow_html=True)
-                cotizacion_seleccionada = st.selectbox("Selecciona una cotización:", options=opciones, key="selector_cotizaciones", label_visibility="collapsed")
+                cotizacion_seleccionada = st.selectbox("Selecciona una cotización:", options=opciones, key=f"selector_cotizaciones_{st.session_state.get('filtro_estado_tabla','TODOS')}", label_visibility="collapsed")
 
             with _col_rec_btn:
                 st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
