@@ -5834,7 +5834,7 @@ def _fetch_cotizaciones_raw(rol, email):
         )
         if rol == 'ejecutivo' and email:
             query = query.ilike('asesor_email', email.strip())
-        query = query.order('fecha_creacion', desc=True).limit(100)
+        query = query.order('fecha_creacion', desc=True)
         return query.execute().data or []
     except:
         return []
@@ -5866,7 +5866,7 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
             }
             campo = campo_map.get(tipo_busqueda, 'numero')
             query = query.ilike(campo, f'%{termino}%')
-        query = query.order('fecha_creacion', desc=True).limit(50)
+        query = query.order('fecha_creacion', desc=True)
         response = query.execute()
         resultados = []
         for row in response.data:
@@ -11891,47 +11891,68 @@ var MAT_DATA = """ + _mat_data_json_map + """;
 
         st.markdown("### Seleccionar cotización")
 
-        # ── FILTRO DROPDOWN: aplicar filtro badge usando EstadoKey ──
-        _filtro_dd = st.session_state.get('filtro_estado_tabla')
-        if _filtro_dd and 'EstadoKey' in df_resultados.columns:
-            _df_dd = df_resultados[df_resultados['EstadoKey'].astype(str).str.contains(_filtro_dd, na=False, regex=False)].copy()
-        else:
-            _df_dd = df_resultados
-
+        # ── DROPDOWN: construir opciones desde session_state crudo + filtro badge ──
+        # NO depende de df_resultados. Aplica el filtro badge directamente aquí.
+        _filtro_badge_dd = st.session_state.get('filtro_estado_tabla')  # ej. "🟠 BORRADOR CON PLANO" o None
+        _raw_cots = st.session_state.resultados_busqueda or []
+        from datetime import datetime as _dt_dd, timezone as _tz_dd, timedelta as _td_dd
+        def _fmt_fecha_dd(x):
+            if not x: return ""
+            try:
+                _tz_cl = _tz_dd(_td_dd(hours=-3))
+                _d = _dt_dd.fromisoformat(str(x).replace("Z","+00:00")).astimezone(_tz_cl)
+                return _d.strftime("%d/%m/%Y %H:%M")
+            except: return str(x)[:10]
         opciones = []
-        for idx, row in _df_dd.iterrows():
-            # PROYECTO TERMINADO tiene prioridad absoluta
-            if row.get('Acta_URL',''):
-                estado = "🟣 PROYECTO TERMINADO"
-            elif row.get('Tiene_Notariado', 0):
-                estado = "🔵 ADJUDICADO"
-            elif str(row.get('Motivo_Rechazo','') or '').strip() not in ('','None','nan'):
-                estado = "❌ RECHAZADO"
+        # Indices según _cols_esperadas: 0=N°, 1=Cliente, 3=Fecha, 4=Total, 5=Margen, 7=Email,
+        # 8=Asesor_Email, 9=Asesor_Tel, 2=Asesor, 10=Tiene_Plano, 15=Tiene_Notariado,
+        # 19=Motivo_Rechazo, 21=Acta_URL
+        for _rc in _raw_cots:
+            _r = list(_rc) + [0] * 32  # padding por si acaso
+            _numero      = _r[0]
+            _cliente     = _r[1] or ''
+            _asesor      = _r[2] or ''
+            _fecha       = _r[3]
+            _total_val   = _r[4] or 0
+            _margen_val  = _r[5] or 0
+            _email       = _r[7] or ''
+            _asesor_em   = _r[8] or ''
+            _asesor_tel  = _r[9] or ''
+            _tiene_plano = bool(_r[10])
+            _tiene_notar = bool(_r[15])
+            _motivo_rec  = str(_r[19] or '').strip()
+            _acta_url    = _r[21] or ''
+            # Calcular estado igual que la tabla
+            if _acta_url:
+                _est_dd = "🟣 PROYECTO TERMINADO"
+            elif _tiene_notar:
+                _est_dd = "🔵 ADJUDICADO"
+            elif _motivo_rec not in ('','None','nan'):
+                _est_dd = "❌ RECHAZADO"
             else:
-                datos_completos = all([row['Cliente'], row['Email']])
-                asesor_completo = any([row['Asesor'], row['Asesor_Email'], row['Asesor_Tel']])
-                if row['Margen'] and row['Margen'] > 0:
-                    estado = ("🟢 AUTORIZADO CON PLANO" if row['Tiene_Plano'] else "🟢 AUTORIZADO") if (datos_completos and asesor_completo) else ("🔴 INCOMPLETO CON PLANO" if row['Tiene_Plano'] else "🔴 INCOMPLETO")
+                _dc = bool(_cliente) and bool(_email)
+                _ac = bool(_asesor) or bool(_asesor_em) or bool(_asesor_tel)
+                if _margen_val and _margen_val > 0:
+                    _est_dd = ("🟢 AUTORIZADO CON PLANO" if _tiene_plano else "🟢 AUTORIZADO") if (_dc and _ac) else ("🔴 INCOMPLETO CON PLANO" if _tiene_plano else "🔴 INCOMPLETO")
                 else:
-                    if datos_completos and asesor_completo:
-                        estado = "🟠 BORRADOR CON PLANO" if row['Tiene_Plano'] else "🟡 BORRADOR"
+                    if _dc and _ac:
+                        _est_dd = "🟠 BORRADOR CON PLANO" if _tiene_plano else "🟡 BORRADOR"
                     else:
-                        estado = "🔴 INCOMPLETO CON PLANO" if row['Tiene_Plano'] else "🔴 INCOMPLETO"
-            plano_indicador = "📎" if row['Tiene_Plano'] else ""
-            # Extraer solo el monto sin HTML para el selectbox
-            _total_raw = st.session_state.resultados_busqueda
-            _total_limpio = ""
-            for _rb in (_total_raw or []):
-                if str(_rb[0]) == str(row['N°']):
-                    _total_limpio = f"${_rb[4]:,.0f}".replace(",",".") if _rb[4] else "$0"
-                    break
-            opciones.append(f"{row['N°']} - {row['Cliente'] or 'S/C'} ({row['FechaPlana']}) - {_total_limpio} - {estado} {plano_indicador}")
+                        _est_dd = "🔴 INCOMPLETO CON PLANO" if _tiene_plano else "🔴 INCOMPLETO"
+            # APLICAR FILTRO BADGE
+            if _filtro_badge_dd and _filtro_badge_dd not in _est_dd:
+                continue
+            _plano_ind = "📎" if _tiene_plano else ""
+            _total_lim = f"${_total_val:,.0f}".replace(",",".") if _total_val else "$0"
+            _fecha_p   = _fmt_fecha_dd(_fecha)
+            opciones.append(f"{_numero} - {_cliente or 'S/C'} ({_fecha_p}) - {_total_lim} - {_est_dd} {_plano_ind}")
 
         if opciones:
             _col_sel, _col_rec_btn = st.columns([4, 1])
             with _col_sel:
                 st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 4px 0;-webkit-text-fill-color:#0f172a;">📂 Selecciona una cotización</div>', unsafe_allow_html=True)
-                cotizacion_seleccionada = st.selectbox("Selecciona una cotización:", options=opciones, key="selector_cotizaciones", label_visibility="collapsed")
+                _key_sel = f"selector_cotizaciones_{(st.session_state.get('filtro_estado_tabla') or 'TODOS').replace(' ','_').replace('🟣','T').replace('🔵','A').replace('🟢','V').replace('🟠','O').replace('🟡','Y').replace('🔴','R').replace('❌','X')}"
+                cotizacion_seleccionada = st.selectbox("Selecciona una cotización:", options=opciones, key=_key_sel, label_visibility="collapsed")
 
             with _col_rec_btn:
                 st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
