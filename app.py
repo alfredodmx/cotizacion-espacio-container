@@ -5866,7 +5866,7 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
             }
             campo = campo_map.get(tipo_busqueda, 'numero')
             query = query.ilike(campo, f'%{termino}%')
-        query = query.order('fecha_creacion', desc=True)
+        query = query.order('fecha_creacion', desc=True).limit(50)
         response = query.execute()
         resultados = []
         for row in response.data:
