@@ -11891,9 +11891,15 @@ var MAT_DATA = """ + _mat_data_json_map + """;
 
         st.markdown("### Seleccionar cotización")
 
+        # ── FILTRO DROPDOWN: aplicar filtro badge usando EstadoKey ──
+        _filtro_dd = st.session_state.get('filtro_estado_tabla')
+        if _filtro_dd and 'EstadoKey' in df_resultados.columns:
+            _df_dd = df_resultados[df_resultados['EstadoKey'].astype(str).str.contains(_filtro_dd, na=False, regex=False)].copy()
+        else:
+            _df_dd = df_resultados
+
         opciones = []
-        _filtro_dropdown = st.session_state.get('filtro_estado_tabla')
-        for idx, row in df_resultados.iterrows():
+        for idx, row in _df_dd.iterrows():
             # PROYECTO TERMINADO tiene prioridad absoluta
             if row.get('Acta_URL',''):
                 estado = "🟣 PROYECTO TERMINADO"
@@ -11911,9 +11917,6 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                         estado = "🟠 BORRADOR CON PLANO" if row['Tiene_Plano'] else "🟡 BORRADOR"
                     else:
                         estado = "🔴 INCOMPLETO CON PLANO" if row['Tiene_Plano'] else "🔴 INCOMPLETO"
-            # Aplicar filtro badge directamente en el dropdown
-            if _filtro_dropdown and _filtro_dropdown not in estado:
-                continue
             plano_indicador = "📎" if row['Tiene_Plano'] else ""
             # Extraer solo el monto sin HTML para el selectbox
             _total_raw = st.session_state.resultados_busqueda
