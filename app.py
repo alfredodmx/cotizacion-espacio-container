@@ -4547,7 +4547,7 @@ def formato_clp(valor):
 # FUNCIONES PARA PROCESAR CAMBIOS EN TIEMPO REAL
 # =========================================================
 def procesar_cambio_rut():
-    rut_key = f"rut_input_{st.session_state.get('counter', 0)}"
+    rut_key = f"rut_input_{st.session_state.counter}"
     if rut_key in st.session_state:
         valor_actual = st.session_state[rut_key]
         raw = re.sub(r'[^0-9kK]', '', valor_actual)
@@ -4567,7 +4567,7 @@ def procesar_cambio_rut():
             st.session_state.rut_mensaje = "RUT incompleto"
 
 def procesar_cambio_rut_empresa():
-    rut_emp_key = f"rut_empresa_input_{st.session_state.get('counter', 0)}"
+    rut_emp_key = f"rut_empresa_input_{st.session_state.counter}"
     if rut_emp_key in st.session_state:
         valor_actual = st.session_state[rut_emp_key]
         raw = re.sub(r'[^0-9kK]', '', valor_actual)
@@ -4663,7 +4663,7 @@ def _rerun_hb():
     pass  # El rerun ocurre automáticamente al ejecutar on_change
 
 def procesar_cambio_telefono():
-    telefono_key = f"telefono_input_{st.session_state.get('counter', 0)}"
+    telefono_key = f"telefono_input_{st.session_state.counter}"
     if telefono_key in st.session_state:
         valor_actual = st.session_state[telefono_key]
         digitos_norm, valido, mensaje = _validar_telefono_cliente(valor_actual)
@@ -5834,7 +5834,7 @@ def _fetch_cotizaciones_raw(rol, email):
         )
         if rol == 'ejecutivo' and email:
             query = query.ilike('asesor_email', email.strip())
-        query = query.order('fecha_creacion', desc=True)
+        query = query.order('fecha_creacion', desc=True).limit(100)
         return query.execute().data or []
     except:
         return []
@@ -5866,7 +5866,7 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
             }
             campo = campo_map.get(tipo_busqueda, 'numero')
             query = query.ilike(campo, f'%{termino}%')
-        query = query.order('fecha_creacion', desc=True)
+        query = query.order('fecha_creacion', desc=True).limit(50)
         response = query.execute()
         resultados = []
         for row in response.data:
@@ -8273,7 +8273,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     from reportlab.lib import colors
     from reportlab.lib.units import cm
     from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
-                                    HRFlowable, Table, TableStyle, PageBreak)
+                                    HRFlowable, Table, TableStyle, PageBreak, KeepTogether)
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY
     import io
@@ -8476,59 +8476,54 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
             "b) <b>Anexos</b>: Los documentos técnicos y comerciales que forman parte "
             "integrante del presente contrato, en especial Anexo N°1 (Especificaciones "
             "Técnicas) y Anexo N°2 (Presupuesto Detallado).", normal),
-        Paragraph(
+    ] + ([Paragraph(
             "c) <b>Preentrega</b>: Instancia de revisión visual del módulo previo a su "
             "despacho desde las instalaciones del Proveedor.", normal),
+    ] if ((_plt_cls.get("_tipo_plantilla") if _plt_cls else None) or "A") == "A" else []) + [
         HR(),
     ]
 
     # ── III. Objeto ──
-    story += [
+    story.append(KeepTogether([
         Paragraph("III. OBJETO DEL CONTRATO", seccion),
         Paragraph(_p("objeto", "El Cliente encarga al Proveedor la fabricación y venta del Proyecto individualizado precedentemente."), normal),
         HR(),
-    ]
+    ]))
 
     # ── IV. Alcance técnico ──
-    story += [Paragraph("IV. ALCANCE TÉCNICO Y EJECUCIÓN", seccion)]
-    for _l in _p("alcance", None).split("\n"):
-        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
-    story += [HR()]
+    _iv = [Paragraph("IV. ALCANCE TÉCNICO Y EJECUCIÓN", seccion)]
+    _iv += [Paragraph(_l.strip(), normal) for _l in _p("alcance", None).split("\n") if _l.strip()]
+    _iv.append(HR())
+    story.append(KeepTogether(_iv))
 
     # ── V. Visitas ──
-    story += [
+    story.append(KeepTogether([
         Paragraph("V. VISITAS Y SEGUIMIENTO DEL PROYECTO", seccion),
         Paragraph(_p("visitas", None), normal),
         HR(),
-    ]
+    ]))
 
     # ── VI. Precio ──
-    story += [
+    story.append(KeepTogether([
         Paragraph("VI. PRECIO", seccion),
         Paragraph(_p("precio", f"El precio total del Proyecto asciende a la suma de <b>{fmt(precio)}</b> ({precio_p}), IVA incluido."), normal),
         HR(),
-    ]
+    ]))
 
     # ── VII. Forma de pago ──
-    story += [Paragraph("VII. FORMA Y ETAPAS DE PAGO", seccion)]
-    for _l in _p("forma_pago", None).split("\n"):
-        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
-    story += [HR()]
+    _vii = [Paragraph("VII. FORMA Y ETAPAS DE PAGO", seccion)]
+    _vii += [Paragraph(_l.strip(), normal) for _l in _p("forma_pago", None).split("\n") if _l.strip()]
+    _vii.append(HR())
+    story.append(KeepTogether(_vii))
 
     # ── VIII. Inicio fabricación ──
-    story += [
+    story.append(KeepTogether([
         Paragraph("VIII. INICIO DE FABRICACIÓN", seccion),
         Paragraph(_p("inicio", None), normal),
         HR(),
-    ]
+    ]))
 
-    # ── IX. Medios de pago ──
-    story += [
-        Paragraph("IX. MEDIOS DE PAGO", seccion),
-        Paragraph(
-            "Los pagos deberán efectuarse mediante <b>transferencia electrónica, "
-            "cheque o vale vista</b>, a la siguiente cuenta bancaria:", normal),
-    ]
+    # ── IX. Medios de pago — siempre en hoja limpia ──
     datos_banco = [
         ["Razón Social:", "Inversiones Container House SpA"],
         ["RUT:",          "78.268.851-0"],
@@ -8547,24 +8542,30 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         ('BOTTOMPADDING', (0,0), (-1,-1), 4),
         ('LEFTPADDING',   (0,0), (-1,-1), 6),
     ]))
-    story += [tbl, SP(6),
+    story.append(PageBreak())
+    story.append(KeepTogether([
+        Paragraph("IX. MEDIOS DE PAGO", seccion),
+        Paragraph(
+            "Los pagos deberán efectuarse mediante <b>transferencia electrónica, "
+            "cheque o vale vista</b>, a la siguiente cuenta bancaria:", normal),
+        tbl, SP(4),
         Paragraph(
             "Cada pago deberá ser informado por el Cliente mediante correo electrónico, "
             "adjuntando el comprobante respectivo.", normal),
         HR(),
-    ]
+    ]))
 
     # ── X. Plazo ──
-    story += [Paragraph("X. PLAZO DE FABRICACIÓN Y ENTREGA", seccion)]
-    for _l in _p("plazo", None).split("\n"):
-        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
-    story += [HR()]
+    _x = [Paragraph("X. PLAZO DE FABRICACIÓN Y ENTREGA", seccion)]
+    _x += [Paragraph(_l.strip(), normal) for _l in _p("plazo", None).split("\n") if _l.strip()]
+    _x.append(HR())
+    story.append(KeepTogether(_x))
 
     # ── XI. Penalidad ──
-    story += [Paragraph("XI. PENALIDAD POR ATRASO", seccion)]
-    for _l in _p("penalidad", None).split("\n"):
-        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
-    story += [HR()]
+    _xi = [Paragraph("XI. PENALIDAD POR ATRASO", seccion)]
+    _xi += [Paragraph(_l.strip(), normal) for _l in _p("penalidad", None).split("\n") if _l.strip()]
+    _xi.append(HR())
+    story.append(KeepTogether(_xi))
 
     # ── Cláusulas XII en adelante — data-driven según tipo de plantilla ──
     # Obtener tipo: inyectado por _obtener_clausulas_contrato en _tipo_plantilla
@@ -8604,37 +8605,38 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         _num_str = _romano(_num_clausula)
 
         if _clave == 'suministro_energia':
-            # Texto especial: quitar título embebido si lo tiene
             _txt_sum = (_plt_cls or {}).get("suministro_energia", "")
             if not _txt_sum:
+                _num_clausula -= 1
                 continue
             _txt_sum = _re_sum.sub(
                 r'^X{0,3}(?:IX|IV|V?I{0,3})\..*?Y USO DE HERRAMIENTAS\s*',
                 '', _txt_sum.strip(), flags=_re_sum.IGNORECASE | _re_sum.DOTALL
             ).strip()
-            story += [
-                Paragraph(f"{_num_str}. {_titulo}", seccion),
-                Paragraph(_rep(_txt_sum, d), normal),
-                SP(6),
-            ]
+            _blk = [Paragraph(f"{_num_str}. {_titulo}", seccion)]
+            _blk += [Paragraph(_l.strip(), normal) for _l in _rep(_txt_sum, d).split("\n") if _l.strip()]
+            _blk.append(SP(4))
+            story.append(KeepTogether(_blk))
         elif _clave == 'firma':
-            story += [
+            story.append(PageBreak())
+            story.append(KeepTogether([
                 Paragraph(f"{_num_str}. {_titulo}", seccion),
                 Paragraph(_p("firma", None), normal),
                 SP(60),
-            ]
+            ]))
         elif _multi:
-            story += [Paragraph(f"{_num_str}. {_titulo}", seccion)]
-            for _l in _p(_clave, None).split("\n"):
-                if _l.strip(): story.append(Paragraph(_l.strip(), normal))
-            if _sep == 'hr': story += [HR()]
+            _blk = [Paragraph(f"{_num_str}. {_titulo}", seccion)]
+            _blk += [Paragraph(_l.strip(), normal) for _l in _p(_clave, None).split("\n") if _l.strip()]
+            if _sep == 'hr': _blk.append(HR())
+            story.append(KeepTogether(_blk))
         else:
-            story += [
+            _blk = [
                 Paragraph(f"{_num_str}. {_titulo}", seccion),
                 Paragraph(_p(_clave, None), normal),
             ]
-            if _sep == 'hr': story += [HR()]
-            elif _sep == 'pagebreak': story += [PageBreak()]
+            if _sep == 'hr': _blk.append(HR())
+            elif _sep == 'pagebreak': _blk.append(PageBreak())
+            story.append(KeepTogether(_blk))
 
     # Bloque de firmas en tabla 2 columnas
     if d['tipo_cliente'] == 'natural':
@@ -11527,34 +11529,6 @@ if tab3 is not None:
 (function(){
   var D=window.parent.document;
   var _af='';
-  /* DROPDOWN_FILTER_V4 */
-  function filterDropdown(val){
-    // Streamlit usa BaseWeb: <li role="option"> dentro de <ul role="listbox">
-    // El popover se crea en window.parent.document.body cuando se abre
-    var lis = D.querySelectorAll('li[role="option"], div[role="option"], [data-baseweb="select"] li, [data-baseweb="popover"] li');
-    lis.forEach(function(li){
-      var txt = (li.textContent || '').trim();
-      // Solo filtrar opciones de cotizaciones (empiezan con "EP-")
-      if (txt.indexOf('EP-') !== 0) return;
-      if (!val || val === 'TODOS') {
-        li.style.display = '';
-        li.style.height = '';
-        li.style.padding = '';
-        li.style.overflow = '';
-      } else if (txt.indexOf(val) !== -1) {
-        li.style.display = '';
-        li.style.height = '';
-        li.style.padding = '';
-        li.style.overflow = '';
-      } else {
-        // Remover completamente del flujo visual para que no haya espacios
-        li.style.display = 'none';
-        li.style.height = '0';
-        li.style.padding = '0';
-        li.style.overflow = 'hidden';
-      }
-    });
-  }
   function doFilter(val){
     _af=val;
     D.querySelectorAll('tr[data-est]').forEach(function(r){
@@ -11565,7 +11539,6 @@ if tab3 is not None:
       var isAct=(!val||val==='TODOS')?(bv==='TODOS'):(bv===val);
       b.style.outline=isAct?('2px solid '+b.style.color):'';
     });
-    filterDropdown(val);
   }
   function init(){
     D.querySelectorAll('._badge_filtro').forEach(function(b){
@@ -11576,33 +11549,7 @@ if tab3 is not None:
         doFilter((_af===val&&val!=='TODOS')?'':val);
       });
     });
-    if (_af) filterDropdown(_af);
   }
-  // Observer: cuando se abre el dropdown, BaseWeb crea los <li> al vuelo
-  try {
-    var _obs = new MutationObserver(function(muts){
-      if (!_af) return;
-      var shouldFilter = false;
-      muts.forEach(function(m){
-        if (m.addedNodes && m.addedNodes.length > 0) shouldFilter = true;
-      });
-      if (shouldFilter) setTimeout(function(){ filterDropdown(_af); }, 10);
-    });
-    _obs.observe(D.body, {childList: true, subtree: true});
-  } catch(e){}
-  // Backup: al hacer click en cualquier dropdown, reaplica filtro
-  D.addEventListener('click', function(e){
-    if (!_af) return;
-    var tgt = e.target;
-    while (tgt && tgt !== D.body){
-      if (tgt.getAttribute && (tgt.getAttribute('data-baseweb') === 'select' || tgt.getAttribute('role') === 'combobox')){
-        setTimeout(function(){ filterDropdown(_af); }, 50);
-        setTimeout(function(){ filterDropdown(_af); }, 200);
-        break;
-      }
-      tgt = tgt.parentElement;
-    }
-  }, true);
   setTimeout(init,400);
   setInterval(init,2000);
 })();
@@ -18299,6 +18246,9 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     _estimated_lines = _newlines + max(1, _chars // 85)
                     _h = max(120, _estimated_lines * 22)
                     if _key in _LABELS_READONLY:
+                        if _key == "definiciones" and tipo_plt in ("B", "E"):
+                            import re as _re_pre
+                            _val_actual = _re_pre.sub(r'\nc\).*?Proveedor\.', '', _val_actual).strip()
                         st.markdown(
                             f'''<div style="background:#1e3a5f;color:white;font-size:0.78rem;font-weight:900;
                                         text-transform:uppercase;letter-spacing:0.08em;padding:8px 14px;
