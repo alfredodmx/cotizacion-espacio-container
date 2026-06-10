@@ -20,735 +20,6 @@ import urllib.parse
 
 st.set_page_config(layout="wide", page_title="Cotizador PRO", page_icon="📊")
 
-# ─── Ocultar botones flotantes de Streamlit (deploy, GitHub, menú, footer) ───
-st.markdown("""
-<style>
-    /* ============================================================
-       AI DESIGN SYSTEM — Semantic Token Layer
-       Inspirado en: Linear · Vercel · Raycast · Resend
-       ============================================================ */
-    :root {
-        /* — Surfaces — */
-        --ds-bg:             #09090b;
-        --ds-surface:        #111113;
-        --ds-card:           #18181b;
-        --ds-card-hover:     #27272a;
-        --ds-sidebar:        #0f0f11;
-        --ds-sidebar-item:   rgba(255,255,255,0.04);
-        --ds-sidebar-active: rgba(34,197,94,0.10);
-
-        /* — Borders — */
-        --ds-border:         rgba(255,255,255,0.07);
-        --ds-border-strong:  rgba(255,255,255,0.14);
-
-        /* — Text — */
-        --ds-fg:             #fafafa;
-        --ds-muted:          #a1a1aa;
-        --ds-subtle:         #52525b;
-
-        /* — Primary accent: neon green sutil — */
-        --ds-primary:        #22c55e;
-        --ds-primary-glow:   rgba(34,197,94,0.20);
-        --ds-primary-dim:    rgba(34,197,94,0.08);
-        --ds-primary-border: rgba(34,197,94,0.30);
-
-        /* — Radius — */
-        --ds-r-sm:  10px;
-        --ds-r-md:  16px;   /* rounded-2xl */
-        --ds-r-lg:  24px;   /* rounded-3xl */
-
-        /* — Shadows (soft, layered) — */
-        --ds-shadow-sm: 0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.3);
-        --ds-shadow-md: 0 4px 20px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4);
-        --ds-shadow-lg: 0 8px 40px rgba(0,0,0,0.7), 0 4px 16px rgba(0,0,0,0.5);
-
-        /* — Spacing — */
-        --ds-sp-xs: 8px;
-        --ds-sp-sm: 12px;
-        --ds-sp-md: 24px;
-        --ds-sp-lg: 32px;
-        --ds-sp-xl: 48px;
-
-        /* — Transitions — */
-        --ds-ease: cubic-bezier(0.4, 0, 0.2, 1);
-        --ds-duration: 220ms;
-    }
-
-    /* ============================================================
-       TIPOGRAFÍA GLOBAL — Inter (DS: font-sans, clean, modern)
-       ============================================================ */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700&family=Montserrat:wght@700;900&display=swap');
-
-    html, body, .stApp, .stApp * {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-    }
-    h1, h2, h3 { font-family: 'Montserrat', sans-serif !important; }
-
-    /* ============================================================
-       OCULTAR ELEMENTOS DE STREAMLIT
-       ============================================================ */
-    .stDeployButton, [data-testid="stStatusWidget"],
-    button[kind="header"], .stAppDeployButton,
-    #MainMenu, [data-testid="stMainMenu"],
-    footer, [data-testid="stFooter"],
-    .viewerBadge_container__r5tak, .viewerBadge_link__qRIco,
-    [data-testid="manage-app-button"],
-    ._profileContainer_gzau3_53, ._profilePreview_gzau3_63,
-    header[data-testid="stHeader"] {
-        display: none !important;
-    }
-
-    /* ============================================================
-       FONDO GLOBAL — Dark premium (DS: bg-background)
-       ============================================================ */
-    [data-testid="stAppViewContainer"],
-    .stApp {
-        background-color: var(--ds-bg) !important;
-    }
-    .stAppViewBlockContainer, .block-container {
-        padding-top: 1rem !important;
-        background-color: transparent !important;
-    }
-
-    /* ============================================================
-       SIDEBAR — Floating dark panel (DS: floating dark, soft border)
-       ============================================================ */
-    section[data-testid="stSidebar"] {
-        background-color: var(--ds-sidebar) !important;
-        border-right: 1px solid var(--ds-border) !important;
-        box-shadow: var(--ds-shadow-md) !important;
-        top: 65px !important;
-        height: calc(100vh - 65px) !important;
-        transition: width var(--ds-duration) var(--ds-ease),
-                    transform var(--ds-duration) var(--ds-ease) !important;
-        z-index: 1000 !important;
-    }
-
-    /* Scrollbar sutil en sidebar */
-    section[data-testid="stSidebar"]::-webkit-scrollbar { width: 3px; }
-    section[data-testid="stSidebar"]::-webkit-scrollbar-track { background: transparent; }
-    section[data-testid="stSidebar"]::-webkit-scrollbar-thumb {
-        background: var(--ds-border-strong);
-        border-radius: 99px;
-    }
-
-    /* ── RAIL MODE (colapsado) ─────────────────────────────── */
-    section[data-testid="stSidebar"][aria-expanded="false"],
-    section[data-testid="stSidebar"][data-collapsed="true"] {
-        transform: translateX(0) !important;
-        width: 72px !important;
-        min-width: 72px !important;
-    }
-
-    /* Ocultar texto, mostrar solo emoji en rail */
-    section[data-testid="stSidebar"][aria-expanded="false"] [data-testid="stMarkdownContainer"] p,
-    section[data-testid="stSidebar"][data-collapsed="true"]  [data-testid="stMarkdownContainer"] p {
-        font-size: 0 !important;
-        text-align: center !important;
-        margin: 0 !important;
-    }
-    section[data-testid="stSidebar"][aria-expanded="false"] [data-testid="stMarkdownContainer"] p::first-letter,
-    section[data-testid="stSidebar"][data-collapsed="true"]  [data-testid="stMarkdownContainer"] p::first-letter {
-        font-size: 22px !important;
-        visibility: visible !important;
-        display: block !important;
-        margin-bottom: 14px !important;
-        line-height: 1 !important;
-    }
-    section[data-testid="stSidebar"][aria-expanded="false"] [data-testid="stWidgetLabel"],
-    section[data-testid="stSidebar"][data-collapsed="true"]  [data-testid="stWidgetLabel"] {
-        justify-content: center !important;
-        width: 100% !important;
-        margin-left: 0 !important;
-    }
-
-    /* ── SIDEBAR RADIO — nav items ──────────────────────────── */
-    section[data-testid="stSidebar"] label {
-        border-radius: var(--ds-r-sm) !important;
-        padding: 8px 12px !important;
-        margin: 2px 0 !important;
-        transition: background var(--ds-duration) var(--ds-ease) !important;
-        cursor: pointer !important;
-    }
-    section[data-testid="stSidebar"] label:hover {
-        background: var(--ds-sidebar-item) !important;
-    }
-    /* Ítem activo — accent verde sutil */
-    section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {
-        color: var(--ds-muted) !important;
-    }
-
-    /* ── COLLAPSE BUTTON ────────────────────────────────────── */
-    [data-testid="stSidebarCollapseButton"] {
-        background-color: var(--ds-card) !important;
-        border: 1px solid var(--ds-border-strong) !important;
-        box-shadow: var(--ds-shadow-sm) !important;
-        border-radius: var(--ds-r-sm) !important;
-        z-index: 1001 !important;
-        top: 10px !important;
-        left: 10px !important;
-        transition: background var(--ds-duration) var(--ds-ease) !important;
-    }
-    [data-testid="stSidebarCollapseButton"]:hover {
-        background-color: var(--ds-card-hover) !important;
-    }
-    [data-testid="stSidebarCollapseButton"] svg {
-        color: var(--ds-muted) !important;
-        fill: var(--ds-muted) !important;
-    }
-
-    /* ============================================================
-       STREAMLIT WIDGETS — Dark override
-       ============================================================ */
-    /* Radio buttons label text */
-    section[data-testid="stSidebar"] p,
-    section[data-testid="stSidebar"] span,
-    section[data-testid="stSidebar"] label {
-        color: var(--ds-muted) !important;
-    }
-    /* Section header (MENÚ PRINCIPAL label) */
-    section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {
-        color: var(--ds-subtle) !important;
-        font-size: 0.65rem !important;
-        font-weight: 600 !important;
-        letter-spacing: 0.10em !important;
-        text-transform: uppercase !important;
-    }
-    /* Separador */
-    section[data-testid="stSidebar"] hr {
-        border-color: var(--ds-border) !important;
-        margin: var(--ds-sp-sm) 0 !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# ── GLOBAL DARK PREMIUM OVERRIDE — All Streamlit widgets ──────────────
-st.markdown("""
-<style>
-    /* ============================================================
-       GLOBAL DARK OVERRIDE — Streamlit Widgets & Components
-       AI DESIGN SYSTEM: Linear · Vercel · Raycast style
-       All colors reference :root semantic tokens
-       ============================================================ */
-
-    /* ── TEXT GLOBAL ───────────────────────────────────────── */
-    .stApp p, .stApp span, .stApp div,
-    [data-testid="stAppViewContainer"] p,
-    [data-testid="stAppViewContainer"] span {
-        color: var(--ds-fg) !important;
-    }
-    .stApp [data-testid="stMarkdownContainer"] p {
-        color: var(--ds-fg) !important;
-    }
-    .stApp .stCaption, .stApp small,
-    [data-testid="stCaptionContainer"] p {
-        color: var(--ds-subtle) !important;
-    }
-
-    /* ── HEADINGS ──────────────────────────────────────────── */
-    .stApp h1, .stApp h2, .stApp h3,
-    .stApp h4, .stApp h5, .stApp h6 {
-        color: var(--ds-fg) !important;
-        -webkit-text-fill-color: var(--ds-fg) !important;
-    }
-
-    /* ── INPUTS — text, number, password ───────────────────── */
-    .stApp input[type="text"],
-    .stApp input[type="number"],
-    .stApp input[type="password"],
-    .stApp input[type="email"],
-    .stApp input[type="tel"],
-    .stApp [data-testid="stTextInput"] input,
-    .stApp [data-testid="stNumberInput"] input {
-        background-color: var(--ds-surface) !important;
-        color: var(--ds-fg) !important;
-        border: 1px solid var(--ds-border-strong) !important;
-        border-radius: var(--ds-r-sm) !important;
-        padding: 10px 14px !important;
-        caret-color: var(--ds-primary) !important;
-        transition: border-color var(--ds-duration) var(--ds-ease) !important;
-    }
-    .stApp input:focus {
-        border-color: var(--ds-primary-border) !important;
-        box-shadow: 0 0 0 3px var(--ds-primary-dim) !important;
-        outline: none !important;
-    }
-    .stApp input::placeholder {
-        color: var(--ds-subtle) !important;
-    }
-
-    /* ── TEXT AREA ─────────────────────────────────────────── */
-    .stApp textarea,
-    .stApp [data-testid="stTextArea"] textarea {
-        background-color: var(--ds-surface) !important;
-        color: var(--ds-fg) !important;
-        border: 1px solid var(--ds-border-strong) !important;
-        border-radius: var(--ds-r-sm) !important;
-        caret-color: var(--ds-primary) !important;
-    }
-    .stApp textarea:focus {
-        border-color: var(--ds-primary-border) !important;
-        box-shadow: 0 0 0 3px var(--ds-primary-dim) !important;
-    }
-
-    /* ── SELECT / DROPDOWN ────────────────────────────────── */
-    .stApp [data-testid="stSelectbox"],
-    .stApp [data-baseweb="select"] {
-        background-color: var(--ds-surface) !important;
-    }
-    .stApp [data-baseweb="select"] > div {
-        background-color: var(--ds-surface) !important;
-        border: 1px solid var(--ds-border-strong) !important;
-        border-radius: var(--ds-r-sm) !important;
-        color: var(--ds-fg) !important;
-    }
-    .stApp [data-baseweb="popover"] {
-        background-color: var(--ds-card) !important;
-        border: 1px solid var(--ds-border-strong) !important;
-        border-radius: var(--ds-r-sm) !important;
-        box-shadow: var(--ds-shadow-lg) !important;
-    }
-    .stApp [data-baseweb="menu"] {
-        background-color: var(--ds-card) !important;
-    }
-    .stApp [role="option"] {
-        color: var(--ds-muted) !important;
-        transition: background var(--ds-duration) var(--ds-ease) !important;
-    }
-    .stApp [role="option"]:hover,
-    .stApp [role="option"][aria-selected="true"] {
-        background-color: var(--ds-sidebar-item) !important;
-        color: var(--ds-fg) !important;
-    }
-
-    /* ── MULTISELECT ──────────────────────────────────────── */
-    .stApp [data-baseweb="tag"] {
-        background-color: var(--ds-primary-dim) !important;
-        border: 1px solid var(--ds-primary-border) !important;
-        color: var(--ds-primary) !important;
-        border-radius: 6px !important;
-    }
-
-    /* ── BUTTONS — primary, secondary, ghost ──────────────── */
-    .stApp button[kind="primary"],
-    .stApp [data-testid="stBaseButton-primary"] {
-        background-color: var(--ds-primary) !important;
-        color: #000 !important;
-        border: none !important;
-        border-radius: var(--ds-r-sm) !important;
-        font-weight: 600 !important;
-        box-shadow: 0 0 16px var(--ds-primary-glow) !important;
-        transition: opacity var(--ds-duration) var(--ds-ease),
-                    transform var(--ds-duration) var(--ds-ease) !important;
-    }
-    .stApp button[kind="primary"]:hover,
-    .stApp [data-testid="stBaseButton-primary"]:hover {
-        opacity: 0.9 !important;
-        transform: translateY(-1px) !important;
-    }
-    .stApp button[kind="secondary"],
-    .stApp [data-testid="stBaseButton-secondary"],
-    .stApp [data-testid="baseButton-secondary"] {
-        background-color: var(--ds-card) !important;
-        color: var(--ds-fg) !important;
-        border: 1px solid var(--ds-border-strong) !important;
-        border-radius: var(--ds-r-sm) !important;
-        transition: background var(--ds-duration) var(--ds-ease) !important;
-    }
-    .stApp button[kind="secondary"]:hover,
-    .stApp [data-testid="stBaseButton-secondary"]:hover,
-    .stApp [data-testid="baseButton-secondary"]:hover {
-        background-color: var(--ds-card-hover) !important;
-    }
-    /* Generic buttons fallback */
-    .stApp [data-testid="stButton"] button {
-        border-radius: var(--ds-r-sm) !important;
-        font-weight: 600 !important;
-        transition: all var(--ds-duration) var(--ds-ease) !important;
-    }
-
-    /* ── CONTAINERS / CARDS ───────────────────────────────── */
-    .stApp [data-testid="stVerticalBlockBorderWrapper"] {
-        border: 1px solid var(--ds-border) !important;
-        border-radius: var(--ds-r-md) !important;
-        background-color: var(--ds-card) !important;
-        box-shadow: var(--ds-shadow-sm) !important;
-        overflow: hidden !important;
-    }
-
-    /* ── METRICS ──────────────────────────────────────────── */
-    .stApp [data-testid="stMetric"] {
-        background-color: var(--ds-card) !important;
-        border: 1px solid var(--ds-border) !important;
-        border-radius: var(--ds-r-md) !important;
-        padding: var(--ds-sp-md) !important;
-        box-shadow: var(--ds-shadow-sm) !important;
-    }
-    .stApp [data-testid="stMetricLabel"] p {
-        color: var(--ds-muted) !important;
-        font-size: 0.78rem !important;
-        font-weight: 500 !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.06em !important;
-    }
-    .stApp [data-testid="stMetricValue"] {
-        color: var(--ds-fg) !important;
-        font-weight: 700 !important;
-    }
-    .stApp [data-testid="stMetricDelta"] {
-        color: var(--ds-primary) !important;
-    }
-
-    /* ── TABS (inside content) ────────────────────────────── */
-    .stApp [data-testid="stTabs"] [data-baseweb="tab-list"] {
-        background-color: transparent !important;
-        border-bottom: 1px solid var(--ds-border) !important;
-        gap: 0 !important;
-    }
-    .stApp [data-testid="stTabs"] button[role="tab"] {
-        background-color: transparent !important;
-        color: var(--ds-muted) !important;
-        border-bottom: 2px solid transparent !important;
-        border-radius: 0 !important;
-        padding: 10px 20px !important;
-        font-weight: 500 !important;
-        transition: all var(--ds-duration) var(--ds-ease) !important;
-    }
-    .stApp [data-testid="stTabs"] button[role="tab"]:hover {
-        color: var(--ds-fg) !important;
-    }
-    .stApp [data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
-        color: var(--ds-primary) !important;
-        border-bottom-color: var(--ds-primary) !important;
-    }
-
-    /* ── EXPANDERS ─────────────────────────────────────────── */
-    .stApp [data-testid="stExpander"] {
-        background-color: var(--ds-card) !important;
-        border: 1px solid var(--ds-border) !important;
-        border-radius: var(--ds-r-md) !important;
-        overflow: hidden !important;
-    }
-    .stApp [data-testid="stExpander"] summary {
-        color: var(--ds-fg) !important;
-        font-weight: 600 !important;
-    }
-    .stApp [data-testid="stExpander"] summary:hover {
-        background-color: var(--ds-sidebar-item) !important;
-    }
-    .stApp [data-testid="stExpander"] svg {
-        color: var(--ds-muted) !important;
-    }
-
-    /* ── DATA TABLES / DATAFRAMES ─────────────────────────── */
-    .stApp [data-testid="stDataFrame"],
-    .stApp [data-testid="stDataEditor"],
-    .stApp [data-testid="stTable"] {
-        border: 1px solid var(--ds-border) !important;
-        border-radius: var(--ds-r-md) !important;
-        overflow: hidden !important;
-    }
-    .stApp [data-testid="stDataFrame"] .dvn-scroller,
-    .stApp [data-testid="stDataEditor"] .dvn-scroller {
-        background-color: var(--ds-surface) !important;
-    }
-    /* Table header */
-    .stApp [data-testid="stDataFrame"] [data-testid="glide-cell"][aria-selected="true"],
-    .stApp th, .stApp [role="columnheader"] {
-        background-color: var(--ds-card) !important;
-        color: var(--ds-muted) !important;
-        font-size: 0.75rem !important;
-        font-weight: 600 !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.05em !important;
-        border-bottom: 1px solid var(--ds-border-strong) !important;
-    }
-    .stApp td, .stApp [role="gridcell"] {
-        border-bottom: 1px solid var(--ds-border) !important;
-        color: var(--ds-fg) !important;
-    }
-
-    /* ── CHECKBOX / TOGGLE ────────────────────────────────── */
-    .stApp [data-testid="stCheckbox"] label {
-        color: var(--ds-fg) !important;
-    }
-    .stApp [data-testid="stCheckbox"] [role="checkbox"] {
-        border-color: var(--ds-border-strong) !important;
-    }
-
-    /* ── RADIO (en el cuerpo, no sidebar) ─────────────────── */
-    .stApp [data-testid="stRadio"] label {
-        color: var(--ds-fg) !important;
-    }
-
-    /* ── PROGRESS BAR ─────────────────────────────────────── */
-    .stApp [data-testid="stProgress"] > div {
-        background-color: var(--ds-surface) !important;
-        border-radius: 99px !important;
-    }
-    .stApp [data-testid="stProgress"] [role="progressbar"] > div {
-        background-color: var(--ds-primary) !important;
-        border-radius: 99px !important;
-    }
-
-    /* ── ALERTS / INFO / WARNING / ERROR / SUCCESS ─────────── */
-    .stApp [data-testid="stAlert"] {
-        background-color: var(--ds-card) !important;
-        border: 1px solid var(--ds-border) !important;
-        border-radius: var(--ds-r-sm) !important;
-        color: var(--ds-fg) !important;
-    }
-    .stApp .stAlert p { color: var(--ds-fg) !important; }
-
-    /* ── SPINNER ───────────────────────────────────────────── */
-    .stApp .stSpinner > div > div {
-        border-top-color: var(--ds-primary) !important;
-    }
-
-    /* ── SLIDER ────────────────────────────────────────────── */
-    .stApp [data-testid="stSlider"] [role="slider"] {
-        background-color: var(--ds-primary) !important;
-    }
-    .stApp [data-baseweb="slider"] div[role="slider"] ~ div {
-        background-color: var(--ds-primary) !important;
-    }
-
-    /* ── DATE INPUT / COLOR PICKER ─────────────────────────── */
-    .stApp [data-testid="stDateInput"] input,
-    .stApp [data-testid="stColorPicker"] input {
-        background-color: var(--ds-surface) !important;
-        color: var(--ds-fg) !important;
-        border: 1px solid var(--ds-border-strong) !important;
-        border-radius: var(--ds-r-sm) !important;
-    }
-
-    /* ── FILE UPLOADER ────────────────────────────────────── */
-    .stApp [data-testid="stFileUploader"] {
-        background-color: var(--ds-surface) !important;
-        border: 1px dashed var(--ds-border-strong) !important;
-        border-radius: var(--ds-r-md) !important;
-        padding: var(--ds-sp-md) !important;
-    }
-    .stApp [data-testid="stFileUploader"] label {
-        color: var(--ds-muted) !important;
-    }
-    .stApp [data-testid="stFileUploader"]:hover {
-        border-color: var(--ds-primary-border) !important;
-        background-color: var(--ds-primary-dim) !important;
-    }
-
-    /* ── WIDGET LABELS (all) ──────────────────────────────── */
-    .stApp [data-testid="stWidgetLabel"] p,
-    .stApp [data-testid="stWidgetLabel"] label {
-        color: var(--ds-muted) !important;
-        font-size: 0.82rem !important;
-        font-weight: 500 !important;
-    }
-
-    /* ── DIALOG / MODAL ───────────────────────────────────── */
-    .stApp [data-testid="stDialog"] [data-testid="stModal"] {
-        background-color: var(--ds-card) !important;
-        border: 1px solid var(--ds-border-strong) !important;
-        border-radius: var(--ds-r-lg) !important;
-        box-shadow: var(--ds-shadow-lg) !important;
-    }
-    div[role="dialog"] {
-        background-color: var(--ds-card) !important;
-        border: 1px solid var(--ds-border-strong) !important;
-        border-radius: var(--ds-r-lg) !important;
-    }
-
-    /* ── TOAST / SNACKBAR ─────────────────────────────────── */
-    .stApp [data-testid="stToast"] {
-        background-color: var(--ds-card) !important;
-        border: 1px solid var(--ds-border-strong) !important;
-        border-radius: var(--ds-r-sm) !important;
-        box-shadow: var(--ds-shadow-md) !important;
-        color: var(--ds-fg) !important;
-    }
-
-    /* ── SCROLLBAR GLOBAL ─────────────────────────────────── */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb {
-        background: var(--ds-border-strong);
-        border-radius: 99px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-        background: var(--ds-subtle);
-    }
-
-    /* ── NUMBER INPUT STEP BUTTONS ─────────────────────────── */
-    .stApp [data-testid="stNumberInput"] button {
-        background-color: var(--ds-card) !important;
-        border: 1px solid var(--ds-border-strong) !important;
-        color: var(--ds-muted) !important;
-    }
-    .stApp [data-testid="stNumberInput"] button:hover {
-        background-color: var(--ds-card-hover) !important;
-        color: var(--ds-fg) !important;
-    }
-
-    /* ── DIVIDER / HR ─────────────────────────────────────── */
-    .stApp hr {
-        border-color: var(--ds-border) !important;
-    }
-
-    /* ── COLUMNS GAP ──────────────────────────────────────── */
-    .stApp [data-testid="stHorizontalBlock"] {
-        gap: var(--ds-sp-sm) !important;
-    }
-
-    /* ── IMAGE CONTAINER ──────────────────────────────────── */
-    .stApp [data-testid="stImage"] {
-        border-radius: var(--ds-r-md) !important;
-        overflow: hidden !important;
-    }
-
-    /* ── DOWNLOAD BUTTON ──────────────────────────────────── */
-    .stApp [data-testid="stDownloadButton"] button {
-        background-color: var(--ds-card) !important;
-        border: 1px solid var(--ds-border-strong) !important;
-        color: var(--ds-fg) !important;
-        border-radius: var(--ds-r-sm) !important;
-    }
-    .stApp [data-testid="stDownloadButton"] button:hover {
-        background-color: var(--ds-card-hover) !important;
-    }
-
-    /* ── CODE BLOCKS ──────────────────────────────────────── */
-    .stApp code, .stApp pre {
-        background-color: var(--ds-surface) !important;
-        color: var(--ds-primary) !important;
-        border-radius: 6px !important;
-    }
-
-    /* ── JSON / MARKDOWN code ─────────────────────────────── */
-    .stApp [data-testid="stJson"] {
-        background-color: var(--ds-surface) !important;
-        border: 1px solid var(--ds-border) !important;
-        border-radius: var(--ds-r-sm) !important;
-    }
-
-    /* ── COLUMN CONFIG ────────────────────────────────────── */
-    .stApp [data-testid="column"] {
-        background-color: transparent !important;
-    }
-
-    /* ── FORM SUBMIT BUTTON ───────────────────────────────── */
-    .stApp [data-testid="stFormSubmitButton"] button {
-        background-color: var(--ds-primary) !important;
-        color: #000 !important;
-        border: none !important;
-        border-radius: var(--ds-r-sm) !important;
-        font-weight: 600 !important;
-        box-shadow: 0 0 16px var(--ds-primary-glow) !important;
-    }
-
-    /* ── LINK BUTTONS ─────────────────────────────────────── */
-    .stApp a {
-        color: var(--ds-primary) !important;
-        text-decoration: none !important;
-        transition: opacity var(--ds-duration) var(--ds-ease) !important;
-    }
-    .stApp a:hover { opacity: 0.8 !important; }
-
-    /* ============================================================
-       DEEP OVERRIDES — Force dark on all remaining light elements
-       ============================================================ */
-
-    /* ── ALL bordered containers & their children ─────────── */
-    .stApp [data-testid="stVerticalBlockBorderWrapper"],
-    .stApp [data-testid="stVerticalBlockBorderWrapper"] > div,
-    .stApp [data-testid="stVerticalBlockBorderWrapper"] > div > div {
-        background-color: var(--ds-card) !important;
-        border-color: var(--ds-border) !important;
-        color: var(--ds-fg) !important;
-    }
-
-    /* ── Strong override for container(border=True) bg ────── */
-    .stApp .stVerticalBlock > div > div[data-testid="stVerticalBlockBorderWrapper"] {
-        background: var(--ds-card) !important;
-        box-shadow: var(--ds-shadow-sm) !important;
-        border-radius: var(--ds-r-md) !important;
-        border: 1px solid var(--ds-border) !important;
-    }
-
-    /* ── All markdown containers in body — dark text ─────── */
-    .stApp [data-testid="stAppViewContainer"] [data-testid="stMarkdownContainer"],
-    .stApp [data-testid="stAppViewContainer"] [data-testid="stMarkdownContainer"] p,
-    .stApp [data-testid="stAppViewContainer"] [data-testid="stMarkdownContainer"] span,
-    .stApp [data-testid="stAppViewContainer"] [data-testid="stMarkdownContainer"] div {
-        color: var(--ds-fg) !important;
-    }
-
-    /* ── Labels that use -webkit-text-fill-color ──────────── */
-    .stApp [data-testid="stAppViewContainer"] div[style*="webkit-text-fill-color"] {
-        -webkit-text-fill-color: var(--ds-fg) !important;
-    }
-
-    /* ── Floating progress button (0.000% VER) ───────────── */
-    .st-key-btn_fab_guardar {
-        position: fixed !important;
-        bottom: 1.5rem !important;
-        left: 2rem !important;
-    }
-    .st-key-btn_fab_guardar button {
-        background-color: var(--ds-card) !important;
-        border: 1px solid var(--ds-border-strong) !important;
-        color: var(--ds-fg) !important;
-        border-radius: var(--ds-r-md) !important;
-        box-shadow: var(--ds-shadow-md) !important;
-    }
-    .st-key-btn_fab_guardar button:hover {
-        background-color: var(--ds-card-hover) !important;
-    }
-
-    /* ── Progress panel (right side floating) ────────────── */
-    #_prog_panel {
-        background: var(--ds-card) !important;
-        border: 1px solid var(--ds-border) !important;
-        box-shadow: var(--ds-shadow-md) !important;
-    }
-
-    /* ── Section header banners (gradient) — keep gradient but fix shadow ── */
-    .hdr1, .hdr2, .hdr3, .hdr4, .hdr5, .hdr6, .hdr7,
-    .hdr-contrato, .hdr-oper, .hdr-reporte,
-    .hdr-usuarios, .hdr-salud, div[class*="hdr"] {
-        border-radius: var(--ds-r-md) !important;
-        box-shadow: var(--ds-shadow-md) !important;
-        border: 1px solid var(--ds-border) !important;
-    }
-
-    /* ── Selectbox text color fix ─────────────────────────── */
-    .stApp [data-baseweb="select"] span,
-    .stApp [data-baseweb="select"] [data-testid="stMarkdownContainer"] p,
-    .stApp [data-baseweb="select"] div {
-        color: var(--ds-fg) !important;
-    }
-
-    /* ── Streamlit column borders ─────────────────────────── */
-    .stApp [data-testid="stVerticalBlock"] > [data-testid="element-container"] {
-        color: var(--ds-fg) !important;
-    }
-
-    /* ── ALL remaining white backgrounds ─────────────────── */
-    .stApp [style*="background: white"],
-    .stApp [style*="background-color: white"],
-    .stApp [style*="background: #fff"],
-    .stApp [style*="background-color: #fff"],
-    .stApp [style*="background:#fff"],
-    .stApp [style*="background-color:#fff"],
-    .stApp [style*="background: rgb(255"],
-    .stApp [style*="background-color: rgb(255"] {
-        background: var(--ds-card) !important;
-        background-color: var(--ds-card) !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 # =========================================================
 # CONFIGURACIÓN SUPABASE
 # =========================================================
@@ -865,7 +136,7 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
     import json
 
     primer_nombre = nombre_cliente.split()[0].capitalize() if nombre_cliente else 'Cliente'
-    logo_html = ('<img src="data:image/png;base64,' + logo_b64 + '" style="height:46px;width:auto;object-fit:contain;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.2));">') if logo_b64 else ''
+    logo_html = ('<img src="data:image/png;base64,' + logo_b64 + '" style="height:49px;width:auto;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.25));">') if logo_b64 else ''
 
     # Lookup item by id
     items_by_id = {str(it['id']): it for it in cat_items}
@@ -890,9 +161,8 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
 
     for cat, cfgs in configs_by_cat.items():
         # One container per category
-        body_html += '<div class="cat-section">'
-        body_html += '<div class="cat-header-title">' + cat + '</div>'
         body_html += '<div class="cat-card">'
+        body_html += '<div class="cat-card-title">' + cat + '</div>'
 
         for ci, cfg in enumerate(cfgs):
             tg = cfg.get('titulo_grupo','')
@@ -909,428 +179,306 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
             itipo = group_items[0].get('tipo','imagen')
             answered = any(resps_map.get(iid) for iid in ids)
 
+            # Separator between items (not before first)
             if ci > 0:
                 body_html += '<div class="item-divider"></div>'
 
-            body_html += '<div class="item-row" id="group-wrap-' + str(ci) + '">'
+            body_html += '<div class="item-section">'
             # Item title
-            body_html += '<div class="item-title-row">'
-            body_html += '<span class="item-label">' + tg + '</span>'
+            body_html += '<div class="item-title">'
+            body_html += tg
             if answered:
-                body_html += '<span class="status-pill completed">Completado</span>'
-            else:
-                body_html += '<span class="status-pill pending">Pendiente</span>'
+                body_html += '<span class="done-dot"></span>'
             body_html += '</div>'
 
             # Observations
             if obs and mostrar_obs:
-                body_html += '<div class="obs-hint">' + obs + '</div>'
+                body_html += '<div class="obs-box">' + obs + '</div>'
 
             # Color carousel
             if itipo == 'color':
                 gid = 'cg-' + str(ci)
-                body_html += '<div class="carousel-container">'
-                body_html += '<button class="nav-arrow left" onclick="scrollC(\'' + gid + '\',-1)">&#8249;</button>'
-                body_html += '<div class="carousel-viewport" id="' + gid + '">'
+                body_html += '<div class="carousel-wrap">'
+                body_html += '<button class="nav-btn" onclick="scrollC(\'' + gid + '\',-1)">&#8249;</button>'
+                body_html += '<div class="carousel-inner"><div class="color-row" id="' + gid + '">'
                 for it in group_items:
                     iid = str(it.get('id',''))
                     nm = it.get('nombre','')
                     hx = it.get('hex','#ccc') or '#ccc'
-                    sel = ' selected' if resps_map.get(iid) == nm else ''
-                    body_html += '<div class="choice-item color' + sel + '" id="ci-' + iid + '" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'color\')">'
-                    body_html += '<div class="color-box" style="background:' + hx + ';">'
-                    body_html += '<div class="selection-overlay"><span class="check-icon">✓</span></div>'
+                    sel = ' sel' if resps_map.get(iid) == nm else ''
+                    body_html += '<div class="c-item' + sel + '" id="ci-' + iid + '" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'color\')"">'
+                    body_html += '<div class="c-color-block" style="background:' + hx + ';"><span class="c-check">✓</span></div>'
+                    body_html += '<div class="c-name">' + nm + '</div>'
                     body_html += '</div>'
-                    body_html += '<div class="choice-name">' + nm + '</div>'
-                    body_html += '</div>'
-                body_html += '</div>'
-                body_html += '<button class="nav-arrow right" onclick="scrollC(\'' + gid + '\',1)">&#8250;</button>'
+                body_html += '</div></div>'
+                body_html += '<button class="nav-btn" onclick="scrollC(\'' + gid + '\',1)">&#8250;</button>'
                 body_html += '</div>'
 
             # Image carousel
             elif itipo == 'imagen':
                 gid = 'ig-' + str(ci)
-                body_html += '<div class="carousel-container">'
-                body_html += '<button class="nav-arrow left" onclick="scrollC(\'' + gid + '\',-1)">&#8249;</button>'
-                body_html += '<div class="carousel-viewport" id="' + gid + '">'
+                body_html += '<div class="carousel-wrap">'
+                body_html += '<button class="nav-btn" onclick="scrollC(\'' + gid + '\',-1)">&#8249;</button>'
+                body_html += '<div class="carousel-inner"><div class="img-row" id="' + gid + '">'
                 for it in group_items:
                     iid = str(it.get('id',''))
                     nm = it.get('nombre','')
                     url = it.get('imagen_url','') or ''
-                    sel = ' selected' if resps_map.get(iid) == nm else ''
+                    sel = ' sel' if resps_map.get(iid) == nm else ''
                     pid = 'pop-' + iid
-                    body_html += '<div class="choice-item image' + sel + '" id="ii-' + iid + '" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'imagen\')">'
-                    body_html += '<div class="image-frame">'
+                    body_html += '<div class="i-item' + sel + '" id="ii-' + iid + '" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'imagen\')"">'
+                    body_html += '<div class="i-circle">'
                     if url:
-                        body_html += '<img src="' + url + '" alt="' + nm + '" loading="lazy">'
+                        body_html += '<img src="' + url + '" alt="' + nm + '">'
                     else:
-                        body_html += '<div class="placeholder-icon">🏠</div>'
-                    body_html += '<div class="selection-overlay"><span class="check-icon">✓</span></div>'
-                    if url:
-                        body_html += '<button class="expand-trigger" onclick="event.stopPropagation();openP(\'' + pid + '\')">🔍</button>'
+                        body_html += '<div class="i-placeholder">&#128230;</div>'
                     body_html += '</div>'
-                    body_html += '<div class="choice-name">' + nm + '</div>'
+                    body_html += '<div class="i-badge">✓</div>'
+                    if url:
+                        body_html += '<button class="zoom-btn" onclick="event.stopPropagation();openP(\'' + pid + '\')">&#128269;</button>'
+                    body_html += '<div class="i-name">' + nm + '</div>'
                     body_html += '</div>'
                     if url:
-                        popups_html += '<div class="modal-overlay" id="' + pid + '" onclick="if(this===event.target)closeP(\'' + pid + '\')">'
-                        popups_html += '<div class="modal-content">'
-                        popups_html += '<button class="modal-close" onclick="closeP(\'' + pid + '\')">&times;</button>'
-                        popups_html += '<img src="' + url + '" class="modal-img">'
-                        popups_html += '<div class="modal-footer">'
-                        popups_html += '<div class="modal-title">' + nm + '</div>'
-                        popups_html += '<button class="modal-select-btn" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'imagen\');closeP(\'' + pid + '\')">Seleccionar este material</button>'
-                        popups_html += '</div></div></div>'
-                body_html += '</div>'
-                body_html += '<button class="nav-arrow right" onclick="scrollC(\'' + gid + '\',1)">&#8250;</button>'
+                        popups_html += '<div class="popup" id="' + pid + '" onclick="if(this===event.target)closeP(\'' + pid + '\')">'
+                        popups_html += '<button class="pop-close" onclick="closeP(\'' + pid + '\')">&#x2715;</button>'
+                        popups_html += '<img src="' + url + '">'
+                        popups_html += '<div class="pop-name">' + nm + '</div>'
+                        popups_html += '<button class="pop-sel" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'imagen\');closeP(\'' + pid + '\')">✅ Seleccionar</button>'
+                        popups_html += '</div>'
+                body_html += '</div></div>'
+                body_html += '<button class="nav-btn" onclick="scrollC(\'' + gid + '\',1)">&#8250;</button>'
                 body_html += '</div>'
 
             # Si/No
             elif itipo == 'si_no':
-                si_it = next((x for x in group_items if x.get('nombre','').strip().lower() in ('sí','si','yes')), group_items[0] if group_items else {})
-                no_it = next((x for x in group_items if x.get('nombre','').strip().lower() in ('no')), group_items[1] if len(group_items)>1 else {})
+                # Buscar si_id y no_id por nombre, no por posición
+                si_it = next((x for x in group_items if x.get('nombre','').strip() in ('Sí','Si','sí','si','YES','Yes')), group_items[0] if group_items else {})
+                no_it = next((x for x in group_items if x.get('nombre','').strip() in ('No','NO','no')), group_items[1] if len(group_items)>1 else {})
                 si_id = str(si_it.get('id',''))
                 no_id = str(no_it.get('id',''))
-                si_sel = ' active' if resps_map.get(si_id) in ('Sí','Si') else ''
-                no_sel = ' active' if resps_map.get(no_id) == 'No' else ''
-                body_html += '<div class="toggle-group">'
-                body_html += '<button class="toggle-btn' + si_sel + '" id="sib-' + si_id + '" onclick="pick(\'' + si_id + '\',\'Sí\',\'si_no\')">Sí</button>'
-                body_html += '<button class="toggle-btn' + no_sel + '" id="nob-' + no_id + '" onclick="pick(\'' + no_id + '\',\'No\',\'si_no\')">No</button>'
+                si_sel = ' sel' if resps_map.get(si_id) in ('Sí','Si') else ''
+                no_sel = ' sel' if resps_map.get(no_id) == 'No' else ''
+                body_html += '<div class="sino-row">'
+                body_html += '<button class="sino-btn' + si_sel + '" id="sib-' + si_id + '" onclick="pick(\'' + si_id + '\',\'Sí\',\'si_no\')">✅ Sí</button>'
+                body_html += '<button class="sino-btn' + no_sel + '" id="nob-' + no_id + '" onclick="pick(\'' + no_id + '\',\'No\',\'si_no\')">❌ No</button>'
                 body_html += '</div>'
 
             # Select
             elif itipo == 'select':
-                body_html += '<div class="select-wrapper">'
-                body_html += '<select class="premium-select" onchange="var p=this.value.split(\'|\');if(p.length==2)pick(p[0],p[1],\'select\')">'
-                body_html += '<option value="">Seleccione una opción...</option>'
+                body_html += '<select class="sel-inp" onchange="var p=this.value.split(\'|\');if(p.length==2)pick(p[0],p[1],\'select\')">'
+                body_html += '<option value="">-- Selecciona --</option>'
                 for it in group_items:
                     iid = str(it.get('id',''))
                     nm = it.get('nombre','')
                     sel = ' selected' if resps_map.get(iid) == nm else ''
                     body_html += '<option value="' + iid + '|' + nm + '"' + sel + '>' + nm + '</option>'
-                body_html += '</select></div>'
+                body_html += '</select>'
 
-            body_html += '</div>'
+            body_html += '</div>'  # end item-section
 
-        body_html += '</div></div>'
+        body_html += '</div>'  # end cat-card
 
     resps_j = json.dumps(resps_map, ensure_ascii=True)
+    # grupos_map: {iid -> [all iids in same group]}
     _gmap = {}
     for cfg in config_data:
         _ids = [str(x) for x in (cfg.get('item_ids') or [])]
-        for _id in _ids: _gmap[_id] = _ids
+        for _id in _ids:
+            _gmap[_id] = _ids
     grupos_j = json.dumps(_gmap, ensure_ascii=True)
 
-    _hero_bg = ('background-image:url(data:image/jpeg;base64,' + hero_b64 + ');' if hero_b64 else 'background:linear-gradient(135deg,#0f172a,#1e293b);')
-    
+    _hero_css = ('background-image:url(data:image/jpeg;base64,' + hero_b64 + ');background-size:cover;background-position:center;' if hero_b64 else 'background:linear-gradient(135deg,#0a1628,#0f3460,#1a5276);')
     css = '''
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-    :root {
-        --primary: #0f172a;
-        --accent: #3b82f6;
-        --bg: #f8fafc;
-        --card-bg: #ffffff;
-        --text-main: #1e293b;
-        --text-muted: #64748b;
-        --border: #e2e8f0;
-        --success: #10b981;
-    }
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    body { 
-        margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; 
-        background: var(--bg); color: var(--text-main); line-height: 1.5;
-    }
-    .main-wrap { max-width: 800px; margin: 0 auto; padding-bottom: 120px; }
-    
-    /* Premium Header */
-    .hero {
-        ''' + _hero_bg + '''
-        background-size: cover; background-position: center;
-        height: 320px; position: relative; display: flex; flex-direction: column;
-        justify-content: flex-end; padding: 32px; margin-bottom: -40px;
-    }
-    .hero::after {
-        content: ""; position: absolute; inset: 0;
-        background: linear-gradient(to top, rgba(15,23,42,0.9), rgba(15,23,42,0.2));
-    }
-    .hero-content { position: relative; z-index: 2; color: white; }
-    .hero-badge {
-        display: inline-block; background: rgba(255,255,255,0.15);
-        backdrop-filter: blur(8px); padding: 4px 12px; border-radius: 100px;
-        font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
-        letter-spacing: 0.1em; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.2);
-    }
-    .hero-title { font-size: 2rem; font-weight: 800; margin: 0 0 8px; line-height: 1.1; }
-    .hero-subtitle { font-size: 0.9rem; opacity: 0.8; max-width: 500px; }
-    
-    /* Progress Bar Float */
-    .progress-float {
-        position: sticky; top: 16px; z-index: 100; margin: 0 16px;
-        background: rgba(255,255,255,0.9); backdrop-filter: blur(12px);
-        padding: 12px 20px; border-radius: 16px; border: 1px solid var(--border);
-        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
-    }
-    .prog-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .prog-val { font-weight: 700; font-size: 0.85rem; color: var(--primary); }
-    .prog-label { font-size: 0.75rem; color: var(--text-muted); }
-    .prog-track { height: 6px; background: #e2e8f0; border-radius: 10px; overflow: hidden; }
-    .prog-fill { height: 100%; background: var(--accent); transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@700;900&family=Poppins:wght@400;600;700;900&display=swap");
+*{box-sizing:border-box;}
+body{margin:0;padding:0;font-family:Poppins,sans-serif;font-size:14px;background:#f0f4f8;}
+.wrap{max-width:1000px;margin:0 auto;padding:0 0 32px;}
+/* Header */
+.header{''' + _hero_css + '''padding:0;margin:20px 16px 20px;border-radius:20px;color:white;box-shadow:0 16px 48px rgba(10,22,40,0.28);position:relative;overflow:hidden;min-height:260px;display:flex;flex-direction:column;justify-content:flex-end;margin:20px 16px 20px;}
+.header::before{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,rgba(5,10,20,0.15) 0%,rgba(5,10,20,0.65) 100%);border-radius:20px;}
+.h-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
+.h-inner{padding:24px 24px 22px;position:relative;z-index:1;}
+.h-badge{display:inline-block;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:99px;padding:3px 12px;font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;backdrop-filter:blur(4px);}
+.h-title{font-size:1.65rem;font-weight:900;line-height:1.15;margin-bottom:8px;font-family:Poppins,sans-serif;background:linear-gradient(90deg,#fff,#a8d8f0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.h-sub{font-size:0.82rem;opacity:0.7;line-height:1.5;margin-bottom:12px;}
+.h-ep{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);border-radius:99px;padding:4px 14px;font-size:0.75rem;font-weight:700;}
+.prog-bar{background:rgba(255,255,255,0.12);border-radius:99px;height:5px;margin-top:14px;}
+.prog-fill{border-radius:99px;height:5px;background:linear-gradient(90deg,#48cae4,#90e0ef);transition:width 0.5s;}
+.prog-lbl{font-size:0.7rem;opacity:0.6;margin-top:4px;}
+/* Category card — ONE per category */
+.cat-card{background:white;border-radius:18px;margin:0 16px 14px;border:1px solid #e8f0fe;box-shadow:0 3px 16px rgba(15,52,96,0.07);overflow:hidden;}
+.cat-card-title{font-size:0.85rem;font-weight:600;color:#0a1628;font-family:Poppins,sans-serif;letter-spacing:0.04em;padding:16px 22px 0;}
+/* Item section inside category */
+.item-section{padding:14px 22px 16px;}
+.item-divider{height:1px;background:linear-gradient(90deg,#e8f0fe,transparent);margin:0 22px;}
+.item-title{font-size:0.82rem;font-weight:600;color:#64748b;margin-bottom:12px;display:flex;align-items:center;gap:8px;font-family:Poppins,sans-serif;letter-spacing:0.02em;}
+.done-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;flex-shrink:0;}
+.obs-box{background:#eff6ff;border-left:3px solid #60a5fa;border-radius:6px;padding:8px 12px;font-size:0.82rem;color:#374151;margin-bottom:12px;line-height:1.5;}
+/* Carousel */
+.carousel-wrap{display:flex;align-items:center;gap:8px;}
+.carousel-inner{flex:1;overflow:hidden;}
+.nav-btn{background:white;color:#0f3460;border:none;border-radius:50%;width:38px;height:38px;font-size:21px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 14px rgba(0,0,0,0.11);}
+.nav-btn:active{transform:scale(0.93);}
+/* Colors */
+.color-row{display:flex;gap:15px;overflow-x:hidden;padding:4px 2px 10px;}
+.c-item{cursor:pointer;flex-shrink:0;width:110px;border-radius:12px;overflow:hidden;background:white;box-shadow:0 2px 12px rgba(15,52,96,0.1);transition:all 0.18s;border:2px solid transparent;}
+.c-item:active{transform:scale(0.93);}
+.c-color-block{width:100%;height:80px;position:relative;}
+.c-item.sel{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,0.15),0 4px 16px rgba(15,52,96,0.15);}
+.c-check{display:none;position:absolute;inset:0;align-items:center;justify-content:center;color:white;font-size:1.4rem;font-weight:900;text-shadow:0 1px 4px rgba(0,0,0,0.4);}
+.c-item.sel .c-check{display:flex;}.c-name{font-size:10px;font-weight:400;color:#64748b;padding:6px 6px 7px;text-align:center;line-height:1.2;font-family:Poppins,sans-serif;}
 
-    /* Sections & Cards */
-    .cat-section { margin: 24px 16px; animation: fadeInUp 0.6s ease both; }
-    @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-    .cat-header-title { 
-        font-size: 0.8rem; font-weight: 800; text-transform: uppercase; 
-        letter-spacing: 0.15em; color: var(--text-muted); margin-bottom: 12px; padding-left: 4px;
-    }
-    .cat-card { 
-        background: var(--card-bg); border-radius: 24px; 
-        border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.02);
-        overflow: hidden;
-    }
-    .item-row { padding: 24px; }
-    .item-divider { height: 1px; background: linear-gradient(90deg, var(--border), transparent); margin: 0 24px; }
-    .item-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .item-label { font-size: 1rem; font-weight: 700; color: var(--primary); }
-    .status-pill { font-size: 0.65rem; font-weight: 700; padding: 4px 10px; border-radius: 100px; }
-    .status-pill.completed { background: #d1fae5; color: #065f46; }
-    .status-pill.pending { background: #f1f5f9; color: #64748b; }
-    
-    .obs-hint { 
-        background: #f1f5f9; border-radius: 10px; padding: 10px 14px; 
-        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px; border-left: 3px solid var(--accent);
-    }
-
-    /* Carousels */
-    .carousel-container { position: relative; display: flex; align-items: center; }
-    .carousel-viewport { 
-        flex: 1; display: flex; gap: 14px; overflow-x: auto; scroll-behavior: smooth; 
-        padding: 4px 4px 12px; scrollbar-width: none; 
-    }
-    .carousel-viewport::-webkit-scrollbar { display: none; }
-    .nav-arrow {
-        width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border);
-        background: white; color: var(--primary); font-size: 18px; cursor: pointer;
-        display: flex; align-items: center; justify-content: center; z-index: 5;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: all 0.2s;
-    }
-    .nav-arrow:hover { background: var(--primary); color: white; border-color: var(--primary); }
-    .nav-arrow.left { margin-right: -16px; }
-    .nav-arrow.right { margin-left: -16px; }
-
-    /* Choice Items */
-    .choice-item { 
-        flex: 0 0 120px; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative;
-    }
-    .choice-item:hover { transform: translateY(-4px); }
-    .choice-item.selected { transform: scale(1.03); }
-    
-    .color-box { 
-        width: 100%; height: 90px; border-radius: 16px; position: relative; 
-        border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-    }
-    .image-frame { 
-        width: 100%; height: 90px; border-radius: 16px; overflow: hidden; 
-        position: relative; border: 1px solid var(--border);
-    }
-    .image-frame img { width: 100%; height: 100%; object-fit: cover; }
-    .placeholder-icon { height: 100%; display: flex; align-items: center; justify-content: center; font-size: 24px; background: #f1f5f9; }
-    
-    .selection-overlay {
-        position: absolute; inset: 0; background: rgba(59,130,246,0.6);
-        display: flex; align-items: center; justify-content: center;
-        opacity: 0; transition: opacity 0.3s; border-radius: inherit;
-    }
-    .choice-item.selected .selection-overlay { opacity: 1; }
-    .check-icon { color: white; font-size: 24px; font-weight: 800; }
-    
-    .expand-trigger {
-        position: absolute; bottom: 8px; right: 8px; width: 26px; height: 26px;
-        background: rgba(255,255,255,0.9); border: none; border-radius: 50%;
-        display: flex; align-items: center; justify-content: center; cursor: pointer;
-        font-size: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    }
-    .choice-name { 
-        margin-top: 8px; font-size: 0.7rem; font-weight: 600; text-align: center;
-        color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .choice-item.selected .choice-name { color: var(--accent); font-weight: 700; }
-
-    /* Inputs */
-    .toggle-group { display: flex; gap: 12px; }
-    .toggle-btn {
-        flex: 1; padding: 14px; border: 2px solid var(--border); border-radius: 16px;
-        background: white; font-family: inherit; font-weight: 700; cursor: pointer;
-        transition: all 0.2s; color: var(--text-muted);
-    }
-    .toggle-btn.active { 
-        border-color: var(--accent); background: #eff6ff; color: var(--accent);
-        box-shadow: 0 0 0 1px var(--accent);
-    }
-    .premium-select {
-        width: 100%; padding: 14px 18px; border-radius: 16px; border: 2px solid var(--border);
-        font-family: inherit; font-size: 0.95rem; color: var(--primary); outline: none;
-        appearance: none; background: url('data:image/svg+xml;charset=US-ASCII,<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 7.5L10 12.5L15 7.5" stroke="%2364748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>') no-repeat right 16px center;
-    }
-    .premium-select:focus { border-color: var(--accent); }
-
-    /* Footer Save */
-    .save-footer {
-        position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.8);
-        backdrop-filter: blur(20px); border-top: 1px solid var(--border);
-        padding: 20px 24px 32px; z-index: 500; display: flex; flex-direction: column; align-items: center;
-    }
-    .save-btn {
-        width: 100%; max-width: 400px; padding: 18px; border-radius: 18px; border: none;
-        background: var(--primary); color: white; font-family: inherit; font-size: 1rem;
-        font-weight: 700; cursor: pointer; transition: all 0.3s;
-        box-shadow: 0 10px 30px rgba(15,23,42,0.3);
-    }
-    .save-btn:hover { transform: translateY(-2px); box-shadow: 0 15px 40px rgba(15,23,42,0.4); }
-    .save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .status-msg { margin-top: 10px; font-size: 0.8rem; font-weight: 600; height: 18px; }
-
-    /* Modals */
-    .modal-overlay {
-        position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000;
-        display: none; align-items: center; justify-content: center; padding: 20px;
-    }
-    .modal-overlay.open { display: flex; }
-    .modal-content { 
-        width: 100%; max-width: 600px; background: white; border-radius: 24px; 
-        overflow: hidden; position: relative; animation: zoomIn 0.3s ease;
-    }
-    @keyframes zoomIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
-    .modal-close {
-        position: absolute; top: 16px; right: 16px; background: white; border: none;
-        width: 36px; height: 36px; border-radius: 50%; font-size: 24px; cursor: pointer;
-        display: flex; align-items: center; justify-content: center; z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    }
-    .modal-img { width: 100%; height: auto; display: block; }
-    .modal-footer { padding: 24px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
-    .modal-title { font-weight: 700; font-size: 1.1rem; }
-    .modal-select-btn {
-        background: var(--accent); color: white; border: none; border-radius: 12px;
-        padding: 12px 20px; font-family: inherit; font-weight: 700; cursor: pointer;
-    }
-    '''
+/* Images */
+.img-row{display:flex;gap:15px;overflow-x:hidden;padding:4px 2px 12px;}
+.i-item{cursor:pointer;flex:0 0 110px;width:110px;border-radius:12px;overflow:hidden;background:white;box-shadow:0 2px 12px rgba(15,52,96,0.1);transition:all 0.18s;border:2px solid transparent;position:relative;}
+.i-item:active{transform:scale(0.97);}
+.i-circle{width:100%;height:80px;overflow:hidden;display:block;}
+.i-item.sel{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,0.15),0 4px 16px rgba(15,52,96,0.15);}
+.i-circle img{width:100%;height:100%;object-fit:cover;display:block;}
+.i-placeholder{width:100%;height:80px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:2rem;}
+.i-name{font-size:10px;font-weight:400;color:#64748b;padding:6px 6px 7px;text-align:center;line-height:1.2;font-family:Poppins,sans-serif;}
+.i-badge{display:none;position:absolute;top:6px;right:6px;background:#0f3460;color:white;border-radius:50%;width:22px;height:22px;align-items:center;justify-content:center;font-size:12px;font-weight:900;box-shadow:0 2px 8px rgba(15,52,96,0.3);}
+.i-item.sel .i-badge{display:flex;}
+.zoom-btn{position:absolute;bottom:6px;right:6px;background:rgba(255,255,255,0.9);color:#0f3460;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(15,52,96,0.2);}
+/* Si/No */
+.sino-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.sino-btn{padding:14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:400;cursor:pointer;background:white;font-family:Poppins,sans-serif;color:#0a1628;box-shadow:0 2px 8px rgba(15,52,96,0.05);transition:all 0.15s;}
+.sino-btn.sel{background:linear-gradient(135deg,#0f3460,#1a5276);color:white;border-color:#0f3460;box-shadow:0 6px 20px rgba(15,52,96,0.25);}
+/* Select */
+.sel-inp{width:100%;padding:11px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;font-family:Poppins,sans-serif;color:#0a1628;outline:none;}
+.sel-inp:focus{border-color:#0f3460;}
+/* Popup */
+.popup{display:none;position:fixed;inset:0;background:rgba(5,10,20,0.95);z-index:9999;flex-direction:column;align-items:center;justify-content:center;}
+.popup.open{display:flex;}
+.popup img{max-width:90vw;max-height:75vh;object-fit:contain;border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,0.5);}
+.pop-name{color:white;font-size:1.1rem;font-weight:700;margin-top:14px;}
+.pop-close{position:absolute;top:20px;right:24px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:white;font-size:1.2rem;cursor:pointer;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;}
+.pop-sel{margin-top:16px;background:linear-gradient(135deg,#0f3460,#1a5276);color:white;border:none;border-radius:10px;padding:12px 32px;font-size:14px;font-weight:700;cursor:pointer;font-family:Poppins,sans-serif;box-shadow:0 8px 24px rgba(15,52,96,0.3);}
+/* Save */
+.save-wrap{margin:20px 16px 24px;}
+.save-btn{width:100%;padding:15px;background:linear-gradient(135deg,#0f3460,#1a5276);color:white;border:none;border-radius:14px;font-size:14px;font-weight:500;cursor:pointer;font-family:Poppins,sans-serif;box-shadow:0 8px 28px rgba(15,52,96,0.28);letter-spacing:0.02em;}
+.save-btn:disabled{opacity:0.5;}
+.save-st{text-align:center;font-size:13px;font-weight:600;margin-top:8px;min-height:18px;}
+'''
 
     js = '''
-    var S="''' + supa_url + '''",K="''' + supa_key + '''",EP="''' + ep + '''";
-    var R=''' + resps_j + ''';
-    var G=''' + grupos_j + ''';
-    var P={};
+var S="''' + supa_url + '''",K="''' + supa_key + '''",EP="''' + ep + '''";
+var R=''' + resps_j + ''';
+var G=''' + grupos_j + ''';
+var P={};
 
-    function pick(iid, val, tipo) {
-        R[iid] = val; P[iid] = val;
-        const wrap = document.getElementById("group-wrap-" + iid); // This is approximate
-        // Find specific items and mark them
-        if(tipo === "color") {
-            const el = document.getElementById("ci-" + iid);
-            if(el) {
-                const row = el.closest(".carousel-viewport");
-                row.querySelectorAll(".choice-item").forEach(e => e.classList.remove("selected"));
-                el.classList.add("selected");
-            }
-        } else if(tipo === "imagen") {
-            const el = document.getElementById("ii-" + iid);
-            if(el) {
-                const row = el.closest(".carousel-viewport");
-                row.querySelectorAll(".choice-item").forEach(e => e.classList.remove("selected"));
-                el.classList.add("selected");
-            }
-        } else if(tipo === "si_no") {
-            const btn = document.getElementById("sib-" + iid) || document.getElementById("nob-" + iid);
-            if(btn) {
-                const row = btn.closest(".toggle-group");
-                row.querySelectorAll(".toggle-btn").forEach(b => b.classList.remove("active"));
-                btn.classList.add("active");
-            }
+function pick(iid,val,tipo){
+  R[iid]=val; P[iid]=val;
+  if(tipo==="color"){
+    var el=document.getElementById("ci-"+iid);
+    if(el){
+      var row=el.closest(".color-row");
+      if(row) row.querySelectorAll(".c-item").forEach(function(e){e.classList.remove("sel");});
+      el.classList.add("sel");
+    }
+  } else if(tipo==="imagen"){
+    var el=document.getElementById("ii-"+iid);
+    if(el){
+      // Only deselect within the same img-row group
+      var row=el.closest(".img-row");
+      if(row) row.querySelectorAll(".i-item").forEach(function(e){e.classList.remove("sel");});
+      el.classList.add("sel");
+    }
+  } else if(tipo==="si_no"){
+    var clickedBtn=document.getElementById("sib-"+iid)||document.getElementById("nob-"+iid);
+    if(clickedBtn){
+      var row=clickedBtn.closest(".sino-row");
+      if(row) row.querySelectorAll(".sino-btn").forEach(function(b){b.classList.remove("sel");});
+      clickedBtn.classList.add("sel");
+    }
+  }
+}
+
+function scrollC(gid,dir){
+  var el=document.getElementById(gid);
+  if(el) el.scrollBy({left:dir*230,behavior:"smooth"});
+}
+
+function openP(id){
+  var el=document.getElementById(id);
+  if(el){el.classList.add("open");document.body.style.overflow="hidden";}
+}
+function closeP(id){
+  var el=document.getElementById(id);
+  if(el){el.classList.remove("open");document.body.style.overflow="";}
+}
+
+async function guardar(){
+  var btn=document.getElementById("sbtn");
+  var st=document.getElementById("sst");
+  var entries=Object.entries(P);
+  if(!entries.length){st.textContent="Sin cambios";st.style.color="#94a3b8";return;}
+  btn.disabled=true;st.textContent="Guardando...";st.style.color="#2563eb";
+  try{
+    for(var i=0;i<entries.length;i++){
+      var iid=entries[i][0],val=entries[i][1];
+      // Delete other items from same group first
+      var grp=G[iid]||[];
+      for(var j=0;j<grp.length;j++){
+        if(grp[j]!==iid){
+          await fetch(S+"/rest/v1/formulario_respuestas?cotizacion_numero=eq."+EP+"&item_id=eq."+grp[j],{
+            method:"DELETE",
+            headers:{"Authorization":"Bearer "+K,"apikey":K}
+          });
+          delete R[grp[j]];
         }
-        updateClientProgress();
+      }
+      await fetch(S+"/rest/v1/formulario_respuestas",{
+        method:"POST",
+        headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json",
+                 "Prefer":"resolution=merge-duplicates,return=minimal"},
+        body:JSON.stringify({cotizacion_numero:EP,item_id:iid,respuesta:val})
+      });
     }
-
-    function scrollC(gid, dir) {
-        const el = document.getElementById(gid);
-        if(el) el.scrollBy({ left: dir * 250, behavior: "smooth" });
-    }
-
-    function openP(id) {
-        const el = document.getElementById(id);
-        if(el) { el.classList.add("open"); document.body.style.overflow = "hidden"; }
-    }
-    function closeP(id) {
-        const el = document.getElementById(id);
-        if(el) { el.classList.remove("open"); document.body.style.overflow = ""; }
-    }
-
-    function updateClientProgress() {
-        const total = ''' + str(total_grupos) + ''';
-        const answered = Object.keys(R).length; // Simplify for UI
-        const pct = Math.min(100, Math.round((answered / total) * 100));
-        const fill = document.getElementById("prog-fill-ui");
-        const lbl = document.getElementById("prog-lbl-ui");
-        if(fill) fill.style.width = pct + "%";
-        if(lbl) lbl.textContent = pct + "% completado";
-    }
-
-    async function guardar() {
-        const btn = document.getElementById("sbtn");
-        const st = document.getElementById("sst");
-        const entries = Object.entries(P);
-        if(!entries.length) { 
-            st.textContent = "✓ Ya está actualizado"; st.style.color = "var(--success)"; 
-            return; 
-        }
-        btn.disabled = true; st.textContent = "Guardando selección..."; st.style.color = var(--accent);
-        try {
-            for(const [iid, val] of entries) {
-                const grp = G[iid] || [];
-                for(const gid of grp) {
-                    if(gid !== iid) {
-                        await fetch(S + "/rest/v1/formulario_respuestas?cotizacion_numero=eq." + EP + "&item_id=eq." + gid, {
-                            method: "DELETE", headers: { "Authorization": "Bearer " + K, "apikey": K }
-                        });
-                        delete R[gid];
-                    }
-                }
-                await fetch(S + "/rest/v1/formulario_respuestas", {
-                    method: "POST",
-                    headers: { "Authorization": "Bearer " + K, "apikey": K, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal" },
-                    body: JSON.stringify({ cotizacion_numero: EP, item_id: iid, respuesta: val })
-                });
-            }
-            P = {};
-            st.textContent = "✅ Cambios guardados con éxito"; st.style.color = "var(--success)";
-            setTimeout(() => { st.textContent = ""; }, 3000);
-        } catch(e) {
-            st.textContent = "Error al guardar: " + e.message; st.style.color = "#dc2626";
-        }
-        btn.disabled = false;
-    }
-    '''
+    P={};
+    st.textContent="✅ Guardado";st.style.color="#16a34a";
+    // Verificar si completó al 100% y guardar fecha
+    try{
+      var totalGrupos=document.querySelectorAll('.grupo').length;
+      var completados=document.querySelectorAll('.grupo.completado').length;
+      if(totalGrupos>0 && completados>=totalGrupos){
+        await fetch(S+"/rest/v1/cotizaciones?numero=eq."+EP,{
+          method:"PATCH",
+          headers:{"Authorization":"Bearer "+K,"apikey":K,
+                   "Content-Type":"application/json",
+                   "Prefer":"return=minimal"},
+          body:JSON.stringify({fecha_formulario_completado:new Date().toISOString()})
+        });
+      }
+    }catch(e2){}
+  }catch(e){st.textContent="Error: "+e.message;st.style.color="#dc2626";}
+  btn.disabled=false;
+}
+'''
 
     html = (
         '<!DOCTYPE html><html><head><meta charset="utf-8">'
-        '<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=0">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
         '<style>' + css + '</style></head><body>'
-        '<div class="main-wrap">'
-        '<div class="hero">'
-        '<div class="hero-content">'
-        '<div class="hero-badge">Portal de Selección</div>'
-        '<div class="hero-title">Hola, ' + primer_nombre + ' 🏡</div>'
-        '<div class="hero-subtitle">Define el alma de tu nueva casa container eligiendo cada detalle a tu gusto.</div>'
+        '<div class="wrap">'
+        '<div class="header">'
+        '<div class="h-inner">'
+        '<div class="h-top">'
+        '<div class="h-badge">✦ Tu selección de materiales ✦</div>'
+        '<div>' + logo_html + '</div>'
         '</div>'
+        '<div class="h-title">Bienvenida/o,<br>' + primer_nombre + ' 🏡</div>'
+        '<div class="h-sub">Estás eligiendo los materiales que van a darle vida y personalidad a tu casa container. ¡Cada elección cuenta!</div>'
+        '<div class="h-ep">📋 ' + ep + '</div>'
+        '<div class="prog-bar"><div class="prog-fill" style="width:' + str(pct) + '%;"></div></div>'
+        '<div class="prog-lbl">' + str(resp_grupos) + ' de ' + str(total_grupos) + ' completadas — ' + str(pct) + '%</div>'
         '</div>'
-        '<div class="progress-float">'
-        '<div class="prog-top"><span class="prog-val" id="prog-lbl-ui">' + str(pct) + '% completado</span><span class="prog-label">' + str(resp_grupos) + ' de ' + str(total_grupos) + ' ítems</span></div>'
-        '<div class="prog-track"><div class="prog-fill" id="prog-fill-ui" style="width:' + str(pct) + '%;"></div></div>'
         '</div>'
         + body_html
         + popups_html
-        + '<div class="save-footer">'
-        '<button class="save-btn" id="sbtn" onclick="guardar()">Guardar mis elecciones</button>'
-        '<div class="status-msg" id="sst"></div>'
+        + '<div class="save-wrap">'
+        '<button class="save-btn" id="sbtn" onclick="guardar()">💾 Guardar mis elecciones</button>'
+        '<div class="save-st" id="sst"></div>'
         '</div>'
         '</div>'
         '<script>' + js + '</script>'
@@ -1673,32 +821,17 @@ if _modo_cliente:
     if '_cliente_nombre'  not in st.session_state: st.session_state._cliente_nombre  = ''
     if '_cliente_proyecto' not in st.session_state: st.session_state._cliente_proyecto = ''
 
-    # Estado de fondo dinámico
-    _is_logged_in = st.session_state._cliente_ok
-    _bg_style = "#f8fafc" if _is_logged_in else "transparent"
-    
-    # Ocultar elementos de Streamlit y configurar layout base
-    st.markdown(f"""
+    # Ocultar elementos de Streamlit
+    st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-    #MainMenu,footer,[data-testid="stToolbar"],[data-testid="stDecoration"]{{display:none!important;}}
-    .stAppHeader,.st-emotion-cache-xi6p3a,[data-testid="stAppHeader"]{{display:none!important;height:0!important;}}
-    
-    /* Reglas críticas para que el iframe ocupe todo el ancho y se vea nativo */
-    .stMainBlockContainer,.block-container,.st-emotion-cache-1ibsh2c{{
-        padding-top:0!important;
-        margin-top:0!important;
-        max-width:100%!important;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-    }}
-    
-    .stApp{{background:{_bg_style} !important;}}
-    [data-testid="stAppViewContainer"]{{background:{_bg_style} !important;}}
-    
-    /* Configuración del iframe del formulario */
-    iframe{{border:none !important;background:transparent !important;}}
-    [data-testid="stCustomComponentV1"]{{background:transparent !important;border-radius:0 !important;box-shadow:none !important;}}
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&display=swap');
+    #MainMenu,footer,[data-testid="stToolbar"],[data-testid="stDecoration"]{display:none!important;}
+    .stAppHeader,.st-emotion-cache-xi6p3a,[data-testid="stAppHeader"]{display:none!important;height:0!important;}
+    .stMainBlockContainer,.block-container,.st-emotion-cache-1ibsh2c{padding-top:0!important;margin-top:0!important;}
+    .stApp{background:#f0f4f8 !important;}
+    [data-testid="stAppViewContainer"]{background:#f0f4f8 !important;}
+    iframe{border:none !important;background:#f0f4f8 !important;}
+    [data-testid="stCustomComponentV1"]{background:#f0f4f8 !important;border-radius:0 !important;box-shadow:none !important;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -1721,247 +854,71 @@ if _modo_cliente:
                     _video_b64 = _b64v.b64encode(_vf.read()).decode()
                 break
         _video_src = f"data:video/mp4;base64,{_video_b64}" if _video_b64 else ""
-        _vtag = (f'<video autoplay muted loop playsinline src="{_video_src}" style="position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:-2;"></video>' if _video_src else '')
-        _logo_link = f'<a href="https://espaciocontainerhouse.cl/" target="_blank" id="client-logo-link"><img src="data:image/png;base64,{_logo_b64_cli}" id="client-logo-img"></a>' if _logo_b64_cli else ''
+        _vtag = (f'<video autoplay muted loop playsinline src="{_video_src}" style="position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0;"></video>'
+                 if _video_src else '')
+        _logo_link = f'<a href="https://espaciocontainerhouse.cl/" target="_blank"><img src="data:image/png;base64,{_logo_b64_cli}" style="height:58px;width:auto;"></a>' if _logo_b64_cli else ''
 
-        st.markdown(_vtag, unsafe_allow_html=True)
-        st.markdown("""
-        <div class="video-overlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.50);z-index:-1;pointer-events:none;"></div>
-        """, unsafe_allow_html=True)
-        
-        _css = """
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap');
-        
-        /* Base styles (Mobile First) */
-        #client-logo-link { position: fixed; top: 15px; right: 15px; z-index: 100; }
-        #client-logo-img { height: 40px; width: auto; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); transition: all 0.3s ease; }
-        
-        .hero-badge { 
-            background: rgba(255, 255, 255, 0.1); 
-            backdrop-filter: blur(10px); 
-            border: 1px solid rgba(255, 255, 255, 0.2); 
-            border-radius: 50px; 
-            padding: 8px 24px; 
-            display: inline-flex; 
-            align-items: center; 
-            gap: 8px; 
-            font-family: 'Montserrat', sans-serif !important; 
-            font-size: 0.75rem; 
-            font-weight: 700; 
-            color: #ffffff !important; 
-            text-transform: uppercase; 
-            letter-spacing: 0.15em; 
-            margin-bottom: 25px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
-            position: relative;
-            overflow: hidden;
-        }
-        .hero-badge::after {
-            content: '';
-            position: absolute;
-            top: -50%; left: -50%; width: 200%; height: 200%;
-            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3), transparent);
-            transform: rotate(45deg);
-            animation: shimmer 3s infinite;
-        }
-        @keyframes shimmer {
-            0% { left: -100%; }
-            100% { left: 100%; }
-        }
-        .hero-title { 
-            font-family: 'Montserrat', sans-serif !important; 
-            font-size: clamp(1.8rem, 8vw, 2.8rem); 
-            font-weight: 900; 
-            color: #ffffff !important; 
-            line-height: 1.1; 
-            margin: 0 auto 15px; 
-            letter-spacing: 0.1em; 
-            text-shadow: 0 8px 25px rgba(0,0,0,0.5); 
-            width: 100%; 
-            text-align: center; 
-            text-transform: uppercase;
-        }
-        .hero-subtitle { 
-            font-family: 'Plus Jakarta Sans', sans-serif !important; 
-            font-size: clamp(0.7rem, 2.2vw, 1rem); 
-            color: #e2e8f0 !important; 
-            line-height: 1.4; 
-            margin: 0 auto 25px; 
-            font-weight: 400; 
-            width: 90%; 
-            max-width: 600px; 
-            text-shadow: 0 4px 10px rgba(0,0,0,0.5); 
-            text-align: center; 
-        }
-        
-        /* Form Centering & Narrowing */
-        div[data-testid="stVerticalBlock"] > div { width: 100%; display: flex; justify-content: center; }
-        div[data-testid="stTextInput"], div[data-testid="stButton"] { 
-            max-width: 350px !important; 
-            margin: 0 auto !important; 
-            width: 100% !important; 
-        }
-        
-        /* Tighten label-input gap */
-        div[data-testid="stWidgetLabel"], .stTextInput label { margin-bottom: 0px !important; padding-bottom: 2px !important; }
-        div[data-testid="stWidgetLabel"] p, .stTextInput label, div[data-testid="stTextInput"] p { 
-            font-size: 0.75rem !important; 
-            color: #ffffff !important; 
-            -webkit-text-fill-color: #ffffff !important;
-            font-weight: 500 !important; 
-            text-transform: uppercase; 
-            letter-spacing: 0.05em; 
-            margin-bottom: 0px !important;
-            opacity: 1 !important;
-        }
-        
-        input { 
-            background-color: rgba(255, 255, 255, 0.95) !important; 
-            border: 1px solid rgba(59, 130, 246, 0.2) !important; 
-            border-radius: 8px !important; 
-            padding: 12px 16px !important; 
-            color: #1e293b !important; 
-            font-size: 1rem !important; 
-            font-weight: 500 !important; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05) !important; 
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important; 
-            -webkit-text-fill-color: #1e293b !important; 
-        }
-        input:focus {
-            border-color: #3b82f6 !important;
-            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15), 0 10px 25px -5px rgba(0,0,0,0.1) !important;
-            transform: translateY(-1px);
-        }
-        
-        div[data-testid="stButton"] button { 
-            background: #3b82f6 !important; 
-            border: none !important; 
-            border-radius: 6px !important; 
-            padding: 12px !important; 
-            color: white !important; 
-            font-weight: 700 !important; 
-            font-size: 1rem !important; 
-            margin-top: 5px !important; 
-            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3) !important; 
-            width: 100% !important; 
-        }
-        
-        .stApp, [data-testid="stAppViewContainer"] { background: transparent !important; }
-        .stMainBlockContainer, .block-container { padding: 0 !important; max-width: 100% !important; }
-        [data-testid="stHeader"] { display: none !important; }
-        
-        /* Error Message Refinement - Absolute Centering */
-        [data-testid="stNotification"], 
-        [data-testid="stAlert"] {
-            background-color: rgba(220, 38, 38, 0.6) !important;
-            backdrop-filter: blur(8px) !important;
-            color: white !important;
-            border-radius: 8px !important;
-            border: 1px solid rgba(255, 255, 255, 0.3) !important;
-            max-width: 350px !important;
-            margin: 20px auto !important;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            min-height: 50px !important;
-            padding: 0 !important;
-        }
-        
-        /* Force transparency on all nested Streamlit divs to avoid "box-in-box" */
-        [data-testid="stNotification"] div, 
-        [data-testid="stAlert"] div {
-            background-color: transparent !important;
-            border: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            width: 100% !important;
-        }
-        
-        [data-testid="stNotification"] p, 
-        [data-testid="stAlert"] p {
-            color: white !important;
-            font-weight: 600 !important;
-            text-align: center !important;
-            font-size: 0.95rem !important;
-            margin: 0 !important;
-            padding: 10px 20px !important;
-            line-height: 1 !important;
-        }
-        
-        /* Hide the default Streamlit icon */
-        [data-testid="stNotification"] svg,
-        [data-testid="stAlert"] svg {
-            display: none !important;
-        }
-        
-        /* Centering container for the whole hero block */
-        .hero-container { 
-            text-align: center; 
-            width: 100%; 
-            margin-top: 15vh; 
-            position: relative;
-        }
-        .hero-container::before {
-            content: '';
-            position: absolute;
-            top: 50%; left: 50%;
-            width: 400px; height: 400px;
-            background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
-            transform: translate(calc(-50% + var(--glow-x, 0px)), calc(-50% + var(--glow-y, 0px)));
-            pointer-events: none;
-            z-index: -1;
-            transition: transform 0.1s ease-out;
-        }
-        
-        /* Desktop specific overrides */
-        @media (min-width: 768px) {
-            #client-logo-link { top: 30px; right: 40px; }
-            #client-logo-img { height: 65px; }
-            .hero-container { margin-top: 18vh; }
-            div[data-testid="stTextInput"], div[data-testid="stButton"] { max-width: 400px !important; }
-        }
-        """
-        st.markdown(f"<style>{_css}</style>", unsafe_allow_html=True)
-
-        st.html(f"""
+        st.markdown(f"""
+        {_vtag}
+        <div style="position:fixed;top:0;left:0;width:100%;height:100%;
+            background:linear-gradient(135deg,rgba(5,10,20,0.55),rgba(10,22,50,0.40));
+            z-index:1;pointer-events:none;"></div>
+        <div style="position:fixed;top:16px;right:20px;z-index:100;">
             {_logo_link}
-            <div class="hero-container" id="main-hero">
-                <div class="hero-badge">✦ PORTAL DE MATERIALES</div>
-                <h1 class="hero-title">Diseña tu Próximo Espacio</h1>
-                <p class="hero-subtitle">Bienvenido a tu portal de personalización. Ingresa tus credenciales para comenzar a dar vida a tu proyecto.</p>
+        </div>
+        <div style="position:fixed;top:25%;left:50%;transform:translate(-50%,-50%);
+            z-index:5;text-align:center;width:100%;padding:0 20px;pointer-events:none;">
+            <div style="display:inline-block;background:rgba(255,255,255,0.15);
+                border:1px solid rgba(255,255,255,0.3);color:white;border-radius:99px;
+                padding:5px 18px;font-size:0.68rem;font-weight:700;letter-spacing:0.12em;
+                text-transform:uppercase;margin-bottom:14px;font-family:Poppins,sans-serif;">
+                ✦ Portal de Materiales
             </div>
-            <script>
-                const hero = document.getElementById('main-hero');
-                document.addEventListener('mousemove', (e) => {{
-                    const rect = hero.getBoundingClientRect();
-                    const x = e.clientX - (rect.left + rect.width / 2);
-                    const y = e.clientY - (rect.top + rect.height / 2);
-                    
-                    // Limit the glow movement to stay within reasonable bounds
-                    const limit = 50; 
-                    const moveX = Math.max(-limit, Math.min(limit, x / 5));
-                    const moveY = Math.max(-limit, Math.min(limit, y / 5));
-                    
-                    hero.style.setProperty('--glow-x', moveX + 'px');
-                    hero.style.setProperty('--glow-y', moveY + 'px');
-                }});
-            </script>
-        """)
-        
-        _cli_rut_inp = st.text_input("RUT DEL CLIENTE", placeholder="12.345.678-9", key="cli_rut")
-        _cli_ep_inp  = st.text_input("CÓDIGO DE PROYECTO", placeholder="EP-XXXX", key="cli_ep")
-        
-        _submitted = st.button("Comenzar Experiencia →", type="primary", use_container_width=True, key="cli_login")
-        
-        if _submitted:
+            <div style="font-size:2.8rem;font-weight:900;color:white;line-height:1.15;
+                margin-bottom:12px;text-shadow:0 2px 24px rgba(0,0,0,0.4);
+                font-family:Poppins,sans-serif;">Tu casa,<br>tus materiales 🏡</div>
+            <div style="font-size:0.95rem;color:rgba(255,255,255,0.8);max-width:380px;
+                margin:0 auto;line-height:1.6;font-family:Poppins,sans-serif;">
+                Ingresa tus datos para acceder a tu formulario personalizado de selección de materiales.
+            </div>
+        </div>
+        <style>
+        html,body,.stApp{{background:transparent!important;}}
+        .stMainBlockContainer{{background:transparent!important;padding-top:0!important;}}
+        .block-container{{background:transparent!important;}}
+        section[data-testid="stMain"]{{background:transparent!important;}}
+        /* Push all Streamlit content above overlay */
+        section[data-testid="stMain"] > div{{
+            position:relative;z-index:10;
+        }}
+        div[data-testid="stVerticalBlock"]{{background:transparent!important;}}
+        /* Labels white, inputs fully opaque */
+        div[data-testid="stTextInput"] label,
+        div[data-testid="stTextInput"] label p{{
+            color:white!important;
+            text-shadow:0 1px 4px rgba(0,0,0,0.5)!important;
+        }}
+        div[data-testid="stTextInput"] > div{{
+            background:transparent!important;
+        }}
+        div[data-testid="stTextInput"] input{{
+            background:white!important;
+            opacity:1!important;
+            color:#1e293b!important;
+        }}
+        </style>
+        """, unsafe_allow_html=True)
+
+        st.markdown("<div style='height:36vh;'></div>", unsafe_allow_html=True)
+        _, _col, _ = st.columns([1, 2, 1])
+        with _col:
+            _cli_rut_inp = st.text_input("RUT", placeholder="12.345.678-9", key="cli_rut")
+            _cli_ep_inp  = st.text_input("Código de presupuesto", placeholder="EP-12345", key="cli_ep")
+            if st.button("Ingresar a mi formulario →", type="primary", use_container_width=True, key="cli_login"):
                 _cli_rut_clean = re.sub(r'[^0-9kK]', '', _cli_rut_inp.strip()).upper()
                 _cli_ep_clean  = _cli_ep_inp.strip().upper()
                 if not _cli_rut_clean or not _cli_ep_clean:
-                    st.error("Por favor, ingresa tus credenciales.")
+                    st.error("Ingresa tu RUT y código de presupuesto.")
                 else:
                     try:
                         _cli_check = supabase_admin.table('cotizaciones').select(
@@ -1977,11 +934,12 @@ if _modo_cliente:
                                 st.session_state._cliente_proyecto = _cli_row.get('proyecto_observaciones','')
                                 st.rerun()
                             else:
-                                st.error("RUT o código incorrecto.")
+                                st.error("RUT o código incorrecto. Verifica tus datos.")
                         else:
-                            st.error("Proyecto no encontrado.")
+                            st.error("Código de presupuesto no encontrado.")
                     except Exception as _ce:
                         st.error(f"Error de conexión: {_ce}")
+            st.markdown("</div>", unsafe_allow_html=True)
 
     else:
         # ── FORMULARIO DE MATERIALES ───────────────────────────
@@ -2001,14 +959,10 @@ if _modo_cliente:
 
         if not _cfg_cli:
             st.markdown(f"""
-            <div style='max-width:560px;margin:120px auto;text-align:center;font-family:"Plus Jakarta Sans",sans-serif;
-                background:white;padding:60px 40px;border-radius:32px;box-shadow:0 20px 50px rgba(0,0,0,0.05);'>
-              <div style='font-size:4rem;margin-bottom:24px;'>🏡</div>
-              <h2 style='font-size:2rem;font-weight:800;color:#0f172a;margin:0 0 12px;'>¡Hola {_primer_nombre}!</h2>
-              <p style='color:#64748b;font-size:1.1rem;line-height:1.6;margin:0;'>
-                Tu formulario personalizado está siendo preparado por nuestro equipo.<br>
-                <strong>Vuelve pronto para comenzar tu selección.</strong>
-              </p>
+            <div style='max-width:560px;margin:60px auto;text-align:center;font-family:Poppins,sans-serif;'>
+              <div style='font-size:3rem;margin-bottom:16px;'>📋</div>
+              <div style='font-size:1.4rem;font-weight:900;color:#0a1628;margin-bottom:8px;'>Hola {_primer_nombre}, ¡ya casi!</div>
+              <div style='color:#64748b;font-size:0.95rem;line-height:1.6;'>Tu formulario está siendo preparado. ¡La espera va a valer la pena! 🏡</div>
             </div>
             """, unsafe_allow_html=True)
         else:
@@ -5593,7 +4547,7 @@ def formato_clp(valor):
 # FUNCIONES PARA PROCESAR CAMBIOS EN TIEMPO REAL
 # =========================================================
 def procesar_cambio_rut():
-    rut_key = f"rut_input_{st.session_state.counter}"
+    rut_key = f"rut_input_{st.session_state.get('counter', 0)}"
     if rut_key in st.session_state:
         valor_actual = st.session_state[rut_key]
         raw = re.sub(r'[^0-9kK]', '', valor_actual)
@@ -5613,7 +4567,7 @@ def procesar_cambio_rut():
             st.session_state.rut_mensaje = "RUT incompleto"
 
 def procesar_cambio_rut_empresa():
-    rut_emp_key = f"rut_empresa_input_{st.session_state.counter}"
+    rut_emp_key = f"rut_empresa_input_{st.session_state.get('counter', 0)}"
     if rut_emp_key in st.session_state:
         valor_actual = st.session_state[rut_emp_key]
         raw = re.sub(r'[^0-9kK]', '', valor_actual)
@@ -5709,7 +4663,7 @@ def _rerun_hb():
     pass  # El rerun ocurre automáticamente al ejecutar on_change
 
 def procesar_cambio_telefono():
-    telefono_key = f"telefono_input_{st.session_state.counter}"
+    telefono_key = f"telefono_input_{st.session_state.get('counter', 0)}"
     if telefono_key in st.session_state:
         valor_actual = st.session_state[telefono_key]
         digitos_norm, valido, mensaje = _validar_telefono_cliente(valor_actual)
@@ -6880,7 +5834,7 @@ def _fetch_cotizaciones_raw(rol, email):
         )
         if rol == 'ejecutivo' and email:
             query = query.ilike('asesor_email', email.strip())
-        query = query.order('fecha_creacion', desc=True).limit(100)
+        query = query.order('fecha_creacion', desc=True)
         return query.execute().data or []
     except:
         return []
@@ -6912,7 +5866,7 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero'):
             }
             campo = campo_map.get(tipo_busqueda, 'numero')
             query = query.ilike(campo, f'%{termino}%')
-        query = query.order('fecha_creacion', desc=True).limit(50)
+        query = query.order('fecha_creacion', desc=True)
         response = query.execute()
         resultados = []
         for row in response.data:
@@ -7549,23 +6503,23 @@ st.markdown("""
 
     /* ══ HEADER ══ */
     .main-title {
-        font-family: 'Inter', sans-serif !important;
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
         font-size: 2rem !important; font-weight: 800 !important;
-        background: linear-gradient(135deg, var(--ds-primary) 0%, #8b5cf6 100%);
+        background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         letter-spacing: -0.04em; line-height: 1.15;
     }
     .sub-title {
-        color: var(--ds-muted); font-size: 0.82rem; font-weight: 500;
+        color: #9099be; font-size: 0.82rem; font-weight: 500;
         margin-top: 0.2rem; letter-spacing: 0.02em;
     }
 
     /* ══ STATUS BADGE ══ */
     .cotizacion-status-container {
-        background: var(--ds-card); border-radius: 50px;
+        background: #ffffff; border-radius: 50px;
         padding: 0.5rem 1.2rem 0.5rem 1.5rem;
-        margin-bottom: 1rem; border: 1px solid var(--ds-border);
-        box-shadow: var(--ds-shadow-sm);
+        margin-bottom: 1rem; border: 1.5px solid #e2e6f3;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
         display: inline-flex; align-items: center; gap: 1rem;
     }
     .status-badge { font-size: 0.875rem; font-weight: 600; color: #2a3060; }
@@ -7827,10 +6781,10 @@ st.markdown(f'''
 <div style="
     display:flex; justify-content:space-between; align-items:center;
     padding: 1.2rem 1.8rem;
-    background: var(--ds-card);
-    border-radius: var(--ds-r-md);
-    border: 1px solid var(--ds-border);
-    box-shadow: var(--ds-shadow-md);
+    background: #ffffff;
+    border-radius: 18px;
+    border: 1.5px solid #e2e6f3;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
     margin-bottom: 0.8rem;
 ">
     <div style="display:flex; flex-direction:column; gap:0.15rem;">
@@ -7912,13 +6866,13 @@ st.markdown(f"""
     top: 0; left: 0; right: 0;
     height: 65px;
     background: {_header_bg};
-    border-bottom: 1px solid var(--ds-border) !important;
-    box-shadow: var(--ds-shadow-md);
-    transition: background 0.5s var(--ds-ease);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.05);
+    transition: background 0.5s ease;
     display: flex;
     align-items: center;
     padding: 0 1.5rem;
-    z-index: 999999 !important;
+    z-index: 99998;
     gap: 12px;
 }}
 /* ── Dialogs y modals siempre sobre el header ── */
@@ -8038,14 +6992,14 @@ if st.session_state.get('rol_usuario') in ('root', 'admin'):
     _bloque_raw = _get_bloque_horario(_now_cod).split('-', 3)
     _bloque_display = f"{_bloque_raw[-2][:2]}:{_bloque_raw[-2][2:]} → {_bloque_raw[-1][:2]}:{_bloque_raw[-1][2:]}"
     st.markdown(f"""
-    <div id='_cod_w' style='position:fixed;top:65px;right:0;z-index:999;
-        background:var(--ds-card);border:1px solid var(--ds-border-strong);
-        border-radius:0 0 0 var(--ds-r-sm);padding:3px 12px 4px 10px;
-        box-shadow:var(--ds-shadow-sm);
-        font-family:Inter,sans-serif;
+    <div id='_cod_w' style='position:fixed;top:65px;left:0;z-index:2147483647;
+        background:rgba(240,253,250,0.97);border:1px solid #99f6e4;
+        border-radius:0 0 8px 0;padding:3px 12px 4px 10px;
+        box-shadow:2px 2px 10px rgba(13,148,136,0.10);
+        font-family:"Plus Jakarta Sans",sans-serif;
         display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;'>
-        <div style='font-size:0.6rem;color:var(--ds-subtle);font-weight:600;line-height:1.2;'>Código<br>{_bloque_display}</div>
-        <div id='_cval' style='font-size:1.05rem;font-weight:800;color:var(--ds-primary);letter-spacing:0.15em;'>{_cod_actual}</div>
+        <div style='font-size:0.6rem;color:#1e293b;font-weight:600;line-height:1.2;'>Código<br>{_bloque_display}</div>
+        <div id='_cval' style='font-size:1.05rem;font-weight:800;color:#0d9488;letter-spacing:0.15em;'>{_cod_actual}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -9241,30 +8195,35 @@ def generar_word_contrato(datos):
 
 @st.cache_data(ttl=300, show_spinner=False)
 def _obtener_clausulas_contrato(modelo_predefinido=None):
-    """Retorna las cláusulas de la plantilla activa.
+    """Retorna las clausulas de la plantilla activa con _tipo_plantilla inyectado.
     Si se pasa modelo_predefinido, busca la plantilla que tenga ese modelo asociado.
     Si no encuentra, usa la plantilla A activa como fallback."""
+    def _inyectar_tipo(clausulas, tipo):
+        if clausulas is None:
+            return None
+        result = dict(clausulas)
+        result['_tipo_plantilla'] = tipo or 'A'
+        return result
     try:
         # 1. Buscar por modelo si se proporcionó
         if modelo_predefinido:
             _todas = supabase_admin.table("plantillas_contrato").select("*").eq("activa", True).execute()
             for _p in (_todas.data or []):
                 _mods = _p.get("modelos") or []
-                # Normalizar: puede llegar como string JSON o lista
                 if isinstance(_mods, str):
                     try:
                         import json as _jm; _mods = _jm.loads(_mods)
                     except: _mods = []
                 if modelo_predefinido in _mods:
-                    return _p.get("clausulas")
+                    return _inyectar_tipo(_p.get("clausulas"), _p.get("tipo"))
         # 2. Fallback: plantilla A activa
-        _res = supabase_admin.table("plantillas_contrato").select("clausulas").eq("activa", True).eq("tipo", "A").execute()
+        _res = supabase_admin.table("plantillas_contrato").select("clausulas,tipo").eq("activa", True).eq("tipo", "A").execute()
         if _res.data and _res.data[0].get("clausulas"):
-            return _res.data[0]["clausulas"]
+            return _inyectar_tipo(_res.data[0]["clausulas"], _res.data[0].get("tipo"))
         # 3. Fallback final: cualquier activa
-        _res2 = supabase_admin.table("plantillas_contrato").select("clausulas").eq("activa", True).execute()
+        _res2 = supabase_admin.table("plantillas_contrato").select("clausulas,tipo").eq("activa", True).execute()
         if _res2.data and _res2.data[0].get("clausulas"):
-            return _res2.data[0]["clausulas"]
+            return _inyectar_tipo(_res2.data[0]["clausulas"], _res2.data[0].get("tipo"))
     except Exception:
         pass
     return None
@@ -9607,55 +8566,75 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         if _l.strip(): story.append(Paragraph(_l.strip(), normal))
     story += [HR()]
 
-    # ── XII. Retiro y bodegaje ──
-    story += [
-        Paragraph("XII. RETIRO, DESPACHO Y BODEGAJE", seccion),
-        Paragraph(_p("bodegaje", None), normal),
-        HR(),
+    # ── Cláusulas XII en adelante — data-driven según tipo de plantilla ──
+    # Obtener tipo: inyectado por _obtener_clausulas_contrato en _tipo_plantilla
+    _tipo_plt_pdf = (_plt_cls.get("_tipo_plantilla") if _plt_cls else None) or 'A'
+
+    def _romano(n):
+        _vals = [(1000,'M'),(900,'CM'),(500,'D'),(400,'CD'),(100,'C'),(90,'XC'),
+                 (50,'L'),(40,'XL'),(10,'X'),(9,'IX'),(5,'V'),(4,'IV'),(1,'I')]
+        r = ''
+        for v, s in _vals:
+            while n >= v:
+                r += s; n -= v
+        return r
+
+    # Definir clausulas variables en orden, con condicion de inclusion por tipo
+    # Formato: (clave_clausula, titulo_sin_numero, multilinea, separador_final)
+    # separador_final: 'hr' | 'pagebreak'
+    _clausulas_vars = [
+        # (clave,           titulo,                                          multilinea, sep,         tipos_incluidos)
+        ('bodegaje',        'RETIRO, DESPACHO Y BODEGAJE',                   False,     'hr',         ('A', 'B')),
+        ('garantia',        'GARANTÍA',                                       True,      'hr',         ('A', 'B', 'E')),
+        ('terminacion',     'TERMINACIÓN ANTICIPADA',                         True,      'hr',         ('A', 'B', 'E')),
+        ('jurisdiccion',    'DOMICILIO Y JURISDICCIÓN',                       False,     'pagebreak',  ('A', 'B', 'E')),
+        ('suministro_energia', 'SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS',
+                                                                              True,      'sp',         ('B', 'E')),
+        ('firma',           'FIRMA',                                          False,     'sp60',       ('A', 'B', 'E')),
     ]
 
-    # ── XIII. Garantía ──
-    story += [Paragraph("XIII. GARANTÍA", seccion)]
-    for _l in _p("garantia", None).split("\n"):
-        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
-    story += [HR()]
+    # Contador romano: las clausulas I–XI ya están en el story (11 clausulas)
+    _num_clausula = 11
 
-    # ── XIV. Terminación anticipada ──
-    story += [Paragraph("XIV. TERMINACIÓN ANTICIPADA", seccion)]
-    for _l in _p("terminacion", None).split("\n"):
-        if _l.strip(): story.append(Paragraph(_l.strip(), normal))
-    story += [HR()]
+    import re as _re_sum
+    for _clave, _titulo, _multi, _sep, _tipos in _clausulas_vars:
+        if _tipo_plt_pdf not in _tipos:
+            continue
+        _num_clausula += 1
+        _num_str = _romano(_num_clausula)
 
-    # ── XV. Domicilio y jurisdicción ──
-    story += [
-        Paragraph("XV. DOMICILIO Y JURISDICCIÓN", seccion),
-        Paragraph(_p("jurisdiccion", None), normal),
-        PageBreak(),
-    ]
-
-    # ── XVI. Suministro energía (solo Plantilla B) ──
-    _tiene_suministro = bool(_plt_cls and _plt_cls.get("suministro_energia"))
-    if _tiene_suministro:
-        _txt_sum = _plt_cls["suministro_energia"]
-        # Quitar el título si viene incluido en el texto guardado
-        import re as _re_sum
-        _txt_sum = _re_sum.sub(
-            r'^XVI\..*?Y USO DE HERRAMIENTAS\s*',
-            '', _txt_sum.strip(), flags=_re_sum.IGNORECASE | _re_sum.DOTALL
-        ).strip()
-        story += [
-            Paragraph("XVI. DEL SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS", seccion),
-            Paragraph(_rep(_txt_sum, d), normal),
-            SP(6),
-        ]
-
-    # ── XVI/XVII. Firma ──
-    _firma_num = "XVII" if _tiene_suministro else "XVI"
-    story += [
-        Paragraph(f"{_firma_num}. FIRMA", seccion),
-        Paragraph(_p("firma", None), normal),
-        SP(60),
-    ]
+        if _clave == 'suministro_energia':
+            # Texto especial: quitar título embebido si lo tiene
+            _txt_sum = (_plt_cls or {}).get("suministro_energia", "")
+            if not _txt_sum:
+                continue
+            _txt_sum = _re_sum.sub(
+                r'^X{0,3}(?:IX|IV|V?I{0,3})\..*?Y USO DE HERRAMIENTAS\s*',
+                '', _txt_sum.strip(), flags=_re_sum.IGNORECASE | _re_sum.DOTALL
+            ).strip()
+            story += [
+                Paragraph(f"{_num_str}. {_titulo}", seccion),
+                Paragraph(_rep(_txt_sum, d), normal),
+                SP(6),
+            ]
+        elif _clave == 'firma':
+            story += [
+                Paragraph(f"{_num_str}. {_titulo}", seccion),
+                Paragraph(_p("firma", None), normal),
+                SP(60),
+            ]
+        elif _multi:
+            story += [Paragraph(f"{_num_str}. {_titulo}", seccion)]
+            for _l in _p(_clave, None).split("\n"):
+                if _l.strip(): story.append(Paragraph(_l.strip(), normal))
+            if _sep == 'hr': story += [HR()]
+        else:
+            story += [
+                Paragraph(f"{_num_str}. {_titulo}", seccion),
+                Paragraph(_p(_clave, None), normal),
+            ]
+            if _sep == 'hr': story += [HR()]
+            elif _sep == 'pagebreak': story += [PageBreak()]
 
     # Bloque de firmas en tabla 2 columnas
     if d['tipo_cliente'] == 'natural':
@@ -9764,92 +8743,26 @@ def cargar_ranking_ejecutivos(periodo='mes'):
 _hash_actual = calcular_hash_estado()
 
 # =========================================================
-# SISTEMA DE NAVEGACIÓN — AI DESIGN SYSTEM COMPLIANT
+# TABS
 # =========================================================
 _rol_actual = st.session_state.get('rol_usuario', 'ejecutivo')
-
-# Sub-menús
-SUB_MENU_CONFIG = {
-    "📋 PRESUPUESTO":        ["🧮 Calculadora", "📋 Items de Cotización", "📐 Plano PDF", "📂 Modelo Predefinido"],
-    "📄 CONTRATO":           ["📄 Generador de contrato", "👁️ Previsualizar contrato", "📎 Contrato notariado", "📝 Editar contrato"],
-    "⚙️ OPERACIONES":        ["⚙️ Panel Operacional", "🛒 Registro de Compras", "📋 Acta de Clientes"],
-    "👥 USUARIOS":           ["👥 Gestión de Usuarios", "👤 Nuevo ejecutivo", "🛡️ Nuevo administrador", "👷 Nuevo operación"],
-    "📝 FORMULARIO CLIENTE": ["📦 Catálogo de materiales", "⚙️ Configurar preguntas", "📊 Progreso clientes"],
-}
-
 if _rol_actual == 'root':
-    opciones = ["📊 DASHBOARD","📋 PRESUPUESTO","👤 DATOS","📂 COTIZACIONES","✏️ EDICIÓN PDF","🏆 RANKING","📄 CONTRATO","🧊 3D BETA","📊 PROYECTO EXCEL","🛡️ SISTEMA","👥 USUARIOS","📣 NOTIFICACIONES","📈 REPORTE BI","⚙️ OPERACIONES","⚠️ ADMINISTRACIÓN DE DATOS","📝 FORMULARIO CLIENTE"]
+    tab_dash, tab1, tab2, tab3, tab6, tab7, tab_contrato, tab4, tab5, tab_salud, tab_usuarios, tab_notif, tab_reporte, tab_oper, tab_admindata, tab_formulario = st.tabs(["📊 DASHBOARD", "📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "✏️ EDICIÓN PDF", "🏆 RANKING", "📄 CONTRATO", "🧊 3D BETA", "📊 PROYECTO EXCEL", "🛡️ SISTEMA", "👥 USUARIOS", "📣 NOTIFICACIONES", "📈 REPORTE BI", "⚙️ OPERACIONES", "⚠️ ADMINISTRACIÓN DE DATOS", "📝 FORMULARIO CLIENTE"])
 elif _rol_actual == 'admin':
-    opciones = ["📋 PRESUPUESTO","📂 COTIZACIONES","👤 DATOS","📄 CONTRATO","⚙️ OPERACIONES","👥 USUARIOS","📊 PROYECTO EXCEL","✏️ EDICIÓN PDF","🏆 RANKING","🧊 3D BETA","📣 NOTIFICACIONES","📊 DASHBOARD","📈 REPORTE BI","⚠️ ADMINISTRACIÓN DE DATOS","📝 FORMULARIO CLIENTE"]
+    tab1, tab3, tab2, tab_contrato, tab_oper, tab_usuarios, tab5, tab6, tab7, tab4, tab_notif, tab_dash, tab_reporte, tab_admindata, tab_formulario = st.tabs(["📋 PRESUPUESTO", "📂 COTIZACIONES", "👤 DATOS", "📄 CONTRATO", "⚙️ OPERACIONES", "👥 USUARIOS", "📊 PROYECTO EXCEL", "✏️ EDICIÓN PDF", "🏆 RANKING", "🧊 3D BETA", "📣 NOTIFICACIONES", "📊 DASHBOARD", "📈 REPORTE BI", "⚠️ ADMINISTRACIÓN DE DATOS", "📝 FORMULARIO CLIENTE"])
+    tab_salud = None
 elif _rol_actual == 'operacion':
-    opciones = ["⚙️ OPERACIONES"]
+    tab_oper, = st.tabs(["⚙️ OPERACIONES"])
+    tab_formulario = None
+    tab_dash = None; tab1 = None; tab2 = None; tab3 = None
+    tab4 = None; tab5 = None; tab6 = None; tab7 = None
+    tab_contrato = None; tab_salud = None; tab_usuarios = None
+    tab_notif = None; tab_reporte = None; tab_admindata = None
 else:
-    opciones = ["📋 PRESUPUESTO","👤 DATOS","📂 COTIZACIONES","📄 CONTRATO","📝 FORMULARIO CLIENTE","🏆 RANKING","🧊 3D BETA"]
-
-with st.sidebar:
-    st.markdown("""
-    <style>
-    /* DS Nav — Label de cada ítem principal */
-    section[data-testid="stSidebar"] [data-testid="stRadio"] label {
-        width: 100% !important;
-        padding: 8px 14px !important;
-        border-radius: var(--ds-r-sm) !important;
-        font-size: 0.82rem !important;
-        font-weight: 500 !important;
-        color: var(--ds-muted) !important;
-        cursor: pointer !important;
-        transition: background var(--ds-duration) var(--ds-ease),
-                    color var(--ds-duration) var(--ds-ease) !important;
-        border-left: 2px solid transparent !important;
-    }
-    section[data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
-        background: var(--ds-sidebar-item) !important;
-        color: var(--ds-fg) !important;
-    }
-    /* Widget labels (MENÚ PRINCIPAL / SECCIÓN) */
-    section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {
-        color: var(--ds-subtle) !important;
-        font-size: 0.63rem !important;
-        font-weight: 700 !important;
-        letter-spacing: 0.12em !important;
-        text-transform: uppercase !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-    selected_label = st.radio("MENÚ PRINCIPAL", opciones, key="main_nav")
-
-    selected_sub_label = None
-    if selected_label in SUB_MENU_CONFIG:
-        subs = SUB_MENU_CONFIG[selected_label]
-        st.markdown(
-            "<div style='height:4px;border-top:1px solid var(--ds-border);margin:12px 0 8px;'></div>",
-            unsafe_allow_html=True
-        )
-        selected_sub_label = st.radio("SECCIÓN", subs, key="sub_nav")
-
-# Mapeo de etiquetas a variables internas
-L2V = {
-    "📊 DASHBOARD": "tab_dash", "📋 PRESUPUESTO": "tab1", "👤 DATOS": "tab2", "📂 COTIZACIONES": "tab3",
-    "✏️ EDICIÓN PDF": "tab6", "🏆 RANKING": "tab7", "📄 CONTRATO": "tab_contrato", "🧊 3D BETA": "tab4",
-    "📊 PROYECTO EXCEL": "tab5", "🛡️ SISTEMA": "tab_salud", "👥 USUARIOS": "tab_usuarios",
-    "📣 NOTIFICACIONES": "tab_notif", "📈 REPORTE BI": "tab_reporte", "⚙️ OPERACIONES": "tab_oper",
-    "⚠️ ADMINISTRACIÓN DE DATOS": "tab_admindata", "📝 FORMULARIO CLIENTE": "tab_formulario"
-}
-
-active_var_name = L2V.get(selected_label)
-
-# Compatibilidad con código legacy
-tab_dash = True; tab1 = True; tab2 = True; tab3 = True; tab4 = True; tab5 = True; tab6 = True; tab7 = True
-tab_contrato = True; tab_salud = True; tab_usuarios = True; tab_notif = True; tab_reporte = True; tab_oper = True; tab_admindata = True; tab_formulario = True
-
-# Clase para silenciar sub-tabs no seleccionados
-class MockContainer:
-    def __enter__(self): return self
-    def __exit__(self, *args): pass
-    def __getattr__(self, name): return lambda *args, **kwargs: None
-
+    tab1, tab2, tab3, tab_contrato, tab7, tab4, tab_formulario = st.tabs(["📋 PRESUPUESTO", "👤 DATOS", "📂 COTIZACIONES", "📄 CONTRATO", "🏆 RANKING", "🧊 3D BETA", "📝 FORMULARIO CLIENTE"])
+    tab_dash = None; tab_reporte = None; tab_salud = None
+    tab5 = None; tab6 = None; tab_usuarios = None
+    tab_notif = None; tab_oper = None; tab_admindata = None
 
 # =========================================================
 # FUNCIÓN PARA GENERAR PDF COMPLETO
@@ -10599,7 +9512,7 @@ if st.session_state.get('trigger_cerrar_cotizacion', False):
 # TAB 2 - DATOS CLIENTE
 # =========================================================
 if tab2 is not None:
- if active_var_name == 'tab2':
+ with tab2:
     st.markdown("""
     <style>
     .hdr2 {
@@ -11022,7 +9935,7 @@ if tab2 is not None:
 # TAB 1 - PREPARAR COTIZACIÓN
 # =========================================================
 if tab1 is not None:
- if active_var_name == 'tab1':
+ with tab1:
     st.markdown("""
     <style>
     .hdr1 {
@@ -11882,7 +10795,7 @@ document.querySelectorAll('.cat-card').forEach(function(el){{
 # TAB 3 - GESTIÓN DE COTIZACIONES GUARDADAS
 # =========================================================
 if tab3 is not None:
- if active_var_name == 'tab3':
+ with tab3:
     st.markdown("""
     <style>
     .hdr3 {
@@ -12614,6 +11527,34 @@ if tab3 is not None:
 (function(){
   var D=window.parent.document;
   var _af='';
+  /* DROPDOWN_FILTER_V4 */
+  function filterDropdown(val){
+    // Streamlit usa BaseWeb: <li role="option"> dentro de <ul role="listbox">
+    // El popover se crea en window.parent.document.body cuando se abre
+    var lis = D.querySelectorAll('li[role="option"], div[role="option"], [data-baseweb="select"] li, [data-baseweb="popover"] li');
+    lis.forEach(function(li){
+      var txt = (li.textContent || '').trim();
+      // Solo filtrar opciones de cotizaciones (empiezan con "EP-")
+      if (txt.indexOf('EP-') !== 0) return;
+      if (!val || val === 'TODOS') {
+        li.style.display = '';
+        li.style.height = '';
+        li.style.padding = '';
+        li.style.overflow = '';
+      } else if (txt.indexOf(val) !== -1) {
+        li.style.display = '';
+        li.style.height = '';
+        li.style.padding = '';
+        li.style.overflow = '';
+      } else {
+        // Remover completamente del flujo visual para que no haya espacios
+        li.style.display = 'none';
+        li.style.height = '0';
+        li.style.padding = '0';
+        li.style.overflow = 'hidden';
+      }
+    });
+  }
   function doFilter(val){
     _af=val;
     D.querySelectorAll('tr[data-est]').forEach(function(r){
@@ -12624,6 +11565,7 @@ if tab3 is not None:
       var isAct=(!val||val==='TODOS')?(bv==='TODOS'):(bv===val);
       b.style.outline=isAct?('2px solid '+b.style.color):'';
     });
+    filterDropdown(val);
   }
   function init(){
     D.querySelectorAll('._badge_filtro').forEach(function(b){
@@ -12634,7 +11576,33 @@ if tab3 is not None:
         doFilter((_af===val&&val!=='TODOS')?'':val);
       });
     });
+    if (_af) filterDropdown(_af);
   }
+  // Observer: cuando se abre el dropdown, BaseWeb crea los <li> al vuelo
+  try {
+    var _obs = new MutationObserver(function(muts){
+      if (!_af) return;
+      var shouldFilter = false;
+      muts.forEach(function(m){
+        if (m.addedNodes && m.addedNodes.length > 0) shouldFilter = true;
+      });
+      if (shouldFilter) setTimeout(function(){ filterDropdown(_af); }, 10);
+    });
+    _obs.observe(D.body, {childList: true, subtree: true});
+  } catch(e){}
+  // Backup: al hacer click en cualquier dropdown, reaplica filtro
+  D.addEventListener('click', function(e){
+    if (!_af) return;
+    var tgt = e.target;
+    while (tgt && tgt !== D.body){
+      if (tgt.getAttribute && (tgt.getAttribute('data-baseweb') === 'select' || tgt.getAttribute('role') === 'combobox')){
+        setTimeout(function(){ filterDropdown(_af); }, 50);
+        setTimeout(function(){ filterDropdown(_af); }, 200);
+        break;
+      }
+      tgt = tgt.parentElement;
+    }
+  }, true);
   setTimeout(init,400);
   setInterval(init,2000);
 })();
@@ -13619,7 +12587,7 @@ if st.session_state.get('mostrar_toast_exito', False):
     st.session_state.mostrar_toast_exito = False
 
 if tab4 is not None:
- if active_var_name == 'tab4':
+ with tab4:
     st.markdown("""
     <style>
     .hdr4 {
@@ -14179,7 +13147,7 @@ if tab4 is not None:
 # TAB 5 - PROYECTO EXCEL (solo admin)
 # =========================================================
 if st.session_state.modo_admin and tab5 is not None:
-    if active_var_name == 'tab5':
+    with tab5:
 
         # CSS del tab5
         st.markdown("""
@@ -14540,7 +13508,7 @@ if st.session_state.modo_admin and tab5 is not None:
 # TAB SALUD - SISTEMA (solo admin)
 # =========================================================
 if st.session_state.get('es_root') and tab_salud is not None:
-    if active_var_name == 'tab_salud':
+    with tab_salud:
 
         st.markdown("""
         <style>
@@ -14876,7 +13844,7 @@ if st.session_state.get('es_root') and tab_salud is not None:
 # TAB: ADMINISTRACIÓN DE DATOS (solo root)
 # =========================================================
 if tab_admindata is not None:
-    if active_var_name == 'tab_admindata':
+    with tab_admindata:
         st.markdown("""
         <style>
         .hdr-admindata {
@@ -15270,7 +14238,7 @@ if _mostrar_progreso:
 # TAB REPORTE BI — solo admin y root
 # =========================================================
 if tab_reporte is not None and st.session_state.modo_admin:
- if active_var_name == 'tab_reporte':
+ with tab_reporte:
 
     # ── Header ──
     _rep_periodo = st.selectbox("Período", ["Último mes", "Últimos 3 meses", "Últimos 6 meses", "Todo el tiempo"],
@@ -15637,7 +14605,7 @@ if tab_reporte is not None and st.session_state.modo_admin:
 # TAB OPERACIONES — operacion, admin y root
 # =========================================================
 if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
- if active_var_name == 'tab_oper':
+ with tab_oper:
 
     # ── Header ──
     st.markdown("""
@@ -15683,9 +14651,11 @@ if tab_oper is not None and _rol_actual in ('root', 'admin', 'operacion'):
     </div>
     """, unsafe_allow_html=True)
 
-    _sub_panel = st.container() if selected_sub_label == "⚙️ Panel Operacional" else MockContainer()
-    _sub_compras = st.container() if selected_sub_label == "🛒 Registro de Compras" else MockContainer()
-    _sub_acta = st.container() if selected_sub_label == "📋 Acta de Clientes" else MockContainer()
+    _sub_panel, _sub_compras, _sub_acta = st.tabs([
+        "⚙️ Panel Operacional",
+        "🛒 Registro de Compras",
+        "📋 Acta de Clientes"
+    ])
 
     with _sub_panel:
         # ── Cargar ejecutivos para dropdown ──
@@ -17019,7 +15989,7 @@ else:
 # TAB DASHBOARD — visible para todos
 # =========================================================
 if tab_dash is not None:
- if active_var_name == 'tab_dash':
+ with tab_dash:
     st.markdown("""
     <style>
     .dash-hdr {
@@ -17525,7 +16495,7 @@ if tab_dash is not None:
 # TAB 6 - EDICIÓN PDF (visible para todos)
 # =========================================================
 if tab6 is not None:
-    if active_var_name == 'tab6':
+    with tab6:
         st.markdown("""
         <style>
         .hdr6 {
@@ -17698,7 +16668,7 @@ if tab6 is not None:
 # TAB 7 - RANKING EJECUTIVOS (visible para todos)
 # =========================================================
 if tab7 is not None:
-    if active_var_name == 'tab7':
+    with tab7:
         st.markdown("""
         <style>
         .hdr7 {
@@ -17983,7 +16953,7 @@ if tab7 is not None:
 # TAB CONTRATO CLIENTE
 # =========================================================
 if tab_contrato is not None:
- if active_var_name == 'tab_contrato':
+ with tab_contrato:
     # ── Header ──
     st.markdown("""
     <style>
@@ -18019,13 +16989,9 @@ if tab_contrato is not None:
 
     # ── Sub-pestañas ──
     if st.session_state.modo_admin:
-        _sub_imprimir = st.container() if selected_sub_label == "📄 Generador de contrato" else MockContainer()
-        _sub_preview = st.container() if selected_sub_label == "👁️ Previsualizar contrato" else MockContainer()
-        _sub_notariado = st.container() if selected_sub_label == "📎 Contrato notariado" else MockContainer()
-        _sub_editar = st.container() if selected_sub_label == "📝 Editar contrato" else MockContainer()
+        _sub_imprimir, _sub_preview, _sub_notariado, _sub_editar = st.tabs(["📄 Generador de contrato", "👁️ Previsualizar contrato", "📎 Contrato notariado", "📝 Editar contrato"])
     else:
-        _sub_imprimir = st.container() if selected_sub_label == "📄 Generador de contrato" else MockContainer()
-        _sub_preview = st.container() if selected_sub_label == "👁️ Previsualizar contrato" else MockContainer()
+        _sub_imprimir, _sub_preview = st.tabs(["📄 Generador de contrato", "👁️ Previsualizar contrato"])
         _sub_notariado = None
         _sub_editar = None
 
@@ -19140,7 +18106,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 "garantia":            "XIII. Garantía",
                 "terminacion":         "XIV. Terminación anticipada",
                 "jurisdiccion":        "XV. Domicilio y jurisdicción",
-                "suministro_energia": "XVI. Suministro de energía eléctrica (solo Plantilla B)",
+                "suministro_energia": "XVI. Suministro de energía eléctrica y uso de herramientas",
                 "firma":               "XVII. Firma",
             }
 
@@ -19152,9 +18118,8 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     _res = supabase_admin.table("plantillas_contrato").select("*").eq("activa", True).eq("tipo", tipo).execute()
                     if _res.data:
                         return _res.data[0]
-                    # fallback: cualquier activa si no hay del tipo
-                    _res2 = supabase_admin.table("plantillas_contrato").select("*").eq("activa", True).execute()
-                    return _res2.data[0] if _res2.data else None
+                    # Sin fallback: si no existe plantilla del tipo, retorna None.
+                    return None
                 except Exception:
                     return None
 
@@ -19229,42 +18194,52 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
             # Cargar todas las plantillas activas para saber qué modelos están asignados
             try:
                 _todas_activas = supabase_admin.table("plantillas_contrato").select("tipo,modelos").eq("activa", True).execute()
-                _modelos_por_tipo = {'A': [], 'B': []}
+                _modelos_por_tipo = {'A': [], 'B': [], 'E': []}
                 for _pa in (_todas_activas.data or []):
                     _t = _pa.get('tipo') or 'A'
                     _ms = _pa.get('modelos') or []
                     if _t in _modelos_por_tipo:
                         _modelos_por_tipo[_t] = list(_ms)
             except Exception:
-                _modelos_por_tipo = {'A': [], 'B': []}
+                _modelos_por_tipo = {'A': [], 'B': [], 'E': []}
 
             # ── Info ──
             st.markdown("""
             <div style='background:#e8eef7;border:1px solid #0f3460;border-radius:10px;
                         padding:12px 16px;margin-bottom:16px;font-size:13px;color:#0f3460;'>
-            <strong>⚠️ Plantillas duales</strong> — <b>Plantilla A</b> para modelos ≤30m² · <b>Plantilla B</b> para modelos &gt;30m².
+            <strong>⚠️ Plantillas</strong> — <b>Plantilla A</b> para modelos ≤30m² · <b>Plantilla B</b> para modelos &gt;30m² · <b>Plantilla Especial</b> para clientes especiales (sin cláusula de bodegaje).
             El sistema detecta automáticamente qué plantilla usar según el modelo predefinido del presupuesto.
             Los marcadores se reemplazan con los datos reales al generar.
             </div>
             """, unsafe_allow_html=True)
 
-            _tab_plt_a, _tab_plt_b = st.tabs(["📋 Plantilla A — ≤30m²", "📋 Plantilla B — >30m²"])
+            _tab_plt_a, _tab_plt_b, _tab_plt_e = st.tabs(["📋 Plantilla A — ≤30m²", "📋 Plantilla B — >30m²", "⭐ Plantilla Especial"])
 
             def _render_editor_plantilla(tipo_plt, tab_key_prefix):
-                """Renderiza el editor completo para una plantilla (A o B)."""
-                _otro_tipo = 'B' if tipo_plt == 'A' else 'A'
+                """Renderiza el editor completo para una plantilla (A, B o E)."""
                 _plt_activa_t = _cargar_plantilla_activa(tipo_plt)
                 _clausulas_act_t = _plt_activa_t["clausulas"] if _plt_activa_t else _CLAUSULAS_EDITOR
                 _modelos_act_t = list(_plt_activa_t.get("modelos") or []) if _plt_activa_t else []
-                # Modelos ya asignados a la OTRA plantilla (del mapa precargado)
-                _modelos_otro = _modelos_por_tipo.get(_otro_tipo, [])
-                # Disponibles = todos - asignados al otro tipo (excepto los ya propios)
+
+                # Modelos ocupados por los OTROS tipos (union BD + session_state)
+                _map_prefijos = {'A': 'plt_a', 'B': 'plt_b', 'E': 'plt_e'}
+                _modelos_ocupados = set()
+                for _ot, _opfx in _map_prefijos.items():
+                    if _ot == tipo_plt:
+                        continue
+                    for _m in _modelos_por_tipo.get(_ot, []):
+                        _modelos_ocupados.add(_m)
+                    _ss_key = f"{_opfx}_modelos_sel"
+                    if _ss_key in st.session_state:
+                        for _m in st.session_state[_ss_key]:
+                            _modelos_ocupados.add(_m)
+
                 _modelos_disponibles = [m for m in _hojas_modelo_ed
-                                        if m not in _modelos_otro or m in _modelos_act_t]
+                                        if m not in _modelos_ocupados or m in _modelos_act_t]
 
                 # ── Selección de modelos asociados ──
-                st.markdown(f"**🔗 Modelos predefinidos asociados a esta plantilla:**")
-                st.caption("El sistema usará esta plantilla automáticamente cuando el presupuesto use uno de estos modelos. Los modelos ya asignados a la otra plantilla no aparecen aquí.")
+                st.markdown("**🔗 Modelos predefinidos asociados a esta plantilla:**")
+                st.caption("Cada modelo solo puede pertenecer a una plantilla. Los modelos asignados a las otras plantillas no aparecen aquí.")
                 _modelos_sel = st.multiselect(
                     "Modelos",
                     options=_modelos_disponibles,
@@ -19278,12 +18253,40 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 # Editor de cláusulas
                 _edits_t = {}
                 def _strip_b_t(t): return t.replace('<b>','').replace('</b>','')
-                # Filtrar cláusulas según tipo: suministro_energia solo en Plantilla B
+                # Filtrar clausulas segun tipo:
+                # A: sin suministro_energia
+                # B: todas
+                # E: sin bodegaje, con suministro_energia
                 _labels_tipo = {k: v for k, v in _LABELS.items()
-                                if not (k == 'suministro_energia' and tipo_plt == 'A')}
-                # Ajustar número de firma según tipo
-                if tipo_plt == 'A' and 'firma' in _labels_tipo:
-                    _labels_tipo['firma'] = 'XVI. Firma'
+                                if not (k == 'suministro_energia' and tipo_plt == 'A')
+                                and not (k == 'bodegaje' and tipo_plt == 'E')}
+                # Renumerar romanos dinamicamente segun clausulas incluidas
+                # Las primeras 11 son fijas (I-XI), desde XII en adelante depende del tipo
+                _orden_ed = {
+                    'A': ['bodegaje','garantia','terminacion','jurisdiccion','firma'],
+                    'B': ['bodegaje','garantia','terminacion','jurisdiccion','suministro_energia','firma'],
+                    'E': ['garantia','terminacion','jurisdiccion','suministro_energia','firma'],
+                }
+                _claves_orden = _orden_ed.get(tipo_plt, _orden_ed['A'])
+                _n_rom = 11
+                for _ck in _claves_orden:
+                    if _ck in _labels_tipo:
+                        _n_rom += 1
+                        _rom_vals = [(1000,'M'),(900,'CM'),(500,'D'),(400,'CD'),
+                                     (100,'C'),(90,'XC'),(50,'L'),(40,'XL'),
+                                     (10,'X'),(9,'IX'),(5,'V'),(4,'IV'),(1,'I')]
+                        _rn = _n_rom; _rs = ''
+                        for _rv, _rs2 in _rom_vals:
+                            while _rn >= _rv: _rs += _rs2; _rn -= _rv
+                        _orig_label = _labels_tipo[_ck]
+                        # Reemplazar el numero romano al inicio (ej. "XII. Algo" -> "XIII. Algo")
+                        import re as _re_rom
+                        _labels_tipo[_ck] = _re_rom.sub(
+                            r'^[IVXLCDM]+\.',
+                            f'{_rs}.',
+                            _orig_label
+                        )
+
                 for _key, _label in _labels_tipo.items():
                     _base_editor = _CLAUSULAS_EDITOR.get(_key, _CLAUSULAS_BASE.get(_key, ""))
                     _val_sup = _clausulas_act_t.get(_key, "")
@@ -19404,11 +18407,14 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
             with _tab_plt_b:
                 _render_editor_plantilla('B', 'plt_b')
 
+            with _tab_plt_e:
+                _render_editor_plantilla('E', 'plt_e')
+
             # bloque legacy eliminado — ahora se usa _render_editor_plantilla
 # TAB USUARIOS — solo admin/supervisor
 # =========================================================
 if st.session_state.modo_admin and tab_usuarios is not None:
-    if active_var_name == 'tab_usuarios':
+    with tab_usuarios:
         st.markdown("""
         <style>
         .hdr-usuarios {
@@ -19877,7 +18883,7 @@ if st.session_state.modo_admin and tab_usuarios is not None:
 # TAB NOTIFICACIONES — solo admin y root
 # =========================================================
 if tab_notif is not None and st.session_state.get('es_supervisor'):
-    if active_var_name == 'tab_notif':
+    with tab_notif:
         import json as _json_notif
 
         # Header
@@ -20184,7 +19190,7 @@ if tab_notif is not None and st.session_state.get('es_supervisor'):
 # TAB FORMULARIO CLIENTE — admin configura, operaciones ve progreso
 # =========================================================
 if tab_formulario is not None:
-    if active_var_name == 'tab_formulario':
+    with tab_formulario:
         _rol_form = st.session_state.get('rol_usuario', 'ejecutivo')
 
         st.markdown("""
@@ -20196,12 +19202,15 @@ if tab_formulario is not None:
         </div>
         """, unsafe_allow_html=True)
 
-        _ftab_catalogo = st.container() if selected_sub_label == "📦 Catálogo de materiales" else MockContainer()
-        _ftab_config = st.container() if selected_sub_label == "⚙️ Configurar preguntas" else MockContainer()
-        _ftab_progreso = st.container() if selected_sub_label == "📊 Progreso clientes" else MockContainer()
+        if _rol_form in ('root', 'admin'):
+            _ftab_catalogo, _ftab_config, _ftab_progreso = st.tabs(["📦 Catálogo de materiales", "⚙️ Configurar preguntas", "📊 Progreso clientes"])
+        else:
+            _ftab_catalogo = None
+            _ftab_config, _ftab_progreso = st.tabs(["⚙️ Configurar preguntas", "📊 Progreso clientes"])
 
         # ── TAB CATÁLOGO ──
-        with _ftab_catalogo:
+        if _ftab_catalogo is not None:
+         with _ftab_catalogo:
             if _rol_form not in ('root', 'admin'):
                 st.info("🔒 Solo administradores pueden gestionar el catálogo.")
             else:
@@ -20232,7 +19241,7 @@ if tab_formulario is not None:
         # ── TAB CONFIGURAR ──
         with _ftab_config:
             if _rol_form not in ('root', 'admin', 'ejecutivo'):
-                st.info("🔒 Solo administradores y ejecutivos pueden configurar formularios.")
+                st.info("🔒 No tienes permisos para configurar formularios.")
             else:
                 import streamlit.components.v1 as _cfg_comp
                 _c1ep, _c2ep = st.columns([3,1])
