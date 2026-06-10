@@ -10873,6 +10873,11 @@ if tab3 is not None:
         # Si cambió el filtro, resetear la selección del dropdown para evitar estado inválido
         if _prev_filtro != st.session_state.filtro_estado_tabla:
             st.session_state.pop('selector_cotizaciones', None)
+            st.session_state.pop('selector_ep_num', None)
+        st.query_params.clear()
+    _qp_sel_cot = st.query_params.get('_sel_cot')
+    if _qp_sel_cot is not None:
+        st.session_state['selector_ep_num'] = _qp_sel_cot
         st.query_params.clear()
     if st.session_state.get('_tab3_necesita_refresh', False):
         st.session_state.resultados_busqueda = None
@@ -11531,8 +11536,9 @@ if tab3 is not None:
 (function(){
   var D=window.parent.document;
   var _af='';
-  /* Filtra filas de la tabla de forma inmediata (sin rerun) */
+  /* Filtra filas de la tabla y expone filtro al dropdown (sin rerun) */
   function filterRows(val){
+    window.parent._ecBadgeFilter=val||'';
     D.querySelectorAll('tr[data-est]').forEach(function(r){
       r.style.display=(!val||val==='TODOS'||r.getAttribute('data-est')===val)?'':'none';
     });
@@ -11917,6 +11923,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
         st.markdown("### Seleccionar cotización")
 
         opciones = []
+        _dd_options_list = []
         for idx, row in df_resultados.iterrows():
             # PROYECTO TERMINADO tiene prioridad absoluta
             if row.get('Acta_URL',''):
@@ -11943,20 +11950,132 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 if str(_rb[0]) == str(row['N°']):
                     _total_limpio = f"${_rb[4]:,.0f}".replace(",",".") if _rb[4] else "$0"
                     break
-            opciones.append(f"{row['N°']} - {row['Cliente'] or 'S/C'} ({row['FechaPlana']}) - {_total_limpio} - {estado} {plano_indicador}")
+            _opcion_label = f"{row['N°']} - {row['Cliente'] or 'S/C'} ({row['FechaPlana']}) - {_total_limpio} - {estado} {plano_indicador}".strip()
+            opciones.append(_opcion_label)
+            _dd_options_list.append({'ep': str(row['N°']), 'label': _opcion_label, 'est': estado})
 
         if opciones:
+            import json as _json_dd
+            # EP actualmente seleccionado (desde session_state o primer resultado)
+            _sel_ep_now = st.session_state.get('selector_ep_num', '')
+            if not _sel_ep_now:
+                _sel_ep_now = opciones[0].split(' - ')[0]
+                st.session_state['selector_ep_num'] = _sel_ep_now
+            # Validar que el EP seleccionado siga en la lista (puede haber cambiado por filtro)
+            _eps_disponibles = [o['ep'] for o in _dd_options_list]
+            if _sel_ep_now not in _eps_disponibles and _eps_disponibles:
+                _sel_ep_now = _eps_disponibles[0]
+                st.session_state['selector_ep_num'] = _sel_ep_now
+            _dd_json_str = _json_dd.dumps(_dd_options_list, ensure_ascii=False)
+            _sel_ep_safe = _sel_ep_now.replace('\\', '\\\\').replace("'", "\\'")
+            _dd_html_tpl = (
+                '<style>'
+                '*{box-sizing:border-box;margin:0;padding:0;}'
+                'body{font-family:system-ui,sans-serif;background:transparent;overflow:hidden;}'
+                '#dw{width:100%;}'
+                '#dt{display:flex;align-items:center;justify-content:space-between;'
+                'background:#fff;border:1.5px solid #d1d5db;border-radius:8px;'
+                'padding:10px 14px;cursor:pointer;min-height:46px;font-size:0.82rem;'
+                'color:#0f172a;transition:border-color .15s;user-select:none;}'
+                '#dt:hover{border-color:#6366f1;}'
+                '#dt.open{border-color:#6366f1;border-radius:8px 8px 0 0;}'
+                '#dtx{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}'
+                '#dar{margin-left:8px;color:#6b7280;transition:transform .2s;font-size:0.68rem;}'
+                '#dt.open #dar{transform:rotate(180deg);}'
+                '#dp{display:none;border:1.5px solid #6366f1;border-top:none;'
+                'border-radius:0 0 8px 8px;background:#fff;}'
+                '#ds{width:100%;padding:8px 12px;border:none;border-bottom:1px solid #e5e7eb;'
+                'font-size:0.78rem;outline:none;background:#f8fafc;color:#0f172a;sticky:top;}'
+                '#do{max-height:240px;overflow-y:auto;}'
+                '.doo{padding:8px 14px;cursor:pointer;font-size:0.76rem;color:#1e293b;'
+                'border-bottom:1px solid #f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+                '.doo:hover{background:#eff6ff;}'
+                '.doo.sel{background:#dbeafe;font-weight:700;}'
+                '#dem{padding:12px;text-align:center;color:#94a3b8;font-size:0.76rem;display:none;}'
+                '</style>'
+                '<div id="dw">'
+                '<div id="dt" onclick="tog()"><span id="dtx">📂 Selecciona una cotización</span><span id="dar">▼</span></div>'
+                '<div id="dp"><input id="ds" type="text" placeholder="🔍 Buscar..." oninput="sch(this.value)">'
+                '<div id="do"></div><div id="dem">Sin resultados</div></div>'
+                '</div>'
+                '<script>'
+                "var SEL='SEL_PLACEHOLDER';"
+                'var BASE=window.parent.location.pathname;'
+                'var OPTS=OPTS_PLACEHOLDER;'
+                'var BF="";var isOpen=false;'
+                '(function(){'
+                'var c=document.getElementById("do");'
+                'OPTS.forEach(function(o){'
+                'var d=document.createElement("div");'
+                'd.className="doo"+(o.ep===SEL?" sel":"");'
+                'd.setAttribute("data-ep",o.ep);d.setAttribute("data-est",o.est);'
+                'd.textContent=o.label;'
+                'd.onclick=function(){sel(o.ep,o.label);};'
+                'c.appendChild(d);'
+                '});'
+                'if(SEL){var s=OPTS.find(function(o){return o.ep===SEL;});'
+                'if(s)document.getElementById("dtx").textContent=s.label;}'
+                '})();'
+                'function sh(h){window.parent.postMessage({isStreamlitMessage:true,type:"streamlit:setFrameHeight",height:h},"*");}'
+                'function tog(){if(isOpen)cls();else opn();}'
+                'function opn(){'
+                'isOpen=true;'
+                'document.getElementById("dt").classList.add("open");'
+                'document.getElementById("dp").style.display="";'
+                'document.getElementById("ds").value="";'
+                'flt("",BF);'
+                'var n=document.querySelectorAll(".doo:not([style*=none])").length;'
+                'sh(52+Math.min(n,6)*37+54);'
+                '}'
+                'function cls(){'
+                'isOpen=false;'
+                'document.getElementById("dt").classList.remove("open");'
+                'document.getElementById("dp").style.display="none";'
+                'sh(52);'
+                '}'
+                'function sel(ep,lbl){'
+                'document.getElementById("dtx").textContent=lbl;'
+                'document.querySelectorAll(".doo").forEach(function(o){o.classList.remove("sel");});'
+                'var el=document.querySelector(".doo[data-ep=\\""+ep+"\\"]");'
+                'if(el)el.classList.add("sel");'
+                'cls();'
+                'window.parent.location.href=BASE+"?_sel_cot="+encodeURIComponent(ep);'
+                '}'
+                'function sch(q){flt(q,BF);}'
+                'function flt(q,bf){'
+                'var vis=0;q=q.toLowerCase();'
+                'document.querySelectorAll(".doo").forEach(function(o){'
+                'var est=o.getAttribute("data-est");'
+                'var lbl=(o.textContent||"").toLowerCase();'
+                'var ok=(!bf||bf==="TODOS"||est===bf)&&(!q||lbl.indexOf(q)!==-1);'
+                'o.style.display=ok?"":"none";'
+                'if(ok)vis++;'
+                '});'
+                'document.getElementById("dem").style.display=vis===0?"":"none";'
+                '}'
+                'document.addEventListener("click",function(e){if(isOpen&&!document.getElementById("dw").contains(e.target))cls();});'
+                'setInterval(function(){'
+                'var f=window.parent._ecBadgeFilter||"";'
+                'if(f!==BF){BF=f;if(isOpen)flt(document.getElementById("ds").value,BF);}'
+                '},100);'
+                'sh(52);'
+                '</script>'
+            )
+            _dd_html = _dd_html_tpl.replace('SEL_PLACEHOLDER', _sel_ep_safe).replace('OPTS_PLACEHOLDER', _dd_json_str)
+
             _col_sel, _col_rec_btn = st.columns([4, 1])
             with _col_sel:
                 st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 4px 0;-webkit-text-fill-color:#0f172a;">📂 Selecciona una cotización</div>', unsafe_allow_html=True)
-                cotizacion_seleccionada = st.selectbox("Selecciona una cotización:", options=opciones, key="selector_cotizaciones", label_visibility="collapsed")
+                import streamlit.components.v1 as _comp_dd
+                _comp_dd.html(_dd_html, height=52, scrolling=False)
+            cotizacion_seleccionada = _sel_ep_now  # EP número seleccionado
 
             with _col_rec_btn:
                 st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
                 _btn_rec_placeholder = st.empty()
 
             if cotizacion_seleccionada:
-                numero_seleccionado = cotizacion_seleccionada.split(" - ")[0]
+                numero_seleccionado = cotizacion_seleccionada  # ya es el EP (ej: EP-35554)
 
                 tiene_margen_seleccionado = False
                 tiene_plano_seleccionado = False
