@@ -10868,7 +10868,11 @@ if tab3 is not None:
     # Leer filtro de estado desde query_params (seteado por JS al hacer click en badge)
     _qp_filtro = st.query_params.get('_filtro_estado')
     if _qp_filtro is not None:
+        _prev_filtro = st.session_state.get('filtro_estado_tabla')
         st.session_state.filtro_estado_tabla = _qp_filtro if _qp_filtro != 'TODOS' else None
+        # Si cambió el filtro, resetear la selección del dropdown para evitar estado inválido
+        if _prev_filtro != st.session_state.filtro_estado_tabla:
+            st.session_state.pop('selector_cotizaciones', None)
         st.query_params.clear()
     if st.session_state.get('_tab3_necesita_refresh', False):
         st.session_state.resultados_busqueda = None
@@ -11527,8 +11531,7 @@ if tab3 is not None:
 (function(){
   var D=window.parent.document;
   var _af='';
-  function doFilter(val){
-    _af=val;
+  function filterRows(val){
     D.querySelectorAll('tr[data-est]').forEach(function(r){
       r.style.display=(!val||val==='TODOS'||r.getAttribute('data-est')===val)?'':'none';
     });
@@ -11538,15 +11541,33 @@ if tab3 is not None:
       b.style.outline=isAct?('2px solid '+b.style.color):'';
     });
   }
+  function triggerRerun(val){
+    // Cambia el query param en la URL del parent para que Streamlit reconstruya
+    // las opciones del selectbox en el siguiente rerun
+    var base = window.parent.location.pathname;
+    var newUrl = (val && val !== 'TODOS')
+      ? base + '?_filtro_estado=' + encodeURIComponent(val)
+      : base;
+    window.parent.history.replaceState({}, '', newUrl);
+    // Dispara popstate para que Streamlit detecte el cambio de URL y rerrun
+    try { window.parent.dispatchEvent(new PopStateEvent('popstate', {state: {}})); } catch(e){}
+  }
   function init(){
     D.querySelectorAll('._badge_filtro').forEach(function(b){
       if(b._filt_bound) return;
       b._filt_bound=true;
       b.addEventListener('click',function(){
         var val=this.getAttribute('data-filtro');
-        doFilter((_af===val&&val!=='TODOS')?'':val);
+        var newVal=(_af===val&&val!=='TODOS')?'':val;
+        _af=newVal;
+        filterRows(newVal);   // visual inmediato
+        triggerRerun(newVal); // rerun para actualizar dropdown
       });
     });
+    // Aplicar filtro activo al estado inicial de filas (tras rerun)
+    var qp = new URLSearchParams(window.parent.location.search);
+    var qpVal = qp.get('_filtro_estado') || '';
+    if (qpVal) { _af = qpVal; filterRows(qpVal); }
   }
   setTimeout(init,400);
   setInterval(init,2000);
