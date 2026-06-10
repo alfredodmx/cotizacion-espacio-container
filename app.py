@@ -11157,7 +11157,7 @@ if tab3 is not None:
             import re as _re_filt
             def _match_filtro(badge_html):
                 txt = _re_filt.sub(r'<[^>]+>', '', str(badge_html)).strip()
-                return _filtro_activo in txt
+                return txt == _filtro_activo  # match exacto, igual que JS (===)
             df_resultados = df_resultados[df_resultados['Estado'].apply(_match_filtro)].copy()
         n_resultados = len(df_resultados)
         altura_tabla = min(n_resultados * 52 + 60, 550)
@@ -11531,6 +11531,7 @@ if tab3 is not None:
 (function(){
   var D=window.parent.document;
   var _af='';
+  /* Filtra filas de la tabla de forma inmediata (sin rerun) */
   function filterRows(val){
     D.querySelectorAll('tr[data-est]').forEach(function(r){
       r.style.display=(!val||val==='TODOS'||r.getAttribute('data-est')===val)?'':'none';
@@ -11541,16 +11542,17 @@ if tab3 is not None:
       b.style.outline=isAct?('2px solid '+b.style.color):'';
     });
   }
-  function triggerRerun(val){
-    // Cambia el query param en la URL del parent para que Streamlit reconstruya
-    // las opciones del selectbox en el siguiente rerun
-    var base = window.parent.location.pathname;
-    var newUrl = (val && val !== 'TODOS')
-      ? base + '?_filtro_estado=' + encodeURIComponent(val)
+  /*
+   * Navega a ?_filtro_estado=val para un rerun limpio de Streamlit.
+   * Usa location.href (una sola navegación) en lugar de popstate
+   * para evitar el loop: st.query_params.clear() también emite popstate.
+   */
+  function navToFilter(val){
+    var base=window.parent.location.pathname;
+    var dest=(val&&val!=='TODOS')
+      ? base+'?_filtro_estado='+encodeURIComponent(val)
       : base;
-    window.parent.history.replaceState({}, '', newUrl);
-    // Dispara popstate para que Streamlit detecte el cambio de URL y rerrun
-    try { window.parent.dispatchEvent(new PopStateEvent('popstate', {state: {}})); } catch(e){}
+    window.parent.location.href=dest;
   }
   function init(){
     D.querySelectorAll('._badge_filtro').forEach(function(b){
@@ -11560,16 +11562,18 @@ if tab3 is not None:
         var val=this.getAttribute('data-filtro');
         var newVal=(_af===val&&val!=='TODOS')?'':val;
         _af=newVal;
-        filterRows(newVal);   // visual inmediato
-        triggerRerun(newVal); // rerun para actualizar dropdown
+        filterRows(newVal);  // tabla: respuesta visual inmediata
+        navToFilter(newVal); // Streamlit rerun: reconstruye dropdown
       });
     });
-    // Aplicar filtro activo al estado inicial de filas (tras rerun)
-    var qp = new URLSearchParams(window.parent.location.search);
-    var qpVal = qp.get('_filtro_estado') || '';
-    if (qpVal) { _af = qpVal; filterRows(qpVal); }
   }
-  setTimeout(init,400);
+  /* Al cargar (post-rerun): aplicar estado de filas si hay filtro activo */
+  setTimeout(function(){
+    var qp=new URLSearchParams(window.parent.location.search);
+    var qpVal=qp.get('_filtro_estado')||'';
+    if(qpVal){_af=qpVal;filterRows(qpVal);}
+    init();
+  },400);
   setInterval(init,2000);
 })();
 </script>""", height=0)
