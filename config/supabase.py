@@ -22,3 +22,16 @@ def _get_supabase_admin() -> Client:
 # Instancias listas para importar directamente
 supabase: Client = _get_supabase()
 supabase_admin: Client = _get_supabase_admin()
+
+
+def get_supabase() -> Client:
+    return _get_supabase()
+
+
+def get_supabase_admin() -> Client:
+    return _get_supabase_admin()
+
+
+def get_supabase_urls() -> tuple[str, str]:
+    """Retorna (SUPABASE_URL, SUPABASE_KEY)."""
+    return SUPABASE_URL, SUPABASE_KEY
