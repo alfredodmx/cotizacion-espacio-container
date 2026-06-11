@@ -10875,10 +10875,6 @@ if tab3 is not None:
             st.session_state.pop('selector_cotizaciones', None)
             st.session_state.pop('selector_ep_num', None)
         st.query_params.clear()
-    _qp_sel_cot = st.query_params.get('_sel_cot')
-    if _qp_sel_cot is not None:
-        st.session_state['selector_ep_num'] = _qp_sel_cot
-        st.query_params.clear()
     if st.session_state.get('_tab3_necesita_refresh', False):
         st.session_state.resultados_busqueda = None
         st.session_state['_tab3_necesita_refresh'] = False
@@ -11954,6 +11950,15 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             opciones.append(_opcion_label)
             _dd_options_list.append({'ep': str(row['N°']), 'label': _opcion_label, 'est': estado})
 
+        # Input oculto: JS lo activa con el React-setter cuando el usuario elige del dropdown.
+        # Usamos display:none para que ocupe 0px pero exista en el DOM.
+        st.markdown('<style>[data-testid="stTextInput"]:has(input[placeholder="__ecdd_trg__"]){display:none!important;}</style>', unsafe_allow_html=True)
+        _ecdd_trigger = st.text_input("", key="_sel_ep_trigger", label_visibility="collapsed", placeholder="__ecdd_trg__")
+        if _ecdd_trigger:
+            st.session_state['selector_ep_num'] = _ecdd_trigger
+            st.session_state['_sel_ep_trigger'] = ''
+            st.rerun()
+
         if opciones:
             import json as _json_dd
             # EP actualmente seleccionado (desde session_state o primer resultado)
@@ -12022,13 +12027,13 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 'var frs=PD.querySelectorAll("iframe");'
                 'for(var i=0;i<frs.length;i++){try{if(frs[i].contentWindow===window)return frs[i];}catch(e){}}'
                 'return null;}'
-                # Posición del overlay
+                # Posición del overlay — position:fixed con coords de viewport (getBoundingClientRect).
+                # No usar scrollTop: Streamlit scrollea un contenedor interno, no window,
+                # por lo que scrollTop siempre es 0 y el cálculo de posición absoluta falla.
                 'function _pos(){'
                 'var fr=_myfr();if(!fr)return null;'
                 'var r=fr.getBoundingClientRect();'
-                'var st=PD.documentElement.scrollTop||PD.body.scrollTop||0;'
-                'var sl=PD.documentElement.scrollLeft||PD.body.scrollLeft||0;'
-                'return{top:r.bottom+st,left:r.left+sl,width:r.width};}'
+                'return{top:r.bottom,left:r.left,width:r.width};}'
                 'function tog(){if(isOpen)cls();else opn();}'
                 'function opn(){'
                 'isOpen=true;'
@@ -12036,7 +12041,8 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 'var pos=_pos();if(!pos){isOpen=false;return;}'
                 'var old=PD.getElementById("_ecdd");if(old)old.remove();'
                 'var div=PD.createElement("div");div.id="_ecdd";'
-                'div.style.top=pos.top+"px";div.style.left=pos.left+"px";div.style.width=pos.width+"px";'
+                # position:fixed para que no se mueva al hacer scroll
+                'div.style.cssText="position:fixed!important;top:"+pos.top+"px;left:"+pos.left+"px;width:"+pos.width+"px;z-index:999999;";'
                 'var inp=PD.createElement("input");inp.id="_ecdd_s";inp.type="text";'
                 'inp.placeholder="🔍 Buscar...";inp.oninput=function(){flt(this.value,BF);};'
                 'var opts=PD.createElement("div");opts.id="_ecdd_o";'
@@ -12044,31 +12050,31 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 'var d=PD.createElement("div");d.className="_ecdd_i"+(o.ep===SEL?" sel":"");'
                 'd.setAttribute("data-ep",o.ep);d.setAttribute("data-est",o.est);'
                 'd.textContent=o.label;'
-                'd.onclick=function(){sel(o.ep,o.label);};'
+                'd.onclick=function(e){e.stopPropagation();sel(o.ep,o.label);};'
                 'opts.appendChild(d);});'
                 'var em=PD.createElement("div");em.id="_ecdd_em";em.textContent="Sin resultados";'
                 'div.appendChild(inp);div.appendChild(opts);div.appendChild(em);'
                 'PD.body.appendChild(div);'
                 'flt("",BF);'
                 'setTimeout(function(){inp.focus();},50);'
+                # Cerrar al hacer scroll (el dropdown no debe quedar flotando)
+                'window.parent.addEventListener("scroll",function _scl(){cls();window.parent.removeEventListener("scroll",_scl,true);},true);'
                 '}'
                 'function cls(){'
                 'isOpen=false;'
                 'document.getElementById("dt").classList.remove("open");'
                 'var ov=PD.getElementById("_ecdd");if(ov)ov.remove();}'
-                # sel(): navegar desde el contexto del padre para garantizar el rerun.
-                # new window.parent.Function(...) crea la función EN el scope del padre,
-                # por lo que window.location.href opera sobre la ventana padre, no el iframe.
-                'var _pNav=new window.parent.Function("u","window.location.href=u;");'
+                # sel(): usa React native value setter para activar el st.text_input oculto.
+                # Esto dispara el onChange de React → Streamlit detecta el cambio → rerun limpio
+                # sin navegación ni reload de página.
                 'function sel(ep,lbl){'
                 'document.getElementById("dtx").textContent=lbl;cls();'
-                'var url=BASE+"?_sel_cot="+encodeURIComponent(ep);'
-                'try{_pNav(url);}catch(e){'
-                # Fallback: crear <a> en el padre y hacer click
-                'var a=PD.createElement("a");a.href=url;'
-                'a.style="position:absolute;top:-9999px;left:-9999px;";'
-                'PD.body.appendChild(a);a.click();'
-                'setTimeout(function(){try{a.remove();}catch(x){}},2000);}}'
+                'var inp=PD.querySelector("input[placeholder=\\"__ecdd_trg__\\"]");'
+                'if(inp){'
+                'var s=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,"value").set;'
+                's.call(inp,ep);'
+                'inp.dispatchEvent(new window.parent.Event("input",{bubbles:true}));'
+                '}}'
                 'function flt(q,bf){'
                 'var ov=PD.getElementById("_ecdd_o");if(!ov)return;'
                 'var vis=0;q=q.toLowerCase();'
