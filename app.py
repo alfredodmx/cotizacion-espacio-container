@@ -12056,9 +12056,19 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 'isOpen=false;'
                 'document.getElementById("dt").classList.remove("open");'
                 'var ov=PD.getElementById("_ecdd");if(ov)ov.remove();}'
+                # sel(): navegar desde el contexto del padre para garantizar el rerun.
+                # new window.parent.Function(...) crea la función EN el scope del padre,
+                # por lo que window.location.href opera sobre la ventana padre, no el iframe.
+                'var _pNav=new window.parent.Function("u","window.location.href=u;");'
                 'function sel(ep,lbl){'
                 'document.getElementById("dtx").textContent=lbl;cls();'
-                'window.parent.location.href=BASE+"?_sel_cot="+encodeURIComponent(ep);}'
+                'var url=BASE+"?_sel_cot="+encodeURIComponent(ep);'
+                'try{_pNav(url);}catch(e){'
+                # Fallback: crear <a> en el padre y hacer click
+                'var a=PD.createElement("a");a.href=url;'
+                'a.style="position:absolute;top:-9999px;left:-9999px;";'
+                'PD.body.appendChild(a);a.click();'
+                'setTimeout(function(){try{a.remove();}catch(x){}},2000);}}'
                 'function flt(q,bf){'
                 'var ov=PD.getElementById("_ecdd_o");if(!ov)return;'
                 'var vis=0;q=q.toLowerCase();'
