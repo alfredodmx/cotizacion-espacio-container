@@ -573,7 +573,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
             st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;text-align:center;">&#128202; Resumen del Presupuesto</div>', unsafe_allow_html=True)
 
         # Trigger oculto para click de fila → popup de edición (mismo patrón que EP selector)
-        st.markdown('<style>.st-key-_item_click_trigger{display:none!important;}</style>', unsafe_allow_html=True)
+        st.markdown('<style>[data-testid="stTextInput"]:has(input[placeholder="__item_trg__"]){display:none!important;}</style>', unsafe_allow_html=True)
         _item_trg = st.text_input("Item trigger", key="_item_click_trigger",
                                    label_visibility="collapsed", placeholder="__item_trg__")
         if _item_trg:
@@ -793,7 +793,9 @@ function filterRows(){
 window.cr=function(el){
   var item=el.getAttribute('data-item');if(!item)return;
   var combined=(CF||'')+' ||| '+item;
-  var inp=PD.querySelector('input[placeholder="__item_trg__"]');
+  var inp=PD.querySelector('.st-key-_item_click_trigger input')
+          ||PD.querySelector('input[placeholder="__item_trg__"]');
+  console.log('[cr] item=',item,'inp=',inp);
   if(!inp)return;
   try{Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set.call(inp,combined);}
   catch(e){inp.value=combined;}
