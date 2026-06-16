@@ -3,6 +3,7 @@ Tab PRESUPUESTO — Carrito de cotización, items, margen, PDF.
 Migrado desde app.py líneas 9938-10797.
 """
 import io as _io_excel
+import json as _json
 import math
 import pandas as pd
 import requests as _rq_excel
@@ -501,12 +502,19 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         if st.session_state.modo_admin:
             st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;text-align:center;">&#128202; Resumen del Presupuesto</div>', unsafe_allow_html=True)
 
-        col_vacio1, col_search_c, col_fs_c, col_vacio2 = st.columns([1, 3, 0.5, 1])
-        with col_search_c:
-            buscar_tabla = st.text_input("&#128269;", placeholder="Filtrar por categor&#237;a o &#237;tem...", key="buscar_tabla_presupuesto", label_visibility="collapsed")
-        with col_fs_c:
-            pantalla_completa = st.toggle("&#9014;", key="tabla_fullscreen", value=st.session_state.get("tabla_fullscreen_val", False), help="Expandir tabla")
-            st.session_state.tabla_fullscreen_val = pantalla_completa
+        # Trigger oculto para click de fila → popup de edición (mismo patrón que EP selector)
+        st.markdown('<style>.st-key-_item_click_trigger{display:none!important;}</style>', unsafe_allow_html=True)
+        _item_trg = st.text_input("Item trigger", key="_item_click_trigger",
+                                   label_visibility="collapsed", placeholder="__item_trg__")
+        if _item_trg:
+            _found_item = next((i for i in st.session_state.carrito if i["Item"] == _item_trg), None)
+            if _found_item:
+                st.session_state['_item_pendiente_eliminar'] = {
+                    'item': _found_item, 'nueva_cantidad': int(_found_item.get('Cantidad', 1))
+                }
+            st.session_state['_item_click_trigger'] = ''
+            st.session_state.counter += 1
+            st.rerun()
 
         _cat_filtro_activo = st.session_state.get('_cat_filtro_activo', '')
         _df_cat = pd.DataFrame(st.session_state.carrito)
@@ -582,98 +590,142 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         comision_supervisor = subtotal_general * 0.008 if (st.session_state.modo_admin and tiene_margen) else 0
         total_comisiones = comision_vendedor + comision_supervisor
         utilidad_real = margen_valor - total_comisiones if (st.session_state.modo_admin and tiene_margen) else 0
-        altura_tabla = 1400 if pantalla_completa else min(38 * len(carrito_df_con_margen) + 80, 420)
+        # ── Tabla HTML con filtrado JS instantáneo (sin rerun al tipear) ──
+        _color_map_tbl = {_crow['Categoria']: _cat_colors[_ci % len(_cat_colors)]
+                          for _ci, (_, _crow) in enumerate(_cats_summary.iterrows())}
+        _tbl_df = carrito_df_con_margen.copy()
+        _tbl_df["P. Unit + IVA"]  = _tbl_df["Precio Unitario"].apply(lambda x: formato_clp(round(x * 1.19)))
+        _tbl_df["Subtotal + IVA"] = _tbl_df["Subtotal"].apply(lambda x: formato_clp(round(x * 1.19)))
+        _tbl_df["Precio Unitario"] = _tbl_df["Precio Unitario"].apply(formato_clp)
+        _tbl_df["Subtotal"]        = _tbl_df["Subtotal"].apply(formato_clp)
+        _tbl_df["Cantidad"]        = pd.to_numeric(_tbl_df["Cantidad"], errors="coerce").fillna(0).astype(int)
+        _rows_js   = _json.dumps([
+            {'cat': str(r['Categoria']), 'item': str(r['Item']), 'cant': str(r['Cantidad']),
+             'pu': str(r['Precio Unitario']), 'sub': str(r['Subtotal']),
+             'pu_iva': str(r['P. Unit + IVA']), 'sub_iva': str(r['Subtotal + IVA'])}
+            for _, r in _tbl_df.iterrows()
+        ], ensure_ascii=False)
+        _colors_js = _json.dumps(_color_map_tbl, ensure_ascii=False)
+        _cat_js    = _json.dumps(_cat_filtro_activo or '', ensure_ascii=False)
+        _edit_js   = 'false' if es_solo_lectura else 'true'
+        _pend_item = (st.session_state.get('_item_pendiente_eliminar') or {})
+        _pend_js   = _json.dumps((_pend_item.get('item') or {}).get('Item') or '', ensure_ascii=False)
+        _n_tbl     = len(_tbl_df)
+        _iframe_h  = max(200, min(_n_tbl * 42 + 112, 520))
 
-        _cat_filtro = st.session_state.get('_cat_filtro_activo', '')
-        _carrito_df_filtrado = carrito_df_con_margen.copy()
-        if _cat_filtro:
-            _carrito_df_filtrado = _carrito_df_filtrado[_carrito_df_filtrado['Categoria'] == _cat_filtro]
-
+        _tbl_html = ("""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;background:#f8fafc;overflow:hidden;}
+#wrap{display:flex;flex-direction:column;height:100vh;}
+#bar{display:flex;align-items:center;gap:8px;padding:7px 10px;background:#fff;border-bottom:1px solid #e2e8f0;flex-shrink:0;}
+#search{flex:1;border:1.5px solid #e2e8f0;border-radius:7px;padding:6px 11px;font-size:0.84rem;font-family:inherit;outline:none;color:#1e293b;background:#f8fafc;transition:border-color .2s,box-shadow .2s;}
+#search:focus{border-color:#5b7cfa;background:#fff;box-shadow:0 0 0 3px rgba(91,124,250,.1);}
+#cnt{font-size:0.72rem;color:#94a3b8;white-space:nowrap;font-weight:600;min-width:64px;text-align:right;}
+#tbl-w{flex:1;overflow:auto;}
+#tbl-w::-webkit-scrollbar{width:4px;height:4px;}
+#tbl-w::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:0.8rem;table-layout:auto;}
+thead th{position:sticky;top:0;z-index:2;background:linear-gradient(135deg,#1e2447 0%,#2a3060 100%);
+  color:#fff;font-weight:700;font-size:0.7rem;letter-spacing:.06em;text-transform:uppercase;
+  padding:9px 11px;border-bottom:2px solid #151b38;white-space:nowrap;user-select:none;}
+th.r,td.r{text-align:right;}
+tbody tr:nth-child(even){background:#f8fafc;}
+tbody tr:nth-child(odd){background:#fff;}
+tbody tr.editable:hover{background:#eef1ff!important;cursor:pointer;}
+tbody tr.pending{background:#fff4f4!important;box-shadow:inset 3px 0 0 #ef4444;}
+td{padding:7px 11px;border-bottom:1px solid #f0f4f8;vertical-align:middle;color:#334155;}
+.badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
+.item-n{font-weight:600;color:#1e293b;font-size:0.82rem;line-height:1.35;}
+.hint{font-size:0.62rem;color:#94a3b8;font-style:italic;display:block;margin-top:1px;}
+.mono{font-family:'JetBrains Mono','Courier New',monospace;font-size:0.77rem;}
+.bold{font-weight:700;color:#0f172a;}
+.muted{color:#64748b;}
+.none{text-align:center;padding:28px;color:#94a3b8;font-size:0.83rem;}
+</style></head>
+<body>
+<div id="wrap">
+  <div id="bar">
+    <svg width="14" height="14" fill="none" stroke="#94a3b8" stroke-width="2.2" viewBox="0 0 24 24" style="flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+    <input id="search" type="text" placeholder="Filtrar por categoría o ítem..." autocomplete="off">
+    <span id="cnt"></span>
+  </div>
+  <div id="tbl-w">
+    <table>
+      <thead><tr>
+        <th>Categoría</th><th>Ítem</th>
+        <th class="r">Cant.</th><th class="r">P. Unitario</th>
+        <th class="r">Subtotal</th><th class="r">P.Unit+IVA</th><th class="r">Sub+IVA</th>
+      </tr></thead>
+      <tbody id="tb"></tbody>
+    </table>
+  </div>
+</div>
+<script>
+var ROWS=__ROWS__;
+var COL=__COL__;
+var CF=__CF__;
+var EM=__EM__;
+var PI=__PI__;
+var D=window.parent.document;
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function rgba(h,a){var r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return 'rgba('+r+','+g+','+b+','+a+')';}
+function render(){
+  var q=document.getElementById('search').value.toLowerCase().trim();
+  var tb=document.getElementById('tb');
+  var vis=[];
+  ROWS.forEach(function(r){
+    if(CF&&r.cat!==CF)return;
+    if(q&&r.cat.toLowerCase().indexOf(q)<0&&r.item.toLowerCase().indexOf(q)<0)return;
+    vis.push(r);
+  });
+  document.getElementById('cnt').textContent=vis.length+' ítem'+(vis.length!==1?'s':'');
+  if(!vis.length){tb.innerHTML='<tr><td colspan="7" class="none">Sin resultados para la búsqueda</td></tr>';return;}
+  var h='';
+  vis.forEach(function(r){
+    var cc=COL[r.cat]||'#6366f1';
+    var bg=rgba(cc,0.12);
+    var isPend=(r.item===PI);
+    var cls=(EM?'editable':'')+(isPend?' pending':'');
+    var oc=EM?'onclick="cr(\''+r.item.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+'\')"':'';
+    h+='<tr class="'+cls+'" '+oc+'>';
+    h+='<td><span class="badge" style="background:'+bg+';color:'+cc+';">'+esc(r.cat)+'</span></td>';
+    h+='<td><span class="item-n">'+esc(r.item)+'</span>'+(EM&&!isPend?'<span class="hint">&#8599; editar / eliminar</span>':'')+'</td>';
+    h+='<td class="r mono">'+esc(r.cant)+'</td>';
+    h+='<td class="r mono">'+esc(r.pu)+'</td>';
+    h+='<td class="r mono bold">'+esc(r.sub)+'</td>';
+    h+='<td class="r mono muted">'+esc(r.pu_iva)+'</td>';
+    h+='<td class="r mono muted">'+esc(r.sub_iva)+'</td>';
+    h+='</tr>';
+  });
+  tb.innerHTML=h;
+}
+function cr(name){
+  var inp=D.querySelector('input[placeholder="__item_trg__"]');
+  if(!inp)return;
+  try{var sv=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set;sv.call(inp,name);}
+  catch(e){inp.value=name;}
+  inp.dispatchEvent(new Event('input',{bubbles:true}));
+}
+window.parent.addEventListener('popstate',function(){
+  var u=new URL(window.parent.location.href);
+  var cf=u.searchParams.get('cat_filtro')||'';
+  CF=(cf==='__clear__')?'':cf;
+  render();
+});
+document.getElementById('search').addEventListener('input',render);
+render();
+</script>
+</body></html>"""
+            .replace('__ROWS__', _rows_js)
+            .replace('__COL__', _colors_js)
+            .replace('__CF__', _cat_js)
+            .replace('__EM__', _edit_js)
+            .replace('__PI__', _pend_js)
+        )
         if es_solo_lectura:
-            carrito_df_display = _carrito_df_filtrado[["Categoria", "Item", "Cantidad", "Precio Unitario", "Subtotal"]].copy()
-            carrito_df_display["P. Unit + IVA"] = carrito_df_display["Precio Unitario"].apply(lambda x: formato_clp(round(x * 1.19)))
-            carrito_df_display["Subtotal + IVA"] = carrito_df_display["Subtotal"].apply(lambda x: formato_clp(round(x * 1.19)))
-            carrito_df_display["Precio Unitario"] = carrito_df_display["Precio Unitario"].apply(formato_clp)
-            carrito_df_display["Subtotal"] = carrito_df_display["Subtotal"].apply(formato_clp)
-            if buscar_tabla:
-                mask = (
-                    carrito_df_display["Categoria"].str.contains(buscar_tabla, case=False, na=False) |
-                    carrito_df_display["Item"].str.contains(buscar_tabla, case=False, na=False)
-                )
-                carrito_df_display = carrito_df_display[mask]
-            st.dataframe(carrito_df_display, use_container_width=True, hide_index=True, height=altura_tabla,
-                column_config={
-                    "Categoria": st.column_config.TextColumn("Categor&#237;a"),
-                    "Item": st.column_config.TextColumn("Item"),
-                    "Cantidad": st.column_config.NumberColumn("Cant."),
-                    "Precio Unitario": st.column_config.TextColumn("P. Unitario"),
-                    "Subtotal": st.column_config.TextColumn("Subtotal"),
-                    "P. Unit + IVA": st.column_config.TextColumn("P. Unit + IVA"),
-                    "Subtotal + IVA": st.column_config.TextColumn("Subtotal + IVA"),
-                })
             st.caption("&#128274; Vista de solo lectura")
-        else:
-            carrito_df_edit = _carrito_df_filtrado.copy()
-            carrito_df_edit["P. Unit + IVA"] = carrito_df_edit["Precio Unitario"].apply(lambda x: formato_clp(round(x * 1.19)))
-            carrito_df_edit["Subtotal + IVA"] = carrito_df_edit["Subtotal"].apply(lambda x: formato_clp(round(x * 1.19)))
-            carrito_df_edit["Precio Unitario"] = carrito_df_edit["Precio Unitario"].apply(formato_clp)
-            carrito_df_edit["Subtotal"] = carrito_df_edit["Subtotal"].apply(formato_clp)
-            carrito_df_edit["✏️"] = False
-            carrito_df_edit["Cantidad"] = pd.to_numeric(carrito_df_edit["Cantidad"], errors="coerce").fillna(0).astype(int)
-            carrito_df_edit = carrito_df_edit[["Categoria", "Item", "Cantidad", "Precio Unitario", "Subtotal", "P. Unit + IVA", "Subtotal + IVA", "✏️"]]
-            if buscar_tabla:
-                mask = (
-                    carrito_df_edit["Categoria"].str.contains(buscar_tabla, case=False, na=False) |
-                    carrito_df_edit["Item"].str.contains(buscar_tabla, case=False, na=False)
-                )
-                carrito_df_edit_filtrado = carrito_df_edit[mask].copy()
-            else:
-                carrito_df_edit_filtrado = carrito_df_edit
-            st.markdown("""
-            <style>
-            @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap');
-            div[data-testid='stDataEditor'] .stDataFrameGlideDataEditor { font-family: Montserrat, 'Segoe UI', sans-serif !important; }
-            div[data-testid='stDataEditor'] > div {
-                border-radius: 12px !important; overflow: hidden !important;
-                border: 1.5px solid #1e2447 !important;
-                box-shadow: 0 4px 20px rgba(30,36,71,0.12) !important;
-            }
-            div[data-testid='stDataEditor'] [data-testid='stDataFrameToolbar'] {
-                background: linear-gradient(135deg, #1e2447 0%, #2a3060 100%) !important;
-                border-radius: 10px 10px 0 0 !important;
-            }
-            </style>""", unsafe_allow_html=True)
-            edited_df = st.data_editor(carrito_df_edit_filtrado, use_container_width=True, hide_index=True, height=altura_tabla,
-                key=f"data_editor_{st.session_state.counter}",
-                column_config={
-                    "✏️": st.column_config.CheckboxColumn("✏️"),
-                    "Categoria": st.column_config.TextColumn("Categor&#237;a"),
-                    "Item": st.column_config.TextColumn("Item"),
-                    "Cantidad": st.column_config.NumberColumn("Cant."),
-                    "Precio Unitario": st.column_config.TextColumn("P. Unitario"),
-                    "Subtotal": st.column_config.TextColumn("Subtotal"),
-                    "P. Unit + IVA": st.column_config.TextColumn("P. Unit + IVA", disabled=True),
-                    "Subtotal + IVA": st.column_config.TextColumn("Subtotal + IVA", disabled=True),
-                })
-            filas_editar = edited_df[edited_df["✏️"] == True].index.tolist()
-            if st.session_state.get('_item_pendiente_eliminar') and not filas_editar:
-                st.session_state.pop('_item_pendiente_eliminar', None)
-                st.session_state.counter += 1
-                st.rerun()
-            if filas_editar:
-                if not st.session_state.get('_item_pendiente_eliminar'):
-                    _fila_marcada = edited_df[edited_df["✏️"] == True].iloc[0]
-                    _nombre_buscar = _fila_marcada["Item"]
-                    item_pendiente = next(
-                        (item for item in st.session_state.carrito if item["Item"] == _nombre_buscar),
-                        None
-                    )
-                    if item_pendiente:
-                        st.session_state['_item_pendiente_eliminar'] = {
-                            'item': item_pendiente,
-                            'nueva_cantidad': int(item_pendiente.get('Cantidad', 1))
-                        }
-                        st.rerun()
+        components.html(_tbl_html, height=_iframe_h, scrolling=False)
 
         if st.session_state.get('_item_pendiente_eliminar'):
             _pend = st.session_state['_item_pendiente_eliminar']
