@@ -242,11 +242,11 @@ def render_tab_proyecto_excel(supabase, supabase_admin=None, supa_url='', supa_k
                         st.dataframe(_df_str, use_container_width=True, hide_index=True, height=_altura)
                         st.caption(f"&#128203; {len(_df_prev)} filas &middot; {len(_df_prev.columns)} columnas en esta hoja")
                 else:
-                    st.info("No se pudo cargar el archivo Excel activo.", icon="&#9888;&#65039;")
+                    st.info("No se pudo cargar el archivo Excel activo.", icon="⚠️")
             except Exception as _pe:
                 st.error(f"Error al previsualizar: {_pe}")
         else:
-            st.info("Activa una versi&#243;n para poder previsualizarla.", icon="&#128193;")
+            st.info("Activa una versión para poder previsualizarla.", icon="📁")
 
     # ── Exportar CSV ──
     st.markdown('<div class="ind-titulo">&#128230; Exportar datos</div>', unsafe_allow_html=True)
@@ -273,7 +273,7 @@ def render_tab_proyecto_excel(supabase, supabase_admin=None, supa_url='', supa_k
                     use_container_width=True, key="btn_export_csv"
                 )
             else:
-                st.info("Haz clic en **Generar CSV** para preparar el archivo.", icon="&#8505;&#65039;")
+                st.info("Haz clic en **Generar CSV** para preparar el archivo.", icon="ℹ️")
 
     # ── Barra de estado ──
     _activa_info = next((_v for _v in _versiones if _v.get("activa")), None) if _versiones else None
