@@ -572,20 +572,31 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         if st.session_state.modo_admin:
             st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;text-align:center;">&#128202; Resumen del Presupuesto</div>', unsafe_allow_html=True)
 
-        # Botones ocultos (uno por ítem) — JS llama btn.click() en el correcto al hacer click en fila
+        # Triggers ocultos para popup HTML en iframe: qty_trg + apply_trg + del_N por ítem
         if not es_solo_lectura and st.session_state.carrito:
-            _edit_clicked = None
-            st.markdown('<style>[class*="st-key-_eb_"]{display:none!important;}</style>', unsafe_allow_html=True)
-            for _bi_btn, _bc_item in enumerate(st.session_state.carrito):
-                if st.button('e', key=f'_eb_{_bi_btn}'):
-                    _edit_clicked = _bi_btn
-            if _edit_clicked is not None:
-                _found_bc = st.session_state.carrito[_edit_clicked]
-                st.session_state['_item_pendiente_eliminar'] = {
-                    'item': _found_bc, 'nueva_cantidad': int(_found_bc.get('Cantidad', 1))
-                }
+            st.markdown('<style>.st-key-_qty_trg,.st-key-_apply_trg,[class*="st-key-_del_"]{display:none!important;}</style>', unsafe_allow_html=True)
+            _qty_val = st.text_input('q', key='_qty_trg', label_visibility='collapsed', placeholder='__qty_trg__')
+            _apply_hit = st.button('a', key='_apply_trg')
+            _del_clicked = None
+            for _bi_btn in range(len(st.session_state.carrito)):
+                if st.button('d', key=f'_del_{_bi_btn}'):
+                    _del_clicked = _bi_btn
+            if _apply_hit and _qty_val:
+                _itm_q, _, _qty_s = _qty_val.partition('|||')
+                _itm_q = _itm_q.strip()
+                _qty_n = int(_qty_s.strip()) if _qty_s.strip().isdigit() else 1
+                for _ci in st.session_state.carrito:
+                    if _ci['Item'] == _itm_q:
+                        _ci['Cantidad'] = _qty_n
+                        _ci['Subtotal'] = _qty_n * float(_ci['Precio Unitario'])
+                        break
+                st.session_state['_qty_trg'] = ''
                 st.session_state.counter += 1
-                st.rerun()
+            if _del_clicked is not None:
+                _del_nm = st.session_state.carrito[_del_clicked]['Item']
+                st.session_state.carrito = [i for i in st.session_state.carrito if i['Item'] != _del_nm]
+                st.session_state.pop('_item_pendiente_eliminar', None)
+                st.session_state.counter += 1
 
         _cat_filtro_activo = st.session_state.get('_cat_filtro_activo', '')
         _df_cat = pd.DataFrame(st.session_state.carrito)
@@ -665,8 +676,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         _tbl_df["Precio Unitario"] = _tbl_df["Precio Unitario"].apply(formato_clp)
         _tbl_df["Subtotal"]        = _tbl_df["Subtotal"].apply(formato_clp)
         _tbl_df["Cantidad"]        = pd.to_numeric(_tbl_df["Cantidad"], errors="coerce").fillna(0).astype(int)
-        _pend_item  = (st.session_state.get('_item_pendiente_eliminar') or {})
-        _pend_name  = ((_pend_item.get('item') or {}).get('Item', ''))
+        _pend_name  = ''  # popup es HTML en iframe, no usa session_state
 
         # ── BARRA DE BÚSQUEDA + TABLA en un solo components.html() con filas pre-construidas ──
         # Las filas van DENTRO del iframe: onclick funciona sin que Streamlit las elimine.
@@ -685,14 +695,13 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
             _color = _color_map_tbl.get(_cat, '#6366f1')
             _ri, _gi, _bi = int(_color[1:3], 16), int(_color[3:5], 16), int(_color[5:7], 16)
             _bbg = f'rgba({_ri},{_gi},{_bi},0.12)'
-            _is_pend = (_item == _pend_name)
+            _raw_pu = float(carrito_df_con_margen['Precio Unitario'].iloc[_tidx])
             _cls = 'editable' if not es_solo_lectura else ''
-            if _is_pend: _cls += ' pending'
             _onclick = ' onclick="cr(this)"' if not es_solo_lectura else ''
             _cursor  = 'cursor:pointer;' if not es_solo_lectura else ''
-            _hint    = '<span class="hint">editar / eliminar</span>' if not es_solo_lectura and not _is_pend else ''
+            _hint    = '<span class="hint">editar / eliminar</span>' if not es_solo_lectura else ''
             _rows_html += (
-                f'<tr class="{_cls.strip()}" data-cat="{_aesc(_cat)}" data-item="{_aesc(_item)}" data-idx="{_tidx}"{_onclick} style="{_cursor}">'
+                f'<tr class="{_cls.strip()}" data-cat="{_aesc(_cat)}" data-item="{_aesc(_item)}" data-idx="{_tidx}" data-qty="{_r["Cantidad"]}" data-price-raw="{_raw_pu:.2f}" data-price="{_aesc(str(_r["Precio Unitario"]))}" {_onclick.strip()} style="{_cursor}">'
                 f'<td><span class="badge" style="background:{_bbg};color:{_color};">{_hesc(_cat)}</span></td>'
                 f'<td><span class="item-n">{_hesc(_item)}</span>{_hint}</td>'
                 f'<td class="r mono">{_r["Cantidad"]}</td>'
@@ -714,7 +723,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
 <html><head><meta charset="utf-8"><style>
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:IFRAMEHPX;overflow:hidden;font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;}
-#wrap{display:flex;flex-direction:column;height:100%;}
+#wrap{display:flex;flex-direction:column;height:100%;position:relative;}
 #bar{display:flex;align-items:center;gap:8px;padding:4px 0;flex-shrink:0;height:46px;}
 #search{flex:1;border:1.5px solid #e2e8f0;border-radius:7px;padding:6px 11px;font-size:0.84rem;
   font-family:inherit;outline:none;color:#1e293b;background:#f8fafc;
@@ -743,6 +752,30 @@ td.r{text-align:right;}
 .mono{font-family:'JetBrains Mono','Courier New',monospace;font-size:.77rem;}
 .bold{font-weight:700;color:#0f172a;}
 .muted{color:#64748b;}
+#pop{display:none;position:absolute;bottom:0;left:0;right:0;background:#fcebeb;
+  border:1.5px solid #e24b4a;border-radius:14px 14px 0 0;padding:11px 13px 9px;z-index:100;
+  font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;}
+#pop-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
+#pop-cat{font-size:.6rem;font-weight:700;color:#a32d2d;text-transform:uppercase;letter-spacing:.08em;}
+#pop-x{background:none;border:none;cursor:pointer;color:#a32d2d;font-size:.95rem;padding:0;line-height:1;}
+#pop-name{font-size:.86rem;font-weight:700;color:#1e293b;margin-bottom:7px;line-height:1.3;}
+#pop-cards{display:flex;gap:5px;margin-bottom:7px;}
+.pc{flex:1;background:#fff;border:.5px solid #f09595;border-radius:7px;padding:5px 7px;text-align:center;}
+.pc.hl{border-color:#e24b4a;}
+.pc-l{font-size:.56rem;color:#a32d2d;font-weight:600;text-transform:uppercase;letter-spacing:.05em;}
+.pc-v{font-size:.8rem;font-weight:700;color:#501313;margin-top:1px;}
+.pc.hl .pc-v{color:#e24b4a;}
+#pop-qty-row{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px;}
+#pop-qty-row button{width:28px;height:28px;border-radius:50%;border:1.5px solid #e24b4a;
+  background:#fff;color:#a32d2d;font-size:1.05rem;font-weight:700;cursor:pointer;line-height:1;}
+#pop-qty{width:54px;text-align:center;border:1.5px solid #e24b4a;border-radius:7px;
+  padding:4px 5px;font-size:.95rem;font-weight:700;color:#501313;font-family:inherit;}
+#pop-btns{display:flex;gap:6px;}
+.pb{flex:1;padding:7px 3px;border-radius:7px;font-size:.75rem;font-weight:600;cursor:pointer;
+  font-family:inherit;text-align:center;border:none;}
+.pb-c{background:transparent;border:1px solid #f09595!important;color:#791f1f;}
+.pb-a{background:#fff;border:1.5px solid #e24b4a!important;color:#a32d2d;}
+.pb-d{background:#e24b4a;color:#fff;}
 </style></head>
 <body>
 <div id="wrap">
@@ -760,6 +793,25 @@ td.r{text-align:right;}
 </tr></thead>
 <tbody>ROWSPLACEHOLDER</tbody>
 </table>
+</div>
+<div id="pop">
+<div id="pop-hdr"><span id="pop-cat"></span><button id="pop-x" onclick="closePop()">&#x2715;</button></div>
+<div id="pop-name"></div>
+<div id="pop-cards">
+<div class="pc"><div class="pc-l">P. unitario</div><div class="pc-v" id="pop-price"></div></div>
+<div class="pc"><div class="pc-l">Cant. actual</div><div class="pc-v" id="pop-orig-qty"></div></div>
+<div class="pc hl"><div class="pc-l">Subtotal</div><div class="pc-v" id="pop-sub"></div></div>
+</div>
+<div id="pop-qty-row">
+<button onclick="qd(-1)">&#x2212;</button>
+<input id="pop-qty" type="number" min="1" value="1" oninput="updSub()">
+<button onclick="qd(1)">+</button>
+</div>
+<div id="pop-btns">
+<button class="pb pb-c" onclick="closePop()">&#x2716; Cancelar</button>
+<button class="pb pb-a" onclick="applyPop()">&#x2705; Aplicar</button>
+<button class="pb pb-d" onclick="delPop()">&#x1F5D1; Eliminar</button>
+</div>
 </div>
 </div>
 <script>
@@ -782,11 +834,50 @@ function filterRows(){
   var el=document.getElementById('cnt');
   if(el)el.textContent=vis+' ítem'+(vis!==1?'s':'');
 }
+var _pi=null,_pn=null,_pr=0;
+function fmtClp(n){return '$ '+Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'.');}
 window.cr=function(el){
-  var idx=el.getAttribute('data-idx');if(idx===null||idx==='')return;
-  var btn=PD.querySelector('.st-key-_eb_'+idx+' button');
-  if(btn)btn.click();
+  if(!EM)return;
+  _pi=el.getAttribute('data-idx');
+  _pn=el.getAttribute('data-item')||'';
+  _pr=parseFloat(el.getAttribute('data-price-raw')||'0')||0;
+  var qty=parseInt(el.getAttribute('data-qty')||'1')||1;
+  document.getElementById('pop-cat').textContent=el.getAttribute('data-cat')||'';
+  document.getElementById('pop-name').textContent=_pn;
+  document.getElementById('pop-price').textContent=el.getAttribute('data-price')||'';
+  document.getElementById('pop-orig-qty').textContent=qty;
+  document.getElementById('pop-qty').value=qty;
+  document.querySelectorAll('tbody tr.pending').forEach(function(r){r.classList.remove('pending');});
+  el.classList.add('pending');
+  updSub();
+  document.getElementById('pop').style.display='block';
 };
+function updSub(){var q=parseInt(document.getElementById('pop-qty').value)||1;document.getElementById('pop-sub').textContent=fmtClp(_pr*q);}
+function qd(d){var i=document.getElementById('pop-qty');i.value=Math.max(1,(parseInt(i.value)||1)+d);updSub();}
+function closePop(){
+  document.getElementById('pop').style.display='none';
+  document.querySelectorAll('tbody tr.pending').forEach(function(r){r.classList.remove('pending');});
+  _pi=null;_pn=null;
+}
+function applyPop(){
+  if(_pi===null||!_pn)return;
+  var qty=parseInt(document.getElementById('pop-qty').value)||1;
+  var inp=PD.querySelector('input[placeholder="__qty_trg__"]');
+  if(inp){
+    var s=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value');
+    if(s&&s.set)s.set.call(inp,_pn+'|||'+qty);
+    inp.dispatchEvent(new window.parent.Event('input',{bubbles:true}));
+  }
+  var ab=PD.querySelector('.st-key-_apply_trg button');
+  if(ab)ab.click();
+  closePop();
+}
+function delPop(){
+  if(_pi===null)return;
+  var db=PD.querySelector('.st-key-_del_'+_pi+' button');
+  if(db)db.click();
+  closePop();
+}
 function updateCards(){
   PD.querySelectorAll('._pres_card').forEach(function(el){
     var cat=el.getAttribute('data-catpres');
@@ -835,100 +926,11 @@ setInterval(attachCardListeners,3000);
         )
         components.html(_tbl_html, height=_iframe_total_h, scrolling=False)
 
-        if st.session_state.get('_item_pendiente_eliminar'):
-            _pend = st.session_state['_item_pendiente_eliminar']
-            _item_data = _pend['item']
-            _nombre_item = _item_data.get('Item', '')
-            _cantidad_orig = int(_item_data.get('Cantidad', 1))
-            _precio = float(_item_data.get('Precio Unitario', 0))
-            _categoria = _item_data.get('Categoria', '')
-            _nueva_cant = int(_pend.get('nueva_cantidad', _cantidad_orig))
-            _container_key = f"popup_container_{st.session_state.counter}"
-            _css_key = _container_key.replace('-', '_')
-            st.markdown(f'''
-            <style>
-            .st-key-{_css_key} > div[data-testid="stVerticalBlockBorderWrapper"] {{
-                background: #FCEBEB !important; border: 1.5px solid #E24B4A !important;
-                border-radius: 14px !important; box-shadow: none !important;
-            }}
-            .st-key-{_css_key} label {{ color: #791F1F !important; font-weight: 600 !important; }}
-            .st-key-{_css_key} input[type="number"] {{
-                background: #fff !important; border-color: #E24B4A !important;
-                color: #501313 !important; font-weight: 700 !important;
-            }}
-            .st-key-{_css_key} button[data-testid="stNumberInputStepUp"],
-            .st-key-{_css_key} button[data-testid="stNumberInputStepDown"] {{
-                background: #FCEBEB !important; color: #A32D2D !important;
-            }}
-            [class*="st-key-btn_copy_"] button {{
-                font-family: 'Plus Jakarta Sans', sans-serif !important; font-weight: 900 !important;
-                font-size: 1rem !important; color: #501313 !important;
-                border: 1.5px solid #E24B4A !important; background: #fff !important;
-                text-align: left !important; letter-spacing: -0.01em !important;
-            }}
-            .st-key-popup_cancelar_btn button {{ background: transparent !important; border: 1px solid #F09595 !important; color: #791F1F !important; }}
-            .st-key-popup_aplicar_btn button {{ background: #fff !important; border: 1.5px solid #E24B4A !important; color: #A32D2D !important; font-weight: 600 !important; }}
-            .st-key-popup_eliminar_btn button {{ background: #E24B4A !important; border: none !important; color: #fff !important; font-weight: 600 !important; }}
-            </style>
-            ''', unsafe_allow_html=True)
-            with st.container(border=True, key=_container_key):
-                _cat_esc = str(_categoria).replace('<', '&lt;').replace('>', '&gt;')
-                _precio_fmt = formato_clp(_precio)
-                _sub_fmt = formato_clp(_nueva_cant * _precio)
-                st.markdown(f'<div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">{_cat_esc}</div>', unsafe_allow_html=True)
-                if st.button(f"&#128203; {_nombre_item}", key=f"btn_copy_{st.session_state.counter}", help="Click para copiar nombre"):
-                    st.session_state['_copiar_nombre_producto'] = _nombre_item
-                    st.rerun()
-                st.markdown(
-                    f'<div style="display:flex;gap:12px;margin-bottom:4px;">'
-                    f'<div style="background:#fff;border:.5px solid #F09595;border-radius:10px;padding:10px 14px;text-align:center;flex:1;">'
-                    f'<div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">P. unitario</div>'
-                    f'<div style="font-size:15px;font-weight:700;color:#501313;margin-top:3px;">{_precio_fmt}</div></div>'
-                    f'<div style="background:#fff;border:.5px solid #F09595;border-radius:10px;padding:10px 14px;text-align:center;flex:1;">'
-                    f'<div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Cant. original</div>'
-                    f'<div style="font-size:15px;font-weight:700;color:#791F1F;margin-top:3px;">{_cantidad_orig}</div></div>'
-                    f'<div style="background:#fff;border:.5px solid #E24B4A;border-radius:10px;padding:10px 14px;text-align:center;flex:1;">'
-                    f'<div style="font-size:11px;color:#A32D2D;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Subtotal nuevo</div>'
-                    f'<div style="font-size:15px;font-weight:700;color:#E24B4A;margin-top:3px;">{_sub_fmt}</div></div></div>',
-                    unsafe_allow_html=True
-                )
-                _cant_input = st.number_input("Nueva cantidad", min_value=1, value=_nueva_cant, step=1, key=f"ni_{st.session_state.counter}")
-                if int(_cant_input) != _nueva_cant and not st.session_state.get('_rerun_lock'):
-                    st.session_state['_item_pendiente_eliminar']['nueva_cantidad'] = int(_cant_input)
-                    st.rerun()
-                _ba1, _ba2, _ba3 = st.columns([1, 1.5, 1.5])
-                with _ba1:
-                    if st.button("&#10006;&#65039; Cancelar", use_container_width=True, key="popup_cancelar_btn"):
-                        st.session_state.pop('_item_pendiente_eliminar', None)
-                        st.session_state.pop('_rerun_lock', None)
-                        st.session_state.counter += 1
-                        st.rerun()
-                with _ba2:
-                    if st.button("&#9989; Aplicar cambio", use_container_width=True, key="popup_aplicar_btn"):
-                        for item in st.session_state.carrito:
-                            if item['Item'] == _nombre_item:
-                                item['Cantidad'] = int(_cant_input)
-                                item['Subtotal'] = int(_cant_input) * float(item['Precio Unitario'])
-                                break
-                        st.session_state.pop('_item_pendiente_eliminar', None)
-                        st.session_state.pop('_rerun_lock', None)
-                        st.session_state.counter += 1
-                        st.rerun()
-                with _ba3:
-                    if st.button("&#128465;&#65039; Eliminar todo", use_container_width=True, key="popup_eliminar_btn"):
-                        st.session_state.carrito = [i for i in st.session_state.carrito if i['Item'] != _nombre_item]
-                        st.session_state.pop('_item_pendiente_eliminar', None)
-                        st.session_state.pop('_rerun_lock', None)
-                        st.session_state.counter += 1
-                        st.rerun()
-
         st.markdown("---")
         col_btn_limpiar, _, _, _ = st.columns(4)
         with col_btn_limpiar:
             if not es_solo_lectura:
                 if st.button("&#129529; Limpiar", use_container_width=True):
-                    st.session_state.pop('_item_pendiente_eliminar', None)
-                    st.session_state.pop('_rerun_lock', None)
                     limpiar_todo()
                     st.rerun()
             else:
