@@ -546,30 +546,34 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                 'items': int(_crow['items']),
                 'cant': int(_crow['cantidades']),
             })
-        _n_cat_rows_ui = math.ceil(len(_cats_data) / 9) if _cats_data else 1
-        _cards_h = _n_cat_rows_ui * 78 + 8
-
-        # Render cards as static Python HTML so they're always visible (no JS needed)
+        # ── CARDS via st.markdown() — siempre visibles, JS adjunta listeners (igual que tab_historial) ──
         def _hex_to_rgba(h, a):
             r, g, b = int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16)
             return f'rgba({r},{g},{b},{a})'
-        _cards_static = ''
+        _cards_css = ('<style>.pres-cards{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0 10px 0;}'
+                      '._pres_card{border-radius:7px;padding:7px 11px;min-width:110px;flex:1;cursor:pointer;transition:background .13s,border .13s;}'
+                      '._pres_card:hover{opacity:.85;}'
+                      '.pres-cname{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;}'
+                      '.pres-csub{font-size:12px;font-weight:700;color:#0f172a;}'
+                      '.pres-cmeta{font-size:10px;color:#64748b;margin-top:1px;}</style>')
+        _cards_html_md = '<div class="pres-cards">'
         for _c in _cats_data:
             _is_act = (_c['cat'] == _cat_filtro_activo)
             _col = _c['color']
-            _safe = _c['cat'].replace('\\', '\\\\').replace("'", "\\'")
             _bg   = _hex_to_rgba(_col, 0.15) if _is_act else '#fff'
             _brd  = f'2px solid {_col}' if _is_act else f'1.5px solid {_hex_to_rgba(_col, 0.3)}'
             _tick = ' ✓' if _is_act else ''
-            _cards_static += (
-                f'<div class="ccard" data-cat="{_c["cat"].replace(chr(34),"&quot;")}"'
-                f' data-color="{_col}" onclick="toggleCF(\'{_safe}\')"'
+            _dcat = _c['cat'].replace('"', '&quot;')
+            _cards_html_md += (
+                f'<div class="_pres_card" data-catpres="{_dcat}" data-colorpres="{_col}"'
                 f' style="background:{_bg};border:{_brd};border-left:4px solid {_col};">'
-                f'<div class="cname" style="color:{_col};">{_c["cat"]}{_tick}</div>'
-                f'<div class="csub">{_c["sub"]}<span style="font-size:9px;color:#64748b;margin-left:3px;">s/IVA</span></div>'
-                f'<div class="cmeta">{_c["items"]} ítems · {_c["cant"]} uds.</div>'
+                f'<div class="pres-cname" style="color:{_col};">{_c["cat"]}{_tick}</div>'
+                f'<div class="pres-csub">{_c["sub"]}<span style="font-size:9px;color:#64748b;margin-left:3px;">s/IVA</span></div>'
+                f'<div class="pres-cmeta">{_c["items"]} ítems · {_c["cant"]} uds.</div>'
                 f'</div>'
             )
+        _cards_html_md += '</div>'
+        st.markdown(_cards_css + _cards_html_md, unsafe_allow_html=True)
 
         carrito_df = pd.DataFrame(st.session_state.carrito)
         subtotal_base = carrito_df["Subtotal"].sum()
@@ -591,7 +595,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         comision_supervisor = subtotal_general * 0.008 if (st.session_state.modo_admin and tiene_margen) else 0
         total_comisiones = comision_vendedor + comision_supervisor
         utilidad_real = margen_valor - total_comisiones if (st.session_state.modo_admin and tiene_margen) else 0
-        # ── Componente unificado: tarjetas + búsqueda + tabla (todo en un iframe) ──
+
         _color_map_tbl = {c['cat']: c['color'] for c in _cats_data}
         _tbl_df = carrito_df_con_margen.copy()
         _tbl_df["P. Unit + IVA"]  = _tbl_df["Precio Unitario"].apply(lambda x: formato_clp(round(x * 1.19)))
@@ -599,164 +603,163 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         _tbl_df["Precio Unitario"] = _tbl_df["Precio Unitario"].apply(formato_clp)
         _tbl_df["Subtotal"]        = _tbl_df["Subtotal"].apply(formato_clp)
         _tbl_df["Cantidad"]        = pd.to_numeric(_tbl_df["Cantidad"], errors="coerce").fillna(0).astype(int)
-        _rows_js   = _json.dumps([
-            {'cat': str(r['Categoria']), 'item': str(r['Item']), 'cant': str(r['Cantidad']),
-             'pu': str(r['Precio Unitario']), 'sub': str(r['Subtotal']),
-             'pu_iva': str(r['P. Unit + IVA']), 'sub_iva': str(r['Subtotal + IVA']),
-             'color': _color_map_tbl.get(str(r['Categoria']), '#6366f1')}
-            for _, r in _tbl_df.iterrows()
-        ], ensure_ascii=False)
-        _init_cf_js = _json.dumps(_cat_filtro_activo or '', ensure_ascii=False)
-        _edit_js = 'false' if es_solo_lectura else 'true'
         _pend_item  = (st.session_state.get('_item_pendiente_eliminar') or {})
-        _pend_js    = _json.dumps((_pend_item.get('item') or {}).get('Item') or '', ensure_ascii=False)
-        _n_tbl      = len(_tbl_df)
-        _tbl_content_h = max(150, min(_n_tbl * 42 + 44, 440))
-        _iframe_h   = _cards_h + 46 + _tbl_content_h + 10
+        _pend_name  = ((_pend_item.get('item') or {}).get('Item', ''))
 
-        _tbl_html = ("""<!DOCTYPE html>
+        # ── BARRA DE BÚSQUEDA + JS de filtrado via components.html() height=46 ──
+        # Exactamente igual al patrón de tab_historial: JS usa window.parent.document
+        # para adjuntar listeners a cards y filtrar filas en el DOM padre.
+        _cf_js   = _json.dumps(_cat_filtro_activo or '', ensure_ascii=False)
+        _edit_js = 'true' if not es_solo_lectura else 'false'
+        _pend_js = _json.dumps(_pend_name, ensure_ascii=False)
+        _filter_html = ("""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;background:#f8fafc;}
-#cards{display:flex;flex-wrap:wrap;gap:6px;padding:6px 8px;background:#f8fafc;border-bottom:1px solid #e2e8f0;}
-.ccard{border-radius:7px;padding:7px 11px;min-width:110px;flex:1;cursor:pointer;transition:all .13s;}
-.ccard:hover{opacity:.85;}
-.cname{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;}
-.csub{font-size:12px;font-weight:700;color:#0f172a;}
-.cmeta{font-size:10px;color:#64748b;margin-top:1px;}
-#bar{display:flex;align-items:center;gap:8px;padding:7px 10px;background:#fff;border-bottom:1px solid #e2e8f0;}
-#search{flex:1;border:1.5px solid #e2e8f0;border-radius:7px;padding:6px 11px;font-size:0.84rem;font-family:inherit;outline:none;color:#1e293b;background:#f8fafc;transition:border-color .2s,box-shadow .2s;}
+body{font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;background:transparent;overflow:hidden;}
+#bar{display:flex;align-items:center;gap:8px;padding:4px 0;}
+#search{flex:1;border:1.5px solid #e2e8f0;border-radius:7px;padding:6px 11px;font-size:0.84rem;
+  font-family:inherit;outline:none;color:#1e293b;background:#f8fafc;
+  transition:border-color .2s,box-shadow .2s;}
 #search:focus{border-color:#5b7cfa;background:#fff;box-shadow:0 0 0 3px rgba(91,124,250,.1);}
 #cnt{font-size:0.72rem;color:#94a3b8;white-space:nowrap;font-weight:600;min-width:64px;text-align:right;}
-#tbl-w{overflow:auto;height:__TBL_H__px;}
-#tbl-w::-webkit-scrollbar{width:4px;height:4px;}
-#tbl-w::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}
-table{width:100%;border-collapse:separate;border-spacing:0;font-size:0.8rem;table-layout:auto;}
-thead th{position:sticky;top:0;z-index:2;background:linear-gradient(135deg,#1e2447 0%,#2a3060 100%);
-  color:#fff;font-weight:700;font-size:0.7rem;letter-spacing:.06em;text-transform:uppercase;
-  padding:9px 11px;border-bottom:2px solid #151b38;white-space:nowrap;user-select:none;}
-th.r,td.r{text-align:right;}
-tbody tr:nth-child(even){background:#f8fafc;}
-tbody tr:nth-child(odd){background:#fff;}
-tbody tr.editable:hover{background:#eef1ff!important;cursor:pointer;}
-tbody tr.pending{background:#fff4f4!important;box-shadow:inset 3px 0 0 #ef4444;}
-td{padding:7px 11px;border-bottom:1px solid #f0f4f8;vertical-align:middle;color:#334155;}
-.badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
-.item-n{font-weight:600;color:#1e293b;font-size:0.82rem;line-height:1.35;}
-.hint{font-size:0.62rem;color:#94a3b8;font-style:italic;display:block;margin-top:1px;}
-.mono{font-family:'JetBrains Mono','Courier New',monospace;font-size:0.77rem;}
-.bold{font-weight:700;color:#0f172a;}
-.muted{color:#64748b;}
-.none{text-align:center;padding:28px;color:#94a3b8;font-size:0.83rem;}
 </style></head>
 <body>
-<div id="cards">__CARDS_HTML__</div>
 <div id="bar">
-  <svg width="14" height="14" fill="none" stroke="#94a3b8" stroke-width="2.2" viewBox="0 0 24 24" style="flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+  <svg width="14" height="14" fill="none" stroke="#94a3b8" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
   <input id="search" type="text" placeholder="Filtrar por categoría o ítem..." autocomplete="off">
   <span id="cnt"></span>
 </div>
-<div id="tbl-w">
-  <table>
-    <thead><tr>
-      <th>Categoría</th><th>Ítem</th>
-      <th class="r">Cant.</th><th class="r">P. Unitario</th>
-      <th class="r">Subtotal</th><th class="r">P.Unit+IVA</th><th class="r">Sub+IVA</th>
-    </tr></thead>
-    <tbody id="tb"></tbody>
-  </table>
-</div>
 <script>
-var ROWS=__ROWS__;
-var CF=__CF__;
-var EM=__EM__;
-var PI=__PI__;
-function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function rgba(h,a){var r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return 'rgba('+r+','+g+','+b+','+a+')';}
-function renderTable(){
+(function(){
+var CF=__CF__;var EM=__EM__;var PI=__PI__;
+var PD;try{PD=window.parent.document;}catch(e){return;}
+function filterRows(){
   var q=document.getElementById('search').value.toLowerCase().trim();
-  var tb=document.getElementById('tb');
-  if(!tb)return;
-  var vis=[];
-  for(var i=0;i<ROWS.length;i++){
-    var r=ROWS[i];
-    if(CF&&r.cat!==CF)continue;
-    if(q&&r.cat.toLowerCase().indexOf(q)<0&&r.item.toLowerCase().indexOf(q)<0)continue;
-    vis.push(r);
+  var rows=PD.querySelectorAll('tr[data-catpres]');var vis=0;
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i];
+    var cat=r.getAttribute('data-catpres')||'';
+    var item=r.getAttribute('data-itempres')||'';
+    var show=true;
+    if(CF&&cat!==CF)show=false;
+    if(q&&cat.toLowerCase().indexOf(q)<0&&item.toLowerCase().indexOf(q)<0)show=false;
+    r.style.display=show?'':'none';
+    if(show)vis++;
   }
-  var cntEl=document.getElementById('cnt');
-  if(cntEl)cntEl.textContent=vis.length+' ítem'+(vis.length!==1?'s':'');
-  if(!vis.length){tb.innerHTML='<tr><td colspan="7" class="none">Sin resultados</td></tr>';return;}
-  var h='';
-  for(var j=0;j<vis.length;j++){
-    var r=vis[j];
-    var cc=r.color||'#6366f1';
-    var bg=rgba(cc,0.12);
-    var isPend=(r.item===PI);
-    var cls=(EM?'editable':'')+(isPend?' pending':'');
-    var safe=r.item.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    var oc=EM?('onclick="cr(\''+safe+'\')"'):'';
-    h+='<tr class="'+cls+'" '+oc+'>';
-    h+='<td><span class="badge" style="background:'+bg+';color:'+cc+';">'+esc(r.cat)+'</span></td>';
-    h+='<td><span class="item-n">'+esc(r.item)+'</span>'+(EM&&!isPend?'<span class="hint">editar / eliminar</span>':'')+'</td>';
-    h+='<td class="r mono">'+esc(r.cant)+'</td>';
-    h+='<td class="r mono">'+esc(r.pu)+'</td>';
-    h+='<td class="r mono bold">'+esc(r.sub)+'</td>';
-    h+='<td class="r mono muted">'+esc(r.pu_iva)+'</td>';
-    h+='<td class="r mono muted">'+esc(r.sub_iva)+'</td>';
-    h+='</tr>';
-  }
-  tb.innerHTML=h;
+  var el=document.getElementById('cnt');
+  if(el)el.textContent=vis+' ítem'+(vis!==1?'s':'');
 }
 function updateCards(){
-  var cards=document.querySelectorAll('.ccard');
-  for(var i=0;i<cards.length;i++){
-    var el=cards[i];
-    var cat=el.getAttribute('data-cat');
-    var color=el.getAttribute('data-color');
+  PD.querySelectorAll('._pres_card').forEach(function(el){
+    var cat=el.getAttribute('data-catpres');
+    var color=el.getAttribute('data-colorpres');
+    if(!color)return;
     var isAct=(cat===CF);
-    var r2=parseInt(color.slice(1,3),16),g2=parseInt(color.slice(3,5),16),b2=parseInt(color.slice(5,7),16);
-    el.style.background=isAct?'rgba('+r2+','+g2+','+b2+',0.15)':'#fff';
-    el.style.border=isAct?('2px solid '+color):('1.5px solid rgba('+r2+','+g2+','+b2+',0.3)');
+    var r=parseInt(color.slice(1,3),16),g=parseInt(color.slice(3,5),16),b=parseInt(color.slice(5,7),16);
+    el.style.background=isAct?'rgba('+r+','+g+','+b+',0.15)':'#fff';
+    el.style.border=isAct?('2px solid '+color):('1.5px solid rgba('+r+','+g+','+b+',0.3)');
     el.style.borderLeft='4px solid '+color;
-    var nm=el.querySelector('.cname');
-    if(nm){var base=el.getAttribute('data-cat');nm.textContent=base+(isAct?' ✓':'');}
+    var nm=el.querySelector('.pres-cname');
+    if(nm)nm.textContent=cat+(isAct?' ✓':'');
+  });
+}
+function toggleCF(cat){CF=(CF===cat)?'':cat;updateCards();filterRows();}
+function cr(item){
+  var combined=(CF||'')+' ||| '+item;
+  var inp=PD.querySelector('input[placeholder="__item_trg__"]');
+  if(!inp)return;
+  try{Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set.call(inp,combined);}
+  catch(e){inp.value=combined;}
+  inp.dispatchEvent(new Event('input',{bubbles:true}));
+}
+function attachListeners(){
+  PD.querySelectorAll('._pres_card').forEach(function(el){
+    if(el._pb)return;el._pb=true;
+    var cat=el.getAttribute('data-catpres');
+    el.addEventListener('click',function(){toggleCF(cat);});
+  });
+  if(EM){
+    PD.querySelectorAll('tr[data-catpres]').forEach(function(rw){
+      if(rw._pb)return;rw._pb=true;
+      var item=rw.getAttribute('data-itempres');
+      rw.addEventListener('click',function(){cr(item);});
+    });
   }
 }
-function toggleCF(cat){
-  CF=(CF===cat)?'':cat;
-  updateCards();
-  renderTable();
-}
-function cr(name){
-  var combined=(CF||'')+' ||| '+name;
-  try{
-    var inp=window.parent.document.querySelector('input[placeholder="__item_trg__"]');
-    if(!inp)return;
-    var sv=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set;
-    sv.call(inp,combined);
-    inp.dispatchEvent(new Event('input',{bubbles:true}));
-  }catch(e){
-    try{
-      var inp2=window.parent.document.querySelector('input[placeholder="__item_trg__"]');
-      if(inp2){inp2.value=combined;inp2.dispatchEvent(new Event('input',{bubbles:true}));}
-    }catch(e2){}
-  }
-}
-document.getElementById('search').addEventListener('input',renderTable);
-renderTable();
+document.getElementById('search').addEventListener('input',filterRows);
+setTimeout(function(){attachListeners();filterRows();},300);
+setInterval(attachListeners,3000);
+})();
 </script>
 </body></html>"""
-            .replace('__CARDS_HTML__', _cards_static)
-            .replace('__ROWS__', _rows_js)
-            .replace('__CF__', _init_cf_js)
+            .replace('__CF__', _cf_js)
             .replace('__EM__', _edit_js)
             .replace('__PI__', _pend_js)
-            .replace('__TBL_H__', str(_tbl_content_h))
         )
+        components.html(_filter_html, height=46, scrolling=False)
+
+        # ── TABLA via st.markdown() — filas siempre en el DOM, JS solo togglea display ──
+        _tbl_css_md = ('<style>'
+            '.pres-tbl-wrap{border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;'
+            'box-shadow:0 2px 6px rgba(0,0,0,.06);margin-top:4px;}'
+            '.pres-tbl-wrap table{width:100%;border-collapse:collapse;font-size:.8rem;table-layout:auto;}'
+            '.pres-tbl-wrap thead th{background:linear-gradient(135deg,#1e2447,#2a3060);color:#fff;'
+            'font-weight:700;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;'
+            'padding:9px 11px;white-space:nowrap;position:sticky;top:0;z-index:2;text-align:left;}'
+            '.pres-tbl-wrap thead th.r{text-align:right;}'
+            '.pres-tbl-wrap tbody tr:nth-child(even){background:#f8fafc;}'
+            '.pres-tbl-wrap tbody tr:nth-child(odd){background:#fff;}'
+            '._pres_row_edit:hover{background:#eef1ff!important;cursor:pointer;}'
+            '._pres_row_pend{background:#fff4f4!important;box-shadow:inset 3px 0 0 #ef4444;}'
+            '.pres-tbl-wrap td{padding:7px 11px;border-bottom:1px solid #f0f4f8;'
+            'vertical-align:middle;color:#334155;}'
+            '.pres-tbl-wrap td.r{text-align:right;}'
+            '.bdg-pres{display:inline-block;padding:2px 7px;border-radius:20px;font-size:.68rem;'
+            'font-weight:700;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}'
+            '.itnm-pres{font-weight:600;color:#1e293b;font-size:.82rem;line-height:1.35;}'
+            '.hint-pres{font-size:.62rem;color:#94a3b8;font-style:italic;display:block;margin-top:1px;}'
+            '.mono-pres{font-family:"JetBrains Mono","Courier New",monospace;font-size:.77rem;}'
+            '</style>')
+        _rows_md = ''
+        for _, _r in _tbl_df.iterrows():
+            _cat = str(_r['Categoria'])
+            _item = str(_r['Item'])
+            _color = _color_map_tbl.get(_cat, '#6366f1')
+            _ri, _gi, _bi = int(_color[1:3], 16), int(_color[3:5], 16), int(_color[5:7], 16)
+            _bbg = f'rgba({_ri},{_gi},{_bi},0.12)'
+            _is_pend = (_item == _pend_name)
+            _cls = '_pres_row_edit' if not es_solo_lectura else ''
+            if _is_pend: _cls += ' _pres_row_pend'
+            _dcat  = _cat.replace('"', '&quot;').replace("'", "&#39;")
+            _ditem = _item.replace('"', '&quot;').replace("'", "&#39;")
+            _rows_md += (
+                f'<tr class="{_cls.strip()}" data-catpres="{_dcat}" data-itempres="{_ditem}">'
+                f'<td><span class="bdg-pres" style="background:{_bbg};color:{_color};">{_cat}</span></td>'
+                f'<td><span class="itnm-pres">{_item}</span>'
+                + (f'<span class="hint-pres">editar / eliminar</span>' if not es_solo_lectura and not _is_pend else '')
+                + f'</td>'
+                f'<td class="r mono-pres">{_r["Cantidad"]}</td>'
+                f'<td class="r mono-pres">{_r["Precio Unitario"]}</td>'
+                f'<td class="r mono-pres" style="font-weight:700;color:#0f172a;">{_r["Subtotal"]}</td>'
+                f'<td class="r mono-pres" style="color:#64748b;">{_r["P. Unit + IVA"]}</td>'
+                f'<td class="r mono-pres" style="color:#64748b;">{_r["Subtotal + IVA"]}</td>'
+                f'</tr>'
+            )
+        _n_tbl = len(_tbl_df)
+        _tbl_max_h = max(160, min(_n_tbl * 42 + 54, 460))
         if es_solo_lectura:
             st.caption("&#128274; Vista de solo lectura")
-        components.html(_tbl_html, height=_iframe_h, scrolling=False)
+        st.markdown(
+            _tbl_css_md
+            + '<div class="pres-tbl-wrap">'
+            + f'<div style="overflow-x:auto;max-height:{_tbl_max_h}px;overflow-y:auto;">'
+            + '<table><thead><tr>'
+            + '<th>Categoría</th><th>Ítem</th>'
+            + '<th class="r">Cant.</th><th class="r">P. Unitario</th>'
+            + '<th class="r">Subtotal</th><th class="r">P.Unit+IVA</th><th class="r">Sub+IVA</th>'
+            + f'</tr></thead><tbody>{_rows_md}</tbody></table></div></div>',
+            unsafe_allow_html=True
+        )
 
         if st.session_state.get('_item_pendiente_eliminar'):
             _pend = st.session_state['_item_pendiente_eliminar']
