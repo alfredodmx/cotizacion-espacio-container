@@ -791,15 +791,22 @@ function filterRows(){
   if(el)el.textContent=vis+' ítem'+(vis!==1?'s':'');
 }
 window.cr=function(el){
-  var item=el.getAttribute('data-item');if(!item)return;
+  var item=el.getAttribute('data-item');
+  console.log('[cr] called item=',item);
+  if(!item)return;
   var combined=(CF||'')+' ||| '+item;
   var inp=PD.querySelector('.st-key-_item_click_trigger input')
           ||PD.querySelector('input[placeholder="__item_trg__"]');
-  if(!inp){console.log('[cr] inp not found');return;}
-  var s=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set;
-  s.call(inp,combined);
-  inp.dispatchEvent(new window.parent.Event('input',{bubbles:true,composed:true}));
-  inp.dispatchEvent(new window.parent.Event('change',{bubbles:true,composed:true}));
+  console.log('[cr] inp=',inp);
+  if(!inp)return;
+  try{
+    var desc=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value');
+    console.log('[cr] desc=',desc);
+    if(desc&&desc.set){desc.set.call(inp,combined);console.log('[cr] setter OK val=',inp.value);}
+    else{inp.value=combined;console.log('[cr] setter missing');}
+  }catch(e){inp.value=combined;console.log('[cr] setter ERR',e.message);}
+  inp.dispatchEvent(new window.parent.Event('input',{bubbles:true}));
+  console.log('[cr] dispatched');
 };
 function updateCards(){
   PD.querySelectorAll('._pres_card').forEach(function(el){
