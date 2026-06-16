@@ -838,7 +838,10 @@ var _pi=null,_pn=null,_pr=0;
 function fmtClp(n){return '$ '+Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'.');}
 window.cr=function(el){
   if(!EM)return;
-  _pi=el.getAttribute('data-idx');
+  var idx=el.getAttribute('data-idx');
+  var pop=document.getElementById('pop');
+  if(idx===_pi&&pop.style.display!=='none'){window.closePop();return;}
+  _pi=idx;
   _pn=el.getAttribute('data-item')||'';
   _pr=parseFloat(el.getAttribute('data-price-raw')||'0')||0;
   var qty=parseInt(el.getAttribute('data-qty')||'1')||1;
@@ -849,17 +852,17 @@ window.cr=function(el){
   document.getElementById('pop-qty').value=qty;
   document.querySelectorAll('tbody tr.pending').forEach(function(r){r.classList.remove('pending');});
   el.classList.add('pending');
-  updSub();
-  document.getElementById('pop').style.display='block';
+  window.updSub();
+  pop.style.display='block';
 };
-function updSub(){var q=parseInt(document.getElementById('pop-qty').value)||1;document.getElementById('pop-sub').textContent=fmtClp(_pr*q);}
-function qd(d){var i=document.getElementById('pop-qty');i.value=Math.max(1,(parseInt(i.value)||1)+d);updSub();}
-function closePop(){
+window.updSub=function(){var q=parseInt(document.getElementById('pop-qty').value)||1;document.getElementById('pop-sub').textContent=fmtClp(_pr*q);};
+window.qd=function(d){var i=document.getElementById('pop-qty');i.value=Math.max(1,(parseInt(i.value)||1)+d);window.updSub();};
+window.closePop=function(){
   document.getElementById('pop').style.display='none';
   document.querySelectorAll('tbody tr.pending').forEach(function(r){r.classList.remove('pending');});
   _pi=null;_pn=null;
-}
-function applyPop(){
+};
+window.applyPop=function(){
   if(_pi===null||!_pn)return;
   var qty=parseInt(document.getElementById('pop-qty').value)||1;
   var inp=PD.querySelector('input[placeholder="__qty_trg__"]');
@@ -870,14 +873,14 @@ function applyPop(){
   }
   var ab=PD.querySelector('.st-key-_apply_trg button');
   if(ab)ab.click();
-  closePop();
-}
-function delPop(){
+  window.closePop();
+};
+window.delPop=function(){
   if(_pi===null)return;
   var db=PD.querySelector('.st-key-_del_'+_pi+' button');
   if(db)db.click();
-  closePop();
-}
+  window.closePop();
+};
 function updateCards(){
   PD.querySelectorAll('._pres_card').forEach(function(el){
     var cat=el.getAttribute('data-catpres');
