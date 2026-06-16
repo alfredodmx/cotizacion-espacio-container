@@ -790,7 +790,7 @@ function filterRows(){
   var el=document.getElementById('cnt');
   if(el)el.textContent=vis+' ítem'+(vis!==1?'s':'');
 }
-function cr(el){
+window.cr=function(el){
   var item=el.getAttribute('data-item');if(!item)return;
   var combined=(CF||'')+' ||| '+item;
   var inp=PD.querySelector('input[placeholder="__item_trg__"]');
@@ -798,7 +798,7 @@ function cr(el){
   try{Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set.call(inp,combined);}
   catch(e){inp.value=combined;}
   inp.dispatchEvent(new window.parent.Event('input',{bubbles:true}));
-}
+};
 function updateCards(){
   PD.querySelectorAll('._pres_card').forEach(function(el){
     var cat=el.getAttribute('data-catpres');
