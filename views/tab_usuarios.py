@@ -343,6 +343,48 @@ _ROL_META = {
 
 # ── render principal ──────────────────────────────────────────────────────────
 
+def _diagnostico_api():
+    """Panel de diagnóstico para verificar conectividad con Supabase Auth."""
+    import httpx as _hx
+    st.markdown("#### 🔬 Diagnóstico API Supabase")
+    url  = SUPABASE_URL or "(no configurado)"
+    key  = (SUPABASE_SERVICE_KEY or "")
+    masked = f"{key[:8]}…{key[-4:]}" if len(key) > 12 else "(vacío)"
+    st.code(f"SUPABASE_URL       = {url}\nSERVICE_KEY (mask) = {masked}", language="text")
+
+    if st.button("▶ Ejecutar prueba GET /auth/v1/admin/users", key="diag_test_btn"):
+        with st.spinner("Llamando a Supabase..."):
+            try:
+                r = _hx.get(
+                    f"{SUPABASE_URL}/auth/v1/admin/users",
+                    headers=_hdr(),
+                    params={"per_page": 5, "page": 1},
+                    timeout=15,
+                )
+                st.code(
+                    f"HTTP status : {r.status_code}\n"
+                    f"Headers resp: {dict(r.headers)}\n"
+                    f"Body (500c) : {r.text[:500]}",
+                    language="json",
+                )
+            except Exception as ex:
+                st.error(f"Excepción: {ex}")
+
+    if st.button("▶ Probar DELETE de usuario (ingresa ID)", key="diag_del_btn"):
+        uid_test = st.text_input("UUID del usuario a eliminar", key="diag_del_uid")
+        if uid_test.strip():
+            with st.spinner("Llamando DELETE..."):
+                try:
+                    r = _hx.delete(
+                        f"{SUPABASE_URL}/auth/v1/admin/users/{uid_test.strip()}",
+                        headers=_hdr(),
+                        timeout=15,
+                    )
+                    st.code(f"HTTP {r.status_code}\n{r.text[:500]}", language="json")
+                except Exception as ex:
+                    st.error(f"Excepción: {ex}")
+
+
 def render_tab_usuarios(supabase_admin=None, **deps):
     if not st.session_state.get("modo_admin"):
         st.info("🔒 Solo administradores pueden gestionar usuarios.")
@@ -360,6 +402,8 @@ def render_tab_usuarios(supabase_admin=None, **deps):
             data, err = _listar_usuarios()
         if err:
             st.error(f"❌ Error al cargar usuarios: {err}")
+            with st.expander("🔬 Diagnóstico", expanded=True):
+                _diagnostico_api()
             if st.button("🔄 Reintentar", key="btn_usr_retry"):
                 st.rerun()
             return
@@ -403,6 +447,9 @@ def render_tab_usuarios(supabase_admin=None, **deps):
         if st.button("🔄 Actualizar", use_container_width=True, key="btn_usr_ref"):
             st.session_state.pop("_usr_data", None)
             st.rerun()
+
+    with st.expander("🔬 Diagnóstico API", expanded=False):
+        _diagnostico_api()
 
     st.markdown("---")
 
