@@ -507,7 +507,16 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         _item_trg = st.text_input("Item trigger", key="_item_click_trigger",
                                    label_visibility="collapsed", placeholder="__item_trg__")
         if _item_trg:
-            _found_item = next((i for i in st.session_state.carrito if i["Item"] == _item_trg), None)
+            # Formato: "CategoryName ||| ItemName" (el CF viene del iframe)
+            if ' ||| ' in _item_trg:
+                _trg_cf, _trg_item = _item_trg.split(' ||| ', 1)
+            else:
+                _trg_cf, _trg_item = '', _item_trg
+            if _trg_cf:
+                st.session_state['_cat_filtro_activo'] = _trg_cf
+            else:
+                st.session_state.pop('_cat_filtro_activo', None)
+            _found_item = next((i for i in st.session_state.carrito if i["Item"] == _trg_item), None)
             if _found_item:
                 st.session_state['_item_pendiente_eliminar'] = {
                     'item': _found_item, 'nueva_cantidad': int(_found_item.get('Cantidad', 1))
@@ -526,49 +535,19 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
             .agg(items=('Item', 'count'), cantidades=('Cantidad', 'sum'), subtotal=('Subtotal', 'sum'))
             .reset_index().sort_values('Categoria')
         )
-        _cards_items = []
-        for _ci, (_idx, _crow) in enumerate(_cats_summary.iterrows()):
+        # Preparar datos de categorías para el componente unificado
+        _cats_data = []
+        for _ci, (_, _crow) in enumerate(_cats_summary.iterrows()):
             _cc = _cat_colors[_ci % len(_cat_colors)]
-            _sub_fmt = f'${_crow["subtotal"]:,.0f}'.replace(',', '.')
-            _is_active = _cat_filtro_activo == _crow['Categoria']
-            _cards_items.append({'cat': _crow['Categoria'], 'cc': _cc, 'sub': _sub_fmt,
-                                  'items': int(_crow['items']), 'cant': int(_crow['cantidades']),
-                                  'active': _is_active})
-        _cards_divs = ''
-        for _card in _cards_items:
-            _bg = f"{_card['cc']}18" if _card['active'] else '#fff'
-            _brd = f"2px solid {_card['cc']}" if _card['active'] else f"1.5px solid {_card['cc']}33"
-            _tick = ' ✓' if _card['active'] else ''
-            _cards_divs += (
-                f'<div class="cat-card" data-cat="{_card["cat"]}" '
-                f'style="background:{_bg};border:{_brd};border-left:4px solid {_card["cc"]};'
-                f'border-radius:8px;padding:8px 14px;min-width:140px;flex:1;cursor:pointer;">'
-                f'<div style="font-size:11px;font-weight:700;color:{_card["cc"]};text-transform:uppercase;'
-                f'letter-spacing:.05em;margin-bottom:4px;">{_card["cat"]}{_tick}</div>'
-                f'<div style="display:flex;gap:10px;align-items:baseline;">'
-                f'<span style="font-size:13px;font-weight:700;color:#0f172a;">{_card["sub"]}</span>'
-                f'<span style="font-size:10px;color:#64748b;">s/IVA</span></div>'
-                f'<div style="font-size:10px;color:#64748b;margin-top:2px;">'
-                f'{_card["items"]} &#237;tems &#183; {_card["cant"]} uds.</div></div>'
-            )
-        _cat_html = (
-            "<style>html,body{margin:0;padding:0;overflow:hidden;font-family:'Segoe UI',sans-serif;}*{box-sizing:border-box;}</style>"
-            f"<div style='display:flex;flex-wrap:wrap;gap:8px;padding:4px 0;'>{_cards_divs}</div>"
-            "<script>document.querySelectorAll('.cat-card').forEach(function(el){"
-            "el.addEventListener('click',function(){"
-            "var cat=this.dataset.cat;"
-            "var url=new URL(window.parent.location.href);"
-            "var current=url.searchParams.get('cat_filtro');"
-            "url.searchParams.set('cat_filtro', current===cat ? '__clear__' : cat);"
-            "window.parent.history.replaceState({},'',url);"
-            "window.parent.dispatchEvent(new PopStateEvent('popstate'));})});</script>"
-        )
-        _n_cat_rows = len(_cards_items)
-        _cats_per_row = 9
-        _n_rows = math.ceil(_n_cat_rows / _cats_per_row) if _n_cat_rows else 1
-        _cat_height = _n_rows * 78 + 8
-        components.html(_cat_html, height=_cat_height, scrolling=False)
-        st.markdown('<div style="margin-top:-24px"></div>', unsafe_allow_html=True)
+            _cats_data.append({
+                'cat': str(_crow['Categoria']),
+                'color': _cc,
+                'sub': f"${_crow['subtotal']:,.0f}".replace(',', '.'),
+                'items': int(_crow['items']),
+                'cant': int(_crow['cantidades']),
+            })
+        _n_cat_rows_ui = math.ceil(len(_cats_data) / 9) if _cats_data else 1
+        _cards_h = _n_cat_rows_ui * 78 + 8
 
         carrito_df = pd.DataFrame(st.session_state.carrito)
         subtotal_base = carrito_df["Subtotal"].sum()
@@ -590,34 +569,41 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         comision_supervisor = subtotal_general * 0.008 if (st.session_state.modo_admin and tiene_margen) else 0
         total_comisiones = comision_vendedor + comision_supervisor
         utilidad_real = margen_valor - total_comisiones if (st.session_state.modo_admin and tiene_margen) else 0
-        # ── Tabla HTML con filtrado JS instantáneo (sin rerun al tipear) ──
-        _color_map_tbl = {_crow['Categoria']: _cat_colors[_ci % len(_cat_colors)]
-                          for _ci, (_, _crow) in enumerate(_cats_summary.iterrows())}
+        # ── Componente unificado: tarjetas + búsqueda + tabla (todo en un iframe) ──
+        _color_map_tbl = {c['cat']: c['color'] for c in _cats_data}
         _tbl_df = carrito_df_con_margen.copy()
         _tbl_df["P. Unit + IVA"]  = _tbl_df["Precio Unitario"].apply(lambda x: formato_clp(round(x * 1.19)))
         _tbl_df["Subtotal + IVA"] = _tbl_df["Subtotal"].apply(lambda x: formato_clp(round(x * 1.19)))
         _tbl_df["Precio Unitario"] = _tbl_df["Precio Unitario"].apply(formato_clp)
         _tbl_df["Subtotal"]        = _tbl_df["Subtotal"].apply(formato_clp)
         _tbl_df["Cantidad"]        = pd.to_numeric(_tbl_df["Cantidad"], errors="coerce").fillna(0).astype(int)
+        _cats_js   = _json.dumps(_cats_data, ensure_ascii=False)
         _rows_js   = _json.dumps([
             {'cat': str(r['Categoria']), 'item': str(r['Item']), 'cant': str(r['Cantidad']),
              'pu': str(r['Precio Unitario']), 'sub': str(r['Subtotal']),
-             'pu_iva': str(r['P. Unit + IVA']), 'sub_iva': str(r['Subtotal + IVA'])}
+             'pu_iva': str(r['P. Unit + IVA']), 'sub_iva': str(r['Subtotal + IVA']),
+             'color': _color_map_tbl.get(str(r['Categoria']), '#6366f1')}
             for _, r in _tbl_df.iterrows()
         ], ensure_ascii=False)
-        _colors_js = _json.dumps(_color_map_tbl, ensure_ascii=False)
-        _cat_js    = _json.dumps(_cat_filtro_activo or '', ensure_ascii=False)
-        _edit_js   = 'false' if es_solo_lectura else 'true'
-        _pend_item = (st.session_state.get('_item_pendiente_eliminar') or {})
-        _pend_js   = _json.dumps((_pend_item.get('item') or {}).get('Item') or '', ensure_ascii=False)
-        _n_tbl     = len(_tbl_df)
-        _iframe_h  = max(200, min(_n_tbl * 42 + 112, 520))
+        _init_cf_js = _json.dumps(_cat_filtro_activo or '', ensure_ascii=False)
+        _edit_js    = 'false' if es_solo_lectura else 'true'
+        _pend_item  = (st.session_state.get('_item_pendiente_eliminar') or {})
+        _pend_js    = _json.dumps((_pend_item.get('item') or {}).get('Item') or '', ensure_ascii=False)
+        _n_tbl      = len(_tbl_df)
+        _tbl_content_h = max(150, min(_n_tbl * 42 + 44, 440))
+        _iframe_h   = _cards_h + 46 + _tbl_content_h + 10
 
         _tbl_html = ("""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;background:#f8fafc;overflow:hidden;}
 #wrap{display:flex;flex-direction:column;height:100vh;}
+#cards{flex-shrink:0;display:flex;flex-wrap:wrap;gap:6px;padding:6px 8px 6px 8px;background:#f8fafc;border-bottom:1px solid #e2e8f0;}
+.ccard{border-radius:7px;padding:7px 11px;min-width:110px;flex:1;cursor:pointer;transition:all .13s;border-left-width:4px;border-left-style:solid;}
+.ccard:hover{opacity:.85;}
+.cname{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;}
+.csub{font-size:12px;font-weight:700;color:#0f172a;}
+.cmeta{font-size:10px;color:#64748b;margin-top:1px;}
 #bar{display:flex;align-items:center;gap:8px;padding:7px 10px;background:#fff;border-bottom:1px solid #e2e8f0;flex-shrink:0;}
 #search{flex:1;border:1.5px solid #e2e8f0;border-radius:7px;padding:6px 11px;font-size:0.84rem;font-family:inherit;outline:none;color:#1e293b;background:#f8fafc;transition:border-color .2s,box-shadow .2s;}
 #search:focus{border-color:#5b7cfa;background:#fff;box-shadow:0 0 0 3px rgba(91,124,250,.1);}
@@ -645,6 +631,7 @@ td{padding:7px 11px;border-bottom:1px solid #f0f4f8;vertical-align:middle;color:
 </style></head>
 <body>
 <div id="wrap">
+  <div id="cards"></div>
   <div id="bar">
     <svg width="14" height="14" fill="none" stroke="#94a3b8" stroke-width="2.2" viewBox="0 0 24 24" style="flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
     <input id="search" type="text" placeholder="Filtrar por categoría o ítem..." autocomplete="off">
@@ -662,35 +649,59 @@ td{padding:7px 11px;border-bottom:1px solid #f0f4f8;vertical-align:middle;color:
   </div>
 </div>
 <script>
+var CATS=__CATS__;
 var ROWS=__ROWS__;
-var COL=__COL__;
 var CF=__CF__;
 var EM=__EM__;
 var PI=__PI__;
-var D=window.parent.document;
+var D=null;try{D=window.parent.document;}catch(e){}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function rgba(h,a){var r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return 'rgba('+r+','+g+','+b+','+a+')';}
-function render(){
+
+function renderCards(){
+  var el=document.getElementById('cards');
+  if(!el)return;
+  var h='';
+  CATS.forEach(function(c){
+    var act=(CF===c.cat);
+    var bg=act?rgba(c.color,0.15):'#fff';
+    var brd=act?('2px solid '+c.color):('1.5px solid '+rgba(c.color,0.3));
+    var tick=act?' ✓':'';
+    var safe=c.cat.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    h+='<div class="ccard" onclick="toggleCF(\''+safe+'\')"';
+    h+=' style="background:'+bg+';border:'+brd+';border-left:4px solid '+c.color+';">';
+    h+='<div class="cname" style="color:'+c.color+';">'+esc(c.cat)+tick+'</div>';
+    h+='<div class="csub">'+esc(c.sub)+'<span style="font-size:9px;color:#64748b;margin-left:3px;">s/IVA</span></div>';
+    h+='<div class="cmeta">'+c.items+' ítems · '+c.cant+' uds.</div>';
+    h+='</div>';
+  });
+  el.innerHTML=h;
+}
+
+function renderTable(){
   var q=document.getElementById('search').value.toLowerCase().trim();
   var tb=document.getElementById('tb');
+  if(!tb)return;
   var vis=[];
   ROWS.forEach(function(r){
     if(CF&&r.cat!==CF)return;
     if(q&&r.cat.toLowerCase().indexOf(q)<0&&r.item.toLowerCase().indexOf(q)<0)return;
     vis.push(r);
   });
-  document.getElementById('cnt').textContent=vis.length+' ítem'+(vis.length!==1?'s':'');
-  if(!vis.length){tb.innerHTML='<tr><td colspan="7" class="none">Sin resultados para la búsqueda</td></tr>';return;}
+  var cntEl=document.getElementById('cnt');
+  if(cntEl)cntEl.textContent=vis.length+' ítem'+(vis.length!==1?'s':'');
+  if(!vis.length){tb.innerHTML='<tr><td colspan="7" class="none">Sin resultados</td></tr>';return;}
   var h='';
   vis.forEach(function(r){
-    var cc=COL[r.cat]||'#6366f1';
+    var cc=r.color||'#6366f1';
     var bg=rgba(cc,0.12);
     var isPend=(r.item===PI);
     var cls=(EM?'editable':'')+(isPend?' pending':'');
-    var oc=EM?'onclick="cr(\''+r.item.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+'\')"':'';
+    var safe=r.item.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    var oc=EM?('onclick="cr(\''+safe+'\')"'):'';
     h+='<tr class="'+cls+'" '+oc+'>';
     h+='<td><span class="badge" style="background:'+bg+';color:'+cc+';">'+esc(r.cat)+'</span></td>';
-    h+='<td><span class="item-n">'+esc(r.item)+'</span>'+(EM&&!isPend?'<span class="hint">&#8599; editar / eliminar</span>':'')+'</td>';
+    h+='<td><span class="item-n">'+esc(r.item)+'</span>'+(EM&&!isPend?'<span class="hint">↗ editar / eliminar</span>':'')+'</td>';
     h+='<td class="r mono">'+esc(r.cant)+'</td>';
     h+='<td class="r mono">'+esc(r.pu)+'</td>';
     h+='<td class="r mono bold">'+esc(r.sub)+'</td>';
@@ -700,26 +711,31 @@ function render(){
   });
   tb.innerHTML=h;
 }
+
+function toggleCF(cat){
+  CF=(CF===cat)?'':cat;
+  renderCards();
+  renderTable();
+}
+
 function cr(name){
+  if(!D)return;
   var inp=D.querySelector('input[placeholder="__item_trg__"]');
   if(!inp)return;
-  try{var sv=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set;sv.call(inp,name);}
-  catch(e){inp.value=name;}
+  var combined=(CF||'')+' ||| '+name;
+  try{var sv=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set;sv.call(inp,combined);}
+  catch(e){inp.value=combined;}
   inp.dispatchEvent(new Event('input',{bubbles:true}));
 }
-window.parent.addEventListener('popstate',function(){
-  var u=new URL(window.parent.location.href);
-  var cf=u.searchParams.get('cat_filtro')||'';
-  CF=(cf==='__clear__')?'':cf;
-  render();
-});
-document.getElementById('search').addEventListener('input',render);
-render();
+
+document.getElementById('search').addEventListener('input',renderTable);
+renderCards();
+renderTable();
 </script>
 </body></html>"""
+            .replace('__CATS__', _cats_js)
             .replace('__ROWS__', _rows_js)
-            .replace('__COL__', _colors_js)
-            .replace('__CF__', _cat_js)
+            .replace('__CF__', _init_cf_js)
             .replace('__EM__', _edit_js)
             .replace('__PI__', _pend_js)
         )
@@ -856,18 +872,6 @@ render();
 
         if st.session_state.modo_admin and st.session_state.margen > 0:
             st.caption(f"*Precios calculados con margen del {st.session_state.margen}%")
-
-        _qp_cat_filtro = st.query_params.get('cat_filtro', '')
-        if _qp_cat_filtro:
-            if _qp_cat_filtro == '__clear__' or _qp_cat_filtro == st.session_state.get('_cat_filtro_activo', ''):
-                st.session_state.pop('_cat_filtro_activo', None)
-            else:
-                st.session_state['_cat_filtro_activo'] = _qp_cat_filtro
-            try:
-                st.query_params.pop('cat_filtro')
-            except:
-                pass
-            st.rerun()
 
         st.markdown("---")
         st.markdown("#### Métricas")
