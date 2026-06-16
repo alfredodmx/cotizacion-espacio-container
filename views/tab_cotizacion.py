@@ -739,7 +739,7 @@ function cr(item){
   if(!inp)return;
   try{Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set.call(inp,combined);}
   catch(e){inp.value=combined;}
-  inp.dispatchEvent(new Event('input',{bubbles:true}));
+  inp.dispatchEvent(new window.parent.Event('input',{bubbles:true}));
 }
 function attachListeners(){
   PD.querySelectorAll('._pres_card').forEach(function(el){
@@ -747,13 +747,6 @@ function attachListeners(){
     var cat=el.getAttribute('data-catpres');
     el.addEventListener('click',function(){toggleCF(cat);});
   });
-  if(EM){
-    PD.querySelectorAll('tr[data-catpres]').forEach(function(rw){
-      if(rw._pb)return;rw._pb=true;
-      var item=rw.getAttribute('data-itempres');
-      rw.addEventListener('click',function(){cr(item);});
-    });
-  }
 }
 function injectTotal(){
   var bar=PD.getElementById('_usr_header_bar');if(!bar)return;
@@ -764,6 +757,15 @@ function injectTotal(){
   d.innerHTML='<div style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:2px;">Total + IVA</div>'
     +'<div style="font-size:1.25rem;font-weight:900;color:#fff;letter-spacing:-0.02em;font-family:Montserrat,sans-serif;line-height:1;">'+tf+'</div>';
   bar.appendChild(d);
+}
+if(EM && !PD._presRowDelegated){
+  PD._presRowDelegated=true;
+  PD.addEventListener('click',function(e){
+    var rw=e.target&&e.target.closest?e.target.closest('tr[data-catpres]'):null;
+    if(!rw)return;
+    var item=rw.getAttribute('data-itempres');
+    if(item)cr(item);
+  });
 }
 document.getElementById('search').addEventListener('input',filterRows);
 setTimeout(function(){attachListeners();filterRows();injectTotal();},300);
