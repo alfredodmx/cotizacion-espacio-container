@@ -572,28 +572,20 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         if st.session_state.modo_admin:
             st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;text-align:center;">&#128202; Resumen del Presupuesto</div>', unsafe_allow_html=True)
 
-        # Trigger oculto para click de fila → popup de edición (mismo patrón que EP selector)
-        st.markdown('<style>[data-testid="stTextInput"]:has(input[placeholder="__item_trg__"]){display:none!important;}</style>', unsafe_allow_html=True)
-        _item_trg = st.text_input("Item trigger", key="_item_click_trigger",
-                                   label_visibility="collapsed", placeholder="__item_trg__")
-        if _item_trg:
-            # Formato: "CategoryName ||| ItemName" (el CF viene del iframe)
-            if ' ||| ' in _item_trg:
-                _trg_cf, _trg_item = _item_trg.split(' ||| ', 1)
-            else:
-                _trg_cf, _trg_item = '', _item_trg
-            if _trg_cf:
-                st.session_state['_cat_filtro_activo'] = _trg_cf
-            else:
-                st.session_state.pop('_cat_filtro_activo', None)
-            _found_item = next((i for i in st.session_state.carrito if i["Item"] == _trg_item), None)
-            if _found_item:
+        # Botones ocultos (uno por ítem) — JS llama btn.click() en el correcto al hacer click en fila
+        if not es_solo_lectura and st.session_state.carrito:
+            _edit_clicked = None
+            st.markdown('<style>[class*="st-key-_eb_"]{display:none!important;}</style>', unsafe_allow_html=True)
+            for _bi_btn, _bc_item in enumerate(st.session_state.carrito):
+                if st.button('e', key=f'_eb_{_bi_btn}'):
+                    _edit_clicked = _bi_btn
+            if _edit_clicked is not None:
+                _found_bc = st.session_state.carrito[_edit_clicked]
                 st.session_state['_item_pendiente_eliminar'] = {
-                    'item': _found_item, 'nueva_cantidad': int(_found_item.get('Cantidad', 1))
+                    'item': _found_bc, 'nueva_cantidad': int(_found_bc.get('Cantidad', 1))
                 }
-            st.session_state['_item_click_trigger'] = ''
-            st.session_state.counter += 1
-            st.rerun()
+                st.session_state.counter += 1
+                st.rerun()
 
         _cat_filtro_activo = st.session_state.get('_cat_filtro_activo', '')
         _df_cat = pd.DataFrame(st.session_state.carrito)
@@ -687,7 +679,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         def _aesc(s): return _hesc(s).replace('"','&quot;')
 
         _rows_html = ''
-        for _, _r in _tbl_df.iterrows():
+        for _tidx, (_, _r) in enumerate(_tbl_df.iterrows()):
             _cat  = str(_r['Categoria'])
             _item = str(_r['Item'])
             _color = _color_map_tbl.get(_cat, '#6366f1')
@@ -700,7 +692,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
             _cursor  = 'cursor:pointer;' if not es_solo_lectura else ''
             _hint    = '<span class="hint">editar / eliminar</span>' if not es_solo_lectura and not _is_pend else ''
             _rows_html += (
-                f'<tr class="{_cls.strip()}" data-cat="{_aesc(_cat)}" data-item="{_aesc(_item)}"{_onclick} style="{_cursor}">'
+                f'<tr class="{_cls.strip()}" data-cat="{_aesc(_cat)}" data-item="{_aesc(_item)}" data-idx="{_tidx}"{_onclick} style="{_cursor}">'
                 f'<td><span class="badge" style="background:{_bbg};color:{_color};">{_hesc(_cat)}</span></td>'
                 f'<td><span class="item-n">{_hesc(_item)}</span>{_hint}</td>'
                 f'<td class="r mono">{_r["Cantidad"]}</td>'
@@ -791,17 +783,9 @@ function filterRows(){
   if(el)el.textContent=vis+' ítem'+(vis!==1?'s':'');
 }
 window.cr=function(el){
-  var item=el.getAttribute('data-item');if(!item)return;
-  var combined=(CF||'')+' ||| '+item;
-  var inp=PD.querySelector('.st-key-_item_click_trigger input')
-          ||PD.querySelector('input[placeholder="__item_trg__"]');
-  if(!inp)return;
-  var desc=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value');
-  if(desc&&desc.set)desc.set.call(inp,combined);else inp.value=combined;
-  inp.dispatchEvent(new window.parent.Event('input',{bubbles:true}));
-  inp.dispatchEvent(new window.parent.KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true,cancelable:true}));
-  inp.dispatchEvent(new window.parent.KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true,cancelable:true}));
-  inp.dispatchEvent(new window.parent.Event('change',{bubbles:true}));
+  var idx=el.getAttribute('data-idx');if(idx===null||idx==='')return;
+  var btn=PD.querySelector('.st-key-_eb_'+idx+' button');
+  if(btn)btn.click();
 };
 function updateCards(){
   PD.querySelectorAll('._pres_card').forEach(function(el){
