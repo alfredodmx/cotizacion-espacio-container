@@ -795,11 +795,11 @@ window.cr=function(el){
   var combined=(CF||'')+' ||| '+item;
   var inp=PD.querySelector('.st-key-_item_click_trigger input')
           ||PD.querySelector('input[placeholder="__item_trg__"]');
-  console.log('[cr] item=',item,'inp=',inp);
-  if(!inp)return;
-  try{Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set.call(inp,combined);}
-  catch(e){inp.value=combined;}
-  inp.dispatchEvent(new window.parent.Event('input',{bubbles:true}));
+  if(!inp){console.log('[cr] inp not found');return;}
+  var s=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set;
+  s.call(inp,combined);
+  inp.dispatchEvent(new window.parent.Event('input',{bubbles:true,composed:true}));
+  inp.dispatchEvent(new window.parent.Event('change',{bubbles:true,composed:true}));
 };
 function updateCards(){
   PD.querySelectorAll('._pres_card').forEach(function(el){
