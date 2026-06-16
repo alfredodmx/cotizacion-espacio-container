@@ -549,6 +549,28 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         _n_cat_rows_ui = math.ceil(len(_cats_data) / 9) if _cats_data else 1
         _cards_h = _n_cat_rows_ui * 78 + 8
 
+        # Render cards as static Python HTML so they're always visible (no JS needed)
+        def _hex_to_rgba(h, a):
+            r, g, b = int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16)
+            return f'rgba({r},{g},{b},{a})'
+        _cards_static = ''
+        for _c in _cats_data:
+            _is_act = (_c['cat'] == _cat_filtro_activo)
+            _col = _c['color']
+            _safe = _c['cat'].replace('\\', '\\\\').replace("'", "\\'")
+            _bg   = _hex_to_rgba(_col, 0.15) if _is_act else '#fff'
+            _brd  = f'2px solid {_col}' if _is_act else f'1.5px solid {_hex_to_rgba(_col, 0.3)}'
+            _tick = ' ✓' if _is_act else ''
+            _cards_static += (
+                f'<div class="ccard" data-cat="{_c["cat"].replace(chr(34),"&quot;")}"'
+                f' data-color="{_col}" onclick="toggleCF(\'{_safe}\')"'
+                f' style="background:{_bg};border:{_brd};border-left:4px solid {_col};">'
+                f'<div class="cname" style="color:{_col};">{_c["cat"]}{_tick}</div>'
+                f'<div class="csub">{_c["sub"]}<span style="font-size:9px;color:#64748b;margin-left:3px;">s/IVA</span></div>'
+                f'<div class="cmeta">{_c["items"]} ítems · {_c["cant"]} uds.</div>'
+                f'</div>'
+            )
+
         carrito_df = pd.DataFrame(st.session_state.carrito)
         subtotal_base = carrito_df["Subtotal"].sum()
 
@@ -577,7 +599,6 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         _tbl_df["Precio Unitario"] = _tbl_df["Precio Unitario"].apply(formato_clp)
         _tbl_df["Subtotal"]        = _tbl_df["Subtotal"].apply(formato_clp)
         _tbl_df["Cantidad"]        = pd.to_numeric(_tbl_df["Cantidad"], errors="coerce").fillna(0).astype(int)
-        _cats_js   = _json.dumps(_cats_data, ensure_ascii=False)
         _rows_js   = _json.dumps([
             {'cat': str(r['Categoria']), 'item': str(r['Item']), 'cant': str(r['Cantidad']),
              'pu': str(r['Precio Unitario']), 'sub': str(r['Subtotal']),
@@ -586,7 +607,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
             for _, r in _tbl_df.iterrows()
         ], ensure_ascii=False)
         _init_cf_js = _json.dumps(_cat_filtro_activo or '', ensure_ascii=False)
-        _edit_js    = 'false' if es_solo_lectura else 'true'
+        _edit_js = 'false' if es_solo_lectura else 'true'
         _pend_item  = (st.session_state.get('_item_pendiente_eliminar') or {})
         _pend_js    = _json.dumps((_pend_item.get('item') or {}).get('Item') or '', ensure_ascii=False)
         _n_tbl      = len(_tbl_df)
@@ -596,19 +617,18 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         _tbl_html = ("""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;background:#f8fafc;overflow:hidden;}
-#wrap{display:flex;flex-direction:column;height:100vh;}
-#cards{flex-shrink:0;display:flex;flex-wrap:wrap;gap:6px;padding:6px 8px 6px 8px;background:#f8fafc;border-bottom:1px solid #e2e8f0;}
-.ccard{border-radius:7px;padding:7px 11px;min-width:110px;flex:1;cursor:pointer;transition:all .13s;border-left-width:4px;border-left-style:solid;}
+body{font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;background:#f8fafc;}
+#cards{display:flex;flex-wrap:wrap;gap:6px;padding:6px 8px;background:#f8fafc;border-bottom:1px solid #e2e8f0;}
+.ccard{border-radius:7px;padding:7px 11px;min-width:110px;flex:1;cursor:pointer;transition:all .13s;}
 .ccard:hover{opacity:.85;}
 .cname{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;}
 .csub{font-size:12px;font-weight:700;color:#0f172a;}
 .cmeta{font-size:10px;color:#64748b;margin-top:1px;}
-#bar{display:flex;align-items:center;gap:8px;padding:7px 10px;background:#fff;border-bottom:1px solid #e2e8f0;flex-shrink:0;}
+#bar{display:flex;align-items:center;gap:8px;padding:7px 10px;background:#fff;border-bottom:1px solid #e2e8f0;}
 #search{flex:1;border:1.5px solid #e2e8f0;border-radius:7px;padding:6px 11px;font-size:0.84rem;font-family:inherit;outline:none;color:#1e293b;background:#f8fafc;transition:border-color .2s,box-shadow .2s;}
 #search:focus{border-color:#5b7cfa;background:#fff;box-shadow:0 0 0 3px rgba(91,124,250,.1);}
 #cnt{font-size:0.72rem;color:#94a3b8;white-space:nowrap;font-weight:600;min-width:64px;text-align:right;}
-#tbl-w{flex:1;overflow:auto;}
+#tbl-w{overflow:auto;height:__TBL_H__px;}
 #tbl-w::-webkit-scrollbar{width:4px;height:4px;}
 #tbl-w::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}
 table{width:100%;border-collapse:separate;border-spacing:0;font-size:0.8rem;table-layout:auto;}
@@ -630,69 +650,46 @@ td{padding:7px 11px;border-bottom:1px solid #f0f4f8;vertical-align:middle;color:
 .none{text-align:center;padding:28px;color:#94a3b8;font-size:0.83rem;}
 </style></head>
 <body>
-<div id="wrap">
-  <div id="cards"></div>
-  <div id="bar">
-    <svg width="14" height="14" fill="none" stroke="#94a3b8" stroke-width="2.2" viewBox="0 0 24 24" style="flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-    <input id="search" type="text" placeholder="Filtrar por categoría o ítem..." autocomplete="off">
-    <span id="cnt"></span>
-  </div>
-  <div id="tbl-w">
-    <table>
-      <thead><tr>
-        <th>Categoría</th><th>Ítem</th>
-        <th class="r">Cant.</th><th class="r">P. Unitario</th>
-        <th class="r">Subtotal</th><th class="r">P.Unit+IVA</th><th class="r">Sub+IVA</th>
-      </tr></thead>
-      <tbody id="tb"></tbody>
-    </table>
-  </div>
+<div id="cards">__CARDS_HTML__</div>
+<div id="bar">
+  <svg width="14" height="14" fill="none" stroke="#94a3b8" stroke-width="2.2" viewBox="0 0 24 24" style="flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+  <input id="search" type="text" placeholder="Filtrar por categoría o ítem..." autocomplete="off">
+  <span id="cnt"></span>
+</div>
+<div id="tbl-w">
+  <table>
+    <thead><tr>
+      <th>Categoría</th><th>Ítem</th>
+      <th class="r">Cant.</th><th class="r">P. Unitario</th>
+      <th class="r">Subtotal</th><th class="r">P.Unit+IVA</th><th class="r">Sub+IVA</th>
+    </tr></thead>
+    <tbody id="tb"></tbody>
+  </table>
 </div>
 <script>
-var CATS=__CATS__;
 var ROWS=__ROWS__;
 var CF=__CF__;
 var EM=__EM__;
 var PI=__PI__;
-var D=null;try{D=window.parent.document;}catch(e){}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function rgba(h,a){var r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return 'rgba('+r+','+g+','+b+','+a+')';}
-
-function renderCards(){
-  var el=document.getElementById('cards');
-  if(!el)return;
-  var h='';
-  CATS.forEach(function(c){
-    var act=(CF===c.cat);
-    var bg=act?rgba(c.color,0.15):'#fff';
-    var brd=act?('2px solid '+c.color):('1.5px solid '+rgba(c.color,0.3));
-    var tick=act?' ✓':'';
-    var safe=c.cat.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    h+='<div class="ccard" onclick="toggleCF(\''+safe+'\')"';
-    h+=' style="background:'+bg+';border:'+brd+';border-left:4px solid '+c.color+';">';
-    h+='<div class="cname" style="color:'+c.color+';">'+esc(c.cat)+tick+'</div>';
-    h+='<div class="csub">'+esc(c.sub)+'<span style="font-size:9px;color:#64748b;margin-left:3px;">s/IVA</span></div>';
-    h+='<div class="cmeta">'+c.items+' ítems · '+c.cant+' uds.</div>';
-    h+='</div>';
-  });
-  el.innerHTML=h;
-}
-
 function renderTable(){
   var q=document.getElementById('search').value.toLowerCase().trim();
   var tb=document.getElementById('tb');
   if(!tb)return;
   var vis=[];
-  ROWS.forEach(function(r){
-    if(CF&&r.cat!==CF)return;
-    if(q&&r.cat.toLowerCase().indexOf(q)<0&&r.item.toLowerCase().indexOf(q)<0)return;
+  for(var i=0;i<ROWS.length;i++){
+    var r=ROWS[i];
+    if(CF&&r.cat!==CF)continue;
+    if(q&&r.cat.toLowerCase().indexOf(q)<0&&r.item.toLowerCase().indexOf(q)<0)continue;
     vis.push(r);
-  });
+  }
   var cntEl=document.getElementById('cnt');
   if(cntEl)cntEl.textContent=vis.length+' ítem'+(vis.length!==1?'s':'');
   if(!vis.length){tb.innerHTML='<tr><td colspan="7" class="none">Sin resultados</td></tr>';return;}
   var h='';
-  vis.forEach(function(r){
+  for(var j=0;j<vis.length;j++){
+    var r=vis[j];
     var cc=r.color||'#6366f1';
     var bg=rgba(cc,0.12);
     var isPend=(r.item===PI);
@@ -701,43 +698,61 @@ function renderTable(){
     var oc=EM?('onclick="cr(\''+safe+'\')"'):'';
     h+='<tr class="'+cls+'" '+oc+'>';
     h+='<td><span class="badge" style="background:'+bg+';color:'+cc+';">'+esc(r.cat)+'</span></td>';
-    h+='<td><span class="item-n">'+esc(r.item)+'</span>'+(EM&&!isPend?'<span class="hint">↗ editar / eliminar</span>':'')+'</td>';
+    h+='<td><span class="item-n">'+esc(r.item)+'</span>'+(EM&&!isPend?'<span class="hint">editar / eliminar</span>':'')+'</td>';
     h+='<td class="r mono">'+esc(r.cant)+'</td>';
     h+='<td class="r mono">'+esc(r.pu)+'</td>';
     h+='<td class="r mono bold">'+esc(r.sub)+'</td>';
     h+='<td class="r mono muted">'+esc(r.pu_iva)+'</td>';
     h+='<td class="r mono muted">'+esc(r.sub_iva)+'</td>';
     h+='</tr>';
-  });
+  }
   tb.innerHTML=h;
 }
-
+function updateCards(){
+  var cards=document.querySelectorAll('.ccard');
+  for(var i=0;i<cards.length;i++){
+    var el=cards[i];
+    var cat=el.getAttribute('data-cat');
+    var color=el.getAttribute('data-color');
+    var isAct=(cat===CF);
+    var r2=parseInt(color.slice(1,3),16),g2=parseInt(color.slice(3,5),16),b2=parseInt(color.slice(5,7),16);
+    el.style.background=isAct?'rgba('+r2+','+g2+','+b2+',0.15)':'#fff';
+    el.style.border=isAct?('2px solid '+color):('1.5px solid rgba('+r2+','+g2+','+b2+',0.3)');
+    el.style.borderLeft='4px solid '+color;
+    var nm=el.querySelector('.cname');
+    if(nm){var base=el.getAttribute('data-cat');nm.textContent=base+(isAct?' ✓':'');}
+  }
+}
 function toggleCF(cat){
   CF=(CF===cat)?'':cat;
-  renderCards();
+  updateCards();
   renderTable();
 }
-
 function cr(name){
-  if(!D)return;
-  var inp=D.querySelector('input[placeholder="__item_trg__"]');
-  if(!inp)return;
   var combined=(CF||'')+' ||| '+name;
-  try{var sv=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set;sv.call(inp,combined);}
-  catch(e){inp.value=combined;}
-  inp.dispatchEvent(new Event('input',{bubbles:true}));
+  try{
+    var inp=window.parent.document.querySelector('input[placeholder="__item_trg__"]');
+    if(!inp)return;
+    var sv=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set;
+    sv.call(inp,combined);
+    inp.dispatchEvent(new Event('input',{bubbles:true}));
+  }catch(e){
+    try{
+      var inp2=window.parent.document.querySelector('input[placeholder="__item_trg__"]');
+      if(inp2){inp2.value=combined;inp2.dispatchEvent(new Event('input',{bubbles:true}));}
+    }catch(e2){}
+  }
 }
-
 document.getElementById('search').addEventListener('input',renderTable);
-renderCards();
 renderTable();
 </script>
 </body></html>"""
-            .replace('__CATS__', _cats_js)
+            .replace('__CARDS_HTML__', _cards_static)
             .replace('__ROWS__', _rows_js)
             .replace('__CF__', _init_cf_js)
             .replace('__EM__', _edit_js)
             .replace('__PI__', _pend_js)
+            .replace('__TBL_H__', str(_tbl_content_h))
         )
         if es_solo_lectura:
             st.caption("&#128274; Vista de solo lectura")
