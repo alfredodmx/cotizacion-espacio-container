@@ -4,26 +4,23 @@ Código fuente original: app.py líneas 13272-13630 (excel) + visor 3D
 """
 import streamlit as st
 from config.supabase import supabase_admin as _supa_admin
-
-
-def _try_app(name, default=None):
-    try:
-        import sys
-        if 'app' in sys.modules:
-            return getattr(sys.modules['app'], name, default)
-        return default
-    except Exception:
-        return default
+from utils.excel_manager import (
+    get_excel_bytes_activo,
+    leer_hoja_excel,
+    leer_bd_total,
+    cargar_visibilidad_impresion,
+    exportar_csv_completo,
+)
 
 
 def render_tab_proyecto_excel(supabase, supabase_admin=None, supa_url='', supa_key='', **deps):
     supa_admin = supabase_admin or _supa_admin
 
-    _get_excel_bytes_activo      = _try_app('_get_excel_bytes_activo')
-    _leer_hoja_excel             = _try_app('_leer_hoja_excel')
-    _leer_bd_total               = _try_app('_leer_bd_total')
-    _cargar_visibilidad_impresion = _try_app('cargar_visibilidad_impresion')
-    _exportar_csv_completo       = _try_app('exportar_csv_completo')
+    _get_excel_bytes_activo       = get_excel_bytes_activo
+    _leer_hoja_excel              = leer_hoja_excel
+    _leer_bd_total                = leer_bd_total
+    _cargar_visibilidad_impresion = cargar_visibilidad_impresion
+    _exportar_csv_completo        = exportar_csv_completo
 
     # ── CSS y Header ──
     st.markdown("""
@@ -195,9 +192,8 @@ def render_tab_proyecto_excel(supabase, supabase_admin=None, supa_url='', supa_k
                                 supa_admin.table("excel_versiones").update({"activa": False}).neq("id", "00000000-0000-0000-0000-000000000000").execute()
                                 supa_admin.table("excel_versiones").update({"activa": True}).eq("id", _v["id"]).execute()
                                 # Limpiar cachés si están disponibles
-                                for _fn_name in ('_get_excel_bytes_activo', '_leer_hoja_excel', '_leer_bd_total', 'cargar_visibilidad_impresion'):
-                                    _fn = _try_app(_fn_name)
-                                    if _fn and hasattr(_fn, 'clear'):
+                                for _fn in (get_excel_bytes_activo, leer_hoja_excel, leer_bd_total):
+                                    if hasattr(_fn, 'clear'):
                                         _fn.clear()
                                 st.session_state.pop("excel_bytes_cache", None)
                                 st.rerun()
@@ -227,10 +223,7 @@ def render_tab_proyecto_excel(supabase, supabase_admin=None, supa_url='', supa_k
         if _prev_activa:
             try:
                 import pandas as _pd_prev
-                if _get_excel_bytes_activo:
-                    _prev_src = _get_excel_bytes_activo()
-                else:
-                    _prev_src = None
+                _prev_src = _get_excel_bytes_activo()
                 if _prev_src and hasattr(_prev_src, "read"):
                     _xls = _pd_prev.ExcelFile(_prev_src)
                     _hojas_disp = _xls.sheet_names
@@ -262,10 +255,7 @@ def render_tab_proyecto_excel(supabase, supabase_admin=None, supa_url='', supa_k
         _col_csv_btn, _col_csv_info = st.columns([1, 3])
         with _col_csv_btn:
             if st.button("&#128230; Generar CSV", key="btn_generar_csv", use_container_width=True, type="primary"):
-                if _exportar_csv_completo:
-                    st.session_state._csv_listo = _exportar_csv_completo()
-                else:
-                    st.warning("Funci&#243;n de exportaci&#243;n no disponible en modo modular.")
+                st.session_state._csv_listo = _exportar_csv_completo()
         with _col_csv_info:
             if st.session_state.get('_csv_listo'):
                 from datetime import datetime as _dt_csv

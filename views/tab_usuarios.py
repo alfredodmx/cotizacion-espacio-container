@@ -1,14 +1,462 @@
 """
-Tab USUARIOS — CRUD de usuarios (admin/root), roles, contraseñas, auto-provisioning.
-Código fuente original: app.py líneas 18417-18885 (with tab_usuarios)
+Tab USUARIOS — Gestión de cuentas de ejecutivos y admins.
 """
 import streamlit as st
+import httpx
+from config.supabase import supabase_admin as _supa_admin
+from config.settings import SUPABASE_URL, SUPABASE_SERVICE_KEY
 
 
-def render_tab_usuarios(supabase_admin, **deps):
-    """
-    Renderiza el tab de gestión de usuarios.
-    deps: listar_usuarios_ejecutivos, crear_usuario, editar_usuario, eliminar_usuario, ...
-    """
-    # TODO: mover código de app.py líneas 18417-18885 aquí
-    st.info("🚧 Tab usuarios — pendiente de migración desde app.py")
+# ── helpers ──────────────────────────────────────────────────────────────────
+
+def _get_roots():
+    raw = st.secrets.get("ROOTS", "") if hasattr(st, "secrets") else ""
+    return {r.strip().lower() for r in raw.split(",") if r.strip()}
+
+
+def _hdr():
+    return {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json",
+    }
+
+
+# ── REST API ─────────────────────────────────────────────────────────────────
+
+def _listar_usuarios():
+    try:
+        roots = _get_roots()
+        r = httpx.get(
+            f"{SUPABASE_URL}/auth/v1/admin/users",
+            headers=_hdr(),
+            params={"per_page": 1000, "page": 1},
+            timeout=15,
+        )
+        r.raise_for_status()
+        out = []
+        for u in r.json().get("users", []):
+            email = u.get("email") or ""
+            if email.lower() in roots:
+                continue
+            meta = u.get("user_metadata") or u.get("raw_user_meta_data") or {}
+            out.append({
+                "id": u["id"],
+                "email": email,
+                "nombre": meta.get("nombre", email),
+                "rol": meta.get("rol", "ejecutivo"),
+                "telefono": meta.get("telefono", "") or "",
+                "created_at": str(u.get("created_at", ""))[:10],
+            })
+        return out, None
+    except Exception as e:
+        return [], str(e)
+
+
+def _api_put(uid, payload):
+    try:
+        r = httpx.put(
+            f"{SUPABASE_URL}/auth/v1/admin/users/{uid}",
+            headers=_hdr(), json=payload, timeout=15,
+        )
+        if r.status_code in (200, 204):
+            return True, None
+        try:
+            msg = r.json().get("msg") or r.json().get("message") or r.text
+        except Exception:
+            msg = r.text
+        return False, f"HTTP {r.status_code}: {msg}"
+    except Exception as e:
+        return False, str(e)
+
+
+def _api_post(payload):
+    try:
+        r = httpx.post(
+            f"{SUPABASE_URL}/auth/v1/admin/users",
+            headers=_hdr(), json=payload, timeout=15,
+        )
+        if r.status_code in (200, 201):
+            return True, r.json()
+        try:
+            msg = r.json().get("msg") or r.json().get("message") or r.text
+        except Exception:
+            msg = r.text
+        return False, f"HTTP {r.status_code}: {msg}"
+    except Exception as e:
+        return False, str(e)
+
+
+def _api_delete(uid):
+    try:
+        r = httpx.delete(
+            f"{SUPABASE_URL}/auth/v1/admin/users/{uid}",
+            headers=_hdr(), timeout=15,
+        )
+        if r.status_code in (200, 204):
+            return True, None
+        try:
+            body = r.json()
+            msg = body.get("msg") or body.get("message") or body.get("error") or r.text
+        except Exception:
+            msg = r.text
+        return False, f"HTTP {r.status_code}: {msg}"
+    except Exception as e:
+        return False, str(e)
+
+
+# ── Diálogos (deben estar a nivel de módulo) ─────────────────────────────────
+
+@st.dialog("Crear nuevo usuario", width="large")
+def _dlg_crear():
+    col1, col2 = st.columns(2)
+    with col1:
+        nombre   = st.text_input("Nombre completo *", placeholder="Juan Perez", key="dc_nombre")
+        email    = st.text_input("Correo electrónico *", placeholder="juan@empresa.cl", key="dc_email")
+    with col2:
+        telefono = st.text_input("Teléfono", placeholder="+56912345678", key="dc_tel")
+        password = st.text_input("Contraseña *", type="password", placeholder="Mín. 6 caracteres", key="dc_pass")
+
+    labels = {"ejecutivo": "👤 Ejecutivo", "admin": "👑 Administrador", "operacion": "⚙️ Operación"}
+    rol = st.selectbox("Rol", list(labels.keys()), format_func=lambda r: labels[r], key="dc_rol")
+    if rol == "admin":
+        st.caption("Los administradores ven todas las cotizaciones y pueden gestionar usuarios.")
+    elif rol == "operacion":
+        st.caption("Los usuarios de Operación solo acceden a la pestaña Operaciones.")
+
+    st.divider()
+    ok_col, no_col = st.columns(2)
+    with ok_col:
+        if st.button("✅ Crear cuenta", type="primary", use_container_width=True, key="dc_ok"):
+            errores = []
+            if not nombre.strip():
+                errores.append("nombre")
+            if not email.strip() or "@" not in email:
+                errores.append("correo válido")
+            if len(password) < 6:
+                errores.append("contraseña (mín. 6 caracteres)")
+            if errores:
+                st.error(f"Requerido: {', '.join(errores)}")
+            else:
+                with st.spinner("Creando cuenta..."):
+                    ok, data = _api_post({
+                        "email": email.strip().lower(),
+                        "password": password,
+                        "email_confirm": True,
+                        "user_metadata": {
+                            "nombre": nombre.strip().upper(),
+                            "telefono": telefono.strip(),
+                            "rol": rol,
+                        },
+                    })
+                if ok:
+                    nuevo = {
+                        "id": data.get("id", ""),
+                        "email": email.strip().lower(),
+                        "nombre": nombre.strip().upper(),
+                        "rol": rol,
+                        "telefono": telefono.strip(),
+                        "created_at": str(data.get("created_at", ""))[:10],
+                    }
+                    st.session_state.setdefault("_usr_data", []).append(nuevo)
+                    st.session_state["_usr_toast"] = f"✅ Cuenta creada: {nombre.strip().upper()}"
+                    st.rerun()
+                else:
+                    st.error(f"❌ {data}")
+    with no_col:
+        if st.button("Cancelar", use_container_width=True, key="dc_no"):
+            st.rerun()
+
+
+@st.dialog("Editar usuario", width="large")
+def _dlg_editar(u):
+    col1, col2 = st.columns(2)
+    with col1:
+        nombre = st.text_input("Nombre completo", value=u["nombre"], key="de_nombre")
+    with col2:
+        email  = st.text_input("Correo electrónico", value=u["email"], key="de_email")
+    telefono = st.text_input("Teléfono", value=u.get("telefono", ""), key="de_tel")
+
+    st.divider()
+    ok_col, no_col = st.columns(2)
+    with ok_col:
+        if st.button("✅ Guardar cambios", type="primary", use_container_width=True, key="de_ok"):
+            if not nombre.strip() or not email.strip() or "@" not in email:
+                st.error("Nombre y correo válidos son requeridos.")
+            else:
+                with st.spinner("Guardando..."):
+                    ok, err = _api_put(u["id"], {
+                        "email": email.strip().lower(),
+                        "user_metadata": {
+                            "nombre": nombre.strip().upper(),
+                            "telefono": telefono.strip(),
+                            "rol": u["rol"],
+                        },
+                    })
+                if ok:
+                    for cu in st.session_state.get("_usr_data", []):
+                        if cu["id"] == u["id"]:
+                            cu.update(
+                                nombre=nombre.strip().upper(),
+                                email=email.strip().lower(),
+                                telefono=telefono.strip(),
+                            )
+                            break
+                    st.session_state["_usr_toast"] = f"✅ Datos de {u['nombre']} actualizados."
+                    st.rerun()
+                else:
+                    st.error(f"❌ {err}")
+    with no_col:
+        if st.button("Cancelar", use_container_width=True, key="de_no"):
+            st.rerun()
+
+
+@st.dialog("Cambiar contraseña")
+def _dlg_password(u):
+    st.markdown(f"**{u['nombre']}** · {u['email']}")
+    st.divider()
+    nueva    = st.text_input("Nueva contraseña", type="password", placeholder="Mínimo 6 caracteres", key="dp_pwd")
+    confirma = st.text_input("Confirmar contraseña", type="password", key="dp_pwd2")
+    st.divider()
+    ok_col, no_col = st.columns(2)
+    with ok_col:
+        if st.button("✅ Actualizar", type="primary", use_container_width=True, key="dp_ok"):
+            if len(nueva or "") < 6:
+                st.error("Mínimo 6 caracteres.")
+            elif nueva != confirma:
+                st.error("Las contraseñas no coinciden.")
+            else:
+                with st.spinner("Actualizando..."):
+                    ok, err = _api_put(u["id"], {"password": nueva})
+                if ok:
+                    st.session_state["_usr_toast"] = f"✅ Contraseña de {u['nombre']} actualizada."
+                    st.rerun()
+                else:
+                    st.error(f"❌ {err}")
+    with no_col:
+        if st.button("Cancelar", use_container_width=True, key="dp_no"):
+            st.rerun()
+
+
+@st.dialog("Cambiar rol")
+def _dlg_rol(u):
+    rol_actual = u.get("rol", "ejecutivo")
+    labels = {"ejecutivo": "👤 Ejecutivo", "operacion": "⚙️ Operación", "admin": "👑 Admin"}
+    st.markdown(f"**{u['nombre']}** · Rol actual: **{labels.get(rol_actual, rol_actual)}**")
+    st.divider()
+    opciones  = [r for r in ["ejecutivo", "operacion", "admin"] if r != rol_actual]
+    nuevo_rol = st.selectbox("Nuevo rol", opciones, format_func=lambda r: labels[r], key="dr_rol")
+    st.divider()
+    ok_col, no_col = st.columns(2)
+    with ok_col:
+        if st.button("✅ Confirmar cambio", type="primary", use_container_width=True, key="dr_ok"):
+            with st.spinner("Actualizando..."):
+                ok, err = _api_put(u["id"], {
+                    "user_metadata": {
+                        "nombre": u["nombre"],
+                        "telefono": u.get("telefono", ""),
+                        "rol": nuevo_rol,
+                    }
+                })
+            if ok:
+                for cu in st.session_state.get("_usr_data", []):
+                    if cu["id"] == u["id"]:
+                        cu["rol"] = nuevo_rol
+                        break
+                st.session_state["_usr_toast"] = f"✅ {u['nombre']} ahora es {labels[nuevo_rol]}."
+                st.rerun()
+            else:
+                st.error(f"❌ {err}")
+    with no_col:
+        if st.button("Cancelar", use_container_width=True, key="dr_no"):
+            st.rerun()
+
+
+@st.dialog("⚠️ Confirmar eliminación")
+def _dlg_eliminar(u):
+    st.warning(f"¿Eliminar permanentemente a **{u['nombre']}**?")
+    st.caption(f"✉️ {u['email']}")
+    st.error("Esta acción **no se puede deshacer**.")
+    st.divider()
+    ok_col, no_col = st.columns(2)
+    with ok_col:
+        if st.button("🗑️ Sí, eliminar", type="primary", use_container_width=True, key="dd_ok"):
+            with st.spinner("Eliminando..."):
+                ok, err = _api_delete(u["id"])
+            if ok:
+                st.session_state["_usr_data"] = [
+                    cu for cu in st.session_state.get("_usr_data", [])
+                    if cu["id"] != u["id"]
+                ]
+                st.session_state["_usr_toast"] = f"✅ Usuario {u['nombre']} eliminado."
+                st.rerun()
+            else:
+                st.error(f"❌ {err}")
+    with no_col:
+        if st.button("Cancelar", use_container_width=True, key="dd_no"):
+            st.rerun()
+
+
+# ── estilos ───────────────────────────────────────────────────────────────────
+
+_CSS = """<style>
+.hdr-usr {
+    background: linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);
+    border-radius:16px; padding:28px 32px; margin-bottom:20px;
+    box-shadow:0 8px 32px rgba(15,52,96,.4);
+    display:flex; align-items:center; gap:16px;
+}
+.usr-card {
+    background:var(--background-color,#fff);
+    border-radius:12px; border:1.5px solid #e8eaf0;
+    padding:12px 16px; display:flex; align-items:center; gap:14px;
+    box-shadow:0 2px 6px rgba(0,0,0,.04); transition:box-shadow .2s;
+}
+.usr-card:hover { box-shadow:0 4px 14px rgba(0,0,0,.09); }
+.usr-card.r-admin     { border-left:4px solid #8b5cf6; }
+.usr-card.r-ejecutivo { border-left:4px solid #3b82f6; }
+.usr-card.r-operacion { border-left:4px solid #f59e0b; }
+.usr-av {
+    width:42px; height:42px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.1rem; font-weight:800; color:#fff; flex-shrink:0;
+}
+.av-admin     { background:linear-gradient(135deg,#7c3aed,#a78bfa); }
+.av-ejecutivo { background:linear-gradient(135deg,#2563eb,#60a5fa); }
+.av-operacion { background:linear-gradient(135deg,#b45309,#f59e0b); }
+.usr-nm { font-weight:700; font-size:.94rem; color:#1e2447; }
+.usr-em { font-size:.79rem; color:#64748b; margin-top:1px; }
+.usr-mt { font-size:.72rem; color:#94a3b8; margin-top:1px; }
+.rpill { display:inline-block; padding:2px 9px; border-radius:20px; font-size:.70rem; font-weight:700; }
+.rp-admin     { background:#ede9fe; color:#6d28d9; }
+.rp-ejecutivo { background:#dbeafe; color:#1d4ed8; }
+.rp-operacion { background:#fef3c7; color:#b45309; }
+</style>"""
+
+_ROL_META = {
+    "admin":          ("👑 Admin",     "r-admin",     "av-admin",     "rp-admin"),
+    "administrador":  ("👑 Admin",     "r-admin",     "av-admin",     "rp-admin"),
+    "ejecutivo":      ("👤 Ejecutivo", "r-ejecutivo", "av-ejecutivo", "rp-ejecutivo"),
+    "operacion":      ("⚙️ Operación", "r-operacion", "av-operacion", "rp-operacion"),
+}
+
+
+# ── render principal ──────────────────────────────────────────────────────────
+
+def render_tab_usuarios(supabase_admin=None, **deps):
+    if not st.session_state.get("modo_admin"):
+        st.info("🔒 Solo administradores pueden gestionar usuarios.")
+        return
+
+    st.markdown(_CSS, unsafe_allow_html=True)
+
+    # Toast de feedback que viene de los dialogs tras st.rerun()
+    if "_usr_toast" in st.session_state:
+        st.toast(st.session_state.pop("_usr_toast"))
+
+    # Cargar lista una sola vez por sesión
+    if "_usr_data" not in st.session_state:
+        with st.spinner("Cargando usuarios..."):
+            data, err = _listar_usuarios()
+        if err:
+            st.error(f"❌ Error al cargar usuarios: {err}")
+            if st.button("🔄 Reintentar", key="btn_usr_retry"):
+                st.rerun()
+            return
+        st.session_state["_usr_data"] = data
+
+    usuarios = st.session_state["_usr_data"]
+
+    # Header
+    st.markdown(
+        '<div class="hdr-usr">'
+        '<span style="font-size:2.4rem;line-height:1;">👥</span>'
+        '<div style="margin-left:4px;">'
+        '<div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.5rem;'
+        'letter-spacing:.05em;text-transform:uppercase;color:#fff;">Gestión de Usuarios</div>'
+        '<div style="font-size:.88rem;color:rgba(255,255,255,.6);margin-top:2px;">'
+        'Crea y administra las cuentas de acceso del equipo.</div>'
+        '</div></div>',
+        unsafe_allow_html=True,
+    )
+
+    # Stats + botones de acción global
+    n_adm = sum(1 for u in usuarios if u.get("rol") in ("admin", "administrador"))
+    n_ej  = sum(1 for u in usuarios if u.get("rol") == "ejecutivo")
+    n_op  = sum(1 for u in usuarios if u.get("rol") == "operacion")
+
+    c_stats, c_nuevo, c_ref = st.columns([5, 1.6, 1])
+    with c_stats:
+        st.markdown(
+            f'<div style="display:flex;gap:10px;align-items:center;padding-top:6px;">'
+            f'<span style="font-weight:800;color:#1e2447;">👥 {len(usuarios)} usuarios</span>'
+            f'<span class="rpill rp-admin">👑 {n_adm} Admin</span>'
+            f'<span class="rpill rp-ejecutivo">👤 {n_ej} Ejecutivo</span>'
+            f'<span class="rpill rp-operacion">⚙️ {n_op} Operación</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+    with c_nuevo:
+        if st.button("➕ Nuevo usuario", type="primary", use_container_width=True, key="btn_usr_nuevo"):
+            _dlg_crear()
+    with c_ref:
+        if st.button("🔄 Actualizar", use_container_width=True, key="btn_usr_ref"):
+            st.session_state.pop("_usr_data", None)
+            st.rerun()
+
+    st.markdown("---")
+
+    if not usuarios:
+        st.info("No hay usuarios registrados aún.")
+        return
+
+    es_root    = st.session_state.get("es_root", False)
+    rol_sesion = st.session_state.get("rol_usuario", "")
+
+    for u in usuarios:
+        rol_u = u.get("rol", "ejecutivo")
+        lbl, cls_row, cls_av, cls_rp = _ROL_META.get(
+            rol_u, (f"👤 {rol_u.capitalize()}", "r-ejecutivo", "av-ejecutivo", "rp-ejecutivo")
+        )
+        inicial  = (u.get("nombre") or u.get("email") or "?")[0].upper()
+        tel_txt  = f" · 📞 {u['telefono']}" if u.get("telefono") else ""
+        puede    = (es_root or rol_sesion == "admin") and rol_u != "root"
+
+        c_card, c_btns = st.columns([6, 2])
+        with c_card:
+            st.markdown(
+                f'<div class="usr-card {cls_row}">'
+                f'<div class="usr-av {cls_av}">{inicial}</div>'
+                f'<div style="flex:1;min-width:0;">'
+                f'<div class="usr-nm">{u["nombre"]}</div>'
+                f'<div class="usr-em">✉️ {u["email"]}{tel_txt}</div>'
+                f'<div class="usr-mt">📅 {u["created_at"]}'
+                f' &nbsp;<span class="rpill {cls_rp}">{lbl}</span></div>'
+                f'</div></div>',
+                unsafe_allow_html=True,
+            )
+        with c_btns:
+            if puede:
+                st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+                b1, b2, b3, b4 = st.columns(4)
+                with b1:
+                    if st.button("✏️", key=f"e_{u['id']}", use_container_width=True, help="Editar datos"):
+                        _dlg_editar(u)
+                with b2:
+                    if st.button("🔄", key=f"r_{u['id']}", use_container_width=True, help="Cambiar rol"):
+                        _dlg_rol(u)
+                with b3:
+                    if st.button("🔑", key=f"p_{u['id']}", use_container_width=True, help="Cambiar contraseña"):
+                        _dlg_password(u)
+                with b4:
+                    if st.button("🗑️", key=f"d_{u['id']}", use_container_width=True, help="Eliminar usuario"):
+                        _dlg_eliminar(u)
+            elif rol_u == "root":
+                st.markdown(
+                    "<div style='padding:10px 0;'>"
+                    "<span style='color:#f59e0b;font-size:.8rem;font-weight:600;'>🔑 Cuenta Root — protegida</span>"
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
+
+        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)

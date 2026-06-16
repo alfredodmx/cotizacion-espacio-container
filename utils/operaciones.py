@@ -1,0 +1,1107 @@
+"""
+Funciones de operaciones: tabla RC, balance Excel/PDF, HTML builder.
+Extraídas de app.py para la arquitectura modular.
+"""
+
+
+# ── CÁLCULO DE TOTALES ────────────────────────────────────────────────────────
+
+def calcular_totales_rc(productos_presupuesto, registros, incluir_varios=False):
+    """
+    Calcula totales igual al JS calc() de la tabla RC.
+    tP: precio presupuesto * cantidad para ítems normales
+    tR: precio real * cantidad + adicional * precio real para TODOS los ítems
+    tA: precio real * cantidad para adicionales con registro
+    tS: precio real * cantidad para adicionales sin registro
+    """
+    import json as _jct
+    _todos = list(productos_presupuesto or [])
+    _pn = {str(p.get('Item', '')) for p in _todos}
+    _pu_map = {str(p.get('Item', '')): round(float(p.get('Precio Unitario', 0) or 0))
+               for p in _todos}
+
+    if incluir_varios:
+        prods = _todos
+    else:
+        prods = [p for p in _todos
+                 if str(p.get('Categoria', '')).strip().lower() != 'varios']
+
+    _comprados = {}
+    for reg in (registros or []):
+        items_r = reg.get('items') or []
+        if isinstance(items_r, str):
+            try:
+                items_r = _jct.loads(items_r)
+            except Exception:
+                items_r = []
+        for it in items_r:
+            nombre = str(it.get('item', ''))
+            pr = float(it.get('precio_real', 0) or 0)
+            if pr > 0 and nombre:
+                _comprados[nombre] = {
+                    'real': pr,
+                    'cant': float(it.get('cantidad', 1) or 1),
+                    'adic': int(it.get('adicional', 0) or 0),
+                    'es_adicional': it.get('es_adicional', False),
+                    'sin_registro': it.get('sin_registro', False),
+                }
+
+    tP = 0; tR = 0; tA = 0; tS = 0
+
+    for nombre, data in _comprados.items():
+        re = data['real']
+        c = data['cant']
+        ad = data['adic']
+        isSinReg = data['sin_registro']
+        isAdic = (nombre not in _pn) and not isSinReg
+
+        if isSinReg:
+            tS += re * c
+        elif isAdic:
+            tA += re * c
+        else:
+            pu = _pu_map.get(nombre, 0)
+            tR += re * c + ad * re
+            if nombre in _pn:
+                tP += pu * c
+            continue
+        tR += re * c + ad * re
+
+    for p in prods:
+        nombre = str(p.get('Item', ''))
+        if nombre not in _comprados:
+            pu = round(float(p.get('Precio Unitario', 0) or 0))
+            c = round(float(p.get('Cantidad', 1) or 1))
+            tP += pu * c
+
+    return {'tP': tP, 'tR': tR, 'tA': tA, 'tS': tS}
+
+
+# ── EXCEL BALANCE ─────────────────────────────────────────────────────────────
+
+def generar_excel_balance(cotizacion_numero, registros, productos_presupuesto, incluir_varios=False):
+    """Genera Excel con precios reales consolidados por ítem para nutrir BD."""
+    import io, json
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        return None
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Balance de Precios"
+
+    azul_oscuro = "1E2447"
+    verde = "16A34A"
+    rojo = "DC2626"
+    gris_claro = "F8FAFC"
+    borde_gris = "E2E8F0"
+
+    hdr_font = Font(name='Calibri', bold=True, color="FFFFFF", size=10)
+    hdr_fill = PatternFill("solid", fgColor=azul_oscuro)
+    hdr_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    thin = Side(style='thin', color=borde_gris)
+    borde = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    ws.merge_cells('A1:E1')
+    ws['A1'] = f'Balance de Precios — {cotizacion_numero}'
+    ws['A1'].font = Font(name='Calibri', bold=True, size=13, color=azul_oscuro)
+    ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
+    ws.row_dimensions[1].height = 28
+
+    headers = ['Categoría', 'Ítem', 'Precio Unitario (Presupuestado)', 'Precio Real (Compra)', 'Diferencia']
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=2, column=col, value=h)
+        cell.font = hdr_font
+        cell.fill = hdr_fill
+        cell.alignment = hdr_align
+        cell.border = borde
+    ws.row_dimensions[2].height = 32
+
+    if incluir_varios:
+        prods_valid = list(productos_presupuesto or [])
+    else:
+        prods_valid = [p for p in (productos_presupuesto or [])
+                       if str(p.get('Categoria', '')).strip().lower() != 'varios']
+
+    precios_reales = {}
+    for reg in registros:
+        items_r = reg.get('items') or []
+        if isinstance(items_r, str):
+            try:
+                items_r = json.loads(items_r)
+            except Exception:
+                items_r = []
+        for it in items_r:
+            nombre = str(it.get('item', ''))
+            real = float(it.get('precio_real', 0) or 0)
+            if real > 0:
+                precios_reales[nombre] = {
+                    'real': real,
+                    'categoria': it.get('categoria', ''),
+                    'presup': float(it.get('precio_presupuestado', 0) or 0)
+                }
+
+    row = 3
+    alt = False
+    for prod in prods_valid:
+        item_nombre = str(prod.get('Item', ''))
+        if item_nombre not in precios_reales:
+            continue
+        datos = precios_reales[item_nombre]
+        cat = datos['categoria'] or str(prod.get('Categoria', ''))
+        pp = datos['presup'] or round(float(prod.get('Precio Unitario', 0) or 0))
+        pr = datos['real']
+        dif = pp - pr
+
+        bg = PatternFill("solid", fgColor="FFFFFF" if not alt else gris_claro)
+        alt = not alt
+
+        vals = [cat, item_nombre, pp, pr, dif]
+        for col, val in enumerate(vals, 1):
+            cell = ws.cell(row=row, column=col, value=val)
+            cell.fill = bg
+            cell.border = borde
+            cell.font = Font(name='Calibri', size=9)
+            if col in (3, 4, 5):
+                cell.number_format = '"$"#,##0'
+                cell.alignment = Alignment(horizontal='right')
+            else:
+                cell.alignment = Alignment(horizontal='left', vertical='center')
+            if col == 5:
+                cell.font = Font(name='Calibri', size=9, bold=True,
+                                 color=verde if dif >= 0 else rojo)
+        ws.row_dimensions[row].height = 18
+        row += 1
+
+    ws.column_dimensions['A'].width = 18
+    ws.column_dimensions['B'].width = 42
+    ws.column_dimensions['C'].width = 18
+    ws.column_dimensions['D'].width = 18
+    ws.column_dimensions['E'].width = 18
+
+    if row > 3:
+        ws.cell(row=row, column=1, value='').border = borde
+        ws.cell(row=row, column=2, value='TOTAL ÍTEMS COMPRADOS').font = Font(bold=True, name='Calibri', size=9)
+        ws.cell(row=row, column=2).border = borde
+        ws.cell(row=row, column=3, value=f'{row - 3} de {len(prods_valid)} ítems').font = Font(name='Calibri', size=9, color="64748B")
+        ws.cell(row=row, column=3).border = borde
+        ws.cell(row=row, column=4).border = borde
+        ws.cell(row=row, column=5).border = borde
+        ws.row_dimensions[row].height = 18
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf.read()
+
+
+# ── PDF BALANCE ───────────────────────────────────────────────────────────────
+
+def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registros,
+                        productos_presupuesto, incluir_varios=False):
+    """Genera PDF de balance de compras consolidando todos los registros."""
+    import io, json
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from datetime import datetime, timezone, timedelta
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                            leftMargin=1.5 * cm, rightMargin=1.5 * cm,
+                            topMargin=2 * cm, bottomMargin=2 * cm)
+    elements = []
+    styles = getSampleStyleSheet()
+    tz_cl = timezone(timedelta(hours=-3))
+
+    def _sty(name, **kw):
+        try:
+            styles.add(ParagraphStyle(name=name, parent=styles['Normal'], **kw))
+        except Exception:
+            pass
+        return styles[name]
+
+    _sty('BTitle', fontSize=18, fontName='Helvetica-Bold', spaceAfter=4, textColor=colors.HexColor('#1e2447'))
+    _sty('BSubtitle', fontSize=10, textColor=colors.HexColor('#64748b'), spaceAfter=2)
+    _sty('BSection', fontSize=11, fontName='Helvetica-Bold', spaceAfter=4, textColor=colors.HexColor('#1e2447'), spaceBefore=10)
+    _sty('BLabel', fontSize=9, textColor=colors.HexColor('#64748b'))
+    _sty('BValue', fontSize=9, fontName='Helvetica-Bold')
+    _sty('BSmall', fontSize=8, textColor=colors.HexColor('#64748b'))
+    _sty('BRegHeader', fontSize=9, fontName='Helvetica-Bold', textColor=colors.HexColor('#1e2447'), spaceBefore=8, spaceAfter=2)
+
+    now_str = datetime.now(tz_cl).strftime('%d/%m/%Y %H:%M')
+
+    _logo_cell = ""
+    try:
+        from reportlab.platypus import Image as _RLImage
+        _logo = _RLImage("logo.png")
+        _logo_w = 4 * cm
+        _logo_aspect = _logo.imageHeight / float(_logo.imageWidth)
+        _logo.drawWidth = _logo_w
+        _logo.drawHeight = _logo_w * _logo_aspect
+        _logo_cell = _logo
+    except Exception:
+        pass
+
+    header_data = [[
+        _logo_cell,
+        Paragraph("<b>BALANCE DE COMPRAS" + (" (CON VARIOS)" if incluir_varios else "") + "</b>", styles['BTitle']),
+        Paragraph(f"Generado: {now_str}", styles['BSmall'])
+    ]]
+    header_tbl = Table(header_data, colWidths=[4.5 * cm, 9 * cm, 4 * cm])
+    header_tbl.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
+    ]))
+    elements.append(header_tbl)
+    elements.append(Spacer(1, 0.3 * cm))
+    elements.append(HRFlowable(width='100%', thickness=2, color=colors.HexColor('#1e2447'), spaceBefore=4, spaceAfter=8))
+
+    _nombre = datos_cliente.get('Nombre', '')
+    _rut = datos_cliente.get('RUT', '')
+    _asesor = datos_asesor.get('Nombre Ejecutivo', '')
+    info_data = [
+        [Paragraph('<b>N° Presupuesto</b>', styles['BLabel']), Paragraph(cotizacion_numero, styles['BValue']),
+         Paragraph('<b>Cliente</b>', styles['BLabel']), Paragraph(_nombre, styles['BValue'])],
+        [Paragraph('<b>RUT</b>', styles['BLabel']), Paragraph(_rut, styles['BValue']),
+         Paragraph('<b>Ejecutivo</b>', styles['BLabel']), Paragraph(_asesor, styles['BValue'])],
+    ]
+    info_tbl = Table(info_data, colWidths=[3 * cm, 6 * cm, 3 * cm, 5.5 * cm])
+    info_tbl.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+    ]))
+    elements.append(info_tbl)
+    elements.append(Spacer(1, 0.3 * cm))
+
+    if incluir_varios:
+        prods_valid = list(productos_presupuesto or [])
+    else:
+        prods_valid = [p for p in (productos_presupuesto or [])
+                       if str(p.get('Categoria', '')).strip().lower() != 'varios']
+    total_items = len(prods_valid)
+    items_en_registros = set()
+    for reg in registros:
+        items_r = reg.get('items') or []
+        if isinstance(items_r, str):
+            try:
+                items_r = json.loads(items_r)
+            except Exception:
+                items_r = []
+        for it in items_r:
+            if float(it.get('precio_real', 0) or 0) > 0:
+                items_en_registros.add(str(it.get('item', '')))
+    comprados = sum(1 for p in prods_valid if str(p.get('Item', '')) in items_en_registros)
+    pct = round(comprados / total_items * 1000) / 10 if total_items > 0 else 0
+    pct_col = colors.HexColor('#3b82f6') if pct >= 100 else (
+              colors.HexColor('#16a34a') if pct >= 66.6 else (
+              colors.HexColor('#eab308') if pct >= 33.3 else colors.HexColor('#dc2626')))
+    pct_lbl = 'Compra finalizada' if pct >= 100 else f'{pct}% comprado'
+
+    prog_data = [[
+        Paragraph('<b>Progreso de compra</b>', styles['BLabel']),
+        Paragraph(f'<b>{pct_lbl}</b>', ParagraphStyle('_pc', parent=styles['Normal'],
+            fontSize=11, fontName='Helvetica-Bold', textColor=pct_col)),
+        Paragraph(f'{comprados} de {total_items} ítems', styles['BSmall']),
+    ]]
+    prog_tbl = Table(prog_data, colWidths=[3.5 * cm, 6 * cm, 3 * cm])
+    prog_tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (0, -1), 8),
+    ]))
+    elements.append(prog_tbl)
+    elements.append(Spacer(1, 0.4 * cm))
+
+    elements.append(Paragraph('Detalle de Registros de Compra', styles['BSection']))
+    elements.append(HRFlowable(width='100%', thickness=0.5, color=colors.HexColor('#e2e8f0'), spaceAfter=6))
+
+    _tipo_labels = {'online': 'Compra Online', 'presencial': 'Compra Presencial'}
+    _subtipo_labels = {'retiro': 'Retiro', 'despacho': 'Despacho',
+                       'completo': 'Retiro Completo', 'parcial': 'Retiro Parcial'}
+    col_azul = colors.HexColor('#1e2447')
+    col_gris = colors.HexColor('#64748b')
+    col_verde = colors.HexColor('#16a34a')
+    col_rojo = colors.HexColor('#dc2626')
+
+    tbl_header = ['Categoría', 'Ítem', 'Cant.', 'Presup.', 'Real', 'Adic.', 'Diferencia']
+    col_ws = [2.5 * cm, 5.5 * cm, 1.2 * cm, 2.2 * cm, 2.2 * cm, 1.2 * cm, 2.7 * cm]
+
+    for idx_r, reg in enumerate(registros):
+        try:
+            fecha_reg = datetime.fromisoformat(reg['fecha_registro'].replace('Z', '+00:00')).astimezone(tz_cl).strftime('%d/%m/%Y %H:%M')
+        except Exception:
+            fecha_reg = '—'
+        lugar = reg.get('lugar_compra', '') or '—'
+        tipo = _tipo_labels.get(reg.get('tipo_compra', ''), reg.get('tipo_compra', '') or '—')
+        subtipo = _subtipo_labels.get(reg.get('subtipo_compra', ''), reg.get('subtipo_compra', '') or '')
+        tipo_full = f"{tipo} — {subtipo}" if subtipo else tipo
+        fecha_ent = reg.get('fecha_entrega_compra', '') or ''
+        falto = reg.get('falto_retirar', '') or ''
+        obs = reg.get('observaciones', '') or 'Sin observaciones'
+        factura = reg.get('factura_nombre', '') or '—'
+
+        reg_info = f"Registro #{idx_r + 1} — {fecha_reg} | {lugar} | {tipo_full}"
+        if fecha_ent:
+            reg_info += f" | Para: {fecha_ent}"
+        elements.append(Paragraph(reg_info, styles['BRegHeader']))
+
+        if falto:
+            elements.append(Paragraph(f"Faltó retirar: {falto}", styles['BSmall']))
+        elements.append(Paragraph(f"Observación: {obs}", styles['BSmall']))
+        _factura_url = reg.get('factura_url', '') or ''
+        if _factura_url:
+            elements.append(Paragraph(
+                f'Factura: <link href="{_factura_url}"><u><font color="#3b82f6">{factura}</font></u></link>',
+                styles['BSmall']
+            ))
+        else:
+            elements.append(Paragraph(f"Factura: {factura}", styles['BSmall']))
+        elements.append(Spacer(1, 0.2 * cm))
+
+        items_r = reg.get('items') or []
+        if isinstance(items_r, str):
+            try:
+                items_r = json.loads(items_r)
+            except Exception:
+                items_r = []
+
+        if items_r:
+            rows = [tbl_header]
+            row_types = ['header']
+            sub_p = 0; sub_r = 0; sub_a = 0; sub_s = 0
+            _pn_pdf = {str(p.get('Item', '')) for p in (productos_presupuesto or [])}
+            _pp_map = {str(p.get('Item', '')): round(float(p.get('Precio Unitario', 0) or 0)) for p in (productos_presupuesto or [])}
+            for it in items_r:
+                pp = float(it.get('precio_presupuestado', 0) or 0)
+                pr = float(it.get('precio_real', 0) or 0)
+                cant = float(it.get('cantidad', 1) or 1)
+                adic = int(it.get('adicional', 0) or 0)
+                dif = (pp - pr) * cant - (adic * pr)
+                _is_sin = it.get('sin_registro', False)
+                _is_con = (it.get('es_adicional', False) or str(it.get('item', '')) not in _pn_pdf) and not _is_sin
+                pp_real = _pp_map.get(str(it.get('item', '')), pp) if not _is_con and not _is_sin else pp
+                if _is_sin:
+                    sub_s += pr * cant
+                elif _is_con:
+                    sub_a += pr * cant
+                else:
+                    sub_p += pp_real * cant; sub_r += pr * cant + adic * pr
+                dif_str = f"${abs(dif):,.0f} {'▼' if dif >= 0 else '▲'}".replace(',', '.')
+                rows.append([it.get('categoria', ''), it.get('item', ''), str(int(cant)),
+                    f"${pp_real:,.0f}".replace(',', '.'), f"${pr:,.0f}".replace(',', '.'),
+                    str(adic), dif_str])
+                row_types.append('sin' if _is_sin else ('con' if _is_con else 'normal'))
+            bal_r = sub_p - sub_r
+            rows.append(['', 'SUBTOTAL PRESUPUESTO', '', f"${sub_p:,.0f}".replace(',', '.'),
+                         f"${sub_r:,.0f}".replace(',', '.'), '',
+                         f"${abs(bal_r):,.0f} {'▼' if bal_r >= 0 else '▲'}".replace(',', '.')])
+            row_types.append('subtotal')
+            if sub_a > 0:
+                rows.append(['', 'ADICIONALES CON REGISTRO', '', '—', f"${sub_a:,.0f}".replace(',', '.'), '', ''])
+                row_types.append('subtotal_con')
+            if sub_s > 0:
+                rows.append(['', 'ADICIONALES SIN REGISTRO', '', '—', f"${sub_s:,.0f}".replace(',', '.'), '', ''])
+                row_types.append('subtotal_sin')
+            tbl = Table(rows, colWidths=col_ws, repeatRows=1)
+            tbl_style = [
+                ('BACKGROUND', (0, 0), (-1, 0), col_azul),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 7),
+                ('ALIGN', (2, 0), (-1, -1), 'RIGHT'),
+                ('ALIGN', (0, 0), (1, -1), 'LEFT'),
+                ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#e2e8f0')),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ]
+            for ri, rtype in enumerate(row_types):
+                if rtype == 'con':
+                    tbl_style.append(('BACKGROUND', (0, ri), (-1, ri), colors.HexColor('#fff7ed')))
+                    tbl_style.append(('TEXTCOLOR', (0, ri), (1, ri), colors.HexColor('#c2410c')))
+                elif rtype == 'sin':
+                    tbl_style.append(('BACKGROUND', (0, ri), (-1, ri), colors.HexColor('#fdf2f8')))
+                    tbl_style.append(('TEXTCOLOR', (0, ri), (1, ri), colors.HexColor('#9d174d')))
+                elif rtype == 'subtotal':
+                    tbl_style.append(('BACKGROUND', (0, ri), (-1, ri), colors.HexColor('#f1f5f9')))
+                    tbl_style.append(('FONTNAME', (0, ri), (-1, ri), 'Helvetica-Bold'))
+                elif rtype == 'subtotal_con':
+                    tbl_style.append(('BACKGROUND', (0, ri), (-1, ri), colors.HexColor('#fff3e0')))
+                    tbl_style.append(('FONTNAME', (0, ri), (-1, ri), 'Helvetica-Bold'))
+                    tbl_style.append(('TEXTCOLOR', (0, ri), (-1, ri), colors.HexColor('#c2410c')))
+                elif rtype == 'subtotal_sin':
+                    tbl_style.append(('BACKGROUND', (0, ri), (-1, ri), colors.HexColor('#fdf2f8')))
+                    tbl_style.append(('FONTNAME', (0, ri), (-1, ri), 'Helvetica-Bold'))
+                    tbl_style.append(('TEXTCOLOR', (0, ri), (-1, ri), colors.HexColor('#9d174d')))
+                if ri > 0 and row_types[ri] not in ('subtotal', 'subtotal_con', 'subtotal_sin') and len(rows[ri]) > 6 and rows[ri][6]:
+                    is_ahorro = '▼' in rows[ri][6]
+                    tbl_style.append(('TEXTCOLOR', (6, ri), (6, ri), col_verde if is_ahorro else col_rojo))
+            tbl.setStyle(TableStyle(tbl_style))
+            elements.append(tbl)
+
+        elements.append(Spacer(1, 0.4 * cm))
+        if idx_r < len(registros) - 1:
+            elements.append(HRFlowable(width='100%', thickness=0.3, color=colors.HexColor('#e2e8f0'), spaceAfter=4))
+
+    elements.append(Paragraph('Resumen Final Consolidado', styles['BSection']))
+    elements.append(HRFlowable(width='100%', thickness=0.5, color=colors.HexColor('#e2e8f0'), spaceAfter=8))
+
+    _tots = calcular_totales_rc(productos_presupuesto, registros, incluir_varios=incluir_varios)
+    total_p = _tots['tP']; total_r = _tots['tR']
+    total_adic_con = _tots['tA']; total_adic_sin = _tots['tS']
+
+    iva_p = total_p * 0.19; iva_r = total_r * 0.19
+    bal = total_p - total_r; iva_bal = iva_p - iva_r
+    bal_col = col_verde if bal >= 0 else col_rojo
+    bal_lbl = 'AHORRO' if bal >= 0 else 'SOBRECOSTO'
+
+    def _fmt(v): return f"${abs(v):,.0f}".replace(',', '.')
+
+    iva_adic_con = total_adic_con * 0.19; iva_adic_sin = total_adic_sin * 0.19
+
+    resumen_rows = [
+        ['', 'PRESUPUESTADO', 'REAL', 'BALANCE', 'ADIC. C/REG.', 'ADIC. S/REG.'],
+        ['Subtotal neto', _fmt(total_p), _fmt(total_r), _fmt(bal), _fmt(total_adic_con), _fmt(total_adic_sin)],
+        ['IVA (19%)', _fmt(iva_p), _fmt(iva_r), _fmt(iva_bal), _fmt(iva_adic_con), _fmt(iva_adic_sin)],
+        ['Total con IVA', _fmt(total_p + iva_p), _fmt(total_r + iva_r), _fmt(bal + iva_bal),
+         _fmt(total_adic_con + iva_adic_con), _fmt(total_adic_sin + iva_adic_sin)],
+    ]
+    res_tbl = Table(resumen_rows, colWidths=[3 * cm, 2.8 * cm, 2.8 * cm, 2.8 * cm, 2.5 * cm, 2.5 * cm])
+    res_style = [
+        ('BACKGROUND', (0, 0), (-1, 0), col_azul),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 3), (-1, 3), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+        ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#e2e8f0')),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
+        ('TEXTCOLOR', (3, 1), (3, -1), bal_col),
+        ('TEXTCOLOR', (4, 1), (4, -1), colors.HexColor('#c2410c')),
+        ('BACKGROUND', (4, 0), (4, 0), colors.HexColor('#ea580c')),
+        ('BACKGROUND', (4, 1), (4, -1), colors.HexColor('#fff7ed')),
+        ('TEXTCOLOR', (4, 0), (4, 0), colors.white),
+        ('TEXTCOLOR', (5, 1), (5, -1), colors.HexColor('#9d174d')),
+        ('BACKGROUND', (5, 0), (5, 0), colors.HexColor('#db2777')),
+        ('BACKGROUND', (5, 1), (5, -1), colors.HexColor('#fdf2f8')),
+        ('TEXTCOLOR', (5, 0), (5, 0), colors.white),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+    ]
+    res_tbl.setStyle(TableStyle(res_style))
+    elements.append(res_tbl)
+    elements.append(Spacer(1, 0.3 * cm))
+
+    badge_data = [[Paragraph(
+        f"<b>{bal_lbl}: {_fmt(bal + iva_bal)} (con IVA)</b>",
+        ParagraphStyle('_badge', parent=styles['Normal'], fontSize=12,
+            fontName='Helvetica-Bold', textColor=bal_col, alignment=1)
+    )]]
+    badge_tbl = Table(badge_data, colWidths=[16 * cm])
+    badge_tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f0fdf4') if bal >= 0 else colors.HexColor('#fef2f2')),
+        ('BOX', (0, 0), (-1, -1), 1, bal_col),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(badge_tbl)
+
+    doc.build(elements)
+    buf.seek(0)
+    return buf.read()
+
+
+# ── HTML BUILDER REGISTRO DE COMPRAS ─────────────────────────────────────────
+
+def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin=False,
+                  supa_url='', supa_key='', ep='', usuario='', items_ya_comprados_json='[]',
+                  total_items_presupuesto=0, cats_cards_html=''):
+    rows = ""
+    items_comprados = items_comprados or {}
+    for ri, prod in enumerate(rc_prods):
+        cat = str(prod.get('Categoria', ''))
+        item = str(prod.get('Item', ''))
+        cant = round(float(prod.get('Cantidad', 1) or 1))
+        pu = round(float(prod.get('Precio Unitario', 0) or 0))
+        _es_adicional = bool(prod.get('_adicional', False))
+        _es_sin_reg = bool(prod.get('_sin_registro', False))
+        _ic = items_comprados.get(item, {})
+        _ya_comprado = bool(_ic and float(_ic.get('real', 0) or 0) > 0) or _es_adicional
+        _readonly = _ya_comprado and not es_admin
+
+        if _es_sin_reg:
+            bg = '#fdf2f8'
+        elif _es_adicional:
+            bg = '#fff3e0'
+        elif _ya_comprado:
+            bg = '#f0fdf4'
+        elif ri % 2 == 0:
+            bg = '#ffffff'
+        else:
+            bg = '#f8fafc'
+
+        pu_fmt = '$' + f'{pu:,}'.replace(',', '.')
+        pv = rc_prev.get(str(ri), {})
+        vreal = float(_ic.get('real', 0)) if _ya_comprado else (pv.get('real', 0) or 0)
+        vadic = int(_ic.get('adicional', 0)) if _ya_comprado else (pv.get('adic', 0) or 0)
+        vreal_fmt = ('$' + f'{int(vreal):,}'.replace(',', '.')) if vreal else ''
+
+        _dc_attr = 'data-comprado="1"' if _ya_comprado else ""
+        _da_attr = 'data-adicional="1"' if _es_adicional else ""
+        _ds_attr = 'data-sin-registro="1"' if _es_sin_reg else ""
+        rows += f"""<tr style="background:{bg};border-bottom:1px solid #eef0f6" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}" {_dc_attr} {_da_attr} {_ds_attr}>
+<td style="padding:5px 8px;font-size:.85rem;color:#334155;font-weight:700;font-family:Montserrat,'Segoe UI',sans-serif">{cat}</td>
+<td style="padding:5px 8px;font-size:.95rem;color:#0f172a;font-weight:700;font-family:Montserrat,'Segoe UI',sans-serif">{item}</td>
+<td style="padding:5px 8px;text-align:right;font-weight:700;font-family:Montserrat,'Segoe UI',sans-serif">{cant}</td>
+<td style="padding:5px 8px;text-align:right;font-weight:700;font-family:Montserrat,'Segoe UI',sans-serif">{pu_fmt}</td>
+<td style="padding:3px 4px"><input type="text" inputmode="numeric" value="{vreal_fmt}" class="rc-real" data-idx="{ri}" data-val="{vreal}" {"readonly" if _readonly else ""} style="width:100%;border:1px solid {"#86efac" if _ya_comprado else "#cbd5e1"};border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box;{"background:#f0fdf4;color:#15803d;cursor:default" if _ya_comprado else ""}"/></td>
+<td style="padding:3px 4px"><input type="number" min="0" step="1" value="{vadic}" class="rc-adic" data-idx="{ri}" {"readonly" if _readonly else ""} style="width:100%;border:1px solid {"#86efac" if _ya_comprado else "#fca5a5"};border-radius:6px;padding:5px;font-size:13px;text-align:right;background:{"#f0fdf4" if _ya_comprado else "#fff5f5"};box-sizing:border-box{"pointer-events:none" if _readonly else ""}"/></td>
+<td class="rc-dif" data-idx="{ri}" style="padding:5px 8px;text-align:right;font-weight:700;color:#16a34a;white-space:nowrap;font-family:Montserrat,'Segoe UI',sans-serif">-</td>
+<td></td>
+</tr>"""
+
+    html = f"""<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
+html,body{{margin:0;padding:0;font-family:Montserrat,'Segoe UI',sans-serif;font-size:13px;height:100%;overflow:hidden}}
+body{{display:flex;flex-direction:column}}
+table{{width:100%;border-collapse:collapse}}
+th{{background:#1e2447;color:#fff;padding:7px 8px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;position:sticky;top:0;z-index:1}}
+th.r,td.r{{text-align:right}}
+input[type=number]{{border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box}}
+input[type=number]:focus{{outline:none;border-color:#5b7cfa;box-shadow:0 0 0 2px rgba(91,124,250,.2)}}
+input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
+</style>
+<input id="rc-search" type="text" placeholder="Buscar item..." oninput="window.filterRows(this.value)" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:7px 10px;font-size:13px;box-sizing:border-box;margin-bottom:6px"/>
+{cats_cards_html}
+<div style="border:1px solid #e2e8f0;border-radius:8px;display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0">
+  <div id="tbl-wrap" style="overflow:auto;flex:1;min-height:0"><table>
+    <thead><tr>
+      <th>Categor&#237;a</th><th>&#205;tem</th><th class="r">Cant.</th>
+      <th class="r">Presup. unit.</th><th class="r">Real unit.</th>
+      <th class="r">Adicional</th><th class="r">Diferencia</th><th></th>
+    </tr></thead>
+    <tbody>{rows}</tbody>
+  </table></div>
+  <div id="tots" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr;gap:10px;padding:16px;background:#f8fafc;border-top:2px solid #e2e8f0;flex-shrink:0">
+    <div>
+      <div style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">Presupuestado</div>
+      <div style="font-size:11px;color:#64748b">Subtotal neto</div><div style="font-size:15px;font-weight:700" id="tp-n">$0</div>
+      <div style="font-size:11px;color:#64748b;margin-top:4px">IVA (19%)</div><div style="font-size:13px;font-weight:600" id="tp-i">$0</div>
+      <div style="font-size:11px;color:#64748b;margin-top:4px">Total con IVA</div><div style="font-size:17px;font-weight:900" id="tp-t">$0</div>
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">Real</div>
+      <div style="font-size:11px;color:#64748b">Subtotal neto</div><div style="font-size:15px;font-weight:700" id="tr-n">$0</div>
+      <div style="font-size:11px;color:#64748b;margin-top:4px">IVA (19%)</div><div style="font-size:13px;font-weight:600" id="tr-i">$0</div>
+      <div style="font-size:11px;color:#64748b;margin-top:4px">Total con IVA</div><div style="font-size:17px;font-weight:900" id="tr-t">$0</div>
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px" id="b-hdr">Balance</div>
+      <div style="font-size:11px" id="b-lbl1">Neto</div><div style="font-size:15px;font-weight:700" id="b-n">$0</div>
+      <div style="font-size:11px;margin-top:4px" id="b-lbl2">IVA</div><div style="font-size:13px;font-weight:600" id="b-i">$0</div>
+      <div style="font-size:11px;margin-top:4px" id="b-icon">&#x2705; Ahorro</div><div style="font-size:17px;font-weight:900" id="b-t">$0</div>
+    </div>
+    <div style="border-left:2px solid #fed7aa;padding-left:10px;background:#fff7ed;border-radius:8px;">
+      <div style="font-size:10px;font-weight:700;color:#f97316;letter-spacing:.05em;text-transform:uppercase;margin-bottom:2px">Adicionales</div>
+      <div style="font-size:9px;color:#f97316;margin-bottom:6px;font-weight:600">Con registro</div>
+      <div style="font-size:11px;color:#f97316">Subtotal neto</div><div style="font-size:14px;font-weight:700;color:#f97316" id="ta-n">$0</div>
+      <div style="font-size:11px;color:#f97316;margin-top:4px">IVA (19%)</div><div style="font-size:12px;font-weight:600;color:#f97316" id="ta-i">$0</div>
+      <div style="font-size:11px;color:#f97316;margin-top:4px">Total con IVA</div><div style="font-size:16px;font-weight:900;color:#f97316" id="ta-t">$0</div>
+    </div>
+    <div style="border-left:2px solid #fbcfe8;padding-left:10px;background:#fdf2f8;border-radius:8px;">
+      <div style="font-size:10px;font-weight:700;color:#ec4899;letter-spacing:.05em;text-transform:uppercase;margin-bottom:2px">Adicionales</div>
+      <div style="font-size:9px;color:#ec4899;margin-bottom:6px;font-weight:600">Sin registro</div>
+      <div style="font-size:11px;color:#ec4899">Subtotal neto</div><div style="font-size:14px;font-weight:700;color:#ec4899" id="ts-n">$0</div>
+      <div style="font-size:11px;color:#ec4899;margin-top:4px">IVA (19%)</div><div style="font-size:12px;font-weight:600;color:#ec4899" id="ts-i">$0</div>
+      <div style="font-size:11px;color:#ec4899;margin-top:4px">Total con IVA</div><div style="font-size:16px;font-weight:900;color:#ec4899" id="ts-t">$0</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;border-left:2px solid #e2e8f0;padding-left:12px">
+      <div style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:12px;text-align:center">Progreso de compra</div>
+      <div id="prog-pct" style="font-size:42px;font-weight:900;line-height:1;color:#dc2626;text-align:center">0%</div>
+      <div id="prog-lbl" style="font-size:12px;font-weight:600;color:#dc2626;margin-top:6px;text-align:center">Sin compras</div>
+      <div style="width:100%;background:#e2e8f0;border-radius:99px;height:6px;margin-top:10px;overflow:hidden">
+        <div id="prog-bar" style="height:100%;width:0%;border-radius:99px;background:#dc2626;transition:width .4s ease,background .4s ease"></div>
+      </div>
+    </div>
+  </div>
+  <div id="add-section" style="padding:12px 16px;background:#fff;border-top:1px solid #e2e8f0;flex-shrink:0">
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <button onclick="window.switchAddTab('reg')" id="tab-reg" style="font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid #f97316;background:#fff7ed;color:#f97316;cursor:pointer"><span style="color:#f97316;font-size:24px;line-height:1;vertical-align:middle;">&#9679;</span> Con registro</button>
+      <button onclick="window.switchAddTab('sin')" id="tab-sin" style="font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid #e2e8f0;background:#fff;color:#94a3b8;cursor:pointer"><span style="color:#ec4899;font-size:24px;line-height:1;vertical-align:middle;">&#9679;</span> Sin registro</button>
+    </div>
+    <div id="add-con-reg" style="display:grid;grid-template-columns:1.5fr 3fr 0.8fr 1.2fr auto;gap:6px;align-items:end">
+      <div><div style="font-size:10px;color:#64748b;margin-bottom:3px">Categor&#237;a</div>
+        <select id="add-cat" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:12px"><option value="">Seleccionar...</option></select></div>
+      <div><div style="font-size:10px;color:#64748b;margin-bottom:3px">&#205;tem</div>
+        <select id="add-item" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:12px"><option value="">Seleccionar categor&#237;a primero</option></select></div>
+      <div><div style="font-size:10px;color:#64748b;margin-bottom:3px">Cant.</div>
+        <input id="add-cant" type="number" min="1" value="1" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:12px;text-align:right"/></div>
+      <div><div style="font-size:10px;color:#64748b;margin-bottom:3px">Presup. unit.</div>
+        <div id="add-precio" style="border:1px solid #e2e8f0;border-radius:6px;padding:5px 8px;font-size:12px;font-weight:600;background:#f8fafc;text-align:right">$0</div></div>
+      <div style="padding-bottom:1px">
+        <button onclick="window.addRow()" style="background:#f97316;color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer">+ Agregar</button></div>
+    </div>
+    <div id="add-sin-reg" style="display:none;grid-template-columns:1.5fr 3fr 0.8fr 1.2fr auto;gap:6px;align-items:end">
+      <div style="padding-right:2px"><div style="font-size:10px;color:#ec4899;margin-bottom:3px">Categor&#237;a *</div>
+        <input id="sin-cat" type="text" placeholder="Ej: Herramientas" style="width:100%;border:1px solid #fbcfe8;border-radius:6px;padding:5px;font-size:12px;background:#fdf2f8;box-sizing:border-box"/></div>
+      <div style="padding-right:2px"><div style="font-size:10px;color:#ec4899;margin-bottom:3px">Nombre del &#237;tem *</div>
+        <input id="sin-item" type="text" placeholder="Ej: Taladro percutor" style="width:100%;border:1px solid #fbcfe8;border-radius:6px;padding:5px;font-size:12px;background:#fdf2f8;box-sizing:border-box"/></div>
+      <div style="padding-right:2px"><div style="font-size:10px;color:#ec4899;margin-bottom:3px">Cant.</div>
+        <input id="sin-cant" type="number" min="1" value="1" style="width:100%;border:1px solid #fbcfe8;border-radius:6px;padding:5px;font-size:12px;text-align:right;background:#fdf2f8;box-sizing:border-box"/></div>
+      <div style="padding-right:2px"><div style="font-size:10px;color:#ec4899;margin-bottom:3px">Precio real *</div>
+        <input id="sin-precio" type="text" inputmode="numeric" placeholder="$0" style="width:100%;border:1px solid #fbcfe8;border-radius:6px;padding:5px;font-size:12px;text-align:right;background:#fdf2f8;box-sizing:border-box"/></div>
+      <div style="padding-bottom:1px">
+        <button onclick="window.addRowSinReg()" style="background:#ec4899;color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer">+ Agregar</button></div>
+    </div>
+  </div>
+  <div id="save-section" style="padding:12px 16px;background:#1e2447;border-top:2px solid #e2e8f0;flex-shrink:0">
+    <div style="font-size:11px;font-weight:700;color:#fff;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">&#128206; Adjuntar Factura y Guardar</div>
+    <style>
+    .rc-field{{margin-bottom:8px}}
+    .rc-lbl{{font-size:11px;color:rgba(255,255,255,0.6);margin-bottom:3px}}
+    .rc-inp{{width:100%;border:1px solid rgba(255,255,255,0.3);border-radius:6px;padding:7px 10px;font-size:13px;background:rgba(255,255,255,0.08);color:#fff;box-sizing:border-box;outline:none}}
+    .rc-inp::placeholder{{color:rgba(255,255,255,0.35)}}
+    .rc-sel{{width:100%;border:1px solid rgba(255,255,255,0.3);border-radius:6px;padding:7px 10px;font-size:13px;background:#1e2447;color:#fff;box-sizing:border-box;outline:none;cursor:pointer}}
+    .rc-grid{{display:grid;grid-template-columns:1fr 1fr;gap:8px}}
+    .rc-hidden{{display:none}}
+    </style>
+    <div class="rc-grid">
+      <div class="rc-field">
+        <div class="rc-lbl">&#127978; &#191;D&#243;nde compraste? *</div>
+        <input id="lugar-compra" type="text" class="rc-inp" placeholder="Ej: Ferretera L&#243;pez" oninput="window.checkSaveBtn()"/>
+      </div>
+      <div class="rc-field">
+        <div class="rc-lbl">&#128722; Tipo de compra *</div>
+        <select id="tipo-compra" class="rc-sel" onchange="window.onTipoChange()">
+          <option value="">Seleccionar...</option>
+          <option value="online">Compra Online</option>
+          <option value="presencial">Compra Presencial</option>
+        </select>
+      </div>
+    </div>
+    <div id="subtipo-wrap" class="rc-field rc-hidden">
+      <div class="rc-lbl" id="subtipo-lbl">Modalidad *</div>
+      <select id="subtipo-compra" class="rc-sel" onchange="window.onSubtipoChange()">
+      </select>
+    </div>
+    <div id="fecha-wrap" class="rc-field rc-hidden">
+      <div class="rc-lbl" id="fecha-lbl">&#128197; &#191;Para cu&#225;ndo? *</div>
+      <input id="fecha-compra" type="date" class="rc-inp" oninput="window.checkSaveBtn()" onchange="window.checkSaveBtn()"/>
+    </div>
+    <div id="falt&#243;-wrap" class="rc-field rc-hidden">
+      <div class="rc-lbl">&#128203; &#191;Qu&#233; falt&#243; por retirar? *</div>
+      <textarea id="falto-texto" class="rc-inp" rows="2" placeholder="Describe los &#237;tems que faltaron..." oninput="window.checkSaveBtn()" style="resize:vertical"></textarea>
+    </div>
+    <div class="rc-field">
+      <div class="rc-lbl">&#128221; Observaciones adicionales (opcional)</div>
+      <textarea id="obs-compra" class="rc-inp" rows="2" placeholder="Notas, motivos u observaciones de esta compra..." style="resize:vertical"></textarea>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <label id="factura-label" style="background:rgba(255,255,255,0.1);color:#fff;border:1px dashed rgba(255,255,255,0.4);border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;white-space:nowrap">&#128206; Seleccionar factura PDF
+        <input id="factura-input" type="file" accept=".pdf" style="display:none"/>
+      </label>
+      <button id="factura-clear" onclick="window.clearFactura()" style="display:none;background:rgba(220,38,38,0.7);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;white-space:nowrap">&#10005; Quitar</button>
+      <div id="save-status" style="font-size:12px;color:rgba(255,255,255,0.7);flex:1"></div>
+      <button id="save-btn" onclick="window.guardarRegistro()" disabled style="background:#10b981;color:#fff;border:none;border-radius:8px;padding:8px 24px;font-size:13px;font-weight:700;cursor:pointer;opacity:0.5;white-space:nowrap">&#128190; Guardar compra</button>
+    </div>
+  </div>
+    </div>
+  </div>
+</div>
+<script>(function(){{
+var SUPA_URL="{supa_url}";
+var SUPA_KEY="{supa_key}";
+var EP_NUM="{ep}";
+var USUARIO="{usuario}";
+var ITEMS_YA_COMPRADOS={items_ya_comprados_json};
+var TOTAL_ITEMS={total_items_presupuesto};
+var _facturaFile=null;
+var _facturaUrl="";
+var _facturaNom="";
+var CAT={rc_cat_json};
+var addCat=document.getElementById("add-cat");
+Object.keys(CAT).sort().forEach(function(c){{var o=document.createElement("option");o.value=c;o.textContent=c;addCat.appendChild(o);}});
+addCat.addEventListener("change",function(){{
+  var sel=document.getElementById("add-item");
+  sel.innerHTML='<option value="">Seleccionar item...</option>';
+  document.getElementById("add-precio").textContent="$0";
+  var items=CAT[this.value]||[];
+  items.forEach(function(it){{var o=document.createElement("option");o.value=JSON.stringify(it);o.textContent=it.item;sel.appendChild(o);}});
+}});
+document.getElementById("add-item").addEventListener("change",function(){{
+  try{{var it=JSON.parse(this.value);document.getElementById("add-precio").textContent=f(it.precio);}}catch(e){{}}
+}});
+var _addIdx=10000;
+window.addRow=function(){{
+  var catEl=document.getElementById("add-cat");
+  var itemEl=document.getElementById("add-item");
+  var cantEl=document.getElementById("add-cant");
+  if(!catEl.value||!itemEl.value)return;
+  var it=JSON.parse(itemEl.value);
+  var cant=parseInt(cantEl.value)||1;
+  var pu=it.precio;
+  var tr=document.createElement("tr");
+  tr.style.cssText="background:#fff3e0;border-bottom:1px solid #eef0f6;border-left:3px solid #f97316";
+  tr.dataset.idx=String(_addIdx);tr.dataset.pu=String(pu);tr.dataset.cant=String(cant);
+  tr.dataset.adicional="1";
+  tr.innerHTML="<td style='padding:5px 8px;font-size:.75rem;color:#64748b'>"+catEl.value+"</td>"
+    +"<td style='padding:5px 8px;font-size:.82rem'>"+it.item+"</td>"
+    +"<td style='padding:5px 8px;text-align:right'>"+cant+"</td>"
+    +"<td style='padding:5px 8px;text-align:right;font-weight:600'>"+f(pu)+"</td>"
+    +'<td style="padding:3px 4px"><input type="text" inputmode="numeric" value="" class="rc-real" data-idx="'+_addIdx+'" data-val="0" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box"/></td>'
+    +'<td style="padding:3px 4px"><input type="number" min="0" step="1" value="0" class="rc-adic" data-idx="'+_addIdx+'" style="width:100%;border:1px solid #fca5a5;border-radius:6px;padding:5px;font-size:13px;text-align:right;background:#fff5f5;box-sizing:border-box"/></td>'
+    +'<td class="rc-dif" style="padding:5px 8px;text-align:right;font-weight:700;color:#16a34a;white-space:nowrap">-</td>'
+    +'<td style="padding:3px 6px;text-align:center"><button onclick="window.removeRow(this)" style="background:none;border:none;color:#ef4444;font-size:14px;cursor:pointer;padding:2px 4px;line-height:1;" title="Eliminar">&#10005;</button></td>';
+  document.querySelector("tbody").appendChild(tr);
+  attachListeners(tr.querySelector(".rc-real"), tr.querySelector(".rc-adic"));
+  _addIdx++;cantEl.value="1";itemEl.selectedIndex=0;
+  document.getElementById("add-precio").textContent="$0";calc();
+}};
+function attachListeners(inp, adic){{
+  inp.addEventListener("input",function(){{
+    var raw=this.value.replace(/[^0-9]/g,"");
+    this.dataset.val=raw||"0";
+    if(!raw){{this.value="";calc();return;}}
+    this.value="$"+parseInt(raw).toLocaleString("de-DE");calc();checkSaveBtn();
+  }});
+  inp.addEventListener("focus",function(){{
+    var r=this.dataset.val||"0";
+    this.value=r==="0"?"":r;
+  }});
+  inp.addEventListener("blur",function(){{
+    var n=parseInt(this.dataset.val)||0;
+    this.dataset.val=String(n);
+    this.value=n>0?"$"+n.toLocaleString("de-DE"):"";calc();checkSaveBtn();
+  }});
+  adic.addEventListener("input",function(){{calc();checkSaveBtn();}});
+}}
+function f(n){{return "$"+Math.round(Math.abs(n)).toLocaleString("de-DE");}}
+function calc(){{
+  var tP=0,tR=0,tA=0,tS=0,vals=[];
+  document.querySelectorAll("tr[data-idx]").forEach(function(r){{
+    var idx=parseInt(r.dataset.idx)||0;
+    var pu=+r.dataset.pu||0,c=+r.dataset.cant||1;
+    var re=parseFloat(r.querySelector(".rc-real").dataset.val)||0;
+    var ad=+r.querySelector(".rc-adic").value||0;
+    var d=(pu-re)*c-(ad*re);
+    var td=r.querySelector(".rc-dif");
+    td.textContent=f(d)+(d>=0?" ▼":" ▲");
+    td.style.color=d>=0?"#16a34a":"#dc2626";
+    var isSinReg=r.getAttribute("data-sin-registro")==="1";
+    var isAdic=r.dataset.adicional==="1"&&!isSinReg;
+    if(isSinReg){{tS+=re*c;}}
+    else if(isAdic){{tA+=re*c;}}
+    else{{tP+=pu*c;}}
+    tR+=re*c+ad*re;
+    vals.push({{idx:+r.dataset.idx,real:re,adic:ad,dif:d}});
+  }});
+  var iP=tP*.19,iR=tR*.19,b=tP-tR,ib=iP-iR;
+  var col=b>=0?"#16a34a":"#dc2626";
+  var iA=tA*.19,iS=tS*.19;
+  var ids=["tp-n","tp-i","tp-t","tr-n","tr-i","tr-t","b-n","b-i","b-t","ta-n","ta-i","ta-t","ts-n","ts-i","ts-t"];
+  var v=[tP,iP,tP+iP,tR,iR,tR+iR,b,ib,b+ib,tA,iA,tA+iA,tS,iS,tS+iS];
+  ids.forEach(function(id,i){{var el=document.getElementById(id);if(el)el.textContent=f(v[i]);}});
+  ["b-hdr","b-n","b-i","b-lbl1","b-lbl2","b-icon","b-t"].forEach(function(id){{var el=document.getElementById(id);if(el)el.style.color=col;}});
+  var bi=document.getElementById("b-icon");
+  if(bi)bi.textContent=b>=0?"✅ Ahorro":"❌ Sobrecosto";
+  var comprados=vals.filter(function(v){{return v.real>0&&v.idx<10000;}}).length;
+  var pct=TOTAL_ITEMS>0?Math.round(comprados/TOTAL_ITEMS*1000)/10:0;
+  var pctCol=pct>=100?"#3b82f6":pct>=66.6?"#16a34a":pct>=33.3?"#eab308":"#dc2626";
+  var pctLbl=pct>=100?"&#128309; Compra finalizada":pct>0?(pct.toFixed(1)+"% comprado"):"Sin compras";
+  var pp=document.getElementById("prog-pct");
+  var pl=document.getElementById("prog-lbl");
+  var pb=document.getElementById("prog-bar");
+  if(pp){{pp.textContent=pct>=100?"100%":(pct.toFixed(1)+"%");pp.style.color=pctCol;}}
+  if(pl){{pl.textContent=pctLbl;pl.style.color=pctCol;}}
+  if(pb){{pb.style.width=Math.min(pct,100)+"%";pb.style.background=pctCol;}}
+  window.parent.postMessage({{type:"rc_vals",vals:vals,tP:tP,tR:tR}},"*");
+}}
+var _rcCatFiltro='';
+window.applyFilters=function(catOverride){{
+  if(catOverride!==undefined) _rcCatFiltro=catOverride;
+  var q=document.getElementById('rc-search')?document.getElementById('rc-search').value.toLowerCase():'';
+  document.querySelectorAll("tbody tr").forEach(function(r){{
+    var txt=r.cells[1]?r.cells[1].textContent.toLowerCase():"";
+    var cat=r.cells[0]?r.cells[0].textContent.trim():"";
+    var matchTxt=!q||txt.indexOf(q)>-1;
+    var matchCat=!_rcCatFiltro||cat===_rcCatFiltro;
+    r.style.display=(matchTxt&&matchCat)?"":"none";
+  }});
+}}
+window.filterRows=function(q){{applyFilters();}};
+document.querySelectorAll(".rc-real").forEach(function(inp){{
+  attachListeners(inp, inp.closest("tr").querySelector(".rc-adic"));
+}});
+window.addEventListener("load",function(){{calc();}});
+var sinPrecioEl=document.getElementById("sin-precio");
+if(sinPrecioEl){{
+  sinPrecioEl.addEventListener("input",function(){{
+    var raw=this.value.replace(/[^0-9]/g,"");
+    this.value=raw?"$"+parseInt(raw).toLocaleString("de-DE"):"";
+  }});
+  sinPrecioEl.addEventListener("blur",function(){{
+    var raw=this.value.replace(/[^0-9]/g,"");
+    this.value=raw?"$"+parseInt(raw).toLocaleString("de-DE"):"";
+  }});
+}}
+window.switchAddTab=function(tab){{
+  var reg=document.getElementById("add-con-reg");
+  var sin=document.getElementById("add-sin-reg");
+  var tbReg=document.getElementById("tab-reg");
+  var tbSin=document.getElementById("tab-sin");
+  if(tab==="reg"){{
+    reg.style.display="grid";sin.style.display="none";
+    tbReg.style.cssText="font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid #f97316;background:#fff7ed;color:#f97316;cursor:pointer";
+    tbSin.style.cssText="font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid #e2e8f0;background:#fff;color:#94a3b8;cursor:pointer";
+  }}else{{
+    reg.style.display="none";sin.style.display="grid";
+    tbSin.style.cssText="font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid #ec4899;background:#fdf2f8;color:#ec4899;cursor:pointer";
+    tbReg.style.cssText="font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid #e2e8f0;background:#fff;color:#94a3b8;cursor:pointer";
+  }}
+}};
+window.addRowSinReg=function(){{
+  var catEl=document.getElementById("sin-cat");
+  var itemEl=document.getElementById("sin-item");
+  var cantEl=document.getElementById("sin-cant");
+  var precioEl=document.getElementById("sin-precio");
+  if(!catEl.value.trim()||!itemEl.value.trim()){{alert("Ingresa categoría y nombre del ítem");return;}}
+  var rawPrecio=precioEl.value.replace(/[^0-9]/g,"");
+  var precio=parseInt(rawPrecio)||0;
+  var cant=parseInt(cantEl.value)||1;
+  var tr=document.createElement("tr");
+  tr.style.cssText="background:#fdf2f8;border-bottom:1px solid #eef0f6;border-left:3px solid #ec4899";
+  tr.dataset.idx=String(_addIdx);tr.dataset.pu="0";tr.dataset.cant=String(cant);
+  tr.dataset.adicional="1";tr.setAttribute("data-sin-registro","1");
+  tr.innerHTML="<td style='padding:5px 8px;font-size:.75rem;color:#ec4899'>"+catEl.value.trim()+"</td>"
+    +"<td style='padding:5px 8px;font-size:.82rem'>"+itemEl.value.trim()+"</td>"
+    +"<td style='padding:5px 8px;text-align:right'>"+cant+"</td>"
+    +"<td style='padding:5px 8px;text-align:right;font-weight:600'>—</td>"
+    +'<td style="padding:3px 4px"><input type="text" inputmode="numeric" value="'+("$"+precio.toLocaleString("de-DE"))+'" class="rc-real" data-idx="'+_addIdx+'" data-val="'+precio+'" style="width:100%;border:1.5px solid #fbcfe8;border-radius:6px;padding:5px;font-size:13px;text-align:right;background:#fdf2f8;box-sizing:border-box"/></td>'
+    +'<td style="padding:3px 4px"><input type="number" min="0" step="1" value="0" class="rc-adic" data-idx="'+_addIdx+'" style="width:100%;border:1.5px solid #fbcfe8;border-radius:6px;padding:5px;font-size:13px;text-align:right;background:#fdf2f8;box-sizing:border-box"/></td>'
+    +'<td class="rc-dif" style="padding:5px 8px;text-align:right;font-weight:700;color:#ec4899;white-space:nowrap">—</td>'
+    +'<td style="padding:3px 6px;text-align:center"><button onclick="window.removeRow(this)" style="background:none;border:none;color:#ef4444;font-size:14px;cursor:pointer;padding:2px 4px;line-height:1;" title="Eliminar">&#10005;</button></td>';
+  document.querySelector("tbody").appendChild(tr);
+  attachListeners(tr.querySelector(".rc-real"),tr.querySelector(".rc-adic"));
+  _addIdx++;
+  catEl.value="";itemEl.value="";cantEl.value="1";precioEl.value="";
+  calc();checkSaveBtn();
+}};
+window.onTipoChange=function(){{
+  var tipo=document.getElementById("tipo-compra").value;
+  var sw=document.getElementById("subtipo-wrap");
+  var ss=document.getElementById("subtipo-compra");
+  sw.className="rc-field"+(tipo?"" : " rc-hidden");
+  ss.innerHTML="";
+  if(tipo==="online"){{
+    [["retiro","Retiro"],["despacho","Despacho"]].forEach(function(o){{
+      var opt=document.createElement("option");opt.value=o[0];opt.textContent=o[1];ss.appendChild(opt);
+    }});
+  }}else if(tipo==="presencial"){{
+    [["completo","Retiro Completo"],["parcial","Retiro Parcial"],["despacho","Despacho"]].forEach(function(o){{
+      var opt=document.createElement("option");opt.value=o[0];opt.textContent=o[1];ss.appendChild(opt);
+    }});
+  }}
+  window.onSubtipoChange();
+}};
+window.onSubtipoChange=function(){{
+  var tipo=document.getElementById("tipo-compra").value;
+  var sub=document.getElementById("subtipo-compra").value;
+  var fw=document.getElementById("fecha-wrap");
+  var fl=document.getElementById("fecha-lbl");
+  var pw=document.getElementById("faltó-wrap");
+  var needFecha=(tipo==="online")||(tipo==="presencial"&&sub!=="completo");
+  fw.className="rc-field"+(needFecha?"":" rc-hidden");
+  if(tipo==="presencial"&&sub==="parcial"){{
+    fl.textContent="&#128197; ¿Para cuándo llega lo que faltó? *";
+    pw.className="rc-field";
+  }}else{{
+    fl.textContent="&#128197; ¿Para cuándo? *";
+    pw.className="rc-field rc-hidden";
+  }}
+  window.checkSaveBtn();
+}};
+window.removeRow=function(btn){{
+  var tr=btn.parentElement;
+  while(tr&&tr.tagName!=="TR")tr=tr.parentElement;
+  if(tr)tr.remove();
+  calc();checkSaveBtn();
+}};
+function checkSaveBtn(){{
+  var hasVals=false;
+  document.querySelectorAll("tr[data-idx]").forEach(function(r){{
+    var re=parseFloat(r.querySelector(".rc-real").dataset.val)||0;
+    if(re>0) hasVals=true;
+  }});
+  var lugar=document.getElementById("lugar-compra");
+  var hasLugar=lugar&&lugar.value.trim().length>0;
+  var hasFactura=_facturaFile!==null;
+  var tipo=document.getElementById("tipo-compra");
+  var hasTipo=tipo&&tipo.value.length>0;
+  var fw=document.getElementById("fecha-wrap");
+  var fechaOk=!fw||fw.className.indexOf("rc-hidden")>-1||(document.getElementById("fecha-compra")&&document.getElementById("fecha-compra").value.length>0);
+  var pw=document.getElementById("faltó-wrap");
+  var faltóOk=!pw||pw.className.indexOf("rc-hidden")>-1||(document.getElementById("falto-texto")&&document.getElementById("falto-texto").value.trim().length>0);
+  var ok=hasVals&&hasLugar&&hasFactura&&hasTipo&&fechaOk&&faltóOk;
+  var btn=document.getElementById("save-btn");
+  if(btn){{btn.disabled=!ok;btn.style.opacity=ok?"1":"0.5";}}
+}}
+window.checkSaveBtn=checkSaveBtn;
+document.getElementById("factura-input") && document.getElementById("factura-input").addEventListener("change",function(){{
+  _facturaFile=this.files[0]||null;
+  var lbl=document.getElementById("factura-label");
+  var clr=document.getElementById("factura-clear");
+  if(_facturaFile){{
+    if(lbl)lbl.innerHTML="&#128206; "+_facturaFile.name+'<input id="factura-input" type="file" accept=".pdf" style="display:none"/>';
+    if(clr)clr.style.display="inline-block";
+  }}else{{
+    if(lbl)lbl.innerHTML='&#128206; Seleccionar factura PDF<input id="factura-input" type="file" accept=".pdf" style="display:none"/>';
+    if(clr)clr.style.display="none";
+  }}
+  checkSaveBtn();
+}});
+window.clearFactura=function(){{
+  _facturaFile=null;
+  var lbl=document.getElementById("factura-label");
+  var clr=document.getElementById("factura-clear");
+  if(lbl)lbl.innerHTML='&#128206; Seleccionar factura PDF<input id="factura-input" type="file" accept=".pdf" style="display:none"/>';
+  if(clr)clr.style.display="none";
+  var ni=document.getElementById("factura-input");
+  if(ni)ni.addEventListener("change",function(){{
+    _facturaFile=this.files[0]||null;
+    var l2=document.getElementById("factura-label");
+    var c2=document.getElementById("factura-clear");
+    if(_facturaFile){{
+      if(l2)l2.innerHTML="&#128206; "+_facturaFile.name+'<input id="factura-input" type="file" accept=".pdf" style="display:none"/>';
+      if(c2)c2.style.display="inline-block";
+    }}
+    checkSaveBtn();
+  }});
+  checkSaveBtn();
+}};
+window.guardarRegistro=async function(){{
+  var btn=document.getElementById("save-btn");
+  var status=document.getElementById("save-status");
+  if(!_facturaFile){{status.textContent="⚠️ Debes subir una factura primero";status.style.color="#dc2626";return;}}
+  btn.disabled=true;btn.textContent="⏳ Verificando compras previas...";
+  var yaCompradosResp=await fetch(SUPA_URL+"/rest/v1/registro_compras?cotizacion_numero=eq."+EP_NUM+"&select=items",{{
+    headers:{{"Authorization":"Bearer "+SUPA_KEY,"apikey":SUPA_KEY}}
+  }});
+  var yaCompradosData=await yaCompradosResp.json();
+  var itemsYaComprados=[];
+  (yaCompradosData||[]).forEach(function(reg){{
+    (reg.items||[]).forEach(function(it){{if(it.item)itemsYaComprados.push(it.item);}});
+  }});
+  var items=[];
+  document.querySelectorAll("tr[data-idx]").forEach(function(r){{
+    var idx=parseInt(r.dataset.idx)||0;
+    var inp=r.querySelector(".rc-real");
+    var re=parseFloat(inp.dataset.val)||0;
+    if(re<=0) return;
+    if(idx >= 10000) {{
+    }} else {{
+      if(r.dataset.comprado==="1") return;
+      if(!inp.value||inp.value.trim()==="") return;
+      var itemNombre=r.cells[1]?r.cells[1].textContent.trim():"";
+      if(itemsYaComprados.indexOf(itemNombre)>-1) return;
+    }}
+    var pu=+r.dataset.pu||0;
+    var c=+r.dataset.cant||1;
+    var ad=+r.querySelector(".rc-adic").value||0;
+    var dif=(pu-re)*c-(ad*re);
+    items.push({{
+      categoria:r.cells[0]?r.cells[0].textContent.trim():"",
+      item:r.cells[1]?r.cells[1].textContent.trim():"",
+      cantidad:c,
+      precio_presupuestado:pu,
+      precio_real:re,
+      adicional:ad,
+      diferencia:dif,
+      es_adicional:idx>=10000||r.dataset.adicional==="1",
+      sin_registro:r.getAttribute("data-sin-registro")==="1"
+    }});
+  }});
+  if(items.length===0){{status.textContent="⚠️ Ingresa al menos un precio real";status.style.color="#dc2626";btn.disabled=false;btn.textContent="💾 Guardar compra";return;}}
+  btn.disabled=true;btn.textContent="⏳ Subiendo factura...";status.textContent="";
+  try{{
+    var ext=_facturaFile.name.split(".").pop();
+    var path="cotizacion-"+EP_NUM+"/"+Date.now()+"."+ext;
+    var uploadResp=await fetch(SUPA_URL+"/storage/v1/object/facturas/"+path,{{
+      method:"POST",
+      headers:{{"Authorization":"Bearer "+SUPA_KEY,"apikey":SUPA_KEY,"Content-Type":_facturaFile.type,"x-upsert":"true"}},
+      body:_facturaFile
+    }});
+    if(!uploadResp.ok) throw new Error("Error subiendo factura: "+uploadResp.status);
+    _facturaUrl=SUPA_URL+"/storage/v1/object/public/facturas/"+path;
+    _facturaNom=_facturaFile.name;
+    var tP=0,tR=0;
+    items.forEach(function(it){{tP+=it.precio_presupuestado*it.cantidad;tR+=(it.precio_real*it.cantidad)+(it.adicional*it.precio_real);}});
+    btn.textContent="⏳ Guardando registro...";
+    var lugarEl=document.getElementById("lugar-compra");
+    var lugarVal=lugarEl?lugarEl.value.trim():"";
+    var tipoVal=document.getElementById("tipo-compra")?document.getElementById("tipo-compra").value:"";
+    var subtipoVal=document.getElementById("subtipo-compra")?document.getElementById("subtipo-compra").value:"";
+    var fechaVal=document.getElementById("fecha-compra")?document.getElementById("fecha-compra").value:"";
+    var faltóVal=document.getElementById("falto-texto")?document.getElementById("falto-texto").value.trim():"";
+    var obsVal=document.getElementById("obs-compra")?document.getElementById("obs-compra").value.trim():"";
+    var saveResp=await fetch(SUPA_URL+"/rest/v1/registro_compras",{{
+      method:"POST",
+      headers:{{
+        "Authorization":"Bearer "+SUPA_KEY,
+        "apikey":SUPA_KEY,
+        "Content-Type":"application/json",
+        "Prefer":"return=minimal"
+      }},
+      body:JSON.stringify({{
+        cotizacion_numero:EP_NUM,
+        usuario_registro:USUARIO,
+        lugar_compra:lugarVal,
+        tipo_compra:tipoVal,
+        subtipo_compra:subtipoVal,
+        fecha_entrega_compra:fechaVal,
+        falto_retirar:faltóVal,
+        observaciones:obsVal,
+        factura_url:_facturaUrl,
+        factura_nombre:_facturaNom,
+        items:items,
+        total_presupuestado:tP,
+        total_real:tR,
+        balance:tP-tR
+      }})
+    }});
+    if(!saveResp.ok) throw new Error("Error guardando registro: "+saveResp.status);
+    btn.textContent="✅ Guardado";btn.style.background="#16a34a";
+    status.textContent="✅ Guardado correctamente. Actualizando...";
+    status.style.color="#16a34a";
+    setTimeout(function(){{
+      var url=new URL(window.parent.location.href);
+      url.searchParams.set("rc_saved",Date.now());
+      window.parent.history.replaceState({{}},"",url);
+      window.parent.dispatchEvent(new PopStateEvent("popstate"));
+    }},1000);
+    items.forEach(function(it){{
+      document.querySelectorAll("tr[data-idx]").forEach(function(r){{
+        if(r.cells[1]&&r.cells[1].textContent.trim()===it.item){{
+          r.style.background="#f0fdf4";
+          r.querySelectorAll("input").forEach(function(inp){{inp.setAttribute("readonly","");inp.style.background="#f0fdf4";}});
+        }}
+      }});
+    }});
+  }}catch(e){{
+    btn.disabled=false;btn.textContent="💾 Guardar compra";
+    status.textContent="❌ Error: "+e.message;status.style.color="#dc2626";
+  }}
+}};
+calc();
+}})();</script>"""
+    return html

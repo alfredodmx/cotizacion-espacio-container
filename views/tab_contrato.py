@@ -101,8 +101,8 @@ def _leer_hojas_disponibles():
     try:
         import pandas as _pd
         try:
-            from app import _get_excel_bytes_activo
-            return _pd.ExcelFile(_get_excel_bytes_activo()).sheet_names
+            from utils.excel_manager import get_excel_bytes_activo as _geba
+            return _pd.ExcelFile(_geba()).sheet_names
         except Exception:
             pass
         try:

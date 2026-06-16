@@ -8,8 +8,19 @@ import streamlit as st
 import streamlit.components.v1 as components
 from datetime import datetime, timezone, timedelta, date as _date_cls
 from config.supabase import supabase_admin as _supa_admin
+from utils.operaciones_db import (
+    listar_usuarios_ejecutivos,
+    obtener_registros_compra,
+    obtener_items_comprados,
+    calcular_estado_compras,
+    dias_habiles_entre,
+    sumar_dias_habiles,
+    guardar_acta_en_storage,
+    registrar_entrega_proyecto,
+)
+from utils.excel_manager import leer_hoja_excel
 
-# ── Importar builders y helpers de utils / app ──────────────────────────────
+# ── Importar builders y helpers de utils ────────────────────────────────────
 
 try:
     from utils.operaciones import (
@@ -32,16 +43,6 @@ try:
     from utils.telefono import formatear_telefono
 except ImportError:
     def formatear_telefono(t): return t or ""
-
-# Intentar importar funciones que solo existen en app.py
-def _try_app_import(name, default=None):
-    try:
-        import importlib, sys
-        if 'app' in sys.modules:
-            return getattr(sys.modules['app'], name, default)
-        return default
-    except Exception:
-        return default
 
 _tz_cl = timezone(timedelta(hours=-3))
 
@@ -104,16 +105,16 @@ def render_tab_operaciones(supabase, supabase_admin=None, supa_url='', supa_key=
     SUPABASE_URL = supa_url or deps.get('supa_url', '')
     SUPABASE_KEY = supa_key or deps.get('supa_key', '')
 
-    # Helpers del contexto app que solo viven en app.py
-    _listar_usuarios_ej     = _try_app_import('listar_usuarios_ejecutivos', lambda: [])
-    _obtener_registros_rc   = _try_app_import('obtener_registros_compra', lambda ep: [])
-    _obtener_items_comprados= _try_app_import('obtener_items_comprados', lambda ep: {})
-    _calcular_estado_compras= _try_app_import('calcular_estado_compras', lambda ep, p: {'pct':0,'estado':'—','adicionales':[]})
-    _dias_habiles_entre     = _try_app_import('dias_habiles_entre', lambda d1, d2: 0)
-    _sumar_dias_habiles     = _try_app_import('sumar_dias_habiles', lambda d, n: d)
-    _guardar_acta           = _try_app_import('guardar_acta_en_storage', None)
-    _registrar_entrega      = _try_app_import('registrar_entrega_proyecto', None)
-    _leer_hoja_excel        = _try_app_import('_leer_hoja_excel', None)
+    # Aliases a módulos utils
+    _listar_usuarios_ej      = listar_usuarios_ejecutivos
+    _obtener_registros_rc    = obtener_registros_compra
+    _obtener_items_comprados = obtener_items_comprados
+    _calcular_estado_compras = calcular_estado_compras
+    _dias_habiles_entre      = dias_habiles_entre
+    _sumar_dias_habiles      = sumar_dias_habiles
+    _guardar_acta            = guardar_acta_en_storage
+    _registrar_entrega       = registrar_entrega_proyecto
+    _leer_hoja_excel         = leer_hoja_excel
 
     # ── Header ──
     st.markdown("""
