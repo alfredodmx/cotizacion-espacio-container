@@ -676,27 +676,99 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         _pend_item  = (st.session_state.get('_item_pendiente_eliminar') or {})
         _pend_name  = ((_pend_item.get('item') or {}).get('Item', ''))
 
-        # ── BARRA DE BÚSQUEDA + JS de filtrado via components.html() height=46 ──
+        # ── BARRA DE BÚSQUEDA + TABLA en un solo components.html() con filas pre-construidas ──
+        # Las filas van DENTRO del iframe: onclick funciona sin que Streamlit las elimine.
         _total_hdr_fmt = '$' + '{:,.0f}'.format(total).replace(',', '.')
         _cf_js   = _json.dumps(_cat_filtro_activo or '', ensure_ascii=False)
         _edit_js = 'true' if not es_solo_lectura else 'false'
         _pend_js = _json.dumps(_pend_name, ensure_ascii=False)
-        _filter_html = ("""<!DOCTYPE html>
+
+        def _hesc(s): return s.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;')
+        def _aesc(s): return _hesc(s).replace('"','&quot;')
+
+        _rows_html = ''
+        for _, _r in _tbl_df.iterrows():
+            _cat  = str(_r['Categoria'])
+            _item = str(_r['Item'])
+            _color = _color_map_tbl.get(_cat, '#6366f1')
+            _ri, _gi, _bi = int(_color[1:3], 16), int(_color[3:5], 16), int(_color[5:7], 16)
+            _bbg = f'rgba({_ri},{_gi},{_bi},0.12)'
+            _is_pend = (_item == _pend_name)
+            _cls = 'editable' if not es_solo_lectura else ''
+            if _is_pend: _cls += ' pending'
+            _onclick = ' onclick="cr(this)"' if not es_solo_lectura else ''
+            _cursor  = 'cursor:pointer;' if not es_solo_lectura else ''
+            _hint    = '<span class="hint">editar / eliminar</span>' if not es_solo_lectura and not _is_pend else ''
+            _rows_html += (
+                f'<tr class="{_cls.strip()}" data-cat="{_aesc(_cat)}" data-item="{_aesc(_item)}"{_onclick} style="{_cursor}">'
+                f'<td><span class="badge" style="background:{_bbg};color:{_color};">{_hesc(_cat)}</span></td>'
+                f'<td><span class="item-n">{_hesc(_item)}</span>{_hint}</td>'
+                f'<td class="r mono">{_r["Cantidad"]}</td>'
+                f'<td class="r mono">{_r["Precio Unitario"]}</td>'
+                f'<td class="r mono bold">{_r["Subtotal"]}</td>'
+                f'<td class="r mono muted">{_r["P. Unit + IVA"]}</td>'
+                f'<td class="r mono muted">{_r["Subtotal + IVA"]}</td>'
+                f'</tr>'
+            )
+
+        _n_tbl = len(_tbl_df)
+        _tbl_h = max(120, min(_n_tbl * 42 + 54, 460))
+        _iframe_total_h = 46 + 8 + _tbl_h
+
+        if es_solo_lectura:
+            st.caption("&#128274; Vista de solo lectura")
+
+        _tbl_html = ("""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;background:transparent;overflow:hidden;}
-#bar{display:flex;align-items:center;gap:8px;padding:4px 0;}
+html,body{height:IFRAMEHPX;overflow:hidden;font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;}
+#wrap{display:flex;flex-direction:column;height:100%;}
+#bar{display:flex;align-items:center;gap:8px;padding:4px 0;flex-shrink:0;height:46px;}
 #search{flex:1;border:1.5px solid #e2e8f0;border-radius:7px;padding:6px 11px;font-size:0.84rem;
   font-family:inherit;outline:none;color:#1e293b;background:#f8fafc;
   transition:border-color .2s,box-shadow .2s;}
 #search:focus{border-color:#5b7cfa;background:#fff;box-shadow:0 0 0 3px rgba(91,124,250,.1);}
 #cnt{font-size:0.72rem;color:#94a3b8;white-space:nowrap;font-weight:600;min-width:64px;text-align:right;}
+#tbl-w{flex:1;overflow:auto;border:1px solid #e2e8f0;border-radius:10px;
+  box-shadow:0 2px 6px rgba(0,0,0,.06);margin-top:4px;}
+#tbl-w::-webkit-scrollbar{width:4px;height:4px;}
+#tbl-w::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}
+table{width:100%;border-collapse:collapse;font-size:.8rem;table-layout:auto;}
+thead th{background:linear-gradient(135deg,#1e2447,#2a3060);color:#fff;
+  font-weight:700;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;
+  padding:9px 11px;white-space:nowrap;position:sticky;top:0;z-index:2;text-align:left;}
+thead th.r{text-align:right;}
+tbody tr:nth-child(even){background:#f8fafc;}
+tbody tr:nth-child(odd){background:#fff;}
+tbody tr.editable:hover{background:#eef1ff!important;}
+tbody tr.pending{background:#fff4f4!important;box-shadow:inset 3px 0 0 #ef4444;}
+td{padding:7px 11px;border-bottom:1px solid #f0f4f8;vertical-align:middle;color:#334155;}
+td.r{text-align:right;}
+.badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:.68rem;
+  font-weight:700;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
+.item-n{font-weight:600;color:#1e293b;font-size:.82rem;line-height:1.35;}
+.hint{font-size:.62rem;color:#94a3b8;font-style:italic;display:block;margin-top:1px;}
+.mono{font-family:'JetBrains Mono','Courier New',monospace;font-size:.77rem;}
+.bold{font-weight:700;color:#0f172a;}
+.muted{color:#64748b;}
 </style></head>
 <body>
+<div id="wrap">
 <div id="bar">
   <svg width="14" height="14" fill="none" stroke="#94a3b8" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
   <input id="search" type="text" placeholder="Filtrar por categoría o ítem..." autocomplete="off">
   <span id="cnt"></span>
+</div>
+<div id="tbl-w">
+<table>
+<thead><tr>
+  <th>Categoría</th><th>Ítem</th>
+  <th class="r">Cant.</th><th class="r">P. Unitario</th>
+  <th class="r">Subtotal</th><th class="r">P.Unit+IVA</th><th class="r">Sub+IVA</th>
+</tr></thead>
+<tbody>ROWSPLACEHOLDER</tbody>
+</table>
+</div>
 </div>
 <script>
 (function(){
@@ -704,19 +776,28 @@ var CF=__CF__;var EM=__EM__;var PI=__PI__;
 var PD;try{PD=window.parent.document;}catch(e){return;}
 function filterRows(){
   var q=document.getElementById('search').value.toLowerCase().trim();
-  var rows=PD.querySelectorAll('tr[data-catpres]');var vis=0;
+  var rows=document.querySelectorAll('tbody tr[data-cat]');var vis=0;
   for(var i=0;i<rows.length;i++){
     var r=rows[i];
-    var cat=r.getAttribute('data-catpres')||'';
-    var item=r.getAttribute('data-itempres')||'';
+    var cat=(r.getAttribute('data-cat')||'').toLowerCase();
+    var item=(r.getAttribute('data-item')||'').toLowerCase();
     var show=true;
-    if(CF&&cat!==CF)show=false;
-    if(q&&cat.toLowerCase().indexOf(q)<0&&item.toLowerCase().indexOf(q)<0)show=false;
+    if(CF&&r.getAttribute('data-cat')!==CF)show=false;
+    if(q&&cat.indexOf(q)<0&&item.indexOf(q)<0)show=false;
     r.style.display=show?'':'none';
     if(show)vis++;
   }
   var el=document.getElementById('cnt');
   if(el)el.textContent=vis+' ítem'+(vis!==1?'s':'');
+}
+function cr(el){
+  var item=el.getAttribute('data-item');if(!item)return;
+  var combined=(CF||'')+' ||| '+item;
+  var inp=PD.querySelector('input[placeholder="__item_trg__"]');
+  if(!inp)return;
+  try{Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set.call(inp,combined);}
+  catch(e){inp.value=combined;}
+  inp.dispatchEvent(new window.parent.Event('input',{bubbles:true}));
 }
 function updateCards(){
   PD.querySelectorAll('._pres_card').forEach(function(el){
@@ -733,15 +814,7 @@ function updateCards(){
   });
 }
 function toggleCF(cat){CF=(CF===cat)?'':cat;updateCards();filterRows();}
-function cr(item){
-  var combined=(CF||'')+' ||| '+item;
-  var inp=PD.querySelector('input[placeholder="__item_trg__"]');
-  if(!inp)return;
-  try{Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set.call(inp,combined);}
-  catch(e){inp.value=combined;}
-  inp.dispatchEvent(new window.parent.Event('input',{bubbles:true}));
-}
-function attachListeners(){
+function attachCardListeners(){
   PD.querySelectorAll('._pres_card').forEach(function(el){
     if(el._pb)return;el._pb=true;
     var cat=el.getAttribute('data-catpres');
@@ -758,16 +831,10 @@ function injectTotal(){
     +'<div style="font-size:1.25rem;font-weight:900;color:#fff;letter-spacing:-0.02em;font-family:Montserrat,sans-serif;line-height:1;">'+tf+'</div>';
   bar.appendChild(d);
 }
-if(EM){
-  window.parent.crPres=function(el){
-    var item=el.getAttribute('data-itempres');
-    if(item)cr(item);
-  };
-}
 document.getElementById('search').addEventListener('input',filterRows);
-setTimeout(function(){attachListeners();filterRows();injectTotal();},300);
+setTimeout(function(){attachCardListeners();updateCards();filterRows();injectTotal();},300);
 setTimeout(injectTotal,1200);
-setInterval(attachListeners,3000);
+setInterval(attachCardListeners,3000);
 })();
 </script>
 </body></html>"""
@@ -775,72 +842,10 @@ setInterval(attachListeners,3000);
             .replace('__EM__', _edit_js)
             .replace('__PI__', _pend_js)
             .replace('__TH__', _json.dumps(_total_hdr_fmt, ensure_ascii=False))
+            .replace('IFRAMEHPX', str(_iframe_total_h) + 'px')
+            .replace('ROWSPLACEHOLDER', _rows_html)
         )
-        components.html(_filter_html, height=46, scrolling=False)
-
-        # ── TABLA via st.markdown() — filas siempre en el DOM, JS solo togglea display ──
-        _tbl_css_md = ('<style>'
-            '.pres-tbl-wrap{border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;'
-            'box-shadow:0 2px 6px rgba(0,0,0,.06);margin-top:4px;}'
-            '.pres-tbl-wrap table{width:100%;border-collapse:collapse;font-size:.8rem;table-layout:auto;}'
-            '.pres-tbl-wrap thead th{background:linear-gradient(135deg,#1e2447,#2a3060);color:#fff;'
-            'font-weight:700;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;'
-            'padding:9px 11px;white-space:nowrap;position:sticky;top:0;z-index:2;text-align:left;}'
-            '.pres-tbl-wrap thead th.r{text-align:right;}'
-            '.pres-tbl-wrap tbody tr:nth-child(even){background:#f8fafc;}'
-            '.pres-tbl-wrap tbody tr:nth-child(odd){background:#fff;}'
-            '._pres_row_edit:hover{background:#eef1ff!important;cursor:pointer;}'
-            '._pres_row_pend{background:#fff4f4!important;box-shadow:inset 3px 0 0 #ef4444;}'
-            '.pres-tbl-wrap td{padding:7px 11px;border-bottom:1px solid #f0f4f8;'
-            'vertical-align:middle;color:#334155;}'
-            '.pres-tbl-wrap td.r{text-align:right;}'
-            '.bdg-pres{display:inline-block;padding:2px 7px;border-radius:20px;font-size:.68rem;'
-            'font-weight:700;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}'
-            '.itnm-pres{font-weight:600;color:#1e293b;font-size:.82rem;line-height:1.35;}'
-            '.hint-pres{font-size:.62rem;color:#94a3b8;font-style:italic;display:block;margin-top:1px;}'
-            '.mono-pres{font-family:"JetBrains Mono","Courier New",monospace;font-size:.77rem;}'
-            '</style>')
-        _rows_md = ''
-        for _, _r in _tbl_df.iterrows():
-            _cat = str(_r['Categoria'])
-            _item = str(_r['Item'])
-            _color = _color_map_tbl.get(_cat, '#6366f1')
-            _ri, _gi, _bi = int(_color[1:3], 16), int(_color[3:5], 16), int(_color[5:7], 16)
-            _bbg = f'rgba({_ri},{_gi},{_bi},0.12)'
-            _is_pend = (_item == _pend_name)
-            _cls = '_pres_row_edit' if not es_solo_lectura else ''
-            if _is_pend: _cls += ' _pres_row_pend'
-            _dcat  = _cat.replace('"', '&quot;').replace("'", "&#39;")
-            _ditem = _item.replace('"', '&quot;').replace("'", "&#39;")
-            _tr_oc = ' onclick="window.crPres&&window.crPres(this)"' if not es_solo_lectura else ''
-            _rows_md += (
-                f'<tr class="{_cls.strip()}" data-catpres="{_dcat}" data-itempres="{_ditem}"{_tr_oc} style="cursor:{"pointer" if not es_solo_lectura else "default"};">'
-                f'<td><span class="bdg-pres" style="background:{_bbg};color:{_color};">{_cat}</span></td>'
-                f'<td><span class="itnm-pres">{_item}</span>'
-                + (f'<span class="hint-pres">editar / eliminar</span>' if not es_solo_lectura and not _is_pend else '')
-                + f'</td>'
-                f'<td class="r mono-pres">{_r["Cantidad"]}</td>'
-                f'<td class="r mono-pres">{_r["Precio Unitario"]}</td>'
-                f'<td class="r mono-pres" style="font-weight:700;color:#0f172a;">{_r["Subtotal"]}</td>'
-                f'<td class="r mono-pres" style="color:#64748b;">{_r["P. Unit + IVA"]}</td>'
-                f'<td class="r mono-pres" style="color:#64748b;">{_r["Subtotal + IVA"]}</td>'
-                f'</tr>'
-            )
-        _n_tbl = len(_tbl_df)
-        _tbl_max_h = max(160, min(_n_tbl * 42 + 54, 460))
-        if es_solo_lectura:
-            st.caption("&#128274; Vista de solo lectura")
-        st.markdown(
-            _tbl_css_md
-            + '<div class="pres-tbl-wrap">'
-            + f'<div style="overflow-x:auto;max-height:{_tbl_max_h}px;overflow-y:auto;">'
-            + '<table><thead><tr>'
-            + '<th>Categoría</th><th>Ítem</th>'
-            + '<th class="r">Cant.</th><th class="r">P. Unitario</th>'
-            + '<th class="r">Subtotal</th><th class="r">P.Unit+IVA</th><th class="r">Sub+IVA</th>'
-            + f'</tr></thead><tbody>{_rows_md}</tbody></table></div></div>',
-            unsafe_allow_html=True
-        )
+        components.html(_tbl_html, height=_iframe_total_h, scrolling=False)
 
         if st.session_state.get('_item_pendiente_eliminar'):
             _pend = st.session_state['_item_pendiente_eliminar']
