@@ -10,8 +10,9 @@ import requests as _rq_excel
 import streamlit as st
 import streamlit.components.v1 as components
 from datetime import datetime, timedelta
+from repositories.cotizaciones_repo import guardar_cotizacion, generar_numero_unico
 from services.cotizacion_service import aplicar_margen
-from utils.formato import formato_clp
+from utils.formato import formato_clp, calcular_hash_estado
 from utils.telefono import formatear_telefono
 
 
@@ -142,6 +143,53 @@ def limpiar_todo():
     st.session_state.counter += 100
 
 
+def _construir_datos_guardar_simple():
+    ft = formatear_telefono(st.session_state.get('telefono_raw', '') or '')
+    dc = {
+        'Nombre': st.session_state.get('nombre_input', ''),
+        'RUT': st.session_state.get('rut_display', ''),
+        'Correo': st.session_state.get('correo_input', ''),
+        'Teléfono': ft,
+        'Dirección': st.session_state.get('direccion_input', ''),
+        'ComunaCliente': st.session_state.get('cliente_comuna', ''),
+        'RegionCliente': st.session_state.get('cliente_region', ''),
+        'DireccionProyecto': st.session_state.get('proyecto_direccion', ''),
+        'ComunaProyecto': st.session_state.get('proyecto_comuna', ''),
+        'RegionProyecto': st.session_state.get('proyecto_region', ''),
+        'TipoCliente': st.session_state.get('cliente_tipo', 'natural'),
+        'EmpresaCliente': st.session_state.get('cliente_empresa', ''),
+        'RutEmpresa': st.session_state.get('cliente_rut_empresa', ''),
+        'Observaciones': st.session_state.get('observaciones_input', ''),
+    }
+    nom = st.session_state.get('asesor_seleccionado', '')
+    if nom == 'Seleccionar asesor': nom = ''
+    da = {
+        'Nombre Ejecutivo': nom,
+        'Correo Ejecutivo': st.session_state.get('correo_asesor', ''),
+        'Teléfono Ejecutivo': st.session_state.get('telefono_asesor', ''),
+    }
+    fi = st.session_state.get('fecha_inicio', datetime.now().date())
+    ft2 = st.session_state.get('fecha_termino', (datetime.now() + timedelta(days=15)).date())
+    proy = {
+        'fecha_inicio': str(fi), 'fecha_termino': str(ft2),
+        'dias_validez': (ft2 - fi).days,
+        'observaciones': st.session_state.get('observaciones_input', ''),
+    }
+    cfg = {'margen': st.session_state.get('margen', 0), 'modo_admin': st.session_state.get('modo_admin', False)}
+    carrito = st.session_state.get('carrito', [])
+    if carrito:
+        df_c = pd.DataFrame(carrito); sb = df_c['Subtotal'].sum()
+        mg = st.session_state.get('margen', 0)
+        sc = sum(i['Cantidad'] * aplicar_margen(i['Precio Unitario'], mg) for i in carrito) if (st.session_state.get('modo_admin') or mg > 0) else sb
+        iva = sc * 0.19; tot = sc + iva
+    else:
+        sb = sc = iva = tot = 0
+    tots = {'subtotal_sin_margen': sb, 'subtotal_con_margen': sc, 'iva': iva, 'total': tot}
+    pn = st.session_state.get('plano_nombre') if st.session_state.get('plano_adjunto') else None
+    pd2 = st.session_state.get('plano_adjunto') if st.session_state.get('plano_adjunto') else None
+    return dc, da, proy, cfg, tots, pn, pd2
+
+
 def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
     st.markdown("""
     <style>
@@ -165,6 +213,28 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
     .hdr1 h2 { color: #fff !important; margin: 0; font-size: 0.88rem; font-weight: 700;
                  font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
     .hdr1 p  { color: rgba(255,255,255,0.65) !important; margin: 1px 0 0; font-size: 0.92rem; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
+    .metric-card-special {
+        border-radius: 18px; padding: 1.5rem;
+        box-shadow: 0 8px 28px rgba(0,0,0,0.14);
+        transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+        border: 1px solid rgba(255,255,255,0.2);
+        height: 100%; display: flex; flex-direction: column;
+        position: relative; overflow: hidden;
+    }
+    .metric-card-special::before {
+        content: ''; position: absolute; top: -40px; right: -40px;
+        width: 120px; height: 120px; border-radius: 50%;
+        background: rgba(255,255,255,0.1);
+    }
+    .metric-card-special::after {
+        content: ''; position: absolute; bottom: -20px; left: -20px;
+        width: 80px; height: 80px; border-radius: 50%;
+        background: rgba(255,255,255,0.06);
+    }
+    .metric-card-special:hover { transform: translateY(-5px); box-shadow: 0 20px 50px rgba(0,0,0,0.2); }
+    .metric-card-total       { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+    .metric-card-comisiones  { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+    .metric-card-utilidad    { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
     </style>
     <div class="hdr1" style="display:flex!important;align-items:center!important;">
       <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">&#9745;&#65039;</span>
@@ -607,8 +677,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         _pend_name  = ((_pend_item.get('item') or {}).get('Item', ''))
 
         # ── BARRA DE BÚSQUEDA + JS de filtrado via components.html() height=46 ──
-        # Exactamente igual al patrón de tab_historial: JS usa window.parent.document
-        # para adjuntar listeners a cards y filtrar filas en el DOM padre.
+        _total_hdr_fmt = '$' + '{:,.0f}'.format(total).replace(',', '.')
         _cf_js   = _json.dumps(_cat_filtro_activo or '', ensure_ascii=False)
         _edit_js = 'true' if not es_solo_lectura else 'false'
         _pend_js = _json.dumps(_pend_name, ensure_ascii=False)
@@ -686,8 +755,19 @@ function attachListeners(){
     });
   }
 }
+function injectTotal(){
+  var bar=PD.getElementById('_usr_header_bar');if(!bar)return;
+  var ex=PD.getElementById('_hdr_total_cot');if(ex)ex.remove();
+  var tf=__TH__;if(!tf)return;
+  var d=PD.createElement('div');d.id='_hdr_total_cot';
+  d.style.cssText='position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;';
+  d.innerHTML='<div style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:2px;">Total + IVA</div>'
+    +'<div style="font-size:1.25rem;font-weight:900;color:#fff;letter-spacing:-0.02em;font-family:Montserrat,sans-serif;line-height:1;">'+tf+'</div>';
+  bar.appendChild(d);
+}
 document.getElementById('search').addEventListener('input',filterRows);
-setTimeout(function(){attachListeners();filterRows();},300);
+setTimeout(function(){attachListeners();filterRows();injectTotal();},300);
+setTimeout(injectTotal,1200);
 setInterval(attachListeners,3000);
 })();
 </script>
@@ -695,6 +775,7 @@ setInterval(attachListeners,3000);
             .replace('__CF__', _cf_js)
             .replace('__EM__', _edit_js)
             .replace('__PI__', _pend_js)
+            .replace('__TH__', _json.dumps(_total_hdr_fmt, ensure_ascii=False))
         )
         components.html(_filter_html, height=46, scrolling=False)
 
@@ -960,3 +1041,205 @@ setInterval(attachListeners,3000);
                 st.info("&#128274; Los detalles de comisiones y utilidad solo est&#225;n disponibles para administradores.")
     else:
         st.info("&#128072; Agrega productos al presupuesto usando los controles de la izquierda")
+
+    # ── FAB GUARDAR FLOTANTE ────────────────────────────────────────────────
+    _es_solo_lectura_fab = st.session_state.get('_adj_es_adj', False) and not st.session_state.get('es_root', False)
+    _hash_actual = calcular_hash_estado()
+    _hay_cambios = _hash_actual != st.session_state.get('hash_ultimo_guardado')
+    _mostrar_fab = (
+        len(st.session_state.get('carrito', [])) > 0
+        and not _es_solo_lectura_fab
+        and not st.session_state.get('recien_guardado', False)
+        and not st.session_state.get('recien_cargado', False)
+        and _hay_cambios
+    )
+    if st.session_state.get('recien_guardado', False):
+        st.session_state.recien_guardado = False
+    if st.session_state.get('recien_cargado', False):
+        st.session_state.recien_cargado = False
+
+    if _mostrar_fab:
+        st.markdown("""
+<style>
+@keyframes pfab{
+    0%{box-shadow:0 8px 24px rgba(91,124,250,0.5);}
+    50%{box-shadow:0 8px 40px rgba(91,124,250,0.9),0 0 0 12px rgba(91,124,250,0.15);}
+    100%{box-shadow:0 8px 24px rgba(91,124,250,0.5);}
+}
+.st-key-btn_fab_guardar {
+    position: fixed !important; bottom: 1.5rem !important;
+    left: 2rem !important; z-index: 999999 !important;
+}
+.st-key-btn_fab_guardar button {
+    background: linear-gradient(135deg,#5b7cfa,#8b5cf6) !important;
+    color: #fff !important; border: none !important;
+    border-radius: 50px !important; padding: 0.85rem 1.6rem !important;
+    font-size: 0.95rem !important; font-weight: 700 !important;
+    animation: pfab 2s infinite !important; white-space: nowrap !important;
+    min-width: 140px !important;
+}
+.st-key-btn_fab_guardar button:hover {
+    transform: translateY(-3px) !important; animation: none !important;
+}
+</style>""", unsafe_allow_html=True)
+        if st.button("\U0001f4be Guardar", key="btn_fab_guardar"):
+            try:
+                dc_g, da_g, proy_g, cfg_g, tots_g, pn_g, pd_g = _construir_datos_guardar_simple()
+                num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
+                _usr_log = st.session_state.get('auth_nombre', '') or st.session_state.get('auth_email', '')
+                guardar_cotizacion(num_g, dc_g, da_g, proy_g,
+                                   st.session_state.carrito, cfg_g, tots_g, pn_g, pd_g,
+                                   usuario_logueado=_usr_log)
+                st.session_state.cotizacion_cargada = num_g
+                st.session_state.hash_ultimo_guardado = calcular_hash_estado()
+                st.session_state.recien_guardado = True
+                st.session_state.counter += 1
+                st.rerun()
+            except Exception as _eg:
+                st.error(f"Error al guardar: {_eg}")
+
+    # ── MARGEN FAB (solo admin) ─────────────────────────────────────────────
+    _margen_actual = st.session_state.margen
+    _mstr = f"{_margen_actual:.3f}"
+    if st.session_state.modo_admin and not _es_solo_lectura_fab:
+        _color_fab = '#10b981' if _margen_actual > 0 else '#6b7280'
+        _pct_bar = min(int(_margen_actual), 100)
+        st.markdown(f"""
+<style>
+section[data-testid="stMain"] div[data-testid="stPopover"] {{
+    position: fixed !important; left: 0 !important; top: 50% !important;
+    transform: translateY(-50%) !important; bottom: unset !important;
+    z-index: 99998 !important; width: 160px !important;
+}}
+section[data-testid="stMain"] div[data-testid="stPopover"] > div > button {{
+    background: white !important; color: {_color_fab} !important;
+    border: 1px solid #e2e8f0 !important; border-left: none !important;
+    border-radius: 0 10px 10px 0 !important; padding: 14px 8px !important;
+    width: 54px !important; min-height: unset !important; height: auto !important;
+    display: flex !important; flex-direction: column !important;
+    align-items: center !important; justify-content: center !important;
+    gap: 2px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important; font-size: 0 !important;
+}}
+section[data-testid="stMain"] div[data-testid="stPopover"] > div > button::before {{
+    content: "{_mstr}%" !important; font-size: 0.72rem !important;
+    font-weight: 900 !important; color: {_color_fab} !important; display: block !important;
+}}
+section[data-testid="stMain"] div[data-testid="stPopover"] > div > button::after {{
+    content: "VER" !important; font-size: 0.5rem !important;
+    font-weight: 700 !important; color: #9ca3af !important;
+    display: block !important; white-space: pre !important;
+}}
+section[data-testid="stMain"] [data-testid="stPopoverBody"] {{
+    background: white !important; border-radius: 0 14px 14px 0 !important;
+    border: 1px solid #e2e8f0 !important; border-left: none !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.12) !important;
+    padding: 12px 10px !important; width: 160px !important;
+    left: 54px !important; top: 0 !important;
+}}
+</style>""", unsafe_allow_html=True)
+        with st.popover(""):
+            st.markdown(f"""
+            <div style="text-align:center;margin-bottom:6px;">
+              <div style="font-size:1.4rem;font-weight:900;color:{_color_fab};line-height:1;">{_mstr}%</div>
+              <div style="font-size:0.6rem;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;">Margen</div>
+            </div>
+            <div style="background:#f1f5f9;border-radius:99px;height:5px;margin-bottom:10px;overflow:hidden;">
+              <div style="width:{_pct_bar}%;height:100%;border-radius:99px;background:{_color_fab};"></div>
+            </div>""", unsafe_allow_html=True)
+            _mg_pop = st.number_input(
+                "Margen %", min_value=0.0, max_value=100.0,
+                value=float(_margen_actual), step=0.001, format="%.3f",
+                key="margen_popover"
+            )
+            if st.button("✅ Aplicar", key="btn_aplicar_margen", use_container_width=True):
+                st.session_state.margen = _mg_pop
+                st.session_state.counter += 1
+                st.rerun()
+
+    # ── PANEL PROGRESO FLOTANTE (derecha) ───────────────────────────────────
+    _mostrar_prog = bool(
+        st.session_state.get('cotizacion_cargada') or
+        len(st.session_state.get('carrito', [])) > 0
+    )
+    if _mostrar_prog:
+        _ss = st.session_state
+        _es_juridica = _ss.get('cliente_tipo', 'natural') == 'juridica'
+        _asesor_ok = bool(_ss.get('asesor_seleccionado', '') and _ss.get('asesor_seleccionado') != 'Seleccionar asesor')
+        _campos_prog = [
+            ('Presupuesto',     25, bool(len(_ss.get('carrito', [])) > 0)),
+            ('Plano PDF',       10, bool(_ss.get('plano_adjunto') or _ss.get('pdf_url') or _ss.get('plano_nombre'))),
+            ('Datos asesor',    10, _asesor_ok),
+            ('Nombre cliente',  10, bool(str(_ss.get('nombre_input', '')).strip())),
+            ('Correo',           8, bool(str(_ss.get('correo_input', '')).strip())),
+            ('RUT',              8, bool(str(_ss.get('rut_display', '')).strip())),
+            ('Teléfono',    5, bool(str(_ss.get('telefono_raw', '')).strip())),
+            ('Descripción', 5, bool(str(_ss.get('observaciones_input', '')).strip())),
+            ('Dir. cliente',     5, bool(str(_ss.get('direccion_input', '')).strip())),
+            ('Dir. proyecto',    5, bool(str(_ss.get('proyecto_direccion', '')).strip())),
+        ]
+        if _es_juridica:
+            _campos_prog.append(('Empresa', 5, bool(str(_ss.get('cliente_empresa', '')).strip())))
+            _campos_prog.append(('RUT empresa', 4, bool(str(_ss.get('cliente_rut_empresa', '')).strip())))
+        _total_peso_p = sum(p for _, p, _ in _campos_prog)
+        _peso_ok_p = sum(p for _, p, v in _campos_prog if v)
+        _pct_p = int(round(_peso_ok_p / _total_peso_p * 100)) if _total_peso_p > 0 else 0
+        if _pct_p == 100:   _pc_p = '#10b981'
+        elif _pct_p >= 70:  _pc_p = '#f97316'
+        elif _pct_p >= 40:  _pc_p = '#eab308'
+        else:               _pc_p = '#ef4444'
+        _items_parts_p = []
+        for _lbl_p, _, _ok_p in _campos_prog:
+            _ic_p = '&#9989;' if _ok_p else '&#11036;'
+            _col_p = '#374151' if _ok_p else '#9ca3af'
+            _fw_p = '600' if _ok_p else '400'
+            _items_parts_p.append(
+                f'<div style="display:flex;align-items:center;gap:6px;padding:2px 0;">'
+                f'<span style="font-size:0.7rem;">{_ic_p}</span>'
+                f'<span style="font-size:0.7rem;color:{_col_p};font-weight:{_fw_p};">{_lbl_p}</span>'
+                f'</div>'
+            )
+        _items_html_p = ''.join(_items_parts_p)
+        _prog_html = (
+            f'<div id="_prog_panel" style="position:fixed;right:0;top:50%;transform:translateY(-50%);'
+            f'z-index:99997;background:#ffffff;border-radius:14px 0 0 14px;padding:12px 10px;width:148px;'
+            f'box-shadow:0 4px 24px rgba(0,0,0,0.12),0 1px 4px rgba(0,0,0,0.06);border:1px solid #e2e8f0;">'
+            f'<div style="text-align:center;margin-bottom:8px;">'
+            f'<div style="font-size:1.4rem;font-weight:900;color:{_pc_p};line-height:1;">{_pct_p}%</div>'
+            f'<div style="font-size:0.62rem;color:#9ca3af;margin-top:1px;text-transform:uppercase;letter-spacing:0.05em;">Completado</div>'
+            f'</div>'
+            f'<div style="background:#f1f5f9;border-radius:99px;height:6px;margin-bottom:10px;overflow:hidden;">'
+            f'<div style="width:{_pct_p}%;height:100%;border-radius:99px;background:{_pc_p};transition:width 0.4s ease;"></div>'
+            f'</div>'
+            f'<div style="display:flex;flex-direction:column;gap:1px;">{_items_html_p}</div>'
+            f'<div id="_prog_toggle" data-action="prog-toggle" style="margin-top:16px;text-align:center;'
+            f'cursor:pointer;font-size:0.65rem;color:#9ca3af;padding:3px 0;'
+            f'border-top:1px solid #f1f5f9;user-select:none;" title="Ocultar">› Ocultar</div>'
+            f'</div>'
+            f'<div id="_prog_mini" style="display:none;position:fixed;right:0;top:50%;'
+            f'transform:translateY(-50%);z-index:99997;background:{_pc_p};'
+            f'border-radius:10px 0 0 10px;padding:14px 8px;cursor:pointer;'
+            f'box-shadow:0 4px 20px rgba(0,0,0,0.2);text-align:center;width:54px;" data-action="prog-show">'
+            f'<div style="font-size:1.15rem;font-weight:900;color:#fff;line-height:1;">{_pct_p}%</div>'
+            f'<div style="font-size:0.7rem;color:rgba(255,255,255,0.85);margin-top:5px;">\U0001f4ca</div>'
+            f'<div style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.75);margin-top:3px;letter-spacing:0.06em;">VER</div>'
+            f'</div>'
+        )
+        st.markdown(_prog_html, unsafe_allow_html=True)
+        components.html("""<script>
+(function(){
+    var D=window.parent.document;
+    function initToggle(){
+        D.addEventListener('click',function(e){
+            var el=e.target&&e.target.closest?e.target.closest('[data-action]'):null;
+            if(!el)return;
+            var action=el.getAttribute('data-action');
+            var panel=D.getElementById('_prog_panel');
+            var mini=D.getElementById('_prog_mini');
+            if(!panel||!mini)return;
+            if(action==='prog-toggle'){panel.style.display='none';mini.style.display='block';}
+            else if(action==='prog-show'){panel.style.display='block';mini.style.display='none';}
+        });
+    }
+    setTimeout(initToggle,300);
+})();
+</script>""", height=1)
