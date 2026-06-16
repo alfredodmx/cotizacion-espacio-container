@@ -791,22 +791,17 @@ function filterRows(){
   if(el)el.textContent=vis+' ítem'+(vis!==1?'s':'');
 }
 window.cr=function(el){
-  var item=el.getAttribute('data-item');
-  console.log('[cr] called item=',item);
-  if(!item)return;
+  var item=el.getAttribute('data-item');if(!item)return;
   var combined=(CF||'')+' ||| '+item;
   var inp=PD.querySelector('.st-key-_item_click_trigger input')
           ||PD.querySelector('input[placeholder="__item_trg__"]');
-  console.log('[cr] inp=',inp);
   if(!inp)return;
-  try{
-    var desc=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value');
-    console.log('[cr] desc=',desc);
-    if(desc&&desc.set){desc.set.call(inp,combined);console.log('[cr] setter OK val=',inp.value);}
-    else{inp.value=combined;console.log('[cr] setter missing');}
-  }catch(e){inp.value=combined;console.log('[cr] setter ERR',e.message);}
+  var desc=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value');
+  if(desc&&desc.set)desc.set.call(inp,combined);else inp.value=combined;
   inp.dispatchEvent(new window.parent.Event('input',{bubbles:true}));
-  console.log('[cr] dispatched');
+  inp.dispatchEvent(new window.parent.KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true,cancelable:true}));
+  inp.dispatchEvent(new window.parent.KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true,cancelable:true}));
+  inp.dispatchEvent(new window.parent.Event('change',{bubbles:true}));
 };
 function updateCards(){
   PD.querySelectorAll('._pres_card').forEach(function(el){
