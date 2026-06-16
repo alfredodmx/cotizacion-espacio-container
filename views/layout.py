@@ -323,15 +323,11 @@ p.modulo-titulo {
 }
 .sub-title { color: #9099be; font-size: 0.82rem; font-weight: 500; margin-top: 0.2rem; letter-spacing: 0.02em; }
 
-/* ── Ocultar botones movidos al header ── */
-.st-key-btn_pwd_hdr,
-.st-key-btn_cerrar_sesion_header {
-    position: fixed !important; top: -9999px !important; left: -9999px !important;
-    width: 1px !important; height: 1px !important; overflow: hidden !important;
-}
+/* ── Ocultar row de botones de sesión (se clonan al header por JS) ── */
 [data-testid="stHorizontalBlock"]:has(.st-key-btn_pwd_hdr) {
-    display: none !important; height: 0 !important;
-    margin: 0 !important; padding: 0 !important; min-height: 0 !important;
+    visibility: hidden !important; height: 0 !important;
+    overflow: hidden !important; margin: 0 !important; padding: 0 !important;
+    min-height: 0 !important; max-height: 0 !important;
 }
 </style>
 """
@@ -502,7 +498,7 @@ def render_layout():
             st.session_state["modo_admin"] = False
             st.rerun()
 
-    # 7. JS — mover botones al header + copiar EP al click
+    # 7. JS — mover botones al header una sola vez (sin MutationObserver)
     _components.html("""
 <script>
 (function(){
@@ -510,61 +506,48 @@ def render_layout():
 
     function moveButtons() {
         var bar = D.getElementById('_usr_header_bar');
-        if (!bar) return;
+        if (!bar) return false;
+        if (bar.querySelector('._hdr_btns')) return true;
         var usrRight = bar.querySelector('.usr-right');
-        if (!usrRight) return;
-        var old = bar.querySelector('._hdr_btns');
-        if (old) old.remove();
+        if (!usrRight) return false;
 
         var allBtns = D.querySelectorAll('button');
         var btnPwd = null, btnOut = null;
         for (var i = 0; i < allBtns.length; i++) {
             var txt = (allBtns[i].innerText || '').trim();
             if (txt === '🔑 Mi contraseña') btnPwd = allBtns[i];
-            if (txt === '🚪 Cerrar sesión')  btnOut = allBtns[i];
+            if (txt === '🚪 Cerrar sesión') btnOut = allBtns[i];
         }
-        if (!btnPwd || !btnOut) return;
+        if (!btnPwd || !btnOut) return false;
 
+        var S = 'background:rgba(255,255,255,0.08)!important;color:#fff!important;border:1px solid rgba(255,255,255,0.25)!important;border-radius:6px!important;padding:4px 12px!important;font-size:0.82rem!important;font-weight:600!important;cursor:pointer!important;white-space:nowrap!important;font-family:inherit!important;transition:background 0.2s!important;';
         var wrap = D.createElement('div');
         wrap.className = '_hdr_btns';
         wrap.style.cssText = 'display:flex;align-items:center;gap:6px;margin-left:12px;';
 
-        var S = 'background:rgba(255,255,255,0.08)!important;color:#fff!important;border:1px solid rgba(255,255,255,0.25)!important;border-radius:6px!important;padding:4px 12px!important;font-size:0.82rem!important;font-weight:600!important;cursor:pointer!important;white-space:nowrap!important;font-family:inherit!important;';
-
         var cp = D.createElement('button');
         cp.textContent = '🔑 Mi contraseña';
         cp.style.cssText = S;
-        cp.onclick = function(e){ e.preventDefault(); btnPwd.click(); };
+        cp.onclick = function(e){ e.preventDefault(); e.stopPropagation(); btnPwd.click(); };
 
         var co = D.createElement('button');
         co.textContent = '🚪 Cerrar sesión';
-        co.style.cssText = S + 'background:rgba(239,68,68,0.25)!important;border-color:rgba(239,68,68,0.5)!important;';
-        co.onclick = function(){ btnOut.click(); };
+        co.style.cssText = S + 'background:rgba(239,68,68,0.2)!important;border-color:rgba(239,68,68,0.45)!important;';
+        co.onclick = function(e){ e.preventDefault(); e.stopPropagation(); btnOut.click(); };
 
         wrap.appendChild(cp);
         wrap.appendChild(co);
         usrRight.appendChild(wrap);
+        return true;
     }
 
-    D.addEventListener('click', function(e){
-        var el = e.target && e.target.closest ? e.target.closest('#hdr-badge-estado') : null;
-        if (!el) return;
-        var ep = el.getAttribute('data-ep') || '';
-        if (!ep) return;
-        var ta = D.createElement('textarea');
-        ta.value = ep; ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
-        D.body.appendChild(ta); ta.focus(); ta.select();
-        try { D.execCommand('copy'); } catch(e) {}
-        ta.remove();
-        var orig = el.innerHTML;
-        el.innerHTML = '✅ ¡Copiado!';
-        setTimeout(function(){ el.innerHTML = orig; }, 1200);
-    });
-
-    setTimeout(moveButtons, 600);
-    setTimeout(moveButtons, 1400);
-    var obs = new MutationObserver(function(){ moveButtons(); });
-    obs.observe(D.body, {childList: true, subtree: true});
+    function tryMove(attempts) {
+        if (attempts <= 0) return;
+        if (!moveButtons()) {
+            setTimeout(function(){ tryMove(attempts - 1); }, 600);
+        }
+    }
+    tryMove(8);
 })();
 </script>
 """, height=0)
