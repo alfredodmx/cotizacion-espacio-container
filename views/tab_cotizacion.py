@@ -758,14 +758,11 @@ function injectTotal(){
     +'<div style="font-size:1.25rem;font-weight:900;color:#fff;letter-spacing:-0.02em;font-family:Montserrat,sans-serif;line-height:1;">'+tf+'</div>';
   bar.appendChild(d);
 }
-if(EM && !PD._presRowDelegated){
-  PD._presRowDelegated=true;
-  PD.addEventListener('click',function(e){
-    var rw=e.target&&e.target.closest?e.target.closest('tr[data-catpres]'):null;
-    if(!rw)return;
-    var item=rw.getAttribute('data-itempres');
+if(EM){
+  window.parent.crPres=function(el){
+    var item=el.getAttribute('data-itempres');
     if(item)cr(item);
-  });
+  };
 }
 document.getElementById('search').addEventListener('input',filterRows);
 setTimeout(function(){attachListeners();filterRows();injectTotal();},300);
@@ -815,8 +812,9 @@ setInterval(attachListeners,3000);
             if _is_pend: _cls += ' _pres_row_pend'
             _dcat  = _cat.replace('"', '&quot;').replace("'", "&#39;")
             _ditem = _item.replace('"', '&quot;').replace("'", "&#39;")
+            _tr_oc = ' onclick="window.crPres&&window.crPres(this)"' if not es_solo_lectura else ''
             _rows_md += (
-                f'<tr class="{_cls.strip()}" data-catpres="{_dcat}" data-itempres="{_ditem}">'
+                f'<tr class="{_cls.strip()}" data-catpres="{_dcat}" data-itempres="{_ditem}"{_tr_oc} style="cursor:{"pointer" if not es_solo_lectura else "default"};">'
                 f'<td><span class="bdg-pres" style="background:{_bbg};color:{_color};">{_cat}</span></td>'
                 f'<td><span class="itnm-pres">{_item}</span>'
                 + (f'<span class="hint-pres">editar / eliminar</span>' if not es_solo_lectura and not _is_pend else '')
