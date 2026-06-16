@@ -198,7 +198,7 @@ def render_tab_notificaciones(supabase, **deps):
                 st.markdown(f"<div style='padding:6px 0;font-size:0.78rem;color:#64748b'>{_ue}</div>", unsafe_allow_html=True)
             with _col_chat:
                 _chat_val = _contactos.get(_ue, '')
-                _new_chat = st.text_input("", value=_chat_val, placeholder="@usuario o Chat ID",
+                _new_chat = st.text_input("Chat ID", value=_chat_val, placeholder="@usuario o Chat ID",
                                           key=f"chat_{_idx}_{_ue}", label_visibility="collapsed")
                 _contactos_nuevos[_ue] = _new_chat
             with _col_rol:
@@ -221,10 +221,10 @@ def render_tab_notificaciones(supabase, **deps):
         for _oi, _ob in enumerate(_obs_list_edit):
             _oc1, _oc2, _oc3 = st.columns([2, 2, 0.5])
             with _oc1:
-                _on = st.text_input("", value=_ob.get('nombre', ''), placeholder="Nombre (ej: Gerente)",
+                _on = st.text_input("Nombre observador", value=_ob.get('nombre', ''), placeholder="Nombre (ej: Gerente)",
                                     key=f"obs_nm_{_oi}", label_visibility="collapsed")
             with _oc2:
-                _oid = st.text_input("", value=_ob.get('chat_id', ''), placeholder="@usuario o Chat ID",
+                _oid = st.text_input("Chat ID observador", value=_ob.get('chat_id', ''), placeholder="@usuario o Chat ID",
                                      key=f"obs_id_{_oi}", label_visibility="collapsed")
             with _oc3:
                 _del = st.button("&#10005;", key=f"obs_del_{_oi}", help="Eliminar")
@@ -314,7 +314,7 @@ def render_tab_notificaciones(supabase, **deps):
                     <div style='font-size:0.72rem;color:#94a3b8'>&#8594; {_mdest}</div>
                     <div style='font-size:0.7rem;color:#cbd5e1;font-style:italic'>{_mcuando}</div>
                 </div>""", unsafe_allow_html=True)
-                _msgs_nuevos[_mk] = st.text_area("", value=_mval, height=400,
+                _msgs_nuevos[_mk] = st.text_area("Mensaje", value=_mval, height=400,
                                                   key=f"msg_{_mk}", label_visibility="collapsed")
         _mb1, _mb2 = st.columns([1, 1])
         with _mb1:

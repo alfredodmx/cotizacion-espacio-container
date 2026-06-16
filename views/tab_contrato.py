@@ -1016,7 +1016,7 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                                 f'text-transform:uppercase;letter-spacing:0.08em;padding:8px 14px;'
                                 f'border-radius:8px 8px 0 0;">{_label.upper()}</div>',
                                 unsafe_allow_html=True)
-                            _edits[_key] = st.text_area("", value=_val, height=_h,
+                            _edits[_key] = st.text_area("Texto del campo", value=_val, height=_h,
                                                          key=f"{key_pfx}_plt_{_key}",
                                                          label_visibility="collapsed")
                             st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)

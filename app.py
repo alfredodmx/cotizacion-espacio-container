@@ -31,6 +31,9 @@ if not st.session_state.auth_user:
 
 process_query_params()
 
+from views.layout import render_layout
+render_layout()
+
 _rol = st.session_state.get('rol_usuario', 'ejecutivo')
 
 if _rol == 'root':

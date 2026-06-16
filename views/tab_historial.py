@@ -956,7 +956,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             _dd_options_list.append({'ep':str(row['N°']),'label':_lbl,'est':estado})
 
         st.markdown('<style>[data-testid="stTextInput"]:has(input[placeholder="__ecdd_trg__"]){display:none!important;}</style>', unsafe_allow_html=True)
-        _ecdd_trigger = st.text_input("", key="_sel_ep_trigger", label_visibility="collapsed", placeholder="__ecdd_trg__")
+        _ecdd_trigger = st.text_input("Selector EP", key="_sel_ep_trigger", label_visibility="collapsed", placeholder="__ecdd_trg__")
         if _ecdd_trigger:
             st.session_state['selector_ep_num'] = _ecdd_trigger
             st.session_state['_sel_ep_trigger'] = ''
