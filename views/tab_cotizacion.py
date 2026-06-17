@@ -443,8 +443,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                                 st.session_state.carrito = cargar_modelo(modelo_seleccionado, supabase_admin)
                                 st.session_state.modelo_base = modelo_seleccionado
                                 st.session_state.margen = 0.0
-                                st.session_state['_toast_msg'] = f"&#9989; Modelo '{modelo_seleccionado}' cargado correctamente."
-                                st.rerun()
+                                st.toast(f"✅ Modelo '{modelo_seleccionado}' cargado correctamente.")
                     else:
                         st.caption("Sin modelos")
                 except Exception as _e1:
@@ -483,10 +482,9 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                                     "Subtotal": precio_unitario_original * cantidad
                                 })
                                 st.session_state.carrito.sort(key=lambda x: (x['Categoria'], x['Item']))
-                                st.session_state['_toast_msg'] = f"&#9989; {item} agregado exitosamente ({cantidad} un.)"
+                                st.toast(f"✅ {item} agregado exitosamente ({cantidad} un.)")
                             else:
-                                st.session_state['_toast_msg'] = f"&#9989; {item} actualizado &#8212; {cantidad} un. m&#225;s agregadas"
-                            st.rerun()
+                                st.toast(f"✅ {item} actualizado — {cantidad} un. más agregadas")
                 except Exception as _e2:
                     st.caption(f"Error: {_e2}")
 
@@ -510,8 +508,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                                 categoria_eliminar = _cat_elim_labels.get(_cat_elim_sel, _cat_elim_sel)
                                 if categoria_eliminar != "-- Seleccionar --":
                                     st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_eliminar]
-                                    st.session_state['_toast_msg'] = f"&#128465;&#65039; Categor&#237;a '{categoria_eliminar}' eliminada del presupuesto."
-                                    st.rerun()
+                                    st.toast(f"🗑️ Categoría '{categoria_eliminar}' eliminada del presupuesto.")
                     else:
                         st.caption("Sin categor&#237;as")
                 except Exception as _e3:
@@ -555,8 +552,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                                     if not _existe:
                                         st.session_state.carrito.append(_ni)
                                 st.session_state.carrito.sort(key=lambda x: (x['Categoria'], x['Item']))
-                                st.session_state['_toast_msg'] = f"&#9989; Categor&#237;a '{categoria_agregar}' mezclada al presupuesto."
-                                st.rerun()
+                                st.toast(f"✅ Categoría '{categoria_agregar}' mezclada al presupuesto.")
                     else:
                         st.caption("Sin modelos")
                 except Exception as _e4:
