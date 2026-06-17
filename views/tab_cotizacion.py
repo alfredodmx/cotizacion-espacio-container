@@ -382,14 +382,15 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                 st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;">&#128203; Modelo Predefinido</div>', unsafe_allow_html=True)
                 try:
                     if hojas_modelo:
-                        _mod_sel_label = st.selectbox("Modelo", list(_mod_labels.keys()), key="modelo_select", label_visibility="collapsed")
-                        modelo_seleccionado = _mod_labels.get(_mod_sel_label, hojas_modelo[0])
-                        if st.button("Cargar", key="btn_modelo", use_container_width=True):
-                            st.session_state.carrito = cargar_modelo(modelo_seleccionado, supabase_admin)
-                            st.session_state.modelo_base = modelo_seleccionado
-                            st.session_state.margen = 0.0
-                            st.session_state['_toast_msg'] = f"&#9989; Modelo '{modelo_seleccionado}' cargado correctamente."
-                            st.rerun()
+                        with st.form("_f_modelo", border=False):
+                            _mod_sel_label = st.selectbox("Modelo", list(_mod_labels.keys()), key="modelo_select", label_visibility="collapsed")
+                            if st.form_submit_button("Cargar", use_container_width=True):
+                                modelo_seleccionado = _mod_labels.get(_mod_sel_label, hojas_modelo[0])
+                                st.session_state.carrito = cargar_modelo(modelo_seleccionado, supabase_admin)
+                                st.session_state.modelo_base = modelo_seleccionado
+                                st.session_state.margen = 0.0
+                                st.session_state['_toast_msg'] = f"&#9989; Modelo '{modelo_seleccionado}' cargado correctamente."
+                                st.rerun()
                     else:
                         st.caption("Sin modelos")
                 except Exception as _e1:
@@ -408,29 +409,30 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                         for _, row in items_filtrados.iterrows()
                         if row.get('P. Unitario real', 0)
                     }
-                    _item_sel_label = st.selectbox("&#205;tem", list(_item_labels.keys()), key="item_manual", label_visibility="collapsed")
-                    item = _item_labels.get(_item_sel_label, items_filtrados["Item"].iloc[0] if len(items_filtrados) else '')
-                    cantidad = st.number_input("Cantidad", min_value=1, value=1, key="cantidad_manual", label_visibility="collapsed")
-                    if st.button("Agregar", key="btn_agregar_manual", use_container_width=True):
-                        existe = False
-                        for producto in st.session_state.carrito:
-                            if producto["Item"] == item:
-                                producto["Cantidad"] += cantidad
-                                producto["Subtotal"] = producto["Cantidad"] * producto["Precio Unitario"]
-                                existe = True
-                                break
-                        if not existe:
-                            precio_unitario_original = items_filtrados[items_filtrados["Item"] == item]["P. Unitario real"].values[0]
-                            st.session_state.carrito.append({
-                                "Categoria": categoria_seleccionada, "Item": item,
-                                "Cantidad": cantidad, "Precio Unitario": precio_unitario_original,
-                                "Subtotal": precio_unitario_original * cantidad
-                            })
-                            st.session_state.carrito.sort(key=lambda x: (x['Categoria'], x['Item']))
-                            st.session_state['_toast_msg'] = f"&#9989; {item} agregado exitosamente ({cantidad} un.)"
-                        else:
-                            st.session_state['_toast_msg'] = f"&#9989; {item} actualizado &#8212; {cantidad} un. m&#225;s agregadas"
-                        st.rerun()
+                    with st.form("_f_item", border=False):
+                        _item_sel_label = st.selectbox("&#205;tem", list(_item_labels.keys()), key="item_manual", label_visibility="collapsed")
+                        cantidad = st.number_input("Cantidad", min_value=1, value=1, key="cantidad_manual", label_visibility="collapsed")
+                        if st.form_submit_button("Agregar", use_container_width=True):
+                            item = _item_labels.get(_item_sel_label, items_filtrados["Item"].iloc[0] if len(items_filtrados) else '')
+                            existe = False
+                            for producto in st.session_state.carrito:
+                                if producto["Item"] == item:
+                                    producto["Cantidad"] += cantidad
+                                    producto["Subtotal"] = producto["Cantidad"] * producto["Precio Unitario"]
+                                    existe = True
+                                    break
+                            if not existe:
+                                precio_unitario_original = items_filtrados[items_filtrados["Item"] == item]["P. Unitario real"].values[0]
+                                st.session_state.carrito.append({
+                                    "Categoria": categoria_seleccionada, "Item": item,
+                                    "Cantidad": cantidad, "Precio Unitario": precio_unitario_original,
+                                    "Subtotal": precio_unitario_original * cantidad
+                                })
+                                st.session_state.carrito.sort(key=lambda x: (x['Categoria'], x['Item']))
+                                st.session_state['_toast_msg'] = f"&#9989; {item} agregado exitosamente ({cantidad} un.)"
+                            else:
+                                st.session_state['_toast_msg'] = f"&#9989; {item} actualizado &#8212; {cantidad} un. m&#225;s agregadas"
+                            st.rerun()
                 except Exception as _e2:
                     st.caption(f"Error: {_e2}")
 
@@ -448,13 +450,14 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                             except:
                                 return ''
                         _cat_elim_labels = {f"{c} — {_total_cat(c)}": c for c in categorias_carrito}
-                        _cat_elim_sel = st.selectbox("Eliminar", ["-- Seleccionar --"] + list(_cat_elim_labels.keys()), key="cat_eliminar", label_visibility="collapsed")
-                        categoria_eliminar = _cat_elim_labels.get(_cat_elim_sel, _cat_elim_sel)
-                        if st.button("Eliminar", key="btn_eliminar_categoria", use_container_width=True):
-                            if categoria_eliminar != "-- Seleccionar --":
-                                st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_eliminar]
-                                st.session_state['_toast_msg'] = f"&#128465;&#65039; Categor&#237;a '{categoria_eliminar}' eliminada del presupuesto."
-                                st.rerun()
+                        with st.form("_f_elim_cat", border=False):
+                            _cat_elim_sel = st.selectbox("Eliminar", ["-- Seleccionar --"] + list(_cat_elim_labels.keys()), key="cat_eliminar", label_visibility="collapsed")
+                            if st.form_submit_button("Eliminar", use_container_width=True):
+                                categoria_eliminar = _cat_elim_labels.get(_cat_elim_sel, _cat_elim_sel)
+                                if categoria_eliminar != "-- Seleccionar --":
+                                    st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_eliminar]
+                                    st.session_state['_toast_msg'] = f"&#128465;&#65039; Categor&#237;a '{categoria_eliminar}' eliminada del presupuesto."
+                                    st.rerun()
                     else:
                         st.caption("Sin categor&#237;as")
                 except Exception as _e3:
@@ -482,23 +485,24 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                             except:
                                 return ''
                         _cat_agr_labels = {f"{c} — {_total_cat_modelo(c)}": c for c in categorias_disponibles}
-                        _cat_agr_sel = st.selectbox("Categor&#237;a", list(_cat_agr_labels.keys()), key="cat_agregar", label_visibility="collapsed")
-                        categoria_agregar = _cat_agr_labels.get(_cat_agr_sel, categorias_disponibles[0] if len(categorias_disponibles) else '')
-                        if st.button("Agregar", key="btn_agregar_categoria", use_container_width=True):
-                            nuevos_items = cargar_categoria_desde_modelo(modelo_origen, categoria_agregar, supabase_admin)
-                            for _ni in nuevos_items:
-                                _existe = False
-                                for _ci in st.session_state.carrito:
-                                    if _ci["Item"] == _ni["Item"]:
-                                        _ci["Cantidad"] += _ni["Cantidad"]
-                                        _ci["Subtotal"] = _ci["Cantidad"] * _ci["Precio Unitario"]
-                                        _existe = True
-                                        break
-                                if not _existe:
-                                    st.session_state.carrito.append(_ni)
-                            st.session_state.carrito.sort(key=lambda x: (x['Categoria'], x['Item']))
-                            st.session_state['_toast_msg'] = f"&#9989; Categor&#237;a '{categoria_agregar}' mezclada al presupuesto."
-                            st.rerun()
+                        with st.form("_f_agr_cat", border=False):
+                            _cat_agr_sel = st.selectbox("Categor&#237;a", list(_cat_agr_labels.keys()), key="cat_agregar", label_visibility="collapsed")
+                            if st.form_submit_button("Agregar", use_container_width=True):
+                                categoria_agregar = _cat_agr_labels.get(_cat_agr_sel, categorias_disponibles[0] if len(categorias_disponibles) else '')
+                                nuevos_items = cargar_categoria_desde_modelo(modelo_origen, categoria_agregar, supabase_admin)
+                                for _ni in nuevos_items:
+                                    _existe = False
+                                    for _ci in st.session_state.carrito:
+                                        if _ci["Item"] == _ni["Item"]:
+                                            _ci["Cantidad"] += _ni["Cantidad"]
+                                            _ci["Subtotal"] = _ci["Cantidad"] * _ci["Precio Unitario"]
+                                            _existe = True
+                                            break
+                                    if not _existe:
+                                        st.session_state.carrito.append(_ni)
+                                st.session_state.carrito.sort(key=lambda x: (x['Categoria'], x['Item']))
+                                st.session_state['_toast_msg'] = f"&#9989; Categor&#237;a '{categoria_agregar}' mezclada al presupuesto."
+                                st.rerun()
                     else:
                         st.caption("Sin modelos")
                 except Exception as _e4:
