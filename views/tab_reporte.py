@@ -6,6 +6,21 @@ import streamlit as st
 from config.supabase import supabase_admin as _supa_admin
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def _cargar_datos_reporte(rep_dias):
+    try:
+        from datetime import datetime as _dt, timedelta as _td
+        _fecha_desde = (_dt.now() - _td(days=rep_dias)).strftime('%Y-%m-%d')
+        _resp = _supa_admin.table('cotizaciones').select(
+            'numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_tipo,'
+            'cliente_region,cliente_comuna,asesor_nombre,estado,total_total,'
+            'config_margen,plano_url,contrato_generado,contrato_datos'
+        ).gte('fecha_creacion', _fecha_desde).execute()
+        return _resp.data or []
+    except Exception:
+        return []
+
+
 def render_tab_reporte(supabase, supabase_admin=None, **deps):
     supa_admin = supabase_admin or _supa_admin
 
@@ -54,21 +69,8 @@ def render_tab_reporte(supabase, supabase_admin=None, **deps):
     </div>
     """, unsafe_allow_html=True)
 
-    with st.spinner("Cargando datos..."):
-        try:
-            from datetime import datetime as _dt, timedelta as _td
-            import json as _json_rep
-
-            _fecha_desde = (_dt.now() - _td(days=_rep_dias)).strftime('%Y-%m-%d')
-            _resp_rep = supa_admin.table('cotizaciones').select(
-                'numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_tipo,'
-                'cliente_region,cliente_comuna,asesor_nombre,estado,total_total,'
-                'config_margen,plano_url,contrato_generado,contrato_datos'
-            ).gte('fecha_creacion', _fecha_desde).execute()
-            _data_rep = _resp_rep.data or []
-        except Exception as _e:
-            st.error(f"Error cargando datos: {_e}")
-            _data_rep = []
+    import json as _json_rep
+    _data_rep = _cargar_datos_reporte(_rep_dias)
 
     if not _data_rep:
         st.info("No hay datos para el per&#237;odo seleccionado.")

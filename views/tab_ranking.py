@@ -6,13 +6,14 @@ import streamlit as st
 from config.supabase import supabase_admin as _supa_admin
 
 
-def _cargar_ranking(supa_admin, periodo='mes'):
+@st.cache_data(ttl=300, show_spinner=False)
+def _cargar_ranking(periodo='mes'):
     try:
         from datetime import datetime as _dt
         _inicio = None
         if periodo == 'mes':
             _inicio = _dt.now().replace(day=1).strftime('%Y-%m-%d')
-        resp = supa_admin.rpc('get_ranking_data', {'fecha_inicio': _inicio}).execute()
+        resp = _supa_admin.rpc('get_ranking_data', {'fecha_inicio': _inicio}).execute()
         resp_data = resp.data if resp.data else []
         if not resp_data:
             return []
@@ -99,7 +100,7 @@ def render_tab_ranking(supabase, **deps):
     """, unsafe_allow_html=True)
 
     with st.spinner("Cargando ranking..."):
-        _ranking = _cargar_ranking(supa_admin, periodo='mes')
+        _ranking = _cargar_ranking(periodo='mes')
 
     if not _ranking:
         st.info("No hay cotizaciones registradas este mes.")

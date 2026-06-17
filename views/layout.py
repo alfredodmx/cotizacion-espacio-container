@@ -547,7 +547,7 @@ def render_layout():
             setTimeout(function(){ tryMove(attempts - 1); }, 600);
         }
     }
-    tryMove(8);
+    tryMove(20);
 })();
 </script>
 """, height=0)

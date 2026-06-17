@@ -7,7 +7,8 @@ import streamlit as st
 from config.supabase import supabase_admin as _supa_admin
 
 
-def _cargar_datos_dashboard(supa_admin, periodo='mes'):
+@st.cache_data(ttl=300, show_spinner=False)
+def _cargar_datos_dashboard(periodo='mes'):
     try:
         from datetime import datetime as _dt, timedelta as _td
         from collections import defaultdict as _dd
@@ -30,7 +31,7 @@ def _cargar_datos_dashboard(supa_admin, periodo='mes'):
             _inicio_ant = None
             _fin_ant = None
 
-        resp = supa_admin.table('cotizaciones').select(
+        resp = _supa_admin.table('cotizaciones').select(
             'numero,fecha_creacion,fecha_modificacion,estado,'
             'total_total,asesor_nombre,cliente_nombre,cliente_rut,'
             'cliente_comuna,cliente_region,cliente_tipo,'
@@ -46,7 +47,7 @@ def _cargar_datos_dashboard(supa_admin, periodo='mes'):
 
         rows_ant = []
         if _inicio_ant and _fin_ant:
-            resp_ant = supa_admin.table('cotizaciones').select(
+            resp_ant = _supa_admin.table('cotizaciones').select(
                 'total_total,estado,config_margen'
             ).gte('fecha_creacion', _inicio_ant).lte('fecha_creacion', _fin_ant).execute()
             rows_ant = resp_ant.data or []
@@ -280,7 +281,7 @@ def render_tab_dashboard(supabase, supabase_admin=None, **deps):
     _periodo = _periodo_opciones[_periodo_label]
 
     with st.spinner("Cargando datos..."):
-        _d = _cargar_datos_dashboard(supa_admin, _periodo)
+        _d = _cargar_datos_dashboard(_periodo)
 
     if not _d:
         st.error("No se pudieron cargar los datos del dashboard.")
