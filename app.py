@@ -79,7 +79,7 @@ _deps = dict(
     supa_key=SUPABASE_KEY,
 )
 
-from views.tab_cotizacion      import render_tab_cotizacion
+from views.tab_cotizacion      import render_tab_cotizacion, render_floating_panels
 from views.tab_datos_cliente   import render_tab_datos_cliente
 from views.tab_historial       import render_tab_historial
 from views.tab_contrato        import render_tab_contrato
@@ -96,7 +96,11 @@ from views.tab_admindata       import render_tab_admindata
 from views.tab_reporte         import render_tab_reporte
 
 if tab1          is not None:
-    with tab1:          render_tab_cotizacion(**_deps)
+    with tab1:
+        @st.fragment
+        def _tab_cot_frag():
+            render_tab_cotizacion(**_deps)
+        _tab_cot_frag()
 if tab2          is not None:
     with tab2:          render_tab_datos_cliente(**_deps)
 if tab3          is not None:
@@ -127,3 +131,5 @@ if tab_admindata is not None:
     with tab_admindata: render_tab_admindata(**_deps)
 if tab_reporte   is not None:
     with tab_reporte:   render_tab_reporte(supabase=supabase)
+
+render_floating_panels()
