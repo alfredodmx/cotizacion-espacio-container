@@ -713,7 +713,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
             'text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;overflow-wrap:break-word;}'
             '.pres-csub{font-family:"Montserrat",sans-serif;font-size:13px;font-weight:800;'
             'color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
-            '.pres-cmeta{font-size:10px;color:#64748b;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+            '.pres-cmeta{font-size:10px;color:#64748b;margin-top:1px;overflow-wrap:break-word;}'
             '</style>'
         )
         _cards_html_md = '<div class="pres-cards">'
