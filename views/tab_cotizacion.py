@@ -572,26 +572,28 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         if st.session_state.modo_admin:
             st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;text-align:center;">&#128202; Resumen del Presupuesto</div>', unsafe_allow_html=True)
 
-        # Triggers ocultos para popup HTML en iframe: qty_trg + apply_trg + del_N por ítem
+        # Triggers ocultos para popup HTML en iframe: apply_trg + del_N por ítem
         if not es_solo_lectura and st.session_state.carrito:
-            st.markdown('<style>.st-key-_qty_trg,.st-key-_apply_trg,[class*="st-key-_del_"]{display:none!important;}</style>', unsafe_allow_html=True)
-            _qty_val = st.text_input('q', key='_qty_trg', label_visibility='collapsed', placeholder='__qty_trg__')
+            st.markdown('<style>.st-key-_apply_trg,[class*="st-key-_del_"]{display:none!important;}</style>', unsafe_allow_html=True)
             _apply_hit = st.button('a', key='_apply_trg')
             _del_clicked = None
             for _bi_btn in range(len(st.session_state.carrito)):
                 if st.button('d', key=f'_del_{_bi_btn}'):
                     _del_clicked = _bi_btn
-            if _apply_hit and _qty_val:
-                _itm_q, _, _qty_s = _qty_val.partition('|||')
-                _itm_q = _itm_q.strip()
-                _qty_n = int(_qty_s.strip()) if _qty_s.strip().isdigit() else 1
-                for _ci in st.session_state.carrito:
-                    if _ci['Item'] == _itm_q:
-                        _ci['Cantidad'] = _qty_n
-                        _ci['Subtotal'] = _qty_n * float(_ci['Precio Unitario'])
-                        break
-                st.session_state['_qty_trg'] = ''
-                st.session_state.counter += 1
+            if _apply_hit:
+                _apply_data = st.query_params.get('_apply_qty', '')
+                if _apply_data:
+                    _itm_q, _, _qty_s = _apply_data.partition('|||')
+                    _itm_q = _itm_q.strip()
+                    _qty_n = int(_qty_s.strip()) if _qty_s.strip().isdigit() else 1
+                    for _ci in st.session_state.carrito:
+                        if _ci['Item'] == _itm_q:
+                            _ci['Cantidad'] = _qty_n
+                            _ci['Subtotal'] = _qty_n * float(_ci['Precio Unitario'])
+                            break
+                    if '_apply_qty' in st.query_params:
+                        del st.query_params['_apply_qty']
+                    st.session_state.counter += 1
             if _del_clicked is not None:
                 _del_nm = st.session_state.carrito[_del_clicked]['Item']
                 st.session_state.carrito = [i for i in st.session_state.carrito if i['Item'] != _del_nm]
@@ -865,12 +867,9 @@ window.closePop=function(){
 window.applyPop=function(){
   if(_pi===null||!_pn)return;
   var qty=parseInt(document.getElementById('pop-qty').value)||1;
-  var inp=PD.querySelector('input[placeholder="__qty_trg__"]');
-  if(inp){
-    var s=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value');
-    if(s&&s.set)s.set.call(inp,_pn+'|||'+qty);
-    inp.dispatchEvent(new window.parent.Event('input',{bubbles:true}));
-  }
+  var u=new URL(window.parent.location.href);
+  u.searchParams.set('_apply_qty',_pn+'|||'+qty);
+  window.parent.history.replaceState({},'',u.toString());
   var ab=PD.querySelector('.st-key-_apply_trg button');
   if(ab)ab.click();
   window.closePop();
