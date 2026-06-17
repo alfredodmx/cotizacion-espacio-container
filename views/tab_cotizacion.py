@@ -674,35 +674,68 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                 'cat': str(_crow['Categoria']),
                 'color': _cc,
                 'sub': f"${_crow['subtotal']:,.0f}".replace(',', '.'),
+                'subtotal_raw': float(_crow['subtotal']),
                 'items': int(_crow['items']),
                 'cant': int(_crow['cantidades']),
             })
-        # ── CARDS via st.markdown() — siempre visibles, JS adjunta listeners (igual que tab_historial) ──
+        # ── MOSAIC CARDS — anchos proporcionales al valor (2 filas si >4 categorías) ──
         def _hex_to_rgba(h, a):
             r, g, b = int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16)
             return f'rgba({r},{g},{b},{a})'
-        _cards_css = ('<style>.pres-cards{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0 10px 0;}'
-                      '._pres_card{border-radius:7px;padding:7px 11px;min-width:110px;flex:1;cursor:pointer;transition:background .13s,border .13s;}'
-                      '._pres_card:hover{opacity:.85;}'
-                      '.pres-cname{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;}'
-                      '.pres-csub{font-size:12px;font-weight:700;color:#0f172a;}'
-                      '.pres-cmeta{font-size:10px;color:#64748b;margin-top:1px;}</style>')
+
+        # Ordenar por valor descendente para efecto mosaico
+        _cats_sorted = sorted(_cats_data, key=lambda x: x['subtotal_raw'], reverse=True)
+        _n = len(_cats_sorted)
+
+        # Distribuir en filas: 1 fila si ≤4 categorías, 2 filas con balance por valor si >4
+        if _n <= 4:
+            _mosaic_rows = [_cats_sorted]
+        else:
+            _row1, _row2 = [], []
+            _s1, _s2 = 0.0, 0.0
+            for _mc in _cats_sorted:
+                if _s1 <= _s2:
+                    _row1.append(_mc); _s1 += _mc['subtotal_raw']
+                else:
+                    _row2.append(_mc); _s2 += _mc['subtotal_raw']
+            _mosaic_rows = [r for r in [_row1, _row2] if r]
+
+        _cards_css = (
+            '<style>'
+            '.pres-cards{display:flex;flex-direction:column;gap:5px;padding:4px 0 10px 0;}'
+            '.mosaic-row{display:flex;gap:5px;}'
+            '._pres_card{border-radius:7px;padding:7px 11px;min-width:80px;cursor:pointer;'
+            'transition:background .13s,border .13s;overflow:hidden;box-sizing:border-box;}'
+            '._pres_card:hover{opacity:.85;}'
+            '.pres-cname{font-size:10px;font-weight:700;text-transform:uppercase;'
+            'letter-spacing:.05em;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+            '.pres-csub{font-size:12px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+            '.pres-cmeta{font-size:10px;color:#64748b;margin-top:1px;white-space:nowrap;}'
+            '</style>'
+        )
         _cards_html_md = '<div class="pres-cards">'
-        for _c in _cats_data:
-            _is_act = (_c['cat'] == _cat_filtro_activo)
-            _col = _c['color']
-            _bg   = _hex_to_rgba(_col, 0.15) if _is_act else '#fff'
-            _brd  = f'2px solid {_col}' if _is_act else f'1.5px solid {_hex_to_rgba(_col, 0.3)}'
-            _tick = ' ✓' if _is_act else ''
-            _dcat = _c['cat'].replace('"', '&quot;')
-            _cards_html_md += (
-                f'<div class="_pres_card" data-catpres="{_dcat}" data-colorpres="{_col}"'
-                f' style="background:{_bg};border:{_brd};border-left:4px solid {_col};">'
-                f'<div class="pres-cname" style="color:{_col};">{_c["cat"]}{_tick}</div>'
-                f'<div class="pres-csub">{_c["sub"]}<span style="font-size:9px;color:#64748b;margin-left:3px;">s/IVA</span></div>'
-                f'<div class="pres-cmeta">{_c["items"]} ítems · {_c["cant"]} uds.</div>'
-                f'</div>'
-            )
+        for _row in _mosaic_rows:
+            _row_max = max((c['subtotal_raw'] for c in _row), default=1) or 1
+            _cards_html_md += '<div class="mosaic-row">'
+            for _c in _row:
+                _is_act = (_c['cat'] == _cat_filtro_activo)
+                _col = _c['color']
+                _bg  = _hex_to_rgba(_col, 0.15) if _is_act else '#fff'
+                _brd = f'2px solid {_col}' if _is_act else f'1.5px solid {_hex_to_rgba(_col, 0.3)}'
+                _tick = ' ✓' if _is_act else ''
+                _dcat = _c['cat'].replace('"', '&quot;')
+                # flex-grow proporcional al valor dentro de su fila (max=1000)
+                _grow = max(1, round(_c['subtotal_raw'] / _row_max * 1000))
+                _cards_html_md += (
+                    f'<div class="_pres_card" data-catpres="{_dcat}" data-colorpres="{_col}"'
+                    f' style="background:{_bg};border:{_brd};border-left:4px solid {_col};'
+                    f'flex:{_grow} {_grow} 0;">'
+                    f'<div class="pres-cname" style="color:{_col};">{_c["cat"]}{_tick}</div>'
+                    f'<div class="pres-csub">{_c["sub"]}<span style="font-size:9px;color:#64748b;margin-left:3px;">s/IVA</span></div>'
+                    f'<div class="pres-cmeta">{_c["items"]} ítems · {_c["cant"]} uds.</div>'
+                    f'</div>'
+                )
+            _cards_html_md += '</div>'
         _cards_html_md += '</div>'
         st.markdown(_cards_css + _cards_html_md, unsafe_allow_html=True)
 
