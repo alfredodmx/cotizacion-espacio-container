@@ -1031,9 +1031,7 @@ setInterval(attachCardListeners,3000);
         col_btn_limpiar, _, _, _ = st.columns(4)
         with col_btn_limpiar:
             if not es_solo_lectura:
-                if st.button("&#129529; Limpiar", use_container_width=True):
-                    limpiar_todo()
-                    st.rerun()
+                st.button("&#129529; Limpiar", use_container_width=True, on_click=limpiar_todo)
             else:
                 st.button("&#129529; Limpiar", use_container_width=True, disabled=True)
 
