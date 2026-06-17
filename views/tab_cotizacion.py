@@ -687,14 +687,14 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         _cats_sorted = sorted(_cats_data, key=lambda x: x['subtotal_raw'], reverse=True)
         _n = len(_cats_sorted)
 
-        # Distribuir en filas: 1 fila si ≤4 categorías, 2 filas con balance por peso visual (^0.4) si >4
+        # Distribuir en filas: 1 fila si ≤4 categorías, 2 filas con balance por peso visual (^0.3) si >4
         if _n <= 4:
             _mosaic_rows = [_cats_sorted]
         else:
             _row1, _row2 = [], []
             _s1, _s2 = 0.0, 0.0
             for _mc in _cats_sorted:
-                _w = _mc['subtotal_raw'] ** 0.4  # peso visual comprimido
+                _w = _mc['subtotal_raw'] ** 0.3  # peso visual muy comprimido
                 if _s1 <= _s2:
                     _row1.append(_mc); _s1 += _w
                 else:
@@ -706,20 +706,23 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
             "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&display=swap');"
             '.pres-cards{display:flex;flex-direction:column;gap:5px;padding:4px 0 10px 0;}'
             '.mosaic-row{display:flex;gap:5px;align-items:stretch;}'
-            '._pres_card{border-radius:7px;padding:7px 11px;min-width:105px;cursor:pointer;'
+            '._pres_card{border-radius:7px;padding:7px 11px;min-width:125px;cursor:pointer;'
             'transition:background .13s,border .13s;box-sizing:border-box;}'
             '._pres_card:hover{opacity:.85;}'
             '.pres-cname{font-family:"Montserrat",sans-serif;font-size:11px;font-weight:700;'
-            'text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;overflow-wrap:break-word;}'
+            'text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;'
+            'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
             '.pres-csub{font-family:"Montserrat",sans-serif;font-size:13px;font-weight:800;'
             'color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
-            '.pres-cmeta{font-size:10px;color:#64748b;margin-top:1px;overflow-wrap:break-word;}'
+            '.pres-civa{font-size:9px;color:#94a3b8;margin-top:3px;white-space:nowrap;}'
+            '.pres-cmeta{font-size:10px;color:#64748b;margin-top:1px;white-space:nowrap;'
+            'overflow:hidden;text-overflow:ellipsis;}'
             '</style>'
         )
         _cards_html_md = '<div class="pres-cards">'
         for _row in _mosaic_rows:
-            # Escala ^0.4: cards pequeñas ganan ~65% más espacio vs sqrt, ratio max ~9x
-            _row_max_p = max((c['subtotal_raw'] ** 0.4 for c in _row), default=1) or 1
+            # Escala ^0.3: ratio max ~4x, cards grandes ceden espacio a las pequeñas
+            _row_max_p = max((c['subtotal_raw'] ** 0.3 for c in _row), default=1) or 1
             _cards_html_md += '<div class="mosaic-row">'
             for _c in _row:
                 _is_act = (_c['cat'] == _cat_filtro_activo)
@@ -728,14 +731,17 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                 _brd = f'2px solid {_col}' if _is_act else f'1.5px solid {_hex_to_rgba(_col, 0.3)}'
                 _tick = ' ✓' if _is_act else ''
                 _dcat = _c['cat'].replace('"', '&quot;')
-                _grow = max(1, round((_c['subtotal_raw'] ** 0.4) / _row_max_p * 1000))
+                _grow = max(1, round((_c['subtotal_raw'] ** 0.3) / _row_max_p * 1000))
+                _ni = _c['items']; _nu = _c['cant']
+                _meta_txt = f"{_ni} {'ítem' if _ni==1 else 'ítems'} · {_nu} u."
                 _cards_html_md += (
                     f'<div class="_pres_card" data-catpres="{_dcat}" data-colorpres="{_col}"'
                     f' style="background:{_bg};border:{_brd};border-left:4px solid {_col};'
                     f'flex:{_grow} {_grow} 0;">'
                     f'<div class="pres-cname" style="color:{_col};">{_c["cat"]}{_tick}</div>'
                     f'<div class="pres-csub">{_c["sub"]}</div>'
-                    f'<div class="pres-cmeta">s/IVA · {_c["items"]} ítems · {_c["cant"]} uds.</div>'
+                    f'<div class="pres-civa">s/IVA</div>'
+                    f'<div class="pres-cmeta">{_meta_txt}</div>'
                     f'</div>'
                 )
             _cards_html_md += '</div>'
