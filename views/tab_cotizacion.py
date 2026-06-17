@@ -426,6 +426,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                                 "Cantidad": cantidad, "Precio Unitario": precio_unitario_original,
                                 "Subtotal": precio_unitario_original * cantidad
                             })
+                            st.session_state.carrito.sort(key=lambda x: (x['Categoria'], x['Item']))
                             st.session_state['_toast_msg'] = f"&#9989; {item} agregado exitosamente ({cantidad} un.)"
                         else:
                             st.session_state['_toast_msg'] = f"&#9989; {item} actualizado &#8212; {cantidad} un. m&#225;s agregadas"
@@ -495,6 +496,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                                         break
                                 if not _existe:
                                     st.session_state.carrito.append(_ni)
+                            st.session_state.carrito.sort(key=lambda x: (x['Categoria'], x['Item']))
                             st.session_state['_toast_msg'] = f"&#9989; Categor&#237;a '{categoria_agregar}' mezclada al presupuesto."
                             st.rerun()
                     else:
