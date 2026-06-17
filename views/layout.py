@@ -145,7 +145,7 @@ html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif !impor
     color: #5b7cfa !important; border-bottom: 3px solid #5b7cfa !important;
     font-weight: 900 !important; background: rgba(91,124,250,0.06) !important;
 }
-.stTabs [data-baseweb="tab-panel"] { padding-top: 1.5rem !important; border-top: none !important; }
+.stTabs [data-baseweb="tab-panel"] { padding-top: 1.5rem !important; border-top: none !important; background-color: transparent !important; }
 .stTabs > div > div:nth-child(2) { border-top: none !important; box-shadow: none !important; }
 hr { display: none !important; }
 
