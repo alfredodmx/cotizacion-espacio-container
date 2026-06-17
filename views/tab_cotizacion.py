@@ -827,544 +827,540 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                 st.markdown(f"**{label}**")
                 st.info("Modo lectura")
 
-    @st.fragment
-    def _carrito_display():
-        # Variables de m&#233;tricas con valores por defecto
-        utilidad_real = 0
-        total_comisiones = 0
-        comision_vendedor = 0
-        comision_supervisor = 0
-        margen_valor = 0
-        subtotal_base = 0
-        subtotal_general = 0
-        total = 0
-        iva = 0
+    # Variables de m&#233;tricas con valores por defecto
+    utilidad_real = 0
+    total_comisiones = 0
+    comision_vendedor = 0
+    comision_supervisor = 0
+    margen_valor = 0
+    subtotal_base = 0
+    subtotal_general = 0
+    total = 0
+    iva = 0
 
-        if st.session_state.carrito:
-            st.markdown("---")
-            if not st.session_state.modo_admin:
-                st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;text-align:center;">&#128202; Resumen del Presupuesto</div>', unsafe_allow_html=True)
-                if st.session_state.margen > 0:
-                    st.caption(f"&#8505;&#65039; Margen del {st.session_state.margen}% aplicado")
-            if st.session_state.modo_admin:
-                st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;text-align:center;">&#128202; Resumen del Presupuesto</div>', unsafe_allow_html=True)
+    if st.session_state.carrito:
+        st.markdown("---")
+        if not st.session_state.modo_admin:
+            st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;text-align:center;">&#128202; Resumen del Presupuesto</div>', unsafe_allow_html=True)
+            if st.session_state.margen > 0:
+                st.caption(f"&#8505;&#65039; Margen del {st.session_state.margen}% aplicado")
+        if st.session_state.modo_admin:
+            st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;text-align:center;">&#128202; Resumen del Presupuesto</div>', unsafe_allow_html=True)
 
-            # Triggers ocultos para popup HTML en iframe: apply_trg + del_N por ítem
-            if not es_solo_lectura and st.session_state.carrito:
-                st.markdown('<style>.st-key-_apply_trg,[class*="st-key-_del_"]{display:none!important;}</style>', unsafe_allow_html=True)
-                _apply_hit = st.button('a', key='_apply_trg')
-                _del_clicked = None
-                for _bi_btn in range(len(st.session_state.carrito)):
-                    if st.button('d', key=f'_del_{_bi_btn}'):
-                        _del_clicked = _bi_btn
-                if _apply_hit:
-                    _apply_data = st.query_params.get('_apply_qty', '')
-                    if _apply_data:
-                        _itm_q, _, _qty_s = _apply_data.partition('|||')
-                        _itm_q = _itm_q.strip()
-                        _qty_n = int(_qty_s.strip()) if _qty_s.strip().isdigit() else 1
-                        for _ci in st.session_state.carrito:
-                            if _ci['Item'] == _itm_q:
-                                _ci['Cantidad'] = _qty_n
-                                _ci['Subtotal'] = _qty_n * float(_ci['Precio Unitario'])
-                                break
-                        if '_apply_qty' in st.query_params:
-                            del st.query_params['_apply_qty']
-                        st.session_state.counter += 1
-                if _del_clicked is not None:
-                    _del_nm = st.session_state.carrito[_del_clicked]['Item']
-                    st.session_state.carrito = [i for i in st.session_state.carrito if i['Item'] != _del_nm]
-                    st.session_state.pop('_item_pendiente_eliminar', None)
+        # Triggers ocultos para popup HTML en iframe: apply_trg + del_N por ítem
+        if not es_solo_lectura and st.session_state.carrito:
+            st.markdown('<style>.st-key-_apply_trg,[class*="st-key-_del_"]{display:none!important;}</style>', unsafe_allow_html=True)
+            _apply_hit = st.button('a', key='_apply_trg')
+            _del_clicked = None
+            for _bi_btn in range(len(st.session_state.carrito)):
+                if st.button('d', key=f'_del_{_bi_btn}'):
+                    _del_clicked = _bi_btn
+            if _apply_hit:
+                _apply_data = st.query_params.get('_apply_qty', '')
+                if _apply_data:
+                    _itm_q, _, _qty_s = _apply_data.partition('|||')
+                    _itm_q = _itm_q.strip()
+                    _qty_n = int(_qty_s.strip()) if _qty_s.strip().isdigit() else 1
+                    for _ci in st.session_state.carrito:
+                        if _ci['Item'] == _itm_q:
+                            _ci['Cantidad'] = _qty_n
+                            _ci['Subtotal'] = _qty_n * float(_ci['Precio Unitario'])
+                            break
+                    if '_apply_qty' in st.query_params:
+                        del st.query_params['_apply_qty']
                     st.session_state.counter += 1
+            if _del_clicked is not None:
+                _del_nm = st.session_state.carrito[_del_clicked]['Item']
+                st.session_state.carrito = [i for i in st.session_state.carrito if i['Item'] != _del_nm]
+                st.session_state.pop('_item_pendiente_eliminar', None)
+                st.session_state.counter += 1
 
-            _cat_filtro_activo = st.query_params.get('_pres_cat', '')
-            _df_cat = pd.DataFrame(st.session_state.carrito)
-            _cat_colors = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444',
-                           '#06b6d4','#f97316','#84cc16','#ec4899','#6366f1',
-                           '#14b8a6','#eab308','#dc2626','#7c3aed','#0ea5e9']
-            _cats_summary = (
-                _df_cat.groupby('Categoria')
-                .agg(items=('Item', 'count'), cantidades=('Cantidad', 'sum'), subtotal=('Subtotal', 'sum'))
-                .reset_index().sort_values('Categoria')
-            )
-            # Preparar datos de categorías para el componente unificado
-            _cats_data = []
-            for _ci, (_, _crow) in enumerate(_cats_summary.iterrows()):
-                _cc = _cat_colors[_ci % len(_cat_colors)]
-                _cats_data.append({
-                    'cat': str(_crow['Categoria']),
-                    'color': _cc,
-                    'sub': f"${_crow['subtotal']:,.0f}".replace(',', '.'),
-                    'subtotal_raw': float(_crow['subtotal']),
-                    'items': int(_crow['items']),
-                    'cant': int(_crow['cantidades']),
-                })
-            # ── MOSAIC CARDS — anchos proporcionales al valor (2 filas si >4 categorías) ──
-            def _hex_to_rgba(h, a):
-                r, g, b = int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16)
-                return f'rgba({r},{g},{b},{a})'
+        _cat_filtro_activo = st.query_params.get('_pres_cat', '')
+        _df_cat = pd.DataFrame(st.session_state.carrito)
+        _cat_colors = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444',
+                       '#06b6d4','#f97316','#84cc16','#ec4899','#6366f1',
+                       '#14b8a6','#eab308','#dc2626','#7c3aed','#0ea5e9']
+        _cats_summary = (
+            _df_cat.groupby('Categoria')
+            .agg(items=('Item', 'count'), cantidades=('Cantidad', 'sum'), subtotal=('Subtotal', 'sum'))
+            .reset_index().sort_values('Categoria')
+        )
+        # Preparar datos de categorías para el componente unificado
+        _cats_data = []
+        for _ci, (_, _crow) in enumerate(_cats_summary.iterrows()):
+            _cc = _cat_colors[_ci % len(_cat_colors)]
+            _cats_data.append({
+                'cat': str(_crow['Categoria']),
+                'color': _cc,
+                'sub': f"${_crow['subtotal']:,.0f}".replace(',', '.'),
+                'subtotal_raw': float(_crow['subtotal']),
+                'items': int(_crow['items']),
+                'cant': int(_crow['cantidades']),
+            })
+        # ── MOSAIC CARDS — anchos proporcionales al valor (2 filas si >4 categorías) ──
+        def _hex_to_rgba(h, a):
+            r, g, b = int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16)
+            return f'rgba({r},{g},{b},{a})'
 
-            # Ordenar por valor descendente para efecto mosaico
-            _cats_sorted = sorted(_cats_data, key=lambda x: x['subtotal_raw'], reverse=True)
-            _n = len(_cats_sorted)
+        # Ordenar por valor descendente para efecto mosaico
+        _cats_sorted = sorted(_cats_data, key=lambda x: x['subtotal_raw'], reverse=True)
+        _n = len(_cats_sorted)
 
-            # Distribuir en filas: 1 fila si ≤4 categorías, 2 filas con balance por peso visual (^0.3) si >4
-            if _n <= 4:
-                _mosaic_rows = [_cats_sorted]
-            else:
-                _row1, _row2 = [], []
-                _s1, _s2 = 0.0, 0.0
-                for _mc in _cats_sorted:
-                    _w = _mc['subtotal_raw'] ** 0.3  # peso visual muy comprimido
-                    if _s1 <= _s2:
-                        _row1.append(_mc); _s1 += _w
-                    else:
-                        _row2.append(_mc); _s2 += _w
-                _mosaic_rows = [r for r in [_row1, _row2] if r]
-
-            _cards_css = (
-                '<style>'
-                "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&display=swap');"
-                '.pres-cards{display:flex;flex-direction:column;gap:5px;padding:4px 0 10px 0;}'
-                '.mosaic-row{display:flex;gap:5px;align-items:stretch;}'
-                '._pres_card{border-radius:7px;padding:7px 11px;min-width:135px;cursor:pointer;'
-                'transition:background .13s,border .13s;box-sizing:border-box;'
-                'display:flex;flex-direction:column;align-items:flex-start;}'
-                '._pres_card:hover{opacity:.85;}'
-                '.pres-cname{font-family:"Montserrat",sans-serif;font-size:11px;font-weight:700;'
-                'text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;'
-                'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;}'
-                '.pres-csub{font-family:"Montserrat",sans-serif;font-size:13px;font-weight:800;'
-                'color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;}'
-                '.pres-civa{font-family:"Montserrat",sans-serif;font-size:9px;font-weight:400;'
-                'color:#94a3b8;margin-left:4px;vertical-align:baseline;}'
-                '.pres-cmeta{font-size:10px;color:#64748b;margin-top:3px;white-space:nowrap;'
-                'overflow:hidden;text-overflow:ellipsis;width:100%;}'
-                '</style>'
-            )
-            _cards_html_md = '<div class="pres-cards">'
-            for _row in _mosaic_rows:
-                # Escala ^0.3: ratio max ~4x, cards grandes ceden espacio a las pequeñas
-                _row_max_p = max((c['subtotal_raw'] ** 0.3 for c in _row), default=1) or 1
-                _cards_html_md += '<div class="mosaic-row">'
-                for _c in _row:
-                    _is_act = (_c['cat'] == _cat_filtro_activo)
-                    _col = _c['color']
-                    _bg  = _hex_to_rgba(_col, 0.15) if _is_act else '#fff'
-                    _brd = f'2px solid {_col}' if _is_act else f'1.5px solid {_hex_to_rgba(_col, 0.3)}'
-                    _tick = ' ✓' if _is_act else ''
-                    _dcat = _c['cat'].replace('"', '&quot;')
-                    _grow = max(1, round((_c['subtotal_raw'] ** 0.3) / _row_max_p * 1000))
-                    _ni = _c['items']; _nu = _c['cant']
-                    _meta_txt = f"{_ni} {'ítem' if _ni==1 else 'ítems'} · {_nu} {'ud.' if _nu==1 else 'uds.'}"
-                    _cards_html_md += (
-                        f'<div class="_pres_card" data-catpres="{_dcat}" data-colorpres="{_col}"'
-                        f' style="background:{_bg};border:{_brd};border-left:4px solid {_col};'
-                        f'flex:{_grow} {_grow} 0;">'
-                        f'<div class="pres-cname" style="color:{_col};">{_c["cat"]}{_tick}</div>'
-                        f'<div class="pres-csub">{_c["sub"]}<span class="pres-civa">s/IVA</span></div>'
-                        f'<div class="pres-cmeta">{_meta_txt}</div>'
-                        f'</div>'
-                    )
-                _cards_html_md += '</div>'
-            _cards_html_md += '</div>'
-            st.markdown(_cards_css + _cards_html_md, unsafe_allow_html=True)
-
-            carrito_df = pd.DataFrame(st.session_state.carrito)
-            subtotal_base = carrito_df["Subtotal"].sum()
-
-            if st.session_state.modo_admin or st.session_state.margen > 0:
-                carrito_df_con_margen = carrito_df.copy()
-                carrito_df_con_margen["Precio Unitario"] = carrito_df_con_margen["Precio Unitario"].apply(lambda x: aplicar_margen(x, st.session_state.margen))
-                carrito_df_con_margen["Subtotal"] = carrito_df_con_margen["Cantidad"] * carrito_df_con_margen["Precio Unitario"]
-                subtotal_general = carrito_df_con_margen["Subtotal"].sum()
-            else:
-                carrito_df_con_margen = carrito_df.copy()
-                subtotal_general = subtotal_base
-
-            iva = subtotal_general * 0.19
-            total = subtotal_general + iva
-            margen_valor = subtotal_general - subtotal_base
-            tiene_margen = st.session_state.margen > 0
-            comision_vendedor = subtotal_general * 0.025 if (st.session_state.modo_admin and tiene_margen) else 0
-            comision_supervisor = subtotal_general * 0.008 if (st.session_state.modo_admin and tiene_margen) else 0
-            total_comisiones = comision_vendedor + comision_supervisor
-            utilidad_real = margen_valor - total_comisiones if (st.session_state.modo_admin and tiene_margen) else 0
-
-            _color_map_tbl = {c['cat']: c['color'] for c in _cats_data}
-            _tbl_df = carrito_df_con_margen.copy()
-            _tbl_df["P. Unit + IVA"]  = _tbl_df["Precio Unitario"].apply(lambda x: formato_clp(round(x * 1.19)))
-            _tbl_df["Subtotal + IVA"] = _tbl_df["Subtotal"].apply(lambda x: formato_clp(round(x * 1.19)))
-            _tbl_df["Precio Unitario"] = _tbl_df["Precio Unitario"].apply(formato_clp)
-            _tbl_df["Subtotal"]        = _tbl_df["Subtotal"].apply(formato_clp)
-            _tbl_df["Cantidad"]        = pd.to_numeric(_tbl_df["Cantidad"], errors="coerce").fillna(0).astype(int)
-            _pend_name  = ''  # popup es HTML en iframe, no usa session_state
-
-            # ── BARRA DE BÚSQUEDA + TABLA en un solo components.html() con filas pre-construidas ──
-            # Las filas van DENTRO del iframe: onclick funciona sin que Streamlit las elimine.
-            _total_hdr_fmt = '$' + '{:,.0f}'.format(total).replace(',', '.')
-            _cf_js   = _json.dumps(_cat_filtro_activo or '', ensure_ascii=False)
-            _edit_js = 'true' if not es_solo_lectura else 'false'
-            _pend_js = _json.dumps(_pend_name, ensure_ascii=False)
-
-            def _hesc(s): return s.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;')
-            def _aesc(s): return _hesc(s).replace('"','&quot;')
-
-            _rows_html = ''
-            for _tidx, (_, _r) in enumerate(_tbl_df.iterrows()):
-                _cat  = str(_r['Categoria'])
-                _item = str(_r['Item'])
-                _color = _color_map_tbl.get(_cat, '#6366f1')
-                _ri, _gi, _bi = int(_color[1:3], 16), int(_color[3:5], 16), int(_color[5:7], 16)
-                _bbg = f'rgba({_ri},{_gi},{_bi},0.12)'
-                _raw_pu = float(carrito_df_con_margen['Precio Unitario'].iloc[_tidx])
-                _cls = 'editable' if not es_solo_lectura else ''
-                _onclick = ' onclick="cr(this)"' if not es_solo_lectura else ''
-                _cursor  = 'cursor:pointer;' if not es_solo_lectura else ''
-                _hint    = '<span class="hint">editar / eliminar</span>' if not es_solo_lectura else ''
-                _rows_html += (
-                    f'<tr class="{_cls.strip()}" data-cat="{_aesc(_cat)}" data-item="{_aesc(_item)}" data-idx="{_tidx}" data-qty="{_r["Cantidad"]}" data-price-raw="{_raw_pu:.2f}" data-price="{_aesc(str(_r["Precio Unitario"]))}" {_onclick.strip()} style="{_cursor}">'
-                    f'<td><span class="badge" style="background:{_bbg};color:{_color};">{_hesc(_cat)}</span></td>'
-                    f'<td><span class="item-n">{_hesc(_item)}</span>{_hint}</td>'
-                    f'<td class="r mono">{_r["Cantidad"]}</td>'
-                    f'<td class="r mono">{_r["Precio Unitario"]}</td>'
-                    f'<td class="r mono bold">{_r["Subtotal"]}</td>'
-                    f'<td class="r mono muted">{_r["P. Unit + IVA"]}</td>'
-                    f'<td class="r mono muted">{_r["Subtotal + IVA"]}</td>'
-                    f'</tr>'
-                )
-
-            _n_tbl = len(_tbl_df)
-            _tbl_h = max(120, min(_n_tbl * 42 + 54, 460))
-            _iframe_total_h = 46 + 8 + _tbl_h
-
-            if es_solo_lectura:
-                st.caption("&#128274; Vista de solo lectura")
-
-            _tbl_html = ("""<!DOCTYPE html>
-    <html><head><meta charset="utf-8"><style>
-    *{box-sizing:border-box;margin:0;padding:0;}
-    html,body{height:IFRAMEHPX;overflow:hidden;font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;}
-    #wrap{display:flex;flex-direction:column;height:100%;position:relative;}
-    #bar{display:flex;align-items:center;gap:8px;padding:4px 0;flex-shrink:0;height:46px;}
-    #search{flex:1;border:1.5px solid #e2e8f0;border-radius:7px;padding:6px 11px;font-size:0.84rem;
-      font-family:inherit;outline:none;color:#1e293b;background:#f8fafc;
-      transition:border-color .2s,box-shadow .2s;}
-    #search:focus{border-color:#5b7cfa;background:#fff;box-shadow:0 0 0 3px rgba(91,124,250,.1);}
-    #cnt{font-size:0.72rem;color:#94a3b8;white-space:nowrap;font-weight:600;min-width:64px;text-align:right;}
-    #tbl-w{flex:1;overflow:auto;border:1px solid #e2e8f0;border-radius:10px;
-      box-shadow:0 2px 6px rgba(0,0,0,.06);margin-top:4px;}
-    #tbl-w::-webkit-scrollbar{width:4px;height:4px;}
-    #tbl-w::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}
-    table{width:100%;border-collapse:collapse;font-size:.8rem;table-layout:auto;}
-    thead th{background:linear-gradient(135deg,#1e2447,#2a3060);color:#fff;
-      font-weight:700;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;
-      padding:9px 11px;white-space:nowrap;position:sticky;top:0;z-index:2;text-align:left;}
-    thead th.r{text-align:right;}
-    tbody tr:nth-child(even){background:#f8fafc;}
-    tbody tr:nth-child(odd){background:#fff;}
-    tbody tr.editable:hover{background:#eef1ff!important;}
-    tbody tr.pending{background:#fff4f4!important;box-shadow:inset 3px 0 0 #ef4444;}
-    td{padding:7px 11px;border-bottom:1px solid #f0f4f8;vertical-align:middle;color:#334155;}
-    td.r{text-align:right;}
-    .badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:.68rem;
-      font-weight:700;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
-    .item-n{font-weight:600;color:#1e293b;font-size:.82rem;line-height:1.35;}
-    .hint{font-size:.62rem;color:#94a3b8;font-style:italic;display:block;margin-top:1px;}
-    .mono{font-family:'JetBrains Mono','Courier New',monospace;font-size:.77rem;}
-    .bold{font-weight:700;color:#0f172a;}
-    .muted{color:#64748b;}
-    #pop{display:none;position:absolute;bottom:0;left:0;right:0;background:#fcebeb;
-      border:1.5px solid #e24b4a;border-radius:14px 14px 0 0;padding:11px 13px 9px;z-index:100;
-      font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;}
-    #pop-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
-    #pop-cat{font-size:.6rem;font-weight:700;color:#a32d2d;text-transform:uppercase;letter-spacing:.08em;}
-    #pop-x{background:none;border:none;cursor:pointer;color:#a32d2d;font-size:.95rem;padding:0;line-height:1;}
-    #pop-name{font-size:.86rem;font-weight:700;color:#1e293b;margin-bottom:7px;line-height:1.3;}
-    #pop-cards{display:flex;gap:5px;margin-bottom:7px;}
-    .pc{flex:1;background:#fff;border:.5px solid #f09595;border-radius:7px;padding:5px 7px;text-align:center;}
-    .pc.hl{border-color:#e24b4a;}
-    .pc-l{font-size:.56rem;color:#a32d2d;font-weight:600;text-transform:uppercase;letter-spacing:.05em;}
-    .pc-v{font-size:.8rem;font-weight:700;color:#501313;margin-top:1px;}
-    .pc.hl .pc-v{color:#e24b4a;}
-    #pop-qty-row{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px;}
-    #pop-qty-row button{width:28px;height:28px;border-radius:50%;border:1.5px solid #e24b4a;
-      background:#fff;color:#a32d2d;font-size:1.05rem;font-weight:700;cursor:pointer;line-height:1;}
-    #pop-qty{width:54px;text-align:center;border:1.5px solid #e24b4a;border-radius:7px;
-      padding:4px 5px;font-size:.95rem;font-weight:700;color:#501313;font-family:inherit;}
-    #pop-btns{display:flex;gap:6px;}
-    .pb{flex:1;padding:7px 3px;border-radius:7px;font-size:.75rem;font-weight:600;cursor:pointer;
-      font-family:inherit;text-align:center;border:none;}
-    .pb-c{background:transparent;border:1px solid #f09595!important;color:#791f1f;}
-    .pb-a{background:#fff;border:1.5px solid #e24b4a!important;color:#a32d2d;}
-    .pb-d{background:#e24b4a;color:#fff;}
-    </style></head>
-    <body>
-    <div id="wrap">
-    <div id="bar">
-      <svg width="14" height="14" fill="none" stroke="#94a3b8" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-      <input id="search" type="text" placeholder="Filtrar por categoría o ítem..." autocomplete="off">
-      <span id="cnt"></span>
-    </div>
-    <div id="tbl-w">
-    <table>
-    <thead><tr>
-      <th>Categoría</th><th>Ítem</th>
-      <th class="r">Cant.</th><th class="r">P. Unitario</th>
-      <th class="r">Subtotal</th><th class="r">P.Unit+IVA</th><th class="r">Sub+IVA</th>
-    </tr></thead>
-    <tbody>ROWSPLACEHOLDER</tbody>
-    </table>
-    </div>
-    <div id="pop">
-    <div id="pop-hdr"><span id="pop-cat"></span><button id="pop-x" onclick="closePop()">&#x2715;</button></div>
-    <div id="pop-name"></div>
-    <div id="pop-cards">
-    <div class="pc"><div class="pc-l">P. unitario</div><div class="pc-v" id="pop-price"></div></div>
-    <div class="pc"><div class="pc-l">Cant. actual</div><div class="pc-v" id="pop-orig-qty"></div></div>
-    <div class="pc hl"><div class="pc-l">Subtotal</div><div class="pc-v" id="pop-sub"></div></div>
-    </div>
-    <div id="pop-qty-row">
-    <button onclick="qd(-1)">&#x2212;</button>
-    <input id="pop-qty" type="number" min="1" value="1" oninput="updSub()">
-    <button onclick="qd(1)">+</button>
-    </div>
-    <div id="pop-btns">
-    <button class="pb pb-c" onclick="closePop()">&#x2716; Cancelar</button>
-    <button class="pb pb-a" onclick="applyPop()">&#x2705; Aplicar</button>
-    <button class="pb pb-d" onclick="delPop()">&#x1F5D1; Eliminar</button>
-    </div>
-    </div>
-    </div>
-    <script>
-    (function(){
-    var CF=__CF__;var EM=__EM__;var PI=__PI__;
-    var PD;try{PD=window.parent.document;}catch(e){return;}
-    function filterRows(){
-      var q=document.getElementById('search').value.toLowerCase().trim();
-      var rows=document.querySelectorAll('tbody tr[data-cat]');var vis=0;
-      for(var i=0;i<rows.length;i++){
-        var r=rows[i];
-        var cat=(r.getAttribute('data-cat')||'').toLowerCase();
-        var item=(r.getAttribute('data-item')||'').toLowerCase();
-        var show=true;
-        if(CF&&r.getAttribute('data-cat')!==CF)show=false;
-        if(q&&cat.indexOf(q)<0&&item.indexOf(q)<0)show=false;
-        r.style.display=show?'':'none';
-        if(show)vis++;
-      }
-      var el=document.getElementById('cnt');
-      if(el)el.textContent=vis+' ítem'+(vis!==1?'s':'');
-    }
-    var _pi=null,_pn=null,_pr=0;
-    function fmtClp(n){return '$ '+Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'.');}
-    window.cr=function(el){
-      if(!EM)return;
-      var idx=el.getAttribute('data-idx');
-      var pop=document.getElementById('pop');
-      if(idx===_pi&&pop.style.display!=='none'){window.closePop();return;}
-      _pi=idx;
-      _pn=el.getAttribute('data-item')||'';
-      _pr=parseFloat(el.getAttribute('data-price-raw')||'0')||0;
-      var qty=parseInt(el.getAttribute('data-qty')||'1')||1;
-      document.getElementById('pop-cat').textContent=el.getAttribute('data-cat')||'';
-      document.getElementById('pop-name').textContent=_pn;
-      document.getElementById('pop-price').textContent=el.getAttribute('data-price')||'';
-      document.getElementById('pop-orig-qty').textContent=qty;
-      document.getElementById('pop-qty').value=qty;
-      document.querySelectorAll('tbody tr.pending').forEach(function(r){r.classList.remove('pending');});
-      el.classList.add('pending');
-      window.updSub();
-      pop.style.display='block';
-    };
-    window.updSub=function(){var q=parseInt(document.getElementById('pop-qty').value)||1;document.getElementById('pop-sub').textContent=fmtClp(_pr*q);};
-    window.qd=function(d){var i=document.getElementById('pop-qty');i.value=Math.max(1,(parseInt(i.value)||1)+d);window.updSub();};
-    window.closePop=function(){
-      document.getElementById('pop').style.display='none';
-      document.querySelectorAll('tbody tr.pending').forEach(function(r){r.classList.remove('pending');});
-      _pi=null;_pn=null;
-    };
-    window.applyPop=function(){
-      if(_pi===null||!_pn)return;
-      var qty=parseInt(document.getElementById('pop-qty').value)||1;
-      var u=new URL(window.parent.location.href);
-      u.searchParams.set('_apply_qty',_pn+'|||'+qty);
-      window.parent.history.replaceState({},'',u.toString());
-      var ab=PD.querySelector('.st-key-_apply_trg button');
-      if(ab)ab.click();
-      window.closePop();
-    };
-    window.delPop=function(){
-      if(_pi===null)return;
-      var db=PD.querySelector('.st-key-_del_'+_pi+' button');
-      if(db)db.click();
-      window.closePop();
-    };
-    function updateCards(){
-      PD.querySelectorAll('._pres_card').forEach(function(el){
-        var cat=el.getAttribute('data-catpres');
-        var color=el.getAttribute('data-colorpres');
-        if(!color)return;
-        var isAct=(cat===CF);
-        var r=parseInt(color.slice(1,3),16),g=parseInt(color.slice(3,5),16),b=parseInt(color.slice(5,7),16);
-        el.style.background=isAct?'rgba('+r+','+g+','+b+',0.15)':'#fff';
-        el.style.border=isAct?('2px solid '+color):('1.5px solid rgba('+r+','+g+','+b+',0.3)');
-        el.style.borderLeft='4px solid '+color;
-        var nm=el.querySelector('.pres-cname');
-        if(nm)nm.textContent=cat+(isAct?' ✓':'');
-      });
-    }
-    function toggleCF(cat){CF=(CF===cat)?'':cat;updateCards();filterRows();try{var u=new URL(window.parent.location.href);if(CF){u.searchParams.set('_pres_cat',CF);}else{u.searchParams.delete('_pres_cat');}window.parent.history.replaceState({},'',u.toString());}catch(e){}}
-    function attachCardListeners(){
-      PD.querySelectorAll('._pres_card').forEach(function(el){
-        if(el._pb)return;el._pb=true;
-        var cat=el.getAttribute('data-catpres');
-        el.addEventListener('click',function(){toggleCF(cat);});
-      });
-    }
-    function injectTotal(){
-      var bar=PD.getElementById('_usr_header_bar');if(!bar)return;
-      var ex=PD.getElementById('_hdr_total_cot');if(ex)ex.remove();
-      var tf=__TH__;if(!tf)return;
-      var d=PD.createElement('div');d.id='_hdr_total_cot';
-      d.style.cssText='position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;';
-      d.innerHTML='<div style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:2px;">Total + IVA</div>'
-        +'<div style="font-size:1.25rem;font-weight:900;color:#fff;letter-spacing:-0.02em;font-family:Montserrat,sans-serif;line-height:1;">'+tf+'</div>';
-      bar.appendChild(d);
-    }
-    document.getElementById('search').addEventListener('input',filterRows);
-    setTimeout(function(){attachCardListeners();updateCards();filterRows();injectTotal();},300);
-    setTimeout(injectTotal,1200);
-    setInterval(attachCardListeners,3000);
-    })();
-    </script>
-    </body></html>"""
-                .replace('__CF__', _cf_js)
-                .replace('__EM__', _edit_js)
-                .replace('__PI__', _pend_js)
-                .replace('__TH__', _json.dumps(_total_hdr_fmt, ensure_ascii=False))
-                .replace('IFRAMEHPX', str(_iframe_total_h) + 'px')
-                .replace('ROWSPLACEHOLDER', _rows_html)
-            )
-            components.html(_tbl_html, height=_iframe_total_h, scrolling=False)
-
-            st.markdown("---")
-            col_btn_limpiar, _, _, _ = st.columns(4)
-            with col_btn_limpiar:
-                if not es_solo_lectura:
-                    st.button("&#129529; Limpiar", use_container_width=True, on_click=limpiar_todo)
-                else:
-                    st.button("&#129529; Limpiar", use_container_width=True, disabled=True)
-
-            datos_cliente_pdf = {
-                "Nombre": st.session_state.nombre_input,
-                "RUT": st.session_state.rut_display or '',
-                "Correo": st.session_state.correo_input,
-                "Teléfono": formatear_telefono(st.session_state.telefono_raw) if st.session_state.telefono_raw else '',
-                "Dirección": st.session_state.direccion_input,
-                "ComunaCliente": st.session_state.cliente_comuna or "",
-                "RegionCliente": st.session_state.cliente_region or "",
-                "DireccionProyecto": st.session_state.proyecto_direccion or "",
-                "ComunaProyecto": st.session_state.proyecto_comuna or "",
-                "RegionProyecto": st.session_state.proyecto_region or "",
-                "TipoCliente": st.session_state.cliente_tipo or "natural",
-                "EmpresaCliente": st.session_state.cliente_empresa or "",
-                "RutEmpresa": st.session_state.cliente_rut_empresa or "",
-                "Observaciones": st.session_state.observaciones_input,
-            }
-            nombre_asesor_final = st.session_state.asesor_seleccionado if st.session_state.asesor_seleccionado != "Seleccionar asesor" else ""
-            datos_asesor_pdf = {
-                "Nombre Ejecutivo": nombre_asesor_final,
-                "Correo Ejecutivo": st.session_state.correo_asesor or "",
-                "Teléfono Ejecutivo": st.session_state.telefono_asesor or "",
-            }
-            carrito_df_pdf = carrito_df_con_margen.copy()
-            if not carrito_df_pdf.empty and 'Categoria' in carrito_df_pdf.columns:
-                carrito_df_pdf = carrito_df_pdf.sort_values(['Categoria', 'Item'], ignore_index=True)
-            margen_actual = st.session_state.margen
-            numero_para_pdf = st.session_state.cotizacion_cargada if st.session_state.cotizacion_cargada else None
-
-            if st.session_state.modo_admin and st.session_state.margen > 0:
-                st.caption(f"*Precios calculados con margen del {st.session_state.margen}%")
-
-            st.markdown("---")
-            st.markdown("#### Métricas")
-            col_m1, col_m2, col_m3 = st.columns(3)
-            total_productos = sum(item["Cantidad"] for item in st.session_state.carrito)
-            categorias_unicas = len(set(item["Categoria"] for item in st.session_state.carrito))
-            with col_m1:
-                st.markdown(f'<div class="stats-card"><div class="stats-title">&#205;TEMS</div><div class="stats-number" style="color:#3b82f6;border:none;padding:0;">{len(st.session_state.carrito)}</div><div class="stats-desc">En presupuesto</div></div>', unsafe_allow_html=True)
-            with col_m2:
-                st.markdown(f'<div class="stats-card"><div class="stats-title">PRODUCTOS</div><div class="stats-number" style="color:#f59e0b;border:none;padding:0;">{total_productos}</div><div class="stats-desc">Unidades</div></div>', unsafe_allow_html=True)
-            with col_m3:
-                st.markdown(f'<div class="stats-card"><div class="stats-title">CATEGOR&#205;AS</div><div class="stats-number" style="color:#10b981;border:none;padding:0;">{categorias_unicas}</div><div class="stats-desc">Diferentes</div></div>', unsafe_allow_html=True)
-
-            st.markdown("---")
-
-            if st.session_state.modo_admin:
-                col_total_card, col_comisiones_card, col_utilidad_card = st.columns(3)
-                with col_total_card:
-                    st.markdown(f'''
-                    <div class="metric-card-special metric-card-total" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
-                        <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;font-family:Montserrat,sans-serif;">
-                            <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Costo base:</span><span>{formato_clp(subtotal_base)}</span></div>
-                            <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>+ Margen {st.session_state.margen}%:</span><span>{formato_clp(margen_valor)}</span></div>
-                            <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>= Subtotal c/margen:</span><span>{formato_clp(subtotal_general)}</span></div>
-                            <div style="display:flex;justify-content:space-between;"><span>+ IVA 19%:</span><span>{formato_clp(iva)}</span></div>
-                        </div>
-                        <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
-                            <span style="font-size:1.1rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:0.04em;">&#128176; TOTAL + IVA</span>
-                            <span style="font-size:2.2rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:-0.02em;">{formato_clp(total)}</span>
-                        </div>''', unsafe_allow_html=True)
-                with col_comisiones_card:
-                    st.markdown(f'''
-                    <div class="metric-card-special metric-card-comisiones" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
-                        <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;font-family:Montserrat,sans-serif;">
-                            <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Vendedor 2.5%:</span><span>{formato_clp(comision_vendedor)}</span></div>
-                            <div style="display:flex;justify-content:space-between;"><span>Supervisor 0.8%:</span><span>{formato_clp(comision_supervisor)}</span></div>
-                        </div>
-                        <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
-                            <span style="font-size:1.1rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:0.04em;">&#128202; COMISIONES</span>
-                            <span style="font-size:2.2rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:-0.02em;">{formato_clp(total_comisiones)}</span>
-                        </div>''', unsafe_allow_html=True)
-                with col_utilidad_card:
-                    st.markdown(f'''
-                    <div class="metric-card-special metric-card-utilidad" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
-                        <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;font-family:Montserrat,sans-serif;">
-                            <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Margen bruto:</span><span>{formato_clp(margen_valor)}</span></div>
-                            <div style="display:flex;justify-content:space-between;"><span>- Comisiones:</span><span>{formato_clp(total_comisiones)}</span></div>
-                        </div>
-                        <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
-                            <span style="font-size:1.1rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:0.04em;">&#128200; UTILIDAD REAL</span>
-                            <span style="font-size:2.2rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:-0.02em;">{formato_clp(utilidad_real)}</span>
-                        </div>''', unsafe_allow_html=True)
-            else:
-                col_t1, col_t2, col_t3 = st.columns([1, 2, 1])
-                with col_t2:
-                    st.markdown(f'''
-                    <div class="metric-card-special metric-card-total" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
-                        <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;font-family:Montserrat,sans-serif;">
-                            <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Costo base:</span><span>{formato_clp(subtotal_base)}</span></div>
-                            <div style="display:flex;justify-content:space-between;"><span>+ IVA 19%:</span><span>{formato_clp(iva)}</span></div>
-                        </div>
-                        <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
-                            <span style="font-size:1.1rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:0.04em;">&#128176; TOTAL + IVA</span>
-                            <span style="font-size:2.2rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:-0.02em;">{formato_clp(total)}</span>
-                        </div>
-                    </div>''', unsafe_allow_html=True)
-                if st.session_state.margen > 0:
-                    st.info("&#128274; Los detalles de comisiones y utilidad solo est&#225;n disponibles para administradores.")
+        # Distribuir en filas: 1 fila si ≤4 categorías, 2 filas con balance por peso visual (^0.3) si >4
+        if _n <= 4:
+            _mosaic_rows = [_cats_sorted]
         else:
-            st.info("&#128072; Agrega productos al presupuesto usando los controles de la izquierda")
-            components.html("""<script>(function(){
-    try{
-      var D=window.parent.document;
-      var ex=D.getElementById('_hdr_total_cot');if(ex)ex.remove();
-      var fab=D.querySelector('.st-key-btn_fab_guardar');if(fab)fab.style.display='none';
-      var pp=D.getElementById('_prog_panel');if(pp)pp.style.display='none';
-      var pm=D.getElementById('_prog_mini');if(pm)pm.style.display='none';
-    }catch(e){}
-    })();</script>""", height=0)
+            _row1, _row2 = [], []
+            _s1, _s2 = 0.0, 0.0
+            for _mc in _cats_sorted:
+                _w = _mc['subtotal_raw'] ** 0.3  # peso visual muy comprimido
+                if _s1 <= _s2:
+                    _row1.append(_mc); _s1 += _w
+                else:
+                    _row2.append(_mc); _s2 += _w
+            _mosaic_rows = [r for r in [_row1, _row2] if r]
 
-    _carrito_display()
+        _cards_css = (
+            '<style>'
+            "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&display=swap');"
+            '.pres-cards{display:flex;flex-direction:column;gap:5px;padding:4px 0 10px 0;}'
+            '.mosaic-row{display:flex;gap:5px;align-items:stretch;}'
+            '._pres_card{border-radius:7px;padding:7px 11px;min-width:135px;cursor:pointer;'
+            'transition:background .13s,border .13s;box-sizing:border-box;'
+            'display:flex;flex-direction:column;align-items:flex-start;}'
+            '._pres_card:hover{opacity:.85;}'
+            '.pres-cname{font-family:"Montserrat",sans-serif;font-size:11px;font-weight:700;'
+            'text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;'
+            'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;}'
+            '.pres-csub{font-family:"Montserrat",sans-serif;font-size:13px;font-weight:800;'
+            'color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;}'
+            '.pres-civa{font-family:"Montserrat",sans-serif;font-size:9px;font-weight:400;'
+            'color:#94a3b8;margin-left:4px;vertical-align:baseline;}'
+            '.pres-cmeta{font-size:10px;color:#64748b;margin-top:3px;white-space:nowrap;'
+            'overflow:hidden;text-overflow:ellipsis;width:100%;}'
+            '</style>'
+        )
+        _cards_html_md = '<div class="pres-cards">'
+        for _row in _mosaic_rows:
+            # Escala ^0.3: ratio max ~4x, cards grandes ceden espacio a las pequeñas
+            _row_max_p = max((c['subtotal_raw'] ** 0.3 for c in _row), default=1) or 1
+            _cards_html_md += '<div class="mosaic-row">'
+            for _c in _row:
+                _is_act = (_c['cat'] == _cat_filtro_activo)
+                _col = _c['color']
+                _bg  = _hex_to_rgba(_col, 0.15) if _is_act else '#fff'
+                _brd = f'2px solid {_col}' if _is_act else f'1.5px solid {_hex_to_rgba(_col, 0.3)}'
+                _tick = ' ✓' if _is_act else ''
+                _dcat = _c['cat'].replace('"', '&quot;')
+                _grow = max(1, round((_c['subtotal_raw'] ** 0.3) / _row_max_p * 1000))
+                _ni = _c['items']; _nu = _c['cant']
+                _meta_txt = f"{_ni} {'ítem' if _ni==1 else 'ítems'} · {_nu} {'ud.' if _nu==1 else 'uds.'}"
+                _cards_html_md += (
+                    f'<div class="_pres_card" data-catpres="{_dcat}" data-colorpres="{_col}"'
+                    f' style="background:{_bg};border:{_brd};border-left:4px solid {_col};'
+                    f'flex:{_grow} {_grow} 0;">'
+                    f'<div class="pres-cname" style="color:{_col};">{_c["cat"]}{_tick}</div>'
+                    f'<div class="pres-csub">{_c["sub"]}<span class="pres-civa">s/IVA</span></div>'
+                    f'<div class="pres-cmeta">{_meta_txt}</div>'
+                    f'</div>'
+                )
+            _cards_html_md += '</div>'
+        _cards_html_md += '</div>'
+        st.markdown(_cards_css + _cards_html_md, unsafe_allow_html=True)
+
+        carrito_df = pd.DataFrame(st.session_state.carrito)
+        subtotal_base = carrito_df["Subtotal"].sum()
+
+        if st.session_state.modo_admin or st.session_state.margen > 0:
+            carrito_df_con_margen = carrito_df.copy()
+            carrito_df_con_margen["Precio Unitario"] = carrito_df_con_margen["Precio Unitario"].apply(lambda x: aplicar_margen(x, st.session_state.margen))
+            carrito_df_con_margen["Subtotal"] = carrito_df_con_margen["Cantidad"] * carrito_df_con_margen["Precio Unitario"]
+            subtotal_general = carrito_df_con_margen["Subtotal"].sum()
+        else:
+            carrito_df_con_margen = carrito_df.copy()
+            subtotal_general = subtotal_base
+
+        iva = subtotal_general * 0.19
+        total = subtotal_general + iva
+        margen_valor = subtotal_general - subtotal_base
+        tiene_margen = st.session_state.margen > 0
+        comision_vendedor = subtotal_general * 0.025 if (st.session_state.modo_admin and tiene_margen) else 0
+        comision_supervisor = subtotal_general * 0.008 if (st.session_state.modo_admin and tiene_margen) else 0
+        total_comisiones = comision_vendedor + comision_supervisor
+        utilidad_real = margen_valor - total_comisiones if (st.session_state.modo_admin and tiene_margen) else 0
+
+        _color_map_tbl = {c['cat']: c['color'] for c in _cats_data}
+        _tbl_df = carrito_df_con_margen.copy()
+        _tbl_df["P. Unit + IVA"]  = _tbl_df["Precio Unitario"].apply(lambda x: formato_clp(round(x * 1.19)))
+        _tbl_df["Subtotal + IVA"] = _tbl_df["Subtotal"].apply(lambda x: formato_clp(round(x * 1.19)))
+        _tbl_df["Precio Unitario"] = _tbl_df["Precio Unitario"].apply(formato_clp)
+        _tbl_df["Subtotal"]        = _tbl_df["Subtotal"].apply(formato_clp)
+        _tbl_df["Cantidad"]        = pd.to_numeric(_tbl_df["Cantidad"], errors="coerce").fillna(0).astype(int)
+        _pend_name  = ''  # popup es HTML en iframe, no usa session_state
+
+        # ── BARRA DE BÚSQUEDA + TABLA en un solo components.html() con filas pre-construidas ──
+        # Las filas van DENTRO del iframe: onclick funciona sin que Streamlit las elimine.
+        _total_hdr_fmt = '$' + '{:,.0f}'.format(total).replace(',', '.')
+        _cf_js   = _json.dumps(_cat_filtro_activo or '', ensure_ascii=False)
+        _edit_js = 'true' if not es_solo_lectura else 'false'
+        _pend_js = _json.dumps(_pend_name, ensure_ascii=False)
+
+        def _hesc(s): return s.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;')
+        def _aesc(s): return _hesc(s).replace('"','&quot;')
+
+        _rows_html = ''
+        for _tidx, (_, _r) in enumerate(_tbl_df.iterrows()):
+            _cat  = str(_r['Categoria'])
+            _item = str(_r['Item'])
+            _color = _color_map_tbl.get(_cat, '#6366f1')
+            _ri, _gi, _bi = int(_color[1:3], 16), int(_color[3:5], 16), int(_color[5:7], 16)
+            _bbg = f'rgba({_ri},{_gi},{_bi},0.12)'
+            _raw_pu = float(carrito_df_con_margen['Precio Unitario'].iloc[_tidx])
+            _cls = 'editable' if not es_solo_lectura else ''
+            _onclick = ' onclick="cr(this)"' if not es_solo_lectura else ''
+            _cursor  = 'cursor:pointer;' if not es_solo_lectura else ''
+            _hint    = '<span class="hint">editar / eliminar</span>' if not es_solo_lectura else ''
+            _rows_html += (
+                f'<tr class="{_cls.strip()}" data-cat="{_aesc(_cat)}" data-item="{_aesc(_item)}" data-idx="{_tidx}" data-qty="{_r["Cantidad"]}" data-price-raw="{_raw_pu:.2f}" data-price="{_aesc(str(_r["Precio Unitario"]))}" {_onclick.strip()} style="{_cursor}">'
+                f'<td><span class="badge" style="background:{_bbg};color:{_color};">{_hesc(_cat)}</span></td>'
+                f'<td><span class="item-n">{_hesc(_item)}</span>{_hint}</td>'
+                f'<td class="r mono">{_r["Cantidad"]}</td>'
+                f'<td class="r mono">{_r["Precio Unitario"]}</td>'
+                f'<td class="r mono bold">{_r["Subtotal"]}</td>'
+                f'<td class="r mono muted">{_r["P. Unit + IVA"]}</td>'
+                f'<td class="r mono muted">{_r["Subtotal + IVA"]}</td>'
+                f'</tr>'
+            )
+
+        _n_tbl = len(_tbl_df)
+        _tbl_h = max(120, min(_n_tbl * 42 + 54, 460))
+        _iframe_total_h = 46 + 8 + _tbl_h
+
+        if es_solo_lectura:
+            st.caption("&#128274; Vista de solo lectura")
+
+        _tbl_html = ("""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:IFRAMEHPX;overflow:hidden;font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;}
+#wrap{display:flex;flex-direction:column;height:100%;position:relative;}
+#bar{display:flex;align-items:center;gap:8px;padding:4px 0;flex-shrink:0;height:46px;}
+#search{flex:1;border:1.5px solid #e2e8f0;border-radius:7px;padding:6px 11px;font-size:0.84rem;
+  font-family:inherit;outline:none;color:#1e293b;background:#f8fafc;
+  transition:border-color .2s,box-shadow .2s;}
+#search:focus{border-color:#5b7cfa;background:#fff;box-shadow:0 0 0 3px rgba(91,124,250,.1);}
+#cnt{font-size:0.72rem;color:#94a3b8;white-space:nowrap;font-weight:600;min-width:64px;text-align:right;}
+#tbl-w{flex:1;overflow:auto;border:1px solid #e2e8f0;border-radius:10px;
+  box-shadow:0 2px 6px rgba(0,0,0,.06);margin-top:4px;}
+#tbl-w::-webkit-scrollbar{width:4px;height:4px;}
+#tbl-w::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}
+table{width:100%;border-collapse:collapse;font-size:.8rem;table-layout:auto;}
+thead th{background:linear-gradient(135deg,#1e2447,#2a3060);color:#fff;
+  font-weight:700;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;
+  padding:9px 11px;white-space:nowrap;position:sticky;top:0;z-index:2;text-align:left;}
+thead th.r{text-align:right;}
+tbody tr:nth-child(even){background:#f8fafc;}
+tbody tr:nth-child(odd){background:#fff;}
+tbody tr.editable:hover{background:#eef1ff!important;}
+tbody tr.pending{background:#fff4f4!important;box-shadow:inset 3px 0 0 #ef4444;}
+td{padding:7px 11px;border-bottom:1px solid #f0f4f8;vertical-align:middle;color:#334155;}
+td.r{text-align:right;}
+.badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:.68rem;
+  font-weight:700;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
+.item-n{font-weight:600;color:#1e293b;font-size:.82rem;line-height:1.35;}
+.hint{font-size:.62rem;color:#94a3b8;font-style:italic;display:block;margin-top:1px;}
+.mono{font-family:'JetBrains Mono','Courier New',monospace;font-size:.77rem;}
+.bold{font-weight:700;color:#0f172a;}
+.muted{color:#64748b;}
+#pop{display:none;position:absolute;bottom:0;left:0;right:0;background:#fcebeb;
+  border:1.5px solid #e24b4a;border-radius:14px 14px 0 0;padding:11px 13px 9px;z-index:100;
+  font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;}
+#pop-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
+#pop-cat{font-size:.6rem;font-weight:700;color:#a32d2d;text-transform:uppercase;letter-spacing:.08em;}
+#pop-x{background:none;border:none;cursor:pointer;color:#a32d2d;font-size:.95rem;padding:0;line-height:1;}
+#pop-name{font-size:.86rem;font-weight:700;color:#1e293b;margin-bottom:7px;line-height:1.3;}
+#pop-cards{display:flex;gap:5px;margin-bottom:7px;}
+.pc{flex:1;background:#fff;border:.5px solid #f09595;border-radius:7px;padding:5px 7px;text-align:center;}
+.pc.hl{border-color:#e24b4a;}
+.pc-l{font-size:.56rem;color:#a32d2d;font-weight:600;text-transform:uppercase;letter-spacing:.05em;}
+.pc-v{font-size:.8rem;font-weight:700;color:#501313;margin-top:1px;}
+.pc.hl .pc-v{color:#e24b4a;}
+#pop-qty-row{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px;}
+#pop-qty-row button{width:28px;height:28px;border-radius:50%;border:1.5px solid #e24b4a;
+  background:#fff;color:#a32d2d;font-size:1.05rem;font-weight:700;cursor:pointer;line-height:1;}
+#pop-qty{width:54px;text-align:center;border:1.5px solid #e24b4a;border-radius:7px;
+  padding:4px 5px;font-size:.95rem;font-weight:700;color:#501313;font-family:inherit;}
+#pop-btns{display:flex;gap:6px;}
+.pb{flex:1;padding:7px 3px;border-radius:7px;font-size:.75rem;font-weight:600;cursor:pointer;
+  font-family:inherit;text-align:center;border:none;}
+.pb-c{background:transparent;border:1px solid #f09595!important;color:#791f1f;}
+.pb-a{background:#fff;border:1.5px solid #e24b4a!important;color:#a32d2d;}
+.pb-d{background:#e24b4a;color:#fff;}
+</style></head>
+<body>
+<div id="wrap">
+<div id="bar">
+  <svg width="14" height="14" fill="none" stroke="#94a3b8" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+  <input id="search" type="text" placeholder="Filtrar por categoría o ítem..." autocomplete="off">
+  <span id="cnt"></span>
+</div>
+<div id="tbl-w">
+<table>
+<thead><tr>
+  <th>Categoría</th><th>Ítem</th>
+  <th class="r">Cant.</th><th class="r">P. Unitario</th>
+  <th class="r">Subtotal</th><th class="r">P.Unit+IVA</th><th class="r">Sub+IVA</th>
+</tr></thead>
+<tbody>ROWSPLACEHOLDER</tbody>
+</table>
+</div>
+<div id="pop">
+<div id="pop-hdr"><span id="pop-cat"></span><button id="pop-x" onclick="closePop()">&#x2715;</button></div>
+<div id="pop-name"></div>
+<div id="pop-cards">
+<div class="pc"><div class="pc-l">P. unitario</div><div class="pc-v" id="pop-price"></div></div>
+<div class="pc"><div class="pc-l">Cant. actual</div><div class="pc-v" id="pop-orig-qty"></div></div>
+<div class="pc hl"><div class="pc-l">Subtotal</div><div class="pc-v" id="pop-sub"></div></div>
+</div>
+<div id="pop-qty-row">
+<button onclick="qd(-1)">&#x2212;</button>
+<input id="pop-qty" type="number" min="1" value="1" oninput="updSub()">
+<button onclick="qd(1)">+</button>
+</div>
+<div id="pop-btns">
+<button class="pb pb-c" onclick="closePop()">&#x2716; Cancelar</button>
+<button class="pb pb-a" onclick="applyPop()">&#x2705; Aplicar</button>
+<button class="pb pb-d" onclick="delPop()">&#x1F5D1; Eliminar</button>
+</div>
+</div>
+</div>
+<script>
+(function(){
+var CF=__CF__;var EM=__EM__;var PI=__PI__;
+var PD;try{PD=window.parent.document;}catch(e){return;}
+function filterRows(){
+  var q=document.getElementById('search').value.toLowerCase().trim();
+  var rows=document.querySelectorAll('tbody tr[data-cat]');var vis=0;
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i];
+    var cat=(r.getAttribute('data-cat')||'').toLowerCase();
+    var item=(r.getAttribute('data-item')||'').toLowerCase();
+    var show=true;
+    if(CF&&r.getAttribute('data-cat')!==CF)show=false;
+    if(q&&cat.indexOf(q)<0&&item.indexOf(q)<0)show=false;
+    r.style.display=show?'':'none';
+    if(show)vis++;
+  }
+  var el=document.getElementById('cnt');
+  if(el)el.textContent=vis+' ítem'+(vis!==1?'s':'');
+}
+var _pi=null,_pn=null,_pr=0;
+function fmtClp(n){return '$ '+Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'.');}
+window.cr=function(el){
+  if(!EM)return;
+  var idx=el.getAttribute('data-idx');
+  var pop=document.getElementById('pop');
+  if(idx===_pi&&pop.style.display!=='none'){window.closePop();return;}
+  _pi=idx;
+  _pn=el.getAttribute('data-item')||'';
+  _pr=parseFloat(el.getAttribute('data-price-raw')||'0')||0;
+  var qty=parseInt(el.getAttribute('data-qty')||'1')||1;
+  document.getElementById('pop-cat').textContent=el.getAttribute('data-cat')||'';
+  document.getElementById('pop-name').textContent=_pn;
+  document.getElementById('pop-price').textContent=el.getAttribute('data-price')||'';
+  document.getElementById('pop-orig-qty').textContent=qty;
+  document.getElementById('pop-qty').value=qty;
+  document.querySelectorAll('tbody tr.pending').forEach(function(r){r.classList.remove('pending');});
+  el.classList.add('pending');
+  window.updSub();
+  pop.style.display='block';
+};
+window.updSub=function(){var q=parseInt(document.getElementById('pop-qty').value)||1;document.getElementById('pop-sub').textContent=fmtClp(_pr*q);};
+window.qd=function(d){var i=document.getElementById('pop-qty');i.value=Math.max(1,(parseInt(i.value)||1)+d);window.updSub();};
+window.closePop=function(){
+  document.getElementById('pop').style.display='none';
+  document.querySelectorAll('tbody tr.pending').forEach(function(r){r.classList.remove('pending');});
+  _pi=null;_pn=null;
+};
+window.applyPop=function(){
+  if(_pi===null||!_pn)return;
+  var qty=parseInt(document.getElementById('pop-qty').value)||1;
+  var u=new URL(window.parent.location.href);
+  u.searchParams.set('_apply_qty',_pn+'|||'+qty);
+  window.parent.history.replaceState({},'',u.toString());
+  var ab=PD.querySelector('.st-key-_apply_trg button');
+  if(ab)ab.click();
+  window.closePop();
+};
+window.delPop=function(){
+  if(_pi===null)return;
+  var db=PD.querySelector('.st-key-_del_'+_pi+' button');
+  if(db)db.click();
+  window.closePop();
+};
+function updateCards(){
+  PD.querySelectorAll('._pres_card').forEach(function(el){
+    var cat=el.getAttribute('data-catpres');
+    var color=el.getAttribute('data-colorpres');
+    if(!color)return;
+    var isAct=(cat===CF);
+    var r=parseInt(color.slice(1,3),16),g=parseInt(color.slice(3,5),16),b=parseInt(color.slice(5,7),16);
+    el.style.background=isAct?'rgba('+r+','+g+','+b+',0.15)':'#fff';
+    el.style.border=isAct?('2px solid '+color):('1.5px solid rgba('+r+','+g+','+b+',0.3)');
+    el.style.borderLeft='4px solid '+color;
+    var nm=el.querySelector('.pres-cname');
+    if(nm)nm.textContent=cat+(isAct?' ✓':'');
+  });
+}
+function toggleCF(cat){CF=(CF===cat)?'':cat;updateCards();filterRows();try{var u=new URL(window.parent.location.href);if(CF){u.searchParams.set('_pres_cat',CF);}else{u.searchParams.delete('_pres_cat');}window.parent.history.replaceState({},'',u.toString());}catch(e){}}
+function attachCardListeners(){
+  PD.querySelectorAll('._pres_card').forEach(function(el){
+    if(el._pb)return;el._pb=true;
+    var cat=el.getAttribute('data-catpres');
+    el.addEventListener('click',function(){toggleCF(cat);});
+  });
+}
+function injectTotal(){
+  var bar=PD.getElementById('_usr_header_bar');if(!bar)return;
+  var ex=PD.getElementById('_hdr_total_cot');if(ex)ex.remove();
+  var tf=__TH__;if(!tf)return;
+  var d=PD.createElement('div');d.id='_hdr_total_cot';
+  d.style.cssText='position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;';
+  d.innerHTML='<div style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:2px;">Total + IVA</div>'
+    +'<div style="font-size:1.25rem;font-weight:900;color:#fff;letter-spacing:-0.02em;font-family:Montserrat,sans-serif;line-height:1;">'+tf+'</div>';
+  bar.appendChild(d);
+}
+document.getElementById('search').addEventListener('input',filterRows);
+setTimeout(function(){attachCardListeners();updateCards();filterRows();injectTotal();},300);
+setTimeout(injectTotal,1200);
+setInterval(attachCardListeners,3000);
+})();
+</script>
+</body></html>"""
+            .replace('__CF__', _cf_js)
+            .replace('__EM__', _edit_js)
+            .replace('__PI__', _pend_js)
+            .replace('__TH__', _json.dumps(_total_hdr_fmt, ensure_ascii=False))
+            .replace('IFRAMEHPX', str(_iframe_total_h) + 'px')
+            .replace('ROWSPLACEHOLDER', _rows_html)
+        )
+        components.html(_tbl_html, height=_iframe_total_h, scrolling=False)
+
+        st.markdown("---")
+        col_btn_limpiar, _, _, _ = st.columns(4)
+        with col_btn_limpiar:
+            if not es_solo_lectura:
+                st.button("&#129529; Limpiar", use_container_width=True, on_click=limpiar_todo)
+            else:
+                st.button("&#129529; Limpiar", use_container_width=True, disabled=True)
+
+        datos_cliente_pdf = {
+            "Nombre": st.session_state.nombre_input,
+            "RUT": st.session_state.rut_display or '',
+            "Correo": st.session_state.correo_input,
+            "Teléfono": formatear_telefono(st.session_state.telefono_raw) if st.session_state.telefono_raw else '',
+            "Dirección": st.session_state.direccion_input,
+            "ComunaCliente": st.session_state.cliente_comuna or "",
+            "RegionCliente": st.session_state.cliente_region or "",
+            "DireccionProyecto": st.session_state.proyecto_direccion or "",
+            "ComunaProyecto": st.session_state.proyecto_comuna or "",
+            "RegionProyecto": st.session_state.proyecto_region or "",
+            "TipoCliente": st.session_state.cliente_tipo or "natural",
+            "EmpresaCliente": st.session_state.cliente_empresa or "",
+            "RutEmpresa": st.session_state.cliente_rut_empresa or "",
+            "Observaciones": st.session_state.observaciones_input,
+        }
+        nombre_asesor_final = st.session_state.asesor_seleccionado if st.session_state.asesor_seleccionado != "Seleccionar asesor" else ""
+        datos_asesor_pdf = {
+            "Nombre Ejecutivo": nombre_asesor_final,
+            "Correo Ejecutivo": st.session_state.correo_asesor or "",
+            "Teléfono Ejecutivo": st.session_state.telefono_asesor or "",
+        }
+        carrito_df_pdf = carrito_df_con_margen.copy()
+        if not carrito_df_pdf.empty and 'Categoria' in carrito_df_pdf.columns:
+            carrito_df_pdf = carrito_df_pdf.sort_values(['Categoria', 'Item'], ignore_index=True)
+        margen_actual = st.session_state.margen
+        numero_para_pdf = st.session_state.cotizacion_cargada if st.session_state.cotizacion_cargada else None
+
+        if st.session_state.modo_admin and st.session_state.margen > 0:
+            st.caption(f"*Precios calculados con margen del {st.session_state.margen}%")
+
+        st.markdown("---")
+        st.markdown("#### Métricas")
+        col_m1, col_m2, col_m3 = st.columns(3)
+        total_productos = sum(item["Cantidad"] for item in st.session_state.carrito)
+        categorias_unicas = len(set(item["Categoria"] for item in st.session_state.carrito))
+        with col_m1:
+            st.markdown(f'<div class="stats-card"><div class="stats-title">&#205;TEMS</div><div class="stats-number" style="color:#3b82f6;border:none;padding:0;">{len(st.session_state.carrito)}</div><div class="stats-desc">En presupuesto</div></div>', unsafe_allow_html=True)
+        with col_m2:
+            st.markdown(f'<div class="stats-card"><div class="stats-title">PRODUCTOS</div><div class="stats-number" style="color:#f59e0b;border:none;padding:0;">{total_productos}</div><div class="stats-desc">Unidades</div></div>', unsafe_allow_html=True)
+        with col_m3:
+            st.markdown(f'<div class="stats-card"><div class="stats-title">CATEGOR&#205;AS</div><div class="stats-number" style="color:#10b981;border:none;padding:0;">{categorias_unicas}</div><div class="stats-desc">Diferentes</div></div>', unsafe_allow_html=True)
+
+        st.markdown("---")
+
+        if st.session_state.modo_admin:
+            col_total_card, col_comisiones_card, col_utilidad_card = st.columns(3)
+            with col_total_card:
+                st.markdown(f'''
+                <div class="metric-card-special metric-card-total" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
+                    <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;font-family:Montserrat,sans-serif;">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Costo base:</span><span>{formato_clp(subtotal_base)}</span></div>
+                        <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>+ Margen {st.session_state.margen}%:</span><span>{formato_clp(margen_valor)}</span></div>
+                        <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>= Subtotal c/margen:</span><span>{formato_clp(subtotal_general)}</span></div>
+                        <div style="display:flex;justify-content:space-between;"><span>+ IVA 19%:</span><span>{formato_clp(iva)}</span></div>
+                    </div>
+                    <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:1.1rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:0.04em;">&#128176; TOTAL + IVA</span>
+                        <span style="font-size:2.2rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:-0.02em;">{formato_clp(total)}</span>
+                    </div>''', unsafe_allow_html=True)
+            with col_comisiones_card:
+                st.markdown(f'''
+                <div class="metric-card-special metric-card-comisiones" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
+                    <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;font-family:Montserrat,sans-serif;">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Vendedor 2.5%:</span><span>{formato_clp(comision_vendedor)}</span></div>
+                        <div style="display:flex;justify-content:space-between;"><span>Supervisor 0.8%:</span><span>{formato_clp(comision_supervisor)}</span></div>
+                    </div>
+                    <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:1.1rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:0.04em;">&#128202; COMISIONES</span>
+                        <span style="font-size:2.2rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:-0.02em;">{formato_clp(total_comisiones)}</span>
+                    </div>''', unsafe_allow_html=True)
+            with col_utilidad_card:
+                st.markdown(f'''
+                <div class="metric-card-special metric-card-utilidad" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
+                    <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;font-family:Montserrat,sans-serif;">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Margen bruto:</span><span>{formato_clp(margen_valor)}</span></div>
+                        <div style="display:flex;justify-content:space-between;"><span>- Comisiones:</span><span>{formato_clp(total_comisiones)}</span></div>
+                    </div>
+                    <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:1.1rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:0.04em;">&#128200; UTILIDAD REAL</span>
+                        <span style="font-size:2.2rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:-0.02em;">{formato_clp(utilidad_real)}</span>
+                    </div>''', unsafe_allow_html=True)
+        else:
+            col_t1, col_t2, col_t3 = st.columns([1, 2, 1])
+            with col_t2:
+                st.markdown(f'''
+                <div class="metric-card-special metric-card-total" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;">
+                    <div style="color:rgba(255,255,255,0.85);font-size:0.9rem;font-family:Montserrat,sans-serif;">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>Costo base:</span><span>{formato_clp(subtotal_base)}</span></div>
+                        <div style="display:flex;justify-content:space-between;"><span>+ IVA 19%:</span><span>{formato_clp(iva)}</span></div>
+                    </div>
+                    <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:1.1rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:0.04em;">&#128176; TOTAL + IVA</span>
+                        <span style="font-size:2.2rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:-0.02em;">{formato_clp(total)}</span>
+                    </div>
+                </div>''', unsafe_allow_html=True)
+            if st.session_state.margen > 0:
+                st.info("&#128274; Los detalles de comisiones y utilidad solo est&#225;n disponibles para administradores.")
+    else:
+        st.info("&#128072; Agrega productos al presupuesto usando los controles de la izquierda")
+        components.html("""<script>(function(){
+try{
+  var D=window.parent.document;
+  var ex=D.getElementById('_hdr_total_cot');if(ex)ex.remove();
+  var fab=D.querySelector('.st-key-btn_fab_guardar');if(fab)fab.style.display='none';
+  var pp=D.getElementById('_prog_panel');if(pp)pp.style.display='none';
+  var pm=D.getElementById('_prog_mini');if(pm)pm.style.display='none';
+}catch(e){}
+})();</script>""", height=0)
 
