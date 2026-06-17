@@ -96,11 +96,7 @@ from views.tab_admindata       import render_tab_admindata
 from views.tab_reporte         import render_tab_reporte
 
 if tab1          is not None:
-    with tab1:
-        @st.fragment
-        def _tab_cot_frag():
-            render_tab_cotizacion(**_deps)
-        _tab_cot_frag()
+    with tab1:          render_tab_cotizacion(**_deps)
 if tab2          is not None:
     with tab2:          render_tab_datos_cliente(**_deps)
 if tab3          is not None:

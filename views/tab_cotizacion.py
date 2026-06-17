@@ -248,6 +248,18 @@ def _construir_datos_guardar_simple():
 
 def render_floating_panels():
     """FAB Guardar, Margen popover y Checklist — se renderizan fuera de cualquier tab."""
+    # Colapsa el bloque en el flujo normal del documento; los hijos position:fixed son visibles igualmente
+    st.markdown("""<style>
+[data-testid="stTabs"] ~ .stMarkdown,
+[data-testid="stTabs"] ~ .stButton,
+[data-testid="stTabs"] ~ [data-testid="stPopover"],
+[data-testid="stTabs"] ~ .stHtml,
+[data-testid="stTabs"] ~ [data-testid="stVerticalBlock"]{
+    height:0!important;min-height:0!important;max-height:0!important;
+    overflow:visible!important;padding:0!important;margin:0!important;
+    line-height:0!important;
+}
+</style>""", unsafe_allow_html=True)
     _es_solo_lectura_fab = st.session_state.get('_adj_es_adj', False) and not st.session_state.get('es_root', False)
     _hash_actual = calcular_hash_estado()
     _hay_cambios = _hash_actual != st.session_state.get('hash_ultimo_guardado')
