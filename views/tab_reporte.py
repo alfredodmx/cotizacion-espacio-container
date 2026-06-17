@@ -69,6 +69,7 @@ def render_tab_reporte(supabase, supabase_admin=None, **deps):
     </div>
     """, unsafe_allow_html=True)
 
+    from datetime import datetime as _dt, timedelta as _td
     import json as _json_rep
     _data_rep = _cargar_datos_reporte(_rep_dias)
 
