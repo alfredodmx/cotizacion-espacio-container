@@ -706,18 +706,19 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
             "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&display=swap');"
             '.pres-cards{display:flex;flex-direction:column;gap:5px;padding:4px 0 10px 0;}'
             '.mosaic-row{display:flex;gap:5px;align-items:stretch;}'
-            '._pres_card{border-radius:7px;padding:7px 11px;min-width:125px;cursor:pointer;'
+            '._pres_card{border-radius:7px;padding:7px 11px;min-width:135px;cursor:pointer;'
             'transition:background .13s,border .13s;box-sizing:border-box;'
             'display:flex;flex-direction:column;align-items:flex-start;}'
             '._pres_card:hover{opacity:.85;}'
             '.pres-cname{font-family:"Montserrat",sans-serif;font-size:11px;font-weight:700;'
-            'text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;'
-            'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+            'text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;'
+            'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;}'
             '.pres-csub{font-family:"Montserrat",sans-serif;font-size:13px;font-weight:800;'
-            'color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
-            '.pres-civa{font-size:9px;color:#94a3b8;margin-top:3px;white-space:nowrap;}'
-            '.pres-cmeta{font-size:10px;color:#64748b;margin-top:1px;white-space:nowrap;'
-            'overflow:hidden;text-overflow:ellipsis;}'
+            'color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;}'
+            '.pres-civa{font-family:"Montserrat",sans-serif;font-size:9px;font-weight:400;'
+            'color:#94a3b8;margin-left:4px;vertical-align:baseline;}'
+            '.pres-cmeta{font-size:10px;color:#64748b;margin-top:3px;white-space:nowrap;'
+            'overflow:hidden;text-overflow:ellipsis;width:100%;}'
             '</style>'
         )
         _cards_html_md = '<div class="pres-cards">'
@@ -734,14 +735,13 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                 _dcat = _c['cat'].replace('"', '&quot;')
                 _grow = max(1, round((_c['subtotal_raw'] ** 0.3) / _row_max_p * 1000))
                 _ni = _c['items']; _nu = _c['cant']
-                _meta_txt = f"{_ni} {'ítem' if _ni==1 else 'ítems'} · {_nu} u."
+                _meta_txt = f"{_ni} {'ítem' if _ni==1 else 'ítems'} · {_nu} {'ud.' if _nu==1 else 'uds.'}"
                 _cards_html_md += (
                     f'<div class="_pres_card" data-catpres="{_dcat}" data-colorpres="{_col}"'
                     f' style="background:{_bg};border:{_brd};border-left:4px solid {_col};'
                     f'flex:{_grow} {_grow} 0;">'
                     f'<div class="pres-cname" style="color:{_col};">{_c["cat"]}{_tick}</div>'
-                    f'<div class="pres-csub">{_c["sub"]}</div>'
-                    f'<div class="pres-civa">s/IVA</div>'
+                    f'<div class="pres-csub">{_c["sub"]}<span class="pres-civa">s/IVA</span></div>'
                     f'<div class="pres-cmeta">{_meta_txt}</div>'
                     f'</div>'
                 )
