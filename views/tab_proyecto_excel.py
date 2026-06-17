@@ -191,11 +191,13 @@ def render_tab_proyecto_excel(supabase, supabase_admin=None, supa_url='', supa_k
                             try:
                                 supa_admin.table("excel_versiones").update({"activa": False}).neq("id", "00000000-0000-0000-0000-000000000000").execute()
                                 supa_admin.table("excel_versiones").update({"activa": True}).eq("id", _v["id"]).execute()
-                                # Limpiar cachés si están disponibles
+                                # Limpiar cachés (funciones @st.cache_data + session state)
                                 for _fn in (get_excel_bytes_activo, leer_hoja_excel, leer_bd_total):
                                     if hasattr(_fn, 'clear'):
                                         _fn.clear()
                                 st.session_state.pop("excel_bytes_cache", None)
+                                st.session_state.pop("excel_url_cache", None)
+                                st.cache_data.clear()
                                 st.rerun()
                             except Exception as _e:
                                 st.error(f"&#10060; {_e}")

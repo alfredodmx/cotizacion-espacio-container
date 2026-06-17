@@ -16,89 +16,143 @@ from utils.formato import formato_clp, calcular_hash_estado
 from utils.telefono import formatear_telefono
 
 
-def _get_excel_bytes_activo(supabase_admin):
-    try:
-        _resp = supabase_admin.table('excel_versiones').select('archivo_url').eq('activa', True).limit(1).execute()
-        if _resp.data:
-            _url = _resp.data[0]['archivo_url']
-            _r = _rq_excel.get(_url, timeout=15)
-            _r.raise_for_status()
-            return _io_excel.BytesIO(_r.content)
-    except:
-        pass
-    return "cotizador.xlsx"
-
-
-def _excel_src(supabase_admin):
-    if 'excel_bytes_cache' not in st.session_state:
-        st.session_state.excel_bytes_cache = _get_excel_bytes_activo(supabase_admin)
-    return st.session_state.excel_bytes_cache
+def _get_excel_url(supabase_admin):
+    """1 query Supabase por sesión para obtener la URL del Excel activo."""
+    if 'excel_url_cache' not in st.session_state:
+        try:
+            resp = supabase_admin.table('excel_versiones').select('archivo_url').eq('activa', True).limit(1).execute()
+            st.session_state.excel_url_cache = resp.data[0]['archivo_url'] if resp.data else None
+        except:
+            st.session_state.excel_url_cache = None
+    return st.session_state.excel_url_cache
 
 
 @st.cache_data(ttl=300, show_spinner=False)
-def _leer_hoja_excel_cached(src_key, nombre_hoja):
-    src = st.session_state.get('excel_bytes_cache', 'cotizador.xlsx')
+def _descargar_excel(url):
+    """Descarga el Excel y parsea TODAS las hojas de una vez. Cache 5 min compartido entre sesiones."""
     try:
-        return pd.read_excel(src, sheet_name=nombre_hoja)
+        r = _rq_excel.get(url, timeout=15)
+        r.raise_for_status()
+        xl = pd.ExcelFile(_io_excel.BytesIO(r.content))
+        return {s: xl.parse(s) for s in xl.sheet_names}, xl.sheet_names
     except:
-        return pd.DataFrame()
+        return {}, []
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _excel_local():
+    """Parsea el Excel local (fallback). Cache 1 hora."""
+    try:
+        xl = pd.ExcelFile('cotizador.xlsx')
+        return {s: xl.parse(s) for s in xl.sheet_names}, xl.sheet_names
+    except:
+        return {}, []
 
 
 def _leer_hoja_excel(nombre_hoja, supabase_admin):
-    _excel_src(supabase_admin)
-    try:
-        src = st.session_state.get('excel_bytes_cache', 'cotizador.xlsx')
-        return pd.read_excel(src, sheet_name=nombre_hoja)
-    except:
-        return pd.DataFrame()
+    url = _get_excel_url(supabase_admin)
+    sheets, _ = _descargar_excel(url) if url else _excel_local()
+    return sheets.get(nombre_hoja, pd.DataFrame())
 
 
 def _leer_bd_total(supabase_admin):
+    df = _leer_hoja_excel("BD Total", supabase_admin)
     try:
-        src = _excel_src(supabase_admin)
-        return pd.read_excel(src, sheet_name="BD Total")[["Item", "P. Unitario real"]]
+        return df[["Item", "P. Unitario real"]]
     except:
         return pd.DataFrame(columns=["Item", "P. Unitario real"])
 
 
 def _leer_hojas_disponibles(supabase_admin):
+    url = _get_excel_url(supabase_admin)
+    _, names = _descargar_excel(url) if url else _excel_local()
+    return names
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _cargar_modelo_cached(nombre_hoja, url):
+    """Merge modelo + BD Total. Cache 5 min por (hoja, URL)."""
     try:
-        src = _excel_src(supabase_admin)
-        return pd.ExcelFile(src).sheet_names
+        sheets, _ = _descargar_excel(url)
+        df_modelo = sheets.get(nombre_hoja, pd.DataFrame())
+        df_bd = sheets.get("BD Total", pd.DataFrame())
+        df_modelo = df_modelo[["Categorias", "Item", "Cantidad"]].dropna()
+        df_modelo = df_modelo[df_modelo["Cantidad"] > 0]
+        df_bd = df_bd[["Item", "P. Unitario real"]]
+        df_final = df_modelo.merge(df_bd, on="Item", how="left")
+        return [
+            {"Categoria": r["Categorias"], "Item": r["Item"], "Cantidad": r["Cantidad"],
+             "Precio Unitario": r["P. Unitario real"],
+             "Subtotal": r["Cantidad"] * r["P. Unitario real"]}
+            for _, r in df_final.iterrows()
+        ]
     except:
         return []
 
 
 def cargar_modelo(nombre_hoja, supabase_admin):
-    df_modelo = _leer_hoja_excel(nombre_hoja, supabase_admin)
-    df_modelo = df_modelo[["Categorias", "Item", "Cantidad"]].dropna()
-    df_modelo = df_modelo[df_modelo["Cantidad"] > 0]
-    df_bd = _leer_bd_total(supabase_admin)
-    df_final = df_modelo.merge(df_bd, on="Item", how="left")
-    carrito = []
-    for _, row in df_final.iterrows():
-        subtotal = row["Cantidad"] * row["P. Unitario real"]
-        carrito.append({
-            "Categoria": row["Categorias"], "Item": row["Item"],
-            "Cantidad": row["Cantidad"], "Precio Unitario": row["P. Unitario real"], "Subtotal": subtotal
-        })
-    return carrito
+    url = _get_excel_url(supabase_admin)
+    if url:
+        return [dict(i) for i in _cargar_modelo_cached(nombre_hoja, url)]
+    sheets, _ = _excel_local()
+    try:
+        df_modelo = sheets.get(nombre_hoja, pd.DataFrame())
+        df_bd = sheets.get("BD Total", pd.DataFrame())
+        df_modelo = df_modelo[["Categorias", "Item", "Cantidad"]].dropna()
+        df_modelo = df_modelo[df_modelo["Cantidad"] > 0]
+        df_bd = df_bd[["Item", "P. Unitario real"]]
+        df_final = df_modelo.merge(df_bd, on="Item", how="left")
+        return [
+            {"Categoria": r["Categorias"], "Item": r["Item"], "Cantidad": r["Cantidad"],
+             "Precio Unitario": r["P. Unitario real"],
+             "Subtotal": r["Cantidad"] * r["P. Unitario real"]}
+            for _, r in df_final.iterrows()
+        ]
+    except:
+        return []
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _cargar_categoria_cached(nombre_hoja, categoria, url):
+    """Ítems de una categoría desde un modelo. Cache 5 min."""
+    try:
+        sheets, _ = _descargar_excel(url)
+        df_modelo = sheets.get(nombre_hoja, pd.DataFrame())
+        df_bd = sheets.get("BD Total", pd.DataFrame())
+        df_modelo = df_modelo[["Categorias", "Item", "Cantidad"]].dropna()
+        df_modelo = df_modelo[(df_modelo["Cantidad"] > 0) & (df_modelo["Categorias"] == categoria)]
+        df_bd = df_bd[["Item", "P. Unitario real"]]
+        df_final = df_modelo.merge(df_bd, on="Item", how="left")
+        return [
+            {"Categoria": r["Categorias"], "Item": r["Item"], "Cantidad": r["Cantidad"],
+             "Precio Unitario": r["P. Unitario real"],
+             "Subtotal": r["Cantidad"] * r["P. Unitario real"]}
+            for _, r in df_final.iterrows()
+        ]
+    except:
+        return []
 
 
 def cargar_categoria_desde_modelo(nombre_hoja, categoria_objetivo, supabase_admin):
-    df_modelo = _leer_hoja_excel(nombre_hoja, supabase_admin)
-    df_modelo = df_modelo[["Categorias", "Item", "Cantidad"]].dropna()
-    df_modelo = df_modelo[(df_modelo["Cantidad"] > 0) & (df_modelo["Categorias"] == categoria_objetivo)]
-    df_bd = _leer_bd_total(supabase_admin)
-    df_final = df_modelo.merge(df_bd, on="Item", how="left")
-    categoria_items = []
-    for _, row in df_final.iterrows():
-        subtotal = row["Cantidad"] * row["P. Unitario real"]
-        categoria_items.append({
-            "Categoria": row["Categorias"], "Item": row["Item"],
-            "Cantidad": row["Cantidad"], "Precio Unitario": row["P. Unitario real"], "Subtotal": subtotal
-        })
-    return categoria_items
+    url = _get_excel_url(supabase_admin)
+    if url:
+        return [dict(i) for i in _cargar_categoria_cached(nombre_hoja, categoria_objetivo, url)]
+    sheets, _ = _excel_local()
+    try:
+        df_modelo = sheets.get(nombre_hoja, pd.DataFrame())
+        df_bd = sheets.get("BD Total", pd.DataFrame())
+        df_modelo = df_modelo[["Categorias", "Item", "Cantidad"]].dropna()
+        df_modelo = df_modelo[(df_modelo["Cantidad"] > 0) & (df_modelo["Categorias"] == categoria_objetivo)]
+        df_bd = df_bd[["Item", "P. Unitario real"]]
+        df_final = df_modelo.merge(df_bd, on="Item", how="left")
+        return [
+            {"Categoria": r["Categorias"], "Item": r["Item"], "Cantidad": r["Cantidad"],
+             "Precio Unitario": r["P. Unitario real"],
+             "Subtotal": r["Cantidad"] * r["P. Unitario real"]}
+            for _, r in df_final.iterrows()
+        ]
+    except:
+        return []
 
 
 def limpiar_todo():
