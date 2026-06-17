@@ -687,17 +687,18 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         _cats_sorted = sorted(_cats_data, key=lambda x: x['subtotal_raw'], reverse=True)
         _n = len(_cats_sorted)
 
-        # Distribuir en filas: 1 fila si ≤4 categorías, 2 filas con balance por valor si >4
+        # Distribuir en filas: 1 fila si ≤4 categorías, 2 filas con balance por peso visual (sqrt) si >4
         if _n <= 4:
             _mosaic_rows = [_cats_sorted]
         else:
             _row1, _row2 = [], []
             _s1, _s2 = 0.0, 0.0
             for _mc in _cats_sorted:
+                _w = _mc['subtotal_raw'] ** 0.5  # peso visual ∝ sqrt del valor
                 if _s1 <= _s2:
-                    _row1.append(_mc); _s1 += _mc['subtotal_raw']
+                    _row1.append(_mc); _s1 += _w
                 else:
-                    _row2.append(_mc); _s2 += _mc['subtotal_raw']
+                    _row2.append(_mc); _s2 += _w
             _mosaic_rows = [r for r in [_row1, _row2] if r]
 
         _cards_css = (
@@ -717,7 +718,8 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         )
         _cards_html_md = '<div class="pres-cards">'
         for _row in _mosaic_rows:
-            _row_max = max((c['subtotal_raw'] for c in _row), default=1) or 1
+            # Escala raíz cuadrada: comprime ratios extremos (226x lineal → ~15x con sqrt)
+            _row_max_sqrt = max((c['subtotal_raw'] ** 0.5 for c in _row), default=1) or 1
             _cards_html_md += '<div class="mosaic-row">'
             for _c in _row:
                 _is_act = (_c['cat'] == _cat_filtro_activo)
@@ -726,8 +728,8 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                 _brd = f'2px solid {_col}' if _is_act else f'1.5px solid {_hex_to_rgba(_col, 0.3)}'
                 _tick = ' ✓' if _is_act else ''
                 _dcat = _c['cat'].replace('"', '&quot;')
-                # flex-grow proporcional al valor dentro de su fila (max=1000)
-                _grow = max(1, round(_c['subtotal_raw'] / _row_max * 1000))
+                # flex-grow con escala sqrt: cards grandes ceden espacio a las pequeñas
+                _grow = max(1, round((_c['subtotal_raw'] ** 0.5) / _row_max_sqrt * 1000))
                 _cards_html_md += (
                     f'<div class="_pres_card" data-catpres="{_dcat}" data-colorpres="{_col}"'
                     f' style="background:{_bg};border:{_brd};border-left:4px solid {_col};'
