@@ -246,11 +246,10 @@ def _construir_datos_guardar_simple():
     return dc, da, proy, cfg, tots, pn, pd2
 
 
-@st.fragment
 def render_floating_panels():
     """FAB Guardar, Margen popover y Checklist — se renderizan fuera de cualquier tab."""
     # Colapsa el bloque en el flujo normal del documento; los hijos position:fixed son visibles igualmente.
-    # Nota: .stButton:not(.st-key-btn_fab_guardar) excluye el FAB del colapso para que no quede bajo el viewport.
+    # .stButton:not(.st-key-btn_fab_guardar) excluye el FAB del colapso para que no quede bajo el viewport.
     st.markdown("""<style>
 [data-testid="stTabs"] ~ .stMarkdown,
 [data-testid="stTabs"] ~ .stButton:not(.st-key-btn_fab_guardar),
@@ -314,7 +313,7 @@ def render_floating_panels():
                 st.session_state.hash_ultimo_guardado = calcular_hash_estado()
                 st.session_state.recien_guardado = True
                 st.session_state.counter += 1
-                st.rerun(scope="app")
+                st.rerun()
             except Exception as _eg:
                 st.error(f"Error al guardar: {_eg}")
 
@@ -374,7 +373,7 @@ section[data-testid="stMain"] [data-testid="stPopoverBody"] {{
             if st.button("✅ Aplicar", key="btn_aplicar_margen", use_container_width=True):
                 st.session_state.margen = _mg_pop
                 st.session_state.counter += 1
-                st.rerun(scope="app")
+                st.rerun()
 
     # ── PANEL PROGRESO FLOTANTE (derecha) ───────────────────────────────────
     _mostrar_prog = bool(
