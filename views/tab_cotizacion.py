@@ -702,14 +702,16 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
 
         _cards_css = (
             '<style>'
+            "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&display=swap');"
             '.pres-cards{display:flex;flex-direction:column;gap:5px;padding:4px 0 10px 0;}'
-            '.mosaic-row{display:flex;gap:5px;}'
+            '.mosaic-row{display:flex;gap:5px;align-items:stretch;}'
             '._pres_card{border-radius:7px;padding:7px 11px;min-width:80px;cursor:pointer;'
-            'transition:background .13s,border .13s;overflow:hidden;box-sizing:border-box;}'
+            'transition:background .13s,border .13s;box-sizing:border-box;}'
             '._pres_card:hover{opacity:.85;}'
-            '.pres-cname{font-size:10px;font-weight:700;text-transform:uppercase;'
-            'letter-spacing:.05em;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
-            '.pres-csub{font-size:12px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+            '.pres-cname{font-family:"Montserrat",sans-serif;font-size:11px;font-weight:700;'
+            'text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;word-break:break-word;}'
+            '.pres-csub{font-family:"Montserrat",sans-serif;font-size:13px;font-weight:800;'
+            'color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
             '.pres-cmeta{font-size:10px;color:#64748b;margin-top:1px;white-space:nowrap;}'
             '</style>'
         )
