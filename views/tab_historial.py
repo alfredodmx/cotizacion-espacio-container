@@ -965,11 +965,17 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             _asesor_sfx = f" | {_asesor}" if _asesor else ""
             _lbl_m=f"{row['N°']} - {row['Cliente'] or 'S/C'} ({row['FechaPlana']}) - {_total_limpio}{_asesor_sfx}".strip()
             _ec=_ec_map.get(estado,('#64748b','#fff',''))
-            _dd_options_list.append({'ep':str(row['N°']),'label':_lbl,'est':estado,'lm':_lbl_m,'bg':_ec[0],'col':_ec[1],'em':_ec[2]})
+            # trig: label para el trigger (cerrado) — incluye estado entre corchetes y asesor
+            _lbl_trig = f"{row['N°']} - {row['Cliente'] or 'S/C'} ({row['FechaPlana']}) - {_total_limpio} [{estado}]{_asesor_sfx}".strip()
+            _dd_options_list.append({'ep':str(row['N°']),'label':_lbl,'est':estado,'lm':_lbl_m,'trig':_lbl_trig,'bg':_ec[0],'col':_ec[1],'em':_ec[2]})
 
         st.markdown('<style>[data-testid="stTextInput"]:has(input[placeholder="__ecdd_trg__"]){position:fixed!important;top:-9999px!important;left:-9999px!important;opacity:0!important;pointer-events:none!important;}</style>', unsafe_allow_html=True)
         _ecdd_trigger = st.text_input("Selector EP", key="_sel_ep_trigger", label_visibility="collapsed", placeholder="__ecdd_trg__")
-        if _ecdd_trigger and st.session_state.get('selector_ep_num') != _ecdd_trigger:
+        # Solo aceptar el trigger si el EP existe en la lista filtrada actual.
+        # Sin este guard, al cambiar el badge el widget retiene el EP anterior y
+        # lo re-inyecta en selector_ep_num, sobreescribiendo el reset de Python.
+        _dd_eps_set = {o['ep'] for o in _dd_options_list}
+        if _ecdd_trigger and st.session_state.get('selector_ep_num') != _ecdd_trigger and _ecdd_trigger in _dd_eps_set:
             st.session_state['selector_ep_num'] = _ecdd_trigger
             st.rerun()
 
@@ -1086,11 +1092,11 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 "';padding:2px 9px;border-radius:99px;font-size:0.65rem;font-weight:700;"
                 "white-space:nowrap;flex-shrink:0;font-family:Montserrat,sans-serif;';"
                 "d.appendChild(_b);"
-                "d.onclick=function(e){e.stopPropagation();sel(o.ep,o.lm||o.label);};"
+                "d.onclick=function(e){e.stopPropagation();sel(o.ep,o.trig||o.lm||o.label);};"
                 "ov.appendChild(d);"
                 "});"
                 "if(SEL){var s=OPTS.find(function(o){return o.ep===SEL;});"
-                "if(s)document.getElementById('dtx').textContent=s.lm||s.label;}"
+                "if(s)document.getElementById('dtx').textContent=s.trig||s.lm||s.label;}"
                 "setInterval(function(){"
                 "var f=window.parent._ecBadgeFilter||'';"
                 "if(f!==BF){BF=f;"
