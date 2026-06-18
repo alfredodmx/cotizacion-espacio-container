@@ -937,16 +937,16 @@ var MAT_DATA = """ + _mat_data_json_map + """;
         opciones = []
         _dd_options_list = []
         for idx, row in df_resultados.iterrows():
-            if row.get('Acta_URL',''): estado="🟣 PROYECTO TERMINADO"
-            elif row.get('Tiene_Notariado',0): estado="🔵 ADJUDICADO"
-            elif str(row.get('Motivo_Rechazo','') or '').strip() not in ('','None','nan'): estado="❌ RECHAZADO"
+            if row.get('Acta_URL',''): estado="PROYECTO TERMINADO"
+            elif row.get('Tiene_Notariado',0): estado="ADJUDICADO"
+            elif str(row.get('Motivo_Rechazo','') or '').strip() not in ('','None','nan'): estado="RECHAZADO"
             else:
                 dc2=all([row['Cliente'],row['Email']]); ac2=any([row['Asesor'],row['Asesor_Email'],row['Asesor_Tel']])
                 if row['Margen'] and row['Margen']>0:
-                    estado=("🟢 AUTORIZADO CON PLANO" if row['Tiene_Plano'] else "🟢 AUTORIZADO") if (dc2 and ac2) else ("🔴 INCOMPLETO CON PLANO" if row['Tiene_Plano'] else "🔴 INCOMPLETO")
+                    estado=("AUTORIZADO CON PLANO" if row['Tiene_Plano'] else "AUTORIZADO") if (dc2 and ac2) else ("INCOMPLETO CON PLANO" if row['Tiene_Plano'] else "INCOMPLETO")
                 else:
-                    if dc2 and ac2: estado="🟠 BORRADOR CON PLANO" if row['Tiene_Plano'] else "🟡 BORRADOR"
-                    else: estado="🔴 INCOMPLETO CON PLANO" if row['Tiene_Plano'] else "🔴 INCOMPLETO"
+                    if dc2 and ac2: estado="BORRADOR CON PLANO" if row['Tiene_Plano'] else "BORRADOR"
+                    else: estado="INCOMPLETO CON PLANO" if row['Tiene_Plano'] else "INCOMPLETO"
             plano_ind="📎" if row['Tiene_Plano'] else ""
             _total_limpio=""
             for _rb in (st.session_state.resultados_busqueda or []):
