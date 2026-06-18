@@ -653,6 +653,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                                 st.session_state.modelo_base = modelo_seleccionado
                                 st.session_state.margen = 0.0
                                 st.toast(f"✅ Modelo '{modelo_seleccionado}' cargado correctamente.")
+                                st.rerun()
                     else:
                         st.caption("Sin modelos")
                 except Exception as _e1:
@@ -692,6 +693,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                                 })
                                 st.session_state.carrito.sort(key=lambda x: (x['Categoria'], x['Item']))
                                 st.toast(f"✅ {item} agregado exitosamente ({cantidad} un.)")
+                                st.rerun()
                             else:
                                 st.toast(f"✅ {item} actualizado — {cantidad} un. más agregadas")
                 except Exception as _e2:
@@ -718,6 +720,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                                 if categoria_eliminar != "-- Seleccionar --":
                                     st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_eliminar]
                                     st.toast(f"🗑️ Categoría '{categoria_eliminar}' eliminada del presupuesto.")
+                                    st.rerun()
                     else:
                         st.caption("Sin categor&#237;as")
                 except Exception as _e3:
@@ -762,6 +765,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                                         st.session_state.carrito.append(_ni)
                                 st.session_state.carrito.sort(key=lambda x: (x['Categoria'], x['Item']))
                                 st.toast(f"✅ Categoría '{categoria_agregar}' mezclada al presupuesto.")
+                                st.rerun()
                     else:
                         st.caption("Sin modelos")
                 except Exception as _e4:
@@ -859,11 +863,13 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                     if '_apply_qty' in st.query_params:
                         del st.query_params['_apply_qty']
                     st.session_state.counter += 1
+                    st.rerun()
             if _del_clicked is not None:
                 _del_nm = st.session_state.carrito[_del_clicked]['Item']
                 st.session_state.carrito = [i for i in st.session_state.carrito if i['Item'] != _del_nm]
                 st.session_state.pop('_item_pendiente_eliminar', None)
                 st.session_state.counter += 1
+                st.rerun()
 
         _cat_filtro_activo = st.query_params.get('_pres_cat', '')
         _df_cat = pd.DataFrame(st.session_state.carrito)
