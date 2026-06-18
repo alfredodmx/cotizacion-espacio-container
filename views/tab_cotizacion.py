@@ -194,7 +194,24 @@ def limpiar_todo():
     st.session_state.pdf_nombre = ""
     st.session_state.numero_en_visor = None
     st.session_state.pdf_url = None
-    st.session_state.counter += 100
+    _c = st.session_state.counter
+    st.session_state.counter += 1
+    # Delete datos_cliente widget keys so they re-initialize from cleared values
+    # without React having to fully unmount/remount the widgets (much faster)
+    for _k in [
+        f"cliente_tipo_{_c}", f"nombre_input_{_c}", f"correo_input_{_c}",
+        f"rut_input_{_c}", f"telefono_input_{_c}",
+        f"cliente_empresa_{_c}", f"rut_empresa_input_{_c}",
+        f"direccion_input_{_c}",
+        f"cliente_comuna_{_c}", f"cliente_region_{_c}",
+        f"proyecto_direccion_{_c}",
+        f"proyecto_comuna_{_c}", f"proyecto_region_{_c}",
+        f"ej_nombre_fixed_{_c}", f"ej_correo_fixed_{_c}", f"ej_tel_fixed_{_c}",
+        f"asesor_select_{_c}", f"asesor_correo_input_{_c}", f"asesor_telefono_input_{_c}",
+        f"fecha_inicio_{_c}", f"fecha_termino_{_c}", f"observaciones_input_{_c}",
+    ]:
+        if _k in st.session_state:
+            del st.session_state[_k]
     if '_pres_cat' in st.query_params:
         del st.query_params['_pres_cat']
 
