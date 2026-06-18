@@ -197,6 +197,10 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
     st.markdown("---")
     st.markdown("### Resultados")
 
+    _qp_sel_ep = st.query_params.get('_sel_ep')
+    if _qp_sel_ep:
+        st.session_state['selector_ep_num'] = str(_qp_sel_ep)
+        st.query_params.clear()
     _qp_filtro = st.query_params.get('_filtro_estado')
     if _qp_filtro is not None:
         _prev = st.session_state.get('filtro_estado_tabla')
@@ -969,15 +973,6 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             _lbl_trig = f"{row['N°']} - {row['Cliente'] or 'S/C'} ({row['FechaPlana']}) - {_total_limpio} [{estado}]{_asesor_sfx}".strip()
             _dd_options_list.append({'ep':str(row['N°']),'label':_lbl,'est':estado,'lm':_lbl_m,'trig':_lbl_trig,'bg':_ec[0],'col':_ec[1],'em':_ec[2]})
 
-        st.markdown('<style>[data-testid="stTextInput"]:has(input[placeholder="__ecdd_trg__"]){position:fixed!important;top:-9999px!important;left:-9999px!important;opacity:0!important;pointer-events:none!important;}</style>', unsafe_allow_html=True)
-        # Key dinámico: cambia cuando cambia el badge filter → widget se recrea vacío,
-        # evitando que el valor anterior contamine la nueva lista filtrada.
-        _trg_key = "_sel_ep_trg_" + (st.session_state.get('filtro_estado_tabla') or 'todos').replace(' ', '_')
-        _ecdd_trigger = st.text_input("Selector EP", key=_trg_key, label_visibility="collapsed", placeholder="__ecdd_trg__")
-        _dd_eps_set = {o['ep'] for o in _dd_options_list}
-        if _ecdd_trigger and st.session_state.get('selector_ep_num') != _ecdd_trigger and _ecdd_trigger in _dd_eps_set:
-            st.session_state['selector_ep_num'] = _ecdd_trigger
-            st.rerun()
 
         if opciones:
             _sel_ep_now = st.session_state.get('selector_ep_num', '')
@@ -1056,19 +1051,16 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 "PD.removeEventListener('click',_co);"
                 "PD.removeEventListener('keydown',_ke);"
                 "}"
-                "function sel(ep,lbl){"
-                "document.getElementById('dtx').textContent=lbl;"
+                "function mkTrig(o){return(o.lm||o.label||o.ep)+(o.est?' ['+o.est+']':'');}"
+                "function sel(ep){"
+                "var s=OPTS.find(function(o){return o.ep===ep;});"
+                "document.getElementById('dtx').textContent=s?mkTrig(s):ep;"
                 "document.querySelectorAll('.dd_i').forEach(function(d){"
                 "if(d.getAttribute('data-ep')===ep)d.classList.add('sel');else d.classList.remove('sel');});"
                 "cls();"
-                "var inp=PD.querySelector('input[placeholder=\"__ecdd_trg__\"]');"
-                "if(inp){"
-                "var _nv=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set;"
-                "_nv.call(inp,ep);"
-                "inp.focus();"
-                "inp.dispatchEvent(new window.parent.KeyboardEvent('keydown',"
-                "{key:'Enter',keyCode:13,which:13,bubbles:true,cancelable:true}));"
-                "}}"
+                "var base=window.parent.location.pathname;"
+                "window.parent.location.href=base+'?_sel_ep='+encodeURIComponent(ep);"
+                "}"
                 "function flt(q,bf){"
                 "var ov=document.getElementById('dd_o');if(!ov)return;var vis=0;q=q.toLowerCase();"
                 "ov.querySelectorAll('.dd_i').forEach(function(o){"
@@ -1095,11 +1087,11 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 "';padding:2px 9px;border-radius:99px;font-size:0.65rem;font-weight:700;"
                 "white-space:nowrap;flex-shrink:0;font-family:Montserrat,sans-serif;';"
                 "d.appendChild(_b);"
-                "d.onclick=function(e){e.stopPropagation();sel(o.ep,o.trig||o.lm||o.label);};"
+                "d.onclick=function(e){e.stopPropagation();sel(o.ep);};"
                 "ov.appendChild(d);"
                 "});"
                 "if(SEL){var s=OPTS.find(function(o){return o.ep===SEL;});"
-                "if(s)document.getElementById('dtx').textContent=s.trig||s.lm||s.label;}"
+                "if(s)document.getElementById('dtx').textContent=mkTrig(s);}"
                 "setInterval(function(){"
                 "var f=window.parent._ecBadgeFilter||'';"
                 "if(f!==BF){BF=f;"
