@@ -1384,4 +1384,5 @@ try{
   var pm=D.getElementById('_prog_mini');if(pm)pm.style.display='none';
 }catch(e){}
 })();</script>""", height=0)
+    render_floating_panels()
 

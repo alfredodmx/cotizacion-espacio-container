@@ -97,7 +97,6 @@ from views.tab_reporte         import render_tab_reporte
 
 @st.fragment
 def _presupuesto_tab(supabase, supabase_admin, supa_url, supa_key):
-    render_floating_panels()
     render_tab_cotizacion(supabase=supabase, supabase_admin=supabase_admin,
                           supa_url=supa_url, supa_key=supa_key)
 
