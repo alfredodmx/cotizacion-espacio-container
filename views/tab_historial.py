@@ -963,7 +963,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             _ec=_ec_map.get(estado,('#64748b','#fff',''))
             _dd_options_list.append({'ep':str(row['N°']),'label':_lbl,'est':estado,'lm':_lbl_m,'bg':_ec[0],'col':_ec[1],'em':_ec[2]})
 
-        st.markdown('<style>[data-testid="stTextInput"]:has(input[placeholder="__ecdd_trg__"]){display:none!important;}</style>', unsafe_allow_html=True)
+        st.markdown('<style>[data-testid="stTextInput"]:has(input[placeholder="__ecdd_trg__"]){position:fixed!important;top:-9999px!important;left:-9999px!important;opacity:0!important;pointer-events:none!important;}</style>', unsafe_allow_html=True)
         _ecdd_trigger = st.text_input("Selector EP", key="_sel_ep_trigger", label_visibility="collapsed", placeholder="__ecdd_trg__")
         if _ecdd_trigger:
             st.session_state['selector_ep_num'] = _ecdd_trigger
@@ -1005,7 +1005,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 "var old=PD.getElementById('_ecdd');if(old)old.remove();"
                 "var div=PD.createElement('div');div.id='_ecdd';div.style.cssText='position:fixed!important;top:'+pos.top+'px;left:'+pos.left+'px;width:'+pos.width+'px;z-index:999999;';"
                 "var inp=PD.createElement('input');inp.id='_ecdd_s';inp.type='text';inp.placeholder='&#128269; Buscar...';inp.oninput=function(){flt(this.value,BF);};"
-                "var opts=PD.createElement('div');opts.id='_ecdd_o';"
+                "var opts=PD.createElement('div');opts.id='_ecdd_o';opts.addEventListener('wheel',function(e){e.stopPropagation();},{passive:true});"
                 "OPTS.forEach(function(o){var d=PD.createElement('div');d.className='_ecdd_i'+(o.ep===SEL?' sel':'');d.setAttribute('data-ep',o.ep);d.setAttribute('data-est',o.est);var _t=PD.createElement('span');_t.style.cssText='overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;';_t.textContent=o.lm||o.label;d.appendChild(_t);var _b=PD.createElement('span');_b.textContent=(o.em||'')+' '+(o.est||'');_b.style.cssText='background:'+(o.bg||'#64748b')+';color:'+(o.col||'#fff')+';padding:1px 7px;border-radius:99px;font-size:0.6rem;font-weight:700;white-space:nowrap;flex-shrink:0;font-family:Montserrat,sans-serif;';d.appendChild(_b);d.onclick=function(e){e.stopPropagation();sel(o.ep,o.label);};opts.appendChild(d);});"
                 "var em=PD.createElement('div');em.id='_ecdd_em';em.textContent='Sin resultados';"
                 "div.appendChild(inp);div.appendChild(opts);div.appendChild(em);PD.body.appendChild(div);flt('',BF);setTimeout(function(){inp.focus();},50);"
@@ -1013,7 +1013,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 "function cls(){isOpen=false;document.getElementById('dt').classList.remove('open');var ov=PD.getElementById('_ecdd');if(ov)ov.remove();}"
                 "function sel(ep,lbl){document.getElementById('dtx').textContent=lbl;cls();"
                 "var inp=PD.querySelector('input[placeholder=\"__ecdd_trg__\"]');"
-                "if(inp){var s=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set;s.call(inp,ep);inp.dispatchEvent(new window.parent.Event('input',{bubbles:true}));}}"
+                "if(inp){var _nv=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set;_nv.call(inp,ep);inp.dispatchEvent(new window.parent.InputEvent('input',{bubbles:true,data:ep}));inp.dispatchEvent(new window.parent.Event('change',{bubbles:true}));setTimeout(function(){inp.dispatchEvent(new window.parent.KeyboardEvent('keydown',{key:'Enter',code:'Enter',keyCode:13,which:13,bubbles:true}));},30);}}"
                 "function flt(q,bf){var ov=PD.getElementById('_ecdd_o');if(!ov)return;var vis=0;q=q.toLowerCase();"
                 "ov.querySelectorAll('._ecdd_i').forEach(function(o){var est=o.getAttribute('data-est');var lbl=(o.textContent||'').toLowerCase();var ok=(!bf||bf==='TODOS'||est===bf)&&(!q||lbl.indexOf(q)!==-1);o.style.display=ok?'':'none';if(ok)vis++;});"
                 "var em=PD.getElementById('_ecdd_em');if(em)em.style.display=vis===0?'':'none';}"
