@@ -970,10 +970,10 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             _dd_options_list.append({'ep':str(row['N°']),'label':_lbl,'est':estado,'lm':_lbl_m,'trig':_lbl_trig,'bg':_ec[0],'col':_ec[1],'em':_ec[2]})
 
         st.markdown('<style>[data-testid="stTextInput"]:has(input[placeholder="__ecdd_trg__"]){position:fixed!important;top:-9999px!important;left:-9999px!important;opacity:0!important;pointer-events:none!important;}</style>', unsafe_allow_html=True)
-        _ecdd_trigger = st.text_input("Selector EP", key="_sel_ep_trigger", label_visibility="collapsed", placeholder="__ecdd_trg__")
-        # Solo aceptar el trigger si el EP existe en la lista filtrada actual.
-        # Sin este guard, al cambiar el badge el widget retiene el EP anterior y
-        # lo re-inyecta en selector_ep_num, sobreescribiendo el reset de Python.
+        # Key dinámico: cambia cuando cambia el badge filter → widget se recrea vacío,
+        # evitando que el valor anterior contamine la nueva lista filtrada.
+        _trg_key = "_sel_ep_trg_" + (st.session_state.get('filtro_estado_tabla') or 'todos').replace(' ', '_')
+        _ecdd_trigger = st.text_input("Selector EP", key=_trg_key, label_visibility="collapsed", placeholder="__ecdd_trg__")
         _dd_eps_set = {o['ep'] for o in _dd_options_list}
         if _ecdd_trigger and st.session_state.get('selector_ep_num') != _ecdd_trigger and _ecdd_trigger in _dd_eps_set:
             st.session_state['selector_ep_num'] = _ecdd_trigger
@@ -995,6 +995,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             # El iframe se redimensiona con window.frameElement al abrir/cerrar.
             # Wheel events dentro del iframe NO propagan al padre -> scroll aislado.
             _dd_html_tpl = (
+                f'<!-- ep={_sel_ep_safe} f={st.session_state.get("filtro_estado_tabla") or ""} -->'
                 '<style>'
                 '*{box-sizing:border-box;margin:0;padding:0;}'
                 'body{background:transparent;overflow:visible;font-family:Montserrat,sans-serif;}'
@@ -1057,6 +1058,8 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 "}"
                 "function sel(ep,lbl){"
                 "document.getElementById('dtx').textContent=lbl;"
+                "document.querySelectorAll('.dd_i').forEach(function(d){"
+                "if(d.getAttribute('data-ep')===ep)d.classList.add('sel');else d.classList.remove('sel');});"
                 "cls();"
                 "var inp=PD.querySelector('input[placeholder=\"__ecdd_trg__\"]');"
                 "if(inp){"
