@@ -693,21 +693,21 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
         _n_total = len(st.session_state.resultados_busqueda)
         _badge_items = [('TODOS',_todos_bg,_todos_col,'',f'Todos ({_n_total})','_fbtn_TODOS')]
         _badge_map = [
-            ('🟣 PROYECTO TERMINADO','#ede9fe','#7c3aed','#5b21b6','terminados'),
-            ('🔵 ADJUDICADO','#dbeafe','#1d4ed8','#1e40af','adjudicados'),
-            ('🟢 AUTORIZADO CON PLANO','#dcfce7','#15803d','#166534','aut. con plano'),
-            ('🟢 AUTORIZADO','#dcfce7','#15803d','#166534','autorizados'),
-            ('🟠 BORRADOR CON PLANO','#ffedd5','#c2410c','#9a3412','borrador con plano'),
-            ('🟡 BORRADOR','#fef9c3','#854d0e','#713f12','borrador'),
-            ('🔴 INCOMPLETO CON PLANO','#fee2e2','#dc2626','#991b1b','incompleto con plano'),
-            ('🔴 INCOMPLETO','#fee2e2','#dc2626','#991b1b','incompletos'),
-            ('❌ RECHAZADO','#fee2e2','#b91c1c','#7f1d1d','rechazados'),
+            ('PROYECTO TERMINADO','#ede9fe','#7c3aed','#5b21b6','🟣 terminados'),
+            ('ADJUDICADO','#dbeafe','#1d4ed8','#1e40af','🔵 adjudicados'),
+            ('AUTORIZADO CON PLANO','#dcfce7','#15803d','#166534','🟢 aut. c/plano'),
+            ('AUTORIZADO','#dcfce7','#15803d','#166534','🟢 autorizados'),
+            ('BORRADOR CON PLANO','#ffedd5','#c2410c','#9a3412','🟠 borrador c/plano'),
+            ('BORRADOR','#fef9c3','#854d0e','#713f12','🟡 borrador'),
+            ('INCOMPLETO CON PLANO','#fee2e2','#dc2626','#991b1b','🔴 incompleto c/plano'),
+            ('INCOMPLETO','#fee2e2','#dc2626','#991b1b','🔴 incompletos'),
+            ('RECHAZADO','#fee2e2','#b91c1c','#7f1d1d','❌ rechazados'),
         ]
         _sel_map2 = {
-            '🟣 PROYECTO TERMINADO':'_fbtn_TER','🔵 ADJUDICADO':'_fbtn_ADJ',
-            '🟢 AUTORIZADO CON PLANO':'_fbtn_ACP','🟢 AUTORIZADO':'_fbtn_AUT',
-            '🟠 BORRADOR CON PLANO':'_fbtn_BCP','🟡 BORRADOR':'_fbtn_BOR',
-            '🔴 INCOMPLETO CON PLANO':'_fbtn_ICP','🔴 INCOMPLETO':'_fbtn_INC','❌ RECHAZADO':'_fbtn_REC'
+            'PROYECTO TERMINADO':'_fbtn_TER','ADJUDICADO':'_fbtn_ADJ',
+            'AUTORIZADO CON PLANO':'_fbtn_ACP','AUTORIZADO':'_fbtn_AUT',
+            'BORRADOR CON PLANO':'_fbtn_BCP','BORRADOR':'_fbtn_BOR',
+            'INCOMPLETO CON PLANO':'_fbtn_ICP','INCOMPLETO':'_fbtn_INC','RECHAZADO':'_fbtn_REC'
         }
         for _key,_bg,_col,_col_act,_lbl in _badge_map:
             _cnt=_estados_cnt_total.get(_key,0)
@@ -715,7 +715,7 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                 _ea=_filtro_activo_badge==_key
                 _bg_b=_col_act if _ea else _bg; _col_b='#fff' if _ea else _col
                 _shadow=f'box-shadow:0 0 0 2px {_col_act};' if _ea else ''
-                _badge_items.append((_key,_bg_b,_col_b,_shadow,f'{_key.split()[0]} {_cnt} {_lbl}',_sel_map2.get(_key,'_fbtn_TODOS')))
+                _badge_items.append((_key,_bg_b,_col_b,_shadow,f'{_lbl} ({_cnt})',_sel_map2.get(_key,'_fbtn_TODOS')))
 
         _col_badge, _col_ref = st.columns([5, 0.7])
         with _col_badge:
