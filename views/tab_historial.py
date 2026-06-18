@@ -941,25 +941,29 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                  'BORRADOR CON PLANO':('#c2410c','#fff','🟠'),'BORRADOR':('#d97706','#212529','🟡'),
                  'INCOMPLETO CON PLANO':('#dc2626','#fff','🔴'),'INCOMPLETO':('#dc2626','#fff','🔴'),
                  'RECHAZADO':('#991b1b','#fbbf24','❌')}
-        for idx, row in df_resultados.iterrows():
-            if row.get('Acta_URL',''): estado="PROYECTO TERMINADO"
-            elif row.get('Tiene_Notariado',0): estado="ADJUDICADO"
-            elif str(row.get('Motivo_Rechazo','') or '').strip() not in ('','None','nan'): estado="RECHAZADO"
-            else:
-                dc2=all([row['Cliente'],row['Email']]); ac2=any([row['Asesor'],row['Asesor_Email'],row['Asesor_Tel']])
-                if row['Margen'] and row['Margen']>0:
-                    estado=("AUTORIZADO CON PLANO" if row['Tiene_Plano'] else "AUTORIZADO") if (dc2 and ac2) else ("INCOMPLETO CON PLANO" if row['Tiene_Plano'] else "INCOMPLETO")
-                else:
-                    if dc2 and ac2: estado="BORRADOR CON PLANO" if row['Tiene_Plano'] else "BORRADOR"
-                    else: estado="INCOMPLETO CON PLANO" if row['Tiene_Plano'] else "INCOMPLETO"
+        # Orden: más reciente primero
+        try:
+            _df_dd = df_resultados.sort_values('Fecha_raw', ascending=False)
+        except Exception:
+            _df_dd = df_resultados
+        for idx, row in _df_dd.iterrows():
+            # EstadoKey viene de crear_badge_estado() — mismo valor usado para filtrar df_resultados,
+            # evita inconsistencia entre el filtro Python y el data-est de cada item del dropdown
+            estado = str(row.get('EstadoKey', '') or '').strip()
+            if not estado:
+                estado = str(row.get('Estado', '') or '').strip()
+                import re as _re_e2
+                estado = _re_e2.sub(r'<[^>]+>', '', estado).strip()
             plano_ind="📎" if row['Tiene_Plano'] else ""
             _total_limpio=""
             for _rb in (st.session_state.resultados_busqueda or []):
                 if str(_rb[0])==str(row['N°']):
                     _total_limpio=f"${_rb[4]:,.0f}".replace(",",".") if _rb[4] else "$0"; break
+            _asesor = str(row.get('Asesor', '') or '').strip()
             _lbl=f"{row['N°']} - {row['Cliente'] or 'S/C'} ({row['FechaPlana']}) - {_total_limpio} - {estado} {plano_ind}".strip()
             opciones.append(_lbl)
-            _lbl_m=f"{row['N°']} - {row['Cliente'] or 'S/C'} ({row['FechaPlana']}) - {_total_limpio}".strip()
+            _asesor_sfx = f" | {_asesor}" if _asesor else ""
+            _lbl_m=f"{row['N°']} - {row['Cliente'] or 'S/C'} ({row['FechaPlana']}) - {_total_limpio}{_asesor_sfx}".strip()
             _ec=_ec_map.get(estado,('#64748b','#fff',''))
             _dd_options_list.append({'ep':str(row['N°']),'label':_lbl,'est':estado,'lm':_lbl_m,'bg':_ec[0],'col':_ec[1],'em':_ec[2]})
 
