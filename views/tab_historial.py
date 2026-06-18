@@ -1127,6 +1127,35 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             with _col_rec_btn:
                 st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
                 _btn_rec_placeholder = st.empty()
+            # Relay height=0: detecta cambio de .dd_i.sel en el iframe del dropdown
+            # y navega desde contexto height=0 (igual que badge filter) para triggear rerun.
+            # Limpia interval anterior para evitar acumulacion entre reruns.
+            components.html(
+                '<script>(function(){'
+                'var W=window.parent;'
+                'if(W._ecEPRIv){clearInterval(W._ecEPRIv);W._ecEPRIv=null;}'
+                'var _lEP=null;'
+                'function chk(){'
+                'var ifs=W.document.querySelectorAll("iframe");'
+                'for(var i=0;i<ifs.length;i++){'
+                'try{'
+                'var fw=ifs[i].contentWindow;'
+                'if(fw&&fw.OPTS&&typeof fw.SEL!=="undefined"){'
+                'if(_lEP===null){_lEP=fw.SEL||"";}'
+                'else{'
+                'var s=ifs[i].contentDocument.querySelector(".dd_i.sel");'
+                'if(s){var ep=s.getAttribute("data-ep");'
+                'if(ep&&ep!==_lEP){'
+                '_lEP=ep;'
+                'W.location.href=W.location.pathname+"?_sel_ep="+encodeURIComponent(ep);'
+                '}}}'
+                'break;}}'
+                'catch(e){}}'
+                '}'
+                'W._ecEPRIv=setInterval(chk,250);'
+                '})();</script>',
+                height=0
+            )
 
             if cotizacion_seleccionada:
                 numero_seleccionado = cotizacion_seleccionada
