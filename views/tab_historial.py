@@ -936,6 +936,11 @@ var MAT_DATA = """ + _mat_data_json_map + """;
         st.markdown("### Seleccionar cotización")
         opciones = []
         _dd_options_list = []
+        _ec_map={'PROYECTO TERMINADO':('#7c3aed','#fff','🟣'),'ADJUDICADO':('#2563eb','#fff','🔵'),
+                 'AUTORIZADO CON PLANO':('#15803d','#fff','🟢'),'AUTORIZADO':('#15803d','#fff','🟢'),
+                 'BORRADOR CON PLANO':('#c2410c','#fff','🟠'),'BORRADOR':('#d97706','#212529','🟡'),
+                 'INCOMPLETO CON PLANO':('#dc2626','#fff','🔴'),'INCOMPLETO':('#dc2626','#fff','🔴'),
+                 'RECHAZADO':('#991b1b','#fbbf24','❌')}
         for idx, row in df_resultados.iterrows():
             if row.get('Acta_URL',''): estado="PROYECTO TERMINADO"
             elif row.get('Tiene_Notariado',0): estado="ADJUDICADO"
@@ -954,7 +959,9 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                     _total_limpio=f"${_rb[4]:,.0f}".replace(",",".") if _rb[4] else "$0"; break
             _lbl=f"{row['N°']} - {row['Cliente'] or 'S/C'} ({row['FechaPlana']}) - {_total_limpio} - {estado} {plano_ind}".strip()
             opciones.append(_lbl)
-            _dd_options_list.append({'ep':str(row['N°']),'label':_lbl,'est':estado})
+            _lbl_m=f"{row['N°']} - {row['Cliente'] or 'S/C'} ({row['FechaPlana']}) - {_total_limpio}".strip()
+            _ec=_ec_map.get(estado,('#64748b','#fff',''))
+            _dd_options_list.append({'ep':str(row['N°']),'label':_lbl,'est':estado,'lm':_lbl_m,'bg':_ec[0],'col':_ec[1],'em':_ec[2]})
 
         st.markdown('<style>[data-testid="stTextInput"]:has(input[placeholder="__ecdd_trg__"]){display:none!important;}</style>', unsafe_allow_html=True)
         _ecdd_trigger = st.text_input("Selector EP", key="_sel_ep_trigger", label_visibility="collapsed", placeholder="__ecdd_trg__")
@@ -976,17 +983,17 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             _sel_ep_safe = _sel_ep_now.replace('\\', '\\\\').replace("'", "\\'")
             _dd_html_tpl = (
                 '<style>*{box-sizing:border-box;margin:0;padding:0;}body{background:transparent;overflow:hidden;}'
-                '#dt{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1.5px solid #d1d5db;border-radius:8px;padding:10px 14px;cursor:pointer;height:46px;font-size:0.82rem;color:#0f172a;user-select:none;transition:border-color .15s;}'
+                '#dt{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1.5px solid #d1d5db;border-radius:8px;padding:10px 14px;cursor:pointer;height:46px;font-size:0.82rem;font-family:Montserrat,sans-serif;color:#0f172a;user-select:none;transition:border-color .15s;}'
                 '#dt:hover{border-color:#6366f1;}#dt.open{border-color:#6366f1;border-bottom-left-radius:0;border-bottom-right-radius:0;}'
                 '#dtx{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}#dar{margin-left:8px;color:#6b7280;font-size:0.66rem;transition:transform .2s;}#dt.open #dar{transform:rotate(180deg);}'
                 '</style>'
                 '<div id="dt" onclick="tog()"><span id="dtx">&#128194; Selecciona una cotizaci&#243;n</span><span id="dar">&#9660;</span></div>'
                 "<script>var SEL='SEL_PLACEHOLDER';var BASE=window.parent.location.pathname;var OPTS=OPTS_PLACEHOLDER;var BF='';var isOpen=false;var PD=window.parent.document;"
-                "if(!PD.getElementById('_ecdd_css')){var _s=PD.createElement('style');_s.id='_ecdd_css';"
-                "_s.textContent='#_ecdd{position:absolute;background:#fff;border:1.5px solid #6366f1;border-top:none;border-radius:0 0 8px 8px;z-index:999999;box-shadow:0 8px 24px rgba(0,0,0,.14);overflow:hidden;min-width:200px;}'"
-                "+'#_ecdd_s{width:100%;padding:8px 12px;border:none;border-bottom:1px solid #e5e7eb;font-size:.78rem;outline:none;background:#f8fafc;color:#0f172a;display:block;}'"
-                "+'#_ecdd_o{max-height:260px;overflow-y:auto;}'"
-                "+'._ecdd_i{padding:8px 14px;cursor:pointer;font-size:.76rem;color:#1e293b;border-bottom:1px solid #f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;}'"
+                "if(!PD.getElementById('_ecdd_css2')){var _oc=PD.getElementById('_ecdd_css');if(_oc)_oc.remove();var _s=PD.createElement('style');_s.id='_ecdd_css2';"
+                "_s.textContent='#_ecdd{position:absolute;background:#fff;border:1.5px solid #6366f1;border-top:none;border-radius:0 0 8px 8px;z-index:999999;box-shadow:0 8px 24px rgba(0,0,0,.14);overflow:visible;min-width:200px;}'"
+                "+'#_ecdd_s{width:100%;padding:8px 12px;border:none;border-bottom:1px solid #e5e7eb;font-size:.78rem;font-family:Montserrat,sans-serif;outline:none;background:#f8fafc;color:#0f172a;display:block;}'"
+                "+'#_ecdd_o{max-height:260px;overflow-y:auto;overscroll-behavior:contain;}'"
+                "+'._ecdd_i{padding:8px 14px;cursor:pointer;font-size:.76rem;font-family:Montserrat,sans-serif;color:#1e293b;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:6px;overflow:hidden;}'"
                 "+'._ecdd_i:hover{background:#eff6ff;}._ecdd_i.sel{background:#dbeafe;font-weight:700;}'"
                 "+'#_ecdd_em{padding:12px;text-align:center;color:#94a3b8;font-size:.76rem;display:none;}';"
                 "PD.head.appendChild(_s);}"
@@ -999,7 +1006,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 "var div=PD.createElement('div');div.id='_ecdd';div.style.cssText='position:fixed!important;top:'+pos.top+'px;left:'+pos.left+'px;width:'+pos.width+'px;z-index:999999;';"
                 "var inp=PD.createElement('input');inp.id='_ecdd_s';inp.type='text';inp.placeholder='&#128269; Buscar...';inp.oninput=function(){flt(this.value,BF);};"
                 "var opts=PD.createElement('div');opts.id='_ecdd_o';"
-                "OPTS.forEach(function(o){var d=PD.createElement('div');d.className='_ecdd_i'+(o.ep===SEL?' sel':'');d.setAttribute('data-ep',o.ep);d.setAttribute('data-est',o.est);d.textContent=o.label;d.onclick=function(e){e.stopPropagation();sel(o.ep,o.label);};opts.appendChild(d);});"
+                "OPTS.forEach(function(o){var d=PD.createElement('div');d.className='_ecdd_i'+(o.ep===SEL?' sel':'');d.setAttribute('data-ep',o.ep);d.setAttribute('data-est',o.est);var _t=PD.createElement('span');_t.style.cssText='overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;';_t.textContent=o.lm||o.label;d.appendChild(_t);var _b=PD.createElement('span');_b.textContent=(o.em||'')+' '+(o.est||'');_b.style.cssText='background:'+(o.bg||'#64748b')+';color:'+(o.col||'#fff')+';padding:1px 7px;border-radius:99px;font-size:0.6rem;font-weight:700;white-space:nowrap;flex-shrink:0;font-family:Montserrat,sans-serif;';d.appendChild(_b);d.onclick=function(e){e.stopPropagation();sel(o.ep,o.label);};opts.appendChild(d);});"
                 "var em=PD.createElement('div');em.id='_ecdd_em';em.textContent='Sin resultados';"
                 "div.appendChild(inp);div.appendChild(opts);div.appendChild(em);PD.body.appendChild(div);flt('',BF);setTimeout(function(){inp.focus();},50);"
                 "window.parent.addEventListener('scroll',function _scl(){cls();window.parent.removeEventListener('scroll',_scl,true);},true);}"
