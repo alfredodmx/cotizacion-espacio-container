@@ -34,6 +34,9 @@ process_query_params()
 from views.layout import render_layout
 render_layout()
 
+from views.tab_cotizacion import render_floating_panels
+render_floating_panels()
+
 _rol = st.session_state.get('rol_usuario', 'ejecutivo')
 
 if _rol == 'root':
@@ -127,5 +130,3 @@ if tab_admindata is not None:
     with tab_admindata: render_tab_admindata(**_deps)
 if tab_reporte   is not None:
     with tab_reporte:   render_tab_reporte(supabase=supabase)
-
-render_floating_panels()
