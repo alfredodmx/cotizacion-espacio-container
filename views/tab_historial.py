@@ -965,9 +965,8 @@ var MAT_DATA = """ + _mat_data_json_map + """;
 
         st.markdown('<style>[data-testid="stTextInput"]:has(input[placeholder="__ecdd_trg__"]){position:fixed!important;top:-9999px!important;left:-9999px!important;opacity:0!important;pointer-events:none!important;}</style>', unsafe_allow_html=True)
         _ecdd_trigger = st.text_input("Selector EP", key="_sel_ep_trigger", label_visibility="collapsed", placeholder="__ecdd_trg__")
-        if _ecdd_trigger:
+        if _ecdd_trigger and st.session_state.get('selector_ep_num') != _ecdd_trigger:
             st.session_state['selector_ep_num'] = _ecdd_trigger
-            st.session_state['_sel_ep_trigger'] = ''
             st.rerun()
 
         if opciones:
