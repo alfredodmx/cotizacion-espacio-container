@@ -670,7 +670,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                                 st.session_state.modelo_base = modelo_seleccionado
                                 st.session_state.margen = 0.0
                                 st.toast(f"✅ Modelo '{modelo_seleccionado}' cargado correctamente.")
-                                st.rerun(scope="fragment")
+                                st.rerun()
                     else:
                         st.caption("Sin modelos")
                 except Exception as _e1:
@@ -710,7 +710,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                                 })
                                 st.session_state.carrito.sort(key=lambda x: (x['Categoria'], x['Item']))
                                 st.toast(f"✅ {item} agregado exitosamente ({cantidad} un.)")
-                                st.rerun(scope="fragment")
+                                st.rerun()
                             else:
                                 st.toast(f"✅ {item} actualizado — {cantidad} un. más agregadas")
                 except Exception as _e2:
@@ -737,7 +737,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                                 if categoria_eliminar != "-- Seleccionar --":
                                     st.session_state.carrito = [i for i in st.session_state.carrito if i["Categoria"] != categoria_eliminar]
                                     st.toast(f"🗑️ Categoría '{categoria_eliminar}' eliminada del presupuesto.")
-                                    st.rerun(scope="fragment")
+                                    st.rerun()
                     else:
                         st.caption("Sin categor&#237;as")
                 except Exception as _e3:
@@ -782,7 +782,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                                         st.session_state.carrito.append(_ni)
                                 st.session_state.carrito.sort(key=lambda x: (x['Categoria'], x['Item']))
                                 st.toast(f"✅ Categoría '{categoria_agregar}' mezclada al presupuesto.")
-                                st.rerun(scope="fragment")
+                                st.rerun()
                     else:
                         st.caption("Sin modelos")
                 except Exception as _e4:
@@ -825,7 +825,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                     if st.button("&#10060; Quitar plano", key="btn_quitar_plano", use_container_width=True):
                         st.session_state.plano_adjunto = None
                         st.session_state.plano_nombre = ""
-                        st.rerun(scope="fragment")
+                        st.rerun()
                 _plano_ok_post = bool(st.session_state.get('plano_adjunto') or st.session_state.get('pdf_url') or st.session_state.get('plano_nombre'))
                 _plano_dot_post = '<span class="_hb_dot"><span class="_hb_check_wrap"></span><svg style="position:absolute;inset:0;width:20px;height:20px;" viewBox="0 0 20 20"><polyline points="3,10 7.5,14.5 17,5" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' if _plano_ok_post else '<span class="_hb_dot"><span class="_hb_ring_r"></span><span class="_hb_core_r"></span></span>'
                 _plano_mostrar_hb = len(st.session_state.get('carrito', [])) > 0 and not es_solo_lectura
@@ -880,13 +880,13 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                     if '_apply_qty' in st.query_params:
                         del st.query_params['_apply_qty']
                     st.session_state.counter += 1
-                    st.rerun(scope="fragment")
+                    st.rerun()
             if _del_clicked is not None:
                 _del_nm = st.session_state.carrito[_del_clicked]['Item']
                 st.session_state.carrito = [i for i in st.session_state.carrito if i['Item'] != _del_nm]
                 st.session_state.pop('_item_pendiente_eliminar', None)
                 st.session_state.counter += 1
-                st.rerun(scope="fragment")
+                st.rerun()
 
         _cat_filtro_activo = st.query_params.get('_pres_cat', '')
         _df_cat = pd.DataFrame(st.session_state.carrito)
@@ -1384,5 +1384,4 @@ try{
   var pm=D.getElementById('_prog_mini');if(pm)pm.style.display='none';
 }catch(e){}
 })();</script>""", height=0)
-    render_floating_panels()
 
