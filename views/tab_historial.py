@@ -723,6 +723,7 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             for _bk,_bbg,_bcol,_bshadow,_btxt,_bsel in _badge_items:
                 _bh+=(f'<span data-filtro="{_bk}" data-sel="{_bsel}" style="cursor:pointer;background:{_bbg};color:{_bcol};'
                       f'{_bshadow}padding:5px 14px;border-radius:99px;font-size:13px;font-weight:700;'
+                      f'font-family:Montserrat,sans-serif;letter-spacing:0.03em;'
                       f'margin-right:6px;display:inline-block;" class="_badge_filtro">{_btxt}</span>')
             st.markdown(_bh, unsafe_allow_html=True)
         with _col_ref:
