@@ -34,9 +34,6 @@ process_query_params()
 from views.layout import render_layout
 render_layout()
 
-from views.tab_cotizacion import render_floating_panels
-render_floating_panels()
-
 _rol = st.session_state.get('rol_usuario', 'ejecutivo')
 
 if _rol == 'root':
@@ -98,8 +95,14 @@ from views.tab_formulario      import render_tab_formulario
 from views.tab_admindata       import render_tab_admindata
 from views.tab_reporte         import render_tab_reporte
 
+@st.fragment
+def _presupuesto_tab(supabase, supabase_admin, supa_url, supa_key):
+    render_floating_panels()
+    render_tab_cotizacion(supabase=supabase, supabase_admin=supabase_admin,
+                          supa_url=supa_url, supa_key=supa_key)
+
 if tab1          is not None:
-    with tab1:          render_tab_cotizacion(**_deps)
+    with tab1:          _presupuesto_tab(**_deps)
 if tab2          is not None:
     with tab2:          render_tab_datos_cliente(**_deps)
 if tab3          is not None:
