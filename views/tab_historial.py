@@ -691,89 +691,70 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                 f"<td style='text-align:center;font-size:0.82rem;'>{_retraso_html_cot}</td></tr>")
 
         _filtro_activo_badge = st.session_state.get('filtro_estado_tabla')
-        _todos_activo = not _filtro_activo_badge
-        _todos_bg = '#6d28d9' if _todos_activo else '#ede9fe'
-        _todos_col = '#fff' if _todos_activo else '#6d28d9'
         _n_total = len(st.session_state.resultados_busqueda)
-        _badge_items = [('TODOS',_todos_bg,_todos_col,'',f'Todos ({_n_total})','_fbtn_TODOS')]
+        # Badges de filtro NATIVOS (st.pills): al hacer clic seteamos
+        # filtro_estado_tabla -> df_resultados se filtra server-side (~linea 437)
+        # -> la tabla Y el selectbox de cotizaciones muestran solo ese estado.
+        # Los emojis conservan el codigo de color de cada estado.
         _badge_map = [
-            ('PROYECTO TERMINADO','#ede9fe','#7c3aed','#5b21b6','🟣 terminados'),
-            ('ADJUDICADO','#dbeafe','#1d4ed8','#1e40af','🔵 adjudicados'),
-            ('AUTORIZADO CON PLANO','#dcfce7','#15803d','#166534','🟢 aut. c/plano'),
-            ('AUTORIZADO','#dcfce7','#15803d','#166534','🟢 autorizados'),
-            ('BORRADOR CON PLANO','#ffedd5','#c2410c','#9a3412','🟠 borrador c/plano'),
-            ('BORRADOR','#fef9c3','#854d0e','#713f12','🟡 borrador'),
-            ('INCOMPLETO CON PLANO','#fee2e2','#dc2626','#991b1b','🔴 incompleto c/plano'),
-            ('INCOMPLETO','#fee2e2','#dc2626','#991b1b','🔴 incompletos'),
-            ('RECHAZADO','#fee2e2','#b91c1c','#7f1d1d','❌ rechazados'),
+            ('PROYECTO TERMINADO', '\U0001F7E3 terminados'),
+            ('ADJUDICADO', '\U0001F535 adjudicados'),
+            ('AUTORIZADO CON PLANO', '\U0001F7E2 aut. c/plano'),
+            ('AUTORIZADO', '\U0001F7E2 autorizados'),
+            ('BORRADOR CON PLANO', '\U0001F7E0 borrador c/plano'),
+            ('BORRADOR', '\U0001F7E1 borrador'),
+            ('INCOMPLETO CON PLANO', '\U0001F534 incompleto c/plano'),
+            ('INCOMPLETO', '\U0001F534 incompletos'),
+            ('RECHAZADO', '\u274C rechazados'),
         ]
-        _sel_map2 = {
-            'PROYECTO TERMINADO':'_fbtn_TER','ADJUDICADO':'_fbtn_ADJ',
-            'AUTORIZADO CON PLANO':'_fbtn_ACP','AUTORIZADO':'_fbtn_AUT',
-            'BORRADOR CON PLANO':'_fbtn_BCP','BORRADOR':'_fbtn_BOR',
-            'INCOMPLETO CON PLANO':'_fbtn_ICP','INCOMPLETO':'_fbtn_INC','RECHAZADO':'_fbtn_REC'
-        }
-        for _key,_bg,_col,_col_act,_lbl in _badge_map:
-            _cnt=_estados_cnt_total.get(_key,0)
-            if _cnt:
-                _ea=_filtro_activo_badge==_key
-                _bg_b=_col_act if _ea else _bg; _col_b='#fff' if _ea else _col
-                _shadow=f'box-shadow:0 0 0 2px {_col_act};' if _ea else ''
-                _badge_items.append((_key,_bg_b,_col_b,_shadow,f'{_lbl} ({_cnt})',_sel_map2.get(_key,'_fbtn_TODOS')))
+        _todos_lbl = f'Todos ({_n_total})'
+        _pill_opts = [_todos_lbl]
+        _pill_to_key = {_todos_lbl: None}
+        for _bkey, _blbl in _badge_map:
+            _bcnt = _estados_cnt_total.get(_bkey, 0)
+            if _bcnt:
+                _bl = f'{_blbl} ({_bcnt})'
+                _pill_opts.append(_bl)
+                _pill_to_key[_bl] = _bkey
+        # Label activo segun el filtro guardado
+        _cur_pill = _todos_lbl
+        for _pl, _pk in _pill_to_key.items():
+            if _pk == _filtro_activo_badge:
+                _cur_pill = _pl
+                break
+        # Si el valor guardado del pill ya no coincide con las opciones (cambiaron
+        # los conteos), lo limpiamos para que 'default' vuelva a mandar.
+        if st.session_state.get('_badge_pills') not in _pill_opts:
+            st.session_state.pop('_badge_pills', None)
 
+        st.markdown(
+            '<style>'
+            'div[data-testid="stPills"] button{font-family:Montserrat,sans-serif!important;'
+            'font-weight:700!important;font-size:13px!important;border-radius:99px!important;}'
+            '</style>', unsafe_allow_html=True
+        )
         _col_badge, _col_ref = st.columns([5, 0.7])
         with _col_badge:
-            _bh=''
-            for _bk,_bbg,_bcol,_bshadow,_btxt,_bsel in _badge_items:
-                _bh+=(f'<span data-filtro="{_bk}" data-sel="{_bsel}" style="cursor:pointer;background:{_bbg};color:{_bcol};'
-                      f'{_bshadow}padding:5px 14px;border-radius:99px;font-size:13px;font-weight:700;'
-                      f'font-family:Montserrat,sans-serif;letter-spacing:0.03em;'
-                      f'margin-right:6px;display:inline-block;" class="_badge_filtro">{_btxt}</span>')
-            st.markdown(_bh, unsafe_allow_html=True)
+            _sel_pill = st.pills(
+                'Filtrar por estado', _pill_opts,
+                selection_mode='single',
+                default=_cur_pill,
+                key='_badge_pills',
+                label_visibility='collapsed',
+            )
+            _new_key = _pill_to_key.get(_sel_pill) if _sel_pill else None
+            if _new_key != _filtro_activo_badge:
+                st.session_state['filtro_estado_tabla'] = _new_key
+                st.session_state.pop('selector_cotizaciones', None)
+                st.session_state.pop('selector_ep_num', None)
+                st.rerun()
         with _col_ref:
-            if st.button("🔄", key="cot_refresh_tabla", help="Actualizar resultados", use_container_width=True):
-                st.session_state.resultados_busqueda = None; st.rerun()
+            if st.button("\U0001F504", key="cot_refresh_tabla", help="Actualizar resultados", use_container_width=True):
+                st.session_state.resultados_busqueda = None
+                st.rerun()
 
+        # Estilo para ocultar iframes height=0 de otros componentes (tabla JS, etc.)
         st.markdown('<style>iframe[height="0"]{display:none!important;margin:0!important;padding:0!important;}</style>', unsafe_allow_html=True)
-        components.html("""
-<style>html,body{margin:0;padding:0;height:0;overflow:hidden;}</style>
-<script>
-(function(){
-  var D=window.parent.document;var _af='';
-  function filterRows(val){
-    window.parent._ecBadgeFilter=val||'';
-    D.querySelectorAll('tr[data-est]').forEach(function(r){
-      r.style.display=(!val||val==='TODOS'||r.getAttribute('data-est')===val)?'':'none';
-    });
-    D.querySelectorAll('._badge_filtro').forEach(function(b){
-      var bv=b.getAttribute('data-filtro');
-      var isAct=(!val||val==='TODOS')?(bv==='TODOS'):(bv===val);
-      b.style.outline=isAct?('2px solid '+b.style.color):'';
-    });
-  }
-  function navToFilter(val){
-    var base=window.parent.location.pathname;
-    var dest=(val&&val!=='TODOS')?base+'?_filtro_estado='+encodeURIComponent(val):base;
-    window.parent.location.href=dest;
-  }
-  function init(){
-    D.querySelectorAll('._badge_filtro').forEach(function(b){
-      if(b._filt_bound) return; b._filt_bound=true;
-      b.addEventListener('click',function(){
-        var val=this.getAttribute('data-filtro');
-        var newVal=(_af===val&&val!=='TODOS')?'':val;
-        _af=newVal; filterRows(newVal); navToFilter(newVal);
-      });
-    });
-  }
-  setTimeout(function(){
-    var qp=new URLSearchParams(window.parent.location.search);
-    var qpVal=qp.get('_filtro_estado')||'';
-    if(qpVal){_af=qpVal;filterRows(qpVal);} init();
-  },400);
-  setInterval(init,2000);
-})();
-</script>""", height=0)
 
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
         _altura_real = n_resultados * 60 + 60
