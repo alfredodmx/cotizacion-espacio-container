@@ -596,6 +596,57 @@ def render_layout():
             }
         });
     }
+
+    // ── Flechas de navegación de pestañas (scroll del tab-list) ──
+    function initTabArrows() {
+        D.querySelectorAll('.tab-nav-arrow').forEach(function(e){ e.remove(); });
+        var tablist = D.querySelector('[data-baseweb="tab-list"]');
+        if (!tablist) return;
+        var wrap = tablist.parentElement;
+        if (!wrap) return;
+        wrap.style.position = 'relative';
+        function makeArrow(dir) {
+            var btn = D.createElement('button');
+            btn.className = 'tab-nav-arrow';
+            btn.innerHTML = dir === 'left' ? '&#8249;' : '&#8250;';
+            btn.style.cssText = [
+                'position:absolute;top:0;z-index:99;',
+                'background:linear-gradient(' + (dir==='left'?'90':'270') + 'deg,rgba(255,255,255,0.97) 55%,rgba(255,255,255,0))',
+                ';border:none;cursor:pointer;padding:0 14px;height:100%;',
+                'font-size:1.4rem;font-weight:700;color:#5b7cfa;',
+                dir==='left' ? 'left:0;' : 'right:0;'
+            ].join('');
+            btn.addEventListener('click', function(){
+                tablist.scrollBy({ left: dir==='left' ? -160 : 160, behavior:'smooth' });
+            });
+            return btn;
+        }
+        var btnL = makeArrow('left');
+        var btnR = makeArrow('right');
+        wrap.appendChild(btnL);
+        wrap.appendChild(btnR);
+        function updateArrows() {
+            var sl = tablist.scrollLeft;
+            var maxScroll = tablist.scrollWidth - tablist.clientWidth;
+            btnL.style.opacity = sl > 5 ? '1' : '0';
+            btnL.style.pointerEvents = sl > 5 ? 'auto' : 'none';
+            btnR.style.opacity = sl < maxScroll - 5 ? '1' : '0';
+            btnR.style.pointerEvents = sl < maxScroll - 5 ? 'auto' : 'none';
+        }
+        tablist.addEventListener('scroll', updateArrows);
+        updateArrows();
+    }
+    setTimeout(initTabArrows, 700);
+    setTimeout(initTabArrows, 1600);
+    if (!D._ecTabArrowsBound) {
+        D._ecTabArrowsBound = true;
+        D.addEventListener('click', function(e){
+            if (e.target && e.target.getAttribute && e.target.getAttribute('data-baseweb') === 'tab') {
+                setTimeout(initTabArrows, 300);
+                setTimeout(moveButtons, 300);   // restaura pwd/logout si se perdieron
+            }
+        });
+    }
 })();
 </script>
 """, height=0)
