@@ -25,6 +25,25 @@ from utils.telefono import formatear_telefono
 from config.supabase import supabase_admin as _supa_admin_global
 
 
+# ── Wrappers cacheados (evitan trabajo pesado en cada rerun, p.ej. al filtrar) ──
+@st.cache_data(ttl=30, show_spinner=False)
+def _pdf_log_cached(ep: str, n_logs: int) -> bytes:
+    """PDF del historial cacheado por EP y nº de logs (regenera si cambian los logs)."""
+    return generar_pdf_log(ep, obtener_logs_ep(ep))
+
+
+@st.cache_data(ttl=20, show_spinner=False)
+def _rechazo_status_cached(ep: str) -> dict:
+    """Estado de rechazo/adjudicación cacheado por EP. Limpiar al rechazar/quitar."""
+    try:
+        _q = _supa_admin_global.table("cotizaciones").select(
+            "motivo_rechazo,fecha_rechazo,contrato_notariado_url"
+        ).eq("numero", ep).execute()
+        return _q.data[0] if _q.data else {}
+    except Exception:
+        return {}
+
+
 def _feriados_chile(year):
     from datetime import date, timedelta as _td
     f = set()
@@ -733,21 +752,26 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             'font-weight:700!important;font-size:13px!important;border-radius:99px!important;}'
             '</style>', unsafe_allow_html=True
         )
+        # on_change: el callback corre ANTES del rerun automático del widget, así
+        # filtro_estado_tabla ya está actualizado cuando se aplica el filtro
+        # (línea ~437) => UN SOLO rerun por clic, no dos.
+        def _on_badge_change():
+            _v = st.session_state.get('_badge_pills')
+            _k = _pill_to_key.get(_v) if _v else None
+            st.session_state['filtro_estado_tabla'] = _k
+            # Reseteamos solo la key del widget; MANTENEMOS selector_ep_num para que,
+            # si la cotización sigue en el filtro, NO se recargue (cache hit).
+            st.session_state.pop('selector_cotizaciones', None)
         _col_badge, _col_ref = st.columns([5, 0.7])
         with _col_badge:
-            _sel_pill = st.pills(
+            st.pills(
                 'Filtrar por estado', _pill_opts,
                 selection_mode='single',
                 default=_cur_pill,
                 key='_badge_pills',
+                on_change=_on_badge_change,
                 label_visibility='collapsed',
             )
-            _new_key = _pill_to_key.get(_sel_pill) if _sel_pill else None
-            if _new_key != _filtro_activo_badge:
-                st.session_state['filtro_estado_tabla'] = _new_key
-                st.session_state.pop('selector_cotizaciones', None)
-                st.session_state.pop('selector_ep_num', None)
-                st.rerun()
         with _col_ref:
             if st.button("\U0001F504", key="cot_refresh_tabla", help="Actualizar resultados", use_container_width=True):
                 st.session_state.resultados_busqueda = None
@@ -1040,7 +1064,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                     if _logs_ep:
                         _n_mods = len([l for l in _logs_ep if l.get("tipo_cambio") == "modificacion"])
                         try:
-                            _pdf_log_bytes = generar_pdf_log(numero_seleccionado, _logs_ep)
+                            _pdf_log_bytes = _pdf_log_cached(numero_seleccionado, len(_logs_ep))
                             st.download_button(
                                 label=f"&#128203; Descargar historial PDF ({len(_logs_ep)} registros · {_n_mods} modif.)",
                                 data=_pdf_log_bytes, file_name=f"historial_{numero_seleccionado}.pdf",
@@ -1052,21 +1076,16 @@ var MAT_DATA = """ + _mat_data_json_map + """;
 
             st.markdown("---")
             st.markdown("### Acciones")
-            _sel_motivo_rec = ""
-            _sel_adj_check = False
-            try:
-                _sel_rec_q = supabase_admin.table("cotizaciones").select("motivo_rechazo,fecha_rechazo,contrato_notariado_url").eq("numero", numero_seleccionado).execute()
-                if _sel_rec_q.data:
-                    _sel_motivo_rec = _sel_rec_q.data[0].get("motivo_rechazo","") or ""
-                    _sel_adj_check = bool(_sel_rec_q.data[0].get("contrato_notariado_url",""))
-            except:
-                pass
+            _rec_status = _rechazo_status_cached(numero_seleccionado)
+            _sel_motivo_rec = _rec_status.get("motivo_rechazo", "") or ""
+            _sel_adj_check = bool(_rec_status.get("contrato_notariado_url", ""))
             if not _sel_adj_check:
                 if _sel_motivo_rec:
                     st.markdown(f'<div style="background:#fee2e2;border-left:4px solid #dc2626;border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:10px;"><div style="font-size:12px;font-weight:700;color:#b91c1c;">&#10060; Presupuesto RECHAZADO</div><div style="font-size:11px;color:#991b1b;margin-top:3px;"><b>Motivo:</b> {_sel_motivo_rec}</div></div>', unsafe_allow_html=True)
                     with _btn_rec_placeholder:
                         if st.button("&#8617;&#65039; Quitar rechazo", use_container_width=True, key="btn_quitar_rechazo"):
                             supabase_admin.table("cotizaciones").update({"motivo_rechazo": None, "fecha_rechazo": None}).eq("numero", numero_seleccionado).execute()
+                            _rechazo_status_cached.clear()
                             st.session_state.resultados_busqueda = None
                             st.session_state.pop('_show_rechazo_dialog', None)
                             st.success("&#9989; Rechazo eliminado")
@@ -1098,6 +1117,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                                     "motivo_rechazo": _motivo_input.strip(),
                                     "fecha_rechazo": _fecha_rec_now
                                 }).eq("numero", numero_seleccionado).execute()
+                                _rechazo_status_cached.clear()
                                 st.session_state.pop('_show_rechazo_dialog', None)
                                 st.session_state.resultados_busqueda = None
                                 st.success(f"&#9989; {numero_seleccionado} marcado como rechazado")
