@@ -206,6 +206,7 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
             'min-height:42px!important;padding:10px 0!important;}'
             'section[data-testid="stSidebar"] .stButton>button>*{display:none!important;}'
             'section[data-testid="stSidebar"] .stButton>button::before{margin:0 auto!important;}'
+            'section[data-testid="stSidebar"] .st-key-_sb_toggle button::before{margin:0 auto!important;}'
         )
     css.append("</style>")
     return "".join(css)
@@ -256,7 +257,7 @@ def render_sidebar(items, rol: str, nombre: str) -> str:
         # Navegación (cada botón cambia la página)
         with st.container(key="_sb_nav"):
             for it in items:
-                _lbl = it["label"] if not _colapsado else " "
+                _lbl = it["label"] if not _colapsado else "\u200b"
                 if st.button(_lbl, key=f"nav_{it['key']}", use_container_width=True,
                              help=it["label"] if _colapsado else None):
                     st.session_state["nav_page"] = it["key"]
@@ -269,7 +270,7 @@ def render_sidebar(items, rol: str, nombre: str) -> str:
                 _cod_html = _codigo_acceso_html(_colapsado)
                 if _cod_html:
                     st.markdown(_cod_html, unsafe_allow_html=True)
-            _tlabel = " " if _colapsado else "Ocultar menú"
+            _tlabel = "\u200b" if _colapsado else "Ocultar menú"
             if st.button(_tlabel, key="_sb_toggle", use_container_width=True,
                          help="Expandir menú" if _colapsado else "Ocultar menú"):
                 st.session_state["_sb_collapsed"] = not _colapsado
