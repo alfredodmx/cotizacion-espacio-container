@@ -80,37 +80,57 @@ def _codigo_acceso_html(colapsado: bool) -> str:
 
 
 def _build_css(items, activo: str, colapsado: bool) -> str:
-    """CSS del sidebar: dark, iconos SVG por botón, estado activo y colapso."""
+    """CSS del sidebar: dark azul, iconos SVG por boton, activo, colapso y zonas."""
     ancho = "76px" if colapsado else "256px"
     css = ["<style>"]
-    # Contenedor del sidebar
+    # Contenedor del sidebar: fondo AZUL OSCURO
     css.append(
         f'section[data-testid="stSidebar"]{{width:{ancho}!important;min-width:{ancho}!important;'
         f'background:linear-gradient(180deg,#0f172a 0%,#0b1220 100%)!important;'
         f'border-right:1px solid rgba(148,163,184,0.12)!important;transition:width .18s ease;}}'
-        f'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]{{padding:0.6rem 0.55rem 0.7rem!important;'
-        f'height:100vh!important;display:flex!important;flex-direction:column!important;}}'
-        f'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]>div:first-child{{'
-        f'flex:1 1 auto!important;min-height:0!important;display:flex!important;flex-direction:column!important;}}'
-        f'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]>div:first-child>'
-        f'[data-testid="stVerticalBlock"]{{flex:1 1 auto!important;min-height:0!important;}}'
-        # CUERPO scrolleable: solo los items de navegación hacen scroll
+    )
+    # TODOS los contenedores internos transparentes (se ve el azul del section)
+    css.append(
+        'section[data-testid="stSidebar"] [data-testid="stSidebarContent"],'
+        'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"],'
+        'section[data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"],'
+        'section[data-testid="stSidebar"] [data-testid="stVerticalBlock"],'
+        'section[data-testid="stSidebar"] [data-testid="stElementContainer"],'
+        'section[data-testid="stSidebar"] .stButton{background:transparent!important;}'
+    )
+    # Layout 3 zonas: header fijo / cuerpo scroll / footer fijo (flexbox)
+    css.append(
+        'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]{padding:0.6rem 0.55rem 0.7rem!important;'
+        'height:100vh!important;display:flex!important;flex-direction:column!important;}'
+        'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]>div:first-child{'
+        'flex:1 1 auto!important;min-height:0!important;display:flex!important;flex-direction:column!important;}'
+        'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]>div:first-child>'
+        '[data-testid="stVerticalBlock"]{flex:1 1 auto!important;min-height:0!important;'
+        'display:flex!important;flex-direction:column!important;}'
         '.st-key-_sb_nav{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;'
         'overflow-x:hidden!important;padding-right:2px!important;}'
         '.st-key-_sb_nav::-webkit-scrollbar{width:6px;}'
         '.st-key-_sb_nav::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.25);border-radius:3px;}'
         '.st-key-_sb_nav::-webkit-scrollbar-track{background:transparent;}'
-        # FOOTER fijo abajo (código + toggle) y brand fijo arriba
         '.st-key-_sb_bottom{flex:0 0 auto!important;border-top:1px solid rgba(148,163,184,0.12)!important;'
         'margin-top:6px!important;padding-top:8px!important;}'
     )
+    # Refuerzo del anclaje (header/footer fijos) sin depender de la profundidad
+    # exacta del DOM: el bloque que CONTIENE la navegacion ocupa todo el alto.
+    css.append(
+        'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]>*'
+        '{flex:1 1 auto!important;min-height:0!important;display:flex!important;flex-direction:column!important;}'
+        'section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]:has(.st-key-_sb_nav)'
+        '{flex:1 1 auto!important;min-height:0!important;height:100%!important;'
+        'display:flex!important;flex-direction:column!important;}'
+    )
     # Ocultar el control de colapso nativo de Streamlit (usamos el nuestro)
     css.append('section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"]{display:none!important;}')
-    # El header fijo arranca después del sidebar (no lo tapa)
+    # El header fijo arranca despues del sidebar (no lo tapa)
     css.append(f'#_usr_header_bar{{left:{ancho}!important;transition:left .18s ease;}}')
     # El FAB flotante de guardar se corre para no quedar sobre el sidebar
     css.append(f'.st-key-btn_fab_guardar{{left:calc({ancho} + 1.2rem)!important;}}')
-    # Botones de navegación (genérico)
+    # Botones de navegacion (generico)
     css.append(
         'section[data-testid="stSidebar"] .stButton button{width:100%!important;'
         'justify-content:flex-start!important;gap:12px!important;background:transparent!important;'
@@ -150,16 +170,13 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
         f'.st-key-_sb_toggle button::before{{content:"";flex-shrink:0;width:20px;height:20px;'
         f'background:url("{_svg_uri("_expand" if colapsado else "_collapse", _COL_IDLE)}") no-repeat center/contain;}}'
     )
-    # Texto de botones oculto cuando está colapsado (solo iconos)
+    # Texto de botones oculto cuando esta colapsado (solo iconos)
     if colapsado:
         css.append(
             'section[data-testid="stSidebar"] .stButton button p,'
             'section[data-testid="stSidebar"] .stButton button div{display:none!important;}'
             'section[data-testid="stSidebar"] .stButton button{justify-content:center!important;gap:0!important;padding:9px 0!important;}'
-            '.st-key-_sb_brand_full{display:none!important;}'
         )
-    else:
-        css.append('.st-key-_sb_brand_mini{display:none!important;}')
     css.append("</style>")
     return "".join(css)
 
