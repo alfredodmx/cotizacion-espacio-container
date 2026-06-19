@@ -1071,8 +1071,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 "document.querySelectorAll('.dd_i').forEach(function(d){"
                 "if(d.getAttribute('data-ep')===ep)d.classList.add('sel');else d.classList.remove('sel');});"
                 "cls();"
-                "var base=window.parent.location.pathname;"
-                "window.parent.location.href=base+'?_sel_ep='+encodeURIComponent(ep);"
+                "window.parent.postMessage({type:'_ec_sep',ep:ep},'*');"
                 "}"
                 "function flt(q,bf){"
                 "var ov=document.getElementById('dd_o');if(!ov)return;var vis=0;q=q.toLowerCase();"
@@ -1127,32 +1126,46 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             with _col_rec_btn:
                 st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
                 _btn_rec_placeholder = st.empty()
-            # Relay height=0: detecta cambio de .dd_i.sel en el iframe del dropdown
-            # y navega desde contexto height=0 (igual que badge filter) para triggear rerun.
-            # Limpia interval anterior para evitar acumulacion entre reruns.
+
+            # ── Puente JS→Python ──────────────────────────────────────────────
+            # 1) st.text_input oculto actúa de receptor: cuando su valor cambia
+            #    Python detecta el cambio y hace rerun automático (on_change).
+            # 2) components.html(height=0) escucha el postMessage del dropdown
+            #    y escribe en el input vía React native-setter (única forma de
+            #    escribir en un input React desde JS externo sin navegación).
+            # 3) El React onChange se dispara → Streamlit envía valor al backend
+            #    → on_change callback → selector_ep_num actualizado → rerun.
+            st.markdown(
+                '<style>div[data-testid="stTextInput"]'
+                ':has(input[placeholder="__ecepbridge__"])'
+                '{display:none!important;height:0!important;}</style>',
+                unsafe_allow_html=True
+            )
+            def _on_ep_bridge():
+                val = st.session_state.get('_ec_ep_bridge', '').strip()
+                if val and val != st.session_state.get('selector_ep_num', ''):
+                    st.session_state['selector_ep_num'] = val
+            st.text_input('', key='_ec_ep_bridge',
+                          placeholder='__ecepbridge__',
+                          label_visibility='collapsed',
+                          on_change=_on_ep_bridge)
             components.html(
                 '<script>(function(){'
                 'var W=window.parent;'
-                'if(W._ecEPRIv){clearInterval(W._ecEPRIv);W._ecEPRIv=null;}'
-                'var _lEP=null;'
-                'function chk(){'
-                'var ifs=W.document.querySelectorAll("iframe");'
-                'for(var i=0;i<ifs.length;i++){'
+                'if(W._ecEPBH){W.removeEventListener("message",W._ecEPBH);W._ecEPBH=null;}'
+                'W._ecEPBH=function(e){'
+                'if(!e||!e.data||e.data.type!=="_ec_sep"||!e.data.ep)return;'
+                'var ep=e.data.ep;'
+                'var inp=W.document.querySelector("input[placeholder=\'__ecepbridge__\']");'
+                'if(!inp)return;'
                 'try{'
-                'var fw=ifs[i].contentWindow;'
-                'if(fw&&fw.OPTS&&typeof fw.SEL!=="undefined"){'
-                'if(_lEP===null){_lEP=fw.SEL||"";}'
-                'else{'
-                'var s=ifs[i].contentDocument.querySelector(".dd_i.sel");'
-                'if(s){var ep=s.getAttribute("data-ep");'
-                'if(ep&&ep!==_lEP){'
-                '_lEP=ep;'
-                'W.location.href=W.location.pathname+"?_sel_ep="+encodeURIComponent(ep);'
-                '}}}'
-                'break;}}'
-                'catch(e){}}'
-                '}'
-                'W._ecEPRIv=setInterval(chk,250);'
+                'var sv=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,"value").set;'
+                'sv.call(inp,ep);'
+                'inp.dispatchEvent(new Event("input",{bubbles:true}));'
+                'inp.dispatchEvent(new Event("change",{bubbles:true}));'
+                '}catch(err){}'
+                '};'
+                'W.addEventListener("message",W._ecEPBH);'
                 '})();</script>',
                 height=0
             )
