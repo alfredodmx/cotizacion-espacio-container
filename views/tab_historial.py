@@ -753,8 +753,8 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                 _badges.append((_bk, _blbl, f'_fbtn_{_bi}'))
             elif _estados_cnt_total.get(_bk, 0):
                 _badges.append((_bk, f'{_blbl} ({_estados_cnt_total[_bk]})', f'_fbtn_{_bi}'))
-        _bbase = ('font-family:Montserrat,sans-serif!important;font-weight:700!important;'
-                  'font-size:13px!important;border-radius:99px!important;border:none!important;'
+        _bbase = ('font-family:Montserrat,sans-serif!important;font-weight:800!important;'
+                  'font-size:11.5px!important;border-radius:99px!important;border:none!important;'
                   'padding:5px 14px!important;min-height:0!important;letter-spacing:0.03em!important;'
                   'transition:all .12s!important;white-space:nowrap!important;')
         _css = ['<style>']
@@ -769,7 +769,8 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             _css.append(f'.st-key-{_bkey} button:hover{{background:{_act}!important;color:#fff!important;}}')
             # El texto del botón va en un <p>/<div> hijo que hereda la fuente base
             # de la app (Plus Jakarta Sans); forzamos Montserrat en los descendientes.
-            _css.append(f'.st-key-{_bkey} button *{{font-family:Montserrat,sans-serif!important;}}')
+            _css.append(f'.st-key-{_bkey} button *{{font-family:Montserrat,sans-serif!important;'
+                        f'font-size:11.5px!important;font-weight:800!important;}}')
         _css.append('.st-key-cot_refresh_tabla button{border-radius:99px!important;'
                     'font-weight:700!important;min-height:0!important;padding:5px 10px!important;}')
         _css.append('</style>')
