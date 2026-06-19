@@ -115,7 +115,7 @@ if tab_dash      is not None:
 if tab_notif     is not None:
     with tab_notif:     render_tab_notificaciones(supabase=supabase)
 if tab4          is not None:
-    with tab4:          render_tab_ranking(supabase=supabase)
+    with tab4:          render_tab_3d_visor(supabase=supabase, supa_url=SUPABASE_URL)
 if tab_salud     is not None:
     with tab_salud:     render_tab_salud(**_deps)
 if tab6          is not None:
@@ -123,7 +123,7 @@ if tab6          is not None:
 if tab5          is not None:
     with tab5:          render_tab_proyecto_excel(**_deps)
 if tab7          is not None:
-    with tab7:          render_tab_3d_visor(supabase=supabase, supa_url=SUPABASE_URL)
+    with tab7:          render_tab_ranking(supabase=supabase)
 if tab_formulario is not None:
     with tab_formulario: render_tab_formulario(**_deps)
 if tab_admindata is not None:
