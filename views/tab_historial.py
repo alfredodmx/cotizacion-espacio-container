@@ -366,33 +366,42 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             _prods_map = st.session_state.get('_prods_map_cache',{})
 
             _mat_data_map = {}
-            try:
-                _eps_m=df_resultados["N°"].tolist()
-                _mcfg=supabase_admin.table("formulario_config").select(
-                    "cotizacion_numero,categoria,titulo_grupo,item_ids,orden"
-                ).in_("cotizacion_numero",_eps_m).execute().data or []
-                _mres=supabase_admin.table("formulario_respuestas").select(
-                    "cotizacion_numero,item_id,respuesta"
-                ).in_("cotizacion_numero",_eps_m).execute().data or []
-                from collections import defaultdict as _dd2
-                _mr2=_dd2(dict)
-                for _r in _mres:
-                    if _r.get("item_id"): _mr2[_r["cotizacion_numero"]][_r["item_id"]]=_r["respuesta"]
-                _mc2=_dd2(list)
-                for _c in _mcfg: _mc2[_c["cotizacion_numero"]].append(_c)
-                for _ep2,_cfgs2 in _mc2.items():
-                    _rs2=_mr2[_ep2]; _tot2=len(_cfgs2)
-                    _dn2=sum(1 for _c in _cfgs2 if any(_rs2.get(str(_i)) for _i in (_c.get("item_ids") or [])))
-                    _pct2=int(_dn2/_tot2*100) if _tot2>0 else 0
-                    from collections import defaultdict as _dd3
-                    _cats2=_dd3(list)
-                    for _c in sorted(_cfgs2,key=lambda x:(x.get("categoria",""),x.get("orden",0))):
-                        _ids2=[str(_i) for _i in (_c.get("item_ids") or [])]
-                        _v2=[_rs2[_i] for _i in _ids2 if _rs2.get(_i)]
-                        _cats2[_c.get("categoria","")].append({"tg":_c.get("titulo_grupo",""),"val":", ".join(_v2)})
-                    _mat_data_map[_ep2]={"pct":_pct2,"done":_dn2,"total":_tot2,
-                        "cats":[{"cat":_k,"grupos":_vl} for _k,_vl in _cats2.items()]}
-            except: pass
+            _eps_m=df_resultados["N°"].tolist()
+            _mck='mat_map_'+','.join(sorted(_eps_m))
+            if '_mat_map_ts' not in st.session_state: st.session_state['_mat_map_ts']=0
+            # Cache en session (60s) por set de EPs (completo, pre-filtro): evita 2
+            # queries a Supabase en CADA rerun, p.ej. al filtrar por badge.
+            if st.session_state.get('_mat_map_key')!=_mck or (_tpm.time()-st.session_state['_mat_map_ts'])>60:
+                try:
+                    _mcfg=supabase_admin.table("formulario_config").select(
+                        "cotizacion_numero,categoria,titulo_grupo,item_ids,orden"
+                    ).in_("cotizacion_numero",_eps_m).execute().data or []
+                    _mres=supabase_admin.table("formulario_respuestas").select(
+                        "cotizacion_numero,item_id,respuesta"
+                    ).in_("cotizacion_numero",_eps_m).execute().data or []
+                    from collections import defaultdict as _dd2
+                    _mr2=_dd2(dict)
+                    for _r in _mres:
+                        if _r.get("item_id"): _mr2[_r["cotizacion_numero"]][_r["item_id"]]=_r["respuesta"]
+                    _mc2=_dd2(list)
+                    for _c in _mcfg: _mc2[_c["cotizacion_numero"]].append(_c)
+                    for _ep2,_cfgs2 in _mc2.items():
+                        _rs2=_mr2[_ep2]; _tot2=len(_cfgs2)
+                        _dn2=sum(1 for _c in _cfgs2 if any(_rs2.get(str(_i)) for _i in (_c.get("item_ids") or [])))
+                        _pct2=int(_dn2/_tot2*100) if _tot2>0 else 0
+                        from collections import defaultdict as _dd3
+                        _cats2=_dd3(list)
+                        for _c in sorted(_cfgs2,key=lambda x:(x.get("categoria",""),x.get("orden",0))):
+                            _ids2=[str(_i) for _i in (_c.get("item_ids") or [])]
+                            _v2=[_rs2[_i] for _i in _ids2 if _rs2.get(_i)]
+                            _cats2[_c.get("categoria","")].append({"tg":_c.get("titulo_grupo",""),"val":", ".join(_v2)})
+                        _mat_data_map[_ep2]={"pct":_pct2,"done":_dn2,"total":_tot2,
+                            "cats":[{"cat":_k,"grupos":_vl} for _k,_vl in _cats2.items()]}
+                    st.session_state['_mat_map_cache']=_mat_data_map
+                    st.session_state['_mat_map_key']=_mck
+                    st.session_state['_mat_map_ts']=_tpm.time()
+                except: st.session_state['_mat_map_cache']={}
+            _mat_data_map=st.session_state.get('_mat_map_cache',{})
 
             def _fmt_compras_ok(row):
                 try:
@@ -711,11 +720,23 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
 
         _filtro_activo_badge = st.session_state.get('filtro_estado_tabla')
         _n_total = len(st.session_state.resultados_busqueda)
-        # Badges de filtro NATIVOS (st.pills): al hacer clic seteamos
-        # filtro_estado_tabla -> df_resultados se filtra server-side (~linea 437)
-        # -> la tabla Y el selectbox de cotizaciones muestran solo ese estado.
-        # Los emojis conservan el codigo de color de cada estado.
-        _badge_map = [
+        # Badges de filtro NATIVOS con FONDO de color por estado (st.button + CSS
+        # por .st-key-<key>). on_click corre ANTES del rerun => UN solo rerun.
+        # Recupera el diseno anterior: relleno segun color + tipografia Montserrat.
+        _BADGE_STYLE = {
+            'TODOS': ('#ede9fe', '#6d28d9', '#6d28d9'),
+            'PROYECTO TERMINADO': ('#ede9fe', '#7c3aed', '#5b21b6'),
+            'ADJUDICADO': ('#dbeafe', '#1d4ed8', '#1e40af'),
+            'AUTORIZADO CON PLANO': ('#dcfce7', '#15803d', '#166534'),
+            'AUTORIZADO': ('#dcfce7', '#15803d', '#166534'),
+            'BORRADOR CON PLANO': ('#ffedd5', '#c2410c', '#9a3412'),
+            'BORRADOR': ('#fef9c3', '#854d0e', '#713f12'),
+            'INCOMPLETO CON PLANO': ('#fee2e2', '#dc2626', '#991b1b'),
+            'INCOMPLETO': ('#fee2e2', '#dc2626', '#991b1b'),
+            'RECHAZADO': ('#fee2e2', '#b91c1c', '#7f1d1d'),
+        }
+        _badge_order = [
+            ('TODOS', f'Todos ({_n_total})'),
             ('PROYECTO TERMINADO', '\U0001F7E3 terminados'),
             ('ADJUDICADO', '\U0001F535 adjudicados'),
             ('AUTORIZADO CON PLANO', '\U0001F7E2 aut. c/plano'),
@@ -726,54 +747,47 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             ('INCOMPLETO', '\U0001F534 incompletos'),
             ('RECHAZADO', '\u274C rechazados'),
         ]
-        _todos_lbl = f'Todos ({_n_total})'
-        _pill_opts = [_todos_lbl]
-        _pill_to_key = {_todos_lbl: None}
-        for _bkey, _blbl in _badge_map:
-            _bcnt = _estados_cnt_total.get(_bkey, 0)
-            if _bcnt:
-                _bl = f'{_blbl} ({_bcnt})'
-                _pill_opts.append(_bl)
-                _pill_to_key[_bl] = _bkey
-        # Label activo segun el filtro guardado
-        _cur_pill = _todos_lbl
-        for _pl, _pk in _pill_to_key.items():
-            if _pk == _filtro_activo_badge:
-                _cur_pill = _pl
-                break
-        # Si el valor guardado del pill ya no coincide con las opciones (cambiaron
-        # los conteos), lo limpiamos para que 'default' vuelva a mandar.
-        if st.session_state.get('_badge_pills') not in _pill_opts:
-            st.session_state.pop('_badge_pills', None)
+        _badges = []
+        for _bi, (_bk, _blbl) in enumerate(_badge_order):
+            if _bk == 'TODOS':
+                _badges.append((_bk, _blbl, f'_fbtn_{_bi}'))
+            elif _estados_cnt_total.get(_bk, 0):
+                _badges.append((_bk, f'{_blbl} ({_estados_cnt_total[_bk]})', f'_fbtn_{_bi}'))
+        _bbase = ('font-family:Montserrat,sans-serif!important;font-weight:700!important;'
+                  'font-size:13px!important;border-radius:99px!important;border:none!important;'
+                  'padding:5px 14px!important;min-height:0!important;letter-spacing:0.03em!important;'
+                  'transition:all .12s!important;white-space:nowrap!important;')
+        _css = ['<style>']
+        for _bk, _blbl, _bkey in _badges:
+            _bg, _fg, _act = _BADGE_STYLE.get(_bk, ('#e2e8f0', '#334155', '#334155'))
+            _is_act = (_bk == 'TODOS' and not _filtro_activo_badge) or (_bk == _filtro_activo_badge)
+            if _is_act:
+                _css.append(f'.st-key-{_bkey} button{{{_bbase}background:{_act}!important;'
+                            f'color:#fff!important;box-shadow:0 0 0 2px {_act}!important;}}')
+            else:
+                _css.append(f'.st-key-{_bkey} button{{{_bbase}background:{_bg}!important;color:{_fg}!important;}}')
+            _css.append(f'.st-key-{_bkey} button:hover{{background:{_act}!important;color:#fff!important;}}')
+        _css.append('.st-key-cot_refresh_tabla button{border-radius:99px!important;'
+                    'font-weight:700!important;min-height:0!important;padding:5px 10px!important;}')
+        _css.append('</style>')
+        st.markdown(''.join(_css), unsafe_allow_html=True)
 
-        st.markdown(
-            '<style>'
-            'div[data-testid="stPills"] button{font-family:Montserrat,sans-serif!important;'
-            'font-weight:700!important;font-size:13px!important;border-radius:99px!important;}'
-            '</style>', unsafe_allow_html=True
-        )
-        # on_change: el callback corre ANTES del rerun automático del widget, así
-        # filtro_estado_tabla ya está actualizado cuando se aplica el filtro
-        # (línea ~437) => UN SOLO rerun por clic, no dos.
-        def _on_badge_change():
-            _v = st.session_state.get('_badge_pills')
-            _k = _pill_to_key.get(_v) if _v else None
-            st.session_state['filtro_estado_tabla'] = _k
-            # Reseteamos solo la key del widget; MANTENEMOS selector_ep_num para que,
-            # si la cotización sigue en el filtro, NO se recargue (cache hit).
+        def _set_badge_filter(_k):
+            _cur = st.session_state.get('filtro_estado_tabla')
+            st.session_state['filtro_estado_tabla'] = (None if _k == _cur else _k)
+            # Mantenemos selector_ep_num: si la cotizacion sigue en el filtro no recarga.
             st.session_state.pop('selector_cotizaciones', None)
-        _col_badge, _col_ref = st.columns([5, 0.7])
-        with _col_badge:
-            st.pills(
-                'Filtrar por estado', _pill_opts,
-                selection_mode='single',
-                default=_cur_pill,
-                key='_badge_pills',
-                on_change=_on_badge_change,
-                label_visibility='collapsed',
-            )
-        with _col_ref:
-            if st.button("\U0001F504", key="cot_refresh_tabla", help="Actualizar resultados", use_container_width=True):
+
+        _weights = [max(len(_b[1]) * 0.42, 3.2) for _b in _badges] + [2.0]
+        _bcols = st.columns(_weights)
+        for _bci, (_bk, _blbl, _bkey) in enumerate(_badges):
+            with _bcols[_bci]:
+                st.button(_blbl, key=_bkey, use_container_width=True,
+                          on_click=_set_badge_filter,
+                          args=(None if _bk == 'TODOS' else _bk,))
+        with _bcols[-1]:
+            if st.button('\U0001F504', key='cot_refresh_tabla', help='Actualizar resultados',
+                         use_container_width=True):
                 st.session_state.resultados_busqueda = None
                 st.rerun()
 
