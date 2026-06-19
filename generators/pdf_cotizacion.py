@@ -31,6 +31,25 @@ def _generar_qr_imagen(url: str, size: int = 80):
         return None, size
 
 
+def _cargar_logo_image(max_width: float, ruta: str = "logo.png") -> Image:
+    """Carga el logo aplanando la transparencia sobre fondo BLANCO.
+
+    logo.png es RGBA (arte negro sobre transparente). Con Pillow/reportlab
+    recientes, el canal alfa se renderiza como NEGRO, dejando un rectángulo
+    negro en el PDF. Aplanar sobre blanco con PIL evita esa regresión y
+    mantiene la proporción del logo. Devuelve un Image de reportlab listo.
+    """
+    from PIL import Image as _PILImage
+    _pil = _PILImage.open(ruta).convert("RGBA")
+    _fondo = _PILImage.new("RGBA", _pil.size, (255, 255, 255, 255))
+    _flat = _PILImage.alpha_composite(_fondo, _pil).convert("RGB")
+    _w, _h = _flat.size
+    _buf = io.BytesIO()
+    _flat.save(_buf, format="PNG")
+    _buf.seek(0)
+    return Image(_buf, width=max_width, height=max_width * _h / float(_w))
+
+
 def _construir_texto_cliente_pdf(datos_cliente: dict, style) -> Paragraph:
     """Construye parrafos del bloque cliente para PDFs, mostrando empresa si es juridica."""
     d = datos_cliente
@@ -130,11 +149,7 @@ def generar_pdf_completo(carrito_df, subtotal, iva, total, datos_cliente,
 
     _qr_img, _qr_sz = _generar_qr_imagen("https://www2.sii.cl/stc/noauthz/consulta", size=70)
     try:
-        logo = Image("logo.png")
-        logo_max = col2 * 0.80
-        logo.drawWidth = logo_max
-        logo.drawHeight = logo_max * (logo.imageHeight / float(logo.imageWidth))
-        logo_cell = logo
+        logo_cell = _cargar_logo_image(col2 * 0.80)
     except Exception:
         logo_cell = Paragraph("", styles['EPTitulo'])
 
@@ -390,11 +405,7 @@ def generar_pdf_cliente(carrito_df, subtotal, iva, total, datos_cliente,
 
     qr_img, qr_sz = _generar_qr_imagen("https://www2.sii.cl/stc/noauthz/consulta", size=70)
     try:
-        logo = Image("logo.png")
-        logo_max = col2 * 0.80
-        logo.drawWidth = logo_max
-        logo.drawHeight = logo_max * (logo.imageHeight / float(logo.imageWidth))
-        logo_cell = logo
+        logo_cell = _cargar_logo_image(col2 * 0.80)
     except Exception:
         logo_cell = Paragraph("", styles['EPTitulo'])
 
