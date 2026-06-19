@@ -192,17 +192,20 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
     )
     if colapsado:
         css.append(
-            # SIN padding horizontal en TODO el contenido -> iconos al centro real
+            # SIN padding horizontal en TODO el contenido
             'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]{padding-left:0!important;padding-right:0!important;}'
             'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]::-webkit-scrollbar{width:0!important;}'
             'section[data-testid="stSidebar"] .st-key-_sb_nav,'
             'section[data-testid="stSidebar"] .st-key-_sb_bottom{padding-left:0!important;padding-right:0!important;}'
             'section[data-testid="stSidebar"] .stButton{padding:0!important;margin:0!important;}'
-            # font-size:0 colapsa el texto (queda solo el icono ::before de 22px) y
-            # justify-content:center lo deja centrado. A prueba de balas.
-            'section[data-testid="stSidebar"] .stButton button{width:100%!important;'
-            'font-size:0!important;justify-content:center!important;gap:0!important;padding:10px 0!important;}'
-            'section[data-testid="stSidebar"] .stButton button::before{margin:0!important;}'
+            # El botón ocupa todo el ancho y el ICONO se posiciona ABSOLUTO al centro
+            # exacto (left:50% + translateX(-50%)). No depende de flexbox => siempre
+            # centrado. font-size:0 colapsa el texto.
+            'section[data-testid="stSidebar"] .stButton button{width:100%!important;position:relative!important;'
+            'font-size:0!important;min-height:42px!important;padding:0!important;gap:0!important;}'
+            'section[data-testid="stSidebar"] .stButton button::before'
+            '{position:absolute!important;left:50%!important;top:50%!important;'
+            'transform:translate(-50%,-50%)!important;margin:0!important;}'
         )
     css.append("</style>")
     return "".join(css)
