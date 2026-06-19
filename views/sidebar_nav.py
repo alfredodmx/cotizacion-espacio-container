@@ -124,7 +124,7 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
         f'section[data-testid="stSidebar"] .st-key-_sb_bottom'
         f'{{position:fixed!important;bottom:0!important;left:0!important;width:{ancho}!important;'
         f'z-index:6!important;box-sizing:border-box!important;'
-        f'padding:8px 0.55rem 10px!important;box-shadow:0 -8px 16px rgba(11,18,32,0.9)!important;}}'
+        f'padding:8px 0.3rem 10px!important;box-shadow:0 -8px 16px rgba(11,18,32,0.9)!important;}}'
     )
     # Ocultar el control de colapso nativo de Streamlit (usamos el nuestro)
     css.append('section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"]{display:none!important;}')
@@ -171,10 +171,12 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
         )
     # Toggle colapsar
     css.append(
+        # Toggle: fondo transparente (azul del sidebar), SIN borde, SIN cambio al hover
         '.st-key-_sb_toggle button{width:100%!important;justify-content:center!important;'
-        'background:rgba(148,163,184,0.08)!important;border:1px solid rgba(148,163,184,0.18)!important;'
-        'color:#94a3b8!important;border-radius:10px!important;padding:7px!important;min-height:0!important;}'
-        '.st-key-_sb_toggle button:hover{background:rgba(148,163,184,0.16)!important;color:#e2e8f0!important;}'
+        'background:transparent!important;border:none!important;box-shadow:none!important;'
+        'color:#94a3b8!important;border-radius:10px!important;padding:9px!important;min-height:0!important;}'
+        '.st-key-_sb_toggle button:hover{background:transparent!important;border:none!important;color:#cbd5e1!important;}'
+        '.st-key-_sb_toggle button:focus,.st-key-_sb_toggle button:active{background:transparent!important;border:none!important;box-shadow:none!important;}'
         f'.st-key-_sb_toggle button::before{{content:"";flex-shrink:0;width:20px;height:20px;'
         f'background:url("{_svg_uri("_expand" if colapsado else "_collapse", _COL_IDLE)}") no-repeat center/contain;}}'
     )

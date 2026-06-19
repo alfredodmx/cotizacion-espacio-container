@@ -388,22 +388,6 @@ def render_layout():
     # 1. CSS global
     st.markdown(_CSS_GLOBAL, unsafe_allow_html=True)
 
-    # 2. Título + logo
-    st.markdown(f"""
-    <div style="display:flex;justify-content:space-between;align-items:center;
-        padding:1.2rem 1.8rem;background:#ffffff;border-radius:18px;
-        border:1.5px solid #e2e6f3;box-shadow:0 4px 20px rgba(0,0,0,0.06);
-        margin-bottom:0.8rem;">
-        <div style="display:flex;flex-direction:column;gap:0.15rem;">
-            <span class="main-title">Cotizador PRO</span>
-            <div class="sub-title">Sistema profesional de cotizaciones</div>
-        </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.5rem;">
-            {_logo_html()}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
     # 3. Header fijo — badge cotización + usuario
     _nombre    = st.session_state.get("auth_nombre") or st.session_state.get("auth_email", "")
     _rol       = st.session_state.get("rol_usuario", "ejecutivo")
