@@ -767,6 +767,9 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             else:
                 _css.append(f'.st-key-{_bkey} button{{{_bbase}background:{_bg}!important;color:{_fg}!important;}}')
             _css.append(f'.st-key-{_bkey} button:hover{{background:{_act}!important;color:#fff!important;}}')
+            # El texto del botón va en un <p>/<div> hijo que hereda la fuente base
+            # de la app (Plus Jakarta Sans); forzamos Montserrat en los descendientes.
+            _css.append(f'.st-key-{_bkey} button *{{font-family:Montserrat,sans-serif!important;}}')
         _css.append('.st-key-cot_refresh_tabla button{border-radius:99px!important;'
                     'font-weight:700!important;min-height:0!important;padding:5px 10px!important;}')
         _css.append('</style>')
