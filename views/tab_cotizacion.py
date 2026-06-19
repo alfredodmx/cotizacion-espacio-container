@@ -568,6 +568,10 @@ def ejecutar_carga_cotizacion():
     # Resetear hash y marcar como recién cargado para suprimir el FAB de guardado
     st.session_state.hash_ultimo_guardado = calcular_hash_estado()
     st.session_state.recien_cargado = True
+    # Pedir re-fijar el baseline al final del script (tras renderizar TODOS los
+    # tabs), cuando los widgets ya normalizaron/recalcularon (carrito, teléfono,
+    # etc.). Si no, el hash difiere del crudo y "Cerrar" pregunta en falso.
+    st.session_state['_rebaseline_load'] = True
     return True
 
 
@@ -575,6 +579,11 @@ def render_cerrar_cotizacion_control():
     """Boton oculto + dialogo de cierre de cotizacion. Render a nivel GLOBAL
     (fuera de los tabs) para que el dialogo NO quede ligado al fragment de un
     tab (evita 'Could not find fragment' al accionarlo desde el header)."""
+    # Re-fijar baseline tras cargar: aquí (final del script) los widgets de todos
+    # los tabs ya normalizaron el estado, así el hash baseline coincide con el
+    # estado real y "Cerrar" no detecta cambios falsos.
+    if st.session_state.pop('_rebaseline_load', False):
+        st.session_state.hash_ultimo_guardado = calcular_hash_estado()
     st.markdown(
         '<style>.st-key-btn_cerrar_cotizacion{visibility:hidden!important;height:0!important;'
         'overflow:hidden!important;margin:0!important;padding:0!important;'
