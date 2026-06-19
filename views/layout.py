@@ -36,9 +36,9 @@ a[href*="streamlit.io"]            { display: none !important; }
 a[href*="github.com"]              { display: none !important; }
 button[title="View fullscreen"]    { display: none !important; }
 
-/* ── Espaciado para el header fijo de 52px (SOLO contenido principal, no el sidebar) ── */
+/* ── Espaciado para el header fijo de 65px (SOLO contenido principal, no el sidebar) ── */
 [data-testid="stMain"] {
-    padding-top: 52px !important;
+    padding-top: 65px !important;
 }
 [data-testid="stAppViewContainer"] > section:first-child[data-testid="stSidebar"] {
     padding-top: 0 !important;
@@ -219,17 +219,17 @@ div[data-testid="stDataEditor"] > div {
 
 /* ── Header fijo ── */
 #_usr_header_bar {
-    position: fixed; top: 0; left: 0; right: 0; height: 52px;
+    position: fixed; top: 0; left: 0; right: 0; height: 65px;
     display: flex; align-items: center; padding: 0 1.5rem;
     border-bottom: 1px solid rgba(255,255,255,0.08);
     box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.05);
     z-index: 99998; gap: 12px; transition: background 0.5s ease;
 }
 [data-testid="stDialog"] > div > div {
-    margin-top: 52px !important; max-height: calc(100vh - 52px) !important;
+    margin-top: 65px !important; max-height: calc(100vh - 65px) !important;
 }
 div[role="dialog"] {
-    margin-top: 52px !important; max-height: calc(100vh - 52px) !important;
+    margin-top: 65px !important; max-height: calc(100vh - 65px) !important;
 }
 #_usr_header_bar .usr-right {
     display: flex; align-items: center; gap: 10px;

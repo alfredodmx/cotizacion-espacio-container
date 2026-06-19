@@ -126,8 +126,12 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
         f'z-index:6!important;box-sizing:border-box!important;'
         f'padding:8px 0.3rem 10px!important;box-shadow:0 -8px 16px rgba(11,18,32,0.9)!important;}}'
     )
-    # Ocultar el control de colapso nativo de Streamlit (usamos el nuestro)
-    css.append('section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"]{display:none!important;}')
+    # Ocultar el header nativo del sidebar (la barra superior de Streamlit con el
+    # botón de colapso) — es lo que metía el gran espacio arriba. Usamos el nuestro.
+    css.append(
+        'section[data-testid="stSidebar"] [data-testid="stSidebarHeader"]{display:none!important;height:0!important;min-height:0!important;padding:0!important;}'
+        'section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"]{display:none!important;}'
+    )
     # El header fijo arranca despues del sidebar (no lo tapa)
     css.append(f'#_usr_header_bar{{left:{ancho}!important;transition:left .18s ease;}}')
     # El FAB flotante de guardar se corre para no quedar sobre el sidebar
@@ -188,16 +192,16 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
     )
     if colapsado:
         css.append(
-            # SIN padding horizontal en TODO el contenido del sidebar -> iconos al centro
+            # SIN padding horizontal en TODO el contenido -> iconos al centro real
             'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]{padding-left:0!important;padding-right:0!important;}'
+            'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]::-webkit-scrollbar{width:0!important;}'
             'section[data-testid="stSidebar"] .st-key-_sb_nav,'
             'section[data-testid="stSidebar"] .st-key-_sb_bottom{padding-left:0!important;padding-right:0!important;}'
             'section[data-testid="stSidebar"] .stButton{padding:0!important;margin:0!important;}'
-            # Ocultar texto, mostrar SOLO el icono centrado
-            'section[data-testid="stSidebar"] .stButton button p,'
-            'section[data-testid="stSidebar"] .stButton button div{display:none!important;}'
+            # font-size:0 colapsa el texto (queda solo el icono ::before de 22px) y
+            # justify-content:center lo deja centrado. A prueba de balas.
             'section[data-testid="stSidebar"] .stButton button{width:100%!important;'
-            'justify-content:center!important;gap:0!important;padding:10px 0!important;}'
+            'font-size:0!important;justify-content:center!important;gap:0!important;padding:10px 0!important;}'
             'section[data-testid="stSidebar"] .stButton button::before{margin:0!important;}'
         )
     css.append("</style>")
