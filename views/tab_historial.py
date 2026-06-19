@@ -1127,28 +1127,26 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
                 _btn_rec_placeholder = st.empty()
 
-            # ── Puente JS→Python ──────────────────────────────────────────────
-            # 1) st.text_input oculto actúa de receptor: cuando su valor cambia
-            #    Python detecta el cambio y hace rerun automático (on_change).
-            # 2) components.html(height=0) escucha el postMessage del dropdown
-            #    y escribe en el input vía React native-setter (única forma de
-            #    escribir en un input React desde JS externo sin navegación).
-            # 3) El React onChange se dispara → Streamlit envía valor al backend
-            #    → on_change callback → selector_ep_num actualizado → rerun.
+            # ── Puente JS→Python via st.form oculto ──────────────────────────
+            # st.form agrupa input+submit: cuando JS hace click en el botón,
+            # Streamlit envía TODOS los valores del form juntos al backend,
+            # sin necesitar debounce ni blur. Es el mecanismo más confiable.
             st.markdown(
-                '<style>div[data-testid="stTextInput"]'
-                ':has(input[placeholder="__ecepbridge__"])'
-                '{display:none!important;height:0!important;}</style>',
+                '<style>div[data-testid="stForm"]'
+                ':has(input[placeholder="__ecepval__"])'
+                '{display:none!important;height:0!important;overflow:hidden;}</style>',
                 unsafe_allow_html=True
             )
-            def _on_ep_bridge():
-                val = st.session_state.get('_ec_ep_bridge', '').strip()
-                if val and val != st.session_state.get('selector_ep_num', ''):
-                    st.session_state['selector_ep_num'] = val
-            st.text_input('', key='_ec_ep_bridge',
-                          placeholder='__ecepbridge__',
-                          label_visibility='collapsed',
-                          on_change=_on_ep_bridge)
+            with st.form(key='_ec_ep_frm', clear_on_submit=True, border=False):
+                st.text_input('', key='_ec_ep_val',
+                              placeholder='__ecepval__',
+                              label_visibility='collapsed')
+                _ep_frm_ok = st.form_submit_button('↗', use_container_width=False)
+            if _ep_frm_ok:
+                _bep = st.session_state.get('_ec_ep_val', '').strip()
+                if _bep:
+                    st.session_state['selector_ep_num'] = _bep
+                    st.rerun()
             components.html(
                 '<script>(function(){'
                 'var W=window.parent;'
@@ -1156,13 +1154,15 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 'W._ecEPBH=function(e){'
                 'if(!e||!e.data||e.data.type!=="_ec_sep"||!e.data.ep)return;'
                 'var ep=e.data.ep;'
-                'var inp=W.document.querySelector("input[placeholder=\'__ecepbridge__\']");'
+                'var inp=W.document.querySelector("input[placeholder=\'__ecepval__\']");'
                 'if(!inp)return;'
                 'try{'
                 'var sv=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,"value").set;'
                 'sv.call(inp,ep);'
                 'inp.dispatchEvent(new Event("input",{bubbles:true}));'
-                'inp.dispatchEvent(new Event("change",{bubbles:true}));'
+                'var frm=inp.closest("form");'
+                'var btn=frm?frm.querySelector("button"):null;'
+                'if(btn)setTimeout(function(){btn.click();},30);'
                 '}catch(err){}'
                 '};'
                 'W.addEventListener("message",W._ecEPBH);'
