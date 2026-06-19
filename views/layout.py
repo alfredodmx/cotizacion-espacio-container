@@ -586,6 +586,11 @@ def render_layout():
             // Cerrar cotización -> click en el botón oculto de Streamlit (por clase)
             var cerrar = t && t.closest ? t.closest('#_btn_cerrar_hdr') : null;
             if (cerrar) {
+                if (cerrar._ec_busy) return;   // evita disparos múltiples mientras procesa
+                cerrar._ec_busy = true;
+                cerrar.textContent = '⏳ Cerrando...';
+                cerrar.style.opacity = '0.7';
+                cerrar.style.pointerEvents = 'none';
                 var hb = D.querySelector('.st-key-btn_cerrar_cotizacion button');
                 if (hb) hb.click();
             }

@@ -36,9 +36,6 @@ render_layout()
 
 from views.tab_cotizacion import render_floating_panels, render_cerrar_cotizacion_control
 render_floating_panels()
-# Control de cierre de cotización a nivel GLOBAL (no dentro de un tab): botón
-# oculto + diálogo, accionado por "🗑️ Cerrar" del header desde cualquier tab.
-render_cerrar_cotizacion_control()
 
 _rol = st.session_state.get('rol_usuario', 'ejecutivo')
 
@@ -133,3 +130,8 @@ if tab_admindata is not None:
     with tab_admindata: render_tab_admindata(**_deps)
 if tab_reporte   is not None:
     with tab_reporte:   render_tab_reporte(supabase=supabase)
+
+# Control de cierre de cotización a nivel GLOBAL y AL FINAL (tras los tabs), igual
+# que el monolito original: botón oculto + diálogo accionado por "🗑️ Cerrar" del
+# header. Ubicarlo al final estabiliza el fragment del diálogo.
+render_cerrar_cotizacion_control()
