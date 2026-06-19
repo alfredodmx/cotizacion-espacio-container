@@ -1,0 +1,221 @@
+"""
+Sidebar de navegación lateral — reemplaza las pestañas superiores.
+Botones nativos (clic confiable) + iconos SVG vía CSS + colapsar/expandir.
+El código de acceso (root/admin) va anclado abajo, sobre el botón de colapso.
+"""
+import urllib.parse as _url
+import streamlit as st
+
+from auth.access_code import generar_codigo_acceso, _get_bloque_horario
+import datetime as _dt
+
+
+# ── Iconos SVG (línea, estilo Lucide) ────────────────────────────────────────
+# Solo el contenido interno del <svg>; el color y el wrapper se generan al vuelo.
+_ICON_PATHS = {
+    "dashboard": '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>',
+    "presupuesto": '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+    "datos": '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    "cotizaciones": '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
+    "edicion_pdf": '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+    "ranking": '<circle cx="12" cy="8" r="6"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>',
+    "contrato": '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15l2 2 4-4"/>',
+    "3d": '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
+    "proyecto_excel": '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/>',
+    "sistema": '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+    "usuarios": '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    "notificaciones": '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+    "reporte": '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+    "operaciones": '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+    "admindata": '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>',
+    "formulario": '<rect x="4" y="4" width="16" height="18" rx="2"/><path d="M9 4V2h6v2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="13" y2="18"/>',
+    "_collapse": '<polyline points="15 18 9 12 15 6"/>',
+    "_expand": '<polyline points="9 18 15 12 9 6"/>',
+}
+
+
+def _svg_uri(key: str, color: str) -> str:
+    """Devuelve un data-URI de un icono SVG con el color de stroke dado."""
+    inner = _ICON_PATHS.get(key, "")
+    svg = (
+        "<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' "
+        "viewBox='0 0 24 24' fill='none' stroke='" + color + "' stroke-width='2' "
+        "stroke-linecap='round' stroke-linejoin='round'>" + inner + "</svg>"
+    )
+    return "data:image/svg+xml," + _url.quote(svg)
+
+
+_COL_IDLE = "#94a3b8"     # icono normal
+_COL_ACTIVE = "#ffffff"   # icono del activo
+_ACCENT = "#5b7cfa"
+
+
+def _codigo_acceso_html(colapsado: bool) -> str:
+    """HTML del código de acceso (root/admin). Compacto si está colapsado."""
+    try:
+        _mo = _dt.datetime.utcnow().month
+        _off = -3 if _mo in (10, 11, 12, 1, 2, 3) else -4
+        _now_cl = _dt.datetime.now(_dt.timezone(_dt.timedelta(hours=_off)))
+        _bloque = _get_bloque_horario(_now_cl)
+        _parts = _bloque.rsplit("-", 2)
+        _bloque_disp = f"{_parts[-2][:2]}:{_parts[-2][2:]} → {_parts[-1][:2]}:{_parts[-1][2:]}"
+        _cod = generar_codigo_acceso()
+    except Exception:
+        return ""
+    if colapsado:
+        return (
+            "<div title='Código de acceso' style='margin:0 auto 6px;text-align:center;'>"
+            "<div style='font-size:0.95rem;font-weight:800;color:#2dd4bf;letter-spacing:0.08em;'>"
+            + str(_cod) + "</div></div>"
+        )
+    return (
+        "<div style='background:rgba(45,212,191,0.08);border:1px solid rgba(45,212,191,0.25);"
+        "border-radius:10px;padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;"
+        "justify-content:space-between;gap:10px;'>"
+        "<div style='font-size:0.62rem;color:#94a3b8;font-weight:700;text-transform:uppercase;"
+        "letter-spacing:0.05em;line-height:1.25;'>Código<br>" + _bloque_disp + "</div>"
+        "<div style='font-size:1.1rem;font-weight:800;color:#2dd4bf;letter-spacing:0.12em;'>"
+        + str(_cod) + "</div></div>"
+    )
+
+
+def _build_css(items, activo: str, colapsado: bool) -> str:
+    """CSS del sidebar: dark, iconos SVG por botón, estado activo y colapso."""
+    ancho = "76px" if colapsado else "256px"
+    css = ["<style>"]
+    # Contenedor del sidebar
+    css.append(
+        f'section[data-testid="stSidebar"]{{width:{ancho}!important;min-width:{ancho}!important;'
+        f'background:linear-gradient(180deg,#0f172a 0%,#0b1220 100%)!important;'
+        f'border-right:1px solid rgba(148,163,184,0.12)!important;transition:width .18s ease;}}'
+        f'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]{{padding:0.6rem 0.55rem 0.7rem!important;'
+        f'height:100%!important;display:flex!important;flex-direction:column!important;}}'
+        f'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]>div:first-child{{'
+        f'flex:1 1 auto!important;display:flex!important;flex-direction:column!important;min-height:0!important;}}'
+        f'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]>div:first-child>'
+        f'[data-testid="stVerticalBlock"]{{flex:1 1 auto!important;}}'
+        '.st-key-_sb_bottom{margin-top:auto!important;padding-top:8px!important;}'
+    )
+    # Ocultar el control de colapso nativo de Streamlit (usamos el nuestro)
+    css.append('section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"]{display:none!important;}')
+    # El header fijo arranca después del sidebar (no lo tapa)
+    css.append(f'#_usr_header_bar{{left:{ancho}!important;transition:left .18s ease;}}')
+    # El FAB flotante de guardar se corre para no quedar sobre el sidebar
+    css.append(f'.st-key-btn_fab_guardar{{left:calc({ancho} + 1.2rem)!important;}}')
+    # Botones de navegación (genérico)
+    css.append(
+        'section[data-testid="stSidebar"] .stButton button{width:100%!important;'
+        'justify-content:flex-start!important;gap:12px!important;background:transparent!important;'
+        'border:1px solid transparent!important;color:#cbd5e1!important;font-family:Montserrat,sans-serif!important;'
+        'font-weight:600!important;font-size:0.82rem!important;border-radius:10px!important;'
+        'padding:9px 12px!important;margin:1px 0!important;min-height:0!important;'
+        'box-shadow:none!important;transition:background .12s,color .12s;}'
+    )
+    css.append(
+        'section[data-testid="stSidebar"] .stButton button:hover{background:rgba(91,124,250,0.12)!important;'
+        'color:#ffffff!important;border-color:rgba(91,124,250,0.25)!important;}'
+    )
+    # Icono ::before por cada item (color normal)
+    for it in items:
+        k = it["key"]; ic = it.get("icon", "")
+        css.append(
+            f'.st-key-nav_{k} button::before{{content:"";flex-shrink:0;width:22px;height:22px;'
+            f'background:url("{_svg_uri(ic, _COL_IDLE)}") no-repeat center/contain;}}'
+        )
+    # Item activo: fondo accent + texto/icono blanco
+    css.append(
+        f'.st-key-nav_{activo} button{{background:linear-gradient(135deg,{_ACCENT},#7c5cfa)!important;'
+        f'color:#fff!important;border-color:transparent!important;font-weight:700!important;'
+        f'box-shadow:0 4px 14px rgba(91,124,250,0.35)!important;}}'
+    )
+    _act_icon = items_icon(items, activo)
+    if _act_icon:
+        css.append(
+            f'.st-key-nav_{activo} button::before{{background:url("{_svg_uri(_act_icon, _COL_ACTIVE)}") no-repeat center/contain!important;}}'
+        )
+    # Toggle colapsar
+    css.append(
+        '.st-key-_sb_toggle button{width:100%!important;justify-content:center!important;'
+        'background:rgba(148,163,184,0.08)!important;border:1px solid rgba(148,163,184,0.18)!important;'
+        'color:#94a3b8!important;border-radius:10px!important;padding:7px!important;min-height:0!important;}'
+        '.st-key-_sb_toggle button:hover{background:rgba(148,163,184,0.16)!important;color:#e2e8f0!important;}'
+        f'.st-key-_sb_toggle button::before{{content:"";flex-shrink:0;width:20px;height:20px;'
+        f'background:url("{_svg_uri("_expand" if colapsado else "_collapse", _COL_IDLE)}") no-repeat center/contain;}}'
+    )
+    # Texto de botones oculto cuando está colapsado (solo iconos)
+    if colapsado:
+        css.append(
+            'section[data-testid="stSidebar"] .stButton button p,'
+            'section[data-testid="stSidebar"] .stButton button div{display:none!important;}'
+            'section[data-testid="stSidebar"] .stButton button{justify-content:center!important;gap:0!important;padding:9px 0!important;}'
+            '.st-key-_sb_brand_full{display:none!important;}'
+        )
+    else:
+        css.append('.st-key-_sb_brand_mini{display:none!important;}')
+    css.append("</style>")
+    return "".join(css)
+
+
+def items_icon(items, key):
+    for it in items:
+        if it["key"] == key:
+            return it.get("icon", "")
+    return ""
+
+
+def render_sidebar(items, rol: str, nombre: str) -> str:
+    """Renderiza el sidebar de navegación y devuelve la página seleccionada.
+
+    items: lista de dicts {key, label, icon}. La página activa se guarda en
+    st.session_state['nav_page'].
+    """
+    _keys = [it["key"] for it in items]
+    _actual = st.session_state.get("nav_page")
+    if _actual not in _keys:
+        _actual = _keys[0] if _keys else None
+        st.session_state["nav_page"] = _actual
+    _colapsado = st.session_state.get("_sb_collapsed", False)
+
+    st.markdown(_build_css(items, _actual, _colapsado), unsafe_allow_html=True)
+
+    with st.sidebar:
+        # Marca / logo
+        if _colapsado:
+            st.markdown(
+                '<div class="st-key-_sb_brand_mini" style="text-align:center;padding:6px 0 10px;">'
+                '<div style="width:36px;height:36px;margin:0 auto;border-radius:10px;'
+                'background:linear-gradient(135deg,#5b7cfa,#7c5cfa);display:flex;align-items:center;'
+                'justify-content:center;color:#fff;font-weight:900;font-family:Montserrat;">C</div></div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div class="st-key-_sb_brand_full" style="padding:6px 8px 12px;">'
+                '<div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.1rem;'
+                'color:#fff;letter-spacing:0.04em;">COTIZADOR<span style="color:#5b7cfa;"> PRO</span></div>'
+                '<div style="font-size:0.62rem;color:#64748b;font-weight:600;text-transform:uppercase;'
+                'letter-spacing:0.08em;margin-top:1px;">Panel de gestión</div></div>',
+                unsafe_allow_html=True,
+            )
+
+        # Navegación (cada botón cambia la página)
+        for it in items:
+            _lbl = it["label"] if not _colapsado else " "
+            if st.button(_lbl, key=f"nav_{it['key']}", use_container_width=True,
+                         help=it["label"] if _colapsado else None):
+                st.session_state["nav_page"] = it["key"]
+                st.rerun()
+
+        # Sección inferior anclada: código de acceso + toggle
+        with st.container(key="_sb_bottom"):
+            if rol in ("root", "admin"):
+                _cod_html = _codigo_acceso_html(_colapsado)
+                if _cod_html:
+                    st.markdown(_cod_html, unsafe_allow_html=True)
+            _tlabel = " " if _colapsado else "Ocultar menú"
+            if st.button(_tlabel, key="_sb_toggle", use_container_width=True,
+                         help="Expandir menú" if _colapsado else "Ocultar menú"):
+                st.session_state["_sb_collapsed"] = not _colapsado
+                st.rerun()
+
+    return st.session_state["nav_page"]
