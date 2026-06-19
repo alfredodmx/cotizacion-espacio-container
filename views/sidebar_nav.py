@@ -104,7 +104,7 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
     # Padding del area de contenido + espacio para brand fijo (arriba) y footer (abajo)
     css.append(
         f'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]'
-        f'{{padding:60px 0.55rem calc({_foot_h} + 8px)!important;}}'
+        f'{{padding:54px 0.55rem calc({_foot_h} + 6px)!important;}}'
     )
     # BRAND fijo arriba
     css.append(
@@ -169,29 +169,36 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
         css.append(
             f'.st-key-nav_{activo} button::before{{background:url("{_svg_uri(_act_icon, _COL_ACTIVE)}") no-repeat center/contain!important;}}'
         )
-    # Toggle colapsar
+    # Toggle colapsar — con prefijo del section para GANAR a la regla genérica de
+    # los botones (misma especificidad + va después). Fondo transparente (azul),
+    # sin borde, SIN cambio al hover/focus.
     css.append(
-        # Toggle: fondo transparente (azul del sidebar), SIN borde, SIN cambio al hover
-        '.st-key-_sb_toggle button{width:100%!important;justify-content:center!important;'
-        'background:transparent!important;border:none!important;box-shadow:none!important;'
-        'color:#94a3b8!important;border-radius:10px!important;padding:9px!important;min-height:0!important;}'
-        '.st-key-_sb_toggle button:hover{background:transparent!important;border:none!important;color:#cbd5e1!important;}'
-        '.st-key-_sb_toggle button:focus,.st-key-_sb_toggle button:active{background:transparent!important;border:none!important;box-shadow:none!important;}'
-        f'.st-key-_sb_toggle button::before{{content:"";flex-shrink:0;width:20px;height:20px;'
+        'section[data-testid="stSidebar"] .st-key-_sb_toggle button{width:100%!important;'
+        'justify-content:center!important;background:transparent!important;border:none!important;'
+        'box-shadow:none!important;color:#94a3b8!important;border-radius:10px!important;'
+        'padding:9px 0!important;min-height:0!important;}'
+        'section[data-testid="stSidebar"] .st-key-_sb_toggle button:hover'
+        '{background:transparent!important;border:none!important;border-color:transparent!important;color:#cbd5e1!important;}'
+        'section[data-testid="stSidebar"] .st-key-_sb_toggle button:focus,'
+        'section[data-testid="stSidebar"] .st-key-_sb_toggle button:active'
+        '{background:transparent!important;border:none!important;box-shadow:none!important;color:#94a3b8!important;}'
+        f'section[data-testid="stSidebar"] .st-key-_sb_toggle button::before{{content:"";flex-shrink:0;'
+        f'width:20px;height:20px;margin:0 8px 0 0;'
         f'background:url("{_svg_uri("_expand" if colapsado else "_collapse", _COL_IDLE)}") no-repeat center/contain;}}'
     )
     if colapsado:
         css.append(
-            # Reducir padding horizontal para que los iconos queden centrados en el riel
-            'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]{padding-left:6px!important;padding-right:6px!important;}'
-            'section[data-testid="stSidebar"] .st-key-_sb_bottom{padding-left:5px!important;padding-right:5px!important;}'
+            # SIN padding horizontal en TODO el contenido del sidebar -> iconos al centro
+            'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]{padding-left:0!important;padding-right:0!important;}'
+            'section[data-testid="stSidebar"] .st-key-_sb_nav,'
+            'section[data-testid="stSidebar"] .st-key-_sb_bottom{padding-left:0!important;padding-right:0!important;}'
+            'section[data-testid="stSidebar"] .stButton{padding:0!important;margin:0!important;}'
             # Ocultar texto, mostrar SOLO el icono centrado
             'section[data-testid="stSidebar"] .stButton button p,'
             'section[data-testid="stSidebar"] .stButton button div{display:none!important;}'
-            'section[data-testid="stSidebar"] .stButton button{justify-content:center!important;gap:0!important;padding:9px 0!important;}'
-            'section[data-testid="stSidebar"] .stButton button::before{margin:0 auto!important;}'
-            # Botón expandir a ancho completo del riel
-            'section[data-testid="stSidebar"] .st-key-_sb_toggle button{padding:9px 0!important;}'
+            'section[data-testid="stSidebar"] .stButton button{width:100%!important;'
+            'justify-content:center!important;gap:0!important;padding:10px 0!important;}'
+            'section[data-testid="stSidebar"] .stButton button::before{margin:0!important;}'
         )
     css.append("</style>")
     return "".join(css)

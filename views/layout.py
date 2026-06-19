@@ -36,9 +36,12 @@ a[href*="streamlit.io"]            { display: none !important; }
 a[href*="github.com"]              { display: none !important; }
 button[title="View fullscreen"]    { display: none !important; }
 
-/* ── Espaciado para el header fijo de 52px ── */
-[data-testid="stAppViewContainer"] > section:first-child {
+/* ── Espaciado para el header fijo de 52px (SOLO contenido principal, no el sidebar) ── */
+[data-testid="stMain"] {
     padding-top: 52px !important;
+}
+[data-testid="stAppViewContainer"] > section:first-child[data-testid="stSidebar"] {
+    padding-top: 0 !important;
 }
 
 /* ── Base ── */
