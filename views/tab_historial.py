@@ -983,192 +983,42 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             if _sel_ep_now not in _eps_disponibles and _eps_disponibles:
                 _sel_ep_now = _eps_disponibles[0]
                 st.session_state['selector_ep_num'] = _sel_ep_now
-            _dd_json_str = json.dumps(_dd_options_list, ensure_ascii=False)
-            _sel_ep_safe = _sel_ep_now.replace('\\', '\\\\').replace("'", "\\'")
-            # Trigger text generado en Python: garantiza que estado y EP aparezcan
-            # correctamente en el botón cerrado sin depender de inicialización JS.
-            _sel_opt_init = next((o for o in _dd_options_list if o['ep'] == _sel_ep_now), None)
-            if _sel_opt_init:
-                import html as _html_esc
-                _est_i = _sel_opt_init.get('est', '')
-                _em_i  = _sel_opt_init.get('em', '')
-                _lm_i  = _sel_opt_init.get('lm') or _sel_opt_init.get('label') or _sel_ep_now
-                _dtx_init = _html_esc.escape(
-                    f"{_em_i} {_lm_i} [{_est_i}]" if _est_i else f"{_lm_i}"
-                )
-            else:
-                _dtx_init = '&#128194; Selecciona una cotizaci&#243;n'
-            # Dropdown vive DENTRO del iframe: evita el bug de position:fixed roto por
-            # el transform CSS del contenedor principal de Streamlit.
-            # El iframe se redimensiona con window.frameElement al abrir/cerrar.
-            # Wheel events dentro del iframe NO propagan al padre -> scroll aislado.
-            _dd_html_tpl = (
-                f'<!-- ep={_sel_ep_safe} f={st.session_state.get("filtro_estado_tabla") or ""} -->'
-                '<style>'
-                '*{box-sizing:border-box;margin:0;padding:0;}'
-                'body{background:transparent;overflow:visible;font-family:Montserrat,sans-serif;}'
-                '#dt{display:flex;align-items:center;justify-content:space-between;background:#fff;'
-                'border:1.5px solid #d1d5db;border-radius:8px;padding:10px 14px;cursor:pointer;'
-                'height:46px;font-size:0.82rem;font-family:Montserrat,sans-serif;color:#0f172a;'
-                'user-select:none;transition:border-color .15s;}'
-                '#dt:hover{border-color:#6366f1;}'
-                '#dt.open{border-color:#6366f1;border-bottom-left-radius:0;border-bottom-right-radius:0;}'
-                '#dtx{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}'
-                '#dar{margin-left:8px;color:#6b7280;font-size:0.66rem;transition:transform .2s;}'
-                '#dt.open #dar{transform:rotate(180deg);}'
-                '#dd{display:none;background:#fff;border:1.5px solid #6366f1;border-top:none;'
-                'border-radius:0 0 8px 8px;box-shadow:0 8px 24px rgba(0,0,0,.14);overflow:hidden;}'
-                '#dd_s{width:100%;padding:8px 12px;border:none;border-bottom:1px solid #e5e7eb;'
-                'font-size:.82rem;font-family:Montserrat,sans-serif;outline:none;'
-                'background:#f8fafc;color:#0f172a;display:block;}'
-                '#dd_o{max-height:280px;overflow-y:auto;overscroll-behavior:contain;}'
-                '.dd_i{padding:9px 14px;cursor:pointer;font-size:.85rem;'
-                'font-family:Montserrat,sans-serif;color:#1e293b;'
-                'border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px;}'
-                '.dd_i:hover{background:#eff6ff;}.dd_i.sel{background:#dbeafe;font-weight:700;}'
-                '#dd_em{padding:12px;text-align:center;color:#94a3b8;font-size:.8rem;display:none;}'
-                '</style>'
-                '<div id="dt" onclick="tog()">'
-                f'<span id="dtx">{_dtx_init}</span>'
-                '<span id="dar">&#9660;</span>'
-                '</div>'
-                '<div id="dd">'
-                '<input id="dd_s" type="text" placeholder="&#128269; Buscar..." oninput="flt(this.value,BF)">'
-                '<div id="dd_o"></div>'
-                '<div id="dd_em">Sin resultados</div>'
-                '</div>'
-                "<script>"
-                "var SEL='SEL_PLACEHOLDER';var OPTS=OPTS_PLACEHOLDER;var BF='';var isOpen=false;"
-                "var PD=window.parent.document;"
-                "['_ecdd_css','_ecdd_css2','_ecdd_css3','_ecdd_css4'].forEach(function(id){"
-                "var el=PD.getElementById(id);if(el)el.remove();});"
-                "function _rz(h){try{if(window.frameElement)window.frameElement.style.height=h+'px';}catch(e){}}"
-                "function _co(e){if(!isOpen)return;cls();}"
-                "function _ke(e){if(e.key==='Escape')cls();}"
-                "function tog(){if(isOpen)cls();else opn();}"
-                "function opn(){"
-                "isOpen=true;"
-                "document.getElementById('dt').classList.add('open');"
-                "document.getElementById('dd').style.display='block';"
-                "var h=46+42+Math.min(OPTS.length*43,282)+14;_rz(h);"
-                "flt('',BF);"
-                "setTimeout(function(){document.getElementById('dd_s').focus();},60);"
-                "PD.addEventListener('click',_co);"
-                "PD.addEventListener('keydown',_ke);"
-                "}"
-                "function cls(){"
-                "isOpen=false;"
-                "document.getElementById('dt').classList.remove('open');"
-                "document.getElementById('dd').style.display='none';"
-                "_rz(52);"
-                "PD.removeEventListener('click',_co);"
-                "PD.removeEventListener('keydown',_ke);"
-                "}"
-                "function mkTrig(o){return(o.lm||o.label||o.ep)+(o.est?' ['+o.est+']':'');}"
-                "function sel(ep){"
-                "var s=OPTS.find(function(o){return o.ep===ep;});"
-                "document.getElementById('dtx').textContent=s?mkTrig(s):ep;"
-                "document.querySelectorAll('.dd_i').forEach(function(d){"
-                "if(d.getAttribute('data-ep')===ep)d.classList.add('sel');else d.classList.remove('sel');});"
-                "cls();"
-                "window.parent.postMessage({type:'_ec_sep',ep:ep},'*');"
-                "}"
-                "function flt(q,bf){"
-                "var ov=document.getElementById('dd_o');if(!ov)return;var vis=0;q=q.toLowerCase();"
-                "ov.querySelectorAll('.dd_i').forEach(function(o){"
-                "var est=o.getAttribute('data-est');"
-                "var _lbl=o.querySelector('.dd_lbl');"
-                "var txt=(_lbl?_lbl.textContent:o.textContent).toLowerCase();"
-                "var ok=(!bf||bf==='TODOS'||est===bf)&&(!q||txt.indexOf(q)!==-1);"
-                "o.style.display=ok?'':'none';if(ok)vis++;});"
-                "document.getElementById('dd_em').style.display=vis===0?'':'none';}"
-                "var ov=document.getElementById('dd_o');"
-                "OPTS.forEach(function(o){"
-                "var d=document.createElement('div');"
-                "d.className='dd_i'+(o.ep===SEL?' sel':'');"
-                "d.setAttribute('data-ep',o.ep);"
-                "d.setAttribute('data-est',o.est);"
-                "var _t=document.createElement('span');"
-                "_t.className='dd_lbl';"
-                "_t.style.cssText='overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;';"
-                "_t.textContent=o.lm||o.label;"
-                "d.appendChild(_t);"
-                "var _b=document.createElement('span');"
-                "_b.textContent=(o.em||'')+' '+(o.est||'');"
-                "_b.style.cssText='background:'+(o.bg||'#64748b')+';color:'+(o.col||'#fff')+"
-                "';padding:2px 9px;border-radius:99px;font-size:0.65rem;font-weight:700;"
-                "white-space:nowrap;flex-shrink:0;font-family:Montserrat,sans-serif;';"
-                "d.appendChild(_b);"
-                "d.onclick=function(e){e.stopPropagation();sel(o.ep);};"
-                "ov.appendChild(d);"
-                "});"
-                "setInterval(function(){"
-                "var f=window.parent._ecBadgeFilter||'';"
-                "if(f!==BF){BF=f;"
-                "var sinp=document.getElementById('dd_s');"
-                "flt(sinp?sinp.value:'',BF);"
-                "if(!isOpen){"
-                "var ov2=document.getElementById('dd_o');"
-                "var fv=ov2?ov2.querySelector('.dd_i:not([style*=\"none\"])'):null;"
-                "if(fv){var fep=fv.getAttribute('data-ep');"
-                "var fo=OPTS.find(function(x){return x.ep===fep;});"
-                "if(fo)document.getElementById('dtx').textContent=mkTrig(fo);"
-                "}}}"
-                "},100);"
-                "</script>"
-            )
-            _dd_html = _dd_html_tpl.replace('SEL_PLACEHOLDER', _sel_ep_safe).replace('OPTS_PLACEHOLDER', _dd_json_str)
+            # -- Selector nativo (st.selectbox): rerun garantizado al elegir EP --
+            # El dropdown-iframe NO puede disparar rerun: el sandbox de components.html
+            # bloquea window.parent.location (about:srcdoc no puede navegar al padre).
+            # st.selectbox es un widget nativo => al cambiar dispara rerun de Streamlit
+            # automaticamente y carga detalles/PDFs de la cotizacion seleccionada.
+            _ep_opts = [o['ep'] for o in _dd_options_list]
+            _ep_lbl_map = {}
+            for _o in _dd_options_list:
+                _em = _o.get('em', '')
+                _lm = _o.get('lm') or _o.get('label') or _o['ep']
+                _est = _o.get('est', '')
+                _ep_lbl_map[_o['ep']] = (f"{_em} {_lm}  -  {_est}" if _est else f"{_em} {_lm}").strip()
+            # Si el valor guardado del selectbox ya no existe en las opciones (cambio
+            # busqueda/filtro), se limpia para que 'index' vuelva a mandar.
+            if st.session_state.get('selector_cotizaciones') not in _ep_opts:
+                st.session_state.pop('selector_cotizaciones', None)
+            _cur_idx = _ep_opts.index(_sel_ep_now) if _sel_ep_now in _ep_opts else 0
             _col_sel, _col_rec_btn = st.columns([4, 1])
             with _col_sel:
                 st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 4px 0;">&#128194; Selecciona una cotizaci&#243;n</div>', unsafe_allow_html=True)
-                components.html(_dd_html, height=52, scrolling=False)
-            cotizacion_seleccionada = _sel_ep_now
+                _ep_pick = st.selectbox(
+                    'Selecciona una cotizacion',
+                    _ep_opts,
+                    index=_cur_idx,
+                    format_func=lambda e: _ep_lbl_map.get(e, e),
+                    key='selector_cotizaciones',
+                    label_visibility='collapsed',
+                )
             with _col_rec_btn:
                 st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
                 _btn_rec_placeholder = st.empty()
-
-            # ── Puente JS→Python via st.form oculto ──────────────────────────
-            # st.form agrupa input+submit: cuando JS hace click en el botón,
-            # Streamlit envía TODOS los valores del form juntos al backend,
-            # sin necesitar debounce ni blur. Es el mecanismo más confiable.
-            st.markdown(
-                '<style>div[data-testid="stForm"]'
-                ':has(input[placeholder="__ecepval__"])'
-                '{display:none!important;height:0!important;overflow:hidden;}</style>',
-                unsafe_allow_html=True
-            )
-            with st.form(key='_ec_ep_frm', clear_on_submit=True, border=False):
-                st.text_input('', key='_ec_ep_val',
-                              placeholder='__ecepval__',
-                              label_visibility='collapsed')
-                _ep_frm_ok = st.form_submit_button('↗', use_container_width=False)
-            if _ep_frm_ok:
-                _bep = st.session_state.get('_ec_ep_val', '').strip()
-                if _bep:
-                    st.session_state['selector_ep_num'] = _bep
-                    st.rerun()
-            components.html(
-                '<script>(function(){'
-                'var W=window.parent;'
-                'if(W._ecEPBH){W.removeEventListener("message",W._ecEPBH);W._ecEPBH=null;}'
-                'W._ecEPBH=function(e){'
-                'if(!e||!e.data||e.data.type!=="_ec_sep"||!e.data.ep)return;'
-                'var ep=e.data.ep;'
-                'var inp=W.document.querySelector("input[placeholder=\'__ecepval__\']");'
-                'if(!inp)return;'
-                'try{'
-                'var sv=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,"value").set;'
-                'sv.call(inp,ep);'
-                'inp.dispatchEvent(new Event("input",{bubbles:true}));'
-                'var frm=inp.closest("form");'
-                'var btn=frm?frm.querySelector("button"):null;'
-                'if(btn)setTimeout(function(){btn.click();},30);'
-                '}catch(err){}'
-                '};'
-                'W.addEventListener("message",W._ecEPBH);'
-                '})();</script>',
-                height=0
-            )
+            # selectbox dispara rerun nativo al cambiar; sincronizamos selector_ep_num
+            if _ep_pick and _ep_pick != _sel_ep_now:
+                st.session_state['selector_ep_num'] = _ep_pick
+                _sel_ep_now = _ep_pick
+            cotizacion_seleccionada = _sel_ep_now
 
             if cotizacion_seleccionada:
                 numero_seleccionado = cotizacion_seleccionada
