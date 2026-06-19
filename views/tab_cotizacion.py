@@ -279,6 +279,14 @@ def render_floating_panels():
         and not st.session_state.get('recien_cargado', False)
         and _hay_cambios
     )
+    # Estado de cambios real (mismo criterio que el FAB, sin excluir solo-lectura):
+    # lo reutiliza el botón "Cerrar" para no preguntar cuando NO hay cambios.
+    st.session_state['_editor_dirty'] = (
+        len(st.session_state.get('carrito', [])) > 0
+        and not st.session_state.get('recien_guardado', False)
+        and not st.session_state.get('recien_cargado', False)
+        and _hay_cambios
+    )
     if st.session_state.get('recien_guardado', False):
         st.session_state.recien_guardado = False
     if st.session_state.get('recien_cargado', False):
@@ -574,10 +582,9 @@ def render_cerrar_cotizacion_control():
         unsafe_allow_html=True,
     )
     if st.button("🗑️ Cerrar Cotización", key="btn_cerrar_cotizacion"):
-        _hash_actual = calcular_hash_estado()
-        _hay_cambios = (len(st.session_state.get('carrito', [])) > 0 and
-                        _hash_actual != st.session_state.get('hash_ultimo_guardado'))
-        if _hay_cambios:
+        # Usa el MISMO criterio de cambios que el FAB (_editor_dirty), así no
+        # pregunta cuando no hay modificaciones reales (recién cargado/guardado).
+        if st.session_state.get('_editor_dirty', False):
             _dc2, _da2, _proy2, _cfg2, _tots2, _pn2, _pd2 = _construir_datos_guardar_simple()
             st.session_state.datos_pendientes_cerrar = {
                 'datos_c': _dc2, 'datos_a': _da2, 'proy': _proy2, 'cfg': _cfg2,
