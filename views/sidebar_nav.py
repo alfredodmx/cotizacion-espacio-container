@@ -241,7 +241,8 @@ def render_sidebar(items, rol: str, nombre: str) -> str:
 
         # Sección inferior anclada: código de acceso + toggle
         with st.container(key="_sb_bottom"):
-            if rol in ("root", "admin"):
+            # El código de acceso solo se muestra con el sidebar expandido
+            if rol in ("root", "admin") and not _colapsado:
                 _cod_html = _codigo_acceso_html(_colapsado)
                 if _cod_html:
                     st.markdown(_cod_html, unsafe_allow_html=True)
