@@ -5,6 +5,7 @@ Migrado desde app.py líneas 9938-10797.
 import io as _io_excel
 import json as _json
 import math
+import re
 import pandas as pd
 import requests as _rq_excel
 import streamlit as st
@@ -13,7 +14,8 @@ from datetime import datetime, timedelta
 from repositories.cotizaciones_repo import guardar_cotizacion, generar_numero_unico
 from services.cotizacion_service import aplicar_margen
 from utils.formato import formato_clp, calcular_hash_estado
-from utils.telefono import formatear_telefono
+from utils.telefono import formatear_telefono, _validar_telefono_cliente
+from utils.rut import validar_rut, formatear_rut
 
 
 def _get_excel_url(supabase_admin):
@@ -470,7 +472,101 @@ section[data-testid="stMain"] [data-testid="stPopoverBody"] {{
 </script>""", height=1)
 
 
+def ejecutar_carga_cotizacion():
+    """Consume el trigger seteado por 'Cargar presupuesto' (tab COTIZACIONES) y
+    vuelca la cotización guardada en el estado del editor (carrito, cliente,
+    asesor, proyecto, margen, plano). Debe correr ANTES de instanciar los widgets
+    del editor. Devuelve True si cargó algo."""
+    if not (st.session_state.get('cargar_cotizacion_trigger') and st.session_state.get('cotizacion_a_cargar')):
+        return False
+    cotizacion = st.session_state.cotizacion_a_cargar
+    st.session_state.carrito = cotizacion.get('productos', []) or []
+    st.session_state.modelo_base = cotizacion.get('modelo_predefinido') or None
+    st.session_state.nombre_input = cotizacion.get('cliente_nombre', '')
+    rut_valor = cotizacion.get('cliente_rut', '') or ''
+    st.session_state.rut_display = rut_valor
+    st.session_state.rut_raw = re.sub(r'[^0-9kK]', '', rut_valor)
+    if st.session_state.rut_raw and len(st.session_state.rut_raw) >= 2:
+        valido, mensaje = validar_rut(st.session_state.rut_raw)
+        st.session_state.rut_valido = valido
+        st.session_state.rut_mensaje = mensaje
+    else:
+        st.session_state.rut_valido = False
+        st.session_state.rut_mensaje = "RUT incompleto"
+    st.session_state.correo_input = cotizacion.get('cliente_email', '')
+    _tel_cot = cotizacion.get('cliente_telefono', '') or ''
+    _dig_cot, _val_cot, _msg_cot = _validar_telefono_cliente(_tel_cot)
+    st.session_state.telefono_raw     = _dig_cot if _dig_cot else _tel_cot
+    st.session_state.telefono_valido  = _val_cot
+    st.session_state.telefono_mensaje = _msg_cot
+    st.session_state.direccion_input    = cotizacion.get('cliente_direccion', '')
+    st.session_state.cliente_comuna      = cotizacion.get('cliente_comuna', '')
+    st.session_state.cliente_region      = cotizacion.get('cliente_region', '')
+    st.session_state.proyecto_direccion  = cotizacion.get('proyecto_direccion', '')
+    st.session_state.proyecto_comuna     = cotizacion.get('proyecto_comuna', '')
+    st.session_state.proyecto_region     = cotizacion.get('proyecto_region', '')
+    st.session_state.cliente_tipo         = cotizacion.get('cliente_tipo', 'natural')
+    st.session_state.cliente_empresa      = cotizacion.get('cliente_empresa', '')
+    st.session_state.cliente_rut_empresa  = cotizacion.get('cliente_rut_empresa', '')
+    _rut_emp_raw = re.sub(r'[^0-9kK]', '', cotizacion.get('cliente_rut_empresa', '') or '')
+    st.session_state.rut_empresa_raw     = _rut_emp_raw
+    st.session_state.rut_empresa_display = formatear_rut(_rut_emp_raw) if _rut_emp_raw else ''
+    nombre_asesor = cotizacion.get('asesor_nombre', '')
+    st.session_state.asesor_seleccionado = nombre_asesor if nombre_asesor else "Seleccionar asesor"
+    st.session_state.correo_asesor = cotizacion.get('asesor_email', '')
+    st.session_state.telefono_asesor = cotizacion.get('asesor_telefono', '')
+    if cotizacion.get('proyecto_fecha_inicio'):
+        try:
+            st.session_state.fecha_inicio = datetime.strptime(cotizacion['proyecto_fecha_inicio'], '%Y-%m-%d').date()
+        except Exception:
+            st.session_state.fecha_inicio = datetime.now().date()
+    else:
+        st.session_state.fecha_inicio = datetime.now().date()
+    if cotizacion.get('proyecto_fecha_termino'):
+        try:
+            st.session_state.fecha_termino = datetime.strptime(cotizacion['proyecto_fecha_termino'], '%Y-%m-%d').date()
+        except Exception:
+            st.session_state.fecha_termino = (datetime.now() + timedelta(days=15)).date()
+    else:
+        st.session_state.fecha_termino = (datetime.now() + timedelta(days=15)).date()
+    st.session_state.observaciones_input = cotizacion.get('proyecto_observaciones', '')
+    # Preservar modo_admin del usuario actual: no desactivar si es supervisor
+    _modo_admin_cot = bool(cotizacion.get('config_modo_admin', False))
+    if not st.session_state.get('es_supervisor'):
+        st.session_state.modo_admin = _modo_admin_cot
+    margen_valor = cotizacion.get('config_margen')
+    try:
+        st.session_state.margen = float(margen_valor) if margen_valor is not None else 0.0
+    except (ValueError, TypeError):
+        st.session_state.margen = 0.0
+    plano_nombre = cotizacion.get('plano_nombre')
+    plano_url = cotizacion.get('plano_url')
+    if plano_nombre and plano_url:
+        st.session_state.plano_nombre = plano_nombre
+        st.session_state.pdf_url = plano_url
+        st.session_state.plano_adjunto = None
+    else:
+        st.session_state.plano_nombre = ""
+        st.session_state.plano_adjunto = None
+        st.session_state.pdf_url = None
+    st.session_state.cotizacion_cargada = cotizacion.get('numero', '')
+    st.session_state.counter = st.session_state.get('counter', 0) + 100
+    st.session_state.mostrar_visor = False
+    st.session_state.pdf_actual = None
+    st.session_state.pdf_nombre = ""
+    st.session_state.numero_en_visor = None
+    st.session_state.cargar_cotizacion_trigger = False
+    st.session_state.cotizacion_a_cargar = None
+    # Resetear hash y marcar como recién cargado para suprimir el FAB de guardado
+    st.session_state.hash_ultimo_guardado = calcular_hash_estado()
+    st.session_state.recien_cargado = True
+    return True
+
+
 def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
+    # Carga diferida: si se pulsó "Cargar presupuesto" en COTIZACIONES, volcamos
+    # la cotización al editor ANTES de instanciar los widgets de este tab.
+    ejecutar_carga_cotizacion()
     st.markdown("""
     <style>
     .hdr1 {
