@@ -516,13 +516,10 @@ def render_layout():
         var usrRight = bar.querySelector('.usr-right');
         if (!usrRight) return false;
 
-        var allBtns = D.querySelectorAll('button');
-        var btnPwd = null, btnOut = null;
-        for (var i = 0; i < allBtns.length; i++) {
-            var txt = (allBtns[i].innerText || '').trim();
-            if (txt === '🔑 Mi contraseña') btnPwd = allBtns[i];
-            if (txt === '🚪 Cerrar sesión') btnOut = allBtns[i];
-        }
+        // Buscar por clase .st-key-* (robusto): innerText devuelve '' en botones
+        // ocultos con visibility:hidden/height:0, por eso fallaba la búsqueda.
+        var btnPwd = D.querySelector('.st-key-btn_pwd_hdr button');
+        var btnOut = D.querySelector('.st-key-btn_cerrar_sesion_header button');
         if (!btnPwd || !btnOut) return false;
 
         var S = 'background:rgba(255,255,255,0.08)!important;color:#fff!important;border:1px solid rgba(255,255,255,0.25)!important;border-radius:6px!important;padding:4px 12px!important;font-size:0.82rem!important;font-weight:600!important;cursor:pointer!important;white-space:nowrap!important;font-family:inherit!important;transition:background 0.2s!important;';
