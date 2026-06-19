@@ -567,6 +567,68 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
     # Carga diferida: si se pulsó "Cargar presupuesto" en COTIZACIONES, volcamos
     # la cotización al editor ANTES de instanciar los widgets de este tab.
     ejecutar_carga_cotizacion()
+
+    # ── Cerrar cotización: botón OCULTO accionado por el botón "🗑️ Cerrar" del
+    # header global (layout). Si hay cambios sin guardar muestra diálogo. ──
+    st.markdown(
+        '<style>.st-key-btn_cerrar_cotizacion{visibility:hidden!important;height:0!important;'
+        'overflow:hidden!important;margin:0!important;padding:0!important;'
+        'min-height:0!important;max-height:0!important;}</style>',
+        unsafe_allow_html=True,
+    )
+    if st.button("🗑️ Cerrar Cotización", key="btn_cerrar_cotizacion"):
+        _hash_actual = calcular_hash_estado()
+        _hay_cambios = (len(st.session_state.get('carrito', [])) > 0 and
+                        _hash_actual != st.session_state.get('hash_ultimo_guardado'))
+        if _hay_cambios:
+            _dc2, _da2, _proy2, _cfg2, _tots2, _pn2, _pd2 = _construir_datos_guardar_simple()
+            st.session_state.datos_pendientes_cerrar = {
+                'datos_c': _dc2, 'datos_a': _da2, 'proy': _proy2, 'cfg': _cfg2,
+                'tots': _tots2, 'pnom': _pn2, 'pdat': _pd2,
+                'numero': st.session_state.cotizacion_cargada,
+            }
+            st.session_state.mostrar_advertencia_cerrar = True
+            st.rerun()
+        else:
+            limpiar_todo()
+            st.rerun()
+
+    if st.session_state.get('mostrar_advertencia_cerrar', False):
+        @st.dialog("⚠️ Cambios sin guardar")
+        def _dialogo_advertencia_cerrar():
+            _es_adj_c = (st.session_state.get('_adj_es_adj', False) and
+                         st.session_state.get('_adj_check_ep') == st.session_state.get('cotizacion_cargada', ''))
+            _solo_lect = _es_adj_c and st.session_state.modo_admin and not st.session_state.get('es_root', False)
+            if _solo_lect:
+                st.info("🔵 Presupuesto ADJUDICADO — Solo lectura. No se puede guardar.")
+                _col_desc, _col_canc = st.columns(2)
+            else:
+                st.warning("Tienes cambios sin guardar. ¿Qué deseas hacer?")
+                _col_guar, _col_desc, _col_canc = st.columns(3)
+                with _col_guar:
+                    if st.button("💾 Guardar y cerrar", use_container_width=True, type="primary", key="dialog_cerrar_guardar"):
+                        _dp = st.session_state.datos_pendientes_cerrar
+                        _usr = st.session_state.get('auth_nombre', '') or st.session_state.get('auth_email', '')
+                        guardar_cotizacion(_dp['numero'], _dp['datos_c'], _dp['datos_a'],
+                                           _dp['proy'], st.session_state.carrito,
+                                           _dp['cfg'], _dp['tots'], _dp['pnom'], _dp['pdat'],
+                                           usuario_logueado=_usr)
+                        limpiar_todo()
+                        st.session_state.datos_pendientes_cerrar = None
+                        st.session_state.mostrar_advertencia_cerrar = False
+                        st.rerun()
+            with _col_desc:
+                if st.button("🗑️ Descartar y cerrar", use_container_width=True, key="dialog_cerrar_descartar"):
+                    limpiar_todo()
+                    st.session_state.datos_pendientes_cerrar = None
+                    st.session_state.mostrar_advertencia_cerrar = False
+                    st.rerun()
+            with _col_canc:
+                if st.button("✖️ Cancelar", use_container_width=True, key="dialog_cerrar_cancelar"):
+                    st.session_state.datos_pendientes_cerrar = None
+                    st.session_state.mostrar_advertencia_cerrar = False
+                    st.rerun()
+        _dialogo_advertencia_cerrar()
     st.markdown("""
     <style>
     .hdr1 {

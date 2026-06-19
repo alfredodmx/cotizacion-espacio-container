@@ -443,6 +443,11 @@ def render_layout():
             f'<span style="color:{_bc};background:rgba(0,0,0,0.3);padding:4px 14px;'
             f'border-radius:20px;border:1px solid {_bc}55;margin-left:8px;">{_badge}</span>'
             f'</span>'
+            f'<button id="_btn_cerrar_hdr" data-action="cerrar-cot" '
+            f'style="margin-left:12px;background:rgba(239,68,68,0.15);color:#fca5a5;'
+            f'border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:5px 12px;'
+            f'font-size:0.85rem;font-weight:700;cursor:pointer;white-space:nowrap;'
+            f'font-family:Montserrat,sans-serif;">🗑️ Cerrar</button>'
         )
         _bg = f"linear-gradient(90deg, {_hc} 0%, #0f172a 65%)"
     else:
@@ -548,6 +553,44 @@ def render_layout():
         }
     }
     tryMove(20);
+
+    // ── Badge de estado: copiar EP al click + botón Cerrar -> botón oculto ──
+    if (!D._ecHdrActionsBound) {
+        D._ecHdrActionsBound = true;
+        D.addEventListener('click', function(e){
+            var t = e.target;
+            // Copiar EP
+            var badge = t && t.closest ? t.closest('#hdr-badge-estado') : null;
+            if (badge) {
+                var ep = badge.getAttribute('data-ep') || '';
+                if (ep) {
+                    try {
+                        var ta = D.createElement('textarea'); ta.value = ep;
+                        ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
+                        D.body.appendChild(ta); ta.focus(); ta.select();
+                        try { D.execCommand('copy'); } catch(_e){}
+                        ta.remove();
+                    } catch(_e2){}
+                    if (window.parent.navigator && window.parent.navigator.clipboard) {
+                        window.parent.navigator.clipboard.writeText(ep).catch(function(){});
+                    }
+                    var inner = badge.querySelector('span');
+                    if (inner) {
+                        var orig = inner.textContent;
+                        inner.textContent = '✅ ¡Copiado!';
+                        setTimeout(function(){ inner.textContent = orig; }, 1000);
+                    }
+                }
+                return;
+            }
+            // Cerrar cotización -> click en el botón oculto de Streamlit (por clase)
+            var cerrar = t && t.closest ? t.closest('#_btn_cerrar_hdr') : null;
+            if (cerrar) {
+                var hb = D.querySelector('.st-key-btn_cerrar_cotizacion button');
+                if (hb) hb.click();
+            }
+        });
+    }
 })();
 </script>
 """, height=0)
