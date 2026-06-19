@@ -180,9 +180,16 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
     )
     if colapsado:
         css.append(
+            # Reducir padding horizontal para que los iconos queden centrados en el riel
+            'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]{padding-left:6px!important;padding-right:6px!important;}'
+            'section[data-testid="stSidebar"] .st-key-_sb_bottom{padding-left:5px!important;padding-right:5px!important;}'
+            # Ocultar texto, mostrar SOLO el icono centrado
             'section[data-testid="stSidebar"] .stButton button p,'
             'section[data-testid="stSidebar"] .stButton button div{display:none!important;}'
             'section[data-testid="stSidebar"] .stButton button{justify-content:center!important;gap:0!important;padding:9px 0!important;}'
+            'section[data-testid="stSidebar"] .stButton button::before{margin:0 auto!important;}'
+            # Botón expandir a ancho completo del riel
+            'section[data-testid="stSidebar"] .st-key-_sb_toggle button{padding:9px 0!important;}'
         )
     css.append("</style>")
     return "".join(css)
