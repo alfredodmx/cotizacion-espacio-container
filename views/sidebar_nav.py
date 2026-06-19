@@ -113,12 +113,18 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
         f'z-index:6!important;background:#0f172a!important;box-sizing:border-box!important;'
         f'padding:10px 12px 8px!important;}}'
     )
-    # FOOTER fijo abajo (codigo + toggle)
+    # FOOTER fijo abajo (codigo + toggle) — fondo MACIZO (más específico que la
+    # regla de transparencia, e incluye los wrappers internos, para que no se
+    # transparente y no se vea el contenido que scrollea detrás).
     css.append(
-        f'.st-key-_sb_bottom'
+        f'section[data-testid="stSidebar"] .st-key-_sb_bottom,'
+        f'section[data-testid="stSidebar"] .st-key-_sb_bottom [data-testid="stVerticalBlockBorderWrapper"],'
+        f'section[data-testid="stSidebar"] .st-key-_sb_bottom [data-testid="stVerticalBlock"]'
+        f'{{background:#0b1220!important;}}'
+        f'section[data-testid="stSidebar"] .st-key-_sb_bottom'
         f'{{position:fixed!important;bottom:0!important;left:0!important;width:{ancho}!important;'
-        f'z-index:6!important;background:#0b1220!important;box-sizing:border-box!important;'
-        f'padding:8px 0.55rem 10px!important;}}'
+        f'z-index:6!important;box-sizing:border-box!important;'
+        f'padding:8px 0.55rem 10px!important;box-shadow:0 -8px 16px rgba(11,18,32,0.9)!important;}}'
     )
     # Ocultar el control de colapso nativo de Streamlit (usamos el nuestro)
     css.append('section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"]{display:none!important;}')
