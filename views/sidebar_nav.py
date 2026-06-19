@@ -89,12 +89,20 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
         f'background:linear-gradient(180deg,#0f172a 0%,#0b1220 100%)!important;'
         f'border-right:1px solid rgba(148,163,184,0.12)!important;transition:width .18s ease;}}'
         f'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]{{padding:0.6rem 0.55rem 0.7rem!important;'
-        f'height:100%!important;display:flex!important;flex-direction:column!important;}}'
+        f'height:100vh!important;display:flex!important;flex-direction:column!important;}}'
         f'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]>div:first-child{{'
-        f'flex:1 1 auto!important;display:flex!important;flex-direction:column!important;min-height:0!important;}}'
+        f'flex:1 1 auto!important;min-height:0!important;display:flex!important;flex-direction:column!important;}}'
         f'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]>div:first-child>'
-        f'[data-testid="stVerticalBlock"]{{flex:1 1 auto!important;}}'
-        '.st-key-_sb_bottom{margin-top:auto!important;padding-top:8px!important;}'
+        f'[data-testid="stVerticalBlock"]{{flex:1 1 auto!important;min-height:0!important;}}'
+        # CUERPO scrolleable: solo los items de navegación hacen scroll
+        '.st-key-_sb_nav{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;'
+        'overflow-x:hidden!important;padding-right:2px!important;}'
+        '.st-key-_sb_nav::-webkit-scrollbar{width:6px;}'
+        '.st-key-_sb_nav::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.25);border-radius:3px;}'
+        '.st-key-_sb_nav::-webkit-scrollbar-track{background:transparent;}'
+        # FOOTER fijo abajo (código + toggle) y brand fijo arriba
+        '.st-key-_sb_bottom{flex:0 0 auto!important;border-top:1px solid rgba(148,163,184,0.12)!important;'
+        'margin-top:6px!important;padding-top:8px!important;}'
     )
     # Ocultar el control de colapso nativo de Streamlit (usamos el nuestro)
     css.append('section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"]{display:none!important;}')
@@ -199,12 +207,13 @@ def render_sidebar(items, rol: str, nombre: str) -> str:
             )
 
         # Navegación (cada botón cambia la página)
-        for it in items:
-            _lbl = it["label"] if not _colapsado else " "
-            if st.button(_lbl, key=f"nav_{it['key']}", use_container_width=True,
-                         help=it["label"] if _colapsado else None):
-                st.session_state["nav_page"] = it["key"]
-                st.rerun()
+        with st.container(key="_sb_nav"):
+            for it in items:
+                _lbl = it["label"] if not _colapsado else " "
+                if st.button(_lbl, key=f"nav_{it['key']}", use_container_width=True,
+                             help=it["label"] if _colapsado else None):
+                    st.session_state["nav_page"] = it["key"]
+                    st.rerun()
 
         # Sección inferior anclada: código de acceso + toggle
         with st.container(key="_sb_bottom"):
