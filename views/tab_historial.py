@@ -44,6 +44,21 @@ def _rechazo_status_cached(ep: str) -> dict:
         return {}
 
 
+@st.cache_data(ttl=60, show_spinner=False)
+def _modelos_predefinidos(eps: tuple) -> dict:
+    """Mapa {numero: modelo_predefinido} cacheado 60s por set de EPs (completo)."""
+    if not eps:
+        return {}
+    try:
+        _q = _supa_admin_global.table("cotizaciones").select(
+            "numero,modelo_predefinido"
+        ).in_("numero", list(eps)).execute()
+        return {str(_r.get("numero", "")): (_r.get("modelo_predefinido") or "")
+                for _r in (_q.data or [])}
+    except Exception:
+        return {}
+
+
 def _feriados_chile(year):
     from datetime import date, timedelta as _td
     f = set()
@@ -481,6 +496,10 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                     except: pass
             except: pass
 
+        # Modelo predefinido (tabla cotizaciones) — keyed por el set COMPLETO de EPs
+        # para que no se re-consulte al filtrar por badge.
+        _eps_full = [str(_r[0]) for _r in (st.session_state.resultados_busqueda or [])]
+        _modelos_map = _modelos_predefinidos(tuple(sorted(_eps_full)))
         _cli_data_map = {}
         for _,_mr in df_resultados.iterrows():
             _cli_data_map[str(_mr.get('N°',''))]={
@@ -489,7 +508,8 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                 'dir':str(_mr.get('Cli_Dir','') or ''),'comuna':str(_mr.get('Cli_Comuna','') or ''),
                 'region':str(_mr.get('Cli_Region','') or ''),'empresa':str(_mr.get('Empresa','') or ''),
                 'inst_dir':str(_mr.get('Inst_Dir','') or ''),'inst_comuna':str(_mr.get('Inst_Comuna','') or ''),
-                'inst_region':str(_mr.get('Inst_Region','') or '')}
+                'inst_region':str(_mr.get('Inst_Region','') or ''),
+                'modelo':str(_modelos_map.get(str(_mr.get('N°','')),'') or '')}
         _cli_data_json_map = json.dumps(_cli_data_map, ensure_ascii=True)
         _mat_data_json_map = json.dumps(_mat_data_map, ensure_ascii=True)
 
@@ -891,6 +911,17 @@ var MAT_DATA = """ + _mat_data_json_map + """;
         var html='<table style="width:100%;border-collapse:collapse;">';
         rows.forEach(function(r){if(!r[1])return;html+='<tr><td style="color:#94a3b8;font-size:0.78rem;padding:3px 8px 3px 0;white-space:nowrap;">'+r[0]+'</td><td style="color:#f1f5f9;font-weight:600;padding:3px 0;">'+r[1]+'</td></tr>';});
         html+='</table>'; bdy.innerHTML=html;
+        if(cli.modelo){
+            var mdl=D.createElement('div');
+            mdl.style.cssText='margin-top:14px;padding-top:12px;border-top:1px solid #334155;';
+            var lbl=D.createElement('div');
+            lbl.style.cssText='font-size:0.7rem;font-weight:800;color:#94a3b8;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:3px;font-family:Montserrat,sans-serif;';
+            lbl.textContent='Modelo predefinido';
+            var val=D.createElement('div');
+            val.style.cssText='font-size:1.05rem;font-weight:900;color:#fbbf24;font-family:Montserrat,sans-serif;letter-spacing:0.02em;';
+            val.textContent=cli.modelo;
+            mdl.appendChild(lbl); mdl.appendChild(val); bdy.appendChild(mdl);
+        }
         box.appendChild(hdr); box.appendChild(bdy); ov.appendChild(box); D.body.appendChild(ov);
         cls.addEventListener('click',function(){ov.remove();}); ov.addEventListener('click',function(ev){if(ev.target===ov)ov.remove();});
     });
