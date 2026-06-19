@@ -563,13 +563,10 @@ def ejecutar_carga_cotizacion():
     return True
 
 
-def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
-    # Carga diferida: si se pulsó "Cargar presupuesto" en COTIZACIONES, volcamos
-    # la cotización al editor ANTES de instanciar los widgets de este tab.
-    ejecutar_carga_cotizacion()
-
-    # ── Cerrar cotización: botón OCULTO accionado por el botón "🗑️ Cerrar" del
-    # header global (layout). Si hay cambios sin guardar muestra diálogo. ──
+def render_cerrar_cotizacion_control():
+    """Boton oculto + dialogo de cierre de cotizacion. Render a nivel GLOBAL
+    (fuera de los tabs) para que el dialogo NO quede ligado al fragment de un
+    tab (evita 'Could not find fragment' al accionarlo desde el header)."""
     st.markdown(
         '<style>.st-key-btn_cerrar_cotizacion{visibility:hidden!important;height:0!important;'
         'overflow:hidden!important;margin:0!important;padding:0!important;'
@@ -629,6 +626,12 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                     st.session_state.mostrar_advertencia_cerrar = False
                     st.rerun()
         _dialogo_advertencia_cerrar()
+
+
+def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
+    # Carga diferida: si se pulsó "Cargar presupuesto" en COTIZACIONES, volcamos
+    # la cotización al editor ANTES de instanciar los widgets de este tab.
+    ejecutar_carga_cotizacion()
     st.markdown("""
     <style>
     .hdr1 {

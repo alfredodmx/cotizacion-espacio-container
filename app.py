@@ -34,8 +34,11 @@ process_query_params()
 from views.layout import render_layout
 render_layout()
 
-from views.tab_cotizacion import render_floating_panels
+from views.tab_cotizacion import render_floating_panels, render_cerrar_cotizacion_control
 render_floating_panels()
+# Control de cierre de cotización a nivel GLOBAL (no dentro de un tab): botón
+# oculto + diálogo, accionado por "🗑️ Cerrar" del header desde cualquier tab.
+render_cerrar_cotizacion_control()
 
 _rol = st.session_state.get('rol_usuario', 'ejecutivo')
 
