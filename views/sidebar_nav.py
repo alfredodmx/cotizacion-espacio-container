@@ -193,10 +193,13 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
     if colapsado:
         css.append(
             # SIN padding horizontal en TODO el contenido y SIN scrollbar
-            'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]{padding-left:0!important;padding-right:0!important;}'
+            'section[data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding:0!important;margin:0!important;}'
+            'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]{padding:54px 0 calc(70px + 6px)!important;}'
             'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]::-webkit-scrollbar{width:0!important;}'
             'section[data-testid="stSidebar"] .st-key-_sb_nav,'
-            'section[data-testid="stSidebar"] .st-key-_sb_bottom{padding-left:0!important;padding-right:0!important;}'
+            'section[data-testid="stSidebar"] .st-key-_sb_bottom{padding-left:0!important;padding-right:0!important;width:100%!important;}'
+            'section[data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"],'
+            'section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{width:100%!important;margin:0!important;padding:0!important;}'
             # Forzar ANCHO COMPLETO en toda la cadena (el botón no quedaba 100%)
             'section[data-testid="stSidebar"] [data-testid="stElementContainer"],'
             'section[data-testid="stSidebar"] .stButton{width:100%!important;padding:0!important;margin:0!important;}'
