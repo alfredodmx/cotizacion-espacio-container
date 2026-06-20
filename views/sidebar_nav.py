@@ -194,33 +194,36 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
     )
     if colapsado:
         css.append(
-            # SIN padding horizontal en TODO el contenido y SIN scrollbar
+            # Eliminar TODO el padding/margin de los contenedores del sidebar colapsado
             'section[data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding:0!important;margin:0!important;}'
-            'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]{padding:54px 0 calc(70px + 6px)!important;}'
-            'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]::-webkit-scrollbar{width:0!important;}'
+            'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]{padding:54px 0 60px!important;scrollbar-width:none!important;}'
+            'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]::-webkit-scrollbar{width:0!important;display:none!important;}'
             'section[data-testid="stSidebar"] .st-key-_sb_nav,'
             'section[data-testid="stSidebar"] .st-key-_sb_bottom{padding-left:0!important;padding-right:0!important;width:100%!important;}'
             'section[data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"],'
             'section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{width:100%!important;margin:0!important;padding:0!important;}'
-            # Forzar ANCHO COMPLETO en toda la cadena (el botón no quedaba 100%)
             'section[data-testid="stSidebar"] [data-testid="stElementContainer"],'
             'section[data-testid="stSidebar"] .stButton{width:100%!important;padding:0!important;margin:0!important;}'
-            # Botón full-width, flex centrado, hijos ocultos, icono centrado
+            # Botón: centrado con justify-content y padding cero
             'section[data-testid="stSidebar"] .stButton button{'
-            'width:100%!important;display:flex!important;overflow:visible!important;'
+            'width:100%!important;display:flex!important;flex-direction:row!important;'
             'align-items:center!important;justify-content:center!important;'
-            'gap:0!important;min-height:42px!important;padding:10px 0!important;}'
-            # Ocultar el texto (hijos directos) pero NO el ::before
-            'section[data-testid="stSidebar"] .stButton button>*{display:none!important;}'
-            # Centrar el icono ::before — quitar cualquier margin residual
+            'padding:10px 0!important;gap:0!important;overflow:visible!important;'
+            'min-height:42px!important;}'
+            # Ocultar texto pero no el icono (::before)
+            'section[data-testid="stSidebar"] .stButton button>*{opacity:0!important;width:0!important;overflow:hidden!important;}'
+            # El ::before ya tiene position correcto desde las reglas generales;
+            # aquí forzamos que NO tenga margin y esté centrado en el flex
             'section[data-testid="stSidebar"] .stButton button::before{'
-            'margin:0!important;display:block!important;flex-shrink:0!important;}'
-            # Icono del toggle también centrado
+            'margin:0 auto!important;align-self:center!important;}'
+            # Toggle (expandir): asegurar que el chevron se vea, centrado y con tamaño
+            'section[data-testid="stSidebar"] .st-key-_sb_toggle button{min-height:44px!important;}'
             'section[data-testid="stSidebar"] .st-key-_sb_toggle button::before{'
-            'margin:0!important;display:block!important;flex-shrink:0!important;}'
-            # Tooltip nativo de Streamlit: moverlo fuera del sidebar (sin clip)
-            'section[data-testid="stSidebar"] [data-testid="stTooltipIcon"]{overflow:visible!important;}'
-            '[data-testid="stTooltipContent"]{z-index:99999!important;white-space:normal!important;}'
+            'display:inline-block!important;opacity:1!important;width:24px!important;height:24px!important;'
+            'margin:0 auto!important;align-self:center!important;}'
+            # Tooltip visible
+            'section[data-testid="stSidebar"]{overflow:visible!important;}'
+            '[data-baseweb="tooltip"],[role="tooltip"]{z-index:99999!important;}'
         )
     css.append("</style>")
     return "".join(css)
