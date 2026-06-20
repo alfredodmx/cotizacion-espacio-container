@@ -176,18 +176,20 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
     # Toggle colapsar — con prefijo del section para GANAR a la regla genérica de
     # los botones (misma especificidad + va después). Fondo transparente (azul),
     # sin borde, SIN cambio al hover/focus.
+    # Cuando NO está colapsado: el ícono tiene margin-right para separarse del texto
+    _toggle_margin = '0 8px 0 0' if not colapsado else '0'
     css.append(
         'section[data-testid="stSidebar"] .st-key-_sb_toggle button{width:100%!important;'
         'justify-content:center!important;background:transparent!important;border:none!important;'
         'box-shadow:none!important;color:#94a3b8!important;border-radius:10px!important;'
-        'padding:9px 0!important;min-height:0!important;}'
+        'padding:9px 0!important;min-height:0!important;overflow:visible!important;}'
         'section[data-testid="stSidebar"] .st-key-_sb_toggle button:hover'
         '{background:transparent!important;border:none!important;border-color:transparent!important;color:#cbd5e1!important;}'
         'section[data-testid="stSidebar"] .st-key-_sb_toggle button:focus,'
         'section[data-testid="stSidebar"] .st-key-_sb_toggle button:active'
         '{background:transparent!important;border:none!important;box-shadow:none!important;color:#94a3b8!important;}'
         f'section[data-testid="stSidebar"] .st-key-_sb_toggle button::before{{content:"";flex-shrink:0;'
-        f'width:20px;height:20px;margin:0 8px 0 0;'
+        f'width:20px;height:20px;margin:{_toggle_margin};'
         f'background:url("{_svg_uri("_expand" if colapsado else "_collapse", _COL_IDLE)}") no-repeat center/contain;}}'
     )
     if colapsado:
@@ -203,13 +205,22 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
             # Forzar ANCHO COMPLETO en toda la cadena (el botón no quedaba 100%)
             'section[data-testid="stSidebar"] [data-testid="stElementContainer"],'
             'section[data-testid="stSidebar"] .stButton{width:100%!important;padding:0!important;margin:0!important;}'
-            # Botón full-width, flex centrado, y se ELIMINAN los hijos de texto
-            'section[data-testid="stSidebar"] .stButton>button{width:100%!important;display:flex!important;'
-            'align-items:center!important;justify-content:center!important;gap:0!important;'
-            'min-height:42px!important;padding:10px 0!important;}'
-            'section[data-testid="stSidebar"] .stButton>button>*{display:none!important;}'
-            'section[data-testid="stSidebar"] .stButton>button::before{margin:0 auto!important;}'
-            'section[data-testid="stSidebar"] .st-key-_sb_toggle button::before{margin:0 auto!important;}'
+            # Botón full-width, flex centrado, hijos ocultos, icono centrado
+            'section[data-testid="stSidebar"] .stButton button{'
+            'width:100%!important;display:flex!important;overflow:visible!important;'
+            'align-items:center!important;justify-content:center!important;'
+            'gap:0!important;min-height:42px!important;padding:10px 0!important;}'
+            # Ocultar el texto (hijos directos) pero NO el ::before
+            'section[data-testid="stSidebar"] .stButton button>*{display:none!important;}'
+            # Centrar el icono ::before — quitar cualquier margin residual
+            'section[data-testid="stSidebar"] .stButton button::before{'
+            'margin:0!important;display:block!important;flex-shrink:0!important;}'
+            # Icono del toggle también centrado
+            'section[data-testid="stSidebar"] .st-key-_sb_toggle button::before{'
+            'margin:0!important;display:block!important;flex-shrink:0!important;}'
+            # Tooltip nativo de Streamlit: moverlo fuera del sidebar (sin clip)
+            'section[data-testid="stSidebar"] [data-testid="stTooltipIcon"]{overflow:visible!important;}'
+            '[data-testid="stTooltipContent"]{z-index:99999!important;white-space:normal!important;}'
         )
     css.append("</style>")
     return "".join(css)
