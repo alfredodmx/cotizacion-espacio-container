@@ -12,7 +12,7 @@ import streamlit.components.v1 as components
 from components.html_formulario_cliente import build_formulario_cliente_html
 
 _CSS_CLIENTE = """
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&family=Montserrat:wght@700;800;900&display=swap');
 #MainMenu,footer,[data-testid="stToolbar"],[data-testid="stDecoration"]{display:none!important;}
 .stAppHeader,.st-emotion-cache-xi6p3a,[data-testid="stAppHeader"]{display:none!important;height:0!important;}
 .stMainBlockContainer,.block-container,.st-emotion-cache-1ibsh2c{padding-top:0!important;margin-top:0!important;}
@@ -129,9 +129,9 @@ def _render_login_cliente(logo_b64: str, supabase_admin) -> None:
         background-image:none !important;
     }}
     .st-key-cli_login_card {{
-        background-color:rgba(255,255,255,0.06) !important;
-        backdrop-filter:blur(7px) saturate(115%) !important;
-        -webkit-backdrop-filter:blur(7px) saturate(115%) !important;
+        background-color:rgba(255,255,255,0.04) !important;
+        backdrop-filter:blur(5px) saturate(110%) !important;
+        -webkit-backdrop-filter:blur(5px) saturate(110%) !important;
         border-radius:24px !important;
         padding:38px 34px 30px !important;
         box-shadow:0 24px 60px rgba(5,10,20,0.45),0 8px 24px rgba(5,10,20,0.25) !important;
@@ -158,36 +158,56 @@ def _render_login_cliente(logo_b64: str, supabase_admin) -> None:
         z-index:50 !important;
     }}
 
-    /* Bloque título dentro de la card */
+    /* Bloque título dentro de la card — centrado en flex column */
     .cli-title-block {{
-        text-align:center;margin-bottom:22px;font-family:Poppins,sans-serif;
+        display:flex !important;
+        flex-direction:column !important;
+        align-items:center !important;
+        text-align:center !important;
+        margin:0 auto 22px !important;
+        font-family:'Poppins',sans-serif;
+        width:100%;
     }}
-    /* Badge glass (era gradient sólido) */
+    /* Badge glass */
     .cli-badge {{
         display:inline-flex;align-items:center;gap:6px;
         background:rgba(255,255,255,0.14) !important;
         backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
         color:#ffffff !important;border-radius:99px;padding:5px 16px;
         font-size:0.62rem;font-weight:800;letter-spacing:0.14em;
-        text-transform:uppercase;margin-bottom:14px;
+        text-transform:uppercase;margin:0 0 14px 0;
         border:1px solid rgba(255,255,255,0.28);
         box-shadow:0 6px 18px rgba(0,0,0,0.18);
     }}
-    /* Título y subtítulo en BLANCO sobre el glass */
-    .cli-title {{
-        font-size:1.75rem;font-weight:900;color:#ffffff !important;
-        line-height:1.15;margin:0 0 8px;letter-spacing:-0.01em;
-        display:flex;align-items:center;justify-content:center;gap:10px;
-        text-shadow:0 2px 12px rgba(0,0,0,0.4);
+    /* SVG ícono arriba del título, separado */
+    .cli-title-icon {{
+        margin:0 0 10px 0;
+        filter:drop-shadow(0 2px 10px rgba(0,0,0,0.4));
     }}
-    .cli-title svg {{
-        width:36px;height:36px;flex-shrink:0;
-        filter:drop-shadow(0 2px 8px rgba(0,0,0,0.35));
+    .cli-title-icon svg {{
+        width:42px;height:42px;display:block;
+    }}
+    /* Título en MONTSERRAT 900 UPPERCASE blanco */
+    .cli-title {{
+        font-family:'Montserrat',sans-serif !important;
+        font-size:1.55rem;font-weight:900;color:#ffffff !important;
+        line-height:1.18;margin:0 0 10px 0;
+        letter-spacing:0.04em;text-transform:uppercase;
+        text-shadow:0 2px 14px rgba(0,0,0,0.45);
+        text-align:center;
+        max-width:100%;
+        word-spacing:0.02em;
     }}
     .cli-sub {{
-        font-size:0.86rem;color:rgba(255,255,255,0.85) !important;
-        line-height:1.55;margin:0 auto;max-width:340px;
-        text-shadow:0 1px 6px rgba(0,0,0,0.35);
+        font-family:'Poppins',sans-serif;
+        font-size:0.86rem;color:rgba(255,255,255,0.88) !important;
+        line-height:1.55;margin:0 auto;max-width:360px;
+        text-align:center;
+        text-shadow:0 1px 6px rgba(0,0,0,0.4);
+    }}
+    @media (max-width:600px) {{
+        .cli-title {{ font-size:1.25rem !important; }}
+        .cli-title-icon svg {{ width:36px !important; height:36px !important; }}
     }}
 
     /* Labels de inputs en blanco */
@@ -267,15 +287,16 @@ def _render_login_cliente(logo_b64: str, supabase_admin) -> None:
         with st.container(key="cli_login_card"):
             # SVG casa estilo Lucide, en blanco
             _svg_house = (
-                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
-                'stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+                '<svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" '
+                'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
                 '<path d="M3 10.5 12 3l9 7.5V20a1.5 1.5 0 0 1-1.5 1.5h-4.5v-7h-6v7H4.5A1.5 1.5 0 0 1 3 20z"/>'
                 '</svg>'
             )
             st.markdown(f"""
             <div class="cli-title-block">
                 <div class="cli-badge">&#10022; Portal de Materiales</div>
-                <div class="cli-title"><span>Tu casa, tus materiales</span>{_svg_house}</div>
+                <div class="cli-title-icon">{_svg_house}</div>
+                <div class="cli-title">Tu casa, tu dise&ntilde;o, tus materiales</div>
                 <div class="cli-sub">Ingresa tus datos para acceder a tu formulario personalizado de selecci&oacute;n de materiales.</div>
             </div>
             """, unsafe_allow_html=True)
@@ -319,9 +340,9 @@ def _render_login_cliente(logo_b64: str, supabase_admin) -> None:
     var el = D.querySelector('.st-key-cli_login_card');
     if (!el) return false;
     // Card wrapper glass
-    el.style.setProperty('background-color', 'rgba(255,255,255,0.06)', 'important');
-    el.style.setProperty('backdrop-filter', 'blur(7px) saturate(115%)', 'important');
-    el.style.setProperty('-webkit-backdrop-filter', 'blur(7px) saturate(115%)', 'important');
+    el.style.setProperty('background-color', 'rgba(255,255,255,0.04)', 'important');
+    el.style.setProperty('backdrop-filter', 'blur(5px) saturate(110%)', 'important');
+    el.style.setProperty('-webkit-backdrop-filter', 'blur(5px) saturate(110%)', 'important');
     el.style.setProperty('position', 'relative', 'important');
     el.style.setProperty('z-index', '50', 'important');
     el.style.setProperty('overflow', 'hidden', 'important');
