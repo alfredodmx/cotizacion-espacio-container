@@ -23,7 +23,6 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
     pct = int(resp_grupos / total_grupos * 100) if total_grupos > 0 else 0
 
     body_html   = ''
-    popups_html = ''
 
     for cat, cfgs in configs_by_cat.items():
         body_html += '<div class="cat-card">'
@@ -85,26 +84,26 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
                     nm  = it.get('nombre','')
                     url = it.get('imagen_url','') or ''
                     sel = ' sel' if resps_map.get(iid) == nm else ''
-                    pid = 'pop-' + iid
-                    body_html += '<div class="i-item' + sel + '" id="ii-' + iid + '" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'imagen\')"">'
+                    nm_attr = nm.replace('"', '&quot;')
+                    nm_js = nm.replace("'", "")
+                    body_html += '<div class="i-item' + sel + '" id="ii-' + iid + '" onclick="pick(\'' + iid + '\',\'' + nm_js + '\',\'imagen\')">'
                     body_html += '<div class="i-circle">'
                     if url:
-                        body_html += '<img src="' + url + '" alt="' + nm + '">'
+                        body_html += '<img src="' + url + '" alt="' + nm_attr + '">'
                     else:
                         body_html += '<div class="i-placeholder">&#128230;</div>'
                     body_html += '</div>'
                     body_html += '<div class="i-badge">✓</div>'
                     if url:
-                        body_html += '<button class="zoom-btn" onclick="event.stopPropagation();openP(\'' + pid + '\')">&#128269;</button>'
+                        # Popup se crea dinámicamente en window.parent.document (ver openP en JS)
+                        # para que position:fixed se ancle a la viewport real, no al iframe.
+                        body_html += ('<button class="zoom-btn" '
+                                      'data-pop-url="' + url + '" '
+                                      'data-pop-name="' + nm_attr + '" '
+                                      'data-pop-iid="' + iid + '" '
+                                      'onclick="event.stopPropagation();openP(this)">&#128269;</button>')
                     body_html += '<div class="i-name">' + nm + '</div>'
                     body_html += '</div>'
-                    if url:
-                        popups_html += '<div class="popup" id="' + pid + '" onclick="if(this===event.target)closeP(\'' + pid + '\')">'
-                        popups_html += '<button class="pop-close" onclick="closeP(\'' + pid + '\')">&#x2715;</button>'
-                        popups_html += '<img src="' + url + '">'
-                        popups_html += '<div class="pop-name">' + nm + '</div>'
-                        popups_html += '<button class="pop-sel" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'imagen\');closeP(\'' + pid + '\')">✅ Seleccionar</button>'
-                        popups_html += '</div>'
                 body_html += '</div></div>'
                 body_html += '<button class="nav-btn" onclick="scrollC(\'' + gid + '\',1)">&#8250;</button>'
                 body_html += '</div>'
@@ -243,13 +242,41 @@ function scrollC(gid,dir){
   if(el) el.scrollBy({left:dir*230,behavior:"smooth"});
 }
 
-function openP(id){
-  var el=document.getElementById(id);
-  if(el){el.classList.add("open");document.body.style.overflow="hidden";}
-}
-function closeP(id){
-  var el=document.getElementById(id);
-  if(el){el.classList.remove("open");document.body.style.overflow="";}
+// Popup en window.parent.document para que position:fixed se ancle a la
+// viewport real (no al iframe, que es muy alto y genera scroll/espacio negro).
+function openP(btn){
+  var url=btn.getAttribute("data-pop-url");
+  var nm=btn.getAttribute("data-pop-name");
+  var iid=btn.getAttribute("data-pop-iid");
+  var D, W;
+  try { D=window.parent.document; W=window.parent; } catch(e){ D=document; W=window; }
+  var existing=D.getElementById("_ec_cli_popup");
+  if(existing) existing.remove();
+  var prevOv=D.body.style.overflow;
+  D.body.style.overflow="hidden";
+  var pop=D.createElement("div");
+  pop.id="_ec_cli_popup";
+  pop.style.cssText="position:fixed;inset:0;background:rgba(5,10,20,0.95);z-index:2147483647;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Poppins,sans-serif;padding:20px;box-sizing:border-box;";
+  pop.innerHTML=
+    '<button class="_ec_pop_close" style="position:absolute;top:20px;right:24px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:white;font-size:1.2rem;cursor:pointer;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;line-height:1;">'+
+    '✕</button>'+
+    '<img src="'+url+'" style="max-width:90vw;max-height:75vh;width:auto;height:auto;object-fit:contain;border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,0.5);">'+
+    '<div style="color:white;font-size:1.1rem;font-weight:700;margin-top:14px;text-align:center;">'+nm+'</div>'+
+    '<button class="_ec_pop_sel" style="margin-top:16px;background:linear-gradient(135deg,#0f3460,#1a5276);color:white;border:none;border-radius:10px;padding:12px 32px;font-size:14px;font-weight:700;cursor:pointer;font-family:Poppins,sans-serif;box-shadow:0 8px 24px rgba(15,52,96,0.3);">✅ Seleccionar</button>';
+  D.body.appendChild(pop);
+  function close(){
+    if(pop.parentNode) pop.parentNode.removeChild(pop);
+    D.body.style.overflow=prevOv||"";
+    D.removeEventListener("keydown", onKey);
+  }
+  function onKey(e){ if(e.key==="Escape") close(); }
+  pop.addEventListener("click", function(e){ if(e.target===pop) close(); });
+  pop.querySelector("._ec_pop_close").addEventListener("click", close);
+  pop.querySelector("._ec_pop_sel").addEventListener("click", function(){
+    pick(iid, nm, "imagen");
+    close();
+  });
+  D.addEventListener("keydown", onKey);
 }
 
 async function guardar(){
@@ -316,7 +343,6 @@ async function guardar(){
         '</div>'
         '</div>'
         + body_html
-        + popups_html
         + '<div class="save-wrap">'
         '<button class="save-btn" id="sbtn" onclick="guardar()">💾 Guardar mis elecciones</button>'
         '<div class="save-st" id="sst"></div>'

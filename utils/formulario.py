@@ -7,7 +7,9 @@ from config.supabase import supabase_admin as _supa_admin
 
 
 @st.cache_data(ttl=120, show_spinner=False)
-def fetch_catalogo_materiales():
+def fetch_catalogo_materiales(_cache_buster: str = ''):
+    """_cache_buster: query param que cambia tras editar el catálogo,
+    invalida el cache para que el siguiente render lea de Supabase fresco."""
     try:
         return _supa_admin.table('catalogo_materiales').select('*').eq('activo', True)\
             .order('categoria').order('orden_grupo').order('titulo_grupo').order('nombre')\
@@ -17,7 +19,7 @@ def fetch_catalogo_materiales():
 
 
 @st.cache_data(ttl=30, show_spinner=False)
-def fetch_formulario_config(ep):
+def fetch_formulario_config(ep, _cache_buster: str = ''):
     try:
         return _supa_admin.table('formulario_config').select('*')\
             .eq('cotizacion_numero', ep).execute().data or []
@@ -390,10 +392,16 @@ body{margin:0;padding:8px;font-family:Segoe UI,sans-serif;font-size:13px;backgro
         'var _items=[];\n'
         '''
 function doRerun(){
-  var u=new URL(window.parent.location.href);
-  u.searchParams.set("cat_ts",Date.now());
-  window.parent.history.replaceState({},"",u);
-  window.parent.dispatchEvent(new PopStateEvent("popstate"));
+  // El popstate hack no siempre lo capturaba Streamlit. Forzamos un reload
+  // real con query param nuevo (cache_buster) que invalida los @st.cache_data
+  // del fetch_catalogo_materiales / fetch_formulario_config.
+  try {
+    var u=new URL(window.parent.location.href);
+    u.searchParams.set("_cat_ts", String(Date.now()));
+    window.parent.location.replace(u.toString());
+  } catch(e) {
+    try { window.parent.location.reload(); } catch(e2) {}
+  }
 }
 window.toggleEdit=function(cat){
   var ep=document.getElementById("edit-"+cat);
@@ -453,19 +461,40 @@ window.confirmarClonar=async function(cat,tg,tgId){
   stEl.textContent="✅ "+ok+" clonados a "+dest;stEl.style.color="#16a34a";
   setTimeout(doRerun,800);
 };
+// Extrae el path del bucket ignorando query strings (?token=...) y hash
+function extractStoragePath(url){
+  if(!url) return "";
+  var marker="/public/formulario-imagenes/";
+  var idx=url.indexOf(marker);
+  if(idx<0) return "";
+  var rest=url.substring(idx+marker.length);
+  // Cortar en ? o #
+  var qIdx=rest.indexOf("?");
+  if(qIdx>=0) rest=rest.substring(0,qIdx);
+  var hIdx=rest.indexOf("#");
+  if(hIdx>=0) rest=rest.substring(0,hIdx);
+  return rest;
+}
+async function deleteStorageImg(url){
+  var path=extractStoragePath(url);
+  if(!path) return true;
+  try {
+    var r=await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,{method:"DELETE",headers:{"Authorization":"Bearer "+K,"apikey":K}});
+    return r.ok;
+  } catch(e){ return false; }
+}
 window.eliminarGrupo=async function(cat,tg,ids){
   if(!confirm("¿Eliminar todos los ítems del grupo \\""+tg+"\\"?"))return;
   var items=ALL_ITEMS.filter(function(it){return it.categoria===cat&&(it.titulo_grupo||"(Sin grupo)")===tg;});
   for(var i=0;i<items.length;i++){
-    var url=items[i].imagen_url||"";
-    if(url){var path=url.split("/public/formulario-imagenes/")[1];if(path)await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,{method:"DELETE",headers:{"Authorization":"Bearer "+K,"apikey":K}});}
+    await deleteStorageImg(items[i].imagen_url||"");
     await fetch(S+"/rest/v1/catalogo_materiales?id=eq."+items[i].id,{method:"PATCH",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({activo:false})});
   }
   doRerun();
 };
 window.catEliminar=async function(id,url){
   if(!confirm("¿Eliminar este ítem?"))return;
-  if(url){var path=url.split("/public/formulario-imagenes/")[1];if(path)await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,{method:"DELETE",headers:{"Authorization":"Bearer "+K,"apikey":K}});}
+  await deleteStorageImg(url);
   await fetch(S+"/rest/v1/catalogo_materiales?id=eq."+id,{method:"PATCH",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({activo:false})});
   doRerun();
 };
@@ -473,8 +502,7 @@ window.eliminarCategoria=async function(cat){
   if(!confirm("¿Eliminar toda la categoría "+cat+"?"))return;
   var items=ALL_ITEMS.filter(function(it){return it.categoria===cat;});
   for(var i=0;i<items.length;i++){
-    var url=items[i].imagen_url||"";
-    if(url){var path=url.split("/public/formulario-imagenes/")[1];if(path)await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,{method:"DELETE",headers:{"Authorization":"Bearer "+K,"apikey":K}});}
+    await deleteStorageImg(items[i].imagen_url||"");
   }
   await fetch(S+"/rest/v1/catalogo_materiales?categoria=eq."+encodeURIComponent(cat),{method:"PATCH",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({activo:false})});
   doRerun();
@@ -523,10 +551,17 @@ window.agregarItemCompleto=async function(cat){
         var fEl=document.getElementById("nadd-file-"+cat+"-"+i);
         if(fEl&&fEl.files[0]){
           st.textContent="Subiendo imagen "+(i+1)+"...";st.style.color="#2563eb";
-          var file=fEl.files[0],ext=file.name.split(".").pop();
-          var path="catalogo/"+Date.now()+"_"+Math.random().toString(36).substr(2,5)+"."+ext;
-          var ur=await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,{method:"POST",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":file.type,"x-upsert":"true"},body:file});
-          if(!ur.ok){st.textContent="Error subiendo";st.style.color="#dc2626";return;}
+          var file=fEl.files[0];
+          var ext=(file.name.split(".").pop()||"png").toLowerCase().replace(/[^a-z0-9]/g,"");
+          var path="catalogo/"+Date.now()+"_"+Math.random().toString(36).substring(2,7)+"."+ext;
+          var ur=await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,{method:"POST",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":file.type||"image/png","x-upsert":"true"},body:file});
+          if(!ur.ok){
+            var et=await ur.text();
+            var msg=ur.status===403?"Sin permisos en bucket (403) — revisa policy INSERT con anon key"
+                   :ur.status===413?"Imagen demasiado grande (413)"
+                   :"Error "+ur.status;
+            st.textContent=msg+": "+et.substring(0,80);st.style.color="#dc2626";return;
+          }
           item.url=S+"/storage/v1/object/public/formulario-imagenes/"+path;
         }
       }
@@ -547,20 +582,45 @@ function renderNuevaCat(){
   var wrap=document.getElementById("items-list");if(!wrap)return;
   var html="";
   _items.forEach(function(item,idx){
+    var tipos=[["imagen","\\ud83d\\uddbc\\ufe0f Imagen"],["color","\\ud83c\\udfa8 Color"],["select","\\ud83d\\udccb Lista"],["si_no","\\u2705 S\\u00ed/No"]];
+    var tipoOpts="";
+    tipos.forEach(function(t){
+      tipoOpts+="<option value=\\""+t[0]+"\\""+(item.tipo===t[0]?" selected":"")+">"+t[1]+"</option>";
+    });
     html+="<div class=\\"item-block\\">";
     html+="<div style=\\"display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;\\">";
-    html+="<span style=\\"font-weight:700;font-size:12px;color:#1e3a5f;\\">ÍTEM "+(idx+1)+"</span>";
-    html+="<button onclick=\\"window.removeItem("+idx+")\\" class=\\"btn-del-sm\\">🗑</button>";
+    html+="<span style=\\"font-weight:700;font-size:12px;color:#1e3a5f;\\">\\u00cdTEM "+(idx+1)+"</span>";
+    html+="<button onclick=\\"window.removeItem("+idx+")\\" class=\\"btn-del-sm\\">\\ud83d\\uddd1</button>";
     html+="</div>";
-    html+="<div style=\\"margin-bottom:8px;\\"><label class=\\"field-label\\">Título del grupo</label>";
-    html+="<input type=\\"text\\" value=\\""+item.titulo+"\\" onchange=\\"window.updateItemTitulo("+idx+",this.value)\\" placeholder=\\"ej: Color de muros\\" class=\\"mini-input\\"></div>";
+    html+="<div style=\\"margin-bottom:8px;\\"><label class=\\"field-label\\">T\\u00edtulo del grupo</label>";
+    html+="<input type=\\"text\\" value=\\""+(item.titulo||"")+"\\" oninput=\\"window.updateItemTitulo("+idx+",this.value)\\" placeholder=\\"ej: Color de muros\\" class=\\"mini-input\\"></div>";
     html+="<div style=\\"display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;\\">";
     html+="<div><label class=\\"field-label\\">Tipo</label>";
-    html+="<select onchange=\\"window.updateItemTipo("+idx+",this.value)\\" style=\\"width:100%;padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;\\">";
-    [["imagen","Imagen"],["color","Color"],["select","Lista"],["si_no","Sí/No"]].forEach(function(t){
-      html+="<option value=\\""+t[0]+"\\">"+(item.tipo===t[0]?" selected":"")+t[1]+"</option>";
-    });
-    html+="</select></div></div></div>";
+    html+="<select onchange=\\"window.updateItemTipo("+idx+",this.value)\\" style=\\"width:100%;padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;\\">"+tipoOpts+"</select></div>";
+    if(item.tipo!=="si_no"){
+      html+="<div><label class=\\"field-label\\">Cantidad</label>";
+      html+="<input type=\\"number\\" value=\\""+item.cantidad+"\\" min=\\"1\\" max=\\"20\\" onchange=\\"window.updateItemCant("+idx+",parseInt(this.value)||1)\\" style=\\"width:100%;padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;\\"></div>";
+    }
+    html+="</div>";
+    if(item.tipo==="si_no"){
+      html+="<div style=\\"font-size:11px;color:#64748b;padding:6px;background:#f8fafc;border-radius:5px;\\">Solo tendr\\u00e1 S\\u00ed y No.</div>";
+    } else {
+      for(var k=0;k<item.cantidad;k++){
+        if(item.tipo==="color"){
+          html+="<div style=\\"display:grid;grid-template-columns:1fr 44px 36px;gap:6px;margin-bottom:5px;align-items:center;\\">";
+          html+="<input type=\\"text\\" id=\\"newcat-nom-"+idx+"-"+k+"\\" placeholder=\\"Nombre "+(k+1)+"\\" class=\\"mini-input\\">";
+          html+="<input type=\\"color\\" id=\\"newcat-hex-"+idx+"-"+k+"\\" value=\\"#ffffff\\" style=\\"width:44px;height:34px;border-radius:4px;border:1px solid #cbd5e1;cursor:pointer;\\">";
+          html+="<div style=\\"width:32px;height:32px;border-radius:50%;background:#ffffff;border:1px solid #e2e8f0;\\"></div></div>";
+        } else if(item.tipo==="imagen"){
+          html+="<div style=\\"display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:5px;align-items:center;\\">";
+          html+="<input type=\\"text\\" id=\\"newcat-nom-"+idx+"-"+k+"\\" placeholder=\\"Nombre "+(k+1)+"\\" class=\\"mini-input\\">";
+          html+="<input type=\\"file\\" id=\\"newcat-file-"+idx+"-"+k+"\\" accept=\\"image/*\\" style=\\"font-size:11px;\\"></div>";
+        } else { // select
+          html+="<input type=\\"text\\" id=\\"newcat-nom-"+idx+"-"+k+"\\" placeholder=\\"Opci\\u00f3n "+(k+1)+"\\" class=\\"mini-input\\" style=\\"margin-bottom:5px;\\">";
+        }
+      }
+    }
+    html+="</div>";
   });
   wrap.innerHTML=html;
 }
@@ -568,24 +628,55 @@ function makeOpts(n){var o=[];for(var i=0;i<n;i++)o.push({nombre:"",hex:"#ffffff
 window.addItem=function(){_items.push({titulo:"",tipo:"imagen",cantidad:3,opciones:makeOpts(3)});renderNuevaCat();};
 window.removeItem=function(idx){_items.splice(idx,1);renderNuevaCat();};
 window.updateItemTitulo=function(idx,val){_items[idx].titulo=val;};
+window.updateItemCant=function(idx,n){_items[idx].cantidad=Math.max(1,Math.min(20,n));renderNuevaCat();};
 window.updateItemTipo=function(idx,val){_items[idx].tipo=val;_items[idx].opciones=makeOpts(_items[idx].cantidad);renderNuevaCat();};
 window.guardarCategoria=async function(){
   var catNombre=document.getElementById("cat-nombre").value.trim();
   var st=document.getElementById("status");var btn=document.getElementById("save-btn");
-  if(!catNombre){st.textContent="Escribe el nombre";st.style.color="#dc2626";return;}
-  if(!_items.length){st.textContent="Agrega al menos un ítem";st.style.color="#dc2626";return;}
+  if(!catNombre){st.textContent="Escribe el nombre de la categor\\u00eda";st.style.color="#dc2626";return;}
+  if(!_items.length){st.textContent="Agrega al menos un \\u00edtem";st.style.color="#dc2626";return;}
   btn.disabled=true;var total=0;
-  for(var i=0;i<_items.length;i++){
-    var item=_items[i];
-    if(item.tipo==="si_no"){
-      for(var sv of["Sí","No"]){
-        var body={categoria:catNombre,nombre:sv,titulo_grupo:item.titulo,tipo:"si_no",imagen_url:"",hex:"",activo:true};
+  try {
+    for(var i=0;i<_items.length;i++){
+      var item=_items[i];
+      var titulo=(item.titulo||"").trim();
+      if(!titulo){st.textContent="\\u00cdtem "+(i+1)+" necesita t\\u00edtulo de grupo";st.style.color="#dc2626";btn.disabled=false;return;}
+      var opts=[];
+      if(item.tipo==="si_no"){
+        opts=[{nombre:"S\\u00ed",hex:"",url:""},{nombre:"No",hex:"",url:""}];
+      } else {
+        for(var j=0;j<item.cantidad;j++){
+          var nomEl=document.getElementById("newcat-nom-"+i+"-"+j);
+          if(!nomEl||!nomEl.value.trim())continue;
+          var op={nombre:nomEl.value.trim(),hex:"",url:""};
+          if(item.tipo==="color"){
+            var hexEl=document.getElementById("newcat-hex-"+i+"-"+j);
+            op.hex=hexEl?hexEl.value:"#ffffff";
+          } else if(item.tipo==="imagen"){
+            var fEl=document.getElementById("newcat-file-"+i+"-"+j);
+            if(fEl&&fEl.files[0]){
+              st.textContent="Subiendo imagen \\u00edtem "+(i+1)+", opci\\u00f3n "+(j+1)+"...";st.style.color="#2563eb";
+              var file=fEl.files[0];
+              var ext=(file.name.split(".").pop()||"png").toLowerCase().replace(/[^a-z0-9]/g,"");
+              var path="catalogo/"+Date.now()+"_"+Math.random().toString(36).substring(2,7)+"."+ext;
+              var ur=await fetch(S+"/storage/v1/object/formulario-imagenes/"+path,{method:"POST",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":file.type||"image/png","x-upsert":"true"},body:file});
+              if(!ur.ok){var et1=await ur.text();st.textContent="Error subiendo imagen ("+ur.status+"): "+et1.substring(0,80);st.style.color="#dc2626";btn.disabled=false;return;}
+              op.url=S+"/storage/v1/object/public/formulario-imagenes/"+path;
+            }
+          }
+          opts.push(op);
+        }
+      }
+      if(!opts.length){st.textContent="\\u00cdtem "+(i+1)+" sin opciones v\\u00e1lidas";st.style.color="#dc2626";btn.disabled=false;return;}
+      for(var p=0;p<opts.length;p++){
+        var o=opts[p];
+        var body={categoria:catNombre,nombre:o.nombre,titulo_grupo:titulo,tipo:item.tipo,imagen_url:o.url||"",hex:o.hex||"",activo:true,orden_grupo:0};
         var r=await fetch(S+"/rest/v1/catalogo_materiales",{method:"POST",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify(body)});
-        if(!r.ok){st.textContent="Error guardando";st.style.color="#dc2626";btn.disabled=false;return;}total++;
+        if(!r.ok){var et2=await r.text();st.textContent="Error guardando ("+r.status+"): "+et2.substring(0,80);st.style.color="#dc2626";btn.disabled=false;return;}total++;
       }
     }
-  }
-  st.textContent="✅ Guardado con "+total+" ítems";st.style.color="#16a34a";setTimeout(doRerun,900);
+    st.textContent="\\u2705 Categor\\u00eda creada con "+total+" \\u00edtems";st.style.color="#16a34a";setTimeout(doRerun,900);
+  } catch(e){st.textContent="Error: "+e.message;st.style.color="#dc2626";btn.disabled=false;}
 };
 '''
     )

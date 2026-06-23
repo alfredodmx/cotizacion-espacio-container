@@ -96,12 +96,15 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
             if not _form_ep:
                 st.info("Ingresa un n&#250;mero EP y haz click en Cargar.")
             else:
+                # _cat_ts es el query param que JS setea tras editar el catálogo;
+                # cambia el cache key de las funciones @st.cache_data y fuerza re-fetch.
+                _cat_ts = st.query_params.get('_cat_ts', '')
                 try:
-                    _cat_todos = fetch_catalogo_materiales()
+                    _cat_todos = fetch_catalogo_materiales(_cache_buster=_cat_ts)
                 except Exception:
                     _cat_todos = []
                 try:
-                    _cfg_data = fetch_formulario_config(_form_ep)
+                    _cfg_data = fetch_formulario_config(_form_ep, _cache_buster=_cat_ts)
                 except Exception:
                     _cfg_data = []
                 _cfg_html = build_config_preguntas_html(
