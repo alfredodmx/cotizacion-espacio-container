@@ -525,15 +525,50 @@ def render_layout():
             }
         }
     }
+    // ── Centrar items de navegación del sidebar colapsado ──
+    function fixSbNav(){
+        var sidebar = D.querySelector('section[data-testid="stSidebar"]');
+        if (!sidebar) return;
+        var w = sidebar.offsetWidth;
+        // Solo aplica en colapsado (76px). En expandido (256px) dejamos el layout original.
+        if (w > 120) return;
+        // Forzar contenedores intermedios a width 100% sin padding para que .stButton llene la columna
+        var navWrap = D.querySelector('.st-key-_sb_nav');
+        if (navWrap) {
+            navWrap.style.padding = '0';
+            navWrap.style.margin = '0';
+            navWrap.style.width = '100%';
+            navWrap.querySelectorAll('[data-testid="stVerticalBlockBorderWrapper"],[data-testid="stVerticalBlock"]').forEach(function(el){
+                el.style.padding = '0';
+                el.style.margin = '0';
+                el.style.width = '100%';
+            });
+            navWrap.querySelectorAll('[data-testid="stElementContainer"]').forEach(function(el){
+                el.style.padding = '0';
+                el.style.margin = '0';
+                el.style.width = '100%';
+                el.style.display = 'block';
+            });
+            navWrap.querySelectorAll('.stButton').forEach(function(el){
+                el.style.padding = '0';
+                el.style.margin = '0';
+                el.style.width = '100%';
+                el.style.display = 'block';
+                el.style.boxSizing = 'border-box';
+            });
+        }
+    }
     fixSbBottom();
-    setTimeout(fixSbBottom,200);
-    setTimeout(fixSbBottom,600);
-    setTimeout(fixSbBottom,1500);
-    setTimeout(fixSbBottom,3000);
+    fixSbNav();
+    setTimeout(function(){fixSbBottom();fixSbNav();},200);
+    setTimeout(function(){fixSbBottom();fixSbNav();},600);
+    setTimeout(function(){fixSbBottom();fixSbNav();},1500);
+    setTimeout(function(){fixSbBottom();fixSbNav();},3000);
     // Ocultar elementos nativos de Streamlit que sobran
     function nukeUnwanted(){
         D.querySelectorAll('[data-testid="stSidebarCollapsedControl"]').forEach(function(el){el.remove();});
         fixSbBottom();
+        fixSbNav();
     }
     nukeUnwanted();
     if(!D._ecNukeObs){
