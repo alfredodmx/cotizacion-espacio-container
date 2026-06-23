@@ -465,11 +465,72 @@ def render_preloader() -> None:
   #_ec_pre_wrap { width: 180px; height: 180px; }
   #_ec_pre_logo { max-width: 120px; max-height: 120px; }
 }
+
+/* ── Tab-preloader (fondo blanco, logo oscuro) ── */
+#_ec_tab_preloader {
+  position: fixed;
+  top: 65px; right: 0; bottom: 0; left: 0;
+  background: #ffffff;
+  z-index: 99990;
+  display: none;
+  flex-direction: column; align-items: center; justify-content: center;
+  gap: 28px;
+  transition: opacity 0.45s ease;
+  font-family: 'Montserrat', sans-serif;
+}
+#_ec_tab_preloader.fade-out { opacity: 0; pointer-events: none; }
+#_ec_tp_wrap { position: relative; width: 200px; height: 200px; display:flex; align-items:center; justify-content:center; }
+#_ec_tp_ring {
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: #5b7cfa;
+  border-right-color: #8b5cf6;
+  animation: _ec_pre_ring_spin 1.6s linear infinite;
+}
+#_ec_tp_ring2 {
+  position: absolute; inset: 12px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-bottom-color: rgba(139,92,246,0.45);
+  border-left-color: rgba(91,124,250,0.45);
+  animation: _ec_pre_ring_spin 2.4s linear reverse infinite;
+}
+#_ec_tp_logo {
+  max-width: 130px; max-height: 130px;
+  animation: _ec_pre_pulse 1.8s ease-in-out infinite;
+  filter: none !important;
+}
+#_ec_tp_bar_wrap {
+  width: 280px; max-width: 55vw; height: 4px;
+  background: #eef0f6; border-radius: 2px; overflow: hidden;
+}
+#_ec_tp_bar {
+  width: 0%; height: 100%;
+  background: linear-gradient(90deg, #5b7cfa, #8b5cf6, #5b7cfa);
+  background-size: 200% 100%;
+  animation: _ec_pre_shimmer 2s linear infinite;
+  border-radius: 2px;
+  transition: width 0.3s cubic-bezier(0.4,0,0.2,1);
+  box-shadow: 0 0 10px rgba(139,92,246,0.35);
+}
+#_ec_tp_info {
+  display: flex; align-items: center; gap: 16px;
+  color: #475569;
+  font-weight: 600; font-size: 0.82rem; letter-spacing: 0.12em; text-transform: uppercase;
+  min-height: 20px;
+}
+#_ec_tp_pct {
+  font-weight: 900; font-size: 1rem; color: #0f172a;
+  font-variant-numeric: tabular-nums;
+  min-width: 48px; text-align: right;
+}
+#_ec_tp_msg { opacity: 0.8; color: #64748b; }
 </style>
 """, unsafe_allow_html=True)
-    # JS: crea el overlay UNA SOLA VEZ en el documento padre (idempotente).
-    # Lo mantiene en DOM con display:none entre transiciones para evitar que
-    # Streamlit lo reemplace en cada rerun.
+    # JS: crea ambos overlays UNA SOLA VEZ en el documento padre (idempotente).
+    # Persisten en DOM con display:none entre transiciones para evitar que
+    # Streamlit los reemplace en cada rerun.
     _logo_img_tag = (
         f'<img id="_ec_pre_logo" src="{_logo_uri}" alt="" />'
         if _logo_uri else
@@ -487,8 +548,27 @@ def render_preloader() -> None:
         '<span id="_ec_pre_pct">0%</span>'
         '</div>'
     )
-    # Escapamos backticks por si el base64 los tuviera (no debería)
-    _overlay_html_js = _overlay_html.replace("\\", "\\\\").replace("`", "\\`")
+    _logo_dark_uri = _logo_dark_b64() or ""
+    _logo_dark_tag = (
+        f'<img id="_ec_tp_logo" src="{_logo_dark_uri}" alt="" />'
+        if _logo_dark_uri else
+        '<div id="_ec_tp_logo" style="font-family:Montserrat,sans-serif;font-weight:900;font-size:2rem;color:#0f172a;letter-spacing:0.05em;">COTIZADOR<span style="color:#5b7cfa;"> PRO</span></div>'
+    )
+    _tab_overlay_html = (
+        '<div id="_ec_tp_wrap">'
+        '<div id="_ec_tp_ring"></div>'
+        '<div id="_ec_tp_ring2"></div>'
+        + _logo_dark_tag +
+        '</div>'
+        '<div id="_ec_tp_bar_wrap"><div id="_ec_tp_bar"></div></div>'
+        '<div id="_ec_tp_info">'
+        '<span id="_ec_tp_msg">Cargando pestaña</span>'
+        '<span id="_ec_tp_pct">0%</span>'
+        '</div>'
+    )
+    # Escapamos backticks por si el base64 los tuviera
+    _overlay_html_js     = _overlay_html.replace("\\", "\\\\").replace("`", "\\`")
+    _tab_overlay_html_js = _tab_overlay_html.replace("\\", "\\\\").replace("`", "\\`")
     _components.html(f"""
 <script>
 (function(){{
@@ -497,7 +577,7 @@ def render_preloader() -> None:
   var T_TOTAL = 1800, T_FADE = 600;
   var msgs = ['Cargando sistema', 'Conectando servicios', 'Preparando interfaz', 'Casi listo'];
 
-  // Crear overlay si no existe (idempotente — sobrevive reruns).
+  // Crear overlays si no existen (idempotentes — sobreviven reruns).
   var ov = D.getElementById('_ec_preloader');
   if (!ov) {{
     ov = D.createElement('div');
@@ -507,6 +587,16 @@ def render_preloader() -> None:
     ov.style.display = 'none';
     ov.innerHTML = `{_overlay_html_js}`;
     D.body.appendChild(ov);
+  }}
+  var tp = D.getElementById('_ec_tab_preloader');
+  if (!tp) {{
+    tp = D.createElement('div');
+    tp.id = '_ec_tab_preloader';
+    tp.setAttribute('role', 'status');
+    tp.setAttribute('aria-label', 'Cargando pestaña');
+    tp.style.display = 'none';
+    tp.innerHTML = `{_tab_overlay_html_js}`;
+    D.body.appendChild(tp);
   }}
 
   function animate(duration) {{
@@ -548,7 +638,95 @@ def render_preloader() -> None:
   }}
   W._ec_show_preloader = animate;
 
-  // Mostrar en la carga inicial de la pestaña del navegador.
+  // Posiciona el tab-preloader sobre el área de contenido principal
+  // (debajo del header fijo, a la derecha del sidebar).
+  function positionTab(el) {{
+    var sidebar = D.querySelector('section[data-testid="stSidebar"]');
+    var sbW = sidebar ? sidebar.offsetWidth : 0;
+    el.style.top    = '65px';
+    el.style.bottom = '0';
+    el.style.left   = sbW + 'px';
+    el.style.right  = '0';
+  }}
+
+  // Tab-preloader: fondo blanco, logo oscuro. Se queda visible hasta que
+  // el DOM de stMain deje de mutar (contenido terminó de cargar) — con un
+  // mínimo de tiempo visible para que no parpadee y un fallback duro.
+  function animateTab() {{
+    var el = D.getElementById('_ec_tab_preloader');
+    if (!el) return;
+    if (W._ec_tp_iv) {{ clearInterval(W._ec_tp_iv); W._ec_tp_iv = null; }}
+    if (W._ec_tp_obs) {{ try {{ W._ec_tp_obs.disconnect(); }} catch(e){{}} W._ec_tp_obs = null; }}
+    positionTab(el);
+    var bar = el.querySelector('#_ec_tp_bar');
+    var pctEl = el.querySelector('#_ec_tp_pct');
+    var msgEl = el.querySelector('#_ec_tp_msg');
+    var tabMsgs = ['Cargando pestaña', 'Solicitando datos', 'Renderizando', 'Casi listo'];
+    el.classList.remove('fade-out');
+    el.style.display = 'flex';
+    el.style.opacity = '1';
+    el.style.pointerEvents = 'auto';
+    if (bar) bar.style.width = '0%';
+    if (pctEl) pctEl.textContent = '0%';
+    if (msgEl) msgEl.textContent = tabMsgs[0];
+
+    var t0 = Date.now();
+    var lastMut = Date.now();
+    var main = D.querySelector('[data-testid="stMain"]') || D.body;
+    try {{
+      W._ec_tp_obs = new MutationObserver(function(){{ lastMut = Date.now(); }});
+      W._ec_tp_obs.observe(main, {{ childList: true, subtree: true, attributes: false }});
+    }} catch(e) {{}}
+
+    var T_MIN     = 700;    // ms mínimo visible
+    var T_STABLE  = 600;    // ms sin mutaciones para considerar "listo"
+    var T_MAXFAKE = 2200;   // ms en que la barra "fake" alcanza 92%
+    var T_HARD    = 12000;  // hard timeout
+
+    W._ec_tp_iv = setInterval(function(){{
+      var elapsed = Date.now() - t0;
+      var sinceMut = Date.now() - lastMut;
+      // Crece hasta 92% según tiempo, los últimos 8% requieren estabilidad
+      var fakePct = Math.min((elapsed / T_MAXFAKE) * 92, 92);
+      var stablePct = Math.min((Math.max(0, sinceMut - 100) / T_STABLE) * 8, 8);
+      var pct = Math.min(fakePct + stablePct, 100);
+      if (bar) bar.style.width = pct + '%';
+      if (pctEl) pctEl.textContent = Math.round(pct) + '%';
+      var idx = Math.min(Math.floor(pct / 25), tabMsgs.length - 1);
+      if (msgEl && msgEl.textContent !== tabMsgs[idx]) msgEl.textContent = tabMsgs[idx];
+
+      // Reposiciona si el sidebar cambió de ancho durante la carga
+      positionTab(el);
+
+      var ready = (elapsed >= T_MIN && sinceMut >= T_STABLE);
+      if (pct >= 100 && ready) {{
+        clearInterval(W._ec_tp_iv); W._ec_tp_iv = null;
+        try {{ W._ec_tp_obs.disconnect(); }} catch(e){{}} W._ec_tp_obs = null;
+        if (bar) bar.style.width = '100%';
+        if (pctEl) pctEl.textContent = '100%';
+        setTimeout(function(){{
+          var e2 = D.getElementById('_ec_tab_preloader');
+          if (!e2) return;
+          e2.classList.add('fade-out');
+          setTimeout(function(){{
+            e2.style.display = 'none';
+            e2.style.opacity = '1';
+            e2.classList.remove('fade-out');
+          }}, 450);
+        }}, 150);
+      }} else if (elapsed > T_HARD) {{
+        clearInterval(W._ec_tp_iv); W._ec_tp_iv = null;
+        try {{ W._ec_tp_obs.disconnect(); }} catch(e){{}} W._ec_tp_obs = null;
+        el.classList.add('fade-out');
+        setTimeout(function(){{
+          el.style.display = 'none'; el.style.opacity = '1'; el.classList.remove('fade-out');
+        }}, 450);
+      }}
+    }}, 60);
+  }}
+  W._ec_show_tab_preloader = animateTab;
+
+  // Carga inicial de la pestaña del navegador → preloader oscuro fullscreen.
   try {{
     if (W.sessionStorage.getItem('_ec_pre_initial') !== '1') {{
       W.sessionStorage.setItem('_ec_pre_initial', '1');
@@ -556,8 +734,8 @@ def render_preloader() -> None:
     }}
   }} catch(e) {{ animate(T_TOTAL); }}
 
-  // Click handlers: re-mostrar en clicks que probablemente disparen
-  // carga (nav del sidebar, submit de formulario).
+  // Click handlers: nav del sidebar → tab preloader blanco;
+  // submit de form (login) → fullscreen oscuro.
   if (!D._ec_pre_click_bound) {{
     D._ec_pre_click_bound = true;
     D.addEventListener('click', function(e){{
@@ -565,10 +743,8 @@ def render_preloader() -> None:
       if (!t || !t.closest) return;
       var clickedBtn = t.closest('button');
       if (!clickedBtn) return;
-      // Nav del sidebar (st-key-nav_*)
       var navWrap = t.closest('[class*="st-key-nav_"]');
-      if (navWrap) {{ animate(1500); return; }}
-      // Submit dentro de form (login)
+      if (navWrap) {{ animateTab(); return; }}
       var inForm = t.closest('form, [data-testid="stForm"]');
       if (inForm && clickedBtn.type !== 'button') {{ animate(2200); return; }}
     }}, true);
@@ -583,6 +759,15 @@ def _logo_b64() -> str:
     for path in ["logo3.png", "assets/logo3.png", "images/logo3.png",
                  "logo2.png", "assets/logo2.png", "images/logo2.png",
                  "logo.png", "assets/logo.png", "images/logo.png"]:
+        if os.path.exists(path):
+            b64 = base64.b64encode(open(path, "rb").read()).decode()
+            return f"data:image/png;base64,{b64}"
+    return ""
+
+
+def _logo_dark_b64() -> str:
+    """Logo en color oscuro (logo.png) — para preloader de fondo blanco."""
+    for path in ["logo.png", "assets/logo.png", "images/logo.png"]:
         if os.path.exists(path):
             b64 = base64.b64encode(open(path, "rb").read()).decode()
             return f"data:image/png;base64,{b64}"
