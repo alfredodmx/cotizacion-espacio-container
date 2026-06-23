@@ -492,7 +492,6 @@ def render_preloader() -> None:
     }}
   }} catch(e) {{}}
   var pct = 0;
-  var loaded = false;
   var bar = document.getElementById('_ec_pre_bar');
   var pctEl = document.getElementById('_ec_pre_pct');
   var msgEl = document.getElementById('_ec_pre_msg');
@@ -501,43 +500,31 @@ def render_preloader() -> None:
     var idx = Math.min(Math.floor(p / 25), msgs.length - 1);
     if (msgEl && msgEl.textContent !== msgs[idx]) msgEl.textContent = msgs[idx];
   }}
-  if (document.readyState === 'complete') {{ loaded = true; }}
-  else {{ window.addEventListener('load', function(){{ loaded = true; }}); }}
-  // Detectar cuando Streamlit termine de renderizar contenido principal
-  function streamlitReady() {{
-    return !!document.querySelector('[data-testid="stMain"] [data-testid="stMainBlockContainer"] > div');
-  }}
+  // Animación de tiempo fijo: el preloader es una transición de marca,
+  // no un indicador real de progreso. Recorre 0→100% en ~1.8s y luego
+  // hace fade-out. No depende de detectar estado de Streamlit (frágil
+  // y rompía en la pantalla de login).
+  var T_TOTAL = 1800;   // ms hasta llegar a 100%
+  var T_FADE  = 600;    // ms del fade-out
   var t0 = Date.now();
   var iv = setInterval(function(){{
-    var ready = loaded && streamlitReady();
-    if (ready) {{
-      pct = Math.min(pct + 8, 100);
-    }} else if (pct < 88) {{
-      // Crece gradualmente hasta 88% mientras espera
-      pct = Math.min(pct + Math.random() * 4 + 1, 88);
-    }}
-    if (bar) bar.style.width = pct + '%';
+    var elapsed = Date.now() - t0;
+    pct = Math.min((elapsed / T_TOTAL) * 100, 100);
+    if (bar)   bar.style.width = pct + '%';
     if (pctEl) pctEl.textContent = Math.round(pct) + '%';
     setMsg(pct);
-    var elapsed = Date.now() - t0;
-    if (pct >= 100 && ready) {{
+    if (pct >= 100) {{
       clearInterval(iv);
       try {{ sessionStorage.setItem('_ec_pre_done', '1'); }} catch(e) {{}}
       setTimeout(function(){{
         var el = document.getElementById('_ec_preloader');
         if (el) {{
           el.classList.add('fade-out');
-          setTimeout(function(){{ if (el.parentNode) el.parentNode.removeChild(el); }}, 700);
+          setTimeout(function(){{ if (el.parentNode) el.parentNode.removeChild(el); }}, T_FADE);
         }}
-      }}, 250);
-    }} else if (elapsed > 15000) {{
-      // Fallback de seguridad: nunca dejar el preloader colgado más de 15s
-      clearInterval(iv);
-      try {{ sessionStorage.setItem('_ec_pre_done', '1'); }} catch(e) {{}}
-      var el = document.getElementById('_ec_preloader');
-      if (el) {{ el.classList.add('fade-out'); setTimeout(function(){{ if (el.parentNode) el.parentNode.removeChild(el); }}, 700); }}
+      }}, 200);
     }}
-  }}, 90);
+  }}, 60);
 }})();
 </script>
 """, unsafe_allow_html=True)
