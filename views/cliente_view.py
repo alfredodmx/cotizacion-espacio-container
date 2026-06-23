@@ -129,9 +129,9 @@ def _render_login_cliente(logo_b64: str, supabase_admin) -> None:
         background-image:none !important;
     }}
     .st-key-cli_login_card {{
-        background-color:rgba(255,255,255,0.04) !important;
-        backdrop-filter:blur(5px) saturate(110%) !important;
-        -webkit-backdrop-filter:blur(5px) saturate(110%) !important;
+        background-color:rgba(255,255,255,0.02) !important;
+        backdrop-filter:blur(2.5px) saturate(105%) !important;
+        -webkit-backdrop-filter:blur(2.5px) saturate(105%) !important;
         border-radius:24px !important;
         padding:38px 34px 30px !important;
         box-shadow:0 24px 60px rgba(5,10,20,0.45),0 8px 24px rgba(5,10,20,0.25) !important;
@@ -340,9 +340,9 @@ def _render_login_cliente(logo_b64: str, supabase_admin) -> None:
     var el = D.querySelector('.st-key-cli_login_card');
     if (!el) return false;
     // Card wrapper glass
-    el.style.setProperty('background-color', 'rgba(255,255,255,0.04)', 'important');
-    el.style.setProperty('backdrop-filter', 'blur(5px) saturate(110%)', 'important');
-    el.style.setProperty('-webkit-backdrop-filter', 'blur(5px) saturate(110%)', 'important');
+    el.style.setProperty('background-color', 'rgba(255,255,255,0.02)', 'important');
+    el.style.setProperty('backdrop-filter', 'blur(2.5px) saturate(105%)', 'important');
+    el.style.setProperty('-webkit-backdrop-filter', 'blur(2.5px) saturate(105%)', 'important');
     el.style.setProperty('position', 'relative', 'important');
     el.style.setProperty('z-index', '50', 'important');
     el.style.setProperty('overflow', 'hidden', 'important');
