@@ -757,9 +757,8 @@ def render_preloader() -> None:
   }}
 
   // Safety net: forzar gap de 15px del page header al header fijo.
-  // Algunos wrappers de Streamlit Cloud meten padding-top que la CSS no
-  // captura. JS calcula el delta real y ajusta margin-top del primer
-  // page header encontrado.
+  // Necesita setProperty con 'important' porque la CSS universal tiene
+  // margin-top:0!important que ganaría a un style.marginTop normal.
   function enforcePageHeaderGap() {{
     var fixedBar = D.getElementById('_usr_header_bar');
     if (!fixedBar) return;
@@ -769,14 +768,13 @@ def render_preloader() -> None:
             + '.hdr-reporte, .hdr-salud, .hdr-usr, .excel-header, .hdr-formulario';
     var headers = D.querySelectorAll(sel);
     headers.forEach(function(el){{
-      // Reset margin-top to medir posición natural
-      el.style.marginTop = '0px';
+      // Reset para medir posición natural
+      el.style.setProperty('margin-top', '0px', 'important');
       var rect = el.getBoundingClientRect();
       var desiredTop = fixedBottom + 15;
       var delta = desiredTop - rect.top;
-      // Si ya está por encima del desired (gap negativo), no movemos
       if (Math.abs(delta) < 2) return;
-      el.style.marginTop = delta + 'px';
+      el.style.setProperty('margin-top', delta + 'px', 'important');
     }});
   }}
   // Corre al cargar y en cada rerun (DOM cambios) via observer
