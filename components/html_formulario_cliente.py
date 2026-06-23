@@ -146,8 +146,9 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
     css = '''
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@700;900&family=Poppins:wght@400;600;700;900&display=swap");
 *{box-sizing:border-box;}
-body{margin:0;padding:0;font-family:Poppins,sans-serif;font-size:14px;background:#f0f4f8;}
-.wrap{max-width:1000px;margin:0 auto;padding:0 0 32px;}
+html,body{margin:0;padding:0;background-color:#f0f4f8 !important;}
+body{font-family:Poppins,sans-serif;font-size:14px;min-height:100vh;color:#0a1628;}
+.wrap{max-width:1000px;margin:0 auto;padding:0 0 32px;background-color:#f0f4f8;min-height:100vh;}
 .header{''' + _hero_css + '''padding:0;margin:20px 16px 20px;border-radius:20px;color:white;box-shadow:0 16px 48px rgba(10,22,40,0.28);position:relative;overflow:hidden;min-height:260px;display:flex;flex-direction:column;justify-content:flex-end;margin:20px 16px 20px;}
 .header::before{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,rgba(5,10,20,0.15) 0%,rgba(5,10,20,0.65) 100%);border-radius:20px;}
 .h-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}

@@ -16,10 +16,15 @@ _CSS_CLIENTE = """
 #MainMenu,footer,[data-testid="stToolbar"],[data-testid="stDecoration"]{display:none!important;}
 .stAppHeader,.st-emotion-cache-xi6p3a,[data-testid="stAppHeader"]{display:none!important;height:0!important;}
 .stMainBlockContainer,.block-container,.st-emotion-cache-1ibsh2c{padding-top:0!important;margin-top:0!important;}
-.stApp{background:#f0f4f8 !important;}
-[data-testid="stAppViewContainer"]{background:#f0f4f8 !important;}
-iframe{border:none !important;background:#f0f4f8 !important;}
-[data-testid="stCustomComponentV1"]{background:#f0f4f8 !important;border-radius:0 !important;box-shadow:none !important;}
+/* Fondo opaco en TODOS los wrappers para que nunca se transparente el formulario.
+   Usamos background-color (no shorthand background) para no romper otras props. */
+html,body{background-color:#f0f4f8 !important;}
+.stApp,[data-testid="stApp"]{background-color:#f0f4f8 !important;}
+[data-testid="stAppViewContainer"]{background-color:#f0f4f8 !important;}
+[data-testid="stMain"],[data-testid="stMainBlockContainer"]{background-color:#f0f4f8 !important;}
+.block-container,div[data-testid="stVerticalBlock"]{background-color:transparent !important;}
+iframe{border:none !important;background-color:#f0f4f8 !important;}
+[data-testid="stCustomComponentV1"],[data-testid="stIFrame"],[data-testid="element-container"]{background-color:#f0f4f8 !important;border-radius:0 !important;box-shadow:none !important;}
 """
 
 _RESIZE_JS = (
@@ -150,6 +155,22 @@ def _render_login_cliente(logo_b64: str, supabase_admin) -> None:
 
 
 def _render_formulario_cliente(supabase_admin, supa_url: str, supa_key: str) -> None:
+    # Re-asegurar fondos opacos por si quedaron estilos transparent del login.
+    st.markdown("""
+    <style>
+    html,body,.stApp,[data-testid="stApp"],
+    [data-testid="stAppViewContainer"],
+    [data-testid="stMain"],[data-testid="stMainBlockContainer"]{
+        background-color:#f0f4f8 !important;
+        background-image:none !important;
+    }
+    [data-testid="stCustomComponentV1"],[data-testid="stIFrame"]{
+        background-color:#f0f4f8 !important;
+    }
+    iframe{background-color:#f0f4f8 !important;}
+    </style>
+    """, unsafe_allow_html=True)
+
     ep       = st.session_state._cliente_ep
     nombre   = st.session_state._cliente_nombre
     primer_n = nombre.split()[0].capitalize() if nombre else "Cliente"
