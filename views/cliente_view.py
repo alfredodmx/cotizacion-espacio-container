@@ -114,11 +114,8 @@ def _render_login_cliente(logo_b64: str, supabase_admin) -> None:
         filter:drop-shadow(0 6px 22px rgba(0,0,0,0.55)) drop-shadow(0 2px 6px rgba(0,0,0,0.35));
     }}
 
-    /* CARD CENTRAL — sólida blanca con sombra fuerte para que "flote" sobre el video.
-       st.container(key=) crea un wrapper st-key-X que contiene
-       stVerticalBlockBorderWrapper > stVerticalBlock. Aplicamos el bg al
-       wrapper Y al stVerticalBlock interno porque la regla global de
-       arriba lo pone transparente. */
+    /* CARD CENTRAL — GLASS moderado: deja ver el video detrás pero con blur
+       sutil para legibilidad. Textos en blanco. */
     @keyframes cli_card_in {{
         from {{ opacity:0; transform:translateY(14px); }}
         to   {{ opacity:1; transform:translateY(0); }}
@@ -128,16 +125,18 @@ def _render_login_cliente(logo_b64: str, supabase_admin) -> None:
     .st-key-cli_login_card > div > div,
     .st-key-cli_login_card div[data-testid="stVerticalBlockBorderWrapper"],
     .st-key-cli_login_card div[data-testid="stVerticalBlock"] {{
-        background-color:#ffffff !important;
+        background-color:transparent !important;
         background-image:none !important;
     }}
     .st-key-cli_login_card {{
+        background-color:rgba(255,255,255,0.10) !important;
+        backdrop-filter:blur(14px) saturate(140%) !important;
+        -webkit-backdrop-filter:blur(14px) saturate(140%) !important;
         border-radius:24px !important;
         padding:38px 34px 30px !important;
-        box-shadow:0 30px 80px rgba(5,10,20,0.55),0 12px 32px rgba(5,10,20,0.30) !important;
-        border:1px solid rgba(255,255,255,0.6) !important;
+        box-shadow:0 24px 60px rgba(5,10,20,0.45),0 8px 24px rgba(5,10,20,0.25) !important;
+        border:1px solid rgba(255,255,255,0.22) !important;
         animation:cli_card_in 0.55s cubic-bezier(0.16,1,0.3,1) both !important;
-        overflow:hidden !important;
         position:relative !important;
         z-index:50 !important;  /* sobre cli-overlay (z=1) */
     }}
@@ -151,51 +150,69 @@ def _render_login_cliente(logo_b64: str, supabase_admin) -> None:
     .cli-title-block {{
         text-align:center;margin-bottom:22px;font-family:Poppins,sans-serif;
     }}
+    /* Badge glass (era gradient sólido) */
     .cli-badge {{
-        display:inline-block;
-        background:linear-gradient(135deg,#0f3460,#1a5276);
-        color:white !important;border-radius:99px;padding:5px 16px;
+        display:inline-flex;align-items:center;gap:6px;
+        background:rgba(255,255,255,0.14) !important;
+        backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+        color:#ffffff !important;border-radius:99px;padding:5px 16px;
         font-size:0.62rem;font-weight:800;letter-spacing:0.14em;
         text-transform:uppercase;margin-bottom:14px;
-        box-shadow:0 8px 22px rgba(15,52,96,0.40);
+        border:1px solid rgba(255,255,255,0.28);
+        box-shadow:0 6px 18px rgba(0,0,0,0.18);
     }}
+    /* Título y subtítulo en BLANCO sobre el glass */
     .cli-title {{
-        font-size:1.75rem;font-weight:900;color:#0a1628 !important;
+        font-size:1.75rem;font-weight:900;color:#ffffff !important;
         line-height:1.15;margin:0 0 8px;letter-spacing:-0.01em;
+        display:flex;align-items:center;justify-content:center;gap:10px;
+        text-shadow:0 2px 12px rgba(0,0,0,0.4);
+    }}
+    .cli-title svg {{
+        width:36px;height:36px;flex-shrink:0;
+        filter:drop-shadow(0 2px 8px rgba(0,0,0,0.35));
     }}
     .cli-sub {{
-        font-size:0.86rem;color:#64748b !important;line-height:1.55;
-        margin:0 auto;max-width:340px;
+        font-size:0.86rem;color:rgba(255,255,255,0.85) !important;
+        line-height:1.55;margin:0 auto;max-width:340px;
+        text-shadow:0 1px 6px rgba(0,0,0,0.35);
     }}
 
-    /* Inputs sólidos */
+    /* Labels de inputs en blanco */
     .st-key-cli_login_card div[data-testid="stTextInput"] label,
     .st-key-cli_login_card div[data-testid="stTextInput"] label p {{
-        color:#0a1628!important;text-shadow:none!important;
-        font-weight:700!important;font-size:0.7rem!important;
-        letter-spacing:0.08em!important;text-transform:uppercase!important;
-        margin-bottom:4px!important;
+        color:#ffffff !important;
+        text-shadow:0 1px 4px rgba(0,0,0,0.35) !important;
+        font-weight:700 !important;font-size:0.7rem !important;
+        letter-spacing:0.08em !important;text-transform:uppercase !important;
+        margin-bottom:4px !important;
     }}
     .st-key-cli_login_card div[data-testid="stTextInput"] > div {{
-        background:transparent!important;
+        background:transparent !important;
     }}
     .st-key-cli_login_card div[data-testid="stTextInput"] div[data-baseweb="input"] {{
-        background:transparent!important;border:none!important;box-shadow:none!important;
+        background:transparent !important;border:none !important;box-shadow:none !important;
     }}
+    /* Inputs GLASS (más vidriosos que la card) */
     .st-key-cli_login_card div[data-testid="stTextInput"] input {{
-        background:#f8fafc!important;color:#0a1628!important;opacity:1!important;
-        border:1.5px solid #e2e8f0!important;border-radius:11px!important;
-        padding:12px 14px!important;font-size:0.95rem!important;
-        font-family:Poppins,sans-serif!important;font-weight:600!important;
-        transition:border-color 0.18s,box-shadow 0.18s,background 0.18s!important;
-        box-shadow:inset 0 1px 2px rgba(15,23,42,0.04)!important;
+        background:rgba(255,255,255,0.12) !important;
+        backdrop-filter:blur(6px) !important;
+        -webkit-backdrop-filter:blur(6px) !important;
+        color:#ffffff !important;opacity:1 !important;
+        border:1px solid rgba(255,255,255,0.28) !important;
+        border-radius:11px !important;
+        padding:12px 14px !important;font-size:0.95rem !important;
+        font-family:Poppins,sans-serif !important;font-weight:600 !important;
+        transition:border-color 0.18s,box-shadow 0.18s,background 0.18s !important;
+        box-shadow:0 4px 12px rgba(0,0,0,0.18) !important;
     }}
     .st-key-cli_login_card div[data-testid="stTextInput"] input:focus {{
-        border-color:#0f3460!important;background:white!important;
-        box-shadow:0 0 0 3px rgba(15,52,96,0.13),inset 0 1px 2px rgba(15,23,42,0.04)!important;
+        border-color:rgba(255,255,255,0.6) !important;
+        background:rgba(255,255,255,0.18) !important;
+        box-shadow:0 0 0 3px rgba(255,255,255,0.15),0 4px 12px rgba(0,0,0,0.18) !important;
     }}
     .st-key-cli_login_card div[data-testid="stTextInput"] input::placeholder {{
-        color:#94a3b8!important;font-weight:500!important;
+        color:rgba(255,255,255,0.55) !important;font-weight:500 !important;
     }}
 
     /* Botón solid con sombra fuerte */
@@ -236,11 +253,18 @@ def _render_login_cliente(logo_b64: str, supabase_admin) -> None:
     _, col, _ = st.columns([1, 2.2, 1])
     with col:
         with st.container(key="cli_login_card"):
-            st.markdown("""
+            # SVG casa estilo Lucide, en blanco
+            _svg_house = (
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+                'stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+                '<path d="M3 10.5 12 3l9 7.5V20a1.5 1.5 0 0 1-1.5 1.5h-4.5v-7h-6v7H4.5A1.5 1.5 0 0 1 3 20z"/>'
+                '</svg>'
+            )
+            st.markdown(f"""
             <div class="cli-title-block">
-                <div class="cli-badge">✦ Portal de Materiales</div>
-                <div class="cli-title">Tu casa, tus materiales 🏡</div>
-                <div class="cli-sub">Ingresa tus datos para acceder a tu formulario personalizado de selección de materiales.</div>
+                <div class="cli-badge">&#10022; Portal de Materiales</div>
+                <div class="cli-title"><span>Tu casa, tus materiales</span>{_svg_house}</div>
+                <div class="cli-sub">Ingresa tus datos para acceder a tu formulario personalizado de selecci&oacute;n de materiales.</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -273,8 +297,8 @@ def _render_login_cliente(logo_b64: str, supabase_admin) -> None:
                     except Exception as ce:
                         st.error(f"Error de conexión: {ce}")
 
-    # Safety net: force z-index + bg vía JS por si la CSS no llega.
-    # Fallback de :has() para navegadores antiguos.
+    # Safety net: force z-index + glass bg + inputs glass vía JS
+    # (inline setProperty('important') gana a cualquier CSS de Streamlit/BaseWeb).
     components.html("""
 <script>
 (function(){
@@ -282,10 +306,37 @@ def _render_login_cliente(logo_b64: str, supabase_admin) -> None:
   function paintCard(){
     var el = D.querySelector('.st-key-cli_login_card');
     if (!el) return false;
-    el.style.setProperty('background-color', '#ffffff', 'important');
+    // Card wrapper glass
+    el.style.setProperty('background-color', 'rgba(255,255,255,0.10)', 'important');
+    el.style.setProperty('backdrop-filter', 'blur(14px) saturate(140%)', 'important');
+    el.style.setProperty('-webkit-backdrop-filter', 'blur(14px) saturate(140%)', 'important');
     el.style.setProperty('position', 'relative', 'important');
     el.style.setProperty('z-index', '50', 'important');
-    // Columna padre para crear contexto de stacking si :has no funciona
+    // Wrappers internos transparentes
+    el.querySelectorAll('div').forEach(function(d){
+      var tid = d.getAttribute && d.getAttribute('data-testid');
+      if (tid === 'stVerticalBlockBorderWrapper' || tid === 'stVerticalBlock') {
+        d.style.setProperty('background-color', 'transparent', 'important');
+      }
+      if (tid === 'stTextInput') {
+        // Wrapper del input completo
+        d.querySelectorAll('div').forEach(function(sub){
+          sub.style.setProperty('background-color', 'transparent', 'important');
+        });
+      }
+    });
+    // Inputs GLASS — forzar bg semi-transparente y color blanco
+    el.querySelectorAll('input').forEach(function(inp){
+      inp.style.setProperty('background-color', 'rgba(255,255,255,0.12)', 'important');
+      inp.style.setProperty('background-image', 'none', 'important');
+      inp.style.setProperty('backdrop-filter', 'blur(6px)', 'important');
+      inp.style.setProperty('-webkit-backdrop-filter', 'blur(6px)', 'important');
+      inp.style.setProperty('color', '#ffffff', 'important');
+      inp.style.setProperty('border', '1px solid rgba(255,255,255,0.28)', 'important');
+      inp.style.setProperty('border-radius', '11px', 'important');
+      inp.style.setProperty('-webkit-text-fill-color', '#ffffff', 'important');
+    });
+    // Columna padre para contexto de stacking
     var col = el.closest('[data-testid="stColumn"]');
     if (col) {
       col.style.setProperty('position', 'relative', 'important');
@@ -296,6 +347,12 @@ def _render_login_cliente(logo_b64: str, supabase_admin) -> None:
   paintCard();
   setTimeout(paintCard, 300);
   setTimeout(paintCard, 1200);
+  // Observer para repintar si se hace focus (BaseWeb a veces repinta bg al focus)
+  try {
+    var obs = new MutationObserver(function(){ paintCard(); });
+    obs.observe(D.body, {childList:true, subtree:true, attributes:true, attributeFilter:['style','class']});
+    setTimeout(function(){ obs.disconnect(); }, 8000);
+  } catch(e) {}
 })();
 </script>
 """, height=0)
