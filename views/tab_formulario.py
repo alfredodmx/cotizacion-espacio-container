@@ -5,7 +5,7 @@ Código fuente original: app.py líneas 19318-19456
 import streamlit as st
 import streamlit.components.v1 as _st_components
 from collections import defaultdict
-from views.sidebar_nav import page_icon_svg as _pi
+from views.layout import render_page_header
 from utils.formulario import (
     fetch_catalogo_materiales,
     fetch_formulario_config,
@@ -21,17 +21,11 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
     _supa_key = supa_key or deps.get('supa_key', '')
     _rol = st.session_state.get('rol_usuario', 'ejecutivo')
 
-    st.markdown(f"""
-    <div class="hdr-formulario" style='border-radius:16px;padding:24px 28px;
-                margin-bottom:20px;color:white;display:flex;align-items:center;gap:12px;'>
-      {_pi("formulario", 1.5)}
-      <div>
-        <div style='font-size:0.78rem;font-weight:700;letter-spacing:0.1em;opacity:0.7;text-transform:uppercase;'>M&#243;dulo</div>
-        <div style='font-size:1.2rem;font-weight:900;margin-top:4px;font-family:Montserrat,sans-serif;'>Formulario de Materiales</div>
-        <div style='font-size:0.88rem;opacity:0.8;margin-top:2px;'>Configura preguntas por proyecto &middot; Revisa respuestas del cliente</div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+    render_page_header(
+        "formulario",
+        "Formulario de Materiales",
+        "Configura preguntas por proyecto &middot; Revisa respuestas del cliente",
+    )
 
     if _rol in ('root', 'admin'):
         _ftab_catalogo, _ftab_config, _ftab_progreso = st.tabs([

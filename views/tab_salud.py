@@ -4,7 +4,7 @@ Código fuente original: app.py líneas 13636-13965 (with tab_salud)
 """
 import streamlit as st
 from config.supabase import supabase_admin as _supa_admin
-from views.sidebar_nav import page_icon_svg as _pi
+from views.layout import render_page_header
 
 
 def render_tab_salud(supabase, supabase_admin, supa_url, supa_key, **deps):
@@ -62,14 +62,12 @@ def render_tab_salud(supabase, supabase_admin, supa_url, supa_key, **deps):
     .sys-badge-warn { background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:4px; font-weight:700; font-size:0.7rem; }
     .sys-badge-crit { background:#fee2e2; color:#dc2626; padding:2px 8px; border-radius:4px; font-weight:700; font-size:0.7rem; }
     </style>
-    <div class="hdr-salud" style="display:flex!important;align-items:center!important;">
-      """ + _pi("sistema") + """
-      <div style="margin-left:16px;">
-        <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.6rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Salud del Sistema</div>
-        <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Monitoreo de capacidad y estado de Supabase &#8212; Plan Core (actualizado al cargar)</div>
-      </div>
-    </div>
     """, unsafe_allow_html=True)
+    render_page_header(
+        "sistema",
+        "Salud del Sistema",
+        "Monitoreo de capacidad y estado de Supabase &#8212; Plan Core (actualizado al cargar)",
+    )
 
     import datetime as _dt_sys
 

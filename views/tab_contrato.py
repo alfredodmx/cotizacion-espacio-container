@@ -8,7 +8,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 from datetime import datetime, date as _date_cls
 from config.supabase import supabase_admin as _supa_admin
-from views.sidebar_nav import page_icon_svg as _pi
+from views.layout import render_page_header
 from utils.formato import _normalizar_nombre
 
 try:
@@ -164,14 +164,12 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                     text-transform:uppercase; letter-spacing:0.1em; padding:4px 0;
                     border-bottom: 2px solid #1e3a5f; margin-bottom:12px; display:block; }
     </style>
-    <div class="hdr-contrato">
-      """ + _pi("contrato") + """
-      <div style="margin-left:16px;">
-        <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.6rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Contrato Cliente</div>
-        <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Genera y administra el contrato de fabricaci&#243;n y venta.</div>
-      </div>
-    </div>
     """, unsafe_allow_html=True)
+    render_page_header(
+        "contrato",
+        "Contrato Cliente",
+        "Genera y administra el contrato de fabricaci&#243;n y venta.",
+    )
 
     # ── Sub-pestañas ──
     if st.session_state.get('modo_admin'):

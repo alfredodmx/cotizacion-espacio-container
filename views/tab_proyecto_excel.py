@@ -4,7 +4,7 @@ Código fuente original: app.py líneas 13272-13630 (excel) + visor 3D
 """
 import streamlit as st
 from config.supabase import supabase_admin as _supa_admin
-from views.sidebar_nav import page_icon_svg as _pi
+from views.layout import render_page_header
 from utils.excel_manager import (
     get_excel_bytes_activo,
     leer_hoja_excel,
@@ -57,14 +57,12 @@ def render_tab_proyecto_excel(supabase, supabase_admin=None, supa_url='', supa_k
     .ver-meta   { font-size:0.75rem; color:#64748b; margin-top:3px; }
     .ver-archivo{ font-size:0.7rem; color:#94a3b8; font-family:monospace; margin-top:2px; }
     </style>
-    <div class="excel-header">
-      """ + _pi("proyecto_excel") + """
-      <div style="margin-left:16px;">
-        <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.6rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Proyecto Excel &mdash; Control de Versiones</div>
-        <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Sube nuevas versiones del cotizador.xlsx y activa la que necesites. El sistema se actualiza al instante.</div>
-      </div>
-    </div>
     """, unsafe_allow_html=True)
+    render_page_header(
+        "proyecto_excel",
+        "Proyecto Excel &mdash; Control de Versiones",
+        "Sube nuevas versiones del cotizador.xlsx y activa la que necesites. El sistema se actualiza al instante.",
+    )
 
     # ── Subir nueva versión ──
     st.markdown('<div class="ind-titulo">&#11014; Subir nueva versi&#243;n</div>', unsafe_allow_html=True)
@@ -321,14 +319,12 @@ def render_tab_3d_visor(supabase=None, supa_url='', anthropic_client=None, **dep
         box-shadow: 0 8px 32px rgba(15,23,42,0.4);
     }
     </style>
-    <div class="hdr-3d">
-      """ + _pi("3d", 2.6) + """
-      <div style="margin-left:16px;">
-        <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.4rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Visor 3D Beta</div>
-        <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.88rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Genera un modelo 3D del container desde el plano de planta con Claude Vision.</div>
-      </div>
-    </div>
     """, unsafe_allow_html=True)
+    render_page_header(
+        "3d",
+        "Visor 3D Beta",
+        "Genera un modelo 3D del container desde el plano de planta con Claude Vision.",
+    )
 
     if anthropic_client is None:
         st.info("&#128274; El visor 3D requiere configuraci&#243;n de Anthropic API. Contacta al administrador.")

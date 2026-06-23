@@ -5,7 +5,7 @@ Código fuente original: app.py líneas 7564-7789 (función) + 16117-16617 (UI)
 import re
 import streamlit as st
 from config.supabase import supabase_admin as _supa_admin
-from views.sidebar_nav import page_icon_svg as _pi
+from views.layout import render_page_header
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -261,14 +261,12 @@ def render_tab_dashboard(supabase, supabase_admin=None, **deps):
     .ej-name { font-size: 0.85rem; font-weight: 700; color: #1e293b; flex: 1; }
     .ej-monto { font-size: 0.83rem; font-weight: 900; color: #2563eb; min-width: 80px; text-align: right; }
     </style>
-    <div class="dash-hdr" style="display:flex!important;align-items:center!important;">
-      """ + _pi("dashboard") + """
-      <div style="margin-left:16px;">
-        <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.6rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Dashboard</div>
-        <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Resumen ejecutivo del rendimiento comercial en tiempo real.</div>
-      </div>
-    </div>
     """, unsafe_allow_html=True)
+    render_page_header(
+        "dashboard",
+        "Dashboard",
+        "Resumen ejecutivo del rendimiento comercial en tiempo real.",
+    )
 
     _periodo_opciones = {
         "Este mes": "mes",

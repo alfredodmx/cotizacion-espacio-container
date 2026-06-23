@@ -5,7 +5,7 @@ Código fuente original: app.py líneas 16620-16791 (with tab6)
 import json
 import streamlit as st
 from config.supabase import supabase_admin as _supa_admin
-from views.sidebar_nav import page_icon_svg as _pi
+from views.layout import render_page_header
 
 
 def _cargar_cotizacion(supa_admin, numero):
@@ -76,14 +76,12 @@ def render_tab_pdf(supabase, supa_url, supa_key, **deps):
         position: relative; overflow: hidden;
     }
     </style>
-    <div class="hdr6" style="display:flex!important;align-items:center!important;">
-      """ + _pi("edicion_pdf") + """
-      <div style="margin-left:16px;">
-        <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.6rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Edici&#243;n PDF Cliente</div>
-        <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Busca tu cotizaci&#243;n por n&#250;mero EP y personaliza la descripci&#243;n de cada categor&#237;a para el cliente.</div>
-      </div>
-    </div>
     """, unsafe_allow_html=True)
+    render_page_header(
+        "edicion_pdf",
+        "Edici&#243;n PDF Cliente",
+        "Busca tu cotizaci&#243;n por n&#250;mero EP y personaliza la descripci&#243;n de cada categor&#237;a para el cliente.",
+    )
 
     with st.container(border=True):
         st.markdown("#### &#128269; Buscar cotizaci&#243;n")

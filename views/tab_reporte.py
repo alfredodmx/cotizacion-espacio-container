@@ -4,7 +4,7 @@ Código fuente original: app.py líneas 14366-14729
 """
 import streamlit as st
 from config.supabase import supabase_admin as _supa_admin
-from views.sidebar_nav import page_icon_svg as _pi
+from views.layout import render_page_header
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -41,34 +41,11 @@ def render_tab_reporte(supabase, supabase_admin=None, **deps):
         "Todo el tiempo": 36500
     }[_rep_periodo]
 
-    st.markdown(f"""
-    <style>
-    .hdr-reporte {{
-        background: linear-gradient(135deg, #312e81 0%, #4f46e5 100%);
-        border-radius: 20px; padding: 34px 36px; margin-bottom: 28px;
-        display: flex; align-items: center; gap: 16px;
-        box-shadow: 0 8px 32px rgba(79,70,229,0.35);
-        position: relative; overflow: hidden;
-    }}
-    .hdr-reporte::before {{
-        content: ''; position: absolute; top: -40px; right: -40px;
-        width: 180px; height: 180px; border-radius: 50%;
-        background: rgba(255,255,255,0.04); pointer-events: none;
-    }}
-    .hdr-reporte::after {{
-        content: ''; position: absolute; bottom: -60px; right: 80px;
-        width: 240px; height: 240px; border-radius: 50%;
-        background: rgba(255,255,255,0.03); pointer-events: none;
-    }}
-    </style>
-    <div class="hdr-reporte" style="display:flex!important;align-items:center!important;">
-      """ + _pi("reporte") + """
-      <div style="margin-left:16px;">
-        <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.6rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Reporte de Inteligencia Comercial</div>
-        <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Espacio Container House SpA &middot; Per&#237;odo: {_rep_periodo} &middot; Solo admin y root</div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+    render_page_header(
+        "reporte",
+        "Reporte de Inteligencia Comercial",
+        f"Espacio Container House SpA &middot; Per&#237;odo: {_rep_periodo} &middot; Solo admin y root",
+    )
 
     from datetime import datetime as _dt, timedelta as _td
     import json as _json_rep
