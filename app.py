@@ -22,16 +22,8 @@ if st.query_params.get("cliente") == "1":
     from views.cliente_view import render_cliente_view
     render_cliente_view(supabase_admin, SUPABASE_URL, SUPABASE_KEY)
 
-# Bypass login temporarily for local testing
-st.session_state.auth_user = True
-st.session_state.rol_usuario = "root"
-st.session_state.auth_nombre = "Test User"
-st.session_state.auth_email = "test@example.com"
-st.session_state._sb_collapsed = True
-st.session_state.es_root = True
-st.session_state.es_supervisor = True
-st.session_state.es_admin = True
-st.session_state.modo_admin = True
+recover_session_from_query_param(supabase)
+check_session_timeout()
 
 if not st.session_state.auth_user:
     from auth.auth_service import login_usuario
