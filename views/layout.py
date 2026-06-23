@@ -377,34 +377,32 @@ def _logo_html() -> str:
 # ── Preloader (fullscreen, página completa) ──────────────────────────────────
 
 def render_preloader() -> None:
-    """Inyecta un preloader fullscreen que aparece al cargar la página y
-    se desvanece cuando la app está lista. Se muestra UNA SOLA VEZ por sesión
-    de navegador (sessionStorage). Llamar al inicio de app.py / login.
+    """Preloader fullscreen reutilizable.
+
+    - Carga inicial de la pestaña: se anima 0→100% (~1.8s) + fade-out.
+    - Click en sidebar nav o login submit: se re-anima con duración corta.
+    - Persiste en el DOM del documento padre (no se re-crea en cada rerun),
+      así los reruns de Streamlit no interrumpen la animación.
     """
     _logo_uri = _logo_b64() or ""
-    _logo_html_block = (
-        f'<img id="_ec_pre_logo" src="{_logo_uri}" alt="" />'
-        if _logo_uri else
-        '<div id="_ec_pre_logo" style="font-family:Montserrat,sans-serif;font-weight:900;font-size:2.5rem;color:#fff;letter-spacing:0.05em;">COTIZADOR<span style="color:#5b7cfa;"> PRO</span></div>'
-    )
-    st.markdown(f"""
+    # CSS del overlay — st.markdown lo coloca como <style> en parent <head>,
+    # persiste entre reruns sin problema.
+    st.markdown("""
 <style>
-@keyframes _ec_pre_pulse {{
-  0%, 100% {{ transform: scale(1); filter: drop-shadow(0 0 20px rgba(91,124,250,0.5)) brightness(1); }}
-  50%      {{ transform: scale(1.05); filter: drop-shadow(0 0 40px rgba(139,92,246,0.8)) brightness(1.15); }}
-}}
-@keyframes _ec_pre_ring_spin {{
-  to {{ transform: rotate(360deg); }}
-}}
-@keyframes _ec_pre_shimmer {{
-  0%   {{ background-position: -200% 0; }}
-  100% {{ background-position: 200% 0; }}
-}}
-@keyframes _ec_pre_bg {{
-  0%, 100% {{ background-position: 0% 50%; }}
-  50%      {{ background-position: 100% 50%; }}
-}}
-#_ec_preloader {{
+@keyframes _ec_pre_pulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 20px rgba(91,124,250,0.5)) brightness(1); }
+  50%      { transform: scale(1.05); filter: drop-shadow(0 0 40px rgba(139,92,246,0.8)) brightness(1.15); }
+}
+@keyframes _ec_pre_ring_spin { to { transform: rotate(360deg); } }
+@keyframes _ec_pre_shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes _ec_pre_bg {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+#_ec_preloader {
   position: fixed; inset: 0;
   background: linear-gradient(135deg, #0a0f1f 0%, #0f172a 25%, #1e2a5e 50%, #0f172a 75%, #0a0f1f 100%);
   background-size: 300% 300%;
@@ -414,35 +412,35 @@ def render_preloader() -> None:
   gap: 32px;
   transition: opacity 0.7s ease;
   font-family: 'Montserrat', sans-serif;
-}}
-#_ec_preloader.fade-out {{ opacity: 0; pointer-events: none; }}
-#_ec_pre_wrap {{ position: relative; width: 220px; height: 220px; display:flex; align-items:center; justify-content:center; }}
-#_ec_pre_ring {{
+}
+#_ec_preloader.fade-out { opacity: 0; pointer-events: none; }
+#_ec_pre_wrap { position: relative; width: 220px; height: 220px; display:flex; align-items:center; justify-content:center; }
+#_ec_pre_ring {
   position: absolute; inset: 0;
   border-radius: 50%;
   border: 2px solid transparent;
   border-top-color: #5b7cfa;
   border-right-color: #8b5cf6;
   animation: _ec_pre_ring_spin 1.6s linear infinite;
-}}
-#_ec_pre_ring2 {{
+}
+#_ec_pre_ring2 {
   position: absolute; inset: 12px;
   border-radius: 50%;
   border: 2px solid transparent;
   border-bottom-color: rgba(139,92,246,0.4);
   border-left-color: rgba(91,124,250,0.4);
   animation: _ec_pre_ring_spin 2.4s linear reverse infinite;
-}}
-#_ec_pre_logo {{
+}
+#_ec_pre_logo {
   max-width: 150px; max-height: 150px;
   animation: _ec_pre_pulse 1.8s ease-in-out infinite;
-}}
-#_ec_pre_bar_wrap {{
+}
+#_ec_pre_bar_wrap {
   width: 320px; max-width: 60vw; height: 4px;
   background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden;
   position: relative;
-}}
-#_ec_pre_bar {{
+}
+#_ec_pre_bar {
   width: 0%; height: 100%;
   background: linear-gradient(90deg, #5b7cfa, #8b5cf6, #5b7cfa);
   background-size: 200% 100%;
@@ -450,83 +448,132 @@ def render_preloader() -> None:
   border-radius: 2px;
   transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 0 12px rgba(139,92,246,0.6);
-}}
-#_ec_pre_info {{
+}
+#_ec_pre_info {
   display: flex; align-items: center; gap: 18px;
   color: #cbd5e1;
   font-weight: 600; font-size: 0.85rem; letter-spacing: 0.12em; text-transform: uppercase;
   min-height: 20px;
-}}
-#_ec_pre_pct {{
+}
+#_ec_pre_pct {
   font-weight: 900; font-size: 1rem; color: #fff;
   font-variant-numeric: tabular-nums;
   min-width: 48px; text-align: right;
-}}
-#_ec_pre_msg {{ opacity: 0.7; }}
-@media (max-width: 600px) {{
-  #_ec_pre_wrap {{ width: 180px; height: 180px; }}
-  #_ec_pre_logo {{ max-width: 120px; max-height: 120px; }}
-}}
+}
+#_ec_pre_msg { opacity: 0.7; }
+@media (max-width: 600px) {
+  #_ec_pre_wrap { width: 180px; height: 180px; }
+  #_ec_pre_logo { max-width: 120px; max-height: 120px; }
+}
 </style>
-<div id="_ec_preloader" role="status" aria-label="Cargando">
-  <div id="_ec_pre_wrap">
-    <div id="_ec_pre_ring"></div>
-    <div id="_ec_pre_ring2"></div>
-    {_logo_html_block}
-  </div>
-  <div id="_ec_pre_bar_wrap"><div id="_ec_pre_bar"></div></div>
-  <div id="_ec_pre_info">
-    <span id="_ec_pre_msg">Cargando sistema</span>
-    <span id="_ec_pre_pct">0%</span>
-  </div>
-</div>
 """, unsafe_allow_html=True)
-    # Streamlit bloquea <script> dentro de st.markdown, así que el JS que
-    # anima el preloader va en un components.html() (corre en iframe) y
-    # manipula el DOM del documento padre via window.parent.document.
-    _components.html("""
+    # JS: crea el overlay UNA SOLA VEZ en el documento padre (idempotente).
+    # Lo mantiene en DOM con display:none entre transiciones para evitar que
+    # Streamlit lo reemplace en cada rerun.
+    _logo_img_tag = (
+        f'<img id="_ec_pre_logo" src="{_logo_uri}" alt="" />'
+        if _logo_uri else
+        '<div id="_ec_pre_logo" style="font-family:Montserrat,sans-serif;font-weight:900;font-size:2.5rem;color:#fff;letter-spacing:0.05em;">COTIZADOR<span style="color:#5b7cfa;"> PRO</span></div>'
+    )
+    _overlay_html = (
+        '<div id="_ec_pre_wrap">'
+        '<div id="_ec_pre_ring"></div>'
+        '<div id="_ec_pre_ring2"></div>'
+        + _logo_img_tag +
+        '</div>'
+        '<div id="_ec_pre_bar_wrap"><div id="_ec_pre_bar"></div></div>'
+        '<div id="_ec_pre_info">'
+        '<span id="_ec_pre_msg">Cargando sistema</span>'
+        '<span id="_ec_pre_pct">0%</span>'
+        '</div>'
+    )
+    # Escapamos backticks por si el base64 los tuviera (no debería)
+    _overlay_html_js = _overlay_html.replace("\\", "\\\\").replace("`", "\\`")
+    _components.html(f"""
 <script>
-(function(){
+(function(){{
   var D = window.parent.document;
   var W = window.parent;
-  try {
-    if (W.sessionStorage && W.sessionStorage.getItem('_ec_pre_done') === '1') {
-      var el0 = D.getElementById('_ec_preloader');
-      if (el0 && el0.parentNode) el0.parentNode.removeChild(el0);
-      return;
-    }
-  } catch(e) {}
-  var pct = 0;
-  var bar = D.getElementById('_ec_pre_bar');
-  var pctEl = D.getElementById('_ec_pre_pct');
-  var msgEl = D.getElementById('_ec_pre_msg');
+  var T_TOTAL = 1800, T_FADE = 600;
   var msgs = ['Cargando sistema', 'Conectando servicios', 'Preparando interfaz', 'Casi listo'];
-  function setMsg(p) {
-    var idx = Math.min(Math.floor(p / 25), msgs.length - 1);
-    if (msgEl && msgEl.textContent !== msgs[idx]) msgEl.textContent = msgs[idx];
-  }
-  var T_TOTAL = 1800;
-  var T_FADE  = 600;
-  var t0 = Date.now();
-  var iv = setInterval(function(){
-    var elapsed = Date.now() - t0;
-    pct = Math.min((elapsed / T_TOTAL) * 100, 100);
-    if (bar)   bar.style.width = pct + '%';
-    if (pctEl) pctEl.textContent = Math.round(pct) + '%';
-    setMsg(pct);
-    if (pct >= 100) {
-      clearInterval(iv);
-      try { W.sessionStorage.setItem('_ec_pre_done', '1'); } catch(e) {}
-      setTimeout(function(){
-        var el = D.getElementById('_ec_preloader');
-        if (el) {
-          el.classList.add('fade-out');
-          setTimeout(function(){ if (el.parentNode) el.parentNode.removeChild(el); }, T_FADE);
-        }
-      }, 200);
-    }
-  }, 60);
-})();
+
+  // Crear overlay si no existe (idempotente — sobrevive reruns).
+  var ov = D.getElementById('_ec_preloader');
+  if (!ov) {{
+    ov = D.createElement('div');
+    ov.id = '_ec_preloader';
+    ov.setAttribute('role', 'status');
+    ov.setAttribute('aria-label', 'Cargando');
+    ov.style.display = 'none';
+    ov.innerHTML = `{_overlay_html_js}`;
+    D.body.appendChild(ov);
+  }}
+
+  function animate(duration) {{
+    var el = D.getElementById('_ec_preloader');
+    if (!el) return;
+    if (W._ec_pre_iv) {{ clearInterval(W._ec_pre_iv); W._ec_pre_iv = null; }}
+    var bar = el.querySelector('#_ec_pre_bar');
+    var pctEl = el.querySelector('#_ec_pre_pct');
+    var msgEl = el.querySelector('#_ec_pre_msg');
+    el.classList.remove('fade-out');
+    el.style.display = 'flex';
+    el.style.opacity = '1';
+    el.style.pointerEvents = 'auto';
+    if (bar) bar.style.width = '0%';
+    if (pctEl) pctEl.textContent = '0%';
+    if (msgEl) msgEl.textContent = msgs[0];
+    var t0 = Date.now();
+    W._ec_pre_iv = setInterval(function(){{
+      var elapsed = Date.now() - t0;
+      var pct = Math.min((elapsed / duration) * 100, 100);
+      if (bar) bar.style.width = pct + '%';
+      if (pctEl) pctEl.textContent = Math.round(pct) + '%';
+      var idx = Math.min(Math.floor(pct / 25), msgs.length - 1);
+      if (msgEl && msgEl.textContent !== msgs[idx]) msgEl.textContent = msgs[idx];
+      if (pct >= 100) {{
+        clearInterval(W._ec_pre_iv); W._ec_pre_iv = null;
+        setTimeout(function(){{
+          var e2 = D.getElementById('_ec_preloader');
+          if (!e2) return;
+          e2.classList.add('fade-out');
+          setTimeout(function(){{
+            e2.style.display = 'none';
+            e2.style.opacity = '1';
+            e2.classList.remove('fade-out');
+          }}, T_FADE);
+        }}, 200);
+      }}
+    }}, 60);
+  }}
+  W._ec_show_preloader = animate;
+
+  // Mostrar en la carga inicial de la pestaña del navegador.
+  try {{
+    if (W.sessionStorage.getItem('_ec_pre_initial') !== '1') {{
+      W.sessionStorage.setItem('_ec_pre_initial', '1');
+      animate(T_TOTAL);
+    }}
+  }} catch(e) {{ animate(T_TOTAL); }}
+
+  // Click handlers: re-mostrar en clicks que probablemente disparen
+  // carga (nav del sidebar, submit de formulario).
+  if (!D._ec_pre_click_bound) {{
+    D._ec_pre_click_bound = true;
+    D.addEventListener('click', function(e){{
+      var t = e.target;
+      if (!t || !t.closest) return;
+      var clickedBtn = t.closest('button');
+      if (!clickedBtn) return;
+      // Nav del sidebar (st-key-nav_*)
+      var navWrap = t.closest('[class*="st-key-nav_"]');
+      if (navWrap) {{ animate(1500); return; }}
+      // Submit dentro de form (login)
+      var inForm = t.closest('form, [data-testid="stForm"]');
+      if (inForm && clickedBtn.type !== 'button') {{ animate(2200); return; }}
+    }}, true);
+  }}
+}})();
 </script>
 """, height=0)
 
