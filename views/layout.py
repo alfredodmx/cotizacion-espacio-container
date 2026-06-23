@@ -331,6 +331,29 @@ p.modulo-titulo {
 }
 .sub-title { color: #9099be; font-size: 0.82rem; font-weight: 500; margin-top: 0.2rem; letter-spacing: 0.02em; }
 
+/* ── Spinner branded para st.spinner() en tabs ── */
+@keyframes _ec_sp_spin { to { transform: rotate(360deg); } }
+@keyframes _ec_sp_pulse { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
+[data-testid="stSpinner"] {
+    background: linear-gradient(135deg, rgba(15,23,42,0.97), rgba(30,42,94,0.97)) !important;
+    border-radius: 14px !important;
+    padding: 22px 28px !important;
+    border: 1px solid rgba(91,124,250,0.25) !important;
+    box-shadow: 0 8px 32px rgba(15,23,42,0.4) !important;
+    color: #cbd5e1 !important;
+    font-family: 'Montserrat', sans-serif !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.06em !important;
+}
+[data-testid="stSpinner"] > div { color: #e2e8f0 !important; font-size: 0.88rem !important; }
+[data-testid="stSpinner"] i, [data-testid="stSpinner"] svg, [data-testid="stSpinner"] [role="progressbar"] {
+    border-color: rgba(91,124,250,0.25) !important;
+    border-top-color: #8b5cf6 !important;
+    border-right-color: #5b7cfa !important;
+    width: 28px !important; height: 28px !important;
+    animation: _ec_sp_spin 1s linear infinite !important;
+}
+
 /* ── Ocultar row de botones de sesión (se clonan al header por JS) ── */
 [data-testid="stHorizontalBlock"]:has(.st-key-btn_pwd_hdr) {
     position: absolute !important; left: -9999px !important; top: -9999px !important;
@@ -349,6 +372,175 @@ def _logo_html() -> str:
             b64 = base64.b64encode(open(path, "rb").read()).decode()
             return f'<img src="data:image/png;base64,{b64}" width="280" style="display:block;margin-left:auto;">'
     return '<span style="font-size:1.6rem;font-weight:900;background:linear-gradient(135deg,#5b7cfa,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Cotizador PRO</span>'
+
+
+# ── Preloader (fullscreen, página completa) ──────────────────────────────────
+
+def render_preloader() -> None:
+    """Inyecta un preloader fullscreen que aparece al cargar la página y
+    se desvanece cuando la app está lista. Se muestra UNA SOLA VEZ por sesión
+    de navegador (sessionStorage). Llamar al inicio de app.py / login.
+    """
+    _logo_uri = _logo_b64() or ""
+    _logo_html_block = (
+        f'<img id="_ec_pre_logo" src="{_logo_uri}" alt="" />'
+        if _logo_uri else
+        '<div id="_ec_pre_logo" style="font-family:Montserrat,sans-serif;font-weight:900;font-size:2.5rem;color:#fff;letter-spacing:0.05em;">COTIZADOR<span style="color:#5b7cfa;"> PRO</span></div>'
+    )
+    st.markdown(f"""
+<style>
+@keyframes _ec_pre_pulse {{
+  0%, 100% {{ transform: scale(1); filter: drop-shadow(0 0 20px rgba(91,124,250,0.5)) brightness(1); }}
+  50%      {{ transform: scale(1.05); filter: drop-shadow(0 0 40px rgba(139,92,246,0.8)) brightness(1.15); }}
+}}
+@keyframes _ec_pre_ring_spin {{
+  to {{ transform: rotate(360deg); }}
+}}
+@keyframes _ec_pre_shimmer {{
+  0%   {{ background-position: -200% 0; }}
+  100% {{ background-position: 200% 0; }}
+}}
+@keyframes _ec_pre_bg {{
+  0%, 100% {{ background-position: 0% 50%; }}
+  50%      {{ background-position: 100% 50%; }}
+}}
+#_ec_preloader {{
+  position: fixed; inset: 0;
+  background: linear-gradient(135deg, #0a0f1f 0%, #0f172a 25%, #1e2a5e 50%, #0f172a 75%, #0a0f1f 100%);
+  background-size: 300% 300%;
+  animation: _ec_pre_bg 12s ease infinite;
+  z-index: 2147483647;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 32px;
+  transition: opacity 0.7s ease;
+  font-family: 'Montserrat', sans-serif;
+}}
+#_ec_preloader.fade-out {{ opacity: 0; pointer-events: none; }}
+#_ec_pre_wrap {{ position: relative; width: 220px; height: 220px; display:flex; align-items:center; justify-content:center; }}
+#_ec_pre_ring {{
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: #5b7cfa;
+  border-right-color: #8b5cf6;
+  animation: _ec_pre_ring_spin 1.6s linear infinite;
+}}
+#_ec_pre_ring2 {{
+  position: absolute; inset: 12px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-bottom-color: rgba(139,92,246,0.4);
+  border-left-color: rgba(91,124,250,0.4);
+  animation: _ec_pre_ring_spin 2.4s linear reverse infinite;
+}}
+#_ec_pre_logo {{
+  max-width: 150px; max-height: 150px;
+  animation: _ec_pre_pulse 1.8s ease-in-out infinite;
+}}
+#_ec_pre_bar_wrap {{
+  width: 320px; max-width: 60vw; height: 4px;
+  background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden;
+  position: relative;
+}}
+#_ec_pre_bar {{
+  width: 0%; height: 100%;
+  background: linear-gradient(90deg, #5b7cfa, #8b5cf6, #5b7cfa);
+  background-size: 200% 100%;
+  animation: _ec_pre_shimmer 2s linear infinite;
+  border-radius: 2px;
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 12px rgba(139,92,246,0.6);
+}}
+#_ec_pre_info {{
+  display: flex; align-items: center; gap: 18px;
+  color: #cbd5e1;
+  font-weight: 600; font-size: 0.85rem; letter-spacing: 0.12em; text-transform: uppercase;
+  min-height: 20px;
+}}
+#_ec_pre_pct {{
+  font-weight: 900; font-size: 1rem; color: #fff;
+  font-variant-numeric: tabular-nums;
+  min-width: 48px; text-align: right;
+}}
+#_ec_pre_msg {{ opacity: 0.7; }}
+@media (max-width: 600px) {{
+  #_ec_pre_wrap {{ width: 180px; height: 180px; }}
+  #_ec_pre_logo {{ max-width: 120px; max-height: 120px; }}
+}}
+</style>
+<div id="_ec_preloader" role="status" aria-label="Cargando">
+  <div id="_ec_pre_wrap">
+    <div id="_ec_pre_ring"></div>
+    <div id="_ec_pre_ring2"></div>
+    {_logo_html_block}
+  </div>
+  <div id="_ec_pre_bar_wrap"><div id="_ec_pre_bar"></div></div>
+  <div id="_ec_pre_info">
+    <span id="_ec_pre_msg">Cargando sistema</span>
+    <span id="_ec_pre_pct">0%</span>
+  </div>
+</div>
+<script>
+(function(){{
+  // Mostrar solo en la primera carga de la pestaña del navegador.
+  // En reruns de Streamlit el sessionStorage flag evita re-mostrarlo.
+  try {{
+    if (sessionStorage.getItem('_ec_pre_done') === '1') {{
+      var el0 = document.getElementById('_ec_preloader');
+      if (el0) el0.parentNode.removeChild(el0);
+      return;
+    }}
+  }} catch(e) {{}}
+  var pct = 0;
+  var loaded = false;
+  var bar = document.getElementById('_ec_pre_bar');
+  var pctEl = document.getElementById('_ec_pre_pct');
+  var msgEl = document.getElementById('_ec_pre_msg');
+  var msgs = ['Cargando sistema', 'Conectando servicios', 'Preparando interfaz', 'Casi listo'];
+  function setMsg(p) {{
+    var idx = Math.min(Math.floor(p / 25), msgs.length - 1);
+    if (msgEl && msgEl.textContent !== msgs[idx]) msgEl.textContent = msgs[idx];
+  }}
+  if (document.readyState === 'complete') {{ loaded = true; }}
+  else {{ window.addEventListener('load', function(){{ loaded = true; }}); }}
+  // Detectar cuando Streamlit termine de renderizar contenido principal
+  function streamlitReady() {{
+    return !!document.querySelector('[data-testid="stMain"] [data-testid="stMainBlockContainer"] > div');
+  }}
+  var t0 = Date.now();
+  var iv = setInterval(function(){{
+    var ready = loaded && streamlitReady();
+    if (ready) {{
+      pct = Math.min(pct + 8, 100);
+    }} else if (pct < 88) {{
+      // Crece gradualmente hasta 88% mientras espera
+      pct = Math.min(pct + Math.random() * 4 + 1, 88);
+    }}
+    if (bar) bar.style.width = pct + '%';
+    if (pctEl) pctEl.textContent = Math.round(pct) + '%';
+    setMsg(pct);
+    var elapsed = Date.now() - t0;
+    if (pct >= 100 && ready) {{
+      clearInterval(iv);
+      try {{ sessionStorage.setItem('_ec_pre_done', '1'); }} catch(e) {{}}
+      setTimeout(function(){{
+        var el = document.getElementById('_ec_preloader');
+        if (el) {{
+          el.classList.add('fade-out');
+          setTimeout(function(){{ if (el.parentNode) el.parentNode.removeChild(el); }}, 700);
+        }}
+      }}, 250);
+    }} else if (elapsed > 15000) {{
+      // Fallback de seguridad: nunca dejar el preloader colgado más de 15s
+      clearInterval(iv);
+      try {{ sessionStorage.setItem('_ec_pre_done', '1'); }} catch(e) {{}}
+      var el = document.getElementById('_ec_preloader');
+      if (el) {{ el.classList.add('fade-out'); setTimeout(function(){{ if (el.parentNode) el.parentNode.removeChild(el); }}, 700); }}
+    }}
+  }}, 90);
+}})();
+</script>
+""", unsafe_allow_html=True)
 
 
 def _logo_b64() -> str:

@@ -54,7 +54,8 @@ def render_tab_reporte(supabase, supabase_admin=None, **deps):
 
     from datetime import datetime as _dt, timedelta as _td
     import json as _json_rep
-    _data_rep = _cargar_datos_reporte(_rep_dias)
+    with st.spinner("Cargando reporte de inteligencia comercial..."):
+        _data_rep = _cargar_datos_reporte(_rep_dias)
 
     if not _data_rep:
         st.info("No hay datos para el per&#237;odo seleccionado.")

@@ -248,11 +248,13 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
     if 'filtro_estado_tabla' not in st.session_state:
         st.session_state.filtro_estado_tabla = None
     if 'resultados_busqueda' not in st.session_state or st.session_state.resultados_busqueda is None:
-        st.session_state.resultados_busqueda = buscar_cotizaciones()
+        with st.spinner("Cargando cotizaciones..."):
+            st.session_state.resultados_busqueda = buscar_cotizaciones()
 
     if buscar_btn or (termino and termino != st.session_state.get('ultimo_termino', '')):
         st.session_state.ultimo_termino = termino
-        st.session_state.resultados_busqueda = buscar_cotizaciones(termino or None, tipo_map[tipo_busqueda])
+        with st.spinner("Buscando..."):
+            st.session_state.resultados_busqueda = buscar_cotizaciones(termino or None, tipo_map[tipo_busqueda])
         st.session_state.filtro_estado_tabla = None
         st.session_state.mostrar_visor = False
         st.session_state.pdf_actual = None; st.session_state.pdf_nombre = ""

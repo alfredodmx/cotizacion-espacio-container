@@ -18,6 +18,13 @@ from auth.session import check_session_timeout, process_query_params
 
 init_session_state()
 
+# Preloader fullscreen (logo + ring + barra + porcentaje).
+# Se muestra solo en la primera carga de la pestaña del navegador; en
+# reruns subsiguientes se auto-omite vía sessionStorage. Va lo antes
+# posible para aparecer durante la carga inicial.
+from views.layout import render_preloader
+render_preloader()
+
 if st.query_params.get("cliente") == "1":
     from views.cliente_view import render_cliente_view
     render_cliente_view(supabase_admin, SUPABASE_URL, SUPABASE_KEY)
