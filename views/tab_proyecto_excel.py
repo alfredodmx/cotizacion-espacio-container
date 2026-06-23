@@ -4,6 +4,7 @@ Código fuente original: app.py líneas 13272-13630 (excel) + visor 3D
 """
 import streamlit as st
 from config.supabase import supabase_admin as _supa_admin
+from views.sidebar_nav import page_icon_svg as _pi
 from utils.excel_manager import (
     get_excel_bytes_activo,
     leer_hoja_excel,
@@ -57,7 +58,7 @@ def render_tab_proyecto_excel(supabase, supabase_admin=None, supa_url='', supa_k
     .ver-archivo{ font-size:0.7rem; color:#94a3b8; font-family:monospace; margin-top:2px; }
     </style>
     <div class="excel-header">
-      <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">&#128202;</span>
+      """ + _pi("proyecto_excel") + """
       <div style="margin-left:16px;">
         <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.6rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Proyecto Excel &mdash; Control de Versiones</div>
         <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Sube nuevas versiones del cotizador.xlsx y activa la que necesites. El sistema se actualiza al instante.</div>
@@ -321,7 +322,7 @@ def render_tab_3d_visor(supabase=None, supa_url='', anthropic_client=None, **dep
     }
     </style>
     <div class="hdr-3d">
-      <span style="font-size:2.6rem;line-height:1;flex-shrink:0;">&#127981;</span>
+      """ + _pi("3d", 2.6) + """
       <div style="margin-left:16px;">
         <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.4rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Visor 3D Beta</div>
         <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.88rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Genera un modelo 3D del container desde el plano de planta con Claude Vision.</div>

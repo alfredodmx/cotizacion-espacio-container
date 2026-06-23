@@ -5,6 +5,7 @@ Código fuente original: app.py líneas 531-607 (helpers) + 19011-19314 (UI)
 import json as _json_notif
 import streamlit as st
 from config.supabase import supabase_admin as _supa_admin
+from views.sidebar_nav import page_icon_svg as _pi
 
 
 def _get_notif_config(clave, default=""):
@@ -84,7 +85,7 @@ def render_tab_notificaciones(supabase, **deps):
     .hdr-notif p  { color:rgba(255,255,255,0.65) !important; margin:1px 0 0; }
     </style>
     <div class="hdr-notif" style="display:flex!important;align-items:center!important;">
-      <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">&#128227;</span>
+      """ + _pi("notificaciones") + """
       <div style="margin-left:16px;">
         <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.6rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Notificaciones</div>
         <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Configura Telegram, contactos, observadores y mensajes autom&#225;ticos.</div>

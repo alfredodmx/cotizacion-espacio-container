@@ -3,6 +3,7 @@ Tab USUARIOS — Gestión de cuentas de ejecutivos y admins.
 """
 import streamlit as st
 import httpx
+from views.sidebar_nav import page_icon_svg as _pi
 from config.supabase import supabase_admin as _supa_admin
 from config.settings import SUPABASE_URL, SUPABASE_SERVICE_KEY
 
@@ -414,7 +415,7 @@ def render_tab_usuarios(supabase_admin=None, **deps):
     # Header
     st.markdown(
         '<div class="hdr-usr">'
-        '<span style="font-size:2.4rem;line-height:1;">👥</span>'
+        + _pi("usuarios", 2.4) +
         '<div style="margin-left:4px;">'
         '<div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.5rem;'
         'letter-spacing:.05em;text-transform:uppercase;color:#fff;">Gestión de Usuarios</div>'

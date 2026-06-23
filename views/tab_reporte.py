@@ -4,6 +4,7 @@ Código fuente original: app.py líneas 14366-14729
 """
 import streamlit as st
 from config.supabase import supabase_admin as _supa_admin
+from views.sidebar_nav import page_icon_svg as _pi
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -61,7 +62,7 @@ def render_tab_reporte(supabase, supabase_admin=None, **deps):
     }}
     </style>
     <div class="hdr-reporte" style="display:flex!important;align-items:center!important;">
-      <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">&#128200;</span>
+      """ + _pi("reporte") + """
       <div style="margin-left:16px;">
         <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.6rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Reporte de Inteligencia Comercial</div>
         <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Espacio Container House SpA &middot; Per&#237;odo: {_rep_periodo} &middot; Solo admin y root</div>

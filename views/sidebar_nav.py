@@ -45,6 +45,20 @@ def _svg_uri(key: str, color: str) -> str:
     return "data:image/svg+xml," + _url.quote(svg)
 
 
+def page_icon_svg(key: str, size_rem: float = 2.8, color: str = "white") -> str:
+    """HTML de un SVG inline con el mismo ícono que el sidebar, para usar
+    como reemplazo de emoticons en los page headers. size_rem = tamaño en rem
+    (2.8rem por defecto, igual al emoticon original)."""
+    inner = _ICON_PATHS.get(key, "")
+    return (
+        f'<span style="display:inline-flex;align-items:center;justify-content:center;'
+        f'width:{size_rem}rem;height:{size_rem}rem;flex-shrink:0;line-height:1;">'
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" '
+        f'viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" '
+        f'stroke-linecap="round" stroke-linejoin="round">{inner}</svg></span>'
+    )
+
+
 _COL_IDLE = "#94a3b8"     # icono normal
 _COL_ACTIVE = "#ffffff"   # icono del activo
 _ACCENT = "#5b7cfa"

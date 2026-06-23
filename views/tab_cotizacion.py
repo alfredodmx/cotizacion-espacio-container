@@ -10,6 +10,7 @@ import pandas as pd
 import requests as _rq_excel
 import streamlit as st
 import streamlit.components.v1 as components
+from views.sidebar_nav import page_icon_svg as _pi
 from datetime import datetime, timedelta
 from repositories.cotizaciones_repo import guardar_cotizacion, generar_numero_unico
 from services.cotizacion_service import aplicar_margen
@@ -694,7 +695,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
     .metric-card-utilidad    { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
     </style>
     <div class="hdr1" style="display:flex!important;align-items:center!important;">
-      <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">&#9745;&#65039;</span>
+      """ + _pi("presupuesto") + """
       <div style="margin-left:16px;">
         <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.6rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Gesti&#243;n de Presupuesto</div>
         <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Agrega productos, aplica m&#225;rgenes y genera tu cotizaci&#243;n en PDF.</div>

@@ -1,5 +1,6 @@
 import re
 import streamlit as st
+from views.sidebar_nav import page_icon_svg as _pi
 
 from utils.rut import validar_rut, formatear_rut, procesar_cambio_rut, procesar_cambio_rut_empresa
 from utils.telefono import formatear_telefono, _validar_telefono_cliente, procesar_cambio_telefono
@@ -108,7 +109,7 @@ def render_tab_datos_cliente(supabase, supabase_admin, supa_url, supa_key, **dep
                font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 0.01em; }
     </style>
     <div class="hdr2" style="display:flex!important;align-items:center!important;">
-      <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">&#128100;</span>
+      """ + _pi("datos") + """
       <div style="margin-left:16px;">
         <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.6rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Datos del Cliente</div>
         <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Completa la información del cliente y del proyecto antes de guardar.</div>

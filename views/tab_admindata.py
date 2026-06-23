@@ -4,6 +4,7 @@ Código fuente original: app.py líneas 13972-14148
 """
 import streamlit as st
 from config.supabase import supabase_admin as _supa_admin
+from views.sidebar_nav import page_icon_svg as _pi
 
 
 def _listar_usuarios_ej(supa_admin):
@@ -54,7 +55,7 @@ def render_tab_admindata(supabase, supabase_admin=None, **deps):
     .hdr-admindata p { color:rgba(255,255,255,0.65) !important; margin:1px 0 0; font-size:0.92rem; }
     </style>
     <div class="hdr-admindata" style="display:flex!important;align-items:center!important;">
-      <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">&#9888;&#65039;</span>
+      """ + _pi("admindata") + """
       <div style="margin-left:16px;">
         <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.6rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Administraci&#243;n de datos</div>
         <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;line-height:1.2;">Eliminaci&#243;n permanente de presupuestos y archivos &middot; Solo disponible para root</div>

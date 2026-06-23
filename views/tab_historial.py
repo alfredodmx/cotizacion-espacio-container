@@ -10,6 +10,7 @@ import urllib.parse
 import streamlit as st
 import streamlit.components.v1 as components
 from datetime import datetime, timedelta
+from views.sidebar_nav import page_icon_svg as _pi
 
 from repositories.cotizaciones_repo import (
     buscar_cotizaciones, cargar_cotizacion, guardar_cotizacion, generar_numero_unico
@@ -200,7 +201,7 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
         background:rgba(255,255,255,0.03);pointer-events:none; }
     </style>
     <div class="hdr3" style="display:flex!important;align-items:center!important;">
-      <span style="font-size:2.8rem;line-height:1;flex-shrink:0;">📂</span>
+      """ + _pi("cotizaciones") + """
       <div style="margin-left:16px;">
         <div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.6rem;letter-spacing:0.05em;text-transform:uppercase;color:white;line-height:1.1;">Gestión de Cotizaciones</div>
         <div style="font-family:Montserrat,sans-serif;font-weight:300;font-size:0.92rem;color:rgba(255,255,255,0.65);margin-top:2px;">Busca, carga y administra todas las cotizaciones del sistema.</div>
