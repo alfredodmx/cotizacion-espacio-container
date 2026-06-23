@@ -129,16 +129,28 @@ def _render_login_cliente(logo_b64: str, supabase_admin) -> None:
         background-image:none !important;
     }}
     .st-key-cli_login_card {{
-        background-color:rgba(255,255,255,0.10) !important;
-        backdrop-filter:blur(14px) saturate(140%) !important;
-        -webkit-backdrop-filter:blur(14px) saturate(140%) !important;
+        background-color:rgba(255,255,255,0.06) !important;
+        backdrop-filter:blur(7px) saturate(115%) !important;
+        -webkit-backdrop-filter:blur(7px) saturate(115%) !important;
         border-radius:24px !important;
         padding:38px 34px 30px !important;
         box-shadow:0 24px 60px rgba(5,10,20,0.45),0 8px 24px rgba(5,10,20,0.25) !important;
-        border:1px solid rgba(255,255,255,0.22) !important;
+        border:1px solid rgba(255,255,255,0.20) !important;
         animation:cli_card_in 0.55s cubic-bezier(0.16,1,0.3,1) both !important;
         position:relative !important;
-        z-index:50 !important;  /* sobre cli-overlay (z=1) */
+        z-index:50 !important;            /* sobre cli-overlay (z=1) */
+        overflow:hidden !important;       /* clip overflow de hijos */
+        box-sizing:border-box !important;
+    }}
+    /* Forzar que los inputs y botón respeten el padding interno del card */
+    .st-key-cli_login_card div[data-testid="stTextInput"],
+    .st-key-cli_login_card div[data-testid="stButton"],
+    .st-key-cli_login_card [data-testid="stElementContainer"] {{
+        width:100% !important;
+        max-width:100% !important;
+        margin-left:0 !important;
+        margin-right:0 !important;
+        box-sizing:border-box !important;
     }}
     /* La columna que contiene la card también necesita stacking context */
     [data-testid="stColumn"]:has(.st-key-cli_login_card) {{
@@ -307,22 +319,33 @@ def _render_login_cliente(logo_b64: str, supabase_admin) -> None:
     var el = D.querySelector('.st-key-cli_login_card');
     if (!el) return false;
     // Card wrapper glass
-    el.style.setProperty('background-color', 'rgba(255,255,255,0.10)', 'important');
-    el.style.setProperty('backdrop-filter', 'blur(14px) saturate(140%)', 'important');
-    el.style.setProperty('-webkit-backdrop-filter', 'blur(14px) saturate(140%)', 'important');
+    el.style.setProperty('background-color', 'rgba(255,255,255,0.06)', 'important');
+    el.style.setProperty('backdrop-filter', 'blur(7px) saturate(115%)', 'important');
+    el.style.setProperty('-webkit-backdrop-filter', 'blur(7px) saturate(115%)', 'important');
     el.style.setProperty('position', 'relative', 'important');
     el.style.setProperty('z-index', '50', 'important');
-    // Wrappers internos transparentes
+    el.style.setProperty('overflow', 'hidden', 'important');
+    el.style.setProperty('box-sizing', 'border-box', 'important');
+    // Wrappers internos transparentes Y restringidos en width
     el.querySelectorAll('div').forEach(function(d){
       var tid = d.getAttribute && d.getAttribute('data-testid');
       if (tid === 'stVerticalBlockBorderWrapper' || tid === 'stVerticalBlock') {
         d.style.setProperty('background-color', 'transparent', 'important');
+        d.style.setProperty('width', '100%', 'important');
+        d.style.setProperty('max-width', '100%', 'important');
+        d.style.setProperty('box-sizing', 'border-box', 'important');
       }
-      if (tid === 'stTextInput') {
-        // Wrapper del input completo
-        d.querySelectorAll('div').forEach(function(sub){
-          sub.style.setProperty('background-color', 'transparent', 'important');
-        });
+      if (tid === 'stTextInput' || tid === 'stButton' || tid === 'stElementContainer') {
+        d.style.setProperty('width', '100%', 'important');
+        d.style.setProperty('max-width', '100%', 'important');
+        d.style.setProperty('margin-left', '0', 'important');
+        d.style.setProperty('margin-right', '0', 'important');
+        d.style.setProperty('box-sizing', 'border-box', 'important');
+        if (tid === 'stTextInput') {
+          d.querySelectorAll('div').forEach(function(sub){
+            sub.style.setProperty('background-color', 'transparent', 'important');
+          });
+        }
       }
     });
     // Inputs GLASS — forzar bg semi-transparente y color blanco
