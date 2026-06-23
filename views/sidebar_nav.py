@@ -117,14 +117,14 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
     # regla de transparencia, e incluye los wrappers internos, para que no se
     # transparente y no se vea el contenido que scrollea detrás).
     css.append(
-        f'section[data-testid="stSidebar"] .st-key-_sb_bottom,'
-        f'section[data-testid="stSidebar"] .st-key-_sb_bottom [data-testid="stVerticalBlockBorderWrapper"],'
-        f'section[data-testid="stSidebar"] .st-key-_sb_bottom [data-testid="stVerticalBlock"]'
-        f'{{background:#0b1220!important;}}'
-        f'section[data-testid="stSidebar"] .st-key-_sb_bottom'
+        f'.st-key-_sb_bottom,'
+        f'.st-key-_sb_bottom [data-testid="stVerticalBlockBorderWrapper"],'
+        f'.st-key-_sb_bottom [data-testid="stVerticalBlock"]'
+        f'{{background:#0b1220!important;border:none!important;box-shadow:none!important;}}'
+        f'.st-key-_sb_bottom'
         f'{{position:fixed!important;bottom:0!important;left:0!important;width:{ancho}!important;'
         f'z-index:6!important;box-sizing:border-box!important;'
-        f'padding:8px 0.3rem 10px!important;box-shadow:0 -8px 16px rgba(11,18,32,0.9)!important;}}'
+        f'padding:8px 0.3rem 10px!important;box-shadow:0 -8px 16px rgba(11,18,32,0.9)!important;overflow:hidden!important;}}'
     )
     # Ocultar el header nativo del sidebar (la barra superior de Streamlit con el
     # botón de colapso) — es lo que metía el gran espacio arriba. Usamos el nuestro.
@@ -179,49 +179,97 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
     # Cuando NO está colapsado: el ícono tiene margin-right para separarse del texto
     _toggle_margin = '0 8px 0 0' if not colapsado else '0'
     css.append(
-        'section[data-testid="stSidebar"] .st-key-_sb_toggle button{width:100%!important;'
+        '.st-key-_sb_toggle button{width:100%!important;'
         'justify-content:center!important;background:transparent!important;border:none!important;'
         'box-shadow:none!important;color:#94a3b8!important;border-radius:10px!important;'
         'padding:9px 0!important;min-height:0!important;overflow:visible!important;}'
-        'section[data-testid="stSidebar"] .st-key-_sb_toggle button:hover'
+        '.st-key-_sb_toggle button:hover'
         '{background:transparent!important;border:none!important;border-color:transparent!important;color:#cbd5e1!important;}'
-        'section[data-testid="stSidebar"] .st-key-_sb_toggle button:focus,'
-        'section[data-testid="stSidebar"] .st-key-_sb_toggle button:active'
+        '.st-key-_sb_toggle button:focus,'
+        '.st-key-_sb_toggle button:active'
         '{background:transparent!important;border:none!important;box-shadow:none!important;color:#94a3b8!important;}'
-        f'section[data-testid="stSidebar"] .st-key-_sb_toggle button::before{{content:"";flex-shrink:0;'
+        f'.st-key-_sb_toggle button::before{{content:"";flex-shrink:0;'
         f'width:20px;height:20px;margin:{_toggle_margin};'
         f'background:url("{_svg_uri("_expand" if colapsado else "_collapse", _COL_IDLE)}") no-repeat center/contain;}}'
     )
     if colapsado:
+        # ── Base del sidebar colapsado ────────────────────────────────────────
         css.append(
-            # Eliminar TODO el padding/margin de los contenedores del sidebar colapsado
             'section[data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding:0!important;margin:0!important;}'
             'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]{padding:54px 0 60px!important;scrollbar-width:none!important;}'
             'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]::-webkit-scrollbar{width:0!important;display:none!important;}'
-            'section[data-testid="stSidebar"] .st-key-_sb_nav,'
-            'section[data-testid="stSidebar"] .st-key-_sb_bottom{padding-left:0!important;padding-right:0!important;width:100%!important;}'
+            'section[data-testid="stSidebar"] .st-key-_sb_nav{padding-left:0!important;padding-right:0!important;width:100%!important;}'
+            '.st-key-_sb_bottom{'
+            'padding:6px 0 8px!important;width:76px!important;box-shadow:none!important;overflow:hidden!important;}'
             'section[data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"],'
             'section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{width:100%!important;margin:0!important;padding:0!important;}'
             'section[data-testid="stSidebar"] [data-testid="stElementContainer"],'
             'section[data-testid="stSidebar"] .stButton{width:100%!important;padding:0!important;margin:0!important;}'
-            # Botón: centrado con justify-content y padding cero
-            'section[data-testid="stSidebar"] .stButton button{'
-            'width:100%!important;display:flex!important;flex-direction:row!important;'
-            'align-items:center!important;justify-content:center!important;'
-            'padding:10px 0!important;gap:0!important;overflow:visible!important;'
-            'min-height:42px!important;}'
-            # Ocultar texto pero no el icono (::before)
-            'section[data-testid="stSidebar"] .stButton button>*{opacity:0!important;width:0!important;overflow:hidden!important;}'
-            # El ::before ya tiene position correcto desde las reglas generales;
-            # aquí forzamos que NO tenga margin y esté centrado en el flex
-            'section[data-testid="stSidebar"] .stButton button::before{'
-            'margin:0 auto!important;align-self:center!important;}'
-            # Toggle (expandir): asegurar que el chevron se vea, centrado y con tamaño
-            'section[data-testid="stSidebar"] .st-key-_sb_toggle button{min-height:44px!important;}'
-            'section[data-testid="stSidebar"] .st-key-_sb_toggle button::before{'
-            'display:inline-block!important;opacity:1!important;width:24px!important;height:24px!important;'
-            'margin:0 auto!important;align-self:center!important;}'
-            # Tooltip visible
+        )
+        # ── Icono vía ::before del div .stButton (no el <button>) ────────────
+        # El <div class="stButton"> sí rellena el 100% del sidebar (76px).
+        # Ponemos el ícono como ::before absolutamente centrado en ese div.
+        # El <button> se hace transparente / invisible para no mostrar texto.
+        # ── Botones de nav: .stButton como posicionamiento, button transparente ─
+        css.append(
+            'section[data-testid="stSidebar"] .st-key-_sb_nav .stButton{'
+            'position:relative!important;height:44px!important;}'
+            'section[data-testid="stSidebar"] .st-key-_sb_nav .stButton button{'
+            'position:absolute!important;inset:0!important;'
+            'background:transparent!important;border:none!important;'
+            'color:transparent!important;box-shadow:none!important;outline:none!important;'
+            'width:100%!important;height:100%!important;z-index:1!important;}'
+            'section[data-testid="stSidebar"] .st-key-_sb_nav .stButton button>*{visibility:hidden!important;}'
+            # Solo ocultamos ::before en los botones de nav (el toggle conserva el suyo)
+            'section[data-testid="stSidebar"] .st-key-_sb_nav .stButton button::before{display:none!important;}'
+        )
+        # ── Ícono centrado de cada ítem de nav via .stButton::before ─────────
+        for it in items:
+            k = it["key"]; ic = it.get("icon", "")
+            _color = _COL_ACTIVE if k == activo else _COL_IDLE
+            _icon_uri = _svg_uri(ic, _color)
+            css.append(
+                f'section[data-testid="stSidebar"] .st-key-nav_{k} .stButton::before{{'
+                f'content:""!important;display:block!important;'
+                f'position:absolute!important;left:50%!important;top:50%!important;'
+                f'transform:translate(-50%,-50%)!important;'
+                f'width:22px!important;height:22px!important;'
+                f'background:url("{_icon_uri}") no-repeat center/contain!important;'
+                f'pointer-events:none!important;z-index:2!important;}}'
+            )
+            if k == activo:
+                css.append(
+                    f'section[data-testid="stSidebar"] .st-key-nav_{k} .stButton{{'
+                    f'background:linear-gradient(135deg,{_ACCENT},#7c5cfa)!important;'
+                    f'border-radius:10px!important;}}'
+                )
+        # ── Toggle (expandir): conserva su button::before original ───────────
+        # La CSS general ya inyectó .st-key-_sb_toggle button::before con el ícono.
+        # Solo ajustamos height del .stButton y escondemos el texto del button.
+        css.append(
+            '.st-key-_sb_toggle{width:76px!important;padding:0!important;margin:0!important;'
+            'display:block!important;}'
+            '.st-key-_sb_toggle .stButton{'
+            'position:relative!important;height:48px!important;width:76px!important;'
+            'padding:0!important;margin:0!important;display:block!important;}'
+            '.st-key-_sb_toggle .stButton button{'
+            'position:absolute!important;left:0!important;top:0!important;'
+            'width:76px!important;height:48px!important;'
+            'background:transparent!important;border:none!important;'
+            'color:transparent!important;box-shadow:none!important;outline:none!important;'
+            'padding:0!important;margin:0!important;}'
+            '.st-key-_sb_toggle .stButton button>*{'
+            'visibility:hidden!important;width:0!important;height:0!important;overflow:hidden!important;}'
+            f'.st-key-_sb_toggle .stButton button::before{{'
+            f'content:""!important;display:block!important;'
+            f'position:absolute!important;left:50%!important;top:50%!important;'
+            f'transform:translate(-50%,-50%)!important;margin:0!important;padding:0!important;'
+            f'width:22px!important;height:22px!important;flex:none!important;'
+            f'background:url("{_svg_uri("_expand", _COL_IDLE)}") no-repeat center/contain!important;'
+            f'pointer-events:none!important;}}'
+        )
+        # Tooltip visible al hover
+        css.append(
             'section[data-testid="stSidebar"]{overflow:visible!important;}'
             '[data-baseweb="tooltip"],[role="tooltip"]{z-index:99999!important;}'
         )
@@ -275,8 +323,7 @@ def render_sidebar(items, rol: str, nombre: str) -> str:
         with st.container(key="_sb_nav"):
             for it in items:
                 _lbl = it["label"] if not _colapsado else "\u200b"
-                if st.button(_lbl, key=f"nav_{it['key']}", use_container_width=True,
-                             help=it["label"] if _colapsado else None):
+                if st.button(_lbl, key=f"nav_{it['key']}", use_container_width=True):
                     st.session_state["nav_page"] = it["key"]
                     st.rerun()
 
@@ -288,8 +335,7 @@ def render_sidebar(items, rol: str, nombre: str) -> str:
                 if _cod_html:
                     st.markdown(_cod_html, unsafe_allow_html=True)
             _tlabel = "\u200b" if _colapsado else "Ocultar menú"
-            if st.button(_tlabel, key="_sb_toggle", use_container_width=True,
-                         help="Expandir menú" if _colapsado else "Ocultar menú"):
+            if st.button(_tlabel, key="_sb_toggle", use_container_width=True):
                 st.session_state["_sb_collapsed"] = not _colapsado
                 st.rerun()
 

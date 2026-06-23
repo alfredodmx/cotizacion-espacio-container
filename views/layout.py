@@ -25,7 +25,9 @@ header    { visibility: hidden !important; }
 [data-testid="stToolbar"]          { display: none !important; }
 [data-testid="stDecoration"]       { display: none !important; }
 [data-testid="stStatusWidget"]     { display: none !important; }
-[data-testid="stBottomBlockContainer"] { display: none !important; }
+[data-testid="stBottomBlockContainer"]   { display: none !important; }
+[data-testid="stSidebarCollapsedControl"] { display: none !important; }
+[data-testid="stBottom"]                 { display: none !important; }
 [data-testid="stHeader"]           { display: none !important; height: 0 !important; min-height: 0 !important; }
 [class*="viewerBadge"]             { display: none !important; }
 [class*="ViewerBadge"]             { display: none !important; }
@@ -472,6 +474,72 @@ def render_layout():
 <script>
 (function(){
     var D = window.parent.document;
+
+    // ── Ocultar elementos nativos de Streamlit via <style> inyectado en el parent ──
+    if (!D.getElementById('_ec_hide_native')) {
+        var s = D.createElement('style');
+        s.id = '_ec_hide_native';
+        s.textContent = [
+            '[data-testid="stSidebarCollapsedControl"]{display:none!important;visibility:hidden!important;width:0!important;height:0!important;overflow:hidden!important;}',
+            '[data-testid="stBottom"]{display:none!important;visibility:hidden!important;width:0!important;height:0!important;overflow:hidden!important;}',
+            '[data-testid="stBottomBlockContainer"]{display:none!important;}',
+            '[data-testid="stToolbar"]{display:none!important;}',
+            '[data-testid="stDecoration"]{display:none!important;}',
+            '[data-testid="stStatusWidget"]{display:none!important;}',
+            '[data-testid="stHeader"]{display:none!important;height:0!important;min-height:0!important;}',
+            'header{visibility:hidden!important;}',
+            '#MainMenu{display:none!important;}',
+            'footer{display:none!important;}',
+            '[data-testid="stTooltipIcon"]{display:none!important;}',
+            '.stTooltipIcon{display:none!important;}'
+        ].join('');
+        D.head.appendChild(s);
+    }
+    // ── Anclar _sb_bottom al sidebar (Streamlit lo renderiza via portal fuera del sidebar) ──
+    function fixSbBottom(){
+        var sb = D.querySelector('.st-key-_sb_bottom');
+        if(!sb) return;
+        var sidebar = D.querySelector('section[data-testid="stSidebar"]');
+        var w = sidebar ? sidebar.offsetWidth : 76;
+        sb.style.cssText = 'position:fixed!important;bottom:0!important;left:0!important;width:'+w+'px!important;z-index:6!important;box-sizing:border-box!important;background:#0b1220!important;padding:6px 0 10px 0!important;overflow:hidden!important;';
+        var wrappers = sb.querySelectorAll('[data-testid="stVerticalBlockBorderWrapper"],[data-testid="stVerticalBlock"]');
+        wrappers.forEach(function(el){el.style.background='transparent';el.style.border='none';el.style.boxShadow='none';el.style.padding='0';el.style.margin='0';el.style.width='100%';});
+        // Centrar el botón toggle dentro del _sb_bottom: container 100% width + button width 100%
+        var tg = sb.querySelector('.st-key-_sb_toggle');
+        if (tg) {
+            tg.style.cssText = 'width:100%!important;padding:0!important;margin:0!important;display:block!important;';
+            var stBtn = tg.querySelector('.stButton');
+            if (stBtn) stBtn.style.cssText = 'width:100%!important;padding:0!important;margin:0!important;display:flex!important;align-items:center!important;justify-content:center!important;height:48px!important;';
+            var btn = tg.querySelector('button');
+            if (btn) {
+                btn.style.cssText = 'width:100%!important;height:48px!important;padding:0!important;margin:0!important;background:transparent!important;border:none!important;box-shadow:none!important;outline:none!important;color:transparent!important;display:flex!important;align-items:center!important;justify-content:center!important;';
+                // Insertar un span con ">" centrado, ocultar contenido original
+                if (!btn.querySelector('._ec_toggle_icon')) {
+                    btn.querySelectorAll(':scope > *').forEach(function(c){ c.style.display='none'; });
+                    var ic = D.createElement('span');
+                    ic.className = '_ec_toggle_icon';
+                    ic.textContent = '›';  // single right-pointing angle
+                    ic.style.cssText = 'display:inline-block!important;color:#94a3b8!important;font-size:22px!important;font-weight:400!important;line-height:1!important;font-family:Arial,sans-serif!important;text-align:center!important;';
+                    btn.appendChild(ic);
+                }
+            }
+        }
+    }
+    fixSbBottom();
+    setTimeout(fixSbBottom,200);
+    setTimeout(fixSbBottom,600);
+    setTimeout(fixSbBottom,1500);
+    setTimeout(fixSbBottom,3000);
+    // Ocultar elementos nativos de Streamlit que sobran
+    function nukeUnwanted(){
+        D.querySelectorAll('[data-testid="stSidebarCollapsedControl"]').forEach(function(el){el.remove();});
+        fixSbBottom();
+    }
+    nukeUnwanted();
+    if(!D._ecNukeObs){
+        D._ecNukeObs=new MutationObserver(function(){setTimeout(nukeUnwanted,50);});
+        D._ecNukeObs.observe(D.body,{childList:true,subtree:true});
+    }
 
     function moveButtons() {
         var bar = D.getElementById('_usr_header_bar');
