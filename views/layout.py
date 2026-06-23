@@ -501,12 +501,14 @@ def render_layout():
         if(!sb) return;
         var sidebar = D.querySelector('section[data-testid="stSidebar"]');
         var w = sidebar ? sidebar.offsetWidth : 76;
+        var collapsed = w <= 120;
         sb.style.cssText = 'position:fixed!important;bottom:0!important;left:0!important;width:'+w+'px!important;z-index:6!important;box-sizing:border-box!important;background:#0b1220!important;padding:6px 0 10px 0!important;overflow:hidden!important;';
         var wrappers = sb.querySelectorAll('[data-testid="stVerticalBlockBorderWrapper"],[data-testid="stVerticalBlock"]');
         wrappers.forEach(function(el){el.style.background='transparent';el.style.border='none';el.style.boxShadow='none';el.style.padding='0';el.style.margin='0';el.style.width='100%';});
-        // Centrar el botón toggle dentro del _sb_bottom: container 100% width + button width 100%
+        // Solo centrar el botón toggle con ícono custom cuando está COLAPSADO.
+        // En expandido, dejamos que la CSS de _build_css() renderice el ícono + label normal.
         var tg = sb.querySelector('.st-key-_sb_toggle');
-        if (tg) {
+        if (tg && collapsed) {
             tg.style.cssText = 'width:100%!important;padding:0!important;margin:0!important;display:block!important;';
             var stBtn = tg.querySelector('.stButton');
             if (stBtn) stBtn.style.cssText = 'width:100%!important;padding:0!important;margin:0!important;display:flex!important;align-items:center!important;justify-content:center!important;height:48px!important;';
@@ -522,6 +524,18 @@ def render_layout():
                     ic.style.cssText = 'display:inline-block!important;color:#94a3b8!important;font-size:22px!important;font-weight:400!important;line-height:1!important;font-family:Arial,sans-serif!important;text-align:center!important;';
                     btn.appendChild(ic);
                 }
+            }
+        } else if (tg && !collapsed) {
+            // En expandido: limpiar todo lo que hayamos inyectado y restaurar layout original
+            tg.style.cssText = '';
+            var stBtn = tg.querySelector('.stButton');
+            if (stBtn) stBtn.style.cssText = '';
+            var btn = tg.querySelector('button');
+            if (btn) {
+                btn.style.cssText = '';
+                var ic = btn.querySelector('._ec_toggle_icon');
+                if (ic) ic.remove();
+                btn.querySelectorAll(':scope > *').forEach(function(c){ c.style.display=''; });
             }
         }
     }
