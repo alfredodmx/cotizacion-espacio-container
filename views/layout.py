@@ -752,27 +752,36 @@ def render_preloader() -> None:
       var navWrap = t.closest('[class*="st-key-nav_"]');
       if (navWrap) {{ animateTab(); return; }}
       var inForm = t.closest('form, [data-testid="stForm"]');
-      if (inForm && clickedBtn.type !== 'button') {{ animate(2200); return; }}
+      if (inForm && clickedBtn.type !== 'button') {{
+        // Si #_usr_header_bar existe estamos en la app autenticada → tab preloader.
+        // Si no existe estamos en login → fullscreen oscuro.
+        var inApp = !!D.getElementById('_usr_header_bar');
+        if (inApp) {{ animateTab(); }} else {{ animate(2200); }}
+        return;
+      }}
     }}, true);
   }}
 
   // Safety net: forzar gap de 15px del page header al header fijo.
-  // Necesita setProperty con 'important' porque la CSS universal tiene
-  // margin-top:0!important que ganaría a un style.marginTop normal.
+  // Usa coordenadas DOCUMENT (no viewport) para que el scroll no rompa
+  // el cálculo. El header fijo es position:fixed top:0 → su bottom en doc
+  // coords es siempre 65px (su altura). El page header está en flujo
+  // normal → su position document = rect.top + pageYOffset.
   function enforcePageHeaderGap() {{
     var fixedBar = D.getElementById('_usr_header_bar');
     if (!fixedBar) return;
-    var fixedBottom = fixedBar.getBoundingClientRect().bottom;
+    var fixedH = fixedBar.offsetHeight || 65;  // altura del header fijo
+    var desiredDocTop = fixedH + 15;            // dónde queremos que esté
     var sel = '.page-hdr, .dash-hdr, .hdr1, .hdr2, .hdr3, .hdr6, .hdr7, '
             + '.hdr-admindata, .hdr-contrato, .hdr-notif, .hdr-oper, .hdr-3d, '
             + '.hdr-reporte, .hdr-salud, .hdr-usr, .excel-header, .hdr-formulario';
     var headers = D.querySelectorAll(sel);
     headers.forEach(function(el){{
-      // Reset para medir posición natural
+      // Reset margin para medir posición natural
       el.style.setProperty('margin-top', '0px', 'important');
-      var rect = el.getBoundingClientRect();
-      var desiredTop = fixedBottom + 15;
-      var delta = desiredTop - rect.top;
+      // Coords DOCUMENT (independientes de scroll)
+      var elTopDoc = el.getBoundingClientRect().top + (W.pageYOffset || 0);
+      var delta = desiredDocTop - elTopDoc;
       if (Math.abs(delta) < 2) return;
       el.style.setProperty('margin-top', delta + 'px', 'important');
     }});
