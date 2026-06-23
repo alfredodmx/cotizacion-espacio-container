@@ -38,9 +38,9 @@ a[href*="streamlit.io"]            { display: none !important; }
 a[href*="github.com"]              { display: none !important; }
 button[title="View fullscreen"]    { display: none !important; }
 
-/* ── Espaciado para el header fijo de 65px (SOLO contenido principal, no el sidebar) ── */
+/* ── Espaciado para el header fijo de 50px (SOLO contenido principal, no el sidebar) ── */
 [data-testid="stMain"] {
-    padding-top: 65px !important;
+    padding-top: 50px !important;
 }
 [data-testid="stAppViewContainer"] > section:first-child[data-testid="stSidebar"] {
     padding-top: 0 !important;
@@ -217,21 +217,21 @@ div[data-testid="stDataEditor"] > div {
     color: #2a3060 !important; letter-spacing: -0.01em !important;
     margin: 1rem 0 0.6rem 0 !important;
 }
-.block-container { padding-top: 0.35rem !important; padding-bottom: 3rem !important; }
+.block-container { padding-top: 0 !important; padding-bottom: 3rem !important; }
 
 /* ── Header fijo ── */
 #_usr_header_bar {
-    position: fixed; top: 0; left: 0; right: 0; height: 65px;
+    position: fixed; top: 0; left: 0; right: 0; height: 50px;
     display: flex; align-items: center; padding: 0 1.5rem;
     border-bottom: 1px solid rgba(255,255,255,0.08);
     box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.05);
     z-index: 99998; gap: 12px; transition: background 0.5s ease;
 }
 [data-testid="stDialog"] > div > div {
-    margin-top: 65px !important; max-height: calc(100vh - 65px) !important;
+    margin-top: 50px !important; max-height: calc(100vh - 50px) !important;
 }
 div[role="dialog"] {
-    margin-top: 65px !important; max-height: calc(100vh - 65px) !important;
+    margin-top: 50px !important; max-height: calc(100vh - 50px) !important;
 }
 #_usr_header_bar .usr-right {
     display: flex; align-items: center; gap: 10px;
@@ -348,6 +348,52 @@ def _logo_html() -> str:
     return '<span style="font-size:1.6rem;font-weight:900;background:linear-gradient(135deg,#5b7cfa,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Cotizador PRO</span>'
 
 
+def _logo_b64() -> str:
+    """Devuelve el logo como data-URI base64, o cadena vacía si no existe."""
+    for path in ["logo.png", "assets/logo.png", "images/logo.png"]:
+        if os.path.exists(path):
+            b64 = base64.b64encode(open(path, "rb").read()).decode()
+            return f"data:image/png;base64,{b64}"
+    return ""
+
+
+def _page_headers_css() -> str:
+    """CSS global que unifica los headers de cada pestaña:
+    - Mismo gradiente del sidebar (#0f172a → #0b1220).
+    - Logo a la derecha con proporción ~280px (vía ::after).
+    - Menos margin-top para que queden pegados al header fijo superior.
+    """
+    _selectors = (
+        ".dash-hdr, .hdr-contrato, .hdr-admindata, .hdr1, .hdr2, .hdr3, "
+        ".hdr-notif, .hdr-oper, .hdr6, .hdr7, .hdr-3d, .hdr-reporte, "
+        ".hdr-salud, .hdr-usr"
+    )
+    _logo_uri = _logo_b64()
+    _logo_after = ""
+    if _logo_uri:
+        _after_sel = ", ".join(s.strip() + "::after" for s in _selectors.split(","))
+        _logo_after = (
+            f"{_after_sel} {{"
+            f"content:''!important;position:absolute!important;top:50%!important;"
+            f"right:24px!important;transform:translateY(-50%)!important;"
+            f"width:240px!important;height:60px!important;"
+            f"background-image:url('{_logo_uri}')!important;"
+            f"background-size:contain!important;background-repeat:no-repeat!important;"
+            f"background-position:right center!important;pointer-events:none!important;"
+            f"z-index:2!important;}}"
+        )
+    return (
+        "<style>"
+        f"{_selectors}{{"
+        "background:linear-gradient(180deg,#0f172a 0%,#0b1220 100%)!important;"
+        "margin-top:0!important;margin-bottom:18px!important;"
+        "padding-right:280px!important;position:relative!important;"
+        "border:none!important;}"
+        f"{_logo_after}"
+        "</style>"
+    )
+
+
 # ── Dialog cambio de contraseña ───────────────────────────────────────────────
 
 @st.dialog("🔑 Cambiar contraseña")
@@ -392,6 +438,8 @@ def render_layout():
     """
     # 1. CSS global
     st.markdown(_CSS_GLOBAL, unsafe_allow_html=True)
+    # 1b. Unificación de page headers (gradiente sidebar + logo a la derecha)
+    st.markdown(_page_headers_css(), unsafe_allow_html=True)
 
     # 3. Header fijo — badge cotización + usuario
     _nombre    = st.session_state.get("auth_nombre") or st.session_state.get("auth_email", "")
