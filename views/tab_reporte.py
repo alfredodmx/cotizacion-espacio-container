@@ -29,6 +29,17 @@ def render_tab_reporte(supabase, supabase_admin=None, **deps):
         st.info("&#128274; Esta sección es solo para administradores.")
         return
 
+    # El header va PRIMERO siempre para mantener el gap uniforme con la
+    # barra fija superior. El período se lee de session_state (la última
+    # selección persiste tras st.rerun); si no existe aún, default "Último mes".
+    _rep_periodo_label = st.session_state.get("rep_periodo", "&#218;ltimo mes")
+
+    render_page_header(
+        "reporte",
+        "Reporte de Inteligencia Comercial",
+        f"Espacio Container House SpA &middot; Per&#237;odo: {_rep_periodo_label} &middot; Solo admin y root",
+    )
+
     _rep_periodo = st.selectbox(
         "Per&#237;odo",
         ["&#218;ltimo mes", "&#218;ltimos 3 meses", "&#218;ltimos 6 meses", "Todo el tiempo"],
@@ -40,12 +51,6 @@ def render_tab_reporte(supabase, supabase_admin=None, **deps):
         "&#218;ltimos 6 meses": 180,
         "Todo el tiempo": 36500
     }[_rep_periodo]
-
-    render_page_header(
-        "reporte",
-        "Reporte de Inteligencia Comercial",
-        f"Espacio Container House SpA &middot; Per&#237;odo: {_rep_periodo} &middot; Solo admin y root",
-    )
 
     from datetime import datetime as _dt, timedelta as _td
     import json as _json_rep

@@ -412,7 +412,7 @@ def _page_headers_css() -> str:
         f"{_all}{{"
         f"background:{_bg}!important;"
         "border-radius:20px!important;padding:34px 280px 34px 36px!important;"
-        "margin-top:-70px!important;margin-bottom:28px!important;"
+        "margin-top:-75px!important;margin-bottom:28px!important;"
         "display:flex!important;align-items:center!important;gap:16px!important;"
         "box-shadow:0 8px 32px rgba(15,23,42,0.35)!important;"
         "position:relative!important;overflow:hidden!important;border:none!important;}"
