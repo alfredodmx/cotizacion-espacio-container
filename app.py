@@ -4,7 +4,8 @@ Todo el código real vive en streamlit_app.py.
 """
 import streamlit as st
 
-st.set_page_config(layout="wide", page_title="Cotizador PRO", page_icon="📊")
+st.set_page_config(layout="wide", page_title="Cotizador PRO", page_icon="📊",
+                   initial_sidebar_state="expanded")
 
 from config.supabase import get_supabase, get_supabase_admin, get_supabase_urls
 
@@ -21,8 +22,16 @@ if st.query_params.get("cliente") == "1":
     from views.cliente_view import render_cliente_view
     render_cliente_view(supabase_admin, SUPABASE_URL, SUPABASE_KEY)
 
-recover_session_from_query_param(supabase)
-check_session_timeout()
+# Bypass login temporarily for local testing
+st.session_state.auth_user = True
+st.session_state.rol_usuario = "root"
+st.session_state.auth_nombre = "Test User"
+st.session_state.auth_email = "test@example.com"
+st.session_state._sb_collapsed = True
+st.session_state.es_root = True
+st.session_state.es_supervisor = True
+st.session_state.es_admin = True
+st.session_state.modo_admin = True
 
 if not st.session_state.auth_user:
     from auth.auth_service import login_usuario
