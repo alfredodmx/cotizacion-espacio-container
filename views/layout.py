@@ -762,28 +762,62 @@ def render_preloader() -> None:
     }}, true);
   }}
 
-  // Safety net: forzar gap de 15px del page header al header fijo.
-  // Usa coordenadas DOCUMENT (no viewport) para que el scroll no rompa
-  // el cálculo. El header fijo es position:fixed top:0 → su bottom en doc
-  // coords es siempre 65px (su altura). El page header está en flujo
-  // normal → su position document = rect.top + pageYOffset.
+  // Safety net: forzar gap de 15px del page header al header fijo
+  // Y gap de 20px del page header al primer elemento visible debajo.
+  // Usa coords DOCUMENT (no viewport) para que el scroll no rompa nada.
   function enforcePageHeaderGap() {{
     var fixedBar = D.getElementById('_usr_header_bar');
     if (!fixedBar) return;
-    var fixedH = fixedBar.offsetHeight || 65;  // altura del header fijo
-    var desiredDocTop = fixedH + 15;            // dónde queremos que esté
+    var fixedH = fixedBar.offsetHeight || 65;
+    var desiredDocTop = fixedH + 15;
     var sel = '.page-hdr, .dash-hdr, .hdr1, .hdr2, .hdr3, .hdr6, .hdr7, '
             + '.hdr-admindata, .hdr-contrato, .hdr-notif, .hdr-oper, .hdr-3d, '
             + '.hdr-reporte, .hdr-salud, .hdr-usr, .excel-header, .hdr-formulario';
     var headers = D.querySelectorAll(sel);
-    headers.forEach(function(el){{
-      // Reset margin para medir posición natural
-      el.style.setProperty('margin-top', '0px', 'important');
-      // Coords DOCUMENT (independientes de scroll)
-      var elTopDoc = el.getBoundingClientRect().top + (W.pageYOffset || 0);
-      var delta = desiredDocTop - elTopDoc;
-      if (Math.abs(delta) < 2) return;
-      el.style.setProperty('margin-top', delta + 'px', 'important');
+    headers.forEach(function(hdr){{
+      // 1) Forzar gap SUPERIOR a 15px
+      hdr.style.setProperty('margin-top', '0px', 'important');
+      var topDoc = hdr.getBoundingClientRect().top + (W.pageYOffset || 0);
+      var deltaT = desiredDocTop - topDoc;
+      if (Math.abs(deltaT) >= 2) {{
+        hdr.style.setProperty('margin-top', deltaT + 'px', 'important');
+      }}
+      // 2) Forzar gap INFERIOR a 20px al primer hermano visible
+      // El page-hdr está dentro de stMarkdownContainer dentro de
+      // stElementContainer. Subimos al stElementContainer y buscamos el
+      // siguiente hermano con altura visible > 5px.
+      var wrap = hdr;
+      for (var i = 0; i < 6 && wrap && wrap.parentElement; i++) {{
+        if (wrap.parentElement.getAttribute && wrap.parentElement.getAttribute('data-testid') === 'stVerticalBlock') break;
+        wrap = wrap.parentElement;
+      }}
+      if (!wrap || !wrap.nextElementSibling) return;
+      // Iterar siblings. Los pequeños/invisibles (height <= 50px) se
+      // colapsan a 0. El primero "real" (>50px) recibe el ajuste para
+      // dejar 20px desde el bottom del page-hdr.
+      var nxt = wrap.nextElementSibling;
+      var guard = 0;
+      var target = null;
+      while (nxt && guard < 30) {{
+        nxt.style.setProperty('margin-top', '0px', 'important');
+        var h = nxt.getBoundingClientRect().height;
+        if (h > 50) {{ target = nxt; break; }}
+        // Sibling pequeño/invisible (típicamente wrappers de elementos
+        // position:fixed o iframes height:0). Colapsar al máximo.
+        nxt.style.setProperty('margin', '0', 'important');
+        nxt.style.setProperty('padding', '0', 'important');
+        nxt.style.setProperty('min-height', '0', 'important');
+        nxt = nxt.nextElementSibling;
+        guard++;
+      }}
+      if (!target) return;
+      var hdrBottomDoc = hdr.getBoundingClientRect().bottom + (W.pageYOffset || 0);
+      var targetTopDoc = target.getBoundingClientRect().top + (W.pageYOffset || 0);
+      var currentGap = targetTopDoc - hdrBottomDoc;
+      var deltaB = 20 - currentGap;
+      if (Math.abs(deltaB) >= 2) {{
+        target.style.setProperty('margin-top', deltaB + 'px', 'important');
+      }}
     }});
   }}
   // Corre al cargar y en cada rerun (DOM cambios) via observer
