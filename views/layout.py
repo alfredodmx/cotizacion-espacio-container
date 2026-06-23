@@ -39,11 +39,17 @@ a[href*="github.com"]              { display: none !important; }
 button[title="View fullscreen"]    { display: none !important; }
 
 /* ── Espaciado para el header fijo de 65px + 15px gap = 80px (SOLO contenido principal, no el sidebar) ── */
-[data-testid="stMain"] {
+/* Anulamos padding-top en TODOS los wrappers de Streamlit y lo ponemos
+   solo en .block-container — así no importa qué intermediarios meta
+   Streamlit, el espacio se calcula desde el contenedor real. */
+[data-testid="stMain"],
+[data-testid="stMainBlockContainer"],
+[data-testid="stAppViewContainer"] {
     padding-top: 0 !important;
 }
-[data-testid="stMainBlockContainer"] {
-    padding-top: 80px !important;
+.stApp > header,
+[data-testid="stHeader"] {
+    display: none !important; height: 0 !important;
 }
 [data-testid="stAppViewContainer"] > section:first-child[data-testid="stSidebar"] {
     padding-top: 0 !important;
@@ -220,7 +226,7 @@ div[data-testid="stDataEditor"] > div {
     color: #2a3060 !important; letter-spacing: -0.01em !important;
     margin: 1rem 0 0.6rem 0 !important;
 }
-.block-container { padding-top: 0 !important; padding-bottom: 3rem !important; }
+.block-container { padding-top: 80px !important; padding-bottom: 3rem !important; }
 
 /* ── Header fijo ── */
 #_usr_header_bar {
@@ -748,6 +754,44 @@ def render_preloader() -> None:
       var inForm = t.closest('form, [data-testid="stForm"]');
       if (inForm && clickedBtn.type !== 'button') {{ animate(2200); return; }}
     }}, true);
+  }}
+
+  // Safety net: forzar gap de 15px del page header al header fijo.
+  // Algunos wrappers de Streamlit Cloud meten padding-top que la CSS no
+  // captura. JS calcula el delta real y ajusta margin-top del primer
+  // page header encontrado.
+  function enforcePageHeaderGap() {{
+    var fixedBar = D.getElementById('_usr_header_bar');
+    if (!fixedBar) return;
+    var fixedBottom = fixedBar.getBoundingClientRect().bottom;
+    var sel = '.page-hdr, .dash-hdr, .hdr1, .hdr2, .hdr3, .hdr6, .hdr7, '
+            + '.hdr-admindata, .hdr-contrato, .hdr-notif, .hdr-oper, .hdr-3d, '
+            + '.hdr-reporte, .hdr-salud, .hdr-usr, .excel-header, .hdr-formulario';
+    var headers = D.querySelectorAll(sel);
+    headers.forEach(function(el){{
+      // Reset margin-top to medir posición natural
+      el.style.marginTop = '0px';
+      var rect = el.getBoundingClientRect();
+      var desiredTop = fixedBottom + 15;
+      var delta = desiredTop - rect.top;
+      // Si ya está por encima del desired (gap negativo), no movemos
+      if (Math.abs(delta) < 2) return;
+      el.style.marginTop = delta + 'px';
+    }});
+  }}
+  // Corre al cargar y en cada rerun (DOM cambios) via observer
+  enforcePageHeaderGap();
+  setTimeout(enforcePageHeaderGap, 300);
+  setTimeout(enforcePageHeaderGap, 1200);
+  if (!D._ec_gap_obs) {{
+    try {{
+      D._ec_gap_obs = new MutationObserver(function(){{
+        clearTimeout(D._ec_gap_t);
+        D._ec_gap_t = setTimeout(enforcePageHeaderGap, 80);
+      }});
+      var mainEl = D.querySelector('[data-testid="stMain"]') || D.body;
+      D._ec_gap_obs.observe(mainEl, {{ childList: true, subtree: true }});
+    }} catch(e) {{}}
   }}
 }})();
 </script>
