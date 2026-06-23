@@ -349,8 +349,9 @@ def _logo_html() -> str:
 
 
 def _logo_b64() -> str:
-    """Devuelve el logo (logo2.png con fallback a logo.png) como data-URI base64."""
-    for path in ["logo2.png", "assets/logo2.png", "images/logo2.png",
+    """Devuelve el logo (logo3.png con fallback a logo2.png/logo.png) como data-URI base64."""
+    for path in ["logo3.png", "assets/logo3.png", "images/logo3.png",
+                 "logo2.png", "assets/logo2.png", "images/logo2.png",
                  "logo.png", "assets/logo.png", "images/logo.png"]:
         if os.path.exists(path):
             b64 = base64.b64encode(open(path, "rb").read()).decode()
@@ -358,19 +359,36 @@ def _logo_b64() -> str:
     return ""
 
 
-def _page_headers_css() -> str:
-    """CSS global que unifica los headers de cada pestaña:
-    - Mismo gradiente del sidebar (#0f172a → #0b1220) + logo2.png a la derecha
-      como segundo background-image (preserva pseudo-elementos existentes con
-      círculos decorativos en algunos headers).
-    - Margin-top:0 — la separación de 20px viene del padding-top del
-      block-container.
+def render_page_header(icon_key: str, title: str, subtitle: str) -> None:
+    """Plantilla universal de page header (basada en .hdr1 — presupuesto).
+
+    Genera un header con:
+    - Gradiente del sidebar (#0f172a → #0b1220)
+    - Logo a la derecha (logo3.png)
+    - 2 círculos decorativos (::before y ::after)
+    - Ícono SVG del sidebar a la izquierda (2.8rem)
+    - Título Montserrat 900 / 1.6rem / uppercase / white
+    - Subtítulo Montserrat 300 / 0.92rem / rgba(255,255,255,0.65)
     """
-    _selectors = (
-        ".dash-hdr, .hdr-contrato, .hdr-admindata, .hdr1, .hdr2, .hdr3, "
-        ".hdr-notif, .hdr-oper, .hdr6, .hdr7, .hdr-3d, .hdr-reporte, "
-        ".hdr-salud, .hdr-usr, .excel-header, .hdr-formulario"
+    from views.sidebar_nav import page_icon_svg
+    st.markdown(
+        '<div class="page-hdr">'
+        + page_icon_svg(icon_key)
+        + '<div class="page-hdr-text">'
+        + f'<div class="page-hdr-title">{title}</div>'
+        + f'<div class="page-hdr-subtitle">{subtitle}</div>'
+        + '</div></div>',
+        unsafe_allow_html=True,
     )
+
+
+def _page_headers_css() -> str:
+    """CSS de la plantilla universal `.page-hdr` (basada en .hdr1).
+
+    Reemplaza los headers heredados (.dash-hdr, .hdr1..7, .hdr-*, etc.):
+    cualquier tab que aún use clases antiguas también recibe la unificación
+    via el bloque de overrides.
+    """
     _logo_uri = _logo_b64()
     _bg = "linear-gradient(180deg,#0f172a 0%,#0b1220 100%)"
     if _logo_uri:
@@ -378,13 +396,49 @@ def _page_headers_css() -> str:
             f"url('{_logo_uri}') right 24px center / 240px 60px no-repeat, "
             f"linear-gradient(180deg,#0f172a 0%,#0b1220 100%)"
         )
+    # Headers legacy (clases antiguas) — fuerza misma apariencia que .page-hdr
+    _legacy = (
+        ".dash-hdr, .hdr-contrato, .hdr-admindata, .hdr1, .hdr2, .hdr3, "
+        ".hdr-notif, .hdr-oper, .hdr6, .hdr7, .hdr-3d, .hdr-reporte, "
+        ".hdr-salud, .hdr-usr, .excel-header, .hdr-formulario"
+    )
+    _all = ".page-hdr, " + _legacy
+    # Selectores hijos para forzar tipografía
+    _title_sel = ", ".join(f"{s} > div > div:first-child" for s in _all.split(", ")) + ", .page-hdr-title"
+    _subtitle_sel = ", ".join(f"{s} > div > div:nth-child(2)" for s in _all.split(", ")) + ", .page-hdr-subtitle"
     return (
         "<style>"
-        f"{_selectors}{{"
+        # Caja principal
+        f"{_all}{{"
         f"background:{_bg}!important;"
-        "margin-top:-70px!important;margin-bottom:18px!important;"
-        "padding-right:280px!important;position:relative!important;"
-        "border:none!important;}"
+        "border-radius:20px!important;padding:34px 280px 34px 36px!important;"
+        "margin-top:-70px!important;margin-bottom:28px!important;"
+        "display:flex!important;align-items:center!important;gap:16px!important;"
+        "box-shadow:0 8px 32px rgba(15,23,42,0.35)!important;"
+        "position:relative!important;overflow:hidden!important;border:none!important;}"
+        # Círculo decorativo 1 (arriba-derecha)
+        f"{', '.join(s + '::before' for s in _all.split(', '))}{{"
+        "content:''!important;position:absolute!important;top:-40px!important;right:-40px!important;"
+        "width:180px!important;height:180px!important;border-radius:50%!important;"
+        "background:rgba(255,255,255,0.04)!important;pointer-events:none!important;}"
+        # Círculo decorativo 2 (abajo-derecha)
+        f"{', '.join(s + '::after' for s in _all.split(', '))}{{"
+        "content:''!important;position:absolute!important;bottom:-60px!important;right:80px!important;"
+        "width:240px!important;height:240px!important;border-radius:50%!important;"
+        "background:rgba(255,255,255,0.03)!important;pointer-events:none!important;}"
+        # Tipografía del título
+        f"{_title_sel}{{"
+        "font-family:'Montserrat',sans-serif!important;font-weight:900!important;"
+        "font-size:1.6rem!important;letter-spacing:0.05em!important;"
+        "text-transform:uppercase!important;color:#fff!important;line-height:1.1!important;}"
+        # Tipografía del subtítulo
+        f"{_subtitle_sel}{{"
+        "font-family:'Montserrat',sans-serif!important;font-weight:300!important;"
+        "font-size:0.92rem!important;color:rgba(255,255,255,0.65)!important;"
+        "margin-top:2px!important;line-height:1.2!important;letter-spacing:0.01em!important;"
+        "text-transform:none!important;}"
+        # Wrapper de texto del page-hdr
+        ".page-hdr-text{margin-left:0!important;flex:1!important;min-width:0!important;}"
         "</style>"
     )
 
