@@ -500,42 +500,32 @@ def render_layout():
         var sb = D.querySelector('.st-key-_sb_bottom');
         if(!sb) return;
         var sidebar = D.querySelector('section[data-testid="stSidebar"]');
-        var w = sidebar ? sidebar.offsetWidth : 76;
+        if (!sidebar) return;
+        var w = sidebar.offsetWidth;
         var collapsed = w <= 120;
+        // Limpiar cualquier span custom previo (de versiones anteriores del JS)
+        var oldIc = sb.querySelector('._ec_toggle_icon');
+        if (oldIc) oldIc.remove();
         sb.style.cssText = 'position:fixed!important;bottom:0!important;left:0!important;width:'+w+'px!important;z-index:6!important;box-sizing:border-box!important;background:#0b1220!important;padding:6px 0 10px 0!important;overflow:hidden!important;';
         var wrappers = sb.querySelectorAll('[data-testid="stVerticalBlockBorderWrapper"],[data-testid="stVerticalBlock"]');
         wrappers.forEach(function(el){el.style.background='transparent';el.style.border='none';el.style.boxShadow='none';el.style.padding='0';el.style.margin='0';el.style.width='100%';});
-        // Solo centrar el botón toggle con ícono custom cuando está COLAPSADO.
-        // En expandido, dejamos que la CSS de _build_css() renderice el ícono + label normal.
+        // Centrar el botón toggle dentro del _sb_bottom. La CSS de _build_css()
+        // renderiza el ícono SVG vía ::before, solo necesitamos asegurar que el
+        // button llene la columna y use flex centering.
         var tg = sb.querySelector('.st-key-_sb_toggle');
-        if (tg && collapsed) {
+        if (tg) {
             tg.style.cssText = 'width:100%!important;padding:0!important;margin:0!important;display:block!important;';
             var stBtn = tg.querySelector('.stButton');
-            if (stBtn) stBtn.style.cssText = 'width:100%!important;padding:0!important;margin:0!important;display:flex!important;align-items:center!important;justify-content:center!important;height:48px!important;';
+            if (stBtn) stBtn.style.cssText = 'width:100%!important;padding:0!important;margin:0!important;display:flex!important;align-items:center!important;justify-content:center!important;';
             var btn = tg.querySelector('button');
             if (btn) {
-                btn.style.cssText = 'width:100%!important;height:48px!important;padding:0!important;margin:0!important;background:transparent!important;border:none!important;box-shadow:none!important;outline:none!important;color:transparent!important;display:flex!important;align-items:center!important;justify-content:center!important;';
-                // Insertar un span con ">" centrado, ocultar contenido original
-                if (!btn.querySelector('._ec_toggle_icon')) {
-                    btn.querySelectorAll(':scope > *').forEach(function(c){ c.style.display='none'; });
-                    var ic = D.createElement('span');
-                    ic.className = '_ec_toggle_icon';
-                    ic.textContent = '›';  // single right-pointing angle
-                    ic.style.cssText = 'display:inline-block!important;color:#94a3b8!important;font-size:22px!important;font-weight:400!important;line-height:1!important;font-family:Arial,sans-serif!important;text-align:center!important;';
-                    btn.appendChild(ic);
-                }
-            }
-        } else if (tg && !collapsed) {
-            // En expandido: limpiar todo lo que hayamos inyectado y restaurar layout original
-            tg.style.cssText = '';
-            var stBtn = tg.querySelector('.stButton');
-            if (stBtn) stBtn.style.cssText = '';
-            var btn = tg.querySelector('button');
-            if (btn) {
-                btn.style.cssText = '';
-                var ic = btn.querySelector('._ec_toggle_icon');
-                if (ic) ic.remove();
+                // Asegurar visibilidad de los hijos originales (puede haber estado oculto por versiones previas)
                 btn.querySelectorAll(':scope > *').forEach(function(c){ c.style.display=''; });
+                if (collapsed) {
+                    btn.style.cssText = 'width:100%!important;height:48px!important;padding:0!important;margin:0!important;background:transparent!important;border:none!important;box-shadow:none!important;outline:none!important;color:transparent!important;display:flex!important;align-items:center!important;justify-content:center!important;';
+                } else {
+                    btn.style.cssText = '';
+                }
             }
         }
     }
@@ -578,6 +568,14 @@ def render_layout():
     setTimeout(function(){fixSbBottom();fixSbNav();},600);
     setTimeout(function(){fixSbBottom();fixSbNav();},1500);
     setTimeout(function(){fixSbBottom();fixSbNav();},3000);
+    // ResizeObserver: re-sincronizar width de _sb_bottom cuando la sidebar transiciona
+    if (!D._ecSbResizeObs) {
+        var sidebarForObs = D.querySelector('section[data-testid="stSidebar"]');
+        if (sidebarForObs && window.ResizeObserver) {
+            D._ecSbResizeObs = new ResizeObserver(function(){ fixSbBottom(); fixSbNav(); });
+            D._ecSbResizeObs.observe(sidebarForObs);
+        }
+    }
     // Ocultar elementos nativos de Streamlit que sobran
     function nukeUnwanted(){
         D.querySelectorAll('[data-testid="stSidebarCollapsedControl"]').forEach(function(el){el.remove();});
