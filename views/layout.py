@@ -1227,14 +1227,19 @@ def render_layout():
         wrap.className = '_hdr_btns';
         wrap.style.cssText = 'display:flex;align-items:center;gap:6px;margin-left:12px;';
 
+        // SVG inline (estilo Lucide) en lugar de emoticones
+        var _svgKey = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>';
+        var _svgOut = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>';
+        var _btnInner = 'display:inline-flex!important;align-items:center!important;gap:6px!important;';
+
         var cp = D.createElement('button');
-        cp.textContent = '🔑 Mi contraseña';
-        cp.style.cssText = S;
+        cp.innerHTML = _svgKey + '<span>Mi contraseña</span>';
+        cp.style.cssText = S + _btnInner;
         cp.onclick = function(e){ e.preventDefault(); e.stopPropagation(); btnPwd.click(); };
 
         var co = D.createElement('button');
-        co.textContent = '🚪 Cerrar sesión';
-        co.style.cssText = S + 'background:rgba(239,68,68,0.2)!important;border-color:rgba(239,68,68,0.45)!important;';
+        co.innerHTML = _svgOut + '<span>Cerrar sesión</span>';
+        co.style.cssText = S + _btnInner + 'background:rgba(239,68,68,0.2)!important;border-color:rgba(239,68,68,0.45)!important;';
         co.onclick = function(e){ e.preventDefault(); e.stopPropagation(); btnOut.click(); };
 
         wrap.appendChild(cp);

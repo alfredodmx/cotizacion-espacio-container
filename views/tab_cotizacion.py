@@ -320,12 +320,20 @@ def render_floating_panels():
     font-size: 0.95rem !important; font-weight: 700 !important;
     animation: pfab 2s infinite !important; white-space: nowrap !important;
     min-width: 140px !important;
+    display: inline-flex !important; align-items: center !important;
+    justify-content: center !important; gap: 8px !important;
+}
+/* Ícono SVG (save) en lugar del emoticon 💾 */
+.st-key-btn_fab_guardar button::before {
+    content: "" !important; flex-shrink: 0 !important;
+    width: 18px !important; height: 18px !important;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'/%3E%3Cpolyline points='17 21 17 13 7 13 7 21'/%3E%3Cpolyline points='7 3 7 8 15 8'/%3E%3C/svg%3E") no-repeat center/contain !important;
 }
 .st-key-btn_fab_guardar button:hover {
     transform: translateY(-3px) !important; animation: none !important;
 }
 </style>""", unsafe_allow_html=True)
-        if st.button("\U0001f4be Guardar", key="btn_fab_guardar"):
+        if st.button("Guardar", key="btn_fab_guardar"):
             try:
                 dc_g, da_g, proy_g, cfg_g, tots_g, pn_g, pd_g = _construir_datos_guardar_simple()
                 num_g = st.session_state.cotizacion_cargada or generar_numero_unico()
