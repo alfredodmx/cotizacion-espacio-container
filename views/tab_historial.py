@@ -1082,7 +1082,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             _cur_idx = _ep_opts.index(_sel_ep_now) if _sel_ep_now in _ep_opts else 0
             _col_sel, _col_rec_btn = st.columns([4, 1])
             with _col_sel:
-                st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 4px 0;">&#128194; Selecciona una cotizaci&#243;n</div>', unsafe_allow_html=True)
+                st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 4px 0;display:flex;align-items:center;gap:7px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/></svg>Selecciona una cotizaci&#243;n</div>', unsafe_allow_html=True)
                 _ep_pick = st.selectbox(
                     'Selecciona una cotizacion',
                     _ep_opts,
@@ -1141,7 +1141,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                         try:
                             _pdf_log_bytes = _pdf_log_cached(numero_seleccionado, len(_logs_ep))
                             st.download_button(
-                                label=f"&#128203; Descargar historial PDF ({len(_logs_ep)} registros · {_n_mods} modif.)",
+                                label=f"Descargar historial PDF ({len(_logs_ep)} registros · {_n_mods} modif.)",
                                 data=_pdf_log_bytes, file_name=f"historial_{numero_seleccionado}.pdf",
                                 mime="application/pdf", use_container_width=True, key="btn_download_log")
                         except:
@@ -1151,6 +1151,36 @@ var MAT_DATA = """ + _mat_data_json_map + """;
 
             st.markdown("---")
             st.markdown("### Acciones")
+            # Iconos SVG en los botones de acción (data-URI ::before). Soporta
+            # keys exactas (.st-key-X) y prefijos dinámicos ([class*=st-key-X]).
+            def _abtn_svg(sel, svg_path, color="%23475569"):
+                return (
+                    f'{sel} button{{display:inline-flex!important;align-items:center!important;'
+                    f'justify-content:center!important;gap:7px!important;}}'
+                    f'{sel} button::before{{content:""!important;flex-shrink:0!important;'
+                    f'width:16px!important;height:16px!important;'
+                    f'background:url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' '
+                    f'width=\'16\' height=\'16\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'{color}\' '
+                    f'stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E{svg_path}'
+                    f'%3C/svg%3E") no-repeat center/contain!important;}}'
+                )
+            _SVG_FILETXT = "%3Cpath d=\'M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\'/%3E%3Cpath d=\'M14 2v4a2 2 0 0 0 2 2h4\'/%3E%3Cpath d=\'M16 13H8\'/%3E%3Cpath d=\'M16 17H8\'/%3E"
+            _SVG_X = "%3Cpath d=\'M18 6 6 18\'/%3E%3Cpath d=\'m6 6 12 12\'/%3E"
+            _SVG_FOLDER = "%3Cpath d=\'m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2\'/%3E"
+            _SVG_PKG = "%3Cpath d=\'M11 21.7a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7z\'/%3E%3Cpath d=\'M3.3 7 12 12l8.7-5\'/%3E%3Cpath d=\'M12 22V12\'/%3E"
+            _SVG_FILE = "%3Cpath d=\'M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\'/%3E%3Cpath d=\'M14 2v4a2 2 0 0 0 2 2h4\'/%3E"
+            _SVG_LOCK = "%3Crect width=\'18\' height=\'11\' x=\'3\' y=\'11\' rx=\'2\' ry=\'2\'/%3E%3Cpath d=\'M7 11V7a5 5 0 0 1 10 0v4\'/%3E"
+            st.markdown(
+                "<style>"
+                + _abtn_svg(".st-key-btn_download_log", _SVG_FILETXT, "white")
+                + _abtn_svg(".st-key-btn_rechazar_cot", _SVG_X, "%23dc2626")
+                + _abtn_svg(".st-key-btn_cargar_presupuesto", _SVG_FOLDER, "white")
+                + _abtn_svg("[class*='st-key-pdf_compras_']", _SVG_PKG, "white")
+                + _abtn_svg("[class*='st-key-pdf_completo_']", _SVG_FILE, "white")
+                + _abtn_svg("[class*='st-key-pdf_cliente_']", _SVG_LOCK, "white")
+                + "</style>",
+                unsafe_allow_html=True,
+            )
             _rec_status = _rechazo_status_cached(numero_seleccionado)
             _sel_motivo_rec = _rec_status.get("motivo_rechazo", "") or ""
             _sel_adj_check = bool(_rec_status.get("contrato_notariado_url", ""))
@@ -1168,7 +1198,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 else:
                     with _btn_rec_placeholder:
                         st.markdown('<style>.st-key-btn_rechazar_cot button{background-color:#dc2626!important;color:white!important;border:none!important;font-size:0.75rem!important;padding:4px 10px!important;}.st-key-btn_rechazar_cot button:hover{background-color:#b91c1c!important;}</style>', unsafe_allow_html=True)
-                        if st.button("&#10060; Rechazar", use_container_width=True, key="btn_rechazar_cot"):
+                        if st.button("Rechazar", use_container_width=True, key="btn_rechazar_cot"):
                             st.session_state['_show_rechazo_dialog'] = numero_seleccionado
                             st.rerun()
 
@@ -1204,10 +1234,10 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             col_acc1, col_acc0, col_acc2, col_acc3, col_acc5, col_acc4 = st.columns(6)
             with col_acc1:
                 if tiene_margen_seleccionado and not st.session_state.modo_admin:
-                    st.button("&#128194; Cargar presupuesto", use_container_width=True, disabled=True,
+                    st.button("Cargar presupuesto", use_container_width=True, disabled=True,
                               help="No se puede editar un presupuesto autorizado")
                 else:
-                    if st.button("&#128194; Cargar presupuesto", use_container_width=True, key="btn_cargar_presupuesto", type="primary"):
+                    if st.button("Cargar presupuesto", use_container_width=True, key="btn_cargar_presupuesto", type="primary"):
                         tiene_sin_guardar = (len(st.session_state.carrito) > 0 and st.session_state.cotizacion_cargada != numero_seleccionado)
                         if tiene_sin_guardar:
                             st.session_state.mostrar_advertencia_carga = True
@@ -1340,11 +1370,11 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                             _fi_c, _ft_c, _dv_c, _da_compras, margen=0,
                             numero_cotizacion=numero_seleccionado, mostrar_precios=True,
                             fecha_adjudicacion=_fadj_c, fecha_fidelizacion=_ffid_c, plazo_obra_dias=_plazo_c)
-                        st.download_button(label="&#128717; PDF Compras", data=_pdf_compras,
+                        st.download_button(label="PDF Compras", data=_pdf_compras,
                             file_name=f"Compras_{numero_seleccionado}.pdf", mime="application/pdf",
                             use_container_width=True, key=f"pdf_compras_{numero_seleccionado}")
                 else:
-                    st.button("&#128717; PDF Compras", use_container_width=True, disabled=True,
+                    st.button("PDF Compras", use_container_width=True, disabled=True,
                               help="Solo disponible para operaciones, admin y root" if _es_ejecutivo_pdf else None)
 
             with col_acc2:
@@ -1352,11 +1382,11 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                     carrito_df_p, subtotal_p, iva_p, total_p, dc, da, fi, ft, dv, margen_c = preparar_pdf_data(cotizacion_para_pdf)
                     pdf_buffer, _ = generar_pdf_completo(carrito_df_p, subtotal_p, iva_p, total_p, dc, fi, ft, dv, da,
                                                           margen=margen_c, numero_cotizacion=numero_seleccionado)
-                    st.download_button(label="&#128196; PDF Completo", data=pdf_buffer,
+                    st.download_button(label="PDF Completo", data=pdf_buffer,
                         file_name=f"Presupuesto_Completo_{numero_seleccionado}.pdf", mime="application/pdf",
                         use_container_width=True, key=f"pdf_completo_{numero_seleccionado}")
                 else:
-                    st.button("&#128196; PDF Completo", use_container_width=True, disabled=True,
+                    st.button("PDF Completo", use_container_width=True, disabled=True,
                               help="Solo disponible para cotizaciones autorizadas" if _es_ejecutivo_pdf else None)
 
             with col_acc3:
@@ -1366,11 +1396,11 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                     pdf_buffer, _ = generar_pdf_cliente(carrito_df_p, subtotal_p, iva_p, total_p, dc, fi, ft, dv, da,
                                                          margen=margen_c, numero_cotizacion=numero_seleccionado,
                                                          descripciones_ep=_desc_ep)
-                    st.download_button(label="&#128274; PDF Cliente", data=pdf_buffer,
+                    st.download_button(label="PDF Cliente", data=pdf_buffer,
                         file_name=f"Presupuesto_Cliente_{numero_seleccionado}.pdf", mime="application/pdf",
                         use_container_width=True, key=f"pdf_cliente_{numero_seleccionado}")
                 else:
-                    st.button("&#128274; PDF Cliente", use_container_width=True, disabled=True,
+                    st.button("PDF Cliente", use_container_width=True, disabled=True,
                               help="Solo disponible para cotizaciones autorizadas" if _es_ejecutivo_pdf else None)
 
             with col_acc5:
@@ -1480,23 +1510,64 @@ setTimeout(function(){{if(usingGoogle){{try{{var doc=iframe.contentDocument||ifr
                 if tiene_plano: borradores_con_plano += 1
                 else: borradores += 1
         autorizadas_total = autorizadas + autorizadas_con_plano
-        col_e1, col_e2, col_e3, col_e4, col_e5, col_e6 = st.columns(6)
-        stats = [
-            (col_e1, "&#128176; TOTAL COTIZADO", formato_clp(total_cotizado), "total", "Total de cotizaciones"),
-            (col_e2, "&#127802; AUTORIZADAS", str(autorizadas_total), "autorizadas", f"{autorizadas_con_plano} con plano"),
-            (col_e3, "&#129505; BORRADOR C/P", str(borradores_con_plano), "color:#f97316;", "Borradores con plano"),
-            (col_e4, "&#127833; BORRADOR", str(borradores), "borradores", "Borradores sin plano"),
-            (col_e5, "&#128308; INCOMPLETO C/P", str(incompletos_con_plano), "color:#ef4444;", "Incompletos con plano"),
-            (col_e6, "&#128308; INCOMPLETO", str(incompletos), "incompletas", "Incompletos sin plano"),
+        # ── Stat cards: grid responsivo (auto-fit) + estilo potente con SVG ──
+        _SVG_STAT = {
+            "dollar": '<line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+            "check": '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/>',
+            "fileedit": '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><polyline points="14 2 14 8 20 8"/><path d="M10.4 12.6a2 2 0 1 1 3 3L8 21l-4 1 1-4z"/>',
+            "file": '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>',
+            "alert": '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>',
+            "xcircle": '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
+        }
+        def _stat_ic(name, color):
+            return (
+                f'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{color}" '
+                f'stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+                f'{_SVG_STAT.get(name, "")}</svg>'
+            )
+        # (icon, color, título, número, descripción)
+        _stat_cards = [
+            ("dollar",  "#5b7cfa", "Total Cotizado",  formato_clp(total_cotizado),     "Total de cotizaciones"),
+            ("check",   "#10b981", "Autorizadas",     str(autorizadas_total),          f"{autorizadas_con_plano} con plano"),
+            ("fileedit","#f97316", "Borrador C/P",    str(borradores_con_plano),       "Borradores con plano"),
+            ("file",    "#eab308", "Borrador",        str(borradores),                 "Borradores sin plano"),
+            ("alert",   "#ef4444", "Incompleto C/P",  str(incompletos_con_plano),      "Incompletos con plano"),
+            ("xcircle", "#dc2626", "Incompleto",      str(incompletos),                "Incompletos sin plano"),
         ]
-        for col, title, number, css_class, desc in stats:
-            with col:
-                font_size = "1.6rem" if len(number) > 12 else ("2rem" if len(number) > 8 else "2.8rem")
-                if css_class.startswith("color:"):
-                    num_html = f'<div class="stats-number" style="{css_class};font-size:{font_size};">{number}</div>'
-                else:
-                    num_html = f'<div class="stats-number {css_class}" style="font-size:{font_size};">{number}</div>'
-                st.markdown(f'<div class="stats-card"><div class="stats-title">{title}</div>{num_html}<div class="stats-desc">{desc}</div></div>', unsafe_allow_html=True)
+        _cards_html = (
+            '<style>'
+            '.ec-stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));'
+            'gap:14px;margin-top:6px;}'
+            '.ec-stat{position:relative;background:#fff;border-radius:16px;padding:18px 18px 16px;'
+            'border:1px solid #eaedf5;box-shadow:0 4px 18px rgba(15,23,42,0.06);overflow:hidden;'
+            'transition:transform .18s cubic-bezier(.22,1,.36,1),box-shadow .18s;}'
+            '.ec-stat:hover{transform:translateY(-4px);box-shadow:0 14px 34px rgba(15,23,42,0.13);}'
+            '.ec-stat::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;}'
+            '.ec-stat-top{display:flex;align-items:center;gap:9px;margin-bottom:12px;}'
+            '.ec-stat-ico{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;'
+            'justify-content:center;flex-shrink:0;}'
+            '.ec-stat-ttl{font-size:0.66rem;font-weight:800;color:#9099be;text-transform:uppercase;'
+            'letter-spacing:0.07em;line-height:1.15;}'
+            '.ec-stat-num{font-weight:900;line-height:1;letter-spacing:-0.03em;margin-bottom:5px;'
+            'font-family:"Plus Jakarta Sans",sans-serif;}'
+            '.ec-stat-desc{font-size:0.74rem;color:#a0a8c8;font-weight:500;}'
+            '</style><div class="ec-stats-grid">'
+        )
+        for _ic, _col, _ttl, _num, _desc in _stat_cards:
+            _fs = "1.5rem" if len(_num) > 11 else ("1.9rem" if len(_num) > 7 else "2.4rem")
+            _cards_html += (
+                f'<div class="ec-stat" style="--c:{_col};">'
+                f'<div style="position:absolute;top:0;left:0;right:0;height:4px;'
+                f'background:linear-gradient(90deg,{_col},{_col}99);"></div>'
+                f'<div class="ec-stat-top">'
+                f'<div class="ec-stat-ico" style="background:{_col}1a;">{_stat_ic(_ic, _col)}</div>'
+                f'<div class="ec-stat-ttl">{_ttl}</div></div>'
+                f'<div class="ec-stat-num" style="color:{_col};font-size:{_fs};">{_num}</div>'
+                f'<div class="ec-stat-desc">{_desc}</div>'
+                f'</div>'
+            )
+        _cards_html += '</div>'
+        st.markdown(_cards_html, unsafe_allow_html=True)
 
     # Toasts
     if st.session_state.get('_toast_msg'):
