@@ -38,14 +38,18 @@ a[href*="streamlit.io"]            { display: none !important; }
 a[href*="github.com"]              { display: none !important; }
 button[title="View fullscreen"]    { display: none !important; }
 
-/* ── Espaciado para el header fijo de 65px + 15px gap = 80px (SOLO contenido principal, no el sidebar) ── */
-/* Anulamos padding-top en TODOS los wrappers de Streamlit y lo ponemos
-   solo en .block-container — así no importa qué intermediarios meta
-   Streamlit, el espacio se calcula desde el contenedor real. */
+/* ── Espaciado para el header fijo de 65px + 15px gap = 80px
+   SOLUCIÓN PURA CSS (sin JS de gap-enforcement, que era frágil y rompía
+   layouts en reruns). Forzamos padding-top:0 en TODOS los wrappers de
+   Streamlit y aplicamos el padding-top directamente en .block-container.
+   Si Streamlit cambia los testid en el futuro, se agregan acá. */
 [data-testid="stMain"],
 [data-testid="stMainBlockContainer"],
-[data-testid="stAppViewContainer"] {
+[data-testid="stAppViewContainer"],
+.main,
+section.main {
     padding-top: 0 !important;
+    margin-top: 0 !important;
 }
 .stApp > header,
 [data-testid="stHeader"] {
@@ -53,6 +57,36 @@ button[title="View fullscreen"]    { display: none !important; }
 }
 [data-testid="stAppViewContainer"] > section:first-child[data-testid="stSidebar"] {
     padding-top: 0 !important;
+}
+/* Page header margin-top:0 (el padding-top:80px del block-container ya
+   da el espacio del header fijo + gap superior). margin-bottom dado
+   por _page_headers_css (28px). Aquí solo reset margin-top defensivo. */
+.page-hdr, .dash-hdr, .hdr1, .hdr2, .hdr3, .hdr6, .hdr7,
+.hdr-admindata, .hdr-contrato, .hdr-notif, .hdr-oper, .hdr-3d,
+.hdr-reporte, .hdr-salud, .hdr-usr, .excel-header, .hdr-formulario {
+    margin-top: 0 !important;
+}
+
+/* ── COLAPSAR WRAPPERS DE FLOATING ELEMENTS ──────────────────────────────
+   FAB Guardar, popover Margen, Checklist, "Cerrar cotización" oculto, los
+   botones del header (Mi contraseña / Cerrar sesión) y el form de modelo —
+   todos tienen contenido visual con position:fixed (o están display:none),
+   pero sus stElementContainer wrappers SIGUEN en el flujo y empujan al
+   page-hdr hacia abajo ~30-50px por cada uno.
+   Acá los colapsamos a height:0 sin tocar sus hijos. */
+.st-key-btn_fab_guardar,
+.st-key-btn_aplicar_margen,
+.st-key-btn_pwd_hdr,
+.st-key-btn_cerrar_sesion_header,
+.st-key-btn_cerrar_cotizacion,
+.st-key-margen_popover,
+.st-key-_f_modelo,
+[data-testid="stElementContainer"]:has(> div[data-testid="stPopover"]) {
+    height: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;  /* el contenido fixed sale fuera */
 }
 
 /* ── Base ── */
@@ -226,7 +260,10 @@ div[data-testid="stDataEditor"] > div {
     color: #2a3060 !important; letter-spacing: -0.01em !important;
     margin: 1rem 0 0.6rem 0 !important;
 }
-.block-container { padding-top: 80px !important; padding-bottom: 3rem !important; }
+.block-container { padding-bottom: 3rem !important; }
+/* NOTA: padding-top NO se setea aquí — lo calcula dinámicamente el JS
+   syncPageHdrGap() en components.html abajo, midiendo la posición real
+   del page-hdr y ajustando para que quede a 80px del top del viewport. */
 
 /* ── Header fijo ── */
 #_usr_header_bar {
@@ -762,78 +799,58 @@ def render_preloader() -> None:
     }}, true);
   }}
 
-  // Safety net: forzar gap de 15px del page header al header fijo
-  // Y gap de 20px del page header al primer elemento visible debajo.
-  // Usa coords DOCUMENT (no viewport) para que el scroll no rompa nada.
-  function enforcePageHeaderGap() {{
-    var fixedBar = D.getElementById('_usr_header_bar');
-    if (!fixedBar) return;
-    var fixedH = fixedBar.offsetHeight || 65;
-    var desiredDocTop = fixedH + 15;
+  // Sincroniza CSS variable --sb-w con el ancho real del sidebar para que
+  // elementos position:fixed (popovers, FAB, etc.) lo respeten dinámicamente
+  // al colapsar/expandir. ResizeObserver es muy estable.
+  function syncSidebarWidth(){{
+    var sb = D.querySelector('section[data-testid="stSidebar"]');
+    var w = sb ? sb.offsetWidth : 76;
+    D.documentElement.style.setProperty('--sb-w', w + 'px');
+  }}
+  syncSidebarWidth();
+  setTimeout(syncSidebarWidth, 200);
+  setTimeout(syncSidebarWidth, 800);
+  if (!D._ec_sb_w_obs) {{
+    try {{
+      var sb = D.querySelector('section[data-testid="stSidebar"]');
+      if (sb && window.ResizeObserver) {{
+        D._ec_sb_w_obs = new ResizeObserver(syncSidebarWidth);
+        D._ec_sb_w_obs.observe(sb);
+      }}
+    }} catch(e) {{}}
+  }}
+
+  // Robust gap: mide la posición natural del page-hdr (con padding-top:0)
+  // y aplica padding-top al block-container para que el page-hdr quede
+  // exactamente a 80px del top del viewport (65 fixed header + 15 gap).
+  // Se dispara en script load + setTimeouts (NO MutationObserver — eso era
+  // frágil y rompía layouts en reruns). El JS de components.html re-corre
+  // automáticamente en cada rerun de Streamlit, así que el ajuste se
+  // re-evalúa naturalmente sin necesidad de observers.
+  function syncPageHdrGap(){{
+    var bc = D.querySelector('[data-testid="stMainBlockContainer"]');
+    if (!bc) return;
     var sel = '.page-hdr, .dash-hdr, .hdr1, .hdr2, .hdr3, .hdr6, .hdr7, '
             + '.hdr-admindata, .hdr-contrato, .hdr-notif, .hdr-oper, .hdr-3d, '
             + '.hdr-reporte, .hdr-salud, .hdr-usr, .excel-header, .hdr-formulario';
-    var headers = D.querySelectorAll(sel);
-    headers.forEach(function(hdr){{
-      // 1) Forzar gap SUPERIOR a 15px
-      hdr.style.setProperty('margin-top', '0px', 'important');
-      var topDoc = hdr.getBoundingClientRect().top + (W.pageYOffset || 0);
-      var deltaT = desiredDocTop - topDoc;
-      if (Math.abs(deltaT) >= 2) {{
-        hdr.style.setProperty('margin-top', deltaT + 'px', 'important');
-      }}
-      // 2) Forzar gap INFERIOR a 20px al primer hermano visible
-      // El page-hdr está dentro de stMarkdownContainer dentro de
-      // stElementContainer. Subimos al stElementContainer y buscamos el
-      // siguiente hermano con altura visible > 5px.
-      var wrap = hdr;
-      for (var i = 0; i < 6 && wrap && wrap.parentElement; i++) {{
-        if (wrap.parentElement.getAttribute && wrap.parentElement.getAttribute('data-testid') === 'stVerticalBlock') break;
-        wrap = wrap.parentElement;
-      }}
-      if (!wrap || !wrap.nextElementSibling) return;
-      // Iterar siblings. Los pequeños/invisibles (height <= 50px) se
-      // colapsan a 0. El primero "real" (>50px) recibe el ajuste para
-      // dejar 20px desde el bottom del page-hdr.
-      var nxt = wrap.nextElementSibling;
-      var guard = 0;
-      var target = null;
-      while (nxt && guard < 30) {{
-        nxt.style.setProperty('margin-top', '0px', 'important');
-        var h = nxt.getBoundingClientRect().height;
-        if (h > 50) {{ target = nxt; break; }}
-        // Sibling pequeño/invisible (típicamente wrappers de elementos
-        // position:fixed o iframes height:0). Colapsar al máximo.
-        nxt.style.setProperty('margin', '0', 'important');
-        nxt.style.setProperty('padding', '0', 'important');
-        nxt.style.setProperty('min-height', '0', 'important');
-        nxt = nxt.nextElementSibling;
-        guard++;
-      }}
-      if (!target) return;
-      var hdrBottomDoc = hdr.getBoundingClientRect().bottom + (W.pageYOffset || 0);
-      var targetTopDoc = target.getBoundingClientRect().top + (W.pageYOffset || 0);
-      var currentGap = targetTopDoc - hdrBottomDoc;
-      var deltaB = 20 - currentGap;
-      if (Math.abs(deltaB) >= 2) {{
-        target.style.setProperty('margin-top', deltaB + 'px', 'important');
-      }}
-    }});
+    var hdr = D.querySelector(sel);
+    if (!hdr) return;
+    // 1. Reset padding-top a 0 para medir natural
+    bc.style.setProperty('padding-top', '0px', 'important');
+    // 2. Forzar reflow y medir posición VIEWPORT del hdr (ya con padding=0)
+    void bc.offsetHeight;  // forzar reflow
+    var hdrTopViewport = hdr.getBoundingClientRect().top;
+    // 3. Queremos hdr a 80px del top del viewport
+    //    → padding-top del bc = 80 - hdrTopViewport
+    var desired = 80;
+    var pad = Math.max(0, desired - hdrTopViewport);
+    bc.style.setProperty('padding-top', pad + 'px', 'important');
   }}
-  // Corre al cargar y en cada rerun (DOM cambios) via observer
-  enforcePageHeaderGap();
-  setTimeout(enforcePageHeaderGap, 300);
-  setTimeout(enforcePageHeaderGap, 1200);
-  if (!D._ec_gap_obs) {{
-    try {{
-      D._ec_gap_obs = new MutationObserver(function(){{
-        clearTimeout(D._ec_gap_t);
-        D._ec_gap_t = setTimeout(enforcePageHeaderGap, 80);
-      }});
-      var mainEl = D.querySelector('[data-testid="stMain"]') || D.body;
-      D._ec_gap_obs.observe(mainEl, {{ childList: true, subtree: true }});
-    }} catch(e) {{}}
-  }}
+  syncPageHdrGap();
+  setTimeout(syncPageHdrGap, 200);
+  setTimeout(syncPageHdrGap, 800);
+  setTimeout(syncPageHdrGap, 1800);
+
 }})();
 </script>
 """, height=0)

@@ -334,10 +334,11 @@ def render_floating_panels():
             except Exception as _eg:
                 st.error(f"Error al guardar: {_eg}")
 
-    # ── MARGEN FAB (solo admin) ─────────────────────────────────────────────
+    # ── MARGEN FAB (solo admin, solo en pestaña Presupuesto) ──────────────
     _margen_actual = st.session_state.margen
     _mstr = f"{_margen_actual:.3f}"
-    if st.session_state.modo_admin and not _es_solo_lectura_fab:
+    _is_presupuesto_page = st.session_state.get('nav_page') == 'presupuesto'
+    if st.session_state.modo_admin and not _es_solo_lectura_fab and _is_presupuesto_page:
         _color_fab = '#10b981' if _margen_actual > 0 else '#6b7280'
         _pct_bar = min(int(_margen_actual), 100)
         # El sidebar nuevo (sidebar_nav) ocupa la izquierda (76px colapsado /
