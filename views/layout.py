@@ -108,10 +108,10 @@ section.main {
     margin: 0 !important; padding: 0 !important;
     overflow: hidden !important;
 }
-/* 4. Paneles flotantes (FAB, margen, progreso) — wrappers con contenido
-   position:fixed. Sus markdown NO son style-only (tienen el div fixed),
-   por eso los targeteamos por key/contenido. */
-.st-key-btn_fab_guardar,
+/* 4. Wrappers de paneles flotantes cuyo CONTENIDO es position:fixed pero
+   el wrapper sigue en flujo. NO incluir aquí .st-key-btn_fab_guardar:
+   ese wrapper YA es position:fixed (bottom-left) por su propia CSS; si le
+   forzamos position:absolute top:0 aquí, el FAB salta al header. */
 [data-testid="stElementContainer"]:has(> div[data-testid="stPopover"]),
 [data-testid="stElementContainer"]:has(#_prog_panel) {
     position: absolute !important;

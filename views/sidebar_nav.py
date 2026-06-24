@@ -100,10 +100,14 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
     _foot_h = "70px" if colapsado else "112px"
     css = ["<style>"]
     # Contenedor del sidebar: fondo AZUL OSCURO, SIN borde
+    # Transición elegante (cubic-bezier "ease-out-cubic") para colapsar/expandir.
+    _ease = "cubic-bezier(0.22,1,0.36,1)"
+    _t = f"0.32s {_ease}"
     css.append(
         f'section[data-testid="stSidebar"]{{width:{ancho}!important;min-width:{ancho}!important;'
         f'background:linear-gradient(180deg,#0f172a 0%,#0b1220 100%)!important;'
-        f'border-right:none!important;transition:width .18s ease;}}'
+        f'border-right:none!important;'
+        f'transition:width {_t},min-width {_t}!important;will-change:width;}}'
     )
     # Todos los contenedores internos transparentes y SIN borde (se ve el azul)
     css.append(
@@ -125,7 +129,7 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
         f'.st-key-_sb_brand_full,.st-key-_sb_brand_mini'
         f'{{position:fixed!important;top:0!important;left:0!important;width:{ancho}!important;'
         f'z-index:6!important;background:#0f172a!important;box-sizing:border-box!important;'
-        f'padding:10px 12px 8px!important;}}'
+        f'padding:10px 12px 8px!important;transition:width {_t}!important;}}'
     )
     # FOOTER fijo abajo (codigo + toggle) — fondo MACIZO (más específico que la
     # regla de transparencia, e incluye los wrappers internos, para que no se
@@ -138,7 +142,8 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
         f'.st-key-_sb_bottom'
         f'{{position:fixed!important;bottom:0!important;left:0!important;width:{ancho}!important;'
         f'z-index:6!important;box-sizing:border-box!important;'
-        f'padding:8px 0.3rem 10px!important;box-shadow:0 -8px 16px rgba(11,18,32,0.9)!important;overflow:hidden!important;}}'
+        f'padding:8px 0.3rem 10px!important;box-shadow:0 -8px 16px rgba(11,18,32,0.9)!important;'
+        f'overflow:hidden!important;transition:width {_t}!important;}}'
     )
     # Ocultar el header nativo del sidebar (la barra superior de Streamlit con el
     # botón de colapso) — es lo que metía el gran espacio arriba. Usamos el nuestro.
@@ -147,9 +152,10 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
         'section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"]{display:none!important;}'
     )
     # El header fijo arranca despues del sidebar (no lo tapa)
-    css.append(f'#_usr_header_bar{{left:{ancho}!important;transition:left .18s ease;}}')
-    # El FAB flotante de guardar se corre para no quedar sobre el sidebar
-    css.append(f'.st-key-btn_fab_guardar{{left:calc({ancho} + 1.2rem)!important;}}')
+    css.append(f'#_usr_header_bar{{left:{ancho}!important;transition:left {_t}!important;}}')
+    # El FAB flotante de guardar se corre para no quedar sobre el sidebar.
+    # (También se mantiene via --sb-w en tab_cotizacion; acá la transición.)
+    css.append(f'.st-key-btn_fab_guardar{{left:calc({ancho} + 1.2rem)!important;transition:left {_t}!important;}}')
     # Scrollbar fino para el area de navegacion (el contenido scrollea)
     css.append(
         'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]::-webkit-scrollbar{width:6px;}'
