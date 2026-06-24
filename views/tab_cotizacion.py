@@ -293,6 +293,12 @@ def render_floating_panels():
     if st.session_state.get('recien_cargado', False):
         st.session_state.recien_cargado = False
 
+    # NOTA: render_floating_panels() se invoca en app.py DESPUÉS del render de
+    # la página (no antes). Así los wrappers de estos paneles (FAB, margen,
+    # progreso) quedan DESPUÉS del page-hdr en el flujo flex y su `gap` no
+    # empuja el header hacia abajo. Los paneles usan position:fixed, así que
+    # su posición visual no depende de dónde estén en el DOM.
+
     # ── FAB GUARDAR FLOTANTE ────────────────────────────────────────────────
     if _mostrar_fab:
         st.markdown("""
@@ -304,7 +310,8 @@ def render_floating_panels():
 }
 .st-key-btn_fab_guardar {
     position: fixed !important; bottom: 1.5rem !important;
-    left: 2rem !important; z-index: 999999 !important;
+    left: calc(var(--sb-w, 76px) + 1.2rem) !important; z-index: 999999 !important;
+    transition: left .18s ease !important;
 }
 .st-key-btn_fab_guardar button {
     background: linear-gradient(135deg,#5b7cfa,#8b5cf6) !important;

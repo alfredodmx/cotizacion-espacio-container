@@ -43,7 +43,6 @@ from views.layout import render_layout
 render_layout()
 
 from views.tab_cotizacion import render_floating_panels, render_cerrar_cotizacion_control
-render_floating_panels()
 
 _rol = st.session_state.get('rol_usuario', 'ejecutivo')
 _nombre = st.session_state.get('auth_nombre') or st.session_state.get('auth_email', '')
@@ -107,6 +106,12 @@ _pagina = render_sidebar(_items, _rol, _nombre)
 _sel = _PAGES.get(_pagina)
 if _sel:
     _sel[2]()
+
+# Paneles flotantes (FAB Guardar, popover Margen, panel Progreso). Se renderizan
+# DESPUÉS del contenido de la página a propósito: sus wrappers stElementContainer
+# quedan después del page-hdr en el flujo flex, así su `gap` no empuja el header
+# hacia abajo. Los paneles usan position:fixed → posición visual independiente.
+render_floating_panels()
 
 # Control de cierre de cotizacion a nivel GLOBAL y AL FINAL: boton oculto +
 # dialogo accionado por el boton "Cerrar" del header.

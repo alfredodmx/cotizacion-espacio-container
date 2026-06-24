@@ -67,26 +67,67 @@ section.main {
     margin-top: 0 !important;
 }
 
-/* ── COLAPSAR WRAPPERS DE FLOATING ELEMENTS ──────────────────────────────
-   FAB Guardar, popover Margen, Checklist, "Cerrar cotización" oculto, los
-   botones del header (Mi contraseña / Cerrar sesión) y el form de modelo —
-   todos tienen contenido visual con position:fixed (o están display:none),
-   pero sus stElementContainer wrappers SIGUEN en el flujo y empujan al
-   page-hdr hacia abajo ~30-50px por cada uno.
-   Acá los colapsamos a height:0 sin tocar sus hijos. */
+/* ── SACAR DEL FLUJO LOS ELEMENTOS NO-CONTENIDO ──────────────────────────
+   CLAVE: el stVerticalBlock principal usa flexbox con `gap`. El gap se
+   aplica entre TODOS los items, incluso de altura 0. Por eso varios
+   wrappers utilitarios (paneles flotantes, iframes de JS, botones ocultos)
+   acumulaban gap y empujaban el page-hdr ~150px hacia abajo.
+
+   Solución: position:absolute los saca del flujo flex → NO contribuyen gap.
+   Los hijos position:fixed siguen anclados al viewport (sin transform
+   ancestro). Así el page-hdr queda como primer item real y el
+   padding-top:80px del block-container da el gap EXACTO sin JS. */
+
+/* 1. Markdown de SOLO <style> (inyecciones de CSS: _CSS_GLOBAL, page-headers,
+   preloader, estilos de cada tab). El <style> es el único hijo del
+   stMarkdownContainer → no es contenido visible, no debe ocupar flujo.
+   El page-hdr NO se ve afectado: render_page_header renderiza un <div>
+   (sin <style>), así que no matchea. */
+[data-testid="stElementContainer"]:has(> [data-testid="stMarkdown"] [data-testid="stMarkdownContainer"] > style:only-child) {
+    position: absolute !important;
+    top: 0 !important; left: 0 !important;
+    width: 0 !important; height: 0 !important;
+    margin: 0 !important; padding: 0 !important;
+    overflow: hidden !important;
+}
+/* 2. Header fijo + barra usuario (markdown con <style>+<div fixed>) */
+[data-testid="stElementContainer"]:has(#_usr_header_bar) {
+    position: absolute !important;
+    top: 0 !important; left: 0 !important;
+    width: 0 !important; height: 0 !important;
+    margin: 0 !important; padding: 0 !important;
+    overflow: visible !important;
+}
+/* 3. iframes de components.html height=0/1 (JS del layout, preloader, sync,
+   paneles). El iframe puede estar anidado, por eso :has descendente. */
+[data-testid="stElementContainer"]:has(iframe[height="0"]),
+[data-testid="stElementContainer"]:has(iframe[height="1"]) {
+    position: absolute !important;
+    top: 0 !important; left: 0 !important;
+    width: 0 !important; height: 0 !important;
+    margin: 0 !important; padding: 0 !important;
+    overflow: hidden !important;
+}
+/* 4. Paneles flotantes (FAB, margen, progreso) — wrappers con contenido
+   position:fixed. Sus markdown NO son style-only (tienen el div fixed),
+   por eso los targeteamos por key/contenido. */
 .st-key-btn_fab_guardar,
-.st-key-btn_aplicar_margen,
-.st-key-btn_pwd_hdr,
-.st-key-btn_cerrar_sesion_header,
-.st-key-btn_cerrar_cotizacion,
-.st-key-margen_popover,
-.st-key-_f_modelo,
-[data-testid="stElementContainer"]:has(> div[data-testid="stPopover"]) {
-    height: 0 !important;
-    min-height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: visible !important;  /* el contenido fixed sale fuera */
+[data-testid="stElementContainer"]:has(> div[data-testid="stPopover"]),
+[data-testid="stElementContainer"]:has(#_prog_panel) {
+    position: absolute !important;
+    top: 0 !important; left: 0 !important;
+    width: 0 !important; height: 0 !important;
+    margin: 0 !important; padding: 0 !important;
+    overflow: visible !important;
+}
+/* 5. Fila oculta de botones de sesión + botón cerrar oculto */
+[data-testid="stHorizontalBlock"]:has(.st-key-btn_pwd_hdr),
+.st-key-btn_cerrar_cotizacion {
+    position: absolute !important;
+    left: -9999px !important; top: -9999px !important;
+    width: 1px !important; height: 1px !important;
+    overflow: hidden !important;
+    margin: 0 !important; padding: 0 !important;
 }
 
 /* ── Base ── */
@@ -260,10 +301,11 @@ div[data-testid="stDataEditor"] > div {
     color: #2a3060 !important; letter-spacing: -0.01em !important;
     margin: 1rem 0 0.6rem 0 !important;
 }
-.block-container { padding-bottom: 3rem !important; }
-/* NOTA: padding-top NO se setea aquí — lo calcula dinámicamente el JS
-   syncPageHdrGap() en components.html abajo, midiendo la posición real
-   del page-hdr y ajustando para que quede a 80px del top del viewport. */
+/* padding-top:80px = 65 (header fijo) + 15 (gap). Estático, sin JS.
+   Funciona porque los wrappers no-contenido (paneles flotantes, iframes
+   height0, botones ocultos) están position:absolute y NO contribuyen al
+   gap flex, así el page-hdr es el primer item real del block-container. */
+.block-container { padding-top: 80px !important; padding-bottom: 3rem !important; }
 
 /* ── Header fijo ── */
 #_usr_header_bar {
@@ -397,12 +439,8 @@ p.modulo-titulo {
     animation: _ec_sp_spin 1s linear infinite !important;
 }
 
-/* ── Ocultar row de botones de sesión (se clonan al header por JS) ── */
-[data-testid="stHorizontalBlock"]:has(.st-key-btn_pwd_hdr) {
-    position: absolute !important; left: -9999px !important; top: -9999px !important;
-    width: 1px !important; height: 1px !important; overflow: hidden !important;
-    margin: 0 !important; padding: 0 !important;
-}
+/* (La fila oculta de botones de sesión se maneja arriba, junto a los
+   demás elementos sacados del flujo) */
 </style>
 """
 
@@ -819,41 +857,6 @@ def render_preloader() -> None:
       }}
     }} catch(e) {{}}
   }}
-
-  // Robust gap: mide la posición natural del page-hdr (con padding-top:0)
-  // y aplica padding-top al block-container para que el page-hdr quede
-  // exactamente a 80px del top del viewport (65 fixed header + 15 gap).
-  // Se dispara en script load + setTimeouts (NO MutationObserver — eso era
-  // frágil y rompía layouts en reruns). El JS de components.html re-corre
-  // automáticamente en cada rerun de Streamlit, así que el ajuste se
-  // re-evalúa naturalmente sin necesidad de observers.
-  function syncPageHdrGap(){{
-    var bc = D.querySelector('[data-testid="stMainBlockContainer"]');
-    if (!bc) return;
-    var sel = '.page-hdr, .dash-hdr, .hdr1, .hdr2, .hdr3, .hdr6, .hdr7, '
-            + '.hdr-admindata, .hdr-contrato, .hdr-notif, .hdr-oper, .hdr-3d, '
-            + '.hdr-reporte, .hdr-salud, .hdr-usr, .excel-header, .hdr-formulario';
-    var hdr = D.querySelector(sel);
-    if (!hdr) return;
-    // 1. Reset padding-top a 0 y margin-top:0 en hdr para medir natural
-    bc.style.setProperty('padding-top', '0px', 'important');
-    hdr.style.setProperty('margin-top', '0px', 'important');
-    void bc.offsetHeight;  // forzar reflow
-    var hdrTopViewport = hdr.getBoundingClientRect().top;
-    var desired = 80;
-    var delta = desired - hdrTopViewport;
-    if (delta > 0) {{
-      // hdr arriba del target → bajar con padding-top en bc
-      bc.style.setProperty('padding-top', delta + 'px', 'important');
-    }} else if (delta < -2) {{
-      // hdr abajo del target → subir con margin-top negativo en hdr
-      hdr.style.setProperty('margin-top', delta + 'px', 'important');
-    }}
-  }}
-  syncPageHdrGap();
-  setTimeout(syncPageHdrGap, 200);
-  setTimeout(syncPageHdrGap, 800);
-  setTimeout(syncPageHdrGap, 1800);
 
 }})();
 </script>
