@@ -8,6 +8,42 @@ from config.supabase import supabase_admin as _supa_admin
 from views.layout import render_page_header
 
 
+# ── Iconos SVG inline (estilo Lucide) para reemplazar emoticones ──────────────
+_ICON_PATHS_DASH = {
+    "briefcase": '<rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
+    "dollar": '<line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+    "trending": '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+    "refresh": '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/>',
+    "users": '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    "mappin": '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+    "map": '<path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/>',
+    "building": '<rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/>',
+    "zap": '<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>',
+    "calendar": '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+    "trophy": '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+    "package": '<path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/>',
+}
+
+
+def _ic_dash(name, color="#64748b", size=15, mr=7):
+    inner = _ICON_PATHS_DASH.get(name, "")
+    return (
+        f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" '
+        f'stroke="{color}" stroke-width="2" stroke-linecap="round" '
+        f'stroke-linejoin="round" style="vertical-align:-2px;margin-right:{mr}px;'
+        f'flex-shrink:0;">{inner}</svg>'
+    )
+
+
+def _dot_dash(color, size=12):
+    """Punto/cuadro de estado de color (reemplaza 🟩🟧🔴)."""
+    return (
+        f'<span style="display:inline-block;width:{size}px;height:{size}px;'
+        f'border-radius:3px;background:{color};margin-right:8px;'
+        f'vertical-align:-1px;flex-shrink:0;"></span>'
+    )
+
+
 @st.cache_data(ttl=300, show_spinner=False)
 def _cargar_datos_dashboard(periodo='mes'):
     try:
@@ -300,10 +336,10 @@ def render_tab_dashboard(supabase, supabase_admin=None, **deps):
     st.markdown('<div class="section-title">M&#233;tricas clave</div>', unsafe_allow_html=True)
     k1, k2, k3, k4 = st.columns(4)
     kpis = [
-        (k1, "&#128188; Presupuestos", str(_d['total_ep']), _delta_html(_d['delta_ep'])),
-        (k2, "&#128176; Monto total", _fmt_monto(_d['total_monto']), _delta_html(int(_d['delta_monto']), prefix="$")),
-        (k3, "&#128200; Ticket promedio", _fmt_monto(_d['promedio_monto']), '<div class="kpi-delta-neu">por cotizaci&#243;n</div>'),
-        (k4, "&#128260; Pipeline", _fmt_monto(_d['pipeline']), '<div class="kpi-delta-neu">borradores activos</div>'),
+        (k1, _ic_dash("briefcase") + "Presupuestos", str(_d['total_ep']), _delta_html(_d['delta_ep'])),
+        (k2, _ic_dash("dollar") + "Monto total", _fmt_monto(_d['total_monto']), _delta_html(int(_d['delta_monto']), prefix="$")),
+        (k3, _ic_dash("trending") + "Ticket promedio", _fmt_monto(_d['promedio_monto']), '<div class="kpi-delta-neu">por cotizaci&#243;n</div>'),
+        (k4, _ic_dash("refresh") + "Pipeline", _fmt_monto(_d['pipeline']), '<div class="kpi-delta-neu">borradores activos</div>'),
     ]
     for col, label, val, delta in kpis:
         with col:
@@ -320,9 +356,9 @@ def render_tab_dashboard(supabase, supabase_admin=None, **deps):
     st.markdown('<div class="section-title">Embudo de conversi&#243;n</div>', unsafe_allow_html=True)
     _total_ep = _d['total_ep'] or 1
     _funnel_data = [
-        ("&#129001; Autorizados", _d['autorizados'], "#16a34a"),
-        ("&#128992; Borradores",  _d['borradores'],  "#f59e0b"),
-        ("&#128308; Incompletos", _d['incompletos'],  "#ef4444"),
+        (_dot_dash("#16a34a") + "Autorizados", _d['autorizados'], "#16a34a"),
+        (_dot_dash("#f59e0b") + "Borradores",  _d['borradores'],  "#f59e0b"),
+        (_dot_dash("#ef4444") + "Incompletos", _d['incompletos'],  "#ef4444"),
     ]
     col_funnel, col_donut = st.columns([3, 2])
     with col_funnel:
@@ -417,7 +453,7 @@ def render_tab_dashboard(supabase, supabase_admin=None, **deps):
             st.info("Sin datos de ejecutivos.")
 
     # ── Perfil de clientes ──
-    st.markdown('<div class="section-title">&#128101; Perfil de Clientes</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title" style="display:flex;align-items:center;">' + _ic_dash("users", "#94a3b8", 16) + 'Perfil de Clientes</div>', unsafe_allow_html=True)
     _tc = _d.get('top_comunas', [])
     _tr = _d.get('top_regiones', [])
     _nn = _d.get('n_natural', 0)
@@ -437,7 +473,7 @@ def render_tab_dashboard(supabase, supabase_admin=None, **deps):
 
     col_com, col_reg = st.columns(2)
     with col_com:
-        st.markdown('<div class="section-title">&#128205; Top Comunas</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title" style="display:flex;align-items:center;">' + _ic_dash("mappin", "#94a3b8", 16) + 'Top Comunas</div>', unsafe_allow_html=True)
         with st.container(border=True):
             if _tc:
                 _coms   = [x[0] for x in _tc]
@@ -455,7 +491,7 @@ def render_tab_dashboard(supabase, supabase_admin=None, **deps):
                 st.info("Sin datos de comunas a&#250;n")
 
     with col_reg:
-        st.markdown('<div class="section-title">&#128506;&#65039; Top Regiones</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title" style="display:flex;align-items:center;">' + _ic_dash("map", "#94a3b8", 16) + 'Top Regiones</div>', unsafe_allow_html=True)
         with st.container(border=True):
             if _tr:
                 _regs   = [x[0] for x in _tr]
@@ -474,7 +510,7 @@ def render_tab_dashboard(supabase, supabase_admin=None, **deps):
 
     col_tipo, col_gen, col_edad = st.columns(3)
     with col_tipo:
-        st.markdown('<div class="section-title">&#127970; Tipo Cliente</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title" style="display:flex;align-items:center;">' + _ic_dash("building", "#94a3b8", 16) + 'Tipo Cliente</div>', unsafe_allow_html=True)
         with st.container(border=True):
             _total_tipo = _nn + _nj
             if _total_tipo > 0:
@@ -493,7 +529,7 @@ def render_tab_dashboard(supabase, supabase_admin=None, **deps):
                 st.info("Sin datos")
 
     with col_gen:
-        st.markdown('<div class="section-title">&#9889; G&#233;nero Estimado</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title" style="display:flex;align-items:center;">' + _ic_dash("zap", "#94a3b8", 16) + 'G&#233;nero Estimado</div>', unsafe_allow_html=True)
         with st.container(border=True):
             _total_gen = _nm + _nf + _nd_g
             if _total_gen > 0:
@@ -517,7 +553,7 @@ def render_tab_dashboard(supabase, supabase_admin=None, **deps):
                 st.info("Sin datos")
 
     with col_edad:
-        st.markdown('<div class="section-title">&#128197; Rango Etario Est.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title" style="display:flex;align-items:center;">' + _ic_dash("calendar", "#94a3b8", 16) + 'Rango Etario Est.</div>', unsafe_allow_html=True)
         with st.container(border=True):
             _re_f = {k: v for k, v in _re.items() if v > 0}
             if _re_f:
@@ -541,7 +577,7 @@ def render_tab_dashboard(supabase, supabase_admin=None, **deps):
 
     # ── Top empresas ──
     if _te:
-        st.markdown('<div class="section-title">&#127970; Top Empresas Cotizantes</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title" style="display:flex;align-items:center;">' + _ic_dash("building", "#94a3b8", 16) + 'Top Empresas Cotizantes</div>', unsafe_allow_html=True)
         with st.container(border=True):
             _emp_n = [x[0] for x in _te]
             _emp_v = [x[1] for x in _te]
@@ -557,7 +593,7 @@ def render_tab_dashboard(supabase, supabase_admin=None, **deps):
             st.plotly_chart(_fig_emp, use_container_width=True, config={'displayModeBar': False})
 
     # ── Top 30 productos ──
-    st.markdown('<div class="section-title">&#127885; Top 30 productos m&#225;s cotizados</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title" style="display:flex;align-items:center;">' + _ic_dash("package", "#94a3b8", 16) + 'Top 30 productos m&#225;s cotizados</div>', unsafe_allow_html=True)
     if _d.get('top_productos'):
         _max_prod = _d['top_productos'][0][1] or 1
         _html_prods = '<div class="dash-panel">'
