@@ -5,6 +5,30 @@ from views.layout import render_page_header
 from utils.rut import validar_rut, formatear_rut, procesar_cambio_rut, procesar_cambio_rut_empresa
 from utils.telefono import formatear_telefono, _validar_telefono_cliente, procesar_cambio_telefono
 
+
+# ── Iconos SVG inline (estilo Lucide) para reemplazar emoticones ──────────────
+_ICON_PATHS_DC = {
+    "user": '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    "building": '<rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/>',
+    "mappin": '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+    "ruler": '<path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/>',
+    "briefcase": '<rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
+    "calendar": '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+    "clock": '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+    "filetext": '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>',
+    "tag": '<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>',
+}
+
+
+def _ic_dc(name, color="#0f172a", size=15):
+    inner = _ICON_PATHS_DC.get(name, "")
+    return (
+        f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" '
+        f'stroke="{color}" stroke-width="2" stroke-linecap="round" '
+        f'stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;'
+        f'flex-shrink:0;">{inner}</svg>'
+    )
+
 # ── Regiones y comunas ─────────────────────────────────────────────────────────
 REGIONES_COMUNAS = {
     "Arica y Parinacota": ["Arica","Camarones","Putre","General Lagos"],
@@ -132,7 +156,7 @@ def render_tab_datos_cliente(supabase, supabase_admin, supa_url, supa_key, **dep
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             with st.container(border=True):
-                st.markdown("**&#128100; Cliente**")
+                st.markdown('<b style="display:inline-flex;align-items:center;">' + _ic_dc("user") + 'Cliente</b>', unsafe_allow_html=True)
                 _tipo_lbl = "Persona jurídica" if st.session_state.cliente_tipo == "juridica" else "Persona natural"
                 st.caption(f"&#127991; {_tipo_lbl}")
                 st.text_input("Nombre", value=st.session_state.nombre_input, disabled=True, key="nombre_readonly")
@@ -140,35 +164,35 @@ def render_tab_datos_cliente(supabase, supabase_admin, supa_url, supa_key, **dep
                 st.text_input("Correo", value=st.session_state.correo_input, disabled=True, key="correo_readonly")
                 st.text_input("Teléfono", value=st.session_state.telefono_raw, disabled=True, key="telefono_readonly")
                 if st.session_state.cliente_tipo == "juridica":
-                    st.markdown("**&#127970; Empresa**")
+                    st.markdown('<b style="display:inline-flex;align-items:center;">' + _ic_dc("building") + 'Empresa</b>', unsafe_allow_html=True)
                     st.text_input("Razón social", value=st.session_state.cliente_empresa, disabled=True, key="empresa_readonly")
                     st.text_input("RUT empresa", value=st.session_state.cliente_rut_empresa, disabled=True, key="rut_empresa_readonly")
         with col2:
             with st.container(border=True):
-                st.markdown("**&#128205; Cliente**")
+                st.markdown('<b style="display:inline-flex;align-items:center;">' + _ic_dc("mappin") + 'Cliente</b>', unsafe_allow_html=True)
                 st.text_input("Dirección cliente", value=st.session_state.direccion_input, disabled=True, key="direccion_readonly")
                 st.text_input("Comuna cliente", value=st.session_state.cliente_comuna, disabled=True, key="cliente_comuna_readonly")
                 st.text_input("Región cliente", value=st.session_state.cliente_region, disabled=True, key="cliente_region_readonly")
-                st.markdown("**&#127959; Proyecto**")
+                st.markdown('<b style="display:inline-flex;align-items:center;">' + _ic_dc("ruler") + 'Proyecto</b>', unsafe_allow_html=True)
                 st.text_input("Dirección instalación", value=st.session_state.proyecto_direccion, disabled=True, key="proyecto_dir_readonly")
                 st.text_input("Comuna instalación", value=st.session_state.proyecto_comuna, disabled=True, key="proyecto_com_readonly")
                 st.text_input("Región instalación", value=st.session_state.proyecto_region, disabled=True, key="proyecto_reg_readonly")
         with col3:
             with st.container(border=True):
-                st.markdown("**&#128188; Ejecutivo**")
+                st.markdown('<b style="display:inline-flex;align-items:center;">' + _ic_dc("briefcase") + 'Ejecutivo</b>', unsafe_allow_html=True)
                 st.text_input("Asesor", value=st.session_state.asesor_seleccionado, disabled=True, key="asesor_readonly")
                 st.text_input("Correo Ejecutivo", value=st.session_state.correo_asesor, disabled=True, key="correo_asesor_readonly")
                 st.text_input("Teléfono Ejecutivo", value=st.session_state.telefono_asesor, disabled=True, key="telefono_asesor_readonly")
         with col4:
             with st.container(border=True):
-                st.markdown("**&#128197; Validez**")
+                st.markdown('<b style="display:inline-flex;align-items:center;">' + _ic_dc("calendar") + 'Validez</b>', unsafe_allow_html=True)
                 st.date_input("Fecha Inicio", value=fecha_inicio, disabled=True, key="fecha_inicio_readonly")
                 st.date_input("Fecha Término", value=fecha_termino, disabled=True, key="fecha_termino_readonly")
-                st.markdown(f"**&#9201; Duración:** {dias_validez} días")
+                st.markdown('<span style="display:inline-flex;align-items:center;">' + _ic_dc("clock", "#0f172a", 14) + f'<b>Duraci&oacute;n:</b>&nbsp;{dias_validez} d&iacute;as</span>', unsafe_allow_html=True)
                 if dias_validez > 0:
                     st.progress(min(dias_validez/30, 1.0), text=f"{dias_validez} días")
         with st.container(border=True):
-            st.markdown("**&#128221; Descripción del proyecto**")
+            st.markdown('<b style="display:inline-flex;align-items:center;">' + _ic_dc("filetext") + 'Descripci&oacute;n del proyecto</b>', unsafe_allow_html=True)
             st.text_area("Descripción del proyecto", value=st.session_state.observaciones_input,
                          disabled=True, height=80, key="observaciones_readonly")
 
@@ -209,7 +233,7 @@ def render_tab_datos_cliente(supabase, supabase_admin, supa_url, supa_key, **dep
         # ── Columna 1: Cliente ────────────────────────────────────────────────
         with col1:
             with st.container(border=True):
-                st.markdown("**&#128100; Cliente**")
+                st.markdown('<b style="display:inline-flex;align-items:center;">' + _ic_dc("user") + 'Cliente</b>', unsafe_allow_html=True)
 
                 tipo_key = f"cliente_tipo_{st.session_state.counter}"
                 _tipo_options = ["natural", "juridica"]
@@ -289,7 +313,7 @@ def render_tab_datos_cliente(supabase, supabase_admin, supa_url, supa_key, **dep
 
                 if st.session_state.cliente_tipo == "juridica":
                     st.markdown("---")
-                    st.markdown("**&#127970; Empresa**")
+                    st.markdown('<b style="display:inline-flex;align-items:center;">' + _ic_dc("building") + 'Empresa</b>', unsafe_allow_html=True)
                     emp_key = f"cliente_empresa_{st.session_state.counter}"
                     _emp_ok  = bool(str(st.session_state.cliente_empresa).strip())
                     _emp_dot = '<span class="_hb_dot"><span class="_hb_check_wrap"></span><svg style="position:absolute;inset:0;width:20px;height:20px;" viewBox="0 0 20 20"><polyline points="3,10 7.5,14.5 17,5" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' if _emp_ok else '<span class="_hb_dot"><span class="_hb_ring_r"></span><span class="_hb_core_r"></span></span>'
@@ -322,7 +346,7 @@ def render_tab_datos_cliente(supabase, supabase_admin, supa_url, supa_key, **dep
         # ── Columna 2: Dirección ──────────────────────────────────────────────
         with col2:
             with st.container(border=True):
-                st.markdown("**&#128205; Cliente**")
+                st.markdown('<b style="display:inline-flex;align-items:center;">' + _ic_dc("mappin") + 'Cliente</b>', unsafe_allow_html=True)
                 direccion_key = f"direccion_input_{st.session_state.counter}"
                 _dir_ok  = bool(str(st.session_state.direccion_input).strip())
                 _dir_dot = '<span class="_hb_dot"><span class="_hb_check_wrap"></span><svg style="position:absolute;inset:0;width:20px;height:20px;" viewBox="0 0 20 20"><polyline points="3,10 7.5,14.5 17,5" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' if _dir_ok else '<span class="_hb_dot"><span class="_hb_ring_r"></span><span class="_hb_core_r"></span></span>'
@@ -342,7 +366,7 @@ def render_tab_datos_cliente(supabase, supabase_admin, supa_url, supa_key, **dep
                 st.session_state.cliente_comuna = _com_cli
                 st.session_state.cliente_region = _reg_cli
 
-                st.markdown("**&#127959; Proyecto**")
+                st.markdown('<b style="display:inline-flex;align-items:center;">' + _ic_dc("ruler") + 'Proyecto</b>', unsafe_allow_html=True)
                 proy_dir_key = f"proyecto_direccion_{st.session_state.counter}"
                 _proy_ok  = bool(str(st.session_state.proyecto_direccion).strip())
                 _proy_dot = '<span class="_hb_dot"><span class="_hb_check_wrap"></span><svg style="position:absolute;inset:0;width:20px;height:20px;" viewBox="0 0 20 20"><polyline points="3,10 7.5,14.5 17,5" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' if _proy_ok else '<span class="_hb_dot"><span class="_hb_ring_r"></span><span class="_hb_core_r"></span></span>'
@@ -388,7 +412,7 @@ def render_tab_datos_cliente(supabase, supabase_admin, supa_url, supa_key, **dep
 
         with col3:
             with st.container(border=True):
-                st.markdown("**&#128188; Ejecutivo**")
+                st.markdown('<b style="display:inline-flex;align-items:center;">' + _ic_dc("briefcase") + 'Ejecutivo</b>', unsafe_allow_html=True)
 
                 if _es_ejecutivo:
                     _dot_check = '<span class="_hb_dot"><span class="_hb_check_wrap"></span><svg style="position:absolute;inset:0;width:20px;height:20px;" viewBox="0 0 20 20"><polyline points="3,10 7.5,14.5 17,5" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>'
@@ -451,7 +475,7 @@ def render_tab_datos_cliente(supabase, supabase_admin, supa_url, supa_key, **dep
         with col4:
             with st.container(border=True):
                 _fecha_dot_a = '<span class="_hb_dot"><span class="_hb_ring_a"></span><span class="_hb_core_a"></span></span>'
-                st.markdown(f'<span class="_hb_wrap"><b style="font-size:0.85rem;">&#128197; Validez</b>{_fecha_dot_a if _mostrar_hb else ""}</span>', unsafe_allow_html=True)
+                st.markdown('<span class="_hb_wrap"><b style="font-size:0.85rem;display:inline-flex;align-items:center;">' + _ic_dc("calendar", "#0f172a", 14) + 'Validez</b>' + (_fecha_dot_a if _mostrar_hb else "") + '</span>', unsafe_allow_html=True)
                 fecha_inicio_key = f"fecha_inicio_{st.session_state.counter}"
                 fecha_inicio = st.date_input("Fecha de Inicio", value=st.session_state.fecha_inicio,
                                              key=fecha_inicio_key)
@@ -468,7 +492,7 @@ def render_tab_datos_cliente(supabase, supabase_admin, supa_url, supa_key, **dep
                 if dias_validez < 0:
                     st.error("&#9888;&#65039; Fecha de término anterior a inicio.")
                 else:
-                    st.markdown(f"**&#9201; Duración:** {dias_validez} días")
+                    st.markdown('<span style="display:inline-flex;align-items:center;">' + _ic_dc("clock", "#0f172a", 14) + f'<b>Duraci&oacute;n:</b>&nbsp;{dias_validez} d&iacute;as</span>', unsafe_allow_html=True)
                     if dias_validez > 0:
                         st.progress(min(dias_validez/30, 1.0), text=f"{dias_validez} días de validez")
 
@@ -476,7 +500,7 @@ def render_tab_datos_cliente(supabase, supabase_admin, supa_url, supa_key, **dep
         with st.container(border=True):
             _obs_ok  = bool(str(st.session_state.observaciones_input).strip())
             _obs_dot = '<span class="_hb_dot"><span class="_hb_check_wrap"></span><svg style="position:absolute;inset:0;width:20px;height:20px;" viewBox="0 0 20 20"><polyline points="3,10 7.5,14.5 17,5" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' if _obs_ok else '<span class="_hb_dot"><span class="_hb_ring_r"></span><span class="_hb_core_r"></span></span>'
-            st.markdown(f'<span class="_hb_wrap"><b style="font-size:0.85rem;">&#128221; Descripción del proyecto</b>{_obs_dot if _mostrar_hb else ""}</span>', unsafe_allow_html=True)
+            st.markdown('<span class="_hb_wrap"><b style="font-size:0.85rem;display:inline-flex;align-items:center;">' + _ic_dc("filetext", "#0f172a", 14) + 'Descripci&oacute;n del proyecto</b>' + (_obs_dot if _mostrar_hb else "") + '</span>', unsafe_allow_html=True)
             observaciones_key = f"observaciones_input_{st.session_state.counter}"
             observaciones = st.text_area("Descripción del proyecto",
                                          placeholder="Describe el proyecto, características especiales o información relevante...",
