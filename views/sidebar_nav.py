@@ -161,8 +161,7 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
         'section[data-testid="stSidebar"] [data-testid="stSidebarHeader"]{display:none!important;height:0!important;min-height:0!important;padding:0!important;}'
         'section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"]{display:none!important;}'
     )
-    # El header fijo arranca despues del sidebar (no lo tapa). Usa --sb-w
-    # El header fijo arranca después del sidebar. width estática `ancho` +
+    # El header fijo arranca después del sidebar. left estático `ancho` +
     # transición (el header bar persiste entre reruns → anima suave).
     css.append(f'#_usr_header_bar{{left:{ancho}!important;transition:left {_t}!important;}}')
     # FAB Guardar: se corre a la derecha del sidebar con el `ancho` estático
@@ -233,7 +232,7 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
             'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]::-webkit-scrollbar{width:0!important;display:none!important;}'
             'section[data-testid="stSidebar"] .st-key-_sb_nav{padding-left:0!important;padding-right:0!important;width:100%!important;}'
             '.st-key-_sb_bottom{'
-            'padding:6px 0 8px!important;width:var(--sb-w,76px)!important;box-shadow:none!important;overflow:hidden!important;}'
+            'padding:6px 0 8px!important;width:76px!important;box-shadow:none!important;overflow:hidden!important;}'
             'section[data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"],'
             'section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{width:100%!important;margin:0!important;padding:0!important;}'
             'section[data-testid="stSidebar"] [data-testid="stElementContainer"],'
