@@ -335,10 +335,10 @@ def render_floating_panels():
 }
 .st-key-btn_fab_guardar {
     position: fixed !important; bottom: 1.5rem !important;
-    left: calc(var(--sb-w, 76px) + 1.2rem) !important; z-index: 999999 !important;
-    /* SIN transition:left — el JS actualiza --sb-w en cada frame de la
-       animación del sidebar, así el FAB lo sigue en tiempo real. Una
-       transition aquí causaría lag/jitter peleando con esos updates. */
+    z-index: 999999 !important;
+    /* El `left` lo define sidebar_nav con el `ancho` estático del sidebar
+       (correcto en cada render) + transición. Aquí NO seteamos left para
+       no competir con esa regla. */
 }
 .st-key-btn_fab_guardar button {
     background: linear-gradient(135deg,#5b7cfa,#8b5cf6) !important;
@@ -383,18 +383,19 @@ def render_floating_panels():
     if st.session_state.modo_admin and not _es_solo_lectura_fab and _is_presupuesto_page:
         _color_fab = '#10b981' if _margen_actual > 0 else '#6b7280'
         _pct_bar = min(int(_margen_actual), 100)
-        # El sidebar nuevo (sidebar_nav) ocupa la izquierda (76px colapsado /
-        # 256px expandido). El popover se ancla con CSS variable --sb-w que
-        # un JS abajo actualiza con ResizeObserver para que siga al sidebar.
+        # Ancho estático del sidebar según su estado (Python lo sabe correcto
+        # en cada render). El popover se ancla justo a la derecha del sidebar
+        # con transición → sigue al sidebar al colapsar/expandir, sin depender
+        # del JS async (que dejaba valores viejos).
+        _sb_w = "76px" if st.session_state.get("_sb_collapsed", False) else "256px"
+        _sb_ease = "0.32s cubic-bezier(0.22,1,0.36,1)"
         st.markdown(f"""
 <style>
-/* --sb-w se define una sola vez en layout (_CSS_GLOBAL) y JS lo sincroniza
-   en tiempo real con el ancho del sidebar. NO redefinir aquí (causaba
-   flicker al re-inyectarse en cada rerun). */
 section[data-testid="stMain"] div[data-testid="stPopover"] {{
-    position: fixed !important; left: var(--sb-w, 76px) !important; top: 50% !important;
+    position: fixed !important; left: {_sb_w} !important; top: 50% !important;
     transform: translateY(-50%) !important; bottom: unset !important;
     z-index: 99998 !important; width: 160px !important;
+    transition: left {_sb_ease} !important;
 }}
 section[data-testid="stMain"] div[data-testid="stPopover"] > div > button {{
     background: white !important; color: {_color_fab} !important;
@@ -419,7 +420,7 @@ section[data-testid="stMain"] [data-testid="stPopoverBody"] {{
     border: 1px solid #e2e8f0 !important; border-left: none !important;
     box-shadow: 0 4px 24px rgba(0,0,0,0.12) !important;
     padding: 12px 10px !important; width: 160px !important;
-    left: calc(var(--sb-w) + 54px) !important; top: 0 !important;
+    left: calc({_sb_w} + 54px) !important; top: 0 !important;
 }}
 </style>""", unsafe_allow_html=True)
         with st.popover("", use_container_width=False):
@@ -440,33 +441,8 @@ section[data-testid="stMain"] [data-testid="stPopoverBody"] {{
                 st.session_state.margen = _mg_pop
                 st.session_state.counter += 1
                 st.rerun()
-
-        # Sincroniza el ancho del sidebar con la CSS variable --sb-w del popover
-        # (el popover queda anclado JUSTO a la derecha del sidebar, no debajo).
-        components.html("""
-<script>
-(function(){
-  var D = window.parent.document;
-  function sync(){
-    var sb = D.querySelector('section[data-testid="stSidebar"]');
-    var w = sb ? sb.offsetWidth : 76;
-    D.documentElement.style.setProperty('--sb-w', w + 'px');
-  }
-  sync();
-  setTimeout(sync, 200);
-  setTimeout(sync, 800);
-  if (!D._ec_sb_w_obs) {
-    try {
-      var sb = D.querySelector('section[data-testid="stSidebar"]');
-      if (sb && window.ResizeObserver) {
-        D._ec_sb_w_obs = new ResizeObserver(sync);
-        D._ec_sb_w_obs.observe(sb);
-      }
-    } catch(e) {}
-  }
-})();
-</script>
-""", height=0)
+        # (El popover de margen se posiciona con `ancho` estático del sidebar,
+        # ya no necesita JS de sincronización de --sb-w.)
 
     # ── PANEL PROGRESO FLOTANTE (derecha) ───────────────────────────────────
     _mostrar_prog = bool(

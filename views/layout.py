@@ -18,11 +18,6 @@ _CSS_GLOBAL = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400;1,500;1,600;1,700;1,800&family=Montserrat:wght@300;400;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
 
-/* Ancho del sidebar (px) — default; el JS de layout lo sincroniza en
-   tiempo real con el ancho real durante la animación colapsar/expandir.
-   Lo consumen: header fijo (left), FAB Guardar (left), popover margen. */
-:root { --sb-w: 76px; }
-
 /* ── Ocultar elementos nativos de Streamlit ── */
 #MainMenu { display: none !important; }
 footer    { display: none !important; }
@@ -842,34 +837,12 @@ def render_preloader() -> None:
     }}, true);
   }}
 
-  // Sincroniza CSS variable --sb-w con el ancho real del sidebar para que
-  // los elementos que dependen del ancho (brand, footer/toggle, header,
-  // FAB, popover margen) lo sigan en tiempo real al colapsar/expandir.
-  function syncSidebarWidth(){{
-    var sb = D.querySelector('section[data-testid="stSidebar"]');
-    if (!sb) return;
-    var w = sb.offsetWidth;
-    if (w > 0) D.documentElement.style.setProperty('--sb-w', w + 'px');
-  }}
-  syncSidebarWidth();
-  // Varios timeouts cubren todo el rango de la animación (0.32s) + settle.
-  setTimeout(syncSidebarWidth, 60);
-  setTimeout(syncSidebarWidth, 200);
-  setTimeout(syncSidebarWidth, 360);
-  setTimeout(syncSidebarWidth, 600);
-  setTimeout(syncSidebarWidth, 900);
-  // CLAVE: re-adjuntar el ResizeObserver al elemento ACTUAL del sidebar en
-  // cada render. En reruns Streamlit puede reemplazar el <section>, dejando
-  // el observer viejo observando un nodo detached → --sb-w se congelaba y
-  // el footer/toggle quedaba con el ancho anterior ("a veces más ancho").
-  try {{
-    var sbNow = D.querySelector('section[data-testid="stSidebar"]');
-    if (sbNow && window.ResizeObserver) {{
-      if (D._ec_sb_w_obs) {{ try {{ D._ec_sb_w_obs.disconnect(); }} catch(e){{}} }}
-      D._ec_sb_w_obs = new ResizeObserver(syncSidebarWidth);
-      D._ec_sb_w_obs.observe(sbNow);
-    }}
-  }} catch(e) {{}}
+  // NOTA: ya NO se usa la CSS variable --sb-w ni ResizeObserver para el
+  // ancho del sidebar. Todos los elementos que dependen del ancho (brand,
+  // footer, header, FAB, popover) usan el `ancho` ESTÁTICO que Python sabe
+  // correcto en cada render + transición CSS (los elementos persisten entre
+  // reruns, así la transición anima de viejo a nuevo). Es 100% determinista,
+  // sin el JS async que dejaba valores viejos y descuadraba el layout.
 
 }})();
 </script>
@@ -1280,6 +1253,33 @@ def render_layout():
         D._ecHdrActionsBound = true;
         D.addEventListener('click', function(e){
             var t = e.target;
+            // Copiar código de acceso (sidebar) al hacer click
+            var codEl = t && t.closest ? t.closest('.ec-copy-code') : null;
+            if (codEl) {
+                var code = codEl.getAttribute('data-ec-copy') || '';
+                if (code) {
+                    try {
+                        var tc = D.createElement('textarea'); tc.value = code;
+                        tc.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
+                        D.body.appendChild(tc); tc.focus(); tc.select();
+                        try { D.execCommand('copy'); } catch(_e){}
+                        tc.remove();
+                    } catch(_e2){}
+                    if (window.parent.navigator && window.parent.navigator.clipboard) {
+                        window.parent.navigator.clipboard.writeText(code).catch(function(){});
+                    }
+                    // Feedback: flash de fondo verde + tooltip
+                    var prevBg = codEl.style.background;
+                    codEl.style.background = 'rgba(34,197,94,0.25)';
+                    var oldTitle = codEl.getAttribute('title');
+                    codEl.setAttribute('title', '¡Copiado!');
+                    setTimeout(function(){
+                        codEl.style.background = prevBg;
+                        if (oldTitle) codEl.setAttribute('title', oldTitle);
+                    }, 900);
+                }
+                return;
+            }
             // Copiar EP
             var badge = t && t.closest ? t.closest('#hdr-badge-estado') : null;
             if (badge) {
