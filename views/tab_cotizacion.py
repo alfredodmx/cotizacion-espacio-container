@@ -19,6 +19,28 @@ from utils.telefono import formatear_telefono, _validar_telefono_cliente
 from utils.rut import validar_rut, formatear_rut
 
 
+# ── Iconos SVG inline (estilo Lucide) para reemplazar emoticones ──────────────
+_ICON_PATHS_COT = {
+    "clipboard": '<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>',
+    "search": '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+    "trash": '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+    "plus": '<path d="M5 12h14"/><path d="M12 5v14"/>',
+    "paperclip": '<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
+    "chart": '<line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/>',
+}
+
+
+def _ic_cot(name, color="#0f172a", size=15):
+    """SVG inline para títulos de módulos (reemplaza emoticones)."""
+    inner = _ICON_PATHS_COT.get(name, "")
+    return (
+        f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" '
+        f'stroke="{color}" stroke-width="2" stroke-linecap="round" '
+        f'stroke-linejoin="round" style="vertical-align:-2px;margin-right:7px;flex-shrink:0;">'
+        f'{inner}</svg>'
+    )
+
+
 def _get_excel_url(supabase_admin):
     """1 query Supabase por sesión para obtener la URL del Excel activo."""
     if 'excel_url_cache' not in st.session_state:
@@ -882,7 +904,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
 
         with col_m1:
             with st.container(border=True):
-                st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;">&#128203; Modelo Predefinido</div>', unsafe_allow_html=True)
+                st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;">' + _ic_cot("clipboard") + 'Modelo Predefinido</div>', unsafe_allow_html=True)
                 try:
                     if hojas_modelo:
                         with st.form("_f_modelo", border=False):
@@ -901,7 +923,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
 
         with col_m2:
             with st.container(border=True):
-                st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;">&#128269; &#205;tems</div>', unsafe_allow_html=True)
+                st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;">' + _ic_cot("search") + '&#205;tems</div>', unsafe_allow_html=True)
                 try:
                     df = _leer_hoja_excel("BD Total", supabase_admin)
                     categorias = df["Categorias"].dropna().unique()
@@ -941,7 +963,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
 
         with col_m3:
             with st.container(border=True):
-                st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;">&#128465;&#65039; Eliminar Categor&#237;a</div>', unsafe_allow_html=True)
+                st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;">' + _ic_cot("trash") + 'Eliminar Categor&#237;a</div>', unsafe_allow_html=True)
                 try:
                     if st.session_state.carrito:
                         carrito_df_temp = pd.DataFrame(st.session_state.carrito)
@@ -968,7 +990,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
 
         with col_m4:
             with st.container(border=True):
-                st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;">&#10133; Agregar Categor&#237;a</div>', unsafe_allow_html=True)
+                st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;">' + _ic_cot("plus") + 'Agregar Categor&#237;a</div>', unsafe_allow_html=True)
                 try:
                     if hojas_modelo:
                         _mod_ori_label = st.selectbox("Modelo", list(_mod_labels.keys()), key="modelo_origen", label_visibility="collapsed")
@@ -1052,7 +1074,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                 _plano_ok_post = bool(st.session_state.get('plano_adjunto') or st.session_state.get('pdf_url') or st.session_state.get('plano_nombre'))
                 _plano_dot_post = '<span class="_hb_dot"><span class="_hb_check_wrap"></span><svg style="position:absolute;inset:0;width:20px;height:20px;" viewBox="0 0 20 20"><polyline points="3,10 7.5,14.5 17,5" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' if _plano_ok_post else '<span class="_hb_dot"><span class="_hb_ring_r"></span><span class="_hb_core_r"></span></span>'
                 _plano_mostrar_hb = len(st.session_state.get('carrito', [])) > 0 and not es_solo_lectura
-                _plano_placeholder.markdown(f'<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;"><span class="_hb_wrap">&#128206; Plano PDF{_plano_dot_post if _plano_mostrar_hb else ""}</span></div>', unsafe_allow_html=True)
+                _plano_placeholder.markdown(f'<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;"><span class="_hb_wrap">{_ic_cot("paperclip")}Plano PDF{_plano_dot_post if _plano_mostrar_hb else ""}</span></div>', unsafe_allow_html=True)
 
     else:
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
@@ -1075,11 +1097,11 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
     if st.session_state.carrito:
         st.markdown("---")
         if not st.session_state.modo_admin:
-            st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;text-align:center;">&#128202; Resumen del Presupuesto</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;text-align:center;display:flex;align-items:center;justify-content:center;">' + _ic_cot("chart") + 'Resumen del Presupuesto</div>', unsafe_allow_html=True)
             if st.session_state.margen > 0:
-                st.caption(f"&#8505;&#65039; Margen del {st.session_state.margen}% aplicado")
+                st.caption(f"Margen del {st.session_state.margen}% aplicado")
         if st.session_state.modo_admin:
-            st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;text-align:center;">&#128202; Resumen del Presupuesto</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 6px 0;-webkit-text-fill-color:#0f172a;text-align:center;display:flex;align-items:center;justify-content:center;">' + _ic_cot("chart") + 'Resumen del Presupuesto</div>', unsafe_allow_html=True)
 
         # Triggers ocultos para popup HTML en iframe: apply_trg + del_N por ítem
         if not es_solo_lectura and st.session_state.carrito:
