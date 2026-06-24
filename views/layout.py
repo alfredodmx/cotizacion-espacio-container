@@ -835,16 +835,20 @@ def render_preloader() -> None:
             + '.hdr-reporte, .hdr-salud, .hdr-usr, .excel-header, .hdr-formulario';
     var hdr = D.querySelector(sel);
     if (!hdr) return;
-    // 1. Reset padding-top a 0 para medir natural
+    // 1. Reset padding-top a 0 y margin-top:0 en hdr para medir natural
     bc.style.setProperty('padding-top', '0px', 'important');
-    // 2. Forzar reflow y medir posición VIEWPORT del hdr (ya con padding=0)
+    hdr.style.setProperty('margin-top', '0px', 'important');
     void bc.offsetHeight;  // forzar reflow
     var hdrTopViewport = hdr.getBoundingClientRect().top;
-    // 3. Queremos hdr a 80px del top del viewport
-    //    → padding-top del bc = 80 - hdrTopViewport
     var desired = 80;
-    var pad = Math.max(0, desired - hdrTopViewport);
-    bc.style.setProperty('padding-top', pad + 'px', 'important');
+    var delta = desired - hdrTopViewport;
+    if (delta > 0) {{
+      // hdr arriba del target → bajar con padding-top en bc
+      bc.style.setProperty('padding-top', delta + 'px', 'important');
+    }} else if (delta < -2) {{
+      // hdr abajo del target → subir con margin-top negativo en hdr
+      hdr.style.setProperty('margin-top', delta + 'px', 'important');
+    }}
   }}
   syncPageHdrGap();
   setTimeout(syncPageHdrGap, 200);
