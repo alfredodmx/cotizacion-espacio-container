@@ -340,10 +340,14 @@ def render_floating_panels():
     if st.session_state.modo_admin and not _es_solo_lectura_fab:
         _color_fab = '#10b981' if _margen_actual > 0 else '#6b7280'
         _pct_bar = min(int(_margen_actual), 100)
+        # El sidebar nuevo (sidebar_nav) ocupa la izquierda (76px colapsado /
+        # 256px expandido). El popover se ancla con CSS variable --sb-w que
+        # un JS abajo actualiza con ResizeObserver para que siga al sidebar.
         st.markdown(f"""
 <style>
+:root {{ --sb-w: 76px; }}  /* default colapsado, JS lo actualiza */
 section[data-testid="stMain"] div[data-testid="stPopover"] {{
-    position: fixed !important; left: 0 !important; top: 50% !important;
+    position: fixed !important; left: var(--sb-w) !important; top: 50% !important;
     transform: translateY(-50%) !important; bottom: unset !important;
     z-index: 99998 !important; width: 160px !important;
 }}
@@ -370,10 +374,10 @@ section[data-testid="stMain"] [data-testid="stPopoverBody"] {{
     border: 1px solid #e2e8f0 !important; border-left: none !important;
     box-shadow: 0 4px 24px rgba(0,0,0,0.12) !important;
     padding: 12px 10px !important; width: 160px !important;
-    left: 54px !important; top: 0 !important;
+    left: calc(var(--sb-w) + 54px) !important; top: 0 !important;
 }}
 </style>""", unsafe_allow_html=True)
-        with st.popover(""):
+        with st.popover("", use_container_width=False):
             st.markdown(f"""
             <div style="text-align:center;margin-bottom:6px;">
               <div style="font-size:1.4rem;font-weight:900;color:{_color_fab};line-height:1;">{_mstr}%</div>
@@ -391,6 +395,33 @@ section[data-testid="stMain"] [data-testid="stPopoverBody"] {{
                 st.session_state.margen = _mg_pop
                 st.session_state.counter += 1
                 st.rerun()
+
+        # Sincroniza el ancho del sidebar con la CSS variable --sb-w del popover
+        # (el popover queda anclado JUSTO a la derecha del sidebar, no debajo).
+        components.html("""
+<script>
+(function(){
+  var D = window.parent.document;
+  function sync(){
+    var sb = D.querySelector('section[data-testid="stSidebar"]');
+    var w = sb ? sb.offsetWidth : 76;
+    D.documentElement.style.setProperty('--sb-w', w + 'px');
+  }
+  sync();
+  setTimeout(sync, 200);
+  setTimeout(sync, 800);
+  if (!D._ec_sb_w_obs) {
+    try {
+      var sb = D.querySelector('section[data-testid="stSidebar"]');
+      if (sb && window.ResizeObserver) {
+        D._ec_sb_w_obs = new ResizeObserver(sync);
+        D._ec_sb_w_obs.observe(sb);
+      }
+    } catch(e) {}
+  }
+})();
+</script>
+""", height=0)
 
     # ── PANEL PROGRESO FLOTANTE (derecha) ───────────────────────────────────
     _mostrar_prog = bool(
