@@ -843,25 +843,33 @@ def render_preloader() -> None:
   }}
 
   // Sincroniza CSS variable --sb-w con el ancho real del sidebar para que
-  // elementos position:fixed (popovers, FAB, etc.) lo respeten dinámicamente
-  // al colapsar/expandir. ResizeObserver es muy estable.
+  // los elementos que dependen del ancho (brand, footer/toggle, header,
+  // FAB, popover margen) lo sigan en tiempo real al colapsar/expandir.
   function syncSidebarWidth(){{
     var sb = D.querySelector('section[data-testid="stSidebar"]');
-    var w = sb ? sb.offsetWidth : 76;
-    D.documentElement.style.setProperty('--sb-w', w + 'px');
+    if (!sb) return;
+    var w = sb.offsetWidth;
+    if (w > 0) D.documentElement.style.setProperty('--sb-w', w + 'px');
   }}
   syncSidebarWidth();
+  // Varios timeouts cubren todo el rango de la animación (0.32s) + settle.
+  setTimeout(syncSidebarWidth, 60);
   setTimeout(syncSidebarWidth, 200);
-  setTimeout(syncSidebarWidth, 800);
-  if (!D._ec_sb_w_obs) {{
-    try {{
-      var sb = D.querySelector('section[data-testid="stSidebar"]');
-      if (sb && window.ResizeObserver) {{
-        D._ec_sb_w_obs = new ResizeObserver(syncSidebarWidth);
-        D._ec_sb_w_obs.observe(sb);
-      }}
-    }} catch(e) {{}}
-  }}
+  setTimeout(syncSidebarWidth, 360);
+  setTimeout(syncSidebarWidth, 600);
+  setTimeout(syncSidebarWidth, 900);
+  // CLAVE: re-adjuntar el ResizeObserver al elemento ACTUAL del sidebar en
+  // cada render. En reruns Streamlit puede reemplazar el <section>, dejando
+  // el observer viejo observando un nodo detached → --sb-w se congelaba y
+  // el footer/toggle quedaba con el ancho anterior ("a veces más ancho").
+  try {{
+    var sbNow = D.querySelector('section[data-testid="stSidebar"]');
+    if (sbNow && window.ResizeObserver) {{
+      if (D._ec_sb_w_obs) {{ try {{ D._ec_sb_w_obs.disconnect(); }} catch(e){{}} }}
+      D._ec_sb_w_obs = new ResizeObserver(syncSidebarWidth);
+      D._ec_sb_w_obs.observe(sbNow);
+    }}
+  }} catch(e) {{}}
 
 }})();
 </script>

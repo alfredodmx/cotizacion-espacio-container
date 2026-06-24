@@ -124,12 +124,15 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
         f'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]'
         f'{{padding:54px 0.55rem calc({_foot_h} + 6px)!important;}}'
     )
-    # BRAND fijo arriba
+    # BRAND fijo arriba — usa --sb-w (JS lo sincroniza con el sidebar real
+    # en tiempo real) en vez del `ancho` estático + transition, que se
+    # desincronizaba (el brand/footer a veces quedaban más anchos).
     css.append(
         f'.st-key-_sb_brand_full,.st-key-_sb_brand_mini'
-        f'{{position:fixed!important;top:0!important;left:0!important;width:{ancho}!important;'
+        f'{{position:fixed!important;top:0!important;left:0!important;'
+        f'width:var(--sb-w,{ancho})!important;'
         f'z-index:6!important;background:#0f172a!important;box-sizing:border-box!important;'
-        f'padding:10px 12px 8px!important;transition:width {_t}!important;}}'
+        f'padding:10px 12px 8px!important;}}'
     )
     # FOOTER fijo abajo (codigo + toggle) — fondo MACIZO (más específico que la
     # regla de transparencia, e incluye los wrappers internos, para que no se
@@ -140,10 +143,11 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
         f'.st-key-_sb_bottom [data-testid="stVerticalBlock"]'
         f'{{background:#0b1220!important;border:none!important;box-shadow:none!important;}}'
         f'.st-key-_sb_bottom'
-        f'{{position:fixed!important;bottom:0!important;left:0!important;width:{ancho}!important;'
+        f'{{position:fixed!important;bottom:0!important;left:0!important;'
+        f'width:var(--sb-w,{ancho})!important;'
         f'z-index:6!important;box-sizing:border-box!important;'
         f'padding:8px 0.3rem 10px!important;box-shadow:0 -8px 16px rgba(11,18,32,0.9)!important;'
-        f'overflow:hidden!important;transition:width {_t}!important;}}'
+        f'overflow:hidden!important;}}'
     )
     # Ocultar el header nativo del sidebar (la barra superior de Streamlit con el
     # botón de colapso) — es lo que metía el gran espacio arriba. Usamos el nuestro.
@@ -223,7 +227,7 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
             'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]::-webkit-scrollbar{width:0!important;display:none!important;}'
             'section[data-testid="stSidebar"] .st-key-_sb_nav{padding-left:0!important;padding-right:0!important;width:100%!important;}'
             '.st-key-_sb_bottom{'
-            'padding:6px 0 8px!important;width:76px!important;box-shadow:none!important;overflow:hidden!important;}'
+            'padding:6px 0 8px!important;width:var(--sb-w,76px)!important;box-shadow:none!important;overflow:hidden!important;}'
             'section[data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"],'
             'section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{width:100%!important;margin:0!important;padding:0!important;}'
             'section[data-testid="stSidebar"] [data-testid="stElementContainer"],'
