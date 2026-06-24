@@ -753,24 +753,51 @@ def render_preloader() -> None:
 
     var t0 = Date.now();
     var lastMut = Date.now();
+    var contentArrived = false;   // ¿llegó YA el contenido nuevo de la pestaña?
+    var pctAtArrival = 88;        // valor de la barra al momento de llegar
     var main = D.querySelector('[data-testid="stMain"]') || D.body;
     try {{
-      W._ec_tp_obs = new MutationObserver(function(){{ lastMut = Date.now(); }});
+      W._ec_tp_obs = new MutationObserver(function(){{
+        // Ignoramos los primeros 150ms (ruido del click/popover). Después,
+        // cualquier mutación en stMain = Streamlit renderizó el contenido nuevo.
+        // CLAVE: durante el fetch lento de la DB, Streamlit bloquea Python y
+        // stMain NO muta (el iframe de la tabla es caja negra), así que
+        // contentArrived sigue false → el preloader NO termina antes de tiempo.
+        if (Date.now() - t0 < 150) return;
+        if (!contentArrived) {{
+          contentArrived = true;
+          pctAtArrival = 88 * (1 - Math.exp(-(Date.now() - t0) / 1400));
+        }}
+        lastMut = Date.now();
+      }});
       W._ec_tp_obs.observe(main, {{ childList: true, subtree: true, attributes: false }});
     }} catch(e) {{}}
 
-    var T_MIN     = 700;    // ms mínimo visible
-    var T_STABLE  = 600;    // ms sin mutaciones para considerar "listo"
-    var T_MAXFAKE = 2200;   // ms en que la barra "fake" alcanza 92%
-    var T_HARD    = 12000;  // hard timeout
+    var T_MIN     = 600;    // ms mínimo visible (anti-parpadeo)
+    var T_STABLE  = 550;    // ms sin mutaciones (tras llegar el contenido) = listo
+    var T_HARD    = 20000;  // hard timeout (pestañas muy lentas)
 
     W._ec_tp_iv = setInterval(function(){{
       var elapsed = Date.now() - t0;
+      // Fallback: si tras 3s no detectamos "llegada" (p.ej. el contenido llegó
+      // dentro de la ventana ignorada, o la pestaña no muta stMain), asumimos
+      // que ya cargó para no quedarnos esperando el hard timeout.
+      if (!contentArrived && elapsed >= 3000) {{
+        contentArrived = true;
+        pctAtArrival = 88;
+      }}
       var sinceMut = Date.now() - lastMut;
-      // Crece hasta 92% según tiempo, los últimos 8% requieren estabilidad
-      var fakePct = Math.min((elapsed / T_MAXFAKE) * 92, 92);
-      var stablePct = Math.min((Math.max(0, sinceMut - 100) / T_STABLE) * 8, 8);
-      var pct = Math.min(fakePct + stablePct, 100);
+      // Barra asintótica hacia 90% mientras espera el contenido; salta a 100%
+      // sólo cuando el contenido llegó y se estabilizó.
+      var pct;
+      if (!contentArrived) {{
+        // crece lento hacia 88% (no llega solo: espera el contenido real)
+        pct = 88 * (1 - Math.exp(-elapsed / 1400));
+      }} else {{
+        // contenido llegó: continúa suave desde donde estaba hasta 100%
+        // según la estabilidad acumulada (sin saltos).
+        pct = pctAtArrival + (100 - pctAtArrival) * Math.min(sinceMut / T_STABLE, 1);
+      }}
       if (bar) bar.style.width = pct + '%';
       if (pctEl) pctEl.textContent = Math.round(pct) + '%';
       var idx = Math.min(Math.floor(pct / 25), tabMsgs.length - 1);
@@ -779,8 +806,10 @@ def render_preloader() -> None:
       // Reposiciona si el sidebar cambió de ancho durante la carga
       positionTab(el);
 
-      var ready = (elapsed >= T_MIN && sinceMut >= T_STABLE);
-      if (pct >= 100 && ready) {{
+      // Sólo termina cuando: pasó el mínimo Y el contenido nuevo LLEGÓ Y
+      // lleva T_STABLE estable. Así queda sincronizado con la carga real.
+      var ready = (elapsed >= T_MIN && contentArrived && sinceMut >= T_STABLE);
+      if (ready) {{
         clearInterval(W._ec_tp_iv); W._ec_tp_iv = null;
         try {{ W._ec_tp_obs.disconnect(); }} catch(e){{}} W._ec_tp_obs = null;
         if (bar) bar.style.width = '100%';
