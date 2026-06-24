@@ -27,6 +27,9 @@ _ICON_PATHS_COT = {
     "plus": '<path d="M5 12h14"/><path d="M12 5v14"/>',
     "paperclip": '<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
     "chart": '<line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/>',
+    "dollar": '<line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+    "coins": '<circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/>',
+    "trending": '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
 }
 
 
@@ -333,7 +336,9 @@ def render_floating_panels():
 .st-key-btn_fab_guardar {
     position: fixed !important; bottom: 1.5rem !important;
     left: calc(var(--sb-w, 76px) + 1.2rem) !important; z-index: 999999 !important;
-    transition: left .18s ease !important;
+    /* SIN transition:left — el JS actualiza --sb-w en cada frame de la
+       animación del sidebar, así el FAB lo sigue en tiempo real. Una
+       transition aquí causaría lag/jitter peleando con esos updates. */
 }
 .st-key-btn_fab_guardar button {
     background: linear-gradient(135deg,#5b7cfa,#8b5cf6) !important;
@@ -383,9 +388,11 @@ def render_floating_panels():
         # un JS abajo actualiza con ResizeObserver para que siga al sidebar.
         st.markdown(f"""
 <style>
-:root {{ --sb-w: 76px; }}  /* default colapsado, JS lo actualiza */
+/* --sb-w se define una sola vez en layout (_CSS_GLOBAL) y JS lo sincroniza
+   en tiempo real con el ancho del sidebar. NO redefinir aquí (causaba
+   flicker al re-inyectarse en cada rerun). */
 section[data-testid="stMain"] div[data-testid="stPopover"] {{
-    position: fixed !important; left: var(--sb-w) !important; top: 50% !important;
+    position: fixed !important; left: var(--sb-w, 76px) !important; top: 50% !important;
     transform: translateY(-50%) !important; bottom: unset !important;
     z-index: 99998 !important; width: 160px !important;
 }}
@@ -525,7 +532,7 @@ section[data-testid="stMain"] [data-testid="stPopoverBody"] {{
             f'border-radius:10px 0 0 10px;padding:14px 8px;cursor:pointer;'
             f'box-shadow:0 4px 20px rgba(0,0,0,0.2);text-align:center;width:54px;" data-action="prog-show">'
             f'<div style="font-size:1.15rem;font-weight:900;color:#fff;line-height:1;">{_pct_p}%</div>'
-            f'<div style="font-size:0.7rem;color:rgba(255,255,255,0.85);margin-top:5px;">\U0001f4ca</div>'
+            f'<div style="margin-top:5px;display:flex;justify-content:center;">{_ic_cot("chart", "rgba(255,255,255,0.9)", 15)}</div>'
             f'<div style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.75);margin-top:3px;letter-spacing:0.06em;">VER</div>'
             f'</div>'
         )
@@ -1386,9 +1393,9 @@ td.r{text-align:right;}
 <button onclick="qd(1)">+</button>
 </div>
 <div id="pop-btns">
-<button class="pb pb-c" onclick="closePop()">&#x2716; Cancelar</button>
-<button class="pb pb-a" onclick="applyPop()">&#x2705; Aplicar</button>
-<button class="pb pb-d" onclick="delPop()">&#x1F5D1; Eliminar</button>
+<button class="pb pb-c" onclick="closePop()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>Cancelar</button>
+<button class="pb pb-a" onclick="applyPop()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M20 6 9 17l-5-5"/></svg>Aplicar</button>
+<button class="pb pb-d" onclick="delPop()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Eliminar</button>
 </div>
 </div>
 </div>
@@ -1513,12 +1520,26 @@ var _cObs=new MutationObserver(function(ms){var f=false;ms.forEach(function(m){m
         components.html(_tbl_html, height=_iframe_total_h, scrolling=False)
 
         st.markdown("---")
+        # Ícono SVG (trash) en el botón Limpiar (reemplaza el emoticon que en
+        # algunas fuentes se veía como "粒").
+        st.markdown(
+            '<style>.st-key-btn_limpiar_carrito button{display:inline-flex!important;'
+            'align-items:center!important;justify-content:center!important;gap:7px!important;}'
+            '.st-key-btn_limpiar_carrito button::before{content:""!important;flex-shrink:0!important;'
+            'width:16px!important;height:16px!important;'
+            'background:url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' '
+            'width=\'16\' height=\'16\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23475569\' '
+            'stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpath d=\'M3 6h18\'/%3E'
+            '%3Cpath d=\'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\'/%3E'
+            '%3C/svg%3E") no-repeat center/contain!important;}</style>',
+            unsafe_allow_html=True,
+        )
         col_btn_limpiar, _, _, _ = st.columns(4)
         with col_btn_limpiar:
             if not es_solo_lectura:
-                st.button("&#129529; Limpiar", key="btn_limpiar_carrito", use_container_width=True, on_click=limpiar_todo)
+                st.button("Limpiar", key="btn_limpiar_carrito", use_container_width=True, on_click=limpiar_todo)
             else:
-                st.button("&#129529; Limpiar", key="btn_limpiar_carrito", use_container_width=True, disabled=True)
+                st.button("Limpiar", key="btn_limpiar_carrito", use_container_width=True, disabled=True)
 
         datos_cliente_pdf = {
             "Nombre": st.session_state.nombre_input,
@@ -1577,7 +1598,7 @@ var _cObs=new MutationObserver(function(ms){var f=false;ms.forEach(function(m){m
                         <div style="display:flex;justify-content:space-between;"><span>+ IVA 19%:</span><span>{formato_clp(iva)}</span></div>
                     </div>
                     <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
-                        <span style="font-size:1.1rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:0.04em;">&#128176; TOTAL + IVA</span>
+                        <span style="font-size:1.1rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:0.04em;display:inline-flex;align-items:center;">''' + _ic_cot("dollar", "white", 18) + '''TOTAL + IVA</span>
                         <span style="font-size:2.2rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:-0.02em;">{formato_clp(total)}</span>
                     </div>''', unsafe_allow_html=True)
             with col_comisiones_card:
@@ -1588,7 +1609,7 @@ var _cObs=new MutationObserver(function(ms){var f=false;ms.forEach(function(m){m
                         <div style="display:flex;justify-content:space-between;"><span>Supervisor 0.8%:</span><span>{formato_clp(comision_supervisor)}</span></div>
                     </div>
                     <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
-                        <span style="font-size:1.1rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:0.04em;">&#128202; COMISIONES</span>
+                        <span style="font-size:1.1rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:0.04em;display:inline-flex;align-items:center;">''' + _ic_cot("coins", "white", 18) + '''COMISIONES</span>
                         <span style="font-size:2.2rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:-0.02em;">{formato_clp(total_comisiones)}</span>
                     </div>''', unsafe_allow_html=True)
             with col_utilidad_card:
@@ -1599,7 +1620,7 @@ var _cObs=new MutationObserver(function(ms){var f=false;ms.forEach(function(m){m
                         <div style="display:flex;justify-content:space-between;"><span>- Comisiones:</span><span>{formato_clp(total_comisiones)}</span></div>
                     </div>
                     <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
-                        <span style="font-size:1.1rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:0.04em;">&#128200; UTILIDAD REAL</span>
+                        <span style="font-size:1.1rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:0.04em;display:inline-flex;align-items:center;">''' + _ic_cot("trending", "white", 18) + '''UTILIDAD REAL</span>
                         <span style="font-size:2.2rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:-0.02em;">{formato_clp(utilidad_real)}</span>
                     </div>''', unsafe_allow_html=True)
         else:
@@ -1612,7 +1633,7 @@ var _cObs=new MutationObserver(function(ms){var f=false;ms.forEach(function(m){m
                         <div style="display:flex;justify-content:space-between;"><span>+ IVA 19%:</span><span>{formato_clp(iva)}</span></div>
                     </div>
                     <div style="border-top:2px solid rgba(255,255,255,0.5);margin-top:1rem;padding-top:0.6rem;display:flex;justify-content:space-between;align-items:center;">
-                        <span style="font-size:1.1rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:0.04em;">&#128176; TOTAL + IVA</span>
+                        <span style="font-size:1.1rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:0.04em;display:inline-flex;align-items:center;">''' + _ic_cot("dollar", "white", 18) + '''TOTAL + IVA</span>
                         <span style="font-size:2.2rem;font-weight:900;color:white;font-family:Montserrat,sans-serif;letter-spacing:-0.02em;">{formato_clp(total)}</span>
                     </div>
                 </div>''', unsafe_allow_html=True)

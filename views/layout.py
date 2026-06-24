@@ -18,6 +18,11 @@ _CSS_GLOBAL = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400;1,500;1,600;1,700;1,800&family=Montserrat:wght@300;400;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
 
+/* Ancho del sidebar (px) — default; el JS de layout lo sincroniza en
+   tiempo real con el ancho real durante la animación colapsar/expandir.
+   Lo consumen: header fijo (left), FAB Guardar (left), popover margen. */
+:root { --sb-w: 76px; }
+
 /* ── Ocultar elementos nativos de Streamlit ── */
 #MainMenu { display: none !important; }
 footer    { display: none !important; }
@@ -1020,13 +1025,19 @@ def render_layout():
     _cot_num   = st.session_state.get("cotizacion_cargada")
 
     if _rol == "root":
-        _rol_html = (f'<span style="color:#f59e0b;font-weight:700;font-size:0.8rem;">🔑 ROOT</span>'
+        # SVG inline: key (root), crown (admin), user (resto)
+        _svg_root = ('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>')
+        _svg_admin = ('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>')
+        _svg_user = ('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>')
+        _rol_html = (f'<span style="color:#f59e0b;font-weight:700;font-size:0.8rem;">{_svg_root}ROOT</span>'
                      f' <span style="color:#e2e8f0;font-size:0.82rem;font-weight:600;">{_nombre.upper()}</span>')
     elif _rol == "admin":
-        _rol_html = (f'<span style="color:#a78bfa;font-weight:700;font-size:0.8rem;">👑 ADMIN</span>'
+        _svg_admin = ('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>')
+        _rol_html = (f'<span style="color:#a78bfa;font-weight:700;font-size:0.8rem;">{_svg_admin}ADMIN</span>'
                      f' <span style="color:#e2e8f0;font-size:0.82rem;font-weight:600;">{_nombre.upper()}</span>')
     else:
-        _rol_html = (f'<span style="color:#94a3b8;font-weight:700;font-size:0.8rem;">👤</span>'
+        _svg_user = ('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>')
+        _rol_html = (f'<span style="color:#94a3b8;font-weight:700;font-size:0.8rem;">{_svg_user}</span>'
                      f' <span style="color:#e2e8f0;font-size:0.82rem;font-weight:600;">{_nombre.upper()}</span>')
 
     if _cot_num:

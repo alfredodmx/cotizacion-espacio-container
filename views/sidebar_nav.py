@@ -151,11 +151,14 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
         'section[data-testid="stSidebar"] [data-testid="stSidebarHeader"]{display:none!important;height:0!important;min-height:0!important;padding:0!important;}'
         'section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"]{display:none!important;}'
     )
-    # El header fijo arranca despues del sidebar (no lo tapa)
-    css.append(f'#_usr_header_bar{{left:{ancho}!important;transition:left {_t}!important;}}')
-    # El FAB flotante de guardar se corre para no quedar sobre el sidebar.
-    # (También se mantiene via --sb-w en tab_cotizacion; acá la transición.)
-    css.append(f'.st-key-btn_fab_guardar{{left:calc({ancho} + 1.2rem)!important;transition:left {_t}!important;}}')
+    # El header fijo arranca despues del sidebar (no lo tapa). Usa --sb-w
+    # (JS lo sincroniza en tiempo real con el ancho del sidebar durante la
+    # animación) en vez del `ancho` estático, así no se desincroniza.
+    css.append(f'#_usr_header_bar{{left:var(--sb-w,{ancho})!important;}}')
+    # NOTA: el FAB Guardar NO se ancla aquí. Se ancla SOLO en tab_cotizacion
+    # con left:calc(var(--sb-w)+1.2rem). Tener dos reglas (una con `ancho`
+    # estático aquí, otra con --sb-w allá) causaba que el FAB se quedara
+    # pegado en la posición vieja o se solapara con el sidebar.
     # Scrollbar fino para el area de navegacion (el contenido scrollea)
     css.append(
         'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]::-webkit-scrollbar{width:6px;}'
