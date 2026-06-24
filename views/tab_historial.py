@@ -208,23 +208,48 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
     )
 
     with st.container(border=True):
-        tipo_busqueda = st.radio("Buscar por:", ["📋 N° Presupuesto", "👤 Cliente", "👨‍💼 Asesor"],
+        # Iconos SVG (data-URI) en los botones de búsqueda vía CSS ::before.
+        def _btn_svg_before(key, svg_path, color="%23475569"):
+            return (
+                f'.st-key-{key} button{{display:inline-flex!important;align-items:center!important;'
+                f'justify-content:center!important;gap:6px!important;}}'
+                f'.st-key-{key} button::before{{content:""!important;flex-shrink:0!important;'
+                f'width:15px!important;height:15px!important;'
+                f'background:url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' '
+                f'width=\'15\' height=\'15\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'{color}\' '
+                f'stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E{svg_path}'
+                f'%3C/svg%3E") no-repeat center/contain!important;}}'
+            )
+        _SVG_SEARCH = "%3Ccircle cx=\'11\' cy=\'11\' r=\'8\'/%3E%3Cpath d=\'m21 21-4.3-4.3\'/%3E"
+        _SVG_TRASH = "%3Cpath d=\'M3 6h18\'/%3E%3Cpath d=\'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\'/%3E"
+        _SVG_CAL = "%3Cpath d=\'M8 2v4\'/%3E%3Cpath d=\'M16 2v4\'/%3Crect width=\'18\' height=\'18\' x=\'3\' y=\'4\' rx=\'2\'/%3E%3Cpath d=\'M3 10h18\'/%3E"
+        st.markdown(
+            "<style>"
+            + _btn_svg_before("btn_buscar_cot", _SVG_SEARCH, "white")
+            + _btn_svg_before("btn_limpiar_cot", _SVG_TRASH)
+            + _btn_svg_before("filtro_hoy", _SVG_CAL)
+            + _btn_svg_before("filtro_semana", _SVG_CAL)
+            + _btn_svg_before("filtro_mes", _SVG_CAL)
+            + "</style>",
+            unsafe_allow_html=True,
+        )
+        tipo_busqueda = st.radio("Buscar por:", ["N° Presupuesto", "Cliente", "Asesor"],
                                   horizontal=True, key="tipo_busqueda", label_visibility="collapsed")
-        tipo_map = {"📋 N° Presupuesto": "numero", "👤 Cliente": "cliente", "👨‍💼 Asesor": "asesor"}
+        tipo_map = {"N° Presupuesto": "numero", "Cliente": "cliente", "Asesor": "asesor"}
         _bc1, _bc2, _bc3, _bc4, _bc5, _bc6 = st.columns([3, 0.8, 0.8, 0.7, 0.8, 0.8])
         with _bc1:
             termino = st.text_input("Término", placeholder="Ingrese término de búsqueda...",
                                      key="buscar_cotizacion", label_visibility="collapsed")
-        with _bc2: buscar_btn = st.button("🔍 Buscar", type="primary", use_container_width=True)
-        with _bc3: limpiar_btn = st.button("🗑️ Limpiar", use_container_width=True)
+        with _bc2: buscar_btn = st.button("Buscar", type="primary", use_container_width=True, key="btn_buscar_cot")
+        with _bc3: limpiar_btn = st.button("Limpiar", use_container_width=True, key="btn_limpiar_cot")
         with _bc4:
-            if st.button("📅 Hoy", use_container_width=True, key="filtro_hoy"):
+            if st.button("Hoy", use_container_width=True, key="filtro_hoy"):
                 st.session_state.resultados_busqueda = None; st.rerun()
         with _bc5:
-            if st.button("📅 Semana", use_container_width=True, key="filtro_semana"):
+            if st.button("Semana", use_container_width=True, key="filtro_semana"):
                 st.session_state.resultados_busqueda = None; st.rerun()
         with _bc6:
-            if st.button("📅 Mes", use_container_width=True, key="filtro_mes"):
+            if st.button("Mes", use_container_width=True, key="filtro_mes"):
                 st.session_state.resultados_busqueda = None; st.rerun()
 
     st.markdown("---")
