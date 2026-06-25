@@ -181,22 +181,28 @@ html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif !impor
     color: #2a3060 !important; transform: translateY(-1px) !important;
     box-shadow: 0 4px 14px rgba(91,124,250,0.18) !important;
 }
-.stButton > button[kind="primary"] {
+/* Descendiente (no hijo directo): los botones primary con help= quedan
+   envueltos en stTooltipHoverTarget, y `.stButton > button` no matchearía →
+   perderían el gradiente (p.ej. VER PLANO). */
+.stButton button[kind="primary"] {
     background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%) !important;
     color: #ffffff !important; border: none !important;
     box-shadow: 0 4px 16px rgba(91,124,250,0.4) !important;
 }
-.stButton > button[kind="primary"]:hover {
+.stButton button[kind="primary"]:hover {
     transform: translateY(-2px) !important;
     box-shadow: 0 8px 24px rgba(91,124,250,0.5) !important;
 }
-.stDownloadButton > button {
+/* Descendiente (no hijo directo): si el download_button tiene help=, Streamlit
+   inserta un wrapper de tooltip y `.stDownloadButton > button` dejaría de
+   matchear → el botón quedaría blanco (p.ej. PDF Selección). */
+.stDownloadButton button {
     background: linear-gradient(135deg, #5b7cfa 0%, #8b5cf6 100%) !important;
     color: #ffffff !important; border: none !important; border-radius: 10px !important;
     font-family: 'Plus Jakarta Sans', sans-serif !important; font-weight: 600 !important;
     box-shadow: 0 4px 16px rgba(91,124,250,0.35) !important;
 }
-.stDownloadButton > button:hover { transform: translateY(-1px) !important; }
+.stDownloadButton button:hover { transform: translateY(-1px) !important; }
 .stPopover > button {
     background-color: #ffffff !important; color: #2a3060 !important;
     border: 1.5px solid #dde1f0 !important; border-radius: 10px !important;

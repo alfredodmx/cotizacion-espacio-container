@@ -45,6 +45,17 @@ def _rechazo_status_cached(ep: str) -> dict:
         return {}
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def _fetch_plano_bytes(url: str):
+    """Descarga los bytes del plano desde su URL (cacheado 5min por URL) para el
+    botón DESCARGAR PLANO. Devuelve None si falla."""
+    try:
+        r = requests.get(url, timeout=20)
+        return r.content if r.ok else None
+    except Exception:
+        return None
+
+
 @st.cache_data(ttl=60, show_spinner=False)
 def _modelos_predefinidos(eps: tuple) -> dict:
     """Mapa {numero: modelo_predefinido} cacheado 60s por set de EPs (completo)."""
@@ -1186,6 +1197,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             _SVG_LOCK = "%3Crect width=\'18\' height=\'11\' x=\'3\' y=\'11\' rx=\'2\' ry=\'2\'/%3E%3Cpath d=\'M7 11V7a5 5 0 0 1 10 0v4\'/%3E"
             _SVG_EYE = "%3Cpath d=\'M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z\'/%3E%3Ccircle cx=\'12\' cy=\'12\' r=\'3\'/%3E"
             _SVG_IMG = "%3Crect width=\'18\' height=\'18\' x=\'3\' y=\'3\' rx=\'2\' ry=\'2\'/%3E%3Ccircle cx=\'9\' cy=\'9\' r=\'2\'/%3E%3Cpath d=\'m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21\'/%3E"
+            _SVG_DL = "%3Cpath d=\'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\'/%3E%3Cpolyline points=\'7 10 12 15 17 10\'/%3E%3Cline x1=\'12\' x2=\'12\' y1=\'15\' y2=\'3\'/%3E"
             st.markdown(
                 "<style>"
                 + _abtn_svg(".st-key-btn_download_log", _SVG_FILETXT, "white")
@@ -1196,6 +1208,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 + _abtn_svg("[class*='st-key-pdf_cliente_']", _SVG_LOCK, "white")
                 + _abtn_svg("[class*='st-key-pdf_sel']", _SVG_IMG, "white")
                 + _abtn_svg(".st-key-btn_ver_plano", _SVG_EYE, "white")
+                + _abtn_svg(".st-key-btn_descargar_plano", _SVG_DL, "white")
                 + "</style>",
                 unsafe_allow_html=True,
             )
@@ -1249,7 +1262,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                                 st.warning("&#9888;&#65039; Debes ingresar un motivo.")
                 _dialogo_rechazo()
 
-            col_acc1, col_acc0, col_acc2, col_acc3, col_acc5, col_acc4 = st.columns(6)
+            col_acc1, col_acc0, col_acc2, col_acc3, col_acc5, col_acc6, col_acc4 = st.columns(7)
             with col_acc1:
                 if tiene_margen_seleccionado and not st.session_state.modo_admin:
                     st.button("Cargar presupuesto", use_container_width=True, disabled=True,
@@ -1463,6 +1476,26 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 except Exception as _esel2:
                     st.button('PDF Selección', use_container_width=True, disabled=True,
                               key='pdf_sel_err', help=str(_esel2)[:200])
+
+            with col_acc6:
+                # Descargar el plano directamente (sin previsualizar). El plano vive
+                # en plano_url; bajamos los bytes (cacheados) y los servimos vía
+                # download_button. Si no hay plano → botón deshabilitado.
+                _pl_url6 = (cotizacion_para_pdf or {}).get('plano_url') if cotizacion_para_pdf else None
+                if cotizacion_seleccionada and tiene_plano_seleccionado and _pl_url6:
+                    _pl_name6 = (cotizacion_para_pdf or {}).get('plano_nombre') or f'Plano_{numero_seleccionado}.pdf'
+                    _pl_bytes6 = _fetch_plano_bytes(_pl_url6)
+                    if _pl_bytes6:
+                        _pl_mime6 = 'application/pdf' if _pl_name6.lower().endswith('.pdf') else 'application/octet-stream'
+                        st.download_button("DESCARGAR PLANO", data=_pl_bytes6, file_name=_pl_name6,
+                            mime=_pl_mime6, use_container_width=True, key="btn_descargar_plano",
+                            help="Descarga el plano adjunto directamente")
+                    else:
+                        st.button("DESCARGAR PLANO", use_container_width=True, disabled=True,
+                                  key="btn_descargar_plano", help="No se pudo obtener el plano")
+                else:
+                    st.button("DESCARGAR PLANO", use_container_width=True, disabled=True,
+                              key="btn_descargar_plano", help="Sin plano adjunto")
 
             with col_acc4:
                 if cotizacion_seleccionada and tiene_plano_seleccionado:
