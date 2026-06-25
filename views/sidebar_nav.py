@@ -126,9 +126,15 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
         '{background:transparent!important;border:none!important;box-shadow:none!important;}'
     )
     # Padding del area de contenido + espacio para brand fijo (arriba) y footer (abajo)
+    # El área de navegación DEBE scrollear (altura limitada al viewport): con
+    # muchos items (root=16) la lista supera la pantalla y, si no scrollea, el
+    # footer fijo (position:fixed; bottom:0) tapa los últimos items. El padding
+    # reserva espacio para el brand (arriba) y el footer (abajo), ambos fijos.
     css.append(
         f'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]'
-        f'{{padding:54px 0.55rem calc({_foot_h} + 6px)!important;}}'
+        f'{{padding:54px 0.55rem calc({_foot_h} + 6px)!important;'
+        f'box-sizing:border-box!important;height:100vh!important;max-height:100vh!important;'
+        f'overflow-y:auto!important;overflow-x:hidden!important;}}'
     )
     # BRAND fijo arriba — width estática `ancho` (Python la sabe correcta en
     # CADA render) + transición. NO usar --sb-w (el JS del iframe es async y
