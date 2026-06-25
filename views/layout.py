@@ -1132,8 +1132,12 @@ def render_layout():
             'header{visibility:hidden!important;}',
             '#MainMenu{display:none!important;}',
             'footer{display:none!important;}',
-            '[data-testid="stTooltipIcon"]{display:none!important;}',
-            '.stTooltipIcon{display:none!important;}'
+            // Oculta SOLO los iconos "?" de ayuda (junto a labels), NO los botones
+            // que tienen help= (Streamlit los envuelve en stTooltipIcon → si lo
+            // ocultamos sin excepción, desaparece el botón entero, p.ej. VER PLANO
+            // y PDF Selección que siempre llevan help).
+            '[data-testid="stTooltipIcon"]:not(:has(button)){display:none!important;}',
+            '.stTooltipIcon:not(:has(button)){display:none!important;}'
         ].join('');
         D.head.appendChild(s);
     }

@@ -230,6 +230,12 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             + _btn_svg_before("filtro_hoy", _SVG_CAL)
             + _btn_svg_before("filtro_semana", _SVG_CAL)
             + _btn_svg_before("filtro_mes", _SVG_CAL)
+            # Radio "Buscar por" (N° Presupuesto/Cliente/Asesor): misma tipografía
+            # que el dropdown 'Selecciona una cotización' (Plus Jakarta Sans). Sus
+            # labels usan clases st-emotion-cache-* que no matchean el override
+            # global [class*="css"], por eso hay que forzarlo aquí.
+            + ".st-key-tipo_busqueda *{font-family:'Plus Jakarta Sans',sans-serif!important;"
+            + "letter-spacing:normal!important;}"
             + "</style>",
             unsafe_allow_html=True,
         )
@@ -1153,16 +1159,24 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             st.markdown("### Acciones")
             # Iconos SVG en los botones de acción (data-URI ::before). Soporta
             # keys exactas (.st-key-X) y prefijos dinámicos ([class*=st-key-X]).
-            def _abtn_svg(sel, svg_path, color="%23475569"):
+            def _abtn_svg(sel, svg_path, color="%23475569", disabled_color="%239ca3af"):
+                def _url(c):
+                    return (
+                        f'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' '
+                        f'width=\'16\' height=\'16\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'{c}\' '
+                        f'stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E{svg_path}'
+                        f'%3C/svg%3E")'
+                    )
                 return (
                     f'{sel} button{{display:inline-flex!important;align-items:center!important;'
                     f'justify-content:center!important;gap:7px!important;}}'
                     f'{sel} button::before{{content:""!important;flex-shrink:0!important;'
                     f'width:16px!important;height:16px!important;'
-                    f'background:url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' '
-                    f'width=\'16\' height=\'16\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'{color}\' '
-                    f'stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E{svg_path}'
-                    f'%3C/svg%3E") no-repeat center/contain!important;}}'
+                    f'background:{_url(color)} no-repeat center/contain!important;}}'
+                    # En estado disabled el botón queda con fondo transparente y texto
+                    # gris → un icono blanco sería invisible. Usamos un icono gris.
+                    f'{sel} button:disabled::before{{background:{_url(disabled_color)} '
+                    f'no-repeat center/contain!important;}}'
                 )
             _SVG_FILETXT = "%3Cpath d=\'M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\'/%3E%3Cpath d=\'M14 2v4a2 2 0 0 0 2 2h4\'/%3E%3Cpath d=\'M16 13H8\'/%3E%3Cpath d=\'M16 17H8\'/%3E"
             _SVG_X = "%3Cpath d=\'M18 6 6 18\'/%3E%3Cpath d=\'m6 6 12 12\'/%3E"
@@ -1170,6 +1184,8 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             _SVG_PKG = "%3Cpath d=\'M11 21.7a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7z\'/%3E%3Cpath d=\'M3.3 7 12 12l8.7-5\'/%3E%3Cpath d=\'M12 22V12\'/%3E"
             _SVG_FILE = "%3Cpath d=\'M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\'/%3E%3Cpath d=\'M14 2v4a2 2 0 0 0 2 2h4\'/%3E"
             _SVG_LOCK = "%3Crect width=\'18\' height=\'11\' x=\'3\' y=\'11\' rx=\'2\' ry=\'2\'/%3E%3Cpath d=\'M7 11V7a5 5 0 0 1 10 0v4\'/%3E"
+            _SVG_EYE = "%3Cpath d=\'M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z\'/%3E%3Ccircle cx=\'12\' cy=\'12\' r=\'3\'/%3E"
+            _SVG_IMG = "%3Crect width=\'18\' height=\'18\' x=\'3\' y=\'3\' rx=\'2\' ry=\'2\'/%3E%3Ccircle cx=\'9\' cy=\'9\' r=\'2\'/%3E%3Cpath d=\'m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21\'/%3E"
             st.markdown(
                 "<style>"
                 + _abtn_svg(".st-key-btn_download_log", _SVG_FILETXT, "white")
@@ -1178,6 +1194,8 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 + _abtn_svg("[class*='st-key-pdf_compras_']", _SVG_PKG, "white")
                 + _abtn_svg("[class*='st-key-pdf_completo_']", _SVG_FILE, "white")
                 + _abtn_svg("[class*='st-key-pdf_cliente_']", _SVG_LOCK, "white")
+                + _abtn_svg("[class*='st-key-pdf_sel']", _SVG_IMG, "white")
+                + _abtn_svg(".st-key-btn_ver_plano", _SVG_EYE, "white")
                 + "</style>",
                 unsafe_allow_html=True,
             )
@@ -1435,21 +1453,21 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                         _pdf_sel2 = generar_pdf_seleccion_cliente(
                             _sel_ep2, _cot_sel2.get('cliente_nombre','') if _cot_sel2 else '',
                             _sel_cfg2, _sel_res2, _sel_mit2, fecha_formulario=_sel_fecha)
-                        st.download_button(label='&#127912; PDF Selecci&#243;n', data=_pdf_sel2,
+                        st.download_button(label='PDF Selección', data=_pdf_sel2,
                             file_name=f'Seleccion_Cliente_{_sel_ep2}.pdf', mime='application/pdf',
                             use_container_width=True, key=f'pdf_sel_{_sel_ep2}',
-                            help=f'Selecci&#243;n del cliente ({_sel_pct2}% completado)')
+                            help=f'Selección del cliente ({_sel_pct2}% completado)')
                     else:
-                        st.button('&#127912; PDF Selecci&#243;n', use_container_width=True, disabled=True,
-                                  help='Sin selecciones del cliente a&#250;n')
+                        st.button('PDF Selección', use_container_width=True, disabled=True,
+                                  key='pdf_sel_dis', help='Sin selecciones del cliente aún')
                 except Exception as _esel2:
-                    st.button('&#127912; PDF Selecci&#243;n', use_container_width=True, disabled=True,
-                              help=str(_esel2)[:200])
+                    st.button('PDF Selección', use_container_width=True, disabled=True,
+                              key='pdf_sel_err', help=str(_esel2)[:200])
 
             with col_acc4:
                 if cotizacion_seleccionada and tiene_plano_seleccionado:
-                    label_visor = "&#128260; ACTUALIZAR PLANO" if (st.session_state.mostrar_visor and st.session_state.numero_en_visor == numero_seleccionado) else "&#128065;&#65039; VER PLANO"
-                    if st.button(label_visor, use_container_width=True, type="primary", help="Ver plano adjunto"):
+                    label_visor = "ACTUALIZAR PLANO" if (st.session_state.mostrar_visor and st.session_state.numero_en_visor == numero_seleccionado) else "VER PLANO"
+                    if st.button(label_visor, use_container_width=True, type="primary", help="Ver plano adjunto", key="btn_ver_plano"):
                         cot_btn = cargar_cotizacion(numero_seleccionado)
                         if cot_btn and cot_btn.get('plano_url'):
                             st.session_state.pdf_url = cot_btn['plano_url']
@@ -1458,7 +1476,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                             st.session_state.numero_en_visor = numero_seleccionado
                             st.rerun()
                 else:
-                    st.button("&#128065;&#65039; VER PLANO", use_container_width=True, disabled=True, help="Sin plano adjunto")
+                    st.button("VER PLANO", use_container_width=True, disabled=True, help="Sin plano adjunto", key="btn_ver_plano")
 
             if st.session_state.mostrar_visor and st.session_state.pdf_url:
                 with st.expander("&#128196; Vista Previa del Plano", expanded=True):
