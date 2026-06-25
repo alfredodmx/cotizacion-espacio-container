@@ -1209,6 +1209,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 + _abtn_svg("[class*='st-key-pdf_sel']", _SVG_IMG, "white")
                 + _abtn_svg(".st-key-btn_ver_plano", _SVG_EYE, "white")
                 + _abtn_svg(".st-key-btn_descargar_plano", _SVG_DL, "white")
+                + _abtn_svg("[class*='st-key-descargar_plano_']", _SVG_DL, "white")
                 + "</style>",
                 unsafe_allow_html=True,
             )
@@ -1512,13 +1513,14 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                     st.button("VER PLANO", use_container_width=True, disabled=True, help="Sin plano adjunto", key="btn_ver_plano")
 
             if st.session_state.mostrar_visor and st.session_state.pdf_url:
-                with st.expander("&#128196; Vista Previa del Plano", expanded=True):
+                with st.expander("Vista Previa del Plano", expanded=True, icon=":material/picture_as_pdf:"):
                     st.markdown(f"**Archivo:** {st.session_state.pdf_nombre} — cotizaci&#243;n `{st.session_state.numero_en_visor}`")
-                    navegador = detectar_navegador()
                     pdf_url_visor = st.session_state.pdf_url
-                    pdf_url_encoded = urllib.parse.quote(pdf_url_visor, safe='')
-                    google_viewer_url = f"https://docs.google.com/viewer?url={pdf_url_encoded}&embedded=true"
-                    usar_google = navegador['needs_google_viewer']
+                    # Render DIRECTO del PDF (visor nativo del navegador). Antes se
+                    # usaba el Google Docs viewer (docs.google.com/viewer) que Google
+                    # ha ido descontinuando → dejó de renderizar y el fallback estaba
+                    # roto (chequeaba contentDocument cross-origin). El embed directo
+                    # es confiable: Chrome/Edge/Firefox/Safari renderizan PDF nativo.
                     components.html(f"""<style>@keyframes spin{{from{{transform:rotate(0deg)}}to{{transform:rotate(360deg)}}}}
 body,html{{margin:0;padding:0;overflow:hidden;}}
 #pdf-wrap{{width:100%;height:680px;border:2px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);background:#f0f2f5;position:relative;}}
@@ -1526,21 +1528,21 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
 #pdf-spinner{{width:40px;height:40px;border:4px solid #cbd5e1;border-top-color:#5b7cfa;border-radius:50%;animation:spin 0.8s linear infinite;}}
 #pdf-loading span{{color:#64748b;font-size:0.9rem;font-family:sans-serif;}}
 #pdf-iframe{{position:absolute;inset:0;width:100%;height:100%;border:none;display:block;}}</style>
-<div id="pdf-wrap"><div id="pdf-loading"><div id="pdf-spinner"></div><span id="pdf-status">Cargando PDF...</span></div><iframe id="pdf-iframe" src="" allow="fullscreen"></iframe></div>
+<div id="pdf-wrap"><div id="pdf-loading"><div id="pdf-spinner"></div><span id="pdf-status">Cargando PDF...</span></div><iframe id="pdf-iframe" src="{pdf_url_visor}" allow="fullscreen"></iframe></div>
 <script>(function(){{
 var iframe=document.getElementById('pdf-iframe');var loading=document.getElementById('pdf-loading');
-var googleUrl="{google_viewer_url}";var directUrl="{pdf_url_visor}";var usingGoogle={"true" if usar_google else "false"};
 function hideLoading(){{loading.style.opacity='0';setTimeout(function(){{loading.style.display='none';}},400);}}
-if(usingGoogle){{iframe.src=googleUrl;setTimeout(function(){{if(loading.style.display!=='none')hideLoading();}},3000);
-setTimeout(function(){{if(usingGoogle){{try{{var doc=iframe.contentDocument||iframe.contentWindow.document;if(!doc||!doc.body||doc.body.children.length===0){{usingGoogle=false;iframe.src=directUrl;setTimeout(hideLoading,4000);}}}}catch(e){{}}}};}},8000);
-}}else{{iframe.src=directUrl;setTimeout(hideLoading,4000);}}}})();</script>""", height=710, scrolling=False)
-                    try:
-                        pdf_bytes = requests.get(st.session_state.pdf_url, timeout=15).content
-                        st.download_button(label="&#128229; Descargar Plano", data=pdf_bytes,
+iframe.addEventListener('load',function(){{setTimeout(hideLoading,300);}});
+// Fallback: algunos visores PDF nativos no emiten 'load' de forma fiable.
+setTimeout(hideLoading,2500);
+}})();</script>""", height=710, scrolling=False)
+                    _dl_bytes_v = _fetch_plano_bytes(st.session_state.pdf_url)
+                    if _dl_bytes_v:
+                        st.download_button(label="Descargar Plano", data=_dl_bytes_v,
                             file_name=st.session_state.pdf_nombre, mime="application/pdf",
                             use_container_width=True, key=f"descargar_plano_{st.session_state.numero_en_visor}")
-                    except:
-                        st.warning("&#9888;&#65039; No se pudo preparar la descarga. Intenta de nuevo.")
+                    else:
+                        st.warning("No se pudo preparar la descarga. Intenta de nuevo.")
 
         st.markdown("---")
         st.markdown("### Estadisticas Rapidas")
