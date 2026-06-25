@@ -30,6 +30,44 @@ def evaluar_estado_cotizacion(cotizacion: dict) -> str:
         return "BORRADOR CON PLANO" if tiene_plano else "BORRADOR"
 
 
+def calcular_estado_label(cliente_nombre, cliente_email, asesor_nombre, asesor_email,
+                          asesor_telefono, config_margen, tiene_plano,
+                          tiene_notariado=False, tiene_acta=False, motivo_rechazo='') -> str:
+    """Fuente ÚNICA del estado de una cotización. La usan la tabla (crear_badge_estado)
+    y el header (badge del presupuesto cargado), para que SIEMPRE coincidan."""
+    _mr = motivo_rechazo
+    _motivo = str(_mr).strip() if (_mr is not None and str(_mr).strip() not in ('', 'None', 'nan')) else ''
+    if tiene_acta:
+        return 'PROYECTO TERMINADO'
+    if tiene_notariado:
+        return 'ADJUDICADO'
+    if _motivo:
+        return 'RECHAZADO'
+    datos_completos = all([cliente_nombre, cliente_email])
+    asesor_completo = any([asesor_nombre, asesor_email, asesor_telefono])
+    if config_margen and config_margen > 0:
+        if datos_completos and asesor_completo:
+            return 'AUTORIZADO CON PLANO' if tiene_plano else 'AUTORIZADO'
+        return 'INCOMPLETO CON PLANO' if tiene_plano else 'INCOMPLETO'
+    if datos_completos and asesor_completo:
+        return 'BORRADOR CON PLANO' if tiene_plano else 'BORRADOR'
+    return 'INCOMPLETO CON PLANO' if tiene_plano else 'INCOMPLETO'
+
+
+# Colores del badge por estado (bg, border, text). Compartido tabla/HTML.
+ESTADO_BADGE_COLORS = {
+    'PROYECTO TERMINADO': ('#7c3aed', '#5b21b6', 'white'),
+    'ADJUDICADO':         ('#2563eb', '#1d4ed8', 'white'),
+    'RECHAZADO':          ('#dc2626', '#b91c1c', '#fbbf24'),
+    'AUTORIZADO CON PLANO': ('#28a745', '#1e7e34', 'white'),
+    'AUTORIZADO':         ('#28a745', '#1e7e34', 'white'),
+    'BORRADOR CON PLANO': ('#f97316', '#c2410c', 'white'),
+    'BORRADOR':           ('#ffc107', '#d39e00', '#212529'),
+    'INCOMPLETO CON PLANO': ('#dc3545', '#bd2130', 'white'),
+    'INCOMPLETO':         ('#dc3545', '#bd2130', 'white'),
+}
+
+
 def crear_badge_estado(row) -> str:
     """Retorna HTML del badge de estado para una fila de cotizacion (tuple o Series)."""
     if hasattr(row, 'index') and 'Margen' in row.index:
@@ -55,39 +93,14 @@ def crear_badge_estado(row) -> str:
         tiene_acta      = bool(row[21]) if len(row) > 21 else False
         _raw_mr         = row[19] if len(row) > 19 else ''
 
-    _motivo_r = str(_raw_mr).strip() if (_raw_mr is not None and str(_raw_mr).strip() not in ('', 'None', 'nan')) else ''
-
-    if tiene_acta:
-        return '<span style="background-color:#7c3aed;color:white;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;border:1px solid #5b21b6;box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">PROYECTO TERMINADO</span>'
-    if tiene_notariado:
-        return '<span style="background-color:#2563eb;color:white;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;border:1px solid #1d4ed8;box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">ADJUDICADO</span>'
-    if _motivo_r:
-        return '<span class="badge-rechazado" style="background-color:#dc2626;color:#fbbf24 !important;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;border:1px solid #b91c1c;box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">RECHAZADO</span>'
-
-    datos_completos = all([cliente_nombre, cliente_email])
-    asesor_completo = any([asesor_nombre, asesor_email, asesor_telefono])
-
-    if config_margen and config_margen > 0:
-        if datos_completos and asesor_completo:
-            label = "AUTORIZADO CON PLANO" if tiene_plano else "AUTORIZADO"
-            color, border, text_color = "#28a745", "#1e7e34", "white"
-        else:
-            label = "INCOMPLETO CON PLANO" if tiene_plano else "INCOMPLETO"
-            color, border, text_color = "#dc3545", "#bd2130", "white"
-    else:
-        if datos_completos and asesor_completo:
-            if tiene_plano:
-                label = "BORRADOR CON PLANO"
-                color, border = "#f97316", "#c2410c"
-            else:
-                label = "BORRADOR"
-                color, border = "#ffc107", "#d39e00"
-            text_color = "#212529" if label == "BORRADOR" else "white"
-        else:
-            label = "INCOMPLETO CON PLANO" if tiene_plano else "INCOMPLETO"
-            color, border, text_color = "#dc3545", "#bd2130", "white"
-
-    return (f'<span style="background-color:{color};color:{text_color};padding:2px 7px;'
+    label = calcular_estado_label(cliente_nombre, cliente_email, asesor_nombre, asesor_email,
+                                  asesor_telefono, config_margen, tiene_plano,
+                                  tiene_notariado=tiene_notariado, tiene_acta=tiene_acta,
+                                  motivo_rechazo=_raw_mr)
+    color, border, text_color = ESTADO_BADGE_COLORS.get(label, ('#64748b', '#475569', 'white'))
+    _cls = ' class="badge-rechazado"' if label == 'RECHAZADO' else ''
+    _imp = ' !important' if label == 'RECHAZADO' else ''
+    return (f'<span{_cls} style="background-color:{color};color:{text_color}{_imp};padding:2px 7px;'
             f'border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;'
             f'border:1px solid {border};box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">{label}</span>')
 

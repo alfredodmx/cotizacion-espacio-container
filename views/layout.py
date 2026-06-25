@@ -1056,23 +1056,42 @@ def render_layout():
         _rol_html = (f'<span style="color:#94a3b8;font-weight:700;font-size:0.8rem;">{_svg_user}</span>'
                      f' <span style="color:#e2e8f0;font-size:0.82rem;font-weight:600;">{_nombre.upper()}</span>')
 
+    # Mapa estado → (emoji, color del badge, color de fondo del header).
+    _ESTADO_HDR = {
+        'PROYECTO TERMINADO':   ('🟣', '#7c3aed', '#3b0764'),
+        'ADJUDICADO':           ('🔵', '#2563eb', '#1e3a5f'),
+        'RECHAZADO':            ('🔴', '#dc2626', '#7f1d1d'),
+        'AUTORIZADO CON PLANO': ('🟢', '#10b981', '#064e3b'),
+        'AUTORIZADO':           ('🟢', '#10b981', '#064e3b'),
+        'BORRADOR CON PLANO':   ('🟠', '#f97316', '#7c2d12'),
+        'BORRADOR':             ('🟡', '#eab308', '#713f12'),
+        'INCOMPLETO CON PLANO': ('🔴', '#ef4444', '#7f1d1d'),
+        'INCOMPLETO':           ('🔴', '#ef4444', '#7f1d1d'),
+    }
     if _cot_num:
-        _margen   = st.session_state.get("margen", 0)
-        _datos    = bool(st.session_state.get("nombre_input") and st.session_state.get("correo_input"))
-        _asesor   = st.session_state.get("asesor_seleccionado", "")
-        _ok_asesor = bool(_asesor and _asesor != "Seleccionar asesor")
-        _plano    = bool(st.session_state.get("plano_adjunto") or st.session_state.get("pdf_url") or st.session_state.get("plano_nombre"))
-        _es_adj   = st.session_state.get("_adj_es_adj", False) and st.session_state.get("_adj_check_ep") == _cot_num
-        if _es_adj:
-            _badge, _bc, _hc = "🔵 ADJUDICADO", "#2563eb", "#1e3a5f"
-        elif _margen > 0 and _datos and _ok_asesor:
-            _badge, _bc, _hc = f"🟢 AUTORIZADO{' CON PLANO' if _plano else ''}", "#10b981", "#064e3b"
-        elif _datos and _ok_asesor and _plano:
-            _badge, _bc, _hc = "🟠 BORRADOR CON PLANO", "#f97316", "#7c2d12"
-        elif _datos and _ok_asesor:
-            _badge, _bc, _hc = "🟡 BORRADOR", "#eab308", "#713f12"
+        # Estado PERSISTIDO al cargar (misma fuente que la tabla → siempre coincide).
+        # No se recalcula desde las keys de los widgets del editor porque Streamlit
+        # las limpia al cambiar de página y daría INCOMPLETO falso.
+        _estado = st.session_state.get("cotizacion_cargada_estado", "")
+        if _estado in _ESTADO_HDR:
+            _emoji, _bc, _hc = _ESTADO_HDR[_estado]
+            _badge = f"{_emoji} {_estado}"
         else:
-            _badge, _bc, _hc = f"🔴 INCOMPLETO{' CON PLANO' if _plano else ''}", "#ef4444", "#7f1d1d"
+            # Fallback (p.ej. cotización nueva sin guardar): cómputo en vivo desde
+            # el editor — sólo fiable en la página Presupuesto.
+            _margen   = st.session_state.get("margen", 0)
+            _datos    = bool(st.session_state.get("nombre_input") and st.session_state.get("correo_input"))
+            _asesor   = st.session_state.get("asesor_seleccionado", "")
+            _ok_asesor = bool(_asesor and _asesor != "Seleccionar asesor")
+            _plano    = bool(st.session_state.get("plano_adjunto") or st.session_state.get("pdf_url") or st.session_state.get("plano_nombre"))
+            if _margen > 0 and _datos and _ok_asesor:
+                _badge, _bc, _hc = f"🟢 AUTORIZADO{' CON PLANO' if _plano else ''}", "#10b981", "#064e3b"
+            elif _datos and _ok_asesor and _plano:
+                _badge, _bc, _hc = "🟠 BORRADOR CON PLANO", "#f97316", "#7c2d12"
+            elif _datos and _ok_asesor:
+                _badge, _bc, _hc = "🟡 BORRADOR", "#eab308", "#713f12"
+            else:
+                _badge, _bc, _hc = f"🔴 INCOMPLETO{' CON PLANO' if _plano else ''}", "#ef4444", "#7f1d1d"
         _left_html = (
             f'<span id="hdr-badge-estado" data-ep="{_cot_num}" title="Click para copiar {_cot_num}" '
             f'style="font-size:0.88rem;font-weight:700;color:#e2e8f0;cursor:pointer;white-space:nowrap;">'

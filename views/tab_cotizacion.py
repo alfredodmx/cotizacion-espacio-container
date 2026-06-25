@@ -13,7 +13,7 @@ import streamlit.components.v1 as components
 from views.layout import render_page_header
 from datetime import datetime, timedelta
 from repositories.cotizaciones_repo import guardar_cotizacion, generar_numero_unico
-from services.cotizacion_service import aplicar_margen
+from services.cotizacion_service import aplicar_margen, calcular_estado_label
 from utils.formato import formato_clp, calcular_hash_estado
 from utils.telefono import formatear_telefono, _validar_telefono_cliente
 from utils.rut import validar_rut, formatear_rut
@@ -215,6 +215,7 @@ def limpiar_todo():
     st.session_state.plano_adjunto = None
     st.session_state.plano_nombre = ""
     st.session_state.cotizacion_cargada = None
+    st.session_state['cotizacion_cargada_estado'] = ''
     st.session_state.cotizacion_seleccionada = None
     st.session_state.margen = 0.0
     st.session_state.mostrar_visor = False
@@ -369,6 +370,16 @@ def render_floating_panels():
                                    st.session_state.carrito, cfg_g, tots_g, pn_g, pd_g,
                                    usuario_logueado=_usr_log)
                 st.session_state.cotizacion_cargada = num_g
+                # Refrescar el estado del badge del header tras guardar (preserva
+                # estados terminales que no dependen del editor).
+                _prev_est = st.session_state.get('cotizacion_cargada_estado', '')
+                if _prev_est not in ('PROYECTO TERMINADO', 'ADJUDICADO', 'RECHAZADO'):
+                    _as_sel = st.session_state.get('asesor_seleccionado', '')
+                    st.session_state['cotizacion_cargada_estado'] = calcular_estado_label(
+                        st.session_state.get('nombre_input', ''), st.session_state.get('correo_input', ''),
+                        _as_sel if _as_sel != 'Seleccionar asesor' else '', '', '',
+                        st.session_state.get('margen', 0) or 0,
+                        bool(st.session_state.get('plano_adjunto') or st.session_state.get('pdf_url') or st.session_state.get('plano_nombre')))
                 st.session_state.hash_ultimo_guardado = calcular_hash_estado()
                 st.session_state.recien_guardado = True
                 st.session_state.counter += 1
@@ -611,6 +622,19 @@ def ejecutar_carga_cotizacion():
         st.session_state.plano_adjunto = None
         st.session_state.pdf_url = None
     st.session_state.cotizacion_cargada = cotizacion.get('numero', '')
+    # Estado del badge del header: calculado desde los datos GUARDADOS (misma
+    # fuente que la tabla) y persistido en una key NO-widget para que sobreviva al
+    # cambiar de página — las keys de los widgets del editor (nombre_input, etc.)
+    # se limpian al no renderizarse, por eso el header mostraba INCOMPLETO. Así el
+    # header SIEMPRE coincide con la tabla.
+    st.session_state['cotizacion_cargada_estado'] = calcular_estado_label(
+        cotizacion.get('cliente_nombre', ''), cotizacion.get('cliente_email', ''),
+        cotizacion.get('asesor_nombre', ''), cotizacion.get('asesor_email', ''),
+        cotizacion.get('asesor_telefono', ''), cotizacion.get('config_margen', 0) or 0,
+        bool(cotizacion.get('plano_url') or cotizacion.get('plano_nombre')),
+        tiene_notariado=bool(cotizacion.get('contrato_notariado_url')),
+        tiene_acta=bool(cotizacion.get('acta_url')),
+        motivo_rechazo=cotizacion.get('motivo_rechazo', ''))
     st.session_state.counter = st.session_state.get('counter', 0) + 100
     st.session_state.mostrar_visor = False
     st.session_state.pdf_actual = None
@@ -700,7 +724,10 @@ def render_cerrar_cotizacion_control():
 def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
     # Carga diferida: si se pulsó "Cargar presupuesto" en COTIZACIONES, volcamos
     # la cotización al editor ANTES de instanciar los widgets de este tab.
-    ejecutar_carga_cotizacion()
+    if ejecutar_carga_cotizacion():
+        # El header (render_layout) corre ANTES que esta carga, así que en el
+        # primer render mostraría estado viejo; un rerun lo refresca de inmediato.
+        st.rerun()
     # Confirmación al llegar desde "Cargar presupuesto" (navegación automática).
     _ep_cargado_toast = st.session_state.pop('_toast_cargado', None)
     if _ep_cargado_toast:
