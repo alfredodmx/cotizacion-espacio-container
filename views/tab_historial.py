@@ -1277,7 +1277,13 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                             st.rerun()
                         else:
                             if preparar_carga_cotizacion(numero_seleccionado):
-                                st.success(f"&#9989; Cotizaci&#243;n {numero_seleccionado} cargada")
+                                # Navegar al editor (Presupuesto): en el modular cada
+                                # página se renderiza por separado, así que hay que
+                                # llevar al usuario a Presupuesto para que el trigger
+                                # se procese y vea el presupuesto cargado. (Antes, con
+                                # st.tabs monolítico, la pestaña ya estaba renderizada.)
+                                st.session_state.nav_page = 'presupuesto'
+                                st.session_state['_toast_cargado'] = numero_seleccionado
                                 st.rerun()
 
             if st.session_state.get('mostrar_advertencia_carga', False):
@@ -1299,11 +1305,15 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                                                usuario_logueado=_usr_log3)
                             st.session_state.mostrar_advertencia_carga = False
                             if preparar_carga_cotizacion(numero_pendiente):
+                                st.session_state.nav_page = 'presupuesto'
+                                st.session_state['_toast_cargado'] = numero_pendiente
                                 st.rerun()
                     with col_no:
                         if st.button("&#128465;&#65039; No, descartar", use_container_width=True, key="dialog_btn_no"):
                             st.session_state.mostrar_advertencia_carga = False
                             if preparar_carga_cotizacion(numero_pendiente):
+                                st.session_state.nav_page = 'presupuesto'
+                                st.session_state['_toast_cargado'] = numero_pendiente
                                 st.rerun()
                     with col_cancelar:
                         if st.button("Cancelar", use_container_width=True, key="dialog_btn_cancelar"):

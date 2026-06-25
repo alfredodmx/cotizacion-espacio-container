@@ -701,6 +701,10 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
     # Carga diferida: si se pulsó "Cargar presupuesto" en COTIZACIONES, volcamos
     # la cotización al editor ANTES de instanciar los widgets de este tab.
     ejecutar_carga_cotizacion()
+    # Confirmación al llegar desde "Cargar presupuesto" (navegación automática).
+    _ep_cargado_toast = st.session_state.pop('_toast_cargado', None)
+    if _ep_cargado_toast:
+        st.toast(f"Presupuesto {_ep_cargado_toast} cargado", icon="✅")
     st.markdown("""
     <style>
     .hdr1 {
