@@ -172,22 +172,28 @@ def guardar_cotizacion(
 
 
 def buscar_cotizaciones(termino=None, tipo_busqueda='numero') -> list:
-    """Busca cotizaciones con filtros de termino y tipo. Aplica filtro por rol automaticamente."""
+    """Busca cotizaciones con filtros de termino y tipo. Aplica filtro por rol automaticamente.
+
+    Usa _fetch_cotizaciones_raw (cacheado 60s por rol+email) y filtra el termino
+    en memoria: la primera carga es cacheada y cada busqueda es instantanea (sin
+    round-trip a la DB por cada una). El cache se invalida en cada escritura via
+    _invalidar_cache_cotizaciones().
+    """
     try:
-        query = supabase_admin.table('cotizaciones').select(*_CAMPOS_LISTA)
         _rol_q = st.session_state.get('rol_usuario', 'ejecutivo')
-        if _rol_q == 'ejecutivo':
-            _email = st.session_state.get('auth_email', '')
-            if _email:
-                query = query.ilike('asesor_email', _email.strip())
+        # Para admin/root el email se ignora en el fetch → usamos '' como key
+        # para compartir una sola entrada de cache entre sesiones admin/root.
+        _email_key = st.session_state.get('auth_email', '') if _rol_q == 'ejecutivo' else ''
+        rows = _fetch_cotizaciones_raw(_rol_q, _email_key)
+
         if termino and termino.strip():
             campo_map = {'numero': 'numero', 'cliente': 'cliente_nombre', 'asesor': 'asesor_nombre'}
             campo = campo_map.get(tipo_busqueda, 'numero')
-            query = query.ilike(campo, f'%{termino}%')
-        query = query.order('fecha_creacion', desc=True)
-        response = query.execute()
+            _t = termino.strip().lower()
+            rows = [r for r in rows if _t in (r.get(campo, '') or '').lower()]
+
         resultados = []
-        for row in response.data:
+        for row in rows:
             resultados.append((
                 row.get('numero', ''),
                 row.get('cliente_nombre', '') or '',
