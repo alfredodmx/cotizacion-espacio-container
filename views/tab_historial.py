@@ -1516,26 +1516,49 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 with st.expander("Vista Previa del Plano", expanded=True, icon=":material/picture_as_pdf:"):
                     st.markdown(f"**Archivo:** {st.session_state.pdf_nombre} — cotizaci&#243;n `{st.session_state.numero_en_visor}`")
                     pdf_url_visor = st.session_state.pdf_url
-                    # Render DIRECTO del PDF (visor nativo del navegador). Antes se
-                    # usaba el Google Docs viewer (docs.google.com/viewer) que Google
-                    # ha ido descontinuando → dejó de renderizar y el fallback estaba
-                    # roto (chequeaba contentDocument cross-origin). El embed directo
-                    # es confiable: Chrome/Edge/Firefox/Safari renderizan PDF nativo.
-                    components.html(f"""<style>@keyframes spin{{from{{transform:rotate(0deg)}}to{{transform:rotate(360deg)}}}}
-body,html{{margin:0;padding:0;overflow:hidden;}}
-#pdf-wrap{{width:100%;height:680px;border:2px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);background:#f0f2f5;position:relative;}}
-#pdf-loading{{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f0f2f5;z-index:2;gap:12px;transition:opacity 0.4s ease;}}
-#pdf-spinner{{width:40px;height:40px;border:4px solid #cbd5e1;border-top-color:#5b7cfa;border-radius:50%;animation:spin 0.8s linear infinite;}}
-#pdf-loading span{{color:#64748b;font-size:0.9rem;font-family:sans-serif;}}
-#pdf-iframe{{position:absolute;inset:0;width:100%;height:100%;border:none;display:block;}}</style>
-<div id="pdf-wrap"><div id="pdf-loading"><div id="pdf-spinner"></div><span id="pdf-status">Cargando PDF...</span></div><iframe id="pdf-iframe" src="{pdf_url_visor}" allow="fullscreen"></iframe></div>
-<script>(function(){{
-var iframe=document.getElementById('pdf-iframe');var loading=document.getElementById('pdf-loading');
-function hideLoading(){{loading.style.opacity='0';setTimeout(function(){{loading.style.display='none';}},400);}}
-iframe.addEventListener('load',function(){{setTimeout(hideLoading,300);}});
-// Fallback: algunos visores PDF nativos no emiten 'load' de forma fiable.
-setTimeout(hideLoading,2500);
-}})();</script>""", height=710, scrolling=False)
+                    # Visor con PDF.js (render a canvas). Antes se usaba el Google Docs
+                    # viewer, que Google descontinuó → dejó de cargar. El embed directo
+                    # en <iframe> tampoco es fiable cross-browser: Safari y Brave no
+                    # renderizan PDF cross-origin embebido. PDF.js funciona en TODOS
+                    # (Safari/Chrome/Brave/Edge/Firefox) porque dibuja en canvas; solo
+                    # necesita CORS para el fetch (Supabase ya envía allow-origin: *).
+                    _pdf_url_js = json.dumps(pdf_url_visor)
+                    _visor_html = """<style>
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+body,html{margin:0;padding:0;}
+#pdf-wrap{width:100%;height:680px;border:2px solid #e2e8f0;border-radius:12px;overflow-y:auto;overflow-x:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);background:#525659;position:relative;}
+#pdf-loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f0f2f5;z-index:2;gap:12px;transition:opacity .4s ease;}
+#pdf-spinner{width:40px;height:40px;border:4px solid #cbd5e1;border-top-color:#5b7cfa;border-radius:50%;animation:spin .8s linear infinite;}
+#pdf-loading span{color:#64748b;font-size:.9rem;font-family:sans-serif;text-align:center;padding:0 16px;}
+#pdf-pages{padding:12px 0;text-align:center;}
+#pdf-pages canvas{display:block;margin:0 auto 12px;max-width:96%;box-shadow:0 2px 10px rgba(0,0,0,.4);background:#fff;}
+</style>
+<div id="pdf-wrap"><div id="pdf-loading"><div id="pdf-spinner"></div><span id="pdf-status">Cargando PDF...</span></div><div id="pdf-pages"></div></div>
+<script>
+function _ecStartPdf(){
+  var url=__PDF_URL__;
+  var loading=document.getElementById('pdf-loading');
+  var statusEl=document.getElementById('pdf-status');
+  var pages=document.getElementById('pdf-pages');
+  function hide(){loading.style.opacity='0';setTimeout(function(){loading.style.display='none';},400);}
+  if(typeof pdfjsLib==='undefined'){statusEl.textContent='No se pudo cargar el visor. Usa el boton Descargar Plano.';return;}
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  pdfjsLib.getDocument({url:url,withCredentials:false}).promise.then(function(pdf){
+    var first=true;var seq=Promise.resolve();
+    for(var i=1;i<=pdf.numPages;i++){(function(num){
+      seq=seq.then(function(){return pdf.getPage(num).then(function(page){
+        var vp=page.getViewport({scale:1.6});
+        var c=document.createElement('canvas');var ctx=c.getContext('2d');
+        c.width=vp.width;c.height=vp.height;pages.appendChild(c);
+        return page.render({canvasContext:ctx,viewport:vp}).promise.then(function(){if(first){first=false;hide();}});
+      });});
+    })(i);}
+  }).catch(function(err){statusEl.textContent='No se pudo mostrar el PDF. Usa el boton Descargar Plano.';});
+}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" onload="_ecStartPdf()" onerror="var s=document.getElementById('pdf-status');if(s)s.textContent='No se pudo cargar el visor. Usa el boton Descargar Plano.';"></script>
+""".replace("__PDF_URL__", _pdf_url_js)
+                    components.html(_visor_html, height=710, scrolling=False)
                     _dl_bytes_v = _fetch_plano_bytes(st.session_state.pdf_url)
                     if _dl_bytes_v:
                         st.download_button(label="Descargar Plano", data=_dl_bytes_v,
