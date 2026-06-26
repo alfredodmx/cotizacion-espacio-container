@@ -364,9 +364,9 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                             _mlabel = "GENERAR CONTRATO A PERSONA JUR&#205;DICA = DATOS EMPRESA"
                             _mbg, _mcol = "#dbeafe", "#1d4ed8"
                         else:
-                            _micon = _svg_ic('user', 13, color='#475569', mr=8)
+                            _micon = _svg_ic('user', 13, color='#c2410c', mr=8)
                             _mlabel = "GENERAR CONTRATO A PERSONA NATURAL = DATOS DEL CLIENTE"
-                            _mbg, _mcol = "#f1f5f9", "#475569"
+                            _mbg, _mcol = "#ffedd5", "#c2410c"
                         st.markdown(
                             f"<div style='display:inline-flex;align-items:center;background:{_mbg};"
                             f"color:{_mcol};border-radius:8px;padding:8px 14px;font-size:0.76rem;"
