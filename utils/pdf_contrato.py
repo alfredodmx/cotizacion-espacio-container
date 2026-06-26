@@ -245,6 +245,22 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
             f"Región {d['cli_region']}, quien en adelante se denominará \"el Cliente\"."
         )
 
+    # Modo EMPRESA (persona jurídica con los datos de la empresa): la EMPRESA es
+    # "el Cliente" — nombre + RUT de la empresa, sin tratamiento personal ni
+    # cédula. Se construye la comparecencia completa para reemplazar la del
+    # cliente persona (que usa placeholders {{CLIENTE}}/{{RUT_CLIENTE}}).
+    _comp_empresa = (
+        f"<b>{d.get('cli_empresa','')}</b>, Rol Único Tributario N° "
+        f"<b>{d.get('cli_rut_empresa','')}</b>, con domicilio en <b>{d['cli_domicilio']}</b>, "
+        f"comuna de <b>{d['cli_comuna']}</b>, Región {d['cli_region']}, "
+        f"quien en adelante se denominará \"el Cliente\"."
+        f"\n\nSe deja expresa constancia que la dirección de instalación del proyecto será "
+        f"<b>{d['inst_domicilio']}</b>, comuna de <b>{d['inst_comuna']}</b>, Región <b>{d['inst_region']}</b>."
+        f"\n\nLas partes declaran tener plena capacidad legal para contratar, y acuerdan celebrar "
+        f"el presente <b>Contrato de Fabricación y Venta de Vivienda Tipo Container</b>, "
+        f"el cual se regirá por las cláusulas que se indican a continuación."
+    )
+
     _plt_cls = clausulas_externas if clausulas_externas else _obtener_clausulas_contrato()
 
     _ORIG = {
@@ -299,7 +315,8 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
             "indistintamente \"el Proveedor\".", normal),
         SP(6),
         Paragraph("2. EL CLIENTE", bold),
-        Paragraph(_p("comparecencia_cliente", cli_bloque), normal),
+        Paragraph(_comp_empresa if d.get('tipo_cliente') == 'empresa'
+                  else _p("comparecencia_cliente", cli_bloque), normal),
         HR(),
     ]
 
@@ -453,10 +470,16 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
             if _sep == 'hr': story += [HR()]
             elif _sep == 'pagebreak': story += [PageBreak()]
 
-    if d['tipo_cliente'] == 'natural':
-        cli_firma_nombre = d['cli_nombre']
+    if d.get('tipo_cliente') == 'empresa':
+        # La empresa firma como "el Cliente"; el representante (persona) queda
+        # como firmante secundario en la línea inferior.
+        cli_firma_nombre = d.get('cli_empresa', '') or d['cli_nombre']
+        cli_firma_rut    = d.get('cli_rut_empresa', '') or d.get('cli_rut', '')
+        cli_firma_sub    = d.get('cli_nombre', '') or ''
     else:
         cli_firma_nombre = d['cli_nombre']
+        cli_firma_rut    = d.get('cli_rut', '')
+        cli_firma_sub    = d.get('cli_empresa', '') or ''
 
     firma_data = [[
         Paragraph("EL PROVEEDOR", firma_bold),
@@ -469,10 +492,10 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         Paragraph(cli_firma_nombre, firma_bold),
     ],[
         Paragraph("RUT: 13.668.157-5", firma),
-        Paragraph(f"RUT: {d['cli_rut']}", firma),
+        Paragraph(f"RUT: {cli_firma_rut}", firma),
     ],[
         Paragraph("Inversiones Container House SpA", firma),
-        Paragraph(d.get('cli_empresa', '') or '', firma),
+        Paragraph(cli_firma_sub, firma),
     ]]
     firma_tbl = Table(firma_data, colWidths=[8*cm, 8*cm])
     firma_tbl.setStyle(TableStyle([

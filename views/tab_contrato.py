@@ -263,6 +263,7 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                     st.session_state["cont_ep"]             = _ep_input.strip().upper()
                     st.session_state["cont_tiene_contrato"] = bool(_cot_found.get("contrato_generado"))
                     st.session_state["cont_precio"]         = float(_cot_found.get("total_total") or 0)
+                    st.session_state.pop("cont_usar_juridica", None)  # reset toggle persona jurídica
                     st.rerun()
                 else:
                     st.error(f"No se encontr&#243; la cotizaci&#243;n {_ep_input}")
@@ -338,14 +339,50 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
 
                     st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
+                    # ── Toggle Persona natural / jurídica (habilitado solo si el
+                    #    cliente es empresa con datos de empresa cargados) ──
+                    _puede_juridica = _es_juridica and bool(_cli_empresa) and bool(_cli_rut_empresa)
+                    if not _puede_juridica and st.session_state.get("cont_usar_juridica"):
+                        st.session_state["cont_usar_juridica"] = False
+                    _tg1, _tg2 = st.columns([2, 3])
+                    with _tg1:
+                        _usar_juridica = st.toggle(
+                            "Generar a nombre de la empresa",
+                            key="cont_usar_juridica",
+                            disabled=not _puede_juridica,
+                            help=("El contrato usará el NOMBRE y RUT de la empresa (persona "
+                                  "jurídica) en lugar de los datos personales del cliente."
+                                  if _puede_juridica else
+                                  "Solo disponible para clientes empresa (persona jurídica)."),
+                        )
+                    _usar_juridica = bool(_usar_juridica) and _puede_juridica
+                    with _tg2:
+                        if _usar_juridica:
+                            _mhtml = f"{_svg_ic('building', 13, color='#1d4ed8', mr=6)}Persona jur&#237;dica &#8212; datos de la <b>empresa</b>"
+                            _mbg, _mcol = "#dbeafe", "#1d4ed8"
+                        else:
+                            _mhtml = f"{_svg_ic('user', 13, color='#475569', mr=6)}Persona natural &#8212; datos del <b>cliente</b>"
+                            _mbg, _mcol = "#f1f5f9", "#475569"
+                        st.markdown(
+                            f"<div style='display:inline-flex;align-items:center;background:{_mbg};"
+                            f"color:{_mcol};border-radius:8px;padding:8px 14px;font-size:0.82rem;"
+                            f"font-weight:700;margin-top:4px;'>{_mhtml}</div>", unsafe_allow_html=True)
+
+                    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
                     _c1, _c2, _c3 = st.columns([2, 2, 1])
                     with _c1:
                         _fecha_obj = st.date_input(":material/calendar_month: Fecha del contrato", value=_date_cls.today(), key="cont_fecha")
                         _fecha_str = f"{_fecha_obj.day} de {_meses_es[_fecha_obj.month]} de {_fecha_obj.year}"
                     with _c2:
-                        _trat_opts = ["— Selecciona —", "Don", "Doña", "Sr.", "Sra."]
-                        _tratamiento = st.selectbox(":material/person: Tratamiento", _trat_opts, key="cont_tratamiento")
-                        _tratamiento = "" if "Selecciona" in _tratamiento else _tratamiento
+                        if _usar_juridica:
+                            st.text_input(":material/person: Tratamiento", value="No aplica (empresa)",
+                                          disabled=True, key="cont_trat_juridica")
+                            _tratamiento = ""
+                        else:
+                            _trat_opts = ["— Selecciona —", "Don", "Doña", "Sr.", "Sra."]
+                            _tratamiento = st.selectbox(":material/person: Tratamiento", _trat_opts, key="cont_tratamiento")
+                            _tratamiento = "" if "Selecciona" in _tratamiento else _tratamiento
                     with _c3:
                         _plazo = st.number_input(":material/event: Plazo d&#237;as", min_value=1, max_value=180, value=45, key="cont_plazo")
 
@@ -373,17 +410,28 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
 
                     _c6, _c7 = st.columns([3, 2])
                     with _c6:
-                        _tag_tipo = (_svg_ic('building', 11, color='rgba(255,255,255,0.6)', mr=4) + "Persona jur&#237;dica") if _es_juridica else (_svg_ic('user', 11, color='rgba(255,255,255,0.6)', mr=4) + "Persona natural")
-                        _emp_extra = (
-                            f"<div style='margin-top:6px;font-size:0.75rem;color:rgba(255,255,255,0.6);'>"
-                            f"{_svg_ic('building', 11, color='rgba(255,255,255,0.6)', mr=4)}{_cli_empresa or '&#8212;'} &middot; RUT empresa: {_cli_rut_empresa or '&#8212;'}</div>"
-                        ) if _es_juridica else ""
+                        if _usar_juridica:
+                            _card_label  = f"{_svg_ic('building', 11, color='rgba(255,255,255,0.5)', mr=5)}Cliente (empresa)"
+                            _card_nombre = _cli_empresa or '&#8212;'
+                            _card_sub    = (f"RUT: {_cli_rut_empresa or '&#8212;'} &middot; "
+                                            f"{_svg_ic('building', 11, color='rgba(255,255,255,0.6)', mr=4)}Persona jur&#237;dica")
+                            _card_extra  = (f"<div style='margin-top:6px;font-size:0.75rem;color:rgba(255,255,255,0.6);'>"
+                                            f"{_svg_ic('user', 11, color='rgba(255,255,255,0.6)', mr=4)}Representante: {_cli_nombre or '&#8212;'} &middot; RUT {_cli_rut or '&#8212;'}</div>")
+                        else:
+                            _tag_tipo = (_svg_ic('building', 11, color='rgba(255,255,255,0.6)', mr=4) + "Persona jur&#237;dica") if _es_juridica else (_svg_ic('user', 11, color='rgba(255,255,255,0.6)', mr=4) + "Persona natural")
+                            _card_label  = f"{_svg_ic('user', 11, color='rgba(255,255,255,0.5)', mr=5)}Cliente"
+                            _card_nombre = f"{_tratamiento} {_cli_nombre or '&#8212;'}"
+                            _card_sub    = f"RUT: {_cli_rut or '&#8212;'} &middot; {_tag_tipo}"
+                            _card_extra  = (
+                                f"<div style='margin-top:6px;font-size:0.75rem;color:rgba(255,255,255,0.6);'>"
+                                f"{_svg_ic('building', 11, color='rgba(255,255,255,0.6)', mr=4)}{_cli_empresa or '&#8212;'} &middot; RUT empresa: {_cli_rut_empresa or '&#8212;'}</div>"
+                            ) if _es_juridica else ""
                         st.markdown(
                             f"<div style='background:#1e3a5f;border-radius:10px;padding:14px 16px;margin-bottom:8px;'>"
-                            f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;'>{_svg_ic('user', 11, color='rgba(255,255,255,0.5)', mr=5)}Cliente</div>"
-                            f"<div style='font-size:1rem;font-weight:800;color:#fff;'>{_tratamiento} {_cli_nombre or '&#8212;'}</div>"
-                            f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.6);margin-top:2px;'>RUT: {_cli_rut or '&#8212;'} &middot; {_tag_tipo}</div>"
-                            f"{_emp_extra}"
+                            f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;'>{_card_label}</div>"
+                            f"<div style='font-size:1rem;font-weight:800;color:#fff;'>{_card_nombre}</div>"
+                            f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.6);margin-top:2px;'>{_card_sub}</div>"
+                            f"{_card_extra}"
                             f"</div>", unsafe_allow_html=True)
                         st.markdown(
                             f"<div style='background:#1e3a5f;border-radius:10px;padding:14px 16px;'>"
@@ -436,21 +484,26 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                                 if not _modelo_asignado:
                                     st.warning(f"El modelo **{_modelo_check}** no tiene plantilla de contrato asignada.")
                                     st.stop()
-                            if not _tratamiento or "Selecciona" in str(_tratamiento):
+                            if not _usar_juridica and (not _tratamiento or "Selecciona" in str(_tratamiento)):
                                 st.error("Debes seleccionar un tratamiento antes de generar el contrato.")
                                 st.stop()
-                            _campos_req = [_cli_nombre, _cli_rut, _cli_dom, _cli_com,
-                                           _ep_nombre.replace("&#8212;", "")]
-                            if _es_juridica:
-                                _campos_req += [_cli_empresa, _cli_rut_empresa]
+                            if _usar_juridica:
+                                # Modo empresa: requiere datos de la empresa + domicilio.
+                                _campos_req = [_cli_empresa, _cli_rut_empresa, _cli_dom, _cli_com,
+                                               _ep_nombre.replace("&#8212;", "")]
+                            else:
+                                _campos_req = [_cli_nombre, _cli_rut, _cli_dom, _cli_com,
+                                               _ep_nombre.replace("&#8212;", "")]
+                                if _es_juridica:
+                                    _campos_req += [_cli_empresa, _cli_rut_empresa]
                             if not all(_campos_req):
                                 st.error("Faltan datos obligatorios del cliente o domicilio.")
                             else:
                                 with st.spinner("Generando contrato..."):
                                     _datos_contrato = {
                                         "fecha_str": _fecha_str,
-                                        "tipo_cliente": "juridica" if _es_juridica else "natural",
-                                        "cli_tratamiento": _tratamiento,
+                                        "tipo_cliente": "empresa" if _usar_juridica else ("juridica" if _es_juridica else "natural"),
+                                        "cli_tratamiento": "" if _usar_juridica else _tratamiento,
                                         "cli_nombre": _cli_nombre,
                                         "cli_rut": _cli_rut,
                                         "cli_empresa": _cli_empresa,
