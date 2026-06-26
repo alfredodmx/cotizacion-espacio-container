@@ -391,7 +391,13 @@ def render_floating_panels():
     _margen_actual = st.session_state.margen
     _mstr = f"{_margen_actual:.3f}"
     _is_presupuesto_page = st.session_state.get('nav_page') == 'presupuesto'
-    if st.session_state.modo_admin and not _es_solo_lectura_fab and _is_presupuesto_page:
+    # Solo aparece si hay una cotización en curso: creándose (carrito con items) o
+    # cargada. Sin eso (carrito vacío y nada cargado) NO debe mostrarse.
+    _hay_cotizacion = bool(
+        st.session_state.get('cotizacion_cargada') or
+        len(st.session_state.get('carrito', [])) > 0
+    )
+    if st.session_state.modo_admin and not _es_solo_lectura_fab and _is_presupuesto_page and _hay_cotizacion:
         _color_fab = '#10b981' if _margen_actual > 0 else '#6b7280'
         _pct_bar = min(int(_margen_actual), 100)
         # El popover se ancla a la derecha del sidebar. El estado del sidebar es
@@ -502,6 +508,12 @@ html.ec-sbc section[data-testid="stMain"] [data-testid="stPopoverBody"] {{ left:
             )
         _items_html_p = ''.join(_items_parts_p)
         _prog_html = (
+            # Estado expandido/colapsado persistido en la clase html.ec-prog-collapsed
+            # (la gestiona el JS + localStorage). El CSS muestra panel o mini según
+            # esa clase, así NO se resetea a expandido en cada rerun/navegación.
+            '<style>#_prog_mini{display:none;}'
+            'html.ec-prog-collapsed #_prog_panel{display:none!important;}'
+            'html.ec-prog-collapsed #_prog_mini{display:block!important;}</style>'
             f'<div id="_prog_panel" style="position:fixed;right:0;top:50%;transform:translateY(-50%);'
             f'z-index:99997;background:#ffffff;border-radius:14px 0 0 14px;padding:12px 10px;width:148px;'
             f'box-shadow:0 4px 24px rgba(0,0,0,0.12),0 1px 4px rgba(0,0,0,0.06);border:1px solid #e2e8f0;">'
@@ -517,7 +529,7 @@ html.ec-sbc section[data-testid="stMain"] [data-testid="stPopoverBody"] {{ left:
             f'cursor:pointer;font-size:0.65rem;color:#9ca3af;padding:3px 0;'
             f'border-top:1px solid #f1f5f9;user-select:none;" title="Ocultar">› Ocultar</div>'
             f'</div>'
-            f'<div id="_prog_mini" style="display:none;position:fixed;right:0;top:50%;'
+            f'<div id="_prog_mini" style="position:fixed;right:0;top:50%;'
             f'transform:translateY(-50%);z-index:99997;background:{_pc_p};'
             f'border-radius:10px 0 0 10px;padding:14px 8px;cursor:pointer;'
             f'box-shadow:0 4px 20px rgba(0,0,0,0.2);text-align:center;width:54px;" data-action="prog-show">'
@@ -529,20 +541,27 @@ html.ec-sbc section[data-testid="stMain"] [data-testid="stPopoverBody"] {{ left:
         st.markdown(_prog_html, unsafe_allow_html=True)
         components.html("""<script>
 (function(){
-    var D=window.parent.document;
-    function initToggle(){
+    var D=window.parent.document, Wp=window.parent, R=D.documentElement;
+    // Aplica el estado guardado (la clase la lee el CSS). Se re-aplica con un
+    // par de timeouts porque el HTML del panel se re-pinta en cada rerun.
+    function applyProg(){
+        if(Wp.localStorage.getItem('ec_prog_collapsed')==='1') R.classList.add('ec-prog-collapsed');
+        else R.classList.remove('ec-prog-collapsed');
+    }
+    applyProg();
+    setTimeout(applyProg,50); setTimeout(applyProg,300);
+    if(!D._ecProgBound){
+        D._ecProgBound=true;
+        // El click del toggle/mini SOLO cambia la clase + localStorage (no se
+        // resetea solo: el usuario decide expandir u ocultar y se mantiene).
         D.addEventListener('click',function(e){
             var el=e.target&&e.target.closest?e.target.closest('[data-action]'):null;
             if(!el)return;
-            var action=el.getAttribute('data-action');
-            var panel=D.getElementById('_prog_panel');
-            var mini=D.getElementById('_prog_mini');
-            if(!panel||!mini)return;
-            if(action==='prog-toggle'){panel.style.display='none';mini.style.display='block';}
-            else if(action==='prog-show'){panel.style.display='block';mini.style.display='none';}
+            var a=el.getAttribute('data-action');
+            if(a==='prog-toggle'){ try{Wp.localStorage.setItem('ec_prog_collapsed','1');}catch(_e){} R.classList.add('ec-prog-collapsed'); }
+            else if(a==='prog-show'){ try{Wp.localStorage.setItem('ec_prog_collapsed','0');}catch(_e){} R.classList.remove('ec-prog-collapsed'); }
         });
     }
-    setTimeout(initToggle,300);
 })();
 </script>""", height=1)
 
