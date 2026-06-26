@@ -310,6 +310,17 @@ def render_tab_dashboard(supabase, supabase_admin=None, **deps):
         "Este a&#241;o": "año",
         "Todos los tiempos": "todo"
     }
+    # Radio de período (Este mes/Últimos 3 meses/Este año/Todos los tiempos) con
+    # la MISMA tipografía que los títulos de módulo de PRESUPUESTO (Montserrat
+    # uppercase). El color va al texto (label) → el punto del radio conserva su acento.
+    st.markdown(
+        "<style>"
+        ".st-key-dash_periodo label,.st-key-dash_periodo label *{font-family:Montserrat,sans-serif!important;"
+        "font-weight:700!important;font-size:0.88rem!important;letter-spacing:0.05em!important;"
+        "text-transform:uppercase!important;color:#0f172a!important;-webkit-text-fill-color:#0f172a!important;}"
+        "</style>",
+        unsafe_allow_html=True,
+    )
     _periodo_label = st.radio("Per&#237;odo", list(_periodo_opciones.keys()),
                                horizontal=True, index=0, key="dash_periodo",
                                label_visibility="collapsed")
