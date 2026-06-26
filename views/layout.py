@@ -812,9 +812,20 @@ def render_preloader() -> None:
       // Reposiciona si el sidebar cambió de ancho durante la carga
       positionTab(el);
 
+      // No ocultar el preloader mientras Streamlit todavía tenga contenido
+      // VIEJO marcado data-stale="true" (p.ej. los elementos del Dashboard al
+      // volver a Cotizaciones). Streamlit marca todo el árbol previo como stale
+      // al iniciar el rerun y lo elimina sólo al terminar; si el preloader se
+      // va antes, ese contenido stale "asoma" bajo el header de la pestaña
+      // nueva. El único corte duro es T_HARD (abajo): así el preloader cubre
+      // TODA la carga aunque la pestaña tarde varios segundos en renderizar
+      // (Cotizaciones bloquea ~6s armando la tabla con caché incluido).
+      var hasStale = false;
+      try {{ hasStale = !!main.querySelector('[data-stale="true"]'); }} catch(e){{}}
       // Sólo termina cuando: pasó el mínimo Y el contenido nuevo LLEGÓ Y
-      // lleva T_STABLE estable. Así queda sincronizado con la carga real.
-      var ready = (elapsed >= T_MIN && contentArrived && sinceMut >= T_STABLE);
+      // lleva T_STABLE estable Y no queda contenido viejo stale. Así queda
+      // sincronizado con la carga real.
+      var ready = (elapsed >= T_MIN && contentArrived && sinceMut >= T_STABLE && !hasStale);
       if (ready) {{
         clearInterval(W._ec_tp_iv); W._ec_tp_iv = null;
         try {{ W._ec_tp_obs.disconnect(); }} catch(e){{}} W._ec_tp_obs = null;
