@@ -357,16 +357,21 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                         )
                     _usar_juridica = bool(_usar_juridica) and _puede_juridica
                     with _tg2:
+                        # El texto va dentro de un <span> (un solo flex-item) para que el
+                        # inline-flex no descarte los espacios entre palabras.
                         if _usar_juridica:
-                            _mhtml = f"{_svg_ic('building', 13, color='#1d4ed8', mr=6)}Persona jur&#237;dica &#8212; datos de la <b>empresa</b>"
+                            _micon = _svg_ic('building', 13, color='#1d4ed8', mr=8)
+                            _mlabel = "GENERAR CONTRATO A PERSONA JUR&#205;DICA = DATOS EMPRESA"
                             _mbg, _mcol = "#dbeafe", "#1d4ed8"
                         else:
-                            _mhtml = f"{_svg_ic('user', 13, color='#475569', mr=6)}Persona natural &#8212; datos del <b>cliente</b>"
+                            _micon = _svg_ic('user', 13, color='#475569', mr=8)
+                            _mlabel = "GENERAR CONTRATO A PERSONA NATURAL = DATOS DEL CLIENTE"
                             _mbg, _mcol = "#f1f5f9", "#475569"
                         st.markdown(
                             f"<div style='display:inline-flex;align-items:center;background:{_mbg};"
-                            f"color:{_mcol};border-radius:8px;padding:8px 14px;font-size:0.82rem;"
-                            f"font-weight:700;margin-top:4px;'>{_mhtml}</div>", unsafe_allow_html=True)
+                            f"color:{_mcol};border-radius:8px;padding:8px 14px;font-size:0.76rem;"
+                            f"font-weight:800;letter-spacing:0.02em;margin-top:4px;'>"
+                            f"{_micon}<span>{_mlabel}</span></div>", unsafe_allow_html=True)
 
                     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
