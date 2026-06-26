@@ -200,6 +200,17 @@ def _build_css(items, activo: str) -> str:
         'padding:9px 12px!important;margin:1px 0!important;min-height:0!important;'
         'box-shadow:none!important;transition:background .12s,color .12s;}'
     )
+    # El texto del botón vive en un stMarkdownContainer hijo con su PROPIA
+    # font-family (Source Sans Pro) y font-size (16px) que pisan la del <button>.
+    # Hay que forzar la tipografía AHÍ para que sea idéntica a los títulos de
+    # PRESUPUESTO (Montserrat 0.88rem). El line-height 1.6 da la misma altura.
+    css.append(
+        'section[data-testid="stSidebar"] .stButton button [data-testid="stMarkdownContainer"],'
+        'section[data-testid="stSidebar"] .stButton button [data-testid="stMarkdownContainer"] p,'
+        'section[data-testid="stSidebar"] .stButton button p{'
+        'font-family:Montserrat,sans-serif!important;font-weight:700!important;font-size:0.88rem!important;'
+        'letter-spacing:0.05em!important;line-height:1.6!important;text-transform:uppercase!important;}'
+    )
     css.append(
         'section[data-testid="stSidebar"] .stButton button:hover{background:rgba(91,124,250,0.12)!important;'
         'color:#ffffff!important;border-color:rgba(91,124,250,0.25)!important;}'

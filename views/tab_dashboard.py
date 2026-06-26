@@ -316,7 +316,7 @@ def render_tab_dashboard(supabase, supabase_admin=None, **deps):
     st.markdown(
         "<style>"
         ".st-key-dash_periodo label,.st-key-dash_periodo label *{font-family:Montserrat,sans-serif!important;"
-        "font-weight:700!important;font-size:0.88rem!important;letter-spacing:0.05em!important;"
+        "font-weight:700!important;font-size:0.88rem!important;letter-spacing:0.05em!important;line-height:1.6!important;"
         "text-transform:uppercase!important;color:#0f172a!important;-webkit-text-fill-color:#0f172a!important;}"
         "</style>",
         unsafe_allow_html=True,
