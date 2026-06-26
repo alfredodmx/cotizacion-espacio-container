@@ -394,11 +394,11 @@ def render_floating_panels():
     if st.session_state.modo_admin and not _es_solo_lectura_fab and _is_presupuesto_page:
         _color_fab = '#10b981' if _margen_actual > 0 else '#6b7280'
         _pct_bar = min(int(_margen_actual), 100)
-        # Ancho estático del sidebar según su estado (Python lo sabe correcto
-        # en cada render). El popover se ancla justo a la derecha del sidebar
-        # con transición → sigue al sidebar al colapsar/expandir, sin depender
-        # del JS async (que dejaba valores viejos).
-        _sb_w = "76px" if st.session_state.get("_sb_collapsed", False) else "256px"
+        # El popover se ancla a la derecha del sidebar. El estado del sidebar es
+        # 100% CSS (clase html.ec-sbc): por defecto expandido (256px) y el
+        # colapsado (76px) se aplica vía esa clase (ver overrides abajo), así
+        # sigue al sidebar al colapsar/expandir SIN rerun.
+        _sb_w = "256px"
         _sb_ease = "0.32s cubic-bezier(0.22,1,0.36,1)"
         st.markdown(f"""
 <style>
@@ -433,6 +433,9 @@ section[data-testid="stMain"] [data-testid="stPopoverBody"] {{
     padding: 12px 10px !important; width: 160px !important;
     left: calc({_sb_w} + 54px) !important; top: 0 !important;
 }}
+/* Sidebar colapsado (clase en <html>): el popover sigue al ancho 76px */
+html.ec-sbc section[data-testid="stMain"] div[data-testid="stPopover"] {{ left: 76px !important; }}
+html.ec-sbc section[data-testid="stMain"] [data-testid="stPopoverBody"] {{ left: calc(76px + 54px) !important; }}
 </style>""", unsafe_allow_html=True)
         with st.popover("", use_container_width=False):
             st.markdown(f"""

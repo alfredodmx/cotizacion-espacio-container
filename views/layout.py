@@ -1141,6 +1141,29 @@ def render_layout():
 <script>
 (function(){
     var D = window.parent.document;
+    var Wp = window.parent;
+
+    // ── Colapso del sidebar 100% CSS (SIN rerun) ──────────────────────────────
+    // El estado vive en una clase `ec-sbc` sobre <html> + localStorage. Aplicamos
+    // el estado guardado y, lo clave, INTERCEPTAMOS el click del toggle en fase
+    // de CAPTURA para detenerlo antes de que React (Streamlit) lo procese → así
+    // no se dispara rerun (que era lo que ralentizaba y duplicaba el botón).
+    try {
+        var _sbRoot = D.documentElement;
+        if (Wp.localStorage.getItem('ec_sb_collapsed') === '1') _sbRoot.classList.add('ec-sbc');
+        else _sbRoot.classList.remove('ec-sbc');
+        if (!D._ecSbToggleBound) {
+            D._ecSbToggleBound = true;
+            D.addEventListener('click', function(e){
+                var t = e.target && e.target.closest ? e.target.closest('.st-key-_sb_toggle') : null;
+                if (!t) return;
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                var col = _sbRoot.classList.toggle('ec-sbc');
+                try { Wp.localStorage.setItem('ec_sb_collapsed', col ? '1' : '0'); } catch(_e){}
+            }, true);
+        }
+    } catch(e) {}
 
     // ── Ocultar elementos nativos de Streamlit via <style> inyectado en el parent ──
     if (!D.getElementById('_ec_hide_native')) {

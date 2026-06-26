@@ -99,16 +99,24 @@ def _codigo_acceso_html(colapsado: bool) -> str:
     )
 
 
-def _build_css(items, activo: str, colapsado: bool) -> str:
-    """CSS del sidebar: dark azul, iconos SVG, activo, colapso. Brand y footer
-    fijos vía position:fixed (no depende del DOM interno de Streamlit)."""
-    ancho = "76px" if colapsado else "256px"
-    _foot_h = "70px" if colapsado else "112px"
+def _build_css(items, activo: str) -> str:
+    """CSS del sidebar: dark azul, iconos SVG, activo, colapso.
+
+    El colapso es 100% CSS: el estado EXPANDIDO es el default y el COLAPSADO se
+    aplica con la clase `html.ec-sbc` (que un JS añade/quita y persiste en
+    localStorage). Así NO hace falta rerun de Python para colapsar/expandir.
+    Brand y footer fijos vía position:fixed (no dependen del DOM de Streamlit)."""
+    ancho = "256px"      # expandido (default); el colapsado lo da html.ec-sbc
+    _foot_h = "112px"
     css = ["<style>"]
-    # Contenedor del sidebar: fondo AZUL OSCURO, SIN borde
-    # Transición elegante (cubic-bezier "ease-out-cubic") para colapsar/expandir.
-    _ease = "cubic-bezier(0.22,1,0.36,1)"
-    _t = f"0.32s {_ease}"
+    # Contenedor del sidebar: fondo AZUL OSCURO, SIN borde.
+    # IMPORTANTE: el cambio de ANCHO es INSTANTÁNEO (0s). Una transición de width
+    # hace que el observer del "sidebar redimensionable" de Streamlit pelee el
+    # cambio (re-aplica el ancho cada frame), dejando la transición atascada en
+    # 256px → el sidebar NO colapsaba. Con cambio instantáneo, Streamlit no
+    # alcanza a revertirlo. (Las posiciones del header/FAB también van instantáneas
+    # para que todo cambie a la vez, sin desfases.)
+    _t = "0s"
     css.append(
         f'section[data-testid="stSidebar"]{{width:{ancho}!important;min-width:{ancho}!important;'
         f'background:linear-gradient(180deg,#0f172a 0%,#0b1220 100%)!important;'
@@ -214,10 +222,10 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
     # Toggle colapsar — con prefijo del section para GANAR a la regla genérica de
     # los botones (misma especificidad + va después). Fondo transparente (azul),
     # sin borde, SIN cambio al hover/focus.
-    # Cuando NO está colapsado: el ícono tiene margin-right para separarse del texto
-    _toggle_margin = '0 8px 0 0' if not colapsado else '0'
+    # Expandido: el ícono tiene margin-right para separarse del texto. Cursor
+    # pointer en todo el toggle (lo intercepta el JS para colapsar sin rerun).
     css.append(
-        '.st-key-_sb_toggle button{width:100%!important;'
+        '.st-key-_sb_toggle button{width:100%!important;cursor:pointer!important;'
         'justify-content:center!important;background:transparent!important;border:none!important;'
         'box-shadow:none!important;color:#94a3b8!important;border-radius:10px!important;'
         'padding:9px 0!important;min-height:0!important;overflow:visible!important;}'
@@ -227,90 +235,83 @@ def _build_css(items, activo: str, colapsado: bool) -> str:
         '.st-key-_sb_toggle button:active'
         '{background:transparent!important;border:none!important;box-shadow:none!important;color:#94a3b8!important;}'
         f'.st-key-_sb_toggle button::before{{content:"";flex-shrink:0;'
-        f'width:20px;height:20px;margin:{_toggle_margin};'
-        f'background:url("{_svg_uri("_expand" if colapsado else "_collapse", _COL_IDLE)}") no-repeat center/contain;}}'
+        f'width:20px;height:20px;margin:0 8px 0 0;'
+        f'background:url("{_svg_uri("_collapse", _COL_IDLE)}") no-repeat center/contain;}}'
+        # Mini-logo "C": oculto en expandido (se muestra sólo colapsado).
+        '.ec-brand-mini{display:none!important;}'
     )
-    if colapsado:
-        # ── Base del sidebar colapsado ────────────────────────────────────────
+    # ══ Estado COLAPSADO — se activa con la clase html.ec-sbc (la añade/quita el
+    #    JS y la persiste en localStorage). Sin rerun de Python. Mismas reglas que
+    #    antes, prefijadas con la clase para que sólo apliquen colapsado. ════════
+    _C = "html.ec-sbc "
+    # Anchos / posiciones (animan por las transiciones del estado expandido).
+    css.append(
+        f'{_C}section[data-testid="stSidebar"]{{width:76px!important;min-width:76px!important;}}'
+        f'{_C}.st-key-_sb_brand_full{{width:76px!important;}}'
+        f'{_C}.ec-brand-full{{display:none!important;}}'
+        f'{_C}.ec-brand-mini{{display:flex!important;}}'
+        f'{_C}.ec-sb-code{{display:none!important;}}'
+        f'{_C}.st-key-_sb_bottom{{width:76px!important;}}'
+        f'{_C}#_usr_header_bar{{left:76px!important;}}'
+        f'{_C}.st-key-btn_fab_guardar{{left:calc(76px + 1.2rem)!important;}}'
+    )
+    # Base colapsada (padding/scroll del área de nav y footer)
+    css.append(
+        f'{_C}section[data-testid="stSidebar"] [data-testid="stSidebarContent"]{{padding:0!important;margin:0!important;}}'
+        f'{_C}section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]{{padding:54px 0 60px!important;scrollbar-width:none!important;}}'
+        f'{_C}section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]::-webkit-scrollbar{{width:0!important;display:none!important;}}'
+        f'{_C}section[data-testid="stSidebar"] .st-key-_sb_nav{{padding-left:0!important;padding-right:0!important;width:100%!important;}}'
+        f'{_C}.st-key-_sb_bottom{{padding:6px 0 8px!important;box-shadow:none!important;overflow:hidden!important;}}'
+        f'{_C}section[data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"],'
+        f'{_C}section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{{width:100%!important;margin:0!important;padding:0!important;}}'
+        f'{_C}section[data-testid="stSidebar"] [data-testid="stElementContainer"],'
+        f'{_C}section[data-testid="stSidebar"] .stButton{{width:100%!important;padding:0!important;margin:0!important;}}'
+    )
+    # Nav: .stButton posiciona, button transparente, icono centrado vía .stButton::before
+    css.append(
+        f'{_C}section[data-testid="stSidebar"] .st-key-_sb_nav .stButton{{position:relative!important;height:44px!important;}}'
+        f'{_C}section[data-testid="stSidebar"] .st-key-_sb_nav .stButton button{{'
+        f'position:absolute!important;inset:0!important;background:transparent!important;border:none!important;'
+        f'color:transparent!important;box-shadow:none!important;outline:none!important;'
+        f'width:100%!important;height:100%!important;z-index:1!important;}}'
+        f'{_C}section[data-testid="stSidebar"] .st-key-_sb_nav .stButton button>*{{visibility:hidden!important;}}'
+        f'{_C}section[data-testid="stSidebar"] .st-key-_sb_nav .stButton button::before{{display:none!important;}}'
+    )
+    for it in items:
+        k = it["key"]; ic = it.get("icon", "")
+        _color = _COL_ACTIVE if k == activo else _COL_IDLE
+        _icon_uri = _svg_uri(ic, _color)
         css.append(
-            'section[data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding:0!important;margin:0!important;}'
-            'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]{padding:54px 0 60px!important;scrollbar-width:none!important;}'
-            'section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]::-webkit-scrollbar{width:0!important;display:none!important;}'
-            'section[data-testid="stSidebar"] .st-key-_sb_nav{padding-left:0!important;padding-right:0!important;width:100%!important;}'
-            '.st-key-_sb_bottom{'
-            'padding:6px 0 8px!important;width:76px!important;box-shadow:none!important;overflow:hidden!important;}'
-            'section[data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"],'
-            'section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{width:100%!important;margin:0!important;padding:0!important;}'
-            'section[data-testid="stSidebar"] [data-testid="stElementContainer"],'
-            'section[data-testid="stSidebar"] .stButton{width:100%!important;padding:0!important;margin:0!important;}'
+            f'{_C}section[data-testid="stSidebar"] .st-key-nav_{k} .stButton::before{{'
+            f'content:""!important;display:block!important;position:absolute!important;'
+            f'left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;'
+            f'width:22px!important;height:22px!important;'
+            f'background:url("{_icon_uri}") no-repeat center/contain!important;'
+            f'pointer-events:none!important;z-index:2!important;}}'
         )
-        # ── Icono vía ::before del div .stButton (no el <button>) ────────────
-        # El <div class="stButton"> sí rellena el 100% del sidebar (76px).
-        # Ponemos el ícono como ::before absolutamente centrado en ese div.
-        # El <button> se hace transparente / invisible para no mostrar texto.
-        # ── Botones de nav: .stButton como posicionamiento, button transparente ─
-        css.append(
-            'section[data-testid="stSidebar"] .st-key-_sb_nav .stButton{'
-            'position:relative!important;height:44px!important;}'
-            'section[data-testid="stSidebar"] .st-key-_sb_nav .stButton button{'
-            'position:absolute!important;inset:0!important;'
-            'background:transparent!important;border:none!important;'
-            'color:transparent!important;box-shadow:none!important;outline:none!important;'
-            'width:100%!important;height:100%!important;z-index:1!important;}'
-            'section[data-testid="stSidebar"] .st-key-_sb_nav .stButton button>*{visibility:hidden!important;}'
-            # Solo ocultamos ::before en los botones de nav (el toggle conserva el suyo)
-            'section[data-testid="stSidebar"] .st-key-_sb_nav .stButton button::before{display:none!important;}'
-        )
-        # ── Ícono centrado de cada ítem de nav via .stButton::before ─────────
-        for it in items:
-            k = it["key"]; ic = it.get("icon", "")
-            _color = _COL_ACTIVE if k == activo else _COL_IDLE
-            _icon_uri = _svg_uri(ic, _color)
+        if k == activo:
             css.append(
-                f'section[data-testid="stSidebar"] .st-key-nav_{k} .stButton::before{{'
-                f'content:""!important;display:block!important;'
-                f'position:absolute!important;left:50%!important;top:50%!important;'
-                f'transform:translate(-50%,-50%)!important;'
-                f'width:22px!important;height:22px!important;'
-                f'background:url("{_icon_uri}") no-repeat center/contain!important;'
-                f'pointer-events:none!important;z-index:2!important;}}'
+                f'{_C}section[data-testid="stSidebar"] .st-key-nav_{k} .stButton{{'
+                f'background:linear-gradient(135deg,{_ACCENT},#7c5cfa)!important;border-radius:10px!important;}}'
             )
-            if k == activo:
-                css.append(
-                    f'section[data-testid="stSidebar"] .st-key-nav_{k} .stButton{{'
-                    f'background:linear-gradient(135deg,{_ACCENT},#7c5cfa)!important;'
-                    f'border-radius:10px!important;}}'
-                )
-        # ── Toggle (expandir): conserva su button::before original ───────────
-        # La CSS general ya inyectó .st-key-_sb_toggle button::before con el ícono.
-        # Solo ajustamos height del .stButton y escondemos el texto del button.
-        css.append(
-            '.st-key-_sb_toggle{width:76px!important;padding:0!important;margin:0!important;'
-            'display:block!important;}'
-            '.st-key-_sb_toggle .stButton{'
-            'position:relative!important;height:48px!important;width:76px!important;'
-            'padding:0!important;margin:0!important;display:block!important;}'
-            '.st-key-_sb_toggle .stButton button{'
-            'position:absolute!important;left:0!important;top:0!important;'
-            'width:76px!important;height:48px!important;'
-            'background:transparent!important;border:none!important;'
-            'color:transparent!important;box-shadow:none!important;outline:none!important;'
-            'padding:0!important;margin:0!important;}'
-            '.st-key-_sb_toggle .stButton button>*{'
-            'visibility:hidden!important;width:0!important;height:0!important;overflow:hidden!important;}'
-            f'.st-key-_sb_toggle .stButton button::before{{'
-            f'content:""!important;display:block!important;'
-            f'position:absolute!important;left:50%!important;top:50%!important;'
-            f'transform:translate(-50%,-50%)!important;margin:0!important;padding:0!important;'
-            f'width:22px!important;height:22px!important;flex:none!important;'
-            f'background:url("{_svg_uri("_expand", _COL_IDLE)}") no-repeat center/contain!important;'
-            f'pointer-events:none!important;}}'
-        )
-        # Tooltip visible al hover
-        css.append(
-            'section[data-testid="stSidebar"]{overflow:visible!important;}'
-            '[data-baseweb="tooltip"],[role="tooltip"]{z-index:99999!important;}'
-        )
+    # Toggle colapsado: icono "expandir" centrado, texto oculto
+    css.append(
+        f'{_C}.st-key-_sb_toggle{{width:76px!important;padding:0!important;margin:0!important;display:block!important;}}'
+        f'{_C}.st-key-_sb_toggle .stButton{{position:relative!important;height:48px!important;width:76px!important;padding:0!important;margin:0!important;display:block!important;}}'
+        f'{_C}.st-key-_sb_toggle .stButton button{{position:absolute!important;left:0!important;top:0!important;'
+        f'width:76px!important;height:48px!important;background:transparent!important;border:none!important;'
+        f'color:transparent!important;box-shadow:none!important;outline:none!important;padding:0!important;margin:0!important;}}'
+        f'{_C}.st-key-_sb_toggle .stButton button>*{{visibility:hidden!important;width:0!important;height:0!important;overflow:hidden!important;}}'
+        f'{_C}.st-key-_sb_toggle .stButton button::before{{content:""!important;display:block!important;'
+        f'position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;'
+        f'margin:0!important;padding:0!important;width:22px!important;height:22px!important;flex:none!important;'
+        f'background:url("{_svg_uri("_expand", _COL_IDLE)}") no-repeat center/contain!important;pointer-events:none!important;}}'
+    )
+    # Tooltip visible al hover
+    css.append(
+        f'{_C}section[data-testid="stSidebar"]{{overflow:visible!important;}}'
+        '[data-baseweb="tooltip"],[role="tooltip"]{z-index:99999!important;}'
+    )
     css.append("</style>")
     return "".join(css)
 
@@ -333,48 +334,44 @@ def render_sidebar(items, rol: str, nombre: str) -> str:
     if _actual not in _keys:
         _actual = _keys[0] if _keys else None
         st.session_state["nav_page"] = _actual
-    _colapsado = st.session_state.get("_sb_collapsed", False)
-
-    st.markdown(_build_css(items, _actual, _colapsado), unsafe_allow_html=True)
+    # El contenido se renderiza SIEMPRE completo (expandido). El colapso es puro
+    # CSS (clase html.ec-sbc, gestionada por el JS de layout vía localStorage) →
+    # no hay rerun al togglear, así que NO se re-renderiza este footer (evita el
+    # botón duplicado) ni se ralentiza el sistema.
+    st.markdown(_build_css(items, _actual), unsafe_allow_html=True)
 
     with st.sidebar:
-        # Marca / logo
-        if _colapsado:
-            st.markdown(
-                '<div class="st-key-_sb_brand_mini" style="text-align:center;padding:6px 0 10px;">'
-                '<div style="width:36px;height:36px;margin:0 auto;border-radius:10px;'
-                'background:linear-gradient(135deg,#5b7cfa,#7c5cfa);display:flex;align-items:center;'
-                'justify-content:center;color:#fff;font-weight:900;font-family:Montserrat;">C</div></div>',
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown(
-                '<div class="st-key-_sb_brand_full" style="padding:6px 8px 12px;">'
-                '<div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.1rem;'
-                'color:#fff;letter-spacing:0.04em;">COTIZADOR<span style="color:#5b7cfa;"> PRO</span></div>'
-                '<div style="font-size:0.62rem;color:#64748b;font-weight:600;text-transform:uppercase;'
-                'letter-spacing:0.08em;margin-top:1px;">Panel de gestión</div></div>',
-                unsafe_allow_html=True,
-            )
+        # Marca: mini-logo "C" (visible colapsado) + texto completo (expandido).
+        # El CSS muestra uno u otro según html.ec-sbc.
+        st.markdown(
+            '<div class="st-key-_sb_brand_full" style="padding:6px 8px 12px;">'
+            '<div class="ec-brand-mini" style="width:36px;height:36px;margin:2px auto 0;'
+            'border-radius:10px;background:linear-gradient(135deg,#5b7cfa,#7c5cfa);'
+            'align-items:center;justify-content:center;color:#fff;font-weight:900;'
+            'font-family:Montserrat;">C</div>'
+            '<div class="ec-brand-full">'
+            '<div style="font-family:Montserrat,sans-serif;font-weight:900;font-size:1.1rem;'
+            'color:#fff;letter-spacing:0.04em;">COTIZADOR<span style="color:#5b7cfa;"> PRO</span></div>'
+            '<div style="font-size:0.62rem;color:#64748b;font-weight:600;text-transform:uppercase;'
+            'letter-spacing:0.08em;margin-top:1px;">Panel de gestión</div></div></div>',
+            unsafe_allow_html=True,
+        )
 
-        # Navegación (cada botón cambia la página)
+        # Navegación (cada botón cambia la página → ese sí necesita rerun)
         with st.container(key="_sb_nav"):
             for it in items:
-                _lbl = it["label"] if not _colapsado else "\u200b"
-                if st.button(_lbl, key=f"nav_{it['key']}", use_container_width=True):
+                if st.button(it["label"], key=f"nav_{it['key']}", use_container_width=True):
                     st.session_state["nav_page"] = it["key"]
                     st.rerun()
 
         # Sección inferior anclada: código de acceso + toggle
         with st.container(key="_sb_bottom"):
             # El código de acceso solo se muestra con el sidebar expandido
-            if rol in ("root", "admin") and not _colapsado:
-                _cod_html = _codigo_acceso_html(_colapsado)
+            if rol in ("root", "admin"):
+                _cod_html = _codigo_acceso_html(False)
                 if _cod_html:
-                    st.markdown(_cod_html, unsafe_allow_html=True)
-            _tlabel = "\u200b" if _colapsado else "Ocultar menú"
-            if st.button(_tlabel, key="_sb_toggle", use_container_width=True):
-                st.session_state["_sb_collapsed"] = not _colapsado
-                st.rerun()
+                    st.markdown(f'<div class="ec-sb-code">{_cod_html}</div>', unsafe_allow_html=True)
+            if st.button("Ocultar menú", key="_sb_toggle", use_container_width=True):
+                pass
 
     return st.session_state["nav_page"]
