@@ -1222,6 +1222,15 @@ def render_layout():
                 }
             }
         }
+        // Reservar en el área de nav el espacio EXACTO del footer + buffer, para
+        // que el footer fijo NUNCA tape los últimos items. La altura del footer
+        // varía (código de acceso, zoom, colapsado/expandido), así que la medimos
+        // en vez de usar un valor fijo (que se quedaba corto → solapaba).
+        var content = sidebar.querySelector('[data-testid="stSidebarUserContent"]');
+        if (content) {
+            var fh = sb.offsetHeight || 112;
+            content.style.setProperty('padding-bottom', (fh + 16) + 'px', 'important');
+        }
     }
     // ── Centrar items de navegación del sidebar colapsado ──
     function fixSbNav(){
