@@ -46,6 +46,22 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
             if _rol not in ('root', 'admin'):
                 st.info("&#128274; Solo administradores pueden gestionar el cat&#225;logo.")
             else:
+                # Botón oculto: el JS del catálogo (dentro del iframe) lo clickea tras
+                # una mutación (eliminar/editar/clonar) para forzar un rerun de
+                # Streamlit SIN recargar la página. Antes hacía location.reload(), que
+                # perdía la sesión (el token ?_sess ya no está en la URL) y obligaba a
+                # re-loguear. Al limpiar los caches, "Configurar preguntas" y la página
+                # del cliente ven los datos frescos.
+                st.markdown(
+                    '<style>.st-key-_cat_refresh_btn{position:absolute!important;'
+                    'width:1px;height:1px;overflow:hidden;opacity:0;margin:0;padding:0;}</style>',
+                    unsafe_allow_html=True)
+                if st.button("refrescar catálogo", key="_cat_refresh_btn"):
+                    try:
+                        fetch_catalogo_materiales.clear()
+                        fetch_formulario_config.clear()
+                    except Exception:
+                        pass
                 if 'cat_tipo' not in st.session_state:
                     st.session_state.cat_tipo = 'imagen'
                 if 'cat_cantidad' not in st.session_state:

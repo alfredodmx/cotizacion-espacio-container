@@ -392,16 +392,25 @@ body{margin:0;padding:8px;font-family:Segoe UI,sans-serif;font-size:13px;backgro
         'var _items=[];\n'
         '''
 function doRerun(){
-  // El popstate hack no siempre lo capturaba Streamlit. Forzamos un reload
-  // real con query param nuevo (cache_buster) que invalida los @st.cache_data
-  // del fetch_catalogo_materiales / fetch_formulario_config.
-  try {
-    var u=new URL(window.parent.location.href);
-    u.searchParams.set("_cat_ts", String(Date.now()));
-    window.parent.location.replace(u.toString());
-  } catch(e) {
-    try { window.parent.location.reload(); } catch(e2) {}
-  }
+  // Refresca el catálogo SIN recargar la página: clickeamos un botón nativo de
+  // Streamlit oculto (.st-key-_cat_refresh_btn) que dispara un rerun y re-genera
+  // este iframe con datos frescos. Recargar la página (lo que se hacía antes)
+  // perdía la sesión y obligaba a re-loguear. Reintenta unos instantes por si el
+  // botón aún no está montado en el DOM del parent.
+  var tries=0;
+  (function clickBtn(){
+    try {
+      var btn=window.parent.document.querySelector('.st-key-_cat_refresh_btn button');
+      if(btn){ btn.click(); return; }
+    } catch(e){}
+    if(++tries<20){ setTimeout(clickBtn,80); return; }
+    // Fallback (último recurso): reload con cache_buster.
+    try {
+      var u=new URL(window.parent.location.href);
+      u.searchParams.set("_cat_ts", String(Date.now()));
+      window.parent.location.replace(u.toString());
+    } catch(e2){ try{ window.parent.location.reload(); }catch(e3){} }
+  })();
 }
 window.toggleEdit=function(cat){
   var ep=document.getElementById("edit-"+cat);
