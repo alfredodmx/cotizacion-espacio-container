@@ -577,6 +577,11 @@ def render_preloader() -> None:
   font-family: 'Montserrat', sans-serif;
 }
 #_ec_tab_preloader.fade-out { opacity: 0; pointer-events: none; }
+/* Mientras se navega entre pestañas (clase puesta por el tab-preloader),
+   ocultamos el contenido VIEJO marcado stale por Streamlit. Doble seguro para
+   que el contenido de la pestaña anterior (p.ej. el Dashboard) no asome bajo
+   la nueva si el preloader no alcanzara a cubrir. Se quita al limpiar el stale. */
+html.ec-tab-loading [data-testid="stMain"] [data-stale="true"] { visibility: hidden !important; }
 #_ec_tp_wrap { position: relative; width: 200px; height: 200px; display:flex; align-items:center; justify-content:center; }
 #_ec_tp_ring {
   position: absolute; inset: 0;
@@ -764,6 +769,7 @@ def render_preloader() -> None:
     el.style.display = 'flex';
     el.style.opacity = '1';
     el.style.pointerEvents = 'auto';
+    try {{ D.documentElement.classList.add('ec-tab-loading'); }} catch(e){{}}
     if (bar) bar.style.width = '0%';
     if (pctEl) pctEl.textContent = '0%';
     if (msgEl) msgEl.textContent = tabMsgs[0];
@@ -772,6 +778,7 @@ def render_preloader() -> None:
     var lastMut = Date.now();
     var contentArrived = false;   // ¿llegó YA el contenido nuevo de la pestaña?
     var pctAtArrival = 88;        // valor de la barra al momento de llegar
+    var sawStale = false;         // ¿el rerun YA empezó? (Streamlit marcó stale)
     var main = D.querySelector('[data-testid="stMain"]') || D.body;
     try {{
       W._ec_tp_obs = new MutationObserver(function(){{
@@ -833,10 +840,26 @@ def render_preloader() -> None:
       // (Cotizaciones bloquea ~6s armando la tabla con caché incluido).
       var hasStale = false;
       try {{ hasStale = !!main.querySelector('[data-stale="true"]'); }} catch(e){{}}
+      if (hasStale) sawStale = true;
+      // GOTCHA (sólo se ve con latencia de red, p.ej. en la nube, NO en
+      // localhost): entre el click y que el rerun realmente empieza, stMain
+      // puede mutar (estado activo del botón) → contentArrived=true, pero
+      // Streamlit AÚN no marcó nada stale. Si en esa ventana se cumplen T_MIN y
+      // T_STABLE, el preloader se ocultaría ANTES de que llegue el rerun y se
+      // vería el contenido viejo (Dashboard) asomando. Por eso exigimos haber
+      // VISTO stale (rerun empezó) antes de poder terminar; si tras un tiempo
+      // nunca apareció stale, asumimos que esta navegación no lo usa.
+      var staleResuelto = sawStale ? !hasStale : (elapsed > 1500);
+      // DOBLE SEGURO: mientras el rerun no haya limpiado el contenido viejo
+      // stale, lo ocultamos por CSS (clase ec-tab-loading en <html>). Así,
+      // aunque el preloader no alcanzara a cubrir el área (gap de posición o
+      // se ocultara antes de tiempo por latencia), el Dashboard viejo NUNCA
+      // asoma. Se quita en cuanto el stale queda resuelto.
+      if (staleResuelto) {{ try {{ D.documentElement.classList.remove('ec-tab-loading'); }} catch(e){{}} }}
       // Sólo termina cuando: pasó el mínimo Y el contenido nuevo LLEGÓ Y
-      // lleva T_STABLE estable Y no queda contenido viejo stale. Así queda
-      // sincronizado con la carga real.
-      var ready = (elapsed >= T_MIN && contentArrived && sinceMut >= T_STABLE && !hasStale);
+      // lleva T_STABLE estable Y el rerun ya empezó y limpió el contenido
+      // viejo stale. Así queda sincronizado con la carga real.
+      var ready = (elapsed >= T_MIN && contentArrived && sinceMut >= T_STABLE && staleResuelto);
       if (ready) {{
         clearInterval(W._ec_tp_iv); W._ec_tp_iv = null;
         try {{ W._ec_tp_obs.disconnect(); }} catch(e){{}} W._ec_tp_obs = null;
@@ -855,6 +878,7 @@ def render_preloader() -> None:
       }} else if (elapsed > T_HARD) {{
         clearInterval(W._ec_tp_iv); W._ec_tp_iv = null;
         try {{ W._ec_tp_obs.disconnect(); }} catch(e){{}} W._ec_tp_obs = null;
+        try {{ D.documentElement.classList.remove('ec-tab-loading'); }} catch(e){{}}
         el.classList.add('fade-out');
         setTimeout(function(){{
           el.style.display = 'none'; el.style.opacity = '1'; el.classList.remove('fade-out');
