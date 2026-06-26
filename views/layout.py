@@ -235,6 +235,17 @@ html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif !impor
     font-family: 'Plus Jakarta Sans', sans-serif !important;
     font-weight: 700 !important; font-size: 0.88rem !important;
 }
+/* Iconos Material (:material/...:) en labels de tabs: NO heredar la fuente
+   Plus Jakarta ni el uppercase del tab — eso rompe la ligadura del símbolo
+   y se vería el texto literal (p.ej. "DESCRIPTION") en vez del glifo.
+   El selector [aria-label$=" icon"] acota SOLO a iconos Material (su aria-label
+   es "<nombre> icon"); así no afecta a emojis :shortcode: (role="img" también). */
+.stTabs [data-baseweb="tab"] span[role="img"][aria-label$=" icon"] {
+    font-family: 'Material Symbols Rounded' !important;
+    font-weight: 400 !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+}
 .stTabs [data-baseweb="tab"]:hover { color: #5b7cfa !important; background: rgba(91,124,250,0.05) !important; }
 .stTabs [aria-selected="true"] {
     color: #5b7cfa !important; border-bottom: 3px solid #5b7cfa !important;

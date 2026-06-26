@@ -146,6 +146,41 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
 </script>"""
 
 
+# ── Iconos SVG (estilo Lucide, stroke) para usar dentro de HTML custom ───────
+# En widgets nativos de Streamlit (tabs, botones, alerts, labels) se usa el
+# shortcode :material/...: ; aquí van sólo los iconos para el HTML propio.
+_IC = {
+    "search":   '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+    "hash":     '<line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/>',
+    "file":     '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+    "user":     '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    "building": '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><line x1="8" y1="6" x2="8" y2="6"/><line x1="16" y1="6" x2="16" y2="6"/><line x1="12" y1="6" x2="12" y2="6"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/>',
+    "pin":      '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+    "home":     '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+    "box":      '<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+    "dollar":   '<line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+    "download": '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+    "check":    '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+    "clock":    '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+    "lock":     '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+    "warning":  '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/>',
+    "upload":   '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="m9 15 3-3 3 3"/>',
+}
+
+
+def _svg_ic(key: str, size: int = 16, color: str = "currentColor",
+            sw: float = 2, mr: int = 0, mb: int = 0, valign: int = -3) -> str:
+    """SVG inline (estilo Lucide) para incrustar en HTML custom."""
+    style = f"vertical-align:{valign}px;flex-shrink:0;"
+    if mr:
+        style += f"margin-right:{mr}px;"
+    if mb:
+        style += f"margin-bottom:{mb}px;"
+    return (f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" '
+            f'stroke="{color}" stroke-width="{sw}" stroke-linecap="round" '
+            f'stroke-linejoin="round" style="{style}">{_IC.get(key, "")}</svg>')
+
+
 # ── Render principal ─────────────────────────────────────────────────────────
 
 def render_tab_contrato(supabase, supabase_admin=None, **deps):
@@ -160,9 +195,11 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
         display: flex; align-items: center; gap: 16px;
         box-shadow: 0 8px 32px rgba(15,52,96,0.3);
     }
-    .cont-section { background:transparent; color:#1e3a5f; font-size:0.75rem; font-weight:900;
-                    text-transform:uppercase; letter-spacing:0.1em; padding:4px 0;
-                    border-bottom: 2px solid #1e3a5f; margin-bottom:12px; display:block; }
+    .cont-section { font-family:'Montserrat',sans-serif; color:#0f172a; font-size:0.88rem;
+                    font-weight:700; text-transform:uppercase; letter-spacing:0.05em;
+                    line-height:1.6; padding-bottom:8px; border-bottom:2px solid #e2e8f0;
+                    margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+    .cont-section svg { color:#0f172a; }
     </style>
     """, unsafe_allow_html=True)
     render_page_header(
@@ -174,15 +211,15 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
     # ── Sub-pestañas ──
     if st.session_state.get('modo_admin'):
         _sub_imprimir, _sub_preview, _sub_notariado, _sub_editar = st.tabs([
-            "&#128196; Generador de contrato",
-            "&#128065;&#65039; Previsualizar contrato",
-            "&#128206; Contrato notariado",
-            "&#128221; Editar contrato",
+            ":material/description: Generador de contrato",
+            ":material/visibility: Previsualizar contrato",
+            ":material/attach_file: Contrato notariado",
+            ":material/edit_note: Editar contrato",
         ])
     else:
         _sub_imprimir, _sub_preview = st.tabs([
-            "&#128196; Generador de contrato",
-            "&#128065;&#65039; Previsualizar contrato",
+            ":material/description: Generador de contrato",
+            ":material/visibility: Previsualizar contrato",
         ])
         _sub_notariado = None
         _sub_editar = None
@@ -200,24 +237,24 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
             st.markdown(f"""
             <div style="background:#dbeafe;border:2px solid #2563eb;border-radius:14px;
                         padding:28px 32px;text-align:center;margin-top:20px;">
-              <div style="font-size:2.5rem;margin-bottom:12px;">&#128309;</div>
+              <div style="margin-bottom:12px;">{_svg_ic("check", 46, color="#2563eb")}</div>
               <div style="font-size:1.2rem;font-weight:900;color:#1d4ed8;margin-bottom:8px;">
                 Presupuesto ADJUDICADO &#8212; {_ep_contrato}</div>
               <div style="font-size:0.92rem;color:#1e40af;max-width:480px;margin:0 auto;line-height:1.6;">
                 El contrato notariado ya fue firmado.<br>
                 <b>No es posible generar un nuevo contrato.</b><br><br>
-                Puedes visualizar el contrato en <b>&#128065;&#65039; Previsualizar contrato</b>.
+                Puedes visualizar el contrato en <b>Previsualizar contrato</b>.
               </div>
             </div>
             """, unsafe_allow_html=True)
         else:
-            st.markdown('<div class="cont-section">&#128269; Paso 1 &#8212; Buscar cotizaci&#243;n</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="cont-section">{_svg_ic("search", 17)}Paso 1 &#8212; Buscar cotizaci&#243;n</div>', unsafe_allow_html=True)
             _col_ep, _col_btn = st.columns([3, 1])
             with _col_ep:
                 _ep_input = st.text_input("N&#176; de cotizaci&#243;n", placeholder="Ej: EP-12345",
                                           key="cont_ep_input", label_visibility="collapsed")
             with _col_btn:
-                _buscar = st.button("&#128269; Buscar EP", use_container_width=True, key="cont_buscar")
+                _buscar = st.button("Buscar EP", icon=":material/search:", use_container_width=True, key="cont_buscar")
 
             if _buscar and _ep_input:
                 _cot_found = _cargar_cotizacion(_ep_input.strip().upper(), supa_admin)
@@ -247,7 +284,7 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                     st.markdown(f"""
                     <div style="background:#dbeafe;border:2px solid #2563eb;border-radius:14px;
                                 padding:28px 32px;text-align:center;margin-top:12px;">
-                      <div style="font-size:2.5rem;margin-bottom:12px;">&#128309;</div>
+                      <div style="margin-bottom:12px;">{_svg_ic("check", 46, color="#2563eb")}</div>
                       <div style="font-size:1.2rem;font-weight:900;color:#1d4ed8;margin-bottom:8px;">
                         Presupuesto ADJUDICADO &#8212; {_ep_num}</div>
                       <div style="font-size:0.92rem;color:#1e40af;max-width:480px;margin:0 auto;line-height:1.6;">
@@ -259,11 +296,11 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                 else:
                     _tiene_cont = st.session_state.get("cont_tiene_contrato", False)
                     if _tiene_cont:
-                        st.success(f"&#9989; Cotizaci&#243;n **{_ep_num}** cargada &#8212; {_cot.get('cliente_nombre','')} &middot; &#128196; Ya tiene contrato generado")
+                        st.success(f"Cotizaci&#243;n **{_ep_num}** cargada &#8212; {_cot.get('cliente_nombre','')} &middot; Ya tiene contrato generado")
                     else:
-                        st.success(f"&#9989; Cotizaci&#243;n **{_ep_num}** cargada &#8212; {_cot.get('cliente_nombre','')} &middot; Sin contrato previo")
+                        st.success(f"Cotizaci&#243;n **{_ep_num}** cargada &#8212; {_cot.get('cliente_nombre','')} &middot; Sin contrato previo")
 
-                    st.markdown('<div class="cont-section">&#128221; Paso 2 &#8212; Completar datos del contrato</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="cont-section">{_svg_ic("file", 17)}Paso 2 &#8212; Completar datos del contrato</div>', unsafe_allow_html=True)
 
                     _meses_es = {
                         1:"enero",2:"febrero",3:"marzo",4:"abril",5:"mayo",6:"junio",
@@ -303,14 +340,14 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
 
                     _c1, _c2, _c3 = st.columns([2, 2, 1])
                     with _c1:
-                        _fecha_obj = st.date_input("&#128197; Fecha del contrato", value=_date_cls.today(), key="cont_fecha")
+                        _fecha_obj = st.date_input(":material/calendar_month: Fecha del contrato", value=_date_cls.today(), key="cont_fecha")
                         _fecha_str = f"{_fecha_obj.day} de {_meses_es[_fecha_obj.month]} de {_fecha_obj.year}"
                     with _c2:
-                        _trat_opts = ["&#8212; Selecciona &#8212;", "Don", "Do&#241;a", "Sr.", "Sra."]
-                        _tratamiento = st.selectbox("&#128100; Tratamiento", _trat_opts, key="cont_tratamiento")
+                        _trat_opts = ["— Selecciona —", "Don", "Doña", "Sr.", "Sra."]
+                        _tratamiento = st.selectbox(":material/person: Tratamiento", _trat_opts, key="cont_tratamiento")
                         _tratamiento = "" if "Selecciona" in _tratamiento else _tratamiento
                     with _c3:
-                        _plazo = st.number_input("&#128198; Plazo d&#237;as", min_value=1, max_value=180, value=45, key="cont_plazo")
+                        _plazo = st.number_input(":material/event: Plazo d&#237;as", min_value=1, max_value=180, value=45, key="cont_plazo")
 
                     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
@@ -320,7 +357,7 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                             f"<div style='background:#1e3a5f;border-radius:10px;padding:12px 14px;height:72px;"
                             f"display:flex;flex-direction:column;justify-content:center;'>"
                             f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.5);"
-                            f"text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;'>&#128203; N&#176; EP</div>"
+                            f"text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;'>{_svg_ic('hash', 11, color='rgba(255,255,255,0.55)', mr=5)}N&#176; EP</div>"
                             f"<div style='font-size:1.1rem;font-weight:900;color:#fff;'>{_ep_num}</div>"
                             f"</div>", unsafe_allow_html=True)
                     with _c5:
@@ -328,7 +365,7 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                             f"<div style='background:#1e3a5f;border-radius:10px;padding:12px 14px;height:72px;"
                             f"display:flex;flex-direction:column;justify-content:center;'>"
                             f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.5);"
-                            f"text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;'>&#128221; Nombre del proyecto</div>"
+                            f"text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;'>{_svg_ic('file', 11, color='rgba(255,255,255,0.55)', mr=5)}Nombre del proyecto</div>"
                             f"<div style='font-size:0.9rem;font-weight:700;color:#fff;'>{_ep_nombre}</div>"
                             f"</div>", unsafe_allow_html=True)
 
@@ -336,32 +373,32 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
 
                     _c6, _c7 = st.columns([3, 2])
                     with _c6:
-                        _tag_tipo = "&#127970; Persona jur&#237;dica" if _es_juridica else "&#128100; Persona natural"
+                        _tag_tipo = (_svg_ic('building', 11, color='rgba(255,255,255,0.6)', mr=4) + "Persona jur&#237;dica") if _es_juridica else (_svg_ic('user', 11, color='rgba(255,255,255,0.6)', mr=4) + "Persona natural")
                         _emp_extra = (
                             f"<div style='margin-top:6px;font-size:0.75rem;color:rgba(255,255,255,0.6);'>"
-                            f"&#127970; {_cli_empresa or '&#8212;'} &middot; RUT empresa: {_cli_rut_empresa or '&#8212;'}</div>"
+                            f"{_svg_ic('building', 11, color='rgba(255,255,255,0.6)', mr=4)}{_cli_empresa or '&#8212;'} &middot; RUT empresa: {_cli_rut_empresa or '&#8212;'}</div>"
                         ) if _es_juridica else ""
                         st.markdown(
                             f"<div style='background:#1e3a5f;border-radius:10px;padding:14px 16px;margin-bottom:8px;'>"
-                            f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;'>&#128100; Cliente</div>"
+                            f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;'>{_svg_ic('user', 11, color='rgba(255,255,255,0.5)', mr=5)}Cliente</div>"
                             f"<div style='font-size:1rem;font-weight:800;color:#fff;'>{_tratamiento} {_cli_nombre or '&#8212;'}</div>"
                             f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.6);margin-top:2px;'>RUT: {_cli_rut or '&#8212;'} &middot; {_tag_tipo}</div>"
                             f"{_emp_extra}"
                             f"</div>", unsafe_allow_html=True)
                         st.markdown(
                             f"<div style='background:#1e3a5f;border-radius:10px;padding:14px 16px;'>"
-                            f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;'>&#128205; Domicilios</div>"
-                            f"<div style='font-size:0.78rem;font-weight:700;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;'>&#127968; Domicilio cliente</div>"
+                            f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;'>{_svg_ic('pin', 11, color='rgba(255,255,255,0.5)', mr=5)}Domicilios</div>"
+                            f"<div style='font-size:0.78rem;font-weight:700;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;'>{_svg_ic('home', 11, color='rgba(255,255,255,0.5)', mr=4)}Domicilio cliente</div>"
                             f"<div style='font-size:0.88rem;font-weight:700;color:#fff;margin-bottom:2px;'>{_cli_dom or '&#8212;'}</div>"
                             f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.55);margin-bottom:10px;'>{_cli_com or '&#8212;'} &middot; {_cli_reg or '&#8212;'}</div>"
-                            f"<div style='font-size:0.78rem;font-weight:700;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;'>&#128230; Direcci&#243;n instalaci&#243;n</div>"
+                            f"<div style='font-size:0.78rem;font-weight:700;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;'>{_svg_ic('box', 11, color='rgba(255,255,255,0.5)', mr=4)}Direcci&#243;n instalaci&#243;n</div>"
                             f"<div style='font-size:0.88rem;font-weight:700;color:#fff;margin-bottom:2px;'>{_inst_dom or '&#8212;'}</div>"
                             f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.55);'>{_inst_com or '&#8212;'} &middot; {_inst_reg or '&#8212;'}</div>"
                             f"</div>", unsafe_allow_html=True)
                     with _c7:
                         st.markdown(
                             f"<div style='background:#1e3a5f;border-radius:10px;padding:16px 18px;'>"
-                            f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px;'>&#128176; Detalle de pagos</div>"
+                            f"<div style='font-size:0.6rem;font-weight:900;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px;'>{_svg_ic('dollar', 11, color='rgba(255,255,255,0.5)', mr=5)}Detalle de pagos</div>"
                             f"<div style='font-size:1.7rem;font-weight:900;color:#fff;letter-spacing:-0.02em;margin-bottom:14px;'>{_fmt_p(_precio)}</div>"
                             f"<div style='display:flex;flex-direction:column;gap:8px;'>"
                             f"<div style='background:rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;'>"
@@ -378,13 +415,13 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
                     _, _gen_col, _ = st.columns([2, 3, 2])
                     with _gen_col:
-                        _generar = st.button("&#128196; Generar y descargar contrato PDF",
+                        _generar = st.button("Generar y descargar contrato PDF", icon=":material/picture_as_pdf:",
                                              type="primary", use_container_width=True, key="cont_generar")
                     st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
                     if _generar:
                         if not _PDF_OK:
-                            st.error("&#10060; El m&#243;dulo de generaci&#243;n de PDF no est&#225; disponible en esta instalaci&#243;n modular.")
+                            st.error("El m&#243;dulo de generaci&#243;n de PDF no est&#225; disponible en esta instalaci&#243;n modular.")
                         else:
                             _modelo_check = _cot.get("modelo_predefinido") or st.session_state.get('modelo_base') or None
                             if _modelo_check:
@@ -397,17 +434,17 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                                 except Exception:
                                     _modelo_asignado = True
                                 if not _modelo_asignado:
-                                    st.warning(f"&#9888;&#65039; El modelo **{_modelo_check}** no tiene plantilla de contrato asignada.")
+                                    st.warning(f"El modelo **{_modelo_check}** no tiene plantilla de contrato asignada.")
                                     st.stop()
                             if not _tratamiento or "Selecciona" in str(_tratamiento):
-                                st.error("&#9888;&#65039; Debes seleccionar un tratamiento antes de generar el contrato.")
+                                st.error("Debes seleccionar un tratamiento antes de generar el contrato.")
                                 st.stop()
                             _campos_req = [_cli_nombre, _cli_rut, _cli_dom, _cli_com,
                                            _ep_nombre.replace("&#8212;", "")]
                             if _es_juridica:
                                 _campos_req += [_cli_empresa, _cli_rut_empresa]
                             if not all(_campos_req):
-                                st.error("&#9888;&#65039; Faltan datos obligatorios del cliente o domicilio.")
+                                st.error("Faltan datos obligatorios del cliente o domicilio.")
                             else:
                                 with st.spinner("Generando contrato..."):
                                     _datos_contrato = {
@@ -455,25 +492,25 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                                             f' style="display:inline-block;background:#0f3460;color:white;'
                                             f'padding:10px 24px;border-radius:8px;font-weight:700;'
                                             f'font-size:0.9rem;text-decoration:none;margin-top:8px;">'
-                                            f'&#11015;&#65039; Descargar contrato PDF</a>',
+                                            f'{_svg_ic("download", 15, color="white", mr=6)}Descargar contrato PDF</a>',
                                             unsafe_allow_html=True)
-                                        st.success("&#9989; Contrato generado exitosamente.")
+                                        st.success("Contrato generado exitosamente.")
                                     except Exception as _e:
                                         st.error(f"Error al generar PDF: {_e}")
             else:
-                st.info("&#9757; Ingresa un n&#250;mero EP y presiona **Buscar EP** para cargar los datos.")
+                st.info("Ingresa un n&#250;mero EP y presiona **Buscar EP** para cargar los datos.")
 
     # ================================================================
     # SUB-PESTAÑA: PREVISUALIZAR
     # ================================================================
     with _sub_preview:
-        st.markdown('<div class="cont-section">&#128269; Buscar cotizaci&#243;n para previsualizar</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="cont-section">{_svg_ic("search", 17)}Buscar cotizaci&#243;n para previsualizar</div>', unsafe_allow_html=True)
         _col_ep_pv, _col_btn_pv = st.columns([3, 1])
         with _col_ep_pv:
             _ep_pv = st.text_input("N&#176; EP", placeholder="Ej: EP-12345",
                                    key="prev_ep_input", label_visibility="collapsed")
         with _col_btn_pv:
-            _buscar_pv = st.button("&#128269; Buscar EP", use_container_width=True, key="prev_buscar")
+            _buscar_pv = st.button("Buscar EP", icon=":material/search:", use_container_width=True, key="prev_buscar")
 
         if _buscar_pv and _ep_pv:
             _cot_pv = _cargar_cotizacion(_ep_pv.strip().upper(), supa_admin)
@@ -492,12 +529,12 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
             _proy_pv   = _cot_pv.get("proyecto_observaciones", "") or "&#8212;"
             _fmt_pv    = lambda v: "${:,.0f}".format(v).replace(",", ".")
 
-            st.success(f"&#9989; **{_ep_pv_num}** &#8212; {_cli_pv} &middot; {_proy_pv} &middot; {_fmt_pv(_total_pv)}")
+            st.success(f"**{_ep_pv_num}** &#8212; {_cli_pv} &middot; {_proy_pv} &middot; {_fmt_pv(_total_pv)}")
 
             if not _cot_pv.get("contrato_generado"):
-                st.warning("&#9888;&#65039; Este EP a&#250;n no tiene contrato generado. Genera el contrato desde **Generador** primero.")
+                st.warning("Este EP a&#250;n no tiene contrato generado. Genera el contrato desde **Generador** primero.")
             elif not _PDF_OK:
-                st.warning("&#9888;&#65039; El m&#243;dulo de generaci&#243;n de PDF no est&#225; disponible.")
+                st.warning("El m&#243;dulo de generaci&#243;n de PDF no est&#225; disponible.")
             else:
                 with st.spinner("Generando vista previa..."):
                     try:
@@ -685,7 +722,7 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                         _dc1, _dc2, _dc3 = st.columns([1, 2, 1])
                         with _dc2:
                             st.download_button(
-                                label="&#11015;&#65039; Descargar contrato completo",
+                                label="Descargar contrato completo", icon=":material/download:",
                                 data=_combined_bytes,
                                 file_name=f"ContratoCompleto_{_ep_pv_num.replace('-','_')}.pdf",
                                 mime="application/pdf", use_container_width=True, key="dl_contrato_completo"
@@ -693,21 +730,21 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                     except Exception as _epv_err:
                         st.error(f"Error generando vista previa: {_epv_err}")
         else:
-            st.info("&#9757; Ingresa un n&#250;mero EP y presiona **Buscar EP** para previsualizar el contrato.")
+            st.info("Ingresa un n&#250;mero EP y presiona **Buscar EP** para previsualizar el contrato.")
 
     # ================================================================
     # SUB-PESTAÑA: CONTRATO NOTARIADO
     # ================================================================
     if _sub_notariado is not None:
         with _sub_notariado:
-            st.markdown('<div class="cont-section">&#128206; Contratos notariales</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="cont-section">{_svg_ic("file", 17)}Contratos notariales</div>', unsafe_allow_html=True)
 
             _cn_c1, _cn_c2 = st.columns([3, 0.8])
             with _cn_c1:
-                _cn_ep = st.text_input("Buscar", placeholder="Buscar por N&#176; EP...",
+                _cn_ep = st.text_input("Buscar", placeholder="Buscar por N° EP...",
                                        key="cn_ep", label_visibility="collapsed")
             with _cn_c2:
-                _cn_buscar = st.button("&#128269; Buscar", use_container_width=True, key="cn_buscar")
+                _cn_buscar = st.button("Buscar", icon=":material/search:", use_container_width=True, key="cn_buscar")
 
             if _cn_buscar or 'cn_results' not in st.session_state:
                 try:
@@ -738,8 +775,8 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                 _cn_n_pend = len(_cn_data) - _cn_n_adj
                 st.markdown(
                     f"<span style='background:#ede9fe;color:#6d28d9;padding:3px 12px;border-radius:99px;font-size:11px;font-weight:700;margin-right:6px;'>{len(_cn_data)} resultados</span>"
-                    f"<span style='background:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;margin-right:6px;'>&#128309; {_cn_n_adj} adjudicados</span>"
-                    f"<span style='background:#fef9c3;color:#854d0e;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;'>&#127889; {_cn_n_pend} pendiente</span>",
+                    f"<span style='background:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;margin-right:6px;'>{_svg_ic('check', 11, color='#1d4ed8', mr=4)}{_cn_n_adj} adjudicados</span>"
+                    f"<span style='background:#fef9c3;color:#854d0e;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;'>{_svg_ic('clock', 11, color='#854d0e', mr=4)}{_cn_n_pend} pendiente</span>",
                     unsafe_allow_html=True)
                 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
@@ -748,7 +785,7 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                     'N&#176; EP': r.get('numero', ''),
                     'Cliente': r.get('cliente_nombre', '&#8212;'),
                     'Ejecutivo': r.get('asesor_nombre', '&#8212;'),
-                    'Estado': '&#128309; ADJUDICADO' if r.get('contrato_notariado_url') else '&#127889; PENDIENTE',
+                    'Estado': 'ADJUDICADO' if r.get('contrato_notariado_url') else 'PENDIENTE',
                     'Fecha mod.': (r.get('fecha_modificacion', '')[:10] if r.get('fecha_modificacion') else '&#8212;'),
                 } for r in _cn_data])
                 st.dataframe(_cn_df, use_container_width=True, hide_index=True)
@@ -785,30 +822,30 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                                 _bytes_dl = _requests.get(_not_url, timeout=15).content
                                 _dc1n, _dc2n, _dc3n = st.columns([1, 2, 1])
                                 with _dc2n:
-                                    st.download_button("&#128229; Descargar contrato notariado",
+                                    st.download_button("Descargar contrato notariado", icon=":material/download:",
                                         data=_bytes_dl,
                                         file_name=_cn_row.get("contrato_notariado_nombre", "contrato_notariado.pdf"),
                                         mime="application/pdf", use_container_width=True, key="cn_dl_not")
                             except Exception:
                                 st.warning("No se pudo preparar la descarga.")
-                        st.success(f"&#9989; {_cn_ep_sel} &#128309; ADJUDICADO")
+                        st.success(f"{_cn_ep_sel} &#8212; ADJUDICADO")
                     else:
                         _cn_tiene_contrato = bool(_cot_cn_full and _cot_cn_full.get('contrato_generado'))
                         if not _cn_tiene_contrato:
-                            st.error("&#128274; No se puede adjuntar el contrato notariado porque este EP a&#250;n no tiene contrato generado. Ve a **Generador** primero.")
+                            st.error("No se puede adjuntar el contrato notariado porque este EP a&#250;n no tiene contrato generado. Ve a **Generador** primero.", icon=":material/lock:")
                         else:
-                            st.markdown("""
+                            st.markdown(f"""
                             <div style="background:#eff6ff;border-left:4px solid #2563eb;border-radius:0 8px 8px 0;
                                         padding:10px 14px;margin-bottom:12px;">
-                              <p style="font-size:12px;color:#1e40af;margin:0;">&#128203; Sube el PDF firmado y notariado.
-                              Una vez subido el estado cambia a <b>&#128309; ADJUDICADO</b> &#8212; acci&#243;n permanente e irreversible.</p>
+                              <p style="font-size:12px;color:#1e40af;margin:0;">{_svg_ic('file', 13, color='#1e40af', mr=5)}Sube el PDF firmado y notariado.
+                              Una vez subido el estado cambia a <b>{_svg_ic('check', 13, color='#1d4ed8', mr=4)}ADJUDICADO</b> &#8212; acci&#243;n permanente e irreversible.</p>
                             </div>
                             """, unsafe_allow_html=True)
                             _cn_file = st.file_uploader("PDF del contrato notariado",
                                                         type=["pdf"], key=f"cn_upload_{_cn_ep_sel}")
                             if _cn_file is not None:
                                 st.markdown(f"**{_cn_file.name}** &middot; {round(_cn_file.size/1024)} KB")
-                                if st.button("&#128228; Adjuntar y marcar como ADJUDICADO",
+                                if st.button("Adjuntar y marcar como ADJUDICADO", icon=":material/upload_file:",
                                              type="primary", use_container_width=True, key="cn_btn_adj"):
                                     with st.spinner("Subiendo..."):
                                         try:
@@ -827,11 +864,11 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                                                 "fecha_adjudicacion": _fecha_adj,
                                                 "estado": "ADJUDICADO"
                                             }).eq("numero", _cn_ep_sel).execute()
-                                            st.success(f"&#9989; {_cn_ep_sel} ahora es &#128309; ADJUDICADO")
+                                            st.success(f"{_cn_ep_sel} ahora es ADJUDICADO")
                                             st.session_state.pop('cn_results', None)
                                             st.rerun()
                                         except Exception as _cne2:
-                                            st.error(f"&#10060; Error: {_cne2}")
+                                            st.error(f"Error: {_cne2}")
 
     # ================================================================
     # SUB-PESTAÑA: EDITAR CONTRATO
@@ -839,7 +876,7 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
     if _sub_editar is not None:
         with _sub_editar:
             if not st.session_state.get('modo_admin'):
-                st.info("&#128274; Solo administradores pueden editar la plantilla global del contrato.")
+                st.info("Solo administradores pueden editar la plantilla global del contrato.", icon=":material/lock:")
             else:
                 _CLAUSULAS_BASE = {
                     "intro":                 "En Santiago de Chile, a {{FECHA}}, comparecen:",
@@ -946,10 +983,10 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                 except Exception:
                     _modelos_por_tipo = {'A': [], 'B': [], 'E': []}
 
-                st.markdown("""
+                st.markdown(f"""
                 <div style='background:#e8eef7;border:1px solid #0f3460;border-radius:10px;
                             padding:12px 16px;margin-bottom:16px;font-size:13px;color:#0f3460;'>
-                <strong>&#9888;&#65039; Plantillas</strong> &#8212;
+                <strong>{_svg_ic('warning', 14, color='#0f3460', mr=5)}Plantillas</strong> &#8212;
                 <b>Plantilla A</b> para modelos &#8804;30m&#178; &middot;
                 <b>Plantilla B</b> para modelos &gt;30m&#178; &middot;
                 <b>Plantilla Especial</b> para clientes especiales.
@@ -957,9 +994,9 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                 """, unsafe_allow_html=True)
 
                 _tab_plt_a, _tab_plt_b, _tab_plt_e = st.tabs([
-                    "&#128203; Plantilla A — ≤30m²",
-                    "&#128203; Plantilla B — >30m²",
-                    "⭐ Plantilla Especial",
+                    ":material/article: Plantilla A — ≤30m²",
+                    ":material/article: Plantilla B — >30m²",
+                    ":material/star: Plantilla Especial",
                 ])
 
                 def _render_editor_plantilla(tipo_plt, key_pfx):
@@ -978,7 +1015,7 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
 
                     _disponibles = [m for m in _hojas_modelo_ed if m not in _ocupados or m in _mods_act]
 
-                    st.markdown("**&#128279; Modelos asociados a esta plantilla:**")
+                    st.markdown(":material/link: **Modelos asociados a esta plantilla:**")
                     _mods_sel = st.multiselect(
                         "Modelos", options=_disponibles,
                         default=[m for m in _mods_act if m in _disponibles],
@@ -1000,7 +1037,7 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                             st.markdown(
                                 f'<div style="background:#1e3a5f;color:white;font-size:0.78rem;font-weight:900;'
                                 f'text-transform:uppercase;letter-spacing:0.08em;padding:8px 14px;'
-                                f'border-radius:8px 8px 0 0;">&#128274; {_label.upper()}</div>',
+                                f'border-radius:8px 8px 0 0;">{_svg_ic("lock", 12, color="white", mr=5)}{_label.upper()}</div>',
                                 unsafe_allow_html=True)
                             st.markdown(
                                 f'<div style="background:#fff5f5;border:1.5px solid #dc2626;border-top:none;'
@@ -1022,14 +1059,14 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
 
                     _bc1, _bc2, _bc3 = st.columns([2, 2, 2])
                     with _bc1:
-                        if st.button("&#8617;&#65039; Restaurar original", use_container_width=True, key=f"{key_pfx}_restaurar"):
+                        if st.button("Restaurar original", icon=":material/undo:", use_container_width=True, key=f"{key_pfx}_restaurar"):
                             for _k in _LABELS:
                                 _sk = f"{key_pfx}_plt_{_k}"
                                 if _sk in st.session_state:
                                     st.session_state[_sk] = _CLAUSULAS_BASE.get(_k, "")
                             st.rerun()
                     with _bc3:
-                        if st.button("&#128190; Guardar nueva versión", type="primary",
+                        if st.button("Guardar nueva versión", icon=":material/save:", type="primary",
                                      use_container_width=True, key=f"{key_pfx}_guardar"):
                             import re as _re
                             _strip = lambda t: _re.sub(r'<[^>]+>', '', t).strip()
@@ -1042,13 +1079,13 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                                 _usr = st.session_state.get("auth_nombre", "") or st.session_state.get("auth_email", "Sistema")
                                 _res = _guardar_plantilla(_cls_guardar, _usr, tipo=tipo_plt, modelos_lista=_mods_sel)
                                 if _res is True:
-                                    st.success(f"&#9989; Plantilla {tipo_plt} guardada.")
+                                    st.success(f"Plantilla {tipo_plt} guardada.")
                                     st.rerun()
                                 else:
                                     st.error(f"Error: {_res}")
 
                     st.markdown("---")
-                    st.markdown(f"**&#128203; Historial — Plantilla {tipo_plt}:**")
+                    st.markdown(f":material/history: **Historial — Plantilla {tipo_plt}:**")
                     for _plt in _cargar_historial(tipo=tipo_plt):
                         _es_activa = _plt.get("activa", False)
                         _creador   = _plt.get("creado_por", "—")
@@ -1057,7 +1094,7 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                         _version   = _plt.get("nombre", f"v{_plt.get('version','?')}")
                         _bg  = "#e8eef7" if _es_activa else "var(--color-background-primary)"
                         _brd = "1.5px solid #0f3460" if _es_activa else "0.5px solid var(--color-border-tertiary)"
-                        _badge = ('<span style="background:#0f3460;color:white;border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;">&#9989; ACTIVA</span>'
+                        _badge = (f'<span style="background:#0f3460;color:white;border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;">{_svg_ic("check", 11, color="white", mr=4)}ACTIVA</span>'
                                   if _es_activa else '<span style="font-size:11px;color:#94a3b8;">inactiva</span>')
                         st.markdown(
                             f'<div style="background:{_bg};border:{_brd};border-radius:12px;'
@@ -1073,7 +1110,7 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                                 if st.button(f"Activar {_version}",
                                              key=f"{key_pfx}_act_{_plt['id']}", use_container_width=True):
                                     if _activar_plantilla(_plt["id"], tipo=tipo_plt):
-                                        st.success(f"&#9989; {_version} activada.")
+                                        st.success(f"{_version} activada.")
                                         st.rerun()
 
                 with _tab_plt_a:
