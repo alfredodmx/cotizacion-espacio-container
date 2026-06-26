@@ -1206,6 +1206,12 @@ def render_layout():
         var w = sidebar.offsetWidth;
         sb.style.setProperty('width', w + 'px', 'important');
         sb.style.setProperty('right', 'auto', 'important');
+        // Fondo SÓLIDO inline: el footer es un stVerticalBlock y hay una regla
+        // `[stVerticalBlock]{background:transparent!important}` MÁS específica que
+        // la del footer → quedaba transparente y se veía el contenido scrolleando
+        // detrás. El inline gana sobre todo.
+        sb.style.setProperty('background', '#0b1220', 'important');
+        sb.style.setProperty('box-shadow', '0 -8px 16px rgba(11,18,32,0.9)', 'important');
     }
     function fixSbBottom(){
         var sb = D.querySelector('.st-key-_sb_bottom');
