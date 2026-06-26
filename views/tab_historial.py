@@ -241,12 +241,13 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             + _btn_svg_before("filtro_hoy", _SVG_CAL)
             + _btn_svg_before("filtro_semana", _SVG_CAL)
             + _btn_svg_before("filtro_mes", _SVG_CAL)
-            # Radio "Buscar por" (N° Presupuesto/Cliente/Asesor): misma tipografía
-            # que el dropdown 'Selecciona una cotización' (Plus Jakarta Sans). Sus
-            # labels usan clases st-emotion-cache-* que no matchean el override
-            # global [class*="css"], por eso hay que forzarlo aquí.
-            + ".st-key-tipo_busqueda *{font-family:'Plus Jakarta Sans',sans-serif!important;"
-            + "letter-spacing:normal!important;}"
+            # Radio "Buscar por" (N° Presupuesto/Cliente/Asesor): MISMA tipografía
+            # que los títulos de módulo de PRESUPUESTO (Montserrat uppercase). Las
+            # props de fuente van a todos los descendientes; el color se restringe
+            # al texto (label) para no teñir el punto del radio.
+            + ".st-key-tipo_busqueda label,.st-key-tipo_busqueda label *{font-family:Montserrat,sans-serif!important;"
+            + "font-weight:700!important;font-size:0.88rem!important;letter-spacing:0.05em!important;"
+            + "text-transform:uppercase!important;color:#0f172a!important;-webkit-text-fill-color:#0f172a!important;}"
             + "</style>",
             unsafe_allow_html=True,
         )
