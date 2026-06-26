@@ -4,6 +4,7 @@ Código fuente original: app.py líneas 19318-19456
 """
 import streamlit as st
 import streamlit.components.v1 as _st_components
+import pandas as pd
 from collections import defaultdict
 from views.layout import render_page_header
 from utils.formulario import (
@@ -13,6 +14,28 @@ from utils.formulario import (
     build_config_preguntas_html,
 )
 from config.supabase import supabase_admin as _supa_admin
+
+
+# Tipografía de títulos de sección (unificada con el resto del sistema).
+_SEC_TITLE_STYLE = ("font-family:'Montserrat',sans-serif;color:#0f172a;font-size:0.88rem;"
+                    "font-weight:700;text-transform:uppercase;letter-spacing:0.05em;"
+                    "line-height:1.6;display:flex;align-items:center;margin:8px 0 10px;")
+
+
+def _fic(path, size=16, color="#0f172a", sw=2, mr=0, valign=-3):
+    """SVG inline (estilo Lucide) para títulos/íconos en HTML del tab."""
+    _s = f"vertical-align:{valign}px;flex-shrink:0;"
+    if mr:
+        _s += f"margin-right:{mr}px;"
+    return (f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" '
+            f'stroke="{color}" stroke-width="{sw}" stroke-linecap="round" '
+            f'stroke-linejoin="round" style="{_s}">{path}</svg>')
+
+
+_IC_CLIP   = ('<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>'
+              '<rect width="8" height="4" x="8" y="2" rx="1"/><path d="m9 14 2 2 4-4"/>')
+_IC_CHECK  = '<path d="M20 6 9 17l-5-5"/>'
+_IC_CIRCLE = '<circle cx="12" cy="12" r="9"/>'
 
 
 def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='', **deps):
@@ -29,22 +52,22 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
 
     if _rol in ('root', 'admin'):
         _ftab_catalogo, _ftab_config, _ftab_progreso = st.tabs([
-            "&#128230; Cat&#225;logo de materiales",
-            "&#9881;&#65039; Configurar preguntas",
-            "&#128202; Progreso clientes",
+            ":material/inventory_2: Cat&#225;logo de materiales",
+            ":material/quiz: Configurar preguntas",
+            ":material/bar_chart: Progreso clientes",
         ])
     else:
         _ftab_catalogo = None
         _ftab_config, _ftab_progreso = st.tabs([
-            "&#9881;&#65039; Configurar preguntas",
-            "&#128202; Progreso clientes",
+            ":material/quiz: Configurar preguntas",
+            ":material/bar_chart: Progreso clientes",
         ])
 
     # ── TAB CATÁLOGO ──
     if _ftab_catalogo is not None:
         with _ftab_catalogo:
             if _rol not in ('root', 'admin'):
-                st.info("&#128274; Solo administradores pueden gestionar el cat&#225;logo.")
+                st.info("Solo administradores pueden gestionar el cat&#225;logo.", icon=":material/lock:")
             else:
                 # Botón oculto: el JS del catálogo (dentro del iframe) lo clickea tras
                 # una mutación (eliminar/editar/clonar) para forzar un rerun de
@@ -96,8 +119,69 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
     # ── TAB CONFIGURAR ──
     with _ftab_config:
         if _rol not in ('root', 'admin', 'ejecutivo'):
-            st.info("&#128274; No tienes permisos para configurar formularios.")
+            st.info("No tienes permisos para configurar formularios.", icon=":material/lock:")
         else:
+            # ── Tabla de presupuestos ADJUDICADOS con estado de preguntas ──
+            st.markdown(
+                f'<div style="{_SEC_TITLE_STYLE}">{_fic(_IC_CLIP, 17, mr=8)}Presupuestos adjudicados</div>',
+                unsafe_allow_html=True)
+            try:
+                _adj = supa_admin.table('cotizaciones').select(
+                    'numero,cliente_nombre,asesor_nombre,fecha_adjudicacion,estado'
+                ).eq('estado', 'ADJUDICADO').order('fecha_adjudicacion', desc=True).execute().data or []
+            except Exception:
+                _adj = []
+            try:
+                _fc_nums = set(
+                    x['cotizacion_numero']
+                    for x in (supa_admin.table('formulario_config').select('cotizacion_numero').execute().data or [])
+                )
+            except Exception:
+                _fc_nums = set()
+            if not _adj:
+                st.info("A&#250;n no hay presupuestos adjudicados.")
+            else:
+                _df_adj = pd.DataFrame([{
+                    'N° EP':      r.get('numero', ''),
+                    'Cliente':    r.get('cliente_nombre') or '—',
+                    'Asesor':     r.get('asesor_nombre') or '—',
+                    'Adjudicado': (r.get('fecha_adjudicacion') or '')[:10] or '—',
+                    'Preguntas':  'SÍ' if r.get('numero') in _fc_nums else 'NO',
+                } for r in _adj])
+                _n_si = int((_df_adj['Preguntas'] == 'SÍ').sum())
+                st.caption(
+                    f"{len(_df_adj)} adjudicados · {_n_si} con preguntas configuradas · "
+                    f"{len(_df_adj) - _n_si} pendientes. Haz click en una fila para configurar sus preguntas."
+                )
+
+                def _color_preg(col):
+                    return [('background-color:#dcfce7;color:#15803d;font-weight:800;' if v == 'SÍ'
+                             else 'background-color:#fee2e2;color:#dc2626;font-weight:800;') for v in col]
+                _sty = _df_adj.style.apply(_color_preg, subset=['Preguntas'])
+
+                _sel_adj = st.dataframe(
+                    _sty, use_container_width=True, hide_index=True,
+                    on_select="rerun", selection_mode="single-row", key="_adj_preg_table",
+                )
+                _rows = []
+                try:
+                    _rows = list(_sel_adj.selection.rows)
+                except Exception:
+                    try:
+                        _rows = list(_sel_adj["selection"]["rows"])
+                    except Exception:
+                        _rows = []
+                if _rows:
+                    _pick = str(_df_adj.iloc[_rows[0]]['N° EP'])
+                    # Sólo cargar cuando la fila SELECCIONADA cambia (no en cada
+                    # rerun), para no pisar una carga manual posterior por EP.
+                    if _pick and _pick != st.session_state.get('_adj_last_pick'):
+                        st.session_state['_adj_last_pick'] = _pick
+                        st.session_state['_form_ep'] = _pick
+                        st.rerun()
+
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+            # ── Buscar / cargar EP manualmente ──
             _c1ep, _c2ep = st.columns([3, 1])
             with _c1ep:
                 _ep_form_input = st.text_input(
@@ -105,7 +189,7 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
                 )
             with _c2ep:
                 st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-                if st.button("&#128269; Cargar", key="form_cargar_ep", use_container_width=True) and _ep_form_input:
+                if st.button("Cargar", icon=":material/search:", key="form_cargar_ep", use_container_width=True) and _ep_form_input:
                     st.session_state['_form_ep'] = _ep_form_input.strip().upper()
                     st.rerun()
             _form_ep = st.session_state.get('_form_ep', '')
@@ -183,7 +267,8 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
                                 _tg4 = _cfg4.get('titulo_grupo', '')
                                 _ids4 = [str(x) for x in (_cfg4.get('item_ids') or [])]
                                 _answered = [_resp_map.get(iid, '') for iid in _ids4 if _resp_map.get(iid)]
-                                _ico4 = '&#9989;' if _answered else '&#11036;'
+                                _ico4 = (_fic(_IC_CHECK, 13, color='#16a34a', mr=5)
+                                         if _answered else _fic(_IC_CIRCLE, 13, color='#cbd5e1', mr=5))
                                 _val4 = ', '.join(_answered) if _answered else '&#8212;'
                                 st.markdown(
                                     f"<div style='font-size:0.82rem;padding:3px 8px;'>"

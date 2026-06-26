@@ -30,6 +30,25 @@ def fetch_formulario_config(ep, _cache_buster: str = ''):
 def build_config_preguntas_html(cat_items, config_data, supa_url, supa_key, form_ep):
     import json
 
+    # Iconos SVG (auto-dimensionados; no requieren CSS extra).
+    def _svg(p, sz=14, col='#94a3b8'):
+        return (f'<svg viewBox="0 0 24 24" width="{sz}" height="{sz}" fill="none" stroke="{col}" '
+                f'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
+                f'style="vertical-align:-2px;flex-shrink:0;">' + p + '</svg>')
+
+    def _type_badge(t):
+        _m = {
+            'imagen': '<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+            'color':  '<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18c1 0 1.6-.7 1.6-1.6 0-.4-.2-.8-.4-1-.3-.3-.4-.6-.4-1.1a1.6 1.6 0 0 1 1.6-1.6H16a5 5 0 0 0 0-10z"/>',
+            'select': '<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/>',
+            'si_no':  '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+        }
+        return _svg(_m.get(t, _m['imagen']), 13, '#64748b')
+
+    IC_BOX  = _svg('<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>', 18, '#cbd5e1')
+    IC_LINK = _svg('<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>', 13, '#15803d')
+    IC_SAVE = _svg('<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>', 14, 'currentColor')
+
     grupos = {}
     orden_grupos = {}
     for c in cat_items:
@@ -65,7 +84,7 @@ def build_config_preguntas_html(cat_items, config_data, supa_url, supa_key, form
             obs_val = cfg.get('observaciones') or ''
             mostrar_obs = cfg.get('mostrar_obs', False)
             itipo = items[0].get('tipo', 'imagen') if items else 'imagen'
-            badge = {'imagen': '&#128444;', 'color': '&#127912;', 'select': '&#128203;', 'si_no': '&#9989;'}.get(itipo, '?')
+            badge = _type_badge(itipo)
             tg_id = (cat + '__' + tg).replace(' ', '_').replace("'", "").replace('(', '').replace(')', '')[:50]
             all_sel = all(str(it['id']) in saved_ids for it in items) if saved_ids else False
 
@@ -85,7 +104,7 @@ def build_config_preguntas_html(cat_items, config_data, supa_url, supa_key, form
                 elif it.get('hex'):
                     thumb = '<div style="width:36px;height:36px;border-radius:50%;background:' + it['hex'] + ';border:1px solid #e2e8f0;flex-shrink:0;"></div>'
                 else:
-                    thumb = '<div style="width:36px;height:36px;border-radius:50%;background:#f1f5f9;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:0.9rem;">&#128230;</div>'
+                    thumb = '<div style="width:36px;height:36px;border-radius:50%;background:#f1f5f9;flex-shrink:0;display:flex;align-items:center;justify-content:center;">' + IC_BOX + '</div>'
                 cat_html += '<label class="item-chip" id="chip-' + iid + '">'
                 cat_html += '<input type="checkbox" id="chk-' + iid + '" value="' + iid + '" ' + checked + ' data-group="' + tg_id + '" onchange="window.updateGroupCheck(\'' + tg_id + '\')" style="width:14px;height:14px;cursor:pointer;">'
                 cat_html += thumb
@@ -187,7 +206,7 @@ window.guardarConfig=async function(){
     if(r.ok)saved++;
     else{st.textContent='Error: '+r.status;st.style.color='#dc2626';btn.disabled=false;return;}
   }
-  st.textContent='✅ Guardado ('+saved+' grupos)';st.style.color='#16a34a';btn.disabled=false;
+  st.textContent='✓ Guardado ('+saved+' grupos)';st.style.color='#16a34a';btn.disabled=false;
 };
 updateSummary();
 '''
@@ -201,13 +220,13 @@ updateSummary();
         '<body><div class="wrap">'
         + cat_html +
         '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:10px 14px;margin-top:12px;">'
-        '<div style="font-weight:700;font-size:12px;color:#15803d;margin-bottom:3px;">&#128279; Link para el cliente</div>'
+        '<div style="font-weight:700;font-size:12px;color:#15803d;margin-bottom:3px;">' + IC_LINK + ' Link para el cliente</div>'
         '<div style="font-size:10px;color:#64748b;margin-top:2px;">El cliente ingresa con su RUT y c&#243;digo ' + form_ep + '</div>'
         '</div>'
         '</div>'
         '<div class="save-bar">'
         '<div id="sel-summary" class="status" style="color:#0f3460;"></div>'
-        '<button id="save-btn" onclick="window.guardarConfig()" class="btn-save">&#128190; Guardar configuraci&#243;n</button>'
+        '<button id="save-btn" onclick="window.guardarConfig()" class="btn-save">' + IC_SAVE + ' Guardar configuraci&#243;n</button>'
         '<div id="save-status" style="font-size:12px;font-weight:600;min-width:160px;"></div>'
         '</div>'
         '<script>' + js + '</script>'
