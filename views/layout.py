@@ -1161,6 +1161,10 @@ def render_layout():
                 e.stopImmediatePropagation();
                 var col = _sbRoot.classList.toggle('ec-sbc');
                 try { Wp.localStorage.setItem('ec_sb_collapsed', col ? '1' : '0'); } catch(_e){}
+                // Sincronizar el ancho del footer al nuevo ancho del sidebar AL
+                // INSTANTE (no depender del ResizeObserver, que quedaba atascado).
+                try { syncSbFooter(); } catch(_e){}
+                Wp.requestAnimationFrame(function(){ try { syncSbFooter(); } catch(_e){} });
             }, true);
         }
     } catch(e) {}
@@ -1189,81 +1193,51 @@ def render_layout():
         ].join('');
         D.head.appendChild(s);
     }
-    // ── Anclar _sb_bottom al sidebar (Streamlit lo renderiza via portal fuera del sidebar) ──
+    // ── Footer del sidebar (código + toggle) ──────────────────────────────────
+    // Sincroniza el ANCHO del footer al del sidebar. El CSS no lo aplica bien en
+    // position:fixed colapsado (queda con right:0 y se estira a 1440px), así que
+    // lo seteamos inline. CLAVE: esto se llama también desde el handler del toggle
+    // (inmediato) para que NO quede atascado en un ancho viejo (el bug anterior
+    // era un snapshot que no se actualizaba). El toggle (width:100%) sigue al footer.
+    function syncSbFooter(){
+        var sb = D.querySelector('.st-key-_sb_bottom');
+        var sidebar = D.querySelector('section[data-testid="stSidebar"]');
+        if (!sb || !sidebar) return;
+        var w = sidebar.offsetWidth;
+        sb.style.setProperty('width', w + 'px', 'important');
+        sb.style.setProperty('right', 'auto', 'important');
+    }
     function fixSbBottom(){
         var sb = D.querySelector('.st-key-_sb_bottom');
         if(!sb) return;
         var sidebar = D.querySelector('section[data-testid="stSidebar"]');
         if (!sidebar) return;
-        var w = sidebar.offsetWidth;
-        var collapsed = w <= 120;
-        // Limpiar cualquier span custom previo (de versiones anteriores del JS)
         var oldIc = sb.querySelector('._ec_toggle_icon');
         if (oldIc) oldIc.remove();
-        sb.style.cssText = 'position:fixed!important;bottom:0!important;left:0!important;width:'+w+'px!important;z-index:6!important;box-sizing:border-box!important;background:#0b1220!important;padding:6px 0 10px 0!important;overflow:hidden!important;';
-        var wrappers = sb.querySelectorAll('[data-testid="stVerticalBlockBorderWrapper"],[data-testid="stVerticalBlock"]');
-        wrappers.forEach(function(el){el.style.background='transparent';el.style.border='none';el.style.boxShadow='none';el.style.padding='0';el.style.margin='0';el.style.width='100%';});
-        // Centrar el botón toggle dentro del _sb_bottom. La CSS de _build_css()
-        // renderiza el ícono SVG vía ::before, solo necesitamos asegurar que el
-        // button llene la columna y use flex centering.
+        // Limpiar inline del toggle (su estilo lo maneja el CSS por estado).
         var tg = sb.querySelector('.st-key-_sb_toggle');
         if (tg) {
-            tg.style.cssText = 'width:100%!important;padding:0!important;margin:0!important;display:block!important;';
-            var stBtn = tg.querySelector('.stButton');
-            if (stBtn) stBtn.style.cssText = 'width:100%!important;padding:0!important;margin:0!important;display:flex!important;align-items:center!important;justify-content:center!important;';
-            var btn = tg.querySelector('button');
-            if (btn) {
-                // Asegurar visibilidad de los hijos originales (puede haber estado oculto por versiones previas)
-                btn.querySelectorAll(':scope > *').forEach(function(c){ c.style.display=''; });
-                if (collapsed) {
-                    btn.style.cssText = 'width:100%!important;height:48px!important;padding:0!important;margin:0!important;background:transparent!important;border:none!important;box-shadow:none!important;outline:none!important;color:transparent!important;display:flex!important;align-items:center!important;justify-content:center!important;';
-                } else {
-                    btn.style.cssText = '';
-                }
-            }
+            if (tg.getAttribute('style')) tg.removeAttribute('style');
+            var _s = tg.querySelector('.stButton'); if (_s && _s.getAttribute('style')) _s.removeAttribute('style');
+            var _b = tg.querySelector('button'); if (_b && _b.getAttribute('style')) _b.removeAttribute('style');
         }
-        // Reservar en el área de nav el espacio EXACTO del footer + buffer, para
-        // que el footer fijo NUNCA tape los últimos items. La altura del footer
-        // varía (código de acceso, zoom, colapsado/expandido), así que la medimos
-        // en vez de usar un valor fijo (que se quedaba corto → solapaba).
+        syncSbFooter();
         var content = sidebar.querySelector('[data-testid="stSidebarUserContent"]');
         if (content) {
             var fh = sb.offsetHeight || 112;
             content.style.setProperty('padding-bottom', (fh + 16) + 'px', 'important');
         }
     }
-    // ── Centrar items de navegación del sidebar colapsado ──
+    // ── Nav del sidebar: el layout (expandido y colapsado) lo maneja el CSS
+    // (html.ec-sbc ...). Este JS solo LIMPIA cualquier inline heredado de
+    // versiones previas para que no quede pegado de un estado anterior.
     function fixSbNav(){
-        var sidebar = D.querySelector('section[data-testid="stSidebar"]');
-        if (!sidebar) return;
-        var w = sidebar.offsetWidth;
-        // Solo aplica en colapsado (76px). En expandido (256px) dejamos el layout original.
-        if (w > 120) return;
-        // Forzar contenedores intermedios a width 100% sin padding para que .stButton llene la columna
         var navWrap = D.querySelector('.st-key-_sb_nav');
-        if (navWrap) {
-            navWrap.style.padding = '0';
-            navWrap.style.margin = '0';
-            navWrap.style.width = '100%';
-            navWrap.querySelectorAll('[data-testid="stVerticalBlockBorderWrapper"],[data-testid="stVerticalBlock"]').forEach(function(el){
-                el.style.padding = '0';
-                el.style.margin = '0';
-                el.style.width = '100%';
-            });
-            navWrap.querySelectorAll('[data-testid="stElementContainer"]').forEach(function(el){
-                el.style.padding = '0';
-                el.style.margin = '0';
-                el.style.width = '100%';
-                el.style.display = 'block';
-            });
-            navWrap.querySelectorAll('.stButton').forEach(function(el){
-                el.style.padding = '0';
-                el.style.margin = '0';
-                el.style.width = '100%';
-                el.style.display = 'block';
-                el.style.boxSizing = 'border-box';
-            });
-        }
+        if (!navWrap) return;
+        if (navWrap.getAttribute('style')) navWrap.removeAttribute('style');
+        navWrap.querySelectorAll('[data-testid="stVerticalBlockBorderWrapper"],[data-testid="stVerticalBlock"],[data-testid="stElementContainer"],.stButton').forEach(function(el){
+            if (el.getAttribute('style')) el.removeAttribute('style');
+        });
     }
     fixSbBottom();
     fixSbNav();

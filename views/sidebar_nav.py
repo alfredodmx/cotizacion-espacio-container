@@ -195,7 +195,7 @@ def _build_css(items, activo: str) -> str:
         'section[data-testid="stSidebar"] .stButton button{width:100%!important;'
         'justify-content:flex-start!important;gap:12px!important;background:transparent!important;'
         'border:1px solid transparent!important;color:#cbd5e1!important;font-family:Montserrat,sans-serif!important;'
-        'font-weight:700!important;font-size:0.88rem!important;letter-spacing:0.05em!important;'
+        'font-weight:700!important;font-size:0.8rem!important;letter-spacing:0.05em!important;'
         'text-transform:uppercase!important;border-radius:10px!important;'
         'padding:9px 12px!important;margin:1px 0!important;min-height:0!important;'
         'box-shadow:none!important;transition:background .12s,color .12s;}'
@@ -208,7 +208,7 @@ def _build_css(items, activo: str) -> str:
         'section[data-testid="stSidebar"] .stButton button [data-testid="stMarkdownContainer"],'
         'section[data-testid="stSidebar"] .stButton button [data-testid="stMarkdownContainer"] p,'
         'section[data-testid="stSidebar"] .stButton button p{'
-        'font-family:Montserrat,sans-serif!important;font-weight:700!important;font-size:0.88rem!important;'
+        'font-family:Montserrat,sans-serif!important;font-weight:700!important;font-size:0.8rem!important;'
         'letter-spacing:0.05em!important;line-height:1.6!important;text-transform:uppercase!important;}'
     )
     css.append(
