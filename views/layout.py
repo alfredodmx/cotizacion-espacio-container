@@ -331,6 +331,11 @@ div[data-testid="stDataEditor"] > div {
     border-bottom: 1px solid rgba(255,255,255,0.08);
     box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.05);
     z-index: 99998; gap: 12px; transition: background 0.5s ease;
+    /* Fondo oscuro de RESPALDO: el color real (según rol/estado) lo pone un
+       <style> dinámico que se re-inyecta en cada rerun; en el instante en que
+       ese style se re-aplica, sin este fallback el header quedaba transparente
+       y, por la transition, parpadeaba en BLANCO al navegar. */
+    background: #0f172a;
 }
 [data-testid="stDialog"] > div > div {
     margin-top: 65px !important; max-height: calc(100vh - 65px) !important;
@@ -580,8 +585,13 @@ def render_preloader() -> None:
 /* Mientras se navega entre pestañas (clase puesta por el tab-preloader),
    ocultamos el contenido VIEJO marcado stale por Streamlit. Doble seguro para
    que el contenido de la pestaña anterior (p.ej. el Dashboard) no asome bajo
-   la nueva si el preloader no alcanzara a cubrir. Se quita al limpiar el stale. */
-html.ec-tab-loading [data-testid="stMain"] [data-stale="true"] { visibility: hidden !important; }
+   la nueva si el preloader no alcanzara a cubrir. Se quita al limpiar el stale.
+   EXCLUIMOS el header fijo (#_usr_header_bar): su contenedor vive en stMain y al
+   quedar stale se ocultaba → la barra superior parpadeaba en blanco al navegar.
+   El header debe quedar SIEMPRE estable y visible (está sobre el preloader). */
+html.ec-tab-loading [data-testid="stMain"] [data-stale="true"]:not(:has(#_usr_header_bar)) { visibility: hidden !important; }
+html.ec-tab-loading [data-testid="stMain"] [data-stale="true"]:has(#_usr_header_bar),
+html.ec-tab-loading #_usr_header_bar { visibility: visible !important; opacity: 1 !important; }
 #_ec_tp_wrap { position: relative; width: 200px; height: 200px; display:flex; align-items:center; justify-content:center; }
 #_ec_tp_ring {
   position: absolute; inset: 0;
