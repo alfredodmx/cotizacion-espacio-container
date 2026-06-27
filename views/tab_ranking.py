@@ -1,277 +1,316 @@
 """
-Tab RANKING — Ranking de ejecutivos, métricas de cotizaciones.
-Código fuente original: app.py líneas 16794-17078 (with tab7)
+Tab RANKING — Perfil del ejecutivo + métricas de dinero (ganado / casi ganado /
+perdido) por periodo + ranking del equipo. Rol-aware (ejecutivo vs admin/root).
 """
 import streamlit as st
+import httpx
+from datetime import datetime, timedelta
 from config.supabase import supabase_admin as _supa_admin
+from config.settings import SUPABASE_URL, SUPABASE_SERVICE_KEY
+from services.cotizacion_service import calcular_estado_label
 from views.layout import render_page_header
 
 
-@st.cache_data(ttl=300, show_spinner=False)
-def _cargar_ranking(periodo='mes'):
+# ── Datos ────────────────────────────────────────────────────────────────────
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _fetch_cotizaciones_rank(_cb: str = ''):
     try:
-        from datetime import datetime as _dt
-        _inicio = None
-        if periodo == 'mes':
-            _inicio = _dt.now().replace(day=1).strftime('%Y-%m-%d')
-        resp = _supa_admin.rpc('get_ranking_data', {'fecha_inicio': _inicio}).execute()
-        resp_data = resp.data if resp.data else []
-        if not resp_data:
-            return []
-        asesores = {}
-        for row in resp_data:
-            nombre = row.get('asesor_nombre') or 'Sin asignar'
-            if nombre not in asesores:
-                asesores[nombre] = {
-                    'nombre': nombre,
-                    'total_presupuestos': 0,
-                    'total_generado': 0.0,
-                    'autorizados': 0,
-                    'borradores': 0,
-                    'incompletos': 0,
-                }
-            a = asesores[nombre]
-            a['total_presupuestos'] += 1
-            a['total_generado'] += float(row.get('total_total') or 0)
-            margen   = float(row.get('config_margen') or 0)
-            datos_ok = all([row.get('cliente_nombre'), row.get('cliente_email')])
-            asesor_ok = any([row.get('asesor_nombre'), row.get('asesor_email'), row.get('asesor_telefono')])
-            if margen > 0 and datos_ok and asesor_ok:
-                a['autorizados'] += 1
-            elif datos_ok and asesor_ok:
-                a['borradores'] += 1
-            else:
-                a['incompletos'] += 1
-        ranking = []
-        for nombre, a in asesores.items():
-            n = a['total_presupuestos']
-            a['promedio']       = a['total_generado'] / n if n > 0 else 0
-            a['pct_autorizado'] = round((a['autorizados'] / n) * 100) if n > 0 else 0
-            max_total = max((x['total_generado'] for x in asesores.values()), default=1) or 1
-            max_n     = max((x['total_presupuestos'] for x in asesores.values()), default=1) or 1
-            a['score'] = round(
-                (a['total_generado'] / max_total) * 60 +
-                (a['pct_autorizado'] / 100) * 25 +
-                (a['total_presupuestos'] / max_n) * 15
-            )
-            ranking.append(a)
-        ranking.sort(key=lambda x: x['score'], reverse=True)
-        return ranking
+        return _supa_admin.table('cotizaciones').select(
+            'asesor_nombre,asesor_email,cliente_nombre,cliente_email,asesor_telefono,'
+            'config_margen,plano_url,plano_nombre,contrato_notariado_url,acta_url,'
+            'motivo_rechazo,total_total,fecha_creacion'
+        ).execute().data or []
     except Exception:
         return []
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def _fetch_users_map(_cb: str = ''):
+    """email(min) -> {foto_url, nombre, rol}. Incluye a todos (también roots)."""
+    try:
+        r = httpx.get(
+            f"{SUPABASE_URL}/auth/v1/admin/users",
+            headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"},
+            params={"per_page": 1000, "page": 1}, timeout=15,
+        )
+        r.raise_for_status()
+        out = {}
+        for u in r.json().get("users", []):
+            em = (u.get("email") or "").lower()
+            meta = u.get("user_metadata") or u.get("raw_user_meta_data") or {}
+            out[em] = {
+                "foto_url": meta.get("foto_url", "") or "",
+                "nombre": meta.get("nombre", em) or em,
+                "rol": meta.get("rol", "ejecutivo"),
+            }
+        return out
+    except Exception:
+        return {}
+
+
+def _clasificar(row):
+    """Devuelve la etiqueta de estado (misma fuente que la tabla/badges)."""
+    return calcular_estado_label(
+        row.get('cliente_nombre', ''), row.get('cliente_email', ''),
+        row.get('asesor_nombre', ''), row.get('asesor_email', ''), row.get('asesor_telefono', ''),
+        float(row.get('config_margen') or 0),
+        bool(row.get('plano_url') or row.get('plano_nombre')),
+        tiene_notariado=bool(row.get('contrato_notariado_url')),
+        tiene_acta=bool(row.get('acta_url')),
+        motivo_rechazo=row.get('motivo_rechazo', '') or '',
+    )
+
+
+def _bucket(label):
+    if label in ('PROYECTO TERMINADO', 'ADJUDICADO'):
+        return 'ganado'
+    if label == 'RECHAZADO':
+        return 'perdido'
+    return 'casi'
+
+
+def _parse_fecha(fc):
+    if not fc:
+        return None
+    try:
+        return datetime.fromisoformat(str(fc).replace('Z', '+00:00')).replace(tzinfo=None)
+    except Exception:
+        return None
+
+
+def _agregar(rows, period_days=None, only_email=None):
+    """Agrega por ejecutivo dentro del periodo (filtra por fecha_creacion)."""
+    cutoff = (datetime.now() - timedelta(days=period_days)) if period_days else None
+    agg = {}
+    for r in rows:
+        em = (r.get('asesor_email') or '').lower()
+        nm = (r.get('asesor_nombre') or '').strip() or 'Sin asignar'
+        if only_email is not None and em != only_email:
+            continue
+        if cutoff:
+            d = _parse_fecha(r.get('fecha_creacion'))
+            if d is None or d < cutoff:
+                continue
+        key = em or nm
+        a = agg.setdefault(key, {
+            'email': em, 'nombre': nm, 'ganado': 0.0, 'casi': 0.0, 'perdido': 0.0,
+            'generado': 0.0, 'n_total': 0, 'n_ganado': 0, 'n_casi': 0, 'n_perdido': 0,
+        })
+        monto = float(r.get('total_total') or 0)
+        b = _bucket(_clasificar(r))
+        a['n_total'] += 1
+        a['generado'] += monto
+        if b == 'ganado':
+            a['ganado'] += monto; a['n_ganado'] += 1
+        elif b == 'perdido':
+            a['perdido'] += monto; a['n_perdido'] += 1
+        else:
+            a['casi'] += monto; a['n_casi'] += 1
+    return agg
+
+
+def _ventas_por_ventana(rows, only_email=None):
+    """Dinero GANADO en ventanas: 7d, 30d, 90d, 365d (acumulado desde hoy)."""
+    ventanas = [('Semana', 7), ('Mes', 30), ('3 meses', 90), ('Año', 365)]
+    res = []
+    for lbl, dias in ventanas:
+        agg = _agregar(rows, period_days=dias, only_email=only_email)
+        total = sum(a['ganado'] for a in agg.values())
+        res.append((lbl, total))
+    return res
+
+
+def _fmt_money(v):
+    v = float(v or 0)
+    sign = '-' if v < 0 else ''
+    v = abs(v)
+    if v >= 1_000_000:
+        return f"{sign}${v/1_000_000:.1f}M"
+    if v >= 1_000:
+        return f"{sign}${v/1_000:.0f}K"
+    return f"{sign}${v:,.0f}"
+
+
+# ── Render ───────────────────────────────────────────────────────────────────
+
+_PERIODOS = {'Semana': 7, 'Mes': 30, '3 meses': 90, 'Año': 365, 'Todo': None}
+
+
 def render_tab_ranking(supabase, **deps):
-    supa_admin = deps.get('supabase_admin', _supa_admin)
+    import plotly.graph_objects as go
+
+    _rol   = st.session_state.get('rol_usuario', 'ejecutivo')
+    _email = (st.session_state.get('auth_email', '') or '').lower()
+    _nombre_sesion = st.session_state.get('auth_nombre') or _email
+    _es_admin = _rol in ('root', 'admin')
 
     st.markdown("""
     <style>
-    .hdr7 {
-        background: linear-gradient(135deg, #78350f 0%, #d97706 100%);
-        border-radius: 20px; padding: 34px 36px; margin-bottom: 28px;
-        display: flex; align-items: center; gap: 16px;
-        box-shadow: 0 8px 32px rgba(217,119,6,0.25);
-        position: relative; overflow: hidden;
-    }
-    .rank-chart-title {
-        font-size: 0.78rem; font-weight: 800; color: #64748b;
-        text-transform: uppercase; letter-spacing: 0.08em;
-        margin-bottom: 14px; padding-bottom: 12px;
-        border-bottom: 2px solid #f1f5f9;
-    }
-    .rank-kpi-label { font-size: 0.72rem; font-weight: 700; color: #94a3b8;
-                      text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
-    .rank-kpi-value { font-size: 2rem; font-weight: 900; color: #0f172a;
-                      font-family: 'Montserrat', sans-serif; line-height: 1; }
-    .rank-section {
-        font-size: 0.75rem; font-weight: 900; color: #1e293b;
-        text-transform: uppercase; letter-spacing: 0.1em;
-        margin: 24px 0 14px; padding: 8px 16px;
-        background: linear-gradient(90deg, rgba(217,119,6,0.1), transparent);
-        border-left: 4px solid #d97706; border-radius: 0 8px 8px 0;
-    }
+    .rk-hero{display:flex;gap:24px;align-items:center;justify-content:space-between;
+        background:linear-gradient(135deg,#0f172a 0%,#1e293b 55%,#334155 100%);
+        border-radius:22px;padding:26px 30px;margin-bottom:18px;box-shadow:0 10px 40px rgba(15,23,42,0.25);}
+    .rk-hero-name{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.9rem;color:#fff;line-height:1.05;letter-spacing:-0.01em;}
+    .rk-hero-role{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:0.72rem;font-weight:800;
+        text-transform:uppercase;letter-spacing:0.08em;color:#0f172a;background:#fbbf24;border-radius:99px;padding:4px 12px;}
+    .rk-photo{width:clamp(150px,22vw,250px);height:clamp(150px,22vw,250px);border-radius:50%;object-fit:cover;
+        border:5px solid rgba(255,255,255,0.18);box-shadow:0 12px 40px rgba(0,0,0,0.4);flex-shrink:0;}
+    .rk-photo-ph{display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;
+        font-weight:900;color:#fff;font-size:clamp(3rem,7vw,5rem);background:linear-gradient(135deg,#6366f1,#8b5cf6);}
+    .rk-money{border-radius:16px;padding:16px 18px;color:#fff;position:relative;overflow:hidden;}
+    .rk-money .lbl{font-size:0.66rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;opacity:0.92;}
+    .rk-money .val{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.7rem;line-height:1.1;margin-top:4px;}
+    .rk-money .sub{font-size:0.68rem;opacity:0.85;margin-top:2px;}
+    .rk-sec{font-size:0.75rem;font-weight:900;color:#1e293b;text-transform:uppercase;letter-spacing:0.1em;
+        margin:24px 0 12px;padding:8px 14px;background:linear-gradient(90deg,rgba(99,102,241,0.10),transparent);
+        border-left:4px solid #6366f1;border-radius:0 8px 8px 0;}
+    .rk-card{display:flex;align-items:center;gap:14px;padding:12px 16px;background:#fff;border-radius:14px;
+        border:1px solid #e7ebf3;box-shadow:0 2px 10px rgba(15,23,42,0.05);margin-bottom:9px;}
+    .rk-card.me{border:2px solid #6366f1;background:#f5f7ff;}
+    .rk-rav{width:46px;height:46px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid #e2e8f0;}
+    .rk-rav-ph{display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:1.1rem;
+        background:linear-gradient(135deg,#6366f1,#8b5cf6);}
+    .rk-pos{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.15rem;width:30px;text-align:center;flex-shrink:0;}
     </style>
     """, unsafe_allow_html=True)
+
     render_page_header(
         "ranking",
         "Ranking de Ejecutivos",
-        "Desempe&#241;o del equipo de ventas &#8212; este mes.",
+        "Tu desempe&#241;o y el del equipo &#8212; dinero ganado, casi ganado y perdido.",
     )
 
     with st.spinner("Cargando ranking..."):
-        _ranking = _cargar_ranking(periodo='mes')
+        _rows = _fetch_cotizaciones_rank()
+        _umap = _fetch_users_map()
 
-    if not _ranking:
-        st.info("No hay cotizaciones registradas este mes.")
+    # ── Selector de periodo ──
+    _periodo = st.segmented_control(
+        "Periodo", list(_PERIODOS.keys()), default='Mes', key='rk_periodo',
+        label_visibility='collapsed',
+    ) or 'Mes'
+    _days = _PERIODOS.get(_periodo)
+
+    # Foto/rol del usuario actual
+    _me = _umap.get(_email, {})
+    _foto = _me.get('foto_url', '')
+    _rol_lbl = 'Administrador' if _es_admin else 'Ejecutivo de ventas'
+
+    # ── Métricas del HERO ──
+    if _es_admin:
+        _agg_periodo = _agregar(_rows, period_days=_days)
+        _ganado  = sum(a['ganado'] for a in _agg_periodo.values())
+        _casi    = sum(a['casi'] for a in _agg_periodo.values())
+        _perdido = sum(a['perdido'] for a in _agg_periodo.values())
+        _n_total = sum(a['n_total'] for a in _agg_periodo.values())
+        _n_gan   = sum(a['n_ganado'] for a in _agg_periodo.values())
+        _n_casi  = sum(a['n_casi'] for a in _agg_periodo.values())
+        _n_perd  = sum(a['n_perdido'] for a in _agg_periodo.values())
+        _ventas_win = _ventas_por_ventana(_rows)
     else:
-        import plotly.graph_objects as go
-        from datetime import datetime as _dt
+        _agg_me = _agregar(_rows, period_days=_days, only_email=_email).get(_email, {
+            'ganado': 0, 'casi': 0, 'perdido': 0, 'n_total': 0, 'n_ganado': 0, 'n_casi': 0, 'n_perdido': 0})
+        _ganado, _casi, _perdido = _agg_me['ganado'], _agg_me['casi'], _agg_me['perdido']
+        _n_total = _agg_me['n_total']
+        _n_gan, _n_casi, _n_perd = _agg_me['n_ganado'], _agg_me['n_casi'], _agg_me['n_perdido']
+        _ventas_win = _ventas_por_ventana(_rows, only_email=_email)
 
-        def _fmt_r(v):
-            if v >= 1_000_000: return f"${v/1_000_000:.1f}M"
-            if v >= 1_000:     return f"${v/1_000:.0f}K"
-            return f"${v:,.0f}"
+    # ── HERO: nombre+rol (izq) + foto (der) ──
+    _photo_html = (
+        f'<img class="rk-photo" src="{_foto}" alt="">' if _foto else
+        f'<div class="rk-photo rk-photo-ph">{(_nombre_sesion or "?")[0].upper()}</div>'
+    )
+    st.markdown(
+        f'<div class="rk-hero">'
+        f'<div style="min-width:0;">'
+        f'<div class="rk-hero-name">{_nombre_sesion}</div>'
+        f'<div class="rk-hero-role">{_rol_lbl}</div>'
+        f'<div style="color:rgba(255,255,255,0.7);font-size:0.82rem;margin-top:10px;">'
+        f'{"Equipo completo" if _es_admin else "Tu desempe&#241;o"} &middot; {_periodo.lower()}'
+        f' &middot; {_n_total} presupuesto{"s" if _n_total!=1 else ""}</div>'
+        f'</div>'
+        f'{_photo_html}'
+        f'</div>',
+        unsafe_allow_html=True)
 
-        _mes_actual   = _dt.now().strftime("%B %Y").capitalize()
-        _total_mes    = sum(a['total_generado'] for a in _ranking)
-        _total_presup = sum(a['total_presupuestos'] for a in _ranking)
-        _total_autori = sum(a['autorizados'] for a in _ranking)
-        _pct_g        = round((_total_autori / _total_presup) * 100) if _total_presup else 0
-        _n_ejs        = len(_ranking)
-        _h_bar        = max(280, 52 * _n_ejs)
-        _nombres      = [a['nombre'].split()[0] for a in _ranking]
-        _colores      = ["#f59e0b" if i==0 else "#94a3b8" if i==1 else "#cd7c3a" if i==2 else "#cbd5e1"
-                         for i in range(_n_ejs)]
+    # ── 3 cards de dinero ──
+    mc1, mc2, mc3 = st.columns(3)
+    with mc1:
+        st.markdown(
+            f'<div class="rk-money" style="background:linear-gradient(135deg,#16a34a,#15803d);">'
+            f'<div class="lbl">&#128176; Dinero ganado</div>'
+            f'<div class="val">{_fmt_money(_ganado)}</div>'
+            f'<div class="sub">{_n_gan} adjudicado{"s" if _n_gan!=1 else ""} / terminado{"s" if _n_gan!=1 else ""}</div>'
+            f'</div>', unsafe_allow_html=True)
+    with mc2:
+        st.markdown(
+            f'<div class="rk-money" style="background:linear-gradient(135deg,#f59e0b,#d97706);">'
+            f'<div class="lbl">&#9203; Dinero casi ganado</div>'
+            f'<div class="val">{_fmt_money(_casi)}</div>'
+            f'<div class="sub">{_n_casi} en proceso (borrador/incompleto/autorizado)</div>'
+            f'</div>', unsafe_allow_html=True)
+    with mc3:
+        st.markdown(
+            f'<div class="rk-money" style="background:linear-gradient(135deg,#dc2626,#b91c1c);">'
+            f'<div class="lbl">&#128201; Dinero perdido</div>'
+            f'<div class="val">{("-" if _perdido>0 else "")}{_fmt_money(_perdido)}</div>'
+            f'<div class="sub">{_n_perd} rechazado{"s" if _n_perd!=1 else ""}</div>'
+            f'</div>', unsafe_allow_html=True)
 
-        st.markdown(f'<div class="rank-section">&#128197; {_mes_actual} &middot; {_n_ejs} ejecutivo{"s" if _n_ejs!=1 else ""}</div>', unsafe_allow_html=True)
-        rk1, rk2, rk3, rk4 = st.columns(4)
-        for _col, _lbl, _val in [
-            (rk1, "&#128176; Total generado", _fmt_r(_total_mes)),
-            (rk2, "&#128203; Presupuestos",   str(_total_presup)),
-            (rk3, "&#128994; Autorizados",    str(_total_autori)),
-            (rk4, "&#128200; % Conversi&#243;n", f"{_pct_g}%"),
-        ]:
-            with _col:
-                with st.container(border=True):
-                    st.markdown(f'''<div style="text-align:center;padding:8px 4px;">
-                      <div class="rank-kpi-label">{_lbl}</div>
-                      <div class="rank-kpi-value">{_val}</div>
-                    </div>''', unsafe_allow_html=True)
+    # ── Gráfico: ventas (dinero ganado) por ventana de tiempo ──
+    st.markdown('<div class="rk-sec">&#128200; Ventas por periodo</div>', unsafe_allow_html=True)
+    _vlbls = [v[0] for v in _ventas_win]
+    _vvals = [v[1] for v in _ventas_win]
+    _fig = go.Figure(go.Bar(
+        x=_vlbls, y=_vvals,
+        marker_color=['#a5b4fc', '#818cf8', '#6366f1', '#4338ca'],
+        text=[_fmt_money(v) for v in _vvals], textposition='outside',
+        textfont=dict(size=12, family='Montserrat', color='#1e293b'),
+        hovertemplate='<b>%{x}</b><br>%{text}<extra></extra>',
+    ))
+    _maxv = max(_vvals + [1])
+    _fig.update_layout(
+        height=300, margin=dict(t=24, b=10, l=10, r=10),
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        xaxis=dict(showgrid=False, tickfont=dict(size=12, family='Montserrat')),
+        yaxis=dict(visible=False, range=[0, _maxv * 1.25]),
+        showlegend=False,
+    )
+    with st.container(border=True):
+        st.caption("Dinero **ganado** (adjudicados + terminados) acumulado en cada ventana, desde hoy hacia atrás.")
+        st.plotly_chart(_fig, use_container_width=True, config={'displayModeBar': False})
 
-        st.markdown("")
-
-        st.markdown('<div class="rank-section">&#128176; Monto generado por ejecutivo</div>', unsafe_allow_html=True)
-        _fig_bar = go.Figure(go.Bar(
-            y=_nombres[::-1],
-            x=[a['total_generado'] for a in _ranking[::-1]],
-            orientation='h',
-            marker_color=_colores[::-1],
-            marker_line_width=0,
-            text=[_fmt_r(a['total_generado']) for a in _ranking[::-1]],
-            textposition='outside',
-            textfont=dict(size=11, family='Montserrat', color='#1e293b'),
-            hovertemplate='<b>%{y}</b><br>%{text}<extra></extra>',
-        ))
-        _fig_bar.update_layout(
-            height=_h_bar, margin=dict(t=10, b=10, l=10, r=90),
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            xaxis=dict(showgrid=True, gridcolor='#f1f5f9', visible=False),
-            yaxis=dict(showgrid=False, tickfont=dict(size=12, family='Montserrat')),
-            showlegend=False,
-        )
-        with st.container(border=True):
-            st.markdown('<div class="rank-chart-title">&#128176; Monto total generado</div>', unsafe_allow_html=True)
-            st.plotly_chart(_fig_bar, use_container_width=True, config={'displayModeBar': False})
-
-        st.markdown('<div class="rank-section">&#128202; Presupuestos y conversi&#243;n por ejecutivo</div>', unsafe_allow_html=True)
-        col_bars, col_conv = st.columns([3, 2])
-
-        with col_bars:
-            _fig_combo = go.Figure()
-            _fig_combo.add_trace(go.Bar(
-                name='Total EP', y=_nombres[::-1],
-                x=[a['total_presupuestos'] for a in _ranking[::-1]],
-                orientation='h',
-                marker_color='rgba(99,102,241,0.75)',
-                text=[a['total_presupuestos'] for a in _ranking[::-1]],
-                textposition='auto',
-                hovertemplate='<b>%{y}</b><br>%{x} EP<extra></extra>',
-            ))
-            _fig_combo.add_trace(go.Bar(
-                name='Autorizados', y=_nombres[::-1],
-                x=[a['autorizados'] for a in _ranking[::-1]],
-                orientation='h',
-                marker_color='rgba(22,163,74,0.8)',
-                text=[a['autorizados'] for a in _ranking[::-1]],
-                textposition='auto',
-                hovertemplate='<b>%{y}</b><br>%{x} autorizados<extra></extra>',
-            ))
-            _fig_combo.update_layout(
-                barmode='group', height=_h_bar,
-                margin=dict(t=10, b=10, l=10, r=20),
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                xaxis=dict(showgrid=True, gridcolor='#f1f5f9', tickfont=dict(size=10)),
-                yaxis=dict(showgrid=False, tickfont=dict(size=11)),
-                legend=dict(orientation='h', yanchor='bottom', y=1.02,
-                            xanchor='right', x=1, font=dict(size=11)),
-            )
-            with st.container(border=True):
-                st.markdown('<div class="rank-chart-title">&#128203; EP totales vs autorizados</div>', unsafe_allow_html=True)
-                st.plotly_chart(_fig_combo, use_container_width=True, config={'displayModeBar': False})
-
-        with col_conv:
-            _fig_conv = go.Figure(go.Bar(
-                y=_nombres[::-1],
-                x=[a['pct_autorizado'] for a in _ranking[::-1]],
-                orientation='h',
-                marker=dict(
-                    color=[a['pct_autorizado'] for a in _ranking[::-1]],
-                    colorscale=[[0,'#ef4444'],[0.5,'#f59e0b'],[1,'#16a34a']],
-                    showscale=False,
-                ),
-                text=[f"{a['pct_autorizado']}%" for a in _ranking[::-1]],
-                textposition='outside',
-                hovertemplate='<b>%{y}</b><br>%{text}<extra></extra>',
-            ))
-            _fig_conv.update_layout(
-                height=_h_bar, margin=dict(t=10, b=10, l=10, r=50),
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                xaxis=dict(showgrid=True, gridcolor='#f1f5f9', range=[0,115],
-                           ticksuffix='%', tickfont=dict(size=10)),
-                yaxis=dict(showgrid=False, tickfont=dict(size=11)),
-            )
-            with st.container(border=True):
-                st.markdown('<div class="rank-chart-title">&#128200; % Conversi&#243;n</div>', unsafe_allow_html=True)
-                st.plotly_chart(_fig_conv, use_container_width=True, config={'displayModeBar': False})
-
-        st.markdown('<div class="rank-section">&#127894; Detalle por ejecutivo</div>', unsafe_allow_html=True)
-        _medallas = {1:"&#127945;", 2:"&#129352;", 3:"&#129353;"}
-        _border_colors = {1:'#f59e0b', 2:'#94a3b8', 3:'#b45309'}
-
-        for i, ej in enumerate(_ranking, 1):
-            total_fmt = _fmt_r(ej['total_generado'])
-            prom_fmt  = _fmt_r(ej['promedio'])
-            score     = ej['score']
-            _pct_aut  = ej['pct_autorizado']
-            _pc_color = "#16a34a" if _pct_aut >= 50 else "#f59e0b" if _pct_aut >= 25 else "#ef4444"
-
-            _r = 45
-            _cx, _cy = 55, 55
-            _circum = 2 * 3.14159 * _r
-            _dash = _circum * _pct_aut / 100
-            _gap  = _circum - _dash
-            _svg_donut = (
-                f'<svg width="110" height="110" viewBox="0 0 110 110" xmlns="http://www.w3.org/2000/svg">' +
-                f'<circle cx="{_cx}" cy="{_cy}" r="{_r}" fill="none" stroke="#f1f5f9" stroke-width="14"/>' +
-                f'<circle cx="{_cx}" cy="{_cy}" r="{_r}" fill="none" stroke="{_pc_color}" stroke-width="14" ' +
-                f'stroke-dasharray="{_dash:.1f} {_gap:.1f}" stroke-dashoffset="{_circum/4:.1f}" stroke-linecap="round"/>' +
-                f'<text x="{_cx}" y="{_cy-4}" text-anchor="middle" font-size="14" font-weight="bold" fill="{_pc_color}">{_pct_aut}%</text>' +
-                f'<text x="{_cx}" y="{_cy+12}" text-anchor="middle" font-size="9" fill="#94a3b8">Conv.</text>' +
-                f'</svg>'
-            )
-            _border_color = _border_colors.get(i, '#e2e8f0')
-            _medal = _medallas.get(i, f"#{i}")
-            st.markdown(f'''
-            <div style="display:flex;align-items:center;gap:16px;padding:12px 16px;
-                background:#fff;border-radius:16px;border:1px solid #e2e8f0;
-                border-left:5px solid {_border_color};
-                box-shadow:0 4px 20px rgba(0,0,0,0.07);">
-              <span style="font-size:1.8rem;flex-shrink:0;">{_medal}</span>
-              <div style="flex:1;min-width:160px;">
-                <div style="font-size:1rem;font-weight:800;color:#1e293b;font-family:'Montserrat',sans-serif;">{ej['nombre']}</div>
-                <div style="background:#f1f5f9;border-radius:8px;height:10px;margin:6px 0 2px;overflow:hidden;">
-                  <div style="width:{score}%;height:10px;border-radius:8px;background:linear-gradient(90deg,#f59e0b,#d97706);"></div>
-                </div>
-                <div style="font-size:0.72rem;color:#94a3b8;">Score {score}/100</div>
-              </div>
-              <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;">
-                <div style="text-align:center;"><div style="font-size:1.2rem;font-weight:800;color:#0f172a;">{ej['total_presupuestos']}</div><div style="font-size:0.7rem;color:#64748b;">EP</div></div>
-                <div style="text-align:center;"><div style="font-size:1.2rem;font-weight:800;color:#0f172a;">{total_fmt}</div><div style="font-size:0.7rem;color:#64748b;">Total</div></div>
-                <div style="text-align:center;"><div style="font-size:1.2rem;font-weight:800;color:#0f172a;">{prom_fmt}</div><div style="font-size:0.7rem;color:#64748b;">Promedio</div></div>
-                <div style="text-align:center;"><div style="font-size:1.2rem;font-weight:800;color:#16a34a;">{ej['autorizados']}</div><div style="font-size:0.7rem;color:#64748b;">&#128994; Auth.</div></div>
-                <div style="text-align:center;"><div style="font-size:1.2rem;font-weight:800;color:#f59e0b;">{ej['borradores']}</div><div style="font-size:0.7rem;color:#64748b;">&#128993; Borr.</div></div>
-              </div>
-              <div style="flex-shrink:0;">{_svg_donut}</div>
-            </div>
-            ''', unsafe_allow_html=True)
-            st.markdown("<div style='margin-bottom:8px;'></div>", unsafe_allow_html=True)
+    # ── Ranking del equipo ──
+    st.markdown('<div class="rk-sec">&#127942; Ranking del equipo</div>', unsafe_allow_html=True)
+    _agg_team = _agregar(_rows, period_days=_days)
+    _team = sorted(_agg_team.values(), key=lambda a: (a['ganado'], a['generado']), reverse=True)
+    if not _team:
+        st.info("No hay presupuestos en este periodo.")
+    else:
+        _medallas = {1: "&#129351;", 2: "&#129352;", 3: "&#129353;"}
+        for i, a in enumerate(_team, 1):
+            _u = _umap.get(a['email'], {})
+            _f = _u.get('foto_url', '')
+            _ini = (a['nombre'] or '?')[0].upper()
+            _av = (f'<img class="rk-rav" src="{_f}" alt="">' if _f
+                   else f'<div class="rk-rav rk-rav-ph">{_ini}</div>')
+            _pos = _medallas.get(i, f'<span style="color:#94a3b8;">{i}</span>')
+            _is_me = (a['email'] == _email and not _es_admin)
+            _me_cls = ' me' if _is_me else ''
+            _tu_badge = (' &middot; <span style="color:#6366f1;font-size:0.7rem;font-weight:800;">T&#218;</span>'
+                         if _is_me else '')
+            st.markdown(
+                f'<div class="rk-card{_me_cls}">'
+                f'<div class="rk-pos">{_pos}</div>'
+                f'{_av}'
+                f'<div style="flex:1;min-width:0;">'
+                f'<div style="font-weight:800;color:#0f172a;font-size:0.98rem;">{a["nombre"]}{_tu_badge}</div>'
+                f'<div style="font-size:0.74rem;color:#64748b;margin-top:2px;">{a["n_total"]} presupuesto{"s" if a["n_total"]!=1 else ""}</div>'
+                f'</div>'
+                f'<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">'
+                f'<div style="text-align:right;"><div style="font-family:Montserrat;font-weight:900;color:#16a34a;font-size:1.05rem;">{_fmt_money(a["ganado"])}</div><div style="font-size:0.64rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Ganado</div></div>'
+                f'<div style="text-align:right;"><div style="font-family:Montserrat;font-weight:800;color:#f59e0b;font-size:0.95rem;">{_fmt_money(a["casi"])}</div><div style="font-size:0.64rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Casi</div></div>'
+                f'<div style="text-align:right;"><div style="font-family:Montserrat;font-weight:800;color:#dc2626;font-size:0.95rem;">{("-" if a["perdido"]>0 else "")}{_fmt_money(a["perdido"])}</div><div style="font-size:0.64rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Perdido</div></div>'
+                f'</div>'
+                f'</div>',
+                unsafe_allow_html=True)
