@@ -550,18 +550,23 @@ html.ec-sbc section[data-testid="stMain"] [data-testid="stPopoverBody"] {{ left:
     }
     applyProg();
     setTimeout(applyProg,50); setTimeout(applyProg,300);
-    if(!D._ecProgBound){
-        D._ecProgBound=true;
-        // El click del toggle/mini SOLO cambia la clase + localStorage (no se
-        // resetea solo: el usuario decide expandir u ocultar y se mantiene).
-        D.addEventListener('click',function(e){
-            var el=e.target&&e.target.closest?e.target.closest('[data-action]'):null;
-            if(!el)return;
-            var a=el.getAttribute('data-action');
-            if(a==='prog-toggle'){ try{Wp.localStorage.setItem('ec_prog_collapsed','1');}catch(_e){} R.classList.add('ec-prog-collapsed'); }
-            else if(a==='prog-show'){ try{Wp.localStorage.setItem('ec_prog_collapsed','0');}catch(_e){} R.classList.remove('ec-prog-collapsed'); }
-        });
-    }
+    // El handler se RE-BINDEA en cada rerun: removemos el anterior y agregamos
+    // uno fresco del iframe ACTUAL. Antes se bindeaba una sola vez (guard
+    // _ecProgBound) desde un iframe de components.html; al navegar/rerun ese
+    // iframe se destruye y su handler quedaba MUERTO → el click dejaba de
+    // expandir/ocultar. Guardamos la referencia en window.parent para poder
+    // removerla aunque el iframe que la creó ya no exista.
+    try{ if(Wp._ecProgHandler) D.removeEventListener('click', Wp._ecProgHandler); }catch(_e){}
+    Wp._ecProgHandler=function(e){
+        // SOLO cambia clase + localStorage (no se resetea solo: el usuario
+        // decide expandir u ocultar y se mantiene al navegar).
+        var el=e.target&&e.target.closest?e.target.closest('[data-action]'):null;
+        if(!el)return;
+        var a=el.getAttribute('data-action');
+        if(a==='prog-toggle'){ try{Wp.localStorage.setItem('ec_prog_collapsed','1');}catch(_e){} R.classList.add('ec-prog-collapsed'); }
+        else if(a==='prog-show'){ try{Wp.localStorage.setItem('ec_prog_collapsed','0');}catch(_e){} R.classList.remove('ec-prog-collapsed'); }
+    };
+    D.addEventListener('click', Wp._ecProgHandler);
 })();
 </script>""", height=1)
 
