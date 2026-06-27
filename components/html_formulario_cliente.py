@@ -7,6 +7,9 @@ import json
 def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, supa_key, ep, nombre_cliente, logo_b64='', hero_b64=''):
     primer_nombre = nombre_cliente.split()[0].capitalize() if nombre_cliente else 'Cliente'
     logo_html = ('<img src="data:image/png;base64,' + logo_b64 + '" style="height:49px;width:auto;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.25));">') if logo_b64 else ''
+    _IC_ZOOM = ('<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" '
+                'stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">'
+                '<circle cx="11" cy="11" r="7"/><path d="m21 21-3.5-3.5"/></svg>')
 
     items_by_id = {str(it['id']): it for it in cat_items}
 
@@ -67,7 +70,10 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
                     hx  = it.get('hex','#ccc') or '#ccc'
                     sel = ' sel' if resps_map.get(iid) == nm else ''
                     body_html += '<div class="c-item' + sel + '" id="ci-' + iid + '" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'color\')"">'
-                    body_html += '<div class="c-color-block" style="background:' + hx + ';"><span class="c-check">✓</span></div>'
+                    body_html += ('<div class="c-color-block" style="background:' + hx + ';"><span class="c-check">✓</span>'
+                                  '<button class="zoom-btn" data-pop-hex="' + hx + '" data-pop-name="' + nm.replace('"', '&quot;') + '" '
+                                  'data-pop-iid="' + iid + '" data-pop-type="color" '
+                                  'onclick="event.stopPropagation();openP(this)">' + _IC_ZOOM + '</button></div>')
                     body_html += '<div class="c-name">' + nm + '</div>'
                     body_html += '</div>'
                 body_html += '</div></div>'
@@ -101,7 +107,8 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
                                       'data-pop-url="' + url + '" '
                                       'data-pop-name="' + nm_attr + '" '
                                       'data-pop-iid="' + iid + '" '
-                                      'onclick="event.stopPropagation();openP(this)">&#128269;</button>')
+                                      'data-pop-type="imagen" '
+                                      'onclick="event.stopPropagation();openP(this)">' + _IC_ZOOM + '</button>')
                     body_html += '<div class="i-name">' + nm + '</div>'
                     body_html += '</div>'
                 body_html += '</div></div>'
@@ -247,8 +254,10 @@ function scrollC(gid,dir){
 // viewport real (no al iframe, que es muy alto y genera scroll/espacio negro).
 function openP(btn){
   var url=btn.getAttribute("data-pop-url");
+  var hex=btn.getAttribute("data-pop-hex");
   var nm=btn.getAttribute("data-pop-name");
   var iid=btn.getAttribute("data-pop-iid");
+  var typ=btn.getAttribute("data-pop-type")||"imagen";
   var D, W;
   try { D=window.parent.document; W=window.parent; } catch(e){ D=document; W=window; }
   var existing=D.getElementById("_ec_cli_popup");
@@ -258,12 +267,15 @@ function openP(btn){
   var pop=D.createElement("div");
   pop.id="_ec_cli_popup";
   pop.style.cssText="position:fixed;inset:0;background:rgba(5,10,20,0.95);z-index:2147483647;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Poppins,sans-serif;padding:20px;box-sizing:border-box;";
+  var visual = url
+    ? '<img src="'+url+'" style="max-width:90vw;max-height:75vh;width:auto;height:auto;object-fit:contain;border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,0.5);">'
+    : '<div style="width:min(72vw,420px);height:min(48vh,420px);border-radius:20px;background:'+(hex||"#ccc")+';box-shadow:0 30px 80px rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.25);"></div>';
   pop.innerHTML=
     '<button class="_ec_pop_close" style="position:absolute;top:20px;right:24px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:white;font-size:1.2rem;cursor:pointer;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;line-height:1;">'+
     '✕</button>'+
-    '<img src="'+url+'" style="max-width:90vw;max-height:75vh;width:auto;height:auto;object-fit:contain;border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,0.5);">'+
+    visual+
     '<div style="color:white;font-size:1.1rem;font-weight:700;margin-top:14px;text-align:center;">'+nm+'</div>'+
-    '<button class="_ec_pop_sel" style="margin-top:16px;background:linear-gradient(135deg,#0f3460,#1a5276);color:white;border:none;border-radius:10px;padding:12px 32px;font-size:14px;font-weight:700;cursor:pointer;font-family:Poppins,sans-serif;box-shadow:0 8px 24px rgba(15,52,96,0.3);">✅ Seleccionar</button>';
+    '<button class="_ec_pop_sel" style="margin-top:16px;background:linear-gradient(135deg,#0f3460,#1a5276);color:white;border:none;border-radius:10px;padding:12px 32px;font-size:14px;font-weight:700;cursor:pointer;font-family:Poppins,sans-serif;box-shadow:0 8px 24px rgba(15,52,96,0.3);">Seleccionar</button>';
   D.body.appendChild(pop);
   function close(){
     if(pop.parentNode) pop.parentNode.removeChild(pop);
@@ -274,7 +286,7 @@ function openP(btn){
   pop.addEventListener("click", function(e){ if(e.target===pop) close(); });
   pop.querySelector("._ec_pop_close").addEventListener("click", close);
   pop.querySelector("._ec_pop_sel").addEventListener("click", function(){
-    pick(iid, nm, "imagen");
+    pick(iid, nm, typ);
     close();
   });
   D.addEventListener("keydown", onKey);

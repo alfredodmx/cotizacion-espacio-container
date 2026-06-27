@@ -6,6 +6,34 @@ import streamlit as st
 from config.supabase import supabase_admin as _supa_admin
 
 
+# Lightbox compartido (catálogo + configurar preguntas): al hacer click en una
+# imagen o color se abre en grande. Se monta en window.parent.document para que
+# el position:fixed se ancle a la viewport real (no al iframe). Lee data-zurl /
+# data-zhex / data-zname del elemento clickeado.
+_ZOOM_JS = '''
+window.ecZoom=function(el){
+  var url=el.getAttribute("data-zurl")||"";
+  var hex=el.getAttribute("data-zhex")||"";
+  var nm=el.getAttribute("data-zname")||"";
+  var D,W; try{D=window.parent.document;W=window.parent;}catch(e){D=document;W=window;}
+  var ex=D.getElementById("_ec_zoom_pop"); if(ex)ex.remove();
+  var prevOv=D.body.style.overflow; D.body.style.overflow="hidden";
+  var pop=D.createElement("div"); pop.id="_ec_zoom_pop";
+  pop.style.cssText="position:fixed;inset:0;background:rgba(5,10,20,0.92);z-index:2147483647;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Montserrat,sans-serif;padding:24px;box-sizing:border-box;";
+  var visual = url
+    ? '<img src="'+url+'" style="max-width:90vw;max-height:80vh;object-fit:contain;border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,0.55);">'
+    : '<div style="width:min(72vw,440px);height:min(52vh,440px);border-radius:20px;background:'+(hex||"#ccc")+';box-shadow:0 30px 80px rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.25);"></div>';
+  pop.innerHTML='<button id="_ec_zoom_x" style="position:absolute;top:20px;right:24px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:#fff;font-size:1.2rem;cursor:pointer;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;line-height:1;">✕</button>'+visual+(nm?('<div style="color:#fff;font-size:1.05rem;font-weight:700;margin-top:16px;text-align:center;">'+nm+'</div>'):'');
+  D.body.appendChild(pop);
+  function close(){ if(pop.parentNode)pop.parentNode.removeChild(pop); D.body.style.overflow=prevOv||""; D.removeEventListener("keydown",onKey); }
+  function onKey(e){ if(e.key==="Escape")close(); }
+  pop.addEventListener("click",function(e){ if(e.target===pop)close(); });
+  pop.querySelector("#_ec_zoom_x").addEventListener("click",close);
+  D.addEventListener("keydown",onKey);
+};
+'''
+
+
 @st.cache_data(ttl=120, show_spinner=False)
 def fetch_catalogo_materiales(_cache_buster: str = ''):
     """_cache_buster: query param que cambia tras editar el catálogo,
@@ -99,10 +127,16 @@ def build_config_preguntas_html(cat_items, config_data, supa_url, supa_key, form
                 iid = str(it.get('id', ''))
                 nombre = it.get('nombre', '')
                 checked = 'checked' if iid in saved_ids else ''
+                _nm_z = nombre.replace('"', '&quot;')
+                # El thumb es clickeable para AMPLIAR (stopPropagation/preventDefault
+                # para no marcar el checkbox del label).
+                _zclick = 'onclick="event.stopPropagation();event.preventDefault();window.ecZoom(this)" title="Ampliar"'
                 if it.get('imagen_url'):
-                    thumb = '<img src="' + it['imagen_url'] + '" style="width:36px;height:36px;object-fit:cover;border-radius:50%;flex-shrink:0;">'
+                    thumb = ('<img src="' + it['imagen_url'] + '" data-zurl="' + it['imagen_url'] + '" data-zname="' + _nm_z + '" ' + _zclick +
+                             ' style="width:36px;height:36px;object-fit:cover;border-radius:50%;flex-shrink:0;cursor:zoom-in;">')
                 elif it.get('hex'):
-                    thumb = '<div style="width:36px;height:36px;border-radius:50%;background:' + it['hex'] + ';border:1px solid #e2e8f0;flex-shrink:0;"></div>'
+                    thumb = ('<div data-zhex="' + it['hex'] + '" data-zname="' + _nm_z + '" ' + _zclick +
+                             ' style="width:36px;height:36px;border-radius:50%;background:' + it['hex'] + ';border:1px solid #e2e8f0;flex-shrink:0;cursor:zoom-in;"></div>')
                 else:
                     thumb = '<div style="width:36px;height:36px;border-radius:50%;background:#f1f5f9;flex-shrink:0;display:flex;align-items:center;justify-content:center;">' + IC_BOX + '</div>'
                 cat_html += '<label class="item-chip" id="chip-' + iid + '">'
@@ -131,22 +165,29 @@ def build_config_preguntas_html(cat_items, config_data, supa_url, supa_key, form
         cat_html = '<div class="empty">No hay materiales en el cat&#225;logo. Agrega categor&#237;as primero.</div>'
 
     css = '''
-body{margin:0;padding:0;font-family:Poppins,Segoe UI,sans-serif;font-size:13px;background:#f0f4f8;}
-.wrap{padding:12px;max-width:900px;margin:0 auto;}
-.cat-block{background:white;border-radius:14px;padding:14px 16px;margin-bottom:14px;box-shadow:0 2px 12px rgba(15,52,96,0.07);}
-.cat-block-title{font-weight:900;font-size:14px;color:#0a1628;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #e8f0fe;}
-.grupo-block{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:10px;}
-.grupo-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
-.grupo-title{font-weight:800;font-size:13px;color:#0f3460;}
-.grupo-count{font-size:10px;color:#94a3b8;font-weight:600;}
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&display=swap');
+*{box-sizing:border-box;}
+body{margin:0;padding:0;font-family:'Inter','Segoe UI',sans-serif;font-size:13px;background:transparent;color:#0f172a;}
+.wrap{padding:8px 2px 24px;max-width:920px;margin:0 auto;}
+.cat-block{background:#fff;border:1px solid #e7ebf3;border-radius:14px;padding:16px 18px;margin-bottom:16px;box-shadow:0 1px 3px rgba(15,23,42,0.05);}
+.cat-block-title{font-family:'Montserrat',sans-serif;font-weight:800;font-size:0.92rem;color:#0f172a;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #eef2f7;}
+.grupo-block{background:#f8fafc;border:1px solid #e7ebf3;border-radius:12px;padding:13px 14px;margin-bottom:11px;}
+.grupo-header{display:flex;align-items:center;gap:9px;margin-bottom:11px;}
+.grupo-title{font-weight:800;font-size:12.5px;color:#0f172a;display:inline-flex;align-items:center;gap:6px;}
+.grupo-count{font-size:10px;color:#94a3b8;font-weight:700;}
 .items-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
-.item-chip{display:flex;align-items:center;gap:6px;background:white;border:1.5px solid #e2e8f0;border-radius:99px;padding:4px 10px 4px 6px;cursor:pointer;transition:all 0.15s;user-select:none;}
-.item-chip:has(input:checked){border-color:#0f3460;background:#eff6ff;}
-.item-name{font-size:11px;font-weight:700;color:#0a1628;}
+.item-chip{display:flex;align-items:center;gap:7px;background:#fff;border:1.5px solid #e7ebf3;border-radius:10px;padding:5px 12px 5px 7px;cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s;user-select:none;}
+.item-chip:hover{border-color:#cbd5e1;}
+.item-chip:has(input:checked){border-color:#4338ca;background:#eef2ff;box-shadow:0 0 0 3px rgba(67,56,202,0.08);}
+.item-name{font-size:11px;font-weight:700;color:#0f172a;}
 .obs-row{display:flex;gap:10px;align-items:flex-start;}
-.obs-label{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:3px;display:block;}
-.save-bar{position:sticky;bottom:0;background:white;border-top:2px solid #e8f0fe;padding:12px 16px;display:flex;gap:10px;align-items:center;box-shadow:0 -4px 20px rgba(15,52,96,0.08);}
-.btn-save{background:linear-gradient(135deg,#0f3460,#1a5276);color:white;border:none;border-radius:10px;padding:12px 28px;font-size:14px;font-weight:900;cursor:pointer;font-family:Poppins,sans-serif;}
+.obs-label{font-size:9.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;display:block;}
+textarea{font-family:inherit;transition:border-color .15s,box-shadow .15s;}
+textarea:focus{outline:none;border-color:#6366f1 !important;box-shadow:0 0 0 3px rgba(99,102,241,0.12);}
+.save-bar{position:sticky;bottom:0;background:rgba(255,255,255,0.96);backdrop-filter:blur(6px);border-top:1px solid #e7ebf3;padding:12px 16px;display:flex;gap:10px;align-items:center;box-shadow:0 -4px 20px rgba(15,23,42,0.06);border-radius:0 0 14px 14px;}
+.btn-save{display:inline-flex;align-items:center;gap:6px;background:#0f3460;color:#fff;border:none;border-radius:9px;padding:11px 22px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;transition:background .15s,transform .12s,box-shadow .15s;}
+.btn-save svg{width:15px;height:15px;flex-shrink:0;}
+.btn-save:hover{background:#0c2a4d;transform:translateY(-1px);box-shadow:0 4px 12px rgba(15,52,96,0.25);}
 .btn-save:disabled{opacity:0.5;}
 .status{font-size:12px;font-weight:600;flex:1;}
 .empty{color:#94a3b8;text-align:center;padding:40px;font-size:14px;}
@@ -157,6 +198,7 @@ body{margin:0;padding:0;font-family:Poppins,Segoe UI,sans-serif;font-size:13px;b
         'var S="' + supa_url + '",K="' + supa_key + '",EP="' + form_ep + '";\n'
         'var CAT_ITEMS=' + cat_items_json + ';\n'
         'var CONFIG=' + config_map_json + ';\n'
+        + _ZOOM_JS +
         '''
 window.toggleAll=function(tgId,checked){
   document.querySelectorAll('input[data-group="'+tgId+'"]').forEach(function(cb){cb.checked=checked;});
@@ -298,13 +340,18 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
                 iurl = it.get('imagen_url') or ''
                 itipo = it.get('tipo', 'imagen')
                 badge = _type_badge(itipo)
+                _nm_attr = it.get('nombre', '').replace('"', '&quot;')
+                _card_base = 'background:white;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;'
                 if iurl:
                     preview = '<img src="' + iurl + '" style="width:100%;height:55px;object-fit:cover;display:block;">'
+                    _zoom = ' data-zurl="' + iurl + '" data-zname="' + _nm_attr + '" onclick="window.ecZoom(this)" style="cursor:zoom-in;' + _card_base + '"'
                 elif it.get('hex'):
                     preview = '<div style="width:100%;height:55px;background:' + it['hex'] + ';"></div>'
+                    _zoom = ' data-zhex="' + it['hex'] + '" data-zname="' + _nm_attr + '" onclick="window.ecZoom(this)" style="cursor:zoom-in;' + _card_base + '"'
                 else:
                     preview = '<div style="width:100%;height:55px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;">' + IC_BOX + '</div>'
-                cat_html += '<div style="background:white;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">'
+                    _zoom = ' style="' + _card_base + '"'
+                cat_html += '<div' + _zoom + '>'
                 cat_html += preview
                 cat_html += '<div style="font-size:9px;font-weight:700;padding:2px 4px;display:flex;justify-content:space-between;">'
                 cat_html += '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + it.get('nombre', '') + '</span>'
@@ -358,10 +405,14 @@ def build_catalogo_html(cat_items, supa_url, supa_key, tipo='imagen', cantidad=4
                 iid = str(it.get('id', ''))
                 iurl = it.get('imagen_url') or ''
                 ihex = it.get('hex') or ''
+                _itn = it.get('nombre', '').replace('"', '&quot;')
                 if iurl:
-                    thumb = '<img src="' + iurl + '" style="width:34px;height:34px;object-fit:cover;border-radius:4px;flex-shrink:0;">'
+                    thumb = ('<img src="' + iurl + '" data-zurl="' + iurl + '" data-zname="' + _itn + '" '
+                             'onclick="window.ecZoom(this)" title="Ampliar" '
+                             'style="width:34px;height:34px;object-fit:cover;border-radius:4px;flex-shrink:0;cursor:zoom-in;">')
                 elif ihex:
-                    thumb = '<div style="width:34px;height:34px;background:' + ihex + ';border-radius:50%;border:1px solid #e2e8f0;flex-shrink:0;"></div>'
+                    thumb = ('<div data-zhex="' + ihex + '" data-zname="' + _itn + '" onclick="window.ecZoom(this)" title="Ampliar" '
+                             'style="width:34px;height:34px;background:' + ihex + ';border-radius:50%;border:1px solid #e2e8f0;flex-shrink:0;cursor:zoom-in;"></div>')
                 else:
                     thumb = '<div style="width:34px;height:34px;background:#f1f5f9;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' + IC_BOX + '</div>'
                 cat_html += '<div style="display:flex;align-items:center;gap:8px;background:white;border:1px solid #e2e8f0;border-radius:6px;padding:5px 8px;">'
@@ -454,6 +505,7 @@ body{margin:0;padding:6px 2px 24px;font-family:'Inter','Segoe UI',sans-serif;fon
         'var _items=[];\n'
         'var IC_EDIT=' + json.dumps(IC_EDIT) + ';\n'
         'var IC_CLOSE=' + json.dumps(IC_CLOSE) + ';\n'
+        + _ZOOM_JS +
         '''
 function doRerun(){
   // Refresca el catálogo SIN recargar la página: clickeamos un botón nativo de
