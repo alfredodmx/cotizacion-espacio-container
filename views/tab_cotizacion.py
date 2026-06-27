@@ -282,7 +282,7 @@ def _construir_datos_guardar_simple():
     if carrito:
         df_c = pd.DataFrame(carrito); sb = df_c['Subtotal'].sum()
         mg = st.session_state.get('margen', 0)
-        sc = sum(i['Cantidad'] * aplicar_margen(i['Precio Unitario'], mg) for i in carrito) if (st.session_state.get('modo_admin') or mg > 0) else sb
+        sc = sum(i['Cantidad'] * aplicar_margen(i['Precio Unitario'], mg) for i in carrito) if (st.session_state.get('modo_admin') or (mg > 0 and st.session_state.get('es_supervisor'))) else sb
         iva = sc * 0.19; tot = sc + iva
     else:
         sb = sc = iva = tot = 0
@@ -624,10 +624,13 @@ def ejecutar_carga_cotizacion():
     else:
         st.session_state.fecha_termino = (datetime.now() + timedelta(days=15)).date()
     st.session_state.observaciones_input = cotizacion.get('proyecto_observaciones', '')
-    # Preservar modo_admin del usuario actual: no desactivar si es supervisor
-    _modo_admin_cot = bool(cotizacion.get('config_modo_admin', False))
+    # Supervisor (root/admin): conserva SU propio modo_admin (no lo pisa el
+    # presupuesto). NO-supervisor (ejecutivo/operación): NUNCA modo admin, aunque
+    # el presupuesto se haya guardado en modo admin — el botón de margen y las
+    # cards de comisiones/utilidad son exclusivas de root/admin. (Antes heredaba
+    # config_modo_admin del presupuesto → bug grave: al cargar mostraba el margen.)
     if not st.session_state.get('es_supervisor'):
-        st.session_state.modo_admin = _modo_admin_cot
+        st.session_state.modo_admin = False
     margen_valor = cotizacion.get('config_margen')
     try:
         st.session_state.margen = float(margen_valor) if margen_valor is not None else 0.0
@@ -1265,7 +1268,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         carrito_df = pd.DataFrame(st.session_state.carrito)
         subtotal_base = carrito_df["Subtotal"].sum()
 
-        if st.session_state.modo_admin or st.session_state.margen > 0:
+        if st.session_state.modo_admin or (st.session_state.margen > 0 and st.session_state.get('es_supervisor')):
             carrito_df_con_margen = carrito_df.copy()
             carrito_df_con_margen["Precio Unitario"] = carrito_df_con_margen["Precio Unitario"].apply(lambda x: aplicar_margen(x, st.session_state.margen))
             carrito_df_con_margen["Subtotal"] = carrito_df_con_margen["Cantidad"] * carrito_df_con_margen["Precio Unitario"]
