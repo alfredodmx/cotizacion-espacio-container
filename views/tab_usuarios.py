@@ -248,10 +248,9 @@ def _dlg_editar(u):
                     else:
                         ok, err = False, _e
                 if ok:
-                    for cu in st.session_state.get("_usr_data", []):
-                        if cu["id"] == u["id"]:
-                            cu["foto_url"] = _url
-                            break
+                    # Invalidar la caché completa: el próximo render relee foto_url
+                    # desde Supabase (fuente de verdad) y nunca queda stale.
+                    st.session_state.pop("_usr_data", None)
                     st.session_state["_usr_toast"] = f"✅ Foto de {u['nombre']} actualizada."
                     st.rerun()
                 else:
@@ -265,10 +264,7 @@ def _dlg_editar(u):
                         "nombre": u["nombre"], "telefono": u.get("telefono", ""),
                         "rol": u["rol"], "foto_url": ""}})
                 if ok:
-                    for cu in st.session_state.get("_usr_data", []):
-                        if cu["id"] == u["id"]:
-                            cu["foto_url"] = ""
-                            break
+                    st.session_state.pop("_usr_data", None)
                     st.session_state["_usr_toast"] = f"✅ Foto de {u['nombre']} eliminada."
                     st.rerun()
                 else:
