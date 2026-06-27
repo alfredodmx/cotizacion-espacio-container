@@ -126,9 +126,18 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
                 f'<div style="{_SEC_TITLE_STYLE}">{_fic(_IC_CLIP, 17, mr=8)}Presupuestos adjudicados</div>',
                 unsafe_allow_html=True)
             try:
-                _adj = supa_admin.table('cotizaciones').select(
-                    'numero,cliente_nombre,asesor_nombre,fecha_adjudicacion,estado'
-                ).eq('estado', 'ADJUDICADO').order('fecha_adjudicacion', desc=True).execute().data or []
+                _adj_q = supa_admin.table('cotizaciones').select(
+                    'numero,cliente_nombre,asesor_nombre,fecha_adjudicacion,estado,asesor_email'
+                ).eq('estado', 'ADJUDICADO')
+                # Ejecutivo: solo SUS adjudicados (root/admin ven todos). Mismo
+                # criterio que el resto del sistema (filtrar por asesor_email).
+                if _rol == 'ejecutivo':
+                    _adj_email = (st.session_state.get('auth_email', '') or '').strip()
+                    if _adj_email:
+                        _adj_q = _adj_q.ilike('asesor_email', _adj_email)
+                    else:
+                        _adj_q = _adj_q.eq('numero', '__none__')  # sin email → nada
+                _adj = _adj_q.order('fecha_adjudicacion', desc=True).execute().data or []
             except Exception:
                 _adj = []
             try:
@@ -139,7 +148,8 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
             except Exception:
                 _fc_nums = set()
             if not _adj:
-                st.info("A&#250;n no hay presupuestos adjudicados.")
+                st.info("A&#250;n no tienes presupuestos adjudicados." if _rol == 'ejecutivo'
+                        else "A&#250;n no hay presupuestos adjudicados.")
             else:
                 _df_adj = pd.DataFrame([{
                     'N° EP':      r.get('numero', ''),
