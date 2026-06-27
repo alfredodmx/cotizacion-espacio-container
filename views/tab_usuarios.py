@@ -1,14 +1,56 @@
 """
 Tab USUARIOS — Gestión de cuentas de ejecutivos y admins.
 """
+import time
 import streamlit as st
 import httpx
 from views.layout import render_page_header
 from config.supabase import supabase_admin as _supa_admin
 from config.settings import SUPABASE_URL, SUPABASE_SERVICE_KEY
 
+# Bucket público para fotos de perfil (carpeta avatares/).
+_AVATAR_BUCKET = "formulario-imagenes"
+
 
 # ── helpers ──────────────────────────────────────────────────────────────────
+
+def _avatar_path_from_url(url):
+    """Extrae el path dentro del bucket desde una URL pública (ignora ?query/#)."""
+    if not url:
+        return ""
+    marker = f"/public/{_AVATAR_BUCKET}/"
+    i = url.find(marker)
+    if i < 0:
+        return ""
+    return url[i + len(marker):].split("?")[0].split("#")[0]
+
+
+def _subir_foto(uid, file_bytes, ext, content_type):
+    """Sube/reemplaza la foto del usuario. Devuelve (url_publica, None) o (None, error).
+    Agrega ?v=timestamp para evitar caché del navegador al cambiar la foto."""
+    try:
+        ext = (ext or "png").lower().replace("jpeg", "jpg")
+        path = f"avatares/{uid}.{ext}"
+        store = _supa_admin.storage.from_(_AVATAR_BUCKET)
+        try:
+            store.remove([path])
+        except Exception:
+            pass
+        store.upload(path, file_bytes, {"content-type": content_type or "image/png", "upsert": "true"})
+        base = store.get_public_url(path).split("?")[0]
+        return f"{base}?v={int(time.time())}", None
+    except Exception as e:
+        return None, str(e)
+
+
+def _eliminar_foto_storage(url):
+    """Borra el archivo de la foto del storage (best-effort)."""
+    try:
+        path = _avatar_path_from_url(url)
+        if path:
+            _supa_admin.storage.from_(_AVATAR_BUCKET).remove([path])
+    except Exception:
+        pass
 
 def _get_roots():
     raw = st.secrets.get("ROOTS", "") if hasattr(st, "secrets") else ""
@@ -47,6 +89,7 @@ def _listar_usuarios():
                 "nombre": meta.get("nombre", email),
                 "rol": meta.get("rol", "ejecutivo"),
                 "telefono": meta.get("telefono", "") or "",
+                "foto_url": meta.get("foto_url", "") or "",
                 "created_at": str(u.get("created_at", ""))[:10],
             })
         return out, None
@@ -171,6 +214,66 @@ def _dlg_crear():
 
 @st.dialog("Editar usuario", width="large")
 def _dlg_editar(u):
+    _foto = u.get("foto_url", "") or ""
+    # ── Foto de perfil ──
+    st.markdown("**Foto de perfil**")
+    fc1, fc2 = st.columns([1, 3])
+    with fc1:
+        if _foto:
+            st.markdown(
+                f'<img src="{_foto}" style="width:96px;height:96px;border-radius:50%;'
+                f'object-fit:cover;border:3px solid #e2e8f0;display:block;">',
+                unsafe_allow_html=True)
+        else:
+            _ini = (u.get("nombre") or u.get("email") or "?")[0].upper()
+            st.markdown(
+                f'<div style="width:96px;height:96px;border-radius:50%;background:#e2e8f0;'
+                f'display:flex;align-items:center;justify-content:center;font-size:2.2rem;'
+                f'font-weight:800;color:#64748b;">{_ini}</div>', unsafe_allow_html=True)
+    with fc2:
+        _file = st.file_uploader(
+            "Subir nueva foto", type=["png", "jpg", "jpeg", "webp"],
+            key=f"de_foto_{u['id']}", label_visibility="collapsed")
+        b_sub, b_del = st.columns(2)
+        with b_sub:
+            if st.button(("Cambiar foto" if _foto else "Subir foto"), icon=":material/upload:",
+                         use_container_width=True, key="de_foto_sub", disabled=_file is None):
+                _ext = _file.name.rsplit(".", 1)[-1] if "." in _file.name else "png"
+                with st.spinner("Subiendo foto..."):
+                    _url, _e = _subir_foto(u["id"], _file.getvalue(), _ext, _file.type)
+                    if _url:
+                        ok, err = _api_put(u["id"], {"user_metadata": {
+                            "nombre": u["nombre"], "telefono": u.get("telefono", ""),
+                            "rol": u["rol"], "foto_url": _url}})
+                    else:
+                        ok, err = False, _e
+                if ok:
+                    for cu in st.session_state.get("_usr_data", []):
+                        if cu["id"] == u["id"]:
+                            cu["foto_url"] = _url
+                            break
+                    st.session_state["_usr_toast"] = f"✅ Foto de {u['nombre']} actualizada."
+                    st.rerun()
+                else:
+                    st.error(f"❌ {err}")
+        with b_del:
+            if st.button("Eliminar foto", icon=":material/delete:", use_container_width=True,
+                         key="de_foto_del", disabled=not _foto):
+                with st.spinner("Eliminando..."):
+                    _eliminar_foto_storage(_foto)
+                    ok, err = _api_put(u["id"], {"user_metadata": {
+                        "nombre": u["nombre"], "telefono": u.get("telefono", ""),
+                        "rol": u["rol"], "foto_url": ""}})
+                if ok:
+                    for cu in st.session_state.get("_usr_data", []):
+                        if cu["id"] == u["id"]:
+                            cu["foto_url"] = ""
+                            break
+                    st.session_state["_usr_toast"] = f"✅ Foto de {u['nombre']} eliminada."
+                    st.rerun()
+                else:
+                    st.error(f"❌ {err}")
+    st.divider()
     col1, col2 = st.columns(2)
     with col1:
         nombre = st.text_input("Nombre completo", value=u["nombre"], key="de_nombre")
@@ -192,6 +295,7 @@ def _dlg_editar(u):
                             "nombre": nombre.strip().upper(),
                             "telefono": telefono.strip(),
                             "rol": u["rol"],
+                            "foto_url": u.get("foto_url", ""),
                         },
                     })
                 if ok:
@@ -257,6 +361,7 @@ def _dlg_rol(u):
                         "nombre": u["nombre"],
                         "telefono": u.get("telefono", ""),
                         "rol": nuevo_rol,
+                        "foto_url": u.get("foto_url", ""),
                     }
                 })
             if ok:
@@ -463,12 +568,15 @@ def render_tab_usuarios(supabase_admin=None, **deps):
         inicial  = (u.get("nombre") or u.get("email") or "?")[0].upper()
         tel_txt  = f" · 📞 {u['telefono']}" if u.get("telefono") else ""
         puede    = (es_root or rol_sesion == "admin") and rol_u != "root"
+        _foto_u  = u.get("foto_url", "") or ""
+        _av_html = (f'<img class="usr-av {cls_av}" src="{_foto_u}" style="object-fit:cover;" alt="">'
+                    if _foto_u else f'<div class="usr-av {cls_av}">{inicial}</div>')
 
         c_card, c_btns = st.columns([6, 2])
         with c_card:
             st.markdown(
                 f'<div class="usr-card {cls_row}">'
-                f'<div class="usr-av {cls_av}">{inicial}</div>'
+                f'{_av_html}'
                 f'<div style="flex:1;min-width:0;">'
                 f'<div class="usr-nm">{u["nombre"]}</div>'
                 f'<div class="usr-em">✉️ {u["email"]}{tel_txt}</div>'
