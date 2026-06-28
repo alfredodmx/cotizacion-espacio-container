@@ -24,7 +24,55 @@ _IC = {
     "flame":     '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
     "alert":     '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/>',
     "medal":     '<path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.43 2.31"/><path d="m13 12 5.57-9.69"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/><path d="M12 18v-2h-.5"/>',
+    "users":     '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
 }
+
+
+# Lightbox glass para ampliar la foto del asesor (clic en la foto del hero).
+# Se inyecta vía components.html: bindea el clic sobre `.rk-photo[data-zurl]` en
+# el documento padre y monta un overlay full-screen con la imagen grande + nombre.
+_LIGHTBOX_JS = """
+<script>
+(function(){
+  var P = window.parent, D = P.document;
+  function open(url, name){
+    if(P.__ecLb){ try{ P.__ecLb.remove(); }catch(e){} }
+    var ov = D.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;'
+      + 'justify-content:center;background:rgba(8,12,24,0.72);-webkit-backdrop-filter:blur(9px);backdrop-filter:blur(9px);';
+    ov.innerHTML =
+      '<div data-card="1" style="position:relative;display:flex;flex-direction:column;align-items:center;gap:18px;'
+      + 'padding:26px 26px 22px;background:rgba(255,255,255,0.09);border:1px solid rgba(255,255,255,0.18);'
+      + 'border-radius:26px;-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);box-shadow:0 30px 90px rgba(0,0,0,.55);">'
+      +   '<img src="'+url+'" style="width:min(78vw,460px);height:min(78vw,460px);border-radius:20px;object-fit:cover;'
+      +     'border:4px solid rgba(255,255,255,0.22);box-shadow:0 24px 60px rgba(0,0,0,.5);display:block;">'
+      +   '<div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:1.35rem;color:#fff;letter-spacing:0.01em;text-align:center;">'+name+'</div>'
+      +   '<div data-close="1" style="position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;'
+      +     'background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.25);color:#fff;display:flex;align-items:center;'
+      +     'justify-content:center;cursor:pointer;font-size:22px;line-height:1;font-family:system-ui;">&times;</div>'
+      + '</div>';
+    function close(){ try{ ov.remove(); }catch(e){} P.__ecLb=null; D.removeEventListener('keydown', onKey); }
+    function onKey(e){ if(e.key==='Escape') close(); }
+    ov.addEventListener('click', function(e){
+      if(!e.target.closest('[data-card]') || e.target.closest('[data-close]')) close();
+    });
+    D.addEventListener('keydown', onKey);
+    D.body.appendChild(ov);
+    P.__ecLb = ov;
+  }
+  function bind(){
+    var ph = D.querySelector('.rk-photo[data-zurl]');
+    if(!ph) return false;
+    if(ph.__ecLbBound) return true;
+    ph.__ecLbBound = true;
+    ph.style.cursor = 'zoom-in';
+    ph.addEventListener('click', function(){ open(ph.getAttribute('data-zurl'), ph.getAttribute('data-zname')||''); });
+    return true;
+  }
+  var n=0, iv=setInterval(function(){ n++; if(bind() || n>50) clearInterval(iv); }, 120);
+})();
+</script>
+"""
 
 
 def _svg_ic(key, size=16, color="currentColor", sw=2, mr=0, valign=-3):
@@ -478,10 +526,17 @@ def render_tab_ranking(supabase, **deps):
         border:5px solid rgba(255,255,255,0.18);box-shadow:0 12px 40px rgba(0,0,0,0.4);flex-shrink:0;}
     .rk-photo-ph{display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;
         font-weight:900;color:#fff;font-size:clamp(3rem,7vw,5rem);background:linear-gradient(135deg,#6366f1,#8b5cf6);}
-    .rk-hero-left{flex:1;min-width:0;}
+    .rk-hero-left{flex:1;min-width:0;display:flex;flex-direction:column;}
+    .rk-hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;}
+    .rk-hero-pos{display:inline-flex;align-items:center;gap:11px;padding:10px 16px;border-radius:16px;flex-shrink:0;
+        background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.16);
+        -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);}
+    .rk-hero-pos-num{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.05rem;color:#fff;line-height:1.1;}
+    .rk-hero-pos-lbl{font-size:0.6rem;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.04em;margin-top:2px;}
     .rk-hero-sub{color:rgba(255,255,255,0.7);font-size:0.82rem;margin-top:9px;}
-    .rk-hero-msg{display:inline-flex;align-items:center;gap:7px;margin-top:13px;font-size:0.84rem;font-weight:700;
-        padding:7px 14px;border-radius:99px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
+    .rk-hero-msg{display:inline-flex;align-self:flex-start;align-items:center;gap:7px;margin-top:13px;
+        font-size:0.84rem;font-weight:700;padding:7px 14px;border-radius:99px;
+        -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
     .rk-hero-msg.alerta{background:rgba(245,158,11,0.16);border:1px solid rgba(251,191,36,0.45);color:#fde68a;}
     .rk-hero-msg.ok{background:rgba(34,197,94,0.16);border:1px solid rgba(74,222,128,0.45);color:#bbf7d0;}
     .rk-hero-money{display:flex;gap:12px;margin-top:16px;flex-wrap:wrap;}
@@ -572,6 +627,20 @@ def render_tab_ranking(supabase, **deps):
     _n_casi  = sum(a['n_casi'] for a in _agg_f.values())
     _n_perd  = sum(a['n_perdido'] for a in _agg_f.values())
 
+    # ── Ranking del equipo (ordenado + filtrado por rol) — se usa para la
+    # posición en el hero y para la sección de más abajo (se calcula una vez) ──
+    _agg_team = _agregar(_rows, period_days=_days)
+    _team = sorted(_agg_team.values(), key=lambda a: (a['ganado'], a['generado']), reverse=True)
+    if not _es_admin:
+        _team = [a for a in _team
+                 if a.get('email') and _umap.get(a['email'], {}).get('rol', 'ejecutivo') == 'ejecutivo']
+    _pos_idx = None
+    if _scope is not None:
+        for _i, _a in enumerate(_team):
+            if _a.get('email') == _scope:
+                _pos_idx = _i
+                break
+
     # ── HERO: identidad del objetivo (yo / equipo / ejecutivo seleccionado) ──
     if _viewing_other:
         _u_sel = _umap.get((_sel_email or '').lower(), {})
@@ -587,9 +656,27 @@ def render_tab_ranking(supabase, **deps):
         _scope_desc = 'Equipo completo' if _es_admin else 'Tu desempe&#241;o'
 
     _photo_html = (
-        f'<img class="rk-photo" src="{_disp_foto}" alt="">' if _disp_foto else
+        f'<img class="rk-photo" src="{_disp_foto}" data-zurl="{_disp_foto}" data-zname="{_disp_nombre}" alt="">'
+        if _disp_foto else
         f'<div class="rk-photo rk-photo-ph">{(_disp_nombre or "?")[0].upper()}</div>'
     )
+
+    # ── Badge de posición (lugar en el ranking) ──
+    if _pos_idx is not None:
+        _pn = _pos_idx + 1
+        _ord = {1: '1er', 2: '2do', 3: '3er'}.get(_pn, f'{_pn}&#186;')
+        _mcol = {1: '#facc15', 2: '#cbd5e1', 3: '#cd7f32'}.get(_pn, '#94a3b8')
+        _pos_html = (
+            f'<div class="rk-hero-pos">{_svg_ic("medal", 30, color=_mcol)}'
+            f'<div><div class="rk-hero-pos-num">{_ord} lugar</div>'
+            f'<div class="rk-hero-pos-lbl">de {len(_team)} en el equipo</div></div></div>'
+        )
+    else:
+        _pos_html = (
+            f'<div class="rk-hero-pos">{_svg_ic("users", 26, color="#a5b4fc")}'
+            f'<div><div class="rk-hero-pos-num">{len(_team)}</div>'
+            f'<div class="rk-hero-pos-lbl">ejecutivos en competencia</div></div></div>'
+        )
 
     # ── Mensaje motivacional (ventas del mes calendario + presión de cierre) ──
     _vm = _ventas_este_mes(_rows, only_email=_scope)
@@ -632,16 +719,23 @@ def render_tab_ranking(supabase, **deps):
     st.markdown(
         f'<div class="rk-hero">'
         f'<div class="rk-hero-left">'
+        f'<div class="rk-hero-top">'
+        f'<div style="min-width:0;">'
         f'<div class="rk-hero-name">{_disp_nombre}</div>'
         f'<div class="rk-hero-role">{_rol_lbl}</div>'
         f'<div class="rk-hero-sub">{_scope_desc} &middot; {_periodo.lower()}'
         f' &middot; {_n_total} presupuesto{"s" if _n_total!=1 else ""}</div>'
+        f'</div>'
+        f'{_pos_html}'
+        f'</div>'
         f'<div class="rk-hero-msg {_msg_cls}">{_msg_icon}<span>{_msg_txt}</span></div>'
         f'<div class="rk-hero-money">{_gc_html}</div>'
         f'</div>'
         f'{_photo_html}'
         f'</div>',
         unsafe_allow_html=True)
+    if _disp_foto:
+        components.html(_LIGHTBOX_JS, height=0)
 
     # ── Estadísticas: periodo (izq) + tipo de gráfico (der) en la misma fila ──
     st.markdown(f'<div class="rk-sec">{_svg_ic("chart", 18)}Estad&#237;sticas</div>', unsafe_allow_html=True)
@@ -794,14 +888,8 @@ def render_tab_ranking(supabase, **deps):
                     f'<div class="rk-pp-wrap">{"".join(_pp_row(p) for p in _bk_items)}</div>',
                     unsafe_allow_html=True)
 
-    # ── Ranking del equipo ──
+    # ── Ranking del equipo ── (_team ya calculado arriba: ordenado + filtrado por rol)
     st.markdown(f'<div class="rk-sec">{_svg_ic("trophy", 18)}Ranking del equipo</div>', unsafe_allow_html=True)
-    _agg_team = _agregar(_rows, period_days=_days)
-    _team = sorted(_agg_team.values(), key=lambda a: (a['ganado'], a['generado']), reverse=True)
-    # Los ejecutivos solo ven a sus pares ejecutivos (no admin/root ni sin asignar).
-    if not _es_admin:
-        _team = [a for a in _team
-                 if a.get('email') and _umap.get(a['email'], {}).get('rol', 'ejecutivo') == 'ejecutivo']
     if not _team:
         st.info("No hay presupuestos en este periodo.")
     else:
