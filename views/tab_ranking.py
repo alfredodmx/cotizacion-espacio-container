@@ -121,6 +121,48 @@ def _ventas_por_ventana(rows, only_email=None):
     return res
 
 
+# Taxonomía de estados → bucket. Orden de presentación dentro de cada bucket.
+# (bucket, etiqueta_calcular_estado_label, nombre_a_mostrar)
+_ESTADOS_ORDEN = [
+    ('ganado',  'ADJUDICADO',           'Adjudicado'),
+    ('ganado',  'PROYECTO TERMINADO',   'Proyecto terminado'),
+    ('casi',    'AUTORIZADO CON PLANO', 'Autorizado con plano'),
+    ('casi',    'AUTORIZADO',           'Autorizado'),
+    ('casi',    'BORRADOR CON PLANO',   'Borrador con plano'),
+    ('casi',    'BORRADOR',             'Borrador'),
+    ('casi',    'INCOMPLETO CON PLANO', 'Incompleto con plano'),
+    ('casi',    'INCOMPLETO',           'Incompleto'),
+    ('perdido', 'RECHAZADO',            'Rechazado'),
+]
+
+# bucket -> (color, etiqueta, icono html-entity)
+_BUCKET_META = {
+    'ganado':  ('#16a34a', 'Ganado',      '&#128176;'),
+    'casi':    ('#f59e0b', 'Casi ganado', '&#9203;'),
+    'perdido': ('#dc2626', 'Perdido',     '&#128201;'),
+}
+
+
+def _desglose_estados(rows, period_days=None, only_email=None):
+    """Cuenta presupuestos y suma montos por estado dentro del periodo/scope.
+    Devuelve {etiqueta_estado: {'n': int, 'monto': float}}."""
+    cutoff = (datetime.now() - timedelta(days=period_days)) if period_days else None
+    out = {}
+    for r in rows:
+        em = (r.get('asesor_email') or '').lower()
+        if only_email is not None and em != only_email:
+            continue
+        if cutoff:
+            d = _parse_fecha(r.get('fecha_creacion'))
+            if d is None or d < cutoff:
+                continue
+        lbl = _clasificar(r)
+        e = out.setdefault(lbl, {'n': 0, 'monto': 0.0})
+        e['n'] += 1
+        e['monto'] += float(r.get('total_total') or 0)
+    return out
+
+
 def _fmt_money(v):
     v = float(v or 0)
     sign = '-' if v < 0 else ''
@@ -171,6 +213,18 @@ def render_tab_ranking(supabase, **deps):
     .rk-rav-ph{display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:1.1rem;
         background:linear-gradient(135deg,#6366f1,#8b5cf6);}
     .rk-pos{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.15rem;width:30px;text-align:center;flex-shrink:0;}
+    .rk-est-group{background:#fff;border:1px solid #e7ebf3;border-radius:14px;padding:14px 16px;
+        box-shadow:0 2px 10px rgba(15,23,42,0.05);height:100%;}
+    .rk-est-head{font-size:0.74rem;font-weight:900;text-transform:uppercase;letter-spacing:0.05em;
+        display:flex;align-items:center;gap:8px;}
+    .rk-est-badge{color:#fff;font-size:0.7rem;font-weight:800;border-radius:99px;padding:1px 9px;margin-left:auto;}
+    .rk-est-tot{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.25rem;color:#0f172a;margin:3px 0 8px;}
+    .rk-est-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid #f1f5f9;font-size:0.83rem;}
+    .rk-est-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+    .rk-est-name{color:#334155;flex:1;min-width:0;}
+    .rk-est-n{font-weight:800;color:#0f172a;}
+    .rk-est-m{color:#64748b;font-size:0.74rem;min-width:60px;text-align:right;}
+    .rk-est-empty{color:#94a3b8;font-size:0.8rem;padding:8px 0;font-style:italic;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -257,28 +311,107 @@ def render_tab_ranking(supabase, **deps):
             f'<div class="sub">{_n_perd} rechazado{"s" if _n_perd!=1 else ""}</div>'
             f'</div>', unsafe_allow_html=True)
 
-    # ── Gráfico: ventas (dinero ganado) por ventana de tiempo ──
-    st.markdown('<div class="rk-sec">&#128200; Ventas por periodo</div>', unsafe_allow_html=True)
-    _vlbls = [v[0] for v in _ventas_win]
-    _vvals = [v[1] for v in _ventas_win]
-    _fig = go.Figure(go.Bar(
-        x=_vlbls, y=_vvals,
-        marker_color=['#a5b4fc', '#818cf8', '#6366f1', '#4338ca'],
-        text=[_fmt_money(v) for v in _vvals], textposition='outside',
-        textfont=dict(size=12, family='Montserrat', color='#1e293b'),
-        hovertemplate='<b>%{x}</b><br>%{text}<extra></extra>',
-    ))
-    _maxv = max(_vvals + [1])
-    _fig.update_layout(
-        height=300, margin=dict(t=24, b=10, l=10, r=10),
-        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        xaxis=dict(showgrid=False, tickfont=dict(size=12, family='Montserrat')),
-        yaxis=dict(visible=False, range=[0, _maxv * 1.25]),
-        showlegend=False,
-    )
+    # ── Estadísticas: selector de tipo de gráfico (barras / circular / ondas) ──
+    st.markdown('<div class="rk-sec">&#128202; Estad&#237;sticas</div>', unsafe_allow_html=True)
+    _tipo = st.segmented_control(
+        "Tipo de gráfico", ['Barras', 'Circular', 'Ondas'], default='Barras',
+        key='rk_chart', label_visibility='collapsed',
+    ) or 'Barras'
+
+    _comp_lbls = ['Ganado', 'Casi ganado', 'Perdido']
+    _comp_vals = [float(_ganado), float(_casi), abs(float(_perdido))]
+    _comp_cols = ['#16a34a', '#f59e0b', '#dc2626']
+    _tasa = (100.0 * _n_gan / _n_total) if _n_total else 0.0
+
     with st.container(border=True):
-        st.caption("Dinero **ganado** (adjudicados + terminados) acumulado en cada ventana, desde hoy hacia atrás.")
-        st.plotly_chart(_fig, use_container_width=True, config={'displayModeBar': False})
+        if not _n_total:
+            st.info("No hay presupuestos en este periodo para graficar.")
+        elif _tipo == 'Circular':
+            st.caption("Composici&#243;n del dinero por estado &#8212; **ganado vs casi ganado vs perdido**. Centro: efectividad (ganados sobre total).")
+            _fig = go.Figure(go.Pie(
+                labels=_comp_lbls, values=_comp_vals, hole=0.62, sort=False,
+                marker=dict(colors=_comp_cols, line=dict(color='#ffffff', width=2)),
+                textinfo='label+percent', textfont=dict(size=12, family='Montserrat'),
+                hovertemplate='<b>%{label}</b><br>%{value:$,.0f}<br>%{percent}<extra></extra>',
+            ))
+            _fig.update_layout(
+                height=330, margin=dict(t=18, b=18, l=10, r=10),
+                paper_bgcolor='rgba(0,0,0,0)', showlegend=False,
+                annotations=[dict(
+                    text=f'<b style="font-size:26px">{_tasa:.0f}%</b><br><span style="font-size:11px;color:#64748b">efectividad</span>',
+                    x=0.5, y=0.5, font=dict(family='Montserrat', color='#0f172a'), showarrow=False)],
+            )
+            st.plotly_chart(_fig, use_container_width=True, config={'displayModeBar': False})
+        elif _tipo == 'Ondas':
+            st.caption("Dinero **ganado** (adjudicados + terminados) acumulado por ventana de tiempo, desde hoy hacia atr&#225;s.")
+            _vlbls = [v[0] for v in _ventas_win]
+            _vvals = [v[1] for v in _ventas_win]
+            _fig = go.Figure(go.Scatter(
+                x=_vlbls, y=_vvals, mode='lines+markers',
+                line=dict(color='#6366f1', width=3, shape='spline'),
+                marker=dict(size=10, color='#4338ca', line=dict(color='#fff', width=2)),
+                fill='tozeroy', fillcolor='rgba(99,102,241,0.16)',
+                text=[_fmt_money(v) for v in _vvals],
+                hovertemplate='<b>%{x}</b><br>%{text}<extra></extra>',
+            ))
+            _fig.update_layout(
+                height=330, margin=dict(t=26, b=10, l=10, r=16),
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                xaxis=dict(showgrid=False, tickfont=dict(size=12, family='Montserrat')),
+                yaxis=dict(visible=False, range=[0, max(_vvals + [1]) * 1.2]),
+                showlegend=False,
+            )
+            st.plotly_chart(_fig, use_container_width=True, config={'displayModeBar': False})
+        else:  # Barras
+            st.caption("Composici&#243;n del dinero por estado &#8212; **ganado vs casi ganado vs perdido** en el periodo.")
+            _fig = go.Figure(go.Bar(
+                x=_comp_lbls, y=_comp_vals, marker_color=_comp_cols, width=0.55,
+                text=[_fmt_money(_ganado), _fmt_money(_casi),
+                      (_fmt_money(-abs(_perdido)) if _perdido else '$0')],
+                textposition='outside', textfont=dict(size=14, family='Montserrat', color='#1e293b'),
+                hovertemplate='<b>%{x}</b><br>%{text}<extra></extra>',
+            ))
+            _fig.update_layout(
+                height=330, margin=dict(t=30, b=10, l=10, r=10),
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                xaxis=dict(showgrid=False, tickfont=dict(size=12, family='Montserrat')),
+                yaxis=dict(visible=False, range=[0, max(_comp_vals + [1]) * 1.25]),
+                showlegend=False,
+            )
+            st.plotly_chart(_fig, use_container_width=True, config={'displayModeBar': False})
+
+    # ── Desglose por estado (cantidad de presupuestos en cada estado) ──
+    st.markdown('<div class="rk-sec">&#128203; Presupuestos por estado</div>', unsafe_allow_html=True)
+    st.caption(
+        "Un **autorizado con plano** que pasa a **adjudicado** = dinero ganado; si en cambio "
+        "queda **rechazado**, el cliente desisti&#243; y cuenta como dinero perdido.")
+    _desg = _desglose_estados(_rows, period_days=_days, only_email=(None if _es_admin else _email))
+    _dcols = st.columns(3)
+    for _ci, _bk in enumerate(['ganado', 'casi', 'perdido']):
+        _bcol, _blbl, _bic = _BUCKET_META[_bk]
+        _items = [(disp, _desg.get(code, {'n': 0, 'monto': 0.0}))
+                  for (bk, code, disp) in _ESTADOS_ORDEN if bk == _bk]
+        _tot_n = sum(it[1]['n'] for it in _items)
+        _tot_m = sum(it[1]['monto'] for it in _items)
+        _items_html = ''.join(
+            f'<div class="rk-est-item">'
+            f'<span class="rk-est-dot" style="background:{_bcol};"></span>'
+            f'<span class="rk-est-name">{disp}</span>'
+            f'<span class="rk-est-n">{e["n"]}</span>'
+            f'<span class="rk-est-m">{_fmt_money(-abs(e["monto"]) if _bk == "perdido" else e["monto"])}</span>'
+            f'</div>'
+            for disp, e in _items if e['n'] > 0)
+        if not _items_html:
+            _items_html = '<div class="rk-est-empty">Sin presupuestos</div>'
+        _tot_m_disp = _fmt_money(-abs(_tot_m)) if (_bk == 'perdido' and _tot_m) else _fmt_money(_tot_m)
+        with _dcols[_ci]:
+            st.markdown(
+                f'<div class="rk-est-group" style="border-top:3px solid {_bcol};">'
+                f'<div class="rk-est-head" style="color:{_bcol};">{_bic} {_blbl}'
+                f'<span class="rk-est-badge" style="background:{_bcol};">{_tot_n}</span></div>'
+                f'<div class="rk-est-tot">{_tot_m_disp}</div>'
+                f'{_items_html}'
+                f'</div>', unsafe_allow_html=True)
 
     # ── Ranking del equipo ──
     st.markdown('<div class="rk-sec">&#127942; Ranking del equipo</div>', unsafe_allow_html=True)
