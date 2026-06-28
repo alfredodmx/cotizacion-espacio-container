@@ -279,83 +279,130 @@ def _fmt_money(v):
 
 _PERIODOS = {'Semana': 7, 'Mes': 30, '3 meses': 90, 'Año': 365, 'Todo': None}
 
-# Overlay de hover para el gráfico temporal: al pasar el mouse sobre una barra/
-# punto, muestra un círculo 70x70 con la foto del asesor + badge rojo con el
-# total de presupuestos de ese bucket. Plotly no soporta imágenes en su tooltip,
-# así que se inyecta un listener (plotly_hover) sobre el div del gráfico en el
-# documento padre. Se re-bindea en cada run (remueve handlers viejos) para no
-# acumular tras reruns. __DATA__ se reemplaza por el JSON de buckets.
+# Overlay del gráfico temporal: tarjeta con cabecera (fecha · total), burbujas
+# (foto del asesor 70x70 + badge rojo con su conteo) y la lista de presupuestos
+# (N° EP · cliente · asesor). Plotly no soporta imágenes en su tooltip, así que
+# se inyecta vía components.html un listener sobre el div del gráfico (documento
+# padre). HOVER: muestra el overlay y oscurece la barra. CLICK: fija el overlay
+# (queda pegado) y pone borde naranjo a la barra; clic fuera de barra lo suelta.
+# Se pinta por DOM (sin depender de window.Plotly). Re-bindea cada run.
+# __DATA__ se reemplaza por el JSON de buckets.
 _FACE_TIP_JS = """
 <script>
 (function(){
   var P = window.parent, D = P.document;
   var DATA = __DATA__;
+  var BASE='#6366f1', HOV='#4338ca', ORANGE='#f59e0b';
   if (P.__ecRkTip){ try{ P.__ecRkTip.remove(); }catch(e){} }
   var tip = D.createElement('div');
   tip.style.cssText = 'position:fixed;z-index:2147483646;pointer-events:none;display:none;';
   D.body.appendChild(tip);
   P.__ecRkTip = tip;
-  var lastX=0, lastY=0;
+  var lastX=0, lastY=0, pinned=null, gd=null, N=0, isBar=true, curIdx=null, pressIdx=null;
 
   function bubble(a){
     var ph = a.photo
-      ? '<img src="'+a.photo+'" style="width:70px;height:70px;border-radius:50%;object-fit:cover;border:3px solid #fff;box-shadow:0 6px 18px rgba(0,0,0,.32);display:block;">'
-      : '<div style="width:70px;height:70px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:Montserrat,sans-serif;font-weight:800;color:#fff;font-size:1.6rem;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:3px solid #fff;box-shadow:0 6px 18px rgba(0,0,0,.32);">'+(a.ini||'?')+'</div>';
+      ? '<img src="'+a.photo+'" style="width:70px;height:70px;border-radius:50%;object-fit:cover;border:3px solid #fff;box-shadow:0 5px 14px rgba(0,0,0,.3);display:block;">'
+      : '<div style="width:70px;height:70px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:Montserrat,sans-serif;font-weight:800;color:#fff;font-size:1.6rem;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:3px solid #fff;box-shadow:0 5px 14px rgba(0,0,0,.3);">'+(a.ini||'?')+'</div>';
     var badge = '<div style="position:absolute;top:-7px;right:-7px;min-width:24px;height:24px;border-radius:50%;background:#dc2626;color:#fff;font-family:Montserrat,sans-serif;font-weight:800;font-size:0.74rem;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3);padding:0 4px;box-sizing:border-box;">'+a.count+'</div>';
-    var nm = '<div style="text-align:center;margin-top:6px;font-family:Montserrat,sans-serif;font-size:0.66rem;font-weight:700;color:#0f172a;background:#fff;border-radius:7px;padding:2px 7px;box-shadow:0 2px 8px rgba(0,0,0,.15);white-space:nowrap;max-width:108px;overflow:hidden;text-overflow:ellipsis;">'+a.name+'</div>';
-    return '<div style="display:flex;flex-direction:column;align-items:center;">'+'<div style="position:relative;display:inline-block;">'+ph+badge+'</div>'+nm+'</div>';
+    var nm = '<div style="text-align:center;margin-top:5px;font-family:Montserrat,sans-serif;font-size:0.62rem;font-weight:700;color:#0f172a;white-space:nowrap;max-width:90px;overflow:hidden;text-overflow:ellipsis;">'+a.name+'</div>';
+    return '<div style="display:flex;flex-direction:column;align-items:center;"><div style="position:relative;display:inline-block;">'+ph+badge+'</div>'+nm+'</div>';
   }
-  function html(d){
+  function line(it, sa){
+    var s = '<b>'+it.num+'</b> &middot; '+it.cli + (sa ? ' &middot; '+it.ase : '');
+    return '<div style="padding:3px 0;border-top:1px solid #f1f5f9;font-size:0.78rem;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+s+'</div>';
+  }
+  function html(d, isPinned){
     var bs = (d.asesores||[]).map(bubble).join('');
-    return '<div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:352px;padding:11px;background:rgba(255,255,255,0.97);border-radius:15px;box-shadow:0 12px 32px rgba(0,0,0,.28);border:1px solid #e2e8f0;">'+bs+'</div>';
+    var lst = (d.items||[]).map(function(it){ return line(it, d.showAse); }).join('');
+    var hint = isPinned
+      ? '<span style="color:#f59e0b;font-weight:800;">FIJADO</span> &middot; clic para soltar'
+      : 'clic en la barra para fijar';
+    return ''
+      + '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:15px;box-shadow:0 14px 38px rgba(0,0,0,.30);padding:12px 14px;width:360px;max-width:92vw;font-family:Montserrat,sans-serif;">'
+      +   '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:9px;">'
+      +     '<div style="font-weight:800;color:#0f172a;font-size:0.9rem;">'+d.date+' &middot; '+d.total+' presupuesto'+(d.total===1?'':'s')+'</div>'
+      +     '<div style="font-size:0.6rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;">'+hint+'</div>'
+      +   '</div>'
+      +   '<div style="display:flex;flex-wrap:wrap;gap:11px;margin-bottom:9px;">'+bs+'</div>'
+      +   '<div style="max-height:210px;overflow-y:auto;">'+lst+'</div>'
+      + '</div>';
   }
-  function place(){
-    var w=tip.offsetWidth||200, h=tip.offsetHeight||120, x, y;
-    // Posicionar AL LADO del tooltip nativo de Plotly (nunca encima).
-    var gd = D.querySelector('.js-plotly-plot');
-    var hl = gd ? gd.querySelector('.hoverlayer') : null;
-    var nr = hl ? hl.getBoundingClientRect() : null;
-    if(nr && nr.width>2 && nr.height>2){
-      var rightRoom = P.innerWidth - nr.right, leftRoom = nr.left;
-      if(rightRoom >= w+18){ x = nr.right + 14; y = nr.top; }
-      else if(leftRoom >= w+18){ x = nr.left - w - 14; y = nr.top; }
-      else {
-        x = nr.left + nr.width/2 - w/2;
-        y = (nr.top - h - 12 >= 6) ? (nr.top - h - 12) : (nr.bottom + 12);
-      }
-    } else {
-      x = lastX + 18; y = lastY - h - 18;   // fallback al cursor
+  function barPath(i){
+    if(!gd) return null;
+    var els = gd.querySelectorAll(isBar ? '.barlayer .point' : '.scatterlayer .points path');
+    var el = els[i]; if(!el) return null;
+    return (el.tagName && el.tagName.toLowerCase()==='path') ? el : el.querySelector('path');
+  }
+  function paint(hoverIdx){
+    for(var i=0;i<N;i++){
+      var pa = barPath(i); if(!pa) continue;
+      if(i===pinned){ pa.style.fill=HOV; pa.style.stroke=ORANGE; pa.style.strokeWidth='3px'; }
+      else if(i===hoverIdx){ pa.style.fill=HOV; pa.style.stroke='none'; pa.style.strokeWidth='0'; }
+      else { pa.style.fill=BASE; pa.style.stroke='none'; pa.style.strokeWidth='0'; }
     }
-    if(x + w > P.innerWidth - 6) x = P.innerWidth - w - 6;
-    if(x < 6) x = 6;
-    if(y + h > P.innerHeight - 6) y = P.innerHeight - h - 6;
-    if(y < 6) y = 6;
+  }
+  function place(idx){
+    var w=tip.offsetWidth||360, h=tip.offsetHeight||220, x, y;
+    var pa = barPath(idx), r = pa ? pa.getBoundingClientRect() : null;
+    if(r && r.width){
+      x = r.left + r.width/2 - w/2;
+      y = (r.top - h - 12 >= 6) ? (r.top - h - 12) : (r.bottom + 12);
+    } else { x = lastX+16; y = lastY-h-16; }
+    if(x+w > P.innerWidth-6) x = P.innerWidth-w-6;
+    if(x<6) x=6;
+    if(y+h > P.innerHeight-6) y = P.innerHeight-h-6;
+    if(y<6) y=6;
     tip.style.left=x+'px'; tip.style.top=y+'px';
+  }
+  function show(idx, isPinned){
+    var d = DATA[idx];
+    if(!d || !d.total){ tip.style.display='none'; return; }
+    tip.innerHTML = html(d, isPinned);
+    tip.style.pointerEvents = isPinned ? 'auto' : 'none';
+    tip.style.display='block';
+    place(idx);
   }
   function onHover(ev){
     var pt = ev && ev.points && ev.points[0]; if(!pt) return;
-    var i = (pt.pointNumber!=null?pt.pointNumber:pt.pointIndex);
-    var d = DATA[i];
-    if(!d || !d.asesores || !d.asesores.length){ tip.style.display='none'; return; }
-    tip.innerHTML = html(d); tip.style.display='block'; place();
-    P.requestAnimationFrame(function(){ place(); });  // reposiciona ya con el tooltip nativo dibujado
+    curIdx = (pt.pointNumber!=null?pt.pointNumber:pt.pointIndex);
+    paint(curIdx);
+    if(pinned===null) show(curIdx, false);
   }
-  function onUnhover(){ tip.style.display='none'; }
-  function bind(gd){
-    if(!gd || !gd.on) return false;
-    try{ if(gd.removeAllListeners){ gd.removeAllListeners('plotly_hover'); gd.removeAllListeners('plotly_unhover'); } }catch(e){}
-    if(gd.__ecMM){ try{ gd.removeEventListener('mousemove', gd.__ecMM); }catch(e){} }
-    gd.__ecMM = function(e){ lastX=e.clientX; lastY=e.clientY; if(tip.style.display!=='none') place(); };
-    gd.addEventListener('mousemove', gd.__ecMM);
-    gd.on('plotly_hover', onHover);
-    gd.on('plotly_unhover', onUnhover);
+  function onUnhover(){ curIdx=null; paint(-1); if(pinned===null) tip.style.display='none'; }
+  function onDown(){ pressIdx = curIdx; }   // captura la barra bajo el cursor antes del click
+  function onClick(){
+    var i = (pressIdx!==null) ? pressIdx : curIdx;
+    pressIdx = null;
+    if(i!==null){                                // clic sobre una barra
+      if(pinned===i){ pinned=null; paint(i); show(i, false); }   // soltar (sigo encima)
+      else { pinned=i; paint(i); show(i, true); }                // fijar
+    } else if(pinned!==null){                     // clic fuera de barra -> dinámico
+      pinned=null; paint(-1); tip.style.display='none';
+    }
+  }
+  function bind(g){
+    if(!g || !g.on) return false;
+    gd = g;
+    N = (g.data && g.data[0] && g.data[0].x) ? g.data[0].x.length : 0;
+    isBar = !(g.data && g.data[0] && g.data[0].type==='scatter');
+    try{ if(g.removeAllListeners){ g.removeAllListeners('plotly_hover'); g.removeAllListeners('plotly_unhover'); } }catch(e){}
+    if(g.__ecMM){ try{ g.removeEventListener('mousemove', g.__ecMM); }catch(e){} }
+    if(g.__ecDN){ try{ g.removeEventListener('mousedown', g.__ecDN); }catch(e){} }
+    if(g.__ecCL){ try{ g.removeEventListener('click', g.__ecCL); }catch(e){} }
+    g.__ecMM = function(e){ lastX=e.clientX; lastY=e.clientY; };
+    g.addEventListener('mousemove', g.__ecMM);
+    g.__ecDN = onDown; g.addEventListener('mousedown', g.__ecDN);
+    g.__ecCL = onClick; g.addEventListener('click', g.__ecCL);
+    g.on('plotly_hover', onHover);
+    g.on('plotly_unhover', onUnhover);
     return true;
   }
   var tries=0;
   var iv = setInterval(function(){
     tries++;
-    var gd = D.querySelector('.js-plotly-plot');
-    if((gd && bind(gd)) || tries>50){ clearInterval(iv); }
+    var g = D.querySelector('.js-plotly-plot');
+    if((g && bind(g)) || tries>50){ clearInterval(iv); }
   }, 120);
 })();
 </script>
@@ -564,59 +611,41 @@ def render_tab_ranking(supabase, **deps):
             _gword = {'dia': 'día', 'semana': 'semana', 'mes': 'mes'}[_gran]
             _show_asesor = (_scope is None)
             st.caption(
-                f"Presupuestos creados por **{_gword}** en el periodo. Pasa el cursor para ver "
-                f"N° EP, cliente{' y asesor' if _show_asesor else ''}.")
+                f"Presupuestos creados por **{_gword}**. Pasa el cursor para ver el detalle "
+                f"(N° EP, cliente{' y asesor' if _show_asesor else ''}) y **haz clic en una barra "
+                f"para fijarlo**.")
             _xs = [b['label'] for b in _serie]
             _ys = [b['n'] for b in _serie]
-
-            def _hv(b, sa=_show_asesor):
-                if not b['items']:
-                    return 'Sin presupuestos'
-                ln = []
-                for it in b['items'][:12]:
-                    s = it['numero'] + ' · ' + it['cliente']
-                    if sa:
-                        s += ' · ' + it['asesor']
-                    ln.append(s)
-                if len(b['items']) > 12:
-                    ln.append('+' + str(len(b['items']) - 12) + ' más')
-                return '<br>'.join(ln)
-
-            _cd = [[b['fecha_full'], _hv(b)] for b in _serie]
             _txt = [str(v) if v else '' for v in _ys]
-            _ht = '<b>%{customdata[0]}</b> — %{y} presupuesto(s)<br><br>%{customdata[1]}<extra></extra>'
             _ang = -45 if (_gran in ('dia', 'semana') and len(_xs) > 8) else 0
             if _tipo == 'Ondas':
                 _fig = go.Figure(go.Scatter(
                     x=_xs, y=_ys, mode='lines+markers+text',
                     line=dict(color='#6366f1', width=3, shape='spline'),
-                    marker=dict(size=8, color='#4338ca', line=dict(color='#fff', width=1.5)),
+                    marker=dict(size=9, color='#6366f1', line=dict(color='#fff', width=1.5)),
                     fill='tozeroy', fillcolor='rgba(99,102,241,0.16)',
                     text=_txt, textposition='top center',
                     textfont=dict(size=11, family='Montserrat', color='#1e293b'),
-                    customdata=_cd, hovertemplate=_ht,
+                    hoverinfo='none',
                 ))
             else:  # Barras
                 _fig = go.Figure(go.Bar(
                     x=_xs, y=_ys, marker_color='#6366f1',
                     text=_txt, textposition='outside',
                     textfont=dict(size=12, family='Montserrat', color='#1e293b'),
-                    customdata=_cd, hovertemplate=_ht,
+                    hoverinfo='none',
                 ))
             _fig.update_layout(
                 height=330, margin=dict(t=28, b=10, l=10, r=10),
                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                 xaxis=dict(showgrid=False, tickangle=_ang, tickfont=dict(size=11, family='Montserrat')),
                 yaxis=dict(visible=False, range=[0, max(_ys + [1]) * 1.25]),
-                showlegend=False,
-                hoverlabel=dict(align='left', bgcolor='rgba(255,255,255,0.98)',
-                                bordercolor='#94a3b8',
-                                font=dict(size=14, color='#0f172a', family='Montserrat')),
+                showlegend=False, hovermode='closest',
             )
-            st.plotly_chart(_fig, use_container_width=True, config={'displayModeBar': False})
-            # Overlay de hover: foto del asesor (70x70) + badge rojo con el total
-            # de presupuestos del bucket. Asesor "primario" = el de más presupuestos
-            # en ese bucket (en vista individual siempre es la misma persona).
+            st.plotly_chart(_fig, use_container_width=True,
+                            config={'displayModeBar': False, 'doubleClick': False})
+            # Overlay: cabecera (fecha · total) + burbujas (foto+badge por asesor)
+            # + lista de presupuestos. Hover muestra/colorea; clic fija + naranjo.
             _ttd = []
             for b in _serie:
                 _ca, _cn = {}, {}
@@ -629,7 +658,10 @@ def render_tab_ranking(supabase, **deps):
                           'name': _cn.get(em, ''),
                           'count': cnt}
                          for em, cnt in sorted(_ca.items(), key=lambda kv: -kv[1])]
-                _ttd.append({'count': b['n'], 'asesores': _ases})
+                _items = [{'num': it['numero'], 'cli': it['cliente'], 'ase': it['asesor']}
+                          for it in b['items']]
+                _ttd.append({'date': b['fecha_full'], 'total': b['n'],
+                             'showAse': _show_asesor, 'asesores': _ases, 'items': _items})
             components.html(_FACE_TIP_JS.replace('__DATA__', json.dumps(_ttd)), height=0)
 
     # ── Desglose por estado (cantidad de presupuestos en cada estado) ──
