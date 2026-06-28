@@ -13,6 +13,30 @@ from services.cotizacion_service import calcular_estado_label
 from views.layout import render_page_header
 
 
+# ── Iconos SVG (estilo Lucide) — reemplazan emojis en HTML custom ─────────────
+_IC = {
+    "dollar":    '<line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+    "clock":     '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+    "trenddown": '<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>',
+    "chart":     '<line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/>',
+    "list":      '<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>',
+    "trophy":    '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+    "flame":     '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+    "alert":     '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/>',
+    "medal":     '<path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.43 2.31"/><path d="m13 12 5.57-9.69"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/><path d="M12 18v-2h-.5"/>',
+}
+
+
+def _svg_ic(key, size=16, color="currentColor", sw=2, mr=0, valign=-3):
+    """SVG inline (Lucide) para incrustar en HTML custom."""
+    style = f"vertical-align:{valign}px;flex-shrink:0;"
+    if mr:
+        style += f"margin-right:{mr}px;"
+    return (f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" '
+            f'stroke="{color}" stroke-width="{sw}" stroke-linecap="round" '
+            f'stroke-linejoin="round" style="{style}">{_IC.get(key, "")}</svg>')
+
+
 # ── Datos ────────────────────────────────────────────────────────────────────
 
 @st.cache_data(ttl=120, show_spinner=False)
@@ -128,9 +152,9 @@ _ESTADOS_ORDEN = [
 
 # bucket -> (color, etiqueta, icono html-entity)
 _BUCKET_META = {
-    'ganado':  ('#16a34a', 'Ganado',      '&#128176;'),
-    'casi':    ('#f59e0b', 'Casi ganado', '&#9203;'),
-    'perdido': ('#dc2626', 'Perdido',     '&#128201;'),
+    'ganado':  ('#16a34a', 'Ganado',      'dollar'),
+    'casi':    ('#f59e0b', 'Casi ganado', 'clock'),
+    'perdido': ('#dc2626', 'Perdido',     'trenddown'),
 }
 
 
@@ -467,9 +491,10 @@ def render_tab_ranking(supabase, **deps):
     .rk-gc-lbl{font-size:0.63rem;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;color:rgba(255,255,255,0.72);}
     .rk-gc-val{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.5rem;line-height:1.1;margin-top:3px;}
     .rk-gc-sub{font-size:0.66rem;color:rgba(255,255,255,0.55);margin-top:3px;}
-    .rk-sec{font-size:0.75rem;font-weight:900;color:#1e293b;text-transform:uppercase;letter-spacing:0.1em;
-        margin:24px 0 12px;padding:8px 14px;background:linear-gradient(90deg,rgba(99,102,241,0.10),transparent);
-        border-left:4px solid #6366f1;border-radius:0 8px 8px 0;}
+    .rk-sec{font-family:'Montserrat',sans-serif;color:#0f172a;font-size:0.88rem;font-weight:700;
+        text-transform:uppercase;letter-spacing:0.05em;line-height:1.6;padding-bottom:8px;
+        border-bottom:2px solid #e2e8f0;margin:24px 0 14px;display:flex;align-items:center;gap:8px;}
+    .rk-sec svg{color:#0f172a;flex-shrink:0;}
     .rk-card{display:flex;align-items:center;gap:14px;padding:12px 16px;background:#fff;border-radius:14px;
         border:1px solid #e7ebf3;box-shadow:0 2px 10px rgba(15,23,42,0.05);margin-bottom:9px;}
     .rk-card.me{border:2px solid #6366f1;background:#f5f7ff;}
@@ -582,24 +607,24 @@ def render_tab_ranking(supabase, **deps):
     else:
         _msg_txt = f"Este mes {_suj} {_vtxt}"
     if _dias_rest <= 10 and _vm == 0:
-        _msg_icon, _msg_cls = '&#128293;', 'alerta'          # 🔥
+        _msg_icon, _msg_cls = _svg_ic('flame', 16, color='#fb923c'), 'alerta'
     elif _vm == 0:
-        _msg_icon, _msg_cls = '&#9888;&#65039;', 'alerta'    # ⚠️
+        _msg_icon, _msg_cls = _svg_ic('alert', 16, color='#fbbf24'), 'alerta'
     else:
-        _msg_icon, _msg_cls = '&#127942;', 'ok'              # 🏆
+        _msg_icon, _msg_cls = _svg_ic('trophy', 16, color='#4ade80'), 'ok'
 
     # ── 3 cards de dinero en estilo glass, dentro del hero ──
-    def _gc(accent, icon, label, val, sub):
+    def _gc(accent, ickey, label, val, sub):
         return (f'<div class="rk-gcard">'
-                f'<div class="rk-gc-lbl">{icon} {label}</div>'
+                f'<div class="rk-gc-lbl">{_svg_ic(ickey, 13, color=accent, mr=5)}{label}</div>'
                 f'<div class="rk-gc-val" style="color:{accent};">{val}</div>'
                 f'<div class="rk-gc-sub">{sub}</div></div>')
     _gc_html = (
-        _gc('#4ade80', '&#128176;', 'Ganado', _fmt_money(_ganado),
+        _gc('#4ade80', 'dollar', 'Ganado', _fmt_money(_ganado),
             f'{_n_gan} adjudicado{"s" if _n_gan!=1 else ""} / terminado{"s" if _n_gan!=1 else ""}')
-        + _gc('#fbbf24', '&#9203;', 'Casi ganado', _fmt_money(_casi),
+        + _gc('#fbbf24', 'clock', 'Casi ganado', _fmt_money(_casi),
               f'{_n_casi} en proceso')
-        + _gc('#f87171', '&#128201;', 'Perdido',
+        + _gc('#f87171', 'trenddown', 'Perdido',
               f'{("-" if _perdido>0 else "")}{_fmt_money(_perdido)}',
               f'{_n_perd} rechazado{"s" if _n_perd!=1 else ""}')
     )
@@ -611,7 +636,7 @@ def render_tab_ranking(supabase, **deps):
         f'<div class="rk-hero-role">{_rol_lbl}</div>'
         f'<div class="rk-hero-sub">{_scope_desc} &middot; {_periodo.lower()}'
         f' &middot; {_n_total} presupuesto{"s" if _n_total!=1 else ""}</div>'
-        f'<div class="rk-hero-msg {_msg_cls}">{_msg_icon} {_msg_txt}</div>'
+        f'<div class="rk-hero-msg {_msg_cls}">{_msg_icon}<span>{_msg_txt}</span></div>'
         f'<div class="rk-hero-money">{_gc_html}</div>'
         f'</div>'
         f'{_photo_html}'
@@ -619,7 +644,7 @@ def render_tab_ranking(supabase, **deps):
         unsafe_allow_html=True)
 
     # ── Estadísticas: periodo (izq) + tipo de gráfico (der) en la misma fila ──
-    st.markdown('<div class="rk-sec">&#128202; Estad&#237;sticas</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="rk-sec">{_svg_ic("chart", 18)}Estad&#237;sticas</div>', unsafe_allow_html=True)
     _fcol_p, _fcol_t = st.columns([1.5, 1], vertical_alignment="center")
     with _fcol_p:
         st.segmented_control(
@@ -715,7 +740,7 @@ def render_tab_ranking(supabase, **deps):
             components.html(_FACE_TIP_JS.replace('__DATA__', json.dumps(_ttd)), height=0)
 
     # ── Desglose por estado (cantidad de presupuestos en cada estado) ──
-    st.markdown('<div class="rk-sec">&#128203; Presupuestos por estado</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="rk-sec">{_svg_ic("list", 18)}Presupuestos por estado</div>', unsafe_allow_html=True)
     st.caption(
         "Cada presupuesto se cuenta **una sola vez** por su estado actual. La comisi&#243;n se gana al "
         "**adjudicar**; si despu&#233;s pasa a **terminado** es el mismo proyecto ya construido (no suma de "
@@ -744,7 +769,7 @@ def render_tab_ranking(supabase, **deps):
         with _dcols[_ci]:
             st.markdown(
                 f'<div class="rk-est-group" style="border-top:3px solid {_bcol};">'
-                f'<div class="rk-est-head" style="color:{_bcol};">{_bic} {_blbl}'
+                f'<div class="rk-est-head" style="color:{_bcol};">{_svg_ic(_bic, 15, color=_bcol)}{_blbl}'
                 f'<span class="rk-est-badge" style="background:{_bcol};">{_tot_n}</span></div>'
                 f'<div class="rk-est-tot">{_tot_m_disp}</div>'
                 f'{_items_html}'
@@ -764,13 +789,13 @@ def render_tab_ranking(supabase, **deps):
                             f'<div class="rk-pp-m" style="color:{col};">{_mt}</div>'
                             f'</div>')
                 st.markdown(
-                    f'<div style="font-weight:800;color:{_bcol};font-size:0.92rem;margin-bottom:2px;">'
-                    f'{_bic} {_blbl} &middot; {_tot_n} &middot; {_tot_m_disp}</div>'
+                    f'<div style="font-weight:800;color:{_bcol};font-size:0.92rem;margin-bottom:6px;">'
+                    f'{_svg_ic(_bic, 14, color=_bcol, mr=6)}{_blbl} &middot; {_tot_n} &middot; {_tot_m_disp}</div>'
                     f'<div class="rk-pp-wrap">{"".join(_pp_row(p) for p in _bk_items)}</div>',
                     unsafe_allow_html=True)
 
     # ── Ranking del equipo ──
-    st.markdown('<div class="rk-sec">&#127942; Ranking del equipo</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="rk-sec">{_svg_ic("trophy", 18)}Ranking del equipo</div>', unsafe_allow_html=True)
     _agg_team = _agregar(_rows, period_days=_days)
     _team = sorted(_agg_team.values(), key=lambda a: (a['ganado'], a['generado']), reverse=True)
     # Los ejecutivos solo ven a sus pares ejecutivos (no admin/root ni sin asignar).
@@ -781,7 +806,9 @@ def render_tab_ranking(supabase, **deps):
         st.info("No hay presupuestos en este periodo.")
     else:
         st.caption("Haz clic en **Ver** para cargar arriba el panel completo de ese ejecutivo.")
-        _medallas = {1: "&#129351;", 2: "&#129352;", 3: "&#129353;"}
+        _medallas = {1: _svg_ic('medal', 23, color='#facc15'),   # oro
+                     2: _svg_ic('medal', 23, color='#94a3b8'),   # plata
+                     3: _svg_ic('medal', 23, color='#cd7f32')}   # bronce
         for i, a in enumerate(_team, 1):
             _u = _umap.get(a['email'], {})
             _f = _u.get('foto_url', '')
