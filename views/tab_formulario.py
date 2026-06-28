@@ -122,9 +122,36 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
             st.info("No tienes permisos para configurar formularios.", icon=":material/lock:")
         else:
             # ── Tabla de presupuestos ADJUDICADOS con estado de preguntas ──
-            st.markdown(
-                f'<div style="{_SEC_TITLE_STYLE}">{_fic(_IC_CLIP, 17, mr=8)}Presupuestos adjudicados</div>',
-                unsafe_allow_html=True)
+            # Título (izq) + link "Abrir formulario cliente" en nueva pestaña (der).
+            # La URL se arma desde el parent (origin+pathname+?cliente=1) para que
+            # funcione tanto en beta como en producción sin hardcodear.
+            _cli_link_html = (
+                '<!DOCTYPE html><html><head><meta charset="utf-8"><style>'
+                '*{box-sizing:border-box;}body{margin:0;font-family:"Montserrat","Segoe UI",sans-serif;}'
+                'a.cli{display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;'
+                'background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;font-weight:800;font-size:12.5px;'
+                'letter-spacing:0.02em;padding:10px 14px;border-radius:10px;box-shadow:0 4px 12px rgba(22,163,74,0.30);'
+                'transition:transform .12s,box-shadow .15s;}'
+                'a.cli:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(22,163,74,0.42);}'
+                'a.cli svg{width:15px;height:15px;flex-shrink:0;}'
+                '</style></head><body>'
+                '<a id="cli" class="cli" target="_blank" rel="noopener" title="Abre la p&#225;gina del cliente en una pesta&#241;a nueva">'
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" '
+                'stroke-linecap="round" stroke-linejoin="round">'
+                '<path d="M15 3h6v6"/><path d="M10 14 21 3"/>'
+                '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>'
+                'Abrir formulario cliente</a>'
+                '<script>(function(){var a=document.getElementById("cli");try{var L=window.parent.location;'
+                'a.href=L.origin+L.pathname+"?cliente=1";}catch(e){a.href="/?cliente=1";}})();</script>'
+                '</body></html>'
+            )
+            _ct1, _ct2 = st.columns([3, 1.5], vertical_alignment="center")
+            with _ct1:
+                st.markdown(
+                    f'<div style="{_SEC_TITLE_STYLE}">{_fic(_IC_CLIP, 17, mr=8)}Presupuestos adjudicados</div>',
+                    unsafe_allow_html=True)
+            with _ct2:
+                _st_components.html(_cli_link_html, height=46)
             try:
                 _adj_q = supa_admin.table('cotizaciones').select(
                     'numero,cliente_nombre,asesor_nombre,fecha_adjudicacion,estado,asesor_email'
