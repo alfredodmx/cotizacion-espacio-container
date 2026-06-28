@@ -266,6 +266,7 @@ def render_tab_ranking(supabase, **deps):
     .rk-pp-num{font-family:'Montserrat',sans-serif;font-weight:800;color:#0f172a;font-size:0.84rem;}
     .rk-pp-cli{font-size:0.74rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .rk-pp-m{font-family:'Montserrat',sans-serif;font-weight:800;font-size:0.86rem;white-space:nowrap;flex-shrink:0;}
+    div.st-key-rk_chart{display:flex;justify-content:flex-end;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -279,11 +280,9 @@ def render_tab_ranking(supabase, **deps):
         _rows = _fetch_cotizaciones_rank()
         _umap = _fetch_users_map()
 
-    # ── Selector de periodo ──
-    _periodo = st.segmented_control(
-        "Periodo", list(_PERIODOS.keys()), default='Mes', key='rk_periodo',
-        label_visibility='collapsed',
-    ) or 'Mes'
+    # ── Periodo ── (el widget se renderiza más abajo, junto al tipo de gráfico;
+    # aquí solo leemos el valor para calcular hero/cards/desglose que van antes).
+    _periodo = st.session_state.get('rk_periodo', 'Mes') or 'Mes'
     _days = _PERIODOS.get(_periodo)
 
     # ── Ejecutivo seleccionado al hacer clic en el ranking del equipo ──
@@ -371,12 +370,19 @@ def render_tab_ranking(supabase, **deps):
             f'<div class="sub">{_n_perd} rechazado{"s" if _n_perd!=1 else ""}</div>'
             f'</div>', unsafe_allow_html=True)
 
-    # ── Estadísticas: selector de tipo de gráfico (barras / circular / ondas) ──
+    # ── Estadísticas: periodo (izq) + tipo de gráfico (der) en la misma fila ──
     st.markdown('<div class="rk-sec">&#128202; Estad&#237;sticas</div>', unsafe_allow_html=True)
-    _tipo = st.segmented_control(
-        "Tipo de gráfico", ['Barras', 'Circular', 'Ondas'], default='Barras',
-        key='rk_chart', label_visibility='collapsed',
-    ) or 'Barras'
+    _fcol_p, _fcol_t = st.columns([1.5, 1], vertical_alignment="center")
+    with _fcol_p:
+        st.segmented_control(
+            "Periodo", list(_PERIODOS.keys()), default='Mes', key='rk_periodo',
+            label_visibility='collapsed',
+        )
+    with _fcol_t:
+        _tipo = st.segmented_control(
+            "Tipo de gráfico", ['Barras', 'Circular', 'Ondas'], default='Barras',
+            key='rk_chart', label_visibility='collapsed',
+        ) or 'Barras'
 
     _comp_lbls = ['Ganado', 'Casi ganado', 'Perdido']
     _comp_vals = [float(_ganado), float(_casi), abs(float(_perdido))]
