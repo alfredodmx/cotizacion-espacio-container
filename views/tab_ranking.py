@@ -198,11 +198,11 @@ _ESTADOS_ORDEN = [
     ('perdido', 'RECHAZADO',            'Rechazado'),
 ]
 
-# bucket -> (color, etiqueta, icono html-entity)
+# bucket -> (color base, etiqueta, clave de icono, color claro para fondo oscuro)
 _BUCKET_META = {
-    'ganado':  ('#16a34a', 'Ganado',      'dollar'),
-    'casi':    ('#f59e0b', 'Casi ganado', 'clock'),
-    'perdido': ('#dc2626', 'Perdido',     'trenddown'),
+    'ganado':  ('#16a34a', 'Ganado',      'dollar',    '#4ade80'),
+    'casi':    ('#f59e0b', 'Casi ganado', 'clock',     '#fbbf24'),
+    'perdido': ('#dc2626', 'Perdido',     'trenddown', '#f87171'),
 }
 
 
@@ -550,26 +550,28 @@ def render_tab_ranking(supabase, **deps):
         text-transform:uppercase;letter-spacing:0.05em;line-height:1.6;padding-bottom:8px;
         border-bottom:2px solid #e2e8f0;margin:24px 0 14px;display:flex;align-items:center;gap:8px;}
     .rk-sec svg{color:#0f172a;flex-shrink:0;}
-    .rk-card{display:flex;align-items:center;gap:14px;padding:12px 16px;background:#fff;border-radius:14px;
-        border:1px solid #e7ebf3;box-shadow:0 2px 10px rgba(15,23,42,0.05);margin-bottom:9px;}
-    .rk-card.me{border:2px solid #6366f1;background:#f5f7ff;}
-    .rk-card.sel{border:2px solid #6366f1;background:#eef2ff;box-shadow:0 4px 16px rgba(99,102,241,0.25);}
-    .rk-rav{width:46px;height:46px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid #e2e8f0;}
+    .rk-card{display:flex;align-items:center;gap:14px;padding:12px 16px;border-radius:14px;
+        background:linear-gradient(135deg,#0f172a 0%,#1e293b 55%,#334155 100%);
+        border:1px solid rgba(255,255,255,0.08);box-shadow:0 4px 16px rgba(15,23,42,0.22);margin-bottom:9px;}
+    .rk-card.me{border:2px solid #818cf8;box-shadow:0 6px 20px rgba(99,102,241,0.35);}
+    .rk-card.sel{border:2px solid #818cf8;box-shadow:0 6px 22px rgba(99,102,241,0.45);}
+    .rk-rav{width:46px;height:46px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid rgba(255,255,255,0.18);}
     .rk-rav-ph{display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:1.1rem;
         background:linear-gradient(135deg,#6366f1,#8b5cf6);}
     .rk-pos{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.15rem;width:30px;text-align:center;flex-shrink:0;}
-    .rk-est-group{background:#fff;border:1px solid #e7ebf3;border-radius:14px;padding:14px 16px;
-        box-shadow:0 2px 10px rgba(15,23,42,0.05);height:100%;}
+    .rk-est-group{background:linear-gradient(135deg,#0f172a 0%,#1e293b 55%,#334155 100%);
+        border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px 16px;
+        box-shadow:0 6px 20px rgba(15,23,42,0.22);height:100%;}
     .rk-est-head{font-size:0.74rem;font-weight:900;text-transform:uppercase;letter-spacing:0.05em;
         display:flex;align-items:center;gap:8px;}
     .rk-est-badge{color:#fff;font-size:0.7rem;font-weight:800;border-radius:99px;padding:1px 9px;margin-left:auto;}
-    .rk-est-tot{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.25rem;color:#0f172a;margin:3px 0 8px;}
-    .rk-est-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid #f1f5f9;font-size:0.83rem;}
+    .rk-est-tot{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.25rem;color:#fff;margin:3px 0 8px;}
+    .rk-est-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(255,255,255,0.08);font-size:0.83rem;}
     .rk-est-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
-    .rk-est-name{color:#334155;flex:1;min-width:0;}
-    .rk-est-n{font-weight:800;color:#0f172a;}
-    .rk-est-m{color:#64748b;font-size:0.74rem;min-width:60px;text-align:right;}
-    .rk-est-empty{color:#94a3b8;font-size:0.8rem;padding:8px 0;font-style:italic;}
+    .rk-est-name{color:rgba(255,255,255,0.82);flex:1;min-width:0;}
+    .rk-est-n{font-weight:800;color:#fff;}
+    .rk-est-m{color:rgba(255,255,255,0.55);font-size:0.74rem;min-width:60px;text-align:right;}
+    .rk-est-empty{color:rgba(255,255,255,0.5);font-size:0.8rem;padding:8px 0;font-style:italic;}
     .rk-pp-wrap{max-height:360px;overflow-y:auto;margin-top:6px;}
     .rk-pp-row{display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid #f1f5f9;}
     .rk-pp-row:last-child{border-bottom:none;}
@@ -844,14 +846,14 @@ def render_tab_ranking(supabase, **deps):
     _lista = _listar_presupuestos(_rows, period_days=_days, only_email=_scope)
     _dcols = st.columns(3)
     for _ci, _bk in enumerate(['ganado', 'casi', 'perdido']):
-        _bcol, _blbl, _bic = _BUCKET_META[_bk]
+        _bcol, _blbl, _bic, _blight = _BUCKET_META[_bk]
         _items = [(disp, _desg.get(code, {'n': 0, 'monto': 0.0}))
                   for (bk, code, disp) in _ESTADOS_ORDEN if bk == _bk]
         _tot_n = sum(it[1]['n'] for it in _items)
         _tot_m = sum(it[1]['monto'] for it in _items)
         _items_html = ''.join(
             f'<div class="rk-est-item">'
-            f'<span class="rk-est-dot" style="background:{_bcol};"></span>'
+            f'<span class="rk-est-dot" style="background:{_blight};"></span>'
             f'<span class="rk-est-name">{disp}</span>'
             f'<span class="rk-est-n">{e["n"]}</span>'
             f'<span class="rk-est-m">{_fmt_money(-abs(e["monto"]) if _bk == "perdido" else e["monto"])}</span>'
@@ -862,10 +864,10 @@ def render_tab_ranking(supabase, **deps):
         _tot_m_disp = _fmt_money(-abs(_tot_m)) if (_bk == 'perdido' and _tot_m) else _fmt_money(_tot_m)
         with _dcols[_ci]:
             st.markdown(
-                f'<div class="rk-est-group" style="border-top:3px solid {_bcol};">'
-                f'<div class="rk-est-head" style="color:{_bcol};">{_svg_ic(_bic, 15, color=_bcol)}{_blbl}'
+                f'<div class="rk-est-group" style="border-top:3px solid {_blight};">'
+                f'<div class="rk-est-head" style="color:{_blight};">{_svg_ic(_bic, 15, color=_blight)}{_blbl}'
                 f'<span class="rk-est-badge" style="background:{_bcol};">{_tot_n}</span></div>'
-                f'<div class="rk-est-tot">{_tot_m_disp}</div>'
+                f'<div class="rk-est-tot" style="color:{_blight};">{_tot_m_disp}</div>'
                 f'{_items_html}'
                 f'</div>', unsafe_allow_html=True)
             # Popover "Ver": lista de presupuestos del bucket (N° EP, cliente, monto)
@@ -903,14 +905,14 @@ def render_tab_ranking(supabase, **deps):
             _ini = (a['nombre'] or '?')[0].upper()
             _av = (f'<img class="rk-rav" src="{_f}" alt="">' if _f
                    else f'<div class="rk-rav rk-rav-ph">{_ini}</div>')
-            _pos = _medallas.get(i, f'<span style="color:#94a3b8;">{i}</span>')
+            _pos = _medallas.get(i, f'<span style="color:rgba(255,255,255,0.55);">{i}</span>')
             _is_me = (a['email'] == _email and not _es_admin)
             _is_sel = _viewing_other and (a['email'] == _sel_email) and (a['nombre'] == (_sel_nombre or a['nombre']))
             _row_cls = ' sel' if _is_sel else (' me' if _is_me else '')
             if _is_sel:
-                _badge = ' &middot; <span style="color:#6366f1;font-size:0.7rem;font-weight:800;">VIENDO</span>'
+                _badge = ' &middot; <span style="color:#a5b4fc;font-size:0.7rem;font-weight:800;">VIENDO</span>'
             elif _is_me:
-                _badge = ' &middot; <span style="color:#6366f1;font-size:0.7rem;font-weight:800;">T&#218;</span>'
+                _badge = ' &middot; <span style="color:#a5b4fc;font-size:0.7rem;font-weight:800;">T&#218;</span>'
             else:
                 _badge = ''
             _c_card, _c_btn = st.columns([8.5, 1.5], vertical_alignment="center")
@@ -920,13 +922,13 @@ def render_tab_ranking(supabase, **deps):
                     f'<div class="rk-pos">{_pos}</div>'
                     f'{_av}'
                     f'<div style="flex:1;min-width:0;">'
-                    f'<div style="font-weight:800;color:#0f172a;font-size:0.98rem;">{a["nombre"]}{_badge}</div>'
-                    f'<div style="font-size:0.74rem;color:#64748b;margin-top:2px;">{a["n_total"]} presupuesto{"s" if a["n_total"]!=1 else ""}</div>'
+                    f'<div style="font-weight:800;color:#fff;font-size:0.98rem;">{a["nombre"]}{_badge}</div>'
+                    f'<div style="font-size:0.74rem;color:rgba(255,255,255,0.55);margin-top:2px;">{a["n_total"]} presupuesto{"s" if a["n_total"]!=1 else ""}</div>'
                     f'</div>'
                     f'<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">'
-                    f'<div style="text-align:right;"><div style="font-family:Montserrat;font-weight:900;color:#16a34a;font-size:1.05rem;">{_fmt_money(a["ganado"])}</div><div style="font-size:0.64rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Ganado</div></div>'
-                    f'<div style="text-align:right;"><div style="font-family:Montserrat;font-weight:800;color:#f59e0b;font-size:0.95rem;">{_fmt_money(a["casi"])}</div><div style="font-size:0.64rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Casi</div></div>'
-                    f'<div style="text-align:right;"><div style="font-family:Montserrat;font-weight:800;color:#dc2626;font-size:0.95rem;">{("-" if a["perdido"]>0 else "")}{_fmt_money(a["perdido"])}</div><div style="font-size:0.64rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Perdido</div></div>'
+                    f'<div style="text-align:right;"><div style="font-family:Montserrat;font-weight:900;color:#4ade80;font-size:1.05rem;">{_fmt_money(a["ganado"])}</div><div style="font-size:0.64rem;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.05em;">Ganado</div></div>'
+                    f'<div style="text-align:right;"><div style="font-family:Montserrat;font-weight:800;color:#fbbf24;font-size:0.95rem;">{_fmt_money(a["casi"])}</div><div style="font-size:0.64rem;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.05em;">Casi</div></div>'
+                    f'<div style="text-align:right;"><div style="font-family:Montserrat;font-weight:800;color:#f87171;font-size:0.95rem;">{("-" if a["perdido"]>0 else "")}{_fmt_money(a["perdido"])}</div><div style="font-size:0.64rem;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.05em;">Perdido</div></div>'
                     f'</div>'
                     f'</div>',
                     unsafe_allow_html=True)
