@@ -264,6 +264,31 @@ def _serie_temporal(rows, period_days=None, only_email=None):
     return [buckets[k] for k in sorted(buckets.keys())], gran
 
 
+def _ventas_este_mes(rows, only_email=None):
+    """Ventas (ganado: adjudicado/terminado) creadas en el MES calendario actual, en el scope."""
+    now = datetime.now()
+    ini = datetime(now.year, now.month, 1)
+    c = 0
+    for r in rows:
+        em = (r.get('asesor_email') or '').lower()
+        if only_email is not None and em != only_email:
+            continue
+        d = _parse_fecha(r.get('fecha_creacion'))
+        if d is None or d < ini:
+            continue
+        if _bucket(_clasificar(r)) == 'ganado':
+            c += 1
+    return c
+
+
+def _dias_restantes_mes():
+    """Días que faltan para terminar el mes calendario actual."""
+    now = datetime.now()
+    nxt = datetime(now.year + 1, 1, 1) if now.month == 12 else datetime(now.year, now.month + 1, 1)
+    total = (nxt - datetime(now.year, now.month, 1)).days
+    return total - now.day
+
+
 def _fmt_money(v):
     v = float(v or 0)
     sign = '-' if v < 0 else ''
@@ -429,10 +454,19 @@ def render_tab_ranking(supabase, **deps):
         border:5px solid rgba(255,255,255,0.18);box-shadow:0 12px 40px rgba(0,0,0,0.4);flex-shrink:0;}
     .rk-photo-ph{display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;
         font-weight:900;color:#fff;font-size:clamp(3rem,7vw,5rem);background:linear-gradient(135deg,#6366f1,#8b5cf6);}
-    .rk-money{border-radius:16px;padding:16px 18px;color:#fff;position:relative;overflow:hidden;}
-    .rk-money .lbl{font-size:0.66rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;opacity:0.92;}
-    .rk-money .val{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.7rem;line-height:1.1;margin-top:4px;}
-    .rk-money .sub{font-size:0.68rem;opacity:0.85;margin-top:2px;}
+    .rk-hero-left{flex:1;min-width:0;}
+    .rk-hero-sub{color:rgba(255,255,255,0.7);font-size:0.82rem;margin-top:9px;}
+    .rk-hero-msg{display:inline-flex;align-items:center;gap:7px;margin-top:13px;font-size:0.84rem;font-weight:700;
+        padding:7px 14px;border-radius:99px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
+    .rk-hero-msg.alerta{background:rgba(245,158,11,0.16);border:1px solid rgba(251,191,36,0.45);color:#fde68a;}
+    .rk-hero-msg.ok{background:rgba(34,197,94,0.16);border:1px solid rgba(74,222,128,0.45);color:#bbf7d0;}
+    .rk-hero-money{display:flex;gap:12px;margin-top:16px;flex-wrap:wrap;}
+    .rk-gcard{flex:1;min-width:148px;background:rgba(255,255,255,0.07);
+        -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+        border:1px solid rgba(255,255,255,0.14);border-radius:14px;padding:12px 15px;}
+    .rk-gc-lbl{font-size:0.63rem;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;color:rgba(255,255,255,0.72);}
+    .rk-gc-val{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.5rem;line-height:1.1;margin-top:3px;}
+    .rk-gc-sub{font-size:0.66rem;color:rgba(255,255,255,0.55);margin-top:3px;}
     .rk-sec{font-size:0.75rem;font-weight:900;color:#1e293b;text-transform:uppercase;letter-spacing:0.1em;
         margin:24px 0 12px;padding:8px 14px;background:linear-gradient(90deg,rgba(99,102,241,0.10),transparent);
         border-left:4px solid #6366f1;border-radius:0 8px 8px 0;}
@@ -531,42 +565,58 @@ def render_tab_ranking(supabase, **deps):
         f'<img class="rk-photo" src="{_disp_foto}" alt="">' if _disp_foto else
         f'<div class="rk-photo rk-photo-ph">{(_disp_nombre or "?")[0].upper()}</div>'
     )
+
+    # ── Mensaje motivacional (ventas del mes calendario + presión de cierre) ──
+    _vm = _ventas_este_mes(_rows, only_email=_scope)
+    _dias_rest = _dias_restantes_mes()
+    _vtxt = f"{_vm} venta" + ("" if _vm == 1 else "s")
+    if _viewing_other:
+        _suj = (_disp_nombre or 'Ejecutivo').split()[0].title() + " lleva"
+    elif _es_admin:
+        _suj = "el equipo lleva"
+    else:
+        _suj = "llevas"
+    if _dias_rest <= 10:
+        _msg_txt = (f"Quedan {_dias_rest} d&#237;a{'s' if _dias_rest != 1 else ''} para fin de mes "
+                    f"y {_suj} {_vtxt} este mes")
+    else:
+        _msg_txt = f"Este mes {_suj} {_vtxt}"
+    if _dias_rest <= 10 and _vm == 0:
+        _msg_icon, _msg_cls = '&#128293;', 'alerta'          # 🔥
+    elif _vm == 0:
+        _msg_icon, _msg_cls = '&#9888;&#65039;', 'alerta'    # ⚠️
+    else:
+        _msg_icon, _msg_cls = '&#127942;', 'ok'              # 🏆
+
+    # ── 3 cards de dinero en estilo glass, dentro del hero ──
+    def _gc(accent, icon, label, val, sub):
+        return (f'<div class="rk-gcard">'
+                f'<div class="rk-gc-lbl">{icon} {label}</div>'
+                f'<div class="rk-gc-val" style="color:{accent};">{val}</div>'
+                f'<div class="rk-gc-sub">{sub}</div></div>')
+    _gc_html = (
+        _gc('#4ade80', '&#128176;', 'Ganado', _fmt_money(_ganado),
+            f'{_n_gan} adjudicado{"s" if _n_gan!=1 else ""} / terminado{"s" if _n_gan!=1 else ""}')
+        + _gc('#fbbf24', '&#9203;', 'Casi ganado', _fmt_money(_casi),
+              f'{_n_casi} en proceso')
+        + _gc('#f87171', '&#128201;', 'Perdido',
+              f'{("-" if _perdido>0 else "")}{_fmt_money(_perdido)}',
+              f'{_n_perd} rechazado{"s" if _n_perd!=1 else ""}')
+    )
+
     st.markdown(
         f'<div class="rk-hero">'
-        f'<div style="min-width:0;">'
+        f'<div class="rk-hero-left">'
         f'<div class="rk-hero-name">{_disp_nombre}</div>'
         f'<div class="rk-hero-role">{_rol_lbl}</div>'
-        f'<div style="color:rgba(255,255,255,0.7);font-size:0.82rem;margin-top:10px;">'
-        f'{_scope_desc} &middot; {_periodo.lower()}'
+        f'<div class="rk-hero-sub">{_scope_desc} &middot; {_periodo.lower()}'
         f' &middot; {_n_total} presupuesto{"s" if _n_total!=1 else ""}</div>'
+        f'<div class="rk-hero-msg {_msg_cls}">{_msg_icon} {_msg_txt}</div>'
+        f'<div class="rk-hero-money">{_gc_html}</div>'
         f'</div>'
         f'{_photo_html}'
         f'</div>',
         unsafe_allow_html=True)
-
-    # ── 3 cards de dinero ──
-    mc1, mc2, mc3 = st.columns(3)
-    with mc1:
-        st.markdown(
-            f'<div class="rk-money" style="background:linear-gradient(135deg,#16a34a,#15803d);">'
-            f'<div class="lbl">&#128176; Dinero ganado</div>'
-            f'<div class="val">{_fmt_money(_ganado)}</div>'
-            f'<div class="sub">{_n_gan} adjudicado{"s" if _n_gan!=1 else ""} / terminado{"s" if _n_gan!=1 else ""}</div>'
-            f'</div>', unsafe_allow_html=True)
-    with mc2:
-        st.markdown(
-            f'<div class="rk-money" style="background:linear-gradient(135deg,#f59e0b,#d97706);">'
-            f'<div class="lbl">&#9203; Dinero casi ganado</div>'
-            f'<div class="val">{_fmt_money(_casi)}</div>'
-            f'<div class="sub">{_n_casi} en proceso (borrador/incompleto/autorizado)</div>'
-            f'</div>', unsafe_allow_html=True)
-    with mc3:
-        st.markdown(
-            f'<div class="rk-money" style="background:linear-gradient(135deg,#dc2626,#b91c1c);">'
-            f'<div class="lbl">&#128201; Dinero perdido</div>'
-            f'<div class="val">{("-" if _perdido>0 else "")}{_fmt_money(_perdido)}</div>'
-            f'<div class="sub">{_n_perd} rechazado{"s" if _n_perd!=1 else ""}</div>'
-            f'</div>', unsafe_allow_html=True)
 
     # ── Estadísticas: periodo (izq) + tipo de gráfico (der) en la misma fila ──
     st.markdown('<div class="rk-sec">&#128202; Estad&#237;sticas</div>', unsafe_allow_html=True)
