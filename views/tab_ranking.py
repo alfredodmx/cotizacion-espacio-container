@@ -297,13 +297,17 @@ _FACE_TIP_JS = """
   P.__ecRkTip = tip;
   var lastX=0, lastY=0;
 
+  function bubble(a){
+    var ph = a.photo
+      ? '<img src="'+a.photo+'" style="width:70px;height:70px;border-radius:50%;object-fit:cover;border:3px solid #fff;box-shadow:0 6px 18px rgba(0,0,0,.32);display:block;">'
+      : '<div style="width:70px;height:70px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:Montserrat,sans-serif;font-weight:800;color:#fff;font-size:1.6rem;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:3px solid #fff;box-shadow:0 6px 18px rgba(0,0,0,.32);">'+(a.ini||'?')+'</div>';
+    var badge = '<div style="position:absolute;top:-7px;right:-7px;min-width:24px;height:24px;border-radius:50%;background:#dc2626;color:#fff;font-family:Montserrat,sans-serif;font-weight:800;font-size:0.74rem;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3);padding:0 4px;box-sizing:border-box;">'+a.count+'</div>';
+    var nm = '<div style="text-align:center;margin-top:6px;font-family:Montserrat,sans-serif;font-size:0.66rem;font-weight:700;color:#0f172a;background:#fff;border-radius:7px;padding:2px 7px;box-shadow:0 2px 8px rgba(0,0,0,.15);white-space:nowrap;max-width:108px;overflow:hidden;text-overflow:ellipsis;">'+a.name+'</div>';
+    return '<div style="display:flex;flex-direction:column;align-items:center;">'+'<div style="position:relative;display:inline-block;">'+ph+badge+'</div>'+nm+'</div>';
+  }
   function html(d){
-    var ph = d.photo
-      ? '<img src="'+d.photo+'" style="width:70px;height:70px;border-radius:50%;object-fit:cover;border:3px solid #fff;box-shadow:0 6px 20px rgba(0,0,0,.35);display:block;">'
-      : '<div style="width:70px;height:70px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:Montserrat,sans-serif;font-weight:800;color:#fff;font-size:1.7rem;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:3px solid #fff;box-shadow:0 6px 20px rgba(0,0,0,.35);">'+(d.ini||'?')+'</div>';
-    var badge = '<div style="position:absolute;top:-7px;right:-7px;min-width:26px;height:26px;border-radius:50%;background:#dc2626;color:#fff;font-family:Montserrat,sans-serif;font-weight:800;font-size:0.8rem;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3);padding:0 5px;box-sizing:border-box;">'+d.count+'</div>';
-    var nm = d.name ? '<div style="text-align:center;margin-top:7px;font-family:Montserrat,sans-serif;font-size:0.72rem;font-weight:700;color:#0f172a;background:#fff;border-radius:8px;padding:3px 9px;box-shadow:0 3px 10px rgba(0,0,0,.18);white-space:nowrap;">'+d.name+'</div>' : '';
-    return '<div style="display:flex;flex-direction:column;align-items:center;"><div style="position:relative;display:inline-block;">'+ph+badge+'</div>'+nm+'</div>';
+    var bs = (d.asesores||[]).map(bubble).join('');
+    return '<div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:352px;padding:11px;background:rgba(255,255,255,0.97);border-radius:15px;box-shadow:0 12px 32px rgba(0,0,0,.28);border:1px solid #e2e8f0;">'+bs+'</div>';
   }
   function place(){
     var w=tip.offsetWidth||90, h=tip.offsetHeight||100;
@@ -317,7 +321,7 @@ _FACE_TIP_JS = """
     var pt = ev && ev.points && ev.points[0]; if(!pt) return;
     var i = (pt.pointNumber!=null?pt.pointNumber:pt.pointIndex);
     var d = DATA[i];
-    if(!d || !d.count){ tip.style.display='none'; return; }
+    if(!d || !d.asesores || !d.asesores.length){ tip.style.display='none'; return; }
     tip.innerHTML = html(d); tip.style.display='block'; place();
   }
   function onUnhover(){ tip.style.display='none'; }
@@ -588,7 +592,10 @@ def render_tab_ranking(supabase, **deps):
                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                 xaxis=dict(showgrid=False, tickangle=_ang, tickfont=dict(size=11, family='Montserrat')),
                 yaxis=dict(visible=False, range=[0, max(_ys + [1]) * 1.25]),
-                showlegend=False, hoverlabel=dict(align='left'),
+                showlegend=False,
+                hoverlabel=dict(align='left', bgcolor='rgba(255,255,255,0.98)',
+                                bordercolor='#94a3b8',
+                                font=dict(size=14, color='#0f172a', family='Montserrat')),
             )
             st.plotly_chart(_fig, use_container_width=True, config={'displayModeBar': False})
             # Overlay de hover: foto del asesor (70x70) + badge rojo con el total
@@ -596,17 +603,17 @@ def render_tab_ranking(supabase, **deps):
             # en ese bucket (en vista individual siempre es la misma persona).
             _ttd = []
             for b in _serie:
-                _ca = {}
+                _ca, _cn = {}, {}
                 for it in b['items']:
-                    _ca[it['asesor_email']] = _ca.get(it['asesor_email'], 0) + 1
-                if _ca:
-                    _pe = max(_ca, key=_ca.get)
-                    _pn = next((it['asesor'] for it in b['items'] if it['asesor_email'] == _pe), '')
-                    _pp = _umap.get(_pe, {}).get('foto_url', '')
-                else:
-                    _pn, _pp = '', ''
-                _ttd.append({'count': b['n'], 'photo': _pp,
-                             'ini': (_pn or '?')[0].upper(), 'name': _pn})
+                    em = it['asesor_email']
+                    _ca[em] = _ca.get(em, 0) + 1
+                    _cn[em] = it['asesor']
+                _ases = [{'photo': _umap.get(em, {}).get('foto_url', ''),
+                          'ini': (_cn.get(em) or '?')[0].upper(),
+                          'name': _cn.get(em, ''),
+                          'count': cnt}
+                         for em, cnt in sorted(_ca.items(), key=lambda kv: -kv[1])]
+                _ttd.append({'count': b['n'], 'asesores': _ases})
             components.html(_FACE_TIP_JS.replace('__DATA__', json.dumps(_ttd)), height=0)
 
     # ── Desglose por estado (cantidad de presupuestos en cada estado) ──
