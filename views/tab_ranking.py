@@ -383,8 +383,10 @@ def render_tab_ranking(supabase, **deps):
     # ── Desglose por estado (cantidad de presupuestos en cada estado) ──
     st.markdown('<div class="rk-sec">&#128203; Presupuestos por estado</div>', unsafe_allow_html=True)
     st.caption(
-        "Un **autorizado con plano** que pasa a **adjudicado** = dinero ganado; si en cambio "
-        "queda **rechazado**, el cliente desisti&#243; y cuenta como dinero perdido.")
+        "Cada presupuesto se cuenta **una sola vez** por su estado actual. La comisi&#243;n se gana al "
+        "**adjudicar**; si despu&#233;s pasa a **terminado** es el mismo proyecto ya construido (no suma de "
+        "nuevo). Un presupuesto que queda **rechazado** = el cliente desisti&#243;, comisi&#243;n perdida. "
+        "Lo que a&#250;n no llega a adjudicado ni rechazado est&#225; en **casi ganado**.")
     _desg = _desglose_estados(_rows, period_days=_days, only_email=(None if _es_admin else _email))
     _dcols = st.columns(3)
     for _ci, _bk in enumerate(['ganado', 'casi', 'perdido']):
