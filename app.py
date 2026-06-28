@@ -95,7 +95,7 @@ _ORDER = {
     'root':      ['dashboard','presupuesto','datos','cotizaciones','edicion_pdf','ranking','contrato','3d','proyecto_excel','sistema','usuarios','notificaciones','reporte','operaciones','admindata','formulario'],
     'admin':     ['presupuesto','cotizaciones','datos','contrato','operaciones','usuarios','proyecto_excel','edicion_pdf','ranking','3d','notificaciones','dashboard','reporte','admindata','formulario'],
     'operacion': ['operaciones'],
-    'ejecutivo': ['presupuesto','datos','cotizaciones','contrato','ranking','3d','formulario'],
+    'ejecutivo': ['ranking','presupuesto','datos','cotizaciones','contrato','formulario','3d'],
 }
 
 _keys = _ORDER.get(_rol, _ORDER['ejecutivo'])
