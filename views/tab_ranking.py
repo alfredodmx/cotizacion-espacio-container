@@ -93,7 +93,7 @@ def _fetch_cotizaciones_rank(_cb: str = ''):
         return _supa_admin.table('cotizaciones').select(
             'numero,asesor_nombre,asesor_email,cliente_nombre,cliente_email,asesor_telefono,'
             'config_margen,plano_url,plano_nombre,contrato_notariado_url,acta_url,'
-            'motivo_rechazo,total_total,fecha_creacion'
+            'motivo_rechazo,total_total,total_comision_vendedor,fecha_creacion'
         ).execute().data or []
     except Exception:
         return []
@@ -170,17 +170,19 @@ def _agregar(rows, period_days=None, only_email=None):
         a = agg.setdefault(key, {
             'email': em, 'nombre': nm, 'ganado': 0.0, 'casi': 0.0, 'perdido': 0.0,
             'generado': 0.0, 'n_total': 0, 'n_ganado': 0, 'n_casi': 0, 'n_perdido': 0,
+            'com_ganado': 0.0, 'com_casi': 0.0, 'com_perdido': 0.0,
         })
         monto = float(r.get('total_total') or 0)
+        com = float(r.get('total_comision_vendedor') or 0)   # comisión del ejecutivo
         b = _bucket(_clasificar(r))
         a['n_total'] += 1
         a['generado'] += monto
         if b == 'ganado':
-            a['ganado'] += monto; a['n_ganado'] += 1
+            a['ganado'] += monto; a['n_ganado'] += 1; a['com_ganado'] += com
         elif b == 'perdido':
-            a['perdido'] += monto; a['n_perdido'] += 1
+            a['perdido'] += monto; a['n_perdido'] += 1; a['com_perdido'] += com
         else:
-            a['casi'] += monto; a['n_casi'] += 1
+            a['casi'] += monto; a['n_casi'] += 1; a['com_casi'] += com
     return agg
 
 
@@ -546,6 +548,11 @@ def render_tab_ranking(supabase, **deps):
     .rk-gc-lbl{font-size:0.63rem;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;color:rgba(255,255,255,0.72);}
     .rk-gc-val{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.5rem;line-height:1.1;margin-top:3px;}
     .rk-gc-sub{font-size:0.66rem;color:rgba(255,255,255,0.55);margin-top:3px;}
+    .rk-gc-com{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px;
+        padding-top:7px;border-top:1px solid rgba(255,255,255,0.12);}
+    .rk-gc-com span:first-child{font-size:0.62rem;font-weight:700;text-transform:uppercase;
+        letter-spacing:0.04em;color:rgba(255,255,255,0.6);}
+    .rk-gc-com span:last-child{font-family:'Montserrat',sans-serif;font-weight:800;font-size:0.92rem;}
     .rk-sec{font-family:'Montserrat',sans-serif;color:#0f172a;font-size:0.88rem;font-weight:700;
         text-transform:uppercase;letter-spacing:0.05em;line-height:1.6;padding-bottom:8px;
         border-bottom:2px solid #e2e8f0;margin:24px 0 14px;display:flex;align-items:center;gap:8px;}
@@ -628,6 +635,12 @@ def render_tab_ranking(supabase, **deps):
     _n_gan   = sum(a['n_ganado'] for a in _agg_f.values())
     _n_casi  = sum(a['n_casi'] for a in _agg_f.values())
     _n_perd  = sum(a['n_perdido'] for a in _agg_f.values())
+    _com_g   = sum(a['com_ganado'] for a in _agg_f.values())
+    _com_c   = sum(a['com_casi'] for a in _agg_f.values())
+    _com_p   = sum(a['com_perdido'] for a in _agg_f.values())
+    # Comisión del asesor: visible para admin/root o cuando el ejecutivo ve SU panel
+    # (no la de un compañero).
+    _show_com = _es_admin or (not _viewing_other)
 
     # ── Ranking del equipo (ordenado + filtrado por rol) — se usa para la
     # posición en el hero y para la sección de más abajo (se calcula una vez) ──
@@ -703,19 +716,23 @@ def render_tab_ranking(supabase, **deps):
         _msg_icon, _msg_cls = _svg_ic('trophy', 16, color='#4ade80'), 'ok'
 
     # ── 3 cards de dinero en estilo glass, dentro del hero ──
-    def _gc(accent, ickey, label, val, sub):
+    def _gc(accent, ickey, label, val, sub, com_lbl, com_val):
+        _com = (f'<div class="rk-gc-com"><span>{com_lbl}</span>'
+                f'<span style="color:{accent};">{com_val}</span></div>') if _show_com else ''
         return (f'<div class="rk-gcard">'
                 f'<div class="rk-gc-lbl">{_svg_ic(ickey, 13, color=accent, mr=5)}{label}</div>'
                 f'<div class="rk-gc-val" style="color:{accent};">{val}</div>'
-                f'<div class="rk-gc-sub">{sub}</div></div>')
+                f'<div class="rk-gc-sub">{sub}</div>{_com}</div>')
     _gc_html = (
         _gc('#4ade80', 'dollar', 'Ganado', _fmt_money(_ganado),
-            f'{_n_gan} adjudicado{"s" if _n_gan!=1 else ""} / terminado{"s" if _n_gan!=1 else ""}')
+            f'{_n_gan} adjudicado{"s" if _n_gan!=1 else ""} / terminado{"s" if _n_gan!=1 else ""}',
+            'Comisi&#243;n ganada', _fmt_money(_com_g))
         + _gc('#fbbf24', 'clock', 'Casi ganado', _fmt_money(_casi),
-              f'{_n_casi} en proceso')
+              f'{_n_casi} en proceso', 'Comisi&#243;n en juego', _fmt_money(_com_c))
         + _gc('#f87171', 'trenddown', 'Perdido',
               f'{("-" if _perdido>0 else "")}{_fmt_money(_perdido)}',
-              f'{_n_perd} rechazado{"s" if _n_perd!=1 else ""}')
+              f'{_n_perd} rechazado{"s" if _n_perd!=1 else ""}',
+              'Comisi&#243;n perdida', f'{("-" if _com_p>0 else "")}{_fmt_money(_com_p)}')
     )
 
     st.markdown(
