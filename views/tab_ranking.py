@@ -310,11 +310,26 @@ _FACE_TIP_JS = """
     return '<div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:352px;padding:11px;background:rgba(255,255,255,0.97);border-radius:15px;box-shadow:0 12px 32px rgba(0,0,0,.28);border:1px solid #e2e8f0;">'+bs+'</div>';
   }
   function place(){
-    var w=tip.offsetWidth||90, h=tip.offsetHeight||100;
-    var x=lastX+18, y=lastY-h-18;
-    if(x+w > P.innerWidth-6) x=lastX-w-18;
-    if(x<6) x=6;
-    if(y<6) y=lastY+22;
+    var w=tip.offsetWidth||200, h=tip.offsetHeight||120, x, y;
+    // Posicionar AL LADO del tooltip nativo de Plotly (nunca encima).
+    var gd = D.querySelector('.js-plotly-plot');
+    var hl = gd ? gd.querySelector('.hoverlayer') : null;
+    var nr = hl ? hl.getBoundingClientRect() : null;
+    if(nr && nr.width>2 && nr.height>2){
+      var rightRoom = P.innerWidth - nr.right, leftRoom = nr.left;
+      if(rightRoom >= w+18){ x = nr.right + 14; y = nr.top; }
+      else if(leftRoom >= w+18){ x = nr.left - w - 14; y = nr.top; }
+      else {
+        x = nr.left + nr.width/2 - w/2;
+        y = (nr.top - h - 12 >= 6) ? (nr.top - h - 12) : (nr.bottom + 12);
+      }
+    } else {
+      x = lastX + 18; y = lastY - h - 18;   // fallback al cursor
+    }
+    if(x + w > P.innerWidth - 6) x = P.innerWidth - w - 6;
+    if(x < 6) x = 6;
+    if(y + h > P.innerHeight - 6) y = P.innerHeight - h - 6;
+    if(y < 6) y = 6;
     tip.style.left=x+'px'; tip.style.top=y+'px';
   }
   function onHover(ev){
@@ -323,6 +338,7 @@ _FACE_TIP_JS = """
     var d = DATA[i];
     if(!d || !d.asesores || !d.asesores.length){ tip.style.display='none'; return; }
     tip.innerHTML = html(d); tip.style.display='block'; place();
+    P.requestAnimationFrame(function(){ place(); });  // reposiciona ya con el tooltip nativo dibujado
   }
   function onUnhover(){ tip.style.display='none'; }
   function bind(gd){
