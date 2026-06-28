@@ -2,7 +2,9 @@
 Tab RANKING — Perfil del ejecutivo + métricas de dinero (ganado / casi ganado /
 perdido) por periodo + ranking del equipo. Rol-aware (ejecutivo vs admin/root).
 """
+import json
 import streamlit as st
+import streamlit.components.v1 as components
 import httpx
 from datetime import datetime, timedelta
 from config.supabase import supabase_admin as _supa_admin
@@ -255,6 +257,7 @@ def _serie_temporal(rows, period_days=None, only_email=None):
             'numero': (str(r.get('numero') or '').strip() or '—'),
             'cliente': (str(r.get('cliente_nombre') or '').strip() or 'Sin cliente'),
             'asesor': (str(r.get('asesor_nombre') or '').strip() or 'Sin asignar'),
+            'asesor_email': (str(r.get('asesor_email') or '').strip().lower()),
             'estado': _clasificar(r),
         })
 
@@ -275,6 +278,68 @@ def _fmt_money(v):
 # ── Render ───────────────────────────────────────────────────────────────────
 
 _PERIODOS = {'Semana': 7, 'Mes': 30, '3 meses': 90, 'Año': 365, 'Todo': None}
+
+# Overlay de hover para el gráfico temporal: al pasar el mouse sobre una barra/
+# punto, muestra un círculo 70x70 con la foto del asesor + badge rojo con el
+# total de presupuestos de ese bucket. Plotly no soporta imágenes en su tooltip,
+# así que se inyecta un listener (plotly_hover) sobre el div del gráfico en el
+# documento padre. Se re-bindea en cada run (remueve handlers viejos) para no
+# acumular tras reruns. __DATA__ se reemplaza por el JSON de buckets.
+_FACE_TIP_JS = """
+<script>
+(function(){
+  var P = window.parent, D = P.document;
+  var DATA = __DATA__;
+  if (P.__ecRkTip){ try{ P.__ecRkTip.remove(); }catch(e){} }
+  var tip = D.createElement('div');
+  tip.style.cssText = 'position:fixed;z-index:2147483646;pointer-events:none;display:none;';
+  D.body.appendChild(tip);
+  P.__ecRkTip = tip;
+  var lastX=0, lastY=0;
+
+  function html(d){
+    var ph = d.photo
+      ? '<img src="'+d.photo+'" style="width:70px;height:70px;border-radius:50%;object-fit:cover;border:3px solid #fff;box-shadow:0 6px 20px rgba(0,0,0,.35);display:block;">'
+      : '<div style="width:70px;height:70px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:Montserrat,sans-serif;font-weight:800;color:#fff;font-size:1.7rem;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:3px solid #fff;box-shadow:0 6px 20px rgba(0,0,0,.35);">'+(d.ini||'?')+'</div>';
+    var badge = '<div style="position:absolute;top:-7px;right:-7px;min-width:26px;height:26px;border-radius:50%;background:#dc2626;color:#fff;font-family:Montserrat,sans-serif;font-weight:800;font-size:0.8rem;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3);padding:0 5px;box-sizing:border-box;">'+d.count+'</div>';
+    var nm = d.name ? '<div style="text-align:center;margin-top:7px;font-family:Montserrat,sans-serif;font-size:0.72rem;font-weight:700;color:#0f172a;background:#fff;border-radius:8px;padding:3px 9px;box-shadow:0 3px 10px rgba(0,0,0,.18);white-space:nowrap;">'+d.name+'</div>' : '';
+    return '<div style="display:flex;flex-direction:column;align-items:center;"><div style="position:relative;display:inline-block;">'+ph+badge+'</div>'+nm+'</div>';
+  }
+  function place(){
+    var w=tip.offsetWidth||90, h=tip.offsetHeight||100;
+    var x=lastX+18, y=lastY-h-18;
+    if(x+w > P.innerWidth-6) x=lastX-w-18;
+    if(x<6) x=6;
+    if(y<6) y=lastY+22;
+    tip.style.left=x+'px'; tip.style.top=y+'px';
+  }
+  function onHover(ev){
+    var pt = ev && ev.points && ev.points[0]; if(!pt) return;
+    var i = (pt.pointNumber!=null?pt.pointNumber:pt.pointIndex);
+    var d = DATA[i];
+    if(!d || !d.count){ tip.style.display='none'; return; }
+    tip.innerHTML = html(d); tip.style.display='block'; place();
+  }
+  function onUnhover(){ tip.style.display='none'; }
+  function bind(gd){
+    if(!gd || !gd.on) return false;
+    try{ if(gd.removeAllListeners){ gd.removeAllListeners('plotly_hover'); gd.removeAllListeners('plotly_unhover'); } }catch(e){}
+    if(gd.__ecMM){ try{ gd.removeEventListener('mousemove', gd.__ecMM); }catch(e){} }
+    gd.__ecMM = function(e){ lastX=e.clientX; lastY=e.clientY; if(tip.style.display!=='none') place(); };
+    gd.addEventListener('mousemove', gd.__ecMM);
+    gd.on('plotly_hover', onHover);
+    gd.on('plotly_unhover', onUnhover);
+    return true;
+  }
+  var tries=0;
+  var iv = setInterval(function(){
+    tries++;
+    var gd = D.querySelector('.js-plotly-plot');
+    if((gd && bind(gd)) || tries>50){ clearInterval(iv); }
+  }, 120);
+})();
+</script>
+"""
 
 
 def render_tab_ranking(supabase, **deps):
@@ -526,6 +591,23 @@ def render_tab_ranking(supabase, **deps):
                 showlegend=False, hoverlabel=dict(align='left'),
             )
             st.plotly_chart(_fig, use_container_width=True, config={'displayModeBar': False})
+            # Overlay de hover: foto del asesor (70x70) + badge rojo con el total
+            # de presupuestos del bucket. Asesor "primario" = el de más presupuestos
+            # en ese bucket (en vista individual siempre es la misma persona).
+            _ttd = []
+            for b in _serie:
+                _ca = {}
+                for it in b['items']:
+                    _ca[it['asesor_email']] = _ca.get(it['asesor_email'], 0) + 1
+                if _ca:
+                    _pe = max(_ca, key=_ca.get)
+                    _pn = next((it['asesor'] for it in b['items'] if it['asesor_email'] == _pe), '')
+                    _pp = _umap.get(_pe, {}).get('foto_url', '')
+                else:
+                    _pn, _pp = '', ''
+                _ttd.append({'count': b['n'], 'photo': _pp,
+                             'ini': (_pn or '?')[0].upper(), 'name': _pn})
+            components.html(_FACE_TIP_JS.replace('__DATA__', json.dumps(_ttd)), height=0)
 
     # ── Desglose por estado (cantidad de presupuestos en cada estado) ──
     st.markdown('<div class="rk-sec">&#128203; Presupuestos por estado</div>', unsafe_allow_html=True)
