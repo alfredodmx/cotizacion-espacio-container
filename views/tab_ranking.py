@@ -579,6 +579,11 @@ def render_tab_ranking(supabase, **deps):
     .rk-est-n{font-weight:800;color:#fff;}
     .rk-est-m{color:rgba(255,255,255,0.55);font-size:0.74rem;min-width:60px;text-align:right;}
     .rk-est-empty{color:rgba(255,255,255,0.5);font-size:0.8rem;padding:8px 0;font-style:italic;}
+    .rk-est-com{display:flex;justify-content:space-between;align-items:center;margin-top:9px;padding-top:9px;
+        border-top:1px solid rgba(255,255,255,0.14);}
+    .rk-est-com span:first-child{font-size:0.62rem;font-weight:700;text-transform:uppercase;
+        letter-spacing:0.04em;color:rgba(255,255,255,0.62);}
+    .rk-est-com span:last-child{font-family:'Montserrat',sans-serif;font-weight:800;font-size:0.98rem;}
     .rk-pp-wrap{max-height:360px;overflow-y:auto;margin-top:6px;}
     .rk-pp-row{display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid #f1f5f9;}
     .rk-pp-row:last-child{border-bottom:none;}
@@ -879,6 +884,13 @@ def render_tab_ranking(supabase, **deps):
         if not _items_html:
             _items_html = '<div class="rk-est-empty">Sin presupuestos</div>'
         _tot_m_disp = _fmt_money(-abs(_tot_m)) if (_bk == 'perdido' and _tot_m) else _fmt_money(_tot_m)
+        # Comisión del ejecutivo para este bucket (mismo scope/periodo que el desglose)
+        _com_bk = {'ganado': _com_g, 'casi': _com_c, 'perdido': _com_p}[_bk]
+        _com_bk_lbl = {'ganado': 'Comisi&#243;n ganada', 'casi': 'Comisi&#243;n en juego',
+                       'perdido': 'Comisi&#243;n perdida'}[_bk]
+        _com_bk_disp = _fmt_money(-abs(_com_bk)) if (_bk == 'perdido' and _com_bk) else _fmt_money(_com_bk)
+        _com_row = (f'<div class="rk-est-com"><span>{_com_bk_lbl}</span>'
+                    f'<span style="color:{_blight};">{_com_bk_disp}</span></div>') if _show_com else ''
         with _dcols[_ci]:
             st.markdown(
                 f'<div class="rk-est-group" style="border-top:3px solid {_blight};">'
@@ -886,6 +898,7 @@ def render_tab_ranking(supabase, **deps):
                 f'<span class="rk-est-badge" style="background:{_bcol};">{_tot_n}</span></div>'
                 f'<div class="rk-est-tot" style="color:{_blight};">{_tot_m_disp}</div>'
                 f'{_items_html}'
+                f'{_com_row}'
                 f'</div>', unsafe_allow_html=True)
             # Popover "Ver": lista de presupuestos del bucket (N° EP, cliente, monto)
             _bk_items = [p for p in _lista if p['bucket'] == _bk]
