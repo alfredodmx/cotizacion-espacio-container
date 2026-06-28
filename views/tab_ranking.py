@@ -110,17 +110,6 @@ def _agregar(rows, period_days=None, only_email=None):
     return agg
 
 
-def _ventas_por_ventana(rows, only_email=None):
-    """Dinero GANADO en ventanas: 7d, 30d, 90d, 365d (acumulado desde hoy)."""
-    ventanas = [('Semana', 7), ('Mes', 30), ('3 meses', 90), ('Año', 365)]
-    res = []
-    for lbl, dias in ventanas:
-        agg = _agregar(rows, period_days=dias, only_email=only_email)
-        total = sum(a['ganado'] for a in agg.values())
-        res.append((lbl, total))
-    return res
-
-
 # Taxonomía de estados → bucket. Orden de presentación dentro de cada bucket.
 # (bucket, etiqueta_calcular_estado_label, nombre_a_mostrar)
 _ESTADOS_ORDEN = [
@@ -192,6 +181,84 @@ def _listar_presupuestos(rows, period_days=None, only_email=None):
 def _money_exacto(v):
     """Monto exacto con separador de miles estilo CL: $25.400.000."""
     return '$' + f'{abs(float(v or 0)):,.0f}'.replace(',', '.')
+
+
+def _granularidad(period_days):
+    """Tamaño de bucket temporal según el periodo: día / semana / mes."""
+    if period_days is None:
+        return 'mes'
+    if period_days <= 31:
+        return 'dia'
+    if period_days <= 92:
+        return 'semana'
+    return 'mes'
+
+
+def _serie_temporal(rows, period_days=None, only_email=None):
+    """Presupuestos por bucket temporal (día/semana/mes según el periodo), por
+    fecha_creacion. Devuelve (lista_buckets, granularidad). Cada bucket:
+    {label, fecha_full, n, items:[{numero,cliente,asesor,estado}]}. Incluye
+    buckets vacíos para que la línea de tiempo sea continua."""
+    now = datetime.now()
+    gran = _granularidad(period_days)
+
+    def _kf(d):
+        if gran == 'dia':
+            return (d.strftime('%Y-%m-%d'), d.strftime('%d/%m'), d.strftime('%d/%m/%Y'))
+        if gran == 'semana':
+            wk = d - timedelta(days=d.weekday())
+            return (wk.strftime('%Y-%m-%d'), wk.strftime('%d/%m'), 'Semana del ' + wk.strftime('%d/%m/%Y'))
+        return (d.strftime('%Y-%m'), d.strftime('%m/%Y'), d.strftime('%m/%Y'))
+
+    cutoff = (now - timedelta(days=period_days)) if period_days else None
+    sel, fechas = [], []
+    for r in rows:
+        em = (r.get('asesor_email') or '').lower()
+        if only_email is not None and em != only_email:
+            continue
+        d = _parse_fecha(r.get('fecha_creacion'))
+        if d is None or (cutoff and d < cutoff):
+            continue
+        sel.append((d, r)); fechas.append(d)
+
+    buckets = {}
+
+    def _ensure(d):
+        k, lbl, full = _kf(d)
+        if k not in buckets:
+            buckets[k] = {'label': lbl, 'fecha_full': full, 'n': 0, 'items': []}
+        return k
+
+    # Rango completo de buckets (incluye vacíos) desde el cutoff (o la fecha más
+    # antigua si es "Todo") hasta hoy.
+    start = cutoff if cutoff else (min(fechas) if fechas else now)
+    if gran == 'dia':
+        cur = start
+        while cur <= now:
+            _ensure(cur); cur += timedelta(days=1)
+    elif gran == 'semana':
+        cur = start - timedelta(days=start.weekday())
+        while cur <= now:
+            _ensure(cur); cur += timedelta(days=7)
+    else:
+        y, m = start.year, start.month
+        while (y, m) <= (now.year, now.month):
+            _ensure(datetime(y, m, 1))
+            m += 1
+            if m > 12:
+                m = 1; y += 1
+
+    for d, r in sel:
+        b = buckets[_ensure(d)]
+        b['n'] += 1
+        b['items'].append({
+            'numero': (str(r.get('numero') or '').strip() or '—'),
+            'cliente': (str(r.get('cliente_nombre') or '').strip() or 'Sin cliente'),
+            'asesor': (str(r.get('asesor_nombre') or '').strip() or 'Sin asignar'),
+            'estado': _clasificar(r),
+        })
+
+    return [buckets[k] for k in sorted(buckets.keys())], gran
 
 
 def _fmt_money(v):
@@ -313,7 +380,6 @@ def render_tab_ranking(supabase, **deps):
     _n_gan   = sum(a['n_ganado'] for a in _agg_f.values())
     _n_casi  = sum(a['n_casi'] for a in _agg_f.values())
     _n_perd  = sum(a['n_perdido'] for a in _agg_f.values())
-    _ventas_win = _ventas_por_ventana(_rows, only_email=_scope)
 
     # ── HERO: identidad del objetivo (yo / equipo / ejecutivo seleccionado) ──
     if _viewing_other:
@@ -408,41 +474,56 @@ def render_tab_ranking(supabase, **deps):
                     x=0.5, y=0.5, font=dict(family='Montserrat', color='#0f172a'), showarrow=False)],
             )
             st.plotly_chart(_fig, use_container_width=True, config={'displayModeBar': False})
-        elif _tipo == 'Ondas':
-            st.caption("Dinero **ganado** (adjudicados + terminados) acumulado por ventana de tiempo, desde hoy hacia atr&#225;s.")
-            _vlbls = [v[0] for v in _ventas_win]
-            _vvals = [v[1] for v in _ventas_win]
-            _fig = go.Figure(go.Scatter(
-                x=_vlbls, y=_vvals, mode='lines+markers',
-                line=dict(color='#6366f1', width=3, shape='spline'),
-                marker=dict(size=10, color='#4338ca', line=dict(color='#fff', width=2)),
-                fill='tozeroy', fillcolor='rgba(99,102,241,0.16)',
-                text=[_fmt_money(v) for v in _vvals],
-                hovertemplate='<b>%{x}</b><br>%{text}<extra></extra>',
-            ))
+        else:  # Barras u Ondas — serie temporal por fecha del presupuesto
+            _serie, _gran = _serie_temporal(_rows, period_days=_days, only_email=_scope)
+            _gword = {'dia': 'día', 'semana': 'semana', 'mes': 'mes'}[_gran]
+            _show_asesor = (_scope is None)
+            st.caption(
+                f"Presupuestos creados por **{_gword}** en el periodo. Pasa el cursor para ver "
+                f"N° EP, cliente{' y asesor' if _show_asesor else ''}.")
+            _xs = [b['label'] for b in _serie]
+            _ys = [b['n'] for b in _serie]
+
+            def _hv(b, sa=_show_asesor):
+                if not b['items']:
+                    return 'Sin presupuestos'
+                ln = []
+                for it in b['items'][:12]:
+                    s = it['numero'] + ' · ' + it['cliente']
+                    if sa:
+                        s += ' · ' + it['asesor']
+                    ln.append(s)
+                if len(b['items']) > 12:
+                    ln.append('+' + str(len(b['items']) - 12) + ' más')
+                return '<br>'.join(ln)
+
+            _cd = [[b['fecha_full'], _hv(b)] for b in _serie]
+            _txt = [str(v) if v else '' for v in _ys]
+            _ht = '<b>%{customdata[0]}</b> — %{y} presupuesto(s)<br><br>%{customdata[1]}<extra></extra>'
+            _ang = -45 if (_gran in ('dia', 'semana') and len(_xs) > 8) else 0
+            if _tipo == 'Ondas':
+                _fig = go.Figure(go.Scatter(
+                    x=_xs, y=_ys, mode='lines+markers+text',
+                    line=dict(color='#6366f1', width=3, shape='spline'),
+                    marker=dict(size=8, color='#4338ca', line=dict(color='#fff', width=1.5)),
+                    fill='tozeroy', fillcolor='rgba(99,102,241,0.16)',
+                    text=_txt, textposition='top center',
+                    textfont=dict(size=11, family='Montserrat', color='#1e293b'),
+                    customdata=_cd, hovertemplate=_ht,
+                ))
+            else:  # Barras
+                _fig = go.Figure(go.Bar(
+                    x=_xs, y=_ys, marker_color='#6366f1',
+                    text=_txt, textposition='outside',
+                    textfont=dict(size=12, family='Montserrat', color='#1e293b'),
+                    customdata=_cd, hovertemplate=_ht,
+                ))
             _fig.update_layout(
-                height=330, margin=dict(t=26, b=10, l=10, r=16),
+                height=330, margin=dict(t=28, b=10, l=10, r=10),
                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                xaxis=dict(showgrid=False, tickfont=dict(size=12, family='Montserrat')),
-                yaxis=dict(visible=False, range=[0, max(_vvals + [1]) * 1.2]),
-                showlegend=False,
-            )
-            st.plotly_chart(_fig, use_container_width=True, config={'displayModeBar': False})
-        else:  # Barras
-            st.caption("Composici&#243;n del dinero por estado &#8212; **ganado vs casi ganado vs perdido** en el periodo.")
-            _fig = go.Figure(go.Bar(
-                x=_comp_lbls, y=_comp_vals, marker_color=_comp_cols, width=0.55,
-                text=[_fmt_money(_ganado), _fmt_money(_casi),
-                      (_fmt_money(-abs(_perdido)) if _perdido else '$0')],
-                textposition='outside', textfont=dict(size=14, family='Montserrat', color='#1e293b'),
-                hovertemplate='<b>%{x}</b><br>%{text}<extra></extra>',
-            ))
-            _fig.update_layout(
-                height=330, margin=dict(t=30, b=10, l=10, r=10),
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                xaxis=dict(showgrid=False, tickfont=dict(size=12, family='Montserrat')),
-                yaxis=dict(visible=False, range=[0, max(_comp_vals + [1]) * 1.25]),
-                showlegend=False,
+                xaxis=dict(showgrid=False, tickangle=_ang, tickfont=dict(size=11, family='Montserrat')),
+                yaxis=dict(visible=False, range=[0, max(_ys + [1]) * 1.25]),
+                showlegend=False, hoverlabel=dict(align='left'),
             )
             st.plotly_chart(_fig, use_container_width=True, config={'displayModeBar': False})
 
@@ -505,6 +586,10 @@ def render_tab_ranking(supabase, **deps):
     st.markdown('<div class="rk-sec">&#127942; Ranking del equipo</div>', unsafe_allow_html=True)
     _agg_team = _agregar(_rows, period_days=_days)
     _team = sorted(_agg_team.values(), key=lambda a: (a['ganado'], a['generado']), reverse=True)
+    # Los ejecutivos solo ven a sus pares ejecutivos (no admin/root ni sin asignar).
+    if not _es_admin:
+        _team = [a for a in _team
+                 if a.get('email') and _umap.get(a['email'], {}).get('rol', 'ejecutivo') == 'ejecutivo']
     if not _team:
         st.info("No hay presupuestos en este periodo.")
     else:
