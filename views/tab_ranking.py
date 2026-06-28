@@ -240,6 +240,7 @@ def render_tab_ranking(supabase, **deps):
     .rk-card{display:flex;align-items:center;gap:14px;padding:12px 16px;background:#fff;border-radius:14px;
         border:1px solid #e7ebf3;box-shadow:0 2px 10px rgba(15,23,42,0.05);margin-bottom:9px;}
     .rk-card.me{border:2px solid #6366f1;background:#f5f7ff;}
+    .rk-card.sel{border:2px solid #6366f1;background:#eef2ff;box-shadow:0 4px 16px rgba(99,102,241,0.25);}
     .rk-rav{width:46px;height:46px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid #e2e8f0;}
     .rk-rav-ph{display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:1.1rem;
         background:linear-gradient(135deg,#6366f1,#8b5cf6);}
@@ -285,42 +286,61 @@ def render_tab_ranking(supabase, **deps):
     ) or 'Mes'
     _days = _PERIODOS.get(_periodo)
 
-    # Foto/rol del usuario actual
-    _me = _umap.get(_email, {})
-    _foto = _me.get('foto_url', '')
-    _rol_lbl = 'Administrador' if _es_admin else 'Ejecutivo de ventas'
+    # ── Ejecutivo seleccionado al hacer clic en el ranking del equipo ──
+    # rk_perfil_email: None = vista por defecto (admin=equipo, ejecutivo=propio);
+    # string (puede ser '' para "Sin asignar") = se muestra el perfil de ese ejecutivo.
+    _sel_email = st.session_state.get('rk_perfil_email')
+    _sel_nombre = st.session_state.get('rk_perfil_nombre', '')
+    _viewing_other = _sel_email is not None
 
-    # ── Métricas del HERO ──
-    if _es_admin:
-        _agg_periodo = _agregar(_rows, period_days=_days)
-        _ganado  = sum(a['ganado'] for a in _agg_periodo.values())
-        _casi    = sum(a['casi'] for a in _agg_periodo.values())
-        _perdido = sum(a['perdido'] for a in _agg_periodo.values())
-        _n_total = sum(a['n_total'] for a in _agg_periodo.values())
-        _n_gan   = sum(a['n_ganado'] for a in _agg_periodo.values())
-        _n_casi  = sum(a['n_casi'] for a in _agg_periodo.values())
-        _n_perd  = sum(a['n_perdido'] for a in _agg_periodo.values())
-        _ventas_win = _ventas_por_ventana(_rows)
+    if _viewing_other:
+        _scope = _sel_email
+        if st.button(("Volver al equipo" if _es_admin else "Volver a mi panel"),
+                     icon=":material/arrow_back:", key="rk_volver"):
+            st.session_state.pop('rk_perfil_email', None)
+            st.session_state.pop('rk_perfil_nombre', None)
+            st.rerun()
+    elif _es_admin:
+        _scope = None
     else:
-        _agg_me = _agregar(_rows, period_days=_days, only_email=_email).get(_email, {
-            'ganado': 0, 'casi': 0, 'perdido': 0, 'n_total': 0, 'n_ganado': 0, 'n_casi': 0, 'n_perdido': 0})
-        _ganado, _casi, _perdido = _agg_me['ganado'], _agg_me['casi'], _agg_me['perdido']
-        _n_total = _agg_me['n_total']
-        _n_gan, _n_casi, _n_perd = _agg_me['n_ganado'], _agg_me['n_casi'], _agg_me['n_perdido']
-        _ventas_win = _ventas_por_ventana(_rows, only_email=_email)
+        _scope = _email
 
-    # ── HERO: nombre+rol (izq) + foto (der) ──
+    # ── Métricas del scope (None = equipo completo) ──
+    _agg_f = _agregar(_rows, period_days=_days, only_email=_scope)
+    _ganado  = sum(a['ganado'] for a in _agg_f.values())
+    _casi    = sum(a['casi'] for a in _agg_f.values())
+    _perdido = sum(a['perdido'] for a in _agg_f.values())
+    _n_total = sum(a['n_total'] for a in _agg_f.values())
+    _n_gan   = sum(a['n_ganado'] for a in _agg_f.values())
+    _n_casi  = sum(a['n_casi'] for a in _agg_f.values())
+    _n_perd  = sum(a['n_perdido'] for a in _agg_f.values())
+    _ventas_win = _ventas_por_ventana(_rows, only_email=_scope)
+
+    # ── HERO: identidad del objetivo (yo / equipo / ejecutivo seleccionado) ──
+    if _viewing_other:
+        _u_sel = _umap.get((_sel_email or '').lower(), {})
+        _disp_nombre = _u_sel.get('nombre') or _sel_nombre or _sel_email or 'Ejecutivo'
+        _disp_foto = _u_sel.get('foto_url', '')
+        _disp_rol = _u_sel.get('rol', 'ejecutivo')
+        _rol_lbl = 'Administrador' if _disp_rol in ('root', 'admin') else 'Ejecutivo de ventas'
+        _scope_desc = 'Perfil del ejecutivo'
+    else:
+        _disp_nombre = _nombre_sesion
+        _disp_foto = _umap.get(_email, {}).get('foto_url', '')
+        _rol_lbl = 'Administrador' if _es_admin else 'Ejecutivo de ventas'
+        _scope_desc = 'Equipo completo' if _es_admin else 'Tu desempe&#241;o'
+
     _photo_html = (
-        f'<img class="rk-photo" src="{_foto}" alt="">' if _foto else
-        f'<div class="rk-photo rk-photo-ph">{(_nombre_sesion or "?")[0].upper()}</div>'
+        f'<img class="rk-photo" src="{_disp_foto}" alt="">' if _disp_foto else
+        f'<div class="rk-photo rk-photo-ph">{(_disp_nombre or "?")[0].upper()}</div>'
     )
     st.markdown(
         f'<div class="rk-hero">'
         f'<div style="min-width:0;">'
-        f'<div class="rk-hero-name">{_nombre_sesion}</div>'
+        f'<div class="rk-hero-name">{_disp_nombre}</div>'
         f'<div class="rk-hero-role">{_rol_lbl}</div>'
         f'<div style="color:rgba(255,255,255,0.7);font-size:0.82rem;margin-top:10px;">'
-        f'{"Equipo completo" if _es_admin else "Tu desempe&#241;o"} &middot; {_periodo.lower()}'
+        f'{_scope_desc} &middot; {_periodo.lower()}'
         f' &middot; {_n_total} presupuesto{"s" if _n_total!=1 else ""}</div>'
         f'</div>'
         f'{_photo_html}'
@@ -427,8 +447,8 @@ def render_tab_ranking(supabase, **deps):
         "**adjudicar**; si despu&#233;s pasa a **terminado** es el mismo proyecto ya construido (no suma de "
         "nuevo). Un presupuesto que queda **rechazado** = el cliente desisti&#243;, comisi&#243;n perdida. "
         "Lo que a&#250;n no llega a adjudicado ni rechazado est&#225; en **casi ganado**.")
-    _desg = _desglose_estados(_rows, period_days=_days, only_email=(None if _es_admin else _email))
-    _lista = _listar_presupuestos(_rows, period_days=_days, only_email=(None if _es_admin else _email))
+    _desg = _desglose_estados(_rows, period_days=_days, only_email=_scope)
+    _lista = _listar_presupuestos(_rows, period_days=_days, only_email=_scope)
     _dcols = st.columns(3)
     for _ci, _bk in enumerate(['ganado', 'casi', 'perdido']):
         _bcol, _blbl, _bic = _BUCKET_META[_bk]
@@ -460,7 +480,7 @@ def render_tab_ranking(supabase, **deps):
             _neg = (_bk == 'perdido')
             with st.popover(f"Ver {_tot_n} presupuesto{'s' if _tot_n != 1 else ''}",
                             use_container_width=True, disabled=(_tot_n == 0)):
-                def _pp_row(p, col=_bcol, neg=_neg, adm=_es_admin):
+                def _pp_row(p, col=_bcol, neg=_neg, adm=(_scope is None)):
                     _cli = p["cliente"] + (f' &middot; {p["asesor"]}' if adm else '')
                     _mt = ('-' if neg else '') + _money_exacto(p["monto"])
                     return (f'<div class="rk-pp-row">'
@@ -482,6 +502,7 @@ def render_tab_ranking(supabase, **deps):
     if not _team:
         st.info("No hay presupuestos en este periodo.")
     else:
+        st.caption("Haz clic en **Ver** para cargar arriba el panel completo de ese ejecutivo.")
         _medallas = {1: "&#129351;", 2: "&#129352;", 3: "&#129353;"}
         for i, a in enumerate(_team, 1):
             _u = _umap.get(a['email'], {})
@@ -491,21 +512,35 @@ def render_tab_ranking(supabase, **deps):
                    else f'<div class="rk-rav rk-rav-ph">{_ini}</div>')
             _pos = _medallas.get(i, f'<span style="color:#94a3b8;">{i}</span>')
             _is_me = (a['email'] == _email and not _es_admin)
-            _me_cls = ' me' if _is_me else ''
-            _tu_badge = (' &middot; <span style="color:#6366f1;font-size:0.7rem;font-weight:800;">T&#218;</span>'
-                         if _is_me else '')
-            st.markdown(
-                f'<div class="rk-card{_me_cls}">'
-                f'<div class="rk-pos">{_pos}</div>'
-                f'{_av}'
-                f'<div style="flex:1;min-width:0;">'
-                f'<div style="font-weight:800;color:#0f172a;font-size:0.98rem;">{a["nombre"]}{_tu_badge}</div>'
-                f'<div style="font-size:0.74rem;color:#64748b;margin-top:2px;">{a["n_total"]} presupuesto{"s" if a["n_total"]!=1 else ""}</div>'
-                f'</div>'
-                f'<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">'
-                f'<div style="text-align:right;"><div style="font-family:Montserrat;font-weight:900;color:#16a34a;font-size:1.05rem;">{_fmt_money(a["ganado"])}</div><div style="font-size:0.64rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Ganado</div></div>'
-                f'<div style="text-align:right;"><div style="font-family:Montserrat;font-weight:800;color:#f59e0b;font-size:0.95rem;">{_fmt_money(a["casi"])}</div><div style="font-size:0.64rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Casi</div></div>'
-                f'<div style="text-align:right;"><div style="font-family:Montserrat;font-weight:800;color:#dc2626;font-size:0.95rem;">{("-" if a["perdido"]>0 else "")}{_fmt_money(a["perdido"])}</div><div style="font-size:0.64rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Perdido</div></div>'
-                f'</div>'
-                f'</div>',
-                unsafe_allow_html=True)
+            _is_sel = _viewing_other and (a['email'] == _sel_email) and (a['nombre'] == (_sel_nombre or a['nombre']))
+            _row_cls = ' sel' if _is_sel else (' me' if _is_me else '')
+            if _is_sel:
+                _badge = ' &middot; <span style="color:#6366f1;font-size:0.7rem;font-weight:800;">VIENDO</span>'
+            elif _is_me:
+                _badge = ' &middot; <span style="color:#6366f1;font-size:0.7rem;font-weight:800;">T&#218;</span>'
+            else:
+                _badge = ''
+            _c_card, _c_btn = st.columns([8.5, 1.5], vertical_alignment="center")
+            with _c_card:
+                st.markdown(
+                    f'<div class="rk-card{_row_cls}">'
+                    f'<div class="rk-pos">{_pos}</div>'
+                    f'{_av}'
+                    f'<div style="flex:1;min-width:0;">'
+                    f'<div style="font-weight:800;color:#0f172a;font-size:0.98rem;">{a["nombre"]}{_badge}</div>'
+                    f'<div style="font-size:0.74rem;color:#64748b;margin-top:2px;">{a["n_total"]} presupuesto{"s" if a["n_total"]!=1 else ""}</div>'
+                    f'</div>'
+                    f'<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">'
+                    f'<div style="text-align:right;"><div style="font-family:Montserrat;font-weight:900;color:#16a34a;font-size:1.05rem;">{_fmt_money(a["ganado"])}</div><div style="font-size:0.64rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Ganado</div></div>'
+                    f'<div style="text-align:right;"><div style="font-family:Montserrat;font-weight:800;color:#f59e0b;font-size:0.95rem;">{_fmt_money(a["casi"])}</div><div style="font-size:0.64rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Casi</div></div>'
+                    f'<div style="text-align:right;"><div style="font-family:Montserrat;font-weight:800;color:#dc2626;font-size:0.95rem;">{("-" if a["perdido"]>0 else "")}{_fmt_money(a["perdido"])}</div><div style="font-size:0.64rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Perdido</div></div>'
+                    f'</div>'
+                    f'</div>',
+                    unsafe_allow_html=True)
+            with _c_btn:
+                if st.button("Ver", icon=":material/visibility:", key=f"rk_ver_{i}",
+                             use_container_width=True, disabled=_is_sel,
+                             help="Cargar arriba el panel de este ejecutivo"):
+                    st.session_state['rk_perfil_email'] = a['email']
+                    st.session_state['rk_perfil_nombre'] = a['nombre']
+                    st.rerun()
