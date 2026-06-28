@@ -731,13 +731,13 @@ def render_tab_ranking(supabase, **deps):
     _gc_html = (
         _gc('#4ade80', 'dollar', 'Ganado', _fmt_money(_ganado),
             f'{_n_gan} adjudicado{"s" if _n_gan!=1 else ""} / terminado{"s" if _n_gan!=1 else ""}',
-            'Comisi&#243;n ganada', _fmt_money(_com_g))
+            'Comisi&#243;n ganada', _money_exacto(_com_g))
         + _gc('#fbbf24', 'clock', 'Casi ganado', _fmt_money(_casi),
-              f'{_n_casi} en proceso', 'Comisi&#243;n en juego', _fmt_money(_com_c))
+              f'{_n_casi} en proceso', 'Comisi&#243;n en juego', _money_exacto(_com_c))
         + _gc('#f87171', 'trenddown', 'Perdido',
               f'{("-" if _perdido>0 else "")}{_fmt_money(_perdido)}',
               f'{_n_perd} rechazado{"s" if _n_perd!=1 else ""}',
-              'Comisi&#243;n perdida', f'{("-" if _com_p>0 else "")}{_fmt_money(_com_p)}')
+              'Comisi&#243;n perdida', f'{("-" if _com_p>0 else "")}{_money_exacto(_com_p)}')
     )
 
     st.markdown(
@@ -888,7 +888,7 @@ def render_tab_ranking(supabase, **deps):
         _com_bk = {'ganado': _com_g, 'casi': _com_c, 'perdido': _com_p}[_bk]
         _com_bk_lbl = {'ganado': 'Comisi&#243;n ganada', 'casi': 'Comisi&#243;n en juego',
                        'perdido': 'Comisi&#243;n perdida'}[_bk]
-        _com_bk_disp = _fmt_money(-abs(_com_bk)) if (_bk == 'perdido' and _com_bk) else _fmt_money(_com_bk)
+        _com_bk_disp = (f'-{_money_exacto(_com_bk)}' if (_bk == 'perdido' and _com_bk) else _money_exacto(_com_bk))
         _com_row = (f'<div class="rk-est-com"><span>{_com_bk_lbl}</span>'
                     f'<span style="color:{_blight};">{_com_bk_disp}</span></div>') if _show_com else ''
         with _dcols[_ci]:
