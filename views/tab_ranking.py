@@ -17,7 +17,7 @@ from views.layout import render_page_header
 def _fetch_cotizaciones_rank(_cb: str = ''):
     try:
         return _supa_admin.table('cotizaciones').select(
-            'asesor_nombre,asesor_email,cliente_nombre,cliente_email,asesor_telefono,'
+            'numero,asesor_nombre,asesor_email,cliente_nombre,cliente_email,asesor_telefono,'
             'config_margen,plano_url,plano_nombre,contrato_notariado_url,acta_url,'
             'motivo_rechazo,total_total,fecha_creacion'
         ).execute().data or []
@@ -163,6 +163,37 @@ def _desglose_estados(rows, period_days=None, only_email=None):
     return out
 
 
+def _listar_presupuestos(rows, period_days=None, only_email=None):
+    """Lista de presupuestos individuales dentro del periodo/scope, orden por monto desc.
+    Cada item: {bucket, estado, numero, cliente, asesor, monto}."""
+    cutoff = (datetime.now() - timedelta(days=period_days)) if period_days else None
+    out = []
+    for r in rows:
+        em = (r.get('asesor_email') or '').lower()
+        if only_email is not None and em != only_email:
+            continue
+        if cutoff:
+            d = _parse_fecha(r.get('fecha_creacion'))
+            if d is None or d < cutoff:
+                continue
+        lbl = _clasificar(r)
+        out.append({
+            'bucket': _bucket(lbl),
+            'estado': lbl,
+            'numero': (str(r.get('numero') or '').strip() or '—'),
+            'cliente': (str(r.get('cliente_nombre') or '').strip() or 'Sin cliente'),
+            'asesor': (str(r.get('asesor_nombre') or '').strip() or 'Sin asignar'),
+            'monto': float(r.get('total_total') or 0),
+        })
+    out.sort(key=lambda x: x['monto'], reverse=True)
+    return out
+
+
+def _money_exacto(v):
+    """Monto exacto con separador de miles estilo CL: $25.400.000."""
+    return '$' + f'{abs(float(v or 0)):,.0f}'.replace(',', '.')
+
+
 def _fmt_money(v):
     v = float(v or 0)
     sign = '-' if v < 0 else ''
@@ -225,6 +256,15 @@ def render_tab_ranking(supabase, **deps):
     .rk-est-n{font-weight:800;color:#0f172a;}
     .rk-est-m{color:#64748b;font-size:0.74rem;min-width:60px;text-align:right;}
     .rk-est-empty{color:#94a3b8;font-size:0.8rem;padding:8px 0;font-style:italic;}
+    .rk-pp-wrap{max-height:360px;overflow-y:auto;margin-top:6px;}
+    .rk-pp-row{display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid #f1f5f9;}
+    .rk-pp-row:last-child{border-bottom:none;}
+    .rk-pp-tag{font-size:0.6rem;font-weight:800;text-transform:uppercase;letter-spacing:0.03em;
+        color:#fff;border-radius:5px;padding:2px 6px;white-space:nowrap;flex-shrink:0;}
+    .rk-pp-mid{flex:1;min-width:0;}
+    .rk-pp-num{font-family:'Montserrat',sans-serif;font-weight:800;color:#0f172a;font-size:0.84rem;}
+    .rk-pp-cli{font-size:0.74rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .rk-pp-m{font-family:'Montserrat',sans-serif;font-weight:800;font-size:0.86rem;white-space:nowrap;flex-shrink:0;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -388,6 +428,7 @@ def render_tab_ranking(supabase, **deps):
         "nuevo). Un presupuesto que queda **rechazado** = el cliente desisti&#243;, comisi&#243;n perdida. "
         "Lo que a&#250;n no llega a adjudicado ni rechazado est&#225; en **casi ganado**.")
     _desg = _desglose_estados(_rows, period_days=_days, only_email=(None if _es_admin else _email))
+    _lista = _listar_presupuestos(_rows, period_days=_days, only_email=(None if _es_admin else _email))
     _dcols = st.columns(3)
     for _ci, _bk in enumerate(['ganado', 'casi', 'perdido']):
         _bcol, _blbl, _bic = _BUCKET_META[_bk]
@@ -414,6 +455,25 @@ def render_tab_ranking(supabase, **deps):
                 f'<div class="rk-est-tot">{_tot_m_disp}</div>'
                 f'{_items_html}'
                 f'</div>', unsafe_allow_html=True)
+            # Popover "Ver": lista de presupuestos del bucket (N° EP, cliente, monto)
+            _bk_items = [p for p in _lista if p['bucket'] == _bk]
+            _neg = (_bk == 'perdido')
+            with st.popover(f"Ver {_tot_n} presupuesto{'s' if _tot_n != 1 else ''}",
+                            use_container_width=True, disabled=(_tot_n == 0)):
+                def _pp_row(p, col=_bcol, neg=_neg, adm=_es_admin):
+                    _cli = p["cliente"] + (f' &middot; {p["asesor"]}' if adm else '')
+                    _mt = ('-' if neg else '') + _money_exacto(p["monto"])
+                    return (f'<div class="rk-pp-row">'
+                            f'<span class="rk-pp-tag" style="background:{col};">{p["estado"]}</span>'
+                            f'<div class="rk-pp-mid"><div class="rk-pp-num">{p["numero"]}</div>'
+                            f'<div class="rk-pp-cli">{_cli}</div></div>'
+                            f'<div class="rk-pp-m" style="color:{col};">{_mt}</div>'
+                            f'</div>')
+                st.markdown(
+                    f'<div style="font-weight:800;color:{_bcol};font-size:0.92rem;margin-bottom:2px;">'
+                    f'{_bic} {_blbl} &middot; {_tot_n} &middot; {_tot_m_disp}</div>'
+                    f'<div class="rk-pp-wrap">{"".join(_pp_row(p) for p in _bk_items)}</div>',
+                    unsafe_allow_html=True)
 
     # ── Ranking del equipo ──
     st.markdown('<div class="rk-sec">&#127942; Ranking del equipo</div>', unsafe_allow_html=True)
