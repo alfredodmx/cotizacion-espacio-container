@@ -2,6 +2,7 @@
 Tab FORMULARIO CLIENTE — Config catálogo, preguntas, progreso de respuestas.
 Código fuente original: app.py líneas 19318-19456
 """
+import html as _html
 import streamlit as st
 import streamlit.components.v1 as _st_components
 import pandas as pd
@@ -13,6 +14,7 @@ from utils.formulario import (
     build_catalogo_html,
     build_config_preguntas_html,
 )
+from utils.cat_icons import cat_icon_svg
 from config.supabase import supabase_admin as _supa_admin
 
 
@@ -36,6 +38,87 @@ _IC_CLIP   = ('<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7
               '<rect width="8" height="4" x="8" y="2" rx="1"/><path d="m9 14 2 2 4-4"/>')
 _IC_CHECK  = '<path d="M20 6 9 17l-5-5"/>'
 _IC_CIRCLE = '<circle cx="12" cy="12" r="9"/>'
+_IC_BARS   = ('<line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/>'
+              '<line x1="6" x2="6" y1="20" y2="16"/>')
+_IC_TAG    = ('<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414'
+              'l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/>'
+              '<circle cx="7.5" cy="7.5" r="1.5"/>')
+_IC_USER   = ('<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>')
+_IC_TYPE   = ('<polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/>'
+              '<line x1="12" x2="12" y1="4" y2="20"/>')
+
+# CSS del rediseño de PROGRESO CLIENTES (tarjetas con imagen/color seleccionado).
+_PROGRESO_CSS = """
+<style>
+.ec-pg-summary{background:linear-gradient(135deg,#0f3460,#1a5276);border-radius:16px;
+  padding:16px 20px;margin:2px 0 18px;box-shadow:0 10px 28px rgba(15,52,96,.18);}
+.ec-pg-sum-top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;}
+.ec-pg-pct{font-family:'Montserrat',sans-serif;font-size:1.6rem;font-weight:900;color:#fff;line-height:1;}
+.ec-pg-sum-lbl{font-family:'Poppins',sans-serif;font-size:.74rem;font-weight:600;color:rgba(255,255,255,.82);}
+.ec-pg-bar{background:rgba(255,255,255,.18);border-radius:99px;height:9px;overflow:hidden;}
+.ec-pg-fill{height:9px;border-radius:99px;background:linear-gradient(90deg,#48cae4,#90e0ef);
+  box-shadow:0 0 12px rgba(144,224,239,.6);transition:width .5s ease;}
+.ec-pg-catttl{font-family:'Montserrat',sans-serif;color:#0f172a;font-size:0.88rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:0.05em;line-height:1.6;display:flex;align-items:center;
+  gap:8px;margin:18px 0 11px;}
+.ec-pg-grid{display:flex;flex-wrap:wrap;gap:14px;margin:0 0 6px;}
+.ec-pg-card{width:172px;background:#fff;border:1px solid #eef2f7;border-radius:16px;overflow:hidden;
+  box-shadow:0 4px 16px rgba(15,52,96,.06);transition:transform .16s,box-shadow .16s;}
+.ec-pg-card:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(15,52,96,.13);}
+.ec-pg-card.pend{border-style:dashed;border-color:#e2e8f0;box-shadow:none;background:#fafbfc;}
+.ec-pg-visual{height:120px;display:flex;align-items:center;justify-content:center;background:#eef2f7;
+  position:relative;overflow:hidden;}
+.ec-pg-visual img{width:100%;height:100%;object-fit:cover;display:block;}
+.ec-pg-swatch{width:100%;height:100%;}
+.ec-pg-textvis{background:linear-gradient(135deg,#f1f5f9,#e2e8f0);}
+.ec-pg-check{position:absolute;top:8px;right:8px;width:25px;height:25px;border-radius:50%;
+  background:#16a34a;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 3px 9px rgba(0,0,0,.2);border:2px solid #fff;}
+.ec-pg-body{padding:11px 13px 13px;}
+.ec-pg-grp{font-family:'Montserrat',sans-serif;font-size:0.62rem;font-weight:700;letter-spacing:0.05em;
+  text-transform:uppercase;color:#94a3b8;line-height:1.4;margin-bottom:3px;}
+.ec-pg-val{font-family:'Poppins',sans-serif;font-size:0.86rem;font-weight:600;color:#0f3460;
+  line-height:1.3;word-break:break-word;}
+.ec-pg-sub{font-family:'Poppins',sans-serif;font-size:0.66rem;font-weight:600;color:#94a3b8;
+  margin-top:2px;text-transform:uppercase;letter-spacing:.04em;}
+</style>
+"""
+
+
+def _pg_card(grp_title, sel_val, sel_item):
+    """Tarjeta de selección del cliente: muestra la imagen/color elegido o el texto.
+    sel_val=None ⇒ pendiente."""
+    grp = _html.escape(grp_title or '')
+    if not sel_val:
+        return ('<div class="ec-pg-card pend">'
+                '<div class="ec-pg-visual ec-pg-textvis">'
+                + _fic(_IC_CIRCLE, 30, color="#cbd5e1", sw=1.6, valign=0) + '</div>'
+                '<div class="ec-pg-body"><div class="ec-pg-grp">' + grp + '</div>'
+                '<div class="ec-pg-val" style="color:#94a3b8;">Pendiente</div></div></div>')
+
+    val = _html.escape(str(sel_val))
+    it = sel_item or {}
+    tipo = (it.get('tipo') or '').strip()
+    url = (it.get('imagen_url') or '').strip()
+    hexc = (it.get('hex') or '').strip()
+    sub = ''
+    if tipo == 'imagen' and url:
+        visual = '<img src="' + _html.escape(url, quote=True) + '" alt="' + val + '" loading="lazy">'
+    elif tipo == 'color' and hexc:
+        visual = '<div class="ec-pg-swatch" style="background:' + _html.escape(hexc, quote=True) + ';"></div>'
+        sub = '<div class="ec-pg-sub">' + _html.escape(hexc) + '</div>'
+    else:
+        # si_no / select / texto libre
+        _vl = (val or '').lower()
+        _ic = (_IC_CHECK if _vl in ('sí', 'si', 'yes') else
+               (_IC_TYPE if tipo == 'select' else _IC_TAG))
+        visual = ('<div style="display:flex;align-items:center;justify-content:center;height:100%;'
+                  'width:100%;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);">'
+                  + _fic(_ic, 34, color="#0f3460", sw=1.7, valign=0) + '</div>')
+    check = '<div class="ec-pg-check">' + _fic(_IC_CHECK, 13, color="#fff", sw=3, valign=0) + '</div>'
+    return ('<div class="ec-pg-card"><div class="ec-pg-visual">' + visual + check + '</div>'
+            '<div class="ec-pg-body"><div class="ec-pg-grp">' + grp + '</div>'
+            '<div class="ec-pg-val">' + val + '</div>' + sub + '</div></div>')
 
 # JS de la tabla HTML de adjudicados (CONFIGURAR PREGUNTAS): click-to-copy en las
 # celdas .cp-cell (N° EP / RUT) y "Configurar" que carga ese EP vía query param
@@ -320,8 +403,20 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
 
     # ── TAB PROGRESO ──
     with _ftab_progreso:
-        st.markdown("**Progreso de formularios por proyecto:**")
+        st.markdown(_PROGRESO_CSS, unsafe_allow_html=True)
+        st.markdown(
+            f"<div style='{_SEC_TITLE_STYLE}'>{_fic(_IC_BARS, 17, mr=8)}"
+            f"Progreso de formularios por proyecto</div>",
+            unsafe_allow_html=True,
+        )
         try:
+            _cat_ts = st.query_params.get('_cat_ts', '')
+            try:
+                _cat_all = fetch_catalogo_materiales(_cache_buster=_cat_ts) or []
+            except Exception:
+                _cat_all = []
+            _cat_by_id = {str(_it.get('id')): _it for _it in _cat_all}
+
             _all_cfg = supa_admin.table('formulario_config').select(
                 'cotizacion_numero,categoria,titulo_grupo,item_ids,orden'
             ).execute().data or []
@@ -337,49 +432,54 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
             for _rr in _all_resps:
                 _key = _rr.get('item_id') or _rr.get('pregunta_id') or ''
                 if _key:
-                    _resps_by_ep[_rr['cotizacion_numero']][_key] = _rr['respuesta']
+                    _resps_by_ep[str(_rr['cotizacion_numero'])][str(_key)] = _rr['respuesta']
 
             if not _cfg_by_ep:
                 st.info("No hay formularios configurados a&#250;n.")
             else:
-                for _fep, _fcfgs in sorted(_cfg_by_ep.items()):
+                for _ei, (_fep, _fcfgs) in enumerate(sorted(_cfg_by_ep.items())):
                     _total = len(_fcfgs)
-                    _resp_map = _resps_by_ep[_fep]
+                    _resp_map = _resps_by_ep.get(str(_fep), {})
                     _done = sum(
                         1 for cfg in _fcfgs
                         if any(_resp_map.get(str(iid)) for iid in (cfg.get('item_ids') or []))
                     )
                     _fpct = int(_done / _total * 100) if _total > 0 else 0
-                    _fcol = '#16a34a' if _fpct == 100 else ('#f97316' if _fpct >= 50 else '#2563eb')
 
-                    with st.expander(f"**{_fep}** — {_fpct}% completado ({_done}/{_total} grupos)"):
-                        st.markdown(f"""
-                        <div style='background:#f8fafc;border-radius:8px;padding:8px 12px;margin-bottom:12px;'>
-                          <div style='background:#e2e8f0;border-radius:99px;height:8px;'>
-                            <div style='background:{_fcol};border-radius:99px;height:8px;width:{_fpct}%;'></div>
-                          </div>
-                          <div style='font-size:0.75rem;color:#64748b;margin-top:4px;'>{_done} de {_total} secciones respondidas</div>
-                        </div>
-                        """, unsafe_allow_html=True)
+                    with st.expander(f"**{_fep}**  ·  {_fpct}% completado  ·  {_done}/{_total} grupos",
+                                     expanded=(_ei == 0)):
+                        _html_parts = [
+                            "<div class='ec-pg-summary'>"
+                            "<div class='ec-pg-sum-top'>"
+                            f"<span class='ec-pg-pct'>{_fpct}%</span>"
+                            f"<span class='ec-pg-sum-lbl'>{_done} de {_total} secciones respondidas</span>"
+                            "</div>"
+                            f"<div class='ec-pg-bar'><div class='ec-pg-fill' style='width:{_fpct}%;'></div></div>"
+                            "</div>"
+                        ]
 
                         _cats_prog = defaultdict(list)
                         for _cfg2 in sorted(_fcfgs, key=lambda x: (x.get('categoria', ''), x.get('orden', 0))):
                             _cats_prog[_cfg2.get('categoria', '')].append(_cfg2)
 
                         for _cat4, _clist4 in _cats_prog.items():
-                            st.markdown(f"**{_cat4}**")
+                            _html_parts.append(
+                                "<div class='ec-pg-catttl'>" + cat_icon_svg(_cat4, 17, '#0f3460', 2)
+                                + "<span>" + _html.escape(_cat4 or '') + "</span></div>"
+                                "<div class='ec-pg-grid'>"
+                            )
                             for _cfg4 in _clist4:
                                 _tg4 = _cfg4.get('titulo_grupo', '')
                                 _ids4 = [str(x) for x in (_cfg4.get('item_ids') or [])]
-                                _answered = [_resp_map.get(iid, '') for iid in _ids4 if _resp_map.get(iid)]
-                                _ico4 = (_fic(_IC_CHECK, 13, color='#16a34a', mr=5)
-                                         if _answered else _fic(_IC_CIRCLE, 13, color='#cbd5e1', mr=5))
-                                _val4 = ', '.join(_answered) if _answered else '&#8212;'
-                                st.markdown(
-                                    f"<div style='font-size:0.82rem;padding:3px 8px;'>"
-                                    f"{_ico4} <b>{_tg4}</b>: "
-                                    f"<span style='color:#0f3460;'>{_val4}</span></div>",
-                                    unsafe_allow_html=True
-                                )
+                                _sel_val, _sel_item = None, None
+                                for _iid in _ids4:
+                                    _v = _resp_map.get(_iid)
+                                    if _v:
+                                        _sel_val, _sel_item = _v, _cat_by_id.get(_iid)
+                                        break
+                                _html_parts.append(_pg_card(_tg4, _sel_val, _sel_item))
+                            _html_parts.append("</div>")
+
+                        st.markdown(''.join(_html_parts), unsafe_allow_html=True)
         except Exception as _fe:
             st.error(f"Error cargando progreso: {_fe}")
