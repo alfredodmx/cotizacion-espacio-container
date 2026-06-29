@@ -297,12 +297,44 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
             except Exception:
                 _adj = []
             try:
-                _fc_nums = set(
-                    x['cotizacion_numero']
-                    for x in (supa_admin.table('formulario_config').select('cotizacion_numero').execute().data or [])
-                )
+                _fc_rows = supa_admin.table('formulario_config').select(
+                    'cotizacion_numero,item_ids'
+                ).execute().data or []
             except Exception:
-                _fc_nums = set()
+                _fc_rows = []
+            _fc_nums = set(x['cotizacion_numero'] for x in _fc_rows)
+
+            # % de avance del formulario por EP = grupos respondidos por el cliente /
+            # grupos RENDERABLES (item_ids que existen en el catálogo). Mismo criterio
+            # que la pestaña PROGRESO CLIENTES y que el render del formulario.
+            try:
+                _resp_rows = supa_admin.table('formulario_respuestas').select(
+                    'cotizacion_numero,item_id,pregunta_id'
+                ).execute().data or []
+            except Exception:
+                _resp_rows = []
+            try:
+                _cat_ids_av = set(str(c['id']) for c in (fetch_catalogo_materiales(
+                    _cache_buster=st.query_params.get('_cat_ts', '')) or []))
+            except Exception:
+                _cat_ids_av = set()
+            _resp_by_ep_av = defaultdict(set)
+            for _rr in _resp_rows:
+                _kk = _rr.get('item_id') or _rr.get('pregunta_id')
+                if _kk:
+                    _resp_by_ep_av[str(_rr['cotizacion_numero'])].add(str(_kk))
+            _cfg_groups_av = defaultdict(list)
+            for _cr in _fc_rows:
+                _cfg_groups_av[str(_cr['cotizacion_numero'])].append(
+                    [str(x) for x in (_cr.get('item_ids') or [])])
+            _pct_by_ep = {}
+            for _epk, _grps in _cfg_groups_av.items():
+                _rend = [g for g in _grps if any(i in _cat_ids_av for i in g)]
+                if not _rend:
+                    continue
+                _ansset = _resp_by_ep_av.get(_epk, set())
+                _donen = sum(1 for g in _rend if any(i in _ansset for i in g))
+                _pct_by_ep[_epk] = int(_donen / len(_rend) * 100)
             if not _adj:
                 st.info("A&#250;n no tienes presupuestos adjudicados." if _rol == 'ejecutivo'
                         else "A&#250;n no hay presupuestos adjudicados.")
@@ -327,6 +359,17 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
                     _adjf = (str(r.get('fecha_adjudicacion') or '')[:10]) or '—'
                     _preg = (f'<span style="{_pill_si}">S&#205;</span>' if _ep in _fc_nums
                              else f'<span style="{_pill_no}">NO</span>')
+                    _p = _pct_by_ep.get(_ep)
+                    if _p is None:
+                        _avance = '<td class="ctr"><span class="pg-na">&#8212;</span></td>'
+                    else:
+                        _pcol = ('#16a34a' if _p == 100 else
+                                 ('#f97316' if _p >= 50 else ('#2563eb' if _p > 0 else '#94a3b8')))
+                        _avance = (
+                            '<td class="ctr"><div class="pgcell">'
+                            f'<div class="pgbar"><div class="pgfill" style="width:{_p}%;background:{_pcol};"></div></div>'
+                            f'<span class="pgtxt" style="color:{_pcol};">{_p}%</span></div></td>'
+                        )
                     if _rut:
                         _rut_cell = (f'<td class="cp-cell" data-copy="{_h.escape(_rut, quote=True)}" '
                                      f'title="Click para copiar el RUT">{_h.escape(_rut)} '
@@ -343,6 +386,7 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
                         f'<td>{_ase}</td>'
                         f'<td class="ctr">{_adjf}</td>'
                         f'<td class="ctr">{_preg}</td>'
+                        f'{_avance}'
                         f'<td class="ctr"><button class="cfg-btn" data-ep="{_h.escape(_ep, quote=True)}">'
                         'Configurar</button></td>'
                         '</tr>'
@@ -365,10 +409,16 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
                     '.ep-tbl .cfg-btn{background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;border-radius:7px;'
                     'padding:5px 12px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s;}'
                     '.ep-tbl .cfg-btn:hover{background:#e0e7ff;}'
+                    '.ep-tbl .pgcell{display:flex;align-items:center;gap:8px;justify-content:center;}'
+                    '.ep-tbl .pgbar{width:64px;height:7px;background:#e8edf3;border-radius:99px;overflow:hidden;flex:0 0 auto;}'
+                    '.ep-tbl .pgfill{height:7px;border-radius:99px;transition:width .4s;}'
+                    ".ep-tbl .pgtxt{font-weight:800;font-size:0.74rem;font-variant-numeric:tabular-nums;min-width:32px;text-align:left;}"
+                    '.ep-tbl .pg-na{color:#cbd5e1;font-weight:700;}'
                     '</style>'
                     '<div class="ep-tbl-wrap"><table class="ep-tbl"><thead><tr>'
                     '<th>N&#176; EP</th><th>RUT cliente</th><th>Cliente</th><th>Asesor</th>'
-                    '<th class="ctr">Adjudicado</th><th class="ctr">Preguntas</th><th class="ctr">Acci&#243;n</th>'
+                    '<th class="ctr">Adjudicado</th><th class="ctr">Preguntas</th>'
+                    '<th class="ctr">Avance</th><th class="ctr">Acci&#243;n</th>'
                     '</tr></thead><tbody>' + _rows_html + '</tbody></table></div>'
                 )
                 st.markdown(_table_html, unsafe_allow_html=True)
