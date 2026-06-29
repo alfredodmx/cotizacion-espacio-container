@@ -163,7 +163,7 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
     _hero_css = ('background-image:url(data:image/jpeg;base64,' + hero_b64 + ');background-size:cover;background-position:center;' if hero_b64 else 'background:linear-gradient(135deg,#0a1628,#0f3460,#1a5276);')
 
     css = '''
-@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@700;900&family=Poppins:wght@400;600;700;900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&family=Poppins:wght@400;600;700;900&display=swap");
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;background-color:#f0f4f8 !important;}
 body{font-family:Poppins,sans-serif;font-size:14px;color:#0a1628;}
@@ -180,7 +180,7 @@ body{font-family:Poppins,sans-serif;font-size:14px;color:#0a1628;}
 .prog-fill{border-radius:99px;height:5px;background:linear-gradient(90deg,#48cae4,#90e0ef);transition:width 0.5s;}
 .prog-lbl{font-size:0.7rem;opacity:0.6;margin-top:4px;}
 .cat-card{background:white;border-radius:20px;margin:0 18px 16px;border:1px solid #e8f0fe;box-shadow:0 4px 20px rgba(15,52,96,0.08);overflow:hidden;}
-.cat-card-title{font-family:Montserrat,sans-serif;font-size:0.88rem;font-weight:700;color:#0f172a;letter-spacing:0.05em;text-transform:uppercase;padding:18px 24px 2px;}
+.cat-card-title{font-family:'Montserrat',sans-serif;font-size:0.88rem;font-weight:700;color:#0f172a;letter-spacing:0.05em;text-transform:uppercase;line-height:1.6;padding:18px 24px 2px;}
 .item-section{padding:16px 24px 18px;}
 .item-divider{height:1px;background:linear-gradient(90deg,#e8f0fe,transparent);margin:0 22px;}
 .item-title{font-family:Montserrat,sans-serif;font-size:0.74rem;font-weight:700;color:#475569;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
