@@ -25,8 +25,11 @@ html,body{background-color:#f0f4f8 !important;}
 .block-container,div[data-testid="stVerticalBlock"]{background-color:transparent !important;}
 iframe{border:none !important;background-color:#f0f4f8 !important;}
 [data-testid="stCustomComponentV1"],[data-testid="stIFrame"],[data-testid="element-container"]{background-color:#f0f4f8 !important;border-radius:0 !important;box-shadow:none !important;}
-/* Ancho amplio + menos espacio superior para el formulario del cliente */
-[data-testid="stMainBlockContainer"],.block-container{padding-top:0.4rem!important;padding-left:1.1rem!important;padding-right:1.1rem!important;max-width:100%!important;}
+/* Ancho amplio + sin espacio superior para el formulario del cliente */
+[data-testid="stMainBlockContainer"],.block-container{padding-top:0!important;padding-bottom:0!important;padding-left:1.1rem!important;padding-right:1.1rem!important;max-width:100%!important;}
+/* Colapsar gaps del vertical block (los st.markdown de CSS no deben dejar aire) */
+[data-testid="stVerticalBlock"]{gap:0!important;}
+[data-testid="stMain"]{padding-top:0!important;}
 /* El botón nativo "Salir" se reemplaza por el botón flotante del formulario */
 .st-key-cli_logout{display:none!important;}
 """
@@ -468,8 +471,9 @@ def _render_formulario_cliente(supabase_admin, supa_url: str, supa_key: str) -> 
             cat, cfg, resps_map, supa_url, supa_key,
             ep, nombre, logo_b64, hero_b64=hero_b64,
         )
-        form_html = form_html.replace('</body>', _RESIZE_JS + '</body>')
-        form_height = max(1200, len(cfg) * 450)
+        # Alto inicial aproximado; el JS del componente lo ajusta al contenido
+        # real vía window.frameElement (fitHeight), evitando el espacio vacío.
+        form_height = max(640, len(cfg) * 330)
         components.html(form_html, height=form_height, scrolling=False)
 
     if st.button("← Salir", key="cli_logout"):

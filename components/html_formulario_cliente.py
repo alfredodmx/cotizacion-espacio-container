@@ -166,8 +166,8 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@700;900&family=Poppins:wght@400;600;700;900&display=swap");
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;background-color:#f0f4f8 !important;}
-body{font-family:Poppins,sans-serif;font-size:14px;min-height:100vh;color:#0a1628;}
-.wrap{max-width:1240px;margin:0 auto;padding:0 0 120px;background-color:#f0f4f8;min-height:100vh;}
+body{font-family:Poppins,sans-serif;font-size:14px;color:#0a1628;}
+.wrap{max-width:1240px;margin:0 auto;padding:0 0 40px;background-color:#f0f4f8;}
 .header{''' + _hero_css + '''padding:0;border-radius:22px;color:white;box-shadow:0 18px 50px rgba(10,22,40,0.30);position:relative;overflow:hidden;min-height:280px;display:flex;flex-direction:column;justify-content:flex-end;margin:6px 18px 22px;}
 .header::before{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,rgba(5,10,20,0.15) 0%,rgba(5,10,20,0.65) 100%);border-radius:20px;}
 .h-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
@@ -180,10 +180,10 @@ body{font-family:Poppins,sans-serif;font-size:14px;min-height:100vh;color:#0a162
 .prog-fill{border-radius:99px;height:5px;background:linear-gradient(90deg,#48cae4,#90e0ef);transition:width 0.5s;}
 .prog-lbl{font-size:0.7rem;opacity:0.6;margin-top:4px;}
 .cat-card{background:white;border-radius:20px;margin:0 18px 16px;border:1px solid #e8f0fe;box-shadow:0 4px 20px rgba(15,52,96,0.08);overflow:hidden;}
-.cat-card-title{font-size:0.95rem;font-weight:700;color:#0a1628;font-family:Montserrat,sans-serif;letter-spacing:0.03em;text-transform:uppercase;padding:18px 24px 2px;}
+.cat-card-title{font-family:Montserrat,sans-serif;font-size:0.88rem;font-weight:700;color:#0f172a;letter-spacing:0.05em;text-transform:uppercase;padding:18px 24px 2px;}
 .item-section{padding:16px 24px 18px;}
 .item-divider{height:1px;background:linear-gradient(90deg,#e8f0fe,transparent);margin:0 22px;}
-.item-title{font-size:0.82rem;font-weight:600;color:#64748b;margin-bottom:12px;display:flex;align-items:center;gap:8px;font-family:Poppins,sans-serif;letter-spacing:0.02em;}
+.item-title{font-family:Montserrat,sans-serif;font-size:0.74rem;font-weight:700;color:#475569;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
 .done-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;flex-shrink:0;}
 .obs-box{background:#eff6ff;border-left:3px solid #60a5fa;border-radius:6px;padding:8px 12px;font-size:0.82rem;color:#374151;margin-bottom:12px;line-height:1.5;}
 .carousel-wrap{display:flex;align-items:center;gap:8px;}
@@ -327,6 +327,7 @@ function recompute(){
   var fp=fabEl('_ec_fab_pct'); if(fp)fp.textContent=pct+'%';
   var fb=fabEl('_ec_fab_bar'); if(fb)fb.style.width=pct+'%';
   var fl=fabEl('_ec_fab_lbl'); if(fl)fl.textContent=done+' de '+total+' completadas';
+  if(typeof fitHeight==="function") fitHeight();
 }
 
 async function guardar(){
@@ -386,6 +387,19 @@ async function guardar(){
   });
   recompute();
 })();
+
+// Ajusta el alto del iframe al contenido real (components.html trae alto fijo y
+// el postMessage no lo encoge; se redimensiona el frameElement directo, mismo origen).
+function fitHeight(){
+  try{
+    var h=document.body.scrollHeight;
+    if(window.frameElement) window.frameElement.style.height=(h+6)+"px";
+    window.parent.postMessage({type:"streamlit:setFrameHeight",height:h},"*");
+  }catch(e){}
+}
+window.addEventListener("load",fitHeight);
+[120,400,900,1600,2600].forEach(function(t){setTimeout(fitHeight,t);});
+document.querySelectorAll("img").forEach(function(im){im.addEventListener("load",fitHeight);});
 ''' )
 
     html = (
