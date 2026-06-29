@@ -4,8 +4,11 @@ Genera el HTML del formulario de seleccion de materiales para el cliente.
 import json
 
 
-def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, supa_key, ep, nombre_cliente, logo_b64='', hero_b64=''):
+def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, supa_key, ep, nombre_cliente, logo_b64='', hero_b64='', asesor_nombre='', asesor_foto=''):
     primer_nombre = nombre_cliente.split()[0].capitalize() if nombre_cliente else 'Cliente'
+    # Iniciales del asesor para el avatar de respaldo (cuando no hay foto).
+    _ase_partes = [p for p in (asesor_nombre or '').split() if p]
+    asesor_ini = ''.join(p[0] for p in _ase_partes[:2]).upper() if _ase_partes else 'EC'
     logo_html = ('<img src="data:image/png;base64,' + logo_b64 + '" style="height:49px;width:auto;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.25));">') if logo_b64 else ''
     _IC_ZOOM = ('<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" '
                 'stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">'
@@ -273,6 +276,10 @@ body{font-family:Poppins,sans-serif;font-size:14px;color:#0a1628;}
     js = (
         'var IC_SAVE_JS=' + json.dumps(_save_svg) + ';'
         'var IC_EXIT_JS=' + json.dumps(_exit_svg) + ';'
+        'var ASE_N=' + json.dumps(asesor_nombre or '') + ';'
+        'var ASE_F=' + json.dumps(asesor_foto or '') + ';'
+        'var ASE_INI=' + json.dumps(asesor_ini) + ';'
+        'var CLI_N=' + json.dumps(primer_nombre) + ';'
         + '''
 var S="''' + supa_url + '''",K="''' + supa_key + '''",EP="''' + ep + '''";
 var R=''' + resps_j + ''';
@@ -375,10 +382,20 @@ function recompute(){
   if(typeof fitHeight==="function") fitHeight();
 }
 
+function progresoActual(){
+  var secs=document.querySelectorAll('.item-section'), done=0;
+  secs.forEach(function(s){ if(s.querySelector('.c-item.sel,.i-item.sel,.sino-btn.sel')||(s.querySelector('.sel-inp')&&s.querySelector('.sel-inp').value.trim()))done++; });
+  return {done:done, total:secs.length, pct:(secs.length?Math.round(done/secs.length*100):0)};
+}
+
 async function guardar(){
   var btn=fabEl("_ec_fab_save");
   var entries=Object.entries(P);
-  if(!entries.length){setSt("No hay cambios por guardar","#94a3b8");return;}
+  if(!entries.length){
+    setSt("Tu selección ya estaba guardada","#16a34a");
+    showThanks(progresoActual().pct);
+    return;
+  }
   if(btn)btn.disabled=true; setSt("Guardando...","#2563eb");
   try{
     for(var i=0;i<entries.length;i++){
@@ -394,15 +411,76 @@ async function guardar(){
     }
     P={};
     setSt("Selección guardada correctamente","#16a34a");
+    var pr=progresoActual();
     try{
-      var secs=document.querySelectorAll('.item-section'), done=0;
-      secs.forEach(function(s){ if(s.querySelector('.c-item.sel,.i-item.sel,.sino-btn.sel')||(s.querySelector('.sel-inp')&&s.querySelector('.sel-inp').value.trim()))done++; });
-      if(secs.length>0 && done>=secs.length){
+      if(pr.total>0 && pr.done>=pr.total){
         await fetch(S+"/rest/v1/cotizaciones?numero=eq."+EP,{method:"PATCH",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({fecha_formulario_completado:new Date().toISOString()})});
       }
     }catch(e2){}
+    if(btn)btn.disabled=false;
+    showThanks(pr.pct);
+    return;
   }catch(e){setSt("Error: "+e.message,"#dc2626");}
   if(btn)btn.disabled=false;
+}
+
+// Modal de agradecimiento (se monta en el documento PADRE para que el overlay
+// fixed cubra la viewport real, no el iframe alto). Muestra la foto circular del
+// asesor (como el hero del ranking) + mensaje según el % completado.
+function showThanks(pct){
+  var D; try{D=window.parent.document;}catch(e){D=document;}
+  if(!D.getElementById("_ec_modal_css")){
+    var stl=D.createElement("style"); stl.id="_ec_modal_css";
+    stl.textContent="@keyframes _ecBdIn{from{opacity:0}to{opacity:1}}"
+      +"@keyframes _ecCardIn{0%{opacity:0;transform:translateY(28px) scale(.9)}100%{opacity:1;transform:translateY(0) scale(1)}}"
+      +"@keyframes _ecAvPop{0%{opacity:0;transform:scale(.4)}60%{transform:scale(1.1)}100%{opacity:1;transform:scale(1)}}"
+      +"@keyframes _ecBadgePop{0%{opacity:0;transform:scale(0)}70%{transform:scale(1.25)}100%{opacity:1;transform:scale(1)}}";
+    (D.head||D.body).appendChild(stl);
+  }
+  var old=D.getElementById("_ec_thanks"); if(old) old.remove();
+  var done=(pct>=100);
+  var accent=done?"#16a34a":"#0f3460";
+  var grad2=done?"#22c55e":"#1a5276";
+  var primer=CLI_N||"Cliente";
+  var ase=ASE_N||"tu asesor";
+  var titulo=done?("¡Excelente decisión, "+primer+"!"):("¡Buen avance, "+primer+"!");
+  var msg=done
+    ? "Has completado de forma exitosa tu formulario de materiales."
+    : "Llevas completado el <b style='color:"+accent+"'>"+pct+"%</b> de tu formulario. Si necesitas ayuda, recuerda que estoy para atenderte.";
+  var avatar=ASE_F
+    ? '<img src="'+ASE_F+'" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;">'
+    : '<div style="width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,#0f3460,#1a5276);display:flex;align-items:center;justify-content:center;color:#fff;font-family:Montserrat,sans-serif;font-weight:900;font-size:1.9rem;">'+(ASE_INI||"EC")+'</div>';
+  var badge=done
+    ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
+    : '<span style="color:#fff;font-family:Montserrat,sans-serif;font-weight:900;font-size:.56rem;line-height:1;">'+pct+'%</span>';
+  var prevOv=D.body.style.overflow; D.body.style.overflow="hidden";
+  var ov=D.createElement("div"); ov.id="_ec_thanks";
+  ov.style.cssText="position:fixed;inset:0;z-index:2147483646;background:rgba(5,12,28,.62);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;padding:22px;box-sizing:border-box;font-family:Poppins,sans-serif;animation:_ecBdIn .3s ease both;";
+  ov.innerHTML=
+    '<div style="position:relative;background:#fff;border-radius:24px;max-width:430px;width:100%;padding:40px 32px 30px;text-align:center;box-shadow:0 40px 90px rgba(5,12,28,.45);animation:_ecCardIn .55s cubic-bezier(.16,1,.3,1) both;">'
+    +'<button id="_ec_th_x" aria-label="Cerrar" style="position:absolute;top:14px;right:14px;width:32px;height:32px;border:none;background:#f1f5f9;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#64748b" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg></button>'
+    +'<div style="position:relative;width:96px;height:96px;margin:2px auto 18px;animation:_ecAvPop .6s cubic-bezier(.16,1,.3,1) both;">'
+      +'<div style="width:96px;height:96px;border-radius:50%;padding:3px;background:linear-gradient(135deg,'+accent+',#48cae4);box-shadow:0 12px 30px rgba(15,52,96,.3);box-sizing:border-box;">'
+        +'<div style="width:100%;height:100%;border-radius:50%;border:3px solid #fff;overflow:hidden;background:#fff;box-sizing:border-box;">'+avatar+'</div>'
+      +'</div>'
+      +'<div style="position:absolute;bottom:-2px;right:-2px;width:30px;height:30px;border-radius:50%;background:'+accent+';border:3px solid #fff;display:flex;align-items:center;justify-content:center;animation:_ecBadgePop .5s .38s cubic-bezier(.16,1,.3,1) both;">'+badge+'</div>'
+    +'</div>'
+    +'<div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:1.18rem;color:#0a1628;letter-spacing:.01em;margin-bottom:9px;line-height:1.3;">'+titulo+'</div>'
+    +'<div style="color:#475569;font-size:.92rem;line-height:1.6;margin:0 auto 18px;max-width:340px;">'+msg+'</div>'
+    +'<div style="border-top:1px solid #eef2f7;padding-top:15px;margin-top:2px;">'
+      +'<div style="font-size:.74rem;color:#94a3b8;margin-bottom:2px;">Un saludo,</div>'
+      +'<div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:.96rem;color:#0f3460;">'+ase+'</div>'
+      +'<div style="font-size:.66rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-top:3px;">Tu asesor &middot; Espacio Container</div>'
+    +'</div>'
+    +'<button id="_ec_th_ok" style="margin-top:20px;width:100%;background:linear-gradient(135deg,'+accent+','+grad2+');color:#fff;border:none;border-radius:13px;padding:13px;font-size:.9rem;font-weight:700;cursor:pointer;font-family:Poppins,sans-serif;box-shadow:0 10px 26px rgba(15,52,96,.28);">'+(done?"¡Genial!":"Entendido")+'</button>'
+    +'</div>';
+  D.body.appendChild(ov);
+  function close(){ if(ov.parentNode)ov.parentNode.removeChild(ov); D.body.style.overflow=prevOv||""; D.removeEventListener("keydown",onKey); }
+  function onKey(e){ if(e.key==="Escape") close(); }
+  ov.addEventListener("click",function(e){ if(e.target===ov) close(); });
+  ov.querySelector("#_ec_th_x").addEventListener("click",close);
+  ov.querySelector("#_ec_th_ok").addEventListener("click",close);
+  D.addEventListener("keydown",onKey);
 }
 
 // Barra flotante (Guardar selección con % + Salir). Se monta en el documento
@@ -410,6 +488,7 @@ async function guardar(){
 (function(){
   var D; try{D=window.parent.document;}catch(e){D=document;}
   var old=D.getElementById("_ec_cli_fab"); if(old) old.remove();
+  var oldTh=D.getElementById("_ec_thanks"); if(oldTh){oldTh.remove(); D.body.style.overflow="";}
   var fab=D.createElement("div"); fab.id="_ec_cli_fab";
   fab.style.cssText="position:fixed;right:22px;bottom:22px;z-index:2147483600;display:flex;flex-direction:column;gap:11px;width:240px;font-family:Poppins,sans-serif;";
   fab.innerHTML=

@@ -6,10 +6,33 @@ import base64
 import os
 import re
 
+import httpx
 import streamlit as st
 import streamlit.components.v1 as components
 
 from components.html_formulario_cliente import build_formulario_cliente_html
+from config.settings import SUPABASE_SERVICE_KEY
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _fetch_foto_map(_url: str) -> dict:
+    """email(min) -> foto_url. Usa la API admin (service key) como el ranking."""
+    try:
+        r = httpx.get(
+            f"{_url}/auth/v1/admin/users",
+            headers={"apikey": SUPABASE_SERVICE_KEY,
+                     "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"},
+            params={"per_page": 1000, "page": 1}, timeout=15,
+        )
+        r.raise_for_status()
+        out = {}
+        for u in r.json().get("users", []):
+            em = (u.get("email") or "").lower()
+            meta = u.get("user_metadata") or u.get("raw_user_meta_data") or {}
+            out[em] = meta.get("foto_url", "") or ""
+        return out
+    except Exception:
+        return {}
 
 _CSS_CLIENTE = """
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&family=Montserrat:wght@700;800;900&display=swap');
@@ -430,6 +453,19 @@ def _render_formulario_cliente(supabase_admin, supa_url: str, supa_key: str) -> 
     nombre   = st.session_state._cliente_nombre
     primer_n = nombre.split()[0].capitalize() if nombre else "Cliente"
 
+    # Asesor del EP (nombre + foto) para el modal de agradecimiento.
+    asesor_nombre, asesor_foto = '', ''
+    try:
+        arow = supabase_admin.table('cotizaciones')\
+            .select('asesor_nombre,asesor_email').eq('numero', ep).limit(1).execute().data
+        if arow:
+            asesor_nombre = (arow[0].get('asesor_nombre') or '').strip()
+            ae = (arow[0].get('asesor_email') or '').strip().lower()
+            if ae:
+                asesor_foto = _fetch_foto_map(supa_url).get(ae, '')
+    except Exception:
+        pass
+
     try:
         cat = supabase_admin.table('catalogo_materiales').select('*').eq('activo', True)\
             .order('categoria').order('orden_grupo').order('titulo_grupo').order('nombre')\
@@ -470,6 +506,7 @@ def _render_formulario_cliente(supabase_admin, supa_url: str, supa_key: str) -> 
         form_html = build_formulario_cliente_html(
             cat, cfg, resps_map, supa_url, supa_key,
             ep, nombre, logo_b64, hero_b64=hero_b64,
+            asesor_nombre=asesor_nombre, asesor_foto=asesor_foto,
         )
         # Alto inicial aproximado; el JS del componente lo ajusta al contenido
         # real vía window.frameElement (fitHeight), evitando el espacio vacío.
