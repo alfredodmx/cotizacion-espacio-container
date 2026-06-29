@@ -412,8 +412,10 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
                 _cfg_html = build_config_preguntas_html(
                     _cat_todos, _cfg_data, _supa_url, _supa_key, _form_ep
                 )
-                _cfg_height = max(800, len(_cat_todos) * 40 + 600)
-                _st_components.html(_cfg_html, height=_cfg_height, scrolling=True)
+                # Alto inicial aproximado; el JS (fitHeight) lo ajusta al contenido
+                # real vía window.frameElement → sin scroll interno.
+                _cfg_height = max(600, len(_cat_todos) * 40 + 400)
+                _st_components.html(_cfg_html, height=_cfg_height, scrolling=False)
 
     # ── TAB PROGRESO ──
     with _ftab_progreso:

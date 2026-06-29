@@ -184,7 +184,7 @@ body{margin:0;padding:0;font-family:'Inter','Segoe UI',sans-serif;font-size:13px
 .obs-label{font-size:9.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;display:block;}
 textarea{font-family:inherit;transition:border-color .15s,box-shadow .15s;}
 textarea:focus{outline:none;border-color:#6366f1 !important;box-shadow:0 0 0 3px rgba(99,102,241,0.12);}
-.save-bar{position:sticky;bottom:0;background:rgba(255,255,255,0.96);backdrop-filter:blur(6px);border-top:1px solid #e7ebf3;padding:12px 16px;display:flex;gap:10px;align-items:center;box-shadow:0 -4px 20px rgba(15,23,42,0.06);border-radius:0 0 14px 14px;}
+.save-bar{position:relative;margin:6px 2px 2px;background:#fff;border:1px solid #e7ebf3;padding:14px 16px;display:flex;gap:10px;align-items:center;box-shadow:0 4px 18px rgba(15,23,42,0.07);border-radius:14px;}
 .btn-save{display:inline-flex;align-items:center;gap:6px;background:#0f3460;color:#fff;border:none;border-radius:9px;padding:11px 22px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;transition:background .15s,transform .12s,box-shadow .15s;}
 .btn-save svg{width:15px;height:15px;flex-shrink:0;}
 .btn-save:hover{background:#0c2a4d;transform:translateY(-1px);box-shadow:0 4px 12px rgba(15,52,96,0.25);}
@@ -251,6 +251,24 @@ window.guardarConfig=async function(){
   st.textContent='✓ Guardado ('+saved+' grupos)';st.style.color='#16a34a';btn.disabled=false;
 };
 updateSummary();
+
+// Ajusta el alto del iframe al contenido real (sin scroll interno). components.html
+// trae alto fijo y el postMessage no lo encoge → redimensionamos frameElement directo
+// (mismo origen). Re-ajusta al cargar imágenes, escribir, marcar checks o cambiar tamaño.
+function fitHeight(){
+  try{
+    var h=Math.ceil(document.body.scrollHeight);
+    if(window.frameElement){ window.frameElement.style.height=(h+4)+'px'; }
+    window.parent.postMessage({type:"streamlit:setFrameHeight",height:h},"*");
+  }catch(e){}
+}
+window.addEventListener('load',fitHeight);
+[60,200,500,1000,1800].forEach(function(t){setTimeout(fitHeight,t);});
+document.querySelectorAll('img').forEach(function(im){im.addEventListener('load',fitHeight);});
+document.addEventListener('input',fitHeight);
+document.addEventListener('change',fitHeight);
+try{ var _ecCfgRO=new ResizeObserver(function(){fitHeight();}); _ecCfgRO.observe(document.documentElement); }catch(e){}
+fitHeight();
 '''
     )
 
