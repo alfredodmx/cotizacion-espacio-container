@@ -25,6 +25,10 @@ html,body{background-color:#f0f4f8 !important;}
 .block-container,div[data-testid="stVerticalBlock"]{background-color:transparent !important;}
 iframe{border:none !important;background-color:#f0f4f8 !important;}
 [data-testid="stCustomComponentV1"],[data-testid="stIFrame"],[data-testid="element-container"]{background-color:#f0f4f8 !important;border-radius:0 !important;box-shadow:none !important;}
+/* Ancho amplio + menos espacio superior para el formulario del cliente */
+[data-testid="stMainBlockContainer"],.block-container{padding-top:0.4rem!important;padding-left:1.1rem!important;padding-right:1.1rem!important;max-width:100%!important;}
+/* El botón nativo "Salir" se reemplaza por el botón flotante del formulario */
+.st-key-cli_logout{display:none!important;}
 """
 
 _RESIZE_JS = (
@@ -437,13 +441,17 @@ def _render_formulario_cliente(supabase_admin, supa_url: str, supa_key: str) -> 
         cfg = []
 
     if not cfg:
+        _ic_clip = ('<svg viewBox="0 0 24 24" width="46" height="46" fill="none" stroke="#0f3460" '
+                    'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+                    '<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>'
+                    '<rect width="8" height="4" x="8" y="2" rx="1"/><path d="m9 14 2 2 4-4"/></svg>')
         st.markdown(f"""
         <div style='max-width:560px;margin:60px auto;text-align:center;font-family:Poppins,sans-serif;'>
-          <div style='font-size:3rem;margin-bottom:16px;'>📋</div>
+          <div style='margin-bottom:16px;'>{_ic_clip}</div>
           <div style='font-size:1.4rem;font-weight:900;color:#0a1628;margin-bottom:8px;'>
-            Hola {primer_n}, ¡ya casi!</div>
+            Hola {primer_n}, &#161;ya casi!</div>
           <div style='color:#64748b;font-size:0.95rem;line-height:1.6;'>
-            Tu formulario está siendo preparado. ¡La espera va a valer la pena! 🏡</div>
+            Tu formulario est&#225; siendo preparado. &#161;La espera va a valer la pena!</div>
         </div>
         """, unsafe_allow_html=True)
     else:
