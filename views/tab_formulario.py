@@ -15,6 +15,7 @@ from utils.formulario import (
     build_config_preguntas_html,
 )
 from utils.cat_icons import cat_icon_svg
+from utils.avatars import fetch_foto_map, avatar_html
 from config.supabase import supabase_admin as _supa_admin
 
 
@@ -46,15 +47,28 @@ _IC_TAG    = ('<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2
 _IC_USER   = ('<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>')
 _IC_TYPE   = ('<polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/>'
               '<line x1="12" x2="12" y1="4" y2="20"/>')
+_IC_BILL   = ('<rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/>'
+              '<path d="M6 12h.01M18 12h.01"/>')
 
 # CSS del rediseño de PROGRESO CLIENTES (tarjetas con imagen/color seleccionado).
 _PROGRESO_CSS = """
 <style>
 .ec-pg-summary{background:linear-gradient(135deg,#0f3460,#1a5276);border-radius:16px;
-  padding:16px 20px;margin:2px 0 18px;box-shadow:0 10px 28px rgba(15,52,96,.18);}
-.ec-pg-sum-top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;}
-.ec-pg-pct{font-family:'Montserrat',sans-serif;font-size:1.6rem;font-weight:900;color:#fff;line-height:1;}
-.ec-pg-sum-lbl{font-family:'Poppins',sans-serif;font-size:.74rem;font-weight:600;color:rgba(255,255,255,.82);}
+  padding:18px 22px;margin:2px 0 18px;box-shadow:0 10px 28px rgba(15,52,96,.18);}
+.ec-pg-head{display:flex;align-items:center;gap:15px;margin-bottom:14px;}
+.ec-pg-meta{flex:1 1 auto;min-width:0;}
+.ec-pg-proj{font-family:'Montserrat',sans-serif;font-size:0.92rem;font-weight:800;color:#fff;
+  letter-spacing:.02em;line-height:1.25;margin-bottom:3px;}
+.ec-pg-by{font-family:'Poppins',sans-serif;font-size:.8rem;color:rgba(255,255,255,.86);line-height:1.45;}
+.ec-pg-by b{color:#fff;font-weight:700;}
+.ec-pg-monto{font-family:'Poppins',sans-serif;font-size:.78rem;color:rgba(255,255,255,.86);margin-top:5px;
+  display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);
+  border:1px solid rgba(255,255,255,.2);border-radius:99px;padding:3px 11px;}
+.ec-pg-monto b{color:#fff;font-weight:800;font-family:'Montserrat',sans-serif;}
+.ec-pg-pctwrap{flex:0 0 auto;text-align:right;}
+.ec-pg-pct{font-family:'Montserrat',sans-serif;font-size:1.7rem;font-weight:900;color:#fff;line-height:1;}
+.ec-pg-sum-lbl{font-family:'Poppins',sans-serif;font-size:.72rem;font-weight:600;
+  color:rgba(255,255,255,.78);margin-top:7px;}
 .ec-pg-bar{background:rgba(255,255,255,.18);border-radius:99px;height:9px;overflow:hidden;}
 .ec-pg-fill{height:9px;border-radius:99px;background:linear-gradient(90deg,#48cae4,#90e0ef);
   box-shadow:0 0 12px rgba(144,224,239,.6);transition:width .5s ease;}
@@ -428,6 +442,21 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
             for _cc in _all_cfg:
                 _cfg_by_ep[_cc['cotizacion_numero']].append(_cc)
 
+            # Datos del proyecto (cliente, asesor, monto) + foto del asesor.
+            _eps = list(_cfg_by_ep.keys())
+            _coti_by_ep = {}
+            try:
+                _coti_rows = supa_admin.table('cotizaciones').select(
+                    'numero,cliente_nombre,asesor_nombre,asesor_email,total_total'
+                ).in_('numero', _eps).execute().data or []
+                _coti_by_ep = {str(r.get('numero')): r for r in _coti_rows}
+            except Exception:
+                _coti_by_ep = {}
+            try:
+                _foto_map = fetch_foto_map(_supa_url) if _supa_url else {}
+            except Exception:
+                _foto_map = {}
+
             _resps_by_ep = defaultdict(dict)
             for _rr in _all_resps:
                 _key = _rr.get('item_id') or _rr.get('pregunta_id') or ''
@@ -446,13 +475,39 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
                     )
                     _fpct = int(_done / _total * 100) if _total > 0 else 0
 
-                    with st.expander(f"**{_fep}**  ·  {_fpct}% completado  ·  {_done}/{_total} grupos",
+                    # Datos del proyecto
+                    _ci = _coti_by_ep.get(str(_fep), {})
+                    _cliente = (_ci.get('cliente_nombre') or '').strip() or 'Sin nombre'
+                    _asesor = (_ci.get('asesor_nombre') or '').strip() or 'Sin asignar'
+                    _ase_email = (_ci.get('asesor_email') or '').strip().lower()
+                    _ase_foto = _foto_map.get(_ase_email, '') if _ase_email else ''
+                    try:
+                        _monto_v = float(_ci.get('total_total') or 0)
+                    except (TypeError, ValueError):
+                        _monto_v = 0.0
+                    _monto = '$' + f'{_monto_v:,.0f}'.replace(',', '.')
+
+                    _lbl_cli = _cliente if _cliente != 'Sin nombre' else _fep
+                    with st.expander(f"**{_fep}**  ·  {_lbl_cli}  ·  {_fpct}% completado",
                                      expanded=(_ei == 0)):
+                        _monto_html = (
+                            f"<div class='ec-pg-monto'>{_fic(_IC_BILL, 13, color='#fff', sw=2, valign=0)}"
+                            f"Monto del proyecto <b>{_monto}</b></div>"
+                        ) if _monto_v > 0 else ""
                         _html_parts = [
                             "<div class='ec-pg-summary'>"
-                            "<div class='ec-pg-sum-top'>"
-                            f"<span class='ec-pg-pct'>{_fpct}%</span>"
-                            f"<span class='ec-pg-sum-lbl'>{_done} de {_total} secciones respondidas</span>"
+                            "<div class='ec-pg-head'>"
+                            + avatar_html(_ase_foto, _asesor, 58)
+                            + "<div class='ec-pg-meta'>"
+                            f"<div class='ec-pg-proj'>Proyecto N&deg; {_html.escape(str(_fep))}</div>"
+                            f"<div class='ec-pg-by'>Realizado por <b>{_html.escape(_asesor)}</b> "
+                            f"&middot; a nombre de <b>{_html.escape(_cliente)}</b></div>"
+                            + _monto_html
+                            + "</div>"
+                            "<div class='ec-pg-pctwrap'>"
+                            f"<div class='ec-pg-pct'>{_fpct}%</div>"
+                            f"<div class='ec-pg-sum-lbl'>{_done}/{_total} secciones</div>"
+                            "</div>"
                             "</div>"
                             f"<div class='ec-pg-bar'><div class='ec-pg-fill' style='width:{_fpct}%;'></div></div>"
                             "</div>"

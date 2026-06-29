@@ -6,33 +6,11 @@ import base64
 import os
 import re
 
-import httpx
 import streamlit as st
 import streamlit.components.v1 as components
 
 from components.html_formulario_cliente import build_formulario_cliente_html
-from config.settings import SUPABASE_SERVICE_KEY
-
-
-@st.cache_data(ttl=300, show_spinner=False)
-def _fetch_foto_map(_url: str) -> dict:
-    """email(min) -> foto_url. Usa la API admin (service key) como el ranking."""
-    try:
-        r = httpx.get(
-            f"{_url}/auth/v1/admin/users",
-            headers={"apikey": SUPABASE_SERVICE_KEY,
-                     "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"},
-            params={"per_page": 1000, "page": 1}, timeout=15,
-        )
-        r.raise_for_status()
-        out = {}
-        for u in r.json().get("users", []):
-            em = (u.get("email") or "").lower()
-            meta = u.get("user_metadata") or u.get("raw_user_meta_data") or {}
-            out[em] = meta.get("foto_url", "") or ""
-        return out
-    except Exception:
-        return {}
+from utils.avatars import fetch_foto_map as _fetch_foto_map
 
 _CSS_CLIENTE = """
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&family=Montserrat:wght@700;800;900&display=swap');
