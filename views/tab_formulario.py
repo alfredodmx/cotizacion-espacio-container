@@ -37,6 +37,38 @@ _IC_CLIP   = ('<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7
 _IC_CHECK  = '<path d="M20 6 9 17l-5-5"/>'
 _IC_CIRCLE = '<circle cx="12" cy="12" r="9"/>'
 
+# JS de la tabla HTML de adjudicados (CONFIGURAR PREGUNTAS): click-to-copy en las
+# celdas .cp-cell (N° EP / RUT) y "Configurar" que carga ese EP vía query param
+# _cfg_ep + click al botón nativo oculto (sin recargar la página). Corre en un
+# components.html(height=0) y opera sobre window.parent.document; re-bindea cada run.
+_ADJ_TABLE_JS = """
+<script>
+(function(){
+  var D=window.parent.document;
+  function flash(el,txt){var o=el.innerHTML,c=el.style.color;el.innerHTML=txt;el.style.color='#16a34a';
+    setTimeout(function(){el.innerHTML=o;el.style.color=c;},1100);}
+  function copyVal(v,el){
+    try{var ta=D.createElement('textarea');ta.value=v;ta.style.cssText='position:fixed;top:-9999px;left:-9999px;';
+      D.body.appendChild(ta);ta.focus();ta.select();D.execCommand('copy');ta.remove();}catch(e){}
+    try{if(window.parent.navigator.clipboard)window.parent.navigator.clipboard.writeText(v).catch(function(){});}catch(e){}
+    flash(el,'\\u2713 copiado');
+  }
+  function onClick(e){
+    var t=e.target;if(!t||!t.closest)return;
+    var cp=t.closest('.cp-cell');
+    if(cp){var v=cp.getAttribute('data-copy')||'';if(v)copyVal(v,cp);return;}
+    var cb=t.closest('.cfg-btn');
+    if(cb){var ep=cb.getAttribute('data-ep')||'';
+      try{var u=new URL(window.parent.location.href);u.searchParams.set('_cfg_ep',ep);
+        window.parent.history.replaceState({},'',u.toString());}catch(e2){}
+      var b=D.querySelector('.st-key-_cfg_load_btn button');if(b)b.click();return;}
+  }
+  if(D.__adjTblH){D.removeEventListener('click',D.__adjTblH);}
+  D.__adjTblH=onClick;D.addEventListener('click',onClick);
+})();
+</script>
+"""
+
 
 def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='', **deps):
     supa_admin = supabase_admin or _supa_admin
@@ -154,7 +186,7 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
                 _st_components.html(_cli_link_html, height=46)
             try:
                 _adj_q = supa_admin.table('cotizaciones').select(
-                    'numero,cliente_nombre,asesor_nombre,fecha_adjudicacion,estado,asesor_email'
+                    'numero,cliente_nombre,cliente_rut,asesor_nombre,fecha_adjudicacion,estado,asesor_email'
                 ).eq('estado', 'ADJUDICADO')
                 # Ejecutivo: solo SUS adjudicados (root/admin ven todos). Mismo
                 # criterio que el resto del sistema (filtrar por asesor_email).
@@ -178,44 +210,80 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
                 st.info("A&#250;n no tienes presupuestos adjudicados." if _rol == 'ejecutivo'
                         else "A&#250;n no hay presupuestos adjudicados.")
             else:
-                _df_adj = pd.DataFrame([{
-                    'N° EP':      r.get('numero', ''),
-                    'Cliente':    r.get('cliente_nombre') or '—',
-                    'Asesor':     r.get('asesor_nombre') or '—',
-                    'Adjudicado': (r.get('fecha_adjudicacion') or '')[:10] or '—',
-                    'Preguntas':  'SÍ' if r.get('numero') in _fc_nums else 'NO',
-                } for r in _adj])
-                _n_si = int((_df_adj['Preguntas'] == 'SÍ').sum())
+                import html as _h
+                _n_si = sum(1 for r in _adj if r.get('numero') in _fc_nums)
                 st.caption(
-                    f"{len(_df_adj)} adjudicados · {_n_si} con preguntas configuradas · "
-                    f"{len(_df_adj) - _n_si} pendientes. Haz click en una fila para configurar sus preguntas."
+                    f"{len(_adj)} adjudicados · {_n_si} con preguntas configuradas · "
+                    f"{len(_adj) - _n_si} pendientes. Click en el N&#176; EP o el RUT para copiarlos; "
+                    f'"Configurar" para editar las preguntas de ese EP.'
                 )
-
-                def _color_preg(col):
-                    return [('background-color:#dcfce7;color:#15803d;font-weight:800;' if v == 'SÍ'
-                             else 'background-color:#fee2e2;color:#dc2626;font-weight:800;') for v in col]
-                _sty = _df_adj.style.apply(_color_preg, subset=['Preguntas'])
-
-                _sel_adj = st.dataframe(
-                    _sty, use_container_width=True, hide_index=True,
-                    on_select="rerun", selection_mode="single-row", key="_adj_preg_table",
+                _pill_si = ('background:#dcfce7;color:#15803d;border:1px solid #86efac;'
+                            'border-radius:99px;padding:2px 10px;font-size:0.72rem;font-weight:800;')
+                _pill_no = ('background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;'
+                            'border-radius:99px;padding:2px 10px;font-size:0.72rem;font-weight:800;')
+                _rows_html = ''
+                for r in _adj:
+                    _ep = str(r.get('numero') or '')
+                    _rut = str(r.get('cliente_rut') or '').strip()
+                    _cli = _h.escape(str(r.get('cliente_nombre') or '—'))
+                    _ase = _h.escape(str(r.get('asesor_nombre') or '—'))
+                    _adjf = (str(r.get('fecha_adjudicacion') or '')[:10]) or '—'
+                    _preg = (f'<span style="{_pill_si}">S&#205;</span>' if _ep in _fc_nums
+                             else f'<span style="{_pill_no}">NO</span>')
+                    if _rut:
+                        _rut_cell = (f'<td class="cp-cell" data-copy="{_h.escape(_rut, quote=True)}" '
+                                     f'title="Click para copiar el RUT">{_h.escape(_rut)} '
+                                     f'<span class="cp-ic">&#9112;</span></td>')
+                    else:
+                        _rut_cell = '<td style="color:#cbd5e1;">&#8212;</td>'
+                    _rows_html += (
+                        '<tr>'
+                        f'<td class="cp-cell" data-copy="{_h.escape(_ep, quote=True)}" '
+                        f'title="Click para copiar el N&#176; EP">{_h.escape(_ep)} '
+                        f'<span class="cp-ic">&#9112;</span></td>'
+                        f'{_rut_cell}'
+                        f'<td>{_cli}</td>'
+                        f'<td>{_ase}</td>'
+                        f'<td class="ctr">{_adjf}</td>'
+                        f'<td class="ctr">{_preg}</td>'
+                        f'<td class="ctr"><button class="cfg-btn" data-ep="{_h.escape(_ep, quote=True)}">'
+                        'Configurar</button></td>'
+                        '</tr>'
+                    )
+                _table_html = (
+                    '<style>'
+                    '.st-key-_cfg_load_btn{display:none!important;}'
+                    '.ep-tbl-wrap{overflow-x:auto;border:1px solid #e7ebf3;border-radius:12px;'
+                    'box-shadow:0 1px 3px rgba(15,23,42,0.05);}'
+                    ".ep-tbl{width:100%;border-collapse:collapse;font-family:'Inter','Segoe UI',sans-serif;font-size:0.82rem;}"
+                    '.ep-tbl thead th{background:#0f172a;color:#fff;font-family:Montserrat,sans-serif;font-weight:700;'
+                    'font-size:0.66rem;text-transform:uppercase;letter-spacing:0.05em;padding:10px 12px;text-align:left;white-space:nowrap;}'
+                    '.ep-tbl tbody td{padding:9px 12px;border-bottom:1px solid #eef2f7;color:#0f172a;font-weight:600;vertical-align:middle;}'
+                    '.ep-tbl tbody tr:hover{background:#f8fafc;}'
+                    '.ep-tbl tbody tr:last-child td{border-bottom:none;}'
+                    '.ep-tbl .ctr{text-align:center;}'
+                    '.ep-tbl .cp-cell{cursor:pointer;font-weight:800;color:#2563eb;white-space:nowrap;font-variant-numeric:tabular-nums;}'
+                    '.ep-tbl .cp-cell:hover{color:#1d4ed8;text-decoration:underline;}'
+                    '.ep-tbl .cp-ic{font-size:0.85em;opacity:0.55;}'
+                    '.ep-tbl .cfg-btn{background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;border-radius:7px;'
+                    'padding:5px 12px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s;}'
+                    '.ep-tbl .cfg-btn:hover{background:#e0e7ff;}'
+                    '</style>'
+                    '<div class="ep-tbl-wrap"><table class="ep-tbl"><thead><tr>'
+                    '<th>N&#176; EP</th><th>RUT cliente</th><th>Cliente</th><th>Asesor</th>'
+                    '<th class="ctr">Adjudicado</th><th class="ctr">Preguntas</th><th class="ctr">Acci&#243;n</th>'
+                    '</tr></thead><tbody>' + _rows_html + '</tbody></table></div>'
                 )
-                _rows = []
-                try:
-                    _rows = list(_sel_adj.selection.rows)
-                except Exception:
-                    try:
-                        _rows = list(_sel_adj["selection"]["rows"])
-                    except Exception:
-                        _rows = []
-                if _rows:
-                    _pick = str(_df_adj.iloc[_rows[0]]['N° EP'])
-                    # Sólo cargar cuando la fila SELECCIONADA cambia (no en cada
-                    # rerun), para no pisar una carga manual posterior por EP.
-                    if _pick and _pick != st.session_state.get('_adj_last_pick'):
-                        st.session_state['_adj_last_pick'] = _pick
-                        st.session_state['_form_ep'] = _pick
-                        st.rerun()
+                st.markdown(_table_html, unsafe_allow_html=True)
+                # Botón nativo OCULTO: el JS de la tabla lo clickea para cargar el EP
+                # elegido (vía query param _cfg_ep) y configurar sus preguntas, sin
+                # recargar la página (mismo patrón que el refresco del catálogo).
+                if st.button("cfgload", key="_cfg_load_btn"):
+                    _qep = (st.query_params.get('_cfg_ep') or '').strip().upper()
+                    if _qep:
+                        st.session_state['_form_ep'] = _qep
+                    st.rerun()
+                _st_components.html(_ADJ_TABLE_JS, height=0)
 
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
             # ── Buscar / cargar EP manualmente ──
