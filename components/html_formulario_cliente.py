@@ -441,6 +441,7 @@ function showThanks(pct){
   var done=(pct>=100);
   var accent=done?"#16a34a":"#0f3460";
   var grad2=done?"#22c55e":"#1a5276";
+  var AV="min(300px,64vw)";  // tamaño de la foto del asesor (responsivo)
   var primer=CLI_N||"Cliente";
   var ase=ASE_N||"tu asesor";
   var titulo=done?("¡Excelente decisión, "+primer+"!"):("¡Buen avance, "+primer+"!");
@@ -451,19 +452,19 @@ function showThanks(pct){
     ? '<img src="'+ASE_F+'" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;">'
     : '<div style="width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,#0f3460,#1a5276);display:flex;align-items:center;justify-content:center;color:#fff;font-family:Montserrat,sans-serif;font-weight:900;font-size:1.9rem;">'+(ASE_INI||"EC")+'</div>';
   var badge=done
-    ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
-    : '<span style="color:#fff;font-family:Montserrat,sans-serif;font-weight:900;font-size:.56rem;line-height:1;">'+pct+'%</span>';
+    ? '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
+    : '<span style="color:#fff;font-family:Montserrat,sans-serif;font-weight:900;font-size:.92rem;line-height:1;">'+pct+'%</span>';
   var prevOv=D.body.style.overflow; D.body.style.overflow="hidden";
   var ov=D.createElement("div"); ov.id="_ec_thanks";
   ov.style.cssText="position:fixed;inset:0;z-index:2147483646;background:rgba(5,12,28,.62);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;padding:22px;box-sizing:border-box;font-family:Poppins,sans-serif;animation:_ecBdIn .3s ease both;";
   ov.innerHTML=
-    '<div style="position:relative;background:#fff;border-radius:24px;max-width:430px;width:100%;padding:40px 32px 30px;text-align:center;box-shadow:0 40px 90px rgba(5,12,28,.45);animation:_ecCardIn .55s cubic-bezier(.16,1,.3,1) both;">'
-    +'<button id="_ec_th_x" aria-label="Cerrar" style="position:absolute;top:14px;right:14px;width:32px;height:32px;border:none;background:#f1f5f9;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#64748b" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg></button>'
-    +'<div style="position:relative;width:96px;height:96px;margin:2px auto 18px;animation:_ecAvPop .6s cubic-bezier(.16,1,.3,1) both;">'
-      +'<div style="width:96px;height:96px;border-radius:50%;padding:3px;background:linear-gradient(135deg,'+accent+',#48cae4);box-shadow:0 12px 30px rgba(15,52,96,.3);box-sizing:border-box;">'
-        +'<div style="width:100%;height:100%;border-radius:50%;border:3px solid #fff;overflow:hidden;background:#fff;box-sizing:border-box;">'+avatar+'</div>'
+    '<div style="position:relative;background:#fff;border-radius:24px;max-width:472px;width:100%;padding:40px 34px 30px;text-align:center;box-shadow:0 40px 90px rgba(5,12,28,.45);animation:_ecCardIn .55s cubic-bezier(.16,1,.3,1) both;">'
+    +'<button id="_ec_th_x" aria-label="Cerrar" style="position:absolute;top:14px;right:14px;width:32px;height:32px;border:none;background:#f1f5f9;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#64748b" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg></button>'
+    +'<div style="position:relative;width:'+AV+';height:'+AV+';margin:6px auto 22px;animation:_ecAvPop .6s cubic-bezier(.16,1,.3,1) both;">'
+      +'<div style="width:100%;height:100%;border-radius:50%;padding:4px;background:linear-gradient(135deg,'+accent+',#48cae4);box-shadow:0 18px 44px rgba(15,52,96,.34);box-sizing:border-box;">'
+        +'<div style="width:100%;height:100%;border-radius:50%;border:4px solid #fff;overflow:hidden;background:#fff;box-sizing:border-box;">'+avatar+'</div>'
       +'</div>'
-      +'<div style="position:absolute;bottom:-2px;right:-2px;width:30px;height:30px;border-radius:50%;background:'+accent+';border:3px solid #fff;display:flex;align-items:center;justify-content:center;animation:_ecBadgePop .5s .38s cubic-bezier(.16,1,.3,1) both;">'+badge+'</div>'
+      +'<div style="position:absolute;bottom:6%;right:6%;width:54px;height:54px;border-radius:50%;background:'+accent+';border:4px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(0,0,0,.2);animation:_ecBadgePop .5s .4s cubic-bezier(.16,1,.3,1) both;">'+badge+'</div>'
     +'</div>'
     +'<div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:1.18rem;color:#0a1628;letter-spacing:.01em;margin-bottom:9px;line-height:1.3;">'+titulo+'</div>'
     +'<div style="color:#475569;font-size:.92rem;line-height:1.6;margin:0 auto 18px;max-width:340px;">'+msg+'</div>'
