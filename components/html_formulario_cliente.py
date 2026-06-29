@@ -48,6 +48,9 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
     pct = int(resp_grupos / total_grupos * 100) if total_grupos > 0 else 0
 
     body_html   = ''
+    # Datos de cada grupo para el lightbox/carrusel del popup (key única por grupo).
+    groups_data = {}
+    _gk_counter = 0
 
     for cat, cfgs in configs_by_cat.items():
         body_html += '<div class="cat-card">'
@@ -82,18 +85,22 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
                 body_html += '<div class="obs-box">' + obs + '</div>'
 
             if itipo == 'color':
-                gid = 'cg-' + str(ci)
+                _gk = str(_gk_counter); _gk_counter += 1
+                gid = 'cg-' + _gk
+                groups_data[_gk] = {'cat': cat, 'sub': tg, 'type': 'color',
+                    'items': [{'iid': str(it.get('id', '')), 'name': it.get('nombre', ''),
+                               'hex': (it.get('hex', '#ccc') or '#ccc')} for it in group_items]}
                 body_html += '<div class="carousel-wrap">'
                 body_html += '<button class="nav-btn" onclick="scrollC(\'' + gid + '\',-1)">&#8249;</button>'
                 body_html += '<div class="carousel-inner"><div class="color-row" id="' + gid + '">'
-                for it in group_items:
+                for i, it in enumerate(group_items):
                     iid = str(it.get('id',''))
                     nm  = it.get('nombre','')
                     hx  = it.get('hex','#ccc') or '#ccc'
                     sel = ' sel' if resps_map.get(iid) == nm else ''
                     body_html += '<div class="c-item' + sel + '" id="ci-' + iid + '" onclick="pick(\'' + iid + '\',\'' + nm.replace("'","") + '\',\'color\')"">'
                     body_html += ('<div class="c-color-block" style="background:' + hx + ';"><span class="c-check">' + _svg('<polyline points="20 6 9 17 4 12"/>', 26, 26, 3) + '</span>'
-                                  '<button class="zoom-btn" data-pop-hex="' + hx + '" data-pop-name="' + nm.replace('"', '&quot;') + '" '
+                                  '<button class="zoom-btn" data-pop-gid="' + _gk + '" data-pop-idx="' + str(i) + '" data-pop-hex="' + hx + '" data-pop-name="' + nm.replace('"', '&quot;') + '" '
                                   'data-pop-iid="' + iid + '" data-pop-type="color" '
                                   'onclick="event.stopPropagation();openP(this)">' + _IC_ZOOM + '</button></div>')
                     body_html += '<div class="c-name">' + nm + '</div>'
@@ -103,11 +110,15 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
                 body_html += '</div>'
 
             elif itipo == 'imagen':
-                gid = 'ig-' + str(ci)
+                _gk = str(_gk_counter); _gk_counter += 1
+                gid = 'ig-' + _gk
+                groups_data[_gk] = {'cat': cat, 'sub': tg, 'type': 'imagen',
+                    'items': [{'iid': str(it.get('id', '')), 'name': it.get('nombre', ''),
+                               'url': (it.get('imagen_url', '') or '')} for it in group_items]}
                 body_html += '<div class="carousel-wrap">'
                 body_html += '<button class="nav-btn" onclick="scrollC(\'' + gid + '\',-1)">&#8249;</button>'
                 body_html += '<div class="carousel-inner"><div class="img-row" id="' + gid + '">'
-                for it in group_items:
+                for i, it in enumerate(group_items):
                     iid = str(it.get('id',''))
                     nm  = it.get('nombre','')
                     url = it.get('imagen_url','') or ''
@@ -126,6 +137,7 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
                         # Popup se crea dinámicamente en window.parent.document (ver openP en JS)
                         # para que position:fixed se ancle a la viewport real, no al iframe.
                         body_html += ('<button class="zoom-btn" '
+                                      'data-pop-gid="' + _gk + '" data-pop-idx="' + str(i) + '" '
                                       'data-pop-url="' + url + '" '
                                       'data-pop-name="' + nm_attr + '" '
                                       'data-pop-iid="' + iid + '" '
@@ -169,6 +181,7 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
         for _id in _ids:
             _gmap[_id] = _ids
     grupos_j = json.dumps(_gmap, ensure_ascii=True)
+    groups_j = json.dumps(groups_data, ensure_ascii=True)
 
     _hero_css = ('background-image:url(data:image/jpeg;base64,' + hero_b64 + ');background-size:cover;background-position:center;' if hero_b64 else 'background:linear-gradient(135deg,#0a1628,#0f3460,#1a5276);')
 
@@ -247,6 +260,7 @@ body{font-family:Poppins,sans-serif;font-size:14px;color:#0a1628;}
 var S="''' + supa_url + '''",K="''' + supa_key + '''",EP="''' + ep + '''";
 var R=''' + resps_j + ''';
 var G=''' + grupos_j + ''';
+var GD=''' + groups_j + ''';
 var P={};
 
 function pick(iid,val,tipo){
@@ -281,46 +295,143 @@ function scrollC(gid,dir){
   if(el) el.scrollBy({left:dir*230,behavior:"smooth"});
 }
 
-// Popup en window.parent.document para que position:fixed se ancle a la
-// viewport real (no al iframe, que es muy alto y genera scroll/espacio negro).
+// Lightbox/carrusel del grupo en window.parent.document (position:fixed se ancla a
+// la viewport real, no al iframe alto). Muestra categoría + subtítulo, imagen/color
+// central grande, miniaturas, flechas, swipe/drag y transición al cambiar.
 function openP(btn){
-  var url=btn.getAttribute("data-pop-url");
-  var hex=btn.getAttribute("data-pop-hex");
-  var nm=btn.getAttribute("data-pop-name");
-  var iid=btn.getAttribute("data-pop-iid");
-  var typ=btn.getAttribute("data-pop-type")||"imagen";
   var D, W;
   try { D=window.parent.document; W=window.parent; } catch(e){ D=document; W=window; }
-  var existing=D.getElementById("_ec_cli_popup");
-  if(existing) existing.remove();
-  var prevOv=D.body.style.overflow;
-  D.body.style.overflow="hidden";
-  var pop=D.createElement("div");
-  pop.id="_ec_cli_popup";
-  pop.style.cssText="position:fixed;inset:0;background:rgba(5,10,20,0.95);z-index:2147483647;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Poppins,sans-serif;padding:20px;box-sizing:border-box;";
-  var visual = url
-    ? '<img src="'+url+'" style="max-width:90vw;max-height:75vh;width:auto;height:auto;object-fit:contain;border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,0.5);">'
-    : '<div style="width:min(72vw,420px);height:min(48vh,420px);border-radius:20px;background:'+(hex||"#ccc")+';box-shadow:0 30px 80px rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.25);"></div>';
-  pop.innerHTML=
-    '<button class="_ec_pop_close" style="position:absolute;top:20px;right:24px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:white;font-size:1.2rem;cursor:pointer;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;line-height:1;">'+
-    '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg></button>'+
-    visual+
-    '<div style="color:white;font-size:1.1rem;font-weight:700;margin-top:14px;text-align:center;">'+nm+'</div>'+
-    '<button class="_ec_pop_sel" style="margin-top:16px;background:linear-gradient(135deg,#0f3460,#1a5276);color:white;border:none;border-radius:10px;padding:12px 32px;font-size:14px;font-weight:700;cursor:pointer;font-family:Poppins,sans-serif;box-shadow:0 8px 24px rgba(15,52,96,0.3);">Seleccionar</button>';
-  D.body.appendChild(pop);
-  function close(){
-    if(pop.parentNode) pop.parentNode.removeChild(pop);
-    D.body.style.overflow=prevOv||"";
-    D.removeEventListener("keydown", onKey);
+  var gid=btn.getAttribute("data-pop-gid");
+  var idx=parseInt(btn.getAttribute("data-pop-idx")||"0",10); if(isNaN(idx)) idx=0;
+  var grp=(typeof GD!=="undefined" && gid!=null && GD[gid]) ? GD[gid] : null;
+  if(!grp){
+    grp={cat:"",sub:"",type:btn.getAttribute("data-pop-type")||"imagen",
+         items:[{iid:btn.getAttribute("data-pop-iid"),name:btn.getAttribute("data-pop-name")||"",
+                 url:btn.getAttribute("data-pop-url")||"",hex:btn.getAttribute("data-pop-hex")||""}]};
+    idx=0;
   }
-  function onKey(e){ if(e.key==="Escape") close(); }
-  pop.addEventListener("click", function(e){ if(e.target===pop) close(); });
+  var items=grp.items||[]; if(!items.length) return;
+  if(idx<0)idx=0; if(idx>=items.length)idx=items.length-1;
+  var typ=grp.type||"imagen";
+  var multi=items.length>1;
+  var stripDragged=false;
+
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+  function bigHtml(it){
+    if(typ==="color"){
+      return '<div style="width:min(70vw,460px);height:min(54vh,460px);border-radius:22px;background:'+(it.hex||"#ccc")+';box-shadow:0 30px 80px rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.25);"></div>';
+    }
+    return it.url
+      ? '<img src="'+esc(it.url)+'" draggable="false" style="max-width:74vw;max-height:60vh;width:auto;height:auto;object-fit:contain;border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,0.5);background:#fff;">'
+      : '<div style="width:min(70vw,460px);height:min(40vh,360px);border-radius:22px;background:#1e293b;display:flex;align-items:center;justify-content:center;color:#64748b;">Sin imagen</div>';
+  }
+  function thumbHtml(it,i){
+    var inner = (typ==="color")
+      ? '<span style="display:block;width:100%;height:100%;border-radius:9px;background:'+(it.hex||"#ccc")+';"></span>'
+      : (it.url? '<img src="'+esc(it.url)+'" draggable="false" style="width:100%;height:100%;object-fit:cover;border-radius:9px;display:block;">'
+               : '<span style="display:block;width:100%;height:100%;border-radius:9px;background:#1e293b;"></span>');
+    return '<button class="_ec_thumb" data-i="'+i+'" style="flex:0 0 auto;width:64px;height:64px;padding:0;border-radius:11px;border:2px solid transparent;background:rgba(255,255,255,0.06);cursor:pointer;overflow:hidden;transition:border-color .2s,transform .2s,box-shadow .2s;">'+inner+'</button>';
+  }
+  var chevL='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>';
+  var chevR='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
+  var arrowCss="flex:0 0 auto;width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.22);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s;";
+
+  var existing=D.getElementById("_ec_cli_popup"); if(existing) existing.remove();
+  if(!D.getElementById("_ec_pop_css")){
+    var s=D.createElement("style"); s.id="_ec_pop_css";
+    s.textContent="@keyframes _ecPopInR{from{opacity:0;transform:translateX(34px)}to{opacity:1;transform:translateX(0)}}"
+      +"@keyframes _ecPopInL{from{opacity:0;transform:translateX(-34px)}to{opacity:1;transform:translateX(0)}}"
+      +"@keyframes _ecPopBd{from{opacity:0}to{opacity:1}}"
+      +"#_ec_cli_popup ._ec_stage img{pointer-events:none;-webkit-user-drag:none;}"
+      +"#_ec_cli_popup img{-webkit-user-drag:none;user-select:none;}"
+      +"#_ec_cli_popup ._ec_strip::-webkit-scrollbar{height:6px}"
+      +"#_ec_cli_popup ._ec_strip::-webkit-scrollbar-thumb{background:rgba(255,255,255,.25);border-radius:9px}";
+    (D.head||D.body).appendChild(s);
+  }
+  var prevOv=D.body.style.overflow; D.body.style.overflow="hidden";
+  var pop=D.createElement("div"); pop.id="_ec_cli_popup";
+  pop.style.cssText="position:fixed;inset:0;background:rgba(5,10,20,0.92);z-index:2147483647;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Poppins,sans-serif;padding:18px;box-sizing:border-box;animation:_ecPopBd .25s ease both;";
+
+  var head=(grp.cat||grp.sub)
+    ? '<div style="text-align:center;margin-bottom:16px;max-width:90vw;">'
+      + (grp.cat? '<div style="color:#90e0ef;font-family:Montserrat,sans-serif;font-size:.72rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;margin-bottom:5px;">'+esc(grp.cat)+'</div>':'')
+      + (grp.sub? '<div style="color:#fff;font-family:Montserrat,sans-serif;font-size:1.08rem;font-weight:800;letter-spacing:.02em;">'+esc(grp.sub)+'</div>':'')
+      + '</div>'
+    : '';
+
+  pop.innerHTML=
+    '<button class="_ec_pop_close" style="position:absolute;top:18px;right:22px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:white;cursor:pointer;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;">'
+    +'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg></button>'
+    + head
+    +'<div style="display:flex;align-items:center;gap:14px;max-width:96vw;">'
+    + (multi? '<button class="_ec_prev" style="'+arrowCss+'">'+chevL+'</button>':'')
+    +'<div class="_ec_stage" style="display:flex;align-items:center;justify-content:center;min-width:min(70vw,460px);min-height:160px;touch-action:pan-y;cursor:grab;user-select:none;overflow:hidden;">'+bigHtml(items[idx])+'</div>'
+    + (multi? '<button class="_ec_next" style="'+arrowCss+'">'+chevR+'</button>':'')
+    +'</div>'
+    +'<div class="_ec_pop_nm" style="color:white;font-size:1.05rem;font-weight:700;margin-top:16px;text-align:center;max-width:80vw;">'+esc(items[idx].name||"")+'</div>'
+    + (multi? '<div class="_ec_strip" style="display:flex;gap:10px;margin-top:14px;max-width:92vw;overflow-x:auto;padding:6px 2px 8px;cursor:grab;scrollbar-width:thin;">'+items.map(thumbHtml).join('')+'</div>':'')
+    +'<button class="_ec_pop_sel" style="margin-top:16px;background:linear-gradient(135deg,#0f3460,#1a5276);color:white;border:none;border-radius:11px;padding:13px 40px;font-size:14px;font-weight:700;cursor:pointer;font-family:Poppins,sans-serif;box-shadow:0 8px 24px rgba(15,52,96,0.35);">Seleccionar</button>';
+
+  D.body.appendChild(pop);
+
+  var stage=pop.querySelector("._ec_stage");
+  var nmEl=pop.querySelector("._ec_pop_nm");
+  var strip=pop.querySelector("._ec_strip");
+
+  function paintThumbs(){
+    if(!strip) return;
+    var ts=strip.querySelectorAll("._ec_thumb");
+    for(var i=0;i<ts.length;i++){
+      var on=(i===idx);
+      ts[i].style.borderColor=on?"#48cae4":"transparent";
+      ts[i].style.transform=on?"scale(1.06)":"scale(1)";
+      ts[i].style.boxShadow=on?"0 6px 18px rgba(72,202,228,.4)":"none";
+    }
+    if(ts[idx] && ts[idx].scrollIntoView){ try{ts[idx].scrollIntoView({inline:"center",block:"nearest",behavior:"smooth"});}catch(e){} }
+  }
+  function render(dir){
+    stage.innerHTML=bigHtml(items[idx]);
+    var inner=stage.firstElementChild;
+    if(inner) inner.style.animation=(dir<0?"_ecPopInL":"_ecPopInR")+" .3s ease both";
+    nmEl.textContent=items[idx].name||"";
+    paintThumbs();
+  }
+  function go(d){ var n=items.length; idx=(idx+d+n)%n; render(d); }
+  function onKey(e){ if(e.key==="Escape") close(); else if(multi&&e.key==="ArrowRight") go(1); else if(multi&&e.key==="ArrowLeft") go(-1); }
+  function close(){ if(pop.parentNode) pop.parentNode.removeChild(pop); D.body.style.overflow=prevOv||""; D.removeEventListener("keydown",onKey); }
+
+  paintThumbs();
   pop.querySelector("._ec_pop_close").addEventListener("click", close);
-  pop.querySelector("._ec_pop_sel").addEventListener("click", function(){
-    pick(iid, nm, typ);
-    close();
-  });
+  pop.querySelector("._ec_pop_sel").addEventListener("click", function(){ pick(items[idx].iid, items[idx].name, typ); close(); });
+  var pv=pop.querySelector("._ec_prev"); if(pv) pv.addEventListener("click", function(){go(-1);});
+  var nx=pop.querySelector("._ec_next"); if(nx) nx.addEventListener("click", function(){go(1);});
+  pop.addEventListener("click", function(e){ if(e.target===pop) close(); });
   D.addEventListener("keydown", onKey);
+
+  // swipe en el escenario
+  (function(el){
+    if(!el) return; var sx=0, down=false;
+    el.addEventListener("pointerdown", function(e){ down=true; sx=e.clientX; el.style.cursor="grabbing"; try{el.setPointerCapture(e.pointerId);}catch(_){} });
+    el.addEventListener("pointermove", function(e){ if(!down||!multi) return; var dx=e.clientX-sx; var inner=el.firstElementChild; if(inner){ inner.style.transition="none"; inner.style.transform="translateX("+(dx*0.35)+"px)"; } });
+    function up(e){ if(!down) return; down=false; el.style.cursor="grab"; var dx=(e.clientX||sx)-sx; var inner=el.firstElementChild; if(inner){ inner.style.transition="transform .25s ease"; inner.style.transform="translateX(0)"; } if(multi && Math.abs(dx)>45){ go(dx<0?1:-1); } }
+    el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+  })(stage);
+
+  // arrastre horizontal del filmstrip + click en miniatura
+  if(strip){
+    (function(el){
+      var down=false, sx=0, sl=0;
+      el.addEventListener("pointerdown", function(e){ down=true; stripDragged=false; sx=e.clientX; sl=el.scrollLeft; el.style.cursor="grabbing"; });
+      el.addEventListener("pointermove", function(e){ if(!down) return; var dx=e.clientX-sx; if(Math.abs(dx)>5) stripDragged=true; el.scrollLeft=sl-dx; });
+      function up(){ down=false; el.style.cursor="grab"; setTimeout(function(){stripDragged=false;},30); }
+      el.addEventListener("pointerup", up); el.addEventListener("pointerleave", up); el.addEventListener("pointercancel", up);
+    })(strip);
+    strip.addEventListener("click", function(e){
+      var t=e.target.closest("._ec_thumb"); if(!t||stripDragged) return;
+      var i=parseInt(t.getAttribute("data-i"),10);
+      if(!isNaN(i)&&i!==idx){ var d=i>idx?1:-1; idx=i; render(d); }
+    });
+  }
 }
 
 function fabEl(id){ try{return window.parent.document.getElementById(id);}catch(e){return document.getElementById(id);} }
