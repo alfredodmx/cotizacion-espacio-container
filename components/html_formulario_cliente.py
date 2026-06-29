@@ -42,8 +42,14 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
             configs_by_cat[cat] = []
         configs_by_cat[cat].append(cfg)
 
-    total_grupos = len(config_data)
-    resp_grupos  = sum(1 for cfg in config_data
+    # Sólo cuentan los grupos RENDERABLES (con al menos un item_id que exista en
+    # el catálogo); así el conteo inicial coincide con lo que ve el cliente y con
+    # el recompute() del JS (ignora configs huérfanas con item_ids vacío).
+    def _grupo_renderable(cfg):
+        return any(str(x) in items_by_id for x in (cfg.get('item_ids') or []))
+    _render_cfgs = [cfg for cfg in config_data if _grupo_renderable(cfg)]
+    total_grupos = len(_render_cfgs)
+    resp_grupos  = sum(1 for cfg in _render_cfgs
                        if any(resps_map.get(str(iid)) for iid in (cfg.get('item_ids') or [])))
     pct = int(resp_grupos / total_grupos * 100) if total_grupos > 0 else 0
 
@@ -53,6 +59,11 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
     _gk_counter = 0
 
     for cat, cfgs in configs_by_cat.items():
+        # Marcamos dónde empieza la cat-card para poder TRUNCARLA si al final no
+        # se renderizó ningún grupo (config huérfana con item_ids vacío / items
+        # eliminados del catálogo) → no mostrar categorías sin contenido.
+        _cat_start = len(body_html)
+        _cat_rendered = 0
         body_html += '<div class="cat-card">'
         body_html += '<div class="cat-card-title">' + _cat_icon(cat) + '<span>' + cat + '</span></div>'
 
@@ -71,7 +82,7 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
             itipo   = group_items[0].get('tipo','imagen')
             answered = any(resps_map.get(iid) for iid in ids)
 
-            if ci > 0:
+            if _cat_rendered > 0:
                 body_html += '<div class="item-divider"></div>'
 
             body_html += '<div class="item-section">'
@@ -172,7 +183,12 @@ def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, s
                 body_html += '</select>'
 
             body_html += '</div>'
-        body_html += '</div>'
+            _cat_rendered += 1
+        # Cierra la cat-card sólo si tuvo grupos; si no, la quita por completo.
+        if _cat_rendered == 0:
+            body_html = body_html[:_cat_start]
+        else:
+            body_html += '</div>'
 
     resps_j  = json.dumps(resps_map, ensure_ascii=True)
     _gmap    = {}
