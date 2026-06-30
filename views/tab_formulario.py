@@ -350,13 +350,17 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
                             'border-radius:99px;padding:2px 10px;font-size:0.72rem;font-weight:800;')
                 _pill_no = ('background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;'
                             'border-radius:99px;padding:2px 10px;font-size:0.72rem;font-weight:800;')
+                # Badge de estado ADJUDICADO (mismo estilo que la tabla de cotizaciones).
+                _estado_badge = ('<span style="background-color:#2563eb;color:white;padding:3px 11px;'
+                                 'border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;'
+                                 'border:1px solid #1d4ed8;box-shadow:0 2px 4px rgba(0,0,0,0.1);'
+                                 'white-space:nowrap;letter-spacing:0.03em;">ADJUDICADO</span>')
                 _rows_html = ''
                 for r in _adj:
                     _ep = str(r.get('numero') or '')
                     _rut = str(r.get('cliente_rut') or '').strip()
                     _cli = _h.escape(str(r.get('cliente_nombre') or '—'))
                     _ase = _h.escape(str(r.get('asesor_nombre') or '—'))
-                    _adjf = (str(r.get('fecha_adjudicacion') or '')[:10]) or '—'
                     _preg = (f'<span style="{_pill_si}">S&#205;</span>' if _ep in _fc_nums
                              else f'<span style="{_pill_no}">NO</span>')
                     _p = _pct_by_ep.get(_ep)
@@ -378,13 +382,13 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
                         _rut_cell = '<td style="color:#cbd5e1;">&#8212;</td>'
                     _rows_html += (
                         '<tr>'
+                        f'{_rut_cell}'
                         f'<td class="cp-cell" data-copy="{_h.escape(_ep, quote=True)}" '
                         f'title="Click para copiar el N&#176; EP">{_h.escape(_ep)} '
                         f'<span class="cp-ic">&#9112;</span></td>'
-                        f'{_rut_cell}'
                         f'<td>{_cli}</td>'
                         f'<td>{_ase}</td>'
-                        f'<td class="ctr">{_adjf}</td>'
+                        f'<td class="ctr">{_estado_badge}</td>'
                         f'<td class="ctr">{_preg}</td>'
                         f'{_avance}'
                         f'<td class="ctr"><button class="cfg-btn" data-ep="{_h.escape(_ep, quote=True)}">'
@@ -416,8 +420,8 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
                     '.ep-tbl .pg-na{color:#cbd5e1;font-weight:700;}'
                     '</style>'
                     '<div class="ep-tbl-wrap"><table class="ep-tbl"><thead><tr>'
-                    '<th>N&#176; EP</th><th>RUT cliente</th><th>Cliente</th><th>Asesor</th>'
-                    '<th class="ctr">Adjudicado</th><th class="ctr">Preguntas</th>'
+                    '<th>RUT cliente</th><th>N&#176; EP</th><th>Cliente</th><th>Asesor</th>'
+                    '<th class="ctr">Estado</th><th class="ctr">Preguntas</th>'
                     '<th class="ctr">Avance</th><th class="ctr">Acci&#243;n</th>'
                     '</tr></thead><tbody>' + _rows_html + '</tbody></table></div>'
                 )
