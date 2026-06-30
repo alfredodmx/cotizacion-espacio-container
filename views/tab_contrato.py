@@ -206,16 +206,17 @@ _CN_COPY_JS = """
 
 
 def _cn_badge(adjudicado):
-    """Badge de estado notariado (rediseñado, mismo estilo que cotizaciones)."""
+    """Badge de estado notariado. Texto del MISMO tamaño que los badges de la
+    pestaña Cotizaciones (0.68rem / weight 700 / padding 2px 7px / sin spacing)."""
     if adjudicado:
-        return ('<span style="display:inline-flex;align-items:center;gap:5px;background:#2563eb;color:#fff;'
-                'border:1px solid #1d4ed8;border-radius:99px;padding:3px 11px;font-size:0.68rem;font-weight:800;'
-                'letter-spacing:.03em;box-shadow:0 2px 5px rgba(37,99,235,.25);white-space:nowrap;">'
-                + _svg_ic("check", 12, color="#fff", sw=2.6, valign=-2) + 'ADJUDICADO</span>')
-    return ('<span style="display:inline-flex;align-items:center;gap:5px;background:#fef3c7;color:#b45309;'
-            'border:1px solid #fcd34d;border-radius:99px;padding:3px 11px;font-size:0.68rem;font-weight:800;'
-            'letter-spacing:.03em;white-space:nowrap;">'
-            + _svg_ic("clock", 12, color="#b45309", sw=2.6, valign=-2) + 'PENDIENTE</span>')
+        return ('<span style="display:inline-flex;align-items:center;gap:4px;background:#2563eb;color:#fff;'
+                'border:1px solid #1d4ed8;border-radius:20px;padding:2px 8px;font-size:0.68rem;font-weight:700;'
+                'box-shadow:0 2px 5px rgba(37,99,235,.25);white-space:nowrap;">'
+                + _svg_ic("check", 10, color="#fff", sw=2.6, valign=-2) + 'ADJUDICADO</span>')
+    return ('<span style="display:inline-flex;align-items:center;gap:4px;background:#fef3c7;color:#b45309;'
+            'border:1px solid #fcd34d;border-radius:20px;padding:2px 8px;font-size:0.68rem;font-weight:700;'
+            'white-space:nowrap;">'
+            + _svg_ic("clock", 10, color="#b45309", sw=2.6, valign=-2) + 'PENDIENTE</span>')
 
 
 # ── Render principal ─────────────────────────────────────────────────────────
