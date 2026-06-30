@@ -181,6 +181,43 @@ def _svg_ic(key: str, size: int = 16, color: str = "currentColor",
             f'stroke-linejoin="round" style="{style}">{_IC.get(key, "")}</svg>')
 
 
+# JS click-to-copy para la tabla HTML de notariado (celdas .cn-cp). Corre en un
+# components.html(height=0) y opera sobre window.parent.document; se re-bindea cada
+# run (guarda la ref en D.__cnCopyH) — ver memoria iframe-handler-muere-rerun.
+_CN_COPY_JS = """
+<script>
+(function(){
+  var D=window.parent.document;
+  function flash(el,t){var o=el.innerHTML;el.innerHTML=t;el.style.color='#16a34a';
+    setTimeout(function(){el.innerHTML=o;el.style.color='';},1100);}
+  function onClick(e){
+    var c=e.target.closest&&e.target.closest('.cn-cp');if(!c)return;
+    var v=c.getAttribute('data-copy')||'';if(!v)return;
+    try{var ta=D.createElement('textarea');ta.value=v;ta.style.cssText='position:fixed;top:-9999px;left:-9999px;';
+      D.body.appendChild(ta);ta.focus();ta.select();D.execCommand('copy');ta.remove();}catch(_){}
+    try{if(window.parent.navigator.clipboard)window.parent.navigator.clipboard.writeText(v).catch(function(){});}catch(_){}
+    flash(c,'\\u2713 copiado');
+  }
+  if(D.__cnCopyH){D.removeEventListener('click',D.__cnCopyH);}
+  D.__cnCopyH=onClick;D.addEventListener('click',onClick);
+})();
+</script>
+"""
+
+
+def _cn_badge(adjudicado):
+    """Badge de estado notariado (rediseñado, mismo estilo que cotizaciones)."""
+    if adjudicado:
+        return ('<span style="display:inline-flex;align-items:center;gap:5px;background:#2563eb;color:#fff;'
+                'border:1px solid #1d4ed8;border-radius:99px;padding:3px 11px;font-size:0.68rem;font-weight:800;'
+                'letter-spacing:.03em;box-shadow:0 2px 5px rgba(37,99,235,.25);white-space:nowrap;">'
+                + _svg_ic("check", 12, color="#fff", sw=2.6, valign=-2) + 'ADJUDICADO</span>')
+    return ('<span style="display:inline-flex;align-items:center;gap:5px;background:#fef3c7;color:#b45309;'
+            'border:1px solid #fcd34d;border-radius:99px;padding:3px 11px;font-size:0.68rem;font-weight:800;'
+            'letter-spacing:.03em;white-space:nowrap;">'
+            + _svg_ic("clock", 12, color="#b45309", sw=2.6, valign=-2) + 'PENDIENTE</span>')
+
+
 # ── Render principal ─────────────────────────────────────────────────────────
 
 def render_tab_contrato(supabase, supabase_admin=None, **deps):
@@ -826,42 +863,132 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
 
             _cn_data = st.session_state.get('cn_results', [])
 
+            _cn_view = []
             if not _cn_data:
                 st.info("No hay presupuestos autorizados o adjudicados.")
             else:
                 _cn_n_adj  = sum(1 for r in _cn_data if r.get('contrato_notariado_url'))
                 _cn_n_pend = len(_cn_data) - _cn_n_adj
-                st.markdown(
-                    f"<span style='background:#ede9fe;color:#6d28d9;padding:3px 12px;border-radius:99px;font-size:11px;font-weight:700;margin-right:6px;'>{len(_cn_data)} resultados</span>"
-                    f"<span style='background:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;margin-right:6px;'>{_svg_ic('check', 11, color='#1d4ed8', mr=4)}{_cn_n_adj} adjudicados</span>"
-                    f"<span style='background:#fef9c3;color:#854d0e;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;'>{_svg_ic('clock', 11, color='#854d0e', mr=4)}{_cn_n_pend} pendiente</span>",
-                    unsafe_allow_html=True)
-                st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+                _cn_filtro = st.session_state.get('cn_filtro_estado')
 
-                import pandas as _pd_cn
-                _cn_df = _pd_cn.DataFrame([{
-                    'N&#176; EP': r.get('numero', ''),
-                    'Cliente': r.get('cliente_nombre', '&#8212;'),
-                    'Ejecutivo': r.get('asesor_nombre', '&#8212;'),
-                    'Estado': 'ADJUDICADO' if r.get('contrato_notariado_url') else 'PENDIENTE',
-                    'Fecha mod.': (r.get('fecha_modificacion', '')[:10] if r.get('fecha_modificacion') else '&#8212;'),
-                } for r in _cn_data])
-                st.dataframe(_cn_df, use_container_width=True, hide_index=True)
+                # ── Badges de filtro (clickables) — mismo patrón que Cotizaciones ──
+                _CN_BSTYLE = {
+                    'TODOS':      ('#ede9fe', '#6d28d9', '#6d28d9'),
+                    'ADJUDICADO': ('#dbeafe', '#1d4ed8', '#1e40af'),
+                    'PENDIENTE':  ('#fef3c7', '#b45309', '#92400e'),
+                }
+                _cn_bbase = ("font-family:Montserrat,sans-serif!important;font-weight:800!important;"
+                             "font-size:11.5px!important;border-radius:99px!important;border:none!important;"
+                             "padding:6px 14px!important;min-height:0!important;letter-spacing:.03em!important;"
+                             "transition:all .12s!important;")
+                _cn_bcss = ['<style>']
+                for _bk, _bkey in (('TODOS', '_cn_fb_todos'), ('ADJUDICADO', '_cn_fb_adj'),
+                                   ('PENDIENTE', '_cn_fb_pend')):
+                    _bg, _fg, _act = _CN_BSTYLE[_bk]
+                    _is_act = (_bk == 'TODOS' and not _cn_filtro) or (_bk == _cn_filtro)
+                    if _is_act:
+                        _cn_bcss.append(f'.st-key-{_bkey} button{{{_cn_bbase}background:{_act}!important;'
+                                        f'color:#fff!important;box-shadow:0 0 0 2px {_act}!important;}}')
+                    else:
+                        _cn_bcss.append(f'.st-key-{_bkey} button{{{_cn_bbase}background:{_bg}!important;color:{_fg}!important;}}')
+                    _cn_bcss.append(f'.st-key-{_bkey} button:hover{{background:{_act}!important;color:#fff!important;}}')
+                    # Sólo el TEXTO (no el icono Material) lleva Montserrat+uppercase,
+                    # para no romper la ligadura del icono.
+                    _cn_bcss.append(f'.st-key-{_bkey} button p,.st-key-{_bkey} button [data-testid="stMarkdownContainer"]'
+                                    f'{{font-family:Montserrat,sans-serif!important;font-weight:800!important;'
+                                    f'text-transform:uppercase!important;letter-spacing:.03em!important;}}')
+                _cn_bcss.append('</style>')
+                st.markdown(''.join(_cn_bcss), unsafe_allow_html=True)
 
-            st.markdown("---")
-            st.markdown("**Selecciona un presupuesto para adjuntar contrato notariado:**")
+                def _set_cn_filter(_k):
+                    _cur = st.session_state.get('cn_filtro_estado')
+                    st.session_state['cn_filtro_estado'] = (None if _k == _cur else _k)
+                    st.session_state.pop('cn_sel_ep', None)
 
-            _cn_data_adj  = [r for r in (_cn_data or []) if r.get("contrato_notariado_url")]
-            _cn_data_pend = [r for r in (_cn_data or []) if not r.get("contrato_notariado_url")]
-            _cn_opts = (
-                [f"ADJ · {r['numero']} · {r.get('cliente_nombre','')}" for r in _cn_data_adj] +
-                [f"PEND · {r['numero']} · {r.get('cliente_nombre','')}" for r in _cn_data_pend]
-            )
+                _fc1, _fc2, _fc3, _fc4 = st.columns([1.5, 2, 2, 4])
+                with _fc1:
+                    st.button(f"Todos ({len(_cn_data)})", key='_cn_fb_todos', icon=":material/apps:",
+                              on_click=_set_cn_filter, args=(None,), use_container_width=True)
+                with _fc2:
+                    st.button(f"Adjudicados ({_cn_n_adj})", key='_cn_fb_adj', icon=":material/check_circle:",
+                              on_click=_set_cn_filter, args=('ADJUDICADO',), use_container_width=True)
+                with _fc3:
+                    st.button(f"Pendientes ({_cn_n_pend})", key='_cn_fb_pend', icon=":material/schedule:",
+                              on_click=_set_cn_filter, args=('PENDIENTE',), use_container_width=True)
+
+                # ── Filtrar datos según el badge activo (tabla y dropdown) ──
+                if _cn_filtro == 'ADJUDICADO':
+                    _cn_view = [r for r in _cn_data if r.get('contrato_notariado_url')]
+                elif _cn_filtro == 'PENDIENTE':
+                    _cn_view = [r for r in _cn_data if not r.get('contrato_notariado_url')]
+                else:
+                    _cn_view = _cn_data
+
+                st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+                # ── Tabla HTML (reemplaza st.dataframe) ──
+                if not _cn_view:
+                    st.info("No hay presupuestos en este filtro.")
+                else:
+                    import html as _h_cn
+                    _cn_rows_html = ''
+                    for r in _cn_view:
+                        _ep = str(r.get('numero', ''))
+                        _cli = _h_cn.escape(str(r.get('cliente_nombre') or '—'))
+                        _ase = _h_cn.escape(str(r.get('asesor_nombre') or '—'))
+                        _fmod = (str(r.get('fecha_modificacion', ''))[:10]) or '—'
+                        _adj = bool(r.get('contrato_notariado_url'))
+                        _cn_rows_html += (
+                            '<tr>'
+                            f'<td class="cn-cp" data-copy="{_h_cn.escape(_ep, quote=True)}" '
+                            f'title="Click para copiar el N° EP">{_h_cn.escape(_ep)} '
+                            f'<span class="cn-ic">&#9112;</span></td>'
+                            f'<td>{_cli}</td><td>{_ase}</td>'
+                            f'<td class="ctr">{_cn_badge(_adj)}</td>'
+                            f'<td class="ctr">{_fmod}</td>'
+                            '</tr>'
+                        )
+                    _cn_table = (
+                        '<style>'
+                        '.cn-tbl-wrap{overflow-x:auto;border:1px solid #e7ebf3;border-radius:12px;'
+                        'box-shadow:0 1px 3px rgba(15,23,42,.05);}'
+                        ".cn-tbl{width:100%;border-collapse:collapse;font-family:'Inter','Segoe UI',sans-serif;font-size:0.82rem;}"
+                        '.cn-tbl thead th{background:#0f172a;color:#fff;font-family:Montserrat,sans-serif;font-weight:700;'
+                        'font-size:0.66rem;text-transform:uppercase;letter-spacing:0.05em;padding:11px 14px;text-align:left;white-space:nowrap;}'
+                        '.cn-tbl tbody td{padding:11px 14px;border-bottom:1px solid #eef2f7;color:#0f172a;font-weight:600;vertical-align:middle;}'
+                        '.cn-tbl tbody tr:hover{background:#f8fafc;}'
+                        '.cn-tbl tbody tr:last-child td{border-bottom:none;}'
+                        '.cn-tbl .ctr{text-align:center;}'
+                        '.cn-tbl .cn-cp{cursor:pointer;font-weight:800;color:#2563eb;white-space:nowrap;font-variant-numeric:tabular-nums;}'
+                        '.cn-tbl .cn-cp:hover{color:#1d4ed8;text-decoration:underline;}'
+                        '.cn-tbl .cn-ic{font-size:0.85em;opacity:0.55;}'
+                        '</style>'
+                        '<div class="cn-tbl-wrap"><table class="cn-tbl"><thead><tr>'
+                        '<th>N&#176; EP</th><th>Cliente</th><th>Ejecutivo</th>'
+                        '<th class="ctr">Estado</th><th class="ctr">Fecha mod.</th>'
+                        '</tr></thead><tbody>' + _cn_rows_html + '</tbody></table></div>'
+                    )
+                    st.markdown(_cn_table, unsafe_allow_html=True)
+                    components.html(_CN_COPY_JS, height=0)
+
+            # ── Adjuntar contrato notariado (dropdown filtrado por el badge) ──
+            st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+            st.markdown(f'<div class="cont-section">{_svg_ic("upload", 17)}Adjuntar contrato notariado</div>',
+                        unsafe_allow_html=True)
+            st.caption("Selecciona un presupuesto del listado (respeta el filtro activo):")
+
+            _cn_opts, _cn_opt_map = [], {}
+            for r in _cn_view:
+                _pref = "ADJ" if r.get("contrato_notariado_url") else "PEND"
+                _lbl = f"{_pref} · {r['numero']} · {r.get('cliente_nombre','')}"
+                _cn_opts.append(_lbl)
+                _cn_opt_map[_lbl] = r["numero"]
             if not _cn_opts:
-                st.info("No hay presupuestos disponibles.")
+                st.info("No hay presupuestos en este filtro para adjuntar.")
+                _cn_row = None
             else:
                 _cn_sel = st.selectbox("EP", _cn_opts, key="cn_sel_ep", label_visibility="collapsed")
-                _cn_ep_sel = _cn_sel.split(" · ")[1].strip()
+                _cn_ep_sel = _cn_opt_map.get(_cn_sel)
                 _cn_row = next((r for r in (_cn_data or []) if r.get("numero") == _cn_ep_sel), None)
 
                 if _cn_row:
