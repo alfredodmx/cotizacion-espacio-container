@@ -374,6 +374,100 @@ def _fmt_money(v):
     return f"{sign}${v:,.0f}"
 
 
+def _build_team_html(team, umap, email, es_admin, sel_email, sel_nombre, viewing_other):
+    """Grid HTML de tarjetas de ejecutivos (estilo USUARIOS, tema oscuro del ranking).
+    Cada card es clickeable y enruta a Python (data-idx) para cargar ese ejecutivo en
+    el hero. La service key NUNCA toca el navegador (solo se pasa el índice)."""
+    import html as _h
+    _medal = {1: '#facc15', 2: '#cbd5e1', 3: '#cd7f32'}
+    cards = []
+    for i, a in enumerate(team, 1):
+        u = umap.get(a['email'], {})
+        foto = (u.get('foto_url') or '').strip()
+        nombre = _h.escape(a['nombre'] or '—')
+        ini = _h.escape((a['nombre'] or '?')[0].upper())
+        n = a['n_total']
+        is_me = (a['email'] == email and not es_admin)
+        is_sel = viewing_other and (a['email'] == sel_email) and (a['nombre'] == (sel_nombre or a['nombre']))
+        pos = (_svg_ic('medal', 27, color=_medal[i]) if i in _medal
+               else f'<span class="rkt-num">{i}</span>')
+        av = (f'<div class="rkt-av"><img src="{_h.escape(foto, quote=True)}" alt=""></div>' if foto
+              else f'<div class="rkt-av rkt-av-ph">{ini}</div>')
+        badge = ('<span class="rkt-badge">Viendo</span>' if is_sel
+                 else ('<span class="rkt-badge">T&uacute;</span>' if is_me else ''))
+        cls = ' sel' if is_sel else (' me' if is_me else '')
+        _perd = a['perdido']
+        cards.append(
+            f'<div class="rkt-card{cls}" data-idx="{i-1}" title="Cargar el panel de {nombre} arriba">'
+            f'<div class="rkt-top"><div class="rkt-pos">{pos}</div>{av}'
+            f'<div class="rkt-id"><div class="rkt-name"><span class="rkt-nm-txt">{nombre}</span>{badge}</div>'
+            f'<div class="rkt-sub">{n} presupuesto{"s" if n != 1 else ""}</div></div></div>'
+            '<div class="rkt-stats">'
+            f'<div class="rkt-stat"><div class="rkt-v" style="color:#4ade80;">{_fmt_money(a["ganado"])}</div><div class="rkt-l">Ganado</div></div>'
+            f'<div class="rkt-stat"><div class="rkt-v" style="color:#fbbf24;">{_fmt_money(a["casi"])}</div><div class="rkt-l">Casi</div></div>'
+            f'<div class="rkt-stat"><div class="rkt-v" style="color:#f87171;">{("-" if _perd > 0 else "")}{_fmt_money(_perd)}</div><div class="rkt-l">Perdido</div></div>'
+            '</div></div>'
+        )
+    grid = '<div class="rkt-grid">' + ''.join(cards) + '</div>'
+
+    css = """
+*{box-sizing:border-box;}
+body{margin:0;font-family:'Plus Jakarta Sans','Inter',sans-serif;background:transparent;}
+.rkt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px;padding:2px;}
+.rkt-card{position:relative;background:linear-gradient(135deg,#0f172a 0%,#1e293b 55%,#334155 100%);
+  border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:15px 16px;cursor:pointer;
+  box-shadow:0 4px 16px rgba(15,23,42,.22);transition:transform .16s,box-shadow .16s,border-color .16s;}
+.rkt-card:hover{transform:translateY(-3px);box-shadow:0 16px 34px rgba(15,23,42,.5);border-color:rgba(129,140,248,.6);}
+.rkt-card.sel{border:2px solid #818cf8;box-shadow:0 10px 30px rgba(99,102,241,.5);}
+.rkt-card.me{border:1px solid rgba(129,140,248,.45);}
+.rkt-top{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+.rkt-pos{width:30px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;}
+.rkt-num{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.1rem;color:rgba(255,255,255,.42);}
+.rkt-av{width:46px;height:46px;border-radius:50%;flex:0 0 auto;overflow:hidden;border:2px solid rgba(255,255,255,.18);}
+.rkt-av img{width:100%;height:100%;object-fit:cover;display:block;}
+.rkt-av-ph{display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:800;
+  color:#fff;font-size:1.15rem;background:linear-gradient(135deg,#6366f1,#8b5cf6);}
+.rkt-id{min-width:0;flex:1;}
+.rkt-name{display:flex;align-items:center;gap:8px;min-width:0;}
+.rkt-nm-txt{font-family:'Montserrat',sans-serif;font-weight:800;color:#fff;font-size:0.96rem;line-height:1.25;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rkt-sub{font-size:0.74rem;color:rgba(255,255,255,.5);margin-top:3px;}
+.rkt-badge{flex:0 0 auto;background:rgba(129,140,248,.2);color:#a5b4fc;font-size:0.58rem;font-weight:800;
+  letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:99px;border:1px solid rgba(129,140,248,.4);}
+.rkt-stats{display:flex;gap:8px;}
+.rkt-stat{flex:1;text-align:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);
+  border-radius:11px;padding:8px 4px;}
+.rkt-v{font-family:'Montserrat',sans-serif;font-weight:900;font-size:0.92rem;line-height:1.1;}
+.rkt-l{font-size:0.57rem;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.06em;margin-top:3px;}
+"""
+
+    js = """
+<script>
+(function(){
+  document.addEventListener('click', function(e){
+    var c=e.target.closest && e.target.closest('.rkt-card'); if(!c) return;
+    try{
+      var W=window.parent; var u=new URL(W.location.href);
+      u.searchParams.set('rk_idx', c.getAttribute('data-idx'));
+      W.history.replaceState({}, '', u.toString());
+      var b=W.document.querySelector('.st-key-_rk_action_btn button'); if(b) b.click();
+    }catch(err){}
+  });
+  function fit(){try{var h=Math.ceil(document.body.scrollHeight);
+    if(window.frameElement) window.frameElement.style.height=(h+4)+'px';
+    window.parent.postMessage({type:'streamlit:setFrameHeight',height:h},'*');}catch(e){}}
+  window.addEventListener('load',fit);[60,200,500,1000].forEach(function(t){setTimeout(fit,t);});
+  document.querySelectorAll('img').forEach(function(im){im.addEventListener('load',fit);});
+  try{new ResizeObserver(fit).observe(document.documentElement);}catch(e){}
+  fit();
+})();
+</script>
+"""
+    return ('<!DOCTYPE html><html><head><meta charset="utf-8">'
+            '<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">'
+            '<style>' + css + '</style></head><body>' + grid + js + '</body></html>')
+
+
 # ── Render ───────────────────────────────────────────────────────────────────
 
 _PERIODOS = {'Semana': 7, 'Mes': 30, '3 meses': 90, 'Año': 365, 'Todo': None}
@@ -925,47 +1019,33 @@ def render_tab_ranking(supabase, **deps):
     if not _team:
         st.info("No hay presupuestos en este periodo.")
     else:
-        st.caption("Haz clic en **Ver** para cargar arriba el panel completo de ese ejecutivo.")
-        _medallas = {1: _svg_ic('medal', 23, color='#facc15'),   # oro
-                     2: _svg_ic('medal', 23, color='#94a3b8'),   # plata
-                     3: _svg_ic('medal', 23, color='#cd7f32')}   # bronce
-        for i, a in enumerate(_team, 1):
-            _u = _umap.get(a['email'], {})
-            _f = _u.get('foto_url', '')
-            _ini = (a['nombre'] or '?')[0].upper()
-            _av = (f'<img class="rk-rav" src="{_f}" alt="">' if _f
-                   else f'<div class="rk-rav rk-rav-ph">{_ini}</div>')
-            _pos = _medallas.get(i, f'<span style="color:rgba(255,255,255,0.55);">{i}</span>')
-            _is_me = (a['email'] == _email and not _es_admin)
-            _is_sel = _viewing_other and (a['email'] == _sel_email) and (a['nombre'] == (_sel_nombre or a['nombre']))
-            _row_cls = ' sel' if _is_sel else (' me' if _is_me else '')
-            if _is_sel:
-                _badge = ' &middot; <span style="color:#a5b4fc;font-size:0.7rem;font-weight:800;">VIENDO</span>'
-            elif _is_me:
-                _badge = ' &middot; <span style="color:#a5b4fc;font-size:0.7rem;font-weight:800;">T&#218;</span>'
-            else:
-                _badge = ''
-            _c_card, _c_btn = st.columns([8.5, 1.5], vertical_alignment="center")
-            with _c_card:
-                st.markdown(
-                    f'<div class="rk-card{_row_cls}">'
-                    f'<div class="rk-pos">{_pos}</div>'
-                    f'{_av}'
-                    f'<div style="flex:1;min-width:0;">'
-                    f'<div style="font-weight:800;color:#fff;font-size:0.98rem;">{a["nombre"]}{_badge}</div>'
-                    f'<div style="font-size:0.74rem;color:rgba(255,255,255,0.55);margin-top:2px;">{a["n_total"]} presupuesto{"s" if a["n_total"]!=1 else ""}</div>'
-                    f'</div>'
-                    f'<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">'
-                    f'<div style="text-align:right;"><div style="font-family:Montserrat;font-weight:900;color:#4ade80;font-size:1.05rem;">{_fmt_money(a["ganado"])}</div><div style="font-size:0.64rem;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.05em;">Ganado</div></div>'
-                    f'<div style="text-align:right;"><div style="font-family:Montserrat;font-weight:800;color:#fbbf24;font-size:0.95rem;">{_fmt_money(a["casi"])}</div><div style="font-size:0.64rem;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.05em;">Casi</div></div>'
-                    f'<div style="text-align:right;"><div style="font-family:Montserrat;font-weight:800;color:#f87171;font-size:0.95rem;">{("-" if a["perdido"]>0 else "")}{_fmt_money(a["perdido"])}</div><div style="font-size:0.64rem;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.05em;">Perdido</div></div>'
-                    f'</div>'
-                    f'</div>',
+        st.caption("Haz clic en una tarjeta para cargar arriba el panel completo de ese ejecutivo.")
+        st.markdown('<style>.st-key-_rk_action_btn{position:absolute!important;width:1px!important;'
+                    'height:1px!important;overflow:hidden!important;opacity:0!important;}</style>',
                     unsafe_allow_html=True)
-            with _c_btn:
-                if st.button("Ver", icon=":material/visibility:", key=f"rk_ver_{i}",
-                             use_container_width=True, disabled=_is_sel,
-                             help="Cargar arriba el panel de este ejecutivo"):
-                    st.session_state['rk_perfil_email'] = a['email']
-                    st.session_state['rk_perfil_nombre'] = a['nombre']
-                    st.rerun()
+        _team_html = _build_team_html(_team, _umap, _email, _es_admin, _sel_email, _sel_nombre, _viewing_other)
+        _rk_h0 = max(170, ((len(_team) + 2) // 3) * 152 + 24)
+        components.html(_team_html, height=_rk_h0, scrolling=False)
+
+        # Botón nativo OCULTO: el JS del iframe lo clickea para cargar (o alternar)
+        # el ejecutivo seleccionado en el hero. Solo se pasa el índice (sin claves).
+        if st.button("rkacc", key="_rk_action_btn"):
+            _ri = st.query_params.get('rk_idx')
+            try:
+                _ri = int(_ri)
+            except (TypeError, ValueError):
+                _ri = None
+            try:
+                del st.query_params['rk_idx']
+            except Exception:
+                pass
+            if _ri is not None and 0 <= _ri < len(_team):
+                _a = _team[_ri]
+                if (_a['email'] == st.session_state.get('rk_perfil_email')
+                        and _a['nombre'] == st.session_state.get('rk_perfil_nombre')):
+                    st.session_state.pop('rk_perfil_email', None)
+                    st.session_state.pop('rk_perfil_nombre', None)
+                else:
+                    st.session_state['rk_perfil_email'] = _a['email']
+                    st.session_state['rk_perfil_nombre'] = _a['nombre']
+            st.rerun()
