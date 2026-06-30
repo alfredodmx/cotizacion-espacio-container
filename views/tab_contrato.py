@@ -950,11 +950,15 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                         )
                     _cn_table = (
                         '<style>'
-                        '.cn-tbl-wrap{overflow-x:auto;border:1px solid #e7ebf3;border-radius:12px;'
+                        '.cn-tbl-wrap{overflow:auto;max-height:534px;border:1px solid #e7ebf3;border-radius:12px;'
                         'box-shadow:0 1px 3px rgba(15,23,42,.05);}'
+                        '.cn-tbl-wrap::-webkit-scrollbar{width:9px;height:9px;}'
+                        '.cn-tbl-wrap::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:9px;}'
+                        '.cn-tbl-wrap::-webkit-scrollbar-track{background:transparent;}'
                         ".cn-tbl{width:100%;border-collapse:collapse;font-family:'Inter','Segoe UI',sans-serif;font-size:0.82rem;}"
                         '.cn-tbl thead th{background:#0f172a;color:#fff;font-family:Montserrat,sans-serif;font-weight:700;'
-                        'font-size:0.66rem;text-transform:uppercase;letter-spacing:0.05em;padding:11px 14px;text-align:left;white-space:nowrap;}'
+                        'font-size:0.66rem;text-transform:uppercase;letter-spacing:0.05em;padding:11px 14px;text-align:left;'
+                        'white-space:nowrap;position:sticky;top:0;z-index:2;}'
                         '.cn-tbl tbody td{padding:11px 14px;border-bottom:1px solid #eef2f7;color:#0f172a;font-weight:600;vertical-align:middle;}'
                         '.cn-tbl tbody tr:hover{background:#f8fafc;}'
                         '.cn-tbl tbody tr:last-child td{border-bottom:none;}'
