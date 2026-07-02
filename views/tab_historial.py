@@ -24,6 +24,7 @@ from generators.pdf_seleccion import generar_pdf_seleccion_cliente
 from utils.formato import formato_clp
 from utils.telefono import formatear_telefono
 from utils.avatars import fetch_foto_map, avatar_html
+from utils.formulario import fetch_catalogo_materiales
 from config.settings import SUPABASE_URL
 from config.supabase import supabase_admin as _supa_admin_global
 
@@ -559,6 +560,18 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                         if _r.get("item_id"): _mr2[_r["cotizacion_numero"]][_r["item_id"]]=_r["respuesta"]
                     _mc2=_dd2(list)
                     for _c in _mcfg: _mc2[_c["cotizacion_numero"]].append(_c)
+                    # Lookup imagen/color del catálogo por (categoria,nombre) y por
+                    # nombre, para adjuntar la foto del material seleccionado.
+                    _cat_by_cn={}; _cat_by_n={}
+                    for _cm in (fetch_catalogo_materiales() or []):
+                        _nm=str(_cm.get("nombre","") or "").strip().lower()
+                        if not _nm: continue
+                        _info={"img":str(_cm.get("imagen_url","") or ""),"hex":str(_cm.get("hex","") or "")}
+                        _cat_by_cn[(str(_cm.get("categoria","") or "").strip().lower(),_nm)]=_info
+                        _cat_by_n.setdefault(_nm,_info)
+                    def _mat_img(_cat,_val):
+                        _k=str(_val).strip().lower()
+                        return _cat_by_cn.get((str(_cat).strip().lower(),_k)) or _cat_by_n.get(_k) or {}
                     for _ep2,_cfgs2 in _mc2.items():
                         _rs2=_mr2[_ep2]; _tot2=len(_cfgs2)
                         _dn2=sum(1 for _c in _cfgs2 if any(_rs2.get(str(_i)) for _i in (_c.get("item_ids") or [])))
@@ -567,8 +580,12 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                         _cats2=_dd3(list)
                         for _c in sorted(_cfgs2,key=lambda x:(x.get("categoria",""),x.get("orden",0))):
                             _ids2=[str(_i) for _i in (_c.get("item_ids") or [])]
-                            _v2=[_rs2[_i] for _i in _ids2 if _rs2.get(_i)]
-                            _cats2[_c.get("categoria","")].append({"tg":_c.get("titulo_grupo",""),"val":", ".join(_v2)})
+                            _v2=[str(_rs2[_i]) for _i in _ids2 if _rs2.get(_i)]
+                            _cat2=_c.get("categoria","")
+                            _vals2=[{"n":_x,"img":_mat_img(_cat2,_x).get("img",""),
+                                     "hex":_mat_img(_cat2,_x).get("hex","")} for _x in _v2]
+                            _cats2[_cat2].append({"tg":_c.get("titulo_grupo",""),
+                                                  "val":", ".join(_v2),"vals":_vals2})
                         _mat_data_map[_ep2]={"pct":_pct2,"done":_dn2,"total":_tot2,
                             "cats":[{"cat":_k,"grupos":_vl} for _k,_vl in _cats2.items()]}
                     st.session_state['_mat_map_cache']=_mat_data_map
@@ -1164,22 +1181,63 @@ var MAT_DATA = """ + _mat_data_json_map + """;
         if(!btn) return; e.stopPropagation();
         var ep=btn.getAttribute('data-ep')||''; var mat={};
         try{mat=(typeof MAT_DATA!=='undefined'?MAT_DATA:{})[ep]||{};}catch(ex){}
+        var cli={}; try{cli=(typeof CLI_DATA!=='undefined'?CLI_DATA:{})[ep]||{};}catch(_e){}
+        function _svg(p,c,s,m){s=s||14;c=c||'#94a3b8';return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="'+c+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin:'+(m||'0 7px 0 0')+';flex-shrink:0;">'+p+'</svg>';}
+        function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+        var IC={
+            mats:'<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M9 12h6M9 16h6"/>',
+            x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+            zoom:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/><line x1="11" x2="11" y1="8" y2="14"/><line x1="8" x2="14" y1="11" y2="11"/>',
+            check:'<path d="M20 6 9 17l-5-5"/>',
+            square:'<rect width="18" height="18" x="3" y="3" rx="2"/>',
+            tag:'<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+            badge:'<path d="M20 7h-9M14 17H5M17 3a3 3 0 0 0 0 6M7 21a3 3 0 0 0 0-6"/>'
+        };
+        if(!D.getElementById('_matmodal_css')){var stl=D.createElement('style');stl.id='_matmodal_css';
+            stl.textContent='.mm-cat{margin-bottom:16px;}.mm-cat-t{font-size:0.72rem;font-weight:800;color:#60a5fa;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:9px;border-bottom:1px solid rgba(96,165,250,0.2);padding-bottom:5px;}.mm-grp{margin-bottom:13px;}.mm-grp-t{display:flex;align-items:center;font-size:0.8rem;font-weight:700;color:#cbd5e1;margin-bottom:8px;}.mm-vals{display:flex;flex-wrap:wrap;gap:12px;}.mm-val{width:100px;}.mm-thumb{position:relative;width:100px;height:100px;border-radius:12px;overflow:hidden;border:1px solid #334155;background:#0f172a;display:flex;align-items:center;justify-content:center;}.mm-thumb img{width:100%;height:100%;object-fit:cover;display:block;}.mm-zoom{position:absolute;bottom:5px;right:5px;width:26px;height:26px;border-radius:8px;border:none;background:rgba(15,23,42,0.8);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s;}.mm-zoom:hover{background:#2563eb;}.mm-name{margin-top:6px;font-size:0.74rem;font-weight:600;color:#e2e8f0;text-align:center;line-height:1.25;word-break:break-word;}.mm-empty{font-size:0.8rem;color:#64748b;padding:2px 0;}';
+            D.head.appendChild(stl);}
         var ex2=D.getElementById('_mat_modal'); if(ex2) ex2.remove();
         var ov=D.createElement('div'); ov.id='_mat_modal';
         ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:99999;display:flex;align-items:center;justify-content:center;';
-        var box=D.createElement('div'); box.style.cssText='background:#1e293b;border:1px solid #334155;border-radius:16px;padding:28px 32px;max-width:500px;width:92%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
-        var hdr=D.createElement('div'); hdr.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;';
-        var ttl=D.createElement('div'); ttl.style.cssText='font-size:1rem;font-weight:900;color:#f1f5f9;'; ttl.textContent='📋 Materiales — '+ep;
-        var cls=D.createElement('button'); cls.textContent='✖ Cerrar';
-        cls.style.cssText='background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.3);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.8rem;font-weight:700;';
+        var box=D.createElement('div'); box.style.cssText='background:#1e293b;border:1px solid #334155;border-radius:16px;padding:24px 28px;max-width:560px;width:92%;max-height:84vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
+        var hdr=D.createElement('div'); hdr.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;';
+        var ttl=D.createElement('div'); ttl.style.cssText='font-size:0.98rem;font-weight:900;color:#f1f5f9;display:flex;align-items:center;'; ttl.innerHTML=_svg(IC.mats,'#a5b4fc',18)+'Materiales &mdash; '+ep;
+        var cls=D.createElement('button'); cls.innerHTML=_svg(IC.x,'#a5b4fc',15,'0'); cls.title='Cerrar';
+        cls.style.cssText='background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.3);border-radius:8px;padding:5px 8px;cursor:pointer;line-height:0;flex-shrink:0;';
         hdr.appendChild(ttl); hdr.appendChild(cls);
+        var prof=D.createElement('div'); prof.style.cssText='display:flex;flex-direction:column;align-items:center;gap:9px;margin-bottom:14px;';
+        prof.innerHTML=(cli.asesor_avatar||'')+'<div style="text-align:center;"><div style="font-size:0.95rem;font-weight:800;color:#f1f5f9;">'+esc(cli.asesor||'—')+'</div><div style="font-size:0.64rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;display:flex;align-items:center;justify-content:center;margin-top:2px;">'+_svg(IC.badge,'#94a3b8',12,'0 5px 0 0')+'Ejecutivo a cargo</div></div>';
         var pct=mat.pct||0; var pc=pct===100?'#16a34a':(pct>=50?'#f97316':'#2563eb');
-        var pb=D.createElement('div'); pb.style.cssText='background:#0f172a;border-radius:8px;padding:10px 12px;margin-bottom:14px;';
+        var pb=D.createElement('div'); pb.style.cssText='background:#0f172a;border-radius:8px;padding:10px 12px;margin-bottom:16px;';
         pb.innerHTML='<div style="background:#1e293b;border-radius:4px;height:6px;margin-bottom:6px;"><div style="background:'+pc+';border-radius:4px;height:6px;width:'+pct+'%;"></div></div><div style="font-size:0.78rem;color:#94a3b8;">'+(mat.done||0)+' de '+(mat.total||0)+' secciones &mdash; '+pct+'%</div>';
+        function matVal(v){
+            var thumb;
+            if(v.img){thumb='<div class="mm-thumb"><img src="'+esc(v.img)+'" loading="lazy"><button class="mm-zoom _matzoom" data-img="'+esc(v.img)+'" data-name="'+esc(v.n)+'" title="Ampliar imagen">'+_svg(IC.zoom,'#fff',15,'0')+'</button></div>';}
+            else if(v.hex){thumb='<div class="mm-thumb" style="background:'+esc(v.hex)+';"></div>';}
+            else{thumb='<div class="mm-thumb">'+_svg(IC.tag,'#475569',26,'0')+'</div>';}
+            return '<div class="mm-val">'+thumb+'<div class="mm-name">'+esc(v.n)+'</div></div>';
+        }
+        function matGrp(g){
+            var vals=g.vals||[];
+            var inner=vals.length?'<div class="mm-vals">'+vals.map(matVal).join('')+'</div>':'<div class="mm-empty">&mdash; sin selección</div>';
+            var ok=vals.length>0;
+            return '<div class="mm-grp"><div class="mm-grp-t">'+_svg(ok?IC.check:IC.square,ok?'#22c55e':'#475569',15,'0 6px 0 0')+'<span>'+esc(g.tg)+'</span></div>'+inner+'</div>';
+        }
         var bdy=D.createElement('div'); var cats=mat.cats||[];
         if(!cats.length){bdy.innerHTML='<div style="color:#64748b;font-size:0.9rem;text-align:center;padding:20px 0;">Sin datos aún</div>';}
-        else{cats.forEach(function(c){var ce=D.createElement('div');ce.style.cssText='margin-bottom:12px;';var ct=D.createElement('div');ct.style.cssText='font-size:0.78rem;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;';ct.textContent=c.cat;ce.appendChild(ct);(c.grupos||[]).forEach(function(g){var rw=D.createElement('div');rw.style.cssText='display:flex;align-items:baseline;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.85rem;';rw.innerHTML='<span>'+(g.val?'✅':'⬜')+'</span><span style="color:#cbd5e1;font-weight:600;">'+g.tg+'</span><span style="color:#64748b;">:</span><span style="color:'+(g.val?'#60a5fa':'#475569')+';">'+(g.val||'—')+'</span>';ce.appendChild(rw);});bdy.appendChild(ce);});}
-        box.appendChild(hdr); box.appendChild(pb); box.appendChild(bdy); ov.appendChild(box); D.body.appendChild(ov);
+        else{var h='';cats.forEach(function(c){h+='<div class="mm-cat"><div class="mm-cat-t">'+esc(c.cat)+'</div>';(c.grupos||[]).forEach(function(g){h+=matGrp(g);});h+='</div>';});bdy.innerHTML=h;}
+        // Lupa → lightbox con la imagen grande
+        box.addEventListener('click',function(ev){
+            var z=ev.target&&ev.target.closest?ev.target.closest('._matzoom'):null; if(!z)return;
+            ev.stopPropagation();
+            var img=z.getAttribute('data-img'); var nm=z.getAttribute('data-name')||'';
+            var lb=D.createElement('div'); lb.id='_mat_lightbox';
+            lb.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:100001;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:zoom-out;';
+            lb.innerHTML='<img src="'+esc(img)+'" style="max-width:90vw;max-height:80vh;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.6);">'+(nm?'<div style="color:#fff;font-family:sans-serif;font-weight:700;font-size:1rem;">'+esc(nm)+'</div>':'');
+            lb.addEventListener('click',function(){lb.remove();});
+            D.body.appendChild(lb);
+        });
+        box.appendChild(hdr); box.appendChild(prof); box.appendChild(pb); box.appendChild(bdy); ov.appendChild(box); D.body.appendChild(ov);
         cls.addEventListener('click',function(){ov.remove();}); ov.addEventListener('click',function(ev){if(ev.target===ov)ov.remove();});
     });
     function updateLiveTimers(){
