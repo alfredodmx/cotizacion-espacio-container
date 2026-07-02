@@ -218,35 +218,90 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
         "Busca, carga y administra todas las cotizaciones del sistema.",
     )
 
-    with st.container(border=True):
-        # Iconos SVG (data-URI) en los botones de búsqueda vía CSS ::before.
+    # ── Cards de dinero (Ganado / Casi ganado / Perdido) — estilo RANKING ─────
+    # Resumen de la cartera por estado. Se rellenan más abajo con los datos reales
+    # (df_resultados); acá sólo se define el helper + un render inicial en cero.
+    def _fmt_money_short(v):
+        v = float(v or 0); _s = '-' if v < 0 else ''; v = abs(v)
+        if v >= 1_000_000: return f"{_s}${v/1_000_000:.1f}M"
+        if v >= 1_000:     return f"{_s}${v/1_000:.0f}K"
+        return f"{_s}${v:,.0f}"
+
+    _CARD_ICON_PATHS = {
+        'ganado':  "<line x1='12' x2='12' y1='2' y2='22'/><path d='M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'/>",
+        'casi':    "<circle cx='12' cy='12' r='10'/><polyline points='12 6 12 12 16 14'/>",
+        'perdido': "<polyline points='22 17 13.5 8.5 8.5 13.5 2 7'/><polyline points='16 17 22 17 22 11'/>",
+    }
+    _CARD_CSS = (
+        "<style>"
+        ".cot-mcards{display:flex;gap:10px;width:100%;}"
+        ".cot-mcard{flex:1;min-width:0;background:#fff;border:1px solid #e6eaf2;"
+        "border-left:4px solid var(--acc);border-radius:14px;padding:12px 14px;"
+        "box-shadow:0 2px 12px rgba(15,23,42,0.06);display:flex;flex-direction:column;justify-content:center;}"
+        ".cot-mc-lbl{display:flex;align-items:center;gap:6px;font-family:Montserrat,sans-serif;"
+        "font-weight:800;font-size:0.66rem;letter-spacing:0.05em;text-transform:uppercase;color:var(--acc);white-space:nowrap;}"
+        ".cot-mc-lbl svg{flex-shrink:0;}"
+        ".cot-mc-val{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.45rem;"
+        "color:#0f172a;line-height:1.05;margin:5px 0 2px;}"
+        ".cot-mc-sub{font-size:0.7rem;color:#94a3b8;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}"
+        "</style>"
+    )
+
+    def _svg_card(key, color):
+        return (f"<svg width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='{color}' "
+                f"stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'>{_CARD_ICON_PATHS[key]}</svg>")
+
+    def _render_money_cards(slot, gan, casi, perd, ng, nc, nperd):
+        _defs = [
+            ('#16a34a', 'ganado',  'Ganado',      gan,               f'{ng} adjudicado{"s" if ng!=1 else ""} / terminado{"s" if ng!=1 else ""}'),
+            ('#f59e0b', 'casi',    'Casi ganado', casi,              f'{nc} en proceso'),
+            ('#dc2626', 'perdido', 'Perdido',     -abs(perd) if perd else 0, f'{nperd} rechazado{"s" if nperd!=1 else ""}'),
+        ]
+        _cards = ''.join(
+            f'<div class="cot-mcard" style="--acc:{_c};">'
+            f'<div class="cot-mc-lbl">{_svg_card(_k, _c)}{_lbl}</div>'
+            f'<div class="cot-mc-val" style="color:{_c};">{_fmt_money_short(_val)}</div>'
+            f'<div class="cot-mc-sub">{_sub}</div></div>'
+            for _c, _k, _lbl, _val, _sub in _defs
+        )
+        slot.markdown(_CARD_CSS + f'<div class="cot-mcards">{_cards}</div>', unsafe_allow_html=True)
+
+    _top_left, _top_right = st.columns([1.15, 1], gap="medium", vertical_alignment="center")
+    _cards_slot = _top_right.empty()
+    _render_money_cards(_cards_slot, 0, 0, 0, 0, 0, 0)   # se sobrescribe con datos reales al construir df_resultados
+
+    with _top_left, st.container(border=True):
+        # Botones de búsqueda SOLO ícono (texto oculto con font-size:0 + ícono via
+        # CSS ::before). El significado de cada botón va en el tooltip (help=).
         def _btn_svg_before(key, svg_path, color="%23475569"):
             return (
                 f'.st-key-{key} button{{display:inline-flex!important;align-items:center!important;'
-                f'justify-content:center!important;gap:6px!important;}}'
+                f'justify-content:center!important;gap:0!important;font-size:0!important;}}'
                 f'.st-key-{key} button::before{{content:""!important;flex-shrink:0!important;'
-                f'width:15px!important;height:15px!important;'
+                f'width:17px!important;height:17px!important;'
                 f'background:url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' '
-                f'width=\'15\' height=\'15\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'{color}\' '
+                f'width=\'17\' height=\'17\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'{color}\' '
                 f'stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E{svg_path}'
                 f'%3C/svg%3E") no-repeat center/contain!important;}}'
             )
         _SVG_SEARCH = "%3Ccircle cx=\'11\' cy=\'11\' r=\'8\'/%3E%3Cpath d=\'m21 21-4.3-4.3\'/%3E"
         _SVG_TRASH = "%3Cpath d=\'M3 6h18\'/%3E%3Cpath d=\'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\'/%3E"
-        _SVG_CAL = "%3Cpath d=\'M8 2v4\'/%3E%3Cpath d=\'M16 2v4\'/%3Crect width=\'18\' height=\'18\' x=\'3\' y=\'4\' rx=\'2\'/%3E%3Cpath d=\'M3 10h18\'/%3E"
+        _SVG_SUN = "%3Ccircle cx=\'12\' cy=\'12\' r=\'4\'/%3E%3Cpath d=\'M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4\'/%3E"
+        _SVG_CAL_WEEK = "%3Crect width=\'18\' height=\'18\' x=\'3\' y=\'4\' rx=\'2\'/%3E%3Cpath d=\'M3 10h18M8 2v4M16 2v4M7 15h.01M11 15h.01M15 15h.01\'/%3E"
+        _SVG_CAL = "%3Crect width=\'18\' height=\'18\' x=\'3\' y=\'4\' rx=\'2\'/%3E%3Cpath d=\'M3 10h18M8 2v4M16 2v4\'/%3E"
         st.markdown(
             "<style>"
             + _btn_svg_before("btn_buscar_cot", _SVG_SEARCH, "white")
             + _btn_svg_before("btn_limpiar_cot", _SVG_TRASH)
-            + _btn_svg_before("filtro_hoy", _SVG_CAL)
-            + _btn_svg_before("filtro_semana", _SVG_CAL)
+            + _btn_svg_before("filtro_hoy", _SVG_SUN)
+            + _btn_svg_before("filtro_semana", _SVG_CAL_WEEK)
             + _btn_svg_before("filtro_mes", _SVG_CAL)
             # Radio "Buscar por" (N° Presupuesto/Cliente/Asesor): MISMA tipografía
             # que los títulos de módulo de PRESUPUESTO (Montserrat uppercase). Las
             # props de fuente van a todos los descendientes; el color se restringe
             # al texto (label) para no teñir el punto del radio.
             + ".st-key-tipo_busqueda label,.st-key-tipo_busqueda label *{font-family:Montserrat,sans-serif!important;"
-            + "font-weight:700!important;font-size:0.88rem!important;letter-spacing:0.05em!important;line-height:1.6!important;"
+            + "font-weight:700!important;font-size:0.82rem!important;letter-spacing:0.04em!important;line-height:1.6!important;"
             + "text-transform:uppercase!important;color:#0f172a!important;-webkit-text-fill-color:#0f172a!important;}"
             + "</style>",
             unsafe_allow_html=True,
@@ -254,20 +309,20 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
         tipo_busqueda = st.radio("Buscar por:", ["N° Presupuesto", "Cliente", "Asesor"],
                                   horizontal=True, key="tipo_busqueda", label_visibility="collapsed")
         tipo_map = {"N° Presupuesto": "numero", "Cliente": "cliente", "Asesor": "asesor"}
-        _bc1, _bc2, _bc3, _bc4, _bc5, _bc6 = st.columns([3, 0.8, 0.8, 0.7, 0.8, 0.8])
+        _bc1, _bc2, _bc3, _bc4, _bc5, _bc6 = st.columns([3, 0.7, 0.7, 0.7, 0.7, 0.7])
         with _bc1:
             termino = st.text_input("Término", placeholder="Ingrese término de búsqueda...",
                                      key="buscar_cotizacion", label_visibility="collapsed")
-        with _bc2: buscar_btn = st.button("Buscar", type="primary", use_container_width=True, key="btn_buscar_cot")
-        with _bc3: limpiar_btn = st.button("Limpiar", use_container_width=True, key="btn_limpiar_cot")
+        with _bc2: buscar_btn = st.button(" ", type="primary", use_container_width=True, key="btn_buscar_cot", help="Buscar")
+        with _bc3: limpiar_btn = st.button(" ", use_container_width=True, key="btn_limpiar_cot", help="Limpiar")
         with _bc4:
-            if st.button("Hoy", use_container_width=True, key="filtro_hoy"):
+            if st.button(" ", use_container_width=True, key="filtro_hoy", help="Hoy"):
                 st.session_state.resultados_busqueda = None; st.rerun()
         with _bc5:
-            if st.button("Semana", use_container_width=True, key="filtro_semana"):
+            if st.button(" ", use_container_width=True, key="filtro_semana", help="Esta semana"):
                 st.session_state.resultados_busqueda = None; st.rerun()
         with _bc6:
-            if st.button("Mes", use_container_width=True, key="filtro_mes"):
+            if st.button(" ", use_container_width=True, key="filtro_mes", help="Este mes"):
                 st.session_state.resultados_busqueda = None; st.rerun()
 
     st.markdown("---")
@@ -387,6 +442,22 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
         import re as _re_est
         df_resultados["EstadoKey"] = df_resultados["Estado"].apply(
             lambda h: _re_est.sub(r"<[^>]+>","",str(h)).strip())
+
+        # Cards de dinero (Ganado / Casi ganado / Perdido): se agregan sobre el
+        # set COMPLETO (antes de aplicar el filtro por estado). Mismo bucketing
+        # que el RANKING: ganado = adjudicado/terminado, perdido = rechazado.
+        _mg = _mc = _mp = 0.0
+        _cg = _cc = _cp = 0
+        _tot_num = pd.to_numeric(df_resultados["Total"], errors="coerce").fillna(0.0)
+        for _ek, _tv in zip(df_resultados["EstadoKey"], _tot_num):
+            _tv = float(_tv)
+            if _ek in ("PROYECTO TERMINADO", "ADJUDICADO"):
+                _mg += _tv; _cg += 1
+            elif _ek == "RECHAZADO":
+                _mp += _tv; _cp += 1
+            else:
+                _mc += _tv; _cc += 1
+        _render_money_cards(_cards_slot, _mg, _mc, _mp, _cg, _cc, _cp)
 
         def _fmt_auth_nom(row):
             fh=_fmt_fecha_auth(row["Fecha_Auth"]); q=str(row.get("Autorizado_Por","") or "").strip()
