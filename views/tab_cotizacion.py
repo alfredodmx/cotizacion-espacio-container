@@ -441,7 +441,7 @@ section[data-testid="stMain"] div[data-testid="stPopover"] > div > button::after
    verticalmente, igual que el panel de progreso de la derecha. */
 div[data-baseweb="popover"]:has(.ec-mg-marker) {{
     position: fixed !important;
-    left: calc({_sb_w} + 54px) !important;
+    left: {_sb_w} !important;
     top: 50% !important; transform: translateY(-50%) !important;
     bottom: unset !important; right: unset !important;
     z-index: 99998 !important;
@@ -458,7 +458,7 @@ div[data-baseweb="popover"]:has(.ec-mg-marker) {{
 /* Sidebar colapsado (clase en <html>): el botón-tab Y el panel abierto siguen
    al ancho 76px, quedando pegados al sidebar en ambos estados. */
 html.ec-sbc section[data-testid="stMain"] div[data-testid="stPopover"] {{ left: 76px !important; }}
-html.ec-sbc div[data-baseweb="popover"]:has(.ec-mg-marker) {{ left: calc(76px + 54px) !important; }}
+html.ec-sbc div[data-baseweb="popover"]:has(.ec-mg-marker) {{ left: 76px !important; }}
 </style>""", unsafe_allow_html=True)
         with st.popover("", use_container_width=False):
             st.markdown(f"""
