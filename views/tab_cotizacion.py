@@ -432,19 +432,36 @@ section[data-testid="stMain"] div[data-testid="stPopover"] > div > button::after
     font-weight: 700 !important; color: #9ca3af !important;
     display: block !important; white-space: pre !important;
 }}
-section[data-testid="stMain"] [data-testid="stPopoverBody"] {{
+/* El cuerpo del popover se PORTALEA fuera de stMain (baseweb lo envuelve en
+   div[data-baseweb="popover"] con un transform inline para posicionarlo). Ese
+   transform crea un containing-block, por lo que el position:fixed del cuerpo se
+   resolvía RELATIVO al wrapper y el panel caía "abajo" pegado al botón en vez de
+   centrarse en el viewport. Fijamos el WRAPPER (anulando su transform) y dejamos
+   el cuerpo en flujo normal dentro de él → queda a la IZQUIERDA y centrado
+   verticalmente, igual que el panel de progreso de la derecha. */
+div[data-baseweb="popover"]:has(.ec-mg-marker) {{
+    position: fixed !important;
+    left: 0 !important;
+    top: 50% !important; transform: translateY(-50%) !important;
+    bottom: unset !important; right: unset !important;
+    z-index: 99998 !important;
+}}
+[data-testid="stPopoverBody"]:has(.ec-mg-marker) {{
+    position: static !important;
     background: white !important; border-radius: 0 14px 14px 0 !important;
     border: 1px solid #e2e8f0 !important; border-left: none !important;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.12) !important;
-    padding: 12px 10px !important; width: 160px !important;
-    left: calc({_sb_w} + 54px) !important; top: 0 !important;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.16) !important;
+    padding: 12px 10px !important;
+    width: 180px !important; min-width: 180px !important; max-width: 180px !important;
 }}
-/* Sidebar colapsado (clase en <html>): el popover sigue al ancho 76px */
+/* Sidebar colapsado (clase en <html>): el botón-tab sigue al ancho 76px.
+   El panel abierto queda pegado al borde izquierdo (left:0), independiente
+   del sidebar — espejo del panel de progreso pegado al borde derecho. */
 html.ec-sbc section[data-testid="stMain"] div[data-testid="stPopover"] {{ left: 76px !important; }}
-html.ec-sbc section[data-testid="stMain"] [data-testid="stPopoverBody"] {{ left: calc(76px + 54px) !important; }}
 </style>""", unsafe_allow_html=True)
         with st.popover("", use_container_width=False):
             st.markdown(f"""
+            <div class="ec-mg-marker"></div>
             <div style="text-align:center;margin-bottom:6px;">
               <div style="font-size:1.4rem;font-weight:900;color:{_color_fab};line-height:1;">{_mstr}%</div>
               <div style="font-size:0.6rem;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;">Margen</div>
