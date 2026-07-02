@@ -23,6 +23,8 @@ from generators.pdf_log import generar_pdf_log
 from generators.pdf_seleccion import generar_pdf_seleccion_cliente
 from utils.formato import formato_clp
 from utils.telefono import formatear_telefono
+from utils.avatars import fetch_foto_map, avatar_html
+from config.settings import SUPABASE_URL
 from config.supabase import supabase_admin as _supa_admin_global
 
 
@@ -657,8 +659,12 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
         # para que no se re-consulte al filtrar por badge.
         _eps_full = [str(_r[0]) for _r in (st.session_state.resultados_busqueda or [])]
         _modelos_map = _modelos_predefinidos(tuple(sorted(_eps_full)))
+        _foto_map = fetch_foto_map(SUPABASE_URL)   # email(minúsculas) -> foto_url
         _cli_data_map = {}
         for _,_mr in df_resultados.iterrows():
+            _ase_nom = str(_mr.get('Asesor','') or '')
+            _ase_mail = str(_mr.get('Asesor_Email','') or '')
+            _ase_foto = _foto_map.get(_ase_mail.lower(), '') if _ase_mail else ''
             _cli_data_map[str(_mr.get('N°',''))]={
                 'nombre':str(_mr.get('Cliente','') or ''),'rut':str(_mr.get('RUT','') or ''),
                 'tel':str(_mr.get('Cli_Tel','') or ''),'email':str(_mr.get('Email','') or ''),
@@ -666,7 +672,9 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                 'region':str(_mr.get('Cli_Region','') or ''),'empresa':str(_mr.get('Empresa','') or ''),
                 'inst_dir':str(_mr.get('Inst_Dir','') or ''),'inst_comuna':str(_mr.get('Inst_Comuna','') or ''),
                 'inst_region':str(_mr.get('Inst_Region','') or ''),
-                'modelo':str(_modelos_map.get(str(_mr.get('N°','')),'') or '')}
+                'modelo':str(_modelos_map.get(str(_mr.get('N°','')),'') or ''),
+                'asesor':_ase_nom,
+                'asesor_avatar':avatar_html(_ase_foto, _ase_nom, size=100, ring='#334155', font_scale=0.34)}
         _cli_data_json_map = json.dumps(_cli_data_map, ensure_ascii=True)
         _mat_data_json_map = json.dumps(_mat_data_map, ensure_ascii=True)
 
@@ -1085,34 +1093,66 @@ var MAT_DATA = """ + _mat_data_json_map + """;
         if(!btn) return;
         var ep=btn.getAttribute('data-ep')||''; var cli={};
         try{cli=(typeof CLI_DATA!=='undefined'?CLI_DATA:{})[ep]||{};}catch(ex){}
+        function _svg(p,c,s,m){s=s||14;c=c||'#94a3b8';return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="'+c+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin:'+(m||'0 7px 0 0')+';flex-shrink:0;">'+p+'</svg>';}
+        var IC={
+            rut:'<rect width="18" height="14" x="3" y="5" rx="2"/><path d="M7 9h4M7 13h2"/><circle cx="15.5" cy="11" r="1.5"/>',
+            phone:'<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>',
+            mail:'<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+            home:'<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+            city:'<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4M10 10h4M10 14h4M10 18h4"/>',
+            map:'<polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" x2="9" y1="3" y2="18"/><line x1="15" x2="15" y1="6" y2="21"/>',
+            building:'<rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/>',
+            pin:'<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+            copy:'<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+            user:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+            badge:'<path d="M20 7h-9M14 17H5M17 3a3 3 0 0 0 0 6M7 21a3 3 0 0 0 0-6"/>'
+        };
         var ex2=D.getElementById('_datos_modal'); if(ex2) ex2.remove();
         var ov=D.createElement('div'); ov.id='_datos_modal';
         ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
-        var box=D.createElement('div'); box.style.cssText='background:#1e293b;border:1px solid #334155;border-radius:16px;padding:28px 32px;max-width:460px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
-        var hdr=D.createElement('div'); hdr.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;';
-        var ttl=D.createElement('div'); ttl.style.cssText='font-size:1rem;font-weight:900;color:#f1f5f9;'; ttl.textContent='👤 Datos del cliente — '+ep;
-        var cls=D.createElement('button'); cls.textContent='✖ Cerrar';
-        cls.style.cssText='background:rgba(100,116,139,0.2);color:#94a3b8;border:1px solid rgba(100,116,139,0.3);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.8rem;font-weight:700;';
+        var box=D.createElement('div'); box.style.cssText='background:#1e293b;border:1px solid #334155;border-radius:16px;padding:24px 28px;max-width:440px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
+        var hdr=D.createElement('div'); hdr.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:10px;';
+        var ttl=D.createElement('div'); ttl.style.cssText='font-size:0.98rem;font-weight:900;color:#f1f5f9;display:flex;align-items:center;';
+        ttl.innerHTML=_svg(IC.user,'#a5b4fc',18)+'Datos del cliente &mdash; <span class="_dcopy" data-copy="'+ep+'" title="Click para copiar" style="cursor:pointer;color:#93c5fd;margin-left:5px;text-decoration:underline dotted;">'+ep+'</span>';
+        var cls=D.createElement('button'); cls.innerHTML=_svg('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>','#94a3b8',15,'0')+'';
+        cls.style.cssText='background:rgba(100,116,139,0.2);color:#94a3b8;border:1px solid rgba(100,116,139,0.3);border-radius:8px;padding:5px 8px;cursor:pointer;line-height:0;flex-shrink:0;';
+        cls.title='Cerrar';
         hdr.appendChild(ttl); hdr.appendChild(cls);
-        var bdy=D.createElement('div'); bdy.style.cssText='background:#0f172a;border-radius:10px;padding:14px 16px;font-size:0.88rem;color:#e2e8f0;line-height:2;';
-        var rows=[['🪪 RUT',cli.rut],['📞 Teléfono',cli.tel],['✉️ Email',cli.email],['🏠 Dirección',cli.dir],
-                  ['🏙️ Comuna',cli.comuna],['🗺️ Región',cli.region],['🏢 Empresa',cli.empresa],
-                  ['📍 Dir. instalación',cli.inst_dir],['🏙️ Comuna inst.',cli.inst_comuna],['🗺️ Región inst.',cli.inst_region]];
+        // Perfil del ejecutivo a cargo (foto 100x100 + nombre)
+        var prof=D.createElement('div'); prof.style.cssText='display:flex;flex-direction:column;align-items:center;gap:9px;margin-bottom:16px;';
+        prof.innerHTML=(cli.asesor_avatar||'')
+            +'<div style="text-align:center;">'
+            +'<div style="font-size:0.95rem;font-weight:800;color:#f1f5f9;font-family:\\'Plus Jakarta Sans\\',sans-serif;">'+(cli.asesor||'&mdash;')+'</div>'
+            +'<div style="font-size:0.64rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;display:flex;align-items:center;justify-content:center;margin-top:2px;">'+_svg(IC.badge,'#94a3b8',12,'0 5px 0 0')+'Ejecutivo a cargo</div>'
+            +'</div>';
+        var bdy=D.createElement('div'); bdy.style.cssText='background:#0f172a;border-radius:10px;padding:12px 14px;font-size:0.88rem;color:#e2e8f0;';
+        var rows=[['rut','RUT',cli.rut],['phone','Teléfono',cli.tel],['mail','Email',cli.email],['home','Dirección',cli.dir],
+                  ['city','Comuna',cli.comuna],['map','Región',cli.region],['building','Empresa',cli.empresa],
+                  ['pin','Dir. instalación',cli.inst_dir],['city','Comuna inst.',cli.inst_comuna],['map','Región inst.',cli.inst_region]];
         var html='<table style="width:100%;border-collapse:collapse;">';
-        rows.forEach(function(r){if(!r[1])return;html+='<tr><td style="color:#94a3b8;font-size:0.78rem;padding:3px 8px 3px 0;white-space:nowrap;">'+r[0]+'</td><td style="color:#f1f5f9;font-weight:600;padding:3px 0;">'+r[1]+'</td></tr>';});
+        rows.forEach(function(r){if(!r[2])return;var v=String(r[2]).replace(/"/g,'&quot;');
+            html+='<tr>'
+                +'<td style="color:#94a3b8;font-size:0.76rem;padding:5px 10px 5px 0;white-space:nowrap;vertical-align:middle;">'+_svg(IC[r[0]])+r[1]+'</td>'
+                +'<td class="_dcopy" data-copy="'+v+'" title="Click para copiar" style="color:#f1f5f9;font-weight:600;padding:5px 0;cursor:pointer;vertical-align:middle;">'
+                +r[2]+_svg(IC.copy,'#475569',13,'0 0 0 8px')+'</td></tr>';
+        });
         html+='</table>'; bdy.innerHTML=html;
         if(cli.modelo){
-            var mdl=D.createElement('div');
-            mdl.style.cssText='margin-top:14px;padding-top:12px;border-top:1px solid #334155;';
-            var lbl=D.createElement('div');
-            lbl.style.cssText='font-size:0.7rem;font-weight:800;color:#94a3b8;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:3px;font-family:Montserrat,sans-serif;';
-            lbl.textContent='Modelo predefinido';
-            var val=D.createElement('div');
-            val.style.cssText='font-size:1.05rem;font-weight:900;color:#fbbf24;font-family:Montserrat,sans-serif;letter-spacing:0.02em;';
-            val.textContent=cli.modelo;
-            mdl.appendChild(lbl); mdl.appendChild(val); bdy.appendChild(mdl);
+            var mdl=D.createElement('div'); mdl.style.cssText='margin-top:14px;padding-top:12px;border-top:1px solid #334155;';
+            mdl.innerHTML='<div style="font-size:0.7rem;font-weight:800;color:#94a3b8;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:3px;font-family:Montserrat,sans-serif;">Modelo predefinido</div>'
+                +'<div class="_dcopy" data-copy="'+String(cli.modelo).replace(/"/g,'&quot;')+'" title="Click para copiar" style="font-size:1.05rem;font-weight:900;color:#fbbf24;font-family:Montserrat,sans-serif;letter-spacing:0.02em;cursor:pointer;">'+cli.modelo+_svg(IC.copy,'#a16207',13,'0 0 0 8px')+'</div>';
+            bdy.appendChild(mdl);
         }
-        box.appendChild(hdr); box.appendChild(bdy); ov.appendChild(box); D.body.appendChild(ov);
+        // Copiar al click en cualquier celda ._dcopy (RUT, teléfono, EP, etc.)
+        box.addEventListener('click',function(ev){
+            var c=ev.target&&ev.target.closest?ev.target.closest('._dcopy'):null; if(!c)return;
+            var txt=c.getAttribute('data-copy')||''; if(!txt)return;
+            try{var ta=D.createElement('textarea');ta.value=txt;ta.style.cssText='position:fixed;top:-9999px;left:-9999px;';D.body.appendChild(ta);ta.focus();ta.select();try{D.execCommand('copy');}catch(_e){}ta.remove();}catch(_e2){}
+            if(window.parent.navigator&&window.parent.navigator.clipboard)window.parent.navigator.clipboard.writeText(txt).catch(function(){});
+            var oc=c.style.color; c.style.color='#10b981'; var ot=c.getAttribute('title'); c.setAttribute('title','¡Copiado!');
+            clearTimeout(c._ct); c._ct=setTimeout(function(){c.style.color=oc||'';if(ot)c.setAttribute('title',ot);},1000);
+        });
+        box.appendChild(hdr); box.appendChild(prof); box.appendChild(bdy); ov.appendChild(box); D.body.appendChild(ov);
         cls.addEventListener('click',function(){ov.remove();}); ov.addEventListener('click',function(ev){if(ev.target===ov)ov.remove();});
     });
     D.addEventListener('click', function(e) {
