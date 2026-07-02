@@ -912,17 +912,31 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             'INCOMPLETO': ('#fee2e2', '#dc2626', '#991b1b'),
             'RECHAZADO': ('#fee2e2', '#b91c1c', '#7f1d1d'),
         }
+        # \u00CDcono Material (SVG) por estado \u2014 reemplaza los c\u00EDrculos de color (emojis).
+        # Mismo enfoque que CONTRATO NOTARIADO (st.button icon=":material/...:").
+        _BADGE_ICON = {
+            'TODOS':                ':material/apps:',
+            'PROYECTO TERMINADO':   ':material/emoji_events:',
+            'ADJUDICADO':           ':material/military_tech:',
+            'AUTORIZADO CON PLANO': ':material/check_circle:',
+            'AUTORIZADO':           ':material/task_alt:',
+            'BORRADOR CON PLANO':   ':material/edit_document:',
+            'BORRADOR':             ':material/draft:',
+            'INCOMPLETO CON PLANO': ':material/error:',
+            'INCOMPLETO':           ':material/warning:',
+            'RECHAZADO':            ':material/block:',
+        }
         _badge_order = [
             ('TODOS', f'Todos ({_n_total})'),
-            ('PROYECTO TERMINADO', '\U0001F7E3 terminados'),
-            ('ADJUDICADO', '\U0001F535 adjudicados'),
-            ('AUTORIZADO CON PLANO', '\U0001F7E2 aut. c/plano'),
-            ('AUTORIZADO', '\U0001F7E2 autorizados'),
-            ('BORRADOR CON PLANO', '\U0001F7E0 borrador c/plano'),
-            ('BORRADOR', '\U0001F7E1 borrador'),
-            ('INCOMPLETO CON PLANO', '\U0001F534 incompleto c/plano'),
-            ('INCOMPLETO', '\U0001F534 incompletos'),
-            ('RECHAZADO', '\u274C rechazados'),
+            ('PROYECTO TERMINADO', 'terminados'),
+            ('ADJUDICADO', 'adjudicados'),
+            ('AUTORIZADO CON PLANO', 'aut. c/plano'),
+            ('AUTORIZADO', 'autorizados'),
+            ('BORRADOR CON PLANO', 'borrador c/plano'),
+            ('BORRADOR', 'borrador'),
+            ('INCOMPLETO CON PLANO', 'incompleto c/plano'),
+            ('INCOMPLETO', 'incompletos'),
+            ('RECHAZADO', 'rechazados'),
         ]
         _badges = []
         for _bi, (_bk, _blbl) in enumerate(_badge_order):
@@ -944,9 +958,10 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             else:
                 _css.append(f'.st-key-{_bkey} button{{{_bbase}background:{_bg}!important;color:{_fg}!important;}}')
             _css.append(f'.st-key-{_bkey} button:hover{{background:{_act}!important;color:#fff!important;}}')
-            # El texto del botón va en un <p>/<div> hijo que hereda la fuente base
-            # de la app (Plus Jakarta Sans); forzamos Montserrat en los descendientes.
-            _css.append(f'.st-key-{_bkey} button *{{font-family:Montserrat,sans-serif!important;'
+            # SÓLO el texto (no el ícono Material) lleva Montserrat+uppercase: si se
+            # aplica a `button *` se rompe la ligadura del ícono (sale el nombre).
+            _css.append(f'.st-key-{_bkey} button p,.st-key-{_bkey} button [data-testid="stMarkdownContainer"]'
+                        f'{{font-family:Montserrat,sans-serif!important;'
                         f'font-size:11.5px!important;font-weight:800!important;text-transform:uppercase!important;}}')
         _css.append('.st-key-cot_refresh_tabla button{border-radius:99px!important;'
                     'font-weight:700!important;min-height:0!important;padding:5px 10px!important;}')
@@ -959,16 +974,17 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             # Mantenemos selector_ep_num: si la cotizacion sigue en el filtro no recarga.
             st.session_state.pop('selector_cotizaciones', None)
 
-        _weights = [max(len(_b[1]) * 0.42, 3.2) for _b in _badges] + [2.0]
+        _weights = [max(len(_b[1]) * 0.42 + 0.9, 3.4) for _b in _badges] + [2.0]
         _bcols = st.columns(_weights)
         for _bci, (_bk, _blbl, _bkey) in enumerate(_badges):
             with _bcols[_bci]:
                 st.button(_blbl, key=_bkey, use_container_width=True,
+                          icon=_BADGE_ICON.get(_bk),
                           on_click=_set_badge_filter,
                           args=(None if _bk == 'TODOS' else _bk,))
         with _bcols[-1]:
-            if st.button('\U0001F504', key='cot_refresh_tabla', help='Actualizar resultados',
-                         use_container_width=True):
+            if st.button("", key='cot_refresh_tabla', icon=":material/refresh:",
+                         help='Actualizar resultados', use_container_width=True):
                 st.session_state.resultados_busqueda = None
                 st.rerun()
 
