@@ -34,7 +34,7 @@ _CAMPOS_LISTA = (
     'fecha_adjudicacion', 'contrato_datos', 'motivo_rechazo', 'fecha_rechazo',
     'acta_url', 'fecha_entrega',
     'cliente_telefono', 'cliente_direccion', 'cliente_comuna', 'cliente_region',
-    'proyecto_direccion', 'proyecto_comuna', 'proyecto_region'
+    'proyecto_direccion', 'proyecto_comuna', 'proyecto_region', 'cliente_rut_empresa'
 )
 
 
@@ -225,6 +225,7 @@ def buscar_cotizaciones(termino=None, tipo_busqueda='numero') -> list:
                 row.get('proyecto_direccion', '') or '',
                 row.get('proyecto_comuna', '') or '',
                 row.get('proyecto_region', '') or '',
+                row.get('cliente_rut_empresa', '') or '',
             ))
         numeros_ep = [r[0] for r in resultados]
         _log_counts = contar_logs(tuple(numeros_ep))

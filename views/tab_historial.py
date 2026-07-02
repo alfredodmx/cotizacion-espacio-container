@@ -431,7 +431,7 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                  "Asesor_Tel","Tiene_Plano","Tiene_Contrato","Empresa","Fecha_Auth","Autorizado_Por",
                  "Tiene_Notariado","Fecha_Adj","Contrato_Datos","Not_URL","Motivo_Rechazo",
                  "Fecha_Rechazo","Acta_URL","Fecha_Entrega","Cli_Tel","Cli_Dir","Cli_Comuna",
-                 "Cli_Region","Inst_Dir","Inst_Comuna","Inst_Region","NLogs"]
+                 "Cli_Region","Inst_Dir","Inst_Comuna","Inst_Region","RutEmpresa","NLogs"]
         if len(st.session_state.resultados_busqueda[0]) < len(_cols):
             st.session_state.resultados_busqueda = buscar_cotizaciones()
         _rn = []
@@ -672,6 +672,7 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                 'region':str(_mr.get('Cli_Region','') or ''),'empresa':str(_mr.get('Empresa','') or ''),
                 'inst_dir':str(_mr.get('Inst_Dir','') or ''),'inst_comuna':str(_mr.get('Inst_Comuna','') or ''),
                 'inst_region':str(_mr.get('Inst_Region','') or ''),
+                'rut_empresa':str(_mr.get('RutEmpresa','') or ''),
                 'modelo':str(_modelos_map.get(str(_mr.get('N°','')),'') or ''),
                 'asesor':_ase_nom,
                 'asesor_avatar':avatar_html(_ase_foto, _ase_nom, size=100, ring='#334155', font_scale=0.34)}
@@ -1126,21 +1127,24 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             +'<div style="font-size:0.64rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;display:flex;align-items:center;justify-content:center;margin-top:2px;">'+_svg(IC.badge,'#94a3b8',12,'0 5px 0 0')+'Ejecutivo a cargo</div>'
             +'</div>';
         var bdy=D.createElement('div'); bdy.style.cssText='background:#0f172a;border-radius:10px;padding:12px 14px;font-size:0.88rem;color:#e2e8f0;';
-        var rows=[['rut','RUT',cli.rut],['phone','Teléfono',cli.tel],['mail','Email',cli.email],['home','Dirección',cli.dir],
-                  ['city','Comuna',cli.comuna],['map','Región',cli.region],['building','Empresa',cli.empresa],
+        var rows=[['user','Nombre',cli.nombre],['rut','RUT',cli.rut],['phone','Teléfono',cli.tel],['mail','Email',cli.email],
+                  ['home','Dirección',cli.dir],['city','Comuna',cli.comuna],['map','Región',cli.region],
+                  ['building','Empresa',cli.empresa],['rut','RUT empresa',cli.rut_empresa],
                   ['pin','Dir. instalación',cli.inst_dir],['city','Comuna inst.',cli.inst_comuna],['map','Región inst.',cli.inst_region]];
         var html='<table style="width:100%;border-collapse:collapse;">';
         rows.forEach(function(r){if(!r[2])return;var v=String(r[2]).replace(/"/g,'&quot;');
             html+='<tr>'
-                +'<td style="color:#94a3b8;font-size:0.76rem;padding:5px 10px 5px 0;white-space:nowrap;vertical-align:middle;">'+_svg(IC[r[0]])+r[1]+'</td>'
-                +'<td class="_dcopy" data-copy="'+v+'" title="Click para copiar" style="color:#f1f5f9;font-weight:600;padding:5px 0;cursor:pointer;vertical-align:middle;">'
-                +r[2]+_svg(IC.copy,'#475569',13,'0 0 0 8px')+'</td></tr>';
+                +'<td style="color:#94a3b8;font-size:0.76rem;padding:5px 12px 5px 0;white-space:nowrap;vertical-align:top;">'+_svg(IC[r[0]])+r[1]+'</td>'
+                +'<td class="_dcopy" data-copy="'+v+'" title="Click para copiar" style="padding:5px 0;cursor:pointer;">'
+                +'<div style="display:flex;align-items:center;gap:8px;">'
+                +'<span style="color:#f1f5f9;font-weight:600;word-break:break-all;overflow-wrap:anywhere;">'+r[2]+'</span>'
+                +_svg(IC.copy,'#475569',13,'0')+'</div></td></tr>';
         });
         html+='</table>'; bdy.innerHTML=html;
         if(cli.modelo){
             var mdl=D.createElement('div'); mdl.style.cssText='margin-top:14px;padding-top:12px;border-top:1px solid #334155;';
             mdl.innerHTML='<div style="font-size:0.7rem;font-weight:800;color:#94a3b8;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:3px;font-family:Montserrat,sans-serif;">Modelo predefinido</div>'
-                +'<div class="_dcopy" data-copy="'+String(cli.modelo).replace(/"/g,'&quot;')+'" title="Click para copiar" style="font-size:1.05rem;font-weight:900;color:#fbbf24;font-family:Montserrat,sans-serif;letter-spacing:0.02em;cursor:pointer;">'+cli.modelo+_svg(IC.copy,'#a16207',13,'0 0 0 8px')+'</div>';
+                +'<div class="_dcopy" data-copy="'+String(cli.modelo).replace(/"/g,'&quot;')+'" title="Click para copiar" style="display:flex;align-items:center;gap:8px;font-size:1.05rem;font-weight:900;color:#fbbf24;font-family:Montserrat,sans-serif;letter-spacing:0.02em;cursor:pointer;"><span style="word-break:break-word;">'+cli.modelo+'</span>'+_svg(IC.copy,'#a16207',13,'0')+'</div>';
             bdy.appendChild(mdl);
         }
         // Copiar al click en cualquier celda ._dcopy (RUT, teléfono, EP, etc.)
