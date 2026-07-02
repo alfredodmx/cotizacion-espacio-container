@@ -9,6 +9,8 @@ import streamlit.components.v1 as _components
 
 from auth.auth_service   import logout_usuario, cambiar_password_propio, login_usuario
 from auth.access_code    import generar_codigo_acceso, _get_bloque_horario
+from utils.avatars       import fetch_foto_map, avatar_html, subir_foto_perfil
+from config.settings     import SUPABASE_URL
 import datetime as _dt
 
 
@@ -347,6 +349,44 @@ div[role="dialog"] {
     display: flex; align-items: center; gap: 10px;
     margin-left: auto; flex-shrink: 0;
 }
+
+/* ── Avatar + menú de usuario en el header ── */
+#_hdr_user_menu_wrap { position: relative; display: flex; align-items: center; }
+#_hdr_avatar_btn {
+    display: flex; align-items: center; gap: 5px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 999px; padding: 3px 8px 3px 3px; cursor: pointer;
+    transition: background 0.18s, border-color 0.18s;
+}
+#_hdr_avatar_btn:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.3); }
+#_hdr_avatar_btn ._hdr_caret { color: rgba(255,255,255,0.75); display: flex; transition: transform 0.2s; }
+#_hdr_user_menu_wrap._open #_hdr_avatar_btn ._hdr_caret { transform: rotate(180deg); }
+#_hdr_user_menu {
+    display: none; position: absolute; right: 0; top: calc(100% + 10px);
+    min-width: 232px; background: #ffffff; border: 1px solid #e5e9f2;
+    border-radius: 12px; box-shadow: 0 12px 34px rgba(15,23,42,0.22);
+    padding: 6px; z-index: 100000;
+}
+#_hdr_user_menu_wrap._open #_hdr_user_menu { display: block; animation: _hdrMenuIn 0.14s ease; }
+@keyframes _hdrMenuIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+#_hdr_user_menu ._hdr_menu_head { padding: 8px 10px 10px; border-bottom: 1px solid #eef1f6; margin-bottom: 6px; }
+#_hdr_user_menu ._hdr_menu_name { font-family: 'Plus Jakarta Sans',sans-serif; font-weight: 700; font-size: 0.82rem; color: #0f172a; line-height: 1.2; }
+#_hdr_user_menu ._hdr_menu_email { font-size: 0.72rem; color: #94a3b8; margin-top: 2px; word-break: break-all; }
+#_hdr_user_menu ._hdr_menu_item {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    background: transparent; border: none; border-radius: 8px;
+    padding: 9px 10px; cursor: pointer; text-align: left;
+    font-family: 'Plus Jakarta Sans',sans-serif; font-size: 0.82rem; font-weight: 600;
+    color: #334155; transition: background 0.15s, color 0.15s;
+}
+#_hdr_user_menu ._hdr_menu_item svg { color: #64748b; flex-shrink: 0; }
+#_hdr_user_menu ._hdr_menu_item:hover { background: #f1f5f9; color: #0f172a; }
+#_hdr_user_menu ._hdr_menu_item:hover svg { color: #2563eb; }
+#_hdr_user_menu ._hdr_menu_item._danger { color: #dc2626; }
+#_hdr_user_menu ._hdr_menu_item._danger svg { color: #dc2626; }
+#_hdr_user_menu ._hdr_menu_item._danger:hover { background: #fef2f2; color: #b91c1c; }
+#_hdr_user_menu ._hdr_menu_item._danger:hover svg { color: #b91c1c; }
+#_hdr_user_menu ._hdr_menu_sep { height: 1px; background: #eef1f6; margin: 6px 4px; }
 
 /* ── Heartbeat indicators ── */
 @keyframes _hb_pulse{0%,100%{transform:scale(1);opacity:.35}50%{transform:scale(2.4);opacity:0}}
@@ -1079,6 +1119,44 @@ def _pwd_dialog():
                         st.error(f"❌ {err}")
 
 
+# ── Dialog cambio de foto de perfil ──────────────────────────────────────────
+
+@st.dialog("📷 Cambiar foto de perfil")
+def _foto_dialog():
+    _nombre = st.session_state.get("auth_nombre") or st.session_state.get("auth_email", "")
+    _email  = st.session_state.get("auth_email", "")
+    _uid    = st.session_state.get("auth_user", "")
+    _foto   = fetch_foto_map(SUPABASE_URL).get(_email.lower(), "") if _email else ""
+
+    st.markdown(
+        f"<div style='display:flex;justify-content:center;padding:0.4rem 0 0.9rem;'>"
+        f"{avatar_html(_foto, _nombre, size=92, ring='#e2e8f0', font_scale=0.36)}</div>",
+        unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align:center;color:#64748b;font-size:0.82rem;margin-bottom:0.6rem;'>"
+                f"<strong style='color:#1e293b;'>{_nombre.upper()}</strong></div>",
+                unsafe_allow_html=True)
+
+    _file = st.file_uploader("Selecciona una imagen", type=["png", "jpg", "jpeg", "webp"],
+                             key="foto_upl_dlg")
+    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+    if st.button("📤 Guardar foto", key="btn_guardar_foto_dlg",
+                 use_container_width=True, type="primary"):
+        if not _file:
+            st.error("Selecciona una imagen primero.")
+        elif not _uid:
+            st.error("No se pudo identificar tu usuario. Vuelve a iniciar sesión.")
+        else:
+            _bytes = _file.getvalue()
+            _ext = (_file.name.rsplit(".", 1)[-1] if "." in _file.name else "png")
+            with st.spinner("Subiendo foto…"):
+                _url, _err = subir_foto_perfil(_uid, _bytes, _ext, _file.type)
+            if _url:
+                st.success("✅ ¡Foto actualizada!")
+                st.rerun()
+            else:
+                st.error(f"❌ No se pudo subir la foto: {_err}")
+
+
 # ── Render principal ──────────────────────────────────────────────────────────
 
 def render_layout():
@@ -1093,8 +1171,10 @@ def render_layout():
 
     # 3. Header fijo — badge cotización + usuario
     _nombre    = st.session_state.get("auth_nombre") or st.session_state.get("auth_email", "")
+    _email     = st.session_state.get("auth_email", "")
     _rol       = st.session_state.get("rol_usuario", "ejecutivo")
     _cot_num   = st.session_state.get("cotizacion_cargada")
+    _foto_url  = fetch_foto_map(SUPABASE_URL).get(_email.lower(), "") if _email else ""
 
     if _rol == "root":
         # SVG inline: key (root), crown (admin), user (resto)
@@ -1166,22 +1246,50 @@ def render_layout():
         _left_html = '<span style="font-size:0.85rem;font-weight:600;color:#ffffff;">Sin cotización activa</span>'
         _bg = "linear-gradient(90deg, #0f172a 0%, #0f172a 100%)"
 
+    # Avatar + menú de usuario (foto, contraseña, cerrar sesión). El avatar
+    # muestra la foto de perfil (user_metadata.foto_url) o las iniciales.
+    _svg_cam = ('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>')
+    _svg_key2 = ('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>')
+    _svg_out2 = ('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>')
+    _svg_caret = ('<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>')
+    _av_html = avatar_html(_foto_url, _nombre, size=38, ring="rgba(255,255,255,0.35)", font_scale=0.4)
+    _user_menu_html = (
+        '<div id="_hdr_user_menu_wrap">'
+        f'<button id="_hdr_avatar_btn" type="button" title="{_nombre}">'
+        f'{_av_html}<span class="_hdr_caret">{_svg_caret}</span></button>'
+        '<div id="_hdr_user_menu">'
+        f'<div class="_hdr_menu_head"><div class="_hdr_menu_name">{_nombre.upper()}</div>'
+        f'<div class="_hdr_menu_email">{_email}</div></div>'
+        f'<button class="_hdr_menu_item" type="button" data-act="foto">{_svg_cam}<span>Cambiar foto de perfil</span></button>'
+        f'<button class="_hdr_menu_item" type="button" data-act="pwd">{_svg_key2}<span>Cambiar contraseña</span></button>'
+        '<div class="_hdr_menu_sep"></div>'
+        f'<button class="_hdr_menu_item _danger" type="button" data-act="logout">{_svg_out2}<span>Cerrar sesión</span></button>'
+        '</div></div>'
+    )
+
     st.markdown(
         f'<style>#_usr_header_bar{{background:{_bg};}}</style>'
         f'<div id="_usr_header_bar">'
         f'<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow:hidden;">{_left_html}</div>'
-        f'<div class="usr-right">{_rol_html}</div>'
+        f'<div class="usr-right">{_rol_html}{_user_menu_html}</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
 
-    # 5. Dialog contraseña
+    # 5. Dialogs (contraseña / foto)
     if st.session_state.get("_show_pwd_dialog"):
         st.session_state["_show_pwd_dialog"] = False
         _pwd_dialog()
+    if st.session_state.get("_show_foto_dialog"):
+        st.session_state["_show_foto_dialog"] = False
+        _foto_dialog()
 
-    # 6. Botones de sesión (ocultos via CSS, clonados al header por JS)
-    _c0, _c_pwd, _c_out = st.columns([20, 1, 1])
+    # 6. Botones de sesión (ocultos via CSS, disparados desde el menú del avatar)
+    _c0, _c_foto, _c_pwd, _c_out = st.columns([20, 1, 1, 1])
+    with _c_foto:
+        if st.button("📷 Cambiar foto", key="btn_foto_hdr", use_container_width=True):
+            st.session_state["_show_foto_dialog"] = True
+            st.rerun()
     with _c_pwd:
         if st.button("🔑 Mi contraseña", key="btn_pwd_hdr", use_container_width=True):
             st.session_state["_show_pwd_dialog"] = True
@@ -1327,58 +1435,34 @@ def render_layout():
         D._ecNukeObs.observe(D.body,{childList:true,subtree:true});
     }
 
-    function moveButtons() {
-        var bar = D.getElementById('_usr_header_bar');
-        if (!bar) return false;
-        if (bar.querySelector('._hdr_btns')) return true;
-        var usrRight = bar.querySelector('.usr-right');
-        if (!usrRight) return false;
-
-        // Buscar por clase .st-key-* (robusto): innerText devuelve '' en botones
-        // ocultos con visibility:hidden/height:0, por eso fallaba la búsqueda.
-        var btnPwd = D.querySelector('.st-key-btn_pwd_hdr button');
-        var btnOut = D.querySelector('.st-key-btn_cerrar_sesion_header button');
-        if (!btnPwd || !btnOut) return false;
-
-        var S = 'background:rgba(255,255,255,0.08)!important;color:#fff!important;border:1px solid rgba(255,255,255,0.25)!important;border-radius:6px!important;padding:4px 12px!important;font-size:0.82rem!important;font-weight:600!important;cursor:pointer!important;white-space:nowrap!important;font-family:inherit!important;transition:background 0.2s!important;';
-        var wrap = D.createElement('div');
-        wrap.className = '_hdr_btns';
-        wrap.style.cssText = 'display:flex;align-items:center;gap:6px;margin-left:12px;';
-
-        // SVG inline (estilo Lucide) en lugar de emoticones
-        var _svgKey = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>';
-        var _svgOut = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>';
-        var _btnInner = 'display:inline-flex!important;align-items:center!important;gap:6px!important;';
-
-        var cp = D.createElement('button');
-        cp.innerHTML = _svgKey + '<span>Mi contraseña</span>';
-        cp.style.cssText = S + _btnInner;
-        cp.onclick = function(e){ e.preventDefault(); e.stopPropagation(); btnPwd.click(); };
-
-        var co = D.createElement('button');
-        co.innerHTML = _svgOut + '<span>Cerrar sesión</span>';
-        co.style.cssText = S + _btnInner + 'background:rgba(239,68,68,0.2)!important;border-color:rgba(239,68,68,0.45)!important;';
-        co.onclick = function(e){ e.preventDefault(); e.stopPropagation(); btnOut.click(); };
-
-        wrap.appendChild(cp);
-        wrap.appendChild(co);
-        usrRight.appendChild(wrap);
-        return true;
-    }
-
-    function tryMove(attempts) {
-        if (attempts <= 0) return;
-        if (!moveButtons()) {
-            setTimeout(function(){ tryMove(attempts - 1); }, 600);
-        }
-    }
-    tryMove(20);
+    // El avatar + menú de usuario se renderiza directamente en Python dentro de
+    // .usr-right; el JS solo delega los clicks (ver handler _ecHdrActionsBound).
 
     // ── Badge de estado: copiar EP al click + botón Cerrar -> botón oculto ──
     if (!D._ecHdrActionsBound) {
         D._ecHdrActionsBound = true;
         D.addEventListener('click', function(e){
             var t = e.target;
+            // ── Menú de usuario (avatar) ──────────────────────────────────────
+            var menuWrap = D.getElementById('_hdr_user_menu_wrap');
+            var avBtn = t && t.closest ? t.closest('#_hdr_avatar_btn') : null;
+            if (avBtn) { if (menuWrap) menuWrap.classList.toggle('_open'); e.stopPropagation(); return; }
+            var mItem = t && t.closest ? t.closest('._hdr_menu_item') : null;
+            if (mItem) {
+                var act = mItem.getAttribute('data-act');
+                var sel = act === 'foto' ? '.st-key-btn_foto_hdr button'
+                        : act === 'pwd'  ? '.st-key-btn_pwd_hdr button'
+                        :                  '.st-key-btn_cerrar_sesion_header button';
+                var hb = D.querySelector(sel);
+                if (hb) hb.click();
+                if (menuWrap) menuWrap.classList.remove('_open');
+                return;
+            }
+            // Clic fuera del menú → cerrarlo
+            if (menuWrap && menuWrap.classList.contains('_open') &&
+                !(t.closest && t.closest('#_hdr_user_menu_wrap'))) {
+                menuWrap.classList.remove('_open');
+            }
             // Copiar código de acceso (sidebar) al hacer click
             var codEl = t && t.closest ? t.closest('.ec-copy-code') : null;
             if (codEl) {

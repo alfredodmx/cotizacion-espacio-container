@@ -3,10 +3,14 @@ Helper compartido para obtener la foto (avatar) de los usuarios por email.
 La foto vive en user_metadata.foto_url y se lee vía la API admin (service key),
 mismo patrón que el ranking. Cacheado 5 min.
 """
+import time
 import httpx
 import streamlit as st
 
-from config.settings import SUPABASE_SERVICE_KEY
+from config.settings import SUPABASE_SERVICE_KEY, SUPABASE_URL
+
+# Bucket público donde viven las fotos de perfil (carpeta avatares/).
+_AVATAR_BUCKET = "formulario-imagenes"
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -28,6 +32,52 @@ def fetch_foto_map(supa_url: str) -> dict:
         return out
     except Exception:
         return {}
+
+
+def _admin_headers(json: bool = False) -> dict:
+    h = {"apikey": SUPABASE_SERVICE_KEY,
+         "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"}
+    if json:
+        h["Content-Type"] = "application/json"
+    return h
+
+
+def subir_foto_perfil(uid: str, file_bytes: bytes, ext: str,
+                      content_type: str) -> tuple[str | None, str | None]:
+    """Sube la foto al bucket (avatares/<uid>.<ext>) y la fija en
+    user_metadata.foto_url del propio usuario (merge para no borrar el resto de
+    la metadata). Devuelve (foto_url, None) o (None, error). Invalida la caché
+    de fetch_foto_map al terminar."""
+    try:
+        from config.supabase import supabase_admin
+        ext = (ext or "png").lower().replace("jpeg", "jpg")
+        path = f"avatares/{uid}.{ext}"
+        store = supabase_admin.storage.from_(_AVATAR_BUCKET)
+        try:
+            store.remove([path])
+        except Exception:
+            pass
+        store.upload(path, file_bytes,
+                     {"content-type": content_type or "image/png", "upsert": "true"})
+        base = store.get_public_url(path).split("?")[0]
+        url = f"{base}?v={int(time.time())}"
+
+        # Merge: leer la metadata actual y solo pisar foto_url (no perder
+        # nombre / rol / telefono).
+        r = httpx.get(f"{SUPABASE_URL}/auth/v1/admin/users/{uid}",
+                      headers=_admin_headers(), timeout=15)
+        r.raise_for_status()
+        meta = r.json().get("user_metadata") or {}
+        meta["foto_url"] = url
+        r2 = httpx.put(f"{SUPABASE_URL}/auth/v1/admin/users/{uid}",
+                       headers=_admin_headers(True),
+                       json={"user_metadata": meta}, timeout=15)
+        r2.raise_for_status()
+
+        fetch_foto_map.clear()
+        return url, None
+    except Exception as e:
+        return None, str(e)
 
 
 def avatar_html(foto_url: str, nombre: str, size: int = 58,
