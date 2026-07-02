@@ -1018,19 +1018,36 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
         st.markdown(html_table, unsafe_allow_html=True)
 
         _nres_txt = str(n_resultados)+(" resultado" if n_resultados==1 else " resultados")
+        _CHEV_L = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" '
+                   'stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>')
+        _CHEV_R = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" '
+                   'stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>')
+        _MOVEH = ('<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" '
+                  'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">'
+                  '<polyline points="18 8 22 12 18 16"/><polyline points="6 8 2 12 6 16"/>'
+                  '<line x1="2" x2="22" y1="12" y2="12"/></svg>')
         _scroll_html=(
-            '<style>.tbl-scroll-wrap{display:flex;align-items:center;gap:8px;margin-top:4px;justify-content:space-between;}'
-            '.tbl-scroll-right{display:flex;align-items:center;gap:8px;}'
-            '.tbl-scroll-btn{background:rgba(15,23,42,0.7);color:#e2e8f0;border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:4px 14px;font-size:1rem;cursor:pointer;font-weight:700;line-height:1;}'
-            '.tbl-scroll-btn:hover{background:rgba(37,99,235,0.7);color:#fff;}'
-            '.tbl-scroll-label{font-size:10px;color:#94a3b8;font-family:sans-serif;}'
-            '.tbl-n-res{font-size:0.8rem;color:#888;font-family:sans-serif;}</style>'
+            "<style>*{box-sizing:border-box;}"
+            ".tbl-scroll-wrap{display:flex;align-items:center;justify-content:space-between;margin-top:6px;"
+            "font-family:'Plus Jakarta Sans',system-ui,sans-serif;}"
+            ".tbl-n-res{font-size:0.8rem;color:#64748b;font-weight:600;}"
+            ".tbl-scroll-right{display:flex;align-items:center;gap:10px;}"
+            ".tbl-scroll-hint{display:flex;align-items:center;gap:6px;font-size:0.66rem;font-weight:700;"
+            "letter-spacing:0.07em;text-transform:uppercase;color:#94a3b8;}"
+            ".tbl-scroll-btn{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;"
+            "background:#fff;color:#475569;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;padding:0;"
+            "box-shadow:0 1px 3px rgba(15,23,42,0.08);transition:all .16s cubic-bezier(.22,1,.36,1);}"
+            ".tbl-scroll-btn svg{width:18px;height:18px;display:block;}"
+            ".tbl-scroll-btn:hover{background:linear-gradient(135deg,#5b7cfa,#2563eb);color:#fff;"
+            "border-color:transparent;box-shadow:0 6px 16px rgba(37,99,235,0.35);transform:translateY(-1px);}"
+            ".tbl-scroll-btn:active{transform:translateY(0) scale(0.93);box-shadow:0 1px 3px rgba(15,23,42,0.12);}"
+            "</style>"
             '<div class="tbl-scroll-wrap">'
             '  <span class="tbl-n-res">'+_nres_txt+'</span>'
             '  <div class="tbl-scroll-right">'
-            '    <button class="tbl-scroll-btn" id="btn-left">&#9664;</button>'
-            '    <span class="tbl-scroll-label">scroll horizontal</span>'
-            '    <button class="tbl-scroll-btn" id="btn-right">&#9654;</button>'
+            '    <button class="tbl-scroll-btn" id="btn-left" title="Desplazar a la izquierda">'+_CHEV_L+'</button>'
+            '    <span class="tbl-scroll-hint">'+_MOVEH+'Scroll horizontal</span>'
+            '    <button class="tbl-scroll-btn" id="btn-right" title="Desplazar a la derecha">'+_CHEV_R+'</button>'
             '  </div></div>'
             '<script>(function(){'
             'var D=window.parent.document;'
@@ -1039,7 +1056,7 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             'document.getElementById("btn-left").addEventListener("click",function(){var t=gS();if(t)t.scrollBy({left:-300,behavior:"smooth"});});'
             'document.getElementById("btn-right").addEventListener("click",function(){var t=gS();if(t)t.scrollBy({left:300,behavior:"smooth"});});'
             '})();</script>')
-        components.html(_scroll_html, height=48)
+        components.html(_scroll_html, height=50)
 
         components.html("""<script>
 var CLI_DATA = """ + _cli_data_json_map + """;
