@@ -1693,31 +1693,29 @@ function _ecStartPdf(){
 
         st.markdown("---")
         st.markdown("### Estadisticas Rapidas")
-        autorizadas = autorizadas_con_plano = borradores_con_plano = borradores = 0
-        incompletos_con_plano = incompletos = total_cotizado = 0
+        # Conteo por estado usando la FUENTE ÚNICA (calcular_estado_label), la misma
+        # que la tabla/badges → las stats siempre coinciden con los filtros.
+        _estado_cnt = {}
         for row in st.session_state.resultados_busqueda:
-            datos_completos = all([row[1], row[6], row[7]])
-            asesor_completo = any([row[2], row[8], row[9]])
-            total_cotizado += row[4] if row[4] else 0
-            tiene_plano = bool(row[10]) if len(row) > 10 else False
-            if not datos_completos or not asesor_completo:
-                if tiene_plano: incompletos_con_plano += 1
-                else: incompletos += 1
-            elif row[5] and row[5] > 0:
-                if tiene_plano: autorizadas_con_plano += 1
-                else: autorizadas += 1
-            else:
-                if tiene_plano: borradores_con_plano += 1
-                else: borradores += 1
-        autorizadas_total = autorizadas + autorizadas_con_plano
+            _lbl = calcular_estado_label(
+                row[1], row[7], row[2], row[8], row[9],
+                float(row[5] or 0), bool(row[10]) if len(row) > 10 else False,
+                tiene_notariado=bool(row[15]) if len(row) > 15 else False,
+                tiene_acta=bool(row[21]) if len(row) > 21 else False,
+                motivo_rechazo=row[19] if len(row) > 19 else '')
+            _estado_cnt[_lbl] = _estado_cnt.get(_lbl, 0) + 1
+        def _ec(k): return _estado_cnt.get(k, 0)
         # ── Stat cards: grid responsivo (auto-fit) + estilo potente con SVG ──
         _SVG_STAT = {
-            "dollar": '<line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+            "trophy": '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+            "award": '<path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"/><circle cx="12" cy="8" r="6"/>',
             "check": '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/>',
+            "checkline": '<path d="M20 6 9 17l-5-5"/>',
             "fileedit": '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><polyline points="14 2 14 8 20 8"/><path d="M10.4 12.6a2 2 0 1 1 3 3L8 21l-4 1 1-4z"/>',
             "file": '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>',
             "alert": '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>',
             "xcircle": '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
+            "ban": '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
         }
         def _stat_ic(name, color):
             return (
@@ -1727,12 +1725,15 @@ function _ecStartPdf(){
             )
         # (icon, color, título, número, descripción)
         _stat_cards = [
-            ("dollar",  "#5b7cfa", "Total Cotizado",  formato_clp(total_cotizado),     "Total de cotizaciones"),
-            ("check",   "#10b981", "Autorizadas",     str(autorizadas_total),          f"{autorizadas_con_plano} con plano"),
-            ("fileedit","#f97316", "Borrador C/P",    str(borradores_con_plano),       "Borradores con plano"),
-            ("file",    "#eab308", "Borrador",        str(borradores),                 "Borradores sin plano"),
-            ("alert",   "#ef4444", "Incompleto C/P",  str(incompletos_con_plano),      "Incompletos con plano"),
-            ("xcircle", "#dc2626", "Incompleto",      str(incompletos),                "Incompletos sin plano"),
+            ("trophy",   "#7c3aed", "Terminado",       str(_ec('PROYECTO TERMINADO')),   "Proyectos terminados"),
+            ("award",    "#2563eb", "Adjudicado",      str(_ec('ADJUDICADO')),           "Adjudicados"),
+            ("check",    "#10b981", "Autorizado C/P",  str(_ec('AUTORIZADO CON PLANO')), "Autorizados con plano"),
+            ("checkline","#16a34a", "Autorizado",      str(_ec('AUTORIZADO')),           "Autorizados sin plano"),
+            ("fileedit", "#f97316", "Borrador C/P",    str(_ec('BORRADOR CON PLANO')),   "Borradores con plano"),
+            ("file",     "#eab308", "Borrador",        str(_ec('BORRADOR')),             "Borradores sin plano"),
+            ("alert",    "#ef4444", "Incompleto C/P",  str(_ec('INCOMPLETO CON PLANO')), "Incompletos con plano"),
+            ("xcircle",  "#dc2626", "Incompleto",      str(_ec('INCOMPLETO')),           "Incompletos sin plano"),
+            ("ban",      "#b91c1c", "Rechazado",       str(_ec('RECHAZADO')),            "Rechazados"),
         ]
         _cards_html = (
             '<style>'
@@ -1802,5 +1803,17 @@ function _ecStartPdf(){
     }},3500);
 }})();
 </script>""", height=0)
-    else:
-        st.info("💡 No hay resultados. Realice una búsqueda para ver cotizaciones guardadas.")
+
+    # Estado vacío: SOLO cuando de verdad no hay resultados que mostrar (antes
+    # colgaba del else del toast y aparecía aun habiendo cotizaciones).
+    if not st.session_state.get('resultados_busqueda'):
+        _svg_bulb = ('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" '
+                     'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">'
+                     '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/>'
+                     '<path d="M9 18h6"/><path d="M10 22h4"/></svg>')
+        st.markdown(
+            '<div style="display:flex;align-items:center;gap:10px;background:#eff6ff;'
+            'border:1px solid #bfdbfe;border-radius:12px;padding:14px 18px;color:#1e40af;'
+            'font-family:\'Plus Jakarta Sans\',sans-serif;font-weight:500;font-size:0.9rem;">'
+            f'{_svg_bulb}<span>No hay resultados. Realiza una búsqueda para ver cotizaciones guardadas.</span></div>',
+            unsafe_allow_html=True)
