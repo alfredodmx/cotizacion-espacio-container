@@ -17,7 +17,7 @@ from repositories.cotizaciones_repo import (
 )
 from repositories.logs_repo import obtener_logs_ep
 from repositories.compras_repo import calcular_estado_compras
-from services.cotizacion_service import crear_badge_estado, aplicar_margen
+from services.cotizacion_service import crear_badge_estado, aplicar_margen, calcular_estado_label
 from generators.pdf_cotizacion import generar_pdf_completo, generar_pdf_cliente
 from generators.pdf_log import generar_pdf_log
 from generators.pdf_seleccion import generar_pdf_seleccion_cliente
@@ -27,6 +27,45 @@ from config.supabase import supabase_admin as _supa_admin_global
 
 
 # ── Wrappers cacheados (evitan trabajo pesado en cada rerun, p.ej. al filtrar) ──
+@st.cache_data(ttl=60, show_spinner=False)
+def _money_cards_global() -> tuple:
+    """Agrega el dinero de TODAS las cotizaciones del sistema por bucket
+    (ganado/casi/perdido). Independiente del término/filtro de búsqueda: las cards
+    muestran SIEMPRE el total histórico. Devuelve (mg, mc, mp, cg, cc, cp).
+    Índices del tuple de buscar_cotizaciones: 1 cliente, 2 asesor, 4 total,
+    5 margen, 7 email, 8 asesor_email, 9 asesor_tel, 10 plano, 15 notariado,
+    19 motivo_rechazo, 21 acta_url."""
+    rows = buscar_cotizaciones()
+    mg = mc = mp = 0.0
+    cg = cc = cp = 0
+    for r in rows or []:
+        try:
+            _lbl = calcular_estado_label(
+                r[1], r[7], r[2], r[8], r[9],
+                float(r[5] or 0), bool(r[10]),
+                tiene_notariado=bool(r[15]) if len(r) > 15 else False,
+                tiene_acta=bool(r[21]) if len(r) > 21 else False,
+                motivo_rechazo=r[19] if len(r) > 19 else '')
+            _tot = float(r[4] or 0)
+        except Exception:
+            continue
+        if _lbl in ('PROYECTO TERMINADO', 'ADJUDICADO'):
+            mg += _tot; cg += 1
+        elif _lbl == 'RECHAZADO':
+            mp += _tot; cp += 1
+        else:
+            mc += _tot; cc += 1
+    return (mg, mc, mp, cg, cc, cp)
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _lista_ejecutivos() -> list:
+    """Nombres únicos de ejecutivos (asesor_nombre) presentes en las cotizaciones,
+    para el dropdown de filtrado rápido."""
+    rows = buscar_cotizaciones()
+    return sorted({(r[2] or '').strip() for r in (rows or []) if (r[2] or '').strip()})
+
+
 @st.cache_data(ttl=30, show_spinner=False)
 def _pdf_log_cached(ep: str, n_logs: int) -> bytes:
     """PDF del historial cacheado por EP y nº de logs (regenera si cambian los logs)."""
@@ -267,8 +306,9 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
         slot.markdown(_CARD_CSS + f'<div class="cot-mcards">{_cards}</div>', unsafe_allow_html=True)
 
     _top_left, _top_right = st.columns([1.15, 1], gap="medium", vertical_alignment="center")
-    _cards_slot = _top_right.empty()
-    _render_money_cards(_cards_slot, 0, 0, 0, 0, 0, 0)   # se sobrescribe con datos reales al construir df_resultados
+    # Cards SIEMPRE con el total global del sistema (no dependen del filtro/búsqueda).
+    _mg, _mc, _mp, _cg, _cc, _cp = _money_cards_global()
+    _render_money_cards(_top_right.empty(), _mg, _mc, _mp, _cg, _cc, _cp)
 
     with _top_left, st.container(border=True):
         # Botones de búsqueda SOLO ícono (texto oculto con font-size:0 + ícono via
@@ -306,13 +346,31 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             + "</style>",
             unsafe_allow_html=True,
         )
-        tipo_busqueda = st.radio("Buscar por:", ["N° Presupuesto", "Cliente", "Asesor"],
+        tipo_busqueda = st.radio("Buscar por:", ["N° Presupuesto", "Cliente", "Ejecutivo"],
                                   horizontal=True, key="tipo_busqueda", label_visibility="collapsed")
-        tipo_map = {"N° Presupuesto": "numero", "Cliente": "cliente", "Asesor": "asesor"}
+        tipo_map = {"N° Presupuesto": "numero", "Cliente": "cliente", "Ejecutivo": "asesor"}
         _bc1, _bc2, _bc3, _bc4, _bc5, _bc6 = st.columns([3, 0.7, 0.7, 0.7, 0.7, 0.7])
         with _bc1:
-            termino = st.text_input("Término", placeholder="Ingrese término de búsqueda...",
-                                     key="buscar_cotizacion", label_visibility="collapsed")
+            if tipo_busqueda == "Ejecutivo":
+                # Dropdown de ejecutivos: filtra al instante al seleccionar.
+                _ejs = _lista_ejecutivos()
+                _TODOS_EJ = "Todos los ejecutivos"
+                _sel_ej = st.selectbox("Ejecutivo", [_TODOS_EJ] + _ejs,
+                                       key="buscar_ejecutivo_sel", label_visibility="collapsed")
+                if _sel_ej != st.session_state.get('_prev_ejecutivo_sel'):
+                    st.session_state['_prev_ejecutivo_sel'] = _sel_ej
+                    st.session_state.filtro_estado_tabla = None
+                    st.session_state.mostrar_visor = False
+                    with st.spinner("Filtrando..."):
+                        st.session_state.resultados_busqueda = (
+                            buscar_cotizaciones() if _sel_ej == _TODOS_EJ
+                            else buscar_cotizaciones(_sel_ej, "asesor"))
+                    st.rerun()
+                termino = ""   # en modo ejecutivo el filtro lo maneja el dropdown
+            else:
+                st.session_state.pop('_prev_ejecutivo_sel', None)
+                termino = st.text_input("Término", placeholder="Ingrese término de búsqueda...",
+                                         key="buscar_cotizacion", label_visibility="collapsed")
         with _bc2: buscar_btn = st.button(" ", type="primary", use_container_width=True, key="btn_buscar_cot", help="Buscar")
         with _bc3: limpiar_btn = st.button(" ", use_container_width=True, key="btn_limpiar_cot", help="Limpiar")
         with _bc4:
@@ -442,22 +500,6 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
         import re as _re_est
         df_resultados["EstadoKey"] = df_resultados["Estado"].apply(
             lambda h: _re_est.sub(r"<[^>]+>","",str(h)).strip())
-
-        # Cards de dinero (Ganado / Casi ganado / Perdido): se agregan sobre el
-        # set COMPLETO (antes de aplicar el filtro por estado). Mismo bucketing
-        # que el RANKING: ganado = adjudicado/terminado, perdido = rechazado.
-        _mg = _mc = _mp = 0.0
-        _cg = _cc = _cp = 0
-        _tot_num = pd.to_numeric(df_resultados["Total"], errors="coerce").fillna(0.0)
-        for _ek, _tv in zip(df_resultados["EstadoKey"], _tot_num):
-            _tv = float(_tv)
-            if _ek in ("PROYECTO TERMINADO", "ADJUDICADO"):
-                _mg += _tv; _cg += 1
-            elif _ek == "RECHAZADO":
-                _mp += _tv; _cp += 1
-            else:
-                _mc += _tv; _cc += 1
-        _render_money_cards(_cards_slot, _mg, _mc, _mp, _cg, _cc, _cp)
 
         def _fmt_auth_nom(row):
             fh=_fmt_fecha_auth(row["Fecha_Auth"]); q=str(row.get("Autorizado_Por","") or "").strip()
@@ -951,7 +993,7 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             <div style="{_altura_css}">
                 <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:1700px;table-layout:auto;white-space:nowrap;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
-                        <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Asesor</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th class="th-cierre">$ Cierre de venta</th><th class="th-adj">Fecha adjudicación</th>{_th_compras}<th class="th-adj">Tiempo fabricación</th><th class="th-adj">Fidelización cliente</th><th class="th-adj">Retraso proyecto</th></tr>
+                        <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Ejecutivo</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th class="th-cierre">$ Cierre de venta</th><th class="th-adj">Fecha adjudicación</th>{_th_compras}<th class="th-adj">Tiempo fabricación</th><th class="th-adj">Fidelización cliente</th><th class="th-adj">Retraso proyecto</th></tr>
                     </thead>
                     <tbody>{rows_html}</tbody>
                 </table>
