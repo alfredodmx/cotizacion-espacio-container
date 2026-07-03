@@ -11,6 +11,7 @@ import streamlit.components.v1 as components
 
 from components.html_formulario_cliente import build_formulario_cliente_html
 from utils.avatars import fetch_foto_map as _fetch_foto_map
+from auth.cliente_token import crear_token_cliente, validar_token_cliente
 
 _CSS_CLIENTE = """
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&family=Montserrat:wght@700;800;900&display=swap');
@@ -330,6 +331,12 @@ def _render_login_cliente(logo_b64: str, supabase_admin) -> None:
                                 st.session_state._cliente_ok       = True
                                 st.session_state._cliente_nombre   = row.get('cliente_nombre', '')
                                 st.session_state._cliente_proyecto = row.get('proyecto_observaciones', '')
+                                # Persistir la sesión en la URL (magic link firmado):
+                                # así una recarga NO devuelve al cliente al login.
+                                try:
+                                    st.query_params["ct"] = crear_token_cliente(ep_clean)
+                                except Exception:
+                                    pass
                                 st.rerun()
                             else:
                                 st.error("RUT o código incorrecto. Verifica tus datos.")
@@ -494,6 +501,12 @@ def _render_formulario_cliente(supabase_admin, supa_url: str, supa_key: str) -> 
     if st.button("← Salir", key="cli_logout"):
         for k in ['_cliente_ep', '_cliente_ok', '_cliente_nombre', '_cliente_proyecto']:
             st.session_state.pop(k, None)
+        # Quitar el token de la URL para que una recarga posterior vaya al login.
+        try:
+            if "ct" in st.query_params:
+                del st.query_params["ct"]
+        except Exception:
+            pass
         st.rerun()
 
 
@@ -503,6 +516,26 @@ def render_cliente_view(supabase_admin, supa_url: str, supa_key: str) -> None:
     Llama st.stop() al terminar (siempre es una vista completa).
     """
     _init_cliente_state()
+
+    # ── Restaurar sesión desde el token de la URL (magic link firmado) ────────
+    # Aditivo + fallback: si el token es válido, entra directo al formulario sin
+    # re-pedir RUT+código (así una recarga no lo desloguea). Si es inválido/
+    # expirado/ausente, no pasa nada y cae al login normal de abajo.
+    if not st.session_state._cliente_ok:
+        _tok = st.query_params.get("ct")
+        _ep_tok = validar_token_cliente(_tok) if _tok else None
+        if _ep_tok:
+            try:
+                _row = (supabase_admin.table('cotizaciones')
+                        .select('cliente_nombre,proyecto_observaciones,cliente_rut')
+                        .eq('numero', _ep_tok).limit(1).execute().data)
+                if _row:
+                    st.session_state._cliente_ep       = _ep_tok
+                    st.session_state._cliente_ok        = True
+                    st.session_state._cliente_nombre    = _row[0].get('cliente_nombre', '')
+                    st.session_state._cliente_proyecto  = _row[0].get('proyecto_observaciones', '')
+            except Exception:
+                pass  # cualquier fallo → se muestra el login (nada roto)
 
     st.markdown(f"<style>{_CSS_CLIENTE}</style>", unsafe_allow_html=True)
     logo_b64 = _cargar_logo_b64()
