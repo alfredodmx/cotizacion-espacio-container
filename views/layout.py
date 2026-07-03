@@ -1297,18 +1297,18 @@ def render_layout():
     with _c_out:
         if st.button("🚪 Cerrar sesión", key="btn_cerrar_sesion_header", use_container_width=True):
             logout_usuario()
-            # Recarga COMPLETA de la página (no st.rerun). Con un rerun in-place, al
-            # cerrar sesión quedaban iframes/handlers residuales del render
-            # autenticado y el frontend se rompía ("Bad message format / Tried to use
-            # SessionInfo before it was initialized"), dejando la pantalla en blanco
-            # hasta recargar a mano.
-            # IMPORTANTE: durante la sesión la URL YA es origin+pathname (sin query),
-            # así que asignar location.href a la MISMA URL es un no-op (no recarga) y
-            # quedaba en blanco. Usamos reload() cuando ya está limpia; si hay query
-            # params, navegamos a la base (que sí recarga por ser distinta).
+            # Recarga COMPLETA de la página (no st.rerun). Con un rerun in-place
+            # quedaban estilos/handlers residuales del render autenticado inyectados
+            # en el <head> del padre y el login quedaba en blanco.
+            # CLAVE: el sandbox de components.html BLOQUEA navegar window.parent
+            # .location (about:srcdoc sin allow-top-navigation). El truco que SÍ
+            # funciona (verificado): inyectar un <script> en el documento padre; ese
+            # script corre en el contexto NO sandboxed del padre y puede recargar.
             _components.html(
-                "<script>var L=window.parent.location;var C=L.origin+L.pathname;"
-                "if(L.href===C){L.reload();}else{L.href=C;}</script>",
+                '<script>try{var D=window.parent.document;var s=D.createElement("script");'
+                "s.textContent='var C=location.origin+location.pathname;"
+                "if(location.href===C){location.reload();}else{location.replace(C);}';"
+                'D.body.appendChild(s);}catch(e){try{window.parent.location.reload();}catch(_e){}}</script>',
                 height=0,
             )
             st.stop()

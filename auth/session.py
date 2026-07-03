@@ -184,12 +184,17 @@ def check_session_timeout() -> None:
             except Exception:
                 pass
             # Recarga COMPLETA (no st.rerun) a la URL base con ?expired=1: monta el
-            # login desde cero, sin iframes/handlers residuales del render
-            # autenticado (mismo motivo que el logout manual). El login lee el
-            # param para mostrar el aviso de sesión expirada.
+            # login desde cero, sin estilos/handlers residuales del render
+            # autenticado (mismo motivo que el logout manual). El login lee el param
+            # para mostrar el aviso de sesión expirada.
+            # El sandbox de components.html bloquea navegar window.parent.location;
+            # el truco que funciona es inyectar un <script> en el documento padre,
+            # que corre sin sandbox y sí puede navegar/recargar.
             import streamlit.components.v1 as _c
             _c.html(
-                "<script>var L=window.parent.location;L.href=L.origin+L.pathname+'?expired=1';</script>",
+                '<script>try{var D=window.parent.document;var s=D.createElement("script");'
+                's.textContent=\'location.replace(location.origin+location.pathname+"?expired=1");\';'
+                'D.body.appendChild(s);}catch(e){}</script>',
                 height=0,
             )
             st.stop()
