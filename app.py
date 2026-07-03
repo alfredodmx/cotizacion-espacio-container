@@ -20,6 +20,14 @@ from auth.session import check_session_timeout, process_query_params
 
 init_session_state()
 
+# Logout: el menú del avatar recarga a ?logout=1 (recarga REAL, documento fresco
+# sin estilos residuales del render autenticado). Acá cerramos sesión en el
+# servidor y limpiamos el param → cae directo a la pantalla de login.
+if st.query_params.get("logout") == "1":
+    from auth.auth_service import logout_usuario
+    logout_usuario()          # signout supabase + borra TODO el session_state + limpia params
+    init_session_state()      # re-pone los defaults (auth_user, etc.) que logout_usuario borró
+
 # Preloader fullscreen (logo + ring + barra + porcentaje).
 # Se muestra solo en la primera carga de la pestaña del navegador; en
 # reruns subsiguientes se auto-omite vía sessionStorage. Va lo antes

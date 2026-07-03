@@ -1463,12 +1463,24 @@ def render_layout():
             var mItem = t && t.closest ? t.closest('._hdr_menu_item') : null;
             if (mItem) {
                 var act = mItem.getAttribute('data-act');
-                var sel = act === 'foto' ? '.st-key-btn_foto_hdr button'
-                        : act === 'pwd'  ? '.st-key-btn_pwd_hdr button'
-                        :                  '.st-key-btn_cerrar_sesion_header button';
-                var hb = D.querySelector(sel);
-                if (hb) hb.click();
                 if (menuWrap) menuWrap.classList.remove('_open');
+                if (act === 'logout') {
+                    // RECARGA REAL a ?logout=1 (el server hace el signout al cargar).
+                    // No clickeamos un botón Streamlit (el st.rerun in-place dejaba
+                    // el login en blanco). El sandbox del iframe bloquea navegar
+                    // window.parent.location, así que inyectamos un <script> en el
+                    // documento padre: corre SIN sandbox y sí puede recargar.
+                    try {
+                        var rs = D.createElement('script');
+                        rs.textContent = "location.replace(location.origin+location.pathname+'?logout=1');";
+                        D.body.appendChild(rs);
+                    } catch(_e){}
+                    e.stopPropagation();
+                    return;
+                }
+                var hb = D.querySelector(act === 'foto' ? '.st-key-btn_foto_hdr button'
+                                                        : '.st-key-btn_pwd_hdr button');
+                if (hb) hb.click();
                 return;
             }
             // Clic fuera del menú → cerrarlo
