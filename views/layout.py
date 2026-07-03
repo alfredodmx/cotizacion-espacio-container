@@ -1284,8 +1284,10 @@ def render_layout():
         st.session_state["_show_foto_dialog"] = False
         _foto_dialog()
 
-    # 6. Botones de sesión (ocultos via CSS, disparados desde el menú del avatar)
-    _c0, _c_foto, _c_pwd, _c_out = st.columns([20, 1, 1, 1])
+    # 6. Botones ocultos (foto / contraseña) disparados desde el menú del avatar.
+    # El logout NO usa botón: el menú navega a ?logout=1 (carga completa) porque un
+    # st.rerun in-place crashea React al desmontar el árbol autenticado → body vacío.
+    _c0, _c_foto, _c_pwd = st.columns([20, 1, 1])
     with _c_foto:
         if st.button("📷 Cambiar foto", key="btn_foto_hdr", use_container_width=True):
             st.session_state["_show_foto_dialog"] = True
@@ -1294,24 +1296,6 @@ def render_layout():
         if st.button("🔑 Mi contraseña", key="btn_pwd_hdr", use_container_width=True):
             st.session_state["_show_pwd_dialog"] = True
             st.rerun()
-    with _c_out:
-        if st.button("🚪 Cerrar sesión", key="btn_cerrar_sesion_header", use_container_width=True):
-            logout_usuario()
-            # Recarga COMPLETA de la página (no st.rerun). Con un rerun in-place
-            # quedaban estilos/handlers residuales del render autenticado inyectados
-            # en el <head> del padre y el login quedaba en blanco.
-            # CLAVE: el sandbox de components.html BLOQUEA navegar window.parent
-            # .location (about:srcdoc sin allow-top-navigation). El truco que SÍ
-            # funciona (verificado): inyectar un <script> en el documento padre; ese
-            # script corre en el contexto NO sandboxed del padre y puede recargar.
-            _components.html(
-                '<script>try{var D=window.parent.document;var s=D.createElement("script");'
-                "s.textContent='var C=location.origin+location.pathname;"
-                "if(location.href===C){location.reload();}else{location.replace(C);}';"
-                'D.body.appendChild(s);}catch(e){try{window.parent.location.reload();}catch(_e){}}</script>',
-                height=0,
-            )
-            st.stop()
 
     # 7. JS — mover botones al header una sola vez (sin MutationObserver)
     _components.html("""
@@ -1465,15 +1449,22 @@ def render_layout():
                 var act = mItem.getAttribute('data-act');
                 if (menuWrap) menuWrap.classList.remove('_open');
                 if (act === 'logout') {
-                    // RECARGA REAL a ?logout=1 (el server hace el signout al cargar).
-                    // No clickeamos un botón Streamlit (el st.rerun in-place dejaba
-                    // el login en blanco). El sandbox del iframe bloquea navegar
-                    // window.parent.location, así que inyectamos un <script> en el
-                    // documento padre: corre SIN sandbox y sí puede recargar.
+                    // Cerrar sesión = NAVEGACIÓN COMPLETA a ?logout=1 (no st.rerun).
+                    // Motivo (verificado): con st.rerun in-place, React (frontend de
+                    // Streamlit) crashea al desmontar el árbol autenticado para montar
+                    // el login —"Failed to execute removeChild ... not a child"— porque
+                    // el app inyecta/mueve nodos del DOM que React administra, y el body
+                    // queda VACÍO. Una carga completa monta React desde cero.
+                    // Se usa <meta http-equiv=refresh> (no JS nav): el sandbox del
+                    // iframe bloquea window.parent.location, y cambiar el query por JS
+                    // lo intercepta Streamlit sin recargar; el meta es declarativo,
+                    // sandbox/CSP-safe y React no toca <head>. app.py maneja ?logout=1.
                     try {
-                        var rs = D.createElement('script');
-                        rs.textContent = "location.replace(location.origin+location.pathname+'?logout=1');";
-                        D.body.appendChild(rs);
+                        var L = D.defaultView.location;
+                        var m = D.createElement('meta');
+                        m.httpEquiv = 'refresh';
+                        m.content = '0; url=' + L.origin + L.pathname + '?logout=1';
+                        D.head.appendChild(m);
                     } catch(_e){}
                     e.stopPropagation();
                     return;

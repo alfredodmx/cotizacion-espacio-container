@@ -183,18 +183,18 @@ def check_session_timeout() -> None:
                 st.query_params.clear()
             except Exception:
                 pass
-            # Recarga COMPLETA (no st.rerun) a la URL base con ?expired=1: monta el
-            # login desde cero, sin estilos/handlers residuales del render
-            # autenticado (mismo motivo que el logout manual). El login lee el param
-            # para mostrar el aviso de sesión expirada.
-            # El sandbox de components.html bloquea navegar window.parent.location;
-            # el truco que funciona es inyectar un <script> en el documento padre,
-            # que corre sin sandbox y sí puede navegar/recargar.
+            # NAVEGACIÓN COMPLETA a ?expired=1 (no st.rerun): un rerun in-place
+            # crashea React al desmontar el árbol autenticado (removeChild) y deja el
+            # body vacío. Se usa <meta http-equiv=refresh> inyectado al <head> del
+            # padre: es declarativo (el sandbox del iframe bloquea navegar por JS, y
+            # cambiar el query por JS lo intercepta Streamlit sin recargar). El login
+            # lee ?expired=1 para mostrar el aviso de sesión expirada.
             import streamlit.components.v1 as _c
             _c.html(
-                '<script>try{var D=window.parent.document;var s=D.createElement("script");'
-                's.textContent=\'location.replace(location.origin+location.pathname+"?expired=1");\';'
-                'D.body.appendChild(s);}catch(e){}</script>',
+                '<script>try{var D=window.parent.document;var L=D.defaultView.location;'
+                'var m=D.createElement("meta");m.httpEquiv="refresh";'
+                'm.content="0; url="+L.origin+L.pathname+"?expired=1";'
+                'D.head.appendChild(m);}catch(e){}</script>',
                 height=0,
             )
             st.stop()
