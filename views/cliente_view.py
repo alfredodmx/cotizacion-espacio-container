@@ -12,6 +12,7 @@ import streamlit.components.v1 as components
 from components.html_formulario_cliente import build_formulario_cliente_html
 from utils.avatars import fetch_foto_map as _fetch_foto_map
 from auth.cliente_token import crear_token_cliente, validar_token_cliente
+from repositories.formulario_repo import guardar_respuestas_cliente
 
 _CSS_CLIENTE = """
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&family=Montserrat:wght@700;800;900&display=swap');
@@ -492,6 +493,7 @@ def _render_formulario_cliente(supabase_admin, supa_url: str, supa_key: str) -> 
             cat, cfg, resps_map, supa_url, supa_key,
             ep, nombre, logo_b64, hero_b64=hero_b64,
             asesor_nombre=asesor_nombre, asesor_foto=asesor_foto,
+            just_saved_pct=st.session_state.pop("_cliente_just_saved", -1),
         )
         # Alto inicial aproximado; el JS del componente lo ajusta al contenido
         # real vía window.frameElement (fitHeight), evitando el espacio vacío.
@@ -536,6 +538,46 @@ def render_cliente_view(supabase_admin, supa_url: str, supa_key: str) -> None:
                     st.session_state._cliente_proyecto  = _row[0].get('proyecto_observaciones', '')
             except Exception:
                 pass  # cualquier fallo → se muestra el login (nada roto)
+
+    # ── Guardado SERVER-SIDE del formulario (fg_save) ─────────────────────────
+    # El formulario navega a ?...&fg_save=<selecciones>; acá guardamos con la
+    # service key (no desde el navegador con la clave anon). Requiere sesión activa
+    # (restaurada por el token ct arriba). Al terminar, limpiamos los params y
+    # dejamos una marca para mostrar el modal de gracias tras la recarga.
+    if st.session_state._cliente_ok and st.query_params.get("fg_save"):
+        import json as _json, urllib.parse as _urlp
+        from datetime import datetime as _dtn
+        _raw = st.query_params.get("fg_save", "")
+        try:
+            _picks = _json.loads(_raw)
+        except Exception:
+            try:
+                _picks = _json.loads(_urlp.unquote(_raw))
+            except Exception:
+                _picks = {}
+        try:
+            _pct = int(st.query_params.get("fg_pct", 0) or 0)
+        except Exception:
+            _pct = 0
+        if _picks:
+            _ok, _err = guardar_respuestas_cliente(
+                st.session_state._cliente_ep, _picks,
+                email_cliente=str(st.session_state.get("_cliente_nombre", "")))
+            st.session_state["_cliente_just_saved"] = _pct if _ok else -1
+            if _ok and _pct >= 100:
+                try:
+                    supabase_admin.table('cotizaciones').update(
+                        {'fecha_formulario_completado': _dtn.now().isoformat()}
+                    ).eq('numero', st.session_state._cliente_ep).execute()
+                except Exception:
+                    pass
+        # Limpiar los params de guardado (conservando cliente=1 y ct).
+        for _k in ("fg_save", "fg_pct"):
+            try:
+                if _k in st.query_params:
+                    del st.query_params[_k]
+            except Exception:
+                pass
 
     st.markdown(f"<style>{_CSS_CLIENTE}</style>", unsafe_allow_html=True)
     logo_b64 = _cargar_logo_b64()

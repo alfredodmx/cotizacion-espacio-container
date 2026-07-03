@@ -6,7 +6,7 @@ import json
 from utils.cat_icons import cat_icon_path
 
 
-def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, supa_key, ep, nombre_cliente, logo_b64='', hero_b64='', asesor_nombre='', asesor_foto=''):
+def build_formulario_cliente_html(cat_items, config_data, resps_map, supa_url, supa_key, ep, nombre_cliente, logo_b64='', hero_b64='', asesor_nombre='', asesor_foto='', just_saved_pct=-1):
     primer_nombre = nombre_cliente.split()[0].capitalize() if nombre_cliente else 'Cliente'
     # Iniciales del asesor para el avatar de respaldo (cuando no hay foto).
     _ase_partes = [p for p in (asesor_nombre or '').split() if p]
@@ -272,6 +272,7 @@ body{font-family:Poppins,sans-serif;font-size:14px;color:#0a1628;}
         'var ASE_F=' + json.dumps(asesor_foto or '') + ';'
         'var ASE_INI=' + json.dumps(asesor_ini) + ';'
         'var CLI_N=' + json.dumps(primer_nombre) + ';'
+        'var JUST_SAVED_PCT=' + json.dumps(int(just_saved_pct)) + ';'
         + '''
 var S="''' + supa_url + '''",K="''' + supa_key + '''",EP="''' + ep + '''";
 var R=''' + resps_j + ''';
@@ -478,7 +479,7 @@ function progresoActual(){
   return {done:done, total:secs.length, pct:(secs.length?Math.round(done/secs.length*100):0)};
 }
 
-async function guardar(){
+function guardar(){
   var btn=fabEl("_ec_fab_save");
   var entries=Object.entries(P);
   if(!entries.length){
@@ -487,31 +488,28 @@ async function guardar(){
     return;
   }
   if(btn)btn.disabled=true; setSt("Guardando...","#2563eb");
+  // GUARDADO SERVER-SIDE (seguridad): en vez de escribir formulario_respuestas
+  // desde el navegador con la clave anon (obligaba a tener RLS apagado), se
+  // navega a la MISMA URL agregando fg_save=<selecciones>; Python guarda con la
+  // service key. La recarga NO desloguea porque la sesión persiste vía el token
+  // ct (magic link firmado). Así se puede activar RLS deny-anon en la tabla.
   try{
-    for(var i=0;i<entries.length;i++){
-      var iid=entries[i][0],val=entries[i][1];
-      var grp=G[iid]||[];
-      for(var j=0;j<grp.length;j++){
-        if(grp[j]!==iid){
-          await fetch(S+"/rest/v1/formulario_respuestas?cotizacion_numero=eq."+EP+"&item_id=eq."+grp[j],{method:"DELETE",headers:{"Authorization":"Bearer "+K,"apikey":K}});
-          delete R[grp[j]];
-        }
-      }
-      await fetch(S+"/rest/v1/formulario_respuestas",{method:"POST",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({cotizacion_numero:EP,item_id:iid,respuesta:val})});
+    var payload=encodeURIComponent(JSON.stringify(P));
+    var pct=progresoActual().pct;
+    var L=window.parent.location;
+    var sep=L.search?"&":"?";
+    var target=L.origin+L.pathname+L.search+sep+"fg_save="+payload+"&fg_pct="+pct;
+    if(target.length>7500){
+      setSt("Demasiadas selecciones de una vez. Guarda por partes.","#dc2626");
+      if(btn)btn.disabled=false; return;
     }
-    P={};
-    setSt("Selección guardada correctamente","#16a34a");
-    var pr=progresoActual();
-    try{
-      if(pr.total>0 && pr.done>=pr.total){
-        await fetch(S+"/rest/v1/cotizaciones?numero=eq."+EP,{method:"PATCH",headers:{"Authorization":"Bearer "+K,"apikey":K,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({fecha_formulario_completado:new Date().toISOString()})});
-      }
-    }catch(e2){}
+    var D=window.parent.document;
+    var m=D.createElement("meta"); m.httpEquiv="refresh"; m.content="0; url="+target;
+    D.head.appendChild(m);
+  }catch(e){
+    setSt("Error: "+e.message,"#dc2626");
     if(btn)btn.disabled=false;
-    showThanks(pr.pct);
-    return;
-  }catch(e){setSt("Error: "+e.message,"#dc2626");}
-  if(btn)btn.disabled=false;
+  }
 }
 
 // Modal de agradecimiento (se monta en el documento PADRE para que el overlay
@@ -601,6 +599,13 @@ function showThanks(pct){
     var b=D.querySelector(".st-key-cli_logout button"); if(b) b.click();
   });
   recompute();
+  // Tras un guardado server-side, Python recarga con JUST_SAVED_PCT>=0 → mostramos
+  // el modal de gracias (misma UX que antes, ahora post-recarga).
+  try{
+    if(typeof JUST_SAVED_PCT!=="undefined" && JUST_SAVED_PCT>=0){
+      setTimeout(function(){ try{showThanks(JUST_SAVED_PCT);}catch(e){} }, 350);
+    }
+  }catch(e){}
 })();
 
 // Ajusta el alto del iframe al contenido real (components.html trae alto fijo y
