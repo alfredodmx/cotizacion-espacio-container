@@ -74,6 +74,7 @@ from views.tab_dashboard       import render_tab_dashboard
 from views.tab_notificaciones  import render_tab_notificaciones
 from views.tab_ranking         import render_tab_ranking
 from views.tab_salud           import render_tab_salud
+from views.tab_seguridad       import render_tab_seguridad
 from views.tab_pdf             import render_tab_pdf
 from views.tab_proyecto_excel  import render_tab_proyecto_excel, render_tab_3d_visor
 from views.tab_formulario      import render_tab_formulario
@@ -99,11 +100,12 @@ _PAGES = {
     'operaciones':    ('Operaciones',        'operaciones',    lambda: render_tab_operaciones(**_deps)),
     'admindata':      ('Admin. de datos',    'admindata',      lambda: render_tab_admindata(**_deps)),
     'formulario':     ('Formulario cliente', 'formulario',     lambda: render_tab_formulario(**_deps)),
+    'seguridad':      ('Seguridad',          'seguridad',      lambda: render_tab_seguridad(**_deps)),
 }
 
 _ORDER = {
-    'root':      ['dashboard','presupuesto','datos','cotizaciones','edicion_pdf','ranking','contrato','3d','proyecto_excel','sistema','usuarios','notificaciones','reporte','operaciones','admindata','formulario'],
-    'admin':     ['presupuesto','cotizaciones','datos','contrato','operaciones','usuarios','proyecto_excel','edicion_pdf','ranking','3d','notificaciones','dashboard','reporte','admindata','formulario'],
+    'root':      ['dashboard','presupuesto','datos','cotizaciones','edicion_pdf','ranking','contrato','3d','proyecto_excel','sistema','usuarios','notificaciones','reporte','operaciones','admindata','formulario','seguridad'],
+    'admin':     ['presupuesto','cotizaciones','datos','contrato','operaciones','usuarios','proyecto_excel','edicion_pdf','ranking','3d','notificaciones','dashboard','reporte','admindata','formulario','seguridad'],
     'operacion': ['operaciones'],
     'ejecutivo': ['ranking','presupuesto','datos','cotizaciones','contrato','formulario','3d'],
 }

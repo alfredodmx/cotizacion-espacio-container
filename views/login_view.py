@@ -11,6 +11,10 @@ import streamlit as st
 from auth.roles import get_rol
 from auth.access_code import validar_codigo_acceso
 from repositories.logs_repo import registrar_log
+from utils.security import (
+    login_rate_limit, registrar_login_fallido, registrar_login_bloqueado,
+    analizar_inputs,
+)
 
 
 _CSS_LOGIN = """
@@ -173,7 +177,19 @@ def render_login(login_usuario_fn) -> None:
 
         if st.button("⚡ Ingresar al sistema", use_container_width=True,
                      type="primary", key="btn_login", disabled=is_blocked):
-            if not email_in or not pass_in:
+            _email_norm = (email_in or "").strip().lower()
+            # Escaneo del input: un email/código con XSS o SQLi es intento de ataque.
+            _peligro, _ = analizar_inputs(
+                {'email': email_in, 'codigo': code_in}, email=_email_norm, contexto='login')
+            # Rate limiting SERVER-SIDE (no evadible por nueva pestaña): cuenta los
+            # fallos recientes de este email en la base, no solo en la sesión.
+            _srv_blocked, _srv_intentos = login_rate_limit(_email_norm)
+            if _peligro:
+                st.error("🚫 Entrada no válida. El intento fue registrado.")
+            elif _srv_blocked:
+                registrar_login_bloqueado(_email_norm, _srv_intentos)
+                st.error("🔒 Demasiados intentos fallidos para esta cuenta. Espera unos minutos.")
+            elif not email_in or not pass_in:
                 st.error("Completa correo y contraseña.")
             else:
                 with st.spinner("Verificando..."):
@@ -203,14 +219,8 @@ def render_login(login_usuario_fn) -> None:
                 else:
                     attempts += 1
                     st.session_state['_login_attempts'] = attempts
-                    try:
-                        registrar_log('SISTEMA', email_in.strip(), 'login_fallido', {
-                            'email': email_in.strip(),
-                            'intentos': attempts,
-                            'ip': 'N/A',
-                        })
-                    except Exception:
-                        pass
+                    # Log server-side (para auditoría + rate limiting por email).
+                    registrar_login_fallido(_email_norm, attempts)
                     if attempts >= 5:
                         st.session_state['_login_blocked_until'] = now + 300
                         st.session_state['_login_attempts']      = 0

@@ -1125,13 +1125,15 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             user:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
             badge:'<path d="M20 7h-9M14 17H5M17 3a3 3 0 0 0 0 6M7 21a3 3 0 0 0 0-6"/>'
         };
+        // Escape XSS: los datos del cliente pueden traer <script> etc. almacenado.
+        function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
         var ex2=D.getElementById('_datos_modal'); if(ex2) ex2.remove();
         var ov=D.createElement('div'); ov.id='_datos_modal';
         ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
         var box=D.createElement('div'); box.style.cssText='background:#1e293b;border:1px solid #334155;border-radius:16px;padding:24px 28px;max-width:440px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
         var hdr=D.createElement('div'); hdr.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:10px;';
         var ttl=D.createElement('div'); ttl.style.cssText='font-size:0.98rem;font-weight:900;color:#f1f5f9;display:flex;align-items:center;';
-        ttl.innerHTML=_svg(IC.user,'#a5b4fc',18)+'Datos del cliente &mdash; <span class="_dcopy" data-copy="'+ep+'" title="Click para copiar" style="cursor:pointer;color:#93c5fd;margin-left:5px;text-decoration:underline dotted;">'+ep+'</span>';
+        ttl.innerHTML=_svg(IC.user,'#a5b4fc',18)+'Datos del cliente &mdash; <span class="_dcopy" data-copy="'+esc(ep)+'" title="Click para copiar" style="cursor:pointer;color:#93c5fd;margin-left:5px;text-decoration:underline dotted;">'+esc(ep)+'</span>';
         var cls=D.createElement('button'); cls.innerHTML=_svg('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>','#94a3b8',15,'0')+'';
         cls.style.cssText='background:rgba(100,116,139,0.2);color:#94a3b8;border:1px solid rgba(100,116,139,0.3);border-radius:8px;padding:5px 8px;cursor:pointer;line-height:0;flex-shrink:0;';
         cls.title='Cerrar';
@@ -1140,7 +1142,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
         var prof=D.createElement('div'); prof.style.cssText='display:flex;flex-direction:column;align-items:center;gap:9px;margin-bottom:16px;';
         prof.innerHTML=(cli.asesor_avatar||'')
             +'<div style="text-align:center;">'
-            +'<div style="font-size:0.95rem;font-weight:800;color:#f1f5f9;font-family:\\'Plus Jakarta Sans\\',sans-serif;">'+(cli.asesor||'&mdash;')+'</div>'
+            +'<div style="font-size:0.95rem;font-weight:800;color:#f1f5f9;font-family:\\'Plus Jakarta Sans\\',sans-serif;">'+esc(cli.asesor||'—')+'</div>'
             +'<div style="font-size:0.64rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;display:flex;align-items:center;justify-content:center;margin-top:2px;">'+_svg(IC.badge,'#94a3b8',12,'0 5px 0 0')+'Ejecutivo a cargo</div>'
             +'</div>';
         var bdy=D.createElement('div'); bdy.style.cssText='background:#0f172a;border-radius:10px;padding:12px 14px;font-size:0.88rem;color:#e2e8f0;';
@@ -1154,14 +1156,14 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 +'<td style="color:#94a3b8;font-size:0.76rem;padding:5px 12px 5px 0;white-space:nowrap;vertical-align:top;">'+_svg(IC[r[0]])+r[1]+'</td>'
                 +'<td class="_dcopy" data-copy="'+v+'" title="Click para copiar" style="padding:5px 0;cursor:pointer;">'
                 +'<div style="display:flex;align-items:center;gap:8px;">'
-                +'<span style="color:#f1f5f9;font-weight:600;word-break:break-all;overflow-wrap:anywhere;">'+r[2]+'</span>'
+                +'<span style="color:#f1f5f9;font-weight:600;word-break:break-all;overflow-wrap:anywhere;">'+esc(r[2])+'</span>'
                 +_svg(IC.copy,'#475569',13,'0')+'</div></td></tr>';
         });
         html+='</table>'; bdy.innerHTML=html;
         if(cli.modelo){
             var mdl=D.createElement('div'); mdl.style.cssText='margin-top:14px;padding-top:12px;border-top:1px solid #334155;';
             mdl.innerHTML='<div style="font-size:0.7rem;font-weight:800;color:#94a3b8;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:3px;font-family:Montserrat,sans-serif;">Modelo predefinido</div>'
-                +'<div class="_dcopy" data-copy="'+String(cli.modelo).replace(/"/g,'&quot;')+'" title="Click para copiar" style="display:flex;align-items:center;gap:8px;font-size:1.05rem;font-weight:900;color:#fbbf24;font-family:Montserrat,sans-serif;letter-spacing:0.02em;cursor:pointer;"><span style="word-break:break-word;">'+cli.modelo+'</span>'+_svg(IC.copy,'#a16207',13,'0')+'</div>';
+                +'<div class="_dcopy" data-copy="'+String(cli.modelo).replace(/"/g,'&quot;')+'" title="Click para copiar" style="display:flex;align-items:center;gap:8px;font-size:1.05rem;font-weight:900;color:#fbbf24;font-family:Montserrat,sans-serif;letter-spacing:0.02em;cursor:pointer;"><span style="word-break:break-word;">'+esc(cli.modelo)+'</span>'+_svg(IC.copy,'#a16207',13,'0')+'</div>';
             bdy.appendChild(mdl);
         }
         // Copiar al click en cualquier celda ._dcopy (RUT, teléfono, EP, etc.)

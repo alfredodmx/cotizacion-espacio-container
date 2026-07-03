@@ -10,6 +10,7 @@ import streamlit as st
 from config.supabase import supabase_admin
 from repositories.storage_repo import guardar_plano_en_storage, eliminar_plano_de_storage
 from repositories.logs_repo import registrar_log, contar_logs, diff_datos
+from utils.security import analizar_inputs
 
 
 # ── Cache invalidation ────────────────────────────────────────────────────────
@@ -66,6 +67,27 @@ def guardar_cotizacion(
 ) -> bool:
     """Upsert completo de una cotizacion + log + subida de plano. Retorna True/False."""
     try:
+        # ── Blindaje de inputs (XSS / SQLi) ANTES de tocar la base ──────────
+        # Escanea los campos de texto que escribe el usuario. Si hay un patrón de
+        # ataque de severidad ALTA (p.ej. <script>, UNION SELECT), se registra el
+        # evento de seguridad y se ABORTA el guardado (el caller muestra el error).
+        _scan = {
+            'cliente_nombre': cliente.get('Nombre', ''), 'cliente_rut': cliente.get('RUT', ''),
+            'cliente_email': cliente.get('Correo', ''), 'cliente_telefono': cliente.get('Telefono', ''),
+            'cliente_direccion': cliente.get('Direccion', ''), 'cliente_empresa': cliente.get('EmpresaCliente', ''),
+            'cliente_rut_empresa': cliente.get('RutEmpresa', ''),
+            'proyecto_direccion': cliente.get('DireccionProyecto', ''),
+            'observaciones': proyecto.get('observaciones', ''),
+            'asesor_nombre': asesor.get('Nombre Ejecutivo', ''),
+        }
+        _bloquear, _amenazas = analizar_inputs(
+            _scan, email=str(usuario_logueado or st.session_state.get('auth_email', '')),
+            contexto=f'guardar_cotizacion:{numero}')
+        if _bloquear:
+            st.error("🚫 Se detectó contenido no permitido en los datos (posible inyección). "
+                     "Corrige los campos marcados; el intento quedó registrado en Seguridad.")
+            return False
+
         fecha_actual = datetime.now().isoformat()
         productos_json = json.dumps(productos, ensure_ascii=False)
         tiene_margen = float(config.get('margen', 0) or 0) > 0
