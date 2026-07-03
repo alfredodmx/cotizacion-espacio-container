@@ -4,7 +4,9 @@ Todo el código real vive en streamlit_app.py.
 """
 import streamlit as st
 
-st.set_page_config(layout="wide", page_title="Cotizador PRO", page_icon="📊",
+st.set_page_config(layout="wide",
+                   page_title="SISTEMA DE GESTIÓN DE COTIZACIONES - ESPACIO CONTAINER HOUSE",
+                   page_icon="favicon.png",
                    initial_sidebar_state="expanded")
 
 from config.supabase import get_supabase, get_supabase_admin, get_supabase_urls

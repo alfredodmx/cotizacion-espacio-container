@@ -8,7 +8,9 @@ Para activar: cambia el punto de entrada en .streamlit/config.toml o ejecuta
 import streamlit as st
 
 # ── 1. Config de página (DEBE ir antes de cualquier otro st.*) ─────────────
-st.set_page_config(layout="wide", page_title="Cotizador PRO", page_icon="📊")
+st.set_page_config(layout="wide",
+                   page_title="SISTEMA DE GESTIÓN DE COTIZACIONES - ESPACIO CONTAINER HOUSE",
+                   page_icon="favicon.png")
 
 # ── 2. Clientes Supabase ───────────────────────────────────────────────────
 from config.supabase import get_supabase, get_supabase_admin, get_supabase_urls
