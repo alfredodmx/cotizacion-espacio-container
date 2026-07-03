@@ -130,6 +130,11 @@ def render_login(login_usuario_fn) -> None:
 
     st.markdown(f"<style>{_CSS_LOGIN}</style>", unsafe_allow_html=True)
 
+    # Aviso de sesión expirada por inactividad (viene de check_session_timeout,
+    # que recarga a ?expired=1 para montar el login limpio).
+    if st.query_params.get("expired") == "1":
+        st.warning("⏱️ Tu sesión expiró por inactividad. Por favor inicia sesión nuevamente.")
+
     if logo_b64:
         st.markdown(
             f'<style>.login-logo-wrap img{{width:750px!important;max-width:100%!important;'

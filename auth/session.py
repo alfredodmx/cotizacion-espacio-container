@@ -179,7 +179,19 @@ def check_session_timeout() -> None:
         if (_now - _last) > SESSION_TIMEOUT:
             for _k in list(st.session_state.keys()):
                 del st.session_state[_k]
-            st.warning("⏱️ Tu sesión expiró por inactividad. Por favor inicia sesión nuevamente.")
-            st.rerun()
+            try:
+                st.query_params.clear()
+            except Exception:
+                pass
+            # Recarga COMPLETA (no st.rerun) a la URL base con ?expired=1: monta el
+            # login desde cero, sin iframes/handlers residuales del render
+            # autenticado (mismo motivo que el logout manual). El login lee el
+            # param para mostrar el aviso de sesión expirada.
+            import streamlit.components.v1 as _c
+            _c.html(
+                "<script>var L=window.parent.location;L.href=L.origin+L.pathname+'?expired=1';</script>",
+                height=0,
+            )
+            st.stop()
     if st.session_state.get('auth_user'):
         st.session_state['_last_activity'] = _now
