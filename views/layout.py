@@ -1301,9 +1301,14 @@ def render_layout():
             # cerrar sesión quedaban iframes/handlers residuales del render
             # autenticado y el frontend se rompía ("Bad message format / Tried to use
             # SessionInfo before it was initialized"), dejando la pantalla en blanco
-            # hasta recargar a mano. Navegar a la URL base monta el login desde cero.
+            # hasta recargar a mano.
+            # IMPORTANTE: durante la sesión la URL YA es origin+pathname (sin query),
+            # así que asignar location.href a la MISMA URL es un no-op (no recarga) y
+            # quedaba en blanco. Usamos reload() cuando ya está limpia; si hay query
+            # params, navegamos a la base (que sí recarga por ser distinta).
             _components.html(
-                "<script>var L=window.parent.location;L.href=L.origin+L.pathname;</script>",
+                "<script>var L=window.parent.location;var C=L.origin+L.pathname;"
+                "if(L.href===C){L.reload();}else{L.href=C;}</script>",
                 height=0,
             )
             st.stop()
