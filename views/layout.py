@@ -1297,8 +1297,16 @@ def render_layout():
     with _c_out:
         if st.button("🚪 Cerrar sesión", key="btn_cerrar_sesion_header", use_container_width=True):
             logout_usuario()
-            st.session_state["modo_admin"] = False
-            st.rerun()
+            # Recarga COMPLETA de la página (no st.rerun). Con un rerun in-place, al
+            # cerrar sesión quedaban iframes/handlers residuales del render
+            # autenticado y el frontend se rompía ("Bad message format / Tried to use
+            # SessionInfo before it was initialized"), dejando la pantalla en blanco
+            # hasta recargar a mano. Navegar a la URL base monta el login desde cero.
+            _components.html(
+                "<script>var L=window.parent.location;L.href=L.origin+L.pathname;</script>",
+                height=0,
+            )
+            st.stop()
 
     # 7. JS — mover botones al header una sola vez (sin MutationObserver)
     _components.html("""
