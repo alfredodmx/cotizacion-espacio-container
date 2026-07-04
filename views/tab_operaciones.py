@@ -19,6 +19,7 @@ from utils.operaciones_db import (
     guardar_acta_en_storage,
     registrar_entrega_proyecto,
 )
+from repositories.compras_repo import guardar_registro_compra_full
 from utils.excel_manager import leer_hoja_excel
 
 # ── Importar builders y helpers de utils ────────────────────────────────────
@@ -486,8 +487,6 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
         _rc_save_raw = st.query_params.get('rc_save')
         if _rc_save_raw:
             import json as _json_rc
-            from repositories.compras_repo import (
-                guardar_registro_compra_full, obtener_registros_compra, obtener_items_comprados)
             try:
                 _rc_payload = _json_rc.loads(_rc_save_raw)
             except Exception:
@@ -498,8 +497,11 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 del st.query_params['rc_save']
             except Exception:
                 pass
+            # Invalidar cache de "ya comprados" (la que usa el tab) para que el
+            # refresco muestre el registro recién guardado. obtener_registros_compra
+            # no está cacheada (lee fresco), así que no requiere clear.
             try:
-                obtener_registros_compra.clear(); obtener_items_comprados.clear()
+                obtener_items_comprados.clear()
             except Exception:
                 pass
             for _k in list(st.session_state.keys()):
