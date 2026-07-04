@@ -21,6 +21,7 @@ from utils.operaciones_db import (
 )
 from repositories.compras_repo import guardar_registro_compra_full
 from utils.excel_manager import leer_hoja_excel
+from utils.security import escape_html as _esc_html
 
 # ── Importar builders y helpers de utils ────────────────────────────────────
 
@@ -616,6 +617,26 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                                 st.dataframe(_df_rce, hide_index=True, use_container_width=True)
                             else:
                                 st.caption("Sin &#237;tems registrados.")
+
+                            # Enlace a la factura adjunta (se guarda en el bucket
+                            # public 'facturas'; el historial en pantalla no lo
+                            # mostraba, solo el PDF de balance). Abre en pestaña nueva.
+                            _fac_url = (_rce.get('factura_url') or '').strip()
+                            _fac_nom = (_rce.get('factura_nombre') or '').strip() or 'Factura'
+                            if _fac_url:
+                                st.markdown(
+                                    f'<a href="{_fac_url}" target="_blank" rel="noopener noreferrer" '
+                                    'style="display:inline-flex;align-items:center;gap:8px;margin-top:8px;'
+                                    'padding:7px 14px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;'
+                                    'border-radius:8px;text-decoration:none;font-size:0.8rem;font-weight:600;">'
+                                    '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" '
+                                    'stroke="currentColor" stroke-width="2" stroke-linecap="round" '
+                                    'stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 '
+                                    '2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'
+                                    f'Ver factura: {_esc_html(_fac_nom)}</a>',
+                                    unsafe_allow_html=True)
+                            else:
+                                st.caption("&#9888;&#65039; Sin factura adjunta.")
 
                 st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 8px;">&#10133; Nuevo registro de compra</div>', unsafe_allow_html=True)
 
