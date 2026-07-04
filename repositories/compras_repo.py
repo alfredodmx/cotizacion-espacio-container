@@ -83,6 +83,56 @@ def guardar_registro_compra(
         return False, str(e)
 
 
+def guardar_registro_compra_full(payload: dict) -> tuple[bool, str | None]:
+    """Guarda un registro de compra COMPLETO (todos los campos del formulario de
+    operaciones) con la service key. Usada por el guardado SERVER-SIDE: el
+    navegador ya no hace POST a registro_compras (clave anon), sino que manda el
+    payload a Python y este inserta con la service key (que ignora RLS).
+
+    Escanea los campos de texto libres (defensa XSS/SQLi) y valida antes de
+    insertar. El balance se recalcula en el servidor (no se confía en el cliente).
+    Devuelve (ok, error)."""
+    try:
+        from utils.security import analizar_inputs
+        p = payload or {}
+        ep = str(p.get('cotizacion_numero', '') or '').strip()
+        items = p.get('items') or []
+        if not ep or not isinstance(items, list) or not items:
+            return False, "Registro inválido (sin EP o sin ítems)."
+
+        _bloquear, _ = analizar_inputs({
+            'lugar_compra':   p.get('lugar_compra', ''),
+            'observaciones':  p.get('observaciones', ''),
+            'falto_retirar':  p.get('falto_retirar', ''),
+            'usuario':        p.get('usuario_registro', ''),
+        }, email=str(p.get('usuario_registro', '')), contexto=f'registro_compras:{ep}')
+        if _bloquear:
+            return False, "Contenido no permitido en el registro (posible inyección)."
+
+        _tp = float(p.get('total_presupuestado', 0) or 0)
+        _tr = float(p.get('total_real', 0) or 0)
+        data = {
+            'cotizacion_numero':    ep,
+            'usuario_registro':     str(p.get('usuario_registro', '') or ''),
+            'lugar_compra':         str(p.get('lugar_compra', '') or ''),
+            'tipo_compra':          str(p.get('tipo_compra', '') or ''),
+            'subtipo_compra':       str(p.get('subtipo_compra', '') or ''),
+            'fecha_entrega_compra': str(p.get('fecha_entrega_compra', '') or ''),
+            'falto_retirar':        str(p.get('falto_retirar', '') or ''),
+            'observaciones':        str(p.get('observaciones', '') or ''),
+            'factura_url':          str(p.get('factura_url', '') or ''),
+            'factura_nombre':       str(p.get('factura_nombre', '') or ''),
+            'items':                items,
+            'total_presupuestado':  _tp,
+            'total_real':           _tr,
+            'balance':              _tp - _tr,
+        }
+        supabase_admin.table('registro_compras').insert(data).execute()
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+
 def calcular_estado_compras(cotizacion_numero: str, productos_presupuesto: list) -> dict:
     """Calcula el estado de compras: porcentaje, adicionales, etc."""
     try:

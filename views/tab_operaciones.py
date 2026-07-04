@@ -480,7 +480,41 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                             except Exception:
                                 st.warning("&#9888;&#65039; No se pudo preparar la descarga del plano.")
 
-        # Detectar guardado de compra via query param
+        # Guardado SERVER-SIDE del registro de compra. El formulario manda el payload
+        # via query param (rc_save) + popstate (rerun sin recargar); acá lo insertamos
+        # con la service key (ignora RLS) → el navegador ya no escribe con la anon.
+        _rc_save_raw = st.query_params.get('rc_save')
+        if _rc_save_raw:
+            import json as _json_rc
+            from repositories.compras_repo import (
+                guardar_registro_compra_full, obtener_registros_compra, obtener_items_comprados)
+            try:
+                _rc_payload = _json_rc.loads(_rc_save_raw)
+            except Exception:
+                _rc_payload = None
+            _rc_ok, _rc_err = (guardar_registro_compra_full(_rc_payload)
+                               if _rc_payload else (False, "Payload inválido."))
+            try:
+                del st.query_params['rc_save']
+            except Exception:
+                pass
+            try:
+                obtener_registros_compra.clear(); obtener_items_comprados.clear()
+            except Exception:
+                pass
+            for _k in list(st.session_state.keys()):
+                if _k.startswith('rc_json_'):
+                    st.session_state[_k] = '[]'
+            if not _rc_ok:
+                st.session_state['_rc_save_error'] = _rc_err or "Error al guardar."
+            st.rerun()
+
+        # Aviso si el guardado server-side del registro falló.
+        _rc_err_msg = st.session_state.pop('_rc_save_error', None)
+        if _rc_err_msg:
+            st.error(f"&#10060; No se pudo guardar el registro de compra: {_rc_err_msg}")
+
+        # Detectar guardado de compra via query param (compat: refresco legacy)
         if st.query_params.get('rc_saved'):
             st.query_params.pop('rc_saved')
             for _k in list(st.session_state.keys()):

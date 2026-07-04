@@ -994,14 +994,9 @@ window.guardarRegistro=async function(){{
   var status=document.getElementById("save-status");
   if(!_facturaFile){{status.textContent="⚠️ Debes subir una factura primero";status.style.color="#dc2626";return;}}
   btn.disabled=true;btn.textContent="⏳ Verificando compras previas...";
-  var yaCompradosResp=await fetch(SUPA_URL+"/rest/v1/registro_compras?cotizacion_numero=eq."+EP_NUM+"&select=items",{{
-    headers:{{"Authorization":"Bearer "+SUPA_KEY,"apikey":SUPA_KEY}}
-  }});
-  var yaCompradosData=await yaCompradosResp.json();
-  var itemsYaComprados=[];
-  (yaCompradosData||[]).forEach(function(reg){{
-    (reg.items||[]).forEach(function(it){{if(it.item)itemsYaComprados.push(it.item);}});
-  }});
+  // Ya comprados: Python ya lo pasa server-side (service key) en ITEMS_YA_COMPRADOS
+  // → evitamos el fetch desde el navegador (que RLS bloquearía).
+  var itemsYaComprados=(ITEMS_YA_COMPRADOS||[]).slice();
   var items=[];
   document.querySelectorAll("tr[data-idx]").forEach(function(r){{
     var idx=parseInt(r.dataset.idx)||0;
@@ -1054,49 +1049,34 @@ window.guardarRegistro=async function(){{
     var fechaVal=document.getElementById("fecha-compra")?document.getElementById("fecha-compra").value:"";
     var faltóVal=document.getElementById("falto-texto")?document.getElementById("falto-texto").value.trim():"";
     var obsVal=document.getElementById("obs-compra")?document.getElementById("obs-compra").value.trim():"";
-    var saveResp=await fetch(SUPA_URL+"/rest/v1/registro_compras",{{
-      method:"POST",
-      headers:{{
-        "Authorization":"Bearer "+SUPA_KEY,
-        "apikey":SUPA_KEY,
-        "Content-Type":"application/json",
-        "Prefer":"return=minimal"
-      }},
-      body:JSON.stringify({{
-        cotizacion_numero:EP_NUM,
-        usuario_registro:USUARIO,
-        lugar_compra:lugarVal,
-        tipo_compra:tipoVal,
-        subtipo_compra:subtipoVal,
-        fecha_entrega_compra:fechaVal,
-        falto_retirar:faltóVal,
-        observaciones:obsVal,
-        factura_url:_facturaUrl,
-        factura_nombre:_facturaNom,
-        items:items,
-        total_presupuestado:tP,
-        total_real:tR,
-        balance:tP-tR
-      }})
-    }});
-    if(!saveResp.ok) throw new Error("Error guardando registro: "+saveResp.status);
+    // Guardado SERVER-SIDE: en vez de POST a registro_compras (clave anon, que RLS
+    // bloquearía), mandamos el registro a Python via query param + popstate (rerun
+    // SIN recargar → NO desloguea al usuario de la app). Python inserta con la
+    // service key. El balance lo recalcula el servidor (no se confía en el cliente).
+    var _rcPayload={{
+      cotizacion_numero:EP_NUM,
+      usuario_registro:USUARIO,
+      lugar_compra:lugarVal,
+      tipo_compra:tipoVal,
+      subtipo_compra:subtipoVal,
+      fecha_entrega_compra:fechaVal,
+      falto_retirar:faltóVal,
+      observaciones:obsVal,
+      factura_url:_facturaUrl,
+      factura_nombre:_facturaNom,
+      items:items,
+      total_presupuestado:tP,
+      total_real:tR
+    }};
     btn.textContent="✅ Guardado";btn.style.background="#16a34a";
-    status.textContent="✅ Guardado correctamente. Actualizando...";
+    status.textContent="✅ Guardado. Actualizando...";
     status.style.color="#16a34a";
     setTimeout(function(){{
       var url=new URL(window.parent.location.href);
-      url.searchParams.set("rc_saved",Date.now());
+      url.searchParams.set("rc_save", JSON.stringify(_rcPayload));
       window.parent.history.replaceState({{}},"",url);
       window.parent.dispatchEvent(new PopStateEvent("popstate"));
-    }},1000);
-    items.forEach(function(it){{
-      document.querySelectorAll("tr[data-idx]").forEach(function(r){{
-        if(r.cells[1]&&r.cells[1].textContent.trim()===it.item){{
-          r.style.background="#f0fdf4";
-          r.querySelectorAll("input").forEach(function(inp){{inp.setAttribute("readonly","");inp.style.background="#f0fdf4";}});
-        }}
-      }});
-    }});
+    }},600);
   }}catch(e){{
     btn.disabled=false;btn.textContent="💾 Guardar compra";
     status.textContent="❌ Error: "+e.message;status.style.color="#dc2626";
