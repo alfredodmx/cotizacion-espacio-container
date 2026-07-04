@@ -73,8 +73,10 @@ def guardar_cotizacion(
         # evento de seguridad y se ABORTA el guardado (el caller muestra el error).
         _scan = {
             'cliente_nombre': cliente.get('Nombre', ''), 'cliente_rut': cliente.get('RUT', ''),
-            'cliente_email': cliente.get('Correo', ''), 'cliente_telefono': cliente.get('Telefono', ''),
-            'cliente_direccion': cliente.get('Direccion', ''), 'cliente_empresa': cliente.get('EmpresaCliente', ''),
+            'cliente_email': cliente.get('Correo', ''),
+            'cliente_telefono': cliente.get('Teléfono', cliente.get('Telefono', '')),
+            'cliente_direccion': cliente.get('Dirección', cliente.get('Direccion', '')),
+            'cliente_empresa': cliente.get('EmpresaCliente', ''),
             'cliente_rut_empresa': cliente.get('RutEmpresa', ''),
             'proyecto_direccion': cliente.get('DireccionProyecto', ''),
             'observaciones': proyecto.get('observaciones', ''),
@@ -126,8 +128,8 @@ def guardar_cotizacion(
             'cliente_nombre': str(cliente.get('Nombre', '') or ''),
             'cliente_rut': str(cliente.get('RUT', '') or ''),
             'cliente_email': str(cliente.get('Correo', '') or ''),
-            'cliente_telefono': str(cliente.get('Telefono', '') or '').strip(),
-            'cliente_direccion': str(cliente.get('Direccion', '') or ''),
+            'cliente_telefono': str(cliente.get('Teléfono', cliente.get('Telefono', '')) or '').strip(),
+            'cliente_direccion': str(cliente.get('Dirección', cliente.get('Direccion', '')) or ''),
             'cliente_comuna': str(cliente.get('ComunaCliente', '') or ''),
             'cliente_region': str(cliente.get('RegionCliente', '') or ''),
             'proyecto_direccion': str(cliente.get('DireccionProyecto', '') or ''),
