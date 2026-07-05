@@ -675,7 +675,27 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
     # SUB-PESTAÑA: REGISTRO DE COMPRAS
     # ================================================================
     with _sub_compras:
-        st.markdown(_titulo_op("cart", "Registro de Compras"), unsafe_allow_html=True)
+        _rc_admin_role = _rol in ('root', 'admin')
+        # Etiqueta del toggle con la tipografía de los títulos de sección + toggle
+        # alineado a la derecha de su columna.
+        st.markdown(
+            "<style>"
+            ".st-key-rc_modo_admin_global{display:flex;justify-content:flex-end;align-items:center;}"
+            ".st-key-rc_modo_admin_global p,.st-key-rc_modo_admin_global [data-testid=\"stWidgetLabel\"] *{"
+            "font-family:Montserrat,sans-serif !important;font-weight:700 !important;font-size:0.88rem !important;"
+            "letter-spacing:0.05em !important;text-transform:uppercase !important;color:#0f172a !important;}"
+            "</style>", unsafe_allow_html=True)
+        # Título "Registro de Compras" + toggle Modo Admin en la MISMA fila (toggle
+        # a la derecha), arriba del dropdown.
+        if _rc_admin_role:
+            _th1, _th2 = st.columns([1.5, 1], vertical_alignment="center")
+            with _th1:
+                st.markdown(_titulo_op("cart", "Registro de Compras"), unsafe_allow_html=True)
+            with _th2:
+                _modo_admin_rc = st.toggle('Modo Admin (incluye Varios)', key='rc_modo_admin_global')
+        else:
+            st.markdown(_titulo_op("cart", "Registro de Compras"), unsafe_allow_html=True)
+            _modo_admin_rc = False
 
         try:
             _rc_resp = supa_admin.table('cotizaciones').select(
@@ -758,7 +778,6 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     _rc_prods = [p for p in _rc_prods_raw if str(p.get('Categoria', '')).strip().lower() != 'varios']
 
                 _rc_existentes = _obtener_registros_rc(_rc_ep)
-                _modo_admin_rc = st.session_state.get(f'rc_modo_admin_{_rc_ep}', False) if _rol in ('root', 'admin') else False
 
                 # Agregar adicionales de registros anteriores
                 _prods_sin_varios = [p for p in _rc_prods_raw if str(p.get('Categoria', '')).strip().lower() != 'varios']
@@ -783,14 +802,9 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                             })
                             _prods_nombres.add(_it_nombre)
 
-                st.markdown(_titulo_op("plus", "Nuevo registro de compra"), unsafe_allow_html=True)
-
-                if _rol in ('root', 'admin'):
-                    _modo_admin_rc = st.toggle('Modo Admin (incluye Varios)', key=f'rc_modo_admin_{_rc_ep}')
-                    if not _modo_admin_rc:
-                        _rc_prods = [p for p in _rc_prods if str(p.get('Categoria', '')).strip().lower() != 'varios']
-                else:
-                    _modo_admin_rc = False
+                # Modo Admin OFF → ocultar Varios (el toggle está en la fila del título)
+                if _rc_admin_role and not _modo_admin_rc:
+                    _rc_prods = [p for p in _rc_prods if str(p.get('Categoria', '')).strip().lower() != 'varios']
 
                 if not _rc_prods:
                     st.warning('Este presupuesto no tiene productos cargados.')
