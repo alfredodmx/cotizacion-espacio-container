@@ -783,84 +783,6 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                             })
                             _prods_nombres.add(_it_nombre)
 
-                if _rc_existentes:
-                    st.markdown(_titulo_op("history", "Historial de compras"), unsafe_allow_html=True)
-                    _mut_err = st.session_state.pop('_rc_mut_error', None)
-                    if _mut_err:
-                        st.error(f"&#10060; No se pudo aplicar el cambio: {_mut_err}")
-
-                    # Datos para el iframe interactivo del historial (edición IN-PLACE).
-                    # _pn_set: nombres de ítems del presupuesto → clasificar cada
-                    # compra (normal / adicional con-registro / sin-registro).
-                    _pn_set = {str(_p.get('Item', '')) for _p in _rc_prods_raw}
-                    _regs_data = []
-                    _hist_rows_total = 0
-                    for _rce in _rc_existentes:
-                        _items_h = _rce.get('items') or []
-                        if isinstance(_items_h, str):
-                            try:
-                                _items_h = json.loads(_items_h)
-                            except Exception:
-                                _items_h = []
-                        _fecha_raw = _rce.get('fecha_registro', '') or ''
-                        try:
-                            _fecha_txt = datetime.fromisoformat(
-                                _fecha_raw.replace('Z', '+00:00')).astimezone(_tz_cl).strftime('%d/%m/%Y %H:%M')
-                        except Exception:
-                            _fecha_txt = str(_fecha_raw)[:10]
-                        # Badge de tipo del registro (misma clasificación que MAIN):
-                        # sin registro / adicional con registro / normal / mixto.
-                        _sn = any(_i.get('sin_registro') for _i in _items_h)
-                        _cn = any(_i.get('es_adicional') and not _i.get('sin_registro') for _i in _items_h)
-                        _nm = any(str(_i.get('item', '')) in _pn_set for _i in _items_h if _i.get('item'))
-                        if sum([_nm, _cn, _sn]) >= 2:
-                            _tipo_lbl, _tipo_bg, _tipo_fg = 'Mixto', '#ede9fe', '#6d28d9'
-                        elif _sn:
-                            _tipo_lbl, _tipo_bg, _tipo_fg = 'Adicional sin registro', '#fce7f3', '#be185d'
-                        elif _cn:
-                            _tipo_lbl, _tipo_bg, _tipo_fg = 'Adicional con registro', '#ffedd5', '#c2410c'
-                        else:
-                            _tipo_lbl, _tipo_bg, _tipo_fg = 'Normal', '#dcfce7', '#15803d'
-                        _regs_data.append({
-                            'id':          _rce.get('id'),
-                            'lugar':       _rce.get('lugar_compra', '') or 'Compra sin lugar',
-                            'obs':         _rce.get('observaciones', '') or '',
-                            'fent':        _rce.get('fecha_entrega_compra', '') or '',
-                            'tipo':        (str(_rce.get('tipo_compra', '') or '').capitalize() or '—'),
-                            'tipo_lbl':    _tipo_lbl,
-                            'tipo_bg':     _tipo_bg,
-                            'tipo_fg':     _tipo_fg,
-                            'fecha':       _fecha_txt,
-                            'usuario':     _rce.get('usuario_registro', '') or '—',
-                            'balance':     float(_rce.get('balance', 0) or 0),
-                            'tp':          float(_rce.get('total_presupuestado', 0) or 0),
-                            'tr':          float(_rce.get('total_real', 0) or 0),
-                            'factura_url': (_rce.get('factura_url') or '').strip(),
-                            'factura_nom': (_rce.get('factura_nombre') or '').strip() or 'Factura',
-                            'items': [{
-                                'cat':  str(_it.get('categoria', '')),
-                                'item': str(_it.get('item', '')),
-                                'cant': float(_it.get('cantidad', 1) or 1),
-                                'pp':   float(_it.get('precio_presupuestado', 0) or 0),
-                                'pr':   float(_it.get('precio_real', 0) or 0),
-                                'sin':  bool(_it.get('sin_registro', False)),
-                            } for _it in _items_h],
-                        })
-                        _hist_rows_total += max(1, len(_items_h))
-
-                    # Alto INICIAL del iframe: pensado para tarjetas CONTRAÍDAS +
-                    # los badges de filtro. El iframe se auto-ajusta (fit vía
-                    # frameElement + ResizeObserver) al expandir/editar, así que no
-                    # queda scroll interno; este valor es solo el punto de partida
-                    # y el fallback si el navegador bloquea el auto-resize.
-                    _n_reg = len(_regs_data)
-                    _hist_h = min(70 + _n_reg * 58 + 360, 2800)
-                    if _OPER_OK:
-                        components.html(build_historial_rc_html(
-                            _regs_data, _rc_ep,
-                            supa_url=SUPABASE_URL, supa_key=SUPABASE_KEY),
-                            height=_hist_h, scrolling=True)
-
                 st.markdown(_titulo_op("plus", "Nuevo registro de compra"), unsafe_allow_html=True)
 
                 if _rol in ('root', 'admin'):
@@ -1049,6 +971,84 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                                             key=f'dl_xls_{_rc_ep}')
                                     except Exception as _e_xls:
                                         st.error(f'Error: {_e_xls}')
+
+                if _rc_existentes:
+                    st.markdown(_titulo_op("history", "Historial de compras"), unsafe_allow_html=True)
+                    _mut_err = st.session_state.pop('_rc_mut_error', None)
+                    if _mut_err:
+                        st.error(f"&#10060; No se pudo aplicar el cambio: {_mut_err}")
+
+                    # Datos para el iframe interactivo del historial (edición IN-PLACE).
+                    # _pn_set: nombres de ítems del presupuesto → clasificar cada
+                    # compra (normal / adicional con-registro / sin-registro).
+                    _pn_set = {str(_p.get('Item', '')) for _p in _rc_prods_raw}
+                    _regs_data = []
+                    _hist_rows_total = 0
+                    for _rce in _rc_existentes:
+                        _items_h = _rce.get('items') or []
+                        if isinstance(_items_h, str):
+                            try:
+                                _items_h = json.loads(_items_h)
+                            except Exception:
+                                _items_h = []
+                        _fecha_raw = _rce.get('fecha_registro', '') or ''
+                        try:
+                            _fecha_txt = datetime.fromisoformat(
+                                _fecha_raw.replace('Z', '+00:00')).astimezone(_tz_cl).strftime('%d/%m/%Y %H:%M')
+                        except Exception:
+                            _fecha_txt = str(_fecha_raw)[:10]
+                        # Badge de tipo del registro (misma clasificación que MAIN):
+                        # sin registro / adicional con registro / normal / mixto.
+                        _sn = any(_i.get('sin_registro') for _i in _items_h)
+                        _cn = any(_i.get('es_adicional') and not _i.get('sin_registro') for _i in _items_h)
+                        _nm = any(str(_i.get('item', '')) in _pn_set for _i in _items_h if _i.get('item'))
+                        if sum([_nm, _cn, _sn]) >= 2:
+                            _tipo_lbl, _tipo_bg, _tipo_fg = 'Mixto', '#ede9fe', '#6d28d9'
+                        elif _sn:
+                            _tipo_lbl, _tipo_bg, _tipo_fg = 'Adicional sin registro', '#fce7f3', '#be185d'
+                        elif _cn:
+                            _tipo_lbl, _tipo_bg, _tipo_fg = 'Adicional con registro', '#ffedd5', '#c2410c'
+                        else:
+                            _tipo_lbl, _tipo_bg, _tipo_fg = 'Normal', '#dcfce7', '#15803d'
+                        _regs_data.append({
+                            'id':          _rce.get('id'),
+                            'lugar':       _rce.get('lugar_compra', '') or 'Compra sin lugar',
+                            'obs':         _rce.get('observaciones', '') or '',
+                            'fent':        _rce.get('fecha_entrega_compra', '') or '',
+                            'tipo':        (str(_rce.get('tipo_compra', '') or '').capitalize() or '—'),
+                            'tipo_lbl':    _tipo_lbl,
+                            'tipo_bg':     _tipo_bg,
+                            'tipo_fg':     _tipo_fg,
+                            'fecha':       _fecha_txt,
+                            'usuario':     _rce.get('usuario_registro', '') or '—',
+                            'balance':     float(_rce.get('balance', 0) or 0),
+                            'tp':          float(_rce.get('total_presupuestado', 0) or 0),
+                            'tr':          float(_rce.get('total_real', 0) or 0),
+                            'factura_url': (_rce.get('factura_url') or '').strip(),
+                            'factura_nom': (_rce.get('factura_nombre') or '').strip() or 'Factura',
+                            'items': [{
+                                'cat':  str(_it.get('categoria', '')),
+                                'item': str(_it.get('item', '')),
+                                'cant': float(_it.get('cantidad', 1) or 1),
+                                'pp':   float(_it.get('precio_presupuestado', 0) or 0),
+                                'pr':   float(_it.get('precio_real', 0) or 0),
+                                'sin':  bool(_it.get('sin_registro', False)),
+                            } for _it in _items_h],
+                        })
+                        _hist_rows_total += max(1, len(_items_h))
+
+                    # Alto INICIAL del iframe: pensado para tarjetas CONTRAÍDAS +
+                    # los badges de filtro. El iframe se auto-ajusta (fit vía
+                    # frameElement + ResizeObserver) al expandir/editar, así que no
+                    # queda scroll interno; este valor es solo el punto de partida
+                    # y el fallback si el navegador bloquea el auto-resize.
+                    _n_reg = len(_regs_data)
+                    _hist_h = min(70 + _n_reg * 58 + 360, 2800)
+                    if _OPER_OK:
+                        components.html(build_historial_rc_html(
+                            _regs_data, _rc_ep,
+                            supa_url=SUPABASE_URL, supa_key=SUPABASE_KEY),
+                            height=_hist_h, scrolling=True)
 
     # ================================================================
     # SUB-PESTAÑA: ACTA DE CLIENTES
