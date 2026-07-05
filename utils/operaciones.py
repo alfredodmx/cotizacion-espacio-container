@@ -118,8 +118,9 @@ tr.rm-on td{{background:#fef2f2 !important;text-decoration:line-through;color:#b
 .hc-tipo{{display:inline-flex;align-items:center;margin-left:10px;font-weight:700;font-size:0.64rem;letter-spacing:.02em;text-transform:uppercase;padding:3px 10px;border-radius:99px;white-space:nowrap;}}
 .hc-tipodot{{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:6px;flex-shrink:0;}}
 .hc-inp-c{{width:74px;}}
-.hc-filters{{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-bottom:11px;}}
-.hc-flabel{{font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#94a3b8;margin-right:2px;}}
+.hc-filters{{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}}
+.hc-frow{{display:flex;flex-wrap:wrap;align-items:center;gap:7px;}}
+.hc-flabel{{font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#94a3b8;margin-right:2px;min-width:150px;}}
 .hc-fbadge{{display:inline-flex;align-items:center;font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.02em;padding:5px 12px;border-radius:99px;border:1.5px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;transition:all .12s;white-space:nowrap;}}
 .hc-fbadge:hover{{border-color:#cbd5e1;background:#f8fafc;}}
 .hc-fbadge.active{{border-color:#1e2447;background:#1e2447;color:#fff;}}
@@ -130,7 +131,7 @@ tr.rm-on td{{background:#fef2f2 !important;text-decoration:line-through;color:#b
 var REGS={regs_json};
 var IC={{store:'{IC_STORE}',cal:'{IC_CAL}',user:'{IC_USER}',cart:'{IC_CART}',file:'{IC_FILE}',edit:'{IC_EDIT}',trash:'{IC_TRASH}',save:'{IC_SAVE}',x:'{IC_X}',chev:'{IC_CHEV}',up:'{IC_UP}',down:'{IC_DOWN}',alert:'{IC_ALERT}',clip:'{IC_CLIP}'}};
 var EP="{ep}";var SUPA_URL="{supa_url}";var SUPA_KEY="{supa_key}";
-var editing=-1, confirming=-1, _facFile=null, filter="";
+var editing=-1, confirming=-1, _facFile=null, fTipo="", fResp="", fProv="";
 function f(n){{return "$"+Math.round(Math.abs(+n||0)).toLocaleString("de-DE");}}
 function esc(s){{return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}}
 function nav(param,val){{
@@ -141,7 +142,7 @@ function nav(param,val){{
 }}
 window.hcEdit=function(i){{_facFile=null;editing=(editing===i?-1:i);confirming=-1;render();}};
 window.hcCancel=function(){{_facFile=null;editing=-1;render();}};
-window.hcFilter=function(lbl){{filter=lbl;editing=-1;confirming=-1;_facFile=null;render();}};
+window.hcFilter=function(dim,val){{if(dim==="tipo")fTipo=val;else if(dim==="resp")fResp=val;else if(dim==="prov")fProv=val;editing=-1;confirming=-1;_facFile=null;render();}};
 window.hcAskDel=function(i){{confirming=i;editing=-1;render();}};
 window.hcNoDel=function(){{confirming=-1;render();}};
 window.hcDoDel=function(i){{nav("rc_delete",REGS[i].id);}};
@@ -207,21 +208,33 @@ function editRows(i,r){{
       +'<td class="c"><input class="hc-rm" id="rm-'+i+'-'+j+'" type="checkbox" onchange="hcToggleRm('+i+','+j+')" title="Quitar este ítem"/></td></tr>';
   }}).join("");
 }}
-function renderFilters(){{
-  var order=["Normal","Adicional con registro","Adicional sin registro","Mixto"];
+function valOf(r,dim){{return dim==="tipo"?(r.tipo_lbl||""):dim==="resp"?(r.usuario||""):dim==="prov"?(r.lugar||""):"";}}
+function filterRow(label,dim,order,tcolors,activeVal){{
   var seen={{}};
-  REGS.forEach(function(r){{if(r.tipo_lbl){{if(!seen[r.tipo_lbl])seen[r.tipo_lbl]={{n:0,bg:r.tipo_bg,fg:r.tipo_fg}};seen[r.tipo_lbl].n++;}}}});
-  var keys=order.filter(function(k){{return seen[k];}});
-  Object.keys(seen).forEach(function(k){{if(keys.indexOf(k)<0)keys.push(k);}});
-  var el=document.getElementById("hc-filters");if(!el)return;
-  if(keys.length<2){{el.innerHTML="";return;}}
-  var html='<span class="hc-flabel">Filtrar por tipo:</span>';
-  html+='<span class="hc-fbadge'+(filter===""?" active":"")+'" onclick="hcFilter(\\'\\')">Todas ('+REGS.length+')</span>';
+  REGS.forEach(function(r){{var v=valOf(r,dim);if(v){{seen[v]=(seen[v]||0)+1;}}}});
+  var keys=Object.keys(seen);
+  if(order){{keys.sort(function(a,b){{var ia=order.indexOf(a),ib=order.indexOf(b);ia=ia<0?99:ia;ib=ib<0?99:ib;return ia-ib||(a.toLowerCase()<b.toLowerCase()?-1:1);}});}}
+  else{{keys.sort(function(a,b){{return a.toLowerCase()<b.toLowerCase()?-1:1;}});}}
+  if(keys.length<2)return "";
+  var h='<div class="hc-frow"><span class="hc-flabel">'+label+'</span>';
+  h+='<span class="hc-fbadge'+(activeVal===""?" active":"")+'" data-dim="'+dim+'" data-val="">Todas ('+REGS.length+')</span>';
   keys.forEach(function(k){{
-    var s=seen[k];var act=(filter===k);
-    var sty=act?('background:'+s.bg+';color:'+s.fg+';border-color:'+s.fg+';'):'';
-    html+='<span class="hc-fbadge" style="'+sty+'" onclick="hcFilter(\\''+k+'\\')"><span class="hc-tipodot" style="background:'+s.fg+';"></span>'+k+' ('+s.n+')</span>';
+    var act=(activeVal===k);
+    var col=tcolors?tcolors[k]:null;
+    var sty=(act&&col)?('background:'+col.bg+';color:'+col.fg+';border-color:'+col.fg+';'):'';
+    var dot=col?('<span class="hc-tipodot" style="background:'+col.fg+';"></span>'):'';
+    h+='<span class="hc-fbadge'+(act&&!col?" active":"")+'" style="'+sty+'" data-dim="'+dim+'" data-val="'+esc(k)+'">'+dot+esc(k)+' ('+seen[k]+')</span>';
   }});
+  h+='</div>';return h;
+}}
+function renderFilters(){{
+  var el=document.getElementById("hc-filters");if(!el)return;
+  var tcolors={{}};
+  REGS.forEach(function(r){{if(r.tipo_lbl&&!tcolors[r.tipo_lbl])tcolors[r.tipo_lbl]={{bg:r.tipo_bg,fg:r.tipo_fg}};}});
+  var html="";
+  html+=filterRow("Filtrar por tipo:","tipo",["Normal","Adicional con registro","Adicional sin registro","Mixto"],tcolors,fTipo);
+  html+=filterRow("Filtrar por responsable:","resp",null,null,fResp);
+  html+=filterRow("Filtrar por proveedor:","prov",null,null,fProv);
   el.innerHTML=html;
 }}
 function fit(){{
@@ -237,7 +250,9 @@ function render(){{
   renderFilters();
   var w=document.getElementById("hc-wrap");w.innerHTML="";
   REGS.forEach(function(r,i){{
-    if(filter&&r.tipo_lbl!==filter)return;
+    if(fTipo&&(r.tipo_lbl||"")!==fTipo)return;
+    if(fResp&&(r.usuario||"")!==fResp)return;
+    if(fProv&&(r.lugar||"")!==fProv)return;
     var ed=(editing===i);
     var d=document.createElement("details");d.className="hc"+(ed?" editing":"");d.open=ed||(confirming===i);
     d.addEventListener("toggle",fit);
@@ -282,6 +297,16 @@ function render(){{
   fit();
 }}
 render();
+// Delegación de clicks en los badges de filtro (una sola vez; el contenedor
+// persiste aunque su innerHTML se re-renderice).
+(function(){{
+  var fEl=document.getElementById("hc-filters");
+  if(fEl)fEl.addEventListener("click",function(e){{
+    var b=e.target&&e.target.closest?e.target.closest(".hc-fbadge"):null;
+    if(!b)return;
+    hcFilter(b.getAttribute("data-dim")||"", b.getAttribute("data-val")||"");
+  }});
+}})();
 window.addEventListener("load",fit);
 try{{new ResizeObserver(function(){{fit();}}).observe(document.body);}}catch(e){{}}
 setTimeout(fit,60);setTimeout(fit,350);
