@@ -810,9 +810,21 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
 
 def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin=False,
                   supa_url='', supa_key='', ep='', usuario='', items_ya_comprados_json='[]',
-                  total_items_presupuesto=0, cats_cards_html=''):
+                  total_items_presupuesto=0, cats_cards_html='', proveedores=None):
     rows = ""
     items_comprados = items_comprados or {}
+
+    # Datalist de proveedores ya usados (autocompletar "¿Dónde compraste?").
+    # Son los lugar_compra distintos del historial; si se escribe uno nuevo, al
+    # guardarse queda automáticamente en la lista la próxima vez.
+    def _esc_prov(_s):
+        return (str(_s).replace('&', '&amp;').replace('<', '&lt;')
+                .replace('>', '&gt;').replace('"', '&quot;'))
+    _prov_opts = ''.join(
+        f'<option value="{_esc_prov(_p)}"></option>'
+        for _p in (proveedores or []) if str(_p).strip()
+    )
+    _prov_datalist = f'<datalist id="rc-proveedores">{_prov_opts}</datalist>'
     for ri, prod in enumerate(rc_prods):
         cat = str(prod.get('Categoria', ''))
         item = str(prod.get('Item', ''))
@@ -963,7 +975,7 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
     <div class="rc-grid">
       <div class="rc-field">
         <div class="rc-lbl">{_svg_rc('store', color='rgba(255,255,255,0.7)', size=13)}&#191;D&#243;nde compraste? *</div>
-        <input id="lugar-compra" type="text" class="rc-inp" placeholder="Ej: Ferretera L&#243;pez" oninput="window.checkSaveBtn()"/>
+        <input id="lugar-compra" type="text" class="rc-inp" list="rc-proveedores" autocomplete="off" placeholder="Escribe o elige un proveedor..." oninput="window.checkSaveBtn()"/>{_prov_datalist}
       </div>
       <div class="rc-field">
         <div class="rc-lbl">{_svg_rc('cart', color='rgba(255,255,255,0.7)', size=13)}Tipo de compra *</div>

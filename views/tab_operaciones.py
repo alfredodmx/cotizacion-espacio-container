@@ -712,14 +712,21 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
             # los registros de los proyectos adjudicados (evita N consultas).
             _eps_all = [r['numero'] for r in _rc_cots if r.get('numero')]
             _regs_by_ep = {}
+            _proveedores = []   # lugar_compra distintos → autocompletar "¿Dónde compraste?"
             try:
                 if _eps_all:
                     _rb_all = supa_admin.table('registro_compras').select(
-                        'cotizacion_numero,items').in_('cotizacion_numero', _eps_all).execute()
+                        'cotizacion_numero,items,lugar_compra').in_('cotizacion_numero', _eps_all).execute()
+                    _prov_set = set()
                     for _rr in (_rb_all.data or []):
                         _regs_by_ep.setdefault(_rr.get('cotizacion_numero'), []).append(_rr)
+                        _lg = str(_rr.get('lugar_compra', '') or '').strip()
+                        if _lg:
+                            _prov_set.add(_lg)
+                    _proveedores = sorted(_prov_set, key=lambda s: s.lower())
             except Exception:
                 _regs_by_ep = {}
+                _proveedores = []
 
             def _pct_proyecto(_r):
                 _pp = _r.get('productos') or []
@@ -932,6 +939,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         items_ya_comprados_json=_rc_ya_comprados_json,
                         total_items_presupuesto=len(_rc_prods),
                         cats_cards_html=_cats_cards_html,
+                        proveedores=_proveedores,
                     )
                     # Alto extra por las filas del mosaico de categorías (1 ó 2 filas)
                     _rc_cats_rows = len(_rc_rows_m) if _rc_rows_m else 1
