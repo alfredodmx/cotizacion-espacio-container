@@ -712,6 +712,34 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 _rc_existentes = _obtener_registros_rc(_rc_ep)
                 _modo_admin_rc = st.session_state.get(f'rc_modo_admin_{_rc_ep}', False) if _rol in ('root', 'admin') else False
 
+                # Tarjeta de estado del proyecto: ADJUDICADO (azul) + % de avance
+                # de registro de compras + barra de progreso.
+                try:
+                    _op_est_card = _calcular_estado_compras(_rc_ep, _rc_prods_raw)
+                except Exception:
+                    _op_est_card = {'pct': 0, 'comprados': 0, 'total': 0}
+                _op_pct  = int(_op_est_card.get('pct', 0) or 0)
+                _op_comp = int(_op_est_card.get('comprados', 0) or 0)
+                _op_tot  = int(_op_est_card.get('total', 0) or 0)
+                _pct_col = '#dc2626' if _op_pct < 34 else ('#eab308' if _op_pct < 100 else '#16a34a')
+                st.markdown(
+                    '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;'
+                    'background:#eff6ff;border:1px solid #bfdbfe;border-left:4px solid #2563eb;'
+                    'border-radius:10px;padding:11px 16px;margin:2px 0 14px 0;">'
+                    '<span style="display:inline-flex;align-items:center;background:#2563eb;color:#fff;'
+                    'font-family:Montserrat,sans-serif;font-weight:700;font-size:0.7rem;letter-spacing:.04em;'
+                    'padding:5px 13px;border-radius:99px;white-space:nowrap;">'
+                    + _ic_op('check', color='#ffffff', size=12, mr=6) + 'ADJUDICADO</span>'
+                    + f'<span style="font-size:0.8rem;color:#334155;white-space:nowrap;">Avance de compras: '
+                    f'<b style="color:{_pct_col};font-size:0.9rem;">{_op_pct}%</b> '
+                    f'<span style="color:#94a3b8;">({_op_comp}/{_op_tot} ítems)</span></span>'
+                    + '<span style="flex:1;min-width:120px;height:8px;background:#dbeafe;border-radius:99px;'
+                    'overflow:hidden;">'
+                    + f'<span style="display:block;height:100%;width:{min(_op_pct, 100)}%;'
+                    f'background:{_pct_col};border-radius:99px;"></span></span>'
+                    '</div>',
+                    unsafe_allow_html=True)
+
                 # Agregar adicionales de registros anteriores
                 _prods_sin_varios = [p for p in _rc_prods_raw if str(p.get('Categoria', '')).strip().lower() != 'varios']
                 _prods_nombres = {str(p.get('Item', '')) for p in _prods_sin_varios}
@@ -800,10 +828,13 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         })
                         _hist_rows_total += max(1, len(_items_h))
 
-                    # Alto del iframe: por tarjeta + filas, con holgura para una en
-                    # edición; scrolling si desborda.
+                    # Alto INICIAL del iframe: pensado para tarjetas CONTRAÍDAS +
+                    # los badges de filtro. El iframe se auto-ajusta (fit vía
+                    # frameElement + ResizeObserver) al expandir/editar, así que no
+                    # queda scroll interno; este valor es solo el punto de partida
+                    # y el fallback si el navegador bloquea el auto-resize.
                     _n_reg = len(_regs_data)
-                    _hist_h = min(30 + _n_reg * 224 + _hist_rows_total * 31 + 220, 3200)
+                    _hist_h = min(70 + _n_reg * 58 + 360, 2800)
                     if _OPER_OK:
                         components.html(build_historial_rc_html(
                             _regs_data, _rc_ep,
