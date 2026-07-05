@@ -14,6 +14,14 @@ _RC_ICONS = {
     "save":      '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>',
     "x":         '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
     "check":     '<path d="M20 6 9 17l-5-5"/>',
+    "file":      '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
+    "user":      '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    "trend-up":  '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+    "trend-down":'<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>',
+    "edit":      '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/>',
+    "trash":     '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+    "chevron":   '<polyline points="6 9 12 15 18 9"/>',
+    "alert":     '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/>',
 }
 
 
@@ -26,6 +34,179 @@ def _svg_rc(name, color="currentColor", size=14, mr=6, valign=-2, sw=2):
         f'stroke-linejoin="round" style="vertical-align:{valign}px;margin-right:{mr}px;flex-shrink:0;">'
         f'{inner}</svg>'
     )
+
+
+def build_historial_rc_html(regs, ep=''):
+    """Historial de compras interactivo (iframe): tarjetas con la tabla en HTML
+    que entra en modo edición IN-PLACE (las celdas se vuelven inputs, sin crear
+    otra tabla). Guardar/Eliminar van SERVER-SIDE vía query param + popstate (NO
+    usa la anon key): ?rc_edit=<json> / ?rc_delete=<id>; Python aplica con la
+    service key (RLS-safe) y recalcula los totales."""
+    import json as _json
+    regs_json = _json.dumps(regs or [], ensure_ascii=False).replace('<', '\\u003c')
+    IC_STORE = _svg_rc('store', color='#475569', size=17, mr=0)
+    IC_CAL   = _svg_rc('calendar', color='#94a3b8', size=12, mr=5)
+    IC_USER  = _svg_rc('user', color='#94a3b8', size=12, mr=5)
+    IC_CART  = _svg_rc('cart', color='#94a3b8', size=12, mr=5)
+    IC_FILE  = _svg_rc('file', color='#1d4ed8', size=15, mr=0)
+    IC_EDIT  = _svg_rc('edit', color='#1d4ed8', size=14, mr=6)
+    IC_TRASH = _svg_rc('trash', color='#dc2626', size=14, mr=6)
+    IC_SAVE  = _svg_rc('save', color='#ffffff', size=14, mr=7)
+    IC_X     = _svg_rc('x', color='#475569', size=13, mr=6)
+    IC_CHEV  = _svg_rc('chevron', color='#94a3b8', size=16, mr=0)
+    IC_UP    = _svg_rc('trend-up', color='#dc2626', size=13, mr=5)
+    IC_DOWN  = _svg_rc('trend-down', color='#16a34a', size=13, mr=5)
+    IC_ALERT = _svg_rc('alert', color='#dc2626', size=14, mr=7)
+
+    return f"""<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap');
+*{{box-sizing:border-box}}
+html,body{{margin:0;padding:0;font-family:Montserrat,'Segoe UI',sans-serif;background:transparent}}
+.hc-wrap{{display:flex;flex-direction:column;gap:9px;}}
+.hc{{border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,0.06);}}
+.hc.editing{{border-color:#93c5fd;box-shadow:0 4px 16px rgba(37,99,235,0.16);}}
+.hc>summary{{list-style:none;cursor:pointer;display:flex;align-items:center;padding:12px 15px;background:#f8fafc;}}
+.hc.editing>summary{{background:#eff6ff;}}
+.hc>summary::-webkit-details-marker{{display:none}}
+.hc[open]>summary{{border-bottom:1px solid #e2e8f0;}}
+.hc-lugar{{font-weight:700;font-size:0.84rem;color:#0f172a;margin-left:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:45%;}}
+.hc-badge{{margin-left:auto;display:inline-flex;align-items:center;font-weight:700;font-size:0.75rem;padding:4px 12px;border-radius:99px;white-space:nowrap;}}
+.hc-chev{{margin-left:12px;transition:transform .2s;flex-shrink:0;}}
+.hc[open] .hc-chev{{transform:rotate(180deg);}}
+.hc-body{{padding:13px 15px;}}
+.hc-meta{{display:flex;flex-wrap:wrap;gap:16px;font-size:0.72rem;color:#64748b;margin-bottom:11px;}}
+.hc-meta span{{display:inline-flex;align-items:center;}}
+.hc-tblwrap{{overflow-x:auto;border-radius:9px;border:1px solid #eef2f7;}}
+.hc-tbl{{width:100%;border-collapse:collapse;font-size:0.79rem;min-width:520px;}}
+.hc-tbl th{{background:#1e2447;color:#fff;text-align:left;padding:7px 11px;font-size:0.62rem;letter-spacing:.05em;text-transform:uppercase;font-weight:700;white-space:nowrap;}}
+.hc-tbl th.r,.hc-tbl td.r{{text-align:right;}}
+.hc-tbl th.c,.hc-tbl td.c{{text-align:center;}}
+.hc-tbl td{{padding:7px 11px;border-bottom:1px solid #eef2f7;color:#475569;white-space:nowrap;}}
+.hc-tbl tbody tr:last-child td{{border-bottom:none;}}
+.hc-tbl tbody tr:nth-child(even){{background:#f8fafc;}}
+.hc-tbl .it{{font-weight:600;color:#0f172a;white-space:normal;}}
+.hc-inp{{width:92px;border:1.5px solid #cbd5e1;border-radius:6px;padding:5px 7px;font-size:0.78rem;text-align:right;font-family:inherit;outline:none;background:#fff;}}
+.hc-inp:focus{{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.18);}}
+.hc-rm{{width:17px;height:17px;cursor:pointer;accent-color:#dc2626;}}
+tr.rm-on td{{background:#fef2f2 !important;text-decoration:line-through;color:#b91c1c;opacity:.65;}}
+.hc-tots{{display:flex;flex-wrap:wrap;gap:18px;margin-top:12px;font-size:0.75rem;color:#64748b;}}
+.hc-tots b{{color:#0f172a;font-weight:700;margin-left:4px;}}
+.hc-obs{{display:flex;align-items:flex-start;margin-top:10px;font-size:0.74rem;color:#64748b;background:#f8fafc;border-radius:8px;padding:8px 11px;}}
+.hc-fac{{display:inline-flex;align-items:center;gap:2px;margin-top:11px;padding:7px 14px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:8px;text-decoration:none;font-size:0.78rem;font-weight:600;}}
+.hc-nofac{{display:inline-flex;align-items:center;margin-top:11px;font-size:0.74rem;color:#94a3b8;}}
+.hc-editfields{{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:9px;margin-bottom:12px;}}
+.hc-fld label{{display:block;font-size:0.62rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#64748b;margin-bottom:4px;}}
+.hc-fld input{{width:100%;border:1.5px solid #cbd5e1;border-radius:7px;padding:7px 10px;font-size:0.8rem;font-family:inherit;outline:none;}}
+.hc-fld input:focus{{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.18);}}
+.hc-hint{{font-size:0.72rem;color:#475569;margin-top:10px;background:#eff6ff;border-left:3px solid #93c5fd;border-radius:0 6px 6px 0;padding:8px 11px;}}
+.hc-actions{{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}}
+.hc-btn{{display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:8px;padding:8px 16px;font-size:0.78rem;font-weight:700;font-family:inherit;cursor:pointer;transition:filter .12s;}}
+.hc-btn:hover{{filter:brightness(0.96);}}
+.hc-edit{{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;}}
+.hc-del{{background:#fef2f2;color:#dc2626;border:1px solid #fecaca;}}
+.hc-save{{background:#2563eb;color:#fff;}}
+.hc-cancel{{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;}}
+.hc-confirm{{margin-top:11px;background:#fef2f2;border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:8px;padding:10px 13px;font-size:0.78rem;color:#991b1b;display:flex;align-items:center;flex-wrap:wrap;gap:10px;}}
+</style>
+<div class="hc-wrap" id="hc-wrap"></div>
+<script>
+var REGS={regs_json};
+var IC={{store:'{IC_STORE}',cal:'{IC_CAL}',user:'{IC_USER}',cart:'{IC_CART}',file:'{IC_FILE}',edit:'{IC_EDIT}',trash:'{IC_TRASH}',save:'{IC_SAVE}',x:'{IC_X}',chev:'{IC_CHEV}',up:'{IC_UP}',down:'{IC_DOWN}',alert:'{IC_ALERT}'}};
+var editing=-1, confirming=-1;
+function f(n){{return "$"+Math.round(Math.abs(+n||0)).toLocaleString("de-DE");}}
+function esc(s){{return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}}
+function nav(param,val){{
+  var url=new URL(window.parent.location.href);
+  url.searchParams.set(param,val);
+  window.parent.history.replaceState({{}},"",url);
+  window.parent.dispatchEvent(new PopStateEvent("popstate"));
+}}
+window.hcEdit=function(i){{editing=(editing===i?-1:i);confirming=-1;render();}};
+window.hcCancel=function(){{editing=-1;render();}};
+window.hcAskDel=function(i){{confirming=i;editing=-1;render();}};
+window.hcNoDel=function(){{confirming=-1;render();}};
+window.hcDoDel=function(i){{nav("rc_delete",REGS[i].id);}};
+window.hcToggleRm=function(i,j){{
+  var tr=document.getElementById("row-"+i+"-"+j);
+  var cb=document.getElementById("rm-"+i+"-"+j);
+  if(tr)tr.classList.toggle("rm-on",cb.checked);
+}};
+window.hcSave=function(i){{
+  var r=REGS[i];var items=[];
+  r.items.forEach(function(it,j){{
+    var c=document.getElementById("c-"+i+"-"+j);
+    var p=document.getElementById("p-"+i+"-"+j);
+    var rm=document.getElementById("rm-"+i+"-"+j);
+    items.push({{i:j,c:parseInt(c.value)||0,p:parseInt(p.value)||0,rm:rm?rm.checked:false}});
+  }});
+  var g=function(id){{var e=document.getElementById(id);return e?e.value:"";}};
+  var payload={{id:r.id,lugar:g("lugar-"+i),obs:g("obs-"+i),fent:g("fent-"+i),items:items}};
+  nav("rc_edit",JSON.stringify(payload));
+}};
+function badge(r){{
+  var ah=(+r.balance||0)>=0;
+  var col=ah?"#16a34a":"#dc2626";var bg=ah?"#f0fdf4":"#fef2f2";
+  var lbl=ah?"Ahorro":"Sobrecosto";var ic=ah?IC.down:IC.up;
+  return '<span class="hc-badge" style="background:'+bg+';color:'+col+';">'+ic+lbl+' '+f(r.balance)+'</span>';
+}}
+function viewRows(r){{
+  if(!r.items.length)return '<tr><td colspan="5" style="text-align:center;color:#94a3b8;">Sin ítems.</td></tr>';
+  return r.items.map(function(it){{
+    return '<tr><td>'+esc(it.cat)+'</td><td class="it">'+esc(it.item)+'</td>'
+      +'<td class="r">'+esc(it.cant)+'</td><td class="r">'+f(it.pp)+'</td>'
+      +'<td class="r" style="font-weight:700;">'+f(it.pr)+'</td></tr>';
+  }}).join("");
+}}
+function editRows(i,r){{
+  return r.items.map(function(it,j){{
+    return '<tr id="row-'+i+'-'+j+'"><td>'+esc(it.cat)+'</td><td class="it">'+esc(it.item)+'</td>'
+      +'<td class="r"><input class="hc-inp" id="c-'+i+'-'+j+'" type="number" min="0" step="1" value="'+(Math.round(it.cant)||0)+'"/></td>'
+      +'<td class="r">'+f(it.pp)+'</td>'
+      +'<td class="r"><input class="hc-inp" id="p-'+i+'-'+j+'" type="number" min="0" step="1" value="'+(Math.round(it.pr)||0)+'"/></td>'
+      +'<td class="c"><input class="hc-rm" id="rm-'+i+'-'+j+'" type="checkbox" onchange="hcToggleRm('+i+','+j+')" title="Quitar este ítem"/></td></tr>';
+  }}).join("");
+}}
+function render(){{
+  var w=document.getElementById("hc-wrap");w.innerHTML="";
+  REGS.forEach(function(r,i){{
+    var ed=(editing===i);
+    var d=document.createElement("details");d.className="hc"+(ed?" editing":"");d.open=true;
+    var meta='<div class="hc-meta"><span>'+IC.cal+esc(r.fecha)+'</span><span>'+IC.user+esc(r.usuario)+'</span><span>'+IC.cart+esc(r.tipo)+'</span></div>';
+    var fac=r.factura_url
+      ?'<a class="hc-fac" href="'+esc(r.factura_url)+'" target="_blank" rel="noopener noreferrer">'+IC.file+'<span style="margin-left:2px;">Ver factura: '+esc(r.factura_nom)+'</span></a>'
+      :'<div class="hc-nofac">'+IC.alert+'<span style="margin-left:4px;">Sin factura adjunta</span></div>';
+    var obs=(r.obs&&!ed)?'<div class="hc-obs">'+esc(r.obs)+'</div>':'';
+    var head='<summary>'+IC.store+'<span class="hc-lugar">'+esc(r.lugar||"Compra")+'</span>'+badge(r)+IC.chev+'</summary>';
+    var body;
+    if(ed){{
+      body='<div class="hc-body">'
+        +'<div class="hc-editfields">'
+        +'<div class="hc-fld"><label>Lugar de compra</label><input id="lugar-'+i+'" value="'+esc(r.lugar)+'"/></div>'
+        +'<div class="hc-fld"><label>Fecha de entrega</label><input id="fent-'+i+'" value="'+esc(r.fent)+'"/></div>'
+        +'<div class="hc-fld"><label>Observaciones</label><input id="obs-'+i+'" value="'+esc(r.obs)+'"/></div>'
+        +'</div>'
+        +'<div class="hc-tblwrap"><table class="hc-tbl"><thead><tr><th>Categoría</th><th>Ítem</th><th class="r">Cant.</th><th class="r">Presup.</th><th class="r">Real</th><th class="c">Quitar</th></tr></thead><tbody>'+editRows(i,r)+'</tbody></table></div>'
+        +'<div class="hc-hint">Corrige la <b>cantidad</b> o el <b>precio real</b> mal digitado, o marca <b>Quitar</b> para eliminar un ítem. El balance se recalcula al guardar.</div>'
+        +'<div class="hc-actions"><button class="hc-btn hc-save" onclick="hcSave('+i+')">'+IC.save+'Guardar cambios</button><button class="hc-btn hc-cancel" onclick="hcCancel()">'+IC.x+'Cancelar</button></div>'
+        +'</div>';
+    }} else {{
+      var conf=(confirming===i)
+        ?'<div class="hc-confirm">'+IC.alert+'<span><b>¿Eliminar esta compra por completo?</b> Sus ítems volverán a quedar pendientes.</span><span style="margin-left:auto;display:flex;gap:8px;"><button class="hc-btn hc-del" onclick="hcDoDel('+i+')">Sí, eliminar</button><button class="hc-btn hc-cancel" onclick="hcNoDel()">Cancelar</button></span></div>'
+        :'';
+      body='<div class="hc-body">'+meta
+        +'<div class="hc-tblwrap"><table class="hc-tbl"><thead><tr><th>Categoría</th><th>Ítem</th><th class="r">Cant.</th><th class="r">Presup.</th><th class="r">Real</th></tr></thead><tbody>'+viewRows(r)+'</tbody></table></div>'
+        +'<div class="hc-tots"><span>Presupuestado <b>'+f(r.tp)+'</b></span><span>Real <b>'+f(r.tr)+'</b></span><span>Balance <b style="color:'+((+r.balance||0)>=0?"#16a34a":"#dc2626")+';">'+((+r.balance||0)>=0?"Ahorro":"Sobrecosto")+' '+f(r.balance)+'</b></span></div>'
+        +obs+fac
+        +'<div class="hc-actions"><button class="hc-btn hc-edit" onclick="hcEdit('+i+')">'+IC.edit+'Editar</button><button class="hc-btn hc-del" onclick="hcAskDel('+i+')">'+IC.trash+'Eliminar</button></div>'
+        +conf
+        +'</div>';
+    }}
+    d.innerHTML=head+body;
+    w.appendChild(d);
+  }});
+}}
+render();
+</script>"""
 
 
 # ── CÁLCULO DE TOTALES ────────────────────────────────────────────────────────

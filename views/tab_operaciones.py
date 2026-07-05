@@ -32,6 +32,7 @@ from utils.security import escape_html as _esc_html
 try:
     from utils.operaciones import (
         build_rc_html,
+        build_historial_rc_html,
         calcular_totales_rc,
         generar_pdf_balance,
         generar_excel_balance,
@@ -98,45 +99,6 @@ def _titulo_op(icon, texto, color_ic="#0f172a"):
         'color:#0f172a;margin:0 0 12px 0;">'
         + _ic_op(icon, color=color_ic, size=17, mr=9) + f'<span>{texto}</span></div>'
     )
-
-
-# CSS de las tarjetas del Historial de compras (details/summary custom, sin
-# st.dataframe ni st.expander → control total del diseño).
-_RCH_CSS = (
-    '<style>'
-    ".rch-wrap{display:flex;flex-direction:column;gap:8px;margin:2px 0 10px 0;}"
-    ".rch-card{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;background:#fff;"
-    "box-shadow:0 1px 3px rgba(15,23,42,0.06);}"
-    ".rch-card>summary{list-style:none;cursor:pointer;display:flex;align-items:center;"
-    "padding:11px 14px;background:#f8fafc;user-select:none;}"
-    ".rch-card>summary::-webkit-details-marker{display:none;}"
-    ".rch-card[open]>summary{border-bottom:1px solid #e2e8f0;}"
-    ".rch-lugar{font-family:Montserrat,sans-serif;font-weight:700;font-size:0.82rem;color:#0f172a;"
-    "white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}"
-    ".rch-badge{margin-left:auto;display:inline-flex;align-items:center;font-family:Montserrat,sans-serif;"
-    "font-weight:700;font-size:0.74rem;padding:3px 11px;border-radius:99px;white-space:nowrap;}"
-    ".rch-chev{margin-left:10px;color:#94a3b8;transition:transform .2s;flex-shrink:0;}"
-    ".rch-card[open] .rch-chev{transform:rotate(180deg);}"
-    ".rch-body{padding:12px 14px;}"
-    ".rch-meta{display:flex;flex-wrap:wrap;gap:16px;font-size:0.72rem;color:#64748b;margin-bottom:10px;}"
-    ".rch-meta span{display:inline-flex;align-items:center;}"
-    ".rch-tbl{width:100%;border-collapse:collapse;font-size:0.78rem;border-radius:8px;overflow:hidden;}"
-    ".rch-tbl th{background:#1e2447;color:#fff;text-align:left;padding:6px 10px;font-family:Montserrat,sans-serif;"
-    "font-size:0.62rem;letter-spacing:.05em;text-transform:uppercase;font-weight:700;}"
-    ".rch-tbl th.r,.rch-tbl td.r{text-align:right;}"
-    ".rch-tbl td{padding:6px 10px;border-bottom:1px solid #eef2f7;color:#475569;}"
-    ".rch-tbl tbody tr:last-child td{border-bottom:none;}"
-    ".rch-tbl tbody tr:nth-child(even){background:#f8fafc;}"
-    ".rch-tots{display:flex;flex-wrap:wrap;gap:18px;margin-top:11px;font-size:0.74rem;color:#64748b;}"
-    ".rch-tots b{color:#0f172a;font-weight:700;margin-left:3px;}"
-    ".rch-obs{display:flex;align-items:flex-start;margin-top:10px;font-size:0.74rem;color:#64748b;"
-    "background:#f8fafc;border-radius:8px;padding:8px 10px;}"
-    ".rch-fac{display:inline-flex;align-items:center;gap:2px;margin-top:11px;padding:7px 14px;"
-    "background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:8px;text-decoration:none;"
-    "font-size:0.78rem;font-weight:600;}"
-    ".rch-nofac{display:inline-flex;align-items:center;margin-top:11px;font-size:0.74rem;color:#94a3b8;}"
-    '</style>'
-)
 
 
 def _fmt_clp(v):
@@ -601,6 +563,88 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 st.session_state['_rc_save_error'] = _rc_err or "Error al guardar."
             st.rerun()
 
+        # Edición SERVER-SIDE de un registro (rc_edit) desde el iframe del historial.
+        # El navegador manda SOLO deltas (índice de ítem + cantidad + precio + quitar).
+        # Tomamos los ítems ORIGINALES de la BD (no confiamos en el cliente para el
+        # precio presupuestado) y aplicamos los cambios con la service key.
+        _rc_edit_raw = st.query_params.get('rc_edit')
+        if _rc_edit_raw:
+            import json as _json_re
+            try:
+                _pe = _json_re.loads(_rc_edit_raw)
+            except Exception:
+                _pe = None
+            if _pe and _pe.get('id'):
+                _re_ok = True
+                _re_err = None
+                try:
+                    _orig = supa_admin.table('registro_compras').select('items').eq(
+                        'id', _pe['id']).limit(1).execute().data
+                except Exception as _e_o:
+                    _orig, _re_ok, _re_err = None, False, str(_e_o)
+                if _orig:
+                    _oitems = _orig[0].get('items') or []
+                    if isinstance(_oitems, str):
+                        try:
+                            _oitems = _json_re.loads(_oitems)
+                        except Exception:
+                            _oitems = []
+                    _new = []
+                    for _d in (_pe.get('items') or []):
+                        _di = _d.get('i')
+                        if not isinstance(_di, int) or _di < 0 or _di >= len(_oitems):
+                            continue
+                        if _d.get('rm'):
+                            continue
+                        _m = dict(_oitems[_di])
+                        _m['cantidad'] = int(_d.get('c', 0) or 0)
+                        _m['precio_real'] = int(_d.get('p', 0) or 0)
+                        _new.append(_m)
+                    _re_ok, _re_err = actualizar_registro_compra_full(_pe['id'], {
+                        'items': _new,
+                        'lugar_compra': _pe.get('lugar', ''),
+                        'observaciones': _pe.get('obs', ''),
+                        'fecha_entrega_compra': _pe.get('fent', ''),
+                        'usuario_registro': st.session_state.get('auth_nombre', ''),
+                    })
+                elif _re_ok:
+                    _re_ok, _re_err = False, "Registro no encontrado."
+            else:
+                _re_ok, _re_err = False, "Datos de edición inválidos."
+            try:
+                del st.query_params['rc_edit']
+            except Exception:
+                pass
+            try:
+                obtener_items_comprados.clear()
+            except Exception:
+                pass
+            for _k in list(st.session_state.keys()):
+                if _k.startswith('rc_json_'):
+                    st.session_state[_k] = '[]'
+            if not _re_ok:
+                st.session_state['_rc_mut_error'] = _re_err or "Error al editar."
+            st.rerun()
+
+        # Borrado SERVER-SIDE de un registro completo (rc_delete) desde el historial.
+        _rc_del_raw = st.query_params.get('rc_delete')
+        if _rc_del_raw:
+            _rd_ok, _rd_err = eliminar_registro_compra_full(_rc_del_raw)
+            try:
+                del st.query_params['rc_delete']
+            except Exception:
+                pass
+            try:
+                obtener_items_comprados.clear()
+            except Exception:
+                pass
+            for _k in list(st.session_state.keys()):
+                if _k.startswith('rc_json_'):
+                    st.session_state[_k] = '[]'
+            if not _rd_ok:
+                st.session_state['_rc_mut_error'] = _rd_err or "Error al eliminar."
+            st.rerun()
+
         # Aviso si el guardado server-side del registro falló.
         _rc_err_msg = st.session_state.pop('_rc_save_error', None)
         if _rc_err_msg:
@@ -680,247 +724,56 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
 
                 if _rc_existentes:
                     st.markdown(_titulo_op("history", "Historial de compras"), unsafe_allow_html=True)
-                    st.markdown(_RCH_CSS, unsafe_allow_html=True)
-                    _esc = _esc_html
-                    _chev = ('<svg class="rch-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" '
-                             'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" '
-                             'stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>')
                     _mut_err = st.session_state.pop('_rc_mut_error', None)
                     if _mut_err:
                         st.error(f"&#10060; No se pudo aplicar el cambio: {_mut_err}")
+
+                    # Datos para el iframe interactivo del historial (edición IN-PLACE).
+                    _regs_data = []
+                    _hist_rows_total = 0
                     for _rce in _rc_existentes:
-                        _rid = _rce.get('id')
-                        _rce_lugar = _esc(_rce.get('lugar_compra', '') or 'Compra sin lugar')
-                        _rce_bal   = float(_rce.get('balance', 0) or 0)
-                        _es_ahorro = _rce_bal >= 0
-                        _bal_col   = '#16a34a' if _es_ahorro else '#dc2626'
-                        _bal_bg    = '#f0fdf4' if _es_ahorro else '#fef2f2'
-                        _bal_lbl   = 'Ahorro' if _es_ahorro else 'Sobrecosto'
-                        _bal_fmt   = f"${abs(_rce_bal):,.0f}".replace(',', '.')
-                        _bal_ic    = _ic_op('trend-down' if _es_ahorro else 'trend-up',
-                                            color=_bal_col, size=13, mr=5, valign=-2)
-                        _tp_fmt = f"${float(_rce.get('total_presupuestado', 0) or 0):,.0f}".replace(',', '.')
-                        _tr_fmt = f"${float(_rce.get('total_real', 0) or 0):,.0f}".replace(',', '.')
-
-                        _fecha_raw = _rce.get('fecha_registro', '') or ''
-                        try:
-                            _fecha_txt = datetime.fromisoformat(
-                                _fecha_raw.replace('Z', '+00:00')).astimezone(_tz_cl).strftime('%d/%m/%Y %H:%M')
-                        except Exception:
-                            _fecha_txt = str(_fecha_raw)[:10]
-                        _usr  = _esc(_rce.get('usuario_registro', '') or '—')
-                        _tipo = _esc(str(_rce.get('tipo_compra', '') or '').capitalize() or '—')
-
                         _items_h = _rce.get('items') or []
                         if isinstance(_items_h, str):
                             try:
                                 _items_h = json.loads(_items_h)
                             except Exception:
                                 _items_h = []
-                        _rows_h = ''
-                        for _i in _items_h:
-                            _pp = f"${float(_i.get('precio_presupuestado', 0) or 0):,.0f}".replace(',', '.')
-                            _pr = f"${float(_i.get('precio_real', 0) or 0):,.0f}".replace(',', '.')
-                            _rows_h += (
-                                f'<tr><td>{_esc(str(_i.get("categoria", "")))}</td>'
-                                f'<td style="font-weight:600;color:#0f172a;">{_esc(str(_i.get("item", "")))}</td>'
-                                f'<td class="r">{_esc(str(_i.get("cantidad", 1)))}</td>'
-                                f'<td class="r">{_pp}</td>'
-                                f'<td class="r" style="font-weight:700;">{_pr}</td></tr>'
-                            )
-                        if not _rows_h:
-                            _rows_h = '<tr><td colspan="5" style="color:#94a3b8;text-align:center;">Sin ítems registrados.</td></tr>'
+                        _fecha_raw = _rce.get('fecha_registro', '') or ''
+                        try:
+                            _fecha_txt = datetime.fromisoformat(
+                                _fecha_raw.replace('Z', '+00:00')).astimezone(_tz_cl).strftime('%d/%m/%Y %H:%M')
+                        except Exception:
+                            _fecha_txt = str(_fecha_raw)[:10]
+                        _regs_data.append({
+                            'id':          _rce.get('id'),
+                            'lugar':       _rce.get('lugar_compra', '') or 'Compra sin lugar',
+                            'obs':         _rce.get('observaciones', '') or '',
+                            'fent':        _rce.get('fecha_entrega_compra', '') or '',
+                            'tipo':        (str(_rce.get('tipo_compra', '') or '').capitalize() or '—'),
+                            'fecha':       _fecha_txt,
+                            'usuario':     _rce.get('usuario_registro', '') or '—',
+                            'balance':     float(_rce.get('balance', 0) or 0),
+                            'tp':          float(_rce.get('total_presupuestado', 0) or 0),
+                            'tr':          float(_rce.get('total_real', 0) or 0),
+                            'factura_url': (_rce.get('factura_url') or '').strip(),
+                            'factura_nom': (_rce.get('factura_nombre') or '').strip() or 'Factura',
+                            'items': [{
+                                'cat':  str(_it.get('categoria', '')),
+                                'item': str(_it.get('item', '')),
+                                'cant': float(_it.get('cantidad', 1) or 1),
+                                'pp':   float(_it.get('precio_presupuestado', 0) or 0),
+                                'pr':   float(_it.get('precio_real', 0) or 0),
+                            } for _it in _items_h],
+                        })
+                        _hist_rows_total += max(1, len(_items_h))
 
-                        _fac_url = (_rce.get('factura_url') or '').strip()
-                        _fac_nom = _esc((_rce.get('factura_nombre') or '').strip() or 'Factura')
-                        if _fac_url:
-                            _fac_html = (
-                                f'<a class="rch-fac" href="{_esc(_fac_url)}" target="_blank" rel="noopener noreferrer">'
-                                + _ic_op('file', color='#1d4ed8', size=15, mr=0)
-                                + f'<span style="margin-left:2px;">Ver factura: {_fac_nom}</span></a>'
-                            )
-                        else:
-                            _fac_html = ('<div class="rch-nofac">' + _ic_op('alert', color='#f59e0b', size=14, mr=0)
-                                         + '<span style="margin-left:4px;">Sin factura adjunta</span></div>')
-
-                        _obs = (_rce.get('observaciones') or '').strip()
-                        _obs_html = (f'<div class="rch-obs">{_ic_op("clipboard", color="#64748b", size=13, mr=6)}'
-                                     f'{_esc(_obs)}</div>') if _obs else ''
-
-                        _card_html = (
-                            '<div class="rch-wrap"><details class="rch-card">'
-                            '<summary>'
-                            + _ic_op('store', color='#475569', size=17, mr=0)
-                            + f'<span class="rch-lugar" style="margin-left:9px;">{_rce_lugar}</span>'
-                            + f'<span class="rch-badge" style="background:{_bal_bg};color:{_bal_col};">'
-                            + _bal_ic + f'{_bal_lbl} {_bal_fmt}</span>'
-                            + _chev + '</summary>'
-                            + '<div class="rch-body">'
-                            + '<div class="rch-meta">'
-                            + f'<span>{_ic_op("calendar", color="#94a3b8", size=12, mr=5)}{_fecha_txt}</span>'
-                            + f'<span>{_ic_op("eye", color="#94a3b8", size=12, mr=5)}{_usr}</span>'
-                            + f'<span>{_ic_op("cart", color="#94a3b8", size=12, mr=5)}{_tipo}</span>'
-                            + '</div>'
-                            + '<table class="rch-tbl"><thead><tr>'
-                            + '<th>Categoría</th><th>Ítem</th><th class="r">Cant.</th>'
-                            + '<th class="r">Presup.</th><th class="r">Real</th></tr></thead>'
-                            + f'<tbody>{_rows_h}</tbody></table>'
-                            + '<div class="rch-tots">'
-                            + f'<span>Presupuestado <b>{_tp_fmt}</b></span>'
-                            + f'<span>Real <b>{_tr_fmt}</b></span>'
-                            + f'<span>Balance <b style="color:{_bal_col};">{_bal_lbl} {_bal_fmt}</b></span>'
-                            + '</div>'
-                            + _obs_html
-                            + _fac_html
-                            + '</div></details></div>'
-                        )
-                        st.markdown(_card_html, unsafe_allow_html=True)
-
-                        # ── Acciones por compra: Editar / Eliminar (server-side, RLS-safe) ──
-                        if _rid is not None:
-                            _edit_open   = st.session_state.get('_rc_edit_open') == _rid
-                            _del_pending = st.session_state.get('_rc_del_pending') == _rid
-                            _ab1, _ab2, _ab_sp = st.columns([1.1, 1.1, 5])
-                            with _ab1:
-                                if st.button(("Cerrar edición" if _edit_open else "Editar"),
-                                             key=f"rc_editbtn_{_rid}", icon=":material/edit:",
-                                             use_container_width=True):
-                                    if _edit_open:
-                                        st.session_state.pop('_rc_edit_open', None)
-                                        st.session_state.pop(f'rc_ed_{_rid}', None)
-                                    else:
-                                        st.session_state['_rc_edit_open'] = _rid
-                                        st.session_state.pop('_rc_del_pending', None)
-                                    st.rerun()
-                            with _ab2:
-                                if st.button("Eliminar", key=f"rc_delbtn_{_rid}",
-                                             icon=":material/delete:", use_container_width=True):
-                                    st.session_state['_rc_del_pending'] = _rid
-                                    st.session_state.pop('_rc_edit_open', None)
-                                    st.rerun()
-
-                            # Confirmación de borrado
-                            if _del_pending:
-                                st.markdown(
-                                    '<div style="background:#fef2f2;border:1px solid #fecaca;border-left:4px solid #dc2626;'
-                                    'border-radius:8px;padding:10px 14px;font-size:0.8rem;color:#991b1b;margin:2px 0 6px 0;'
-                                    'display:flex;align-items:center;">'
-                                    + _ic_op('alert', color='#dc2626', size=14, mr=8)
-                                    + '<span><b>¿Eliminar esta compra por completo?</b> '
-                                    'Sus ítems volverán a quedar pendientes.</span></div>',
-                                    unsafe_allow_html=True)
-                                _dc1, _dc2, _dc_sp = st.columns([1.4, 1.1, 4])
-                                with _dc1:
-                                    if st.button("Sí, eliminar", key=f"rc_delok_{_rid}",
-                                                 type="primary", icon=":material/delete:",
-                                                 use_container_width=True):
-                                        _ok_d, _err_d = eliminar_registro_compra_full(_rid)
-                                        st.session_state.pop('_rc_del_pending', None)
-                                        if _ok_d:
-                                            try:
-                                                obtener_items_comprados.clear()
-                                            except Exception:
-                                                pass
-                                            for _k in list(st.session_state.keys()):
-                                                if _k.startswith('rc_json_'):
-                                                    st.session_state[_k] = '[]'
-                                        else:
-                                            st.session_state['_rc_mut_error'] = _err_d or "Error al eliminar."
-                                        st.rerun()
-                                with _dc2:
-                                    if st.button("Cancelar", key=f"rc_delno_{_rid}",
-                                                 use_container_width=True):
-                                        st.session_state.pop('_rc_del_pending', None)
-                                        st.rerun()
-
-                            # Editor de corrección
-                            if _edit_open:
-                                with st.container(border=True):
-                                    st.markdown(
-                                        _titulo_op("note", "Corregir esta compra", color_ic="#1d4ed8"),
-                                        unsafe_allow_html=True)
-                                    _e1, _e2, _e3 = st.columns(3)
-                                    with _e1:
-                                        _ed_lugar = st.text_input(
-                                            "Lugar de compra", value=_rce.get('lugar_compra', '') or '',
-                                            key=f"rc_edlugar_{_rid}")
-                                    with _e2:
-                                        _ed_fent = st.text_input(
-                                            "Fecha de entrega", value=_rce.get('fecha_entrega_compra', '') or '',
-                                            key=f"rc_edfent_{_rid}")
-                                    with _e3:
-                                        _ed_obs = st.text_input(
-                                            "Observaciones", value=_rce.get('observaciones', '') or '',
-                                            key=f"rc_edobs_{_rid}")
-                                    import pandas as _pd_ed
-                                    _df_ed = _pd_ed.DataFrame([{
-                                        'Categoría': str(_it.get('categoria', '')),
-                                        'Ítem': str(_it.get('item', '')),
-                                        'Cantidad': int(float(_it.get('cantidad', 1) or 1)),
-                                        'Precio real': int(float(_it.get('precio_real', 0) or 0)),
-                                        'Quitar': False,
-                                    } for _it in _items_h])
-                                    _edited = st.data_editor(
-                                        _df_ed, key=f"rc_ed_{_rid}", hide_index=True,
-                                        use_container_width=True,
-                                        column_config={
-                                            'Categoría': st.column_config.TextColumn(disabled=True),
-                                            'Ítem': st.column_config.TextColumn(disabled=True, width="large"),
-                                            'Cantidad': st.column_config.NumberColumn(min_value=0, step=1),
-                                            'Precio real': st.column_config.NumberColumn(
-                                                min_value=0, step=1, format="$%d"),
-                                            'Quitar': st.column_config.CheckboxColumn(
-                                                help="Marca para quitar este ítem del registro"),
-                                        })
-                                    st.caption("Corrige la **cantidad** o el **precio real** mal digitado, "
-                                               "o marca **Quitar** para eliminar un ítem. El balance se "
-                                               "recalcula automáticamente al guardar.")
-                                    _sv1, _sv2, _sv_sp = st.columns([1.5, 1.1, 4])
-                                    with _sv1:
-                                        if st.button("Guardar cambios", key=f"rc_edsave_{_rid}",
-                                                     type="primary", icon=":material/save:",
-                                                     use_container_width=True):
-                                            _new_items = []
-                                            for _idx_it, _it in enumerate(_items_h):
-                                                try:
-                                                    _row = _edited.iloc[_idx_it]
-                                                except Exception:
-                                                    _new_items.append(dict(_it))
-                                                    continue
-                                                if bool(_row.get('Quitar', False)):
-                                                    continue
-                                                _cant_v = _row['Cantidad']
-                                                _prec_v = _row['Precio real']
-                                                _ni = dict(_it)
-                                                _ni['cantidad'] = int(_cant_v) if _pd_ed.notna(_cant_v) else 0
-                                                _ni['precio_real'] = int(_prec_v) if _pd_ed.notna(_prec_v) else 0
-                                                _new_items.append(_ni)
-                                            _ok_e, _err_e = actualizar_registro_compra_full(_rid, {
-                                                'items': _new_items,
-                                                'lugar_compra': _ed_lugar,
-                                                'observaciones': _ed_obs,
-                                                'fecha_entrega_compra': _ed_fent,
-                                                'usuario_registro': st.session_state.get('auth_nombre', ''),
-                                            })
-                                            if _ok_e:
-                                                st.session_state.pop('_rc_edit_open', None)
-                                                st.session_state.pop(f'rc_ed_{_rid}', None)
-                                                try:
-                                                    obtener_items_comprados.clear()
-                                                except Exception:
-                                                    pass
-                                                for _k in list(st.session_state.keys()):
-                                                    if _k.startswith('rc_json_'):
-                                                        st.session_state[_k] = '[]'
-                                            else:
-                                                st.session_state['_rc_mut_error'] = _err_e or "Error al guardar."
-                                            st.rerun()
-                                    with _sv2:
-                                        if st.button("Cancelar", key=f"rc_edcancel_{_rid}",
-                                                     use_container_width=True):
-                                            st.session_state.pop('_rc_edit_open', None)
-                                            st.session_state.pop(f'rc_ed_{_rid}', None)
-                                            st.rerun()
+                    # Alto del iframe: por tarjeta + filas, con holgura para una en
+                    # edición; scrolling si desborda.
+                    _n_reg = len(_regs_data)
+                    _hist_h = min(30 + _n_reg * 224 + _hist_rows_total * 31 + 150, 3200)
+                    if _OPER_OK:
+                        components.html(build_historial_rc_html(_regs_data, _rc_ep),
+                                        height=_hist_h, scrolling=True)
 
                 st.markdown(_titulo_op("plus", "Nuevo registro de compra"), unsafe_allow_html=True)
 
