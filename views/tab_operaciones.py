@@ -731,20 +731,22 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     # más mayúsculas, luego más larga).
                     def _prov_key(_s):
                         _s = re.sub(r'\s+', ' ', _s.strip().lower())
-                        return re.sub(r'(.)\1+', r'\1', _s)
-                    def _prov_ups(_s):
-                        return sum(1 for _c in _s if _c.isupper())
+                        _s = re.sub(r'(.)\1+', r'\1', _s)   # colapsar letras dobles (Rener↔RENNER)
+                        _s = re.sub(r's$', '', _s)          # colapsar plural (servicontainer↔servicontainers)
+                        return _s
                     _prov_groups = {}
                     for _v, _c in _prov_counts.items():
                         _prov_groups.setdefault(_prov_key(_v), {})[_v] = _c
                     _proveedores = []
                     for _grp in _prov_groups.values():
+                        # canónica: la más usada; desempate por más larga (plural) y
+                        # luego alfabética. Se muestra TODO en MAYÚSCULAS.
                         _canon = sorted(
                             _grp.items(),
-                            key=lambda kv: (-kv[1], -_prov_ups(kv[0]), -len(kv[0]), kv[0].lower())
+                            key=lambda kv: (-kv[1], -len(kv[0]), kv[0].lower())
                         )[0][0]
-                        _proveedores.append(_canon)
-                    _proveedores = sorted(_proveedores, key=lambda s: s.lower())
+                        _proveedores.append(_canon.upper())
+                    _proveedores = sorted(set(_proveedores))
             except Exception:
                 _regs_by_ep = {}
                 _proveedores = []
