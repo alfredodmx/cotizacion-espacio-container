@@ -597,9 +597,12 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         if _d.get('rm'):
                             continue
                         _m = dict(_oitems[_di])
-                        # La cantidad NO es editable: se conserva la de la BD (no se
-                        # confía en el cliente). Solo se actualiza el precio real.
                         _m['precio_real'] = int(_d.get('p', 0) or 0)
+                        # La cantidad SOLO es editable para adicionales SIN registro
+                        # (texto libre). Para el resto se conserva la de la BD (no se
+                        # confía en el cliente).
+                        if _m.get('sin_registro'):
+                            _m['cantidad'] = int(_d.get('c', 0) or 0)
                         _new.append(_m)
                     _upd = {
                         'items': _new,
@@ -739,6 +742,9 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         st.error(f"&#10060; No se pudo aplicar el cambio: {_mut_err}")
 
                     # Datos para el iframe interactivo del historial (edición IN-PLACE).
+                    # _pn_set: nombres de ítems del presupuesto → clasificar cada
+                    # compra (normal / adicional con-registro / sin-registro).
+                    _pn_set = {str(_p.get('Item', '')) for _p in _rc_prods_raw}
                     _regs_data = []
                     _hist_rows_total = 0
                     for _rce in _rc_existentes:
@@ -754,12 +760,28 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                                 _fecha_raw.replace('Z', '+00:00')).astimezone(_tz_cl).strftime('%d/%m/%Y %H:%M')
                         except Exception:
                             _fecha_txt = str(_fecha_raw)[:10]
+                        # Badge de tipo del registro (misma clasificación que MAIN):
+                        # sin registro / adicional con registro / normal / mixto.
+                        _sn = any(_i.get('sin_registro') for _i in _items_h)
+                        _cn = any(_i.get('es_adicional') and not _i.get('sin_registro') for _i in _items_h)
+                        _nm = any(str(_i.get('item', '')) in _pn_set for _i in _items_h if _i.get('item'))
+                        if sum([_nm, _cn, _sn]) >= 2:
+                            _tipo_lbl, _tipo_bg, _tipo_fg = 'Mixto', '#ede9fe', '#6d28d9'
+                        elif _sn:
+                            _tipo_lbl, _tipo_bg, _tipo_fg = 'Adicional sin registro', '#fce7f3', '#be185d'
+                        elif _cn:
+                            _tipo_lbl, _tipo_bg, _tipo_fg = 'Adicional con registro', '#ffedd5', '#c2410c'
+                        else:
+                            _tipo_lbl, _tipo_bg, _tipo_fg = 'Normal', '#dcfce7', '#15803d'
                         _regs_data.append({
                             'id':          _rce.get('id'),
                             'lugar':       _rce.get('lugar_compra', '') or 'Compra sin lugar',
                             'obs':         _rce.get('observaciones', '') or '',
                             'fent':        _rce.get('fecha_entrega_compra', '') or '',
                             'tipo':        (str(_rce.get('tipo_compra', '') or '').capitalize() or '—'),
+                            'tipo_lbl':    _tipo_lbl,
+                            'tipo_bg':     _tipo_bg,
+                            'tipo_fg':     _tipo_fg,
                             'fecha':       _fecha_txt,
                             'usuario':     _rce.get('usuario_registro', '') or '—',
                             'balance':     float(_rce.get('balance', 0) or 0),
@@ -773,6 +795,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                                 'cant': float(_it.get('cantidad', 1) or 1),
                                 'pp':   float(_it.get('precio_presupuestado', 0) or 0),
                                 'pr':   float(_it.get('precio_real', 0) or 0),
+                                'sin':  bool(_it.get('sin_registro', False)),
                             } for _it in _items_h],
                         })
                         _hist_rows_total += max(1, len(_items_h))

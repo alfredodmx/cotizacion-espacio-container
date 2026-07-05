@@ -114,6 +114,9 @@ tr.rm-on td{{background:#fef2f2 !important;text-decoration:line-through;color:#b
 .hc-facedit{{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:11px;}}
 .hc-facbtn{{display:inline-flex;align-items:center;background:#eff6ff;color:#1d4ed8;border:1px dashed #93c5fd;border-radius:8px;padding:7px 14px;font-size:0.78rem;font-weight:600;cursor:pointer;}}
 .hc-facbtn:hover{{background:#dbeafe;}}
+.hc-tipo{{display:inline-flex;align-items:center;margin-left:10px;font-weight:700;font-size:0.64rem;letter-spacing:.02em;text-transform:uppercase;padding:3px 10px;border-radius:99px;white-space:nowrap;}}
+.hc-tipodot{{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:6px;flex-shrink:0;}}
+.hc-inp-c{{width:74px;}}
 </style>
 <div class="hc-wrap" id="hc-wrap"></div>
 <script>
@@ -145,9 +148,11 @@ window.hcSave=async function(i){{
   var r=REGS[i];var items=[];
   r.items.forEach(function(it,j){{
     var p=document.getElementById("p-"+i+"-"+j);
+    var c=document.getElementById("c-"+i+"-"+j);
     var rm=document.getElementById("rm-"+i+"-"+j);
     var praw=p?parseInt((p.value+"").replace(/[^0-9]/g,"")):0;
-    items.push({{i:j,c:Math.round(it.cant)||0,p:praw||0,rm:rm?rm.checked:false}});
+    var cval=c?(parseInt(c.value)||0):(Math.round(it.cant)||0);
+    items.push({{i:j,c:cval,p:praw||0,rm:rm?rm.checked:false}});
   }});
   var g=function(id){{var e=document.getElementById(id);return e?e.value:"";}};
   var payload={{id:r.id,lugar:g("lugar-"+i),obs:g("obs-"+i),fent:g("fent-"+i),items:items}};
@@ -184,8 +189,11 @@ function viewRows(r){{
 }}
 function editRows(i,r){{
   return r.items.map(function(it,j){{
+    var cantCell=it.sin
+      ?'<td class="r"><input class="hc-inp hc-inp-c" id="c-'+i+'-'+j+'" type="number" min="0" step="1" value="'+(Math.round(it.cant)||0)+'" title="Adicional sin registro — cantidad editable"/></td>'
+      :'<td class="r">'+esc(it.cant)+'</td>';
     return '<tr id="row-'+i+'-'+j+'"><td>'+esc(it.cat)+'</td><td class="it">'+esc(it.item)+'</td>'
-      +'<td class="r">'+esc(it.cant)+'</td>'
+      +cantCell
       +'<td class="r">'+f(it.pp)+'</td>'
       +'<td class="r"><input class="hc-inp" id="p-'+i+'-'+j+'" type="text" inputmode="numeric" value="'+f(it.pr)+'" oninput="hcFmt(this)"/></td>'
       +'<td class="c"><input class="hc-rm" id="rm-'+i+'-'+j+'" type="checkbox" onchange="hcToggleRm('+i+','+j+')" title="Quitar este ítem"/></td></tr>';
@@ -201,7 +209,8 @@ function render(){{
       ?'<a class="hc-fac" href="'+esc(r.factura_url)+'" target="_blank" rel="noopener noreferrer">'+IC.file+'<span style="margin-left:2px;">Ver factura: '+esc(r.factura_nom)+'</span></a>'
       :'<div class="hc-nofac">'+IC.alert+'<span style="margin-left:4px;">Sin factura adjunta</span></div>';
     var obs=(r.obs&&!ed)?'<div class="hc-obs">'+esc(r.obs)+'</div>':'';
-    var head='<summary>'+IC.store+'<span class="hc-lugar">'+esc(r.lugar||"Compra")+'</span>'+badge(r)+IC.chev+'</summary>';
+    var tipoB=r.tipo_lbl?('<span class="hc-tipo" style="background:'+(r.tipo_bg||"#e2e8f0")+';color:'+(r.tipo_fg||"#334155")+';"><span class="hc-tipodot" style="background:'+(r.tipo_fg||"#334155")+';"></span>'+esc(r.tipo_lbl)+'</span>'):'';
+    var head='<summary>'+IC.store+'<span class="hc-lugar">'+esc(r.lugar||"Compra")+'</span>'+tipoB+badge(r)+IC.chev+'</summary>';
     var body;
     if(ed){{
       body='<div class="hc-body">'
