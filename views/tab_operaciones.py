@@ -597,7 +597,8 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         if _d.get('rm'):
                             continue
                         _m = dict(_oitems[_di])
-                        _m['cantidad'] = int(_d.get('c', 0) or 0)
+                        # La cantidad NO es editable: se conserva la de la BD (no se
+                        # confía en el cliente). Solo se actualiza el precio real.
                         _m['precio_real'] = int(_d.get('p', 0) or 0)
                         _new.append(_m)
                     _re_ok, _re_err = actualizar_registro_compra_full(_pe['id'], {

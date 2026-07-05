@@ -134,10 +134,9 @@ window.hcToggleRm=function(i,j){{
 window.hcSave=function(i){{
   var r=REGS[i];var items=[];
   r.items.forEach(function(it,j){{
-    var c=document.getElementById("c-"+i+"-"+j);
     var p=document.getElementById("p-"+i+"-"+j);
     var rm=document.getElementById("rm-"+i+"-"+j);
-    items.push({{i:j,c:parseInt(c.value)||0,p:parseInt(p.value)||0,rm:rm?rm.checked:false}});
+    items.push({{i:j,c:Math.round(it.cant)||0,p:parseInt(p.value)||0,rm:rm?rm.checked:false}});
   }});
   var g=function(id){{var e=document.getElementById(id);return e?e.value:"";}};
   var payload={{id:r.id,lugar:g("lugar-"+i),obs:g("obs-"+i),fent:g("fent-"+i),items:items}};
@@ -160,7 +159,7 @@ function viewRows(r){{
 function editRows(i,r){{
   return r.items.map(function(it,j){{
     return '<tr id="row-'+i+'-'+j+'"><td>'+esc(it.cat)+'</td><td class="it">'+esc(it.item)+'</td>'
-      +'<td class="r"><input class="hc-inp" id="c-'+i+'-'+j+'" type="number" min="0" step="1" value="'+(Math.round(it.cant)||0)+'"/></td>'
+      +'<td class="r">'+esc(it.cant)+'</td>'
       +'<td class="r">'+f(it.pp)+'</td>'
       +'<td class="r"><input class="hc-inp" id="p-'+i+'-'+j+'" type="number" min="0" step="1" value="'+(Math.round(it.pr)||0)+'"/></td>'
       +'<td class="c"><input class="hc-rm" id="rm-'+i+'-'+j+'" type="checkbox" onchange="hcToggleRm('+i+','+j+')" title="Quitar este ítem"/></td></tr>';
@@ -185,8 +184,8 @@ function render(){{
         +'<div class="hc-fld"><label>Fecha de entrega</label><input id="fent-'+i+'" value="'+esc(r.fent)+'"/></div>'
         +'<div class="hc-fld"><label>Observaciones</label><input id="obs-'+i+'" value="'+esc(r.obs)+'"/></div>'
         +'</div>'
-        +'<div class="hc-tblwrap"><table class="hc-tbl"><thead><tr><th>Categoría</th><th>Ítem</th><th class="r">Cant.</th><th class="r">Presup.</th><th class="r">Real</th><th class="c">Quitar</th></tr></thead><tbody>'+editRows(i,r)+'</tbody></table></div>'
-        +'<div class="hc-hint">Corrige la <b>cantidad</b> o el <b>precio real</b> mal digitado, o marca <b>Quitar</b> para eliminar un ítem. El balance se recalcula al guardar.</div>'
+        +'<div class="hc-tblwrap"><table class="hc-tbl"><thead><tr><th>Categoría</th><th>Ítem</th><th class="r">Cantidad</th><th class="r">Presupuestado</th><th class="r">Precio real</th><th class="c">Quitar</th></tr></thead><tbody>'+editRows(i,r)+'</tbody></table></div>'
+        +'<div class="hc-hint">Corrige el <b>precio real</b> mal digitado, o marca <b>Quitar</b> para eliminar un ítem. El balance se recalcula al guardar.</div>'
         +'<div class="hc-actions"><button class="hc-btn hc-save" onclick="hcSave('+i+')">'+IC.save+'Guardar cambios</button><button class="hc-btn hc-cancel" onclick="hcCancel()">'+IC.x+'Cancelar</button></div>'
         +'</div>';
     }} else {{
@@ -194,7 +193,7 @@ function render(){{
         ?'<div class="hc-confirm">'+IC.alert+'<span><b>¿Eliminar esta compra por completo?</b> Sus ítems volverán a quedar pendientes.</span><span style="margin-left:auto;display:flex;gap:8px;"><button class="hc-btn hc-del" onclick="hcDoDel('+i+')">Sí, eliminar</button><button class="hc-btn hc-cancel" onclick="hcNoDel()">Cancelar</button></span></div>'
         :'';
       body='<div class="hc-body">'+meta
-        +'<div class="hc-tblwrap"><table class="hc-tbl"><thead><tr><th>Categoría</th><th>Ítem</th><th class="r">Cant.</th><th class="r">Presup.</th><th class="r">Real</th></tr></thead><tbody>'+viewRows(r)+'</tbody></table></div>'
+        +'<div class="hc-tblwrap"><table class="hc-tbl"><thead><tr><th>Categoría</th><th>Ítem</th><th class="r">Cantidad</th><th class="r">Presupuestado</th><th class="r">Precio real</th></tr></thead><tbody>'+viewRows(r)+'</tbody></table></div>'
         +'<div class="hc-tots"><span>Presupuestado <b>'+f(r.tp)+'</b></span><span>Real <b>'+f(r.tr)+'</b></span><span>Balance <b style="color:'+((+r.balance||0)>=0?"#16a34a":"#dc2626")+';">'+((+r.balance||0)>=0?"Ahorro":"Sobrecosto")+' '+f(r.balance)+'</b></span></div>'
         +obs+fac
         +'<div class="hc-actions"><button class="hc-btn hc-edit" onclick="hcEdit('+i+')">'+IC.edit+'Editar</button><button class="hc-btn hc-del" onclick="hcAskDel('+i+')">'+IC.trash+'Eliminar</button></div>'
