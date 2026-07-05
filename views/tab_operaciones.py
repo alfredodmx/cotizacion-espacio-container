@@ -34,6 +34,7 @@ try:
     from utils.operaciones import (
         build_rc_html,
         build_historial_rc_html,
+        build_proveedores_html,
         calcular_totales_rc,
         generar_pdf_balance,
         generar_excel_balance,
@@ -1114,78 +1115,58 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                             supa_url=SUPABASE_URL, supa_key=SUPABASE_KEY),
                             height=_hist_h, scrolling=True)
 
-                    # ── Cards por proveedor: TOTAL REAL invertido en cada uno, de
-                    # mayor (izquierda) a menor (derecha), estilo mosaico. ──
-                    _prov_tot = {}
+                    # ── Cards por proveedor (TOTAL REAL, mayor→menor) con DRILL-DOWN:
+                    # clic en una card → sus compras (fecha/monto/responsable);
+                    # clic en una compra → su factura. Iframe autoajustable. ──
+                    _prov_agg = {}
                     for _rce2 in _rc_existentes:
                         _lg2 = str(_rce2.get('lugar_compra', '') or '').strip()
                         if not _lg2:
                             continue
                         _cn2 = _prov_canon_by_key.get(_norm_prov_key(_lg2), _lg2)
-                        _d2 = _prov_tot.setdefault(_cn2, {'total': 0.0, 'n': 0})
-                        _d2['total'] += float(_rce2.get('total_real', 0) or 0)
+                        _d2 = _prov_agg.setdefault(_cn2, {'total': 0.0, 'n': 0, 'compras': []})
+                        _tr2 = float(_rce2.get('total_real', 0) or 0)
+                        _d2['total'] += _tr2
                         _d2['n'] += 1
-                    if _prov_tot:
+                        _fr2 = _rce2.get('fecha_registro', '') or ''
+                        try:
+                            _fx2 = datetime.fromisoformat(
+                                _fr2.replace('Z', '+00:00')).astimezone(_tz_cl).strftime('%d/%m/%Y %H:%M')
+                        except Exception:
+                            _fx2 = str(_fr2)[:10]
+                        _furl2 = (_rce2.get('factura_url') or '').strip()
+                        _fnom2 = (_rce2.get('factura_nombre') or '').strip() or 'Factura'
+                        _ext2 = _fnom2.lower().rsplit('.', 1)[-1] if '.' in _fnom2 else ''
+                        if _ext2 not in ('jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'pdf') and '.' in _furl2:
+                            _ext2 = _furl2.split('?')[0].lower().rsplit('.', 1)[-1]
+                        _d2['compras'].append({
+                            'fecha': _fx2,
+                            'monto': f"${_tr2:,.0f}".replace(',', '.'),
+                            'responsable': _rce2.get('usuario_registro', '') or '—',
+                            'factura_url': _furl2,
+                            'factura_nom': _fnom2,
+                            'is_img': _ext2 in ('jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'),
+                        })
+                    if _prov_agg and _OPER_OK:
                         _pv_colors = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444',
                                       '#06b6d4','#f97316','#84cc16','#ec4899','#6366f1',
                                       '#14b8a6','#eab308','#dc2626','#7c3aed','#0ea5e9']
-
-                        def _pv_hexa(_h, _a):
-                            _h = _h.lstrip('#')
-                            return f'rgba({int(_h[0:2],16)},{int(_h[2:4],16)},{int(_h[4:6],16)},{_a})'
-
-                        _pv_sorted = sorted(_prov_tot.items(), key=lambda kv: kv[1]['total'], reverse=True)
-                        _pv_data = [{
+                        _pv_sorted = sorted(_prov_agg.items(), key=lambda kv: kv[1]['total'], reverse=True)
+                        _provs = [{
                             'name': _pn2,
                             'color': _pv_colors[_pi % len(_pv_colors)],
                             'total': _pv2['total'],
                             'total_fmt': f"${_pv2['total']:,.0f}".replace(',', '.'),
                             'n': _pv2['n'],
+                            'compras': _pv2['compras'],
                         } for _pi, (_pn2, _pv2) in enumerate(_pv_sorted)]
-                        # Filas SECUENCIALES para conservar el orden mayor→menor de
-                        # izquierda a derecha (fila 1 = los más altos). 1/2/3 filas
-                        # según cantidad; ancho proporcional al total dentro de la fila.
-                        import math as _math_pv
-                        _pv_n = len(_pv_data)
+                        _pv_n = len(_provs)
                         _pv_nrows = 1 if _pv_n <= 4 else (2 if _pv_n <= 10 else 3)
-                        _pv_per = _math_pv.ceil(_pv_n / _pv_nrows)
-                        _pv_rows = [_pv_data[_i:_i + _pv_per] for _i in range(0, _pv_n, _pv_per)]
-                        _pv_css = (
-                            '<style>'
-                            '.pv-cards{display:flex;flex-direction:column;gap:6px;margin:2px 0 6px 0;}'
-                            '.pv-row{display:flex;gap:6px;align-items:stretch;}'
-                            '.pv-card{border-radius:9px;padding:10px 13px;min-width:128px;box-sizing:border-box;'
-                            'display:flex;flex-direction:column;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,0.05);}'
-                            '.pv-name{font-family:Montserrat,sans-serif;font-size:0.66rem;font-weight:700;'
-                            'text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;overflow:hidden;'
-                            'text-overflow:ellipsis;margin-bottom:3px;}'
-                            '.pv-total{font-family:Montserrat,sans-serif;font-size:1rem;font-weight:800;color:#0f172a;'
-                            'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
-                            '.pv-meta{font-size:0.66rem;color:#64748b;margin-top:2px;}'
-                            '</style>'
-                        )
-                        _pv_html = _pv_css + '<div class="pv-cards">'
-                        for _row in _pv_rows:
-                            _row_max = max(((c['total'] or 1) ** 0.3 for c in _row), default=1) or 1
-                            _pv_html += '<div class="pv-row">'
-                            for _c in _row:
-                                _col = _c['color']
-                                _grow = max(1, round(((_c['total'] or 1) ** 0.3) / _row_max * 1000))
-                                _nc = _c['n']
-                                _meta = f"{_nc} {'compra' if _nc == 1 else 'compras'}"
-                                _pv_html += (
-                                    f'<div class="pv-card" style="border:1.5px solid {_pv_hexa(_col, 0.3)};'
-                                    f'border-left:4px solid {_col};flex:{_grow} {_grow} 0;">'
-                                    f'<div class="pv-name" style="color:{_col};">{_esc_html(_c["name"])}</div>'
-                                    f'<div class="pv-total">{_c["total_fmt"]}</div>'
-                                    f'<div class="pv-meta">{_meta}</div></div>'
-                                )
-                            _pv_html += '</div>'
-                        _pv_html += '</div>'
+                        _pv_h = min(_pv_nrows * 92 + 60, 1600)
                         st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
                         st.markdown(_titulo_op("store", "Compras por proveedor (precio real)"),
                                     unsafe_allow_html=True)
-                        st.markdown(_pv_html, unsafe_allow_html=True)
+                        components.html(build_proveedores_html(_provs), height=_pv_h, scrolling=True)
 
     # ================================================================
     # SUB-PESTAÑA: ACTA DE CLIENTES

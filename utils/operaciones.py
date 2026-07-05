@@ -315,6 +315,114 @@ setTimeout(fit,60);setTimeout(fit,350);
 </script>"""
 
 
+def build_proveedores_html(provs):
+    """Cards por proveedor (total real, mayor→menor) con DRILL-DOWN: clic en una
+    card muestra sus compras (fecha, monto, responsable); clic en una compra
+    expande su factura (imagen inline o PDF embebido + enlace a pestaña nueva).
+    Auto-ajusta su alto (body.scrollHeight + ResizeObserver)."""
+    import json as _json
+    provs_json = _json.dumps(provs or [], ensure_ascii=False).replace('<', '\\u003c')
+    IC_STORE = _svg_rc('store', color='#475569', size=16, mr=8)
+    IC_CAL   = _svg_rc('calendar', color='#94a3b8', size=13, mr=6)
+    IC_USER  = _svg_rc('user', color='#94a3b8', size=13, mr=6)
+    IC_FILE  = _svg_rc('file', color='#1d4ed8', size=14, mr=6)
+    IC_CHEV  = _svg_rc('chevron', color='#94a3b8', size=15, mr=0)
+    return f"""<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap');
+*{{box-sizing:border-box}}
+html,body{{margin:0;padding:0;font-family:Montserrat,'Segoe UI',sans-serif;background:transparent}}
+.pv-cards{{display:flex;flex-direction:column;gap:6px;}}
+.pv-row{{display:flex;gap:6px;align-items:stretch;}}
+.pv-card{{border-radius:9px;padding:10px 13px;min-width:128px;box-sizing:border-box;display:flex;flex-direction:column;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,0.05);cursor:pointer;transition:box-shadow .12s;}}
+.pv-card:hover{{box-shadow:0 3px 10px rgba(15,23,42,0.13);}}
+.pv-card.sel{{box-shadow:0 4px 14px rgba(37,99,235,0.22);}}
+.pv-name{{font-family:Montserrat,sans-serif;font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;}}
+.pv-total{{font-family:Montserrat,sans-serif;font-size:1rem;font-weight:800;color:#0f172a;}}
+.pv-meta{{font-size:0.66rem;color:#64748b;margin-top:2px;display:flex;align-items:center;justify-content:space-between;gap:6px;}}
+.pv-mchev{{transition:transform .2s;}}
+.pv-card.sel .pv-mchev{{transform:rotate(180deg);}}
+.pv-detail{{margin-top:10px;border:1px solid #e2e8f0;border-radius:11px;overflow:hidden;background:#fff;box-shadow:0 2px 10px rgba(15,23,42,0.07);}}
+.pv-dhdr{{display:flex;align-items:center;padding:11px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-family:Montserrat,sans-serif;font-weight:700;font-size:0.8rem;color:#0f172a;}}
+.pv-compra{{display:flex;align-items:center;gap:14px;padding:11px 14px;border-bottom:1px solid #eef2f7;cursor:pointer;font-size:0.8rem;}}
+.pv-compra:last-child{{border-bottom:none;}}
+.pv-compra:hover{{background:#f8fafc;}}
+.pv-cfecha{{display:inline-flex;align-items:center;color:#475569;min-width:150px;white-space:nowrap;}}
+.pv-cresp{{display:inline-flex;align-items:center;color:#475569;flex:1;min-width:120px;}}
+.pv-cmonto{{font-weight:800;color:#0f172a;font-family:Montserrat,sans-serif;white-space:nowrap;}}
+.pv-cchev{{color:#94a3b8;transition:transform .2s;flex-shrink:0;}}
+.pv-compra.open .pv-cchev{{transform:rotate(180deg);}}
+.pv-compra.open{{background:#eff6ff;}}
+.pv-facwrap{{padding:12px 14px;background:#f8fafc;border-bottom:1px solid #eef2f7;}}
+.pv-facbox{{display:flex;flex-direction:column;gap:9px;align-items:flex-start;}}
+.pv-facimg{{max-width:100%;max-height:640px;border-radius:8px;border:1px solid #e2e8f0;}}
+.pv-facpdf{{width:100%;height:560px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;}}
+.pv-faclink{{display:inline-flex;align-items:center;gap:2px;padding:7px 14px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:8px;text-decoration:none;font-size:0.78rem;font-weight:600;}}
+.pv-nofac{{display:inline-flex;align-items:center;color:#94a3b8;font-size:0.78rem;}}
+</style>
+<div id="pv-wrap"></div>
+<script>
+var PROVS={provs_json};
+var IC={{store:'{IC_STORE}',cal:'{IC_CAL}',user:'{IC_USER}',file:'{IC_FILE}',chev:'{IC_CHEV}'}};
+var sel=-1, facOpen={{}};
+function esc(s){{return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}}
+function hexa(h,a){{h=h.replace('#','');return 'rgba('+parseInt(h.substr(0,2),16)+','+parseInt(h.substr(2,2),16)+','+parseInt(h.substr(4,2),16)+','+a+')';}}
+function fit(){{try{{var h=Math.max(document.body.scrollHeight,60)+2;var fe=window.frameElement;if(fe){{fe.style.height=h+"px";fe.setAttribute("height",h);}}}}catch(e){{}}}}
+window.pvSel=function(i){{sel=(sel===i?-1:i);facOpen={{}};render();}};
+window.pvFac=function(i,j){{var k=i+"-"+j;facOpen[k]=!facOpen[k];render();}};
+function facPrev(c){{
+  if(!c.factura_url)return '<div class="pv-nofac">'+IC.file+'Sin factura adjunta</div>';
+  var link='<a class="pv-faclink" href="'+esc(c.factura_url)+'" target="_blank" rel="noopener noreferrer">'+IC.file+'<span>Abrir factura en pestaña nueva ↗</span></a>';
+  var prev=c.is_img?('<img class="pv-facimg" src="'+esc(c.factura_url)+'" loading="lazy"/>'):('<iframe class="pv-facpdf" src="'+esc(c.factura_url)+'"></iframe>');
+  return '<div class="pv-facbox">'+prev+link+'</div>';
+}}
+function render(){{
+  var wrap=document.getElementById("pv-wrap");
+  var n=PROVS.length;
+  if(!n){{wrap.innerHTML="";fit();return;}}
+  var nrows=n<=4?1:(n<=10?2:3), per=Math.ceil(n/nrows);
+  var html='<div class="pv-cards">';
+  for(var r=0;r<nrows;r++){{
+    var start=r*per, end=Math.min(start+per,n);
+    if(start>=end)break;
+    var rmax=1;
+    for(var q=start;q<end;q++){{var w=Math.pow(PROVS[q].total||1,0.3);if(w>rmax)rmax=w;}}
+    html+='<div class="pv-row">';
+    for(var q=start;q<end;q++){{
+      var c=PROVS[q];
+      var grow=Math.max(1,Math.round(Math.pow(c.total||1,0.3)/rmax*1000));
+      var selc=(sel===q)?" sel":"";
+      html+='<div class="pv-card'+selc+'" onclick="pvSel('+q+')" style="border:1.5px solid '+hexa(c.color,0.3)+';border-left:4px solid '+c.color+';flex:'+grow+' '+grow+' 0;">'
+        +'<div class="pv-name" style="color:'+c.color+';">'+esc(c.name)+'</div>'
+        +'<div class="pv-total">'+esc(c.total_fmt)+'</div>'
+        +'<div class="pv-meta"><span>'+c.n+(c.n===1?" compra":" compras")+'</span><span class="pv-mchev">'+IC.chev+'</span></div></div>';
+    }}
+    html+='</div>';
+  }}
+  html+='</div>';
+  if(sel>=0&&sel<n){{
+    var p=PROVS[sel];
+    html+='<div class="pv-detail"><div class="pv-dhdr">'+IC.store+'Compras en '+esc(p.name)+' &nbsp;·&nbsp; '+esc(p.total_fmt)+' &nbsp;·&nbsp; '+p.n+(p.n===1?" compra":" compras")+'</div>';
+    (p.compras||[]).forEach(function(c,j){{
+      var open=!!facOpen[sel+"-"+j];
+      html+='<div class="pv-compra'+(open?" open":"")+'" onclick="pvFac('+sel+','+j+')">'
+        +'<span class="pv-cfecha">'+IC.cal+esc(c.fecha)+'</span>'
+        +'<span class="pv-cresp">'+IC.user+esc(c.responsable)+'</span>'
+        +'<span class="pv-cmonto">'+esc(c.monto)+'</span>'
+        +'<span class="pv-cchev">'+IC.chev+'</span></div>';
+      if(open)html+='<div class="pv-facwrap">'+facPrev(c)+'</div>';
+    }});
+    html+='</div>';
+  }}
+  wrap.innerHTML=html;
+  fit();
+}}
+render();
+window.addEventListener("load",fit);
+try{{new ResizeObserver(function(){{fit();}}).observe(document.body);}}catch(e){{}}
+setTimeout(fit,60);setTimeout(fit,350);
+</script>"""
+
+
 # ── CÁLCULO DE TOTALES ────────────────────────────────────────────────────────
 
 def calcular_totales_rc(productos_presupuesto, registros, incluir_varios=False):
