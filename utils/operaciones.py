@@ -36,12 +36,15 @@ def _svg_rc(name, color="currentColor", size=14, mr=6, valign=-2, sw=2):
     )
 
 
-def build_historial_rc_html(regs, ep=''):
+def build_historial_rc_html(regs, ep='', supa_url='', supa_key=''):
     """Historial de compras interactivo (iframe): tarjetas con la tabla en HTML
     que entra en modo edición IN-PLACE (las celdas se vuelven inputs, sin crear
-    otra tabla). Guardar/Eliminar van SERVER-SIDE vía query param + popstate (NO
-    usa la anon key): ?rc_edit=<json> / ?rc_delete=<id>; Python aplica con la
-    service key (RLS-safe) y recalcula los totales."""
+    otra tabla). Editar/Eliminar del REGISTRO van SERVER-SIDE vía query param +
+    popstate: ?rc_edit=<json> / ?rc_delete=<id>; Python aplica con la service key
+    (RLS-safe) y recalcula los totales. La ÚNICA operación con la anon key es
+    reemplazar el archivo de factura (subida al bucket de storage 'facturas',
+    igual que el formulario de nueva compra); la URL resultante va en el payload
+    server-side y Python valida que pertenezca a ese bucket."""
     import json as _json
     regs_json = _json.dumps(regs or [], ensure_ascii=False).replace('<', '\\u003c')
     IC_STORE = _svg_rc('store', color='#475569', size=17, mr=0)
@@ -57,6 +60,7 @@ def build_historial_rc_html(regs, ep=''):
     IC_UP    = _svg_rc('trend-up', color='#dc2626', size=13, mr=5)
     IC_DOWN  = _svg_rc('trend-down', color='#16a34a', size=13, mr=5)
     IC_ALERT = _svg_rc('alert', color='#dc2626', size=14, mr=7)
+    IC_CLIP  = _svg_rc('paperclip', color='#1d4ed8', size=14, mr=7)
 
     return f"""<style>
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap');
@@ -107,12 +111,16 @@ tr.rm-on td{{background:#fef2f2 !important;text-decoration:line-through;color:#b
 .hc-save{{background:#2563eb;color:#fff;}}
 .hc-cancel{{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;}}
 .hc-confirm{{margin-top:11px;background:#fef2f2;border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:8px;padding:10px 13px;font-size:0.78rem;color:#991b1b;display:flex;align-items:center;flex-wrap:wrap;gap:10px;}}
+.hc-facedit{{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:11px;}}
+.hc-facbtn{{display:inline-flex;align-items:center;background:#eff6ff;color:#1d4ed8;border:1px dashed #93c5fd;border-radius:8px;padding:7px 14px;font-size:0.78rem;font-weight:600;cursor:pointer;}}
+.hc-facbtn:hover{{background:#dbeafe;}}
 </style>
 <div class="hc-wrap" id="hc-wrap"></div>
 <script>
 var REGS={regs_json};
-var IC={{store:'{IC_STORE}',cal:'{IC_CAL}',user:'{IC_USER}',cart:'{IC_CART}',file:'{IC_FILE}',edit:'{IC_EDIT}',trash:'{IC_TRASH}',save:'{IC_SAVE}',x:'{IC_X}',chev:'{IC_CHEV}',up:'{IC_UP}',down:'{IC_DOWN}',alert:'{IC_ALERT}'}};
-var editing=-1, confirming=-1;
+var IC={{store:'{IC_STORE}',cal:'{IC_CAL}',user:'{IC_USER}',cart:'{IC_CART}',file:'{IC_FILE}',edit:'{IC_EDIT}',trash:'{IC_TRASH}',save:'{IC_SAVE}',x:'{IC_X}',chev:'{IC_CHEV}',up:'{IC_UP}',down:'{IC_DOWN}',alert:'{IC_ALERT}',clip:'{IC_CLIP}'}};
+var EP="{ep}";var SUPA_URL="{supa_url}";var SUPA_KEY="{supa_key}";
+var editing=-1, confirming=-1, _facFile=null;
 function f(n){{return "$"+Math.round(Math.abs(+n||0)).toLocaleString("de-DE");}}
 function esc(s){{return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}}
 function nav(param,val){{
@@ -121,8 +129,8 @@ function nav(param,val){{
   window.parent.history.replaceState({{}},"",url);
   window.parent.dispatchEvent(new PopStateEvent("popstate"));
 }}
-window.hcEdit=function(i){{editing=(editing===i?-1:i);confirming=-1;render();}};
-window.hcCancel=function(){{editing=-1;render();}};
+window.hcEdit=function(i){{_facFile=null;editing=(editing===i?-1:i);confirming=-1;render();}};
+window.hcCancel=function(){{_facFile=null;editing=-1;render();}};
 window.hcAskDel=function(i){{confirming=i;editing=-1;render();}};
 window.hcNoDel=function(){{confirming=-1;render();}};
 window.hcDoDel=function(i){{nav("rc_delete",REGS[i].id);}};
@@ -131,15 +139,33 @@ window.hcToggleRm=function(i,j){{
   var cb=document.getElementById("rm-"+i+"-"+j);
   if(tr)tr.classList.toggle("rm-on",cb.checked);
 }};
-window.hcSave=function(i){{
+window.hcFmt=function(el){{var raw=el.value.replace(/[^0-9]/g,"");el.value=raw?("$"+parseInt(raw).toLocaleString("de-DE")):"";}};
+window.hcPickFac=function(i,inp){{_facFile=inp.files[0]||null;var l=document.getElementById("facname-"+i);if(l)l.textContent=_facFile?_facFile.name:"Reemplazar factura…";}};
+window.hcSave=async function(i){{
   var r=REGS[i];var items=[];
   r.items.forEach(function(it,j){{
     var p=document.getElementById("p-"+i+"-"+j);
     var rm=document.getElementById("rm-"+i+"-"+j);
-    items.push({{i:j,c:Math.round(it.cant)||0,p:parseInt(p.value)||0,rm:rm?rm.checked:false}});
+    var praw=p?parseInt((p.value+"").replace(/[^0-9]/g,"")):0;
+    items.push({{i:j,c:Math.round(it.cant)||0,p:praw||0,rm:rm?rm.checked:false}});
   }});
   var g=function(id){{var e=document.getElementById(id);return e?e.value:"";}};
   var payload={{id:r.id,lugar:g("lugar-"+i),obs:g("obs-"+i),fent:g("fent-"+i),items:items}};
+  var btn=document.getElementById("savebtn-"+i);
+  if(_facFile){{
+    if(btn){{btn.disabled=true;btn.style.opacity="0.6";btn.textContent="Subiendo factura...";}}
+    try{{
+      var ext=(_facFile.name.split(".").pop()||"pdf");
+      var path="cotizacion-"+encodeURIComponent(EP)+"/"+Date.now()+"."+ext;
+      var up=await fetch(SUPA_URL+"/storage/v1/object/facturas/"+path,{{method:"POST",headers:{{"Authorization":"Bearer "+SUPA_KEY,"apikey":SUPA_KEY,"Content-Type":_facFile.type||"application/octet-stream","x-upsert":"true"}},body:_facFile}});
+      if(!up.ok) throw new Error("HTTP "+up.status);
+      payload.factura_url=SUPA_URL+"/storage/v1/object/public/facturas/"+path;
+      payload.factura_nom=_facFile.name;
+    }}catch(e){{
+      if(btn){{btn.disabled=false;btn.style.opacity="1";btn.innerHTML=IC.save+"Guardar cambios";}}
+      alert("No se pudo subir la factura: "+e.message);return;
+    }}
+  }}
   nav("rc_edit",JSON.stringify(payload));
 }};
 function badge(r){{
@@ -161,7 +187,7 @@ function editRows(i,r){{
     return '<tr id="row-'+i+'-'+j+'"><td>'+esc(it.cat)+'</td><td class="it">'+esc(it.item)+'</td>'
       +'<td class="r">'+esc(it.cant)+'</td>'
       +'<td class="r">'+f(it.pp)+'</td>'
-      +'<td class="r"><input class="hc-inp" id="p-'+i+'-'+j+'" type="number" min="0" step="1" value="'+(Math.round(it.pr)||0)+'"/></td>'
+      +'<td class="r"><input class="hc-inp" id="p-'+i+'-'+j+'" type="text" inputmode="numeric" value="'+f(it.pr)+'" oninput="hcFmt(this)"/></td>'
       +'<td class="c"><input class="hc-rm" id="rm-'+i+'-'+j+'" type="checkbox" onchange="hcToggleRm('+i+','+j+')" title="Quitar este ítem"/></td></tr>';
   }}).join("");
 }}
@@ -186,7 +212,11 @@ function render(){{
         +'</div>'
         +'<div class="hc-tblwrap"><table class="hc-tbl"><thead><tr><th>Categoría</th><th>Ítem</th><th class="r">Cantidad</th><th class="r">Presupuestado</th><th class="r">Precio real</th><th class="c">Quitar</th></tr></thead><tbody>'+editRows(i,r)+'</tbody></table></div>'
         +'<div class="hc-hint">Corrige el <b>precio real</b> mal digitado, o marca <b>Quitar</b> para eliminar un ítem. El balance se recalcula al guardar.</div>'
-        +'<div class="hc-actions"><button class="hc-btn hc-save" onclick="hcSave('+i+')">'+IC.save+'Guardar cambios</button><button class="hc-btn hc-cancel" onclick="hcCancel()">'+IC.x+'Cancelar</button></div>'
+        +'<div class="hc-facedit">'
+        +(r.factura_url?'<a class="hc-fac" style="margin-top:0;" href="'+esc(r.factura_url)+'" target="_blank" rel="noopener noreferrer">'+IC.file+'<span style="margin-left:2px;">Factura actual: '+esc(r.factura_nom)+'</span></a>':'<span class="hc-nofac" style="margin-top:0;">'+IC.alert+'<span style="margin-left:4px;">Sin factura adjunta</span></span>')
+        +'<label class="hc-facbtn">'+IC.clip+'<span id="facname-'+i+'">'+(r.factura_url?"Reemplazar factura…":"Adjuntar factura…")+'</span><input type="file" accept=".pdf,image/*" style="display:none" onchange="hcPickFac('+i+',this)"/></label>'
+        +'</div>'
+        +'<div class="hc-actions"><button id="savebtn-'+i+'" class="hc-btn hc-save" onclick="hcSave('+i+')">'+IC.save+'Guardar cambios</button><button class="hc-btn hc-cancel" onclick="hcCancel()">'+IC.x+'Cancelar</button></div>'
         +'</div>';
     }} else {{
       var conf=(confirming===i)

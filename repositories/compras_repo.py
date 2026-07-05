@@ -191,6 +191,11 @@ def actualizar_registro_compra_full(reg_id, payload: dict) -> tuple[bool, str | 
         for _k in ('lugar_compra', 'observaciones', 'fecha_entrega_compra'):
             if _k in p:
                 data[_k] = str(p.get(_k, '') or '')
+        # Reemplazo de factura (solo si vino una URL nueva; la validación de que
+        # pertenece al bucket se hace en el handler antes de llamar aquí).
+        if p.get('factura_url'):
+            data['factura_url'] = str(p.get('factura_url') or '')
+            data['factura_nombre'] = str(p.get('factura_nombre') or '')
 
         supabase_admin.table('registro_compras').update(data).eq('id', reg_id).execute()
         return True, None

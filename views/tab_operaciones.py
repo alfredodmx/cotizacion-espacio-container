@@ -601,13 +601,22 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         # confía en el cliente). Solo se actualiza el precio real.
                         _m['precio_real'] = int(_d.get('p', 0) or 0)
                         _new.append(_m)
-                    _re_ok, _re_err = actualizar_registro_compra_full(_pe['id'], {
+                    _upd = {
                         'items': _new,
                         'lugar_compra': _pe.get('lugar', ''),
                         'observaciones': _pe.get('obs', ''),
                         'fecha_entrega_compra': _pe.get('fent', ''),
                         'usuario_registro': st.session_state.get('auth_nombre', ''),
-                    })
+                    }
+                    # Reemplazo de factura: solo se acepta la URL si apunta al
+                    # bucket público 'facturas' de ESTE Supabase (evita inyectar
+                    # una URL arbitraria en la BD).
+                    _fac_new = str(_pe.get('factura_url', '') or '')
+                    _fac_pref = (SUPABASE_URL or '').rstrip('/') + '/storage/v1/object/public/facturas/'
+                    if _fac_new and _fac_new.startswith(_fac_pref):
+                        _upd['factura_url'] = _fac_new
+                        _upd['factura_nombre'] = str(_pe.get('factura_nom', '') or '')
+                    _re_ok, _re_err = actualizar_registro_compra_full(_pe['id'], _upd)
                 elif _re_ok:
                     _re_ok, _re_err = False, "Registro no encontrado."
             else:
@@ -771,10 +780,12 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     # Alto del iframe: por tarjeta + filas, con holgura para una en
                     # edición; scrolling si desborda.
                     _n_reg = len(_regs_data)
-                    _hist_h = min(30 + _n_reg * 224 + _hist_rows_total * 31 + 150, 3200)
+                    _hist_h = min(30 + _n_reg * 224 + _hist_rows_total * 31 + 220, 3200)
                     if _OPER_OK:
-                        components.html(build_historial_rc_html(_regs_data, _rc_ep),
-                                        height=_hist_h, scrolling=True)
+                        components.html(build_historial_rc_html(
+                            _regs_data, _rc_ep,
+                            supa_url=SUPABASE_URL, supa_key=SUPABASE_KEY),
+                            height=_hist_h, scrolling=True)
 
                 st.markdown(_titulo_op("plus", "Nuevo registro de compra"), unsafe_allow_html=True)
 
