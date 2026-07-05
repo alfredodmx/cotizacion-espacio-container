@@ -112,6 +112,18 @@ def _norm_prov_key(s):
     return s
 
 
+# Alias MANUALES de proveedores: unifican nombres que la normalización automática
+# no puede inferir (misma empresa escrita distinto, razón social, abreviaturas).
+# clave = variante tal cual se escribió; valor = nombre canónico a MOSTRAR.
+# Para agregar otro: añade las variantes con su nombre canónico.
+_PROVEEDOR_ALIASES = {
+    "MOSAICO": "MOSAICO S.A.",
+    "MOSAICO STRETTO": "MOSAICO S.A.",
+}
+# Precomputado: clave normalizada -> canónica (para override en el mapeo).
+_PROV_ALIAS_BY_KEY = {_norm_prov_key(_k): _v for _k, _v in _PROVEEDOR_ALIASES.items()}
+
+
 def _fmt_clp(v):
     return "${:,.0f}".format(v or 0).replace(",", ".")
 
@@ -741,7 +753,9 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     for _v, _c in _prov_counts.items():
                         _prov_groups.setdefault(_norm_prov_key(_v), {})[_v] = _c
                     for _k, _grp in _prov_groups.items():
-                        _prov_canon_by_key[_k] = sorted(
+                        # Alias manual tiene prioridad (p.ej. MOSAICO / MOSAICO
+                        # STRETTO → MOSAICO S.A.); si no, canónica automática.
+                        _prov_canon_by_key[_k] = _PROV_ALIAS_BY_KEY.get(_k) or sorted(
                             _grp.items(),
                             key=lambda kv: (-kv[1], -len(kv[0]), kv[0].lower())
                         )[0][0].upper()
