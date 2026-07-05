@@ -188,9 +188,9 @@ def render_tab_operaciones(supabase, supabase_admin=None, supa_url='', supa_key=
     )
 
     _sub_panel, _sub_compras, _sub_acta = st.tabs([
-        "&#9881;&#65039; Panel Operacional",
-        "&#128722; Registro de Compras",
-        "&#128203; Acta de Clientes",
+        ":material/dashboard: Panel Operacional",
+        ":material/shopping_cart: Registro de Compras",
+        ":material/assignment: Acta de Clientes",
     ])
 
     # ================================================================
