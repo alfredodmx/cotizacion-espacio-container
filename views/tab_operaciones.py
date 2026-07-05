@@ -3,6 +3,7 @@ Tab OPERACIONES — Panel RC (registro compras), acta entrega.
 Código fuente original: app.py líneas 14730-15999
 """
 import json
+import re
 import urllib.parse
 import streamlit as st
 import streamlit.components.v1 as components
@@ -717,13 +718,33 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 if _eps_all:
                     _rb_all = supa_admin.table('registro_compras').select(
                         'cotizacion_numero,items,lugar_compra').in_('cotizacion_numero', _eps_all).execute()
-                    _prov_set = set()
+                    _prov_counts = {}
                     for _rr in (_rb_all.data or []):
                         _regs_by_ep.setdefault(_rr.get('cotizacion_numero'), []).append(_rr)
                         _lg = str(_rr.get('lugar_compra', '') or '').strip()
                         if _lg:
-                            _prov_set.add(_lg)
-                    _proveedores = sorted(_prov_set, key=lambda s: s.lower())
+                            _prov_counts[_lg] = _prov_counts.get(_lg, 0) + 1
+                    # Unificar variantes del mismo proveedor: agrupar por clave
+                    # normalizada (minúsculas + espacios colapsados + letras dobles
+                    # colapsadas, p.ej. RENNER/renner/Rener → "rener") y mostrar una
+                    # sola variante canónica por grupo (la más usada; desempate por
+                    # más mayúsculas, luego más larga).
+                    def _prov_key(_s):
+                        _s = re.sub(r'\s+', ' ', _s.strip().lower())
+                        return re.sub(r'(.)\1+', r'\1', _s)
+                    def _prov_ups(_s):
+                        return sum(1 for _c in _s if _c.isupper())
+                    _prov_groups = {}
+                    for _v, _c in _prov_counts.items():
+                        _prov_groups.setdefault(_prov_key(_v), {})[_v] = _c
+                    _proveedores = []
+                    for _grp in _prov_groups.values():
+                        _canon = sorted(
+                            _grp.items(),
+                            key=lambda kv: (-kv[1], -_prov_ups(kv[0]), -len(kv[0]), kv[0].lower())
+                        )[0][0]
+                        _proveedores.append(_canon)
+                    _proveedores = sorted(_proveedores, key=lambda s: s.lower())
             except Exception:
                 _regs_by_ep = {}
                 _proveedores = []
