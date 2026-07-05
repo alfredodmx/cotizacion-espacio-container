@@ -1102,13 +1102,12 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         })
                         _hist_rows_total += max(1, len(_items_h))
 
-                    # Alto INICIAL del iframe: pensado para tarjetas CONTRAÍDAS +
-                    # los badges de filtro. El iframe se auto-ajusta (fit vía
-                    # frameElement + ResizeObserver) al expandir/editar, así que no
-                    # queda scroll interno; este valor es solo el punto de partida
-                    # y el fallback si el navegador bloquea el auto-resize.
+                    # Alto INICIAL del iframe ~ tarjetas CONTRAÍDAS + filtros. El
+                    # iframe se auto-ajusta (fit por body.scrollHeight + ResizeObserver)
+                    # al expandir/contraer, así que no deja huecos ni scroll interno;
+                    # este valor es solo el punto de partida / fallback.
                     _n_reg = len(_regs_data)
-                    _hist_h = min(70 + _n_reg * 58 + 360, 2800)
+                    _hist_h = min(150 + _n_reg * 62, 2600)
                     if _OPER_OK:
                         components.html(build_historial_rc_html(
                             _regs_data, _rc_ep,

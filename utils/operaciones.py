@@ -239,9 +239,11 @@ function renderFilters(){{
 }}
 function fit(){{
   try{{
-    // scrollHeight = altura REAL del contenido (no recortada al iframe); usar
-    // getBoundingClientRect colapsaría el iframe (círculo viewport->altura).
-    var h=Math.max(document.body.scrollHeight, document.documentElement.scrollHeight, 120)+2;
+    // Medir SOLO document.body.scrollHeight = alto real del CONTENIDO. NO usar
+    // documentElement.scrollHeight ni getBoundingClientRect: devuelven el alto del
+    // VIEWPORT del iframe (el <html> llena el iframe) → nunca encogen y dejan
+    // huecos. El <body> no llena el viewport, así que da el alto real → auto-fit.
+    var h=Math.max(document.body.scrollHeight, 60)+2;
     var fe=window.frameElement;
     if(fe){{fe.style.height=h+"px";fe.setAttribute("height",h);}}
   }}catch(e){{}}
