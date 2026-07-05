@@ -78,6 +78,7 @@ html,body{{margin:0;padding:0;font-family:Montserrat,'Segoe UI',sans-serif;backg
 .hc-chev{{margin-left:12px;transition:transform .2s;flex-shrink:0;}}
 .hc[open] .hc-chev{{transform:rotate(180deg);}}
 .hc-body{{padding:13px 15px;}}
+.hc:not([open]) .hc-body{{display:none;}}
 .hc-meta{{display:flex;flex-wrap:wrap;gap:16px;font-size:0.72rem;color:#64748b;margin-bottom:11px;}}
 .hc-meta span{{display:inline-flex;align-items:center;}}
 .hc-tblwrap{{overflow-x:auto;border-radius:9px;border:1px solid #eef2f7;}}
@@ -215,11 +216,11 @@ function renderFilters(){{
   var el=document.getElementById("hc-filters");if(!el)return;
   if(keys.length<2){{el.innerHTML="";return;}}
   var html='<span class="hc-flabel">Filtrar por tipo:</span>';
-  html+='<span class="hc-fbadge'+(filter===""?" active":"")+'" onclick="hcFilter(\'\')">Todas ('+REGS.length+')</span>';
+  html+='<span class="hc-fbadge'+(filter===""?" active":"")+'" onclick="hcFilter(\\'\\')">Todas ('+REGS.length+')</span>';
   keys.forEach(function(k){{
     var s=seen[k];var act=(filter===k);
     var sty=act?('background:'+s.bg+';color:'+s.fg+';border-color:'+s.fg+';'):'';
-    html+='<span class="hc-fbadge" style="'+sty+'" onclick="hcFilter(\''+k+'\')"><span class="hc-tipodot" style="background:'+s.fg+';"></span>'+k+' ('+s.n+')</span>';
+    html+='<span class="hc-fbadge" style="'+sty+'" onclick="hcFilter(\\''+k+'\\')"><span class="hc-tipodot" style="background:'+s.fg+';"></span>'+k+' ('+s.n+')</span>';
   }});
   el.innerHTML=html;
 }}
