@@ -333,9 +333,11 @@ def build_proveedores_html(provs):
 html,body{{margin:0;padding:0;font-family:Montserrat,'Segoe UI',sans-serif;background:transparent}}
 .pv-cards{{display:flex;flex-direction:column;gap:6px;}}
 .pv-row{{display:flex;gap:6px;align-items:stretch;}}
-.pv-card{{border-radius:9px;padding:10px 13px;min-width:128px;box-sizing:border-box;display:flex;flex-direction:column;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,0.05);cursor:pointer;transition:box-shadow .12s;}}
+.pv-card{{border-radius:9px;padding:10px 13px;min-width:128px;box-sizing:border-box;display:flex;flex-direction:column;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,0.05);cursor:pointer;position:relative;transition:box-shadow .16s,transform .16s,opacity .16s,filter .16s;}}
 .pv-card:hover{{box-shadow:0 3px 10px rgba(15,23,42,0.13);}}
-.pv-card.sel{{box-shadow:0 4px 14px rgba(37,99,235,0.22);}}
+.pv-card.sel{{transform:scale(1.045);box-shadow:0 10px 26px rgba(37,99,235,0.30);z-index:3;}}
+.pv-cards.has-sel .pv-card:not(.sel){{opacity:.38;filter:saturate(.7);}}
+.pv-cards.has-sel .pv-card:not(.sel):hover{{opacity:.7;}}
 .pv-name{{font-family:Montserrat,sans-serif;font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;}}
 .pv-total{{font-family:Montserrat,sans-serif;font-size:1rem;font-weight:800;color:#0f172a;}}
 .pv-meta{{font-size:0.66rem;color:#64748b;margin-top:2px;display:flex;align-items:center;justify-content:space-between;gap:6px;}}
@@ -380,7 +382,7 @@ function render(){{
   var n=PROVS.length;
   if(!n){{wrap.innerHTML="";fit();return;}}
   var nrows=n<=4?1:(n<=10?2:3), per=Math.ceil(n/nrows);
-  var html='<div class="pv-cards">';
+  var html='<div class="pv-cards'+(sel>=0?" has-sel":"")+'">';
   for(var r=0;r<nrows;r++){{
     var start=r*per, end=Math.min(start+per,n);
     if(start>=end)break;
