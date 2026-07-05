@@ -133,6 +133,71 @@ def guardar_registro_compra_full(payload: dict) -> tuple[bool, str | None]:
         return False, str(e)
 
 
+def eliminar_registro_compra_full(reg_id) -> tuple[bool, str | None]:
+    """Elimina POR COMPLETO un registro de compra (la 'factura'/compra) con la
+    service key (RLS-safe). Los ítems de ese registro dejan de contar como
+    comprados → vuelven a quedar pendientes. Devuelve (ok, error)."""
+    try:
+        if not reg_id:
+            return False, "ID de registro inválido."
+        supabase_admin.table('registro_compras').delete().eq('id', reg_id).execute()
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+
+def actualizar_registro_compra_full(reg_id, payload: dict) -> tuple[bool, str | None]:
+    """Actualiza un registro existente (corrección de errores de digitación:
+    cantidad/precio_real, o quitar ítems; y lugar/observaciones/fecha). Recalcula
+    los totales EN EL SERVIDOR (no se confía en el cliente) y escanea el texto
+    libre (XSS/SQLi). Service key (RLS-safe). Devuelve (ok, error)."""
+    try:
+        from utils.security import analizar_inputs
+        if not reg_id:
+            return False, "ID de registro inválido."
+        p = payload or {}
+        items = p.get('items') or []
+        if not isinstance(items, list):
+            return False, "Ítems inválidos."
+
+        _bloquear, _ = analizar_inputs({
+            'lugar_compra':  p.get('lugar_compra', ''),
+            'observaciones': p.get('observaciones', ''),
+        }, email=str(p.get('usuario_registro', '')), contexto=f'editar_registro:{reg_id}')
+        if _bloquear:
+            return False, "Contenido no permitido en el registro (posible inyección)."
+
+        # Recalcular totales en el servidor (mismo criterio que el formulario:
+        # presupuestado = solo ítems normales; real = todos, incluidos adicionales).
+        _tp = 0.0
+        _tr = 0.0
+        for _it in items:
+            _c  = float(_it.get('cantidad', 1) or 1)
+            _pr = float(_it.get('precio_real', 0) or 0)
+            _pp = float(_it.get('precio_presupuestado', 0) or 0)
+            _ad = float(_it.get('adicional', 0) or 0)
+            _sin = bool(_it.get('sin_registro', False))
+            _es_adic = bool(_it.get('es_adicional', False)) or _sin
+            _tr += _c * _pr + _ad * _pr
+            if not _es_adic:
+                _tp += _c * _pp
+
+        data = {
+            'items':               items,
+            'total_real':          _tr,
+            'total_presupuestado': _tp,
+            'balance':             _tp - _tr,
+        }
+        for _k in ('lugar_compra', 'observaciones', 'fecha_entrega_compra'):
+            if _k in p:
+                data[_k] = str(p.get(_k, '') or '')
+
+        supabase_admin.table('registro_compras').update(data).eq('id', reg_id).execute()
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+
 def calcular_estado_compras(cotizacion_numero: str, productos_presupuesto: list) -> dict:
     """Calcula el estado de compras: porcentaje, adicionales, etc."""
     try:

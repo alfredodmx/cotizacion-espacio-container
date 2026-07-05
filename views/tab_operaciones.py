@@ -19,7 +19,11 @@ from utils.operaciones_db import (
     guardar_acta_en_storage,
     registrar_entrega_proyecto,
 )
-from repositories.compras_repo import guardar_registro_compra_full
+from repositories.compras_repo import (
+    guardar_registro_compra_full,
+    eliminar_registro_compra_full,
+    actualizar_registro_compra_full,
+)
 from utils.excel_manager import leer_hoja_excel
 from utils.security import escape_html as _esc_html
 
@@ -676,12 +680,16 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
 
                 if _rc_existentes:
                     st.markdown(_titulo_op("history", "Historial de compras"), unsafe_allow_html=True)
+                    st.markdown(_RCH_CSS, unsafe_allow_html=True)
                     _esc = _esc_html
                     _chev = ('<svg class="rch-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" '
                              'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" '
                              'stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>')
-                    _hist_html = _RCH_CSS + '<div class="rch-wrap">'
+                    _mut_err = st.session_state.pop('_rc_mut_error', None)
+                    if _mut_err:
+                        st.error(f"&#10060; No se pudo aplicar el cambio: {_mut_err}")
                     for _rce in _rc_existentes:
+                        _rid = _rce.get('id')
                         _rce_lugar = _esc(_rce.get('lugar_compra', '') or 'Compra sin lugar')
                         _rce_bal   = float(_rce.get('balance', 0) or 0)
                         _es_ahorro = _rce_bal >= 0
@@ -739,8 +747,8 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         _obs_html = (f'<div class="rch-obs">{_ic_op("clipboard", color="#64748b", size=13, mr=6)}'
                                      f'{_esc(_obs)}</div>') if _obs else ''
 
-                        _hist_html += (
-                            '<details class="rch-card">'
+                        _card_html = (
+                            '<div class="rch-wrap"><details class="rch-card">'
                             '<summary>'
                             + _ic_op('store', color='#475569', size=17, mr=0)
                             + f'<span class="rch-lugar" style="margin-left:9px;">{_rce_lugar}</span>'
@@ -764,10 +772,155 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                             + '</div>'
                             + _obs_html
                             + _fac_html
-                            + '</div></details>'
+                            + '</div></details></div>'
                         )
-                    _hist_html += '</div>'
-                    st.markdown(_hist_html, unsafe_allow_html=True)
+                        st.markdown(_card_html, unsafe_allow_html=True)
+
+                        # ── Acciones por compra: Editar / Eliminar (server-side, RLS-safe) ──
+                        if _rid is not None:
+                            _edit_open   = st.session_state.get('_rc_edit_open') == _rid
+                            _del_pending = st.session_state.get('_rc_del_pending') == _rid
+                            _ab1, _ab2, _ab_sp = st.columns([1.1, 1.1, 5])
+                            with _ab1:
+                                if st.button(("Cerrar edición" if _edit_open else "Editar"),
+                                             key=f"rc_editbtn_{_rid}", icon=":material/edit:",
+                                             use_container_width=True):
+                                    if _edit_open:
+                                        st.session_state.pop('_rc_edit_open', None)
+                                        st.session_state.pop(f'rc_ed_{_rid}', None)
+                                    else:
+                                        st.session_state['_rc_edit_open'] = _rid
+                                        st.session_state.pop('_rc_del_pending', None)
+                                    st.rerun()
+                            with _ab2:
+                                if st.button("Eliminar", key=f"rc_delbtn_{_rid}",
+                                             icon=":material/delete:", use_container_width=True):
+                                    st.session_state['_rc_del_pending'] = _rid
+                                    st.session_state.pop('_rc_edit_open', None)
+                                    st.rerun()
+
+                            # Confirmación de borrado
+                            if _del_pending:
+                                st.markdown(
+                                    '<div style="background:#fef2f2;border:1px solid #fecaca;border-left:4px solid #dc2626;'
+                                    'border-radius:8px;padding:10px 14px;font-size:0.8rem;color:#991b1b;margin:2px 0 6px 0;'
+                                    'display:flex;align-items:center;">'
+                                    + _ic_op('alert', color='#dc2626', size=14, mr=8)
+                                    + '<span><b>¿Eliminar esta compra por completo?</b> '
+                                    'Sus ítems volverán a quedar pendientes.</span></div>',
+                                    unsafe_allow_html=True)
+                                _dc1, _dc2, _dc_sp = st.columns([1.4, 1.1, 4])
+                                with _dc1:
+                                    if st.button("Sí, eliminar", key=f"rc_delok_{_rid}",
+                                                 type="primary", icon=":material/delete:",
+                                                 use_container_width=True):
+                                        _ok_d, _err_d = eliminar_registro_compra_full(_rid)
+                                        st.session_state.pop('_rc_del_pending', None)
+                                        if _ok_d:
+                                            try:
+                                                obtener_items_comprados.clear()
+                                            except Exception:
+                                                pass
+                                            for _k in list(st.session_state.keys()):
+                                                if _k.startswith('rc_json_'):
+                                                    st.session_state[_k] = '[]'
+                                        else:
+                                            st.session_state['_rc_mut_error'] = _err_d or "Error al eliminar."
+                                        st.rerun()
+                                with _dc2:
+                                    if st.button("Cancelar", key=f"rc_delno_{_rid}",
+                                                 use_container_width=True):
+                                        st.session_state.pop('_rc_del_pending', None)
+                                        st.rerun()
+
+                            # Editor de corrección
+                            if _edit_open:
+                                with st.container(border=True):
+                                    st.markdown(
+                                        _titulo_op("note", "Corregir esta compra", color_ic="#1d4ed8"),
+                                        unsafe_allow_html=True)
+                                    _e1, _e2, _e3 = st.columns(3)
+                                    with _e1:
+                                        _ed_lugar = st.text_input(
+                                            "Lugar de compra", value=_rce.get('lugar_compra', '') or '',
+                                            key=f"rc_edlugar_{_rid}")
+                                    with _e2:
+                                        _ed_fent = st.text_input(
+                                            "Fecha de entrega", value=_rce.get('fecha_entrega_compra', '') or '',
+                                            key=f"rc_edfent_{_rid}")
+                                    with _e3:
+                                        _ed_obs = st.text_input(
+                                            "Observaciones", value=_rce.get('observaciones', '') or '',
+                                            key=f"rc_edobs_{_rid}")
+                                    import pandas as _pd_ed
+                                    _df_ed = _pd_ed.DataFrame([{
+                                        'Categoría': str(_it.get('categoria', '')),
+                                        'Ítem': str(_it.get('item', '')),
+                                        'Cantidad': int(float(_it.get('cantidad', 1) or 1)),
+                                        'Precio real': int(float(_it.get('precio_real', 0) or 0)),
+                                        'Quitar': False,
+                                    } for _it in _items_h])
+                                    _edited = st.data_editor(
+                                        _df_ed, key=f"rc_ed_{_rid}", hide_index=True,
+                                        use_container_width=True,
+                                        column_config={
+                                            'Categoría': st.column_config.TextColumn(disabled=True),
+                                            'Ítem': st.column_config.TextColumn(disabled=True, width="large"),
+                                            'Cantidad': st.column_config.NumberColumn(min_value=0, step=1),
+                                            'Precio real': st.column_config.NumberColumn(
+                                                min_value=0, step=1, format="$%d"),
+                                            'Quitar': st.column_config.CheckboxColumn(
+                                                help="Marca para quitar este ítem del registro"),
+                                        })
+                                    st.caption("Corrige la **cantidad** o el **precio real** mal digitado, "
+                                               "o marca **Quitar** para eliminar un ítem. El balance se "
+                                               "recalcula automáticamente al guardar.")
+                                    _sv1, _sv2, _sv_sp = st.columns([1.5, 1.1, 4])
+                                    with _sv1:
+                                        if st.button("Guardar cambios", key=f"rc_edsave_{_rid}",
+                                                     type="primary", icon=":material/save:",
+                                                     use_container_width=True):
+                                            _new_items = []
+                                            for _idx_it, _it in enumerate(_items_h):
+                                                try:
+                                                    _row = _edited.iloc[_idx_it]
+                                                except Exception:
+                                                    _new_items.append(dict(_it))
+                                                    continue
+                                                if bool(_row.get('Quitar', False)):
+                                                    continue
+                                                _cant_v = _row['Cantidad']
+                                                _prec_v = _row['Precio real']
+                                                _ni = dict(_it)
+                                                _ni['cantidad'] = int(_cant_v) if _pd_ed.notna(_cant_v) else 0
+                                                _ni['precio_real'] = int(_prec_v) if _pd_ed.notna(_prec_v) else 0
+                                                _new_items.append(_ni)
+                                            _ok_e, _err_e = actualizar_registro_compra_full(_rid, {
+                                                'items': _new_items,
+                                                'lugar_compra': _ed_lugar,
+                                                'observaciones': _ed_obs,
+                                                'fecha_entrega_compra': _ed_fent,
+                                                'usuario_registro': st.session_state.get('auth_nombre', ''),
+                                            })
+                                            if _ok_e:
+                                                st.session_state.pop('_rc_edit_open', None)
+                                                st.session_state.pop(f'rc_ed_{_rid}', None)
+                                                try:
+                                                    obtener_items_comprados.clear()
+                                                except Exception:
+                                                    pass
+                                                for _k in list(st.session_state.keys()):
+                                                    if _k.startswith('rc_json_'):
+                                                        st.session_state[_k] = '[]'
+                                            else:
+                                                st.session_state['_rc_mut_error'] = _err_e or "Error al guardar."
+                                            st.rerun()
+                                    with _sv2:
+                                        if st.button("Cancelar", key=f"rc_edcancel_{_rid}",
+                                                     use_container_width=True):
+                                            st.session_state.pop('_rc_edit_open', None)
+                                            st.session_state.pop(f'rc_ed_{_rid}', None)
+                                            st.rerun()
 
                 st.markdown(_titulo_op("plus", "Nuevo registro de compra"), unsafe_allow_html=True)
 
