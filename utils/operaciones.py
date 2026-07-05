@@ -3,6 +3,30 @@ Funciones de operaciones: tabla RC, balance Excel/PDF, HTML builder.
 Extraídas de app.py para la arquitectura modular.
 """
 
+# ── Iconos SVG inline para el iframe del formulario (reemplazan emoticones) ──
+_RC_ICONS = {
+    "paperclip": '<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
+    "store":     '<path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M2 7h20"/><path d="M18 12v.01"/><path d="M6 12v.01"/>',
+    "cart":      '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+    "calendar":  '<rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/>',
+    "clipboard": '<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>',
+    "note":      '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/>',
+    "save":      '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>',
+    "x":         '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+    "check":     '<path d="M20 6 9 17l-5-5"/>',
+}
+
+
+def _svg_rc(name, color="currentColor", size=14, mr=6, valign=-2, sw=2):
+    """SVG inline para el iframe del formulario RC."""
+    inner = _RC_ICONS.get(name, "")
+    return (
+        f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" '
+        f'stroke="{color}" stroke-width="{sw}" stroke-linecap="round" '
+        f'stroke-linejoin="round" style="vertical-align:{valign}px;margin-right:{mr}px;flex-shrink:0;">'
+        f'{inner}</svg>'
+    )
+
 
 # ── CÁLCULO DE TOTALES ────────────────────────────────────────────────────────
 
@@ -610,7 +634,7 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
       <div style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px" id="b-hdr">Balance</div>
       <div style="font-size:11px" id="b-lbl1">Neto</div><div style="font-size:15px;font-weight:700" id="b-n">$0</div>
       <div style="font-size:11px;margin-top:4px" id="b-lbl2">IVA</div><div style="font-size:13px;font-weight:600" id="b-i">$0</div>
-      <div style="font-size:11px;margin-top:4px" id="b-icon">&#x2705; Ahorro</div><div style="font-size:17px;font-weight:900" id="b-t">$0</div>
+      <div style="font-size:11px;margin-top:4px" id="b-icon">Ahorro</div><div style="font-size:17px;font-weight:900" id="b-t">$0</div>
     </div>
     <div style="border-left:2px solid #fed7aa;padding-left:10px;background:#fff7ed;border-radius:8px;">
       <div style="font-size:10px;font-weight:700;color:#f97316;letter-spacing:.05em;text-transform:uppercase;margin-bottom:2px">Adicionales</div>
@@ -666,10 +690,10 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
     </div>
   </div>
   <div id="save-section" style="padding:12px 16px;background:#1e2447;border-top:2px solid #e2e8f0;flex-shrink:0">
-    <div style="font-size:11px;font-weight:700;color:#fff;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">&#128206; Adjuntar Factura y Guardar</div>
+    <div style="font-size:11px;font-weight:700;color:#fff;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center">{_svg_rc('paperclip', color='#fff', size=14, mr=8)}Adjuntar Factura y Guardar</div>
     <style>
     .rc-field{{margin-bottom:8px}}
-    .rc-lbl{{font-size:11px;color:rgba(255,255,255,0.6);margin-bottom:3px}}
+    .rc-lbl{{font-size:11px;color:rgba(255,255,255,0.6);margin-bottom:3px;display:flex;align-items:center}}
     .rc-inp{{width:100%;border:1px solid rgba(255,255,255,0.3);border-radius:6px;padding:7px 10px;font-size:13px;background:rgba(255,255,255,0.08);color:#fff;box-sizing:border-box;outline:none}}
     .rc-inp::placeholder{{color:rgba(255,255,255,0.35)}}
     .rc-sel{{width:100%;border:1px solid rgba(255,255,255,0.3);border-radius:6px;padding:7px 10px;font-size:13px;background:#1e2447;color:#fff;box-sizing:border-box;outline:none;cursor:pointer}}
@@ -678,11 +702,11 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
     </style>
     <div class="rc-grid">
       <div class="rc-field">
-        <div class="rc-lbl">&#127978; &#191;D&#243;nde compraste? *</div>
+        <div class="rc-lbl">{_svg_rc('store', color='rgba(255,255,255,0.7)', size=13)}&#191;D&#243;nde compraste? *</div>
         <input id="lugar-compra" type="text" class="rc-inp" placeholder="Ej: Ferretera L&#243;pez" oninput="window.checkSaveBtn()"/>
       </div>
       <div class="rc-field">
-        <div class="rc-lbl">&#128722; Tipo de compra *</div>
+        <div class="rc-lbl">{_svg_rc('cart', color='rgba(255,255,255,0.7)', size=13)}Tipo de compra *</div>
         <select id="tipo-compra" class="rc-sel" onchange="window.onTipoChange()">
           <option value="">Seleccionar...</option>
           <option value="online">Compra Online</option>
@@ -696,24 +720,24 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
       </select>
     </div>
     <div id="fecha-wrap" class="rc-field rc-hidden">
-      <div class="rc-lbl" id="fecha-lbl">&#128197; &#191;Para cu&#225;ndo? *</div>
+      <div class="rc-lbl" id="fecha-lbl">{_svg_rc('calendar', color='rgba(255,255,255,0.7)', size=13)}&#191;Para cu&#225;ndo? *</div>
       <input id="fecha-compra" type="date" class="rc-inp" oninput="window.checkSaveBtn()" onchange="window.checkSaveBtn()"/>
     </div>
     <div id="falt&#243;-wrap" class="rc-field rc-hidden">
-      <div class="rc-lbl">&#128203; &#191;Qu&#233; falt&#243; por retirar? *</div>
+      <div class="rc-lbl">{_svg_rc('clipboard', color='rgba(255,255,255,0.7)', size=13)}&#191;Qu&#233; falt&#243; por retirar? *</div>
       <textarea id="falto-texto" class="rc-inp" rows="2" placeholder="Describe los &#237;tems que faltaron..." oninput="window.checkSaveBtn()" style="resize:vertical"></textarea>
     </div>
     <div class="rc-field">
-      <div class="rc-lbl">&#128221; Observaciones adicionales (opcional)</div>
+      <div class="rc-lbl">{_svg_rc('note', color='rgba(255,255,255,0.7)', size=13)}Observaciones adicionales (opcional)</div>
       <textarea id="obs-compra" class="rc-inp" rows="2" placeholder="Notas, motivos u observaciones de esta compra..." style="resize:vertical"></textarea>
     </div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <label id="factura-label" style="background:rgba(255,255,255,0.1);color:#fff;border:1px dashed rgba(255,255,255,0.4);border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;white-space:nowrap">&#128206; Seleccionar factura PDF
+      <label id="factura-label" style="background:rgba(255,255,255,0.1);color:#fff;border:1px dashed rgba(255,255,255,0.4);border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center">{_svg_rc('paperclip', color='#fff', size=13)}Seleccionar factura PDF
         <input id="factura-input" type="file" accept=".pdf" style="display:none"/>
       </label>
-      <button id="factura-clear" onclick="window.clearFactura()" style="display:none;background:rgba(220,38,38,0.7);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;white-space:nowrap">&#10005; Quitar</button>
+      <button id="factura-clear" onclick="window.clearFactura()" style="display:none;background:rgba(220,38,38,0.7);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;white-space:nowrap;align-items:center">{_svg_rc('x', color='#fff', size=12, mr=4)}Quitar</button>
       <div id="save-status" style="font-size:12px;color:rgba(255,255,255,0.7);flex:1"></div>
-      <button id="save-btn" onclick="window.guardarRegistro()" disabled style="background:#10b981;color:#fff;border:none;border-radius:8px;padding:8px 24px;font-size:13px;font-weight:700;cursor:pointer;opacity:0.5;white-space:nowrap">&#128190; Guardar compra</button>
+      <button id="save-btn" onclick="window.guardarRegistro()" disabled style="background:#10b981;color:#fff;border:none;border-radius:8px;padding:8px 24px;font-size:13px;font-weight:700;cursor:pointer;opacity:0.5;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center">{_svg_rc('save', color='#fff', size=14, mr=7)}Guardar compra</button>
     </div>
   </div>
     </div>
@@ -729,6 +753,8 @@ var TOTAL_ITEMS={total_items_presupuesto};
 var _facturaFile=null;
 var _facturaUrl="";
 var _facturaNom="";
+var ICO_CAL='{_svg_rc('calendar', color='rgba(255,255,255,0.7)', size=13)}';
+var ICO_CLIP='{_svg_rc('paperclip', color='#ffffff', size=13)}';
 var CAT={rc_cat_json};
 var addCat=document.getElementById("add-cat");
 Object.keys(CAT).sort().forEach(function(c){{var o=document.createElement("option");o.value=c;o.textContent=c;addCat.appendChild(o);}});
@@ -814,11 +840,11 @@ function calc(){{
   ids.forEach(function(id,i){{var el=document.getElementById(id);if(el)el.textContent=f(v[i]);}});
   ["b-hdr","b-n","b-i","b-lbl1","b-lbl2","b-icon","b-t"].forEach(function(id){{var el=document.getElementById(id);if(el)el.style.color=col;}});
   var bi=document.getElementById("b-icon");
-  if(bi)bi.textContent=b>=0?"✅ Ahorro":"❌ Sobrecosto";
+  if(bi)bi.textContent=b>=0?"Ahorro":"Sobrecosto";
   var comprados=vals.filter(function(v){{return v.real>0&&v.idx<10000;}}).length;
   var pct=TOTAL_ITEMS>0?Math.round(comprados/TOTAL_ITEMS*1000)/10:0;
   var pctCol=pct>=100?"#3b82f6":pct>=66.6?"#16a34a":pct>=33.3?"#eab308":"#dc2626";
-  var pctLbl=pct>=100?"&#128309; Compra finalizada":pct>0?(pct.toFixed(1)+"% comprado"):"Sin compras";
+  var pctLbl=pct>=100?"Compra finalizada":pct>0?(pct.toFixed(1)+"% comprado"):"Sin compras";
   var pp=document.getElementById("prog-pct");
   var pl=document.getElementById("prog-lbl");
   var pb=document.getElementById("prog-bar");
@@ -840,6 +866,22 @@ window.applyFilters=function(catOverride){{
   }});
 }}
 window.filterRows=function(q){{applyFilters();}};
+function _rcRgba(h,a){{h=h.replace('#','');return 'rgba('+parseInt(h.substr(0,2),16)+','+parseInt(h.substr(2,2),16)+','+parseInt(h.substr(4,2),16)+','+a+')';}}
+window.rcFilterCat=function(el){{
+  var cat=el.getAttribute('data-cat')||'';
+  _rcCatFiltro=(_rcCatFiltro===cat)?'':cat;
+  document.querySelectorAll('.rc-cat-card').forEach(function(c){{
+    var cc=c.getAttribute('data-color')||'#6366f1';
+    var nm=c.getAttribute('data-name')||'';
+    var active=(_rcCatFiltro!==''&&c.getAttribute('data-cat')===_rcCatFiltro);
+    c.style.background=active?_rcRgba(cc,0.15):'#fff';
+    c.style.border=active?('2px solid '+cc):('1.5px solid '+_rcRgba(cc,0.3));
+    c.style.borderLeft='4px solid '+cc;
+    var cn=c.querySelector('.rc-cname');
+    if(cn)cn.textContent=nm+(active?' \\u2713':'');
+  }});
+  applyFilters(_rcCatFiltro);
+}};
 document.querySelectorAll(".rc-real").forEach(function(inp){{
   attachListeners(inp, inp.closest("tr").querySelector(".rc-adic"));
 }});
@@ -923,10 +965,10 @@ window.onSubtipoChange=function(){{
   var needFecha=(tipo==="online")||(tipo==="presencial"&&sub!=="completo");
   fw.className="rc-field"+(needFecha?"":" rc-hidden");
   if(tipo==="presencial"&&sub==="parcial"){{
-    fl.textContent="&#128197; ¿Para cuándo llega lo que faltó? *";
+    fl.innerHTML=ICO_CAL+"¿Para cuándo llega lo que faltó? *";
     pw.className="rc-field";
   }}else{{
-    fl.textContent="&#128197; ¿Para cuándo? *";
+    fl.innerHTML=ICO_CAL+"¿Para cuándo? *";
     pw.className="rc-field rc-hidden";
   }}
   window.checkSaveBtn();
@@ -962,10 +1004,10 @@ document.getElementById("factura-input") && document.getElementById("factura-inp
   var lbl=document.getElementById("factura-label");
   var clr=document.getElementById("factura-clear");
   if(_facturaFile){{
-    if(lbl)lbl.innerHTML="&#128206; "+_facturaFile.name+'<input id="factura-input" type="file" accept=".pdf" style="display:none"/>';
-    if(clr)clr.style.display="inline-block";
+    if(lbl)lbl.innerHTML=ICO_CLIP+_facturaFile.name+'<input id="factura-input" type="file" accept=".pdf" style="display:none"/>';
+    if(clr)clr.style.display="inline-flex";
   }}else{{
-    if(lbl)lbl.innerHTML='&#128206; Seleccionar factura PDF<input id="factura-input" type="file" accept=".pdf" style="display:none"/>';
+    if(lbl)lbl.innerHTML=ICO_CLIP+'Seleccionar factura PDF<input id="factura-input" type="file" accept=".pdf" style="display:none"/>';
     if(clr)clr.style.display="none";
   }}
   checkSaveBtn();
@@ -974,7 +1016,7 @@ window.clearFactura=function(){{
   _facturaFile=null;
   var lbl=document.getElementById("factura-label");
   var clr=document.getElementById("factura-clear");
-  if(lbl)lbl.innerHTML='&#128206; Seleccionar factura PDF<input id="factura-input" type="file" accept=".pdf" style="display:none"/>';
+  if(lbl)lbl.innerHTML=ICO_CLIP+'Seleccionar factura PDF<input id="factura-input" type="file" accept=".pdf" style="display:none"/>';
   if(clr)clr.style.display="none";
   var ni=document.getElementById("factura-input");
   if(ni)ni.addEventListener("change",function(){{
@@ -982,7 +1024,7 @@ window.clearFactura=function(){{
     var l2=document.getElementById("factura-label");
     var c2=document.getElementById("factura-clear");
     if(_facturaFile){{
-      if(l2)l2.innerHTML="&#128206; "+_facturaFile.name+'<input id="factura-input" type="file" accept=".pdf" style="display:none"/>';
+      if(l2)l2.innerHTML=ICO_CLIP+_facturaFile.name+'<input id="factura-input" type="file" accept=".pdf" style="display:none"/>';
       if(c2)c2.style.display="inline-block";
     }}
     checkSaveBtn();
@@ -992,8 +1034,8 @@ window.clearFactura=function(){{
 window.guardarRegistro=async function(){{
   var btn=document.getElementById("save-btn");
   var status=document.getElementById("save-status");
-  if(!_facturaFile){{status.textContent="⚠️ Debes subir una factura primero";status.style.color="#dc2626";return;}}
-  btn.disabled=true;btn.textContent="⏳ Verificando compras previas...";
+  if(!_facturaFile){{status.textContent="Debes subir una factura primero";status.style.color="#dc2626";return;}}
+  btn.disabled=true;btn.textContent="Verificando compras previas...";
   // Ya comprados: Python ya lo pasa server-side (service key) en ITEMS_YA_COMPRADOS
   // → evitamos el fetch desde el navegador (que RLS bloquearía).
   var itemsYaComprados=(ITEMS_YA_COMPRADOS||[]).slice();
@@ -1026,8 +1068,8 @@ window.guardarRegistro=async function(){{
       sin_registro:r.getAttribute("data-sin-registro")==="1"
     }});
   }});
-  if(items.length===0){{status.textContent="⚠️ Ingresa al menos un precio real";status.style.color="#dc2626";btn.disabled=false;btn.textContent="💾 Guardar compra";return;}}
-  btn.disabled=true;btn.textContent="⏳ Subiendo factura...";status.textContent="";
+  if(items.length===0){{status.textContent="Ingresa al menos un precio real";status.style.color="#dc2626";btn.disabled=false;btn.textContent="Guardar compra";return;}}
+  btn.disabled=true;btn.textContent="Subiendo factura...";status.textContent="";
   try{{
     var ext=_facturaFile.name.split(".").pop();
     var path="cotizacion-"+EP_NUM+"/"+Date.now()+"."+ext;
@@ -1041,7 +1083,7 @@ window.guardarRegistro=async function(){{
     _facturaNom=_facturaFile.name;
     var tP=0,tR=0;
     items.forEach(function(it){{tP+=it.precio_presupuestado*it.cantidad;tR+=(it.precio_real*it.cantidad)+(it.adicional*it.precio_real);}});
-    btn.textContent="⏳ Guardando registro...";
+    btn.textContent="Guardando registro...";
     var lugarEl=document.getElementById("lugar-compra");
     var lugarVal=lugarEl?lugarEl.value.trim():"";
     var tipoVal=document.getElementById("tipo-compra")?document.getElementById("tipo-compra").value:"";
@@ -1068,8 +1110,8 @@ window.guardarRegistro=async function(){{
       total_presupuestado:tP,
       total_real:tR
     }};
-    btn.textContent="✅ Guardado";btn.style.background="#16a34a";
-    status.textContent="✅ Guardado. Actualizando...";
+    btn.textContent="Guardado";btn.style.background="#16a34a";
+    status.textContent="Guardado. Actualizando...";
     status.style.color="#16a34a";
     setTimeout(function(){{
       var url=new URL(window.parent.location.href);
@@ -1078,8 +1120,8 @@ window.guardarRegistro=async function(){{
       window.parent.dispatchEvent(new PopStateEvent("popstate"));
     }},600);
   }}catch(e){{
-    btn.disabled=false;btn.textContent="💾 Guardar compra";
-    status.textContent="❌ Error: "+e.message;status.style.color="#dc2626";
+    btn.disabled=false;btn.textContent="Guardar compra";
+    status.textContent="Error: "+e.message;status.style.color="#dc2626";
   }}
 }};
 calc();

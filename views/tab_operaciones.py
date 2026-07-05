@@ -50,6 +50,91 @@ except ImportError:
 _tz_cl = timezone(timedelta(hours=-3))
 
 
+# ── Iconos SVG (reemplazan emoticones) ───────────────────────────────────────
+_ICON_PATHS_OP = {
+    "cart":      '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+    "history":   '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+    "plus":      '<path d="M5 12h14"/><path d="M12 5v14"/>',
+    "chart":     '<line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/>',
+    "eye":       '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+    "file":      '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
+    "download":  '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+    "store":     '<path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M2 7h20"/><path d="M18 12v.01"/><path d="M6 12v.01"/>',
+    "check":     '<path d="M20 6 9 17l-5-5"/>',
+    "x":         '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+    "alert":     '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/>',
+    "calendar":  '<rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/>',
+    "save":      '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>',
+    "grid":      '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/>',
+    "package":   '<path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/>',
+    "refresh":   '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+    "search":    '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+    "clipboard": '<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>',
+    "trend-down":'<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>',
+    "trend-up":  '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+}
+
+
+def _ic_op(name, color="#0f172a", size=15, mr=8, valign=-2, sw=2):
+    """SVG inline (reemplaza emoticones). mr=margin-right en px."""
+    inner = _ICON_PATHS_OP.get(name, "")
+    return (
+        f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" '
+        f'stroke="{color}" stroke-width="{sw}" stroke-linecap="round" '
+        f'stroke-linejoin="round" style="vertical-align:{valign}px;margin-right:{mr}px;flex-shrink:0;">'
+        f'{inner}</svg>'
+    )
+
+
+def _titulo_op(icon, texto, color_ic="#0f172a"):
+    """Título de sección unificado (Montserrat 700 / 0.88rem / 0.05em / uppercase / #0f172a)."""
+    return (
+        '<div style="display:flex;align-items:center;font-family:Montserrat,sans-serif;'
+        'font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;'
+        'color:#0f172a;margin:0 0 12px 0;">'
+        + _ic_op(icon, color=color_ic, size=17, mr=9) + f'<span>{texto}</span></div>'
+    )
+
+
+# CSS de las tarjetas del Historial de compras (details/summary custom, sin
+# st.dataframe ni st.expander → control total del diseño).
+_RCH_CSS = (
+    '<style>'
+    ".rch-wrap{display:flex;flex-direction:column;gap:8px;margin:2px 0 10px 0;}"
+    ".rch-card{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;background:#fff;"
+    "box-shadow:0 1px 3px rgba(15,23,42,0.06);}"
+    ".rch-card>summary{list-style:none;cursor:pointer;display:flex;align-items:center;"
+    "padding:11px 14px;background:#f8fafc;user-select:none;}"
+    ".rch-card>summary::-webkit-details-marker{display:none;}"
+    ".rch-card[open]>summary{border-bottom:1px solid #e2e8f0;}"
+    ".rch-lugar{font-family:Montserrat,sans-serif;font-weight:700;font-size:0.82rem;color:#0f172a;"
+    "white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}"
+    ".rch-badge{margin-left:auto;display:inline-flex;align-items:center;font-family:Montserrat,sans-serif;"
+    "font-weight:700;font-size:0.74rem;padding:3px 11px;border-radius:99px;white-space:nowrap;}"
+    ".rch-chev{margin-left:10px;color:#94a3b8;transition:transform .2s;flex-shrink:0;}"
+    ".rch-card[open] .rch-chev{transform:rotate(180deg);}"
+    ".rch-body{padding:12px 14px;}"
+    ".rch-meta{display:flex;flex-wrap:wrap;gap:16px;font-size:0.72rem;color:#64748b;margin-bottom:10px;}"
+    ".rch-meta span{display:inline-flex;align-items:center;}"
+    ".rch-tbl{width:100%;border-collapse:collapse;font-size:0.78rem;border-radius:8px;overflow:hidden;}"
+    ".rch-tbl th{background:#1e2447;color:#fff;text-align:left;padding:6px 10px;font-family:Montserrat,sans-serif;"
+    "font-size:0.62rem;letter-spacing:.05em;text-transform:uppercase;font-weight:700;}"
+    ".rch-tbl th.r,.rch-tbl td.r{text-align:right;}"
+    ".rch-tbl td{padding:6px 10px;border-bottom:1px solid #eef2f7;color:#475569;}"
+    ".rch-tbl tbody tr:last-child td{border-bottom:none;}"
+    ".rch-tbl tbody tr:nth-child(even){background:#f8fafc;}"
+    ".rch-tots{display:flex;flex-wrap:wrap;gap:18px;margin-top:11px;font-size:0.74rem;color:#64748b;}"
+    ".rch-tots b{color:#0f172a;font-weight:700;margin-left:3px;}"
+    ".rch-obs{display:flex;align-items:flex-start;margin-top:10px;font-size:0.74rem;color:#64748b;"
+    "background:#f8fafc;border-radius:8px;padding:8px 10px;}"
+    ".rch-fac{display:inline-flex;align-items:center;gap:2px;margin-top:11px;padding:7px 14px;"
+    "background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:8px;text-decoration:none;"
+    "font-size:0.78rem;font-weight:600;}"
+    ".rch-nofac{display:inline-flex;align-items:center;margin-top:11px;font-size:0.74rem;color:#94a3b8;}"
+    '</style>'
+)
+
+
 def _fmt_clp(v):
     return "${:,.0f}".format(v or 0).replace(",", ".")
 
@@ -529,7 +614,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
     # SUB-PESTAÑA: REGISTRO DE COMPRAS
     # ================================================================
     with _sub_compras:
-        st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 12px 0;">&#128722; Registro de Compras</div>', unsafe_allow_html=True)
+        st.markdown(_titulo_op("cart", "Registro de Compras"), unsafe_allow_html=True)
 
         try:
             _rc_resp = supa_admin.table('cotizaciones').select(
@@ -590,58 +675,104 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                             _prods_nombres.add(_it_nombre)
 
                 if _rc_existentes:
-                    st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 4px;">&#128198; Historial de compras</div>', unsafe_allow_html=True)
+                    st.markdown(_titulo_op("history", "Historial de compras"), unsafe_allow_html=True)
+                    _esc = _esc_html
+                    _chev = ('<svg class="rch-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" '
+                             'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" '
+                             'stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>')
+                    _hist_html = _RCH_CSS + '<div class="rch-wrap">'
                     for _rce in _rc_existentes:
-                        _rce_lugar = _rce.get('lugar_compra', '') or ''
+                        _rce_lugar = _esc(_rce.get('lugar_compra', '') or 'Compra sin lugar')
                         _rce_bal   = float(_rce.get('balance', 0) or 0)
-                        _rce_icon  = '&#9989;' if _rce_bal >= 0 else '&#10060;'
-                        _rce_lbl   = 'Ahorro' if _rce_bal >= 0 else 'Sobrecosto'
-                        _rce_fmt   = f"${abs(_rce_bal):,.0f}".replace(',', '.')
-                        _titulo_rce = f"&#128234; {_rce_lugar} — {_rce_icon} {_rce_lbl} {_rce_fmt}" if _rce_lugar else f"&#128221; Compra — {_rce_icon} {_rce_lbl} {_rce_fmt}"
-                        with st.expander(_titulo_rce):
-                            _items_h = _rce.get('items') or []
-                            if isinstance(_items_h, str):
-                                try:
-                                    _items_h = json.loads(_items_h)
-                                except Exception:
-                                    _items_h = []
-                            if _items_h:
-                                import pandas as _pd_rce
-                                _df_rce = _pd_rce.DataFrame([{
-                                    'Categor&#237;a': i.get('categoria', ''),
-                                    '&#205;tem': i.get('item', ''),
-                                    'Cant.': i.get('cantidad', 1),
-                                    'Presup.': f"${i.get('precio_presupuestado', 0):,.0f}".replace(',', '.'),
-                                    'Real': f"${i.get('precio_real', 0):,.0f}".replace(',', '.'),
-                                } for i in _items_h])
-                                st.dataframe(_df_rce, hide_index=True, use_container_width=True)
-                            else:
-                                st.caption("Sin &#237;tems registrados.")
+                        _es_ahorro = _rce_bal >= 0
+                        _bal_col   = '#16a34a' if _es_ahorro else '#dc2626'
+                        _bal_bg    = '#f0fdf4' if _es_ahorro else '#fef2f2'
+                        _bal_lbl   = 'Ahorro' if _es_ahorro else 'Sobrecosto'
+                        _bal_fmt   = f"${abs(_rce_bal):,.0f}".replace(',', '.')
+                        _bal_ic    = _ic_op('trend-down' if _es_ahorro else 'trend-up',
+                                            color=_bal_col, size=13, mr=5, valign=-2)
+                        _tp_fmt = f"${float(_rce.get('total_presupuestado', 0) or 0):,.0f}".replace(',', '.')
+                        _tr_fmt = f"${float(_rce.get('total_real', 0) or 0):,.0f}".replace(',', '.')
 
-                            # Enlace a la factura adjunta (se guarda en el bucket
-                            # public 'facturas'; el historial en pantalla no lo
-                            # mostraba, solo el PDF de balance). Abre en pestaña nueva.
-                            _fac_url = (_rce.get('factura_url') or '').strip()
-                            _fac_nom = (_rce.get('factura_nombre') or '').strip() or 'Factura'
-                            if _fac_url:
-                                st.markdown(
-                                    f'<a href="{_fac_url}" target="_blank" rel="noopener noreferrer" '
-                                    'style="display:inline-flex;align-items:center;gap:8px;margin-top:8px;'
-                                    'padding:7px 14px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;'
-                                    'border-radius:8px;text-decoration:none;font-size:0.8rem;font-weight:600;">'
-                                    '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" '
-                                    'stroke="currentColor" stroke-width="2" stroke-linecap="round" '
-                                    'stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 '
-                                    '2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'
-                                    f'Ver factura: {_esc_html(_fac_nom)}</a>',
-                                    unsafe_allow_html=True)
-                            else:
-                                st.caption("&#9888;&#65039; Sin factura adjunta.")
+                        _fecha_raw = _rce.get('fecha_registro', '') or ''
+                        try:
+                            _fecha_txt = datetime.fromisoformat(
+                                _fecha_raw.replace('Z', '+00:00')).astimezone(_tz_cl).strftime('%d/%m/%Y %H:%M')
+                        except Exception:
+                            _fecha_txt = str(_fecha_raw)[:10]
+                        _usr  = _esc(_rce.get('usuario_registro', '') or '—')
+                        _tipo = _esc(str(_rce.get('tipo_compra', '') or '').capitalize() or '—')
 
-                st.markdown('<div style="font-weight:700;font-size:0.85rem;margin:8px 0 8px;">&#10133; Nuevo registro de compra</div>', unsafe_allow_html=True)
+                        _items_h = _rce.get('items') or []
+                        if isinstance(_items_h, str):
+                            try:
+                                _items_h = json.loads(_items_h)
+                            except Exception:
+                                _items_h = []
+                        _rows_h = ''
+                        for _i in _items_h:
+                            _pp = f"${float(_i.get('precio_presupuestado', 0) or 0):,.0f}".replace(',', '.')
+                            _pr = f"${float(_i.get('precio_real', 0) or 0):,.0f}".replace(',', '.')
+                            _rows_h += (
+                                f'<tr><td>{_esc(str(_i.get("categoria", "")))}</td>'
+                                f'<td style="font-weight:600;color:#0f172a;">{_esc(str(_i.get("item", "")))}</td>'
+                                f'<td class="r">{_esc(str(_i.get("cantidad", 1)))}</td>'
+                                f'<td class="r">{_pp}</td>'
+                                f'<td class="r" style="font-weight:700;">{_pr}</td></tr>'
+                            )
+                        if not _rows_h:
+                            _rows_h = '<tr><td colspan="5" style="color:#94a3b8;text-align:center;">Sin ítems registrados.</td></tr>'
+
+                        _fac_url = (_rce.get('factura_url') or '').strip()
+                        _fac_nom = _esc((_rce.get('factura_nombre') or '').strip() or 'Factura')
+                        if _fac_url:
+                            _fac_html = (
+                                f'<a class="rch-fac" href="{_esc(_fac_url)}" target="_blank" rel="noopener noreferrer">'
+                                + _ic_op('file', color='#1d4ed8', size=15, mr=0)
+                                + f'<span style="margin-left:2px;">Ver factura: {_fac_nom}</span></a>'
+                            )
+                        else:
+                            _fac_html = ('<div class="rch-nofac">' + _ic_op('alert', color='#f59e0b', size=14, mr=0)
+                                         + '<span style="margin-left:4px;">Sin factura adjunta</span></div>')
+
+                        _obs = (_rce.get('observaciones') or '').strip()
+                        _obs_html = (f'<div class="rch-obs">{_ic_op("clipboard", color="#64748b", size=13, mr=6)}'
+                                     f'{_esc(_obs)}</div>') if _obs else ''
+
+                        _hist_html += (
+                            '<details class="rch-card">'
+                            '<summary>'
+                            + _ic_op('store', color='#475569', size=17, mr=0)
+                            + f'<span class="rch-lugar" style="margin-left:9px;">{_rce_lugar}</span>'
+                            + f'<span class="rch-badge" style="background:{_bal_bg};color:{_bal_col};">'
+                            + _bal_ic + f'{_bal_lbl} {_bal_fmt}</span>'
+                            + _chev + '</summary>'
+                            + '<div class="rch-body">'
+                            + '<div class="rch-meta">'
+                            + f'<span>{_ic_op("calendar", color="#94a3b8", size=12, mr=5)}{_fecha_txt}</span>'
+                            + f'<span>{_ic_op("eye", color="#94a3b8", size=12, mr=5)}{_usr}</span>'
+                            + f'<span>{_ic_op("cart", color="#94a3b8", size=12, mr=5)}{_tipo}</span>'
+                            + '</div>'
+                            + '<table class="rch-tbl"><thead><tr>'
+                            + '<th>Categoría</th><th>Ítem</th><th class="r">Cant.</th>'
+                            + '<th class="r">Presup.</th><th class="r">Real</th></tr></thead>'
+                            + f'<tbody>{_rows_h}</tbody></table>'
+                            + '<div class="rch-tots">'
+                            + f'<span>Presupuestado <b>{_tp_fmt}</b></span>'
+                            + f'<span>Real <b>{_tr_fmt}</b></span>'
+                            + f'<span>Balance <b style="color:{_bal_col};">{_bal_lbl} {_bal_fmt}</b></span>'
+                            + '</div>'
+                            + _obs_html
+                            + _fac_html
+                            + '</div></details>'
+                        )
+                    _hist_html += '</div>'
+                    st.markdown(_hist_html, unsafe_allow_html=True)
+
+                st.markdown(_titulo_op("plus", "Nuevo registro de compra"), unsafe_allow_html=True)
 
                 if _rol in ('root', 'admin'):
-                    _modo_admin_rc = st.toggle('&#128065;&#65039; Modo Admin (incluye Varios)', key=f'rc_modo_admin_{_rc_ep}')
+                    _modo_admin_rc = st.toggle('Modo Admin (incluye Varios)', key=f'rc_modo_admin_{_rc_ep}')
                     if not _modo_admin_rc:
                         _rc_prods = [p for p in _rc_prods if str(p.get('Categoria', '')).strip().lower() != 'varios']
                 else:
@@ -676,9 +807,13 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     _rc_es_admin = _rol in ('root', 'admin')
                     _rc_ya_comprados_json = json.dumps(list(_rc_items_comprados.keys()))
 
-                    # Tarjetas de categoría
+                    # Tarjetas de categoría — mosaico estilo PRESUPUESTO: orden por
+                    # valor DESCENDENTE (mayor a la izquierda), ancho proporcional al
+                    # subtotal. Además son filtros FUNCIONALES: clic filtra la tabla
+                    # del formulario (window.rcFilterCat, definido en build_rc_html).
                     _rc_cat_colors = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444',
-                                      '#06b6d4','#f97316','#84cc16','#ec4899','#6366f1']
+                                      '#06b6d4','#f97316','#84cc16','#ec4899','#6366f1',
+                                      '#14b8a6','#eab308','#dc2626','#7c3aed','#0ea5e9']
                     _rc_cats_seen = {}
                     for _rcp in _rc_prods:
                         _rcc = str(_rcp.get('Categoria', '')).strip()
@@ -689,23 +824,76 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                             _rc_cats_seen[_rcc]['subtotal'] += (
                                 float(_rcp.get('Cantidad', 1) or 1) * float(_rcp.get('Precio Unitario', 0) or 0)
                             )
-                    _rc_cards_divs = ''
-                    for _rci, (_rcc, _rcv) in enumerate(sorted(_rc_cats_seen.items())):
-                        _rccolor = _rc_cat_colors[_rci % len(_rc_cat_colors)]
-                        _rc_sub_fmt = f'${_rcv["subtotal"]:,.0f}'.replace(',', '.')
-                        _rc_cards_divs += (
-                            f'<div class="rc-cat-card" data-cat="{_rcc}" data-color="{_rccolor}" '
-                            f'style="background:#fff;border:1.5px solid {_rccolor}33;border-left:4px solid {_rccolor};'
-                            f'border-radius:8px;padding:8px 14px;min-width:140px;flex:1;cursor:pointer;">'
-                            f'<div style="font-size:11px;font-weight:700;color:{_rccolor};text-transform:uppercase;">'
-                            f'{_rcc}</div>'
-                            f'<div style="font-size:13px;font-weight:700;color:#0f172a;">{_rc_sub_fmt}</div>'
-                            f'<div style="font-size:10px;color:#64748b;">{_rcv["items"]} &#237;tems</div></div>'
-                        )
-                    _cats_cards_html = (
-                        '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">'
-                        + _rc_cards_divs + '</div>'
+
+                    def _rc_hex_rgba(_h, _a):
+                        _h = _h.lstrip('#')
+                        return f'rgba({int(_h[0:2],16)},{int(_h[2:4],16)},{int(_h[4:6],16)},{_a})'
+
+                    _rc_cats_data = []
+                    for _rci, (_rcc, _rcv) in enumerate(_rc_cats_seen.items()):
+                        _rc_cats_data.append({
+                            'cat': _rcc,
+                            'color': _rc_cat_colors[_rci % len(_rc_cat_colors)],
+                            'sub': f'${_rcv["subtotal"]:,.0f}'.replace(',', '.'),
+                            'subtotal_raw': float(_rcv['subtotal']),
+                            'items': int(_rcv['items']),
+                        })
+                    # Orden por valor desc → efecto mosaico
+                    _rc_sorted_m = sorted(_rc_cats_data, key=lambda x: x['subtotal_raw'], reverse=True)
+                    # 1 fila si ≤4 categorías; 2 filas balanceadas por peso visual (^0.3) si >4
+                    if len(_rc_sorted_m) <= 4:
+                        _rc_rows_m = [_rc_sorted_m]
+                    else:
+                        _rc_r1, _rc_r2, _rc_s1, _rc_s2 = [], [], 0.0, 0.0
+                        for _mc in _rc_sorted_m:
+                            _w = _mc['subtotal_raw'] ** 0.3
+                            if _rc_s1 <= _rc_s2:
+                                _rc_r1.append(_mc); _rc_s1 += _w
+                            else:
+                                _rc_r2.append(_mc); _rc_s2 += _w
+                        _rc_rows_m = [r for r in (_rc_r1, _rc_r2) if r]
+
+                    _rc_cards_css = (
+                        '<style>'
+                        '.rc-cats{display:flex;flex-direction:column;gap:5px;margin-bottom:8px;}'
+                        '.rc-mrow{display:flex;gap:5px;align-items:stretch;}'
+                        '.rc-cat-card{border-radius:7px;padding:7px 11px;min-width:118px;cursor:pointer;'
+                        'transition:background .13s,border .13s,opacity .13s;box-sizing:border-box;'
+                        'display:flex;flex-direction:column;align-items:flex-start;user-select:none;}'
+                        '.rc-cat-card:hover{opacity:.82;}'
+                        '.rc-cname{font-family:Montserrat,sans-serif;font-size:11px;font-weight:700;'
+                        'text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;white-space:nowrap;'
+                        'overflow:hidden;text-overflow:ellipsis;width:100%;}'
+                        '.rc-csub{font-family:Montserrat,sans-serif;font-size:13px;font-weight:800;color:#0f172a;'
+                        'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;}'
+                        '.rc-civa{font-family:Montserrat,sans-serif;font-size:9px;font-weight:400;color:#94a3b8;margin-left:4px;}'
+                        '.rc-cmeta{font-size:10px;color:#64748b;margin-top:3px;white-space:nowrap;'
+                        'overflow:hidden;text-overflow:ellipsis;width:100%;}'
+                        '</style>'
                     )
+                    _rc_cards_divs = '<div class="rc-cats">'
+                    for _row in _rc_rows_m:
+                        _row_max = max((c['subtotal_raw'] ** 0.3 for c in _row), default=1) or 1
+                        _rc_cards_divs += '<div class="rc-mrow">'
+                        for _c in _row:
+                            _col = _c['color']
+                            _brd = f'1.5px solid {_rc_hex_rgba(_col, 0.3)}'
+                            _grow = max(1, round((_c['subtotal_raw'] ** 0.3) / _row_max * 1000))
+                            _ni = _c['items']
+                            _meta = f"{_ni} {'ítem' if _ni == 1 else 'ítems'}"
+                            _dcat = _c['cat'].replace('"', '&quot;')
+                            _rc_cards_divs += (
+                                f'<div class="rc-cat-card" data-cat="{_dcat}" data-color="{_col}" '
+                                f'data-name="{_dcat}" onclick="window.rcFilterCat(this)" '
+                                f'style="background:#fff;border:{_brd};border-left:4px solid {_col};flex:{_grow} {_grow} 0;">'
+                                f'<div class="rc-cname" style="color:{_col};">{_c["cat"]}</div>'
+                                f'<div class="rc-csub">{_c["sub"]}<span class="rc-civa">s/IVA</span></div>'
+                                f'<div class="rc-cmeta">{_meta}</div>'
+                                f'</div>'
+                            )
+                        _rc_cards_divs += '</div>'
+                    _rc_cards_divs += '</div>'
+                    _cats_cards_html = _rc_cards_css + _rc_cards_divs
 
                     _rc_html = build_rc_html(
                         _rc_prods, _rc_cat_json, {},
@@ -717,10 +905,9 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         total_items_presupuesto=len(_rc_prods),
                         cats_cards_html=_cats_cards_html,
                     )
-                    import math as _math_rc
-                    _rc_n_cats = len(_rc_cats_seen)
-                    _rc_cats_rows = _math_rc.ceil(_rc_n_cats / 9) if _rc_n_cats else 1
-                    _rc_cards_extra = _rc_cats_rows * 84
+                    # Alto extra por las filas del mosaico de categorías (1 ó 2 filas)
+                    _rc_cats_rows = len(_rc_rows_m) if _rc_rows_m else 1
+                    _rc_cards_extra = _rc_cats_rows * 66 + 8
                     _rc_height = min(len(_rc_prods) * 37 + 580 + _rc_cards_extra, 1200)
                     _rc_items_hash = str(sorted(_rc_items_comprados.keys()))
                     components.html(_rc_html + f'<!-- {_rc_items_hash} -->', height=_rc_height, scrolling=False)
@@ -731,37 +918,40 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         _bal_da = {'Nombre Ejecutivo': _rc_row.get('asesor_nombre', '')}
                         _bal_prods = _rc_prods_raw
                         st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
-                        st.markdown("""
-                        <div style='background:linear-gradient(135deg,#1e2447 0%,#2a3060 100%);border-radius:12px 12px 0 0;padding:13px 18px 10px;'>
-                        <span style='font-family:Montserrat,sans-serif;font-weight:700;font-size:0.82rem;letter-spacing:0.06em;text-transform:uppercase;color:#fff;'>&#128202; Exportar Balance</span>
-                        </div>""", unsafe_allow_html=True)
+                        st.markdown(
+                            "<div style='background:linear-gradient(135deg,#1e2447 0%,#2a3060 100%);"
+                            "border-radius:12px 12px 0 0;padding:13px 18px 10px;display:flex;align-items:center;'>"
+                            + _ic_op("chart", color="#ffffff", size=16, mr=9)
+                            + "<span style='font-family:Montserrat,sans-serif;font-weight:700;font-size:0.82rem;"
+                            "letter-spacing:0.06em;text-transform:uppercase;color:#fff;'>Exportar Balance</span>"
+                            "</div>", unsafe_allow_html=True)
                         _bcol1, _bcol2, _bcol3 = st.columns(3)
                         with _bcol1:
-                            if st.button('&#11015;&#65039; PDF Balance', key=f'pdf_balance_{_rc_ep}', use_container_width=True):
+                            if st.button('PDF Balance', icon=":material/picture_as_pdf:", key=f'pdf_balance_{_rc_ep}', use_container_width=True):
                                 with st.spinner('Generando PDF...'):
                                     try:
                                         _bal_pdf = generar_pdf_balance(_rc_ep, _bal_dc, _bal_da, _rc_existentes, _bal_prods, incluir_varios=False)
-                                        st.download_button('&#128196; Descargar (sin Varios)', data=_bal_pdf,
+                                        st.download_button('Descargar (sin Varios)', icon=":material/download:", data=_bal_pdf,
                                             file_name=f'Balance_{_rc_ep}_sin_varios.pdf', mime='application/pdf',
                                             key=f'dl_balance_{_rc_ep}')
                                     except Exception as _e_bal:
                                         st.error(f'Error: {_e_bal}')
                         with _bcol2:
-                            if st.button('&#11015;&#65039; PDF Balance + Varios', key=f'pdf_balance_v_{_rc_ep}', use_container_width=True):
+                            if st.button('PDF Balance + Varios', icon=":material/picture_as_pdf:", key=f'pdf_balance_v_{_rc_ep}', use_container_width=True):
                                 with st.spinner('Generando PDF...'):
                                     try:
                                         _bal_pdf_v = generar_pdf_balance(_rc_ep, _bal_dc, _bal_da, _rc_existentes, _bal_prods, incluir_varios=True)
-                                        st.download_button('&#128196; Descargar (con Varios)', data=_bal_pdf_v,
+                                        st.download_button('Descargar (con Varios)', icon=":material/download:", data=_bal_pdf_v,
                                             file_name=f'Balance_{_rc_ep}_con_varios.pdf', mime='application/pdf',
                                             key=f'dl_balance_v_{_rc_ep}')
                                     except Exception as _e_bal_v:
                                         st.error(f'Error: {_e_bal_v}')
                         with _bcol3:
-                            if st.button('&#128202; Excel Precios', key=f'xls_balance_{_rc_ep}', use_container_width=True):
+                            if st.button('Excel Precios', icon=":material/table_view:", key=f'xls_balance_{_rc_ep}', use_container_width=True):
                                 with st.spinner('Generando Excel...'):
                                     try:
                                         _bal_xls = generar_excel_balance(_rc_ep, _rc_existentes, _bal_prods)
-                                        st.download_button('&#128202; Descargar Excel', data=_bal_xls,
+                                        st.download_button('Descargar Excel', icon=":material/download:", data=_bal_xls,
                                             file_name=f'Precios_Reales_{_rc_ep}.xlsx',
                                             mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                                             key=f'dl_xls_{_rc_ep}')
