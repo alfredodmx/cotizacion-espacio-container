@@ -679,7 +679,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
 
         try:
             _rc_resp = supa_admin.table('cotizaciones').select(
-                'numero,cliente_nombre,contrato_notariado_url,productos,estado,asesor_nombre'
+                'numero,cliente_nombre,contrato_notariado_url,productos,estado,asesor_nombre,acta_url'
             ).not_.is_('contrato_notariado_url', 'null').order('fecha_creacion', desc=True).execute()
             _rc_cots = [r for r in (_rc_resp.data or []) if r.get('contrato_notariado_url')]
         except Exception:
@@ -688,13 +688,61 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
         if not _rc_cots:
             st.info('No hay proyectos adjudicados a&#250;n.')
         else:
-            _rc_opts = {
-                f"{r['numero']} — {r.get('cliente_nombre') or 'S/C'} — {r.get('asesor_nombre') or '—'}": r
-                for r in _rc_cots
-            }
-            _rc_sel_label = st.selectbox('Seleccionar proyecto', list(_rc_opts.keys()), key='rc_sel_proyecto')
-            _rc_row = _rc_opts.get(_rc_sel_label, {})
-            _rc_ep  = _rc_row.get('numero', '')
+            # % de compras por proyecto para el dropdown: UNA sola query con todos
+            # los registros de los proyectos adjudicados (evita N consultas).
+            _eps_all = [r['numero'] for r in _rc_cots if r.get('numero')]
+            _regs_by_ep = {}
+            try:
+                if _eps_all:
+                    _rb_all = supa_admin.table('registro_compras').select(
+                        'cotizacion_numero,items').in_('cotizacion_numero', _eps_all).execute()
+                    for _rr in (_rb_all.data or []):
+                        _regs_by_ep.setdefault(_rr.get('cotizacion_numero'), []).append(_rr)
+            except Exception:
+                _regs_by_ep = {}
+
+            def _pct_proyecto(_r):
+                _pp = _r.get('productos') or []
+                if isinstance(_pp, str):
+                    try:
+                        _pp = json.loads(_pp)
+                    except Exception:
+                        _pp = []
+                _pp = [p for p in _pp if str(p.get('Categoria', '')).strip().lower() != 'varios']
+                _tot = len(_pp)
+                if _tot == 0:
+                    return None
+                _pn = {str(p.get('Item', '')) for p in _pp}
+                _comp = set()
+                for _reg in _regs_by_ep.get(_r.get('numero'), []):
+                    _its = _reg.get('items') or []
+                    if isinstance(_its, str):
+                        try:
+                            _its = json.loads(_its)
+                        except Exception:
+                            _its = []
+                    for _it in _its:
+                        _nm = str(_it.get('item', ''))
+                        if _nm in _pn and float(_it.get('precio_real', 0) or 0) > 0:
+                            _comp.add(_nm)
+                return round(len(_comp) / _tot * 100, 1)
+
+            def _label_proyecto(_r):
+                _term = bool(_r.get('acta_url'))
+                _dot  = '🟣' if _term else '🔵'
+                _est  = 'PROYECTO TERMINADO' if _term else 'ADJUDICADO'
+                _p    = _pct_proyecto(_r)
+                _ptxt = 'Sin productos' if _p is None else ('Sin compras' if _p == 0 else f'{_p}% comprado')
+                return (f"{_r.get('numero')} {_dot} {_est} — cliente: {_r.get('cliente_nombre') or 'S/C'}"
+                        f" — ejecutivo: {_r.get('asesor_nombre') or '—'} — {_ptxt}")
+
+            # Valor de la opción = EP (estable) → la selección no se pierde aunque el
+            # % cambie; la etiqueta enriquecida se arma en format_func.
+            _rc_by_ep   = {r['numero']: r for r in _rc_cots}
+            _rc_labels  = {r['numero']: _label_proyecto(r) for r in _rc_cots}
+            _rc_ep = st.selectbox('Seleccionar proyecto', list(_rc_by_ep.keys()),
+                                  format_func=lambda e: _rc_labels.get(e, e), key='rc_sel_proyecto')
+            _rc_row = _rc_by_ep.get(_rc_ep, {})
 
             if _rc_ep:
                 _rc_prods_raw = _rc_row.get('productos') or []
@@ -711,34 +759,6 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
 
                 _rc_existentes = _obtener_registros_rc(_rc_ep)
                 _modo_admin_rc = st.session_state.get(f'rc_modo_admin_{_rc_ep}', False) if _rol in ('root', 'admin') else False
-
-                # Tarjeta de estado del proyecto: ADJUDICADO (azul) + % de avance
-                # de registro de compras + barra de progreso.
-                try:
-                    _op_est_card = _calcular_estado_compras(_rc_ep, _rc_prods_raw)
-                except Exception:
-                    _op_est_card = {'pct': 0, 'comprados': 0, 'total': 0}
-                _op_pct  = int(_op_est_card.get('pct', 0) or 0)
-                _op_comp = int(_op_est_card.get('comprados', 0) or 0)
-                _op_tot  = int(_op_est_card.get('total', 0) or 0)
-                _pct_col = '#dc2626' if _op_pct < 34 else ('#eab308' if _op_pct < 100 else '#16a34a')
-                st.markdown(
-                    '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;'
-                    'background:#eff6ff;border:1px solid #bfdbfe;border-left:4px solid #2563eb;'
-                    'border-radius:10px;padding:11px 16px;margin:2px 0 14px 0;">'
-                    '<span style="display:inline-flex;align-items:center;background:#2563eb;color:#fff;'
-                    'font-family:Montserrat,sans-serif;font-weight:700;font-size:0.7rem;letter-spacing:.04em;'
-                    'padding:5px 13px;border-radius:99px;white-space:nowrap;">'
-                    + _ic_op('check', color='#ffffff', size=12, mr=6) + 'ADJUDICADO</span>'
-                    + f'<span style="font-size:0.8rem;color:#334155;white-space:nowrap;">Avance de compras: '
-                    f'<b style="color:{_pct_col};font-size:0.9rem;">{_op_pct}%</b> '
-                    f'<span style="color:#94a3b8;">({_op_comp}/{_op_tot} ítems)</span></span>'
-                    + '<span style="flex:1;min-width:120px;height:8px;background:#dbeafe;border-radius:99px;'
-                    'overflow:hidden;">'
-                    + f'<span style="display:block;height:100%;width:{min(_op_pct, 100)}%;'
-                    f'background:{_pct_col};border-radius:99px;"></span></span>'
-                    '</div>',
-                    unsafe_allow_html=True)
 
                 # Agregar adicionales de registros anteriores
                 _prods_sin_varios = [p for p in _rc_prods_raw if str(p.get('Categoria', '')).strip().lower() != 'varios']

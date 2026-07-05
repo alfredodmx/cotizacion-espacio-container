@@ -225,12 +225,11 @@ function renderFilters(){{
 }}
 function fit(){{
   try{{
-    var h=Math.ceil(document.documentElement.getBoundingClientRect().height)+2;
+    // scrollHeight = altura REAL del contenido (no recortada al iframe); usar
+    // getBoundingClientRect colapsaría el iframe (círculo viewport->altura).
+    var h=Math.max(document.body.scrollHeight, document.documentElement.scrollHeight, 120)+2;
     var fe=window.frameElement;
-    if(!fe)return;
-    fe.style.height=h+"px";fe.setAttribute("height",h);
-    var p=fe.parentElement,n=0;
-    while(p&&n<3){{try{{p.style.height="auto";p.style.maxHeight="none";}}catch(e){{}}p=p.parentElement;n++;}}
+    if(fe){{fe.style.height=h+"px";fe.setAttribute("height",h);}}
   }}catch(e){{}}
 }}
 function render(){{
