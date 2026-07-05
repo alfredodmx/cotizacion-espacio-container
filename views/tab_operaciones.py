@@ -102,6 +102,16 @@ def _titulo_op(icon, texto, color_ic="#0f172a"):
     )
 
 
+def _norm_prov_key(s):
+    """Clave para agrupar variantes del MISMO proveedor: minúsculas + espacios
+    colapsados + letras dobles colapsadas (Rener↔RENNER) + 's' final (plural)
+    colapsada (servicontainer↔servicontainers)."""
+    s = re.sub(r'\s+', ' ', str(s).strip().lower())
+    s = re.sub(r'(.)\1+', r'\1', s)
+    s = re.sub(r's$', '', s)
+    return s
+
+
 def _fmt_clp(v):
     return "${:,.0f}".format(v or 0).replace(",", ".")
 
@@ -713,7 +723,8 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
             # los registros de los proyectos adjudicados (evita N consultas).
             _eps_all = [r['numero'] for r in _rc_cots if r.get('numero')]
             _regs_by_ep = {}
-            _proveedores = []   # lugar_compra distintos → autocompletar "¿Dónde compraste?"
+            _proveedores = []        # canónicas (MAYÚSCULAS) → autocompletar
+            _prov_canon_by_key = {}  # clave normalizada → canónica (para el historial)
             try:
                 if _eps_all:
                     _rb_all = supa_admin.table('registro_compras').select(
@@ -724,32 +735,21 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         _lg = str(_rr.get('lugar_compra', '') or '').strip()
                         if _lg:
                             _prov_counts[_lg] = _prov_counts.get(_lg, 0) + 1
-                    # Unificar variantes del mismo proveedor: agrupar por clave
-                    # normalizada (minúsculas + espacios colapsados + letras dobles
-                    # colapsadas, p.ej. RENNER/renner/Rener → "rener") y mostrar una
-                    # sola variante canónica por grupo (la más usada; desempate por
-                    # más mayúsculas, luego más larga).
-                    def _prov_key(_s):
-                        _s = re.sub(r'\s+', ' ', _s.strip().lower())
-                        _s = re.sub(r'(.)\1+', r'\1', _s)   # colapsar letras dobles (Rener↔RENNER)
-                        _s = re.sub(r's$', '', _s)          # colapsar plural (servicontainer↔servicontainers)
-                        return _s
+                    # Agrupar variantes del mismo proveedor y elegir una canónica por
+                    # grupo: la más usada; empate → la más larga (plural). MAYÚSCULAS.
                     _prov_groups = {}
                     for _v, _c in _prov_counts.items():
-                        _prov_groups.setdefault(_prov_key(_v), {})[_v] = _c
-                    _proveedores = []
-                    for _grp in _prov_groups.values():
-                        # canónica: la más usada; desempate por más larga (plural) y
-                        # luego alfabética. Se muestra TODO en MAYÚSCULAS.
-                        _canon = sorted(
+                        _prov_groups.setdefault(_norm_prov_key(_v), {})[_v] = _c
+                    for _k, _grp in _prov_groups.items():
+                        _prov_canon_by_key[_k] = sorted(
                             _grp.items(),
                             key=lambda kv: (-kv[1], -len(kv[0]), kv[0].lower())
-                        )[0][0]
-                        _proveedores.append(_canon.upper())
-                    _proveedores = sorted(set(_proveedores))
+                        )[0][0].upper()
+                    _proveedores = sorted(set(_prov_canon_by_key.values()))
             except Exception:
                 _regs_by_ep = {}
                 _proveedores = []
+                _prov_canon_by_key = {}
 
             def _pct_proyecto(_r):
                 _pp = _r.get('productos') or []
@@ -1055,9 +1055,15 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                             _tipo_lbl, _tipo_bg, _tipo_fg = 'Adicional con registro', '#ffedd5', '#c2410c'
                         else:
                             _tipo_lbl, _tipo_bg, _tipo_fg = 'Normal', '#dcfce7', '#15803d'
+                        # Nombre del proveedor unificado (canónico, mayúsculas) para
+                        # que el historial quede uniforme; el input de edición también
+                        # se pre-llena con esta forma → normaliza al guardar.
+                        _lugar_raw = str(_rce.get('lugar_compra', '') or '').strip()
+                        _lugar_canon = (_prov_canon_by_key.get(_norm_prov_key(_lugar_raw), _lugar_raw)
+                                        if _lugar_raw else 'Compra sin lugar')
                         _regs_data.append({
                             'id':          _rce.get('id'),
-                            'lugar':       _rce.get('lugar_compra', '') or 'Compra sin lugar',
+                            'lugar':       _lugar_canon,
                             'obs':         _rce.get('observaciones', '') or '',
                             'fent':        _rce.get('fecha_entrega_compra', '') or '',
                             'tipo':        (str(_rce.get('tipo_compra', '') or '').capitalize() or '—'),
