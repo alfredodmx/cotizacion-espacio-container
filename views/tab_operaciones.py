@@ -986,52 +986,6 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     _rc_items_hash = str(sorted(_rc_items_comprados.keys()))
                     components.html(_rc_html + f'<!-- {_rc_items_hash} -->', height=_rc_height, scrolling=False)
 
-                    # Balance export (solo admin/root)
-                    if _rol in ('root', 'admin') and _rc_existentes and _OPER_OK:
-                        _bal_dc = {'Nombre': _rc_row.get('cliente_nombre', ''), 'RUT': _rc_row.get('cliente_rut', '')}
-                        _bal_da = {'Nombre Ejecutivo': _rc_row.get('asesor_nombre', '')}
-                        _bal_prods = _rc_prods_raw
-                        st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
-                        st.markdown(
-                            "<div style='background:linear-gradient(135deg,#1e2447 0%,#2a3060 100%);"
-                            "border-radius:12px 12px 0 0;padding:13px 18px 10px;display:flex;align-items:center;'>"
-                            + _ic_op("chart", color="#ffffff", size=16, mr=9)
-                            + "<span style='font-family:Montserrat,sans-serif;font-weight:700;font-size:0.82rem;"
-                            "letter-spacing:0.06em;text-transform:uppercase;color:#fff;'>Exportar Balance</span>"
-                            "</div>", unsafe_allow_html=True)
-                        _bcol1, _bcol2, _bcol3 = st.columns(3)
-                        with _bcol1:
-                            if st.button('PDF Balance', icon=":material/picture_as_pdf:", key=f'pdf_balance_{_rc_ep}', use_container_width=True):
-                                with st.spinner('Generando PDF...'):
-                                    try:
-                                        _bal_pdf = generar_pdf_balance(_rc_ep, _bal_dc, _bal_da, _rc_existentes, _bal_prods, incluir_varios=False)
-                                        st.download_button('Descargar (sin Varios)', icon=":material/download:", data=_bal_pdf,
-                                            file_name=f'Balance_{_rc_ep}_sin_varios.pdf', mime='application/pdf',
-                                            key=f'dl_balance_{_rc_ep}')
-                                    except Exception as _e_bal:
-                                        st.error(f'Error: {_e_bal}')
-                        with _bcol2:
-                            if st.button('PDF Balance + Varios', icon=":material/picture_as_pdf:", key=f'pdf_balance_v_{_rc_ep}', use_container_width=True):
-                                with st.spinner('Generando PDF...'):
-                                    try:
-                                        _bal_pdf_v = generar_pdf_balance(_rc_ep, _bal_dc, _bal_da, _rc_existentes, _bal_prods, incluir_varios=True)
-                                        st.download_button('Descargar (con Varios)', icon=":material/download:", data=_bal_pdf_v,
-                                            file_name=f'Balance_{_rc_ep}_con_varios.pdf', mime='application/pdf',
-                                            key=f'dl_balance_v_{_rc_ep}')
-                                    except Exception as _e_bal_v:
-                                        st.error(f'Error: {_e_bal_v}')
-                        with _bcol3:
-                            if st.button('Excel Precios', icon=":material/table_view:", key=f'xls_balance_{_rc_ep}', use_container_width=True):
-                                with st.spinner('Generando Excel...'):
-                                    try:
-                                        _bal_xls = generar_excel_balance(_rc_ep, _rc_existentes, _bal_prods)
-                                        st.download_button('Descargar Excel', icon=":material/download:", data=_bal_xls,
-                                            file_name=f'Precios_Reales_{_rc_ep}.xlsx',
-                                            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                                            key=f'dl_xls_{_rc_ep}')
-                                    except Exception as _e_xls:
-                                        st.error(f'Error: {_e_xls}')
-
                 if _rc_existentes:
                     st.markdown(_titulo_op("history", "Historial de compras"), unsafe_allow_html=True)
                     _mut_err = st.session_state.pop('_rc_mut_error', None)
@@ -1167,6 +1121,63 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         st.markdown(_titulo_op("store", "Compras por proveedor (precio real)"),
                                     unsafe_allow_html=True)
                         components.html(build_proveedores_html(_provs), height=_pv_h, scrolling=False)
+
+                    # ── Exportar Balance (admin/root) — al final, bajo proveedores ──
+                    if _rol in ('root', 'admin') and _OPER_OK:
+                        _bal_dc = {'Nombre': _rc_row.get('cliente_nombre', ''), 'RUT': _rc_row.get('cliente_rut', '')}
+                        _bal_da = {'Nombre Ejecutivo': _rc_row.get('asesor_nombre', '')}
+                        _bal_prods = _rc_prods_raw
+                        st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
+                        st.markdown(_titulo_op("chart", "Exportar Balance"), unsafe_allow_html=True)
+                        _ekeys = [f".st-key-pdf_balance_{_rc_ep}", f".st-key-pdf_balance_v_{_rc_ep}",
+                                  f".st-key-xls_balance_{_rc_ep}"]
+                        st.markdown(
+                            "<style>"
+                            + ",".join(_k + " button" for _k in _ekeys)
+                            + "{border:1.5px solid #e2e8f0 !important;border-radius:11px !important;"
+                            "padding:16px 12px !important;font-weight:700 !important;color:#334155 !important;"
+                            "box-shadow:0 1px 3px rgba(15,23,42,0.05) !important;transition:all .15s ease !important;}"
+                            + ",".join(_k + " button:hover" for _k in _ekeys)
+                            + "{border-color:#5b7cfa !important;color:#5b7cfa !important;"
+                            "box-shadow:0 8px 18px rgba(91,124,250,0.18) !important;transform:translateY(-2px);}"
+                            "</style>", unsafe_allow_html=True)
+                        st.markdown(
+                            '<div style="font-size:0.78rem;color:#64748b;margin:0 0 10px 2px;">'
+                            'Descarga el balance de compras del proyecto (presupuestado vs. precio real).'
+                            '</div>', unsafe_allow_html=True)
+                        _bcol1, _bcol2, _bcol3 = st.columns(3)
+                        with _bcol1:
+                            if st.button('PDF Balance', icon=":material/picture_as_pdf:", key=f'pdf_balance_{_rc_ep}', use_container_width=True):
+                                with st.spinner('Generando PDF...'):
+                                    try:
+                                        _bal_pdf = generar_pdf_balance(_rc_ep, _bal_dc, _bal_da, _rc_existentes, _bal_prods, incluir_varios=False)
+                                        st.download_button('Descargar (sin Varios)', icon=":material/download:", data=_bal_pdf,
+                                            file_name=f'Balance_{_rc_ep}_sin_varios.pdf', mime='application/pdf',
+                                            key=f'dl_balance_{_rc_ep}')
+                                    except Exception as _e_bal:
+                                        st.error(f'Error: {_e_bal}')
+                        with _bcol2:
+                            if st.button('PDF Balance + Varios', icon=":material/picture_as_pdf:", key=f'pdf_balance_v_{_rc_ep}', use_container_width=True):
+                                with st.spinner('Generando PDF...'):
+                                    try:
+                                        _bal_pdf_v = generar_pdf_balance(_rc_ep, _bal_dc, _bal_da, _rc_existentes, _bal_prods, incluir_varios=True)
+                                        st.download_button('Descargar (con Varios)', icon=":material/download:", data=_bal_pdf_v,
+                                            file_name=f'Balance_{_rc_ep}_con_varios.pdf', mime='application/pdf',
+                                            key=f'dl_balance_v_{_rc_ep}')
+                                    except Exception as _e_bal_v:
+                                        st.error(f'Error: {_e_bal_v}')
+                        with _bcol3:
+                            if st.button('Excel Precios', icon=":material/table_view:", key=f'xls_balance_{_rc_ep}', use_container_width=True):
+                                with st.spinner('Generando Excel...'):
+                                    try:
+                                        _bal_xls = generar_excel_balance(_rc_ep, _rc_existentes, _bal_prods)
+                                        st.download_button('Descargar Excel', icon=":material/download:", data=_bal_xls,
+                                            file_name=f'Precios_Reales_{_rc_ep}.xlsx',
+                                            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                            key=f'dl_xls_{_rc_ep}')
+                                    except Exception as _e_xls:
+                                        st.error(f'Error: {_e_xls}')
+
 
     # ================================================================
     # SUB-PESTAÑA: ACTA DE CLIENTES
