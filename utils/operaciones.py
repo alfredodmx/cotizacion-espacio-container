@@ -369,6 +369,12 @@ html,body{{margin:0;padding:0;font-family:Montserrat,'Segoe UI',sans-serif;backg
 .pv-facpdf{{width:100%;height:560px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;}}
 .pv-faclink{{display:inline-flex;align-items:center;gap:2px;padding:7px 14px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:8px;text-decoration:none;font-size:0.78rem;font-weight:600;}}
 .pv-nofac{{display:inline-flex;align-items:center;color:#94a3b8;font-size:0.78rem;}}
+.pv-pdfbox{{width:100%;height:600px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;background:#525659;position:relative;}}
+.pv-pdfload{{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#f0f2f5;color:#64748b;font-size:0.85rem;z-index:2;}}
+.pv-spin{{width:34px;height:34px;border:4px solid #cbd5e1;border-top-color:#5b7cfa;border-radius:50%;animation:pvspin .8s linear infinite;}}
+@keyframes pvspin{{from{{transform:rotate(0)}}to{{transform:rotate(360deg)}}}}
+.pv-pdfpages{{padding:10px 0;text-align:center;}}
+.pv-pdfpages canvas{{display:block;margin:0 auto 10px;max-width:97%;box-shadow:0 2px 10px rgba(0,0,0,.4);background:#fff;}}
 </style>
 <div id="pv-wrap"></div>
 <script>
@@ -379,13 +385,39 @@ function esc(s){{return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,
 function hexa(h,a){{h=h.replace('#','');return 'rgba('+parseInt(h.substr(0,2),16)+','+parseInt(h.substr(2,2),16)+','+parseInt(h.substr(4,2),16)+','+a+')';}}
 function fit(){{try{{var h=Math.max(document.body.scrollHeight,60)+2;var fe=window.frameElement;if(fe){{fe.style.height=h+"px";fe.setAttribute("height",h);}}}}catch(e){{}}}}
 window.pvSel=function(i){{sel=(sel===i?-1:i);facOpen={{}};render();}};
-window.pvFac=function(i,j){{var k=i+"-"+j;facOpen[k]=!facOpen[k];render();}};
+window.pvFac=function(i,j){{var k=i+"-"+j;var was=!!facOpen[k];facOpen={{}};if(!was)facOpen[k]=true;render();}};
 function facPrev(c){{
   if(!c.factura_url)return '<div class="pv-nofac">'+IC.file+'Sin factura adjunta</div>';
   var link='<a class="pv-faclink" href="'+esc(c.factura_url)+'" target="_blank" rel="noopener noreferrer">'+IC.file+'<span>Abrir factura en pestaña nueva ↗</span></a>';
-  var prev=c.is_img?('<img class="pv-facimg" src="'+esc(c.factura_url)+'" loading="lazy"/>'):('<iframe class="pv-facpdf" src="'+esc(c.factura_url)+'"></iframe>');
+  // Imagen: <img> directo. PDF: canvas via PDF.js (el <iframe src=pdf> lo bloquean
+  // Brave/Safari cross-origin; PDF.js dibuja en canvas y funciona en todos).
+  var prev=c.is_img
+    ?('<img class="pv-facimg" src="'+esc(c.factura_url)+'" loading="lazy"/>')
+    :('<div class="pv-pdfbox" data-pdfurl="'+esc(c.factura_url)+'"><div class="pv-pdfload"><div class="pv-spin"></div><span>Cargando PDF…</span></div><div class="pv-pdfpages"></div></div>');
   return '<div class="pv-facbox">'+prev+link+'</div>';
 }}
+window.renderPdfs=function(){{
+  if(typeof pdfjsLib==="undefined")return;  // se re-invoca al cargar pdf.js
+  pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  document.querySelectorAll(".pv-pdfbox[data-pdfurl]").forEach(function(box){{
+    if(box.getAttribute("data-done"))return;
+    box.setAttribute("data-done","1");
+    var url=box.getAttribute("data-pdfurl");
+    var pages=box.querySelector(".pv-pdfpages");
+    var load=box.querySelector(".pv-pdfload");
+    pdfjsLib.getDocument({{url:url,withCredentials:false}}).promise.then(function(pdf){{
+      var seq=Promise.resolve();var first=true;
+      for(var i=1;i<=pdf.numPages;i++){{(function(num){{
+        seq=seq.then(function(){{return pdf.getPage(num).then(function(page){{
+          var vp=page.getViewport({{scale:1.5}});
+          var cv=document.createElement("canvas");var ctx=cv.getContext("2d");
+          cv.width=vp.width;cv.height=vp.height;pages.appendChild(cv);
+          return page.render({{canvasContext:ctx,viewport:vp}}).promise.then(function(){{if(first){{first=false;if(load)load.style.display="none";fit();}}}});
+        }});}});
+      }})(i);}}
+    }}).catch(function(){{if(load)load.innerHTML='<span style="color:#dc2626;font-size:0.8rem;padding:0 16px;text-align:center;">No se pudo mostrar el PDF. Ábrelo en pestaña nueva.</span>';}});
+  }});
+}};
 function render(){{
   var wrap=document.getElementById("pv-wrap");
   var n=PROVS.length;
@@ -425,13 +457,15 @@ function render(){{
     html+='</div>';
   }}
   wrap.innerHTML=html;
+  renderPdfs();
   fit();
 }}
 render();
 window.addEventListener("load",fit);
 try{{new ResizeObserver(function(){{fit();}}).observe(document.body);}}catch(e){{}}
 setTimeout(fit,60);setTimeout(fit,350);
-</script>"""
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" onload="window.renderPdfs&&window.renderPdfs()" onerror="document.querySelectorAll('.pv-pdfload').forEach(function(l){{l.innerHTML='<span style=\\'color:#dc2626;font-size:0.8rem;\\'>No se pudo cargar el visor PDF. Ábrelo en pestaña nueva.</span>';}})"></script>"""
 
 
 # ── CÁLCULO DE TOTALES ────────────────────────────────────────────────────────
