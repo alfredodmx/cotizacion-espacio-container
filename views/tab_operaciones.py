@@ -34,7 +34,6 @@ try:
     from utils.operaciones import (
         build_rc_html,
         build_historial_rc_html,
-        build_proveedores_html,
         calcular_totales_rc,
         generar_pdf_balance,
         generar_excel_balance,
@@ -1030,6 +1029,11 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         _lugar_raw = str(_rce.get('lugar_compra', '') or '').strip()
                         _lugar_canon = (_prov_canon_by_key.get(_norm_prov_key(_lugar_raw), _lugar_raw)
                                         if _lugar_raw else 'Compra sin lugar')
+                        _furl_h = (_rce.get('factura_url') or '').strip()
+                        _fnom_h = (_rce.get('factura_nombre') or '').strip() or 'Factura'
+                        _ext_h = _fnom_h.lower().rsplit('.', 1)[-1] if '.' in _fnom_h else ''
+                        if _ext_h not in ('jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'pdf') and '.' in _furl_h:
+                            _ext_h = _furl_h.split('?')[0].lower().rsplit('.', 1)[-1]
                         _regs_data.append({
                             'id':          _rce.get('id'),
                             'lugar':       _lugar_canon,
@@ -1044,8 +1048,9 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                             'balance':     float(_rce.get('balance', 0) or 0),
                             'tp':          float(_rce.get('total_presupuestado', 0) or 0),
                             'tr':          float(_rce.get('total_real', 0) or 0),
-                            'factura_url': (_rce.get('factura_url') or '').strip(),
-                            'factura_nom': (_rce.get('factura_nombre') or '').strip() or 'Factura',
+                            'factura_url': _furl_h,
+                            'factura_nom': _fnom_h,
+                            'is_img':      _ext_h in ('jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'),
                             'items': [{
                                 'cat':  str(_it.get('categoria', '')),
                                 'item': str(_it.get('item', '')),
@@ -1061,66 +1066,15 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     # iframe se auto-ajusta (fit por body.scrollHeight + ResizeObserver)
                     # al expandir/contraer, así que no deja huecos ni scroll interno;
                     # este valor es solo el punto de partida / fallback.
+                    # +300 aprox. para el título + cards de proveedor (van dentro
+                    # del mismo iframe); el auto-fit ajusta el valor real.
                     _n_reg = len(_regs_data)
-                    _hist_h = min(150 + _n_reg * 62, 2600)
+                    _hist_h = min(150 + _n_reg * 62 + 300, 3200)
                     if _OPER_OK:
                         components.html(build_historial_rc_html(
                             _regs_data, _rc_ep,
                             supa_url=SUPABASE_URL, supa_key=SUPABASE_KEY),
                             height=_hist_h, scrolling=True)
-
-                    # ── Cards por proveedor (TOTAL REAL, mayor→menor) con DRILL-DOWN:
-                    # clic en una card → sus compras (fecha/monto/responsable);
-                    # clic en una compra → su factura. Iframe autoajustable. ──
-                    _prov_agg = {}
-                    for _rce2 in _rc_existentes:
-                        _lg2 = str(_rce2.get('lugar_compra', '') or '').strip()
-                        if not _lg2:
-                            continue
-                        _cn2 = _prov_canon_by_key.get(_norm_prov_key(_lg2), _lg2)
-                        _d2 = _prov_agg.setdefault(_cn2, {'total': 0.0, 'n': 0, 'compras': []})
-                        _tr2 = float(_rce2.get('total_real', 0) or 0)
-                        _d2['total'] += _tr2
-                        _d2['n'] += 1
-                        _fr2 = _rce2.get('fecha_registro', '') or ''
-                        try:
-                            _fx2 = datetime.fromisoformat(
-                                _fr2.replace('Z', '+00:00')).astimezone(_tz_cl).strftime('%d/%m/%Y %H:%M')
-                        except Exception:
-                            _fx2 = str(_fr2)[:10]
-                        _furl2 = (_rce2.get('factura_url') or '').strip()
-                        _fnom2 = (_rce2.get('factura_nombre') or '').strip() or 'Factura'
-                        _ext2 = _fnom2.lower().rsplit('.', 1)[-1] if '.' in _fnom2 else ''
-                        if _ext2 not in ('jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'pdf') and '.' in _furl2:
-                            _ext2 = _furl2.split('?')[0].lower().rsplit('.', 1)[-1]
-                        _d2['compras'].append({
-                            'fecha': _fx2,
-                            'monto': f"${_tr2:,.0f}".replace(',', '.'),
-                            'responsable': _rce2.get('usuario_registro', '') or '—',
-                            'factura_url': _furl2,
-                            'factura_nom': _fnom2,
-                            'is_img': _ext2 in ('jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'),
-                        })
-                    if _prov_agg and _OPER_OK:
-                        _pv_colors = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444',
-                                      '#06b6d4','#f97316','#84cc16','#ec4899','#6366f1',
-                                      '#14b8a6','#eab308','#dc2626','#7c3aed','#0ea5e9']
-                        _pv_sorted = sorted(_prov_agg.items(), key=lambda kv: kv[1]['total'], reverse=True)
-                        _provs = [{
-                            'name': _pn2,
-                            'color': _pv_colors[_pi % len(_pv_colors)],
-                            'total': _pv2['total'],
-                            'total_fmt': f"${_pv2['total']:,.0f}".replace(',', '.'),
-                            'n': _pv2['n'],
-                            'compras': _pv2['compras'],
-                        } for _pi, (_pn2, _pv2) in enumerate(_pv_sorted)]
-                        _pv_n = len(_provs)
-                        _pv_nrows = 1 if _pv_n <= 4 else (2 if _pv_n <= 10 else 3)
-                        _pv_h = min(_pv_nrows * 92 + 60, 1600)
-                        st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
-                        st.markdown(_titulo_op("store", "Compras por proveedor (precio real)"),
-                                    unsafe_allow_html=True)
-                        components.html(build_proveedores_html(_provs), height=_pv_h, scrolling=False)
 
                     # ── Exportar Balance (admin/root) — al final, bajo proveedores ──
                     if _rol in ('root', 'admin') and _OPER_OK:

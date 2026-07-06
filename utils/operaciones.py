@@ -127,14 +127,54 @@ tr.rm-on td{{background:#fef2f2 !important;text-decoration:line-through;color:#b
 .hc-fbadge{{display:inline-flex;align-items:center;font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.02em;padding:5px 12px;border-radius:99px;border:1.5px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;transition:all .12s;white-space:nowrap;}}
 .hc-fbadge:hover{{border-color:#cbd5e1;background:#f8fafc;}}
 .hc-fbadge.active{{border-color:#1e2447;background:#1e2447;color:#fff;}}
+/* ── Cards por proveedor (drill-down) — dentro del mismo iframe para que los
+   filtros del historial también las re-agreguen ── */
+.pv-title{{display:flex;align-items:center;font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:20px 0 12px;}}
+.pv-cards{{display:flex;flex-direction:column;gap:6px;}}
+.pv-row{{display:flex;gap:6px;align-items:stretch;}}
+.pv-card{{border-radius:9px;padding:10px 13px;min-width:128px;box-sizing:border-box;display:flex;flex-direction:column;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,0.05);cursor:pointer;position:relative;transition:box-shadow .16s,transform .16s,opacity .16s,filter .16s;}}
+.pv-card:hover{{box-shadow:0 3px 10px rgba(15,23,42,0.13);}}
+.pv-card.sel{{transform:scale(1.045);box-shadow:0 10px 26px rgba(37,99,235,0.30);z-index:3;}}
+.pv-cards.has-sel .pv-card:not(.sel){{opacity:.38;filter:saturate(.7);}}
+.pv-cards.has-sel .pv-card:not(.sel):hover{{opacity:.7;}}
+.pv-name{{font-family:Montserrat,sans-serif;font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;}}
+.pv-total{{font-family:Montserrat,sans-serif;font-size:1rem;font-weight:800;color:#0f172a;}}
+.pv-meta{{font-size:0.66rem;color:#64748b;margin-top:2px;display:flex;align-items:center;justify-content:space-between;gap:6px;}}
+.pv-mchev{{transition:transform .2s;}}
+.pv-card.sel .pv-mchev{{transform:rotate(180deg);}}
+.pv-detail{{margin-top:10px;border:1px solid #e2e8f0;border-radius:11px;overflow:hidden;background:#fff;box-shadow:0 2px 10px rgba(15,23,42,0.07);}}
+.pv-dhdr{{display:flex;align-items:center;padding:11px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-family:Montserrat,sans-serif;font-weight:700;font-size:0.8rem;color:#0f172a;}}
+.pv-compra{{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;padding:11px 14px;border-bottom:1px solid #eef2f7;cursor:pointer;font-size:0.8rem;}}
+.pv-compra:last-child{{border-bottom:none;}}
+.pv-compra:hover{{background:#f8fafc;}}
+.pv-cfecha{{display:inline-flex;align-items:center;color:#475569;white-space:nowrap;}}
+.pv-cresp{{display:inline-flex;align-items:center;color:#475569;flex:1;min-width:120px;}}
+.pv-cmonto{{font-weight:800;color:#0f172a;font-family:Montserrat,sans-serif;white-space:nowrap;}}
+.pv-cchev{{color:#94a3b8;transition:transform .2s;flex-shrink:0;}}
+.pv-compra.open .pv-cchev{{transform:rotate(180deg);}}
+.pv-compra.open{{background:#eff6ff;}}
+.pv-facwrap{{padding:12px 14px;background:#f8fafc;border-bottom:1px solid #eef2f7;}}
+.pv-facbox{{display:flex;flex-direction:column;gap:9px;align-items:flex-start;}}
+.pv-facimg{{max-width:100%;max-height:640px;border-radius:8px;border:1px solid #e2e8f0;}}
+.pv-faclink{{display:inline-flex;align-items:center;gap:2px;padding:7px 14px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:8px;text-decoration:none;font-size:0.78rem;font-weight:600;}}
+.pv-nofac{{display:inline-flex;align-items:center;color:#94a3b8;font-size:0.78rem;}}
+.pv-pdfbox{{width:100%;height:600px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;background:#525659;position:relative;}}
+.pv-pdfload{{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#f0f2f5;color:#64748b;font-size:0.85rem;z-index:2;}}
+.pv-spin{{width:34px;height:34px;border:4px solid #cbd5e1;border-top-color:#5b7cfa;border-radius:50%;animation:pvspin .8s linear infinite;}}
+@keyframes pvspin{{from{{transform:rotate(0)}}to{{transform:rotate(360deg)}}}}
+.pv-pdfpages{{padding:10px 0;text-align:center;}}
+.pv-pdfpages canvas{{display:block;margin:0 auto 10px;max-width:97%;box-shadow:0 2px 10px rgba(0,0,0,.4);background:#fff;}}
 </style>
 <div class="hc-filters" id="hc-filters"></div>
 <div class="hc-wrap" id="hc-wrap"></div>
+<div id="pv-section"></div>
 <script>
 var REGS={regs_json};
 var IC={{store:'{IC_STORE}',cal:'{IC_CAL}',user:'{IC_USER}',cart:'{IC_CART}',file:'{IC_FILE}',edit:'{IC_EDIT}',trash:'{IC_TRASH}',save:'{IC_SAVE}',x:'{IC_X}',chev:'{IC_CHEV}',up:'{IC_UP}',down:'{IC_DOWN}',alert:'{IC_ALERT}',clip:'{IC_CLIP}'}};
 var EP="{ep}";var SUPA_URL="{supa_url}";var SUPA_KEY="{supa_key}";
 var editing=-1, confirming=-1, confirmStep=0, _facFile=null, fTipo="", fResp="", fProv="";
+var pvSel=-1, pvFacOpen={{}}, PROVS_F=[];
+var PVCOLORS=["#3b82f6","#10b981","#f59e0b","#8b5cf6","#ef4444","#06b6d4","#f97316","#84cc16","#ec4899","#6366f1","#14b8a6","#eab308","#dc2626","#7c3aed","#0ea5e9"];
 function f(n){{return "$"+Math.round(Math.abs(+n||0)).toLocaleString("de-DE");}}
 function esc(s){{return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}}
 function nav(param,val){{
@@ -145,7 +185,78 @@ function nav(param,val){{
 }}
 window.hcEdit=function(i){{_facFile=null;editing=(editing===i?-1:i);confirming=-1;render();}};
 window.hcCancel=function(){{_facFile=null;editing=-1;render();}};
-window.hcFilter=function(dim,val){{if(dim==="tipo")fTipo=val;else if(dim==="resp")fResp=val;else if(dim==="prov")fProv=val;editing=-1;confirming=-1;_facFile=null;render();}};
+window.hcFilter=function(dim,val){{if(dim==="tipo")fTipo=val;else if(dim==="resp")fResp=val;else if(dim==="prov")fProv=val;editing=-1;confirming=-1;_facFile=null;pvSel=-1;pvFacOpen={{}};render();}};
+window.pvSelFn=function(i){{pvSel=(pvSel===i?-1:i);pvFacOpen={{}};render();}};
+window.pvFacFn=function(i,j){{var k=i+"-"+j;var was=!!pvFacOpen[k];pvFacOpen={{}};if(!was)pvFacOpen[k]=true;render();}};
+function pvHexa(h,a){{h=h.replace("#","");return "rgba("+parseInt(h.substr(0,2),16)+","+parseInt(h.substr(2,2),16)+","+parseInt(h.substr(4,2),16)+","+a+")";}}
+function pvFacPrev(c){{
+  if(!c.factura_url)return '<div class="pv-nofac">'+IC.file+'Sin factura adjunta</div>';
+  var link='<a class="pv-faclink" href="'+esc(c.factura_url)+'" target="_blank" rel="noopener noreferrer">'+IC.file+'<span>Abrir factura en pestaña nueva ↗</span></a>';
+  var prev=c.is_img?('<img class="pv-facimg" src="'+esc(c.factura_url)+'" loading="lazy"/>'):('<div class="pv-pdfbox" data-pdfurl="'+esc(c.factura_url)+'"><div class="pv-pdfload"><div class="pv-spin"></div><span>Cargando PDF…</span></div><div class="pv-pdfpages"></div></div>');
+  return '<div class="pv-facbox">'+prev+link+'</div>';
+}}
+window.renderPdfs=function(){{
+  if(typeof pdfjsLib==="undefined")return;
+  pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  document.querySelectorAll(".pv-pdfbox[data-pdfurl]").forEach(function(box){{
+    if(box.getAttribute("data-done"))return;
+    box.setAttribute("data-done","1");
+    var pages=box.querySelector(".pv-pdfpages"),load=box.querySelector(".pv-pdfload");
+    pdfjsLib.getDocument({{url:box.getAttribute("data-pdfurl"),withCredentials:false}}).promise.then(function(pdf){{
+      var seq=Promise.resolve(),first=true;
+      for(var i=1;i<=pdf.numPages;i++){{(function(num){{
+        seq=seq.then(function(){{return pdf.getPage(num).then(function(page){{
+          var vp=page.getViewport({{scale:1.5}});var cv=document.createElement("canvas");var ctx=cv.getContext("2d");
+          cv.width=vp.width;cv.height=vp.height;pages.appendChild(cv);
+          return page.render({{canvasContext:ctx,viewport:vp}}).promise.then(function(){{if(first){{first=false;if(load)load.style.display="none";fit();}}}});
+        }});}});
+      }})(i);}}
+    }}).catch(function(){{if(load)load.innerHTML='<span style="color:#dc2626;font-size:0.8rem;padding:0 16px;text-align:center;">No se pudo mostrar el PDF. Ábrelo en pestaña nueva.</span>';}});
+  }});
+}};
+function renderProv(matched){{
+  var sec=document.getElementById("pv-section");
+  if(!sec)return;
+  if(!matched.length){{sec.innerHTML="";return;}}
+  var agg={{}};
+  matched.forEach(function(r){{
+    var k=r.lugar||"—";
+    if(!agg[k])agg[k]={{total:0,n:0,compras:[]}};
+    agg[k].total+=(+r.tr||0);agg[k].n++;
+    agg[k].compras.push({{fecha:r.fecha,monto:f(r.tr),responsable:r.usuario,factura_url:r.factura_url,factura_nom:r.factura_nom,is_img:r.is_img}});
+  }});
+  PROVS_F=Object.keys(agg).map(function(k){{return {{name:k,total:agg[k].total,n:agg[k].n,compras:agg[k].compras}};}});
+  PROVS_F.sort(function(a,b){{return b.total-a.total;}});
+  PROVS_F.forEach(function(p,i){{p.color=PVCOLORS[i%PVCOLORS.length];p.total_fmt=f(p.total);}});
+  var n=PROVS_F.length, nrows=n<=4?1:(n<=10?2:3), per=Math.ceil(n/nrows);
+  var html='<div class="pv-title">'+IC.store+'Compras por proveedor (precio real)</div>';
+  html+='<div class="pv-cards'+(pvSel>=0?" has-sel":"")+'">';
+  for(var r=0;r<nrows;r++){{
+    var start=r*per, end=Math.min(start+per,n); if(start>=end)break;
+    var rmax=1; for(var q=start;q<end;q++){{var w=Math.pow(PROVS_F[q].total||1,0.3);if(w>rmax)rmax=w;}}
+    html+='<div class="pv-row">';
+    for(var q=start;q<end;q++){{
+      var c=PROVS_F[q];var grow=Math.max(1,Math.round(Math.pow(c.total||1,0.3)/rmax*1000));var selc=(pvSel===q)?" sel":"";
+      html+='<div class="pv-card'+selc+'" onclick="pvSelFn('+q+')" style="border:1.5px solid '+pvHexa(c.color,0.3)+';border-left:4px solid '+c.color+';flex:'+grow+' '+grow+' 0;">'
+        +'<div class="pv-name" style="color:'+c.color+';">'+esc(c.name)+'</div><div class="pv-total">'+esc(c.total_fmt)+'</div>'
+        +'<div class="pv-meta"><span>'+c.n+(c.n===1?" compra":" compras")+'</span><span class="pv-mchev">'+IC.chev+'</span></div></div>';
+    }}
+    html+='</div>';
+  }}
+  html+='</div>';
+  if(pvSel>=0&&pvSel<n){{
+    var p=PROVS_F[pvSel];
+    html+='<div class="pv-detail"><div class="pv-dhdr">'+IC.store+'Compras en '+esc(p.name)+' &nbsp;·&nbsp; '+esc(p.total_fmt)+' &nbsp;·&nbsp; '+p.n+(p.n===1?" compra":" compras")+'</div>';
+    (p.compras||[]).forEach(function(c,j){{
+      var open=!!pvFacOpen[pvSel+"-"+j];
+      html+='<div class="pv-compra'+(open?" open":"")+'" onclick="pvFacFn('+pvSel+','+j+')"><span class="pv-cfecha">'+IC.cal+esc(c.fecha)+'</span><span class="pv-cresp">'+IC.user+esc(c.responsable)+'</span><span class="pv-cmonto">'+esc(c.monto)+'</span><span class="pv-cchev">'+IC.chev+'</span></div>';
+      if(open)html+='<div class="pv-facwrap">'+pvFacPrev(c)+'</div>';
+    }});
+    html+='</div>';
+  }}
+  sec.innerHTML=html;
+  renderPdfs();
+}}
 window.hcAskDel=function(i){{confirming=i;confirmStep=1;editing=-1;render();}};
 window.hcAskDel2=function(){{confirmStep=2;render();}};
 window.hcNoDel=function(){{confirming=-1;confirmStep=0;render();}};
@@ -255,10 +366,12 @@ function fit(){{
 function render(){{
   renderFilters();
   var w=document.getElementById("hc-wrap");w.innerHTML="";
+  var matched=[];
   REGS.forEach(function(r,i){{
     if(fTipo&&(r.tipo_lbl||"")!==fTipo)return;
     if(fResp&&(r.usuario||"")!==fResp)return;
     if(fProv&&(r.lugar||"")!==fProv)return;
+    matched.push(r);
     var ed=(editing===i);
     var d=document.createElement("details");d.className="hc"+(ed?" editing":"");d.open=ed||(confirming===i);
     d.addEventListener("toggle",fit);
@@ -305,6 +418,7 @@ function render(){{
     d.innerHTML=head+body;
     w.appendChild(d);
   }});
+  renderProv(matched);
   fit();
 }}
 render();
@@ -321,154 +435,10 @@ render();
 window.addEventListener("load",fit);
 try{{new ResizeObserver(function(){{fit();}}).observe(document.body);}}catch(e){{}}
 setTimeout(fit,60);setTimeout(fit,350);
-</script>"""
-
-
-def build_proveedores_html(provs):
-    """Cards por proveedor (total real, mayor→menor) con DRILL-DOWN: clic en una
-    card muestra sus compras (fecha, monto, responsable); clic en una compra
-    expande su factura (imagen inline o PDF embebido + enlace a pestaña nueva).
-    Auto-ajusta su alto (body.scrollHeight + ResizeObserver)."""
-    import json as _json
-    provs_json = _json.dumps(provs or [], ensure_ascii=False).replace('<', '\\u003c')
-    IC_STORE = _svg_rc('store', color='#475569', size=16, mr=8)
-    IC_CAL   = _svg_rc('calendar', color='#94a3b8', size=13, mr=6)
-    IC_USER  = _svg_rc('user', color='#94a3b8', size=13, mr=6)
-    IC_FILE  = _svg_rc('file', color='#1d4ed8', size=14, mr=6)
-    IC_CHEV  = _svg_rc('chevron', color='#94a3b8', size=15, mr=0)
-    return f"""<style>
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap');
-*{{box-sizing:border-box}}
-html{{margin:0;padding:0;overflow:hidden;}}
-/* padding = aire para que el zoom (scale) de la card no se recorte contra el
-   borde del iframe; overflow oculto en html evita cualquier scrollbar propio. */
-body{{margin:0;padding:10px 13px 9px;font-family:Montserrat,'Segoe UI',sans-serif;background:transparent;overflow:hidden;}}
-.pv-cards{{display:flex;flex-direction:column;gap:6px;}}
-.pv-row{{display:flex;gap:6px;align-items:stretch;}}
-.pv-card{{border-radius:9px;padding:10px 13px;min-width:128px;box-sizing:border-box;display:flex;flex-direction:column;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,0.05);cursor:pointer;position:relative;transition:box-shadow .16s,transform .16s,opacity .16s,filter .16s;}}
-.pv-card:hover{{box-shadow:0 3px 10px rgba(15,23,42,0.13);}}
-.pv-card.sel{{transform:scale(1.045);box-shadow:0 10px 26px rgba(37,99,235,0.30);z-index:3;}}
-.pv-cards.has-sel .pv-card:not(.sel){{opacity:.38;filter:saturate(.7);}}
-.pv-cards.has-sel .pv-card:not(.sel):hover{{opacity:.7;}}
-.pv-name{{font-family:Montserrat,sans-serif;font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;}}
-.pv-total{{font-family:Montserrat,sans-serif;font-size:1rem;font-weight:800;color:#0f172a;}}
-.pv-meta{{font-size:0.66rem;color:#64748b;margin-top:2px;display:flex;align-items:center;justify-content:space-between;gap:6px;}}
-.pv-mchev{{transition:transform .2s;}}
-.pv-card.sel .pv-mchev{{transform:rotate(180deg);}}
-.pv-detail{{margin-top:10px;border:1px solid #e2e8f0;border-radius:11px;overflow:hidden;background:#fff;box-shadow:0 2px 10px rgba(15,23,42,0.07);}}
-.pv-dhdr{{display:flex;align-items:center;padding:11px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-family:Montserrat,sans-serif;font-weight:700;font-size:0.8rem;color:#0f172a;}}
-.pv-compra{{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;padding:11px 14px;border-bottom:1px solid #eef2f7;cursor:pointer;font-size:0.8rem;}}
-.pv-compra:last-child{{border-bottom:none;}}
-.pv-compra:hover{{background:#f8fafc;}}
-.pv-cfecha{{display:inline-flex;align-items:center;color:#475569;white-space:nowrap;}}
-.pv-cresp{{display:inline-flex;align-items:center;color:#475569;flex:1;min-width:120px;}}
-.pv-cmonto{{font-weight:800;color:#0f172a;font-family:Montserrat,sans-serif;white-space:nowrap;}}
-.pv-cchev{{color:#94a3b8;transition:transform .2s;flex-shrink:0;}}
-.pv-compra.open .pv-cchev{{transform:rotate(180deg);}}
-.pv-compra.open{{background:#eff6ff;}}
-.pv-facwrap{{padding:12px 14px;background:#f8fafc;border-bottom:1px solid #eef2f7;}}
-.pv-facbox{{display:flex;flex-direction:column;gap:9px;align-items:flex-start;}}
-.pv-facimg{{max-width:100%;max-height:640px;border-radius:8px;border:1px solid #e2e8f0;}}
-.pv-facpdf{{width:100%;height:560px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;}}
-.pv-faclink{{display:inline-flex;align-items:center;gap:2px;padding:7px 14px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:8px;text-decoration:none;font-size:0.78rem;font-weight:600;}}
-.pv-nofac{{display:inline-flex;align-items:center;color:#94a3b8;font-size:0.78rem;}}
-.pv-pdfbox{{width:100%;height:600px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;background:#525659;position:relative;}}
-.pv-pdfload{{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#f0f2f5;color:#64748b;font-size:0.85rem;z-index:2;}}
-.pv-spin{{width:34px;height:34px;border:4px solid #cbd5e1;border-top-color:#5b7cfa;border-radius:50%;animation:pvspin .8s linear infinite;}}
-@keyframes pvspin{{from{{transform:rotate(0)}}to{{transform:rotate(360deg)}}}}
-.pv-pdfpages{{padding:10px 0;text-align:center;}}
-.pv-pdfpages canvas{{display:block;margin:0 auto 10px;max-width:97%;box-shadow:0 2px 10px rgba(0,0,0,.4);background:#fff;}}
-</style>
-<div id="pv-wrap"></div>
-<script>
-var PROVS={provs_json};
-var IC={{store:'{IC_STORE}',cal:'{IC_CAL}',user:'{IC_USER}',file:'{IC_FILE}',chev:'{IC_CHEV}'}};
-var sel=-1, facOpen={{}};
-function esc(s){{return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}}
-function hexa(h,a){{h=h.replace('#','');return 'rgba('+parseInt(h.substr(0,2),16)+','+parseInt(h.substr(2,2),16)+','+parseInt(h.substr(4,2),16)+','+a+')';}}
-function fit(){{try{{var h=Math.max(document.body.scrollHeight,60)+2;var fe=window.frameElement;if(fe){{fe.style.height=h+"px";fe.setAttribute("height",h);}}}}catch(e){{}}}}
-window.pvSel=function(i){{sel=(sel===i?-1:i);facOpen={{}};render();}};
-window.pvFac=function(i,j){{var k=i+"-"+j;var was=!!facOpen[k];facOpen={{}};if(!was)facOpen[k]=true;render();}};
-function facPrev(c){{
-  if(!c.factura_url)return '<div class="pv-nofac">'+IC.file+'Sin factura adjunta</div>';
-  var link='<a class="pv-faclink" href="'+esc(c.factura_url)+'" target="_blank" rel="noopener noreferrer">'+IC.file+'<span>Abrir factura en pestaña nueva ↗</span></a>';
-  // Imagen: <img> directo. PDF: canvas via PDF.js (el <iframe src=pdf> lo bloquean
-  // Brave/Safari cross-origin; PDF.js dibuja en canvas y funciona en todos).
-  var prev=c.is_img
-    ?('<img class="pv-facimg" src="'+esc(c.factura_url)+'" loading="lazy"/>')
-    :('<div class="pv-pdfbox" data-pdfurl="'+esc(c.factura_url)+'"><div class="pv-pdfload"><div class="pv-spin"></div><span>Cargando PDF…</span></div><div class="pv-pdfpages"></div></div>');
-  return '<div class="pv-facbox">'+prev+link+'</div>';
-}}
-window.renderPdfs=function(){{
-  if(typeof pdfjsLib==="undefined")return;  // se re-invoca al cargar pdf.js
-  pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-  document.querySelectorAll(".pv-pdfbox[data-pdfurl]").forEach(function(box){{
-    if(box.getAttribute("data-done"))return;
-    box.setAttribute("data-done","1");
-    var url=box.getAttribute("data-pdfurl");
-    var pages=box.querySelector(".pv-pdfpages");
-    var load=box.querySelector(".pv-pdfload");
-    pdfjsLib.getDocument({{url:url,withCredentials:false}}).promise.then(function(pdf){{
-      var seq=Promise.resolve();var first=true;
-      for(var i=1;i<=pdf.numPages;i++){{(function(num){{
-        seq=seq.then(function(){{return pdf.getPage(num).then(function(page){{
-          var vp=page.getViewport({{scale:1.5}});
-          var cv=document.createElement("canvas");var ctx=cv.getContext("2d");
-          cv.width=vp.width;cv.height=vp.height;pages.appendChild(cv);
-          return page.render({{canvasContext:ctx,viewport:vp}}).promise.then(function(){{if(first){{first=false;if(load)load.style.display="none";fit();}}}});
-        }});}});
-      }})(i);}}
-    }}).catch(function(){{if(load)load.innerHTML='<span style="color:#dc2626;font-size:0.8rem;padding:0 16px;text-align:center;">No se pudo mostrar el PDF. Ábrelo en pestaña nueva.</span>';}});
-  }});
-}};
-function render(){{
-  var wrap=document.getElementById("pv-wrap");
-  var n=PROVS.length;
-  if(!n){{wrap.innerHTML="";fit();return;}}
-  var nrows=n<=4?1:(n<=10?2:3), per=Math.ceil(n/nrows);
-  var html='<div class="pv-cards'+(sel>=0?" has-sel":"")+'">';
-  for(var r=0;r<nrows;r++){{
-    var start=r*per, end=Math.min(start+per,n);
-    if(start>=end)break;
-    var rmax=1;
-    for(var q=start;q<end;q++){{var w=Math.pow(PROVS[q].total||1,0.3);if(w>rmax)rmax=w;}}
-    html+='<div class="pv-row">';
-    for(var q=start;q<end;q++){{
-      var c=PROVS[q];
-      var grow=Math.max(1,Math.round(Math.pow(c.total||1,0.3)/rmax*1000));
-      var selc=(sel===q)?" sel":"";
-      html+='<div class="pv-card'+selc+'" onclick="pvSel('+q+')" style="border:1.5px solid '+hexa(c.color,0.3)+';border-left:4px solid '+c.color+';flex:'+grow+' '+grow+' 0;">'
-        +'<div class="pv-name" style="color:'+c.color+';">'+esc(c.name)+'</div>'
-        +'<div class="pv-total">'+esc(c.total_fmt)+'</div>'
-        +'<div class="pv-meta"><span>'+c.n+(c.n===1?" compra":" compras")+'</span><span class="pv-mchev">'+IC.chev+'</span></div></div>';
-    }}
-    html+='</div>';
-  }}
-  html+='</div>';
-  if(sel>=0&&sel<n){{
-    var p=PROVS[sel];
-    html+='<div class="pv-detail"><div class="pv-dhdr">'+IC.store+'Compras en '+esc(p.name)+' &nbsp;·&nbsp; '+esc(p.total_fmt)+' &nbsp;·&nbsp; '+p.n+(p.n===1?" compra":" compras")+'</div>';
-    (p.compras||[]).forEach(function(c,j){{
-      var open=!!facOpen[sel+"-"+j];
-      html+='<div class="pv-compra'+(open?" open":"")+'" onclick="pvFac('+sel+','+j+')">'
-        +'<span class="pv-cfecha">'+IC.cal+esc(c.fecha)+'</span>'
-        +'<span class="pv-cresp">'+IC.user+esc(c.responsable)+'</span>'
-        +'<span class="pv-cmonto">'+esc(c.monto)+'</span>'
-        +'<span class="pv-cchev">'+IC.chev+'</span></div>';
-      if(open)html+='<div class="pv-facwrap">'+facPrev(c)+'</div>';
-    }});
-    html+='</div>';
-  }}
-  wrap.innerHTML=html;
-  renderPdfs();
-  fit();
-}}
-render();
-window.addEventListener("load",fit);
-try{{new ResizeObserver(function(){{fit();}}).observe(document.body);}}catch(e){{}}
-setTimeout(fit,60);setTimeout(fit,350);
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" onload="window.renderPdfs&&window.renderPdfs()" onerror="document.querySelectorAll('.pv-pdfload').forEach(function(l){{l.innerHTML='<span style=\\'color:#dc2626;font-size:0.8rem;\\'>No se pudo cargar el visor PDF. Ábrelo en pestaña nueva.</span>';}})"></script>"""
+
+
 
 
 # ── CÁLCULO DE TOTALES ────────────────────────────────────────────────────────
