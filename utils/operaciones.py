@@ -67,8 +67,10 @@ def build_historial_rc_html(regs, ep='', supa_url='', supa_key=''):
 *{{box-sizing:border-box}}
 html,body{{margin:0;padding:0;font-family:Montserrat,'Segoe UI',sans-serif;background:transparent}}
 .hc-wrap{{display:flex;flex-direction:column;gap:9px;}}
-.hc{{border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,0.06);}}
+.hc{{border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,0.06);transition:box-shadow .18s,border-color .18s;}}
 .hc.editing{{border-color:#93c5fd;box-shadow:0 4px 16px rgba(37,99,235,0.16);}}
+/* Card expandida (en revisión): "flotando" con borde naranjo 2px + sombra. */
+.hc[open]:not(.editing){{border:2px solid #f97316;box-shadow:0 12px 30px rgba(249,115,22,0.26);position:relative;z-index:2;}}
 .hc>summary{{list-style:none;cursor:pointer;display:flex;align-items:center;padding:12px 15px;background:#f8fafc;}}
 .hc.editing>summary{{background:#eff6ff;}}
 .hc>summary::-webkit-details-marker{{display:none}}
@@ -112,6 +114,7 @@ tr.rm-on td{{background:#fef2f2 !important;text-decoration:line-through;color:#b
 .hc-save{{background:#2563eb;color:#fff;}}
 .hc-cancel{{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;}}
 .hc-confirm{{margin-top:11px;background:#fef2f2;border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:8px;padding:10px 13px;font-size:0.78rem;color:#991b1b;display:flex;align-items:center;flex-wrap:wrap;gap:10px;}}
+.hc-confirm.step2{{background:#fee2e2;border:2px solid #dc2626;box-shadow:0 0 0 3px rgba(220,38,38,0.12);}}
 .hc-facedit{{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:11px;}}
 .hc-facbtn{{display:inline-flex;align-items:center;background:#eff6ff;color:#1d4ed8;border:1px dashed #93c5fd;border-radius:8px;padding:7px 14px;font-size:0.78rem;font-weight:600;cursor:pointer;}}
 .hc-facbtn:hover{{background:#dbeafe;}}
@@ -131,7 +134,7 @@ tr.rm-on td{{background:#fef2f2 !important;text-decoration:line-through;color:#b
 var REGS={regs_json};
 var IC={{store:'{IC_STORE}',cal:'{IC_CAL}',user:'{IC_USER}',cart:'{IC_CART}',file:'{IC_FILE}',edit:'{IC_EDIT}',trash:'{IC_TRASH}',save:'{IC_SAVE}',x:'{IC_X}',chev:'{IC_CHEV}',up:'{IC_UP}',down:'{IC_DOWN}',alert:'{IC_ALERT}',clip:'{IC_CLIP}'}};
 var EP="{ep}";var SUPA_URL="{supa_url}";var SUPA_KEY="{supa_key}";
-var editing=-1, confirming=-1, _facFile=null, fTipo="", fResp="", fProv="";
+var editing=-1, confirming=-1, confirmStep=0, _facFile=null, fTipo="", fResp="", fProv="";
 function f(n){{return "$"+Math.round(Math.abs(+n||0)).toLocaleString("de-DE");}}
 function esc(s){{return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}}
 function nav(param,val){{
@@ -143,8 +146,9 @@ function nav(param,val){{
 window.hcEdit=function(i){{_facFile=null;editing=(editing===i?-1:i);confirming=-1;render();}};
 window.hcCancel=function(){{_facFile=null;editing=-1;render();}};
 window.hcFilter=function(dim,val){{if(dim==="tipo")fTipo=val;else if(dim==="resp")fResp=val;else if(dim==="prov")fProv=val;editing=-1;confirming=-1;_facFile=null;render();}};
-window.hcAskDel=function(i){{confirming=i;editing=-1;render();}};
-window.hcNoDel=function(){{confirming=-1;render();}};
+window.hcAskDel=function(i){{confirming=i;confirmStep=1;editing=-1;render();}};
+window.hcAskDel2=function(){{confirmStep=2;render();}};
+window.hcNoDel=function(){{confirming=-1;confirmStep=0;render();}};
 window.hcDoDel=function(i){{nav("rc_delete",REGS[i].id);}};
 window.hcToggleRm=function(i,j){{
   var tr=document.getElementById("row-"+i+"-"+j);
@@ -282,14 +286,19 @@ function render(){{
         +'<div class="hc-actions"><button id="savebtn-'+i+'" class="hc-btn hc-save" onclick="hcSave('+i+')">'+IC.save+'Guardar cambios</button><button class="hc-btn hc-cancel" onclick="hcCancel()">'+IC.x+'Cancelar</button></div>'
         +'</div>';
     }} else {{
-      var conf=(confirming===i)
-        ?'<div class="hc-confirm">'+IC.alert+'<span><b>¿Eliminar esta compra por completo?</b> Sus ítems volverán a quedar pendientes.</span><span style="margin-left:auto;display:flex;gap:8px;"><button class="hc-btn hc-del" onclick="hcDoDel('+i+')">Sí, eliminar</button><button class="hc-btn hc-cancel" onclick="hcNoDel()">Cancelar</button></span></div>'
-        :'';
+      var conf='';
+      if(confirming===i){{
+        if(confirmStep===1){{
+          conf='<div class="hc-confirm">'+IC.alert+'<span><b>¿Eliminar esta compra por completo?</b> Sus ítems volverán a quedar pendientes.</span><span style="margin-left:auto;display:flex;gap:8px;"><button class="hc-btn hc-del" onclick="hcAskDel2()">Sí, eliminar</button><button class="hc-btn hc-cancel" onclick="hcNoDel()">Cancelar</button></span></div>';
+        }}else{{
+          conf='<div class="hc-confirm step2">'+IC.alert+'<span><b>Confirmación final:</b> esta acción NO se puede deshacer. ¿Eliminar la compra definitivamente?</span><span style="margin-left:auto;display:flex;gap:8px;"><button class="hc-btn hc-del" onclick="hcDoDel('+i+')">'+IC.trash+'Sí, eliminar definitivamente</button><button class="hc-btn hc-cancel" onclick="hcNoDel()">Cancelar</button></span></div>';
+        }}
+      }}
       body='<div class="hc-body">'+meta
         +'<div class="hc-tblwrap"><table class="hc-tbl"><thead><tr><th>Categoría</th><th>Ítem</th><th class="r">Cantidad</th><th class="r">Presupuestado</th><th class="r">Precio real</th></tr></thead><tbody>'+viewRows(r)+'</tbody></table></div>'
         +'<div class="hc-tots"><span>Presupuestado <b>'+f(r.tp)+'</b></span><span>Real <b>'+f(r.tr)+'</b></span><span>Balance <b style="color:'+((+r.balance||0)>=0?"#16a34a":"#dc2626")+';">'+((+r.balance||0)>=0?"Ahorro":"Sobrecosto")+' '+f(r.balance)+'</b></span></div>'
         +obs+fac
-        +'<div class="hc-actions"><button class="hc-btn hc-edit" onclick="hcEdit('+i+')">'+IC.edit+'Editar</button><button class="hc-btn hc-del" onclick="hcAskDel('+i+')">'+IC.trash+'Eliminar</button></div>'
+        +'<div class="hc-actions"><button class="hc-btn hc-edit" onclick="hcEdit('+i+')">'+IC.edit+'Editar</button><button class="hc-btn hc-del" style="margin-left:auto;" onclick="hcAskDel('+i+')">'+IC.trash+'Eliminar</button></div>'
         +conf
         +'</div>';
     }}
