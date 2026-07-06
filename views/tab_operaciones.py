@@ -986,7 +986,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     components.html(_rc_html + f'<!-- {_rc_items_hash} -->', height=_rc_height, scrolling=False)
 
                 if _rc_existentes:
-                    st.markdown(_titulo_op("history", "Historial de compras"), unsafe_allow_html=True)
+                    st.markdown(_titulo_op("file", "Información de facturas"), unsafe_allow_html=True)
                     _mut_err = st.session_state.pop('_rc_mut_error', None)
                     if _mut_err:
                         st.error(f"&#10060; No se pudo aplicar el cambio: {_mut_err}")

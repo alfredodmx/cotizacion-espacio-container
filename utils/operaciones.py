@@ -22,6 +22,7 @@ _RC_ICONS = {
     "trash":     '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
     "chevron":   '<polyline points="6 9 12 15 18 9"/>',
     "alert":     '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/>',
+    "history":   '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
 }
 
 
@@ -166,6 +167,7 @@ tr.rm-on td{{background:#fef2f2 !important;text-decoration:line-through;color:#b
 .pv-pdfpages canvas{{display:block;margin:0 auto 10px;max-width:97%;box-shadow:0 2px 10px rgba(0,0,0,.4);background:#fff;}}
 </style>
 <div class="hc-filters" id="hc-filters"></div>
+<div class="pv-title" style="margin-top:6px;">{_svg_rc('history', color='#0f172a', size=17, mr=9)}Historial de compras</div>
 <div class="hc-wrap" id="hc-wrap"></div>
 <div id="pv-section"></div>
 <script>
