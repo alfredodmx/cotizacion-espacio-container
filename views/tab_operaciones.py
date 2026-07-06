@@ -1166,7 +1166,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
                         st.markdown(_titulo_op("store", "Compras por proveedor (precio real)"),
                                     unsafe_allow_html=True)
-                        components.html(build_proveedores_html(_provs), height=_pv_h, scrolling=True)
+                        components.html(build_proveedores_html(_provs), height=_pv_h, scrolling=False)
 
     # ================================================================
     # SUB-PESTAÑA: ACTA DE CLIENTES

@@ -339,7 +339,10 @@ def build_proveedores_html(provs):
     return f"""<style>
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap');
 *{{box-sizing:border-box}}
-html,body{{margin:0;padding:0;font-family:Montserrat,'Segoe UI',sans-serif;background:transparent}}
+html{{margin:0;padding:0;overflow:hidden;}}
+/* padding = aire para que el zoom (scale) de la card no se recorte contra el
+   borde del iframe; overflow oculto en html evita cualquier scrollbar propio. */
+body{{margin:0;padding:10px 13px 9px;font-family:Montserrat,'Segoe UI',sans-serif;background:transparent;overflow:hidden;}}
 .pv-cards{{display:flex;flex-direction:column;gap:6px;}}
 .pv-row{{display:flex;gap:6px;align-items:stretch;}}
 .pv-card{{border-radius:9px;padding:10px 13px;min-width:128px;box-sizing:border-box;display:flex;flex-direction:column;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,0.05);cursor:pointer;position:relative;transition:box-shadow .16s,transform .16s,opacity .16s,filter .16s;}}
@@ -354,10 +357,10 @@ html,body{{margin:0;padding:0;font-family:Montserrat,'Segoe UI',sans-serif;backg
 .pv-card.sel .pv-mchev{{transform:rotate(180deg);}}
 .pv-detail{{margin-top:10px;border:1px solid #e2e8f0;border-radius:11px;overflow:hidden;background:#fff;box-shadow:0 2px 10px rgba(15,23,42,0.07);}}
 .pv-dhdr{{display:flex;align-items:center;padding:11px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-family:Montserrat,sans-serif;font-weight:700;font-size:0.8rem;color:#0f172a;}}
-.pv-compra{{display:flex;align-items:center;gap:14px;padding:11px 14px;border-bottom:1px solid #eef2f7;cursor:pointer;font-size:0.8rem;}}
+.pv-compra{{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;padding:11px 14px;border-bottom:1px solid #eef2f7;cursor:pointer;font-size:0.8rem;}}
 .pv-compra:last-child{{border-bottom:none;}}
 .pv-compra:hover{{background:#f8fafc;}}
-.pv-cfecha{{display:inline-flex;align-items:center;color:#475569;min-width:150px;white-space:nowrap;}}
+.pv-cfecha{{display:inline-flex;align-items:center;color:#475569;white-space:nowrap;}}
 .pv-cresp{{display:inline-flex;align-items:center;color:#475569;flex:1;min-width:120px;}}
 .pv-cmonto{{font-weight:800;color:#0f172a;font-family:Montserrat,sans-serif;white-space:nowrap;}}
 .pv-cchev{{color:#94a3b8;transition:transform .2s;flex-shrink:0;}}
