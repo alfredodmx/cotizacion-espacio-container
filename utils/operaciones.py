@@ -308,9 +308,12 @@ function badge(r){{
 function viewRows(r){{
   if(!r.items.length)return '<tr><td colspan="5" style="text-align:center;color:#94a3b8;">Sin ítems.</td></tr>';
   return r.items.map(function(it){{
+    var prCell=(it.stock===true)
+      ?'<td class="r" style="font-weight:700;color:#16a34a;">$0 <span style="font-size:.6rem;font-weight:700;background:#dcfce7;color:#166534;padding:1px 6px;border-radius:20px;text-transform:uppercase;letter-spacing:.04em;vertical-align:middle;">En stock</span></td>'
+      :'<td class="r" style="font-weight:700;">'+f(it.pr)+'</td>';
     return '<tr><td>'+esc(it.cat)+'</td><td class="it">'+esc(it.item)+'</td>'
       +'<td class="r">'+esc(it.cant)+'</td><td class="r">'+f(it.pp)+'</td>'
-      +'<td class="r" style="font-weight:700;">'+f(it.pr)+'</td></tr>';
+      +prCell+'</tr>';
   }}).join("");
 }}
 function editRows(i,r){{
@@ -988,7 +991,9 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
         _es_adicional = bool(prod.get('_adicional', False))
         _es_sin_reg = bool(prod.get('_sin_registro', False))
         _ic = items_comprados.get(item, {})
-        _ya_comprado = bool(_ic and float(_ic.get('real', 0) or 0) > 0) or _es_adicional
+        # "En stock" (ahorro puro): comprado con precio real $0 marcado como stock.
+        _es_stock = bool(_ic and _ic.get('stock'))
+        _ya_comprado = bool(_ic and (float(_ic.get('real', 0) or 0) > 0 or _es_stock)) or _es_adicional
         _readonly = _ya_comprado and not es_admin
 
         if _es_sin_reg:
@@ -1006,12 +1011,30 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
         pv = rc_prev.get(str(ri), {})
         vreal = float(_ic.get('real', 0)) if _ya_comprado else (pv.get('real', 0) or 0)
         vadic = int(_ic.get('adicional', 0)) if _ya_comprado else (pv.get('adic', 0) or 0)
-        vreal_fmt = ('$' + f'{int(vreal):,}'.replace(',', '.')) if vreal else ''
+        vreal_fmt = ('$' + f'{int(vreal):,}'.replace(',', '.')) if vreal else ('$0' if _es_stock else '')
 
         _dc_attr = 'data-comprado="1"' if _ya_comprado else ""
         _da_attr = 'data-adicional="1"' if _es_adicional else ""
         _ds_attr = 'data-sin-registro="1"' if _es_sin_reg else ""
-        rows += f"""<tr style="background:{bg};border-bottom:1px solid #eef0f6" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}" {_dc_attr} {_da_attr} {_ds_attr}>
+        _dstock_attr = 'data-stock="1"' if _es_stock else ""
+        # Checkbox "En stock": solo para ítems NORMALES del presupuesto aún no
+        # comprados. Al marcarlo, el precio real pasa a $0 y el ítem cuenta como
+        # comprado (ahorro puro) → permite llegar al 100% sin comprarlo.
+        if not _es_adicional and not _es_sin_reg and not _ya_comprado:
+            _stock_ck = (
+                f'<td style="text-align:center;padding:3px 4px"><input type="checkbox" class="rc-stock" '
+                f'data-idx="{ri}" onchange="window.toggleStock(this)" '
+                'title="Ya lo tengo en stock — precio real $0 (cuenta como comprado; ahorro puro)" '
+                'style="width:16px;height:16px;cursor:pointer;accent-color:#16a34a;vertical-align:middle;"/></td>'
+            )
+        elif _es_stock:
+            _stock_ck = (
+                '<td style="text-align:center;padding:3px 4px" title="En stock — ahorro puro">'
+                f'{_svg_rc("check", color="#16a34a", size=15, mr=0, valign=-3)}</td>'
+            )
+        else:
+            _stock_ck = '<td></td>'
+        rows += f"""<tr style="background:{bg};border-bottom:1px solid #eef0f6" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}" {_dc_attr} {_da_attr} {_ds_attr} {_dstock_attr}>
 <td style="padding:5px 8px;font-size:.85rem;color:#334155;font-weight:700;font-family:Montserrat,'Segoe UI',sans-serif">{cat}</td>
 <td style="padding:5px 8px;font-size:.95rem;color:#0f172a;font-weight:700;font-family:Montserrat,'Segoe UI',sans-serif">{item}</td>
 <td style="padding:5px 8px;text-align:right;font-weight:700;font-family:Montserrat,'Segoe UI',sans-serif">{cant}</td>
@@ -1019,7 +1042,7 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
 <td style="padding:3px 4px"><input type="text" inputmode="numeric" value="{vreal_fmt}" class="rc-real" data-idx="{ri}" data-val="{vreal}" {"readonly" if _readonly else ""} style="width:100%;border:1px solid {"#86efac" if _ya_comprado else "#cbd5e1"};border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box;{"background:#f0fdf4;color:#15803d;cursor:default" if _ya_comprado else ""}"/></td>
 <td style="padding:3px 4px"><input type="number" min="0" step="1" value="{vadic}" class="rc-adic" data-idx="{ri}" {"readonly" if _readonly else ""} style="width:100%;border:1px solid {"#86efac" if _ya_comprado else "#fca5a5"};border-radius:6px;padding:5px;font-size:13px;text-align:right;background:{"#f0fdf4" if _ya_comprado else "#fff5f5"};box-sizing:border-box{"pointer-events:none" if _readonly else ""}"/></td>
 <td class="rc-dif" data-idx="{ri}" style="padding:5px 8px;text-align:right;font-weight:700;color:#16a34a;white-space:nowrap;font-family:Montserrat,'Segoe UI',sans-serif">-</td>
-<td></td>
+{_stock_ck}
 </tr>"""
 
     html = f"""<style>
@@ -1040,7 +1063,7 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
     <thead><tr>
       <th>Categor&#237;a</th><th>&#205;tem</th><th class="r">Cant.</th>
       <th class="r">Presup. unit.</th><th class="r">Real unit.</th>
-      <th class="r">Adicional</th><th class="r">Diferencia</th><th></th>
+      <th class="r">Adicional</th><th class="r">Diferencia</th><th class="r">En stock</th>
     </tr></thead>
     <tbody>{rows}</tbody>
   </table></div>
@@ -1253,11 +1276,12 @@ function calc(){{
     td.style.color=d>=0?"#16a34a":"#dc2626";
     var isSinReg=r.getAttribute("data-sin-registro")==="1";
     var isAdic=r.dataset.adicional==="1"&&!isSinReg;
+    var isStock=r.getAttribute("data-stock")==="1";
     if(isSinReg){{tS+=re*c;}}
     else if(isAdic){{tA+=re*c;}}
     else{{tP+=pu*c;}}
     tR+=re*c+ad*re;
-    vals.push({{idx:+r.dataset.idx,real:re,adic:ad,dif:d}});
+    vals.push({{idx:+r.dataset.idx,real:re,adic:ad,dif:d,stock:isStock}});
   }});
   var iP=tP*.19,iR=tR*.19,b=tP-tR,ib=iP-iR;
   var col=b>=0?"#16a34a":"#dc2626";
@@ -1268,7 +1292,7 @@ function calc(){{
   ["b-hdr","b-n","b-i","b-lbl1","b-lbl2","b-icon","b-t"].forEach(function(id){{var el=document.getElementById(id);if(el)el.style.color=col;}});
   var bi=document.getElementById("b-icon");
   if(bi)bi.textContent=b>=0?"Ahorro":"Sobrecosto";
-  var comprados=vals.filter(function(v){{return v.real>0&&v.idx<10000;}}).length;
+  var comprados=vals.filter(function(v){{return (v.real>0||v.stock)&&v.idx<10000;}}).length;
   var pct=TOTAL_ITEMS>0?Math.round(comprados/TOTAL_ITEMS*1000)/10:0;
   var pctCol=pct>=100?"#3b82f6":pct>=66.6?"#16a34a":pct>=33.3?"#eab308":"#dc2626";
   var pctLbl=pct>=100?"Compra finalizada":pct>0?(pct.toFixed(1)+"% comprado"):"Sin compras";
@@ -1407,10 +1431,13 @@ window.removeRow=function(btn){{
   calc();checkSaveBtn();
 }};
 function checkSaveBtn(){{
-  var hasVals=false;
+  var hasVals=false,hasReal=false;
   document.querySelectorAll("tr[data-idx]").forEach(function(r){{
+    if(r.dataset.comprado==="1") return; // ya guardado → no se re-guarda
     var re=parseFloat(r.querySelector(".rc-real").dataset.val)||0;
-    if(re>0) hasVals=true;
+    var isStock=r.getAttribute("data-stock")==="1";
+    if(re>0||isStock) hasVals=true;
+    if(re>0) hasReal=true;
   }});
   var lugar=document.getElementById("lugar-compra");
   var hasLugar=lugar&&lugar.value.trim().length>0;
@@ -1421,11 +1448,40 @@ function checkSaveBtn(){{
   var fechaOk=!fw||fw.className.indexOf("rc-hidden")>-1||(document.getElementById("fecha-compra")&&document.getElementById("fecha-compra").value.length>0);
   var pw=document.getElementById("faltó-wrap");
   var faltóOk=!pw||pw.className.indexOf("rc-hidden")>-1||(document.getElementById("falto-texto")&&document.getElementById("falto-texto").value.trim().length>0);
-  var ok=hasVals&&hasLugar&&hasFactura&&hasTipo&&fechaOk&&faltóOk;
+  // Compra real → se exigen todos los campos (factura, lugar, tipo, etc.).
+  // Registro PURO de stock (todo $0, ahorro puro) → basta con marcar los ítems.
+  var ok=hasVals&&(!hasReal||(hasLugar&&hasFactura&&hasTipo&&fechaOk&&faltóOk));
   var btn=document.getElementById("save-btn");
   if(btn){{btn.disabled=!ok;btn.style.opacity=ok?"1":"0.5";}}
 }}
 window.checkSaveBtn=checkSaveBtn;
+// "En stock": el usuario ya tiene el producto (no lo compra). Fija precio real $0,
+// lo deja readonly/verde y marca la fila data-stock="1" → cuenta como comprado
+// (progreso) y es ahorro puro. Desmarcar revierte a input normal editable.
+window.toggleStock=function(cb){{
+  var tr=cb.closest("tr[data-idx]");
+  if(!tr) return;
+  var inp=tr.querySelector(".rc-real");
+  var adic=tr.querySelector(".rc-adic");
+  if(cb.checked){{
+    tr.setAttribute("data-stock","1");
+    if(inp){{
+      inp.dataset.val="0";inp.value="$0";inp.readOnly=true;
+      inp.style.background="#f0fdf4";inp.style.color="#15803d";
+      inp.style.borderColor="#86efac";inp.style.cursor="default";
+    }}
+    if(adic){{adic.value="0";adic.readOnly=true;adic.style.background="#f0fdf4";adic.style.pointerEvents="none";}}
+  }} else {{
+    tr.removeAttribute("data-stock");
+    if(inp){{
+      inp.dataset.val="0";inp.value="";inp.readOnly=false;
+      inp.style.background="";inp.style.color="";
+      inp.style.borderColor="#cbd5e1";inp.style.cursor="";
+    }}
+    if(adic){{adic.readOnly=false;adic.style.background="#fff5f5";adic.style.pointerEvents="";}}
+  }}
+  calc();checkSaveBtn();
+}};
 document.getElementById("factura-input") && document.getElementById("factura-input").addEventListener("change",function(){{
   _facturaFile=this.files[0]||null;
   var lbl=document.getElementById("factura-label");
@@ -1461,7 +1517,6 @@ window.clearFactura=function(){{
 window.guardarRegistro=async function(){{
   var btn=document.getElementById("save-btn");
   var status=document.getElementById("save-status");
-  if(!_facturaFile){{status.textContent="Debes subir una factura primero";status.style.color="#dc2626";return;}}
   btn.disabled=true;btn.textContent="Verificando compras previas...";
   // Ya comprados: Python ya lo pasa server-side (service key) en ITEMS_YA_COMPRADOS
   // → evitamos el fetch desde el navegador (que RLS bloquearía).
@@ -1471,11 +1526,12 @@ window.guardarRegistro=async function(){{
     var idx=parseInt(r.dataset.idx)||0;
     var inp=r.querySelector(".rc-real");
     var re=parseFloat(inp.dataset.val)||0;
-    if(re<=0) return;
+    var isStock=r.getAttribute("data-stock")==="1";
+    if(re<=0 && !isStock) return;
     if(idx >= 10000) {{
     }} else {{
       if(r.dataset.comprado==="1") return;
-      if(!inp.value||inp.value.trim()==="") return;
+      if(!isStock && (!inp.value||inp.value.trim()==="")) return;
       var itemNombre=r.cells[1]?r.cells[1].textContent.trim():"";
       if(itemsYaComprados.indexOf(itemNombre)>-1) return;
     }}
@@ -1492,22 +1548,30 @@ window.guardarRegistro=async function(){{
       adicional:ad,
       diferencia:dif,
       es_adicional:idx>=10000||r.dataset.adicional==="1",
-      sin_registro:r.getAttribute("data-sin-registro")==="1"
+      sin_registro:r.getAttribute("data-sin-registro")==="1",
+      stock:isStock
     }});
   }});
-  if(items.length===0){{status.textContent="Ingresa al menos un precio real";status.style.color="#dc2626";btn.disabled=false;btn.textContent="Guardar compra";return;}}
-  btn.disabled=true;btn.textContent="Subiendo factura...";status.textContent="";
+  if(items.length===0){{status.textContent="Ingresa al menos un precio real o marca ítems en stock";status.style.color="#dc2626";btn.disabled=false;btn.textContent="Guardar compra";return;}}
+  // ¿Hay al menos una compra real (>$0)? Solo entonces exigimos factura y subimos
+  // archivo. Un registro PURO de stock (todo $0, ahorro puro) no lleva factura.
+  var hasReal=items.some(function(it){{return it.precio_real>0;}});
+  if(hasReal && !_facturaFile){{status.textContent="Debes subir una factura primero";status.style.color="#dc2626";btn.disabled=false;btn.textContent="Guardar compra";return;}}
+  status.textContent="";
   try{{
-    var ext=_facturaFile.name.split(".").pop();
-    var path="cotizacion-"+EP_NUM+"/"+Date.now()+"."+ext;
-    var uploadResp=await fetch(SUPA_URL+"/storage/v1/object/facturas/"+path,{{
-      method:"POST",
-      headers:{{"Authorization":"Bearer "+SUPA_KEY,"apikey":SUPA_KEY,"Content-Type":_facturaFile.type,"x-upsert":"true"}},
-      body:_facturaFile
-    }});
-    if(!uploadResp.ok) throw new Error("Error subiendo factura: "+uploadResp.status);
-    _facturaUrl=SUPA_URL+"/storage/v1/object/public/facturas/"+path;
-    _facturaNom=_facturaFile.name;
+    if(_facturaFile){{
+      btn.disabled=true;btn.textContent="Subiendo factura...";
+      var ext=_facturaFile.name.split(".").pop();
+      var path="cotizacion-"+EP_NUM+"/"+Date.now()+"."+ext;
+      var uploadResp=await fetch(SUPA_URL+"/storage/v1/object/facturas/"+path,{{
+        method:"POST",
+        headers:{{"Authorization":"Bearer "+SUPA_KEY,"apikey":SUPA_KEY,"Content-Type":_facturaFile.type,"x-upsert":"true"}},
+        body:_facturaFile
+      }});
+      if(!uploadResp.ok) throw new Error("Error subiendo factura: "+uploadResp.status);
+      _facturaUrl=SUPA_URL+"/storage/v1/object/public/facturas/"+path;
+      _facturaNom=_facturaFile.name;
+    }}
     var tP=0,tR=0;
     items.forEach(function(it){{tP+=it.precio_presupuestado*it.cantidad;tR+=(it.precio_real*it.cantidad)+(it.adicional*it.precio_real);}});
     btn.textContent="Guardando registro...";

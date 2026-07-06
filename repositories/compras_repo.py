@@ -43,12 +43,16 @@ def obtener_items_comprados(cotizacion_numero: str) -> dict:
                 nombre = str(it.get('item', ''))
                 real = float(it.get('precio_real', 0) or 0)
                 adic = int(it.get('adicional', 0) or 0)
-                if real > 0 and nombre:
+                # "En stock": producto que ya se tiene (precio real $0). Cuenta como
+                # comprado (llega al 100%) y es ahorro puro. Se marca con stock=True.
+                es_stock = bool(it.get('stock', False))
+                if (real > 0 or es_stock) and nombre:
                     comprados[nombre] = {
                         'real': real,
                         'adicional': adic,
                         'diferencia': it.get('diferencia', 0),
-                        'fecha': fecha
+                        'fecha': fecha,
+                        'stock': es_stock,
                     }
         return comprados
     except Exception:
