@@ -1100,10 +1100,6 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                                 _stock_list.append((_it['cat'], _nom, _it['cant'], _ah))
                     if _stock_list:
                         _stock_list.sort(key=lambda _x: _x[3], reverse=True)
-
-                        def _fmt_clp(_v):
-                            return '$' + f'{int(round(_v)):,}'.replace(',', '.')
-
                         st.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)
                         st.markdown(_titulo_op("package", "Productos en stock · Ahorro puro", "#16a34a"),
                                     unsafe_allow_html=True)
