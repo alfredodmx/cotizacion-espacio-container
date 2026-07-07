@@ -986,7 +986,15 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     _rc_cats_rows = len(_rc_rows_m) if _rc_rows_m else 1
                     _rc_cards_extra = _rc_cats_rows * 66 + 8
                     _rc_height = min(len(_rc_prods) * 37 + 580 + _rc_cards_extra, 1200)
-                    _rc_items_hash = str(sorted(_rc_items_comprados.keys()))
+                    # Hash que cambia ante CUALQUIER cambio de cobertura (no solo de
+                    # llaves): si un ítem pasa de parcial a completo, o se guarda un
+                    # nuevo stock, el iframe se regenera (si no, se queda pegado en
+                    # "Guardado. Actualizando..." mostrando el estado viejo).
+                    _rc_items_hash = str(sorted(
+                        (str(_k), int(_v.get('stock_units', 0) or 0),
+                         int(_v.get('bought_units', 0) or 0), float(_v.get('real', 0) or 0))
+                        for _k, _v in _rc_items_comprados.items()
+                    )) + f'|{len(_rc_existentes)}'
                     components.html(_rc_html + f'<!-- {_rc_items_hash} -->', height=_rc_height, scrolling=False)
 
                 if _rc_existentes:
