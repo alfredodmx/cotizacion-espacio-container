@@ -970,6 +970,9 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         _rc_cards_divs += '</div>'
                     _rc_cards_divs += '</div>'
                     _cats_cards_html = _rc_cards_css + _rc_cards_divs
+                    # Mapa categoría→color (mismo palette del mosaico) para pintar
+                    # los badges de categoría en cada fila de la tabla.
+                    _rc_cat_color_map = {_c['cat']: _c['color'] for _c in _rc_cats_data}
 
                     _rc_html = build_rc_html(
                         _rc_prods, _rc_cat_json, {},
@@ -981,6 +984,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         total_items_presupuesto=len(_rc_prods),
                         cats_cards_html=_cats_cards_html,
                         proveedores=_proveedores,
+                        cat_colors=_rc_cat_color_map,
                     )
                     # Alto extra por las filas del mosaico de categorías (1 ó 2 filas)
                     _rc_cats_rows = len(_rc_rows_m) if _rc_rows_m else 1

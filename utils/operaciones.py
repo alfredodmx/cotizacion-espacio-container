@@ -1029,9 +1029,23 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
 
 def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin=False,
                   supa_url='', supa_key='', ep='', usuario='', items_ya_comprados_json='[]',
-                  total_items_presupuesto=0, cats_cards_html='', proveedores=None):
+                  total_items_presupuesto=0, cats_cards_html='', proveedores=None,
+                  cat_colors=None):
     rows = ""
     items_comprados = items_comprados or {}
+    cat_colors = cat_colors or {}
+
+    def _rc_badge_style(_hex):
+        """Badge de categoría: fondo tenue + texto en el color (legible)."""
+        _h = str(_hex or '#64748b').lstrip('#')
+        try:
+            _r, _g, _b = int(_h[0:2], 16), int(_h[2:4], 16), int(_h[4:6], 16)
+        except Exception:
+            _r, _g, _b = 100, 116, 139
+        # texto un poco más oscuro que el color base para contraste sobre fondo claro
+        _dr, _dg, _db = int(_r * 0.72), int(_g * 0.72), int(_b * 0.72)
+        return (f'background:rgba({_r},{_g},{_b},0.13);color:rgb({_dr},{_dg},{_db});'
+                f'border:1px solid rgba({_r},{_g},{_b},0.22);')
 
     # Datalist de proveedores ya usados (autocompletar "¿Dónde compraste?").
     # Son los lugar_compra distintos del historial; si se escribe uno nuevo, al
@@ -1103,58 +1117,74 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
         # al marcar stock / cambiar la cantidad; sembrada aquí para el parcial recargado).
         _falta_inner = f'faltan {_falta} por comprar' if _partial else ''
         _falta_note = (f'<div class="rc-falta" style="font-size:9px;color:#ea580c;'
-                       f'font-weight:700;margin-top:2px;white-space:nowrap;">{_falta_inner}</div>')
+                       f'font-weight:600;margin-top:2px;white-space:nowrap;">{_falta_inner}</div>')
         _inp_border = "#86efac" if (_has_stock or _ya_comprado) else "#cbd5e1"
-        # Celda "En stock": checkbox (+ cantidad) para ítems sin cobertura; o badge
-        # verde con la cantidad en stock para ítems ya inventariados (full/parcial).
+        _cat_badge = f'<span class="rc-cat" style="{_rc_badge_style(cat_colors.get(cat))}">{cat}</span>'
+        # Celda "En stock": checkbox (+ stepper de cantidad) para ítems sin cobertura;
+        # o badge verde con la cantidad en stock para ítems ya inventariados.
         if not _es_adicional and not _es_sin_reg and _covered == 0:
             _qty_input = (
-                '<div class="rc-stockqty-wrap" style="display:none;margin-top:3px;font-size:10px;'
-                'color:#166534;white-space:nowrap;font-weight:700;">'
-                f'<input type="number" class="rc-stockqty" min="1" max="{cant}" value="{cant}" '
-                'onchange="window.stockQty(this)" onclick="event.stopPropagation()" '
-                'style="width:42px;border:1px solid #86efac;border-radius:4px;padding:3px 2px;'
-                f'font-size:11px;text-align:center;"/> / {cant}</div>'
+                '<div class="rc-stockqty-wrap" style="display:none;margin-top:4px;white-space:nowrap;">'
+                '<span class="rc-step">'
+                '<button type="button" onclick="window.stockStep(this,-1);event.stopPropagation()" title="menos">&#8722;</button>'
+                f'<span class="rc-stepval">{cant}</span>'
+                '<button type="button" onclick="window.stockStep(this,1);event.stopPropagation()" title="m&#225;s">+</button>'
+                f'</span><span class="rc-steptot">/ {cant}</span></div>'
             ) if cant > 1 else ''
             _stock_ck = (
-                '<td style="text-align:center;padding:3px 4px"><input type="checkbox" class="rc-stock" '
+                '<td style="text-align:center;white-space:nowrap"><input type="checkbox" class="rc-stock" '
                 f'data-idx="{ri}" onchange="window.toggleStock(this)" '
-                'title="Ya lo tengo en stock — precio real $0 (ahorro puro)" '
-                'style="width:16px;height:16px;cursor:pointer;accent-color:#16a34a;vertical-align:middle;"/>'
+                'title="Ya lo tengo en stock — precio real $0 (ahorro puro)"/>'
                 f'{_qty_input}</td>'
             )
         elif _has_stock:
-            _sq_lbl = '' if _stock_units >= cant else f'{_stock_units}/{cant}'
-            _sq_span = (f'<span style="font-size:10px;color:#166534;font-weight:700;margin-left:2px;">{_sq_lbl}</span>'
-                        if _sq_lbl else '')
+            _sq_lbl = ('' if _stock_units >= cant
+                       else f'<span class="rc-steptot" style="color:#166534;">{_stock_units}/{cant}</span>')
             _stock_ck = (
-                '<td style="text-align:center;padding:3px 4px;white-space:nowrap" title="En stock — ahorro puro">'
+                '<td style="text-align:center;white-space:nowrap" title="En stock — ahorro puro">'
                 + _svg_rc("check", color="#16a34a", size=15, mr=0, valign=-3)
-                + _sq_span + '</td>'
+                + _sq_lbl + '</td>'
             )
         else:
             _stock_ck = '<td></td>'
-        rows += f"""<tr style="background:{bg};border-bottom:1px solid #eef0f6;{_row_extra}" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}" {_dc_attr} {_da_attr} {_ds_attr} {_dstock_attr} {_dstockqty_attr} {_dsaved_attr} {_dbuy_attr}>
-<td style="padding:5px 8px;font-size:.85rem;color:#334155;font-weight:700;font-family:Montserrat,'Segoe UI',sans-serif">{cat}</td>
-<td style="padding:5px 8px;font-size:.95rem;color:#0f172a;font-weight:700;font-family:Montserrat,'Segoe UI',sans-serif">{item}</td>
-<td style="padding:5px 8px;text-align:right;font-weight:700;font-family:Montserrat,'Segoe UI',sans-serif">{cant}{_falta_note}</td>
-<td style="padding:5px 8px;text-align:right;font-weight:700;font-family:Montserrat,'Segoe UI',sans-serif">{pu_fmt}</td>
-<td style="padding:3px 4px"><input type="text" inputmode="numeric" value="{vreal_fmt}" class="rc-real" data-idx="{ri}" data-val="{vreal}" {"readonly" if _readonly else ""} {_ph_attr} style="width:100%;border:1px solid {_inp_border};border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box;{"background:#f0fdf4;color:#15803d;cursor:default" if _readonly else ""}"/></td>
-<td style="padding:3px 4px"><input type="number" min="0" step="1" value="{vadic}" class="rc-adic" data-idx="{ri}" {"readonly" if _readonly else ""} style="width:100%;border:1px solid {"#86efac" if (_has_stock or _ya_comprado) else "#fca5a5"};border-radius:6px;padding:5px;font-size:13px;text-align:right;background:{"#f0fdf4" if _readonly else "#fff5f5"};box-sizing:border-box{"pointer-events:none" if _readonly else ""}"/></td>
-<td class="rc-dif" data-idx="{ri}" style="padding:5px 8px;text-align:right;font-weight:700;color:#16a34a;white-space:nowrap;font-family:Montserrat,'Segoe UI',sans-serif">-</td>
+        rows += f"""<tr style="background:{bg};{_row_extra}" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}" {_dc_attr} {_da_attr} {_ds_attr} {_dstock_attr} {_dstockqty_attr} {_dsaved_attr} {_dbuy_attr}>
+<td>{_cat_badge}</td>
+<td class="rc-item">{item}</td>
+<td class="r rc-cant">{cant}{_falta_note}</td>
+<td class="r rc-pu">{pu_fmt}</td>
+<td style="padding:4px 8px"><input type="text" inputmode="numeric" value="{vreal_fmt}" class="rc-real" data-idx="{ri}" data-val="{vreal}" {"readonly" if _readonly else ""} {_ph_attr} style="width:100%;{("border-color:%s" % _inp_border) if _inp_border!="#cbd5e1" else ""};{"background:#f0fdf4;color:#15803d;cursor:default" if _readonly else ""}"/></td>
+<td style="padding:4px 8px"><input type="number" min="0" step="1" value="{vadic}" class="rc-adic" data-idx="{ri}" {"readonly" if _readonly else ""} style="width:100%;border-color:{"#86efac" if (_has_stock or _ya_comprado) else "#fca5a5"};background:{"#f0fdf4" if _readonly else "#fff7f7"};{"pointer-events:none" if _readonly else ""}"/></td>
+<td class="r rc-dif rc-difv" data-idx="{ri}" style="color:#16a34a">-</td>
 {_stock_ck}
 </tr>"""
 
     html = f"""<style>
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
-html,body{{margin:0;padding:0;font-family:Montserrat,'Segoe UI',sans-serif;font-size:13px;height:100%;overflow:hidden}}
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+html,body{{margin:0;padding:0;font-family:Montserrat,'Segoe UI',sans-serif;font-size:13px;height:100%;overflow:hidden;color:#334155;-webkit-font-smoothing:antialiased}}
 body{{display:flex;flex-direction:column}}
 table{{width:100%;border-collapse:collapse}}
-th{{background:#1e2447;color:#fff;padding:7px 8px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;position:sticky;top:0;z-index:1}}
-th.r,td.r{{text-align:right}}
-input[type=number]{{border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box}}
-input[type=number]:focus{{outline:none;border-color:#5b7cfa;box-shadow:0 0 0 2px rgba(91,124,250,.2)}}
-input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{{opacity:1;height:26px;margin-left:2px;cursor:pointer}}
+th{{background:#1e2447;color:#cbd5e1;padding:9px 12px;font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;position:sticky;top:0;z-index:1;text-align:left}}
+th.r{{text-align:right}}
+tbody td{{padding:5px 12px;font-size:12.5px;vertical-align:middle;border-bottom:1px solid #f1f5f9}}
+td.r{{text-align:right}}
+.rc-cat{{display:inline-block;padding:2px 10px;border-radius:20px;font-size:10.5px;font-weight:600;letter-spacing:.01em;white-space:nowrap;line-height:1.55}}
+.rc-item{{font-weight:600;color:#1e293b}}
+.rc-cant,.rc-pu{{font-weight:500;color:#475569;font-variant-numeric:tabular-nums}}
+.rc-difv{{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}}
+/* Inputs limpios, sin flechas nativas */
+input.rc-real,input.rc-adic{{border:1px solid #cbd5e1;border-radius:7px;padding:6px 9px;font-size:12.5px;text-align:right;box-sizing:border-box;font-family:inherit;color:#0f172a;-webkit-appearance:none;-moz-appearance:textfield;appearance:textfield;transition:border-color .12s,box-shadow .12s}}
+input.rc-real::-webkit-inner-spin-button,input.rc-real::-webkit-outer-spin-button,input.rc-adic::-webkit-inner-spin-button,input.rc-adic::-webkit-outer-spin-button{{-webkit-appearance:none;margin:0}}
+input.rc-real:focus,input.rc-adic:focus{{outline:none;border-color:#5b7cfa;box-shadow:0 0 0 3px rgba(91,124,250,.14)}}
+input.rc-adic::placeholder{{color:#cbd5e1}}
+/* Checkbox de stock */
+.rc-stock{{width:17px;height:17px;cursor:pointer;accent-color:#16a34a;vertical-align:middle}}
+/* Stepper de cantidad en stock (reemplaza las flechas nativas) */
+.rc-step{{display:inline-flex;align-items:center;border:1px solid #86efac;border-radius:7px;overflow:hidden;height:23px;vertical-align:middle;background:#fff}}
+.rc-step button{{border:none;background:#f0fdf4;color:#16a34a;width:20px;height:100%;font-size:14px;font-weight:700;cursor:pointer;line-height:1;padding:0;display:flex;align-items:center;justify-content:center}}
+.rc-step button:hover{{background:#dcfce7}}
+.rc-step button:active{{background:#bbf7d0}}
+.rc-stepval{{min-width:20px;text-align:center;font-size:11.5px;font-weight:700;color:#166534;font-variant-numeric:tabular-nums}}
+.rc-steptot{{font-size:10px;color:#94a3b8;font-weight:600;margin-left:4px;vertical-align:middle}}
 </style>
 <input id="rc-search" type="text" placeholder="Buscar item..." oninput="window.filterRows(this.value)" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:7px 10px;font-size:13px;box-sizing:border-box;margin-bottom:6px"/>
 {cats_cards_html}
@@ -1163,7 +1193,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
     <thead><tr>
       <th>Categor&#237;a</th><th>&#205;tem</th><th class="r">Cant.</th>
       <th class="r">Presup. unit.</th><th class="r">Real unit.</th>
-      <th class="r">Adicional</th><th class="r">Diferencia</th><th class="r">En stock</th>
+      <th class="r">Adicional</th><th class="r">Diferencia</th><th style="text-align:center">En stock</th>
     </tr></thead>
     <tbody>{rows}</tbody>
   </table></div>
@@ -1665,12 +1695,12 @@ window.toggleStock=function(cb){{
   var inp=tr.querySelector(".rc-real");
   var c=+tr.dataset.cant||1;
   var wrap=tr.querySelector(".rc-stockqty-wrap");
-  var qi=tr.querySelector(".rc-stockqty");
+  var sv=tr.querySelector(".rc-stepval");
   if(cb.checked){{
     tr.setAttribute("data-stock","1");
     tr.setAttribute("data-stock-qty",String(c)); // por defecto: todo en stock
-    if(qi)qi.value=String(c);
-    if(wrap)wrap.style.display=(c>1?"block":"none");
+    if(sv)sv.textContent=String(c);
+    if(wrap)wrap.style.display=(c>1?"inline-block":"none");
   }} else {{
     tr.removeAttribute("data-stock");
     tr.removeAttribute("data-stock-qty");
@@ -1680,18 +1710,17 @@ window.toggleStock=function(cb){{
   _applyStockRow(tr);
   calc();checkSaveBtn();
 }};
-// Cantidad en stock (de C presupuestadas). Si es menor que C → hay una compra
-// real de las restantes: se habilita el precio real y se sale del modo inventario.
-window.stockQty=function(input){{
-  var tr=input.closest("tr[data-idx]");
+// Stepper de cantidad en stock (−/+). V = unidades en stock (de C). Si V<C quedan
+// (C−V) por comprar; el precio real se habilita (comprar el resto es OPCIONAL, no
+// se sale del modo inventario). Reemplaza las flechas nativas feas del input.
+window.stockStep=function(btn,delta){{
+  var tr=btn.closest("tr[data-idx]");
   if(!tr) return;
   var c=+tr.dataset.cant||1;
-  var v=parseInt(input.value)||1; if(v<1)v=1; if(v>c)v=c; input.value=String(v);
+  var cur=parseInt(tr.getAttribute("data-stock-qty"))||c;
+  var v=cur+delta; if(v<1)v=1; if(v>c)v=c;
   tr.setAttribute("data-stock-qty",String(v));
-  // Parcial: se registran V unidades en stock; lo que falta (c-V) queda pendiente
-  // de comprar. NO se fuerza la compra ni se sale del modo inventario: comprar el
-  // resto es OPCIONAL (si escriben un precio en "real"). Dejamos el input real
-  // disponible por si quieren comprar el resto ahora.
+  var sv=tr.querySelector(".rc-stepval"); if(sv)sv.textContent=String(v);
   var inp=tr.querySelector(".rc-real");
   if(v<c && inp && inp.dataset.val==="0"){{inp.value="";}}
   _applyStockRow(tr);
