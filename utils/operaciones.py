@@ -1842,11 +1842,13 @@ window.guardarRegistro=async function(){{
     var fechaVal=document.getElementById("fecha-compra")?document.getElementById("fecha-compra").value:"";
     var faltóVal=document.getElementById("falto-texto")?document.getElementById("falto-texto").value.trim():"";
     var obsVal=document.getElementById("obs-compra")?document.getElementById("obs-compra").value.trim():"";
-    // Guardado SERVER-SIDE: en vez de POST a registro_compras (clave anon, que RLS
-    // bloquearía), mandamos el registro a Python via query param + popstate (rerun
-    // SIN recargar → NO desloguea al usuario de la app). Python inserta con la
-    // service key. El balance lo recalcula el servidor (no se confía en el cliente).
-    var _rcPayload={{
+    // Guardado DIRECTO en Supabase con la anon key (RLS permite el INSERT, igual
+    // que la subida de la factura). Es 100% fiable (fetch REST), sin depender de
+    // que Streamlit lea un query param ni de reruns sintéticos (que fallaban de
+    // forma intermitente). Tras insertar, se refresca la vista clickeando el botón
+    // nativo oculto (que limpia la cache y re-renderiza el formulario/historial).
+    btn.textContent="Guardando registro...";
+    var _regData={{
       cotizacion_numero:EP_NUM,
       usuario_registro:USUARIO,
       lugar_compra:lugarVal,
@@ -1860,43 +1862,23 @@ window.guardarRegistro=async function(){{
       items:items,
       total_presupuestado:tP,
       total_real:tR,
-      nonce:String(Date.now())+"-"+Math.random().toString(36).slice(2)
+      balance:(tP-tR)
     }};
+    var insResp=await fetch(SUPA_URL+"/rest/v1/registro_compras",{{
+      method:"POST",
+      headers:{{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=minimal"}},
+      body:JSON.stringify(_regData)
+    }});
+    if(!insResp.ok){{
+      var _et=""; try{{_et=await insResp.text();}}catch(e){{}}
+      throw new Error("No se pudo guardar ("+insResp.status+") "+_et.slice(0,120));
+    }}
     btn.textContent="Guardado";btn.style.background="#16a34a";
     status.textContent="Guardado. Actualizando...";
     status.style.color="#16a34a";
-    var _payStr=JSON.stringify(_rcPayload);
     setTimeout(function(){{
-      // CANAL PRINCIPAL (fiable): escribir el payload en un text_input nativo
-      // oculto. El estado de un widget SIEMPRE se sincroniza con Python; el
-      // query param seteado por JS a veces Streamlit no lo lee.
-      var _sent=false;
-      try{{
-        var doc=window.parent.document;
-        var inp=doc.querySelector('.st-key-_rc_payload_in input');
-        if(inp){{
-          var setter=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set;
-          inp.focus();
-          setter.call(inp,_payStr);
-          inp.dispatchEvent(new Event('input',{{bubbles:true}}));
-          inp.dispatchEvent(new Event('change',{{bubbles:true}}));
-          inp.blur();
-          inp.dispatchEvent(new Event('blur',{{bubbles:true}}));
-          _sent=true;
-        }}
-      }}catch(e){{}}
-      // CANAL SECUNDARIO (compat): query param + popstate.
-      try{{
-        var url=new URL(window.parent.location.href);
-        url.searchParams.set("rc_save",_payStr);
-        window.parent.history.replaceState({{}},"",url);
-        window.parent.dispatchEvent(new PopStateEvent("popstate"));
-      }}catch(e){{}}
-      // Empujón final: clic a un botón nativo oculto para forzar el rerun.
-      setTimeout(function(){{
-        try{{ var b=window.parent.document.querySelector('.st-key-_rc_apply button'); if(b) b.click(); }}catch(e){{}}
-      }},180);
-    }},300);
+      try{{ var b=window.parent.document.querySelector('.st-key-_rc_apply button'); if(b) b.click(); }}catch(e){{}}
+    }},250);
   }}catch(e){{
     btn.disabled=false;btn.textContent="Guardar compra";
     status.textContent="Error: "+e.message;status.style.color="#dc2626";
