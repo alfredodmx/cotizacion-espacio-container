@@ -1103,8 +1103,11 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         for _it in _rg['items']:
                             _nom = _it['item']
                             _es_norm = _nom in _pn_set and not _it['sin']
+                            # Un ítem con flag stock SIEMPRE es inventario (aunque su
+                            # nombre no calce exacto con el presupuesto); además, un
+                            # ítem normal a $0 se considera stock.
                             _es_stock = bool(_it.get('stock')) or (_it['pr'] == 0 and _es_norm)
-                            if _nom and _es_stock and _es_norm and _nom not in _stock_seen:
+                            if _nom and _es_stock and _nom not in _stock_seen:
                                 _stock_seen.add(_nom)
                                 # Unidades en stock (ahorro puro). Sin sqty explícito
                                 # (datos previos o $0 sin flag) → todas las unidades.
