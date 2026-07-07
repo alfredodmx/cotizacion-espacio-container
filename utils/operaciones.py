@@ -1859,17 +1859,29 @@ window.guardarRegistro=async function(){{
       factura_nombre:_facturaNom,
       items:items,
       total_presupuestado:tP,
-      total_real:tR
+      total_real:tR,
+      nonce:String(Date.now())+"-"+Math.random().toString(36).slice(2)
     }};
     btn.textContent="Guardado";btn.style.background="#16a34a";
     status.textContent="Guardado. Actualizando...";
     status.style.color="#16a34a";
     setTimeout(function(){{
-      var url=new URL(window.parent.location.href);
-      url.searchParams.set("rc_save", JSON.stringify(_rcPayload));
-      window.parent.history.replaceState({{}},"",url);
-      window.parent.dispatchEvent(new PopStateEvent("popstate"));
-    }},600);
+      try{{
+        var url=new URL(window.parent.location.href);
+        url.searchParams.set("rc_save", JSON.stringify(_rcPayload));
+        window.parent.history.replaceState({{}},"",url);
+        window.parent.dispatchEvent(new PopStateEvent("popstate"));
+      }}catch(e){{}}
+      // Fallback FIABLE: clickear un botón nativo oculto fuerza el rerun de
+      // Streamlit (el popstate sintético a veces no dispara la lectura de
+      // ?rc_save). El handler de Python igual lee el query param en ese rerun.
+      setTimeout(function(){{
+        try{{
+          var b=window.parent.document.querySelector('.st-key-_rc_apply button');
+          if(b) b.click();
+        }}catch(e){{}}
+      }},120);
+    }},300);
   }}catch(e){{
     btn.disabled=false;btn.textContent="Guardar compra";
     status.textContent="Error: "+e.message;status.style.color="#dc2626";

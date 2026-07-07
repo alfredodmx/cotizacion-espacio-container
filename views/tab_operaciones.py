@@ -566,8 +566,16 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 _rc_payload = _json_rc.loads(_rc_save_raw)
             except Exception:
                 _rc_payload = None
-            _rc_ok, _rc_err = (guardar_registro_compra_full(_rc_payload)
-                               if _rc_payload else (False, "Payload inválido."))
+            # Idempotencia: el guardado se dispara por popstate Y por el clic al
+            # botón oculto (fallback); el nonce evita insertar dos veces el mismo.
+            _rc_nonce = (_rc_payload or {}).get('nonce') if isinstance(_rc_payload, dict) else None
+            if _rc_nonce and st.session_state.get('_rc_last_nonce') == _rc_nonce:
+                _rc_ok, _rc_err = True, None  # ya insertado en el disparo anterior
+            else:
+                _rc_ok, _rc_err = (guardar_registro_compra_full(_rc_payload)
+                                   if _rc_payload else (False, "Payload inválido."))
+                if _rc_ok and _rc_nonce:
+                    st.session_state['_rc_last_nonce'] = _rc_nonce
             try:
                 del st.query_params['rc_save']
             except Exception:
@@ -996,6 +1004,16 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         for _k, _v in _rc_items_comprados.items()
                     )) + f'|{len(_rc_existentes)}'
                     components.html(_rc_html + f'<!-- {_rc_items_hash} -->', height=_rc_height, scrolling=False)
+                    # Botón nativo OCULTO: el iframe del formulario lo clickea tras
+                    # setear ?rc_save para forzar un rerun fiable de Streamlit (el
+                    # popstate sintético a veces no dispara la lectura del query
+                    # param). El handler de arriba (rc_save) procesa el guardado.
+                    st.markdown(
+                        "<style>.st-key-_rc_apply{height:0!important;overflow:hidden!important;"
+                        "margin:0!important;padding:0!important}"
+                        ".st-key-_rc_apply>div{height:0!important;overflow:hidden!important}</style>",
+                        unsafe_allow_html=True)
+                    st.button("apply", key="_rc_apply")
 
                 if _rc_existentes:
                     st.markdown(_titulo_op("file", "Información de facturas"), unsafe_allow_html=True)
