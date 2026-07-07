@@ -1433,7 +1433,7 @@ function calc(){{
   ["b-hdr","b-n","b-i","b-lbl1","b-lbl2","b-icon","b-t"].forEach(function(id){{var el=document.getElementById(id);if(el)el.style.color=col;}});
   var bi=document.getElementById("b-icon");
   if(bi)bi.textContent=b>=0?"Ahorro":"Sobrecosto";
-  var comprados=vals.filter(function(v){{return v.complete&&v.idx<10000;}}).length;
+  var comprados=vals.filter(function(v){{return (v.real>0||v.stock)&&v.idx<10000;}}).length;
   var pct=TOTAL_ITEMS>0?Math.round(comprados/TOTAL_ITEMS*1000)/10:0;
   var pctCol=pct>=100?"#3b82f6":pct>=66.6?"#16a34a":pct>=33.3?"#eab308":"#dc2626";
   var pctLbl=pct>=100?"Compra finalizada":pct>0?(pct.toFixed(1)+"% comprado"):"Sin compras";
