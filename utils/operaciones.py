@@ -1185,6 +1185,25 @@ input.rc-adic::placeholder{{color:#cbd5e1}}
 .rc-step button:active{{background:#bbf7d0}}
 .rc-stepval{{min-width:20px;text-align:center;font-size:11.5px;font-weight:700;color:#166534;font-variant-numeric:tabular-nums}}
 .rc-steptot{{font-size:10px;color:#94a3b8;font-weight:600;margin-left:4px;vertical-align:middle}}
+/* Tarjetas de totales (panel inferior) — livianas y elegantes */
+#tots{{background:#f8fafc;border-top:1px solid #eef2f7}}
+.tot-card{{background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 3px rgba(15,23,42,.05);border:1px solid #f1f5f9;display:flex;flex-direction:column;min-width:0}}
+.tot-h{{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+.tot-sub{{font-size:8.5px;font-weight:600;margin-top:-5px;margin-bottom:7px;letter-spacing:.03em;text-transform:uppercase;opacity:.9}}
+.tot-l{{font-size:10px;color:#94a3b8;margin-top:6px;font-weight:500}}
+.tot-v{{font-size:13.5px;font-weight:700;color:#334155;font-variant-numeric:tabular-nums}}
+.tot-v2{{font-size:12px;font-weight:600;color:#64748b;font-variant-numeric:tabular-nums}}
+.tot-big{{font-size:16.5px;font-weight:800;color:#0f172a;font-variant-numeric:tabular-nums;margin-top:1px}}
+/* Panel de guardar — claro (antes azul oscuro) */
+.rc-field{{margin-bottom:9px}}
+.rc-lbl{{font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px;display:flex;align-items:center}}
+.rc-inp{{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px 11px;font-size:13px;background:#fff;color:#0f172a;box-sizing:border-box;outline:none;font-family:inherit;transition:border-color .12s,box-shadow .12s}}
+.rc-inp::placeholder{{color:#94a3b8}}
+.rc-inp:focus{{border-color:#5b7cfa;box-shadow:0 0 0 3px rgba(91,124,250,.14)}}
+.rc-sel{{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px 11px;font-size:13px;background:#fff;color:#0f172a;box-sizing:border-box;outline:none;cursor:pointer;font-family:inherit}}
+.rc-sel:focus{{border-color:#5b7cfa;box-shadow:0 0 0 3px rgba(91,124,250,.14)}}
+.rc-grid{{display:grid;grid-template-columns:1fr 1fr;gap:10px}}
+.rc-hidden{{display:none}}
 </style>
 <input id="rc-search" type="text" placeholder="Buscar item..." oninput="window.filterRows(this.value)" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:7px 10px;font-size:13px;box-sizing:border-box;margin-bottom:6px"/>
 {cats_cards_html}
@@ -1197,51 +1216,51 @@ input.rc-adic::placeholder{{color:#cbd5e1}}
     </tr></thead>
     <tbody>{rows}</tbody>
   </table></div>
-  <div id="tots" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr 1fr;gap:9px;padding:16px;background:#f8fafc;border-top:2px solid #e2e8f0;flex-shrink:0">
-    <div>
-      <div style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">Presupuestado</div>
-      <div style="font-size:11px;color:#64748b">Subtotal neto</div><div style="font-size:15px;font-weight:700" id="tp-n">$0</div>
-      <div style="font-size:11px;color:#64748b;margin-top:4px">IVA (19%)</div><div style="font-size:13px;font-weight:600" id="tp-i">$0</div>
-      <div style="font-size:11px;color:#64748b;margin-top:4px">Total con IVA</div><div style="font-size:17px;font-weight:900" id="tp-t">$0</div>
+  <div id="tots" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr 1fr;gap:10px;padding:14px 16px;flex-shrink:0">
+    <div class="tot-card" style="border-left:3px solid #cbd5e1">
+      <div class="tot-h" style="color:#64748b">Presupuestado</div>
+      <div class="tot-l">Subtotal neto</div><div class="tot-v" id="tp-n">$0</div>
+      <div class="tot-l">IVA (19%)</div><div class="tot-v2" id="tp-i">$0</div>
+      <div class="tot-l">Total con IVA</div><div class="tot-big" id="tp-t">$0</div>
     </div>
-    <div>
-      <div style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">Real</div>
-      <div style="font-size:11px;color:#64748b">Subtotal neto</div><div style="font-size:15px;font-weight:700" id="tr-n">$0</div>
-      <div style="font-size:11px;color:#64748b;margin-top:4px">IVA (19%)</div><div style="font-size:13px;font-weight:600" id="tr-i">$0</div>
-      <div style="font-size:11px;color:#64748b;margin-top:4px">Total con IVA</div><div style="font-size:17px;font-weight:900" id="tr-t">$0</div>
+    <div class="tot-card" style="border-left:3px solid #94a3b8">
+      <div class="tot-h" style="color:#64748b">Real</div>
+      <div class="tot-l">Subtotal neto</div><div class="tot-v" id="tr-n">$0</div>
+      <div class="tot-l">IVA (19%)</div><div class="tot-v2" id="tr-i">$0</div>
+      <div class="tot-l">Total con IVA</div><div class="tot-big" id="tr-t">$0</div>
     </div>
-    <div>
-      <div style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px" id="b-hdr">Balance</div>
-      <div style="font-size:11px" id="b-lbl1">Neto</div><div style="font-size:15px;font-weight:700" id="b-n">$0</div>
-      <div style="font-size:11px;margin-top:4px" id="b-lbl2">IVA</div><div style="font-size:13px;font-weight:600" id="b-i">$0</div>
-      <div style="font-size:11px;margin-top:4px" id="b-icon">Ahorro</div><div style="font-size:17px;font-weight:900" id="b-t">$0</div>
+    <div class="tot-card" id="b-card" style="border-left:3px solid #16a34a">
+      <div class="tot-h" id="b-hdr" style="color:#16a34a">Balance</div>
+      <div class="tot-l" id="b-lbl1">Neto</div><div class="tot-v" id="b-n">$0</div>
+      <div class="tot-l" id="b-lbl2">IVA</div><div class="tot-v2" id="b-i">$0</div>
+      <div class="tot-l" id="b-icon">Ahorro</div><div class="tot-big" id="b-t">$0</div>
     </div>
-    <div style="border-left:2px solid #bbf7d0;padding-left:10px;background:#f0fdf4;border-radius:8px;">
-      <div style="font-size:10px;font-weight:700;color:#16a34a;letter-spacing:.05em;text-transform:uppercase;margin-bottom:2px">Inventario</div>
-      <div style="font-size:9px;color:#16a34a;margin-bottom:6px;font-weight:600">Ahorro puro</div>
-      <div style="font-size:11px;color:#16a34a">Productos</div><div style="font-size:14px;font-weight:700;color:#16a34a" id="ti-c">0</div>
-      <div style="font-size:11px;color:#16a34a;margin-top:4px">Total ahorrado</div><div style="font-size:16px;font-weight:900;color:#16a34a" id="ti-t">$0</div>
-      <button onclick="window.verInventario()" id="ti-ver" style="margin-top:8px;background:#16a34a;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px">{_svg_rc('eye', color='#fff', size=12, mr=0)}Ver</button>
+    <div class="tot-card" style="border-left:3px solid #16a34a;background:#f0fdf4">
+      <div class="tot-h" style="color:#16a34a">Inventario</div>
+      <div class="tot-sub" style="color:#22c55e">Ahorro puro</div>
+      <div class="tot-l" style="color:#4ade80">Productos</div><div class="tot-v" style="color:#16a34a" id="ti-c">0</div>
+      <div class="tot-l" style="color:#4ade80">Total ahorrado</div><div class="tot-big" style="color:#16a34a;font-size:15.5px" id="ti-t">$0</div>
+      <button onclick="window.verInventario()" id="ti-ver" style="margin-top:9px;background:#16a34a;color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;box-shadow:0 2px 6px rgba(22,163,74,.22);align-self:flex-start">{_svg_rc('eye', color='#fff', size=12, mr=0)}Ver</button>
     </div>
-    <div style="border-left:2px solid #fed7aa;padding-left:10px;background:#fff7ed;border-radius:8px;">
-      <div style="font-size:10px;font-weight:700;color:#f97316;letter-spacing:.05em;text-transform:uppercase;margin-bottom:2px">Adicionales</div>
-      <div style="font-size:9px;color:#f97316;margin-bottom:6px;font-weight:600">Con registro</div>
-      <div style="font-size:11px;color:#f97316">Subtotal neto</div><div style="font-size:14px;font-weight:700;color:#f97316" id="ta-n">$0</div>
-      <div style="font-size:11px;color:#f97316;margin-top:4px">IVA (19%)</div><div style="font-size:12px;font-weight:600;color:#f97316" id="ta-i">$0</div>
-      <div style="font-size:11px;color:#f97316;margin-top:4px">Total con IVA</div><div style="font-size:16px;font-weight:900;color:#f97316" id="ta-t">$0</div>
+    <div class="tot-card" style="border-left:3px solid #f97316;background:#fff7ed">
+      <div class="tot-h" style="color:#f97316">Adicionales</div>
+      <div class="tot-sub" style="color:#fb923c">Con registro</div>
+      <div class="tot-l" style="color:#fdba74">Subtotal neto</div><div class="tot-v" style="color:#ea580c" id="ta-n">$0</div>
+      <div class="tot-l" style="color:#fdba74">IVA (19%)</div><div class="tot-v2" style="color:#f97316" id="ta-i">$0</div>
+      <div class="tot-l" style="color:#fdba74">Total con IVA</div><div class="tot-big" style="color:#ea580c;font-size:15px" id="ta-t">$0</div>
     </div>
-    <div style="border-left:2px solid #fbcfe8;padding-left:10px;background:#fdf2f8;border-radius:8px;">
-      <div style="font-size:10px;font-weight:700;color:#ec4899;letter-spacing:.05em;text-transform:uppercase;margin-bottom:2px">Adicionales</div>
-      <div style="font-size:9px;color:#ec4899;margin-bottom:6px;font-weight:600">Sin registro</div>
-      <div style="font-size:11px;color:#ec4899">Subtotal neto</div><div style="font-size:14px;font-weight:700;color:#ec4899" id="ts-n">$0</div>
-      <div style="font-size:11px;color:#ec4899;margin-top:4px">IVA (19%)</div><div style="font-size:12px;font-weight:600;color:#ec4899" id="ts-i">$0</div>
-      <div style="font-size:11px;color:#ec4899;margin-top:4px">Total con IVA</div><div style="font-size:16px;font-weight:900;color:#ec4899" id="ts-t">$0</div>
+    <div class="tot-card" style="border-left:3px solid #ec4899;background:#fdf2f8">
+      <div class="tot-h" style="color:#ec4899">Adicionales</div>
+      <div class="tot-sub" style="color:#f472b6">Sin registro</div>
+      <div class="tot-l" style="color:#f9a8d4">Subtotal neto</div><div class="tot-v" style="color:#db2777" id="ts-n">$0</div>
+      <div class="tot-l" style="color:#f9a8d4">IVA (19%)</div><div class="tot-v2" style="color:#ec4899" id="ts-i">$0</div>
+      <div class="tot-l" style="color:#f9a8d4">Total con IVA</div><div class="tot-big" style="color:#db2777;font-size:15px" id="ts-t">$0</div>
     </div>
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;border-left:2px solid #e2e8f0;padding-left:12px">
-      <div style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:12px;text-align:center">Progreso de compra</div>
-      <div id="prog-pct" style="font-size:42px;font-weight:900;line-height:1;color:#dc2626;text-align:center">0%</div>
-      <div id="prog-lbl" style="font-size:12px;font-weight:600;color:#dc2626;margin-top:6px;text-align:center">Sin compras</div>
-      <div style="width:100%;background:#e2e8f0;border-radius:99px;height:6px;margin-top:10px;overflow:hidden">
+    <div class="tot-card" style="align-items:center;justify-content:center;text-align:center;border-left:3px solid #e2e8f0">
+      <div class="tot-h" style="color:#64748b;margin-bottom:10px">Progreso</div>
+      <div id="prog-pct" style="font-size:38px;font-weight:800;line-height:1;color:#dc2626;font-variant-numeric:tabular-nums">0%</div>
+      <div id="prog-lbl" style="font-size:11px;font-weight:600;color:#dc2626;margin-top:6px">Sin compras</div>
+      <div style="width:100%;background:#f1f5f9;border-radius:99px;height:7px;margin-top:11px;overflow:hidden">
         <div id="prog-bar" style="height:100%;width:0%;border-radius:99px;background:#dc2626;transition:width .4s ease,background .4s ease"></div>
       </div>
     </div>
@@ -1276,24 +1295,15 @@ input.rc-adic::placeholder{{color:#cbd5e1}}
         <button onclick="window.addRowSinReg()" style="background:#ec4899;color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer">+ Agregar</button></div>
     </div>
   </div>
-  <div id="save-section" style="padding:12px 16px;background:#1e2447;border-top:2px solid #e2e8f0;flex-shrink:0">
-    <div style="font-size:11px;font-weight:700;color:#fff;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center">{_svg_rc('paperclip', color='#fff', size=14, mr=8)}Adjuntar Factura y Guardar</div>
-    <style>
-    .rc-field{{margin-bottom:8px}}
-    .rc-lbl{{font-size:11px;color:rgba(255,255,255,0.6);margin-bottom:3px;display:flex;align-items:center}}
-    .rc-inp{{width:100%;border:1px solid rgba(255,255,255,0.3);border-radius:6px;padding:7px 10px;font-size:13px;background:rgba(255,255,255,0.08);color:#fff;box-sizing:border-box;outline:none}}
-    .rc-inp::placeholder{{color:rgba(255,255,255,0.35)}}
-    .rc-sel{{width:100%;border:1px solid rgba(255,255,255,0.3);border-radius:6px;padding:7px 10px;font-size:13px;background:#1e2447;color:#fff;box-sizing:border-box;outline:none;cursor:pointer}}
-    .rc-grid{{display:grid;grid-template-columns:1fr 1fr;gap:8px}}
-    .rc-hidden{{display:none}}
-    </style>
+  <div id="save-section" style="padding:15px 16px 16px;background:#f8fafc;border-top:1px solid #eef2f7;flex-shrink:0">
+    <div style="font-size:11px;font-weight:700;color:#334155;letter-spacing:.05em;text-transform:uppercase;margin-bottom:11px;display:flex;align-items:center">{_svg_rc('paperclip', color='#64748b', size=14, mr=8)}Adjuntar Factura y Guardar</div>
     <div class="rc-grid">
       <div class="rc-field">
-        <div class="rc-lbl">{_svg_rc('store', color='rgba(255,255,255,0.7)', size=13)}&#191;D&#243;nde compraste? *</div>
+        <div class="rc-lbl">{_svg_rc('store', color='#94a3b8', size=13)}&#191;D&#243;nde compraste? *</div>
         <input id="lugar-compra" type="text" class="rc-inp" list="rc-proveedores" autocomplete="off" placeholder="Escribe un proveedor o elige INVENTARIO..." oninput="window.onLugarChange()"/>{_prov_datalist}
       </div>
       <div class="rc-field">
-        <div class="rc-lbl">{_svg_rc('cart', color='rgba(255,255,255,0.7)', size=13)}Tipo de compra *</div>
+        <div class="rc-lbl">{_svg_rc('cart', color='#94a3b8', size=13)}Tipo de compra *</div>
         <select id="tipo-compra" class="rc-sel" onchange="window.onTipoChange()">
           <option value="">Seleccionar...</option>
           <option value="online">Compra Online</option>
@@ -1308,27 +1318,27 @@ input.rc-adic::placeholder{{color:#cbd5e1}}
       </select>
     </div>
     <div id="fecha-wrap" class="rc-field rc-hidden">
-      <div class="rc-lbl" id="fecha-lbl">{_svg_rc('calendar', color='rgba(255,255,255,0.7)', size=13)}&#191;Para cu&#225;ndo? *</div>
+      <div class="rc-lbl" id="fecha-lbl">{_svg_rc('calendar', color='#94a3b8', size=13)}&#191;Para cu&#225;ndo? *</div>
       <input id="fecha-compra" type="date" class="rc-inp" oninput="window.checkSaveBtn()" onchange="window.checkSaveBtn()"/>
     </div>
     <div id="falt&#243;-wrap" class="rc-field rc-hidden">
-      <div class="rc-lbl">{_svg_rc('clipboard', color='rgba(255,255,255,0.7)', size=13)}&#191;Qu&#233; falt&#243; por retirar? *</div>
+      <div class="rc-lbl">{_svg_rc('clipboard', color='#94a3b8', size=13)}&#191;Qu&#233; falt&#243; por retirar? *</div>
       <textarea id="falto-texto" class="rc-inp" rows="2" placeholder="Describe los &#237;tems que faltaron..." oninput="window.checkSaveBtn()" style="resize:vertical"></textarea>
     </div>
     <div class="rc-field">
-      <div class="rc-lbl">{_svg_rc('note', color='rgba(255,255,255,0.7)', size=13)}Observaciones adicionales (opcional)</div>
+      <div class="rc-lbl">{_svg_rc('note', color='#94a3b8', size=13)}Observaciones adicionales (opcional)</div>
       <textarea id="obs-compra" class="rc-inp" rows="2" placeholder="Notas, motivos u observaciones de esta compra..." style="resize:vertical"></textarea>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:2px">
       <span id="factura-wrap" style="display:inline-flex;align-items:center;gap:10px;">
-        <label id="factura-label" style="background:rgba(255,255,255,0.1);color:#fff;border:1px dashed rgba(255,255,255,0.4);border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center">{_svg_rc('paperclip', color='#fff', size=13)}Seleccionar factura PDF
+        <label id="factura-label" style="background:#fff;color:#475569;border:1.5px dashed #cbd5e1;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;transition:border-color .12s">{_svg_rc('paperclip', color='#64748b', size=13)}Seleccionar factura PDF
           <input id="factura-input" type="file" accept=".pdf" style="display:none"/>
         </label>
-        <button id="factura-clear" onclick="window.clearFactura()" style="display:none;background:rgba(220,38,38,0.7);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;white-space:nowrap;align-items:center">{_svg_rc('x', color='#fff', size=12, mr=4)}Quitar</button>
+        <button id="factura-clear" onclick="window.clearFactura()" style="display:none;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;align-items:center">{_svg_rc('x', color='#dc2626', size=12, mr=4)}Quitar</button>
       </span>
-      <span id="inv-note" style="display:none;align-items:center;gap:6px;background:rgba(22,163,74,0.18);color:#bbf7d0;border:1px solid rgba(134,239,172,0.45);border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;white-space:nowrap">{_svg_rc('check', color='#86efac', size=13)}Inventario — no requiere factura (ahorro puro)</span>
-      <div id="save-status" style="font-size:12px;color:rgba(255,255,255,0.7);flex:1"></div>
-      <button id="save-btn" onclick="window.guardarRegistro()" disabled style="background:#10b981;color:#fff;border:none;border-radius:8px;padding:8px 24px;font-size:13px;font-weight:700;cursor:pointer;opacity:0.5;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center">{_svg_rc('save', color='#fff', size=14, mr=7)}Guardar compra</button>
+      <span id="inv-note" style="display:none;align-items:center;gap:6px;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;white-space:nowrap">{_svg_rc('check', color='#16a34a', size=13)}Inventario — no requiere factura (ahorro puro)</span>
+      <div id="save-status" style="font-size:12px;color:#64748b;flex:1"></div>
+      <button id="save-btn" onclick="window.guardarRegistro()" disabled style="background:#16a34a;color:#fff;border:none;border-radius:9px;padding:10px 26px;font-size:13px;font-weight:600;cursor:pointer;opacity:0.5;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(22,163,74,.22)">{_svg_rc('save', color='#fff', size=14, mr=7)}Guardar compra</button>
     </div>
   </div>
     </div>
@@ -1354,8 +1364,8 @@ var TOTAL_ITEMS={total_items_presupuesto};
 var _facturaFile=null;
 var _facturaUrl="";
 var _facturaNom="";
-var ICO_CAL='{_svg_rc('calendar', color='rgba(255,255,255,0.7)', size=13)}';
-var ICO_CLIP='{_svg_rc('paperclip', color='#ffffff', size=13)}';
+var ICO_CAL='{_svg_rc('calendar', color='#94a3b8', size=13)}';
+var ICO_CLIP='{_svg_rc('paperclip', color='#64748b', size=13)}';
 var CAT={rc_cat_json};
 var addCat=document.getElementById("add-cat");
 Object.keys(CAT).sort().forEach(function(c){{var o=document.createElement("option");o.value=c;o.textContent=c;addCat.appendChild(o);}});
@@ -1461,6 +1471,7 @@ function calc(){{
   var v=[tP,iP,tP+iP,tR,iR,tR+iR,b,ib,b+ib,tA,iA,tA+iA,tS,iS,tS+iS];
   ids.forEach(function(id,i){{var el=document.getElementById(id);if(el)el.textContent=f(v[i]);}});
   ["b-hdr","b-n","b-i","b-lbl1","b-lbl2","b-icon","b-t"].forEach(function(id){{var el=document.getElementById(id);if(el)el.style.color=col;}});
+  var _bc=document.getElementById("b-card");if(_bc)_bc.style.borderLeftColor=col;
   var bi=document.getElementById("b-icon");
   if(bi)bi.textContent=b>=0?"Ahorro":"Sobrecosto";
   var comprados=vals.filter(function(v){{return (v.real>0||v.stock)&&v.idx<10000;}}).length;
