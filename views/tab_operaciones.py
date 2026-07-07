@@ -572,11 +572,13 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 del st.query_params['rc_save']
             except Exception:
                 pass
-            # Invalidar cache de "ya comprados" (la que usa el tab) para que el
-            # refresco muestre el registro recién guardado. obtener_registros_compra
-            # no está cacheada (lee fresco), así que no requiere clear.
+            # Invalidar AMBAS caches (ttl 30s) para que el refresco muestre el
+            # registro recién guardado: obtener_items_comprados se apoya en
+            # obtener_registros_compra, así que hay que limpiar las dos (si no, el
+            # ítem inventariado vuelve a aparecer sin marcar en el formulario).
             try:
                 obtener_items_comprados.clear()
+                obtener_registros_compra.clear()  # depende de esta cache (ttl 30s)
             except Exception:
                 pass
             for _k in list(st.session_state.keys()):
@@ -657,6 +659,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 pass
             try:
                 obtener_items_comprados.clear()
+                obtener_registros_compra.clear()  # depende de esta cache (ttl 30s)
             except Exception:
                 pass
             for _k in list(st.session_state.keys()):
@@ -676,6 +679,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 pass
             try:
                 obtener_items_comprados.clear()
+                obtener_registros_compra.clear()  # depende de esta cache (ttl 30s)
             except Exception:
                 pass
             for _k in list(st.session_state.keys()):

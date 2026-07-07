@@ -1054,57 +1054,67 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
         _es_adicional = bool(prod.get('_adicional', False))
         _es_sin_reg = bool(prod.get('_sin_registro', False))
         _ic = items_comprados.get(item, {})
-        # "En stock" (ahorro puro): comprado con precio real $0 marcado como stock.
-        _es_stock = bool(_ic and _ic.get('stock'))
-        # Unidades en stock al reabrir un registro guardado. Si no se guardó
-        # stock_cantidad (datos previos) se asume TODO en stock (full).
-        _stock_qty_saved = cant
-        if _es_stock and ('stock_cantidad' in _ic):
-            try:
-                _stock_qty_saved = max(0, min(cant, int(_ic.get('stock_cantidad') or 0)))
-            except Exception:
-                _stock_qty_saved = cant
-        _ya_comprado = bool(_ic and (float(_ic.get('real', 0) or 0) > 0 or _es_stock)) or _es_adicional
-        # Los ítems en stock quedan SIEMPRE bloqueados en el formulario (su valor es
-        # fijo; para cambiarlo se edita/elimina el registro en el historial).
-        _readonly = (_ya_comprado and not es_admin) or _es_stock
+        # Cobertura acumulada del ítem (unidades ya en stock + ya compradas).
+        _stock_units = int(_ic.get('stock_units', 0) or 0) if _ic else 0
+        _bought_units = int(_ic.get('bought_units', 0) or 0) if _ic else 0
+        _covered = _stock_units + _bought_units
+        _has_stock = bool(_ic and _ic.get('stock')) and _stock_units > 0
+        _fully = bool(_ic) and _covered >= cant            # ítem completo
+        _partial = bool(_ic) and 0 < _covered < cant       # falta comprar unidades
+        _falta = max(0, cant - _covered)
+        _real_price = float(_ic.get('real', 0) or 0) if _ic else 0
+        _stock_qty_saved = min(cant, _stock_units) if _has_stock else 0
+        # Comprado/bloqueado SOLO si el ítem está COMPLETO (o es adicional). Un
+        # PARCIAL queda editable para poder comprar lo que falta.
+        _ya_comprado = _fully or _es_adicional
+        _pure_full_stock = _fully and _has_stock and _bought_units == 0
+        _readonly = _pure_full_stock or (_ya_comprado and not es_admin)
 
         if _es_sin_reg:
             bg = '#fdf2f8'
         elif _es_adicional:
             bg = '#fff3e0'
-        elif _es_stock:
-            bg = '#dcfce7'   # verde más intenso: fila de inventario
+        elif _has_stock:
+            bg = '#dcfce7'   # verde más intenso: fila con inventario
         elif _ya_comprado:
             bg = '#f0fdf4'
         elif ri % 2 == 0:
             bg = '#ffffff'
         else:
             bg = '#f8fafc'
-        _row_extra = 'border-left:3px solid #16a34a;' if _es_stock else ''
+        _row_extra = 'border-left:3px solid #16a34a;' if _has_stock else ''
 
         pu_fmt = '$' + f'{pu:,}'.replace(',', '.')
         pv = rc_prev.get(str(ri), {})
-        vreal = float(_ic.get('real', 0)) if _ya_comprado else (pv.get('real', 0) or 0)
+        vreal = _real_price if (_ya_comprado or _partial) else (pv.get('real', 0) or 0)
         vadic = int(_ic.get('adicional', 0)) if _ya_comprado else (pv.get('adic', 0) or 0)
-        vreal_fmt = ('$' + f'{int(vreal):,}'.replace(',', '.')) if vreal else ('$0' if _es_stock else '')
+        vreal_fmt = ('$' + f'{int(vreal):,}'.replace(',', '.')) if vreal else ('$0' if _pure_full_stock else '')
 
         _dc_attr = 'data-comprado="1"' if _ya_comprado else ""
         _da_attr = 'data-adicional="1"' if _es_adicional else ""
         _ds_attr = 'data-sin-registro="1"' if _es_sin_reg else ""
-        _dstock_attr = 'data-stock="1"' if _es_stock else ""
-        _dstockqty_attr = f'data-stock-qty="{_stock_qty_saved}"' if _es_stock else ""
-        # Celda "En stock": checkbox para ítems normales no comprados (+ input de
-        # cantidad si hay más de 1: cuántas tienes en stock vs. cuántas comprarás);
-        # o badge verde con la cantidad al recargar un ítem ya inventariado.
-        if not _es_adicional and not _es_sin_reg and not _ya_comprado:
+        _dstock_attr = 'data-stock="1"' if _has_stock else ""
+        _dstockqty_attr = f'data-stock-qty="{_stock_qty_saved}"' if _has_stock else ""
+        # Stock ya guardado en BD (no se re-guarda): full o parcial recargados.
+        _dsaved_attr = 'data-stock-saved="1"' if (_has_stock and (_fully or _partial)) else ""
+        _dbuy_attr = f'data-buy="{_falta}"' if _partial else ""
+        _ph_attr = 'placeholder="compra lo que falta"' if _partial else ''
+        # Nota "faltan N por comprar" bajo la cantidad (se actualiza en vivo por JS
+        # al marcar stock / cambiar la cantidad; sembrada aquí para el parcial recargado).
+        _falta_inner = f'faltan {_falta} por comprar' if _partial else ''
+        _falta_note = (f'<div class="rc-falta" style="font-size:9px;color:#ea580c;'
+                       f'font-weight:700;margin-top:2px;white-space:nowrap;">{_falta_inner}</div>')
+        _inp_border = "#86efac" if (_has_stock or _ya_comprado) else "#cbd5e1"
+        # Celda "En stock": checkbox (+ cantidad) para ítems sin cobertura; o badge
+        # verde con la cantidad en stock para ítems ya inventariados (full/parcial).
+        if not _es_adicional and not _es_sin_reg and _covered == 0:
             _qty_input = (
                 '<div class="rc-stockqty-wrap" style="display:none;margin-top:3px;font-size:10px;'
                 'color:#166534;white-space:nowrap;font-weight:700;">'
                 f'<input type="number" class="rc-stockqty" min="1" max="{cant}" value="{cant}" '
                 'onchange="window.stockQty(this)" onclick="event.stopPropagation()" '
-                'style="width:36px;border:1px solid #86efac;border-radius:4px;padding:2px;'
-                f'font-size:10px;text-align:center;"/> / {cant}</div>'
+                'style="width:42px;border:1px solid #86efac;border-radius:4px;padding:3px 2px;'
+                f'font-size:11px;text-align:center;"/> / {cant}</div>'
             ) if cant > 1 else ''
             _stock_ck = (
                 '<td style="text-align:center;padding:3px 4px"><input type="checkbox" class="rc-stock" '
@@ -1113,8 +1123,8 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
                 'style="width:16px;height:16px;cursor:pointer;accent-color:#16a34a;vertical-align:middle;"/>'
                 f'{_qty_input}</td>'
             )
-        elif _es_stock:
-            _sq_lbl = f'{_stock_qty_saved}/{cant}' if _stock_qty_saved < cant else ''
+        elif _has_stock:
+            _sq_lbl = '' if _stock_units >= cant else f'{_stock_units}/{cant}'
             _sq_span = (f'<span style="font-size:10px;color:#166534;font-weight:700;margin-left:2px;">{_sq_lbl}</span>'
                         if _sq_lbl else '')
             _stock_ck = (
@@ -1124,13 +1134,13 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
             )
         else:
             _stock_ck = '<td></td>'
-        rows += f"""<tr style="background:{bg};border-bottom:1px solid #eef0f6;{_row_extra}" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}" {_dc_attr} {_da_attr} {_ds_attr} {_dstock_attr} {_dstockqty_attr}>
+        rows += f"""<tr style="background:{bg};border-bottom:1px solid #eef0f6;{_row_extra}" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}" {_dc_attr} {_da_attr} {_ds_attr} {_dstock_attr} {_dstockqty_attr} {_dsaved_attr} {_dbuy_attr}>
 <td style="padding:5px 8px;font-size:.85rem;color:#334155;font-weight:700;font-family:Montserrat,'Segoe UI',sans-serif">{cat}</td>
 <td style="padding:5px 8px;font-size:.95rem;color:#0f172a;font-weight:700;font-family:Montserrat,'Segoe UI',sans-serif">{item}</td>
-<td style="padding:5px 8px;text-align:right;font-weight:700;font-family:Montserrat,'Segoe UI',sans-serif">{cant}</td>
+<td style="padding:5px 8px;text-align:right;font-weight:700;font-family:Montserrat,'Segoe UI',sans-serif">{cant}{_falta_note}</td>
 <td style="padding:5px 8px;text-align:right;font-weight:700;font-family:Montserrat,'Segoe UI',sans-serif">{pu_fmt}</td>
-<td style="padding:3px 4px"><input type="text" inputmode="numeric" value="{vreal_fmt}" class="rc-real" data-idx="{ri}" data-val="{vreal}" {"readonly" if _readonly else ""} style="width:100%;border:1px solid {"#86efac" if _ya_comprado else "#cbd5e1"};border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box;{"background:#f0fdf4;color:#15803d;cursor:default" if _ya_comprado else ""}"/></td>
-<td style="padding:3px 4px"><input type="number" min="0" step="1" value="{vadic}" class="rc-adic" data-idx="{ri}" {"readonly" if _readonly else ""} style="width:100%;border:1px solid {"#86efac" if _ya_comprado else "#fca5a5"};border-radius:6px;padding:5px;font-size:13px;text-align:right;background:{"#f0fdf4" if _ya_comprado else "#fff5f5"};box-sizing:border-box{"pointer-events:none" if _readonly else ""}"/></td>
+<td style="padding:3px 4px"><input type="text" inputmode="numeric" value="{vreal_fmt}" class="rc-real" data-idx="{ri}" data-val="{vreal}" {"readonly" if _readonly else ""} {_ph_attr} style="width:100%;border:1px solid {_inp_border};border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box;{"background:#f0fdf4;color:#15803d;cursor:default" if _readonly else ""}"/></td>
+<td style="padding:3px 4px"><input type="number" min="0" step="1" value="{vadic}" class="rc-adic" data-idx="{ri}" {"readonly" if _readonly else ""} style="width:100%;border:1px solid {"#86efac" if (_has_stock or _ya_comprado) else "#fca5a5"};border-radius:6px;padding:5px;font-size:13px;text-align:right;background:{"#f0fdf4" if _readonly else "#fff5f5"};box-sizing:border-box{"pointer-events:none" if _readonly else ""}"/></td>
 <td class="rc-dif" data-idx="{ri}" style="padding:5px 8px;text-align:right;font-weight:700;color:#16a34a;white-space:nowrap;font-family:Montserrat,'Segoe UI',sans-serif">-</td>
 {_stock_ck}
 </tr>"""
@@ -1144,7 +1154,7 @@ th{{background:#1e2447;color:#fff;padding:7px 8px;font-size:11px;letter-spacing:
 th.r,td.r{{text-align:right}}
 input[type=number]{{border:1px solid #cbd5e1;border-radius:6px;padding:5px;font-size:13px;text-align:right;box-sizing:border-box}}
 input[type=number]:focus{{outline:none;border-color:#5b7cfa;box-shadow:0 0 0 2px rgba(91,124,250,.2)}}
-input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{{opacity:1;height:26px;margin-left:2px;cursor:pointer}}
 </style>
 <input id="rc-search" type="text" placeholder="Buscar item..." oninput="window.filterRows(this.value)" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:7px 10px;font-size:13px;box-sizing:border-box;margin-bottom:6px"/>
 {cats_cards_html}
@@ -1384,22 +1394,33 @@ function calc(){{
     var isSinReg=r.getAttribute("data-sin-registro")==="1";
     var isAdic=r.dataset.adicional==="1"&&!isSinReg;
     var isStock=r.getAttribute("data-stock")==="1";
-    // Stock parcial: sq = unidades en stock (ahorro), compradas = c - sq.
+    // Stock: sq = unidades en stock (ahorro). Unidades a comprar: data-buy si
+    // viene (parcial recargado = lo que falta), si no, c - sq (fila fresca).
     var sq=isStock?(parseInt(r.getAttribute("data-stock-qty"))||c):0;
     if(sq>c)sq=c; if(sq<0)sq=0;
-    var comprUnits=isStock?(c-sq):c;
-    // Diferencia = presupuestado total - real de lo comprado - adicional.
-    var d=pu*c-re*comprUnits-(ad*re);
+    var buyAttr=r.getAttribute("data-buy");
+    var comprUnits=(buyAttr!=null)?(parseInt(buyAttr)||0):(isStock?(c-sq):c);
+    if(comprUnits<0)comprUnits=0;
+    // Diferencia (ahorro). Stock: ahorro puro de lo inventariado + diferencia de
+    // precio de lo comprado (solo si hay precio; lo que falta comprar no es ahorro).
+    var d=isStock?(pu*sq+(re>0?(pu-re)*comprUnits:0)):((pu-re)*c-(ad*re));
     var td=r.querySelector(".rc-dif");
     td.textContent=f(d)+(d>=0?" ▼":" ▲");
     td.style.color=d>=0?"#16a34a":"#dc2626";
+    // Nota "faltan N por comprar" (unidades en stock que aún no se han comprado).
+    var faltan=(isStock&&re<=0)?comprUnits:0;
+    var fEl=r.querySelector(".rc-falta");
+    if(fEl)fEl.textContent=faltan>0?("faltan "+faltan+" por comprar"):"";
     if(isSinReg){{tS+=re*c;}}
     else if(isAdic){{tA+=re*c;}}
     else{{tP+=pu*c;}}
     tR+=re*comprUnits+ad*re;
     // Inventario (stock, $0): ahorro puro = presupuestado de las unidades en stock.
     if(isStock&&idx<10000){{tI+=pu*sq;nI++;}}
-    vals.push({{idx:+r.dataset.idx,real:re,adic:ad,dif:d,stock:isStock}});
+    // Unidades cubiertas (ya en stock/compradas + lo que se compra ahora). La
+    // línea está COMPLETA solo si se cubre toda la cantidad (parcial ≠ completo).
+    var coveredUnits=(c-comprUnits)+(re>0?comprUnits:0);
+    vals.push({{idx:+r.dataset.idx,real:re,adic:ad,dif:d,stock:isStock,complete:coveredUnits>=c}});
   }});
   var _tiT=document.getElementById("ti-t");if(_tiT)_tiT.textContent=f(tI);
   var _tiC=document.getElementById("ti-c");if(_tiC)_tiC.textContent=nI;
@@ -1412,7 +1433,7 @@ function calc(){{
   ["b-hdr","b-n","b-i","b-lbl1","b-lbl2","b-icon","b-t"].forEach(function(id){{var el=document.getElementById(id);if(el)el.style.color=col;}});
   var bi=document.getElementById("b-icon");
   if(bi)bi.textContent=b>=0?"Ahorro":"Sobrecosto";
-  var comprados=vals.filter(function(v){{return (v.real>0||v.stock)&&v.idx<10000;}}).length;
+  var comprados=vals.filter(function(v){{return v.complete&&v.idx<10000;}}).length;
   var pct=TOTAL_ITEMS>0?Math.round(comprados/TOTAL_ITEMS*1000)/10:0;
   var pctCol=pct>=100?"#3b82f6":pct>=66.6?"#16a34a":pct>=33.3?"#eab308":"#dc2626";
   var pctLbl=pct>=100?"Compra finalizada":pct>0?(pct.toFixed(1)+"% comprado"):"Sin compras";
@@ -1581,14 +1602,17 @@ window.removeRow=function(btn){{
 function checkSaveBtn(){{
   var hasVals=false,hasReal=false;
   document.querySelectorAll("tr[data-idx]").forEach(function(r){{
-    if(r.dataset.comprado==="1") return; // ya guardado → no se re-guarda
+    if(r.dataset.comprado==="1") return; // ya completo → no se re-guarda
     var re=parseFloat(r.querySelector(".rc-real").dataset.val)||0;
     var c=+r.dataset.cant||1;
     var isStock=r.getAttribute("data-stock")==="1";
+    var stockSaved=r.getAttribute("data-stock-saved")==="1"; // stock ya en BD
     var sq=isStock?(parseInt(r.getAttribute("data-stock-qty"))||c):0;
-    var compr=isStock?(c-sq):c;
-    // Fila lista: full stock (compra 0) o hay precio real para lo comprado.
-    if((isStock&&compr<=0)||re>0) hasVals=true;
+    var buyAttr=r.getAttribute("data-buy");
+    var compr=(buyAttr!=null)?(parseInt(buyAttr)||0):(isStock?(c-sq):c);
+    // Hay algo NUEVO que guardar: stock fresco (aún no en BD) o una compra real.
+    var newStock=isStock&&!stockSaved&&sq>0;
+    if(newStock||(re>0&&compr>0)) hasVals=true;
     // Compra real (exige factura): unidades compradas con precio > 0.
     if(re>0&&compr>0) hasReal=true;
   }});
@@ -1664,13 +1688,12 @@ window.stockQty=function(input){{
   var c=+tr.dataset.cant||1;
   var v=parseInt(input.value)||1; if(v<1)v=1; if(v>c)v=c; input.value=String(v);
   tr.setAttribute("data-stock-qty",String(v));
+  // Parcial: se registran V unidades en stock; lo que falta (c-V) queda pendiente
+  // de comprar. NO se fuerza la compra ni se sale del modo inventario: comprar el
+  // resto es OPCIONAL (si escriben un precio en "real"). Dejamos el input real
+  // disponible por si quieren comprar el resto ahora.
   var inp=tr.querySelector(".rc-real");
-  if(v<c){{
-    // parcial: limpiar el $0 bloqueado para que ingrese el precio de lo comprado
-    if(inp&&(inp.readOnly||inp.dataset.val==="0")){{inp.readOnly=false;inp.value="";inp.dataset.val="0";}}
-    var t=document.getElementById("tipo-compra");
-    if(t&&t.value==="stock"){{t.value="";window.onTipoChange();}}
-  }}
+  if(v<c && inp && inp.dataset.val==="0"){{inp.value="";}}
   _applyStockRow(tr);
   calc();checkSaveBtn();
 }};
@@ -1755,49 +1778,39 @@ window.guardarRegistro=async function(){{
     var inp=r.querySelector(".rc-real");
     var re=parseFloat(inp.dataset.val)||0;
     var isStock=r.getAttribute("data-stock")==="1";
+    var stockSaved=r.getAttribute("data-stock-saved")==="1"; // stock ya en BD
     var c=+r.dataset.cant||1;
     var sq=isStock?(parseInt(r.getAttribute("data-stock-qty"))||c):0;
     if(sq>c)sq=c; if(sq<0)sq=0;
-    var comprUnits=isStock?(c-sq):c;   // unidades realmente compradas
-    // Modo INVENTARIO: SOLO se guardan los ítems marcados en stock ($0).
+    var buyAttr=r.getAttribute("data-buy");
+    var comprUnits=(buyAttr!=null)?(parseInt(buyAttr)||0):(isStock?(c-sq):c);
+    if(comprUnits<0)comprUnits=0;
+    // Ítem normal ya COMPLETO → no re-guardar.
+    if(idx<10000 && r.dataset.comprado==="1") return;
+    // Modo INVENTARIO: solo ítems en stock.
     if(_stockMode && !isStock) return;
-    // Fila parcial (tengo algunas, compro el resto) SIN precio → incompleta, skip.
-    if(isStock && comprUnits>0 && re<=0) return;
-    if(re<=0 && !isStock) return;
-    if(idx >= 10000) {{
-    }} else {{
-      if(r.dataset.comprado==="1") return;
-      if(!isStock && (!inp.value||inp.value.trim()==="")) return;
-      var itemNombre=r.cells[1]?r.cells[1].textContent.trim():"";
-      if(itemsYaComprados.indexOf(itemNombre)>-1) return;
-    }}
+    // Fila normal sin precio y sin stock → nada que guardar.
+    if(!isStock && re<=0) return;
     var pu=+r.dataset.pu||0;
     var ad=+r.querySelector(".rc-adic").value||0;
-    // Diferencia (ahorro) = presupuestado total - real de lo comprado - adicional.
-    var dif=pu*c-re*comprUnits-(ad*re);
-    var _it={{
-      categoria:r.cells[0]?r.cells[0].textContent.trim():"",
-      item:r.cells[1]?r.cells[1].textContent.trim():"",
-      cantidad:c,
-      precio_presupuestado:pu,
-      precio_real:re,
-      adicional:ad,
-      diferencia:dif,
-      es_adicional:idx>=10000||r.dataset.adicional==="1",
-      sin_registro:r.getAttribute("data-sin-registro")==="1",
-      stock:isStock
-    }};
-    if(isStock)_it.stock_cantidad=sq;   // unidades en stock (ahorro puro)
-    items.push(_it);
+    var cat=r.cells[0]?r.cells[0].textContent.trim():"";
+    var nom=r.cells[1]?r.cells[1].textContent.trim():"";
+    var esAdic=idx>=10000||r.dataset.adicional==="1";
+    var esSin=r.getAttribute("data-sin-registro")==="1";
+    // Cada registro guarda unidades DISJUNTAS (evita doble conteo al completar):
+    // ── entrada de STOCK (unidades en inventario, $0) — solo stock NUEVO ──
+    if(isStock && !stockSaved && sq>0){{
+      items.push({{categoria:cat,item:nom,cantidad:sq,precio_presupuestado:pu,precio_real:0,adicional:0,diferencia:pu*sq,es_adicional:false,sin_registro:false,stock:true,stock_cantidad:sq}});
+    }}
+    // ── entrada de COMPRA (unidades compradas ahora, con precio real) ──
+    if(re>0 && comprUnits>0){{
+      items.push({{categoria:cat,item:nom,cantidad:comprUnits,precio_presupuestado:pu,precio_real:re,adicional:ad,diferencia:(pu-re)*comprUnits-(ad*re),es_adicional:esAdic,sin_registro:esSin,stock:false}});
+    }}
   }});
-  if(items.length===0){{status.textContent="Ingresa al menos un precio real o marca ítems en stock";status.style.color="#dc2626";btn.disabled=false;btn.textContent="Guardar compra";return;}}
-  // ¿Hay al menos una compra real (>$0)? Solo entonces exigimos factura y subimos
-  // archivo. Un registro PURO de stock (todo $0, ahorro puro) no lleva factura.
-  // Para un ítem de stock, la compra real son las unidades NO inventariadas.
-  var hasReal=items.some(function(it){{
-    var _sq=it.stock?(it.stock_cantidad||it.cantidad):0;
-    return it.precio_real>0&&(it.cantidad-_sq)>0;
-  }});
+  if(items.length===0){{status.textContent="Marca ítems en stock o ingresa un precio real para comprar";status.style.color="#dc2626";btn.disabled=false;btn.textContent="Guardar compra";return;}}
+  // ¿Hay al menos una compra real (>$0)? Solo entonces se exige/sube factura.
+  // Un registro PURO de stock (todo $0, ahorro puro) no lleva factura.
+  var hasReal=items.some(function(it){{return it.precio_real>0;}});
   if(hasReal && !_facturaFile){{status.textContent="Debes subir una factura primero";status.style.color="#dc2626";btn.disabled=false;btn.textContent="Guardar compra";return;}}
   status.textContent="";
   try{{

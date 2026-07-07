@@ -25,8 +25,15 @@ def obtener_registros_compra(cotizacion_numero: str) -> list:
 @st.cache_data(ttl=30, show_spinner=False)
 def obtener_items_comprados(cotizacion_numero: str) -> dict:
     """
-    Consolida todos los registros y retorna dict {item_name: {real, adicional, diferencia, fecha}}
-    de los items ya comprados.
+    Consolida todos los registros y retorna, por ítem, la COBERTURA acumulada:
+      {item_name: {real, adicional, diferencia, fecha, stock, stock_cantidad,
+                   stock_units, bought_units}}
+    - stock_units  = unidades que ya se tienen en stock (ahorro puro).
+    - bought_units = unidades ya compradas (precio real > 0).
+    Cada registro aporta unidades DISJUNTAS (stock y compra van en ítems
+    separados), así que la cobertura total = stock_units + bought_units. El
+    formulario compara esa cobertura contra la cantidad presupuestada para saber
+    si el ítem está completo o si "falta comprar" algunas unidades.
     """
     try:
         registros = obtener_registros_compra(cotizacion_numero)
@@ -41,23 +48,35 @@ def obtener_items_comprados(cotizacion_numero: str) -> dict:
             fecha = reg.get('fecha_registro', '')
             for it in items:
                 nombre = str(it.get('item', ''))
+                if not nombre:
+                    continue
                 real = float(it.get('precio_real', 0) or 0)
                 adic = int(it.get('adicional', 0) or 0)
-                # "En stock": producto que ya se tiene (precio real $0). Cuenta como
-                # comprado (llega al 100%) y es ahorro puro. Se marca con stock=True.
-                # stock_cantidad = unidades en stock (por defecto todas, si no vino).
                 es_stock = bool(it.get('stock', False))
-                _cant_it = int(float(it.get('cantidad', 1) or 1))
-                _stock_cant = int(float(it.get('stock_cantidad', _cant_it) or 0)) if es_stock else 0
-                if (real > 0 or es_stock) and nombre:
-                    comprados[nombre] = {
-                        'real': real,
-                        'adicional': adic,
-                        'diferencia': it.get('diferencia', 0),
-                        'fecha': fecha,
-                        'stock': es_stock,
-                        'stock_cantidad': _stock_cant,
-                    }
+                cant = int(float(it.get('cantidad', 1) or 1))
+                # Unidades en stock de esta entrada (por defecto todas si no vino
+                # stock_cantidad, p. ej. datos previos de stock "completo").
+                stock_u = int(float(it.get('stock_cantidad', cant) or 0)) if es_stock else 0
+                stock_u = max(0, min(cant, stock_u))
+                # Unidades compradas (con precio) de esta entrada.
+                bought_u = (cant - stock_u) if real > 0 else 0
+                if not (es_stock or real > 0):
+                    continue
+                e = comprados.get(nombre)
+                if not e:
+                    e = {'real': 0, 'adicional': 0, 'diferencia': 0, 'fecha': fecha,
+                         'stock': False, 'stock_cantidad': 0, 'stock_units': 0, 'bought_units': 0}
+                    comprados[nombre] = e
+                e['stock_units'] += stock_u
+                e['bought_units'] += bought_u
+                if es_stock:
+                    e['stock'] = True
+                if real > 0:
+                    e['real'] = real          # último precio de compra conocido
+                e['adicional'] = adic
+                e['diferencia'] = it.get('diferencia', 0)
+                e['fecha'] = fecha
+                e['stock_cantidad'] = e['stock_units']   # compat
         return comprados
     except Exception:
         return {}
@@ -226,7 +245,21 @@ def calcular_estado_compras(cotizacion_numero: str, productos_presupuesto: list)
             return {'pct': 0, 'estado': 'Sin productos', 'comprados': 0, 'total': 0, 'adicionales': []}
 
         comprados = obtener_items_comprados(cotizacion_numero)
-        items_comprados = sum(1 for p in prods if str(p.get('Item', '')) in comprados)
+
+        def _linea_completa(p):
+            # Una línea está completa si la cobertura (stock + comprado) alcanza la
+            # cantidad presupuestada. Un ítem parcial ("faltan N") NO cuenta aún.
+            e = comprados.get(str(p.get('Item', '')))
+            if not e:
+                return False
+            cant = int(float(p.get('Cantidad', 1) or 1))
+            cubierto = int(e.get('stock_units', 0) or 0) + int(e.get('bought_units', 0) or 0)
+            # Datos previos sin desglose de unidades → basta con estar en comprados.
+            if cubierto == 0:
+                return True
+            return cubierto >= cant
+
+        items_comprados = sum(1 for p in prods if _linea_completa(p))
         adicionales = [v for k, v in comprados.items()
                        if not any(str(p.get('Item', '')) == k for p in prods)]
 
