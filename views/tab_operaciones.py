@@ -1033,6 +1033,14 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         _lugar_raw = str(_rce.get('lugar_compra', '') or '').strip()
                         _lugar_canon = (_prov_canon_by_key.get(_norm_prov_key(_lugar_raw), _lugar_raw)
                                         if _lugar_raw else 'Compra sin lugar')
+                        # Registro de INVENTARIO (stock propio; $0 = ahorro puro):
+                        # tipo_compra == "stock" o lugar == "INVENTARIO". Se etiqueta
+                        # verde y su "proveedor" se unifica como INVENTARIO.
+                        _tipo_raw = str(_rce.get('tipo_compra', '') or '').strip().lower()
+                        _es_inv = (_tipo_raw == 'stock') or (_lugar_raw.upper() == 'INVENTARIO')
+                        if _es_inv:
+                            _lugar_canon = 'INVENTARIO'
+                            _tipo_lbl, _tipo_bg, _tipo_fg = 'Inventario', '#dcfce7', '#166534'
                         _furl_h = (_rce.get('factura_url') or '').strip()
                         _fnom_h = (_rce.get('factura_nombre') or '').strip() or 'Factura'
                         _ext_h = _fnom_h.lower().rsplit('.', 1)[-1] if '.' in _fnom_h else ''
@@ -1047,6 +1055,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                             'tipo_lbl':    _tipo_lbl,
                             'tipo_bg':     _tipo_bg,
                             'tipo_fg':     _tipo_fg,
+                            'inv':         _es_inv,
                             'fecha':       _fecha_txt,
                             'usuario':     _rce.get('usuario_registro', '') or '—',
                             'balance':     float(_rce.get('balance', 0) or 0),

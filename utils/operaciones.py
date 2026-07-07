@@ -23,6 +23,8 @@ _RC_ICONS = {
     "chevron":   '<polyline points="6 9 12 15 18 9"/>',
     "alert":     '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/>',
     "history":   '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+    "eye":       '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+    "package":   '<path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/>',
 }
 
 
@@ -62,6 +64,8 @@ def build_historial_rc_html(regs, ep='', supa_url='', supa_key=''):
     IC_DOWN  = _svg_rc('trend-down', color='#16a34a', size=13, mr=5)
     IC_ALERT = _svg_rc('alert', color='#dc2626', size=14, mr=7)
     IC_CLIP  = _svg_rc('paperclip', color='#1d4ed8', size=14, mr=7)
+    IC_PKG   = _svg_rc('package', color='#16a34a', size=16, mr=0)
+    IC_INV   = _svg_rc('package', color='#16a34a', size=13, mr=5)
 
     return f"""<style>
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap');
@@ -155,6 +159,14 @@ tr.rm-on td{{background:#fef2f2 !important;text-decoration:line-through;color:#b
 .pv-compra.open .pv-cchev{{transform:rotate(180deg);}}
 .pv-compra.open{{background:#eff6ff;}}
 .pv-facwrap{{padding:12px 14px;background:#f8fafc;border-bottom:1px solid #eef2f7;}}
+.pv-invtbl{{font-family:Montserrat,sans-serif;}}
+.pv-invhead,.pv-invrow,.pv-invfoot{{display:grid;grid-template-columns:1fr 60px 110px;gap:8px;align-items:center;padding:9px 14px;}}
+.pv-invhead{{font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b;background:#f0fdf4;border-bottom:1px solid #dcfce7;}}
+.pv-invhead span:nth-child(2),.pv-invrow span:nth-child(2),.pv-invfoot span:nth-child(2){{text-align:center;}}
+.pv-invhead span:last-child,.pv-invrow span:last-child,.pv-invfoot span:last-child{{text-align:right;}}
+.pv-invrow{{border-bottom:1px solid #f1f5f9;font-size:0.82rem;color:#0f172a;}}
+.pv-invrow:last-of-type{{border-bottom:none;}}
+.pv-invfoot{{background:#f0fdf4;border-top:1px solid #dcfce7;font-weight:800;font-size:0.9rem;color:#166534;}}
 .pv-facbox{{display:flex;flex-direction:column;gap:9px;align-items:flex-start;}}
 .pv-facimg{{max-width:100%;max-height:640px;border-radius:8px;border:1px solid #e2e8f0;}}
 .pv-faclink{{display:inline-flex;align-items:center;gap:2px;padding:7px 14px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:8px;text-decoration:none;font-size:0.78rem;font-weight:600;}}
@@ -172,7 +184,7 @@ tr.rm-on td{{background:#fef2f2 !important;text-decoration:line-through;color:#b
 <div id="pv-section"></div>
 <script>
 var REGS={regs_json};
-var IC={{store:'{IC_STORE}',cal:'{IC_CAL}',user:'{IC_USER}',cart:'{IC_CART}',file:'{IC_FILE}',edit:'{IC_EDIT}',trash:'{IC_TRASH}',save:'{IC_SAVE}',x:'{IC_X}',chev:'{IC_CHEV}',up:'{IC_UP}',down:'{IC_DOWN}',alert:'{IC_ALERT}',clip:'{IC_CLIP}'}};
+var IC={{store:'{IC_STORE}',cal:'{IC_CAL}',user:'{IC_USER}',cart:'{IC_CART}',file:'{IC_FILE}',edit:'{IC_EDIT}',trash:'{IC_TRASH}',save:'{IC_SAVE}',x:'{IC_X}',chev:'{IC_CHEV}',up:'{IC_UP}',down:'{IC_DOWN}',alert:'{IC_ALERT}',clip:'{IC_CLIP}',pkg:'{IC_PKG}',inv:'{IC_INV}'}};
 var EP="{ep}";var SUPA_URL="{supa_url}";var SUPA_KEY="{supa_key}";
 var editing=-1, confirming=-1, confirmStep=0, _facFile=null, fTipo="", fResp="", fProv="";
 var pvSel=-1, pvFacOpen={{}}, PROVS_F=[];
@@ -222,16 +234,33 @@ function renderProv(matched){{
   if(!matched.length){{sec.innerHTML="";return;}}
   var agg={{}};
   matched.forEach(function(r){{
+    var isInv=(r.inv===true)||((r.lugar||"").toUpperCase()==="INVENTARIO");
     var k=r.lugar||"—";
-    if(!agg[k])agg[k]={{total:0,n:0,compras:[]}};
-    agg[k].total+=(+r.tr||0);agg[k].n++;
+    if(!agg[k])agg[k]={{total:0,n:0,compras:[],inv:isInv,items:{{}}}};
+    agg[k].n++;
+    if(isInv){{
+      // Card INVENTARIO: total = ahorro (presupuestado de los ítems en stock),
+      // y agregamos los productos para el drill-down (en vez de facturas).
+      (r.items||[]).forEach(function(it){{
+        var isStk=(it.stock===true)||((+it.pr===0)&&!it.sin);
+        if(!isStk)return;
+        var ah=(+it.pp||0)*(+it.cant||1);
+        agg[k].total+=ah;
+        var ik=it.item||"—";
+        if(!agg[k].items[ik])agg[k].items[ik]={{item:ik,cat:it.cat||"",cant:0,ahorro:0}};
+        agg[k].items[ik].cant+=(+it.cant||0);
+        agg[k].items[ik].ahorro+=ah;
+      }});
+    }} else {{
+      agg[k].total+=(+r.tr||0);
+    }}
     agg[k].compras.push({{fecha:r.fecha,monto:f(r.tr),responsable:r.usuario,factura_url:r.factura_url,factura_nom:r.factura_nom,is_img:r.is_img}});
   }});
-  PROVS_F=Object.keys(agg).map(function(k){{return {{name:k,total:agg[k].total,n:agg[k].n,compras:agg[k].compras}};}});
+  PROVS_F=Object.keys(agg).map(function(k){{return {{name:k,total:agg[k].total,n:agg[k].n,compras:agg[k].compras,inv:agg[k].inv,items:agg[k].items}};}});
   PROVS_F.sort(function(a,b){{return b.total-a.total;}});
-  PROVS_F.forEach(function(p,i){{p.color=PVCOLORS[i%PVCOLORS.length];p.total_fmt=f(p.total);}});
+  PROVS_F.forEach(function(p,i){{p.color=p.inv?"#16a34a":PVCOLORS[i%PVCOLORS.length];p.total_fmt=f(p.total);p.nprod=Object.keys(p.items||{{}}).length;}});
   var n=PROVS_F.length, nrows=n<=4?1:(n<=10?2:3), per=Math.ceil(n/nrows);
-  var html='<div class="pv-title">'+IC.store+'Compras por proveedor (precio real)</div>';
+  var html='<div class="pv-title">'+IC.store+'Compras por proveedor</div>';
   html+='<div class="pv-cards'+(pvSel>=0?" has-sel":"")+'">';
   for(var r=0;r<nrows;r++){{
     var start=r*per, end=Math.min(start+per,n); if(start>=end)break;
@@ -239,22 +268,39 @@ function renderProv(matched){{
     html+='<div class="pv-row">';
     for(var q=start;q<end;q++){{
       var c=PROVS_F[q];var grow=Math.max(1,Math.round(Math.pow(c.total||1,0.3)/rmax*1000));var selc=(pvSel===q)?" sel":"";
-      html+='<div class="pv-card'+selc+'" onclick="pvSelFn('+q+')" style="border:1.5px solid '+pvHexa(c.color,0.3)+';border-left:4px solid '+c.color+';flex:'+grow+' '+grow+' 0;">'
-        +'<div class="pv-name" style="color:'+c.color+';">'+esc(c.name)+'</div><div class="pv-total">'+esc(c.total_fmt)+'</div>'
-        +'<div class="pv-meta"><span>'+c.n+(c.n===1?" compra":" compras")+'</span><span class="pv-mchev">'+IC.chev+'</span></div></div>';
+      var cstyle=c.inv
+        ?'border:1.5px solid #86efac;border-left:4px solid #16a34a;background:#f0fdf4;flex:'+grow+' '+grow+' 0;'
+        :'border:1.5px solid '+pvHexa(c.color,0.3)+';border-left:4px solid '+c.color+';flex:'+grow+' '+grow+' 0;';
+      var meta=c.inv?(c.nprod+(c.nprod===1?" producto":" productos")):(c.n+(c.n===1?" compra":" compras"));
+      html+='<div class="pv-card'+selc+'" onclick="pvSelFn('+q+')" style="'+cstyle+'">'
+        +'<div class="pv-name" style="color:'+c.color+';">'+(c.inv?IC.inv:"")+esc(c.name)+'</div>'
+        +'<div class="pv-total" style="'+(c.inv?"color:#16a34a;":"")+'">'+esc(c.total_fmt)+(c.inv?' <span style="font-size:.58rem;font-weight:700;color:#16a34a;text-transform:uppercase;">ahorro</span>':'')+'</div>'
+        +'<div class="pv-meta"><span>'+meta+'</span><span class="pv-mchev">'+IC.chev+'</span></div></div>';
     }}
     html+='</div>';
   }}
   html+='</div>';
   if(pvSel>=0&&pvSel<n){{
     var p=PROVS_F[pvSel];
-    html+='<div class="pv-detail"><div class="pv-dhdr">'+IC.store+'Compras en '+esc(p.name)+' &nbsp;·&nbsp; '+esc(p.total_fmt)+' &nbsp;·&nbsp; '+p.n+(p.n===1?" compra":" compras")+'</div>';
-    (p.compras||[]).forEach(function(c,j){{
-      var open=!!pvFacOpen[pvSel+"-"+j];
-      html+='<div class="pv-compra'+(open?" open":"")+'" onclick="pvFacFn('+pvSel+','+j+')"><span class="pv-cfecha">'+IC.cal+esc(c.fecha)+'</span><span class="pv-cresp">'+IC.user+esc(c.responsable)+'</span><span class="pv-cmonto">'+esc(c.monto)+'</span><span class="pv-cchev">'+IC.chev+'</span></div>';
-      if(open)html+='<div class="pv-facwrap">'+pvFacPrev(c)+'</div>';
-    }});
-    html+='</div>';
+    if(p.inv){{
+      // INVENTARIO seleccionado → TABLA de productos ahorrados (no facturas).
+      var prods=Object.keys(p.items).map(function(k){{return p.items[k];}});
+      prods.sort(function(a,b){{return b.ahorro-a.ahorro;}});
+      html+='<div class="pv-detail" style="border-color:#bbf7d0;"><div class="pv-dhdr" style="background:#f0fdf4;border-bottom-color:#dcfce7;color:#166534;">'+IC.pkg+'&nbsp;Inventario &nbsp;·&nbsp; '+esc(p.total_fmt)+' ahorrado &nbsp;·&nbsp; '+prods.length+(prods.length===1?" producto":" productos")+'</div>';
+      html+='<div class="pv-invtbl"><div class="pv-invhead"><span>Producto</span><span>Cant.</span><span>Ahorro</span></div>';
+      prods.forEach(function(it){{
+        html+='<div class="pv-invrow"><span><b>'+esc(it.item)+'</b><br><small style="color:#64748b;text-transform:uppercase;letter-spacing:.03em;">'+esc(it.cat)+'</small></span><span>'+it.cant+'</span><span style="color:#16a34a;font-weight:800;">'+f(it.ahorro)+'</span></div>';
+      }});
+      html+='<div class="pv-invfoot"><span>Total ahorrado</span><span></span><span>'+f(p.total)+'</span></div></div></div>';
+    }} else {{
+      html+='<div class="pv-detail"><div class="pv-dhdr">'+IC.store+'Compras en '+esc(p.name)+' &nbsp;·&nbsp; '+esc(p.total_fmt)+' &nbsp;·&nbsp; '+p.n+(p.n===1?" compra":" compras")+'</div>';
+      (p.compras||[]).forEach(function(c,j){{
+        var open=!!pvFacOpen[pvSel+"-"+j];
+        html+='<div class="pv-compra'+(open?" open":"")+'" onclick="pvFacFn('+pvSel+','+j+')"><span class="pv-cfecha">'+IC.cal+esc(c.fecha)+'</span><span class="pv-cresp">'+IC.user+esc(c.responsable)+'</span><span class="pv-cmonto">'+esc(c.monto)+'</span><span class="pv-cchev">'+IC.chev+'</span></div>';
+        if(open)html+='<div class="pv-facwrap">'+pvFacPrev(c)+'</div>';
+      }});
+      html+='</div>';
+    }}
   }}
   sec.innerHTML=html;
   renderPdfs();
@@ -978,9 +1024,11 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
     def _esc_prov(_s):
         return (str(_s).replace('&', '&amp;').replace('<', '&lt;')
                 .replace('>', '&gt;').replace('"', '&quot;'))
-    _prov_opts = ''.join(
-        f'<option value="{_esc_prov(_p)}"></option>'
-        for _p in (proveedores or []) if str(_p).strip()
+    # INVENTARIO siempre disponible como "proveedor" (stock propio, ahorro puro).
+    _prov_names = [str(_p).strip() for _p in (proveedores or [])
+                   if str(_p).strip() and str(_p).strip().upper() != 'INVENTARIO']
+    _prov_opts = '<option value="INVENTARIO"></option>' + ''.join(
+        f'<option value="{_esc_prov(_p)}"></option>' for _p in _prov_names
     )
     _prov_datalist = f'<datalist id="rc-proveedores">{_prov_opts}</datalist>'
     for ri, prod in enumerate(rc_prods):
@@ -1067,7 +1115,7 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
     </tr></thead>
     <tbody>{rows}</tbody>
   </table></div>
-  <div id="tots" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr;gap:10px;padding:16px;background:#f8fafc;border-top:2px solid #e2e8f0;flex-shrink:0">
+  <div id="tots" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr 1fr;gap:9px;padding:16px;background:#f8fafc;border-top:2px solid #e2e8f0;flex-shrink:0">
     <div>
       <div style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">Presupuestado</div>
       <div style="font-size:11px;color:#64748b">Subtotal neto</div><div style="font-size:15px;font-weight:700" id="tp-n">$0</div>
@@ -1085,6 +1133,13 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
       <div style="font-size:11px" id="b-lbl1">Neto</div><div style="font-size:15px;font-weight:700" id="b-n">$0</div>
       <div style="font-size:11px;margin-top:4px" id="b-lbl2">IVA</div><div style="font-size:13px;font-weight:600" id="b-i">$0</div>
       <div style="font-size:11px;margin-top:4px" id="b-icon">Ahorro</div><div style="font-size:17px;font-weight:900" id="b-t">$0</div>
+    </div>
+    <div style="border-left:2px solid #bbf7d0;padding-left:10px;background:#f0fdf4;border-radius:8px;">
+      <div style="font-size:10px;font-weight:700;color:#16a34a;letter-spacing:.05em;text-transform:uppercase;margin-bottom:2px">Inventario</div>
+      <div style="font-size:9px;color:#16a34a;margin-bottom:6px;font-weight:600">Ahorro puro</div>
+      <div style="font-size:11px;color:#16a34a">Productos</div><div style="font-size:14px;font-weight:700;color:#16a34a" id="ti-c">0</div>
+      <div style="font-size:11px;color:#16a34a;margin-top:4px">Total ahorrado</div><div style="font-size:16px;font-weight:900;color:#16a34a" id="ti-t">$0</div>
+      <button onclick="window.verInventario()" id="ti-ver" style="margin-top:8px;background:#16a34a;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px">{_svg_rc('eye', color='#fff', size=12, mr=0)}Ver</button>
     </div>
     <div style="border-left:2px solid #fed7aa;padding-left:10px;background:#fff7ed;border-radius:8px;">
       <div style="font-size:10px;font-weight:700;color:#f97316;letter-spacing:.05em;text-transform:uppercase;margin-bottom:2px">Adicionales</div>
@@ -1153,7 +1208,7 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
     <div class="rc-grid">
       <div class="rc-field">
         <div class="rc-lbl">{_svg_rc('store', color='rgba(255,255,255,0.7)', size=13)}&#191;D&#243;nde compraste? *</div>
-        <input id="lugar-compra" type="text" class="rc-inp" list="rc-proveedores" autocomplete="off" placeholder="Escribe o elige un proveedor..." oninput="window.checkSaveBtn()"/>{_prov_datalist}
+        <input id="lugar-compra" type="text" class="rc-inp" list="rc-proveedores" autocomplete="off" placeholder="Escribe un proveedor o elige INVENTARIO..." oninput="window.onLugarChange()"/>{_prov_datalist}
       </div>
       <div class="rc-field">
         <div class="rc-lbl">{_svg_rc('cart', color='rgba(255,255,255,0.7)', size=13)}Tipo de compra *</div>
@@ -1161,6 +1216,7 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
           <option value="">Seleccionar...</option>
           <option value="online">Compra Online</option>
           <option value="presencial">Compra Presencial</option>
+          <option value="stock">Inventario / Stock propio</option>
         </select>
       </div>
     </div>
@@ -1182,15 +1238,28 @@ input[type=number]::-webkit-inner-spin-button{{opacity:.4}}
       <textarea id="obs-compra" class="rc-inp" rows="2" placeholder="Notas, motivos u observaciones de esta compra..." style="resize:vertical"></textarea>
     </div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <label id="factura-label" style="background:rgba(255,255,255,0.1);color:#fff;border:1px dashed rgba(255,255,255,0.4);border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center">{_svg_rc('paperclip', color='#fff', size=13)}Seleccionar factura PDF
-        <input id="factura-input" type="file" accept=".pdf" style="display:none"/>
-      </label>
-      <button id="factura-clear" onclick="window.clearFactura()" style="display:none;background:rgba(220,38,38,0.7);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;white-space:nowrap;align-items:center">{_svg_rc('x', color='#fff', size=12, mr=4)}Quitar</button>
+      <span id="factura-wrap" style="display:inline-flex;align-items:center;gap:10px;">
+        <label id="factura-label" style="background:rgba(255,255,255,0.1);color:#fff;border:1px dashed rgba(255,255,255,0.4);border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center">{_svg_rc('paperclip', color='#fff', size=13)}Seleccionar factura PDF
+          <input id="factura-input" type="file" accept=".pdf" style="display:none"/>
+        </label>
+        <button id="factura-clear" onclick="window.clearFactura()" style="display:none;background:rgba(220,38,38,0.7);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;white-space:nowrap;align-items:center">{_svg_rc('x', color='#fff', size=12, mr=4)}Quitar</button>
+      </span>
+      <span id="inv-note" style="display:none;align-items:center;gap:6px;background:rgba(22,163,74,0.18);color:#bbf7d0;border:1px solid rgba(134,239,172,0.45);border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;white-space:nowrap">{_svg_rc('check', color='#86efac', size=13)}Inventario — no requiere factura (ahorro puro)</span>
       <div id="save-status" style="font-size:12px;color:rgba(255,255,255,0.7);flex:1"></div>
       <button id="save-btn" onclick="window.guardarRegistro()" disabled style="background:#10b981;color:#fff;border:none;border-radius:8px;padding:8px 24px;font-size:13px;font-weight:700;cursor:pointer;opacity:0.5;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center">{_svg_rc('save', color='#fff', size=14, mr=7)}Guardar compra</button>
     </div>
   </div>
     </div>
+  </div>
+</div>
+<div id="inv-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box" onclick="if(event.target===this)window.cerrarInventario()">
+  <div style="background:#fff;border-radius:14px;max-width:560px;width:100%;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.35);overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;background:#f0fdf4;border-bottom:1px solid #bbf7d0">
+      <div style="display:flex;align-items:center;font-family:Montserrat,'Segoe UI',sans-serif;font-weight:700;font-size:.9rem;letter-spacing:.03em;text-transform:uppercase;color:#166534">{_svg_rc('package', color='#16a34a', size=16, mr=8)}Productos en inventario · Ahorro puro</div>
+      <button onclick="window.cerrarInventario()" style="background:none;border:none;color:#64748b;font-size:22px;line-height:1;cursor:pointer;padding:0 4px">&times;</button>
+    </div>
+    <div id="inv-modal-body" style="overflow:auto;padding:0;font-family:Montserrat,'Segoe UI',sans-serif"></div>
+    <div id="inv-modal-foot" style="padding:12px 18px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;font-family:Montserrat,'Segoe UI',sans-serif;font-weight:800;font-size:1rem"></div>
   </div>
 </div>
 <script>(function(){{
@@ -1264,7 +1333,7 @@ function attachListeners(inp, adic){{
 }}
 function f(n){{return "$"+Math.round(Math.abs(n)).toLocaleString("de-DE");}}
 function calc(){{
-  var tP=0,tR=0,tA=0,tS=0,vals=[];
+  var tP=0,tR=0,tA=0,tS=0,tI=0,nI=0,vals=[];
   document.querySelectorAll("tr[data-idx]").forEach(function(r){{
     var idx=parseInt(r.dataset.idx)||0;
     var pu=+r.dataset.pu||0,c=+r.dataset.cant||1;
@@ -1281,8 +1350,12 @@ function calc(){{
     else if(isAdic){{tA+=re*c;}}
     else{{tP+=pu*c;}}
     tR+=re*c+ad*re;
+    // Inventario (stock, $0): ahorro puro = presupuestado del ítem.
+    if(isStock&&idx<10000){{tI+=pu*c;nI++;}}
     vals.push({{idx:+r.dataset.idx,real:re,adic:ad,dif:d,stock:isStock}});
   }});
+  var _tiT=document.getElementById("ti-t");if(_tiT)_tiT.textContent=f(tI);
+  var _tiC=document.getElementById("ti-c");if(_tiC)_tiC.textContent=nI;
   var iP=tP*.19,iR=tR*.19,b=tP-tR,ib=iP-iR;
   var col=b>=0?"#16a34a":"#dc2626";
   var iA=tA*.19,iS=tS*.19;
@@ -1390,10 +1463,38 @@ window.addRowSinReg=function(){{
   catEl.value="";itemEl.value="";cantEl.value="1";precioEl.value="";
   calc();checkSaveBtn();
 }};
+// Escribir/elegir INVENTARIO en "¿Dónde compraste?" cambia el tipo a Stock.
+window.onLugarChange=function(){{
+  var lu=document.getElementById("lugar-compra");
+  var tipoSel=document.getElementById("tipo-compra");
+  if((lu.value||"").trim().toUpperCase()==="INVENTARIO"){{
+    if(tipoSel.value!=="stock"){{tipoSel.value="stock";window.onTipoChange();return;}}
+  }} else if(tipoSel.value==="stock"){{
+    // Cambió el lugar a un proveedor real → salir del modo inventario.
+    tipoSel.value="";window.onTipoChange();return;
+  }}
+  window.checkSaveBtn();
+}};
 window.onTipoChange=function(){{
   var tipo=document.getElementById("tipo-compra").value;
   var sw=document.getElementById("subtipo-wrap");
   var ss=document.getElementById("subtipo-compra");
+  var facW=document.getElementById("factura-wrap");
+  var invNote=document.getElementById("inv-note");
+  // Modo INVENTARIO / Stock propio: sin factura, sin fecha, sin subtipo/falta.
+  if(tipo==="stock"){{
+    sw.className="rc-field rc-hidden";
+    var lu=document.getElementById("lugar-compra");
+    if((lu.value||"").trim().toUpperCase()!=="INVENTARIO")lu.value="INVENTARIO";
+    document.getElementById("fecha-wrap").className="rc-field rc-hidden";
+    document.getElementById("faltó-wrap").className="rc-field rc-hidden";
+    if(facW)facW.style.display="none";
+    if(invNote)invNote.style.display="inline-flex";
+    window.checkSaveBtn();
+    return;
+  }}
+  if(facW)facW.style.display="";
+  if(invNote)invNote.style.display="none";
   sw.className="rc-field"+(tipo?"" : " rc-hidden");
   ss.innerHTML="";
   if(tipo==="online"){{
@@ -1448,9 +1549,11 @@ function checkSaveBtn(){{
   var fechaOk=!fw||fw.className.indexOf("rc-hidden")>-1||(document.getElementById("fecha-compra")&&document.getElementById("fecha-compra").value.length>0);
   var pw=document.getElementById("faltó-wrap");
   var faltóOk=!pw||pw.className.indexOf("rc-hidden")>-1||(document.getElementById("falto-texto")&&document.getElementById("falto-texto").value.trim().length>0);
+  // Modo INVENTARIO/Stock (tipo=stock) → nunca exige factura/fecha/falta.
   // Compra real → se exigen todos los campos (factura, lugar, tipo, etc.).
   // Registro PURO de stock (todo $0, ahorro puro) → basta con marcar los ítems.
-  var ok=hasVals&&(!hasReal||(hasLugar&&hasFactura&&hasTipo&&fechaOk&&faltóOk));
+  var isStockMode=tipo&&tipo.value==="stock";
+  var ok=hasVals&&(isStockMode?hasLugar:(!hasReal||(hasLugar&&hasFactura&&hasTipo&&fechaOk&&faltóOk)));
   var btn=document.getElementById("save-btn");
   if(btn){{btn.disabled=!ok;btn.style.opacity=ok?"1":"0.5";}}
 }}
@@ -1482,6 +1585,39 @@ window.toggleStock=function(cb){{
   }}
   calc();checkSaveBtn();
 }};
+function _escH(s){{var d=document.createElement("div");d.textContent=s==null?"":String(s);return d.innerHTML;}}
+// "Ver" inventario: lista los productos marcados en stock (item, categoría,
+// cantidad, ahorro = presupuestado) en un modal, ordenados por mayor ahorro.
+window.verInventario=function(){{
+  var items=[];
+  document.querySelectorAll("tr[data-idx]").forEach(function(r){{
+    if(r.getAttribute("data-stock")!=="1")return;
+    if((parseInt(r.dataset.idx)||0)>=10000)return;
+    var pu=+r.dataset.pu||0,c=+r.dataset.cant||1;
+    items.push({{item:r.cells[1]?r.cells[1].textContent.trim():"",cat:r.cells[0]?r.cells[0].textContent.trim():"",cant:c,ahorro:pu*c}});
+  }});
+  items.sort(function(a,b){{return b.ahorro-a.ahorro;}});
+  var body=document.getElementById("inv-modal-body");
+  var foot=document.getElementById("inv-modal-foot");
+  if(!items.length){{
+    body.innerHTML='<div style="padding:26px 18px;text-align:center;color:#94a3b8;font-size:.9rem">A&#250;n no marcaste productos en stock. Usa la casilla <b>En stock</b> de cada &#237;tem que ya tengas.</div>';
+    foot.innerHTML="";
+  }} else {{
+    var rows="",tot=0;
+    items.forEach(function(it){{
+      tot+=it.ahorro;
+      rows+='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 18px;border-bottom:1px solid #f1f5f9">'
+        +'<div style="min-width:0"><div style="font-weight:700;font-size:.9rem;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_escH(it.item)+'</div>'
+        +'<div style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-top:2px">'+_escH(it.cat)+' &middot; '+it.cant+' u.</div></div>'
+        +'<div style="text-align:right;white-space:nowrap"><div style="font-weight:800;font-size:.92rem;color:#16a34a">'+f(it.ahorro)+'</div>'
+        +'<div style="font-size:.62rem;color:#16a34a;text-transform:uppercase;letter-spacing:.05em">Ahorro</div></div></div>';
+    }});
+    body.innerHTML=rows;
+    foot.innerHTML='<span style="color:#166534;font-size:.82rem;text-transform:uppercase;letter-spacing:.04em">'+items.length+' producto'+(items.length!==1?"s":"")+'</span><span style="color:#16a34a;font-size:1.05rem">'+f(tot)+'</span>';
+  }}
+  document.getElementById("inv-modal").style.display="flex";
+}};
+window.cerrarInventario=function(){{var m=document.getElementById("inv-modal");if(m)m.style.display="none";}};
 document.getElementById("factura-input") && document.getElementById("factura-input").addEventListener("change",function(){{
   _facturaFile=this.files[0]||null;
   var lbl=document.getElementById("factura-label");
@@ -1521,12 +1657,16 @@ window.guardarRegistro=async function(){{
   // Ya comprados: Python ya lo pasa server-side (service key) en ITEMS_YA_COMPRADOS
   // → evitamos el fetch desde el navegador (que RLS bloquearía).
   var itemsYaComprados=(ITEMS_YA_COMPRADOS||[]).slice();
+  var _tipoEl=document.getElementById("tipo-compra");
+  var _stockMode=_tipoEl&&_tipoEl.value==="stock";
   var items=[];
   document.querySelectorAll("tr[data-idx]").forEach(function(r){{
     var idx=parseInt(r.dataset.idx)||0;
     var inp=r.querySelector(".rc-real");
     var re=parseFloat(inp.dataset.val)||0;
     var isStock=r.getAttribute("data-stock")==="1";
+    // Modo INVENTARIO: SOLO se guardan los ítems marcados en stock ($0).
+    if(_stockMode && !isStock) return;
     if(re<=0 && !isStock) return;
     if(idx >= 10000) {{
     }} else {{
