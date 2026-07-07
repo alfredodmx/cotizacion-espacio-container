@@ -1865,22 +1865,37 @@ window.guardarRegistro=async function(){{
     btn.textContent="Guardado";btn.style.background="#16a34a";
     status.textContent="Guardado. Actualizando...";
     status.style.color="#16a34a";
+    var _payStr=JSON.stringify(_rcPayload);
     setTimeout(function(){{
+      // CANAL PRINCIPAL (fiable): escribir el payload en un text_input nativo
+      // oculto. El estado de un widget SIEMPRE se sincroniza con Python; el
+      // query param seteado por JS a veces Streamlit no lo lee.
+      var _sent=false;
+      try{{
+        var doc=window.parent.document;
+        var inp=doc.querySelector('.st-key-_rc_payload_in input');
+        if(inp){{
+          var setter=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set;
+          inp.focus();
+          setter.call(inp,_payStr);
+          inp.dispatchEvent(new Event('input',{{bubbles:true}}));
+          inp.dispatchEvent(new Event('change',{{bubbles:true}}));
+          inp.blur();
+          inp.dispatchEvent(new Event('blur',{{bubbles:true}}));
+          _sent=true;
+        }}
+      }}catch(e){{}}
+      // CANAL SECUNDARIO (compat): query param + popstate.
       try{{
         var url=new URL(window.parent.location.href);
-        url.searchParams.set("rc_save", JSON.stringify(_rcPayload));
+        url.searchParams.set("rc_save",_payStr);
         window.parent.history.replaceState({{}},"",url);
         window.parent.dispatchEvent(new PopStateEvent("popstate"));
       }}catch(e){{}}
-      // Fallback FIABLE: clickear un botón nativo oculto fuerza el rerun de
-      // Streamlit (el popstate sintético a veces no dispara la lectura de
-      // ?rc_save). El handler de Python igual lee el query param en ese rerun.
+      // Empujón final: clic a un botón nativo oculto para forzar el rerun.
       setTimeout(function(){{
-        try{{
-          var b=window.parent.document.querySelector('.st-key-_rc_apply button');
-          if(b) b.click();
-        }}catch(e){{}}
-      }},120);
+        try{{ var b=window.parent.document.querySelector('.st-key-_rc_apply button'); if(b) b.click(); }}catch(e){{}}
+      }},180);
     }},300);
   }}catch(e){{
     btn.disabled=false;btn.textContent="Guardar compra";

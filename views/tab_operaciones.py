@@ -557,17 +557,20 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                                 st.warning("&#9888;&#65039; No se pudo preparar la descarga del plano.")
 
         # Guardado SERVER-SIDE del registro de compra. El formulario manda el payload
-        # via query param (rc_save) + popstate (rerun sin recargar); acá lo insertamos
-        # con la service key (ignora RLS) → el navegador ya no escribe con la anon.
-        _rc_save_raw = st.query_params.get('rc_save')
+        # por DOS canales (el navegador no escribe con la anon; acá insertamos con la
+        # service key, RLS-safe): (1) un text_input nativo oculto (_rc_payload_in) —
+        # canal FIABLE, el estado de widget siempre se sincroniza con Python; y
+        # (2) query param rc_save + popstate (compat). El nonce evita doble insert.
+        _rc_save_raw = (st.session_state.get('_rc_payload_in') or '').strip() \
+            or st.query_params.get('rc_save')
         if _rc_save_raw:
             import json as _json_rc
             try:
                 _rc_payload = _json_rc.loads(_rc_save_raw)
             except Exception:
                 _rc_payload = None
-            # Idempotencia: el guardado se dispara por popstate Y por el clic al
-            # botón oculto (fallback); el nonce evita insertar dos veces el mismo.
+            # Idempotencia: el guardado puede dispararse por varios canales/reruns;
+            # el nonce evita insertar dos veces el mismo registro.
             _rc_nonce = (_rc_payload or {}).get('nonce') if isinstance(_rc_payload, dict) else None
             if _rc_nonce and st.session_state.get('_rc_last_nonce') == _rc_nonce:
                 _rc_ok, _rc_err = True, None  # ya insertado en el disparo anterior
@@ -576,6 +579,11 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                                    if _rc_payload else (False, "Payload inválido."))
                 if _rc_ok and _rc_nonce:
                     st.session_state['_rc_last_nonce'] = _rc_nonce
+            # Limpiar AMBOS canales para no reprocesar.
+            try:
+                st.session_state['_rc_payload_in'] = ''
+            except Exception:
+                pass
             try:
                 del st.query_params['rc_save']
             except Exception:
@@ -1004,15 +1012,19 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         for _k, _v in _rc_items_comprados.items()
                     )) + f'|{len(_rc_existentes)}'
                     components.html(_rc_html + f'<!-- {_rc_items_hash} -->', height=_rc_height, scrolling=False)
-                    # Botón nativo OCULTO: el iframe del formulario lo clickea tras
-                    # setear ?rc_save para forzar un rerun fiable de Streamlit (el
-                    # popstate sintético a veces no dispara la lectura del query
-                    # param). El handler de arriba (rc_save) procesa el guardado.
+                    # Canales OCULTOS para recibir el payload del iframe del formulario:
+                    #  · _rc_payload_in (text_input): canal FIABLE — el iframe escribe
+                    #    el JSON y su estado se sincroniza con Python (el handler de
+                    #    arriba lo procesa).
+                    #  · _rc_apply (button): el iframe lo clickea para forzar el rerun.
                     st.markdown(
-                        "<style>.st-key-_rc_apply{height:0!important;overflow:hidden!important;"
-                        "margin:0!important;padding:0!important}"
-                        ".st-key-_rc_apply>div{height:0!important;overflow:hidden!important}</style>",
+                        "<style>.st-key-_rc_apply,.st-key-_rc_payload_in{height:0!important;"
+                        "overflow:hidden!important;margin:0!important;padding:0!important;"
+                        "position:absolute!important;left:-9999px!important}"
+                        ".st-key-_rc_apply>div,.st-key-_rc_payload_in>div{height:0!important;"
+                        "overflow:hidden!important}</style>",
                         unsafe_allow_html=True)
+                    st.text_input("rc_payload", key="_rc_payload_in", label_visibility="collapsed")
                     st.button("apply", key="_rc_apply")
 
                 if _rc_existentes:
