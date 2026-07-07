@@ -45,7 +45,10 @@ def obtener_items_comprados(cotizacion_numero: str) -> dict:
                 adic = int(it.get('adicional', 0) or 0)
                 # "En stock": producto que ya se tiene (precio real $0). Cuenta como
                 # comprado (llega al 100%) y es ahorro puro. Se marca con stock=True.
+                # stock_cantidad = unidades en stock (por defecto todas, si no vino).
                 es_stock = bool(it.get('stock', False))
+                _cant_it = int(float(it.get('cantidad', 1) or 1))
+                _stock_cant = int(float(it.get('stock_cantidad', _cant_it) or 0)) if es_stock else 0
                 if (real > 0 or es_stock) and nombre:
                     comprados[nombre] = {
                         'real': real,
@@ -53,6 +56,7 @@ def obtener_items_comprados(cotizacion_numero: str) -> dict:
                         'diferencia': it.get('diferencia', 0),
                         'fecha': fecha,
                         'stock': es_stock,
+                        'stock_cantidad': _stock_cant,
                     }
         return comprados
     except Exception:
@@ -182,7 +186,12 @@ def actualizar_registro_compra_full(reg_id, payload: dict) -> tuple[bool, str | 
             _ad = float(_it.get('adicional', 0) or 0)
             _sin = bool(_it.get('sin_registro', False))
             _es_adic = bool(_it.get('es_adicional', False)) or _sin
-            _tr += _c * _pr + _ad * _pr
+            # Stock parcial: solo se pagaron (cant - stock_cantidad) unidades.
+            _es_stk = bool(_it.get('stock', False))
+            _stk_c = float(_it.get('stock_cantidad', _c) or 0) if _es_stk else 0.0
+            _stk_c = max(0.0, min(_c, _stk_c))
+            _purch = (_c - _stk_c) if _es_stk else _c
+            _tr += _purch * _pr + _ad * _pr
             if not _es_adic:
                 _tp += _c * _pp
 

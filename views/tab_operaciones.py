@@ -1072,6 +1072,8 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                                 'pr':   float(_it.get('precio_real', 0) or 0),
                                 'sin':  bool(_it.get('sin_registro', False)),
                                 'stock': bool(_it.get('stock', False)),
+                                'sqty': float(_it.get('stock_cantidad', _it.get('cantidad', 1)) or 0)
+                                        if _it.get('stock') else 0,
                             } for _it in _items_h],
                         })
                         _hist_rows_total += max(1, len(_items_h))
@@ -1104,9 +1106,13 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                             _es_stock = bool(_it.get('stock')) or (_it['pr'] == 0 and _es_norm)
                             if _nom and _es_stock and _es_norm and _nom not in _stock_seen:
                                 _stock_seen.add(_nom)
-                                _ah = _it['pp'] * _it['cant']
+                                # Unidades en stock (ahorro puro). Sin sqty explícito
+                                # (datos previos o $0 sin flag) → todas las unidades.
+                                _sq = _it.get('sqty') or _it['cant']
+                                _sq = min(_sq, _it['cant'])
+                                _ah = _it['pp'] * _sq
                                 _stock_total += _ah
-                                _stock_list.append((_it['cat'], _nom, _it['cant'], _ah))
+                                _stock_list.append((_it['cat'], _nom, _sq, _ah))
                     if _stock_list:
                         _stock_list.sort(key=lambda _x: _x[3], reverse=True)
                         st.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)

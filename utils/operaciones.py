@@ -244,11 +244,13 @@ function renderProv(matched){{
       (r.items||[]).forEach(function(it){{
         var isStk=(it.stock===true)||((+it.pr===0)&&!it.sin);
         if(!isStk)return;
-        var ah=(+it.pp||0)*(+it.cant||1);
+        var C=(+it.cant||1);
+        var sq=(it.sqty!=null&&+it.sqty>0)?+it.sqty:C; if(sq>C)sq=C;  // unidades en stock
+        var ah=(+it.pp||0)*sq;
         agg[k].total+=ah;
         var ik=it.item||"—";
         if(!agg[k].items[ik])agg[k].items[ik]={{item:ik,cat:it.cat||"",cant:0,ahorro:0}};
-        agg[k].items[ik].cant+=(+it.cant||0);
+        agg[k].items[ik].cant+=sq;
         agg[k].items[ik].ahorro+=ah;
       }});
     }} else {{
@@ -353,10 +355,17 @@ function badge(r){{
 }}
 function viewRows(r){{
   if(!r.items.length)return '<tr><td colspan="5" style="text-align:center;color:#94a3b8;">Sin ítems.</td></tr>';
+  var pill='font-size:.6rem;font-weight:700;background:#dcfce7;color:#166534;padding:1px 6px;border-radius:20px;text-transform:uppercase;letter-spacing:.04em;vertical-align:middle;';
   return r.items.map(function(it){{
-    var prCell=(it.stock===true)
-      ?'<td class="r" style="font-weight:700;color:#16a34a;">$0 <span style="font-size:.6rem;font-weight:700;background:#dcfce7;color:#166534;padding:1px 6px;border-radius:20px;text-transform:uppercase;letter-spacing:.04em;vertical-align:middle;">En stock</span></td>'
-      :'<td class="r" style="font-weight:700;">'+f(it.pr)+'</td>';
+    var C=(+it.cant||1),SQ=(it.sqty!=null?+it.sqty:0);
+    var prCell;
+    if(it.stock===true&&SQ>=C){{
+      prCell='<td class="r" style="font-weight:700;color:#16a34a;">$0 <span style="'+pill+'">En stock</span></td>';
+    }} else if(it.stock===true&&SQ>0){{
+      prCell='<td class="r" style="font-weight:700;">'+f(it.pr)+' <span style="'+pill+'">'+SQ+' en stock</span></td>';
+    }} else {{
+      prCell='<td class="r" style="font-weight:700;">'+f(it.pr)+'</td>';
+    }}
     return '<tr><td>'+esc(it.cat)+'</td><td class="it">'+esc(it.item)+'</td>'
       +'<td class="r">'+esc(it.cant)+'</td><td class="r">'+f(it.pp)+'</td>'
       +prCell+'</tr>';
@@ -874,7 +883,13 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
                 pr = float(it.get('precio_real', 0) or 0)
                 cant = float(it.get('cantidad', 1) or 1)
                 adic = int(it.get('adicional', 0) or 0)
-                dif = (pp - pr) * cant - (adic * pr)
+                # Stock parcial: solo se pagaron (cant - stock_cantidad) unidades;
+                # el resto es inventario ($0, ahorro puro).
+                _es_stk = bool(it.get('stock', False))
+                _stk_c = float(it.get('stock_cantidad', cant) or 0) if _es_stk else 0.0
+                _stk_c = max(0.0, min(cant, _stk_c))
+                _purch = (cant - _stk_c) if _es_stk else cant
+                dif = pp * cant - pr * _purch - (adic * pr)
                 _is_sin = it.get('sin_registro', False)
                 _is_con = (it.get('es_adicional', False) or str(it.get('item', '')) not in _pn_pdf) and not _is_sin
                 pp_real = _pp_map.get(str(it.get('item', '')), pp) if not _is_con and not _is_sin else pp
@@ -883,7 +898,7 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
                 elif _is_con:
                     sub_a += pr * cant
                 else:
-                    sub_p += pp_real * cant; sub_r += pr * cant + adic * pr
+                    sub_p += pp_real * cant; sub_r += pr * _purch + adic * pr
                 dif_str = f"${abs(dif):,.0f} {'▼' if dif >= 0 else '▲'}".replace(',', '.')
                 rows.append([it.get('categoria', ''), it.get('item', ''), str(int(cant)),
                     f"${pp_real:,.0f}".replace(',', '.'), f"${pr:,.0f}".replace(',', '.'),
@@ -1041,19 +1056,32 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
         _ic = items_comprados.get(item, {})
         # "En stock" (ahorro puro): comprado con precio real $0 marcado como stock.
         _es_stock = bool(_ic and _ic.get('stock'))
+        # Unidades en stock al reabrir un registro guardado. Si no se guardó
+        # stock_cantidad (datos previos) se asume TODO en stock (full).
+        _stock_qty_saved = cant
+        if _es_stock and ('stock_cantidad' in _ic):
+            try:
+                _stock_qty_saved = max(0, min(cant, int(_ic.get('stock_cantidad') or 0)))
+            except Exception:
+                _stock_qty_saved = cant
         _ya_comprado = bool(_ic and (float(_ic.get('real', 0) or 0) > 0 or _es_stock)) or _es_adicional
-        _readonly = _ya_comprado and not es_admin
+        # Los ítems en stock quedan SIEMPRE bloqueados en el formulario (su valor es
+        # fijo; para cambiarlo se edita/elimina el registro en el historial).
+        _readonly = (_ya_comprado and not es_admin) or _es_stock
 
         if _es_sin_reg:
             bg = '#fdf2f8'
         elif _es_adicional:
             bg = '#fff3e0'
+        elif _es_stock:
+            bg = '#dcfce7'   # verde más intenso: fila de inventario
         elif _ya_comprado:
             bg = '#f0fdf4'
         elif ri % 2 == 0:
             bg = '#ffffff'
         else:
             bg = '#f8fafc'
+        _row_extra = 'border-left:3px solid #16a34a;' if _es_stock else ''
 
         pu_fmt = '$' + f'{pu:,}'.replace(',', '.')
         pv = rc_prev.get(str(ri), {})
@@ -1065,24 +1093,38 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
         _da_attr = 'data-adicional="1"' if _es_adicional else ""
         _ds_attr = 'data-sin-registro="1"' if _es_sin_reg else ""
         _dstock_attr = 'data-stock="1"' if _es_stock else ""
-        # Checkbox "En stock": solo para ítems NORMALES del presupuesto aún no
-        # comprados. Al marcarlo, el precio real pasa a $0 y el ítem cuenta como
-        # comprado (ahorro puro) → permite llegar al 100% sin comprarlo.
+        _dstockqty_attr = f'data-stock-qty="{_stock_qty_saved}"' if _es_stock else ""
+        # Celda "En stock": checkbox para ítems normales no comprados (+ input de
+        # cantidad si hay más de 1: cuántas tienes en stock vs. cuántas comprarás);
+        # o badge verde con la cantidad al recargar un ítem ya inventariado.
         if not _es_adicional and not _es_sin_reg and not _ya_comprado:
+            _qty_input = (
+                '<div class="rc-stockqty-wrap" style="display:none;margin-top:3px;font-size:10px;'
+                'color:#166534;white-space:nowrap;font-weight:700;">'
+                f'<input type="number" class="rc-stockqty" min="1" max="{cant}" value="{cant}" '
+                'onchange="window.stockQty(this)" onclick="event.stopPropagation()" '
+                'style="width:36px;border:1px solid #86efac;border-radius:4px;padding:2px;'
+                f'font-size:10px;text-align:center;"/> / {cant}</div>'
+            ) if cant > 1 else ''
             _stock_ck = (
-                f'<td style="text-align:center;padding:3px 4px"><input type="checkbox" class="rc-stock" '
+                '<td style="text-align:center;padding:3px 4px"><input type="checkbox" class="rc-stock" '
                 f'data-idx="{ri}" onchange="window.toggleStock(this)" '
-                'title="Ya lo tengo en stock — precio real $0 (cuenta como comprado; ahorro puro)" '
-                'style="width:16px;height:16px;cursor:pointer;accent-color:#16a34a;vertical-align:middle;"/></td>'
+                'title="Ya lo tengo en stock — precio real $0 (ahorro puro)" '
+                'style="width:16px;height:16px;cursor:pointer;accent-color:#16a34a;vertical-align:middle;"/>'
+                f'{_qty_input}</td>'
             )
         elif _es_stock:
+            _sq_lbl = f'{_stock_qty_saved}/{cant}' if _stock_qty_saved < cant else ''
+            _sq_span = (f'<span style="font-size:10px;color:#166534;font-weight:700;margin-left:2px;">{_sq_lbl}</span>'
+                        if _sq_lbl else '')
             _stock_ck = (
-                '<td style="text-align:center;padding:3px 4px" title="En stock — ahorro puro">'
-                f'{_svg_rc("check", color="#16a34a", size=15, mr=0, valign=-3)}</td>'
+                '<td style="text-align:center;padding:3px 4px;white-space:nowrap" title="En stock — ahorro puro">'
+                + _svg_rc("check", color="#16a34a", size=15, mr=0, valign=-3)
+                + _sq_span + '</td>'
             )
         else:
             _stock_ck = '<td></td>'
-        rows += f"""<tr style="background:{bg};border-bottom:1px solid #eef0f6" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}" {_dc_attr} {_da_attr} {_ds_attr} {_dstock_attr}>
+        rows += f"""<tr style="background:{bg};border-bottom:1px solid #eef0f6;{_row_extra}" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}" {_dc_attr} {_da_attr} {_ds_attr} {_dstock_attr} {_dstockqty_attr}>
 <td style="padding:5px 8px;font-size:.85rem;color:#334155;font-weight:700;font-family:Montserrat,'Segoe UI',sans-serif">{cat}</td>
 <td style="padding:5px 8px;font-size:.95rem;color:#0f172a;font-weight:700;font-family:Montserrat,'Segoe UI',sans-serif">{item}</td>
 <td style="padding:5px 8px;text-align:right;font-weight:700;font-family:Montserrat,'Segoe UI',sans-serif">{cant}</td>
@@ -1339,19 +1381,24 @@ function calc(){{
     var pu=+r.dataset.pu||0,c=+r.dataset.cant||1;
     var re=parseFloat(r.querySelector(".rc-real").dataset.val)||0;
     var ad=+r.querySelector(".rc-adic").value||0;
-    var d=(pu-re)*c-(ad*re);
-    var td=r.querySelector(".rc-dif");
-    td.textContent=f(d)+(d>=0?" ▼":" ▲");
-    td.style.color=d>=0?"#16a34a":"#dc2626";
     var isSinReg=r.getAttribute("data-sin-registro")==="1";
     var isAdic=r.dataset.adicional==="1"&&!isSinReg;
     var isStock=r.getAttribute("data-stock")==="1";
+    // Stock parcial: sq = unidades en stock (ahorro), compradas = c - sq.
+    var sq=isStock?(parseInt(r.getAttribute("data-stock-qty"))||c):0;
+    if(sq>c)sq=c; if(sq<0)sq=0;
+    var comprUnits=isStock?(c-sq):c;
+    // Diferencia = presupuestado total - real de lo comprado - adicional.
+    var d=pu*c-re*comprUnits-(ad*re);
+    var td=r.querySelector(".rc-dif");
+    td.textContent=f(d)+(d>=0?" ▼":" ▲");
+    td.style.color=d>=0?"#16a34a":"#dc2626";
     if(isSinReg){{tS+=re*c;}}
     else if(isAdic){{tA+=re*c;}}
     else{{tP+=pu*c;}}
-    tR+=re*c+ad*re;
-    // Inventario (stock, $0): ahorro puro = presupuestado del ítem.
-    if(isStock&&idx<10000){{tI+=pu*c;nI++;}}
+    tR+=re*comprUnits+ad*re;
+    // Inventario (stock, $0): ahorro puro = presupuestado de las unidades en stock.
+    if(isStock&&idx<10000){{tI+=pu*sq;nI++;}}
     vals.push({{idx:+r.dataset.idx,real:re,adic:ad,dif:d,stock:isStock}});
   }});
   var _tiT=document.getElementById("ti-t");if(_tiT)_tiT.textContent=f(tI);
@@ -1536,9 +1583,14 @@ function checkSaveBtn(){{
   document.querySelectorAll("tr[data-idx]").forEach(function(r){{
     if(r.dataset.comprado==="1") return; // ya guardado → no se re-guarda
     var re=parseFloat(r.querySelector(".rc-real").dataset.val)||0;
+    var c=+r.dataset.cant||1;
     var isStock=r.getAttribute("data-stock")==="1";
-    if(re>0||isStock) hasVals=true;
-    if(re>0) hasReal=true;
+    var sq=isStock?(parseInt(r.getAttribute("data-stock-qty"))||c):0;
+    var compr=isStock?(c-sq):c;
+    // Fila lista: full stock (compra 0) o hay precio real para lo comprado.
+    if((isStock&&compr<=0)||re>0) hasVals=true;
+    // Compra real (exige factura): unidades compradas con precio > 0.
+    if(re>0&&compr>0) hasReal=true;
   }});
   var lugar=document.getElementById("lugar-compra");
   var hasLugar=lugar&&lugar.value.trim().length>0;
@@ -1549,11 +1601,11 @@ function checkSaveBtn(){{
   var fechaOk=!fw||fw.className.indexOf("rc-hidden")>-1||(document.getElementById("fecha-compra")&&document.getElementById("fecha-compra").value.length>0);
   var pw=document.getElementById("faltó-wrap");
   var faltóOk=!pw||pw.className.indexOf("rc-hidden")>-1||(document.getElementById("falto-texto")&&document.getElementById("falto-texto").value.trim().length>0);
-  // Modo INVENTARIO/Stock (tipo=stock) → nunca exige factura/fecha/falta.
-  // Compra real → se exigen todos los campos (factura, lugar, tipo, etc.).
-  // Registro PURO de stock (todo $0, ahorro puro) → basta con marcar los ítems.
-  var isStockMode=tipo&&tipo.value==="stock";
-  var ok=hasVals&&(isStockMode?hasLugar:(!hasReal||(hasLugar&&hasFactura&&hasTipo&&fechaOk&&faltóOk)));
+  // La factura solo se exige si hay compra real (hasReal). En modo INVENTARIO
+  // (tipo=stock) hasReal es false → no pide factura; fecha/falta van ocultas
+  // (fechaOk/faltóOk = true). Un ítem parcial ya salió del modo stock, así que
+  // exige factura como cualquier compra.
+  var ok=hasVals&&hasLugar&&hasTipo&&fechaOk&&faltóOk&&(hasFactura||!hasReal);
   var btn=document.getElementById("save-btn");
   if(btn){{btn.disabled=!ok;btn.style.opacity=ok?"1":"0.5";}}
 }}
@@ -1561,28 +1613,65 @@ window.checkSaveBtn=checkSaveBtn;
 // "En stock": el usuario ya tiene el producto (no lo compra). Fija precio real $0,
 // lo deja readonly/verde y marca la fila data-stock="1" → cuenta como comprado
 // (progreso) y es ahorro puro. Desmarcar revierte a input normal editable.
+// Aplica el estado visual de la fila según data-stock / data-stock-qty:
+//  · full stock (compradas=0)  → real $0 bloqueado, verde.
+//  · stock parcial (compradas>0)→ real editable (precio de lo comprado).
+//  · sin stock                  → input normal editable.
+function _applyStockRow(tr){{
+  var inp=tr.querySelector(".rc-real");
+  var adic=tr.querySelector(".rc-adic");
+  var isStock=tr.getAttribute("data-stock")==="1";
+  var c=+tr.dataset.cant||1;
+  var sq=isStock?(parseInt(tr.getAttribute("data-stock-qty"))||c):0;
+  var compr=isStock?(c-sq):c;
+  if(isStock&&compr<=0){{
+    if(inp){{inp.dataset.val="0";inp.value="$0";inp.readOnly=true;inp.style.background="#f0fdf4";inp.style.color="#15803d";inp.style.borderColor="#86efac";inp.style.cursor="default";}}
+    if(adic){{adic.value="0";adic.readOnly=true;adic.style.background="#f0fdf4";adic.style.pointerEvents="none";}}
+  }} else if(isStock&&compr>0){{
+    if(inp){{inp.readOnly=false;inp.style.background="";inp.style.color="";inp.style.borderColor="#86efac";inp.style.cursor="";}}
+    if(adic){{adic.readOnly=false;adic.style.background="#fff5f5";adic.style.pointerEvents="";}}
+  }} else {{
+    if(inp){{inp.readOnly=false;inp.style.background="";inp.style.color="";inp.style.borderColor="#cbd5e1";inp.style.cursor="";}}
+    if(adic){{adic.readOnly=false;adic.style.background="#fff5f5";adic.style.pointerEvents="";}}
+  }}
+}}
 window.toggleStock=function(cb){{
   var tr=cb.closest("tr[data-idx]");
   if(!tr) return;
   var inp=tr.querySelector(".rc-real");
-  var adic=tr.querySelector(".rc-adic");
+  var c=+tr.dataset.cant||1;
+  var wrap=tr.querySelector(".rc-stockqty-wrap");
+  var qi=tr.querySelector(".rc-stockqty");
   if(cb.checked){{
     tr.setAttribute("data-stock","1");
-    if(inp){{
-      inp.dataset.val="0";inp.value="$0";inp.readOnly=true;
-      inp.style.background="#f0fdf4";inp.style.color="#15803d";
-      inp.style.borderColor="#86efac";inp.style.cursor="default";
-    }}
-    if(adic){{adic.value="0";adic.readOnly=true;adic.style.background="#f0fdf4";adic.style.pointerEvents="none";}}
+    tr.setAttribute("data-stock-qty",String(c)); // por defecto: todo en stock
+    if(qi)qi.value=String(c);
+    if(wrap)wrap.style.display=(c>1?"block":"none");
   }} else {{
     tr.removeAttribute("data-stock");
-    if(inp){{
-      inp.dataset.val="0";inp.value="";inp.readOnly=false;
-      inp.style.background="";inp.style.color="";
-      inp.style.borderColor="#cbd5e1";inp.style.cursor="";
-    }}
-    if(adic){{adic.readOnly=false;adic.style.background="#fff5f5";adic.style.pointerEvents="";}}
+    tr.removeAttribute("data-stock-qty");
+    if(wrap)wrap.style.display="none";
+    if(inp){{inp.dataset.val="0";inp.value="";}}
   }}
+  _applyStockRow(tr);
+  calc();checkSaveBtn();
+}};
+// Cantidad en stock (de C presupuestadas). Si es menor que C → hay una compra
+// real de las restantes: se habilita el precio real y se sale del modo inventario.
+window.stockQty=function(input){{
+  var tr=input.closest("tr[data-idx]");
+  if(!tr) return;
+  var c=+tr.dataset.cant||1;
+  var v=parseInt(input.value)||1; if(v<1)v=1; if(v>c)v=c; input.value=String(v);
+  tr.setAttribute("data-stock-qty",String(v));
+  var inp=tr.querySelector(".rc-real");
+  if(v<c){{
+    // parcial: limpiar el $0 bloqueado para que ingrese el precio de lo comprado
+    if(inp&&(inp.readOnly||inp.dataset.val==="0")){{inp.readOnly=false;inp.value="";inp.dataset.val="0";}}
+    var t=document.getElementById("tipo-compra");
+    if(t&&t.value==="stock"){{t.value="";window.onTipoChange();}}
+  }}
+  _applyStockRow(tr);
   calc();checkSaveBtn();
 }};
 function _escH(s){{var d=document.createElement("div");d.textContent=s==null?"":String(s);return d.innerHTML;}}
@@ -1594,7 +1683,8 @@ window.verInventario=function(){{
     if(r.getAttribute("data-stock")!=="1")return;
     if((parseInt(r.dataset.idx)||0)>=10000)return;
     var pu=+r.dataset.pu||0,c=+r.dataset.cant||1;
-    items.push({{item:r.cells[1]?r.cells[1].textContent.trim():"",cat:r.cells[0]?r.cells[0].textContent.trim():"",cant:c,ahorro:pu*c}});
+    var sq=parseInt(r.getAttribute("data-stock-qty"))||c; if(sq>c)sq=c; if(sq<1)sq=1;
+    items.push({{item:r.cells[1]?r.cells[1].textContent.trim():"",cat:r.cells[0]?r.cells[0].textContent.trim():"",cant:sq,ahorro:pu*sq}});
   }});
   items.sort(function(a,b){{return b.ahorro-a.ahorro;}});
   var body=document.getElementById("inv-modal-body");
@@ -1665,8 +1755,14 @@ window.guardarRegistro=async function(){{
     var inp=r.querySelector(".rc-real");
     var re=parseFloat(inp.dataset.val)||0;
     var isStock=r.getAttribute("data-stock")==="1";
+    var c=+r.dataset.cant||1;
+    var sq=isStock?(parseInt(r.getAttribute("data-stock-qty"))||c):0;
+    if(sq>c)sq=c; if(sq<0)sq=0;
+    var comprUnits=isStock?(c-sq):c;   // unidades realmente compradas
     // Modo INVENTARIO: SOLO se guardan los ítems marcados en stock ($0).
     if(_stockMode && !isStock) return;
+    // Fila parcial (tengo algunas, compro el resto) SIN precio → incompleta, skip.
+    if(isStock && comprUnits>0 && re<=0) return;
     if(re<=0 && !isStock) return;
     if(idx >= 10000) {{
     }} else {{
@@ -1676,10 +1772,10 @@ window.guardarRegistro=async function(){{
       if(itemsYaComprados.indexOf(itemNombre)>-1) return;
     }}
     var pu=+r.dataset.pu||0;
-    var c=+r.dataset.cant||1;
     var ad=+r.querySelector(".rc-adic").value||0;
-    var dif=(pu-re)*c-(ad*re);
-    items.push({{
+    // Diferencia (ahorro) = presupuestado total - real de lo comprado - adicional.
+    var dif=pu*c-re*comprUnits-(ad*re);
+    var _it={{
       categoria:r.cells[0]?r.cells[0].textContent.trim():"",
       item:r.cells[1]?r.cells[1].textContent.trim():"",
       cantidad:c,
@@ -1690,12 +1786,18 @@ window.guardarRegistro=async function(){{
       es_adicional:idx>=10000||r.dataset.adicional==="1",
       sin_registro:r.getAttribute("data-sin-registro")==="1",
       stock:isStock
-    }});
+    }};
+    if(isStock)_it.stock_cantidad=sq;   // unidades en stock (ahorro puro)
+    items.push(_it);
   }});
   if(items.length===0){{status.textContent="Ingresa al menos un precio real o marca ítems en stock";status.style.color="#dc2626";btn.disabled=false;btn.textContent="Guardar compra";return;}}
   // ¿Hay al menos una compra real (>$0)? Solo entonces exigimos factura y subimos
   // archivo. Un registro PURO de stock (todo $0, ahorro puro) no lleva factura.
-  var hasReal=items.some(function(it){{return it.precio_real>0;}});
+  // Para un ítem de stock, la compra real son las unidades NO inventariadas.
+  var hasReal=items.some(function(it){{
+    var _sq=it.stock?(it.stock_cantidad||it.cantidad):0;
+    return it.precio_real>0&&(it.cantidad-_sq)>0;
+  }});
   if(hasReal && !_facturaFile){{status.textContent="Debes subir una factura primero";status.style.color="#dc2626";btn.disabled=false;btn.textContent="Guardar compra";return;}}
   status.textContent="";
   try{{
@@ -1713,7 +1815,12 @@ window.guardarRegistro=async function(){{
       _facturaNom=_facturaFile.name;
     }}
     var tP=0,tR=0;
-    items.forEach(function(it){{tP+=it.precio_presupuestado*it.cantidad;tR+=(it.precio_real*it.cantidad)+(it.adicional*it.precio_real);}});
+    items.forEach(function(it){{
+      var _sq=it.stock?(it.stock_cantidad||it.cantidad):0;
+      var _compr=it.cantidad-_sq;   // unidades compradas (stock: C-sq; normal: C)
+      tP+=it.precio_presupuestado*it.cantidad;
+      tR+=(it.precio_real*_compr)+(it.adicional*it.precio_real);
+    }});
     btn.textContent="Guardando registro...";
     var lugarEl=document.getElementById("lugar-compra");
     var lugarVal=lugarEl?lugarEl.value.trim():"";
