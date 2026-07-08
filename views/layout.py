@@ -1108,20 +1108,20 @@ _DLG_ICO_SHIELD = ('<svg viewBox="0 0 24 24" width="14" height="14" fill="none" 
 # estilizan aparte por su clave (.st-key-…) para no filtrar a otros widgets.
 _DLG_CSS_BASE = """
 <style>
-/* Oculta el título nativo de Streamlit SOLO mientras este diálogo está abierto. */
-div[role="dialog"] h1, div[role="dialog"] h2, div[role="dialog"] h3 { display:none !important; }
 div[role="dialog"] { border-radius:20px !important; }
+/* La tarjeta blanca interior es un stVerticalBlockBorderWrapper (regla global con
+   sombra violeta). Sin padding lateral los inputs/botón tocaban los bordes: se le
+   da respiro interior. Scoped al diálogo mientras está abierto. */
+div[role="dialog"] [data-testid="stVerticalBlockBorderWrapper"] {
+    padding:1.1rem 1.7rem 1.5rem !important;
+}
 
-.ec-acc-hero { text-align:center; padding:0.15rem 0 1.05rem; }
+.ec-acc-hero { text-align:center; padding:0.1rem 0 0.95rem; }
 .ec-acc-badge {
     width:60px; height:60px; margin:0 auto 0.72rem; border-radius:18px;
     display:flex; align-items:center; justify-content:center; color:#fff;
     background:linear-gradient(135deg,#5b7cfa,#8aa2ff);
     box-shadow:0 12px 26px -8px rgba(91,124,250,0.65);
-}
-.ec-acc-title {
-    font-family:'Montserrat',sans-serif; font-weight:700; font-size:0.92rem;
-    letter-spacing:0.05em; text-transform:uppercase; color:#0f172a;
 }
 .ec-acc-sub { font-family:'Plus Jakarta Sans',sans-serif; font-size:0.8rem; color:#64748b; margin-top:5px; }
 .ec-acc-sub b { color:#1e293b; font-weight:700; }
@@ -1191,7 +1191,6 @@ def _pwd_dialog():
     st.markdown(
         '<div class="ec-acc-hero">'
         f'<div class="ec-acc-badge">{_DLG_ICO_LOCK}</div>'
-        '<div class="ec-acc-title">Cambiar contraseña</div>'
         f'<div class="ec-acc-sub">Cuenta: <b>{_nombre.upper()}</b></div>'
         '</div>', unsafe_allow_html=True)
 
@@ -1206,7 +1205,7 @@ def _pwd_dialog():
                                placeholder="Mínimo 6 caracteres")
     pwd_repite = st.text_input("Repetir nueva contraseña", type="password", key="pwd_repite_dlg",
                                placeholder="Vuelve a escribirla")
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
 
     if st.button("Actualizar contraseña", key="btn_cambiar_pwd_dlg",
                  use_container_width=True, type="primary"):
@@ -1253,13 +1252,12 @@ def _foto_dialog():
         f'{avatar_html(_foto, _nombre, size=88, ring="#e2e8f0", font_scale=0.38)}'
         f'<div class="ec-avatar-cam">{_DLG_ICO_CAM}</div>'
         '</div>'
-        '<div class="ec-acc-title">Foto de perfil</div>'
         f'<div class="ec-acc-sub"><b>{_nombre.upper()}</b></div>'
         '</div>', unsafe_allow_html=True)
 
     _file = st.file_uploader("Selecciona una imagen", type=["png", "jpg", "jpeg", "webp"],
                              key="foto_upl_dlg")
-    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
 
     if st.button("Guardar foto", key="btn_guardar_foto_dlg",
                  use_container_width=True, type="primary"):
