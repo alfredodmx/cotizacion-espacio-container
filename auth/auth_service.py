@@ -4,7 +4,7 @@ Todas las funciones que interactúan con Supabase Auth.
 """
 import streamlit as st
 from config.supabase import supabase, supabase_admin
-from config.settings import ROOTS
+from config.settings import ROOTS, SUPABASE_URL, SUPABASE_KEY
 from auth.roles import get_rol
 
 
@@ -64,10 +64,48 @@ def cambiar_rol_usuario(user_id: str, nuevo_rol: str) -> tuple[bool, str | None]
         return False, str(e)
 
 
-def cambiar_password_propio(nueva_password: str) -> tuple[bool, str | None]:
-    """El usuario cambia su propia contraseña (requiere sesión activa)."""
+def verificar_password_actual(email: str, password: str) -> bool:
+    """Verifica la contraseña ACTUAL del usuario SIN tocar la sesión global.
+
+    Usa un cliente Supabase temporal y aislado (no el singleton compartido de
+    `@st.cache_resource`): así validar la contraseña no pisa la sesión de los
+    demás usuarios del servidor ni la del propio usuario. Devuelve True si la
+    contraseña es correcta.
+    """
+    if not email or not password:
+        return False
     try:
-        supabase.auth.update_user({"password": nueva_password})
+        from supabase import create_client
+        _tmp = create_client(SUPABASE_URL, SUPABASE_KEY)
+        try:
+            res = _tmp.auth.sign_in_with_password({"email": email, "password": password})
+            return bool(res and res.user)
+        finally:
+            try:
+                _tmp.auth.sign_out()
+            except Exception:
+                pass
+    except Exception:
+        return False
+
+
+def cambiar_password_propio(nueva_password: str, user_id: str | None = None) -> tuple[bool, str | None]:
+    """El usuario cambia su propia contraseña.
+
+    Se hace con la SERVICE KEY (admin) apuntando al `user_id`, en vez de depender
+    de la sesión del cliente anon compartido (`@st.cache_resource`): ese singleton
+    se comparte entre TODOS los usuarios del servidor y su sesión no está
+    garantizada para el usuario actual (la restaura `get_user`, no `set_session`),
+    por lo que `update_user` fallaba con "contraseña inválida" / sesión ausente y
+    le pasaba a todos los ejecutivos. El admin API es determinista y no depende de
+    la sesión. Retorna (ok, error).
+    """
+    try:
+        if user_id:
+            supabase_admin.auth.admin.update_user_by_id(user_id, {"password": nueva_password})
+        else:
+            # Retrocompatibilidad: sin user_id, intenta con la sesión del cliente.
+            supabase.auth.update_user({"password": nueva_password})
         return True, None
     except Exception as e:
         return False, str(e)

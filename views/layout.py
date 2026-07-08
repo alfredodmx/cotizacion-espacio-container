@@ -7,7 +7,7 @@ import os
 import streamlit as st
 import streamlit.components.v1 as _components
 
-from auth.auth_service   import logout_usuario, cambiar_password_propio, login_usuario
+from auth.auth_service   import logout_usuario, cambiar_password_propio, verificar_password_actual
 from auth.access_code    import generar_codigo_acceso, _get_bloque_horario
 from utils.avatars       import fetch_foto_map, avatar_html, subir_foto_perfil
 from config.settings     import SUPABASE_URL
@@ -1084,62 +1084,184 @@ def _page_headers_css() -> str:
     )
 
 
-# ── Dialog cambio de contraseña ───────────────────────────────────────────────
+# ── Dialogs de cuenta (contraseña / foto de perfil) ───────────────────────────
+# Diseño unificado y profesional: badge con ícono SVG, título Montserrat, inputs
+# suaves con foco azul (#5b7cfa, primario del tema) y botón con gradiente. El CSS
+# se inyecta DESDE la función del diálogo (no global) para que las reglas — en
+# particular ocultar el título nativo — solo apliquen mientras ESTE diálogo está
+# abierto y no afecten a otros diálogos del sistema.
 
-@st.dialog("🔑 Cambiar contraseña")
+_DLG_ICO_LOCK = ('<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" '
+                 'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+                 '<rect width="18" height="11" x="3" y="11" rx="2.2"/>'
+                 '<path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>')
+_DLG_ICO_CAM = ('<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" '
+                'stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">'
+                '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>'
+                '<circle cx="12" cy="13" r="3"/></svg>')
+_DLG_ICO_SHIELD = ('<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" '
+                   'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+                   '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>'
+                   '<path d="m9 12 2 2 4-4"/></svg>')
+
+# CSS base compartido por ambos diálogos (hero + notas). Los inputs/botón se
+# estilizan aparte por su clave (.st-key-…) para no filtrar a otros widgets.
+_DLG_CSS_BASE = """
+<style>
+/* Oculta el título nativo de Streamlit SOLO mientras este diálogo está abierto. */
+div[role="dialog"] h1, div[role="dialog"] h2, div[role="dialog"] h3 { display:none !important; }
+div[role="dialog"] { border-radius:20px !important; }
+
+.ec-acc-hero { text-align:center; padding:0.15rem 0 1.05rem; }
+.ec-acc-badge {
+    width:60px; height:60px; margin:0 auto 0.72rem; border-radius:18px;
+    display:flex; align-items:center; justify-content:center; color:#fff;
+    background:linear-gradient(135deg,#5b7cfa,#8aa2ff);
+    box-shadow:0 12px 26px -8px rgba(91,124,250,0.65);
+}
+.ec-acc-title {
+    font-family:'Montserrat',sans-serif; font-weight:700; font-size:0.92rem;
+    letter-spacing:0.05em; text-transform:uppercase; color:#0f172a;
+}
+.ec-acc-sub { font-family:'Plus Jakarta Sans',sans-serif; font-size:0.8rem; color:#64748b; margin-top:5px; }
+.ec-acc-sub b { color:#1e293b; font-weight:700; }
+.ec-acc-note {
+    display:flex; align-items:flex-start; gap:9px; margin:0 0 0.35rem;
+    padding:9px 12px; border-radius:11px; background:#f1f5f9; border:1px solid #e6ebf3;
+    color:#64748b; font-family:'Plus Jakarta Sans',sans-serif; font-size:0.735rem; line-height:1.4;
+}
+.ec-acc-note svg { color:#5b7cfa; flex-shrink:0; margin-top:1px; }
+.ec-avatar-wrap { position:relative; width:88px; margin:0 auto 0.72rem; }
+.ec-avatar-cam {
+    position:absolute; right:-3px; bottom:-3px; width:31px; height:31px; border-radius:50%;
+    background:linear-gradient(135deg,#5b7cfa,#6d8bff); color:#fff; border:3px solid #fff;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 5px 12px -3px rgba(91,124,250,0.7);
+}
+</style>
+"""
+
+
+def _dlg_input_css(*keys: str) -> str:
+    """CSS para inputs de texto de un diálogo (bordes suaves + foco azul)."""
+    _box = ",".join(f'.st-key-{k} [data-baseweb="input"]' for k in keys)
+    _foc = ",".join(f'.st-key-{k} [data-baseweb="input"]:focus-within' for k in keys)
+    _inp = ",".join(f'.st-key-{k} input' for k in keys)
+    _lbl = ",".join(f'.st-key-{k} label' for k in keys)
+    return f"""<style>
+{_lbl} {{ font-family:'Plus Jakarta Sans',sans-serif !important; font-weight:600 !important;
+          font-size:0.78rem !important; color:#475569 !important; }}
+{_box} {{ border-radius:12px !important; border:1.5px solid #e2e8f0 !important;
+          background:#f8fafc !important; overflow:hidden;
+          transition:border-color .15s, box-shadow .15s, background .15s; }}
+{_foc} {{ border-color:#5b7cfa !important; background:#fff !important;
+          box-shadow:0 0 0 3px rgba(91,124,250,0.14) !important; }}
+{_inp} {{ background:transparent !important; font-weight:600 !important;
+          color:#1e293b !important; font-size:0.9rem !important; }}
+</style>"""
+
+
+def _dlg_btn_css(key: str) -> str:
+    """CSS para el botón primario de un diálogo (gradiente azul + sombra)."""
+    return f"""<style>
+.st-key-{key} button {{ border-radius:12px !important; height:2.95rem !important;
+    font-family:'Plus Jakarta Sans',sans-serif !important; font-weight:700 !important;
+    font-size:0.9rem !important; letter-spacing:0.01em; color:#fff !important; border:none !important;
+    background:linear-gradient(135deg,#5b7cfa,#6d8bff) !important;
+    box-shadow:0 9px 22px -7px rgba(91,124,250,0.6) !important;
+    transition:filter .15s, box-shadow .15s, transform .06s; }}
+.st-key-{key} button p {{ font-weight:700 !important; }}
+.st-key-{key} button:hover {{ filter:brightness(1.06);
+    box-shadow:0 12px 28px -7px rgba(91,124,250,0.75) !important; }}
+.st-key-{key} button:active {{ transform:translateY(1px); }}
+</style>"""
+
+
+@st.dialog("Cambiar contraseña")
 def _pwd_dialog():
-    nombre = st.session_state.get("auth_nombre") or st.session_state.get("auth_email", "")
-    st.markdown(f"<div style='text-align:center;padding:0.5rem 0 1rem;'>"
-                f"<div style='font-size:2rem;margin-bottom:6px;'>🔑</div>"
-                f"<div style='color:#64748b;font-size:0.82rem;'>Usuario: "
-                f"<strong style='color:#1e293b;'>{nombre.upper()}</strong></div></div>",
+    _nombre = st.session_state.get("auth_nombre") or st.session_state.get("auth_email", "")
+    _email  = st.session_state.get("auth_email", "")
+    _uid    = st.session_state.get("auth_user", "")
+
+    st.markdown(_DLG_CSS_BASE, unsafe_allow_html=True)
+    st.markdown(_dlg_input_css("pwd_actual_dlg", "pwd_nueva_dlg", "pwd_repite_dlg"),
                 unsafe_allow_html=True)
-    _, mid, _ = st.columns([0.05, 1, 0.05])
-    with mid:
-        pwd_actual  = st.text_input("Contraseña actual", type="password", key="pwd_actual_dlg")
-        pwd_nueva   = st.text_input("Nueva contraseña", type="password", key="pwd_nueva_dlg", placeholder="Mínimo 6 caracteres")
-        pwd_repite  = st.text_input("Repetir nueva contraseña", type="password", key="pwd_repite_dlg")
-        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-        if st.button("🔐 Actualizar contraseña", key="btn_cambiar_pwd_dlg", use_container_width=True, type="primary"):
-            if not pwd_actual or not pwd_nueva or not pwd_repite:
-                st.error("Completa todos los campos.")
-            elif len(pwd_nueva) < 6:
-                st.error("Mínimo 6 caracteres.")
-            elif pwd_nueva != pwd_repite:
-                st.error("Las contraseñas no coinciden.")
+    st.markdown(_dlg_btn_css("btn_cambiar_pwd_dlg"), unsafe_allow_html=True)
+
+    st.markdown(
+        '<div class="ec-acc-hero">'
+        f'<div class="ec-acc-badge">{_DLG_ICO_LOCK}</div>'
+        '<div class="ec-acc-title">Cambiar contraseña</div>'
+        f'<div class="ec-acc-sub">Cuenta: <b>{_nombre.upper()}</b></div>'
+        '</div>', unsafe_allow_html=True)
+
+    st.markdown(
+        f'<div class="ec-acc-note">{_DLG_ICO_SHIELD}'
+        '<span>Por seguridad, confirma tu contraseña actual. La nueva debe tener al '
+        'menos 6 caracteres.</span></div>', unsafe_allow_html=True)
+
+    pwd_actual = st.text_input("Contraseña actual", type="password", key="pwd_actual_dlg",
+                               placeholder="Tu contraseña de ahora")
+    pwd_nueva  = st.text_input("Nueva contraseña", type="password", key="pwd_nueva_dlg",
+                               placeholder="Mínimo 6 caracteres")
+    pwd_repite = st.text_input("Repetir nueva contraseña", type="password", key="pwd_repite_dlg",
+                               placeholder="Vuelve a escribirla")
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+    if st.button("Actualizar contraseña", key="btn_cambiar_pwd_dlg",
+                 use_container_width=True, type="primary"):
+        if not pwd_actual or not pwd_nueva or not pwd_repite:
+            st.error("Completa todos los campos.")
+        elif len(pwd_nueva) < 6:
+            st.error("La nueva contraseña debe tener al menos 6 caracteres.")
+        elif pwd_nueva != pwd_repite:
+            st.error("Las contraseñas nuevas no coinciden.")
+        elif pwd_nueva == pwd_actual:
+            st.error("La nueva contraseña debe ser distinta a la actual.")
+        elif not verificar_password_actual(_email, pwd_actual):
+            st.error("La contraseña actual es incorrecta.")
+        else:
+            ok, err = cambiar_password_propio(pwd_nueva, user_id=_uid)
+            if ok:
+                st.success("¡Contraseña actualizada correctamente!")
             else:
-                _u, _ = login_usuario(st.session_state.get("auth_email", ""), pwd_actual)
-                if not _u:
-                    st.error("❌ Contraseña actual incorrecta.")
-                else:
-                    ok, err = cambiar_password_propio(pwd_nueva)
-                    if ok:
-                        st.success("✅ ¡Contraseña actualizada correctamente!")
-                    else:
-                        st.error(f"❌ {err}")
+                st.error(f"No se pudo actualizar la contraseña: {err}")
 
 
-# ── Dialog cambio de foto de perfil ──────────────────────────────────────────
-
-@st.dialog("📷 Cambiar foto de perfil")
+@st.dialog("Foto de perfil")
 def _foto_dialog():
     _nombre = st.session_state.get("auth_nombre") or st.session_state.get("auth_email", "")
     _email  = st.session_state.get("auth_email", "")
     _uid    = st.session_state.get("auth_user", "")
     _foto   = fetch_foto_map(SUPABASE_URL).get(_email.lower(), "") if _email else ""
 
+    st.markdown(_DLG_CSS_BASE, unsafe_allow_html=True)
+    st.markdown(_dlg_btn_css("btn_guardar_foto_dlg"), unsafe_allow_html=True)
+    st.markdown("""<style>
+.st-key-foto_upl_dlg label { font-family:'Plus Jakarta Sans',sans-serif !important;
+    font-weight:600 !important; font-size:0.78rem !important; color:#475569 !important; }
+.st-key-foto_upl_dlg [data-testid="stFileUploaderDropzone"] {
+    border:1.5px dashed #cbd5e1 !important; border-radius:13px !important;
+    background:#f8fafc !important; transition:border-color .15s, background .15s; }
+.st-key-foto_upl_dlg [data-testid="stFileUploaderDropzone"]:hover {
+    border-color:#5b7cfa !important; background:#f5f7ff !important; }
+</style>""", unsafe_allow_html=True)
+
     st.markdown(
-        f"<div style='display:flex;justify-content:center;padding:0.4rem 0 0.9rem;'>"
-        f"{avatar_html(_foto, _nombre, size=92, ring='#e2e8f0', font_scale=0.36)}</div>",
-        unsafe_allow_html=True)
-    st.markdown(f"<div style='text-align:center;color:#64748b;font-size:0.82rem;margin-bottom:0.6rem;'>"
-                f"<strong style='color:#1e293b;'>{_nombre.upper()}</strong></div>",
-                unsafe_allow_html=True)
+        '<div class="ec-acc-hero">'
+        '<div class="ec-avatar-wrap">'
+        f'{avatar_html(_foto, _nombre, size=88, ring="#e2e8f0", font_scale=0.38)}'
+        f'<div class="ec-avatar-cam">{_DLG_ICO_CAM}</div>'
+        '</div>'
+        '<div class="ec-acc-title">Foto de perfil</div>'
+        f'<div class="ec-acc-sub"><b>{_nombre.upper()}</b></div>'
+        '</div>', unsafe_allow_html=True)
 
     _file = st.file_uploader("Selecciona una imagen", type=["png", "jpg", "jpeg", "webp"],
                              key="foto_upl_dlg")
     st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
-    if st.button("📤 Guardar foto", key="btn_guardar_foto_dlg",
+
+    if st.button("Guardar foto", key="btn_guardar_foto_dlg",
                  use_container_width=True, type="primary"):
         if not _file:
             st.error("Selecciona una imagen primero.")
@@ -1151,10 +1273,10 @@ def _foto_dialog():
             with st.spinner("Subiendo foto…"):
                 _url, _err = subir_foto_perfil(_uid, _bytes, _ext, _file.type)
             if _url:
-                st.success("✅ ¡Foto actualizada!")
+                st.success("¡Foto actualizada!")
                 st.rerun()
             else:
-                st.error(f"❌ No se pudo subir la foto: {_err}")
+                st.error(f"No se pudo subir la foto: {_err}")
 
 
 # ── Render principal ──────────────────────────────────────────────────────────
