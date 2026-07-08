@@ -351,11 +351,25 @@ def render_tab_operaciones(supabase, supabase_admin=None, supa_url='', supa_key=
                     _op_estado = _op_est.get('estado', '')
                     if _op_estado == 'Sin compras':
                         _compras_html = '<span style="color:#94a3b8;font-size:0.78rem;">Sin compras</span>'
-                    elif _op_estado == 'Compras 100%':
-                        _compras_html = '<span style="color:#16a34a;font-weight:700;font-size:0.78rem;">&#9989; 100%</span>'
                     else:
-                        _op_col2 = '#f97316' if _op_pct < 50 else '#eab308'
-                        _compras_html = f'<span style="color:{_op_col2};font-weight:700;font-size:0.78rem;">{_op_pct}%</span>'
+                        # Barra de progreso — MISMO diseño que la columna COMPRAS de
+                        # COTIZACIONES (colores por avance) para que se vean iguales.
+                        if _op_pct <= 33:
+                            _oc, _ob = '#dc2626', '#fee2e2'
+                        elif _op_pct <= 66:
+                            _oc, _ob = '#f97316', '#ffedd5'
+                        elif _op_pct < 100:
+                            _oc, _ob = '#16a34a', '#dcfce7'
+                        else:
+                            _oc, _ob = '#2563eb', '#dbeafe'
+                        _ow = min(100, _op_pct)
+                        _olbl = '&#9989; 100% comprado' if _op_pct >= 100 else f'{_op_pct}% comprado'
+                        _compras_html = (
+                            f'<div style="width:80px;">'
+                            f'<div style="background:{_ob};border-radius:4px;height:6px;margin-bottom:3px;">'
+                            f'<div style="background:{_oc};border-radius:4px;height:6px;width:{_ow}%;"></div></div>'
+                            f'<span style="color:{_oc};font-weight:700;font-size:0.72rem;">{_olbl}</span></div>'
+                        )
                 except Exception:
                     pass
 
