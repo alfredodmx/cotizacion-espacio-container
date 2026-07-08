@@ -349,6 +349,20 @@ div[role="dialog"] {
     display: flex; align-items: center; gap: 10px;
     margin-left: auto; flex-shrink: 0;
 }
+#_usr_header_bar .usr-idblock {
+    display: flex; flex-direction: column; align-items: flex-end;
+    justify-content: center; line-height: 1.12;
+}
+#_usr_header_bar .usr-name {
+    color: #e2e8f0; font-size: 0.82rem; font-weight: 600;
+    font-family: 'Plus Jakarta Sans', sans-serif; white-space: nowrap;
+}
+#_usr_header_bar .usr-role {
+    display: flex; align-items: center; gap: 4px; margin-top: 1px;
+    font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.62rem;
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+}
+#_usr_header_bar .usr-role svg { width: 11px; height: 11px; flex-shrink: 0; }
 
 /* ── Avatar + menú de usuario en el header ── */
 #_hdr_user_menu_wrap { position: relative; display: flex; align-items: center; }
@@ -1296,21 +1310,25 @@ def render_layout():
     _cot_num   = st.session_state.get("cotizacion_cargada")
     _foto_url  = fetch_foto_map(SUPABASE_URL).get(_email.lower(), "") if _email else ""
 
-    if _rol == "root":
-        # SVG inline: key (root), crown (admin), user (resto)
-        _svg_root = ('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>')
-        _svg_admin = ('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>')
-        _svg_user = ('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>')
-        _rol_html = (f'<span style="color:#f59e0b;font-weight:700;font-size:0.8rem;">{_svg_root}ROOT</span>'
-                     f' <span style="color:#e2e8f0;font-size:0.82rem;font-weight:600;">{_nombre.upper()}</span>')
-    elif _rol == "admin":
-        _svg_admin = ('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>')
-        _rol_html = (f'<span style="color:#a78bfa;font-weight:700;font-size:0.8rem;">{_svg_admin}ADMIN</span>'
-                     f' <span style="color:#e2e8f0;font-size:0.82rem;font-weight:600;">{_nombre.upper()}</span>')
-    else:
-        _svg_user = ('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>')
-        _rol_html = (f'<span style="color:#94a3b8;font-weight:700;font-size:0.8rem;">{_svg_user}</span>'
-                     f' <span style="color:#e2e8f0;font-size:0.82rem;font-weight:600;">{_nombre.upper()}</span>')
+    # Bloque de identidad del header: NOMBRE arriba + ROL debajo (letra más chica,
+    # color por rol). SVG con stroke=currentColor → toma el color del rol.
+    _svg_root = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>')
+    _svg_admin = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>')
+    _svg_gear = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>')
+    _svg_user = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>')
+    _ROLE_META = {
+        'root':      ('Root',          '#fbbf24', _svg_root),
+        'admin':     ('Administrador', '#a78bfa', _svg_admin),
+        'operacion': ('Operador',      '#34d399', _svg_gear),
+        'ejecutivo': ('Ejecutivo',     '#93c5fd', _svg_user),
+    }
+    _r_lbl, _r_col, _r_ico = _ROLE_META.get(_rol, _ROLE_META['ejecutivo'])
+    _rol_html = (
+        '<div class="usr-idblock">'
+        f'<div class="usr-name">{_nombre.upper()}</div>'
+        f'<div class="usr-role" style="color:{_r_col};">{_r_ico}<span>{_r_lbl}</span></div>'
+        '</div>'
+    )
 
     # Mapa estado → (emoji, color del badge, color de fondo del header).
     _ESTADO_HDR = {

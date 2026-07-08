@@ -167,6 +167,38 @@ _ADJ_TABLE_JS = """
 """
 
 
+def _progreso_empty_ejecutivo(nombre=''):
+    """Estado vacío MOTIVADOR para el ejecutivo sin proyectos en progreso."""
+    _first = ((nombre or '').split(' ')[0] or '').strip()
+    _first = _first[:1].upper() + _first[1:] if _first else ''
+    _saludo = f'&iexcl;Vamos, {_html.escape(_first)}! ' if _first else '&iexcl;&Aacute;nimo! '
+    _rocket = ('<svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" '
+               'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+               '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>'
+               '<path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>'
+               '<path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/>'
+               '<path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>')
+    return (
+        '<div style="text-align:center;max-width:540px;margin:2.2rem auto;padding:2.3rem 1.9rem;'
+        'background:linear-gradient(180deg,#ffffff,#f8fafc);border:1px solid #e6ebf3;border-radius:20px;'
+        'box-shadow:0 12px 32px -14px rgba(91,124,250,0.28);">'
+        '<div style="width:74px;height:74px;margin:0 auto 1.15rem;border-radius:21px;display:flex;'
+        'align-items:center;justify-content:center;color:#fff;'
+        'background:linear-gradient(135deg,#5b7cfa,#8aa2ff);'
+        'box-shadow:0 14px 28px -8px rgba(91,124,250,0.6);">' + _rocket + '</div>'
+        '<div style="font-family:\'Montserrat\',sans-serif;font-weight:700;font-size:1.05rem;'
+        'letter-spacing:0.01em;color:#0f172a;line-height:1.35;">'
+        + _saludo + 'tu mejor proyecto est&aacute; por venir</div>'
+        '<div style="font-family:\'Plus Jakarta Sans\',sans-serif;font-size:0.88rem;color:#64748b;'
+        'line-height:1.6;margin-top:0.7rem;">'
+        'A&uacute;n no tienes clientes completando su formulario de materiales. '
+        'Cada presupuesto que adjudicas es una nueva oportunidad: sigue cotizando con energ&iacute;a y, '
+        'cuando tus clientes empiecen a elegir, ver&aacute;s aqu&iacute; su avance en tiempo real.'
+        '</div>'
+        '</div>'
+    )
+
+
 def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='', **deps):
     supa_admin = supabase_admin or _supa_admin
     _supa_url = supa_url or deps.get('supa_url', '')
@@ -519,10 +551,25 @@ def render_tab_formulario(supabase, supabase_admin=None, supa_url='', supa_key='
                 if _key:
                     _resps_by_ep[str(_rr['cotizacion_numero'])][str(_key)] = _rr['respuesta']
 
-            if not _cfg_by_ep:
-                st.info("No hay formularios configurados a&#250;n.")
+            # Ejecutivo: SOLO los proyectos donde él es el asesor (root/admin ven
+            # todos). Mismo criterio que la pestaña CONFIGURAR (asesor_email).
+            _prog_items = sorted(_cfg_by_ep.items())
+            if _rol == 'ejecutivo':
+                _my_email = (st.session_state.get('auth_email', '') or '').strip().lower()
+                _prog_items = [
+                    (_ep, _cfgs) for (_ep, _cfgs) in _prog_items
+                    if (_coti_by_ep.get(str(_ep), {}).get('asesor_email') or '').strip().lower() == _my_email
+                ]
+
+            if not _prog_items:
+                if _rol == 'ejecutivo':
+                    st.markdown(
+                        _progreso_empty_ejecutivo(st.session_state.get('auth_nombre', '')),
+                        unsafe_allow_html=True)
+                else:
+                    st.info("No hay formularios configurados a&#250;n.")
             else:
-                for _ei, (_fep, _fcfgs) in enumerate(sorted(_cfg_by_ep.items())):
+                for _ei, (_fep, _fcfgs) in enumerate(_prog_items):
                     _total = len(_fcfgs)
                     _resp_map = _resps_by_ep.get(str(_fep), {})
                     _done = sum(
