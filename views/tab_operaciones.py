@@ -851,6 +851,10 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                                 'Cantidad': float(_it_ad.get('cantidad', 1) or 1),
                                 'Precio Unitario': float(_it_ad.get('precio_presupuestado', 0) or 0),
                                 '_adicional': True,
+                                # Conservar si el adicional es SIN registro (antes se
+                                # perdía → los sin-registro se veían como con-registro
+                                # y el panel mostraba $0 en "sin registro").
+                                '_sin_registro': bool(_it_ad.get('sin_registro', False)),
                             })
                             _prods_nombres.add(_it_nombre)
 

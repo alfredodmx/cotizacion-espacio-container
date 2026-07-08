@@ -1110,6 +1110,11 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
         _dc_attr = 'data-comprado="1"' if _ya_comprado else ""
         _da_attr = 'data-adicional="1"' if _es_adicional else ""
         _ds_attr = 'data-sin-registro="1"' if _es_sin_reg else ""
+        # Fila CONTABLE para el progreso principal: ítem del presupuesto (no
+        # adicional, no sin-registro, no varios). El % principal se calcula solo
+        # sobre estas → coincide con el % del dropdown. Los adicionales van aparte.
+        _es_varios = cat.strip().lower() == 'varios'
+        _dpresup_attr = 'data-presup="1"' if (not _es_adicional and not _es_sin_reg and not _es_varios) else ""
         _dstock_attr = 'data-stock="1"' if _has_stock else ""
         _dstockqty_attr = f'data-stock-qty="{_stock_qty_saved}"' if _has_stock else ""
         # Stock ya guardado en BD (no se re-guarda): full o parcial recargados.
@@ -1150,7 +1155,7 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
             )
         else:
             _stock_ck = '<td></td>'
-        rows += f"""<tr style="background:{bg};{_row_extra}" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}" {_dc_attr} {_da_attr} {_ds_attr} {_dstock_attr} {_dstockqty_attr} {_dsaved_attr} {_dbuy_attr}>
+        rows += f"""<tr style="background:{bg};{_row_extra}" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}" {_dc_attr} {_da_attr} {_ds_attr} {_dstock_attr} {_dstockqty_attr} {_dsaved_attr} {_dbuy_attr} {_dpresup_attr}>
 <td>{_cat_badge}</td>
 <td class="rc-item">{item}</td>
 <td class="r rc-cant">{cant}{_falta_note}</td>
@@ -1266,6 +1271,7 @@ input.rc-adic::placeholder{{color:#cbd5e1}}
       <div style="width:100%;background:#f1f5f9;border-radius:99px;height:7px;margin-top:11px;overflow:hidden">
         <div id="prog-bar" style="height:100%;width:0%;border-radius:99px;background:#dc2626;transition:width .4s ease,background .4s ease"></div>
       </div>
+      <div id="prog-adic" style="margin-top:7px;display:flex;flex-direction:column;align-items:center"></div>
     </div>
   </div>
   <div id="add-section" style="padding:12px 16px;background:#fff;border-top:1px solid #e2e8f0;flex-shrink:0">
@@ -1429,6 +1435,7 @@ function attachListeners(inp, adic){{
 function f(n){{return "$"+Math.round(Math.abs(n)).toLocaleString("de-DE");}}
 function calc(){{
   var tP=0,tR=0,tA=0,tS=0,tI=0,nI=0,vals=[];
+  var pTot=0,pComp=0,nAc=0,nSc=0;   // progreso: presupuesto vs adicionales
   document.querySelectorAll("tr[data-idx]").forEach(function(r){{
     var idx=parseInt(r.dataset.idx)||0;
     var pu=+r.dataset.pu||0,c=+r.dataset.cant||1;
@@ -1460,6 +1467,11 @@ function calc(){{
     tR+=re*comprUnits+ad*re;
     // Inventario (stock, $0): ahorro puro = presupuestado de las unidades en stock.
     if(isStock&&idx<10000){{tI+=pu*sq;nI++;}}
+    // Progreso PRINCIPAL: SOLO ítems del presupuesto (data-presup) → coincide con
+    // el % del dropdown. Los adicionales (con/sin registro) se cuentan aparte.
+    if(r.getAttribute("data-presup")==="1"){{pTot++;if(re>0||isStock)pComp++;}}
+    else if(isSinReg&&re>0){{nSc++;}}
+    else if(isAdic&&re>0){{nAc++;}}
     // Unidades cubiertas (ya en stock/compradas + lo que se compra ahora). La
     // línea está COMPLETA solo si se cubre toda la cantidad (parcial ≠ completo).
     var coveredUnits=(c-comprUnits)+(re>0?comprUnits:0);
@@ -1477,8 +1489,8 @@ function calc(){{
   var _bc=document.getElementById("b-card");if(_bc)_bc.style.borderLeftColor=col;
   var bi=document.getElementById("b-icon");
   if(bi)bi.textContent=b>=0?"Ahorro":"Sobrecosto";
-  var comprados=vals.filter(function(v){{return (v.real>0||v.stock)&&v.idx<10000;}}).length;
-  var pct=TOTAL_ITEMS>0?Math.round(comprados/TOTAL_ITEMS*1000)/10:0;
+  // % principal = SOLO presupuesto (mismo criterio que el dropdown).
+  var pct=pTot>0?Math.round(pComp/pTot*1000)/10:0;
   var pctCol=pct>=100?"#3b82f6":pct>=66.6?"#16a34a":pct>=33.3?"#eab308":"#dc2626";
   var pctLbl=pct>=100?"Compra finalizada":pct>0?(pct.toFixed(1)+"% comprado"):"Sin compras";
   var pp=document.getElementById("prog-pct");
@@ -1487,6 +1499,15 @@ function calc(){{
   if(pp){{pp.textContent=pct>=100?"100%":(pct.toFixed(1)+"%");pp.style.color=pctCol;}}
   if(pl){{pl.textContent=pctLbl;pl.style.color=pctCol;}}
   if(pb){{pb.style.width=Math.min(pct,100)+"%";pb.style.background=pctCol;}}
+  // Adicionales (NO están en el presupuesto) → se muestran aparte como % extra
+  // sobre el total presupuestado: naranjo con registro, rosado sin registro.
+  var pa=document.getElementById("prog-adic");
+  if(pa){{
+    var _ah="";
+    if(nAc>0)_ah+='<div style="font-size:9.5px;font-weight:700;color:#ea580c;white-space:nowrap;margin-top:2px;">+'+(pTot>0?(Math.round(nAc/pTot*1000)/10):0).toFixed(1)+'% con registro</div>';
+    if(nSc>0)_ah+='<div style="font-size:9.5px;font-weight:700;color:#db2777;white-space:nowrap;margin-top:1px;">+'+(pTot>0?(Math.round(nSc/pTot*1000)/10):0).toFixed(1)+'% sin registro</div>';
+    pa.innerHTML=_ah;
+  }}
   window.parent.postMessage({{type:"rc_vals",vals:vals,tP:tP,tR:tR}},"*");
 }}
 var _rcCatFiltro='';
