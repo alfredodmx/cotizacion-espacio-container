@@ -245,25 +245,14 @@ def calcular_estado_compras(cotizacion_numero: str, productos_presupuesto: list)
             return {'pct': 0, 'estado': 'Sin productos', 'comprados': 0, 'total': 0, 'adicionales': []}
 
         comprados = obtener_items_comprados(cotizacion_numero)
-
-        def _linea_completa(p):
-            # Una línea está completa si la cobertura (stock + comprado) alcanza la
-            # cantidad presupuestada. Un ítem parcial ("faltan N") NO cuenta aún.
-            e = comprados.get(str(p.get('Item', '')))
-            if not e:
-                return False
-            cant = int(float(p.get('Cantidad', 1) or 1))
-            cubierto = int(e.get('stock_units', 0) or 0) + int(e.get('bought_units', 0) or 0)
-            # Datos previos sin desglose de unidades → basta con estar en comprados.
-            if cubierto == 0:
-                return True
-            return cubierto >= cant
-
-        items_comprados = sum(1 for p in prods if _linea_completa(p))
+        # Una línea cuenta como comprada si tiene cobertura (stock o compra) — mismo
+        # criterio que el progreso del formulario y el % del dropdown, para que las
+        # columnas COMPRAS estén sincronizadas. Redondeo a 1 decimal por lo mismo.
+        items_comprados = sum(1 for p in prods if str(p.get('Item', '')) in comprados)
         adicionales = [v for k, v in comprados.items()
                        if not any(str(p.get('Item', '')) == k for p in prods)]
 
-        pct = round(items_comprados / total_items * 100)
+        pct = round(items_comprados / total_items * 100, 1)
         if items_comprados == 0:
             estado = 'Sin compras'
         elif pct >= 100:

@@ -123,12 +123,13 @@ def calcular_estado_compras(cotizacion_numero, productos_presupuesto):
 
         comprados = obtener_items_comprados(cotizacion_numero)
         # Una línea cuenta como comprada si tiene cobertura (stock o compra). El
-        # detalle de "faltan N" se muestra aparte en el formulario.
+        # detalle de "faltan N" se muestra aparte en el formulario. Redondeo a 1
+        # decimal para que coincida con el % del formulario y del dropdown.
         items_comprados = sum(1 for p in prods if str(p.get('Item', '')) in comprados)
         adicionales = [v for k, v in comprados.items()
                        if not any(str(p.get('Item', '')) == k for p in prods)]
 
-        pct = round(items_comprados / total_items * 100)
+        pct = round(items_comprados / total_items * 100, 1)
         if items_comprados == 0:
             estado = 'Sin compras'
         elif pct >= 100:
