@@ -797,7 +797,12 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         if _nm in _pn and (float(_it.get('precio_real', 0) or 0) > 0
                                            or bool(_it.get('stock'))):
                             _comp.add(_nm)
-                return round(len(_comp) / _tot * 100, 1)
+                # Contar POR LÍNEA (no por nombre único): si el presupuesto tiene
+                # ítems con el mismo nombre repetido, cada línea cubierta cuenta —
+                # igual que el formulario y las columnas COMPRAS. Antes se deduplicaba
+                # el numerador pero no el denominador → el % salía más bajo.
+                _ncomp = sum(1 for p in _pp if str(p.get('Item', '')) in _comp)
+                return round(_ncomp / _tot * 100, 1)
 
             def _label_proyecto(_r):
                 _term = bool(_r.get('acta_url'))
