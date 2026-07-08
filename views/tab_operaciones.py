@@ -791,7 +791,11 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                             _its = []
                     for _it in _its:
                         _nm = str(_it.get('item', ''))
-                        if _nm in _pn and float(_it.get('precio_real', 0) or 0) > 0:
+                        # Cuenta como "comprado" si tiene compra real (>$0) O está en
+                        # stock/inventario ($0) — igual que el progreso del formulario;
+                        # antes ignoraba el stock y el % salía más bajo que en la tabla.
+                        if _nm in _pn and (float(_it.get('precio_real', 0) or 0) > 0
+                                           or bool(_it.get('stock'))):
                             _comp.add(_nm)
                 return round(len(_comp) / _tot * 100, 1)
 
