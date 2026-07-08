@@ -1082,7 +1082,10 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
         # PARCIAL queda editable para poder comprar lo que falta.
         _ya_comprado = _fully or _es_adicional
         _pure_full_stock = _fully and _has_stock and _bought_units == 0
-        _readonly = _pure_full_stock or (_ya_comprado and not es_admin)
+        # Un ítem COMPLETO queda en solo lectura SIEMPRE (aunque sea admin): ya se
+        # cubrió toda la cantidad presupuestada (por compra, inventario o mezcla);
+        # para corregir se edita/elimina el registro en el historial.
+        _readonly = _ya_comprado
 
         if _es_sin_reg:
             bg = '#fdf2f8'
