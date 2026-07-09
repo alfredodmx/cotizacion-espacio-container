@@ -29,6 +29,37 @@ from config.settings import SUPABASE_URL
 from config.supabase import supabase_admin as _supa_admin_global
 
 
+# ── Iconos SVG inline (reemplazan emoticones en la tabla de resultados) ──────────
+_HIC_PATHS = {
+    "check":    '<path d="M20 6 9 17l-5-5"/>',
+    "copy":     '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+    "eye":      '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+    "cart":     '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+    "clipboard":'<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>',
+    "alert":    '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/>',
+    "clock":    '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+    "calendar": '<rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/>',
+    "flag":     '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>',
+    "file":     '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>',
+    "user":     '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    "folder":   '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+    "image":    '<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>',
+    "download": '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+}
+
+
+def _hic(name, color="#0f172a", size=14, mr=6, valign=-2, sw=2):
+    """SVG inline para celdas de la tabla (reemplaza emoticones). mr = margin-right px."""
+    inner = _HIC_PATHS.get(name, "")
+    _m = f'margin-right:{mr}px;' if mr else ''
+    return (
+        f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" '
+        f'stroke="{color}" stroke-width="{sw}" stroke-linecap="round" '
+        f'stroke-linejoin="round" style="vertical-align:{valign}px;{_m}flex-shrink:0;">'
+        f'{inner}</svg>'
+    )
+
+
 # ── Wrappers cacheados (evitan trabajo pesado en cada rerun, p.ej. al filtrar) ──
 @st.cache_data(ttl=60, show_spinner=False)
 def _money_cards_global() -> tuple:
@@ -507,13 +538,14 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
         def _fmt_auth_nom(row):
             fh=_fmt_fecha_auth(row["Fecha_Auth"]); q=str(row.get("Autorizado_Por","") or "").strip()
             if not fh or fh=="—": return "—"
-            return f'{fh}<br><span style="font-size:0.72em;color:#16a34a;font-weight:700;">✅ {q}</span>' if q else fh
+            return f'{fh}<br><span style="font-size:0.72em;color:#16a34a;font-weight:700;">{_hic("check","#16a34a",12,4)}{q}</span>' if q else fh
         df_resultados["Fecha_Auth_fmt"] = df_resultados.apply(_fmt_auth_nom, axis=1)
-        df_resultados["Plano"] = df_resultados.apply(lambda r: "✅ Sí" if r["Tiene_Plano"] else "—", axis=1)
+        _si_html = _hic("check", "#16a34a", 13, 4) + "S&#237;"
+        df_resultados["Plano"] = df_resultados.apply(lambda r: _si_html if r["Tiene_Plano"] else "—", axis=1)
         df_resultados["MargenCol"] = df_resultados["Margen"].apply(
-            lambda x: f'✅ Sí<br><span style="font-size:0.78em;color:#16a34a;">{x:.3f}%</span>' if x and x>0 else "—")
-        df_resultados["ContratoCol"] = df_resultados["Tiene_Contrato"].apply(lambda x: "✅ Sí" if x else "—")
-        df_resultados["EmpresaCol"] = df_resultados["Empresa"].apply(lambda x: "✅ Sí" if x and str(x).strip() else "—")
+            lambda x: f'{_si_html}<br><span style="font-size:0.78em;color:#16a34a;">{x:.3f}%</span>' if x and x>0 else "—")
+        df_resultados["ContratoCol"] = df_resultados["Tiene_Contrato"].apply(lambda x: _si_html if x else "—")
+        df_resultados["EmpresaCol"] = df_resultados["Empresa"].apply(lambda x: _si_html if x and str(x).strip() else "—")
         df_resultados["ModCol"] = df_resultados["NLogs"].apply(
             lambda x: (f'<span style="font-weight:700;color:#3b82f6;">{int(float(x))}</span>'
                        if x and str(x).strip() and int(float(x))>0
@@ -610,7 +642,7 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                                 f'<span style="color:{_mc};font-weight:700;font-size:0.68rem;">{_mp}%</span>'
                                 f'<button class="_mat_btn" data-ep="{_num}" style="background:#eff6ff;color:#1d4ed8;'
                                 f'border:1px solid #bfdbfe;border-radius:4px;padding:1px 5px;font-size:0.62rem;'
-                                f'font-weight:700;cursor:pointer;font-family:inherit;line-height:1.4;">📋 Ver</button>'
+                                f'font-weight:700;cursor:pointer;font-family:inherit;line-height:1.4;">{_hic("eye","#1d4ed8",12,4)}Ver</button>'
                                 f'</div></div>')
                     _pr=_prods_map.get(_num) or []
                     if isinstance(_pr,str):
@@ -629,12 +661,12 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                         c,b=_cc(100)
                         return (f'<div style="width:80px;"><div style="background:{b};border-radius:4px;height:6px;margin-bottom:3px;">'
                                 f'<div style="background:{c};border-radius:4px;height:6px;width:100%;"></div></div>'
-                                f'<span style="color:{c};font-weight:700;font-size:0.75rem;">✅ 100% comprado</span></div>')+_mh()
+                                f'<span style="color:{c};font-weight:700;font-size:0.75rem;">{_hic("check",c,12,3)}100% comprado</span></div>')+_mh()
                     elif "adicionales" in _estado:
                         na=len(_est["adicionales"]); c,b=_cc(100)
                         return (f'<div style="width:80px;"><div style="background:{b};border-radius:4px;height:6px;margin-bottom:3px;">'
                                 f'<div style="background:{c};border-radius:4px;height:6px;width:100%;"></div></div>'
-                                f'<span style="color:{c};font-weight:700;font-size:0.75rem;">✅ 100% +{na} adic.</span></div>')+_mh()
+                                f'<span style="color:{c};font-weight:700;font-size:0.75rem;">{_hic("check",c,12,3)}100% +{na} adic.</span></div>')+_mh()
                     else:
                         c,b=_cc(_pct)
                         return (f'<div style="width:80px;"><div style="background:{b};border-radius:4px;height:6px;margin-bottom:3px;">'
@@ -698,7 +730,7 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
 
         rows_html = ""
         for _, row in df_resultados.iterrows():
-            _mg_color = 'color:#16a34a;font-weight:700;' if '✅' in str(row['MargenCol']) else 'color:#94a3b8;'
+            _mg_color = 'color:#16a34a;font-weight:700;' if str(row['MargenCol']) != '—' else 'color:#94a3b8;'
             _th_margen = '<th>Margen</th>' if st.session_state.get('modo_admin') else ''
             _td_margen = f'<td style="text-align:center;line-height:1.6;{_mg_color}">{row["MargenCol"]}</td>' if st.session_state.get('modo_admin') else ''
             _tc_val = _tc_map.get(row["N°"],0)
@@ -707,12 +739,13 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             _td_tc = (f'<td style="text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;">{_tc_fmt}'
                       f'<br><span style="font-size:0.72em;color:#94a3b8;font-weight:400;">base+IVA · sin margen · sin Varios</span></td>'
                       if st.session_state.get('modo_admin') else '')
-            _th_compras = '<th class="th-adj">🛒 Compras</th>' if st.session_state.get('modo_admin') else ''
+            _th_compras = (f'<th class="th-adj">{_hic("cart","#0f172a",14,6)}Compras</th>'
+                           if st.session_state.get('modo_admin') else '')
             _td_compras = (f'<td style="text-align:center;background:#fef3c7;font-weight:700;color:#0f172a;">{row.get("ComprasOK","—")}</td>'
                            if st.session_state.get('modo_admin') else '')
-            _ct_color = 'color:#16a34a;font-weight:700;' if row['ContratoCol']=='✅ Sí' else 'color:#94a3b8;'
-            _emp_color = 'color:#16a34a;font-weight:700;' if row['EmpresaCol']=='✅ Sí' else 'color:#94a3b8;'
-            _pln_color = 'color:#16a34a;font-weight:700;' if row['Plano']=='✅ Sí' else 'color:#94a3b8;'
+            _ct_color = 'color:#16a34a;font-weight:700;' if str(row['ContratoCol'])!='—' else 'color:#94a3b8;'
+            _emp_color = 'color:#16a34a;font-weight:700;' if str(row['EmpresaCol'])!='—' else 'color:#94a3b8;'
+            _pln_color = 'color:#16a34a;font-weight:700;' if str(row['Plano'])!='—' else 'color:#94a3b8;'
             from datetime import datetime as _dt_cot, timezone as _tz_cot, timedelta as _td_cot
             _tz_cl_cot = _tz_cot(_td_cot(hours=-3))
             _proc_not_html = '<span style="color:#94a3b8;">—</span>'
@@ -748,7 +781,7 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                         f'<br><button class="_motivo_btn" data-ep="{_ep_num_row}" data-motivo="{_motivo_rec.replace(chr(34),chr(39))}"'
                         f' style="margin-top:2px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;'
                         f'border-radius:6px;padding:1px 8px;font-size:0.68rem;font-weight:700;cursor:pointer;'
-                        f'font-family:inherit;">📋 Motivo</button>')
+                        f'font-family:inherit;">{_hic("clipboard","#b91c1c",11,4)}Motivo</button>')
                 except: _proc_not_html='<span style="color:#dc2626;font-weight:700;">rechazado</span>'
             elif _es_adj_cot and _fauth_raw_cot and _fadj_raw_cot:
                 try:
@@ -797,12 +830,12 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                     _dlim=sumar_dias_habiles(_da2.date(),_pl)
                     _ret=_de2.date()>_dlim
                     _col='#dc2626' if _ret else '#7c3aed'
-                    _lbl='⚠️ FINALIZADO' if _ret else '🟣 FINALIZADO'
+                    _lbl=(_hic("alert",_col,11,3)+'FINALIZADO') if _ret else (_hic("flag",_col,11,3)+'FINALIZADO')
                     _fab_html_cot=(f'<span style="color:{_col};font-weight:700;display:inline-block;font-variant-numeric:tabular-nums;">{_tx}</span>'
                                    f'<br><span style="font-size:0.72em;color:{_col};font-weight:700;">{_lbl}</span>')
-                except: _fab_html_cot='<span style="color:#7c3aed;font-weight:700;">🟣 FINALIZADO</span>'
+                except: _fab_html_cot=f'<span style="color:#7c3aed;font-weight:700;">{_hic("flag","#7c3aed",11,3)}FINALIZADO</span>'
             elif _tiene_acta_cot:
-                _fab_html_cot='<span style="color:#7c3aed;font-weight:700;">🟣 FINALIZADO</span>'
+                _fab_html_cot=f'<span style="color:#7c3aed;font-weight:700;">{_hic("flag","#7c3aed",11,3)}FINALIZADO</span>'
             elif _es_adj_cot and _fadj_raw_cot:
                 try:
                     _da3=_dt_cot.fromisoformat(_fadj_raw_cot.replace("Z","+00:00")).astimezone(_tz_cl_cot)
@@ -834,11 +867,11 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                     _tx4+=f'{_ss4}s'
                     _hu=dias_habiles_entre(_dad,_dr4.date())
                     _cr=_dr4.date()>_dent; _pu=min(round((_hu/_pl)*100,2),100.0) if _pl>0 else 100.0
-                    _cf='#dc2626' if _cr else '#7c3aed'; _lf='⚠️ FINALIZADO' if _cr else '🟣 FINALIZADO'
+                    _cf='#dc2626' if _cr else '#7c3aed'; _lf=(_hic("alert",_cf,11,3)+'FINALIZADO') if _cr else (_hic("flag",_cf,11,3)+'FINALIZADO')
                     _fidel_html_cot=(f'<div style="display:flex;align-items:center;gap:8px;">'
-                        f'<span style="color:{_cf};font-weight:700;font-variant-numeric:tabular-nums;min-width:70px;">⏳ {_tx4}</span>'
+                        f'<span style="color:{_cf};font-weight:700;font-variant-numeric:tabular-nums;min-width:70px;">{_hic("clock",_cf,11,3)}{_tx4}</span>'
                         f'<span style="font-size:1.3rem;font-weight:900;color:{_cf};">{_pu}%</span></div>'
-                        f'<span style="font-size:0.72em;color:#64748b;font-weight:600;">📅 {_fs}</span>'
+                        f'<span style="font-size:0.72em;color:#64748b;font-weight:600;">{_hic("calendar","#64748b",11,3)}{_fs}</span>'
                         f'<br><span style="font-size:0.68em;color:#94a3b8;">{_pl} días hábiles</span>'
                         f'<br><span style="font-size:0.72em;color:{_cf};font-weight:700;">{_lf}</span>')
                     _dlt=_dt_cot.combine(_dent,_dt_cot.min.time()).replace(tzinfo=_tz_cl_cot)
@@ -849,10 +882,10 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                     if _mr2>0: _tr2+=f'{_mr2}m '
                     _tr2+=f'{_sr2}s'
                     if _dr4.date()>_dent:
-                        _retraso_html_cot=(f'<span style="color:#dc2626;font-weight:700;font-variant-numeric:tabular-nums;">⚠️ {_tr2}</span>'
+                        _retraso_html_cot=(f'<span style="color:#dc2626;font-weight:700;font-variant-numeric:tabular-nums;">{_hic("alert","#dc2626",11,3)}{_tr2}</span>'
                                            f'<br><span style="font-size:0.72em;color:#dc2626;font-weight:600;">tiempo en contra</span>')
                     else:
-                        _retraso_html_cot=(f'<span style="color:#16a34a;font-weight:700;font-variant-numeric:tabular-nums;">✅ {_tr2}</span>'
+                        _retraso_html_cot=(f'<span style="color:#16a34a;font-weight:700;font-variant-numeric:tabular-nums;">{_hic("check","#16a34a",11,3)}{_tr2}</span>'
                                            f'<br><span style="font-size:0.72em;color:#16a34a;font-weight:600;">tiempo a favor</span>')
                 except: pass
             elif _es_adj_cot and _fadj_raw_cot:
@@ -876,13 +909,13 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                             _col5="#16a34a" if _pf5<50 else ("#f97316" if _pf5<80 else "#dc2626")
                             _fidel_html_cot=(f'<div style="display:flex;align-items:center;gap:8px;">'
                                 f'<span class="fidel-live" data-hasta="{_ts5}" data-plazo="{_pl}" data-adj="{_ta5}" '
-                                f'style="color:{_col5};font-weight:700;font-variant-numeric:tabular-nums;min-width:70px;">⏳ {_hr5}d háb.</span>'
+                                f'style="color:{_col5};font-weight:700;font-variant-numeric:tabular-nums;min-width:70px;">{_hr5}d háb.</span>'
                                 f'<span style="font-size:1.3rem;font-weight:900;color:{_col5};">{_pf5}%</span></div>'
-                                f'<span style="font-size:0.72em;color:#64748b;font-weight:600;">📅 {_fs5}</span>'
+                                f'<span style="font-size:0.72em;color:#64748b;font-weight:600;">{_hic("calendar","#64748b",11,3)}{_fs5}</span>'
                                 f'<br><span style="font-size:0.68em;color:#94a3b8;">{_pl} días hábiles</span>')
                         else:
                             _hv=dias_habiles_entre(_dent5,_hoy)
-                            _fidel_html_cot=('<span style="color:#dc2626;font-weight:700;">⚠️ VENCIDO</span>'
+                            _fidel_html_cot=(f'<span style="color:#dc2626;font-weight:700;">{_hic("alert","#dc2626",11,3)}VENCIDO</span>'
                                              f'<br><span style="font-size:0.72em;color:#94a3b8;">{_pl}d háb.</span>')
                             _retraso_html_cot=(f'<span class="retraso-live" data-desde="{_ts5}" '
                                                f'style="color:#dc2626;font-weight:700;display:inline-block;min-width:100px;font-variant-numeric:tabular-nums;">...</span>'
@@ -899,9 +932,9 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             _fila_class=' class="fila-rechazada"' if _motivo_rec else ''
             _est_attr=str(row.get('EstadoKey','')).replace("'",'')
             rows_html+=(f"<tr{_fila_class} data-est='{_est_attr}'>"
-                f"<td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} 📋</td>"
+                f"<td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} {_hic('copy','#3b82f6',12,0)}</td>"
                 f"<td style='font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.5;'>{row['Cliente'] or '—'}"
-                f"<br><button class='_datos_btn' data-ep=\"{row['N°']}\" style='margin-top:2px;background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd;border-radius:6px;padding:1px 8px;font-size:0.68rem;font-weight:700;cursor:pointer;font-family:inherit;'>📋 Datos</button></td>"
+                f"<br><button class='_datos_btn' data-ep=\"{row['N°']}\" style='margin-top:2px;background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd;border-radius:6px;padding:1px 8px;font-size:0.68rem;font-weight:700;cursor:pointer;font-family:inherit;'>{_hic('clipboard','#1d4ed8',11,4)}Datos</button></td>"
                 f"<td style='text-align:right;font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.6;'>{row['Total']}</td>"
                 f"{_td_tc}"
                 f"<td style='font-size:0.82rem;font-weight:700;color:#0f172a;'>{row['Asesor'] or '—'}</td>"
@@ -1031,7 +1064,7 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
         .resultados-table th.th-adj {{ background-color:#fbbf24!important;background:#fbbf24!important;color:#0f172a!important; }}
         .resultados-table th.th-cierre {{ background-color:#2563eb!important;background:#2563eb!important;color:#ffffff!important; }}
         </style>
-        <div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
+        <div id="_ec_restable" data-selep="{st.session_state.get('selector_ep_num','')}" style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
             <div style="{_altura_css}">
                 <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:1700px;table-layout:auto;white-space:nowrap;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
@@ -1242,6 +1275,10 @@ var MAT_DATA = """ + _mat_data_json_map + """;
         box.appendChild(hdr); box.appendChild(prof); box.appendChild(pb); box.appendChild(bdy); ov.appendChild(box); D.body.appendChild(ov);
         cls.addEventListener('click',function(){ov.remove();}); ov.addEventListener('click',function(ev){if(ev.target===ov)ov.remove();});
     });
+    function _liveIcon(name,color){
+        var p={'alert':'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/>','clock':'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>','check':'<path d="M20 6 9 17l-5-5"/>'}[name]||'';
+        return '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:3px;">'+p+'</svg>';
+    }
     function updateLiveTimers(){
         D.querySelectorAll('.demora-live').forEach(function(el){
             var desde=parseInt(el.getAttribute('data-desde')); if(!desde) return;
@@ -1256,16 +1293,16 @@ var MAT_DATA = """ + _mat_data_json_map + """;
         D.querySelectorAll('.retraso-live').forEach(function(el){
             var desde=parseInt(el.getAttribute('data-desde')); if(!desde) return;
             var diff=Date.now()-desde; var s=Math.floor(diff/1000); var m=Math.floor(s/60); var h=Math.floor(m/60); var d=Math.floor(h/24);
-            s=s%60;m=m%60;h=h%24; var txt='⚠️ '; if(d>0)txt+=d+'d '; if(h>0)txt+=h+'h '; if(m>0)txt+=m+'m '; txt+=s+'s'; el.textContent=txt;
+            s=s%60;m=m%60;h=h%24; var txt=''; if(d>0)txt+=d+'d '; if(h>0)txt+=h+'h '; if(m>0)txt+=m+'m '; txt+=s+'s'; el.innerHTML=_liveIcon('alert','#dc2626')+txt;
         });
         D.querySelectorAll('.fidel-live').forEach(function(el){
             var hasta=parseInt(el.getAttribute('data-hasta')); var plazo=parseInt(el.getAttribute('data-plazo'))||1; var adjTs=parseInt(el.getAttribute('data-adj'))||0;
             if(!hasta) return; var diff=hasta-Date.now();
-            if(diff<=0){el.textContent='⚠️ VENCIDO';el.style.color='#dc2626';return;}
+            if(diff<=0){el.innerHTML=_liveIcon('alert','#dc2626')+'VENCIDO';el.style.color='#dc2626';return;}
             var ts=Math.floor(diff/1000); var dc=Math.floor(ts/86400); var rs=ts%86400; var h=Math.floor(rs/3600); var m=Math.floor((rs%3600)/60); var s=rs%60;
-            var txt='⏳ '; if(dc>0)txt+=dc+'d '; if(h>0)txt+=h+'h '; if(m>0)txt+=m+'m '; txt+=s+'s'; el.textContent=txt;
             var tr=adjTs?(Date.now()-adjTs):0; var tot=plazo*86400000; var pa=adjTs?Math.min((tr/tot)*100,100):0;
             var col=pa<50?'#16a34a':(pa<80?'#f97316':'#dc2626'); el.style.color=col;
+            var txt=''; if(dc>0)txt+=dc+'d '; if(h>0)txt+=h+'h '; if(m>0)txt+=m+'m '; txt+=s+'s'; el.innerHTML=_liveIcon('clock',col)+txt;
             var pe=el.nextElementSibling; if(pe&&pe.style!==undefined){pe.textContent=pa.toFixed(2)+'%';pe.style.color=col;}
         });
     }
@@ -1277,11 +1314,121 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             var ta=D.createElement('textarea'); ta.value=ep; ta.style.cssText='position:fixed;top:-9999px;left:-9999px;'; D.body.appendChild(ta); ta.focus(); ta.select();
             try{D.execCommand('copy');}catch(err){}; ta.remove();
             if(window.parent.navigator.clipboard) window.parent.navigator.clipboard.writeText(ep).catch(function(){});
-            var orig=td.innerHTML; var origColor=td.style.color; td.innerHTML='✅ ¡Copiado!'; td.style.color='#10b981';
+            var orig=td.innerHTML; var origColor=td.style.color; td.innerHTML=_liveIcon('check','#10b981')+'&#161;Copiado!'; td.style.color='#10b981';
             setTimeout(function(){td.innerHTML=orig;td.style.color=origColor;},1200);
         });
     }
     setTimeout(initEPCopy,500);
+})();
+</script>""", height=0)
+
+        # ── Menú contextual (click derecho en la tabla) ──────────────────────────
+        # Bridge oculto: el JS del menú escribe "<ep>|<nonce>" en este text_input y
+        # hace blur → Streamlit rerun. Aquí seleccionamos ese EP (antes de que la
+        # lógica del selector lea selector_ep_num). El nonce evita re-procesar en
+        # reruns posteriores (y que pise una selección manual del selectbox).
+        st.markdown(
+            '<style>.st-key-_ctx_sel{position:absolute!important;left:-9999px!important;'
+            'top:-9999px!important;width:220px!important;height:0!important;overflow:hidden!important;}</style>',
+            unsafe_allow_html=True)
+        st.text_input('ctx_sel', key='_ctx_sel', label_visibility='collapsed')
+        _ctx_sel_raw = str(st.session_state.get('_ctx_sel', '') or '')
+        if '|' in _ctx_sel_raw:
+            _cs_ep, _cs_nonce = _ctx_sel_raw.rsplit('|', 1)
+            if _cs_nonce and _cs_nonce != st.session_state.get('_ctx_sel_done', ''):
+                st.session_state['_ctx_sel_done'] = _cs_nonce
+                _valid_ctx_eps = {str(_r[0]) for _r in (st.session_state.resultados_busqueda or [])}
+                if _cs_ep in _valid_ctx_eps:
+                    st.session_state['selector_ep_num'] = _cs_ep
+                    st.session_state['selector_cotizaciones'] = _cs_ep
+
+        # JS del menú contextual. La tabla vive en el DOM del padre (st.markdown) y
+        # los botones de acción son botones nativos de Streamlit (también en el
+        # padre): el menú los clickea directo. Para una fila NO seleccionada, primero
+        # selecciona vía el bridge (rerun) y reabre el menú (sessionStorage). Los
+        # ítems se pintan en gris si su botón nativo está ausente o disabled.
+        components.html(r"""<script>
+(function(){
+  var W=window.parent, D=W.document, MENU_ID='_ec_ctxmenu';
+  var ITEMS=[
+    {k:'cargar',   lbl:'Cargar presupuesto', sel:'.st-key-btn_cargar_presupuesto button', ico:'<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>'},
+    {k:'compras',  lbl:'PDF compras',   sel:'[class*="st-key-pdf_compras_"] button', ico:'<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>'},
+    {k:'completo', lbl:'PDF completo',  sel:'[class*="st-key-pdf_completo_"] button', ico:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>'},
+    {k:'cliente',  lbl:'PDF cliente',   sel:'[class*="st-key-pdf_cliente_"] button', ico:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'},
+    {k:'seleccion',lbl:'PDF seleccion', sel:'[class*="st-key-pdf_sel"] button', ico:'<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>'},
+    {k:'plano',    lbl:'Descargar plano', div:true, sel:'.st-key-btn_descargar_plano button', ico:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>'}
+  ];
+  function ic(p){return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">'+p+'</svg>';}
+  function selEP(){var t=D.getElementById('_ec_restable');return t?(t.getAttribute('data-selep')||''):'';}
+  function closeMenu(){var m=D.getElementById(MENU_ID);if(m)m.remove();}
+  function clearPending(){try{sessionStorage.removeItem('_ecCtxPending');}catch(e){}}
+  function build(ep,x,y){
+    closeMenu();
+    var m=D.createElement('div'); m.id=MENU_ID;
+    m.style.cssText='position:absolute;z-index:2147483000;min-width:212px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 12px 34px rgba(15,23,42,0.18);padding:6px;font-family:-apple-system,Segoe UI,Roboto,sans-serif;';
+    var hdr=D.createElement('div');
+    hdr.style.cssText='padding:8px 10px;border-bottom:1px solid #f1f5f9;margin-bottom:4px;font-size:12px;font-weight:800;color:#0f172a;letter-spacing:0.02em;';
+    hdr.textContent=ep;
+    m.appendChild(hdr);
+    ITEMS.forEach(function(it){
+      if(it.div){var dv=D.createElement('div');dv.style.cssText='height:1px;background:#f1f5f9;margin:5px 8px;';m.appendChild(dv);}
+      var btn=D.querySelector(it.sel);
+      var enabled=!!(btn && !btn.disabled);
+      var row=D.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:13px;font-weight:600;'+(enabled?'color:#0f172a;cursor:pointer;':'color:#cbd5e1;cursor:default;');
+      row.innerHTML=ic(it.ico)+'<span>'+it.lbl+'</span>';
+      if(enabled){
+        row.addEventListener('mouseenter',function(){row.style.background='#eef2ff';});
+        row.addEventListener('mouseleave',function(){row.style.background='transparent';});
+        row.addEventListener('click',function(ev){ev.stopPropagation();closeMenu();clearPending();
+          setTimeout(function(){var b=D.querySelector(it.sel); if(b&&!b.disabled)b.click();},10);});
+      }
+      m.appendChild(row);
+    });
+    D.body.appendChild(m);
+    var vw=W.innerWidth, vh=W.innerHeight;
+    var sx=W.pageXOffset||D.documentElement.scrollLeft||0, sy=W.pageYOffset||D.documentElement.scrollTop||0;
+    var rw=m.offsetWidth, rh=m.offsetHeight, px=x, py=y;
+    if(px-sx+rw>vw) px=sx+vw-rw-8;
+    if(py-sy+rh>vh) py=sy+vh-rh-8;
+    m.style.left=Math.max(sx+4,px)+'px'; m.style.top=Math.max(sy+4,py)+'px';
+  }
+  function setBridge(ep){
+    var inp=D.querySelector('.st-key-_ctx_sel input'); if(!inp) return false;
+    try{
+      var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set;
+      inp.focus({preventScroll:true});
+      setter.call(inp, ep+'|'+Date.now());
+      inp.dispatchEvent(new Event('input',{bubbles:true}));
+      inp.dispatchEvent(new Event('change',{bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.blur();
+      return true;
+    }catch(e){return false;}
+  }
+  if(W._ecCtxH) D.removeEventListener('contextmenu', W._ecCtxH, true);
+  W._ecCtxH=function(e){
+    var tr=e.target&&e.target.closest?e.target.closest('.resultados-table tbody tr'):null; if(!tr) return;
+    var td=tr.querySelector('td[data-ep]'); if(!td) return;
+    var ep=td.getAttribute('data-ep'); if(!ep) return;
+    e.preventDefault();
+    if(ep===selEP()){ build(ep,e.pageX,e.pageY); }
+    else { try{sessionStorage.setItem('_ecCtxPending',JSON.stringify({ep:ep,x:e.pageX,y:e.pageY}));}catch(err){}
+           if(!setBridge(ep)) build(ep,e.pageX,e.pageY); }
+  };
+  D.addEventListener('contextmenu', W._ecCtxH, true);
+  if(W._ecCtxDown) D.removeEventListener('mousedown', W._ecCtxDown, true);
+  W._ecCtxDown=function(e){var m=D.getElementById(MENU_ID); if(m && !m.contains(e.target)){closeMenu();clearPending();}};
+  D.addEventListener('mousedown', W._ecCtxDown, true);
+  if(W._ecCtxKey) D.removeEventListener('keydown', W._ecCtxKey, true);
+  W._ecCtxKey=function(e){if(e.key==='Escape'){closeMenu();clearPending();}};
+  D.addEventListener('keydown', W._ecCtxKey, true);
+  setTimeout(function(){
+    try{ var p=sessionStorage.getItem('_ecCtxPending'); if(!p) return;
+      var o=JSON.parse(p); if(o && o.ep===selEP()){ build(o.ep,o.x,o.y); clearPending(); }
+    }catch(err){}
+  },450);
 })();
 </script>""", height=0)
 
