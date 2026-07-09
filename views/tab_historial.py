@@ -1489,9 +1489,11 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                     st.toast(f"No se pudo generar el documento: {_ctxe}", icon=":material/error:")
 
         # Descarga: botón oculto con los bytes + auto-click (misma pestaña, sin recargar).
+        # (st.download_button NO acepta label_visibility → el botón se oculta por CSS
+        #  con .st-key-_ctx_dl, no por el parámetro.)
         if _ctx_dl is not None:
             st.download_button('descarga', data=_ctx_dl[0], file_name=_ctx_dl[1], mime=_ctx_dl[2],
-                               key='_ctx_dl', label_visibility='collapsed')
+                               key='_ctx_dl')
             components.html("""<script>(function(){var D=window.parent.document;
   setTimeout(function(){var b=D.querySelector('.st-key-_ctx_dl button'); if(b) b.click();},60);})();</script>""", height=0)
 
