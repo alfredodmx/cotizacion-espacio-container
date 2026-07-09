@@ -78,6 +78,8 @@ _ICON_PATHS_OP = {
     "clipboard": '<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>',
     "trend-down":'<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>',
     "trend-up":  '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+    "user":      '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    "clock":     '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
 }
 
 
@@ -149,14 +151,69 @@ def _detectar_navegador():
         return {'needs_google_viewer': True}
 
 
-def _badge_estado_oper(row):
+# Estados operacionales (subconjunto de calcular_estado_label): SOLO los que tienen
+# margen aprobado y que interesan a operaciones. Un presupuesto RECHAZADO
+# (motivo_rechazo, sin notariado ni acta) NO es operacional y se excluye del panel.
+# Precedencia idéntica a services.cotizacion_service.calcular_estado_label:
+# acta > notariado > rechazo > margen.
+def _estado_oper_label(row) -> str:
     if row.get('acta_url'):
-        return '<span style="background:#7c3aed;color:white;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;white-space:nowrap;">&#128994; PROYECTO TERMINADO</span>'
+        return 'PROYECTO TERMINADO'
     if row.get('contrato_notariado_url'):
-        return '<span style="background:#2563eb;color:white;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;white-space:nowrap;">&#128309; ADJUDICADO</span>'
+        return 'ADJUDICADO'
+    _mr = row.get('motivo_rechazo')
+    if _mr is not None and str(_mr).strip() not in ('', 'None', 'nan'):
+        return 'RECHAZADO'
     if (row.get('config_margen') or 0) > 0:
-        return '<span style="background:#ffc107;color:#212529;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;white-space:nowrap;">&#128993; PENDIENTE COMPRAS</span>'
-    return '<span style="background:#e2e8f0;color:#64748b;padding:2px 7px;border-radius:20px;font-size:0.68rem;font-weight:700;white-space:nowrap;">— —</span>'
+        return 'PENDIENTE COMPRAS'
+    return ''
+
+
+# Colores del badge de la CELDA (bg, border, text) — mismo formato visual que
+# services.cotizacion_service.crear_badge_estado (relleno sólido + borde + sombra,
+# SIN emojis) para que coincidan con los badges de la pestaña COTIZACIONES.
+_OPER_ESTADO_COLORS = {
+    'PROYECTO TERMINADO': ('#7c3aed', '#5b21b6', 'white'),
+    'ADJUDICADO':         ('#2563eb', '#1d4ed8', 'white'),
+    'PENDIENTE COMPRAS':  ('#ffc107', '#d39e00', '#212529'),
+}
+
+# Estilo de los BADGES-FILTRO nativos (bg, texto, activo) — misma paleta que
+# tab_historial._BADGE_STYLE. Iconos Material como en COTIZACIONES/CONTRATO.
+_OPER_BADGE_STYLE = {
+    'TODOS':              ('#ede9fe', '#6d28d9', '#6d28d9'),
+    'PROYECTO TERMINADO': ('#ede9fe', '#7c3aed', '#5b21b6'),
+    'ADJUDICADO':         ('#dbeafe', '#1d4ed8', '#1e40af'),
+    'PENDIENTE COMPRAS':  ('#fef9c3', '#854d0e', '#713f12'),
+}
+_OPER_BADGE_ICON = {
+    'TODOS':              ':material/apps:',
+    'PROYECTO TERMINADO': ':material/emoji_events:',
+    'ADJUDICADO':         ':material/military_tech:',
+    'PENDIENTE COMPRAS':  ':material/schedule:',
+}
+# Orden fijo de los estados operacionales para badges/selector.
+_OPER_ESTADOS = ('PROYECTO TERMINADO', 'ADJUDICADO', 'PENDIENTE COMPRAS')
+# Tarjeta de selección: (bg, color acento, icono _ic_op) por estado.
+_OPER_CARD_META = {
+    'PROYECTO TERMINADO': ('#ede9fe', '#7c3aed', 'package'),
+    'ADJUDICADO':         ('#dbeafe', '#2563eb', 'check'),
+    'PENDIENTE COMPRAS':  ('#fef9c3', '#f59e0b', 'clock'),
+}
+# Prioridad de orden en el selector (terminado/adjudicado arriba, pendiente al final).
+_OPER_ORD_ESTADO = {'PROYECTO TERMINADO': 0, 'ADJUDICADO': 1, 'PENDIENTE COMPRAS': 2}
+
+
+def _badge_estado_oper(row):
+    _lbl = _estado_oper_label(row)
+    _c = _OPER_ESTADO_COLORS.get(_lbl)
+    if not _c:
+        return ('<span style="background:#e2e8f0;color:#64748b;padding:2px 7px;'
+                'border-radius:20px;font-size:0.68rem;font-weight:700;white-space:nowrap;">— —</span>')
+    color, border, text_color = _c
+    return (f'<span style="background-color:{color};color:{text_color};padding:2px 7px;'
+            f'border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;'
+            f'border:1px solid {border};box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">{_lbl}</span>')
 
 
 def _calc_total_costo(row):
@@ -220,6 +277,7 @@ def render_tab_operaciones(supabase, supabase_admin=None, supa_url='', supa_key=
     # SUB-PESTAÑA: PANEL OPERACIONAL
     # ================================================================
     with _sub_panel:
+        st.markdown(_titulo_op("grid", "Panel Operacional"), unsafe_allow_html=True)
         # Cargar ejecutivos para dropdown
         try:
             _oper_usuarios = _listar_usuarios_ej() or []
@@ -237,9 +295,11 @@ def render_tab_operaciones(supabase, supabase_admin=None, supa_url='', supa_key=
             _oper_ej_sel = st.selectbox("Ejecutivo", _oper_ej_opts,
                                         key="oper_ej_sel", label_visibility="collapsed")
         with _oc3:
-            _oper_buscar = st.button("&#128269; Buscar", use_container_width=True, key="oper_buscar")
+            _oper_buscar = st.button("Buscar", icon=":material/search:",
+                                     use_container_width=True, key="oper_buscar")
         with _oc4:
-            if st.button("&#128260;", key="oper_refresh", help="Actualizar", use_container_width=True):
+            if st.button("", icon=":material/refresh:", key="oper_refresh",
+                         help="Actualizar", use_container_width=True):
                 st.session_state.pop('oper_results', None)
                 st.rerun()
 
@@ -248,15 +308,22 @@ def render_tab_operaciones(supabase, supabase_admin=None, supa_url='', supa_key=
                 "numero,fecha_creacion,fecha_modificacion,cliente_nombre,cliente_email,"
                 "asesor_nombre,asesor_email,asesor_telefono,estado,plano_url,plano_nombre,"
                 "config_margen,contrato_generado,productos,total_subtotal_sin_margen,"
-                "contrato_notariado_url,fecha_adjudicacion,contrato_datos,acta_url,fecha_entrega"
+                "contrato_notariado_url,fecha_adjudicacion,contrato_datos,acta_url,fecha_entrega,"
+                "motivo_rechazo"
             ).gt("config_margen", 0)
             if ep_filter and ep_filter.strip():
                 _oq = _oq.ilike("numero", f"%{ep_filter.strip()}%")
             if ej_filter and ej_filter != 'Todos':
                 _oq = _oq.eq("asesor_nombre", ej_filter)
-            return _oq.order("fecha_creacion", desc=True).limit(100).execute().data or []
+            # limit alto porque el filtro por estado se hace en Python (abajo) y los
+            # RECHAZADOS se descartan: así no quedan menos de ~100 resultados válidos.
+            _rows = _oq.order("fecha_creacion", desc=True).limit(300).execute().data or []
+            # SOLO estados operacionales (ADJUDICADO / PROYECTO TERMINADO / PENDIENTE
+            # COMPRAS). Excluye los RECHAZADOS aunque tengan margen > 0.
+            return [r for r in _rows if _estado_oper_label(r) in _OPER_ESTADOS]
 
         if _oper_buscar:
+            st.session_state['oper_filtro_estado'] = None
             try:
                 st.session_state['oper_results'] = _cargar_oper_results(_oper_ep, _oper_ej_sel)
             except Exception as _oe:
@@ -267,28 +334,88 @@ def render_tab_operaciones(supabase, supabase_admin=None, supa_url='', supa_key=
             not _oper_buscar and _oper_ej_sel != st.session_state.get('_oper_ej_prev')
         ):
             st.session_state['_oper_ej_prev'] = _oper_ej_sel
+            st.session_state['oper_filtro_estado'] = None
             try:
                 st.session_state['oper_results'] = _cargar_oper_results(None, _oper_ej_sel)
             except Exception:
                 st.session_state['oper_results'] = []
 
-        _oper_data = st.session_state.get('oper_results', [])
+        _oper_all = st.session_state.get('oper_results', [])
 
-        _n_adj  = sum(1 for r in _oper_data if r.get('contrato_notariado_url'))
-        _n_pend = len(_oper_data) - _n_adj
-        _ej_label = f"&#128100; {_oper_ej_sel} &middot; " if _oper_ej_sel != 'Todos' else ""
-        st.markdown(
-            f"<span style='background:#ede9fe;color:#6d28d9;padding:3px 12px;border-radius:99px;"
-            f"font-size:11px;font-weight:700;margin-right:6px;'>{_ej_label}{len(_oper_data)} resultados</span>"
-            f"<span style='background:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:99px;"
-            f"font-size:11px;font-weight:700;margin-right:6px;'>&#128309; {_n_adj} adjudicados</span>"
-            f"<span style='background:#fef9c3;color:#854d0e;padding:3px 10px;border-radius:99px;"
-            f"font-size:11px;font-weight:700;'>&#128993; {_n_pend} pendiente compras</span>",
-            unsafe_allow_html=True)
+        # ── Badges de estado (mismo diseño y comportamiento que COTIZACIONES) ──
+        # Conteo por estado sobre el set COMPLETO (ya sin RECHAZADOS).
+        _oper_cnt = {}
+        for _r in _oper_all:
+            _lbl_r = _estado_oper_label(_r)
+            _oper_cnt[_lbl_r] = _oper_cnt.get(_lbl_r, 0) + 1
+        _oper_filtro = st.session_state.get('oper_filtro_estado')
+
+        _ej_chip = ''
+        if _oper_ej_sel != 'Todos':
+            _ej_chip = (
+                "<span style='display:inline-flex;align-items:center;background:#ede9fe;color:#6d28d9;"
+                "padding:3px 12px;border-radius:99px;font-size:11px;font-weight:700;margin-right:8px;'>"
+                + _ic_op("user", color="#6d28d9", size=13, mr=5, valign=-2)
+                + f"{_oper_ej_sel}</span>")
+        if _ej_chip:
+            st.markdown(_ej_chip, unsafe_allow_html=True)
+
+        _oper_badge_lbls = {
+            'PROYECTO TERMINADO': 'terminados',
+            'ADJUDICADO':         'adjudicados',
+            'PENDIENTE COMPRAS':  'pend. compras',
+        }
+        _oper_badges = [('TODOS', f'Todos ({len(_oper_all)})', '_ofbtn_0')]
+        for _bi, _bk in enumerate(_OPER_ESTADOS):
+            if _oper_cnt.get(_bk, 0):
+                _oper_badges.append((_bk, f'{_oper_badge_lbls[_bk]} ({_oper_cnt[_bk]})', f'_ofbtn_{_bi+1}'))
+
+        _obbase = ('font-family:Montserrat,sans-serif!important;font-weight:800!important;'
+                   'font-size:11.5px!important;border-radius:99px!important;border:none!important;'
+                   'padding:5px 14px!important;min-height:0!important;letter-spacing:0.03em!important;'
+                   'transition:all .12s!important;white-space:nowrap!important;text-transform:uppercase!important;')
+        _ocss = ['<style>']
+        for _bk, _blbl, _bkey in _oper_badges:
+            _bg, _fg, _act = _OPER_BADGE_STYLE.get(_bk, ('#e2e8f0', '#334155', '#334155'))
+            _is_act = (_bk == 'TODOS' and not _oper_filtro) or (_bk == _oper_filtro)
+            if _is_act:
+                _ocss.append(f'.st-key-{_bkey} button{{{_obbase}background:{_act}!important;'
+                             f'color:#fff!important;box-shadow:0 0 0 2px {_act}!important;}}')
+            else:
+                _ocss.append(f'.st-key-{_bkey} button{{{_obbase}background:{_bg}!important;color:{_fg}!important;}}')
+            _ocss.append(f'.st-key-{_bkey} button:hover{{background:{_act}!important;color:#fff!important;}}')
+            # SÓLO el texto lleva Montserrat/uppercase (a `button *` rompe la ligadura del ícono).
+            _ocss.append(f'.st-key-{_bkey} button p,.st-key-{_bkey} button [data-testid="stMarkdownContainer"]'
+                         f'{{font-family:Montserrat,sans-serif!important;'
+                         f'font-size:11.5px!important;font-weight:800!important;text-transform:uppercase!important;}}')
+        _ocss.append('</style>')
+        st.markdown(''.join(_ocss), unsafe_allow_html=True)
+
+        def _set_oper_filter(_k):
+            _cur = st.session_state.get('oper_filtro_estado')
+            st.session_state['oper_filtro_estado'] = (None if _k == _cur else _k)
+            st.session_state.pop('oper_ep_sel', None)
+
+        _oweights = [max(len(_b[1]) * 0.42 + 0.9, 3.2) for _b in _oper_badges]
+        _obcols = st.columns(_oweights)
+        for _bci, (_bk, _blbl, _bkey) in enumerate(_oper_badges):
+            with _obcols[_bci]:
+                st.button(_blbl, key=_bkey, use_container_width=True,
+                          icon=_OPER_BADGE_ICON.get(_bk),
+                          on_click=_set_oper_filter,
+                          args=(None if _bk == 'TODOS' else _bk,))
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-        if not _oper_data:
+        # Aplica el filtro activo por estado a los datos mostrados.
+        if _oper_filtro:
+            _oper_data = [r for r in _oper_all if _estado_oper_label(r) == _oper_filtro]
+        else:
+            _oper_data = list(_oper_all)
+
+        if not _oper_all:
             st.info("No se encontraron cotizaciones.")
+        elif not _oper_data:
+            st.info("No hay cotizaciones con ese estado.")
         else:
             import pandas as _pd_op
 
@@ -330,12 +457,16 @@ def render_tab_operaciones(supabase, supabase_admin=None, supa_url='', supa_key=
                             _col_f = "#16a34a" if _pct_av < 50 else ("#f97316" if _pct_av < 80 else "#dc2626")
                             if _hoy <= _d_ent:
                                 _fidel_html = (
-                                    f'<span style="color:{_col_f};font-weight:700;">&#8987; {_hab_rest}d h&#225;b.</span>'
+                                    f'<span style="color:{_col_f};font-weight:700;">'
+                                    + _ic_op("clock", color=_col_f, size=12, mr=4, valign=-2)
+                                    + f'{_hab_rest}d h&#225;b.</span>'
                                     f'<br><span style="font-size:0.72em;color:#64748b;">{_pct_av}% &middot; {_plazo_dias}d plazo</span>'
                                 )
                             else:
                                 _hab_ret = _dias_habiles_entre(_d_ent, _hoy)
-                                _fidel_html = f'<span style="color:#dc2626;font-weight:700;">&#9888;&#65039; VENCIDO +{_hab_ret}d h&#225;b.</span>'
+                                _fidel_html = ('<span style="color:#dc2626;font-weight:700;">'
+                                    + _ic_op("alert", color="#dc2626", size=12, mr=4, valign=-2)
+                                    + f'VENCIDO +{_hab_ret}d h&#225;b.</span>')
                                 _retraso_html = f'<span style="color:#dc2626;font-weight:700;">{_hab_ret}d h&#225;b.</span>'
                     except Exception:
                         pass
@@ -363,7 +494,8 @@ def render_tab_operaciones(supabase, supabase_admin=None, supa_url='', supa_key=
                         else:
                             _oc, _ob = '#2563eb', '#dbeafe'
                         _ow = min(100, _op_pct)
-                        _olbl = '&#9989; 100% comprado' if _op_pct >= 100 else f'{_op_pct}% comprado'
+                        _olbl = ((_ic_op("check", color=_oc, size=11, mr=3, valign=-1) + '100% comprado')
+                                 if _op_pct >= 100 else f'{_op_pct}% comprado')
                         _compras_html = (
                             f'<div style="width:80px;">'
                             f'<div style="background:{_ob};border-radius:4px;height:6px;margin-bottom:3px;">'
@@ -375,7 +507,8 @@ def render_tab_operaciones(supabase, supabase_admin=None, supa_url='', supa_key=
 
                 _rows_op += (
                     f"<tr>"
-                    f"<td data-ep='{_ep_r}' style='cursor:pointer;font-weight:700;color:#3b82f6;' title='Click para copiar'>{_ep_r} &#128203;</td>"
+                    f"<td data-ep='{_ep_r}' style='cursor:pointer;font-weight:700;color:#3b82f6;' title='Click para copiar'>{_ep_r} "
+                    + _ic_op("clipboard", color="#3b82f6", size=12, mr=0, valign=-2) + "</td>"
                     f"<td style='font-size:0.82rem;font-weight:700;'>{_cli}</td>"
                     f"<td style='text-align:right;line-height:1.6;'>{_tc_html}</td>"
                     f"<td style='font-size:0.82rem;font-weight:700;'>{_ej}</td>"
@@ -427,23 +560,27 @@ def render_tab_operaciones(supabase, supabase_admin=None, supa_url='', supa_key=
 
             st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
-            # Selectbox enriquecido
+            # Selectbox enriquecido. El estado va como TEXTO (el dropdown no renderiza
+            # SVG ni :material:); el icono de estado se muestra en la tarjeta de abajo.
             _ep_opts_op = []
             _ep_labels_op = {}
+            _ep_estado_op = {}
             for _r in _oper_data:
                 _r_ep  = _r.get("numero", "")
                 _r_cli = _r.get("cliente_nombre", "—")
                 _r_ej  = _r.get("asesor_nombre", "—")
                 _r_tc  = _calc_total_costo(_r)
-                _r_adj = bool(_r.get("contrato_notariado_url", ""))
-                if _r_adj:
-                    _label = f"{_r_ep} · 🔵 ADJUDICADO · {_fmt_clp(_r_tc)} · Cliente: {_r_cli} · Ejecutivo: {_r_ej}"
+                _r_lbl = _estado_oper_label(_r)
+                _ep_estado_op[_r_ep] = _r_lbl
+                if _r_lbl == 'ADJUDICADO':
+                    _label = f"{_r_ep} · ADJUDICADO · {_fmt_clp(_r_tc)} · Cliente: {_r_cli} · Ejecutivo: {_r_ej}"
                 else:
-                    _label = f"{_r_ep} · 🟡 PENDIENTE COMPRAS · Cliente: {_r_cli} · Ejecutivo: {_r_ej}"
+                    _label = f"{_r_ep} · {_r_lbl} · Cliente: {_r_cli} · Ejecutivo: {_r_ej}"
                 _ep_opts_op.append(_r_ep)
                 _ep_labels_op[_r_ep] = _label
 
-            _ep_opts_op = sorted(_ep_opts_op, key=lambda x: (0 if "🔵" in _ep_labels_op.get(x, "") else 1))
+            _ep_opts_op = sorted(_ep_opts_op,
+                                 key=lambda x: _OPER_ORD_ESTADO.get(_ep_estado_op.get(x, ''), 3))
 
             _ep_sel_op = st.selectbox(
                 "Selecciona una cotizaci&#243;n para acciones:",
@@ -453,13 +590,15 @@ def render_tab_operaciones(supabase, supabase_admin=None, supa_url='', supa_key=
             )
 
             if _ep_sel_op and _ep_sel_op in _ep_labels_op:
-                _sel_adj_card = "🔵" in _ep_labels_op[_ep_sel_op]
-                _bg_card  = "#dbeafe" if _sel_adj_card else "#fef9c3"
-                _bc_card  = "#2563eb" if _sel_adj_card else "#f59e0b"
-                _badge_txt = "🔵 ADJUDICADO" if _sel_adj_card else "🟡 PENDIENTE COMPRAS"
+                _sel_lbl_card = _ep_estado_op.get(_ep_sel_op, 'PENDIENTE COMPRAS')
+                _sel_adj_card = _sel_lbl_card in ('ADJUDICADO', 'PROYECTO TERMINADO')
+                _bg_card, _bc_card, _ic_card = _OPER_CARD_META.get(
+                    _sel_lbl_card, ('#fef9c3', '#f59e0b', 'clock'))
+                _badge_txt = (_ic_op(_ic_card, color="#ffffff", size=12, mr=5, valign=-2)
+                              + _sel_lbl_card)
                 _sel_r    = next((r for r in _oper_data if r.get("numero") == _ep_sel_op), {})
                 _sel_tc   = _calc_total_costo(_sel_r) if _sel_adj_card else 0
-                _tc_span  = f'<span style="font-size:13px;font-weight:700;color:#1d4ed8;">{_fmt_clp(_sel_tc)}</span>' if _sel_adj_card else ""
+                _tc_span  = f'<span style="font-size:13px;font-weight:700;color:{_bc_card};">{_fmt_clp(_sel_tc)}</span>' if _sel_adj_card else ""
                 st.markdown(
                     f'<div style="background:{_bg_card};border-left:4px solid {_bc_card};border-radius:0 10px 10px 0;'
                     f'padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:16px;">'
@@ -517,28 +656,31 @@ def render_tab_operaciones(supabase, supabase_admin=None, supa_url='', supa_key=
                                     _sel_dc, _fi, _ft, 15, _sel_da,
                                     margen=0, numero_cotizacion=_ep_sel_op, mostrar_precios=True
                                 )
-                                st.download_button("&#128722; PDF Compras", data=_sel_pdf,
+                                st.download_button("PDF Compras", icon=":material/shopping_cart:", data=_sel_pdf,
                                     file_name=f"Compras_{_ep_sel_op}.pdf",
                                     mime="application/pdf", use_container_width=True, key="oper_dl_pdf")
                             except Exception as _se:
-                                st.button("&#128722; PDF Compras", disabled=True, use_container_width=True,
-                                          key="oper_dl_pdf", help=f"Error: {_se}")
+                                st.button("PDF Compras", icon=":material/shopping_cart:", disabled=True,
+                                          use_container_width=True, key="oper_dl_pdf", help=f"Error: {_se}")
                         else:
-                            st.button("&#128722; PDF Compras", disabled=True, use_container_width=True,
-                                      key="oper_dl_pdf",
+                            st.button("PDF Compras", icon=":material/shopping_cart:", disabled=True,
+                                      use_container_width=True, key="oper_dl_pdf",
                                       help="Solo disponible con estado ADJUDICADO")
 
                     with _sb2:
-                        _lbl_plano = "&#128260; ACTUALIZAR PLANO" if st.session_state.get('oper_show_plano') else "&#128065;&#65039; VER PLANO"
+                        _plano_showing = st.session_state.get('oper_show_plano')
+                        _lbl_plano = "ACTUALIZAR PLANO" if _plano_showing else "VER PLANO"
+                        _ico_plano = ":material/refresh:" if _plano_showing else ":material/visibility:"
                         _plano_disabled = not bool(_sel_plano and _sel_adj)
-                        if st.button(_lbl_plano, use_container_width=True, disabled=_plano_disabled, key="oper_ver_plano"):
+                        if st.button(_lbl_plano, icon=_ico_plano, use_container_width=True,
+                                     disabled=_plano_disabled, key="oper_ver_plano"):
                             st.session_state['oper_show_plano'] = not st.session_state.get('oper_show_plano', False)
                             st.session_state['oper_plano_url']    = _sel_plano
                             st.session_state['oper_plano_nombre'] = _sel_data.get('plano_nombre', 'plano.pdf')
                             st.rerun()
 
                     if st.session_state.get('oper_show_plano') and st.session_state.get('oper_plano_url'):
-                        with st.expander("&#128196; Vista Previa del Plano", expanded=True):
+                        with st.expander("Vista Previa del Plano", expanded=True, icon=":material/picture_as_pdf:"):
                             st.markdown(f"**Archivo:** {st.session_state.get('oper_plano_nombre','plano.pdf')} — cotizaci&#243;n `{_ep_sel_op}`")
                             _nav_op   = _detectar_navegador()
                             _url_op   = st.session_state['oper_plano_url']
@@ -563,12 +705,12 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                             try:
                                 import requests as _req_op
                                 _plano_bytes = _req_op.get(_url_op, timeout=15).content
-                                st.download_button("&#11015;&#65039; Descargar Plano", data=_plano_bytes,
+                                st.download_button("Descargar Plano", icon=":material/download:", data=_plano_bytes,
                                     file_name=st.session_state.get('oper_plano_nombre', 'plano.pdf'),
                                     mime="application/pdf", use_container_width=True,
                                     key=f"oper_dl_plano_{_ep_sel_op}")
                             except Exception:
-                                st.warning("&#9888;&#65039; No se pudo preparar la descarga del plano.")
+                                st.warning("No se pudo preparar la descarga del plano.", icon=":material/warning:")
 
         # NOTA: el GUARDADO de un registro nuevo ya NO pasa por Python. El iframe del
         # formulario inserta el registro DIRECTO en Supabase (anon key; RLS lo permite,
