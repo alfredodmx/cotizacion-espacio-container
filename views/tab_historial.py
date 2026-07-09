@@ -698,11 +698,10 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             _bt=_re_cnt.sub(r'<[^>]+>','',str(_bv)).strip()
             _estados_cnt_total[_bt]=_estados_cnt_total.get(_bt,0)+1
 
-        _filtro_activo = st.session_state.get('filtro_estado_tabla')
-        if _filtro_activo:
-            import re as _re_f
-            df_resultados = df_resultados[df_resultados['Estado'].apply(
-                lambda h: _re_f.sub(r'<[^>]+>','',str(h)).strip()==_filtro_activo)].copy()
+        # El filtrado por estado ahora es 100% CLIENT-SIDE (JS oculta filas por data-est,
+        # SIN rerun) → instantáneo y sin el crash de React (removeChild) que causaba el
+        # rerun del badge. Por eso NO se filtra df_resultados aquí: se renderizan TODAS
+        # las filas y el badge sólo cambia su visibilidad en el navegador.
         n_resultados = len(df_resultados)
 
         _tc_map = {}
@@ -989,9 +988,6 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
 
         _filtro_activo_badge = st.session_state.get('filtro_estado_tabla')
         _n_total = len(st.session_state.resultados_busqueda)
-        # Badges de filtro NATIVOS con FONDO de color por estado (st.button + CSS
-        # por .st-key-<key>). on_click corre ANTES del rerun => UN solo rerun.
-        # Recupera el diseno anterior: relleno segun color + tipografia Montserrat.
         _BADGE_STYLE = {
             'TODOS': ('#ede9fe', '#6d28d9', '#6d28d9'),
             'PROYECTO TERMINADO': ('#ede9fe', '#7c3aed', '#5b21b6'),
@@ -1004,84 +1000,111 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             'INCOMPLETO': ('#fee2e2', '#dc2626', '#991b1b'),
             'RECHAZADO': ('#fee2e2', '#b91c1c', '#7f1d1d'),
         }
-        # \u00CDcono Material (SVG) por estado \u2014 reemplaza los c\u00EDrculos de color (emojis).
-        # Mismo enfoque que CONTRATO NOTARIADO (st.button icon=":material/...:").
-        _BADGE_ICON = {
-            'TODOS':                ':material/apps:',
-            'PROYECTO TERMINADO':   ':material/emoji_events:',
-            'ADJUDICADO':           ':material/military_tech:',
-            'AUTORIZADO CON PLANO': ':material/check_circle:',
-            'AUTORIZADO':           ':material/task_alt:',
-            'BORRADOR CON PLANO':   ':material/edit_document:',
-            'BORRADOR':             ':material/draft:',
-            'INCOMPLETO CON PLANO': ':material/error:',
-            'INCOMPLETO':           ':material/warning:',
-            'RECHAZADO':            ':material/block:',
+        # Icono SVG inline por estado (misma familia que las stat cards de abajo).
+        _BADGE_SVG = {
+            'TODOS':                '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
+            'PROYECTO TERMINADO':   '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+            'ADJUDICADO':           '<path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"/><circle cx="12" cy="8" r="6"/>',
+            'AUTORIZADO CON PLANO': '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/>',
+            'AUTORIZADO':           '<path d="M20 6 9 17l-5-5"/>',
+            'BORRADOR CON PLANO':   '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><polyline points="14 2 14 8 20 8"/><path d="M10.4 12.6a2 2 0 1 1 3 3L8 21l-4 1 1-4z"/>',
+            'BORRADOR':             '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>',
+            'INCOMPLETO CON PLANO': '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>',
+            'INCOMPLETO':           '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
+            'RECHAZADO':            '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
         }
         _badge_order = [
-            ('TODOS', f'Todos ({_n_total})'),
-            ('PROYECTO TERMINADO', 'terminados'),
-            ('ADJUDICADO', 'adjudicados'),
-            ('AUTORIZADO CON PLANO', 'aut. c/plano'),
-            ('AUTORIZADO', 'autorizados'),
-            ('BORRADOR CON PLANO', 'borrador c/plano'),
-            ('BORRADOR', 'borrador'),
-            ('INCOMPLETO CON PLANO', 'incompleto c/plano'),
-            ('INCOMPLETO', 'incompletos'),
-            ('RECHAZADO', 'rechazados'),
+            ('TODOS', 'Todos'), ('PROYECTO TERMINADO', 'terminados'),
+            ('ADJUDICADO', 'adjudicados'), ('AUTORIZADO CON PLANO', 'aut. c/plano'),
+            ('AUTORIZADO', 'autorizados'), ('BORRADOR CON PLANO', 'borrador c/plano'),
+            ('BORRADOR', 'borrador'), ('INCOMPLETO CON PLANO', 'incompleto c/plano'),
+            ('INCOMPLETO', 'incompletos'), ('RECHAZADO', 'rechazados'),
         ]
-        _badges = []
-        for _bi, (_bk, _blbl) in enumerate(_badge_order):
-            if _bk == 'TODOS':
-                _badges.append((_bk, _blbl, f'_fbtn_{_bi}'))
-            elif _estados_cnt_total.get(_bk, 0):
-                _badges.append((_bk, f'{_blbl} ({_estados_cnt_total[_bk]})', f'_fbtn_{_bi}'))
-        _bbase = ('font-family:Montserrat,sans-serif!important;font-weight:800!important;'
-                  'font-size:11.5px!important;border-radius:99px!important;border:none!important;'
-                  'padding:5px 14px!important;min-height:0!important;letter-spacing:0.03em!important;'
-                  'transition:all .12s!important;white-space:nowrap!important;text-transform:uppercase!important;')
-        _css = ['<style>']
-        for _bk, _blbl, _bkey in _badges:
+
+        def _badge_svg(_p):
+            return ('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+                    'stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">'
+                    + _p + '</svg>')
+
+        _ini_filtro = _filtro_activo_badge or 'TODOS'
+        _bbar = ['<style>'
+            '.ec-badgebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:2px 0 6px;}'
+            '.ec-badge{display:inline-flex;align-items:center;gap:7px;font-family:Montserrat,sans-serif;'
+            'font-weight:800;font-size:11.5px;letter-spacing:0.03em;text-transform:uppercase;border:none;'
+            'border-radius:99px;padding:6px 15px;cursor:pointer;white-space:nowrap;transition:all .12s;line-height:1;}'
+            '.ec-badge:hover{filter:brightness(0.96);}'
+            '.ec-badge.ec-refresh{padding:7px 11px;}'
+            '</style>'
+            f'<div class="ec-badgebar" id="_ec_badgebar" data-init="{_ini_filtro}">']
+        for _bk, _blbl in _badge_order:
+            if _bk != 'TODOS' and not _estados_cnt_total.get(_bk, 0):
+                continue
             _bg, _fg, _act = _BADGE_STYLE.get(_bk, ('#e2e8f0', '#334155', '#334155'))
-            _is_act = (_bk == 'TODOS' and not _filtro_activo_badge) or (_bk == _filtro_activo_badge)
-            if _is_act:
-                _css.append(f'.st-key-{_bkey} button{{{_bbase}background:{_act}!important;'
-                            f'color:#fff!important;box-shadow:0 0 0 2px {_act}!important;}}')
-            else:
-                _css.append(f'.st-key-{_bkey} button{{{_bbase}background:{_bg}!important;color:{_fg}!important;}}')
-            _css.append(f'.st-key-{_bkey} button:hover{{background:{_act}!important;color:#fff!important;}}')
-            # SÓLO el texto (no el ícono Material) lleva Montserrat+uppercase: si se
-            # aplica a `button *` se rompe la ligadura del ícono (sale el nombre).
-            _css.append(f'.st-key-{_bkey} button p,.st-key-{_bkey} button [data-testid="stMarkdownContainer"]'
-                        f'{{font-family:Montserrat,sans-serif!important;'
-                        f'font-size:11.5px!important;font-weight:800!important;text-transform:uppercase!important;}}')
-        _css.append('.st-key-cot_refresh_tabla button{border-radius:99px!important;'
-                    'font-weight:700!important;min-height:0!important;padding:5px 10px!important;}')
-        _css.append('</style>')
-        st.markdown(''.join(_css), unsafe_allow_html=True)
+            _cnt = _n_total if _bk == 'TODOS' else _estados_cnt_total.get(_bk, 0)
+            _is_act = (_bk == _ini_filtro)
+            _st = (f'background:{_act};color:#fff;box-shadow:0 0 0 2px {_act};' if _is_act
+                   else f'background:{_bg};color:{_fg};')
+            _bbar.append(
+                f'<button class="ec-badge" data-filter="{_bk}" data-bg="{_bg}" data-fg="{_fg}" '
+                f'data-act="{_act}" style="{_st}">{_badge_svg(_BADGE_SVG.get(_bk, ""))}'
+                f'<span>{_blbl} ({_cnt})</span></button>')
+        _bbar.append('<button class="ec-badge ec-refresh" data-refresh="1" title="Actualizar" '
+                     'style="background:#fff;color:#475569;box-shadow:0 0 0 1px #e2e8f0;">'
+                     + _badge_svg('<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>'
+                                  '<path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>'
+                                  '<path d="M8 16H3v5"/>') + '</button>')
+        _bbar.append(f'<span id="_ec_nres" style="margin-left:4px;font-family:Plus Jakarta Sans,sans-serif;'
+                     f'font-size:0.8rem;color:#64748b;font-weight:700;">{n_resultados} resultados</span>')
+        _bbar.append('</div>')
+        st.markdown(''.join(_bbar), unsafe_allow_html=True)
 
-        def _set_badge_filter(_k):
-            _cur = st.session_state.get('filtro_estado_tabla')
-            st.session_state['filtro_estado_tabla'] = (None if _k == _cur else _k)
-            # Mantenemos selector_ep_num: si la cotizacion sigue en el filtro no recarga.
-            st.session_state.pop('selector_cotizaciones', None)
+        # Boton nativo OCULTO para el refresh real (re-consulta la BD -> rerun). El badge
+        # HTML de refresh lo clickea por JS.
+        st.markdown('<style>.st-key-cot_refresh_tabla{position:absolute!important;left:-9999px!important;'
+                    'top:-9999px!important;height:0!important;overflow:hidden!important;}'
+                    'iframe[height="0"]{display:none!important;margin:0!important;padding:0!important;}</style>',
+                    unsafe_allow_html=True)
+        if st.button("refresh", key='cot_refresh_tabla'):
+            st.session_state.resultados_busqueda = None
+            st.rerun()
 
-        _weights = [max(len(_b[1]) * 0.42 + 0.9, 3.4) for _b in _badges] + [2.0]
-        _bcols = st.columns(_weights)
-        for _bci, (_bk, _blbl, _bkey) in enumerate(_badges):
-            with _bcols[_bci]:
-                st.button(_blbl, key=_bkey, use_container_width=True,
-                          icon=_BADGE_ICON.get(_bk),
-                          on_click=_set_badge_filter,
-                          args=(None if _bk == 'TODOS' else _bk,))
-        with _bcols[-1]:
-            if st.button("", key='cot_refresh_tabla', icon=":material/refresh:",
-                         help='Actualizar resultados', use_container_width=True):
-                st.session_state.resultados_busqueda = None
-                st.rerun()
-
-        # Estilo para ocultar iframes height=0 de otros componentes (tabla JS, etc.)
-        st.markdown('<style>iframe[height="0"]{display:none!important;margin:0!important;padding:0!important;}</style>', unsafe_allow_html=True)
+        # JS: filtra la tabla EN EL CLIENTE (oculta filas por data-est) sin rerun.
+        # Handler dedup en window.parent (sobrevive a reruns). El refresh si dispara rerun.
+        components.html(r"""<script>
+(function(){
+  var W=window.parent, D=W.document;
+  function apply(filter){
+    var rows=D.querySelectorAll('.resultados-table tbody tr'); var vis=0;
+    rows.forEach(function(tr){
+      var est=tr.getAttribute('data-est')||'';
+      var show=(!filter||filter==='TODOS'||est===filter);
+      tr.style.display=show?'':'none'; if(show)vis++;
+    });
+    var n=D.getElementById('_ec_nres'); if(n) n.textContent=vis+(vis===1?' resultado':' resultados');
+  }
+  function setActive(btn){
+    var bar=D.getElementById('_ec_badgebar'); if(!bar||!btn) return;
+    bar.querySelectorAll('.ec-badge[data-filter]').forEach(function(b){
+      b.style.background=b.getAttribute('data-bg'); b.style.color=b.getAttribute('data-fg'); b.style.boxShadow='none';
+    });
+    var act=btn.getAttribute('data-act'); btn.style.background=act; btn.style.color='#fff'; btn.style.boxShadow='0 0 0 2px '+act;
+  }
+  if(W._ecBadgeH) D.removeEventListener('click', W._ecBadgeH, true);
+  W._ecBadgeH=function(e){
+    var t=e.target&&e.target.closest?e.target.closest('#_ec_badgebar .ec-badge'):null; if(!t) return;
+    e.preventDefault(); e.stopPropagation();
+    if(t.getAttribute('data-refresh')){ var rb=D.querySelector('.st-key-cot_refresh_tabla button'); if(rb) rb.click(); return; }
+    var bar=D.getElementById('_ec_badgebar'); var f=t.getAttribute('data-filter');
+    if(f===(bar&&bar.getAttribute('data-active'))) f='TODOS';
+    if(bar) bar.setAttribute('data-active', f);
+    setActive(bar.querySelector('.ec-badge[data-filter="'+f+'"]'));
+    apply(f);
+  };
+  D.addEventListener('click', W._ecBadgeH, true);
+  var bar=D.getElementById('_ec_badgebar');
+  if(bar){ var ini=bar.getAttribute('data-init')||'TODOS'; bar.setAttribute('data-active', ini); apply(ini); }
+})();
+</script>""", height=0)
 
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
         _altura_real = n_resultados * 60 + 60
@@ -1135,7 +1158,7 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             ".tbl-scroll-btn:active{transform:translateY(0) scale(0.93);box-shadow:0 1px 3px rgba(15,23,42,0.12);}"
             "</style>"
             '<div class="tbl-scroll-wrap">'
-            '  <span class="tbl-n-res">'+_nres_txt+'</span>'
+            '  <span class="tbl-n-res"></span>'  # conteo vivo ahora en la barra de badges (#_ec_nres)
             '  <div class="tbl-scroll-right">'
             '    <button class="tbl-scroll-btn" id="btn-left" title="Desplazar a la izquierda">'+_CHEV_L+'</button>'
             '    <span class="tbl-scroll-hint">'+_MOVEH+'Scroll horizontal</span>'
