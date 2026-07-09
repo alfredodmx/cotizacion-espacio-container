@@ -144,6 +144,20 @@ def _modelos_predefinidos(eps: tuple) -> dict:
         return {}
 
 
+@st.cache_data(ttl=60, show_spinner=False)
+def _eps_con_seleccion(eps: tuple) -> set:
+    """EPs (de las mostradas) que tienen al menos una respuesta del formulario del
+    cliente → habilita 'PDF selección' en el menú contextual sin consultar por fila."""
+    if not eps:
+        return set()
+    try:
+        _r = _supa_admin_global.table('formulario_respuestas').select(
+            'cotizacion_numero').in_('cotizacion_numero', list(eps)).execute().data or []
+        return {str(x.get('cotizacion_numero')) for x in _r if x.get('cotizacion_numero')}
+    except Exception:
+        return set()
+
+
 def _feriados_chile(year):
     from datetime import date, timedelta as _td
     f = set()
@@ -728,6 +742,13 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
         _cli_data_json_map = json.dumps(_cli_data_map, ensure_ascii=True)
         _mat_data_json_map = json.dumps(_mat_data_map, ensure_ascii=True)
 
+        # Para las banderas por-fila del menú contextual (habilitar/deshabilitar cada
+        # acción): rol/modo_admin son constantes y las EPs con selección se consultan
+        # en UNA query batcheada (no por fila).
+        _modo_adm_ctx = bool(st.session_state.get('modo_admin'))
+        _es_ej_ctx_tbl = _rol_actual == 'ejecutivo'
+        _eps_sel_set = _eps_con_seleccion(tuple(sorted({str(_r[0]) for _r in (st.session_state.resultados_busqueda or [])})))
+
         rows_html = ""
         for _, row in df_resultados.iterrows():
             _mg_color = 'color:#16a34a;font-weight:700;' if str(row['MargenCol']) != '—' else 'color:#94a3b8;'
@@ -931,7 +952,19 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                 _demora_display=row.get('Demora','—')
             _fila_class=' class="fila-rechazada"' if _motivo_rec else ''
             _est_attr=str(row.get('EstadoKey','')).replace("'",'')
-            rows_html+=(f"<tr{_fila_class} data-est='{_est_attr}'>"
+            # Banderas del menú contextual (1/0) por fila.
+            _cx_mg = float(row.get('Margen',0) or 0)
+            _cx_datos = bool(str(row.get('Cliente','') or '').strip() and str(row.get('Email','') or '').strip())
+            _cx_ase = bool(str(row.get('Asesor','') or '').strip() or str(row.get('Asesor_Email','') or '').strip() or str(row.get('Asesor_Tel','') or '').strip())
+            _cx_autoriz = (_cx_mg > 0 and _cx_datos and _cx_ase)
+            _cx_pdf = '1' if (not _es_ej_ctx_tbl or _cx_autoriz) else '0'
+            _ctx_attrs = (
+                f" data-cargar='{'1' if (_modo_adm_ctx or _cx_mg <= 0) else '0'}'"
+                f" data-compras='{'0' if _es_ej_ctx_tbl else '1'}'"
+                f" data-completo='{_cx_pdf}' data-cliente='{_cx_pdf}'"
+                f" data-seleccion='{'1' if str(row.get('N°','')) in _eps_sel_set else '0'}'"
+                f" data-plano='{'1' if row.get('Tiene_Plano') else '0'}'")
+            rows_html+=(f"<tr{_fila_class} data-est='{_est_attr}'{_ctx_attrs}>"
                 f"<td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} {_hic('copy','#3b82f6',12,0)}</td>"
                 f"<td style='font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.5;'>{row['Cliente'] or '—'}"
                 f"<br><button class='_datos_btn' data-ep=\"{row['N°']}\" style='margin-top:2px;background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd;border-radius:6px;padding:1px 8px;font-size:0.68rem;font-weight:700;cursor:pointer;font-family:inherit;'>{_hic('clipboard','#1d4ed8',11,4)}Datos</button></td>"
@@ -1322,47 +1355,176 @@ var MAT_DATA = """ + _mat_data_json_map + """;
 })();
 </script>""", height=0)
 
-        # ── Menú contextual (click derecho en la tabla) ──────────────────────────
-        # Bridge oculto: el JS del menú escribe "<ep>|<nonce>" en este text_input y
-        # hace blur → Streamlit rerun. Aquí seleccionamos ese EP (antes de que la
-        # lógica del selector lea selector_ep_num). El nonce evita re-procesar en
-        # reruns posteriores (y que pise una selección manual del selectbox).
-        st.markdown(
-            '<style>.st-key-_ctx_sel{position:absolute!important;left:-9999px!important;'
-            'top:-9999px!important;width:220px!important;height:0!important;overflow:hidden!important;}</style>',
-            unsafe_allow_html=True)
-        st.text_input('ctx_sel', key='_ctx_sel', label_visibility='collapsed')
-        _ctx_sel_raw = str(st.session_state.get('_ctx_sel', '') or '')
-        if '|' in _ctx_sel_raw:
-            _cs_ep, _cs_nonce = _ctx_sel_raw.rsplit('|', 1)
-            if _cs_nonce and _cs_nonce != st.session_state.get('_ctx_sel_done', ''):
-                st.session_state['_ctx_sel_done'] = _cs_nonce
-                _valid_ctx_eps = {str(_r[0]) for _r in (st.session_state.resultados_busqueda or [])}
-                if _cs_ep in _valid_ctx_eps:
-                    st.session_state['selector_ep_num'] = _cs_ep
-                    st.session_state['selector_cotizaciones'] = _cs_ep
+        # ── Menú contextual (click derecho) — reemplaza el dropdown lento ─────────
+        # El menú aparece AL INSTANTE (client-side, banderas por fila en data-*). Cada
+        # acción escribe "accion|ep|nonce" en este text_input oculto + blur → UN rerun
+        # LIGERO que genera SOLO ese documento y lo auto-descarga. No hay selectbox ni
+        # pre-generación de 4 PDFs por rerun (el cuello de botella anterior).
+        st.markdown('<style>.st-key-_ctx_cmd,.st-key-_ctx_dl{position:absolute!important;'
+            'left:-9999px!important;top:-9999px!important;width:240px!important;height:0!important;'
+            'overflow:hidden!important;}</style>', unsafe_allow_html=True)
+        st.text_input('ctx', key='_ctx_cmd', label_visibility='collapsed')
+        _ctx_raw = str(st.session_state.get('_ctx_cmd', '') or '')
+        _ctx_action = ''; _ctx_ep = ''
+        if _ctx_raw.count('|') >= 2:
+            _a, _e, _n = _ctx_raw.split('|', 2)
+            if _n and _n != st.session_state.get('_ctx_done', ''):
+                st.session_state['_ctx_done'] = _n
+                _ctx_action = _a.strip(); _ctx_ep = _e.strip()
 
-        # JS del menú contextual. La tabla vive en el DOM del padre (st.markdown) y
-        # los botones de acción son botones nativos de Streamlit (también en el
-        # padre): el menú los clickea directo. Para una fila NO seleccionada, primero
-        # selecciona vía el bridge (rerun) y reabre el menú (sessionStorage). Los
-        # ítems se pintan en gris si su botón nativo está ausente o disabled.
+        def _ctx_prep(cot):
+            _df = pd.DataFrame(cot['productos'])
+            if not _df.empty and 'Categoria' in _df.columns:
+                _df = _df.sort_values(['Categoria', 'Item'], ignore_index=True)
+            _mg = cot.get('config_margen', 0)
+            if _mg and _mg > 0:
+                _df = _df.copy()
+                _df["Precio Unitario"] = _df["Precio Unitario"].apply(lambda x: aplicar_margen(x, _mg))
+                _df["Subtotal"] = _df["Cantidad"] * _df["Precio Unitario"]
+            _sub = _df["Subtotal"].sum(); _iva = _sub * 0.19; _tot = _sub + _iva
+            _dc = {
+                "Nombre": cot.get('cliente_nombre',''), "RUT": cot.get('cliente_rut',''),
+                "Correo": cot.get('cliente_email',''),
+                "Tel&#233;fono": formatear_telefono(cot.get('cliente_telefono','')),
+                "Direcci&#243;n": cot.get('cliente_direccion',''),
+                "ComunaCliente": cot.get('cliente_comuna',''), "RegionCliente": cot.get('cliente_region',''),
+                "DireccionProyecto": cot.get('proyecto_direccion',''),
+                "ComunaProyecto": cot.get('proyecto_comuna',''), "RegionProyecto": cot.get('proyecto_region',''),
+                "TipoCliente": cot.get('cliente_tipo','natural'), "EmpresaCliente": cot.get('cliente_empresa',''),
+                "RutEmpresa": cot.get('cliente_rut_empresa',''), "Observaciones": cot.get('proyecto_observaciones',''),
+            }
+            _da = {
+                "Nombre Ejecutivo": cot.get('asesor_nombre',''),
+                "Correo Ejecutivo": cot.get('asesor_email',''),
+                "Tel&#233;fono Ejecutivo": formatear_telefono(cot.get('asesor_telefono','')),
+            }
+            _fi = datetime.strptime(cot.get('proyecto_fecha_inicio', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d').date()
+            _ft = datetime.strptime(cot.get('proyecto_fecha_termino', (datetime.now()+timedelta(days=15)).strftime('%Y-%m-%d')), '%Y-%m-%d').date()
+            _dv = cot.get('proyecto_dias_validez', 15)
+            return _df, _sub, _iva, _tot, _dc, _da, _fi, _ft, _dv, _mg
+
+        _ctx_dl = None  # (bytes, filename, mime) del documento pedido
+        if _ctx_action and _ctx_ep:
+            if _ctx_action == 'cargar':
+                if preparar_carga_cotizacion(_ctx_ep):
+                    st.session_state.nav_page = 'presupuesto'
+                    st.session_state['_toast_cargado'] = _ctx_ep
+                    st.rerun()
+            else:
+                try:
+                    _cot = cargar_cotizacion(_ctx_ep)
+                    if _cot:
+                        if _ctx_action == 'pdf_completo':
+                            _df,_sub,_iva,_tot,_dc,_da,_fi,_ft,_dv,_mg = _ctx_prep(_cot)
+                            _b,_ = generar_pdf_completo(_df,_sub,_iva,_tot,_dc,_fi,_ft,_dv,_da,margen=_mg,numero_cotizacion=_ctx_ep)
+                            _ctx_dl = (_b, f"Presupuesto_Completo_{_ctx_ep}.pdf", "application/pdf")
+                        elif _ctx_action == 'pdf_cliente':
+                            _df,_sub,_iva,_tot,_dc,_da,_fi,_ft,_dv,_mg = _ctx_prep(_cot)
+                            _desc = cargar_descripciones_por_ep(_ctx_ep, supa_url, bust_cache=True)
+                            _b,_ = generar_pdf_cliente(_df,_sub,_iva,_tot,_dc,_fi,_ft,_dv,_da,margen=_mg,numero_cotizacion=_ctx_ep,descripciones_ep=_desc)
+                            _ctx_dl = (_b, f"Presupuesto_Cliente_{_ctx_ep}.pdf", "application/pdf")
+                        elif _ctx_action == 'pdf_compras':
+                            _dfr = pd.DataFrame(_cot['productos'])
+                            _dfc = _dfr[_dfr['Categoria'].str.strip().str.lower() != 'varios'].copy()
+                            _sub = _dfc['Subtotal'].sum(); _iva = _sub*0.19; _tot = _sub+_iva
+                            _dc = {
+                                "Nombre": _cot.get('cliente_nombre',''), "RUT": _cot.get('cliente_rut',''),
+                                "Correo": _cot.get('cliente_email',''),
+                                "Tel&#233;fono": formatear_telefono(_cot.get('cliente_telefono','')),
+                                "Direcci&#243;n": _cot.get('cliente_direccion',''),
+                                "ComunaCliente": _cot.get('cliente_comuna',''), "RegionCliente": _cot.get('cliente_region',''),
+                                "DireccionProyecto": _cot.get('proyecto_direccion',''),
+                                "ComunaProyecto": _cot.get('proyecto_comuna',''), "RegionProyecto": _cot.get('proyecto_region',''),
+                                "TipoCliente": _cot.get('cliente_tipo','natural'), "EmpresaCliente": _cot.get('cliente_empresa',''),
+                                "RutEmpresa": _cot.get('cliente_rut_empresa',''), "Observaciones": _cot.get('proyecto_observaciones',''),
+                            }
+                            _da = {
+                                "Nombre Ejecutivo": _cot.get('asesor_nombre',''),
+                                "Correo Ejecutivo": _cot.get('asesor_email',''),
+                                "Tel&#233;fono Ejecutivo": formatear_telefono(_cot.get('asesor_telefono','')),
+                            }
+                            _fic = datetime.strptime(_cot.get('proyecto_fecha_inicio', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d').date()
+                            _ftc = datetime.strptime(_cot.get('proyecto_fecha_termino', (datetime.now()+timedelta(days=15)).strftime('%Y-%m-%d')), '%Y-%m-%d').date()
+                            _dvc = _cot.get('proyecto_dias_validez', 15)
+                            _fadj = _cot.get('fecha_adjudicacion') or None
+                            _ffid = _cot.get('fecha_entrega') or None
+                            try:
+                                _cdr = _cot.get('contrato_datos') or {}
+                                if isinstance(_cdr, str): _cdr = json.loads(_cdr)
+                                _plz = int(_cdr.get('plazo_dias', 45) or 45)
+                            except Exception:
+                                _plz = 45
+                            _b,_ = generar_pdf_completo(_dfc,_sub,_iva,_tot,_dc,_fic,_ftc,_dvc,_da,margen=0,
+                                numero_cotizacion=_ctx_ep,mostrar_precios=True,
+                                fecha_adjudicacion=_fadj,fecha_fidelizacion=_ffid,plazo_obra_dias=_plz)
+                            _ctx_dl = (_b, f"Compras_{_ctx_ep}.pdf", "application/pdf")
+                        elif _ctx_action == 'pdf_seleccion':
+                            _cfg = _fetch_formulario_config(_ctx_ep)
+                            if _cfg:
+                                _rr = supabase_admin.table('formulario_respuestas').select('item_id,respuesta').eq('cotizacion_numero', _ctx_ep).execute().data or []
+                                _res = {r['item_id']: r['respuesta'] for r in _rr if r.get('item_id')}
+                                _ids = [str(i) for c in _cfg for i in (c.get('item_ids') or [])]
+                                _mit = {}
+                                if _ids:
+                                    _m = supabase_admin.table('catalogo_materiales').select('id,nombre,imagen_url,hex,tipo').in_('id', _ids).execute().data or []
+                                    _mit = {str(x['id']): x for x in _m}
+                                _fecha = ''
+                                try:
+                                    _fc = _cot.get('fecha_formulario_completado','')
+                                    if _fc: _fecha = datetime.fromisoformat(_fc[:19]).strftime('%d/%m/%Y')
+                                except Exception:
+                                    pass
+                                if not _fecha: _fecha = datetime.now().strftime('%d/%m/%Y')
+                                _b = generar_pdf_seleccion_cliente(_ctx_ep, _cot.get('cliente_nombre',''), _cfg, _res, _mit, fecha_formulario=_fecha)
+                                _ctx_dl = (_b, f"Seleccion_Cliente_{_ctx_ep}.pdf", "application/pdf")
+                        elif _ctx_action == 'plano':
+                            _pu = _cot.get('plano_url')
+                            if _pu:
+                                _pb = _fetch_plano_bytes(_pu)
+                                if _pb:
+                                    _pn = _cot.get('plano_nombre') or f"Plano_{_ctx_ep}.pdf"
+                                    _pm = 'application/pdf' if str(_pn).lower().endswith('.pdf') else 'application/octet-stream'
+                                    _ctx_dl = (_pb, _pn, _pm)
+                except Exception as _ctxe:
+                    st.toast(f"No se pudo generar el documento: {_ctxe}", icon=":material/error:")
+
+        # Descarga: botón oculto con los bytes + auto-click (misma pestaña, sin recargar).
+        if _ctx_dl is not None:
+            st.download_button('descarga', data=_ctx_dl[0], file_name=_ctx_dl[1], mime=_ctx_dl[2],
+                               key='_ctx_dl', label_visibility='collapsed')
+            components.html("""<script>(function(){var D=window.parent.document;
+  setTimeout(function(){var b=D.querySelector('.st-key-_ctx_dl button'); if(b) b.click();},60);})();</script>""", height=0)
+
+        # JS del menú: aparece AL INSTANTE (sin rerun) leyendo las banderas data-* de
+        # la fila. Cada acción escribe en el bridge oculto (_ctx_cmd) → Python genera y
+        # auto-descarga. Handlers deduplicados en window.parent (sobreviven al rerun).
         components.html(r"""<script>
 (function(){
   var W=window.parent, D=W.document, MENU_ID='_ec_ctxmenu';
   var ITEMS=[
-    {k:'cargar',   lbl:'Cargar presupuesto', sel:'.st-key-btn_cargar_presupuesto button', ico:'<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>'},
-    {k:'compras',  lbl:'PDF compras',   sel:'[class*="st-key-pdf_compras_"] button', ico:'<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>'},
-    {k:'completo', lbl:'PDF completo',  sel:'[class*="st-key-pdf_completo_"] button', ico:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>'},
-    {k:'cliente',  lbl:'PDF cliente',   sel:'[class*="st-key-pdf_cliente_"] button', ico:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'},
-    {k:'seleccion',lbl:'PDF seleccion', sel:'[class*="st-key-pdf_sel"] button', ico:'<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>'},
-    {k:'plano',    lbl:'Descargar plano', div:true, sel:'.st-key-btn_descargar_plano button', ico:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>'}
+    {k:'cargar',        lbl:'Cargar presupuesto', attr:'cargar',    ico:'<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>'},
+    {k:'pdf_compras',   lbl:'PDF compras',   attr:'compras',   ico:'<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>'},
+    {k:'pdf_completo',  lbl:'PDF completo',  attr:'completo',  ico:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>'},
+    {k:'pdf_cliente',   lbl:'PDF cliente',   attr:'cliente',   ico:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'},
+    {k:'pdf_seleccion', lbl:'PDF seleccion', attr:'seleccion', ico:'<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>'},
+    {k:'plano',         lbl:'Descargar plano', div:true, attr:'plano', ico:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>'}
   ];
   function ic(p){return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">'+p+'</svg>';}
-  function selEP(){var t=D.getElementById('_ec_restable');return t?(t.getAttribute('data-selep')||''):'';}
   function closeMenu(){var m=D.getElementById(MENU_ID);if(m)m.remove();}
-  function clearPending(){try{sessionStorage.removeItem('_ecCtxPending');}catch(e){}}
-  function build(ep,x,y){
+  function fire(action,ep){
+    var inp=D.querySelector('.st-key-_ctx_cmd input'); if(!inp) return;
+    try{
+      var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set;
+      inp.focus({preventScroll:true});
+      setter.call(inp, action+'|'+ep+'|'+Date.now());
+      inp.dispatchEvent(new Event('input',{bubbles:true}));
+      inp.dispatchEvent(new Event('change',{bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.blur();
+    }catch(e){}
+  }
+  function build(tr,ep,x,y){
     closeMenu();
     var m=D.createElement('div'); m.id=MENU_ID;
     m.style.cssText='position:absolute;z-index:2147483000;min-width:212px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 12px 34px rgba(15,23,42,0.18);padding:6px;font-family:-apple-system,Segoe UI,Roboto,sans-serif;';
@@ -1372,16 +1534,14 @@ var MAT_DATA = """ + _mat_data_json_map + """;
     m.appendChild(hdr);
     ITEMS.forEach(function(it){
       if(it.div){var dv=D.createElement('div');dv.style.cssText='height:1px;background:#f1f5f9;margin:5px 8px;';m.appendChild(dv);}
-      var btn=D.querySelector(it.sel);
-      var enabled=!!(btn && !btn.disabled);
+      var enabled=tr.getAttribute('data-'+it.attr)==='1';
       var row=D.createElement('div');
       row.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:13px;font-weight:600;'+(enabled?'color:#0f172a;cursor:pointer;':'color:#cbd5e1;cursor:default;');
       row.innerHTML=ic(it.ico)+'<span>'+it.lbl+'</span>';
       if(enabled){
         row.addEventListener('mouseenter',function(){row.style.background='#eef2ff';});
         row.addEventListener('mouseleave',function(){row.style.background='transparent';});
-        row.addEventListener('click',function(ev){ev.stopPropagation();closeMenu();clearPending();
-          setTimeout(function(){var b=D.querySelector(it.sel); if(b&&!b.disabled)b.click();},10);});
+        row.addEventListener('click',function(ev){ev.stopPropagation();closeMenu();fire(it.k,ep);});
       }
       m.appendChild(row);
     });
@@ -1393,81 +1553,32 @@ var MAT_DATA = """ + _mat_data_json_map + """;
     if(py-sy+rh>vh) py=sy+vh-rh-8;
     m.style.left=Math.max(sx+4,px)+'px'; m.style.top=Math.max(sy+4,py)+'px';
   }
-  function setBridge(ep){
-    var inp=D.querySelector('.st-key-_ctx_sel input'); if(!inp) return false;
-    try{
-      var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set;
-      inp.focus({preventScroll:true});
-      setter.call(inp, ep+'|'+Date.now());
-      inp.dispatchEvent(new Event('input',{bubbles:true}));
-      inp.dispatchEvent(new Event('change',{bubbles:true}));
-      inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
-      inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true}));
-      inp.blur();
-      return true;
-    }catch(e){return false;}
-  }
   if(W._ecCtxH) D.removeEventListener('contextmenu', W._ecCtxH, true);
   W._ecCtxH=function(e){
     var tr=e.target&&e.target.closest?e.target.closest('.resultados-table tbody tr'):null; if(!tr) return;
     var td=tr.querySelector('td[data-ep]'); if(!td) return;
     var ep=td.getAttribute('data-ep'); if(!ep) return;
     e.preventDefault();
-    if(ep===selEP()){ build(ep,e.pageX,e.pageY); }
-    else { try{sessionStorage.setItem('_ecCtxPending',JSON.stringify({ep:ep,x:e.pageX,y:e.pageY}));}catch(err){}
-           if(!setBridge(ep)) build(ep,e.pageX,e.pageY); }
+    build(tr, ep, e.pageX, e.pageY);
   };
   D.addEventListener('contextmenu', W._ecCtxH, true);
   if(W._ecCtxDown) D.removeEventListener('mousedown', W._ecCtxDown, true);
-  W._ecCtxDown=function(e){var m=D.getElementById(MENU_ID); if(m && !m.contains(e.target)){closeMenu();clearPending();}};
+  W._ecCtxDown=function(e){var m=D.getElementById(MENU_ID); if(m && !m.contains(e.target)) closeMenu();};
   D.addEventListener('mousedown', W._ecCtxDown, true);
   if(W._ecCtxKey) D.removeEventListener('keydown', W._ecCtxKey, true);
-  W._ecCtxKey=function(e){if(e.key==='Escape'){closeMenu();clearPending();}};
+  W._ecCtxKey=function(e){if(e.key==='Escape') closeMenu();};
   D.addEventListener('keydown', W._ecCtxKey, true);
-  setTimeout(function(){
-    try{ var p=sessionStorage.getItem('_ecCtxPending'); if(!p) return;
-      var o=JSON.parse(p); if(o && o.ep===selEP()){ build(o.ep,o.x,o.y); clearPending(); }
-    }catch(err){}
-  },450);
 })();
 </script>""", height=0)
 
-        st.markdown("### Seleccionar cotización")
+        # DROPDOWN "Seleccionar cotización" + fila de botones de acción DESCONECTADOS
+        # (prueba de velocidad): eran un widget nativo lento y pre-generaban 4 PDFs en
+        # CADA rerun (y los badges los filtraban junto con la tabla). Ahora las acciones
+        # de cada cotización van por el MENÚ CONTEXTUAL (click derecho). Dejar `opciones`
+        # vacío hace que se salte TODO el bloque `if opciones:` (dropdown + botones +
+        # rechazar + historial + visor de plano). Para reactivarlo, repoblar `opciones`.
         opciones = []
         _dd_options_list = []
-        _ec_map={'PROYECTO TERMINADO':('#7c3aed','#fff','🟣'),'ADJUDICADO':('#2563eb','#fff','🔵'),
-                 'AUTORIZADO CON PLANO':('#15803d','#fff','🟢'),'AUTORIZADO':('#15803d','#fff','🟢'),
-                 'BORRADOR CON PLANO':('#c2410c','#fff','🟠'),'BORRADOR':('#d97706','#212529','🟡'),
-                 'INCOMPLETO CON PLANO':('#dc2626','#fff','🔴'),'INCOMPLETO':('#dc2626','#fff','🔴'),
-                 'RECHAZADO':('#991b1b','#fbbf24','❌')}
-        # Orden: más reciente primero
-        try:
-            _df_dd = df_resultados.sort_values('Fecha_raw', ascending=False)
-        except Exception:
-            _df_dd = df_resultados
-        for idx, row in _df_dd.iterrows():
-            # EstadoKey viene de crear_badge_estado() — mismo valor usado para filtrar df_resultados,
-            # evita inconsistencia entre el filtro Python y el data-est de cada item del dropdown
-            estado = str(row.get('EstadoKey', '') or '').strip()
-            if not estado:
-                estado = str(row.get('Estado', '') or '').strip()
-                import re as _re_e2
-                estado = _re_e2.sub(r'<[^>]+>', '', estado).strip()
-            plano_ind="📎" if row['Tiene_Plano'] else ""
-            _total_limpio=""
-            for _rb in (st.session_state.resultados_busqueda or []):
-                if str(_rb[0])==str(row['N°']):
-                    _total_limpio=f"${_rb[4]:,.0f}".replace(",",".") if _rb[4] else "$0"; break
-            _asesor = str(row.get('Asesor', '') or '').strip()
-            _lbl=f"{row['N°']} - {row['Cliente'] or 'S/C'} ({row['FechaPlana']}) - {_total_limpio} - {estado} {plano_ind}".strip()
-            opciones.append(_lbl)
-            _asesor_sfx = f" | {_asesor}" if _asesor else ""
-            _lbl_m=f"{row['N°']} - {row['Cliente'] or 'S/C'} ({row['FechaPlana']}) - {_total_limpio}{_asesor_sfx}".strip()
-            _ec=_ec_map.get(estado,('#64748b','#fff',''))
-            # trig: label para el trigger (cerrado) — incluye estado entre corchetes y asesor
-            _lbl_trig = f"{row['N°']} - {row['Cliente'] or 'S/C'} ({row['FechaPlana']}) - {_total_limpio} [{estado}]{_asesor_sfx}".strip()
-            _dd_options_list.append({'ep':str(row['N°']),'label':_lbl,'est':estado,'lm':_lbl_m,'trig':_lbl_trig,'bg':_ec[0],'col':_ec[1],'em':_ec[2]})
-
 
         if opciones:
             _sel_ep_now = st.session_state.get('selector_ep_num', '')
