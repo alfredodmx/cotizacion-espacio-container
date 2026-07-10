@@ -1709,71 +1709,9 @@ var MAT_DATA = """ + _mat_data_json_map + """;
         # abrir su pestaña (rerun ligero) y se muestran como data-URL en PDF.js.
         _preview = st.session_state.get('_preview')
         if _preview and _preview.get('ep'):
-            import base64 as _b64pv
-            _pv_ep = str(_preview['ep'])
-            _pv_cot = cargar_cotizacion(_pv_ep)
-            _pvc = _pv_cot or {}
-            _pv_es_ej = _rol_actual == 'ejecutivo'
-            _pv_margen = float(_pvc.get('config_margen', 0) or 0)
-            _pv_datos = bool(_pvc.get('cliente_nombre') and _pvc.get('cliente_email'))
-            _pv_ase = bool(_pvc.get('asesor_nombre') or _pvc.get('asesor_email') or _pvc.get('asesor_telefono'))
-            _pv_autoriz = (_pv_margen > 0 and _pv_datos and _pv_ase)
-            _pv_pdf_ok = (not _pv_es_ej) or _pv_autoriz
-            _pv_tiene_sel = _pv_ep in _eps_con_seleccion(
-                tuple(sorted({str(_r[0]) for _r in (st.session_state.resultados_busqueda or [])})))
-            _pv_es_admin = _rol_actual in ('admin', 'root')
-            _PV_ALL = [
-                ('plano',        'Plano',     bool(_pvc.get('plano_url')), '<path d="M9 6 2 3v15l7 3 6-3 7 3V6l-7-3-6 3Z"/><path d="M9 6v15"/><path d="M15 3v15"/>'),
-                ('contrato',     'Contrato',  bool(_pvc.get('contrato_generado')), '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>'),
-                ('pdf_compras',  'Compras',   (not _pv_es_ej), '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>'),
-                ('pdf_completo', 'Completo',  _pv_pdf_ok, '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>'),
-                ('pdf_cliente',  'Cliente',   _pv_pdf_ok, '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'),
-                ('pdf_seleccion','Selecci&#243;n', _pv_tiene_sel, '<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>'),
-                ('pdf_modificaciones', 'Modificaciones', _pv_es_admin, '<path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/>'),
-            ]
-            _pv_docs = [(k, l, s) for (k, l, ok, s) in _PV_ALL if ok]
-            _pv_keys = [k for k, _, _ in _pv_docs]
-            _pv_cur = _preview.get('doc') or ''
-            if _pv_cur not in _pv_keys:
-                _pv_cur = 'plano' if 'plano' in _pv_keys else (_pv_keys[0] if _pv_keys else '')
-                st.session_state['_preview']['doc'] = _pv_cur
-
-            # Solo VISUALIZAR (sin descarga): plano por URL; PDF generados como data-URL.
-            _pv_src = ''; _pv_err = ''
-            try:
-                if _pv_cur == 'plano':
-                    _pv_src = _pvc.get('plano_url') or ''
-                    if not _pv_src:
-                        _pv_err = 'Esta cotizaci&#243;n no tiene plano adjunto.'
-                elif not _pv_cot:
-                    _pv_err = 'No se pudo cargar la cotizaci&#243;n.'
-                elif _pv_cur:
-                    _pvr = _ctx_gen(_pv_cur, _pv_ep, _pv_cot)
-                    if _pvr:
-                        # generar_pdf_* devuelve BytesIO/buffer → b64encode necesita bytes.
-                        _raw = _pvr[0]
-                        if hasattr(_raw, 'getvalue'):
-                            _raw = _raw.getvalue()
-                        elif hasattr(_raw, 'read'):
-                            _raw = _raw.read()
-                        _pv_src = 'data:application/pdf;base64,' + _b64pv.b64encode(_raw).decode('ascii')
-                    else:
-                        _pv_err = 'No hay datos suficientes para generar este documento.'
-            except Exception as _pve:
-                _pv_src = ''
-                _pv_err = 'Error al generar el documento: ' + str(_pve)[:240]
-
-            def _pv_ic(_p, _sz=15):
-                return (f'<svg width="{_sz}" height="{_sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
-                        f'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">{_p}</svg>')
-            _pv_x_ico = _pv_ic('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>', 17)
-
-            _pv_tabs_html = ''
-            for _k, _l, _s in _pv_docs:
-                _on = ' on' if _k == _pv_cur else ''
-                _pv_tabs_html += (f'<button class="pvtab{_on}" data-doc="{_k}">' + _pv_ic(_s) + f'<span>{_l}</span></button>')
-            _pv_cli_txt = str(_pvc.get('cliente_nombre', '') or '&#8212;').replace('<', '&lt;').replace('>', '&gt;')
-
+            # CSS del panel: FUERA del fragment (estatico) para que persista en los
+            # reruns del fragment. El width del iframe se ancla al viewport (mismo vw
+            # del panel) porque el bloque interno de Streamlit no se reduce al 50vw.
             st.markdown(
                 "<style>"
                 ".st-key-ec_drawer{position:fixed!important;top:0;right:0;height:100vh!important;width:50vw!important;"
@@ -1781,7 +1719,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 "box-shadow:-16px 0 44px rgba(15,23,42,0.24)!important;border-left:1px solid #e2e8f0!important;"
                 "overflow:hidden!important;padding:14px 18px!important;}"
                 ".st-key-ec_drawer [data-testid='stVerticalBlockBorderWrapper']{box-shadow:none!important;background:transparent!important;}"
-                ".st-key-_pv_close{position:absolute!important;left:-9999px!important;top:-9999px!important;height:0!important;overflow:hidden!important;}"
+                ".st-key-_pv_close,.st-key-_pv_cmd{position:absolute!important;left:-9999px!important;top:-9999px!important;height:0!important;overflow:hidden!important;}"
                 "#_ec_pv_backdrop{position:fixed;inset:0;background:rgba(15,23,42,0.42);z-index:999998;}"
                 ".pvhead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;}"
                 ".pvkick{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;font-weight:800;}"
@@ -1797,37 +1735,112 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 ".pvtab.on{background:#dbeafe;color:#1d4ed8;border-color:#93c5fd;}"
                 ".pverr{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:10px;padding:16px;"
                 "font-size:0.86rem;line-height:1.5;}"
-                # El bloque interno de Streamlit NO se reduce al 50vw del panel fijo, así
-                # que width:100% desborda. Anclamos el ancho al viewport (mismo vw del panel).
                 ".st-key-ec_drawer iframe{width:calc(50vw - 40px)!important;max-width:calc(50vw - 40px)!important;"
                 "height:calc(100vh - 150px)!important;min-height:320px!important;border:1px solid #e2e8f0!important;"
                 "border-radius:10px!important;display:block!important;}"
                 "</style>", unsafe_allow_html=True)
 
-            with st.container(key='ec_drawer'):
-                st.markdown(
-                    '<div class="pvhead"><div>'
-                    '<div class="pvkick">Documentos</div>'
-                    '<div class="pvtitle">' + _pv_ep + ' &middot; ' + _pv_cli_txt + '</div></div>'
-                    '<button id="_pv_x" class="pvx">' + _pv_x_ico + '</button></div>'
-                    '<div class="pvtabs">' + _pv_tabs_html + '</div>',
-                    unsafe_allow_html=True)
-                if _pv_src:
-                    components.html(_PV_VIEWER.replace("__SRC__", json.dumps(_pv_src)), height=760, scrolling=False)
-                else:
-                    st.markdown('<div class="pverr">' + (_pv_err or 'Documento no disponible.') + '</div>',
-                                unsafe_allow_html=True)
-                if st.button("cerrar", key='_pv_close'):
-                    st.session_state.pop('_preview', None)
-                    st.rerun()
+            @st.fragment
+            def _pv_fragment():
+                import base64 as _b64pv
+                _pv0 = st.session_state.get('_preview')
+                if not _pv0 or not _pv0.get('ep'):
+                    return
+                _pv_ep = str(_pv0['ep'])
+                # Bridge de PESTANA dentro del fragment: cambiar de documento rerun SOLO
+                # el fragment (no la pagina) => sin flash ni reconstruir la tabla de 88 filas.
+                st.text_input('pvc', key='_pv_cmd', label_visibility='collapsed')
+                _pvraw = str(st.session_state.get('_pv_cmd', '') or '')
+                if _pvraw.count('|') >= 2:
+                    _pa, _pe, _pn = _pvraw.split('|', 2)
+                    if _pn and _pn != st.session_state.get('_pv_done', '') and _pa.startswith('preview_'):
+                        st.session_state['_pv_done'] = _pn
+                        st.session_state['_preview']['doc'] = _pa[len('preview_'):]
 
-            # JS: backdrop (click afuera) + Esc + pestañas (bridge) + X → cerrar.
-            components.html(("""<script>
+                _pv_cot = cargar_cotizacion(_pv_ep)
+                _pvc = _pv_cot or {}
+                _pv_es_ej = _rol_actual == 'ejecutivo'
+                _pv_margen = float(_pvc.get('config_margen', 0) or 0)
+                _pv_datos = bool(_pvc.get('cliente_nombre') and _pvc.get('cliente_email'))
+                _pv_ase = bool(_pvc.get('asesor_nombre') or _pvc.get('asesor_email') or _pvc.get('asesor_telefono'))
+                _pv_autoriz = (_pv_margen > 0 and _pv_datos and _pv_ase)
+                _pv_pdf_ok = (not _pv_es_ej) or _pv_autoriz
+                _pv_tiene_sel = _pv_ep in _eps_con_seleccion(
+                    tuple(sorted({str(_r[0]) for _r in (st.session_state.resultados_busqueda or [])})))
+                _pv_es_admin = _rol_actual in ('admin', 'root')
+                _PV_ALL = [
+                    ('plano',        'Plano',     bool(_pvc.get('plano_url')), '<path d="M9 6 2 3v15l7 3 6-3 7 3V6l-7-3-6 3Z"/><path d="M9 6v15"/><path d="M15 3v15"/>'),
+                    ('contrato',     'Contrato',  bool(_pvc.get('contrato_generado')), '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>'),
+                    ('pdf_compras',  'Compras',   (not _pv_es_ej), '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>'),
+                    ('pdf_completo', 'Completo',  _pv_pdf_ok, '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>'),
+                    ('pdf_cliente',  'Cliente',   _pv_pdf_ok, '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'),
+                    ('pdf_seleccion','Selecci&#243;n', _pv_tiene_sel, '<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>'),
+                    ('pdf_modificaciones', 'Modificaciones', _pv_es_admin, '<path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/>'),
+                ]
+                _pv_docs = [(k, l, s) for (k, l, ok, s) in _PV_ALL if ok]
+                _pv_keys = [k for k, _, _ in _pv_docs]
+                _pv_cur = st.session_state['_preview'].get('doc') or ''
+                if _pv_cur not in _pv_keys:
+                    _pv_cur = 'plano' if 'plano' in _pv_keys else (_pv_keys[0] if _pv_keys else '')
+                    st.session_state['_preview']['doc'] = _pv_cur
+
+                _pv_src = ''; _pv_err = ''
+                try:
+                    if _pv_cur == 'plano':
+                        _pv_src = _pvc.get('plano_url') or ''
+                        if not _pv_src:
+                            _pv_err = 'Esta cotizaci&#243;n no tiene plano adjunto.'
+                    elif not _pv_cot:
+                        _pv_err = 'No se pudo cargar la cotizaci&#243;n.'
+                    elif _pv_cur:
+                        _pvr = _ctx_gen(_pv_cur, _pv_ep, _pv_cot)
+                        if _pvr:
+                            _raw = _pvr[0]
+                            if hasattr(_raw, 'getvalue'):
+                                _raw = _raw.getvalue()
+                            elif hasattr(_raw, 'read'):
+                                _raw = _raw.read()
+                            _pv_src = 'data:application/pdf;base64,' + _b64pv.b64encode(_raw).decode('ascii')
+                        else:
+                            _pv_err = 'No hay datos suficientes para generar este documento.'
+                except Exception as _pve:
+                    _pv_src = ''
+                    _pv_err = 'Error al generar el documento: ' + str(_pve)[:240]
+
+                def _pv_ic(_p, _sz=15):
+                    return (f'<svg width="{_sz}" height="{_sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+                            f'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">{_p}</svg>')
+                _pv_x_ico = _pv_ic('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>', 17)
+                _pv_tabs_html = ''
+                for _k, _l, _s in _pv_docs:
+                    _on = ' on' if _k == _pv_cur else ''
+                    _pv_tabs_html += (f'<button class="pvtab{_on}" data-doc="{_k}">' + _pv_ic(_s) + f'<span>{_l}</span></button>')
+                _pv_cli_txt = str(_pvc.get('cliente_nombre', '') or '&#8212;').replace('<', '&lt;').replace('>', '&gt;')
+
+                with st.container(key='ec_drawer'):
+                    st.markdown(
+                        '<div class="pvhead"><div>'
+                        '<div class="pvkick">Documentos</div>'
+                        '<div class="pvtitle">' + _pv_ep + ' &middot; ' + _pv_cli_txt + '</div></div>'
+                        '<button id="_pv_x" class="pvx">' + _pv_x_ico + '</button></div>'
+                        '<div class="pvtabs">' + _pv_tabs_html + '</div>',
+                        unsafe_allow_html=True)
+                    if _pv_src:
+                        components.html(_PV_VIEWER.replace("__SRC__", json.dumps(_pv_src)), height=760, scrolling=False)
+                    else:
+                        st.markdown('<div class="pverr">' + (_pv_err or 'Documento no disponible.') + '</div>',
+                                    unsafe_allow_html=True)
+                    if st.button("cerrar", key='_pv_close'):
+                        st.session_state.pop('_preview', None)
+                        st.rerun(scope="app")  # cierra el panel (rerun de toda la app)
+
+                # Backdrop + Esc + pestanas (escriben en _pv_cmd => rerun SOLO del fragment).
+                components.html(("""<script>
 (function(){
   var W=window.parent, D=W.document, EP=__EP__;
   function closeBtn(){var b=D.querySelector('.st-key-_pv_close button'); if(b) b.click();}
   function fire(action){
-    var inp=D.querySelector('.st-key-_ctx_cmd input'); if(!inp) return;
+    var inp=D.querySelector('.st-key-_pv_cmd input'); if(!inp) return;
     try{ var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set;
       inp.focus({preventScroll:true}); setter.call(inp, action+'|'+EP+'|'+Date.now());
       inp.dispatchEvent(new Event('input',{bubbles:true}));
@@ -1848,6 +1861,8 @@ var MAT_DATA = """ + _mat_data_json_map + """;
   D.addEventListener('keydown', W._ecPvKey, true);
 })();
 </script>""").replace("__EP__", json.dumps(_pv_ep)), height=0)
+
+            _pv_fragment()
         else:
             components.html("""<script>(function(){var D=window.parent.document;
   var b=D.getElementById('_ec_pv_backdrop'); if(b) b.remove();})();</script>""", height=0)
