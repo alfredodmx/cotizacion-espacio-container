@@ -1597,6 +1597,9 @@ def render_layout():
                     // iframe bloquea window.parent.location, y cambiar el query por JS
                     // lo intercepta Streamlit sin recargar; el meta es declarativo,
                     // sandbox/CSP-safe y React no toca <head>. app.py maneja ?logout=1.
+                    // Borra el token de sesión persistente ANTES de navegar, si no el
+                    // login lo restauraría de inmediato (no se cerraría la sesión).
+                    try { D.defaultView.localStorage.removeItem('ec_sess'); } catch(_e2){}
                     try {
                         var L = D.defaultView.location;
                         var m = D.createElement('meta');

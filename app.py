@@ -43,6 +43,8 @@ recover_session_from_query_param(supabase)
 check_session_timeout()
 
 if not st.session_state.auth_user:
+    from auth.session import render_persist_restore
+    render_persist_restore()   # restaura la sesión desde localStorage (si hay token)
     from auth.auth_service import login_usuario
     from views.login_view import render_login
     render_login(login_usuario)
@@ -51,6 +53,9 @@ process_query_params()
 
 from views.layout import render_layout
 render_layout()
+
+from auth.session import render_persist_store
+render_persist_store()   # guarda/renueva el token de sesión en localStorage (1h rodante)
 
 from views.tab_cotizacion import render_floating_panels, render_cerrar_cotizacion_control
 

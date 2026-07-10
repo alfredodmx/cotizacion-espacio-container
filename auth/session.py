@@ -12,6 +12,45 @@ from auth.roles import get_rol
 SESSION_TIMEOUT = 8 * 3600  # segundos
 
 
+def render_persist_restore() -> None:
+    """(Pantalla de login) Si hay token en localStorage, lo inyecta a ?_sess vía
+    meta-refresh para restaurar la sesión al refrescar. Si el último intento fue
+    inválido (_sess_bad), en cambio BORRA el token de localStorage → rompe cualquier
+    loop de recarga. El login normal (email/clave) NO se ve afectado."""
+    import streamlit.components.v1 as _c
+    if st.session_state.pop('_sess_bad', False):
+        _c.html("<script>try{window.parent.localStorage.removeItem('ec_sess');}catch(e){}</script>", height=0)
+        return
+    _c.html(
+        "<script>try{"
+        "var W=window.parent, D=W.document, L=D.defaultView.location;"
+        "var t=W.localStorage.getItem('ec_sess');"
+        "if(t && L.search.indexOf('_sess=')===-1){"
+        "var m=D.createElement('meta'); m.httpEquiv='refresh';"
+        "m.content='0; url='+L.origin+L.pathname+'?_sess='+encodeURIComponent(t);"
+        "D.head.appendChild(m);}"
+        "}catch(e){}</script>", height=0)
+
+
+def render_persist_store() -> None:
+    """(Autenticado) Guarda/renueva el token firmado en localStorage (sesión rodante
+    de 1h) para que sobreviva al refresco. Se re-emite en cada run mientras el usuario
+    navega, así la ventana de 1h cuenta desde la última actividad."""
+    _uid = st.session_state.get('auth_user')
+    if not _uid:
+        return
+    # Re-emite a lo más cada 45s (evita generar token + iframe en cada rerun).
+    _now = time.time()
+    if (_now - st.session_state.get('_persist_last', 0)) < 45:
+        return
+    st.session_state['_persist_last'] = _now
+    import json as _json
+    import streamlit.components.v1 as _c
+    from auth.system_token import crear_token_sistema
+    _tok = crear_token_sistema(str(_uid))
+    _c.html("<script>try{window.parent.localStorage.setItem('ec_sess'," + _json.dumps(_tok) + ");}catch(e){}</script>", height=0)
+
+
 _SESSION_DEFAULTS: dict = {
     # ── Auth ──
     'modo_admin':           False,
@@ -105,27 +144,45 @@ def init_session_state() -> None:
 
 
 def recover_session_from_query_param(supabase_client) -> None:
-    """Recupera sesion Supabase desde el query param ?_sess=<token>."""
+    """Restaura la sesión desde ?_sess=<token firmado del sistema>.
+
+    El token lo inyecta el JS del login leyéndolo de localStorage (persistencia al
+    refrescar). Se valida firma + expiración y se re-consulta el usuario por la
+    service key (rol/baneo FRESCOS). Éxito → rerun; fallo → marca `_sess_bad` para
+    que el login borre el token inválido de localStorage y no se genere un loop.
+    """
     _sess_token = st.query_params.get("_sess")
-    if not st.session_state.auth_user and _sess_token:
+    if st.session_state.auth_user or not _sess_token:
+        return
+    from auth.system_token import validar_token_sistema
+    from config.supabase import supabase_admin
+    _ok = False
+    _uid = validar_token_sistema(_sess_token)
+    if _uid:
         try:
-            _sess_user = supabase_client.auth.get_user(_sess_token)
-            if _sess_user and _sess_user.user:
-                _u    = _sess_user.user
+            _res = supabase_admin.auth.admin.get_user_by_id(_uid)
+            _u = getattr(_res, 'user', None) or (_res if (_res is not None and hasattr(_res, 'email')) else None)
+            _banned = bool(getattr(_u, 'banned_until', None)) if _u else True
+            if _u and not _banned:
                 _meta = _u.user_metadata or {}
-                _rol  = get_rol(_u.email, _meta)
-                st.session_state.auth_user    = str(_u.id)
-                st.session_state.auth_email   = _u.email or ""
-                st.session_state.auth_nombre  = _meta.get("nombre", _u.email or "")
-                st.session_state.rol_usuario  = _rol
+                _rol = get_rol(_u.email, _meta)
+                st.session_state.auth_user     = str(_u.id)
+                st.session_state.auth_email    = _u.email or ""
+                st.session_state.auth_nombre   = _meta.get("nombre", _u.email or "")
+                st.session_state.rol_usuario   = _rol
                 st.session_state.es_supervisor = _rol in ("root", "admin")
                 st.session_state.es_root       = _rol == "root"
                 st.session_state.es_operacion  = _rol == "operacion"
                 st.session_state.modo_admin    = _rol in ("root", "admin")
-                st.query_params.clear()
-                st.rerun()
+                st.session_state['_last_activity'] = time.time()
+                _ok = True
         except Exception:
-            st.query_params.clear()
+            _ok = False
+    st.query_params.clear()
+    if _ok:
+        st.rerun()
+    else:
+        st.session_state['_sess_bad'] = True
 
 
 def process_query_params() -> None:
@@ -192,6 +249,7 @@ def check_session_timeout() -> None:
             import streamlit.components.v1 as _c
             _c.html(
                 '<script>try{var D=window.parent.document;var L=D.defaultView.location;'
+                'try{D.defaultView.localStorage.removeItem("ec_sess");}catch(e2){}'
                 'var m=D.createElement("meta");m.httpEquiv="refresh";'
                 'm.content="0; url="+L.origin+L.pathname+"?expired=1";'
                 'D.head.appendChild(m);}catch(e){}</script>',
