@@ -60,6 +60,45 @@ def _hic(name, color="#0f172a", size=14, mr=6, valign=-2, sw=2):
     )
 
 
+# Visor PDF.js del drawer de documentos: renderiza __SRC__ (URL del plano o data-URL
+# base64 de un PDF generado) a canvas — cross-browser, ver [[project_pdf_viewer_pdfjs]].
+_PV_VIEWER = """<style>
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+body,html{margin:0;padding:0;}
+#pdf-wrap{width:100%;height:610px;border:1px solid #e2e8f0;border-radius:10px;overflow-y:auto;overflow-x:hidden;background:#525659;position:relative;}
+#pdf-loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f0f2f5;z-index:2;gap:12px;transition:opacity .4s ease;}
+#pdf-spinner{width:38px;height:38px;border:4px solid #cbd5e1;border-top-color:#5b7cfa;border-radius:50%;animation:spin .8s linear infinite;}
+#pdf-loading span{color:#64748b;font-size:.9rem;font-family:sans-serif;text-align:center;padding:0 16px;}
+#pdf-pages{padding:12px 0;text-align:center;}
+#pdf-pages canvas{display:block;margin:0 auto 12px;max-width:96%;box-shadow:0 2px 10px rgba(0,0,0,.4);background:#fff;}
+</style>
+<div id="pdf-wrap"><div id="pdf-loading"><div id="pdf-spinner"></div><span id="pdf-status">Cargando documento...</span></div><div id="pdf-pages"></div></div>
+<script>
+function _ecPvStart(){
+  var url=__SRC__;
+  var loading=document.getElementById('pdf-loading');
+  var statusEl=document.getElementById('pdf-status');
+  var pages=document.getElementById('pdf-pages');
+  function hide(){loading.style.opacity='0';setTimeout(function(){loading.style.display='none';},400);}
+  if(typeof pdfjsLib==='undefined'){statusEl.textContent='No se pudo cargar el visor.';return;}
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  pdfjsLib.getDocument({url:url,withCredentials:false}).promise.then(function(pdf){
+    var first=true;var seq=Promise.resolve();
+    for(var i=1;i<=pdf.numPages;i++){(function(num){
+      seq=seq.then(function(){return pdf.getPage(num).then(function(page){
+        var vp=page.getViewport({scale:1.5});
+        var c=document.createElement('canvas');var ctx=c.getContext('2d');
+        c.width=vp.width;c.height=vp.height;pages.appendChild(c);
+        return page.render({canvasContext:ctx,viewport:vp}).promise.then(function(){if(first){first=false;hide();}});
+      });});
+    })(i);}
+  }).catch(function(err){statusEl.textContent='No se pudo mostrar el documento.';});
+}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" onload="_ecPvStart()" onerror="var s=document.getElementById('pdf-status');if(s)s.textContent='No se pudo cargar el visor.';"></script>
+"""
+
+
 # ── Wrappers cacheados (evitan trabajo pesado en cada rerun, p.ej. al filtrar) ──
 @st.cache_data(ttl=60, show_spinner=False)
 def _money_cards_global() -> tuple:
@@ -965,12 +1004,17 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                 _cx_rech = '0'
             else:
                 _cx_rech = '1'
+            _cx_selok = str(row.get('N°','')) in _eps_sel_set
+            _cx_planook = bool(row.get('Tiene_Plano'))
+            # Ver documentos: hay algo que ver si el rol puede ver algún documento.
+            _cx_ver = '1' if (_cx_planook or (not _es_ej_ctx_tbl) or _cx_pdf == '1' or _cx_selok) else '0'
             _ctx_attrs = (
+                f" data-ver='{_cx_ver}'"
                 f" data-cargar='{'1' if (_modo_adm_ctx or _cx_mg <= 0) else '0'}'"
                 f" data-compras='{'0' if _es_ej_ctx_tbl else '1'}'"
                 f" data-completo='{_cx_pdf}' data-cliente='{_cx_pdf}'"
-                f" data-seleccion='{'1' if str(row.get('N°','')) in _eps_sel_set else '0'}'"
-                f" data-plano='{'1' if row.get('Tiene_Plano') else '0'}'"
+                f" data-seleccion='{'1' if _cx_selok else '0'}'"
+                f" data-plano='{'1' if _cx_planook else '0'}'"
                 f" data-rechazar='{_cx_rech}'")
             rows_html+=(f"<tr{_fila_class} data-est='{_est_attr}'{_ctx_attrs}>"
                 f"<td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} {_hic('copy','#3b82f6',12,0)}</td>"
@@ -1437,6 +1481,85 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             _dv = cot.get('proyecto_dias_validez', 15)
             return _df, _sub, _iva, _tot, _dc, _da, _fi, _ft, _dv, _mg
 
+        def _ctx_gen(doc, ep, cot):
+            """Genera/obtiene (bytes, filename, mime) del documento pedido, o None.
+            Compartido por la descarga (menú) y el visor de documentos (drawer)."""
+            if doc == 'pdf_completo':
+                _df,_sub,_iva,_tot,_dc,_da,_fi,_ft,_dv,_mg = _ctx_prep(cot)
+                _b,_ = generar_pdf_completo(_df,_sub,_iva,_tot,_dc,_fi,_ft,_dv,_da,margen=_mg,numero_cotizacion=ep)
+                return (_b, f"Presupuesto_Completo_{ep}.pdf", "application/pdf")
+            if doc == 'pdf_cliente':
+                _df,_sub,_iva,_tot,_dc,_da,_fi,_ft,_dv,_mg = _ctx_prep(cot)
+                _desc = cargar_descripciones_por_ep(ep, supa_url, bust_cache=True)
+                _b,_ = generar_pdf_cliente(_df,_sub,_iva,_tot,_dc,_fi,_ft,_dv,_da,margen=_mg,numero_cotizacion=ep,descripciones_ep=_desc)
+                return (_b, f"Presupuesto_Cliente_{ep}.pdf", "application/pdf")
+            if doc == 'pdf_compras':
+                _dfr = pd.DataFrame(cot['productos'])
+                _dfc = _dfr[_dfr['Categoria'].str.strip().str.lower() != 'varios'].copy()
+                _sub = _dfc['Subtotal'].sum(); _iva = _sub*0.19; _tot = _sub+_iva
+                _dc = {
+                    "Nombre": cot.get('cliente_nombre',''), "RUT": cot.get('cliente_rut',''),
+                    "Correo": cot.get('cliente_email',''),
+                    "Tel&#233;fono": formatear_telefono(cot.get('cliente_telefono','')),
+                    "Direcci&#243;n": cot.get('cliente_direccion',''),
+                    "ComunaCliente": cot.get('cliente_comuna',''), "RegionCliente": cot.get('cliente_region',''),
+                    "DireccionProyecto": cot.get('proyecto_direccion',''),
+                    "ComunaProyecto": cot.get('proyecto_comuna',''), "RegionProyecto": cot.get('proyecto_region',''),
+                    "TipoCliente": cot.get('cliente_tipo','natural'), "EmpresaCliente": cot.get('cliente_empresa',''),
+                    "RutEmpresa": cot.get('cliente_rut_empresa',''), "Observaciones": cot.get('proyecto_observaciones',''),
+                }
+                _da = {
+                    "Nombre Ejecutivo": cot.get('asesor_nombre',''),
+                    "Correo Ejecutivo": cot.get('asesor_email',''),
+                    "Tel&#233;fono Ejecutivo": formatear_telefono(cot.get('asesor_telefono','')),
+                }
+                _fic = datetime.strptime(cot.get('proyecto_fecha_inicio', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d').date()
+                _ftc = datetime.strptime(cot.get('proyecto_fecha_termino', (datetime.now()+timedelta(days=15)).strftime('%Y-%m-%d')), '%Y-%m-%d').date()
+                _dvc = cot.get('proyecto_dias_validez', 15)
+                _fadj = cot.get('fecha_adjudicacion') or None
+                _ffid = cot.get('fecha_entrega') or None
+                try:
+                    _cdr = cot.get('contrato_datos') or {}
+                    if isinstance(_cdr, str): _cdr = json.loads(_cdr)
+                    _plz = int(_cdr.get('plazo_dias', 45) or 45)
+                except Exception:
+                    _plz = 45
+                _b,_ = generar_pdf_completo(_dfc,_sub,_iva,_tot,_dc,_fic,_ftc,_dvc,_da,margen=0,
+                    numero_cotizacion=ep,mostrar_precios=True,
+                    fecha_adjudicacion=_fadj,fecha_fidelizacion=_ffid,plazo_obra_dias=_plz)
+                return (_b, f"Compras_{ep}.pdf", "application/pdf")
+            if doc == 'pdf_seleccion':
+                _cfg = _fetch_formulario_config(ep)
+                if not _cfg:
+                    return None
+                _rr = supabase_admin.table('formulario_respuestas').select('item_id,respuesta').eq('cotizacion_numero', ep).execute().data or []
+                _res = {r['item_id']: r['respuesta'] for r in _rr if r.get('item_id')}
+                _ids = [str(i) for c in _cfg for i in (c.get('item_ids') or [])]
+                _mit = {}
+                if _ids:
+                    _m = supabase_admin.table('catalogo_materiales').select('id,nombre,imagen_url,hex,tipo').in_('id', _ids).execute().data or []
+                    _mit = {str(x['id']): x for x in _m}
+                _fecha = ''
+                try:
+                    _fc = cot.get('fecha_formulario_completado','')
+                    if _fc: _fecha = datetime.fromisoformat(_fc[:19]).strftime('%d/%m/%Y')
+                except Exception:
+                    pass
+                if not _fecha: _fecha = datetime.now().strftime('%d/%m/%Y')
+                _b = generar_pdf_seleccion_cliente(ep, cot.get('cliente_nombre',''), _cfg, _res, _mit, fecha_formulario=_fecha)
+                return (_b, f"Seleccion_Cliente_{ep}.pdf", "application/pdf")
+            if doc == 'plano':
+                _pu = cot.get('plano_url')
+                if not _pu:
+                    return None
+                _pb = _fetch_plano_bytes(_pu)
+                if not _pb:
+                    return None
+                _pn = cot.get('plano_nombre') or f"Plano_{ep}.pdf"
+                _pm = 'application/pdf' if str(_pn).lower().endswith('.pdf') else 'application/octet-stream'
+                return (_pb, _pn, _pm)
+            return None
+
         _ctx_dl = None  # (bytes, filename, mime) del documento pedido
         if _ctx_action and _ctx_ep:
             if _ctx_action == 'cargar':
@@ -1457,81 +1580,15 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                     st.rerun()
                 except Exception as _qre:
                     st.toast(f"No se pudo quitar el rechazo: {_qre}", icon=":material/error:")
+            elif _ctx_action == 'ver' or _ctx_action.startswith('preview_'):
+                # Abre/cambia el visor de documentos (drawer). doc='' => elige el default.
+                _pv_doc = _ctx_action[len('preview_'):] if _ctx_action.startswith('preview_') else ''
+                st.session_state['_preview'] = {'ep': _ctx_ep, 'doc': _pv_doc}
             else:
                 try:
                     _cot = cargar_cotizacion(_ctx_ep)
                     if _cot:
-                        if _ctx_action == 'pdf_completo':
-                            _df,_sub,_iva,_tot,_dc,_da,_fi,_ft,_dv,_mg = _ctx_prep(_cot)
-                            _b,_ = generar_pdf_completo(_df,_sub,_iva,_tot,_dc,_fi,_ft,_dv,_da,margen=_mg,numero_cotizacion=_ctx_ep)
-                            _ctx_dl = (_b, f"Presupuesto_Completo_{_ctx_ep}.pdf", "application/pdf")
-                        elif _ctx_action == 'pdf_cliente':
-                            _df,_sub,_iva,_tot,_dc,_da,_fi,_ft,_dv,_mg = _ctx_prep(_cot)
-                            _desc = cargar_descripciones_por_ep(_ctx_ep, supa_url, bust_cache=True)
-                            _b,_ = generar_pdf_cliente(_df,_sub,_iva,_tot,_dc,_fi,_ft,_dv,_da,margen=_mg,numero_cotizacion=_ctx_ep,descripciones_ep=_desc)
-                            _ctx_dl = (_b, f"Presupuesto_Cliente_{_ctx_ep}.pdf", "application/pdf")
-                        elif _ctx_action == 'pdf_compras':
-                            _dfr = pd.DataFrame(_cot['productos'])
-                            _dfc = _dfr[_dfr['Categoria'].str.strip().str.lower() != 'varios'].copy()
-                            _sub = _dfc['Subtotal'].sum(); _iva = _sub*0.19; _tot = _sub+_iva
-                            _dc = {
-                                "Nombre": _cot.get('cliente_nombre',''), "RUT": _cot.get('cliente_rut',''),
-                                "Correo": _cot.get('cliente_email',''),
-                                "Tel&#233;fono": formatear_telefono(_cot.get('cliente_telefono','')),
-                                "Direcci&#243;n": _cot.get('cliente_direccion',''),
-                                "ComunaCliente": _cot.get('cliente_comuna',''), "RegionCliente": _cot.get('cliente_region',''),
-                                "DireccionProyecto": _cot.get('proyecto_direccion',''),
-                                "ComunaProyecto": _cot.get('proyecto_comuna',''), "RegionProyecto": _cot.get('proyecto_region',''),
-                                "TipoCliente": _cot.get('cliente_tipo','natural'), "EmpresaCliente": _cot.get('cliente_empresa',''),
-                                "RutEmpresa": _cot.get('cliente_rut_empresa',''), "Observaciones": _cot.get('proyecto_observaciones',''),
-                            }
-                            _da = {
-                                "Nombre Ejecutivo": _cot.get('asesor_nombre',''),
-                                "Correo Ejecutivo": _cot.get('asesor_email',''),
-                                "Tel&#233;fono Ejecutivo": formatear_telefono(_cot.get('asesor_telefono','')),
-                            }
-                            _fic = datetime.strptime(_cot.get('proyecto_fecha_inicio', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d').date()
-                            _ftc = datetime.strptime(_cot.get('proyecto_fecha_termino', (datetime.now()+timedelta(days=15)).strftime('%Y-%m-%d')), '%Y-%m-%d').date()
-                            _dvc = _cot.get('proyecto_dias_validez', 15)
-                            _fadj = _cot.get('fecha_adjudicacion') or None
-                            _ffid = _cot.get('fecha_entrega') or None
-                            try:
-                                _cdr = _cot.get('contrato_datos') or {}
-                                if isinstance(_cdr, str): _cdr = json.loads(_cdr)
-                                _plz = int(_cdr.get('plazo_dias', 45) or 45)
-                            except Exception:
-                                _plz = 45
-                            _b,_ = generar_pdf_completo(_dfc,_sub,_iva,_tot,_dc,_fic,_ftc,_dvc,_da,margen=0,
-                                numero_cotizacion=_ctx_ep,mostrar_precios=True,
-                                fecha_adjudicacion=_fadj,fecha_fidelizacion=_ffid,plazo_obra_dias=_plz)
-                            _ctx_dl = (_b, f"Compras_{_ctx_ep}.pdf", "application/pdf")
-                        elif _ctx_action == 'pdf_seleccion':
-                            _cfg = _fetch_formulario_config(_ctx_ep)
-                            if _cfg:
-                                _rr = supabase_admin.table('formulario_respuestas').select('item_id,respuesta').eq('cotizacion_numero', _ctx_ep).execute().data or []
-                                _res = {r['item_id']: r['respuesta'] for r in _rr if r.get('item_id')}
-                                _ids = [str(i) for c in _cfg for i in (c.get('item_ids') or [])]
-                                _mit = {}
-                                if _ids:
-                                    _m = supabase_admin.table('catalogo_materiales').select('id,nombre,imagen_url,hex,tipo').in_('id', _ids).execute().data or []
-                                    _mit = {str(x['id']): x for x in _m}
-                                _fecha = ''
-                                try:
-                                    _fc = _cot.get('fecha_formulario_completado','')
-                                    if _fc: _fecha = datetime.fromisoformat(_fc[:19]).strftime('%d/%m/%Y')
-                                except Exception:
-                                    pass
-                                if not _fecha: _fecha = datetime.now().strftime('%d/%m/%Y')
-                                _b = generar_pdf_seleccion_cliente(_ctx_ep, _cot.get('cliente_nombre',''), _cfg, _res, _mit, fecha_formulario=_fecha)
-                                _ctx_dl = (_b, f"Seleccion_Cliente_{_ctx_ep}.pdf", "application/pdf")
-                        elif _ctx_action == 'plano':
-                            _pu = _cot.get('plano_url')
-                            if _pu:
-                                _pb = _fetch_plano_bytes(_pu)
-                                if _pb:
-                                    _pn = _cot.get('plano_nombre') or f"Plano_{_ctx_ep}.pdf"
-                                    _pm = 'application/pdf' if str(_pn).lower().endswith('.pdf') else 'application/octet-stream'
-                                    _ctx_dl = (_pb, _pn, _pm)
+                        _ctx_dl = _ctx_gen(_ctx_action, _ctx_ep, _cot)
                 except Exception as _ctxe:
                     st.toast(f"No se pudo generar el documento: {_ctxe}", icon=":material/error:")
 
@@ -1578,6 +1635,110 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                             st.warning("Debes ingresar un motivo.")
             _dlg_rechazo_ctx()
 
+        # ── Visor de documentos (panel deslizante desde la derecha) ──────────────
+        # Se abre con "Ver documentos" del menú. Pestañas = documentos disponibles y
+        # PERMITIDOS por rol. Plano se ve por URL (instantáneo); los PDF se generan al
+        # abrir su pestaña (rerun ligero) y se muestran como data-URL en PDF.js.
+        _preview = st.session_state.get('_preview')
+        if _preview and _preview.get('ep'):
+            import base64 as _b64pv
+            _pv_ep = str(_preview['ep'])
+            _pv_cot = cargar_cotizacion(_pv_ep)
+            _pvc = _pv_cot or {}
+            _pv_es_ej = _rol_actual == 'ejecutivo'
+            _pv_margen = float(_pvc.get('config_margen', 0) or 0)
+            _pv_datos = bool(_pvc.get('cliente_nombre') and _pvc.get('cliente_email'))
+            _pv_ase = bool(_pvc.get('asesor_nombre') or _pvc.get('asesor_email') or _pvc.get('asesor_telefono'))
+            _pv_autoriz = (_pv_margen > 0 and _pv_datos and _pv_ase)
+            _pv_pdf_ok = (not _pv_es_ej) or _pv_autoriz
+            _pv_tiene_sel = _pv_ep in _eps_con_seleccion(
+                tuple(sorted({str(_r[0]) for _r in (st.session_state.resultados_busqueda or [])})))
+            _PV_ALL = [
+                ('plano',        'Plano',     bool(_pvc.get('plano_url')), '<path d="M9 6 2 3v15l7 3 6-3 7 3V6l-7-3-6 3Z"/><path d="M9 6v15"/><path d="M15 3v15"/>'),
+                ('pdf_compras',  'Compras',   (not _pv_es_ej), '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>'),
+                ('pdf_completo', 'Completo',  _pv_pdf_ok, '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>'),
+                ('pdf_cliente',  'Cliente',   _pv_pdf_ok, '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'),
+                ('pdf_seleccion','Selecci&#243;n', _pv_tiene_sel, '<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>'),
+            ]
+            _pv_docs = [(k, l, s) for (k, l, ok, s) in _PV_ALL if ok]
+            _pv_keys = [k for k, _, _ in _pv_docs]
+            _pv_cur = _preview.get('doc') or ''
+            if _pv_cur not in _pv_keys:
+                _pv_cur = 'plano' if 'plano' in _pv_keys else (_pv_keys[0] if _pv_keys else '')
+                st.session_state['_preview']['doc'] = _pv_cur
+
+            _pv_src = ''; _pv_dl_bytes = None; _pv_dlname = ''
+            try:
+                if _pv_cur == 'plano':
+                    _pv_src = _pvc.get('plano_url') or ''
+                    _pv_dlname = _pvc.get('plano_nombre') or f'Plano_{_pv_ep}.pdf'
+                    if _pv_src:
+                        _pv_dl_bytes = _fetch_plano_bytes(_pv_src)
+                elif _pv_cur and _pv_cot:
+                    _pvr = _ctx_gen(_pv_cur, _pv_ep, _pv_cot)
+                    if _pvr:
+                        _pv_dl_bytes = _pvr[0]; _pv_dlname = _pvr[1]
+                        _pv_src = 'data:application/pdf;base64,' + _b64pv.b64encode(_pvr[0]).decode('ascii')
+            except Exception:
+                _pv_src = ''
+
+            st.markdown(
+                "<style>"
+                ".st-key-ec_drawer{position:fixed!important;top:0;right:0;height:100vh!important;width:50vw!important;"
+                "min-width:400px;z-index:1000000!important;background:#fff!important;"
+                "box-shadow:-16px 0 44px rgba(15,23,42,0.24)!important;border-left:1px solid #e2e8f0!important;"
+                "overflow-y:auto!important;padding:14px 18px 20px!important;}"
+                ".st-key-ec_drawer [data-testid='stVerticalBlockBorderWrapper']{box-shadow:none!important;}"
+                ".st-key-_pv_close button{border-radius:8px!important;}"
+                "#_ec_pv_backdrop{position:fixed;inset:0;background:rgba(15,23,42,0.42);z-index:999998;}"
+                "</style>", unsafe_allow_html=True)
+
+            _pv_cli_txt = str(_pvc.get('cliente_nombre', '') or '&#8212;').replace('<', '&lt;').replace('>', '&gt;')
+            with st.container(key='ec_drawer'):
+                _dh1, _dh2 = st.columns([5, 1], vertical_alignment='center')
+                with _dh1:
+                    st.markdown(
+                        "<div style='font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;font-weight:700;'>Documentos</div>"
+                        f"<div style='font-size:15px;font-weight:800;color:#0f172a;'>{_pv_ep} &middot; {_pv_cli_txt}</div>",
+                        unsafe_allow_html=True)
+                with _dh2:
+                    if st.button("", icon=":material/close:", key='_pv_close', help='Cerrar'):
+                        st.session_state.pop('_preview', None)
+                        st.rerun()
+                if _pv_docs:
+                    _tcols = st.columns(len(_pv_docs))
+                    for _i, (_k, _l, _s) in enumerate(_pv_docs):
+                        with _tcols[_i]:
+                            if st.button(_l, key=f'_pv_tab_{_k}', use_container_width=True,
+                                         type=('primary' if _k == _pv_cur else 'secondary')):
+                                st.session_state['_preview']['doc'] = _k
+                                st.rerun()
+                if _pv_src:
+                    components.html(_PV_VIEWER.replace("__SRC__", json.dumps(_pv_src)), height=630, scrolling=False)
+                else:
+                    st.info("Documento no disponible para esta cotizaci&#243;n.")
+                if _pv_dl_bytes:
+                    st.download_button("Descargar este documento", data=_pv_dl_bytes, file_name=_pv_dlname,
+                                       mime="application/pdf", use_container_width=True, key='_pv_dl')
+
+            # Backdrop (click afuera) + Esc → clickean el botón de cerrar (_pv_close).
+            components.html(r"""<script>
+(function(){
+  var W=window.parent, D=W.document;
+  function closeBtn(){var b=D.querySelector('.st-key-_pv_close button'); if(b) b.click();}
+  var ex=D.getElementById('_ec_pv_backdrop'); if(ex) ex.remove();
+  var bd=D.createElement('div'); bd.id='_ec_pv_backdrop';
+  bd.addEventListener('click', closeBtn);
+  D.body.appendChild(bd);
+  if(W._ecPvKey) D.removeEventListener('keydown', W._ecPvKey, true);
+  W._ecPvKey=function(e){if(e.key==='Escape') closeBtn();};
+  D.addEventListener('keydown', W._ecPvKey, true);
+})();
+</script>""", height=0)
+        else:
+            components.html("""<script>(function(){var D=window.parent.document;
+  var b=D.getElementById('_ec_pv_backdrop'); if(b) b.remove();})();</script>""", height=0)
+
         # JS del menú: aparece AL INSTANTE (sin rerun) leyendo las banderas data-* de
         # la fila. Cada acción escribe en el bridge oculto (_ctx_cmd) → Python genera y
         # auto-descarga. Handlers deduplicados en window.parent (sobreviven al rerun).
@@ -1585,6 +1746,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
 (function(){
   var W=window.parent, D=W.document, MENU_ID='_ec_ctxmenu';
   var ITEMS=[
+    {k:'ver',           lbl:'Ver documentos', attr:'ver', ico:'<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>'},
     {k:'cargar',        lbl:'Cargar presupuesto', attr:'cargar',    ico:'<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>'},
     {k:'pdf_compras',   lbl:'PDF compras',   attr:'compras',   ico:'<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>'},
     {k:'pdf_completo',  lbl:'PDF completo',  attr:'completo',  ico:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>'},
