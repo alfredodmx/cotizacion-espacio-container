@@ -1764,8 +1764,11 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 ".pvtab.on{background:#dbeafe;color:#1d4ed8;border-color:#93c5fd;}"
                 ".pverr{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:10px;padding:16px;"
                 "font-size:0.86rem;line-height:1.5;}"
-                ".st-key-ec_drawer iframe{width:100%!important;height:calc(100vh - 150px)!important;"
-                "min-height:320px!important;border:1px solid #e2e8f0!important;border-radius:10px!important;display:block!important;}"
+                # El bloque interno de Streamlit NO se reduce al 50vw del panel fijo, así
+                # que width:100% desborda. Anclamos el ancho al viewport (mismo vw del panel).
+                ".st-key-ec_drawer iframe{width:calc(50vw - 40px)!important;max-width:calc(50vw - 40px)!important;"
+                "height:calc(100vh - 150px)!important;min-height:320px!important;border:1px solid #e2e8f0!important;"
+                "border-radius:10px!important;display:block!important;}"
                 "</style>", unsafe_allow_html=True)
 
             with st.container(key='ec_drawer'):
