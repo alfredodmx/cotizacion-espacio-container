@@ -63,48 +63,77 @@ def _hic(name, color="#0f172a", size=14, mr=6, valign=-2, sw=2):
 # Visor PDF.js del drawer de documentos: renderiza __SRC__ (URL del plano o data-URL
 # base64 de un PDF generado) a canvas — cross-browser, ver [[project_pdf_viewer_pdfjs]].
 _PV_VIEWER = """<style>
-@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 *{box-sizing:border-box;}
-body,html{margin:0;padding:0;overflow-x:hidden;}
-#pdf-wrap{width:100%;height:600px;border:1px solid #e2e8f0;border-radius:10px;overflow-y:auto;overflow-x:hidden;background:#525659;position:relative;}
-#pdf-loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f0f2f5;z-index:2;gap:12px;transition:opacity .4s ease;}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+html,body{margin:0;padding:0;height:100%;overflow:hidden;font-family:sans-serif;background:#525659;}
+#pdf-wrap{position:absolute;inset:0;overflow:auto;-webkit-overflow-scrolling:touch;}
+#pdf-pages{padding:16px;display:flex;flex-direction:column;align-items:center;gap:14px;min-width:min-content;}
+#pdf-pages canvas{display:block;box-shadow:0 3px 12px rgba(0,0,0,.45);background:#fff;}
+#pdf-loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f0f2f5;z-index:5;gap:12px;transition:opacity .35s;}
 #pdf-spinner{width:38px;height:38px;border:4px solid #cbd5e1;border-top-color:#5b7cfa;border-radius:50%;animation:spin .8s linear infinite;}
-#pdf-loading span{color:#64748b;font-size:.9rem;font-family:sans-serif;text-align:center;padding:0 16px;}
-#pdf-pages{padding:12px 10px;overflow-x:hidden;}
-#pdf-pages canvas{display:block;margin:0 auto 12px;width:100%;max-width:100%;height:auto;box-shadow:0 2px 10px rgba(0,0,0,.4);background:#fff;}
+#pdf-loading span{color:#64748b;font-size:.88rem;padding:0 16px;text-align:center;}
+#zoombar{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);z-index:6;display:flex;align-items:center;gap:2px;background:rgba(15,23,42,.92);border-radius:99px;padding:5px 7px;box-shadow:0 6px 20px rgba(0,0,0,.45);}
+.zb{width:32px;height:32px;border-radius:50%;border:none;background:transparent;color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}
+.zb:hover{background:rgba(255,255,255,.16);}
+.zb svg{width:17px;height:17px;}
+#zlbl{color:#fff;font-size:12px;font-weight:600;min-width:46px;text-align:center;}
 </style>
-<div id="pdf-wrap"><div id="pdf-loading"><div id="pdf-spinner"></div><span id="pdf-status">Cargando documento...</span></div><div id="pdf-pages"></div></div>
+<div id="pdf-wrap"><div id="pdf-pages"></div></div>
+<div id="pdf-loading"><div id="pdf-spinner"></div><span id="pdf-status">Cargando documento...</span></div>
+<div id="zoombar">
+  <button class="zb" id="zout" title="Alejar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+  <span id="zlbl">100%</span>
+  <button class="zb" id="zin" title="Acercar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+  <button class="zb" id="zfit" title="Ajustar al ancho"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg></button>
+</div>
 <script>
-function _ecPvStart(){
-  var src=__SRC__;
-  var loading=document.getElementById('pdf-loading');
-  var statusEl=document.getElementById('pdf-status');
-  var pages=document.getElementById('pdf-pages');
-  function hide(){loading.style.opacity='0';setTimeout(function(){loading.style.display='none';},400);}
-  if(typeof pdfjsLib==='undefined'){statusEl.textContent='No se pudo cargar el visor.';return;}
-  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-  var task;
-  if(typeof src==='string' && src.indexOf('data:')===0){
-    var b64=src.substring(src.indexOf(',')+1); var bin=atob(b64); var n=bin.length; var arr=new Uint8Array(n);
-    for(var i=0;i<n;i++) arr[i]=bin.charCodeAt(i);
-    task=pdfjsLib.getDocument({data:arr});
-  } else {
-    task=pdfjsLib.getDocument({url:src,withCredentials:false});
-  }
-  task.promise.then(function(pdf){
-    var first=true;var seq=Promise.resolve();
-    for(var i=1;i<=pdf.numPages;i++){(function(num){
-      seq=seq.then(function(){return pdf.getPage(num).then(function(page){
-        var vp=page.getViewport({scale:1.4});
+(function(){
+  var SRC=__SRC__, pdfDoc=null, zoom=1, rendering=false, fitScale=1;
+  var wrap=document.getElementById('pdf-wrap'), pagesEl=document.getElementById('pdf-pages');
+  var loading=document.getElementById('pdf-loading'), statusEl=document.getElementById('pdf-status'), zlbl=document.getElementById('zlbl');
+  function hide(){loading.style.opacity='0';setTimeout(function(){loading.style.display='none';},350);}
+  function render(){
+    if(!pdfDoc||rendering) return; rendering=true;
+    var scale=fitScale*zoom; pagesEl.innerHTML='';
+    var seq=Promise.resolve(), first=true;
+    for(var i=1;i<=pdfDoc.numPages;i++){(function(n){
+      seq=seq.then(function(){return pdfDoc.getPage(n).then(function(page){
+        var vp=page.getViewport({scale:scale});
         var c=document.createElement('canvas');var ctx=c.getContext('2d');
-        c.width=vp.width;c.height=vp.height;pages.appendChild(c);
+        c.width=vp.width;c.height=vp.height;pagesEl.appendChild(c);
         return page.render({canvasContext:ctx,viewport:vp}).promise.then(function(){if(first){first=false;hide();}});
       });});
     })(i);}
-  }).catch(function(err){statusEl.textContent='No se pudo mostrar el documento.';});
-}
+    seq.then(function(){rendering=false;});
+  }
+  function computeFit(){
+    if(!pdfDoc) return Promise.resolve();
+    return pdfDoc.getPage(1).then(function(p){
+      var vp1=p.getViewport({scale:1});
+      fitScale=Math.max(0.2,(wrap.clientWidth-34)/vp1.width);
+    });
+  }
+  function setZoom(z){ zoom=Math.min(4,Math.max(0.4,z)); zlbl.textContent=Math.round(zoom*100)+'%'; render(); }
+  document.getElementById('zin').onclick=function(){setZoom(zoom*1.25);};
+  document.getElementById('zout').onclick=function(){setZoom(zoom*0.8);};
+  document.getElementById('zfit').onclick=function(){zoom=1;zlbl.textContent='100%';computeFit().then(render);};
+  var rt;
+  window.addEventListener('resize',function(){clearTimeout(rt);rt=setTimeout(function(){if(zoom===1)computeFit().then(render);},220);});
+  function start(){
+    if(typeof pdfjsLib==='undefined'){statusEl.textContent='No se pudo cargar el visor.';return;}
+    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    var task;
+    if(typeof SRC==='string'&&SRC.indexOf('data:')===0){
+      var b64=SRC.substring(SRC.indexOf(',')+1),bin=atob(b64),n=bin.length,arr=new Uint8Array(n);
+      for(var i=0;i<n;i++)arr[i]=bin.charCodeAt(i);
+      task=pdfjsLib.getDocument({data:arr});
+    } else { task=pdfjsLib.getDocument({url:SRC,withCredentials:false}); }
+    task.promise.then(function(pdf){pdfDoc=pdf;return computeFit();}).then(render).catch(function(e){statusEl.textContent='No se pudo mostrar el documento.';});
+  }
+  window._ecPvBoot=start;
+})();
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" onload="_ecPvStart()" onerror="var s=document.getElementById('pdf-status');if(s)s.textContent='No se pudo cargar el visor.';"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" onload="_ecPvBoot()" onerror="var s=document.getElementById('pdf-status');if(s)s.textContent='No se pudo cargar el visor.';"></script>
 """
 
 
@@ -1676,28 +1705,24 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 _pv_cur = 'plano' if 'plano' in _pv_keys else (_pv_keys[0] if _pv_keys else '')
                 st.session_state['_preview']['doc'] = _pv_cur
 
-            _pv_src = ''; _pv_dl_bytes = None; _pv_dlname = ''; _pv_err = ''
+            # Solo VISUALIZAR (sin descarga): plano por URL; PDF generados como data-URL.
+            _pv_src = ''; _pv_err = ''
             try:
                 if _pv_cur == 'plano':
                     _pv_src = _pvc.get('plano_url') or ''
-                    _pv_dlname = _pvc.get('plano_nombre') or f'Plano_{_pv_ep}.pdf'
-                    if _pv_src:
-                        _pv_dl_bytes = _fetch_plano_bytes(_pv_src)
-                    else:
+                    if not _pv_src:
                         _pv_err = 'Esta cotizaci&#243;n no tiene plano adjunto.'
                 elif not _pv_cot:
                     _pv_err = 'No se pudo cargar la cotizaci&#243;n.'
                 elif _pv_cur:
                     _pvr = _ctx_gen(_pv_cur, _pv_ep, _pv_cot)
                     if _pvr:
-                        # generar_pdf_* puede devolver BytesIO/buffer (válido para
-                        # download_button) pero b64encode necesita bytes reales.
+                        # generar_pdf_* devuelve BytesIO/buffer → b64encode necesita bytes.
                         _raw = _pvr[0]
                         if hasattr(_raw, 'getvalue'):
                             _raw = _raw.getvalue()
                         elif hasattr(_raw, 'read'):
                             _raw = _raw.read()
-                        _pv_dl_bytes = _raw; _pv_dlname = _pvr[1]
                         _pv_src = 'data:application/pdf;base64,' + _b64pv.b64encode(_raw).decode('ascii')
                     else:
                         _pv_err = 'No hay datos suficientes para generar este documento.'
@@ -1721,7 +1746,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 ".st-key-ec_drawer{position:fixed!important;top:0;right:0;height:100vh!important;width:50vw!important;"
                 "min-width:400px;z-index:1000000!important;background:#fff!important;"
                 "box-shadow:-16px 0 44px rgba(15,23,42,0.24)!important;border-left:1px solid #e2e8f0!important;"
-                "overflow-y:auto!important;overflow-x:hidden!important;padding:16px 20px 22px!important;}"
+                "overflow:hidden!important;padding:14px 18px!important;}"
                 ".st-key-ec_drawer [data-testid='stVerticalBlockBorderWrapper']{box-shadow:none!important;background:transparent!important;}"
                 ".st-key-_pv_close{position:absolute!important;left:-9999px!important;top:-9999px!important;height:0!important;overflow:hidden!important;}"
                 "#_ec_pv_backdrop{position:fixed;inset:0;background:rgba(15,23,42,0.42);z-index:999998;}"
@@ -1739,11 +1764,8 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 ".pvtab.on{background:#dbeafe;color:#1d4ed8;border-color:#93c5fd;}"
                 ".pverr{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:10px;padding:16px;"
                 "font-size:0.86rem;line-height:1.5;}"
-                ".st-key-_pv_dl button{background:#0f172a!important;color:#fff!important;border:none!important;"
-                "border-radius:99px!important;font-family:Montserrat,sans-serif!important;font-weight:800!important;"
-                "font-size:12px!important;letter-spacing:.03em!important;text-transform:uppercase!important;"
-                "padding:11px 16px!important;min-height:0!important;}"
-                ".st-key-_pv_dl button:hover{background:#1e293b!important;}"
+                ".st-key-ec_drawer iframe{width:100%!important;height:calc(100vh - 150px)!important;"
+                "min-height:320px!important;border:1px solid #e2e8f0!important;border-radius:10px!important;display:block!important;}"
                 "</style>", unsafe_allow_html=True)
 
             with st.container(key='ec_drawer'):
@@ -1755,13 +1777,10 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                     '<div class="pvtabs">' + _pv_tabs_html + '</div>',
                     unsafe_allow_html=True)
                 if _pv_src:
-                    components.html(_PV_VIEWER.replace("__SRC__", json.dumps(_pv_src)), height=622, scrolling=False)
+                    components.html(_PV_VIEWER.replace("__SRC__", json.dumps(_pv_src)), height=760, scrolling=False)
                 else:
                     st.markdown('<div class="pverr">' + (_pv_err or 'Documento no disponible.') + '</div>',
                                 unsafe_allow_html=True)
-                if _pv_dl_bytes:
-                    st.download_button("Descargar este documento", data=_pv_dl_bytes, file_name=_pv_dlname,
-                                       mime="application/pdf", use_container_width=True, key='_pv_dl')
                 if st.button("cerrar", key='_pv_close'):
                     st.session_state.pop('_preview', None)
                     st.rerun()
