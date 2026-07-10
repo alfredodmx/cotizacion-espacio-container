@@ -76,7 +76,12 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;font-family:sans-serif;
 .zb{width:32px;height:32px;border-radius:50%;border:none;background:transparent;color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}
 .zb:hover{background:rgba(255,255,255,.16);}
 .zb svg{width:17px;height:17px;}
+.zb.on{background:#5b7cfa;}
+.zb.on:hover{background:#4f6ff0;}
+#zsep{width:1px;height:20px;background:rgba(255,255,255,.22);margin:0 5px;}
 #zlbl{color:#fff;font-size:12px;font-weight:600;min-width:46px;text-align:center;}
+#pdf-wrap.grab{cursor:grab;}
+#pdf-wrap.grabbing{cursor:grabbing;}
 </style>
 <div id="pdf-wrap"><div id="pdf-pages"></div></div>
 <div id="pdf-loading"><div id="pdf-spinner"></div><span id="pdf-status">Cargando documento...</span></div>
@@ -85,6 +90,9 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;font-family:sans-serif;
   <span id="zlbl">100%</span>
   <button class="zb" id="zin" title="Acercar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
   <button class="zb" id="zfit" title="Ajustar al ancho"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg></button>
+  <span id="zsep"></span>
+  <button class="zb on" id="zhand" title="Mano (arrastrar para mover)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-4 0"/><path d="M14 10V4a2 2 0 0 0-4 0v2"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg></button>
+  <button class="zb" id="zptr" title="Puntero"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 12.586 19 19"/><path d="M3.688 3.037a.497.497 0 0 0-.651.651l6.5 15.999a.501.501 0 0 0 .947-.062l1.569-6.083a2 2 0 0 1 1.448-1.479l6.124-1.579a.5.5 0 0 0 .063-.947z"/></svg></button>
 </div>
 <script>
 (function(){
@@ -119,6 +127,19 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;font-family:sans-serif;
   document.getElementById('zfit').onclick=function(){zoom=1;zlbl.textContent='100%';computeFit().then(render);};
   var rt;
   window.addEventListener('resize',function(){clearTimeout(rt);rt=setTimeout(function(){if(zoom===1)computeFit().then(render);},220);});
+  // Modo mano (arrastrar para mover el PDF) / puntero. Por defecto: mano.
+  var mode='hand', isDown=false, sx=0, sy=0, sl=0, stt=0;
+  function setMode(m){ mode=m;
+    wrap.className=(m==='hand'?'grab':'');
+    document.getElementById('zhand').className='zb'+(m==='hand'?' on':'');
+    document.getElementById('zptr').className='zb'+(m==='pointer'?' on':'');
+  }
+  document.getElementById('zhand').onclick=function(){setMode('hand');};
+  document.getElementById('zptr').onclick=function(){setMode('pointer');};
+  wrap.addEventListener('mousedown',function(e){ if(mode!=='hand')return; isDown=true; wrap.classList.add('grabbing'); sx=e.clientX;sy=e.clientY;sl=wrap.scrollLeft;stt=wrap.scrollTop; e.preventDefault(); });
+  document.addEventListener('mousemove',function(e){ if(!isDown)return; wrap.scrollLeft=sl-(e.clientX-sx); wrap.scrollTop=stt-(e.clientY-sy); });
+  document.addEventListener('mouseup',function(){ if(isDown){isDown=false; wrap.classList.remove('grabbing');} });
+  setMode('hand');
   function start(){
     if(typeof pdfjsLib==='undefined'){statusEl.textContent='No se pudo cargar el visor.';return;}
     pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
