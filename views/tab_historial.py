@@ -1719,7 +1719,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 "box-shadow:-16px 0 44px rgba(15,23,42,0.24)!important;border-left:1px solid #e2e8f0!important;"
                 "overflow:hidden!important;padding:14px 18px!important;}"
                 ".st-key-ec_drawer [data-testid='stVerticalBlockBorderWrapper']{box-shadow:none!important;background:transparent!important;}"
-                ".st-key-_pv_close,.st-key-_pv_cmd{position:absolute!important;left:-9999px!important;top:-9999px!important;height:0!important;overflow:hidden!important;}"
+                ".st-key-_pv_close,[class*='st-key-_pvbtn_']{position:absolute!important;left:-9999px!important;top:-9999px!important;height:0!important;width:0!important;overflow:hidden!important;}"
                 "#_ec_pv_backdrop{position:fixed;inset:0;background:rgba(15,23,42,0.42);z-index:999998;}"
                 ".pvhead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;}"
                 ".pvkick{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;font-weight:800;}"
@@ -1747,16 +1747,6 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 if not _pv0 or not _pv0.get('ep'):
                     return
                 _pv_ep = str(_pv0['ep'])
-                # Bridge de PESTANA dentro del fragment: cambiar de documento rerun SOLO
-                # el fragment (no la pagina) => sin flash ni reconstruir la tabla de 88 filas.
-                st.text_input('pvc', key='_pv_cmd', label_visibility='collapsed')
-                _pvraw = str(st.session_state.get('_pv_cmd', '') or '')
-                if _pvraw.count('|') >= 2:
-                    _pa, _pe, _pn = _pvraw.split('|', 2)
-                    if _pn and _pn != st.session_state.get('_pv_done', '') and _pa.startswith('preview_'):
-                        st.session_state['_pv_done'] = _pn
-                        st.session_state['_preview']['doc'] = _pa[len('preview_'):]
-
                 _pv_cot = cargar_cotizacion(_pv_ep)
                 _pvc = _pv_cot or {}
                 _pv_es_ej = _rol_actual == 'ejecutivo'
@@ -1779,6 +1769,16 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 ]
                 _pv_docs = [(k, l, s) for (k, l, ok, s) in _PV_ALL if ok]
                 _pv_keys = [k for k, _, _ in _pv_docs]
+
+                # Botones nativos OCULTOS (dentro del fragment) que disparan rerun SOLO
+                # del fragment de forma determinista. Los badges HTML los clickean por JS.
+                for _bk in _pv_keys:
+                    if st.button('t', key='_pvbtn_' + _bk):
+                        st.session_state['_preview']['doc'] = _bk
+                if st.button('x', key='_pv_close'):
+                    st.session_state.pop('_preview', None)
+                    st.rerun(scope="fragment")
+
                 _pv_cur = st.session_state['_preview'].get('doc') or ''
                 if _pv_cur not in _pv_keys:
                     _pv_cur = 'plano' if 'plano' in _pv_keys else (_pv_keys[0] if _pv_keys else '')
@@ -1830,37 +1830,28 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                     else:
                         st.markdown('<div class="pverr">' + (_pv_err or 'Documento no disponible.') + '</div>',
                                     unsafe_allow_html=True)
-                    if st.button("cerrar", key='_pv_close'):
-                        st.session_state.pop('_preview', None)
-                        st.rerun(scope="app")  # cierra el panel (rerun de toda la app)
 
-                # Backdrop + Esc + pestanas (escriben en _pv_cmd => rerun SOLO del fragment).
-                components.html(("""<script>
+                # JS: los badges clickean el boton nativo oculto de su pestana (rerun del
+                # fragment); X / backdrop / Esc quitan el backdrop y clickean cerrar.
+                components.html(r"""<script>
 (function(){
-  var W=window.parent, D=W.document, EP=__EP__;
-  function closeBtn(){var b=D.querySelector('.st-key-_pv_close button'); if(b) b.click();}
-  function fire(action){
-    var inp=D.querySelector('.st-key-_pv_cmd input'); if(!inp) return;
-    try{ var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set;
-      inp.focus({preventScroll:true}); setter.call(inp, action+'|'+EP+'|'+Date.now());
-      inp.dispatchEvent(new Event('input',{bubbles:true}));
-      inp.dispatchEvent(new Event('change',{bubbles:true}));
-      inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
-      inp.blur();
-    }catch(e){}
-  }
+  var W=window.parent, D=W.document;
+  function closeIt(){ var bd=D.getElementById('_ec_pv_backdrop'); if(bd) bd.remove();
+    var b=D.querySelector('.st-key-_pv_close button'); if(b) b.click(); }
   var ex=D.getElementById('_ec_pv_backdrop'); if(ex) ex.remove();
-  var bd=D.createElement('div'); bd.id='_ec_pv_backdrop'; bd.addEventListener('click', closeBtn); D.body.appendChild(bd);
+  var bd=D.createElement('div'); bd.id='_ec_pv_backdrop'; bd.addEventListener('click', closeIt); D.body.appendChild(bd);
   var dr=D.querySelector('.st-key-ec_drawer');
   if(dr){
-    dr.querySelectorAll('.pvtab').forEach(function(t){ t.addEventListener('click', function(){ fire('preview_'+t.getAttribute('data-doc')); }); });
-    var x=dr.querySelector('#_pv_x'); if(x) x.addEventListener('click', closeBtn);
+    dr.querySelectorAll('.pvtab').forEach(function(t){ t.addEventListener('click', function(){
+      var doc=t.getAttribute('data-doc'); var nb=D.querySelector('.st-key-_pvbtn_'+doc+' button'); if(nb) nb.click();
+    }); });
+    var x=dr.querySelector('#_pv_x'); if(x) x.addEventListener('click', closeIt);
   }
   if(W._ecPvKey) D.removeEventListener('keydown', W._ecPvKey, true);
-  W._ecPvKey=function(e){if(e.key==='Escape') closeBtn();};
+  W._ecPvKey=function(e){if(e.key==='Escape') closeIt();};
   D.addEventListener('keydown', W._ecPvKey, true);
 })();
-</script>""").replace("__EP__", json.dumps(_pv_ep)), height=0)
+</script>""", height=0)
 
             _pv_fragment()
         else:
