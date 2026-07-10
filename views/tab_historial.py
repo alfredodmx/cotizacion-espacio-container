@@ -1596,6 +1596,21 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 _pn = cot.get('plano_nombre') or f"Plano_{ep}.pdf"
                 _pm = 'application/pdf' if str(_pn).lower().endswith('.pdf') else 'application/octet-stream'
                 return (_pb, _pn, _pm)
+            if doc == 'contrato':
+                if not cot.get('contrato_generado'):
+                    return None
+                from utils.pdf_contrato import generar_pdf_contrato, _obtener_clausulas_contrato
+                _raw_c = cot.get('contrato_datos', '{}')
+                try:
+                    _datos_c = json.loads(_raw_c) if isinstance(_raw_c, str) else (_raw_c or {})
+                except Exception:
+                    _datos_c = {}
+                _cls_c = _obtener_clausulas_contrato(cot.get('modelo_predefinido'), supabase_admin)
+                _bc = generar_pdf_contrato(_datos_c, clausulas_externas=_cls_c)
+                return (_bc, f"Contrato_{ep}.pdf", "application/pdf")
+            if doc == 'pdf_modificaciones':
+                _bm = generar_pdf_log(ep, obtener_logs_ep(ep))
+                return (_bm, f"Modificaciones_{ep}.pdf", "application/pdf")
             return None
 
         _ctx_dl = None  # (bytes, filename, mime) del documento pedido
@@ -1691,12 +1706,15 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             _pv_pdf_ok = (not _pv_es_ej) or _pv_autoriz
             _pv_tiene_sel = _pv_ep in _eps_con_seleccion(
                 tuple(sorted({str(_r[0]) for _r in (st.session_state.resultados_busqueda or [])})))
+            _pv_es_admin = _rol_actual in ('admin', 'root')
             _PV_ALL = [
                 ('plano',        'Plano',     bool(_pvc.get('plano_url')), '<path d="M9 6 2 3v15l7 3 6-3 7 3V6l-7-3-6 3Z"/><path d="M9 6v15"/><path d="M15 3v15"/>'),
+                ('contrato',     'Contrato',  bool(_pvc.get('contrato_generado')), '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>'),
                 ('pdf_compras',  'Compras',   (not _pv_es_ej), '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>'),
                 ('pdf_completo', 'Completo',  _pv_pdf_ok, '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>'),
                 ('pdf_cliente',  'Cliente',   _pv_pdf_ok, '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'),
                 ('pdf_seleccion','Selecci&#243;n', _pv_tiene_sel, '<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>'),
+                ('pdf_modificaciones', 'Modificaciones', _pv_es_admin, '<path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/>'),
             ]
             _pv_docs = [(k, l, s) for (k, l, ok, s) in _PV_ALL if ok]
             _pv_keys = [k for k, _, _ in _pv_docs]
