@@ -64,29 +64,38 @@ def _hic(name, color="#0f172a", size=14, mr=6, valign=-2, sw=2):
 # base64 de un PDF generado) a canvas — cross-browser, ver [[project_pdf_viewer_pdfjs]].
 _PV_VIEWER = """<style>
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-body,html{margin:0;padding:0;}
-#pdf-wrap{width:100%;height:610px;border:1px solid #e2e8f0;border-radius:10px;overflow-y:auto;overflow-x:hidden;background:#525659;position:relative;}
+*{box-sizing:border-box;}
+body,html{margin:0;padding:0;overflow-x:hidden;}
+#pdf-wrap{width:100%;height:600px;border:1px solid #e2e8f0;border-radius:10px;overflow-y:auto;overflow-x:hidden;background:#525659;position:relative;}
 #pdf-loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f0f2f5;z-index:2;gap:12px;transition:opacity .4s ease;}
 #pdf-spinner{width:38px;height:38px;border:4px solid #cbd5e1;border-top-color:#5b7cfa;border-radius:50%;animation:spin .8s linear infinite;}
 #pdf-loading span{color:#64748b;font-size:.9rem;font-family:sans-serif;text-align:center;padding:0 16px;}
-#pdf-pages{padding:12px 0;text-align:center;}
-#pdf-pages canvas{display:block;margin:0 auto 12px;max-width:96%;box-shadow:0 2px 10px rgba(0,0,0,.4);background:#fff;}
+#pdf-pages{padding:12px 10px;overflow-x:hidden;}
+#pdf-pages canvas{display:block;margin:0 auto 12px;width:100%;max-width:100%;height:auto;box-shadow:0 2px 10px rgba(0,0,0,.4);background:#fff;}
 </style>
 <div id="pdf-wrap"><div id="pdf-loading"><div id="pdf-spinner"></div><span id="pdf-status">Cargando documento...</span></div><div id="pdf-pages"></div></div>
 <script>
 function _ecPvStart(){
-  var url=__SRC__;
+  var src=__SRC__;
   var loading=document.getElementById('pdf-loading');
   var statusEl=document.getElementById('pdf-status');
   var pages=document.getElementById('pdf-pages');
   function hide(){loading.style.opacity='0';setTimeout(function(){loading.style.display='none';},400);}
   if(typeof pdfjsLib==='undefined'){statusEl.textContent='No se pudo cargar el visor.';return;}
   pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-  pdfjsLib.getDocument({url:url,withCredentials:false}).promise.then(function(pdf){
+  var task;
+  if(typeof src==='string' && src.indexOf('data:')===0){
+    var b64=src.substring(src.indexOf(',')+1); var bin=atob(b64); var n=bin.length; var arr=new Uint8Array(n);
+    for(var i=0;i<n;i++) arr[i]=bin.charCodeAt(i);
+    task=pdfjsLib.getDocument({data:arr});
+  } else {
+    task=pdfjsLib.getDocument({url:src,withCredentials:false});
+  }
+  task.promise.then(function(pdf){
     var first=true;var seq=Promise.resolve();
     for(var i=1;i<=pdf.numPages;i++){(function(num){
       seq=seq.then(function(){return pdf.getPage(num).then(function(page){
-        var vp=page.getViewport({scale:1.5});
+        var vp=page.getViewport({scale:1.4});
         var c=document.createElement('canvas');var ctx=c.getContext('2d');
         c.width=vp.width;c.height=vp.height;pages.appendChild(c);
         return page.render({canvasContext:ctx,viewport:vp}).promise.then(function(){if(first){first=false;hide();}});
@@ -1667,74 +1676,123 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 _pv_cur = 'plano' if 'plano' in _pv_keys else (_pv_keys[0] if _pv_keys else '')
                 st.session_state['_preview']['doc'] = _pv_cur
 
-            _pv_src = ''; _pv_dl_bytes = None; _pv_dlname = ''
+            _pv_src = ''; _pv_dl_bytes = None; _pv_dlname = ''; _pv_err = ''
             try:
                 if _pv_cur == 'plano':
                     _pv_src = _pvc.get('plano_url') or ''
                     _pv_dlname = _pvc.get('plano_nombre') or f'Plano_{_pv_ep}.pdf'
                     if _pv_src:
                         _pv_dl_bytes = _fetch_plano_bytes(_pv_src)
-                elif _pv_cur and _pv_cot:
+                    else:
+                        _pv_err = 'Esta cotizaci&#243;n no tiene plano adjunto.'
+                elif not _pv_cot:
+                    _pv_err = 'No se pudo cargar la cotizaci&#243;n.'
+                elif _pv_cur:
                     _pvr = _ctx_gen(_pv_cur, _pv_ep, _pv_cot)
                     if _pvr:
-                        _pv_dl_bytes = _pvr[0]; _pv_dlname = _pvr[1]
-                        _pv_src = 'data:application/pdf;base64,' + _b64pv.b64encode(_pvr[0]).decode('ascii')
-            except Exception:
+                        # generar_pdf_* puede devolver BytesIO/buffer (válido para
+                        # download_button) pero b64encode necesita bytes reales.
+                        _raw = _pvr[0]
+                        if hasattr(_raw, 'getvalue'):
+                            _raw = _raw.getvalue()
+                        elif hasattr(_raw, 'read'):
+                            _raw = _raw.read()
+                        _pv_dl_bytes = _raw; _pv_dlname = _pvr[1]
+                        _pv_src = 'data:application/pdf;base64,' + _b64pv.b64encode(_raw).decode('ascii')
+                    else:
+                        _pv_err = 'No hay datos suficientes para generar este documento.'
+            except Exception as _pve:
                 _pv_src = ''
+                _pv_err = 'Error al generar el documento: ' + str(_pve)[:240]
+
+            def _pv_ic(_p, _sz=15):
+                return (f'<svg width="{_sz}" height="{_sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+                        f'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">{_p}</svg>')
+            _pv_x_ico = _pv_ic('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>', 17)
+
+            _pv_tabs_html = ''
+            for _k, _l, _s in _pv_docs:
+                _on = ' on' if _k == _pv_cur else ''
+                _pv_tabs_html += (f'<button class="pvtab{_on}" data-doc="{_k}">' + _pv_ic(_s) + f'<span>{_l}</span></button>')
+            _pv_cli_txt = str(_pvc.get('cliente_nombre', '') or '&#8212;').replace('<', '&lt;').replace('>', '&gt;')
 
             st.markdown(
                 "<style>"
                 ".st-key-ec_drawer{position:fixed!important;top:0;right:0;height:100vh!important;width:50vw!important;"
                 "min-width:400px;z-index:1000000!important;background:#fff!important;"
                 "box-shadow:-16px 0 44px rgba(15,23,42,0.24)!important;border-left:1px solid #e2e8f0!important;"
-                "overflow-y:auto!important;padding:14px 18px 20px!important;}"
-                ".st-key-ec_drawer [data-testid='stVerticalBlockBorderWrapper']{box-shadow:none!important;}"
-                ".st-key-_pv_close button{border-radius:8px!important;}"
+                "overflow-y:auto!important;overflow-x:hidden!important;padding:16px 20px 22px!important;}"
+                ".st-key-ec_drawer [data-testid='stVerticalBlockBorderWrapper']{box-shadow:none!important;background:transparent!important;}"
+                ".st-key-_pv_close{position:absolute!important;left:-9999px!important;top:-9999px!important;height:0!important;overflow:hidden!important;}"
                 "#_ec_pv_backdrop{position:fixed;inset:0;background:rgba(15,23,42,0.42);z-index:999998;}"
+                ".pvhead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;}"
+                ".pvkick{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;font-weight:800;}"
+                ".pvtitle{font-size:15px;font-weight:800;color:#0f172a;margin-top:1px;}"
+                ".pvx{width:32px;height:32px;border-radius:9px;border:1px solid #e2e8f0;background:#fff;color:#64748b;"
+                "display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}"
+                ".pvx:hover{background:#f1f5f9;color:#0f172a;}"
+                ".pvtabs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;}"
+                ".pvtab{display:inline-flex;align-items:center;gap:7px;font-family:Montserrat,sans-serif;font-weight:800;"
+                "font-size:11.5px;letter-spacing:.03em;text-transform:uppercase;border:1px solid #e2e8f0;border-radius:99px;"
+                "padding:7px 14px;cursor:pointer;background:#fff;color:#334155;white-space:nowrap;transition:all .12s;}"
+                ".pvtab:hover{background:#f1f5f9;}"
+                ".pvtab.on{background:#dbeafe;color:#1d4ed8;border-color:#93c5fd;}"
+                ".pverr{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:10px;padding:16px;"
+                "font-size:0.86rem;line-height:1.5;}"
+                ".st-key-_pv_dl button{background:#0f172a!important;color:#fff!important;border:none!important;"
+                "border-radius:99px!important;font-family:Montserrat,sans-serif!important;font-weight:800!important;"
+                "font-size:12px!important;letter-spacing:.03em!important;text-transform:uppercase!important;"
+                "padding:11px 16px!important;min-height:0!important;}"
+                ".st-key-_pv_dl button:hover{background:#1e293b!important;}"
                 "</style>", unsafe_allow_html=True)
 
-            _pv_cli_txt = str(_pvc.get('cliente_nombre', '') or '&#8212;').replace('<', '&lt;').replace('>', '&gt;')
             with st.container(key='ec_drawer'):
-                _dh1, _dh2 = st.columns([5, 1], vertical_alignment='center')
-                with _dh1:
-                    st.markdown(
-                        "<div style='font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;font-weight:700;'>Documentos</div>"
-                        f"<div style='font-size:15px;font-weight:800;color:#0f172a;'>{_pv_ep} &middot; {_pv_cli_txt}</div>",
-                        unsafe_allow_html=True)
-                with _dh2:
-                    if st.button("", icon=":material/close:", key='_pv_close', help='Cerrar'):
-                        st.session_state.pop('_preview', None)
-                        st.rerun()
-                if _pv_docs:
-                    _tcols = st.columns(len(_pv_docs))
-                    for _i, (_k, _l, _s) in enumerate(_pv_docs):
-                        with _tcols[_i]:
-                            if st.button(_l, key=f'_pv_tab_{_k}', use_container_width=True,
-                                         type=('primary' if _k == _pv_cur else 'secondary')):
-                                st.session_state['_preview']['doc'] = _k
-                                st.rerun()
+                st.markdown(
+                    '<div class="pvhead"><div>'
+                    '<div class="pvkick">Documentos</div>'
+                    '<div class="pvtitle">' + _pv_ep + ' &middot; ' + _pv_cli_txt + '</div></div>'
+                    '<button id="_pv_x" class="pvx">' + _pv_x_ico + '</button></div>'
+                    '<div class="pvtabs">' + _pv_tabs_html + '</div>',
+                    unsafe_allow_html=True)
                 if _pv_src:
-                    components.html(_PV_VIEWER.replace("__SRC__", json.dumps(_pv_src)), height=630, scrolling=False)
+                    components.html(_PV_VIEWER.replace("__SRC__", json.dumps(_pv_src)), height=622, scrolling=False)
                 else:
-                    st.info("Documento no disponible para esta cotizaci&#243;n.")
+                    st.markdown('<div class="pverr">' + (_pv_err or 'Documento no disponible.') + '</div>',
+                                unsafe_allow_html=True)
                 if _pv_dl_bytes:
                     st.download_button("Descargar este documento", data=_pv_dl_bytes, file_name=_pv_dlname,
                                        mime="application/pdf", use_container_width=True, key='_pv_dl')
+                if st.button("cerrar", key='_pv_close'):
+                    st.session_state.pop('_preview', None)
+                    st.rerun()
 
-            # Backdrop (click afuera) + Esc → clickean el botón de cerrar (_pv_close).
-            components.html(r"""<script>
+            # JS: backdrop (click afuera) + Esc + pestañas (bridge) + X → cerrar.
+            components.html(("""<script>
 (function(){
-  var W=window.parent, D=W.document;
+  var W=window.parent, D=W.document, EP=__EP__;
   function closeBtn(){var b=D.querySelector('.st-key-_pv_close button'); if(b) b.click();}
+  function fire(action){
+    var inp=D.querySelector('.st-key-_ctx_cmd input'); if(!inp) return;
+    try{ var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set;
+      inp.focus({preventScroll:true}); setter.call(inp, action+'|'+EP+'|'+Date.now());
+      inp.dispatchEvent(new Event('input',{bubbles:true}));
+      inp.dispatchEvent(new Event('change',{bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.blur();
+    }catch(e){}
+  }
   var ex=D.getElementById('_ec_pv_backdrop'); if(ex) ex.remove();
-  var bd=D.createElement('div'); bd.id='_ec_pv_backdrop';
-  bd.addEventListener('click', closeBtn);
-  D.body.appendChild(bd);
+  var bd=D.createElement('div'); bd.id='_ec_pv_backdrop'; bd.addEventListener('click', closeBtn); D.body.appendChild(bd);
+  var dr=D.querySelector('.st-key-ec_drawer');
+  if(dr){
+    dr.querySelectorAll('.pvtab').forEach(function(t){ t.addEventListener('click', function(){ fire('preview_'+t.getAttribute('data-doc')); }); });
+    var x=dr.querySelector('#_pv_x'); if(x) x.addEventListener('click', closeBtn);
+  }
   if(W._ecPvKey) D.removeEventListener('keydown', W._ecPvKey, true);
   W._ecPvKey=function(e){if(e.key==='Escape') closeBtn();};
   D.addEventListener('keydown', W._ecPvKey, true);
 })();
-</script>""", height=0)
+</script>""").replace("__EP__", json.dumps(_pv_ep)), height=0)
         else:
             components.html("""<script>(function(){var D=window.parent.document;
   var b=D.getElementById('_ec_pv_backdrop'); if(b) b.remove();})();</script>""", height=0)
