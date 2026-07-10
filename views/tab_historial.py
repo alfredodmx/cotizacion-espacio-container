@@ -957,12 +957,21 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             _cx_ase = bool(str(row.get('Asesor','') or '').strip() or str(row.get('Asesor_Email','') or '').strip() or str(row.get('Asesor_Tel','') or '').strip())
             _cx_autoriz = (_cx_mg > 0 and _cx_datos and _cx_ase)
             _cx_pdf = '1' if (not _es_ej_ctx_tbl or _cx_autoriz) else '0'
+            # Rechazar: 'quitar' si ya está rechazado, '0' si es adjudicado/terminado
+            # (no se puede rechazar), '1' si se puede rechazar.
+            if _est_attr == 'RECHAZADO':
+                _cx_rech = 'quitar'
+            elif _est_attr in ('ADJUDICADO', 'PROYECTO TERMINADO'):
+                _cx_rech = '0'
+            else:
+                _cx_rech = '1'
             _ctx_attrs = (
                 f" data-cargar='{'1' if (_modo_adm_ctx or _cx_mg <= 0) else '0'}'"
                 f" data-compras='{'0' if _es_ej_ctx_tbl else '1'}'"
                 f" data-completo='{_cx_pdf}' data-cliente='{_cx_pdf}'"
                 f" data-seleccion='{'1' if str(row.get('N°','')) in _eps_sel_set else '0'}'"
-                f" data-plano='{'1' if row.get('Tiene_Plano') else '0'}'")
+                f" data-plano='{'1' if row.get('Tiene_Plano') else '0'}'"
+                f" data-rechazar='{_cx_rech}'")
             rows_html+=(f"<tr{_fila_class} data-est='{_est_attr}'{_ctx_attrs}>"
                 f"<td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} {_hic('copy','#3b82f6',12,0)}</td>"
                 f"<td style='font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.5;'>{row['Cliente'] or '—'}"
@@ -1119,6 +1128,8 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
         .resultados-table tr.fila-rechazada:hover td {{ background-color:#fecaca!important; }}
         .resultados-table th.th-adj {{ background-color:#fbbf24!important;background:#fbbf24!important;color:#0f172a!important; }}
         .resultados-table th.th-cierre {{ background-color:#2563eb!important;background:#2563eb!important;color:#ffffff!important; }}
+        .resultados-table tbody tr.ec-ctx-row td {{ background-color:#dbeafe!important; }}
+        .resultados-table tbody tr.ec-ctx-row td:first-child {{ box-shadow:inset 3px 0 0 #2563eb; }}
         </style>
         <div id="_ec_restable" data-selep="{st.session_state.get('selector_ep_num','')}" style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
             <div style="{_altura_css}">
@@ -1433,6 +1444,19 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                     st.session_state.nav_page = 'presupuesto'
                     st.session_state['_toast_cargado'] = _ctx_ep
                     st.rerun()
+            elif _ctx_action == 'rechazar':
+                # Abre el diálogo de motivo (se renderiza más abajo este mismo run).
+                st.session_state['_show_rechazo_dialog'] = _ctx_ep
+            elif _ctx_action == 'quitar_rechazo':
+                try:
+                    supabase_admin.table("cotizaciones").update(
+                        {"motivo_rechazo": None, "fecha_rechazo": None}).eq("numero", _ctx_ep).execute()
+                    _rechazo_status_cached.clear()
+                    st.session_state.resultados_busqueda = None
+                    st.toast(f"Rechazo eliminado en {_ctx_ep}", icon=":material/undo:")
+                    st.rerun()
+                except Exception as _qre:
+                    st.toast(f"No se pudo quitar el rechazo: {_qre}", icon=":material/error:")
             else:
                 try:
                     _cot = cargar_cotizacion(_ctx_ep)
@@ -1520,6 +1544,40 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             components.html("""<script>(function(){var D=window.parent.document;
   setTimeout(function(){var b=D.querySelector('.st-key-_ctx_dl button'); if(b) b.click();},60);})();</script>""", height=0)
 
+        # Diálogo de rechazo (lo dispara el ítem "Rechazar" del menú → _show_rechazo_dialog).
+        _rej_ep = st.session_state.get('_show_rechazo_dialog')
+        if _rej_ep:
+            @st.dialog("Motivo de rechazo")
+            def _dlg_rechazo_ctx():
+                st.markdown(f"**Presupuesto:** {_rej_ep}")
+                _motivo_in = st.text_area(
+                    "Describe el motivo del rechazo",
+                    placeholder="Ej: Cliente desisti&#243; por cambio de presupuesto personal...",
+                    key="motivo_rechazo_input", height=120)
+                _rc1, _rc2 = st.columns(2)
+                with _rc1:
+                    if st.button("Cancelar", use_container_width=True, key="btn_rec_cancel"):
+                        st.session_state.pop('_show_rechazo_dialog', None)
+                        st.rerun()
+                with _rc2:
+                    if st.button("Confirmar rechazo", type="primary", use_container_width=True, key="btn_rec_confirm"):
+                        if _motivo_in.strip():
+                            try:
+                                supabase_admin.table("cotizaciones").update({
+                                    "motivo_rechazo": _motivo_in.strip(),
+                                    "fecha_rechazo": datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
+                                }).eq("numero", _rej_ep).execute()
+                                _rechazo_status_cached.clear()
+                                st.session_state.pop('_show_rechazo_dialog', None)
+                                st.session_state.resultados_busqueda = None
+                                st.toast(f"{_rej_ep} marcado como rechazado", icon=":material/block:")
+                                st.rerun()
+                            except Exception as _rce:
+                                st.warning(f"No se pudo rechazar: {_rce}")
+                        else:
+                            st.warning("Debes ingresar un motivo.")
+            _dlg_rechazo_ctx()
+
         # JS del menú: aparece AL INSTANTE (sin rerun) leyendo las banderas data-* de
         # la fila. Cada acción escribe en el bridge oculto (_ctx_cmd) → Python genera y
         # auto-descarga. Handlers deduplicados en window.parent (sobreviven al rerun).
@@ -1570,6 +1628,20 @@ var MAT_DATA = """ + _mat_data_json_map + """;
       }
       m.appendChild(row);
     });
+    // Rechazar / Quitar rechazo (rojo) — según data-rechazar de la fila.
+    var rech=tr.getAttribute('data-rechazar');
+    if(rech==='1'||rech==='quitar'){
+      var dv2=D.createElement('div');dv2.style.cssText='height:1px;background:#f1f5f9;margin:5px 8px;';m.appendChild(dv2);
+      var isQ=(rech==='quitar'); var col=isQ?'#b45309':'#dc2626'; var hov=isQ?'#fef3c7':'#fee2e2';
+      var rrow=D.createElement('div');
+      rrow.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;color:'+col+';';
+      var rico=isQ?'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5 5.5 5.5 0 0 1-5.5 5.5H11"/>':'<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>';
+      rrow.innerHTML=ic(rico)+'<span>'+(isQ?'Quitar rechazo':'Rechazar')+'</span>';
+      rrow.addEventListener('mouseenter',function(){rrow.style.background=hov;});
+      rrow.addEventListener('mouseleave',function(){rrow.style.background='transparent';});
+      rrow.addEventListener('click',function(ev){ev.stopPropagation();closeMenu();fire(isQ?'quitar_rechazo':'rechazar',ep);});
+      m.appendChild(rrow);
+    }
     D.body.appendChild(m);
     var vw=W.innerWidth, vh=W.innerHeight;
     var sx=W.pageXOffset||D.documentElement.scrollLeft||0, sy=W.pageYOffset||D.documentElement.scrollTop||0;
@@ -1584,6 +1656,9 @@ var MAT_DATA = """ + _mat_data_json_map + """;
     var td=tr.querySelector('td[data-ep]'); if(!td) return;
     var ep=td.getAttribute('data-ep'); if(!ep) return;
     e.preventDefault();
+    // Resalta la fila en azul claro para ver sobre cuál se está trabajando.
+    D.querySelectorAll('.resultados-table tbody tr.ec-ctx-row').forEach(function(r){r.classList.remove('ec-ctx-row');});
+    tr.classList.add('ec-ctx-row');
     build(tr, ep, e.pageX, e.pageY);
   };
   D.addEventListener('contextmenu', W._ecCtxH, true);
