@@ -823,7 +823,10 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
         # en UNA query batcheada (no por fila).
         _modo_adm_ctx = bool(st.session_state.get('modo_admin'))
         _es_ej_ctx_tbl = _rol_actual == 'ejecutivo'
+        _es_admin_ctx = _rol_actual in ('admin', 'root')
         _eps_sel_set = _eps_con_seleccion(tuple(sorted({str(_r[0]) for _r in (st.session_state.resultados_busqueda or [])})))
+        _attresc = lambda v: (str(v).replace('&', '&amp;').replace('"', '&quot;')
+                              .replace('<', '&lt;').replace('>', '&gt;').replace("'", '&#39;'))
 
         rows_html = ""
         for _, row in df_resultados.iterrows():
@@ -1044,8 +1047,16 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                 _cx_rech = '1'
             _cx_selok = str(row.get('N°','')) in _eps_sel_set
             _cx_planook = bool(row.get('Tiene_Plano'))
+            _cx_contrato = '1' if row.get('Tiene_Contrato') else '0'
+            try:
+                _cx_nlogs = int(float(row.get('NLogs', 0) or 0))
+            except Exception:
+                _cx_nlogs = 0
+            _cx_modif = '1' if (_es_admin_ctx and _cx_nlogs > 0) else '0'
+            _ase_email2 = str(row.get('Asesor_Email', '') or '').strip().lower()
+            _ase_foto2 = _foto_map.get(_ase_email2, '') if _ase_email2 else ''
             # Ver documentos: hay algo que ver si el rol puede ver algún documento.
-            _cx_ver = '1' if (_cx_planook or (not _es_ej_ctx_tbl) or _cx_pdf == '1' or _cx_selok) else '0'
+            _cx_ver = '1' if (_cx_planook or (not _es_ej_ctx_tbl) or _cx_pdf == '1' or _cx_selok or _cx_contrato == '1') else '0'
             _ctx_attrs = (
                 f" data-ver='{_cx_ver}'"
                 f" data-cargar='{'1' if (_modo_adm_ctx or _cx_mg <= 0) else '0'}'"
@@ -1053,7 +1064,11 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                 f" data-completo='{_cx_pdf}' data-cliente='{_cx_pdf}'"
                 f" data-seleccion='{'1' if _cx_selok else '0'}'"
                 f" data-plano='{'1' if _cx_planook else '0'}'"
-                f" data-rechazar='{_cx_rech}'")
+                f" data-rechazar='{_cx_rech}'"
+                f" data-contrato='{_cx_contrato}' data-modif='{_cx_modif}'"
+                f' data-cli="{_attresc(row.get("Cliente","") or "")}"'
+                f' data-asesor="{_attresc(row.get("Asesor","") or "")}"'
+                f' data-avatar="{_attresc(_ase_foto2)}"')
             rows_html+=(f"<tr{_fila_class} data-est='{_est_attr}'{_ctx_attrs}>"
                 f"<td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} {_hic('copy','#3b82f6',12,0)}</td>"
                 f"<td style='font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.5;'>{row['Cliente'] or '—'}"
@@ -1850,6 +1865,8 @@ var MAT_DATA = """ + _mat_data_json_map + """;
     {k:'pdf_completo',  lbl:'PDF completo',  attr:'completo',  ico:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>'},
     {k:'pdf_cliente',   lbl:'PDF cliente',   attr:'cliente',   ico:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'},
     {k:'pdf_seleccion', lbl:'PDF seleccion', attr:'seleccion', ico:'<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>'},
+    {k:'contrato',      lbl:'PDF contrato', attr:'contrato', ico:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>'},
+    {k:'pdf_modificaciones', lbl:'PDF modificaciones', attr:'modif', ico:'<path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/>'},
     {k:'plano',         lbl:'Descargar plano', div:true, attr:'plano', ico:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>'}
   ];
   function ic(p){return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">'+p+'</svg>';}
@@ -1870,10 +1887,24 @@ var MAT_DATA = """ + _mat_data_json_map + """;
   function build(tr,ep,x,y){
     closeMenu();
     var m=D.createElement('div'); m.id=MENU_ID;
-    m.style.cssText='position:absolute;z-index:2147483000;min-width:212px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 12px 34px rgba(15,23,42,0.18);padding:6px;font-family:-apple-system,Segoe UI,Roboto,sans-serif;';
+    m.style.cssText='position:absolute;z-index:2147483000;min-width:236px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 12px 34px rgba(15,23,42,0.18);padding:6px;font-family:-apple-system,Segoe UI,Roboto,sans-serif;';
     var hdr=D.createElement('div');
-    hdr.style.cssText='padding:8px 10px;border-bottom:1px solid #f1f5f9;margin-bottom:4px;font-size:12px;font-weight:800;color:#0f172a;letter-spacing:0.02em;';
-    hdr.textContent=ep;
+    hdr.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 10px 10px;border-bottom:1px solid #f1f5f9;margin-bottom:4px;';
+    var cli=tr.getAttribute('data-cli')||'', av=tr.getAttribute('data-avatar')||'', ase=tr.getAttribute('data-asesor')||'';
+    if(av){
+      var img=D.createElement('img'); img.src=av; img.referrerPolicy='no-referrer';
+      img.style.cssText='width:50px;height:50px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid #e2e8f0;background:#e0e7ff;';
+      hdr.appendChild(img);
+    } else {
+      var avd=D.createElement('div');
+      avd.style.cssText='width:50px;height:50px;border-radius:50%;background:#e0e7ff;color:#4338ca;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:19px;flex-shrink:0;';
+      avd.textContent=((ase||cli||'?').trim().charAt(0)||'?').toUpperCase();
+      hdr.appendChild(avd);
+    }
+    var box=D.createElement('div'); box.style.cssText='min-width:0;';
+    var t1=D.createElement('div'); t1.style.cssText='font-size:12.5px;font-weight:800;color:#0f172a;'; t1.textContent=ep;
+    var t2=D.createElement('div'); t2.style.cssText='font-size:11.5px;color:#64748b;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:158px;'; t2.textContent=cli||'—';
+    box.appendChild(t1); box.appendChild(t2); hdr.appendChild(box);
     m.appendChild(hdr);
     ITEMS.forEach(function(it){
       if(it.div){var dv=D.createElement('div');dv.style.cssText='height:1px;background:#f1f5f9;margin:5px 8px;';m.appendChild(dv);}
