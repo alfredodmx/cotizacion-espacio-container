@@ -544,6 +544,7 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             f'<button type="button" class="ecsb-ico ecsb-date" data-range="semana" title="Esta semana">{_sb_svg(_SB_CALW)}</button>'
             f'<button type="button" class="ecsb-ico ecsb-date" data-range="mes" title="Este mes">{_sb_svg(_SB_CAL)}</button>'
             '</div>'
+            '<div style="height:8px"></div>'
             '</div>'), unsafe_allow_html=True)
 
     st.markdown("---")
@@ -1299,7 +1300,7 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
       var inp2=D.getElementById('_ec_sinput'); if(inp2) inp2.value='';
       if(sbar) sbar.querySelectorAll('.ecsb-date').forEach(function(b){ b.classList.remove('on'); });
       setChip(); setBadge('TODOS'); applyAll(); return; }
-    if(t.id==='_ec_ejchip'){ e.preventDefault(); var mn=D.getElementById('_ec_ejmenu'); if(mn) mn.classList.toggle('open'); return; }
+    if(t.id==='_ec_ejchip'){ e.preventDefault(); buildMenu(); var mn=D.getElementById('_ec_ejmenu'); if(mn) mn.classList.toggle('open'); return; }
     if(t.classList.contains('ecsb-ejopt')){ e.preventDefault();
       F.ejec=t.getAttribute('data-ej')||''; F.ejecAv=t.getAttribute('data-av')||'';
       setChip(); var mn2=D.getElementById('_ec_ejmenu'); if(mn2) mn2.classList.remove('open'); applyAll(); return; }
@@ -1314,6 +1315,10 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
   buildMenu(); setMode(F.mode||'numero'); setChip(); setBadge(F.badge||'TODOS');
   if(F.range && sbar){ sbar.querySelectorAll('.ecsb-date').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-range')===F.range); }); }
   applyAll();
+  // La tabla se pinta DESPUÉS de este iframe → reintenta cuando las filas ya existen
+  // (arma el dropdown de ejecutivos y re-aplica un filtro persistido).
+  setTimeout(function(){ buildMenu(); applyAll(); }, 120);
+  setTimeout(function(){ buildMenu(); applyAll(); }, 400);
 })();
 </script>""", height=0)
 
