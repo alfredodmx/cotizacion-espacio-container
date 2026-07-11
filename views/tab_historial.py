@@ -1169,6 +1169,7 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                     + _p + '</svg>')
 
         _ini_filtro = _filtro_activo_badge or 'TODOS'
+        _nres_lbl = f"{n_resultados} resultado encontrado" if n_resultados == 1 else f"{n_resultados} resultados encontrados"
         _bbar = ['<style>'
             '.ec-badgebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:2px 0 6px;}'
             '.ec-badge{display:inline-flex;align-items:center;gap:7px;font-family:Montserrat,sans-serif;'
@@ -1176,7 +1177,10 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             'border-radius:99px;padding:6px 15px;cursor:pointer;white-space:nowrap;transition:all .12s;line-height:1;}'
             '.ec-badge:hover{filter:brightness(0.96);}'
             '.ec-badge.ec-refresh{padding:7px 11px;}'
+            '.ec-nres{display:block;font-family:Montserrat,sans-serif;font-weight:800;font-size:11.5px;'
+            'letter-spacing:0.03em;text-transform:uppercase;color:#94a3b8;margin:0 0 8px 2px;}'
             '</style>'
+            f'<span class="ec-nres" id="_ec_nres">{_nres_lbl}</span>'
             f'<div class="ec-badgebar" id="_ec_badgebar" data-init="{_ini_filtro}">']
         for _bk, _blbl in _badge_order:
             if _bk != 'TODOS' and not _estados_cnt_total.get(_bk, 0):
@@ -1195,8 +1199,6 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                      + _badge_svg('<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>'
                                   '<path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>'
                                   '<path d="M8 16H3v5"/>') + '</button>')
-        _bbar.append(f'<span id="_ec_nres" style="margin-left:4px;font-family:Plus Jakarta Sans,sans-serif;'
-                     f'font-size:0.8rem;color:#64748b;font-weight:700;">{n_resultados} resultados</span>')
         _bbar.append('</div>')
         st.markdown(''.join(_bbar), unsafe_allow_html=True)
 
@@ -1242,7 +1244,7 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
       if(ok && F.range){ var ts=+(tr.getAttribute('data-ts')||0), b=(F.range==='hoy'?TODAY:(F.range==='semana'?WEEK:MONTH)); ok=(ts>=b); }
       tr.style.display=ok?'':'none'; if(ok)vis++;
     });
-    var n=D.getElementById('_ec_nres'); if(n) n.textContent=vis+(vis===1?' resultado':' resultados');
+    var n=D.getElementById('_ec_nres'); if(n) n.textContent=vis+(vis===1?' resultado encontrado':' resultados encontrados');
   }
 
   function avHtml(av,name,cls){ var c='ecsb-av '+(cls||''); if(av) return '<span class="'+c+'"><img src="'+esc(av)+'"></span>'; return '<span class="'+c+' ecsb-av-ini">'+esc(ini(name))+'</span>'; }
