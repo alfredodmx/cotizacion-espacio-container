@@ -16,7 +16,13 @@ def render_persist_restore() -> None:
     """(Pantalla de login) Si hay token en localStorage, lo inyecta a ?_sess vía
     meta-refresh para restaurar la sesión al refrescar. Si el último intento fue
     inválido (_sess_bad), en cambio BORRA el token de localStorage → rompe cualquier
-    loop de recarga. El login normal (email/clave) NO se ve afectado."""
+    loop de recarga. El login normal (email/clave) NO se ve afectado.
+
+    El meta-refresh se dispara SOLO cuando la página ya terminó de cargar (evento
+    `load` del padre + 300 ms), no de inmediato: lanzar la recarga a mitad de la
+    inicialización de Streamlit provocaba el error intermitente "Tried to use
+    SessionInfo before it was initialized" (típico además en apps de Streamlit
+    Cloud recién despertadas). Esperar a `load` hace la navegación limpia."""
     import streamlit.components.v1 as _c
     if st.session_state.pop('_sess_bad', False):
         _c.html("<script>try{window.parent.localStorage.removeItem('ec_sess');}catch(e){}</script>", height=0)
@@ -26,9 +32,15 @@ def render_persist_restore() -> None:
         "var W=window.parent, D=W.document, L=D.defaultView.location;"
         "var t=W.localStorage.getItem('ec_sess');"
         "if(t && L.search.indexOf('_sess=')===-1){"
-        "var m=D.createElement('meta'); m.httpEquiv='refresh';"
-        "m.content='0; url='+L.origin+L.pathname+'?_sess='+encodeURIComponent(t);"
-        "D.head.appendChild(m);}"
+        "  var go=function(){try{"
+        "    if(L.search.indexOf('_sess=')!==-1) return;"          # ya se está restaurando
+        "    var m=D.createElement('meta'); m.httpEquiv='refresh';"
+        "    m.content='0; url='+L.origin+L.pathname+'?_sess='+encodeURIComponent(t);"
+        "    D.head.appendChild(m);"
+        "  }catch(e){}};"
+        "  if(D.readyState==='complete'){ W.setTimeout(go,300); }"  # página ya cargada
+        "  else { W.addEventListener('load',function(){ W.setTimeout(go,300); }); }"
+        "}"
         "}catch(e){}</script>", height=0)
 
 
