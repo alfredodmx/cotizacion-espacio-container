@@ -547,9 +547,8 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             '<div style="height:8px"></div>'
             '</div>'), unsafe_allow_html=True)
 
-    st.markdown("---")
-    st.markdown("### Resultados")
-
+    # (Se quitó el separador "---" y el título "### Resultados" para cerrar el espacio
+    # entre la barra de búsqueda y los badges/tabla; el conteo vivo va en la barra de badges.)
     _qp_sel_ep = st.query_params.get('_sel_ep')
     if _qp_sel_ep:
         st.session_state['selector_ep_num'] = str(_qp_sel_ep)
