@@ -1327,6 +1327,8 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
         _altura_real = n_resultados * 60 + 60
         _usar_scroll = _altura_real > 550
         _altura_css = f"max-height:{min(_altura_real,550)}px;overflow-y:auto;" if _usar_scroll else ""
+        import time as _t_sid
+        _vscroll_sid = str(int(_t_sid.time() * 1000))
         html_table = f"""
         <style>
         .resultados-table tr.fila-rechazada td {{ background-color:#fee2e2!important;color:#991b1b!important; }}
@@ -1339,7 +1341,7 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
         .resultados-table tbody tr.ec-ctx-row td:first-child {{ box-shadow:inset 3px 0 0 #2563eb; }}
         </style>
         <div id="_ec_restable" data-selep="{st.session_state.get('selector_ep_num','')}" style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
-            <div id="_ec_vscroll" style="{_altura_css}">
+            <div id="_ec_vscroll" data-sid="{_vscroll_sid}" style="{_altura_css}">
                 <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:1700px;table-layout:auto;white-space:nowrap;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
                         <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Ejecutivo</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th class="th-cierre">$ Cierre de venta</th><th class="th-adj">Fecha adjudicación</th>{_th_compras}<th class="th-adj">Tiempo fabricación</th><th class="th-adj">Fidelización cliente</th><th class="th-adj">Retraso proyecto</th></tr>
@@ -1360,6 +1362,7 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                   '<polyline points="18 8 22 12 18 16"/><polyline points="6 8 2 12 6 16"/>'
                   '<line x1="2" x2="22" y1="12" y2="12"/></svg>')
         _scroll_html=(
+            f"<!-- {_vscroll_sid} -->"
             "<style>*{box-sizing:border-box;}"
             ".tbl-scroll-wrap{display:flex;align-items:center;justify-content:space-between;margin-top:6px;"
             "font-family:'Plus Jakarta Sans',system-ui,sans-serif;}"
@@ -2041,6 +2044,21 @@ var MAT_DATA = """ + _mat_data_json_map + """;
   function fire(action,ep){
     var inp=D.querySelector('.st-key-_ctx_cmd input'); if(!inp) return;
     var vs=D.getElementById('_ec_vscroll'); if(vs&&vs.scrollTop>0) W._ecTableScrollY=vs.scrollTop;
+    if(W._ecRestoreIv){clearInterval(W._ecRestoreIv);W._ecRestoreIv=null;}
+    if(typeof W._ecTableScrollY==='number'&&W._ecTableScrollY>0){
+      var _sid=vs?vs.getAttribute('data-sid'):'';
+      W._ecRestoreIv=setInterval(function(){
+        var nv=D.getElementById('_ec_vscroll');
+        if(!nv)return;
+        if(nv.getAttribute('data-sid')===_sid&&_sid)return;
+        if(nv.scrollHeight>nv.clientHeight){
+          nv.scrollTop=W._ecTableScrollY;
+          if(!nv._ecVBound){nv.addEventListener('scroll',function(){if(nv.scrollHeight>nv.clientHeight)W._ecTableScrollY=nv.scrollTop;});nv._ecVBound=true;}
+          clearInterval(W._ecRestoreIv);W._ecRestoreIv=null;
+        }
+      },80);
+      setTimeout(function(){if(W._ecRestoreIv){clearInterval(W._ecRestoreIv);W._ecRestoreIv=null;}},10000);
+    }
     try{
       var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set;
       inp.focus({preventScroll:true});
