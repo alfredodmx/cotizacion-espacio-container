@@ -456,78 +456,95 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
     _mg, _mc, _mp, _cg, _cc, _cp = _money_cards_global()
     _render_money_cards(_top_right.empty(), _mg, _mc, _mp, _cg, _cc, _cp)
 
-    with _top_left, st.container(border=True):
-        # Botones de búsqueda SOLO ícono (texto oculto con font-size:0 + ícono via
-        # CSS ::before). El significado de cada botón va en el tooltip (help=).
-        def _btn_svg_before(key, svg_path, color="%23475569"):
-            return (
-                f'.st-key-{key} button{{display:inline-flex!important;align-items:center!important;'
-                f'justify-content:center!important;gap:0!important;font-size:0!important;}}'
-                f'.st-key-{key} button::before{{content:""!important;flex-shrink:0!important;'
-                f'width:17px!important;height:17px!important;'
-                f'background:url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' '
-                f'width=\'17\' height=\'17\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'{color}\' '
-                f'stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E{svg_path}'
-                f'%3C/svg%3E") no-repeat center/contain!important;}}'
-            )
-        _SVG_SEARCH = "%3Ccircle cx=\'11\' cy=\'11\' r=\'8\'/%3E%3Cpath d=\'m21 21-4.3-4.3\'/%3E"
-        _SVG_TRASH = "%3Cpath d=\'M3 6h18\'/%3E%3Cpath d=\'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\'/%3E"
-        _SVG_SUN = "%3Ccircle cx=\'12\' cy=\'12\' r=\'4\'/%3E%3Cpath d=\'M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4\'/%3E"
-        _SVG_CAL_WEEK = "%3Crect width=\'18\' height=\'18\' x=\'3\' y=\'4\' rx=\'2\'/%3E%3Cpath d=\'M3 10h18M8 2v4M16 2v4M7 15h.01M11 15h.01M15 15h.01\'/%3E"
-        _SVG_CAL = "%3Crect width=\'18\' height=\'18\' x=\'3\' y=\'4\' rx=\'2\'/%3E%3Cpath d=\'M3 10h18M8 2v4M16 2v4\'/%3E"
-        st.markdown(
-            "<style>"
-            + _btn_svg_before("btn_buscar_cot", _SVG_SEARCH, "white")
-            + _btn_svg_before("btn_limpiar_cot", _SVG_TRASH)
-            + _btn_svg_before("filtro_hoy", _SVG_SUN)
-            + _btn_svg_before("filtro_semana", _SVG_CAL_WEEK)
-            + _btn_svg_before("filtro_mes", _SVG_CAL)
-            # Radio "Buscar por" (N° Presupuesto/Cliente/Asesor): MISMA tipografía
-            # que los títulos de módulo de PRESUPUESTO (Montserrat uppercase). Las
-            # props de fuente van a todos los descendientes; el color se restringe
-            # al texto (label) para no teñir el punto del radio.
-            + ".st-key-tipo_busqueda label,.st-key-tipo_busqueda label *{font-family:Montserrat,sans-serif!important;"
-            + "font-weight:700!important;font-size:0.82rem!important;letter-spacing:0.04em!important;line-height:1.6!important;"
-            + "text-transform:uppercase!important;color:#0f172a!important;-webkit-text-fill-color:#0f172a!important;}"
-            + "</style>",
-            unsafe_allow_html=True,
-        )
-        tipo_busqueda = st.radio("Buscar por:", ["N° Presupuesto", "Cliente", "Ejecutivo"],
-                                  horizontal=True, key="tipo_busqueda", label_visibility="collapsed")
-        tipo_map = {"N° Presupuesto": "numero", "Cliente": "cliente", "Ejecutivo": "asesor"}
-        _bc1, _bc2, _bc3, _bc4, _bc5, _bc6 = st.columns([3, 0.7, 0.7, 0.7, 0.7, 0.7])
-        with _bc1:
-            if tipo_busqueda == "Ejecutivo":
-                # Dropdown de ejecutivos: filtra al instante al seleccionar.
-                _ejs = _lista_ejecutivos()
-                _TODOS_EJ = "Todos los ejecutivos"
-                _sel_ej = st.selectbox("Ejecutivo", [_TODOS_EJ] + _ejs,
-                                       key="buscar_ejecutivo_sel", label_visibility="collapsed")
-                if _sel_ej != st.session_state.get('_prev_ejecutivo_sel'):
-                    st.session_state['_prev_ejecutivo_sel'] = _sel_ej
-                    st.session_state.filtro_estado_tabla = None
-                    st.session_state.mostrar_visor = False
-                    with st.spinner("Filtrando..."):
-                        st.session_state.resultados_busqueda = (
-                            buscar_cotizaciones() if _sel_ej == _TODOS_EJ
-                            else buscar_cotizaciones(_sel_ej, "asesor"))
-                    st.rerun()
-                termino = ""   # en modo ejecutivo el filtro lo maneja el dropdown
-            else:
-                st.session_state.pop('_prev_ejecutivo_sel', None)
-                termino = st.text_input("Término", placeholder="Ingrese término de búsqueda...",
-                                         key="buscar_cotizacion", label_visibility="collapsed")
-        with _bc2: buscar_btn = st.button(" ", type="primary", use_container_width=True, key="btn_buscar_cot", help="Buscar")
-        with _bc3: limpiar_btn = st.button(" ", use_container_width=True, key="btn_limpiar_cot", help="Limpiar")
-        with _bc4:
-            if st.button(" ", use_container_width=True, key="filtro_hoy", help="Hoy"):
-                st.session_state.resultados_busqueda = None; st.rerun()
-        with _bc5:
-            if st.button(" ", use_container_width=True, key="filtro_semana", help="Esta semana"):
-                st.session_state.resultados_busqueda = None; st.rerun()
-        with _bc6:
-            if st.button(" ", use_container_width=True, key="filtro_mes", help="Este mes"):
-                st.session_state.resultados_busqueda = None; st.rerun()
+    with _top_left, st.container(border=True, key='ec_sbar_box'):
+        # ── Barra de búsqueda 100% CLIENT-SIDE (sin reruns) ──────────────────────
+        # Radios N°/Cliente/Ejecutivo + input + dropdown de ejecutivo (foto 40px) +
+        # filtros de fecha Hoy/Semana/Mes. El JS unificado (más abajo, junto a los
+        # badges) oculta/muestra filas en el navegador combinando: badge de estado +
+        # modo/término + ejecutivo + rango de fecha. La tabla renderiza SIEMPRE el set
+        # completo; el filtrado no toca el servidor (cero reruns).
+        _SB_SEARCH = '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>'
+        _SB_TRASH = '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'
+        _SB_SUN = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'
+        _SB_CALW = '<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18M8 2v4M16 2v4M7 15h.01M11 15h.01M15 15h.01"/>'
+        _SB_CAL = '<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/>'
+        def _sb_svg(_p):
+            return ('<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+                    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + _p + '</svg>')
+        _SBAR_CSS = ('<style>'
+            ".st-key-ec_sbar_box,.st-key-ec_sbar_box [data-testid='stVerticalBlockBorderWrapper']{overflow:visible!important;}"
+            '.ecsb{font-family:Montserrat,sans-serif;}'
+            '.ecsb-radios{display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin:0 0 12px;}'
+            '.ecsb-radio{display:inline-flex;align-items:center;gap:8px;background:none;border:none;padding:0;cursor:pointer;'
+            'font-family:Montserrat,sans-serif;font-weight:700;font-size:0.82rem;letter-spacing:0.04em;text-transform:uppercase;color:#0f172a;}'
+            '.ecsb-dot{width:16px;height:16px;border-radius:50%;border:2px solid #cbd5e1;box-sizing:border-box;transition:border .12s;flex-shrink:0;}'
+            '.ecsb-radio.on .ecsb-dot{border:5px solid #4f7bfd;}'
+            '.ecsb-row{display:flex;gap:8px;align-items:center;}'
+            '.ecsb-input{flex:1;min-width:0;height:48px;border:1px solid #e2e8f0;border-radius:12px;padding:0 15px;'
+            'font-family:Montserrat,sans-serif;font-size:14px;color:#0f172a;outline:none;background:#fff;}'
+            '.ecsb-input:focus{border-color:#6d5efc;box-shadow:0 0 0 3px rgba(109,94,252,.15);}'
+            '.ecsb-input::placeholder{color:#94a3b8;}'
+            '.ecsb-ejwrap{flex:1;min-width:0;position:relative;}'
+            '.ecsb-ejchip{width:100%;height:48px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;cursor:pointer;'
+            'display:flex;align-items:center;gap:11px;padding:0 12px;}'
+            '.ecsb-ejchip:hover{border-color:#cbd5e1;}'
+            '.ecsb-ejchip-body{display:flex;align-items:center;gap:11px;flex:1;min-width:0;}'
+            '.ecsb-ejph{font-weight:700;font-size:13px;color:#64748b;}'
+            '.ecsb-ejmeta{display:flex;flex-direction:column;line-height:1.15;min-width:0;}'
+            '.ecsb-ejname{font-weight:800;font-size:14px;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+            '.ecsb-ejsub{font-size:11px;font-weight:600;color:#64748b;}'
+            '.ecsb-chev{color:#94a3b8;flex-shrink:0;margin-left:auto;}'
+            '.ecsb-av{width:32px;height:32px;border-radius:50%;flex:0 0 auto;overflow:hidden;display:flex;align-items:center;'
+            'justify-content:center;box-shadow:0 3px 9px rgba(5,12,28,.22);background:#fff;}'
+            '.ecsb-av img{width:100%;height:100%;object-fit:cover;display:block;}'
+            '.ecsb-av40{width:40px;height:40px;}'
+            '.ecsb-av-ini{background:linear-gradient(135deg,#0f3460,#1a5276);color:#fff;font-weight:900;font-size:13px;}'
+            '.ecsb-av40.ecsb-av-ini{font-size:15px;}'
+            '.ecsb-av-all{background:#e2e8f0;color:#64748b;box-shadow:none;}'
+            '.ecsb-ejmenu{position:absolute;top:calc(100% + 6px);left:0;right:0;max-height:300px;overflow-y:auto;'
+            'background:#fff;border:1px solid #e2e8f0;border-radius:13px;box-shadow:0 14px 40px rgba(15,23,42,.18);'
+            'z-index:99999;padding:6px;display:none;}'
+            '.ecsb-ejmenu.open{display:block;}'
+            '.ecsb-ejopt{width:100%;display:flex;align-items:center;gap:10px;background:none;border:none;cursor:pointer;'
+            'padding:7px 9px;border-radius:9px;font-family:Montserrat,sans-serif;font-weight:700;font-size:13px;color:#0f172a;text-align:left;}'
+            '.ecsb-ejopt:hover{background:#f1f5f9;}'
+            '.ecsb-ejopt span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+            '.ecsb-ico{width:54px;height:48px;flex-shrink:0;border:1px solid #e2e8f0;border-radius:12px;background:#fff;color:#475569;'
+            'display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:all .12s;}'
+            '.ecsb-ico:hover{background:#f8fafc;border-color:#cbd5e1;color:#0f172a;}'
+            '.ecsb-search{background:#6d5efc;border-color:#6d5efc;color:#fff;}'
+            '.ecsb-search:hover{background:#5b4ef0;border-color:#5b4ef0;color:#fff;}'
+            '.ecsb-ico.ecsb-date.on{background:#eef4ff;border-color:#93c5fd;color:#1d4ed8;}'
+            '</style>')
+        from datetime import datetime as _dtb_sb, timezone as _tzb_sb, timedelta as _tdb_sb
+        _t0_sb = _dtb_sb.now(_tzb_sb(_tdb_sb(hours=-3))).replace(hour=0, minute=0, second=0, microsecond=0)
+        _today_ms_sb = int(_t0_sb.timestamp() * 1000)
+        _week_ms_sb = int((_t0_sb - _tdb_sb(days=_t0_sb.weekday())).timestamp() * 1000)
+        _month_ms_sb = int(_t0_sb.replace(day=1).timestamp() * 1000)
+        st.markdown(_SBAR_CSS + (
+            f'<div class="ecsb" id="_ec_sbar" data-today="{_today_ms_sb}" '
+            f'data-week="{_week_ms_sb}" data-month="{_month_ms_sb}">'
+            '<div class="ecsb-radios">'
+            '<button type="button" class="ecsb-radio on" data-mode="numero"><span class="ecsb-dot"></span>N&#176; PRESUPUESTO</button>'
+            '<button type="button" class="ecsb-radio" data-mode="cliente"><span class="ecsb-dot"></span>CLIENTE</button>'
+            '<button type="button" class="ecsb-radio" data-mode="asesor"><span class="ecsb-dot"></span>EJECUTIVO</button>'
+            '</div>'
+            '<div class="ecsb-row">'
+            '<input id="_ec_sinput" class="ecsb-input" type="text" autocomplete="off" placeholder="Ingrese t&#233;rmino de b&#250;squeda&#8230;">'
+            '<div id="_ec_ejwrap" class="ecsb-ejwrap" style="display:none;">'
+            '<button type="button" id="_ec_ejchip" class="ecsb-ejchip">'
+            '<span id="_ec_ejchip_body" class="ecsb-ejchip-body"><span class="ecsb-ejph">Todos los ejecutivos</span></span>'
+            '<svg class="ecsb-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>'
+            '</button>'
+            '<div id="_ec_ejmenu" class="ecsb-ejmenu"></div>'
+            '</div>'
+            f'<button type="button" id="_ec_b_search" class="ecsb-ico ecsb-search" title="Buscar">{_sb_svg(_SB_SEARCH)}</button>'
+            f'<button type="button" id="_ec_b_clear" class="ecsb-ico" title="Limpiar">{_sb_svg(_SB_TRASH)}</button>'
+            f'<button type="button" class="ecsb-ico ecsb-date" data-range="hoy" title="Hoy">{_sb_svg(_SB_SUN)}</button>'
+            f'<button type="button" class="ecsb-ico ecsb-date" data-range="semana" title="Esta semana">{_sb_svg(_SB_CALW)}</button>'
+            f'<button type="button" class="ecsb-ico ecsb-date" data-range="mes" title="Este mes">{_sb_svg(_SB_CAL)}</button>'
+            '</div>'
+            '</div>'), unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown("### Resultados")
@@ -553,22 +570,10 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
         with st.spinner("Cargando cotizaciones..."):
             st.session_state.resultados_busqueda = buscar_cotizaciones()
 
-    if buscar_btn or (termino and termino != st.session_state.get('ultimo_termino', '')):
-        st.session_state.ultimo_termino = termino
-        with st.spinner("Buscando..."):
-            st.session_state.resultados_busqueda = buscar_cotizaciones(termino or None, tipo_map[tipo_busqueda])
-        st.session_state.filtro_estado_tabla = None
-        st.session_state.mostrar_visor = False
-        st.session_state.pdf_actual = None; st.session_state.pdf_nombre = ""
-        st.session_state.numero_en_visor = None; st.session_state.pdf_url = None
-
-    if limpiar_btn:
-        st.session_state.resultados_busqueda = []
-        st.session_state.ultimo_termino = ""
-        st.session_state.mostrar_visor = False
-        st.session_state.pdf_actual = None; st.session_state.pdf_nombre = ""
-        st.session_state.numero_en_visor = None; st.session_state.pdf_url = None
-        st.rerun()
+    # La búsqueda (N° / Cliente / Ejecutivo), el filtro de fecha (Hoy/Semana/Mes) y
+    # Limpiar son ahora 100% CLIENT-SIDE (JS oculta filas, sin rerun): ver la barra
+    # HTML #_ec_sbar y el JS unificado más abajo. La tabla siempre renderiza el set
+    # completo (buscar_cotizaciones()) y el filtrado ocurre en el navegador.
 
     if st.session_state.resultados_busqueda:
         _cols = ["N°","Cliente","Asesor","Fecha","Total","Margen","RUT","Email","Asesor_Email",
@@ -1078,6 +1083,14 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             _ase_foto2 = _foto_map.get(_ase_email2, '') if _ase_email2 else ''
             # Ver documentos: hay algo que ver si el rol puede ver algún documento.
             _cx_ver = '1' if (_cx_planook or (not _es_ej_ctx_tbl) or _cx_pdf == '1' or _cx_selok or _cx_contrato == '1') else '0'
+            # Timestamp (ms, hora Chile) para el filtro de fecha client-side (Hoy/Semana/Mes).
+            _ts_ms_row = ''
+            _fraw_row = str(row.get('Fecha_raw', '') or '')
+            if _fraw_row:
+                try:
+                    _ts_ms_row = str(int(_dt_cot.fromisoformat(_fraw_row.replace('Z', '+00:00')).timestamp() * 1000))
+                except Exception:
+                    _ts_ms_row = ''
             _ctx_attrs = (
                 f" data-ver='{_cx_ver}'"
                 f" data-cargar='{'1' if (_modo_adm_ctx or _cx_mg <= 0) else '0'}'"
@@ -1089,7 +1102,9 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                 f" data-contrato='{_cx_contrato}' data-modif='{_cx_modif}'"
                 f' data-cli="{_attresc(row.get("Cliente","") or "")}"'
                 f' data-asesor="{_attresc(row.get("Asesor","") or "")}"'
-                f' data-avatar="{_attresc(_ase_foto2)}"')
+                f' data-avatar="{_attresc(_ase_foto2)}"'
+                f' data-num="{_attresc(str(row.get("N°","")))}"'
+                f" data-ts='{_ts_ms_row}'")
             rows_html+=(f"<tr{_fila_class} data-est='{_est_attr}'{_ctx_attrs}>"
                 f"<td data-ep=\"{row['N°']}\" style=\"cursor:pointer;font-weight:700;color:#3b82f6;\" title=\"Click para copiar {row['N°']}\">{row['N°']} {_hic('copy','#3b82f6',12,0)}</td>"
                 f"<td style='font-size:0.82rem;font-weight:700;color:#0f172a;line-height:1.5;'>{row['Cliente'] or '—'}"
@@ -1195,41 +1210,110 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             st.session_state.resultados_busqueda = None
             st.rerun()
 
-        # JS: filtra la tabla EN EL CLIENTE (oculta filas por data-est) sin rerun.
-        # Handler dedup en window.parent (sobrevive a reruns). El refresh si dispara rerun.
+        # JS UNIFICADO: filtra la tabla EN EL CLIENTE (sin rerun) combinando badge de
+        # estado + modo/término (N°/Cliente) + ejecutivo + rango de fecha. Maneja la
+        # barra #_ec_sbar (radios, input, dropdown de ejecutivo con foto, fechas,
+        # limpiar) y los badges. Handlers dedup en window.parent (sobreviven a reruns).
         components.html(r"""<script>
 (function(){
   var W=window.parent, D=W.document;
-  function apply(filter){
-    var rows=D.querySelectorAll('.resultados-table tbody tr'); var vis=0;
-    rows.forEach(function(tr){
-      var est=tr.getAttribute('data-est')||'';
-      var show=(!filter||filter==='TODOS'||est===filter);
-      tr.style.display=show?'':'none'; if(show)vis++;
+  var sbar=D.getElementById('_ec_sbar');
+  var badgebar=D.getElementById('_ec_badgebar');
+  var fresh=!W._ecFilterState;
+  var F=W._ecFilterState||{badge:'TODOS',mode:'numero',term:'',ejec:'',ejecAv:'',range:''};
+  W._ecFilterState=F;
+  if(fresh && badgebar){ F.badge=badgebar.getAttribute('data-init')||'TODOS'; }
+  var TODAY=+((sbar&&sbar.getAttribute('data-today'))||0),
+      WEEK=+((sbar&&sbar.getAttribute('data-week'))||0),
+      MONTH=+((sbar&&sbar.getAttribute('data-month'))||0);
+  function rows(){ return D.querySelectorAll('.resultados-table tbody tr'); }
+  function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function ini(n){ var p=(n||'').split(' ').filter(Boolean); return (p.slice(0,2).map(function(x){return x.charAt(0);}).join('')||'EC').toUpperCase(); }
+
+  function applyAll(){
+    var vis=0;
+    rows().forEach(function(tr){
+      var ok=true, est=tr.getAttribute('data-est')||'';
+      if(F.badge && F.badge!=='TODOS') ok=(est===F.badge);
+      if(ok){
+        if(F.mode==='asesor'){ if(F.ejec) ok=((tr.getAttribute('data-asesor')||'')===F.ejec); }
+        else if(F.term){ var fld=(F.mode==='cliente'?(tr.getAttribute('data-cli')||''):(tr.getAttribute('data-num')||'')); ok=(fld.toLowerCase().indexOf(F.term)!==-1); }
+      }
+      if(ok && F.range){ var ts=+(tr.getAttribute('data-ts')||0), b=(F.range==='hoy'?TODAY:(F.range==='semana'?WEEK:MONTH)); ok=(ts>=b); }
+      tr.style.display=ok?'':'none'; if(ok)vis++;
     });
     var n=D.getElementById('_ec_nres'); if(n) n.textContent=vis+(vis===1?' resultado':' resultados');
   }
-  function setActive(btn){
-    var bar=D.getElementById('_ec_badgebar'); if(!bar||!btn) return;
-    bar.querySelectorAll('.ec-badge[data-filter]').forEach(function(b){
-      b.style.background=b.getAttribute('data-bg'); b.style.color=b.getAttribute('data-fg'); b.style.boxShadow='none';
-    });
-    var act=btn.getAttribute('data-act'); btn.style.background=act; btn.style.color='#fff'; btn.style.boxShadow='0 0 0 2px '+act;
+
+  function avHtml(av,name,cls){ var c='ecsb-av '+(cls||''); if(av) return '<span class="'+c+'"><img src="'+esc(av)+'"></span>'; return '<span class="'+c+' ecsb-av-ini">'+esc(ini(name))+'</span>'; }
+  function buildMenu(){
+    var menu=D.getElementById('_ec_ejmenu'); if(!menu) return;
+    var seen={}, items=[];
+    rows().forEach(function(tr){ var a=(tr.getAttribute('data-asesor')||'').trim(); if(!a||seen[a])return; seen[a]=1; items.push({n:a,av:(tr.getAttribute('data-avatar')||'')}); });
+    items.sort(function(x,y){ return x.n.localeCompare(y.n); });
+    var h='<button type="button" class="ecsb-ejopt" data-ej=""><span class="ecsb-av ecsb-av-all"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span>Todos los ejecutivos</span></button>';
+    items.forEach(function(it){ h+='<button type="button" class="ecsb-ejopt" data-ej="'+esc(it.n)+'" data-av="'+esc(it.av)+'">'+avHtml(it.av,it.n,'')+'<span>'+esc(it.n)+'</span></button>'; });
+    menu.innerHTML=h;
   }
-  if(W._ecBadgeH) D.removeEventListener('click', W._ecBadgeH, true);
-  W._ecBadgeH=function(e){
-    var t=e.target&&e.target.closest?e.target.closest('#_ec_badgebar .ec-badge'):null; if(!t) return;
-    e.preventDefault(); e.stopPropagation();
-    if(t.getAttribute('data-refresh')){ var rb=D.querySelector('.st-key-cot_refresh_tabla button'); if(rb) rb.click(); return; }
-    var bar=D.getElementById('_ec_badgebar'); var f=t.getAttribute('data-filter');
-    if(f===(bar&&bar.getAttribute('data-active'))) f='TODOS';
-    if(bar) bar.setAttribute('data-active', f);
-    setActive(bar.querySelector('.ec-badge[data-filter="'+f+'"]'));
-    apply(f);
+  function setChip(){
+    var body=D.getElementById('_ec_ejchip_body'); if(!body) return;
+    if(F.ejec){ body.innerHTML=avHtml(F.ejecAv,F.ejec,'ecsb-av40')+'<span class="ecsb-ejname">'+esc(F.ejec)+'</span>'; }
+    else { body.innerHTML='<span class="ecsb-ejph">Todos los ejecutivos</span>'; }
+  }
+  function setMode(m){
+    F.mode=m;
+    if(sbar) sbar.querySelectorAll('.ecsb-radio').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-mode')===m); });
+    var inp=D.getElementById('_ec_sinput'), ejw=D.getElementById('_ec_ejwrap');
+    if(m==='asesor'){ if(inp)inp.style.display='none'; if(ejw)ejw.style.display=''; }
+    else { if(inp)inp.style.display=''; if(ejw)ejw.style.display='none'; }
+    applyAll();
+  }
+  function setRange(r){
+    F.range=(F.range===r)?'':r;
+    if(sbar) sbar.querySelectorAll('.ecsb-date').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-range')===F.range); });
+    applyAll();
+  }
+  function setBadge(f){
+    if(!badgebar) return;
+    badgebar.querySelectorAll('.ec-badge[data-filter]').forEach(function(b){ b.style.background=b.getAttribute('data-bg'); b.style.color=b.getAttribute('data-fg'); b.style.boxShadow='none'; });
+    badgebar.setAttribute('data-active', f);
+    var btn=badgebar.querySelector('.ec-badge[data-filter="'+f+'"]');
+    if(btn){ var act=btn.getAttribute('data-act'); btn.style.background=act; btn.style.color='#fff'; btn.style.boxShadow='0 0 0 2px '+act; }
+  }
+
+  if(W._ecBadgeH){ D.removeEventListener('click', W._ecBadgeH, true); W._ecBadgeH=null; }
+  if(W._ecFilterH) D.removeEventListener('click', W._ecFilterH, true);
+  W._ecFilterH=function(e){
+    var cl=e.target&&e.target.closest;
+    var bb=cl?e.target.closest('#_ec_badgebar .ec-badge'):null;
+    if(bb){ e.preventDefault(); e.stopPropagation();
+      if(bb.getAttribute('data-refresh')){ var rb=D.querySelector('.st-key-cot_refresh_tabla button'); if(rb) rb.click(); return; }
+      var f=bb.getAttribute('data-filter'); if(f===F.badge) f='TODOS'; F.badge=f; setBadge(f); applyAll(); return; }
+    var t=cl?e.target.closest('#_ec_sbar [data-mode],#_ec_sbar .ecsb-date,#_ec_b_clear,#_ec_b_search,#_ec_ejchip,#_ec_ejmenu .ecsb-ejopt'):null;
+    if(!t){ var mn0=D.getElementById('_ec_ejmenu'); if(mn0) mn0.classList.remove('open'); return; }
+    if(t.hasAttribute('data-mode')){ setMode(t.getAttribute('data-mode')); return; }
+    if(t.classList.contains('ecsb-date')){ e.preventDefault(); setRange(t.getAttribute('data-range')); return; }
+    if(t.id==='_ec_b_search'){ e.preventDefault(); applyAll(); return; }
+    if(t.id==='_ec_b_clear'){ e.preventDefault();
+      F.term=''; F.ejec=''; F.ejecAv=''; F.range=''; F.badge='TODOS';
+      var inp2=D.getElementById('_ec_sinput'); if(inp2) inp2.value='';
+      if(sbar) sbar.querySelectorAll('.ecsb-date').forEach(function(b){ b.classList.remove('on'); });
+      setChip(); setBadge('TODOS'); applyAll(); return; }
+    if(t.id==='_ec_ejchip'){ e.preventDefault(); var mn=D.getElementById('_ec_ejmenu'); if(mn) mn.classList.toggle('open'); return; }
+    if(t.classList.contains('ecsb-ejopt')){ e.preventDefault();
+      F.ejec=t.getAttribute('data-ej')||''; F.ejecAv=t.getAttribute('data-av')||'';
+      setChip(); var mn2=D.getElementById('_ec_ejmenu'); if(mn2) mn2.classList.remove('open'); applyAll(); return; }
   };
-  D.addEventListener('click', W._ecBadgeH, true);
-  var bar=D.getElementById('_ec_badgebar');
-  if(bar){ var ini=bar.getAttribute('data-init')||'TODOS'; bar.setAttribute('data-active', ini); apply(ini); }
+  D.addEventListener('click', W._ecFilterH, true);
+
+  var inp=D.getElementById('_ec_sinput');
+  if(inp){ if(W._ecInpH) inp.removeEventListener('input', W._ecInpH);
+    W._ecInpH=function(){ F.term=(inp.value||'').trim().toLowerCase(); applyAll(); };
+    inp.addEventListener('input', W._ecInpH); inp.value=F.term||''; }
+
+  buildMenu(); setMode(F.mode||'numero'); setChip(); setBadge(F.badge||'TODOS');
+  if(F.range && sbar){ sbar.querySelectorAll('.ecsb-date').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-range')===F.range); }); }
+  applyAll();
 })();
 </script>""", height=0)
 
