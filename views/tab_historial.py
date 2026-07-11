@@ -1395,10 +1395,13 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             # acción del menú contextual) no te devuelva al principio de la tabla.
             'function restoreV(){'
             'var vs=D.getElementById("_ec_vscroll"); if(!vs) return;'
-            'if(typeof W._ecTableScrollY==="number") vs.scrollTop=W._ecTableScrollY;'
-            'if(!vs._ecVBound){ vs.addEventListener("scroll",function(){ W._ecTableScrollY=vs.scrollTop; }); vs._ecVBound=true; }'
+            'if(!vs._ecVBound){ vs.addEventListener("scroll",function(){'
+            'if(vs.scrollHeight>vs.clientHeight) W._ecTableScrollY=vs.scrollTop;'
+            '}); vs._ecVBound=true; }'
+            'if(typeof W._ecTableScrollY==="number"&&W._ecTableScrollY>0&&vs.scrollHeight>vs.clientHeight){'
+            'vs.scrollTop=W._ecTableScrollY;}'
             '}'
-            'restoreV(); setTimeout(restoreV,200);'
+            'restoreV();setTimeout(restoreV,80);setTimeout(restoreV,250);setTimeout(restoreV,500);setTimeout(restoreV,1000);'
             'function gS(){var t=D.querySelector(".resultados-table");if(!t)return null;var el=t.parentElement;'
             'while(el){var s=W.getComputedStyle(el);if(s.overflowX==="auto"||s.overflowX==="scroll")return el;el=el.parentElement;}return t.parentElement;}'
             'function maxScroll(){return target?Math.max(0,target.scrollWidth-target.clientWidth):0;}'
@@ -2037,6 +2040,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
   function closeMenu(){var m=D.getElementById(MENU_ID);if(m)m.remove();}
   function fire(action,ep){
     var inp=D.querySelector('.st-key-_ctx_cmd input'); if(!inp) return;
+    var vs=D.getElementById('_ec_vscroll'); if(vs&&vs.scrollTop>0) W._ecTableScrollY=vs.scrollTop;
     try{
       var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set;
       inp.focus({preventScroll:true});
