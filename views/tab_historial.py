@@ -1373,6 +1373,8 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             ".tbl-scroll-btn:hover{background:linear-gradient(135deg,#5b7cfa,#2563eb);color:#fff;"
             "border-color:transparent;box-shadow:0 6px 16px rgba(37,99,235,0.35);transform:translateY(-1px);}"
             ".tbl-scroll-btn:active{transform:translateY(0) scale(0.93);box-shadow:0 1px 3px rgba(15,23,42,0.12);}"
+            ".tbl-scroll-btn:disabled{opacity:0.35;cursor:not-allowed;background:#fff;color:#475569;"
+            "border-color:#e2e8f0;box-shadow:none;transform:none;}"
             "</style>"
             '<div class="tbl-scroll-wrap">'
             '  <span class="tbl-n-res"></span>'  # conteo vivo ahora en la barra de badges (#_ec_nres)
@@ -1382,11 +1384,44 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             '    <button class="tbl-scroll-btn" id="btn-right" title="Desplazar a la derecha">'+_CHEV_R+'</button>'
             '  </div></div>'
             '<script>(function(){'
-            'var D=window.parent.document;'
+            'var D=window.parent.document, W=window.parent;'
+            'var btnL=document.getElementById("btn-left"), btnR=document.getElementById("btn-right");'
+            'var target=null, rafId=null, activeDir=0, holdTimer=null, isHolding=false, SPEED=13;'
             'function gS(){var t=D.querySelector(".resultados-table");if(!t)return null;var el=t.parentElement;'
-            'while(el){var s=window.parent.getComputedStyle(el);if(s.overflowX==="auto"||s.overflowX==="scroll")return el;el=el.parentElement;}return t.parentElement;}'
-            'document.getElementById("btn-left").addEventListener("click",function(){var t=gS();if(t)t.scrollBy({left:-300,behavior:"smooth"});});'
-            'document.getElementById("btn-right").addEventListener("click",function(){var t=gS();if(t)t.scrollBy({left:300,behavior:"smooth"});});'
+            'while(el){var s=W.getComputedStyle(el);if(s.overflowX==="auto"||s.overflowX==="scroll")return el;el=el.parentElement;}return t.parentElement;}'
+            'function maxScroll(){return target?Math.max(0,target.scrollWidth-target.clientWidth):0;}'
+            'function updateState(){'
+            'if(!target){btnL.disabled=true;btnR.disabled=true;return;}'
+            'var atStart=target.scrollLeft<=0, atEnd=target.scrollLeft>=maxScroll()-1;'
+            'btnL.disabled=atStart; btnR.disabled=atEnd;'
+            '}'
+            'function refreshTarget(){'
+            'target=gS();'
+            'if(target && !target._ecScrollBound){ target.addEventListener("scroll",updateState); target._ecScrollBound=true; }'
+            'updateState();'
+            '}'
+            'function step(){'
+            'if(!target||activeDir===0)return;'
+            'target.scrollLeft+=activeDir*SPEED; updateState();'
+            'if((activeDir<0&&target.scrollLeft<=0)||(activeDir>0&&target.scrollLeft>=maxScroll()-1)){stopHold();return;}'
+            'rafId=W.requestAnimationFrame(step);'
+            '}'
+            'function startHold(d){activeDir=d; if(rafId)W.cancelAnimationFrame(rafId); rafId=W.requestAnimationFrame(step);}'
+            'function stopHold(){activeDir=0; if(rafId){W.cancelAnimationFrame(rafId); rafId=null;}}'
+            'function press(d){ refreshTarget(); if(!target)return; isHolding=false;'
+            'holdTimer=setTimeout(function(){isHolding=true; startHold(d);},180); }'
+            'function release(d){ clearTimeout(holdTimer);'
+            'if(isHolding){stopHold();} else if(target){target.scrollBy({left:d*300,behavior:"smooth"});} isHolding=false; }'
+            'function cancelPress(){ clearTimeout(holdTimer); if(isHolding){stopHold();} isHolding=false; }'
+            'btnL.addEventListener("mousedown",function(e){e.preventDefault();press(-1);});'
+            'btnR.addEventListener("mousedown",function(e){e.preventDefault();press(1);});'
+            'btnL.addEventListener("mouseup",function(){release(-1);});'
+            'btnR.addEventListener("mouseup",function(){release(1);});'
+            'btnL.addEventListener("mouseleave",cancelPress);'
+            'btnR.addEventListener("mouseleave",cancelPress);'
+            'D.addEventListener("mouseup",cancelPress);'
+            'refreshTarget();'
+            'setTimeout(refreshTarget,200);'
             '})();</script>')
         components.html(_scroll_html, height=50)
 
@@ -2626,85 +2661,6 @@ function _ecStartPdf(){
                             use_container_width=True, key=f"descargar_plano_{st.session_state.numero_en_visor}")
                     else:
                         st.warning("No se pudo preparar la descarga. Intenta de nuevo.")
-
-        st.markdown("---")
-        st.markdown("### Estadisticas Rapidas")
-        # Conteo por estado usando la FUENTE ÚNICA (calcular_estado_label), la misma
-        # que la tabla/badges → las stats siempre coinciden con los filtros.
-        _estado_cnt = {}
-        for row in st.session_state.resultados_busqueda:
-            _lbl = calcular_estado_label(
-                row[1], row[7], row[2], row[8], row[9],
-                float(row[5] or 0), bool(row[10]) if len(row) > 10 else False,
-                tiene_notariado=bool(row[15]) if len(row) > 15 else False,
-                tiene_acta=bool(row[21]) if len(row) > 21 else False,
-                motivo_rechazo=row[19] if len(row) > 19 else '')
-            _estado_cnt[_lbl] = _estado_cnt.get(_lbl, 0) + 1
-        def _ec(k): return _estado_cnt.get(k, 0)
-        # ── Stat cards: grid responsivo (auto-fit) + estilo potente con SVG ──
-        _SVG_STAT = {
-            "trophy": '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
-            "award": '<path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"/><circle cx="12" cy="8" r="6"/>',
-            "check": '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/>',
-            "checkline": '<path d="M20 6 9 17l-5-5"/>',
-            "fileedit": '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><polyline points="14 2 14 8 20 8"/><path d="M10.4 12.6a2 2 0 1 1 3 3L8 21l-4 1 1-4z"/>',
-            "file": '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>',
-            "alert": '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>',
-            "xcircle": '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
-            "ban": '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
-        }
-        def _stat_ic(name, color):
-            return (
-                f'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{color}" '
-                f'stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
-                f'{_SVG_STAT.get(name, "")}</svg>'
-            )
-        # (icon, color, título, número, descripción)
-        _stat_cards = [
-            ("trophy",   "#7c3aed", "Terminado",       str(_ec('PROYECTO TERMINADO')),   "Proyectos terminados"),
-            ("award",    "#2563eb", "Adjudicado",      str(_ec('ADJUDICADO')),           "Adjudicados"),
-            ("check",    "#10b981", "Autorizado C/P",  str(_ec('AUTORIZADO CON PLANO')), "Autorizados con plano"),
-            ("checkline","#16a34a", "Autorizado",      str(_ec('AUTORIZADO')),           "Autorizados sin plano"),
-            ("fileedit", "#f97316", "Borrador C/P",    str(_ec('BORRADOR CON PLANO')),   "Borradores con plano"),
-            ("file",     "#eab308", "Borrador",        str(_ec('BORRADOR')),             "Borradores sin plano"),
-            ("alert",    "#ef4444", "Incompleto C/P",  str(_ec('INCOMPLETO CON PLANO')), "Incompletos con plano"),
-            ("xcircle",  "#dc2626", "Incompleto",      str(_ec('INCOMPLETO')),           "Incompletos sin plano"),
-            ("ban",      "#b91c1c", "Rechazado",       str(_ec('RECHAZADO')),            "Rechazados"),
-        ]
-        _cards_html = (
-            '<style>'
-            '.ec-stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));'
-            'gap:14px;margin-top:6px;}'
-            '.ec-stat{position:relative;background:#fff;border-radius:16px;padding:18px 18px 16px;'
-            'border:1px solid #eaedf5;box-shadow:0 4px 18px rgba(15,23,42,0.06);overflow:hidden;'
-            'transition:transform .18s cubic-bezier(.22,1,.36,1),box-shadow .18s;}'
-            '.ec-stat:hover{transform:translateY(-4px);box-shadow:0 14px 34px rgba(15,23,42,0.13);}'
-            '.ec-stat::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;}'
-            '.ec-stat-top{display:flex;align-items:center;gap:9px;margin-bottom:12px;}'
-            '.ec-stat-ico{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;'
-            'justify-content:center;flex-shrink:0;}'
-            '.ec-stat-ttl{font-size:0.66rem;font-weight:800;color:#9099be;text-transform:uppercase;'
-            'letter-spacing:0.07em;line-height:1.15;}'
-            '.ec-stat-num{font-weight:900;line-height:1;letter-spacing:-0.03em;margin-bottom:5px;'
-            'font-family:"Plus Jakarta Sans",sans-serif;}'
-            '.ec-stat-desc{font-size:0.74rem;color:#a0a8c8;font-weight:500;}'
-            '</style><div class="ec-stats-grid">'
-        )
-        for _ic, _col, _ttl, _num, _desc in _stat_cards:
-            _fs = "1.5rem" if len(_num) > 11 else ("1.9rem" if len(_num) > 7 else "2.4rem")
-            _cards_html += (
-                f'<div class="ec-stat" style="--c:{_col};">'
-                f'<div style="position:absolute;top:0;left:0;right:0;height:4px;'
-                f'background:linear-gradient(90deg,{_col},{_col}99);"></div>'
-                f'<div class="ec-stat-top">'
-                f'<div class="ec-stat-ico" style="background:{_col}1a;">{_stat_ic(_ic, _col)}</div>'
-                f'<div class="ec-stat-ttl">{_ttl}</div></div>'
-                f'<div class="ec-stat-num" style="color:{_col};font-size:{_fs};">{_num}</div>'
-                f'<div class="ec-stat-desc">{_desc}</div>'
-                f'</div>'
-            )
-        _cards_html += '</div>'
-        st.markdown(_cards_html, unsafe_allow_html=True)
 
     # Toasts
     if st.session_state.get('_toast_msg'):
