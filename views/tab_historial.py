@@ -1339,7 +1339,7 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
         .resultados-table tbody tr.ec-ctx-row td:first-child {{ box-shadow:inset 3px 0 0 #2563eb; }}
         </style>
         <div id="_ec_restable" data-selep="{st.session_state.get('selector_ep_num','')}" style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:1px solid #e2e8f0;overflow-x:auto;">
-            <div style="{_altura_css}">
+            <div id="_ec_vscroll" style="{_altura_css}">
                 <table class='resultados-table' style='margin:0;border-radius:0;box-shadow:none;min-width:1700px;table-layout:auto;white-space:nowrap;'>
                     <thead style='position:sticky;top:0;z-index:2;'>
                         <tr><th>Presupuesto</th><th>Cliente</th><th>Total proyecto</th>{_th_tc}<th>Ejecutivo</th><th>Estado</th><th>Creación</th><th>Demora</th><th>Autorización</th><th>Empresa</th>{_th_margen}<th>Contrato</th><th>Plano</th><th>Modif.</th><th class="th-cierre">$ Cierre de venta</th><th class="th-adj">Fecha adjudicación</th>{_th_compras}<th class="th-adj">Tiempo fabricación</th><th class="th-adj">Fidelización cliente</th><th class="th-adj">Retraso proyecto</th></tr>
@@ -1388,6 +1388,17 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             'var D=window.parent.document, W=window.parent;'
             'var btnL=document.getElementById("btn-left"), btnR=document.getElementById("btn-right");'
             'var target=null, rafId=null, activeDir=0, holdTimer=null, isHolding=false, SPEED=13;'
+            # Pin del scroll vertical de la tabla: cada rerun recrea el <div> con las
+            # filas desde cero (scrollTop vuelve a 0). Guardamos la posición en
+            # window.parent (sobrevive al rerun) y la restauramos apenas la tabla nueva
+            # está en el DOM, para que abrir/cerrar el visor de documentos (u otra
+            # acción del menú contextual) no te devuelva al principio de la tabla.
+            'function restoreV(){'
+            'var vs=D.getElementById("_ec_vscroll"); if(!vs) return;'
+            'if(typeof W._ecTableScrollY==="number") vs.scrollTop=W._ecTableScrollY;'
+            'if(!vs._ecVBound){ vs.addEventListener("scroll",function(){ W._ecTableScrollY=vs.scrollTop; }); vs._ecVBound=true; }'
+            '}'
+            'restoreV(); setTimeout(restoreV,200);'
             'function gS(){var t=D.querySelector(".resultados-table");if(!t)return null;var el=t.parentElement;'
             'while(el){var s=W.getComputedStyle(el);if(s.overflowX==="auto"||s.overflowX==="scroll")return el;el=el.parentElement;}return t.parentElement;}'
             'function maxScroll(){return target?Math.max(0,target.scrollWidth-target.clientWidth):0;}'
