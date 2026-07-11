@@ -20,7 +20,21 @@ from utils.security import (
 _CSS_LOGIN = """
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;700;900&display=swap');
 
-[data-testid="stAppViewContainer"] { background: #0d0d0d !important; }
+/* Fondo: VIDEO en vez de negro (mismo hero_video.mp4 de la página del cliente).
+   El video va detrás de TODO con z-index negativo; el body oscuro queda de
+   respaldo por si el video no carga. Solo se cambia el fondo — el resto del
+   login (inputs, botón, logo) queda idéntico. */
+html, body { background: #0a0a0a !important; }
+[data-testid="stApp"], [data-testid="stAppViewContainer"],
+[data-testid="stMain"], .block-container { background: transparent !important; }
+.login-video {
+    position:fixed; inset:0; width:100%; height:100%;
+    object-fit:cover; z-index:-2;
+}
+.login-overlay {
+    position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background:linear-gradient(135deg, rgba(6,10,18,0.66) 0%, rgba(8,14,28,0.78) 100%);
+}
 [data-testid="stHeader"]     { display:none !important; }
 [data-testid="stToolbar"]    { display:none !important; }
 [data-testid="stDecoration"] { display:none !important; }
@@ -124,6 +138,17 @@ def _cargar_logo_b64() -> str:
     return ""
 
 
+@st.cache_data(show_spinner=False)
+def _cargar_video_b64() -> str:
+    """Video de fondo (mismo `hero_video.mp4` que usa la página del cliente).
+    Cacheado para no releer/reencodear los ~2 MB en cada rerun del login."""
+    for path in ["hero_video.mp4", "assets/hero_video.mp4"]:
+        if os.path.exists(path):
+            with open(path, "rb") as f:
+                return base64.b64encode(f.read()).decode()
+    return ""
+
+
 def render_login(login_usuario_fn) -> None:
     """
     Renderiza la pantalla de login.
@@ -133,6 +158,17 @@ def render_login(login_usuario_fn) -> None:
     logo_b64 = _cargar_logo_b64()
 
     st.markdown(f"<style>{_CSS_LOGIN}</style>", unsafe_allow_html=True)
+
+    # Video de fondo (detrás de todo, z-index negativo). Si no hay video, el body
+    # oscuro de respaldo deja el login igual que antes.
+    video_b64 = _cargar_video_b64()
+    if video_b64:
+        st.markdown(
+            f'<video class="login-video" autoplay muted loop playsinline '
+            f'src="data:video/mp4;base64,{video_b64}"></video>'
+            '<div class="login-overlay"></div>',
+            unsafe_allow_html=True,
+        )
 
     # Aviso de sesión expirada por inactividad (viene de check_session_timeout,
     # que recarga a ?expired=1 para montar el login limpio).
