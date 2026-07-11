@@ -27,6 +27,9 @@ _TIPO_META = {
                         '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>'),
     'acceso_denegado': ('Acceso denegado', '#b91c1c',
                         '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>'),
+    'backup_bd':       ('Backup de BD',    '#0284c7',
+                        '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/>'
+                        '<path d="M3 12A9 3 0 0 0 21 12"/>'),
 }
 _SEV_META = {
     'alta':  ('ALTA',  '#dc2626', '#fee2e2'),
@@ -69,6 +72,12 @@ def _resumen_detalle(tipo, det):
         return escape_html(f"Bloqueado tras {det.get('intentos_recientes', '?')} intentos recientes")
     if tipo == 'login_fallido':
         return escape_html(f"Credenciales incorrectas (intento {det.get('intentos_sesion', '?')} en la sesión)")
+    if tipo == 'backup_bd':
+        _mb = (det.get('bytes', 0) or 0) / (1024 * 1024)
+        _reg = det.get('registros', '?')
+        _reg = f"{_reg:,}".replace(",", ".") if isinstance(_reg, int) else _reg
+        return escape_html(f"Backup completo: {det.get('tablas', '?')} tablas · {_reg} registros · "
+                           f"{_mb:.1f} MB · {det.get('archivo', '')}")
     try:
         return escape_html(json.dumps(det, ensure_ascii=False)[:180])
     except Exception:

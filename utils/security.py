@@ -26,7 +26,7 @@ import streamlit as st
 from config.supabase import supabase_admin
 
 # Tipos de evento de seguridad que muestra la pestaña SEGURIDAD.
-TIPOS_SEGURIDAD = ['login_fallido', 'login_bloqueado', 'input_sospechoso', 'acceso_denegado']
+TIPOS_SEGURIDAD = ['login_fallido', 'login_bloqueado', 'input_sospechoso', 'acceso_denegado', 'backup_bd']
 
 # Orden de severidad para comparaciones/UX.
 _SEV_RANK = {'baja': 1, 'media': 2, 'alta': 3}

@@ -378,6 +378,143 @@ def _construir_datos_guardar_simple():
     return dc,da,proy,cfg,tots,pn,pd2
 
 
+# ── Backup de seguridad de la BD (solo admin/root) ──────────────────────────────
+
+def _render_backup_seguridad(supabase_admin, rol):
+    """Tarjeta bajo la tabla que extrae TODAS las tablas de Supabase a un ZIP,
+    con anillo de porcentaje en vivo. Solo admin/root. Corre en su propio
+    fragment: generar/descargar NO reconstruye la tabla ni pierde el scroll."""
+    if rol not in ('root', 'admin'):
+        return
+    from utils import backup_db as _bkp
+
+    _SHIELD = ('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" '
+               'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+               '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>'
+               '<path d="m9 12 2 2 4-4"/></svg>')
+    _DB = ('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+           'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+           '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/>'
+           '<path d="M3 12A9 3 0 0 0 21 12"/></svg>')
+    _DL = ('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+           'stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+           '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/>'
+           '<line x1="12" x2="12" y1="15" y2="3"/></svg>')
+
+    _CSS = ('<style>'
+            ".st-key-ec_backup_box{margin-top:14px;}"
+            '.ecbk-head{display:flex;align-items:flex-start;gap:13px;}'
+            '.ecbk-ico{width:44px;height:44px;flex-shrink:0;border-radius:12px;background:#eff6ff;'
+            'border:1px solid #dbeafe;display:flex;align-items:center;justify-content:center;}'
+            '.ecbk-title{font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;'
+            'letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;line-height:1.3;}'
+            '.ecbk-desc{font-family:Montserrat,sans-serif;font-size:0.8rem;color:#64748b;font-weight:500;'
+            'margin-top:4px;max-width:640px;line-height:1.5;}'
+            '.ecbk-meta{display:inline-flex;align-items:center;gap:7px;margin-top:11px;padding:5px 12px;'
+            'border-radius:99px;background:#f1f5f9;color:#475569;font-family:Montserrat,sans-serif;'
+            'font-weight:700;font-size:11.5px;letter-spacing:.02em;}'
+            '.ecbk-done{display:flex;align-items:center;gap:13px;padding:4px 2px 2px;}'
+            '.ecbk-done-ic{width:46px;height:46px;flex-shrink:0;border-radius:50%;background:#dcfce7;'
+            'display:flex;align-items:center;justify-content:center;}'
+            '.ecbk-done-t{font-family:Montserrat,sans-serif;font-weight:800;font-size:0.95rem;color:#0f172a;}'
+            '.ecbk-done-s{font-family:Montserrat,sans-serif;font-size:0.8rem;color:#64748b;font-weight:600;margin-top:2px;}'
+            '</style>')
+
+    @st.fragment
+    def _frag():
+        with st.container(border=True, key='ec_backup_box'):
+            _n_tab = len(_bkp.TABLAS_BACKUP)
+            st.markdown(
+                _CSS +
+                '<div class="ecbk-head">'
+                f'<div class="ecbk-ico">{_SHIELD}</div>'
+                '<div><div class="ecbk-title">Copia de seguridad de la base de datos</div>'
+                '<div class="ecbk-desc">Extrae <b>todas las tablas</b> de Supabase en un archivo ZIP '
+                '(un JSON por tabla + manifiesto). Guárdalo en un lugar seguro para poder restaurar '
+                'la información ante cualquier eventualidad. Acción registrada en el panel de Seguridad.</div>'
+                f'<div class="ecbk-meta">{_DB}&nbsp;{_n_tab} tablas · solo administradores</div>'
+                '</div></div>',
+                unsafe_allow_html=True)
+
+            running = st.session_state.get('_bkp_running', False)
+            zipinfo = st.session_state.get('_bkp_zip')
+
+            if running:
+                _ph = st.empty()
+                _ph.markdown(_bkp.progress_svg_html(0, _bkp.TABLAS_BACKUP[0], [], {}), unsafe_allow_html=True)
+
+                def _cb(pct, tabla, hechas, counts):
+                    _ph.markdown(_bkp.progress_svg_html(pct, tabla, hechas, counts), unsafe_allow_html=True)
+
+                _quien = (st.session_state.get('auth_email')
+                          or st.session_state.get('auth_nombre') or '')
+                try:
+                    fname, data, manifest = _bkp.generar_backup(
+                        supabase_admin, generado_por=_quien, progress_cb=_cb)
+                    st.session_state['_bkp_zip'] = {
+                        'fname': fname, 'data': data, 'bytes': len(data),
+                        'tablas': manifest.get('total_tablas', 0),
+                        'registros': manifest.get('total_registros', 0),
+                        'fecha': manifest.get('generado_en', ''),
+                    }
+                    try:
+                        from utils.security import log_evento_seguridad
+                        log_evento_seguridad('backup_bd', _quien, {
+                            'tablas': manifest.get('total_tablas', 0),
+                            'registros': manifest.get('total_registros', 0),
+                            'bytes': len(data),
+                            'archivo': fname,
+                        }, severidad='media')
+                    except Exception:
+                        pass
+                except Exception as e:
+                    st.session_state['_bkp_error'] = str(e)[:300]
+                st.session_state['_bkp_running'] = False
+                st.rerun(scope='fragment')
+
+            elif zipinfo:
+                _mb = zipinfo['bytes'] / (1024 * 1024)
+                from datetime import datetime as _dtd
+                try:
+                    _fec = _dtd.fromisoformat(zipinfo['fecha']).strftime('%d/%m/%Y %H:%M')
+                except Exception:
+                    _fec = str(zipinfo.get('fecha', ''))[:16]
+                _check = ('<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16a34a" '
+                          'stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">'
+                          '<path d="M20 6 9 17l-5-5"/></svg>')
+                st.markdown(
+                    '<div class="ecbk-done">'
+                    f'<div class="ecbk-done-ic">{_check}</div>'
+                    '<div><div class="ecbk-done-t">Backup generado correctamente</div>'
+                    f'<div class="ecbk-done-s">{zipinfo["tablas"]} tablas · '
+                    f'{zipinfo["registros"]:,} registros · {_mb:.1f} MB · {_fec}</div></div></div>'.replace(",", "."),
+                    unsafe_allow_html=True)
+                _c1, _c2 = st.columns([1.3, 1])
+                with _c1:
+                    st.download_button(
+                        f"Descargar backup ({_mb:.1f} MB)", data=zipinfo['data'],
+                        file_name=zipinfo['fname'], mime="application/zip",
+                        use_container_width=True, key='_bkp_dl', type='primary',
+                        icon=":material/download:")
+                with _c2:
+                    if st.button("Generar uno nuevo", use_container_width=True, key='_bkp_new',
+                                 icon=":material/refresh:"):
+                        st.session_state.pop('_bkp_zip', None)
+                        st.session_state['_bkp_running'] = True
+                        st.rerun(scope='fragment')
+
+            else:
+                if st.session_state.get('_bkp_error'):
+                    st.error("No se pudo generar el backup: " + str(st.session_state.pop('_bkp_error')))
+                st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+                if st.button("Generar backup completo", type='primary', key='_bkp_go',
+                             icon=":material/database:"):
+                    st.session_state['_bkp_running'] = True
+                    st.rerun(scope='fragment')
+
+    _frag()
+
+
 # ── View principal ────────────────────────────────────────────────────────────
 
 def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
@@ -2180,6 +2317,12 @@ var MAT_DATA = """ + _mat_data_json_map + """;
   D.addEventListener('keydown', W._ecCtxKey, true);
 })();
 </script>""", height=0)
+
+        # ── Backup de seguridad de la base de datos (solo admin/root) ────────────
+        # Debajo de la tabla: extrae TODAS las tablas de Supabase a un ZIP con
+        # indicador de porcentaje. Va en su propio fragment para NO reconstruir la
+        # tabla (ni perder el scroll) al generarlo/descargarlo.
+        _render_backup_seguridad(supabase_admin, _rol_actual)
 
         # DROPDOWN "Seleccionar cotización" + fila de botones de acción DESCONECTADOS
         # (prueba de velocidad): eran un widget nativo lento y pre-generaban 4 PDFs en
