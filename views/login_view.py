@@ -61,71 +61,73 @@ div[data-testid="stTextInput"] label p {
     font-family: 'Montserrat', sans-serif !important;
     font-weight: 400 !important;
 }
+/* INPUTS estilo GLASS (igual que la página del cliente): el campo completo
+   —incluido el ícono de ver contraseña— flota sobre vidrio translúcido. */
 div[data-testid="stTextInput"] > div,
-div[data-testid="stTextInput"] > div > div,
 div[data-testid="stTextInput"] > div > div > div {
-    background: #0a0a0a !important;
-    border-color: rgba(255,255,255,0.15) !important;
-    border-radius: 6px !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
 }
 div[data-testid="stTextInput"] > div > div {
-    background: linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%) !important;
-    border: 1px solid rgba(255,255,255,0.18) !important;
-    border-radius: 6px !important;
-    box-shadow:
-        inset 0 2px 4px rgba(0,0,0,0.8),
-        inset 0 1px 0 rgba(255,255,255,0.05),
-        0 1px 0 rgba(255,255,255,0.08) !important;
+    background: rgba(255,255,255,0.12) !important;
+    -webkit-backdrop-filter: blur(6px) !important;
+    backdrop-filter: blur(6px) !important;
+    border: 1px solid rgba(255,255,255,0.28) !important;
+    border-radius: 11px !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.18) !important;
+    transition: border-color .18s, box-shadow .18s, background .18s !important;
+}
+div[data-testid="stTextInput"] > div > div:focus-within {
+    border-color: rgba(255,255,255,0.60) !important;
+    background: rgba(255,255,255,0.18) !important;
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.15), 0 4px 12px rgba(0,0,0,0.18) !important;
 }
 div[data-testid="stTextInput"] input {
     background: transparent !important;
     color: #ffffff !important;
     font-size: 0.93rem !important;
     font-family: 'Montserrat', sans-serif !important;
+    font-weight: 500 !important;
     caret-color: #ffffff !important;
 }
-div[data-testid="stTextInput"] input::placeholder { color: rgba(255,255,255,0.18) !important; }
-div[data-testid="stTextInput"] > div > div:focus-within {
-    border-color: rgba(255,255,255,0.45) !important;
-    box-shadow:
-        inset 0 2px 4px rgba(0,0,0,0.8),
-        0 0 0 1px rgba(255,255,255,0.12),
-        0 0 12px rgba(255,255,255,0.05) !important;
+div[data-testid="stTextInput"] input::placeholder { color: rgba(255,255,255,0.55) !important; }
+/* Ícono ver/ocultar contraseña en claro, visible sobre el glass */
+div[data-testid="stTextInput"] [data-baseweb="input"] button { background: transparent !important; }
+div[data-testid="stTextInput"] [data-baseweb="input"] button svg {
+    fill: rgba(255,255,255,0.75) !important; color: rgba(255,255,255,0.75) !important;
 }
 
+/* BOTÓN estilo GLASS (mismo lenguaje vidrioso que los inputs) */
 div[data-testid="stButton"] > button,
 div[data-testid="stButton"] > button[kind="primary"] {
-    background: linear-gradient(180deg, #2a2a2a 0%, #111111 60%, #1a1a1a 100%) !important;
+    background: rgba(255,255,255,0.12) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    backdrop-filter: blur(8px) !important;
     color: #ffffff !important;
-    border: 1px solid rgba(255,255,255,0.2) !important;
-    border-top: 1px solid rgba(255,255,255,0.3) !important;
-    border-radius: 6px !important;
-    font-weight: 600 !important;
+    border: 1px solid rgba(255,255,255,0.30) !important;
+    border-radius: 12px !important;
+    font-weight: 700 !important;
     font-size: 0.75rem !important;
     letter-spacing: 0.22em !important;
     text-transform: uppercase !important;
     font-family: 'Montserrat', sans-serif !important;
-    padding: 0.75rem !important;
-    box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.1),
-        inset 0 -1px 0 rgba(0,0,0,0.5),
-        0 4px 16px rgba(0,0,0,0.6) !important;
+    padding: 0.85rem !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.28) !important;
     transition: all 0.2s ease !important;
 }
 div[data-testid="stButton"] > button:hover,
 div[data-testid="stButton"] > button[kind="primary"]:hover {
-    background: linear-gradient(180deg, #333333 0%, #1a1a1a 60%, #222222 100%) !important;
-    border-color: rgba(255,255,255,0.35) !important;
-    box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.15),
-        0 6px 24px rgba(0,0,0,0.7) !important;
+    background: rgba(255,255,255,0.20) !important;
+    border-color: rgba(255,255,255,0.50) !important;
     transform: translateY(-1px) !important;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.35) !important;
     color: #ffffff !important;
 }
 div[data-testid="stButton"] > button:active,
 div[data-testid="stButton"] > button[kind="primary"]:active {
     transform: translateY(0) !important;
-    box-shadow: inset 0 2px 6px rgba(0,0,0,0.8) !important;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.30) !important;
 }
 """
 
