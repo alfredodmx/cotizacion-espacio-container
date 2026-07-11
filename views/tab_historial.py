@@ -1329,8 +1329,7 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
         <style>
         .resultados-table tr.fila-rechazada td {{ background-color:#fee2e2!important;color:#991b1b!important; }}
         .resultados-table tr.fila-rechazada td span:not(.badge-rechazado) {{ color:#991b1b!important; }}
-        .resultados-table .badge-rechazado {{ color:#fbbf24!important; }}
-        .resultados-table tr.fila-rechazada td .badge-rechazado {{ color:#fbbf24!important;background-color:#dc2626!important; }}
+        .resultados-table tr.fila-rechazada td .badge-rechazado {{ background-color:#ffffff!important;color:#b91c1c!important;box-shadow:0 0 0 1px #fca5a5; }}
         .resultados-table tr.fila-rechazada:hover td {{ background-color:#fecaca!important; }}
         .resultados-table th.th-adj {{ background-color:#fbbf24!important;background:#fbbf24!important;color:#0f172a!important; }}
         .resultados-table th.th-cierre {{ background-color:#2563eb!important;background:#2563eb!important;color:#ffffff!important; }}

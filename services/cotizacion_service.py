@@ -54,22 +54,38 @@ def calcular_estado_label(cliente_nombre, cliente_email, asesor_nombre, asesor_e
     return 'INCOMPLETO CON PLANO' if tiene_plano else 'INCOMPLETO'
 
 
-# Colores del badge por estado (bg, border, text). Compartido tabla/HTML.
+# Colores del badge por estado (bg, fg). MISMA paleta que los badges-filtro de la
+# tabla (tab_historial._BADGE_STYLE) para que el badge de la columna ESTADO y los
+# badges-filtro se vean idénticos — si se cambia un color acá, cambiar también allá.
 ESTADO_BADGE_COLORS = {
-    'PROYECTO TERMINADO': ('#7c3aed', '#5b21b6', 'white'),
-    'ADJUDICADO':         ('#2563eb', '#1d4ed8', 'white'),
-    'RECHAZADO':          ('#dc2626', '#b91c1c', '#fbbf24'),
-    'AUTORIZADO CON PLANO': ('#28a745', '#1e7e34', 'white'),
-    'AUTORIZADO':         ('#28a745', '#1e7e34', 'white'),
-    'BORRADOR CON PLANO': ('#f97316', '#c2410c', 'white'),
-    'BORRADOR':           ('#ffc107', '#d39e00', '#212529'),
-    'INCOMPLETO CON PLANO': ('#dc3545', '#bd2130', 'white'),
-    'INCOMPLETO':         ('#dc3545', '#bd2130', 'white'),
+    'PROYECTO TERMINADO':   ('#ede9fe', '#7c3aed'),
+    'ADJUDICADO':           ('#dbeafe', '#1d4ed8'),
+    'AUTORIZADO CON PLANO': ('#dcfce7', '#15803d'),
+    'AUTORIZADO':           ('#dcfce7', '#15803d'),
+    'BORRADOR CON PLANO':   ('#ffedd5', '#c2410c'),
+    'BORRADOR':             ('#fef9c3', '#854d0e'),
+    'INCOMPLETO CON PLANO': ('#fee2e2', '#dc2626'),
+    'INCOMPLETO':           ('#fee2e2', '#dc2626'),
+    'RECHAZADO':            ('#fee2e2', '#b91c1c'),
+}
+
+# Icono SVG por estado. Mismos paths que tab_historial._BADGE_SVG (sin 'TODOS').
+ESTADO_BADGE_ICONS = {
+    'PROYECTO TERMINADO':   '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+    'ADJUDICADO':           '<path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"/><circle cx="12" cy="8" r="6"/>',
+    'AUTORIZADO CON PLANO': '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/>',
+    'AUTORIZADO':           '<path d="M20 6 9 17l-5-5"/>',
+    'BORRADOR CON PLANO':   '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><polyline points="14 2 14 8 20 8"/><path d="M10.4 12.6a2 2 0 1 1 3 3L8 21l-4 1 1-4z"/>',
+    'BORRADOR':             '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>',
+    'INCOMPLETO CON PLANO': '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>',
+    'INCOMPLETO':           '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
+    'RECHAZADO':            '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
 }
 
 
 def crear_badge_estado(row) -> str:
-    """Retorna HTML del badge de estado para una fila de cotizacion (tuple o Series)."""
+    """Retorna HTML del badge de estado para una fila de cotizacion (tuple o Series).
+    Mismo diseño (pill + icono) que los badges-filtro de la tabla de COTIZACIONES."""
     if hasattr(row, 'index') and 'Margen' in row.index:
         config_margen   = row['Margen']
         tiene_plano     = row['Tiene_Plano']
@@ -97,12 +113,17 @@ def crear_badge_estado(row) -> str:
                                   asesor_telefono, config_margen, tiene_plano,
                                   tiene_notariado=tiene_notariado, tiene_acta=tiene_acta,
                                   motivo_rechazo=_raw_mr)
-    color, border, text_color = ESTADO_BADGE_COLORS.get(label, ('#64748b', '#475569', 'white'))
+    bg, fg = ESTADO_BADGE_COLORS.get(label, ('#e2e8f0', '#334155'))
+    icon_path = ESTADO_BADGE_ICONS.get(label, '')
     _cls = ' class="badge-rechazado"' if label == 'RECHAZADO' else ''
-    _imp = ' !important' if label == 'RECHAZADO' else ''
-    return (f'<span{_cls} style="background-color:{color};color:{text_color}{_imp};padding:2px 7px;'
-            f'border-radius:20px;font-size:0.68rem;font-weight:700;display:inline-block;'
-            f'border:1px solid {border};box-shadow:0 2px 4px rgba(0,0,0,0.1);white-space:nowrap;">{label}</span>')
+    _svg = (f'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+            f'stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">'
+            f'{icon_path}</svg>')
+    return (f'<span{_cls} style="display:inline-flex;align-items:center;gap:5px;'
+            f'font-family:Montserrat,sans-serif;font-weight:800;font-size:10.5px;'
+            f'letter-spacing:0.03em;text-transform:uppercase;border-radius:99px;'
+            f'padding:5px 11px;white-space:nowrap;line-height:1;'
+            f'background:{bg};color:{fg};">{_svg}<span>{label}</span></span>')
 
 
 # ── Margen y comisiones ───────────────────────────────────────────────────────
