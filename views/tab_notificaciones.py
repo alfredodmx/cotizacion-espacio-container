@@ -371,8 +371,13 @@ def render_tab_notificaciones(supabase, **deps):
     var D=window.parent.document;
     var el=D.querySelector('.st-key-ntf_contacts_card');
     if(!el) return;
-    el.style.cssText='background:#fff;border:1px solid #e8ebf5;border-radius:14px;padding:22px 28px;margin:8px 0 20px;box-shadow:0 2px 10px rgba(15,23,42,0.04)';
-    var inners=el.querySelectorAll('[data-testid="stVerticalBlockBorderWrapper"]');
+    // Estilo solo en el primer stVerticalBlockBorderWrapper hijo
+    var first=el.querySelector('[data-testid="stVerticalBlockBorderWrapper"]');
+    if(first){
+        first.style.cssText='background:#fff;border:1px solid #e8ebf5;border-radius:14px;padding:22px 28px;margin:8px 0 20px;box-shadow:0 2px 10px rgba(15,23,42,0.04)';
+    }
+    // Todos los internos (anidados) limpios
+    var inners=el.querySelectorAll('[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlockBorderWrapper"]');
     for(var i=0;i<inners.length;i++){
         inners[i].style.cssText='border:none;background:none;padding:0;box-shadow:none;margin:0';
     }
