@@ -1597,7 +1597,7 @@ sty.textContent=
 'box-shadow:0 2px 8px rgba(0,0,0,.2);transition:all .18s ease;opacity:.7}'+
 '#_ec_fs_btn:hover{opacity:1;background:rgba(37,99,235,.85);border-color:rgba(255,255,255,.3);transform:scale(1.08)}'+
 '#_ec_fs_btn svg{width:16px;height:16px;color:#fff}'+
-'#_ec_fs_ov{display:none;position:fixed;inset:0;z-index:999999;background:#fff;overflow:hidden;flex-direction:column}'+
+'#_ec_fs_ov{display:none;position:fixed;inset:0;z-index:999999;background:#fff;overflow:hidden;flex-direction:column;overscroll-behavior:contain}'+
 '#_ec_fs_ov.on{display:flex}'+
 '#_ec_fs_ov.ec-fs-in{animation:ecFsIn .32s cubic-bezier(.22,1,.36,1) forwards}'+
 '#_ec_fs_ov.ec-fs-exit{animation:ecFsOut .28s cubic-bezier(.22,1,.36,1) forwards}'+
@@ -1701,23 +1701,18 @@ function syncToOverlay(){
   if(W._ecFsNavUpdate) W._ecFsNavUpdate();
 }
 
-/* ── 4b. Bloquear/restaurar scroll del fondo (Streamlit no scrollea en
-        <body>, sino en su propio contenedor) ─────────────────────── */
-function lockBg(){
-  if(W._ecFsLocked) return;
-  W._ecFsLocked=[];
-  var sels=['[data-testid="stAppViewContainer"]','[data-testid="stMain"]','section.main','.main','.stMain'];
+/* ── 4b. Destrabar el scroll de la página ────────────────────────────
+   No bloqueamos los contenedores de Streamlit (dejaba la página normal
+   sin poder scrollear). El overlay fijo + overscroll-behavior:contain
+   ya evitan el scroll-chaining. Esta limpieza quita cualquier
+   overflow:hidden que una versión anterior haya dejado pegado. */
+function clearBgLock(){
+  var sels=['[data-testid="stAppViewContainer"]','[data-testid="stMain"]','section.main','.main','.stMain','html','body'];
   sels.forEach(function(s){
     D.querySelectorAll(s).forEach(function(el){
-      W._ecFsLocked.push([el,el.style.overflow]); el.style.overflow='hidden';
+      if(el.style.overflow==='hidden') el.style.overflow='';
     });
   });
-  W._ecFsLocked.push([D.documentElement,D.documentElement.style.overflow]); D.documentElement.style.overflow='hidden';
-  W._ecFsLocked.push([B,B.style.overflow]); B.style.overflow='hidden';
-}
-function unlockBg(){
-  if(!W._ecFsLocked) return;
-  W._ecFsLocked.forEach(function(p){ p[0].style.overflow=p[1]||''; });
   W._ecFsLocked=null;
 }
 
@@ -1731,7 +1726,6 @@ function applyFS(anim){
   ov.classList.remove('ec-fs-exit');
   ov.classList.add('on');
   if(anim) ov.classList.add('ec-fs-in');
-  lockBg();
   ensureBtn();
   startMO();
   if(W._ecFsNavUpdate) W._ecFsNavUpdate();
@@ -1746,9 +1740,9 @@ function removeFS(){
       ov.classList.remove('on','ec-fs-in','ec-fs-exit');
       var bd=ov.querySelector('#_ec_fs_body');
       var c=bd&&bd.querySelector('#_ec_vscroll_clone'); if(c) c.remove();
-      unlockBg();
     },280);
-  } else { unlockBg(); }
+  }
+  clearBgLock();
   ensureBtn();
 }
 
@@ -1799,9 +1793,12 @@ if(W._ecFsActive){
   var ov=getOv();
   ov.classList.remove('ec-fs-exit','ec-fs-in');
   ov.classList.add('on');
-  lockBg();
   startMO();
   syncToOverlay();
+} else {
+  /* No estamos en fullscreen → asegurar que la página pueda scrollear
+     (destraba cualquier overflow:hidden pegado de una versión previa) */
+  clearBgLock();
 }
 
 /* ── 10. Init ───────────────────────────────────────────────────────── */
