@@ -1658,8 +1658,19 @@ var MVH='<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="cur
 
 function isFS(){ var t=D.getElementById('_ec_restable'); return t&&t.classList.contains('ec-fullscreen'); }
 
+function shield(show){
+  var sh=D.getElementById('_ec_fs_shield');
+  if(!sh){
+    sh=D.createElement('div'); sh.id='_ec_fs_shield';
+    sh.style.cssText='position:fixed;inset:0;background:#fff;z-index:999998;display:none;pointer-events:none;';
+    D.body.appendChild(sh);
+  }
+  sh.style.display=show?'block':'none';
+}
+
 function applyFS(tbl, animate){
   W._ecFsActive=true;
+  shield(true);
   if(!tbl) tbl=D.getElementById('_ec_restable');
   if(!tbl) return;
   tbl.classList.add('ec-fullscreen');
@@ -1673,13 +1684,14 @@ function applyFS(tbl, animate){
 function removeFS(){
   W._ecFsActive=false;
   stopMO();
-  var tbl=D.getElementById('_ec_restable'); if(!tbl) return;
+  var tbl=D.getElementById('_ec_restable'); if(!tbl){ shield(false); return; }
   var btn=D.getElementById('_ec_fs_btn');
   tbl.classList.add('ec-fs-exit');
   setTimeout(function(){
     tbl.classList.remove('ec-fullscreen','ec-fs-exit','ec-fs-in');
     if(btn) btn.innerHTML=IC_EXP;
     D.body.style.overflow='';
+    shield(false);
   }, 280);
 }
 
@@ -1747,7 +1759,7 @@ if(!W._ecFsEscBound){
   D.addEventListener('keydown',function(e){ if(e.key==='Escape'&&isFS()) W._ecFsToggle(); });
   W._ecFsEscBound=true;
 }
-if(W._ecFsActive) startMO();
+if(W._ecFsActive){ shield(true); startMO(); }
 
 setup();
 setTimeout(setup, 200);
