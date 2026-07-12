@@ -383,6 +383,27 @@ def render_floating_panels():
                 st.session_state.hash_ultimo_guardado = calcular_hash_estado()
                 st.session_state.recien_guardado = True
                 st.session_state.counter += 1
+                try:
+                    _tiene_plano = bool(st.session_state.get('plano_adjunto') or st.session_state.get('pdf_url') or st.session_state.get('plano_nombre'))
+                    _margen_notif = float(st.session_state.get('margen', 0) or 0)
+                    _cli_nombre = st.session_state.get('nombre_input', '') or ''
+                    _ej_email = st.session_state.get('auth_email', '') or ''
+                    _ej_nombre = st.session_state.get('auth_nombre', '') or _ej_email
+                    _monto = tots_g.get('total_total', 0) if isinstance(tots_g, dict) else 0
+                    if _tiene_plano:
+                        import threading as _thr
+                        from utils.notificaciones import notificar_cotizacion_autorizada, notificar_nueva_cotizacion
+                        if _margen_notif > 0:
+                            _sup_nombre = st.session_state.get('auth_nombre', '') or st.session_state.get('auth_email', '')
+                            _thr.Thread(target=notificar_cotizacion_autorizada,
+                                        args=(num_g, _cli_nombre, _margen_notif, _ej_email, _ej_nombre, _sup_nombre, _monto),
+                                        daemon=True).start()
+                        else:
+                            _thr.Thread(target=notificar_nueva_cotizacion,
+                                        args=(num_g, _ej_nombre, _cli_nombre, _monto, 'Borrador con plano', _ej_email),
+                                        daemon=True).start()
+                except Exception:
+                    pass
                 st.rerun()
             except Exception as _eg:
                 st.error(f"Error al guardar: {_eg}")

@@ -1580,177 +1580,163 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             '})();</script>')
         components.html(_scroll_html, height=50)
 
-        # ── Botón fullscreen para la tabla de resultados ──────────────────────
-        # CLAVE: la clase ec-fs-on va en <html>, NO en #_ec_restable.
-        # <html> NUNCA se destruye con los reruns de Streamlit → el CSS
-        # `html.ec-fs-on #_ec_restable { position:fixed; ... }` se aplica
-        # INSTANTÁNEAMENTE al nuevo #_ec_restable que Streamlit crea, sin
-        # ningún frame de gap → cero flash. El MutationObserver solo sirve
-        # para re-inyectar el botón y el toolbar (JS), no para el layout.
+        # ── Botón fullscreen (overlay permanente fuera del DOM de Streamlit) ──
         components.html("""<script>(function(){
-var D=window.parent.document, W=window.parent, H=D.documentElement;
+var D=window.parent.document,W=window.parent,B=D.body;
 
-if(!D.getElementById('_ec_fs_style')){
-  var sty=D.createElement('style'); sty.id='_ec_fs_style';
-  sty.textContent=`
-  #_ec_restable { position:relative; }
-  #_ec_fs_btn {
-    position:absolute; top:8px; right:8px; z-index:5;
-    width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center;
-    background:rgba(15,23,42,0.75); border:1px solid rgba(255,255,255,0.15);
-    border-radius:8px; cursor:pointer; padding:0;
-    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
-    box-shadow:0 2px 8px rgba(0,0,0,0.2);
-    transition:all .18s ease; opacity:0.7;
-  }
-  #_ec_fs_btn:hover { opacity:1; background:rgba(37,99,235,0.85); border-color:rgba(255,255,255,0.3); transform:scale(1.08); }
-  #_ec_fs_btn svg { width:16px; height:16px; color:#fff; }
-  html.ec-fs-on #_ec_restable {
-    position:fixed!important; inset:0!important; z-index:999999!important;
-    border-radius:0!important; border:none!important;
-    max-height:none!important; height:100vh!important; width:100vw!important;
-    box-shadow:none!important; overflow:hidden!important;
-    background:#fff;
-  }
-  html.ec-fs-on #_ec_vscroll {
-    max-height:calc(100vh - 46px)!important; overflow:auto!important;
-  }
-  html.ec-fs-on #_ec_fs_btn {
-    position:fixed; top:7px; right:14px; z-index:9999999;
-    width:32px; height:32px; opacity:0.9;
-  }
-  html.ec-fs-on body { overflow:hidden!important; }
-  .ec-fs-toolbar {
-    display:none; height:46px; align-items:center; justify-content:center; gap:10px;
-    background:#f8fafc; border-bottom:1px solid #e2e8f0;
-    font-family:'Plus Jakarta Sans',system-ui,sans-serif;
-    padding:0 60px;
-  }
-  html.ec-fs-on .ec-fs-toolbar { display:flex; }
-  .ec-fs-toolbar .fst-btn {
-    width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center;
-    background:#fff; color:#475569; border:1px solid #e2e8f0; border-radius:10px;
-    cursor:pointer; padding:0; box-shadow:0 1px 3px rgba(15,23,42,0.08);
-    transition:all .16s cubic-bezier(.22,1,.36,1);
-  }
-  .ec-fs-toolbar .fst-btn svg { width:18px; height:18px; display:block; }
-  .ec-fs-toolbar .fst-btn:hover {
-    background:linear-gradient(135deg,#5b7cfa,#2563eb); color:#fff;
-    border-color:transparent; box-shadow:0 6px 16px rgba(37,99,235,0.35); transform:translateY(-1px);
-  }
-  .ec-fs-toolbar .fst-hint {
-    display:flex; align-items:center; gap:6px;
-    font-size:0.66rem; font-weight:700; letter-spacing:0.07em;
-    text-transform:uppercase; color:#94a3b8;
-  }
-  .ec-fs-toolbar .fst-hint svg { flex-shrink:0; }
-  #_ec_restable.ec-fs-in  { animation: ecFsIn  .32s cubic-bezier(.22,1,.36,1) forwards; }
-  #_ec_restable.ec-fs-exit { animation: ecFsOut .28s cubic-bezier(.22,1,.36,1) forwards; }
-  @keyframes ecFsIn  { from{opacity:.6;transform:scale(.96)} to{opacity:1;transform:scale(1)} }
-  @keyframes ecFsOut { from{opacity:1;transform:scale(1)}   to{opacity:.6;transform:scale(.96)} }
-  `;
-  D.head.appendChild(sty);
-}
+/* ── 1. CSS (SIEMPRE reemplazar para no heredar versión vieja) ─────── */
+var _old=D.getElementById('_ec_fs_style'); if(_old) _old.remove();
+var sty=D.createElement('style'); sty.id='_ec_fs_style';
+sty.textContent=
+'#_ec_restable{position:relative}'+
+'#_ec_fs_btn{position:absolute;top:8px;right:8px;z-index:5;'+
+'width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;'+
+'background:rgba(15,23,42,.75);border:1px solid rgba(255,255,255,.15);'+
+'border-radius:8px;cursor:pointer;padding:0;'+
+'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);'+
+'box-shadow:0 2px 8px rgba(0,0,0,.2);transition:all .18s ease;opacity:.7}'+
+'#_ec_fs_btn:hover{opacity:1;background:rgba(37,99,235,.85);border-color:rgba(255,255,255,.3);transform:scale(1.08)}'+
+'#_ec_fs_btn svg{width:16px;height:16px;color:#fff}'+
+'#_ec_fs_ov{display:none;position:fixed;inset:0;z-index:999999;background:#fff;overflow:hidden}'+
+'#_ec_fs_ov.on{display:block}'+
+'#_ec_fs_ov.ec-fs-in{animation:ecFsIn .32s cubic-bezier(.22,1,.36,1) forwards}'+
+'#_ec_fs_ov.ec-fs-exit{animation:ecFsOut .28s cubic-bezier(.22,1,.36,1) forwards}'+
+'#_ec_fs_ov .ec-fs-toolbar{display:flex;height:46px;align-items:center;justify-content:center;gap:10px;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-family:"Plus Jakarta Sans",system-ui,sans-serif;padding:0 60px}'+
+'#_ec_fs_ov .fst-btn{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;background:#fff;color:#475569;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;padding:0;box-shadow:0 1px 3px rgba(15,23,42,.08);transition:all .16s cubic-bezier(.22,1,.36,1)}'+
+'#_ec_fs_ov .fst-btn svg{width:18px;height:18px;display:block}'+
+'#_ec_fs_ov .fst-btn:hover{background:linear-gradient(135deg,#5b7cfa,#2563eb);color:#fff;border-color:transparent;box-shadow:0 6px 16px rgba(37,99,235,.35);transform:translateY(-1px)}'+
+'#_ec_fs_ov .fst-hint{display:flex;align-items:center;gap:6px;font-size:.66rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#94a3b8}'+
+'#_ec_fs_ov .fst-close{position:absolute;top:7px;right:14px;z-index:2;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;background:rgba(15,23,42,.75);border:1px solid rgba(255,255,255,.15);border-radius:8px;cursor:pointer;padding:0;opacity:.9;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:0 2px 8px rgba(0,0,0,.2);transition:all .18s ease}'+
+'#_ec_fs_ov .fst-close:hover{opacity:1;background:rgba(37,99,235,.85);transform:scale(1.08)}'+
+'#_ec_fs_ov .fst-close svg{width:16px;height:16px;color:#fff}'+
+'#_ec_fs_ov #_ec_vscroll_clone{max-height:calc(100vh - 46px);overflow:auto}'+
+'@keyframes ecFsIn{from{opacity:.6;transform:scale(.96)}to{opacity:1;transform:scale(1)}}'+
+'@keyframes ecFsOut{from{opacity:1;transform:scale(1)}to{opacity:.6;transform:scale(.96)}}';
+D.head.appendChild(sty);
 
+/* ── 2. Íconos SVG ──────────────────────────────────────────────────── */
 var IC_EXP='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
 var IC_SHR='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/></svg>';
 var CHV_L='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
 var CHV_R='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
 var MVH='<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 8 22 12 18 16"/><polyline points="6 8 2 12 6 16"/><line x1="2" x2="22" y1="12" y2="12"/></svg>';
 
-function isFS(){ return H.classList.contains('ec-fs-on'); }
-
-function applyFS(animate){
-  W._ecFsActive=true;
-  H.classList.add('ec-fs-on');
-  if(animate){
-    var tbl=D.getElementById('_ec_restable');
-    if(tbl) tbl.classList.add('ec-fs-in');
+/* ── 3. Overlay (se crea UNA vez, persiste en body) ─────────────────── */
+function getOv(){
+  var ov=D.getElementById('_ec_fs_ov');
+  if(!ov){
+    ov=D.createElement('div'); ov.id='_ec_fs_ov';
+    var bar=D.createElement('div'); bar.className='ec-fs-toolbar';
+    var bL=D.createElement('button'); bL.className='fst-btn'; bL.title='Izquierda'; bL.innerHTML=CHV_L;
+    var hi=D.createElement('span');  hi.className='fst-hint';  hi.innerHTML=MVH+'Scroll horizontal';
+    var bR=D.createElement('button'); bR.className='fst-btn'; bR.title='Derecha'; bR.innerHTML=CHV_R;
+    bar.appendChild(bL); bar.appendChild(hi); bar.appendChild(bR);
+    ov.appendChild(bar);
+    var cls=D.createElement('button'); cls.className='fst-close'; cls.title='Salir';
+    cls.innerHTML=IC_SHR;
+    cls.addEventListener('click',function(){ W._ecFsToggle(); });
+    ov.appendChild(cls);
+    B.appendChild(ov);
+    bL.addEventListener('click',function(){ var c=ov.querySelector('#_ec_vscroll_clone'); if(c) c.scrollBy({left:-400,behavior:'smooth'}); });
+    bR.addEventListener('click',function(){ var c=ov.querySelector('#_ec_vscroll_clone'); if(c) c.scrollBy({left:400,behavior:'smooth'}); });
   }
+  return ov;
+}
+
+/* ── 4. Clonar tabla al overlay (solo si data-sid cambió) ───────────── */
+function syncToOverlay(){
+  var src=D.getElementById('_ec_restable'); if(!src) return;
+  var vs=src.querySelector('#_ec_vscroll');
+  if(!vs||!vs.querySelector('tbody tr')) return;
+  var ov=getOv();
+  var cur=ov.querySelector('#_ec_vscroll_clone');
+  var sid=vs.getAttribute('data-sid')||'';
+  if(cur&&cur.getAttribute('data-sid')===sid&&sid) return;
+  if(cur) cur.remove();
+  var cl=vs.cloneNode(true);
+  cl.id='_ec_vscroll_clone';
+  cl.style.cssText='max-height:calc(100vh - 46px);overflow:auto;';
+  ov.appendChild(cl);
+}
+
+/* ── 5. Toggle fullscreen ───────────────────────────────────────────── */
+function isFS(){ return W._ecFsActive===true; }
+
+function applyFS(anim){
+  W._ecFsActive=true;
+  syncToOverlay();
+  var ov=getOv();
+  ov.classList.remove('ec-fs-exit');
+  ov.classList.add('on');
+  if(anim) ov.classList.add('ec-fs-in');
+  B.style.overflow='hidden';
   var btn=D.getElementById('_ec_fs_btn');
   if(btn) btn.innerHTML=IC_SHR;
   startMO();
 }
 
 function removeFS(){
-  W._ecFsActive=false;
-  stopMO();
-  var tbl=D.getElementById('_ec_restable');
-  var btn=D.getElementById('_ec_fs_btn');
-  if(tbl){
-    tbl.classList.add('ec-fs-exit');
+  W._ecFsActive=false; stopMO();
+  var ov=D.getElementById('_ec_fs_ov');
+  if(ov){
+    ov.classList.add('ec-fs-exit');
     setTimeout(function(){
-      H.classList.remove('ec-fs-on');
-      tbl.classList.remove('ec-fs-exit','ec-fs-in');
-      if(btn) btn.innerHTML=IC_EXP;
-    }, 280);
-  } else {
-    H.classList.remove('ec-fs-on');
+      ov.classList.remove('on','ec-fs-in','ec-fs-exit');
+      var c=ov.querySelector('#_ec_vscroll_clone'); if(c) c.remove();
+      B.style.overflow='';
+    },280);
   }
+  var btn=D.getElementById('_ec_fs_btn');
+  if(btn) btn.innerHTML=IC_EXP;
 }
 
-function toggle(){
-  if(isFS()) removeFS(); else applyFS(true);
-}
-W._ecFsToggle=toggle;
+W._ecFsToggle=function(){ if(isFS()) removeFS(); else applyFS(true); };
 
+/* ── 6. MutationObserver: refresca overlay con tabla nueva ──────────── */
 function startMO(){
   if(W._ecFsMO) return;
   W._ecFsMO=new MutationObserver(function(){
     if(!W._ecFsActive) return;
     var t=D.getElementById('_ec_restable');
-    if(t && !D.getElementById('_ec_fs_btn')) setup(t);
+    if(t&&t.querySelector('.resultados-table')){
+      syncToOverlay();
+      ensureBtn();
+    }
   });
-  W._ecFsMO.observe(D.body,{childList:true,subtree:true});
+  W._ecFsMO.observe(B,{childList:true,subtree:true});
 }
-function stopMO(){
-  if(W._ecFsMO){W._ecFsMO.disconnect();W._ecFsMO=null;}
-}
+function stopMO(){ if(W._ecFsMO){W._ecFsMO.disconnect();W._ecFsMO=null;} }
 
-function getScrollTarget(tbl){
-  var tb=tbl.querySelector('.resultados-table'); if(!tb) return tbl;
-  var el=tb.parentElement;
-  while(el&&el!==tbl){
-    var s=W.getComputedStyle(el);
-    if(s.overflowX==='auto'||s.overflowX==='scroll') return el;
-    el=el.parentElement;
-  }
-  return tbl;
-}
-
-function ensureToolbar(tbl){
-  var old=tbl.querySelector('.ec-fs-toolbar'); if(old) old.remove();
-  var bar=D.createElement('div'); bar.className='ec-fs-toolbar';
-  var bL=D.createElement('button'); bL.className='fst-btn'; bL.title='Izquierda'; bL.innerHTML=CHV_L;
-  var hi=D.createElement('span');  hi.className='fst-hint';  hi.innerHTML=MVH+'Scroll horizontal';
-  var bR=D.createElement('button'); bR.className='fst-btn'; bR.title='Derecha'; bR.innerHTML=CHV_R;
-  bar.appendChild(bL); bar.appendChild(hi); bar.appendChild(bR);
-  tbl.insertBefore(bar, tbl.firstChild);
-  bL.addEventListener('click',function(){ var s=getScrollTarget(tbl); if(s) s.scrollBy({left:-400,behavior:'smooth'}); });
-  bR.addEventListener('click',function(){ var s=getScrollTarget(tbl); if(s) s.scrollBy({left:400,behavior:'smooth'}); });
-}
-
-function setup(tbl){
-  if(!tbl) tbl=D.getElementById('_ec_restable');
-  if(!tbl) return;
+/* ── 7. Botón expand en la tabla original ───────────────────────────── */
+function ensureBtn(){
+  var tbl=D.getElementById('_ec_restable'); if(!tbl) return;
   var old=D.getElementById('_ec_fs_btn'); if(old) old.remove();
   var btn=D.createElement('button'); btn.id='_ec_fs_btn';
   btn.title='Pantalla completa';
   btn.innerHTML=isFS()?IC_SHR:IC_EXP;
   btn.addEventListener('click',function(e){ e.stopPropagation(); W._ecFsToggle(); });
   tbl.appendChild(btn);
-  ensureToolbar(tbl);
 }
 
+/* ── 8. Escape ──────────────────────────────────────────────────────── */
 if(!W._ecFsEscBound){
   D.addEventListener('keydown',function(e){ if(e.key==='Escape'&&isFS()) W._ecFsToggle(); });
   W._ecFsEscBound=true;
 }
-if(W._ecFsActive) startMO();
 
-setup();
-setTimeout(setup, 200);
-setTimeout(setup, 600);
+/* ── 9. Restaurar estado si ya estaba en fullscreen (post-rerun) ───── */
+if(W._ecFsActive){
+  var ov=getOv();
+  ov.classList.remove('ec-fs-exit','ec-fs-in');
+  ov.classList.add('on');
+  B.style.overflow='hidden';
+  startMO();
+}
+
+/* ── 10. Init ───────────────────────────────────────────────────────── */
+ensureBtn();
+setTimeout(function(){ ensureBtn(); if(W._ecFsActive) syncToOverlay(); },150);
+setTimeout(function(){ ensureBtn(); if(W._ecFsActive) syncToOverlay(); },500);
 })();</script>""", height=0)
 
         components.html("""<script>
