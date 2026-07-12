@@ -1581,60 +1581,55 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
         components.html(_scroll_html, height=50)
 
         # ── Botón fullscreen para la tabla de resultados ──────────────────────
+        # El style se inyecta una vez (guard por id); el botón se RE-INYECTA en
+        # cada ejecución del iframe porque un rerun de Streamlit recrea el DOM de
+        # la tabla (#_ec_restable) y el botón anterior desaparece con él. El
+        # listener de Escape se registra UNA vez (flag en window.parent).
         components.html("""<script>(function(){
 var D=window.parent.document, W=window.parent;
-if(D.getElementById('_ec_fs_style')) return;
-var sty=D.createElement('style'); sty.id='_ec_fs_style';
-sty.textContent=`
-#_ec_restable { position:relative; }
-#_ec_fs_btn {
-  position:absolute; top:8px; right:8px; z-index:5;
-  width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center;
-  background:rgba(15,23,42,0.75); border:1px solid rgba(255,255,255,0.15);
-  border-radius:8px; cursor:pointer; padding:0;
-  backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
-  box-shadow:0 2px 8px rgba(0,0,0,0.2);
-  transition:all .18s ease; opacity:0.7;
-}
-#_ec_fs_btn:hover { opacity:1; background:rgba(37,99,235,0.85); border-color:rgba(255,255,255,0.3); transform:scale(1.08); }
-#_ec_fs_btn svg { width:16px; height:16px; color:#fff; }
-#_ec_restable.ec-fullscreen {
-  position:fixed!important; inset:0!important; z-index:99990!important;
-  border-radius:0!important; border:none!important;
-  max-height:none!important; height:100vh!important; width:100vw!important;
-  box-shadow:none!important; overflow:auto!important;
-  background:#fff;
-  animation: ecFsIn .32s cubic-bezier(.22,1,.36,1) forwards;
-}
-#_ec_restable.ec-fullscreen #_ec_vscroll {
-  max-height:calc(100vh - 52px)!important; overflow-y:auto!important;
-}
-#_ec_restable.ec-fullscreen #_ec_fs_btn {
-  position:fixed; top:12px; right:16px; z-index:99999;
-  width:36px; height:36px; opacity:0.9;
-}
-#_ec_restable.ec-fs-exit {
-  animation: ecFsOut .28s cubic-bezier(.22,1,.36,1) forwards;
-}
-@keyframes ecFsIn {
-  from { opacity:0.6; transform:scale(0.96); }
-  to   { opacity:1; transform:scale(1); }
-}
-@keyframes ecFsOut {
-  from { opacity:1; transform:scale(1); }
-  to   { opacity:0.6; transform:scale(0.96); }
-}
-`;
-D.head.appendChild(sty);
-
-function ensureBtn(){
-  var tbl=D.getElementById('_ec_restable'); if(!tbl) return;
-  if(D.getElementById('_ec_fs_btn')) return;
-  var btn=D.createElement('button'); btn.id='_ec_fs_btn';
-  btn.title='Pantalla completa';
-  btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
-  btn.addEventListener('click', toggle);
-  tbl.appendChild(btn);
+if(!D.getElementById('_ec_fs_style')){
+  var sty=D.createElement('style'); sty.id='_ec_fs_style';
+  sty.textContent=`
+  #_ec_restable { position:relative; }
+  #_ec_fs_btn {
+    position:absolute; top:8px; right:8px; z-index:5;
+    width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center;
+    background:rgba(15,23,42,0.75); border:1px solid rgba(255,255,255,0.15);
+    border-radius:8px; cursor:pointer; padding:0;
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    box-shadow:0 2px 8px rgba(0,0,0,0.2);
+    transition:all .18s ease; opacity:0.7;
+  }
+  #_ec_fs_btn:hover { opacity:1; background:rgba(37,99,235,0.85); border-color:rgba(255,255,255,0.3); transform:scale(1.08); }
+  #_ec_fs_btn svg { width:16px; height:16px; color:#fff; }
+  #_ec_restable.ec-fullscreen {
+    position:fixed!important; inset:0!important; z-index:999999!important;
+    border-radius:0!important; border:none!important;
+    max-height:none!important; height:100vh!important; width:100vw!important;
+    box-shadow:none!important; overflow:auto!important;
+    background:#fff;
+    animation: ecFsIn .32s cubic-bezier(.22,1,.36,1) forwards;
+  }
+  #_ec_restable.ec-fullscreen #_ec_vscroll {
+    max-height:calc(100vh - 52px)!important; overflow-y:auto!important;
+  }
+  #_ec_restable.ec-fullscreen #_ec_fs_btn {
+    position:fixed; top:12px; right:16px; z-index:9999999;
+    width:36px; height:36px; opacity:0.9;
+  }
+  #_ec_restable.ec-fs-exit {
+    animation: ecFsOut .28s cubic-bezier(.22,1,.36,1) forwards;
+  }
+  @keyframes ecFsIn {
+    from { opacity:0.6; transform:scale(0.96); }
+    to   { opacity:1; transform:scale(1); }
+  }
+  @keyframes ecFsOut {
+    from { opacity:1; transform:scale(1); }
+    to   { opacity:0.6; transform:scale(0.96); }
+  }
+  `;
+  D.head.appendChild(sty);
 }
 
 var IC_EXPAND='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
@@ -1658,10 +1653,24 @@ function toggle(){
     D.body.style.overflow='hidden';
   }
 }
+W._ecFsToggle=toggle;
 
-D.addEventListener('keydown', function(e){
-  if(e.key==='Escape' && isFS()) toggle();
-});
+function ensureBtn(){
+  var tbl=D.getElementById('_ec_restable'); if(!tbl) return;
+  var old=D.getElementById('_ec_fs_btn'); if(old) old.remove();
+  var btn=D.createElement('button'); btn.id='_ec_fs_btn';
+  btn.title='Pantalla completa';
+  btn.innerHTML=isFS()?IC_SHRINK:IC_EXPAND;
+  btn.addEventListener('click', function(e){ e.stopPropagation(); W._ecFsToggle(); });
+  tbl.appendChild(btn);
+}
+
+if(!W._ecFsEscBound){
+  D.addEventListener('keydown', function(e){
+    if(e.key==='Escape' && isFS()) W._ecFsToggle();
+  });
+  W._ecFsEscBound=true;
+}
 
 ensureBtn();
 setTimeout(ensureBtn, 200);
@@ -2268,6 +2277,11 @@ var MAT_DATA = """ + _mat_data_json_map + """;
   function closeMenu(){var m=D.getElementById(MENU_ID);if(m)m.remove();}
   function fire(action,ep){
     var inp=D.querySelector('.st-key-_ctx_cmd input'); if(!inp) return;
+    var tbl=D.getElementById('_ec_restable');
+    if(tbl&&tbl.classList.contains('ec-fullscreen')){
+      tbl.classList.remove('ec-fullscreen','ec-fs-exit');
+      D.body.style.overflow='';
+    }
     var vs=D.getElementById('_ec_vscroll'); if(vs&&vs.scrollTop>0) W._ecTableScrollY=vs.scrollTop;
     if(W._ecRestoreIv){clearInterval(W._ecRestoreIv);W._ecRestoreIv=null;}
     if(typeof W._ecTableScrollY==='number'&&W._ecTableScrollY>0){
