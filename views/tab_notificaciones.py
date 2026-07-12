@@ -127,12 +127,17 @@ _CSS = """
     box-shadow:0 2px 10px rgba(15,23,42,0.04);
 }
 .st-key-ntf_contacts_card {
-    background:#fff; border:1px solid #e8ebf5; border-radius:14px;
+    background:none; border:none; padding:0; margin:0;
+}
+.st-key-ntf_contacts_card > div > [data-testid="stVerticalBlockBorderWrapper"] {
+    background:#fff; border:1px solid #e8ebf5 !important; border-radius:14px;
     padding:22px 24px; margin-bottom:20px;
     box-shadow:0 2px 10px rgba(15,23,42,0.04);
 }
-.st-key-ntf_contacts_card [data-testid="stVerticalBlockBorderWrapper"] {
-    border:none !important; background:none !important; padding:0 !important;
+.st-key-ntf_contacts_card [data-testid="stVerticalBlockBorderWrapper"]
+[data-testid="stVerticalBlockBorderWrapper"] {
+    border:none !important; background:none !important;
+    padding:0 !important; box-shadow:none !important;
 }
 .ntf-user-row {
     display:flex; align-items:center; gap:12px; padding:10px 0;
