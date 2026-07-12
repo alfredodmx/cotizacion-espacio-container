@@ -2303,7 +2303,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                         st.session_state['_preview']['doc'] = _bk
                 if st.button('x', key='_pv_close'):
                     st.session_state.pop('_preview', None)
-                    st.rerun(scope="fragment")
+                    st.rerun()  # rerun completo: corre la limpieza (else) y re-sincroniza el fullscreen
 
                 _pv_cur = st.session_state['_preview'].get('doc') or ''
                 if _pv_cur not in _pv_keys:
@@ -2362,8 +2362,11 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 components.html(r"""<script>
 (function(){
   var W=window.parent, D=W.document;
-  function closeIt(){ var bd=D.getElementById('_ec_pv_backdrop'); if(bd) bd.remove();
-    var lp=D.getElementById('_ec_pv_loading'); if(lp) lp.remove();
+  function closeIt(){
+    /* limpieza total y sincrónica: nada del visor puede quedar tapando
+       la barra de botones del fullscreen */
+    ['_ec_pv_backdrop','_ec_pv_loading'].forEach(function(id){var e=D.getElementById(id); if(e) e.remove();});
+    var dr0=D.querySelector('.st-key-ec_drawer'); if(dr0) dr0.remove();
     if(W._ecPvKey){ D.removeEventListener('keydown', W._ecPvKey, true); W._ecPvKey=null; }
     var b=D.querySelector('.st-key-_pv_close button'); if(b) b.click(); }
   var lp0=D.getElementById('_ec_pv_loading'); if(lp0) lp0.remove();
