@@ -322,7 +322,7 @@ def render_tab_notificaciones(supabase, **deps):
         pass
 
     _contactos_nuevos = dict(_contactos)
-    _rows_html = ""
+
     for _idx, _uu in enumerate(_todos_usuarios):
         _ue  = _uu.get('email', '').lower()
         _ur  = _uu.get('rol', 'ejecutivo')
@@ -338,32 +338,32 @@ def render_tab_notificaciones(supabase, **deps):
         _has_chat = bool(_contactos.get(_ue, ''))
         _dot_cls = "on" if _has_chat else "off"
 
-        _rows_html += (
-            f'<div class="ntf-user-row">'
-            f'<div class="ntf-avatar">{_avatar_inner}</div>'
-            f'<div class="ntf-user-info">'
-            f'<div class="ntf-user-name">{_un}</div>'
-            f'<div class="ntf-user-email">{_ue}</div>'
-            f'</div>'
-            f'<span class="ntf-badge {_badge_cls}">{_svg(_badge_ico, 12, "currentColor", 2.2, 0, -1)}{_badge_txt}</span>'
-            f'<div class="ntf-status-dot {_dot_cls}"></div>'
-            f'</div>'
-        )
-
-    st.markdown(f'<div class="ntf-card">{_rows_html}</div>', unsafe_allow_html=True)
-
-    _chat_cols = st.columns(min(len(_todos_usuarios), 4) or 1)
-    for _idx, _uu in enumerate(_todos_usuarios):
-        _ue = _uu.get('email', '').lower()
-        _un = _uu.get('nombre', _ue)
-        _label = _un[:18] if len(_un) > 18 else _un
-        with _chat_cols[_idx % len(_chat_cols)]:
+        _c_avatar, _c_input, _c_badge = st.columns([3, 2, 1.5])
+        with _c_avatar:
+            st.markdown(
+                f'<div style="display:flex;align-items:center;gap:12px;height:52px;">'
+                f'<div class="ntf-avatar">{_avatar_inner}</div>'
+                f'<div class="ntf-user-info">'
+                f'<div class="ntf-user-name">{_un}</div>'
+                f'<div class="ntf-user-email">{_ue}</div>'
+                f'</div></div>',
+                unsafe_allow_html=True,
+            )
+        with _c_input:
             _chat_val = _contactos.get(_ue, '')
             _new_chat = st.text_input(
-                _label, value=_chat_val, placeholder="Chat ID o @usuario",
-                key=f"chat_{_idx}_{_ue}"
+                "Chat ID", value=_chat_val, placeholder="Chat ID o @usuario",
+                key=f"chat_{_idx}_{_ue}", label_visibility="collapsed",
             )
             _contactos_nuevos[_ue] = _new_chat
+        with _c_badge:
+            st.markdown(
+                f'<div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;height:52px;">'
+                f'<span class="ntf-badge {_badge_cls}">{_svg(_badge_ico, 12, "currentColor", 2.2, 0, -1)}{_badge_txt}</span>'
+                f'<div class="ntf-status-dot {_dot_cls}"></div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
     if st.button(":material/save: Guardar contactos", key="btn_guardar_contactos", type="primary"):
         _set_notif_config('contactos_json', _json.dumps(_contactos_nuevos))
