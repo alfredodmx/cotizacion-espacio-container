@@ -1581,13 +1581,14 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
         components.html(_scroll_html, height=50)
 
         # ── Botón fullscreen para la tabla de resultados ──────────────────────
-        # El estado fullscreen se guarda en W._ecFsActive (sobrevive reruns).
-        # Un MutationObserver re-aplica la clase ec-fullscreen al DOM nuevo que
-        # Streamlit crea tras cada rerun, así la tabla nunca deja de cubrir la
-        # pantalla (evita el flash de contenido duplicado detrás).
-        # El toolbar con scroll horizontal centrado solo aparece en fullscreen.
+        # CLAVE: la clase ec-fs-on va en <html>, NO en #_ec_restable.
+        # <html> NUNCA se destruye con los reruns de Streamlit → el CSS
+        # `html.ec-fs-on #_ec_restable { position:fixed; ... }` se aplica
+        # INSTANTÁNEAMENTE al nuevo #_ec_restable que Streamlit crea, sin
+        # ningún frame de gap → cero flash. El MutationObserver solo sirve
+        # para re-inyectar el botón y el toolbar (JS), no para el layout.
         components.html("""<script>(function(){
-var D=window.parent.document, W=window.parent;
+var D=window.parent.document, W=window.parent, H=D.documentElement;
 
 if(!D.getElementById('_ec_fs_style')){
   var sty=D.createElement('style'); sty.id='_ec_fs_style';
@@ -1604,27 +1605,28 @@ if(!D.getElementById('_ec_fs_style')){
   }
   #_ec_fs_btn:hover { opacity:1; background:rgba(37,99,235,0.85); border-color:rgba(255,255,255,0.3); transform:scale(1.08); }
   #_ec_fs_btn svg { width:16px; height:16px; color:#fff; }
-  #_ec_restable.ec-fullscreen {
+  html.ec-fs-on #_ec_restable {
     position:fixed!important; inset:0!important; z-index:999999!important;
     border-radius:0!important; border:none!important;
     max-height:none!important; height:100vh!important; width:100vw!important;
     box-shadow:none!important; overflow:hidden!important;
     background:#fff;
   }
-  #_ec_restable.ec-fullscreen #_ec_vscroll {
+  html.ec-fs-on #_ec_vscroll {
     max-height:calc(100vh - 46px)!important; overflow:auto!important;
   }
-  #_ec_restable.ec-fullscreen #_ec_fs_btn {
+  html.ec-fs-on #_ec_fs_btn {
     position:fixed; top:7px; right:14px; z-index:9999999;
     width:32px; height:32px; opacity:0.9;
   }
+  html.ec-fs-on body { overflow:hidden!important; }
   .ec-fs-toolbar {
     display:none; height:46px; align-items:center; justify-content:center; gap:10px;
     background:#f8fafc; border-bottom:1px solid #e2e8f0;
     font-family:'Plus Jakarta Sans',system-ui,sans-serif;
     padding:0 60px;
   }
-  #_ec_restable.ec-fullscreen .ec-fs-toolbar { display:flex; }
+  html.ec-fs-on .ec-fs-toolbar { display:flex; }
   .ec-fs-toolbar .fst-btn {
     width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center;
     background:#fff; color:#475569; border:1px solid #e2e8f0; border-radius:10px;
@@ -1656,26 +1658,15 @@ var CHV_L='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
 var CHV_R='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
 var MVH='<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 8 22 12 18 16"/><polyline points="6 8 2 12 6 16"/><line x1="2" x2="22" y1="12" y2="12"/></svg>';
 
-function isFS(){ var t=D.getElementById('_ec_restable'); return t&&t.classList.contains('ec-fullscreen'); }
+function isFS(){ return H.classList.contains('ec-fs-on'); }
 
-function shield(show){
-  var sh=D.getElementById('_ec_fs_shield');
-  if(!sh){
-    sh=D.createElement('div'); sh.id='_ec_fs_shield';
-    sh.style.cssText='position:fixed;inset:0;background:#fff;z-index:999998;display:none;pointer-events:none;';
-    D.body.appendChild(sh);
-  }
-  sh.style.display=show?'block':'none';
-}
-
-function applyFS(tbl, animate){
+function applyFS(animate){
   W._ecFsActive=true;
-  shield(true);
-  if(!tbl) tbl=D.getElementById('_ec_restable');
-  if(!tbl) return;
-  tbl.classList.add('ec-fullscreen');
-  if(animate) tbl.classList.add('ec-fs-in');
-  D.body.style.overflow='hidden';
+  H.classList.add('ec-fs-on');
+  if(animate){
+    var tbl=D.getElementById('_ec_restable');
+    if(tbl) tbl.classList.add('ec-fs-in');
+  }
   var btn=D.getElementById('_ec_fs_btn');
   if(btn) btn.innerHTML=IC_SHR;
   startMO();
@@ -1684,19 +1675,22 @@ function applyFS(tbl, animate){
 function removeFS(){
   W._ecFsActive=false;
   stopMO();
-  var tbl=D.getElementById('_ec_restable'); if(!tbl){ shield(false); return; }
+  var tbl=D.getElementById('_ec_restable');
   var btn=D.getElementById('_ec_fs_btn');
-  tbl.classList.add('ec-fs-exit');
-  setTimeout(function(){
-    tbl.classList.remove('ec-fullscreen','ec-fs-exit','ec-fs-in');
-    if(btn) btn.innerHTML=IC_EXP;
-    D.body.style.overflow='';
-    shield(false);
-  }, 280);
+  if(tbl){
+    tbl.classList.add('ec-fs-exit');
+    setTimeout(function(){
+      H.classList.remove('ec-fs-on');
+      tbl.classList.remove('ec-fs-exit','ec-fs-in');
+      if(btn) btn.innerHTML=IC_EXP;
+    }, 280);
+  } else {
+    H.classList.remove('ec-fs-on');
+  }
 }
 
 function toggle(){
-  if(isFS()) removeFS(); else applyFS(null, true);
+  if(isFS()) removeFS(); else applyFS(true);
 }
 W._ecFsToggle=toggle;
 
@@ -1705,11 +1699,7 @@ function startMO(){
   W._ecFsMO=new MutationObserver(function(){
     if(!W._ecFsActive) return;
     var t=D.getElementById('_ec_restable');
-    if(t && !t.classList.contains('ec-fullscreen')){
-      t.classList.add('ec-fullscreen');
-      D.body.style.overflow='hidden';
-      setup(t);
-    }
+    if(t && !D.getElementById('_ec_fs_btn')) setup(t);
   });
   W._ecFsMO.observe(D.body,{childList:true,subtree:true});
 }
@@ -1746,20 +1736,17 @@ function setup(tbl){
   var old=D.getElementById('_ec_fs_btn'); if(old) old.remove();
   var btn=D.createElement('button'); btn.id='_ec_fs_btn';
   btn.title='Pantalla completa';
-  btn.innerHTML=W._ecFsActive?IC_SHR:IC_EXP;
+  btn.innerHTML=isFS()?IC_SHR:IC_EXP;
   btn.addEventListener('click',function(e){ e.stopPropagation(); W._ecFsToggle(); });
   tbl.appendChild(btn);
   ensureToolbar(tbl);
-  if(W._ecFsActive && !tbl.classList.contains('ec-fullscreen')){
-    applyFS(tbl, false);
-  }
 }
 
 if(!W._ecFsEscBound){
   D.addEventListener('keydown',function(e){ if(e.key==='Escape'&&isFS()) W._ecFsToggle(); });
   W._ecFsEscBound=true;
 }
-if(W._ecFsActive){ shield(true); startMO(); }
+if(W._ecFsActive) startMO();
 
 setup();
 setTimeout(setup, 200);
