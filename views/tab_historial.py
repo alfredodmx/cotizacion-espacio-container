@@ -1581,12 +1581,14 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
         components.html(_scroll_html, height=50)
 
         # ── Botón fullscreen para la tabla de resultados ──────────────────────
-        # El style se inyecta una vez (guard por id); el botón se RE-INYECTA en
-        # cada ejecución del iframe porque un rerun de Streamlit recrea el DOM de
-        # la tabla (#_ec_restable) y el botón anterior desaparece con él. El
-        # listener de Escape se registra UNA vez (flag en window.parent).
+        # El estado fullscreen se guarda en W._ecFsActive (sobrevive reruns).
+        # Un MutationObserver re-aplica la clase ec-fullscreen al DOM nuevo que
+        # Streamlit crea tras cada rerun, así la tabla nunca deja de cubrir la
+        # pantalla (evita el flash de contenido duplicado detrás).
+        # El toolbar con scroll horizontal centrado solo aparece en fullscreen.
         components.html("""<script>(function(){
 var D=window.parent.document, W=window.parent;
+
 if(!D.getElementById('_ec_fs_style')){
   var sty=D.createElement('style'); sty.id='_ec_fs_style';
   sty.textContent=`
@@ -1606,75 +1608,150 @@ if(!D.getElementById('_ec_fs_style')){
     position:fixed!important; inset:0!important; z-index:999999!important;
     border-radius:0!important; border:none!important;
     max-height:none!important; height:100vh!important; width:100vw!important;
-    box-shadow:none!important; overflow:auto!important;
+    box-shadow:none!important; overflow:hidden!important;
     background:#fff;
-    animation: ecFsIn .32s cubic-bezier(.22,1,.36,1) forwards;
   }
   #_ec_restable.ec-fullscreen #_ec_vscroll {
-    max-height:calc(100vh - 52px)!important; overflow-y:auto!important;
+    max-height:calc(100vh - 46px)!important; overflow:auto!important;
   }
   #_ec_restable.ec-fullscreen #_ec_fs_btn {
-    position:fixed; top:12px; right:16px; z-index:9999999;
-    width:36px; height:36px; opacity:0.9;
+    position:fixed; top:7px; right:14px; z-index:9999999;
+    width:32px; height:32px; opacity:0.9;
   }
-  #_ec_restable.ec-fs-exit {
-    animation: ecFsOut .28s cubic-bezier(.22,1,.36,1) forwards;
+  .ec-fs-toolbar {
+    display:none; height:46px; align-items:center; justify-content:center; gap:10px;
+    background:#f8fafc; border-bottom:1px solid #e2e8f0;
+    font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+    padding:0 60px;
   }
-  @keyframes ecFsIn {
-    from { opacity:0.6; transform:scale(0.96); }
-    to   { opacity:1; transform:scale(1); }
+  #_ec_restable.ec-fullscreen .ec-fs-toolbar { display:flex; }
+  .ec-fs-toolbar .fst-btn {
+    width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center;
+    background:#fff; color:#475569; border:1px solid #e2e8f0; border-radius:10px;
+    cursor:pointer; padding:0; box-shadow:0 1px 3px rgba(15,23,42,0.08);
+    transition:all .16s cubic-bezier(.22,1,.36,1);
   }
-  @keyframes ecFsOut {
-    from { opacity:1; transform:scale(1); }
-    to   { opacity:0.6; transform:scale(0.96); }
+  .ec-fs-toolbar .fst-btn svg { width:18px; height:18px; display:block; }
+  .ec-fs-toolbar .fst-btn:hover {
+    background:linear-gradient(135deg,#5b7cfa,#2563eb); color:#fff;
+    border-color:transparent; box-shadow:0 6px 16px rgba(37,99,235,0.35); transform:translateY(-1px);
   }
+  .ec-fs-toolbar .fst-hint {
+    display:flex; align-items:center; gap:6px;
+    font-size:0.66rem; font-weight:700; letter-spacing:0.07em;
+    text-transform:uppercase; color:#94a3b8;
+  }
+  .ec-fs-toolbar .fst-hint svg { flex-shrink:0; }
+  #_ec_restable.ec-fs-in  { animation: ecFsIn  .32s cubic-bezier(.22,1,.36,1) forwards; }
+  #_ec_restable.ec-fs-exit { animation: ecFsOut .28s cubic-bezier(.22,1,.36,1) forwards; }
+  @keyframes ecFsIn  { from{opacity:.6;transform:scale(.96)} to{opacity:1;transform:scale(1)} }
+  @keyframes ecFsOut { from{opacity:1;transform:scale(1)}   to{opacity:.6;transform:scale(.96)} }
   `;
   D.head.appendChild(sty);
 }
 
-var IC_EXPAND='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
-var IC_SHRINK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/></svg>';
+var IC_EXP='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+var IC_SHR='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/></svg>';
+var CHV_L='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
+var CHV_R='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+var MVH='<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 8 22 12 18 16"/><polyline points="6 8 2 12 6 16"/><line x1="2" x2="22" y1="12" y2="12"/></svg>';
 
 function isFS(){ var t=D.getElementById('_ec_restable'); return t&&t.classList.contains('ec-fullscreen'); }
 
-function toggle(){
+function applyFS(tbl, animate){
+  W._ecFsActive=true;
+  if(!tbl) tbl=D.getElementById('_ec_restable');
+  if(!tbl) return;
+  tbl.classList.add('ec-fullscreen');
+  if(animate) tbl.classList.add('ec-fs-in');
+  D.body.style.overflow='hidden';
+  var btn=D.getElementById('_ec_fs_btn');
+  if(btn) btn.innerHTML=IC_SHR;
+  startMO();
+}
+
+function removeFS(){
+  W._ecFsActive=false;
+  stopMO();
   var tbl=D.getElementById('_ec_restable'); if(!tbl) return;
   var btn=D.getElementById('_ec_fs_btn');
-  if(isFS()){
-    tbl.classList.add('ec-fs-exit');
-    setTimeout(function(){
-      tbl.classList.remove('ec-fullscreen','ec-fs-exit');
-      if(btn) btn.innerHTML=IC_EXPAND;
-      D.body.style.overflow='';
-    }, 280);
-  } else {
-    tbl.classList.add('ec-fullscreen');
-    if(btn) btn.innerHTML=IC_SHRINK;
-    D.body.style.overflow='hidden';
-  }
+  tbl.classList.add('ec-fs-exit');
+  setTimeout(function(){
+    tbl.classList.remove('ec-fullscreen','ec-fs-exit','ec-fs-in');
+    if(btn) btn.innerHTML=IC_EXP;
+    D.body.style.overflow='';
+  }, 280);
+}
+
+function toggle(){
+  if(isFS()) removeFS(); else applyFS(null, true);
 }
 W._ecFsToggle=toggle;
 
-function ensureBtn(){
-  var tbl=D.getElementById('_ec_restable'); if(!tbl) return;
+function startMO(){
+  if(W._ecFsMO) return;
+  W._ecFsMO=new MutationObserver(function(){
+    if(!W._ecFsActive) return;
+    var t=D.getElementById('_ec_restable');
+    if(t && !t.classList.contains('ec-fullscreen')){
+      t.classList.add('ec-fullscreen');
+      D.body.style.overflow='hidden';
+      setup(t);
+    }
+  });
+  W._ecFsMO.observe(D.body,{childList:true,subtree:true});
+}
+function stopMO(){
+  if(W._ecFsMO){W._ecFsMO.disconnect();W._ecFsMO=null;}
+}
+
+function getScrollTarget(tbl){
+  var tb=tbl.querySelector('.resultados-table'); if(!tb) return tbl;
+  var el=tb.parentElement;
+  while(el&&el!==tbl){
+    var s=W.getComputedStyle(el);
+    if(s.overflowX==='auto'||s.overflowX==='scroll') return el;
+    el=el.parentElement;
+  }
+  return tbl;
+}
+
+function ensureToolbar(tbl){
+  var old=tbl.querySelector('.ec-fs-toolbar'); if(old) old.remove();
+  var bar=D.createElement('div'); bar.className='ec-fs-toolbar';
+  var bL=D.createElement('button'); bL.className='fst-btn'; bL.title='Izquierda'; bL.innerHTML=CHV_L;
+  var hi=D.createElement('span');  hi.className='fst-hint';  hi.innerHTML=MVH+'Scroll horizontal';
+  var bR=D.createElement('button'); bR.className='fst-btn'; bR.title='Derecha'; bR.innerHTML=CHV_R;
+  bar.appendChild(bL); bar.appendChild(hi); bar.appendChild(bR);
+  tbl.insertBefore(bar, tbl.firstChild);
+  bL.addEventListener('click',function(){ var s=getScrollTarget(tbl); if(s) s.scrollBy({left:-400,behavior:'smooth'}); });
+  bR.addEventListener('click',function(){ var s=getScrollTarget(tbl); if(s) s.scrollBy({left:400,behavior:'smooth'}); });
+}
+
+function setup(tbl){
+  if(!tbl) tbl=D.getElementById('_ec_restable');
+  if(!tbl) return;
   var old=D.getElementById('_ec_fs_btn'); if(old) old.remove();
   var btn=D.createElement('button'); btn.id='_ec_fs_btn';
   btn.title='Pantalla completa';
-  btn.innerHTML=isFS()?IC_SHRINK:IC_EXPAND;
-  btn.addEventListener('click', function(e){ e.stopPropagation(); W._ecFsToggle(); });
+  btn.innerHTML=W._ecFsActive?IC_SHR:IC_EXP;
+  btn.addEventListener('click',function(e){ e.stopPropagation(); W._ecFsToggle(); });
   tbl.appendChild(btn);
+  ensureToolbar(tbl);
+  if(W._ecFsActive && !tbl.classList.contains('ec-fullscreen')){
+    applyFS(tbl, false);
+  }
 }
 
 if(!W._ecFsEscBound){
-  D.addEventListener('keydown', function(e){
-    if(e.key==='Escape' && isFS()) W._ecFsToggle();
-  });
+  D.addEventListener('keydown',function(e){ if(e.key==='Escape'&&isFS()) W._ecFsToggle(); });
   W._ecFsEscBound=true;
 }
+if(W._ecFsActive) startMO();
 
-ensureBtn();
-setTimeout(ensureBtn, 200);
-setTimeout(ensureBtn, 600);
+setup();
+setTimeout(setup, 200);
+setTimeout(setup, 600);
 })();</script>""", height=0)
 
         components.html("""<script>
@@ -2277,11 +2354,6 @@ var MAT_DATA = """ + _mat_data_json_map + """;
   function closeMenu(){var m=D.getElementById(MENU_ID);if(m)m.remove();}
   function fire(action,ep){
     var inp=D.querySelector('.st-key-_ctx_cmd input'); if(!inp) return;
-    var tbl=D.getElementById('_ec_restable');
-    if(tbl&&tbl.classList.contains('ec-fullscreen')){
-      tbl.classList.remove('ec-fullscreen','ec-fs-exit');
-      D.body.style.overflow='';
-    }
     var vs=D.getElementById('_ec_vscroll'); if(vs&&vs.scrollTop>0) W._ecTableScrollY=vs.scrollTop;
     if(W._ecRestoreIv){clearInterval(W._ecRestoreIv);W._ecRestoreIv=null;}
     if(typeof W._ecTableScrollY==='number'&&W._ecTableScrollY>0){
