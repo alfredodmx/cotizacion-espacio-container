@@ -126,6 +126,14 @@ _CSS = """
     padding:22px 24px; margin-bottom:20px;
     box-shadow:0 2px 10px rgba(15,23,42,0.04);
 }
+.st-key-ntf_contacts_card {
+    background:#fff; border:1px solid #e8ebf5; border-radius:14px;
+    padding:22px 24px; margin-bottom:20px;
+    box-shadow:0 2px 10px rgba(15,23,42,0.04);
+}
+.st-key-ntf_contacts_card [data-testid="stVerticalBlockBorderWrapper"] {
+    border:none !important; background:none !important; padding:0 !important;
+}
 .ntf-user-row {
     display:flex; align-items:center; gap:12px; padding:10px 0;
     border-bottom:1px solid #f1f5f9;
@@ -323,50 +331,48 @@ def render_tab_notificaciones(supabase, **deps):
 
     _contactos_nuevos = dict(_contactos)
 
-    st.markdown('<div class="ntf-card">', unsafe_allow_html=True)
-    for _idx, _uu in enumerate(_todos_usuarios):
-        _ue  = _uu.get('email', '').lower()
-        _ur  = _uu.get('rol', 'ejecutivo')
-        _un  = _uu.get('nombre', _ue)
-        _foto = _uu.get('foto_url', '')
-        _iniciales = ''.join(p[0] for p in _un.split()[:2]).upper() if _un.split() else 'EC'
-        _avatar_inner = f'<img src="{_foto}" alt="">' if _foto else _iniciales
+    with st.container(key="ntf_contacts_card"):
+        for _idx, _uu in enumerate(_todos_usuarios):
+            _ue  = _uu.get('email', '').lower()
+            _ur  = _uu.get('rol', 'ejecutivo')
+            _un  = _uu.get('nombre', _ue)
+            _foto = _uu.get('foto_url', '')
+            _iniciales = ''.join(p[0] for p in _un.split()[:2]).upper() if _un.split() else 'EC'
+            _avatar_inner = f'<img src="{_foto}" alt="">' if _foto else _iniciales
 
-        _badge_cls = _ur if _ur in ('root', 'admin', 'operacion') else 'ejecutivo'
-        _badge_ico = {"root": "key", "admin": "crown", "operacion": "gear"}.get(_ur, "shield")
-        _badge_txt = {"root": "Root", "admin": "Admin", "operacion": "Operación"}.get(_ur, "Ejecutivo")
+            _badge_cls = _ur if _ur in ('root', 'admin', 'operacion') else 'ejecutivo'
+            _badge_ico = {"root": "key", "admin": "crown", "operacion": "gear"}.get(_ur, "shield")
+            _badge_txt = {"root": "Root", "admin": "Admin", "operacion": "Operación"}.get(_ur, "Ejecutivo")
 
-        _has_chat = bool(_contactos.get(_ue, ''))
-        _dot_cls = "on" if _has_chat else "off"
+            _has_chat = bool(_contactos.get(_ue, ''))
+            _dot_cls = "on" if _has_chat else "off"
 
-        _c_avatar, _c_input, _c_badge = st.columns([3, 2, 1.5])
-        with _c_avatar:
-            st.markdown(
-                f'<div style="display:flex;align-items:center;gap:12px;height:52px;">'
-                f'<div class="ntf-avatar">{_avatar_inner}</div>'
-                f'<div class="ntf-user-info">'
-                f'<div class="ntf-user-name">{_un}</div>'
-                f'<div class="ntf-user-email">{_ue}</div>'
-                f'</div></div>',
-                unsafe_allow_html=True,
-            )
-        with _c_input:
-            _chat_val = _contactos.get(_ue, '')
-            _new_chat = st.text_input(
-                "Chat ID", value=_chat_val, placeholder="Chat ID o @usuario",
-                key=f"chat_{_idx}_{_ue}", label_visibility="collapsed",
-            )
-            _contactos_nuevos[_ue] = _new_chat
-        with _c_badge:
-            st.markdown(
-                f'<div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;height:52px;">'
-                f'<span class="ntf-badge {_badge_cls}">{_svg(_badge_ico, 12, "currentColor", 2.2, 0, -1)}{_badge_txt}</span>'
-                f'<div class="ntf-status-dot {_dot_cls}"></div>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-
-    st.markdown('</div>', unsafe_allow_html=True)
+            _c_avatar, _c_input, _c_badge = st.columns([3, 2, 1.5])
+            with _c_avatar:
+                st.markdown(
+                    f'<div style="display:flex;align-items:center;gap:12px;height:52px;">'
+                    f'<div class="ntf-avatar">{_avatar_inner}</div>'
+                    f'<div class="ntf-user-info">'
+                    f'<div class="ntf-user-name">{_un}</div>'
+                    f'<div class="ntf-user-email">{_ue}</div>'
+                    f'</div></div>',
+                    unsafe_allow_html=True,
+                )
+            with _c_input:
+                _chat_val = _contactos.get(_ue, '')
+                _new_chat = st.text_input(
+                    "Chat ID", value=_chat_val, placeholder="Chat ID o @usuario",
+                    key=f"chat_{_idx}_{_ue}", label_visibility="collapsed",
+                )
+                _contactos_nuevos[_ue] = _new_chat
+            with _c_badge:
+                st.markdown(
+                    f'<div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;height:52px;">'
+                    f'<span class="ntf-badge {_badge_cls}">{_svg(_badge_ico, 12, "currentColor", 2.2, 0, -1)}{_badge_txt}</span>'
+                    f'<div class="ntf-status-dot {_dot_cls}"></div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
 
     st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
     if st.button(":material/save: Guardar contactos", key="btn_guardar_contactos", type="primary"):
