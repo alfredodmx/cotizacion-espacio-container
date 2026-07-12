@@ -126,16 +126,6 @@ _CSS = """
     padding:22px 24px; margin-bottom:20px;
     box-shadow:0 2px 10px rgba(15,23,42,0.04);
 }
-.st-key-ntf_contacts_card > div > [data-testid="stVerticalBlockBorderWrapper"] {
-    background:#fff; border:1px solid #e8ebf5 !important; border-radius:14px;
-    padding:22px 28px; margin:8px 0 20px;
-    box-shadow:0 2px 10px rgba(15,23,42,0.04);
-}
-.st-key-ntf_contacts_card [data-testid="stVerticalBlockBorderWrapper"]
-[data-testid="stVerticalBlockBorderWrapper"] {
-    border:none !important; background:none !important;
-    padding:0 !important; box-shadow:none !important; margin:0 !important;
-}
 .ntf-user-row {
     display:flex; align-items:center; gap:12px; padding:10px 0;
     border-bottom:1px solid #f1f5f9;
@@ -375,6 +365,25 @@ def render_tab_notificaciones(supabase, **deps):
                     f'</div>',
                     unsafe_allow_html=True,
                 )
+
+    components.html("""<script>
+(function(){
+    var D=window.parent.document, id='_ntf_cc_style';
+    var o=D.getElementById(id); if(o) o.remove();
+    var s=D.createElement('style'); s.id=id;
+    s.textContent=
+    '.st-key-ntf_contacts_card{padding:0;margin:0}'+
+    '.st-key-ntf_contacts_card>div>[data-testid="stVerticalBlockBorderWrapper"]{'+
+        'background:#fff !important;border:1px solid #e8ebf5 !important;border-radius:14px !important;'+
+        'padding:22px 28px !important;margin:8px 0 20px !important;'+
+        'box-shadow:0 2px 10px rgba(15,23,42,0.04) !important}'+
+    '.st-key-ntf_contacts_card [data-testid="stVerticalBlockBorderWrapper"] '+
+    '[data-testid="stVerticalBlockBorderWrapper"]{'+
+        'border:none !important;background:none !important;'+
+        'padding:0 !important;box-shadow:none !important;margin:0 !important}';
+    D.head.appendChild(s);
+})();
+</script>""", height=0)
 
     st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
     if st.button(":material/save: Guardar contactos", key="btn_guardar_contactos", type="primary"):
