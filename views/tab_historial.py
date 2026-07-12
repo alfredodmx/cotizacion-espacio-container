@@ -1580,6 +1580,94 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             '})();</script>')
         components.html(_scroll_html, height=50)
 
+        # ── Botón fullscreen para la tabla de resultados ──────────────────────
+        components.html("""<script>(function(){
+var D=window.parent.document, W=window.parent;
+if(D.getElementById('_ec_fs_style')) return;
+var sty=D.createElement('style'); sty.id='_ec_fs_style';
+sty.textContent=`
+#_ec_restable { position:relative; }
+#_ec_fs_btn {
+  position:absolute; top:8px; right:8px; z-index:5;
+  width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center;
+  background:rgba(15,23,42,0.75); border:1px solid rgba(255,255,255,0.15);
+  border-radius:8px; cursor:pointer; padding:0;
+  backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  box-shadow:0 2px 8px rgba(0,0,0,0.2);
+  transition:all .18s ease; opacity:0.7;
+}
+#_ec_fs_btn:hover { opacity:1; background:rgba(37,99,235,0.85); border-color:rgba(255,255,255,0.3); transform:scale(1.08); }
+#_ec_fs_btn svg { width:16px; height:16px; color:#fff; }
+#_ec_restable.ec-fullscreen {
+  position:fixed!important; inset:0!important; z-index:99990!important;
+  border-radius:0!important; border:none!important;
+  max-height:none!important; height:100vh!important; width:100vw!important;
+  box-shadow:none!important; overflow:auto!important;
+  background:#fff;
+  animation: ecFsIn .32s cubic-bezier(.22,1,.36,1) forwards;
+}
+#_ec_restable.ec-fullscreen #_ec_vscroll {
+  max-height:calc(100vh - 52px)!important; overflow-y:auto!important;
+}
+#_ec_restable.ec-fullscreen #_ec_fs_btn {
+  position:fixed; top:12px; right:16px; z-index:99999;
+  width:36px; height:36px; opacity:0.9;
+}
+#_ec_restable.ec-fs-exit {
+  animation: ecFsOut .28s cubic-bezier(.22,1,.36,1) forwards;
+}
+@keyframes ecFsIn {
+  from { opacity:0.6; transform:scale(0.96); }
+  to   { opacity:1; transform:scale(1); }
+}
+@keyframes ecFsOut {
+  from { opacity:1; transform:scale(1); }
+  to   { opacity:0.6; transform:scale(0.96); }
+}
+`;
+D.head.appendChild(sty);
+
+function ensureBtn(){
+  var tbl=D.getElementById('_ec_restable'); if(!tbl) return;
+  if(D.getElementById('_ec_fs_btn')) return;
+  var btn=D.createElement('button'); btn.id='_ec_fs_btn';
+  btn.title='Pantalla completa';
+  btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+  btn.addEventListener('click', toggle);
+  tbl.appendChild(btn);
+}
+
+var IC_EXPAND='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+var IC_SHRINK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/></svg>';
+
+function isFS(){ var t=D.getElementById('_ec_restable'); return t&&t.classList.contains('ec-fullscreen'); }
+
+function toggle(){
+  var tbl=D.getElementById('_ec_restable'); if(!tbl) return;
+  var btn=D.getElementById('_ec_fs_btn');
+  if(isFS()){
+    tbl.classList.add('ec-fs-exit');
+    setTimeout(function(){
+      tbl.classList.remove('ec-fullscreen','ec-fs-exit');
+      if(btn) btn.innerHTML=IC_EXPAND;
+      D.body.style.overflow='';
+    }, 280);
+  } else {
+    tbl.classList.add('ec-fullscreen');
+    if(btn) btn.innerHTML=IC_SHRINK;
+    D.body.style.overflow='hidden';
+  }
+}
+
+D.addEventListener('keydown', function(e){
+  if(e.key==='Escape' && isFS()) toggle();
+});
+
+ensureBtn();
+setTimeout(ensureBtn, 200);
+setTimeout(ensureBtn, 600);
+})();</script>""", height=0)
+
         components.html("""<script>
 var CLI_DATA = """ + _cli_data_json_map + """;
 var MAT_DATA = """ + _mat_data_json_map + """;
