@@ -323,6 +323,7 @@ def render_tab_notificaciones(supabase, **deps):
 
     _contactos_nuevos = dict(_contactos)
 
+    st.markdown('<div class="ntf-card">', unsafe_allow_html=True)
     for _idx, _uu in enumerate(_todos_usuarios):
         _ue  = _uu.get('email', '').lower()
         _ur  = _uu.get('rol', 'ejecutivo')
@@ -365,6 +366,9 @@ def render_tab_notificaciones(supabase, **deps):
                 unsafe_allow_html=True,
             )
 
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
     if st.button(":material/save: Guardar contactos", key="btn_guardar_contactos", type="primary"):
         _set_notif_config('contactos_json', _json.dumps(_contactos_nuevos))
         st.toast("Contactos guardados", icon=":material/check_circle:")
