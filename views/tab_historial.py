@@ -2364,6 +2364,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
   var W=window.parent, D=W.document;
   function closeIt(){ var bd=D.getElementById('_ec_pv_backdrop'); if(bd) bd.remove();
     var lp=D.getElementById('_ec_pv_loading'); if(lp) lp.remove();
+    if(W._ecPvKey){ D.removeEventListener('keydown', W._ecPvKey, true); W._ecPvKey=null; }
     var b=D.querySelector('.st-key-_pv_close button'); if(b) b.click(); }
   var lp0=D.getElementById('_ec_pv_loading'); if(lp0) lp0.remove();
   var ex=D.getElementById('_ec_pv_backdrop'); if(ex) ex.remove();
@@ -2376,15 +2377,18 @@ var MAT_DATA = """ + _mat_data_json_map + """;
     var x=dr.querySelector('#_pv_x'); if(x) x.addEventListener('click', closeIt);
   }
   if(W._ecPvKey) D.removeEventListener('keydown', W._ecPvKey, true);
-  W._ecPvKey=function(e){if(e.key==='Escape') closeIt();};
+  /* Escape cierra SOLO el visor (stopPropagation evita que además salga
+     del modo fullscreen si el visor se abrió estando en fullscreen) */
+  W._ecPvKey=function(e){if(e.key==='Escape'){e.stopPropagation(); closeIt();}};
   D.addEventListener('keydown', W._ecPvKey, true);
 })();
 </script>""", height=0)
 
             _pv_fragment()
         else:
-            components.html("""<script>(function(){var D=window.parent.document;
-  var b=D.getElementById('_ec_pv_backdrop'); if(b) b.remove();})();</script>""", height=0)
+            components.html("""<script>(function(){var W=window.parent,D=W.document;
+  ['_ec_pv_backdrop','_ec_pv_loading'].forEach(function(id){var e=D.getElementById(id); if(e) e.remove();});
+  if(W._ecPvKey){ D.removeEventListener('keydown', W._ecPvKey, true); W._ecPvKey=null; }})();</script>""", height=0)
 
         # JS del menú: aparece AL INSTANTE (sin rerun) leyendo las banderas data-* de
         # la fila. Cada acción escribe en el bridge oculto (_ctx_cmd) → Python genera y
@@ -2445,7 +2449,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
     if(!DOCS.length) DOCS=['documentos'];
     var R=54, CIRC=2*Math.PI*R;
     var lp=D.createElement('div'); lp.id='_ec_pv_loading';
-    lp.style.cssText='position:fixed;top:0;right:0;height:100vh;width:50vw;min-width:400px;z-index:999999;background:#fff;box-shadow:-16px 0 44px rgba(15,23,42,0.24);border-left:1px solid #e2e8f0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-family:-apple-system,Segoe UI,Roboto,sans-serif;';
+    lp.style.cssText='position:fixed;top:0;right:0;height:100vh;width:50vw;min-width:400px;z-index:9999992;background:#fff;box-shadow:-16px 0 44px rgba(15,23,42,0.24);border-left:1px solid #e2e8f0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-family:-apple-system,Segoe UI,Roboto,sans-serif;';
     lp.innerHTML='<div style="position:relative;width:130px;height:130px;">'
       +'<svg width="130" height="130" viewBox="0 0 130 130" style="display:block;"><circle cx="65" cy="65" r="'+R+'" fill="none" stroke="#eef2f7" stroke-width="9"/>'
       +'<circle id="_eclr_fg" cx="65" cy="65" r="'+R+'" fill="none" stroke="#5b7cfa" stroke-width="9" stroke-linecap="round" stroke-dasharray="'+CIRC+'" stroke-dashoffset="'+CIRC+'" transform="rotate(-90 65 65)"/></svg>'
