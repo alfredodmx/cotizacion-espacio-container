@@ -1597,19 +1597,21 @@ sty.textContent=
 'box-shadow:0 2px 8px rgba(0,0,0,.2);transition:all .18s ease;opacity:.7}'+
 '#_ec_fs_btn:hover{opacity:1;background:rgba(37,99,235,.85);border-color:rgba(255,255,255,.3);transform:scale(1.08)}'+
 '#_ec_fs_btn svg{width:16px;height:16px;color:#fff}'+
-'#_ec_fs_ov{display:none;position:fixed;inset:0;z-index:999999;background:#fff;overflow:hidden}'+
-'#_ec_fs_ov.on{display:block}'+
+'#_ec_fs_ov{display:none;position:fixed;inset:0;z-index:999999;background:#fff;overflow:hidden;flex-direction:column}'+
+'#_ec_fs_ov.on{display:flex}'+
 '#_ec_fs_ov.ec-fs-in{animation:ecFsIn .32s cubic-bezier(.22,1,.36,1) forwards}'+
 '#_ec_fs_ov.ec-fs-exit{animation:ecFsOut .28s cubic-bezier(.22,1,.36,1) forwards}'+
-'#_ec_fs_ov .ec-fs-toolbar{display:flex;height:46px;align-items:center;justify-content:center;gap:10px;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-family:"Plus Jakarta Sans",system-ui,sans-serif;padding:0 60px}'+
+'#_ec_fs_ov .ec-fs-toolbar{flex:0 0 46px;display:flex;align-items:center;justify-content:center;gap:10px;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-family:"Plus Jakarta Sans",system-ui,sans-serif;padding:0 60px}'+
 '#_ec_fs_ov .fst-btn{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;background:#fff;color:#475569;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;padding:0;box-shadow:0 1px 3px rgba(15,23,42,.08);transition:all .16s cubic-bezier(.22,1,.36,1)}'+
 '#_ec_fs_ov .fst-btn svg{width:18px;height:18px;display:block}'+
-'#_ec_fs_ov .fst-btn:hover{background:linear-gradient(135deg,#5b7cfa,#2563eb);color:#fff;border-color:transparent;box-shadow:0 6px 16px rgba(37,99,235,.35);transform:translateY(-1px)}'+
+'#_ec_fs_ov .fst-btn:hover:not(:disabled){background:linear-gradient(135deg,#5b7cfa,#2563eb);color:#fff;border-color:transparent;box-shadow:0 6px 16px rgba(37,99,235,.35);transform:translateY(-1px)}'+
+'#_ec_fs_ov .fst-btn:disabled{opacity:.35;cursor:default;box-shadow:none;color:#cbd5e1}'+
 '#_ec_fs_ov .fst-hint{display:flex;align-items:center;gap:6px;font-size:.66rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#94a3b8}'+
 '#_ec_fs_ov .fst-close{position:absolute;top:7px;right:14px;z-index:2;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;background:rgba(15,23,42,.75);border:1px solid rgba(255,255,255,.15);border-radius:8px;cursor:pointer;padding:0;opacity:.9;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:0 2px 8px rgba(0,0,0,.2);transition:all .18s ease}'+
 '#_ec_fs_ov .fst-close:hover{opacity:1;background:rgba(37,99,235,.85);transform:scale(1.08)}'+
 '#_ec_fs_ov .fst-close svg{width:16px;height:16px;color:#fff}'+
-'#_ec_fs_ov #_ec_vscroll_clone{max-height:calc(100vh - 46px);overflow:auto}'+
+'#_ec_fs_ov .ec-fs-body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain}'+
+'#_ec_fs_ov #_ec_vscroll_clone{max-height:none;overflow:visible}'+
 '@keyframes ecFsIn{from{opacity:.6;transform:scale(.96)}to{opacity:1;transform:scale(1)}}'+
 '@keyframes ecFsOut{from{opacity:1;transform:scale(1)}to{opacity:.6;transform:scale(.96)}}';
 D.head.appendChild(sty);
@@ -1621,24 +1623,60 @@ var CHV_L='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
 var CHV_R='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
 var MVH='<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 8 22 12 18 16"/><polyline points="6 8 2 12 6 16"/><line x1="2" x2="22" y1="12" y2="12"/></svg>';
 
+/* ── 2b. Navegación horizontal: hold-to-scroll + deshabilitar extremos
+        (misma lógica que los botones de la tabla normal) ───────────── */
+function initNav(btnL,btnR,target){
+  var rafId=null,activeDir=0,holdTimer=null,isHolding=false,SPEED=13;
+  function maxScroll(){return Math.max(0,target.scrollWidth-target.clientWidth);}
+  function updateState(){
+    var atStart=target.scrollLeft<=0, atEnd=target.scrollLeft>=maxScroll()-1;
+    btnL.disabled=atStart; btnR.disabled=atEnd;
+  }
+  function step(){
+    if(activeDir===0)return;
+    target.scrollLeft+=activeDir*SPEED; updateState();
+    if((activeDir<0&&target.scrollLeft<=0)||(activeDir>0&&target.scrollLeft>=maxScroll()-1)){stopHold();return;}
+    rafId=W.requestAnimationFrame(step);
+  }
+  function startHold(d){activeDir=d; if(rafId)W.cancelAnimationFrame(rafId); rafId=W.requestAnimationFrame(step);}
+  function stopHold(){activeDir=0; if(rafId){W.cancelAnimationFrame(rafId); rafId=null;}}
+  function press(d){ isHolding=false; holdTimer=setTimeout(function(){isHolding=true; startHold(d);},180); }
+  function release(d){ clearTimeout(holdTimer);
+    if(isHolding){stopHold();} else {target.scrollBy({left:d*300,behavior:"smooth"});} isHolding=false; }
+  function cancelPress(){ clearTimeout(holdTimer); if(isHolding){stopHold();} isHolding=false; }
+  btnL.addEventListener("mousedown",function(e){e.preventDefault(); if(btnL.disabled)return; press(-1);});
+  btnR.addEventListener("mousedown",function(e){e.preventDefault(); if(btnR.disabled)return; press(1);});
+  btnL.addEventListener("mouseup",function(){release(-1);});
+  btnR.addEventListener("mouseup",function(){release(1);});
+  btnL.addEventListener("mouseleave",cancelPress);
+  btnR.addEventListener("mouseleave",cancelPress);
+  D.addEventListener("mouseup",cancelPress);
+  target.addEventListener("scroll",updateState);
+  /* refresca el estado ahora + tras el paint (el clone recién montado
+     aún no tiene scrollWidth definitivo → evita botón mal deshabilitado) */
+  W._ecFsNavUpdate=function(){ updateState(); W.requestAnimationFrame(updateState); setTimeout(updateState,120); };
+  W._ecFsNavUpdate();
+}
+
 /* ── 3. Overlay (se crea UNA vez, persiste en body) ─────────────────── */
 function getOv(){
   var ov=D.getElementById('_ec_fs_ov');
   if(!ov){
     ov=D.createElement('div'); ov.id='_ec_fs_ov';
     var bar=D.createElement('div'); bar.className='ec-fs-toolbar';
-    var bL=D.createElement('button'); bL.className='fst-btn'; bL.title='Izquierda'; bL.innerHTML=CHV_L;
+    var bL=D.createElement('button'); bL.className='fst-btn'; bL.id='_ec_fs_bl'; bL.title='Izquierda'; bL.innerHTML=CHV_L;
     var hi=D.createElement('span');  hi.className='fst-hint';  hi.innerHTML=MVH+'Scroll horizontal';
-    var bR=D.createElement('button'); bR.className='fst-btn'; bR.title='Derecha'; bR.innerHTML=CHV_R;
+    var bR=D.createElement('button'); bR.className='fst-btn'; bR.id='_ec_fs_br'; bR.title='Derecha'; bR.innerHTML=CHV_R;
     bar.appendChild(bL); bar.appendChild(hi); bar.appendChild(bR);
     ov.appendChild(bar);
     var cls=D.createElement('button'); cls.className='fst-close'; cls.title='Salir';
     cls.innerHTML=IC_SHR;
     cls.addEventListener('click',function(){ W._ecFsToggle(); });
     ov.appendChild(cls);
+    var bd=D.createElement('div'); bd.className='ec-fs-body'; bd.id='_ec_fs_body';
+    ov.appendChild(bd);
     B.appendChild(ov);
-    bL.addEventListener('click',function(){ var c=ov.querySelector('#_ec_vscroll_clone'); if(c) c.scrollBy({left:-400,behavior:'smooth'}); });
-    bR.addEventListener('click',function(){ var c=ov.querySelector('#_ec_vscroll_clone'); if(c) c.scrollBy({left:400,behavior:'smooth'}); });
+    initNav(bL,bR,bd);
   }
   return ov;
 }
@@ -1649,14 +1687,38 @@ function syncToOverlay(){
   var vs=src.querySelector('#_ec_vscroll');
   if(!vs||!vs.querySelector('tbody tr')) return;
   var ov=getOv();
-  var cur=ov.querySelector('#_ec_vscroll_clone');
+  var bd=ov.querySelector('#_ec_fs_body');
+  var cur=bd.querySelector('#_ec_vscroll_clone');
   var sid=vs.getAttribute('data-sid')||'';
   if(cur&&cur.getAttribute('data-sid')===sid&&sid) return;
   if(cur) cur.remove();
   var cl=vs.cloneNode(true);
   cl.id='_ec_vscroll_clone';
-  cl.style.cssText='max-height:calc(100vh - 46px);overflow:auto;';
-  ov.appendChild(cl);
+  /* la región .ec-fs-body es la que scrollea (vertical Y horizontal);
+     el clone no debe recortar ni scrollear por su cuenta */
+  cl.style.cssText='max-height:none;overflow:visible;';
+  bd.appendChild(cl);
+  if(W._ecFsNavUpdate) W._ecFsNavUpdate();
+}
+
+/* ── 4b. Bloquear/restaurar scroll del fondo (Streamlit no scrollea en
+        <body>, sino en su propio contenedor) ─────────────────────── */
+function lockBg(){
+  if(W._ecFsLocked) return;
+  W._ecFsLocked=[];
+  var sels=['[data-testid="stAppViewContainer"]','[data-testid="stMain"]','section.main','.main','.stMain'];
+  sels.forEach(function(s){
+    D.querySelectorAll(s).forEach(function(el){
+      W._ecFsLocked.push([el,el.style.overflow]); el.style.overflow='hidden';
+    });
+  });
+  W._ecFsLocked.push([D.documentElement,D.documentElement.style.overflow]); D.documentElement.style.overflow='hidden';
+  W._ecFsLocked.push([B,B.style.overflow]); B.style.overflow='hidden';
+}
+function unlockBg(){
+  if(!W._ecFsLocked) return;
+  W._ecFsLocked.forEach(function(p){ p[0].style.overflow=p[1]||''; });
+  W._ecFsLocked=null;
 }
 
 /* ── 5. Toggle fullscreen ───────────────────────────────────────────── */
@@ -1669,10 +1731,10 @@ function applyFS(anim){
   ov.classList.remove('ec-fs-exit');
   ov.classList.add('on');
   if(anim) ov.classList.add('ec-fs-in');
-  B.style.overflow='hidden';
-  var btn=D.getElementById('_ec_fs_btn');
-  if(btn) btn.innerHTML=IC_SHR;
+  lockBg();
+  ensureBtn();
   startMO();
+  if(W._ecFsNavUpdate) W._ecFsNavUpdate();
 }
 
 function removeFS(){
@@ -1682,12 +1744,12 @@ function removeFS(){
     ov.classList.add('ec-fs-exit');
     setTimeout(function(){
       ov.classList.remove('on','ec-fs-in','ec-fs-exit');
-      var c=ov.querySelector('#_ec_vscroll_clone'); if(c) c.remove();
-      B.style.overflow='';
+      var bd=ov.querySelector('#_ec_fs_body');
+      var c=bd&&bd.querySelector('#_ec_vscroll_clone'); if(c) c.remove();
+      unlockBg();
     },280);
-  }
-  var btn=D.getElementById('_ec_fs_btn');
-  if(btn) btn.innerHTML=IC_EXP;
+  } else { unlockBg(); }
+  ensureBtn();
 }
 
 W._ecFsToggle=function(){ if(isFS()) removeFS(); else applyFS(true); };
@@ -1707,13 +1769,21 @@ function startMO(){
 }
 function stopMO(){ if(W._ecFsMO){W._ecFsMO.disconnect();W._ecFsMO=null;} }
 
-/* ── 7. Botón expand en la tabla original ───────────────────────────── */
+/* ── 7. Botón expand en la tabla original (idempotente: no re-crea si ya
+        existe → evita tormenta de mutaciones con el observer) ──────── */
 function ensureBtn(){
   var tbl=D.getElementById('_ec_restable'); if(!tbl) return;
-  var old=D.getElementById('_ec_fs_btn'); if(old) old.remove();
-  var btn=D.createElement('button'); btn.id='_ec_fs_btn';
+  var want=isFS()?'1':'0';
+  var btn=D.getElementById('_ec_fs_btn');
+  if(btn&&btn.parentElement===tbl){
+    if(btn.getAttribute('data-fs')!==want){ btn.innerHTML=isFS()?IC_SHR:IC_EXP; btn.setAttribute('data-fs',want); }
+    return;
+  }
+  if(btn) btn.remove();
+  btn=D.createElement('button'); btn.id='_ec_fs_btn';
   btn.title='Pantalla completa';
   btn.innerHTML=isFS()?IC_SHR:IC_EXP;
+  btn.setAttribute('data-fs',want);
   btn.addEventListener('click',function(e){ e.stopPropagation(); W._ecFsToggle(); });
   tbl.appendChild(btn);
 }
@@ -1729,8 +1799,9 @@ if(W._ecFsActive){
   var ov=getOv();
   ov.classList.remove('ec-fs-exit','ec-fs-in');
   ov.classList.add('on');
-  B.style.overflow='hidden';
+  lockBg();
   startMO();
+  syncToOverlay();
 }
 
 /* ── 10. Init ───────────────────────────────────────────────────────── */
