@@ -126,6 +126,15 @@ _CSS = """
     padding:22px 24px; margin-bottom:20px;
     box-shadow:0 2px 10px rgba(15,23,42,0.04);
 }
+/* Contenedor blanco de la lista de contactos (st.container keyed) */
+.st-key-ntf_contacts_card {
+    background:#fff; border:1px solid #e8ebf5; border-radius:14px;
+    padding:22px 28px; margin:8px 0 20px;
+    box-shadow:0 2px 10px rgba(15,23,42,0.04);
+}
+.st-key-ntf_contacts_card [data-testid="stVerticalBlockBorderWrapper"] {
+    border:none; background:none; box-shadow:none;
+}
 .ntf-user-row {
     display:flex; align-items:center; gap:12px; padding:10px 0;
     border-bottom:1px solid #f1f5f9;
@@ -365,24 +374,6 @@ def render_tab_notificaciones(supabase, **deps):
                     f'</div>',
                     unsafe_allow_html=True,
                 )
-
-    components.html("""<script>
-(function(){
-    var D=window.parent.document;
-    var el=D.querySelector('.st-key-ntf_contacts_card');
-    if(!el) return;
-    // Estilo solo en el primer stVerticalBlockBorderWrapper hijo
-    var first=el.querySelector('[data-testid="stVerticalBlockBorderWrapper"]');
-    if(first){
-        first.style.cssText='background:#fff;border:1px solid #e8ebf5;border-radius:14px;padding:22px 28px;margin:8px 0 20px;box-shadow:0 2px 10px rgba(15,23,42,0.04)';
-    }
-    // Todos los internos (anidados) limpios
-    var inners=el.querySelectorAll('[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlockBorderWrapper"]');
-    for(var i=0;i<inners.length;i++){
-        inners[i].style.cssText='border:none;background:none;padding:0;box-shadow:none;margin:0';
-    }
-})();
-</script>""", height=0)
 
     st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
     if st.button(":material/save: Guardar contactos", key="btn_guardar_contactos", type="primary"):
