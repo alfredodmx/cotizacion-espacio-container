@@ -368,20 +368,14 @@ def render_tab_notificaciones(supabase, **deps):
 
     components.html("""<script>
 (function(){
-    var D=window.parent.document, id='_ntf_cc_style';
-    var o=D.getElementById(id); if(o) o.remove();
-    var s=D.createElement('style'); s.id=id;
-    s.textContent=
-    '.st-key-ntf_contacts_card{padding:0;margin:0}'+
-    '.st-key-ntf_contacts_card>div>[data-testid="stVerticalBlockBorderWrapper"]{'+
-        'background:#fff !important;border:1px solid #e8ebf5 !important;border-radius:14px !important;'+
-        'padding:22px 28px !important;margin:8px 0 20px !important;'+
-        'box-shadow:0 2px 10px rgba(15,23,42,0.04) !important}'+
-    '.st-key-ntf_contacts_card [data-testid="stVerticalBlockBorderWrapper"] '+
-    '[data-testid="stVerticalBlockBorderWrapper"]{'+
-        'border:none !important;background:none !important;'+
-        'padding:0 !important;box-shadow:none !important;margin:0 !important}';
-    D.head.appendChild(s);
+    var D=window.parent.document;
+    var el=D.querySelector('.st-key-ntf_contacts_card');
+    if(!el) return;
+    el.style.cssText='background:#fff;border:1px solid #e8ebf5;border-radius:14px;padding:22px 28px;margin:8px 0 20px;box-shadow:0 2px 10px rgba(15,23,42,0.04)';
+    var inners=el.querySelectorAll('[data-testid="stVerticalBlockBorderWrapper"]');
+    for(var i=0;i<inners.length;i++){
+        inners[i].style.cssText='border:none;background:none;padding:0;box-shadow:none;margin:0';
+    }
 })();
 </script>""", height=0)
 
