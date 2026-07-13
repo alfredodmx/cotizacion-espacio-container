@@ -76,8 +76,11 @@ def _resumen_detalle(tipo, det):
         _mb = (det.get('bytes', 0) or 0) / (1024 * 1024)
         _reg = det.get('registros', '?')
         _reg = f"{_reg:,}".replace(",", ".") if isinstance(_reg, int) else _reg
-        return escape_html(f"Backup completo: {det.get('tablas', '?')} tablas · {_reg} registros · "
-                           f"{_mb:.1f} MB · {det.get('archivo', '')}")
+        _acc = {'descargado': 'Descargado', 'generado': 'Generado'}.get(det.get('accion', ''), 'Backup completo')
+        _fmt = str(det.get('formato', '') or '').upper()
+        _fmt_txt = f" · {_fmt}" if _fmt else ""
+        return escape_html(f"{_acc}: {det.get('tablas', '?')} tablas · {_reg} registros · "
+                           f"{_mb:.1f} MB{_fmt_txt} · {det.get('archivo', '')}")
     try:
         return escape_html(json.dumps(det, ensure_ascii=False)[:180])
     except Exception:

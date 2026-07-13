@@ -430,8 +430,9 @@ def _render_backup_seguridad(supabase_admin, rol):
                 f'<div class="ecbk-ico">{_SHIELD}</div>'
                 '<div><div class="ecbk-title">Copia de seguridad de la base de datos</div>'
                 '<div class="ecbk-desc">Extrae <b>todas las tablas</b> de Supabase en un archivo ZIP '
-                '(un JSON por tabla + manifiesto). Guárdalo en un lugar seguro para poder restaurar '
-                'la información ante cualquier eventualidad. Acción registrada en el panel de Seguridad.</div>'
+                '(un archivo por tabla + manifiesto), en formato <b>JSON</b> o <b>CSV</b>. Guárdalo en un '
+                'lugar seguro para poder restaurar la información ante cualquier eventualidad. '
+                'La generación y la descarga quedan registradas en el panel de Seguridad.</div>'
                 f'<div class="ecbk-meta">{_DB}&nbsp;{_n_tab} tablas · solo administradores</div>'
                 '</div></div>',
                 unsafe_allow_html=True)
@@ -448,18 +449,22 @@ def _render_backup_seguridad(supabase_admin, rol):
 
                 _quien = (st.session_state.get('auth_email')
                           or st.session_state.get('auth_nombre') or '')
+                _fmt = 'csv' if str(st.session_state.get('_bkp_fmt', 'JSON')).upper() == 'CSV' else 'json'
                 try:
                     fname, data, manifest = _bkp.generar_backup(
-                        supabase_admin, generado_por=_quien, progress_cb=_cb)
+                        supabase_admin, generado_por=_quien, progress_cb=_cb, formato=_fmt)
                     st.session_state['_bkp_zip'] = {
                         'fname': fname, 'data': data, 'bytes': len(data),
                         'tablas': manifest.get('total_tablas', 0),
                         'registros': manifest.get('total_registros', 0),
                         'fecha': manifest.get('generado_en', ''),
+                        'formato': _fmt,
                     }
                     try:
                         from utils.security import log_evento_seguridad
                         log_evento_seguridad('backup_bd', _quien, {
+                            'accion': 'generado',
+                            'formato': _fmt,
                             'tablas': manifest.get('total_tablas', 0),
                             'registros': manifest.get('total_registros', 0),
                             'bytes': len(data),
@@ -479,6 +484,7 @@ def _render_backup_seguridad(supabase_admin, rol):
                     _fec = _dtd.fromisoformat(zipinfo['fecha']).strftime('%d/%m/%Y %H:%M')
                 except Exception:
                     _fec = str(zipinfo.get('fecha', ''))[:16]
+                _fmt_lbl = str(zipinfo.get('formato', 'json')).upper()
                 _check = ('<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16a34a" '
                           'stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">'
                           '<path d="M20 6 9 17l-5-5"/></svg>')
@@ -487,15 +493,33 @@ def _render_backup_seguridad(supabase_admin, rol):
                     f'<div class="ecbk-done-ic">{_check}</div>'
                     '<div><div class="ecbk-done-t">Backup generado correctamente</div>'
                     f'<div class="ecbk-done-s">{zipinfo["tablas"]} tablas · '
-                    f'{zipinfo["registros"]:,} registros · {_mb:.1f} MB · {_fec}</div></div></div>'.replace(",", "."),
+                    f'{zipinfo["registros"]:,} registros · {_mb:.1f} MB · {_fmt_lbl} · {_fec}</div></div></div>'.replace(",", "."),
                     unsafe_allow_html=True)
+
+                def _log_descarga():
+                    try:
+                        from utils.security import log_evento_seguridad
+                        _z = st.session_state.get('_bkp_zip') or {}
+                        _q = (st.session_state.get('auth_email')
+                              or st.session_state.get('auth_nombre') or '')
+                        log_evento_seguridad('backup_bd', _q, {
+                            'accion': 'descargado',
+                            'formato': _z.get('formato', ''),
+                            'tablas': _z.get('tablas', 0),
+                            'registros': _z.get('registros', 0),
+                            'bytes': _z.get('bytes', 0),
+                            'archivo': _z.get('fname', ''),
+                        }, severidad='media')
+                    except Exception:
+                        pass
+
                 _c1, _c2 = st.columns([1.3, 1])
                 with _c1:
                     st.download_button(
-                        f"Descargar backup ({_mb:.1f} MB)", data=zipinfo['data'],
+                        f"Descargar backup {_fmt_lbl} ({_mb:.1f} MB)", data=zipinfo['data'],
                         file_name=zipinfo['fname'], mime="application/zip",
                         use_container_width=True, key='_bkp_dl', type='primary',
-                        icon=":material/download:")
+                        icon=":material/download:", on_click=_log_descarga)
                 with _c2:
                     if st.button("Generar uno nuevo", use_container_width=True, key='_bkp_new',
                                  icon=":material/refresh:"):
@@ -507,6 +531,20 @@ def _render_backup_seguridad(supabase_admin, rol):
                 if st.session_state.get('_bkp_error'):
                     st.error("No se pudo generar el backup: " + str(st.session_state.pop('_bkp_error')))
                 st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+                _fc1, _fc2 = st.columns([1, 1.4])
+                with _fc1:
+                    st.markdown(
+                        '<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.72rem;'
+                        'letter-spacing:.05em;text-transform:uppercase;color:#64748b;margin-bottom:6px;">'
+                        'Formato del backup</div>', unsafe_allow_html=True)
+                    st.segmented_control(
+                        "Formato", ["JSON", "CSV"], default="JSON",
+                        key="_bkp_fmt", label_visibility="collapsed")
+                st.markdown(
+                    '<div style="font-family:Montserrat,sans-serif;font-size:0.72rem;color:#94a3b8;'
+                    'font-weight:500;margin:2px 0 12px;">'
+                    'JSON conserva la estructura exacta (para restaurar). '
+                    'CSV abre en Excel/Sheets (una fila por registro).</div>', unsafe_allow_html=True)
                 if st.button("Generar backup completo", type='primary', key='_bkp_go',
                              icon=":material/database:"):
                     st.session_state['_bkp_running'] = True

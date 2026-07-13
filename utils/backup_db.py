@@ -12,6 +12,7 @@ Diseño defensivo:
   opcional para reportar el avance a la UI.
 """
 import io
+import csv
 import json
 import math
 import zipfile
@@ -52,6 +53,36 @@ def etiqueta_tabla(t: str) -> str:
     return _LABELS.get(t, t)
 
 
+def _filas_a_csv(filas: list) -> str:
+    """Convierte una lista de dicts (filas de una tabla) a texto CSV.
+    - Cabecera = unión de todas las claves (preservando orden de aparición).
+    - Valores dict/list se serializan a JSON (una celda no puede anidar).
+    - BOM UTF-8 al inicio para que Excel muestre bien los acentos.
+    """
+    if not filas:
+        return "﻿"
+    keys, seen = [], set()
+    for row in filas:
+        if isinstance(row, dict):
+            for k in row.keys():
+                if k not in seen:
+                    seen.add(k); keys.append(k)
+    out = io.StringIO()
+    w = csv.DictWriter(out, fieldnames=keys, extrasaction="ignore", lineterminator="\n")
+    w.writeheader()
+    for row in filas:
+        if not isinstance(row, dict):
+            continue
+        norm = {}
+        for k in keys:
+            v = row.get(k)
+            if isinstance(v, (dict, list)):
+                v = json.dumps(v, ensure_ascii=False, default=str)
+            norm[k] = v
+        w.writerow(norm)
+    return "﻿" + out.getvalue()
+
+
 def contar_filas(supabase_admin, tabla: str) -> int:
     """Cuenta exacta de filas de una tabla (0 si falla)."""
     try:
@@ -77,12 +108,16 @@ def _fetch_tabla(supabase_admin, tabla: str, on_batch=None) -> list:
     return filas
 
 
-def generar_backup(supabase_admin, generado_por: str = "", tablas=None, progress_cb=None):
+def generar_backup(supabase_admin, generado_por: str = "", tablas=None, progress_cb=None,
+                   formato: str = "json"):
     """Extrae todas las tablas y devuelve (filename, zip_bytes, manifest).
 
-    progress_cb(pct:int, tabla:str, hechas:list[str], counts:dict) se llama
-    durante la extracción para actualizar la UI. Nunca lanza por tabla.
+    formato: 'json' (un .json por tabla) o 'csv' (un .csv por tabla). En ambos
+    casos se incluye _manifest.json. progress_cb(pct, tabla, hechas, counts) se
+    llama durante la extracción para actualizar la UI. Nunca lanza por tabla.
     """
+    formato = "csv" if str(formato).lower() == "csv" else "json"
+    _ext = "csv" if formato == "csv" else "json"
     tablas = list(tablas or TABLAS_BACKUP)
 
     # 1) Conteo previo → total de filas para el porcentaje.
@@ -99,6 +134,7 @@ def generar_backup(supabase_admin, generado_por: str = "", tablas=None, progress
         "generado_por": generado_por or "desconocido",
         "zona_horaria": "America/Santiago (UTC-3)",
         "version": 1,
+        "formato": formato,
         "total_tablas": len(tablas),
         "tablas": [],
     }
@@ -125,10 +161,13 @@ def generar_backup(supabase_admin, generado_por: str = "", tablas=None, progress
 
             acumulado[0] = base_previa + len(filas)
             try:
-                zf.writestr(f"{t}.json", json.dumps(filas, ensure_ascii=False, default=str))
+                if formato == "csv":
+                    zf.writestr(f"{t}.csv", _filas_a_csv(filas))
+                else:
+                    zf.writestr(f"{t}.json", json.dumps(filas, ensure_ascii=False, default=str))
             except Exception as e:
                 error = error or f"serializacion: {str(e)[:200]}"
-                zf.writestr(f"{t}.json", "[]")
+                zf.writestr(f"{t}.{_ext}", "" if formato == "csv" else "[]")
 
             manifest["tablas"].append({
                 "nombre": t,
@@ -147,7 +186,7 @@ def generar_backup(supabase_admin, generado_por: str = "", tablas=None, progress
     if progress_cb:
         progress_cb(100, "", hechas, counts)
 
-    filename = f"backup_bd_{ahora.strftime('%Y%m%d_%H%M%S')}.zip"
+    filename = f"backup_bd_{formato}_{ahora.strftime('%Y%m%d_%H%M%S')}.zip"
     return filename, buf.getvalue(), manifest
 
 
