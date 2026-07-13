@@ -1400,22 +1400,22 @@ html.fs, html.fs body, html.fs #wrap{height:100vh !important;}
   box-shadow:0 2px 6px rgba(0,0,0,.06);margin-top:4px;}
 #tbl-w::-webkit-scrollbar{width:4px;height:4px;}
 #tbl-w::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}
-table{width:100%;border-collapse:collapse;font-size:.8rem;table-layout:auto;}
-thead th{background:linear-gradient(135deg,#1e2447,#2a3060);color:#fff;
-  font-weight:700;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;
-  padding:9px 11px;white-space:nowrap;position:sticky;top:0;z-index:2;text-align:left;}
+table{width:100%;border-collapse:collapse;font-size:0.875rem;table-layout:auto;}
+thead th{background:linear-gradient(135deg,#1e2447 0%,#2a3060 100%);color:#fff;
+  font-weight:900;font-size:0.72rem;letter-spacing:0.07em;text-transform:uppercase;
+  padding:10px 12px;white-space:nowrap;position:sticky;top:0;z-index:2;text-align:left;}
 thead th.r{text-align:right;}
 tbody tr:nth-child(even){background:#f8fafc;}
 tbody tr:nth-child(odd){background:#fff;}
-tbody tr.editable:hover{background:#eef1ff!important;}
+tbody tr.editable:hover{background:#f5f7ff!important;}
 tbody tr.pending{background:#fff4f4!important;box-shadow:inset 3px 0 0 #ef4444;}
-td{padding:7px 11px;border-bottom:1px solid #f0f4f8;vertical-align:middle;color:#334155;}
+td{padding:8px 12px;border-bottom:1px solid #f0f2f8;vertical-align:middle;color:#3a4070;}
 td.r{text-align:right;}
 .badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:.68rem;
   font-weight:700;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
 .item-n{font-weight:600;color:#1e293b;font-size:.82rem;line-height:1.35;}
 .hint{font-size:.62rem;color:#94a3b8;font-style:italic;display:block;margin-top:1px;}
-.mono{font-family:'JetBrains Mono','Courier New',monospace;font-size:.77rem;}
+.mono{font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;}
 .bold{font-weight:700;color:#0f172a;}
 .muted{color:#64748b;}
 #pop{display:none;position:absolute;bottom:0;left:0;right:0;background:#fcebeb;
