@@ -1572,7 +1572,20 @@ if(_tbEl){
     _openCtx(tr, rc.left+e.clientX, rc.top+e.clientY);
   });
 }
-document.addEventListener('mousedown',function(e){ if(e.button===0) _closeCtx(); });
+document.addEventListener('mousedown',function(e){
+  if(e.button!==0) return;
+  _closeCtx();
+  /* En fullscreen el iframe cubre todo, así que un click dentro NO llega al
+     documento padre y Streamlit no detecta el "click afuera" del popover de
+     Margen. Lo cerramos clickeando su trigger si está abierto (.ec-mg-marker
+     solo existe cuando el popover está abierto). */
+  try{
+    if(_P.document.querySelector('.ec-mg-marker')){
+      var _mt=_P.document.querySelector('section[data-testid="stMain"] div[data-testid="stPopover"] button');
+      if(_mt) _mt.click();
+    }
+  }catch(_e){}
+});
 var _twEl=document.getElementById('tbl-w'); if(_twEl) _twEl.addEventListener('scroll',_closeCtx);
 _closeCtx();
 
