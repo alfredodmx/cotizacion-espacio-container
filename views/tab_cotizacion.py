@@ -432,7 +432,7 @@ def render_floating_panels():
 section[data-testid="stMain"] div[data-testid="stPopover"] {{
     position: fixed !important; left: {_sb_w} !important; top: 50% !important;
     transform: translateY(-50%) !important; bottom: unset !important;
-    z-index: 99998 !important; width: 160px !important;
+    z-index: 1000000 !important; width: 160px !important;
     transition: left {_sb_ease} !important;
 }}
 section[data-testid="stMain"] div[data-testid="stPopover"] > div > button {{
@@ -465,7 +465,7 @@ div[data-baseweb="popover"]:has(.ec-mg-marker) {{
     left: {_sb_w} !important;
     top: 50% !important; transform: translateY(-50%) !important;
     bottom: unset !important; right: unset !important;
-    z-index: 99998 !important;
+    z-index: 1000000 !important;
     transition: left {_sb_ease} !important;
 }}
 [data-testid="stPopoverBody"]:has(.ec-mg-marker) {{
@@ -554,7 +554,7 @@ html.ec-sbc div[data-baseweb="popover"]:has(.ec-mg-marker) {{ left: 76px !import
             'html.ec-prog-collapsed #_prog_panel{display:none!important;}'
             'html.ec-prog-collapsed #_prog_mini{display:block!important;}</style>'
             f'<div id="_prog_panel" style="position:fixed;right:0;top:50%;transform:translateY(-50%);'
-            f'z-index:99997;background:#ffffff;border-radius:14px 0 0 14px;padding:12px 10px;width:148px;'
+            f'z-index:1000000;background:#ffffff;border-radius:14px 0 0 14px;padding:12px 10px;width:148px;'
             f'box-shadow:0 4px 24px rgba(0,0,0,0.12),0 1px 4px rgba(0,0,0,0.06);border:1px solid #e2e8f0;">'
             f'<div style="text-align:center;margin-bottom:8px;">'
             f'<div style="font-size:1.4rem;font-weight:900;color:{_pc_p};line-height:1;">{_pct_p}%</div>'
@@ -569,7 +569,7 @@ html.ec-sbc div[data-baseweb="popover"]:has(.ec-mg-marker) {{ left: 76px !import
             f'border-top:1px solid #f1f5f9;user-select:none;" title="Ocultar">› Ocultar</div>'
             f'</div>'
             f'<div id="_prog_mini" style="position:fixed;right:0;top:50%;'
-            f'transform:translateY(-50%);z-index:99997;background:{_pc_p};'
+            f'transform:translateY(-50%);z-index:1000000;background:{_pc_p};'
             f'border-radius:10px 0 0 10px;padding:14px 8px;cursor:pointer;'
             f'box-shadow:0 4px 20px rgba(0,0,0,0.2);text-align:center;width:54px;" data-action="prog-show">'
             f'<div style="font-size:1.15rem;font-weight:900;color:#fff;line-height:1;">{_pct_p}%</div>'
