@@ -52,13 +52,22 @@ def _get_observadores():
         return []
 
 
+def _fmt_clp(monto):
+    """Formatea un número como pesos chilenos: 17183456 → '$17.183.456'."""
+    try:
+        m = float(monto or 0)
+    except Exception:
+        m = 0
+    return f"${m:,.0f}".replace(",", ".") if m else "$0"
+
+
 def notificar_nueva_cotizacion(ep, ejecutivo_nombre, cliente_nombre, monto, estado, ejecutivo_email):
     try:
         plantilla = _get_cfg(
             'msg_nueva_cotizacion',
             '🕐 *Nueva cotización para revisar*\n\n*{ep}* · {ejecutivo}\nCliente: {cliente} · Monto: *{monto}*\nEstado: {estado}'
         )
-        msg = plantilla.format(ep=ep, ejecutivo=ejecutivo_nombre, cliente=cliente_nombre, monto=monto, estado=estado, margen='', supervisor='')
+        msg = plantilla.format(ep=ep, ejecutivo=ejecutivo_nombre, cliente=cliente_nombre, monto=_fmt_clp(monto), estado=estado, margen='', supervisor='')
         contactos = _get_contactos()
         _roots = [r.strip().lower() for r in st.secrets.get("ROOTS", "").split(",") if r.strip()]
         _token = _get_cfg('bot_token', st.secrets.get("TELEGRAM_BOT_TOKEN", ""))
@@ -93,7 +102,7 @@ def notificar_cotizacion_autorizada(ep, cliente_nombre, margen, ejecutivo_email,
             'msg_autorizada',
             '✅ *¡PRESUPUESTO AUTORIZADO!*\n\n📋 *{ep}* · {cliente}\n💰 Margen aplicado: *{margen}%*\n👤 Autorizado por: *{supervisor}*\n\nYa puedes presentárselo a tu cliente 🎉'
         )
-        msg = _plantilla.format(ep=ep, cliente=cliente_nombre, margen=margen, ejecutivo=ejecutivo_nombre, supervisor=supervisor_nombre, monto=monto, estado='')
+        msg = _plantilla.format(ep=ep, cliente=cliente_nombre, margen=margen, ejecutivo=ejecutivo_nombre, supervisor=supervisor_nombre, monto=_fmt_clp(monto), estado='')
         contactos = _get_contactos()
         chat_id = contactos.get((ejecutivo_email or '').lower(), '')
         if chat_id:

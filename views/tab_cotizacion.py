@@ -389,7 +389,7 @@ def render_floating_panels():
                     _cli_nombre = st.session_state.get('nombre_input', '') or ''
                     _ej_email = st.session_state.get('auth_email', '') or ''
                     _ej_nombre = st.session_state.get('auth_nombre', '') or _ej_email
-                    _monto = tots_g.get('total_total', 0) if isinstance(tots_g, dict) else 0
+                    _monto = tots_g.get('total', 0) if isinstance(tots_g, dict) else 0
                     if _tiene_plano:
                         import threading as _thr
                         from utils.notificaciones import notificar_cotizacion_autorizada, notificar_nueva_cotizacion
