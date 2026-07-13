@@ -133,3 +133,7 @@ render_floating_panels()
 # Control de cierre de cotizacion a nivel GLOBAL y AL FINAL: boton oculto +
 # dialogo accionado por el boton "Cerrar" del header.
 render_cerrar_cotizacion_control()
+
+# Bot de IA — DEMO (botón flotante + chat scripteado, sin IA/BD/lógica real).
+from views.demo_ia_bot import render_demo_ia_bot
+render_demo_ia_bot()
