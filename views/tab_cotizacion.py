@@ -1391,6 +1391,11 @@ html,body{height:IFRAMEHPX;overflow:hidden;font-family:'Plus Jakarta Sans','Sego
   transition:border-color .2s,box-shadow .2s;}
 #search:focus{border-color:#5b7cfa;background:#fff;box-shadow:0 0 0 3px rgba(91,124,250,.1);}
 #cnt{font-size:0.72rem;color:#94a3b8;white-space:nowrap;font-weight:600;min-width:64px;text-align:right;}
+#_pp_fsbtn{width:32px;height:30px;border:1px solid #e2e8f0;border-radius:7px;background:#fff;color:#475569;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;transition:all .15s;}
+#_pp_fsbtn:hover{background:linear-gradient(135deg,#5b7cfa,#2563eb);color:#fff;border-color:transparent;box-shadow:0 4px 12px rgba(37,99,235,.3);}
+#_pp_fsbtn svg{width:16px;height:16px;display:block;}
+html.fs, html.fs body, html.fs #wrap{height:100vh !important;}
 #tbl-w{flex:1;overflow:auto;border:1px solid #e2e8f0;border-radius:10px;
   box-shadow:0 2px 6px rgba(0,0,0,.06);margin-top:4px;}
 #tbl-w::-webkit-scrollbar{width:4px;height:4px;}
@@ -1444,6 +1449,7 @@ td.r{text-align:right;}
   <svg width="14" height="14" fill="none" stroke="#94a3b8" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
   <input id="search" type="text" placeholder="Filtrar por categoría o ítem..." autocomplete="off">
   <span id="cnt"></span>
+  <button id="_pp_fsbtn" type="button" title="Pantalla completa"></button>
 </div>
 <div id="tbl-w">
 <table>
@@ -1583,6 +1589,42 @@ setTimeout(function(){attachCardListeners();updateCards();},1000);
 setTimeout(injectTotal,1200);
 setInterval(attachCardListeners,3000);
 var _cObs=new MutationObserver(function(ms){var f=false;ms.forEach(function(m){m.addedNodes.forEach(function(n){if(n.nodeType===1&&((n.classList&&n.classList.contains('_pres_card'))||(n.querySelector&&n.querySelector('._pres_card'))))f=true;});});if(f){setTimeout(function(){attachCardListeners();updateCards();filterRows();},50);}});try{_cObs.observe(PD.body,{childList:true,subtree:true});}catch(e){}
+
+/* ── Fullscreen del iframe (mismo z-index que COTIZACIONES: 999999) ──── */
+(function(){
+  var P=window.parent, IFR=null;
+  try{ IFR=window.frameElement; }catch(e){}
+  if(!IFR){ try{ var ifs=P.document.querySelectorAll('iframe'); for(var i=0;i<ifs.length;i++){ if(ifs[i].contentWindow===window){ IFR=ifs[i]; break; } } }catch(e){} }
+  var EXP='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+  var SHR='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/></svg>';
+  var btn=document.getElementById('_pp_fsbtn');
+  var PROPS=[['position','fixed'],['top','0'],['left','0'],['width','100vw'],['height','100vh'],['z-index','999999'],['border','none'],['border-radius','0'],['margin','0'],['background','#fff']];
+  function isFS(){ return P._ppFsActive===true; }
+  function apply(){
+    if(!IFR) return;
+    for(var i=0;i<PROPS.length;i++) IFR.style.setProperty(PROPS[i][0], PROPS[i][1], 'important');
+    document.documentElement.classList.add('fs');
+    P._ppFsActive=true;
+    if(btn){ btn.innerHTML=SHR; btn.title='Salir de pantalla completa'; }
+  }
+  function remove(){
+    if(IFR){ for(var i=0;i<PROPS.length;i++) IFR.style.removeProperty(PROPS[i][0]); }
+    document.documentElement.classList.remove('fs');
+    P._ppFsActive=false;
+    if(btn){ btn.innerHTML=EXP; btn.title='Pantalla completa'; }
+  }
+  function toggle(){ if(isFS()) remove(); else apply(); }
+  if(btn){ btn.onclick=toggle; btn.innerHTML= isFS()?SHR:EXP; }
+  /* re-aplicar si venía en fullscreen (un rerun recreó el iframe) */
+  if(isFS()) apply();
+  /* Escape: en el iframe y (re-atado) en el parent para que funcione con foco fuera */
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape'&&isFS()) remove(); });
+  try{
+    if(P._ppFsEsc) P.document.removeEventListener('keydown', P._ppFsEsc, true);
+    P._ppFsEsc=function(e){ if(e.key==='Escape'&&isFS()) remove(); };
+    P.document.addEventListener('keydown', P._ppFsEsc, true);
+  }catch(e){}
+})();
 })();
 </script>
 </body></html>"""
