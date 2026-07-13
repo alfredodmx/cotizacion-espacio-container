@@ -1358,9 +1358,9 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
             _bbg = f'rgba({_ri},{_gi},{_bi},0.12)'
             _raw_pu = float(carrito_df_con_margen['Precio Unitario'].iloc[_tidx])
             _cls = 'editable' if not es_solo_lectura else ''
-            _onclick = ' onclick="cr(this)"' if not es_solo_lectura else ''
-            _cursor  = 'cursor:pointer;' if not es_solo_lectura else ''
-            _hint    = '<span class="hint">editar / eliminar</span>' if not es_solo_lectura else ''
+            _onclick = ''  # editar/eliminar ahora con click derecho (menú contextual)
+            _cursor  = 'cursor:context-menu;' if not es_solo_lectura else ''
+            _hint    = '<span class="hint">clic derecho para editar</span>' if not es_solo_lectura else ''
             _rows_html += (
                 f'<tr class="{_cls.strip()}" data-cat="{_aesc(_cat)}" data-item="{_aesc(_item)}" data-idx="{_tidx}" data-qty="{_r["Cantidad"]}" data-price-raw="{_raw_pu:.2f}" data-price="{_aesc(str(_r["Precio Unitario"]))}" {_onclick.strip()} style="{_cursor}">'
                 f'<td><span class="badge" style="background:{_bbg};color:{_color};">{_hesc(_cat)}</span></td>'
@@ -1410,6 +1410,7 @@ tbody tr:nth-child(even){background:#f8fafc;}
 tbody tr:nth-child(odd){background:#fff;}
 tbody tr.editable:hover{background:#f5f7ff!important;}
 tbody tr.pending{background:#fff4f4!important;box-shadow:inset 3px 0 0 #ef4444;}
+tbody tr.ctx-active{background:#eef4ff!important;box-shadow:inset 3px 0 0 #2563eb;}
 td{padding:8px 12px;border-bottom:1px solid #f0f2f8;vertical-align:middle;color:#3a4070;}
 td.r{text-align:right;}
 .badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:.68rem;
@@ -1462,25 +1463,6 @@ td.r{text-align:right;}
 <tbody>ROWSPLACEHOLDER</tbody>
 </table>
 </div>
-<div id="pop">
-<div id="pop-hdr"><span id="pop-cat"></span><button id="pop-x" onclick="closePop()">&#x2715;</button></div>
-<div id="pop-name"></div>
-<div id="pop-cards">
-<div class="pc"><div class="pc-l">P. unitario</div><div class="pc-v" id="pop-price"></div></div>
-<div class="pc"><div class="pc-l">Cant. actual</div><div class="pc-v" id="pop-orig-qty"></div></div>
-<div class="pc hl"><div class="pc-l">Subtotal</div><div class="pc-v" id="pop-sub"></div></div>
-</div>
-<div id="pop-qty-row">
-<button onclick="qd(-1)">&#x2212;</button>
-<input id="pop-qty" type="number" min="1" value="1" oninput="updSub()">
-<button onclick="qd(1)">+</button>
-</div>
-<div id="pop-btns">
-<button class="pb pb-c" onclick="closePop()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>Cancelar</button>
-<button class="pb pb-a" onclick="applyPop()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M20 6 9 17l-5-5"/></svg>Aplicar</button>
-<button class="pb pb-d" onclick="delPop()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Eliminar</button>
-</div>
-</div>
 </div>
 <script>
 (function(){
@@ -1502,50 +1484,96 @@ function filterRows(){
   var el=document.getElementById('cnt');
   if(el)el.textContent=vis+' ítem'+(vis!==1?'s':'');
 }
-var _pi=null,_pn=null,_pr=0;
 function fmtClp(n){return '$ '+Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'.');}
-window.cr=function(el){
-  if(!EM)return;
-  var idx=el.getAttribute('data-idx');
-  var pop=document.getElementById('pop');
-  if(idx===_pi&&pop.style.display!=='none'){window.closePop();return;}
-  _pi=idx;
-  _pn=el.getAttribute('data-item')||'';
-  _pr=parseFloat(el.getAttribute('data-price-raw')||'0')||0;
-  var qty=parseInt(el.getAttribute('data-qty')||'1')||1;
-  document.getElementById('pop-cat').textContent=el.getAttribute('data-cat')||'';
-  document.getElementById('pop-name').textContent=_pn;
-  document.getElementById('pop-price').textContent=el.getAttribute('data-price')||'';
-  document.getElementById('pop-orig-qty').textContent=qty;
-  document.getElementById('pop-qty').value=qty;
-  document.querySelectorAll('tbody tr.pending').forEach(function(r){r.classList.remove('pending');});
-  el.classList.add('pending');
-  window.updSub();
-  pop.style.display='block';
-};
-window.updSub=function(){var q=parseInt(document.getElementById('pop-qty').value)||1;document.getElementById('pop-sub').textContent=fmtClp(_pr*q);};
-window.qd=function(d){var i=document.getElementById('pop-qty');i.value=Math.max(1,(parseInt(i.value)||1)+d);window.updSub();};
-window.closePop=function(){
-  document.getElementById('pop').style.display='none';
-  document.querySelectorAll('tbody tr.pending').forEach(function(r){r.classList.remove('pending');});
-  _pi=null;_pn=null;
-};
-window.applyPop=function(){
-  if(_pi===null||!_pn)return;
-  var qty=parseInt(document.getElementById('pop-qty').value)||1;
-  var u=new URL(window.parent.location.href);
-  u.searchParams.set('_apply_qty',_pn+'|||'+qty);
-  window.parent.history.replaceState({},'',u.toString());
-  var ab=PD.querySelector('.st-key-_apply_trg button');
-  if(ab)ab.click();
-  window.closePop();
-};
-window.delPop=function(){
-  if(_pi===null)return;
-  var db=PD.querySelector('.st-key-_del_'+_pi+' button');
-  if(db)db.click();
-  window.closePop();
-};
+/* ── Menú contextual (click derecho) para editar/eliminar un ítem ─────
+   Se renderiza en el documento PADRE (como en COTIZACIONES) para que el
+   iframe no lo recorte y aparezca justo en el cursor. */
+var _P=window.parent, _IFR=null;
+try{ _IFR=window.frameElement; }catch(e){}
+if(!_IFR){ try{ var _ifz=PD.querySelectorAll('iframe'); for(var _z=0;_z<_ifz.length;_z++){ if(_ifz[_z].contentWindow===window){_IFR=_ifz[_z];break;} } }catch(e){} }
+var _CTXCSS="#_pp_ctxmenu{position:fixed;z-index:2147483000;width:250px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 16px 44px rgba(15,23,42,.24);padding:12px 13px;font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;}"
++"#_pp_ctxmenu .ppc-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}"
++"#_pp_ctxmenu .ppc-x{background:none;border:none;cursor:pointer;color:#94a3b8;padding:0;line-height:0;}"
++"#_pp_ctxmenu .ppc-x svg{width:15px;height:15px;} #_pp_ctxmenu .ppc-x:hover{color:#0f172a;}"
++"#_pp_ctxmenu .ppc-name{font-size:13.5px;font-weight:700;color:#0f172a;line-height:1.3;margin-bottom:11px;}"
++"#_pp_ctxmenu .ppc-lbl{font-size:11px;color:#64748b;font-weight:600;margin-bottom:6px;}"
++"#_pp_ctxmenu .ppc-qty{display:flex;align-items:center;gap:8px;margin-bottom:11px;}"
++"#_pp_ctxmenu .ppc-qbtn{width:32px;height:32px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;color:#334155;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:all .12s;}"
++"#_pp_ctxmenu .ppc-qbtn svg{width:16px;height:16px;} #_pp_ctxmenu .ppc-qbtn:hover{border-color:#5b7cfa;color:#2563eb;background:#f5f7ff;}"
++"#_pp_ctxmenu .ppc-qv{flex:1;text-align:center;font-size:16px;font-weight:800;color:#0f172a;border:1px solid #e2e8f0;border-radius:8px;padding:5px 0;}"
++"#_pp_ctxmenu .ppc-sub{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#64748b;padding:8px 0;border-top:1px solid #f0f2f8;border-bottom:1px solid #f0f2f8;margin-bottom:11px;}"
++"#_pp_ctxmenu .ppc-sub b{font-weight:800;color:#0f172a;font-size:13px;}"
++"#_pp_ctxmenu .ppc-acts{display:flex;gap:8px;}"
++"#_pp_ctxmenu .ppc-apply{flex:1;height:34px;border:none;border-radius:9px;background:linear-gradient(135deg,#5b7cfa,#2563eb);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:700;font-family:inherit;}"
++"#_pp_ctxmenu .ppc-apply svg{width:15px;height:15px;} #_pp_ctxmenu .ppc-apply:hover{filter:brightness(1.07);}"
++"#_pp_ctxmenu .ppc-del{width:40px;height:34px;border-radius:9px;background:#fee2e2;color:#dc2626;border:1px solid #fecaca;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:all .12s;}"
++"#_pp_ctxmenu .ppc-del svg{width:15px;height:15px;} #_pp_ctxmenu .ppc-del:hover{background:#dc2626;color:#fff;border-color:#dc2626;}"
++"#_pp_ctxmenu .ppc-hint{font-size:10px;color:#94a3b8;text-align:center;margin-top:9px;}";
+function _ctxCss(){ if(PD.getElementById('_pp_ctxcss'))return; var s=PD.createElement('style'); s.id='_pp_ctxcss'; s.textContent=_CTXCSS; PD.head.appendChild(s); }
+function _closeCtx(){
+  var m=PD.getElementById('_pp_ctxmenu'); if(m) m.remove();
+  if(_P._ppCtxDoc){ PD.removeEventListener('mousedown',_P._ppCtxDoc,true); _P._ppCtxDoc=null; }
+  if(_P._ppCtxKey){ PD.removeEventListener('keydown',_P._ppCtxKey,true); _P._ppCtxKey=null; }
+  document.querySelectorAll('tbody tr.ctx-active').forEach(function(r){r.classList.remove('ctx-active');});
+}
+function _esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function _openCtx(tr,px,py){
+  if(!EM) return;
+  _closeCtx(); _ctxCss();
+  var idx=tr.getAttribute('data-idx');
+  var cat=tr.getAttribute('data-cat')||'';
+  var name=tr.getAttribute('data-item')||'';
+  var price=parseFloat(tr.getAttribute('data-price-raw')||'0')||0;
+  var qty=parseInt(tr.getAttribute('data-qty')||'1')||1;
+  var badge=tr.querySelector('.badge'); var bstyle=badge?(badge.getAttribute('style')||''):'';
+  var m=PD.createElement('div'); m.id='_pp_ctxmenu';
+  m.innerHTML=
+    '<div class="ppc-hd"><span style="'+_esc(bstyle)+';padding:2px 8px;border-radius:20px;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;">'+_esc(cat)+'</span>'
+    +'<button class="ppc-x" title="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>'
+    +'<div class="ppc-name">'+_esc(name)+'</div>'
+    +'<div class="ppc-lbl">Cantidad</div>'
+    +'<div class="ppc-qty"><button class="ppc-qbtn" data-a="m" title="Disminuir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg></button>'
+    +'<div class="ppc-qv">'+qty+'</div>'
+    +'<button class="ppc-qbtn" data-a="p" title="Aumentar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button></div>'
+    +'<div class="ppc-sub"><span>Subtotal</span><b class="ppc-subv">'+fmtClp(price*qty)+'</b></div>'
+    +'<div class="ppc-acts"><button class="ppc-apply"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Aplicar</button>'
+    +'<button class="ppc-del" title="Eliminar &#237;tem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>'
+    +'<div class="ppc-hint">Esc o clic fuera para cerrar</div>';
+  PD.body.appendChild(m);
+  var mw=m.offsetWidth||250, mh=m.offsetHeight||220, vw=_P.innerWidth||900, vh=_P.innerHeight||700;
+  m.style.left=Math.max(8,Math.min(px,vw-mw-8))+'px';
+  m.style.top=Math.max(8,Math.min(py,vh-mh-8))+'px';
+  var q=qty, qv=m.querySelector('.ppc-qv'), sv=m.querySelector('.ppc-subv');
+  function upd(){ qv.textContent=q; sv.textContent=fmtClp(price*q); }
+  m.querySelectorAll('.ppc-qbtn').forEach(function(b){ b.onclick=function(){ if(b.getAttribute('data-a')==='p'){q++;} else if(q>1){q--;} upd(); }; });
+  m.querySelector('.ppc-x').onclick=_closeCtx;
+  m.querySelector('.ppc-apply').onclick=function(){
+    try{ var u=new URL(_P.location.href); u.searchParams.set('_apply_qty', name+'|||'+q); _P.history.replaceState({},'',u.toString()); }catch(e){}
+    var ab=PD.querySelector('.st-key-_apply_trg button'); if(ab) ab.click();
+    _closeCtx();
+  };
+  m.querySelector('.ppc-del').onclick=function(){
+    var db=PD.querySelector('.st-key-_del_'+idx+' button'); if(db) db.click();
+    _closeCtx();
+  };
+  tr.classList.add('ctx-active');
+  _P._ppCtxDoc=function(e){ if(!m.contains(e.target)) _closeCtx(); };
+  _P._ppCtxKey=function(e){ if(e.key==='Escape') _closeCtx(); };
+  setTimeout(function(){ PD.addEventListener('mousedown',_P._ppCtxDoc,true); PD.addEventListener('keydown',_P._ppCtxKey,true); },0);
+}
+var _tbEl=document.querySelector('tbody');
+if(_tbEl){
+  _tbEl.addEventListener('contextmenu',function(e){
+    if(!EM) return;
+    var tr=e.target.closest?e.target.closest('tr[data-idx]'):null; if(!tr) return;
+    e.preventDefault();
+    var rc=_IFR?_IFR.getBoundingClientRect():{left:0,top:0};
+    _openCtx(tr, rc.left+e.clientX, rc.top+e.clientY);
+  });
+}
+document.addEventListener('mousedown',function(e){ if(e.button===0) _closeCtx(); });
+var _twEl=document.getElementById('tbl-w'); if(_twEl) _twEl.addEventListener('scroll',_closeCtx);
+_closeCtx();
 function updateCards(){
   PD.querySelectorAll('._pres_card').forEach(function(el){
     var cat=el.getAttribute('data-catpres');
