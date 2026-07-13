@@ -29,7 +29,7 @@ var D=window.parent.document, W=window.parent, B=D.body;
 var oc=D.getElementById('_demo_ia_css'); if(oc) oc.remove();
 var css=D.createElement('style'); css.id='_demo_ia_css';
 css.textContent=`
-#_demo_ia_fab{position:fixed;bottom:24px;right:24px;z-index:90000;width:60px;height:60px;border-radius:50%;
+#_demo_ia_fab{position:fixed;bottom:104px;right:24px;z-index:90000;width:60px;height:60px;border-radius:50%;
  background:linear-gradient(135deg,#5b7cfa,#2563eb);border:none;cursor:pointer;display:flex;align-items:center;
  justify-content:center;box-shadow:0 12px 30px rgba(37,99,235,.45);transition:transform .18s cubic-bezier(.22,1,.36,1);}
 #_demo_ia_fab:hover{transform:scale(1.08) translateY(-2px);}
@@ -42,8 +42,8 @@ css.textContent=`
  font:800 8px Montserrat,sans-serif;letter-spacing:.04em;padding:2px 5px;border-radius:6px;z-index:3;
  box-shadow:0 2px 6px rgba(0,0,0,.25);}
 
-#_demo_ia_panel{position:fixed;bottom:24px;right:24px;z-index:90001;width:384px;max-width:calc(100vw - 32px);
- height:594px;max-height:calc(100vh - 48px);background:#fff;border-radius:20px;overflow:hidden;display:none;
+#_demo_ia_panel{position:fixed;bottom:104px;right:24px;z-index:90001;width:384px;max-width:calc(100vw - 32px);
+ height:594px;max-height:calc(100vh - 132px);background:#fff;border-radius:20px;overflow:hidden;display:none;
  flex-direction:column;box-shadow:0 26px 72px rgba(15,23,42,.34);border:1px solid #e8ebf5;
  font-family:'Plus Jakarta Sans',system-ui,sans-serif;}
 #_demo_ia_panel.on{display:flex;animation:diaIn .28s cubic-bezier(.22,1,.36,1);}
@@ -91,13 +91,15 @@ css.textContent=`
 .dia-input input:focus{border-color:#93c5fd;box-shadow:0 0 0 3px rgba(59,130,246,.12);}
 .dia-send{background:linear-gradient(135deg,#5b7cfa,#2563eb);border:none;width:42px;border-radius:11px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .dia-send:hover{filter:brightness(1.06);}.dia-send svg{width:18px;height:18px;}
-@media (max-width:480px){#_demo_ia_panel{height:calc(100vh - 40px);right:16px;bottom:16px;}#_demo_ia_fab{right:16px;bottom:16px;}}
+@media (max-width:480px){#_demo_ia_panel{height:calc(100vh - 120px);right:16px;bottom:92px;}#_demo_ia_fab{right:16px;bottom:92px;}}
 `;
 D.head.appendChild(css);
 
 /* ── Íconos ───────────────────────────────────────────────────────── */
 var SPARK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/></svg>';
 var BOT='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>';
+/* Robot constructor: cara de robot con casco de obra + antena */
+var ROBOT='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10a8 6 0 0 1 16 0"/><path d="M2 10h20"/><path d="M12 4V2.5"/><path d="M6.5 10v6a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-6"/><path d="M9 13.5h.01"/><path d="M15 13.5h.01"/><path d="M9.5 16h5"/></svg>';
 var XI='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
 var SEND='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>';
 var CK='<svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
@@ -143,9 +145,9 @@ function getRoot(){
   if(!root){
     root=D.createElement('div'); root.id='_demo_ia_root';
     root.innerHTML=
-      '<button id="_demo_ia_fab" title="Asistente de Cotización IA (demo)"><span class="dia-fab-badge">DEMO</span>'+SPARK+'</button>'
+      '<button id="_demo_ia_fab" title="Asistente de Cotización IA (demo)"><span class="dia-fab-badge">DEMO</span>'+ROBOT+'</button>'
      +'<div id="_demo_ia_panel">'
-     +'<div class="dia-head"><div class="dia-avatar">'+BOT+'</div>'
+     +'<div class="dia-head"><div class="dia-avatar">'+ROBOT+'</div>'
      +'<div><div class="dia-t">Cotizador IA <span class="dia-pill">DEMO</span></div>'
      +'<div class="dia-s"><span class="dia-dot"></span>Asistente de presupuestos</div></div>'
      +'<button class="dia-x" title="Cerrar">'+XI+'</button></div>'
