@@ -408,17 +408,17 @@ def render_floating_panels():
             except Exception as _eg:
                 st.error(f"Error al guardar: {_eg}")
 
-    # ── MARGEN FAB (solo admin, solo en pestaña Presupuesto) ──────────────
+    # ── MARGEN FAB (solo admin/root) ──────────────────────────────────────
     _margen_actual = st.session_state.margen
     _mstr = f"{_margen_actual:.3f}"
-    _is_presupuesto_page = st.session_state.get('nav_page') == 'presupuesto'
-    # Solo aparece si hay una cotización en curso: creándose (carrito con items) o
-    # cargada. Sin eso (carrito vacío y nada cargado) NO debe mostrarse.
+    # Aparece en TODAS las pestañas mientras haya una cotización en curso:
+    # creándose (carrito con items) o cargada desde COTIZACIONES. Sin eso
+    # (carrito vacío y nada cargado, p.ej. al cerrar el presupuesto) NO se muestra.
     _hay_cotizacion = bool(
         st.session_state.get('cotizacion_cargada') or
         len(st.session_state.get('carrito', [])) > 0
     )
-    if st.session_state.modo_admin and not _es_solo_lectura_fab and _is_presupuesto_page and _hay_cotizacion:
+    if st.session_state.modo_admin and not _es_solo_lectura_fab and _hay_cotizacion:
         _color_fab = '#10b981' if _margen_actual > 0 else '#6b7280'
         _pct_bar = min(int(_margen_actual), 100)
         # El popover se ancla a la derecha del sidebar. El estado del sidebar es
