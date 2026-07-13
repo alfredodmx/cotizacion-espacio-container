@@ -1623,53 +1623,74 @@ var CHV_L='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
 var CHV_R='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
 var MVH='<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 8 22 12 18 16"/><polyline points="6 8 2 12 6 16"/><line x1="2" x2="22" y1="12" y2="12"/></svg>';
 
-/* ── 2b. Navegación horizontal: hold-to-scroll + deshabilitar extremos
-        (misma lógica que los botones de la tabla normal) ───────────── */
-function initNav(btnL,btnR,target){
-  /* Toda la animación con setInterval (NO requestAnimationFrame ni
-     scrollBy({behavior:"smooth"}): el rAF/smooth se pausan cuando la
-     pestaña no está pintando y el smooth es no-op en este contenedor
-     flex + overscroll-behavior). setInterval + scrollLeft directo es
-     100% confiable en cualquier navegador. */
+/* ── 2b. Handlers de la barra del fullscreen ─────────────────────────
+   CRÍTICO: los listeners se atan desde este iframe de components.html,
+   que se DESTRUYE y recrea en cada rerun (abrir/cerrar el visor = reruns).
+   Un listener atado una sola vez queda apuntando al realm muerto del
+   iframe viejo → los botones "dejan de funcionar". Solución: re-atar en
+   CADA run con propiedades onX (reemplazan al handler anterior) y usar
+   timers del window padre (W.*) que nunca mueren.
+   Animación con setInterval (NO rAF ni scrollBy smooth: se pausan/no-op
+   en este contenedor flex + overscroll-behavior). */
+function bindNav(btnL,btnR,target){
   var holdIv=null, animIv=null, activeDir=0, holdTimer=null, isHolding=false, SPEED=13;
   function maxScroll(){return Math.max(0,target.scrollWidth-target.clientWidth);}
   function updateState(){
     var atStart=target.scrollLeft<=0, atEnd=target.scrollLeft>=maxScroll()-1;
     btnL.disabled=atStart; btnR.disabled=atEnd;
   }
-  function stopHold(){activeDir=0; if(holdIv){clearInterval(holdIv); holdIv=null;}}
+  function stopHold(){activeDir=0; if(holdIv){W.clearInterval(holdIv); holdIv=null;}}
   function startHold(d){
-    activeDir=d; if(holdIv)clearInterval(holdIv);
-    holdIv=setInterval(function(){
+    activeDir=d; if(holdIv)W.clearInterval(holdIv);
+    holdIv=W.setInterval(function(){
       target.scrollLeft+=activeDir*SPEED; updateState();
       if((activeDir<0&&target.scrollLeft<=0)||(activeDir>0&&target.scrollLeft>=maxScroll()-1)) stopHold();
     },16);
   }
   function animBy(dx){
-    if(animIv)clearInterval(animIv);
-    var start=target.scrollLeft, goal=Math.max(0,Math.min(maxScroll(),start+dx)), t0=Date.now(), dur=240;
-    animIv=setInterval(function(){
-      var k=Math.min(1,(Date.now()-t0)/dur), e=1-Math.pow(1-k,3);
+    if(animIv)W.clearInterval(animIv);
+    var start=target.scrollLeft, goal=Math.max(0,Math.min(maxScroll(),start+dx)), t0=W.Date.now(), dur=240;
+    animIv=W.setInterval(function(){
+      var k=Math.min(1,(W.Date.now()-t0)/dur), e=1-Math.pow(1-k,3);
       target.scrollLeft=start+(goal-start)*e; updateState();
-      if(k>=1){clearInterval(animIv); animIv=null;}
+      if(k>=1){W.clearInterval(animIv); animIv=null;}
     },16);
   }
-  function press(d){ isHolding=false; holdTimer=setTimeout(function(){isHolding=true; startHold(d);},180); }
-  function release(d){ clearTimeout(holdTimer);
+  function press(d){ isHolding=false; holdTimer=W.setTimeout(function(){isHolding=true; startHold(d);},180); }
+  function release(d){ W.clearTimeout(holdTimer);
     if(isHolding){stopHold();} else {animBy(d*400);} isHolding=false; }
-  function cancelPress(){ clearTimeout(holdTimer); if(isHolding){stopHold();} isHolding=false; }
-  btnL.addEventListener("mousedown",function(e){e.preventDefault(); if(btnL.disabled)return; press(-1);});
-  btnR.addEventListener("mousedown",function(e){e.preventDefault(); if(btnR.disabled)return; press(1);});
-  btnL.addEventListener("mouseup",function(){release(-1);});
-  btnR.addEventListener("mouseup",function(){release(1);});
-  btnL.addEventListener("mouseleave",cancelPress);
-  btnR.addEventListener("mouseleave",cancelPress);
-  D.addEventListener("mouseup",cancelPress);
-  target.addEventListener("scroll",updateState);
-  /* refresca el estado ahora + tras el paint (el clone recién montado
-     aún no tiene scrollWidth definitivo → evita botón mal deshabilitado) */
-  W._ecFsNavUpdate=function(){ updateState(); setTimeout(updateState,120); setTimeout(updateState,400); };
+  function cancelPress(){ W.clearTimeout(holdTimer); if(isHolding){stopHold();} isHolding=false; }
+  btnL.onmousedown=function(e){e.preventDefault(); if(btnL.disabled)return; press(-1);};
+  btnR.onmousedown=function(e){e.preventDefault(); if(btnR.disabled)return; press(1);};
+  btnL.onmouseup=function(){release(-1);};
+  btnR.onmouseup=function(){release(1);};
+  btnL.onmouseleave=cancelPress; btnR.onmouseleave=cancelPress;
+  target.onscroll=updateState;
+  /* mouseup a nivel documento: quitar el anterior (realm muerto) y re-atar */
+  if(W._ecFsDocUp) D.removeEventListener("mouseup", W._ecFsDocUp);
+  W._ecFsDocUp=cancelPress; D.addEventListener("mouseup", W._ecFsDocUp);
+  W._ecFsNavUpdate=function(){ updateState(); W.setTimeout(updateState,120); W.setTimeout(updateState,400); };
   W._ecFsNavUpdate();
+}
+
+/* (re)ata TODOS los handlers de la barra — se llama en cada run */
+function bindOverlay(){
+  var ov=D.getElementById('_ec_fs_ov'); if(!ov) return;
+  var cls=ov.querySelector('.fst-close'); if(cls) cls.onclick=function(){ console.log('[ECFS] salir click'); W._ecFsToggle(); };
+  var bL=ov.querySelector('#_ec_fs_bl'), bR=ov.querySelector('#_ec_fs_br'), bd=ov.querySelector('#_ec_fs_body');
+  if(bL&&bR&&bd) bindNav(bL,bR,bd);
+  /* DIAGNÓSTICO temporal: al hacer click estando en fullscreen, reporta qué
+     elemento está encima del botón salir (revela si algo lo tapa). */
+  if(W._ecFsDiag) D.removeEventListener('pointerdown', W._ecFsDiag, true);
+  W._ecFsDiag=function(ev){
+    if(!W._ecFsActive) return;
+    var c=ov.querySelector('.fst-close'); if(!c) { console.log('[ECFS] click, pero NO existe botón salir'); return; }
+    var r=c.getBoundingClientRect(); var top=D.elementFromPoint(r.left+r.width/2, r.top+r.height/2);
+    console.log('[ECFS] click. target=', (ev.target&&(ev.target.id||ev.target.className))||ev.target,
+      '| encima del botón salir hay:', top&&(top.id||top.className||top.tagName),
+      '| es el botón salir?', top===c||c.contains(top));
+  };
+  D.addEventListener('pointerdown', W._ecFsDiag, true);
 }
 
 /* ── 3. Overlay (se crea UNA vez, persiste en body) ─────────────────── */
@@ -1685,13 +1706,12 @@ function getOv(){
     ov.appendChild(bar);
     var cls=D.createElement('button'); cls.className='fst-close'; cls.title='Salir';
     cls.innerHTML=IC_SHR;
-    cls.addEventListener('click',function(){ W._ecFsToggle(); });
     ov.appendChild(cls);
     var bd=D.createElement('div'); bd.className='ec-fs-body'; bd.id='_ec_fs_body';
     ov.appendChild(bd);
     B.appendChild(ov);
-    initNav(bL,bR,bd);
   }
+  bindOverlay();  /* (re)ata handlers cada run (el iframe viejo murió en el rerun) */
   return ov;
 }
 
@@ -1796,11 +1816,11 @@ function ensureBtn(){
   tbl.appendChild(btn);
 }
 
-/* ── 8. Escape ──────────────────────────────────────────────────────── */
-if(!W._ecFsEscBound){
-  D.addEventListener('keydown',function(e){ if(e.key==='Escape'&&isFS()) W._ecFsToggle(); });
-  W._ecFsEscBound=true;
-}
+/* ── 8. Escape (re-atado cada run; usa W._ecFsActive, no isFS() del
+        iframe que muere en el rerun) ───────────────────────────────── */
+if(W._ecFsEsc) D.removeEventListener('keydown', W._ecFsEsc);
+W._ecFsEsc=function(e){ if(e.key==='Escape' && W._ecFsActive) W._ecFsToggle(); };
+D.addEventListener('keydown', W._ecFsEsc);
 
 /* ── 9. Restaurar estado si ya estaba en fullscreen (post-rerun) ───── */
 if(W._ecFsActive){
