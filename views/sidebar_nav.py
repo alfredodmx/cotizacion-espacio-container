@@ -331,10 +331,13 @@ def _build_css(items, activo: str) -> str:
     # sidebar → correr Guardar y el tab de Margen a la izquierda del viewport
     # (sin el offset del ancho del sidebar). Al salir del fullscreen se quita
     # la clase y vuelven a su posición normal.
+    # `body` extra en el selector del margen: sube la especificidad por encima
+    # de la regla de sidebar colapsado (html.ec-sbc ...) que vive en
+    # tab_cotizacion y se renderiza DESPUÉS → así pp-fs gana igual.
     css.append(
         'html.pp-fs .st-key-btn_fab_guardar{left:1.2rem!important;}'
-        'html.pp-fs section[data-testid="stMain"] div[data-testid="stPopover"]{left:0!important;}'
-        'html.pp-fs div[data-baseweb="popover"]:has(.ec-mg-marker){left:0!important;}'
+        'html.pp-fs body section[data-testid="stMain"] div[data-testid="stPopover"]{left:0!important;}'
+        'html.pp-fs body div[data-baseweb="popover"]:has(.ec-mg-marker){left:0!important;}'
     )
     css.append("</style>")
     return "".join(css)
