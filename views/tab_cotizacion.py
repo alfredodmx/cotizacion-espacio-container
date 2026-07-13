@@ -1652,12 +1652,14 @@ var _cObs=new MutationObserver(function(ms){var f=false;ms.forEach(function(m){m
     if(!IFR) return;
     for(var i=0;i<PROPS.length;i++) IFR.style.setProperty(PROPS[i][0], PROPS[i][1], 'important');
     document.documentElement.classList.add('fs');
+    try{ P.document.documentElement.classList.add('pp-fs'); }catch(e){}  /* corre Guardar/Margen a la izquierda (sin offset del sidebar) */
     P._ppFsActive=true;
     if(btn){ btn.innerHTML=SHR; btn.title='Salir de pantalla completa'; }
   }
   function remove(){
     if(IFR){ for(var i=0;i<PROPS.length;i++) IFR.style.removeProperty(PROPS[i][0]); }
     document.documentElement.classList.remove('fs');
+    try{ P.document.documentElement.classList.remove('pp-fs'); }catch(e){}
     P._ppFsActive=false;
     if(btn){ btn.innerHTML=EXP; btn.title='Pantalla completa'; }
   }

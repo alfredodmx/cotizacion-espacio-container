@@ -327,6 +327,15 @@ def _build_css(items, activo: str) -> str:
         f'{_C}section[data-testid="stSidebar"]{{overflow:visible!important;}}'
         '[data-baseweb="tooltip"],[role="tooltip"]{z-index:99999!important;}'
     )
+    # En fullscreen de la tabla de PRESUPUESTO (html.pp-fs) el iframe cubre el
+    # sidebar → correr Guardar y el tab de Margen a la izquierda del viewport
+    # (sin el offset del ancho del sidebar). Al salir del fullscreen se quita
+    # la clase y vuelven a su posición normal.
+    css.append(
+        'html.pp-fs .st-key-btn_fab_guardar{left:1.2rem!important;}'
+        'html.pp-fs section[data-testid="stMain"] div[data-testid="stPopover"]{left:0!important;}'
+        'html.pp-fs div[data-baseweb="popover"]:has(.ec-mg-marker){left:0!important;}'
+    )
     css.append("</style>")
     return "".join(css)
 
