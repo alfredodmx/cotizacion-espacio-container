@@ -1626,23 +1626,37 @@ var MVH='<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="cur
 /* ── 2b. Navegación horizontal: hold-to-scroll + deshabilitar extremos
         (misma lógica que los botones de la tabla normal) ───────────── */
 function initNav(btnL,btnR,target){
-  var rafId=null,activeDir=0,holdTimer=null,isHolding=false,SPEED=13;
+  /* Toda la animación con setInterval (NO requestAnimationFrame ni
+     scrollBy({behavior:"smooth"}): el rAF/smooth se pausan cuando la
+     pestaña no está pintando y el smooth es no-op en este contenedor
+     flex + overscroll-behavior). setInterval + scrollLeft directo es
+     100% confiable en cualquier navegador. */
+  var holdIv=null, animIv=null, activeDir=0, holdTimer=null, isHolding=false, SPEED=13;
   function maxScroll(){return Math.max(0,target.scrollWidth-target.clientWidth);}
   function updateState(){
     var atStart=target.scrollLeft<=0, atEnd=target.scrollLeft>=maxScroll()-1;
     btnL.disabled=atStart; btnR.disabled=atEnd;
   }
-  function step(){
-    if(activeDir===0)return;
-    target.scrollLeft+=activeDir*SPEED; updateState();
-    if((activeDir<0&&target.scrollLeft<=0)||(activeDir>0&&target.scrollLeft>=maxScroll()-1)){stopHold();return;}
-    rafId=W.requestAnimationFrame(step);
+  function stopHold(){activeDir=0; if(holdIv){clearInterval(holdIv); holdIv=null;}}
+  function startHold(d){
+    activeDir=d; if(holdIv)clearInterval(holdIv);
+    holdIv=setInterval(function(){
+      target.scrollLeft+=activeDir*SPEED; updateState();
+      if((activeDir<0&&target.scrollLeft<=0)||(activeDir>0&&target.scrollLeft>=maxScroll()-1)) stopHold();
+    },16);
   }
-  function startHold(d){activeDir=d; if(rafId)W.cancelAnimationFrame(rafId); rafId=W.requestAnimationFrame(step);}
-  function stopHold(){activeDir=0; if(rafId){W.cancelAnimationFrame(rafId); rafId=null;}}
+  function animBy(dx){
+    if(animIv)clearInterval(animIv);
+    var start=target.scrollLeft, goal=Math.max(0,Math.min(maxScroll(),start+dx)), t0=Date.now(), dur=240;
+    animIv=setInterval(function(){
+      var k=Math.min(1,(Date.now()-t0)/dur), e=1-Math.pow(1-k,3);
+      target.scrollLeft=start+(goal-start)*e; updateState();
+      if(k>=1){clearInterval(animIv); animIv=null;}
+    },16);
+  }
   function press(d){ isHolding=false; holdTimer=setTimeout(function(){isHolding=true; startHold(d);},180); }
   function release(d){ clearTimeout(holdTimer);
-    if(isHolding){stopHold();} else {target.scrollBy({left:d*300,behavior:"smooth"});} isHolding=false; }
+    if(isHolding){stopHold();} else {animBy(d*400);} isHolding=false; }
   function cancelPress(){ clearTimeout(holdTimer); if(isHolding){stopHold();} isHolding=false; }
   btnL.addEventListener("mousedown",function(e){e.preventDefault(); if(btnL.disabled)return; press(-1);});
   btnR.addEventListener("mousedown",function(e){e.preventDefault(); if(btnR.disabled)return; press(1);});
@@ -1654,7 +1668,7 @@ function initNav(btnL,btnR,target){
   target.addEventListener("scroll",updateState);
   /* refresca el estado ahora + tras el paint (el clone recién montado
      aún no tiene scrollWidth definitivo → evita botón mal deshabilitado) */
-  W._ecFsNavUpdate=function(){ updateState(); W.requestAnimationFrame(updateState); setTimeout(updateState,120); };
+  W._ecFsNavUpdate=function(){ updateState(); setTimeout(updateState,120); setTimeout(updateState,400); };
   W._ecFsNavUpdate();
 }
 
