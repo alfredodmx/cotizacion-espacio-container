@@ -1392,10 +1392,10 @@ html,body{height:IFRAMEHPX;overflow:hidden;font-family:'Plus Jakarta Sans','Sego
   transition:border-color .2s,box-shadow .2s;}
 #search:focus{border-color:#5b7cfa;background:#fff;box-shadow:0 0 0 3px rgba(91,124,250,.1);}
 #cnt{font-size:0.72rem;color:#94a3b8;white-space:nowrap;font-weight:600;min-width:64px;text-align:right;}
-#_pp_fsbtn{width:32px;height:30px;border:1px solid #e2e8f0;border-radius:7px;background:#fff;color:#475569;
+#_pp_fsbtn,#_pp_csvbtn{width:32px;height:30px;border:1px solid #e2e8f0;border-radius:7px;background:#fff;color:#475569;
   cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;transition:all .15s;}
-#_pp_fsbtn:hover{background:linear-gradient(135deg,#5b7cfa,#2563eb);color:#fff;border-color:transparent;box-shadow:0 4px 12px rgba(37,99,235,.3);}
-#_pp_fsbtn svg{width:16px;height:16px;display:block;}
+#_pp_fsbtn:hover,#_pp_csvbtn:hover{background:linear-gradient(135deg,#5b7cfa,#2563eb);color:#fff;border-color:transparent;box-shadow:0 4px 12px rgba(37,99,235,.3);}
+#_pp_fsbtn svg,#_pp_csvbtn svg{width:16px;height:16px;display:block;}
 html.fs, html.fs body, html.fs #wrap{height:100vh !important;}
 #tbl-w{flex:1;overflow:auto;border:1px solid #e2e8f0;border-radius:10px;
   box-shadow:0 2px 6px rgba(0,0,0,.06);margin-top:4px;}
@@ -1451,6 +1451,7 @@ td.r{text-align:right;}
   <svg width="14" height="14" fill="none" stroke="#94a3b8" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
   <input id="search" type="text" placeholder="Filtrar por categoría o ítem..." autocomplete="off">
   <span id="cnt"></span>
+  <button id="_pp_csvbtn" type="button" title="Descargar tabla como CSV"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></button>
   <button id="_pp_fsbtn" type="button" title="Pantalla completa"></button>
 </div>
 <div id="tbl-w">
@@ -1574,6 +1575,24 @@ if(_tbEl){
 document.addEventListener('mousedown',function(e){ if(e.button===0) _closeCtx(); });
 var _twEl=document.getElementById('tbl-w'); if(_twEl) _twEl.addEventListener('scroll',_closeCtx);
 _closeCtx();
+
+/* ── Descargar tabla como CSV (descarga desde el padre; el iframe está
+   sandboxed y bloquea descargas directas) ─────────────────────────── */
+function _ppClean(s){ s=String(s==null?"":s); var sp=String.fromCharCode(32); s=s.split(String.fromCharCode(10)).join(sp); s=s.split(String.fromCharCode(13)).join(sp); s=s.split(String.fromCharCode(9)).join(sp); while(s.indexOf(sp+sp)>=0) s=s.split(sp+sp).join(sp); return s.trim(); }
+function _ppCell(el){ var c=el.cloneNode(true); var hs=c.querySelectorAll(".hint,script,style,button,svg"); for(var i=0;i<hs.length;i++)hs[i].remove(); return _ppClean(c.innerText||c.textContent||""); }
+function _ppCsvVal(v){ v=String(v==null?"":v); var q=String.fromCharCode(34),nl=String.fromCharCode(10); if(v.indexOf(q)>=0||v.indexOf(",")>=0||v.indexOf(";")>=0||v.indexOf(nl)>=0){ v=q+v.split(q).join(q+q)+q; } return v; }
+function _ppDlCSV(){
+  var t=document.querySelector("table"); if(!t)return;
+  var rows=[]; var hs=t.querySelectorAll("thead th"); var hd=[]; for(var i=0;i<hs.length;i++)hd.push(_ppCell(hs[i])); rows.push(hd);
+  var trs=t.querySelectorAll("tbody tr"); for(var j=0;j<trs.length;j++){ if(trs[j].style.display==="none")continue; var tds=trs[j].querySelectorAll("td"); if(!tds.length)continue; var r=[]; for(var k=0;k<tds.length;k++)r.push(_ppCell(tds[k])); rows.push(r); }
+  var lines=[]; for(var mm=0;mm<rows.length;mm++){ var cols=[]; for(var nn=0;nn<rows[mm].length;nn++)cols.push(_ppCsvVal(rows[mm][nn])); lines.push(cols.join(",")); }
+  var csv=String.fromCharCode(65279)+lines.join(String.fromCharCode(10));
+  var dt=new Date(),pp=function(x){return (x<10?"0":"")+x;},fn="presupuesto_"+dt.getFullYear()+pp(dt.getMonth()+1)+pp(dt.getDate())+".csv";
+  var blob=new _P.Blob([csv],{type:"text/csv;charset=utf-8;"}); var url=_P.URL.createObjectURL(blob);
+  var a=_P.document.createElement("a"); a.href=url; a.download=fn; _P.document.body.appendChild(a); a.click();
+  setTimeout(function(){ a.remove(); _P.URL.revokeObjectURL(url); },1500);
+}
+var _ppCsvB=document.getElementById("_pp_csvbtn"); if(_ppCsvB) _ppCsvB.onclick=_ppDlCSV;
 function updateCards(){
   PD.querySelectorAll('._pres_card').forEach(function(el){
     var cat=el.getAttribute('data-catpres');

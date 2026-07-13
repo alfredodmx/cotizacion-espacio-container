@@ -1556,7 +1556,9 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             "border-color:#e2e8f0;box-shadow:none;transform:none;}"
             "</style>"
             '<div class="tbl-scroll-wrap">'
-            '  <span class="tbl-n-res"></span>'  # conteo vivo ahora en la barra de badges (#_ec_nres)
+            '  <button class="tbl-scroll-btn" id="btn-csv" title="Descargar tabla como CSV" style="width:auto;padding:0 13px;gap:7px;">'
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>'
+            '<span style="font-size:.72rem;font-weight:800;letter-spacing:.03em;">Descargar CSV</span></button>'
             '  <div class="tbl-scroll-right">'
             '    <button class="tbl-scroll-btn" id="btn-left" title="Desplazar a la izquierda">'+_CHEV_L+'</button>'
             '    <span class="tbl-scroll-hint">'+_MOVEH+'Scroll horizontal</span>'
@@ -1613,6 +1615,17 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             'btnL.addEventListener("mouseleave",cancelPress);'
             'btnR.addEventListener("mouseleave",cancelPress);'
             'D.addEventListener("mouseup",cancelPress);'
+            'function _clean(s){s=String(s==null?"":s);var sp=String.fromCharCode(32);s=s.split(String.fromCharCode(10)).join(sp);s=s.split(String.fromCharCode(13)).join(sp);s=s.split(String.fromCharCode(9)).join(sp);while(s.indexOf(sp+sp)>=0)s=s.split(sp+sp).join(sp);return s.trim();}'
+            'function _cellTxt(el){var c=el.cloneNode(true);var hs=c.querySelectorAll(".hint,script,style,button");for(var i=0;i<hs.length;i++)hs[i].remove();return _clean(c.innerText||c.textContent||"");}'
+            'function _csvVal(v){v=String(v==null?"":v);var q=String.fromCharCode(34),nl=String.fromCharCode(10);if(v.indexOf(q)>=0||v.indexOf(",")>=0||v.indexOf(";")>=0||v.indexOf(nl)>=0){v=q+v.split(q).join(q+q)+q;}return v;}'
+            'function _dlCSV(prefix){var t=D.querySelector(".resultados-table");if(!t)return;var rows=[];var hs=t.querySelectorAll("thead th");var hd=[];for(var i=0;i<hs.length;i++)hd.push(_cellTxt(hs[i]));rows.push(hd);'
+            'var trs=t.querySelectorAll("tbody tr");for(var j=0;j<trs.length;j++){if(trs[j].style.display==="none")continue;var tds=trs[j].querySelectorAll("td");if(!tds.length)continue;var r=[];for(var k=0;k<tds.length;k++)r.push(_cellTxt(tds[k]));rows.push(r);}'
+            'var lines=[];for(var mm=0;mm<rows.length;mm++){var cols=[];for(var nn=0;nn<rows[mm].length;nn++)cols.push(_csvVal(rows[mm][nn]));lines.push(cols.join(","));}'
+            'var csv=String.fromCharCode(65279)+lines.join(String.fromCharCode(10));'
+            'var dt=new Date(),pp=function(x){return (x<10?"0":"")+x;},fn=prefix+"_"+dt.getFullYear()+pp(dt.getMonth()+1)+pp(dt.getDate())+".csv";'
+            'var blob=new W.Blob([csv],{type:"text/csv;charset=utf-8;"});var url=W.URL.createObjectURL(blob);'
+            'var a=D.createElement("a");a.href=url;a.download=fn;D.body.appendChild(a);a.click();setTimeout(function(){a.remove();W.URL.revokeObjectURL(url);},1500);}'
+            'var _cb=document.getElementById("btn-csv");if(_cb)_cb.addEventListener("click",function(){_dlCSV("cotizaciones");});'
             'refreshTarget();'
             'setTimeout(refreshTarget,200);'
             '})();</script>')
