@@ -2149,8 +2149,8 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 "Correo Ejecutivo": cot.get('asesor_email',''),
                 "Tel&#233;fono Ejecutivo": formatear_telefono(cot.get('asesor_telefono','')),
             }
-            _fi = datetime.strptime(cot.get('proyecto_fecha_inicio', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d').date()
-            _ft = datetime.strptime(cot.get('proyecto_fecha_termino', (datetime.now()+timedelta(days=15)).strftime('%Y-%m-%d')), '%Y-%m-%d').date()
+            _fi = datetime.strptime(cot.get('proyecto_fecha_inicio') or datetime.now().strftime('%Y-%m-%d'), '%Y-%m-%d').date()
+            _ft = datetime.strptime(cot.get('proyecto_fecha_termino') or (datetime.now()+timedelta(days=15)).strftime('%Y-%m-%d'), '%Y-%m-%d').date()
             _dv = cot.get('proyecto_dias_validez', 15)
             return _df, _sub, _iva, _tot, _dc, _da, _fi, _ft, _dv, _mg
 
@@ -2186,8 +2186,8 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                     "Correo Ejecutivo": cot.get('asesor_email',''),
                     "Tel&#233;fono Ejecutivo": formatear_telefono(cot.get('asesor_telefono','')),
                 }
-                _fic = datetime.strptime(cot.get('proyecto_fecha_inicio', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d').date()
-                _ftc = datetime.strptime(cot.get('proyecto_fecha_termino', (datetime.now()+timedelta(days=15)).strftime('%Y-%m-%d')), '%Y-%m-%d').date()
+                _fic = datetime.strptime(cot.get('proyecto_fecha_inicio') or datetime.now().strftime('%Y-%m-%d'), '%Y-%m-%d').date()
+                _ftc = datetime.strptime(cot.get('proyecto_fecha_termino') or (datetime.now()+timedelta(days=15)).strftime('%Y-%m-%d'), '%Y-%m-%d').date()
                 _dvc = cot.get('proyecto_dias_validez', 15)
                 _fadj = cot.get('fecha_adjudicacion') or None
                 _ffid = cot.get('fecha_entrega') or None
@@ -3014,8 +3014,8 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                     "Correo Ejecutivo": cotizacion.get('asesor_email',''),
                     "Tel&#233;fono Ejecutivo": formatear_telefono(cotizacion.get('asesor_telefono','')),
                 }
-                fi = datetime.strptime(cotizacion.get('proyecto_fecha_inicio', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d').date()
-                ft = datetime.strptime(cotizacion.get('proyecto_fecha_termino', (datetime.now()+timedelta(days=15)).strftime('%Y-%m-%d')), '%Y-%m-%d').date()
+                fi = datetime.strptime(cotizacion.get('proyecto_fecha_inicio') or datetime.now().strftime('%Y-%m-%d'), '%Y-%m-%d').date()
+                ft = datetime.strptime(cotizacion.get('proyecto_fecha_termino') or (datetime.now()+timedelta(days=15)).strftime('%Y-%m-%d'), '%Y-%m-%d').date()
                 dv = cotizacion.get('proyecto_dias_validez', 15)
                 return carrito_df_p, subtotal_p, iva_p, total_p, dc, da, fi, ft, dv, margen_c
 
@@ -3056,8 +3056,8 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                             "Correo Ejecutivo": _cot_compras.get('asesor_email',''),
                             "Tel&#233;fono Ejecutivo": formatear_telefono(_cot_compras.get('asesor_telefono','')),
                         }
-                        _fi_c = datetime.strptime(_cot_compras.get('proyecto_fecha_inicio', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d').date()
-                        _ft_c = datetime.strptime(_cot_compras.get('proyecto_fecha_termino', (datetime.now()+timedelta(days=15)).strftime('%Y-%m-%d')), '%Y-%m-%d').date()
+                        _fi_c = datetime.strptime(_cot_compras.get('proyecto_fecha_inicio') or datetime.now().strftime('%Y-%m-%d'), '%Y-%m-%d').date()
+                        _ft_c = datetime.strptime(_cot_compras.get('proyecto_fecha_termino') or (datetime.now()+timedelta(days=15)).strftime('%Y-%m-%d'), '%Y-%m-%d').date()
                         _dv_c = _cot_compras.get('proyecto_dias_validez', 15)
                         _fadj_c = _cot_compras.get('fecha_adjudicacion') or None
                         _ffid_c = _cot_compras.get('fecha_entrega') or None
