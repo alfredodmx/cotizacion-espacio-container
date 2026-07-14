@@ -13,7 +13,8 @@ from datetime import datetime, timedelta
 from views.layout import render_page_header
 
 from repositories.cotizaciones_repo import (
-    buscar_cotizaciones, cargar_cotizacion, guardar_cotizacion, generar_numero_unico
+    buscar_cotizaciones, cargar_cotizacion, guardar_cotizacion, generar_numero_unico,
+    clonar_cotizacion
 )
 from repositories.logs_repo import obtener_logs_ep
 from repositories.compras_repo import calcular_estado_compras
@@ -23,7 +24,7 @@ from generators.pdf_log import generar_pdf_log
 from generators.pdf_seleccion import generar_pdf_seleccion_cliente
 from utils.formato import formato_clp
 from utils.telefono import formatear_telefono
-from utils.avatars import fetch_foto_map, avatar_html
+from utils.avatars import fetch_foto_map, avatar_html, fetch_ejecutivos
 from utils.formulario import fetch_catalogo_materiales
 from config.settings import SUPABASE_URL
 from config.supabase import supabase_admin as _supa_admin_global
@@ -557,6 +558,14 @@ def _render_backup_seguridad(supabase_admin, rol):
 
 def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
     _rol_actual = st.session_state.get('rol_usuario', 'ejecutivo')
+
+    # Avisos de clonación (se setean en el diálogo y se consumen en el siguiente run).
+    _tc = st.session_state.pop('_toast_clonado', None)
+    if _tc:
+        st.toast(_tc, icon=":material/content_copy:")
+    _ce = st.session_state.pop('_clon_error', None)
+    if _ce:
+        st.toast(f"Algunos clones fallaron: {_ce}", icon=":material/error:")
 
     st.markdown("""
     <style>
@@ -2249,6 +2258,9 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             elif _ctx_action == 'rechazar':
                 # Abre el diálogo de motivo (se renderiza más abajo este mismo run).
                 st.session_state['_show_rechazo_dialog'] = _ctx_ep
+            elif _ctx_action == 'clonar' and _rol_actual in ('admin', 'root'):
+                # Abre el diálogo de clonación (asignar a ejecutivo/s).
+                st.session_state['_show_clonar_dialog'] = _ctx_ep
             elif _ctx_action == 'quitar_rechazo':
                 try:
                     supabase_admin.table("cotizaciones").update(
@@ -2313,6 +2325,60 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                         else:
                             st.warning("Debes ingresar un motivo.")
             _dlg_rechazo_ctx()
+
+        # Diálogo de clonación (lo dispara "Clonar presupuesto" → _show_clonar_dialog).
+        _clon_ep = st.session_state.get('_show_clonar_dialog')
+        if _clon_ep and _rol_actual in ('admin', 'root'):
+            @st.dialog("Clonar presupuesto")
+            def _dlg_clonar_ctx():
+                st.markdown(f"**Presupuesto de origen:** {_clon_ep}")
+                st.caption("Se clonan los ítems, precios y el plano. Los datos del cliente "
+                           "quedan vacíos para que cada ejecutivo asignado los complete. "
+                           "Cada clon queda como INCOMPLETO CON PLANO con un nuevo código EP.")
+                _ejs = fetch_ejecutivos(SUPABASE_URL)
+                if not _ejs:
+                    st.warning("No hay ejecutivos disponibles para asignar.")
+                    if st.button("Cerrar", key="_clon_close"):
+                        st.session_state.pop('_show_clonar_dialog', None)
+                        st.rerun()
+                    return
+                _labels = [f"{e['nombre']} · {e['email']}" for e in _ejs]
+                _sel_labels = st.multiselect(
+                    "Asignar a (uno o varios ejecutivos)", _labels, key="_clon_ejec_sel")
+                _cc1, _cc2 = st.columns(2)
+                with _cc1:
+                    if st.button("Cancelar", use_container_width=True, key="_clon_cancel"):
+                        st.session_state.pop('_show_clonar_dialog', None)
+                        st.rerun()
+                with _cc2:
+                    if st.button("Clonar", type="primary", use_container_width=True, key="_clon_go"):
+                        if not _sel_labels:
+                            st.warning("Selecciona al menos un ejecutivo.")
+                        else:
+                            _actor = (st.session_state.get('auth_nombre')
+                                      or st.session_state.get('auth_email', ''))
+                            _ok, _fail = [], []
+                            with st.spinner(f"Clonando para {len(_sel_labels)} ejecutivo(s)…"):
+                                for _lbl in _sel_labels:
+                                    _ej = _ejs[_labels.index(_lbl)]
+                                    _nuevo, _err = clonar_cotizacion(
+                                        _clon_ep, _ej['nombre'], _ej['email'],
+                                        _ej.get('telefono', ''), _actor)
+                                    if _nuevo:
+                                        _ok.append((_nuevo, _ej['nombre']))
+                                    else:
+                                        _fail.append((_ej['nombre'], _err))
+                            st.session_state.pop('_show_clonar_dialog', None)
+                            st.session_state.resultados_busqueda = None
+                            if _ok:
+                                st.session_state['_toast_clonado'] = (
+                                    f"{len(_ok)} clon(es) creado(s): "
+                                    + ", ".join(f"{n} → {nm}" for n, nm in _ok))
+                            if _fail:
+                                st.session_state['_clon_error'] = "; ".join(
+                                    f"{nm}: {er}" for nm, er in _fail)
+                            st.rerun()
+            _dlg_clonar_ctx()
 
         # ── Visor de documentos (panel deslizante desde la derecha) ──────────────
         # Se abre con "Ver documentos" del menú. Pestañas = documentos disponibles y
@@ -2484,6 +2550,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
         components.html(r"""<script>
 (function(){
   var W=window.parent, D=W.document, MENU_ID='_ec_ctxmenu';
+  var CAN_CLONE=__CAN_CLONE__;
   var ITEMS=[
     {k:'ver',           lbl:'Ver documentos', attr:'ver', ico:'<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>'},
     {k:'cargar',        lbl:'Cargar presupuesto', attr:'cargar',    ico:'<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>'},
@@ -2594,6 +2661,18 @@ var MAT_DATA = """ + _mat_data_json_map + """;
       }
       m.appendChild(row);
     });
+    // Clonar presupuesto (azul) — solo admin/root. Clona ítems + plano y lo
+    // asigna a un ejecutivo (los datos del cliente van vacíos).
+    if(CAN_CLONE){
+      var dvc=D.createElement('div');dvc.style.cssText='height:1px;background:#f1f5f9;margin:5px 8px;';m.appendChild(dvc);
+      var crow=D.createElement('div');
+      crow.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;color:#2563eb;';
+      crow.innerHTML=ic('<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>')+'<span>Clonar presupuesto</span>';
+      crow.addEventListener('mouseenter',function(){crow.style.background='#dbeafe';});
+      crow.addEventListener('mouseleave',function(){crow.style.background='transparent';});
+      crow.addEventListener('click',function(ev){ev.stopPropagation();closeMenu();fire('clonar',ep);});
+      m.appendChild(crow);
+    }
     // Rechazar / Quitar rechazo (rojo) — según data-rechazar de la fila.
     var rech=tr.getAttribute('data-rechazar');
     if(rech==='1'||rech==='quitar'){
@@ -2635,7 +2714,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
   W._ecCtxKey=function(e){if(e.key==='Escape') closeMenu();};
   D.addEventListener('keydown', W._ecCtxKey, true);
 })();
-</script>""", height=0)
+</script>""".replace('__CAN_CLONE__', 'true' if _rol_actual in ('admin', 'root') else 'false'), height=0)
 
         # ── Backup de seguridad de la base de datos (solo admin/root) ────────────
         # Debajo de la tabla: extrae TODAS las tablas de Supabase a un ZIP con

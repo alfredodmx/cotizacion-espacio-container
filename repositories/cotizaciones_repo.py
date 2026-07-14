@@ -8,7 +8,9 @@ import pandas as pd
 from datetime import datetime
 import streamlit as st
 from config.supabase import supabase_admin
-from repositories.storage_repo import guardar_plano_en_storage, eliminar_plano_de_storage
+from repositories.storage_repo import (
+    guardar_plano_en_storage, eliminar_plano_de_storage, descargar_plano_desde_url
+)
 from repositories.logs_repo import registrar_log, contar_logs, diff_datos
 from utils.security import analizar_inputs
 
@@ -329,6 +331,98 @@ def registrar_entrega_proyecto(cotizacion_numero: str, acta_url: str, acta_nombr
         return True, None
     except Exception as e:
         return False, str(e)
+
+
+def clonar_cotizacion(source_ep: str, asesor_nombre: str, asesor_email: str,
+                      asesor_telefono: str = "", actor: str = "") -> tuple[str | None, str | None]:
+    """Clona un presupuesto y lo asigna a un ejecutivo.
+
+    - Copia los productos (ítems, precios, cantidades) y el modelo predefinido.
+    - COPIA EL PLANO como archivo INDEPENDIENTE (no comparte el mismo objeto de
+      storage), para que reemplazar/borrar el plano de un clon no afecte al
+      origen ni a otros clones.
+    - Deja VACÍOS todos los datos del cliente y del proyecto (los llena el
+      ejecutivo asignado).
+    - Resetea margen/config y los totales (sin margen); limpia todo el ciclo de
+      vida (autorización, rechazo, adjudicación, contrato, acta).
+    - Estado: 'INCOMPLETO CON PLANO' (o 'INCOMPLETO' si no hay plano).
+
+    Retorna (nuevo_numero, None) o (None, error).
+    """
+    try:
+        src = supabase_admin.table('cotizaciones').select('*').eq('numero', source_ep).execute()
+        if not src.data:
+            return None, "No se encontró el presupuesto de origen."
+        s = src.data[0]
+        nuevo = generar_numero_unico()
+        fecha = datetime.now().isoformat()
+
+        # Productos (mismos ítems / precios / cantidades)
+        _prods = s.get('productos')
+        if isinstance(_prods, list):
+            _prods_json = json.dumps(_prods, ensure_ascii=False)
+        elif isinstance(_prods, str):
+            _prods_json = _prods
+        else:
+            _prods_json = '[]'
+
+        # Plano: copia INDEPENDIENTE (descarga el del origen y sube uno nuevo).
+        _plano_url = None
+        _plano_nombre = s.get('plano_nombre')
+        if s.get('plano_url'):
+            _bytes, _errd = descargar_plano_desde_url(s['plano_url'])
+            if _bytes:
+                _url_new, _erru = guardar_plano_en_storage(_bytes, nuevo, _plano_nombre or 'plano.pdf')
+                if _url_new:
+                    _plano_url = _url_new
+        _tiene_plano = bool(_plano_url)
+        estado = "INCOMPLETO CON PLANO" if _tiene_plano else "INCOMPLETO"
+
+        _sm = float(s.get('total_subtotal_sin_margen', 0) or 0)
+        data = {
+            'numero': nuevo,
+            'fecha_creacion': fecha, 'fecha_modificacion': fecha,
+            'estado': estado,
+            # Cliente / proyecto: VACÍOS (los completa el ejecutivo asignado)
+            'cliente_nombre': '', 'cliente_rut': '', 'cliente_email': '', 'cliente_telefono': '',
+            'cliente_direccion': '', 'cliente_comuna': '', 'cliente_region': '',
+            'cliente_tipo': 'natural', 'cliente_empresa': '', 'cliente_rut_empresa': '',
+            'proyecto_direccion': '', 'proyecto_comuna': '', 'proyecto_region': '',
+            'proyecto_fecha_inicio': '', 'proyecto_fecha_termino': '',
+            'proyecto_dias_validez': 0, 'proyecto_observaciones': '',
+            # Asesor: el ejecutivo asignado (lo hace visible en su cuenta por asesor_email)
+            'asesor_nombre': asesor_nombre or '',
+            'asesor_email': (asesor_email or '').strip(),
+            'asesor_telefono': asesor_telefono or '',
+            # Se clonan
+            'productos': _prods_json,
+            'plano_nombre': _plano_nombre if _tiene_plano else None,
+            'plano_url': _plano_url,
+            'modelo_predefinido': s.get('modelo_predefinido'),
+            # Margen / config: reset
+            'config_margen': 0.0, 'config_modo_admin': 0,
+            'total_subtotal_sin_margen': _sm,
+            'total_subtotal_con_margen': _sm,
+            'total_iva': round(_sm * 0.19, 2),
+            'total_total': round(_sm * 1.19, 2),
+            'total_margen_valor': 0.0, 'total_comision_vendedor': 0.0,
+            'total_comision_supervisor': 0.0, 'total_utilidad_real': 0.0,
+            # Ciclo de vida: limpio
+            'fecha_autorizacion': None, 'autorizado_por': None,
+            'motivo_rechazo': None, 'fecha_rechazo': None,
+            'fecha_adjudicacion': None,
+            'user_id': None,
+        }
+        supabase_admin.table('cotizaciones').insert(data).execute()
+        try:
+            registrar_log(nuevo, actor or 'Sistema', 'creacion',
+                          {'mensaje': f'Clon de {source_ep} asignado a {asesor_nombre or asesor_email}'})
+        except Exception:
+            pass
+        _invalidar_cache_cotizaciones()
+        return nuevo, None
+    except Exception as e:
+        return None, str(e)
 
 
 def generar_numero_unico() -> str:

@@ -34,6 +34,39 @@ def fetch_foto_map(supa_url: str) -> dict:
         return {}
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def fetch_ejecutivos(supa_url: str) -> list:
+    """Lista de ejecutivos para asignar (clonar presupuesto).
+    Devuelve [{email, nombre, telefono, foto_url}] ordenada por nombre. [] si falla.
+    Solo usuarios con rol 'ejecutivo' (o sin rol explícito, que por defecto lo son)."""
+    try:
+        r = httpx.get(
+            f"{supa_url}/auth/v1/admin/users",
+            headers={"apikey": SUPABASE_SERVICE_KEY,
+                     "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"},
+            params={"per_page": 1000, "page": 1}, timeout=15,
+        )
+        r.raise_for_status()
+        out = []
+        for u in r.json().get("users", []):
+            meta = u.get("user_metadata") or u.get("raw_user_meta_data") or {}
+            if (meta.get("rol", "ejecutivo") or "ejecutivo") != "ejecutivo":
+                continue
+            em = (u.get("email") or "").strip()
+            if not em:
+                continue
+            out.append({
+                "email": em,
+                "nombre": meta.get("nombre", em) or em,
+                "telefono": meta.get("telefono", "") or "",
+                "foto_url": meta.get("foto_url", "") or "",
+            })
+        out.sort(key=lambda x: (x["nombre"] or "").lower())
+        return out
+    except Exception:
+        return []
+
+
 def _admin_headers(json: bool = False) -> dict:
     h = {"apikey": SUPABASE_SERVICE_KEY,
          "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"}
