@@ -30,6 +30,110 @@ from config.settings import SUPABASE_URL
 from config.supabase import supabase_admin as _supa_admin_global
 
 
+# ── Modal HTML de "Clonar presupuesto" (inyectado en el doc padre) ───────────────
+# Selección 100% client-side (cero reruns): togglear cada ejecutivo solo actualiza
+# un objeto SEL en JS. Al pulsar Clonar se envía UN solo comando por el bridge
+# oculto `_clon_cmd` = "clonar|email1,email2|ts". Cancelar/backdrop/Esc → "cancel".
+# Fotos 38x38, nombres con la tipografía de títulos (Montserrat 700 uppercase).
+_CLON_MODAL_HTML = r"""<script>
+(function(){
+  var W=window.parent, D=W&&W.document; if(!D) return;
+  var old=D.getElementById('ec-clon-overlay'); if(old) old.remove();
+  var EJS=__EJS__, EP="__EP__", SEL={};
+  function esc(s){return (s==null?'':String(s)).split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;').split('"').join('&quot;');}
+  function ini(nm){var p=(nm||'').trim().split(' ').filter(function(x){return x;});var s='';if(p.length){s=p[0].charAt(0);if(p.length>1)s+=p[1].charAt(0);}return (s||'EC').toUpperCase();}
+  if(!D.getElementById('ec-clon-font')){var lf=D.createElement('link');lf.id='ec-clon-font';lf.rel='stylesheet';lf.href='https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;900&display=swap';D.head.appendChild(lf);}
+  if(!D.getElementById('ec-clon-css')){var sc=D.createElement('style');sc.id='ec-clon-css';sc.textContent=[
+    '@keyframes ecClonBd{from{opacity:0}to{opacity:1}}',
+    '@keyframes ecClonPop{from{opacity:0;transform:translateY(18px) scale(.96)}to{opacity:1;transform:none}}',
+    '#ec-clon-overlay{position:fixed;inset:0;z-index:2147483000;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:22px;font-family:Montserrat,sans-serif;animation:ecClonBd .18s ease;}',
+    '.ec-clon-card{width:100%;max-width:440px;max-height:88vh;display:flex;flex-direction:column;background:#fff;border-radius:20px;box-shadow:0 30px 80px rgba(5,12,28,.42);overflow:hidden;animation:ecClonPop .26s cubic-bezier(.2,.9,.3,1.2);}',
+    '.ec-clon-head{display:flex;align-items:center;gap:12px;padding:18px 18px 14px;border-bottom:1px solid #eef2f7;}',
+    '.ec-clon-hic{width:42px;height:42px;border-radius:12px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;box-shadow:0 8px 20px rgba(37,99,235,.38);}',
+    '.ec-clon-title{font-family:Montserrat,sans-serif;font-weight:700;font-size:0.95rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;line-height:1.15;}',
+    '.ec-clon-sub{font-family:Montserrat,sans-serif;font-weight:600;font-size:11px;color:#64748b;margin-top:3px;}',
+    '.ec-clon-sub b{color:#2563eb;font-weight:800;letter-spacing:.03em;}',
+    '.ec-clon-x{margin-left:auto;width:34px;height:34px;border:none;border-radius:10px;background:#f1f5f9;color:#64748b;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex:0 0 auto;}',
+    '.ec-clon-x:hover{background:#e2e8f0;color:#0f172a;}',
+    '.ec-clon-desc{padding:13px 18px 4px;font-family:Montserrat,sans-serif;font-weight:500;font-size:12px;line-height:1.5;color:#475569;}',
+    '.ec-clon-desc b{color:#0f172a;font-weight:800;letter-spacing:.02em;}',
+    '.ec-clon-listlbl{padding:12px 18px 6px;font-family:Montserrat,sans-serif;font-weight:700;font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;}',
+    '.ec-clon-list{overflow-y:auto;padding:0 12px 6px;display:flex;flex-direction:column;gap:3px;}',
+    '.ec-clon-row{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:13px;cursor:pointer;border:1.5px solid transparent;transition:background .15s,border-color .15s;}',
+    '.ec-clon-row:hover{background:#f1f5f9;}',
+    '.ec-clon-row.on{background:#eff6ff;border-color:#bfdbfe;}',
+    '.ec-clon-av{width:38px;height:38px;border-radius:50%;flex:0 0 auto;box-shadow:0 3px 9px rgba(5,12,28,.22);object-fit:cover;background:#fff;}',
+    '.ec-clon-avph{width:38px;height:38px;border-radius:50%;flex:0 0 auto;box-shadow:0 3px 9px rgba(5,12,28,.22);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:13px;background:linear-gradient(135deg,#0f3460,#1a5276);}',
+    '.ec-clon-name{font-family:Montserrat,sans-serif;font-weight:700;font-size:0.82rem;letter-spacing:0.04em;text-transform:uppercase;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+    '.ec-clon-mail{font-family:Montserrat,sans-serif;font-weight:500;font-size:11px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;}',
+    '.ec-clon-ck{width:24px;height:24px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:#e2e8f0;color:transparent;transition:all .18s;}',
+    '.ec-clon-row.on .ec-clon-ck{background:#2563eb;color:#fff;transform:scale(1.08);}',
+    '.ec-clon-empty{padding:18px;text-align:center;font-family:Montserrat,sans-serif;font-weight:600;font-size:12px;color:#94a3b8;}',
+    '.ec-clon-foot{display:flex;gap:10px;padding:14px 18px 18px;border-top:1px solid #eef2f7;}',
+    '.ec-clon-btn{flex:1;height:44px;border-radius:12px;font-family:Montserrat,sans-serif;font-weight:700;font-size:0.78rem;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;border:none;transition:all .15s;}',
+    '.ec-clon-btn.ghost{background:#f1f5f9;color:#475569;}',
+    '.ec-clon-btn.ghost:hover{background:#e2e8f0;}',
+    '.ec-clon-btn.primary{background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;box-shadow:0 8px 20px rgba(37,99,235,.35);}',
+    '.ec-clon-btn.primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 12px 26px rgba(37,99,235,.45);}'
+  ].join('');D.head.appendChild(sc);}
+  function ckSvg(){return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';}
+  var rows='';
+  if(EJS.length){
+    EJS.forEach(function(e,i){
+      var av=e.foto?('<img class="ec-clon-av" src="'+esc(e.foto)+'">'):('<div class="ec-clon-avph">'+ini(e.nombre)+'</div>');
+      rows+='<div class="ec-clon-row" data-i="'+i+'">'+av+
+        '<div style="flex:1 1 auto;min-width:0;"><div class="ec-clon-name">'+esc(e.nombre)+'</div><div class="ec-clon-mail">'+esc(e.email)+'</div></div>'+
+        '<div class="ec-clon-ck">'+ckSvg()+'</div></div>';
+    });
+  } else {
+    rows='<div class="ec-clon-empty">No hay ejecutivos disponibles para asignar.</div>';
+  }
+  var ov=D.createElement('div'); ov.id='ec-clon-overlay';
+  ov.innerHTML='<div class="ec-clon-card">'+
+    '<div class="ec-clon-head"><div class="ec-clon-hic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></div>'+
+      '<div><div class="ec-clon-title">Clonar presupuesto</div><div class="ec-clon-sub">Origen &middot; <b>'+esc(EP)+'</b></div></div>'+
+      '<button class="ec-clon-x" id="ec-clon-close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>'+
+    '<div class="ec-clon-desc">Se clonan los &iacute;tems, precios y el plano. Los datos del cliente quedan vac&iacute;os para que cada ejecutivo asignado los complete. Cada clon queda como <b>INCOMPLETO CON PLANO</b> con un nuevo c&oacute;digo EP.</div>'+
+    '<div class="ec-clon-listlbl">Asignar a (uno o varios)</div>'+
+    '<div class="ec-clon-list">'+rows+'</div>'+
+    '<div class="ec-clon-foot"><button id="ec-clon-cancel" class="ec-clon-btn ghost">Cancelar</button><button id="ec-clon-go" class="ec-clon-btn primary" disabled style="opacity:.5;cursor:not-allowed;">Clonar</button></div>'+
+  '</div>';
+  D.body.appendChild(ov);
+  function updateBtn(){var n=Object.keys(SEL).length;var b=D.getElementById('ec-clon-go');if(!b)return;b.textContent=n>0?('Clonar ('+n+')'):'Clonar';b.disabled=(n===0);b.style.opacity=n===0?'.5':'1';b.style.cursor=n===0?'not-allowed':'pointer';}
+  function fireClon(action,payload){
+    var inp=D.querySelector('.st-key-_clon_cmd input'); if(!inp) return;
+    try{
+      var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set;
+      inp.focus({preventScroll:true});
+      setter.call(inp, action+'|'+payload+'|'+Date.now());
+      inp.dispatchEvent(new Event('input',{bubbles:true}));
+      inp.dispatchEvent(new Event('change',{bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.blur();
+    }catch(e){}
+  }
+  function closeModal(){var o=D.getElementById('ec-clon-overlay'); if(o) o.remove(); if(W._ecClonEsc){D.removeEventListener('keydown',W._ecClonEsc);W._ecClonEsc=null;}}
+  function cancel(){closeModal(); fireClon('cancel','x');}
+  ov.querySelectorAll('.ec-clon-row').forEach(function(row){
+    row.addEventListener('click',function(){
+      var i=+row.getAttribute('data-i'); var em=EJS[i].email;
+      if(SEL[em]){delete SEL[em];row.classList.remove('on');}else{SEL[em]=1;row.classList.add('on');}
+      updateBtn();
+    });
+  });
+  D.getElementById('ec-clon-close').addEventListener('click',cancel);
+  D.getElementById('ec-clon-cancel').addEventListener('click',cancel);
+  ov.addEventListener('click',function(ev){if(ev.target===ov)cancel();});
+  var goBtn=D.getElementById('ec-clon-go');
+  goBtn.addEventListener('click',function(){var ks=Object.keys(SEL);if(!ks.length)return;closeModal();fireClon('clonar',ks.join(','));});
+  if(W._ecClonEsc){D.removeEventListener('keydown',W._ecClonEsc);}
+  W._ecClonEsc=function(ev){if(ev.key==='Escape')cancel();};
+  D.addEventListener('keydown',W._ecClonEsc);
+})();
+</script>"""
+
+
 # ── Iconos SVG inline (reemplazan emoticones en la tabla de resultados) ──────────
 _HIC_PATHS = {
     "check":    '<path d="M20 6 9 17l-5-5"/>',
@@ -2326,59 +2430,60 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                             st.warning("Debes ingresar un motivo.")
             _dlg_rechazo_ctx()
 
-        # Diálogo de clonación (lo dispara "Clonar presupuesto" → _show_clonar_dialog).
+        # ── Modal de clonación (HTML propio; selección client-side, sin reruns) ──
+        # El @st.dialog + st.multiselect re-renderizaba TODA la pestaña en cada
+        # selección (lento). Este modal se inyecta en el doc padre y solo hace UN
+        # rerun al enviar (bridge oculto _clon_cmd = "accion|emails|ts").
         _clon_ep = st.session_state.get('_show_clonar_dialog')
         if _clon_ep and _rol_actual in ('admin', 'root'):
-            @st.dialog("Clonar presupuesto")
-            def _dlg_clonar_ctx():
-                st.markdown(f"**Presupuesto de origen:** {_clon_ep}")
-                st.caption("Se clonan los ítems, precios y el plano. Los datos del cliente "
-                           "quedan vacíos para que cada ejecutivo asignado los complete. "
-                           "Cada clon queda como INCOMPLETO CON PLANO con un nuevo código EP.")
-                _ejs = fetch_ejecutivos(SUPABASE_URL)
-                if not _ejs:
-                    st.warning("No hay ejecutivos disponibles para asignar.")
-                    if st.button("Cerrar", key="_clon_close"):
+            _ejs = fetch_ejecutivos(SUPABASE_URL)
+            st.markdown(
+                "<style>.st-key-_clon_cmd{position:absolute!important;left:-9999px!important;"
+                "top:-9999px!important;height:0!important;width:0!important;overflow:hidden!important;}</style>",
+                unsafe_allow_html=True)
+            st.text_input('clon', key='_clon_cmd', label_visibility='collapsed')
+            _clon_raw = str(st.session_state.get('_clon_cmd', '') or '')
+            if _clon_raw and '|' in _clon_raw:
+                _cp = _clon_raw.split('|')
+                if _cp[-1] != st.session_state.get('_clon_last_ts'):
+                    st.session_state['_clon_last_ts'] = _cp[-1]
+                    if _cp[0] == 'cancel':
                         st.session_state.pop('_show_clonar_dialog', None)
                         st.rerun()
-                    return
-                _labels = [f"{e['nombre']} · {e['email']}" for e in _ejs]
-                _sel_labels = st.multiselect(
-                    "Asignar a (uno o varios ejecutivos)", _labels, key="_clon_ejec_sel")
-                _cc1, _cc2 = st.columns(2)
-                with _cc1:
-                    if st.button("Cancelar", use_container_width=True, key="_clon_cancel"):
+                    elif _cp[0] == 'clonar' and len(_cp) >= 3:
+                        _emails = [e.strip() for e in _cp[1].split(',') if e.strip()]
+                        _by = {e['email'].lower(): e for e in _ejs}
+                        _actor = (st.session_state.get('auth_nombre')
+                                  or st.session_state.get('auth_email', ''))
+                        _ok, _fail = [], []
+                        with st.spinner(f"Clonando para {len(_emails)} ejecutivo(s)…"):
+                            for _em in _emails:
+                                _ej = _by.get(_em.lower())
+                                if not _ej:
+                                    continue
+                                _nuevo, _err = clonar_cotizacion(
+                                    _clon_ep, _ej['nombre'], _ej['email'],
+                                    _ej.get('telefono', ''), _actor)
+                                if _nuevo:
+                                    _ok.append((_nuevo, _ej['nombre']))
+                                else:
+                                    _fail.append((_ej['nombre'], _err))
                         st.session_state.pop('_show_clonar_dialog', None)
+                        st.session_state.resultados_busqueda = None
+                        if _ok:
+                            st.session_state['_toast_clonado'] = (
+                                f"{len(_ok)} clon(es) creado(s): "
+                                + ", ".join(f"{n} → {nm}" for n, nm in _ok))
+                        if _fail:
+                            st.session_state['_clon_error'] = "; ".join(
+                                f"{nm}: {er}" for nm, er in _fail)
                         st.rerun()
-                with _cc2:
-                    if st.button("Clonar", type="primary", use_container_width=True, key="_clon_go"):
-                        if not _sel_labels:
-                            st.warning("Selecciona al menos un ejecutivo.")
-                        else:
-                            _actor = (st.session_state.get('auth_nombre')
-                                      or st.session_state.get('auth_email', ''))
-                            _ok, _fail = [], []
-                            with st.spinner(f"Clonando para {len(_sel_labels)} ejecutivo(s)…"):
-                                for _lbl in _sel_labels:
-                                    _ej = _ejs[_labels.index(_lbl)]
-                                    _nuevo, _err = clonar_cotizacion(
-                                        _clon_ep, _ej['nombre'], _ej['email'],
-                                        _ej.get('telefono', ''), _actor)
-                                    if _nuevo:
-                                        _ok.append((_nuevo, _ej['nombre']))
-                                    else:
-                                        _fail.append((_ej['nombre'], _err))
-                            st.session_state.pop('_show_clonar_dialog', None)
-                            st.session_state.resultados_busqueda = None
-                            if _ok:
-                                st.session_state['_toast_clonado'] = (
-                                    f"{len(_ok)} clon(es) creado(s): "
-                                    + ", ".join(f"{n} → {nm}" for n, nm in _ok))
-                            if _fail:
-                                st.session_state['_clon_error'] = "; ".join(
-                                    f"{nm}: {er}" for nm, er in _fail)
-                            st.rerun()
-            _dlg_clonar_ctx()
+            _ejs_payload = json.dumps(
+                [{'email': e['email'], 'nombre': e['nombre'], 'foto': e.get('foto_url', '')}
+                 for e in _ejs], ensure_ascii=False)
+            components.html(
+                _CLON_MODAL_HTML.replace('__EJS__', _ejs_payload).replace('__EP__', _clon_ep),
+                height=0)
 
         # ── Visor de documentos (panel deslizante desde la derecha) ──────────────
         # Se abre con "Ver documentos" del menú. Pestañas = documentos disponibles y
