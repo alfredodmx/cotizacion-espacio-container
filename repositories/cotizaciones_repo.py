@@ -388,7 +388,8 @@ def clonar_cotizacion(source_ep: str, asesor_nombre: str, asesor_email: str,
             'cliente_direccion': '', 'cliente_comuna': '', 'cliente_region': '',
             'cliente_tipo': 'natural', 'cliente_empresa': '', 'cliente_rut_empresa': '',
             'proyecto_direccion': '', 'proyecto_comuna': '', 'proyecto_region': '',
-            'proyecto_fecha_inicio': '', 'proyecto_fecha_termino': '',
+            # Columnas DATE: NULL (no '' → Postgres error 22007 "invalid input syntax for type date")
+            'proyecto_fecha_inicio': None, 'proyecto_fecha_termino': None,
             'proyecto_dias_validez': 0, 'proyecto_observaciones': '',
             # Asesor: el ejecutivo asignado (lo hace visible en su cuenta por asesor_email)
             'asesor_nombre': asesor_nombre or '',
