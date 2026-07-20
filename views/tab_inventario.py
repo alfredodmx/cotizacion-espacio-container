@@ -10,11 +10,13 @@ edición y baja lógica.
 Acceso: root, admin y operacion (operador).
 """
 import io
+import json
 import base64
 import html as _html
 from datetime import datetime
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from views.layout import render_page_header
 from repositories.inventario_repo import (
@@ -35,14 +37,25 @@ div[class*="st-key-inv_form_card"] [data-testid="stSlider"]{padding:0 4px;}
 div[class*="st-key-inv_form_card"] [data-testid="stFileUploaderDropzone"]{padding:8px 14px;}
 /* Ocultamos la lista de archivos nativa: la reemplazamos con miniaturas 100x100. */
 div[class*="st-key-inv_form_card"] [data-testid="stFileUploaderFile"]{display:none!important;}
-/* Botón de papelera (quitar foto): icono rojo, compacto, centrado bajo la miniatura */
-div[class*="st-key-inv_form_card"] [class*="st-key-inv_delf"]{display:flex;justify-content:center;}
-div[class*="st-key-inv_form_card"] [class*="st-key-inv_delf"] button{min-width:0!important;
-  width:auto!important;padding:5px 12px!important;color:#dc2626!important;border-color:#fecaca!important;}
-div[class*="st-key-inv_form_card"] [class*="st-key-inv_delf"] button:hover{background:#fef2f2!important;
-  border-color:#dc2626!important;color:#b91c1c!important;}
-div[class*="st-key-inv_form_card"] [class*="st-key-inv_delf"] button [data-testid="stIconMaterial"]{
-  color:#dc2626!important;font-size:20px!important;}
+/* Grilla de miniaturas: flex-wrap (responsivo), papelera flotante en la esquina y
+   zoom en hover (lupa). La papelera aparece al pasar el mouse; el clic lo maneja el
+   handler del iframe (data-inv-del → bridge; data-inv-zoom → lightbox). */
+.inv-grid{display:flex;flex-wrap:wrap;gap:12px;margin-top:6px;}
+.inv-thumb{position:relative;width:100px;height:100px;border-radius:10px;overflow:hidden;
+  border:1.5px solid #e2e8f0;flex:0 0 auto;background:#f1f5f9;}
+.inv-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.inv-zoom{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:#fff;background:rgba(15,23,42,0);opacity:0;cursor:zoom-in;z-index:2;
+  transition:opacity .18s,background .18s;}
+.inv-thumb:hover .inv-zoom{opacity:1;background:rgba(15,23,42,.45);}
+.inv-del{position:absolute;top:5px;right:5px;width:24px;height:24px;border-radius:7px;
+  display:flex;align-items:center;justify-content:center;background:rgba(220,38,38,.95);
+  color:#fff;cursor:pointer;opacity:0;z-index:3;box-shadow:0 2px 6px rgba(0,0,0,.28);
+  transition:opacity .18s,transform .18s;}
+.inv-thumb:hover .inv-del{opacity:1;}
+.inv-del:hover{background:#b91c1c;transform:scale(1.08);}
+/* En pantallas táctiles (sin hover) la papelera se muestra siempre. */
+@media (hover:none){.inv-del{opacity:1!important;}}
 /* Botón "Guardar en inventario": ~320px, centrado y responsivo (encoge en móvil). */
 div[class*="st-key-inv_form_card"] [class*="st-key-inv_guardar"]{width:100%!important;}
 div[class*="st-key-inv_form_card"] [class*="st-key-inv_guardar"] [data-testid="stButton"]{
@@ -137,6 +150,81 @@ def _thumb_b64(data: bytes, mime: str = "image/jpeg") -> str:
         return f"data:{mime};base64," + base64.b64encode(data).decode()
 
 
+@st.cache_data(ttl=600, show_spinner=False)
+def _preview_b64(data: bytes, mime: str = "image/jpeg") -> str:
+    """Imagen ~1000px (JPEG q82) para el lightbox 'ver en grande'. Cacheada."""
+    try:
+        from PIL import Image, ImageOps
+        img = Image.open(io.BytesIO(data))
+        img = ImageOps.exif_transpose(img).convert("RGB")
+        img.thumbnail((1000, 1000))
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=82)
+        return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
+    except Exception:
+        return f"data:{mime};base64," + base64.b64encode(data).decode()
+
+
+# SVG inline para la grilla de fotos (papelera flotante + lupa de zoom).
+_SVG_TRASH = ('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+              'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/>'
+              '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'
+              '<line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>')
+_SVG_ZOOM = ('<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+             'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/>'
+             '<path d="m21 21-4.3-4.3"/><line x1="11" y1="8" x2="11" y2="14"/>'
+             '<line x1="8" y1="11" x2="14" y2="11"/></svg>')
+
+# Handler (iframe height=0): delegación de clicks en el doc PADRE para zoom
+# (lightbox client-side) y quitar foto (bridge _inv_fcmd → Python). Se re-bindea
+# en cada run (el iframe se recrea → el listener viejo muere).
+_INV_FOTOS_JS = r"""<script>
+(function(){
+  var W=window.parent, D=W&&W.document; if(!D) return;
+  var PREV=__PREV__;
+  function fire(action, fid){
+    var inp=D.querySelector('.st-key-_inv_fcmd input'); if(!inp) return;
+    try{
+      var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set;
+      inp.focus({preventScroll:true});
+      setter.call(inp, action+'|'+fid+'|'+Date.now());
+      inp.dispatchEvent(new Event('input',{bubbles:true}));
+      inp.dispatchEvent(new Event('change',{bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.blur();
+    }catch(e){}
+  }
+  function lightbox(uri){
+    var old=D.getElementById('inv-lightbox'); if(old) old.remove();
+    var ov=D.createElement('div'); ov.id='inv-lightbox';
+    ov.style.cssText='position:fixed;inset:0;z-index:2147483000;background:rgba(5,12,28,.86);'+
+      'display:flex;align-items:center;justify-content:center;padding:30px;cursor:zoom-out;'+
+      'animation:invLbIn .18s ease;';
+    var im=D.createElement('img'); im.src=uri;
+    im.style.cssText='max-width:92vw;max-height:92vh;border-radius:12px;box-shadow:0 24px 70px rgba(0,0,0,.55);';
+    ov.appendChild(im);
+    function close(){ ov.remove(); if(W._invEsc){D.removeEventListener('keydown',W._invEsc);W._invEsc=null;} }
+    ov.addEventListener('click', close);
+    if(W._invEsc){D.removeEventListener('keydown',W._invEsc);}
+    W._invEsc=function(e){ if(e.key==='Escape') close(); };
+    D.addEventListener('keydown', W._invEsc);
+    D.body.appendChild(ov);
+    if(!D.getElementById('inv-lb-kf')){var s=D.createElement('style');s.id='inv-lb-kf';
+      s.textContent='@keyframes invLbIn{from{opacity:0}to{opacity:1}}';D.head.appendChild(s);}
+  }
+  if(W._invClickH){ D.removeEventListener('click', W._invClickH, true); }
+  W._invClickH=function(ev){
+    var t=ev.target; if(!t||!t.closest) return;
+    var d=t.closest('[data-inv-del]');
+    if(d){ ev.preventDefault(); ev.stopPropagation(); fire('remove', d.getAttribute('data-inv-del')); return; }
+    var z=t.closest('[data-inv-zoom]');
+    if(z){ ev.preventDefault(); ev.stopPropagation(); var f=z.getAttribute('data-inv-zoom'); if(PREV[f]) lightbox(PREV[f]); return; }
+  };
+  D.addEventListener('click', W._invClickH, true);
+})();
+</script>"""
+
+
 @st.cache_data(ttl=60, show_spinner=False)
 def _inv_all():
     """Lista completa de inventario activo (cacheada; se limpia al mutar)."""
@@ -226,10 +314,22 @@ def _render_form(cat_items, rec, rol):
                     if st.checkbox("Mantener", value=True, key=f"inv_keep_{sfx}_{i}"):
                         fotos_conservar.append(url)
 
-        # ── Fotos: uploader + previsualización 100x100 con eliminar (una / todas) ──
+        # ── Fotos: uploader + previsualización 100x100 con zoom y quitar ──
         _cap = MAX_FOTOS - (len(fotos_conservar) if editing else 0)
         _fnonce = st.session_state.get(f"inv_fnonce_{sfx}", 0)
         _excl = st.session_state.setdefault(f"inv_fexcl_{sfx}", set())
+        # Bridge oculto: la grilla HTML escribe "remove|<fid>|ts" para quitar 1 foto.
+        st.markdown('<style>.st-key-_inv_fcmd{position:absolute!important;left:-9999px!important;'
+                    'top:-9999px!important;height:0!important;width:0!important;overflow:hidden!important;}</style>',
+                    unsafe_allow_html=True)
+        st.text_input('fcmd', key='_inv_fcmd', label_visibility='collapsed')
+        _fcmd = str(st.session_state.get('_inv_fcmd', '') or '')
+        if _fcmd and '|' in _fcmd:
+            _fp = _fcmd.split('|')
+            if _fp[-1] != st.session_state.get('_inv_fcmd_ts') and _fp[0] == 'remove' and len(_fp) >= 3:
+                st.session_state['_inv_fcmd_ts'] = _fp[-1]
+                _excl.add('|'.join(_fp[1:-1]))
+                st.session_state[f"inv_fexcl_{sfx}"] = _excl
         _lbl = (f"Agregar fotos (quedan {max(0, _cap)} de {MAX_FOTOS})" if editing
                 else f"Fotos del producto (hasta {MAX_FOTOS})")
         _raw = st.file_uploader(_lbl, type=["png", "jpg", "jpeg", "webp"],
@@ -258,20 +358,24 @@ def _render_form(cat_items, rec, rol):
                     st.session_state[f"inv_fnonce_{sfx}"] = _fnonce + 1
                     st.session_state[f"inv_fexcl_{sfx}"] = set()
                     st.rerun()
-            _pcols = st.columns(MAX_FOTOS)
-            for i, f in enumerate(fotos):
-                with _pcols[i]:
-                    st.markdown(
-                        f'<img src="{_thumb_b64(f.getvalue(), getattr(f, "type", "image/jpeg"))}" '
-                        'style="width:100%;max-width:100px;aspect-ratio:1/1;height:auto;'
-                        'object-fit:cover;border-radius:10px;border:1.5px solid #e2e8f0;'
-                        'display:block;margin:0 auto 5px;">',
-                        unsafe_allow_html=True)
-                    if st.button("", icon=":material/delete:", help="Quitar esta foto",
-                                 key=f"inv_delf_{sfx}_{i}"):
-                        _excl.add(_fid(f))
-                        st.session_state[f"inv_fexcl_{sfx}"] = _excl
-                        st.rerun()
+            # Grilla HTML: cada miniatura con papelera flotante (esquina) + zoom en
+            # hover (lightbox client-side). Papelera → bridge _inv_fcmd → Python.
+            _prev_map, _cells = {}, ""
+            for f in fotos:
+                _b = f.getvalue()
+                _mime = getattr(f, "type", "image/jpeg")
+                _fidv = _fid(f)
+                _prev_map[_fidv] = _preview_b64(_b, _mime)
+                _fa = _html.escape(_fidv, quote=True)
+                _cells += (
+                    '<div class="inv-thumb">'
+                    f'<img src="{_thumb_b64(_b, _mime)}" alt="">'
+                    f'<div class="inv-zoom" data-inv-zoom="{_fa}" title="Ver en grande">{_SVG_ZOOM}</div>'
+                    f'<div class="inv-del" data-inv-del="{_fa}" title="Quitar foto">{_SVG_TRASH}</div>'
+                    '</div>')
+            st.markdown(f'<div class="inv-grid">{_cells}</div>', unsafe_allow_html=True)
+            components.html(_INV_FOTOS_JS.replace('__PREV__', json.dumps(_prev_map)),
+                            height=0)
 
         observacion = st.text_area("Observación",
                                    value=rec.get("observacion", "") if editing else "",
