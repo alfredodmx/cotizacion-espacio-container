@@ -35,11 +35,20 @@ div[class*="st-key-inv_form_card"] [data-testid="stSlider"]{padding:0 4px;}
 div[class*="st-key-inv_form_card"] [data-testid="stFileUploaderDropzone"]{padding:8px 14px;}
 /* Ocultamos la lista de archivos nativa: la reemplazamos con miniaturas 100x100. */
 div[class*="st-key-inv_form_card"] [data-testid="stFileUploaderFile"]{display:none!important;}
-/* Botón "Quitar" de cada foto: rojo, compacto */
-div[class*="st-key-inv_form_card"] [class*="st-key-inv_delf"] button{padding:2px 6px!important;
-  font-size:0.72rem!important;color:#dc2626!important;border-color:#fecaca!important;}
+/* Botón de papelera (quitar foto): icono rojo, compacto, centrado bajo la miniatura */
+div[class*="st-key-inv_form_card"] [class*="st-key-inv_delf"]{display:flex;justify-content:center;}
+div[class*="st-key-inv_form_card"] [class*="st-key-inv_delf"] button{min-width:0!important;
+  width:auto!important;padding:5px 12px!important;color:#dc2626!important;border-color:#fecaca!important;}
 div[class*="st-key-inv_form_card"] [class*="st-key-inv_delf"] button:hover{background:#fef2f2!important;
   border-color:#dc2626!important;color:#b91c1c!important;}
+div[class*="st-key-inv_form_card"] [class*="st-key-inv_delf"] button [data-testid="stIconMaterial"]{
+  color:#dc2626!important;font-size:20px!important;}
+/* Botón "Guardar en inventario": ~320px, centrado y responsivo (encoge en móvil). */
+div[class*="st-key-inv_form_card"] [class*="st-key-inv_guardar"]{width:100%!important;}
+div[class*="st-key-inv_form_card"] [class*="st-key-inv_guardar"] [data-testid="stButton"]{
+  display:flex!important;justify-content:center!important;width:100%!important;}
+div[class*="st-key-inv_form_card"] [class*="st-key-inv_guardar"] button{width:100%!important;
+  max-width:320px!important;}
 </style>
 """
 
@@ -254,10 +263,11 @@ def _render_form(cat_items, rec, rol):
                 with _pcols[i]:
                     st.markdown(
                         f'<img src="{_thumb_b64(f.getvalue(), getattr(f, "type", "image/jpeg"))}" '
-                        'style="width:100px;height:100px;object-fit:cover;border-radius:10px;'
-                        'border:1.5px solid #e2e8f0;display:block;margin-bottom:5px;">',
+                        'style="width:100%;max-width:100px;aspect-ratio:1/1;height:auto;'
+                        'object-fit:cover;border-radius:10px;border:1.5px solid #e2e8f0;'
+                        'display:block;margin:0 auto 5px;">',
                         unsafe_allow_html=True)
-                    if st.button("Quitar", use_container_width=True,
+                    if st.button("", icon=":material/delete:", help="Quitar esta foto",
                                  key=f"inv_delf_{sfx}_{i}"):
                         _excl.add(_fid(f))
                         st.session_state[f"inv_fexcl_{sfx}"] = _excl
@@ -279,7 +289,7 @@ def _render_form(cat_items, rec, rol):
                     st.rerun()
         else:
             guardar = st.button("Guardar en inventario", type="primary",
-                                use_container_width=True, key=f"inv_save_{sfx}")
+                                key=f"inv_guardar_{sfx}")
             st.markdown('<div style="text-align:center;color:#94a3b8;font-size:0.72rem;'
                         'margin-top:6px;">Se registra automáticamente quién guarda '
                         'y la fecha/hora</div>', unsafe_allow_html=True)
