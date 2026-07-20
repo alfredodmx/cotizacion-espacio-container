@@ -9,6 +9,8 @@ edición y baja lógica.
 
 Acceso: root, admin y operacion (operador).
 """
+import io
+import base64
 import html as _html
 from datetime import datetime
 
@@ -31,6 +33,13 @@ _INV_CSS = """
    derecha). Aquí solo pulimos widgets internos, ya contenidos por el nativo. */
 div[class*="st-key-inv_form_card"] [data-testid="stSlider"]{padding:0 4px;}
 div[class*="st-key-inv_form_card"] [data-testid="stFileUploaderDropzone"]{padding:8px 14px;}
+/* Ocultamos la lista de archivos nativa: la reemplazamos con miniaturas 100x100. */
+div[class*="st-key-inv_form_card"] [data-testid="stFileUploaderFile"]{display:none!important;}
+/* Botón "Quitar" de cada foto: rojo, compacto */
+div[class*="st-key-inv_form_card"] [class*="st-key-inv_delf"] button{padding:2px 6px!important;
+  font-size:0.72rem!important;color:#dc2626!important;border-color:#fecaca!important;}
+div[class*="st-key-inv_form_card"] [class*="st-key-inv_delf"] button:hover{background:#fef2f2!important;
+  border-color:#dc2626!important;color:#b91c1c!important;}
 </style>
 """
 
@@ -95,6 +104,28 @@ def _fmt_cant(c):
         return str(int(f)) if f == int(f) else f"{f:g}"
     except (TypeError, ValueError):
         return str(c)
+
+
+def _fid(f):
+    """Identidad estable de un archivo subido (para excluirlo sin reordenar)."""
+    return f"{getattr(f, 'name', '')}_{getattr(f, 'size', 0)}"
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def _thumb_b64(data: bytes, mime: str = "image/jpeg") -> str:
+    """Miniatura data-URI (~200px, JPEG q70) para previsualizar antes de guardar.
+    Cacheada por bytes (los params NO llevan '_' inicial para que sí se hasheen)
+    y así no re-procesar en cada rerun. Fallback: bytes crudos."""
+    try:
+        from PIL import Image, ImageOps
+        img = Image.open(io.BytesIO(data))
+        img = ImageOps.exif_transpose(img).convert("RGB")
+        img.thumbnail((200, 200))
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=70)
+        return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
+    except Exception:
+        return f"data:{mime};base64," + base64.b64encode(data).decode()
 
 
 @st.cache_data(ttl=60, show_spinner=False)
@@ -186,11 +217,51 @@ def _render_form(cat_items, rec, rol):
                     if st.checkbox("Mantener", value=True, key=f"inv_keep_{sfx}_{i}"):
                         fotos_conservar.append(url)
 
-        _restantes = MAX_FOTOS - len(fotos_conservar) if editing else MAX_FOTOS
-        _lbl = (f"Agregar fotos (quedan {max(0, _restantes)} espacios)" if editing
+        # ── Fotos: uploader + previsualización 100x100 con eliminar (una / todas) ──
+        _cap = MAX_FOTOS - (len(fotos_conservar) if editing else 0)
+        _fnonce = st.session_state.get(f"inv_fnonce_{sfx}", 0)
+        _excl = st.session_state.setdefault(f"inv_fexcl_{sfx}", set())
+        _lbl = (f"Agregar fotos (quedan {max(0, _cap)} de {MAX_FOTOS})" if editing
                 else f"Fotos del producto (hasta {MAX_FOTOS})")
-        fotos = st.file_uploader(_lbl, type=["png", "jpg", "jpeg", "webp"],
-                                 accept_multiple_files=True, key=f"inv_fotos_{sfx}")
+        _raw = st.file_uploader(_lbl, type=["png", "jpg", "jpeg", "webp"],
+                                accept_multiple_files=True,
+                                key=f"inv_fotos_{sfx}_{_fnonce}")
+        # Poda exclusiones obsoletas y filtra las que el usuario quitó.
+        _raw_ids = {_fid(f) for f in (_raw or [])}
+        _excl &= _raw_ids
+        st.session_state[f"inv_fexcl_{sfx}"] = _excl
+        fotos = [f for f in (_raw or []) if _fid(f) not in _excl]
+        if len(fotos) > _cap:
+            st.warning(f"Solo se guardarán las primeras {max(0, _cap)} fotos "
+                       f"(máximo {MAX_FOTOS}).")
+            fotos = fotos[:max(0, _cap)]
+
+        if fotos:
+            hc1, hc2 = st.columns([3, 1])
+            with hc1:
+                st.markdown('<div style="font-size:0.72rem;color:#94a3b8;font-weight:700;'
+                            'text-transform:uppercase;letter-spacing:.05em;padding-top:8px;">'
+                            f'{len(fotos)} foto(s) seleccionada(s)</div>',
+                            unsafe_allow_html=True)
+            with hc2:
+                if st.button("Eliminar todas", use_container_width=True,
+                             key=f"inv_delall_{sfx}"):
+                    st.session_state[f"inv_fnonce_{sfx}"] = _fnonce + 1
+                    st.session_state[f"inv_fexcl_{sfx}"] = set()
+                    st.rerun()
+            _pcols = st.columns(MAX_FOTOS)
+            for i, f in enumerate(fotos):
+                with _pcols[i]:
+                    st.markdown(
+                        f'<img src="{_thumb_b64(f.getvalue(), getattr(f, "type", "image/jpeg"))}" '
+                        'style="width:100px;height:100px;object-fit:cover;border-radius:10px;'
+                        'border:1.5px solid #e2e8f0;display:block;margin-bottom:5px;">',
+                        unsafe_allow_html=True)
+                    if st.button("Quitar", use_container_width=True,
+                                 key=f"inv_delf_{sfx}_{i}"):
+                        _excl.add(_fid(f))
+                        st.session_state[f"inv_fexcl_{sfx}"] = _excl
+                        st.rerun()
 
         observacion = st.text_area("Observación",
                                    value=rec.get("observacion", "") if editing else "",
