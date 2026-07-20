@@ -25,14 +25,23 @@ _ROLES_OK = ("root", "admin", "operacion")
 
 _INV_CSS = """
 <style>
-div[class*="st-key-inv_form_card"]{background:#fff;border:1.5px solid #e8ebf5;
-  border-radius:16px;padding:16px 20px 8px;box-shadow:0 2px 12px rgba(0,0,0,.05);
-  margin-bottom:8px;}
-div[class*="st-key-inv_card_"]{background:#fff;border:1.5px solid #e8ebf5;
-  border-radius:14px;padding:13px 16px;box-shadow:0 2px 10px rgba(0,0,0,.04);
-  margin-bottom:11px;transition:box-shadow .2s,border-color .2s;}
-div[class*="st-key-inv_card_"]:hover{box-shadow:0 6px 20px rgba(91,124,250,.12);
-  border-color:#c5ccf0;}
+/* box-sizing:border-box es CLAVE: sin él, el padding se suma al width:100% y la
+   tarjeta se desborda ~40px a la derecha (el slider y el uploader se salían). */
+div[class*="st-key-inv_form_card"]{background:#fff;border:1px solid #e6e9f4;
+  border-radius:16px;padding:22px 26px;box-shadow:0 3px 16px rgba(30,36,71,.06);
+  box-sizing:border-box;margin-bottom:6px;}
+div[class*="st-key-inv_card_"]{background:#fff;border:1px solid #e6e9f4;
+  border-radius:14px;padding:14px 18px;box-shadow:0 2px 10px rgba(30,36,71,.05);
+  box-sizing:border-box;margin-bottom:10px;transition:box-shadow .2s,border-color .2s;}
+div[class*="st-key-inv_card_"]:hover{box-shadow:0 8px 22px rgba(91,124,250,.13);
+  border-color:#c9d1f2;}
+/* Ningún widget interno debe forzar overflow horizontal dentro de la tarjeta */
+div[class*="st-key-inv_form_card"] [data-testid="stElementContainer"],
+div[class*="st-key-inv_form_card"] [data-testid="stHorizontalBlock"]{min-width:0;max-width:100%;}
+/* Slider: reservar espacio para que la etiqueta "10" y el thumb no toquen el borde */
+div[class*="st-key-inv_form_card"] [data-testid="stSlider"]{padding:0 6px;}
+/* Dropzone de fotos más compacto/profesional dentro de la tarjeta */
+div[class*="st-key-inv_form_card"] [data-testid="stFileUploaderDropzone"]{padding:8px 14px;}
 </style>
 """
 
@@ -116,6 +125,8 @@ def _render_form(cat_items, rec, rol):
                if editing else '<path d="M12 5v14"/><path d="M5 12h14"/>')
         _titulo("Editar producto" if editing else "Ingresar producto",
                 _svg(_ic, 17, "#2563eb"))
+        st.markdown('<div style="border-bottom:1px solid #eef1f6;margin:-6px 0 16px;"></div>',
+                    unsafe_allow_html=True)
 
         cats = list(cat_items.keys())
         if not cats and not editing:
@@ -150,20 +161,24 @@ def _render_form(cat_items, rec, rol):
             unidad = st.selectbox("Unidad", UNIDADES, index=uni_idx, key=f"inv_uni_{sfx}")
 
         ubicacion = st.text_input("Ubicación / bodega",
-                                  value=rec.get("ubicacion", "") if editing else "",
-                                  placeholder="Bodega A · Rack 3",
+                                  value=rec.get("ubicacion", "") if editing else "oficina colina",
+                                  placeholder="oficina colina",
                                   key=f"inv_ubic_{sfx}")
 
         _cal0 = int(rec["calidad"]) if editing and rec.get("calidad") else 7
-        calidad = st.slider("Estado de calidad (1 peor → 10 mejor)", 1, 10,
-                            value=_cal0, key=f"inv_cal_{sfx}")
-        _bg, _fg = _cal_colors(calidad)
+        _cal_cur = int(st.session_state.get(f"inv_cal_{sfx}", _cal0))
+        _bg, _fg = _cal_colors(_cal_cur)
         st.markdown(
-            f'<div style="margin:-4px 0 10px;"><span style="background:{_bg};color:{_fg};'
-            'font-family:Montserrat,sans-serif;font-weight:800;font-size:0.72rem;'
-            'padding:3px 12px;border-radius:20px;letter-spacing:.03em;">'
-            f'Calidad {calidad}/10 · {_cal_label(calidad)}</span></div>',
+            '<div style="display:flex;align-items:center;justify-content:space-between;'
+            'margin:2px 0 2px;"><span style="font-size:0.8rem;font-weight:600;color:#5a6080;'
+            'text-transform:uppercase;letter-spacing:.04em;">Estado de calidad '
+            '<span style="color:#a7aec9;text-transform:none;font-weight:500;">· 1 peor → 10 mejor</span>'
+            f'</span><span style="background:{_bg};color:{_fg};font-family:Montserrat,sans-serif;'
+            'font-weight:800;font-size:0.72rem;padding:3px 13px;border-radius:20px;'
+            f'letter-spacing:.03em;">{_cal_cur}/10 · {_cal_label(_cal_cur)}</span></div>',
             unsafe_allow_html=True)
+        calidad = st.slider("Estado de calidad", 1, 10, value=_cal0,
+                            key=f"inv_cal_{sfx}", label_visibility="collapsed")
 
         # Fotos existentes (solo en edición): desmarcar para quitar.
         fotos_conservar = []
