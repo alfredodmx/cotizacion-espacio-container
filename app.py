@@ -74,6 +74,7 @@ from views.tab_datos_cliente   import render_tab_datos_cliente
 from views.tab_historial       import render_tab_historial
 from views.tab_contrato        import render_tab_contrato
 from views.tab_operaciones     import render_tab_operaciones
+from views.tab_inventario      import render_tab_inventario
 from views.tab_usuarios        import render_tab_usuarios
 from views.tab_dashboard       import render_tab_dashboard
 from views.tab_notificaciones  import render_tab_notificaciones
@@ -103,15 +104,16 @@ _PAGES = {
     'notificaciones': ('Notificaciones',     'notificaciones', lambda: render_tab_notificaciones(supabase=supabase)),
     'reporte':        ('Reporte BI',         'reporte',        lambda: render_tab_reporte(supabase=supabase)),
     'operaciones':    ('Operaciones',        'operaciones',    lambda: render_tab_operaciones(**_deps)),
+    'inventario':     ('Inventario',         'inventario',     lambda: render_tab_inventario(**_deps)),
     'admindata':      ('Admin. de datos',    'admindata',      lambda: render_tab_admindata(**_deps)),
     'formulario':     ('Formulario cliente', 'formulario',     lambda: render_tab_formulario(**_deps)),
     'seguridad':      ('Seguridad',          'seguridad',      lambda: render_tab_seguridad(**_deps)),
 }
 
 _ORDER = {
-    'root':      ['dashboard','presupuesto','datos','cotizaciones','edicion_pdf','ranking','contrato','3d','proyecto_excel','sistema','usuarios','notificaciones','reporte','operaciones','admindata','formulario','seguridad'],
-    'admin':     ['presupuesto','cotizaciones','datos','contrato','operaciones','usuarios','proyecto_excel','edicion_pdf','ranking','3d','notificaciones','dashboard','reporte','admindata','formulario','seguridad'],
-    'operacion': ['operaciones'],
+    'root':      ['dashboard','presupuesto','datos','cotizaciones','edicion_pdf','ranking','contrato','3d','proyecto_excel','sistema','usuarios','notificaciones','reporte','operaciones','inventario','admindata','formulario','seguridad'],
+    'admin':     ['presupuesto','cotizaciones','datos','contrato','operaciones','inventario','usuarios','proyecto_excel','edicion_pdf','ranking','3d','notificaciones','dashboard','reporte','admindata','formulario','seguridad'],
+    'operacion': ['operaciones','inventario'],
     'ejecutivo': ['ranking','presupuesto','datos','cotizaciones','contrato','formulario','3d'],
 }
 
