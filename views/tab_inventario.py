@@ -25,22 +25,11 @@ _ROLES_OK = ("root", "admin", "operacion")
 
 _INV_CSS = """
 <style>
-/* box-sizing:border-box es CLAVE: sin él, el padding se suma al width:100% y la
-   tarjeta se desborda ~40px a la derecha (el slider y el uploader se salían). */
-div[class*="st-key-inv_form_card"]{background:#fff;border:1px solid #e6e9f4;
-  border-radius:16px;padding:22px 26px;box-shadow:0 3px 16px rgba(30,36,71,.06);
-  box-sizing:border-box;margin-bottom:6px;}
-div[class*="st-key-inv_card_"]{background:#fff;border:1px solid #e6e9f4;
-  border-radius:14px;padding:14px 18px;box-shadow:0 2px 10px rgba(30,36,71,.05);
-  box-sizing:border-box;margin-bottom:10px;transition:box-shadow .2s,border-color .2s;}
-div[class*="st-key-inv_card_"]:hover{box-shadow:0 8px 22px rgba(91,124,250,.13);
-  border-color:#c9d1f2;}
-/* Ningún widget interno debe forzar overflow horizontal dentro de la tarjeta */
-div[class*="st-key-inv_form_card"] [data-testid="stElementContainer"],
-div[class*="st-key-inv_form_card"] [data-testid="stHorizontalBlock"]{min-width:0;max-width:100%;}
-/* Slider: reservar espacio para que la etiqueta "10" y el thumb no toquen el borde */
-div[class*="st-key-inv_form_card"] [data-testid="stSlider"]{padding:0 6px;}
-/* Dropzone de fotos más compacto/profesional dentro de la tarjeta */
+/* La tarjeta la da el contenedor NATIVO (st.container(border=True)): el CSS
+   global del proyecto ya pinta ese borderWrapper como tarjeta blanca. NO
+   pintamos otra encima (eso creaba el "doble contenedor" y el desborde a la
+   derecha). Aquí solo pulimos widgets internos, ya contenidos por el nativo. */
+div[class*="st-key-inv_form_card"] [data-testid="stSlider"]{padding:0 4px;}
 div[class*="st-key-inv_form_card"] [data-testid="stFileUploaderDropzone"]{padding:8px 14px;}
 </style>
 """
@@ -120,7 +109,7 @@ def _render_form(cat_items, rec, rol):
     editing = rec is not None
     sfx = f"e{rec['id']}" if editing else f"n{st.session_state.get('_inv_nonce', 0)}"
 
-    with st.container(key="inv_form_card"):
+    with st.container(border=True, key="inv_form_card"):
         _ic = ('<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>'
                if editing else '<path d="M12 5v14"/><path d="M5 12h14"/>')
         _titulo("Editar producto" if editing else "Ingresar producto",
@@ -330,7 +319,7 @@ def _render_card(d, rol, confirming):
         '</div></div>'
     )
 
-    with st.container(key=f"inv_card_{_id}"):
+    with st.container(border=True, key=f"inv_card_{_id}"):
         st.markdown(card, unsafe_allow_html=True)
         if confirming:
             cc1, cc2, _sp = st.columns([1.3, 1, 3])
