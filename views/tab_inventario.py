@@ -67,10 +67,15 @@ div[class*="st-key-inv_form_card"] [class*="st-key-inv_guardar"] button{width:10
 @keyframes invDrawerIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
 @keyframes invBdIn{from{opacity:0}to{opacity:1}}
 div[class*="st-key-inv_form_card"]{position:fixed!important;top:65px!important;right:0!important;
-  bottom:0!important;width:min(680px,96vw)!important;background:#fff!important;z-index:2147482000!important;
-  box-shadow:-18px 0 55px rgba(15,23,42,.30)!important;overflow-y:auto!important;
-  padding:22px 26px 30px!important;margin:0!important;border-radius:18px 0 0 18px!important;
+  bottom:0!important;width:min(680px,96vw)!important;box-sizing:border-box!important;
+  background:#fff!important;z-index:2147482000!important;
+  box-shadow:-18px 0 55px rgba(15,23,42,.30)!important;overflow-x:hidden!important;overflow-y:auto!important;
+  padding:22px 26px 30px!important;margin:0!important;border-radius:0!important;
   animation:invDrawerIn .28s cubic-bezier(.2,.9,.3,1)!important;}
+/* Evita scroll horizontal: las columnas/bloques pueden encoger bajo su contenido. */
+div[class*="st-key-inv_form_card"] [data-testid="stHorizontalBlock"],
+div[class*="st-key-inv_form_card"] [data-testid="stColumn"],
+div[class*="st-key-inv_form_card"] [data-testid="stElementContainer"]{min-width:0!important;}
 /* Colapsa el borderWrapper ancestro (tarjeta fantasma en el flujo). */
 [data-testid="stVerticalBlockBorderWrapper"]:has(> div[class*="st-key-inv_form_card"]){
   position:absolute!important;height:0!important;padding:0!important;margin:0!important;
