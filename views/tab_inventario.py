@@ -34,9 +34,17 @@ _INV_CSS = """
    ancho de los widgets contra el dialog → no se salen; y apila los dropdowns bien. */
 div[data-testid="stDialog"] > div{align-items:flex-start!important;justify-content:flex-end!important;}
 div[data-testid="stDialog"] div[role="dialog"]{position:fixed!important;top:65px!important;
-  right:0!important;bottom:0!important;left:auto!important;transform:none!important;margin:0!important;
-  max-height:none!important;height:auto!important;border-radius:0!important;
-  box-shadow:-18px 0 55px rgba(15,23,42,.30)!important;}
+  right:0!important;left:auto!important;bottom:auto!important;transform:none!important;margin:0!important;
+  height:calc(100vh - 65px)!important;max-height:calc(100vh - 65px)!important;
+  border-radius:0!important;box-shadow:none!important;overflow-y:auto!important;overflow-x:hidden!important;}
+/* Título del dialog: tipografía de títulos (Montserrat 700 uppercase) + icono SVG. */
+div[data-testid="stDialog"] div[role="dialog"] > div:first-child{
+  font-family:'Montserrat',sans-serif!important;font-weight:700!important;font-size:0.92rem!important;
+  letter-spacing:0.05em!important;text-transform:uppercase!important;color:#0f172a!important;
+  display:flex!important;align-items:center!important;gap:9px!important;}
+div[data-testid="stDialog"] div[role="dialog"] > div:first-child::before{
+  content:'';flex:0 0 auto;width:18px;height:18px;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 5H4a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1Z'/%3E%3Cpath d='M4 10v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9'/%3E%3Cline x1='10' y1='14' x2='14' y2='14'/%3E%3C/svg%3E") no-repeat center/contain;}
 /* Widgets internos del formulario (dentro del dialog). */
 div[data-testid="stDialog"] [data-testid="stSlider"]{padding:0 4px;}
 div[data-testid="stDialog"] [data-testid="stFileUploaderDropzone"]{padding:8px 14px;}
