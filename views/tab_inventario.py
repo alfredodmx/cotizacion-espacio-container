@@ -258,11 +258,16 @@ _SVG_TRASH16 = ('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" str
                 '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'
                 '<line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>')
 
-# Handler de la tabla (iframe height=0): clicks en editar/eliminar fila y en el
-# backdrop → bridge _inv_tcmd → Python. Re-bindea cada run.
+# Handler de la tabla (iframe height=0): menú contextual (click derecho) con
+# Ver fotos / Editar / Eliminar + galería + clicks de la columna Acciones. Todo
+# vía bridge _inv_tcmd → Python. Re-bindea cada run. FOTOS = {id: [urls]}.
 _INV_TABLE_JS = r"""<script>
 (function(){
   var W=window.parent, D=W&&W.document; if(!D) return;
+  var FOTOS=__FOTOS__;
+  var EYE='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+  var PENCIL='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>';
+  var TRASH='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
   function fire(action, id){
     var inp=D.querySelector('.st-key-_inv_tcmd input'); if(!inp) return;
     try{
@@ -275,17 +280,73 @@ _INV_TABLE_JS = r"""<script>
       inp.blur();
     }catch(e){}
   }
+  function closeMenu(){ var m=D.getElementById('inv-ctxmenu'); if(m) m.remove(); }
+  function gallery(urls){
+    var old=D.getElementById('inv-gallery'); if(old) old.remove();
+    var ov=D.createElement('div'); ov.id='inv-gallery';
+    ov.style.cssText='position:fixed;inset:0;z-index:2147483200;background:rgba(5,12,28,.92);display:flex;align-items:center;justify-content:center;padding:26px;cursor:zoom-out;';
+    var grid=D.createElement('div');
+    grid.style.cssText='display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:center;max-width:94vw;max-height:88vh;overflow:auto;';
+    urls.forEach(function(u){
+      var im=D.createElement('img'); im.src=u;
+      im.style.cssText='max-width:'+(urls.length>1?'44vw':'88vw')+';max-height:84vh;border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.5);object-fit:contain;background:#0b1020;';
+      grid.appendChild(im);
+    });
+    ov.appendChild(grid);
+    function close(){ ov.remove(); if(W._invGalEsc){D.removeEventListener('keydown',W._invGalEsc);W._invGalEsc=null;} }
+    ov.addEventListener('click', close);
+    if(W._invGalEsc){D.removeEventListener('keydown',W._invGalEsc);}
+    W._invGalEsc=function(e){ if(e.key==='Escape') close(); };
+    D.addEventListener('keydown', W._invGalEsc);
+    D.body.appendChild(ov);
+  }
+  function menuItem(m,label,icon,color,disabled,cb){
+    var b=D.createElement('button');
+    b.style.cssText='display:flex;align-items:center;gap:10px;width:100%;background:transparent;border:none;border-radius:8px;padding:9px 11px;cursor:'+(disabled?'default':'pointer')+';text-align:left;font-family:Montserrat,sans-serif;font-size:.8rem;font-weight:600;color:'+(disabled?'#cbd5e1':color)+';';
+    b.innerHTML='<span style="display:inline-flex;flex:0 0 auto;">'+icon+'</span><span>'+label+'</span>';
+    if(!disabled){
+      b.addEventListener('mouseenter',function(){b.style.background='#f1f5f9';});
+      b.addEventListener('mouseleave',function(){b.style.background='transparent';});
+      b.addEventListener('click',function(ev){ev.stopPropagation();closeMenu();cb();});
+    }
+    m.appendChild(b);
+  }
+  function buildMenu(x,y,id){
+    closeMenu();
+    var urls=FOTOS[id]||[];
+    var m=D.createElement('div'); m.id='inv-ctxmenu';
+    m.style.cssText='position:fixed;z-index:2147483400;background:#fff;border:1px solid #e5e9f2;border-radius:12px;box-shadow:0 14px 40px rgba(15,23,42,.24);padding:6px;min-width:198px;';
+    menuItem(m,'Ver fotos ('+urls.length+')',EYE,'#2563eb',urls.length===0,function(){gallery(urls);});
+    menuItem(m,'Editar',PENCIL,'#334155',false,function(){fire('edit',id);});
+    var sep=D.createElement('div'); sep.style.cssText='height:1px;background:#eef1f6;margin:5px 4px;'; m.appendChild(sep);
+    menuItem(m,'Eliminar',TRASH,'#dc2626',false,function(){fire('del',id);});
+    D.body.appendChild(m);
+    var r=m.getBoundingClientRect(), px=x, py=y;
+    if(px+r.width>W.innerWidth) px=W.innerWidth-r.width-8;
+    if(py+r.height>W.innerHeight) py=W.innerHeight-r.height-8;
+    m.style.left=px+'px'; m.style.top=py+'px';
+  }
   if(W._invTblH){ D.removeEventListener('click', W._invTblH, true); }
   W._invTblH=function(ev){
     var t=ev.target; if(!t||!t.closest) return;
+    if(!t.closest('#inv-ctxmenu')) closeMenu();
     var e=t.closest('[data-inv-edit]');
     if(e){ ev.preventDefault(); ev.stopPropagation(); fire('edit', e.getAttribute('data-inv-edit')); return; }
     var d=t.closest('[data-inv-delrow]');
     if(d){ ev.preventDefault(); ev.stopPropagation(); fire('del', d.getAttribute('data-inv-delrow')); return; }
-    var c=t.closest('[data-inv-close]');
-    if(c){ ev.preventDefault(); ev.stopPropagation(); fire('close', 'x'); return; }
   };
   D.addEventListener('click', W._invTblH, true);
+  if(W._invCtxH){ D.removeEventListener('contextmenu', W._invCtxH, true); }
+  W._invCtxH=function(ev){
+    var tr=ev.target&&ev.target.closest?ev.target.closest('.inv-tbl-wrap tbody tr[data-inv-id]'):null;
+    if(!tr) return;
+    ev.preventDefault();
+    buildMenu(ev.clientX, ev.clientY, tr.getAttribute('data-inv-id'));
+  };
+  D.addEventListener('contextmenu', W._invCtxH, true);
+  if(W._invScrollH){ W.removeEventListener('scroll', W._invScrollH, true); }
+  W._invScrollH=function(){ closeMenu(); };
+  W.addEventListener('scroll', W._invScrollH, true);
 })();
 </script>"""
 
@@ -530,7 +591,7 @@ def _tabla_html(data):
         obs_html = (f'<div style="font-size:0.68rem;color:#94a3b8;font-weight:500;white-space:normal;'
                     f'max-width:230px;margin-top:2px;">{_esc(obs)}</div>') if obs else ""
         rows += (
-            '<tr>'
+            f'<tr data-inv-id="{_esc(d["id"])}" style="cursor:context-menu;">'
             f'<td>{thumb}</td>'
             f'<td style="font-weight:700;color:#0f172a;text-transform:uppercase;letter-spacing:.02em;">'
             f'{_esc(d.get("item",""))}{obs_html}</td>'
@@ -587,43 +648,68 @@ def _render_tabla(rol):
     else:
         st.markdown(_tabla_html(data), unsafe_allow_html=True)
 
-    # Bridge oculto + handler de clics de fila (editar / eliminar / cerrar drawer).
+    # Bridge oculto + handler (menú contextual: ver fotos/editar/eliminar + acciones).
     st.markdown('<style>.st-key-_inv_tcmd{position:absolute!important;left:-9999px!important;'
                 'top:-9999px!important;height:0!important;width:0!important;overflow:hidden!important;}</style>',
                 unsafe_allow_html=True)
     st.text_input("tcmd", key="_inv_tcmd", label_visibility="collapsed")
-    components.html(_INV_TABLE_JS, height=0)
+    _fotos_map = {d["id"]: (d.get("fotos") or [])[:MAX_FOTOS] for d in data}
+    components.html(_INV_TABLE_JS.replace("__FOTOS__", json.dumps(_fotos_map, ensure_ascii=False)),
+                    height=0)
 
 
 def _render_del_confirm():
-    """Confirmación de borrado (dialog), disparada por el icono eliminar de la fila."""
-    _cid = st.session_state.get("_inv_del_confirm")
-    if not _cid:
-        return
-    _rec = obtener_inventario(_cid)
-    _nombre = (_rec.get("item") if _rec else None) or "este producto"
+    """Doble confirmación de borrado (dos preguntas). Disparada por el menú
+    contextual o el icono eliminar de la fila (ambos setean _inv_del_confirm)."""
+    _cid2 = st.session_state.get("_inv_del_confirm2")
+    _cid1 = st.session_state.get("_inv_del_confirm")
 
-    @st.dialog("Eliminar del inventario")
-    def _dlg():
-        st.markdown(f"¿Seguro que quieres eliminar **{_esc(_nombre)}** del stock? "
-                    "Se da de baja (no se destruye el registro).")
-        d1, d2 = st.columns(2)
-        with d1:
-            if st.button("Sí, eliminar", type="primary", use_container_width=True,
-                         key="_inv_delconf_yes"):
-                ok, err = eliminar_inventario(_cid)
-                st.session_state.pop("_inv_del_confirm", None)
-                if ok:
-                    _inv_all.clear()
-                    st.session_state["_inv_toast"] = "Producto eliminado del stock."
-                else:
-                    st.session_state["_inv_error"] = f"No se pudo eliminar: {err}"
-                st.rerun()
-        with d2:
-            if st.button("Cancelar", use_container_width=True, key="_inv_delconf_no"):
-                st.session_state.pop("_inv_del_confirm", None)
-                st.rerun()
-    _dlg()
+    if _cid2:   # ── 2ª pregunta ──
+        _rec = obtener_inventario(_cid2)
+        _nombre = (_rec.get("item") if _rec else None) or "este producto"
+
+        @st.dialog("Confirmación final")
+        def _dlg2():
+            st.markdown(f"Vas a **eliminar definitivamente** «{_esc(_nombre)}» del inventario. "
+                        "Se dará de baja y dejará de aparecer en el stock. ¿Continuar?")
+            d1, d2 = st.columns(2)
+            with d1:
+                if st.button("Sí, eliminar", type="primary", use_container_width=True,
+                             key="_inv_del2_yes"):
+                    ok, err = eliminar_inventario(_cid2)
+                    st.session_state.pop("_inv_del_confirm2", None)
+                    if ok:
+                        _inv_all.clear()
+                        st.session_state["_inv_toast"] = "Producto eliminado del stock."
+                    else:
+                        st.session_state["_inv_error"] = f"No se pudo eliminar: {err}"
+                    st.rerun()
+            with d2:
+                if st.button("Cancelar", use_container_width=True, key="_inv_del2_no"):
+                    st.session_state.pop("_inv_del_confirm2", None)
+                    st.rerun()
+        _dlg2()
+        return
+
+    if _cid1:   # ── 1ª pregunta ──
+        _rec = obtener_inventario(_cid1)
+        _nombre = (_rec.get("item") if _rec else None) or "este producto"
+
+        @st.dialog("Eliminar del inventario")
+        def _dlg1():
+            st.markdown(f"¿Seguro que quieres eliminar **{_esc(_nombre)}** del stock?")
+            d1, d2 = st.columns(2)
+            with d1:
+                if st.button("Sí, continuar", type="primary", use_container_width=True,
+                             key="_inv_del1_yes"):
+                    st.session_state["_inv_del_confirm2"] = _cid1
+                    st.session_state.pop("_inv_del_confirm", None)
+                    st.rerun()
+            with d2:
+                if st.button("Cancelar", use_container_width=True, key="_inv_del1_no"):
+                    st.session_state.pop("_inv_del_confirm", None)
+                    st.rerun()
+        _dlg1()
 
 
 # ── Entrada del tab ──────────────────────────────────────────────────────────
@@ -668,7 +754,11 @@ def render_tab_inventario(**kwargs):
     # Formulario en modal-drawer (st.dialog). One-shot: se abre UNA vez cuando
     # _inv_open está set (botón Ingresar o editar de fila); Streamlit lo mantiene
     # abierto en los reruns internos hasta que el usuario cierre o guarde.
-    if st.session_state.pop("_inv_open", False):
+    # Guard: no abrir a la vez que un dialog de confirmación (un solo dialog/run).
+    _del_active = bool(st.session_state.get("_inv_del_confirm")
+                       or st.session_state.get("_inv_del_confirm2"))
+    if st.session_state.get("_inv_open") and not _del_active:
+        st.session_state.pop("_inv_open", None)
         _eid = st.session_state.get("_inv_edit")
         _rec = obtener_inventario(_eid) if _eid else None
         if _eid and not _rec:
