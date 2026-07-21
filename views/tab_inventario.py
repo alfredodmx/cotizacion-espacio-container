@@ -299,6 +299,13 @@ _INV_TABLE_JS = r"""<script>
 })();
 </script>"""
 
+# Al abrir el drawer, baseweb (slider) puede quedar con el ancho JS-medido del
+# área principal (ej. 1674px) y desbordar. Disparar 'resize' fuerza a Streamlit a
+# re-medir cada widget al ancho real del drawer. (Fix estándar de widgets en
+# contenedores mostrados/recolocados dinámicamente.)
+_INV_RESIZE_JS = ("<script>var W=window.parent;function R(){try{W.dispatchEvent(new Event('resize'));}"
+                  "catch(e){}}setTimeout(R,60);setTimeout(R,250);setTimeout(R,600);</script>")
+
 
 @st.cache_data(ttl=60, show_spinner=False)
 def _inv_all():
@@ -327,6 +334,7 @@ def _render_form(cat_items, rec, rol):
                 st.rerun()
         st.markdown('<div style="border-bottom:1px solid #eef1f6;margin:-2px 0 16px;"></div>',
                     unsafe_allow_html=True)
+        components.html(_INV_RESIZE_JS, height=0)
 
         cats = list(cat_items.keys())
         if not cats and not editing:
