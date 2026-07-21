@@ -62,6 +62,37 @@ div[class*="st-key-inv_form_card"] [class*="st-key-inv_guardar"] [data-testid="s
   display:flex!important;justify-content:center!important;width:100%!important;}
 div[class*="st-key-inv_form_card"] [class*="st-key-inv_guardar"] button{width:100%!important;
   max-width:320px!important;}
+
+/* ── Drawer lateral derecho para el formulario (como el visor de COTIZACIONES) ── */
+@keyframes invDrawerIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
+@keyframes invBdIn{from{opacity:0}to{opacity:1}}
+div[class*="st-key-inv_form_card"]{position:fixed!important;top:65px!important;right:0!important;
+  bottom:0!important;width:min(680px,96vw)!important;background:#fff!important;z-index:2147482000!important;
+  box-shadow:-18px 0 55px rgba(15,23,42,.30)!important;overflow-y:auto!important;
+  padding:22px 26px 30px!important;margin:0!important;border-radius:18px 0 0 18px!important;
+  animation:invDrawerIn .28s cubic-bezier(.2,.9,.3,1)!important;}
+/* Colapsa el borderWrapper ancestro (tarjeta fantasma en el flujo). */
+[data-testid="stVerticalBlockBorderWrapper"]:has(> div[class*="st-key-inv_form_card"]){
+  position:absolute!important;height:0!important;padding:0!important;margin:0!important;
+  background:transparent!important;border:none!important;box-shadow:none!important;overflow:visible!important;}
+/* Botón cerrar (X) del drawer: chico, arriba a la derecha. */
+div[class*="st-key-inv_form_card"] [class*="st-key-inv_close_drawer"] button{min-width:0!important;
+  width:38px!important;height:38px!important;padding:0!important;border-radius:10px!important;
+  color:#64748b!important;}
+div[class*="st-key-inv_form_card"] [class*="st-key-inv_close_drawer"] button:hover{background:#f1f5f9!important;color:#0f172a!important;}
+#inv-backdrop{position:fixed;inset:0;top:65px;background:rgba(15,23,42,.42);z-index:2147481000;
+  animation:invBdIn .2s ease;backdrop-filter:blur(1.5px);-webkit-backdrop-filter:blur(1.5px);}
+
+/* ── Tabla de resultados (estilo COTIZACIONES vía .resultados-table global) ── */
+.inv-tbl-wrap{overflow-x:auto;border-radius:14px;border:1px solid #e6e9f4;
+  box-shadow:0 3px 16px rgba(30,36,71,.06);background:#fff;}
+.inv-tbl-wrap .resultados-table{margin:0!important;border-radius:0!important;box-shadow:none!important;
+  min-width:900px;white-space:nowrap;}
+.inv-tbl-wrap .resultados-table td{font-family:Montserrat,sans-serif;}
+.inv-act{cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;
+  border-radius:8px;color:#64748b;transition:background .15s,color .15s;}
+.inv-act:hover{background:#eef2ff;color:#2563eb;}
+.inv-act-del:hover{background:#fef2f2;color:#dc2626;}
 </style>
 """
 
@@ -224,6 +255,45 @@ _INV_FOTOS_JS = r"""<script>
 })();
 </script>"""
 
+_SVG_EDIT = ('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+             'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/>'
+             '<path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>')
+_SVG_TRASH16 = ('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+                'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/>'
+                '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'
+                '<line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>')
+
+# Handler de la tabla (iframe height=0): clicks en editar/eliminar fila y en el
+# backdrop → bridge _inv_tcmd → Python. Re-bindea cada run.
+_INV_TABLE_JS = r"""<script>
+(function(){
+  var W=window.parent, D=W&&W.document; if(!D) return;
+  function fire(action, id){
+    var inp=D.querySelector('.st-key-_inv_tcmd input'); if(!inp) return;
+    try{
+      var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set;
+      inp.focus({preventScroll:true});
+      setter.call(inp, action+'|'+id+'|'+Date.now());
+      inp.dispatchEvent(new Event('input',{bubbles:true}));
+      inp.dispatchEvent(new Event('change',{bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.blur();
+    }catch(e){}
+  }
+  if(W._invTblH){ D.removeEventListener('click', W._invTblH, true); }
+  W._invTblH=function(ev){
+    var t=ev.target; if(!t||!t.closest) return;
+    var e=t.closest('[data-inv-edit]');
+    if(e){ ev.preventDefault(); ev.stopPropagation(); fire('edit', e.getAttribute('data-inv-edit')); return; }
+    var d=t.closest('[data-inv-delrow]');
+    if(d){ ev.preventDefault(); ev.stopPropagation(); fire('del', d.getAttribute('data-inv-delrow')); return; }
+    var c=t.closest('[data-inv-close]');
+    if(c){ ev.preventDefault(); ev.stopPropagation(); fire('close', 'x'); return; }
+  };
+  D.addEventListener('click', W._invTblH, true);
+})();
+</script>"""
+
 
 @st.cache_data(ttl=60, show_spinner=False)
 def _inv_all():
@@ -237,12 +307,20 @@ def _render_form(cat_items, rec, rol):
     editing = rec is not None
     sfx = f"e{rec['id']}" if editing else f"n{st.session_state.get('_inv_nonce', 0)}"
 
-    with st.container(border=True, key="inv_form_card"):
-        _ic = ('<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>'
-               if editing else '<path d="M12 5v14"/><path d="M5 12h14"/>')
-        _titulo("Editar producto" if editing else "Ingresar producto",
-                _svg(_ic, 17, "#2563eb"))
-        st.markdown('<div style="border-bottom:1px solid #eef1f6;margin:-6px 0 16px;"></div>',
+    with st.container(key="inv_form_card"):
+        _hc1, _hc2 = st.columns([6, 1])
+        with _hc1:
+            _ic = ('<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>'
+                   if editing else '<path d="M12 5v14"/><path d="M5 12h14"/>')
+            _titulo("Editar producto" if editing else "Ingresar producto",
+                    _svg(_ic, 17, "#2563eb"))
+        with _hc2:
+            if st.button("", icon=":material/close:", help="Cerrar",
+                         key="inv_close_drawer"):
+                st.session_state.pop("_inv_show_form", None)
+                st.session_state.pop("_inv_edit", None)
+                st.rerun()
+        st.markdown('<div style="border-bottom:1px solid #eef1f6;margin:-2px 0 16px;"></div>',
                     unsafe_allow_html=True)
 
         cats = list(cat_items.keys())
@@ -421,6 +499,7 @@ def _render_form(cat_items, rec, rol):
                 if ok:
                     _inv_all.clear()
                     st.session_state.pop("_inv_edit", None)
+                    st.session_state.pop("_inv_show_form", None)
                     st.session_state["_inv_toast"] = "Producto actualizado."
                     if err:
                         st.session_state["_inv_error"] = f"Guardado, pero algunas fotos fallaron: {err}"
@@ -434,6 +513,7 @@ def _render_form(cat_items, rec, rol):
                 if new_id:
                     _inv_all.clear()
                     st.session_state["_inv_nonce"] = st.session_state.get("_inv_nonce", 0) + 1
+                    st.session_state.pop("_inv_show_form", None)
                     st.session_state["_inv_toast"] = f"“{item}” agregado al inventario."
                     if err:
                         st.session_state["_inv_error"] = f"Guardado, pero algunas fotos fallaron: {err}"
@@ -455,91 +535,59 @@ _IC_IMG = _svg('<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>'
                22, "#94a3b8")
 
 
-def _render_card(d, rol, confirming):
-    _id = d["id"]
-    fotos = d.get("fotos") or []
-    cal = d.get("calidad")
-    _bg, _fg = _cal_colors(cal)
-
-    if fotos:
-        thumbs = "".join(
-            f'<img src="{_esc(u)}" style="width:52px;height:52px;object-fit:cover;'
-            'border-radius:8px;border:1.5px solid #e2e8f0;">' for u in fotos[:MAX_FOTOS])
-        thumb_html = (f'<div style="display:flex;gap:5px;flex-wrap:wrap;max-width:174px;">'
-                      f'{thumbs}</div>')
-    else:
-        thumb_html = ('<div style="width:60px;height:60px;border-radius:8px;background:#eef2ff;'
-                      'display:flex;align-items:center;justify-content:center;">'
-                      f'{_IC_IMG}</div>')
-
-    cal_badge = (f'<span style="background:{_bg};color:{_fg};font-family:Montserrat,sans-serif;'
-                 f'font-weight:800;font-size:0.66rem;padding:2px 9px;border-radius:20px;">'
-                 f'Calidad {cal}/10</span>') if cal else ""
-    ubic = d.get("ubicacion", "")
-    ubic_html = f'<span>{_IC_PIN} {_esc(ubic)}</span>' if ubic else ""
-    obs = d.get("observacion", "")
-    obs_html = (f'<div style="margin-top:5px;font-size:0.75rem;color:#64748b;'
-                f'font-family:Montserrat,sans-serif;">{_esc(obs)}</div>') if obs else ""
-    quien = d.get("creado_por_nombre") or d.get("creado_por_email") or "—"
-    fecha = _fmt_fecha(d.get("fecha_modificacion") or d.get("fecha_creacion"))
-
-    card = (
-        '<div style="display:flex;gap:14px;align-items:flex-start;">'
-        f'{thumb_html}'
-        '<div style="flex:1;min-width:0;">'
-        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
-        f'<span style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.86rem;'
-        f'letter-spacing:.03em;text-transform:uppercase;color:#0f172a;">{_esc(d.get("item",""))}</span>'
-        f'<span style="background:#e0e7ff;color:#4338ca;font-family:Montserrat,sans-serif;'
-        'font-weight:700;font-size:0.64rem;padding:2px 9px;border-radius:20px;'
-        f'text-transform:uppercase;letter-spacing:.03em;">{_esc(d.get("categoria",""))}</span>'
-        f'{cal_badge}</div>'
-        '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px;'
-        'font-family:Montserrat,sans-serif;font-size:0.77rem;color:#475569;font-weight:600;">'
-        f'<span>{_IC_BOX} {_fmt_cant(d.get("cantidad"))} {_esc(d.get("unidad",""))}</span>'
-        f'{ubic_html}</div>'
-        f'{obs_html}'
-        '<div style="margin-top:7px;font-size:0.69rem;color:#94a3b8;'
-        f'font-family:Montserrat,sans-serif;">{_IC_CLOCK} {_esc(quien)} · {fecha}</div>'
-        '</div></div>'
-    )
-
-    with st.container(border=True, key=f"inv_card_{_id}"):
-        st.markdown(card, unsafe_allow_html=True)
-        if confirming:
-            cc1, cc2, _sp = st.columns([1.3, 1, 3])
-            with cc1:
-                if st.button("Sí, eliminar", type="primary",
-                             use_container_width=True, key=f"inv_delyes_{_id}"):
-                    ok, err = eliminar_inventario(_id)
-                    st.session_state.pop("_inv_del_confirm", None)
-                    if ok:
-                        _inv_all.clear()
-                        st.session_state["_inv_toast"] = "Producto eliminado del stock."
-                    else:
-                        st.session_state["_inv_error"] = f"No se pudo eliminar: {err}"
-                    st.rerun()
-            with cc2:
-                if st.button("Cancelar", use_container_width=True, key=f"inv_delno_{_id}"):
-                    st.session_state.pop("_inv_del_confirm", None)
-                    st.rerun()
-        else:
-            cc1, cc2, _sp = st.columns([1, 1, 4])
-            with cc1:
-                if st.button("Editar", use_container_width=True, key=f"inv_ed_{_id}"):
-                    st.session_state["_inv_edit"] = _id
-                    st.session_state.pop("_inv_del_confirm", None)
-                    st.rerun()
-            with cc2:
-                if st.button("Eliminar", use_container_width=True, key=f"inv_dl_{_id}"):
-                    st.session_state["_inv_del_confirm"] = _id
-                    st.rerun()
+def _tabla_html(data):
+    """HTML de la tabla de stock (clase global .resultados-table = estilo COTIZACIONES)."""
+    rows = ""
+    for d in data:
+        fotos = d.get("fotos") or []
+        thumb = (f'<img src="{_esc(fotos[0])}" style="width:44px;height:44px;object-fit:cover;'
+                 'border-radius:8px;border:1px solid #e2e8f0;display:block;">'
+                 if fotos else f'<span style="color:#cbd5e1;">{_IC_IMG}</span>')
+        cal = d.get("calidad")
+        _bg, _fg = _cal_colors(cal)
+        cal_badge = (f'<span style="background:{_bg};color:{_fg};font-weight:800;font-size:0.72rem;'
+                     f'padding:2px 9px;border-radius:20px;">{cal}/10</span>') if cal else "—"
+        obs = d.get("observacion", "")
+        obs_html = (f'<div style="font-size:0.68rem;color:#94a3b8;font-weight:500;white-space:normal;'
+                    f'max-width:230px;margin-top:2px;">{_esc(obs)}</div>') if obs else ""
+        rows += (
+            '<tr>'
+            f'<td>{thumb}</td>'
+            f'<td style="font-weight:700;color:#0f172a;text-transform:uppercase;letter-spacing:.02em;">'
+            f'{_esc(d.get("item",""))}{obs_html}</td>'
+            f'<td><span style="background:#e0e7ff;color:#4338ca;font-weight:700;font-size:0.68rem;'
+            f'padding:2px 9px;border-radius:20px;text-transform:uppercase;">{_esc(d.get("categoria",""))}</span></td>'
+            f'<td style="font-weight:700;">{_fmt_cant(d.get("cantidad"))} '
+            f'<span style="color:#94a3b8;font-weight:600;">{_esc(d.get("unidad",""))}</span></td>'
+            f'<td>{cal_badge}</td>'
+            f'<td>{_esc(d.get("ubicacion","")) or "—"}</td>'
+            f'<td>{_esc(d.get("creado_por_nombre") or d.get("creado_por_email") or "—")}</td>'
+            f'<td style="color:#64748b;">{_fmt_fecha(d.get("fecha_modificacion") or d.get("fecha_creacion"))}</td>'
+            '<td style="white-space:nowrap;">'
+            f'<span class="inv-act inv-act-edit" data-inv-edit="{_esc(d["id"])}" title="Editar">{_SVG_EDIT}</span>'
+            f'<span class="inv-act inv-act-del" data-inv-delrow="{_esc(d["id"])}" title="Eliminar">{_SVG_TRASH16}</span>'
+            '</td></tr>')
+    return (
+        '<div class="inv-tbl-wrap"><table class="resultados-table"><thead><tr>'
+        '<th>Foto</th><th>Producto</th><th>Categoría</th><th>Stock</th><th>Calidad</th>'
+        '<th>Ubicación</th><th>Registró</th><th>Fecha</th><th>Acciones</th>'
+        f'</tr></thead><tbody>{rows}</tbody></table></div>')
 
 
-def _render_listado(rol):
-    busqueda = st.text_input("Buscar en el stock",
-                             placeholder="Producto, categoría, bodega…",
-                             key="_inv_busca", label_visibility="collapsed")
+def _render_tabla(rol):
+    """Barra superior (buscar + Ingresar producto) + tabla de stock + handler de fila."""
+    tb1, tb2 = st.columns([3, 1])
+    with tb1:
+        busqueda = st.text_input("Buscar en el stock", key="_inv_busca",
+                                 placeholder="Producto, categoría, bodega…",
+                                 label_visibility="collapsed")
+    with tb2:
+        if st.button("Ingresar producto", type="primary", use_container_width=True,
+                     icon=":material/add:", key="inv_open_form"):
+            st.session_state.pop("_inv_edit", None)
+            st.session_state["_inv_show_form"] = True
+            st.rerun()
+
     data = _inv_all()
     if busqueda:
         b = busqueda.strip().lower()
@@ -552,13 +600,51 @@ def _render_listado(rol):
                  '<path d="M4 10v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9"/>', 16, "#0f172a"))
 
     if not data:
-        st.markdown('<div style="text-align:center;color:#94a3b8;padding:26px;'
-                    'font-family:Montserrat,sans-serif;font-weight:600;">'
-                    'Sin productos que coincidan.</div>', unsafe_allow_html=True)
+        st.markdown('<div style="text-align:center;color:#94a3b8;padding:34px;'
+                    'font-family:Montserrat,sans-serif;font-weight:600;border:1px dashed #d7ddf0;'
+                    'border-radius:14px;">Sin productos en stock. Pulsa '
+                    '<b>Ingresar producto</b> para agregar el primero.</div>',
+                    unsafe_allow_html=True)
+    else:
+        st.markdown(_tabla_html(data), unsafe_allow_html=True)
+
+    # Bridge oculto + handler de clics de fila (editar / eliminar / cerrar drawer).
+    st.markdown('<style>.st-key-_inv_tcmd{position:absolute!important;left:-9999px!important;'
+                'top:-9999px!important;height:0!important;width:0!important;overflow:hidden!important;}</style>',
+                unsafe_allow_html=True)
+    st.text_input("tcmd", key="_inv_tcmd", label_visibility="collapsed")
+    components.html(_INV_TABLE_JS, height=0)
+
+
+def _render_del_confirm():
+    """Confirmación de borrado (dialog), disparada por el icono eliminar de la fila."""
+    _cid = st.session_state.get("_inv_del_confirm")
+    if not _cid:
         return
-    _confirm = st.session_state.get("_inv_del_confirm")
-    for d in data:
-        _render_card(d, rol, _confirm == d["id"])
+    _rec = obtener_inventario(_cid)
+    _nombre = (_rec.get("item") if _rec else None) or "este producto"
+
+    @st.dialog("Eliminar del inventario")
+    def _dlg():
+        st.markdown(f"¿Seguro que quieres eliminar **{_esc(_nombre)}** del stock? "
+                    "Se da de baja (no se destruye el registro).")
+        d1, d2 = st.columns(2)
+        with d1:
+            if st.button("Sí, eliminar", type="primary", use_container_width=True,
+                         key="_inv_delconf_yes"):
+                ok, err = eliminar_inventario(_cid)
+                st.session_state.pop("_inv_del_confirm", None)
+                if ok:
+                    _inv_all.clear()
+                    st.session_state["_inv_toast"] = "Producto eliminado del stock."
+                else:
+                    st.session_state["_inv_error"] = f"No se pudo eliminar: {err}"
+                st.rerun()
+        with d2:
+            if st.button("Cancelar", use_container_width=True, key="_inv_delconf_no"):
+                st.session_state.pop("_inv_del_confirm", None)
+                st.rerun()
+    _dlg()
 
 
 # ── Entrada del tab ──────────────────────────────────────────────────────────
@@ -583,11 +669,34 @@ def render_tab_inventario(**kwargs):
 
     cat_items = fetch_categorias_items()
 
+    # Acciones de la tabla (editar / eliminar / cerrar drawer) escritas por el handler.
+    _tcmd = str(st.session_state.get("_inv_tcmd", "") or "")
+    if _tcmd and "|" in _tcmd:
+        _tp = _tcmd.split("|")
+        if _tp[-1] != st.session_state.get("_inv_tcmd_ts"):
+            st.session_state["_inv_tcmd_ts"] = _tp[-1]
+            _act, _tid = _tp[0], "|".join(_tp[1:-1])
+            if _act == "edit":
+                st.session_state["_inv_edit"] = _tid
+                st.session_state["_inv_show_form"] = True
+            elif _act == "del":
+                st.session_state["_inv_del_confirm"] = _tid
+            elif _act == "close":
+                st.session_state.pop("_inv_show_form", None)
+                st.session_state.pop("_inv_edit", None)
+
     _edit_id = st.session_state.get("_inv_edit")
     _rec = obtener_inventario(_edit_id) if _edit_id else None
     if _edit_id and not _rec:
         st.session_state.pop("_inv_edit", None)
+        _edit_id = None
+    _show_form = bool(st.session_state.get("_inv_show_form")) or bool(_edit_id)
 
-    _render_form(cat_items, _rec, _rol)
-    st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
-    _render_listado(_rol)
+    # Vista principal: barra + tabla de stock (estilo COTIZACIONES).
+    _render_tabla(_rol)
+    _render_del_confirm()
+
+    # Formulario en drawer lateral derecho (overlay), solo al abrir.
+    if _show_form:
+        st.markdown('<div id="inv-backdrop" data-inv-close="1"></div>', unsafe_allow_html=True)
+        _render_form(cat_items, _rec, _rol)
