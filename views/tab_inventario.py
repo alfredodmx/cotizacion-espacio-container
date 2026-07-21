@@ -29,17 +29,26 @@ _ROLES_OK = ("root", "admin", "operacion")
 
 _INV_CSS = """
 <style>
-/* La tarjeta la da el contenedor NATIVO (st.container(border=True)): el CSS
-   global del proyecto ya pinta ese borderWrapper como tarjeta blanca. NO
-   pintamos otra encima (eso creaba el "doble contenedor" y el desborde a la
-   derecha). Aquí solo pulimos widgets internos, ya contenidos por el nativo. */
-div[class*="st-key-inv_form_card"] [data-testid="stSlider"]{padding:0 4px;}
-div[class*="st-key-inv_form_card"] [data-testid="stFileUploaderDropzone"]{padding:8px 14px;}
-/* Ocultamos la lista de archivos nativa: la reemplazamos con miniaturas 100x100. */
-div[class*="st-key-inv_form_card"] [data-testid="stFileUploaderFile"]{display:none!important;}
+/* ── Formulario en modal NATIVO st.dialog, estilizado como panel derecho (drawer) ──
+   Usamos st.dialog (no un contenedor recolocado por CSS) porque Streamlit mide el
+   ancho de los widgets contra el dialog → no se salen; y apila los dropdowns bien. */
+div[data-testid="stDialog"] > div{align-items:flex-start!important;justify-content:flex-end!important;}
+div[data-testid="stDialog"] div[role="dialog"]{position:fixed!important;top:65px!important;
+  right:0!important;bottom:0!important;left:auto!important;transform:none!important;margin:0!important;
+  max-height:none!important;height:auto!important;border-radius:0!important;
+  box-shadow:-18px 0 55px rgba(15,23,42,.30)!important;}
+/* Widgets internos del formulario (dentro del dialog). */
+div[data-testid="stDialog"] [data-testid="stSlider"]{padding:0 4px;}
+div[data-testid="stDialog"] [data-testid="stFileUploaderDropzone"]{padding:8px 14px;}
+div[data-testid="stDialog"] [data-testid="stFileUploaderFile"]{display:none!important;}
+/* Botón "Guardar en inventario": ~320px, centrado y responsivo. */
+div[data-testid="stDialog"] [class*="st-key-inv_guardar"]{width:100%!important;}
+div[data-testid="stDialog"] [class*="st-key-inv_guardar"] [data-testid="stButton"]{
+  display:flex!important;justify-content:center!important;width:100%!important;}
+div[data-testid="stDialog"] [class*="st-key-inv_guardar"] button{width:100%!important;max-width:320px!important;}
+
 /* Grilla de miniaturas: flex-wrap (responsivo), papelera flotante en la esquina y
-   zoom en hover (lupa). La papelera aparece al pasar el mouse; el clic lo maneja el
-   handler del iframe (data-inv-del → bridge; data-inv-zoom → lightbox). */
+   zoom en hover (lupa). El clic lo maneja el handler del iframe. */
 .inv-grid{display:flex;flex-wrap:wrap;gap:12px;margin-top:6px;}
 .inv-thumb{position:relative;width:100px;height:100px;border-radius:10px;overflow:hidden;
   border:1.5px solid #e2e8f0;flex:0 0 auto;background:#f1f5f9;}
@@ -54,39 +63,7 @@ div[class*="st-key-inv_form_card"] [data-testid="stFileUploaderFile"]{display:no
   transition:opacity .18s,transform .18s;}
 .inv-thumb:hover .inv-del{opacity:1;}
 .inv-del:hover{background:#b91c1c;transform:scale(1.08);}
-/* En pantallas táctiles (sin hover) la papelera se muestra siempre. */
 @media (hover:none){.inv-del{opacity:1!important;}}
-/* Botón "Guardar en inventario": ~320px, centrado y responsivo (encoge en móvil). */
-div[class*="st-key-inv_form_card"] [class*="st-key-inv_guardar"]{width:100%!important;}
-div[class*="st-key-inv_form_card"] [class*="st-key-inv_guardar"] [data-testid="stButton"]{
-  display:flex!important;justify-content:center!important;width:100%!important;}
-div[class*="st-key-inv_form_card"] [class*="st-key-inv_guardar"] button{width:100%!important;
-  max-width:320px!important;}
-
-/* ── Drawer lateral derecho para el formulario (como el visor de COTIZACIONES) ── */
-@keyframes invDrawerIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
-@keyframes invBdIn{from{opacity:0}to{opacity:1}}
-div[class*="st-key-inv_form_card"]{position:fixed!important;top:65px!important;right:0!important;
-  bottom:0!important;width:min(680px,96vw)!important;box-sizing:border-box!important;
-  background:#fff!important;z-index:2147482000!important;
-  box-shadow:-18px 0 55px rgba(15,23,42,.30)!important;overflow-x:hidden!important;overflow-y:auto!important;
-  padding:22px 26px 30px!important;margin:0!important;border-radius:0!important;
-  animation:invDrawerIn .28s cubic-bezier(.2,.9,.3,1)!important;}
-/* Evita scroll horizontal: las columnas/bloques pueden encoger bajo su contenido. */
-div[class*="st-key-inv_form_card"] [data-testid="stHorizontalBlock"],
-div[class*="st-key-inv_form_card"] [data-testid="stColumn"],
-div[class*="st-key-inv_form_card"] [data-testid="stElementContainer"]{min-width:0!important;}
-/* Colapsa el borderWrapper ancestro (tarjeta fantasma en el flujo). */
-[data-testid="stVerticalBlockBorderWrapper"]:has(> div[class*="st-key-inv_form_card"]){
-  position:absolute!important;height:0!important;padding:0!important;margin:0!important;
-  background:transparent!important;border:none!important;box-shadow:none!important;overflow:visible!important;}
-/* Botón cerrar (X) del drawer: chico, arriba a la derecha. */
-div[class*="st-key-inv_form_card"] [class*="st-key-inv_close_drawer"] button{min-width:0!important;
-  width:38px!important;height:38px!important;padding:0!important;border-radius:10px!important;
-  color:#64748b!important;}
-div[class*="st-key-inv_form_card"] [class*="st-key-inv_close_drawer"] button:hover{background:#f1f5f9!important;color:#0f172a!important;}
-#inv-backdrop{position:fixed;inset:0;top:65px;background:rgba(15,23,42,.42);z-index:2147481000;
-  animation:invBdIn .2s ease;backdrop-filter:blur(1.5px);-webkit-backdrop-filter:blur(1.5px);}
 
 /* ── Tabla de resultados (estilo COTIZACIONES vía .resultados-table global) ── */
 .inv-tbl-wrap{overflow-x:auto;border-radius:14px;border:1px solid #e6e9f4;
@@ -299,14 +276,6 @@ _INV_TABLE_JS = r"""<script>
 })();
 </script>"""
 
-# Al abrir el drawer, baseweb (slider) puede quedar con el ancho JS-medido del
-# área principal (ej. 1674px) y desbordar. Disparar 'resize' fuerza a Streamlit a
-# re-medir cada widget al ancho real del drawer. (Fix estándar de widgets en
-# contenedores mostrados/recolocados dinámicamente.)
-_INV_RESIZE_JS = ("<script>var W=window.parent;function R(){try{W.dispatchEvent(new Event('resize'));}"
-                  "catch(e){}}setTimeout(R,60);setTimeout(R,250);setTimeout(R,600);</script>")
-
-
 @st.cache_data(ttl=60, show_spinner=False)
 def _inv_all():
     """Lista completa de inventario activo (cacheada; se limpia al mutar)."""
@@ -315,27 +284,13 @@ def _inv_all():
 
 # ── Formulario (ingreso / edición) ───────────────────────────────────────────
 
-def _render_form(cat_items, rec, rol):
+def _render_form_body(cat_items, rec, rol):
+    """Cuerpo del formulario (dentro del st.dialog-drawer). El título y la X los
+    aporta el propio dialog."""
     editing = rec is not None
     sfx = f"e{rec['id']}" if editing else f"n{st.session_state.get('_inv_nonce', 0)}"
 
-    with st.container(key="inv_form_card"):
-        _hc1, _hc2 = st.columns([6, 1])
-        with _hc1:
-            _ic = ('<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>'
-                   if editing else '<path d="M12 5v14"/><path d="M5 12h14"/>')
-            _titulo("Editar producto" if editing else "Ingresar producto",
-                    _svg(_ic, 17, "#2563eb"))
-        with _hc2:
-            if st.button("", icon=":material/close:", help="Cerrar",
-                         key="inv_close_drawer"):
-                st.session_state.pop("_inv_show_form", None)
-                st.session_state.pop("_inv_edit", None)
-                st.rerun()
-        st.markdown('<div style="border-bottom:1px solid #eef1f6;margin:-2px 0 16px;"></div>',
-                    unsafe_allow_html=True)
-        components.html(_INV_RESIZE_JS, height=0)
-
+    if True:
         cats = list(cat_items.keys())
         if not cats and not editing:
             st.info("No hay una Excel activa con categorías. Sube una en "
@@ -512,7 +467,6 @@ def _render_form(cat_items, rec, rol):
                 if ok:
                     _inv_all.clear()
                     st.session_state.pop("_inv_edit", None)
-                    st.session_state.pop("_inv_show_form", None)
                     st.session_state["_inv_toast"] = "Producto actualizado."
                     if err:
                         st.session_state["_inv_error"] = f"Guardado, pero algunas fotos fallaron: {err}"
@@ -526,7 +480,6 @@ def _render_form(cat_items, rec, rol):
                 if new_id:
                     _inv_all.clear()
                     st.session_state["_inv_nonce"] = st.session_state.get("_inv_nonce", 0) + 1
-                    st.session_state.pop("_inv_show_form", None)
                     st.session_state["_inv_toast"] = f"“{item}” agregado al inventario."
                     if err:
                         st.session_state["_inv_error"] = f"Guardado, pero algunas fotos fallaron: {err}"
@@ -598,7 +551,7 @@ def _render_tabla(rol):
         if st.button("Ingresar producto", type="primary", use_container_width=True,
                      icon=":material/add:", key="inv_open_form"):
             st.session_state.pop("_inv_edit", None)
-            st.session_state["_inv_show_form"] = True
+            st.session_state["_inv_open"] = True
             st.rerun()
 
     data = _inv_all()
@@ -682,7 +635,7 @@ def render_tab_inventario(**kwargs):
 
     cat_items = fetch_categorias_items()
 
-    # Acciones de la tabla (editar / eliminar / cerrar drawer) escritas por el handler.
+    # Acciones de la tabla (editar / eliminar) escritas por el handler de fila.
     _tcmd = str(st.session_state.get("_inv_tcmd", "") or "")
     if _tcmd and "|" in _tcmd:
         _tp = _tcmd.split("|")
@@ -691,25 +644,27 @@ def render_tab_inventario(**kwargs):
             _act, _tid = _tp[0], "|".join(_tp[1:-1])
             if _act == "edit":
                 st.session_state["_inv_edit"] = _tid
-                st.session_state["_inv_show_form"] = True
+                st.session_state["_inv_open"] = True   # one-shot: abre el dialog
             elif _act == "del":
                 st.session_state["_inv_del_confirm"] = _tid
-            elif _act == "close":
-                st.session_state.pop("_inv_show_form", None)
-                st.session_state.pop("_inv_edit", None)
-
-    _edit_id = st.session_state.get("_inv_edit")
-    _rec = obtener_inventario(_edit_id) if _edit_id else None
-    if _edit_id and not _rec:
-        st.session_state.pop("_inv_edit", None)
-        _edit_id = None
-    _show_form = bool(st.session_state.get("_inv_show_form")) or bool(_edit_id)
 
     # Vista principal: barra + tabla de stock (estilo COTIZACIONES).
     _render_tabla(_rol)
     _render_del_confirm()
 
-    # Formulario en drawer lateral derecho (overlay), solo al abrir.
-    if _show_form:
-        st.markdown('<div id="inv-backdrop" data-inv-close="1"></div>', unsafe_allow_html=True)
-        _render_form(cat_items, _rec, _rol)
+    # Formulario en modal-drawer (st.dialog). One-shot: se abre UNA vez cuando
+    # _inv_open está set (botón Ingresar o editar de fila); Streamlit lo mantiene
+    # abierto en los reruns internos hasta que el usuario cierre o guarde.
+    if st.session_state.pop("_inv_open", False):
+        _eid = st.session_state.get("_inv_edit")
+        _rec = obtener_inventario(_eid) if _eid else None
+        if _eid and not _rec:
+            st.session_state.pop("_inv_edit", None)
+            _rec = None
+        _title = "Editar producto" if _rec else "Ingresar producto"
+
+        @st.dialog(_title, width="large")
+        def _form_dialog():
+            _render_form_body(cat_items, _rec, _rol)
+
+        _form_dialog()
