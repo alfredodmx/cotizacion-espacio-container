@@ -35,8 +35,13 @@ _INV_CSS = """
 div[data-testid="stDialog"] > div{align-items:flex-start!important;justify-content:flex-end!important;}
 div[data-testid="stDialog"] div[role="dialog"]{position:fixed!important;top:65px!important;
   right:0!important;left:auto!important;bottom:auto!important;transform:none!important;margin:0!important;
-  height:calc(100vh - 65px)!important;max-height:calc(100vh - 65px)!important;
+  height:calc(100vh - 65px)!important;max-height:calc(100vh - 65px)!important;background:#fff!important;
   border-radius:0!important;box-shadow:none!important;overflow-y:auto!important;overflow-x:hidden!important;}
+/* El CSS global pinta el borderWrapper interno como tarjeta blanca CON SOMBRA (se
+   veía un contenedor blanco sombreado que no cubría todo). Lo neutralizamos: el
+   único blanco es el propio dialog, sin sombra. */
+div[data-testid="stDialog"] [data-testid="stVerticalBlockBorderWrapper"]{
+  background:transparent!important;border:none!important;box-shadow:none!important;border-radius:0!important;}
 /* Título del dialog: tipografía de títulos (Montserrat 700 uppercase) + icono SVG. */
 div[data-testid="stDialog"] div[role="dialog"] > div:first-child{
   font-family:'Montserrat',sans-serif!important;font-weight:700!important;font-size:0.92rem!important;
