@@ -1025,6 +1025,60 @@ def generar_pdf_balance(cotizacion_numero, datos_cliente, datos_asesor, registro
     return buf.read()
 
 
+# Menú contextual (click derecho en la tabla o click en el hint) para agregar un
+# producto CON o SIN registro reutilizando el #add-section (que ahora es un popup
+# oculto por defecto → interfaz más limpia). Va como <script> aparte (string
+# normal, llaves reales) que se concatena al html del iframe, así no hay que
+# escapar llaves dentro del f-string gigante de build_rc_html.
+_RC_ADD_MENU_JS = """
+<script>
+(function(){
+  function openAddPopup(mode){
+    var sec=document.getElementById("add-section");
+    var bd=document.getElementById("rc-add-backdrop");
+    if(!sec||!bd) return;
+    sec.style.cssText="display:block;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(800px,95vw);max-height:88vh;overflow:auto;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 26px 64px rgba(15,23,42,.34);z-index:99999;padding:18px 22px;box-sizing:border-box";
+    bd.style.display="block";
+    if(window.switchAddTab) window.switchAddTab(mode);
+    setTimeout(function(){var f=document.getElementById(mode==="reg"?"add-cat":"sin-cat"); if(f){try{f.focus();}catch(e){}}},40);
+  }
+  window.openAddPopup=openAddPopup;
+  window.closeAddPopup=function(){
+    var sec=document.getElementById("add-section"); if(sec) sec.style.display="none";
+    var bd=document.getElementById("rc-add-backdrop"); if(bd) bd.style.display="none";
+  };
+  function closeMenu(){ var m=document.getElementById("rc-add-ctxmenu"); if(m) m.remove(); }
+  function menuItem(m,label,color,dot,cb){
+    var b=document.createElement("button");
+    b.style.cssText="display:flex;align-items:center;gap:9px;width:100%;background:transparent;border:none;border-radius:8px;padding:9px 11px;cursor:pointer;text-align:left;font-family:Montserrat,'Segoe UI',sans-serif;font-size:12px;font-weight:700;color:"+color;
+    b.innerHTML='<span style="width:9px;height:9px;border-radius:50%;background:'+dot+';flex:0 0 auto"></span><span>'+label+'</span>';
+    b.addEventListener("mouseenter",function(){b.style.background="#f8fafc";});
+    b.addEventListener("mouseleave",function(){b.style.background="transparent";});
+    b.addEventListener("click",function(ev){ev.stopPropagation();closeMenu();cb();});
+    m.appendChild(b);
+  }
+  function buildMenu(x,y){
+    closeMenu();
+    var m=document.createElement("div"); m.id="rc-add-ctxmenu";
+    m.style.cssText="position:fixed;z-index:100000;background:#fff;border:1px solid #e5e9f2;border-radius:12px;box-shadow:0 14px 40px rgba(15,23,42,.24);padding:6px;min-width:250px";
+    menuItem(m,"Agregar producto CON registro","#c2410c","#f97316",function(){openAddPopup("reg");});
+    menuItem(m,"Agregar producto SIN registro","#be185d","#ec4899",function(){openAddPopup("sin");});
+    document.body.appendChild(m);
+    var r=m.getBoundingClientRect(), px=x, py=y;
+    if(px+r.width>window.innerWidth) px=window.innerWidth-r.width-8;
+    if(py+r.height>window.innerHeight) py=window.innerHeight-r.height-8;
+    m.style.left=px+"px"; m.style.top=py+"px";
+  }
+  window.rcAddMenuAt=function(ev){ if(ev){try{ev.preventDefault();ev.stopPropagation();}catch(e){}} buildMenu(ev?ev.clientX:80, ev?ev.clientY:80); };
+  var wrap=document.getElementById("tbl-wrap");
+  if(wrap){ wrap.addEventListener("contextmenu",function(ev){ ev.preventDefault(); buildMenu(ev.clientX, ev.clientY); }); }
+  document.addEventListener("click",function(ev){ var t=ev.target; if(!t.closest||!t.closest("#rc-add-ctxmenu")) closeMenu(); });
+  document.addEventListener("keydown",function(ev){ if(ev.key==="Escape"){ closeMenu(); window.closeAddPopup(); } });
+})();
+</script>
+"""
+
+
 # ── HTML BUILDER REGISTRO DE COMPRAS ─────────────────────────────────────────
 
 def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin=False,
@@ -1274,7 +1328,16 @@ input.rc-adic::placeholder{{color:#cbd5e1}}
       <div id="prog-adic" style="margin-top:7px;display:flex;flex-direction:column;align-items:center"></div>
     </div>
   </div>
-  <div id="add-section" style="padding:12px 16px;background:#fff;border-top:1px solid #e2e8f0;flex-shrink:0">
+  <div id="rc-add-backdrop" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.42);z-index:99998" onclick="window.closeAddPopup()"></div>
+  <div id="rc-add-hint" onclick="window.rcAddMenuAt(event)" style="padding:9px 16px;background:#fff;border-top:1px solid #e2e8f0;flex-shrink:0;cursor:pointer;display:flex;align-items:center;gap:9px;color:#475569;font-size:12px;font-weight:700;user-select:none">
+    <span style="display:inline-flex;width:20px;height:20px;border-radius:6px;background:#eef2ff;color:#4338ca;align-items:center;justify-content:center;font-size:15px;line-height:1">+</span>
+    Agregar producto <span style="color:#94a3b8;font-weight:500">&#8212; click aqu&#237; o click derecho en la tabla</span>
+  </div>
+  <div id="add-section" style="display:none">
+    <div style="display:flex;align-items:center;margin-bottom:12px">
+      <div style="font-family:Montserrat,'Segoe UI',sans-serif;font-weight:700;font-size:.8rem;letter-spacing:.04em;text-transform:uppercase;color:#0f172a">Agregar producto</div>
+      <button onclick="window.closeAddPopup()" style="margin-left:auto;background:#f1f5f9;border:none;border-radius:8px;width:30px;height:30px;cursor:pointer;color:#64748b;font-size:15px;line-height:1">&#10005;</button>
+    </div>
     <div style="display:flex;gap:8px;margin-bottom:8px;">
       <button onclick="window.switchAddTab('reg')" id="tab-reg" style="font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid #f97316;background:#fff7ed;color:#f97316;cursor:pointer"><span style="color:#f97316;font-size:24px;line-height:1;vertical-align:middle;">&#9679;</span> Con registro</button>
       <button onclick="window.switchAddTab('sin')" id="tab-sin" style="font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid #e2e8f0;background:#fff;color:#94a3b8;cursor:pointer"><span style="color:#ec4899;font-size:24px;line-height:1;vertical-align:middle;">&#9679;</span> Sin registro</button>
@@ -1950,4 +2013,5 @@ window.guardarRegistro=async function(){{
 }};
 calc();
 }})();</script>"""
+    html = html + _RC_ADD_MENU_JS
     return html
