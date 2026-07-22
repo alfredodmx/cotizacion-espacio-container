@@ -1036,28 +1036,35 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 _rc_active_ep = None
                 st.session_state.pop('_rc_active_ep', None)
 
-            _rc_bcol1, _rc_bcol2 = st.columns([1, 3])
-            with _rc_bcol1:
-                if _rc_active_ep:
+            if _rc_active_ep:
+                _rc_bcol1, _rc_bcol2, _rc_bcol3 = st.columns([1, 1, 2])
+                with _rc_bcol1:
                     if st.button('Salir del proyecto', key='_rc_salir_btn',
                                  use_container_width=True, icon=":material/logout:"):
                         st.session_state.pop('_rc_active_ep', None)
                         st.rerun()
-                else:
-                    if st.button('Cargar proyecto', type='primary', key='_rc_cargar_btn',
+                with _rc_bcol2:
+                    if st.button('Abrir menú', key='_rc_menu_btn',
                                  use_container_width=True, icon=":material/folder_open:"):
                         st.session_state['_rc_open_loader'] = True
                         st.rerun()
-            with _rc_bcol2:
-                if _rc_active_ep:
+                with _rc_bcol3:
                     st.markdown(
                         '<div style="padding-top:9px;font-weight:600;font-size:0.86rem;color:#334155;'
                         'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
                         f'{_esc_html(_rc_labels.get(_rc_active_ep, _rc_active_ep))}</div>',
                         unsafe_allow_html=True)
+            else:
+                _rc_bcol1, _rc_bcol2 = st.columns([1, 3])
+                with _rc_bcol1:
+                    if st.button('Cargar proyecto', type='primary', key='_rc_cargar_btn',
+                                 use_container_width=True, icon=":material/folder_open:"):
+                        st.session_state['_rc_open_loader'] = True
+                        st.rerun()
 
-            # Drawer para elegir/cargar proyecto (solo si no hay uno activo).
-            if st.session_state.get('_rc_open_loader') and not _rc_active_ep:
+            # Drawer para elegir/cargar proyecto (se puede abrir también con un
+            # proyecto activo, para cambiar a otro).
+            if st.session_state.get('_rc_open_loader'):
                 st.markdown(_RC_LOADER_CSS, unsafe_allow_html=True)
 
                 @st.dialog('Cargar proyecto', width='large')
