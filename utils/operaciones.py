@@ -1112,6 +1112,48 @@ _RC_ADD_MENU_JS = """
 </script>
 """
 
+# Herramientas de la tabla: descargar CSV (desde el doc padre, el iframe está
+# sandboxed) + pantalla completa (frameElement). Mismos iconos que PRESUPUESTO.
+# String normal (llaves reales) concatenado al html; sin backslashes (String.fromCharCode).
+_RC_TABLE_TOOLS_JS = """
+<script>
+(function(){
+  var P=window.parent, IFR=null;
+  try{ IFR=window.frameElement; }catch(e){}
+  if(!IFR){ try{ var ifs=P.document.querySelectorAll("iframe"); for(var i=0;i<ifs.length;i++){ if(ifs[i].contentWindow===window){ IFR=ifs[i]; break; } } }catch(e){} }
+  function clean(s){ s=String(s==null?"":s); var sp=String.fromCharCode(32); s=s.split(String.fromCharCode(10)).join(sp); s=s.split(String.fromCharCode(13)).join(sp); s=s.split(String.fromCharCode(9)).join(sp); while(s.indexOf(sp+sp)>=0) s=s.split(sp+sp).join(sp); return s.trim(); }
+  function cell(el){ var inp=el.querySelector("input"); if(inp){ if(inp.type==="checkbox") return inp.checked?"Si":""; return clean(inp.value||""); } var c=el.cloneNode(true); var hs=c.querySelectorAll("script,style,button,svg"); for(var i=0;i<hs.length;i++)hs[i].remove(); return clean(c.innerText||c.textContent||""); }
+  function csvVal(v){ v=String(v==null?"":v); var q=String.fromCharCode(34),nl=String.fromCharCode(10); if(v.indexOf(q)>=0||v.indexOf(",")>=0||v.indexOf(";")>=0||v.indexOf(nl)>=0){ v=q+v.split(q).join(q+q)+q; } return v; }
+  function dlCSV(){
+    var t=document.querySelector("#tbl-wrap table"); if(!t)return;
+    var rows=[]; var hs=t.querySelectorAll("thead th"); var hd=[]; for(var i=0;i<hs.length;i++)hd.push(cell(hs[i])); rows.push(hd);
+    var trs=t.querySelectorAll("tbody tr"); for(var j=0;j<trs.length;j++){ if(trs[j].style.display==="none")continue; var tds=trs[j].querySelectorAll("td"); if(!tds.length)continue; var r=[]; for(var k=0;k<tds.length;k++)r.push(cell(tds[k])); rows.push(r); }
+    var lines=[]; for(var mm=0;mm<rows.length;mm++){ var cols=[]; for(var nn=0;nn<rows[mm].length;nn++)cols.push(csvVal(rows[mm][nn])); lines.push(cols.join(",")); }
+    var csv=String.fromCharCode(65279)+lines.join(String.fromCharCode(10));
+    var dt=new Date(),pp=function(x){return (x<10?"0":"")+x;},fn="registro_compras_"+dt.getFullYear()+pp(dt.getMonth()+1)+pp(dt.getDate())+".csv";
+    try{
+      var blob=new P.Blob([csv],{type:"text/csv;charset=utf-8;"}); var url=P.URL.createObjectURL(blob);
+      var a=P.document.createElement("a"); a.href=url; a.download=fn; P.document.body.appendChild(a); a.click();
+      setTimeout(function(){ a.remove(); P.URL.revokeObjectURL(url); },1500);
+    }catch(e){}
+  }
+  var cb=document.getElementById("_rc_csvbtn"); if(cb) cb.onclick=dlCSV;
+  var EXP='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+  var SHR='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/></svg>';
+  var fb=document.getElementById("_rc_fsbtn");
+  var PROPS=[["position","fixed"],["top","0"],["left","0"],["width","100vw"],["height","100vh"],["z-index","999990"],["border","none"],["border-radius","0"],["margin","0"],["background","#fff"]];
+  function isFS(){ return P._rcFsActive===true; }
+  function applyFS(){ if(!IFR)return; for(var i=0;i<PROPS.length;i++) IFR.style.setProperty(PROPS[i][0],PROPS[i][1],"important"); P._rcFsActive=true; if(fb){fb.innerHTML=SHR;fb.title="Salir de pantalla completa";} }
+  function removeFS(){ if(IFR){for(var i=0;i<PROPS.length;i++) IFR.style.removeProperty(PROPS[i][0]);} P._rcFsActive=false; if(fb){fb.innerHTML=EXP;fb.title="Pantalla completa";} }
+  function toggleFS(){ if(isFS())removeFS(); else applyFS(); }
+  if(fb){ fb.onclick=toggleFS; fb.innerHTML=isFS()?SHR:EXP; }
+  if(isFS()) applyFS();
+  document.addEventListener("keydown",function(e){ if(e.key==="Escape"&&isFS()) removeFS(); });
+  try{ if(P._rcFsEsc) P.document.removeEventListener("keydown",P._rcFsEsc,true); P._rcFsEsc=function(e){ if(e.key==="Escape"&&isFS()) removeFS(); }; P.document.addEventListener("keydown",P._rcFsEsc,true); }catch(e){}
+})();
+</script>
+"""
+
 
 # ── HTML BUILDER REGISTRO DE COMPRAS ─────────────────────────────────────────
 
@@ -1301,9 +1343,13 @@ input.rc-adic::placeholder{{color:#cbd5e1}}
 .rc-grid{{display:grid;grid-template-columns:1fr 1fr;gap:10px}}
 .rc-hidden{{display:none}}
 </style>
-<input id="rc-search" type="text" placeholder="Buscar item..." oninput="window.filterRows(this.value)" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:7px 10px;font-size:13px;box-sizing:border-box;margin-bottom:6px"/>
 {cats_cards_html}
-<div style="border:1px solid #e2e8f0;border-radius:8px;display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0">
+<div style="border:1px solid #e2e8f0;border-radius:8px;display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0;background:#fff">
+  <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #eef2f7;flex-shrink:0">
+    <input id="rc-search" type="text" placeholder="Buscar item..." oninput="window.filterRows(this.value)" style="flex:1;min-width:0;border:1px solid #cbd5e1;border-radius:7px;padding:7px 11px;font-size:13px;box-sizing:border-box"/>
+    <button id="_rc_csvbtn" type="button" title="Descargar tabla como CSV" style="width:34px;height:32px;border:1px solid #e2e8f0;border-radius:7px;background:#fff;color:#475569;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></button>
+    <button id="_rc_fsbtn" type="button" title="Pantalla completa" style="width:34px;height:32px;border:1px solid #e2e8f0;border-radius:7px;background:#fff;color:#475569;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto"></button>
+  </div>
   <div id="tbl-wrap" style="overflow:auto;flex:1;min-height:0"><table>
     <thead><tr>
       <th>Categor&#237;a</th><th>&#205;tem</th><th class="r">Cant.</th>
@@ -2043,5 +2089,5 @@ window.guardarRegistro=async function(){{
 }};
 calc();
 }})();</script>"""
-    html = html + _RC_ADD_MENU_JS
+    html = html + _RC_ADD_MENU_JS + _RC_TABLE_TOOLS_JS
     return html
