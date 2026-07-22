@@ -1043,26 +1043,60 @@ _RC_ADD_MENU_JS = """
     setTimeout(function(){var f=document.getElementById(mode==="reg"?"add-cat":"sin-cat"); if(f){try{f.focus();}catch(e){}}},40);
   }
   window.openAddPopup=openAddPopup;
+  function openSavePopup(){
+    var sec=document.getElementById("save-section");
+    var bd=document.getElementById("rc-add-backdrop");
+    if(!sec||!bd) return;
+    var add=document.getElementById("add-section"); if(add) add.style.display="none";
+    sec.style.cssText="display:block;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(920px,95vw);max-height:88vh;overflow:auto;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 26px 64px rgba(15,23,42,.34);z-index:99999;padding:18px 22px;box-sizing:border-box";
+    bd.style.display="block";
+    if(window.checkSaveBtn) window.checkSaveBtn();
+  }
+  window.openSavePopup=openSavePopup;
   window.closeAddPopup=function(){
-    var sec=document.getElementById("add-section"); if(sec) sec.style.display="none";
+    var add=document.getElementById("add-section"); if(add) add.style.display="none";
+    var save=document.getElementById("save-section"); if(save) save.style.display="none";
     var bd=document.getElementById("rc-add-backdrop"); if(bd) bd.style.display="none";
   };
+  function rcHasData(){
+    var rows=document.querySelectorAll("tr[data-idx]");
+    for(var i=0;i<rows.length;i++){
+      var r=rows[i];
+      if(r.dataset.comprado==="1") continue;
+      var inp=r.querySelector(".rc-real");
+      var re=inp?(parseFloat(inp.dataset.val)||0):0;
+      var c=+r.dataset.cant||1;
+      var isStock=r.getAttribute("data-stock")==="1";
+      var stockSaved=r.getAttribute("data-stock-saved")==="1";
+      var sq=isStock?(parseInt(r.getAttribute("data-stock-qty"))||c):0;
+      var buyAttr=r.getAttribute("data-buy");
+      var compr=(buyAttr!=null)?(parseInt(buyAttr)||0):(isStock?(c-sq):c);
+      var newStock=isStock&&!stockSaved&&sq>0;
+      if(newStock||(re>0&&compr>0)) return true;
+    }
+    return false;
+  }
+  window.rcHasData=rcHasData;
   function closeMenu(){ var m=document.getElementById("rc-add-ctxmenu"); if(m) m.remove(); }
-  function menuItem(m,label,color,dot,cb){
+  function menuItem(m,label,color,dot,disabled,cb){
     var b=document.createElement("button");
-    b.style.cssText="display:flex;align-items:center;gap:9px;width:100%;background:transparent;border:none;border-radius:8px;padding:9px 11px;cursor:pointer;text-align:left;font-family:Montserrat,'Segoe UI',sans-serif;font-size:12px;font-weight:700;color:"+color;
-    b.innerHTML='<span style="width:9px;height:9px;border-radius:50%;background:'+dot+';flex:0 0 auto"></span><span>'+label+'</span>';
-    b.addEventListener("mouseenter",function(){b.style.background="#f8fafc";});
-    b.addEventListener("mouseleave",function(){b.style.background="transparent";});
-    b.addEventListener("click",function(ev){ev.stopPropagation();closeMenu();cb();});
+    b.style.cssText="display:flex;align-items:center;gap:9px;width:100%;background:transparent;border:none;border-radius:8px;padding:9px 11px;cursor:"+(disabled?"not-allowed":"pointer")+";text-align:left;font-family:Montserrat,'Segoe UI',sans-serif;font-size:12px;font-weight:700;color:"+(disabled?"#cbd5e1":color);
+    b.innerHTML='<span style="width:9px;height:9px;border-radius:50%;background:'+(disabled?"#e2e8f0":dot)+';flex:0 0 auto"></span><span>'+label+'</span>';
+    if(!disabled){
+      b.addEventListener("mouseenter",function(){b.style.background="#f8fafc";});
+      b.addEventListener("mouseleave",function(){b.style.background="transparent";});
+      b.addEventListener("click",function(ev){ev.stopPropagation();closeMenu();cb();});
+    }
     m.appendChild(b);
   }
   function buildMenu(x,y){
     closeMenu();
     var m=document.createElement("div"); m.id="rc-add-ctxmenu";
-    m.style.cssText="position:fixed;z-index:100000;background:#fff;border:1px solid #e5e9f2;border-radius:12px;box-shadow:0 14px 40px rgba(15,23,42,.24);padding:6px;min-width:250px";
-    menuItem(m,"Agregar producto CON registro","#c2410c","#f97316",function(){openAddPopup("reg");});
-    menuItem(m,"Agregar producto SIN registro","#be185d","#ec4899",function(){openAddPopup("sin");});
+    m.style.cssText="position:fixed;z-index:100000;background:#fff;border:1px solid #e5e9f2;border-radius:12px;box-shadow:0 14px 40px rgba(15,23,42,.24);padding:6px;min-width:256px";
+    menuItem(m,"Agregar producto CON registro","#c2410c","#f97316",false,function(){openAddPopup("reg");});
+    menuItem(m,"Agregar producto SIN registro","#be185d","#ec4899",false,function(){openAddPopup("sin");});
+    var sep=document.createElement("div"); sep.style.cssText="height:1px;background:#eef1f6;margin:5px 4px"; m.appendChild(sep);
+    menuItem(m,"Deseo guardar","#15803d","#22c55e",!rcHasData(),function(){openSavePopup();});
     document.body.appendChild(m);
     var r=m.getBoundingClientRect(), px=x, py=y;
     if(px+r.width>window.innerWidth) px=window.innerWidth-r.width-8;
@@ -1331,7 +1365,7 @@ input.rc-adic::placeholder{{color:#cbd5e1}}
   <div id="rc-add-backdrop" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.42);z-index:99998" onclick="window.closeAddPopup()"></div>
   <div id="rc-add-hint" onclick="window.rcAddMenuAt(event)" style="padding:9px 16px;background:#fff;border-top:1px solid #e2e8f0;flex-shrink:0;cursor:pointer;display:flex;align-items:center;gap:9px;color:#475569;font-size:12px;font-weight:700;user-select:none">
     <span style="display:inline-flex;width:20px;height:20px;border-radius:6px;background:#eef2ff;color:#4338ca;align-items:center;justify-content:center;font-size:15px;line-height:1">+</span>
-    Agregar producto <span style="color:#94a3b8;font-weight:500">&#8212; click aqu&#237; o click derecho en la tabla</span>
+    Agregar producto o guardar compra <span style="color:#94a3b8;font-weight:500">&#8212; click aqu&#237; o click derecho en la tabla</span>
   </div>
   <div id="add-section" style="display:none">
     <div style="display:flex;align-items:center;margin-bottom:12px">
@@ -1367,8 +1401,8 @@ input.rc-adic::placeholder{{color:#cbd5e1}}
         <button onclick="window.addRowSinReg()" style="background:#ec4899;color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer">+ Agregar</button></div>
     </div>
   </div>
-  <div id="save-section" style="padding:15px 16px 16px;background:#f8fafc;border-top:1px solid #eef2f7;flex-shrink:0">
-    <div style="font-size:11px;font-weight:700;color:#334155;letter-spacing:.05em;text-transform:uppercase;margin-bottom:11px;display:flex;align-items:center">{_svg_rc('paperclip', color='#64748b', size=14, mr=8)}Adjuntar Factura y Guardar</div>
+  <div id="save-section" style="display:none">
+    <div style="font-size:11px;font-weight:700;color:#334155;letter-spacing:.05em;text-transform:uppercase;margin-bottom:11px;display:flex;align-items:center">{_svg_rc('paperclip', color='#64748b', size=14, mr=8)}Adjuntar Factura y Guardar<button onclick="window.closeAddPopup()" style="margin-left:auto;background:#eef2f7;border:none;border-radius:8px;width:28px;height:28px;cursor:pointer;color:#64748b;font-size:14px;line-height:1">&#10005;</button></div>
     <div class="rc-grid">
       <div class="rc-field">
         <div class="rc-lbl">{_svg_rc('store', color='#94a3b8', size=13)}&#191;D&#243;nde compraste? *</div>
