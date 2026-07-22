@@ -110,35 +110,24 @@ _RC_EXIT_INTERCEPT_JS = """
 </script>
 """
 
-# Persistencia de la sub-pestaña de OPERACIONES: st.tabs NO recuerda la pestaña
-# activa tras st.rerun() (vuelve a la 1ª). Este JS recuerda el índice activo (en
-# window.parent) al hacer clic y lo re-selecciona tras cada rerun. Localiza el
-# tab-list ESPECÍFICO de Operaciones (el que contiene las 3 etiquetas) para no
-# tocar otros st.tabs de la app.
-_OP_TAB_PERSIST_JS = """
-<script>
-(function(){
-  var P=window.parent, D=P&&P.document; if(!D) return;
-  function opTabList(){
-    var lists=D.querySelectorAll('[data-baseweb="tab-list"]');
-    for(var i=0;i<lists.length;i++){
-      var txt=(lists[i].textContent||"").toUpperCase();
-      if(txt.indexOf("OPERACIONAL")>=0 && txt.indexOf("COMPRAS")>=0 && txt.indexOf("ACTA")>=0) return lists[i];
-    }
-    return null;
-  }
-  function tabs(){ var l=opTabList(); return l ? [].slice.call(l.querySelectorAll('[data-baseweb="tab"]')) : []; }
-  function activeIdx(ts){ for(var i=0;i<ts.length;i++){ if(ts[i].getAttribute("aria-selected")==="true") return i; } return -1; }
-  function tick(){
-    var ts=tabs(); if(ts.length<2) return;
-    ts.forEach(function(t,i){ if(!t._ecOpBound){ t._ecOpBound=true; t.addEventListener("click", function(){ P._ecOpTab=i; }); } });
-    if(P._ecOpTab==null) return;
-    var cur=activeIdx(ts);
-    if(cur!==P._ecOpTab && ts[P._ecOpTab]){ ts[P._ecOpTab].click(); }
-  }
-  var n=0; var iv=setInterval(function(){ tick(); if(++n>15) clearInterval(iv); }, 120);
-})();
-</script>
+# Selector de sub-pestaña de OPERACIONES (reemplaza st.tabs, que se reseteaba a la
+# 1ª tras st.rerun() y renderizaba las 3). Es un st.radio con key → recuerda la
+# elección en session_state (sin parpadeo) y solo se renderiza la sección activa
+# (más rápido). Estilizado para verse como las pestañas del proyecto.
+_OP_SELECTOR_CSS = """
+<style>
+.st-key-_op_subtab [role="radiogroup"]{gap:2px!important;flex-wrap:wrap!important;
+  border-bottom:2px solid #e2e6f3!important;margin-bottom:2px!important;padding:0!important;}
+.st-key-_op_subtab [role="radiogroup"] > label{background:transparent!important;border:none!important;
+  border-bottom:3px solid transparent!important;border-radius:0!important;padding:0.7rem 1.4rem!important;
+  margin:0 0 -2px 0!important;cursor:pointer!important;font-family:'Plus Jakarta Sans',sans-serif!important;
+  font-weight:900!important;font-size:0.82rem!important;text-transform:uppercase!important;
+  letter-spacing:0.05em!important;color:#7c85b3!important;transition:color .2s,border-color .2s!important;}
+.st-key-_op_subtab [role="radiogroup"] > label:hover{color:#5b7cfa!important;background:rgba(91,124,250,.05)!important;}
+.st-key-_op_subtab [role="radiogroup"] > label:has(input:checked){color:#5b7cfa!important;
+  border-bottom-color:#5b7cfa!important;background:rgba(91,124,250,.06)!important;}
+.st-key-_op_subtab [role="radiogroup"] > label > div:first-child{display:none!important;}
+</style>
 """
 
 
@@ -353,18 +342,19 @@ def render_tab_operaciones(supabase, supabase_admin=None, supa_url='', supa_key=
         "PDF de compras &middot; planos &middot; seguimiento de fabricaci&#243;n y fidelizaci&#243;n de clientes",
     )
 
-    _sub_panel, _sub_compras, _sub_acta = st.tabs([
-        ":material/dashboard: Panel Operacional",
-        ":material/shopping_cart: Registro de Compras",
-        ":material/assignment: Acta de Clientes",
-    ])
-    # Mantener la sub-pestaña activa tras los reruns (st.tabs se resetea a la 1ª).
-    components.html(_OP_TAB_PERSIST_JS, height=0)
+    # Selector de sección (reemplaza st.tabs → recuerda la elegida tras rerun y
+    # solo renderiza la activa). Ver _OP_SELECTOR_CSS.
+    _OP_TABS = ["Panel Operacional", "Registro de Compras", "Acta de Clientes"]
+    if "_op_subtab" not in st.session_state:
+        st.session_state["_op_subtab"] = _OP_TABS[0]
+    st.markdown(_OP_SELECTOR_CSS, unsafe_allow_html=True)
+    _op_sel = st.radio("Sección", _OP_TABS, key="_op_subtab", horizontal=True,
+                       label_visibility="collapsed")
 
     # ================================================================
     # SUB-PESTAÑA: PANEL OPERACIONAL
     # ================================================================
-    with _sub_panel:
+    if _op_sel == "Panel Operacional":
         st.markdown(_titulo_op("grid", "Panel Operacional"), unsafe_allow_html=True)
         # Cargar ejecutivos para dropdown
         try:
@@ -945,7 +935,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
     # ================================================================
     # SUB-PESTAÑA: REGISTRO DE COMPRAS
     # ================================================================
-    with _sub_compras:
+    if _op_sel == "Registro de Compras":
         _rc_admin_role = _rol in ('root', 'admin')
         # Etiqueta del toggle con la tipografía de los títulos de sección + toggle
         # alineado a la derecha de su columna.
@@ -1563,7 +1553,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
     # ================================================================
     # SUB-PESTAÑA: ACTA DE CLIENTES
     # ================================================================
-    with _sub_acta:
+    if _op_sel == "Acta de Clientes":
         st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:0 0 12px 0;">&#128203; Acta de Clientes</div>', unsafe_allow_html=True)
 
         try:
