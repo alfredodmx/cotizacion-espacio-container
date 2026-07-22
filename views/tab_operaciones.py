@@ -55,84 +55,45 @@ except ImportError:
 
 _tz_cl = timezone(timedelta(hours=-3))
 
-# Drawer lateral derecho ANCHO (cubre desde el header) y PARTIDO en dos mitades:
-# izquierda = elegir proyecto (dropdown HTML, instantáneo), derecha = información
-# de facturas + historial de compras. Mismo patrón que Inventario: st.dialog
-# nativo estilizado como panel derecho (NO recolocar un contenedor por CSS: los
-# widgets se miden contra el bloque principal y quedan gigantes). Se inyecta solo
+# Drawer lateral derecho ANCHO (cubre desde el header). Todo su contenido va en UN
+# solo iframe (build_historial_rc_html) que internamente arma la cuadrícula 2×2:
+# sup-izq seleccionar proyecto · sup-der historial · inf-izq facturas · inf-der
+# proveedores. Mismo patrón que Inventario: st.dialog nativo estilizado como panel
+# derecho. El .rcpk/.rcg CSS vive DENTRO del iframe (_RC_GRID_CSS). Se inyecta solo
 # cuando el drawer está abierto.
 _RC_LOADER_CSS = """
 <style>
 div[data-testid="stDialog"] > div{align-items:flex-start!important;justify-content:flex-end!important;}
 div[data-testid="stDialog"] div[role="dialog"]{position:fixed!important;top:0!important;right:0!important;
   left:auto!important;bottom:0!important;transform:none!important;margin:0!important;
-  width:min(1340px,96vw)!important;max-width:none!important;
+  width:min(1400px,97vw)!important;max-width:none!important;
   height:100vh!important;max-height:100vh!important;background:#fff!important;
   border-radius:0!important;box-shadow:-16px 0 48px rgba(15,23,42,0.20)!important;
-  overflow-y:auto!important;overflow-x:hidden!important;}
+  overflow:hidden!important;padding-top:2.2rem!important;}
 div[data-testid="stDialog"] [data-testid="stVerticalBlockBorderWrapper"]{
   background:transparent!important;border:none!important;box-shadow:none!important;border-radius:0!important;}
 div[data-testid="stDialog"] div[role="dialog"] > div:first-child{
   font-family:'Montserrat',sans-serif!important;font-weight:700!important;font-size:0.92rem!important;
   letter-spacing:0.05em!important;text-transform:uppercase!important;color:#0f172a!important;}
-/* mitad derecha: separador + el iframe del historial se ancla al alto del drawer
-   y hace su propio scroll (el auto-fit del iframe pone height inline → !important) */
-.st-key-_rc_hist_col{border-left:1px solid #e8ecf7!important;padding-left:20px!important;}
-.st-key-_rc_hist_col iframe{height:calc(100vh - 150px)!important;width:100%!important;}
-/* ── Dropdown HTML de proyecto: 0 reruns al navegar/buscar ─────────────── */
-.rcpk{font-family:Montserrat,'Segoe UI',sans-serif;}
-.rcpk-lbl{font-family:Montserrat,sans-serif;font-weight:700;font-size:0.7rem;letter-spacing:0.05em;
-  text-transform:uppercase;color:#64748b;margin:0 0 7px 2px;}
-.rcpk-trg{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;padding:11px 13px;
-  border:1.5px solid #e2e8f0;border-radius:12px;background:#fff;cursor:pointer;
-  box-shadow:0 1px 3px rgba(15,23,42,0.05);transition:border-color .15s,box-shadow .15s;}
-.rcpk-trg:hover{border-color:#5b7cfa;box-shadow:0 6px 16px rgba(91,124,250,0.14);}
-.rcpk.open .rcpk-trg{border-color:#5b7cfa;border-bottom-left-radius:0;border-bottom-right-radius:0;}
-.rcpk-txt{flex:1;min-width:0;text-align:left;}
-.rcpk-t1{font-weight:800;font-size:0.85rem;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.rcpk-t2{font-size:0.7rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
-.rcpk-chev{flex:0 0 auto;transition:transform .18s;line-height:0;}
-.rcpk.open .rcpk-chev{transform:rotate(180deg);}
-/* panel EN FLUJO (no position:absolute) → el scroll del drawer nunca lo recorta:
-   queda siempre anclado bajo el trigger */
-.rcpk-panel{display:none;border:1.5px solid #5b7cfa;border-top:none;border-radius:0 0 12px 12px;
-  background:#fff;box-shadow:0 14px 30px rgba(15,23,42,0.12);overflow:hidden;}
-.rcpk.open .rcpk-panel{display:block;}
-.rcpk-search{width:100%;box-sizing:border-box;border:none;border-bottom:1px solid #eef2f7;
-  padding:10px 13px;font-size:0.82rem;font-family:inherit;color:#0f172a;outline:none;background:#f8fafc;}
-.rcpk-list{max-height:44vh;overflow-y:auto;}
-.rcpk-opt{display:flex;align-items:center;gap:9px;padding:9px 13px;cursor:pointer;
-  border-bottom:1px solid #f4f6fb;}
-.rcpk-opt:hover{background:#f5f7ff;}
-.rcpk-opt[data-sel="1"]{background:#eef2ff;box-shadow:inset 3px 0 0 #5b7cfa;}
-.rcpk-dot{flex:0 0 auto;width:9px;height:9px;border-radius:50%;}
-.rcpk-oi{flex:1;min-width:0;}
-.rcpk-o1{font-weight:700;font-size:0.8rem;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.rcpk-o2{font-size:0.68rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
-.rcpk-pct{flex:0 0 auto;font-size:0.62rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
-  padding:3px 7px;border-radius:6px;background:#f1f5f9;color:#475569;}
-.rcpk-empty{display:none;padding:16px;font-size:0.8rem;color:#94a3b8;text-align:center;}
-.rcpk-load{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px;padding:12px;
-  border-radius:12px;font-family:Montserrat,sans-serif;font-weight:800;font-size:0.78rem;
-  letter-spacing:.05em;text-transform:uppercase;cursor:pointer;color:#fff;
-  background:linear-gradient(135deg,#5b7cfa,#4361ee);box-shadow:0 6px 18px rgba(91,124,250,0.30);
-  transition:transform .12s,box-shadow .15s;}
-.rcpk-load:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(91,124,250,0.38);}
-.rcpk-load[data-dis="1"]{opacity:.45;pointer-events:none;box-shadow:none;}
-.rc-hist-empty{border:1.5px dashed #e2e8f0;border-radius:14px;padding:30px 18px;text-align:center;
-  color:#94a3b8;font-family:Montserrat,sans-serif;font-size:0.82rem;background:#fbfcff;}
+/* el iframe único ocupa TODO el alto del drawer (menos el header del dialog) y la
+   grilla interna hace el scroll por celda (auto-fit desactivado con window.RCGRID) */
+.st-key-_rc_drawer_frame iframe{height:calc(100vh - 58px)!important;width:100%!important;
+  border:none!important;display:block!important;}
+.st-key-_rc_drawer_frame,.st-key-_rc_drawer_frame > div{margin:0!important;padding:0!important;}
 </style>
 """
 
-def _rc_picker_html(opts, sel_ep):
+def _rc_picker_html(opts, sel_ep, resumen_html=''):
     """HTML del selector de proyecto del drawer (dropdown propio, sin widgets
     nativos → elegir/buscar NO dispara reruns; solo el botón "Cargar" lo hace).
+    Vive DENTRO del iframe del drawer (celda superior-izquierda de la grilla
+    2×2); Cargar/Salir/Cerrar escriben en puentes ocultos del documento padre
+    (ver _RC_PICKER_IFRAME_JS en utils/operaciones.py).
 
     `opts`: lista de dicts {ep, t1, t2, dot, pct, search}. La opción activa se
     marca SERVER-SIDE con data-sel="1" y se pinta en el trigger, así que al abrir
     el drawer aparece seleccionado el proyecto que ya estaba cargado (no el
-    primero ni el último). El panel va EN FLUJO bajo el trigger: queda anclado y
-    el scroll del drawer no lo puede recortar."""
+    primero ni el último). `resumen_html`: mini-ficha del proyecto activo."""
     _sel = next((o for o in opts if o['ep'] == sel_ep), None)
     _t1 = _esc_html(_sel['t1']) if _sel else 'Seleccionar proyecto'
     _t2 = _esc_html(_sel['t2']) if _sel else 'Ning&uacute;n proyecto cargado'
@@ -153,9 +114,10 @@ def _rc_picker_html(opts, sel_ep):
         )
     if not _rows:
         _rows = '<div class="rcpk-empty" style="display:block">No hay proyectos disponibles.</div>'
+    _btn_salir = ('<div class="rcpk-btn rcpk-exit" role="button">Salir del proyecto</div>'
+                  if sel_ep else '')
     return (
         '<div class="rcpk">'
-        '<div class="rcpk-lbl">Seleccionar proyecto</div>'
         '<div class="rcpk-trg" role="button" tabindex="0">'
         f'<div class="rcpk-txt"><div class="rcpk-t1">{_t1}</div><div class="rcpk-t2">{_t2}</div></div>'
         f'<span class="rcpk-chev">{_chev}</span></div>'
@@ -163,108 +125,15 @@ def _rc_picker_html(opts, sel_ep):
         '<input class="rcpk-search" type="text" placeholder="Buscar por EP, cliente o ejecutivo...">'
         f'<div class="rcpk-list">{_rows}'
         '<div class="rcpk-empty">Sin resultados.</div></div></div>'
-        f'<div class="rcpk-load" role="button" data-dis="{"0" if sel_ep else "1"}">'
-        'Cargar proyecto</div></div>'
+        f'<div class="rcpk-btn rcpk-load" role="button" data-dis="{"0" if sel_ep else "1"}">'
+        'Cargar proyecto</div>'
+        f'{_btn_salir}'
+        '<div class="rcpk-btn rcpk-close" role="button">Cerrar</div>'
+        f'{resumen_html}'
+        '</div>'
     )
 
 
-# Comportamiento del dropdown HTML (abrir/buscar/elegir es 100% client-side).
-# Al pulsar "Cargar proyecto" escribe "<EP>|<ts>" en el input puente oculto
-# (.st-key-_rc_pick) → un ÚNICO rerun aplica el cambio. Los handlers se
-# re-bindean en CADA run (el iframe se recrea y el listener anterior muere).
-_RC_PICKER_JS = """
-<script>
-(function(){
-  var P=window.parent, D=P&&P.document; if(!D) return;
-  function root(){ return D.querySelector(".rcpk"); }
-  // Secuencia COMPLETA (verificada en repro) para que Streamlit commitee el valor:
-  // focus → setter nativo → input/change → keypress+keydown+keyup Enter →
-  // blur/focusout → blur(). Con menos eventos el valor queda en el DOM y hasta en
-  // el estado de React, pero NUNCA llega a Python. Todo en la MISMA tanda: si se
-  // pierde el foco entremedio, el blur no commitea nada.
-  function setBridge(v){
-    var inp=D.querySelector(".st-key-_rc_pick input"); if(!inp) return;
-    try{
-      var setter=Object.getOwnPropertyDescriptor(P.HTMLInputElement.prototype,"value").set;
-      inp.focus({preventScroll:true});
-      setter.call(inp,v);
-      inp.dispatchEvent(new Event("input",{bubbles:true}));
-      inp.dispatchEvent(new Event("change",{bubbles:true}));
-      inp.dispatchEvent(new KeyboardEvent("keypress",{key:"Enter",keyCode:13,which:13,charCode:13,bubbles:true}));
-      inp.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",keyCode:13,which:13,bubbles:true}));
-      inp.dispatchEvent(new KeyboardEvent("keyup",{key:"Enter",keyCode:13,which:13,bubbles:true}));
-      inp.dispatchEvent(new FocusEvent("blur",{bubbles:false}));
-      inp.dispatchEvent(new FocusEvent("focusout",{bubbles:true}));
-      inp.blur();
-    }catch(e){}
-  }
-  function pick(ep){
-    var rt=root(); if(!rt) return;
-    var opts=rt.querySelectorAll(".rcpk-opt");
-    for(var i=0;i<opts.length;i++){
-      var on=(opts[i].getAttribute("data-ep")===ep);
-      opts[i].setAttribute("data-sel", on?"1":"0");
-      if(on){
-        var t1=rt.querySelector(".rcpk-t1"), t2=rt.querySelector(".rcpk-t2");
-        if(t1) t1.textContent=opts[i].getAttribute("data-t1")||ep;
-        if(t2) t2.textContent=opts[i].getAttribute("data-t2")||"";
-      }
-    }
-    P._rcPickEp=ep;
-    var lb=rt.querySelector(".rcpk-load"); if(lb) lb.setAttribute("data-dis","0");
-  }
-  if(P._rcPkClick){ try{ D.removeEventListener("click",P._rcPkClick,true); }catch(e){} }
-  P._rcPkClick=function(ev){
-    var t=ev.target; if(!t||!t.closest) return;
-    if(t.closest(".rcpk-trg")){
-      var r=root();
-      if(r){
-        r.classList.toggle("open");
-        if(r.classList.contains("open")){
-          // limpiar el filtro anterior y dejar a la vista el proyecto activo
-          var sb=r.querySelector(".rcpk-search");
-          if(sb){ sb.value=""; sb.dispatchEvent(new Event("input",{bubbles:true})); }
-          var sel=r.querySelector('.rcpk-opt[data-sel="1"]'), list=r.querySelector(".rcpk-list");
-          if(sel&&list){
-            var off=sel.getBoundingClientRect().top-list.getBoundingClientRect().top+list.scrollTop;
-            list.scrollTop=Math.max(0, off-list.clientHeight/2+sel.offsetHeight/2);
-          }
-          if(sb){ try{ sb.focus({preventScroll:true}); }catch(e){} }
-        }
-      }
-      ev.preventDefault(); return;
-    }
-    var op=t.closest(".rcpk-opt");
-    if(op){ pick(op.getAttribute("data-ep")); var r2=root(); if(r2) r2.classList.remove("open"); return; }
-    if(t.closest(".rcpk-load")){
-      var rt=root(); var cur=P._rcPickEp;
-      if(!cur && rt){ var s=rt.querySelector('.rcpk-opt[data-sel="1"]'); if(s) cur=s.getAttribute("data-ep"); }
-      if(cur) setBridge(cur+"|"+Date.now());
-      return;
-    }
-    if(!t.closest(".rcpk")){ var r3=root(); if(r3) r3.classList.remove("open"); }
-  };
-  D.addEventListener("click",P._rcPkClick,true);
-  if(P._rcPkInput){ try{ D.removeEventListener("input",P._rcPkInput,true); }catch(e){} }
-  P._rcPkInput=function(ev){
-    var s=ev.target;
-    if(!s||!s.classList||!s.classList.contains("rcpk-search")) return;
-    var v=(s.value||"").toLowerCase().trim(), rt=root(); if(!rt) return;
-    var opts=rt.querySelectorAll(".rcpk-opt"), n=0;
-    for(var i=0;i<opts.length;i++){
-      var ok=(!v)||((opts[i].getAttribute("data-s")||"").indexOf(v)>=0);
-      opts[i].style.display=ok?"":"none"; if(ok) n++;
-    }
-    var em=rt.querySelectorAll(".rcpk-empty");
-    for(var j=0;j<em.length;j++){ em[j].style.display=n?"none":"block"; }
-  };
-  D.addEventListener("input",P._rcPkInput,true);
-  // El proyecto activo ya viene marcado desde Python: sincronizar el estado JS.
-  var rt0=root();
-  if(rt0){ var s0=rt0.querySelector('.rcpk-opt[data-sel="1"]'); if(s0) P._rcPickEp=s0.getAttribute("data-ep"); }
-})();
-</script>
-"""
 
 # Interceptor del botón "Salir del proyecto": revisa por JS si la tabla del iframe
 # tiene datos SIN GUARDAR (window.rcHasData del iframe RC) ANTES del rerun — porque
@@ -292,7 +161,7 @@ _RC_EXIT_INTERCEPT_JS = """
   if(P._rcExitH) D.removeEventListener("click", P._rcExitH, true);
   P._rcExitH=function(ev){
     var t=ev.target; if(!t||!t.closest) return;
-    var btn=t.closest(".st-key-_rc_salir_btn button, .st-key-_rc_salir_btn2 button"); if(!btn) return;
+    var btn=t.closest(".st-key-_rc_salir_btn button"); if(!btn) return;
     if(P._rcForceExit){ P._rcForceExit=false; return; }
     if(!hasData()) return;
     ev.preventDefault(); ev.stopImmediatePropagation();
@@ -1252,14 +1121,17 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 _rc_active_ep = None
                 st.session_state.pop('_rc_active_ep', None)
 
-            # Puente del dropdown HTML del drawer: "<EP>|<ts>". VA FUERA DEL
-            # DIALOG a propósito: dentro del fragment el commit del widget no
-            # llega a Python (verificado). Dedup por ts para no re-aplicarlo.
-            st.markdown('<style>.st-key-_rc_pick{position:absolute!important;left:-9999px!important;'
-                        'top:-9999px!important;height:0!important;width:0!important;'
+            # Puentes del drawer (dropdown y botones del iframe → Python). VAN
+            # FUERA DEL DIALOG a propósito: dentro del fragment el commit del
+            # widget no llega a Python (verificado). Dedup por ts.
+            #  · _rc_pick = "<EP>|<ts>"     (Cargar proyecto)
+            #  · _rc_act  = "exit|<ts>" / "close|<ts>"  (Salir / Cerrar)
+            st.markdown('<style>.st-key-_rc_pick,.st-key-_rc_act{position:absolute!important;'
+                        'left:-9999px!important;top:-9999px!important;height:0!important;width:0!important;'
                         'overflow:hidden!important;margin:0!important;padding:0!important;}</style>',
                         unsafe_allow_html=True)
             st.text_input('pick', key='_rc_pick', label_visibility='collapsed')
+            st.text_input('act', key='_rc_act', label_visibility='collapsed')
             _rc_pick_raw = str(st.session_state.get('_rc_pick', '') or '')
             if '|' in _rc_pick_raw:
                 _rc_p_ep, _rc_p_ts = _rc_pick_raw.rsplit('|', 1)
@@ -1269,6 +1141,18 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     st.session_state['_rc_active_ep'] = _rc_p_ep
                     st.session_state.pop('_rc_open_loader', None)
                     st.rerun()
+            _rc_act_raw = str(st.session_state.get('_rc_act', '') or '')
+            if '|' in _rc_act_raw:
+                _rc_a_cmd, _rc_a_ts = _rc_act_raw.rsplit('|', 1)
+                if _rc_a_ts != st.session_state.get('_rc_act_ts'):
+                    st.session_state['_rc_act_ts'] = _rc_a_ts
+                    if _rc_a_cmd == 'exit':
+                        st.session_state.pop('_rc_active_ep', None)
+                        st.session_state.pop('_rc_open_loader', None)
+                        st.rerun()
+                    elif _rc_a_cmd == 'close':
+                        st.session_state.pop('_rc_open_loader', None)
+                        st.rerun()
 
             if _rc_active_ep:
                 _rc_bcol1, _rc_bcol2, _rc_bcol3 = st.columns([1, 1, 2])
@@ -1758,55 +1642,53 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                                         st.error(f'Error: {_e_xls}')
 
             # ══════════════════════════════════════════════════════════════
-            # DRAWER (mitad izquierda: elegir proyecto · mitad derecha:
-            # información de facturas + historial de compras).
-            # Va AL FINAL a propósito: la mitad derecha necesita _regs_data,
-            # que se calcula más arriba con el proyecto ya cargado.
+            # DRAWER: UN solo iframe (build_historial_rc_html) que arma la
+            # cuadrícula 2×2 — sup-izq elegir proyecto · sup-der historial ·
+            # inf-izq información de facturas · inf-der compras por proveedor.
+            # Va AL FINAL a propósito: necesita _regs_data, calculado arriba con
+            # el proyecto ya cargado. Cargar/Salir/Cerrar (botones HTML dentro
+            # del iframe) escriben en los puentes _rc_pick/_rc_act de arriba.
             # ══════════════════════════════════════════════════════════════
             if st.session_state.get('_rc_open_loader'):
                 st.markdown(_RC_LOADER_CSS, unsafe_allow_html=True)
 
+                # Mini-resumen del proyecto activo (se muestra bajo el selector).
+                if _rc_ep:
+                    _r_cli = _esc_html(_rc_row.get('cliente_nombre') or 'Sin cliente')
+                    _r_eje = _esc_html(_rc_row.get('asesor_nombre') or 'Sin ejecutivo')
+                    _r_est = 'Proyecto terminado' if bool(_rc_row.get('acta_url')) else 'Adjudicado'
+                    _r_pct = _pct_proyecto(_rc_row)
+                    _r_pct_txt = 'S/P' if _r_pct is None else f'{_r_pct:g}%'
+                    _r_tot_real = sum(float(_r.get('tr', 0) or 0) for _r in _regs_data)
+                    _rc_resumen_html = (
+                        '<div class="rc-res">'
+                        f'<div class="rc-res-row">Cliente:&nbsp;<b>{_r_cli}</b></div>'
+                        f'<div class="rc-res-row">Ejecutivo:&nbsp;<b>{_r_eje}</b></div>'
+                        f'<div class="rc-res-row">Estado:&nbsp;<b>{_r_est}</b></div>'
+                        '<div class="rc-res-grid">'
+                        f'<div class="rc-res-kpi"><div class="k">Comprado</div><div class="v">{_r_pct_txt}</div></div>'
+                        f'<div class="rc-res-kpi"><div class="k">Compras</div><div class="v">{len(_regs_data)}</div></div>'
+                        f'<div class="rc-res-kpi" style="grid-column:1/-1;"><div class="k">Total real</div>'
+                        f'<div class="v">{_fmt_clp(_r_tot_real)}</div></div>'
+                        '</div></div>'
+                    )
+                else:
+                    _rc_resumen_html = ('<div class="rc-res-empty">Elige un proyecto y pulsa '
+                                        '<b>Cargar</b> para ver su resumen, facturas e historial.</div>')
+                _rc_picker_full = _rc_picker_html(_rc_pick_opts, _rc_active_ep, _rc_resumen_html)
+
+                _mut_err = st.session_state.pop('_rc_mut_error', None)
+                if _mut_err:
+                    st.toast(f"No se pudo aplicar el cambio: {_mut_err}", icon="⚠️")
+
                 @st.dialog('Proyecto y facturas', width='large')
                 def _rc_loader_dlg():
-                    _dc_izq, _dc_der = st.columns([42, 58], gap='large')
-
-                    with _dc_izq:
-                        st.markdown(_rc_picker_html(_rc_pick_opts, _rc_active_ep),
-                                    unsafe_allow_html=True)
-                        # Comportamiento del dropdown (el input puente vive fuera
-                        # del dialog; este JS lo encuentra en el documento padre).
-                        components.html(_RC_PICKER_JS, height=0)
-                        if _rc_active_ep:
-                            if st.button('Salir del proyecto', key='_rc_salir_btn2',
-                                         use_container_width=True, icon=":material/logout:"):
-                                st.session_state.pop('_rc_active_ep', None)
-                                st.session_state.pop('_rc_open_loader', None)
-                                st.rerun()
-                        if st.button('Cerrar', key='_rc_loader_cancel',
-                                     use_container_width=True, icon=":material/close:"):
-                            st.session_state.pop('_rc_open_loader', None)
-                            st.rerun()
-
-                    with _dc_der:
-                        with st.container(key='_rc_hist_col'):
-                            st.markdown(_titulo_op("file", "Información de facturas"),
-                                        unsafe_allow_html=True)
-                            _mut_err = st.session_state.pop('_rc_mut_error', None)
-                            if _mut_err:
-                                st.error(f"&#10060; No se pudo aplicar el cambio: {_mut_err}")
-                            if not _rc_ep:
-                                st.markdown('<div class="rc-hist-empty">Carga un proyecto para ver '
-                                            'sus facturas e historial de compras.</div>',
-                                            unsafe_allow_html=True)
-                            elif not _regs_data:
-                                st.markdown('<div class="rc-hist-empty">Este proyecto todav&iacute;a '
-                                            'no tiene compras registradas.</div>',
-                                            unsafe_allow_html=True)
-                            elif _OPER_OK:
-                                components.html(build_historial_rc_html(
-                                    _regs_data, _rc_ep,
-                                    supa_url=SUPABASE_URL, supa_key=SUPABASE_KEY),
-                                    height=_hist_h, scrolling=True)
+                    with st.container(key='_rc_drawer_frame'):
+                        components.html(build_historial_rc_html(
+                            _regs_data, _rc_ep or '',
+                            supa_url=SUPABASE_URL, supa_key=SUPABASE_KEY,
+                            picker_html=_rc_picker_full),
+                            height=820, scrolling=False)
                 _rc_loader_dlg()
 
 

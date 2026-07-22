@@ -25,6 +25,7 @@ _RC_ICONS = {
     "history":   '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
     "eye":       '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
     "package":   '<path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/>',
+    "folder":    '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
 }
 
 
@@ -39,7 +40,189 @@ def _svg_rc(name, color="currentColor", size=14, mr=6, valign=-2, sw=2):
     )
 
 
-def build_historial_rc_html(regs, ep='', supa_url='', supa_key=''):
+# CSS de la cuadrícula 2×2 del drawer + del dropdown HTML de proyecto. Va como
+# constante de MÓDULO (llaves reales) y se antepone al HTML del iframe, para no
+# pelear con el escape de llaves del f-string gigante de build_historial_rc_html.
+_RC_GRID_CSS = """<style>
+html,body{margin:0;padding:0;height:100%;}
+.rcg{display:grid;grid-template-columns:minmax(0,41fr) minmax(0,59fr);
+  grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:11px;height:100vh;
+  box-sizing:border-box;padding:2px;font-family:Montserrat,'Segoe UI',sans-serif;}
+.rcg-cell{border:1px solid #e6eaf5;border-radius:14px;background:#fff;display:flex;
+  flex-direction:column;overflow:hidden;min-height:0;min-width:0;box-shadow:0 1px 3px rgba(15,23,42,0.05);}
+.rcg-proj{background:#fbfcff;}
+.rcg-head{display:flex;align-items:center;font-family:Montserrat,sans-serif;font-weight:700;
+  font-size:0.8rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;
+  padding:13px 15px 9px;flex:0 0 auto;}
+.rcg-body{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:2px 15px 15px;}
+.rcg-body::-webkit-scrollbar{width:8px;}
+.rcg-body::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:8px;}
+/* ── Dropdown HTML de proyecto (0 reruns al abrir/buscar/elegir) ── */
+.rcpk{font-family:Montserrat,'Segoe UI',sans-serif;}
+.rcpk-trg{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;padding:11px 13px;
+  border:1.5px solid #e2e8f0;border-radius:12px;background:#fff;cursor:pointer;
+  box-shadow:0 1px 3px rgba(15,23,42,0.05);transition:border-color .15s,box-shadow .15s;}
+.rcpk-trg:hover{border-color:#5b7cfa;box-shadow:0 6px 16px rgba(91,124,250,0.14);}
+.rcpk.open .rcpk-trg{border-color:#5b7cfa;border-bottom-left-radius:0;border-bottom-right-radius:0;}
+.rcpk-txt{flex:1;min-width:0;text-align:left;}
+.rcpk-t1{font-weight:800;font-size:0.85rem;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rcpk-t2{font-size:0.7rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+.rcpk-chev{flex:0 0 auto;transition:transform .18s;line-height:0;}
+.rcpk.open .rcpk-chev{transform:rotate(180deg);}
+.rcpk-panel{display:none;border:1.5px solid #5b7cfa;border-top:none;border-radius:0 0 12px 12px;
+  background:#fff;box-shadow:0 14px 30px rgba(15,23,42,0.12);overflow:hidden;}
+.rcpk.open .rcpk-panel{display:block;}
+.rcpk-search{width:100%;box-sizing:border-box;border:none;border-bottom:1px solid #eef2f7;
+  padding:10px 13px;font-size:0.82rem;font-family:inherit;color:#0f172a;outline:none;background:#f8fafc;}
+.rcpk-list{max-height:230px;overflow-y:auto;}
+.rcpk-opt{display:flex;align-items:center;gap:9px;padding:9px 13px;cursor:pointer;border-bottom:1px solid #f4f6fb;}
+.rcpk-opt:hover{background:#f5f7ff;}
+.rcpk-opt[data-sel="1"]{background:#eef2ff;box-shadow:inset 3px 0 0 #5b7cfa;}
+.rcpk-dot{flex:0 0 auto;width:9px;height:9px;border-radius:50%;}
+.rcpk-oi{flex:1;min-width:0;}
+.rcpk-o1{font-weight:700;font-size:0.8rem;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rcpk-o2{font-size:0.68rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+.rcpk-pct{flex:0 0 auto;font-size:0.62rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+  padding:3px 7px;border-radius:6px;background:#f1f5f9;color:#475569;}
+.rcpk-empty{display:none;padding:16px;font-size:0.8rem;color:#94a3b8;text-align:center;}
+.rcpk-btn{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:9px;padding:11px;
+  border-radius:12px;font-family:Montserrat,sans-serif;font-weight:800;font-size:0.76rem;
+  letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:transform .12s,box-shadow .15s,background .15s;}
+.rcpk-load{color:#fff;background:linear-gradient(135deg,#5b7cfa,#4361ee);box-shadow:0 6px 18px rgba(91,124,250,0.30);}
+.rcpk-load:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(91,124,250,0.38);}
+.rcpk-load[data-dis="1"]{opacity:.45;pointer-events:none;box-shadow:none;}
+.rcpk-exit{color:#b91c1c;background:#fff;border:1.5px solid #fecaca;}
+.rcpk-exit:hover{background:#fef2f2;border-color:#f87171;}
+.rcpk-close{color:#475569;background:#fff;border:1.5px solid #e2e8f0;}
+.rcpk-close:hover{background:#f8fafc;border-color:#cbd5e1;}
+/* ── Mini-resumen del proyecto activo ── */
+.rc-res{margin-top:14px;border-top:1px dashed #e2e8f0;padding-top:12px;}
+.rc-res-row{display:flex;align-items:center;gap:8px;font-size:0.76rem;color:#475569;margin-bottom:7px;}
+.rc-res-row b{color:#0f172a;font-weight:700;}
+.rc-res-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
+.rc-res-kpi{background:#f8fafc;border:1px solid #eef2f7;border-radius:10px;padding:9px 11px;}
+.rc-res-kpi .k{font-size:0.6rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#94a3b8;}
+.rc-res-kpi .v{font-family:Montserrat,sans-serif;font-weight:800;font-size:0.92rem;color:#0f172a;margin-top:2px;}
+.rc-res-empty{margin-top:14px;padding:16px 12px;border:1.5px dashed #e2e8f0;border-radius:12px;
+  text-align:center;font-size:0.76rem;color:#94a3b8;}
+</style>"""
+
+# Comportamiento del dropdown + botones Cargar/Salir/Cerrar DENTRO del iframe del
+# drawer. El picker vive en el documento LOCAL del iframe; los puentes a Python
+# (_rc_pick / _rc_act, text_input ocultos) viven en el documento PADRE, fuera del
+# @st.dialog (dentro del fragment el commit no llega a Python). Salir revisa por
+# JS si el formulario (otro iframe) tiene datos sin guardar ANTES de avisar.
+_RC_PICKER_IFRAME_JS = """
+<script>
+(function(){
+  window.RCGRID=1;                      // desactiva el auto-fit: la grilla es 100vh con scroll interno
+  var P=window.parent, PD=P&&P.document, D=document;
+  function root(){ return D.querySelector(".rcpk"); }
+  function bridge(sel,v){
+    if(!PD) return;
+    var inp=PD.querySelector(sel+" input"); if(!inp) return;
+    try{
+      var setter=Object.getOwnPropertyDescriptor(P.HTMLInputElement.prototype,"value").set;
+      inp.focus({preventScroll:true});
+      setter.call(inp,v);
+      inp.dispatchEvent(new Event("input",{bubbles:true}));
+      inp.dispatchEvent(new Event("change",{bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent("keypress",{key:"Enter",keyCode:13,which:13,charCode:13,bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent("keyup",{key:"Enter",keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new FocusEvent("blur",{bubbles:false}));
+      inp.dispatchEvent(new FocusEvent("focusout",{bubbles:true}));
+      inp.blur();
+    }catch(e){}
+  }
+  function pickEp(){
+    var rt=root(); if(!rt) return null;
+    if(rt._ep) return rt._ep;
+    var s=rt.querySelector('.rcpk-opt[data-sel="1"]');
+    return s?s.getAttribute("data-ep"):null;
+  }
+  function selectOpt(ep){
+    var rt=root(); if(!rt) return;
+    var opts=rt.querySelectorAll(".rcpk-opt");
+    for(var i=0;i<opts.length;i++){
+      var on=(opts[i].getAttribute("data-ep")===ep);
+      opts[i].setAttribute("data-sel", on?"1":"0");
+      if(on){
+        var t1=rt.querySelector(".rcpk-t1"), t2=rt.querySelector(".rcpk-t2");
+        if(t1) t1.textContent=opts[i].getAttribute("data-t1")||ep;
+        if(t2) t2.textContent=opts[i].getAttribute("data-t2")||"";
+      }
+    }
+    rt._ep=ep;
+    var lb=rt.querySelector(".rcpk-load"); if(lb) lb.setAttribute("data-dis","0");
+  }
+  // ¿el formulario (otro iframe del padre) tiene datos sin guardar?
+  function formHasData(){
+    if(!PD) return false;
+    var ifs=PD.querySelectorAll("iframe");
+    for(var i=0;i<ifs.length;i++){
+      try{ if(ifs[i].contentWindow && typeof ifs[i].contentWindow.rcHasData==="function")
+             return !!ifs[i].contentWindow.rcHasData(); }catch(e){}
+    }
+    return false;
+  }
+  function confirmExit(onYes){
+    if(!PD){ onYes(); return; }
+    var old=PD.getElementById("rc-exit-confirm"); if(old) old.remove();
+    var ov=PD.createElement("div"); ov.id="rc-exit-confirm";
+    ov.style.cssText="position:fixed;inset:0;z-index:2147483600;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:20px;font-family:Montserrat,'Segoe UI',sans-serif;";
+    ov.innerHTML='<div style="background:#fff;border-radius:16px;max-width:440px;width:100%;padding:22px 24px;box-shadow:0 24px 60px rgba(0,0,0,.3);">'
+      +'<div style="font-weight:800;font-size:1rem;color:#0f172a;margin-bottom:8px;">Cambios sin guardar</div>'
+      +'<div style="font-size:.86rem;color:#475569;line-height:1.5;margin-bottom:18px;">Escribiste precios o cantidades en la tabla que <b>no has guardado</b>. Si sales, se perderan. Deseas salir del proyecto de todas formas?</div>'
+      +'<div style="display:flex;gap:10px;"><button id="rc-exit-no" style="flex:1;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#f1f5f9;color:#334155;font-weight:700;cursor:pointer;">Cancelar</button>'
+      +'<button id="rc-exit-yes" style="flex:1;padding:10px;border:none;border-radius:10px;background:#dc2626;color:#fff;font-weight:700;cursor:pointer;">Si, salir</button></div></div>';
+    PD.body.appendChild(ov);
+    ov.querySelector("#rc-exit-no").onclick=function(){ ov.remove(); };
+    ov.querySelector("#rc-exit-yes").onclick=function(){ ov.remove(); onYes(); };
+  }
+  D.addEventListener("click",function(ev){
+    var t=ev.target; if(!t||!t.closest) return;
+    if(t.closest(".rcpk-trg")){
+      var r=root();
+      if(r){
+        r.classList.toggle("open");
+        if(r.classList.contains("open")){
+          var sb=r.querySelector(".rcpk-search");
+          if(sb){ sb.value=""; sb.dispatchEvent(new Event("input",{bubbles:true})); }
+          var sel=r.querySelector('.rcpk-opt[data-sel="1"]'), list=r.querySelector(".rcpk-list");
+          if(sel&&list){ var off=sel.offsetTop-list.clientHeight/2+sel.offsetHeight/2; list.scrollTop=Math.max(0,off); }
+          if(sb){ try{ sb.focus({preventScroll:true}); }catch(e){} }
+        }
+      }
+      ev.preventDefault(); return;
+    }
+    var op=t.closest(".rcpk-opt");
+    if(op){ selectOpt(op.getAttribute("data-ep")); var r2=root(); if(r2) r2.classList.remove("open"); return; }
+    if(t.closest(".rcpk-load")){ var ep=pickEp(); if(ep) bridge(".st-key-_rc_pick",ep+"|"+Date.now()); return; }
+    if(t.closest(".rcpk-exit")){
+      if(formHasData()){ confirmExit(function(){ bridge(".st-key-_rc_act","exit|"+Date.now()); }); }
+      else { bridge(".st-key-_rc_act","exit|"+Date.now()); }
+      return;
+    }
+    if(t.closest(".rcpk-close")){ bridge(".st-key-_rc_act","close|"+Date.now()); return; }
+    if(!t.closest(".rcpk")){ var r3=root(); if(r3) r3.classList.remove("open"); }
+  }, true);
+  D.addEventListener("input",function(ev){
+    var s=ev.target; if(!s||!s.classList||!s.classList.contains("rcpk-search")) return;
+    var v=(s.value||"").toLowerCase().trim(), rt=root(); if(!rt) return;
+    var opts=rt.querySelectorAll(".rcpk-opt"), n=0;
+    for(var i=0;i<opts.length;i++){
+      var ok=(!v)||((opts[i].getAttribute("data-s")||"").indexOf(v)>=0);
+      opts[i].style.display=ok?"":"none"; if(ok) n++;
+    }
+    var em=rt.querySelector(".rcpk-empty"); if(em) em.style.display=n?"none":"block";
+  }, true);
+})();
+</script>
+"""
+
+
+def build_historial_rc_html(regs, ep='', supa_url='', supa_key='', picker_html=''):
     """Historial de compras interactivo (iframe): tarjetas con la tabla en HTML
     que entra en modo edición IN-PLACE (las celdas se vuelven inputs, sin crear
     otra tabla). Editar/Eliminar del REGISTRO van SERVER-SIDE vía query param +
@@ -67,7 +250,7 @@ def build_historial_rc_html(regs, ep='', supa_url='', supa_key=''):
     IC_PKG   = _svg_rc('package', color='#16a34a', size=16, mr=0)
     IC_INV   = _svg_rc('package', color='#16a34a', size=13, mr=5)
 
-    return f"""<style>
+    _hist_html = f"""<style>
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap');
 *{{box-sizing:border-box}}
 html,body{{margin:0;padding:0;font-family:Montserrat,'Segoe UI',sans-serif;background:transparent}}
@@ -178,10 +361,24 @@ tr.rm-on td{{background:#fef2f2 !important;text-decoration:line-through;color:#b
 .pv-pdfpages{{padding:10px 0;text-align:center;}}
 .pv-pdfpages canvas{{display:block;margin:0 auto 10px;max-width:97%;box-shadow:0 2px 10px rgba(0,0,0,.4);background:#fff;}}
 </style>
-<div class="hc-filters" id="hc-filters"></div>
-<div class="pv-title" style="margin-top:6px;">{_svg_rc('history', color='#0f172a', size=17, mr=9)}Historial de compras</div>
-<div class="hc-wrap" id="hc-wrap"></div>
-<div id="pv-section"></div>
+<div class="rcg">
+  <div class="rcg-cell rcg-proj">
+    <div class="rcg-head">{_svg_rc('folder', color='#0f172a', size=16, mr=8)}Seleccionar proyecto</div>
+    <div class="rcg-body">{picker_html}</div>
+  </div>
+  <div class="rcg-cell">
+    <div class="rcg-head">{_svg_rc('history', color='#0f172a', size=16, mr=8)}Historial de compras</div>
+    <div class="rcg-body"><div class="hc-wrap" id="hc-wrap"></div></div>
+  </div>
+  <div class="rcg-cell">
+    <div class="rcg-head">{_svg_rc('file', color='#0f172a', size=16, mr=8)}Informaci&oacute;n de facturas</div>
+    <div class="rcg-body"><div class="hc-filters" id="hc-filters"></div></div>
+  </div>
+  <div class="rcg-cell">
+    <div class="rcg-head">{_svg_rc('store', color='#0f172a', size=16, mr=8)}Compras por proveedor</div>
+    <div class="rcg-body"><div id="pv-section"></div></div>
+  </div>
+</div>
 <script>
 var REGS={regs_json};
 var IC={{store:'{IC_STORE}',cal:'{IC_CAL}',user:'{IC_USER}',cart:'{IC_CART}',file:'{IC_FILE}',edit:'{IC_EDIT}',trash:'{IC_TRASH}',save:'{IC_SAVE}',x:'{IC_X}',chev:'{IC_CHEV}',up:'{IC_UP}',down:'{IC_DOWN}',alert:'{IC_ALERT}',clip:'{IC_CLIP}',pkg:'{IC_PKG}',inv:'{IC_INV}'}};
@@ -262,8 +459,7 @@ function renderProv(matched){{
   PROVS_F.sort(function(a,b){{return b.total-a.total;}});
   PROVS_F.forEach(function(p,i){{p.color=p.inv?"#16a34a":PVCOLORS[i%PVCOLORS.length];p.total_fmt=f(p.total);p.nprod=Object.keys(p.items||{{}}).length;}});
   var n=PROVS_F.length, nrows=n<=4?1:(n<=10?2:3), per=Math.ceil(n/nrows);
-  var html='<div class="pv-title">'+IC.store+'Compras por proveedor</div>';
-  html+='<div class="pv-cards'+(pvSel>=0?" has-sel":"")+'">';
+  var html='<div class="pv-cards'+(pvSel>=0?" has-sel":"")+'">';
   for(var r=0;r<nrows;r++){{
     var start=r*per, end=Math.min(start+per,n); if(start>=end)break;
     var rmax=1; for(var q=start;q<end;q++){{var w=Math.pow(PROVS_F[q].total||1,0.3);if(w>rmax)rmax=w;}}
@@ -413,6 +609,7 @@ function renderFilters(){{
   el.innerHTML=html;
 }}
 function fit(){{
+  if(window.RCGRID)return;   // modo grilla: alto fijo 100vh con scroll interno
   try{{
     // Medir SOLO document.body.scrollHeight = alto real del CONTENIDO. NO usar
     // documentElement.scrollHeight ni getBoundingClientRect: devuelven el alto del
@@ -497,7 +694,8 @@ try{{new ResizeObserver(function(){{fit();}}).observe(document.body);}}catch(e){
 setTimeout(fit,60);setTimeout(fit,350);
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" onload="window.renderPdfs&&window.renderPdfs()" onerror="document.querySelectorAll('.pv-pdfload').forEach(function(l){{l.innerHTML='<span style=\\'color:#dc2626;font-size:0.8rem;\\'>No se pudo cargar el visor PDF. Ábrelo en pestaña nueva.</span>';}})"></script>"""
-
+    # CSS de la grilla 2×2 + dropdown ANTES (llaves reales); JS del picker DESPUÉS.
+    return _RC_GRID_CSS + _hist_html + _RC_PICKER_IFRAME_JS
 
 
 
