@@ -1363,10 +1363,6 @@ input.rc-adic::placeholder{{color:#cbd5e1}}
     </div>
   </div>
   <div id="rc-add-backdrop" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.42);z-index:99998" onclick="window.closeAddPopup()"></div>
-  <div id="rc-add-hint" onclick="window.rcAddMenuAt(event)" style="padding:9px 16px;background:#fff;border-top:1px solid #e2e8f0;flex-shrink:0;cursor:pointer;display:flex;align-items:center;gap:9px;color:#475569;font-size:12px;font-weight:700;user-select:none">
-    <span style="display:inline-flex;width:20px;height:20px;border-radius:6px;background:#eef2ff;color:#4338ca;align-items:center;justify-content:center;font-size:15px;line-height:1">+</span>
-    Agregar producto o guardar compra <span style="color:#94a3b8;font-weight:500">&#8212; click aqu&#237; o click derecho en la tabla</span>
-  </div>
   <div id="add-section" style="display:none">
     <div style="display:flex;align-items:center;margin-bottom:12px">
       <div style="font-family:Montserrat,'Segoe UI',sans-serif;font-weight:700;font-size:.8rem;letter-spacing:.04em;text-transform:uppercase;color:#0f172a">Agregar producto</div>
