@@ -110,6 +110,37 @@ _RC_EXIT_INTERCEPT_JS = """
 </script>
 """
 
+# Persistencia de la sub-pestaña de OPERACIONES: st.tabs NO recuerda la pestaña
+# activa tras st.rerun() (vuelve a la 1ª). Este JS recuerda el índice activo (en
+# window.parent) al hacer clic y lo re-selecciona tras cada rerun. Localiza el
+# tab-list ESPECÍFICO de Operaciones (el que contiene las 3 etiquetas) para no
+# tocar otros st.tabs de la app.
+_OP_TAB_PERSIST_JS = """
+<script>
+(function(){
+  var P=window.parent, D=P&&P.document; if(!D) return;
+  function opTabList(){
+    var lists=D.querySelectorAll('[data-baseweb="tab-list"]');
+    for(var i=0;i<lists.length;i++){
+      var txt=(lists[i].textContent||"").toUpperCase();
+      if(txt.indexOf("OPERACIONAL")>=0 && txt.indexOf("COMPRAS")>=0 && txt.indexOf("ACTA")>=0) return lists[i];
+    }
+    return null;
+  }
+  function tabs(){ var l=opTabList(); return l ? [].slice.call(l.querySelectorAll('[data-baseweb="tab"]')) : []; }
+  function activeIdx(ts){ for(var i=0;i<ts.length;i++){ if(ts[i].getAttribute("aria-selected")==="true") return i; } return -1; }
+  function tick(){
+    var ts=tabs(); if(ts.length<2) return;
+    ts.forEach(function(t,i){ if(!t._ecOpBound){ t._ecOpBound=true; t.addEventListener("click", function(){ P._ecOpTab=i; }); } });
+    if(P._ecOpTab==null) return;
+    var cur=activeIdx(ts);
+    if(cur!==P._ecOpTab && ts[P._ecOpTab]){ ts[P._ecOpTab].click(); }
+  }
+  var n=0; var iv=setInterval(function(){ tick(); if(++n>15) clearInterval(iv); }, 120);
+})();
+</script>
+"""
+
 
 # ── Iconos SVG (reemplazan emoticones) ───────────────────────────────────────
 _ICON_PATHS_OP = {
@@ -327,6 +358,8 @@ def render_tab_operaciones(supabase, supabase_admin=None, supa_url='', supa_key=
         ":material/shopping_cart: Registro de Compras",
         ":material/assignment: Acta de Clientes",
     ])
+    # Mantener la sub-pestaña activa tras los reruns (st.tabs se resetea a la 1ª).
+    components.html(_OP_TAB_PERSIST_JS, height=0)
 
     # ================================================================
     # SUB-PESTAÑA: PANEL OPERACIONAL
