@@ -1141,10 +1141,10 @@ _RC_TABLE_TOOLS_JS = """
   var EXP='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
   var SHR='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/></svg>';
   var fb=document.getElementById("_rc_fsbtn");
-  var PROPS=[["position","fixed"],["top","0"],["left","0"],["width","100vw"],["height","100vh"],["z-index","999990"],["border","none"],["border-radius","0"],["margin","0"],["background","#fff"]];
+  var PROPS=[["position","fixed"],["top","0"],["left","0"],["width","100vw"],["height","100vh"],["z-index","2147483000"],["border","none"],["border-radius","0"],["margin","0"],["background","#fff"]];
   function isFS(){ return P._rcFsActive===true; }
-  function applyFS(){ if(!IFR)return; for(var i=0;i<PROPS.length;i++) IFR.style.setProperty(PROPS[i][0],PROPS[i][1],"important"); P._rcFsActive=true; if(fb){fb.innerHTML=SHR;fb.title="Salir de pantalla completa";} }
-  function removeFS(){ if(IFR){for(var i=0;i<PROPS.length;i++) IFR.style.removeProperty(PROPS[i][0]);} P._rcFsActive=false; if(fb){fb.innerHTML=EXP;fb.title="Pantalla completa";} }
+  function applyFS(){ if(!IFR)return; for(var i=0;i<PROPS.length;i++) IFR.style.setProperty(PROPS[i][0],PROPS[i][1],"important"); try{document.documentElement.classList.add("rc-fs");}catch(e){} P._rcFsActive=true; if(fb){fb.innerHTML=SHR;fb.title="Salir de pantalla completa";} }
+  function removeFS(){ if(IFR){for(var i=0;i<PROPS.length;i++) IFR.style.removeProperty(PROPS[i][0]);} try{document.documentElement.classList.remove("rc-fs");}catch(e){} P._rcFsActive=false; if(fb){fb.innerHTML=EXP;fb.title="Pantalla completa";} }
   function toggleFS(){ if(isFS())removeFS(); else applyFS(); }
   if(fb){ fb.onclick=toggleFS; fb.innerHTML=isFS()?SHR:EXP; }
   if(isFS()) applyFS();
@@ -1342,8 +1342,12 @@ input.rc-adic::placeholder{{color:#cbd5e1}}
 .rc-sel:focus{{border-color:#5b7cfa;box-shadow:0 0 0 3px rgba(91,124,250,.14)}}
 .rc-grid{{display:grid;grid-template-columns:1fr 1fr;gap:10px}}
 .rc-hidden{{display:none}}
+/* Fullscreen de la tabla: se ocultan cards y resumen → solo buscador + tabla. */
+html.rc-fs #rc-cards{{display:none!important}}
+html.rc-fs #tots{{display:none!important}}
+html.rc-fs body{{margin:0!important;padding:0!important}}
 </style>
-{cats_cards_html}
+<div id="rc-cards">{cats_cards_html}</div>
 <div style="border:1px solid #e2e8f0;border-radius:8px;display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0;background:#fff">
   <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #eef2f7;flex-shrink:0">
     <input id="rc-search" type="text" placeholder="Buscar item..." oninput="window.filterRows(this.value)" style="flex:1;min-width:0;border:1px solid #cbd5e1;border-radius:7px;padding:7px 11px;font-size:13px;box-sizing:border-box"/>
