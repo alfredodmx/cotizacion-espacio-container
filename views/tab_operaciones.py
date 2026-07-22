@@ -55,6 +55,61 @@ except ImportError:
 
 _tz_cl = timezone(timedelta(hours=-3))
 
+# Drawer lateral derecho para el modal "Cargar proyecto" (mismo patrón que la
+# pestaña Inventario: st.dialog nativo estilizado como panel derecho). Se inyecta
+# solo cuando el loader está abierto.
+_RC_LOADER_CSS = """
+<style>
+div[data-testid="stDialog"] > div{align-items:flex-start!important;justify-content:flex-end!important;}
+div[data-testid="stDialog"] div[role="dialog"]{position:fixed!important;top:65px!important;right:0!important;
+  left:auto!important;bottom:auto!important;transform:none!important;margin:0!important;
+  height:calc(100vh - 65px)!important;max-height:calc(100vh - 65px)!important;background:#fff!important;
+  border-radius:0!important;box-shadow:none!important;overflow-y:auto!important;overflow-x:hidden!important;}
+div[data-testid="stDialog"] [data-testid="stVerticalBlockBorderWrapper"]{
+  background:transparent!important;border:none!important;box-shadow:none!important;border-radius:0!important;}
+div[data-testid="stDialog"] div[role="dialog"] > div:first-child{
+  font-family:'Montserrat',sans-serif!important;font-weight:700!important;font-size:0.92rem!important;
+  letter-spacing:0.05em!important;text-transform:uppercase!important;color:#0f172a!important;}
+</style>
+"""
+
+# Interceptor del botón "Salir del proyecto": revisa por JS si la tabla del iframe
+# tiene datos SIN GUARDAR (window.rcHasData del iframe RC) ANTES del rerun — porque
+# el rerun re-renderiza el iframe y pierde lo escrito. Si hay datos → confirma; si
+# no → deja pasar el click (Python limpia el proyecto). Bind en el doc padre.
+_RC_EXIT_INTERCEPT_JS = """
+<script>
+(function(){
+  var P=window.parent, D=P&&P.document; if(!D) return;
+  function rcIframe(){ var ifs=D.querySelectorAll("iframe"); for(var i=0;i<ifs.length;i++){ try{ if(ifs[i].contentWindow && typeof ifs[i].contentWindow.rcHasData==="function") return ifs[i]; }catch(e){} } return null; }
+  function hasData(){ var ifr=rcIframe(); if(!ifr) return false; try{ return !!ifr.contentWindow.rcHasData(); }catch(e){ return false; } }
+  function confirmExit(onYes){
+    var old=D.getElementById("rc-exit-confirm"); if(old) old.remove();
+    var ov=D.createElement("div"); ov.id="rc-exit-confirm";
+    ov.style.cssText="position:fixed;inset:0;z-index:2147483600;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:20px;font-family:Montserrat,'Segoe UI',sans-serif;";
+    ov.innerHTML='<div style="background:#fff;border-radius:16px;max-width:440px;width:100%;padding:22px 24px;box-shadow:0 24px 60px rgba(0,0,0,.3);">'
+      +'<div style="font-weight:800;font-size:1rem;color:#0f172a;margin-bottom:8px;">Cambios sin guardar</div>'
+      +'<div style="font-size:.86rem;color:#475569;line-height:1.5;margin-bottom:18px;">Escribiste precios o cantidades en la tabla que <b>no has guardado</b>. Si sales, se perderan. Deseas salir del proyecto de todas formas?</div>'
+      +'<div style="display:flex;gap:10px;"><button id="rc-exit-no" style="flex:1;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#f1f5f9;color:#334155;font-weight:700;cursor:pointer;">Cancelar</button>'
+      +'<button id="rc-exit-yes" style="flex:1;padding:10px;border:none;border-radius:10px;background:#dc2626;color:#fff;font-weight:700;cursor:pointer;">Si, salir</button></div></div>';
+    D.body.appendChild(ov);
+    D.getElementById("rc-exit-yes").addEventListener("click", function(){ ov.remove(); onYes(); });
+    D.getElementById("rc-exit-no").addEventListener("click", function(){ ov.remove(); });
+  }
+  if(P._rcExitH) D.removeEventListener("click", P._rcExitH, true);
+  P._rcExitH=function(ev){
+    var t=ev.target; if(!t||!t.closest) return;
+    var btn=t.closest(".st-key-_rc_salir_btn button"); if(!btn) return;
+    if(P._rcForceExit){ P._rcForceExit=false; return; }
+    if(!hasData()) return;
+    ev.preventDefault(); ev.stopImmediatePropagation();
+    confirmExit(function(){ P._rcForceExit=true; btn.click(); });
+  };
+  D.addEventListener("click", P._rcExitH, true);
+})();
+</script>
+"""
+
 
 # ── Iconos SVG (reemplazan emoticones) ───────────────────────────────────────
 _ICON_PATHS_OP = {
@@ -973,9 +1028,59 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
             # % cambie; la etiqueta enriquecida se arma en format_func.
             _rc_by_ep   = {r['numero']: r for r in _rc_cots}
             _rc_labels  = {r['numero']: _label_proyecto(r) for r in _rc_cots}
-            _rc_ep = st.selectbox('Seleccionar proyecto', list(_rc_by_ep.keys()),
-                                  format_func=lambda e: _rc_labels.get(e, e), key='rc_sel_proyecto')
-            _rc_row = _rc_by_ep.get(_rc_ep, {})
+            # Proyecto ACTIVO (cargado). Se elige desde un drawer (botón "Cargar
+            # proyecto") para descongestionar la interfaz. "Salir del proyecto"
+            # avisa si hay datos sin guardar en la tabla (interceptor JS).
+            _rc_active_ep = st.session_state.get('_rc_active_ep')
+            if _rc_active_ep and _rc_active_ep not in _rc_by_ep:
+                _rc_active_ep = None
+                st.session_state.pop('_rc_active_ep', None)
+
+            _rc_bcol1, _rc_bcol2 = st.columns([1, 3])
+            with _rc_bcol1:
+                if _rc_active_ep:
+                    if st.button('Salir del proyecto', key='_rc_salir_btn',
+                                 use_container_width=True, icon=":material/logout:"):
+                        st.session_state.pop('_rc_active_ep', None)
+                        st.rerun()
+                else:
+                    if st.button('Cargar proyecto', type='primary', key='_rc_cargar_btn',
+                                 use_container_width=True, icon=":material/folder_open:"):
+                        st.session_state['_rc_open_loader'] = True
+                        st.rerun()
+            with _rc_bcol2:
+                if _rc_active_ep:
+                    st.markdown(
+                        '<div style="padding-top:9px;font-weight:600;font-size:0.86rem;color:#334155;'
+                        'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+                        f'{_esc_html(_rc_labels.get(_rc_active_ep, _rc_active_ep))}</div>',
+                        unsafe_allow_html=True)
+
+            # Drawer para elegir/cargar proyecto (solo si no hay uno activo).
+            if st.session_state.get('_rc_open_loader') and not _rc_active_ep:
+                st.markdown(_RC_LOADER_CSS, unsafe_allow_html=True)
+
+                @st.dialog('Cargar proyecto', width='large')
+                def _rc_loader_dlg():
+                    _sel = st.selectbox('Seleccionar proyecto', list(_rc_by_ep.keys()),
+                                        format_func=lambda e: _rc_labels.get(e, e),
+                                        key='rc_sel_proyecto')
+                    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+                    _lc1, _lc2 = st.columns(2)
+                    with _lc1:
+                        if st.button('Cargar proyecto', type='primary',
+                                     use_container_width=True, key='_rc_loader_ok'):
+                            st.session_state['_rc_active_ep'] = _sel
+                            st.session_state.pop('_rc_open_loader', None)
+                            st.rerun()
+                    with _lc2:
+                        if st.button('Cancelar', use_container_width=True, key='_rc_loader_cancel'):
+                            st.session_state.pop('_rc_open_loader', None)
+                            st.rerun()
+                _rc_loader_dlg()
+
+            _rc_ep = _rc_active_ep
+            _rc_row = _rc_by_ep.get(_rc_ep, {}) if _rc_ep else {}
 
             if _rc_ep:
                 _rc_prods_raw = _rc_row.get('productos') or []
@@ -1185,6 +1290,10 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         except Exception:
                             pass
                         st.rerun()
+
+                    # Interceptor del botón "Salir del proyecto": revisa (por JS,
+                    # antes del rerun) si la tabla tiene datos sin guardar → avisa.
+                    components.html(_RC_EXIT_INTERCEPT_JS, height=0)
 
                 if _rc_existentes:
                     st.markdown(_titulo_op("file", "Información de facturas"), unsafe_allow_html=True)
