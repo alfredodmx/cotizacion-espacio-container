@@ -221,18 +221,32 @@ _OP_SELECTOR_CSS = """
   border-bottom:2px solid #e2e6f3!important;margin-bottom:2px!important;padding:0!important;}
 .st-key-_op_subtab [role="radiogroup"] > label{background:transparent!important;border:none!important;
   border-bottom:3px solid transparent!important;border-radius:0!important;padding:0.85rem 1.6rem!important;
-  margin:0 0 -2px 0!important;cursor:pointer!important;font-family:'Plus Jakarta Sans',sans-serif!important;
-  font-weight:900!important;font-size:0.88rem!important;text-transform:uppercase!important;
-  letter-spacing:0.05em!important;color:#7c85b3!important;transition:color .2s,border-color .2s!important;}
+  margin:0 0 -2px 0!important;cursor:pointer!important;color:#7c85b3!important;
+  transition:color .2s,border-color .2s!important;}
 .st-key-_op_subtab [role="radiogroup"] > label:hover{color:#5b7cfa!important;background:rgba(91,124,250,.05)!important;}
 .st-key-_op_subtab [role="radiogroup"] > label:has(input:checked){color:#5b7cfa!important;
   border-bottom-color:#5b7cfa!important;background:rgba(91,124,250,.06)!important;}
 .st-key-_op_subtab [role="radiogroup"] > label > div:first-child{display:none!important;}
-/* iconos Material (:material/...:) en las etiquetas: NO heredar Plus Jakarta ni el
-   uppercase del tab (rompe la ligadura y se vería el texto literal del glifo). */
+/* Texto IDÉNTICO a st.tabs (CONTRATO CLIENTE): el label NO estiliza el texto — el
+   markdown interno (stMarkdownContainer p) hay que apuntarlo directo, si no queda
+   con el default de Streamlit (Source Sans 16px/400). Plus Jakarta 0.88rem/700,
+   uppercase, hereda el color del label (azul activa / gris inactiva). */
+.st-key-_op_subtab [role="radiogroup"] label [data-testid="stMarkdownContainer"] p{
+  font-family:'Plus Jakarta Sans',sans-serif!important;font-size:0.88rem!important;font-weight:700!important;
+  text-transform:uppercase!important;letter-spacing:0.05em!important;margin:0!important;}
+/* Color por estado (gris inactiva / azul hover+activa). El `inherit` no basta: el
+   stMarkdownContainer trae un color oscuro explícito, así que se fija en el p e icono. */
+.st-key-_op_subtab [role="radiogroup"] > label [data-testid="stMarkdownContainer"] p,
+.st-key-_op_subtab [role="radiogroup"] > label [data-testid="stMarkdownContainer"] p span{color:#7c85b3!important;}
+.st-key-_op_subtab [role="radiogroup"] > label:hover [data-testid="stMarkdownContainer"] p,
+.st-key-_op_subtab [role="radiogroup"] > label:hover [data-testid="stMarkdownContainer"] p span,
+.st-key-_op_subtab [role="radiogroup"] > label:has(input:checked) [data-testid="stMarkdownContainer"] p,
+.st-key-_op_subtab [role="radiogroup"] > label:has(input:checked) [data-testid="stMarkdownContainer"] p span{color:#5b7cfa!important;}
+/* Icono Material: mismo tamaño que st.tabs (0.88rem) y sin uppercase (rompe la
+   ligadura y mostraría el texto literal del glifo). */
 .st-key-_op_subtab [role="radiogroup"] label span[role="img"][aria-label$=" icon"]{
-  font-family:'Material Symbols Rounded'!important;font-weight:400!important;font-size:1.15rem!important;
-  text-transform:none!important;letter-spacing:normal!important;vertical-align:-4px!important;margin-right:3px!important;}
+  font-family:'Material Symbols Rounded'!important;font-weight:400!important;font-size:0.88rem!important;
+  text-transform:none!important;letter-spacing:normal!important;}
 </style>
 """
 
