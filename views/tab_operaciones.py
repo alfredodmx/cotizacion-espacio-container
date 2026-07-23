@@ -72,11 +72,8 @@ div[data-testid="stDialog"] div[role="dialog"]{position:fixed!important;top:0!im
   height:100vh!important;max-height:100vh!important;background:#fff!important;
   border-radius:0!important;box-shadow:-16px 0 48px rgba(15,23,42,0.20)!important;
   overflow:hidden!important;padding-top:0.6rem!important;
-  animation:rcDrawerIn .34s cubic-bezier(.22,.61,.36,1) both!important;}
+  animation:none!important;}
 @keyframes rcDrawerIn{from{transform:translateX(100%);}to{transform:translateX(0);}}
-/* backdrop del dialog: fundido suave para acompañar el deslizamiento */
-div[data-testid="stDialog"]::before,div[data-testid="stDialog"] > div[data-testid="stDialogBackdrop"]{
-  animation:rcBackdropIn .34s ease both!important;}
 @keyframes rcBackdropIn{from{opacity:0;}to{opacity:1;}}
 div[data-testid="stDialog"] [data-testid="stVerticalBlockBorderWrapper"]{
   background:transparent!important;border:none!important;box-shadow:none!important;border-radius:0!important;}
@@ -89,6 +86,25 @@ div[data-testid="stDialog"] div[role="dialog"] > div:first-child{
   border:none!important;display:block!important;}
 .st-key-_rc_drawer_frame,.st-key-_rc_drawer_frame > div{margin:0!important;padding:0!important;}
 </style>
+"""
+
+# Animación de ENTRADA (deslizar desde la derecha). Se inyecta SOLO cuando el
+# drawer se abre desde cerrado (_rc_just_opened), no en las recargas con el
+# drawer ya abierto (p.ej. al Cargar un proyecto) para que no vuelva a deslizarse.
+_RC_DRAWER_ANIM_CSS = """
+<style>
+div[data-testid="stDialog"] div[role="dialog"]{animation:rcDrawerIn .34s cubic-bezier(.22,.61,.36,1) both!important;}
+div[data-testid="stDialog"]::before,div[data-testid="stDialog"] > div[data-testid="stDialogBackdrop"]{
+  animation:rcBackdropIn .34s ease both!important;}
+</style>
+"""
+
+# Estado EN REPOSO (recargas con el drawer ya abierto): sin animación y anclado
+# en translateX(0) — neutraliza el translateY(20) que Streamlit deja por defecto
+# (que bajaría el drawer y cortaría las celdas de abajo). NO se puede poner en la
+# base porque un transform !important estático le ganaría a la animación de entrada.
+_RC_DRAWER_STILL_CSS = """
+<style>div[data-testid="stDialog"] div[role="dialog"]{transform:translateX(0)!important;}</style>
 """
 
 def _rc_picker_html(opts, sel_ep, resumen_html=''):
@@ -1172,7 +1188,10 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         and _rc_p_ep in _rc_by_ep):
                     st.session_state['_rc_pick_ts'] = _rc_p_ts
                     st.session_state['_rc_active_ep'] = _rc_p_ep
-                    st.session_state.pop('_rc_open_loader', None)
+                    # NO cerrar el drawer: al cargar un proyecto el drawer se
+                    # queda abierto y carga su info (resumen/facturas/historial/
+                    # proveedores); el usuario cierra cuando quiere. Sin marcar
+                    # _rc_just_opened → no vuelve a deslizarse (recarga en sitio).
                     st.rerun()
             _rc_act_raw = str(st.session_state.get('_rc_act', '') or '')
             if '|' in _rc_act_raw:
@@ -1198,6 +1217,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     if st.button('Abrir menú', key='_rc_menu_btn',
                                  use_container_width=True, icon=":material/folder_open:"):
                         st.session_state['_rc_open_loader'] = True
+                        st.session_state['_rc_just_opened'] = True
                         st.rerun()
                 with _rc_bcol3:
                     st.markdown(
@@ -1211,6 +1231,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     if st.button('Cargar proyecto', type='primary', key='_rc_cargar_btn',
                                  use_container_width=True, icon=":material/folder_open:"):
                         st.session_state['_rc_open_loader'] = True
+                        st.session_state['_rc_just_opened'] = True
                         st.rerun()
 
             # Opciones del dropdown HTML del drawer (se arman una vez; elegir y
@@ -1552,6 +1573,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                                  key='_rc_open_hist', use_container_width=True,
                                  icon=":material/receipt_long:"):
                         st.session_state['_rc_open_loader'] = True
+                        st.session_state['_rc_just_opened'] = True
                         st.rerun()
 
                     # ── Productos EN STOCK (ahorro puro): precio real $0 ──
@@ -1685,6 +1707,13 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
             # ══════════════════════════════════════════════════════════════
             if st.session_state.get('_rc_open_loader'):
                 st.markdown(_RC_LOADER_CSS, unsafe_allow_html=True)
+                # Animación de entrada SOLO en la apertura desde cerrado; en las
+                # recargas con el drawer ya abierto (p.ej. al Cargar proyecto) se
+                # deja quieto y anclado (sin re-deslizar).
+                if st.session_state.pop('_rc_just_opened', False):
+                    st.markdown(_RC_DRAWER_ANIM_CSS, unsafe_allow_html=True)
+                else:
+                    st.markdown(_RC_DRAWER_STILL_CSS, unsafe_allow_html=True)
 
                 # Mini-resumen del proyecto activo (se muestra bajo el selector).
                 if _rc_ep:

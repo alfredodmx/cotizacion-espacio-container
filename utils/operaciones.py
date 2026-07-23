@@ -217,7 +217,7 @@ _RC_PICKER_IFRAME_JS = """
     }
     var op=t.closest(".rcpk-opt");
     if(op){ selectOpt(op.getAttribute("data-ep")); var r2=root(); if(r2) r2.classList.remove("open"); return; }
-    if(t.closest(".rcpk-load")){ var ep=pickEp(); if(ep) closeWithAnim(function(){ bridge(".st-key-_rc_pick",ep+"|"+Date.now()); }); return; }
+    if(t.closest(".rcpk-load")){ var ep=pickEp(); if(ep) bridge(".st-key-_rc_pick",ep+"|"+Date.now()); return; }  /* Cargar NO cierra: el drawer queda abierto y carga la info */
     if(t.closest(".rcpk-exit")){
       var doExit=function(){ closeWithAnim(function(){ bridge(".st-key-_rc_act","exit|"+Date.now()); }); };
       if(formHasData()){ confirmExit(doExit); } else { doExit(); }
@@ -243,16 +243,27 @@ _RC_PICKER_IFRAME_JS = """
   // Refs en window.parent → se remueven y re-agregan en cada apertura (el iframe
   // se recrea; sin esto se acumularían listeners).
   function triggerClose(){ closeWithAnim(function(){ bridge(".st-key-_rc_act","close|"+Date.now()); }); }
+  function isCloseTarget(t){
+    if(!t||!t.closest) return false;
+    if(t.closest('button[aria-label="Close"]')) return true;                                        // la X
+    if(t.closest('div[data-testid="stDialog"]') && !t.closest('div[role="dialog"]')) return true;   // backdrop (fuera del drawer)
+    return false;
+  }
   if(PD){
-    if(P._rcCloseCap){ try{ PD.removeEventListener("click",P._rcCloseCap,true); }catch(e){} }
-    P._rcCloseCap=function(ev){
-      if(!PD.querySelector('div[data-testid="stDialog"] div[role="dialog"]')) return;
-      var t=ev.target; if(!t||!t.closest) return;
-      var onX=!!t.closest('button[aria-label="Close"]');
-      var onBackdrop=!!t.closest('div[data-testid="stDialog"]') && !t.closest('div[role="dialog"]');
-      if(onX||onBackdrop){ ev.preventDefault(); ev.stopImmediatePropagation(); triggerClose(); }
-    };
-    PD.addEventListener("click",P._rcCloseCap,true);
+    // El backdrop lo cierra Streamlit en pointerdown/mousedown (ANTES del click),
+    // la X en click → interceptar los tres en fase de captura para ganarle a
+    // React, animar la salida y recién cerrar. El guard _rcClosing evita que los
+    // 3 eventos de un mismo gesto disparen 3 cierres.
+    ["pointerdown","mousedown","click"].forEach(function(evt){
+      var key="_rcCl_"+evt;
+      if(P[key]){ try{ PD.removeEventListener(evt,P[key],true); }catch(e){} }
+      P[key]=function(ev){
+        if(!PD.querySelector('div[data-testid="stDialog"] div[role="dialog"]')) return;
+        if(!isCloseTarget(ev.target)) return;
+        ev.preventDefault(); ev.stopImmediatePropagation(); triggerClose();
+      };
+      PD.addEventListener(evt,P[key],true);
+    });
     if(P._rcEscCap){ try{ PD.removeEventListener("keydown",P._rcEscCap,true); }catch(e){} }
     P._rcEscCap=function(ev){
       if(ev.key!=="Escape" && ev.keyCode!==27) return;
