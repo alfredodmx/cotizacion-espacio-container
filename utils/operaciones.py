@@ -1330,12 +1330,15 @@ _RC_ADD_MENU_JS = """
     return false;
   }
   window.rcHasData=rcHasData;
-  // ¿Hay ALGO escrito sin guardar en la tabla? (para habilitar "Deshacer": precio
-  // real, adicional o un "en stock" recién marcado, en filas editables no guardadas.)
+  // ¿Hay ALGO sin guardar en la tabla? (para habilitar "Deshacer"): un producto
+  // AGREGADO (idx>=10000) o, en filas editables, precio real / adicional / "en
+  // stock" recién marcado.
   function rcHasAnyInput(){
     var rows=document.querySelectorAll("tr[data-idx]");
     for(var i=0;i<rows.length;i++){
-      var r=rows[i]; if(r.dataset.comprado==="1") continue;
+      var r=rows[i];
+      if((parseInt(r.dataset.idx)||0)>=10000) return true;   // producto agregado (no guardado)
+      if(r.dataset.comprado==="1") continue;
       var real=r.querySelector(".rc-real");
       if(real && !real.readOnly && (parseFloat(real.dataset.val)||0)>0) return true;
       var adic=r.querySelector(".rc-adic");
@@ -1345,12 +1348,15 @@ _RC_ADD_MENU_JS = """
     }
     return false;
   }
-  // "Deshacer": limpia lo escrito SIN guardar (no toca filas ya guardadas).
+  // "Deshacer": descarta lo NO guardado — quita los productos agregados
+  // (idx>=10000) y limpia precio real / adicional / "en stock" recién marcado en
+  // las filas editables (no toca las ya guardadas).
   function rcUndo(){
     var rows=document.querySelectorAll("tr[data-idx]");
-    for(var i=0;i<rows.length;i++){
-      var r=rows[i]; if(r.dataset.comprado==="1") continue;
-      // "en stock" recién marcado (no guardado) → desmarcar (resetea real + attrs)
+    for(var i=rows.length-1;i>=0;i--){
+      var r=rows[i];
+      if((parseInt(r.dataset.idx)||0)>=10000){ r.remove(); continue; }  // producto agregado → eliminar
+      if(r.dataset.comprado==="1") continue;
       var stk=r.querySelector(".rc-stock");
       if(stk && stk.checked && r.getAttribute("data-stock-saved")!=="1"){
         stk.checked=false; if(window.toggleStock) window.toggleStock(stk);
@@ -1364,6 +1370,14 @@ _RC_ADD_MENU_JS = """
     if(window.checkSaveBtn) window.checkSaveBtn();
   }
   window.rcUndo=rcUndo;
+  // Toast de confirmación (p.ej. "Producto agregado"). Flota arriba del iframe.
+  window.rcToast=function(msg){
+    var t=document.getElementById("rc-toast");
+    if(!t){ t=document.createElement("div"); t.id="rc-toast"; document.body.appendChild(t); }
+    t.style.cssText="position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:1000001;background:#0f172a;color:#fff;font-family:Montserrat,'Segoe UI',sans-serif;font-size:12.5px;font-weight:700;padding:10px 18px;border-radius:10px;box-shadow:0 12px 34px rgba(0,0,0,.3);display:flex;align-items:center;gap:8px;opacity:1;transition:opacity .25s,top .25s;pointer-events:none";
+    t.innerHTML='<span style="color:#4ade80;display:inline-flex">'+_svgIc('<path d="M20 6 9 17l-5-5"/>')+'</span><span>'+msg+'</span>';
+    clearTimeout(t._to); t._to=setTimeout(function(){ t.style.opacity="0"; t.style.top="6px"; },1700);
+  };
   function _svgIc(inner){ return '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+inner+'</svg>'; }
   var SVG_SAVE=_svgIc('<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>');
   var SVG_UNDO=_svgIc('<path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>');
@@ -1958,7 +1972,8 @@ window.addRow=function(){{
   document.querySelector("tbody").appendChild(tr);
   attachListeners(tr.querySelector(".rc-real"), tr.querySelector(".rc-adic"));
   _addIdx++;cantEl.value="1";itemEl.selectedIndex=0;
-  document.getElementById("add-precio").textContent="$0";calc();
+  document.getElementById("add-precio").textContent="$0";calc();checkSaveBtn();
+  if(window.rcToast)window.rcToast("Producto agregado");
 }};
 function attachListeners(inp, adic){{
   inp.addEventListener("input",function(){{
@@ -2141,6 +2156,7 @@ window.addRowSinReg=function(){{
   _addIdx++;
   catEl.value="";itemEl.value="";cantEl.value="1";precioEl.value="";
   calc();checkSaveBtn();
+  if(window.rcToast)window.rcToast("Producto agregado");
 }};
 // Escribir/elegir INVENTARIO en "¿Dónde compraste?" cambia el tipo a Stock.
 window.onLugarChange=function(){{
