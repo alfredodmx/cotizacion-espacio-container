@@ -22,6 +22,7 @@ from views.layout import render_page_header
 from repositories.inventario_repo import (
     fetch_categorias_items, guardar_inventario, listar_inventario,
     obtener_inventario, actualizar_inventario, eliminar_inventario,
+    disponibilidad_inventario, norm_key,
     UNIDADES, MAX_FOTOS,
 )
 
@@ -330,6 +331,8 @@ _INV_TABLE_JS = r"""<script>
   W._invTblH=function(ev){
     var t=ev.target; if(!t||!t.closest) return;
     if(!t.closest('#inv-ctxmenu')) closeMenu();
+    var v=t.closest('[data-inv-veruso]');
+    if(v){ ev.preventDefault(); ev.stopPropagation(); fire('veruso', v.getAttribute('data-inv-veruso')); return; }
     var e=t.closest('[data-inv-edit]');
     if(e){ ev.preventDefault(); ev.stopPropagation(); fire('edit', e.getAttribute('data-inv-edit')); return; }
     var d=t.closest('[data-inv-delrow]');
@@ -354,6 +357,17 @@ _INV_TABLE_JS = r"""<script>
 def _inv_all():
     """Lista completa de inventario activo (cacheada; se limpia al mutar)."""
     return listar_inventario("")
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _inv_disp():
+    """Disponibilidad/consumo por (cat,item) — {key_tupla: {agregado,consumido,
+    disponible,detalle}}. Cacheada 60s (el consumo cambia al guardar compras);
+    se limpia al mutar inventario. Ver inventario_repo.disponibilidad_inventario."""
+    try:
+        return disponibilidad_inventario()
+    except Exception:
+        return {}
 
 
 # ── Formulario (ingreso / edición) ───────────────────────────────────────────
@@ -540,6 +554,7 @@ def _render_form_body(cat_items, rec, rol):
                     fotos_conservar=fotos_conservar, actor=_nombre or _email)
                 if ok:
                     _inv_all.clear()
+                    _inv_disp.clear()
                     st.session_state.pop("_inv_edit", None)
                     st.session_state["_inv_toast"] = "Producto actualizado."
                     if err:
@@ -553,6 +568,7 @@ def _render_form_body(cat_items, rec, rol):
                     fotos, ubicacion, _email, _nombre)
                 if new_id:
                     _inv_all.clear()
+                    _inv_disp.clear()
                     st.session_state["_inv_nonce"] = st.session_state.get("_inv_nonce", 0) + 1
                     st.session_state["_inv_toast"] = f"“{item}” agregado al inventario."
                     if err:
@@ -575,8 +591,10 @@ _IC_IMG = _svg('<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>'
                22, "#94a3b8")
 
 
-def _tabla_html(data):
-    """HTML de la tabla de stock (clase global .resultados-table = estilo COTIZACIONES)."""
+def _tabla_html(data, disp_map=None):
+    """HTML de la tabla de stock (clase global .resultados-table = estilo COTIZACIONES).
+    `disp_map` = disponibilidad por (cat,item) para la columna "Descontado" + VER."""
+    disp_map = disp_map or {}
     rows = ""
     for d in data:
         fotos = d.get("fotos") or []
@@ -590,6 +608,20 @@ def _tabla_html(data):
         obs = d.get("observacion", "")
         obs_html = (f'<div style="font-size:0.68rem;color:#94a3b8;font-weight:500;white-space:normal;'
                     f'max-width:230px;margin-top:2px;">{_esc(obs)}</div>') if obs else ""
+        # Descontado = stock de este ítem ya consumido por REGISTRO DE COMPRAS.
+        _dd = disp_map.get(norm_key(d.get("categoria", ""), d.get("item", "")), {})
+        _desc = int(_dd.get("consumido", 0) or 0)
+        if _desc > 0:
+            _desc_cell = (
+                '<div style="display:flex;align-items:center;gap:8px;white-space:nowrap;">'
+                f'<span style="font-weight:800;color:#ea580c;">{_desc}</span>'
+                f'<span class="inv-ver" data-inv-veruso="{_esc(d["id"])}" title="Ver en qué proyecto se usó" '
+                'style="cursor:pointer;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;'
+                'border-radius:7px;padding:2px 10px;font-size:0.64rem;font-weight:800;letter-spacing:.04em;">VER</span>'
+                '</div>'
+            )
+        else:
+            _desc_cell = '<span style="color:#cbd5e1;">—</span>'
         rows += (
             f'<tr data-inv-id="{_esc(d["id"])}" style="cursor:context-menu;">'
             f'<td>{thumb}</td>'
@@ -599,6 +631,7 @@ def _tabla_html(data):
             f'padding:2px 9px;border-radius:20px;text-transform:uppercase;">{_esc(d.get("categoria",""))}</span></td>'
             f'<td style="font-weight:700;">{_fmt_cant(d.get("cantidad"))} '
             f'<span style="color:#94a3b8;font-weight:600;">{_esc(d.get("unidad",""))}</span></td>'
+            f'<td>{_desc_cell}</td>'
             f'<td>{cal_badge}</td>'
             f'<td>{_esc(d.get("ubicacion","")) or "—"}</td>'
             f'<td>{_esc(d.get("creado_por_nombre") or d.get("creado_por_email") or "—")}</td>'
@@ -609,8 +642,8 @@ def _tabla_html(data):
             '</td></tr>')
     return (
         '<div class="inv-tbl-wrap"><table class="resultados-table"><thead><tr>'
-        '<th>Foto</th><th>Producto</th><th>Categoría</th><th>Stock</th><th>Calidad</th>'
-        '<th>Ubicación</th><th>Registró</th><th>Fecha</th><th>Acciones</th>'
+        '<th>Foto</th><th>Producto</th><th>Categoría</th><th>Stock</th><th>Descontado</th>'
+        '<th>Calidad</th><th>Ubicación</th><th>Registró</th><th>Fecha</th><th>Acciones</th>'
         f'</tr></thead><tbody>{rows}</tbody></table></div>')
 
 
@@ -646,7 +679,7 @@ def _render_tabla(rol):
                     '<b>Ingresar producto</b> para agregar el primero.</div>',
                     unsafe_allow_html=True)
     else:
-        st.markdown(_tabla_html(data), unsafe_allow_html=True)
+        st.markdown(_tabla_html(data, _inv_disp()), unsafe_allow_html=True)
 
     # Bridge oculto + handler (menú contextual: ver fotos/editar/eliminar + acciones).
     st.markdown('<style>.st-key-_inv_tcmd{position:absolute!important;left:-9999px!important;'
@@ -680,6 +713,7 @@ def _render_del_confirm():
                     st.session_state.pop("_inv_del_confirm2", None)
                     if ok:
                         _inv_all.clear()
+                        _inv_disp.clear()
                         st.session_state["_inv_toast"] = "Producto eliminado del stock."
                     else:
                         st.session_state["_inv_error"] = f"No se pudo eliminar: {err}"
@@ -710,6 +744,80 @@ def _render_del_confirm():
                     st.session_state.pop("_inv_del_confirm", None)
                     st.rerun()
         _dlg1()
+
+
+def _render_veruso_modal():
+    """Modal 'VER': en qué proyecto(s) se descontó el stock de un producto y con
+    qué cantidad. One-shot (pop del flag al abrir; Streamlit lo mantiene abierto)."""
+    _vid = st.session_state.pop("_inv_veruso", None)
+    if not _vid:
+        return
+    _rec = next((r for r in _inv_all() if r.get("id") == _vid), None)
+    if not _rec:
+        return
+    _cat = str(_rec.get("categoria", "") or "")
+    _item = str(_rec.get("item", "") or "")
+    _dd = _inv_disp().get(norm_key(_cat, _item), {})
+    _agr = _dd.get("agregado", 0)
+    _con = int(_dd.get("consumido", 0) or 0)
+    _dis = int(_dd.get("disponible", 0) or 0)
+    _uni = str(_rec.get("unidad", "") or "")
+    # Agrupar el detalle por proyecto (sumar cantidades) y ordenar por mayor uso.
+    _por_ep: dict = {}
+    for _c in _dd.get("detalle", []):
+        _ep = str(_c.get("ep", "") or "—")
+        _por_ep[_ep] = _por_ep.get(_ep, 0) + int(_c.get("cant", 0) or 0)
+    _eps = sorted(_por_ep.items(), key=lambda kv: kv[1], reverse=True)
+
+    st.markdown(_INV_CSS, unsafe_allow_html=True)
+
+    @st.dialog("Uso del stock", width="large")
+    def _dlg():
+        st.markdown(
+            '<div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:1.06rem;'
+            f'color:#0f172a;line-height:1.2;">{_esc(_item)}</div>'
+            '<div style="margin-top:5px;"><span style="background:#e0e7ff;color:#4338ca;font-weight:700;'
+            f'font-size:0.66rem;padding:2px 9px;border-radius:20px;text-transform:uppercase;">{_esc(_cat)}</span></div>',
+            unsafe_allow_html=True)
+        # KPIs: agregado / descontado / disponible
+        st.markdown(
+            '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:14px 0 6px;">'
+            + ''.join(
+                f'<div style="background:{_bg};border:1px solid {_bd};border-radius:12px;padding:11px 13px;">'
+                f'<div style="font-size:0.62rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;'
+                f'color:#94a3b8;">{_lbl}</div>'
+                f'<div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:1.1rem;color:{_cl};">'
+                f'{_val} <span style="font-size:0.7rem;color:#94a3b8;font-weight:600;">{_esc(_uni)}</span></div></div>'
+                for _lbl, _val, _cl, _bg, _bd in [
+                    ("Agregado", _fmt_cant(_agr), "#0f172a", "#f8fafc", "#eef2f7"),
+                    ("Descontado", _con, "#ea580c", "#fff7ed", "#fed7aa"),
+                    ("Disponible", _dis, "#16a34a", "#f0fdf4", "#bbf7d0"),
+                ])
+            + '</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;'
+                    'letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:16px 0 10px;">'
+                    'Proyectos donde se us&oacute;</div>', unsafe_allow_html=True)
+        if not _eps:
+            st.markdown('<div style="border:1.5px dashed #e2e8f0;border-radius:12px;padding:22px;'
+                        'text-align:center;color:#94a3b8;font-family:Montserrat,sans-serif;font-size:0.84rem;">'
+                        'Este producto a&uacute;n no se ha usado en ning&uacute;n proyecto.</div>',
+                        unsafe_allow_html=True)
+        else:
+            _rows = ''.join(
+                '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;'
+                'padding:11px 14px;border-bottom:1px solid #f1f5f9;">'
+                f'<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.9rem;color:#0f172a;">{_esc(_ep)}</div>'
+                f'<div style="white-space:nowrap;"><span style="font-family:Montserrat,sans-serif;font-weight:800;'
+                f'font-size:0.95rem;color:#ea580c;">{_q}</span> '
+                f'<span style="font-size:0.7rem;color:#94a3b8;font-weight:600;">{_esc(_uni)}</span></div></div>'
+                for _ep, _q in _eps)
+            st.markdown(
+                '<div style="border:1.5px solid #e6e9f4;border-radius:14px;overflow:hidden;background:#fff;'
+                'box-shadow:0 1px 3px rgba(15,23,42,0.05);">' + _rows + '</div>', unsafe_allow_html=True)
+        if st.button("Cerrar", use_container_width=True, key="_inv_veruso_close",
+                     icon=":material/close:"):
+            st.rerun()
+    _dlg()
 
 
 # ── Entrada del tab ──────────────────────────────────────────────────────────
@@ -746,18 +854,25 @@ def render_tab_inventario(**kwargs):
                 st.session_state["_inv_open"] = True   # one-shot: abre el dialog
             elif _act == "del":
                 st.session_state["_inv_del_confirm"] = _tid
+            elif _act == "veruso":
+                st.session_state["_inv_veruso"] = _tid
 
     # Vista principal: barra + tabla de stock (estilo COTIZACIONES).
     _render_tabla(_rol)
     _render_del_confirm()
 
+    # Modal "VER": en qué proyecto(s) se descontó el stock de un producto.
+    _del_active = bool(st.session_state.get("_inv_del_confirm")
+                       or st.session_state.get("_inv_del_confirm2"))
+    if st.session_state.get("_inv_veruso") and not _del_active:
+        _render_veruso_modal()
+
     # Formulario en modal-drawer (st.dialog). One-shot: se abre UNA vez cuando
     # _inv_open está set (botón Ingresar o editar de fila); Streamlit lo mantiene
     # abierto en los reruns internos hasta que el usuario cierre o guarde.
-    # Guard: no abrir a la vez que un dialog de confirmación (un solo dialog/run).
-    _del_active = bool(st.session_state.get("_inv_del_confirm")
-                       or st.session_state.get("_inv_del_confirm2"))
-    if st.session_state.get("_inv_open") and not _del_active:
+    # Guard: no abrir a la vez que otro dialog (un solo dialog/run).
+    if (st.session_state.get("_inv_open") and not _del_active
+            and not st.session_state.get("_inv_veruso")):
         st.session_state.pop("_inv_open", None)
         _eid = st.session_state.get("_inv_edit")
         _rec = obtener_inventario(_eid) if _eid else None
