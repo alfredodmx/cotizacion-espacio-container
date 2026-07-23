@@ -117,6 +117,7 @@ _RC_PICKER_IFRAME_JS = """
 (function(){
   window.RCGRID=1;                      // desactiva el auto-fit: la grilla es 100vh con scroll interno
   var P=window.parent, PD=P&&P.document, D=document;
+  if(P) P._rcClosing=false;             // drawer recién abierto → resetear el guard de cierre
   function root(){ return D.querySelector(".rcpk"); }
   function bridge(sel,v){
     if(!PD) return;
@@ -184,6 +185,8 @@ _RC_PICKER_IFRAME_JS = """
   // derecha y, al terminar, dispara el puente (que provoca el rerun que lo quita).
   // Sin esto el rerun elimina el dialog de golpe (sin animación de salida).
   function closeWithAnim(cb){
+    if(P&&P._rcClosing) return;   // ya hay un cierre en curso (evita doble disparo)
+    if(P) P._rcClosing=true;
     var done=false;
     function fire(){ if(done)return; done=true; try{cb();}catch(e){} }
     var dlg=PD&&PD.querySelector('div[data-testid="stDialog"] div[role="dialog"]');
@@ -233,6 +236,31 @@ _RC_PICKER_IFRAME_JS = """
     }
     var em=rt.querySelector(".rcpk-empty"); if(em) em.style.display=n?"none":"block";
   }, true);
+  // ── Interceptar los cierres NATIVOS de Streamlit (X, clic fuera del drawer,
+  // tecla Escape) para animar la salida también en esos casos. Se bindea en el
+  // documento PADRE (los botones y el backdrop viven ahí, no en este iframe) en
+  // fase de captura + stopImmediatePropagation para ganarle al handler de React.
+  // Refs en window.parent → se remueven y re-agregan en cada apertura (el iframe
+  // se recrea; sin esto se acumularían listeners).
+  function triggerClose(){ closeWithAnim(function(){ bridge(".st-key-_rc_act","close|"+Date.now()); }); }
+  if(PD){
+    if(P._rcCloseCap){ try{ PD.removeEventListener("click",P._rcCloseCap,true); }catch(e){} }
+    P._rcCloseCap=function(ev){
+      if(!PD.querySelector('div[data-testid="stDialog"] div[role="dialog"]')) return;
+      var t=ev.target; if(!t||!t.closest) return;
+      var onX=!!t.closest('button[aria-label="Close"]');
+      var onBackdrop=!!t.closest('div[data-testid="stDialog"]') && !t.closest('div[role="dialog"]');
+      if(onX||onBackdrop){ ev.preventDefault(); ev.stopImmediatePropagation(); triggerClose(); }
+    };
+    PD.addEventListener("click",P._rcCloseCap,true);
+    if(P._rcEscCap){ try{ PD.removeEventListener("keydown",P._rcEscCap,true); }catch(e){} }
+    P._rcEscCap=function(ev){
+      if(ev.key!=="Escape" && ev.keyCode!==27) return;
+      if(!PD.querySelector('div[data-testid="stDialog"] div[role="dialog"]')) return;
+      ev.preventDefault(); ev.stopImmediatePropagation(); triggerClose();
+    };
+    PD.addEventListener("keydown",P._rcEscCap,true);
+  }
 })();
 </script>
 """
