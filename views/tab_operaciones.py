@@ -1625,17 +1625,9 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     # del mismo iframe); el auto-fit ajusta el valor real.
                     _n_reg = len(_regs_data)
                     _hist_h = min(150 + _n_reg * 62 + 300, 3200)
-
-                    # El historial se RENDERIZA en el drawer (mitad derecha): acá
-                    # solo queda el acceso, así la vista principal es la tabla de
-                    # compras y el run no paga el iframe pesado del historial.
-                    st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
-                    if st.button(f'Ver facturas e historial de compras ({_n_reg})',
-                                 key='_rc_open_hist', use_container_width=True,
-                                 icon=":material/receipt_long:"):
-                        st.session_state['_rc_open_loader'] = True
-                        st.session_state['_rc_just_opened'] = True
-                        st.rerun()
+                    # El historial (facturas/historial/proveedores) se RENDERIZA en el
+                    # drawer; se abre con el botón "Abrir menú" de la barra superior.
+                    # (Antes había aquí un botón "Ver facturas e historial" redundante.)
 
                     # ── Exportar Balance (admin/root) — al final, bajo proveedores ──
                     if _rol in ('root', 'admin') and _OPER_OK:
