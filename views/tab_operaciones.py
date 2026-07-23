@@ -1494,7 +1494,11 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     # Alto extra por las filas del mosaico de categorías (1 ó 2 filas)
                     _rc_cats_rows = len(_rc_rows_m) if _rc_rows_m else 1
                     _rc_cards_extra = _rc_cats_rows * 66 + 8
-                    _rc_height = min(len(_rc_prods) * 37 + 580 + _rc_cards_extra, 1200)
+                    # Alto de la TABLA acotado como el de PRESUPUESTO (tope ~460 px);
+                    # #tbl-wrap tiene overflow:auto → hace scroll si hay más filas. El
+                    # resto del iframe es cards + toolbar del buscador + fila de toggles.
+                    _rc_tbl_h = max(140, min(len(_rc_prods) * 37 + 44, 460))
+                    _rc_height = _rc_cards_extra + 96 + _rc_tbl_h
                     # Hash que cambia ante CUALQUIER cambio de cobertura (no solo de
                     # llaves): si un ítem pasa de parcial a completo, o se guarda un
                     # nuevo stock, el iframe se regenera (si no, se queda pegado en
