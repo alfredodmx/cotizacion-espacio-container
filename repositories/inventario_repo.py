@@ -190,3 +190,94 @@ def eliminar_inventario(inv_id) -> tuple:
         return True, None
     except Exception as e:
         return False, str(e)
+
+
+# ── DISPONIBILIDAD / CONSUMO (unión INVENTARIO ↔ REGISTRO DE COMPRAS) ──────────
+# El stock de INVENTARIO se "descuenta" cuando REGISTRO DE COMPRAS marca un ítem
+# EN STOCK con desde_inventario=true. NO se muta la tabla inventario: el consumo
+# se DERIVA de los registros (robusto ante ediciones/borrados). El emparejamiento
+# ítem inventario ↔ ítem presupuesto es por (categoría, ítem) normalizado (ambos
+# vienen de la misma Excel 'BD Total').
+import json as _json
+
+
+def norm_key(cat, item) -> tuple:
+    """Clave normalizada (categoría, ítem): trim + espacios colapsados + minúsculas.
+    MISMA normalización que build_rc_html._dnk (split()/join) para que las claves
+    coincidan al emparejar inventario ↔ presupuesto."""
+    def _n(s):
+        return ' '.join(str(s or '').strip().lower().split())
+    return (_n(cat), _n(item))
+
+
+def _consumo_desde_inventario() -> dict:
+    """Consumo de stock DESDE INVENTARIO por (cat,item) normalizado, leyendo TODOS
+    los registro_compras. Solo cuenta ítems con desde_inventario=true (los de
+    prueba, sin el flag, NO cuentan). Devuelve
+    {key: {'consumido': N, 'detalle': [{ep, cant, fecha}]}}."""
+    out: dict = {}
+    try:
+        resp = _supa.table("registro_compras").select(
+            "cotizacion_numero,items,fecha_registro").execute()
+        for reg in (resp.data or []):
+            ep = str(reg.get("cotizacion_numero") or "")
+            fecha = reg.get("fecha_registro", "")
+            items = reg.get("items") or []
+            if isinstance(items, str):
+                try:
+                    items = _json.loads(items)
+                except Exception:
+                    items = []
+            for it in items:
+                if not it.get("desde_inventario"):
+                    continue
+                try:
+                    cant = int(float(it.get("stock_cantidad", 0) or 0))
+                except (TypeError, ValueError):
+                    cant = 0
+                if cant <= 0:
+                    continue
+                k = norm_key(it.get("categoria"), it.get("item"))
+                e = out.setdefault(k, {"consumido": 0, "detalle": []})
+                e["consumido"] += cant
+                e["detalle"].append({"ep": ep, "cant": cant, "fecha": fecha})
+    except Exception:
+        pass
+    return out
+
+
+def disponibilidad_inventario() -> dict:
+    """Disponibilidad de stock por (categoría,ítem) normalizado:
+      {key: {agregado, consumido, disponible, cat, item, detalle}}
+    · agregado   = Σ cantidad en inventario ACTIVO para ese ítem.
+    · consumido  = stock desde_inventario en registro_compras (todos los proyectos).
+    · disponible = max(0, agregado − consumido).
+    · detalle    = [{ep, cant, fecha}] de cada consumo (para el botón VER).
+    Todo DERIVADO (no muta la tabla inventario)."""
+    agg: dict = {}
+    try:
+        recs = (_supa.table(_TABLA).select("categoria,item,cantidad")
+                .eq("activo", True).execute().data or [])
+        for r in recs:
+            k = norm_key(r.get("categoria"), r.get("item"))
+            e = agg.setdefault(k, {"agregado": 0.0,
+                                   "cat": str(r.get("categoria") or ""),
+                                   "item": str(r.get("item") or "")})
+            try:
+                e["agregado"] += float(r.get("cantidad", 0) or 0)
+            except (TypeError, ValueError):
+                pass
+    except Exception:
+        pass
+    cons = _consumo_desde_inventario()
+    out: dict = {}
+    for k in (set(agg) | set(cons)):
+        a = float(agg.get(k, {}).get("agregado", 0.0))
+        c = int(cons.get(k, {}).get("consumido", 0))
+        out[k] = {
+            "agregado": a, "consumido": c, "disponible": max(0.0, a - c),
+            "cat": agg.get(k, {}).get("cat", ""),
+            "item": agg.get(k, {}).get("item", ""),
+            "detalle": cons.get(k, {}).get("detalle", []),
+        }
+    return out

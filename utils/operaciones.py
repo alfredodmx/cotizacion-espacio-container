@@ -1549,10 +1549,17 @@ _RC_DETAILS_TOGGLE_JS = """
 def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin=False,
                   supa_url='', supa_key='', ep='', usuario='', items_ya_comprados_json='[]',
                   total_items_presupuesto=0, cats_cards_html='', proveedores=None,
-                  cat_colors=None, admin_on=False):
+                  cat_colors=None, admin_on=False, stock_disponible=None):
     rows = ""
     items_comprados = items_comprados or {}
     cat_colors = cat_colors or {}
+    # Disponibilidad de stock de INVENTARIO por (categoría,ítem) normalizado. La
+    # casilla EN STOCK solo se habilita si hay disponible (>0); consumir descuenta
+    # (derivado, ver repositories/inventario_repo.disponibilidad_inventario).
+    stock_disponible = stock_disponible or {}
+    def _dnk(_cat, _item):
+        return (' '.join(str(_cat or '').strip().lower().split())
+                + '\x1f' + ' '.join(str(_item or '').strip().lower().split()))
     # Fila de toggles DENTRO del formulario, entre el buscador y la tabla:
     #  · "Modo admin (incluye Varios)" — solo admin; escribe su estado en el puente
     #    _rc_admin_tg → Python re-filtra (ver _RC_ADMIN_TOGGLE_JS).
@@ -1661,6 +1668,9 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
         # sobre estas → coincide con el % del dropdown. Los adicionales van aparte.
         _es_varios = cat.strip().lower() == 'varios'
         _dpresup_attr = 'data-presup="1"' if (not _es_adicional and not _es_sin_reg and not _es_varios) else ""
+        # Disponible en INVENTARIO para este ítem (0 si no hay).
+        _disp = int(stock_disponible.get(_dnk(cat, item), 0) or 0)
+        _ddisp_attr = f'data-disp="{_disp}"'
         _dstock_attr = 'data-stock="1"' if _has_stock else ""
         _dstockqty_attr = f'data-stock-qty="{_stock_qty_saved}"' if _has_stock else ""
         # Stock ya guardado en BD (no se re-guarda): full o parcial recargados.
@@ -1677,20 +1687,34 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
         # Celda "En stock": checkbox (+ stepper de cantidad) para ítems sin cobertura;
         # o badge verde con la cantidad en stock para ítems ya inventariados.
         if not _es_adicional and not _es_sin_reg and _covered == 0:
-            _qty_input = (
-                '<div class="rc-stockqty-wrap" style="display:none;margin-top:4px;white-space:nowrap;">'
-                '<span class="rc-step">'
-                '<button type="button" onclick="window.stockStep(this,-1);event.stopPropagation()" title="menos">&#8722;</button>'
-                f'<span class="rc-stepval">{cant}</span>'
-                '<button type="button" onclick="window.stockStep(this,1);event.stopPropagation()" title="m&#225;s">+</button>'
-                f'</span><span class="rc-steptot">/ {cant}</span></div>'
-            ) if cant > 1 else ''
-            _stock_ck = (
-                '<td style="text-align:center;white-space:nowrap"><input type="checkbox" class="rc-stock" '
-                f'data-idx="{ri}" onchange="window.toggleStock(this)" '
-                'title="Ya lo tengo en stock — precio real $0 (ahorro puro)"/>'
-                f'{_qty_input}</td>'
-            )
+            # EN STOCK solo se habilita si hay disponible en INVENTARIO (>0). Sin
+            # disponible → casilla deshabilitada ("Sin stock"). El stepper (y el
+            # default al marcar) se topan en min(cant, disponible).
+            _cap = min(cant, _disp)
+            if _disp > 0:
+                _qty_input = (
+                    '<div class="rc-stockqty-wrap" style="display:none;margin-top:4px;white-space:nowrap;">'
+                    '<span class="rc-step">'
+                    '<button type="button" onclick="window.stockStep(this,-1);event.stopPropagation()" title="menos">&#8722;</button>'
+                    f'<span class="rc-stepval">{_cap}</span>'
+                    '<button type="button" onclick="window.stockStep(this,1);event.stopPropagation()" title="m&#225;s">+</button>'
+                    f'</span><span class="rc-steptot">/ {cant}</span></div>'
+                ) if cant > 1 else ''
+                _stock_ck = (
+                    '<td style="text-align:center;white-space:nowrap"><input type="checkbox" class="rc-stock" '
+                    f'data-idx="{ri}" onchange="window.toggleStock(this)" '
+                    f'title="{_disp} disponible en INVENTARIO — precio real $0 (ahorro puro)"/>'
+                    f'<div class="rc-dispnote" style="font-size:9px;color:#16a34a;font-weight:700;'
+                    f'margin-top:2px;white-space:nowrap;">{_disp} disp.</div>'
+                    f'{_qty_input}</td>'
+                )
+            else:
+                _stock_ck = (
+                    '<td style="text-align:center;white-space:nowrap" title="Sin stock en INVENTARIO">'
+                    '<input type="checkbox" disabled style="cursor:not-allowed;opacity:.35"/>'
+                    '<div style="font-size:9px;color:#cbd5e1;font-weight:700;margin-top:2px;'
+                    'white-space:nowrap;">Sin stock</div></td>'
+                )
         elif _has_stock:
             _sq_lbl = ('' if _stock_units >= cant
                        else f'<span class="rc-steptot" style="color:#166534;">{_stock_units}/{cant}</span>')
@@ -1701,7 +1725,7 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
             )
         else:
             _stock_ck = '<td></td>'
-        rows += f"""<tr style="background:{bg};{_row_extra}" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}" {_dc_attr} {_da_attr} {_ds_attr} {_dstock_attr} {_dstockqty_attr} {_dsaved_attr} {_dbuy_attr} {_dpresup_attr}>
+        rows += f"""<tr style="background:{bg};{_row_extra}" data-idx="{ri}" data-pu="{pu}" data-cant="{cant}" {_dc_attr} {_da_attr} {_ds_attr} {_dstock_attr} {_dstockqty_attr} {_dsaved_attr} {_dbuy_attr} {_dpresup_attr} {_ddisp_attr}>
 <td>{_cat_badge}</td>
 <td class="rc-item">{item}</td>
 <td class="r rc-cant">{cant}{_falta_note}</td>
@@ -2293,10 +2317,12 @@ window.toggleStock=function(cb){{
   var c=+tr.dataset.cant||1;
   var wrap=tr.querySelector(".rc-stockqty-wrap");
   var sv=tr.querySelector(".rc-stepval");
+  var disp=parseInt(tr.getAttribute("data-disp")); if(isNaN(disp))disp=c;
   if(cb.checked){{
+    var q=Math.min(c,disp); if(q<1)q=1;    // topado por lo DISPONIBLE en inventario
     tr.setAttribute("data-stock","1");
-    tr.setAttribute("data-stock-qty",String(c)); // por defecto: todo en stock
-    if(sv)sv.textContent=String(c);
+    tr.setAttribute("data-stock-qty",String(q));
+    if(sv)sv.textContent=String(q);
     if(wrap)wrap.style.display=(c>1?"inline-block":"none");
   }} else {{
     tr.removeAttribute("data-stock");
@@ -2314,8 +2340,10 @@ window.stockStep=function(btn,delta){{
   var tr=btn.closest("tr[data-idx]");
   if(!tr) return;
   var c=+tr.dataset.cant||1;
-  var cur=parseInt(tr.getAttribute("data-stock-qty"))||c;
-  var v=cur+delta; if(v<1)v=1; if(v>c)v=c;
+  var disp=parseInt(tr.getAttribute("data-disp")); if(isNaN(disp))disp=c;
+  var mx=Math.min(c,disp);                 // tope = min(cantidad, disponible)
+  var cur=parseInt(tr.getAttribute("data-stock-qty"))||mx;
+  var v=cur+delta; if(v<1)v=1; if(v>mx)v=mx;
   tr.setAttribute("data-stock-qty",String(v));
   var sv=tr.querySelector(".rc-stepval"); if(sv)sv.textContent=String(v);
   var inp=tr.querySelector(".rc-real");
@@ -2426,7 +2454,9 @@ window.guardarRegistro=async function(){{
     // Cada registro guarda unidades DISJUNTAS (evita doble conteo al completar):
     // ── entrada de STOCK (unidades en inventario, $0) — solo stock NUEVO ──
     if(isStock && !stockSaved && sq>0){{
-      items.push({{categoria:cat,item:nom,cantidad:sq,precio_presupuestado:pu,precio_real:0,adicional:0,diferencia:pu*sq,es_adicional:false,sin_registro:false,stock:true,stock_cantidad:sq}});
+      // desde_inventario:true → este consumo SÍ descuenta de INVENTARIO (los
+      // registros de prueba viejos no lo tienen, así que no afectan al stock).
+      items.push({{categoria:cat,item:nom,cantidad:sq,precio_presupuestado:pu,precio_real:0,adicional:0,diferencia:pu*sq,es_adicional:false,sin_registro:false,stock:true,stock_cantidad:sq,desde_inventario:true}});
     }}
     // ── entrada de COMPRA (unidades compradas ahora, con precio real) ──
     if(re>0 && comprUnits>0){{

@@ -27,6 +27,7 @@ from repositories.compras_repo import (
 )
 from utils.excel_manager import leer_hoja_excel
 from utils.security import escape_html as _esc_html
+from repositories.inventario_repo import disponibilidad_inventario
 
 # ── Importar builders y helpers de utils ────────────────────────────────────
 
@@ -455,6 +456,17 @@ def _rc_load_regs_all(eps):
         return _resp.data or []
     except Exception:
         return []
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _rc_load_disponibilidad():
+    """Disponibilidad de stock de INVENTARIO por (cat,item) — {key_tupla: {...}}.
+    Cacheada 60s; se invalida al guardar/editar/eliminar una compra (cambia el
+    consumo). Ver repositories/inventario_repo.disponibilidad_inventario."""
+    try:
+        return disponibilidad_inventario()
+    except Exception:
+        return {}
 
 
 # ── Render principal ─────────────────────────────────────────────────────────
@@ -971,6 +983,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
             try:
                 obtener_items_comprados.clear()  # cache ttl 30s (registros lee fresco)
                 _rc_load_regs_all.clear()
+                _rc_load_disponibilidad.clear()
             except Exception:
                 pass
             for _k in list(st.session_state.keys()):
@@ -1052,6 +1065,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
             try:
                 obtener_items_comprados.clear()  # cache ttl 30s (registros lee fresco)
                 _rc_load_regs_all.clear()
+                _rc_load_disponibilidad.clear()
             except Exception:
                 pass
             for _k in list(st.session_state.keys()):
@@ -1072,6 +1086,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
             try:
                 obtener_items_comprados.clear()  # cache ttl 30s (registros lee fresco)
                 _rc_load_regs_all.clear()
+                _rc_load_disponibilidad.clear()
             except Exception:
                 pass
             for _k in list(st.session_state.keys()):
@@ -1505,6 +1520,12 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     # Mapa categoría→color (mismo palette del mosaico) para pintar
                     # los badges de categoría en cada fila de la tabla.
                     _rc_cat_color_map = {_c['cat']: _c['color'] for _c in _rc_cats_data}
+                    # Disponibilidad de stock de INVENTARIO por (cat,item) → habilita
+                    # la casilla EN STOCK con la cantidad. Clave string "cat\x1fitem"
+                    # (misma normalización que build_rc_html._dnk / inventario_repo).
+                    _disp_raw = _rc_load_disponibilidad()
+                    _stock_disp = {f"{_k[0]}\x1f{_k[1]}": int(_v.get('disponible', 0) or 0)
+                                   for _k, _v in _disp_raw.items()}
 
                     _rc_html = build_rc_html(
                         _rc_prods, _rc_cat_json, {},
@@ -1518,6 +1539,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         proveedores=_proveedores,
                         cat_colors=_rc_cat_color_map,
                         admin_on=_modo_admin_rc,
+                        stock_disponible=_stock_disp,
                     )
                     # Alto extra por las filas del mosaico de categorías (1 ó 2 filas)
                     _rc_cats_rows = len(_rc_rows_m) if _rc_rows_m else 1
@@ -1551,6 +1573,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         try:
                             obtener_items_comprados.clear()
                             _rc_load_regs_all.clear()
+                            _rc_load_disponibilidad.clear()
                         except Exception:
                             pass
                         st.rerun()
