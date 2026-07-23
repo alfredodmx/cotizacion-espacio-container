@@ -196,23 +196,43 @@ _RC_EXIT_INTERCEPT_JS = """
 </script>
 """
 
+# Toggle "Modo Admin" alineado a la IZQUIERDA y compacto (antes iba a la derecha
+# y se veía desordenado). Chip con borde suave; etiqueta con tipografía de sección.
+_RC_TOGGLE_CSS = """
+<style>
+.st-key-rc_modo_admin_global{display:flex!important;justify-content:flex-start!important;
+  align-items:center!important;width:fit-content!important;margin:2px 0 12px 0!important;
+  padding:5px 13px 5px 11px!important;border:1px solid #e6eaf5!important;border-radius:10px!important;
+  background:#f8fafc!important;gap:2px!important;}
+.st-key-rc_modo_admin_global label{margin:0!important;gap:9px!important;}
+.st-key-rc_modo_admin_global p,.st-key-rc_modo_admin_global [data-testid="stWidgetLabel"] *{
+  font-family:Montserrat,sans-serif!important;font-weight:700!important;font-size:0.72rem!important;
+  letter-spacing:0.06em!important;text-transform:uppercase!important;color:#475569!important;}
+</style>
+"""
+
 # Selector de sub-pestaña de OPERACIONES (reemplaza st.tabs, que se reseteaba a la
 # 1ª tras st.rerun() y renderizaba las 3). Es un st.radio con key → recuerda la
 # elección en session_state (sin parpadeo) y solo se renderiza la sección activa
 # (más rápido). Estilizado para verse como las pestañas del proyecto.
 _OP_SELECTOR_CSS = """
 <style>
-.st-key-_op_subtab [role="radiogroup"]{gap:2px!important;flex-wrap:wrap!important;
+.st-key-_op_subtab [role="radiogroup"]{gap:0!important;flex-wrap:wrap!important;
   border-bottom:2px solid #e2e6f3!important;margin-bottom:2px!important;padding:0!important;}
 .st-key-_op_subtab [role="radiogroup"] > label{background:transparent!important;border:none!important;
-  border-bottom:3px solid transparent!important;border-radius:0!important;padding:0.7rem 1.4rem!important;
+  border-bottom:3px solid transparent!important;border-radius:0!important;padding:0.85rem 1.6rem!important;
   margin:0 0 -2px 0!important;cursor:pointer!important;font-family:'Plus Jakarta Sans',sans-serif!important;
-  font-weight:900!important;font-size:0.82rem!important;text-transform:uppercase!important;
+  font-weight:900!important;font-size:0.88rem!important;text-transform:uppercase!important;
   letter-spacing:0.05em!important;color:#7c85b3!important;transition:color .2s,border-color .2s!important;}
 .st-key-_op_subtab [role="radiogroup"] > label:hover{color:#5b7cfa!important;background:rgba(91,124,250,.05)!important;}
 .st-key-_op_subtab [role="radiogroup"] > label:has(input:checked){color:#5b7cfa!important;
   border-bottom-color:#5b7cfa!important;background:rgba(91,124,250,.06)!important;}
 .st-key-_op_subtab [role="radiogroup"] > label > div:first-child{display:none!important;}
+/* iconos Material (:material/...:) en las etiquetas: NO heredar Plus Jakarta ni el
+   uppercase del tab (rompe la ligadura y se vería el texto literal del glifo). */
+.st-key-_op_subtab [role="radiogroup"] label span[role="img"][aria-label$=" icon"]{
+  font-family:'Material Symbols Rounded'!important;font-weight:400!important;font-size:1.15rem!important;
+  text-transform:none!important;letter-spacing:normal!important;vertical-align:-4px!important;margin-right:3px!important;}
 </style>
 """
 
@@ -458,13 +478,21 @@ def render_tab_operaciones(supabase, supabase_admin=None, supa_url='', supa_key=
     )
 
     # Selector de sección (reemplaza st.tabs → recuerda la elegida tras rerun y
-    # solo renderiza la activa). Ver _OP_SELECTOR_CSS.
+    # solo renderiza la activa). Los iconos Material van vía format_func (el VALOR
+    # sigue siendo el texto limpio, así los `if _op_sel == ...` no cambian). Ver
+    # _OP_SELECTOR_CSS. Mismo look que las pestañas del proyecto (iconos + tipografía).
     _OP_TABS = ["Panel Operacional", "Registro de Compras", "Acta de Clientes"]
+    _OP_TAB_ICONS = {
+        "Panel Operacional":   ":material/dashboard:",
+        "Registro de Compras": ":material/shopping_cart:",
+        "Acta de Clientes":    ":material/assignment:",
+    }
     if "_op_subtab" not in st.session_state:
         st.session_state["_op_subtab"] = _OP_TABS[0]
     st.markdown(_OP_SELECTOR_CSS, unsafe_allow_html=True)
     _op_sel = st.radio("Sección", _OP_TABS, key="_op_subtab", horizontal=True,
-                       label_visibility="collapsed")
+                       label_visibility="collapsed",
+                       format_func=lambda _t: f"{_OP_TAB_ICONS.get(_t, '')} {_t}")
 
     # ================================================================
     # SUB-PESTAÑA: PANEL OPERACIONAL
@@ -1055,25 +1083,12 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
     # ================================================================
     if _op_sel == "Registro de Compras":
         _rc_admin_role = _rol in ('root', 'admin')
-        # Etiqueta del toggle con la tipografía de los títulos de sección + toggle
-        # alineado a la derecha de su columna.
-        st.markdown(
-            "<style>"
-            ".st-key-rc_modo_admin_global{display:flex;justify-content:flex-end;align-items:center;}"
-            ".st-key-rc_modo_admin_global p,.st-key-rc_modo_admin_global [data-testid=\"stWidgetLabel\"] *{"
-            "font-family:Montserrat,sans-serif !important;font-weight:700 !important;font-size:0.88rem !important;"
-            "letter-spacing:0.05em !important;text-transform:uppercase !important;color:#0f172a !important;}"
-            "</style>", unsafe_allow_html=True)
-        # Título "Registro de Compras" + toggle Modo Admin en la MISMA fila (toggle
-        # a la derecha), arriba del dropdown.
+        # Título + toggle Modo Admin (izquierda, compacto), arriba de la barra.
+        st.markdown(_titulo_op("cart", "Registro de Compras"), unsafe_allow_html=True)
         if _rc_admin_role:
-            _th1, _th2 = st.columns([1.5, 1], vertical_alignment="center")
-            with _th1:
-                st.markdown(_titulo_op("cart", "Registro de Compras"), unsafe_allow_html=True)
-            with _th2:
-                _modo_admin_rc = st.toggle('Modo Admin (incluye Varios)', key='rc_modo_admin_global')
+            st.markdown(_RC_TOGGLE_CSS, unsafe_allow_html=True)
+            _modo_admin_rc = st.toggle('Modo Admin (incluye Varios)', key='rc_modo_admin_global')
         else:
-            st.markdown(_titulo_op("cart", "Registro de Compras"), unsafe_allow_html=True)
             _modo_admin_rc = False
 
         _rc_cots = _rc_load_cots()
@@ -1207,27 +1222,55 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         st.rerun()
 
             if _rc_active_ep:
-                _rc_bcol1, _rc_bcol2, _rc_bcol3 = st.columns([1, 1, 2])
-                with _rc_bcol1:
-                    if st.button('Salir del proyecto', key='_rc_salir_btn',
-                                 use_container_width=True, icon=":material/logout:"):
-                        st.session_state.pop('_rc_active_ep', None)
-                        st.rerun()
-                with _rc_bcol2:
-                    if st.button('Abrir menú', key='_rc_menu_btn',
-                                 use_container_width=True, icon=":material/folder_open:"):
+                # Tarjeta del PROYECTO ACTIVO (izquierda, con énfasis: se está
+                # trabajando con este presupuesto).
+                _ap_row    = _rc_by_ep.get(_rc_active_ep, {})
+                _ap_term   = bool(_ap_row.get('acta_url'))
+                _ap_accent = '#8b5cf6' if _ap_term else '#3b82f6'
+                _ap_estado = 'Proyecto terminado' if _ap_term else 'Adjudicado'
+                _ap_pct    = _pct_proyecto(_ap_row)
+                _ap_pct_txt = ('Sin productos' if _ap_pct is None
+                               else ('Sin compras a&uacute;n' if _ap_pct == 0 else f'{_ap_pct:g}% comprado'))
+                st.markdown(
+                    f'<div style="border:1px solid #e6eaf5;border-left:5px solid {_ap_accent};'
+                    'border-radius:14px;padding:13px 20px;background:linear-gradient(100deg,'
+                    f'{_ap_accent}12,#ffffff 55%);box-shadow:0 1px 3px rgba(15,23,42,0.06);margin-bottom:12px;">'
+                    '<div style="display:flex;align-items:center;gap:7px;margin-bottom:4px;">'
+                    f'<span style="width:9px;height:9px;border-radius:50%;background:{_ap_accent};'
+                    f'box-shadow:0 0 0 3px {_ap_accent}26;"></span>'
+                    '<span style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.64rem;'
+                    f'letter-spacing:0.1em;text-transform:uppercase;color:{_ap_accent};">Proyecto activo</span>'
+                    '</div>'
+                    '<div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:1.1rem;'
+                    'color:#0f172a;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+                    f'{_esc_html(_rc_active_ep)} &middot; {_esc_html(_ap_row.get("cliente_nombre") or "Sin cliente")}</div>'
+                    '<div style="display:flex;flex-wrap:wrap;gap:4px 18px;margin-top:7px;font-size:0.8rem;color:#475569;">'
+                    f'<span>{_ic_op("check", _ap_accent, 14, 5, -2)}{_ap_estado}</span>'
+                    f'<span>{_ic_op("user", "#94a3b8", 14, 5, -2)}Ejecutivo: '
+                    f'<b style="color:#334155;">{_esc_html(_ap_row.get("asesor_nombre") or "—")}</b></span>'
+                    f'<span>{_ic_op("chart", "#94a3b8", 14, 5, -2)}'
+                    f'<b style="color:#334155;">{_ap_pct_txt}</b></span>'
+                    '</div></div>', unsafe_allow_html=True)
+                # Acciones (izquierda, compactas): cambiar de proyecto / salir.
+                _rc_b1, _rc_b2, _rc_b3 = st.columns([1.25, 1.25, 3])
+                with _rc_b1:
+                    if st.button('Abrir menú', key='_rc_menu_btn', use_container_width=True,
+                                 icon=":material/folder_open:"):
                         st.session_state['_rc_open_loader'] = True
                         st.session_state['_rc_just_opened'] = True
                         st.rerun()
-                with _rc_bcol3:
-                    st.markdown(
-                        '<div style="padding-top:9px;font-weight:600;font-size:0.86rem;color:#334155;'
-                        'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
-                        f'{_esc_html(_rc_labels.get(_rc_active_ep, _rc_active_ep))}</div>',
-                        unsafe_allow_html=True)
+                with _rc_b2:
+                    if st.button('Salir del proyecto', key='_rc_salir_btn', use_container_width=True,
+                                 icon=":material/logout:"):
+                        st.session_state.pop('_rc_active_ep', None)
+                        st.rerun()
             else:
-                _rc_bcol1, _rc_bcol2 = st.columns([1, 3])
-                with _rc_bcol1:
+                st.markdown(
+                    '<div style="font-size:0.82rem;color:#64748b;margin:2px 0 9px 2px;">'
+                    'No hay un proyecto cargado. Pulsa <b>Cargar proyecto</b> para elegir uno '
+                    'y ver su resumen, facturas e historial.</div>', unsafe_allow_html=True)
+                _rc_b1, _rc_b2 = st.columns([1.6, 4])
+                with _rc_b1:
                     if st.button('Cargar proyecto', type='primary', key='_rc_cargar_btn',
                                  use_container_width=True, icon=":material/folder_open:"):
                         st.session_state['_rc_open_loader'] = True
