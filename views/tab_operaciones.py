@@ -63,13 +63,21 @@ _tz_cl = timezone(timedelta(hours=-3))
 # cuando el drawer está abierto.
 _RC_LOADER_CSS = """
 <style>
-div[data-testid="stDialog"] > div{align-items:flex-start!important;justify-content:flex-end!important;}
+div[data-testid="stDialog"]{overflow:hidden!important;}
+div[data-testid="stDialog"] > div{align-items:flex-start!important;justify-content:flex-end!important;
+  overflow:hidden!important;}
 div[data-testid="stDialog"] div[role="dialog"]{position:fixed!important;top:0!important;right:0!important;
-  left:auto!important;bottom:0!important;transform:none!important;margin:0!important;
+  left:auto!important;bottom:0!important;margin:0!important;
   width:min(1400px,97vw)!important;max-width:none!important;
   height:100vh!important;max-height:100vh!important;background:#fff!important;
   border-radius:0!important;box-shadow:-16px 0 48px rgba(15,23,42,0.20)!important;
-  overflow:hidden!important;padding-top:2.2rem!important;}
+  overflow:hidden!important;padding-top:2.2rem!important;
+  animation:rcDrawerIn .34s cubic-bezier(.22,.61,.36,1) both!important;}
+@keyframes rcDrawerIn{from{transform:translateX(100%);}to{transform:translateX(0);}}
+/* backdrop del dialog: fundido suave para acompañar el deslizamiento */
+div[data-testid="stDialog"]::before,div[data-testid="stDialog"] > div[data-testid="stDialogBackdrop"]{
+  animation:rcBackdropIn .34s ease both!important;}
+@keyframes rcBackdropIn{from{opacity:0;}to{opacity:1;}}
 div[data-testid="stDialog"] [data-testid="stVerticalBlockBorderWrapper"]{
   background:transparent!important;border:none!important;box-shadow:none!important;border-radius:0!important;}
 div[data-testid="stDialog"] div[role="dialog"] > div:first-child{
@@ -366,6 +374,35 @@ def _calc_total_costo(row):
         return _sub * 1.19
     except Exception:
         return 0
+
+
+# ── Cargas cacheadas (evitan re-consultar Supabase en CADA rerun) ────────────
+# La pestaña se re-ejecuta entera en cada rerun (abrir drawer, guardar, toggle…);
+# estas dos consultas traen JSON grande (productos de todas las cotizaciones +
+# todos los registros) y antes corrían siempre. TTL corto: cambian poco y el %
+# del dropdown / autocompletar proveedores toleran ~1 min de rezago. Se invalidan
+# (.clear()) al guardar/editar/eliminar una compra.
+@st.cache_data(ttl=60, show_spinner=False)
+def _rc_load_cots():
+    try:
+        _resp = _supa_admin.table('cotizaciones').select(
+            'numero,cliente_nombre,contrato_notariado_url,productos,estado,asesor_nombre,acta_url'
+        ).not_.is_('contrato_notariado_url', 'null').order('fecha_creacion', desc=True).execute()
+        return [r for r in (_resp.data or []) if r.get('contrato_notariado_url')]
+    except Exception:
+        return []
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _rc_load_regs_all(eps):
+    if not eps:
+        return []
+    try:
+        _resp = _supa_admin.table('registro_compras').select(
+            'cotizacion_numero,items,lugar_compra').in_('cotizacion_numero', list(eps)).execute()
+        return _resp.data or []
+    except Exception:
+        return []
 
 
 # ── Render principal ─────────────────────────────────────────────────────────
@@ -873,6 +910,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 pass
             try:
                 obtener_items_comprados.clear()  # cache ttl 30s (registros lee fresco)
+                _rc_load_regs_all.clear()
             except Exception:
                 pass
             for _k in list(st.session_state.keys()):
@@ -953,6 +991,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 pass
             try:
                 obtener_items_comprados.clear()  # cache ttl 30s (registros lee fresco)
+                _rc_load_regs_all.clear()
             except Exception:
                 pass
             for _k in list(st.session_state.keys()):
@@ -972,6 +1011,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                 pass
             try:
                 obtener_items_comprados.clear()  # cache ttl 30s (registros lee fresco)
+                _rc_load_regs_all.clear()
             except Exception:
                 pass
             for _k in list(st.session_state.keys()):
@@ -1020,13 +1060,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
             st.markdown(_titulo_op("cart", "Registro de Compras"), unsafe_allow_html=True)
             _modo_admin_rc = False
 
-        try:
-            _rc_resp = supa_admin.table('cotizaciones').select(
-                'numero,cliente_nombre,contrato_notariado_url,productos,estado,asesor_nombre,acta_url'
-            ).not_.is_('contrato_notariado_url', 'null').order('fecha_creacion', desc=True).execute()
-            _rc_cots = [r for r in (_rc_resp.data or []) if r.get('contrato_notariado_url')]
-        except Exception:
-            _rc_cots = []
+        _rc_cots = _rc_load_cots()
 
         if not _rc_cots:
             st.info('No hay proyectos adjudicados a&#250;n.')
@@ -1039,10 +1073,9 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
             _prov_canon_by_key = {}  # clave normalizada → canónica (para el historial)
             try:
                 if _eps_all:
-                    _rb_all = supa_admin.table('registro_compras').select(
-                        'cotizacion_numero,items,lugar_compra').in_('cotizacion_numero', _eps_all).execute()
+                    _rb_all_data = _rc_load_regs_all(tuple(_eps_all))
                     _prov_counts = {}
-                    for _rr in (_rb_all.data or []):
+                    for _rr in _rb_all_data:
                         _regs_by_ep.setdefault(_rr.get('cotizacion_numero'), []).append(_rr)
                         _lg = str(_rr.get('lugar_compra', '') or '').strip()
                         if _lg:
@@ -1409,6 +1442,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     if st.button("apply", key="_rc_apply"):
                         try:
                             obtener_items_comprados.clear()
+                            _rc_load_regs_all.clear()
                         except Exception:
                             pass
                         st.rerun()
