@@ -1364,16 +1364,22 @@ _RC_ADD_MENU_JS = """
     if(window.checkSaveBtn) window.checkSaveBtn();
   }
   window.rcUndo=rcUndo;
-  var SVG_SAVE='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>';
-  var SVG_UNDO='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>';
+  function _svgIc(inner){ return '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+inner+'</svg>'; }
+  var SVG_SAVE=_svgIc('<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>');
+  var SVG_UNDO=_svgIc('<path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>');
+  var SVG_ADMIN=_svgIc('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>');
+  var SVG_DETAILS=_svgIc('<line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/>');
+  var SVG_DOWNLOAD=_svgIc('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>');
+  var SVG_FS=_svgIc('<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>');
+  function statePill(on){ return '<span style="margin-left:auto;font-size:9px;font-weight:800;letter-spacing:.04em;padding:2px 7px;border-radius:99px;'+(on?"background:#dcfce7;color:#15803d":"background:#f1f5f9;color:#94a3b8")+'">'+(on?"ON":"OFF")+'</span>'; }
   function closeMenu(){ var m=document.getElementById("rc-add-ctxmenu"); if(m) m.remove(); }
-  function menuItem(m,label,color,dot,disabled,cb,svg){
+  function menuItem(m,label,color,dot,disabled,cb,svg,rightHtml){
     var b=document.createElement("button");
     b.style.cssText="display:flex;align-items:center;gap:9px;width:100%;background:transparent;border:none;border-radius:8px;padding:9px 11px;cursor:"+(disabled?"not-allowed":"pointer")+";text-align:left;font-family:Montserrat,'Segoe UI',sans-serif;font-size:12px;font-weight:700;color:"+(disabled?"#cbd5e1":color);
     var ic = svg
       ? '<span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;color:'+(disabled?"#cbd5e1":color)+'">'+svg+'</span>'
       : '<span style="width:9px;height:9px;border-radius:50%;background:'+(disabled?"#e2e8f0":dot)+';flex:0 0 auto"></span>';
-    b.innerHTML=ic+'<span>'+label+'</span>';
+    b.innerHTML=ic+'<span>'+label+'</span>'+(rightHtml||'');
     if(!disabled){
       b.addEventListener("mouseenter",function(){b.style.background="#f8fafc";});
       b.addEventListener("mouseleave",function(){b.style.background="transparent";});
@@ -1381,15 +1387,34 @@ _RC_ADD_MENU_JS = """
     }
     m.appendChild(b);
   }
+  function menuSep(m){ var s=document.createElement("div"); s.style.cssText="height:1px;background:#eef1f6;margin:5px 4px"; m.appendChild(s); }
   function buildMenu(x,y){
     closeMenu();
     var m=document.createElement("div"); m.id="rc-add-ctxmenu";
     m.style.cssText="position:fixed;z-index:100000;background:#fff;border:1px solid #e5e9f2;border-radius:12px;box-shadow:0 14px 40px rgba(15,23,42,.24);padding:6px;min-width:256px";
     menuItem(m,"Agregar producto CON registro","#c2410c","#f97316",false,function(){openAddPopup("reg");});
     menuItem(m,"Agregar producto SIN registro","#be185d","#ec4899",false,function(){openAddPopup("sin");});
-    var sep=document.createElement("div"); sep.style.cssText="height:1px;background:#eef1f6;margin:5px 4px"; m.appendChild(sep);
+    menuSep(m);
     menuItem(m,"Deseo guardar","#15803d","#22c55e",!rcHasData(),function(){openSavePopup();},SVG_SAVE);
     menuItem(m,"Deshacer","#475569","#94a3b8",!rcHasAnyInput(),function(){rcUndo();},SVG_UNDO);
+    // Vista / opciones: disparan los controles existentes (switches y botones del
+    // formulario) para tenerlos también a mano desde el menú.
+    var admBtn=document.getElementById("_rc_admtg");
+    var detBtn=document.getElementById("_rc_dettg");
+    if(admBtn||detBtn){
+      menuSep(m);
+      if(admBtn){ var admOn=admBtn.getAttribute("data-on")==="1";
+        menuItem(m,"Modo admin","#4338ca","#818cf8",false,function(){admBtn.click();},SVG_ADMIN,statePill(admOn)); }
+      if(detBtn){ var detOn=detBtn.getAttribute("data-on")==="1";
+        menuItem(m,"Resultados detallados","#0369a1","#38bdf8",false,function(){detBtn.click();},SVG_DETAILS,statePill(detOn)); }
+    }
+    var csvBtn=document.getElementById("_rc_csvbtn");
+    var fsBtn=document.getElementById("_rc_fsbtn");
+    if(csvBtn||fsBtn){
+      menuSep(m);
+      if(csvBtn) menuItem(m,"Descargar CSV","#475569","#94a3b8",false,function(){csvBtn.click();},SVG_DOWNLOAD);
+      if(fsBtn) menuItem(m,"Pantalla completa","#475569","#94a3b8",false,function(){fsBtn.click();},SVG_FS);
+    }
     document.body.appendChild(m);
     var r=m.getBoundingClientRect(), px=x, py=y;
     if(px+r.width>window.innerWidth) px=window.innerWidth-r.width-8;
