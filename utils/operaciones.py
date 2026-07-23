@@ -1330,11 +1330,50 @@ _RC_ADD_MENU_JS = """
     return false;
   }
   window.rcHasData=rcHasData;
+  // ¿Hay ALGO escrito sin guardar en la tabla? (para habilitar "Deshacer": precio
+  // real, adicional o un "en stock" recién marcado, en filas editables no guardadas.)
+  function rcHasAnyInput(){
+    var rows=document.querySelectorAll("tr[data-idx]");
+    for(var i=0;i<rows.length;i++){
+      var r=rows[i]; if(r.dataset.comprado==="1") continue;
+      var real=r.querySelector(".rc-real");
+      if(real && !real.readOnly && (parseFloat(real.dataset.val)||0)>0) return true;
+      var adic=r.querySelector(".rc-adic");
+      if(adic && !adic.readOnly && (parseInt(adic.value)||0)>0) return true;
+      var stk=r.querySelector(".rc-stock");
+      if(stk && stk.checked && r.getAttribute("data-stock-saved")!=="1") return true;
+    }
+    return false;
+  }
+  // "Deshacer": limpia lo escrito SIN guardar (no toca filas ya guardadas).
+  function rcUndo(){
+    var rows=document.querySelectorAll("tr[data-idx]");
+    for(var i=0;i<rows.length;i++){
+      var r=rows[i]; if(r.dataset.comprado==="1") continue;
+      // "en stock" recién marcado (no guardado) → desmarcar (resetea real + attrs)
+      var stk=r.querySelector(".rc-stock");
+      if(stk && stk.checked && r.getAttribute("data-stock-saved")!=="1"){
+        stk.checked=false; if(window.toggleStock) window.toggleStock(stk);
+      }
+      var real=r.querySelector(".rc-real");
+      if(real && !real.readOnly){ real.value=""; real.dataset.val="0"; }
+      var adic=r.querySelector(".rc-adic");
+      if(adic && !adic.readOnly){ adic.value=""; }
+    }
+    if(window.calc) window.calc();
+    if(window.checkSaveBtn) window.checkSaveBtn();
+  }
+  window.rcUndo=rcUndo;
+  var SVG_SAVE='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>';
+  var SVG_UNDO='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>';
   function closeMenu(){ var m=document.getElementById("rc-add-ctxmenu"); if(m) m.remove(); }
-  function menuItem(m,label,color,dot,disabled,cb){
+  function menuItem(m,label,color,dot,disabled,cb,svg){
     var b=document.createElement("button");
     b.style.cssText="display:flex;align-items:center;gap:9px;width:100%;background:transparent;border:none;border-radius:8px;padding:9px 11px;cursor:"+(disabled?"not-allowed":"pointer")+";text-align:left;font-family:Montserrat,'Segoe UI',sans-serif;font-size:12px;font-weight:700;color:"+(disabled?"#cbd5e1":color);
-    b.innerHTML='<span style="width:9px;height:9px;border-radius:50%;background:'+(disabled?"#e2e8f0":dot)+';flex:0 0 auto"></span><span>'+label+'</span>';
+    var ic = svg
+      ? '<span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;color:'+(disabled?"#cbd5e1":color)+'">'+svg+'</span>'
+      : '<span style="width:9px;height:9px;border-radius:50%;background:'+(disabled?"#e2e8f0":dot)+';flex:0 0 auto"></span>';
+    b.innerHTML=ic+'<span>'+label+'</span>';
     if(!disabled){
       b.addEventListener("mouseenter",function(){b.style.background="#f8fafc";});
       b.addEventListener("mouseleave",function(){b.style.background="transparent";});
@@ -1349,7 +1388,8 @@ _RC_ADD_MENU_JS = """
     menuItem(m,"Agregar producto CON registro","#c2410c","#f97316",false,function(){openAddPopup("reg");});
     menuItem(m,"Agregar producto SIN registro","#be185d","#ec4899",false,function(){openAddPopup("sin");});
     var sep=document.createElement("div"); sep.style.cssText="height:1px;background:#eef1f6;margin:5px 4px"; m.appendChild(sep);
-    menuItem(m,"Deseo guardar","#15803d","#22c55e",!rcHasData(),function(){openSavePopup();});
+    menuItem(m,"Deseo guardar","#15803d","#22c55e",!rcHasData(),function(){openSavePopup();},SVG_SAVE);
+    menuItem(m,"Deshacer","#475569","#94a3b8",!rcHasAnyInput(),function(){rcUndo();},SVG_UNDO);
     document.body.appendChild(m);
     var r=m.getBoundingClientRect(), px=x, py=y;
     if(px+r.width>window.innerWidth) px=window.innerWidth-r.width-8;
