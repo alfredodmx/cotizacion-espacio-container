@@ -180,6 +180,22 @@ _RC_PICKER_IFRAME_JS = """
     ov.querySelector("#rc-exit-no").onclick=function(){ ov.remove(); };
     ov.querySelector("#rc-exit-yes").onclick=function(){ ov.remove(); onYes(); };
   }
+  // Cierra el drawer con el MISMO efecto a la inversa: desliza el dialog hacia la
+  // derecha y, al terminar, dispara el puente (que provoca el rerun que lo quita).
+  // Sin esto el rerun elimina el dialog de golpe (sin animación de salida).
+  function closeWithAnim(cb){
+    var done=false;
+    function fire(){ if(done)return; done=true; try{cb();}catch(e){} }
+    var dlg=PD&&PD.querySelector('div[data-testid="stDialog"] div[role="dialog"]');
+    if(!dlg){ fire(); return; }
+    try{
+      if(dlg.getAnimations) dlg.getAnimations().forEach(function(a){ try{a.cancel();}catch(e){} });
+      var a=dlg.animate([{transform:"translateX(0)"},{transform:"translateX(100%)"}],
+                        {duration:280, easing:"cubic-bezier(.5,0,.75,0)", fill:"forwards"});
+      a.onfinish=fire; a.oncancel=fire;
+      setTimeout(fire, 340);   // respaldo por si onfinish no dispara
+    }catch(e){ fire(); }
+  }
   D.addEventListener("click",function(ev){
     var t=ev.target; if(!t||!t.closest) return;
     if(t.closest(".rcpk-trg")){
@@ -198,13 +214,13 @@ _RC_PICKER_IFRAME_JS = """
     }
     var op=t.closest(".rcpk-opt");
     if(op){ selectOpt(op.getAttribute("data-ep")); var r2=root(); if(r2) r2.classList.remove("open"); return; }
-    if(t.closest(".rcpk-load")){ var ep=pickEp(); if(ep) bridge(".st-key-_rc_pick",ep+"|"+Date.now()); return; }
+    if(t.closest(".rcpk-load")){ var ep=pickEp(); if(ep) closeWithAnim(function(){ bridge(".st-key-_rc_pick",ep+"|"+Date.now()); }); return; }
     if(t.closest(".rcpk-exit")){
-      if(formHasData()){ confirmExit(function(){ bridge(".st-key-_rc_act","exit|"+Date.now()); }); }
-      else { bridge(".st-key-_rc_act","exit|"+Date.now()); }
+      var doExit=function(){ closeWithAnim(function(){ bridge(".st-key-_rc_act","exit|"+Date.now()); }); };
+      if(formHasData()){ confirmExit(doExit); } else { doExit(); }
       return;
     }
-    if(t.closest(".rcpk-close")){ bridge(".st-key-_rc_act","close|"+Date.now()); return; }
+    if(t.closest(".rcpk-close")){ closeWithAnim(function(){ bridge(".st-key-_rc_act","close|"+Date.now()); }); return; }
     if(!t.closest(".rcpk")){ var r3=root(); if(r3) r3.classList.remove("open"); }
   }, true);
   D.addEventListener("input",function(ev){
