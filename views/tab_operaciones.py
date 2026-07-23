@@ -1479,7 +1479,13 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     _pn_set = {str(_p.get('Item', '')) for _p in _rc_prods_raw}
                     _regs_data = []
                     _hist_rows_total = 0
-                    for _rce in _rc_existentes:
+                    # Historial SIEMPRE de la compra más reciente a la más antigua
+                    # (por fecha_registro; el ISO ordena cronológicamente como texto).
+                    # sorted() sobre una COPIA → no altera _rc_existentes (balance, etc.).
+                    _rc_existentes_hist = sorted(
+                        _rc_existentes,
+                        key=lambda _r: str(_r.get('fecha_registro') or ''), reverse=True)
+                    for _rce in _rc_existentes_hist:
                         _items_h = _rce.get('items') or []
                         if isinstance(_items_h, str):
                             try:
