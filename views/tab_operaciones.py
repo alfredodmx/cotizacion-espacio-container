@@ -1307,8 +1307,8 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
 
             _rc_ep = _rc_active_ep
             _rc_row = _rc_by_ep.get(_rc_ep, {}) if _rc_ep else {}
-            # Datos del historial: se calculan en el flujo principal (los usan
-            # "Productos en stock" y el balance) pero se RENDERIZAN en el drawer.
+            # Datos del historial: se calculan en el flujo principal (los usa el
+            # balance) pero se RENDERIZAN en el drawer.
             _regs_data = []
             _hist_h = 600
 
