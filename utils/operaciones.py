@@ -1440,6 +1440,32 @@ _RC_ADD_MENU_JS = """
   if(wrap){ wrap.addEventListener("contextmenu",function(ev){ ev.preventDefault(); buildMenu(ev.clientX, ev.clientY); }); }
   document.addEventListener("click",function(ev){ var t=ev.target; if(!t.closest||!t.closest("#rc-add-ctxmenu")) closeMenu(); });
   document.addEventListener("keydown",function(ev){ if(ev.key==="Escape"){ closeMenu(); window.closeAddPopup(); } });
+  // Click en el NOMBRE del ítem (.rc-item) → copiar al portapapeles + toast.
+  // navigator.clipboard puede fallar en el iframe sandbox → fallback execCommand.
+  function rcCopyFallback(txt){
+    try{
+      var ta=document.createElement("textarea"); ta.value=txt;
+      ta.style.cssText="position:fixed;top:-1000px;left:-1000px;opacity:0";
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      document.execCommand("copy"); ta.remove();
+    }catch(e){}
+  }
+  function rcCopy(txt){
+    var done=function(){ if(window.rcToast) window.rcToast("Copiado: "+(txt.length>36?txt.slice(0,36)+"…":txt)); };
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(txt).then(done, function(){ rcCopyFallback(txt); done(); });
+        return;
+      }
+    }catch(e){}
+    rcCopyFallback(txt); done();
+  }
+  document.addEventListener("click",function(ev){
+    var td=ev.target && ev.target.closest ? ev.target.closest(".rc-item") : null;
+    if(!td) return;
+    var txt=(td.textContent||"").trim();
+    if(txt) rcCopy(txt);
+  });
 })();
 </script>
 """
@@ -1746,7 +1772,10 @@ th.r{{text-align:right}}
 tbody td{{padding:5px 12px;font-size:12.5px;vertical-align:middle;border-bottom:1px solid #f1f5f9}}
 td.r{{text-align:right}}
 .rc-cat{{display:inline-block;padding:2px 10px;border-radius:20px;font-size:10.5px;font-weight:600;letter-spacing:.01em;white-space:nowrap;line-height:1.55}}
-.rc-item{{font-weight:600;color:#1e293b}}
+.rc-item{{font-weight:600;color:#1e293b;cursor:pointer;border-radius:6px;transition:background .12s,color .12s}}
+.rc-item:hover{{background:#eef2ff;color:#4338ca;box-shadow:inset 0 0 0 1px #c7d2fe}}
+.rc-item:hover::after{{content:'copiar';font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#818cf8;margin-left:8px;vertical-align:middle}}
+.rc-item:active{{background:#e0e7ff}}
 .rc-cant,.rc-pu{{font-weight:500;color:#475569;font-variant-numeric:tabular-nums}}
 .rc-difv{{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}}
 /* Inputs limpios, sin flechas nativas */
