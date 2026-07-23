@@ -196,6 +196,23 @@ _RC_EXIT_INTERCEPT_JS = """
 </script>
 """
 
+# Botones de acción de la barra de REGISTRO DE COMPRAS: Menú (hamburguesa, azul) y
+# Salir (solo icono, rojo), compactos. Van en la misma fila que el título.
+_RC_ACTION_BTN_CSS = """
+<style>
+.st-key-_rc_menu_btn button,.st-key-_rc_salir_btn button{border-radius:11px!important;
+  font-weight:800!important;font-size:0.8rem!important;padding:0.55rem 0.6rem!important;
+  min-height:0!important;box-shadow:none!important;transition:background .15s,border-color .15s!important;}
+.st-key-_rc_menu_btn button{background:#eef2ff!important;border:1.5px solid #c7d2fe!important;color:#4338ca!important;}
+.st-key-_rc_menu_btn button:hover{background:#e0e7ff!important;border-color:#818cf8!important;color:#3730a3!important;}
+.st-key-_rc_salir_btn button{background:#fef2f2!important;border:1.5px solid #fecaca!important;color:#dc2626!important;}
+.st-key-_rc_salir_btn button:hover{background:#fee2e2!important;border-color:#f87171!important;color:#b91c1c!important;}
+/* Salir solo icono: centrar el glifo y quitar el hueco del texto vacío */
+.st-key-_rc_salir_btn button [data-testid="stMarkdownContainer"]{display:none!important;}
+.st-key-_rc_salir_btn button{display:flex!important;align-items:center!important;justify-content:center!important;}
+</style>
+"""
+
 # Selector de sub-pestaña de OPERACIONES (reemplaza st.tabs, que se reseteaba a la
 # 1ª tras st.rerun() y renderizaba las 3). Es un st.radio con key → recuerda la
 # elección en session_state (sin parpadeo) y solo se renderiza la sección activa
@@ -1082,7 +1099,9 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
     # ================================================================
     if _op_sel == "Registro de Compras":
         _rc_admin_role = _rol in ('root', 'admin')
-        st.markdown(_titulo_op("cart", "Registro de Compras"), unsafe_allow_html=True)
+        # (El título "Registro de Compras" se renderiza más abajo, en la MISMA fila
+        # que los botones de acción — Menú / Salir / Cargar — para aprovechar el
+        # espacio y verse más limpio.)
         # Toggle "Modo Admin" ahora vive DENTRO del iframe del formulario (entre el
         # buscador y la tabla). Su estado llega por un puente oculto _rc_admin_tg
         # ("1|ts"/"0|ts"); se lee ANTES de filtrar productos/catálogo.
@@ -1105,6 +1124,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
         _rc_cots = _rc_load_cots()
 
         if not _rc_cots:
+            st.markdown(_titulo_op("cart", "Registro de Compras"), unsafe_allow_html=True)
             st.info('No hay proyectos adjudicados a&#250;n.')
         else:
             # % de compras por proyecto para el dropdown: UNA sola query con todos
@@ -1232,9 +1252,27 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         st.session_state.pop('_rc_open_loader', None)
                         st.rerun()
 
+            # Estilo de los botones de acción de la barra (Menú azul / Salir rojo).
+            st.markdown(_RC_ACTION_BTN_CSS, unsafe_allow_html=True)
             if _rc_active_ep:
-                # Tarjeta del PROYECTO ACTIVO (izquierda, con énfasis: se está
-                # trabajando con este presupuesto).
+                # Fila del título + acciones a la derecha: Menú (hamburguesa) y
+                # Salir (solo icono), compactos y con color.
+                _tt1, _tt2, _tt3 = st.columns([6, 1.25, 0.95], vertical_alignment="center")
+                with _tt1:
+                    st.markdown(_titulo_op("cart", "Registro de Compras"), unsafe_allow_html=True)
+                with _tt2:
+                    if st.button('Menú', key='_rc_menu_btn', use_container_width=True,
+                                 icon=":material/menu:"):
+                        st.session_state['_rc_open_loader'] = True
+                        st.session_state['_rc_just_opened'] = True
+                        st.rerun()
+                with _tt3:
+                    if st.button('', key='_rc_salir_btn', use_container_width=True,
+                                 icon=":material/logout:", help='Salir del proyecto'):
+                        st.session_state.pop('_rc_active_ep', None)
+                        st.rerun()
+                # Tarjeta del PROYECTO ACTIVO (con énfasis: se está trabajando con
+                # este presupuesto).
                 _ap_row    = _rc_by_ep.get(_rc_active_ep, {})
                 _ap_term   = bool(_ap_row.get('acta_url'))
                 _ap_accent = '#8b5cf6' if _ap_term else '#3b82f6'
@@ -1262,31 +1300,21 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                     f'<span>{_ic_op("chart", "#94a3b8", 14, 5, -2)}'
                     f'<b style="color:#334155;">{_ap_pct_txt}</b></span>'
                     '</div></div>', unsafe_allow_html=True)
-                # Acciones (izquierda, compactas): cambiar de proyecto / salir.
-                _rc_b1, _rc_b2, _rc_b3 = st.columns([1.25, 1.25, 3])
-                with _rc_b1:
-                    if st.button('Abrir menú', key='_rc_menu_btn', use_container_width=True,
-                                 icon=":material/folder_open:"):
-                        st.session_state['_rc_open_loader'] = True
-                        st.session_state['_rc_just_opened'] = True
-                        st.rerun()
-                with _rc_b2:
-                    if st.button('Salir del proyecto', key='_rc_salir_btn', use_container_width=True,
-                                 icon=":material/logout:"):
-                        st.session_state.pop('_rc_active_ep', None)
-                        st.rerun()
             else:
-                st.markdown(
-                    '<div style="font-size:0.82rem;color:#64748b;margin:2px 0 9px 2px;">'
-                    'No hay un proyecto cargado. Pulsa <b>Cargar proyecto</b> para elegir uno '
-                    'y ver su resumen, facturas e historial.</div>', unsafe_allow_html=True)
-                _rc_b1, _rc_b2 = st.columns([1.6, 4])
-                with _rc_b1:
+                # Sin proyecto: título + "Cargar proyecto" en la misma fila.
+                _tt1, _tt2 = st.columns([6, 2.2], vertical_alignment="center")
+                with _tt1:
+                    st.markdown(_titulo_op("cart", "Registro de Compras"), unsafe_allow_html=True)
+                with _tt2:
                     if st.button('Cargar proyecto', type='primary', key='_rc_cargar_btn',
                                  use_container_width=True, icon=":material/folder_open:"):
                         st.session_state['_rc_open_loader'] = True
                         st.session_state['_rc_just_opened'] = True
                         st.rerun()
+                st.markdown(
+                    '<div style="font-size:0.82rem;color:#64748b;margin:2px 0 9px 2px;">'
+                    'No hay un proyecto cargado. Pulsa <b>Cargar proyecto</b> para elegir uno '
+                    'y ver su resumen, facturas e historial.</div>', unsafe_allow_html=True)
 
             # Opciones del dropdown HTML del drawer (se arman una vez; elegir y
             # buscar dentro del drawer es client-side → sin reruns).
