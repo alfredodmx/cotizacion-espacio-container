@@ -1441,6 +1441,29 @@ _RC_ADMIN_TOGGLE_JS = """
 </script>
 """
 
+# Toggle "Resultados detallados" DENTRO del formulario: muestra/oculta el resumen
+# (#tots) 100% client-side (SIN rerun ni recarga del iframe → no pierde lo escrito
+# en la tabla). Por defecto OCULTO (interfaz limpia). El estado se recuerda en
+# window.parent (sobrevive recargas del iframe; se resetea sólo en recarga total).
+_RC_DETAILS_TOGGLE_JS = """
+<script>
+(function(){
+  var P=window.parent;
+  var btn=document.getElementById("_rc_dettg"); if(!btn) return;
+  var tots=document.getElementById("tots");
+  function apply(on){
+    btn.setAttribute("data-on", on?"1":"0"); btn.setAttribute("aria-checked", on?"true":"false");
+    btn.style.background = on?"#5b7cfa":"#cbd5e1";
+    var kn=btn.querySelector("span"); if(kn) kn.style.left = on?"19px":"3px";
+    if(tots) tots.style.display = on ? "grid" : "none";
+  }
+  var on=false; try{ on=!!(P&&P._rcDetails); }catch(e){}
+  apply(on);
+  btn.addEventListener("click",function(){ on=!on; try{ if(P) P._rcDetails=on; }catch(e){} apply(on); });
+})();
+</script>
+"""
+
 
 # ── HTML BUILDER REGISTRO DE COMPRAS ─────────────────────────────────────────
 
@@ -1451,24 +1474,33 @@ def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin
     rows = ""
     items_comprados = items_comprados or {}
     cat_colors = cat_colors or {}
-    # Toggle "Modo Admin (incluye Varios)" — solo admin. Va DENTRO del formulario,
-    # entre el buscador y la tabla. Es un switch HTML que escribe su nuevo estado
-    # en el puente _rc_admin_tg del documento padre (ver _RC_ADMIN_TOGGLE_JS).
-    admin_toggle_html = ""
-    if es_admin:
-        _tg_col = "#5b7cfa" if admin_on else "#cbd5e1"
-        _tg_x   = "19px" if admin_on else "3px"
-        admin_toggle_html = (
-            '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;'
-            'border-bottom:1px solid #eef2f7;background:#f8fafc;flex-shrink:0">'
-            f'<button id="_rc_admtg" type="button" role="switch" aria-checked="{str(bool(admin_on)).lower()}" '
-            f'data-on="{"1" if admin_on else "0"}" style="position:relative;width:38px;height:22px;'
-            f'border-radius:99px;border:none;cursor:pointer;flex:0 0 auto;transition:background .18s;background:{_tg_col}">'
-            f'<span style="position:absolute;top:3px;left:{_tg_x};width:16px;height:16px;border-radius:50%;'
+    # Fila de toggles DENTRO del formulario, entre el buscador y la tabla:
+    #  · "Modo admin (incluye Varios)" — solo admin; escribe su estado en el puente
+    #    _rc_admin_tg → Python re-filtra (ver _RC_ADMIN_TOGGLE_JS).
+    #  · "Resultados detallados" — TODOS; muestra/oculta el resumen (#tots). Es 100%
+    #    client-side (sin rerun): por defecto OCULTO para despejar la interfaz; el
+    #    estado se recuerda en window.parent (ver _RC_DETAILS_TOGGLE_JS).
+    def _rc_switch(_id, _on, _label):
+        _c = "#5b7cfa" if _on else "#cbd5e1"
+        _x = "19px" if _on else "3px"
+        return (
+            '<div style="display:flex;align-items:center;gap:10px">'
+            f'<button id="{_id}" type="button" role="switch" aria-checked="{str(bool(_on)).lower()}" '
+            f'data-on="{"1" if _on else "0"}" style="position:relative;width:38px;height:22px;border-radius:99px;'
+            f'border:none;cursor:pointer;flex:0 0 auto;transition:background .18s;background:{_c}">'
+            f'<span style="position:absolute;top:3px;left:{_x};width:16px;height:16px;border-radius:50%;'
             'background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .18s"></span></button>'
-            '<span style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.7rem;'
-            'letter-spacing:0.06em;text-transform:uppercase;color:#475569">Modo admin (incluye Varios)</span></div>'
+            f'<span style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.7rem;letter-spacing:0.06em;'
+            f'text-transform:uppercase;color:#475569">{_label}</span></div>'
         )
+    _toggles = ""
+    if es_admin:
+        _toggles += _rc_switch("_rc_admtg", admin_on, "Modo admin (incluye Varios)")
+    _toggles += _rc_switch("_rc_dettg", False, "Resultados detallados")
+    admin_toggle_html = (
+        '<div style="display:flex;align-items:center;gap:26px;flex-wrap:wrap;padding:9px 12px;'
+        'border-bottom:1px solid #eef2f7;background:#f8fafc;flex-shrink:0">' + _toggles + '</div>'
+    )
 
     def _rc_badge_style(_hex):
         """Badge de categoría: fondo tenue + texto en el color (legible)."""
@@ -1668,7 +1700,7 @@ html.rc-fs body{{margin:0!important;padding:0!important}}
     </tr></thead>
     <tbody>{rows}</tbody>
   </table></div>
-  <div id="tots" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr 1fr;gap:10px;padding:14px 16px;flex-shrink:0">
+  <div id="tots" style="display:none;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr 1fr;gap:10px;padding:14px 16px;flex-shrink:0">
     <div class="tot-card" style="border-left:3px solid #cbd5e1">
       <div class="tot-h" style="color:#64748b">Presupuestado</div>
       <div class="tot-l">Subtotal neto</div><div class="tot-v" id="tp-n">$0</div>
@@ -2399,5 +2431,5 @@ window.guardarRegistro=async function(){{
 }};
 calc();
 }})();</script>"""
-    html = html + _RC_ADD_MENU_JS + _RC_TABLE_TOOLS_JS + _RC_ADMIN_TOGGLE_JS
+    html = html + _RC_ADD_MENU_JS + _RC_TABLE_TOOLS_JS + _RC_ADMIN_TOGGLE_JS + _RC_DETAILS_TOGGLE_JS
     return html
