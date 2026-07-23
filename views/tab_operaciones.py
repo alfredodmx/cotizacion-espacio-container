@@ -71,7 +71,7 @@ div[data-testid="stDialog"] div[role="dialog"]{position:fixed!important;top:0!im
   width:min(1400px,97vw)!important;max-width:none!important;
   height:100vh!important;max-height:100vh!important;background:#fff!important;
   border-radius:0!important;box-shadow:-16px 0 48px rgba(15,23,42,0.20)!important;
-  overflow:hidden!important;padding-top:2.2rem!important;
+  overflow:hidden!important;padding-top:0.6rem!important;
   animation:rcDrawerIn .34s cubic-bezier(.22,.61,.36,1) both!important;}
 @keyframes rcDrawerIn{from{transform:translateX(100%);}to{transform:translateX(0);}}
 /* backdrop del dialog: fundido suave para acompañar el deslizamiento */
@@ -85,7 +85,7 @@ div[data-testid="stDialog"] div[role="dialog"] > div:first-child{
   letter-spacing:0.05em!important;text-transform:uppercase!important;color:#0f172a!important;}
 /* el iframe único ocupa TODO el alto del drawer (menos el header del dialog) y la
    grilla interna hace el scroll por celda (auto-fit desactivado con window.RCGRID) */
-.st-key-_rc_drawer_frame iframe{height:calc(100vh - 58px)!important;width:100%!important;
+.st-key-_rc_drawer_frame iframe{height:calc(100vh - 92px)!important;width:100%!important;
   border:none!important;display:block!important;}
 .st-key-_rc_drawer_frame,.st-key-_rc_drawer_frame > div{margin:0!important;padding:0!important;}
 </style>
