@@ -196,21 +196,6 @@ _RC_EXIT_INTERCEPT_JS = """
 </script>
 """
 
-# Toggle "Modo Admin" alineado a la IZQUIERDA y compacto (antes iba a la derecha
-# y se veía desordenado). Chip con borde suave; etiqueta con tipografía de sección.
-_RC_TOGGLE_CSS = """
-<style>
-.st-key-rc_modo_admin_global{display:flex!important;justify-content:flex-start!important;
-  align-items:center!important;width:fit-content!important;margin:2px 0 12px 0!important;
-  padding:5px 13px 5px 11px!important;border:1px solid #e6eaf5!important;border-radius:10px!important;
-  background:#f8fafc!important;gap:2px!important;}
-.st-key-rc_modo_admin_global label{margin:0!important;gap:9px!important;}
-.st-key-rc_modo_admin_global p,.st-key-rc_modo_admin_global [data-testid="stWidgetLabel"] *{
-  font-family:Montserrat,sans-serif!important;font-weight:700!important;font-size:0.72rem!important;
-  letter-spacing:0.06em!important;text-transform:uppercase!important;color:#475569!important;}
-</style>
-"""
-
 # Selector de sub-pestaña de OPERACIONES (reemplaza st.tabs, que se reseteaba a la
 # 1ª tras st.rerun() y renderizaba las 3). Es un st.radio con key → recuerda la
 # elección en session_state (sin parpadeo) y solo se renderiza la sección activa
@@ -1097,11 +1082,23 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
     # ================================================================
     if _op_sel == "Registro de Compras":
         _rc_admin_role = _rol in ('root', 'admin')
-        # Título + toggle Modo Admin (izquierda, compacto), arriba de la barra.
         st.markdown(_titulo_op("cart", "Registro de Compras"), unsafe_allow_html=True)
+        # Toggle "Modo Admin" ahora vive DENTRO del iframe del formulario (entre el
+        # buscador y la tabla). Su estado llega por un puente oculto _rc_admin_tg
+        # ("1|ts"/"0|ts"); se lee ANTES de filtrar productos/catálogo.
         if _rc_admin_role:
-            st.markdown(_RC_TOGGLE_CSS, unsafe_allow_html=True)
-            _modo_admin_rc = st.toggle('Modo Admin (incluye Varios)', key='rc_modo_admin_global')
+            st.markdown('<style>.st-key-_rc_admin_tg{position:absolute!important;left:-9999px!important;'
+                        'top:-9999px!important;height:0!important;width:0!important;overflow:hidden!important;}</style>',
+                        unsafe_allow_html=True)
+            st.text_input('admtg', key='_rc_admin_tg', label_visibility='collapsed')
+            _atg_raw = str(st.session_state.get('_rc_admin_tg', '') or '')
+            if '|' in _atg_raw:
+                _atg_val, _atg_ts = _atg_raw.rsplit('|', 1)
+                if _atg_ts != st.session_state.get('_rc_admin_tg_ts'):
+                    st.session_state['_rc_admin_tg_ts'] = _atg_ts
+                    st.session_state['rc_modo_admin_state'] = (_atg_val == '1')
+                    st.rerun()
+            _modo_admin_rc = bool(st.session_state.get('rc_modo_admin_state', False))
         else:
             _modo_admin_rc = False
 
@@ -1492,6 +1489,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         cats_cards_html=_cats_cards_html,
                         proveedores=_proveedores,
                         cat_colors=_rc_cat_color_map,
+                        admin_on=_modo_admin_rc,
                     )
                     # Alto extra por las filas del mosaico de categorías (1 ó 2 filas)
                     _rc_cats_rows = len(_rc_rows_m) if _rc_rows_m else 1

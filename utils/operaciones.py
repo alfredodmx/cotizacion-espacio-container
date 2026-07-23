@@ -1408,15 +1408,67 @@ _RC_TABLE_TOOLS_JS = """
 """
 
 
+# Toggle "Modo Admin" DENTRO del formulario: al pulsar el switch escribe su nuevo
+# estado ("1|ts"/"0|ts") en el puente oculto _rc_admin_tg del documento padre →
+# Python re-filtra (incluye/excluye Varios) y reconstruye el iframe. Refleja el
+# estado al instante (aunque igual se recargue tras el rerun).
+_RC_ADMIN_TOGGLE_JS = """
+<script>
+(function(){
+  var P=window.parent, PD=P&&P.document; if(!PD) return;
+  var btn=document.getElementById("_rc_admtg"); if(!btn) return;
+  btn.addEventListener("click",function(){
+    var newOn = btn.getAttribute("data-on")==="1" ? "0" : "1", on = newOn==="1";
+    btn.setAttribute("data-on",newOn); btn.setAttribute("aria-checked", on?"true":"false");
+    btn.style.background = on ? "#5b7cfa" : "#cbd5e1";
+    var kn=btn.querySelector("span"); if(kn) kn.style.left = on ? "19px" : "3px";
+    var inp=PD.querySelector(".st-key-_rc_admin_tg input"); if(!inp) return;
+    try{
+      var setter=Object.getOwnPropertyDescriptor(P.HTMLInputElement.prototype,"value").set;
+      inp.focus({preventScroll:true});
+      setter.call(inp,newOn+"|"+Date.now());
+      inp.dispatchEvent(new Event("input",{bubbles:true}));
+      inp.dispatchEvent(new Event("change",{bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent("keypress",{key:"Enter",keyCode:13,which:13,charCode:13,bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent("keyup",{key:"Enter",keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new FocusEvent("blur",{bubbles:false}));
+      inp.dispatchEvent(new FocusEvent("focusout",{bubbles:true}));
+      inp.blur();
+    }catch(e){}
+  });
+})();
+</script>
+"""
+
+
 # ── HTML BUILDER REGISTRO DE COMPRAS ─────────────────────────────────────────
 
 def build_rc_html(rc_prods, rc_cat_json, rc_prev, items_comprados=None, es_admin=False,
                   supa_url='', supa_key='', ep='', usuario='', items_ya_comprados_json='[]',
                   total_items_presupuesto=0, cats_cards_html='', proveedores=None,
-                  cat_colors=None):
+                  cat_colors=None, admin_on=False):
     rows = ""
     items_comprados = items_comprados or {}
     cat_colors = cat_colors or {}
+    # Toggle "Modo Admin (incluye Varios)" — solo admin. Va DENTRO del formulario,
+    # entre el buscador y la tabla. Es un switch HTML que escribe su nuevo estado
+    # en el puente _rc_admin_tg del documento padre (ver _RC_ADMIN_TOGGLE_JS).
+    admin_toggle_html = ""
+    if es_admin:
+        _tg_col = "#5b7cfa" if admin_on else "#cbd5e1"
+        _tg_x   = "19px" if admin_on else "3px"
+        admin_toggle_html = (
+            '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;'
+            'border-bottom:1px solid #eef2f7;background:#f8fafc;flex-shrink:0">'
+            f'<button id="_rc_admtg" type="button" role="switch" aria-checked="{str(bool(admin_on)).lower()}" '
+            f'data-on="{"1" if admin_on else "0"}" style="position:relative;width:38px;height:22px;'
+            f'border-radius:99px;border:none;cursor:pointer;flex:0 0 auto;transition:background .18s;background:{_tg_col}">'
+            f'<span style="position:absolute;top:3px;left:{_tg_x};width:16px;height:16px;border-radius:50%;'
+            'background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .18s"></span></button>'
+            '<span style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.7rem;'
+            'letter-spacing:0.06em;text-transform:uppercase;color:#475569">Modo admin (incluye Varios)</span></div>'
+        )
 
     def _rc_badge_style(_hex):
         """Badge de categoría: fondo tenue + texto en el color (legible)."""
@@ -1607,6 +1659,7 @@ html.rc-fs body{{margin:0!important;padding:0!important}}
     <button id="_rc_csvbtn" type="button" title="Descargar tabla como CSV" style="width:34px;height:32px;border:1px solid #e2e8f0;border-radius:7px;background:#fff;color:#475569;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></button>
     <button id="_rc_fsbtn" type="button" title="Pantalla completa" style="width:34px;height:32px;border:1px solid #e2e8f0;border-radius:7px;background:#fff;color:#475569;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto"></button>
   </div>
+  {admin_toggle_html}
   <div id="tbl-wrap" style="overflow:auto;flex:1;min-height:0"><table>
     <thead><tr>
       <th>Categor&#237;a</th><th>&#205;tem</th><th class="r">Cant.</th>
@@ -2346,5 +2399,5 @@ window.guardarRegistro=async function(){{
 }};
 calc();
 }})();</script>"""
-    html = html + _RC_ADD_MENU_JS + _RC_TABLE_TOOLS_JS
+    html = html + _RC_ADD_MENU_JS + _RC_TABLE_TOOLS_JS + _RC_ADMIN_TOGGLE_JS
     return html
