@@ -32,12 +32,22 @@ _INV_CSS = """
 <style>
 /* ── Formulario en modal NATIVO st.dialog, estilizado como panel derecho (drawer) ──
    Usamos st.dialog (no un contenedor recolocado por CSS) porque Streamlit mide el
-   ancho de los widgets contra el dialog → no se salen; y apila los dropdowns bien. */
-div[data-testid="stDialog"] > div{align-items:flex-start!important;justify-content:flex-end!important;}
-div[data-testid="stDialog"] div[role="dialog"]{position:fixed!important;top:65px!important;
-  right:0!important;left:auto!important;bottom:auto!important;transform:none!important;margin:0!important;
-  height:calc(100vh - 65px)!important;max-height:calc(100vh - 65px)!important;background:#fff!important;
-  border-radius:0!important;box-shadow:none!important;overflow-y:auto!important;overflow-x:hidden!important;}
+   ancho de los widgets contra el dialog → no se salen; y apila los dropdowns bien.
+   Cubre TODA la altura (top:0/bottom:0): antes arrancaba en 65px y se veía el
+   header del sistema asomando por arriba del drawer.
+   OJO: acá NO puede ir `transform:none!important` — un transform estático con
+   !important le gana a la animación de entrada. El reposo lo fija
+   _INV_DRAWER_STILL_CSS (que además neutraliza el translateY(20) de Streamlit). */
+div[data-testid="stDialog"]{overflow:hidden!important;}
+div[data-testid="stDialog"] > div{align-items:flex-start!important;justify-content:flex-end!important;
+  overflow:hidden!important;}
+div[data-testid="stDialog"] div[role="dialog"]{position:fixed!important;top:0!important;
+  right:0!important;left:auto!important;bottom:0!important;margin:0!important;
+  height:100vh!important;max-height:100vh!important;background:#fff!important;
+  border-radius:0!important;box-shadow:-16px 0 48px rgba(15,23,42,0.20)!important;
+  overflow-y:auto!important;overflow-x:hidden!important;animation:none!important;}
+@keyframes invDrawerIn{from{transform:translateX(100%);}to{transform:translateX(0);}}
+@keyframes invBackdropIn{from{opacity:0;}to{opacity:1;}}
 /* El CSS global pinta el borderWrapper interno como tarjeta blanca CON SOMBRA (se
    veía un contenedor blanco sombreado que no cubría todo). Lo neutralizamos: el
    único blanco es el propio dialog, sin sombra. */
@@ -89,7 +99,38 @@ div[data-testid="stDialog"] [class*="st-key-inv_guardar"] button{width:100%!impo
   border-radius:8px;color:#64748b;transition:background .15s,color .15s;}
 .inv-act:hover{background:#eef2ff;color:#2563eb;}
 .inv-act-del:hover{background:#fef2f2;color:#dc2626;}
+
+/* ── Buscador CLIENT-SIDE (input HTML, no widget nativo) ──
+   Filtra las filas en el navegador: escribir ya NO dispara un rerun por tecla
+   (antes cada búsqueda reconstruía toda la tabla desde Python). */
+.inv-sbar{display:flex;align-items:center;gap:9px;background:#fff;border:1px solid #e6e9f4;
+  border-radius:12px;padding:9px 13px;box-shadow:0 3px 16px rgba(30,36,71,.06);}
+.inv-sbar input{flex:1 1 auto;border:none;outline:none;background:transparent;min-width:0;
+  font-family:Montserrat,sans-serif;font-size:.86rem;font-weight:600;color:#0f172a;}
+.inv-sbar input::placeholder{color:#94a3b8;font-weight:500;}
+.inv-sbar .inv-sico{display:inline-flex;flex:0 0 auto;color:#94a3b8;}
+.inv-sclear{display:none;flex:0 0 auto;cursor:pointer;color:#cbd5e1;}
+.inv-sclear:hover{color:#dc2626;}
+.inv-sbar.on .inv-sclear{display:inline-flex;}
 </style>
+"""
+
+# Animación de ENTRADA del drawer. Se inyecta SOLO cuando un dialog se abre desde
+# cerrado (_inv_just_opened); en los reruns con el drawer ya abierto (guardar una
+# foto, cambiar un campo) va _INV_DRAWER_STILL_CSS para que no vuelva a deslizarse.
+_INV_DRAWER_ANIM_CSS = """
+<style>
+div[data-testid="stDialog"] div[role="dialog"]{
+  animation:invDrawerIn .34s cubic-bezier(.22,.61,.36,1) both!important;}
+div[data-testid="stDialog"]::before,div[data-testid="stDialog"] > div[data-testid="stDialogBackdrop"]{
+  animation:invBackdropIn .34s ease both!important;}
+</style>
+"""
+
+# Estado EN REPOSO: sin animación y anclado en translateX(0) — neutraliza el
+# translateY(20) que Streamlit deja por defecto (bajaría el drawer y cortaría el pie).
+_INV_DRAWER_STILL_CSS = """
+<style>div[data-testid="stDialog"] div[role="dialog"]{transform:translateX(0)!important;}</style>
 """
 
 
@@ -353,6 +394,95 @@ _INV_TABLE_JS = r"""<script>
 })();
 </script>"""
 
+# Animación de SALIDA del drawer + filtro client-side del buscador. Streamlit quita
+# el dialog de golpe, así que hay que interceptar los cierres NATIVOS (la X, el clic
+# en el backdrop, Escape) en el documento PADRE y en fase de CAPTURA para ganarle a
+# React: se anima la salida y recién ahí se deja pasar el cierre real (guard
+# _invSkipClose). También se animan los botones Cerrar/Cancelar (NO "Sí, continuar":
+# ese encadena con el siguiente dialog y no debe deslizarse). Re-bindea cada run.
+_INV_DRAWER_JS = r"""<script>
+(function(){
+  var W=window.parent, D=W&&W.document; if(!D) return;
+  /* Reset al entrar: si un cierre quedó a medias, el iframe que tenía el timeout
+     de limpieza murió en el rerun y los flags quedarían trabados para siempre. */
+  W._invSkipClose=false; W._invClosing=false;
+  function dlg(){ return D.querySelector('div[data-testid="stDialog"] div[role="dialog"]'); }
+  /* Botones que CIERRAN (se animan). 'x' = usar la X nativa del dialog. */
+  var CANCELA='[class*="st-key-_inv_veruso_close"] button,[class*="st-key-_inv_del1_no"] button,'
+             +'[class*="st-key-_inv_del2_no"] button';
+  function closeTarget(t){
+    if(!t||!t.closest) return null;
+    var b=t.closest(CANCELA); if(b) return b;
+    if(t.closest('button[aria-label="Close"]')) return 'x';
+    if(t.closest('div[data-testid="stDialog"]') && !t.closest('div[role="dialog"]')) return 'x';
+    return null;
+  }
+  function realClose(target){
+    W._invSkipClose=true;
+    var el=(target==='x'||!target)
+      ? D.querySelector('div[data-testid="stDialog"] button[aria-label="Close"]') : target;
+    if(el){ try{ el.click(); }catch(e){} }
+    W.setTimeout(function(){ W._invSkipClose=false; W._invClosing=false; }, 600);
+  }
+  function closeWithAnim(target){
+    if(W._invClosing) return; W._invClosing=true;
+    var d=dlg(); if(!d){ realClose(target); return; }
+    var done=false;
+    function fin(){ if(done) return; done=true; realClose(target); }
+    try{
+      d.getAnimations().forEach(function(a){ try{a.cancel();}catch(e){} });
+      var a=d.animate([{transform:'translateX(0)'},{transform:'translateX(100%)'}],
+                      {duration:260, easing:'cubic-bezier(.5,0,.75,0)', fill:'forwards'});
+      a.onfinish=fin; a.oncancel=fin;
+      W.setTimeout(fin, 330);   /* respaldo por si onfinish no dispara */
+    }catch(e){ fin(); }
+  }
+  /* El backdrop lo cierra Streamlit en pointerdown/mousedown (ANTES del click) y la
+     X en click → interceptar los tres; el guard evita 3 cierres por un mismo gesto. */
+  ['pointerdown','mousedown','click'].forEach(function(evt){
+    var k='_invCl_'+evt;
+    if(W[k]){ try{ D.removeEventListener(evt, W[k], true); }catch(e){} }
+    W[k]=function(ev){
+      if(W._invSkipClose || !dlg()) return;
+      var tg=closeTarget(ev.target); if(!tg) return;
+      ev.preventDefault(); ev.stopImmediatePropagation(); closeWithAnim(tg);
+    };
+    D.addEventListener(evt, W[k], true);
+  });
+  if(W._invEscCap){ try{ D.removeEventListener('keydown', W._invEscCap, true); }catch(e){} }
+  W._invEscCap=function(ev){
+    if(ev.key!=='Escape' && ev.keyCode!==27) return;
+    if(W._invSkipClose || !dlg()) return;
+    ev.preventDefault(); ev.stopImmediatePropagation(); closeWithAnim('x');
+  };
+  D.addEventListener('keydown', W._invEscCap, true);
+
+  /* ── Buscador client-side: filtra las filas por el data-s de cada <tr>. ── */
+  var q=D.getElementById('_inv_q');
+  if(q){
+    if(W._invQH){ try{ q.removeEventListener('input', W._invQH); }catch(e){} }
+    W._invQH=function(){
+      var v=(q.value||'').toLowerCase().trim();
+      var bar=q.closest('.inv-sbar'); if(bar){ if(v) bar.classList.add('on'); else bar.classList.remove('on'); }
+      var trs=D.querySelectorAll('.inv-tbl-wrap tbody tr[data-s]'), n=0;
+      for(var i=0;i<trs.length;i++){
+        var ok=(!v)||(trs[i].getAttribute('data-s').indexOf(v)>=0);
+        trs[i].style.display=ok?'':'none'; if(ok) n++;
+      }
+      var c=D.getElementById('_inv_count'); if(c) c.textContent=n;
+      var em=D.getElementById('_inv_empty'); if(em) em.style.display=(n||!trs.length)?'none':'block';
+      W._invQ=v;   /* el término sobrevive al rerun (p.ej. tras guardar un producto) */
+    };
+    q.addEventListener('input', W._invQH);
+    var cl=D.getElementById('_inv_qclear');
+    if(cl && !cl._invB){ cl._invB=true;
+      cl.addEventListener('click', function(){ q.value=''; W._invQH(); q.focus(); }); }
+    if(W._invQ){ q.value=W._invQ; W._invQH(); }   /* re-aplicar el filtro tras el rerun */
+  }
+})();
+</script>"""
+
+
 @st.cache_data(ttl=60, show_spinner=False)
 def _inv_all():
     """Lista completa de inventario activo (cacheada; se limpia al mutar)."""
@@ -491,7 +621,9 @@ def _render_form_body(cat_items, rec, rol):
                              key=f"inv_delall_{sfx}"):
                     st.session_state[f"inv_fnonce_{sfx}"] = _fnonce + 1
                     st.session_state[f"inv_fexcl_{sfx}"] = set()
-                    st.rerun()
+                    # scope="fragment": limpiar las fotos NO tiene por qué cerrar el
+                    # drawer ni reconstruir la tabla — basta con redibujar el form.
+                    st.rerun(scope="fragment")
             # Grilla HTML: cada miniatura con papelera flotante (esquina) + zoom en
             # hover (lightbox client-side). Papelera → bridge _inv_fcmd → Python.
             _prev_map, _cells = {}, ""
@@ -622,8 +754,12 @@ def _tabla_html(data, disp_map=None):
             )
         else:
             _desc_cell = '<span style="color:#cbd5e1;">—</span>'
+        # data-s = blob que usa el buscador client-side (mismos campos que filtraba
+        # antes Python: item, categoría, ubicación y observación).
+        _s = _esc(f"{d.get('item','')} {d.get('categoria','')} "
+                  f"{d.get('ubicacion','')} {d.get('observacion','')}".lower())
         rows += (
-            f'<tr data-inv-id="{_esc(d["id"])}" style="cursor:context-menu;">'
+            f'<tr data-inv-id="{_esc(d["id"])}" data-s="{_s}" style="cursor:context-menu;">'
             f'<td>{thumb}</td>'
             f'<td style="font-weight:700;color:#0f172a;text-transform:uppercase;letter-spacing:.02em;">'
             f'{_esc(d.get("item",""))}{obs_html}</td>'
@@ -651,24 +787,28 @@ def _render_tabla(rol):
     """Barra superior (buscar + Ingresar producto) + tabla de stock + handler de fila."""
     tb1, tb2 = st.columns([3, 1])
     with tb1:
-        busqueda = st.text_input("Buscar en el stock", key="_inv_busca",
-                                 placeholder="Producto, categoría, bodega…",
-                                 label_visibility="collapsed")
+        # Buscador HTML (no widget nativo): filtra en el navegador, sin reruns.
+        st.markdown(
+            '<div class="inv-sbar"><span class="inv-sico">'
+            + _svg('<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>', 16, "currentColor")
+            + '</span><input id="_inv_q" type="text" autocomplete="off" '
+            'placeholder="Producto, categor&iacute;a, bodega&hellip;">'
+            '<span class="inv-sclear" id="_inv_qclear" title="Limpiar">'
+            + _svg('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>', 15, "currentColor")
+            + '</span></div>', unsafe_allow_html=True)
     with tb2:
         if st.button("Ingresar producto", type="primary", use_container_width=True,
                      icon=":material/add:", key="inv_open_form"):
             st.session_state.pop("_inv_edit", None)
             st.session_state["_inv_open"] = True
-            st.rerun()
+            st.session_state["_inv_just_opened"] = True
+            # Sin st.rerun(): el dialog se renderiza más abajo en ESTE mismo run
+            # (antes se gastaba un rerun completo solo para abrirlo).
 
+    # La tabla siempre trae el set COMPLETO; el término lo filtra el navegador.
     data = _inv_all()
-    if busqueda:
-        b = busqueda.strip().lower()
-        data = [d for d in data if b in
-                f"{d.get('item','')} {d.get('categoria','')} "
-                f"{d.get('ubicacion','')} {d.get('observacion','')}".lower()]
 
-    _titulo(f"En stock · {len(data)} producto(s)",
+    _titulo('En stock &middot; <span id="_inv_count">' + str(len(data)) + '</span> producto(s)',
             _svg('<path d="M20 5H4a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1Z"/>'
                  '<path d="M4 10v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9"/>', 16, "#0f172a"))
 
@@ -680,6 +820,12 @@ def _render_tabla(rol):
                     unsafe_allow_html=True)
     else:
         st.markdown(_tabla_html(data, _inv_disp()), unsafe_allow_html=True)
+        # Vacío de BÚSQUEDA (lo muestra/oculta el filtro client-side).
+        st.markdown('<div id="_inv_empty" style="display:none;text-align:center;color:#94a3b8;'
+                    'padding:34px;font-family:Montserrat,sans-serif;font-weight:600;'
+                    'border:1px dashed #d7ddf0;border-radius:14px;margin-top:10px;">'
+                    'Ning&uacute;n producto coincide con tu b&uacute;squeda.</div>',
+                    unsafe_allow_html=True)
 
     # Bridge oculto + handler (menú contextual: ver fotos/editar/eliminar + acciones).
     st.markdown('<style>.st-key-_inv_tcmd{position:absolute!important;left:-9999px!important;'
@@ -689,6 +835,8 @@ def _render_tabla(rol):
     _fotos_map = {d["id"]: (d.get("fotos") or [])[:MAX_FOTOS] for d in data}
     components.html(_INV_TABLE_JS.replace("__FOTOS__", json.dumps(_fotos_map, ensure_ascii=False)),
                     height=0)
+    # Animación de salida del drawer + filtro del buscador (se re-bindea cada run).
+    components.html(_INV_DRAWER_JS, height=0)
 
 
 def _render_del_confirm():
@@ -856,9 +1004,18 @@ def render_tab_inventario(**kwargs):
                 st.session_state["_inv_del_confirm"] = _tid
             elif _act == "veruso":
                 st.session_state["_inv_veruso"] = _tid
+            if _act in ("edit", "del", "veruso"):
+                st.session_state["_inv_just_opened"] = True
 
     # Vista principal: barra + tabla de stock (estilo COTIZACIONES).
     _render_tabla(_rol)
+
+    # Entrada deslizante SOLO si el drawer se abre desde cerrado; en los reruns con
+    # el drawer ya abierto va el CSS de reposo para que no vuelva a deslizarse.
+    # (Va antes de los dialogs: el CSS tiene que estar puesto cuando se rendericen.)
+    st.markdown(_INV_DRAWER_ANIM_CSS if st.session_state.pop("_inv_just_opened", False)
+                else _INV_DRAWER_STILL_CSS, unsafe_allow_html=True)
+
     _render_del_confirm()
 
     # Modal "VER": en qué proyecto(s) se descontó el stock de un producto.
