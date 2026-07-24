@@ -262,6 +262,25 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden;font-family:sans-serif;
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" onload="_ecPvBoot()" onerror="var s=document.getElementById('pdf-status');if(s)s.textContent='No se pudo cargar el visor.';"></script>
 """
 
+# Animacion de entrada/salida del visor de documentos (mismo efecto que el drawer
+# de REGISTRO DE COMPRAS). FUENTE UNICA: se inyecta en dos lugares porque el panel
+# de carga (#_ec_pv_loading) nace ANTES del rerun que renderiza el drawer, cuando
+# el CSS estatico del drawer todavia no existe en el DOM:
+#   1) el JS del menu contextual la mete en <style id="_ecpv_anim"> del padre;
+#   2) el bloque CSS estatico del drawer la repite (por si se abre sin el panel).
+# El slide lo hace el PANEL DE CARGA (aparece al instante, sin esperar a Python);
+# el drawer llega ya en posicion y solo se anima si se abrio sin panel de carga.
+_PV_ANIM_CSS = (
+    "@keyframes ecPvIn{from{transform:translateX(100%)}to{transform:translateX(0)}}"
+    "@keyframes ecPvOut{from{transform:translateX(0)}to{transform:translateX(100%)}}"
+    "@keyframes ecPvBdIn{from{opacity:0}to{opacity:1}}"
+    "@keyframes ecPvBdOut{from{opacity:1}to{opacity:0}}"
+    ".ec-pv-in{animation:ecPvIn .30s cubic-bezier(.22,1,.36,1) both!important;}"
+    ".ec-pv-out{animation:ecPvOut .24s cubic-bezier(.4,0,1,1) both!important;}"
+    ".ec-pv-bd-in{animation:ecPvBdIn .26s ease both!important;}"
+    ".ec-pv-bd-out{animation:ecPvBdOut .22s ease both!important;}"
+)
+
 
 # ── Wrappers cacheados (evitan trabajo pesado en cada rerun, p.ej. al filtrar) ──
 @st.cache_data(ttl=60, show_spinner=False)
@@ -2379,6 +2398,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 # Abre/cambia el visor de documentos (drawer). doc='' => elige el default.
                 _pv_doc = _ctx_action[len('preview_'):] if _ctx_action.startswith('preview_') else ''
                 st.session_state['_preview'] = {'ep': _ctx_ep, 'doc': _pv_doc}
+                st.session_state['_pv_cache'] = {}  # memo de documentos: uno por apertura
             else:
                 try:
                     _cot = cargar_cotizacion(_ctx_ep)
@@ -2506,6 +2526,12 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 ".pvhead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;}"
                 ".pvkick{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;font-weight:800;}"
                 ".pvtitle{font-size:15px;font-weight:800;color:#0f172a;margin-top:1px;}"
+                ".pvmonto{display:inline-flex;align-items:center;gap:7px;margin-top:7px;padding:5px 12px;"
+                "border-radius:99px;background:#ecfdf5;border:1px solid #a7f3d0;color:#047857;"
+                "font-family:'Plus Jakarta Sans',Montserrat,sans-serif;font-weight:800;font-size:13.5px;"
+                "letter-spacing:.01em;line-height:1;white-space:nowrap;}"
+                ".pvmonto .pvmsub{font-size:9px;font-weight:800;color:#059669;opacity:.75;"
+                "text-transform:uppercase;letter-spacing:.06em;}"
                 ".pvx{width:32px;height:32px;border-radius:9px;border:1px solid #e2e8f0;background:#fff;color:#64748b;"
                 "display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}"
                 ".pvx:hover{background:#f1f5f9;color:#0f172a;}"
@@ -2518,8 +2544,9 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 ".pverr{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:10px;padding:16px;"
                 "font-size:0.86rem;line-height:1.5;}"
                 ".st-key-ec_drawer iframe{width:calc(50vw - 40px)!important;max-width:calc(50vw - 40px)!important;"
-                "height:calc(100vh - 150px)!important;min-height:320px!important;border:1px solid #e2e8f0!important;"
+                "height:calc(100vh - 176px)!important;min-height:320px!important;border:1px solid #e2e8f0!important;"
                 "border-radius:10px!important;display:block!important;}"
+                + _PV_ANIM_CSS +
                 "</style>", unsafe_allow_html=True)
 
             @st.fragment
@@ -2559,16 +2586,27 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                         st.session_state['_preview']['doc'] = _bk
                 if st.button('x', key='_pv_close'):
                     st.session_state.pop('_preview', None)
-                    st.rerun()  # rerun completo: corre la limpieza (else) y re-sincroniza el fullscreen
+                    st.session_state.pop('_pv_cache', None)
+                    # Rerun SOLO del fragment: cerrar ya NO reconstruye toda la pestana
+                    # (tabla + cards + fullscreen), que era lo que hacia lento el cierre.
+                    # La limpieza del DOM (backdrop, panel, listener Esc) la hizo antes
+                    # closeIt() en JS, de forma sincronica.
+                    st.rerun(scope="fragment")
 
                 _pv_cur = st.session_state['_preview'].get('doc') or ''
                 if _pv_cur not in _pv_keys:
                     _pv_cur = 'plano' if 'plano' in _pv_keys else (_pv_keys[0] if _pv_keys else '')
                     st.session_state['_preview']['doc'] = _pv_cur
 
-                _pv_src = ''; _pv_err = ''
+                # Memo de documentos ya generados en ESTA apertura del visor: cambiar
+                # de pestana y volver no vuelve a generar el PDF (era el trabajo pesado
+                # de cada rerun del fragment). Se vacia al abrir y al cerrar el visor.
+                _pv_memo = st.session_state.setdefault('_pv_cache', {})
+                _pv_src = _pv_memo.get(_pv_cur, ''); _pv_err = ''
                 try:
-                    if _pv_cur == 'plano':
+                    if _pv_src:
+                        pass
+                    elif _pv_cur == 'plano':
                         _pv_src = _pvc.get('plano_url') or ''
                         if not _pv_src:
                             _pv_err = 'Esta cotizaci&#243;n no tiene plano adjunto.'
@@ -2588,6 +2626,8 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 except Exception as _pve:
                     _pv_src = ''
                     _pv_err = 'Error al generar el documento: ' + str(_pve)[:240]
+                if _pv_src:
+                    _pv_memo[_pv_cur] = _pv_src
 
                 def _pv_ic(_p, _sz=15):
                     return (f'<svg width="{_sz}" height="{_sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
@@ -2599,11 +2639,26 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                     _pv_tabs_html += (f'<button class="pvtab{_on}" data-doc="{_k}">' + _pv_ic(_s) + f'<span>{_l}</span></button>')
                 _pv_cli_txt = str(_pvc.get('cliente_nombre', '') or '&#8212;').replace('<', '&lt;').replace('>', '&gt;')
 
+                # Monto del proyecto: MISMO valor y formato que la columna Total de la
+                # tabla (total_total = base+IVA+margen), con el mismo subtitulo segun
+                # modo admin, para que no haya dos cifras distintas del mismo proyecto.
+                try:
+                    _pv_monto = float(_pvc.get('total_total', 0) or 0)
+                except (TypeError, ValueError):
+                    _pv_monto = 0.0
+                _pv_monto_txt = f"${_pv_monto:,.0f}".replace(",", ".") if _pv_monto else "$0"
+                _pv_monto_sub = ('base+IVA+margen' if st.session_state.get('modo_admin')
+                                 else 'IVA incluido')
+                _pv_monto_ico = _pv_ic('<line x1="12" x2="12" y1="2" y2="22"/>'
+                                       '<path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>', 14)
+
                 with st.container(key='ec_drawer'):
                     st.markdown(
                         '<div class="pvhead"><div>'
                         '<div class="pvkick">Documentos</div>'
-                        '<div class="pvtitle">' + _pv_ep + ' &middot; ' + _pv_cli_txt + '</div></div>'
+                        '<div class="pvtitle">' + _pv_ep + ' &middot; ' + _pv_cli_txt + '</div>'
+                        '<div class="pvmonto">' + _pv_monto_ico + '<span>' + _pv_monto_txt + '</span>'
+                        '<span class="pvmsub">' + _pv_monto_sub + '</span></div></div>'
                         '<button id="_pv_x" class="pvx">' + _pv_x_ico + '</button></div>'
                         '<div class="pvtabs">' + _pv_tabs_html + '</div>',
                         unsafe_allow_html=True)
@@ -2618,18 +2673,40 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 components.html(r"""<script>
 (function(){
   var W=window.parent, D=W.document;
+  W._ecPvClosing=false;
   function closeIt(){
-    /* limpieza total y sincrónica: nada del visor puede quedar tapando
-       la barra de botones del fullscreen */
-    ['_ec_pv_backdrop','_ec_pv_loading'].forEach(function(id){var e=D.getElementById(id); if(e) e.remove();});
-    var dr0=D.querySelector('.st-key-ec_drawer'); if(dr0) dr0.remove();
+    if(W._ecPvClosing) return; W._ecPvClosing=true;
+    /* Salida deslizante hacia la derecha + fundido del backdrop. El listener de
+       Escape se suelta YA (que no se pueda re-disparar durante la animación);
+       la limpieza del DOM va al terminar, y recién ahí se clickea el botón
+       nativo de cerrar. Sigue siendo limpieza TOTAL: nada del visor puede
+       quedar tapando la barra de botones del fullscreen. */
     if(W._ecPvKey){ D.removeEventListener('keydown', W._ecPvKey, true); W._ecPvKey=null; }
-    var b=D.querySelector('.st-key-_pv_close button'); if(b) b.click(); }
+    var lp=D.getElementById('_ec_pv_loading'), bd=D.getElementById('_ec_pv_backdrop');
+    var dr0=D.querySelector('.st-key-ec_drawer');
+    if(lp){ lp.classList.remove('ec-pv-in'); lp.classList.add('ec-pv-out'); }
+    if(dr0){ dr0.classList.remove('ec-pv-in'); dr0.classList.add('ec-pv-out'); }
+    if(bd){ bd.classList.remove('ec-pv-bd-in'); bd.classList.add('ec-pv-bd-out'); }
+    W.setTimeout(function(){
+      ['_ec_pv_backdrop','_ec_pv_loading'].forEach(function(id){var e=D.getElementById(id); if(e) e.remove();});
+      var d2=D.querySelector('.st-key-ec_drawer'); if(d2) d2.remove();
+      W._ecPvAnimDone=false; W._ecPvClosing=false;
+      var b=D.querySelector('.st-key-_pv_close button'); if(b) b.click();
+    }, 250);
+  }
   var lp0=D.getElementById('_ec_pv_loading'); if(lp0) lp0.remove();
-  var ex=D.getElementById('_ec_pv_backdrop'); if(ex) ex.remove();
-  var bd=D.createElement('div'); bd.id='_ec_pv_backdrop'; bd.addEventListener('click', closeIt); D.body.appendChild(bd);
+  /* El backdrop se REUSA si ya existe (lo creó el panel de carga): recrearlo en
+     cada rerun del fragment volvería a dispararle el fundido = parpadeo al
+     cambiar de pestaña. Solo se crea (y anima) si no estaba. */
+  var bd=D.getElementById('_ec_pv_backdrop');
+  if(bd){ if(bd._ecPvH) bd.removeEventListener('click', bd._ecPvH); }
+  else { bd=D.createElement('div'); bd.id='_ec_pv_backdrop'; bd.className='ec-pv-bd-in'; D.body.appendChild(bd); }
+  bd._ecPvH=closeIt; bd.addEventListener('click', bd._ecPvH);
   var dr=D.querySelector('.st-key-ec_drawer');
   if(dr){
+    /* El slide de entrada normalmente ya lo hizo el panel de carga (llega en
+       posición). Solo se anima el drawer si se abrió sin panel de carga. */
+    if(!W._ecPvAnimDone){ dr.classList.add('ec-pv-in'); W._ecPvAnimDone=true; }
     dr.querySelectorAll('.pvtab').forEach(function(t){ t.addEventListener('click', function(){
       var doc=t.getAttribute('data-doc'); var nb=D.querySelector('.st-key-_pvbtn_'+doc+' button'); if(nb) nb.click();
     }); });
@@ -2646,7 +2723,9 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             _pv_fragment()
         else:
             components.html("""<script>(function(){var W=window.parent,D=W.document;
+  if(W._ecPvClosing) return;  /* cierre en curso: no le cortes la animación */
   ['_ec_pv_backdrop','_ec_pv_loading'].forEach(function(id){var e=D.getElementById(id); if(e) e.remove();});
+  W._ecPvAnimDone=false;
   if(W._ecPvKey){ D.removeEventListener('keydown', W._ecPvKey, true); W._ecPvKey=null; }})();</script>""", height=0)
 
         # JS del menú: aparece AL INSTANTE (sin rerun) leyendo las banderas data-* de
@@ -2700,7 +2779,13 @@ var MAT_DATA = """ + _mat_data_json_map + """;
   }
   function showLoading(tr, ep){
     var old=D.getElementById('_ec_pv_loading'); if(old) old.remove();
-    if(!D.getElementById('_ec_pv_backdrop')){ var b2=D.createElement('div'); b2.id='_ec_pv_backdrop'; b2.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,0.42);z-index:9999990;'; D.body.appendChild(b2); }
+    /* La animación del visor se inyecta ACÁ porque este panel nace antes del
+       rerun que trae el CSS estático del drawer. Es el mismo CSS (fuente única
+       en Python) que usa el drawer para la salida. */
+    if(!D.getElementById('_ecpv_anim')){ var sa=D.createElement('style'); sa.id='_ecpv_anim';
+      sa.textContent=__PVANIM__; D.head.appendChild(sa); }
+    W._ecPvClosing=false;
+    if(!D.getElementById('_ec_pv_backdrop')){ var b2=D.createElement('div'); b2.id='_ec_pv_backdrop'; b2.className='ec-pv-bd-in'; b2.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,0.42);z-index:9999990;'; D.body.appendChild(b2); }
     if(!D.getElementById('_eclr_css')){ var sk=D.createElement('style'); sk.id='_eclr_css';
       sk.textContent='@keyframes _ecspin{to{transform:rotate(360deg)}}.eclr-chip{display:inline-flex;align-items:center;padding:5px 12px;border-radius:99px;background:#f1f5f9;color:#94a3b8;font-size:11px;font-weight:800;margin:3px;letter-spacing:.02em;transition:all .25s;}.eclr-chip.on{background:#dbeafe;color:#1d4ed8;transform:scale(1.06);}';
       D.head.appendChild(sk); }
@@ -2708,7 +2793,10 @@ var MAT_DATA = """ + _mat_data_json_map + """;
     var DOCS=[]; MAP.forEach(function(m){ if(tr && tr.getAttribute('data-'+m[0])==='1') DOCS.push(m[1]); });
     if(!DOCS.length) DOCS=['documentos'];
     var R=54, CIRC=2*Math.PI*R;
-    var lp=D.createElement('div'); lp.id='_ec_pv_loading';
+    var lp=D.createElement('div'); lp.id='_ec_pv_loading'; lp.className='ec-pv-in';
+    /* Este panel es el que ENTRA deslizándose desde la derecha; el drawer llega
+       después, ya en posición, y lo reemplaza sin volver a animar. */
+    W._ecPvAnimDone=true;
     lp.style.cssText='position:fixed;top:0;right:0;height:100vh;width:50vw;min-width:400px;z-index:9999992;background:#fff;box-shadow:-16px 0 44px rgba(15,23,42,0.24);border-left:1px solid #e2e8f0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-family:-apple-system,Segoe UI,Roboto,sans-serif;';
     lp.innerHTML='<div style="position:relative;width:130px;height:130px;">'
       +'<svg width="130" height="130" viewBox="0 0 130 130" style="display:block;"><circle cx="65" cy="65" r="'+R+'" fill="none" stroke="#eef2f7" stroke-width="9"/>'
@@ -2819,7 +2907,8 @@ var MAT_DATA = """ + _mat_data_json_map + """;
   W._ecCtxKey=function(e){if(e.key==='Escape') closeMenu();};
   D.addEventListener('keydown', W._ecCtxKey, true);
 })();
-</script>""".replace('__CAN_CLONE__', 'true' if _rol_actual in ('admin', 'root') else 'false'), height=0)
+</script>""".replace('__CAN_CLONE__', 'true' if _rol_actual in ('admin', 'root') else 'false')
+                             .replace('__PVANIM__', json.dumps(_PV_ANIM_CSS)), height=0)
 
         # ── Backup de seguridad de la base de datos (solo admin/root) ────────────
         # Debajo de la tabla: extrae TODAS las tablas de Supabase a un ZIP con
