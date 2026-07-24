@@ -18,7 +18,8 @@ from repositories.cotizaciones_repo import (
 )
 from repositories.logs_repo import obtener_logs_ep
 from repositories.compras_repo import calcular_estado_compras
-from services.cotizacion_service import crear_badge_estado, aplicar_margen, calcular_estado_label
+from services.cotizacion_service import (crear_badge_estado, aplicar_margen,
+                                         calcular_estado_label, ESTADO_BADGE_COLORS)
 from generators.pdf_cotizacion import generar_pdf_completo, generar_pdf_cliente
 from generators.pdf_log import generar_pdf_log
 from generators.pdf_seleccion import generar_pdf_seleccion_cliente
@@ -2525,12 +2526,16 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 "#_ec_pv_backdrop{position:fixed;inset:0;background:rgba(15,23,42,0.42);z-index:9999990;}"
                 ".pvhead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;}"
                 ".pvkick{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;font-weight:800;}"
-                ".pvtitle{font-size:15px;font-weight:800;color:#0f172a;margin-top:1px;}"
-                ".pvmonto{display:inline-flex;align-items:center;gap:7px;margin-top:7px;padding:5px 12px;"
-                "border-radius:99px;background:#ecfdf5;border:1px solid #a7f3d0;color:#047857;"
-                "font-family:'Plus Jakarta Sans',Montserrat,sans-serif;font-weight:800;font-size:13.5px;"
-                "letter-spacing:.01em;line-height:1;white-space:nowrap;}"
-                ".pvmonto .pvmsub{font-size:9px;font-weight:800;color:#059669;opacity:.75;"
+                ".pvtitle{font-size:15px;font-weight:800;color:#0f172a;}"
+                # EP - cliente y monto en la MISMA fila; el monto baja solo si no cabe.
+                ".pvtitlerow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:2px;}"
+                # Colores del monto: van INLINE, salen del estado del presupuesto
+                # (ESTADO_BADGE_COLORS) para que la pildora y el badge de la tabla
+                # nunca digan cosas distintas del mismo proyecto.
+                ".pvmonto{display:inline-flex;align-items:center;gap:7px;padding:5px 12px;"
+                "border-radius:99px;font-family:'Plus Jakarta Sans',Montserrat,sans-serif;"
+                "font-weight:800;font-size:13.5px;letter-spacing:.01em;line-height:1;white-space:nowrap;}"
+                ".pvmonto .pvmsub{font-size:9px;font-weight:800;opacity:.72;"
                 "text-transform:uppercase;letter-spacing:.06em;}"
                 ".pvx{width:32px;height:32px;border-radius:9px;border:1px solid #e2e8f0;background:#fff;color:#64748b;"
                 "display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}"
@@ -2544,7 +2549,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 ".pverr{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:10px;padding:16px;"
                 "font-size:0.86rem;line-height:1.5;}"
                 ".st-key-ec_drawer iframe{width:calc(50vw - 40px)!important;max-width:calc(50vw - 40px)!important;"
-                "height:calc(100vh - 176px)!important;min-height:320px!important;border:1px solid #e2e8f0!important;"
+                "height:calc(100vh - 158px)!important;min-height:320px!important;border:1px solid #e2e8f0!important;"
                 "border-radius:10px!important;display:block!important;}"
                 + _PV_ANIM_CSS +
                 "</style>", unsafe_allow_html=True)
@@ -2640,25 +2645,39 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 _pv_cli_txt = str(_pvc.get('cliente_nombre', '') or '&#8212;').replace('<', '&lt;').replace('>', '&gt;')
 
                 # Monto del proyecto: MISMO valor y formato que la columna Total de la
-                # tabla (total_total = base+IVA+margen), con el mismo subtitulo segun
-                # modo admin, para que no haya dos cifras distintas del mismo proyecto.
+                # tabla (total_total), para que no haya dos cifras distintas del mismo
+                # proyecto. El desglose depende del PROYECTO, no de quien mira: si no
+                # tiene margen aplicado es solo base+IVA. Y el color sale del ESTADO
+                # (misma paleta que el badge de la tabla), asi que un INCOMPLETO se ve
+                # rojo y un AUTORIZADO verde sin tener que mantener otra tabla de colores.
                 try:
                     _pv_monto = float(_pvc.get('total_total', 0) or 0)
                 except (TypeError, ValueError):
                     _pv_monto = 0.0
                 _pv_monto_txt = f"${_pv_monto:,.0f}".replace(",", ".") if _pv_monto else "$0"
-                _pv_monto_sub = ('base+IVA+margen' if st.session_state.get('modo_admin')
-                                 else 'IVA incluido')
-                _pv_monto_ico = _pv_ic('<line x1="12" x2="12" y1="2" y2="22"/>'
-                                       '<path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>', 14)
+                _pv_monto_sub = 'base+IVA+margen' if _pv_margen > 0 else 'base+IVA'
+                _pv_estado = calcular_estado_label(
+                    _pvc.get('cliente_nombre', ''), _pvc.get('cliente_email', ''),
+                    _pvc.get('asesor_nombre', ''), _pvc.get('asesor_email', ''),
+                    _pvc.get('asesor_telefono', ''), _pv_margen, bool(_pvc.get('plano_url')),
+                    tiene_notariado=bool(_pvc.get('contrato_notariado_url')),
+                    tiene_acta=bool(_pvc.get('acta_url')),
+                    motivo_rechazo=_pvc.get('motivo_rechazo', ''))
+                _pv_m_bg, _pv_m_fg = ESTADO_BADGE_COLORS.get(_pv_estado, ('#e2e8f0', '#334155'))
+                # Icono de billetera (NO un signo $: el monto ya lo trae y se veia repetido).
+                _pv_monto_ico = _pv_ic(
+                    '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3'
+                    'a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>', 14)
 
                 with st.container(key='ec_drawer'):
                     st.markdown(
                         '<div class="pvhead"><div>'
                         '<div class="pvkick">Documentos</div>'
+                        '<div class="pvtitlerow">'
                         '<div class="pvtitle">' + _pv_ep + ' &middot; ' + _pv_cli_txt + '</div>'
-                        '<div class="pvmonto">' + _pv_monto_ico + '<span>' + _pv_monto_txt + '</span>'
-                        '<span class="pvmsub">' + _pv_monto_sub + '</span></div></div>'
+                        '<div class="pvmonto" title="' + _pv_estado + '" style="background:' + _pv_m_bg
+                        + ';color:' + _pv_m_fg + ';">' + _pv_monto_ico + '<span>' + _pv_monto_txt + '</span>'
+                        '<span class="pvmsub">' + _pv_monto_sub + '</span></div></div></div>'
                         '<button id="_pv_x" class="pvx">' + _pv_x_ico + '</button></div>'
                         '<div class="pvtabs">' + _pv_tabs_html + '</div>',
                         unsafe_allow_html=True)
