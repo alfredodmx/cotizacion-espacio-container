@@ -1669,6 +1669,17 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
                   'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">'
                   '<polyline points="18 8 22 12 18 16"/><polyline points="6 8 2 12 6 16"/>'
                   '<line x1="2" x2="22" y1="12" y2="12"/></svg>')
+        # El botón "Descargar CSV" NO se muestra a ejecutivos (ni acá ni en el menú
+        # contextual). Para el resto va igual. Cuando se oculta se deja un <span>
+        # vacío para que el space-between siga empujando el scroll a la derecha.
+        _csv_btn_html = ('<span></span>' if _es_ej_ctx_tbl else
+            '  <button class="tbl-scroll-btn" id="btn-csv" title="Descargar tabla como CSV" '
+            'style="width:auto;padding:0 13px;gap:7px;">'
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" '
+            'stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">'
+            '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/>'
+            '<line x1="12" x2="12" y1="15" y2="3"/></svg>'
+            '<span style="font-size:.72rem;font-weight:800;letter-spacing:.03em;">Descargar CSV</span></button>')
         _scroll_html=(
             f"<!-- {_vscroll_sid} -->"
             "<style>*{box-sizing:border-box;}"
@@ -1689,9 +1700,7 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             "border-color:#e2e8f0;box-shadow:none;transform:none;}"
             "</style>"
             '<div class="tbl-scroll-wrap">'
-            '  <button class="tbl-scroll-btn" id="btn-csv" title="Descargar tabla como CSV" style="width:auto;padding:0 13px;gap:7px;">'
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>'
-            '<span style="font-size:.72rem;font-weight:800;letter-spacing:.03em;">Descargar CSV</span></button>'
+            + _csv_btn_html +
             '  <div class="tbl-scroll-right">'
             '    <button class="tbl-scroll-btn" id="btn-left" title="Desplazar a la izquierda">'+_CHEV_L+'</button>'
             '    <span class="tbl-scroll-hint">'+_MOVEH+'Scroll horizontal</span>'
@@ -1758,7 +1767,11 @@ def render_tab_historial(supabase, supabase_admin, supa_url, supa_key, **deps):
             'var dt=new Date(),pp=function(x){return (x<10?"0":"")+x;},fn=prefix+"_"+dt.getFullYear()+pp(dt.getMonth()+1)+pp(dt.getDate())+".csv";'
             'var blob=new W.Blob([csv],{type:"text/csv;charset=utf-8;"});var url=W.URL.createObjectURL(blob);'
             'var a=D.createElement("a");a.href=url;a.download=fn;D.body.appendChild(a);a.click();setTimeout(function(){a.remove();W.URL.revokeObjectURL(url);},1500);}'
-            'var _cb=document.getElementById("btn-csv");if(_cb)_cb.addEventListener("click",function(){_dlCSV("cotizaciones");});'
+            'var _cb=document.getElementById("btn-csv");'
+            # El menú contextual (otro iframe) llama a W._ecDlCSV. Solo se expone si el
+            # botón existe → para ejecutivo (sin botón) tampoco queda la función.
+            'if(_cb){_cb.addEventListener("click",function(){_dlCSV("cotizaciones");});'
+            'W._ecDlCSV=function(){_dlCSV("cotizaciones");};}'
             'refreshTarget();'
             'setTimeout(refreshTarget,200);'
             '})();</script>')
@@ -2753,7 +2766,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
         components.html(r"""<script>
 (function(){
   var W=window.parent, D=W.document, MENU_ID='_ec_ctxmenu';
-  var CAN_CLONE=__CAN_CLONE__;
+  var CAN_CLONE=__CAN_CLONE__, CAN_CSV=__CAN_CSV__;
   var ITEMS=[
     {k:'ver',           lbl:'Ver documentos', attr:'ver', ico:'<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>'},
     {k:'cargar',        lbl:'Cargar presupuesto', attr:'cargar',    ico:'<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>'},
@@ -2899,6 +2912,26 @@ var MAT_DATA = """ + _mat_data_json_map + """;
       rrow.addEventListener('click',function(ev){ev.stopPropagation();closeMenu();fire(isQ?'quitar_rechazo':'rechazar',ep);});
       m.appendChild(rrow);
     }
+    // ── Herramientas de la tabla (gris, al final): Descargar CSV (oculto a
+    // ejecutivo) + Pantalla completa. NO usan el bridge a Python: son 100%
+    // client-side, disparan las mismas funciones que la toolbar de la tabla
+    // (W._ecDlCSV y W._ecFsToggle, ambas en window.parent). ──
+    function toolRow(label, svg, cb){
+      var row=D.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:#475569;';
+      row.innerHTML=ic(svg)+'<span>'+label+'</span>';
+      row.addEventListener('mouseenter',function(){row.style.background='#f1f5f9';});
+      row.addEventListener('mouseleave',function(){row.style.background='transparent';});
+      row.addEventListener('click',function(ev){ev.stopPropagation();closeMenu();cb();});
+      m.appendChild(row);
+    }
+    var _toolSep=D.createElement('div');_toolSep.style.cssText='height:1px;background:#f1f5f9;margin:5px 8px;';m.appendChild(_toolSep);
+    if(CAN_CSV){
+      toolRow('Descargar CSV','<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+        function(){ if(W._ecDlCSV) W._ecDlCSV(); });
+    }
+    toolRow('Pantalla completa','<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
+      function(){ if(W._ecFsToggle) W._ecFsToggle(); });
     D.body.appendChild(m);
     var vw=W.innerWidth, vh=W.innerHeight;
     var sx=W.pageXOffset||D.documentElement.scrollLeft||0, sy=W.pageYOffset||D.documentElement.scrollTop||0;
@@ -2927,6 +2960,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
   D.addEventListener('keydown', W._ecCtxKey, true);
 })();
 </script>""".replace('__CAN_CLONE__', 'true' if _rol_actual in ('admin', 'root') else 'false')
+                             .replace('__CAN_CSV__', 'false' if _es_ej_ctx_tbl else 'true')
                              .replace('__PVANIM__', json.dumps(_PV_ANIM_CSS)), height=0)
 
         # ── Backup de seguridad de la base de datos (solo admin/root) ────────────

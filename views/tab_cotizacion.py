@@ -1345,6 +1345,15 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         _cf_js   = _json.dumps(_cat_filtro_activo or '', ensure_ascii=False)
         _edit_js = 'true' if not es_solo_lectura else 'false'
         _pend_js = _json.dumps(_pend_name, ensure_ascii=False)
+        # El botón "Descargar CSV" (toolbar y menú contextual) NO se muestra a
+        # ejecutivos. Fullscreen sí para todos.
+        _es_ejecutivo_pres = st.session_state.get('rol_usuario', 'ejecutivo') == 'ejecutivo'
+        _cancsv_js = 'false' if _es_ejecutivo_pres else 'true'
+        _csvbtn_html = ('' if _es_ejecutivo_pres else
+            '<button id="_pp_csvbtn" type="button" title="Descargar tabla como CSV">'
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" '
+            'stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>'
+            '<polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></button>')
 
         def _hesc(s): return s.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;')
         def _aesc(s): return _hesc(s).replace('"','&quot;')
@@ -1451,7 +1460,7 @@ td.r{text-align:right;}
   <svg width="14" height="14" fill="none" stroke="#94a3b8" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
   <input id="search" type="text" placeholder="Filtrar por categoría o ítem..." autocomplete="off">
   <span id="cnt"></span>
-  <button id="_pp_csvbtn" type="button" title="Descargar tabla como CSV"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></button>
+  __CSVBTN__
   <button id="_pp_fsbtn" type="button" title="Pantalla completa"></button>
 </div>
 <div id="tbl-w">
@@ -1467,7 +1476,7 @@ td.r{text-align:right;}
 </div>
 <script>
 (function(){
-var CF=__CF__;var EM=__EM__;var PI=__PI__;
+var CF=__CF__;var EM=__EM__;var PI=__PI__;var CANCSV=__CANCSV__;
 var PD;try{PD=window.parent.document;}catch(e){return;}
 function filterRows(){
   var q=document.getElementById('search').value.toLowerCase().trim();
@@ -1509,7 +1518,10 @@ var _CTXCSS="#_pp_ctxmenu{position:fixed;z-index:2147483000;width:250px;backgrou
 +"#_pp_ctxmenu .ppc-apply svg{width:15px;height:15px;} #_pp_ctxmenu .ppc-apply:hover{filter:brightness(1.07);}"
 +"#_pp_ctxmenu .ppc-del{width:40px;height:34px;border-radius:9px;background:#fee2e2;color:#dc2626;border:1px solid #fecaca;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:all .12s;}"
 +"#_pp_ctxmenu .ppc-del svg{width:15px;height:15px;} #_pp_ctxmenu .ppc-del:hover{background:#dc2626;color:#fff;border-color:#dc2626;}"
-+"#_pp_ctxmenu .ppc-hint{font-size:10px;color:#94a3b8;text-align:center;margin-top:9px;}";
++"#_pp_ctxmenu .ppc-hint{font-size:10px;color:#94a3b8;text-align:center;margin-top:9px;}"
++"#_pp_ctxmenu .ppc-tsep{height:1px;background:#f0f2f8;margin:10px -13px 6px;}"
++"#_pp_ctxmenu .ppc-tool{display:flex;align-items:center;gap:10px;padding:9px 6px;border-radius:8px;cursor:pointer;font-size:12.5px;font-weight:600;color:#475569;}"
++"#_pp_ctxmenu .ppc-tool svg{width:16px;height:16px;flex-shrink:0;} #_pp_ctxmenu .ppc-tool:hover{background:#f1f5f9;color:#0f172a;}";
 function _ctxCss(){ if(PD.getElementById('_pp_ctxcss'))return; var s=PD.createElement('style'); s.id='_pp_ctxcss'; s.textContent=_CTXCSS; PD.head.appendChild(s); }
 function _closeCtx(){
   var m=PD.getElementById('_pp_ctxmenu'); if(m) m.remove();
@@ -1519,7 +1531,6 @@ function _closeCtx(){
 }
 function _esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function _openCtx(tr,px,py){
-  if(!EM) return;
   _closeCtx(); _ctxCss();
   var idx=tr.getAttribute('data-idx');
   var cat=tr.getAttribute('data-cat')||'';
@@ -1527,36 +1538,51 @@ function _openCtx(tr,px,py){
   var price=parseFloat(tr.getAttribute('data-price-raw')||'0')||0;
   var qty=parseInt(tr.getAttribute('data-qty')||'1')||1;
   var badge=tr.querySelector('.badge'); var bstyle=badge?(badge.getAttribute('style')||''):'';
-  var m=PD.createElement('div'); m.id='_pp_ctxmenu';
-  m.innerHTML=
-    '<div class="ppc-hd"><span style="'+_esc(bstyle)+';padding:2px 8px;border-radius:20px;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;">'+_esc(cat)+'</span>'
-    +'<button class="ppc-x" title="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>'
-    +'<div class="ppc-name">'+_esc(name)+'</div>'
-    +'<div class="ppc-lbl">Cantidad</div>'
+  // El editor de cantidad / eliminar solo va cuando el presupuesto es editable
+  // (EM). Las herramientas (CSV/Fullscreen) van SIEMPRE, incluso en solo lectura.
+  var _editHtml = !EM ? '' : (
+     '<div class="ppc-lbl">Cantidad</div>'
     +'<div class="ppc-qty"><button class="ppc-qbtn" data-a="m" title="Disminuir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg></button>'
     +'<div class="ppc-qv">'+qty+'</div>'
     +'<button class="ppc-qbtn" data-a="p" title="Aumentar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button></div>'
     +'<div class="ppc-sub"><span>Subtotal</span><b class="ppc-subv">'+fmtClp(price*qty)+'</b></div>'
     +'<div class="ppc-acts"><button class="ppc-apply"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Aplicar</button>'
-    +'<button class="ppc-del" title="Eliminar &#237;tem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>'
+    +'<button class="ppc-del" title="Eliminar &#237;tem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>');
+  // Herramientas de la tabla (gris): Descargar CSV (oculto a ejecutivo) + Pantalla
+  // completa. Mismas funciones que la toolbar (_ppDlCSV y el botón _pp_fsbtn).
+  var _csvTool = !CANCSV ? '' : (
+     '<div class="ppc-tool" data-tool="csv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg><span>Descargar CSV</span></div>');
+  var _fsTool = '<div class="ppc-tool" data-tool="fs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg><span>Pantalla completa</span></div>';
+  var m=PD.createElement('div'); m.id='_pp_ctxmenu';
+  m.innerHTML=
+    '<div class="ppc-hd"><span style="'+_esc(bstyle)+';padding:2px 8px;border-radius:20px;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;">'+_esc(cat)+'</span>'
+    +'<button class="ppc-x" title="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>'
+    +'<div class="ppc-name">'+_esc(name)+'</div>'
+    +_editHtml
+    +'<div class="ppc-tsep"></div>'
+    +_csvTool+_fsTool
     +'<div class="ppc-hint">Esc o clic fuera para cerrar</div>';
   PD.body.appendChild(m);
   var mw=m.offsetWidth||250, mh=m.offsetHeight||220, vw=_P.innerWidth||900, vh=_P.innerHeight||700;
   m.style.left=Math.max(8,Math.min(px,vw-mw-8))+'px';
   m.style.top=Math.max(8,Math.min(py,vh-mh-8))+'px';
-  var q=qty, qv=m.querySelector('.ppc-qv'), sv=m.querySelector('.ppc-subv');
-  function upd(){ qv.textContent=q; sv.textContent=fmtClp(price*q); }
-  m.querySelectorAll('.ppc-qbtn').forEach(function(b){ b.onclick=function(){ if(b.getAttribute('data-a')==='p'){q++;} else if(q>1){q--;} upd(); }; });
+  if(EM){
+    var q=qty, qv=m.querySelector('.ppc-qv'), sv=m.querySelector('.ppc-subv');
+    function upd(){ qv.textContent=q; sv.textContent=fmtClp(price*q); }
+    m.querySelectorAll('.ppc-qbtn').forEach(function(b){ b.onclick=function(){ if(b.getAttribute('data-a')==='p'){q++;} else if(q>1){q--;} upd(); }; });
+    m.querySelector('.ppc-apply').onclick=function(){
+      try{ var u=new URL(_P.location.href); u.searchParams.set('_apply_qty', name+'|||'+q); _P.history.replaceState({},'',u.toString()); }catch(e){}
+      var ab=PD.querySelector('.st-key-_apply_trg button'); if(ab) ab.click();
+      _closeCtx();
+    };
+    m.querySelector('.ppc-del').onclick=function(){
+      var db=PD.querySelector('.st-key-_del_'+idx+' button'); if(db) db.click();
+      _closeCtx();
+    };
+  }
   m.querySelector('.ppc-x').onclick=_closeCtx;
-  m.querySelector('.ppc-apply').onclick=function(){
-    try{ var u=new URL(_P.location.href); u.searchParams.set('_apply_qty', name+'|||'+q); _P.history.replaceState({},'',u.toString()); }catch(e){}
-    var ab=PD.querySelector('.st-key-_apply_trg button'); if(ab) ab.click();
-    _closeCtx();
-  };
-  m.querySelector('.ppc-del').onclick=function(){
-    var db=PD.querySelector('.st-key-_del_'+idx+' button'); if(db) db.click();
-    _closeCtx();
-  };
+  var _ct=m.querySelector('[data-tool="csv"]'); if(_ct) _ct.onclick=function(){ _ppDlCSV(); _closeCtx(); };
+  var _ft=m.querySelector('[data-tool="fs"]'); if(_ft) _ft.onclick=function(){ var fb=document.getElementById('_pp_fsbtn'); if(fb) fb.click(); _closeCtx(); };
   tr.classList.add('ctx-active');
   _P._ppCtxDoc=function(e){ if(!m.contains(e.target)) _closeCtx(); };
   _P._ppCtxKey=function(e){ if(e.key==='Escape') _closeCtx(); };
@@ -1565,7 +1591,6 @@ function _openCtx(tr,px,py){
 var _tbEl=document.querySelector('tbody');
 if(_tbEl){
   _tbEl.addEventListener('contextmenu',function(e){
-    if(!EM) return;
     var tr=e.target.closest?e.target.closest('tr[data-idx]'):null; if(!tr) return;
     e.preventDefault();
     var rc=_IFR?_IFR.getBoundingClientRect():{left:0,top:0};
@@ -1694,6 +1719,8 @@ var _cObs=new MutationObserver(function(ms){var f=false;ms.forEach(function(m){m
             .replace('__CF__', _cf_js)
             .replace('__EM__', _edit_js)
             .replace('__PI__', _pend_js)
+            .replace('__CANCSV__', _cancsv_js)
+            .replace('__CSVBTN__', _csvbtn_html)
             .replace('__TH__', _json.dumps(_total_hdr_fmt, ensure_ascii=False))
             .replace('IFRAMEHPX', str(_iframe_total_h) + 'px')
             .replace('ROWSPLACEHOLDER', _rows_html)
