@@ -1,13 +1,15 @@
 """
 Pestaña CLIENTES (CRM) — maestro de clientes.
 
-FASE 1 (esqueleto): SOLO-ROOT. Vistas Pipeline / Bandeja / Maestro. El Maestro
-lista los clientes (con backfill de solo lectura desde cotizaciones) + búsqueda
-client-side + alta manual. Pipeline y Bandeja llegan en la siguiente fase.
+FASE 2: SOLO-ROOT. Vistas Pipeline (kanban) / Bandeja (leads) / Maestro (tabla).
+- Pipeline y estado se DERIVAN de las cotizaciones (fuente de verdad); solo las
+  etapas tempranas (lead_nuevo/contactado) viven en clientes.etapa_manual.
+- Click en un cliente (fila del maestro o tarjeta del kanban) → ficha 360 (datos
+  + línea de tiempo + presupuestos), vía puente JS→Python.
 
-Condiciones duras: la pestaña es visible SOLO para root (doble llave: fuera de la
-navegación de los demás roles en app.py + este guard). Es ADITIVA: solo lee lo
-existente y escribe en las tablas nuevas. No toca el flujo actual.
+Condiciones duras: pestaña visible SOLO para root (doble llave: fuera de la
+navegación de otros roles en app.py + guard acá). ADITIVA: solo lee lo existente
+y escribe en tablas nuevas. No toca el flujo actual.
 """
 import html as _html
 
@@ -16,15 +18,28 @@ import streamlit.components.v1 as components
 
 from views.layout import render_page_header
 from repositories.clientes_repo import (
-    listar_clientes, crear_cliente, registrar_actividad,
-    backfill_desde_cotizaciones, dedup_key,
+    listar_clientes, crear_cliente, registrar_actividad, listar_actividad,
+    backfill_desde_cotizaciones, dedup_key, enriquecer_con_pipeline,
+    STAGE_LEAD, STAGE_CONTACTADO, STAGE_PRESUPUESTO, STAGE_PROPUESTA,
+    STAGE_GANADO, STAGE_PERDIDO,
 )
 
 _ROL_OK = "root"
 
+# Metadatos de cada etapa: (label, color del punto/acento).
+_STAGE_ORDER = [STAGE_LEAD, STAGE_CONTACTADO, STAGE_PRESUPUESTO,
+                STAGE_PROPUESTA, STAGE_GANADO, STAGE_PERDIDO]
+_STAGE_META = {
+    STAGE_LEAD:        ("Lead nuevo",        "#888780", "#f1f5f9", "#475569"),
+    STAGE_CONTACTADO:  ("Contactado",        "#378ADD", "#e0f2fe", "#0369a1"),
+    STAGE_PRESUPUESTO: ("En presupuesto",    "#7F77DD", "#ede9fe", "#6d28d9"),
+    STAGE_PROPUESTA:   ("Propuesta enviada", "#EF9F27", "#fef3c7", "#b45309"),
+    STAGE_GANADO:      ("Ganado",            "#1D9E75", "#dcfce7", "#15803d"),
+    STAGE_PERDIDO:     ("Perdido",           "#94a3b8", "#f1f5f9", "#64748b"),
+}
 
-# ── Estilo del selector de vista (mismas reglas que las sub-pestañas de
-#    OPERACIONES/CONTRATO: Plus Jakarta 0.88rem/700 uppercase, gris/azul) ───────
+
+# ── Estilo del selector de vista (igual que las sub-pestañas de OPERACIONES) ───
 _CLI_SELECTOR_CSS = """
 <style>
 .st-key-_cli_view [role="radiogroup"]{gap:0!important;flex-wrap:wrap!important;
@@ -62,7 +77,9 @@ _CLI_CSS = """
   text-transform:uppercase;padding:11px 14px;text-align:left;position:sticky;top:0;}
 .cli-tbl-wrap tbody td{font-family:Montserrat,sans-serif;font-size:0.82rem;color:#0f172a;
   padding:9px 14px;border-bottom:1px solid #f0f2f8;}
+.cli-tbl-wrap tbody tr{cursor:pointer;transition:background .12s;}
 .cli-tbl-wrap tbody tr:nth-child(even){background:#f8fafc;}
+.cli-tbl-wrap tbody tr:hover{background:#eef4ff!important;}
 .cli-pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:0.68rem;font-weight:700;
   text-transform:uppercase;letter-spacing:.03em;}
 .cli-sbar{display:flex;align-items:center;gap:9px;background:#fff;border:1px solid #e6e9f4;
@@ -73,6 +90,45 @@ _CLI_CSS = """
 .cli-sbar .cli-sico{display:inline-flex;flex:0 0 auto;color:#94a3b8;}
 .cli-empty-ph{text-align:center;color:#94a3b8;padding:40px;font-family:Montserrat,sans-serif;
   font-weight:600;border:1px dashed #d7ddf0;border-radius:14px;margin-top:10px;}
+
+/* ── Kanban ── */
+.cli-kb-wrap{overflow-x:auto;padding-bottom:8px;margin-top:12px;}
+.cli-kb{display:flex;gap:12px;min-width:920px;}
+.cli-kb-col{flex:1;min-width:150px;background:#f8fafc;border-radius:12px;padding:10px;}
+.cli-kb-hd{display:flex;align-items:center;gap:7px;margin-bottom:10px;}
+.cli-kb-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.cli-kb-nm{font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:800;color:#0f172a;
+  text-transform:uppercase;letter-spacing:.03em;}
+.cli-kb-ct{margin-left:auto;font-size:11px;color:#94a3b8;font-weight:700;}
+.cli-card{background:#fff;border:1px solid #e6e9f4;border-radius:10px;padding:10px;margin-bottom:8px;
+  cursor:pointer;transition:box-shadow .12s,transform .12s;}
+.cli-card:hover{box-shadow:0 6px 18px rgba(30,36,71,.12);transform:translateY(-1px);}
+.cli-card-nm{font-family:Montserrat,sans-serif;font-size:12.5px;font-weight:800;color:#0f172a;line-height:1.3;}
+.cli-card-mt{font-size:12px;color:#0f172a;font-weight:700;margin:4px 0;}
+.cli-card-sub{font-size:10.5px;color:#94a3b8;font-weight:600;display:flex;align-items:center;gap:5px;}
+.cli-kb-empty{font-size:11px;color:#cbd5e1;text-align:center;padding:14px 4px;font-family:Montserrat,sans-serif;}
+
+/* ── Ficha 360 (dentro del st.dialog) ── */
+.cli-fh{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.cli-fh-av{width:46px;height:46px;border-radius:50%;background:#e0e7ff;color:#4338ca;display:flex;
+  align-items:center;justify-content:center;font-family:Montserrat,sans-serif;font-weight:800;font-size:16px;flex-shrink:0;}
+.cli-fh-nm{font-family:Montserrat,sans-serif;font-weight:800;font-size:1.05rem;color:#0f172a;line-height:1.2;}
+.cli-fh-sub{font-size:0.8rem;color:#64748b;margin-top:2px;}
+.cli-data{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin:6px 0 4px;}
+.cli-data div{font-size:0.82rem;color:#0f172a;}
+.cli-data .k{font-size:0.66rem;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.05em;}
+.cli-sec-t{font-family:Montserrat,sans-serif;font-weight:700;font-size:0.82rem;letter-spacing:0.05em;
+  text-transform:uppercase;color:#0f172a;margin:16px 0 9px;}
+.cli-tl{border-left:1.5px solid #e2e8f0;padding-left:14px;display:flex;flex-direction:column;gap:11px;}
+.cli-tl-it{position:relative;}
+.cli-tl-dot{position:absolute;left:-20px;top:3px;width:10px;height:10px;border-radius:50%;
+  border:2px solid #fff;}
+.cli-tl-t{font-size:0.82rem;color:#0f172a;}
+.cli-tl-d{font-size:0.7rem;color:#94a3b8;}
+.cli-ep-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;
+  border-bottom:1px solid #f1f5f9;}
+.cli-ep-n{font-family:Montserrat,sans-serif;font-weight:700;font-size:0.84rem;color:#0f172a;}
+.cli-ep-m{font-family:Montserrat,sans-serif;font-weight:800;font-size:0.84rem;color:#0f172a;white-space:nowrap;}
 </style>
 """
 
@@ -96,10 +152,32 @@ def _esc(s):
     return _html.escape(str(s if s is not None else ""))
 
 
+_ICON_USER_PATH = ('<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>'
+                   '<circle cx="12" cy="7" r="4"/>')
+
+
+def _initials(nombre: str) -> str:
+    parts = [p for p in str(nombre or "").split() if p]
+    if not parts:
+        return "?"
+    if len(parts) == 1:
+        return parts[0][:2].upper()
+    return (parts[0][0] + parts[1][0]).upper()
+
+
+def _fmt_money(v) -> str:
+    try:
+        v = float(v or 0)
+    except (TypeError, ValueError):
+        v = 0
+    return f"${v:,.0f}".replace(",", ".") if v else "$0"
+
+
 @st.cache_data(ttl=60, show_spinner=False)
-def _cli_all() -> list:
-    """Maestro de clientes (cacheado; se limpia al mutar/sincronizar)."""
-    return listar_clientes(solo_activos=True)
+def _cli_data() -> list:
+    """Maestro enriquecido con el pipeline DERIVADO (_stage/_cotizaciones/_monto).
+    Cacheado; se limpia al mutar/sincronizar."""
+    return enriquecer_con_pipeline(listar_clientes(solo_activos=True))
 
 
 def _kpi(label, valor, color="#0f172a"):
@@ -117,37 +195,38 @@ _ORIGEN_COLORS = {
 }
 
 
-def _tabla_maestro_html(data: list) -> str:
-    rows = ""
-    for d in data:
-        _asig = d.get("asignado_nombre") or d.get("asignado_email") or ""
-        _org = str(d.get("origen") or "Manual")
-        _obg, _ofg = _ORIGEN_COLORS.get(_org.split(" ")[0].lower(), _ORIGEN_COLORS["manual"])
-        _lead = str(d.get("etapa_manual") or "") == "lead_nuevo"
-        _s = _esc(f"{d.get('nombre','')} {d.get('rut','')} {d.get('email','')} "
-                  f"{d.get('telefono','')} {_asig} {_org}".lower())
-        _asig_cell = (_esc(_asig) if _asig
-                      else '<span style="color:#ea580c;font-weight:700;font-size:0.72rem;">Sin asignar</span>')
-        rows += (
-            f'<tr data-s="{_s}">'
-            f'<td style="font-weight:700;">{_esc(d.get("nombre","") or "—")}'
-            + (' <span class="cli-pill" style="background:#fee2e2;color:#dc2626;">Lead</span>' if _lead else '')
-            + '</td>'
-            f'<td>{_esc(d.get("rut","")) or "—"}</td>'
-            f'<td>{_esc(d.get("email","")) or "—"}</td>'
-            f'<td>{_esc(d.get("telefono","")) or "—"}</td>'
-            f'<td><span class="cli-pill" style="background:{_obg};color:{_ofg};">{_esc(_org)}</span></td>'
-            f'<td>{_asig_cell}</td>'
-            '</tr>')
-    return (
-        '<div class="cli-tbl-wrap"><table><thead><tr>'
-        '<th>Cliente</th><th>RUT</th><th>Correo</th><th>Tel&eacute;fono</th>'
-        '<th>Origen</th><th>Ejecutivo</th>'
-        f'</tr></thead><tbody>{rows}</tbody></table></div>')
+def _origen_pill(origen: str) -> str:
+    _bg, _fg = _ORIGEN_COLORS.get(str(origen or "").split(" ")[0].lower(), _ORIGEN_COLORS["manual"])
+    return f'<span class="cli-pill" style="background:{_bg};color:{_fg};">{_esc(origen)}</span>'
 
 
-# Buscador client-side (input HTML + data-s por fila): filtra en el navegador sin
-# reruns. Mismo patrón que INVENTARIO.
+# ── Puente JS→Python: click en fila/tarjeta abre la ficha ─────────────────────
+_CLI_CLICK_JS = r"""<script>
+(function(){
+  var W=window.parent, D=W&&W.document; if(!D) return;
+  function fire(cid){
+    var inp=D.querySelector('.st-key-_cli_cmd input'); if(!inp) return;
+    try{
+      var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set;
+      inp.focus({preventScroll:true});
+      setter.call(inp, 'open|'+cid+'|'+Date.now());
+      inp.dispatchEvent(new Event('input',{bubbles:true}));
+      inp.dispatchEvent(new Event('change',{bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.blur();
+    }catch(e){}
+  }
+  if(W._cliClickH){ D.removeEventListener('click', W._cliClickH, true); }
+  W._cliClickH=function(ev){
+    var t=ev.target; if(!t||!t.closest) return;
+    var el=t.closest('[data-cid]'); if(!el) return;
+    ev.preventDefault(); ev.stopPropagation(); fire(el.getAttribute('data-cid'));
+  };
+  D.addEventListener('click', W._cliClickH, true);
+})();
+</script>"""
+
+# Buscador client-side del maestro (input HTML + data-s por fila): sin reruns.
 _CLI_SEARCH_JS = r"""<script>
 (function(){
   var W=window.parent, D=W&&W.document; if(!D) return;
@@ -171,8 +250,215 @@ _CLI_SEARCH_JS = r"""<script>
 </script>"""
 
 
+# ── Renders de cada vista ─────────────────────────────────────────────────────
+
+def _render_maestro(data: list):
+    _titulo(f'Maestro · <span id="_cli_count">{len(data)}</span> cliente(s)',
+            _svg('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>'
+                 '<path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>', 16))
+    st.markdown(
+        '<div class="cli-sbar"><span class="cli-sico">'
+        + _svg('<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>', 16, "currentColor")
+        + '</span><input id="_cli_q" type="text" autocomplete="off" '
+        'placeholder="Buscar por nombre, RUT, correo, teléfono o ejecutivo…"></div>',
+        unsafe_allow_html=True)
+    if not data:
+        st.markdown('<div class="cli-empty-ph">Aún no hay clientes. Pulsa '
+                    '<b>Sincronizar</b> para importar desde tus cotizaciones, o '
+                    '<b>Agregar cliente</b>.</div>', unsafe_allow_html=True)
+        return
+    rows = ""
+    for d in data:
+        _asig = d.get("asignado_nombre") or d.get("asignado_email") or ""
+        _stage = d.get("_stage") or STAGE_LEAD
+        _slbl, _sdot, _sbg, _sfg = _STAGE_META.get(_stage, _STAGE_META[STAGE_LEAD])
+        _s = _esc(f"{d.get('nombre','')} {d.get('rut','')} {d.get('email','')} "
+                  f"{d.get('telefono','')} {_asig} {d.get('origen','')} {_slbl}".lower())
+        _asig_cell = (_esc(_asig) if _asig
+                      else '<span style="color:#ea580c;font-weight:700;font-size:0.72rem;">Sin asignar</span>')
+        rows += (
+            f'<tr data-s="{_s}" data-cid="{_esc(d.get("id"))}">'
+            f'<td style="font-weight:700;">{_esc(d.get("nombre","") or "—")}</td>'
+            f'<td><span class="cli-pill" style="background:{_sbg};color:{_sfg};">{_slbl}</span></td>'
+            f'<td>{_esc(d.get("rut","")) or "—"}</td>'
+            f'<td>{_esc(d.get("email","")) or "—"}</td>'
+            f'<td>{_esc(d.get("telefono","")) or "—"}</td>'
+            f'<td>{_origen_pill(d.get("origen","Manual"))}</td>'
+            f'<td>{_asig_cell}</td>'
+            '</tr>')
+    st.markdown(
+        '<div class="cli-tbl-wrap"><table><thead><tr>'
+        '<th>Cliente</th><th>Etapa</th><th>RUT</th><th>Correo</th><th>Tel&eacute;fono</th>'
+        '<th>Origen</th><th>Ejecutivo</th>'
+        f'</tr></thead><tbody>{rows}</tbody></table></div>', unsafe_allow_html=True)
+    st.markdown('<div id="_cli_noresult" class="cli-empty-ph" style="display:none;">'
+                'Ningún cliente coincide con tu búsqueda.</div>', unsafe_allow_html=True)
+
+
+def _render_pipeline(data: list):
+    _titulo("Pipeline de oportunidades",
+            _svg('<path d="M3 3v18h18"/><rect x="7" y="13" width="3" height="5"/>'
+                 '<rect x="12" y="9" width="3" height="9"/><rect x="17" y="5" width="3" height="13"/>', 16))
+    por_etapa = {s: [] for s in _STAGE_ORDER}
+    for d in data:
+        por_etapa.get(d.get("_stage") or STAGE_LEAD, por_etapa[STAGE_LEAD]).append(d)
+    cols = ""
+    for s in _STAGE_ORDER:
+        _lbl, _dot, _bg, _fg = _STAGE_META[s]
+        items = por_etapa[s]
+        cards = ""
+        for d in items:
+            _asig = d.get("asignado_nombre") or d.get("asignado_email") or "Sin asignar"
+            _mt = (f'<div class="cli-card-mt">{_fmt_money(d.get("_monto"))}</div>'
+                   if d.get("_monto") else "")
+            _neps = len(d.get("_cotizaciones") or [])
+            _ep = (f'{_neps} presupuesto' + ('s' if _neps != 1 else '')) if _neps else "Sin presupuesto"
+            _asig_ico = _svg(_ICON_USER_PATH, 12, "#94a3b8")
+            cards += (
+                f'<div class="cli-card" data-cid="{_esc(d.get("id"))}">'
+                f'<div class="cli-card-nm">{_esc(d.get("nombre","") or "—")}</div>'
+                f'{_mt}'
+                f'<div class="cli-card-sub">{_asig_ico}{_esc(_asig)}</div>'
+                f'<div class="cli-card-sub" style="margin-top:2px;">{_esc(_ep)}</div>'
+                '</div>')
+        if not cards:
+            cards = '<div class="cli-kb-empty">—</div>'
+        cols += (
+            '<div class="cli-kb-col">'
+            f'<div class="cli-kb-hd"><span class="cli-kb-dot" style="background:{_dot};"></span>'
+            f'<span class="cli-kb-nm">{_lbl}</span><span class="cli-kb-ct">{len(items)}</span></div>'
+            f'{cards}</div>')
+    st.markdown(f'<div class="cli-kb-wrap"><div class="cli-kb">{cols}</div></div>',
+                unsafe_allow_html=True)
+    st.markdown('<div style="font-size:0.76rem;color:#94a3b8;margin-top:8px;">'
+                'Las etapas <b>En presupuesto</b>, <b>Propuesta enviada</b>, <b>Ganado</b> y '
+                '<b>Perdido</b> se derivan solas del estado del presupuesto. Click en una tarjeta '
+                'para ver la ficha del cliente.</div>', unsafe_allow_html=True)
+
+
+def _render_bandeja(data: list):
+    leads = [d for d in data if (d.get("_stage") in (STAGE_LEAD, STAGE_CONTACTADO))]
+    _titulo(f"Bandeja de leads · {len(leads)}",
+            _svg('<path d="M22 12h-6l-2 3h-4l-2-3H2"/>'
+                 '<path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>', 16))
+    if not leads:
+        st.markdown(
+            '<div class="cli-empty-ph">Sin leads pendientes por asignar.<br>'
+            '<span style="font-weight:500;color:#cbd5e1;">Acá caerán los clientes nuevos '
+            '(Shopify / web) para triar y asignar a un ejecutivo.</span></div>',
+            unsafe_allow_html=True)
+        return
+    cards = ""
+    for d in leads:
+        cards += (
+            f'<div class="cli-card" data-cid="{_esc(d.get("id"))}" style="margin-bottom:10px;">'
+            f'<div class="cli-card-nm">{_esc(d.get("nombre","") or "—")}</div>'
+            f'<div class="cli-card-sub" style="margin-top:4px;">{_origen_pill(d.get("origen","Manual"))}</div>'
+            f'<div class="cli-card-sub" style="margin-top:4px;">{_esc(d.get("email","") or d.get("telefono","") or "—")}</div>'
+            '</div>')
+    st.markdown(f'<div style="margin-top:12px;">{cards}</div>', unsafe_allow_html=True)
+
+
+# ── Ficha 360 ─────────────────────────────────────────────────────────────────
+
+def _render_ficha(cid: str, data: list):
+    cli = next((d for d in data if str(d.get("id")) == str(cid)), None)
+    if not cli:
+        return
+    _stage = cli.get("_stage") or STAGE_LEAD
+    _slbl, _sdot, _sbg, _sfg = _STAGE_META.get(_stage, _STAGE_META[STAGE_LEAD])
+
+    @st.dialog("Ficha del cliente", width="large")
+    def _dlg():
+        st.markdown(_CLI_CSS, unsafe_allow_html=True)
+        _asig = cli.get("asignado_nombre") or cli.get("asignado_email") or "Sin asignar"
+        st.markdown(
+            '<div class="cli-fh">'
+            f'<div class="cli-fh-av">{_esc(_initials(cli.get("nombre")))}</div>'
+            '<div style="min-width:0;">'
+            f'<div class="cli-fh-nm">{_esc(cli.get("nombre","") or "—")}</div>'
+            f'<div class="cli-fh-sub">{_esc(cli.get("rut","") or "Sin RUT")} · {_esc(_asig)}</div>'
+            '</div></div>'
+            '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">'
+            f'{_origen_pill(cli.get("origen","Manual"))}'
+            f'<span class="cli-pill" style="background:{_sbg};color:{_sfg};">{_slbl}</span>'
+            '</div>', unsafe_allow_html=True)
+
+        # Datos de contacto
+        _tipo = cli.get("tipo") or "natural"
+        _empresa = (f'<div><div class="k">Empresa</div>{_esc(cli.get("empresa"))} '
+                    f'({_esc(cli.get("rut_empresa"))})</div>') if _tipo == "empresa" and cli.get("empresa") else ""
+        st.markdown(
+            '<div class="cli-data">'
+            f'<div><div class="k">Correo</div>{_esc(cli.get("email","") or "—")}</div>'
+            f'<div><div class="k">Teléfono</div>{_esc(cli.get("telefono","") or "—")}</div>'
+            f'<div><div class="k">Dirección</div>{_esc(cli.get("direccion","") or "—")}</div>'
+            f'<div><div class="k">Comuna</div>{_esc(cli.get("comuna","") or "—")}</div>'
+            f'{_empresa}'
+            '</div>', unsafe_allow_html=True)
+
+        # Acciones rápidas (las funcionales llegan en fases siguientes).
+        a1, a2, a3 = st.columns(3)
+        with a1:
+            if st.button("Enviar correo", icon=":material/mail:", use_container_width=True,
+                         key="_cli_fh_mail"):
+                st.toast("El envío de correos (Resend) llega en una fase siguiente.")
+        with a2:
+            if st.button("Recordar", icon=":material/notification_add:", use_container_width=True,
+                         key="_cli_fh_rem"):
+                st.toast("Los recordatorios llegan en la próxima fase.")
+        with a3:
+            if st.button("Cerrar", icon=":material/close:", type="primary",
+                         use_container_width=True, key="_cli_fh_close"):
+                st.rerun()
+
+        # Presupuestos del cliente (derivados de cotizaciones)
+        _cots = cli.get("_cotizaciones") or []
+        st.markdown(f'<div class="cli-sec-t">Presupuestos · {len(_cots)}</div>', unsafe_allow_html=True)
+        if _cots:
+            _eprows = ""
+            for c in _cots:
+                _cst = c.get("stage") or ""
+                _cl, _cd, _cbg, _cfg = _STAGE_META.get(_cst, _STAGE_META[STAGE_PRESUPUESTO])
+                _eprows += (
+                    '<div class="cli-ep-row">'
+                    f'<div><span class="cli-ep-n">{_esc(c.get("numero",""))}</span> '
+                    f'<span class="cli-pill" style="background:{_cbg};color:{_cfg};margin-left:6px;">{_cl}</span></div>'
+                    f'<div class="cli-ep-m">{_fmt_money(c.get("total"))}</div>'
+                    '</div>')
+            st.markdown('<div style="border:1px solid #e6e9f4;border-radius:12px;overflow:hidden;">'
+                        + _eprows + '</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="cli-empty-ph" style="padding:20px;">Este cliente aún no tiene presupuestos.</div>',
+                        unsafe_allow_html=True)
+
+        # Línea de tiempo (actividad)
+        _acts = listar_actividad(cid)
+        st.markdown('<div class="cli-sec-t">Actividad</div>', unsafe_allow_html=True)
+        if _acts:
+            _TL_ICON = {"correo": "#5b7cfa", "presupuesto": "#7F77DD", "nota": "#94a3b8",
+                        "etapa": "#EF9F27", "lead": "#888780", "llamada": "#1D9E75"}
+            _tl = ""
+            for a in _acts:
+                _c = _TL_ICON.get(str(a.get("tipo") or ""), "#94a3b8")
+                _fecha = str(a.get("fecha") or "")[:16].replace("T", " ")
+                _det = f' — {_esc(a.get("detalle"))}' if a.get("detalle") else ""
+                _tl += (
+                    '<div class="cli-tl-it">'
+                    f'<span class="cli-tl-dot" style="background:{_c};"></span>'
+                    f'<div class="cli-tl-t">{_esc(a.get("titulo",""))}{_det}</div>'
+                    f'<div class="cli-tl-d">{_esc(_fecha)} · {_esc(a.get("actor","") or "sistema")}</div>'
+                    '</div>')
+            st.markdown(f'<div class="cli-tl">{_tl}</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="cli-empty-ph" style="padding:20px;">Sin actividad registrada.</div>',
+                        unsafe_allow_html=True)
+    _dlg()
+
+
+# ── Alta manual ───────────────────────────────────────────────────────────────
+
 def _render_agregar_dialog():
-    """Alta manual de un cliente (one-shot). Dedup por RUT>email>teléfono>nombre."""
     @st.dialog("Agregar cliente")
     def _dlg():
         c1, c2 = st.columns(2)
@@ -205,10 +491,9 @@ def _render_agregar_dialog():
             if not (nombre or "").strip():
                 st.warning("El nombre es obligatorio.")
                 return
-            # Dedup: si ya existe un cliente con la misma identidad, no duplicar.
             k = dedup_key(rut, email, telefono, nombre)
             if k[1]:
-                for c in _cli_all():
+                for c in _cli_data():
                     if dedup_key(c.get("rut"), c.get("email"), c.get("telefono"), c.get("nombre")) == k:
                         st.warning(f"Ya existe un cliente con esa identidad: "
                                    f"{c.get('nombre','')}. No se creó un duplicado.")
@@ -224,7 +509,7 @@ def _render_agregar_dialog():
             })
             if cid:
                 registrar_actividad(cid, "nota", "Cliente creado manualmente", actor=_actor)
-                _cli_all.clear()
+                _cli_data.clear()
                 st.session_state.pop("_cli_add_open", None)
                 st.session_state["_cli_toast"] = f"Cliente {nombre.strip()} agregado."
                 st.rerun()
@@ -233,9 +518,11 @@ def _render_agregar_dialog():
     _dlg()
 
 
+# ── Entrada del tab ───────────────────────────────────────────────────────────
+
 def render_tab_clientes(**kwargs):
     _rol = st.session_state.get("rol_usuario", "ejecutivo")
-    # DOBLE LLAVE: aunque no está en la navegación de otros roles, se re-valida acá.
+    # DOBLE LLAVE: aunque no está en la navegación de otros roles, se revalida acá.
     if _rol != _ROL_OK:
         render_page_header("clientes", "Clientes", "CRM")
         st.warning("Esta sección aún no está disponible.")
@@ -249,29 +536,42 @@ def render_tab_clientes(**kwargs):
     if _t:
         st.toast(_t)
 
-    data = _cli_all()
+    # Puente oculto: click en fila/tarjeta → abre la ficha.
+    st.markdown('<style>.st-key-_cli_cmd{position:absolute!important;left:-9999px!important;'
+                'top:-9999px!important;height:0!important;width:0!important;overflow:hidden!important;}</style>',
+                unsafe_allow_html=True)
+    st.text_input("cmd", key="_cli_cmd", label_visibility="collapsed")
+    _cmd = str(st.session_state.get("_cli_cmd", "") or "")
+    if _cmd and "|" in _cmd:
+        _p = _cmd.split("|")
+        if _p[-1] != st.session_state.get("_cli_cmd_ts"):
+            st.session_state["_cli_cmd_ts"] = _p[-1]
+            if _p[0] == "open" and len(_p) >= 3:
+                st.session_state["_cli_ficha"] = _p[1]
 
-    # KPIs
-    _n_total = len(data)
-    _n_sinasig = sum(1 for d in data if not str(d.get("asignado_email") or "").strip())
-    _n_leads = sum(1 for d in data if str(d.get("etapa_manual") or "") == "lead_nuevo")
-    _n_shopify = sum(1 for d in data if "shopify" in str(d.get("origen") or "").lower())
+    data = _cli_data()
+
+    # KPIs por etapa (con datos reales)
+    _cnt = {s: 0 for s in _STAGE_ORDER}
+    for d in data:
+        _cnt[d.get("_stage") or STAGE_LEAD] = _cnt.get(d.get("_stage") or STAGE_LEAD, 0) + 1
     st.markdown(
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:6px 0 14px;">'
-        + _kpi("Total clientes", _n_total)
-        + _kpi("Sin asignar", _n_sinasig, "#ea580c" if _n_sinasig else "#0f172a")
-        + _kpi("Leads nuevos", _n_leads, "#dc2626" if _n_leads else "#0f172a")
-        + _kpi("Desde Shopify", _n_shopify)
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin:6px 0 14px;">'
+        + _kpi("Total clientes", len(data))
+        + _kpi("En presupuesto", _cnt[STAGE_PRESUPUESTO], "#6d28d9")
+        + _kpi("Propuesta enviada", _cnt[STAGE_PROPUESTA], "#b45309")
+        + _kpi("Ganados", _cnt[STAGE_GANADO], "#15803d")
+        + _kpi("Perdidos", _cnt[STAGE_PERDIDO], "#94a3b8")
         + '</div>', unsafe_allow_html=True)
 
-    # Barra de acciones: Sincronizar (backfill) + Agregar cliente
+    # Acciones: Sincronizar (backfill) + Agregar cliente
     a1, a2, _a3 = st.columns([1, 1, 2])
     with a1:
         if st.button("Sincronizar", icon=":material/sync:", use_container_width=True,
                      key="_cli_sync", help="Re-lee las cotizaciones y crea las fichas que falten (solo lectura)"):
             with st.spinner("Sincronizando con cotizaciones…"):
                 res = backfill_desde_cotizaciones()
-            _cli_all.clear()
+            _cli_data.clear()
             st.session_state["_cli_toast"] = (
                 f"Sincronizado: {res['creados']} nuevo(s), {res['existentes']} ya estaban.")
             st.rerun()
@@ -285,42 +585,24 @@ def render_tab_clientes(**kwargs):
     _views = ["Pipeline", "Bandeja", "Maestro"]
     _icons = {"Pipeline": ":material/view_kanban:", "Bandeja": ":material/inbox:",
               "Maestro": ":material/table_rows:"}
-    _view = st.radio("Vista", _views, index=2, key="_cli_view", horizontal=True,
+    _view = st.radio("Vista", _views, index=0, key="_cli_view", horizontal=True,
                      label_visibility="collapsed",
                      format_func=lambda v: f"{_icons.get(v,'')} {v}")
 
     if _view == "Maestro":
-        _titulo(f'Maestro · <span id="_cli_count">{_n_total}</span> cliente(s)',
-                _svg('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>'
-                     '<path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>', 16))
-        st.markdown(
-            '<div class="cli-sbar"><span class="cli-sico">'
-            + _svg('<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>', 16, "currentColor")
-            + '</span><input id="_cli_q" type="text" autocomplete="off" '
-            'placeholder="Buscar por nombre, RUT, correo, teléfono o ejecutivo…"></div>',
-            unsafe_allow_html=True)
-        if not data:
-            st.markdown('<div class="cli-empty-ph">Aún no hay clientes. Pulsa '
-                        '<b>Sincronizar</b> para importar desde tus cotizaciones, o '
-                        '<b>Agregar cliente</b>.</div>', unsafe_allow_html=True)
-        else:
-            st.markdown(_tabla_maestro_html(data), unsafe_allow_html=True)
-            st.markdown('<div id="_cli_noresult" class="cli-empty-ph" style="display:none;">'
-                        'Ningún cliente coincide con tu búsqueda.</div>',
-                        unsafe_allow_html=True)
-            components.html(_CLI_SEARCH_JS, height=0)
+        _render_maestro(data)
+    elif _view == "Bandeja":
+        _render_bandeja(data)
     else:
-        _lbl = "El pipeline de oportunidades" if _view == "Pipeline" else "La bandeja de leads"
-        st.markdown(
-            '<div style="border:1.5px dashed #d7ddf0;border-radius:14px;padding:42px 24px;'
-            'text-align:center;margin-top:12px;background:#fbfcff;">'
-            + _svg('<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
-                   30, "#94a3b8", 1.6)
-            + f'<div style="font-family:Montserrat,sans-serif;font-weight:700;color:#334155;'
-            f'font-size:0.95rem;margin-top:12px;">{_lbl} llega en la próxima fase</div>'
-            '<div style="color:#94a3b8;font-size:0.82rem;margin-top:4px;">'
-            'Por ahora usá el <b>Maestro</b> para ver e ingresar clientes.</div></div>',
-            unsafe_allow_html=True)
+        _render_pipeline(data)
+
+    # Handler de click (abre ficha) — re-bindea cada run.
+    components.html(_CLI_CLICK_JS + _CLI_SEARCH_JS, height=0)
+
+    # Ficha 360 (one-shot: pop del flag; el dialog persiste vía su fragment).
+    _fid = st.session_state.pop("_cli_ficha", None)
+    if _fid:
+        _render_ficha(_fid, data)
 
     # Diálogo de alta (one-shot)
     if st.session_state.get("_cli_add_open"):

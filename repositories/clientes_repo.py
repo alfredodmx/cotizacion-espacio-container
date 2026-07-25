@@ -17,6 +17,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 
 from config.supabase import supabase_admin as _supa
+from services.cotizacion_service import calcular_estado_label
 
 _TABLA = "clientes"
 _TZ_CL = timezone(timedelta(hours=-3))  # mismo criterio que el resto del sistema
@@ -234,3 +235,106 @@ def backfill_desde_cotizaciones() -> dict:
             omitidos += len(lote)
 
     return {"creados": creados, "existentes": len(idx), "omitidos": omitidos}
+
+
+# ── Derivación del PIPELINE (SOLO LECTURA de cotizaciones) ─────────────────────
+# La etapa "en presupuesto / propuesta / ganado / perdido" NO se guarda: se DERIVA
+# del estado de las cotizaciones del cliente (misma fuente de verdad que la tabla
+# COTIZACIONES). Solo las etapas tempranas (lead_nuevo / contactado) viven en
+# clientes.etapa_manual. Así nadie mantiene estados a mano y nunca hay dos
+# versiones del mismo dato.
+
+# Columnas de cotizaciones necesarias para derivar el estado (mismas que usa
+# calcular_estado_label) + total + identidad del cliente. SOLO LECTURA.
+_COLS_PIPE = (
+    "numero,cliente_nombre,cliente_rut,cliente_email,cliente_telefono,"
+    "asesor_nombre,asesor_email,asesor_telefono,config_margen,plano_url,"
+    "contrato_notariado_url,acta_url,motivo_rechazo,total_total,fecha_creacion"
+)
+
+# Etapas del pipeline (orden y rango para elegir la "más avanzada" cuando un
+# cliente tiene varias cotizaciones).
+STAGE_LEAD = "lead_nuevo"
+STAGE_CONTACTADO = "contactado"
+STAGE_PRESUPUESTO = "en_presupuesto"
+STAGE_PROPUESTA = "propuesta_enviada"
+STAGE_GANADO = "ganado"
+STAGE_PERDIDO = "perdido"
+
+_STAGE_RANK = {STAGE_PERDIDO: 1, STAGE_PRESUPUESTO: 3, STAGE_PROPUESTA: 4, STAGE_GANADO: 5}
+
+
+def _estado_a_stage(label: str) -> str:
+    """Mapea el estado de una cotización (calcular_estado_label) a etapa de pipeline."""
+    if label in ("PROYECTO TERMINADO", "ADJUDICADO"):
+        return STAGE_GANADO
+    if str(label).startswith("AUTORIZADO"):
+        return STAGE_PROPUESTA
+    if label == "RECHAZADO":
+        return STAGE_PERDIDO
+    return STAGE_PRESUPUESTO   # BORRADOR / INCOMPLETO (con o sin plano)
+
+
+def _leer_cotizaciones_para_pipeline() -> list:
+    """SOLO LECTURA sobre cotizaciones (sin traer los `productos`, pesados)."""
+    try:
+        return _supa.table("cotizaciones").select(_COLS_PIPE).execute().data or []
+    except Exception:
+        return []
+
+
+def pipeline_por_dedupkey() -> dict:
+    """{dedup_key: {stage, cotizaciones:[{numero,total,estado,stage,fecha}], monto}}
+    derivado de las cotizaciones. `stage` = la etapa MÁS AVANZADA entre las
+    cotizaciones del cliente; `monto` = total de esa cotización representativa."""
+    out: dict = {}
+    for row in _leer_cotizaciones_para_pipeline():
+        k = dedup_key(row.get("cliente_rut"), row.get("cliente_email"),
+                      row.get("cliente_telefono"), row.get("cliente_nombre"))
+        if not k[1]:
+            continue
+        try:
+            _mg = float(row.get("config_margen") or 0)
+        except (TypeError, ValueError):
+            _mg = 0.0
+        label = calcular_estado_label(
+            row.get("cliente_nombre"), row.get("cliente_email"),
+            row.get("asesor_nombre"), row.get("asesor_email"), row.get("asesor_telefono"),
+            _mg, bool(row.get("plano_url")),
+            tiene_notariado=bool(row.get("contrato_notariado_url")),
+            tiene_acta=bool(row.get("acta_url")),
+            motivo_rechazo=row.get("motivo_rechazo") or "")
+        stage = _estado_a_stage(label)
+        try:
+            total = float(row.get("total_total") or 0)
+        except (TypeError, ValueError):
+            total = 0.0
+        e = out.setdefault(k, {"stage": None, "cotizaciones": [], "monto": 0.0})
+        e["cotizaciones"].append({
+            "numero": row.get("numero"), "total": total, "estado": label,
+            "stage": stage, "fecha": row.get("fecha_creacion"),
+        })
+        if e["stage"] is None or _STAGE_RANK.get(stage, 0) > _STAGE_RANK.get(e["stage"], 0):
+            e["stage"] = stage
+            e["monto"] = total
+    return out
+
+
+def enriquecer_con_pipeline(clientes: list) -> list:
+    """Agrega a cada cliente (en memoria, no en BD) los campos DERIVADOS:
+    `_stage`, `_cotizaciones` (lista) y `_monto`. Si el cliente no tiene ninguna
+    cotización, cae a su `etapa_manual` (lead_nuevo / contactado)."""
+    pipe = pipeline_por_dedupkey()
+    for c in clientes:
+        k = dedup_key(c.get("rut"), c.get("email"), c.get("telefono"), c.get("nombre"))
+        info = pipe.get(k)
+        if info and info["stage"]:
+            c["_stage"] = info["stage"]
+            c["_cotizaciones"] = sorted(info["cotizaciones"],
+                                        key=lambda x: str(x.get("fecha") or ""), reverse=True)
+            c["_monto"] = info["monto"]
+        else:
+            c["_stage"] = c.get("etapa_manual") or STAGE_LEAD
+            c["_cotizaciones"] = []
+            c["_monto"] = 0.0
+    return clientes
