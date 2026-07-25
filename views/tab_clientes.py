@@ -341,6 +341,106 @@ _CLI_CLICK_JS = r"""<script>
 })();
 </script>"""
 
+def _iniciar_presupuesto(cli: dict):
+    """Arranca un PRESUPUESTO NUEVO para este cliente con los datos ya cargados.
+    Reusa el mismo mecanismo que "Cargar presupuesto" de COTIZACIONES
+    (ejecutar_carga_cotizacion, en tab_cotizacion.py): un dict con forma de
+    cotización + trigger; con numero='' el sistema genera un EP nuevo al guardar
+    (tab_cotizacion.py: `cotizacion_cargada or generar_numero_unico()`). Carrito
+    VACÍO, sin margen, sin plano → presupuesto en blanco con el cliente prellenado.
+    NO modifica el flujo existente: solo setea el estado que ese flujo ya consume."""
+    st.session_state["cotizacion_a_cargar"] = {
+        "numero": "",                      # '' → presupuesto NUEVO (no edita uno existente)
+        "productos": [],                   # carrito vacío
+        "cliente_nombre": cli.get("nombre", ""),
+        "cliente_rut": cli.get("rut", ""),
+        "cliente_email": cli.get("email", ""),
+        "cliente_telefono": cli.get("telefono", ""),
+        "cliente_direccion": cli.get("direccion", ""),
+        "cliente_comuna": cli.get("comuna", ""),
+        "cliente_region": cli.get("region", ""),
+        "cliente_tipo": cli.get("tipo", "natural") or "natural",
+        "cliente_empresa": cli.get("empresa", ""),
+        "cliente_rut_empresa": cli.get("rut_empresa", ""),
+        "asesor_nombre": cli.get("asignado_nombre", ""),
+        "asesor_email": cli.get("asignado_email", ""),
+        "asesor_telefono": "",
+        "config_margen": 0,
+        "proyecto_direccion": "", "proyecto_comuna": "", "proyecto_region": "",
+        "proyecto_observaciones": "",
+    }
+    st.session_state["cargar_cotizacion_trigger"] = True
+    st.session_state["nav_page"] = "presupuesto"       # navegar al editor
+    _actor = st.session_state.get("auth_nombre") or st.session_state.get("auth_email", "")
+    registrar_actividad(cli.get("id"), "presupuesto",
+                        "Presupuesto nuevo iniciado desde el CRM", actor=_actor)
+
+
+# Menú contextual (click DERECHO) en tarjetas del pipeline / filas del maestro:
+# "Crear presupuesto" + "Ver ficha 360". Escribe en el puente _cli_cmd. El
+# click IZQUIERDO sigue abriendo la ficha (ver _CLI_CLICK_JS); son eventos
+# distintos (contextmenu vs click) → no chocan.
+_CLI_CTXMENU_JS = r"""<script>
+(function(){
+  var W=window.parent, D=W&&W.document; if(!D) return;
+  var MENU='_cli_ctxmenu';
+  function fire(action, cid){
+    var inp=D.querySelector('.st-key-_cli_cmd input'); if(!inp) return;
+    try{
+      var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set;
+      inp.focus({preventScroll:true});
+      setter.call(inp, action+'|'+cid+'|'+Date.now());
+      inp.dispatchEvent(new Event('input',{bubbles:true}));
+      inp.dispatchEvent(new Event('change',{bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.blur();
+    }catch(e){}
+  }
+  function ic(p){return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">'+p+'</svg>';}
+  function closeMenu(){var m=D.getElementById(MENU); if(m) m.remove();}
+  function build(cid, cname, x, y){
+    closeMenu();
+    var m=D.createElement('div'); m.id=MENU;
+    m.style.cssText='position:absolute;z-index:2147483000;min-width:224px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 12px 34px rgba(15,23,42,.18);padding:6px;font-family:-apple-system,Segoe UI,Roboto,sans-serif;';
+    if(cname){
+      var hd=D.createElement('div');
+      hd.style.cssText='padding:8px 10px 9px;border-bottom:1px solid #f1f5f9;margin-bottom:4px;font-size:12.5px;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:224px;';
+      hd.textContent=cname; m.appendChild(hd);
+    }
+    function row(label, svg, color, action){
+      var r=D.createElement('div');
+      r.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:'+color+';';
+      r.innerHTML=ic(svg)+'<span>'+label+'</span>';
+      r.addEventListener('mouseenter',function(){r.style.background='#eef2ff';});
+      r.addEventListener('mouseleave',function(){r.style.background='transparent';});
+      r.addEventListener('click',function(ev){ev.stopPropagation();closeMenu();fire(action,cid);});
+      m.appendChild(r);
+    }
+    row('Crear presupuesto','<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" x2="12" y1="12" y2="18"/><line x1="9" x2="15" y1="15" y2="15"/>','#2563eb','nuevo');
+    row('Ver ficha 360','<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>','#0f172a','open');
+    D.body.appendChild(m);
+    var vw=W.innerWidth, vh=W.innerHeight, sx=W.pageXOffset||0, sy=W.pageYOffset||0;
+    var rw=m.offsetWidth, rh=m.offsetHeight, px=x, py=y;
+    if(px-sx+rw>vw) px=sx+vw-rw-8;
+    if(py-sy+rh>vh) py=sy+vh-rh-8;
+    m.style.left=Math.max(sx+4,px)+'px'; m.style.top=Math.max(sy+4,py)+'px';
+  }
+  if(W._cliCtxH){ D.removeEventListener('contextmenu', W._cliCtxH, true); }
+  W._cliCtxH=function(e){
+    var el=e.target&&e.target.closest?e.target.closest('[data-cid]'):null; if(!el) return;
+    e.preventDefault();
+    build(el.getAttribute('data-cid'), el.getAttribute('data-cname')||'', e.pageX, e.pageY);
+  };
+  D.addEventListener('contextmenu', W._cliCtxH, true);
+  if(W._cliCtxDown){ D.removeEventListener('mousedown', W._cliCtxDown, true); }
+  W._cliCtxDown=function(e){var m=D.getElementById(MENU); if(m && !m.contains(e.target)) closeMenu();};
+  D.addEventListener('mousedown', W._cliCtxDown, true);
+  if(W._cliCtxKey){ D.removeEventListener('keydown', W._cliCtxKey, true); }
+  W._cliCtxKey=function(e){if(e.key==='Escape') closeMenu();};
+  D.addEventListener('keydown', W._cliCtxKey, true);
+})();
+</script>"""
+
 # Buscador client-side del maestro (input HTML + data-s por fila): sin reruns.
 _CLI_SEARCH_JS = r"""<script>
 (function(){
@@ -392,7 +492,7 @@ def _render_maestro(data: list):
         _asig_cell = (_esc(_asig) if _asig
                       else '<span style="color:#ea580c;font-weight:700;font-size:0.72rem;">Sin asignar</span>')
         rows += (
-            f'<tr data-s="{_s}" data-cid="{_esc(d.get("id"))}">'
+            f'<tr data-s="{_s}" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}">'
             f'<td style="font-weight:700;">{_esc(d.get("nombre","") or "—")}</td>'
             f'<td><span class="cli-pill" style="background:{_sbg};color:{_sfg};">{_slbl}</span></td>'
             f'<td>{_esc(d.get("rut","")) or "—"}</td>'
@@ -430,7 +530,7 @@ def _render_pipeline(data: list):
             _ep = (f'{_neps} presupuesto' + ('s' if _neps != 1 else '')) if _neps else "Sin presupuesto"
             _asig_ico = _svg(_ICON_USER_PATH, 12, "#94a3b8")
             cards += (
-                f'<div class="cli-card" data-cid="{_esc(d.get("id"))}">'
+                f'<div class="cli-card" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}">'
                 f'<div class="cli-card-nm">{_esc(d.get("nombre","") or "—")}</div>'
                 f'{_mt}'
                 f'<div class="cli-card-sub">{_asig_ico}{_esc(_asig)}</div>'
@@ -466,7 +566,7 @@ def _render_bandeja(data: list):
     cards = ""
     for d in leads:
         cards += (
-            f'<div class="cli-card" data-cid="{_esc(d.get("id"))}" style="margin-bottom:10px;">'
+            f'<div class="cli-card" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}" style="margin-bottom:10px;">'
             f'<div class="cli-card-nm">{_esc(d.get("nombre","") or "—")}</div>'
             f'<div class="cli-card-sub" style="margin-top:4px;">{_origen_pill(d.get("origen","Manual"))}</div>'
             f'<div class="cli-card-sub" style="margin-top:4px;">{_esc(d.get("email","") or d.get("telefono","") or "—")}</div>'
@@ -511,9 +611,17 @@ def _render_ficha(cid: str, data: list):
             f'{_empresa}'
             '</div>', unsafe_allow_html=True)
 
-        # Acciones rápidas. "Enviar correo" llega con Resend (fase siguiente);
-        # "Recordar" abre el mini-formulario inline. El cierre va por la X del
-        # drawer / clic fuera / Escape (con animación de salida).
+        # Acción principal: crear un presupuesto NUEVO para este cliente con los
+        # datos ya cargados (navega al editor). st.rerun() completo → cierra el
+        # drawer y va al Presupuesto.
+        if st.button("Crear presupuesto", icon=":material/note_add:", type="primary",
+                     use_container_width=True, key="_cli_fh_nuevo"):
+            _iniciar_presupuesto(cli)
+            st.rerun()
+
+        # "Enviar correo" llega con Resend (fase siguiente); "Recordar" abre el
+        # mini-formulario inline. El cierre del drawer va por su X / clic fuera /
+        # Escape (con animación de salida).
         a1, a2 = st.columns(2)
         with a1:
             if st.button("Enviar correo", icon=":material/mail:", use_container_width=True,
@@ -736,6 +844,12 @@ def render_tab_clientes(**kwargs):
                 st.session_state["_cli_ficha"] = _p[1]
                 st.session_state["_cli_just_opened"] = True   # dispara la animación de entrada
                 st.session_state.pop("_cli_rem_open", None)   # ficha nueva → form de recordatorio cerrado
+            elif _p[0] == "nuevo" and len(_p) >= 3:
+                # Crear presupuesto para este cliente (menú contextual pipeline/maestro).
+                _cobj = next((d for d in _cli_data() if str(d.get("id")) == _p[1]), None)
+                if _cobj:
+                    _iniciar_presupuesto(_cobj)
+                    st.rerun()
 
     data = _cli_data()
 
@@ -808,8 +922,8 @@ def render_tab_clientes(**kwargs):
     else:
         _render_pipeline(data)
 
-    # Handler de click (abre ficha) + JS de salida del drawer — re-bindea cada run.
-    components.html(_CLI_CLICK_JS + _CLI_SEARCH_JS, height=0)
+    # Handler de click (abre ficha) + menú contextual + búsqueda + salida del drawer.
+    components.html(_CLI_CLICK_JS + _CLI_CTXMENU_JS + _CLI_SEARCH_JS, height=0)
     components.html(_CLI_DRAWER_JS, height=0)
 
     # Drawer: base siempre; entrada SOLO al abrir desde cerrado, reposo en los
