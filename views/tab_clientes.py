@@ -133,6 +133,106 @@ _CLI_CSS = """
 """
 
 
+# ── Ficha 360 como DRAWER derecho (mismo patrón que INVENTARIO/COMPRAS) ───────
+# El @st.dialog se recoloca por CSS: cubre TODA la altura, pegado a la derecha.
+# OJO: la regla base NO puede llevar `transform:none!important` (le ganaría a la
+# animación de entrada). El reposo lo fija _CLI_DRAWER_STILL_CSS.
+_CLI_DRAWER_CSS = """
+<style>
+div[data-testid="stDialog"]{overflow:hidden!important;}
+div[data-testid="stDialog"] > div{align-items:flex-start!important;justify-content:flex-end!important;
+  overflow:hidden!important;}
+div[data-testid="stDialog"] div[role="dialog"]{position:fixed!important;top:0!important;right:0!important;
+  left:auto!important;bottom:0!important;margin:0!important;width:min(560px,96vw)!important;
+  max-width:none!important;height:100vh!important;max-height:100vh!important;background:#fff!important;
+  border-radius:0!important;box-shadow:-16px 0 48px rgba(15,23,42,0.20)!important;
+  overflow-y:auto!important;overflow-x:hidden!important;animation:none!important;}
+@keyframes cliDrawerIn{from{transform:translateX(100%);}to{transform:translateX(0);}}
+@keyframes cliBackdropIn{from{opacity:0;}to{opacity:1;}}
+div[data-testid="stDialog"] [data-testid="stVerticalBlockBorderWrapper"]{
+  background:transparent!important;border:none!important;box-shadow:none!important;border-radius:0!important;}
+div[data-testid="stDialog"] div[role="dialog"] > div:first-child{
+  font-family:'Montserrat',sans-serif!important;font-weight:700!important;font-size:0.92rem!important;
+  letter-spacing:0.05em!important;text-transform:uppercase!important;color:#0f172a!important;}
+</style>
+"""
+
+# Entrada (deslizar desde la derecha): SOLO cuando el drawer se abre desde cerrado.
+_CLI_DRAWER_ANIM_CSS = """
+<style>
+div[data-testid="stDialog"] div[role="dialog"]{
+  animation:cliDrawerIn .34s cubic-bezier(.22,.61,.36,1) both!important;}
+div[data-testid="stDialog"]::before,div[data-testid="stDialog"] > div[data-testid="stDialogBackdrop"]{
+  animation:cliBackdropIn .34s ease both!important;}
+</style>
+"""
+
+# Reposo (reruns con el drawer abierto): sin animación, anclado en translateX(0) —
+# neutraliza el translateY(20) por defecto de Streamlit.
+_CLI_DRAWER_STILL_CSS = """
+<style>div[data-testid="stDialog"] div[role="dialog"]{transform:translateX(0)!important;}</style>
+"""
+
+# Animación de SALIDA: Streamlit quita el dialog de golpe, así que interceptamos
+# los cierres NATIVOS (X, clic fuera, Escape) en el documento padre y en fase de
+# captura, animamos la salida y recién dejamos pasar el cierre real. Guards
+# _cliClosing (un gesto = un cierre) y _cliSkipClose (deja pasar el click
+# programático); se resetean al inicio de cada run porque el iframe que tenía el
+# timeout muere en el rerun. Re-bindea cada run.
+_CLI_DRAWER_JS = r"""<script>
+(function(){
+  var W=window.parent, D=W&&W.document; if(!D) return;
+  W._cliSkipClose=false; W._cliClosing=false;
+  function dlg(){ return D.querySelector('div[data-testid="stDialog"] div[role="dialog"]'); }
+  var CANCELA='[class*="st-key-_cli_add_cancel"] button';
+  function closeTarget(t){
+    if(!t||!t.closest) return null;
+    var b=t.closest(CANCELA); if(b) return b;
+    if(t.closest('button[aria-label="Close"]')) return 'x';
+    if(t.closest('div[data-testid="stDialog"]') && !t.closest('div[role="dialog"]')) return 'x';
+    return null;
+  }
+  function realClose(target){
+    W._cliSkipClose=true;
+    var el=(target==='x'||!target)
+      ? D.querySelector('div[data-testid="stDialog"] button[aria-label="Close"]') : target;
+    if(el){ try{ el.click(); }catch(e){} }
+    W.setTimeout(function(){ W._cliSkipClose=false; W._cliClosing=false; }, 600);
+  }
+  function closeWithAnim(target){
+    if(W._cliClosing) return; W._cliClosing=true;
+    var d=dlg(); if(!d){ realClose(target); return; }
+    var done=false;
+    function fin(){ if(done) return; done=true; realClose(target); }
+    try{
+      d.getAnimations().forEach(function(a){ try{a.cancel();}catch(e){} });
+      var a=d.animate([{transform:'translateX(0)'},{transform:'translateX(100%)'}],
+                      {duration:260, easing:'cubic-bezier(.5,0,.75,0)', fill:'forwards'});
+      a.onfinish=fin; a.oncancel=fin;
+      W.setTimeout(fin, 330);
+    }catch(e){ fin(); }
+  }
+  ['pointerdown','mousedown','click'].forEach(function(evt){
+    var k='_cliCl_'+evt;
+    if(W[k]){ try{ D.removeEventListener(evt, W[k], true); }catch(e){} }
+    W[k]=function(ev){
+      if(W._cliSkipClose || !dlg()) return;
+      var tg=closeTarget(ev.target); if(!tg) return;
+      ev.preventDefault(); ev.stopImmediatePropagation(); closeWithAnim(tg);
+    };
+    D.addEventListener(evt, W[k], true);
+  });
+  if(W._cliEscCap){ try{ D.removeEventListener('keydown', W._cliEscCap, true); }catch(e){} }
+  W._cliEscCap=function(ev){
+    if(ev.key!=='Escape' && ev.keyCode!==27) return;
+    if(W._cliSkipClose || !dlg()) return;
+    ev.preventDefault(); ev.stopImmediatePropagation(); closeWithAnim('x');
+  };
+  D.addEventListener('keydown', W._cliEscCap, true);
+})();
+</script>"""
+
+
 def _svg(path, size=16, color="#0f172a", sw=2):
     return (f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" '
             f'stroke="{color}" stroke-width="{sw}" stroke-linecap="round" '
@@ -370,7 +470,6 @@ def _render_ficha(cid: str, data: list):
 
     @st.dialog("Ficha del cliente", width="large")
     def _dlg():
-        st.markdown(_CLI_CSS, unsafe_allow_html=True)
         _asig = cli.get("asignado_nombre") or cli.get("asignado_email") or "Sin asignar"
         st.markdown(
             '<div class="cli-fh">'
@@ -397,8 +496,9 @@ def _render_ficha(cid: str, data: list):
             f'{_empresa}'
             '</div>', unsafe_allow_html=True)
 
-        # Acciones rápidas (las funcionales llegan en fases siguientes).
-        a1, a2, a3 = st.columns(3)
+        # Acciones rápidas (las funcionales llegan en fases siguientes). El cierre
+        # va por la X del drawer / clic fuera / Escape (con animación de salida).
+        a1, a2 = st.columns(2)
         with a1:
             if st.button("Enviar correo", icon=":material/mail:", use_container_width=True,
                          key="_cli_fh_mail"):
@@ -407,10 +507,6 @@ def _render_ficha(cid: str, data: list):
             if st.button("Recordar", icon=":material/notification_add:", use_container_width=True,
                          key="_cli_fh_rem"):
                 st.toast("Los recordatorios llegan en la próxima fase.")
-        with a3:
-            if st.button("Cerrar", icon=":material/close:", type="primary",
-                         use_container_width=True, key="_cli_fh_close"):
-                st.rerun()
 
         # Presupuestos del cliente (derivados de cotizaciones)
         _cots = cli.get("_cotizaciones") or []
@@ -548,6 +644,7 @@ def render_tab_clientes(**kwargs):
             st.session_state["_cli_cmd_ts"] = _p[-1]
             if _p[0] == "open" and len(_p) >= 3:
                 st.session_state["_cli_ficha"] = _p[1]
+                st.session_state["_cli_just_opened"] = True   # dispara la animación de entrada
 
     data = _cli_data()
 
@@ -579,6 +676,7 @@ def render_tab_clientes(**kwargs):
         if st.button("Agregar cliente", icon=":material/person_add:", type="primary",
                      use_container_width=True, key="_cli_add_btn"):
             st.session_state["_cli_add_open"] = True
+            st.session_state["_cli_just_opened"] = True
 
     # Selector de vista
     st.markdown(_CLI_SELECTOR_CSS, unsafe_allow_html=True)
@@ -596,8 +694,15 @@ def render_tab_clientes(**kwargs):
     else:
         _render_pipeline(data)
 
-    # Handler de click (abre ficha) — re-bindea cada run.
+    # Handler de click (abre ficha) + JS de salida del drawer — re-bindea cada run.
     components.html(_CLI_CLICK_JS + _CLI_SEARCH_JS, height=0)
+    components.html(_CLI_DRAWER_JS, height=0)
+
+    # Drawer: base siempre; entrada SOLO al abrir desde cerrado, reposo en los
+    # reruns con el drawer abierto (neutraliza el translateY(20) por defecto).
+    st.markdown(_CLI_DRAWER_CSS, unsafe_allow_html=True)
+    st.markdown(_CLI_DRAWER_ANIM_CSS if st.session_state.pop("_cli_just_opened", False)
+                else _CLI_DRAWER_STILL_CSS, unsafe_allow_html=True)
 
     # Ficha 360 (one-shot: pop del flag; el dialog persiste vía su fragment).
     _fid = st.session_state.pop("_cli_ficha", None)
