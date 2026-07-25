@@ -20,6 +20,7 @@ from views.layout import render_page_header
 from repositories.clientes_repo import (
     listar_clientes, crear_cliente, registrar_actividad, listar_actividad,
     backfill_desde_cotizaciones, dedup_key, enriquecer_con_pipeline,
+    identidades_compartidas,
     STAGE_LEAD, STAGE_CONTACTADO, STAGE_PRESUPUESTO, STAGE_PROPUESTA,
     STAGE_GANADO, STAGE_PERDIDO,
 )
@@ -278,6 +279,12 @@ def _cli_data() -> list:
     """Maestro enriquecido con el pipeline DERIVADO (_stage/_cotizaciones/_monto).
     Cacheado; se limpia al mutar/sincronizar."""
     return enriquecer_con_pipeline(listar_clientes(solo_activos=True))
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _cli_polluted() -> set:
+    """Identidades compartidas (placeholders) para la dedup del alta manual."""
+    return identidades_compartidas()
 
 
 def _kpi(label, valor, color="#0f172a"):
@@ -587,10 +594,11 @@ def _render_agregar_dialog():
             if not (nombre or "").strip():
                 st.warning("El nombre es obligatorio.")
                 return
-            k = dedup_key(rut, email, telefono, nombre)
+            _pol = _cli_polluted()
+            k = dedup_key(rut, email, telefono, nombre, _pol)
             if k[1]:
                 for c in _cli_data():
-                    if dedup_key(c.get("rut"), c.get("email"), c.get("telefono"), c.get("nombre")) == k:
+                    if dedup_key(c.get("rut"), c.get("email"), c.get("telefono"), c.get("nombre"), _pol) == k:
                         st.warning(f"Ya existe un cliente con esa identidad: "
                                    f"{c.get('nombre','')}. No se creó un duplicado.")
                         return

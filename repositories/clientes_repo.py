@@ -44,18 +44,68 @@ def _norm_tel(t) -> str:
     return dig[-9:] if len(dig) >= 8 else ""
 
 
-def dedup_key(rut, email, telefono, nombre="") -> tuple:
-    """Clave de identidad para deduplicar, por prioridad RUT > email > teléfono.
-    Si no hay ninguno utilizable, cae a nombre normalizado (clave débil). Devuelve
-    (tipo, valor) o ('', '') si no hay nada."""
+def _rut_placeholder(rk: str) -> bool:
+    """True si el RUT normalizado NO es un RUT real (vacío, de puros ceros, o
+    demasiado corto). En los presupuestos de prueba/relleno el RUT quedó como
+    00.000.000-0 → NO puede tratarse como identidad (fusionaría personas
+    distintas). Un RUT chileno real normalizado tiene 7+ caracteres."""
+    if not rk:
+        return True
+    core = rk[:-1] if rk[-1] == "k" else rk   # separa dígito verificador 'k'
+    if not core or set(core) == {"0"}:
+        return True
+    if len(rk) < 7:
+        return True
+    return False
+
+
+def _polluted_from_rows(rows: list) -> set:
+    """Detecta valores de identidad COMPARTIDOS (placeholders) analizando el
+    dataset: un RUT/correo/teléfono asociado a 2+ NOMBRES distintos NO es una
+    identidad real (p.ej. el correo de la empresa equipo…@gmail.com usado en
+    muchos presupuestos, o un RUT de relleno). Esos valores se marcan como
+    'contaminados' y dejan de servir para fusionar → cada nombre queda como
+    cliente distinto. Devuelve un set de claves (tipo, valor) a excluir.
+
+    `rows` son filas de cotizaciones con cliente_nombre/rut/email/telefono."""
+    from collections import defaultdict
+    m = {"rut": defaultdict(set), "email": defaultdict(set), "tel": defaultdict(set)}
+    for row in rows:
+        nm = _n(row.get("cliente_nombre"))
+        if not nm:
+            continue
+        rk = _norm_rut(row.get("cliente_rut"))
+        if rk and not _rut_placeholder(rk):
+            m["rut"][rk].add(nm)
+        ek = _n(row.get("cliente_email"))
+        if ek and "@" in ek:
+            m["email"][ek].add(nm)
+        tk = _norm_tel(row.get("cliente_telefono"))
+        if tk:
+            m["tel"][tk].add(nm)
+    polluted = set()
+    for kind, mp in m.items():
+        for val, nombres in mp.items():
+            if len(nombres) >= 2:
+                polluted.add((kind, val))
+    return polluted
+
+
+def dedup_key(rut, email, telefono, nombre="", polluted=None) -> tuple:
+    """Clave de identidad para deduplicar, por prioridad RUT > email > teléfono >
+    nombre. Un valor se SALTA si es placeholder (RUT de ceros) o está 'contaminado'
+    (compartido por varias personas — ver _polluted_from_rows) → así no se fusionan
+    clientes distintos que comparten un correo/RUT de relleno. Devuelve (tipo,
+    valor) o ('', '') si no hay nada usable."""
+    polluted = polluted or ()
     rk = _norm_rut(rut)
-    if rk and rk != "nan":
+    if rk and not _rut_placeholder(rk) and ("rut", rk) not in polluted:
         return ("rut", rk)
     ek = _n(email)
-    if ek and "@" in ek:
+    if ek and "@" in ek and ("email", ek) not in polluted:
         return ("email", ek)
     tk = _norm_tel(telefono)
-    if tk:
+    if tk and ("tel", tk) not in polluted:
         return ("tel", tk)
     nk = _n(nombre)
     if nk and nk != "nan":
@@ -168,22 +218,26 @@ def backfill_desde_cotizaciones() -> dict:
     Los importados quedan origen='Manual' y etapa_manual='contactado' (ya tienen
     presupuesto → no son leads nuevos). El asesor de la cotización queda como
     asignado."""
+    cot_rows = _leer_clientes_de_cotizaciones()
+    # Valores de identidad compartidos (correo/RUT de relleno) → no fusionan.
+    polluted = _polluted_from_rows(cot_rows)
+
     # 1) Índice de lo que YA existe en el maestro, por clave de dedup.
     idx = set()
     for c in listar_clientes(solo_activos=False):
-        k = dedup_key(c.get("rut"), c.get("email"), c.get("telefono"), c.get("nombre"))
+        k = dedup_key(c.get("rut"), c.get("email"), c.get("telefono"), c.get("nombre"), polluted)
         if k[1]:
             idx.add(k)
 
     # 2) Recorrer cotizaciones y juntar candidatos nuevos (uno por clave).
     nuevos: dict = {}   # clave -> payload
     omitidos = 0
-    for row in _leer_clientes_de_cotizaciones():
+    for row in cot_rows:
         nombre = str(row.get("cliente_nombre") or "").strip()
         rut = row.get("cliente_rut")
         email = row.get("cliente_email")
         tel = row.get("cliente_telefono")
-        k = dedup_key(rut, email, tel, nombre)
+        k = dedup_key(rut, email, tel, nombre, polluted)
         if not k[1]:
             omitidos += 1
             continue
@@ -283,14 +337,25 @@ def _leer_cotizaciones_para_pipeline() -> list:
         return []
 
 
-def pipeline_por_dedupkey() -> dict:
+def identidades_compartidas() -> set:
+    """Set de identidades compartidas (correo/RUT/teléfono de relleno usados por
+    varias personas) de las cotizaciones actuales, para que la dedup del alta
+    manual use el MISMO criterio que el backfill/pipeline. Ver _polluted_from_rows."""
+    return _polluted_from_rows(_leer_cotizaciones_para_pipeline())
+
+
+def pipeline_por_dedupkey(rows=None, polluted=None) -> dict:
     """{dedup_key: {stage, cotizaciones:[{numero,total,estado,stage,fecha}], monto}}
     derivado de las cotizaciones. `stage` = la etapa MÁS AVANZADA entre las
-    cotizaciones del cliente; `monto` = total de esa cotización representativa."""
+    cotizaciones del cliente; `monto` = total de esa cotización representativa.
+    `polluted` = valores de identidad compartidos a excluir (ver
+    _polluted_from_rows); si no se pasa, se calcula de las filas."""
+    rows = rows if rows is not None else _leer_cotizaciones_para_pipeline()
+    polluted = polluted if polluted is not None else _polluted_from_rows(rows)
     out: dict = {}
-    for row in _leer_cotizaciones_para_pipeline():
+    for row in rows:
         k = dedup_key(row.get("cliente_rut"), row.get("cliente_email"),
-                      row.get("cliente_telefono"), row.get("cliente_nombre"))
+                      row.get("cliente_telefono"), row.get("cliente_nombre"), polluted)
         if not k[1]:
             continue
         try:
@@ -324,9 +389,11 @@ def enriquecer_con_pipeline(clientes: list) -> list:
     """Agrega a cada cliente (en memoria, no en BD) los campos DERIVADOS:
     `_stage`, `_cotizaciones` (lista) y `_monto`. Si el cliente no tiene ninguna
     cotización, cae a su `etapa_manual` (lead_nuevo / contactado)."""
-    pipe = pipeline_por_dedupkey()
+    rows = _leer_cotizaciones_para_pipeline()
+    polluted = _polluted_from_rows(rows)   # MISMO set para cliente y cotizaciones
+    pipe = pipeline_por_dedupkey(rows, polluted)
     for c in clientes:
-        k = dedup_key(c.get("rut"), c.get("email"), c.get("telefono"), c.get("nombre"))
+        k = dedup_key(c.get("rut"), c.get("email"), c.get("telefono"), c.get("nombre"), polluted)
         info = pipe.get(k)
         if info and info["stage"]:
             c["_stage"] = info["stage"]
