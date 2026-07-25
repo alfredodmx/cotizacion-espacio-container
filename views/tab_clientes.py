@@ -12,6 +12,7 @@ navegación de otros roles en app.py + guard acá). ADITIVA: solo lee lo existen
 y escribe en tablas nuevas. No toca el flujo actual.
 """
 import html as _html
+from datetime import date as _date, datetime as _dt, timedelta as _td
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -21,9 +22,16 @@ from repositories.clientes_repo import (
     listar_clientes, crear_cliente, registrar_actividad, listar_actividad,
     backfill_desde_cotizaciones, dedup_key, enriquecer_con_pipeline,
     identidades_compartidas,
+    crear_tarea, listar_tareas_cliente, completar_tarea, listar_tareas_pendientes,
+    tareas_vencidas_no_notificadas, marcar_notificadas,
     STAGE_LEAD, STAGE_CONTACTADO, STAGE_PRESUPUESTO, STAGE_PROPUESTA,
     STAGE_GANADO, STAGE_PERDIDO,
 )
+try:
+    from utils.notificaciones import notificar_recordatorio
+except Exception:   # notificaciones es opcional; si falla, los recordatorios igual se guardan
+    def notificar_recordatorio(*a, **k):
+        return 0
 
 _ROL_OK = "root"
 
@@ -503,8 +511,9 @@ def _render_ficha(cid: str, data: list):
             f'{_empresa}'
             '</div>', unsafe_allow_html=True)
 
-        # Acciones rápidas (las funcionales llegan en fases siguientes). El cierre
-        # va por la X del drawer / clic fuera / Escape (con animación de salida).
+        # Acciones rápidas. "Enviar correo" llega con Resend (fase siguiente);
+        # "Recordar" abre el mini-formulario inline. El cierre va por la X del
+        # drawer / clic fuera / Escape (con animación de salida).
         a1, a2 = st.columns(2)
         with a1:
             if st.button("Enviar correo", icon=":material/mail:", use_container_width=True,
@@ -513,7 +522,80 @@ def _render_ficha(cid: str, data: list):
         with a2:
             if st.button("Recordar", icon=":material/notification_add:", use_container_width=True,
                          key="_cli_fh_rem"):
-                st.toast("Los recordatorios llegan en la próxima fase.")
+                st.session_state["_cli_rem_open"] = not st.session_state.get("_cli_rem_open", False)
+                st.rerun(scope="fragment")
+
+        # Mini-formulario de recordatorio (inline: NO puede ser otro dialog dentro
+        # del dialog). Se muestra al pulsar "Recordar".
+        if st.session_state.get("_cli_rem_open"):
+            with st.container(border=True):
+                st.markdown('<div style="font-size:0.78rem;font-weight:700;color:#0f172a;'
+                            'text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;">'
+                            'Nuevo recordatorio</div>', unsafe_allow_html=True)
+                _rt = st.text_input("¿Qué recordar?", key="_cli_rem_titulo",
+                                    placeholder="Llamar para seguimiento…", label_visibility="collapsed")
+                rc1, rc2 = st.columns([1, 1])
+                with rc1:
+                    _rv = st.date_input("Vence", value=_date.today() + _td(days=3),
+                                        min_value=_date.today(), key="_cli_rem_fecha")
+                with rc2:
+                    _rg = st.button("Guardar recordatorio", type="primary",
+                                    use_container_width=True, key="_cli_rem_save")
+                if _rg:
+                    if not (_rt or "").strip():
+                        st.warning("Escribe qué quieres recordar.")
+                    else:
+                        _actor = (st.session_state.get("auth_nombre")
+                                  or st.session_state.get("auth_email", ""))
+                        _vence_iso = f"{_rv.isoformat()}T09:00:00-03:00"
+                        _tid, _terr = crear_tarea(cid, _rt.strip(), _vence_iso,
+                                                  cli.get("asignado_email", ""))
+                        if _tid:
+                            registrar_actividad(cid, "nota",
+                                                f"Recordatorio: {_rt.strip()}",
+                                                detalle=f"vence {_rv.isoformat()}", actor=_actor)
+                            _n = notificar_recordatorio(cli.get("nombre", "Cliente"), _rt.strip(),
+                                                        _rv.isoformat(), cli.get("asignado_email", ""))
+                            st.session_state.pop("_cli_rem_open", None)
+                            st.toast("Recordatorio guardado"
+                                     + (" · avisado por Telegram" if _n else ""))
+                            st.rerun(scope="fragment")
+                        else:
+                            st.error(f"No se pudo guardar: {_terr}")
+
+        # Recordatorios del cliente
+        _tareas = listar_tareas_cliente(cid)
+        _pend = [t for t in _tareas if not t.get("hecho")]
+        st.markdown(f'<div class="cli-sec-t">Recordatorios · {len(_pend)} pendiente(s)</div>',
+                    unsafe_allow_html=True)
+        if _tareas:
+            _hoy = _date.today().isoformat()
+            for t in _tareas:
+                _venc_d = str(t.get("vence") or "")[:10]
+                _hecho = bool(t.get("hecho"))
+                _vencida = (not _hecho) and _venc_d and _venc_d <= _hoy
+                _col = "#94a3b8" if _hecho else ("#dc2626" if _vencida else "#0f172a")
+                _ico = ("#16a34a" if _hecho else ("#dc2626" if _vencida else "#5b7cfa"))
+                tc1, tc2 = st.columns([5, 1])
+                with tc1:
+                    _dec = "text-decoration:line-through;" if _hecho else ""
+                    st.markdown(
+                        f'<div style="padding:3px 0;">'
+                        f'<span style="color:{_ico};">●</span> '
+                        f'<span style="font-size:0.86rem;color:{_col};{_dec}">{_esc(t.get("titulo",""))}</span>'
+                        f'<span style="font-size:0.72rem;color:#94a3b8;margin-left:6px;">'
+                        f'{"vencía" if _vencida else "vence"} {_esc(_venc_d)}</span></div>',
+                        unsafe_allow_html=True)
+                with tc2:
+                    if not _hecho:
+                        if st.button("Hecho", key=f"_cli_tdone_{t.get('id')}",
+                                     use_container_width=True):
+                            completar_tarea(t.get("id"), True)
+                            st.rerun(scope="fragment")
+        else:
+            st.markdown('<div style="font-size:0.8rem;color:#94a3b8;padding:4px 0 8px;">'
+                        'Sin recordatorios. Pulsa <b>Recordar</b> para crear uno.</div>',
+                        unsafe_allow_html=True)
 
         # Presupuestos del cliente (derivados de cotizaciones)
         _cots = cli.get("_cotizaciones") or []
@@ -653,8 +735,31 @@ def render_tab_clientes(**kwargs):
             if _p[0] == "open" and len(_p) >= 3:
                 st.session_state["_cli_ficha"] = _p[1]
                 st.session_state["_cli_just_opened"] = True   # dispara la animación de entrada
+                st.session_state.pop("_cli_rem_open", None)   # ficha nueva → form de recordatorio cerrado
 
     data = _cli_data()
+
+    # Recordatorios pendientes (para el KPI) + alerta Telegram de vencidos.
+    _pend_tareas = listar_tareas_pendientes()
+    _hoy_iso = _date.today().isoformat()
+    _venc_hoy = sum(1 for t in _pend_tareas if str(t.get("vence") or "")[:10] <= _hoy_iso)
+
+    # Alerta de vencidos por Telegram — UNA vez por sesión al abrir la pestaña
+    # (Streamlit Cloud no tiene cron; se dispara cuando root abre el CRM). Requiere
+    # la columna `notificado` (si no existe, tareas_vencidas_… devuelve [] y no pasa nada).
+    if not st.session_state.get("_cli_alert_done"):
+        st.session_state["_cli_alert_done"] = True
+        _venc = tareas_vencidas_no_notificadas()
+        if _venc:
+            _cmap = {c.get("id"): c for c in data}
+            _ok_ids = []
+            for t in _venc:
+                _c = _cmap.get(t.get("cliente_id"), {})
+                notificar_recordatorio(_c.get("nombre", "Cliente"), t.get("titulo", ""),
+                                       str(t.get("vence") or "")[:10],
+                                       _c.get("asignado_email", ""), vencido=True)
+                _ok_ids.append(t.get("id"))
+            marcar_notificadas(_ok_ids)
 
     # KPIs por etapa (con datos reales)
     _cnt = {s: 0 for s in _STAGE_ORDER}
@@ -667,6 +772,7 @@ def render_tab_clientes(**kwargs):
         + _kpi("Propuesta enviada", _cnt[STAGE_PROPUESTA], "#b45309")
         + _kpi("Ganados", _cnt[STAGE_GANADO], "#15803d")
         + _kpi("Perdidos", _cnt[STAGE_PERDIDO], "#94a3b8")
+        + _kpi("Recordatorios", len(_pend_tareas), "#dc2626" if _venc_hoy else "#0f172a")
         + '</div>', unsafe_allow_html=True)
 
     # Acciones: Sincronizar (backfill) + Agregar cliente

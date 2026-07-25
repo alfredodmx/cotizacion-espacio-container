@@ -385,6 +385,76 @@ def pipeline_por_dedupkey(rows=None, polluted=None) -> dict:
     return out
 
 
+# ── Tareas / recordatorios (crm_tareas) ───────────────────────────────────────
+
+def crear_tarea(cliente_id, titulo, vence, asignado_email="") -> tuple:
+    """Crea un recordatorio. `vence` = ISO string (timestamptz). Devuelve (id, err)."""
+    try:
+        tid = str(uuid.uuid4())
+        _supa.table("crm_tareas").insert({
+            "id": tid,
+            "cliente_id": cliente_id,
+            "titulo": str(titulo or "").strip(),
+            "vence": vence,
+            "hecho": False,
+            "asignado_email": str(asignado_email or "").strip(),
+            "fecha_creacion": _ahora(),
+        }).execute()
+        return tid, None
+    except Exception as e:
+        return None, str(e)
+
+
+def listar_tareas_cliente(cliente_id) -> list:
+    """Tareas de un cliente: pendientes primero, luego por fecha de vencimiento."""
+    try:
+        return (_supa.table("crm_tareas").select("*").eq("cliente_id", cliente_id)
+                .order("hecho").order("vence").execute().data or [])
+    except Exception:
+        return []
+
+
+def completar_tarea(tid, hecho=True) -> tuple:
+    """Marca una tarea como hecha (o la reabre)."""
+    try:
+        _supa.table("crm_tareas").update({"hecho": bool(hecho)}).eq("id", tid).execute()
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+
+def listar_tareas_pendientes() -> list:
+    """Todas las tareas sin completar, por vencimiento."""
+    try:
+        return (_supa.table("crm_tareas").select("*").eq("hecho", False)
+                .order("vence").execute().data or [])
+    except Exception:
+        return []
+
+
+def tareas_vencidas_no_notificadas() -> list:
+    """Tareas vence<=ahora, hecho=false y notificado=false (para la alerta
+    Telegram de 'vencido'). DEFENSIVO: si la columna `notificado` no existe aún,
+    devuelve [] (las alertas de vencimiento quedan deshabilitadas hasta correr el
+    ALTER TABLE) — el resto del sistema de recordatorios funciona igual."""
+    try:
+        return (_supa.table("crm_tareas").select("*")
+                .eq("hecho", False).eq("notificado", False)
+                .lte("vence", _ahora()).order("vence").execute().data or [])
+    except Exception:
+        return []
+
+
+def marcar_notificadas(ids: list) -> None:
+    """Marca tareas como ya notificadas (best effort)."""
+    if not ids:
+        return
+    try:
+        _supa.table("crm_tareas").update({"notificado": True}).in_("id", ids).execute()
+    except Exception:
+        pass
+
+
 def enriquecer_con_pipeline(clientes: list) -> list:
     """Agrega a cada cliente (en memoria, no en BD) los campos DERIVADOS:
     `_stage`, `_cotizaciones` (lista) y `_monto`. Si el cliente no tiene ninguna

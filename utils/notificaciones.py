@@ -118,6 +118,34 @@ def notificar_cotizacion_autorizada(ep, cliente_nombre, margen, ejecutivo_email,
         print(f"ERROR notificar_autorizada: {_e}\n{_tb.format_exc()}")
 
 
+def notificar_recordatorio(cliente_nombre, titulo, vence, asignado_email="", vencido=False):
+    """Aviso Telegram de un recordatorio del CRM. Va al ejecutivo asignado (por su
+    chat_id en contactos) + al grupo si está configurado. `vencido`=True cambia el
+    texto a alerta de vencimiento. Nunca lanza. Devuelve cuántos envíos hizo."""
+    try:
+        _token = _get_cfg('bot_token', st.secrets.get("TELEGRAM_BOT_TOKEN", ""))
+        contactos = _get_contactos()
+        if vencido:
+            msg = (f"⏰ *Recordatorio vencido*\n\nCliente: *{cliente_nombre}*\n"
+                   f"{titulo}\nVencía: {vence}")
+        else:
+            msg = (f"🔔 *Nuevo recordatorio*\n\nCliente: *{cliente_nombre}*\n"
+                   f"{titulo}\nVence: {vence}")
+        enviados = 0
+        chat_id = contactos.get((asignado_email or '').lower(), '')
+        if chat_id:
+            if _enviar_telegram(chat_id, msg, _token):
+                enviados += 1
+        grupo_id = _get_cfg('grupo_chat_id', '')
+        if grupo_id:
+            if _enviar_telegram(grupo_id, msg, _token):
+                enviados += 1
+        return enviados
+    except Exception as _e:
+        print(f"ERROR notificar_recordatorio: {_e}\n{_tb.format_exc()}")
+        return 0
+
+
 def notificar_margen_removido(ep, cliente_nombre, ejecutivo_email):
     try:
         plantilla = _get_cfg(
