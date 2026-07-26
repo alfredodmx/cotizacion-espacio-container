@@ -12,7 +12,11 @@ navegación de otros roles en app.py + guard acá). ADITIVA: solo lee lo existen
 y escribe en tablas nuevas. No toca el flujo actual.
 """
 import html as _html
-from datetime import date as _date, datetime as _dt, timedelta as _td
+from datetime import date as _date, datetime as _dt, timedelta as _td, timezone as _tz
+try:
+    from zoneinfo import ZoneInfo as _ZoneInfo
+except Exception:   # py<3.9 sin zoneinfo: se usa el fallback UTC-3 en _fmt_fecha_local
+    _ZoneInfo = None
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -280,6 +284,28 @@ def _fmt_money(v) -> str:
     except (TypeError, ValueError):
         v = 0
     return f"${v:,.0f}".replace(",", ".") if v else "$0"
+
+
+def _fmt_fecha_local(iso_str) -> str:
+    """Timestamp ISO → hora de Chile 'dd-mm-YYYY HH:MM'. Supabase devuelve los
+    timestamptz en UTC (+00:00); antes se mostraba ese valor crudo (4h adelantado).
+    Se convierte a America/Santiago (con DST → UTC-4 en invierno, UTC-3 en verano);
+    si no hay tzdata, cae a UTC-3."""
+    if not iso_str:
+        return ""
+    try:
+        dt = _dt.fromisoformat(str(iso_str).replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=_tz.utc)
+        try:
+            if _ZoneInfo is None:
+                raise RuntimeError
+            dt = dt.astimezone(_ZoneInfo("America/Santiago"))
+        except Exception:
+            dt = dt.astimezone(_tz(_td(hours=-3)))
+        return dt.strftime("%d-%m-%Y %H:%M")
+    except Exception:
+        return str(iso_str)[:16].replace("T", " ")
 
 
 @st.cache_data(ttl=60, show_spinner=False)
@@ -611,17 +637,10 @@ def _render_ficha(cid: str, data: list):
             f'{_empresa}'
             '</div>', unsafe_allow_html=True)
 
-        # Acción principal: crear un presupuesto NUEVO para este cliente con los
-        # datos ya cargados (navega al editor). st.rerun() completo → cierra el
-        # drawer y va al Presupuesto.
-        if st.button("Crear presupuesto", icon=":material/note_add:", type="primary",
-                     use_container_width=True, key="_cli_fh_nuevo"):
-            _iniciar_presupuesto(cli)
-            st.rerun()
-
         # "Enviar correo" llega con Resend (fase siguiente); "Recordar" abre el
         # mini-formulario inline. El cierre del drawer va por su X / clic fuera /
-        # Escape (con animación de salida).
+        # Escape (con animación de salida). "Crear presupuesto" va más abajo, junto
+        # al encabezado de Presupuestos.
         a1, a2 = st.columns(2)
         with a1:
             if st.button("Enviar correo", icon=":material/mail:", use_container_width=True,
@@ -705,9 +724,20 @@ def _render_ficha(cid: str, data: list):
                         'Sin recordatorios. Pulsa <b>Recordar</b> para crear uno.</div>',
                         unsafe_allow_html=True)
 
-        # Presupuestos del cliente (derivados de cotizaciones)
+        # Presupuestos del cliente (derivados de cotizaciones). El botón "Crear
+        # presupuesto" va en la MISMA fila que el encabezado (a la derecha).
         _cots = cli.get("_cotizaciones") or []
-        st.markdown(f'<div class="cli-sec-t">Presupuestos · {len(_cots)}</div>', unsafe_allow_html=True)
+        _ph1, _ph2 = st.columns([1, 1], vertical_alignment="center")
+        with _ph1:
+            st.markdown(f'<div class="cli-sec-t" style="margin:6px 0;">Presupuestos · {len(_cots)}</div>',
+                        unsafe_allow_html=True)
+        with _ph2:
+            # Crea un presupuesto NUEVO para este cliente con los datos ya cargados
+            # (navega al editor). st.rerun() completo → cierra el drawer y va al editor.
+            if st.button("Crear presupuesto", icon=":material/note_add:", type="primary",
+                         use_container_width=True, key="_cli_fh_nuevo"):
+                _iniciar_presupuesto(cli)
+                st.rerun()
         if _cots:
             _eprows = ""
             for c in _cots:
@@ -734,7 +764,7 @@ def _render_ficha(cid: str, data: list):
             _tl = ""
             for a in _acts:
                 _c = _TL_ICON.get(str(a.get("tipo") or ""), "#94a3b8")
-                _fecha = str(a.get("fecha") or "")[:16].replace("T", " ")
+                _fecha = _fmt_fecha_local(a.get("fecha"))
                 _det = f' — {_esc(a.get("detalle"))}' if a.get("detalle") else ""
                 _tl += (
                     '<div class="cli-tl-it">'
