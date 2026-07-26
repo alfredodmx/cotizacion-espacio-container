@@ -36,6 +36,16 @@ try:
 except Exception:   # notificaciones es opcional; si falla, los recordatorios igual se guardan
     def notificar_recordatorio(*a, **k):
         return 0
+try:
+    from repositories.notificaciones_repo import crear_notificacion as _crear_notif
+except Exception:   # feed opcional; si falla, la actividad igual se guarda
+    def _crear_notif(*a, **k):
+        return None
+
+
+def _notif_dest(cli: dict) -> str:
+    """Destinatario de la campana: el ejecutivo asignado, o el usuario actual."""
+    return (cli.get("asignado_email") or st.session_state.get("auth_email", "") or "").strip()
 
 _ROL_OK = "root"
 
@@ -734,6 +744,9 @@ def _render_actividad(cid, cli, t):
                         notificar_recordatorio(cli.get("nombre", "Cliente"),
                                                f"Volver a llamar: {t.get('titulo','')}",
                                                _fmt_fecha_local(_nx_iso), cli.get("asignado_email", ""))
+                        _crear_notif(_notif_dest(cli),
+                                     f"Volver a llamar · {cli.get('nombre','Cliente')}: {t.get('titulo','')}",
+                                     tipo="llamada", detalle=_fmt_fecha_local(_nx_iso), cliente_id=cid)
                         st.session_state.pop("_cli_act_res", None)
                         st.toast("Reagendado")
                         st.rerun(scope="fragment")
@@ -822,6 +835,9 @@ def _render_ficha(cid: str, data: list):
                                                         f"{_tl}: {_at.strip()}",
                                                         _fmt_fecha_local(_vence),
                                                         cli.get("asignado_email", ""))
+                            _crear_notif(_notif_dest(cli),
+                                         f"{_tl} · {cli.get('nombre','Cliente')}: {_at.strip()}",
+                                         tipo=_tipo, detalle=_fmt_fecha_local(_vence), cliente_id=cid)
                             st.session_state.pop("_cli_act_open", None)
                             st.toast("Actividad agendada" + (" · avisado por Telegram" if _n else ""))
                             st.rerun(scope="fragment")

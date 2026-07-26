@@ -12,6 +12,93 @@ from auth.access_code    import generar_codigo_acceso, _get_bloque_horario
 from utils.avatars       import fetch_foto_map, avatar_html, subir_foto_perfil
 from config.settings     import SUPABASE_URL
 import datetime as _dt
+import html as _htmlmod
+
+
+# ── Campana de notificaciones (feed por usuario) ──────────────────────────────
+@st.cache_data(ttl=20, show_spinner=False)
+def _notif_data(email: str):
+    """(no_leidas, lista) para la campana del header. Cacheado 20s por usuario y
+    DEFENSIVO: cualquier fallo → (0, []) para NO tumbar el header."""
+    try:
+        from repositories.notificaciones_repo import contar_no_leidas, listar_notificaciones
+        return contar_no_leidas(email), listar_notificaciones(email, 15)
+    except Exception:
+        return 0, []
+
+
+_NOTIF_ICONS = {
+    "llamada":      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+    "reunion":      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    "correo":       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>',
+    "tarea":        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+    "vencido":      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>',
+    "default":      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
+}
+
+_NOTIF_CSS = """<style>
+#_hdr_notif_wrap{position:relative;display:flex;align-items:center;}
+#_hdr_notif_btn{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);border-radius:10px;
+  width:38px;height:38px;display:flex;align-items:center;justify-content:center;color:#e2e8f0;cursor:pointer;position:relative;transition:all .15s;}
+#_hdr_notif_btn:hover{background:rgba(255,255,255,0.14);border-color:rgba(255,255,255,0.3);}
+#_hdr_notif_btn svg{width:21px;height:21px;}
+._hdr_notif_badge{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;
+  background:#ef4444;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 0 3px #0f172a;animation:_hdrNotifPulse 1.7s ease-in-out infinite;}
+@keyframes _hdrNotifPulse{0%,100%{box-shadow:0 0 0 3px #0f172a,0 0 0 0 rgba(239,68,68,.55);}50%{box-shadow:0 0 0 3px #0f172a,0 0 0 7px rgba(239,68,68,0);}}
+#_hdr_notif_panel{display:none;position:absolute;top:48px;right:0;width:340px;max-width:86vw;background:#fff;
+  border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 16px 44px rgba(15,23,42,0.24);z-index:9999999;overflow:hidden;}
+#_hdr_notif_wrap._open #_hdr_notif_panel{display:block;animation:_hdrMenuIn 0.14s ease;}
+._hdr_notif_head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid #eef1f6;
+  font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:0.82rem;color:#0f172a;}
+#_hdr_notif_read{background:none;border:none;color:#2563eb;font-size:0.74rem;font-weight:700;cursor:pointer;padding:2px 4px;}
+#_hdr_notif_read:hover{color:#1d4ed8;text-decoration:underline;}
+._hdr_notif_list{max-height:min(58vh,420px);overflow-y:auto;}
+._hdr_notif_it{display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border-bottom:1px solid #f4f6fb;}
+._hdr_notif_it:last-child{border-bottom:none;}
+._hdr_notif_ico{color:#5b7cfa;flex-shrink:0;margin-top:1px;display:flex;}
+._hdr_notif_ico svg{width:18px;height:18px;}
+._hdr_notif_txt{flex:1;min-width:0;}
+._hdr_notif_t{font-size:0.82rem;color:#0f172a;font-weight:600;line-height:1.35;}
+._hdr_notif_d{font-size:0.72rem;color:#94a3b8;margin-top:2px;}
+._hdr_notif_dot{width:8px;height:8px;border-radius:50%;background:#5b7cfa;flex-shrink:0;margin-top:5px;}
+._hdr_notif_empty{padding:28px 14px;text-align:center;color:#94a3b8;font-size:0.8rem;font-family:'Plus Jakarta Sans',sans-serif;}
+</style>"""
+
+
+def _build_notif_html(email: str) -> str:
+    """HTML de la campana (botón + badge + panel). Nunca lanza."""
+    try:
+        _n, _items = _notif_data(email)
+    except Exception:
+        _n, _items = 0, []
+    _bell = _NOTIF_ICONS["default"]
+    _badge = (f'<span class="_hdr_notif_badge">{_n if _n < 100 else "99+"}</span>') if _n else ''
+    if _items:
+        _rows = ""
+        for it in _items:
+            _ico = _NOTIF_ICONS.get(str(it.get("tipo") or ""), _NOTIF_ICONS["default"])
+            _leido = bool(it.get("leido"))
+            _tit = _htmlmod.escape(str(it.get("titulo") or ""))
+            _det = _htmlmod.escape(str(it.get("detalle") or ""))
+            _dot = '' if _leido else '<span class="_hdr_notif_dot"></span>'
+            _bg = '' if _leido else ' style="background:#f5f8ff;"'
+            _rows += (f'<div class="_hdr_notif_it"{_bg}>'
+                      f'<span class="_hdr_notif_ico">{_ico}</span>'
+                      f'<div class="_hdr_notif_txt"><div class="_hdr_notif_t">{_tit}</div>'
+                      + (f'<div class="_hdr_notif_d">{_det}</div>' if _det else '')
+                      + f'</div>{_dot}</div>')
+    else:
+        _rows = '<div class="_hdr_notif_empty">Sin notificaciones</div>'
+    _read_btn = ('<button id="_hdr_notif_read" type="button">Marcar leídas</button>') if _n else ''
+    return (
+        '<div id="_hdr_notif_wrap">'
+        f'<button id="_hdr_notif_btn" type="button" title="Notificaciones">{_bell}{_badge}</button>'
+        '<div id="_hdr_notif_panel">'
+        f'<div class="_hdr_notif_head"><span>Notificaciones</span>{_read_btn}</div>'
+        f'<div class="_hdr_notif_list">{_rows}</div>'
+        '</div></div>'
+    )
 
 
 # ── CSS global ────────────────────────────────────────────────────────────────
@@ -1405,11 +1492,19 @@ def render_layout():
         '</div></div>'
     )
 
+    # Campana de notificaciones (para todos los usuarios; cada uno ve las suyas).
+    # DEFENSIVO: si falla, no rompe el header (queda sin campana).
+    try:
+        _notif_html = _build_notif_html(_email) if _email else ''
+    except Exception:
+        _notif_html = ''
+
     st.markdown(
+        _NOTIF_CSS +
         f'<style>#_usr_header_bar{{background:{_bg};}}</style>'
         f'<div id="_usr_header_bar">'
         f'<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow:hidden;">{_left_html}</div>'
-        f'<div class="usr-right">{_rol_html}{_user_menu_html}</div>'
+        f'<div class="usr-right">{_rol_html}{_notif_html}{_user_menu_html}</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
@@ -1425,7 +1520,7 @@ def render_layout():
     # 6. Botones ocultos (foto / contraseña) disparados desde el menú del avatar.
     # El logout NO usa botón: el menú navega a ?logout=1 (carga completa) porque un
     # st.rerun in-place crashea React al desmontar el árbol autenticado → body vacío.
-    _c0, _c_foto, _c_pwd = st.columns([20, 1, 1])
+    _c0, _c_foto, _c_pwd, _c_notif = st.columns([18, 1, 1, 1])
     with _c_foto:
         if st.button("📷 Cambiar foto", key="btn_foto_hdr", use_container_width=True):
             st.session_state["_show_foto_dialog"] = True
@@ -1433,6 +1528,16 @@ def render_layout():
     with _c_pwd:
         if st.button("🔑 Mi contraseña", key="btn_pwd_hdr", use_container_width=True):
             st.session_state["_show_pwd_dialog"] = True
+            st.rerun()
+    with _c_notif:
+        # Botón oculto: el JS lo clickea desde "Marcar leídas" del panel de la campana.
+        if st.button("leidas", key="btn_notif_read", use_container_width=True):
+            try:
+                from repositories.notificaciones_repo import marcar_leidas
+                marcar_leidas(_email)
+            except Exception:
+                pass
+            _notif_data.clear()
             st.rerun()
 
     # 7. JS — mover botones al header una sola vez (sin MutationObserver)
@@ -1582,6 +1687,13 @@ def render_layout():
             var menuWrap = D.getElementById('_hdr_user_menu_wrap');
             var avBtn = t && t.closest ? t.closest('#_hdr_avatar_btn') : null;
             if (avBtn) { if (menuWrap) menuWrap.classList.toggle('_open'); e.stopPropagation(); return; }
+            // ── Campana de notificaciones ─────────────────────────────────────
+            var notifWrap = D.getElementById('_hdr_notif_wrap');
+            var bellBtn = t && t.closest ? t.closest('#_hdr_notif_btn') : null;
+            if (bellBtn) { if (notifWrap) notifWrap.classList.toggle('_open'); if (menuWrap) menuWrap.classList.remove('_open'); e.stopPropagation(); return; }
+            var readBtn = t && t.closest ? t.closest('#_hdr_notif_read') : null;
+            if (readBtn) { if (notifWrap) notifWrap.classList.remove('_open'); var _rb = D.querySelector('.st-key-btn_notif_read button'); if (_rb) _rb.click(); e.stopPropagation(); return; }
+            if (notifWrap && notifWrap.classList.contains('_open') && !(t.closest && t.closest('#_hdr_notif_wrap'))) { notifWrap.classList.remove('_open'); }
             var mItem = t && t.closest ? t.closest('._hdr_menu_item') : null;
             if (mItem) {
                 var act = mItem.getAttribute('data-act');
