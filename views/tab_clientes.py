@@ -126,6 +126,14 @@ _CLI_CSS = """
 .cli-sbar .cli-sico{display:inline-flex;flex:0 0 auto;color:#94a3b8;}
 .cli-empty-ph{text-align:center;color:#94a3b8;padding:40px;font-family:Montserrat,sans-serif;
   font-weight:600;border:1px dashed #d7ddf0;border-radius:14px;margin-top:10px;}
+/* Barra de filtros rápidos (badges) — filtrado client-side, sin reruns */
+.cli-fbar{display:flex;flex-wrap:wrap;gap:16px 20px;align-items:center;margin:12px 0 2px;}
+.cli-fgrp{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.cli-fgrp-lbl{font-size:0.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;margin-right:3px;}
+.cli-fpill{font-size:0.72rem;font-weight:700;padding:4px 11px;border-radius:99px;border:1px solid #e2e8f0;
+  background:#fff;color:#475569;cursor:pointer;user-select:none;white-space:nowrap;transition:all .12s;}
+.cli-fpill:hover{background:#f1f5f9;}
+.cli-fpill.on{background:#eef2ff;color:#4338ca;border-color:#c7d2fe;}
 
 /* ── Kanban ── */
 .cli-kb-wrap{overflow-x:auto;padding-bottom:8px;margin-top:12px;}
@@ -423,6 +431,39 @@ def _origen_pill(origen: str) -> str:
     return f'<span class="cli-pill" style="background:{_bg};color:{_fg};">{_esc(origen)}</span>'
 
 
+def _build_filter_bar(data: list) -> str:
+    """Barra de filtros rápidos (badges) por ejecutivo y por estado. El filtrado
+    es 100% client-side (ver _CLI_FILTER_JS): NO dispara reruns."""
+    _ejset, _has_none = {}, False
+    for d in data:
+        _e = (d.get("asignado_email") or "").strip().lower()
+        if _e:
+            _ejset[_e] = d.get("asignado_nombre") or d.get("asignado_email") or _e
+        else:
+            _has_none = True
+    _stages = [s for s in _STAGE_ORDER
+               if any((d.get("_stage") or STAGE_LEAD) == s for d in data)]
+
+    def _pill(val, label, kind):
+        _on = " on" if val == "" else ""
+        return (f'<span class="cli-fpill{_on}" data-fkind="{kind}" '
+                f'data-fval="{_esc(val)}">{_esc(label)}</span>')
+
+    _ej = _pill("", "Todos", "ej")
+    for _e, _nm in sorted(_ejset.items(), key=lambda kv: (kv[1] or "").lower()):
+        _ej += _pill(_e, _nm, "ej")
+    if _has_none:
+        _ej += _pill("__none__", "Sin asignar", "ej")
+    _st = _pill("", "Todos", "st")
+    for _s in _stages:
+        _st += _pill(_s, _STAGE_META[_s][0], "st")
+    return (
+        '<div class="cli-fbar">'
+        f'<div class="cli-fgrp"><span class="cli-fgrp-lbl">Ejecutivo</span>{_ej}</div>'
+        f'<div class="cli-fgrp"><span class="cli-fgrp-lbl">Estado</span>{_st}</div>'
+        '</div>')
+
+
 # ── Puente JS→Python: click en fila/tarjeta abre la ficha ─────────────────────
 _CLI_CLICK_JS = r"""<script>
 (function(){
@@ -549,26 +590,64 @@ _CLI_CTXMENU_JS = r"""<script>
 })();
 </script>"""
 
-# Buscador client-side del maestro (input HTML + data-s por fila): sin reruns.
-_CLI_SEARCH_JS = r"""<script>
+# Filtros rápidos (badges ejecutivo/estado) + buscador — TODO client-side, sin
+# reruns. Aplica a la vez al pipeline (tarjetas) y al maestro (filas). Los valores
+# del filtro viven en window.parent (persisten entre reruns / cambios de vista).
+_CLI_FILTER_JS = r"""<script>
 (function(){
   var W=window.parent, D=W&&W.document; if(!D) return;
-  var q=D.getElementById('_cli_q');
-  if(!q) return;
-  if(W._cliQH){ try{ q.removeEventListener('input', W._cliQH); }catch(e){} }
-  W._cliQH=function(){
-    var v=(q.value||'').toLowerCase().trim();
-    var trs=D.querySelectorAll('.cli-tbl-wrap tbody tr[data-s]'), n=0;
-    for(var i=0;i<trs.length;i++){
-      var ok=(!v)||(trs[i].getAttribute('data-s').indexOf(v)>=0);
-      trs[i].style.display=ok?'':'none'; if(ok) n++;
+  function apply(){
+    var ej=W._cliFEj||'', stg=W._cliFSt||'', term=(W._cliQ||'');
+    function okA(v){ v=v||''; if(!ej) return true; if(ej==='__none__') return v===''; return v===ej; }
+    function okS(v){ return !stg || (v||'')===stg; }
+    // Pipeline: tarjetas + recuento por columna
+    var cards=D.querySelectorAll('.cli-card[data-asig]');
+    for(var i=0;i<cards.length;i++){
+      var c=cards[i];
+      c.style.display=(okA(c.getAttribute('data-asig'))&&okS(c.getAttribute('data-stage')))?'':'none';
     }
-    var c=D.getElementById('_cli_count'); if(c) c.textContent=n;
-    var em=D.getElementById('_cli_noresult'); if(em) em.style.display=(n||!trs.length)?'none':'block';
-    W._cliQ=v;
+    var cols=D.querySelectorAll('.cli-kb-col');
+    for(var j=0;j<cols.length;j++){
+      var cc=cols[j].querySelectorAll('.cli-card[data-asig]'), n=0;
+      for(var k=0;k<cc.length;k++){ if(cc[k].style.display!=='none') n++; }
+      var ct=cols[j].querySelector('.cli-kb-ct'); if(ct) ct.textContent=n;
+    }
+    // Maestro: filas (combina ejecutivo + estado + término de búsqueda)
+    var rows=D.querySelectorAll('.cli-tbl-wrap tbody tr[data-asig]'), m=0;
+    for(var r=0;r<rows.length;r++){
+      var tr=rows[r];
+      var ok=okA(tr.getAttribute('data-asig'))&&okS(tr.getAttribute('data-stage'))
+             &&(!term||(tr.getAttribute('data-s')||'').indexOf(term)>=0);
+      tr.style.display=ok?'':'none'; if(ok) m++;
+    }
+    var cnt=D.getElementById('_cli_count'); if(cnt) cnt.textContent=m;
+    var em=D.getElementById('_cli_noresult'); if(em) em.style.display=(m||!rows.length)?'none':'block';
+  }
+  W._cliApply=apply;
+  // Sincroniza el 'on' de las pills con el filtro persistente.
+  function syncPills(kind, val){
+    D.querySelectorAll('.cli-fpill[data-fkind="'+kind+'"]').forEach(function(x){
+      x.classList.toggle('on', (x.getAttribute('data-fval')||'')===(val||''));
+    });
+  }
+  if(W._cliPillH){ D.removeEventListener('click', W._cliPillH, true); }
+  W._cliPillH=function(e){
+    var p=e.target&&e.target.closest?e.target.closest('.cli-fpill'):null; if(!p) return;
+    var kind=p.getAttribute('data-fkind'), val=p.getAttribute('data-fval')||'';
+    if(kind==='ej') W._cliFEj=val; else if(kind==='st') W._cliFSt=val;
+    syncPills(kind, val); apply();
   };
-  q.addEventListener('input', W._cliQH);
-  if(W._cliQ){ q.value=W._cliQ; W._cliQH(); }
+  D.addEventListener('click', W._cliPillH, true);
+  // Buscador del maestro (si está)
+  var q=D.getElementById('_cli_q');
+  if(q){
+    if(W._cliQH){ try{ q.removeEventListener('input', W._cliQH); }catch(e){} }
+    W._cliQH=function(){ W._cliQ=(q.value||'').toLowerCase().trim(); apply(); };
+    q.addEventListener('input', W._cliQH);
+    if(W._cliQ){ q.value=W._cliQ; }
+  }
+  syncPills('ej', W._cliFEj||''); syncPills('st', W._cliFSt||'');
+  apply();
 })();
 </script>"""
 
@@ -599,8 +678,10 @@ def _render_maestro(data: list):
                   f"{d.get('telefono','')} {_asig} {d.get('origen','')} {_slbl}".lower())
         _asig_cell = (_esc(_asig) if _asig
                       else '<span style="color:#ea580c;font-weight:700;font-size:0.72rem;">Sin asignar</span>')
+        _asig_email = (d.get("asignado_email") or "").strip().lower()
         rows += (
-            f'<tr data-s="{_s}" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}">'
+            f'<tr data-s="{_s}" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}"'
+            f' data-asig="{_esc(_asig_email)}" data-stage="{_esc(_stage)}">'
             f'<td style="font-weight:700;">{_esc(d.get("nombre","") or "—")}</td>'
             f'<td><span class="cli-pill" style="background:{_sbg};color:{_sfg};">{_slbl}</span></td>'
             f'<td>{_esc(d.get("rut","")) or "—"}</td>'
@@ -637,8 +718,10 @@ def _render_pipeline(data: list):
             _neps = len(d.get("_cotizaciones") or [])
             _ep = (f'{_neps} presupuesto' + ('s' if _neps != 1 else '')) if _neps else "Sin presupuesto"
             _asig_ico = _svg(_ICON_USER_PATH, 12, "#94a3b8")
+            _asig_email = (d.get("asignado_email") or "").strip().lower()
             cards += (
-                f'<div class="cli-card" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}">'
+                f'<div class="cli-card" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}"'
+                f' data-asig="{_esc(_asig_email)}" data-stage="{_esc(s)}">'
                 f'<div class="cli-card-nm">{_esc(d.get("nombre","") or "—")}</div>'
                 f'{_mt}'
                 f'<div class="cli-card-sub">{_asig_ico}{_esc(_asig)}</div>'
@@ -1121,38 +1204,52 @@ def render_tab_clientes(**kwargs):
                 _ok_ids.append(t.get("id"))
             marcar_notificadas(_ok_ids)
 
-    # KPIs por etapa (con datos reales)
+    # KPIs por etapa (con datos reales) — se arman aparte para ir a la DERECHA de
+    # los botones, en la misma fila.
     _cnt = {s: 0 for s in _STAGE_ORDER}
     for d in data:
         _cnt[d.get("_stage") or STAGE_LEAD] = _cnt.get(d.get("_stage") or STAGE_LEAD, 0) + 1
-    st.markdown(
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin:6px 0 14px;">'
+    _kpi_html = (
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:10px;">'
         + _kpi("Total clientes", len(data))
         + _kpi("En presupuesto", _cnt[STAGE_PRESUPUESTO], "#6d28d9")
         + _kpi("Propuesta enviada", _cnt[STAGE_PROPUESTA], "#b45309")
         + _kpi("Ganados", _cnt[STAGE_GANADO], "#15803d")
         + _kpi("Perdidos", _cnt[STAGE_PERDIDO], "#94a3b8")
         + _kpi("Recordatorios", len(_pend_tareas), "#dc2626" if _venc_hoy else "#0f172a")
-        + '</div>', unsafe_allow_html=True)
+        + '</div>')
 
-    # Acciones. "Sincronizar" (backfill del maestro completo) solo root/admin;
-    # "Agregar cliente" para todos (el ejecutivo se lo auto-asigna).
-    a1, a2, _a3 = st.columns([1, 1, 2])
-    with a1:
-        if _es_gestor:
-            if st.button("Sincronizar", icon=":material/sync:", use_container_width=True,
-                         key="_cli_sync", help="Re-lee las cotizaciones y crea las fichas que falten (solo lectura)"):
-                with st.spinner("Sincronizando con cotizaciones…"):
-                    res = backfill_desde_cotizaciones()
-                _cli_data.clear()
-                st.session_state["_cli_toast"] = (
-                    f"Sincronizado: {res['creados']} nuevo(s), {res['existentes']} ya estaban.")
-                st.rerun()
-    with a2:
-        if st.button("Agregar cliente", icon=":material/person_add:", type="primary",
+    def _add_btn():
+        if st.button("Agregar", icon=":material/person_add:", type="primary",
                      use_container_width=True, key="_cli_add_btn"):
             st.session_state["_cli_add_open"] = True
             st.session_state["_cli_just_opened"] = True
+
+    # Fila: botones a la IZQUIERDA + KPI cards a la derecha. Sincronizar = solo
+    # icono (root/admin). Agregar angosto.
+    if _es_gestor:
+        _bcol, _kcol = st.columns([2, 10], vertical_alignment="center")
+        with _bcol:
+            _bs, _ba = st.columns([1, 2])
+            with _bs:
+                if st.button("", icon=":material/sync:", use_container_width=True,
+                             key="_cli_sync", help="Sincronizar con cotizaciones"):
+                    with st.spinner("Sincronizando…"):
+                        res = backfill_desde_cotizaciones()
+                    _cli_data.clear()
+                    st.session_state["_cli_toast"] = (
+                        f"Sincronizado: {res['creados']} nuevo(s), {res['existentes']} ya estaban.")
+                    st.rerun()
+            with _ba:
+                _add_btn()
+        with _kcol:
+            st.markdown(_kpi_html, unsafe_allow_html=True)
+    else:
+        _bcol, _kcol = st.columns([1.6, 10.4], vertical_alignment="center")
+        with _bcol:
+            _add_btn()
+        with _kcol:
+            st.markdown(_kpi_html, unsafe_allow_html=True)
 
     # Selector de vista
     st.markdown(_CLI_SELECTOR_CSS, unsafe_allow_html=True)
@@ -1163,6 +1260,11 @@ def render_tab_clientes(**kwargs):
                      label_visibility="collapsed",
                      format_func=lambda v: f"{_icons.get(v,'')} {v}")
 
+    # Filtros rápidos (badges por ejecutivo/estado) — solo root/admin, en Pipeline
+    # y Maestro. Client-side (ver _CLI_FILTER_JS): no disparan reruns.
+    if _es_gestor and _view in ("Pipeline", "Maestro"):
+        st.markdown(_build_filter_bar(data), unsafe_allow_html=True)
+
     if _view == "Maestro":
         _render_maestro(data)
     elif _view == "Bandeja":
@@ -1170,8 +1272,8 @@ def render_tab_clientes(**kwargs):
     else:
         _render_pipeline(data)
 
-    # Handler de click (abre ficha) + menú contextual + búsqueda + salida del drawer.
-    components.html(_CLI_CLICK_JS + _CLI_CTXMENU_JS + _CLI_SEARCH_JS, height=0)
+    # Handler de click (abre ficha) + menú contextual + filtros/búsqueda + salida.
+    components.html(_CLI_CLICK_JS + _CLI_CTXMENU_JS + _CLI_FILTER_JS, height=0)
     components.html(_CLI_DRAWER_JS, height=0)
 
     # Drawer: base siempre; entrada SOLO al abrir desde cerrado, reposo en los
