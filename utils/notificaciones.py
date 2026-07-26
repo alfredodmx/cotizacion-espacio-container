@@ -146,6 +146,25 @@ def notificar_recordatorio(cliente_nombre, titulo, vence, asignado_email="", ven
         return 0
 
 
+def notificar_lead_asignado(cliente_nombre, ejecutivo_email, asignado_por=""):
+    """Aviso Telegram al EJECUTIVO cuando se le asigna un lead/cliente en el CRM.
+    Va solo al ejecutivo (por su chat_id en contactos). Nunca lanza. Devuelve
+    cuántos envíos hizo."""
+    try:
+        _token = _get_cfg('bot_token', st.secrets.get("TELEGRAM_BOT_TOKEN", ""))
+        contactos = _get_contactos()
+        msg = (f"🧲 *Nuevo lead asignado*\n\nCliente: *{cliente_nombre}*"
+               + (f"\nAsignado por: {asignado_por}" if asignado_por else "")
+               + "\n\nRevísalo en el sistema.")
+        chat_id = contactos.get((ejecutivo_email or '').lower(), '')
+        if chat_id and _enviar_telegram(chat_id, msg, _token):
+            return 1
+        return 0
+    except Exception as _e:
+        print(f"ERROR notificar_lead_asignado: {_e}\n{_tb.format_exc()}")
+        return 0
+
+
 def notificar_margen_removido(ep, cliente_nombre, ejecutivo_email):
     try:
         plantilla = _get_cfg(

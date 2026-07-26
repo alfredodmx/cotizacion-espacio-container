@@ -1499,6 +1499,29 @@ def render_layout():
     except Exception:
         _notif_html = ''
 
+    # Toast de notificaciones NUEVAS (las que aparecen DURANTE la sesión, no el
+    # backlog al entrar). En la 1ª carga se marca el backlog como "ya visto"; de
+    # ahí en más, cada notificación sin leer que no estaba se muestra una vez.
+    try:
+        _nn, _nitems = (_notif_data(_email) if _email else (0, []))
+        _unread = [it.get("id") for it in _nitems if not it.get("leido")]
+        if "_notif_seen_ids" not in st.session_state:
+            st.session_state["_notif_seen_ids"] = set(_unread)
+            st.session_state["_notif_toasted"] = set()
+        else:
+            _seen = st.session_state["_notif_seen_ids"]
+            _toasted = st.session_state.setdefault("_notif_toasted", set())
+            for it in _nitems:
+                if it.get("leido"):
+                    continue
+                _nid = it.get("id")
+                if _nid in _seen or _nid in _toasted:
+                    continue
+                st.toast(str(it.get("titulo") or "Nueva notificación"), icon="🔔")
+                _toasted.add(_nid)
+    except Exception:
+        pass
+
     st.markdown(
         _NOTIF_CSS +
         f'<style>#_usr_header_bar{{background:{_bg};}}</style>'
