@@ -783,7 +783,7 @@ def _render_ficha(cid: str, data: list):
                          key="_cli_fh_mail"):
                 st.toast("El envío de correos (Resend) llega en una fase siguiente.")
         with a2:
-            if st.button("Nueva actividad", icon=":material/calendar_plus:", use_container_width=True,
+            if st.button("Nueva actividad", icon=":material/add_task:", use_container_width=True,
                          key="_cli_fh_act"):
                 st.session_state["_cli_act_open"] = not st.session_state.get("_cli_act_open", False)
                 st.rerun(scope="fragment")
