@@ -106,7 +106,7 @@ _PAGES = {
     'reporte':        ('Reporte BI',         'reporte',        lambda: render_tab_reporte(supabase=supabase)),
     'operaciones':    ('Operaciones',        'operaciones',    lambda: render_tab_operaciones(**_deps)),
     'inventario':     ('Inventario',         'inventario',     lambda: render_tab_inventario(**_deps)),
-    'clientes':       ('Clientes',           'clientes',       lambda: render_tab_clientes(**_deps)),
+    'clientes':       ('Mis Clientes CRM',   'clientes',       lambda: render_tab_clientes(**_deps)),
     'admindata':      ('Admin. de datos',    'admindata',      lambda: render_tab_admindata(**_deps)),
     'formulario':     ('Formulario cliente', 'formulario',     lambda: render_tab_formulario(**_deps)),
     'seguridad':      ('Seguridad',          'seguridad',      lambda: render_tab_seguridad(**_deps)),
@@ -114,9 +114,9 @@ _PAGES = {
 
 _ORDER = {
     'root':      ['dashboard','presupuesto','datos','cotizaciones','edicion_pdf','ranking','contrato','3d','proyecto_excel','sistema','usuarios','notificaciones','reporte','operaciones','inventario','clientes','admindata','formulario','seguridad'],
-    'admin':     ['presupuesto','cotizaciones','datos','contrato','operaciones','inventario','usuarios','proyecto_excel','edicion_pdf','ranking','3d','notificaciones','dashboard','reporte','admindata','formulario','seguridad'],
+    'admin':     ['presupuesto','cotizaciones','datos','contrato','clientes','operaciones','inventario','usuarios','proyecto_excel','edicion_pdf','ranking','3d','notificaciones','dashboard','reporte','admindata','formulario','seguridad'],
     'operacion': ['operaciones','inventario'],
-    'ejecutivo': ['ranking','presupuesto','datos','cotizaciones','contrato','formulario','3d'],
+    'ejecutivo': ['ranking','presupuesto','datos','cotizaciones','clientes','contrato','formulario','3d'],
 }
 
 _keys = _ORDER.get(_rol, _ORDER['ejecutivo'])

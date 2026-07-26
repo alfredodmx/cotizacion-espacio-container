@@ -54,7 +54,8 @@ _NOTIF_CSS = """<style>
 #_hdr_notif_read{background:none;border:none;color:#2563eb;font-size:0.74rem;font-weight:700;cursor:pointer;padding:2px 4px;}
 #_hdr_notif_read:hover{color:#1d4ed8;text-decoration:underline;}
 ._hdr_notif_list{max-height:min(58vh,420px);overflow-y:auto;}
-._hdr_notif_it{display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border-bottom:1px solid #f4f6fb;}
+._hdr_notif_it{display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border-bottom:1px solid #f4f6fb;cursor:pointer;transition:background .12s;}
+._hdr_notif_it:hover{background:#eef4ff!important;}
 ._hdr_notif_it:last-child{border-bottom:none;}
 ._hdr_notif_ico{color:#5b7cfa;flex-shrink:0;margin-top:1px;display:flex;}
 ._hdr_notif_ico svg{width:18px;height:18px;}
@@ -1543,7 +1544,7 @@ def render_layout():
     # 6. Botones ocultos (foto / contraseña) disparados desde el menú del avatar.
     # El logout NO usa botón: el menú navega a ?logout=1 (carga completa) porque un
     # st.rerun in-place crashea React al desmontar el árbol autenticado → body vacío.
-    _c0, _c_foto, _c_pwd, _c_notif = st.columns([18, 1, 1, 1])
+    _c0, _c_foto, _c_pwd, _c_notif, _c_ngo = st.columns([17, 1, 1, 1, 1])
     with _c_foto:
         if st.button("📷 Cambiar foto", key="btn_foto_hdr", use_container_width=True):
             st.session_state["_show_foto_dialog"] = True
@@ -1561,6 +1562,17 @@ def render_layout():
             except Exception:
                 pass
             _notif_data.clear()
+            st.rerun()
+    with _c_ngo:
+        # Botón oculto: click en una notificación → marca leídas + va a MIS CLIENTES CRM.
+        if st.button("go", key="btn_notif_go", use_container_width=True):
+            try:
+                from repositories.notificaciones_repo import marcar_leidas
+                marcar_leidas(_email)
+            except Exception:
+                pass
+            _notif_data.clear()
+            st.session_state["nav_page"] = "clientes"
             st.rerun()
 
     # 7. JS — mover botones al header una sola vez (sin MutationObserver)
@@ -1716,6 +1728,8 @@ def render_layout():
             if (bellBtn) { if (notifWrap) notifWrap.classList.toggle('_open'); if (menuWrap) menuWrap.classList.remove('_open'); e.stopPropagation(); return; }
             var readBtn = t && t.closest ? t.closest('#_hdr_notif_read') : null;
             if (readBtn) { if (notifWrap) notifWrap.classList.remove('_open'); var _rb = D.querySelector('.st-key-btn_notif_read button'); if (_rb) _rb.click(); e.stopPropagation(); return; }
+            var notifItem = t && t.closest ? t.closest('._hdr_notif_it') : null;
+            if (notifItem) { if (notifWrap) notifWrap.classList.remove('_open'); var _gb = D.querySelector('.st-key-btn_notif_go button'); if (_gb) _gb.click(); e.stopPropagation(); return; }
             if (notifWrap && notifWrap.classList.contains('_open') && !(t.closest && t.closest('#_hdr_notif_wrap'))) { notifWrap.classList.remove('_open'); }
             var mItem = t && t.closest ? t.closest('._hdr_menu_item') : null;
             if (mItem) {

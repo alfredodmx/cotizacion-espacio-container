@@ -386,10 +386,15 @@ def _default_hora():
 
 
 @st.cache_data(ttl=60, show_spinner=False)
-def _cli_data() -> list:
+def _cli_data(rol: str = "root", email: str = "") -> list:
     """Maestro enriquecido con el pipeline DERIVADO (_stage/_cotizaciones/_monto).
-    Cacheado; se limpia al mutar/sincronizar."""
-    return enriquecer_con_pipeline(listar_clientes(solo_activos=True))
+    root/admin ven TODOS; ejecutivo ve SOLO sus clientes asignados (por
+    asignado_email). Cacheado por (rol,email); se limpia al mutar/sincronizar."""
+    _all = enriquecer_con_pipeline(listar_clientes(solo_activos=True))
+    if rol == "ejecutivo":
+        _e = (email or "").strip().lower()
+        return [c for c in _all if (c.get("asignado_email") or "").strip().lower() == _e]
+    return _all
 
 
 @st.cache_data(ttl=60, show_spinner=False)
@@ -679,6 +684,54 @@ def _render_bandeja(data: list):
 
 # ── Ficha 360 ─────────────────────────────────────────────────────────────────
 
+def _render_asignar(cid, cli):
+    """Selector 'Ejecutivo asignado' + botón Asignar (solo root/admin). Al asignar:
+    actualiza el cliente + notifica al ejecutivo (campana + Telegram)."""
+    _ejs = _ejecutivos()
+    _ej_opts = [""] + [e["email"] for e in _ejs]
+    _ej_lbl = {"": "— Sin asignar —"}
+    for e in _ejs:
+        _ej_lbl[e["email"]] = e.get("nombre") or e["email"]
+    _cur_asig = (cli.get("asignado_email") or "").strip().lower()
+    _idx = 0
+    for _i, _em in enumerate(_ej_opts):
+        if _em.lower() == _cur_asig:
+            _idx = _i
+            break
+    asc1, asc2 = st.columns([3, 1], vertical_alignment="bottom")
+    with asc1:
+        _sel_ej = st.selectbox("Ejecutivo asignado", _ej_opts, index=_idx,
+                               format_func=lambda em: _ej_lbl.get(em, em),
+                               key=f"_cli_asig_{cid}")
+    with asc2:
+        _do_asig = st.button("Asignar", use_container_width=True, key=f"_cli_asigbtn_{cid}")
+    if not _do_asig:
+        return
+    _new_em = (_sel_ej or "").strip()
+    _new_nm = _ej_lbl.get(_new_em, "") if _new_em else ""
+    if _new_em.lower() == _cur_asig:
+        st.info("Sin cambios en la asignación.")
+        return
+    _actor = (st.session_state.get("auth_nombre") or st.session_state.get("auth_email", ""))
+    _ok, _err = actualizar_cliente(cid, {"asignado_email": _new_em, "asignado_nombre": _new_nm})
+    if not _ok:
+        st.error(f"No se pudo asignar: {_err}")
+        return
+    cli["asignado_email"] = _new_em
+    cli["asignado_nombre"] = _new_nm
+    _cli_data.clear()
+    if _new_em:
+        registrar_actividad(cid, "nota", f"Asignado a {_new_nm}", actor=_actor)
+        _crear_notif(_new_em, f"Nuevo lead asignado · {cli.get('nombre','Cliente')}",
+                     tipo="lead", detalle=f"Asignado por {_actor}", cliente_id=cid)
+        _tg = notificar_lead_asignado(cli.get("nombre", "Cliente"), _new_em, _actor)
+        st.toast(f"Lead asignado a {_new_nm}" + (" · avisado por Telegram" if _tg else ""))
+    else:
+        registrar_actividad(cid, "nota", "Cliente desasignado", actor=_actor)
+        st.toast("Cliente desasignado")
+    st.rerun(scope="fragment")
+
+
 def _render_actividad(cid, cli, t):
     """Una fila de la lista de actividades. Para llamadas pendientes muestra el
     botón "Resultado" que despliega Contestó / No interesado / No contestó→reagendar.
@@ -801,51 +854,9 @@ def _render_ficha(cid: str, data: list):
             '</div>', unsafe_allow_html=True)
 
         # ── Asignar a un ejecutivo (dispara la notificación a ese ejecutivo) ──
-        _ejs = _ejecutivos()
-        _ej_opts = [""] + [e["email"] for e in _ejs]
-        _ej_lbl = {"": "— Sin asignar —"}
-        for e in _ejs:
-            _ej_lbl[e["email"]] = e.get("nombre") or e["email"]
-        _cur_asig = (cli.get("asignado_email") or "").strip().lower()
-        _idx = 0
-        for _i, _em in enumerate(_ej_opts):
-            if _em.lower() == _cur_asig:
-                _idx = _i
-                break
-        asc1, asc2 = st.columns([3, 1], vertical_alignment="bottom")
-        with asc1:
-            _sel_ej = st.selectbox("Ejecutivo asignado", _ej_opts, index=_idx,
-                                   format_func=lambda em: _ej_lbl.get(em, em),
-                                   key=f"_cli_asig_{cid}")
-        with asc2:
-            _do_asig = st.button("Asignar", use_container_width=True, key=f"_cli_asigbtn_{cid}")
-        if _do_asig:
-            _new_em = (_sel_ej or "").strip()
-            _new_nm = _ej_lbl.get(_new_em, "") if _new_em else ""
-            if _new_em.lower() == _cur_asig:
-                st.info("Sin cambios en la asignación.")
-            else:
-                _actor = (st.session_state.get("auth_nombre")
-                          or st.session_state.get("auth_email", ""))
-                _ok, _err = actualizar_cliente(cid, {"asignado_email": _new_em,
-                                                     "asignado_nombre": _new_nm})
-                if _ok:
-                    cli["asignado_email"] = _new_em
-                    cli["asignado_nombre"] = _new_nm
-                    _cli_data.clear()
-                    if _new_em:
-                        registrar_actividad(cid, "nota", f"Asignado a {_new_nm}", actor=_actor)
-                        _crear_notif(_new_em, f"Nuevo lead asignado · {cli.get('nombre','Cliente')}",
-                                     tipo="lead", detalle=f"Asignado por {_actor}", cliente_id=cid)
-                        _tg = notificar_lead_asignado(cli.get("nombre", "Cliente"), _new_em, _actor)
-                        st.toast(f"Lead asignado a {_new_nm}"
-                                 + (" · avisado por Telegram" if _tg else ""))
-                    else:
-                        registrar_actividad(cid, "nota", "Cliente desasignado", actor=_actor)
-                        st.toast("Cliente desasignado")
-                    st.rerun(scope="fragment")
-                else:
-                    st.error(f"No se pudo asignar: {_err}")
+        # SOLO root/admin (re)asignan; el ejecutivo ve su ficha pero no reasigna.
+        if st.session_state.get("rol_usuario") in ("root", "admin"):
+            _render_asignar(cid, cli)
 
         # "Enviar correo" llega con Resend (fase siguiente); "Nueva actividad" abre
         # el formulario para agendar (llamada/reunión/correo/tarea). El cierre del
@@ -975,7 +986,7 @@ def _render_ficha(cid: str, data: list):
 
 # ── Alta manual ───────────────────────────────────────────────────────────────
 
-def _render_agregar_dialog():
+def _render_agregar_dialog(rol="root", user_email=""):
     @st.dialog("Agregar cliente")
     def _dlg():
         c1, c2 = st.columns(2)
@@ -1011,20 +1022,26 @@ def _render_agregar_dialog():
             _pol = _cli_polluted()
             k = dedup_key(rut, email, telefono, nombre, _pol)
             if k[1]:
-                for c in _cli_data():
+                for c in _cli_data(rol, user_email):
                     if dedup_key(c.get("rut"), c.get("email"), c.get("telefono"), c.get("nombre"), _pol) == k:
                         st.warning(f"Ya existe un cliente con esa identidad: "
                                    f"{c.get('nombre','')}. No se creó un duplicado.")
                         return
             _actor = st.session_state.get("auth_nombre") or st.session_state.get("auth_email", "")
-            cid, err = crear_cliente({
+            # El ejecutivo se auto-asigna el cliente que crea (así lo ve); root/admin
+            # lo dejan sin asignar para asignarlo luego desde la ficha.
+            _payload = {
                 "nombre": nombre.strip(), "rut": (rut or "").strip(),
                 "email": (email or "").strip(), "telefono": (telefono or "").strip(),
                 "tipo": tipo, "empresa": (empresa or "").strip(),
                 "rut_empresa": (rut_empresa or "").strip(),
                 "direccion": (direccion or "").strip(), "comuna": (comuna or "").strip(),
                 "origen": "Manual", "etapa_manual": "lead_nuevo",
-            })
+            }
+            if rol == "ejecutivo":
+                _payload["asignado_email"] = (user_email or "").strip()
+                _payload["asignado_nombre"] = st.session_state.get("auth_nombre", "") or ""
+            cid, err = crear_cliente(_payload)
             if cid:
                 registrar_actividad(cid, "nota", "Cliente creado manualmente", actor=_actor)
                 _cli_data.clear()
@@ -1040,19 +1057,24 @@ def _render_agregar_dialog():
 
 def render_tab_clientes(**kwargs):
     _rol = st.session_state.get("rol_usuario", "ejecutivo")
-    # DOBLE LLAVE: aunque no está en la navegación de otros roles, se revalida acá.
-    if _rol != _ROL_OK:
-        render_page_header("clientes", "Clientes", "CRM")
-        st.warning("Esta sección aún no está disponible.")
+    _email = st.session_state.get("auth_email", "")
+    _es_gestor = _rol in ("root", "admin")   # ven todo + pueden sincronizar/asignar
+    # DOBLE LLAVE: solo root / admin / ejecutivo (operación no tiene CRM).
+    if _rol not in ("root", "admin", "ejecutivo"):
+        render_page_header("clientes", "Mis Clientes CRM", "CRM")
+        st.warning("Esta sección no está disponible para tu rol.")
         return
 
-    render_page_header("clientes", "Clientes",
-                       "CRM · maestro de clientes (en construcción)")
+    _sub = ("CRM · todos los clientes" if _es_gestor
+            else "CRM · mis clientes asignados")
+    render_page_header("clientes", "Mis Clientes CRM", _sub)
     st.markdown(_CLI_CSS, unsafe_allow_html=True)
 
     _t = st.session_state.pop("_cli_toast", None)
     if _t:
         st.toast(_t)
+
+    data = _cli_data(_rol, _email)
 
     # Puente oculto: click en fila/tarjeta → abre la ficha.
     st.markdown('<style>.st-key-_cli_cmd{position:absolute!important;left:-9999px!important;'
@@ -1072,12 +1094,10 @@ def render_tab_clientes(**kwargs):
                 st.session_state.pop("_cli_act_res", None)
             elif _p[0] == "nuevo" and len(_p) >= 3:
                 # Crear presupuesto para este cliente (menú contextual pipeline/maestro).
-                _cobj = next((d for d in _cli_data() if str(d.get("id")) == _p[1]), None)
+                _cobj = next((d for d in data if str(d.get("id")) == _p[1]), None)
                 if _cobj:
                     _iniciar_presupuesto(_cobj)
                     st.rerun()
-
-    data = _cli_data()
 
     # Recordatorios pendientes (para el KPI) + alerta Telegram de vencidos.
     _pend_tareas = listar_tareas_pendientes()
@@ -1115,17 +1135,19 @@ def render_tab_clientes(**kwargs):
         + _kpi("Recordatorios", len(_pend_tareas), "#dc2626" if _venc_hoy else "#0f172a")
         + '</div>', unsafe_allow_html=True)
 
-    # Acciones: Sincronizar (backfill) + Agregar cliente
+    # Acciones. "Sincronizar" (backfill del maestro completo) solo root/admin;
+    # "Agregar cliente" para todos (el ejecutivo se lo auto-asigna).
     a1, a2, _a3 = st.columns([1, 1, 2])
     with a1:
-        if st.button("Sincronizar", icon=":material/sync:", use_container_width=True,
-                     key="_cli_sync", help="Re-lee las cotizaciones y crea las fichas que falten (solo lectura)"):
-            with st.spinner("Sincronizando con cotizaciones…"):
-                res = backfill_desde_cotizaciones()
-            _cli_data.clear()
-            st.session_state["_cli_toast"] = (
-                f"Sincronizado: {res['creados']} nuevo(s), {res['existentes']} ya estaban.")
-            st.rerun()
+        if _es_gestor:
+            if st.button("Sincronizar", icon=":material/sync:", use_container_width=True,
+                         key="_cli_sync", help="Re-lee las cotizaciones y crea las fichas que falten (solo lectura)"):
+                with st.spinner("Sincronizando con cotizaciones…"):
+                    res = backfill_desde_cotizaciones()
+                _cli_data.clear()
+                st.session_state["_cli_toast"] = (
+                    f"Sincronizado: {res['creados']} nuevo(s), {res['existentes']} ya estaban.")
+                st.rerun()
     with a2:
         if st.button("Agregar cliente", icon=":material/person_add:", type="primary",
                      use_container_width=True, key="_cli_add_btn"):
@@ -1163,7 +1185,7 @@ def render_tab_clientes(**kwargs):
     if _fid:
         _render_ficha(_fid, data)
 
-    # Diálogo de alta (one-shot)
+    # Diálogo de alta (one-shot). El ejecutivo lo crea auto-asignado a sí mismo.
     if st.session_state.get("_cli_add_open"):
         st.session_state.pop("_cli_add_open", None)
-        _render_agregar_dialog()
+        _render_agregar_dialog(_rol, _email)
