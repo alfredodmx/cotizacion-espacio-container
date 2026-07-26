@@ -308,6 +308,60 @@ def _fmt_fecha_local(iso_str) -> str:
         return str(iso_str)[:16].replace("T", " ")
 
 
+# ── Actividades (tareas) tipo CRM: tipos + hora + resultado de llamada ────────
+_ACT_TIPOS = ["llamada", "reunion", "correo", "tarea"]
+_ACT_META = {   # tipo -> (label, svg_path)
+    "llamada": ("Llamada", '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>'),
+    "reunion": ("Reunión", '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
+    "correo":  ("Correo", '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>'),
+    "tarea":   ("Tarea", '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'),
+}
+_ACT_MAT = {"llamada": ":material/call:", "reunion": ":material/groups:",
+            "correo": ":material/mail:", "tarea": ":material/task_alt:"}
+_RESULT_META = {  # resultado -> (label, bg, fg)
+    "contesto": ("Contestó", "#dcfce7", "#15803d"),
+    "no_contesto": ("No contestó", "#fef3c7", "#b45309"),
+    "no_interesado": ("No interesado", "#fee2e2", "#b91c1c"),
+}
+
+
+def _ahora_scl():
+    try:
+        if _ZoneInfo is None:
+            raise RuntimeError
+        return _dt.now(_ZoneInfo("America/Santiago"))
+    except Exception:
+        return _dt.now(_tz(_td(hours=-3)))
+
+
+def _mk_vence(fecha, hora) -> str:
+    """Combina fecha + hora en un ISO con la zona de Chile (para que se guarde y
+    se muestre en la hora local que eligió el usuario)."""
+    dtv = _dt.combine(fecha, hora)
+    try:
+        if _ZoneInfo is None:
+            raise RuntimeError
+        return dtv.replace(tzinfo=_ZoneInfo("America/Santiago")).isoformat()
+    except Exception:
+        return dtv.replace(tzinfo=_tz(_td(hours=-3))).isoformat()
+
+
+def _act_vencida(vence_iso) -> bool:
+    """True si la actividad ya venció (vence <= ahora, comparando en UTC)."""
+    try:
+        dt = _dt.fromisoformat(str(vence_iso).replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=_tz.utc)
+        return dt <= _dt.now(_tz.utc)
+    except Exception:
+        return False
+
+
+def _default_hora():
+    """Próxima hora en punto (Chile) como valor por defecto del time_input."""
+    return (_ahora_scl() + _td(hours=1)).replace(minute=0, second=0, microsecond=0).time()
+
+
 @st.cache_data(ttl=60, show_spinner=False)
 def _cli_data() -> list:
     """Maestro enriquecido con el pipeline DERIVADO (_stage/_cotizaciones/_monto).
@@ -602,6 +656,89 @@ def _render_bandeja(data: list):
 
 # ── Ficha 360 ─────────────────────────────────────────────────────────────────
 
+def _render_actividad(cid, cli, t):
+    """Una fila de la lista de actividades. Para llamadas pendientes muestra el
+    botón "Resultado" que despliega Contestó / No interesado / No contestó→reagendar.
+    El resto de tipos solo tiene "Hecho"."""
+    tid = t.get("id")
+    tipo = t.get("tipo") or "tarea"
+    _lbl, _path = _ACT_META.get(tipo, _ACT_META["tarea"])
+    hecho = bool(t.get("hecho"))
+    resultado = t.get("resultado") or ""
+    vence = t.get("vence")
+    vencida = (not hecho) and _act_vencida(vence)
+    _col = "#94a3b8" if hecho else ("#dc2626" if vencida else "#0f172a")
+    _icol = "#16a34a" if hecho else ("#dc2626" if vencida else "#5b7cfa")
+    _dec = "text-decoration:line-through;" if hecho else ""
+    _resb = ""
+    if resultado:
+        _rl, _rb, _rf = _RESULT_META.get(resultado, (resultado, "#f1f5f9", "#475569"))
+        _resb = f'<span class="cli-pill" style="background:{_rb};color:{_rf};margin-left:6px;">{_rl}</span>'
+    _cuando = "venció" if vencida else ("hecho" if hecho else "vence")
+    rc1, rc2 = st.columns([5, 2], vertical_alignment="center")
+    with rc1:
+        st.markdown(
+            '<div style="padding:4px 0;display:flex;align-items:center;gap:7px;flex-wrap:wrap;">'
+            + _svg(_path, 15, _icol) +
+            f'<span style="font-size:0.86rem;color:{_col};{_dec}">{_esc(t.get("titulo",""))}</span>'
+            f'{_resb}'
+            f'<span style="font-size:0.72rem;color:#94a3b8;">{_cuando} {_esc(_fmt_fecha_local(vence))}</span>'
+            '</div>', unsafe_allow_html=True)
+    with rc2:
+        if not hecho and tipo == "llamada":
+            if st.button("Resultado", key=f"_cli_res_{tid}", use_container_width=True):
+                _cur = st.session_state.get("_cli_act_res")
+                st.session_state["_cli_act_res"] = None if _cur == tid else tid
+                st.rerun(scope="fragment")
+        elif not hecho:
+            if st.button("Hecho", key=f"_cli_done_{tid}", use_container_width=True):
+                completar_tarea(tid, True)
+                registrar_actividad(cid, "nota", f"{_lbl} realizada: {t.get('titulo','')}")
+                st.rerun(scope="fragment")
+
+    # Panel de resultado (solo llamadas pendientes, cuando está abierto).
+    if (not hecho) and tipo == "llamada" and st.session_state.get("_cli_act_res") == tid:
+        _actor = st.session_state.get("auth_nombre") or st.session_state.get("auth_email", "")
+        with st.container(border=True):
+            o1, o2 = st.columns(2)
+            with o1:
+                if st.button("Contestó", key=f"_cli_rok_{tid}", type="primary", use_container_width=True):
+                    completar_tarea(tid, True, "contesto")
+                    registrar_actividad(cid, "llamada", "Llamada — contestó",
+                                        detalle=t.get("titulo", ""), actor=_actor)
+                    st.session_state.pop("_cli_act_res", None)
+                    st.rerun(scope="fragment")
+            with o2:
+                if st.button("No interesado", key=f"_cli_rno_{tid}", use_container_width=True):
+                    completar_tarea(tid, True, "no_interesado")
+                    registrar_actividad(cid, "llamada", "Llamada — no interesado",
+                                        detalle=t.get("titulo", ""), actor=_actor)
+                    st.session_state.pop("_cli_act_res", None)
+                    st.rerun(scope="fragment")
+            st.markdown('<div style="font-size:0.72rem;color:#94a3b8;margin:4px 0 2px;">'
+                        'No contestó → volver a llamar:</div>', unsafe_allow_html=True)
+            n1, n2, n3 = st.columns(3)
+            for _cw, (_ol, _oh) in zip((n1, n2, n3), [("En 1 h", 1), ("En 2 h", 2), ("Mañana", None)]):
+                with _cw:
+                    if st.button(_ol, key=f"_cli_rre_{tid}_{_oh}", use_container_width=True):
+                        completar_tarea(tid, True, "no_contesto")
+                        if _oh is None:
+                            _nx = (_ahora_scl() + _td(days=1)).replace(hour=9, minute=0, second=0, microsecond=0)
+                        else:
+                            _nx = (_ahora_scl() + _td(hours=_oh)).replace(second=0, microsecond=0)
+                        _nx_iso = _nx.isoformat()
+                        crear_tarea(cid, f"Volver a llamar — {t.get('titulo','')}", _nx_iso,
+                                    cli.get("asignado_email", ""), tipo="llamada")
+                        registrar_actividad(cid, "llamada", "Llamada — no contestó",
+                                            detalle=f"reagendada {_fmt_fecha_local(_nx_iso)}", actor=_actor)
+                        notificar_recordatorio(cli.get("nombre", "Cliente"),
+                                               f"Volver a llamar: {t.get('titulo','')}",
+                                               _fmt_fecha_local(_nx_iso), cli.get("asignado_email", ""))
+                        st.session_state.pop("_cli_act_res", None)
+                        st.toast("Reagendado")
+                        st.rerun(scope="fragment")
+
+
 def _render_ficha(cid: str, data: list):
     cli = next((d for d in data if str(d.get("id")) == str(cid)), None)
     if not cli:
@@ -637,92 +774,72 @@ def _render_ficha(cid: str, data: list):
             f'{_empresa}'
             '</div>', unsafe_allow_html=True)
 
-        # "Enviar correo" llega con Resend (fase siguiente); "Recordar" abre el
-        # mini-formulario inline. El cierre del drawer va por su X / clic fuera /
-        # Escape (con animación de salida). "Crear presupuesto" va más abajo, junto
-        # al encabezado de Presupuestos.
+        # "Enviar correo" llega con Resend (fase siguiente); "Nueva actividad" abre
+        # el formulario para agendar (llamada/reunión/correo/tarea). El cierre del
+        # drawer va por su X / clic fuera / Escape (con animación de salida).
         a1, a2 = st.columns(2)
         with a1:
             if st.button("Enviar correo", icon=":material/mail:", use_container_width=True,
                          key="_cli_fh_mail"):
                 st.toast("El envío de correos (Resend) llega en una fase siguiente.")
         with a2:
-            if st.button("Recordar", icon=":material/notification_add:", use_container_width=True,
-                         key="_cli_fh_rem"):
-                st.session_state["_cli_rem_open"] = not st.session_state.get("_cli_rem_open", False)
+            if st.button("Nueva actividad", icon=":material/calendar_plus:", use_container_width=True,
+                         key="_cli_fh_act"):
+                st.session_state["_cli_act_open"] = not st.session_state.get("_cli_act_open", False)
                 st.rerun(scope="fragment")
 
-        # Mini-formulario de recordatorio (inline: NO puede ser otro dialog dentro
-        # del dialog). Se muestra al pulsar "Recordar".
-        if st.session_state.get("_cli_rem_open"):
+        # ── Formulario de nueva actividad (tipo + título + fecha + hora) ──
+        if st.session_state.get("_cli_act_open"):
             with st.container(border=True):
                 st.markdown('<div style="font-size:0.78rem;font-weight:700;color:#0f172a;'
-                            'text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;">'
-                            'Nuevo recordatorio</div>', unsafe_allow_html=True)
-                _rt = st.text_input("¿Qué recordar?", key="_cli_rem_titulo",
+                            'text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">'
+                            'Nueva actividad</div>', unsafe_allow_html=True)
+                _tipo = st.radio("Tipo", _ACT_TIPOS, key="_cli_act_tipo", horizontal=True,
+                                 format_func=lambda t: f"{_ACT_MAT.get(t, '')} {_ACT_META[t][0]}")
+                _at = st.text_input("Título", key="_cli_act_titulo",
                                     placeholder="Llamar para seguimiento…", label_visibility="collapsed")
-                rc1, rc2 = st.columns([1, 1])
-                with rc1:
-                    _rv = st.date_input("Vence", value=_date.today() + _td(days=3),
-                                        min_value=_date.today(), key="_cli_rem_fecha")
-                with rc2:
-                    _rg = st.button("Guardar recordatorio", type="primary",
-                                    use_container_width=True, key="_cli_rem_save")
-                if _rg:
-                    if not (_rt or "").strip():
-                        st.warning("Escribe qué quieres recordar.")
+                fc1, fc2 = st.columns(2)
+                with fc1:
+                    _af = st.date_input("Fecha", value=_date.today(), min_value=_date.today(),
+                                        key="_cli_act_fecha")
+                with fc2:
+                    _ah = st.time_input("Hora", value=_default_hora(), key="_cli_act_hora")
+                if st.button("Agendar actividad", type="primary", use_container_width=True,
+                             key="_cli_act_save"):
+                    if not (_at or "").strip():
+                        st.warning("Escribe qué hay que hacer.")
                     else:
                         _actor = (st.session_state.get("auth_nombre")
                                   or st.session_state.get("auth_email", ""))
-                        _vence_iso = f"{_rv.isoformat()}T09:00:00-03:00"
-                        _tid, _terr = crear_tarea(cid, _rt.strip(), _vence_iso,
-                                                  cli.get("asignado_email", ""))
+                        _vence = _mk_vence(_af, _ah)
+                        _tid, _terr = crear_tarea(cid, _at.strip(), _vence,
+                                                  cli.get("asignado_email", ""), tipo=_tipo)
                         if _tid:
-                            registrar_actividad(cid, "nota",
-                                                f"Recordatorio: {_rt.strip()}",
-                                                detalle=f"vence {_rv.isoformat()}", actor=_actor)
-                            _n = notificar_recordatorio(cli.get("nombre", "Cliente"), _rt.strip(),
-                                                        _rv.isoformat(), cli.get("asignado_email", ""))
-                            st.session_state.pop("_cli_rem_open", None)
-                            st.toast("Recordatorio guardado"
-                                     + (" · avisado por Telegram" if _n else ""))
+                            _tl = _ACT_META[_tipo][0]
+                            registrar_actividad(cid, "nota", f"{_tl} agendada: {_at.strip()}",
+                                                detalle=_fmt_fecha_local(_vence), actor=_actor)
+                            _n = notificar_recordatorio(cli.get("nombre", "Cliente"),
+                                                        f"{_tl}: {_at.strip()}",
+                                                        _fmt_fecha_local(_vence),
+                                                        cli.get("asignado_email", ""))
+                            st.session_state.pop("_cli_act_open", None)
+                            st.toast("Actividad agendada" + (" · avisado por Telegram" if _n else ""))
                             st.rerun(scope="fragment")
                         else:
                             st.error(f"No se pudo guardar: {_terr}")
 
-        # Recordatorios del cliente
+        # ── Lista de actividades (pendientes primero) ──
         _tareas = listar_tareas_cliente(cid)
         _pend = [t for t in _tareas if not t.get("hecho")]
-        st.markdown(f'<div class="cli-sec-t">Recordatorios · {len(_pend)} pendiente(s)</div>',
+        st.markdown(f'<div class="cli-sec-t">Actividades · {len(_pend)} pendiente(s)</div>',
                     unsafe_allow_html=True)
-        if _tareas:
-            _hoy = _date.today().isoformat()
-            for t in _tareas:
-                _venc_d = str(t.get("vence") or "")[:10]
-                _hecho = bool(t.get("hecho"))
-                _vencida = (not _hecho) and _venc_d and _venc_d <= _hoy
-                _col = "#94a3b8" if _hecho else ("#dc2626" if _vencida else "#0f172a")
-                _ico = ("#16a34a" if _hecho else ("#dc2626" if _vencida else "#5b7cfa"))
-                tc1, tc2 = st.columns([5, 1])
-                with tc1:
-                    _dec = "text-decoration:line-through;" if _hecho else ""
-                    st.markdown(
-                        f'<div style="padding:3px 0;">'
-                        f'<span style="color:{_ico};">●</span> '
-                        f'<span style="font-size:0.86rem;color:{_col};{_dec}">{_esc(t.get("titulo",""))}</span>'
-                        f'<span style="font-size:0.72rem;color:#94a3b8;margin-left:6px;">'
-                        f'{"vencía" if _vencida else "vence"} {_esc(_venc_d)}</span></div>',
-                        unsafe_allow_html=True)
-                with tc2:
-                    if not _hecho:
-                        if st.button("Hecho", key=f"_cli_tdone_{t.get('id')}",
-                                     use_container_width=True):
-                            completar_tarea(t.get("id"), True)
-                            st.rerun(scope="fragment")
-        else:
+        if not _tareas:
             st.markdown('<div style="font-size:0.8rem;color:#94a3b8;padding:4px 0 8px;">'
-                        'Sin recordatorios. Pulsa <b>Recordar</b> para crear uno.</div>',
+                        'Sin actividades. Pulsa <b>Nueva actividad</b> para agendar una.</div>',
                         unsafe_allow_html=True)
+        else:
+            for t in _tareas:
+                _render_actividad(cid, cli, t)
 
         # Presupuestos del cliente (derivados de cotizaciones). El botón "Crear
         # presupuesto" va en la MISMA fila que el encabezado (a la derecha).
@@ -755,9 +872,10 @@ def _render_ficha(cid: str, data: list):
             st.markdown('<div class="cli-empty-ph" style="padding:20px;">Este cliente aún no tiene presupuestos.</div>',
                         unsafe_allow_html=True)
 
-        # Línea de tiempo (actividad)
+        # Historial (línea de tiempo de todo lo ocurrido — distinto de las
+        # "Actividades" de arriba, que son tareas accionables).
         _acts = listar_actividad(cid)
-        st.markdown('<div class="cli-sec-t">Actividad</div>', unsafe_allow_html=True)
+        st.markdown('<div class="cli-sec-t">Historial</div>', unsafe_allow_html=True)
         if _acts:
             _TL_ICON = {"correo": "#5b7cfa", "presupuesto": "#7F77DD", "nota": "#94a3b8",
                         "etapa": "#EF9F27", "lead": "#888780", "llamada": "#1D9E75"}
@@ -873,7 +991,9 @@ def render_tab_clientes(**kwargs):
             if _p[0] == "open" and len(_p) >= 3:
                 st.session_state["_cli_ficha"] = _p[1]
                 st.session_state["_cli_just_opened"] = True   # dispara la animación de entrada
-                st.session_state.pop("_cli_rem_open", None)   # ficha nueva → form de recordatorio cerrado
+                # ficha nueva → formularios/paneles de actividad cerrados
+                st.session_state.pop("_cli_act_open", None)
+                st.session_state.pop("_cli_act_res", None)
             elif _p[0] == "nuevo" and len(_p) >= 3:
                 # Crear presupuesto para este cliente (menú contextual pipeline/maestro).
                 _cobj = next((d for d in _cli_data() if str(d.get("id")) == _p[1]), None)

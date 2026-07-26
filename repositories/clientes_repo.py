@@ -387,22 +387,29 @@ def pipeline_por_dedupkey(rows=None, polluted=None) -> dict:
 
 # ── Tareas / recordatorios (crm_tareas) ───────────────────────────────────────
 
-def crear_tarea(cliente_id, titulo, vence, asignado_email="") -> tuple:
-    """Crea un recordatorio. `vence` = ISO string (timestamptz). Devuelve (id, err)."""
+def crear_tarea(cliente_id, titulo, vence, asignado_email="", tipo="tarea") -> tuple:
+    """Crea una actividad/recordatorio. `vence` = ISO string (timestamptz), `tipo`
+    = llamada|reunion|correo|tarea. Devuelve (id, err). DEFENSIVO: si la columna
+    `tipo` no existe todavía (ALTER no corrido), reintenta sin ella."""
+    tid = str(uuid.uuid4())
+    base = {
+        "id": tid,
+        "cliente_id": cliente_id,
+        "titulo": str(titulo or "").strip(),
+        "vence": vence,
+        "hecho": False,
+        "asignado_email": str(asignado_email or "").strip(),
+        "fecha_creacion": _ahora(),
+    }
     try:
-        tid = str(uuid.uuid4())
-        _supa.table("crm_tareas").insert({
-            "id": tid,
-            "cliente_id": cliente_id,
-            "titulo": str(titulo or "").strip(),
-            "vence": vence,
-            "hecho": False,
-            "asignado_email": str(asignado_email or "").strip(),
-            "fecha_creacion": _ahora(),
-        }).execute()
+        _supa.table("crm_tareas").insert({**base, "tipo": tipo}).execute()
         return tid, None
-    except Exception as e:
-        return None, str(e)
+    except Exception:
+        try:
+            _supa.table("crm_tareas").insert(base).execute()   # sin columna tipo aún
+            return tid, None
+        except Exception as e:
+            return None, str(e)
 
 
 def listar_tareas_cliente(cliente_id) -> list:
@@ -414,13 +421,22 @@ def listar_tareas_cliente(cliente_id) -> list:
         return []
 
 
-def completar_tarea(tid, hecho=True) -> tuple:
-    """Marca una tarea como hecha (o la reabre)."""
+def completar_tarea(tid, hecho=True, resultado=None) -> tuple:
+    """Marca una actividad como hecha (o la reabre) y, opcionalmente, guarda el
+    `resultado` (contesto|no_contesto|no_interesado). DEFENSIVO: si la columna
+    `resultado` no existe todavía, reintenta solo con `hecho`."""
+    upd = {"hecho": bool(hecho)}
+    if resultado is not None:
+        upd["resultado"] = resultado
     try:
-        _supa.table("crm_tareas").update({"hecho": bool(hecho)}).eq("id", tid).execute()
+        _supa.table("crm_tareas").update(upd).eq("id", tid).execute()
         return True, None
-    except Exception as e:
-        return False, str(e)
+    except Exception:
+        try:
+            _supa.table("crm_tareas").update({"hecho": bool(hecho)}).eq("id", tid).execute()
+            return True, None
+        except Exception as e:
+            return False, str(e)
 
 
 def listar_tareas_pendientes() -> list:
