@@ -130,10 +130,15 @@ _CLI_CSS = """
 .cli-fbar{display:flex;flex-wrap:wrap;gap:16px 20px;align-items:center;margin:12px 0 2px;}
 .cli-fgrp{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
 .cli-fgrp-lbl{font-size:0.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;margin-right:3px;}
-.cli-fpill{font-size:0.72rem;font-weight:700;padding:4px 11px;border-radius:99px;border:1px solid #e2e8f0;
-  background:#fff;color:#475569;cursor:pointer;user-select:none;white-space:nowrap;transition:all .12s;}
-.cli-fpill:hover{background:#f1f5f9;}
-.cli-fpill.on{background:#eef2ff;color:#4338ca;border-color:#c7d2fe;}
+.cli-fpill{display:inline-flex;align-items:center;gap:5px;font-size:0.72rem;font-weight:700;padding:4px 9px;
+  border-radius:99px;border:1px solid #e2e8f0;background:#fff;color:#475569;cursor:pointer;user-select:none;
+  white-space:nowrap;transition:all .12s;}
+.cli-fpill svg{width:13px;height:13px;flex-shrink:0;}
+.cli-fpill:hover{filter:brightness(0.96);}
+.cli-fpill .cli-fcount{font-size:0.64rem;font-weight:800;background:rgba(15,23,42,0.08);color:inherit;
+  padding:1px 6px;border-radius:99px;min-width:15px;text-align:center;}
+.cli-fpill.on{box-shadow:0 0 0 2px var(--pill-fg,#4338ca);}
+.cli-fpill-ej.on{background:#eef2ff;color:#4338ca;border-color:#c7d2fe;}
 
 /* ── Kanban ── */
 .cli-kb-wrap{overflow-x:auto;padding-bottom:8px;margin-top:12px;}
@@ -431,32 +436,51 @@ def _origen_pill(origen: str) -> str:
     return f'<span class="cli-pill" style="background:{_bg};color:{_fg};">{_esc(origen)}</span>'
 
 
+# Iconos SVG por etapa para los badges de filtro (estilo COTIZACIONES).
+_STAGE_ICON = {
+    STAGE_LEAD: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>',
+    STAGE_CONTACTADO: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+    STAGE_PRESUPUESTO: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+    STAGE_PROPUESTA: '<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/>',
+    STAGE_GANADO: '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+    STAGE_PERDIDO: '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
+}
+_IC_TODOS = '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>'
+_IC_USERS = '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'
+
+
 def _build_filter_bar(data: list) -> str:
-    """Barra de filtros rápidos (badges) por ejecutivo y por estado. El filtrado
-    es 100% client-side (ver _CLI_FILTER_JS): NO dispara reruns."""
-    _ejset, _has_none = {}, False
+    """Barra de filtros rápidos (badges) por ejecutivo y por estado, con color,
+    icono SVG y CANTIDAD (estilo estados de COTIZACIONES). Filtrado 100%
+    client-side (ver _CLI_FILTER_JS): NO dispara reruns."""
+    _ejset, _ejcnt, _none = {}, {}, 0
+    _stcnt = {s: 0 for s in _STAGE_ORDER}
     for d in data:
         _e = (d.get("asignado_email") or "").strip().lower()
         if _e:
             _ejset[_e] = d.get("asignado_nombre") or d.get("asignado_email") or _e
+            _ejcnt[_e] = _ejcnt.get(_e, 0) + 1
         else:
-            _has_none = True
-    _stages = [s for s in _STAGE_ORDER
-               if any((d.get("_stage") or STAGE_LEAD) == s for d in data)]
+            _none += 1
+        _stcnt[d.get("_stage") or STAGE_LEAD] += 1
+    _stages = [s for s in _STAGE_ORDER if _stcnt[s] > 0]
 
-    def _pill(val, label, kind):
-        _on = " on" if val == "" else ""
-        return (f'<span class="cli-fpill{_on}" data-fkind="{kind}" '
-                f'data-fval="{_esc(val)}">{_esc(label)}</span>')
+    def _pill(val, label, kind, count, icon, bg="", fg=""):
+        _cls = f"cli-fpill cli-fpill-{kind}" + (" on" if val == "" else "")
+        _sty = f' style="background:{bg};color:{fg};--pill-fg:{fg};"' if bg else ""
+        _ic = _svg(icon, 13, "currentColor") if icon else ""
+        return (f'<span class="{_cls}" data-fkind="{kind}" data-fval="{_esc(val)}"{_sty}>'
+                f'{_ic}<span>{_esc(label)}</span><b class="cli-fcount">{count}</b></span>')
 
-    _ej = _pill("", "Todos", "ej")
+    _ej = _pill("", "Todos", "ej", len(data), _IC_USERS)
     for _e, _nm in sorted(_ejset.items(), key=lambda kv: (kv[1] or "").lower()):
-        _ej += _pill(_e, _nm, "ej")
-    if _has_none:
-        _ej += _pill("__none__", "Sin asignar", "ej")
-    _st = _pill("", "Todos", "st")
+        _ej += _pill(_e, _nm, "ej", _ejcnt.get(_e, 0), _ICON_USER_PATH)
+    if _none:
+        _ej += _pill("__none__", "Sin asignar", "ej", _none, _ICON_USER_PATH)
+    _st = _pill("", "Todos", "st", len(data), _IC_TODOS)
     for _s in _stages:
-        _st += _pill(_s, _STAGE_META[_s][0], "st")
+        _lbl, _dot, _bg, _fg = _STAGE_META[_s]
+        _st += _pill(_s, _lbl, "st", _stcnt[_s], _STAGE_ICON.get(_s, ""), _bg, _fg)
     return (
         '<div class="cli-fbar">'
         f'<div class="cli-fgrp"><span class="cli-fgrp-lbl">Ejecutivo</span>{_ej}</div>'
