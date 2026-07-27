@@ -1449,15 +1449,17 @@ def _render_ficha(cid: str, data: list):
                     f'({_esc(cli.get("rut_empresa"))})</div>') if _tipo == "empresa" and cli.get("empresa") else ""
         _correo = cli.get("email", "") or ""
         _tel = cli.get("telefono", "") or ""
-        # Correo y teléfono son copiables; Dirección/Comuna NO (solo lectura).
+        _dir = cli.get("direccion", "") or ""
+        _com = cli.get("comuna", "") or ""
+        # Correo, teléfono, dirección y comuna son copiables al click.
         # WhatsApp se arma desde el teléfono y abre wa.me al click.
         st.markdown(
             '<div class="cli-data">'
             f'<div><div class="k">Correo</div>{_cp(_correo, _esc(_correo or "—"), "Copiar correo")}</div>'
             f'<div><div class="k">Teléfono</div>{_cp(_tel, _esc(_tel or "—"), "Copiar teléfono")}</div>'
             f'{_wa_cell(_tel)}'
-            f'<div><div class="k">Dirección</div>{_esc(cli.get("direccion","") or "—")}</div>'
-            f'<div><div class="k">Comuna</div>{_esc(cli.get("comuna","") or "—")}</div>'
+            f'<div><div class="k">Dirección</div>{_cp(_dir, _esc(_dir or "—"), "Copiar dirección")}</div>'
+            f'<div><div class="k">Comuna</div>{_cp(_com, _esc(_com or "—"), "Copiar comuna")}</div>'
             f'{_empresa}'
             '</div>', unsafe_allow_html=True)
 
