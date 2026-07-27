@@ -140,10 +140,14 @@ _CLI_CSS = """
 .cli-sbar .cli-sico{display:inline-flex;flex:0 0 auto;color:#94a3b8;}
 .cli-empty-ph{text-align:center;color:#94a3b8;padding:40px;font-family:Montserrat,sans-serif;
   font-weight:600;border:1px dashed #d7ddf0;border-radius:14px;margin-top:10px;}
-/* Barra de filtros rápidos (badges) — filtrado client-side, sin reruns */
-.cli-fbar{display:flex;flex-wrap:wrap;gap:16px 20px;align-items:center;margin:12px 0 2px;}
-.cli-fgrp{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
-.cli-fgrp-lbl{font-size:0.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;margin-right:3px;}
+/* Barra de filtros rápidos (badges) — tarjeta agrupada, client-side sin reruns */
+.cli-fbar{background:#fff;border:1px solid #e9edf5;border-radius:14px;padding:4px 16px;
+  box-shadow:0 2px 12px rgba(30,36,71,.05);margin:6px 0 16px;}
+.cli-fgrp{display:flex;align-items:flex-start;gap:12px;padding:10px 0;}
+.cli-fgrp + .cli-fgrp{border-top:1px solid #f0f2f8;}
+.cli-fgrp-lbl{font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+  color:#94a3b8;flex:0 0 76px;padding-top:6px;}
+.cli-fpills{display:flex;flex-wrap:wrap;gap:7px;flex:1;min-width:0;}
 .cli-fpill{display:inline-flex;align-items:center;gap:5px;font-size:0.72rem;font-weight:700;padding:4px 9px;
   border-radius:99px;border:1px solid #e2e8f0;background:#fff;color:#475569;cursor:pointer;user-select:none;
   white-space:nowrap;transition:all .12s;}
@@ -643,10 +647,12 @@ def _cli_polluted() -> set:
 
 def _kpi(label, valor, color="#0f172a"):
     return (
-        '<div style="background:#f8fafc;border-radius:12px;padding:12px 14px;">'
-        f'<div style="font-size:0.74rem;color:#64748b;font-weight:600;">{label}</div>'
-        f'<div style="font-family:Montserrat,sans-serif;font-size:1.5rem;font-weight:800;'
-        f'color:{color};line-height:1.2;">{valor}</div></div>')
+        '<div style="background:#fff;border:1px solid #e9edf5;border-radius:14px;padding:13px 16px;'
+        'box-shadow:0 2px 10px rgba(30,36,71,.045);display:flex;flex-direction:column;gap:4px;">'
+        f'<div style="font-size:0.66rem;color:#94a3b8;font-weight:800;text-transform:uppercase;'
+        f'letter-spacing:.05em;">{label}</div>'
+        f'<div style="font-family:Montserrat,sans-serif;font-size:1.55rem;font-weight:800;'
+        f'color:{color};line-height:1.1;">{valor}</div></div>')
 
 
 _ORIGEN_COLORS = {
@@ -718,9 +724,9 @@ def _build_filter_bar(data: list) -> str:
         _sc_pills += _pill(_tk, _tl, "tier", _tiercnt.get(_tk, 0), _FLAME_PATH, _tb, _tc)
     return (
         '<div class="cli-fbar">'
-        f'<div class="cli-fgrp"><span class="cli-fgrp-lbl">Ejecutivo</span>{_ej}</div>'
-        f'<div class="cli-fgrp"><span class="cli-fgrp-lbl">Estado</span>{_st}</div>'
-        f'<div class="cli-fgrp"><span class="cli-fgrp-lbl">Potencial</span>{_sc_pills}</div>'
+        f'<div class="cli-fgrp"><span class="cli-fgrp-lbl">Ejecutivo</span><div class="cli-fpills">{_ej}</div></div>'
+        f'<div class="cli-fgrp"><span class="cli-fgrp-lbl">Estado</span><div class="cli-fpills">{_st}</div></div>'
+        f'<div class="cli-fgrp"><span class="cli-fgrp-lbl">Potencial</span><div class="cli-fpills">{_sc_pills}</div></div>'
         '</div>')
 
 
@@ -2170,7 +2176,7 @@ def render_tab_clientes(**kwargs):
     for d in data:
         _cnt[d.get("_stage") or STAGE_LEAD] = _cnt.get(d.get("_stage") or STAGE_LEAD, 0) + 1
     _kpi_html = (
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:10px;">'
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;">'
         + _kpi("Total clientes", len(data))
         + _kpi("En presupuesto", _cnt[STAGE_PRESUPUESTO], "#6d28d9")
         + _kpi("Propuesta enviada", _cnt[STAGE_PROPUESTA], "#b45309")
@@ -2185,49 +2191,49 @@ def render_tab_clientes(**kwargs):
             st.session_state["_cli_add_open"] = True
             st.session_state["_cli_just_opened"] = True
 
-    # Fila: botones a la IZQUIERDA + KPI cards a la derecha. Sincronizar = solo
-    # icono (root/admin). Agregar angosto.
+    # Barra de ACCIONES (fila propia, alineada a la izquierda). Los KPI van en su
+    # propia fila debajo → más aire, menos amontonado.
     if _es_gestor:
-        _bcol, _kcol = st.columns([3.4, 8.6], vertical_alignment="center")
-        with _bcol:
-            _bs, _bg, _bi, _ba = st.columns([1, 1, 1, 2.4])
-            with _bs:
-                if st.button("", icon=":material/sync:", use_container_width=True,
-                             key="_cli_sync", help="Sincronizar con cotizaciones"):
-                    with st.spinner("Sincronizando…"):
-                        res = backfill_desde_cotizaciones()
-                    _cli_data.clear()
-                    st.session_state["_cli_toast"] = (
-                        f"Sincronizado: {res['creados']} nuevo(s), {res['existentes']} ya estaban.")
-                    st.rerun()
-            with _bg:
-                if st.button("", icon=":material/fact_check:", use_container_width=True,
-                             key="_cli_guion", help="Configurar guión de calificación"):
-                    st.session_state["_guion_open"] = True
-                    st.session_state.pop("_cli_ficha", None)   # no dos diálogos a la vez
-                    st.rerun()
-            with _bi:
-                if st.button("", icon=":material/upload_file:", use_container_width=True,
-                             key="_cli_import", help="Importar leads desde CSV / Excel"):
-                    # Arranca en limpio: borra archivo/mapeo de una importación previa.
-                    for _k in [k for k in st.session_state if str(k).startswith("_imp_")]:
-                        st.session_state.pop(_k, None)
-                    st.session_state["_import_open"] = True
-                    st.session_state.pop("_cli_ficha", None)
-                    st.session_state.pop("_guion_open", None)
-                    st.rerun()
-            with _ba:
-                _add_btn()
-        with _kcol:
-            st.markdown(_kpi_html, unsafe_allow_html=True)
-    else:
-        _bcol, _kcol = st.columns([1.6, 10.4], vertical_alignment="center")
-        with _bcol:
+        _bs, _bg, _bi, _ba, _bsp = st.columns([1, 1, 1, 1.9, 6.1], vertical_alignment="center")
+        with _bs:
+            if st.button("", icon=":material/sync:", use_container_width=True,
+                         key="_cli_sync", help="Sincronizar con cotizaciones"):
+                with st.spinner("Sincronizando…"):
+                    res = backfill_desde_cotizaciones()
+                _cli_data.clear()
+                st.session_state["_cli_toast"] = (
+                    f"Sincronizado: {res['creados']} nuevo(s), {res['existentes']} ya estaban.")
+                st.rerun()
+        with _bg:
+            if st.button("", icon=":material/fact_check:", use_container_width=True,
+                         key="_cli_guion", help="Configurar guión de calificación"):
+                st.session_state["_guion_open"] = True
+                st.session_state["_cli_just_opened"] = True   # slide de entrada
+                st.session_state.pop("_cli_ficha", None)      # no dos diálogos a la vez
+                st.rerun()
+        with _bi:
+            if st.button("", icon=":material/upload_file:", use_container_width=True,
+                         key="_cli_import", help="Importar leads desde CSV / Excel"):
+                # Arranca en limpio: borra archivo/mapeo de una importación previa.
+                for _k in [k for k in st.session_state if str(k).startswith("_imp_")]:
+                    st.session_state.pop(_k, None)
+                st.session_state["_import_open"] = True
+                st.session_state["_cli_just_opened"] = True   # slide de entrada
+                st.session_state.pop("_cli_ficha", None)
+                st.session_state.pop("_guion_open", None)
+                st.rerun()
+        with _ba:
             _add_btn()
-        with _kcol:
-            st.markdown(_kpi_html, unsafe_allow_html=True)
+    else:
+        _ba, _bsp = st.columns([2, 10], vertical_alignment="center")
+        with _ba:
+            _add_btn()
 
-    # Selector de vista
+    # KPI cards (fila propia, con separación respecto a la barra de acciones).
+    st.markdown('<div style="margin-top:16px;">' + _kpi_html + '</div>', unsafe_allow_html=True)
+
+    # Selector de vista (con aire arriba para separarlo de las tarjetas KPI).
+    st.markdown('<div style="height:20px;"></div>', unsafe_allow_html=True)
     st.markdown(_CLI_SELECTOR_CSS, unsafe_allow_html=True)
     _views = ["Pipeline", "Bandeja", "Maestro"]
     _icons = {"Pipeline": ":material/view_kanban:", "Bandeja": ":material/inbox:",
