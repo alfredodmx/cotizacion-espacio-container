@@ -167,6 +167,9 @@ _CLI_CSS = """
 .cli-asig-opt > span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
 .cli-asig-none{width:26px;height:26px;border-radius:50%;background:#e2e8f0;color:#64748b;display:flex;
   align-items:center;justify-content:center;flex:0 0 auto;}
+/* Campos copiables de la ficha (click para copiar) */
+.cli-copy{cursor:pointer;transition:color .12s;}
+.cli-copy:hover{color:#2563eb;text-decoration:underline dotted;text-underline-offset:2px;}
 
 /* ── Kanban ── */
 .cli-kb-wrap{overflow-x:auto;padding-bottom:8px;margin-top:12px;}
@@ -348,6 +351,15 @@ def _fmt_money(v) -> str:
     except (TypeError, ValueError):
         v = 0
     return f"${v:,.0f}".replace(",", ".") if v else "$0"
+
+
+def _cp(val, inner, title="Copiar"):
+    """Envuelve `inner` (HTML ya escapado) en un span copiable si `val` no es
+    vacío; si no, devuelve `inner` tal cual. El click lo maneja _CLI_COPY_JS."""
+    v = str(val or "").strip()
+    if not v:
+        return inner
+    return f'<span class="cli-copy" data-copy="{_esc(v)}" title="{title}">{inner}</span>'
 
 
 def _fmt_fecha_local(iso_str) -> str:
@@ -737,6 +749,35 @@ _CLI_ASIG_JS = r"""<script>
 })();
 </script>"""
 
+# Click-para-copiar en los campos de la ficha (nombre/RUT/correo/teléfono/EP).
+_CLI_COPY_JS = r"""<script>
+(function(){
+  var W=window.parent, D=W&&W.document; if(!D) return;
+  function cp(txt){
+    try{ if(W.navigator && W.navigator.clipboard){ W.navigator.clipboard.writeText(txt); return true; } }catch(e){}
+    try{ var ta=D.createElement('textarea'); ta.value=txt; ta.style.cssText='position:fixed;top:-9999px;left:-9999px;';
+      D.body.appendChild(ta); ta.focus(); ta.select(); D.execCommand('copy'); ta.remove(); return true; }catch(e){ return false; }
+  }
+  function fb(x,y){
+    var f=D.createElement('div'); f.textContent='✓ Copiado';
+    f.style.cssText='position:fixed;z-index:2147483600;left:'+x+'px;top:'+(y-26)+'px;transform:translateX(-50%);'
+      +'background:#0f172a;color:#fff;font-family:Montserrat,sans-serif;font-size:11px;font-weight:700;'
+      +'padding:4px 9px;border-radius:7px;pointer-events:none;opacity:0;transition:opacity .12s,top .25s;';
+    D.body.appendChild(f);
+    W.requestAnimationFrame(function(){ f.style.opacity='1'; f.style.top=(y-34)+'px'; });
+    W.setTimeout(function(){ f.style.opacity='0'; W.setTimeout(function(){ f.remove(); },200); },900);
+  }
+  if(W._cliCopyH){ D.removeEventListener('click', W._cliCopyH, true); }
+  W._cliCopyH=function(e){
+    var el=e.target&&e.target.closest?e.target.closest('.cli-copy'):null; if(!el) return;
+    var txt=(el.getAttribute('data-copy')||el.textContent||'').trim(); if(!txt) return;
+    e.preventDefault(); e.stopPropagation();
+    if(cp(txt)) fb(e.clientX, e.clientY);
+  };
+  D.addEventListener('click', W._cliCopyH, true);
+})();
+</script>"""
+
 
 # ── Renders de cada vista ─────────────────────────────────────────────────────
 
@@ -1020,26 +1061,33 @@ def _render_ficha(cid: str, data: list):
     @st.dialog("Ficha del cliente", width="large")
     def _dlg():
         _asig = cli.get("asignado_nombre") or cli.get("asignado_email") or "Sin asignar"
+        _nombre = cli.get("nombre", "") or ""
+        _nm_html = (f'<div class="cli-fh-nm cli-copy" data-copy="{_esc(_nombre)}" title="Copiar nombre">{_esc(_nombre)}</div>'
+                    if _nombre else '<div class="cli-fh-nm">—</div>')
+        _rut = cli.get("rut", "") or ""
+        _rut_html = (_cp(_rut, _esc(_rut), "Copiar RUT") if _rut else "Sin RUT")
         st.markdown(
             '<div class="cli-fh">'
             f'<div class="cli-fh-av">{_esc(_initials(cli.get("nombre")))}</div>'
             '<div style="min-width:0;">'
-            f'<div class="cli-fh-nm">{_esc(cli.get("nombre","") or "—")}</div>'
-            f'<div class="cli-fh-sub">{_esc(cli.get("rut","") or "Sin RUT")} · {_esc(_asig)}</div>'
+            f'{_nm_html}'
+            f'<div class="cli-fh-sub">{_rut_html} · {_esc(_asig)}</div>'
             '</div></div>'
             '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">'
             f'{_origen_pill(cli.get("origen","Manual"))}'
             f'<span class="cli-pill" style="background:{_sbg};color:{_sfg};">{_slbl}</span>'
             '</div>', unsafe_allow_html=True)
 
-        # Datos de contacto
+        # Datos de contacto (correo y teléfono son copiables al click)
         _tipo = cli.get("tipo") or "natural"
         _empresa = (f'<div><div class="k">Empresa</div>{_esc(cli.get("empresa"))} '
                     f'({_esc(cli.get("rut_empresa"))})</div>') if _tipo == "empresa" and cli.get("empresa") else ""
+        _correo = cli.get("email", "") or ""
+        _tel = cli.get("telefono", "") or ""
         st.markdown(
             '<div class="cli-data">'
-            f'<div><div class="k">Correo</div>{_esc(cli.get("email","") or "—")}</div>'
-            f'<div><div class="k">Teléfono</div>{_esc(cli.get("telefono","") or "—")}</div>'
+            f'<div><div class="k">Correo</div>{_cp(_correo, _esc(_correo or "—"), "Copiar correo")}</div>'
+            f'<div><div class="k">Teléfono</div>{_cp(_tel, _esc(_tel or "—"), "Copiar teléfono")}</div>'
             f'<div><div class="k">Dirección</div>{_esc(cli.get("direccion","") or "—")}</div>'
             f'<div><div class="k">Comuna</div>{_esc(cli.get("comuna","") or "—")}</div>'
             f'{_empresa}'
@@ -1139,9 +1187,10 @@ def _render_ficha(cid: str, data: list):
             for c in _cots:
                 _cst = c.get("stage") or ""
                 _cl, _cd, _cbg, _cfg = _STAGE_META.get(_cst, _STAGE_META[STAGE_PRESUPUESTO])
+                _epn = c.get("numero", "")
                 _eprows += (
                     '<div class="cli-ep-row">'
-                    f'<div><span class="cli-ep-n">{_esc(c.get("numero",""))}</span> '
+                    f'<div><span class="cli-ep-n cli-copy" data-copy="{_esc(_epn)}" title="Copiar EP">{_esc(_epn)}</span> '
                     f'<span class="cli-pill" style="background:{_cbg};color:{_cfg};margin-left:6px;">{_cl}</span></div>'
                     f'<div class="cli-ep-m">{_fmt_money(c.get("total"))}</div>'
                     '</div>')
@@ -1401,7 +1450,7 @@ def render_tab_clientes(**kwargs):
         _render_pipeline(data)
 
     # Handler de click (abre ficha) + menú contextual + filtros/búsqueda + salida.
-    components.html(_CLI_CLICK_JS + _CLI_CTXMENU_JS + _CLI_FILTER_JS + _CLI_ASIG_JS, height=0)
+    components.html(_CLI_CLICK_JS + _CLI_CTXMENU_JS + _CLI_FILTER_JS + _CLI_ASIG_JS + _CLI_COPY_JS, height=0)
     components.html(_CLI_DRAWER_JS, height=0)
 
     # Drawer: base siempre; entrada SOLO al abrir desde cerrado, reposo en los
