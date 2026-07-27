@@ -33,6 +33,14 @@ from repositories.clientes_repo import (
 )
 from config.settings import SUPABASE_URL as _SUPA_URL
 try:
+    from utils.avatars import avatar_html as _avatar_html
+except Exception:
+    def _avatar_html(foto, nombre, size=32, ring="#fff", font_scale=0.4):
+        _i = "".join(p[0] for p in str(nombre or "EC").split()[:2]).upper() or "EC"
+        return (f'<div style="width:{size}px;height:{size}px;border-radius:50%;background:#e0e7ff;'
+                f'color:#4338ca;display:flex;align-items:center;justify-content:center;font-weight:800;'
+                f'font-size:{int(size*font_scale)}px;flex:0 0 auto;">{_i}</div>')
+try:
     from utils.notificaciones import notificar_recordatorio, notificar_lead_asignado
 except Exception:   # notificaciones es opcional; si falla, los recordatorios igual se guardan
     def notificar_recordatorio(*a, **k):
@@ -139,6 +147,26 @@ _CLI_CSS = """
   padding:1px 6px;border-radius:99px;min-width:15px;text-align:center;}
 .cli-fpill.on{box-shadow:0 0 0 2px var(--pill-fg,#4338ca);}
 .cli-fpill-ej.on{background:#eef2ff;color:#4338ca;border-color:#c7d2fe;}
+/* Dropdown "Ejecutivo asignado" con foto (estilo dropdown de COTIZACIONES) */
+.cli-asig{margin:8px 0 2px;}
+.cli-asig-lbl{font-size:0.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;margin-bottom:5px;}
+.cli-asig-wrap{position:relative;}
+.cli-asig-chip{width:100%;min-height:46px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;
+  cursor:pointer;display:flex;align-items:center;gap:10px;padding:6px 12px;font-family:Montserrat,sans-serif;}
+.cli-asig-chip:hover{border-color:#cbd5e1;}
+.cli-asig-nm{font-weight:700;font-size:13px;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;text-align:left;}
+.cli-asig-ph{font-weight:700;font-size:13px;color:#94a3b8;flex:1;text-align:left;}
+.cli-asig-cv{color:#94a3b8;font-size:11px;margin-left:auto;flex:0 0 auto;}
+.cli-asig-menu{display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;max-height:280px;overflow-y:auto;
+  background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 12px 34px rgba(15,23,42,0.18);
+  z-index:2147483000;padding:5px;}
+.cli-asig-menu.open{display:block;}
+.cli-asig-opt{width:100%;display:flex;align-items:center;gap:10px;background:none;border:none;cursor:pointer;
+  padding:7px 9px;border-radius:8px;font-family:Montserrat,sans-serif;font-size:13px;font-weight:600;color:#0f172a;text-align:left;}
+.cli-asig-opt:hover{background:#f1f5f9;}
+.cli-asig-opt > span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
+.cli-asig-none{width:26px;height:26px;border-radius:50%;background:#e2e8f0;color:#64748b;display:flex;
+  align-items:center;justify-content:center;flex:0 0 auto;}
 
 /* ── Kanban ── */
 .cli-kb-wrap{overflow-x:auto;padding-bottom:8px;margin-top:12px;}
@@ -675,6 +703,40 @@ _CLI_FILTER_JS = r"""<script>
 })();
 </script>"""
 
+# Dropdown "Ejecutivo asignado" con foto (chip + menú, estilo COTIZACIONES). Al
+# elegir una opción escribe en el puente _cli_asigcmd → Python asigna + re-render.
+_CLI_ASIG_JS = r"""<script>
+(function(){
+  var W=window.parent, D=W&&W.document; if(!D) return;
+  function fire(cid, em){
+    var inp=D.querySelector('.st-key-_cli_asigcmd input'); if(!inp) return;
+    try{
+      var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set;
+      inp.focus({preventScroll:true});
+      setter.call(inp, cid+'|'+em+'|'+Date.now());
+      inp.dispatchEvent(new Event('input',{bubbles:true}));
+      inp.dispatchEvent(new Event('change',{bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.blur();
+    }catch(e){}
+  }
+  if(W._cliAsigH){ D.removeEventListener('click', W._cliAsigH, true); }
+  W._cliAsigH=function(e){
+    var t=e.target; if(!t||!t.closest) return;
+    var chip=t.closest('.cli-asig-chip');
+    if(chip){ var w=chip.closest('.cli-asig-wrap'); var m=w?w.querySelector('.cli-asig-menu'):null;
+      if(m) m.classList.toggle('open'); e.preventDefault(); e.stopPropagation(); return; }
+    var opt=t.closest('.cli-asig-opt');
+    if(opt){ var w2=opt.closest('.cli-asig-wrap'); var cid=w2?w2.getAttribute('data-acid'):'';
+      var mm=w2?w2.querySelector('.cli-asig-menu'):null; if(mm) mm.classList.remove('open');
+      fire(cid, opt.getAttribute('data-em')||''); e.preventDefault(); e.stopPropagation(); return; }
+    var op=D.querySelector('.cli-asig-menu.open');
+    if(op && !(t.closest && t.closest('.cli-asig-wrap'))) op.classList.remove('open');
+  };
+  D.addEventListener('click', W._cliAsigH, true);
+})();
+</script>"""
+
 
 # ── Renders de cada vista ─────────────────────────────────────────────────────
 
@@ -792,51 +854,74 @@ def _render_bandeja(data: list):
 # ── Ficha 360 ─────────────────────────────────────────────────────────────────
 
 def _render_asignar(cid, cli):
-    """Selector 'Ejecutivo asignado' + botón Asignar (solo root/admin). Al asignar:
-    actualiza el cliente + notifica al ejecutivo (campana + Telegram)."""
+    """Dropdown 'Ejecutivo asignado' CON FOTO (chip + menú, estilo COTIZACIONES).
+    Solo root/admin. La selección va por el puente _cli_asigcmd → _do_asignar."""
     _ejs = _ejecutivos()
-    _ej_opts = [""] + [e["email"] for e in _ejs]
-    _ej_lbl = {"": "— Sin asignar —"}
+    _cur_em = (cli.get("asignado_email") or "").strip().lower()
+    _cur_nm = cli.get("asignado_nombre") or cli.get("asignado_email") or ""
+    _cur_foto = ""
     for e in _ejs:
-        _ej_lbl[e["email"]] = e.get("nombre") or e["email"]
-    _cur_asig = (cli.get("asignado_email") or "").strip().lower()
-    _idx = 0
-    for _i, _em in enumerate(_ej_opts):
-        if _em.lower() == _cur_asig:
-            _idx = _i
+        if e["email"].lower() == _cur_em:
+            _cur_foto = e.get("foto_url", "")
+            _cur_nm = e.get("nombre") or _cur_nm
             break
-    asc1, asc2 = st.columns([3, 1], vertical_alignment="bottom")
-    with asc1:
-        _sel_ej = st.selectbox("Ejecutivo asignado", _ej_opts, index=_idx,
-                               format_func=lambda em: _ej_lbl.get(em, em),
-                               key=f"_cli_asig_{cid}")
-    with asc2:
-        _do_asig = st.button("Asignar", use_container_width=True, key=f"_cli_asigbtn_{cid}")
-    if not _do_asig:
-        return
-    _new_em = (_sel_ej or "").strip()
-    _new_nm = _ej_lbl.get(_new_em, "") if _new_em else ""
-    if _new_em.lower() == _cur_asig:
-        st.info("Sin cambios en la asignación.")
-        return
-    _actor = (st.session_state.get("auth_nombre") or st.session_state.get("auth_email", ""))
-    _ok, _err = actualizar_cliente(cid, {"asignado_email": _new_em, "asignado_nombre": _new_nm})
-    if not _ok:
-        st.error(f"No se pudo asignar: {_err}")
-        return
-    cli["asignado_email"] = _new_em
-    cli["asignado_nombre"] = _new_nm
-    _cli_data.clear()
-    if _new_em:
-        registrar_actividad(cid, "nota", f"Asignado a {_new_nm}", actor=_actor)
-        _crear_notif(_new_em, f"Nuevo lead asignado · {cli.get('nombre','Cliente')}",
-                     tipo="lead", detalle=f"Asignado por {_actor}", cliente_id=cid)
-        _tg = notificar_lead_asignado(cli.get("nombre", "Cliente"), _new_em, _actor)
-        st.toast(f"Lead asignado a {_new_nm}" + (" · avisado por Telegram" if _tg else ""))
+    if _cur_em:
+        _chip_body = (_avatar_html(_cur_foto, _cur_nm, size=30, ring="#e2e8f0", font_scale=0.4)
+                      + f'<span class="cli-asig-nm">{_esc(_cur_nm)}</span>')
     else:
-        registrar_actividad(cid, "nota", "Cliente desasignado", actor=_actor)
+        _chip_body = '<span class="cli-asig-ph">— Sin asignar —</span>'
+    _none_ico = ('<span class="cli-asig-none">'
+                 + _svg('<path d="M19 21v-2a4 4 0 0 0-4-4H8"/><circle cx="10" cy="7" r="4"/>'
+                        '<line x1="17" x2="22" y1="8" y2="13"/><line x1="22" x2="17" y1="8" y2="13"/>',
+                        14, "currentColor") + '</span>')
+    _opts = (f'<button type="button" class="cli-asig-opt" data-em="__none__">'
+             f'{_none_ico}<span>— Sin asignar —</span></button>')
+    for e in sorted(_ejs, key=lambda x: (x.get("nombre") or "").lower()):
+        _av = _avatar_html(e.get("foto_url", ""), e.get("nombre") or e["email"],
+                           size=26, ring="#e2e8f0", font_scale=0.42)
+        _opts += (f'<button type="button" class="cli-asig-opt" data-em="{_esc(e["email"])}">'
+                  f'{_av}<span>{_esc(e.get("nombre") or e["email"])}</span></button>')
+    _cv = _svg('<polyline points="6 9 12 15 18 9"/>', 12, "currentColor")
+    st.markdown(
+        '<div class="cli-asig"><div class="cli-asig-lbl">Ejecutivo asignado</div>'
+        f'<div class="cli-asig-wrap" data-acid="{_esc(cid)}">'
+        f'<button type="button" class="cli-asig-chip">{_chip_body}'
+        f'<span class="cli-asig-cv">{_cv}</span></button>'
+        f'<div class="cli-asig-menu">{_opts}</div></div></div>',
+        unsafe_allow_html=True)
+
+
+def _do_asignar(cli, new_email):
+    """Aplica la asignación (usado por el puente _cli_asigcmd). Muta `cli` en sitio
+    + notifica (campana + Telegram). NO hace rerun: el caller re-renderiza la ficha."""
+    new_email = (new_email or "").strip()
+    if new_email == "__none__":
+        new_email = ""
+    _cur = (cli.get("asignado_email") or "").strip().lower()
+    if new_email.lower() == _cur:
+        return
+    _nm = ""
+    if new_email:
+        for e in _ejecutivos():
+            if e["email"].lower() == new_email.lower():
+                _nm = e.get("nombre") or e["email"]
+                break
+    _actor = st.session_state.get("auth_nombre") or st.session_state.get("auth_email", "")
+    _ok, _err = actualizar_cliente(cli["id"], {"asignado_email": new_email, "asignado_nombre": _nm})
+    if not _ok:
+        st.toast(f"No se pudo asignar: {_err}")
+        return
+    cli["asignado_email"] = new_email
+    cli["asignado_nombre"] = _nm
+    if new_email:
+        registrar_actividad(cli["id"], "nota", f"Asignado a {_nm}", actor=_actor)
+        _crear_notif(new_email, f"Nuevo lead asignado · {cli.get('nombre','Cliente')}",
+                     tipo="lead", detalle=f"Asignado por {_actor}", cliente_id=cli["id"])
+        _tg = notificar_lead_asignado(cli.get("nombre", "Cliente"), new_email, _actor)
+        st.toast(f"Lead asignado a {_nm}" + (" · avisado por Telegram" if _tg else ""))
+    else:
+        registrar_actividad(cli["id"], "nota", "Cliente desasignado", actor=_actor)
         st.toast("Cliente desasignado")
-    st.rerun(scope="fragment")
 
 
 def _render_actividad(cid, cli, t):
@@ -1206,6 +1291,25 @@ def render_tab_clientes(**kwargs):
                     _iniciar_presupuesto(_cobj)
                     st.rerun()
 
+    # Puente de asignación (dropdown con foto de la ficha). "cid|email|ts". Solo
+    # root/admin. Muta el cliente en `data` y mantiene la ficha abierta (setea
+    # _cli_ficha); NO hace rerun extra: la ficha se renderiza al final de este run.
+    st.markdown('<style>.st-key-_cli_asigcmd{position:absolute!important;left:-9999px!important;'
+                'top:-9999px!important;height:0!important;width:0!important;overflow:hidden!important;}</style>',
+                unsafe_allow_html=True)
+    st.text_input("asigcmd", key="_cli_asigcmd", label_visibility="collapsed")
+    _acmd = str(st.session_state.get("_cli_asigcmd", "") or "")
+    if _es_gestor and _acmd and "|" in _acmd:
+        _apar = _acmd.split("|")
+        if _apar[-1] != st.session_state.get("_cli_asigcmd_ts") and len(_apar) >= 3:
+            st.session_state["_cli_asigcmd_ts"] = _apar[-1]
+            _acid, _aem = _apar[0], _apar[1]
+            _cobj = next((d for d in data if str(d.get("id")) == _acid), None)
+            if _cobj:
+                _do_asignar(_cobj, _aem)
+                _cli_data.clear()
+                st.session_state["_cli_ficha"] = _acid   # mantener la ficha abierta
+
     # Recordatorios pendientes (para el KPI) + alerta Telegram de vencidos.
     _pend_tareas = listar_tareas_pendientes()
     _hoy_iso = _date.today().isoformat()
@@ -1297,7 +1401,7 @@ def render_tab_clientes(**kwargs):
         _render_pipeline(data)
 
     # Handler de click (abre ficha) + menú contextual + filtros/búsqueda + salida.
-    components.html(_CLI_CLICK_JS + _CLI_CTXMENU_JS + _CLI_FILTER_JS, height=0)
+    components.html(_CLI_CLICK_JS + _CLI_CTXMENU_JS + _CLI_FILTER_JS + _CLI_ASIG_JS, height=0)
     components.html(_CLI_DRAWER_JS, height=0)
 
     # Drawer: base siempre; entrada SOLO al abrir desde cerrado, reposo en los
