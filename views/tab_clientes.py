@@ -1246,7 +1246,7 @@ def _render_guion_config():
                             st.session_state.pop("_guion_edit", None)
                             st.rerun(scope="fragment")
             else:
-                rc1, rc2, rc3 = st.columns([6, 1.4, 1.4], vertical_alignment="center")
+                rc1, rc2, rc3 = st.columns([8, 1, 1], vertical_alignment="center")
                 with rc1:
                     _opsx = (" · " + ", ".join(p.get("opciones") or [])) if p.get("tipo_campo") == "opciones" else ""
                     st.markdown(
@@ -1258,13 +1258,13 @@ def _render_guion_config():
                         f'<span style="color:#94a3b8;font-size:0.78rem;">{_esc(_opsx)}</span></div>',
                         unsafe_allow_html=True)
                 with rc2:
-                    if st.button("Editar", key=f"_gli_ed_{pid}", use_container_width=True,
-                                 icon=":material/edit:"):
+                    if st.button("", key=f"_gli_ed_{pid}", use_container_width=True,
+                                 icon=":material/edit:", help="Editar"):
                         st.session_state["_guion_edit"] = pid
                         st.rerun(scope="fragment")
                 with rc3:
-                    if st.button("Quitar", key=f"_gli_del_{pid}", use_container_width=True,
-                                 icon=":material/delete:"):
+                    if st.button("", key=f"_gli_del_{pid}", use_container_width=True,
+                                 icon=":material/delete:", help="Quitar"):
                         eliminar_pregunta(pid)
                         _preguntas_data.clear()
                         st.rerun(scope="fragment")
