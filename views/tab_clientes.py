@@ -153,6 +153,8 @@ _CLI_CSS = """
   white-space:nowrap;transition:all .12s;}
 .cli-fpill svg{width:13px;height:13px;flex-shrink:0;}
 .cli-fpill:hover{filter:brightness(0.96);}
+.cli-fpill-av{display:inline-flex;flex:0 0 auto;margin:-2px 1px -2px -2px;}
+.cli-fpill-av > div{box-shadow:none!important;border-width:1.5px!important;}
 .cli-fpill .cli-fcount{font-size:0.64rem;font-weight:800;background:rgba(15,23,42,0.08);color:inherit;
   padding:1px 6px;border-radius:99px;min-width:15px;text-align:center;}
 .cli-fpill.on{box-shadow:0 0 0 2px var(--pill-fg,#4338ca);}
@@ -699,16 +701,21 @@ def _build_filter_bar(data: list) -> str:
         _tiercnt[_sc["key"]] = _tiercnt.get(_sc["key"], 0) + 1
     _stages = [s for s in _STAGE_ORDER if _stcnt[s] > 0]
 
-    def _pill(val, label, kind, count, icon, bg="", fg=""):
+    def _pill(val, label, kind, count, icon, bg="", fg="", ico_html=None):
         _cls = f"cli-fpill cli-fpill-{kind}" + (" on" if val == "" else "")
         _sty = f' style="background:{bg};color:{fg};--pill-fg:{fg};"' if bg else ""
-        _ic = _svg(icon, 13, "currentColor") if icon else ""
+        _ic = ico_html if ico_html is not None else (_svg(icon, 13, "currentColor") if icon else "")
         return (f'<span class="{_cls}" data-fkind="{kind}" data-fval="{_esc(val)}"{_sty}>'
                 f'{_ic}<span>{_esc(label)}</span><b class="cli-fcount">{count}</b></span>')
 
+    # Foto por ejecutivo (para darle vida al filtro, estilo dropdown de COTIZACIONES).
+    _ejinfo = {(e.get("email") or "").strip().lower(): e for e in _ejecutivos()}
     _ej = _pill("", "Todos", "ej", len(data), _IC_USERS)
     for _e, _nm in sorted(_ejset.items(), key=lambda kv: (kv[1] or "").lower()):
-        _ej += _pill(_e, _nm, "ej", _ejcnt.get(_e, 0), _ICON_USER_PATH)
+        _einf = _ejinfo.get(_e, {})
+        _enm = _einf.get("nombre") or _nm
+        _av = f'<span class="cli-fpill-av">{_avatar_html(_einf.get("foto_url",""), _enm, size=20, ring="#fff", font_scale=0.42)}</span>'
+        _ej += _pill(_e, _enm, "ej", _ejcnt.get(_e, 0), "", ico_html=_av)
     if _none:
         _ej += _pill("__none__", "Sin asignar", "ej", _none, _ICON_USER_PATH)
     _st = _pill("", "Todos", "st", len(data), _IC_TODOS)
@@ -891,6 +898,31 @@ _CLI_FILTER_JS = r"""<script>
     }
     var cnt=D.getElementById('_cli_count'); if(cnt) cnt.textContent=m;
     var em=D.getElementById('_cli_noresult'); if(em) em.style.display=(m||!rows.length)?'none':'block';
+    // Recuento FACETADO: cada grupo cuenta según los OTROS filtros activos, así se
+    // ve que los 3 (ejecutivo/estado/potencial) intersectan entre sí. Fuente = los
+    // ítems presentes (tarjetas del pipeline O filas del maestro; una vista a la vez).
+    var its=[];
+    D.querySelectorAll('.cli-card[data-asig],.cli-tbl-wrap tbody tr[data-asig]').forEach(function(el){
+      its.push({a:el.getAttribute('data-asig')||'',s:el.getAttribute('data-stage')||'',
+                t:el.getAttribute('data-tier')||'',q:el.getAttribute('data-s')||''});
+    });
+    function okQ(q){ return !term || (q||'').indexOf(term)>=0; }
+    function setCnt(kind, match, useA, useS, useT){
+      D.querySelectorAll('.cli-fpill[data-fkind="'+kind+'"]').forEach(function(p){
+        var val=p.getAttribute('data-fval')||'', n=0;
+        for(var i=0;i<its.length;i++){ var it=its[i];
+          if(useA&&!okA(it.a)) continue;
+          if(useS&&!okS(it.s)) continue;
+          if(useT&&!okT(it.t)) continue;
+          if(!okQ(it.q)) continue;
+          if(match(val,it)) n++;
+        }
+        var b=p.querySelector('.cli-fcount'); if(b) b.textContent=n;
+      });
+    }
+    setCnt('ej',   function(v,it){ return v===''?true:(v==='__none__'?it.a==='':it.a===v); }, false, true, true);
+    setCnt('st',   function(v,it){ return v===''||it.s===v; }, true, false, true);
+    setCnt('tier', function(v,it){ return v===''||it.t===v; }, true, true, false);
   }
   W._cliApply=apply;
   // Sincroniza el 'on' de las pills con el filtro persistente.
