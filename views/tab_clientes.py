@@ -178,6 +178,26 @@ _CLI_CSS = """
 .cli-wa{display:inline-flex;align-items:center;gap:5px;color:#128c3e;font-weight:600;
   text-decoration:none;cursor:pointer;transition:color .12s;}
 .cli-wa:hover{color:#25d366;text-decoration:underline;text-underline-offset:2px;}
+/* ── Lead Score (llama por nivel) ── */
+.cli-score{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
+  border-radius:11px;flex:0 0 auto;line-height:1;}
+.cli-score .n{font-weight:800;margin-top:1px;}
+.cli-score-sm{width:38px;height:38px;border-radius:10px;}
+.cli-score-sm .n{font-size:0.72rem;}
+.cli-score-md{width:56px;height:56px;border-radius:14px;}
+.cli-score-md .n{font-size:0.95rem;}
+.cli-score-hot{background:rgba(220,38,38,.12);border:1.5px solid #dc2626;color:#dc2626;}
+.cli-score-warm{background:rgba(217,119,6,.14);border:1.5px solid #d97706;color:#d97706;}
+.cli-score-cold{background:rgba(37,99,235,.12);border:1.5px solid #2563eb;color:#2563eb;}
+/* Desglose del score en la ficha */
+.cli-scbrk{display:flex;flex-direction:column;gap:7px;margin:2px 0 6px;}
+.cli-scrow{display:grid;grid-template-columns:88px 1fr 46px;align-items:center;gap:9px;}
+.cli-sck{font-size:0.74rem;color:#475569;}
+.cli-scbar{height:7px;border-radius:999px;background:#f1f5f9;overflow:hidden;}
+.cli-scfill{height:100%;border-radius:999px;}
+.cli-scv{font-size:0.72rem;font-weight:700;color:#64748b;text-align:right;}
+.cli-schint{font-size:0.76rem;color:#475569;background:#fff7ed;border:1px dashed #f59e0b;
+  border-radius:9px;padding:7px 10px;margin-top:6px;}
 
 /* ── Kanban ── */
 .cli-kb-wrap{overflow-x:auto;padding-bottom:8px;margin-top:12px;}
@@ -531,6 +551,77 @@ def _resumen_calificacion(valores, preguntas) -> str:
     return " · ".join(partes)
 
 
+# ── Lead Score (potencial del lead según qué tan completa es su info) ──────────
+# 0–100: Contacto 40 + Calificación 45 + Interés 15. Niveles Frío/Tibio/Caliente.
+_FLAME_PATH = ('<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 '
+               '2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 '
+               '1-3a2.5 2.5 0 0 0 2.5 2.5z"/>')
+# umbral inferior -> (key, label). Se evalúa de mayor a menor.
+_SCORE_TIERS = [(70, "hot", "Caliente"), (40, "warm", "Tibio"), (0, "cold", "Frío")]
+# Campos de contacto que puntúan (label, key, puntos) = 40.
+_SCORE_CONTACTO = [("teléfono", "telefono", 10), ("correo", "email", 10),
+                   ("RUT", "rut", 8), ("dirección", "direccion", 6), ("comuna", "comuna", 6)]
+
+
+def _rut_ok(rut) -> bool:
+    """RUT cuenta para el score solo si es real (no vacío ni el relleno 00.000.000-0)."""
+    r = "".join(ch for ch in str(rut or "").lower() if ch.isalnum())
+    core = r[:-1] if r[-1:] == "k" else r
+    return bool(r) and len(r) >= 7 and set(core) != {"0"}
+
+
+def _lead_score(cli, preguntas) -> dict:
+    """Calcula el score 0–100 del lead + desglose. `preguntas` = guión activo
+    (para la parte de Calificación, que se adapta a lo que configure el admin)."""
+    contacto = 0
+    for _lbl, _k, _pts in _SCORE_CONTACTO:
+        if _k == "rut":
+            if _rut_ok(cli.get("rut")):
+                contacto += _pts
+        elif str(cli.get(_k) or "").strip():
+            contacto += _pts
+    # Calificación: proporción de preguntas activas respondidas × 45.
+    calif = 0
+    if preguntas:
+        cur = _cli_calif(cli)
+        _ans = sum(1 for p in preguntas if str(cur.get(str(p.get("id")), "") or "").strip())
+        calif = round(_ans / len(preguntas) * 45)
+    # Interés: tiene ≥1 presupuesto (10) + asignado a un ejecutivo (5).
+    interes = (10 if (cli.get("_cotizaciones") or []) else 0) \
+        + (5 if str(cli.get("asignado_email") or "").strip() else 0)
+    total = max(0, min(100, contacto + calif + interes))
+    _key, _label = next((k, l) for mn, k, l in _SCORE_TIERS if total >= mn)
+    return {"total": total, "contacto": contacto, "calif": calif, "interes": interes,
+            "key": _key, "label": _label}
+
+
+def _score_badge(sc: dict, size: str = "sm") -> str:
+    """Badge de llama con el número, coloreado por nivel. size = sm|md."""
+    _px = 12 if size == "sm" else 16
+    return (f'<div class="cli-score cli-score-{size} cli-score-{sc["key"]}" '
+            f'title="Score {sc["total"]} · {sc["label"]}">'
+            f'{_svg(_FLAME_PATH, _px, "currentColor")}'
+            f'<span class="n">{sc["total"]}</span></div>')
+
+
+def _score_faltantes(cli, preguntas, sc: dict) -> list:
+    """Top ítems que más subirían el score (para el hint de la ficha)."""
+    faltan = []
+    for _lbl, _k, _pts in _SCORE_CONTACTO:
+        _falta = (not _rut_ok(cli.get("rut"))) if _k == "rut" else (not str(cli.get(_k) or "").strip())
+        if _falta:
+            faltan.append((_lbl, _pts))
+    if preguntas:
+        cur = _cli_calif(cli)
+        _na = sum(1 for p in preguntas if not str(cur.get(str(p.get("id")), "") or "").strip())
+        if _na:
+            faltan.append((f"{_na} pregunta(s) del guión", round(_na / len(preguntas) * 45)))
+    if not (cli.get("_cotizaciones") or []):
+        faltan.append(("crear un presupuesto", 10))
+    faltan.sort(key=lambda x: -x[1])
+    return faltan[:3]
+
+
 @st.cache_data(ttl=60, show_spinner=False)
 def _cli_data(rol: str = "root", email: str = "") -> list:
     """Maestro enriquecido con el pipeline DERIVADO (_stage/_cotizaciones/_monto).
@@ -588,6 +679,7 @@ def _build_filter_bar(data: list) -> str:
     client-side (ver _CLI_FILTER_JS): NO dispara reruns."""
     _ejset, _ejcnt, _none = {}, {}, 0
     _stcnt = {s: 0 for s in _STAGE_ORDER}
+    _tiercnt = {"hot": 0, "warm": 0, "cold": 0}
     for d in data:
         _e = (d.get("asignado_email") or "").strip().lower()
         if _e:
@@ -596,6 +688,8 @@ def _build_filter_bar(data: list) -> str:
         else:
             _none += 1
         _stcnt[d.get("_stage") or STAGE_LEAD] += 1
+        _sc = d.get("_score") or _lead_score(d, None)
+        _tiercnt[_sc["key"]] = _tiercnt.get(_sc["key"], 0) + 1
     _stages = [s for s in _STAGE_ORDER if _stcnt[s] > 0]
 
     def _pill(val, label, kind, count, icon, bg="", fg=""):
@@ -614,10 +708,18 @@ def _build_filter_bar(data: list) -> str:
     for _s in _stages:
         _lbl, _dot, _bg, _fg = _STAGE_META[_s]
         _st += _pill(_s, _lbl, "st", _stcnt[_s], _STAGE_ICON.get(_s, ""), _bg, _fg)
+    # Potencial (Lead Score): Caliente / Tibio / Frío, con llama y color por nivel.
+    _TIER_META = [("hot", "Caliente", "#dc2626", "rgba(220,38,38,.12)"),
+                  ("warm", "Tibio", "#d97706", "rgba(217,119,6,.15)"),
+                  ("cold", "Frío", "#2563eb", "rgba(37,99,235,.12)")]
+    _sc_pills = _pill("", "Todos", "tier", len(data), _IC_TODOS)
+    for _tk, _tl, _tc, _tb in _TIER_META:
+        _sc_pills += _pill(_tk, _tl, "tier", _tiercnt.get(_tk, 0), _FLAME_PATH, _tb, _tc)
     return (
         '<div class="cli-fbar">'
         f'<div class="cli-fgrp"><span class="cli-fgrp-lbl">Ejecutivo</span>{_ej}</div>'
         f'<div class="cli-fgrp"><span class="cli-fgrp-lbl">Estado</span>{_st}</div>'
+        f'<div class="cli-fgrp"><span class="cli-fgrp-lbl">Potencial</span>{_sc_pills}</div>'
         '</div>')
 
 
@@ -754,14 +856,16 @@ _CLI_FILTER_JS = r"""<script>
 (function(){
   var W=window.parent, D=W&&W.document; if(!D) return;
   function apply(){
-    var ej=W._cliFEj||'', stg=W._cliFSt||'', term=(W._cliQ||'');
+    var ej=W._cliFEj||'', stg=W._cliFSt||'', tier=W._cliFTier||'', term=(W._cliQ||'');
     function okA(v){ v=v||''; if(!ej) return true; if(ej==='__none__') return v===''; return v===ej; }
     function okS(v){ return !stg || (v||'')===stg; }
+    function okT(v){ return !tier || (v||'')===tier; }
     // Pipeline: tarjetas + recuento por columna
     var cards=D.querySelectorAll('.cli-card[data-asig]');
     for(var i=0;i<cards.length;i++){
       var c=cards[i];
-      c.style.display=(okA(c.getAttribute('data-asig'))&&okS(c.getAttribute('data-stage')))?'':'none';
+      c.style.display=(okA(c.getAttribute('data-asig'))&&okS(c.getAttribute('data-stage'))
+        &&okT(c.getAttribute('data-tier')))?'':'none';
     }
     var cols=D.querySelectorAll('.cli-kb-col');
     for(var j=0;j<cols.length;j++){
@@ -769,11 +873,12 @@ _CLI_FILTER_JS = r"""<script>
       for(var k=0;k<cc.length;k++){ if(cc[k].style.display!=='none') n++; }
       var ct=cols[j].querySelector('.cli-kb-ct'); if(ct) ct.textContent=n;
     }
-    // Maestro: filas (combina ejecutivo + estado + término de búsqueda)
+    // Maestro: filas (combina ejecutivo + estado + potencial + término de búsqueda)
     var rows=D.querySelectorAll('.cli-tbl-wrap tbody tr[data-asig]'), m=0;
     for(var r=0;r<rows.length;r++){
       var tr=rows[r];
       var ok=okA(tr.getAttribute('data-asig'))&&okS(tr.getAttribute('data-stage'))
+             &&okT(tr.getAttribute('data-tier'))
              &&(!term||(tr.getAttribute('data-s')||'').indexOf(term)>=0);
       tr.style.display=ok?'':'none'; if(ok) m++;
     }
@@ -792,6 +897,7 @@ _CLI_FILTER_JS = r"""<script>
     var p=e.target&&e.target.closest?e.target.closest('.cli-fpill'):null; if(!p) return;
     var kind=p.getAttribute('data-fkind'), val=p.getAttribute('data-fval')||'';
     if(kind==='ej') W._cliFEj=val; else if(kind==='st') W._cliFSt=val;
+    else if(kind==='tier') W._cliFTier=val;
     syncPills(kind, val); apply();
   };
   D.addEventListener('click', W._cliPillH, true);
@@ -803,7 +909,7 @@ _CLI_FILTER_JS = r"""<script>
     q.addEventListener('input', W._cliQH);
     if(W._cliQ){ q.value=W._cliQ; }
   }
-  syncPills('ej', W._cliFEj||''); syncPills('st', W._cliFSt||'');
+  syncPills('ej', W._cliFEj||''); syncPills('st', W._cliFSt||''); syncPills('tier', W._cliFTier||'');
   apply();
 })();
 </script>"""
@@ -918,9 +1024,11 @@ def _render_maestro(data: list):
         _asig_cell = (_esc(_asig) if _asig
                       else '<span style="color:#ea580c;font-weight:700;font-size:0.72rem;">Sin asignar</span>')
         _asig_email = (d.get("asignado_email") or "").strip().lower()
+        _sc = d.get("_score") or _lead_score(d, None)
         rows += (
             f'<tr data-s="{_s}" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}"'
-            f' data-asig="{_esc(_asig_email)}" data-stage="{_esc(_stage)}">'
+            f' data-asig="{_esc(_asig_email)}" data-stage="{_esc(_stage)}" data-tier="{_sc["key"]}">'
+            f'<td>{_score_badge(_sc, "sm")}</td>'
             f'<td style="font-weight:700;">{_esc(d.get("nombre","") or "—")}</td>'
             f'<td><span class="cli-pill" style="background:{_sbg};color:{_sfg};">{_slbl}</span></td>'
             f'<td>{_esc(d.get("rut","")) or "—"}</td>'
@@ -931,7 +1039,7 @@ def _render_maestro(data: list):
             '</tr>')
     st.markdown(
         '<div class="cli-tbl-wrap"><table><thead><tr>'
-        '<th>Cliente</th><th>Etapa</th><th>RUT</th><th>Correo</th><th>Tel&eacute;fono</th>'
+        '<th>Score</th><th>Cliente</th><th>Etapa</th><th>RUT</th><th>Correo</th><th>Tel&eacute;fono</th>'
         '<th>Origen</th><th>Ejecutivo</th>'
         f'</tr></thead><tbody>{rows}</tbody></table></div>', unsafe_allow_html=True)
     st.markdown('<div id="_cli_noresult" class="cli-empty-ph" style="display:none;">'
@@ -958,10 +1066,13 @@ def _render_pipeline(data: list):
             _ep = (f'{_neps} presupuesto' + ('s' if _neps != 1 else '')) if _neps else "Sin presupuesto"
             _asig_ico = _svg(_ICON_USER_PATH, 12, "#94a3b8")
             _asig_email = (d.get("asignado_email") or "").strip().lower()
+            _sc = d.get("_score") or _lead_score(d, None)
             cards += (
                 f'<div class="cli-card" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}"'
-                f' data-asig="{_esc(_asig_email)}" data-stage="{_esc(s)}">'
+                f' data-asig="{_esc(_asig_email)}" data-stage="{_esc(s)}" data-tier="{_sc["key"]}">'
+                '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">'
                 f'<div class="cli-card-nm">{_esc(d.get("nombre","") or "—")}</div>'
+                f'{_score_badge(_sc, "sm")}</div>'
                 f'{_mt}'
                 f'<div class="cli-card-sub">{_asig_ico}{_esc(_asig)}</div>'
                 f'<div class="cli-card-sub" style="margin-top:2px;">{_esc(_ep)}</div>'
@@ -1431,17 +1542,41 @@ def _render_ficha(cid: str, data: list):
                     if _nombre else '<div class="cli-fh-nm">—</div>')
         _rut = cli.get("rut", "") or ""
         _rut_html = (_cp(_rut, _esc(_rut), "Copiar RUT") if _rut else "Sin RUT")
+        _sc = cli.get("_score") or _lead_score(cli, _preguntas_data())
         st.markdown(
             '<div class="cli-fh">'
             f'<div class="cli-fh-av">{_esc(_initials(cli.get("nombre")))}</div>'
-            '<div style="min-width:0;">'
+            '<div style="min-width:0;flex:1;">'
             f'{_nm_html}'
             f'<div class="cli-fh-sub">{_rut_html} · {_esc(_asig)}</div>'
-            '</div></div>'
+            '</div>'
+            f'<div style="margin-left:auto;">{_score_badge(_sc, "md")}</div>'
+            '</div>'
             '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">'
             f'{_origen_pill(cli.get("origen","Manual"))}'
             f'<span class="cli-pill" style="background:{_sbg};color:{_sfg};">{_slbl}</span>'
             '</div>', unsafe_allow_html=True)
+
+        # Potencial del lead: nivel + desglose (qué falta para subirlo).
+        _SC_COL = {"hot": "#dc2626", "warm": "#d97706", "cold": "#2563eb"}
+        _tcol = _SC_COL[_sc["key"]]
+        def _scbar(k, v, mx, col):
+            return (f'<div class="cli-scrow"><span class="cli-sck">{k}</span>'
+                    f'<span class="cli-scbar"><span class="cli-scfill" '
+                    f'style="width:{round(v / mx * 100)}%;background:{col};"></span></span>'
+                    f'<span class="cli-scv">{v}/{mx}</span></div>')
+        _falt = _score_faltantes(cli, _preguntas_data(), _sc)
+        _hint = ("💡 Sube el potencial: " + " · ".join(f"{l} (+{p})" for l, p in _falt)
+                 if _falt else "✅ Lead completo, máximo potencial.")
+        st.markdown(
+            f'<div class="cli-sec-t" style="margin:6px 0 4px;">Potencial del lead · '
+            f'<span style="color:{_tcol};">{_sc["label"]} {_sc["total"]}/100</span></div>'
+            '<div class="cli-scbrk">'
+            + _scbar("Contacto", _sc["contacto"], 40, "#16a34a")
+            + _scbar("Calificación", _sc["calif"], 45, "#d97706")
+            + _scbar("Interés", _sc["interes"], 15, "#6d28d9")
+            + '</div>'
+            f'<div class="cli-schint">{_hint}</div>', unsafe_allow_html=True)
 
         # Datos de contacto (correo y teléfono son copiables al click)
         _tipo = cli.get("tipo") or "natural"
@@ -1790,6 +1925,11 @@ def render_tab_clientes(**kwargs):
         st.toast(_t)
 
     data = _cli_data(_rol, _email)
+    # Lead Score por cliente (potencial según completitud). Se adjunta acá para que
+    # tarjetas / maestro / filtros / ficha lean el MISMO valor.
+    _pregs_score = _preguntas_data()
+    for _d in data:
+        _d["_score"] = _lead_score(_d, _pregs_score)
 
     # Puente oculto: click en fila/tarjeta → abre la ficha.
     st.markdown('<style>.st-key-_cli_cmd{position:absolute!important;left:-9999px!important;'
