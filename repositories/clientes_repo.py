@@ -291,6 +291,84 @@ def backfill_desde_cotizaciones() -> dict:
     return {"creados": creados, "existentes": len(idx), "omitidos": omitidos}
 
 
+# Campos de cliente que acepta la importación (llave interna -> se guarda tal cual).
+CAMPOS_IMPORT = ("nombre", "rut", "email", "telefono", "direccion", "comuna",
+                 "region", "empresa", "rut_empresa")
+
+
+def importar_leads(rows: list, origen: str = "Importado",
+                   asignado_email: str = "", asignado_nombre: str = "") -> dict:
+    """Importa leads desde filas ya MAPEADAS (cada fila = dict con llaves de
+    CAMPOS_IMPORT). Deduplica con el MISMO criterio del backfill (RUT>email>tel>
+    nombre, ignorando rellenos) contra el maestro existente y dentro del mismo
+    archivo. Los nuevos quedan origen='Importado', etapa 'lead_nuevo' (caen en la
+    Bandeja) y opcionalmente asignados. Devuelve {creados, duplicados, omitidos}.
+
+    ADITIVO: solo INSERTA en `clientes` (+ actividad); nunca toca lo existente."""
+    polluted = identidades_compartidas()
+
+    idx = set()
+    for c in listar_clientes(solo_activos=False):
+        k = dedup_key(c.get("rut"), c.get("email"), c.get("telefono"), c.get("nombre"), polluted)
+        if k[1]:
+            idx.add(k)
+
+    nuevos: dict = {}
+    duplicados = 0
+    omitidos = 0
+    for row in rows:
+        nombre = str(row.get("nombre") or "").strip()
+        if not nombre:
+            omitidos += 1
+            continue
+        k = dedup_key(row.get("rut"), row.get("email"), row.get("telefono"), nombre, polluted)
+        if not k[1]:
+            k = ("nombre", _n(nombre))   # sin clave fuerte → dedup por nombre
+        if k in idx or k in nuevos:
+            duplicados += 1
+            continue
+        payload = {
+            "id": str(uuid.uuid4()),
+            "nombre": nombre,
+            "tipo": "natural",
+            "origen": origen or "Importado",
+            "asignado_email": str(asignado_email or "").strip(),
+            "asignado_nombre": str(asignado_nombre or "").strip(),
+            "etapa_manual": "lead_nuevo",
+            "activo": True,
+        }
+        for _f in CAMPOS_IMPORT:
+            if _f != "nombre":
+                payload[_f] = str(row.get(_f) or "").strip()
+        nuevos[k] = payload
+
+    creados = 0
+    now = _ahora()
+    items = list(nuevos.values())
+    for i in range(0, len(items), 200):
+        lote = items[i:i + 200]
+        for it in lote:
+            it["fecha_creacion"] = now
+            it["fecha_modificacion"] = now
+        try:
+            _supa.table(_TABLA).insert(lote).execute()
+            _supa.table("crm_actividad").insert([{
+                "id": str(uuid.uuid4()),
+                "cliente_id": it["id"],
+                "tipo": "lead",
+                "titulo": "Lead importado desde archivo",
+                "detalle": origen or "Importado",
+                "ep": "",
+                "actor": "import",
+                "fecha": now,
+            } for it in lote]).execute()
+            creados += len(lote)
+        except Exception:
+            omitidos += len(lote)
+
+    return {"creados": creados, "duplicados": duplicados, "omitidos": omitidos}
+
+
 # ── Derivación del PIPELINE (SOLO LECTURA de cotizaciones) ─────────────────────
 # La etapa "en presupuesto / propuesta / ganado / perdido" NO se guarda: se DERIVA
 # del estado de las cotizaciones del cliente (misma fuente de verdad que la tabla

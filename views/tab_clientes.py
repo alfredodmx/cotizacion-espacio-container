@@ -13,6 +13,7 @@ y escribe en tablas nuevas. No toca el flujo actual.
 """
 import html as _html
 import json as _json
+import unicodedata as _ud
 from datetime import date as _date, datetime as _dt, timedelta as _td, timezone as _tz
 try:
     from zoneinfo import ZoneInfo as _ZoneInfo
@@ -28,7 +29,7 @@ from repositories.clientes_repo import (
     backfill_desde_cotizaciones, dedup_key, enriquecer_con_pipeline,
     identidades_compartidas,
     crear_tarea, listar_tareas_cliente, completar_tarea, listar_tareas_pendientes,
-    tareas_vencidas_no_notificadas, marcar_notificadas,
+    tareas_vencidas_no_notificadas, marcar_notificadas, importar_leads, CAMPOS_IMPORT,
     STAGE_LEAD, STAGE_CONTACTADO, STAGE_PRESUPUESTO, STAGE_PROPUESTA,
     STAGE_GANADO, STAGE_PERDIDO,
 )
@@ -1417,6 +1418,174 @@ def _render_actividad(cid, cli, t):
                             st.rerun(scope="fragment")
 
 
+# ── Importar leads desde CSV / Excel (con mapeo de columnas) ──────────────────
+_IMPORT_LABELS = {
+    "nombre": "Nombre *", "rut": "RUT", "email": "Correo", "telefono": "Teléfono",
+    "direccion": "Dirección", "comuna": "Comuna", "region": "Región",
+    "empresa": "Empresa", "rut_empresa": "RUT empresa",
+}
+_IMPORT_SYN = {
+    "nombre": ["nombre", "name", "cliente", "nombrecompleto", "fullname", "razonsocial",
+               "contacto", "clientenombre", "nombreapellido"],
+    "rut": ["rut", "run", "dni", "documento", "identificacion", "rutcliente"],
+    "email": ["email", "correo", "mail", "emailcliente", "correoelectronico", "email"],
+    "telefono": ["telefono", "fono", "phone", "celular", "movil", "whatsapp", "numero",
+                 "telefonocliente", "contactotelefono"],
+    "direccion": ["direccion", "address", "domicilio", "calle"],
+    "comuna": ["comuna", "ciudad", "city", "localidad"],
+    "region": ["region", "state", "provincia", "estado"],
+    "empresa": ["empresa", "company", "compania", "negocio"],
+    "rut_empresa": ["rutempresa", "companyrut", "rutcompania"],
+}
+
+
+def _norm_header(s) -> str:
+    """Nombre de columna normalizado: sin acentos, minúsculas, solo alfanumérico."""
+    s = _ud.normalize("NFKD", str(s or "")).encode("ascii", "ignore").decode()
+    return "".join(ch for ch in s.lower() if ch.isalnum())
+
+
+def _auto_map(columns: list) -> dict:
+    """Adivina el mapeo columna→campo. Primero por match EXACTO del header, luego
+    por substring. Cada columna se usa una sola vez."""
+    norm = {c: _norm_header(c) for c in columns}
+    out = {f: "" for f in _IMPORT_SYN}
+    used = set()
+    for f, syns in _IMPORT_SYN.items():
+        for c in columns:
+            if c not in used and norm[c] in syns:
+                out[f] = c
+                used.add(c)
+                break
+    for f, syns in _IMPORT_SYN.items():
+        if out[f]:
+            continue
+        for c in columns:
+            if c in used:
+                continue
+            nc = norm[c]
+            if nc and any(s in nc or nc in s for s in syns):
+                out[f] = c
+                used.add(c)
+                break
+    return out
+
+
+def _read_upload(upload):
+    """Lee el archivo subido (CSV/XLSX) a un DataFrame de strings. (df, error)."""
+    import pandas as pd
+    name = (getattr(upload, "name", "") or "").lower()
+    try:
+        upload.seek(0)
+    except Exception:
+        pass
+    try:
+        if name.endswith(".csv"):
+            try:
+                df = pd.read_csv(upload, sep=None, engine="python", dtype=str, keep_default_na=False)
+            except UnicodeDecodeError:
+                upload.seek(0)
+                df = pd.read_csv(upload, sep=None, engine="python", dtype=str,
+                                 keep_default_na=False, encoding="latin-1")
+        else:
+            df = pd.read_excel(upload, dtype=str).fillna("")
+        df.columns = [str(c).strip() for c in df.columns]
+        return df, None
+    except Exception as e:
+        return None, str(e)
+
+
+def _render_importar_dialog():
+    """Diálogo (root/admin): importa leads desde CSV/Excel con mapeo de columnas."""
+
+    @st.dialog("Importar leads", width="large")
+    def _dlg():
+        st.markdown('<div class="cli-actf-hint">Sube un CSV o Excel, ajusta a qué campo va cada '
+                    'columna y confirma. Se omiten los que ya existen (por RUT, correo, teléfono '
+                    'o nombre). Los importados caen en la <b>Bandeja</b> como leads nuevos.</div>',
+                    unsafe_allow_html=True)
+        up = st.file_uploader("Archivo", type=["csv", "xlsx"], key="_imp_file",
+                              label_visibility="collapsed")
+        if not up:
+            return
+        df, err = _read_upload(up)
+        if df is None:
+            st.error(f"No se pudo leer el archivo: {err}")
+            return
+        if df.empty:
+            st.warning("El archivo no tiene filas.")
+            return
+
+        cols = list(df.columns)
+        _guess = _auto_map(cols)
+        st.markdown('<div class="cli-sec-t" style="margin:10px 0 2px;">Mapeo de columnas</div>',
+                    unsafe_allow_html=True)
+        _opts = ["— ninguna —"] + cols
+        mapping = {}
+        _mc = st.columns(2)
+        for _i, (_f, _lbl) in enumerate(_IMPORT_LABELS.items()):
+            with _mc[_i % 2]:
+                _def = _guess.get(_f, "")
+                _idx = _opts.index(_def) if _def in _opts else 0
+                _sel = st.selectbox(_lbl, _opts, index=_idx, key=f"_imp_map_{_f}")
+                mapping[_f] = "" if _sel == "— ninguna —" else _sel
+
+        if not mapping.get("nombre"):
+            st.warning("Debes mapear al menos la columna de **Nombre**.")
+            return
+
+        rows = []
+        for _, _r in df.iterrows():
+            _row = {_f: (str(_r.get(_col, "") or "").strip() if _col else "")
+                    for _f, _col in mapping.items()}
+            if _row.get("nombre"):
+                rows.append(_row)
+
+        st.markdown(f'<div class="cli-sec-t" style="margin:12px 0 2px;">Vista previa · '
+                    f'{len(rows)} lead(s) con nombre</div>', unsafe_allow_html=True)
+        _pv = "".join(
+            f'<tr><td style="font-weight:700;">{_esc(r.get("nombre",""))}</td>'
+            f'<td>{_esc(r.get("rut","") or "—")}</td>'
+            f'<td>{_esc(r.get("email","") or "—")}</td>'
+            f'<td>{_esc(r.get("telefono","") or "—")}</td>'
+            f'<td>{_esc(r.get("comuna","") or "—")}</td></tr>'
+            for r in rows[:5])
+        st.markdown('<div class="cli-tbl-wrap"><table><thead><tr>'
+                    '<th>Nombre</th><th>RUT</th><th>Correo</th><th>Tel&eacute;fono</th><th>Comuna</th>'
+                    f'</tr></thead><tbody>{_pv}</tbody></table></div>', unsafe_allow_html=True)
+        if len(rows) > 5:
+            st.markdown(f'<div style="font-size:0.74rem;color:#94a3b8;margin-top:4px;">'
+                        f'… y {len(rows) - 5} más.</div>', unsafe_allow_html=True)
+
+        _oc1, _oc2 = st.columns(2)
+        with _oc1:
+            _origen = st.text_input("Origen", value="Importado", key="_imp_origen")
+        with _oc2:
+            _ejs = _ejecutivos()
+            _asig_opts = ["— Sin asignar —"] + [(e.get("nombre") or e.get("email")) for e in _ejs]
+            _asig_sel = st.selectbox("Asignar a (opcional)", _asig_opts, key="_imp_asig")
+
+        st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
+        if st.button(f"Importar {len(rows)} lead(s)", type="primary", use_container_width=True,
+                     key="_imp_go", disabled=not rows, icon=":material/upload_file:"):
+            _ae, _an = "", ""
+            if _asig_sel != "— Sin asignar —":
+                for e in _ejs:
+                    if (e.get("nombre") or e.get("email")) == _asig_sel:
+                        _ae, _an = e.get("email", ""), (e.get("nombre") or e.get("email") or "")
+                        break
+            with st.spinner("Importando…"):
+                res = importar_leads(rows, origen=(_origen or "").strip() or "Importado",
+                                     asignado_email=_ae, asignado_nombre=_an)
+            _cli_data.clear()
+            st.session_state["_cli_toast"] = (
+                f"Importados: {res['creados']} nuevo(s) · {res['duplicados']} ya existían · "
+                f"{res['omitidos']} sin nombre.")
+            st.rerun()
+
+    _dlg()
+
+
 def _render_guion_config():
     """Diálogo (solo root/admin): CRUD de las preguntas del guión de calificación.
     Baja lógica al eliminar (no se pierden respuestas). Reordenable por número."""
@@ -2019,9 +2188,9 @@ def render_tab_clientes(**kwargs):
     # Fila: botones a la IZQUIERDA + KPI cards a la derecha. Sincronizar = solo
     # icono (root/admin). Agregar angosto.
     if _es_gestor:
-        _bcol, _kcol = st.columns([2.6, 9.4], vertical_alignment="center")
+        _bcol, _kcol = st.columns([3.4, 8.6], vertical_alignment="center")
         with _bcol:
-            _bs, _bg, _ba = st.columns([1, 1, 2])
+            _bs, _bg, _bi, _ba = st.columns([1, 1, 1, 2.4])
             with _bs:
                 if st.button("", icon=":material/sync:", use_container_width=True,
                              key="_cli_sync", help="Sincronizar con cotizaciones"):
@@ -2036,6 +2205,16 @@ def render_tab_clientes(**kwargs):
                              key="_cli_guion", help="Configurar guión de calificación"):
                     st.session_state["_guion_open"] = True
                     st.session_state.pop("_cli_ficha", None)   # no dos diálogos a la vez
+                    st.rerun()
+            with _bi:
+                if st.button("", icon=":material/upload_file:", use_container_width=True,
+                             key="_cli_import", help="Importar leads desde CSV / Excel"):
+                    # Arranca en limpio: borra archivo/mapeo de una importación previa.
+                    for _k in [k for k in st.session_state if str(k).startswith("_imp_")]:
+                        st.session_state.pop(_k, None)
+                    st.session_state["_import_open"] = True
+                    st.session_state.pop("_cli_ficha", None)
+                    st.session_state.pop("_guion_open", None)
                     st.rerun()
             with _ba:
                 _add_btn()
@@ -2079,10 +2258,12 @@ def render_tab_clientes(**kwargs):
     st.markdown(_CLI_DRAWER_ANIM_CSS if st.session_state.pop("_cli_just_opened", False)
                 else _CLI_DRAWER_STILL_CSS, unsafe_allow_html=True)
 
-    # Guión de calificación (config admin) — un solo diálogo a la vez, así que tiene
-    # prioridad sobre la ficha. One-shot: se cierra al hacer rerun completo.
+    # Diálogos: un solo st.dialog a la vez. Guión e Importar (gestores) tienen
+    # prioridad sobre la ficha. One-shot: se cierran al hacer rerun completo.
     if st.session_state.pop("_guion_open", False) and _es_gestor:
         _render_guion_config()
+    elif st.session_state.pop("_import_open", False) and _es_gestor:
+        _render_importar_dialog()
     else:
         # Ficha 360 (one-shot: pop del flag; el dialog persiste vía su fragment).
         _fid = st.session_state.pop("_cli_ficha", None)
