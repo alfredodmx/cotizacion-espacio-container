@@ -193,8 +193,8 @@ _CLI_CSS = """
 .cli-scbrk{display:flex;flex-direction:column;gap:7px;margin:2px 0 6px;}
 .cli-scrow{display:grid;grid-template-columns:88px 1fr 46px;align-items:center;gap:9px;}
 .cli-sck{font-size:0.74rem;color:#475569;}
-.cli-scbar{height:7px;border-radius:999px;background:#f1f5f9;overflow:hidden;}
-.cli-scfill{height:100%;border-radius:999px;}
+.cli-scbar{display:block;width:100%;height:8px;border-radius:999px;background:#eef1f6;overflow:hidden;}
+.cli-scfill{display:block;height:100%;border-radius:999px;min-width:3px;transition:width .3s ease;}
 .cli-scv{font-size:0.72rem;font-weight:700;color:#64748b;text-align:right;}
 .cli-schint{font-size:0.76rem;color:#475569;background:#fff7ed;border:1px dashed #f59e0b;
   border-radius:9px;padding:7px 10px;margin-top:6px;}
