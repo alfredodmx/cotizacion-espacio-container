@@ -175,6 +175,9 @@ _CLI_CSS = """
 /* Campos copiables de la ficha (click para copiar) */
 .cli-copy{cursor:pointer;transition:color .12s;}
 .cli-copy:hover{color:#2563eb;text-decoration:underline dotted;text-underline-offset:2px;}
+.cli-wa{display:inline-flex;align-items:center;gap:5px;color:#128c3e;font-weight:600;
+  text-decoration:none;cursor:pointer;transition:color .12s;}
+.cli-wa:hover{color:#25d366;text-decoration:underline;text-underline-offset:2px;}
 
 /* ── Kanban ── */
 .cli-kb-wrap{overflow-x:auto;padding-bottom:8px;margin-top:12px;}
@@ -865,6 +868,25 @@ _CLI_COPY_JS = r"""<script>
     if(cp(txt)) fb(e.clientX, e.clientY);
   };
   D.addEventListener('click', W._cliCopyH, true);
+
+  // WhatsApp: abre wa.me en pestaña nueva (robusto, sin depender de <a target>).
+  function openWa(el){
+    var n=(el.getAttribute('data-wa')||'').trim(); if(!n) return;
+    try{ W.open('https://wa.me/'+n, '_blank', 'noopener'); }catch(e){}
+  }
+  if(W._cliWaH){ D.removeEventListener('click', W._cliWaH, true); }
+  W._cliWaH=function(e){
+    var el=e.target&&e.target.closest?e.target.closest('.cli-wa'):null; if(!el) return;
+    e.preventDefault(); e.stopPropagation(); openWa(el);
+  };
+  D.addEventListener('click', W._cliWaH, true);
+  if(W._cliWaKeyH){ D.removeEventListener('keydown', W._cliWaKeyH, true); }
+  W._cliWaKeyH=function(e){
+    if(e.key!=='Enter'&&e.key!==' ') return;
+    var el=e.target&&e.target.closest?e.target.closest('.cli-wa'):null; if(!el) return;
+    e.preventDefault(); openWa(el);
+  };
+  D.addEventListener('keydown', W._cliWaKeyH, true);
 })();
 </script>"""
 
@@ -1097,6 +1119,83 @@ def _guardar_contesto(cid, cli, tid, valores, preguntas, actor) -> None:
     registrar_actividad(cid, "llamada",
                         "Llamada — contestó (calificado)" if _resumen else "Llamada — contestó",
                         detalle=_resumen, actor=actor)
+
+
+def _wa_num(telefono) -> str:
+    """Normaliza un teléfono a formato internacional para wa.me (Chile). Devuelve
+    solo dígitos con prefijo país, o '' si no hay teléfono usable.
+    Ej: '+56 9 1234 5678' / '912345678' → '56912345678'."""
+    d = "".join(ch for ch in str(telefono or "") if ch.isdigit())
+    if not d:
+        return ""
+    if d.startswith("56"):
+        return d
+    if len(d) == 9 and d.startswith("9"):   # móvil chileno sin país
+        return "56" + d
+    if len(d) == 8:                          # faltaba el 9 inicial
+        return "569" + d
+    return d                                  # mejor esfuerzo (deja lo que haya)
+
+
+# Logo de WhatsApp (marca) para el enlace de la ficha.
+_WA_SVG = ('<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" '
+           'style="flex:0 0 auto;"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.372-.025-.521-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.885-9.885 9.885M20.52 3.449C18.24 1.245 15.24 0 12.045 0 5.463 0 .104 5.359.101 11.892c0 2.096.549 4.142 1.595 5.945L0 24l6.335-1.652a11.882 11.882 0 005.71 1.454h.006c6.585 0 11.946-5.359 11.949-11.893a11.821 11.821 0 00-3.481-8.454"/></svg>')
+
+
+def _wa_cell(telefono) -> str:
+    """Celda 'WhatsApp' de la ficha: si hay número, un elemento clickeable (verde
+    WhatsApp) que abre wa.me en pestaña nueva vía _CLI_WA_JS; si no, '—'. Se usa un
+    span con data-wa (no un <a>) para no depender de que Streamlit conserve
+    target=_blank y para abrir en pestaña nueva de forma robusta."""
+    _n = _wa_num(telefono)
+    if not _n:
+        return '<div><div class="k">WhatsApp</div>—</div>'
+    return (f'<div><div class="k">WhatsApp</div>'
+            f'<span class="cli-wa" data-wa="{_n}" role="link" tabindex="0" '
+            f'title="Abrir WhatsApp">{_WA_SVG}<span>{_esc(str(telefono).strip())}</span></span></div>')
+
+
+def _render_calificacion(cid, cli):
+    """Sección 'Calificación' (respuestas del guión). Ver + Editar. Se muestra solo
+    si el admin configuró preguntas. Va en la zona de actividades de la ficha."""
+    _pregs_f = _preguntas_data()
+    if not _pregs_f:
+        return
+    _hd1, _hd2 = st.columns([1, 1], vertical_alignment="center")
+    with _hd1:
+        st.markdown('<div class="cli-sec-t" style="margin:8px 0 2px;">Calificación</div>',
+                    unsafe_allow_html=True)
+    if st.session_state.get("_cli_cal_edit") == cid:
+        _fvals, _fpregs = _guion_inputs(cli, f"_ficcal_{cid}")
+        _cc1, _cc2 = st.columns(2)
+        with _cc1:
+            if st.button("Guardar", key=f"_cli_calfsave_{cid}", type="primary",
+                         use_container_width=True, icon=":material/save:"):
+                _ok, _mg = guardar_calificacion(cid, _fvals or {})
+                if _ok:
+                    cli["calificacion"] = _mg
+                    _cli_data.clear()
+                    st.toast("Calificación guardada")
+                else:
+                    st.error("No se pudo guardar (¿falta la columna calificacion?).")
+                st.session_state.pop("_cli_cal_edit", None)
+                st.rerun(scope="fragment")
+        with _cc2:
+            if st.button("Cancelar", key=f"_cli_calfcancel_{cid}", use_container_width=True):
+                st.session_state.pop("_cli_cal_edit", None)
+                st.rerun(scope="fragment")
+    else:
+        with _hd2:
+            if st.button("Editar", key=f"_cli_calfedit_{cid}", use_container_width=True,
+                         icon=":material/edit:"):
+                st.session_state["_cli_cal_edit"] = cid
+                st.rerun(scope="fragment")
+        _cur = _cli_calif(cli)
+        _items = "".join(
+            f'<div><div class="k">{_esc(p.get("texto",""))}</div>'
+            f'{_esc(str(_cur.get(str(p.get("id")), "") or "") or "—")}</div>'
+            for p in _pregs_f)
+        st.markdown(f'<div class="cli-data">{_items}</div>', unsafe_allow_html=True)
 
 
 def _render_actividad(cid, cli, t):
@@ -1350,55 +1449,17 @@ def _render_ficha(cid: str, data: list):
                     f'({_esc(cli.get("rut_empresa"))})</div>') if _tipo == "empresa" and cli.get("empresa") else ""
         _correo = cli.get("email", "") or ""
         _tel = cli.get("telefono", "") or ""
+        # Correo y teléfono son copiables; Dirección/Comuna NO (solo lectura).
+        # WhatsApp se arma desde el teléfono y abre wa.me al click.
         st.markdown(
             '<div class="cli-data">'
             f'<div><div class="k">Correo</div>{_cp(_correo, _esc(_correo or "—"), "Copiar correo")}</div>'
             f'<div><div class="k">Teléfono</div>{_cp(_tel, _esc(_tel or "—"), "Copiar teléfono")}</div>'
+            f'{_wa_cell(_tel)}'
             f'<div><div class="k">Dirección</div>{_esc(cli.get("direccion","") or "—")}</div>'
             f'<div><div class="k">Comuna</div>{_esc(cli.get("comuna","") or "—")}</div>'
             f'{_empresa}'
             '</div>', unsafe_allow_html=True)
-
-        # ── Calificación (respuestas del guión capturadas en llamadas) ──
-        # Se muestra si el admin configuró preguntas. Editable directo desde acá
-        # (además de capturarse en la llamada con «Contestó»).
-        _pregs_f = _preguntas_data()
-        if _pregs_f:
-            _hd1, _hd2 = st.columns([1, 1], vertical_alignment="center")
-            with _hd1:
-                st.markdown('<div class="cli-sec-t" style="margin:8px 0 2px;">Calificación</div>',
-                            unsafe_allow_html=True)
-            if st.session_state.get("_cli_cal_edit") == cid:
-                _fvals, _fpregs = _guion_inputs(cli, f"_ficcal_{cid}")
-                _cc1, _cc2 = st.columns(2)
-                with _cc1:
-                    if st.button("Guardar", key=f"_cli_calfsave_{cid}", type="primary",
-                                 use_container_width=True, icon=":material/save:"):
-                        _ok, _mg = guardar_calificacion(cid, _fvals or {})
-                        if _ok:
-                            cli["calificacion"] = _mg
-                            _cli_data.clear()
-                            st.toast("Calificación guardada")
-                        else:
-                            st.error("No se pudo guardar (¿falta la columna calificacion?).")
-                        st.session_state.pop("_cli_cal_edit", None)
-                        st.rerun(scope="fragment")
-                with _cc2:
-                    if st.button("Cancelar", key=f"_cli_calfcancel_{cid}", use_container_width=True):
-                        st.session_state.pop("_cli_cal_edit", None)
-                        st.rerun(scope="fragment")
-            else:
-                with _hd2:
-                    if st.button("Editar", key=f"_cli_calfedit_{cid}", use_container_width=True,
-                                 icon=":material/edit:"):
-                        st.session_state["_cli_cal_edit"] = cid
-                        st.rerun(scope="fragment")
-                _cur = _cli_calif(cli)
-                _items = "".join(
-                    f'<div><div class="k">{_esc(p.get("texto",""))}</div>'
-                    f'{_esc(str(_cur.get(str(p.get("id")), "") or "") or "—")}</div>'
-                    for p in _pregs_f)
-                st.markdown(f'<div class="cli-data">{_items}</div>', unsafe_allow_html=True)
 
         # ── Asignar a un ejecutivo (dispara la notificación a ese ejecutivo) ──
         # SOLO root/admin (re)asignan; el ejecutivo ve su ficha pero no reasigna.
@@ -1575,6 +1636,9 @@ def _render_ficha(cid: str, data: list):
         else:
             for t in _tareas:
                 _render_actividad(cid, cli, t)
+
+        # ── Calificación (guión) — va en la zona de actividades, no arriba ──
+        _render_calificacion(cid, cli)
 
         # Presupuestos del cliente (derivados de cotizaciones). El botón "Crear
         # presupuesto" va en la MISMA fila que el encabezado (a la derecha).
