@@ -12,6 +12,7 @@ navegación de otros roles en app.py + guard acá). ADITIVA: solo lee lo existen
 y escribe en tablas nuevas. No toca el flujo actual.
 """
 import html as _html
+import json as _json
 from datetime import date as _date, datetime as _dt, timedelta as _td, timezone as _tz
 try:
     from zoneinfo import ZoneInfo as _ZoneInfo
@@ -30,6 +31,10 @@ from repositories.clientes_repo import (
     tareas_vencidas_no_notificadas, marcar_notificadas,
     STAGE_LEAD, STAGE_CONTACTADO, STAGE_PRESUPUESTO, STAGE_PROPUESTA,
     STAGE_GANADO, STAGE_PERDIDO,
+)
+from repositories.guion_repo import (
+    listar_preguntas, crear_pregunta, actualizar_pregunta, eliminar_pregunta,
+    guardar_calificacion, TIPOS_CAMPO,
 )
 from config.settings import SUPABASE_URL as _SUPA_URL
 try:
@@ -397,7 +402,19 @@ _ACT_MAT = {"llamada": ":material/call:", "reunion": ":material/groups:",
 _RESULT_META = {  # resultado -> (label, bg, fg)
     "contesto": ("Contestó", "#dcfce7", "#15803d"),
     "no_contesto": ("No contestó", "#fef3c7", "#b45309"),
+    "se_corto": ("Se cortó", "#ffedd5", "#c2410c"),
+    "llamar_tarde": ("Llamar más tarde", "#e0e7ff", "#4338ca"),
     "no_interesado": ("No interesado", "#fee2e2", "#b91c1c"),
+}
+# Motivos de "no pude hablar" (todos reagendan). label -> código de resultado.
+_REINTENTO_MOTIVOS = {
+    "No contestó": "no_contesto",
+    "Se cortó la llamada": "se_corto",
+    "Llamar más tarde": "llamar_tarde",
+}
+_TIPO_CAMPO_LABEL = {
+    "texto": "Texto", "numero": "Número / monto",
+    "opciones": "Opciones", "si_no": "Sí / No",
 }
 
 
@@ -436,6 +453,70 @@ def _act_vencida(vence_iso) -> bool:
 def _default_hora():
     """Próxima hora en punto (Chile) como valor por defecto del time_input."""
     return (_ahora_scl() + _td(hours=1)).replace(minute=0, second=0, microsecond=0).time()
+
+
+# ── Guión de calificación (Fase B) ────────────────────────────────────────────
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _preguntas_data() -> list:
+    """Preguntas ACTIVAS del guión (ordenadas). Cacheado; se limpia al editar el
+    guión. Alimenta tanto la captura en la llamada como la ficha."""
+    return listar_preguntas(solo_activas=True)
+
+
+def _cli_calif(cli) -> dict:
+    """Respuestas ya capturadas del cliente ({pregunta_id: valor}), tolerando que
+    venga como dict (jsonb) o string."""
+    v = cli.get("calificacion") or {}
+    if isinstance(v, str):
+        try:
+            v = _json.loads(v)
+        except Exception:
+            v = {}
+    return v if isinstance(v, dict) else {}
+
+
+def _guion_inputs(cli, key_prefix: str):
+    """Renderiza un input por cada pregunta activa, precargado con lo que ya se
+    sabe del cliente. Devuelve (valores{pid:val}, preguntas). Si no hay preguntas
+    configuradas devuelve (None, [])."""
+    preguntas = _preguntas_data()
+    if not preguntas:
+        return None, []
+    actual = _cli_calif(cli)
+    valores = {}
+    for p in preguntas:
+        pid = str(p.get("id"))
+        tipo = p.get("tipo_campo") or "texto"
+        lbl = p.get("texto", "") or "—"
+        k = f"{key_prefix}_{pid}"
+        prev = str(actual.get(pid, "") or "")
+        if tipo == "opciones":
+            ops = [""] + [str(o) for o in (p.get("opciones") or [])]
+            idx = ops.index(prev) if prev in ops else 0
+            valores[pid] = st.selectbox(lbl, ops, index=idx, key=k,
+                                        format_func=lambda x: x or "— Selecciona —")
+        elif tipo == "si_no":
+            ops = ["", "Sí", "No"]
+            idx = ops.index(prev) if prev in ops else 0
+            valores[pid] = st.radio(lbl, ops, index=idx, key=k, horizontal=True,
+                                    format_func=lambda x: x or "—")
+        elif tipo == "numero":
+            valores[pid] = st.text_input(lbl, value=prev, key=k,
+                                         placeholder="Ej: 25.000.000")
+        else:
+            valores[pid] = st.text_input(lbl, value=prev, key=k)
+    return valores, preguntas
+
+
+def _resumen_calificacion(valores, preguntas) -> str:
+    """Texto corto 'Pregunta: valor · …' para la línea de tiempo (solo campos con
+    valor)."""
+    if not valores:
+        return ""
+    txt = {str(p.get("id")): (p.get("texto", "") or "") for p in (preguntas or [])}
+    partes = [f"{txt.get(pid, '')}: {v}" for pid, v in valores.items() if str(v or "").strip()]
+    return " · ".join(partes)
 
 
 @st.cache_data(ttl=60, show_spinner=False)
@@ -965,10 +1046,51 @@ def _do_asignar(cli, new_email):
         st.toast("Cliente desasignado")
 
 
+def _crear_reintento(cid, cli, titulo, actor, cuando) -> str:
+    """Crea una llamada de reintento (`cuando` = '1h' | '2h' | 'manana'), registra
+    la reagenda en la línea de tiempo y avisa (campana + Telegram). Devuelve el ISO
+    del nuevo vencimiento. Compartido por el panel de Resultado y el form de alta."""
+    if cuando == "manana":
+        _nx = (_ahora_scl() + _td(days=1)).replace(hour=9, minute=0, second=0, microsecond=0)
+    else:
+        _h = 1 if cuando == "1h" else 2
+        _nx = (_ahora_scl() + _td(hours=_h)).replace(second=0, microsecond=0)
+    _iso = _nx.isoformat()
+    crear_tarea(cid, f"Volver a llamar — {titulo}", _iso, cli.get("asignado_email", ""), tipo="llamada")
+    registrar_actividad(cid, "llamada", "Llamada — reagendada",
+                        detalle=_fmt_fecha_local(_iso), actor=actor)
+    notificar_recordatorio(cli.get("nombre", "Cliente"), f"Volver a llamar: {titulo}",
+                           _fmt_fecha_local(_iso), cli.get("asignado_email", ""))
+    _crear_notif(_notif_dest(cli),
+                 f"Volver a llamar · {cli.get('nombre','Cliente')}: {titulo}",
+                 tipo="llamada", detalle=_fmt_fecha_local(_iso), cliente_id=cid)
+    return _iso
+
+
+def _guardar_contesto(cid, cli, tid, valores, preguntas, actor) -> None:
+    """Marca la llamada como 'contestó', guarda la calificación EN el cliente (si
+    hay respuestas) y registra el evento con un resumen. Compartido por el panel de
+    Resultado y el form de alta."""
+    completar_tarea(tid, True, "contesto")
+    _resumen = ""
+    if valores:
+        _ok, _merged = guardar_calificacion(cid, valores)
+        if _ok:
+            cli["calificacion"] = _merged   # refleja al toque en la ficha abierta
+            _cli_data.clear()
+        else:
+            st.toast("La llamada se marcó, pero no se pudo guardar la calificación "
+                     "(falta la columna 'calificacion').", icon="⚠️")
+        _resumen = _resumen_calificacion(valores, preguntas)
+    registrar_actividad(cid, "llamada",
+                        "Llamada — contestó (calificado)" if _resumen else "Llamada — contestó",
+                        detalle=_resumen, actor=actor)
+
+
 def _render_actividad(cid, cli, t):
     """Una fila de la lista de actividades. Para llamadas pendientes muestra el
-    botón "Resultado" que despliega Contestó / No interesado / No contestó→reagendar.
-    El resto de tipos solo tiene "Hecho"."""
+    botón "Resultado" que despliega Contestó→guión / No interesado / No pude
+    hablar→reagendar. El resto de tipos solo tiene "Hecho"."""
     tid = t.get("id")
     tipo = t.get("tipo") or "tarea"
     _lbl, _path = _ACT_META.get(tipo, _ACT_META["tarea"])
@@ -1008,47 +1130,179 @@ def _render_actividad(cid, cli, t):
     # Panel de resultado (solo llamadas pendientes, cuando está abierto).
     if (not hecho) and tipo == "llamada" and st.session_state.get("_cli_act_res") == tid:
         _actor = st.session_state.get("auth_nombre") or st.session_state.get("auth_email", "")
+        _titulo = t.get("titulo", "")
         with st.container(border=True):
-            o1, o2 = st.columns(2)
-            with o1:
-                if st.button("Contestó", key=f"_cli_rok_{tid}", type="primary", use_container_width=True):
-                    completar_tarea(tid, True, "contesto")
-                    registrar_actividad(cid, "llamada", "Llamada — contestó",
-                                        detalle=t.get("titulo", ""), actor=_actor)
-                    st.session_state.pop("_cli_act_res", None)
-                    st.rerun(scope="fragment")
-            with o2:
-                if st.button("No interesado", key=f"_cli_rno_{tid}", use_container_width=True):
-                    completar_tarea(tid, True, "no_interesado")
-                    registrar_actividad(cid, "llamada", "Llamada — no interesado",
-                                        detalle=t.get("titulo", ""), actor=_actor)
-                    st.session_state.pop("_cli_act_res", None)
-                    st.rerun(scope="fragment")
-            st.markdown('<div style="font-size:0.72rem;color:#94a3b8;margin:4px 0 2px;">'
-                        'No contestó → volver a llamar:</div>', unsafe_allow_html=True)
-            n1, n2, n3 = st.columns(3)
-            for _cw, (_ol, _oh) in zip((n1, n2, n3), [("En 1 h", 1), ("En 2 h", 2), ("Mañana", None)]):
-                with _cw:
-                    if st.button(_ol, key=f"_cli_rre_{tid}_{_oh}", use_container_width=True):
-                        completar_tarea(tid, True, "no_contesto")
-                        if _oh is None:
-                            _nx = (_ahora_scl() + _td(days=1)).replace(hour=9, minute=0, second=0, microsecond=0)
-                        else:
-                            _nx = (_ahora_scl() + _td(hours=_oh)).replace(second=0, microsecond=0)
-                        _nx_iso = _nx.isoformat()
-                        crear_tarea(cid, f"Volver a llamar — {t.get('titulo','')}", _nx_iso,
-                                    cli.get("asignado_email", ""), tipo="llamada")
-                        registrar_actividad(cid, "llamada", "Llamada — no contestó",
-                                            detalle=f"reagendada {_fmt_fecha_local(_nx_iso)}", actor=_actor)
-                        notificar_recordatorio(cli.get("nombre", "Cliente"),
-                                               f"Volver a llamar: {t.get('titulo','')}",
-                                               _fmt_fecha_local(_nx_iso), cli.get("asignado_email", ""))
-                        _crear_notif(_notif_dest(cli),
-                                     f"Volver a llamar · {cli.get('nombre','Cliente')}: {t.get('titulo','')}",
-                                     tipo="llamada", detalle=_fmt_fecha_local(_nx_iso), cliente_id=cid)
+            # ── Sub-panel: CONTESTÓ → captura del guión de calificación ──
+            if st.session_state.get("_cli_res_cal") == tid:
+                st.markdown('<div class="cli-sec-t" style="margin:0 0 4px;">'
+                            'Contestó — captura del guión</div>', unsafe_allow_html=True)
+                _vals, _pregs = _guion_inputs(cli, f"_resq_{cid}")
+                if not _pregs:
+                    st.info("Aún no hay preguntas configuradas. El admin puede crearlas "
+                            "con el botón «Guión».")
+                gb1, gb2 = st.columns(2)
+                with gb1:
+                    if st.button("Guardar", key=f"_cli_calsave_{tid}", type="primary",
+                                 use_container_width=True, icon=":material/save:"):
+                        _guardar_contesto(cid, cli, tid, _vals, _pregs, _actor)
+                        st.session_state.pop("_cli_res_cal", None)
                         st.session_state.pop("_cli_act_res", None)
-                        st.toast("Reagendado")
+                        st.toast("Calificación guardada")
                         st.rerun(scope="fragment")
+                with gb2:
+                    if st.button("Cancelar", key=f"_cli_calcancel_{tid}", use_container_width=True):
+                        st.session_state.pop("_cli_res_cal", None)
+                        st.rerun(scope="fragment")
+            else:
+                o1, o2 = st.columns(2)
+                with o1:
+                    if st.button("Contestó", key=f"_cli_rok_{tid}", type="primary",
+                                 use_container_width=True, icon=":material/check_circle:"):
+                        # Con guión → abre la captura; sin guión → marca contestó directo.
+                        if _preguntas_data():
+                            st.session_state["_cli_res_cal"] = tid
+                        else:
+                            _guardar_contesto(cid, cli, tid, None, [], _actor)
+                            st.session_state.pop("_cli_act_res", None)
+                            st.toast("Marcado: contestó")
+                        st.rerun(scope="fragment")
+                with o2:
+                    if st.button("No interesado", key=f"_cli_rno_{tid}",
+                                 use_container_width=True, icon=":material/block:"):
+                        completar_tarea(tid, True, "no_interesado")
+                        registrar_actividad(cid, "llamada", "Llamada — no interesado",
+                                            detalle=_titulo, actor=_actor)
+                        st.session_state.pop("_cli_act_res", None)
+                        st.rerun(scope="fragment")
+                st.markdown('<div style="font-size:0.72rem;color:#94a3b8;margin:6px 0 2px;">'
+                            'No pude hablar → motivo + volver a llamar:</div>',
+                            unsafe_allow_html=True)
+                _motivo = st.selectbox("Motivo", list(_REINTENTO_MOTIVOS.keys()),
+                                       key=f"_cli_rmot_{tid}", label_visibility="collapsed")
+                _code = _REINTENTO_MOTIVOS[_motivo]
+                n1, n2, n3 = st.columns(3)
+                for _cw, (_ol, _cuando) in zip((n1, n2, n3),
+                                               [("En 1 h", "1h"), ("En 2 h", "2h"), ("Mañana", "manana")]):
+                    with _cw:
+                        if st.button(_ol, key=f"_cli_rre_{tid}_{_cuando}", use_container_width=True):
+                            completar_tarea(tid, True, _code)
+                            registrar_actividad(cid, "llamada",
+                                                f"Llamada — {_RESULT_META[_code][0].lower()}",
+                                                detalle=_titulo, actor=_actor)
+                            _crear_reintento(cid, cli, _titulo, _actor, _cuando)
+                            st.session_state.pop("_cli_act_res", None)
+                            st.toast("Reagendado")
+                            st.rerun(scope="fragment")
+
+
+def _render_guion_config():
+    """Diálogo (solo root/admin): CRUD de las preguntas del guión de calificación.
+    Baja lógica al eliminar (no se pierden respuestas). Reordenable por número."""
+
+    @st.dialog("Guión de calificación", width="large")
+    def _dlg():
+        st.markdown('<div style="font-size:0.82rem;color:#475569;margin-bottom:8px;">'
+                    'Preguntas que el ejecutivo captura cuando el cliente <b>contesta</b> la '
+                    'llamada. Ordénalas con el número (menor primero).</div>',
+                    unsafe_allow_html=True)
+        _pregs = listar_preguntas(solo_activas=True)
+
+        for p in _pregs:
+            pid = str(p.get("id"))
+            if st.session_state.get("_guion_edit") == pid:
+                with st.container(border=True):
+                    _etxt = st.text_input("Pregunta", value=p.get("texto", ""),
+                                          key=f"_ged_txt_{pid}")
+                    _ec1, _ec2 = st.columns([2, 1])
+                    with _ec1:
+                        _etp = st.selectbox("Tipo", list(TIPOS_CAMPO),
+                                            index=list(TIPOS_CAMPO).index(p.get("tipo_campo", "texto"))
+                                            if p.get("tipo_campo") in TIPOS_CAMPO else 0,
+                                            key=f"_ged_tipo_{pid}",
+                                            format_func=lambda x: _TIPO_CAMPO_LABEL.get(x, x))
+                    with _ec2:
+                        _eord = st.number_input("Orden", value=int(p.get("orden") or 0),
+                                                step=1, key=f"_ged_ord_{pid}")
+                    _eops = ""
+                    if _etp == "opciones":
+                        _eops = st.text_input("Opciones (separadas por coma)",
+                                              value=", ".join(p.get("opciones") or []),
+                                              key=f"_ged_ops_{pid}", placeholder="Invertir, Vivir")
+                    _sc1, _sc2 = st.columns(2)
+                    with _sc1:
+                        if st.button("Guardar", key=f"_ged_save_{pid}", type="primary",
+                                     use_container_width=True, icon=":material/save:"):
+                            _campos = {"texto": _etxt.strip(), "tipo_campo": _etp,
+                                       "orden": int(_eord)}
+                            _campos["opciones"] = ([o.strip() for o in _eops.split(",") if o.strip()]
+                                                   if _etp == "opciones" else [])
+                            actualizar_pregunta(pid, _campos)
+                            _preguntas_data.clear()
+                            st.session_state.pop("_guion_edit", None)
+                            st.rerun(scope="fragment")
+                    with _sc2:
+                        if st.button("Cancelar", key=f"_ged_cancel_{pid}",
+                                     use_container_width=True):
+                            st.session_state.pop("_guion_edit", None)
+                            st.rerun(scope="fragment")
+            else:
+                rc1, rc2, rc3 = st.columns([6, 1.4, 1.4], vertical_alignment="center")
+                with rc1:
+                    _opsx = (" · " + ", ".join(p.get("opciones") or [])) if p.get("tipo_campo") == "opciones" else ""
+                    st.markdown(
+                        f'<div style="padding:2px 0;"><span style="color:#94a3b8;font-size:0.8rem;">'
+                        f'{int(p.get("orden") or 0)}.</span> '
+                        f'<b style="font-size:0.9rem;color:#0f172a;">{_esc(p.get("texto",""))}</b> '
+                        f'<span class="cli-pill" style="background:#eef2ff;color:#4338ca;">'
+                        f'{_TIPO_CAMPO_LABEL.get(p.get("tipo_campo","texto"), "Texto")}</span>'
+                        f'<span style="color:#94a3b8;font-size:0.78rem;">{_esc(_opsx)}</span></div>',
+                        unsafe_allow_html=True)
+                with rc2:
+                    if st.button("Editar", key=f"_gli_ed_{pid}", use_container_width=True,
+                                 icon=":material/edit:"):
+                        st.session_state["_guion_edit"] = pid
+                        st.rerun(scope="fragment")
+                with rc3:
+                    if st.button("Quitar", key=f"_gli_del_{pid}", use_container_width=True,
+                                 icon=":material/delete:"):
+                        eliminar_pregunta(pid)
+                        _preguntas_data.clear()
+                        st.rerun(scope="fragment")
+
+        if not _pregs:
+            st.markdown('<div style="font-size:0.82rem;color:#94a3b8;padding:6px 0;">'
+                        'Aún no hay preguntas. Crea la primera abajo.</div>',
+                        unsafe_allow_html=True)
+
+        st.divider()
+        st.markdown('<div class="cli-sec-t" style="margin:0 0 4px;">Nueva pregunta</div>',
+                    unsafe_allow_html=True)
+        _ntxt = st.text_input("Pregunta nueva", key="_gnew_txt",
+                              placeholder="Ej: ¿Cuál es el presupuesto del cliente?",
+                              label_visibility="collapsed")
+        _ntp = st.selectbox("Tipo de campo", list(TIPOS_CAMPO), key="_gnew_tipo",
+                            format_func=lambda x: _TIPO_CAMPO_LABEL.get(x, x))
+        _nops = ""
+        if _ntp == "opciones":
+            _nops = st.text_input("Opciones (separadas por coma)", key="_gnew_ops",
+                                  placeholder="Invertir, Vivir")
+        if st.button("Agregar pregunta", key="_gnew_add", type="primary",
+                     use_container_width=True, icon=":material/add:"):
+            if not _ntxt.strip():
+                st.warning("Escribe la pregunta.")
+            else:
+                _opts = [o.strip() for o in _nops.split(",") if o.strip()] if _ntp == "opciones" else []
+                _pid, _err = crear_pregunta(_ntxt.strip(), _ntp, _opts)
+                if _pid:
+                    _preguntas_data.clear()
+                    for _k in ("_gnew_txt", "_gnew_ops"):
+                        st.session_state.pop(_k, None)
+                    st.toast("Pregunta agregada")
+                    st.rerun(scope="fragment")
+                else:
+                    st.error(f"No se pudo crear: {_err}")
+
+    _dlg()
 
 
 def _render_ficha(cid: str, data: list):
@@ -1093,6 +1347,47 @@ def _render_ficha(cid: str, data: list):
             f'{_empresa}'
             '</div>', unsafe_allow_html=True)
 
+        # ── Calificación (respuestas del guión capturadas en llamadas) ──
+        # Se muestra si el admin configuró preguntas. Editable directo desde acá
+        # (además de capturarse en la llamada con «Contestó»).
+        _pregs_f = _preguntas_data()
+        if _pregs_f:
+            _hd1, _hd2 = st.columns([1, 1], vertical_alignment="center")
+            with _hd1:
+                st.markdown('<div class="cli-sec-t" style="margin:8px 0 2px;">Calificación</div>',
+                            unsafe_allow_html=True)
+            if st.session_state.get("_cli_cal_edit") == cid:
+                _fvals, _fpregs = _guion_inputs(cli, f"_ficcal_{cid}")
+                _cc1, _cc2 = st.columns(2)
+                with _cc1:
+                    if st.button("Guardar", key=f"_cli_calfsave_{cid}", type="primary",
+                                 use_container_width=True, icon=":material/save:"):
+                        _ok, _mg = guardar_calificacion(cid, _fvals or {})
+                        if _ok:
+                            cli["calificacion"] = _mg
+                            _cli_data.clear()
+                            st.toast("Calificación guardada")
+                        else:
+                            st.error("No se pudo guardar (¿falta la columna calificacion?).")
+                        st.session_state.pop("_cli_cal_edit", None)
+                        st.rerun(scope="fragment")
+                with _cc2:
+                    if st.button("Cancelar", key=f"_cli_calfcancel_{cid}", use_container_width=True):
+                        st.session_state.pop("_cli_cal_edit", None)
+                        st.rerun(scope="fragment")
+            else:
+                with _hd2:
+                    if st.button("Editar", key=f"_cli_calfedit_{cid}", use_container_width=True,
+                                 icon=":material/edit:"):
+                        st.session_state["_cli_cal_edit"] = cid
+                        st.rerun(scope="fragment")
+                _cur = _cli_calif(cli)
+                _items = "".join(
+                    f'<div><div class="k">{_esc(p.get("texto",""))}</div>'
+                    f'{_esc(str(_cur.get(str(p.get("id")), "") or "") or "—")}</div>'
+                    for p in _pregs_f)
+                st.markdown(f'<div class="cli-data">{_items}</div>', unsafe_allow_html=True)
+
         # ── Asignar a un ejecutivo (dispara la notificación a ese ejecutivo) ──
         # SOLO root/admin (re)asignan; el ejecutivo ve su ficha pero no reasigna.
         if st.session_state.get("rol_usuario") in ("root", "admin"):
@@ -1113,6 +1408,9 @@ def _render_ficha(cid: str, data: list):
                 st.rerun(scope="fragment")
 
         # ── Formulario de nueva actividad (tipo + título + fecha + hora) ──
+        # Para LLAMADA se puede además registrar el desenlace si ya se realizó
+        # (No contestó / Se cortó / Llamar más tarde / No interesado / Contestó →
+        # guión). Para el resto de tipos solo se agenda.
         if st.session_state.get("_cli_act_open"):
             with st.container(border=True):
                 st.markdown('<div style="font-size:0.78rem;font-weight:700;color:#0f172a;'
@@ -1128,7 +1426,38 @@ def _render_ficha(cid: str, data: list):
                                         key="_cli_act_fecha")
                 with fc2:
                     _ah = st.time_input("Hora", value=_default_hora(), key="_cli_act_hora")
-                if st.button("Agendar actividad", type="primary", use_container_width=True,
+
+                # Desenlace de la llamada (opcional). "Programar" = comportamiento
+                # de siempre (llamada futura, sin resultado).
+                _res_code = None
+                _cal_vals = None
+                _cal_pregs = []
+                _reint = None
+                _ESTADOS = {
+                    "Programar (aún no la realizo)": None,
+                    "Contestó — calificar": "contesto",
+                    "No contestó": "no_contesto",
+                    "Se cortó la llamada": "se_corto",
+                    "Llamar más tarde": "llamar_tarde",
+                    "No interesado": "no_interesado",
+                }
+                if _tipo == "llamada":
+                    _estado = st.selectbox("Estado de la llamada", list(_ESTADOS.keys()),
+                                           key="_cli_actnew_estado")
+                    _res_code = _ESTADOS[_estado]
+                    if _res_code == "contesto":
+                        _cal_vals, _cal_pregs = _guion_inputs(cli, f"_actnewq_{cid}")
+                        if not _cal_pregs:
+                            st.info("Aún no hay preguntas configuradas. El admin puede crearlas "
+                                    "con el botón «Guión».")
+                    elif _res_code in ("no_contesto", "se_corto", "llamar_tarde"):
+                        _reint = st.selectbox("¿Volver a llamar?",
+                                              ["No reagendar", "En 1 hora", "En 2 horas", "Mañana"],
+                                              key="_cli_actnew_reint")
+
+                _es_registro = (_tipo == "llamada" and _res_code is not None)
+                _save_lbl = "Registrar llamada" if _es_registro else "Agendar actividad"
+                if st.button(_save_lbl, type="primary", use_container_width=True,
                              key="_cli_act_save"):
                     if not (_at or "").strip():
                         st.warning("Escribe qué hay que hacer.")
@@ -1138,7 +1467,29 @@ def _render_ficha(cid: str, data: list):
                         _vence = _mk_vence(_af, _ah)
                         _tid, _terr = crear_tarea(cid, _at.strip(), _vence,
                                                   cli.get("asignado_email", ""), tipo=_tipo)
-                        if _tid:
+                        if not _tid:
+                            st.error(f"No se pudo guardar: {_terr}")
+                        elif _es_registro:
+                            # Llamada YA realizada → se marca hecha con su desenlace.
+                            if _res_code == "contesto":
+                                _guardar_contesto(cid, cli, _tid, _cal_vals, _cal_pregs, _actor)
+                            elif _res_code == "no_interesado":
+                                completar_tarea(_tid, True, "no_interesado")
+                                registrar_actividad(cid, "llamada", "Llamada — no interesado",
+                                                    detalle=_at.strip(), actor=_actor)
+                            else:  # no_contesto / se_corto / llamar_tarde
+                                completar_tarea(_tid, True, _res_code)
+                                registrar_actividad(cid, "llamada",
+                                                    f"Llamada — {_RESULT_META[_res_code][0].lower()}",
+                                                    detalle=_at.strip(), actor=_actor)
+                                _mp = {"En 1 hora": "1h", "En 2 horas": "2h", "Mañana": "manana"}
+                                if _reint in _mp:
+                                    _crear_reintento(cid, cli, _at.strip(), _actor, _mp[_reint])
+                            st.session_state.pop("_cli_act_open", None)
+                            st.toast("Llamada registrada")
+                            st.rerun(scope="fragment")
+                        else:
+                            # Programar (agendar a futuro) — comportamiento de siempre.
                             _tl = _ACT_META[_tipo][0]
                             registrar_actividad(cid, "nota", f"{_tl} agendada: {_at.strip()}",
                                                 detalle=_fmt_fecha_local(_vence), actor=_actor)
@@ -1152,8 +1503,6 @@ def _render_ficha(cid: str, data: list):
                             st.session_state.pop("_cli_act_open", None)
                             st.toast("Actividad agendada" + (" · avisado por Telegram" if _n else ""))
                             st.rerun(scope="fragment")
-                        else:
-                            st.error(f"No se pudo guardar: {_terr}")
 
         # ── Lista de actividades (pendientes primero) ──
         _tareas = listar_tareas_cliente(cid)
@@ -1405,9 +1754,9 @@ def render_tab_clientes(**kwargs):
     # Fila: botones a la IZQUIERDA + KPI cards a la derecha. Sincronizar = solo
     # icono (root/admin). Agregar angosto.
     if _es_gestor:
-        _bcol, _kcol = st.columns([2, 10], vertical_alignment="center")
+        _bcol, _kcol = st.columns([2.6, 9.4], vertical_alignment="center")
         with _bcol:
-            _bs, _ba = st.columns([1, 2])
+            _bs, _bg, _ba = st.columns([1, 1, 2])
             with _bs:
                 if st.button("", icon=":material/sync:", use_container_width=True,
                              key="_cli_sync", help="Sincronizar con cotizaciones"):
@@ -1416,6 +1765,12 @@ def render_tab_clientes(**kwargs):
                     _cli_data.clear()
                     st.session_state["_cli_toast"] = (
                         f"Sincronizado: {res['creados']} nuevo(s), {res['existentes']} ya estaban.")
+                    st.rerun()
+            with _bg:
+                if st.button("", icon=":material/fact_check:", use_container_width=True,
+                             key="_cli_guion", help="Configurar guión de calificación"):
+                    st.session_state["_guion_open"] = True
+                    st.session_state.pop("_cli_ficha", None)   # no dos diálogos a la vez
                     st.rerun()
             with _ba:
                 _add_btn()
@@ -1459,10 +1814,15 @@ def render_tab_clientes(**kwargs):
     st.markdown(_CLI_DRAWER_ANIM_CSS if st.session_state.pop("_cli_just_opened", False)
                 else _CLI_DRAWER_STILL_CSS, unsafe_allow_html=True)
 
-    # Ficha 360 (one-shot: pop del flag; el dialog persiste vía su fragment).
-    _fid = st.session_state.pop("_cli_ficha", None)
-    if _fid:
-        _render_ficha(_fid, data)
+    # Guión de calificación (config admin) — un solo diálogo a la vez, así que tiene
+    # prioridad sobre la ficha. One-shot: se cierra al hacer rerun completo.
+    if st.session_state.pop("_guion_open", False) and _es_gestor:
+        _render_guion_config()
+    else:
+        # Ficha 360 (one-shot: pop del flag; el dialog persiste vía su fragment).
+        _fid = st.session_state.pop("_cli_ficha", None)
+        if _fid:
+            _render_ficha(_fid, data)
 
     # Diálogo de alta (one-shot). El ejecutivo lo crea auto-asignado a sí mismo.
     if st.session_state.get("_cli_add_open"):
