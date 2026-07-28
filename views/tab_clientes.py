@@ -1566,6 +1566,13 @@ def _render_correo(cid, cli):
     clickeables + adjuntos. Reply-to al buzón real (Zoho). Todo defensivo: sin API
     key, el botón queda deshabilitado."""
     _to = (cli.get("email") or "").strip()
+    # Reply-to = buzón del EJECUTIVO que atiende al cliente (asignado). Así la
+    # respuesta del cliente le llega a ESE ejecutivo, no a la casilla general.
+    # Cae al correo del usuario que envía, y por último al reply-to por defecto.
+    _reply_to = ((cli.get("asignado_email") or "").strip().lower()
+                 or (st.session_state.get("auth_email") or "").strip().lower()
+                 or _resend_reply())
+    _asig_nm = cli.get("asignado_nombre") or ""
     with st.container(border=True, key="_cli_mail_form"):
         st.markdown('<div class="cli-actf-h">Enviar correo</div>', unsafe_allow_html=True)
         if not _resend_configurado():
@@ -1574,8 +1581,8 @@ def _render_correo(cid, cli):
         st.markdown(
             f'<div class="cli-actf-hint">Para: <b>{_esc(_to or "—")}</b><br>'
             f'Desde <b>{_esc(_resend_remitente() or "—")}</b>'
-            + (f'<br>Las respuestas del cliente llegan a <b>{_esc(_resend_reply())}</b>'
-               if _resend_reply() else "")
+            + (f'<br>Si responde, le llega a <b>{_esc(_reply_to)}</b>'
+               + (f' ({_esc(_asig_nm)})' if _asig_nm else '') if _reply_to else "")
             + '</div>', unsafe_allow_html=True)
         if not _to:
             st.warning("Este cliente no tiene correo; agrégalo para poder enviarle.")
@@ -1627,6 +1634,7 @@ def _render_correo(cid, cli):
                         except Exception:
                             pass
                     _ok, _res = _resend_enviar(_to, _subject, _resend_texto_html(_texto),
+                                               reply_to=_reply_to or None,
                                                attachments=_att or None)
                     if _ok:
                         _actor = (st.session_state.get("auth_nombre")
