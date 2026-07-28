@@ -1431,7 +1431,7 @@ def _render_datos(cid, cli):
                                 cli.get("telefono"), cli.get("nombre"))
                         _ok, _err = actualizar_cliente(cid, _campos)
                         if _ok:
-                            _np = propagar_a_cotizaciones(_old[0], _old[1], _old[2], _old[3], _campos)
+                            _np = propagar_a_cotizaciones(cid, _old[0], _old[1], _old[2], _old[3], _campos)
                             cli.update(_campos)
                             cli["_score"] = _lead_score(cli, _preguntas_data())  # score al día
                             _cli_data.clear()
@@ -2405,8 +2405,10 @@ def render_tab_clientes(**kwargs):
                 with st.spinner("Sincronizando…"):
                     res = backfill_desde_cotizaciones()
                 _cli_data.clear()
+                _est = res.get("estampados", 0)
                 st.session_state["_cli_toast"] = (
-                    f"Sincronizado: {res['creados']} nuevo(s), {res['existentes']} ya estaban.")
+                    f"Sincronizado: {res['creados']} nuevo(s), {res['existentes']} ya estaban"
+                    + (f" · {_est} presupuesto(s) vinculado(s)" if _est else "") + ".")
                 st.rerun()
         with _bg:
             if st.button("", icon=":material/fact_check:", use_container_width=True,

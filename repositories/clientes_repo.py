@@ -288,7 +288,30 @@ def backfill_desde_cotizaciones() -> dict:
             # Un lote que falle no debe abortar el resto.
             omitidos += len(lote)
 
-    return {"creados": creados, "existentes": len(idx), "omitidos": omitidos}
+    # 4) VÍNCULO ESTABLE: estampar cliente_id en las cotizaciones que aún no lo
+    # tienen, matcheando por dedup key contra el maestro (incluye los recién
+    # creados). Una vez estampada, la cotización queda pegada al id del cliente y
+    # editar sus datos NO la desvincula. Defensivo: si la columna no existe, 0.
+    estampados = 0
+    try:
+        idmap = {}
+        for c in listar_clientes(solo_activos=False):
+            k = dedup_key(c.get("rut"), c.get("email"), c.get("telefono"), c.get("nombre"), polluted)
+            if k[1] and k not in idmap:
+                idmap[k] = c.get("id")
+        for row in _leer_cotizaciones_para_pipeline():
+            if row.get("cliente_id"):
+                continue
+            k = dedup_key(row.get("cliente_rut"), row.get("cliente_email"),
+                          row.get("cliente_telefono"), row.get("cliente_nombre"), polluted)
+            _cid = idmap.get(k)
+            if _cid and estampar_cliente_id(row.get("numero"), _cid):
+                estampados += 1
+    except Exception:
+        pass
+
+    return {"creados": creados, "existentes": len(idx), "omitidos": omitidos,
+            "estampados": estampados}
 
 
 # Campos de cliente que acepta la importación (llave interna -> se guarda tal cual).
@@ -380,18 +403,13 @@ _CRM_A_COT = {
 }
 
 
-def propagar_a_cotizaciones(old_rut, old_email, old_tel, old_nombre, campos: dict) -> int:
-    """Propaga los datos de contacto editados en la ficha del CRM a TODAS las
-    cotizaciones de ese cliente (identificado por su dedup key ANTERIOR, así sigue
-    matcheando aunque se corrija el RUT/correo). SOLO escribe campos NO vacíos (para
-    no borrar datos con blancos) y SOLO de contacto. best-effort → devuelve cuántas
-    cotizaciones actualizó."""
+def propagar_a_cotizaciones(cliente_id, old_rut, old_email, old_tel, old_nombre, campos: dict) -> int:
+    """Propaga los datos de contacto editados en la ficha a las cotizaciones del
+    cliente. Las ubica por VÍNCULO ESTABLE (`cliente_id`) y, para las que aún no lo
+    tengan, por su dedup key ANTERIOR (y de paso las ESTAMPA con el cliente_id para
+    que queden pegadas a futuro). SOLO campos NO vacíos y SOLO de contacto (nunca
+    montos/productos). best-effort → nº de cotizaciones actualizadas."""
     try:
-        rows = _leer_clientes_de_cotizaciones()
-        polluted = _polluted_from_rows(rows)
-        target = dedup_key(old_rut, old_email, old_tel, old_nombre, polluted)
-        if not target[1]:
-            return 0
         payload = {}
         for k, v in (campos or {}).items():
             col = _CRM_A_COT.get(k)
@@ -399,13 +417,31 @@ def propagar_a_cotizaciones(old_rut, old_email, old_tel, old_nombre, campos: dic
                 payload[col] = str(v).strip()
         if not payload:
             return 0
+        rows = _leer_cotizaciones_para_pipeline()
+        polluted = _polluted_from_rows(rows)
+        target = dedup_key(old_rut, old_email, old_tel, old_nombre, polluted)
+        _cid = str(cliente_id) if cliente_id else ""
         n = 0
         for row in rows:
-            k = dedup_key(row.get("cliente_rut"), row.get("cliente_email"),
-                          row.get("cliente_telefono"), row.get("cliente_nombre"), polluted)
-            if k == target and row.get("numero"):
+            _num = row.get("numero")
+            if not _num:
+                continue
+            _by_id = bool(_cid) and str(row.get("cliente_id") or "") == _cid
+            _by_dedup = (not row.get("cliente_id")) and target[1] and dedup_key(
+                row.get("cliente_rut"), row.get("cliente_email"),
+                row.get("cliente_telefono"), row.get("cliente_nombre"), polluted) == target
+            if not (_by_id or _by_dedup):
+                continue
+            _p = dict(payload)
+            if _by_dedup and _cid:
+                _p["cliente_id"] = _cid   # migra al vínculo estable de paso
+            try:
+                _supa.table("cotizaciones").update(_p).eq("numero", _num).execute()
+                n += 1
+            except Exception:
+                # p.ej. la columna cliente_id aún no existe → reintenta sin ella
                 try:
-                    _supa.table("cotizaciones").update(payload).eq("numero", row["numero"]).execute()
+                    _supa.table("cotizaciones").update(payload).eq("numero", _num).execute()
                     n += 1
                 except Exception:
                     pass
@@ -414,19 +450,17 @@ def propagar_a_cotizaciones(old_rut, old_email, old_tel, old_nombre, campos: dic
         return 0
 
 
-def upsert_desde_cotizacion(cli_fields: dict, asesor_fields: dict = None) -> None:
-    """Mantiene el CRM al día tras guardar un presupuesto (dirección inversa): si el
-    cliente ya existe (por dedup key) actualiza sus datos de contacto NO vacíos; si
-    no existe, lo crea (origen Manual, etapa contactado). best-effort: NUNCA lanza
-    (no puede romper el guardado del presupuesto)."""
+def upsert_desde_cotizacion(cli_fields: dict, asesor_fields: dict = None,
+                            existing_cliente_id=None):
+    """Mantiene el CRM al día tras guardar un presupuesto (dirección inversa).
+    Devuelve el id del cliente del CRM (o None). Si la cotización ya trae
+    `cliente_id` (vínculo estable), actualiza ESE cliente; si no, matchea por dedup
+    key o crea uno nuevo. Solo pisa campos NO vacíos. best-effort: NUNCA lanza (no
+    puede romper el guardado del presupuesto)."""
     try:
         nombre = str(cli_fields.get("nombre") or "").strip()
         if not nombre:
-            return
-        polluted = _polluted_from_rows(_leer_cotizaciones_para_pipeline())
-        target = dedup_key(cli_fields.get("rut"), cli_fields.get("email"),
-                           cli_fields.get("telefono"), nombre, polluted)
-        # Campos de contacto (no vacíos, para no pisar con blancos).
+            return None
         campos = {}
         for k in ("nombre", "rut", "email", "telefono", "direccion", "comuna",
                   "region", "tipo", "empresa", "rut_empresa"):
@@ -434,25 +468,30 @@ def upsert_desde_cotizacion(cli_fields: dict, asesor_fields: dict = None) -> Non
             if v:
                 campos[k] = v
         campos["nombre"] = nombre
-        match = None
+        # 1) Vínculo estable: la cotización ya sabe a qué cliente pertenece.
+        if existing_cliente_id:
+            _ok, _ = actualizar_cliente(str(existing_cliente_id), campos)
+            return str(existing_cliente_id) if _ok else None
+        # 2) Sin vínculo: matcheo difuso o crear.
+        polluted = _polluted_from_rows(_leer_cotizaciones_para_pipeline())
+        target = dedup_key(cli_fields.get("rut"), cli_fields.get("email"),
+                           cli_fields.get("telefono"), nombre, polluted)
         for c in listar_clientes(solo_activos=False):
             k = dedup_key(c.get("rut"), c.get("email"), c.get("telefono"), c.get("nombre"), polluted)
             if k[1] and k == target:
-                match = c
-                break
-        if match:
-            actualizar_cliente(match["id"], campos)
-        else:
-            payload = dict(campos)
-            payload.setdefault("tipo", "natural")
-            payload["origen"] = "Manual"
-            payload["etapa_manual"] = "contactado"
-            if asesor_fields:
-                payload["asignado_email"] = str(asesor_fields.get("email") or "").strip()
-                payload["asignado_nombre"] = str(asesor_fields.get("nombre") or "").strip()
-            crear_cliente(payload)
+                actualizar_cliente(c["id"], campos)
+                return c.get("id")
+        payload = dict(campos)
+        payload.setdefault("tipo", "natural")
+        payload["origen"] = "Manual"
+        payload["etapa_manual"] = "contactado"
+        if asesor_fields:
+            payload["asignado_email"] = str(asesor_fields.get("email") or "").strip()
+            payload["asignado_nombre"] = str(asesor_fields.get("nombre") or "").strip()
+        new_id, _ = crear_cliente(payload)
+        return new_id
     except Exception:
-        pass
+        return None
 
 
 # ── Derivación del PIPELINE (SOLO LECTURA de cotizaciones) ─────────────────────
@@ -494,11 +533,67 @@ def _estado_a_stage(label: str) -> str:
 
 
 def _leer_cotizaciones_para_pipeline() -> list:
-    """SOLO LECTURA sobre cotizaciones (sin traer los `productos`, pesados)."""
+    """SOLO LECTURA sobre cotizaciones (sin traer los `productos`, pesados). Intenta
+    traer `cliente_id` (VÍNCULO ESTABLE); si la columna aún no existe, cae a la
+    lectura sin ella (esas filas quedan sin cliente_id → matcheo difuso legado)."""
     try:
-        return _supa.table("cotizaciones").select(_COLS_PIPE).execute().data or []
+        return _supa.table("cotizaciones").select(_COLS_PIPE + ",cliente_id").execute().data or []
     except Exception:
-        return []
+        try:
+            return _supa.table("cotizaciones").select(_COLS_PIPE).execute().data or []
+        except Exception:
+            return []
+
+
+def _cot_info(row) -> dict:
+    """Info de pipeline de UNA cotización: {numero,total,estado,stage,fecha}."""
+    try:
+        _mg = float(row.get("config_margen") or 0)
+    except (TypeError, ValueError):
+        _mg = 0.0
+    label = calcular_estado_label(
+        row.get("cliente_nombre"), row.get("cliente_email"),
+        row.get("asesor_nombre"), row.get("asesor_email"), row.get("asesor_telefono"),
+        _mg, bool(row.get("plano_url")),
+        tiene_notariado=bool(row.get("contrato_notariado_url")),
+        tiene_acta=bool(row.get("acta_url")),
+        motivo_rechazo=row.get("motivo_rechazo") or "")
+    try:
+        total = float(row.get("total_total") or 0)
+    except (TypeError, ValueError):
+        total = 0.0
+    return {"numero": row.get("numero"), "total": total, "estado": label,
+            "stage": _estado_a_stage(label), "fecha": row.get("fecha_creacion")}
+
+
+def _derivar_pipeline(rows, polluted):
+    """Agrupa las cotizaciones por VÍNCULO ESTABLE (cliente_id) cuando lo tienen, y
+    por dedup_key (difuso) cuando no. Devuelve (by_id, by_dedup). Una cotización va
+    a UNO solo de los dos → nunca se cuenta doble."""
+    by_id, by_dedup = {}, {}
+    for row in rows:
+        info = _cot_info(row)
+        _cid = row.get("cliente_id")
+        if _cid:
+            by_id.setdefault(str(_cid), []).append(info)
+        else:
+            k = dedup_key(row.get("cliente_rut"), row.get("cliente_email"),
+                          row.get("cliente_telefono"), row.get("cliente_nombre"), polluted)
+            if k[1]:
+                by_dedup.setdefault(k, []).append(info)
+    return by_id, by_dedup
+
+
+def estampar_cliente_id(numero, cliente_id) -> bool:
+    """Marca una cotización con su `cliente_id` (vínculo estable). Defensivo: si la
+    columna aún no existe, no hace nada y devuelve False."""
+    if not numero or not cliente_id:
+        return False
+    try:
+        _supa.table("cotizaciones").update({"cliente_id": str(cliente_id)}).eq("numero", numero).execute()
+        return True
+    except Exception:
+        return False
 
 
 def identidades_compartidas() -> set:
@@ -637,19 +732,27 @@ def marcar_notificadas(ids: list) -> None:
 
 def enriquecer_con_pipeline(clientes: list) -> list:
     """Agrega a cada cliente (en memoria, no en BD) los campos DERIVADOS:
-    `_stage`, `_cotizaciones` (lista) y `_monto`. Si el cliente no tiene ninguna
-    cotización, cae a su `etapa_manual` (lead_nuevo / contactado)."""
+    `_stage`, `_cotizaciones` (lista) y `_monto`.
+
+    El vínculo cliente↔cotización es por `cliente_id` (VÍNCULO ESTABLE: sobrevive a
+    editar nombre/RUT/correo/etc.); las cotizaciones que aún no tienen cliente_id
+    caen al matcheo difuso por dedup_key (legado). Sin cotizaciones → etapa_manual."""
     rows = _leer_cotizaciones_para_pipeline()
-    polluted = _polluted_from_rows(rows)   # MISMO set para cliente y cotizaciones
-    pipe = pipeline_por_dedupkey(rows, polluted)
+    polluted = _polluted_from_rows(rows)
+    by_id, by_dedup = _derivar_pipeline(rows, polluted)
     for c in clientes:
+        cots = list(by_id.get(str(c.get("id")), []))          # estable (cliente_id)
         k = dedup_key(c.get("rut"), c.get("email"), c.get("telefono"), c.get("nombre"), polluted)
-        info = pipe.get(k)
-        if info and info["stage"]:
-            c["_stage"] = info["stage"]
-            c["_cotizaciones"] = sorted(info["cotizaciones"],
-                                        key=lambda x: str(x.get("fecha") or ""), reverse=True)
-            c["_monto"] = info["monto"]
+        if k[1]:
+            cots += by_dedup.get(k, [])                        # legado (sin estampar)
+        if cots:
+            _best, _monto = None, 0.0
+            for _co in cots:
+                if _best is None or _STAGE_RANK.get(_co["stage"], 0) > _STAGE_RANK.get(_best, 0):
+                    _best, _monto = _co["stage"], _co["total"]
+            c["_stage"] = _best
+            c["_cotizaciones"] = sorted(cots, key=lambda x: str(x.get("fecha") or ""), reverse=True)
+            c["_monto"] = _monto
         else:
             c["_stage"] = c.get("etapa_manual") or STAGE_LEAD
             c["_cotizaciones"] = []

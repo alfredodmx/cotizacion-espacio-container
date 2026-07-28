@@ -192,17 +192,22 @@ def guardar_cotizacion(
 
         _invalidar_cache_cotizaciones()
 
-        # Mantener el CRM al día (dirección presupuesto → ficha). best-effort: un
-        # fallo acá NUNCA rompe el guardado (import perezoso + try/except).
+        # Mantener el CRM al día (dirección presupuesto → ficha) + vínculo estable.
+        # best-effort: un fallo acá NUNCA rompe el guardado (import perezoso + try).
         try:
-            from repositories.clientes_repo import upsert_desde_cotizacion
-            upsert_desde_cotizacion({
+            from repositories.clientes_repo import upsert_desde_cotizacion, estampar_cliente_id
+            _exist_cid = response.data[0].get('cliente_id') if existe else None
+            _crm_id = upsert_desde_cotizacion({
                 "nombre": data.get("cliente_nombre", ""), "rut": data.get("cliente_rut", ""),
                 "email": data.get("cliente_email", ""), "telefono": data.get("cliente_telefono", ""),
                 "direccion": data.get("cliente_direccion", ""), "comuna": data.get("cliente_comuna", ""),
                 "region": data.get("cliente_region", ""), "tipo": data.get("cliente_tipo", "natural"),
                 "empresa": data.get("cliente_empresa", ""), "rut_empresa": data.get("cliente_rut_empresa", ""),
-            }, {"email": data.get("asesor_email", ""), "nombre": data.get("asesor_nombre", "")})
+            }, {"email": data.get("asesor_email", ""), "nombre": data.get("asesor_nombre", "")},
+                existing_cliente_id=_exist_cid)
+            # Si la cotización aún no estaba vinculada, estámpala con su cliente_id.
+            if _crm_id and not _exist_cid:
+                estampar_cliente_id(numero, _crm_id)
         except Exception:
             pass
         return True
