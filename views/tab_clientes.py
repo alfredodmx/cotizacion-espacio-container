@@ -125,6 +125,21 @@ except Exception:
     def _listar_correos_cliente(_cid):
         return []
 
+try:   # Ingesta de leads desde Shopify (Fase 4) — defensivo
+    from utils.shopify import (
+        configurado as _shopify_configurado, listar_clientes as _shopify_listar,
+        a_lead as _shopify_a_lead,
+    )
+except Exception:
+    def _shopify_configurado():
+        return False
+
+    def _shopify_listar(*a, **k):
+        return [], "Módulo de Shopify no disponible."
+
+    def _shopify_a_lead(_c):
+        return {}
+
 
 def _notif_dest(cli: dict) -> str:
     """Destinatario de la campana: el ejecutivo asignado, o el usuario actual."""
@@ -1198,11 +1213,44 @@ def _render_pipeline(data: list):
                 'para ver la ficha del cliente.</div>', unsafe_allow_html=True)
 
 
+def _traer_de_shopify():
+    """Trae los clientes de Shopify a la Bandeja como leads (origen 'Shopify'),
+    deduplicados. Deja el resultado en el toast."""
+    if not _shopify_configurado():
+        st.session_state["_cli_toast"] = ("Falta configurar Shopify: agrega SHOPIFY_STORE y "
+                                          "SHOPIFY_TOKEN en los secrets.")
+        return
+    with st.spinner("Trayendo clientes de Shopify…"):
+        _cust, _err = _shopify_listar()
+    if _err:
+        st.session_state["_cli_toast"] = f"Shopify: {_err}"
+        return
+    _rows = [_shopify_a_lead(c) for c in _cust]
+    _res = importar_leads(_rows, origen="Shopify")
+    _cli_data.clear()
+    st.session_state["_cli_toast"] = (
+        f"Shopify: {_res['creados']} nuevo(s), {_res['duplicados']} ya estaban, "
+        f"{_res['omitidos']} sin nombre.")
+
+
 def _render_bandeja(data: list):
     leads = [d for d in data if (d.get("_stage") in (STAGE_LEAD, STAGE_CONTACTADO))]
     _titulo(f"Bandeja de leads · {len(leads)}",
             _svg('<path d="M22 12h-6l-2 3h-4l-2-3H2"/>'
                  '<path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>', 16))
+    # Traer leads de Shopify (root/admin). Se muestra aunque la bandeja esté vacía.
+    if st.session_state.get("rol_usuario") in ("root", "admin"):
+        _sc1, _sc2 = st.columns([1, 3], vertical_alignment="center")
+        with _sc1:
+            if st.button("Traer de Shopify", icon=":material/storefront:",
+                         use_container_width=True, key="_cli_shopify"):
+                _traer_de_shopify()
+                st.rerun()
+        with _sc2:
+            if not _shopify_configurado():
+                st.markdown('<div class="cli-actf-hint" style="margin:0;">Configura '
+                            '<code>SHOPIFY_STORE</code> y <code>SHOPIFY_TOKEN</code> en los secrets '
+                            'para activar la ingesta.</div>', unsafe_allow_html=True)
     if not leads:
         st.markdown(
             '<div class="cli-empty-ph">Sin leads pendientes por asignar.<br>'
