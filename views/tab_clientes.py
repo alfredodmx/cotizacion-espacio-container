@@ -265,10 +265,12 @@ _CLI_CSS = """
 .cli-actf-sep{height:1px;background:#e6e9f4;margin:12px 0;}
 .cli-actf-hint{font-size:0.75rem;color:#64748b;line-height:1.35;margin:0 0 6px;}
 .st-key-_cli_act_form label p,.st-key-_cli_act_form [data-testid="stWidgetLabel"] p,
-.st-key-_cli_mail_form label p,.st-key-_cli_mail_form [data-testid="stWidgetLabel"] p{
+.st-key-_cli_mail_form label p,.st-key-_cli_mail_form [data-testid="stWidgetLabel"] p,
+.st-key-_cli_edit_form label p,.st-key-_cli_edit_form [data-testid="stWidgetLabel"] p{
   font-size:0.72rem!important;}
 .st-key-_cli_act_form input,.st-key-_cli_act_form [data-baseweb="select"],
-.st-key-_cli_mail_form input,.st-key-_cli_mail_form textarea{font-size:0.86rem;}
+.st-key-_cli_mail_form input,.st-key-_cli_mail_form textarea,
+.st-key-_cli_edit_form input,.st-key-_cli_edit_form [data-baseweb="select"]{font-size:0.86rem;}
 .st-key-_cli_act_form [data-testid="stElementContainer"]{margin-bottom:2px;}
 .cli-tl{border-left:1.5px solid #e2e8f0;padding-left:14px;display:flex;flex-direction:column;gap:11px;}
 .cli-tl-it{position:relative;}
@@ -1375,6 +1377,94 @@ def _render_calificacion(cid, cli):
         st.markdown(f'<div class="cli-data">{_items}</div>', unsafe_allow_html=True)
 
 
+def _render_datos(cid, cli):
+    """Datos de contacto del cliente: vista de solo lectura (copiables + WhatsApp)
+    o formulario de EDICIÓN. Guardar → actualiza la tabla `clientes` del CRM (y el
+    Lead Score y el WhatsApp se recalculan solos). No toca cotizaciones."""
+    _editing = st.session_state.get("_cli_edit") == cid
+    _h1, _h2 = st.columns([1, 1], vertical_alignment="center")
+    with _h1:
+        st.markdown('<div class="cli-sec-t" style="margin:6px 0 4px;">Datos de contacto</div>',
+                    unsafe_allow_html=True)
+
+    if _editing:
+        with st.container(border=True, key="_cli_edit_form"):
+            _e1, _e2 = st.columns(2)
+            with _e1:
+                _n = st.text_input("Nombre", value=cli.get("nombre", "") or "", key="_cli_ed_nombre")
+                _r = st.text_input("RUT", value=cli.get("rut", "") or "", key="_cli_ed_rut")
+                _co = st.text_input("Correo", value=cli.get("email", "") or "", key="_cli_ed_email")
+                _te = st.text_input("Teléfono", value=cli.get("telefono", "") or "", key="_cli_ed_tel")
+            with _e2:
+                _di = st.text_input("Dirección", value=cli.get("direccion", "") or "", key="_cli_ed_dir")
+                _cm = st.text_input("Comuna", value=cli.get("comuna", "") or "", key="_cli_ed_com")
+                _rg = st.text_input("Región", value=cli.get("region", "") or "", key="_cli_ed_reg")
+                _tp = st.selectbox("Tipo", ["natural", "empresa"],
+                                   index=0 if (cli.get("tipo") or "natural") != "empresa" else 1,
+                                   key="_cli_ed_tipo",
+                                   format_func=lambda x: "Persona natural" if x == "natural" else "Empresa")
+            _emp = _rutemp = ""
+            if _tp == "empresa":
+                _emp = st.text_input("Empresa / razón social", value=cli.get("empresa", "") or "",
+                                     key="_cli_ed_emp")
+                _rutemp = st.text_input("RUT empresa", value=cli.get("rut_empresa", "") or "",
+                                        key="_cli_ed_rutemp")
+            st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
+            _b1, _b2 = st.columns(2)
+            with _b1:
+                if st.button("Guardar cambios", type="primary", use_container_width=True,
+                             icon=":material/save:", key="_cli_ed_save"):
+                    if not (_n or "").strip():
+                        st.warning("El nombre no puede quedar vacío.")
+                    else:
+                        _campos = {
+                            "nombre": _n.strip(), "rut": _r.strip(), "email": _co.strip(),
+                            "telefono": _te.strip(), "direccion": _di.strip(), "comuna": _cm.strip(),
+                            "region": _rg.strip(), "tipo": _tp,
+                            "empresa": _emp.strip() if _tp == "empresa" else "",
+                            "rut_empresa": _rutemp.strip() if _tp == "empresa" else "",
+                        }
+                        _ok, _err = actualizar_cliente(cid, _campos)
+                        if _ok:
+                            cli.update(_campos)
+                            cli["_score"] = _lead_score(cli, _preguntas_data())  # score al día
+                            _cli_data.clear()
+                            _actor = (st.session_state.get("auth_nombre")
+                                      or st.session_state.get("auth_email", ""))
+                            registrar_actividad(cid, "nota", "Datos del cliente editados", actor=_actor)
+                            st.session_state.pop("_cli_edit", None)
+                            st.toast("Datos actualizados")
+                            st.rerun(scope="fragment")
+                        else:
+                            st.error(f"No se pudo guardar: {_err}")
+            with _b2:
+                if st.button("Cancelar", use_container_width=True, key="_cli_ed_cancel"):
+                    st.session_state.pop("_cli_edit", None)
+                    st.rerun(scope="fragment")
+        return
+
+    with _h2:
+        if st.button("Editar", use_container_width=True, icon=":material/edit:", key="_cli_ed_open"):
+            st.session_state["_cli_edit"] = cid
+            st.rerun(scope="fragment")
+    _tipo = cli.get("tipo") or "natural"
+    _empresa = (f'<div><div class="k">Empresa</div>{_esc(cli.get("empresa"))} '
+                f'({_esc(cli.get("rut_empresa"))})</div>') if _tipo == "empresa" and cli.get("empresa") else ""
+    _correo = cli.get("email", "") or ""
+    _tel = cli.get("telefono", "") or ""
+    _dir = cli.get("direccion", "") or ""
+    _com = cli.get("comuna", "") or ""
+    st.markdown(
+        '<div class="cli-data">'
+        f'<div><div class="k">Correo</div>{_cp(_correo, _esc(_correo or "—"), "Copiar correo")}</div>'
+        f'<div><div class="k">Teléfono</div>{_cp(_tel, _esc(_tel or "—"), "Copiar teléfono")}</div>'
+        f'{_wa_cell(_tel)}'
+        f'<div><div class="k">Dirección</div>{_cp(_dir, _esc(_dir or "—"), "Copiar dirección")}</div>'
+        f'<div><div class="k">Comuna</div>{_cp(_com, _esc(_com or "—"), "Copiar comuna")}</div>'
+        f'{_empresa}'
+        '</div>', unsafe_allow_html=True)
+
+
 def _render_correo(cid, cli):
     """Compositor de correo (Resend) inline en la ficha. Envía UN correo al cliente,
     con variables {{nombre}}… y registro en la línea de tiempo. Reply-to al buzón
@@ -1868,25 +1958,8 @@ def _render_ficha(cid: str, data: list):
             + '</div>'
             f'<div class="cli-schint">{_hint}</div>', unsafe_allow_html=True)
 
-        # Datos de contacto (correo y teléfono son copiables al click)
-        _tipo = cli.get("tipo") or "natural"
-        _empresa = (f'<div><div class="k">Empresa</div>{_esc(cli.get("empresa"))} '
-                    f'({_esc(cli.get("rut_empresa"))})</div>') if _tipo == "empresa" and cli.get("empresa") else ""
-        _correo = cli.get("email", "") or ""
-        _tel = cli.get("telefono", "") or ""
-        _dir = cli.get("direccion", "") or ""
-        _com = cli.get("comuna", "") or ""
-        # Correo, teléfono, dirección y comuna son copiables al click.
-        # WhatsApp se arma desde el teléfono y abre wa.me al click.
-        st.markdown(
-            '<div class="cli-data">'
-            f'<div><div class="k">Correo</div>{_cp(_correo, _esc(_correo or "—"), "Copiar correo")}</div>'
-            f'<div><div class="k">Teléfono</div>{_cp(_tel, _esc(_tel or "—"), "Copiar teléfono")}</div>'
-            f'{_wa_cell(_tel)}'
-            f'<div><div class="k">Dirección</div>{_cp(_dir, _esc(_dir or "—"), "Copiar dirección")}</div>'
-            f'<div><div class="k">Comuna</div>{_cp(_com, _esc(_com or "—"), "Copiar comuna")}</div>'
-            f'{_empresa}'
-            '</div>', unsafe_allow_html=True)
+        # Datos de contacto (ver + Editar). Copiables al click; WhatsApp derivado.
+        _render_datos(cid, cli)
 
         # ── Asignar a un ejecutivo (dispara la notificación a ese ejecutivo) ──
         # SOLO root/admin (re)asignan; el ejecutivo ve su ficha pero no reasigna.
@@ -2241,10 +2314,11 @@ def render_tab_clientes(**kwargs):
             if _p[0] == "open" and len(_p) >= 3:
                 st.session_state["_cli_ficha"] = _p[1]
                 st.session_state["_cli_just_opened"] = True   # dispara la animación de entrada
-                # ficha nueva → formularios/paneles de actividad y correo cerrados
+                # ficha nueva → formularios/paneles (actividad, correo, edición) cerrados
                 st.session_state.pop("_cli_act_open", None)
                 st.session_state.pop("_cli_act_res", None)
                 st.session_state.pop("_cli_mail_open", None)
+                st.session_state.pop("_cli_edit", None)
             elif _p[0] == "nuevo" and len(_p) >= 3:
                 # Crear presupuesto para este cliente (menú contextual pipeline/maestro).
                 _cobj = next((d for d in data if str(d.get("id")) == _p[1]), None)
