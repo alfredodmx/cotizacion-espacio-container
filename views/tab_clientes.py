@@ -75,6 +75,7 @@ try:   # Envío de correos (Resend) — opcional/defensivo
         enviar_correo as _resend_enviar, render_variables as _resend_render,
         texto_a_html as _resend_texto_html, remitente as _resend_remitente,
         reply_to_default as _resend_reply, configurado as _resend_configurado,
+        estado_correo as _resend_estado,
     )
 except Exception:
     def _resend_configurado():
@@ -94,6 +95,21 @@ except Exception:
 
     def _resend_reply():
         return ""
+
+    def _resend_estado(_id):
+        return {"ok": False}
+
+try:   # Seguimiento de correos enviados (tabla crm_correos) — defensivo
+    from repositories.correos_repo import (
+        registrar_correo as _registrar_correo,
+        listar_correos_cliente as _listar_correos_cliente,
+    )
+except Exception:
+    def _registrar_correo(*a, **k):
+        return None, None
+
+    def _listar_correos_cliente(_cid):
+        return []
 
 
 def _notif_dest(cli: dict) -> str:
@@ -1479,6 +1495,54 @@ def _render_datos(cid, cli):
         '</div>', unsafe_allow_html=True)
 
 
+_CORREO_META = {   # last_event de Resend -> (label, bg, fg)
+    "sent": ("Enviado", "#f1f5f9", "#475569"),
+    "delivered": ("Entregado", "#dcfce7", "#15803d"),
+    "delivery_delayed": ("Demorado", "#fef3c7", "#b45309"),
+    "opened": ("Abierto", "#e0f2fe", "#0369a1"),
+    "clicked": ("Click", "#ede9fe", "#6d28d9"),
+    "bounced": ("Rebotado", "#fee2e2", "#b91c1c"),
+    "complained": ("Spam", "#fee2e2", "#b91c1c"),
+}
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _correo_estado(resend_id: str) -> str:
+    """last_event de un correo (cacheado 5 min para no golpear la API en cada
+    render). '' si no se pudo consultar."""
+    if not resend_id:
+        return ""
+    r = _resend_estado(resend_id)
+    return r.get("last_event", "") if r.get("ok") else ""
+
+
+def _render_correos_enviados(cid):
+    """Sección 'Correos enviados' con contador + estado por correo (Resend)."""
+    _cors = _listar_correos_cliente(cid)
+    if not _cors:
+        return
+    st.markdown(f'<div class="cli-sec-t">Correos enviados · {len(_cors)}</div>',
+                unsafe_allow_html=True)
+    _rows = ""
+    for c in _cors:
+        _ev = _correo_estado(c.get("resend_id") or "")
+        _lbl, _bg, _fg = _CORREO_META.get(_ev, _CORREO_META["sent"])
+        _adj = (f' · {c.get("adjuntos")} adjunto(s)' if c.get("adjuntos") else "")
+        _rows += (
+            '<div class="cli-ep-row">'
+            f'<div style="min-width:0;"><div style="font-size:0.84rem;color:#0f172a;font-weight:600;'
+            f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_esc(c.get("asunto") or "(sin asunto)")}</div>'
+            f'<div style="font-size:0.72rem;color:#94a3b8;">{_esc(_fmt_fecha_local(c.get("fecha")))}{_esc(_adj)}</div></div>'
+            f'<span class="cli-pill" style="background:{_bg};color:{_fg};">{_lbl}</span>'
+            '</div>')
+    st.markdown('<div style="border:1px solid #e6e9f4;border-radius:12px;overflow:hidden;">'
+                + _rows + '</div>'
+                '<div style="font-size:0.72rem;color:#94a3b8;margin-top:4px;">'
+                'El estado se actualiza desde Resend (entregado/click/rebotado). '
+                'Las respuestas llegan a tu buzón, no aparecen acá.</div>',
+                unsafe_allow_html=True)
+
+
 def _mail_insert(txt):
     """Callback para insertar (append) texto/emoji/variable en el cuerpo del correo.
     Va en on_click → corre ANTES de re-instanciar el text_area, así se puede tocar
@@ -1564,6 +1628,8 @@ def _render_correo(cid, cli):
                         _adj = f" · {len(_att)} adjunto(s)" if _att else ""
                         registrar_actividad(cid, "correo", f"Correo enviado: {_subject}",
                                             detalle=(_texto[:200] + _adj), actor=_actor)
+                        # Guardar para el seguimiento (estado/entregado/click/rebote).
+                        _registrar_correo(cid, _res, _to, _subject, _actor, len(_att))
                         st.session_state.pop("_cli_mail_open", None)
                         for _k in ("_cli_mail_subj", "_cli_mail_body", "_cli_mail_files"):
                             st.session_state.pop(_k, None)
@@ -2102,6 +2168,9 @@ def _render_ficha(cid: str, data: list):
         # ── Compositor de correo (Resend) ──
         if st.session_state.get("_cli_mail_open"):
             _render_correo(cid, cli)
+
+        # ── Correos enviados (seguimiento: estado/entregado/click/rebote) ──
+        _render_correos_enviados(cid)
 
         # ── Formulario de nueva actividad ──
         # LLAMADA: el "Estado de la llamada" decide el flujo:

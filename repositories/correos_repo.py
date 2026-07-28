@@ -1,0 +1,59 @@
+"""
+Repositorio de CORREOS enviados (CRM Fase 5 — seguimiento).
+
+Guarda cada correo enviado con Resend (su `resend_id`) para poder mostrar el
+estado (entregado / abierto / click / rebotado) y contar cuántos se enviaron.
+Tabla NUEVA `crm_correos` (el usuario corre el CREATE TABLE). LECTURAS/ESCRITURAS
+DEFENSIVAS: si la tabla no existe aún, devuelven []/0/(None,err) y el envío de
+correo sigue funcionando igual (el seguimiento simplemente no se registra).
+"""
+import uuid
+from datetime import datetime, timezone, timedelta
+
+from config.supabase import supabase_admin as _supa
+
+_TZ_CL = timezone(timedelta(hours=-3))
+
+
+def _ahora() -> str:
+    return datetime.now(_TZ_CL).isoformat()
+
+
+def registrar_correo(cliente_id, resend_id, para, asunto,
+                     enviado_por="", adjuntos=0) -> tuple:
+    """Guarda un correo enviado (para el seguimiento). Devuelve (id, err). DEFENSIVO."""
+    try:
+        cid = str(uuid.uuid4())
+        _supa.table("crm_correos").insert({
+            "id": cid,
+            "cliente_id": str(cliente_id) if cliente_id else None,
+            "resend_id": str(resend_id or ""),
+            "para": str(para or ""),
+            "asunto": str(asunto or ""),
+            "enviado_por": str(enviado_por or ""),
+            "adjuntos": int(adjuntos or 0),
+            "fecha": _ahora(),
+        }).execute()
+        return cid, None
+    except Exception as e:
+        return None, str(e)
+
+
+def listar_correos_cliente(cliente_id) -> list:
+    """Correos enviados a un cliente, más reciente primero. [] si no existe la tabla."""
+    try:
+        return (_supa.table("crm_correos").select("*").eq("cliente_id", cliente_id)
+                .order("fecha", desc=True).execute().data or [])
+    except Exception:
+        return []
+
+
+def contar_correos(cliente_id=None) -> int:
+    """Total de correos enviados (a un cliente, o global). 0 si no existe la tabla."""
+    try:
+        q = _supa.table("crm_correos").select("id", count="exact").limit(1)
+        if cliente_id:
+            q = q.eq("cliente_id", cliente_id)
+        return q.execute().count or 0
+    except Exception:
+        return 0

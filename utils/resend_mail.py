@@ -116,6 +116,25 @@ def enviar_correo(to, subject, html, reply_to=None, from_addr=None,
         return False, str(e)
 
 
+def estado_correo(email_id: str) -> dict:
+    """Consulta el estado de un correo enviado (GET /emails/{id}). Devuelve
+    {ok, last_event, data} o {ok:False, error}. `last_event` ∈ sent/delivered/
+    delivery_delayed/opened/clicked/bounced/complained. DEFENSIVO: nunca lanza."""
+    key = _api_key()
+    if not key or not email_id:
+        return {"ok": False, "error": "sin id/key"}
+    try:
+        import requests
+        r = requests.get(f"{_API_URL}/{email_id}",
+                         headers={"Authorization": f"Bearer {key}"}, timeout=15)
+        if r.status_code == 200:
+            d = r.json() or {}
+            return {"ok": True, "last_event": d.get("last_event", "sent"), "data": d}
+        return {"ok": False, "error": f"{r.status_code}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 def enviar_lote(mensajes: list) -> tuple:
     """Envía hasta 100 correos en UNA llamada (endpoint batch). `mensajes` = lista de
     dicts {from,to,subject,html,reply_to,...}. Devuelve (ok, data | error). Para
