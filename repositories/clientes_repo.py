@@ -369,6 +369,92 @@ def importar_leads(rows: list, origen: str = "Importado",
     return {"creados": creados, "duplicados": duplicados, "omitidos": omitidos}
 
 
+# ── Sincronización cliente CRM ↔ cotizaciones (datos de contacto) ─────────────
+# Mapeo campo CRM (clientes) -> campo en cotizaciones. SOLO datos de contacto:
+# nunca montos, productos ni estado.
+_CRM_A_COT = {
+    "nombre": "cliente_nombre", "rut": "cliente_rut", "email": "cliente_email",
+    "telefono": "cliente_telefono", "direccion": "cliente_direccion",
+    "comuna": "cliente_comuna", "region": "cliente_region", "tipo": "cliente_tipo",
+    "empresa": "cliente_empresa", "rut_empresa": "cliente_rut_empresa",
+}
+
+
+def propagar_a_cotizaciones(old_rut, old_email, old_tel, old_nombre, campos: dict) -> int:
+    """Propaga los datos de contacto editados en la ficha del CRM a TODAS las
+    cotizaciones de ese cliente (identificado por su dedup key ANTERIOR, así sigue
+    matcheando aunque se corrija el RUT/correo). SOLO escribe campos NO vacíos (para
+    no borrar datos con blancos) y SOLO de contacto. best-effort → devuelve cuántas
+    cotizaciones actualizó."""
+    try:
+        rows = _leer_clientes_de_cotizaciones()
+        polluted = _polluted_from_rows(rows)
+        target = dedup_key(old_rut, old_email, old_tel, old_nombre, polluted)
+        if not target[1]:
+            return 0
+        payload = {}
+        for k, v in (campos or {}).items():
+            col = _CRM_A_COT.get(k)
+            if col and str(v or "").strip():
+                payload[col] = str(v).strip()
+        if not payload:
+            return 0
+        n = 0
+        for row in rows:
+            k = dedup_key(row.get("cliente_rut"), row.get("cliente_email"),
+                          row.get("cliente_telefono"), row.get("cliente_nombre"), polluted)
+            if k == target and row.get("numero"):
+                try:
+                    _supa.table("cotizaciones").update(payload).eq("numero", row["numero"]).execute()
+                    n += 1
+                except Exception:
+                    pass
+        return n
+    except Exception:
+        return 0
+
+
+def upsert_desde_cotizacion(cli_fields: dict, asesor_fields: dict = None) -> None:
+    """Mantiene el CRM al día tras guardar un presupuesto (dirección inversa): si el
+    cliente ya existe (por dedup key) actualiza sus datos de contacto NO vacíos; si
+    no existe, lo crea (origen Manual, etapa contactado). best-effort: NUNCA lanza
+    (no puede romper el guardado del presupuesto)."""
+    try:
+        nombre = str(cli_fields.get("nombre") or "").strip()
+        if not nombre:
+            return
+        polluted = _polluted_from_rows(_leer_cotizaciones_para_pipeline())
+        target = dedup_key(cli_fields.get("rut"), cli_fields.get("email"),
+                           cli_fields.get("telefono"), nombre, polluted)
+        # Campos de contacto (no vacíos, para no pisar con blancos).
+        campos = {}
+        for k in ("nombre", "rut", "email", "telefono", "direccion", "comuna",
+                  "region", "tipo", "empresa", "rut_empresa"):
+            v = str(cli_fields.get(k) or "").strip()
+            if v:
+                campos[k] = v
+        campos["nombre"] = nombre
+        match = None
+        for c in listar_clientes(solo_activos=False):
+            k = dedup_key(c.get("rut"), c.get("email"), c.get("telefono"), c.get("nombre"), polluted)
+            if k[1] and k == target:
+                match = c
+                break
+        if match:
+            actualizar_cliente(match["id"], campos)
+        else:
+            payload = dict(campos)
+            payload.setdefault("tipo", "natural")
+            payload["origen"] = "Manual"
+            payload["etapa_manual"] = "contactado"
+            if asesor_fields:
+                payload["asignado_email"] = str(asesor_fields.get("email") or "").strip()
+                payload["asignado_nombre"] = str(asesor_fields.get("nombre") or "").strip()
+            crear_cliente(payload)
+    except Exception:
+        pass
+
+
 # ── Derivación del PIPELINE (SOLO LECTURA de cotizaciones) ─────────────────────
 # La etapa "en presupuesto / propuesta / ganado / perdido" NO se guarda: se DERIVA
 # del estado de las cotizaciones del cliente (misma fuente de verdad que la tabla

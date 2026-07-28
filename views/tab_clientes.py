@@ -30,6 +30,7 @@ from repositories.clientes_repo import (
     identidades_compartidas,
     crear_tarea, listar_tareas_cliente, completar_tarea, listar_tareas_pendientes,
     tareas_vencidas_no_notificadas, marcar_notificadas, importar_leads, CAMPOS_IMPORT,
+    propagar_a_cotizaciones,
     STAGE_LEAD, STAGE_CONTACTADO, STAGE_PRESUPUESTO, STAGE_PROPUESTA,
     STAGE_GANADO, STAGE_PERDIDO,
 )
@@ -1424,8 +1425,13 @@ def _render_datos(cid, cli):
                             "empresa": _emp.strip() if _tp == "empresa" else "",
                             "rut_empresa": _rutemp.strip() if _tp == "empresa" else "",
                         }
+                        # Identidad ANTERIOR (para ubicar sus cotizaciones aunque se
+                        # corrija RUT/correo) antes de tocar el registro del CRM.
+                        _old = (cli.get("rut"), cli.get("email"),
+                                cli.get("telefono"), cli.get("nombre"))
                         _ok, _err = actualizar_cliente(cid, _campos)
                         if _ok:
+                            _np = propagar_a_cotizaciones(_old[0], _old[1], _old[2], _old[3], _campos)
                             cli.update(_campos)
                             cli["_score"] = _lead_score(cli, _preguntas_data())  # score al día
                             _cli_data.clear()
@@ -1433,7 +1439,8 @@ def _render_datos(cid, cli):
                                       or st.session_state.get("auth_email", ""))
                             registrar_actividad(cid, "nota", "Datos del cliente editados", actor=_actor)
                             st.session_state.pop("_cli_edit", None)
-                            st.toast("Datos actualizados")
+                            st.toast("Datos actualizados"
+                                     + (f" · {_np} presupuesto(s) sincronizado(s)" if _np else ""))
                             st.rerun(scope="fragment")
                         else:
                             st.error(f"No se pudo guardar: {_err}")

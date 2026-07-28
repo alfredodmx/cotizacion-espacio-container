@@ -191,6 +191,20 @@ def guardar_cotizacion(
             registrar_log(numero, _actor, 'creacion', {'mensaje': f'Cotizacion {numero} creada'})
 
         _invalidar_cache_cotizaciones()
+
+        # Mantener el CRM al día (dirección presupuesto → ficha). best-effort: un
+        # fallo acá NUNCA rompe el guardado (import perezoso + try/except).
+        try:
+            from repositories.clientes_repo import upsert_desde_cotizacion
+            upsert_desde_cotizacion({
+                "nombre": data.get("cliente_nombre", ""), "rut": data.get("cliente_rut", ""),
+                "email": data.get("cliente_email", ""), "telefono": data.get("cliente_telefono", ""),
+                "direccion": data.get("cliente_direccion", ""), "comuna": data.get("cliente_comuna", ""),
+                "region": data.get("cliente_region", ""), "tipo": data.get("cliente_tipo", "natural"),
+                "empresa": data.get("cliente_empresa", ""), "rut_empresa": data.get("cliente_rut_empresa", ""),
+            }, {"email": data.get("asesor_email", ""), "nombre": data.get("asesor_nombre", "")})
+        except Exception:
+            pass
         return True
     except Exception as e:
         st.error(f"Error al guardar cotizacion: {e}")
