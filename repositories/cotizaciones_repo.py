@@ -197,6 +197,15 @@ def guardar_cotizacion(
         try:
             from repositories.clientes_repo import upsert_desde_cotizacion, estampar_cliente_id
             _exist_cid = response.data[0].get('cliente_id') if existe else None
+            # Identidad del presupuesto ANTES de este guardado (para encontrar el
+            # cliente aunque se hayan editado sus datos → sin duplicar).
+            _old_ident = None
+            if existe and not _exist_cid:
+                _anterior = response.data[0]
+                _old_ident = {
+                    "rut": _anterior.get("cliente_rut"), "email": _anterior.get("cliente_email"),
+                    "telefono": _anterior.get("cliente_telefono"), "nombre": _anterior.get("cliente_nombre"),
+                }
             _crm_id = upsert_desde_cotizacion({
                 "nombre": data.get("cliente_nombre", ""), "rut": data.get("cliente_rut", ""),
                 "email": data.get("cliente_email", ""), "telefono": data.get("cliente_telefono", ""),
@@ -204,7 +213,7 @@ def guardar_cotizacion(
                 "region": data.get("cliente_region", ""), "tipo": data.get("cliente_tipo", "natural"),
                 "empresa": data.get("cliente_empresa", ""), "rut_empresa": data.get("cliente_rut_empresa", ""),
             }, {"email": data.get("asesor_email", ""), "nombre": data.get("asesor_nombre", "")},
-                existing_cliente_id=_exist_cid)
+                existing_cliente_id=_exist_cid, old_ident=_old_ident)
             # Si la cotización aún no estaba vinculada, estámpala con su cliente_id.
             if _crm_id and not _exist_cid:
                 estampar_cliente_id(numero, _crm_id)

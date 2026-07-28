@@ -459,12 +459,16 @@ def propagar_a_cotizaciones(cliente_id, old_rut, old_email, old_tel, old_nombre,
 
 
 def upsert_desde_cotizacion(cli_fields: dict, asesor_fields: dict = None,
-                            existing_cliente_id=None):
+                            existing_cliente_id=None, old_ident: dict = None):
     """Mantiene el CRM al día tras guardar un presupuesto (dirección inversa).
-    Devuelve el id del cliente del CRM (o None). Si la cotización ya trae
-    `cliente_id` (vínculo estable), actualiza ESE cliente; si no, matchea por dedup
-    key o crea uno nuevo. Solo pisa campos NO vacíos. best-effort: NUNCA lanza (no
-    puede romper el guardado del presupuesto)."""
+    Devuelve el id del cliente del CRM (o None). Orden de matcheo:
+      1) `existing_cliente_id` (vínculo estable) → actualiza ESE cliente.
+      2) `old_ident` (identidad del presupuesto ANTES de editarlo) → así un
+         presupuesto editado ACTUALIZA su cliente en vez de crear un duplicado,
+         aunque se cambie el correo/nombre (sirve incluso SIN la columna cliente_id).
+      3) identidad NUEVA por dedup.
+      4) crear uno nuevo.
+    Solo pisa campos NO vacíos. best-effort: NUNCA lanza (no rompe el guardado)."""
     try:
         nombre = str(cli_fields.get("nombre") or "").strip()
         if not nombre:
@@ -480,15 +484,26 @@ def upsert_desde_cotizacion(cli_fields: dict, asesor_fields: dict = None,
         if existing_cliente_id:
             _ok, _ = actualizar_cliente(str(existing_cliente_id), campos)
             return str(existing_cliente_id) if _ok else None
-        # 2) Sin vínculo: matcheo difuso o crear.
+        # 2/3) Buscar por identidad ANTERIOR (si el presupuesto ya existía y se editó)
+        # y luego por la NUEVA. Se busca solo entre clientes ACTIVOS.
         polluted = _polluted_from_rows(_leer_cotizaciones_para_pipeline())
-        target = dedup_key(cli_fields.get("rut"), cli_fields.get("email"),
-                           cli_fields.get("telefono"), nombre, polluted)
-        for c in listar_clientes(solo_activos=False):
-            k = dedup_key(c.get("rut"), c.get("email"), c.get("telefono"), c.get("nombre"), polluted)
-            if k[1] and k == target:
-                actualizar_cliente(c["id"], campos)
-                return c.get("id")
+        _keys = []
+        if old_ident:
+            _ok2 = dedup_key(old_ident.get("rut"), old_ident.get("email"),
+                             old_ident.get("telefono"), old_ident.get("nombre"), polluted)
+            if _ok2[1]:
+                _keys.append(_ok2)
+        _nk = dedup_key(cli_fields.get("rut"), cli_fields.get("email"),
+                        cli_fields.get("telefono"), nombre, polluted)
+        if _nk[1] and _nk not in _keys:
+            _keys.append(_nk)
+        if _keys:
+            for c in listar_clientes(solo_activos=True):
+                k = dedup_key(c.get("rut"), c.get("email"), c.get("telefono"), c.get("nombre"), polluted)
+                if k[1] and k in _keys:
+                    actualizar_cliente(c["id"], campos)
+                    return c.get("id")
+        # 4) Crear.
         payload = dict(campos)
         payload.setdefault("tipo", "natural")
         payload["origen"] = "Manual"
