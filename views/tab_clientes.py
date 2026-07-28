@@ -1670,7 +1670,10 @@ def _render_dedup_dialog(data):
                     _en = _byid.get(_mid, _m)
                     _nc = len(_en.get("_cotizaciones") or [])
                     _hc = _tiene_calif(_m)
-                    _sc = _nc * 2 + (1 if _hc else 0)
+                    # La ficha CON calificación (la que gestionaste) manda como
+                    # principal, para no perder los datos editados; los presupuestos
+                    # se mueven igual a la que sobreviva.
+                    _sc = _nc + (5 if _hc else 0)
                     if _sc > _best:
                         _best, _best_i = _sc, _i
                     _opts.append(_mid)
