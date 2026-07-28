@@ -69,6 +69,31 @@ except Exception:   # feed opcional; si falla, la actividad igual se guarda
     def _crear_notif(*a, **k):
         return None
 
+try:   # Envío de correos (Resend) — opcional/defensivo
+    from utils.resend_mail import (
+        enviar_correo as _resend_enviar, render_variables as _resend_render,
+        texto_a_html as _resend_texto_html, remitente as _resend_remitente,
+        reply_to_default as _resend_reply, configurado as _resend_configurado,
+    )
+except Exception:
+    def _resend_configurado():
+        return False
+
+    def _resend_enviar(*a, **k):
+        return False, "Módulo de correo no disponible."
+
+    def _resend_render(t, c):
+        return t
+
+    def _resend_texto_html(t):
+        return t
+
+    def _resend_remitente():
+        return ""
+
+    def _resend_reply():
+        return ""
+
 
 def _notif_dest(cli: dict) -> str:
     """Destinatario de la campana: el ejecutivo asignado, o el usuario actual."""
@@ -239,9 +264,11 @@ _CLI_CSS = """
   text-transform:uppercase;color:#0f172a;margin:0 0 8px;}
 .cli-actf-sep{height:1px;background:#e6e9f4;margin:12px 0;}
 .cli-actf-hint{font-size:0.75rem;color:#64748b;line-height:1.35;margin:0 0 6px;}
-.st-key-_cli_act_form label p,.st-key-_cli_act_form [data-testid="stWidgetLabel"] p{
+.st-key-_cli_act_form label p,.st-key-_cli_act_form [data-testid="stWidgetLabel"] p,
+.st-key-_cli_mail_form label p,.st-key-_cli_mail_form [data-testid="stWidgetLabel"] p{
   font-size:0.72rem!important;}
-.st-key-_cli_act_form input,.st-key-_cli_act_form [data-baseweb="select"]{font-size:0.86rem;}
+.st-key-_cli_act_form input,.st-key-_cli_act_form [data-baseweb="select"],
+.st-key-_cli_mail_form input,.st-key-_cli_mail_form textarea{font-size:0.86rem;}
 .st-key-_cli_act_form [data-testid="stElementContainer"]{margin-bottom:2px;}
 .cli-tl{border-left:1.5px solid #e2e8f0;padding-left:14px;display:flex;flex-direction:column;gap:11px;}
 .cli-tl-it{position:relative;}
@@ -1348,6 +1375,62 @@ def _render_calificacion(cid, cli):
         st.markdown(f'<div class="cli-data">{_items}</div>', unsafe_allow_html=True)
 
 
+def _render_correo(cid, cli):
+    """Compositor de correo (Resend) inline en la ficha. Envía UN correo al cliente,
+    con variables {{nombre}}… y registro en la línea de tiempo. Reply-to al buzón
+    real (Zoho). Todo defensivo: sin API key, el botón queda deshabilitado."""
+    _to = (cli.get("email") or "").strip()
+    with st.container(border=True, key="_cli_mail_form"):
+        st.markdown('<div class="cli-actf-h">Enviar correo</div>', unsafe_allow_html=True)
+        if not _resend_configurado():
+            st.warning("Aún no está cargada la RESEND_API_KEY en los secrets. "
+                       "Cuando la agregues, el envío se activa solo.")
+        st.markdown(
+            f'<div class="cli-actf-hint">Para: <b>{_esc(_to or "—")}</b><br>'
+            f'Desde <b>{_esc(_resend_remitente() or "—")}</b>'
+            + (f' · responden a {_esc(_resend_reply())}' if _resend_reply() else '')
+            + '</div>', unsafe_allow_html=True)
+        if not _to:
+            st.warning("Este cliente no tiene correo; agrégalo para poder enviarle.")
+        st.text_input("Asunto", key="_cli_mail_subj",
+                      placeholder="Tu casa container a medida")
+        st.text_area("Mensaje", key="_cli_mail_body", height=190,
+                     placeholder="Hola {{nombre}}, gracias por tu interés en Espacio Container House…")
+        st.markdown('<div class="cli-actf-hint">Variables: <code>{{nombre}}</code> · '
+                    '<code>{{comuna}}</code> · <code>{{telefono}}</code> — se reemplazan '
+                    'por los datos de cada cliente.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
+        _mc1, _mc2 = st.columns(2)
+        with _mc1:
+            if st.button("Enviar", type="primary", use_container_width=True,
+                         key="_cli_mail_send", icon=":material/send:",
+                         disabled=(not _to or not _resend_configurado())):
+                _subj = st.session_state.get("_cli_mail_subj", "")
+                _body = st.session_state.get("_cli_mail_body", "")
+                if not (_subj or "").strip() or not (_body or "").strip():
+                    st.warning("Escribe el asunto y el mensaje.")
+                else:
+                    _subject = _resend_render(_subj, cli)
+                    _texto = _resend_render(_body, cli)
+                    _ok, _res = _resend_enviar(_to, _subject, _resend_texto_html(_texto))
+                    if _ok:
+                        _actor = (st.session_state.get("auth_nombre")
+                                  or st.session_state.get("auth_email", ""))
+                        registrar_actividad(cid, "correo", f"Correo enviado: {_subject}",
+                                            detalle=_texto[:200], actor=_actor)
+                        st.session_state.pop("_cli_mail_open", None)
+                        for _k in ("_cli_mail_subj", "_cli_mail_body"):
+                            st.session_state.pop(_k, None)
+                        st.toast("Correo enviado ✅")
+                        st.rerun(scope="fragment")
+                    else:
+                        st.error(f"No se pudo enviar: {_res}")
+        with _mc2:
+            if st.button("Cancelar", use_container_width=True, key="_cli_mail_cancel"):
+                st.session_state.pop("_cli_mail_open", None)
+                st.rerun(scope="fragment")
+
+
 def _render_actividad(cid, cli, t):
     """Una fila de la lista de actividades. Para llamadas pendientes muestra el
     botón "Resultado" que despliega Contestó→guión / No interesado / No pude
@@ -1810,19 +1893,26 @@ def _render_ficha(cid: str, data: list):
         if st.session_state.get("rol_usuario") in ("root", "admin"):
             _render_asignar(cid, cli)
 
-        # "Enviar correo" llega con Resend (fase siguiente); "Nueva actividad" abre
-        # el formulario para agendar (llamada/reunión/correo/tarea). El cierre del
-        # drawer va por su X / clic fuera / Escape (con animación de salida).
+        # "Enviar correo" abre el compositor (Resend); "Nueva actividad" abre el
+        # formulario para agendar. El cierre del drawer va por su X / clic fuera /
+        # Escape (con animación de salida).
         a1, a2 = st.columns(2)
         with a1:
             if st.button("Enviar correo", icon=":material/mail:", use_container_width=True,
                          key="_cli_fh_mail"):
-                st.toast("El envío de correos (Resend) llega en una fase siguiente.")
+                st.session_state["_cli_mail_open"] = not st.session_state.get("_cli_mail_open", False)
+                st.session_state.pop("_cli_act_open", None)
+                st.rerun(scope="fragment")
         with a2:
             if st.button("Nueva actividad", icon=":material/add_task:", use_container_width=True,
                          key="_cli_fh_act"):
                 st.session_state["_cli_act_open"] = not st.session_state.get("_cli_act_open", False)
+                st.session_state.pop("_cli_mail_open", None)
                 st.rerun(scope="fragment")
+
+        # ── Compositor de correo (Resend) ──
+        if st.session_state.get("_cli_mail_open"):
+            _render_correo(cid, cli)
 
         # ── Formulario de nueva actividad ──
         # LLAMADA: el "Estado de la llamada" decide el flujo:
@@ -2151,9 +2241,10 @@ def render_tab_clientes(**kwargs):
             if _p[0] == "open" and len(_p) >= 3:
                 st.session_state["_cli_ficha"] = _p[1]
                 st.session_state["_cli_just_opened"] = True   # dispara la animación de entrada
-                # ficha nueva → formularios/paneles de actividad cerrados
+                # ficha nueva → formularios/paneles de actividad y correo cerrados
                 st.session_state.pop("_cli_act_open", None)
                 st.session_state.pop("_cli_act_res", None)
+                st.session_state.pop("_cli_mail_open", None)
             elif _p[0] == "nuevo" and len(_p) >= 3:
                 # Crear presupuesto para este cliente (menú contextual pipeline/maestro).
                 _cobj = next((d for d in data if str(d.get("id")) == _p[1]), None)
