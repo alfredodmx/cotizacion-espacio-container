@@ -116,13 +116,26 @@ def enviar_correo(to, subject, html, reply_to=None, from_addr=None,
         return False, str(e)
 
 
+# Se apaga si la API key es "solo-envío" (401): así NO seguimos consultando el
+# estado en cada render (evita llenar los Logs de Resend con 401). Se reinicia al
+# redeploy (p.ej. tras poner una key con acceso de lectura).
+_STATUS_DISABLED = False
+
+
+def estado_lectura_disponible() -> bool:
+    """False si ya detectamos que la API key no puede leer estados (solo-envío)."""
+    return not _STATUS_DISABLED
+
+
 def estado_correo(email_id: str) -> dict:
     """Consulta el estado de un correo enviado (GET /emails/{id}). Devuelve
     {ok, last_event, data} o {ok:False, error}. `last_event` ∈ sent/delivered/
-    delivery_delayed/opened/clicked/bounced/complained. DEFENSIVO: nunca lanza."""
+    delivery_delayed/opened/clicked/bounced/complained. DEFENSIVO: nunca lanza.
+    Si la key es solo-envío (401), se apaga para no reintentar."""
+    global _STATUS_DISABLED
     key = _api_key()
-    if not key or not email_id:
-        return {"ok": False, "error": "sin id/key"}
+    if not key or not email_id or _STATUS_DISABLED:
+        return {"ok": False, "error": "no disponible"}
     try:
         import requests
         r = requests.get(f"{_API_URL}/{email_id}",
@@ -130,6 +143,9 @@ def estado_correo(email_id: str) -> dict:
         if r.status_code == 200:
             d = r.json() or {}
             return {"ok": True, "last_event": d.get("last_event", "sent"), "data": d}
+        if r.status_code in (401, 403):
+            _STATUS_DISABLED = True   # key sin permiso de lectura → no reintentar
+            return {"ok": False, "error": "restricted"}
         return {"ok": False, "error": f"{r.status_code}"}
     except Exception as e:
         return {"ok": False, "error": str(e)}

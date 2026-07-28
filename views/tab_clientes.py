@@ -75,7 +75,7 @@ try:   # Envío de correos (Resend) — opcional/defensivo
         enviar_correo as _resend_enviar, render_variables as _resend_render,
         texto_a_html as _resend_texto_html, remitente as _resend_remitente,
         reply_to_default as _resend_reply, configurado as _resend_configurado,
-        estado_correo as _resend_estado,
+        estado_correo as _resend_estado, estado_lectura_disponible as _resend_estado_ok,
     )
 except Exception:
     def _resend_configurado():
@@ -98,6 +98,9 @@ except Exception:
 
     def _resend_estado(_id):
         return {"ok": False}
+
+    def _resend_estado_ok():
+        return False
 
 try:   # Seguimiento de correos enviados (tabla crm_correos) — defensivo
     from repositories.correos_repo import (
@@ -1535,10 +1538,13 @@ def _render_correos_enviados(cid):
             f'<div style="font-size:0.72rem;color:#94a3b8;">{_esc(_fmt_fecha_local(c.get("fecha")))}{_esc(_adj)}</div></div>'
             f'<span class="cli-pill" style="background:{_bg};color:{_fg};">{_lbl}</span>'
             '</div>')
+    _nota = ('El estado se actualiza desde Resend (entregado/click/rebotado). '
+             if _resend_estado_ok() else
+             'El estado en vivo requiere una API key de Resend con acceso de lectura '
+             '(la actual es solo-envío). ')
     st.markdown('<div style="border:1px solid #e6e9f4;border-radius:12px;overflow:hidden;">'
                 + _rows + '</div>'
-                '<div style="font-size:0.72rem;color:#94a3b8;margin-top:4px;">'
-                'El estado se actualiza desde Resend (entregado/click/rebotado). '
+                f'<div style="font-size:0.72rem;color:#94a3b8;margin-top:4px;">{_nota}'
                 'Las respuestas llegan a tu buzón, no aparecen acá.</div>',
                 unsafe_allow_html=True)
 
