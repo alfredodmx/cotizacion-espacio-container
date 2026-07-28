@@ -74,9 +74,9 @@ def texto_a_html(texto: str) -> str:
 
 
 def enviar_correo(to, subject, html, reply_to=None, from_addr=None,
-                  text=None, tags=None) -> tuple:
-    """Envía UN correo. `to` puede ser str o lista. Devuelve (ok, id | error).
-    DEFENSIVO: nunca lanza."""
+                  text=None, tags=None, attachments=None) -> tuple:
+    """Envía UN correo. `to` puede ser str o lista. `attachments` = lista de
+    {filename, content(base64)}. Devuelve (ok, id | error). DEFENSIVO: nunca lanza."""
     key = _api_key()
     if not key:
         return False, "Falta RESEND_API_KEY en los secrets de Streamlit."
@@ -98,6 +98,8 @@ def enviar_correo(to, subject, html, reply_to=None, from_addr=None,
         payload["reply_to"] = _rt
     if tags:
         payload["tags"] = tags
+    if attachments:
+        payload["attachments"] = attachments
     try:
         import requests
         r = requests.post(

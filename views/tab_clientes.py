@@ -265,6 +265,13 @@ _CLI_CSS = """
   text-transform:uppercase;color:#0f172a;margin:0 0 8px;}
 .cli-actf-sep{height:1px;background:#e6e9f4;margin:12px 0;}
 .cli-actf-hint{font-size:0.75rem;color:#64748b;line-height:1.35;margin:0 0 6px;}
+/* Compositor de correo: label de herramientas + botones compactos emoji/variable */
+.cli-mail-tools-lbl{font-size:0.64rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
+  color:#94a3b8;margin:6px 0 2px;}
+.st-key-_cli_mail_form [class*="st-key-_cli_emo_"] button{padding:2px 0!important;min-height:34px!important;
+  font-size:1.05rem!important;line-height:1!important;}
+.st-key-_cli_mail_form [class*="st-key-_cli_var_"] button{padding:3px 2px!important;min-height:32px!important;
+  font-size:0.7rem!important;}
 .st-key-_cli_act_form label p,.st-key-_cli_act_form [data-testid="stWidgetLabel"] p,
 .st-key-_cli_mail_form label p,.st-key-_cli_mail_form [data-testid="stWidgetLabel"] p,
 .st-key-_cli_edit_form label p,.st-key-_cli_edit_form [data-testid="stWidgetLabel"] p{
@@ -1472,10 +1479,22 @@ def _render_datos(cid, cli):
         '</div>', unsafe_allow_html=True)
 
 
+def _mail_insert(txt):
+    """Callback para insertar (append) texto/emoji/variable en el cuerpo del correo.
+    Va en on_click → corre ANTES de re-instanciar el text_area, así se puede tocar
+    su session_state sin error."""
+    st.session_state["_cli_mail_body"] = (st.session_state.get("_cli_mail_body") or "") + txt
+
+
+_MAIL_VARS = [("Nombre", "{{nombre}}"), ("Comuna", "{{comuna}}"),
+              ("Teléfono", "{{telefono}}"), ("Correo", "{{correo}}")]
+_MAIL_EMOJIS = ["😀", "😊", "👍", "🙌", "🎉", "🔥", "🏠", "✅", "✨", "📞", "🙏", "💬"]
+
+
 def _render_correo(cid, cli):
-    """Compositor de correo (Resend) inline en la ficha. Envía UN correo al cliente,
-    con variables {{nombre}}… y registro en la línea de tiempo. Reply-to al buzón
-    real (Zoho). Todo defensivo: sin API key, el botón queda deshabilitado."""
+    """Compositor de correo (Resend) inline en la ficha. Emojis + variables
+    clickeables + adjuntos. Reply-to al buzón real (Zoho). Todo defensivo: sin API
+    key, el botón queda deshabilitado."""
     _to = (cli.get("email") or "").strip()
     with st.container(border=True, key="_cli_mail_form"):
         st.markdown('<div class="cli-actf-h">Enviar correo</div>', unsafe_allow_html=True)
@@ -1485,17 +1504,36 @@ def _render_correo(cid, cli):
         st.markdown(
             f'<div class="cli-actf-hint">Para: <b>{_esc(_to or "—")}</b><br>'
             f'Desde <b>{_esc(_resend_remitente() or "—")}</b>'
-            + (f' · responden a {_esc(_resend_reply())}' if _resend_reply() else '')
+            + (f'<br>Las respuestas del cliente llegan a <b>{_esc(_resend_reply())}</b>'
+               if _resend_reply() else "")
             + '</div>', unsafe_allow_html=True)
         if not _to:
             st.warning("Este cliente no tiene correo; agrégalo para poder enviarle.")
         st.text_input("Asunto", key="_cli_mail_subj",
                       placeholder="Tu casa container a medida")
-        st.text_area("Mensaje", key="_cli_mail_body", height=190,
+
+        # Variables clickeables (insertan en el mensaje).
+        st.markdown('<div class="cli-mail-tools-lbl">Insertar variable</div>', unsafe_allow_html=True)
+        _vc = st.columns(len(_MAIL_VARS))
+        for _i, (_lbl, _var) in enumerate(_MAIL_VARS):
+            _vc[_i].button(_lbl, key=f"_cli_var_{_i}", use_container_width=True,
+                           on_click=_mail_insert, args=(_var,))
+
+        st.text_area("Mensaje", key="_cli_mail_body", height=180,
                      placeholder="Hola {{nombre}}, gracias por tu interés en Espacio Container House…")
-        st.markdown('<div class="cli-actf-hint">Variables: <code>{{nombre}}</code> · '
-                    '<code>{{comuna}}</code> · <code>{{telefono}}</code> — se reemplazan '
-                    'por los datos de cada cliente.</div>', unsafe_allow_html=True)
+
+        # Emojis (insertan al final del mensaje).
+        st.markdown('<div class="cli-mail-tools-lbl">Emojis</div>', unsafe_allow_html=True)
+        _ecols = st.columns(len(_MAIL_EMOJIS))
+        for _i, _e in enumerate(_MAIL_EMOJIS):
+            _ecols[_i].button(_e, key=f"_cli_emo_{_i}", on_click=_mail_insert, args=(_e,))
+
+        # Adjuntos (Resend soporta PDF/imágenes/etc.).
+        _files = st.file_uploader("Adjuntar archivos (opcional)", accept_multiple_files=True,
+                                  key="_cli_mail_files")
+        st.markdown('<div class="cli-actf-hint">Las variables se reemplazan por los datos de '
+                    'cada cliente al enviar.</div>', unsafe_allow_html=True)
+
         st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
         _mc1, _mc2 = st.columns(2)
         with _mc1:
@@ -1509,14 +1547,25 @@ def _render_correo(cid, cli):
                 else:
                     _subject = _resend_render(_subj, cli)
                     _texto = _resend_render(_body, cli)
-                    _ok, _res = _resend_enviar(_to, _subject, _resend_texto_html(_texto))
+                    # Adjuntos → base64
+                    _att = []
+                    for _f in (_files or []):
+                        try:
+                            import base64
+                            _att.append({"filename": _f.name,
+                                         "content": base64.b64encode(_f.getvalue()).decode()})
+                        except Exception:
+                            pass
+                    _ok, _res = _resend_enviar(_to, _subject, _resend_texto_html(_texto),
+                                               attachments=_att or None)
                     if _ok:
                         _actor = (st.session_state.get("auth_nombre")
                                   or st.session_state.get("auth_email", ""))
+                        _adj = f" · {len(_att)} adjunto(s)" if _att else ""
                         registrar_actividad(cid, "correo", f"Correo enviado: {_subject}",
-                                            detalle=_texto[:200], actor=_actor)
+                                            detalle=(_texto[:200] + _adj), actor=_actor)
                         st.session_state.pop("_cli_mail_open", None)
-                        for _k in ("_cli_mail_subj", "_cli_mail_body"):
+                        for _k in ("_cli_mail_subj", "_cli_mail_body", "_cli_mail_files"):
                             st.session_state.pop(_k, None)
                         st.toast("Correo enviado ✅")
                         st.rerun(scope="fragment")
