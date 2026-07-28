@@ -76,6 +76,8 @@ try:   # Envío de correos (Resend) — opcional/defensivo
         texto_a_html as _resend_texto_html, remitente as _resend_remitente,
         reply_to_default as _resend_reply, configurado as _resend_configurado,
         estado_correo as _resend_estado, estado_lectura_disponible as _resend_estado_ok,
+        enviar_lote as _resend_lote, pie_baja_html as _resend_pie,
+        unsubscribe_url as _resend_unsub,
     )
 except Exception:
     def _resend_configurado():
@@ -101,6 +103,15 @@ except Exception:
 
     def _resend_estado_ok():
         return False
+
+    def _resend_lote(_m):
+        return False, "Módulo de correo no disponible."
+
+    def _resend_pie(_cid):
+        return ""
+
+    def _resend_unsub(_cid):
+        return ""
 
 try:   # Seguimiento de correos enviados (tabla crm_correos) — defensivo
     from repositories.correos_repo import (
@@ -1825,6 +1836,157 @@ def _render_dedup_dialog(data):
     _dlg()
 
 
+# ── Envío masivo por segmento (campañas) ──────────────────────────────────────
+_TIER_OPTS = {"Todos": "", "🔥 Caliente": "hot", "🔥 Tibio": "warm", "❄️ Frío": "cold"}
+
+
+def _en_segmento(d, tier, ejemail, stage) -> bool:
+    """True si el cliente cae en el segmento y es enviable (tiene correo y NO se dio
+    de baja)."""
+    if tier and (d.get("_score") or {}).get("key") != tier:
+        return False
+    if ejemail and (d.get("asignado_email") or "").strip().lower() != ejemail:
+        return False
+    if stage and (d.get("_stage") or STAGE_LEAD) != stage:
+        return False
+    if not (d.get("email") or "").strip():
+        return False
+    if d.get("no_email"):
+        return False
+    return True
+
+
+def _enviar_campana(segmento, subj_tpl, body_tpl, actor) -> dict:
+    """Envía el correo personalizado a cada cliente del segmento, en lotes de 100
+    (endpoint batch de Resend). Cada correo: variables + reply-to al ejecutivo
+    asignado + pie con link de baja + header List-Unsubscribe. Registra cada envío.
+    Devuelve {enviados, fallidos}."""
+    res = {"enviados": 0, "fallidos": 0}
+    _from = _resend_remitente()
+    _buf, _meta = [], []
+
+    def _flush():
+        if not _buf:
+            return
+        _ok, _r = _resend_lote(list(_buf))
+        _ids = []
+        if _ok and isinstance(_r, dict):
+            _ids = [x.get("id", "") for x in (_r.get("data") or [])]
+        for _i, (_cli, _subj) in enumerate(_meta):
+            if _ok:
+                res["enviados"] += 1
+                _registrar_correo(_cli.get("id"), (_ids[_i] if _i < len(_ids) else ""),
+                                  _cli.get("email", ""), _subj, actor, 0)
+            else:
+                res["fallidos"] += 1
+        _buf.clear()
+        _meta.clear()
+
+    for _cli in segmento:
+        _to = (_cli.get("email") or "").strip()
+        _subj = _resend_render(subj_tpl, _cli)
+        _texto = _resend_render(body_tpl, _cli)
+        _html = _resend_texto_html(_texto) + _resend_pie(_cli.get("id"))
+        _reply = (_cli.get("asignado_email") or "").strip().lower() or _resend_reply()
+        _msg = {"from": _from, "to": [_to], "subject": _subj, "html": _html,
+                "headers": {"List-Unsubscribe": f"<{_resend_unsub(_cli.get('id'))}>"}}
+        if _reply:
+            _msg["reply_to"] = _reply
+        _buf.append(_msg)
+        _meta.append((_cli, _subj))
+        if len(_buf) >= 100:
+            _flush()
+    _flush()
+    return res
+
+
+def _render_campana_dialog(data):
+    """Diálogo (root/admin): campaña de correo a un SEGMENTO (potencial/ejecutivo/
+    estado). Envío en lotes, con link de baja y reply-to al ejecutivo asignado."""
+
+    @st.dialog("Nueva campaña · correo por segmento", width="large")
+    def _dlg():
+        if not _resend_configurado():
+            st.warning("Falta la RESEND_API_KEY en los secrets. Cuando la agregues, se activa.")
+        # Selectores de segmento.
+        st.markdown('<div class="cli-sec-t" style="margin:0 0 4px;">Segmento</div>',
+                    unsafe_allow_html=True)
+        _s1, _s2, _s3 = st.columns(3)
+        with _s1:
+            _tsel = st.selectbox("Potencial", list(_TIER_OPTS.keys()), key="_camp_tier")
+            _tier = _TIER_OPTS[_tsel]
+        with _s2:
+            _ejmap = {"Todos": ""}
+            for d in data:
+                _e = (d.get("asignado_email") or "").strip().lower()
+                if _e:
+                    _ejmap[d.get("asignado_nombre") or d.get("asignado_email") or _e] = _e
+            _ejsel = st.selectbox("Ejecutivo", list(_ejmap.keys()), key="_camp_ej")
+            _ejemail = _ejmap[_ejsel]
+        with _s3:
+            _stmap = {"Todos": ""}
+            for _s in _STAGE_ORDER:
+                _stmap[_STAGE_META[_s][0]] = _s
+            _stsel = st.selectbox("Estado", list(_stmap.keys()), key="_camp_st")
+            _stage = _stmap[_stsel]
+
+        _seg = [d for d in data if _en_segmento(d, _tier, _ejemail, _stage)]
+        st.markdown(
+            f'<div class="cli-actf-hint">Se enviará a <b>{len(_seg)} destinatario(s)</b> '
+            '(con correo y sin baja). Se excluyen los sin correo y los dados de baja.</div>',
+            unsafe_allow_html=True)
+        if not _seg:
+            st.info("Ningún cliente en este segmento tiene correo para enviar.")
+
+        st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
+        with st.container(key="_cli_mail_form"):
+            st.text_input("Asunto", key="_camp_subj",
+                          placeholder="Tu casa container a medida, {{nombre}}")
+            st.markdown('<div class="cli-mail-tools-lbl">Insertar variable</div>',
+                        unsafe_allow_html=True)
+            _vc = st.columns(len(_MAIL_VARS))
+            for _i, (_lbl, _var) in enumerate(_MAIL_VARS):
+                _vc[_i].button(_lbl, key=f"_camp_var_{_i}", use_container_width=True,
+                               on_click=_camp_insert, args=(_var,))
+            st.text_area("Mensaje", key="_camp_body", height=170,
+                         placeholder="Hola {{nombre}}, seguimos con tu proyecto en {{comuna}}…")
+            st.markdown('<div class="cli-mail-tools-lbl">Emojis</div>', unsafe_allow_html=True)
+            _ecols = st.columns(len(_MAIL_EMOJIS))
+            for _i, _e in enumerate(_MAIL_EMOJIS):
+                _ecols[_i].button(_e, key=f"_camp_emo_{_i}", on_click=_camp_insert, args=(_e,))
+
+        st.markdown('<div class="cli-actf-hint">Cada correo lleva <b>link de baja</b> y, si el '
+                    'cliente responde, le llega a su <b>ejecutivo asignado</b>. Sin adjuntos en '
+                    'masivo (para adjuntar, usa el correo individual desde la ficha).</div>',
+                    unsafe_allow_html=True)
+        st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
+        if st.button(f"Enviar campaña a {len(_seg)}", type="primary", use_container_width=True,
+                     key="_camp_send", icon=":material/send:",
+                     disabled=(not _seg or not _resend_configurado())):
+            _subj = st.session_state.get("_camp_subj", "")
+            _body = st.session_state.get("_camp_body", "")
+            if not (_subj or "").strip() or not (_body or "").strip():
+                st.warning("Escribe el asunto y el mensaje.")
+            else:
+                _actor = (st.session_state.get("auth_nombre")
+                          or st.session_state.get("auth_email", ""))
+                with st.spinner(f"Enviando {len(_seg)} correo(s)…"):
+                    _r = _enviar_campana(_seg, _subj, _body, _actor)
+                for _k in ("_camp_subj", "_camp_body"):
+                    st.session_state.pop(_k, None)
+                st.session_state["_cli_toast"] = (
+                    f"Campaña enviada: {_r['enviados']} correo(s)"
+                    + (f" · {_r['fallidos']} fallaron" if _r['fallidos'] else "") + ".")
+                st.rerun()
+
+    _dlg()
+
+
+def _camp_insert(txt):
+    """Append de variable/emoji al cuerpo de la campaña (on_click)."""
+    st.session_state["_camp_body"] = (st.session_state.get("_camp_body") or "") + txt
+
+
 # ── Importar leads desde CSV / Excel (con mapeo de columnas) ──────────────────
 _IMPORT_LABELS = {
     "nombre": "Nombre *", "rut": "RUT", "email": "Correo", "telefono": "Teléfono",
@@ -2590,7 +2752,8 @@ def render_tab_clientes(**kwargs):
     # Barra de ACCIONES (fila propia, alineada a la izquierda). Los KPI van en su
     # propia fila debajo → más aire, menos amontonado.
     if _es_gestor:
-        _bs, _bg, _bi, _ba, _bsp = st.columns([1, 1, 1, 1.9, 6.1], vertical_alignment="center")
+        _bs, _bg, _bi, _bc, _ba, _bsp = st.columns([1, 1, 1, 1, 1.9, 5.1],
+                                                   vertical_alignment="center")
         with _bs:
             if st.button("", icon=":material/sync:", use_container_width=True,
                          key="_cli_sync", help="Sincronizar con cotizaciones"):
@@ -2601,6 +2764,15 @@ def render_tab_clientes(**kwargs):
                 st.session_state["_cli_toast"] = (
                     f"Sincronizado: {res['creados']} nuevo(s), {res['existentes']} ya estaban"
                     + (f" · {_est} presupuesto(s) vinculado(s)" if _est else "") + ".")
+                st.rerun()
+        with _bc:
+            if st.button("", icon=":material/campaign:", use_container_width=True,
+                         key="_cli_camp", help="Enviar campaña de correo por segmento"):
+                st.session_state["_camp_open"] = True
+                st.session_state["_cli_just_opened"] = True
+                st.session_state.pop("_cli_ficha", None)
+                st.session_state.pop("_guion_open", None)
+                st.session_state.pop("_import_open", None)
                 st.rerun()
         with _bg:
             if st.button("", icon=":material/fact_check:", use_container_width=True,
@@ -2693,6 +2865,8 @@ def render_tab_clientes(**kwargs):
         _render_importar_dialog()
     elif st.session_state.pop("_dedup_open", False) and _es_gestor:
         _render_dedup_dialog(data)
+    elif st.session_state.pop("_camp_open", False) and _es_gestor:
+        _render_campana_dialog(data)
     else:
         # Ficha 360 (one-shot: pop del flag; el dialog persiste vía su fragment).
         _fid = st.session_state.pop("_cli_ficha", None)

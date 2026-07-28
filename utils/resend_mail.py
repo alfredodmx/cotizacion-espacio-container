@@ -46,6 +46,27 @@ def configurado() -> bool:
     return bool(_api_key())
 
 
+def app_url() -> str:
+    """URL base de la app (para el link de baja). Configurable por secret APP_URL."""
+    return str(_sec("APP_URL", "https://cotizador.espaciocontainerhouse.cl") or "").rstrip("/")
+
+
+def unsubscribe_url(cliente_id) -> str:
+    """Link de desuscripción → página de baja de la app (?baja=<cliente_id>)."""
+    return f"{app_url()}/?baja={cliente_id}"
+
+
+def pie_baja_html(cliente_id) -> str:
+    """Pie con el link de baja, obligatorio en envíos masivos."""
+    _u = unsubscribe_url(cliente_id)
+    return (
+        '<div style="margin-top:24px;padding-top:12px;border-top:1px solid #e5e7eb;'
+        'font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#9ca3af;line-height:1.5;">'
+        'Recibes este correo porque dejaste tus datos en Espacio Container House.<br>'
+        f'Si no quieres recibir más correos, <a href="{_u}" style="color:#6b7280;">'
+        'haz click aquí para darte de baja</a>.</div>')
+
+
 def render_variables(texto: str, cliente: dict) -> str:
     """Reemplaza {{nombre}}, {{comuna}}, {{correo}}, {{telefono}} por los datos del
     cliente. Devuelve el texto plano ya personalizado (sin escapar)."""
@@ -74,9 +95,10 @@ def texto_a_html(texto: str) -> str:
 
 
 def enviar_correo(to, subject, html, reply_to=None, from_addr=None,
-                  text=None, tags=None, attachments=None) -> tuple:
+                  text=None, tags=None, attachments=None, headers=None) -> tuple:
     """Envía UN correo. `to` puede ser str o lista. `attachments` = lista de
-    {filename, content(base64)}. Devuelve (ok, id | error). DEFENSIVO: nunca lanza."""
+    {filename, content(base64)}. `headers` = dict (p.ej. List-Unsubscribe). Devuelve
+    (ok, id | error). DEFENSIVO: nunca lanza."""
     key = _api_key()
     if not key:
         return False, "Falta RESEND_API_KEY en los secrets de Streamlit."
@@ -100,6 +122,8 @@ def enviar_correo(to, subject, html, reply_to=None, from_addr=None,
         payload["tags"] = tags
     if attachments:
         payload["attachments"] = attachments
+    if headers:
+        payload["headers"] = headers
     try:
         import requests
         r = requests.post(

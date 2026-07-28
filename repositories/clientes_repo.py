@@ -160,6 +160,19 @@ def actualizar_cliente(cid: str, campos: dict) -> tuple:
         return False, str(e)
 
 
+def marcar_no_email(cliente_id, valor: bool = True) -> bool:
+    """Marca (o desmarca) que un cliente NO quiere recibir correos (desuscripción).
+    DEFENSIVO: si la columna `no_email` no existe aún, devuelve False sin romper."""
+    if not cliente_id:
+        return False
+    try:
+        _supa.table(_TABLA).update({"no_email": bool(valor), "fecha_modificacion": _ahora()}) \
+            .eq("id", cliente_id).execute()
+        return True
+    except Exception:
+        return False
+
+
 # ── Actividad (línea de tiempo) ───────────────────────────────────────────────
 
 def registrar_actividad(cliente_id, tipo, titulo, detalle="", ep="", actor="") -> None:

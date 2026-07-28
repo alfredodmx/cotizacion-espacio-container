@@ -39,6 +39,12 @@ if st.query_params.get("cliente") == "1":
     from views.cliente_view import render_cliente_view
     render_cliente_view(supabase_admin, SUPABASE_URL, SUPABASE_KEY)
 
+# Desuscripción PÚBLICA (link de baja de los correos masivos): ?baja=<cliente_id>.
+_baja_token = st.query_params.get("baja")
+if _baja_token:
+    from views.baja_view import render_baja_view
+    render_baja_view(_baja_token)   # marca no_email=true + confirma + st.stop()
+
 recover_session_from_query_param(supabase)
 check_session_timeout()
 
