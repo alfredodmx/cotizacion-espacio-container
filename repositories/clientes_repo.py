@@ -202,11 +202,15 @@ _COLS_COT = (
 
 def _leer_clientes_de_cotizaciones() -> list:
     """SOLO LECTURA sobre cotizaciones. Devuelve las filas con los campos de
-    cliente (sin traer los `productos`, que son pesados)."""
+    cliente (sin traer los `productos`, que son pesados). Intenta traer `cliente_id`
+    (vínculo estable); si no existe la columna, cae a la lectura sin ella."""
     try:
-        return _supa.table("cotizaciones").select(_COLS_COT).execute().data or []
+        return _supa.table("cotizaciones").select(_COLS_COT + ",cliente_id").execute().data or []
     except Exception:
-        return []
+        try:
+            return _supa.table("cotizaciones").select(_COLS_COT).execute().data or []
+        except Exception:
+            return []
 
 
 def backfill_desde_cotizaciones() -> dict:
@@ -233,6 +237,10 @@ def backfill_desde_cotizaciones() -> dict:
     nuevos: dict = {}   # clave -> payload
     omitidos = 0
     for row in cot_rows:
+        # Si la cotización YA está vinculada a un cliente (cliente_id), pertenece a
+        # ese cliente aunque sus datos difieran (fue editado) → NO crear duplicado.
+        if row.get("cliente_id"):
+            continue
         nombre = str(row.get("cliente_nombre") or "").strip()
         rut = row.get("cliente_rut")
         email = row.get("cliente_email")
@@ -492,6 +500,109 @@ def upsert_desde_cotizacion(cli_fields: dict, asesor_fields: dict = None,
         return new_id
     except Exception:
         return None
+
+
+# ── Fusión de duplicados (merge) ──────────────────────────────────────────────
+
+def detectar_duplicados() -> list:
+    """Grupos de clientes ACTIVOS que probablemente sean la misma persona: mismo
+    nombre normalizado (2+ fichas). Devuelve [[cliente,...], ...] (grupos de 2+),
+    cada grupo ordenado por fecha de creación."""
+    from collections import defaultdict
+    groups = defaultdict(list)
+    for c in listar_clientes(solo_activos=True):
+        nk = _n(c.get("nombre"))
+        if nk and nk != "nan":
+            groups[nk].append(c)
+    return [sorted(g, key=lambda x: str(x.get("fecha_creacion") or ""))
+            for g in groups.values() if len(g) >= 2]
+
+
+def fusionar_clientes(destino_id, origen_ids: list) -> dict:
+    """Fusiona uno o más clientes ORIGEN en el DESTINO. NUNCA borra: mueve al destino
+    sus presupuestos (re-estampa cliente_id, incl. los vinculados por dato), sus
+    tareas y actividades, rellena los datos/calificación VACÍOS del destino, y deja
+    los orígenes INACTIVOS (activo=false, la fila se conserva). Devuelve un resumen."""
+    res = {"cotizaciones": 0, "tareas": 0, "actividades": 0, "fusionados": 0, "error": None}
+    try:
+        destino = obtener_cliente(destino_id)
+        if not destino:
+            res["error"] = "Cliente destino no encontrado."
+            return res
+        polluted = identidades_compartidas()
+        rows = _leer_cotizaciones_para_pipeline()
+        for oid in origen_ids:
+            if not oid or str(oid) == str(destino_id):
+                continue
+            origen = obtener_cliente(oid)
+            if not origen:
+                continue
+            # 1) Mover sus presupuestos al destino (por cliente_id del origen y, para
+            # los no estampados, por el dedup key del origen) → estampar con destino.
+            # GUARDA: si el origen tiene presupuestos pero NINGUNO se pudo mover
+            # (típicamente porque falta la columna cliente_id), se ABORTA sin
+            # desactivar el origen → jamás se dejan presupuestos huérfanos.
+            okey = dedup_key(origen.get("rut"), origen.get("email"),
+                             origen.get("telefono"), origen.get("nombre"), polluted)
+            _matched, _moved = 0, 0
+            for row in rows:
+                _num = row.get("numero")
+                if not _num:
+                    continue
+                _match = (str(row.get("cliente_id") or "") == str(oid)) or \
+                    ((not row.get("cliente_id")) and okey[1] and dedup_key(
+                        row.get("cliente_rut"), row.get("cliente_email"),
+                        row.get("cliente_telefono"), row.get("cliente_nombre"), polluted) == okey)
+                if _match:
+                    _matched += 1
+                    if estampar_cliente_id(_num, destino_id):
+                        _moved += 1
+            if _matched and not _moved:
+                res["error"] = ("No se pudieron mover los presupuestos (¿falta correr el ALTER "
+                                "de cliente_id en cotizaciones?). No se fusionó nada para no "
+                                "dejar presupuestos huérfanos.")
+                return res
+            res["cotizaciones"] += _moved
+            # 2) Mover tareas y actividades.
+            for _tabla, _key in (("crm_tareas", "tareas"), ("crm_actividad", "actividades")):
+                try:
+                    _upd = _supa.table(_tabla).update({"cliente_id": destino_id}).eq("cliente_id", oid).execute()
+                    res[_key] += len(_upd.data or [])
+                except Exception:
+                    pass
+            # 3) Rellenar campos de contacto VACÍOS del destino con los del origen.
+            _fill = {}
+            for f in ("rut", "email", "telefono", "direccion", "comuna", "region",
+                      "empresa", "rut_empresa"):
+                if not str(destino.get(f) or "").strip() and str(origen.get(f) or "").strip():
+                    _fill[f] = origen.get(f)
+            # Calificación: unir (los valores no vacíos del DESTINO mandan).
+            def _asdict(v):
+                if isinstance(v, str):
+                    import json
+                    try:
+                        return json.loads(v)
+                    except Exception:
+                        return {}
+                return v if isinstance(v, dict) else {}
+            _dcal, _ocal = _asdict(destino.get("calificacion")), _asdict(origen.get("calificacion"))
+            _merged = dict(_ocal)
+            _merged.update({k: v for k, v in _dcal.items() if str(v or "").strip()})
+            if _merged != _dcal:
+                _fill["calificacion"] = _merged
+            if _fill:
+                actualizar_cliente(destino_id, _fill)
+                destino.update(_fill)
+            # 4) Origen → INACTIVO (soft delete: la fila NO se borra).
+            actualizar_cliente(oid, {"activo": False})
+            registrar_actividad(destino_id, "nota",
+                                f"Fusionado con ficha duplicada: {origen.get('nombre','')}",
+                                actor="merge")
+            res["fusionados"] += 1
+        return res
+    except Exception as e:
+        res["error"] = str(e)
+        return res
 
 
 # ── Derivación del PIPELINE (SOLO LECTURA de cotizaciones) ─────────────────────

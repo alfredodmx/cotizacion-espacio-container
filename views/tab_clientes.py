@@ -30,7 +30,7 @@ from repositories.clientes_repo import (
     identidades_compartidas,
     crear_tarea, listar_tareas_cliente, completar_tarea, listar_tareas_pendientes,
     tareas_vencidas_no_notificadas, marcar_notificadas, importar_leads, CAMPOS_IMPORT,
-    propagar_a_cotizaciones,
+    propagar_a_cotizaciones, detectar_duplicados, fusionar_clientes,
     STAGE_LEAD, STAGE_CONTACTADO, STAGE_PRESUPUESTO, STAGE_PROPUESTA,
     STAGE_GANADO, STAGE_PERDIDO,
 )
@@ -1636,6 +1636,63 @@ def _render_actividad(cid, cli, t):
                             st.rerun(scope="fragment")
 
 
+# ── Fusionar duplicados ───────────────────────────────────────────────────────
+def _tiene_calif(cli) -> bool:
+    _v = cli.get("calificacion")
+    if isinstance(_v, str):
+        return _v not in ("", "{}", "null")
+    return bool(_v)
+
+
+def _render_dedup_dialog(data):
+    """Diálogo (root/admin): detecta fichas con el mismo nombre y las fusiona en una
+    principal (mueve presupuestos/actividades/datos; la otra queda inactiva)."""
+
+    @st.dialog("Fusionar duplicados", width="large")
+    def _dlg():
+        _grupos = detectar_duplicados()
+        if not _grupos:
+            st.success("No se detectaron fichas duplicadas por nombre. 🎉")
+            return
+        st.markdown('<div class="cli-actf-hint">Fichas con el <b>mismo nombre</b> que probablemente '
+                    'son la misma persona. Elige cuál queda como <b>principal</b> y fusiona: los '
+                    'presupuestos, actividades y datos se mueven a la principal; la otra queda '
+                    '<b>inactiva</b> (no se borra nada).</div>', unsafe_allow_html=True)
+        _byid = {str(c.get("id")): c for c in data}
+        for _gi, _grupo in enumerate(_grupos):
+            with st.container(border=True, key=f"_dedup_grp_{_gi}"):
+                st.markdown(f'<div class="cli-sec-t" style="margin:0 0 4px;">'
+                            f'{_esc(_grupo[0].get("nombre",""))} · {len(_grupo)} fichas</div>',
+                            unsafe_allow_html=True)
+                _opts, _labels, _best_i, _best = [], {}, 0, -1
+                for _i, _m in enumerate(_grupo):
+                    _mid = str(_m.get("id"))
+                    _en = _byid.get(_mid, _m)
+                    _nc = len(_en.get("_cotizaciones") or [])
+                    _hc = _tiene_calif(_m)
+                    _sc = _nc * 2 + (1 if _hc else 0)
+                    if _sc > _best:
+                        _best, _best_i = _sc, _i
+                    _opts.append(_mid)
+                    _labels[_mid] = (f"{_m.get('email') or _m.get('telefono') or 's/contacto'} · "
+                                     f"{_nc} presup." + (" · con calificación" if _hc else ""))
+                _sel = st.radio("Ficha principal (sobrevive)", _opts, index=_best_i,
+                                key=f"_dedup_sv_{_gi}", format_func=lambda x: _labels.get(x, x))
+                if st.button("Fusionar en la principal", type="primary",
+                             key=f"_dedup_go_{_gi}", icon=":material/merge:", use_container_width=True):
+                    _r = fusionar_clientes(_sel, [o for o in _opts if o != _sel])
+                    if _r.get("error"):
+                        st.error(f"No se pudo fusionar: {_r['error']}")
+                    else:
+                        _cli_data.clear()
+                        st.session_state["_cli_toast"] = (
+                            f"Fusionado: {_r['fusionados']} ficha(s), "
+                            f"{_r['cotizaciones']} presupuesto(s) movido(s).")
+                        st.rerun()
+
+    _dlg()
+
+
 # ── Importar leads desde CSV / Excel (con mapeo de columnas) ──────────────────
 _IMPORT_LABELS = {
     "nombre": "Nombre *", "rut": "RUT", "email": "Correo", "telefono": "Teléfono",
@@ -2438,6 +2495,29 @@ def render_tab_clientes(**kwargs):
     # KPI cards (fila propia, con separación respecto a la barra de acciones).
     st.markdown('<div style="margin-top:16px;">' + _kpi_html + '</div>', unsafe_allow_html=True)
 
+    # Aviso de posibles duplicados (root/admin): fichas con el mismo nombre.
+    if _es_gestor:
+        _dupmap = {}
+        for _d in data:
+            _nk = " ".join(str(_d.get("nombre") or "").strip().lower().split())
+            if _nk:
+                _dupmap.setdefault(_nk, 0)
+                _dupmap[_nk] += 1
+        _ndup = sum(1 for _n2 in _dupmap.values() if _n2 >= 2)
+        if _ndup:
+            _dw1, _dw2 = st.columns([4, 1], vertical_alignment="center")
+            with _dw1:
+                st.warning(f"Hay {_ndup} grupo(s) de fichas con el mismo nombre (posibles duplicados).")
+            with _dw2:
+                if st.button("Fusionar", icon=":material/merge:", use_container_width=True,
+                             key="_cli_dedup_btn"):
+                    st.session_state["_dedup_open"] = True
+                    st.session_state["_cli_just_opened"] = True
+                    st.session_state.pop("_cli_ficha", None)
+                    st.session_state.pop("_guion_open", None)
+                    st.session_state.pop("_import_open", None)
+                    st.rerun()
+
     # Selector de vista (con aire arriba para separarlo de las tarjetas KPI).
     st.markdown('<div style="height:20px;"></div>', unsafe_allow_html=True)
     st.markdown(_CLI_SELECTOR_CSS, unsafe_allow_html=True)
@@ -2476,6 +2556,8 @@ def render_tab_clientes(**kwargs):
         _render_guion_config()
     elif st.session_state.pop("_import_open", False) and _es_gestor:
         _render_importar_dialog()
+    elif st.session_state.pop("_dedup_open", False) and _es_gestor:
+        _render_dedup_dialog(data)
     else:
         # Ficha 360 (one-shot: pop del flag; el dialog persiste vía su fragment).
         _fid = st.session_state.pop("_cli_ficha", None)
