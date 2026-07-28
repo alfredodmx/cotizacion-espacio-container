@@ -1420,6 +1420,37 @@ def _wa_cell(telefono) -> str:
             f'title="Abrir WhatsApp">{_WA_SVG}<span>{_esc(str(telefono).strip())}</span></span></div>')
 
 
+_SHOPIFY_META_LABELS = [
+    ("presupuesto", "Presupuesto"), ("modelo", "Modelo"), ("precio", "Precio"),
+    ("descripcion", "Qué busca / describe"), ("tipo_persona", "Tipo de persona"),
+]
+
+
+def _render_shopify_datos(cli):
+    """Muestra los datos que vinieron del FORMULARIO de Shopify (metacampos) si el
+    lead los trae en `shopify_meta`. Incluye el plano si viene."""
+    _m = cli.get("shopify_meta") or {}
+    if isinstance(_m, str):
+        try:
+            _m = _json.loads(_m)
+        except Exception:
+            _m = {}
+    if not isinstance(_m, dict) or not any(str(v or "").strip() for v in _m.values()):
+        return
+    st.markdown('<div class="cli-sec-t">Datos del formulario (Shopify)</div>',
+                unsafe_allow_html=True)
+    _items = "".join(
+        f'<div><div class="k">{_esc(_lbl)}</div>{_cp(str(_m.get(_k) or ""), _esc(str(_m.get(_k) or "")), "Copiar")}</div>'
+        for _k, _lbl in _SHOPIFY_META_LABELS if str(_m.get(_k) or "").strip())
+    if _items:
+        st.markdown(f'<div class="cli-data">{_items}</div>', unsafe_allow_html=True)
+    _plano = str(_m.get("plano_url") or "").strip()
+    if _plano and _plano.lower().startswith("http"):
+        st.markdown(f'<div style="margin-top:6px;"><a class="cli-wa" href="{_esc(_plano)}" '
+                    f'target="_blank" rel="noopener">📐 Ver plano que adjuntó el cliente</a></div>',
+                    unsafe_allow_html=True)
+
+
 def _render_calificacion(cid, cli):
     """Sección 'Calificación' (respuestas del guión). Ver + Editar. Se muestra solo
     si el admin configuró preguntas. Va en la zona de actividades de la ficha."""
@@ -2552,6 +2583,9 @@ def _render_ficha(cid: str, data: list):
         else:
             for t in _tareas:
                 _render_actividad(cid, cli, t)
+
+        # ── Datos del formulario de Shopify (si el lead vino de ahí) ──
+        _render_shopify_datos(cli)
 
         # ── Calificación (guión) — va en la zona de actividades, no arriba ──
         _render_calificacion(cid, cli)
