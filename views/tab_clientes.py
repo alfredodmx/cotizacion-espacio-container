@@ -290,8 +290,14 @@ _CLI_CSS = """
   cursor:pointer;transition:box-shadow .12s,transform .12s;}
 .cli-card:hover{box-shadow:0 6px 18px rgba(30,36,71,.12);transform:translateY(-1px);}
 .cli-card-nm{font-family:Montserrat,sans-serif;font-size:12.5px;font-weight:800;color:#0f172a;line-height:1.3;}
-.cli-card-mt{font-size:12px;color:#0f172a;font-weight:700;margin:4px 0;}
+.cli-card-lbl{font-size:8.5px;color:#94a3b8;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin-top:7px;}
+.cli-card-mt{font-size:13px;color:#0f172a;font-weight:800;margin:1px 0 0;}
+.cli-card-none{font-size:11px;color:#ea580c;font-weight:800;margin-top:7px;}
 .cli-card-sub{font-size:10.5px;color:#94a3b8;font-weight:600;display:flex;align-items:center;gap:5px;}
+.cli-fuente-b{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:800;padding:2px 7px;
+  border-radius:20px;text-transform:uppercase;letter-spacing:.02em;}
+.cli-card-date{font-size:9px;color:#b4bccd;font-weight:600;text-align:right;margin-top:8px;
+  display:flex;align-items:center;justify-content:flex-end;gap:4px;}
 .cli-kb-empty{font-size:11px;color:#cbd5e1;text-align:center;padding:14px 4px;font-family:Montserrat,sans-serif;}
 
 /* ── Ficha 360 (dentro del st.dialog) ── */
@@ -793,6 +799,13 @@ def _fuente_meta(fuente: str):
     return (str(fuente or "").strip() or "Manual", _ic, _fg, _bg)
 
 
+def _fuente_badge(origen) -> str:
+    """Badge chico (icono + etiqueta + color) de la fuente, para la card del lead."""
+    _lbl, _ico, _fg, _bg = _fuente_meta(_fuente_norm(origen))
+    return (f'<span class="cli-fuente-b" style="background:{_bg};color:{_fg};">'
+            f'{_svg(_ico, 11, "currentColor")}{_esc(_lbl)}</span>')
+
+
 # Iconos (path SVG) de cada ZONA de la ficha, para los separadores.
 _ZIC_DATOS = '<rect width="18" height="18" x="3" y="4" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M15 8h2"/><path d="M15 12h2"/><path d="M7 16h10"/>'
 _ZIC_ASIGNAR = '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/>'
@@ -1261,13 +1274,26 @@ def _render_pipeline(data: list):
         cards = ""
         for d in items:
             _asig = d.get("asignado_nombre") or d.get("asignado_email") or "Sin asignar"
-            _mt = (f'<div class="cli-card-mt">{_fmt_money(d.get("_monto"))}</div>'
-                   if d.get("_monto") else "")
             _neps = len(d.get("_cotizaciones") or [])
-            _ep = (f'{_neps} presupuesto' + ('s' if _neps != 1 else '')) if _neps else "Sin presupuesto"
-            _asig_ico = _svg(_ICON_USER_PATH, 12, "#94a3b8")
             _asig_email = (d.get("asignado_email") or "").strip().lower()
             _sc = d.get("_score") or _lead_score(d, None)
+            # Presupuesto: label gris + monto; o "Sin presupuesto" (naranjo) si no tiene ninguno.
+            if _neps:
+                _pre = ('<div class="cli-card-lbl">Presupuesto</div>'
+                        f'<div class="cli-card-mt">{_fmt_money(d.get("_monto"))}</div>')
+            else:
+                _pre = '<div class="cli-card-none">Sin presupuesto</div>'
+            # Ejecutivo asignado (o "Sin asignar" en naranjo, como el resto de faltantes).
+            if _asig_email:
+                _asig_html = (f'<div class="cli-card-sub" style="margin-top:5px;">'
+                              f'{_svg(_ICON_USER_PATH, 12, "#94a3b8")}{_esc(_asig)}</div>')
+            else:
+                _asig_html = (f'<div class="cli-card-sub" style="margin-top:5px;color:#ea580c;">'
+                              f'{_svg(_ICON_USER_PATH, 12, "#ea580c")}Sin asignar</div>')
+            # Fecha + hora de creación del lead (abajo a la derecha).
+            _fecha = _fmt_fecha_local(d.get("fecha_creacion"))
+            _fecha_html = (f'<div class="cli-card-date">{_svg(_ZIC_HIST, 10, "#b4bccd")}'
+                           f'{_esc(_fecha)}</div>') if _fecha else ""
             cards += (
                 f'<div class="cli-card" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}"'
                 f' data-asig="{_esc(_asig_email)}" data-stage="{_esc(s)}" data-tier="{_sc["key"]}"'
@@ -1275,9 +1301,10 @@ def _render_pipeline(data: list):
                 '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">'
                 f'<div class="cli-card-nm">{_esc(d.get("nombre","") or "—")}</div>'
                 f'{_score_badge(_sc, "sm")}</div>'
-                f'{_mt}'
-                f'<div class="cli-card-sub">{_asig_ico}{_esc(_asig)}</div>'
-                f'<div class="cli-card-sub" style="margin-top:2px;">{_esc(_ep)}</div>'
+                f'<div style="margin-top:6px;">{_fuente_badge(d.get("origen"))}</div>'
+                f'{_pre}'
+                f'{_asig_html}'
+                f'{_fecha_html}'
                 '</div>')
         if not cards:
             cards = '<div class="cli-kb-empty">—</div>'
