@@ -322,8 +322,25 @@ _CLI_CSS = """
   font-weight:800;font-size:0.7rem;padding:2px 9px;border-radius:999px;}
 /* Variante para zonas CON botón de acción: la línea separadora va sola (full-width)
    y el título (icono+texto) comparte fila st.columns con el botón (Editar/Crear). */
-.cli-zline{border-top:1px solid #e6e9f4;margin:22px 0 -6px;}
+.cli-zline{border-top:1px solid #e6e9f4;margin:22px 0 14px;}
 .cli-zsec-hd{display:flex;align-items:center;gap:9px;}
+.cli-zsec-hb{background:#eef2ff;color:#5b7cfa;font-family:Montserrat,sans-serif;font-weight:800;
+  font-size:0.7rem;padding:1px 8px;border-radius:999px;margin-left:7px;}
+/* Botón "Editar" de la ficha: limpio (sin borde/sombra/fondo), azul → rojo al hover */
+.st-key-_cli_ed_open button,[class*="st-key-_cli_calfedit_"] button{
+  border:none!important;background:transparent!important;box-shadow:none!important;
+  min-height:0!important;padding:4px 2px!important;justify-content:flex-end!important;}
+.st-key-_cli_ed_open button:hover,[class*="st-key-_cli_calfedit_"] button:hover,
+.st-key-_cli_ed_open button:focus,[class*="st-key-_cli_calfedit_"] button:focus{
+  background:transparent!important;border:none!important;box-shadow:none!important;}
+.st-key-_cli_ed_open button,.st-key-_cli_ed_open button *,
+[class*="st-key-_cli_calfedit_"] button,[class*="st-key-_cli_calfedit_"] button *{
+  color:#5b7cfa!important;transition:color .12s;}
+.st-key-_cli_ed_open button:hover,.st-key-_cli_ed_open button:hover *,
+[class*="st-key-_cli_calfedit_"] button:hover,[class*="st-key-_cli_calfedit_"] button:hover *{
+  color:#dc2626!important;}
+/* "Crear presupuesto": una sola línea */
+.st-key-_cli_fh_nuevo button,.st-key-_cli_fh_nuevo button p{white-space:nowrap!important;}
 /* Formulario "Nueva actividad": encabezado, separadores, ayuda y tipografía chica */
 .cli-actf-h{font-family:Montserrat,sans-serif;font-weight:700;font-size:0.78rem;letter-spacing:0.05em;
   text-transform:uppercase;color:#0f172a;margin:0 0 8px;}
@@ -839,8 +856,9 @@ def _zline() -> str:
 
 def _zsec_hd(title: str, icon_path: str, badge=None) -> str:
     """Encabezado de zona SIN la línea (icono + título + conteo). Va dentro de una
-    columna, con el botón de acción (Editar/Crear) en la columna de al lado."""
-    _b = (f'<span class="cli-zsec-b">{_esc(str(badge))}</span>'
+    columna, con el botón de acción (Editar/Crear) en la columna de al lado. El
+    conteo va PEGADO al título (no empujado a la derecha, para no chocar el botón)."""
+    _b = (f'<span class="cli-zsec-hb">{_esc(str(badge))}</span>'
           if badge not in (None, "") else "")
     return (f'<div class="cli-zsec-hd"><span class="cli-zsec-ic">'
             f'{_svg(icon_path, 13, "currentColor")}</span>'
@@ -2729,7 +2747,7 @@ def _render_ficha(cid: str, data: list):
         # presupuesto" va en la MISMA fila que el encabezado (a la derecha).
         _cots = cli.get("_cotizaciones") or []
         st.markdown(_zline(), unsafe_allow_html=True)
-        _pc1, _pc2 = st.columns([2, 1], vertical_alignment="center")
+        _pc1, _pc2 = st.columns([3, 2], vertical_alignment="center")
         with _pc1:
             st.markdown(_zsec_hd("Presupuestos", _ZIC_PRESUP, badge=len(_cots)), unsafe_allow_html=True)
         with _pc2:
