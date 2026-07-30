@@ -2826,15 +2826,39 @@ def _render_ficha(cid: str, data: list):
             st.markdown('<div class="cli-empty-ph" style="padding:20px;">Este cliente aún no tiene presupuestos.</div>',
                         unsafe_allow_html=True)
 
-        # Historial (línea de tiempo de todo lo ocurrido — distinto de las
-        # "Actividades" de arriba, que son tareas accionables).
+        # Historial: línea de tiempo COMBINADA para que nunca esté vacía y muestre
+        # SIEMPRE cuándo empezó todo (con fecha/hora): la creación del lead + cada
+        # presupuesto como hito + las actividades registradas (crm_actividad).
         _acts = listar_actividad(cid)
         st.markdown(_zsec("Historial", _ZIC_HIST), unsafe_allow_html=True)
-        if _acts:
+        _eventos = []
+        # "Lead creado" anclado al evento MÁS ANTIGUO (creación del CRM o el primer
+        # presupuesto, lo que sea más viejo) → siempre queda como el origen del
+        # timeline, incluso en leads importados cuyo presupuesto es anterior al alta.
+        _fechas_ini = [cli.get("fecha_creacion")] + [
+            _co.get("fecha") for _co in (cli.get("_cotizaciones") or [])]
+        _fechas_ini = [f for f in _fechas_ini if f]
+        if _fechas_ini:
+            _eventos.append({"tipo": "lead", "titulo": "Lead creado",
+                             "detalle": f"Origen: {_fuente_norm(cli.get('origen'))}",
+                             "fecha": min(_fechas_ini), "actor": "sistema"})
+        for _co in (cli.get("_cotizaciones") or []):   # cada presupuesto = un hito
+            if _co.get("fecha"):
+                _eventos.append({
+                    "tipo": "presupuesto",
+                    "titulo": f"Presupuesto {_co.get('numero', '') or ''}".strip(),
+                    "detalle": f"{_co.get('estado', '')} · {_fmt_money(_co.get('total'))}",
+                    "fecha": _co.get("fecha"), "actor": "sistema"})
+        for a in _acts:                       # actividades ya registradas
+            _eventos.append({"tipo": a.get("tipo"), "titulo": a.get("titulo", ""),
+                             "detalle": a.get("detalle", ""), "fecha": a.get("fecha"),
+                             "actor": a.get("actor", "") or "sistema"})
+        _eventos.sort(key=lambda e: str(e.get("fecha") or ""), reverse=True)  # reciente arriba
+        if _eventos:
             _TL_ICON = {"correo": "#5b7cfa", "presupuesto": "#7F77DD", "nota": "#94a3b8",
                         "etapa": "#EF9F27", "lead": "#888780", "llamada": "#1D9E75"}
             _tl = ""
-            for a in _acts:
+            for a in _eventos:
                 _c = _TL_ICON.get(str(a.get("tipo") or ""), "#94a3b8")
                 _fecha = _fmt_fecha_local(a.get("fecha"))
                 _det = f' — {_esc(a.get("detalle"))}' if a.get("detalle") else ""
