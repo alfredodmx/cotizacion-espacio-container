@@ -305,6 +305,15 @@ _CLI_CSS = """
 .cli-data .k{font-size:0.66rem;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.05em;}
 .cli-sec-t{font-family:Montserrat,sans-serif;font-weight:700;font-size:0.82rem;letter-spacing:0.05em;
   text-transform:uppercase;color:#0f172a;margin:16px 0 9px;}
+/* Divisor de ZONA de la ficha: línea de separación + chip de icono + título + conteo */
+.cli-zsec{display:flex;align-items:center;gap:9px;margin:22px 0 12px;padding-top:15px;
+  border-top:1px solid #e6e9f4;}
+.cli-zsec-ic{display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;
+  border-radius:8px;background:#eef2ff;color:#5b7cfa;flex-shrink:0;}
+.cli-zsec-t{font-family:Montserrat,sans-serif;font-weight:800;font-size:0.74rem;letter-spacing:.07em;
+  text-transform:uppercase;color:#0f172a;}
+.cli-zsec-b{margin-left:auto;background:#f1f5f9;color:#64748b;font-family:Montserrat,sans-serif;
+  font-weight:800;font-size:0.7rem;padding:2px 9px;border-radius:999px;}
 /* Formulario "Nueva actividad": encabezado, separadores, ayuda y tipografía chica */
 .cli-actf-h{font-family:Montserrat,sans-serif;font-weight:700;font-size:0.78rem;letter-spacing:0.05em;
   text-transform:uppercase;color:#0f172a;margin:0 0 8px;}
@@ -751,6 +760,60 @@ def _origen_pill(origen: str) -> str:
     return f'<span class="cli-pill" style="background:{_bg};color:{_fg};">{_esc(origen)}</span>'
 
 
+# Fuente del lead (para el filtro "Fuente"): etiqueta + icono + color por origen.
+# Diseñado para CRECER: hoy Shopify/Importado/Manual/Web; mañana Google Ads,
+# Facebook, TikTok, Instagram (solo con que el lead llegue con ese `origen`).
+_FUENTE_META = {
+    "shopify":    ("Shopify",    '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>', "#6d28d9", "rgba(109,40,217,.12)"),
+    "importado":  ("Importado",  '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>', "#0369a1", "rgba(3,105,161,.12)"),
+    "manual":     ("Manual",     '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>', "#475569", "rgba(100,116,139,.12)"),
+    "web":        ("Web",        '<circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/>', "#0891b2", "rgba(8,145,178,.12)"),
+    "google ads": ("Google Ads", '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>', "#ea4335", "rgba(234,67,53,.12)"),
+    "google":     ("Google Ads", '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>', "#ea4335", "rgba(234,67,53,.12)"),
+    "facebook":   ("Facebook",   '<path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>', "#1877f2", "rgba(24,119,242,.12)"),
+    "instagram":  ("Instagram",  '<rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/>', "#c13584", "rgba(193,53,132,.12)"),
+    "tiktok":     ("TikTok",     '<path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/>', "#0f172a", "rgba(15,23,42,.10)"),
+}
+# Icono/colores por defecto para una fuente futura que aún no esté en el mapa.
+_FUENTE_DEFAULT = ('<path d="M12 2H2v10l9.29 9.29a1 1 0 0 0 1.42 0l8.58-8.58a1 1 0 0 0 0-1.42Z"/><circle cx="7" cy="7" r="1"/>',
+                   "#475569", "rgba(100,116,139,.12)")
+
+
+def _fuente_norm(origen) -> str:
+    """Valor de fuente para agrupar/filtrar: el `origen` tal cual (vacío → Manual)."""
+    return (str(origen or "").strip() or "Manual")
+
+
+def _fuente_meta(fuente: str):
+    """(label, icon_path, fg, bg) de una fuente; default para las desconocidas."""
+    _m = _FUENTE_META.get(str(fuente or "").strip().lower())
+    if _m:
+        return _m
+    _ic, _fg, _bg = _FUENTE_DEFAULT
+    return (str(fuente or "").strip() or "Manual", _ic, _fg, _bg)
+
+
+# Iconos (path SVG) de cada ZONA de la ficha, para los separadores.
+_ZIC_DATOS = '<rect width="18" height="18" x="3" y="4" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M15 8h2"/><path d="M15 12h2"/><path d="M7 16h10"/>'
+_ZIC_ASIGNAR = '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/>'
+_ZIC_CORREO = '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>'
+_ZIC_ACTIV = '<rect x="3" y="5" width="6" height="6" rx="1"/><path d="m3 17 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/>'
+_ZIC_CALIF = '<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>'
+_ZIC_SHOPIFY = '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>'
+_ZIC_PRESUP = '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/>'
+_ZIC_HIST = '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>'
+
+
+def _zsec(title: str, icon_path: str, badge=None) -> str:
+    """Divisor de ZONA de la ficha: línea separadora + chip de icono + título
+    (+ conteo opcional). Deja cada funcionalidad claramente distinguida."""
+    _b = (f'<span class="cli-zsec-b">{_esc(str(badge))}</span>'
+          if badge not in (None, "") else "")
+    return (f'<div class="cli-zsec"><span class="cli-zsec-ic">'
+            f'{_svg(icon_path, 13, "currentColor")}</span>'
+            f'<span class="cli-zsec-t">{_esc(title)}</span>{_b}</div>')
+
+
 # Iconos SVG por etapa para los badges de filtro (estilo COTIZACIONES).
 _STAGE_ICON = {
     STAGE_LEAD: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>',
@@ -771,6 +834,7 @@ def _build_filter_bar(data: list) -> str:
     _ejset, _ejcnt, _none = {}, {}, 0
     _stcnt = {s: 0 for s in _STAGE_ORDER}
     _tiercnt = {"hot": 0, "warm": 0, "cold": 0}
+    _fucnt = {}
     for d in data:
         _e = (d.get("asignado_email") or "").strip().lower()
         if _e:
@@ -781,6 +845,8 @@ def _build_filter_bar(data: list) -> str:
         _stcnt[d.get("_stage") or STAGE_LEAD] += 1
         _sc = d.get("_score") or _lead_score(d, None)
         _tiercnt[_sc["key"]] = _tiercnt.get(_sc["key"], 0) + 1
+        _fu = _fuente_norm(d.get("origen"))
+        _fucnt[_fu] = _fucnt.get(_fu, 0) + 1
     _stages = [s for s in _STAGE_ORDER if _stcnt[s] > 0]
 
     def _pill(val, label, kind, count, icon, bg="", fg="", ico_html=None):
@@ -811,11 +877,19 @@ def _build_filter_bar(data: list) -> str:
     _sc_pills = _pill("", "Todos", "tier", len(data), _IC_TODOS)
     for _tk, _tl, _tc, _tb in _TIER_META:
         _sc_pills += _pill(_tk, _tl, "tier", _tiercnt.get(_tk, 0), _FLAME_PATH, _tb, _tc)
+    # Fuente: de dónde vino el lead (Shopify / Importado / Manual / … a futuro
+    # Google Ads, Facebook, TikTok). Pills DINÁMICAS por cada `origen` presente
+    # (más frecuente primero) → las fuentes nuevas aparecen solas.
+    _fu = _pill("", "Todos", "fuente", len(data), _IC_TODOS)
+    for _fk in sorted(_fucnt, key=lambda x: (-_fucnt[x], x.lower())):
+        _fl, _fico, _ffg, _fbg = _fuente_meta(_fk)
+        _fu += _pill(_fk, _fl, "fuente", _fucnt[_fk], _fico, _fbg, _ffg)
     return (
         '<div class="cli-fbar">'
         f'<div class="cli-fgrp"><span class="cli-fgrp-lbl">Ejecutivo</span><div class="cli-fpills">{_ej}</div></div>'
         f'<div class="cli-fgrp"><span class="cli-fgrp-lbl">Estado</span><div class="cli-fpills">{_st}</div></div>'
         f'<div class="cli-fgrp"><span class="cli-fgrp-lbl">Potencial</span><div class="cli-fpills">{_sc_pills}</div></div>'
+        f'<div class="cli-fgrp"><span class="cli-fgrp-lbl">Fuente</span><div class="cli-fpills">{_fu}</div></div>'
         '</div>')
 
 
@@ -952,16 +1026,17 @@ _CLI_FILTER_JS = r"""<script>
 (function(){
   var W=window.parent, D=W&&W.document; if(!D) return;
   function apply(){
-    var ej=W._cliFEj||'', stg=W._cliFSt||'', tier=W._cliFTier||'', term=(W._cliQ||'');
+    var ej=W._cliFEj||'', stg=W._cliFSt||'', tier=W._cliFTier||'', fu=W._cliFFu||'', term=(W._cliQ||'');
     function okA(v){ v=v||''; if(!ej) return true; if(ej==='__none__') return v===''; return v===ej; }
     function okS(v){ return !stg || (v||'')===stg; }
     function okT(v){ return !tier || (v||'')===tier; }
+    function okF(v){ return !fu || (v||'')===fu; }
     // Pipeline: tarjetas + recuento por columna
     var cards=D.querySelectorAll('.cli-card[data-asig]');
     for(var i=0;i<cards.length;i++){
       var c=cards[i];
       c.style.display=(okA(c.getAttribute('data-asig'))&&okS(c.getAttribute('data-stage'))
-        &&okT(c.getAttribute('data-tier')))?'':'none';
+        &&okT(c.getAttribute('data-tier'))&&okF(c.getAttribute('data-fuente')))?'':'none';
     }
     var cols=D.querySelectorAll('.cli-kb-col');
     for(var j=0;j<cols.length;j++){
@@ -974,7 +1049,7 @@ _CLI_FILTER_JS = r"""<script>
     for(var r=0;r<rows.length;r++){
       var tr=rows[r];
       var ok=okA(tr.getAttribute('data-asig'))&&okS(tr.getAttribute('data-stage'))
-             &&okT(tr.getAttribute('data-tier'))
+             &&okT(tr.getAttribute('data-tier'))&&okF(tr.getAttribute('data-fuente'))
              &&(!term||(tr.getAttribute('data-s')||'').indexOf(term)>=0);
       tr.style.display=ok?'':'none'; if(ok) m++;
     }
@@ -986,25 +1061,28 @@ _CLI_FILTER_JS = r"""<script>
     var its=[];
     D.querySelectorAll('.cli-card[data-asig],.cli-tbl-wrap tbody tr[data-asig]').forEach(function(el){
       its.push({a:el.getAttribute('data-asig')||'',s:el.getAttribute('data-stage')||'',
-                t:el.getAttribute('data-tier')||'',q:el.getAttribute('data-s')||''});
+                t:el.getAttribute('data-tier')||'',f:el.getAttribute('data-fuente')||'',
+                q:el.getAttribute('data-s')||''});
     });
     function okQ(q){ return !term || (q||'').indexOf(term)>=0; }
-    function setCnt(kind, match, useA, useS, useT){
+    function setCnt(kind, match, useA, useS, useT, useF){
       D.querySelectorAll('.cli-fpill[data-fkind="'+kind+'"]').forEach(function(p){
         var val=p.getAttribute('data-fval')||'', n=0;
         for(var i=0;i<its.length;i++){ var it=its[i];
           if(useA&&!okA(it.a)) continue;
           if(useS&&!okS(it.s)) continue;
           if(useT&&!okT(it.t)) continue;
+          if(useF&&!okF(it.f)) continue;
           if(!okQ(it.q)) continue;
           if(match(val,it)) n++;
         }
         var b=p.querySelector('.cli-fcount'); if(b) b.textContent=n;
       });
     }
-    setCnt('ej',   function(v,it){ return v===''?true:(v==='__none__'?it.a==='':it.a===v); }, false, true, true);
-    setCnt('st',   function(v,it){ return v===''||it.s===v; }, true, false, true);
-    setCnt('tier', function(v,it){ return v===''||it.t===v; }, true, true, false);
+    setCnt('ej',     function(v,it){ return v===''?true:(v==='__none__'?it.a==='':it.a===v); }, false, true, true, true);
+    setCnt('st',     function(v,it){ return v===''||it.s===v; }, true, false, true, true);
+    setCnt('tier',   function(v,it){ return v===''||it.t===v; }, true, true, false, true);
+    setCnt('fuente', function(v,it){ return v===''||it.f===v; }, true, true, true, false);
   }
   W._cliApply=apply;
   // Sincroniza el 'on' de las pills con el filtro persistente.
@@ -1018,7 +1096,7 @@ _CLI_FILTER_JS = r"""<script>
     var p=e.target&&e.target.closest?e.target.closest('.cli-fpill'):null; if(!p) return;
     var kind=p.getAttribute('data-fkind'), val=p.getAttribute('data-fval')||'';
     if(kind==='ej') W._cliFEj=val; else if(kind==='st') W._cliFSt=val;
-    else if(kind==='tier') W._cliFTier=val;
+    else if(kind==='tier') W._cliFTier=val; else if(kind==='fuente') W._cliFFu=val;
     syncPills(kind, val); apply();
   };
   D.addEventListener('click', W._cliPillH, true);
@@ -1031,6 +1109,7 @@ _CLI_FILTER_JS = r"""<script>
     if(W._cliQ){ q.value=W._cliQ; }
   }
   syncPills('ej', W._cliFEj||''); syncPills('st', W._cliFSt||''); syncPills('tier', W._cliFTier||'');
+  syncPills('fuente', W._cliFFu||'');
   apply();
 })();
 </script>"""
@@ -1148,7 +1227,8 @@ def _render_maestro(data: list):
         _sc = d.get("_score") or _lead_score(d, None)
         rows += (
             f'<tr data-s="{_s}" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}"'
-            f' data-asig="{_esc(_asig_email)}" data-stage="{_esc(_stage)}" data-tier="{_sc["key"]}">'
+            f' data-asig="{_esc(_asig_email)}" data-stage="{_esc(_stage)}" data-tier="{_sc["key"]}"'
+            f' data-fuente="{_esc(_fuente_norm(d.get("origen")))}">'
             f'<td>{_score_badge(_sc, "sm")}</td>'
             f'<td style="font-weight:700;">{_esc(d.get("nombre","") or "—")}</td>'
             f'<td><span class="cli-pill" style="background:{_sbg};color:{_sfg};">{_slbl}</span></td>'
@@ -1190,7 +1270,8 @@ def _render_pipeline(data: list):
             _sc = d.get("_score") or _lead_score(d, None)
             cards += (
                 f'<div class="cli-card" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}"'
-                f' data-asig="{_esc(_asig_email)}" data-stage="{_esc(s)}" data-tier="{_sc["key"]}">'
+                f' data-asig="{_esc(_asig_email)}" data-stage="{_esc(s)}" data-tier="{_sc["key"]}"'
+                f' data-fuente="{_esc(_fuente_norm(d.get("origen")))}">'
                 '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">'
                 f'<div class="cli-card-nm">{_esc(d.get("nombre","") or "—")}</div>'
                 f'{_score_badge(_sc, "sm")}</div>'
@@ -1437,8 +1518,7 @@ def _render_shopify_datos(cli):
             _m = {}
     if not isinstance(_m, dict) or not any(str(v or "").strip() for v in _m.values()):
         return
-    st.markdown('<div class="cli-sec-t">Datos del formulario (Shopify)</div>',
-                unsafe_allow_html=True)
+    st.markdown(_zsec("Datos del formulario (Shopify)", _ZIC_SHOPIFY), unsafe_allow_html=True)
     _items = "".join(
         f'<div><div class="k">{_esc(_lbl)}</div>{_cp(str(_m.get(_k) or ""), _esc(str(_m.get(_k) or "")), "Copiar")}</div>'
         for _k, _lbl in _SHOPIFY_META_LABELS if str(_m.get(_k) or "").strip())
@@ -1457,10 +1537,7 @@ def _render_calificacion(cid, cli):
     _pregs_f = _preguntas_data()
     if not _pregs_f:
         return
-    _hd1, _hd2 = st.columns([1, 1], vertical_alignment="center")
-    with _hd1:
-        st.markdown('<div class="cli-sec-t" style="margin:8px 0 2px;">Calificación</div>',
-                    unsafe_allow_html=True)
+    st.markdown(_zsec("Calificación", _ZIC_CALIF), unsafe_allow_html=True)
     if st.session_state.get("_cli_cal_edit") == cid:
         _fvals, _fpregs = _guion_inputs(cli, f"_ficcal_{cid}")
         _cc1, _cc2 = st.columns(2)
@@ -1481,7 +1558,8 @@ def _render_calificacion(cid, cli):
                 st.session_state.pop("_cli_cal_edit", None)
                 st.rerun(scope="fragment")
     else:
-        with _hd2:
+        _sp, _hb = st.columns([3, 1], vertical_alignment="center")
+        with _hb:
             if st.button("Editar", key=f"_cli_calfedit_{cid}", use_container_width=True,
                          icon=":material/edit:"):
                 st.session_state["_cli_cal_edit"] = cid
@@ -1499,11 +1577,6 @@ def _render_datos(cid, cli):
     o formulario de EDICIÓN. Guardar → actualiza la tabla `clientes` del CRM (y el
     Lead Score y el WhatsApp se recalculan solos). No toca cotizaciones."""
     _editing = st.session_state.get("_cli_edit") == cid
-    _h1, _h2 = st.columns([1, 1], vertical_alignment="center")
-    with _h1:
-        st.markdown('<div class="cli-sec-t" style="margin:6px 0 4px;">Datos de contacto</div>',
-                    unsafe_allow_html=True)
-
     if _editing:
         with st.container(border=True, key="_cli_edit_form"):
             _e1, _e2 = st.columns(2)
@@ -1566,7 +1639,8 @@ def _render_datos(cid, cli):
                     st.rerun(scope="fragment")
         return
 
-    with _h2:
+    _sp, _hb = st.columns([3, 1], vertical_alignment="center")
+    with _hb:
         if st.button("Editar", use_container_width=True, icon=":material/edit:", key="_cli_ed_open"):
             st.session_state["_cli_edit"] = cid
             st.rerun(scope="fragment")
@@ -2396,16 +2470,19 @@ def _render_ficha(cid: str, data: list):
             f'<div class="cli-schint">{_hint}</div>', unsafe_allow_html=True)
 
         # Datos de contacto (ver + Editar). Copiables al click; WhatsApp derivado.
+        st.markdown(_zsec("Datos del cliente", _ZIC_DATOS), unsafe_allow_html=True)
         _render_datos(cid, cli)
 
         # ── Asignar a un ejecutivo (dispara la notificación a ese ejecutivo) ──
         # SOLO root/admin (re)asignan; el ejecutivo ve su ficha pero no reasigna.
         if st.session_state.get("rol_usuario") in ("root", "admin"):
+            st.markdown(_zsec("Asignación de ejecutivo", _ZIC_ASIGNAR), unsafe_allow_html=True)
             _render_asignar(cid, cli)
 
         # "Enviar correo" abre el compositor (Resend); "Nueva actividad" abre el
         # formulario para agendar. El cierre del drawer va por su X / clic fuera /
         # Escape (con animación de salida).
+        st.markdown(_zsec("Correos y actividades", _ZIC_CORREO), unsafe_allow_html=True)
         a1, a2 = st.columns(2)
         with a1:
             if st.button("Enviar correo", icon=":material/mail:", use_container_width=True,
@@ -2574,7 +2651,7 @@ def _render_ficha(cid: str, data: list):
         # ── Lista de actividades (pendientes primero) ──
         _tareas = listar_tareas_cliente(cid)
         _pend = [t for t in _tareas if not t.get("hecho")]
-        st.markdown(f'<div class="cli-sec-t">Actividades · {len(_pend)} pendiente(s)</div>',
+        st.markdown(_zsec("Actividades pendientes", _ZIC_ACTIV, badge=len(_pend)),
                     unsafe_allow_html=True)
         if not _tareas:
             st.markdown('<div style="font-size:0.8rem;color:#94a3b8;padding:4px 0 8px;">'
@@ -2584,19 +2661,17 @@ def _render_ficha(cid: str, data: list):
             for t in _tareas:
                 _render_actividad(cid, cli, t)
 
+        # ── Calificación (guión) — antes de los datos de Shopify ──
+        _render_calificacion(cid, cli)
+
         # ── Datos del formulario de Shopify (si el lead vino de ahí) ──
         _render_shopify_datos(cli)
-
-        # ── Calificación (guión) — va en la zona de actividades, no arriba ──
-        _render_calificacion(cid, cli)
 
         # Presupuestos del cliente (derivados de cotizaciones). El botón "Crear
         # presupuesto" va en la MISMA fila que el encabezado (a la derecha).
         _cots = cli.get("_cotizaciones") or []
-        _ph1, _ph2 = st.columns([1, 1], vertical_alignment="center")
-        with _ph1:
-            st.markdown(f'<div class="cli-sec-t" style="margin:6px 0;">Presupuestos · {len(_cots)}</div>',
-                        unsafe_allow_html=True)
+        st.markdown(_zsec("Presupuestos", _ZIC_PRESUP, badge=len(_cots)), unsafe_allow_html=True)
+        _sp, _ph2 = st.columns([2, 1], vertical_alignment="center")
         with _ph2:
             # Crea un presupuesto NUEVO para este cliente con los datos ya cargados
             # (navega al editor). st.rerun() completo → cierra el drawer y va al editor.
@@ -2625,7 +2700,7 @@ def _render_ficha(cid: str, data: list):
         # Historial (línea de tiempo de todo lo ocurrido — distinto de las
         # "Actividades" de arriba, que son tareas accionables).
         _acts = listar_actividad(cid)
-        st.markdown('<div class="cli-sec-t">Historial</div>', unsafe_allow_html=True)
+        st.markdown(_zsec("Historial", _ZIC_HIST), unsafe_allow_html=True)
         if _acts:
             _TL_ICON = {"correo": "#5b7cfa", "presupuesto": "#7F77DD", "nota": "#94a3b8",
                         "etapa": "#EF9F27", "lead": "#888780", "llamada": "#1D9E75"}
