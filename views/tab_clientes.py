@@ -320,6 +320,10 @@ _CLI_CSS = """
   text-transform:uppercase;color:#0f172a;}
 .cli-zsec-b{margin-left:auto;background:#f1f5f9;color:#64748b;font-family:Montserrat,sans-serif;
   font-weight:800;font-size:0.7rem;padding:2px 9px;border-radius:999px;}
+/* Variante para zonas CON botón de acción: la línea separadora va sola (full-width)
+   y el título (icono+texto) comparte fila st.columns con el botón (Editar/Crear). */
+.cli-zline{border-top:1px solid #e6e9f4;margin:22px 0 -6px;}
+.cli-zsec-hd{display:flex;align-items:center;gap:9px;}
 /* Formulario "Nueva actividad": encabezado, separadores, ayuda y tipografía chica */
 .cli-actf-h{font-family:Montserrat,sans-serif;font-weight:700;font-size:0.78rem;letter-spacing:0.05em;
   text-transform:uppercase;color:#0f172a;margin:0 0 8px;}
@@ -823,6 +827,22 @@ def _zsec(title: str, icon_path: str, badge=None) -> str:
     _b = (f'<span class="cli-zsec-b">{_esc(str(badge))}</span>'
           if badge not in (None, "") else "")
     return (f'<div class="cli-zsec"><span class="cli-zsec-ic">'
+            f'{_svg(icon_path, 13, "currentColor")}</span>'
+            f'<span class="cli-zsec-t">{_esc(title)}</span>{_b}</div>')
+
+
+def _zline() -> str:
+    """Solo la línea separadora de zona (cuando el título va en una fila st.columns
+    junto a un botón de acción, para que ambos queden en la MISMA fila)."""
+    return '<div class="cli-zline"></div>'
+
+
+def _zsec_hd(title: str, icon_path: str, badge=None) -> str:
+    """Encabezado de zona SIN la línea (icono + título + conteo). Va dentro de una
+    columna, con el botón de acción (Editar/Crear) en la columna de al lado."""
+    _b = (f'<span class="cli-zsec-b">{_esc(str(badge))}</span>'
+          if badge not in (None, "") else "")
+    return (f'<div class="cli-zsec-hd"><span class="cli-zsec-ic">'
             f'{_svg(icon_path, 13, "currentColor")}</span>'
             f'<span class="cli-zsec-t">{_esc(title)}</span>{_b}</div>')
 
@@ -1567,8 +1587,18 @@ def _render_calificacion(cid, cli):
     _pregs_f = _preguntas_data()
     if not _pregs_f:
         return
-    st.markdown(_zsec("Calificación", _ZIC_CALIF), unsafe_allow_html=True)
-    if st.session_state.get("_cli_cal_edit") == cid:
+    _cal_edit = st.session_state.get("_cli_cal_edit") == cid
+    # Encabezado de zona: línea + (título | botón Editar) en la MISMA fila.
+    st.markdown(_zline(), unsafe_allow_html=True)
+    _hc1, _hc2 = st.columns([3, 1], vertical_alignment="center")
+    with _hc1:
+        st.markdown(_zsec_hd("Calificación", _ZIC_CALIF), unsafe_allow_html=True)
+    with _hc2:
+        if not _cal_edit and st.button("Editar", key=f"_cli_calfedit_{cid}",
+                                       use_container_width=True, icon=":material/edit:"):
+            st.session_state["_cli_cal_edit"] = cid
+            st.rerun(scope="fragment")
+    if _cal_edit:
         _fvals, _fpregs = _guion_inputs(cli, f"_ficcal_{cid}")
         _cc1, _cc2 = st.columns(2)
         with _cc1:
@@ -1588,12 +1618,6 @@ def _render_calificacion(cid, cli):
                 st.session_state.pop("_cli_cal_edit", None)
                 st.rerun(scope="fragment")
     else:
-        _sp, _hb = st.columns([3, 1], vertical_alignment="center")
-        with _hb:
-            if st.button("Editar", key=f"_cli_calfedit_{cid}", use_container_width=True,
-                         icon=":material/edit:"):
-                st.session_state["_cli_cal_edit"] = cid
-                st.rerun(scope="fragment")
         _cur = _cli_calif(cli)
         _items = "".join(
             f'<div><div class="k">{_esc(p.get("texto",""))}</div>'
@@ -1607,6 +1631,16 @@ def _render_datos(cid, cli):
     o formulario de EDICIÓN. Guardar → actualiza la tabla `clientes` del CRM (y el
     Lead Score y el WhatsApp se recalculan solos). No toca cotizaciones."""
     _editing = st.session_state.get("_cli_edit") == cid
+    # Encabezado de zona: línea separadora + (título | botón Editar) en la MISMA fila.
+    st.markdown(_zline(), unsafe_allow_html=True)
+    _hc1, _hc2 = st.columns([3, 1], vertical_alignment="center")
+    with _hc1:
+        st.markdown(_zsec_hd("Datos del cliente", _ZIC_DATOS), unsafe_allow_html=True)
+    with _hc2:
+        if not _editing and st.button("Editar", use_container_width=True,
+                                      icon=":material/edit:", key="_cli_ed_open"):
+            st.session_state["_cli_edit"] = cid
+            st.rerun(scope="fragment")
     if _editing:
         with st.container(border=True, key="_cli_edit_form"):
             _e1, _e2 = st.columns(2)
@@ -1669,11 +1703,6 @@ def _render_datos(cid, cli):
                     st.rerun(scope="fragment")
         return
 
-    _sp, _hb = st.columns([3, 1], vertical_alignment="center")
-    with _hb:
-        if st.button("Editar", use_container_width=True, icon=":material/edit:", key="_cli_ed_open"):
-            st.session_state["_cli_edit"] = cid
-            st.rerun(scope="fragment")
     _tipo = cli.get("tipo") or "natural"
     _empresa = (f'<div><div class="k">Empresa</div>{_esc(cli.get("empresa"))} '
                 f'({_esc(cli.get("rut_empresa"))})</div>') if _tipo == "empresa" and cli.get("empresa") else ""
@@ -2500,7 +2529,6 @@ def _render_ficha(cid: str, data: list):
             f'<div class="cli-schint">{_hint}</div>', unsafe_allow_html=True)
 
         # Datos de contacto (ver + Editar). Copiables al click; WhatsApp derivado.
-        st.markdown(_zsec("Datos del cliente", _ZIC_DATOS), unsafe_allow_html=True)
         _render_datos(cid, cli)
 
         # ── Asignar a un ejecutivo (dispara la notificación a ese ejecutivo) ──
@@ -2700,9 +2728,11 @@ def _render_ficha(cid: str, data: list):
         # Presupuestos del cliente (derivados de cotizaciones). El botón "Crear
         # presupuesto" va en la MISMA fila que el encabezado (a la derecha).
         _cots = cli.get("_cotizaciones") or []
-        st.markdown(_zsec("Presupuestos", _ZIC_PRESUP, badge=len(_cots)), unsafe_allow_html=True)
-        _sp, _ph2 = st.columns([2, 1], vertical_alignment="center")
-        with _ph2:
+        st.markdown(_zline(), unsafe_allow_html=True)
+        _pc1, _pc2 = st.columns([2, 1], vertical_alignment="center")
+        with _pc1:
+            st.markdown(_zsec_hd("Presupuestos", _ZIC_PRESUP, badge=len(_cots)), unsafe_allow_html=True)
+        with _pc2:
             # Crea un presupuesto NUEVO para este cliente con los datos ya cargados
             # (navega al editor). st.rerun() completo → cierra el drawer y va al editor.
             if st.button("Crear presupuesto", icon=":material/note_add:", type="primary",
