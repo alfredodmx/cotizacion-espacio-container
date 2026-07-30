@@ -1283,28 +1283,31 @@ def _render_pipeline(data: list):
                         f'<div class="cli-card-mt">{_fmt_money(d.get("_monto"))}</div>')
             else:
                 _pre = '<div class="cli-card-none">Sin presupuesto</div>'
-            # Ejecutivo asignado (o "Sin asignar" en naranjo, como el resto de faltantes).
+            # Pie de la card: ejecutivo (o "Sin asignar" naranjo) a la izquierda +
+            # fecha/hora de creación a la derecha, en la MISMA fila.
             if _asig_email:
-                _asig_html = (f'<div class="cli-card-sub" style="margin-top:5px;">'
-                              f'{_svg(_ICON_USER_PATH, 12, "#94a3b8")}{_esc(_asig)}</div>')
+                _asig_inner = (f'<div class="cli-card-sub" style="min-width:0;overflow:hidden;">'
+                               f'{_svg(_ICON_USER_PATH, 12, "#94a3b8")}{_esc(_asig)}</div>')
             else:
-                _asig_html = (f'<div class="cli-card-sub" style="margin-top:5px;color:#ea580c;">'
-                              f'{_svg(_ICON_USER_PATH, 12, "#ea580c")}Sin asignar</div>')
-            # Fecha + hora de creación del lead (abajo a la derecha).
+                _asig_inner = (f'<div class="cli-card-sub" style="color:#ea580c;">'
+                               f'{_svg(_ICON_USER_PATH, 12, "#ea580c")}Sin asignar</div>')
             _fecha = _fmt_fecha_local(d.get("fecha_creacion"))
-            _fecha_html = (f'<div class="cli-card-date">{_svg(_ZIC_HIST, 10, "#b4bccd")}'
-                           f'{_esc(_fecha)}</div>') if _fecha else ""
+            _fecha_inner = (f'<div class="cli-card-date" style="margin-top:0;flex-shrink:0;">'
+                            f'{_svg(_ZIC_HIST, 10, "#b4bccd")}{_esc(_fecha)}</div>') if _fecha else ""
+            _foot = ('<div style="display:flex;justify-content:space-between;align-items:center;'
+                     f'gap:8px;margin-top:8px;">{_asig_inner}{_fecha_inner}</div>')
             cards += (
                 f'<div class="cli-card" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}"'
                 f' data-asig="{_esc(_asig_email)}" data-stage="{_esc(s)}" data-tier="{_sc["key"]}"'
                 f' data-fuente="{_esc(_fuente_norm(d.get("origen")))}">'
                 '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">'
+                '<div style="min-width:0;">'
                 f'<div class="cli-card-nm">{_esc(d.get("nombre","") or "—")}</div>'
+                f'<div style="margin-top:5px;">{_fuente_badge(d.get("origen"))}</div>'
+                '</div>'
                 f'{_score_badge(_sc, "sm")}</div>'
-                f'<div style="margin-top:6px;">{_fuente_badge(d.get("origen"))}</div>'
                 f'{_pre}'
-                f'{_asig_html}'
-                f'{_fecha_html}'
+                f'{_foot}'
                 '</div>')
         if not cards:
             cards = '<div class="cli-kb-empty">—</div>'
