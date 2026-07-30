@@ -35,6 +35,32 @@ def fetch_foto_map(supa_url: str) -> dict:
 
 
 @st.cache_data(ttl=300, show_spinner=False)
+def fetch_usuarios_map(supa_url: str) -> dict:
+    """email(minúsculas) -> {'nombre','foto_url'} de TODOS los usuarios (CUALQUIER
+    rol). Sirve para resolver el nombre/foto de quien tiene asignada una ficha aunque
+    sea admin u operación (fetch_ejecutivos solo trae rol 'ejecutivo'). {} si falla."""
+    try:
+        r = httpx.get(
+            f"{supa_url}/auth/v1/admin/users",
+            headers={"apikey": SUPABASE_SERVICE_KEY,
+                     "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"},
+            params={"per_page": 1000, "page": 1}, timeout=15,
+        )
+        r.raise_for_status()
+        out = {}
+        for u in r.json().get("users", []):
+            em = (u.get("email") or "").strip().lower()
+            if not em:
+                continue
+            meta = u.get("user_metadata") or u.get("raw_user_meta_data") or {}
+            out[em] = {"nombre": meta.get("nombre", "") or "",
+                       "foto_url": meta.get("foto_url", "") or ""}
+        return out
+    except Exception:
+        return {}
+
+
+@st.cache_data(ttl=300, show_spinner=False)
 def fetch_ejecutivos(supa_url: str) -> list:
     """Lista de ejecutivos para asignar (clonar presupuesto).
     Devuelve [{email, nombre, telefono, foto_url}] ordenada por nombre. [] si falla.

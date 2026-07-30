@@ -64,6 +64,31 @@ def _ejecutivos() -> list:
         return fetch_ejecutivos(_SUPA_URL)
     except Exception:
         return []
+
+
+def _usuarios_map() -> dict:
+    """email -> {nombre, foto_url} de TODOS los usuarios (cualquier rol). Para
+    resolver el nombre/foto del asignado aunque sea admin/operación. Defensivo."""
+    try:
+        from utils.avatars import fetch_usuarios_map
+        return fetch_usuarios_map(_SUPA_URL)
+    except Exception:
+        return {}
+
+
+def _resolver_asig(email, nombre="") -> str:
+    """Nombre a MOSTRAR de un asignado: usa el nombre guardado si es válido; si está
+    vacío o quedó como el propio correo, lo resuelve por el directorio de usuarios
+    (incluye admins/operación); en último caso, el correo. '' si no hay asignado."""
+    _em = (email or "").strip().lower()
+    _nm = (nombre or "").strip()
+    if _nm and "@" not in _nm:            # ya tiene un nombre real guardado
+        return _nm
+    if _em:
+        _u = _usuarios_map().get(_em)
+        if _u and _u.get("nombre"):
+            return _u["nombre"]
+    return _nm or (email or "").strip()
 try:
     from repositories.notificaciones_repo import crear_notificacion as _crear_notif
 except Exception:   # feed opcional; si falla, la actividad igual se guarda
@@ -889,7 +914,7 @@ def _build_filter_bar(data: list) -> str:
     for d in data:
         _e = (d.get("asignado_email") or "").strip().lower()
         if _e:
-            _ejset[_e] = d.get("asignado_nombre") or d.get("asignado_email") or _e
+            _ejset[_e] = _resolver_asig(_e, d.get("asignado_nombre"))
             _ejcnt[_e] = _ejcnt.get(_e, 0) + 1
         else:
             _none += 1
@@ -907,13 +932,18 @@ def _build_filter_bar(data: list) -> str:
         return (f'<span class="{_cls}" data-fkind="{kind}" data-fval="{_esc(val)}"{_sty}>'
                 f'{_ic}<span>{_esc(label)}</span><b class="cli-fcount">{count}</b></span>')
 
-    # Foto por ejecutivo (para darle vida al filtro, estilo dropdown de COTIZACIONES).
+    # Foto+nombre del asignado desde el directorio COMPLETO (ejecutivos + admins +
+    # operación) para que ninguno caiga al correo. _usuarios_map cubre a los que no
+    # son ejecutivos (fetch_ejecutivos solo trae rol 'ejecutivo').
     _ejinfo = {(e.get("email") or "").strip().lower(): e for e in _ejecutivos()}
+    _umap = _usuarios_map()
     _ej = _pill("", "Todos", "ej", len(data), _IC_USERS)
     for _e, _nm in sorted(_ejset.items(), key=lambda kv: (kv[1] or "").lower()):
-        _einf = _ejinfo.get(_e, {})
-        _enm = _einf.get("nombre") or _nm
-        _av = f'<span class="cli-fpill-av">{_avatar_html(_einf.get("foto_url",""), _enm, size=20, ring="#fff", font_scale=0.42)}</span>'
+        _einf = _ejinfo.get(_e) or {}
+        _udir = _umap.get(_e) or {}
+        _enm = _nm or _einf.get("nombre") or _udir.get("nombre") or _e
+        _foto = _einf.get("foto_url") or _udir.get("foto_url") or ""
+        _av = f'<span class="cli-fpill-av">{_avatar_html(_foto, _enm, size=20, ring="#fff", font_scale=0.42)}</span>'
         _ej += _pill(_e, _enm, "ej", _ejcnt.get(_e, 0), "", ico_html=_av)
     if _none:
         _ej += _pill("__none__", "Sin asignar", "ej", _none, _ICON_USER_PATH)
@@ -1267,7 +1297,7 @@ def _render_maestro(data: list):
         return
     rows = ""
     for d in data:
-        _asig = d.get("asignado_nombre") or d.get("asignado_email") or ""
+        _asig = _resolver_asig(d.get("asignado_email"), d.get("asignado_nombre"))
         _stage = d.get("_stage") or STAGE_LEAD
         _slbl, _sdot, _sbg, _sfg = _STAGE_META.get(_stage, _STAGE_META[STAGE_LEAD])
         _s = _esc(f"{d.get('nombre','')} {d.get('rut','')} {d.get('email','')} "
@@ -1311,7 +1341,7 @@ def _render_pipeline(data: list):
         items = por_etapa[s]
         cards = ""
         for d in items:
-            _asig = d.get("asignado_nombre") or d.get("asignado_email") or "Sin asignar"
+            _asig = _resolver_asig(d.get("asignado_email"), d.get("asignado_nombre")) or "Sin asignar"
             _neps = len(d.get("_cotizaciones") or [])
             _asig_email = (d.get("asignado_email") or "").strip().lower()
             _sc = d.get("_score") or _lead_score(d, None)
@@ -1425,7 +1455,7 @@ def _render_asignar(cid, cli):
     Solo root/admin. La selección va por el puente _cli_asigcmd → _do_asignar."""
     _ejs = _ejecutivos()
     _cur_em = (cli.get("asignado_email") or "").strip().lower()
-    _cur_nm = cli.get("asignado_nombre") or cli.get("asignado_email") or ""
+    _cur_nm = _resolver_asig(cli.get("asignado_email"), cli.get("asignado_nombre"))
     _cur_foto = ""
     for e in _ejs:
         if e["email"].lower() == _cur_em:
@@ -2150,7 +2180,7 @@ def _render_campana_dialog(data):
             for d in data:
                 _e = (d.get("asignado_email") or "").strip().lower()
                 if _e:
-                    _ejmap[d.get("asignado_nombre") or d.get("asignado_email") or _e] = _e
+                    _ejmap[_resolver_asig(_e, d.get("asignado_nombre")) or _e] = _e
             _ejsel = st.selectbox("Ejecutivo", list(_ejmap.keys()), key="_camp_ej")
             _ejemail = _ejmap[_ejsel]
         with _s3:
@@ -2504,7 +2534,7 @@ def _render_ficha(cid: str, data: list):
 
     @st.dialog("Ficha del cliente", width="large")
     def _dlg():
-        _asig = cli.get("asignado_nombre") or cli.get("asignado_email") or "Sin asignar"
+        _asig = _resolver_asig(cli.get("asignado_email"), cli.get("asignado_nombre")) or "Sin asignar"
         _nombre = cli.get("nombre", "") or ""
         _nm_html = (f'<div class="cli-fh-nm cli-copy" data-copy="{_esc(_nombre)}" title="Copiar nombre">{_esc(_nombre)}</div>'
                     if _nombre else '<div class="cli-fh-nm">—</div>')
