@@ -327,6 +327,9 @@ _CLI_CSS = """
   border-radius:20px;text-transform:uppercase;letter-spacing:.02em;}
 .cli-nota-activo{background:#dcfce7;color:#15803d;}
 .cli-nota-cerrado{background:#f1f5f9;color:#64748b;}
+/* Chips de engagement de un correo (Abrió/Click/Rebotó/Spam), bajo el asunto. */
+.cli-mchip{display:inline-flex;align-items:center;font-size:9px;font-weight:800;padding:1px 7px;
+  border-radius:20px;text-transform:uppercase;letter-spacing:.02em;}
 .cli-card-date{font-size:9px;color:#b4bccd;font-weight:600;text-align:right;margin-top:8px;
   display:flex;align-items:center;justify-content:flex-end;gap:4px;}
 .cli-kb-empty{font-size:11px;color:#cbd5e1;text-align:center;padding:14px 4px;font-family:Montserrat,sans-serif;}
@@ -1803,16 +1806,34 @@ _CORREO_META = {   # last_event de Resend -> (label, bg, fg)
 
 @st.cache_data(ttl=300, show_spinner=False)
 def _correo_estado(resend_id: str) -> str:
-    """last_event de un correo (cacheado 5 min para no golpear la API en cada
-    render). '' si no se pudo consultar."""
+    """last_event de un correo por POLLING (fallback si hay key de lectura). '' si
+    no se pudo consultar. El camino principal es el webhook (columnas guardadas)."""
     if not resend_id:
         return ""
     r = _resend_estado(resend_id)
     return r.get("last_event", "") if r.get("ok") else ""
 
 
-def _render_correos_enviados(cid):
-    """Sección 'Correos enviados' con contador + estado por correo (Resend)."""
+def _correo_estado_meta(c: dict):
+    """(label,bg,fg) del correo. Se decide por los FLAGS guardados por el webhook de
+    Resend (opened/clicked/bounced/complained) — son 'sticky', así que son robustos
+    aunque los eventos lleguen fuera de orden. Si no hay nada guardado, cae al
+    polling (solo funciona con una key de lectura)."""
+    if c.get("complained"):
+        return _CORREO_META["complained"]
+    if c.get("bounced"):
+        return _CORREO_META["bounced"]
+    if c.get("clicked"):
+        return _CORREO_META["clicked"]
+    if c.get("opened"):
+        return _CORREO_META["opened"]
+    _ev = str(c.get("last_event") or "").strip() or _correo_estado(c.get("resend_id") or "")
+    return _CORREO_META.get(_ev, _CORREO_META["sent"])
+
+
+def _render_correos_enviados(cid, cli=None):
+    """Sección 'Correos enviados': contador + estado por correo (entregado/abierto/
+    click/rebote/spam) que llega EN VIVO por el webhook de Resend, + aviso de baja."""
     _cors = _listar_correos_cliente(cid)
     if not _cors:
         return
@@ -1820,24 +1841,35 @@ def _render_correos_enviados(cid):
                 unsafe_allow_html=True)
     _rows = ""
     for c in _cors:
-        _ev = _correo_estado(c.get("resend_id") or "")
-        _lbl, _bg, _fg = _CORREO_META.get(_ev, _CORREO_META["sent"])
+        _lbl, _bg, _fg = _correo_estado_meta(c)
         _adj = (f' · {c.get("adjuntos")} adjunto(s)' if c.get("adjuntos") else "")
+        # Chips de engagement (además del badge): se ven aunque el "último evento"
+        # haya avanzado (ej. abrió Y luego hizo click).
+        _chips = ""
+        for _fl, _tx, _cbg, _cfg in (("opened", "Abrió", "#e0f2fe", "#0369a1"),
+                                     ("clicked", "Click", "#ede9fe", "#6d28d9"),
+                                     ("bounced", "Rebotó", "#fee2e2", "#b91c1c"),
+                                     ("complained", "Spam", "#fee2e2", "#b91c1c")):
+            if c.get(_fl):
+                _chips += f'<span class="cli-mchip" style="background:{_cbg};color:{_cfg};">{_tx}</span>'
+        _chips_html = (f'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">{_chips}</div>'
+                       if _chips else "")
         _rows += (
             '<div class="cli-ep-row">'
             f'<div style="min-width:0;"><div style="font-size:0.84rem;color:#0f172a;font-weight:600;'
             f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_esc(c.get("asunto") or "(sin asunto)")}</div>'
-            f'<div style="font-size:0.72rem;color:#94a3b8;">{_esc(_fmt_fecha_local(c.get("fecha")))}{_esc(_adj)}</div></div>'
+            f'<div style="font-size:0.72rem;color:#94a3b8;">{_esc(_fmt_fecha_local(c.get("fecha")))}{_esc(_adj)}</div>'
+            f'{_chips_html}</div>'
             f'<span class="cli-pill" style="background:{_bg};color:{_fg};">{_lbl}</span>'
             '</div>')
-    _nota = ('El estado se actualiza desde Resend (entregado/click/rebotado). '
-             if _resend_estado_ok() else
-             'El estado en vivo requiere una API key de Resend con acceso de lectura '
-             '(la actual es solo-envío). ')
+    _baja_html = ('<div style="font-size:0.72rem;color:#b91c1c;font-weight:700;margin-top:4px;">'
+                  '⛔ Este cliente se dio de baja — no recibirá correos masivos.</div>'
+                  if (cli and cli.get("no_email")) else "")
     st.markdown('<div style="border:1px solid #e6e9f4;border-radius:12px;overflow:hidden;">'
-                + _rows + '</div>'
-                f'<div style="font-size:0.72rem;color:#94a3b8;margin-top:4px;">{_nota}'
-                'Las respuestas llegan a tu buzón, no aparecen acá.</div>',
+                + _rows + '</div>' + _baja_html
+                + '<div style="font-size:0.72rem;color:#94a3b8;margin-top:4px;">'
+                'El estado (entregado/abierto/click/rebote/spam) se actualiza en vivo por el webhook '
+                'de Resend. Las respuestas llegan a tu buzón, no aparecen acá.</div>',
                 unsafe_allow_html=True)
 
 
@@ -2629,7 +2661,7 @@ def _render_ficha(cid: str, data: list):
             _render_correo(cid, cli)
 
         # ── Correos enviados (seguimiento: estado/entregado/click/rebote) ──
-        _render_correos_enviados(cid)
+        _render_correos_enviados(cid, cli)
 
         # ── Formulario de nueva actividad ──
         # LLAMADA: el "Estado de la llamada" decide el flujo:
