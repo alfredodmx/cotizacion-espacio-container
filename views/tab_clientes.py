@@ -321,6 +321,12 @@ _CLI_CSS = """
 .cli-card-sub{font-size:10.5px;color:#94a3b8;font-weight:600;display:flex;align-items:center;gap:5px;}
 .cli-fuente-b{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:800;padding:2px 7px;
   border-radius:20px;text-transform:uppercase;letter-spacing:.02em;}
+/* Etiqueta de TRATO (solo cuando un cliente tiene activo + historial): distingue
+   las 2 cards para que no parezcan un duplicado. */
+.cli-card-nota{display:inline-flex;align-items:center;font-size:8.5px;font-weight:800;padding:2px 7px;
+  border-radius:20px;text-transform:uppercase;letter-spacing:.02em;}
+.cli-nota-activo{background:#dcfce7;color:#15803d;}
+.cli-nota-cerrado{background:#f1f5f9;color:#64748b;}
 .cli-card-date{font-size:9px;color:#b4bccd;font-weight:600;text-align:right;margin-top:8px;
   display:flex;align-items:center;justify-content:flex-end;gap:4px;}
 .cli-kb-empty{font-size:11px;color:#cbd5e1;text-align:center;padding:14px 4px;font-family:Montserrat,sans-serif;}
@@ -1332,40 +1338,51 @@ def _render_pipeline(data: list):
     _titulo("Pipeline de oportunidades",
             _svg('<path d="M3 3v18h18"/><rect x="7" y="13" width="3" height="5"/>'
                  '<rect x="12" y="9" width="3" height="9"/><rect x="17" y="5" width="3" height="13"/>', 16))
+    # Pipeline POR PROYECTO: cada cliente aporta 1-2 TRATOS (activo + historial) y
+    # cada trato es su propia card en su etapa (ver enriquecer_con_pipeline._deals).
     por_etapa = {s: [] for s in _STAGE_ORDER}
     for d in data:
-        por_etapa.get(d.get("_stage") or STAGE_LEAD, por_etapa[STAGE_LEAD]).append(d)
+        _deals = d.get("_deals") or [{"stage": d.get("_stage") or STAGE_LEAD,
+                                      "cotizaciones": d.get("_cotizaciones") or [],
+                                      "monto": d.get("_monto") or 0.0, "tipo": "lead",
+                                      "fecha": d.get("fecha_creacion") or "", "nota": ""}]
+        for _dl in _deals:
+            por_etapa.setdefault(_dl.get("stage") or STAGE_LEAD, por_etapa[STAGE_LEAD]).append((d, _dl))
     cols = ""
     for s in _STAGE_ORDER:
         _lbl, _dot, _bg, _fg = _STAGE_META[s]
         items = por_etapa[s]
         cards = ""
-        for d in items:
+        for d, _dl in items:
             _asig = _resolver_asig(d.get("asignado_email"), d.get("asignado_nombre")) or "Sin asignar"
-            _neps = len(d.get("_cotizaciones") or [])
+            _neps = len(_dl.get("cotizaciones") or [])
             _asig_email = (d.get("asignado_email") or "").strip().lower()
             _sc = d.get("_score") or _lead_score(d, None)
-            # Presupuesto: label gris con la CANTIDAD + monto; o "Sin presupuesto"
-            # (naranjo) si el lead no tiene ninguno.
+            # Presupuesto: label gris con la CANTIDAD de ESTE trato + su monto; o
+            # "Sin presupuesto" (naranjo) si el lead no tiene ninguno.
             if _neps:
                 _plbl = f"{_neps} presupuesto" + ("s" if _neps != 1 else "")
                 _pre = (f'<div class="cli-card-lbl">{_plbl}</div>'
-                        f'<div class="cli-card-mt">{_fmt_money(d.get("_monto"))}</div>')
+                        f'<div class="cli-card-mt">{_fmt_money(_dl.get("monto"))}</div>')
             else:
                 _pre = '<div class="cli-card-none">Sin presupuesto</div>'
-            # Pie de la card: ejecutivo (o "Sin asignar" naranjo) a la izquierda +
-            # fecha/hora de creación a la derecha, en la MISMA fila.
+            # Pie: ejecutivo (o "Sin asignar" naranjo) + fecha del trato, misma fila.
             if _asig_email:
                 _asig_inner = (f'<div class="cli-card-sub" style="min-width:0;overflow:hidden;">'
                                f'{_svg(_ICON_USER_PATH, 12, "#94a3b8")}{_esc(_asig)}</div>')
             else:
                 _asig_inner = (f'<div class="cli-card-sub" style="color:#ea580c;">'
                                f'{_svg(_ICON_USER_PATH, 12, "#ea580c")}Sin asignar</div>')
-            _fecha = _fmt_fecha_local(d.get("fecha_creacion"))
+            _fecha = _fmt_fecha_local(_dl.get("fecha") or d.get("fecha_creacion"))
             _fecha_inner = (f'<div class="cli-card-date" style="margin-top:0;flex-shrink:0;">'
                             f'{_svg(_ZIC_HIST, 10, "#b4bccd")}{_esc(_fecha)}</div>') if _fecha else ""
             _foot = ('<div style="display:flex;justify-content:space-between;align-items:center;'
                      f'gap:8px;margin-top:8px;">{_asig_inner}{_fecha_inner}</div>')
+            # Etiqueta del trato SOLO si el cliente tiene activo + historial (así se
+            # ve que son tratos distintos del mismo cliente, no un duplicado).
+            _nota = _dl.get("nota") or ""
+            _nota_html = (f'<span class="cli-card-nota cli-nota-{_dl.get("tipo","")}">{_esc(_nota)}</span>'
+                          if _nota else "")
             cards += (
                 f'<div class="cli-card" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}"'
                 f' data-asig="{_esc(_asig_email)}" data-stage="{_esc(s)}" data-tier="{_sc["key"]}"'
@@ -1373,7 +1390,8 @@ def _render_pipeline(data: list):
                 '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">'
                 '<div style="min-width:0;">'
                 f'<div class="cli-card-nm">{_esc(d.get("nombre","") or "—")}</div>'
-                f'<div style="margin-top:5px;">{_fuente_badge(d.get("origen"))}</div>'
+                '<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:5px;align-items:center;">'
+                f'{_fuente_badge(d.get("origen"))}{_nota_html}</div>'
                 '</div>'
                 f'{_score_badge(_sc, "sm")}</div>'
                 f'{_pre}'
@@ -1389,9 +1407,10 @@ def _render_pipeline(data: list):
     st.markdown(f'<div class="cli-kb-wrap"><div class="cli-kb">{cols}</div></div>',
                 unsafe_allow_html=True)
     st.markdown('<div style="font-size:0.76rem;color:#94a3b8;margin-top:8px;">'
-                'Las etapas <b>En presupuesto</b>, <b>Propuesta enviada</b>, <b>Ganado</b> y '
-                '<b>Perdido</b> se derivan solas del estado del presupuesto. Click en una tarjeta '
-                'para ver la ficha del cliente.</div>', unsafe_allow_html=True)
+                'Cada card es un <b>trato</b>. Un cliente que ya ganó y vuelve con un presupuesto '
+                'nuevo aparece como dos tratos — <b>Venta anterior</b> (historial) y <b>Trato nuevo</b> '
+                '(activo) — no es un duplicado. Click en una card para ver la ficha del cliente.</div>',
+                unsafe_allow_html=True)
 
 
 def _traer_de_shopify():

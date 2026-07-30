@@ -659,6 +659,11 @@ STAGE_PERDIDO = "perdido"
 
 _STAGE_RANK = {STAGE_PERDIDO: 1, STAGE_PRESUPUESTO: 3, STAGE_PROPUESTA: 4, STAGE_GANADO: 5}
 
+# Pipeline "por proyecto": las cotizaciones de un cliente se separan en TRATOS.
+# ACTIVAS = trato en curso (se trabaja ahora); CERRADAS = historial (ganado/perdido).
+_STAGE_ACTIVAS = {STAGE_PRESUPUESTO, STAGE_PROPUESTA}
+_STAGE_CERRADAS = {STAGE_GANADO, STAGE_PERDIDO}
+
 
 def _estado_a_stage(label: str) -> str:
     """Mapea el estado de una cotización (calcular_estado_label) a etapa de pipeline."""
@@ -869,13 +874,54 @@ def marcar_notificadas(ids: list) -> None:
         pass
 
 
+def _mejor_stage(cots):
+    """(stage, monto) de la cotización MÁS AVANZADA de una lista de info-dicts."""
+    _best, _monto = None, 0.0
+    for _co in cots:
+        if _best is None or _STAGE_RANK.get(_co["stage"], 0) > _STAGE_RANK.get(_best, 0):
+            _best, _monto = _co["stage"], _co["total"]
+    return _best, _monto
+
+
+def _construir_deals(cots: list) -> list:
+    """Separa las cotizaciones de un cliente en TRATOS (deals) para el pipeline
+    'por proyecto': uno ACTIVO (en_presupuesto/propuesta = se trabaja ahora) y uno
+    CERRADO (ganado/perdido = historial). Cada trato es su propia card. Si hay
+    ambos, se ETIQUETAN ('Trato nuevo' / 'Venta anterior') para que se vea que son
+    tratos distintos del mismo cliente, no un duplicado."""
+    _act = [x for x in cots if x["stage"] in _STAGE_ACTIVAS]
+    _cer = [x for x in cots if x["stage"] in _STAGE_CERRADAS]
+    _deals = []
+    for _grupo, _tipo in ((_act, "activo"), (_cer, "cerrado")):
+        if not _grupo:
+            continue
+        _s, _m = _mejor_stage(_grupo)
+        _deals.append({
+            "stage": _s, "cotizaciones": _grupo, "monto": _m, "tipo": _tipo,
+            "fecha": max((str(x.get("fecha") or "") for x in _grupo), default=""),
+            "nota": "",
+        })
+    if _act and _cer:                       # ambos → etiquetar (no es un clon)
+        for _dl in _deals:
+            _dl["nota"] = "Trato nuevo" if _dl["tipo"] == "activo" else "Venta anterior"
+    if not _deals:                          # salvaguarda (no debería pasar con cots≠[])
+        _s, _m = _mejor_stage(cots)
+        _deals.append({"stage": _s, "cotizaciones": cots, "monto": _m,
+                       "tipo": "activo", "fecha": "", "nota": ""})
+    return _deals
+
+
 def enriquecer_con_pipeline(clientes: list) -> list:
     """Agrega a cada cliente (en memoria, no en BD) los campos DERIVADOS:
-    `_stage`, `_cotizaciones` (lista) y `_monto`.
+    `_stage`, `_cotizaciones` (lista), `_monto` y `_deals` (tratos para el pipeline).
 
     El vínculo cliente↔cotización es por `cliente_id` (VÍNCULO ESTABLE: sobrevive a
     editar nombre/RUT/correo/etc.); las cotizaciones que aún no tienen cliente_id
-    caen al matcheo difuso por dedup_key (legado). Sin cotizaciones → etapa_manual."""
+    caen al matcheo difuso por dedup_key (legado). Sin cotizaciones → etapa_manual.
+
+    `_stage`/`_cotizaciones`/`_monto` son a NIVEL CLIENTE (etapa más avanzada; los usan
+    Maestro/Bandeja/ficha/filtros). `_deals` es la vista POR PROYECTO del pipeline:
+    hasta 2 tratos por cliente (activo + historial), cada uno su propia card."""
     rows = _leer_cotizaciones_para_pipeline()
     polluted = _polluted_from_rows(rows)
     by_id, by_dedup = _derivar_pipeline(rows, polluted)
@@ -885,15 +931,15 @@ def enriquecer_con_pipeline(clientes: list) -> list:
         if k[1]:
             cots += by_dedup.get(k, [])                        # legado (sin estampar)
         if cots:
-            _best, _monto = None, 0.0
-            for _co in cots:
-                if _best is None or _STAGE_RANK.get(_co["stage"], 0) > _STAGE_RANK.get(_best, 0):
-                    _best, _monto = _co["stage"], _co["total"]
+            _best, _monto = _mejor_stage(cots)
             c["_stage"] = _best
             c["_cotizaciones"] = sorted(cots, key=lambda x: str(x.get("fecha") or ""), reverse=True)
             c["_monto"] = _monto
+            c["_deals"] = _construir_deals(cots)
         else:
             c["_stage"] = c.get("etapa_manual") or STAGE_LEAD
             c["_cotizaciones"] = []
             c["_monto"] = 0.0
+            c["_deals"] = [{"stage": c["_stage"], "cotizaciones": [], "monto": 0.0,
+                            "tipo": "lead", "fecha": c.get("fecha_creacion") or "", "nota": ""}]
     return clientes
