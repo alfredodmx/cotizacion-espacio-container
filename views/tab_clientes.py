@@ -1345,9 +1345,11 @@ def _render_pipeline(data: list):
             _neps = len(d.get("_cotizaciones") or [])
             _asig_email = (d.get("asignado_email") or "").strip().lower()
             _sc = d.get("_score") or _lead_score(d, None)
-            # Presupuesto: label gris + monto; o "Sin presupuesto" (naranjo) si no tiene ninguno.
+            # Presupuesto: label gris con la CANTIDAD + monto; o "Sin presupuesto"
+            # (naranjo) si el lead no tiene ninguno.
             if _neps:
-                _pre = ('<div class="cli-card-lbl">Presupuesto</div>'
+                _plbl = f"{_neps} presupuesto" + ("s" if _neps != 1 else "")
+                _pre = (f'<div class="cli-card-lbl">{_plbl}</div>'
                         f'<div class="cli-card-mt">{_fmt_money(d.get("_monto"))}</div>')
             else:
                 _pre = '<div class="cli-card-none">Sin presupuesto</div>'
