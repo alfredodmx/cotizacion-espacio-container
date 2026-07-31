@@ -441,7 +441,7 @@ _CLI_CSS = """
   border-radius:9px;padding:7px 10px;margin-top:6px;}
 
 /* ── Kanban ── */
-.cli-kb-wrap{overflow-x:auto;padding-bottom:8px;margin-top:12px;}
+.cli-kb-wrap{overflow-x:auto;padding:6px 6px 18px;margin-top:12px;}
 .cli-kb{display:flex;gap:12px;min-width:920px;}
 .cli-kb-col{flex:1;min-width:150px;background:#f8fafc;border-radius:12px;padding:10px;}
 .cli-kb-hd{display:flex;align-items:center;gap:7px;margin-bottom:3px;}
@@ -456,8 +456,17 @@ _CLI_CSS = """
 .cli-kb-sub.sin{background:#fff7ed;color:#c2410c;}
 .cli-kb-sub.con{background:#eef2ff;color:#4f46e5;}
 .cli-card{background:#fff;border:1px solid #e6e9f4;border-radius:10px;padding:10px;margin-bottom:8px;
-  cursor:pointer;transition:box-shadow .12s,transform .12s;}
-.cli-card:hover{box-shadow:0 6px 18px rgba(30,36,71,.12);transform:translateY(-1px);}
+  cursor:pointer;transition:box-shadow .16s ease,transform .16s ease,border-color .16s ease;}
+/* Hover: la card hace un poco de zoom y se levanta; la SOMBRA toma el color de la
+   etapa (data-stage). Cada etapa su color. */
+.cli-card:hover{transform:translateY(-3px) scale(1.03);position:relative;z-index:3;
+  box-shadow:0 10px 26px rgba(30,36,71,.16);}
+.cli-card[data-stage="lead_nuevo"]:hover{box-shadow:0 10px 26px rgba(136,135,128,.32);border-color:#e2e2df;}
+.cli-card[data-stage="contactado"]:hover{box-shadow:0 10px 28px rgba(55,138,221,.42);border-color:#bfdbfe;}
+.cli-card[data-stage="en_presupuesto"]:hover{box-shadow:0 10px 28px rgba(127,119,221,.44);border-color:#ddd6fe;}
+.cli-card[data-stage="propuesta_enviada"]:hover{box-shadow:0 10px 28px rgba(239,159,39,.46);border-color:#fed7aa;}
+.cli-card[data-stage="ganado"]:hover{box-shadow:0 10px 28px rgba(29,158,117,.46);border-color:#bbf7d0;}
+.cli-card[data-stage="perdido"]:hover{box-shadow:0 10px 26px rgba(148,163,184,.38);border-color:#e2e8f0;}
 .cli-card-nm{font-family:Montserrat,sans-serif;font-size:12.5px;font-weight:800;color:#0f172a;line-height:1.3;}
 .cli-card-lbl{font-size:8.5px;color:#94a3b8;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin-top:7px;}
 .cli-card-mt{font-size:13px;color:#0f172a;font-weight:800;margin:1px 0 0;}
