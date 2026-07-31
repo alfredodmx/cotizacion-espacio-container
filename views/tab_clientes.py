@@ -419,6 +419,13 @@ _CLI_CSS = """
 .cli-wa{display:inline-flex;align-items:center;gap:5px;color:#128c3e;font-weight:600;
   text-decoration:none;cursor:pointer;transition:color .12s;}
 .cli-wa:hover{color:#25d366;text-decoration:underline;text-underline-offset:2px;}
+/* Botón "Ver plano cliente" (abre el plano en pestaña nueva; NO usa .cli-wa para
+   que el handler de WhatsApp no lo intercepte). */
+.cli-plano{display:inline-flex;align-items:center;gap:5px;color:#4f46e5;font-weight:700;font-size:0.78rem;
+  background:#eef2ff;padding:4px 11px;border-radius:8px;text-decoration:none;cursor:pointer;
+  transition:background .13s,color .13s;margin-top:2px;}
+.cli-plano svg{width:13px;height:13px;flex-shrink:0;}
+.cli-plano:hover{background:#4f46e5;color:#fff;}
 /* ── Lead Score (llama por nivel) ── */
 .cli-score{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
   border-radius:11px;flex:0 0 auto;line-height:1;}
@@ -1828,13 +1835,18 @@ def _render_shopify_datos(cli):
     _items = "".join(
         f'<div><div class="k">{_esc(_lbl)}</div>{_cp(_val(_k), _esc(_val(_k)), "Copiar")}</div>'
         for _k, _lbl in _SHOPIFY_META_LABELS if str(_m.get(_k) or "").strip())
-    if _items:
-        st.markdown(f'<div class="cli-data">{_items}</div>', unsafe_allow_html=True)
+    # Plano: como un ítem MÁS de la grilla (queda EN ORDEN, no flotando abajo). Link
+    # propio (.cli-plano, NO .cli-wa) → abre el plano en una pestaña nueva.
     _plano = str(_m.get("plano_url") or "").strip()
     if _plano and _plano.lower().startswith("http"):
-        st.markdown(f'<div style="margin-top:6px;"><a class="cli-wa" href="{_esc(_plano)}" '
-                    f'target="_blank" rel="noopener">📐 Ver plano que adjuntó el cliente</a></div>',
-                    unsafe_allow_html=True)
+        _ico = _svg('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>'
+                    '<path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 13h6"/><path d="M9 17h4"/>',
+                    13, "currentColor")
+        _items += (f'<div><div class="k">Plano</div>'
+                   f'<a class="cli-plano" href="{_esc(_plano)}" target="_blank" rel="noopener">'
+                   f'{_ico}Ver plano cliente</a></div>')
+    if _items:
+        st.markdown(f'<div class="cli-data">{_items}</div>', unsafe_allow_html=True)
 
 
 def _render_calificacion(cid, cli):
