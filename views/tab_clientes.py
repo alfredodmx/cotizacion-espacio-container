@@ -185,6 +185,20 @@ _STAGE_META = {
     STAGE_PERDIDO:     ("Perdido",           "#94a3b8", "#f1f5f9", "#64748b"),
 }
 
+# Subtítulo aclaratorio por columna del pipeline: si esa etapa agrupa leads CON o
+# SIN presupuesto (para que la sección se entienda de una mirada).
+_SUB_ICO_SIN = '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 15h6"/>'
+_SUB_ICO_CON = '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/>'
+_STAGE_SUB = {
+    STAGE_LEAD:        ("sin", "Sin presupuesto aún", _SUB_ICO_SIN),
+    STAGE_CONTACTADO:  ("sin", "Sin presupuesto aún", _SUB_ICO_SIN),
+    STAGE_PRESUPUESTO: ("con", "Con presupuesto",     _SUB_ICO_CON),
+    STAGE_PROPUESTA:   ("con", "Con presupuesto",     _SUB_ICO_CON),
+    STAGE_GANADO:      ("con", "Con presupuesto",     _SUB_ICO_CON),
+    STAGE_PERDIDO:     ("con", "Con presupuesto",     _SUB_ICO_CON),
+}
+
+
 # ── Reloj SLA + transiciones de etapa en el timeline ──────────────────────────
 _STAGE_TERMINAL = {STAGE_GANADO, STAGE_PERDIDO}   # sin presión (ya cerró)
 _SLA_CLOCK_ICO = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" '
@@ -430,11 +444,17 @@ _CLI_CSS = """
 .cli-kb-wrap{overflow-x:auto;padding-bottom:8px;margin-top:12px;}
 .cli-kb{display:flex;gap:12px;min-width:920px;}
 .cli-kb-col{flex:1;min-width:150px;background:#f8fafc;border-radius:12px;padding:10px;}
-.cli-kb-hd{display:flex;align-items:center;gap:7px;margin-bottom:10px;}
+.cli-kb-hd{display:flex;align-items:center;gap:7px;margin-bottom:3px;}
 .cli-kb-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 .cli-kb-nm{font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:800;color:#0f172a;
   text-transform:uppercase;letter-spacing:.03em;}
 .cli-kb-ct{margin-left:auto;font-size:11px;color:#94a3b8;font-weight:700;}
+/* Subtítulo aclaratorio de la columna: si los leads de esa etapa tienen o no presupuesto. */
+.cli-kb-sub{display:inline-flex;align-items:center;gap:4px;font-size:9.5px;font-weight:700;
+  padding:2px 8px;border-radius:20px;margin:0 0 10px 15px;letter-spacing:.02em;}
+.cli-kb-sub svg{width:11px;height:11px;flex-shrink:0;}
+.cli-kb-sub.sin{background:#fff7ed;color:#c2410c;}
+.cli-kb-sub.con{background:#eef2ff;color:#4f46e5;}
 .cli-card{background:#fff;border:1px solid #e6e9f4;border-radius:10px;padding:10px;margin-bottom:8px;
   cursor:pointer;transition:box-shadow .12s,transform .12s;}
 .cli-card:hover{box-shadow:0 6px 18px rgba(30,36,71,.12);transform:translateY(-1px);}
@@ -1533,11 +1553,14 @@ def _render_pipeline(data: list):
                 '</div>')
         if not cards:
             cards = '<div class="cli-kb-empty">—</div>'
+        _subcls, _subtxt, _subico = _STAGE_SUB.get(s, ("con", "", ""))
+        _sub_html = (f'<div class="cli-kb-sub {_subcls}">{_svg(_subico, 11, "currentColor")}{_subtxt}</div>'
+                     if _subtxt else "")
         cols += (
             '<div class="cli-kb-col">'
             f'<div class="cli-kb-hd"><span class="cli-kb-dot" style="background:{_dot};"></span>'
             f'<span class="cli-kb-nm">{_lbl}</span><span class="cli-kb-ct">{len(items)}</span></div>'
-            f'{cards}</div>')
+            f'{_sub_html}{cards}</div>')
     st.markdown(f'<div class="cli-kb-wrap"><div class="cli-kb">{cols}</div></div>',
                 unsafe_allow_html=True)
     st.markdown('<div style="font-size:0.76rem;color:#94a3b8;margin-top:8px;">'
