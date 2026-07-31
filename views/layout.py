@@ -38,11 +38,18 @@ def _notif_autopoll(email: str):
         return
     try:
         _notif_data.clear()
-        _n, _ = _notif_data(email)
+        _n, _items = _notif_data(email)
         _html = _build_notif_html(email)
     except Exception:
         return
     import json as _json
+    # Título de la notificación MÁS NUEVA sin leer → el toast dice exactamente qué
+    # llegó (ej. "Nuevo lead asignado · Juan"), no un texto genérico.
+    _toast_txt = "🔔 Tienes una nueva notificación"
+    for _it in (_items or []):
+        if not _it.get("leido") and str(_it.get("titulo") or "").strip():
+            _toast_txt = "🔔 " + str(_it.get("titulo")).strip()
+            break
     _js = (
         "(function(){var D=window.parent.document,W=window.parent;"
         "var wrap=D.getElementById('_hdr_notif_wrap'); if(!wrap) return;"
@@ -56,7 +63,7 @@ def _notif_autopoll(email: str):
         "if(open) fresh.classList.add('_open');"
         "wrap.replaceWith(fresh);"
         "if(prev>=0 && n>prev){"
-        "var to=D.createElement('div'); to.textContent='🔔 Tienes una nueva notificación';"
+        f"var to=D.createElement('div'); to.textContent={_json.dumps(_toast_txt)};"
         "to.style.cssText='position:fixed;top:70px;right:20px;z-index:2147483600;background:#0f172a;"
         "color:#fff;font-family:Plus Jakarta Sans,system-ui,sans-serif;font-size:13px;font-weight:700;"
         "padding:11px 16px;border-radius:11px;box-shadow:0 12px 32px rgba(15,23,42,.32);opacity:0;"
