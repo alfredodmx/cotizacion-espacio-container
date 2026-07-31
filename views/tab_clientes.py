@@ -31,6 +31,7 @@ from repositories.clientes_repo import (
     crear_tarea, listar_tareas_cliente, completar_tarea, listar_tareas_pendientes,
     tareas_vencidas_no_notificadas, marcar_notificadas, importar_leads, CAMPOS_IMPORT,
     propagar_a_cotizaciones, detectar_duplicados, fusionar_clientes,
+    actualizar_etapa_tracking,
     STAGE_LEAD, STAGE_CONTACTADO, STAGE_PRESUPUESTO, STAGE_PROPUESTA,
     STAGE_GANADO, STAGE_PERDIDO,
 )
@@ -184,6 +185,129 @@ _STAGE_META = {
     STAGE_PERDIDO:     ("Perdido",           "#94a3b8", "#f1f5f9", "#64748b"),
 }
 
+# ── Reloj SLA + transiciones de etapa en el timeline ──────────────────────────
+_STAGE_TERMINAL = {STAGE_GANADO, STAGE_PERDIDO}   # sin presión (ya cerró)
+_SLA_CLOCK_ICO = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" '
+                  'stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/>'
+                  '<polyline points="12 6 12 12 16 14"/></svg>')
+
+
+def _now_cl():
+    return _dt.now(_tz(_td(hours=-3)))
+
+
+def _parse_iso(s):
+    try:
+        d = _dt.fromisoformat(str(s).replace("Z", "+00:00"))
+        return d.replace(tzinfo=_tz.utc) if d.tzinfo is None else d
+    except Exception:
+        return None
+
+
+def _fmt_duracion(secs) -> str:
+    """Segundos → '2d 5h' / '3h 20m' / '12m 5s' / '45s'."""
+    secs = int(max(0, secs or 0))
+    d, r = divmod(secs, 86400)
+    h, r = divmod(r, 3600)
+    m, s = divmod(r, 60)
+    if d:
+        return f"{d}d {h}h"
+    if h:
+        return f"{h}h {m}m"
+    if m:
+        return f"{m}m {s}s"
+    return f"{s}s"
+
+
+def _stage_work(c: dict):
+    """Etapa 'de trabajo' del lead (para SLA/transiciones): la del trato ACTIVO si
+    existe (lo que hay que trabajar ahora); si no, la más avanzada (_stage)."""
+    for d in (c.get("_deals") or []):
+        if d.get("tipo") == "activo" and d.get("stage"):
+            return d["stage"]
+    return c.get("_stage")
+
+
+def _sincronizar_etapas(data: list):
+    """LAZY: al cargar el CRM detecta cambios de ETAPA del pipeline y los registra en
+    el timeline con el tiempo que estuvo en la etapa anterior. Gateado a 1 vez/~90s
+    por sesión + tope de inicializaciones, best-effort → NUNCA frena ni rompe el
+    render (el sistema debe seguir rápido)."""
+    import time as _time
+    if _time.time() - st.session_state.get("_etapas_sync_ts", 0) < 90:
+        return
+    st.session_state["_etapas_sync_ts"] = _time.time()
+    _now = _now_cl()
+    _now_iso = _now.isoformat()
+    _inits = 0
+    for c in data:
+        try:
+            _work = _stage_work(c)
+            if not _work:
+                continue
+            _prev = (c.get("stage_actual") or "").strip()
+            if not _prev:                        # baseline (1 vez por lead), sin loguear
+                if _inits >= 60:                 # tope: no frenar la 1ª carga
+                    continue
+                _desde = c.get("fecha_creacion") or _now_iso
+                if actualizar_etapa_tracking(c["id"], _work, _desde):
+                    c["stage_actual"] = _work
+                    c["stage_desde"] = _desde
+                    _inits += 1
+                continue
+            if _work != _prev:                   # ¡transición! → timeline + tracking
+                _pd = _parse_iso(c.get("stage_desde") or c.get("fecha_creacion"))
+                _dur = _fmt_duracion((_now - _pd).total_seconds()) if _pd else ""
+                _plbl = _STAGE_META.get(_prev, (_prev,))[0]
+                _wlbl = _STAGE_META.get(_work, (_work,))[0]
+                _det = f"Estuvo {_dur} en {_plbl}" if (_dur and _prev not in _STAGE_TERMINAL) else ""
+                registrar_actividad(c["id"], "etapa", f"Pasó a {_wlbl}", detalle=_det)
+                actualizar_etapa_tracking(c["id"], _work, _now_iso)
+                c["stage_actual"] = _work
+                c["stage_desde"] = _now_iso
+        except Exception:
+            continue
+
+
+def _sla_clock_html(desde_iso, stage, lg=False) -> str:
+    """Reloj SLA (rojo, EN VIVO — lo tickea `_SLA_TICK_JS`) del tiempo que lleva el
+    lead en su etapa actual. Solo en etapas ACTIVAS (no en Ganado/Perdido)."""
+    if stage in _STAGE_TERMINAL:
+        return ""
+    _d = _parse_iso(desde_iso)
+    if not _d:
+        return ""
+    _ini = _fmt_duracion((_now_cl() - _d).total_seconds())
+    _cls = "cli-sla cli-sla-lg" if lg else "cli-sla"
+    return (f'<span class="{_cls}" data-since="{_esc(_d.isoformat())}" title="Tiempo en esta etapa">'
+            f'{_SLA_CLOCK_ICO}<span class="cli-sla-t">{_esc(_ini)}</span></span>')
+
+
+_SLA_TICK_JS = r"""<script>
+(function(){
+  var W=window.parent, D=W&&W.document; if(!D) return;
+  function fmt(secs){
+    secs=Math.max(0,Math.floor(secs));
+    var d=Math.floor(secs/86400); secs-=d*86400;
+    var h=Math.floor(secs/3600); secs-=h*3600;
+    var m=Math.floor(secs/60), s=secs-m*60;
+    if(d) return d+'d '+h+'h';
+    if(h) return h+'h '+m+'m';
+    if(m) return m+'m '+s+'s';
+    return s+'s';
+  }
+  function tick(){
+    var els=D.querySelectorAll('.cli-sla[data-since]'), now=Date.now();
+    for(var i=0;i<els.length;i++){
+      var since=Date.parse(els[i].getAttribute('data-since')); if(isNaN(since)) continue;
+      var t=els[i].querySelector('.cli-sla-t'); if(t) t.textContent=fmt((now-since)/1000);
+    }
+  }
+  if(W._cliSlaTimer){ clearInterval(W._cliSlaTimer); }
+  tick(); W._cliSlaTimer=setInterval(tick, 1000);
+})();
+</script>"""
+
 
 # ── Estilo del selector de vista (igual que las sub-pestañas de OPERACIONES) ───
 _CLI_SELECTOR_CSS = """
@@ -330,6 +454,11 @@ _CLI_CSS = """
 /* Chips de engagement de un correo (Abrió/Click/Rebotó/Spam), bajo el asunto. */
 .cli-mchip{display:inline-flex;align-items:center;font-size:9px;font-weight:800;padding:1px 7px;
   border-radius:20px;text-transform:uppercase;letter-spacing:.02em;}
+/* Reloj SLA (rojo, en vivo): tiempo que el lead lleva en su etapa actual. */
+.cli-sla{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:800;padding:2px 8px;
+  border-radius:20px;background:#fee2e2;color:#dc2626;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.cli-sla svg{width:11px;height:11px;flex-shrink:0;}
+.cli-sla-lg{font-size:12px;padding:4px 11px;}
 .cli-card-date{font-size:9px;color:#b4bccd;font-weight:600;text-align:right;margin-top:8px;
   display:flex;align-items:center;justify-content:flex-end;gap:4px;}
 .cli-kb-empty{font-size:11px;color:#cbd5e1;text-align:center;padding:14px 4px;font-family:Montserrat,sans-serif;}
@@ -1386,6 +1515,8 @@ def _render_pipeline(data: list):
             _nota = _dl.get("nota") or ""
             _nota_html = (f'<span class="cli-card-nota cli-nota-{_dl.get("tipo","")}">{_esc(_nota)}</span>'
                           if _nota else "")
+            # Reloj SLA (rojo, en vivo) del tiempo en la etapa; solo en tratos ACTIVOS.
+            _sla = _sla_clock_html(d.get("stage_desde") or d.get("fecha_creacion"), _dl.get("stage"))
             cards += (
                 f'<div class="cli-card" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}"'
                 f' data-asig="{_esc(_asig_email)}" data-stage="{_esc(s)}" data-tier="{_sc["key"]}"'
@@ -1394,7 +1525,7 @@ def _render_pipeline(data: list):
                 '<div style="min-width:0;">'
                 f'<div class="cli-card-nm">{_esc(d.get("nombre","") or "—")}</div>'
                 '<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:5px;align-items:center;">'
-                f'{_fuente_badge(d.get("origen"))}{_nota_html}</div>'
+                f'{_fuente_badge(d.get("origen"))}{_nota_html}{_sla}</div>'
                 '</div>'
                 f'{_score_badge(_sc, "sm")}</div>'
                 f'{_pre}'
@@ -2603,9 +2734,10 @@ def _render_ficha(cid: str, data: list):
             '</div>'
             f'<div style="margin-left:auto;">{_score_badge(_sc, "md")}</div>'
             '</div>'
-            '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">'
+            '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px;">'
             f'{_origen_pill(cli.get("origen","Manual"))}'
             f'<span class="cli-pill" style="background:{_sbg};color:{_sfg};">{_slbl}</span>'
+            f'{_sla_clock_html(cli.get("stage_desde") or cli.get("fecha_creacion"), _stage_work(cli), lg=True)}'
             '</div>', unsafe_allow_html=True)
 
         # Potencial del lead: nivel + desglose (qué falta para subirlo).
@@ -3004,6 +3136,13 @@ def render_tab_clientes(**kwargs):
     for _d in data:
         _d["_score"] = _lead_score(_d, _pregs_score)
 
+    # Registrar transiciones de ETAPA en el timeline + mantener el reloj SLA (lazy,
+    # gateado, best-effort → no frena el render).
+    try:
+        _sincronizar_etapas(data)
+    except Exception:
+        pass
+
     # Puente oculto: click en fila/tarjeta → abre la ficha.
     st.markdown('<style>.st-key-_cli_cmd{position:absolute!important;left:-9999px!important;'
                 'top:-9999px!important;height:0!important;width:0!important;overflow:hidden!important;}</style>',
@@ -3190,7 +3329,8 @@ def render_tab_clientes(**kwargs):
         _render_pipeline(data)
 
     # Handler de click (abre ficha) + menú contextual + filtros/búsqueda + salida.
-    components.html(_CLI_CLICK_JS + _CLI_CTXMENU_JS + _CLI_FILTER_JS + _CLI_ASIG_JS + _CLI_COPY_JS, height=0)
+    components.html(_CLI_CLICK_JS + _CLI_CTXMENU_JS + _CLI_FILTER_JS + _CLI_ASIG_JS + _CLI_COPY_JS
+                    + _SLA_TICK_JS, height=0)
     components.html(_CLI_DRAWER_JS, height=0)
 
     # Drawer: base siempre; entrada SOLO al abrir desde cerrado, reposo en los

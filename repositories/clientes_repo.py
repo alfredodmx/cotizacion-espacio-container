@@ -193,6 +193,19 @@ def registrar_actividad(cliente_id, tipo, titulo, detalle="", ep="", actor="") -
         pass
 
 
+def actualizar_etapa_tracking(cliente_id, etapa, desde_iso) -> bool:
+    """Guarda la etapa de pipeline ACTUAL del cliente + desde cuándo está en ella
+    (`stage_actual`/`stage_desde`), para el reloj SLA y detectar transiciones.
+    DEFENSIVO: si las columnas no existen todavía → False, sin romper nada."""
+    try:
+        _supa.table(_TABLA).update(
+            {"stage_actual": str(etapa or ""), "stage_desde": desde_iso}
+        ).eq("id", cliente_id).execute()
+        return True
+    except Exception:
+        return False
+
+
 def listar_actividad(cliente_id: str) -> list:
     """Eventos del cliente, más reciente primero."""
     try:
