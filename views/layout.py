@@ -51,8 +51,13 @@ _NOTIF_CSS = """<style>
 #_hdr_notif_wrap._open #_hdr_notif_panel{display:block;animation:_hdrMenuIn 0.14s ease;}
 ._hdr_notif_head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid #eef1f6;
   font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:0.82rem;color:#0f172a;}
+._hdr_notif_actions{display:flex;align-items:center;gap:9px;}
 #_hdr_notif_read{background:none;border:none;color:#2563eb;font-size:0.74rem;font-weight:700;cursor:pointer;padding:2px 4px;}
 #_hdr_notif_read:hover{color:#1d4ed8;text-decoration:underline;}
+#_hdr_notif_refresh{background:none;border:none;color:#64748b;cursor:pointer;padding:2px;display:flex;
+  align-items:center;border-radius:6px;transition:color .15s,background .15s;}
+#_hdr_notif_refresh svg{width:15px;height:15px;}
+#_hdr_notif_refresh:hover{color:#2563eb;background:#eff4ff;}
 ._hdr_notif_list{max-height:min(58vh,420px);overflow-y:auto;}
 ._hdr_notif_it{display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border-bottom:1px solid #f4f6fb;cursor:pointer;transition:background .12s;}
 ._hdr_notif_it:hover{background:#eef4ff!important;}
@@ -92,11 +97,16 @@ def _build_notif_html(email: str) -> str:
     else:
         _rows = '<div class="_hdr_notif_empty">Sin notificaciones</div>'
     _read_btn = ('<button id="_hdr_notif_read" type="button">Marcar leídas</button>') if _n else ''
+    _refresh_ico = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" '
+                    'stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>'
+                    '<path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M8 16H3v5"/></svg>')
+    _refresh_btn = f'<button id="_hdr_notif_refresh" type="button" title="Actualizar">{_refresh_ico}</button>'
     return (
         '<div id="_hdr_notif_wrap">'
         f'<button id="_hdr_notif_btn" type="button" title="Notificaciones">{_bell}{_badge}</button>'
         '<div id="_hdr_notif_panel">'
-        f'<div class="_hdr_notif_head"><span>Notificaciones</span>{_read_btn}</div>'
+        f'<div class="_hdr_notif_head"><span>Notificaciones</span>'
+        f'<span class="_hdr_notif_actions">{_refresh_btn}{_read_btn}</span></div>'
         f'<div class="_hdr_notif_list">{_rows}</div>'
         '</div></div>'
     )
@@ -1544,7 +1554,7 @@ def render_layout():
     # 6. Botones ocultos (foto / contraseña) disparados desde el menú del avatar.
     # El logout NO usa botón: el menú navega a ?logout=1 (carga completa) porque un
     # st.rerun in-place crashea React al desmontar el árbol autenticado → body vacío.
-    _c0, _c_foto, _c_pwd, _c_notif, _c_ngo = st.columns([17, 1, 1, 1, 1])
+    _c0, _c_foto, _c_pwd, _c_notif, _c_ngo, _c_nref = st.columns([16, 1, 1, 1, 1, 1])
     with _c_foto:
         if st.button("📷 Cambiar foto", key="btn_foto_hdr", use_container_width=True):
             st.session_state["_show_foto_dialog"] = True
@@ -1573,6 +1583,18 @@ def render_layout():
                 pass
             _notif_data.clear()
             st.session_state["nav_page"] = "clientes"
+            st.rerun()
+    with _c_nref:
+        # Botón oculto: el JS lo clickea desde el icono "Actualizar" del panel de la
+        # campana. Refresca notificaciones + datos del CRM (para ver leads nuevos de
+        # Shopify que ya cayeron a la base pero aún no aparecían por el cache).
+        if st.button("refresh", key="btn_notif_refresh", use_container_width=True):
+            _notif_data.clear()
+            try:
+                from views.tab_clientes import _cli_data
+                _cli_data.clear()
+            except Exception:
+                pass
             st.rerun()
 
     # 7. JS — mover botones al header una sola vez (sin MutationObserver)
@@ -1726,6 +1748,8 @@ def render_layout():
             var notifWrap = D.getElementById('_hdr_notif_wrap');
             var bellBtn = t && t.closest ? t.closest('#_hdr_notif_btn') : null;
             if (bellBtn) { if (notifWrap) notifWrap.classList.toggle('_open'); if (menuWrap) menuWrap.classList.remove('_open'); e.stopPropagation(); return; }
+            var refBtn = t && t.closest ? t.closest('#_hdr_notif_refresh') : null;
+            if (refBtn) { var _rf = D.querySelector('.st-key-btn_notif_refresh button'); if (_rf) _rf.click(); e.stopPropagation(); return; }
             var readBtn = t && t.closest ? t.closest('#_hdr_notif_read') : null;
             if (readBtn) { if (notifWrap) notifWrap.classList.remove('_open'); var _rb = D.querySelector('.st-key-btn_notif_read button'); if (_rb) _rb.click(); e.stopPropagation(); return; }
             var notifItem = t && t.closest ? t.closest('._hdr_notif_it') : null;
