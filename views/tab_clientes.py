@@ -434,8 +434,9 @@ _CLI_CSS = """
 .cli-scbrk{display:flex;flex-direction:column;gap:7px;margin:2px 0 6px;}
 .cli-scrow{display:grid;grid-template-columns:88px 1fr 46px;align-items:center;gap:9px;}
 .cli-sck{font-size:0.74rem;color:#475569;}
-.cli-scbar{display:block;width:100%;height:8px;border-radius:999px;background:#eef1f6;overflow:hidden;}
-.cli-scfill{display:block;height:100%;border-radius:999px;min-width:3px;transition:width .3s ease;}
+.cli-scbar{display:block;position:relative;width:100%;height:9px;border-radius:999px;overflow:hidden;
+  background:linear-gradient(90deg,#ef4444 0%,#f97316 28%,#facc15 52%,#84cc16 76%,#22c55e 100%);}
+.cli-scdim{position:absolute;top:0;bottom:0;right:0;background:rgba(236,239,245,.82);transition:left .3s ease;}
 .cli-scv{font-size:0.72rem;font-weight:700;color:#64748b;text-align:right;}
 .cli-schint{font-size:0.76rem;color:#475569;background:#fff7ed;border:1px dashed #f59e0b;
   border-radius:9px;padding:7px 10px;margin-top:6px;}
@@ -2775,10 +2776,12 @@ def _render_ficha(cid: str, data: list):
         # Potencial del lead: nivel + desglose (qué falta para subirlo).
         _SC_COL = {"hot": "#dc2626", "warm": "#d97706", "cold": "#2563eb"}
         _tcol = _SC_COL[_sc["key"]]
-        def _scbar(k, v, mx, col):
+        # Barra estilo MEDIDOR: la pista es el degradado rojo→amarillo→verde (igual
+        # para las 3) y la parte NO alcanzada se atenúa (`.cli-scdim` desde el %).
+        def _scbar(k, v, mx):
+            _pct = round(v / mx * 100) if mx else 0
             return (f'<div class="cli-scrow"><span class="cli-sck">{k}</span>'
-                    f'<span class="cli-scbar"><span class="cli-scfill" '
-                    f'style="width:{round(v / mx * 100)}%;background:{col};"></span></span>'
+                    f'<span class="cli-scbar"><span class="cli-scdim" style="left:{_pct}%;"></span></span>'
                     f'<span class="cli-scv">{v}/{mx}</span></div>')
         _falt = _score_faltantes(cli, _preguntas_data(), _sc)
         _hint = ("💡 Sube el potencial: " + " · ".join(f"{l} (+{p})" for l, p in _falt)
@@ -2787,9 +2790,9 @@ def _render_ficha(cid: str, data: list):
             f'<div class="cli-sec-t" style="margin:6px 0 4px;">Potencial del lead · '
             f'<span style="color:{_tcol};">{_sc["label"]} {_sc["total"]}/100</span></div>'
             '<div class="cli-scbrk">'
-            + _scbar("Contacto", _sc["contacto"], 40, "#16a34a")
-            + _scbar("Calificación", _sc["calif"], 45, "#d97706")
-            + _scbar("Interés", _sc["interes"], 15, "#6d28d9")
+            + _scbar("Contacto", _sc["contacto"], 40)
+            + _scbar("Calificación", _sc["calif"], 45)
+            + _scbar("Interés", _sc["interes"], 15)
             + '</div>'
             f'<div class="cli-schint">{_hint}</div>', unsafe_allow_html=True)
 
