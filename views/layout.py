@@ -27,6 +27,48 @@ def _notif_data(email: str):
         return 0, []
 
 
+@st.fragment(run_every=25)
+def _notif_autopoll(email: str):
+    """Auto-sondeo de la campana (cada 25s mientras la página está ABIERTA): si
+    cambió la cantidad de no leídas, actualiza el badge + la lista EN EL DOM y, si
+    llegó una nueva, muestra un toast — todo SIN recargar la página ni cerrar lo que
+    estés haciendo. Es lo más cercano a un 'push' real (Streamlit no lo tiene). Solo
+    toca el DOM cuando el número cambió → cero molestia si no hay nada nuevo."""
+    if not email:
+        return
+    try:
+        _notif_data.clear()
+        _n, _ = _notif_data(email)
+        _html = _build_notif_html(email)
+    except Exception:
+        return
+    import json as _json
+    _js = (
+        "(function(){var D=window.parent.document,W=window.parent;"
+        "var wrap=D.getElementById('_hdr_notif_wrap'); if(!wrap) return;"
+        "var prev=parseInt(wrap.getAttribute('data-nc')||'-1',10);"
+        f"var n={int(_n)};"
+        "if(prev===n) return;"
+        "var open=wrap.classList.contains('_open');"
+        f"var tmp=D.createElement('div'); tmp.innerHTML={_json.dumps(_html)};"
+        "var fresh=tmp.firstElementChild; if(!fresh) return;"
+        "fresh.setAttribute('data-nc', String(n));"
+        "if(open) fresh.classList.add('_open');"
+        "wrap.replaceWith(fresh);"
+        "if(prev>=0 && n>prev){"
+        "var to=D.createElement('div'); to.textContent='🔔 Tienes una nueva notificación';"
+        "to.style.cssText='position:fixed;top:70px;right:20px;z-index:2147483600;background:#0f172a;"
+        "color:#fff;font-family:Plus Jakarta Sans,system-ui,sans-serif;font-size:13px;font-weight:700;"
+        "padding:11px 16px;border-radius:11px;box-shadow:0 12px 32px rgba(15,23,42,.32);opacity:0;"
+        "transition:opacity .2s,transform .2s;transform:translateY(-8px);';"
+        "D.body.appendChild(to);"
+        "W.requestAnimationFrame(function(){to.style.opacity=1;to.style.transform='translateY(0)';});"
+        "setTimeout(function(){to.style.opacity=0;setTimeout(function(){to.remove();},300);},4500);}"
+        "})();"
+    )
+    _components.html("<script>" + _js + "</script>", height=0)
+
+
 _NOTIF_ICONS = {
     "llamada":      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
     "reunion":      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
@@ -1510,28 +1552,13 @@ def render_layout():
     except Exception:
         _notif_html = ''
 
-    # Toast de notificaciones NUEVAS (las que aparecen DURANTE la sesión, no el
-    # backlog al entrar). En la 1ª carga se marca el backlog como "ya visto"; de
-    # ahí en más, cada notificación sin leer que no estaba se muestra una vez.
-    try:
-        _nn, _nitems = (_notif_data(_email) if _email else (0, []))
-        _unread = [it.get("id") for it in _nitems if not it.get("leido")]
-        if "_notif_seen_ids" not in st.session_state:
-            st.session_state["_notif_seen_ids"] = set(_unread)
-            st.session_state["_notif_toasted"] = set()
-        else:
-            _seen = st.session_state["_notif_seen_ids"]
-            _toasted = st.session_state.setdefault("_notif_toasted", set())
-            for it in _nitems:
-                if it.get("leido"):
-                    continue
-                _nid = it.get("id")
-                if _nid in _seen or _nid in _toasted:
-                    continue
-                st.toast(str(it.get("titulo") or "Nueva notificación"), icon="🔔")
-                _toasted.add(_nid)
-    except Exception:
-        pass
+    # Auto-sondeo: la campana se actualiza SOLA (badge + lista + toast) cada 25s
+    # mientras la página está abierta, sin que el usuario tenga que refrescar.
+    if _email:
+        try:
+            _notif_autopoll(_email)
+        except Exception:
+            pass
 
     st.markdown(
         _NOTIF_CSS +
