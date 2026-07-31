@@ -367,11 +367,25 @@ _CLI_CSS = """
 .cli-pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:0.68rem;font-weight:700;
   text-transform:uppercase;letter-spacing:.03em;}
 .cli-sbar{display:flex;align-items:center;gap:9px;background:#fff;border:1px solid #e6e9f4;
-  border-radius:12px;padding:9px 13px;box-shadow:0 3px 16px rgba(30,36,71,.06);}
+  border-radius:12px;padding:10px 14px;box-shadow:0 3px 16px rgba(30,36,71,.06);margin:6px 0 2px;}
+.cli-sbar:focus-within{border-color:#c7d2fe;box-shadow:0 3px 16px rgba(91,124,250,.15);}
 .cli-sbar input{flex:1 1 auto;border:none;outline:none;background:transparent;min-width:0;
   font-family:Montserrat,sans-serif;font-size:.86rem;font-weight:600;color:#0f172a;}
 .cli-sbar input::placeholder{color:#94a3b8;font-weight:500;}
 .cli-sbar .cli-sico{display:inline-flex;flex:0 0 auto;color:#94a3b8;}
+/* Paginación del Maestro */
+.cli-pgn{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  margin-top:12px;padding:2px;font-family:Montserrat,sans-serif;}
+.cli-pgn-info{font-size:0.76rem;color:#64748b;font-weight:700;}
+.cli-pgn-nav{display:flex;align-items:center;gap:8px;}
+.cli-pgn-pages{font-size:0.76rem;color:#334155;font-weight:800;min-width:46px;text-align:center;}
+.cli-pgn-btn{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;
+  font-size:0.78rem;font-weight:700;color:#334155;cursor:pointer;transition:background .12s,border-color .12s,color .12s;}
+.cli-pgn-btn:hover:not(:disabled){background:#eef2ff;border-color:#c7d2fe;color:#4f46e5;}
+.cli-pgn-btn:disabled{opacity:.45;cursor:default;}
+.cli-pgn-size-l{font-size:0.74rem;color:#94a3b8;font-weight:700;display:flex;align-items:center;gap:6px;}
+.cli-pgn-size{border:1px solid #e2e8f0;border-radius:7px;padding:4px 7px;font-size:0.76rem;
+  font-weight:700;color:#334155;background:#fff;cursor:pointer;}
 .cli-empty-ph{text-align:center;color:#94a3b8;padding:40px;font-family:Montserrat,sans-serif;
   font-weight:600;border:1px dashed #d7ddf0;border-radius:14px;margin-top:10px;}
 /* Barra de filtros rápidos (badges) — tarjeta agrupada, client-side sin reruns */
@@ -1281,18 +1295,20 @@ _CLI_CTXMENU_JS = r"""<script>
 _CLI_FILTER_JS = r"""<script>
 (function(){
   var W=window.parent, D=W&&W.document; if(!D) return;
+  function okQ(q){ var term=(W._cliQ||''); return !term || (q||'').indexOf(term)>=0; }
   function apply(){
-    var ej=W._cliFEj||'', stg=W._cliFSt||'', tier=W._cliFTier||'', fu=W._cliFFu||'', term=(W._cliQ||'');
+    var ej=W._cliFEj||'', stg=W._cliFSt||'', tier=W._cliFTier||'', fu=W._cliFFu||'';
     function okA(v){ v=v||''; if(!ej) return true; if(ej==='__none__') return v===''; return v===ej; }
     function okS(v){ return !stg || (v||'')===stg; }
     function okT(v){ return !tier || (v||'')===tier; }
     function okF(v){ return !fu || (v||'')===fu; }
-    // Pipeline: tarjetas + recuento por columna
-    var cards=D.querySelectorAll('.cli-card[data-asig]');
+    // Tarjetas (Pipeline + Bandeja): pills (si tiene data-asig) + BÚSQUEDA (data-s).
+    var cards=D.querySelectorAll('.cli-card');
     for(var i=0;i<cards.length;i++){
       var c=cards[i];
-      c.style.display=(okA(c.getAttribute('data-asig'))&&okS(c.getAttribute('data-stage'))
-        &&okT(c.getAttribute('data-tier'))&&okF(c.getAttribute('data-fuente')))?'':'none';
+      var pillOk=!c.hasAttribute('data-asig')||(okA(c.getAttribute('data-asig'))&&okS(c.getAttribute('data-stage'))
+        &&okT(c.getAttribute('data-tier'))&&okF(c.getAttribute('data-fuente')));
+      c.style.display=(pillOk&&okQ(c.getAttribute('data-s')||''))?'':'none';
     }
     var cols=D.querySelectorAll('.cli-kb-col');
     for(var j=0;j<cols.length;j++){
@@ -1300,16 +1316,26 @@ _CLI_FILTER_JS = r"""<script>
       for(var k=0;k<cc.length;k++){ if(cc[k].style.display!=='none') n++; }
       var ct=cols[j].querySelector('.cli-kb-ct'); if(ct) ct.textContent=n;
     }
-    // Maestro: filas (combina ejecutivo + estado + potencial + término de búsqueda)
-    var rows=D.querySelectorAll('.cli-tbl-wrap tbody tr[data-asig]'), m=0;
+    // Maestro: filtra (pills + búsqueda) y PAGINA las filas que pasan.
+    var rows=D.querySelectorAll('.cli-tbl-wrap tbody tr[data-asig]'), matching=[];
     for(var r=0;r<rows.length;r++){
       var tr=rows[r];
       var ok=okA(tr.getAttribute('data-asig'))&&okS(tr.getAttribute('data-stage'))
              &&okT(tr.getAttribute('data-tier'))&&okF(tr.getAttribute('data-fuente'))
-             &&(!term||(tr.getAttribute('data-s')||'').indexOf(term)>=0);
-      tr.style.display=ok?'':'none'; if(ok) m++;
+             &&okQ(tr.getAttribute('data-s')||'');
+      if(ok) matching.push(tr); else tr.style.display='none';
     }
+    var m=matching.length, pageSize=W._cliPageSize||25;
+    var totalPages=Math.max(1, Math.ceil(m/pageSize));
+    var page=Math.min(Math.max(1, W._cliPage||1), totalPages); W._cliPage=page;
+    var start=(page-1)*pageSize, end=start+pageSize;
+    for(var i2=0;i2<m;i2++){ matching[i2].style.display=(i2>=start&&i2<end)?'':'none'; }
     var cnt=D.getElementById('_cli_count'); if(cnt) cnt.textContent=m;
+    var pgi=D.getElementById('_cli_pginfo'); if(pgi) pgi.textContent=m?((start+1)+'–'+Math.min(end,m)+' de '+m):'0 de 0';
+    var pgp=D.getElementById('_cli_pgpages'); if(pgp) pgp.textContent=page+' / '+totalPages;
+    var pv=D.getElementById('_cli_prev'); if(pv) pv.disabled=(page<=1);
+    var nx=D.getElementById('_cli_next'); if(nx) nx.disabled=(page>=totalPages);
+    var pgn=D.getElementById('_cli_pgn'); if(pgn) pgn.style.display=rows.length?'flex':'none';
     var em=D.getElementById('_cli_noresult'); if(em) em.style.display=(m||!rows.length)?'none':'block';
     // Recuento FACETADO: cada grupo cuenta según los OTROS filtros activos, así se
     // ve que los 3 (ejecutivo/estado/potencial) intersectan entre sí. Fuente = los
@@ -1320,7 +1346,6 @@ _CLI_FILTER_JS = r"""<script>
                 t:el.getAttribute('data-tier')||'',f:el.getAttribute('data-fuente')||'',
                 q:el.getAttribute('data-s')||''});
     });
-    function okQ(q){ return !term || (q||'').indexOf(term)>=0; }
     function setCnt(kind, match, useA, useS, useT, useF){
       D.querySelectorAll('.cli-fpill[data-fkind="'+kind+'"]').forEach(function(p){
         var val=p.getAttribute('data-fval')||'', n=0;
@@ -1353,16 +1378,31 @@ _CLI_FILTER_JS = r"""<script>
     var kind=p.getAttribute('data-fkind'), val=p.getAttribute('data-fval')||'';
     if(kind==='ej') W._cliFEj=val; else if(kind==='st') W._cliFSt=val;
     else if(kind==='tier') W._cliFTier=val; else if(kind==='fuente') W._cliFFu=val;
-    syncPills(kind, val); apply();
+    W._cliPage=1; syncPills(kind, val); apply();
   };
   D.addEventListener('click', W._cliPillH, true);
-  // Buscador del maestro (si está)
+  // Buscador GLOBAL
   var q=D.getElementById('_cli_q');
   if(q){
     if(W._cliQH){ try{ q.removeEventListener('input', W._cliQH); }catch(e){} }
-    W._cliQH=function(){ W._cliQ=(q.value||'').toLowerCase().trim(); apply(); };
+    W._cliQH=function(){ W._cliQ=(q.value||'').toLowerCase().trim(); W._cliPage=1; apply(); };
     q.addEventListener('input', W._cliQH);
     if(W._cliQ){ q.value=W._cliQ; }
+  }
+  // Paginación del Maestro (Anterior/Siguiente + tamaño de página)
+  function bindClick(id, fn){
+    var b=D.getElementById(id); if(!b) return;
+    var k='_cliBH_'+id; if(W[k]){ try{ b.removeEventListener('click', W[k]); }catch(e){} }
+    W[k]=fn; b.addEventListener('click', fn);
+  }
+  bindClick('_cli_prev', function(){ W._cliPage=Math.max(1,(W._cliPage||1)-1); apply(); });
+  bindClick('_cli_next', function(){ W._cliPage=(W._cliPage||1)+1; apply(); });
+  var pgs=D.getElementById('_cli_pgsize');
+  if(pgs){
+    if(W._cliPgsH){ try{ pgs.removeEventListener('change', W._cliPgsH); }catch(e){} }
+    W._cliPgsH=function(){ W._cliPageSize=parseInt(pgs.value,10)||25; W._cliPage=1; apply(); };
+    pgs.addEventListener('change', W._cliPgsH);
+    pgs.value=String(W._cliPageSize||25);
   }
   syncPills('ej', W._cliFEj||''); syncPills('st', W._cliFSt||''); syncPills('tier', W._cliFTier||'');
   syncPills('fuente', W._cliFFu||'');
@@ -1459,12 +1499,6 @@ def _render_maestro(data: list):
     _titulo(f'Maestro · <span id="_cli_count">{len(data)}</span> cliente(s)',
             _svg('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>'
                  '<path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>', 16))
-    st.markdown(
-        '<div class="cli-sbar"><span class="cli-sico">'
-        + _svg('<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>', 16, "currentColor")
-        + '</span><input id="_cli_q" type="text" autocomplete="off" '
-        'placeholder="Buscar por nombre, RUT, correo, teléfono o ejecutivo…"></div>',
-        unsafe_allow_html=True)
     if not data:
         st.markdown('<div class="cli-empty-ph">Aún no hay clientes. Pulsa '
                     '<b>Sincronizar</b> para importar desde tus cotizaciones, o '
@@ -1501,6 +1535,20 @@ def _render_maestro(data: list):
         f'</tr></thead><tbody>{rows}</tbody></table></div>', unsafe_allow_html=True)
     st.markdown('<div id="_cli_noresult" class="cli-empty-ph" style="display:none;">'
                 'Ningún cliente coincide con tu búsqueda.</div>', unsafe_allow_html=True)
+    # Paginación client-side (la maneja _CLI_FILTER_JS: pagina las filas que pasan
+    # los filtros + la búsqueda; sin reruns).
+    st.markdown(
+        '<div class="cli-pgn" id="_cli_pgn">'
+        '<div class="cli-pgn-info" id="_cli_pginfo">—</div>'
+        '<div class="cli-pgn-nav">'
+        '<button id="_cli_prev" class="cli-pgn-btn" type="button">‹ Anterior</button>'
+        '<span id="_cli_pgpages" class="cli-pgn-pages">1 / 1</span>'
+        '<button id="_cli_next" class="cli-pgn-btn" type="button">Siguiente ›</button>'
+        '</div>'
+        '<label class="cli-pgn-size-l">Por página '
+        '<select id="_cli_pgsize" class="cli-pgn-size">'
+        '<option value="25">25</option><option value="50">50</option><option value="100">100</option>'
+        '</select></label></div>', unsafe_allow_html=True)
 
 
 def _render_pipeline(data: list):
@@ -1554,10 +1602,12 @@ def _render_pipeline(data: list):
                           if _nota else "")
             # Reloj SLA (rojo, en vivo) del tiempo en la etapa; solo en tratos ACTIVOS.
             _sla = _sla_clock_html(d.get("stage_desde") or d.get("fecha_creacion"), _dl.get("stage"))
+            _s_blob = _esc(f"{d.get('nombre','')} {d.get('rut','')} {d.get('email','')} "
+                           f"{d.get('telefono','')} {_asig} {d.get('origen','')}".lower())
             cards += (
                 f'<div class="cli-card" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}"'
                 f' data-asig="{_esc(_asig_email)}" data-stage="{_esc(s)}" data-tier="{_sc["key"]}"'
-                f' data-fuente="{_esc(_fuente_norm(d.get("origen")))}">'
+                f' data-fuente="{_esc(_fuente_norm(d.get("origen")))}" data-s="{_s_blob}">'
                 '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">'
                 '<div style="min-width:0;">'
                 f'<div class="cli-card-nm">{_esc(d.get("nombre","") or "—")}</div>'
@@ -1634,8 +1684,12 @@ def _render_bandeja(data: list):
         return
     cards = ""
     for d in leads:
+        _asig_b = _resolver_asig(d.get("asignado_email"), d.get("asignado_nombre"))
+        _sb = _esc(f"{d.get('nombre','')} {d.get('rut','')} {d.get('email','')} "
+                   f"{d.get('telefono','')} {_asig_b} {d.get('origen','')}".lower())
         cards += (
-            f'<div class="cli-card" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}" style="margin-bottom:10px;">'
+            f'<div class="cli-card" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}"'
+            f' data-s="{_sb}" style="margin-bottom:10px;">'
             f'<div class="cli-card-nm">{_esc(d.get("nombre","") or "—")}</div>'
             f'<div class="cli-card-sub" style="margin-top:4px;">{_origen_pill(d.get("origen","Manual"))}</div>'
             f'<div class="cli-card-sub" style="margin-top:4px;">{_esc(d.get("email","") or d.get("telefono","") or "—")}</div>'
@@ -3382,6 +3436,15 @@ def render_tab_clientes(**kwargs):
     _view = st.radio("Vista", _views, index=0, key="_cli_view", horizontal=True,
                      label_visibility="collapsed",
                      format_func=lambda v: f"{_icons.get(v,'')} {v}")
+
+    # Buscador GLOBAL (todas las vistas, siempre visible): filtra al instante las
+    # tarjetas del Pipeline/Bandeja y las filas del Maestro (client-side, sin reruns).
+    st.markdown(
+        '<div class="cli-sbar"><span class="cli-sico">'
+        + _svg('<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>', 16, "currentColor")
+        + '</span><input id="_cli_q" type="text" autocomplete="off" '
+        'placeholder="Buscar cliente por nombre, RUT, correo, teléfono o ejecutivo…"></div>',
+        unsafe_allow_html=True)
 
     # Filtros rápidos (badges por ejecutivo/estado) — solo root/admin, en Pipeline
     # y Maestro. Client-side (ver _CLI_FILTER_JS): no disparan reruns.
