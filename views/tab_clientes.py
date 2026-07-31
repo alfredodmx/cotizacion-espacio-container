@@ -1793,6 +1793,21 @@ _SHOPIFY_META_LABELS = [
 ]
 
 
+def _norm_presupuesto(s) -> str:
+    """Repara el monto que llega MAL AGRUPADO desde la máscara del form de Shopify:
+    agrupa los miles desde la IZQUIERDA (ej. '$5.000.0000') en vez de desde la
+    derecha ('$50.000.000'). Los dígitos SÍ se conservan → se extraen y se reagrupan
+    de a 3 desde la derecha. Si no parece un monto (tiene letras o largo raro), se
+    deja igual. Idempotente (un monto correcto queda igual)."""
+    raw = str(s or "").strip()
+    if not raw or any(c.isalpha() for c in raw):   # texto libre / con "CLP" → no tocar
+        return raw
+    digits = "".join(c for c in raw if c.isdigit())
+    if not (4 <= len(digits) <= 12):               # no parece un monto → no tocar
+        return raw
+    return "$" + f"{int(digits):,}".replace(",", ".")
+
+
 def _render_shopify_datos(cli):
     """Muestra los datos que vinieron del FORMULARIO de Shopify (metacampos) si el
     lead los trae en `shopify_meta`. Incluye el plano si viene."""
@@ -1805,8 +1820,13 @@ def _render_shopify_datos(cli):
     if not isinstance(_m, dict) or not any(str(v or "").strip() for v in _m.values()):
         return
     st.markdown(_zsec("Datos del formulario (Shopify)", _ZIC_SHOPIFY), unsafe_allow_html=True)
+
+    def _val(_k):
+        # Presupuesto/precio: reparar el mal-agrupado que llega de Shopify.
+        _v = str(_m.get(_k) or "")
+        return _norm_presupuesto(_v) if _k in ("presupuesto", "precio") else _v
     _items = "".join(
-        f'<div><div class="k">{_esc(_lbl)}</div>{_cp(str(_m.get(_k) or ""), _esc(str(_m.get(_k) or "")), "Copiar")}</div>'
+        f'<div><div class="k">{_esc(_lbl)}</div>{_cp(_val(_k), _esc(_val(_k)), "Copiar")}</div>'
         for _k, _lbl in _SHOPIFY_META_LABELS if str(_m.get(_k) or "").strip())
     if _items:
         st.markdown(f'<div class="cli-data">{_items}</div>', unsafe_allow_html=True)
