@@ -1441,6 +1441,7 @@ _CLI_FILTER_JS = r"""<script>
   if(W._cliPillH){ D.removeEventListener('click', W._cliPillH, true); }
   W._cliPillH=function(e){
     var t=e.target;
+    if(t&&t.closest&&t.closest('.camp-fbar')) return;   // los de la campaña los maneja _campH
     // 1) Botón del dropdown → abre/cierra su menú (cierra los demás).
     var trg=t&&t.closest?t.closest('.cli-fdd-trg'):null;
     if(trg){
@@ -2586,18 +2587,69 @@ def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None) -> dict:
 
 
 _CAMP_CSS = """<style>
+/* Diálogo de campaña MÁS ANCHO (scoped con :has para no tocar otros diálogos). */
+div[role="dialog"]:has(.cli-camp-intro){width:min(1180px,95vw)!important;max-width:1180px!important;}
 .cli-camp-badge{display:inline-flex;align-items:center;gap:6px;font-family:Montserrat,sans-serif;
   font-weight:800;font-size:0.7rem;padding:4px 10px;border-radius:99px;margin:2px 0 8px;}
 .cli-camp-badge svg{width:13px;height:13px;}
 .cli-camp-badge-ok{background:#dcfce7;color:#15803d;}
 .cli-camp-intro{font-size:0.78rem;color:#64748b;line-height:1.4;margin:0 0 12px;}
-/* Selectores de segmento con aspecto de chip (afín al home) */
-.st-key-_camp_seg div[data-baseweb="select"] > div{border-radius:11px;background:#f8fafc;
-  border-color:#e2e8f0;min-height:44px;font-family:Montserrat,sans-serif;font-weight:700;}
-.st-key-_camp_seg div[data-baseweb="select"] > div:hover{border-color:#cbd5e1;}
-.st-key-_camp_seg label{font-size:0.6rem!important;font-weight:800!important;text-transform:uppercase;
-  letter-spacing:.05em;color:#94a3b8!important;}
+/* Barra de dropdowns del segmento (reusa el look .cli-fdd/.cli-fpill del home). */
+.camp-fbar{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 8px;}
 </style>"""
+
+# Comportamiento de los dropdowns de la campaña (mismo look que el home, pero su
+# selección va por el puente _camp_segcmd → Python recomputa el segmento). __CAMP_INIT__
+# se reemplaza en cada render con la selección actual.
+_CAMP_DD_JS = r"""<script>
+(function(){
+  var W=window.parent, D=W&&W.document; if(!D) return;
+  __CAMP_INIT__
+  function fireSel(){
+    var inp=D.querySelector('.st-key-_camp_segcmd input'); if(!inp) return;
+    var s=W._campSel||{}, val=[s.tier||'',s.ej||'',s.st||'',s.fu||'',Date.now()].join('|');
+    try{
+      var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set;
+      inp.focus({preventScroll:true}); setter.call(inp, val);
+      inp.dispatchEvent(new Event('input',{bubbles:true}));
+      inp.dispatchEvent(new Event('change',{bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.blur();
+    }catch(e){}
+  }
+  function closeAll(){ D.querySelectorAll('.camp-dd.open').forEach(function(x){x.classList.remove('open');}); }
+  function updTrg(dd){
+    var k=dd.getAttribute('data-campk'), v=(W._campSel||{})[k]||'', body=dd.querySelector('.cli-fdd-body');
+    var ph=dd.getAttribute('data-ph')||'Todos', pill=null;
+    dd.querySelectorAll('.cli-fpill').forEach(function(p){ if((p.getAttribute('data-campv')||'')===v) pill=p; });
+    body.textContent='';
+    if(v && pill){
+      var ic=pill.querySelector('.cli-fpill-ic,.cli-fpill-av'), lb=pill.querySelector('.cli-fpill-lb');
+      if(ic) body.appendChild(ic.cloneNode(true));
+      var cur=D.createElement('span'); cur.className='cli-fdd-cur'; cur.textContent=lb?lb.textContent:'';
+      body.appendChild(cur); dd.classList.add('active');
+    }else{
+      var s=D.createElement('span'); s.className='cli-fdd-ph'; s.textContent=ph; body.appendChild(s);
+      dd.classList.remove('active');
+    }
+  }
+  if(W._campH){ D.removeEventListener('click', W._campH, true); }
+  W._campH=function(e){
+    var t=e.target; if(!t||!t.closest) return;
+    if(!t.closest('.camp-fbar')){ closeAll(); return; }
+    var trg=t.closest('.cli-fdd-trg');
+    if(trg){ var dd=trg.closest('.camp-dd'), wo=dd.classList.contains('open');
+      closeAll(); if(!wo) dd.classList.add('open'); e.preventDefault(); e.stopPropagation(); return; }
+    var p=t.closest('.cli-fpill');
+    if(p){ var k=p.getAttribute('data-campk'), v=p.getAttribute('data-campv')||'', dd2=p.closest('.camp-dd');
+      (W._campSel=W._campSel||{})[k]=v;
+      p.parentNode.querySelectorAll('.cli-fpill').forEach(function(x){x.classList.toggle('on',x===p);});
+      updTrg(dd2); dd2.classList.remove('open'); fireSel();
+      e.preventDefault(); e.stopPropagation(); return; }
+  };
+  D.addEventListener('click', W._campH, true);
+})();
+</script>"""
 
 
 def _render_campana_dialog(data):
@@ -2616,37 +2668,100 @@ def _render_campana_dialog(data):
                     'clientes. Filtra el segmento, redacta o <b>pega una plantilla HTML</b> '
                     'profesional, y envía.</div>', unsafe_allow_html=True)
 
-        # ── Segmento ────────────────────────────────────────────────────────
+        # ── Segmento (dropdowns con avatar, idénticos a los del home) ───────
         st.markdown('<div class="cli-sec-t" style="margin:0 0 6px;">Segmento</div>',
                     unsafe_allow_html=True)
-        with st.container(key="_camp_seg"):
-            _s1, _s2, _s3, _s4 = st.columns(4)
-            with _s1:
-                _tsel = st.selectbox("Potencial", list(_TIER_OPTS.keys()), key="_camp_tier")
-                _tier = _TIER_OPTS[_tsel]
-            with _s2:
-                _ejmap = {"Todos": ""}
-                for d in data:
-                    _e = (d.get("asignado_email") or "").strip().lower()
-                    if _e:
-                        _ejmap[_resolver_asig(_e, d.get("asignado_nombre")) or _e] = _e
-                _ejsel = st.selectbox("Ejecutivo", list(_ejmap.keys()), key="_camp_ej")
-                _ejemail = _ejmap[_ejsel]
-            with _s3:
-                _stmap = {"Todos": ""}
-                for _s in _STAGE_ORDER:
-                    _stmap[_STAGE_META[_s][0]] = _s
-                _stsel = st.selectbox("Estado", list(_stmap.keys()), key="_camp_st")
-                _stage = _stmap[_stsel]
-            with _s4:
-                _fumap, _fucnt = {"Todas": ""}, {}
-                for d in data:
-                    _fk = _fuente_norm(d.get("origen"))
-                    _fucnt[_fk] = _fucnt.get(_fk, 0) + 1
-                for _fk in sorted(_fucnt, key=lambda x: (-_fucnt[x], x)):
-                    _fumap[_fuente_meta(_fk)[0]] = _fk
-                _fusel = st.selectbox("Fuente", list(_fumap.keys()), key="_camp_fu")
-                _fuente = _fumap[_fusel]
+        _sel = st.session_state.get("_camp_sel", {}) or {}
+        _tier, _ejemail = _sel.get("tier", ""), _sel.get("ej", "")
+        _stage, _fuente = _sel.get("st", ""), _sel.get("fu", "")
+
+        _chev = ('<svg class="cli-fdd-cv" width="15" height="15" viewBox="0 0 24 24" fill="none" '
+                 'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+                 '<path d="m6 9 6 6 6-6"/></svg>')
+
+        def _ic_all(pth):
+            return f'<span class="cli-fpill-ic cli-fpill-ic-all">{_svg(pth, 15, "currentColor")}</span>'
+
+        def _ic_col(pth, bg, fg):
+            return (f'<span class="cli-fpill-ic" style="background:{bg};color:{fg};">'
+                    f'{_svg(pth, 15, "currentColor") if pth else ""}</span>')
+
+        def _opt(campk, campv, label, ic, cur):
+            _c = "cli-fpill" + (" on" if campv == cur else "")
+            return (f'<span class="{_c}" data-campk="{campk}" data-campv="{_esc(campv)}">'
+                    f'{ic}<span class="cli-fpill-lb">{_esc(label)}</span></span>')
+
+        def _dd(campk, ph, opts, cur, cur_ic, cur_lbl):
+            if cur and cur_lbl:
+                _body = f'{cur_ic}<span class="cli-fdd-cur">{_esc(cur_lbl)}</span>'
+                _act = " active"
+            else:
+                _body, _act = f'<span class="cli-fdd-ph">{_esc(ph)}</span>', ""
+            return (f'<div class="cli-fdd camp-dd{_act}" data-campk="{campk}" data-ph="{_esc(ph)}">'
+                    f'<button class="cli-fdd-trg" type="button"><span class="cli-fdd-body">{_body}</span>'
+                    f'{_chev}</button><div class="cli-fdd-menu"><div class="cli-fpills">{opts}</div></div></div>')
+
+        # Potencial
+        _TM = [("hot", "Caliente", "#dc2626", "rgba(220,38,38,.12)"),
+               ("warm", "Tibio", "#d97706", "rgba(217,119,6,.15)"),
+               ("cold", "Frío", "#2563eb", "rgba(37,99,235,.12)")]
+        _o = _opt("tier", "", "Todo el potencial", _ic_all(_IC_TODOS), _tier)
+        _ti, _tl = {}, {}
+        for _k, _l, _fg, _bg in _TM:
+            _ic = _ic_col(_FLAME_PATH, _bg, _fg)
+            _o += _opt("tier", _k, _l, _ic, _tier)
+            _ti[_k], _tl[_k] = _ic, _l
+        _dd_tier = _dd("tier", "Todo el potencial", _o, _tier, _ti.get(_tier, ""), _tl.get(_tier, ""))
+
+        # Ejecutivo (con foto/iniciales, como el home)
+        _ejinfo = {(e.get("email") or "").strip().lower(): e for e in _ejecutivos()}
+        _umap = _usuarios_map()
+        _ejset = {}
+        for d in data:
+            _e = (d.get("asignado_email") or "").strip().lower()
+            if _e:
+                _ejset[_e] = _resolver_asig(_e, d.get("asignado_nombre")) or _e
+        _o = _opt("ej", "", "Todos los ejecutivos", _ic_all(_IC_USERS), _ejemail)
+        _ei, _el = {}, {}
+        for _e in sorted(_ejset, key=lambda x: (_ejset[x] or "").lower()):
+            _einf, _udir = _ejinfo.get(_e) or {}, _umap.get(_e) or {}
+            _enm = _ejset[_e] or _einf.get("nombre") or _udir.get("nombre") or _e
+            _foto = _einf.get("foto_url") or _udir.get("foto_url") or ""
+            _av = (f'<span class="cli-fpill-av">'
+                   f'{_avatar_html(_foto, _enm, size=32, ring="#fff", font_scale=0.4)}</span>')
+            _o += _opt("ej", _e, _enm, _av, _ejemail)
+            _ei[_e], _el[_e] = _av, _enm
+        _dd_ej = _dd("ej", "Todos los ejecutivos", _o, _ejemail, _ei.get(_ejemail, ""), _el.get(_ejemail, ""))
+
+        # Estado
+        _o = _opt("st", "", "Todos los estados", _ic_all(_IC_TODOS), _stage)
+        _si, _sl = {}, {}
+        for _s in _STAGE_ORDER:
+            _lbl, _dot, _bg, _fg = _STAGE_META[_s]
+            _ic = _ic_col(_STAGE_ICON.get(_s, ""), _bg, _fg)
+            _o += _opt("st", _s, _lbl, _ic, _stage)
+            _si[_s], _sl[_s] = _ic, _lbl
+        _dd_st = _dd("st", "Todos los estados", _o, _stage, _si.get(_stage, ""), _sl.get(_stage, ""))
+
+        # Fuente
+        _fucnt = {}
+        for d in data:
+            _fk = _fuente_norm(d.get("origen"))
+            _fucnt[_fk] = _fucnt.get(_fk, 0) + 1
+        _o = _opt("fu", "", "Todas las fuentes", _ic_all(_IC_TODOS), _fuente)
+        _fi, _fl_ = {}, {}
+        for _fk in sorted(_fucnt, key=lambda x: (-_fucnt[x], x)):
+            _flbl, _fico, _ffg, _fbg = _fuente_meta(_fk)
+            _ic = _ic_col(_fico, _fbg, _ffg)
+            _o += _opt("fu", _fk, _flbl, _ic, _fuente)
+            _fi[_fk], _fl_[_fk] = _ic, _flbl
+        _dd_fu = _dd("fu", "Todas las fuentes", _o, _fuente, _fi.get(_fuente, ""), _fl_.get(_fuente, ""))
+
+        st.markdown(f'<div class="camp-fbar">{_dd_tier}{_dd_ej}{_dd_st}{_dd_fu}</div>',
+                    unsafe_allow_html=True)
+        _init = ("W._campSel={tier:'%s',ej:'%s',st:'%s',fu:'%s'};" % (
+            _tier, _ejemail.replace("'", "\\'"), _stage, _fuente))
+        components.html(_CAMP_DD_JS.replace("__CAMP_INIT__", _init), height=0)
 
         _seg = [d for d in data if _en_segmento(d, _tier, _ejemail, _stage, _fuente)]
         st.markdown(
@@ -3508,6 +3623,22 @@ def render_tab_clientes(**kwargs):
                 _do_asignar(_cobj, _aem)
                 _cli_data.clear()
                 st.session_state["_cli_ficha"] = _acid   # mantener la ficha abierta
+
+    # Puente de los dropdowns (custom) de la campaña → selección del segmento. Vive en
+    # el flujo principal (FUERA del @st.dialog, si no NO commitea). El dropdown del
+    # diálogo escribe 'tier|ej|st|fu|ts'; aquí se parsea y se re-abre la campaña.
+    st.markdown('<style>.st-key-_camp_segcmd{position:absolute!important;left:-9999px!important;'
+                'top:-9999px!important;height:0!important;width:0!important;overflow:hidden!important;}</style>',
+                unsafe_allow_html=True)
+    st.text_input("segcmd", key="_camp_segcmd", label_visibility="collapsed")
+    _scmd = str(st.session_state.get("_camp_segcmd", "") or "")
+    if _es_gestor and _scmd.count("|") >= 4:
+        _sp = _scmd.split("|")
+        if _sp[-1] != st.session_state.get("_camp_segcmd_ts"):
+            st.session_state["_camp_segcmd_ts"] = _sp[-1]
+            st.session_state["_camp_sel"] = {"tier": _sp[0], "ej": _sp[1],
+                                             "st": _sp[2], "fu": _sp[3]}
+            st.session_state["_camp_open"] = True   # re-render la campaña con lo elegido
 
     # Recordatorios pendientes (para el KPI) + alerta Telegram de vencidos.
     _pend_tareas = listar_tareas_pendientes()
