@@ -1725,7 +1725,7 @@ def _traer_de_shopify():
     deduplicados. Deja el resultado en el toast."""
     if not _shopify_configurado():
         st.session_state["_cli_toast"] = ("Falta configurar Shopify: agrega SHOPIFY_STORE y "
-                                          "SHOPIFY_TOKEN en los secrets.")
+                                          "SHOPIFY_TOKEN (o SHOPIFY_ACCESS_TOKEN) en los secrets.")
         return
     with st.spinner("Trayendo clientes de Shopify…"):
         _cust, _err = _shopify_listar()
@@ -1756,7 +1756,8 @@ def _render_bandeja(data: list):
         with _sc2:
             if not _shopify_configurado():
                 st.markdown('<div class="cli-actf-hint" style="margin:0;">Configura '
-                            '<code>SHOPIFY_STORE</code> y <code>SHOPIFY_TOKEN</code> en los secrets '
+                            '<code>SHOPIFY_STORE</code> y <code>SHOPIFY_TOKEN</code> '
+                            '(o <code>SHOPIFY_ACCESS_TOKEN</code>) en los secrets '
                             'para activar la ingesta.</div>', unsafe_allow_html=True)
     if not leads:
         st.markdown(

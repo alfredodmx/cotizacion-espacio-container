@@ -26,7 +26,8 @@ def _store() -> str:
 
 
 def _token() -> str:
-    return str(_sec("SHOPIFY_TOKEN", "") or "").strip()
+    # Acepta SHOPIFY_TOKEN o SHOPIFY_ACCESS_TOKEN (ambos nombres son comunes).
+    return str(_sec("SHOPIFY_TOKEN", "") or _sec("SHOPIFY_ACCESS_TOKEN", "") or "").strip()
 
 
 def _version() -> str:
@@ -52,7 +53,7 @@ def listar_clientes(max_paginas: int = 40) -> tuple:
     """Trae TODOS los clientes de la tienda (paginado por cursor, 250 por página).
     Devuelve (lista, error). DEFENSIVO."""
     if not configurado():
-        return [], "Faltan SHOPIFY_STORE / SHOPIFY_TOKEN en los secrets."
+        return [], "Faltan SHOPIFY_STORE / SHOPIFY_TOKEN (o SHOPIFY_ACCESS_TOKEN) en los secrets."
     import requests
     out = []
     url = f"https://{_store()}/admin/api/{_version()}/customers.json?limit=250"
