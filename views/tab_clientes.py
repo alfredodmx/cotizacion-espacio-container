@@ -2855,6 +2855,9 @@ def _firma_render(nombre, foto, cargo, tel, correo, cfg) -> str:
              if (_logo_img and logo_link) else _logo_img)
     _tel = (f'<a href="tel:{_esc(tel)}" style="color:#475569;text-decoration:none;">☎ {_esc(tel)}</a>'
             if tel else "")
+    _wa = (f'<a href="https://wa.me/{_esc(_wa_num(tel))}" target="_blank" '
+           'style="color:#16a34a;text-decoration:none;font-weight:600;">💬 WhatsApp</a>'
+           if _wa_num(tel) else "")
     _mail = (f'<a href="mailto:{_esc(correo)}" style="color:#2563eb;text-decoration:none;">✉ {_esc(correo)}</a>'
              if correo else "")
     _web = (f'<a href="https://{_esc(web)}" style="color:#2563eb;text-decoration:none;">{_esc(web)}</a>'
@@ -2867,7 +2870,7 @@ def _firma_render(nombre, foto, cargo, tel, correo, cfg) -> str:
     else:
         _dir = ""
     _left = f'<td style="padding:0 14px 0 0;vertical-align:top;">{_foto}</td>' if _foto else ""
-    _sep = ' &nbsp;·&nbsp; ' if (_tel and _mail) else ''
+    _contact = ' &nbsp;·&nbsp; '.join([p for p in (_tel, _wa, _mail) if p])
     return (
         '<div style="margin-top:26px;border-top:1px solid #e5e7eb;padding-top:14px;'
         'font-family:Arial,Helvetica,sans-serif;">'
@@ -2875,7 +2878,7 @@ def _firma_render(nombre, foto, cargo, tel, correo, cfg) -> str:
         f'{_left}<td style="vertical-align:top;">'
         f'<div style="font-size:15px;font-weight:700;color:#0f172a;">{_esc(nombre)}</div>'
         f'<div style="font-size:12.5px;color:#64748b;margin:1px 0 6px;">{_esc(cargo)}</div>'
-        f'<div style="font-size:12.5px;line-height:1.7;">{_tel}{_sep}{_mail}</div>'
+        f'<div style="font-size:12.5px;line-height:1.7;">{_contact}</div>'
         f'<div style="margin-top:8px;">{_logo}</div>'
         '<div style="font-size:11.5px;color:#94a3b8;margin-top:5px;line-height:1.6;">'
         f'{_web}' + (f'<br>{_dir}' if _dir else '') + '</div>'
@@ -2891,8 +2894,12 @@ def _firma_html(exec_email: str, masivo: bool = False) -> str:
     em = (exec_email or "").strip().lower()
     ex = _get_firma(em) or {}
     u = (_usuarios_map() or {}).get(em) or {}
+    # Teléfono (llamar + WhatsApp): firma > perfil del ejecutivo (user_metadata) > empresa.
+    _tel_perfil = next((e.get("telefono", "") for e in _ejecutivos()
+                        if (e.get("email") or "").strip().lower() == em), "")
+    _tel = ex.get("telefono") or _tel_perfil or cfg.get("telefono") or ""
     return _firma_render(u.get("nombre") or ex.get("nombre") or em, u.get("foto_url") or "",
-                         ex.get("cargo"), ex.get("telefono") or cfg.get("telefono"), em, cfg)
+                         ex.get("cargo"), _tel, em, cfg)
 
 
 def _render_firma_dialog(data):
@@ -2951,13 +2958,21 @@ def _render_firma_dialog(data):
             st.session_state.get("auth_email", "yo"): st.session_state.get("auth_email", "")}
         _sel_nm = st.selectbox("Ejecutivo", list(_opts.keys()), key="_firma_ej_sel")
         _sel_em = _opts[_sel_nm]
+        # Al cambiar de ejecutivo, recargar sus datos en los campos (default nuevo).
+        if st.session_state.get("_firma_ej_last") != _sel_em:
+            st.session_state["_firma_ej_last"] = _sel_em
+            for _k in ("_firma_cargo", "_firma_tel_ej"):
+                st.session_state.pop(_k, None)
         _exd = _get_firma(_sel_em) or {}
+        _tel_perfil = next((e.get("telefono", "") for e in _ejecutivos()
+                            if (e.get("email") or "").strip().lower() == _sel_em), "")
         _c1, _c2 = st.columns(2)
         with _c1:
             _cargo = st.text_input("Cargo", value=_exd.get("cargo", "Ejecutivo/a de Ventas"),
                                    key="_firma_cargo")
         with _c2:
-            _tel_ej = st.text_input("Teléfono directo", value=_exd.get("telefono", ""), key="_firma_tel_ej")
+            _tel_ej = st.text_input("Teléfono directo (= WhatsApp)",
+                                    value=_exd.get("telefono") or _tel_perfil, key="_firma_tel_ej")
 
         if st.button("Guardar firma", type="primary", use_container_width=True,
                      key="_firma_save", icon=":material/save:"):
