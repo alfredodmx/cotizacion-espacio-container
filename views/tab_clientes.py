@@ -151,6 +151,24 @@ except Exception:
     def _listar_correos_cliente(_cid):
         return []
 
+try:   # Firma de correo por ejecutivo (tabla crm_firma) — defensivo
+    from repositories.firma_repo import (
+        get_firma as _get_firma, set_firma as _set_firma,
+        listar_firmas as _listar_firmas, logo_url_publica as _logo_url_publica,
+    )
+except Exception:
+    def _get_firma(_c):
+        return {}
+
+    def _set_firma(_c, _v):
+        return False, "Firma no disponible."
+
+    def _listar_firmas():
+        return {}
+
+    def _logo_url_publica():
+        return ""
+
 try:   # Ingesta de leads desde Shopify (Fase 4) — defensivo
     from utils.shopify import (
         configurado as _shopify_configurado, listar_clientes as _shopify_listar,
@@ -2281,7 +2299,8 @@ def _render_correo(cid, cli):
                                          "content": base64.b64encode(_f.getvalue()).decode()})
                         except Exception:
                             pass
-                    _ok, _res = _resend_enviar(_to, _subject, _resend_texto_html(_texto),
+                    _ok, _res = _resend_enviar(_to, _subject,
+                                               _resend_texto_html(_texto) + _firma_html(_reply_to),
                                                reply_to=_reply_to or None,
                                                attachments=_att or None)
                     if _ok:
@@ -2524,8 +2543,9 @@ def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None) -> dict:
     def _componer(_cli):
         _subj = _resend_render(subj_tpl, _cli)
         _cuerpo = _resend_render(body_tpl, _cli)
-        _html = (_cuerpo if _es_html else _resend_texto_html(_cuerpo)) + _resend_pie(_cli.get("id"))
         _reply = (_cli.get("asignado_email") or "").strip().lower() or _resend_reply()
+        _html = ((_cuerpo if _es_html else _resend_texto_html(_cuerpo))
+                 + _firma_html(_reply) + _resend_pie(_cli.get("id")))
         _hdr = {"List-Unsubscribe": f"<{_resend_unsub(_cli.get('id'))}>"}
         return _subj, _html, _reply, _hdr
 
@@ -2777,6 +2797,147 @@ _MAIL_TOOLS_JS = r"""<script>
 def _mail_tools_js(subj_key: str, body_key: str) -> str:
     """JS del toolbar apuntando a los campos de ESTE compositor (asunto/mensaje)."""
     return _MAIL_TOOLS_JS.replace("__SUBJ__", subj_key).replace("__BODY__", body_key)
+
+
+# ── Firma de correo por ejecutivo ─────────────────────────────────────────────
+def _firma_defaults() -> dict:
+    """Bloque de empresa por defecto (datos del PDF)."""
+    return {"empresa": "Inversiones Container House SpA", "web": "espaciocontainerhouse.cl",
+            "direccion": "Villasana 2039, Quinta Normal, Santiago", "telefono": "",
+            "logo_url": "", "incluir": True}
+
+
+def _firma_cfg_empresa() -> dict:
+    _d = _firma_defaults()
+    _d.update({k: v for k, v in (_get_firma("empresa") or {}).items() if v not in (None, "")})
+    return _d
+
+
+def _firma_activa() -> bool:
+    """True si hay config de firma y está marcada 'incluir'. Sin config → no se agrega."""
+    _cfg = _get_firma("empresa")
+    return bool(_cfg) and bool(_cfg.get("incluir", True))
+
+
+def _firma_render(nombre, foto, cargo, tel, correo, cfg) -> str:
+    """Firma HTML (tabla email-safe) a partir de valores explícitos. La usan el envío
+    (datos guardados) y la vista previa (datos del formulario, en vivo)."""
+    nombre = str(nombre or "").strip() or "Espacio Container House"
+    cargo = str(cargo or "").strip() or "Ejecutivo/a de Ventas"
+    tel = str(tel or "").strip()
+    correo = str(correo or "").strip()
+    logo = str(cfg.get("logo_url") or "").strip()
+    web = str(cfg.get("web") or "").strip()
+    empresa = str(cfg.get("empresa") or "").strip()
+    direccion = str(cfg.get("direccion") or "").strip()
+
+    _foto = (f'<img src="{_esc(foto)}" width="56" height="56" alt="" '
+             'style="border-radius:50%;object-fit:cover;display:block;">') if foto else ""
+    _logo = (f'<img src="{_esc(logo)}" width="118" alt="" '
+             'style="display:block;max-width:118px;height:auto;">') if logo else (
+             f'<b style="color:#0f172a;font-size:13px;">{_esc(empresa)}</b>' if empresa else "")
+    _tel = (f'<a href="tel:{_esc(tel)}" style="color:#475569;text-decoration:none;">☎ {_esc(tel)}</a>'
+            if tel else "")
+    _mail = (f'<a href="mailto:{_esc(correo)}" style="color:#2563eb;text-decoration:none;">✉ {_esc(correo)}</a>'
+             if correo else "")
+    _web = (f'<a href="https://{_esc(web)}" style="color:#2563eb;text-decoration:none;">{_esc(web)}</a>'
+            if web else "")
+    _left = f'<td style="padding:0 14px 0 0;vertical-align:top;">{_foto}</td>' if _foto else ""
+    _sep = ' &nbsp;·&nbsp; ' if (_tel and _mail) else ''
+    return (
+        '<div style="margin-top:26px;border-top:1px solid #e5e7eb;padding-top:14px;'
+        'font-family:Arial,Helvetica,sans-serif;">'
+        '<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;"><tr>'
+        f'{_left}<td style="vertical-align:top;">'
+        f'<div style="font-size:15px;font-weight:700;color:#0f172a;">{_esc(nombre)}</div>'
+        f'<div style="font-size:12.5px;color:#64748b;margin:1px 0 6px;">{_esc(cargo)}</div>'
+        f'<div style="font-size:12.5px;line-height:1.7;">{_tel}{_sep}{_mail}</div>'
+        f'<div style="margin-top:8px;">{_logo}</div>'
+        '<div style="font-size:11.5px;color:#94a3b8;margin-top:5px;line-height:1.6;">'
+        f'{_web}' + (f'<br>{_esc(direccion)}' if direccion else '') + '</div>'
+        '</td></tr></table></div>')
+
+
+def _firma_html(exec_email: str) -> str:
+    """Firma del ejecutivo remitente para agregar al correo. '' si está desactivada."""
+    if not _firma_activa():
+        return ""
+    cfg = _firma_cfg_empresa()
+    em = (exec_email or "").strip().lower()
+    ex = _get_firma(em) or {}
+    u = (_usuarios_map() or {}).get(em) or {}
+    return _firma_render(u.get("nombre") or ex.get("nombre") or em, u.get("foto_url") or "",
+                         ex.get("cargo"), ex.get("telefono") or cfg.get("telefono"), em, cfg)
+
+
+def _render_firma_dialog(data):
+    """Diálogo (root/admin): configurar la firma de correo — bloque de empresa +
+    cargo/teléfono por ejecutivo, con vista previa EN VIVO. Se agrega sola a los
+    correos (ficha y campaña) si está activada."""
+
+    @st.dialog("Firma de correo", width="large")
+    def _dlg():
+        st.markdown(_CAMP_CSS, unsafe_allow_html=True)
+        cfg = _firma_cfg_empresa()
+        _logo0 = str(cfg.get("logo_url") or "").strip() or _logo_url_publica()
+        st.markdown('<div class="cli-camp-intro">La firma se agrega automáticamente al final de '
+                    'cada correo (ficha y campaña) con los datos del ejecutivo que atiende. El logo '
+                    'se toma del <code>logo.png</code> del sistema.</div>', unsafe_allow_html=True)
+
+        st.markdown('<div class="cli-sec-t" style="margin:0 0 6px;">Empresa (compartido)</div>',
+                    unsafe_allow_html=True)
+        _incluir = st.toggle("Incluir la firma en los correos",
+                             value=bool(cfg.get("incluir", True)), key="_firma_incluir")
+        _e1, _e2 = st.columns(2)
+        with _e1:
+            _empresa = st.text_input("Empresa", value=cfg.get("empresa", ""), key="_firma_empresa")
+            _web = st.text_input("Sitio web", value=cfg.get("web", ""), key="_firma_web")
+        with _e2:
+            _tel_emp = st.text_input("Teléfono general", value=cfg.get("telefono", ""), key="_firma_tel")
+            _dir = st.text_input("Dirección", value=cfg.get("direccion", ""), key="_firma_dir")
+        _logo_in = st.text_input("URL del logo", value=_logo0, key="_firma_logo",
+                                 help="Se llena solo subiendo logo.png; puedes pegar otra URL.")
+
+        st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="cli-sec-t" style="margin:0 0 6px;">Datos del ejecutivo</div>',
+                    unsafe_allow_html=True)
+        _umap = _usuarios_map() or {}
+        _ejs = sorted({e for e in ((d.get("asignado_email") or "").strip().lower() for d in data) if e}
+                      | set(_umap.keys()))
+        _opts = {(_umap.get(e, {}).get("nombre") or e): e for e in _ejs} or {
+            st.session_state.get("auth_email", "yo"): st.session_state.get("auth_email", "")}
+        _sel_nm = st.selectbox("Ejecutivo", list(_opts.keys()), key="_firma_ej_sel")
+        _sel_em = _opts[_sel_nm]
+        _exd = _get_firma(_sel_em) or {}
+        _c1, _c2 = st.columns(2)
+        with _c1:
+            _cargo = st.text_input("Cargo", value=_exd.get("cargo", "Ejecutivo/a de Ventas"),
+                                   key="_firma_cargo")
+        with _c2:
+            _tel_ej = st.text_input("Teléfono directo", value=_exd.get("telefono", ""), key="_firma_tel_ej")
+
+        if st.button("Guardar firma", type="primary", use_container_width=True,
+                     key="_firma_save", icon=":material/save:"):
+            _ok1, _ = _set_firma("empresa", {"empresa": _empresa, "web": _web, "telefono": _tel_emp,
+                                             "direccion": _dir, "logo_url": _logo_in, "incluir": _incluir})
+            _ok2, _ = _set_firma(_sel_em, {"cargo": _cargo, "telefono": _tel_ej, "nombre": _sel_nm})
+            if _ok1 and _ok2:
+                st.session_state["_cli_toast"] = "Firma guardada."
+                st.rerun()
+            else:
+                st.error("No se pudo guardar. ¿Creaste la tabla crm_firma en Supabase?")
+
+        st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="cli-sec-t" style="margin:0 0 6px;">Vista previa</div>',
+                    unsafe_allow_html=True)
+        _prev = _firma_render(_sel_nm, _umap.get(_sel_em, {}).get("foto_url", ""), _cargo,
+                              _tel_ej or _tel_emp, _sel_em,
+                              {"empresa": _empresa, "web": _web, "telefono": _tel_emp,
+                               "direccion": _dir, "logo_url": _logo_in})
+        components.html(f'<div style="background:#fff;padding:16px 18px;border-radius:8px;">{_prev}</div>',
+                        height=250, scrolling=True)
+
+    _dlg()
 
 
 def _render_campana_dialog(data):
@@ -3875,8 +4036,8 @@ def render_tab_clientes(**kwargs):
     _icons = {"Pipeline": ":material/view_kanban:", "Bandeja": ":material/inbox:",
               "Maestro": ":material/table_rows:"}
     if _es_gestor:
-        _c_tabs, _c_sync, _c_guion, _c_imp, _c_camp, _c_merge, _c_add = st.columns(
-            [6, 1, 1, 1, 1, 1, 2], vertical_alignment="center")
+        _c_tabs, _c_sync, _c_guion, _c_imp, _c_camp, _c_firma, _c_merge, _c_add = st.columns(
+            [6, 1, 1, 1, 1, 1, 1, 2], vertical_alignment="center")
     else:
         _c_tabs, _c_add = st.columns([9, 2], vertical_alignment="center")
     with _c_tabs:
@@ -3916,6 +4077,15 @@ def render_tab_clientes(**kwargs):
             if st.button("", icon=":material/campaign:", use_container_width=True,
                          key="_cli_camp", help="Enviar campaña de correo por segmento"):
                 st.session_state["_camp_open"] = True
+                st.session_state["_cli_just_opened"] = True
+                st.session_state.pop("_cli_ficha", None)
+                st.session_state.pop("_guion_open", None)
+                st.session_state.pop("_import_open", None)
+                st.rerun()
+        with _c_firma:
+            if st.button("", icon=":material/signature:", use_container_width=True,
+                         key="_cli_firma_btn", help="Configurar la firma de correo"):
+                st.session_state["_firma_open"] = True
                 st.session_state["_cli_just_opened"] = True
                 st.session_state.pop("_cli_ficha", None)
                 st.session_state.pop("_guion_open", None)
@@ -3976,6 +4146,8 @@ def render_tab_clientes(**kwargs):
         _render_importar_dialog()
     elif st.session_state.pop("_dedup_open", False) and _es_gestor:
         _render_dedup_dialog(data)
+    elif st.session_state.pop("_firma_open", False) and _es_gestor:
+        _render_firma_dialog(data)
     elif st.session_state.pop("_camp_open", False) and _es_gestor:
         _render_campana_dialog(data)
     else:
