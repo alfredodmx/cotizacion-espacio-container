@@ -2545,7 +2545,7 @@ def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None) -> dict:
         _cuerpo = _resend_render(body_tpl, _cli)
         _reply = (_cli.get("asignado_email") or "").strip().lower() or _resend_reply()
         _html = ((_cuerpo if _es_html else _resend_texto_html(_cuerpo))
-                 + _firma_html(_reply) + _resend_pie(_cli.get("id")))
+                 + _firma_html(_reply, masivo=True) + _resend_pie(_cli.get("id")))
         _hdr = {"List-Unsubscribe": f"<{_resend_unsub(_cli.get('id'))}>"}
         return _subj, _html, _reply, _hdr
 
@@ -2821,10 +2821,15 @@ def _firma_cfg_empresa() -> dict:
     return _d
 
 
-def _firma_activa() -> bool:
-    """True si hay config de firma y está marcada 'incluir'. Sin config → no se agrega."""
+def _firma_activa(masivo: bool = False) -> bool:
+    """True si la firma está activada para este tipo de envío. `masivo`=campaña,
+    si no = correo uno-a-uno. Sin config → no se agrega. Compatibilidad: si solo
+    existe el flag viejo 'incluir', vale para ambos."""
     _cfg = _get_firma("empresa")
-    return bool(_cfg) and bool(_cfg.get("incluir", True))
+    if not _cfg:
+        return False
+    _k = "incluir_masivo" if masivo else "incluir_individual"
+    return bool(_cfg.get(_k, _cfg.get("incluir", True)))
 
 
 def _firma_render(nombre, foto, cargo, tel, correo, cfg) -> str:
@@ -2866,9 +2871,10 @@ def _firma_render(nombre, foto, cargo, tel, correo, cfg) -> str:
         '</td></tr></table></div>')
 
 
-def _firma_html(exec_email: str) -> str:
-    """Firma del ejecutivo remitente para agregar al correo. '' si está desactivada."""
-    if not _firma_activa():
+def _firma_html(exec_email: str, masivo: bool = False) -> str:
+    """Firma del ejecutivo remitente para agregar al correo. '' si está desactivada
+    para este tipo de envío (`masivo`=campaña / si no = uno-a-uno)."""
+    if not _firma_activa(masivo):
         return ""
     cfg = _firma_cfg_empresa()
     em = (exec_email or "").strip().lower()
@@ -2894,8 +2900,17 @@ def _render_firma_dialog(data):
 
         st.markdown('<div class="cli-sec-t" style="margin:0 0 6px;">Empresa (compartido)</div>',
                     unsafe_allow_html=True)
-        _incluir = st.toggle("Incluir la firma en los correos",
-                             value=bool(cfg.get("incluir", True)), key="_firma_incluir")
+        st.markdown('<div class="cli-mail-tools-lbl">¿Dónde agregar la firma?</div>',
+                    unsafe_allow_html=True)
+        _ti1, _ti2 = st.columns(2)
+        with _ti1:
+            _inc_ind = st.toggle("Correos uno a uno (ficha)",
+                                 value=bool(cfg.get("incluir_individual", cfg.get("incluir", True))),
+                                 key="_firma_inc_ind")
+        with _ti2:
+            _inc_mas = st.toggle("Campañas masivas",
+                                 value=bool(cfg.get("incluir_masivo", cfg.get("incluir", True))),
+                                 key="_firma_inc_mas")
         _e1, _e2 = st.columns(2)
         with _e1:
             _empresa = st.text_input("Empresa", value=cfg.get("empresa", ""), key="_firma_empresa")
@@ -2927,7 +2942,8 @@ def _render_firma_dialog(data):
         if st.button("Guardar firma", type="primary", use_container_width=True,
                      key="_firma_save", icon=":material/save:"):
             _ok1, _ = _set_firma("empresa", {"empresa": _empresa, "web": _web, "telefono": _tel_emp,
-                                             "direccion": _dir, "logo_url": _logo_in, "incluir": _incluir})
+                                             "direccion": _dir, "logo_url": _logo_in,
+                                             "incluir_individual": _inc_ind, "incluir_masivo": _inc_mas})
             _ok2, _ = _set_firma(_sel_em, {"cargo": _cargo, "telefono": _tel_ej, "nombre": _sel_nm})
             if _ok1 and _ok2:
                 st.session_state["_cli_toast"] = "Firma guardada."
