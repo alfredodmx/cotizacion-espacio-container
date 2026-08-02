@@ -3851,12 +3851,42 @@ def render_tab_clientes(**kwargs):
             st.session_state["_cli_add_open"] = True
             st.session_state["_cli_just_opened"] = True
 
-    # Barra de ACCIONES (fila propia, alineada a la izquierda). Los KPI van en su
-    # propia fila debajo → más aire, menos amontonado.
+    # KPI cards (fila propia).
+    st.markdown('<div style="margin-top:4px;">' + _kpi_html + '</div>', unsafe_allow_html=True)
+
+    # Aviso de posibles duplicados (root/admin): solo texto; el botón «Fusionar» va
+    # en la barra de acciones (a la derecha de las pestañas).
     if _es_gestor:
-        _bs, _bg, _bi, _bc, _ba, _bsp = st.columns([1, 1, 1, 1, 1.9, 5.1],
-                                                   vertical_alignment="center")
-        with _bs:
+        _dupmap = {}
+        for _d in data:
+            _nk = " ".join(str(_d.get("nombre") or "").strip().lower().split())
+            if _nk:
+                _dupmap.setdefault(_nk, 0)
+                _dupmap[_nk] += 1
+        _ndup = sum(1 for _n2 in _dupmap.values() if _n2 >= 2)
+        if _ndup:
+            st.warning(f"Hay {_ndup} grupo(s) de fichas con el mismo nombre (posibles duplicados). "
+                       "Usa «Fusionar», arriba a la derecha.")
+
+    # Fila ÚNICA: pestañas (izquierda) + barra de acciones (derecha). Los iconos
+    # abren cada diálogo (sincronizar / guión / importar / campaña / fusionar) y
+    # «Agregar» crea una ficha.
+    st.markdown('<div style="height:16px;"></div>', unsafe_allow_html=True)
+    st.markdown(_CLI_SELECTOR_CSS, unsafe_allow_html=True)
+    _views = ["Pipeline", "Bandeja", "Maestro"]
+    _icons = {"Pipeline": ":material/view_kanban:", "Bandeja": ":material/inbox:",
+              "Maestro": ":material/table_rows:"}
+    if _es_gestor:
+        _c_tabs, _c_sync, _c_guion, _c_imp, _c_camp, _c_merge, _c_add = st.columns(
+            [6, 1, 1, 1, 1, 1, 2], vertical_alignment="center")
+    else:
+        _c_tabs, _c_add = st.columns([9, 2], vertical_alignment="center")
+    with _c_tabs:
+        _view = st.radio("Vista", _views, index=0, key="_cli_view", horizontal=True,
+                         label_visibility="collapsed",
+                         format_func=lambda v: f"{_icons.get(v,'')} {v}")
+    if _es_gestor:
+        with _c_sync:
             if st.button("", icon=":material/sync:", use_container_width=True,
                          key="_cli_sync", help="Sincronizar con cotizaciones"):
                 with st.spinner("Sincronizando…"):
@@ -3867,7 +3897,24 @@ def render_tab_clientes(**kwargs):
                     f"Sincronizado: {res['creados']} nuevo(s), {res['existentes']} ya estaban"
                     + (f" · {_est} presupuesto(s) vinculado(s)" if _est else "") + ".")
                 st.rerun()
-        with _bc:
+        with _c_guion:
+            if st.button("", icon=":material/fact_check:", use_container_width=True,
+                         key="_cli_guion", help="Configurar guión de calificación"):
+                st.session_state["_guion_open"] = True
+                st.session_state["_cli_just_opened"] = True
+                st.session_state.pop("_cli_ficha", None)
+                st.rerun()
+        with _c_imp:
+            if st.button("", icon=":material/upload_file:", use_container_width=True,
+                         key="_cli_import", help="Importar leads desde CSV / Excel"):
+                for _k in [k for k in st.session_state if str(k).startswith("_imp_")]:
+                    st.session_state.pop(_k, None)
+                st.session_state["_import_open"] = True
+                st.session_state["_cli_just_opened"] = True
+                st.session_state.pop("_cli_ficha", None)
+                st.session_state.pop("_guion_open", None)
+                st.rerun()
+        with _c_camp:
             if st.button("", icon=":material/campaign:", use_container_width=True,
                          key="_cli_camp", help="Enviar campaña de correo por segmento"):
                 st.session_state["_camp_open"] = True
@@ -3876,66 +3923,20 @@ def render_tab_clientes(**kwargs):
                 st.session_state.pop("_guion_open", None)
                 st.session_state.pop("_import_open", None)
                 st.rerun()
-        with _bg:
-            if st.button("", icon=":material/fact_check:", use_container_width=True,
-                         key="_cli_guion", help="Configurar guión de calificación"):
-                st.session_state["_guion_open"] = True
-                st.session_state["_cli_just_opened"] = True   # slide de entrada
-                st.session_state.pop("_cli_ficha", None)      # no dos diálogos a la vez
-                st.rerun()
-        with _bi:
-            if st.button("", icon=":material/upload_file:", use_container_width=True,
-                         key="_cli_import", help="Importar leads desde CSV / Excel"):
-                # Arranca en limpio: borra archivo/mapeo de una importación previa.
-                for _k in [k for k in st.session_state if str(k).startswith("_imp_")]:
-                    st.session_state.pop(_k, None)
-                st.session_state["_import_open"] = True
-                st.session_state["_cli_just_opened"] = True   # slide de entrada
+        with _c_merge:
+            if st.button("", icon=":material/merge:", use_container_width=True,
+                         key="_cli_dedup_btn", help="Fusionar duplicados"):
+                st.session_state["_dedup_open"] = True
+                st.session_state["_cli_just_opened"] = True
                 st.session_state.pop("_cli_ficha", None)
                 st.session_state.pop("_guion_open", None)
+                st.session_state.pop("_import_open", None)
                 st.rerun()
-        with _ba:
+        with _c_add:
             _add_btn()
     else:
-        _ba, _bsp = st.columns([2, 10], vertical_alignment="center")
-        with _ba:
+        with _c_add:
             _add_btn()
-
-    # KPI cards (fila propia, con separación respecto a la barra de acciones).
-    st.markdown('<div style="margin-top:16px;">' + _kpi_html + '</div>', unsafe_allow_html=True)
-
-    # Aviso de posibles duplicados (root/admin): fichas con el mismo nombre.
-    if _es_gestor:
-        _dupmap = {}
-        for _d in data:
-            _nk = " ".join(str(_d.get("nombre") or "").strip().lower().split())
-            if _nk:
-                _dupmap.setdefault(_nk, 0)
-                _dupmap[_nk] += 1
-        _ndup = sum(1 for _n2 in _dupmap.values() if _n2 >= 2)
-        if _ndup:
-            _dw1, _dw2 = st.columns([4, 1], vertical_alignment="center")
-            with _dw1:
-                st.warning(f"Hay {_ndup} grupo(s) de fichas con el mismo nombre (posibles duplicados).")
-            with _dw2:
-                if st.button("Fusionar", icon=":material/merge:", use_container_width=True,
-                             key="_cli_dedup_btn"):
-                    st.session_state["_dedup_open"] = True
-                    st.session_state["_cli_just_opened"] = True
-                    st.session_state.pop("_cli_ficha", None)
-                    st.session_state.pop("_guion_open", None)
-                    st.session_state.pop("_import_open", None)
-                    st.rerun()
-
-    # Selector de vista (con aire arriba para separarlo de las tarjetas KPI).
-    st.markdown('<div style="height:20px;"></div>', unsafe_allow_html=True)
-    st.markdown(_CLI_SELECTOR_CSS, unsafe_allow_html=True)
-    _views = ["Pipeline", "Bandeja", "Maestro"]
-    _icons = {"Pipeline": ":material/view_kanban:", "Bandeja": ":material/inbox:",
-              "Maestro": ":material/table_rows:"}
-    _view = st.radio("Vista", _views, index=0, key="_cli_view", horizontal=True,
-                     label_visibility="collapsed",
-                     format_func=lambda v: f"{_icons.get(v,'')} {v}")
 
     # Buscador GLOBAL (todas las vistas, siempre visible): filtra al instante las
     # tarjetas del Pipeline/Bandeja y las filas del Maestro (client-side, sin reruns).
