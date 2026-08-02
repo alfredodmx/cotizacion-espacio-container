@@ -392,32 +392,39 @@ _CLI_CSS = """
 .cli-fbar{display:flex;flex-wrap:wrap;gap:10px;background:#fff;border:1px solid #e9edf5;border-radius:14px;
   padding:10px 12px;box-shadow:0 2px 12px rgba(30,36,71,.05);margin:6px 0 16px;}
 .cli-fdd{position:relative;flex:1 1 190px;min-width:0;}
-.cli-fdd-trg{width:100%;display:flex;align-items:center;gap:8px;padding:7px 12px;border:1px solid #e2e8f0;
-  border-radius:12px;background:#fff;cursor:pointer;font-family:Montserrat,sans-serif;transition:all .12s;}
-.cli-fdd-trg:hover{border-color:#cbd5e1;background:#f8fafc;}
+.cli-fdd-trg{width:100%;height:48px;display:flex;align-items:center;gap:11px;padding:0 12px;
+  border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;cursor:pointer;
+  font-family:Montserrat,sans-serif;transition:all .12s;}
+.cli-fdd-trg:hover{border-color:#cbd5e1;}
 .cli-fdd.active .cli-fdd-trg{border-color:#c7d2fe;background:#f5f7ff;}
-.cli-fdd-txt{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1;text-align:left;}
-.cli-fdd-grp{font-size:0.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;}
-.cli-fdd-cur{font-size:0.8rem;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.cli-fdd.active .cli-fdd-cur{color:#4338ca;}
+.cli-fdd-body{display:flex;align-items:center;gap:11px;flex:1;min-width:0;}
+.cli-fdd-ph{font-weight:700;font-size:13px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cli-fdd-cur{font-weight:800;font-size:14px;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .cli-fdd-cv{margin-left:auto;flex:0 0 auto;color:#94a3b8;transition:transform .15s;}
 .cli-fdd.open .cli-fdd-cv{transform:rotate(180deg);}
-.cli-fdd-menu{display:none;position:absolute;top:calc(100% + 6px);left:0;min-width:100%;max-height:300px;
-  overflow-y:auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;
-  box-shadow:0 12px 34px rgba(15,23,42,0.18);z-index:2147483000;padding:6px;}
+.cli-fdd-menu{display:none;position:absolute;top:calc(100% + 6px);left:0;min-width:100%;max-height:320px;
+  overflow-y:auto;background:#fff;border:1px solid #e2e8f0;border-radius:13px;
+  box-shadow:0 14px 40px rgba(15,23,42,.18);z-index:2147483000;padding:6px;}
 .cli-fdd.open .cli-fdd-menu{display:block;}
-.cli-fdd-menu .cli-fpills{display:flex;flex-direction:column;align-items:flex-start;gap:5px;}
-.cli-fpill{display:inline-flex;align-items:center;gap:5px;font-size:0.72rem;font-weight:700;padding:4px 9px;
-  border-radius:99px;border:1px solid #e2e8f0;background:#fff;color:#475569;cursor:pointer;user-select:none;
-  white-space:nowrap;transition:all .12s;}
-.cli-fpill svg{width:13px;height:13px;flex-shrink:0;}
-.cli-fpill:hover{filter:brightness(0.96);}
-.cli-fpill-av{display:inline-flex;flex:0 0 auto;margin:-2px 1px -2px -2px;}
-.cli-fpill-av > div{box-shadow:none!important;border-width:1.5px!important;}
-.cli-fpill .cli-fcount{font-size:0.64rem;font-weight:800;background:rgba(15,23,42,0.08);color:inherit;
-  padding:1px 6px;border-radius:99px;min-width:15px;text-align:center;}
-.cli-fpill.on{box-shadow:0 0 0 2px var(--pill-fg,#4338ca);}
-.cli-fpill-ej.on{background:#eef2ff;color:#4338ca;border-color:#c7d2fe;}
+.cli-fdd-menu .cli-fpills{display:flex;flex-direction:column;gap:2px;}
+/* Fila de opción (mismo diseño que el dropdown de ejecutivo de COTIZACIONES):
+   avatar/icono redondo 32px + nombre 13px/700 Montserrat + conteo facetado. */
+.cli-fpill{width:100%;display:flex;align-items:center;gap:10px;background:none;border:none;cursor:pointer;
+  padding:7px 9px;border-radius:9px;font-family:Montserrat,sans-serif;font-weight:700;font-size:13px;
+  color:#0f172a;text-align:left;transition:background .12s;}
+.cli-fpill:hover{background:#f1f5f9;}
+.cli-fpill.on{background:#eef2ff;}
+.cli-fpill-lb{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cli-fpill-ic{width:32px;height:32px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;
+  justify-content:center;overflow:hidden;box-shadow:0 3px 9px rgba(5,12,28,.16);}
+.cli-fpill-ic svg{width:15px;height:15px;}
+.cli-fpill-ic-all{background:#e2e8f0;color:#64748b;box-shadow:none;}
+.cli-fpill-av{display:inline-flex;flex:0 0 auto;}
+.cli-fpill-av > div{box-shadow:0 3px 9px rgba(5,12,28,.16)!important;}
+.cli-fcount{font-size:0.7rem;font-weight:800;color:#94a3b8;background:#f1f5f9;padding:1px 7px;border-radius:99px;
+  min-width:16px;text-align:center;flex:0 0 auto;}
+.cli-fpill.on .cli-fcount{background:#e0e7ff;color:#4338ca;}
+.cli-fpill.on .cli-fpill-ic-all{background:#c7d2fe;color:#4338ca;}
 /* Dropdown "Ejecutivo asignado" con foto (estilo dropdown de COTIZACIONES) */
 .cli-asig{margin:8px 0 2px;}
 .cli-asig-lbl{font-size:0.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;margin-bottom:5px;}
@@ -1127,9 +1134,17 @@ def _build_filter_bar(data: list) -> str:
 
     def _pill(val, label, kind, count, icon, bg="", fg="", ico_html=None):
         _cls = f"cli-fpill cli-fpill-{kind}" + (" on" if val == "" else "")
-        _sty = f' style="background:{bg};color:{fg};--pill-fg:{fg};"' if bg else ""
-        _ic = ico_html if ico_html is not None else (_svg(icon, 13, "currentColor") if icon else "")
-        return (f'<span class="{_cls}" data-fkind="{kind}" data-fval="{_esc(val)}"{_sty}>'
+        # Icono redondo 32px: avatar del ejecutivo, o círculo con el color de la
+        # categoría (estado/potencial/fuente), o neutro (Todos / Sin asignar).
+        if ico_html is not None:
+            _ic = ico_html
+        elif bg:
+            _ic = (f'<span class="cli-fpill-ic" style="background:{bg};color:{fg};">'
+                   f'{_svg(icon, 15, "currentColor") if icon else ""}</span>')
+        else:
+            _ic = (f'<span class="cli-fpill-ic cli-fpill-ic-all">'
+                   f'{_svg(icon, 15, "currentColor") if icon else ""}</span>')
+        return (f'<span class="{_cls}" data-fkind="{kind}" data-fval="{_esc(val)}">'
                 f'{_ic}<span class="cli-fpill-lb">{_esc(label)}</span>'
                 f'<b class="cli-fcount">{count}</b></span>')
 
@@ -1138,17 +1153,17 @@ def _build_filter_bar(data: list) -> str:
     # son ejecutivos (fetch_ejecutivos solo trae rol 'ejecutivo').
     _ejinfo = {(e.get("email") or "").strip().lower(): e for e in _ejecutivos()}
     _umap = _usuarios_map()
-    _ej = _pill("", "Todos", "ej", len(data), _IC_USERS)
+    _ej = _pill("", "Todos los ejecutivos", "ej", len(data), _IC_USERS)
     for _e, _nm in sorted(_ejset.items(), key=lambda kv: (kv[1] or "").lower()):
         _einf = _ejinfo.get(_e) or {}
         _udir = _umap.get(_e) or {}
         _enm = _nm or _einf.get("nombre") or _udir.get("nombre") or _e
         _foto = _einf.get("foto_url") or _udir.get("foto_url") or ""
-        _av = f'<span class="cli-fpill-av">{_avatar_html(_foto, _enm, size=20, ring="#fff", font_scale=0.42)}</span>'
+        _av = f'<span class="cli-fpill-av">{_avatar_html(_foto, _enm, size=32, ring="#fff", font_scale=0.4)}</span>'
         _ej += _pill(_e, _enm, "ej", _ejcnt.get(_e, 0), "", ico_html=_av)
     if _none:
         _ej += _pill("__none__", "Sin asignar", "ej", _none, _ICON_USER_PATH)
-    _st = _pill("", "Todos", "st", len(data), _IC_TODOS)
+    _st = _pill("", "Todos los estados", "st", len(data), _IC_TODOS)
     for _s in _stages:
         _lbl, _dot, _bg, _fg = _STAGE_META[_s]
         _st += _pill(_s, _lbl, "st", _stcnt[_s], _STAGE_ICON.get(_s, ""), _bg, _fg)
@@ -1156,13 +1171,13 @@ def _build_filter_bar(data: list) -> str:
     _TIER_META = [("hot", "Caliente", "#dc2626", "rgba(220,38,38,.12)"),
                   ("warm", "Tibio", "#d97706", "rgba(217,119,6,.15)"),
                   ("cold", "Frío", "#2563eb", "rgba(37,99,235,.12)")]
-    _sc_pills = _pill("", "Todos", "tier", len(data), _IC_TODOS)
+    _sc_pills = _pill("", "Todo el potencial", "tier", len(data), _IC_TODOS)
     for _tk, _tl, _tc, _tb in _TIER_META:
         _sc_pills += _pill(_tk, _tl, "tier", _tiercnt.get(_tk, 0), _FLAME_PATH, _tb, _tc)
     # Fuente: de dónde vino el lead (Shopify / Importado / Manual / … a futuro
     # Google Ads, Facebook, TikTok). Pills DINÁMICAS por cada `origen` presente
     # (más frecuente primero) → las fuentes nuevas aparecen solas.
-    _fu = _pill("", "Todos", "fuente", len(data), _IC_TODOS)
+    _fu = _pill("", "Todas las fuentes", "fuente", len(data), _IC_TODOS)
     for _fk in sorted(_fucnt, key=lambda x: (-_fucnt[x], x.lower())):
         _fl, _fico, _ffg, _fbg = _fuente_meta(_fk)
         _fu += _pill(_fk, _fl, "fuente", _fucnt[_fk], _fico, _fbg, _ffg)
@@ -1170,22 +1185,23 @@ def _build_filter_bar(data: list) -> str:
              'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
              '<path d="m6 9 6 6 6-6"/></svg>')
 
-    def _dd(kind, grp, pills):
-        """Un dropdown de filtro: trigger (grupo + selección actual) + menú con las
-        mismas pills coloreadas. El filtrado lo sigue haciendo _CLI_FILTER_JS."""
-        return (f'<div class="cli-fdd" data-fkind="{kind}">'
+    def _dd(kind, ph, pills):
+        """Un dropdown de filtro (mismo diseño que el de ejecutivo de COTIZACIONES):
+        chip con la selección actual (o placeholder) + menú de opciones. El filtrado
+        lo sigue haciendo _CLI_FILTER_JS; el trigger lo actualiza updateTrigger()."""
+        return (f'<div class="cli-fdd" data-fkind="{kind}" data-ph="{_esc(ph)}">'
                 f'<button class="cli-fdd-trg" type="button" data-fkind="{kind}">'
-                f'<span class="cli-fdd-txt"><span class="cli-fdd-grp">{_esc(grp)}</span>'
-                f'<span class="cli-fdd-cur">Todos</span></span>{_chev}</button>'
+                f'<span class="cli-fdd-body"><span class="cli-fdd-ph">{_esc(ph)}</span></span>'
+                f'{_chev}</button>'
                 f'<div class="cli-fdd-menu"><div class="cli-fpills">{pills}</div></div>'
                 '</div>')
 
     return (
         '<div class="cli-fbar">'
-        + _dd("ej", "Ejecutivo", _ej)
-        + _dd("st", "Estado", _st)
-        + _dd("tier", "Potencial", _sc_pills)
-        + _dd("fuente", "Fuente", _fu)
+        + _dd("ej", "Todos los ejecutivos", _ej)
+        + _dd("st", "Todos los estados", _st)
+        + _dd("tier", "Todo el potencial", _sc_pills)
+        + _dd("fuente", "Todas las fuentes", _fu)
         + '</div>')
 
 
@@ -1403,16 +1419,23 @@ _CLI_FILTER_JS = r"""<script>
     :(kind==='tier'?(W._cliFTier||''):(W._cliFFu||''))); }
   function updateTrigger(kind){
     var val=fval(kind), dd=D.querySelector('.cli-fdd[data-fkind="'+kind+'"]'); if(!dd) return;
-    var label='Todos';
-    if(val){
-      D.querySelectorAll('.cli-fpill[data-fkind="'+kind+'"]').forEach(function(p){
-        if((p.getAttribute('data-fval')||'')===val){
-          var lb=p.querySelector('.cli-fpill-lb'); if(lb) label=lb.textContent;
-        }
-      });
-    }
-    var cur=dd.querySelector('.cli-fdd-cur'); if(cur) cur.textContent=label;
-    dd.classList.toggle('active', !!val);
+    var body=dd.querySelector('.cli-fdd-body'); if(!body) return;
+    var ph=dd.getAttribute('data-ph')||'Todos';
+    function setPh(){ body.textContent=''; var s=D.createElement('span');
+      s.className='cli-fdd-ph'; s.textContent=ph; body.appendChild(s); dd.classList.remove('active'); }
+    if(!val){ setPh(); return; }
+    var pill=null;
+    D.querySelectorAll('.cli-fpill[data-fkind="'+kind+'"]').forEach(function(p){
+      if((p.getAttribute('data-fval')||'')===val) pill=p;
+    });
+    if(!pill){ setPh(); return; }
+    // Clona el avatar/icono redondo y muestra el nombre (estilo COTIZACIONES).
+    var ic=pill.querySelector('.cli-fpill-ic, .cli-fpill-av'), lb=pill.querySelector('.cli-fpill-lb');
+    body.textContent='';
+    if(ic) body.appendChild(ic.cloneNode(true));
+    var cur=D.createElement('span'); cur.className='cli-fdd-cur';
+    cur.textContent=lb?lb.textContent:''; body.appendChild(cur);
+    dd.classList.add('active');
   }
   function closeAllDd(){ D.querySelectorAll('.cli-fdd.open').forEach(function(x){ x.classList.remove('open'); }); }
   if(W._cliPillH){ D.removeEventListener('click', W._cliPillH, true); }
