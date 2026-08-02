@@ -2047,8 +2047,8 @@ _CORREO_META = {   # last_event de Resend -> (label, bg, fg)
     "sent": ("Enviado", "#f1f5f9", "#475569"),
     "delivered": ("Entregado", "#dcfce7", "#15803d"),
     "delivery_delayed": ("Demorado", "#fef3c7", "#b45309"),
-    "opened": ("Abierto", "#e0f2fe", "#0369a1"),
-    "clicked": ("Click", "#ede9fe", "#6d28d9"),
+    "opened": ("Abrió", "#e0f2fe", "#0369a1"),
+    "clicked": ("Clickeado", "#ede9fe", "#6d28d9"),
     "bounced": ("Rebotado", "#fee2e2", "#b91c1c"),
     "complained": ("Spam", "#fee2e2", "#b91c1c"),
 }
@@ -2097,8 +2097,8 @@ def _render_correos_enviados(cid, cli=None):
         # haya avanzado (ej. abrió Y luego hizo click).
         _chips = ""
         for _fl, _tx, _cbg, _cfg in (("opened", "Abrió", "#e0f2fe", "#0369a1"),
-                                     ("clicked", "Click", "#ede9fe", "#6d28d9"),
-                                     ("bounced", "Rebotó", "#fee2e2", "#b91c1c"),
+                                     ("clicked", "Clickeado", "#ede9fe", "#6d28d9"),
+                                     ("bounced", "Rebotado", "#fee2e2", "#b91c1c"),
                                      ("complained", "Spam", "#fee2e2", "#b91c1c")):
             if c.get(_fl):
                 _chips += f'<span class="cli-mchip" style="background:{_cbg};color:{_cfg};">{_tx}</span>'
