@@ -2843,18 +2843,29 @@ def _firma_render(nombre, foto, cargo, tel, correo, cfg) -> str:
     web = str(cfg.get("web") or "").strip()
     empresa = str(cfg.get("empresa") or "").strip()
     direccion = str(cfg.get("direccion") or "").strip()
+    logo_link = str(cfg.get("logo_link") or "").strip() or (f"https://{web}" if web else "")
+    direccion_url = str(cfg.get("direccion_url") or "").strip()
 
     _foto = (f'<img src="{_esc(foto)}" width="56" height="56" alt="" '
              'style="border-radius:50%;object-fit:cover;display:block;">') if foto else ""
-    _logo = (f'<img src="{_esc(logo)}" width="118" alt="" '
-             'style="display:block;max-width:118px;height:auto;">') if logo else (
-             f'<b style="color:#0f172a;font-size:13px;">{_esc(empresa)}</b>' if empresa else "")
+    _logo_img = (f'<img src="{_esc(logo)}" width="118" alt="" '
+                 'style="display:block;max-width:118px;height:auto;border:0;">') if logo else (
+                 f'<b style="color:#0f172a;font-size:13px;">{_esc(empresa)}</b>' if empresa else "")
+    _logo = (f'<a href="{_esc(logo_link)}" target="_blank" style="text-decoration:none;">{_logo_img}</a>'
+             if (_logo_img and logo_link) else _logo_img)
     _tel = (f'<a href="tel:{_esc(tel)}" style="color:#475569;text-decoration:none;">☎ {_esc(tel)}</a>'
             if tel else "")
     _mail = (f'<a href="mailto:{_esc(correo)}" style="color:#2563eb;text-decoration:none;">✉ {_esc(correo)}</a>'
              if correo else "")
     _web = (f'<a href="https://{_esc(web)}" style="color:#2563eb;text-decoration:none;">{_esc(web)}</a>'
             if web else "")
+    if direccion:
+        _dir_inner = (f'<a href="{_esc(direccion_url)}" target="_blank" '
+                      f'style="color:#94a3b8;text-decoration:none;">{_esc(direccion)}</a>'
+                      if direccion_url else _esc(direccion))
+        _dir = f'📍 {_dir_inner}'
+    else:
+        _dir = ""
     _left = f'<td style="padding:0 14px 0 0;vertical-align:top;">{_foto}</td>' if _foto else ""
     _sep = ' &nbsp;·&nbsp; ' if (_tel and _mail) else ''
     return (
@@ -2867,7 +2878,7 @@ def _firma_render(nombre, foto, cargo, tel, correo, cfg) -> str:
         f'<div style="font-size:12.5px;line-height:1.7;">{_tel}{_sep}{_mail}</div>'
         f'<div style="margin-top:8px;">{_logo}</div>'
         '<div style="font-size:11.5px;color:#94a3b8;margin-top:5px;line-height:1.6;">'
-        f'{_web}' + (f'<br>{_esc(direccion)}' if direccion else '') + '</div>'
+        f'{_web}' + (f'<br>{_dir}' if _dir else '') + '</div>'
         '</td></tr></table></div>')
 
 
@@ -2920,6 +2931,15 @@ def _render_firma_dialog(data):
             _dir = st.text_input("Dirección", value=cfg.get("direccion", ""), key="_firma_dir")
         _logo_in = st.text_input("URL del logo", value=_logo0, key="_firma_logo",
                                  help="Se llena solo subiendo logo.png; puedes pegar otra URL.")
+        _lk1, _lk2 = st.columns(2)
+        with _lk1:
+            _logo_link = st.text_input("Link del logo (al hacer click)",
+                                       value=cfg.get("logo_link", ""), key="_firma_logo_link",
+                                       placeholder="https://espaciocontainerhouse.cl")
+        with _lk2:
+            _dir_url = st.text_input("Link de la dirección (Maps / Waze)",
+                                     value=cfg.get("direccion_url", ""), key="_firma_dir_url",
+                                     placeholder="https://maps.app.goo.gl/…")
 
         st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
         st.markdown('<div class="cli-sec-t" style="margin:0 0 6px;">Datos del ejecutivo</div>',
@@ -2943,6 +2963,7 @@ def _render_firma_dialog(data):
                      key="_firma_save", icon=":material/save:"):
             _ok1, _ = _set_firma("empresa", {"empresa": _empresa, "web": _web, "telefono": _tel_emp,
                                              "direccion": _dir, "logo_url": _logo_in,
+                                             "logo_link": _logo_link, "direccion_url": _dir_url,
                                              "incluir_individual": _inc_ind, "incluir_masivo": _inc_mas})
             _ok2, _ = _set_firma(_sel_em, {"cargo": _cargo, "telefono": _tel_ej, "nombre": _sel_nm})
             if _ok1 and _ok2:
@@ -2957,7 +2978,8 @@ def _render_firma_dialog(data):
         _prev = _firma_render(_sel_nm, _umap.get(_sel_em, {}).get("foto_url", ""), _cargo,
                               _tel_ej or _tel_emp, _sel_em,
                               {"empresa": _empresa, "web": _web, "telefono": _tel_emp,
-                               "direccion": _dir, "logo_url": _logo_in})
+                               "direccion": _dir, "logo_url": _logo_in,
+                               "logo_link": _logo_link, "direccion_url": _dir_url})
         components.html(f'<div style="background:#fff;padding:16px 18px;border-radius:8px;">{_prev}</div>',
                         height=250, scrolling=True)
 
