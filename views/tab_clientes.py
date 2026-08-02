@@ -389,13 +389,24 @@ _CLI_CSS = """
 .cli-empty-ph{text-align:center;color:#94a3b8;padding:40px;font-family:Montserrat,sans-serif;
   font-weight:600;border:1px dashed #d7ddf0;border-radius:14px;margin-top:10px;}
 /* Barra de filtros rápidos (badges) — tarjeta agrupada, client-side sin reruns */
-.cli-fbar{background:#fff;border:1px solid #e9edf5;border-radius:14px;padding:4px 16px;
-  box-shadow:0 2px 12px rgba(30,36,71,.05);margin:6px 0 16px;}
-.cli-fgrp{display:flex;align-items:flex-start;gap:12px;padding:10px 0;}
-.cli-fgrp + .cli-fgrp{border-top:1px solid #f0f2f8;}
-.cli-fgrp-lbl{font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
-  color:#94a3b8;flex:0 0 76px;padding-top:6px;}
-.cli-fpills{display:flex;flex-wrap:wrap;gap:7px;flex:1;min-width:0;}
+.cli-fbar{display:flex;flex-wrap:wrap;gap:10px;background:#fff;border:1px solid #e9edf5;border-radius:14px;
+  padding:10px 12px;box-shadow:0 2px 12px rgba(30,36,71,.05);margin:6px 0 16px;}
+.cli-fdd{position:relative;flex:1 1 190px;min-width:0;}
+.cli-fdd-trg{width:100%;display:flex;align-items:center;gap:8px;padding:7px 12px;border:1px solid #e2e8f0;
+  border-radius:12px;background:#fff;cursor:pointer;font-family:Montserrat,sans-serif;transition:all .12s;}
+.cli-fdd-trg:hover{border-color:#cbd5e1;background:#f8fafc;}
+.cli-fdd.active .cli-fdd-trg{border-color:#c7d2fe;background:#f5f7ff;}
+.cli-fdd-txt{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1;text-align:left;}
+.cli-fdd-grp{font-size:0.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;}
+.cli-fdd-cur{font-size:0.8rem;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cli-fdd.active .cli-fdd-cur{color:#4338ca;}
+.cli-fdd-cv{margin-left:auto;flex:0 0 auto;color:#94a3b8;transition:transform .15s;}
+.cli-fdd.open .cli-fdd-cv{transform:rotate(180deg);}
+.cli-fdd-menu{display:none;position:absolute;top:calc(100% + 6px);left:0;min-width:100%;max-height:300px;
+  overflow-y:auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;
+  box-shadow:0 12px 34px rgba(15,23,42,0.18);z-index:2147483000;padding:6px;}
+.cli-fdd.open .cli-fdd-menu{display:block;}
+.cli-fdd-menu .cli-fpills{display:flex;flex-direction:column;align-items:flex-start;gap:5px;}
 .cli-fpill{display:inline-flex;align-items:center;gap:5px;font-size:0.72rem;font-weight:700;padding:4px 9px;
   border-radius:99px;border:1px solid #e2e8f0;background:#fff;color:#475569;cursor:pointer;user-select:none;
   white-space:nowrap;transition:all .12s;}
@@ -1119,7 +1130,8 @@ def _build_filter_bar(data: list) -> str:
         _sty = f' style="background:{bg};color:{fg};--pill-fg:{fg};"' if bg else ""
         _ic = ico_html if ico_html is not None else (_svg(icon, 13, "currentColor") if icon else "")
         return (f'<span class="{_cls}" data-fkind="{kind}" data-fval="{_esc(val)}"{_sty}>'
-                f'{_ic}<span>{_esc(label)}</span><b class="cli-fcount">{count}</b></span>')
+                f'{_ic}<span class="cli-fpill-lb">{_esc(label)}</span>'
+                f'<b class="cli-fcount">{count}</b></span>')
 
     # Foto+nombre del asignado desde el directorio COMPLETO (ejecutivos + admins +
     # operación) para que ninguno caiga al correo. _usuarios_map cubre a los que no
@@ -1154,13 +1166,27 @@ def _build_filter_bar(data: list) -> str:
     for _fk in sorted(_fucnt, key=lambda x: (-_fucnt[x], x.lower())):
         _fl, _fico, _ffg, _fbg = _fuente_meta(_fk)
         _fu += _pill(_fk, _fl, "fuente", _fucnt[_fk], _fico, _fbg, _ffg)
+    _chev = ('<svg class="cli-fdd-cv" width="15" height="15" viewBox="0 0 24 24" fill="none" '
+             'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+             '<path d="m6 9 6 6 6-6"/></svg>')
+
+    def _dd(kind, grp, pills):
+        """Un dropdown de filtro: trigger (grupo + selección actual) + menú con las
+        mismas pills coloreadas. El filtrado lo sigue haciendo _CLI_FILTER_JS."""
+        return (f'<div class="cli-fdd" data-fkind="{kind}">'
+                f'<button class="cli-fdd-trg" type="button" data-fkind="{kind}">'
+                f'<span class="cli-fdd-txt"><span class="cli-fdd-grp">{_esc(grp)}</span>'
+                f'<span class="cli-fdd-cur">Todos</span></span>{_chev}</button>'
+                f'<div class="cli-fdd-menu"><div class="cli-fpills">{pills}</div></div>'
+                '</div>')
+
     return (
         '<div class="cli-fbar">'
-        f'<div class="cli-fgrp"><span class="cli-fgrp-lbl">Ejecutivo</span><div class="cli-fpills">{_ej}</div></div>'
-        f'<div class="cli-fgrp"><span class="cli-fgrp-lbl">Estado</span><div class="cli-fpills">{_st}</div></div>'
-        f'<div class="cli-fgrp"><span class="cli-fgrp-lbl">Potencial</span><div class="cli-fpills">{_sc_pills}</div></div>'
-        f'<div class="cli-fgrp"><span class="cli-fgrp-lbl">Fuente</span><div class="cli-fpills">{_fu}</div></div>'
-        '</div>')
+        + _dd("ej", "Ejecutivo", _ej)
+        + _dd("st", "Estado", _st)
+        + _dd("tier", "Potencial", _sc_pills)
+        + _dd("fuente", "Fuente", _fu)
+        + '</div>')
 
 
 # ── Puente JS→Python: click en fila/tarjeta abre la ficha ─────────────────────
@@ -1372,13 +1398,45 @@ _CLI_FILTER_JS = r"""<script>
       x.classList.toggle('on', (x.getAttribute('data-fval')||'')===(val||''));
     });
   }
+  // Rótulo del trigger del dropdown = la selección actual (o "Todos") + estado activo.
+  function fval(kind){ return kind==='ej'?(W._cliFEj||''):(kind==='st'?(W._cliFSt||'')
+    :(kind==='tier'?(W._cliFTier||''):(W._cliFFu||''))); }
+  function updateTrigger(kind){
+    var val=fval(kind), dd=D.querySelector('.cli-fdd[data-fkind="'+kind+'"]'); if(!dd) return;
+    var label='Todos';
+    if(val){
+      D.querySelectorAll('.cli-fpill[data-fkind="'+kind+'"]').forEach(function(p){
+        if((p.getAttribute('data-fval')||'')===val){
+          var lb=p.querySelector('.cli-fpill-lb'); if(lb) label=lb.textContent;
+        }
+      });
+    }
+    var cur=dd.querySelector('.cli-fdd-cur'); if(cur) cur.textContent=label;
+    dd.classList.toggle('active', !!val);
+  }
+  function closeAllDd(){ D.querySelectorAll('.cli-fdd.open').forEach(function(x){ x.classList.remove('open'); }); }
   if(W._cliPillH){ D.removeEventListener('click', W._cliPillH, true); }
   W._cliPillH=function(e){
-    var p=e.target&&e.target.closest?e.target.closest('.cli-fpill'):null; if(!p) return;
-    var kind=p.getAttribute('data-fkind'), val=p.getAttribute('data-fval')||'';
-    if(kind==='ej') W._cliFEj=val; else if(kind==='st') W._cliFSt=val;
-    else if(kind==='tier') W._cliFTier=val; else if(kind==='fuente') W._cliFFu=val;
-    W._cliPage=1; syncPills(kind, val); apply();
+    var t=e.target;
+    // 1) Botón del dropdown → abre/cierra su menú (cierra los demás).
+    var trg=t&&t.closest?t.closest('.cli-fdd-trg'):null;
+    if(trg){
+      var dd=trg.closest('.cli-fdd'), wasOpen=dd.classList.contains('open');
+      closeAllDd(); if(!wasOpen) dd.classList.add('open');
+      e.stopPropagation(); e.preventDefault(); return;
+    }
+    // 2) Pill dentro del menú → aplica el filtro y cierra el dropdown.
+    var p=t&&t.closest?t.closest('.cli-fpill'):null;
+    if(p){
+      var kind=p.getAttribute('data-fkind'), val=p.getAttribute('data-fval')||'';
+      if(kind==='ej') W._cliFEj=val; else if(kind==='st') W._cliFSt=val;
+      else if(kind==='tier') W._cliFTier=val; else if(kind==='fuente') W._cliFFu=val;
+      W._cliPage=1; syncPills(kind, val); updateTrigger(kind); apply();
+      var pdd=p.closest('.cli-fdd'); if(pdd) pdd.classList.remove('open');
+      e.stopPropagation(); return;
+    }
+    // 3) Clic fuera de cualquier dropdown → cierra todos.
+    if(!t||!t.closest||!t.closest('.cli-fdd')){ closeAllDd(); }
   };
   D.addEventListener('click', W._cliPillH, true);
   // Buscador GLOBAL
@@ -1406,6 +1464,7 @@ _CLI_FILTER_JS = r"""<script>
   }
   syncPills('ej', W._cliFEj||''); syncPills('st', W._cliFSt||''); syncPills('tier', W._cliFTier||'');
   syncPills('fuente', W._cliFFu||'');
+  updateTrigger('ej'); updateTrigger('st'); updateTrigger('tier'); updateTrigger('fuente');
   apply();
 })();
 </script>"""
