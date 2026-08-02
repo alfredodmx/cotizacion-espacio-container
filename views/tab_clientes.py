@@ -2246,22 +2246,12 @@ def _render_correo(cid, cli):
             st.warning("Este cliente no tiene correo; agrégalo para poder enviarle.")
         st.text_input("Asunto", key="_cli_mail_subj",
                       placeholder="Tu casa container a medida")
-
-        # Variables clickeables (insertan en el mensaje).
-        st.markdown('<div class="cli-mail-tools-lbl">Insertar variable</div>', unsafe_allow_html=True)
-        _vc = st.columns(len(_MAIL_VARS))
-        for _i, (_lbl, _var) in enumerate(_MAIL_VARS):
-            _vc[_i].button(_lbl, key=f"_cli_var_{_i}", use_container_width=True,
-                           on_click=_mail_insert, args=(_var,))
-
         st.text_area("Mensaje", key="_cli_mail_body", height=180,
                      placeholder="Hola {{nombre}}, gracias por tu interés en Espacio Container House…")
-
-        # Emojis (insertan al final del mensaje).
-        st.markdown('<div class="cli-mail-tools-lbl">Emojis</div>', unsafe_allow_html=True)
-        _ecols = st.columns(len(_MAIL_EMOJIS))
-        for _i, _e in enumerate(_MAIL_EMOJIS):
-            _ecols[_i].button(_e, key=f"_cli_emo_{_i}", on_click=_mail_insert, args=(_e,))
+        # Toolbar: variables + colección completa de emojis; inserta en el campo
+        # enfocado (asunto o mensaje) en la posición del cursor.
+        st.markdown(_mail_toolbar_html(), unsafe_allow_html=True)
+        components.html(_mail_tools_js("_cli_mail_subj", "_cli_mail_body"), height=0)
 
         # Adjuntos (Resend soporta PDF/imágenes/etc.).
         _files = st.file_uploader("Adjuntar archivos (opcional)", accept_multiple_files=True,
@@ -2706,9 +2696,10 @@ _EMOJI_CATS = [
 ]
 
 
-def _camp_toolbar_html() -> str:
+def _mail_toolbar_html() -> str:
     """Toolbar de inserción: chips de variable + botón de emoji con panel (colección
-    completa). Todo se inserta EN EL CAMPO ENFOCADO (asunto o mensaje) vía JS."""
+    completa). Todo se inserta EN EL CAMPO ENFOCADO (asunto o mensaje) vía JS. Lo usan
+    la campaña por segmento Y el correo individual de la ficha."""
     _chips = "".join(f'<span class="camp-ins camp-var-chip" data-ins="{_var}">{_lbl}</span>'
                      for _lbl, _var in _MAIL_VARS)
     _grid = ""
@@ -2731,12 +2722,13 @@ def _camp_toolbar_html() -> str:
 # Inserta variables/emojis en el campo enfocado (asunto o mensaje) en la posición del
 # cursor. mousedown.preventDefault evita robar el foco (si no, el blur cerraría el panel
 # y dispararía un rerun). Solo dispara 'input' → sin rerun, el panel queda abierto.
-_CAMP_TOOLS_JS = r"""<script>
+# __SUBJ__/__BODY__ = keys de los widgets del compositor (campaña o ficha).
+_MAIL_TOOLS_JS = r"""<script>
 (function(){
   var W=window.parent, D=W&&W.document; if(!D) return;
   function fld(){
-    var subj=D.querySelector('.st-key-_camp_subj input');
-    var body=D.querySelector('.st-key-_camp_body textarea');
+    var subj=D.querySelector('.st-key-__SUBJ__ input');
+    var body=D.querySelector('.st-key-__BODY__ textarea');
     if(subj && !subj._cB){ subj._cB=1; subj.addEventListener('focus',function(){W._campFld=subj;}); }
     if(body && !body._cB){ body._cB=1; body.addEventListener('focus',function(){W._campFld=body;}); }
     var f=W._campFld;
@@ -2780,6 +2772,11 @@ _CAMP_TOOLS_JS = r"""<script>
   D.addEventListener('click', W._campToolsH, true);
 })();
 </script>"""
+
+
+def _mail_tools_js(subj_key: str, body_key: str) -> str:
+    """JS del toolbar apuntando a los campos de ESTE compositor (asunto/mensaje)."""
+    return _MAIL_TOOLS_JS.replace("__SUBJ__", subj_key).replace("__BODY__", body_key)
 
 
 def _render_campana_dialog(data):
@@ -2915,8 +2912,8 @@ def _render_campana_dialog(data):
                          "El sistema lo detecta solo.")
             # Toolbar: variables + colección completa de emojis; inserta en el campo
             # enfocado (asunto o mensaje) en la posición del cursor.
-            st.markdown(_camp_toolbar_html(), unsafe_allow_html=True)
-        components.html(_CAMP_TOOLS_JS, height=0)
+            st.markdown(_mail_toolbar_html(), unsafe_allow_html=True)
+        components.html(_mail_tools_js("_camp_subj", "_camp_body"), height=0)
 
         # Plantilla HTML: subir un .html (opcional) — tiene prioridad sobre el cuadro.
         _html_file = st.file_uploader("Importar plantilla .html (opcional)",
