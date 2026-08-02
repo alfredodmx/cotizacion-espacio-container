@@ -2596,6 +2596,27 @@ div[role="dialog"]:has(.cli-camp-intro){width:min(1180px,95vw)!important;max-wid
 .cli-camp-intro{font-size:0.78rem;color:#64748b;line-height:1.4;margin:0 0 12px;}
 /* Barra de dropdowns del segmento (reusa el look .cli-fdd/.cli-fpill del home). */
 .camp-fbar{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 8px;}
+/* Toolbar de inserción (variables + emojis) para asunto y mensaje. */
+.camp-tools{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:8px 0 2px;position:relative;}
+.camp-tools-lbl{font-size:0.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
+  color:#94a3b8;margin-right:2px;}
+.camp-ins{cursor:pointer;user-select:none;}
+.camp-var-chip{display:inline-flex;align-items:center;font-size:0.72rem;font-weight:700;color:#4338ca;
+  background:#eef2ff;border:1px solid #c7d2fe;border-radius:99px;padding:3px 10px;transition:all .12s;}
+.camp-var-chip:hover{background:#e0e7ff;}
+.camp-emoji-btn{display:inline-flex;align-items:center;gap:5px;font-size:0.72rem;font-weight:700;color:#475569;
+  background:#f8fafc;border:1px solid #e2e8f0;border-radius:99px;padding:3px 11px;transition:all .12s;}
+.camp-emoji-btn:hover{background:#f1f5f9;border-color:#cbd5e1;}
+.camp-emoji-btn svg{width:14px;height:14px;}
+.camp-emoji-panel{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:2147483001;width:342px;
+  max-height:290px;overflow-y:auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;
+  box-shadow:0 14px 40px rgba(15,23,42,.2);padding:6px 10px 10px;}
+.camp-emoji-panel.open{display:block;}
+.camp-emoji-cat{font-size:0.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;
+  margin:6px 0 3px;position:sticky;top:0;background:#fff;padding-top:2px;}
+.camp-emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;}
+.camp-emoji{font-size:20px;line-height:1;text-align:center;padding:4px 0;border-radius:7px;transition:background .1s;}
+.camp-emoji:hover{background:#eef2ff;}
 </style>"""
 
 # Comportamiento de los dropdowns de la campaña (mismo look que el home, pero su
@@ -2656,6 +2677,106 @@ _CAMP_DD_JS = r"""<script>
       e.preventDefault(); e.stopPropagation(); return; }
   };
   D.addEventListener('click', W._campH, true);
+})();
+</script>"""
+
+
+# Colección de emojis por categoría (para el picker tipo Outlook de la campaña).
+_EMOJI_CATS = [
+    ("Caras", ["😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "😇", "🙂", "🙃", "😉", "😌",
+               "😍", "🥰", "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓",
+               "😎", "🥳", "🤩", "😏", "😒", "😞", "😔", "😟", "😕", "🙁", "😣", "😖", "😫", "😩",
+               "🥺", "😢", "😭", "😤", "😠", "😡", "🤬", "🤯", "😳", "🥵", "🥶", "😱", "😨", "😰",
+               "😥", "😓", "🤗", "🤔", "🤭", "🤫", "😶", "😐", "😑", "😬", "🙄", "😮", "😲", "🥱",
+               "😴", "🤤", "😪", "🤐", "🥴", "🤢", "🤮", "🤧", "😷", "🤒", "🤕", "🤠"]),
+    ("Gestos", ["👍", "👎", "👌", "✌️", "🤞", "🤟", "🤘", "🤙", "👋", "🤚", "🖐️", "✋", "🖖", "👏",
+                "🙌", "👐", "🤲", "🙏", "✍️", "💪", "👈", "👉", "👆", "👇", "☝️", "✊", "👊", "🤛",
+                "🤜", "🤝"]),
+    ("Corazones", ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞",
+                   "💓", "💗", "💖", "💘", "💝"]),
+    ("Símbolos", ["✨", "⭐", "🌟", "💫", "🔥", "💯", "✅", "❌", "⚡", "🎉", "🎊", "🎁", "🏆", "🥇",
+                  "🔔", "📌", "⚠️", "♻️", "✔️", "💡", "➡️", "⬅️", "⬆️", "⬇️", "🔗"]),
+    ("Hogar", ["🏠", "🏡", "🏘️", "🏢", "🏗️", "🔑", "🚪", "🛋️", "🛏️", "🚿", "🪟", "🧱", "🔨",
+               "🛠️", "🧰", "📦", "📐", "📏", "🏙️", "🌆", "🌇"]),
+    ("Naturaleza", ["🌲", "🌳", "🌴", "🌵", "🌿", "☘️", "🍀", "🌊", "🏔️", "⛰️", "🌄", "🌅", "☀️",
+                    "⛅", "☁️", "🌧️", "🌈", "❄️", "🌙"]),
+    ("Negocio", ["📞", "📱", "💬", "📧", "✉️", "📨", "📩", "💼", "📊", "📈", "📉", "💰", "💵", "💳",
+                 "🧾", "📝", "📋", "✏️", "🖊️", "📅", "⏰"]),
+]
+
+
+def _camp_toolbar_html() -> str:
+    """Toolbar de inserción: chips de variable + botón de emoji con panel (colección
+    completa). Todo se inserta EN EL CAMPO ENFOCADO (asunto o mensaje) vía JS."""
+    _chips = "".join(f'<span class="camp-ins camp-var-chip" data-ins="{_var}">{_lbl}</span>'
+                     for _lbl, _var in _MAIL_VARS)
+    _grid = ""
+    for _cat, _ems in _EMOJI_CATS:
+        _grid += (f'<div class="camp-emoji-cat">{_cat}</div><div class="camp-emoji-grid">'
+                  + "".join(f'<span class="camp-ins camp-emoji" data-ins="{_e}">{_e}</span>' for _e in _ems)
+                  + '</div>')
+    _emoji_ic = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+                 'stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/>'
+                 '<line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>')
+    return (
+        '<div class="camp-tools">'
+        '<span class="camp-tools-lbl">Insertar (donde tengas el cursor)</span>'
+        f'{_chips}'
+        f'<span class="camp-ins camp-emoji-btn" id="_camp_emoji_btn">{_emoji_ic}Emoji</span>'
+        f'<div class="camp-emoji-panel" id="_camp_emoji_panel">{_grid}</div>'
+        '</div>')
+
+
+# Inserta variables/emojis en el campo enfocado (asunto o mensaje) en la posición del
+# cursor. mousedown.preventDefault evita robar el foco (si no, el blur cerraría el panel
+# y dispararía un rerun). Solo dispara 'input' → sin rerun, el panel queda abierto.
+_CAMP_TOOLS_JS = r"""<script>
+(function(){
+  var W=window.parent, D=W&&W.document; if(!D) return;
+  function fld(){
+    var subj=D.querySelector('.st-key-_camp_subj input');
+    var body=D.querySelector('.st-key-_camp_body textarea');
+    if(subj && !subj._cB){ subj._cB=1; subj.addEventListener('focus',function(){W._campFld=subj;}); }
+    if(body && !body._cB){ body._cB=1; body.addEventListener('focus',function(){W._campFld=body;}); }
+    var f=W._campFld;
+    if(f && D.contains(f)) return f;
+    return body||subj;
+  }
+  function insert(txt){
+    var el=fld(); if(!el) return;
+    var s=el.selectionStart, e=el.selectionEnd, v=el.value;
+    if(typeof s!=='number'){ s=e=v.length; }
+    var nv=v.slice(0,s)+txt+v.slice(e);
+    var proto=(el.tagName==='TEXTAREA')?W.HTMLTextAreaElement.prototype:W.HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(proto,'value').set.call(el, nv);
+    el.dispatchEvent(new Event('input',{bubbles:true}));
+    var p=s+txt.length;
+    try{ el.focus(); el.setSelectionRange(p,p); }catch(_){}
+    W._campFld=el;
+  }
+  fld(); setTimeout(fld,300); setTimeout(fld,800);
+  if(W._campMD){ D.removeEventListener('mousedown', W._campMD, true); }
+  W._campMD=function(ev){
+    var t=ev.target;
+    if(t&&t.closest&&(t.closest('.camp-tools')||t.closest('.camp-emoji-panel'))) ev.preventDefault();
+  };
+  D.addEventListener('mousedown', W._campMD, true);
+  if(W._campToolsH){ D.removeEventListener('click', W._campToolsH, true); }
+  W._campToolsH=function(ev){
+    var t=ev.target; if(!t||!t.closest) return;
+    if(t.closest('#_camp_emoji_btn')){
+      var pan=D.getElementById('_camp_emoji_panel'); if(pan) pan.classList.toggle('open');
+      ev.preventDefault(); ev.stopPropagation(); return;
+    }
+    var ins=t.closest('.camp-ins:not(.camp-emoji-btn)');
+    if(ins && ins.hasAttribute('data-ins')){
+      insert(ins.getAttribute('data-ins')); ev.preventDefault(); ev.stopPropagation(); return;
+    }
+    if(!t.closest('.camp-emoji-panel')){
+      var pn=D.getElementById('_camp_emoji_panel'); if(pn) pn.classList.remove('open');
+    }
+  };
+  D.addEventListener('click', W._campToolsH, true);
 })();
 </script>"""
 
@@ -2787,20 +2908,14 @@ def _render_campana_dialog(data):
         with st.container(key="_cli_mail_form"):
             st.text_input("Asunto", key="_camp_subj",
                           placeholder="Tu casa container a medida, {{nombre}}")
-            st.markdown('<div class="cli-mail-tools-lbl">Insertar variable</div>',
-                        unsafe_allow_html=True)
-            _vc = st.columns(len(_MAIL_VARS))
-            for _i, (_lbl, _var) in enumerate(_MAIL_VARS):
-                _vc[_i].button(_lbl, key=f"_camp_var_{_i}", use_container_width=True,
-                               on_click=_camp_insert, args=(_var,))
-            st.text_area("Mensaje", key="_camp_body", height=170,
+            st.text_area("Mensaje", key="_camp_body", height=180,
                          placeholder="Hola {{nombre}}, seguimos con tu proyecto en {{comuna}}…\n\n"
                          "O pega aquí el HTML de una plantilla profesional (Stripo, BeeFree…). "
                          "El sistema lo detecta solo.")
-            st.markdown('<div class="cli-mail-tools-lbl">Emojis</div>', unsafe_allow_html=True)
-            _ecols = st.columns(len(_MAIL_EMOJIS))
-            for _i, _e in enumerate(_MAIL_EMOJIS):
-                _ecols[_i].button(_e, key=f"_camp_emo_{_i}", on_click=_camp_insert, args=(_e,))
+            # Toolbar: variables + colección completa de emojis; inserta en el campo
+            # enfocado (asunto o mensaje) en la posición del cursor.
+            st.markdown(_camp_toolbar_html(), unsafe_allow_html=True)
+        components.html(_CAMP_TOOLS_JS, height=0)
 
         # Plantilla HTML: subir un .html (opcional) — tiene prioridad sobre el cuadro.
         _html_file = st.file_uploader("Importar plantilla .html (opcional)",
