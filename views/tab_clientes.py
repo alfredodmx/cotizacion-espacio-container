@@ -2607,27 +2607,8 @@ div[role="dialog"]:has(.cli-camp-intro){width:min(1180px,95vw)!important;max-wid
 .cli-camp-intro{font-size:0.78rem;color:#64748b;line-height:1.4;margin:0 0 12px;}
 /* Barra de dropdowns del segmento (reusa el look .cli-fdd/.cli-fpill del home). */
 .camp-fbar{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 8px;}
-/* Toolbar de inserción (variables + emojis) para asunto y mensaje. */
-.camp-tools{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:8px 0 2px;position:relative;}
-.camp-tools-lbl{font-size:0.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
-  color:#94a3b8;margin-right:2px;}
-.camp-ins{cursor:pointer;user-select:none;}
-.camp-var-chip{display:inline-flex;align-items:center;font-size:0.72rem;font-weight:700;color:#4338ca;
-  background:#eef2ff;border:1px solid #c7d2fe;border-radius:99px;padding:3px 10px;transition:all .12s;}
-.camp-var-chip:hover{background:#e0e7ff;}
-.camp-emoji-btn{display:inline-flex;align-items:center;gap:5px;font-size:0.72rem;font-weight:700;color:#475569;
-  background:#f8fafc;border:1px solid #e2e8f0;border-radius:99px;padding:3px 11px;transition:all .12s;}
-.camp-emoji-btn:hover{background:#f1f5f9;border-color:#cbd5e1;}
-.camp-emoji-btn svg{width:14px;height:14px;}
-.camp-emoji-panel{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:2147483001;width:342px;
-  max-height:290px;overflow-y:auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;
-  box-shadow:0 14px 40px rgba(15,23,42,.2);padding:6px 10px 10px;}
-.camp-emoji-panel.open{display:block;}
-.camp-emoji-cat{font-size:0.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;
-  margin:6px 0 3px;position:sticky;top:0;background:#fff;padding-top:2px;}
-.camp-emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;}
-.camp-emoji{font-size:20px;line-height:1;text-align:center;padding:4px 0;border-radius:7px;transition:background .1s;}
-.camp-emoji:hover{background:#eef2ff;}
+/* (El CSS del toolbar de inserción vive inline en _MAIL_TOOLS_CSS, para que
+   funcione también en la ficha, no solo en la campaña.) */
 </style>"""
 
 # Comportamiento de los dropdowns de la campaña (mismo look que el home, pero su
@@ -2716,10 +2697,36 @@ _EMOJI_CATS = [
 ]
 
 
+# CSS del toolbar — va INLINE con el HTML para que funcione en cualquier compositor
+# (campaña Y ficha), sin depender de que se haya inyectado _CAMP_CSS.
+_MAIL_TOOLS_CSS = """<style>
+.camp-tools{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:8px 0 2px;position:relative;}
+.camp-tools-lbl{font-size:0.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
+  color:#94a3b8;margin-right:2px;}
+.camp-ins{cursor:pointer;user-select:none;}
+.camp-var-chip{display:inline-flex;align-items:center;font-size:0.72rem;font-weight:700;color:#4338ca;
+  background:#eef2ff;border:1px solid #c7d2fe;border-radius:99px;padding:3px 10px;transition:all .12s;}
+.camp-var-chip:hover{background:#e0e7ff;}
+.camp-emoji-btn{display:inline-flex;align-items:center;gap:5px;font-size:0.72rem;font-weight:700;color:#475569;
+  background:#f8fafc;border:1px solid #e2e8f0;border-radius:99px;padding:3px 11px;transition:all .12s;}
+.camp-emoji-btn:hover{background:#f1f5f9;border-color:#cbd5e1;}
+.camp-emoji-btn svg{width:14px;height:14px;flex:0 0 auto;}
+.camp-emoji-panel{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:2147483001;width:342px;
+  max-height:290px;overflow-y:auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;
+  box-shadow:0 14px 40px rgba(15,23,42,.2);padding:6px 10px 10px;}
+.camp-emoji-panel.open{display:block;}
+.camp-emoji-cat{font-size:0.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;
+  margin:6px 0 3px;position:sticky;top:0;background:#fff;padding-top:2px;}
+.camp-emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;}
+.camp-emoji{font-size:20px;line-height:1;text-align:center;padding:4px 0;border-radius:7px;transition:background .1s;}
+.camp-emoji:hover{background:#eef2ff;}
+</style>"""
+
+
 def _mail_toolbar_html() -> str:
     """Toolbar de inserción: chips de variable + botón de emoji con panel (colección
     completa). Todo se inserta EN EL CAMPO ENFOCADO (asunto o mensaje) vía JS. Lo usan
-    la campaña por segmento Y el correo individual de la ficha."""
+    la campaña por segmento Y el correo individual de la ficha. Trae su CSS inline."""
     _chips = "".join(f'<span class="camp-ins camp-var-chip" data-ins="{_var}">{_lbl}</span>'
                      for _lbl, _var in _MAIL_VARS)
     _grid = ""
@@ -2731,7 +2738,8 @@ def _mail_toolbar_html() -> str:
                  'stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/>'
                  '<line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>')
     return (
-        '<div class="camp-tools">'
+        _MAIL_TOOLS_CSS
+        + '<div class="camp-tools">'
         '<span class="camp-tools-lbl">Insertar (donde tengas el cursor)</span>'
         f'{_chips}'
         f'<span class="camp-ins camp-emoji-btn" id="_camp_emoji_btn">{_emoji_ic}Emoji</span>'
