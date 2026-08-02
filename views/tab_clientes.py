@@ -2485,7 +2485,7 @@ def _render_dedup_dialog(data):
 _TIER_OPTS = {"Todos": "", "🔥 Caliente": "hot", "🔥 Tibio": "warm", "❄️ Frío": "cold"}
 
 
-def _en_segmento(d, tier, ejemail, stage) -> bool:
+def _en_segmento(d, tier, ejemail, stage, fuente="") -> bool:
     """True si el cliente cae en el segmento y es enviable (tiene correo y NO se dio
     de baja)."""
     if tier and (d.get("_score") or {}).get("key") != tier:
@@ -2494,6 +2494,8 @@ def _en_segmento(d, tier, ejemail, stage) -> bool:
         return False
     if stage and (d.get("_stage") or STAGE_LEAD) != stage:
         return False
+    if fuente and _fuente_norm(d.get("origen")) != fuente:
+        return False
     if not (d.get("email") or "").strip():
         return False
     if d.get("no_email"):
@@ -2501,13 +2503,55 @@ def _en_segmento(d, tier, ejemail, stage) -> bool:
     return True
 
 
-def _enviar_campana(segmento, subj_tpl, body_tpl, actor) -> dict:
-    """Envía el correo personalizado a cada cliente del segmento, en lotes de 100
-    (endpoint batch de Resend). Cada correo: variables + reply-to al ejecutivo
-    asignado + pie con link de baja + header List-Unsubscribe. Registra cada envío.
-    Devuelve {enviados, fallidos}."""
+def _parece_html(texto: str) -> bool:
+    """True si el cuerpo parece una plantilla HTML (para enviarla TAL CUAL en vez de
+    convertir texto plano). Detecta doctype o etiquetas típicas de correos."""
+    import re as _re2
+    t = str(texto or "")
+    if "<!doctype" in t.lower():
+        return True
+    return bool(_re2.search(
+        r'<(html|body|table|div|p|a|img|h[1-6]|span|td|tr|center|style|strong|ul|ol|li|button)\b',
+        t, _re2.I))
+
+
+def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None) -> dict:
+    """Envía el correo personalizado a cada cliente del segmento. Si el cuerpo es una
+    plantilla HTML se manda TAL CUAL (solo se reemplazan {{variables}}); si es texto,
+    se convierte a HTML. Cada correo: reply-to al ejecutivo asignado + pie con link de
+    baja + header List-Unsubscribe, y se registra en crm_correos para el seguimiento
+    (entregado/abierto/clic/rebote, igual que el correo individual). CON adjuntos se
+    envía UNO POR UNO (el batch de Resend no soporta adjuntos); SIN adjuntos, en lotes
+    de 100. Devuelve {enviados, fallidos}."""
     res = {"enviados": 0, "fallidos": 0}
     _from = _resend_remitente()
+    _es_html = _parece_html(body_tpl)
+    _att = adjuntos or None
+    _n_att = len(_att) if _att else 0
+
+    def _componer(_cli):
+        _subj = _resend_render(subj_tpl, _cli)
+        _cuerpo = _resend_render(body_tpl, _cli)
+        _html = (_cuerpo if _es_html else _resend_texto_html(_cuerpo)) + _resend_pie(_cli.get("id"))
+        _reply = (_cli.get("asignado_email") or "").strip().lower() or _resend_reply()
+        _hdr = {"List-Unsubscribe": f"<{_resend_unsub(_cli.get('id'))}>"}
+        return _subj, _html, _reply, _hdr
+
+    # CON adjuntos → uno por uno (el batch no soporta adjuntos).
+    if _att:
+        for _cli in segmento:
+            _to = (_cli.get("email") or "").strip()
+            _subj, _html, _reply, _hdr = _componer(_cli)
+            _ok, _r = _resend_enviar(_to, _subj, _html, reply_to=(_reply or None),
+                                     attachments=_att, headers=_hdr)
+            if _ok:
+                res["enviados"] += 1
+                _registrar_correo(_cli.get("id"), _r, _to, _subj, actor, _n_att)
+            else:
+                res["fallidos"] += 1
+        return res
+
+    # SIN adjuntos → batch (100 por lote).
     _buf, _meta = [], []
 
     def _flush():
@@ -2529,12 +2573,8 @@ def _enviar_campana(segmento, subj_tpl, body_tpl, actor) -> dict:
 
     for _cli in segmento:
         _to = (_cli.get("email") or "").strip()
-        _subj = _resend_render(subj_tpl, _cli)
-        _texto = _resend_render(body_tpl, _cli)
-        _html = _resend_texto_html(_texto) + _resend_pie(_cli.get("id"))
-        _reply = (_cli.get("asignado_email") or "").strip().lower() or _resend_reply()
-        _msg = {"from": _from, "to": [_to], "subject": _subj, "html": _html,
-                "headers": {"List-Unsubscribe": f"<{_resend_unsub(_cli.get('id'))}>"}}
+        _subj, _html, _reply, _hdr = _componer(_cli)
+        _msg = {"from": _from, "to": [_to], "subject": _subj, "html": _html, "headers": _hdr}
         if _reply:
             _msg["reply_to"] = _reply
         _buf.append(_msg)
@@ -2545,37 +2585,70 @@ def _enviar_campana(segmento, subj_tpl, body_tpl, actor) -> dict:
     return res
 
 
+_CAMP_CSS = """<style>
+.cli-camp-badge{display:inline-flex;align-items:center;gap:6px;font-family:Montserrat,sans-serif;
+  font-weight:800;font-size:0.7rem;padding:4px 10px;border-radius:99px;margin:2px 0 8px;}
+.cli-camp-badge svg{width:13px;height:13px;}
+.cli-camp-badge-ok{background:#dcfce7;color:#15803d;}
+.cli-camp-intro{font-size:0.78rem;color:#64748b;line-height:1.4;margin:0 0 12px;}
+/* Selectores de segmento con aspecto de chip (afín al home) */
+.st-key-_camp_seg div[data-baseweb="select"] > div{border-radius:11px;background:#f8fafc;
+  border-color:#e2e8f0;min-height:44px;font-family:Montserrat,sans-serif;font-weight:700;}
+.st-key-_camp_seg div[data-baseweb="select"] > div:hover{border-color:#cbd5e1;}
+.st-key-_camp_seg label{font-size:0.6rem!important;font-weight:800!important;text-transform:uppercase;
+  letter-spacing:.05em;color:#94a3b8!important;}
+</style>"""
+
+
 def _render_campana_dialog(data):
     """Diálogo (root/admin): campaña de correo a un SEGMENTO (potencial/ejecutivo/
-    estado). Envío en lotes, con link de baja y reply-to al ejecutivo asignado."""
+    estado/fuente). Redacción en texto o pegando/importando una plantilla HTML
+    profesional (autodetectada, con vista previa). Adjuntos opcionales (envío
+    individual). Cada correo lleva link de baja, reply-to al ejecutivo asignado y
+    seguimiento (track) — igual que el correo individual de la ficha."""
 
     @st.dialog("Nueva campaña · correo por segmento", width="large")
     def _dlg():
+        st.markdown(_CAMP_CSS, unsafe_allow_html=True)
         if not _resend_configurado():
             st.warning("Falta la RESEND_API_KEY en los secrets. Cuando la agregues, se activa.")
-        # Selectores de segmento.
-        st.markdown('<div class="cli-sec-t" style="margin:0 0 4px;">Segmento</div>',
-                    unsafe_allow_html=True)
-        _s1, _s2, _s3 = st.columns(3)
-        with _s1:
-            _tsel = st.selectbox("Potencial", list(_TIER_OPTS.keys()), key="_camp_tier")
-            _tier = _TIER_OPTS[_tsel]
-        with _s2:
-            _ejmap = {"Todos": ""}
-            for d in data:
-                _e = (d.get("asignado_email") or "").strip().lower()
-                if _e:
-                    _ejmap[_resolver_asig(_e, d.get("asignado_nombre")) or _e] = _e
-            _ejsel = st.selectbox("Ejecutivo", list(_ejmap.keys()), key="_camp_ej")
-            _ejemail = _ejmap[_ejsel]
-        with _s3:
-            _stmap = {"Todos": ""}
-            for _s in _STAGE_ORDER:
-                _stmap[_STAGE_META[_s][0]] = _s
-            _stsel = st.selectbox("Estado", list(_stmap.keys()), key="_camp_st")
-            _stage = _stmap[_stsel]
+        st.markdown('<div class="cli-camp-intro">Envía un correo personalizado a un grupo de '
+                    'clientes. Filtra el segmento, redacta o <b>pega una plantilla HTML</b> '
+                    'profesional, y envía.</div>', unsafe_allow_html=True)
 
-        _seg = [d for d in data if _en_segmento(d, _tier, _ejemail, _stage)]
+        # ── Segmento ────────────────────────────────────────────────────────
+        st.markdown('<div class="cli-sec-t" style="margin:0 0 6px;">Segmento</div>',
+                    unsafe_allow_html=True)
+        with st.container(key="_camp_seg"):
+            _s1, _s2, _s3, _s4 = st.columns(4)
+            with _s1:
+                _tsel = st.selectbox("Potencial", list(_TIER_OPTS.keys()), key="_camp_tier")
+                _tier = _TIER_OPTS[_tsel]
+            with _s2:
+                _ejmap = {"Todos": ""}
+                for d in data:
+                    _e = (d.get("asignado_email") or "").strip().lower()
+                    if _e:
+                        _ejmap[_resolver_asig(_e, d.get("asignado_nombre")) or _e] = _e
+                _ejsel = st.selectbox("Ejecutivo", list(_ejmap.keys()), key="_camp_ej")
+                _ejemail = _ejmap[_ejsel]
+            with _s3:
+                _stmap = {"Todos": ""}
+                for _s in _STAGE_ORDER:
+                    _stmap[_STAGE_META[_s][0]] = _s
+                _stsel = st.selectbox("Estado", list(_stmap.keys()), key="_camp_st")
+                _stage = _stmap[_stsel]
+            with _s4:
+                _fumap, _fucnt = {"Todas": ""}, {}
+                for d in data:
+                    _fk = _fuente_norm(d.get("origen"))
+                    _fucnt[_fk] = _fucnt.get(_fk, 0) + 1
+                for _fk in sorted(_fucnt, key=lambda x: (-_fucnt[x], x)):
+                    _fumap[_fuente_meta(_fk)[0]] = _fk
+                _fusel = st.selectbox("Fuente", list(_fumap.keys()), key="_camp_fu")
+                _fuente = _fumap[_fusel]
+
+        _seg = [d for d in data if _en_segmento(d, _tier, _ejemail, _stage, _fuente)]
         st.markdown(
             f'<div class="cli-actf-hint">Se enviará a <b>{len(_seg)} destinatario(s)</b> '
             '(con correo y sin baja). Se excluyen los sin correo y los dados de baja.</div>',
@@ -2584,6 +2657,10 @@ def _render_campana_dialog(data):
             st.info("Ningún cliente en este segmento tiene correo para enviar.")
 
         st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
+
+        # ── Mensaje ─────────────────────────────────────────────────────────
+        st.markdown('<div class="cli-sec-t" style="margin:0 0 6px;">Mensaje</div>',
+                    unsafe_allow_html=True)
         with st.container(key="_cli_mail_form"):
             st.text_input("Asunto", key="_camp_subj",
                           placeholder="Tu casa container a medida, {{nombre}}")
@@ -2594,29 +2671,71 @@ def _render_campana_dialog(data):
                 _vc[_i].button(_lbl, key=f"_camp_var_{_i}", use_container_width=True,
                                on_click=_camp_insert, args=(_var,))
             st.text_area("Mensaje", key="_camp_body", height=170,
-                         placeholder="Hola {{nombre}}, seguimos con tu proyecto en {{comuna}}…")
+                         placeholder="Hola {{nombre}}, seguimos con tu proyecto en {{comuna}}…\n\n"
+                         "O pega aquí el HTML de una plantilla profesional (Stripo, BeeFree…). "
+                         "El sistema lo detecta solo.")
             st.markdown('<div class="cli-mail-tools-lbl">Emojis</div>', unsafe_allow_html=True)
             _ecols = st.columns(len(_MAIL_EMOJIS))
             for _i, _e in enumerate(_MAIL_EMOJIS):
                 _ecols[_i].button(_e, key=f"_camp_emo_{_i}", on_click=_camp_insert, args=(_e,))
 
-        st.markdown('<div class="cli-actf-hint">Cada correo lleva <b>link de baja</b> y, si el '
-                    'cliente responde, le llega a su <b>ejecutivo asignado</b>. Sin adjuntos en '
-                    'masivo (para adjuntar, usa el correo individual desde la ficha).</div>',
-                    unsafe_allow_html=True)
+        # Plantilla HTML: subir un .html (opcional) — tiene prioridad sobre el cuadro.
+        _html_file = st.file_uploader("Importar plantilla .html (opcional)",
+                                      type=["html", "htm"], key="_camp_html_file")
+        _body = st.session_state.get("_camp_body", "") or ""
+        if _html_file is not None:
+            try:
+                _body = _html_file.getvalue().decode("utf-8", "ignore")
+            except Exception:
+                pass
+        _es_html = _parece_html(_body)
+
+        # Badge de detección + vista previa (con el 1er destinatario o datos de ejemplo).
+        if (_body or "").strip():
+            if _es_html:
+                st.markdown('<div class="cli-camp-badge cli-camp-badge-ok">'
+                            + _svg('<path d="M20 6 9 17l-5-5"/>', 13, "currentColor")
+                            + 'Plantilla HTML detectada — se envía tal cual</div>',
+                            unsafe_allow_html=True)
+            _muestra = _seg[0] if _seg else {"nombre": "Juan", "comuna": "Santiago",
+                                             "email": "juan@correo.cl", "telefono": "+56 9 …"}
+            _prev = _resend_render(_body, _muestra)
+            _prev_html = _prev if _es_html else _resend_texto_html(_prev)
+            with st.expander("Vista previa del correo", expanded=_es_html):
+                components.html(
+                    f'<div style="background:#fff;padding:14px;border-radius:8px;font-family:Arial,'
+                    f'sans-serif;">{_prev_html}</div>', height=380, scrolling=True)
+
+        # Adjuntos (PDF/imágenes/…). Con adjuntos, el envío es individual.
+        _files = st.file_uploader("Adjuntar archivos (opcional)", accept_multiple_files=True,
+                                  key="_camp_files")
+
+        _hint = ('Cada correo lleva <b>link de baja</b>, reply-to al <b>ejecutivo asignado</b> '
+                 'y seguimiento (entregado/abrió/clic/rebote).')
+        if _files:
+            _hint += ' Con adjuntos el envío es <b>uno por uno</b> (más lento en listas grandes).'
+        st.markdown(f'<div class="cli-actf-hint">{_hint}</div>', unsafe_allow_html=True)
         st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
+
         if st.button(f"Enviar campaña a {len(_seg)}", type="primary", use_container_width=True,
                      key="_camp_send", icon=":material/send:",
                      disabled=(not _seg or not _resend_configurado())):
             _subj = st.session_state.get("_camp_subj", "")
-            _body = st.session_state.get("_camp_body", "")
             if not (_subj or "").strip() or not (_body or "").strip():
-                st.warning("Escribe el asunto y el mensaje.")
+                st.warning("Escribe el asunto y el mensaje (o sube una plantilla HTML).")
             else:
+                _att = []
+                for _f in (_files or []):
+                    try:
+                        import base64
+                        _att.append({"filename": _f.name,
+                                     "content": base64.b64encode(_f.getvalue()).decode()})
+                    except Exception:
+                        pass
                 _actor = (st.session_state.get("auth_nombre")
                           or st.session_state.get("auth_email", ""))
                 with st.spinner(f"Enviando {len(_seg)} correo(s)…"):
-                    _r = _enviar_campana(_seg, _subj, _body, _actor)
+                    _r = _enviar_campana(_seg, _subj, _body, _actor, adjuntos=_att or None)
                 for _k in ("_camp_subj", "_camp_body"):
                     st.session_state.pop(_k, None)
                 st.session_state["_cli_toast"] = (
