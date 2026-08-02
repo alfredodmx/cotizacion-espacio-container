@@ -2605,6 +2605,14 @@ _CAMP_DD_JS = r"""<script>
 (function(){
   var W=window.parent, D=W&&W.document; if(!D) return;
   __CAMP_INIT__
+  // Ensanchar el diálogo de campaña (el CSS :has no siempre pega en Streamlit).
+  try{
+    var intro=D.querySelector('.cli-camp-intro');
+    var dlg=intro&&intro.closest?intro.closest('[data-testid="stDialog"]'):null;
+    var modal=dlg?(dlg.querySelector('[role="dialog"]')||dlg.firstElementChild):null;
+    if(modal){ modal.style.setProperty('max-width','min(1180px,96vw)','important');
+               modal.style.setProperty('width','min(1180px,96vw)','important'); }
+  }catch(e){}
   function fireSel(){
     var inp=D.querySelector('.st-key-_camp_segcmd input'); if(!inp) return;
     var s=W._campSel||{}, val=[s.tier||'',s.ej||'',s.st||'',s.fu||'',Date.now()].join('|');
@@ -2757,7 +2765,7 @@ def _render_campana_dialog(data):
             _fi[_fk], _fl_[_fk] = _ic, _flbl
         _dd_fu = _dd("fu", "Todas las fuentes", _o, _fuente, _fi.get(_fuente, ""), _fl_.get(_fuente, ""))
 
-        st.markdown(f'<div class="camp-fbar">{_dd_tier}{_dd_ej}{_dd_st}{_dd_fu}</div>',
+        st.markdown(f'<div class="camp-fbar">{_dd_ej}{_dd_st}{_dd_tier}{_dd_fu}</div>',
                     unsafe_allow_html=True)
         _init = ("W._campSel={tier:'%s',ej:'%s',st:'%s',fu:'%s'};" % (
             _tier, _ejemail.replace("'", "\\'"), _stage, _fuente))
@@ -2830,6 +2838,51 @@ def _render_campana_dialog(data):
         if _files:
             _hint += ' Con adjuntos el envío es <b>uno por uno</b> (más lento en listas grandes).'
         st.markdown(f'<div class="cli-actf-hint">{_hint}</div>', unsafe_allow_html=True)
+        st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
+
+        # ── Enviar prueba (ver cómo llega la plantilla antes de la campaña) ──
+        st.markdown('<div class="cli-mail-tools-lbl">Enviar prueba</div>', unsafe_allow_html=True)
+        if "_camp_test_to" not in st.session_state:
+            st.session_state["_camp_test_to"] = st.session_state.get("auth_email", "") or ""
+        _tc1, _tc2 = st.columns([3, 1])
+        with _tc1:
+            _test_to = st.text_input("Correo de prueba", key="_camp_test_to",
+                                     placeholder="tucorreo@ejemplo.cl", label_visibility="collapsed")
+        with _tc2:
+            _test_click = st.button("Enviar prueba", key="_camp_test_send", use_container_width=True,
+                                    icon=":material/outgoing_mail:", disabled=(not _resend_configurado()))
+        if _test_click:
+            _subj_t = st.session_state.get("_camp_subj", "")
+            if not (_test_to or "").strip() or not (_subj_t or "").strip() or not (_body or "").strip():
+                st.warning("Escribe el asunto, el mensaje y el correo de prueba.")
+            else:
+                _mtest = _seg[0] if _seg else {"nombre": "Prueba", "comuna": "Santiago",
+                                               "email": _test_to, "telefono": "+56 9 1234 5678"}
+                _es_h = _parece_html(_body)
+                _subj_r = _resend_render(_subj_t, _mtest)
+                _cuerpo_r = _resend_render(_body, _mtest)
+                _html_r = (_cuerpo_r if _es_h else _resend_texto_html(_cuerpo_r))
+                if _mtest.get("id"):
+                    _html_r += _resend_pie(_mtest.get("id"))
+                _att_t = []
+                for _f in (_files or []):
+                    try:
+                        import base64
+                        _att_t.append({"filename": _f.name,
+                                       "content": base64.b64encode(_f.getvalue()).decode()})
+                    except Exception:
+                        pass
+                with st.spinner("Enviando prueba…"):
+                    _okt, _rt = _resend_enviar(_test_to.strip(), "[PRUEBA] " + _subj_r, _html_r,
+                                               reply_to=(_resend_reply() or None),
+                                               attachments=_att_t or None)
+                if _okt:
+                    st.success(f"Prueba enviada a {_test_to}. Revisa tu bandeja (asunto [PRUEBA]).")
+                else:
+                    st.error(f"No se pudo enviar la prueba: {_rt}")
+        st.markdown('<div class="cli-actf-hint">Se envía UN correo con el asunto <b>[PRUEBA]</b> al correo '
+                    'que indiques, con esta misma plantilla — para revisar cómo llega.</div>',
+                    unsafe_allow_html=True)
         st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
 
         if st.button(f"Enviar campaña a {len(_seg)}", type="primary", use_container_width=True,
