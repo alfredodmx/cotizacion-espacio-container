@@ -13,6 +13,7 @@ Todo DEFENSIVO: si falta la key o falla la red, devuelve (False, mensaje) y nunc
 lanza — el CRM sigue funcionando.
 """
 import html as _html
+import re as _re
 import streamlit as st
 
 _API_URL = "https://api.resend.com/emails"
@@ -83,10 +84,38 @@ def render_variables(texto: str, cliente: dict) -> str:
     return t
 
 
+# URLs http(s) en texto plano. Se cortan en espacios y en caracteres que nunca
+# forman parte de una URL escrita a mano (`<>"'`), y luego se recorta la puntuación
+# final típica (punto, coma, paréntesis de cierre, etc.).
+_URL_RE = _re.compile(r'https?://[^\s<>"\']+')
+
+
+def _linkificar(texto: str) -> str:
+    """Convierte las URLs http(s) de un texto plano en enlaces `<a href>` reales,
+    escapando TODO (XSS-safe). Necesario para que (a) el enlace sea clickeable en
+    cualquier cliente de correo y (b) Resend pueda reescribirlo por `track.mail` y
+    así rastrear el clic (una URL de texto plano no tiene href que reescribir). El
+    texto sin URLs queda escapado igual que antes."""
+    partes, fin = [], 0
+    for m in _URL_RE.finditer(texto):
+        url, cola = m.group(0), ""
+        while url and url[-1] in ".,;:!?)]}":   # puntuación final que no es del link
+            cola, url = url[-1] + cola, url[:-1]
+        partes.append(_html.escape(texto[fin:m.start()]))
+        _href = _html.escape(url, quote=True)
+        partes.append(f'<a href="{_href}" style="color:#2563eb;text-decoration:underline;">'
+                      f'{_html.escape(url)}</a>')
+        partes.append(_html.escape(cola))
+        fin = m.end()
+    partes.append(_html.escape(texto[fin:]))
+    return "".join(partes)
+
+
 def texto_a_html(texto: str) -> str:
     """Envuelve texto plano (ya personalizado) en un HTML simple y prolijo. Escapa
-    el contenido y respeta los saltos de línea."""
-    cuerpo = _html.escape(str(texto or "")).replace("\n", "<br>")
+    el contenido (XSS-safe), respeta los saltos de línea y convierte las URLs en
+    enlaces `<a href>` reales (clickeables + rastreables por Resend)."""
+    cuerpo = _linkificar(str(texto or "")).replace("\n", "<br>")
     return (
         '<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#1f2937;'
         'line-height:1.6;max-width:560px;">'
