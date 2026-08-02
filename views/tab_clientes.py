@@ -2870,7 +2870,8 @@ def _firma_render(nombre, foto, cargo, tel, correo, cfg) -> str:
     else:
         _dir = ""
     _left = f'<td style="padding:0 14px 0 0;vertical-align:top;">{_foto}</td>' if _foto else ""
-    _contact = ' &nbsp;·&nbsp; '.join([p for p in (_tel, _wa, _mail) if p])
+    # Apilados: correo, teléfono, WhatsApp (uno debajo del otro).
+    _contact = '<br>'.join([p for p in (_mail, _tel, _wa) if p])
     return (
         '<div style="margin-top:26px;border-top:1px solid #e5e7eb;padding-top:14px;'
         'font-family:Arial,Helvetica,sans-serif;">'
