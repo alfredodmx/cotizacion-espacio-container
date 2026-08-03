@@ -3313,7 +3313,16 @@ def _render_campana_dialog(data):
         # ── Mensaje (pestañas: Texto plano / Plantilla HTML) ────────────────
         st.markdown('<div class="cli-sec-t" style="margin:0 0 6px;">Mensaje</div>',
                     unsafe_allow_html=True)
-        st.text_input("Asunto", key="_camp_subj",
+        # Asunto + toolbar (variables/emojis) en la MISMA fila (toolbar a la derecha).
+        # El toolbar inserta donde esté el cursor: asunto (ambas pestañas) o mensaje.
+        _asc1, _asc2 = st.columns([1, 2.7], vertical_alignment="bottom")
+        with _asc1:
+            st.markdown('<div class="cli-mail-tools-lbl" style="margin:0 0 9px;">Asunto</div>',
+                        unsafe_allow_html=True)
+        with _asc2:
+            st.markdown('<div style="display:flex;justify-content:flex-end;">'
+                        + _mail_toolbar_html() + '</div>', unsafe_allow_html=True)
+        st.text_input("Asunto", key="_camp_subj", label_visibility="collapsed",
                       placeholder="Tu casa container a medida, {{nombre}}")
         # Pestañas = radio disfrazado (estable en el diálogo); reusa el CSS del home
         # retargeteando la key.
@@ -3348,10 +3357,11 @@ def _render_campana_dialog(data):
             with st.container(key="_cli_mail_form"):
                 st.text_area("Mensaje", key="_camp_body", height=180,
                              placeholder="Hola {{nombre}}, seguimos con tu proyecto en {{comuna}}…")
-                # Toolbar: variables + emojis; inserta en asunto o mensaje (donde esté el cursor).
-                st.markdown(_mail_toolbar_html(), unsafe_allow_html=True)
-            components.html(_mail_tools_js("_camp_subj", "_camp_body"), height=0)
             _body = st.session_state.get("_camp_body", "") or ""
+
+        # JS del toolbar (al final, cuando ya existen el asunto y —si aplica— el mensaje):
+        # inserta en el asunto (ambas pestañas) o en el mensaje (Texto plano).
+        components.html(_mail_tools_js("_camp_subj", "_camp_body"), height=0)
 
         # Adjuntos (ambas pestañas). Con adjuntos, el envío es individual.
         _files = st.file_uploader("Adjuntar archivos (opcional)", accept_multiple_files=True,
