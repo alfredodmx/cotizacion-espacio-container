@@ -3121,9 +3121,16 @@ def _render_campanas_historial():
                 for x in _cors:
                     _l, _b, _f = _correo_estado_meta(x)
                     _cu = x.get("click_urls") or ([x.get("click_url")] if x.get("click_url") else [])
-                    _cu = [u for u in _cu if u]
-                    _cu_html = (f'<div style="font-size:0.66rem;color:#6d28d9;">🔗 {len(_cu)} clic(s)</div>'
-                                if _cu else "")
+                    _cu = [str(u).strip() for u in _cu if str(u or "").strip()]
+                    _cu_html = ""
+                    if _cu:
+                        _lbl_c = "Clic en:" if len(_cu) == 1 else f"Clics ({len(_cu)}):"
+                        _cu_html = (f'<div style="font-size:0.62rem;color:#94a3b8;font-weight:700;'
+                                    f'margin-top:3px;">{_lbl_c}</div>') + "".join(
+                            '<div style="font-size:0.66rem;color:#6d28d9;margin-top:1px;white-space:nowrap;'
+                            'overflow:hidden;text-overflow:ellipsis;max-width:100%;">🔗 '
+                            f'<a href="{_esc(u)}" target="_blank" style="color:#6d28d9;">{_esc(u)}</a></div>'
+                            for u in _cu)
                     _rr += (
                         '<div class="cli-ep-row"><div style="min-width:0;">'
                         '<div style="font-size:0.78rem;color:#0f172a;font-weight:600;white-space:nowrap;'
