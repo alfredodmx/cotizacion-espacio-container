@@ -173,6 +173,21 @@ except Exception:
     def _iconos_urls():
         return {}
 
+try:   # Campañas / reporte por envío masivo (tabla crm_campanas) — defensivo
+    from repositories.campanas_repo import (
+        crear_campana as _crear_campana, listar_campanas as _listar_campanas,
+        correos_de_campana as _correos_de_campana,
+    )
+except Exception:
+    def _crear_campana(*a, **k):
+        return ""
+
+    def _listar_campanas():
+        return []
+
+    def _correos_de_campana(_i):
+        return []
+
 try:   # Ingesta de leads desde Shopify (Fase 4) — defensivo
     from utils.shopify import (
         configurado as _shopify_configurado, listar_clientes as _shopify_listar,
@@ -2557,19 +2572,21 @@ def _parece_html(texto: str) -> bool:
         t, _re2.I))
 
 
-def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None) -> dict:
+def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None, segmento_desc="") -> dict:
     """Envía el correo personalizado a cada cliente del segmento. Si el cuerpo es una
     plantilla HTML se manda TAL CUAL (solo se reemplazan {{variables}}); si es texto,
     se convierte a HTML. Cada correo: reply-to al ejecutivo asignado + pie con link de
-    baja + header List-Unsubscribe, y se registra en crm_correos para el seguimiento
-    (entregado/abierto/clic/rebote, igual que el correo individual). CON adjuntos se
-    envía UNO POR UNO (el batch de Resend no soporta adjuntos); SIN adjuntos, en lotes
-    de 100. Devuelve {enviados, fallidos}."""
+    baja + header List-Unsubscribe, y se registra en crm_correos (etiquetado con la
+    campaña) para el seguimiento y el REPORTE por campaña. CON adjuntos se envía UNO
+    POR UNO (el batch de Resend no soporta adjuntos); SIN adjuntos, en lotes de 100.
+    Devuelve {enviados, fallidos, campana_id}."""
     res = {"enviados": 0, "fallidos": 0}
     _from = _resend_remitente()
     _es_html = _parece_html(body_tpl)
     _att = adjuntos or None
     _n_att = len(_att) if _att else 0
+    _camp_id = _crear_campana(subj_tpl, segmento_desc, actor, len(segmento)) or None
+    res["campana_id"] = _camp_id
 
     def _componer(_cli):
         _subj = _resend_render(subj_tpl, _cli)
@@ -2589,7 +2606,7 @@ def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None) -> dict:
                                      attachments=_att, headers=_hdr)
             if _ok:
                 res["enviados"] += 1
-                _registrar_correo(_cli.get("id"), _r, _to, _subj, actor, _n_att)
+                _registrar_correo(_cli.get("id"), _r, _to, _subj, actor, _n_att, campana_id=_camp_id)
             else:
                 res["fallidos"] += 1
         return res
@@ -2608,7 +2625,7 @@ def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None) -> dict:
             if _ok:
                 res["enviados"] += 1
                 _registrar_correo(_cli.get("id"), (_ids[_i] if _i < len(_ids) else ""),
-                                  _cli.get("email", ""), _subj, actor, 0)
+                                  _cli.get("email", ""), _subj, actor, 0, campana_id=_camp_id)
             else:
                 res["fallidos"] += 1
         _buf.clear()
@@ -2638,6 +2655,16 @@ div[role="dialog"]:has(.cli-camp-intro){width:min(1180px,95vw)!important;max-wid
 .cli-camp-intro{font-size:0.78rem;color:#64748b;line-height:1.4;margin:0 0 12px;}
 /* Barra de dropdowns del segmento (reusa el look .cli-fdd/.cli-fpill del home). */
 .camp-fbar{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 8px;}
+/* Reporte por campaña (historial). */
+.cli-camp-card{border:1px solid #e6e9f4;border-radius:14px;padding:14px 16px;margin:0 0 12px;background:#fff;
+  box-shadow:0 2px 10px rgba(30,36,71,.05);}
+.cli-camp-card-t{font-family:Montserrat,sans-serif;font-weight:700;font-size:0.9rem;color:#0f172a;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cli-camp-card-sub{font-size:0.7rem;color:#94a3b8;margin-top:2px;}
+.cli-camp-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;margin-top:12px;}
+.cli-camp-stat{background:#f8fafc;border:1px solid #eef2f7;border-radius:10px;padding:8px 6px;text-align:center;}
+.cli-camp-stat b{display:block;font-size:0.95rem;color:#0f172a;font-weight:800;}
+.cli-camp-stat span{font-size:0.6rem;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
 /* (El CSS del toolbar de inserción vive inline en _MAIL_TOOLS_CSS, para que
    funcione también en la ficha, no solo en la campaña.) */
 </style>"""
@@ -3043,6 +3070,63 @@ def _render_firma_dialog(data):
     _dlg()
 
 
+def _render_campanas_historial():
+    """Reporte por campaña: lista de envíos masivos con sus tasas (entregado/abrió/
+    clic/rebote/spam) derivadas de crm_correos, con drill-down de destinatarios."""
+    _camps = _listar_campanas()
+    if not _camps:
+        st.info("Aún no has enviado campañas. Cuando envíes una, acá verás sus tasas.")
+        return
+    for _c in _camps:
+        _cors = _correos_de_campana(_c.get("id"))
+        _tot = len(_cors) or int(_c.get("total") or 0)
+        _op = sum(1 for x in _cors if x.get("opened"))
+        _cl = sum(1 for x in _cors if x.get("clicked"))
+        _bo = sum(1 for x in _cors if x.get("bounced"))
+        _sp = sum(1 for x in _cors if x.get("complained"))
+        _de = sum(1 for x in _cors if (x.get("opened") or x.get("clicked") or x.get("bounced")
+                  or str(x.get("last_event") or "") in ("delivered", "opened", "clicked")))
+
+        def _pct(n):
+            return f" · {100.0 * n / _tot:.0f}%" if _tot else ""
+
+        _stat = ('<div class="cli-camp-stats">'
+                 f'<div class="cli-camp-stat"><b>{_tot}</b><span>Enviados</span></div>'
+                 f'<div class="cli-camp-stat"><b>{_de}{_pct(_de)}</b><span>Entregados</span></div>'
+                 f'<div class="cli-camp-stat"><b>{_op}{_pct(_op)}</b><span>Abrieron</span></div>'
+                 f'<div class="cli-camp-stat"><b>{_cl}{_pct(_cl)}</b><span>Clickearon</span></div>'
+                 f'<div class="cli-camp-stat"><b>{_bo}</b><span>Rebotes</span></div>'
+                 f'<div class="cli-camp-stat"><b>{_sp}</b><span>Spam</span></div>'
+                 '</div>')
+        _seg_txt = _esc(_c.get("segmento") or "Todos los clientes")
+        _act = _esc(_c.get("actor") or "")
+        st.markdown(
+            '<div class="cli-camp-card">'
+            f'<div class="cli-camp-card-t">{_esc(_c.get("asunto") or "(sin asunto)")}</div>'
+            f'<div class="cli-camp-card-sub">{_esc(_fmt_fecha_local(_c.get("fecha")))} · {_seg_txt}'
+            + (f' · {_act}' if _act else '') + '</div>'
+            f'{_stat}</div>', unsafe_allow_html=True)
+
+        with st.expander(f"Ver destinatarios ({_tot})"):
+            if not _cors:
+                st.caption("Sin registros de destinatarios (¿campaña muy reciente?).")
+            else:
+                _rr = ""
+                for x in _cors:
+                    _l, _b, _f = _correo_estado_meta(x)
+                    _cu = x.get("click_urls") or ([x.get("click_url")] if x.get("click_url") else [])
+                    _cu = [u for u in _cu if u]
+                    _cu_html = (f'<div style="font-size:0.66rem;color:#6d28d9;">🔗 {len(_cu)} clic(s)</div>'
+                                if _cu else "")
+                    _rr += (
+                        '<div class="cli-ep-row"><div style="min-width:0;">'
+                        '<div style="font-size:0.78rem;color:#0f172a;font-weight:600;white-space:nowrap;'
+                        f'overflow:hidden;text-overflow:ellipsis;">{_esc(x.get("para") or "—")}</div>{_cu_html}</div>'
+                        f'<span class="cli-pill" style="background:{_b};color:{_f};">{_l}</span></div>')
+                st.markdown('<div style="border:1px solid #e6e9f4;border-radius:12px;overflow:hidden;">'
+                            + _rr + '</div>', unsafe_allow_html=True)
+
+
 def _render_campana_dialog(data):
     """Diálogo (root/admin): campaña de correo a un SEGMENTO (potencial/ejecutivo/
     estado/fuente). Redacción en texto o pegando/importando una plantilla HTML
@@ -3058,6 +3142,14 @@ def _render_campana_dialog(data):
         st.markdown('<div class="cli-camp-intro">Envía un correo personalizado a un grupo de '
                     'clientes. Filtra el segmento, redacta o <b>pega una plantilla HTML</b> '
                     'profesional, y envía.</div>', unsafe_allow_html=True)
+
+        _modo = st.radio("Modo", ["Nueva campaña", "Historial"], horizontal=True,
+                         label_visibility="collapsed", key="_camp_modo")
+        if _modo == "Historial":
+            st.markdown('<div class="cli-sec-t" style="margin:2px 0 8px;">Historial de campañas '
+                        '· tasas por envío</div>', unsafe_allow_html=True)
+            _render_campanas_historial()
+            return
 
         # ── Segmento (dropdowns con avatar, idénticos a los del home) ───────
         st.markdown('<div class="cli-sec-t" style="margin:0 0 6px;">Segmento</div>',
@@ -3279,8 +3371,15 @@ def _render_campana_dialog(data):
                         pass
                 _actor = (st.session_state.get("auth_nombre")
                           or st.session_state.get("auth_email", ""))
+                _seg_desc = " · ".join(filter(None, [
+                    ("Potencial: " + _tl.get(_tier, _tier)) if _tier else "",
+                    ("Ejecutivo: " + _el.get(_ejemail, _ejemail)) if _ejemail else "",
+                    ("Estado: " + _sl.get(_stage, _stage)) if _stage else "",
+                    ("Fuente: " + _fl_.get(_fuente, _fuente)) if _fuente else "",
+                ])) or "Todos los clientes"
                 with st.spinner(f"Enviando {len(_seg)} correo(s)…"):
-                    _r = _enviar_campana(_seg, _subj, _body, _actor, adjuntos=_att or None)
+                    _r = _enviar_campana(_seg, _subj, _body, _actor, adjuntos=_att or None,
+                                         segmento_desc=_seg_desc)
                 for _k in ("_camp_subj", "_camp_body"):
                     st.session_state.pop(_k, None)
                 st.session_state["_cli_toast"] = (

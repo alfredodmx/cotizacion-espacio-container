@@ -20,11 +20,12 @@ def _ahora() -> str:
 
 
 def registrar_correo(cliente_id, resend_id, para, asunto,
-                     enviado_por="", adjuntos=0) -> tuple:
-    """Guarda un correo enviado (para el seguimiento). Devuelve (id, err). DEFENSIVO."""
+                     enviado_por="", adjuntos=0, campana_id=None) -> tuple:
+    """Guarda un correo enviado (para el seguimiento). `campana_id` agrupa los correos
+    de un mismo envío masivo (para el reporte por campaña). Devuelve (id, err). DEFENSIVO."""
     try:
         cid = str(uuid.uuid4())
-        _supa.table("crm_correos").insert({
+        _row = {
             "id": cid,
             "cliente_id": str(cliente_id) if cliente_id else None,
             "resend_id": str(resend_id or ""),
@@ -33,7 +34,10 @@ def registrar_correo(cliente_id, resend_id, para, asunto,
             "enviado_por": str(enviado_por or ""),
             "adjuntos": int(adjuntos or 0),
             "fecha": _ahora(),
-        }).execute()
+        }
+        if campana_id:
+            _row["campana_id"] = str(campana_id)
+        _supa.table("crm_correos").insert(_row).execute()
         return cid, None
     except Exception as e:
         return None, str(e)
