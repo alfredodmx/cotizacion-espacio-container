@@ -2223,13 +2223,20 @@ def _render_correos_enviados(cid, cli=None):
                 _chips += f'<span class="cli-mchip" style="background:{_cbg};color:{_cfg};">{_tx}</span>'
         _chips_html = (f'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">{_chips}</div>'
                        if _chips else "")
-        # A qué enlace hizo click el lector (lo guarda el webhook en click_url).
-        _curl = str(c.get("click_url") or "").strip()
-        _click_html = (
-            '<div style="font-size:0.7rem;color:#6d28d9;margin-top:3px;white-space:nowrap;'
-            'overflow:hidden;text-overflow:ellipsis;max-width:100%;">🔗 Clic en: '
-            f'<a href="{_esc(_curl)}" target="_blank" style="color:#6d28d9;">{_esc(_curl)}</a></div>'
-            if _curl else "")
+        # TODOS los enlaces que clickeó el lector (los acumula el webhook en click_urls;
+        # click_url es el legado de un solo enlace, se incluye por compatibilidad).
+        _curls = c.get("click_urls") or ([c.get("click_url")] if c.get("click_url") else [])
+        _curls = [str(u).strip() for u in _curls if str(u or "").strip()]
+        _click_html = ""
+        if _curls:
+            _lbl_c = "Clic en:" if len(_curls) == 1 else f"Clics ({len(_curls)}):"
+            _links = "".join(
+                '<div style="font-size:0.7rem;color:#6d28d9;margin-top:2px;white-space:nowrap;'
+                'overflow:hidden;text-overflow:ellipsis;max-width:100%;">🔗 '
+                f'<a href="{_esc(u)}" target="_blank" style="color:#6d28d9;">{_esc(u)}</a></div>'
+                for u in _curls)
+            _click_html = (f'<div style="font-size:0.66rem;color:#94a3b8;font-weight:700;'
+                           f'margin-top:4px;">{_lbl_c}</div>{_links}')
         _rows += (
             '<div class="cli-ep-row">'
             f'<div style="min-width:0;"><div style="font-size:0.84rem;color:#0f172a;font-weight:600;'
