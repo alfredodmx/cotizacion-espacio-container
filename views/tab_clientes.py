@@ -1667,7 +1667,8 @@ def _render_maestro(data: list):
         '</div>'
         '<label class="cli-pgn-size-l">Por página '
         '<select id="_cli_pgsize" class="cli-pgn-size">'
-        '<option value="25">25</option><option value="50">50</option><option value="100">100</option>'
+        '<option value="10">10</option><option value="25">25</option>'
+        '<option value="50">50</option><option value="100">100</option>'
         '</select></label></div>', unsafe_allow_html=True)
 
 
