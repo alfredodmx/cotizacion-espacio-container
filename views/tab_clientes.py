@@ -2572,7 +2572,8 @@ def _parece_html(texto: str) -> bool:
         t, _re2.I))
 
 
-def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None, segmento_desc="") -> dict:
+def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None, segmento_desc="",
+                    nombre="") -> dict:
     """Envía el correo personalizado a cada cliente del segmento. Si el cuerpo es una
     plantilla HTML se manda TAL CUAL (solo se reemplazan {{variables}}); si es texto,
     se convierte a HTML. Cada correo: reply-to al ejecutivo asignado + pie con link de
@@ -2585,7 +2586,8 @@ def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None, segmento
     _es_html = _parece_html(body_tpl)
     _att = adjuntos or None
     _n_att = len(_att) if _att else 0
-    _camp_id = _crear_campana(subj_tpl, segmento_desc, actor, len(segmento)) or None
+    _camp_id = _crear_campana(subj_tpl, segmento_desc, actor, len(segmento),
+                              nombre=nombre, plantilla=body_tpl, es_html=_es_html) or None
     res["campana_id"] = _camp_id
 
     def _componer(_cli):
@@ -3077,6 +3079,14 @@ def _render_campanas_historial():
     if not _camps:
         st.info("Aún no has enviado campañas. Cuando envíes una, acá verás sus tasas.")
         return
+    _q = (st.text_input("Buscar", key="_camp_hist_q", label_visibility="collapsed",
+                        placeholder="Buscar campaña por nombre o asunto…") or "").strip().lower()
+    if _q:
+        _camps = [c for c in _camps
+                  if _q in (str(c.get("nombre") or "") + " " + str(c.get("asunto") or "")).lower()]
+    if not _camps:
+        st.caption("Sin campañas que coincidan con la búsqueda.")
+        return
     for _c in _camps:
         _cors = _correos_de_campana(_c.get("id"))
         _tot = len(_cors) or int(_c.get("total") or 0)
@@ -3100,18 +3110,33 @@ def _render_campanas_historial():
                  '</div>')
         _seg_txt = _esc(_c.get("segmento") or "Todos los clientes")
         _act = _esc(_c.get("actor") or "")
-        _es_prueba = str(_c.get("asunto") or "").strip().upper().startswith("[PRUEBA]")
+        _nombre = str(_c.get("nombre") or "").strip()
+        _asunto = str(_c.get("asunto") or "(sin asunto)")
+        _titulo = _nombre or _asunto
+        _es_prueba = (_titulo.strip().upper().startswith("[PRUEBA]")
+                      or _asunto.strip().upper().startswith("[PRUEBA]"))
         _prueba_badge = ('<span style="background:#fef3c7;color:#b45309;font-size:0.58rem;font-weight:800;'
                          'padding:2px 8px;border-radius:99px;flex:0 0 auto;">PRUEBA</span>'
                          if _es_prueba else "")
+        _sub_asunto = (f'Asunto: {_esc(_asunto)} · ' if _nombre else '')
         st.markdown(
             '<div class="cli-camp-card">'
             '<div class="cli-camp-card-t" style="display:flex;align-items:center;gap:6px;">'
             f'{_prueba_badge}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'
-            f'min-width:0;">{_esc(_c.get("asunto") or "(sin asunto)")}</span></div>'
-            f'<div class="cli-camp-card-sub">{_esc(_fmt_fecha_local(_c.get("fecha")))} · {_seg_txt}'
+            f'min-width:0;">{_esc(_titulo)}</span></div>'
+            f'<div class="cli-camp-card-sub">{_sub_asunto}{_esc(_fmt_fecha_local(_c.get("fecha")))} · {_seg_txt}'
             + (f' · {_act}' if _act else '') + '</div>'
             f'{_stat}</div>', unsafe_allow_html=True)
+
+        _plantilla = str(_c.get("plantilla") or "")
+        if _plantilla.strip():
+            with st.expander("Ver plantilla usada"):
+                _prev = _resend_render(_plantilla, {"nombre": "Juan", "comuna": "Santiago",
+                                                    "email": "juan@correo.cl", "telefono": "+56 9 …"})
+                _prev_html = _prev if _c.get("es_html") else _resend_texto_html(_prev)
+                components.html('<div style="background:#fff;padding:14px;border-radius:8px;'
+                                f'font-family:Arial,sans-serif;">{_prev_html}</div>',
+                                height=360, scrolling=True)
 
         with st.expander(f"Ver destinatarios ({_tot})"):
             if not _cors:
@@ -3175,6 +3200,9 @@ def _render_campana_dialog(data):
                     st.toast("Historial actualizado.")
             _render_campanas_historial()
             return
+
+        st.text_input("Nombre de la campaña (para buscarla en el historial)", key="_camp_nombre",
+                      placeholder="Ej: Campaña de Invierno · 30% descuento")
 
         # ── Segmento (dropdowns con avatar, idénticos a los del home) ───────
         st.markdown('<div class="cli-sec-t" style="margin:0 0 6px;">Segmento</div>',
@@ -3376,8 +3404,10 @@ def _render_campana_dialog(data):
                 if _okt:
                     # La prueba también queda en el Historial (marcada PRUEBA) con su
                     # tracking, para verificar aperturas/clics antes del envío masivo.
+                    _nombre_t = (st.session_state.get("_camp_nombre", "") or "").strip()
                     _cid_t = _crear_campana("[PRUEBA] " + _subj_r, "Prueba a " + _test_to.strip(),
-                                            _actor, 1) or None
+                                            _actor, 1, nombre="[PRUEBA] " + (_nombre_t or _subj_r),
+                                            plantilla=_body, es_html=_es_h) or None
                     _registrar_correo(None, _rt, _test_to.strip(), "[PRUEBA] " + _subj_r,
                                       _actor, len(_att_t), campana_id=_cid_t)
                     st.success(f"Prueba enviada a {_test_to}. Aparece en Historial (marcada PRUEBA).")
@@ -3411,9 +3441,10 @@ def _render_campana_dialog(data):
                     ("Estado: " + _sl.get(_stage, _stage)) if _stage else "",
                     ("Fuente: " + _fl_.get(_fuente, _fuente)) if _fuente else "",
                 ])) or "Todos los clientes"
+                _nombre_camp = st.session_state.get("_camp_nombre", "") or ""
                 with st.spinner(f"Enviando {len(_seg)} correo(s)…"):
                     _r = _enviar_campana(_seg, _subj, _body, _actor, adjuntos=_att or None,
-                                         segmento_desc=_seg_desc)
+                                         segmento_desc=_seg_desc, nombre=_nombre_camp)
                 for _k in ("_camp_subj", "_camp_body"):
                     st.session_state.pop(_k, None)
                 st.session_state["_cli_toast"] = (

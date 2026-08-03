@@ -13,21 +13,31 @@ from config.supabase import supabase_admin as _supa
 _TZ_CL = timezone(timedelta(hours=-3))
 
 
-def crear_campana(asunto, segmento, actor, total) -> str:
-    """Crea la campaña y devuelve su id ('' si falla)."""
+def crear_campana(asunto, segmento, actor, total,
+                  nombre="", plantilla="", es_html=False) -> str:
+    """Crea la campaña y devuelve su id ('' si falla). `nombre` = nombre de la campaña
+    (para buscar en el historial); `plantilla` = cuerpo enviado (para 'Ver plantilla').
+    Si las columnas nuevas aún no existen (falta el ALTER), reintenta sin ellas."""
+    cid = str(uuid.uuid4())
+    _base = {
+        "id": cid,
+        "fecha": datetime.now(_TZ_CL).isoformat(),
+        "asunto": str(asunto or ""),
+        "segmento": str(segmento or ""),
+        "actor": str(actor or ""),
+        "total": int(total or 0),
+    }
+    _full = dict(_base, nombre=str(nombre or ""), plantilla=str(plantilla or ""),
+                 es_html=bool(es_html))
     try:
-        cid = str(uuid.uuid4())
-        _supa.table("crm_campanas").insert({
-            "id": cid,
-            "fecha": datetime.now(_TZ_CL).isoformat(),
-            "asunto": str(asunto or ""),
-            "segmento": str(segmento or ""),
-            "actor": str(actor or ""),
-            "total": int(total or 0),
-        }).execute()
+        _supa.table("crm_campanas").insert(_full).execute()
         return cid
     except Exception:
-        return ""
+        try:
+            _supa.table("crm_campanas").insert(_base).execute()
+            return cid
+        except Exception:
+            return ""
 
 
 def listar_campanas() -> list:
