@@ -2193,8 +2193,20 @@ def _render_correos_enviados(cid, cli=None):
     _cors = _listar_correos_cliente(cid)
     if not _cors:
         return
-    st.markdown(f'<div class="cli-sec-t">Correos enviados · {len(_cors)}</div>',
-                unsafe_allow_html=True)
+    _th, _tb = st.columns([6, 1], vertical_alignment="center")
+    with _th:
+        st.markdown(f'<div class="cli-sec-t" style="margin:0;">Correos enviados · {len(_cors)}</div>',
+                    unsafe_allow_html=True)
+    with _tb:
+        # Refresca el estado del track (re-lee crm_correos + re-consulta a Resend) sin
+        # cerrar la ficha (rerun de fragmento).
+        if st.button("", icon=":material/refresh:", key="_cli_correos_refresh",
+                     use_container_width=True, help="Actualizar el estado (entregado/abrió/clic/rebote)"):
+            try:
+                _correo_estado.clear()
+            except Exception:
+                pass
+            st.rerun(scope="fragment")
     _rows = ""
     for c in _cors:
         _lbl, _bg, _fg = _correo_estado_meta(c)
