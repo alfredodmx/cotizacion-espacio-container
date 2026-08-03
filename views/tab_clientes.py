@@ -3201,8 +3201,9 @@ def _render_campana_dialog(data):
             _render_campanas_historial()
             return
 
-        st.text_input("Nombre de la campaña (para buscarla en el historial)", key="_camp_nombre",
-                      placeholder="Ej: Campaña de Invierno · 30% descuento")
+        _nombre_now = (st.text_input("Nombre de la campaña ✱  (uso interno, obligatorio)",
+                                     key="_camp_nombre",
+                                     placeholder="Ej: Campaña de Invierno · 30% descuento") or "").strip()
 
         # ── Segmento (dropdowns con avatar, idénticos a los del home) ───────
         st.markdown('<div class="cli-sec-t" style="margin:0 0 6px;">Segmento</div>',
@@ -3372,7 +3373,8 @@ def _render_campana_dialog(data):
                                      placeholder="tucorreo@ejemplo.cl", label_visibility="collapsed")
         with _tc2:
             _test_click = st.button("Enviar prueba", key="_camp_test_send", use_container_width=True,
-                                    icon=":material/outgoing_mail:", disabled=(not _resend_configurado()))
+                                    icon=":material/outgoing_mail:",
+                                    disabled=(not _resend_configurado() or not _nombre_now))
         if _test_click:
             _subj_t = st.session_state.get("_camp_subj", "")
             if not (_test_to or "").strip() or not (_subj_t or "").strip() or not (_body or "").strip():
@@ -3418,11 +3420,17 @@ def _render_campana_dialog(data):
                     unsafe_allow_html=True)
         st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
 
+        if not _nombre_now:
+            st.markdown('<div class="cli-actf-hint" style="color:#b45309;">Ponle un <b>nombre</b> '
+                        'a la campaña (arriba) para poder enviar la prueba o la campaña.</div>',
+                        unsafe_allow_html=True)
         if st.button(f"Enviar campaña a {len(_seg)}", type="primary", use_container_width=True,
                      key="_camp_send", icon=":material/send:",
-                     disabled=(not _seg or not _resend_configurado())):
+                     disabled=(not _seg or not _resend_configurado() or not _nombre_now)):
             _subj = st.session_state.get("_camp_subj", "")
-            if not (_subj or "").strip() or not (_body or "").strip():
+            if not _nombre_now:
+                st.warning("Ponle un nombre a la campaña (obligatorio, uso interno).")
+            elif not (_subj or "").strip() or not (_body or "").strip():
                 st.warning("Escribe el asunto y el mensaje (o sube una plantilla HTML).")
             else:
                 _att = []
