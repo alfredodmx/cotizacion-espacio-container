@@ -155,6 +155,7 @@ try:   # Firma de correo por ejecutivo (tabla crm_firma) — defensivo
     from repositories.firma_repo import (
         get_firma as _get_firma, set_firma as _set_firma,
         listar_firmas as _listar_firmas, logo_url_publica as _logo_url_publica,
+        iconos_urls as _iconos_urls,
     )
 except Exception:
     def _get_firma(_c):
@@ -168,6 +169,9 @@ except Exception:
 
     def _logo_url_publica():
         return ""
+
+    def _iconos_urls():
+        return {}
 
 try:   # Ingesta de leads desde Shopify (Fase 4) — defensivo
     from utils.shopify import (
@@ -2853,20 +2857,30 @@ def _firma_render(nombre, foto, cargo, tel, correo, cfg) -> str:
                  f'<b style="color:#0f172a;font-size:13px;">{_esc(empresa)}</b>' if empresa else "")
     _logo = (f'<a href="{_esc(logo_link)}" target="_blank" style="text-decoration:none;">{_logo_img}</a>'
              if (_logo_img and logo_link) else _logo_img)
-    _tel = (f'<a href="tel:{_esc(tel)}" style="color:#475569;text-decoration:none;">☎ {_esc(tel)}</a>'
-            if tel else "")
+    # Iconos hospedados (PNG, Gmail-safe — SVG se bloquea); fallback a símbolo de texto.
+    _ic = cfg.get("iconos") or _iconos_urls() or {}
+    _tc = "#475569"   # color de texto UNIFORME para todo el bloque de contacto
+
+    def _ci(url, symbol, w=14):
+        if url:
+            return (f'<img src="{_esc(url)}" width="{w}" height="{w}" alt="" '
+                    'style="vertical-align:middle;margin-right:7px;border:0;">')
+        return f'{symbol} '
+
+    _mail = (f'<a href="mailto:{_esc(correo)}" style="color:{_tc};text-decoration:none;">'
+             f'{_ci(_ic.get("mail"), "✉")}{_esc(correo)}</a>' if correo else "")
+    _tel = (f'<a href="tel:{_esc(tel)}" style="color:{_tc};text-decoration:none;">'
+            f'{_ci(_ic.get("phone"), "☎")}{_esc(tel)}</a>' if tel else "")
     _wa = (f'<a href="https://wa.me/{_esc(_wa_num(tel))}" target="_blank" '
-           'style="color:#16a34a;text-decoration:none;font-weight:600;">💬 WhatsApp</a>'
+           f'style="color:{_tc};text-decoration:none;">{_ci(_ic.get("whatsapp"), "💬")}WhatsApp</a>'
            if _wa_num(tel) else "")
-    _mail = (f'<a href="mailto:{_esc(correo)}" style="color:#2563eb;text-decoration:none;">✉ {_esc(correo)}</a>'
-             if correo else "")
-    _web = (f'<a href="https://{_esc(web)}" style="color:#2563eb;text-decoration:none;">{_esc(web)}</a>'
+    _web = (f'<a href="https://{_esc(web)}" style="color:#64748b;text-decoration:none;">{_esc(web)}</a>'
             if web else "")
     if direccion:
         _dir_inner = (f'<a href="{_esc(direccion_url)}" target="_blank" '
                       f'style="color:#94a3b8;text-decoration:none;">{_esc(direccion)}</a>'
                       if direccion_url else _esc(direccion))
-        _dir = f'📍 {_dir_inner}'
+        _dir = f'{_ci(_ic.get("location"), "📍", 13)}{_dir_inner}'
     else:
         _dir = ""
     _left = f'<td style="padding:0 14px 0 0;vertical-align:top;">{_foto}</td>' if _foto else ""

@@ -17,6 +17,24 @@ from config.settings import SUPABASE_URL as _URL
 
 _BUCKET = "formulario-imagenes"          # bucket público existente (avatares)
 _LOGO_DEST = "crm/logo-firma.png"
+_ICON_FILES = {"mail": "mail.png", "phone": "phone.png",
+               "whatsapp": "whatsapp.png", "location": "location.png"}
+
+
+def _subir(dest: str, data: bytes):
+    """Sube (upsert) bytes al bucket público. Tolera distintas versiones de supabase-py."""
+    try:
+        _supa.storage.from_(_BUCKET).upload(dest, data,
+                                            {"content-type": "image/png", "x-upsert": "true"})
+    except Exception:
+        try:
+            _supa.storage.from_(_BUCKET).update(dest, data, {"content-type": "image/png"})
+        except Exception:
+            pass
+
+
+def _url_publica(dest: str) -> str:
+    return f"{str(_URL).rstrip('/')}/storage/v1/object/public/{_BUCKET}/{dest}"
 
 
 def get_firma(clave: str) -> dict:
@@ -59,21 +77,38 @@ def logo_url_publica() -> str:
         if not os.path.exists(ruta):
             return ""
         with open(ruta, "rb") as f:
-            data = f.read()
-        # upsert=true por si ya existe; distintas versiones de supabase-py aceptan
-        # el header en el dict de opciones.
-        try:
-            _supa.storage.from_(_BUCKET).upload(
-                _LOGO_DEST, data, {"content-type": "image/png", "x-upsert": "true"})
-        except Exception:
-            try:
-                _supa.storage.from_(_BUCKET).update(_LOGO_DEST, data,
-                                                    {"content-type": "image/png"})
-            except Exception:
-                pass
-        url = f"{str(_URL).rstrip('/')}/storage/v1/object/public/{_BUCKET}/{_LOGO_DEST}"
+            _subir(_LOGO_DEST, f.read())
+        url = _url_publica(_LOGO_DEST)
         cfg["logo_url"] = url
         set_firma("empresa", cfg)
         return url
     except Exception:
         return ""
+
+
+def iconos_urls() -> dict:
+    """Sube (una vez) los iconos de la firma (correo/teléfono/WhatsApp/ubicación) al
+    bucket público y devuelve {nombre: url}. Cachea las URLs en la config 'empresa'.
+    {} si no se pudo (la firma cae a símbolos de texto)."""
+    cfg = get_firma("empresa")
+    cache = dict(cfg.get("iconos") or {})
+    if all(cache.get(k) for k in _ICON_FILES):
+        return cache
+    cambio = False
+    for name, fname in _ICON_FILES.items():
+        if cache.get(name):
+            continue
+        try:
+            ruta = os.path.join(os.getcwd(), "assets", "firma", fname)
+            if not os.path.exists(ruta):
+                continue
+            with open(ruta, "rb") as f:
+                _subir(f"crm/firma-{name}.png", f.read())
+            cache[name] = _url_publica(f"crm/firma-{name}.png")
+            cambio = True
+        except Exception:
+            pass
+    if cambio:
+        cfg["iconos"] = cache
+        set_firma("empresa", cfg)
+    return cache
