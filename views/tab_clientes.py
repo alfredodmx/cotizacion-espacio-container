@@ -3100,9 +3100,15 @@ def _render_campanas_historial():
                  '</div>')
         _seg_txt = _esc(_c.get("segmento") or "Todos los clientes")
         _act = _esc(_c.get("actor") or "")
+        _es_prueba = str(_c.get("asunto") or "").strip().upper().startswith("[PRUEBA]")
+        _prueba_badge = ('<span style="background:#fef3c7;color:#b45309;font-size:0.58rem;font-weight:800;'
+                         'padding:2px 8px;border-radius:99px;flex:0 0 auto;">PRUEBA</span>'
+                         if _es_prueba else "")
         st.markdown(
             '<div class="cli-camp-card">'
-            f'<div class="cli-camp-card-t">{_esc(_c.get("asunto") or "(sin asunto)")}</div>'
+            '<div class="cli-camp-card-t" style="display:flex;align-items:center;gap:6px;">'
+            f'{_prueba_badge}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'
+            f'min-width:0;">{_esc(_c.get("asunto") or "(sin asunto)")}</span></div>'
             f'<div class="cli-camp-card-sub">{_esc(_fmt_fecha_local(_c.get("fecha")))} · {_seg_txt}'
             + (f' · {_act}' if _act else '') + '</div>'
             f'{_stat}</div>', unsafe_allow_html=True)
@@ -3325,12 +3331,16 @@ def _render_campana_dialog(data):
             if not (_test_to or "").strip() or not (_subj_t or "").strip() or not (_body or "").strip():
                 st.warning("Escribe el asunto, el mensaje y el correo de prueba.")
             else:
+                _actor = (st.session_state.get("auth_nombre") or st.session_state.get("auth_email", ""))
+                _reply_t = ((st.session_state.get("auth_email") or "").strip().lower() or _resend_reply())
                 _mtest = _seg[0] if _seg else {"nombre": "Prueba", "comuna": "Santiago",
                                                "email": _test_to, "telefono": "+56 9 1234 5678"}
                 _es_h = _parece_html(_body)
                 _subj_r = _resend_render(_subj_t, _mtest)
                 _cuerpo_r = _resend_render(_body, _mtest)
-                _html_r = (_cuerpo_r if _es_h else _resend_texto_html(_cuerpo_r))
+                # Idéntico al masivo: cuerpo + firma (+ pie si hay cliente de muestra).
+                _html_r = ((_cuerpo_r if _es_h else _resend_texto_html(_cuerpo_r))
+                           + _firma_html(_reply_t, masivo=True))
                 if _mtest.get("id"):
                     _html_r += _resend_pie(_mtest.get("id"))
                 _att_t = []
@@ -3343,10 +3353,15 @@ def _render_campana_dialog(data):
                         pass
                 with st.spinner("Enviando prueba…"):
                     _okt, _rt = _resend_enviar(_test_to.strip(), "[PRUEBA] " + _subj_r, _html_r,
-                                               reply_to=(_resend_reply() or None),
-                                               attachments=_att_t or None)
+                                               reply_to=(_reply_t or None), attachments=_att_t or None)
                 if _okt:
-                    st.success(f"Prueba enviada a {_test_to}. Revisa tu bandeja (asunto [PRUEBA]).")
+                    # La prueba también queda en el Historial (marcada PRUEBA) con su
+                    # tracking, para verificar aperturas/clics antes del envío masivo.
+                    _cid_t = _crear_campana("[PRUEBA] " + _subj_r, "Prueba a " + _test_to.strip(),
+                                            _actor, 1) or None
+                    _registrar_correo(None, _rt, _test_to.strip(), "[PRUEBA] " + _subj_r,
+                                      _actor, len(_att_t), campana_id=_cid_t)
+                    st.success(f"Prueba enviada a {_test_to}. Aparece en Historial (marcada PRUEBA).")
                 else:
                     st.error(f"No se pudo enviar la prueba: {_rt}")
         st.markdown('<div class="cli-actf-hint">Se envía UN correo con el asunto <b>[PRUEBA]</b> al correo '
