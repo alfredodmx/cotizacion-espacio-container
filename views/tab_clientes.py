@@ -654,7 +654,7 @@ div[data-testid="stDialog"]{overflow:hidden!important;}
 div[data-testid="stDialog"] > div{align-items:flex-start!important;justify-content:flex-end!important;
   overflow:hidden!important;}
 div[data-testid="stDialog"] div[role="dialog"]{position:fixed!important;top:0!important;right:0!important;
-  left:auto!important;bottom:0!important;margin:0!important;width:min(560px,96vw)!important;
+  left:auto!important;bottom:0!important;margin:0!important;width:min(680px,96vw)!important;
   max-width:none!important;height:100vh!important;max-height:100vh!important;background:#fff!important;
   border-radius:0!important;box-shadow:-16px 0 48px rgba(15,23,42,0.20)!important;
   overflow-y:auto!important;overflow-x:hidden!important;animation:none!important;}
