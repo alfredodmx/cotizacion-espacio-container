@@ -2198,15 +2198,16 @@ def _render_correos_enviados(cid, cli=None):
         st.markdown(f'<div class="cli-sec-t" style="margin:0;">Correos enviados · {len(_cors)}</div>',
                     unsafe_allow_html=True)
     with _tb:
-        # Refresca el estado del track (re-lee crm_correos + re-consulta a Resend) sin
-        # cerrar la ficha (rerun de fragmento).
+        # Refresca el estado del track: el clic del botón YA re-ejecuta la ficha (re-lee
+        # crm_correos, que es sin caché) y aquí limpiamos el sondeo a Resend. Sin rerun
+        # extra (que perdería el toast y parpadearía).
         if st.button("", icon=":material/refresh:", key="_cli_correos_refresh",
                      use_container_width=True, help="Actualizar el estado (entregado/abrió/clic/rebote)"):
             try:
                 _correo_estado.clear()
             except Exception:
                 pass
-            st.rerun(scope="fragment")
+            st.toast("Estado de correos actualizado.")
     _rows = ""
     for c in _cors:
         _lbl, _bg, _fg = _correo_estado_meta(c)
@@ -2222,12 +2223,19 @@ def _render_correos_enviados(cid, cli=None):
                 _chips += f'<span class="cli-mchip" style="background:{_cbg};color:{_cfg};">{_tx}</span>'
         _chips_html = (f'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">{_chips}</div>'
                        if _chips else "")
+        # A qué enlace hizo click el lector (lo guarda el webhook en click_url).
+        _curl = str(c.get("click_url") or "").strip()
+        _click_html = (
+            '<div style="font-size:0.7rem;color:#6d28d9;margin-top:3px;white-space:nowrap;'
+            'overflow:hidden;text-overflow:ellipsis;max-width:100%;">🔗 Clic en: '
+            f'<a href="{_esc(_curl)}" target="_blank" style="color:#6d28d9;">{_esc(_curl)}</a></div>'
+            if _curl else "")
         _rows += (
             '<div class="cli-ep-row">'
             f'<div style="min-width:0;"><div style="font-size:0.84rem;color:#0f172a;font-weight:600;'
             f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_esc(c.get("asunto") or "(sin asunto)")}</div>'
             f'<div style="font-size:0.72rem;color:#94a3b8;">{_esc(_fmt_fecha_local(c.get("fecha")))}{_esc(_adj)}</div>'
-            f'{_chips_html}</div>'
+            f'{_chips_html}{_click_html}</div>'
             f'<span class="cli-pill" style="background:{_bg};color:{_fg};">{_lbl}</span>'
             '</div>')
     _baja_html = ('<div style="font-size:0.72rem;color:#b91c1c;font-weight:700;margin-top:4px;">'
