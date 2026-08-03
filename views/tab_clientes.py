@@ -2819,9 +2819,12 @@ _MAIL_TOOLS_JS = r"""<script>
     var body=D.querySelector('.st-key-__BODY__ textarea');
     if(subj && !subj._cB){ subj._cB=1; subj.addEventListener('focus',function(){W._campFld=subj;}); }
     if(body && !body._cB){ body._cB=1; body.addEventListener('focus',function(){W._campFld=body;}); }
-    var f=W._campFld;
-    if(f && D.contains(f)) return f;
-    return body||subj;
+    // PRINCIPAL: el campo realmente enfocado (mousedown.preventDefault lo mantiene al
+    // clickear el toolbar). Luego el último enfocado; por defecto, el asunto.
+    var a=D.activeElement;
+    if(a && (a===subj || a===body)) return a;
+    if(W._campFld && D.contains(W._campFld) && (W._campFld===subj || W._campFld===body)) return W._campFld;
+    return subj || body;
   }
   function insert(txt){
     var el=fld(); if(!el) return;
