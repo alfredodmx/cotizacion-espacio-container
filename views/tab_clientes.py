@@ -3152,8 +3152,20 @@ def _render_campana_dialog(data):
         _modo = st.radio("Modo", ["Nueva campaña", "Historial"], horizontal=True,
                          label_visibility="collapsed", key="_camp_modo")
         if _modo == "Historial":
-            st.markdown('<div class="cli-sec-t" style="margin:2px 0 8px;">Historial de campañas '
-                        '· tasas por envío</div>', unsafe_allow_html=True)
+            _hh, _hb = st.columns([6, 1], vertical_alignment="center")
+            with _hh:
+                st.markdown('<div class="cli-sec-t" style="margin:2px 0 8px;">Historial de campañas '
+                            '· tasas por envío</div>', unsafe_allow_html=True)
+            with _hb:
+                # Refresca las tasas sin cerrar el diálogo: el clic re-ejecuta y re-lee
+                # crm_campanas/crm_correos (sin caché); limpiamos el sondeo a Resend.
+                if st.button("", icon=":material/refresh:", key="_camp_hist_refresh",
+                             use_container_width=True, help="Actualizar tasas"):
+                    try:
+                        _correo_estado.clear()
+                    except Exception:
+                        pass
+                    st.toast("Historial actualizado.")
             _render_campanas_historial()
             return
 
