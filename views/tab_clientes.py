@@ -2573,7 +2573,7 @@ def _parece_html(texto: str) -> bool:
 
 
 def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None, segmento_desc="",
-                    nombre="") -> dict:
+                    nombre="", es_html=None) -> dict:
     """Envía el correo personalizado a cada cliente del segmento. Si el cuerpo es una
     plantilla HTML se manda TAL CUAL (solo se reemplazan {{variables}}); si es texto,
     se convierte a HTML. Cada correo: reply-to al ejecutivo asignado + pie con link de
@@ -2583,7 +2583,7 @@ def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None, segmento
     Devuelve {enviados, fallidos, campana_id}."""
     res = {"enviados": 0, "fallidos": 0}
     _from = _resend_remitente()
-    _es_html = _parece_html(body_tpl)
+    _es_html = _parece_html(body_tpl) if es_html is None else bool(es_html)
     _att = adjuntos or None
     _n_att = len(_att) if _att else 0
     _camp_id = _crear_campana(subj_tpl, segmento_desc, actor, len(segmento),
@@ -3310,49 +3310,50 @@ def _render_campana_dialog(data):
 
         st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
 
-        # ── Mensaje ─────────────────────────────────────────────────────────
+        # ── Mensaje (pestañas: Texto plano / Plantilla HTML) ────────────────
         st.markdown('<div class="cli-sec-t" style="margin:0 0 6px;">Mensaje</div>',
                     unsafe_allow_html=True)
-        with st.container(key="_cli_mail_form"):
-            st.text_input("Asunto", key="_camp_subj",
-                          placeholder="Tu casa container a medida, {{nombre}}")
-            st.text_area("Mensaje", key="_camp_body", height=180,
-                         placeholder="Hola {{nombre}}, seguimos con tu proyecto en {{comuna}}…\n\n"
-                         "O pega aquí el HTML de una plantilla profesional (Stripo, BeeFree…). "
-                         "El sistema lo detecta solo.")
-            # Toolbar: variables + colección completa de emojis; inserta en el campo
-            # enfocado (asunto o mensaje) en la posición del cursor.
-            st.markdown(_mail_toolbar_html(), unsafe_allow_html=True)
-        components.html(_mail_tools_js("_camp_subj", "_camp_body"), height=0)
-
-        # Plantilla HTML: subir un .html (opcional) — tiene prioridad sobre el cuadro.
-        _html_file = st.file_uploader("Importar plantilla .html (opcional)",
-                                      type=["html", "htm"], key="_camp_html_file")
-        _body = st.session_state.get("_camp_body", "") or ""
-        if _html_file is not None:
-            try:
-                _body = _html_file.getvalue().decode("utf-8", "ignore")
-            except Exception:
-                pass
-        _es_html = _parece_html(_body)
-
-        # Badge de detección + vista previa (con el 1er destinatario o datos de ejemplo).
-        if (_body or "").strip():
-            if _es_html:
+        st.text_input("Asunto", key="_camp_subj",
+                      placeholder="Tu casa container a medida, {{nombre}}")
+        # Pestañas = radio disfrazado (estable en el diálogo); reusa el CSS del home
+        # retargeteando la key.
+        st.markdown(_CLI_SELECTOR_CSS.replace("_cli_view", "_camp_msg_tab"), unsafe_allow_html=True)
+        _tab = st.radio("Modo", ["Texto plano", "Plantilla HTML"], horizontal=True,
+                        label_visibility="collapsed", key="_camp_msg_tab",
+                        format_func=lambda v: (":material/notes: " if v == "Texto plano"
+                                               else ":material/code: ") + v)
+        _muestra = _seg[0] if _seg else {"nombre": "Juan", "comuna": "Santiago",
+                                         "email": "juan@correo.cl", "telefono": "+56 9 …"}
+        if _tab == "Plantilla HTML":
+            _es_html = True
+            _html_file = st.file_uploader("Subir plantilla .html (Stripo, BeeFree…)",
+                                          type=["html", "htm"], key="_camp_html_file")
+            _body = ""
+            if _html_file is not None:
+                try:
+                    _body = _html_file.getvalue().decode("utf-8", "ignore")
+                except Exception:
+                    _body = ""
+            if (_body or "").strip():
                 st.markdown('<div class="cli-camp-badge cli-camp-badge-ok">'
                             + _svg('<path d="M20 6 9 17l-5-5"/>', 13, "currentColor")
-                            + 'Plantilla HTML detectada — se envía tal cual</div>',
-                            unsafe_allow_html=True)
-            _muestra = _seg[0] if _seg else {"nombre": "Juan", "comuna": "Santiago",
-                                             "email": "juan@correo.cl", "telefono": "+56 9 …"}
-            _prev = _resend_render(_body, _muestra)
-            _prev_html = _prev if _es_html else _resend_texto_html(_prev)
-            with st.expander("Vista previa del correo", expanded=_es_html):
+                            + 'Plantilla cargada · vista previa</div>', unsafe_allow_html=True)
                 components.html(
-                    f'<div style="background:#fff;padding:14px;border-radius:8px;font-family:Arial,'
-                    f'sans-serif;">{_prev_html}</div>', height=380, scrolling=True)
+                    '<div style="background:#fff;padding:14px;border-radius:8px;font-family:Arial,'
+                    f'sans-serif;">{_resend_render(_body, _muestra)}</div>', height=380, scrolling=True)
+            else:
+                st.caption("Sube un archivo .html y verás la vista previa al instante.")
+        else:
+            _es_html = False
+            with st.container(key="_cli_mail_form"):
+                st.text_area("Mensaje", key="_camp_body", height=180,
+                             placeholder="Hola {{nombre}}, seguimos con tu proyecto en {{comuna}}…")
+                # Toolbar: variables + emojis; inserta en asunto o mensaje (donde esté el cursor).
+                st.markdown(_mail_toolbar_html(), unsafe_allow_html=True)
+            components.html(_mail_tools_js("_camp_subj", "_camp_body"), height=0)
+            _body = st.session_state.get("_camp_body", "") or ""
 
-        # Adjuntos (PDF/imágenes/…). Con adjuntos, el envío es individual.
+        # Adjuntos (ambas pestañas). Con adjuntos, el envío es individual.
         _files = st.file_uploader("Adjuntar archivos (opcional)", accept_multiple_files=True,
                                   key="_camp_files")
 
@@ -3384,7 +3385,7 @@ def _render_campana_dialog(data):
                 _reply_t = ((st.session_state.get("auth_email") or "").strip().lower() or _resend_reply())
                 _mtest = _seg[0] if _seg else {"nombre": "Prueba", "comuna": "Santiago",
                                                "email": _test_to, "telefono": "+56 9 1234 5678"}
-                _es_h = _parece_html(_body)
+                _es_h = _es_html                       # el modo lo define la pestaña
                 _subj_r = _resend_render(_subj_t, _mtest)
                 _cuerpo_r = _resend_render(_body, _mtest)
                 # Idéntico al masivo: cuerpo + firma (+ pie si hay cliente de muestra).
@@ -3452,7 +3453,7 @@ def _render_campana_dialog(data):
                 _nombre_camp = st.session_state.get("_camp_nombre", "") or ""
                 with st.spinner(f"Enviando {len(_seg)} correo(s)…"):
                     _r = _enviar_campana(_seg, _subj, _body, _actor, adjuntos=_att or None,
-                                         segmento_desc=_seg_desc, nombre=_nombre_camp)
+                                         segmento_desc=_seg_desc, nombre=_nombre_camp, es_html=_es_html)
                 for _k in ("_camp_subj", "_camp_body"):
                     st.session_state.pop(_k, None)
                 st.session_state["_cli_toast"] = (
