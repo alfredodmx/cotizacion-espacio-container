@@ -1085,6 +1085,7 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                     "garantia":              "El Proveedor otorga una garantía de 6 meses contados desde la entrega del módulo, limitada exclusivamente a defectos de fabricación o construcción imputables al proceso productivo.",
                     "terminacion":           "El presente contrato podrá terminarse anticipadamente por incumplimiento grave, mutuo acuerdo por escrito, o no pago oportuno de cualquiera de las etapas de pago.",
                     "jurisdiccion":          "Para todos los efectos legales derivados del presente contrato, las partes fijan su domicilio en la ciudad de Santiago y se someten a la competencia de sus Tribunales Ordinarios de Justicia.",
+                    "personeria":            "A continuación {{CLIENTE_VERIFICADOR}}, podrá conocer la autenticidad, vigencia y poderes del representante Don Alan Mauricio Gatica Concha, cédula nacional de identidad N° 13.668.157-5, quien además representa a Inversiones Container House SpA, Rol Único Tributario N° 78.268.851-0, por medio del certificado electrónico asociado al código QR impreso en este contrato, pudiendo verificar la autenticidad, vigencia y poderes del representante escaneando el código QR.",
                     "suministro_energia":    "",
                     "firma":                 "El presente contrato se firma en dos ejemplares de igual tenor y fecha, quedando uno en poder de cada parte.",
                 }
@@ -1106,8 +1107,9 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                     "garantia":              "XIII. Garantía",
                     "terminacion":           "XIV. Terminación anticipada",
                     "jurisdiccion":          "XV. Domicilio y jurisdicción",
-                    "suministro_energia":    "XVI. Suministro de energía eléctrica",
-                    "firma":                 "XVII. Firma",
+                    "personeria":            "XVI. Personería y representante",
+                    "suministro_energia":    "XVII. Suministro de energía eléctrica",
+                    "firma":                 "XVIII. Firma",
                 }
 
                 def _cargar_plantilla_activa(tipo='A'):

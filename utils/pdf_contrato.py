@@ -16,6 +16,11 @@ from utils.formato import formato_clp
 # Re-export para que los views puedan importar generar_pdf_completo desde aquí
 from generators.pdf_cotizacion import generar_pdf_completo  # noqa: F401
 
+# QR del certificado electrónico de personería/vigencia del representante. Se carga
+# igual que logo.png (relativo al cwd = raíz del repo en Streamlit Cloud). Si el
+# archivo no existe, el PDF se genera igual pero sin el QR (nunca lanza).
+_QR_PERSONERIA_PATH = "qr_personeria.png"
+
 
 # ── CONVERSIÓN A PALABRAS ────────────────────────────────────────────────────
 
@@ -95,8 +100,22 @@ def _obtener_clausulas_contrato(modelo_predefinido=None, supa_admin=None):
 def _rep(texto, d):
     """Reemplaza marcadores {{VAR}} con datos reales del dict d."""
     fmt = lambda v: "${:,.0f}".format(v).replace(",", ".") if v else "$0"
+
+    # {{CLIENTE_VERIFICADOR}} = quién verifica la personería del representante,
+    # con su RUT/RUT empresa en negrita. Se adapta al tipo de cliente:
+    #   · empresa  → "<b>Empresa SpA</b>, Rol Único Tributario N° <b>RUT</b>"
+    #   · natural/jurídica → "Don/Doña <b>Nombre</b>, cédula ... N° <b>RUT</b>"
+    if d.get("tipo_cliente") == "empresa":
+        _verificador = (f"<b>{d.get('cli_empresa','')}</b>, Rol Único Tributario "
+                        f"N° <b>{d.get('cli_rut_empresa','')}</b>")
+    else:
+        _trat = d.get("cli_tratamiento", "Don") or "Don"
+        _verificador = (f"{_trat} <b>{d.get('cli_nombre','')}</b>, cédula nacional "
+                        f"de identidad N° <b>{d.get('cli_rut','')}</b>")
+
     m = {
         "{{FECHA}}":               d.get("fecha_str", ""),
+        "{{CLIENTE_VERIFICADOR}}": _verificador,
         "{{TRATAMIENTO}}":         d.get("cli_tratamiento", "Don"),
         "{{CLIENTE}}":             d.get("cli_nombre", ""),
         "{{RUT_CLIENTE}}":         d.get("cli_rut", ""),
@@ -138,7 +157,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
     from reportlab.lib import colors
     from reportlab.lib.units import cm
     from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
-                                    HRFlowable, Table, TableStyle, PageBreak)
+                                    HRFlowable, Table, TableStyle, PageBreak, Image)
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY
 
@@ -209,6 +228,9 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
                                 fontName='Times-Roman', fontSize=12.5,
                                 leading=19, alignment=TA_CENTER)
     firma_bold = ParagraphStyle('cFirmaBold', parent=firma, fontName='Times-Bold')
+    qr_cap     = ParagraphStyle('cQrCap', parent=base['Normal'],
+                                fontName='Helvetica', fontSize=8, leading=11,
+                                alignment=TA_CENTER, textColor=GRIS, spaceBefore=3)
 
     def HR():
         return HRFlowable(width="100%", thickness=0.6,
@@ -279,6 +301,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         "garantia":     "El Proveedor otorga una garantía de <b>6 meses</b> contados desde la entrega del módulo, limitada exclusivamente a <b>defectos de fabricación o construcción imputables al proceso productivo</b>.\nQuedan expresamente excluidos de garantía los daños derivados de:\n• Mal uso o uso distinto al previsto\n• Modificaciones no autorizadas\n• Transporte realizado por terceros\n• Vandalismo\n• Fenómenos naturales\n• Falta de mantención adecuada",
         "terminacion":  "El presente contrato podrá terminarse anticipadamente por:\na) Incumplimiento grave de cualquiera de las partes.\nb) Mutuo acuerdo por escrito.\nc) No pago oportuno de cualquiera de las etapas de pago.\nEn caso de término imputable al Cliente, los montos pagados <b>no serán reembolsables</b>, salvo acuerdo distinto por escrito.",
         "jurisdiccion": "Para todos los efectos legales derivados del presente contrato, las partes fijan su domicilio en la <b>ciudad de Santiago</b>, y se someten a la competencia de sus <b>Tribunales Ordinarios de Justicia</b>.",
+        "personeria":   "A continuación {{CLIENTE_VERIFICADOR}}, podrá conocer la autenticidad, vigencia y poderes del representante Don <b>Alan Mauricio Gatica Concha</b>, cédula nacional de identidad N° <b>13.668.157-5</b>, quien además representa a <b>Inversiones Container House SpA</b>, Rol Único Tributario N° <b>78.268.851-0</b>, por medio del certificado electrónico asociado al código QR impreso en este contrato, pudiendo verificar la autenticidad, vigencia y poderes del representante escaneando el código QR.",
         "firma":        "El presente contrato se firma en <b>dos ejemplares de igual tenor y fecha</b>, quedando uno en poder de cada parte.",
     }
 
@@ -427,6 +450,7 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
         ('garantia',          'GARANTÍA',                                                        True,  'hr',       ('A', 'B', 'E')),
         ('terminacion',       'TERMINACIÓN ANTICIPADA',                                          True,  'hr',       ('A', 'B', 'E')),
         ('jurisdiccion',      'DOMICILIO Y JURISDICCIÓN',                                        False, 'pagebreak',('A', 'B', 'E')),
+        ('personeria',        'PERSONERÍA Y REPRESENTANTE',                                      False, 'personeria',('A', 'B', 'E')),
         ('suministro_energia','SUMINISTRO DE ENERGÍA ELÉCTRICA Y USO DE HERRAMIENTAS',          True,  'sp',       ('B', 'E')),
         ('firma',             'FIRMA',                                                           False, 'sp60',     ('A', 'B', 'E')),
     ]
@@ -457,6 +481,21 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
                 Paragraph(_p("firma", None), normal),
                 SP(60),
             ]
+        elif _clave == 'personeria':
+            # Párrafo (editable) + QR 120x120 centrado con su leyenda. El QR se
+            # omite silenciosamente si el archivo no está presente.
+            story += [Paragraph(f"{_num_str}. {_titulo}", seccion)]
+            for _l in _p("personeria", None).split("\n"):
+                if _l.strip():
+                    story.append(Paragraph(_l.strip(), normal))
+            if os.path.exists(_QR_PERSONERIA_PATH):
+                story += [
+                    SP(10),
+                    Image(_QR_PERSONERIA_PATH, width=120, height=120, hAlign='CENTER'),
+                    Paragraph("Certificado electrónico — escanee el código QR para verificar "
+                              "la autenticidad, vigencia y poderes del representante", qr_cap),
+                ]
+            story += [HR()]
         elif _multi:
             story += [Paragraph(f"{_num_str}. {_titulo}", seccion)]
             for _l in _p(_clave, None).split("\n"):
