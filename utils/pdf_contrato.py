@@ -482,19 +482,31 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
                 SP(60),
             ]
         elif _clave == 'personeria':
-            # Párrafo (editable) + QR 120x120 centrado con su leyenda. El QR se
-            # omite silenciosamente si el archivo no está presente.
+            # Título + cuerpo: el texto va a la IZQUIERDA y el QR (120x120) a la
+            # DERECHA, en una tabla de 2 columnas. Si el QR no está presente, se
+            # muestra solo el párrafo (sin romper el PDF).
             story += [Paragraph(f"{_num_str}. {_titulo}", seccion)]
-            for _l in _p("personeria", None).split("\n"):
-                if _l.strip():
-                    story.append(Paragraph(_l.strip(), normal))
+            _parrafos = [Paragraph(_l.strip(), normal)
+                         for _l in _p("personeria", None).split("\n") if _l.strip()]
             if os.path.exists(_QR_PERSONERIA_PATH):
-                story += [
-                    SP(10),
-                    Image(_QR_PERSONERIA_PATH, width=120, height=120, hAlign='CENTER'),
-                    Paragraph("Certificado electrónico — escanee el código QR para verificar "
-                              "la autenticidad, vigencia y poderes del representante", qr_cap),
+                _qr_celda = [
+                    Image(_QR_PERSONERIA_PATH, width=120, height=120),
+                    Paragraph("Escanee para verificar<br/>vigencia y poderes", qr_cap),
                 ]
+                _tbl_qr = Table([[_parrafos, _qr_celda]], colWidths=[11*cm, 4.6*cm])
+                _tbl_qr.setStyle(TableStyle([
+                    ('VALIGN',        (0, 0), (-1, -1), 'TOP'),
+                    ('ALIGN',         (1, 0), (1, 0),  'CENTER'),
+                    ('LEFTPADDING',   (0, 0), (0, 0),  0),
+                    ('RIGHTPADDING',  (0, 0), (0, 0),  6),
+                    ('LEFTPADDING',   (1, 0), (1, 0),  6),
+                    ('RIGHTPADDING',  (1, 0), (1, 0),  0),
+                    ('TOPPADDING',    (0, 0), (-1, -1), 0),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+                ]))
+                story += [_tbl_qr]
+            else:
+                story += _parrafos
             story += [HR()]
         elif _multi:
             story += [Paragraph(f"{_num_str}. {_titulo}", seccion)]
