@@ -17,9 +17,17 @@ from utils.formato import formato_clp
 from generators.pdf_cotizacion import generar_pdf_completo  # noqa: F401
 
 # QR del certificado electrónico de personería/vigencia del representante. Se carga
-# igual que logo.png (relativo al cwd = raíz del repo en Streamlit Cloud). Si el
-# archivo no existe, el PDF se genera igual pero sin el QR (nunca lanza).
-_QR_PERSONERIA_PATH = "qr_personeria.png"
+# desde la raíz del repo (relativo al cwd, igual que logo.png). Acepta .png/.jpg/.jpeg.
+# Si no existe ninguno, el PDF se genera igual pero sin el QR (nunca lanza).
+_QR_PERSONERIA_CANDIDATOS = ("qr_personeria.png", "qr_personeria.jpg", "qr_personeria.jpeg")
+
+
+def _qr_personeria_path():
+    """Devuelve la ruta del QR de personería que exista (png/jpg/jpeg), o None."""
+    for _c in _QR_PERSONERIA_CANDIDATOS:
+        if os.path.exists(_c):
+            return _c
+    return None
 
 
 # ── CONVERSIÓN A PALABRAS ────────────────────────────────────────────────────
@@ -488,9 +496,10 @@ def generar_pdf_contrato(datos, clausulas_externas=None):
             story += [Paragraph(f"{_num_str}. {_titulo}", seccion)]
             _parrafos = [Paragraph(_l.strip(), normal)
                          for _l in _p("personeria", None).split("\n") if _l.strip()]
-            if os.path.exists(_QR_PERSONERIA_PATH):
+            _qr_file = _qr_personeria_path()
+            if _qr_file:
                 _qr_celda = [
-                    Image(_QR_PERSONERIA_PATH, width=120, height=120),
+                    Image(_qr_file, width=120, height=120),
                     Paragraph("Escanee para verificar<br/>vigencia y poderes", qr_cap),
                 ]
                 _tbl_qr = Table([[_parrafos, _qr_celda]], colWidths=[11*cm, 4.6*cm])
