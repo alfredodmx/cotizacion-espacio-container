@@ -375,6 +375,11 @@ tr.rm-on td{{background:#fef2f2 !important;text-decoration:line-through;color:#b
 .pv-title{{display:flex;align-items:center;font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;margin:20px 0 12px;}}
 .pv-cards{{display:flex;flex-direction:column;gap:6px;}}
 .pv-row{{display:flex;gap:6px;align-items:stretch;}}
+.ec-ord{{display:inline-flex;align-items:center;gap:7px;}}
+.ec-ord-lbl{{font-size:10.5px;color:#94a3b8;font-weight:500;font-family:Montserrat,sans-serif;}}
+.ec-ord-seg{{display:inline-flex;background:#e2e8f0;border-radius:999px;padding:2px;gap:2px;}}
+.ec-ord-opt{{border:none;background:transparent;font-family:Montserrat,sans-serif;font-size:10.5px;font-weight:600;color:#64748b;border-radius:999px;padding:3px 10px;cursor:pointer;line-height:1.35;}}
+.ec-ord-opt.on{{background:#fff;color:#0f172a;font-weight:700;box-shadow:0 1px 2px rgba(15,23,42,.12);}}
 .pv-card{{border-radius:9px;padding:10px 13px;min-width:128px;box-sizing:border-box;display:flex;flex-direction:column;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,0.05);cursor:pointer;position:relative;transition:box-shadow .16s,transform .16s,opacity .16s,filter .16s;}}
 .pv-card:hover{{box-shadow:0 3px 10px rgba(15,23,42,0.13);}}
 .pv-card.sel{{transform:scale(1.045);box-shadow:0 10px 26px rgba(37,99,235,0.30);z-index:3;}}
@@ -430,7 +435,7 @@ tr.rm-on td{{background:#fef2f2 !important;text-decoration:line-through;color:#b
     <div class="rcg-body"><div class="hc-filters" id="hc-filters"></div></div>
   </div>
   <div class="rcg-cell">
-    <div class="rcg-head">{_svg_rc('store', color='#0f172a', size=16, mr=8)}Compras por proveedor</div>
+    <div class="rcg-head">{_svg_rc('store', color='#0f172a', size=16, mr=8)}Compras por proveedor<div class="ec-ord" id="pv-ord" style="margin-left:auto;"><span class="ec-ord-lbl">Ordenar por</span><div class="ec-ord-seg"><button type="button" class="ec-ord-opt on" data-mode="monto">Monto</button><button type="button" class="ec-ord-opt" data-mode="az">A&#8209;Z</button></div></div></div>
     <div class="rcg-body"><div id="pv-section"></div></div>
   </div>
 </div>
@@ -440,6 +445,7 @@ var IC={{store:'{IC_STORE}',cal:'{IC_CAL}',user:'{IC_USER}',cart:'{IC_CART}',fil
 var EP="{ep}";var SUPA_URL="{supa_url}";var SUPA_KEY="{supa_key}";
 var editing=-1, confirming=-1, confirmStep=0, _facFile=null, fTipo="", fResp="", fProv="";
 var pvSel=-1, pvFacOpen={{}}, PROVS_F=[];
+var pvOrder="monto";try{{pvOrder=window.parent.sessionStorage.getItem("ec_ord_prov")||"monto";}}catch(e){{}}
 var PVCOLORS=["#3b82f6","#10b981","#f59e0b","#8b5cf6","#ef4444","#06b6d4","#f97316","#84cc16","#ec4899","#6366f1","#14b8a6","#eab308","#dc2626","#7c3aed","#0ea5e9"];
 function f(n){{return "$"+Math.round(Math.abs(+n||0)).toLocaleString("de-DE");}}
 function esc(s){{return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}}
@@ -511,7 +517,8 @@ function renderProv(matched){{
     agg[k].compras.push({{fecha:r.fecha,monto:f(r.tr),responsable:r.usuario,factura_url:r.factura_url,factura_nom:r.factura_nom,is_img:r.is_img}});
   }});
   PROVS_F=Object.keys(agg).map(function(k){{return {{name:k,total:agg[k].total,n:agg[k].n,compras:agg[k].compras,inv:agg[k].inv,items:agg[k].items}};}});
-  PROVS_F.sort(function(a,b){{return b.total-a.total;}});
+  if(pvOrder==="az"){{PROVS_F.sort(function(a,b){{var x=(a.name||"").toLowerCase(),y=(b.name||"").toLowerCase();return x<y?-1:x>y?1:0;}});}}
+  else{{PROVS_F.sort(function(a,b){{return b.total-a.total;}});}}
   PROVS_F.forEach(function(p,i){{p.color=p.inv?"#16a34a":PVCOLORS[i%PVCOLORS.length];p.total_fmt=f(p.total);p.nprod=Object.keys(p.items||{{}}).length;}});
   var n=PROVS_F.length, nrows=n<=4?1:(n<=10?2:3), per=Math.ceil(n/nrows);
   var html='<div class="pv-cards'+(pvSel>=0?" has-sel":"")+'">';
@@ -520,7 +527,7 @@ function renderProv(matched){{
     var rmax=1; for(var q=start;q<end;q++){{var w=Math.pow(PROVS_F[q].total||1,0.3);if(w>rmax)rmax=w;}}
     html+='<div class="pv-row">';
     for(var q=start;q<end;q++){{
-      var c=PROVS_F[q];var grow=Math.max(1,Math.round(Math.pow(c.total||1,0.3)/rmax*1000));var selc=(pvSel===q)?" sel":"";
+      var c=PROVS_F[q];var grow=(pvOrder==="az")?1:Math.max(1,Math.round(Math.pow(c.total||1,0.3)/rmax*1000));var selc=(pvSel===q)?" sel":"";
       var cstyle=c.inv
         ?'border:1.5px solid #86efac;border-left:4px solid #16a34a;background:#f0fdf4;flex:'+grow+' '+grow+' 0;'
         :'border:1.5px solid '+pvHexa(c.color,0.3)+';border-left:4px solid '+c.color+';flex:'+grow+' '+grow+' 0;';
@@ -734,6 +741,22 @@ function render(){{
   fit();
 }}
 render();
+// Toggle Monto | A-Z de las cards de proveedor (cabecera estática → se bindea
+// una vez). Cambia pvOrder, resetea la selección y re-renderiza. La preferencia
+// vive en sessionStorage del padre (ec_ord_prov).
+(function(){{
+  var box=document.getElementById("pv-ord");
+  if(!box)return;
+  function upd(){{box.querySelectorAll("[data-mode]").forEach(function(b){{b.classList.toggle("on",b.getAttribute("data-mode")===pvOrder);}});}}
+  box.querySelectorAll("[data-mode]").forEach(function(b){{
+    b.addEventListener("click",function(){{
+      pvOrder=b.getAttribute("data-mode");
+      try{{window.parent.sessionStorage.setItem("ec_ord_prov",pvOrder);}}catch(e){{}}
+      upd();pvSel=-1;render();
+    }});
+  }});
+  upd();
+}})();
 // Delegación de clicks en los badges de filtro (una sola vez; el contenedor
 // persiste aunque su innerHTML se re-renderice).
 (function(){{

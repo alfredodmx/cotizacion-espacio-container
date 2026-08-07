@@ -1492,6 +1492,12 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         '.rc-civa{font-family:Montserrat,sans-serif;font-size:9px;font-weight:400;color:#94a3b8;margin-left:4px;}'
                         '.rc-cmeta{font-size:10px;color:#64748b;margin-top:3px;white-space:nowrap;'
                         'overflow:hidden;text-overflow:ellipsis;width:100%;}'
+                        '.ec-ord{display:flex;align-items:center;justify-content:flex-end;gap:7px;margin:0 0 6px 0;}'
+                        '.ec-ord-lbl{font-size:10.5px;color:#94a3b8;font-weight:500;font-family:Montserrat,sans-serif;}'
+                        '.ec-ord-seg{display:inline-flex;background:#e2e8f0;border-radius:999px;padding:2px;gap:2px;}'
+                        '.ec-ord-opt{border:none;background:transparent;font-family:Montserrat,sans-serif;font-size:10.5px;'
+                        'font-weight:600;color:#64748b;border-radius:999px;padding:3px 10px;cursor:pointer;line-height:1.35;}'
+                        '.ec-ord-opt.on{background:#fff;color:#0f172a;font-weight:700;box-shadow:0 1px 2px rgba(15,23,42,.12);}'
                         '</style>'
                     )
                     _rc_cards_divs = '<div class="rc-cats">'
@@ -1516,7 +1522,38 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                             )
                         _rc_cards_divs += '</div>'
                     _rc_cards_divs += '</div>'
-                    _cats_cards_html = _rc_cards_css + _rc_cards_divs
+                    # Toggle Monto | A-Z (esquina superior derecha). Reordena las cards
+                    # en el navegador (sin recargar): Monto restaura el mosaico original
+                    # (snapshot), A-Z ordena alfabético con ancho parejo. Preferencia
+                    # recordada en sessionStorage del padre.
+                    _rc_ord_html = (
+                        '<div class="ec-ord" id="rc-ord">'
+                        '<span class="ec-ord-lbl">Ordenar por</span>'
+                        '<div class="ec-ord-seg">'
+                        '<button type="button" class="ec-ord-opt on" data-mode="monto">Monto</button>'
+                        '<button type="button" class="ec-ord-opt" data-mode="az">A&#8209;Z</button>'
+                        '</div></div>'
+                    )
+                    _rc_ord_script = (
+                        "<script>(function(){"
+                        "function srt(mode){var c=document.querySelector('.rc-cats');if(!c)return;"
+                        "if(c.__snap==null)c.__snap=c.innerHTML;"
+                        "if(mode==='az'){var t=document.createElement('div');t.innerHTML=c.__snap;"
+                        "var cs=[].slice.call(t.querySelectorAll('.rc-cat-card'));"
+                        "cs.sort(function(a,b){var x=(a.getAttribute('data-cat')||'').toLowerCase(),"
+                        "y=(b.getAttribute('data-cat')||'').toLowerCase();return x<y?-1:x>y?1:0;});"
+                        "var n=cs.length,nr=n<=4?1:(n<=10?2:3),per=Math.ceil(n/nr);c.innerHTML='';"
+                        "for(var i=0;i<n;i+=per){var rw=document.createElement('div');rw.className='rc-mrow';"
+                        "cs.slice(i,i+per).forEach(function(cd){cd.style.flex='1 1 0';cd.style.minWidth='0';rw.appendChild(cd);});"
+                        "c.appendChild(rw);}}else{c.innerHTML=c.__snap;}}"
+                        "var box=document.getElementById('rc-ord');if(!box)return;var K='ec_ord_rccat',m='monto';"
+                        "try{m=window.parent.sessionStorage.getItem(K)||'monto';}catch(e){}"
+                        "function set(mm){m=mm;try{window.parent.sessionStorage.setItem(K,mm);}catch(e){}"
+                        "box.querySelectorAll('[data-mode]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-mode')===mm);});srt(mm);}"
+                        "box.querySelectorAll('[data-mode]').forEach(function(b){b.addEventListener('click',function(){set(b.getAttribute('data-mode'));});});"
+                        "set(m);})();</script>"
+                    )
+                    _cats_cards_html = _rc_cards_css + _rc_ord_html + _rc_cards_divs + _rc_ord_script
                     # Mapa categoría→color (mismo palette del mosaico) para pintar
                     # los badges de categoría en cada fila de la tabla.
                     _rc_cat_color_map = {_c['cat']: _c['color'] for _c in _rc_cats_data}
@@ -1542,8 +1579,9 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         stock_disponible=_stock_disp,
                     )
                     # Alto extra por las filas del mosaico de categorías (1 ó 2 filas)
+                    # + 30 px de la fila del toggle Monto | A-Z.
                     _rc_cats_rows = len(_rc_rows_m) if _rc_rows_m else 1
-                    _rc_cards_extra = _rc_cats_rows * 66 + 8
+                    _rc_cards_extra = _rc_cats_rows * 66 + 8 + 30
                     # Alto de la TABLA acotado como el de PRESUPUESTO (tope ~460 px);
                     # #tbl-wrap tiene overflow:auto → hace scroll si hay más filas. El
                     # resto del iframe es cards + toolbar del buscador + fila de toggles.

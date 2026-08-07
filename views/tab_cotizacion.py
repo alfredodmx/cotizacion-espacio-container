@@ -1279,10 +1279,26 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
             'color:#94a3b8;margin-left:4px;vertical-align:baseline;}'
             '.pres-cmeta{font-size:10px;color:#64748b;margin-top:3px;white-space:nowrap;'
             'overflow:hidden;text-overflow:ellipsis;width:100%;}'
+            '.ec-ord{display:flex;align-items:center;justify-content:flex-end;gap:7px;margin:2px 0 4px 0;}'
+            '.ec-ord-lbl{font-size:10.5px;color:#94a3b8;font-weight:500;font-family:"Montserrat",sans-serif;}'
+            '.ec-ord-seg{display:inline-flex;background:#e2e8f0;border-radius:999px;padding:2px;gap:2px;}'
+            '.ec-ord-opt{border:none;background:transparent;font-family:"Montserrat",sans-serif;font-size:10.5px;'
+            'font-weight:600;color:#64748b;border-radius:999px;padding:3px 10px;cursor:pointer;line-height:1.35;}'
+            '.ec-ord-opt.on{background:#fff;color:#0f172a;font-weight:700;box-shadow:0 1px 2px rgba(15,23,42,.12);}'
             '</style>'
         )
-        _cards_html_md = '<div class="pres-cards">'
-        for _row in _mosaic_rows:
+        # Toggle Monto | A-Z (esquina superior derecha de las cards).
+        _pres_ord_html = (
+            '<div class="ec-ord" id="pres-ord">'
+            '<span class="ec-ord-lbl">Ordenar por</span>'
+            '<div class="ec-ord-seg">'
+            '<button type="button" class="ec-ord-opt on" data-mode="monto">Monto</button>'
+            '<button type="button" class="ec-ord-opt" data-mode="az">A&#8209;Z</button>'
+            '</div></div>'
+        )
+        _cards_html_md = _pres_ord_html + '<div class="pres-cards">'
+        _ord_i = 0
+        for _ri, _row in enumerate(_mosaic_rows):
             # Escala ^0.3: ratio max ~4x, cards grandes ceden espacio a las pequeñas
             _row_max_p = max((c['subtotal_raw'] ** 0.3 for c in _row), default=1) or 1
             _cards_html_md += '<div class="mosaic-row">'
@@ -1296,8 +1312,11 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                 _grow = max(1, round((_c['subtotal_raw'] ** 0.3) / _row_max_p * 1000))
                 _ni = _c['items']; _nu = _c['cant']
                 _meta_txt = f"{_ni} {'ítem' if _ni==1 else 'ítems'} · {_nu} {'ud.' if _nu==1 else 'uds.'}"
+                # data-ord/data-row/data-grow → el toggle A-Z reordena moviendo los
+                # nodos (preserva los listeners de click) y Monto restaura el mosaico.
                 _cards_html_md += (
                     f'<div class="_pres_card" data-catpres="{_dcat}" data-colorpres="{_col}"'
+                    f' data-ord="{_ord_i}" data-row="{_ri}" data-grow="{_grow}"'
                     f' style="background:{_bg};border:{_brd};border-left:4px solid {_col};'
                     f'flex:{_grow} {_grow} 0;">'
                     f'<div class="pres-cname" style="color:{_col};">{_c["cat"]}{_tick}</div>'
@@ -1305,9 +1324,42 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                     f'<div class="pres-cmeta">{_meta_txt}</div>'
                     f'</div>'
                 )
+                _ord_i += 1
             _cards_html_md += '</div>'
         _cards_html_md += '</div>'
         st.markdown(_cards_css + _cards_html_md, unsafe_allow_html=True)
+        # Wiring del toggle (opera sobre el documento padre, donde viven las cards).
+        # Nonce por run → el iframe se re-ejecuta en cada rerun y re-aplica el modo
+        # guardado (si no, al filtrar volvería a Monto). height=0 → no ocupa espacio.
+        import time as _t_ord
+        components.html(
+            "<script>(function(){var PD=window.parent.document,K='ec_ord_pres';"
+            "function mk(){var r=PD.createElement('div');r.className='mosaic-row';return r;}"
+            "function layout(mode){var c=PD.querySelector('.pres-cards');if(!c)return false;"
+            "var cs=[].slice.call(c.querySelectorAll('._pres_card'));if(!cs.length)return false;"
+            "if(mode==='az'){cs.sort(function(a,b){var x=(a.getAttribute('data-catpres')||'').toLowerCase(),"
+            "y=(b.getAttribute('data-catpres')||'').toLowerCase();return x<y?-1:x>y?1:0;});"
+            "var n=cs.length,nr=n<=4?1:(n<=10?2:3),per=Math.ceil(n/nr);c.innerHTML='';"
+            "for(var i=0;i<n;i+=per){var rw=mk();cs.slice(i,i+per).forEach(function(cd){cd.style.flex='1 1 0';"
+            "cd.style.minWidth='0';rw.appendChild(cd);});c.appendChild(rw);}}"
+            "else{cs.sort(function(a,b){return (+a.getAttribute('data-ord'))-(+b.getAttribute('data-ord'));});"
+            "c.innerHTML='';var cur=null,cri=null;cs.forEach(function(cd){var ri=cd.getAttribute('data-row');"
+            "if(ri!==cri){cur=mk();c.appendChild(cur);cri=ri;}var g=cd.getAttribute('data-grow')||'1';"
+            "cd.style.flex=g+' '+g+' 0';cd.style.minWidth='';cur.appendChild(cd);});}return true;}"
+            "function apply(){var box=PD.getElementById('pres-ord');if(!box)return false;var m='monto';"
+            "try{m=window.parent.sessionStorage.getItem(K)||'monto';}catch(e){}"
+            "box.querySelectorAll('[data-mode]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-mode')===m);});"
+            "return layout(m);}"
+            "function bind(){var box=PD.getElementById('pres-ord');if(!box)return;"
+            "box.querySelectorAll('[data-mode]').forEach(function(b){if(b.__b)return;b.__b=1;"
+            "b.addEventListener('click',function(){var m=b.getAttribute('data-mode');"
+            "try{window.parent.sessionStorage.setItem(K,m);}catch(e){}"
+            "box.querySelectorAll('[data-mode]').forEach(function(x){x.classList.toggle('on',x===b);});layout(m);});});}"
+            "var tr=0;function go(){var ok=apply();bind();if(!ok&&tr++<25){setTimeout(go,100);}}"
+            "setTimeout(go,120);})();</script>"
+            f"<!--{_t_ord.time()}-->",
+            height=0,
+        )
 
         carrito_df = pd.DataFrame(st.session_state.carrito)
         subtotal_base = carrito_df["Subtotal"].sum()
