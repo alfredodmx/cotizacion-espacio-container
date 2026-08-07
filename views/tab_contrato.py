@@ -1224,6 +1224,11 @@ def render_tab_contrato(supabase, supabase_admin=None, **deps):
                             continue
                         if _key == 'bodegaje' and tipo_plt == 'E':
                             continue
+                        # Plantilla A NO incluye "Suministro de energía" (XVII), así
+                        # que su Firma es XVII y no XVIII. Corrige solo el rótulo del
+                        # editor en A (el PDF ya numera bien de forma dinámica).
+                        if tipo_plt == 'A' and _key == 'firma':
+                            _label = "XVII. Firma"
                         _val = _cls_act.get(_key, _CLAUSULAS_BASE.get(_key, ""))
                         _h   = max(120, (_val.count("\n") + max(1, len(_val) // 85)) * 22)
                         if _key in _LABELS_READONLY:
