@@ -400,6 +400,7 @@ def importar_leads(rows: list, origen: str = "Importado",
         nuevos[k] = payload
 
     creados = 0
+    nombres_creados: list = []
     now = _ahora()
     items = list(nuevos.values())
     for i in range(0, len(items), 200):
@@ -420,10 +421,12 @@ def importar_leads(rows: list, origen: str = "Importado",
                 "fecha": now,
             } for it in lote]).execute()
             creados += len(lote)
+            nombres_creados.extend(it.get("nombre", "") for it in lote)
         except Exception:
             omitidos += len(lote)
 
-    return {"creados": creados, "duplicados": duplicados, "omitidos": omitidos}
+    return {"creados": creados, "duplicados": duplicados, "omitidos": omitidos,
+            "nombres": nombres_creados}
 
 
 # ── Sincronización cliente CRM ↔ cotizaciones (datos de contacto) ─────────────

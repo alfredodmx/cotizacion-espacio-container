@@ -49,11 +49,18 @@ except Exception:
                 f'color:#4338ca;display:flex;align-items:center;justify-content:center;font-weight:800;'
                 f'font-size:{int(size*font_scale)}px;flex:0 0 auto;">{_i}</div>')
 try:
-    from utils.notificaciones import notificar_recordatorio, notificar_lead_asignado
+    from utils.notificaciones import (
+        notificar_recordatorio, notificar_lead_asignado,
+        notificar_nuevo_lead_web, notificar_leads_importados,
+    )
 except Exception:   # notificaciones es opcional; si falla, los recordatorios igual se guardan
     def notificar_recordatorio(*a, **k):
         return 0
     def notificar_lead_asignado(*a, **k):
+        return 0
+    def notificar_nuevo_lead_web(*a, **k):
+        return 0
+    def notificar_leads_importados(*a, **k):
         return 0
 
 
@@ -1773,6 +1780,12 @@ def _traer_de_shopify():
     _rows = [_shopify_a_lead(c) for c in _cust]
     _res = importar_leads(_rows, origen="Shopify")
     _cli_data.clear()
+    # Aviso Telegram a admins/root por cada lead nuevo del sitio web (con su nombre).
+    for _nom in (_res.get("nombres") or []):
+        try:
+            notificar_nuevo_lead_web(_nom, fuente="Shopify")
+        except Exception:
+            pass
     st.session_state["_cli_toast"] = (
         f"Shopify: {_res['creados']} nuevo(s), {_res['duplicados']} ya estaban, "
         f"{_res['omitidos']} sin nombre.")
@@ -1885,7 +1898,7 @@ def _do_asignar(cli, new_email):
         registrar_actividad(cli["id"], "nota", f"Asignado a {_nm}", actor=_actor)
         _crear_notif(new_email, f"Nuevo lead asignado · {cli.get('nombre','Cliente')}",
                      tipo="lead", detalle=f"Asignado por {_actor}", cliente_id=cli["id"])
-        _tg = notificar_lead_asignado(cli.get("nombre", "Cliente"), new_email, _actor)
+        _tg = notificar_lead_asignado(cli.get("nombre", "Cliente"), new_email, _nm, _actor)
         st.toast(f"Lead asignado a {_nm}" + (" · avisado por Telegram" if _tg else ""))
     else:
         registrar_actividad(cli["id"], "nota", "Cliente desasignado", actor=_actor)
@@ -3639,10 +3652,18 @@ def _render_importar_dialog():
                     if (e.get("nombre") or e.get("email")) == _asig_sel:
                         _ae, _an = e.get("email", ""), (e.get("nombre") or e.get("email") or "")
                         break
+            _origen_imp = (_origen or "").strip() or "Importado"
             with st.spinner("Importando…"):
-                res = importar_leads(rows, origen=(_origen or "").strip() or "Importado",
+                res = importar_leads(rows, origen=_origen_imp,
                                      asignado_email=_ae, asignado_nombre=_an)
             _cli_data.clear()
+            # Aviso Telegram a admins/root: resumen de la importación manual.
+            if res.get("creados"):
+                try:
+                    _quien = st.session_state.get("auth_nombre") or st.session_state.get("auth_email", "")
+                    notificar_leads_importados(res["creados"], _quien, _origen_imp)
+                except Exception:
+                    pass
             st.session_state["_cli_toast"] = (
                 f"Importados: {res['creados']} nuevo(s) · {res['duplicados']} ya existían · "
                 f"{res['omitidos']} sin nombre.")

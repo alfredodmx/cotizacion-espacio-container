@@ -445,41 +445,66 @@ def render_tab_notificaciones(supabase, **deps):
     _msg_defaults = {
         'msg_nueva_cotizacion': "\U0001f552 *Nueva cotización para revisar*\n\n*{ep}* · {ejecutivo}\nCliente: {cliente} · Monto: *{monto}*\nEstado: {estado}",
         'msg_autorizada':       "✅ *¡PRESUPUESTO AUTORIZADO!*\n\n\U0001f4cb *{ep}* · {cliente}\n\U0001f4b0 Margen aplicado: *{margen}%*\n\U0001f464 Autorizado por: *{supervisor}*\n\nYa puedes presentárselo a tu cliente \U0001f389",
-        'msg_margen_removido':  "↩️ La cotización *{ep}* volvió a estado borrador.\nEl supervisor realizó cambios. Revisa el sistema."
+        'msg_margen_removido':  "↩️ La cotización *{ep}* volvió a estado borrador.\nEl supervisor realizó cambios. Revisa el sistema.",
+        'msg_lead_web':         "\U0001f310 *NUEVO LEAD DESDE SITIO WEB*\n\nNombre: *{lead}*\n\nCayó en la Bandeja. Revísalo y asígnalo.",
+        'msg_lead_importado':   "\U0001f4e5 *Leads importados*\n\n*{cantidad}* lead(s) nuevo(s) cargados desde archivo por *{usuario}*.\nOrigen: {origen}",
+        'msg_lead_asig_eje':    "\U0001f9f2 *Nuevo lead asignado*\n\nCliente: *{lead}*\nTe lo asignó: {asignador}\n\nContáctalo pronto.",
+        'msg_lead_asig_admin':  "\U0001f500 *Lead asignado*\n\n{asignador} le asignó el lead *{lead}* al ejecutivo *{ejecutivo}*.",
     }
 
-    _vars_html = ''.join(
-        f'<span class="ntf-var-chip" onclick="navigator.clipboard.writeText(\'{v}\')">{v}</span>'
-        for v in ['{ep}', '{ejecutivo}', '{cliente}', '{monto}', '{estado}', '{margen}', '{supervisor}']
-    )
-    st.markdown(
-        f'<div class="ntf-var-guide">'
-        f'<div class="ntf-var-title">{_svg("copy", 14, "#64748b", mr=3)}Variables — click para copiar</div>'
-        f'<div class="ntf-var-chips">{_vars_html}</div>'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
+    def _var_guide(_vars):
+        _h = ''.join(
+            f'<span class="ntf-var-chip" onclick="navigator.clipboard.writeText(\'{v}\')">{v}</span>'
+            for v in _vars
+        )
+        return (f'<div class="ntf-var-guide">'
+                f'<div class="ntf-var-title">{_svg("copy", 14, "#64748b", mr=3)}Variables — click para copiar</div>'
+                f'<div class="ntf-var-chips">{_h}</div></div>')
 
-    _msg_configs = [
-        ('msg_nueva_cotizacion', "Nueva cotización",       "send", "supervisores / admins / obs.", "Al guardar con plano"),
-        ('msg_autorizada',       "Presupuesto autorizado",      "check","ejecutivo + observadores",     "Al guardar con margen"),
-        ('msg_margen_removido',  "Margen removido",             "undo", "ejecutivo",                    "Al quitar margen"),
-    ]
     _msgs_nuevos = {}
-    _mcols = st.columns(3)
-    for (_mk, _mtitulo, _micon, _mdest, _mcuando), _mcol in zip(_msg_configs, _mcols):
-        _mval = _get_notif_config(_mk, _msg_defaults[_mk])
-        with _mcol:
-            st.markdown(
-                f'<div class="ntf-msg-header">'
-                f'<div class="ntf-msg-title">{_svg(_micon, 15, "#5b7cfa", mr=2)}{_mtitulo}</div>'
-                f'<div class="ntf-msg-dest">{_svg("send", 11, "#94a3b8", mr=2)}{_mdest}</div>'
-                f'<div class="ntf-msg-when">{_mcuando}</div>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-            _msgs_nuevos[_mk] = st.text_area("Mensaje", value=_mval, height=350,
-                                              key=f"msg_{_mk}", label_visibility="collapsed")
+
+    def _render_msg_group(_configs, _ncols, _height=320):
+        _cols = st.columns(_ncols)
+        for _i, (_mk, _mtitulo, _micon, _mdest, _mcuando) in enumerate(_configs):
+            _mval = _get_notif_config(_mk, _msg_defaults[_mk])
+            with _cols[_i % _ncols]:
+                st.markdown(
+                    f'<div class="ntf-msg-header">'
+                    f'<div class="ntf-msg-title">{_svg(_micon, 15, "#5b7cfa", mr=2)}{_mtitulo}</div>'
+                    f'<div class="ntf-msg-dest">{_svg("send", 11, "#94a3b8", mr=2)}{_mdest}</div>'
+                    f'<div class="ntf-msg-when">{_mcuando}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+                _msgs_nuevos[_mk] = st.text_area("Mensaje", value=_mval, height=_height,
+                                                 key=f"msg_{_mk}", label_visibility="collapsed")
+
+    # ── Grupo 1: Cotizaciones ──
+    st.markdown('<div class="ntf-msg-when" style="font-size:0.74rem;color:#64748b;font-style:normal;'
+                'font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:2px 0 8px;">'
+                'Cotizaciones</div>', unsafe_allow_html=True)
+    st.markdown(_var_guide(['{ep}', '{ejecutivo}', '{cliente}', '{monto}', '{estado}', '{margen}', '{supervisor}']),
+                unsafe_allow_html=True)
+    _render_msg_group([
+        ('msg_nueva_cotizacion', "Nueva cotización",       "send",  "supervisores / admins / obs.", "Al guardar con plano"),
+        ('msg_autorizada',       "Presupuesto autorizado", "check", "ejecutivo + observadores",     "Al guardar con margen"),
+        ('msg_margen_removido',  "Margen removido",        "undo",  "ejecutivo",                    "Al quitar margen"),
+    ], 3, _height=320)
+
+    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+
+    # ── Grupo 2: CRM · Leads ──
+    st.markdown('<div class="ntf-msg-when" style="font-size:0.74rem;color:#64748b;font-style:normal;'
+                'font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:2px 0 8px;">'
+                'CRM · Leads</div>', unsafe_allow_html=True)
+    st.markdown(_var_guide(['{lead}', '{ejecutivo}', '{asignador}', '{cantidad}', '{usuario}', '{origen}', '{fuente}']),
+                unsafe_allow_html=True)
+    _render_msg_group([
+        ('msg_lead_web',        "Nuevo lead — sitio web",  "send",  "admins + root + obs.", "Lead nuevo de Shopify"),
+        ('msg_lead_importado',  "Leads importados",        "users", "admins + root + obs.", "Al importar xlsx/csv"),
+        ('msg_lead_asig_eje',   "Lead asignado — ejecutivo", "check", "solo el ejecutivo",  "Al asignar un lead"),
+        ('msg_lead_asig_admin', "Lead asignado — admins",  "eye",   "todos los admins + root", "Al asignar un lead"),
+    ], 2, _height=230)
 
     _mb1, _mb2 = st.columns([1, 1])
     with _mb1:
