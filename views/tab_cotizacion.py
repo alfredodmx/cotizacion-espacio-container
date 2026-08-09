@@ -1333,7 +1333,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         # guardado (si no, al filtrar volvería a Monto). height=0 → no ocupa espacio.
         import time as _t_ord
         components.html(
-            "<script>(function(){var PD=window.parent.document,K='ec_ord_pres';"
+            "<script>(function(){var PD=window.parent.document,K='ec_ord_pres2';"
             "function mk(){var r=PD.createElement('div');r.className='mosaic-row';return r;}"
             "function layout(mode){var c=PD.querySelector('.pres-cards');if(!c)return false;"
             "var cs=[].slice.call(c.querySelectorAll('._pres_card'));if(!cs.length)return false;"

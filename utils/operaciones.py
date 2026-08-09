@@ -445,7 +445,7 @@ var IC={{store:'{IC_STORE}',cal:'{IC_CAL}',user:'{IC_USER}',cart:'{IC_CART}',fil
 var EP="{ep}";var SUPA_URL="{supa_url}";var SUPA_KEY="{supa_key}";
 var editing=-1, confirming=-1, confirmStep=0, _facFile=null, fTipo="", fResp="", fProv="";
 var pvSel=-1, pvFacOpen={{}}, PROVS_F=[];
-var pvOrder="az";try{{pvOrder=window.parent.sessionStorage.getItem("ec_ord_prov")||"az";}}catch(e){{}}
+var pvOrder="az";try{{pvOrder=window.parent.sessionStorage.getItem("ec_ord_prov2")||"az";}}catch(e){{}}
 var PVCOLORS=["#3b82f6","#10b981","#f59e0b","#8b5cf6","#ef4444","#06b6d4","#f97316","#84cc16","#ec4899","#6366f1","#14b8a6","#eab308","#dc2626","#7c3aed","#0ea5e9"];
 function f(n){{return "$"+Math.round(Math.abs(+n||0)).toLocaleString("de-DE");}}
 function esc(s){{return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}}
@@ -751,7 +751,7 @@ render();
   box.querySelectorAll("[data-mode]").forEach(function(b){{
     b.addEventListener("click",function(){{
       pvOrder=b.getAttribute("data-mode");
-      try{{window.parent.sessionStorage.setItem("ec_ord_prov",pvOrder);}}catch(e){{}}
+      try{{window.parent.sessionStorage.setItem("ec_ord_prov2",pvOrder);}}catch(e){{}}
       upd();pvSel=-1;render();
     }});
   }});

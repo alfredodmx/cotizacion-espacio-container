@@ -1548,12 +1548,11 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         "sl.forEach(function(cd){var g=Math.max(1,Math.round(Math.pow((+cd.getAttribute('data-w'))||1,0.3)/rmx*1000));"
                         "cd.style.flex=g+' '+g+' 0';cd.style.minWidth='';rw.appendChild(cd);});"
                         "c.appendChild(rw);}}else{c.innerHTML=c.__snap;}}"
-                        "var box=document.getElementById('rc-ord');if(!box)return;var K='ec_ord_rccat',m='az';"
+                        "var box=document.getElementById('rc-ord');if(!box)return;var K='ec_ord_rccat2',m='az';"
                         "try{m=window.parent.sessionStorage.getItem(K)||'az';}catch(e){}"
-                        "function set(mm){m=mm;try{window.parent.sessionStorage.setItem(K,mm);}catch(e){}"
-                        "box.querySelectorAll('[data-mode]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-mode')===mm);});srt(mm);}"
-                        "box.querySelectorAll('[data-mode]').forEach(function(b){b.addEventListener('click',function(){set(b.getAttribute('data-mode'));});});"
-                        "set(m);})();</script>"
+                        "function ap(mm){box.querySelectorAll('[data-mode]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-mode')===mm);});srt(mm);}"
+                        "box.querySelectorAll('[data-mode]').forEach(function(b){b.addEventListener('click',function(){m=b.getAttribute('data-mode');try{window.parent.sessionStorage.setItem(K,m);}catch(e){}ap(m);});});"
+                        "ap(m);})();</script>"
                     )
                     _cats_cards_html = _rc_cards_css + _rc_ord_html + _rc_cards_divs + _rc_ord_script
                     # Mapa categoría→color (mismo palette del mosaico) para pintar
