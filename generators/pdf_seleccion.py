@@ -136,8 +136,7 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
     story = []
 
     # ── Masthead (portada tipografica limpia) ──
-    _logo_file = 'logo3.png' if _os_s.path.exists('logo3.png') else (
-        'logo.png' if _os_s.path.exists('logo.png') else None)
+    _logo_file = 'logo.png' if _os_s.path.exists('logo.png') else None
     _logo_dims = None
     if _logo_file:
         try:
