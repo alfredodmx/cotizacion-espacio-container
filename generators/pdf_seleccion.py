@@ -75,53 +75,74 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
         c.drawText(to)
         c.restoreState()
 
-    def _img_from_url(url, max_w, max_h):
+    def _img_reader(url):
+        """Descarga una imagen y devuelve un ImageReader (o None). DEFENSIVO."""
         try:
             r = _rq_s.get(url, timeout=5)
             if r.status_code == 200:
-                buf = _io_s.BytesIO(r.content)
-                pil = _PIL.open(buf)
-                iw, ih = pil.size
-                ratio = min(max_w / iw, max_h / ih)
-                buf.seek(0)
-                return _RLImage(buf, width=iw * ratio, height=ih * ratio)
+                from reportlab.lib.utils import ImageReader
+                return ImageReader(_io_s.BytesIO(r.content))
         except Exception:
             pass
         return None
 
+    _TILE_R = 6  # radio de las esquinas redondeadas de los tiles
+
+    class RoundedTile(Flowable):
+        """Tile visual con esquinas redondeadas: swatch de color, imagen centrada
+        (recortada al radio) o placeholder suave. Marco hairline fino."""
+        def __init__(self, w, h, tipo='', hexv='', img=None, pendiente=False, radius=_TILE_R):
+            Flowable.__init__(self)
+            self.w = w; self.h = h; self.tipo = tipo; self.hexv = hexv
+            self.img = img; self.pendiente = pendiente; self.radius = radius
+
+        def wrap(self, *a):
+            return self.w, self.h
+
+        def draw(self):
+            c = self.canv
+            w, h, r = self.w, self.h, self.radius
+            # Swatch de color: roundRect relleno + marco fino.
+            if (not self.pendiente) and self.tipo == 'color' and self.hexv:
+                try:
+                    col = colors.HexColor(self.hexv if str(self.hexv).startswith('#') else '#' + str(self.hexv))
+                except Exception:
+                    col = CANVAS
+                c.setFillColor(col); c.setStrokeColor(LINE); c.setLineWidth(0.5)
+                c.roundRect(0, 0, w, h, r, fill=1, stroke=1)
+                return
+            # Fondo (blanco = seleccionado con imagen; piedra suave = pendiente/sin img).
+            _bg = CANVAS if (self.pendiente or self.img is None) else WHITE
+            c.setFillColor(_bg)
+            c.roundRect(0, 0, w, h, r, fill=1, stroke=0)
+            # Imagen centrada, recortada a las esquinas redondeadas.
+            if (not self.pendiente) and self.img is not None:
+                try:
+                    iw, ih = self.img.getSize()
+                    _pad = 7
+                    _mw, _mh = w - 2 * _pad, h - 2 * _pad
+                    _ratio = min(_mw / iw, _mh / ih)
+                    _dw, _dh = iw * _ratio, ih * _ratio
+                    _dx, _dy = (w - _dw) / 2, (h - _dh) / 2
+                    c.saveState()
+                    _p = c.beginPath(); _p.roundRect(0, 0, w, h, r); c.clipPath(_p, stroke=0, fill=0)
+                    c.drawImage(self.img, _dx, _dy, width=_dw, height=_dh,
+                                preserveAspectRatio=True, mask='auto')
+                    c.restoreState()
+                except Exception:
+                    pass
+            # Marco hairline por encima.
+            c.setStrokeColor(LINE); c.setLineWidth(0.5)
+            c.roundRect(0, 0, w, h, r, fill=0, stroke=1)
+
     def _tile(idata, w, h, pendiente=False):
-        """Tile visual uniforme: swatch de color, imagen centrada o placeholder suave.
-        Marco hairline fino; fondo blanco (seleccionado) o piedra suave (pendiente)."""
         tipo = (idata or {}).get('tipo', '')
         hexv = (idata or {}).get('hex', '')
         url  = (idata or {}).get('imagen_url', '')
-        if (not pendiente) and tipo == 'color' and hexv:
-            try:
-                col = colors.HexColor(hexv if str(hexv).startswith('#') else '#' + str(hexv))
-            except Exception:
-                col = CANVAS
-            t = Table([['']], colWidths=[w], rowHeights=[h])
-            t.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (0, 0), col),
-                ('BOX', (0, 0), (0, 0), 0.5, LINE),
-                ('LEFTPADDING', (0, 0), (0, 0), 0), ('RIGHTPADDING', (0, 0), (0, 0), 0),
-                ('TOPPADDING', (0, 0), (0, 0), 0), ('BOTTOMPADDING', (0, 0), (0, 0), 0),
-            ]))
-            return t
-        inner = None
-        if (not pendiente) and url:
-            inner = _img_from_url(url, w - 0.5 * cm, h - 0.5 * cm)
-        if inner is None:
-            inner = Paragraph('', styles['Normal'])
-        t = Table([[inner]], colWidths=[w], rowHeights=[h])
-        t.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (0, 0), CANVAS if pendiente or inner is None else WHITE),
-            ('BOX', (0, 0), (0, 0), 0.5, LINE),
-            ('VALIGN', (0, 0), (0, 0), 'MIDDLE'), ('ALIGN', (0, 0), (0, 0), 'CENTER'),
-            ('LEFTPADDING', (0, 0), (0, 0), 6), ('RIGHTPADDING', (0, 0), (0, 0), 6),
-            ('TOPPADDING', (0, 0), (0, 0), 6), ('BOTTOMPADDING', (0, 0), (0, 0), 6),
-        ]))
-        return t
+        img = None
+        if (not pendiente) and tipo != 'color' and url:
+            img = _img_reader(url)
+        return RoundedTile(w, h, tipo=tipo, hexv=hexv, img=img, pendiente=pendiente)
 
     # ── Estilos de texto ──
     _lab   = PS('_lab', fontName='Helvetica-Bold', fontSize=6.3, textColor=STONE,
@@ -147,7 +168,7 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
 
     _nombre_full = (nombre_cliente or 'Cliente').strip()
     _nl = len(_nombre_full)
-    _name_sz = 24 if _nl <= 20 else (20 if _nl <= 30 else 16)
+    _name_sz = 20 if _nl <= 22 else (17 if _nl <= 32 else 14)
 
     class Masthead(Flowable):
         def __init__(self):
@@ -164,7 +185,7 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
             # Logo arriba a la izquierda
             if _logo_file and _logo_dims:
                 _lw, _lh = _logo_dims
-                _th = 1.15 * cm
+                _th = 1.5 * cm
                 _tw = _lw * (_th / _lh)
                 try:
                     c.drawImage(_logo_file, 0, Ht - _th, width=_tw, height=_th,
