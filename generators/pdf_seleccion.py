@@ -182,27 +182,27 @@ def generar_pdf_seleccion_cliente(ep, nombre_cliente, config_data, resps_map, ma
         def draw(self):
             c = self.canv
             Ht = self.height
-            # Logo arriba a la izquierda
+            # Izquierda: N° EP + fecha arriba, luego el titulo y el nombre grande.
+            _draw_tracked(c, 0, Ht - 0.34 * cm, ('N° ' + str(ep)),
+                          'Helvetica-Bold', 10.5, INK, tracking=0.4)
+            _draw_tracked(c, 0, Ht - 0.78 * cm, _fecha,
+                          'Helvetica', 8, STONE, tracking=0.3)
+            _draw_tracked(c, 0, Ht - 1.62 * cm, 'SELECCIÓN DE MATERIALES',
+                          'Helvetica-Bold', 8, STONE, tracking=2.2)
+            c.setFont('Helvetica', _name_sz)
+            c.setFillColor(INK)
+            c.drawString(0, Ht - 2.55 * cm, _nombre_full)
+            # Derecha: logo, nivelado (centrado vertical) con el bloque de texto de
+            # la izquierda (N° EP · título · nombre).
             if _logo_file and _logo_dims:
                 _lw, _lh = _logo_dims
                 _th = 1.5 * cm
                 _tw = _lw * (_th / _lh)
                 try:
-                    c.drawImage(_logo_file, 0, Ht - _th, width=_tw, height=_th,
+                    c.drawImage(_logo_file, CW - _tw, Ht - 2.12 * cm, width=_tw, height=_th,
                                 preserveAspectRatio=True, mask='auto')
                 except Exception:
                     pass
-            # Metadatos arriba a la derecha
-            _draw_tracked(c, 0, Ht - 0.30 * cm, ('N° ' + str(ep)),
-                          'Helvetica-Bold', 10, INK, tracking=0.4, rx=CW)
-            _draw_tracked(c, 0, Ht - 0.72 * cm, _fecha,
-                          'Helvetica', 8, STONE, tracking=0.3, rx=CW)
-            # Titulo del documento (caps con tracking) + nombre grande
-            _draw_tracked(c, 0, Ht - 1.95 * cm, 'SELECCIÓN DE MATERIALES',
-                          'Helvetica-Bold', 8, STONE, tracking=2.2)
-            c.setFont('Helvetica', _name_sz)
-            c.setFillColor(INK)
-            c.drawString(0, Ht - 2.95 * cm, _nombre_full)
             # Barra de progreso fina
             _by = 0.62 * cm
             c.setStrokeColor(LINE)
