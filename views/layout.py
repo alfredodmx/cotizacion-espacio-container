@@ -116,9 +116,43 @@ _NOTIF_CSS = """<style>
 ._hdr_notif_txt{flex:1;min-width:0;}
 ._hdr_notif_t{font-size:0.82rem;color:#0f172a;font-weight:600;line-height:1.35;}
 ._hdr_notif_d{font-size:0.72rem;color:#94a3b8;margin-top:2px;}
+._hdr_notif_time{font-size:0.68rem;color:#b0b8c6;margin-top:4px;display:flex;align-items:center;gap:4px;font-weight:600;}
+._hdr_notif_time svg{width:11px;height:11px;flex-shrink:0;}
 ._hdr_notif_dot{width:8px;height:8px;border-radius:50%;background:#5b7cfa;flex-shrink:0;margin-top:5px;}
 ._hdr_notif_empty{padding:28px 14px;text-align:center;color:#94a3b8;font-size:0.8rem;font-family:'Plus Jakarta Sans',sans-serif;}
 </style>"""
+
+
+_MESES_ABR = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago",
+              "sep", "oct", "nov", "dic"]
+_NOTIF_CLOCK_ICO = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+                    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+                    '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>')
+
+
+def _fmt_notif_fecha(iso) -> str:
+    """Fecha+hora legible de una notificación: p.ej. 'hace 5 min · 9 ago 2026, 14:30'.
+    Para eventos < 24 h antepone el relativo; devuelve '' si no se puede parsear."""
+    if not iso:
+        return ""
+    try:
+        from datetime import datetime as _dt
+        d = _dt.fromisoformat(str(iso))
+        _abs = f"{d.day} {_MESES_ABR[d.month - 1]} {d.year}, {d.hour:02d}:{d.minute:02d}"
+        try:
+            _now = _dt.now(d.tzinfo) if d.tzinfo else _dt.now()
+            _secs = (_now - d).total_seconds()
+        except Exception:
+            _secs = -1
+        if 0 <= _secs < 60:
+            return f"recién · {_abs}"
+        if _secs < 3600:
+            return f"hace {int(_secs // 60)} min · {_abs}"
+        if _secs < 86400:
+            return f"hace {int(_secs // 3600)} h · {_abs}"
+        return _abs
+    except Exception:
+        return ""
 
 
 def _build_notif_html(email: str) -> str:
@@ -136,12 +170,14 @@ def _build_notif_html(email: str) -> str:
             _leido = bool(it.get("leido"))
             _tit = _htmlmod.escape(str(it.get("titulo") or ""))
             _det = _htmlmod.escape(str(it.get("detalle") or ""))
+            _fecha = _htmlmod.escape(_fmt_notif_fecha(it.get("fecha")))
             _dot = '' if _leido else '<span class="_hdr_notif_dot"></span>'
             _bg = '' if _leido else ' style="background:#f5f8ff;"'
             _rows += (f'<div class="_hdr_notif_it"{_bg}>'
                       f'<span class="_hdr_notif_ico">{_ico}</span>'
                       f'<div class="_hdr_notif_txt"><div class="_hdr_notif_t">{_tit}</div>'
                       + (f'<div class="_hdr_notif_d">{_det}</div>' if _det else '')
+                      + (f'<div class="_hdr_notif_time">{_NOTIF_CLOCK_ICO}{_fecha}</div>' if _fecha else '')
                       + f'</div>{_dot}</div>')
     else:
         _rows = '<div class="_hdr_notif_empty">Sin notificaciones</div>'
