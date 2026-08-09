@@ -1513,7 +1513,7 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                             _dcat = _c['cat'].replace('"', '&quot;')
                             _rc_cards_divs += (
                                 f'<div class="rc-cat-card" data-cat="{_dcat}" data-color="{_col}" '
-                                f'data-name="{_dcat}" onclick="window.rcFilterCat(this)" '
+                                f'data-name="{_dcat}" data-w="{_c["subtotal_raw"]}" onclick="window.rcFilterCat(this)" '
                                 f'style="background:#fff;border:{_brd};border-left:4px solid {_col};flex:{_grow} {_grow} 0;">'
                                 f'<div class="rc-cname" style="color:{_col};">{_c["cat"]}</div>'
                                 f'<div class="rc-csub">{_c["sub"]}<span class="rc-civa">s/IVA</span></div>'
@@ -1530,8 +1530,8 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         '<div class="ec-ord" id="rc-ord">'
                         '<span class="ec-ord-lbl">Ordenar por</span>'
                         '<div class="ec-ord-seg">'
-                        '<button type="button" class="ec-ord-opt on" data-mode="monto">Monto</button>'
-                        '<button type="button" class="ec-ord-opt" data-mode="az">A&#8209;Z</button>'
+                        '<button type="button" class="ec-ord-opt on" data-mode="az">A&#8209;Z</button>'
+                        '<button type="button" class="ec-ord-opt" data-mode="monto">Monto</button>'
                         '</div></div>'
                     )
                     _rc_ord_script = (
@@ -1544,10 +1544,12 @@ body,html{{margin:0;padding:0;overflow:hidden;}}
                         "y=(b.getAttribute('data-cat')||'').toLowerCase();return x<y?-1:x>y?1:0;});"
                         "var n=cs.length,nr=n<=4?1:(n<=10?2:3),per=Math.ceil(n/nr);c.innerHTML='';"
                         "for(var i=0;i<n;i+=per){var rw=document.createElement('div');rw.className='rc-mrow';"
-                        "cs.slice(i,i+per).forEach(function(cd){cd.style.flex='1 1 0';cd.style.minWidth='0';rw.appendChild(cd);});"
+                        "var sl=cs.slice(i,i+per),rmx=1;sl.forEach(function(cd){var w=Math.pow((+cd.getAttribute('data-w'))||1,0.3);if(w>rmx)rmx=w;});"
+                        "sl.forEach(function(cd){var g=Math.max(1,Math.round(Math.pow((+cd.getAttribute('data-w'))||1,0.3)/rmx*1000));"
+                        "cd.style.flex=g+' '+g+' 0';cd.style.minWidth='';rw.appendChild(cd);});"
                         "c.appendChild(rw);}}else{c.innerHTML=c.__snap;}}"
-                        "var box=document.getElementById('rc-ord');if(!box)return;var K='ec_ord_rccat',m='monto';"
-                        "try{m=window.parent.sessionStorage.getItem(K)||'monto';}catch(e){}"
+                        "var box=document.getElementById('rc-ord');if(!box)return;var K='ec_ord_rccat',m='az';"
+                        "try{m=window.parent.sessionStorage.getItem(K)||'az';}catch(e){}"
                         "function set(mm){m=mm;try{window.parent.sessionStorage.setItem(K,mm);}catch(e){}"
                         "box.querySelectorAll('[data-mode]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-mode')===mm);});srt(mm);}"
                         "box.querySelectorAll('[data-mode]').forEach(function(b){b.addEventListener('click',function(){set(b.getAttribute('data-mode'));});});"

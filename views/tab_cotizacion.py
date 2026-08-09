@@ -1292,8 +1292,8 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
             '<div class="ec-ord" id="pres-ord">'
             '<span class="ec-ord-lbl">Ordenar por</span>'
             '<div class="ec-ord-seg">'
-            '<button type="button" class="ec-ord-opt on" data-mode="monto">Monto</button>'
-            '<button type="button" class="ec-ord-opt" data-mode="az">A&#8209;Z</button>'
+            '<button type="button" class="ec-ord-opt on" data-mode="az">A&#8209;Z</button>'
+            '<button type="button" class="ec-ord-opt" data-mode="monto">Monto</button>'
             '</div></div>'
         )
         _cards_html_md = _pres_ord_html + '<div class="pres-cards">'
@@ -1316,7 +1316,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                 # nodos (preserva los listeners de click) y Monto restaura el mosaico.
                 _cards_html_md += (
                     f'<div class="_pres_card" data-catpres="{_dcat}" data-colorpres="{_col}"'
-                    f' data-ord="{_ord_i}" data-row="{_ri}" data-grow="{_grow}"'
+                    f' data-ord="{_ord_i}" data-row="{_ri}" data-grow="{_grow}" data-w="{_c["subtotal_raw"]}"'
                     f' style="background:{_bg};border:{_brd};border-left:4px solid {_col};'
                     f'flex:{_grow} {_grow} 0;">'
                     f'<div class="pres-cname" style="color:{_col};">{_c["cat"]}{_tick}</div>'
@@ -1340,14 +1340,16 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
             "if(mode==='az'){cs.sort(function(a,b){var x=(a.getAttribute('data-catpres')||'').toLowerCase(),"
             "y=(b.getAttribute('data-catpres')||'').toLowerCase();return x<y?-1:x>y?1:0;});"
             "var n=cs.length,nr=n<=4?1:(n<=10?2:3),per=Math.ceil(n/nr);c.innerHTML='';"
-            "for(var i=0;i<n;i+=per){var rw=mk();cs.slice(i,i+per).forEach(function(cd){cd.style.flex='1 1 0';"
-            "cd.style.minWidth='0';rw.appendChild(cd);});c.appendChild(rw);}}"
+            "for(var i=0;i<n;i+=per){var rw=mk();var sl=cs.slice(i,i+per),rmx=1;"
+            "sl.forEach(function(cd){var w=Math.pow((+cd.getAttribute('data-w'))||1,0.3);if(w>rmx)rmx=w;});"
+            "sl.forEach(function(cd){var g=Math.max(1,Math.round(Math.pow((+cd.getAttribute('data-w'))||1,0.3)/rmx*1000));"
+            "cd.style.flex=g+' '+g+' 0';cd.style.minWidth='';rw.appendChild(cd);});c.appendChild(rw);}}"
             "else{cs.sort(function(a,b){return (+a.getAttribute('data-ord'))-(+b.getAttribute('data-ord'));});"
             "c.innerHTML='';var cur=null,cri=null;cs.forEach(function(cd){var ri=cd.getAttribute('data-row');"
             "if(ri!==cri){cur=mk();c.appendChild(cur);cri=ri;}var g=cd.getAttribute('data-grow')||'1';"
             "cd.style.flex=g+' '+g+' 0';cd.style.minWidth='';cur.appendChild(cd);});}return true;}"
-            "function apply(){var box=PD.getElementById('pres-ord');if(!box)return false;var m='monto';"
-            "try{m=window.parent.sessionStorage.getItem(K)||'monto';}catch(e){}"
+            "function apply(){var box=PD.getElementById('pres-ord');if(!box)return false;var m='az';"
+            "try{m=window.parent.sessionStorage.getItem(K)||'az';}catch(e){}"
             "box.querySelectorAll('[data-mode]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-mode')===m);});"
             "return layout(m);}"
             "function bind(){var box=PD.getElementById('pres-ord');if(!box)return;"
@@ -1355,8 +1357,8 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
             "b.addEventListener('click',function(){var m=b.getAttribute('data-mode');"
             "try{window.parent.sessionStorage.setItem(K,m);}catch(e){}"
             "box.querySelectorAll('[data-mode]').forEach(function(x){x.classList.toggle('on',x===b);});layout(m);});});}"
-            "var tr=0;function go(){var ok=apply();bind();if(!ok&&tr++<25){setTimeout(go,100);}}"
-            "setTimeout(go,120);})();</script>"
+            "var tr=0;function go(){var ok=apply();bind();if(!ok&&tr++<25){setTimeout(go,60);}}"
+            "go();})();</script>"
             f"<!--{_t_ord.time()}-->",
             height=0,
         )

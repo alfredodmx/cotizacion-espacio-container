@@ -435,7 +435,7 @@ tr.rm-on td{{background:#fef2f2 !important;text-decoration:line-through;color:#b
     <div class="rcg-body"><div class="hc-filters" id="hc-filters"></div></div>
   </div>
   <div class="rcg-cell">
-    <div class="rcg-head">{_svg_rc('store', color='#0f172a', size=16, mr=8)}Compras por proveedor<div class="ec-ord" id="pv-ord" style="margin-left:auto;"><span class="ec-ord-lbl">Ordenar por</span><div class="ec-ord-seg"><button type="button" class="ec-ord-opt on" data-mode="monto">Monto</button><button type="button" class="ec-ord-opt" data-mode="az">A&#8209;Z</button></div></div></div>
+    <div class="rcg-head">{_svg_rc('store', color='#0f172a', size=16, mr=8)}Compras por proveedor<div class="ec-ord" id="pv-ord" style="margin-left:auto;"><span class="ec-ord-lbl">Ordenar por</span><div class="ec-ord-seg"><button type="button" class="ec-ord-opt on" data-mode="az">A&#8209;Z</button><button type="button" class="ec-ord-opt" data-mode="monto">Monto</button></div></div></div>
     <div class="rcg-body"><div id="pv-section"></div></div>
   </div>
 </div>
@@ -445,7 +445,7 @@ var IC={{store:'{IC_STORE}',cal:'{IC_CAL}',user:'{IC_USER}',cart:'{IC_CART}',fil
 var EP="{ep}";var SUPA_URL="{supa_url}";var SUPA_KEY="{supa_key}";
 var editing=-1, confirming=-1, confirmStep=0, _facFile=null, fTipo="", fResp="", fProv="";
 var pvSel=-1, pvFacOpen={{}}, PROVS_F=[];
-var pvOrder="monto";try{{pvOrder=window.parent.sessionStorage.getItem("ec_ord_prov")||"monto";}}catch(e){{}}
+var pvOrder="az";try{{pvOrder=window.parent.sessionStorage.getItem("ec_ord_prov")||"az";}}catch(e){{}}
 var PVCOLORS=["#3b82f6","#10b981","#f59e0b","#8b5cf6","#ef4444","#06b6d4","#f97316","#84cc16","#ec4899","#6366f1","#14b8a6","#eab308","#dc2626","#7c3aed","#0ea5e9"];
 function f(n){{return "$"+Math.round(Math.abs(+n||0)).toLocaleString("de-DE");}}
 function esc(s){{return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}}
@@ -527,7 +527,7 @@ function renderProv(matched){{
     var rmax=1; for(var q=start;q<end;q++){{var w=Math.pow(PROVS_F[q].total||1,0.3);if(w>rmax)rmax=w;}}
     html+='<div class="pv-row">';
     for(var q=start;q<end;q++){{
-      var c=PROVS_F[q];var grow=(pvOrder==="az")?1:Math.max(1,Math.round(Math.pow(c.total||1,0.3)/rmax*1000));var selc=(pvSel===q)?" sel":"";
+      var c=PROVS_F[q];var grow=Math.max(1,Math.round(Math.pow(c.total||1,0.3)/rmax*1000));var selc=(pvSel===q)?" sel":"";
       var cstyle=c.inv
         ?'border:1.5px solid #86efac;border-left:4px solid #16a34a;background:#f0fdf4;flex:'+grow+' '+grow+' 0;'
         :'border:1.5px solid '+pvHexa(c.color,0.3)+';border-left:4px solid '+c.color+';flex:'+grow+' '+grow+' 0;';
