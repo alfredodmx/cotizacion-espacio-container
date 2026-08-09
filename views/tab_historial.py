@@ -2540,6 +2540,15 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 ".pvhead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;}"
                 ".pvkick{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;font-weight:800;}"
                 ".pvtitle{font-size:15px;font-weight:800;color:#0f172a;}"
+                # Código de presupuesto clickeable para copiar (dentro de .pvtitle).
+                ".pvep-cp{display:inline-flex;align-items:center;gap:5px;cursor:pointer;color:#2563eb;"
+                "border-radius:6px;padding:1px 5px;margin:0 -2px;transition:background .12s,color .12s;"
+                "font-variant-numeric:tabular-nums;}"
+                ".pvep-cp:hover{background:#eff6ff;color:#1d4ed8;}"
+                ".pvep-cp svg{opacity:.5;transition:opacity .12s;}"
+                ".pvep-cp:hover svg{opacity:1;}"
+                ".pvep-cp.copied{color:#16a34a;background:#f0fdf4;}"
+                ".pvep-cp.copied svg{opacity:1;}"
                 # EP - cliente y monto en la MISMA fila; el monto baja solo si no cabe.
                 ".pvtitlerow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:2px;}"
                 # Colores del monto: van INLINE, salen del estado del presupuesto
@@ -2651,6 +2660,8 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                     return (f'<svg width="{_sz}" height="{_sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
                             f'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">{_p}</svg>')
                 _pv_x_ico = _pv_ic('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>', 17)
+                _pv_copy_ico = _pv_ic('<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>'
+                                      '<path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>', 13)
                 _pv_tabs_html = ''
                 for _k, _l, _s in _pv_docs:
                     _on = ' on' if _k == _pv_cur else ''
@@ -2687,7 +2698,10 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                         '<div class="pvhead"><div>'
                         '<div class="pvkick">Documentos</div>'
                         '<div class="pvtitlerow">'
-                        '<div class="pvtitle">' + _pv_ep + ' &middot; ' + _pv_cli_txt + '</div>'
+                        '<div class="pvtitle">'
+                        '<span class="pvep-cp" data-copy="' + _pv_ep + '" title="Clic para copiar el c&#243;digo">'
+                        '<span class="pvep-code">' + _pv_ep + '</span>' + _pv_copy_ico + '</span>'
+                        ' &middot; ' + _pv_cli_txt + '</div>'
                         '<div class="pvmonto" title="' + _pv_estado + '" style="background:' + _pv_m_bg
                         + ';color:' + _pv_m_fg + ';">' + _pv_monto_ico + '<span>' + _pv_monto_txt + '</span>'
                         '<span class="pvmsub">' + _pv_monto_sub + '</span></div></div></div>'
@@ -2706,6 +2720,19 @@ var MAT_DATA = """ + _mat_data_json_map + """;
 (function(){
   var W=window.parent, D=W.document;
   W._ecPvClosing=false;
+  /* Clic para copiar el código de presupuesto (header del drawer). Delegado en el
+     documento padre; se re-bindea limpio en cada render del fragment. */
+  if(D.__pvCpH){ D.removeEventListener('click', D.__pvCpH, true); }
+  D.__pvCpH=function(e){
+    var el=e.target&&e.target.closest?e.target.closest('.pvep-cp'):null; if(!el) return;
+    var v=el.getAttribute('data-copy')||''; if(!v) return;
+    try{var ta=D.createElement('textarea');ta.value=v;ta.style.cssText='position:fixed;top:-9999px;left:-9999px;';
+      D.body.appendChild(ta);ta.focus();ta.select();D.execCommand('copy');ta.remove();}catch(_){}
+    try{if(W.navigator.clipboard)W.navigator.clipboard.writeText(v).catch(function(){});}catch(_){}
+    el.classList.add('copied');
+    setTimeout(function(){el.classList.remove('copied');},1100);
+  };
+  D.addEventListener('click', D.__pvCpH, true);
   function closeIt(){
     if(W._ecPvClosing) return; W._ecPvClosing=true;
     /* Salida deslizante hacia la derecha + fundido del backdrop. El listener de
