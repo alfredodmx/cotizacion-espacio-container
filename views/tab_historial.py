@@ -2448,19 +2448,27 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             _href_ctx = 'data:' + str(_ctx_dl[2]) + ';base64,' + _b64ctx.b64encode(_raw_ctx).decode('ascii')
             components.html(
                 "<script>(function(){var W=window.parent,D=W.document;"
-                "try{if(W._ecDlFinish){W._ecDlFinish(true);}else if(W._ecDlRemove){W._ecDlRemove();}else{var pl=D.getElementById('_ec_dl_preloader');if(pl&&pl.parentNode)pl.parentNode.removeChild(pl);}}catch(e){}"
+                "try{if(W._ecDlFinish){W._ecDlFinish(true);}}catch(e){}"
                 "var a=D.createElement('a');a.href=" + json.dumps(_href_ctx) + ";"
-                "a.download=" + json.dumps(str(_ctx_dl[1])) + ";"
-                "a.style.display='none';D.body.appendChild(a);a.click();"
-                "setTimeout(function(){try{a.remove();}catch(e){}},2000);})();</script>"
+                "a.download=" + json.dumps(str(_ctx_dl[1])) + ";a.style.display='none';D.body.appendChild(a);"
+                # Se muestra 100% ~450 ms, LUEGO se quita el preloader (kill sincrónico)
+                # y RECIÉN ahí se dispara el click → el diálogo de Guardar del navegador
+                # aparece sin preloader detrás (Guardar/Cancelar dan igual).
+                "W.setTimeout(function(){"
+                "try{if(W._ecDlKill){W._ecDlKill();}else{var pl=D.getElementById('_ec_dl_preloader');if(pl&&pl.parentNode)pl.parentNode.removeChild(pl);}}catch(e){}"
+                "try{a.click();}catch(e){}"
+                "W.setTimeout(function(){try{a.remove();}catch(e){}},2000);"
+                "},450);})();</script>"
                 "<!--" + _nonce_ctx + "-->",
                 height=0)
         elif _ctx_action in _DL_ACTIONS:
             # Se pidió una descarga pero no se pudo generar (contrato no generado, sin
-            # plano, sin respuestas de selección…): cerrar el preloader con aviso.
+            # plano, sin respuestas de selección…): mostrar el aviso y cerrar (kill).
             components.html(
                 "<script>(function(){var W=window.parent,D=W.document;"
-                "try{if(W._ecDlFinish){W._ecDlFinish(false);}else if(W._ecDlRemove){W._ecDlRemove();}else{var pl=D.getElementById('_ec_dl_preloader');if(pl&&pl.parentNode)pl.parentNode.removeChild(pl);}}catch(e){}})();</script>"
+                "try{if(W._ecDlFinish){W._ecDlFinish(false);}}catch(e){}"
+                "W.setTimeout(function(){try{if(W._ecDlKill){W._ecDlKill();}else{var pl=D.getElementById('_ec_dl_preloader');if(pl&&pl.parentNode)pl.parentNode.removeChild(pl);}}catch(e){}},1400);"
+                "})();</script>"
                 "<!--" + _nonce_ctx + "-->",
                 height=0)
 
@@ -2873,13 +2881,20 @@ var MAT_DATA = """ + _mat_data_json_map + """;
     },130);
     W._ecDlMax=W.setTimeout(function(){ _ecDlRemove(); },12000);
   }
+  /* Kill SINCRÓNICO (sin fade, sin setTimeout): se usa ANTES de abrir el diálogo de
+     descarga del navegador. Ese diálogo modal PAUSA los timers de JS, así que si la
+     remoción dependiera de un setTimeout y el usuario apreta 'Cancelar', quedaba
+     pegado. Quitándolo sincrónicamente antes del click, el diálogo nunca tiene el
+     preloader detrás → Guardar o Cancelar dan igual. */
+  W._ecDlKill=function(){ _ecDlClearTimers(); var e=D.getElementById('_ec_dl_preloader'); if(e&&e.parentNode)e.parentNode.removeChild(e); };
   W._ecDlFinish=function(ok){
     if(W._ecDlIv){W.clearInterval(W._ecDlIv);W._ecDlIv=null;}
     var ov=D.getElementById('_ec_dl_preloader'); if(!ov){ _ecDlClearTimers(); return; }
     var b=D.getElementById('_ec_dl_bar'),p=D.getElementById('_ec_dl_pct'),m=D.getElementById('_ec_dl_msg');
     if(ok){ if(b)b.style.width='100%'; if(p)p.textContent='100%'; if(m){m.textContent='¡Listo! Descargando…';m.style.color='#16a34a';} }
     else { if(m){m.textContent='Documento no disponible.';m.style.color='#dc2626';} if(p)p.textContent=''; }
-    W.setTimeout(_ecDlRemove, ok?700:1200);
+    /* NO se auto-remueve: el que llama decide cuándo (kill sincrónico antes del
+       diálogo). _ecDlMax (12 s) queda como garantía última si nada más lo cierra. */
   };
   function fire(action,ep){
     var inp=D.querySelector('.st-key-_ctx_cmd input'); if(!inp) return;
