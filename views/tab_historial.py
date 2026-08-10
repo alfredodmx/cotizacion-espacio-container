@@ -2448,7 +2448,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             _href_ctx = 'data:' + str(_ctx_dl[2]) + ';base64,' + _b64ctx.b64encode(_raw_ctx).decode('ascii')
             components.html(
                 "<script>(function(){var W=window.parent,D=W.document;"
-                "if(W._ecDlFinish){W._ecDlFinish(true);}else{var pl=D.getElementById('_ec_dl_preloader');if(pl){if(pl._iv)clearInterval(pl._iv);pl.remove();}}"
+                "try{if(W._ecDlFinish){W._ecDlFinish(true);}else if(W._ecDlRemove){W._ecDlRemove();}else{var pl=D.getElementById('_ec_dl_preloader');if(pl&&pl.parentNode)pl.parentNode.removeChild(pl);}}catch(e){}"
                 "var a=D.createElement('a');a.href=" + json.dumps(_href_ctx) + ";"
                 "a.download=" + json.dumps(str(_ctx_dl[1])) + ";"
                 "a.style.display='none';D.body.appendChild(a);a.click();"
@@ -2460,7 +2460,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             # plano, sin respuestas de selección…): cerrar el preloader con aviso.
             components.html(
                 "<script>(function(){var W=window.parent,D=W.document;"
-                "if(W._ecDlFinish){W._ecDlFinish(false);}else{var pl=D.getElementById('_ec_dl_preloader');if(pl){if(pl._iv)clearInterval(pl._iv);pl.remove();}}})();</script>"
+                "try{if(W._ecDlFinish){W._ecDlFinish(false);}else if(W._ecDlRemove){W._ecDlRemove();}else{var pl=D.getElementById('_ec_dl_preloader');if(pl&&pl.parentNode)pl.parentNode.removeChild(pl);}}catch(e){}})();</script>"
                 "<!--" + _nonce_ctx + "-->",
                 height=0)
 
@@ -2843,8 +2843,16 @@ var MAT_DATA = """ + _mat_data_json_map + """;
   function closeMenu(){var m=D.getElementById(MENU_ID);if(m)m.remove();}
   var DL_LABELS={pdf_compras:'de compras',pdf_completo:'completo',pdf_cliente:'cliente',pdf_seleccion:'de selección de materiales',pdf_modificaciones:'de modificaciones',contrato:'del contrato',plano:'del plano'};
   if(!D.getElementById('_ecdl_css')){var _dls=D.createElement('style');_dls.id='_ecdl_css';_dls.textContent='@keyframes _ecdlspin{to{transform:rotate(360deg)}}@keyframes _ecdlin{from{opacity:0}to{opacity:1}}';D.head.appendChild(_dls);}
+  /* Ciclo de vida ROBUSTO del preloader de descarga: TODOS los timers viven en
+     window.parent (W) y se limpian con W.clear* — mezclar el clear del iframe con
+     timers del padre NO limpia nada (era la causa de que quedara pegado). _ecDlMax
+     es una autodestrucción GARANTIZADA (12 s) por si nunca llega la señal de fin. */
+  function _ecDlClearTimers(){ if(W._ecDlIv){W.clearInterval(W._ecDlIv);W._ecDlIv=null;} if(W._ecDlMax){W.clearTimeout(W._ecDlMax);W._ecDlMax=null;} }
+  function _ecDlRemove(){ _ecDlClearTimers(); var e=D.getElementById('_ec_dl_preloader'); if(!e)return; e.style.transition='opacity .28s ease'; e.style.opacity='0'; W.setTimeout(function(){var x=D.getElementById('_ec_dl_preloader'); if(x&&x.parentNode)x.parentNode.removeChild(x);},300); }
+  W._ecDlRemove=_ecDlRemove;
   function showDlPreloader(action){
-    var old=D.getElementById('_ec_dl_preloader'); if(old){ if(old._iv)clearInterval(old._iv); if(old._to)clearTimeout(old._to); old.remove(); }
+    _ecDlClearTimers();
+    var old=D.getElementById('_ec_dl_preloader'); if(old&&old.parentNode)old.parentNode.removeChild(old);
     var lbl=DL_LABELS[action]||'documento';
     var ov=D.createElement('div'); ov.id='_ec_dl_preloader';
     ov.style.cssText='position:fixed;inset:0;z-index:2147483600;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,0.6);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);animation:_ecdlin .15s ease;';
@@ -2856,21 +2864,22 @@ var MAT_DATA = """ + _mat_data_json_map + """;
       +'<div id="_ec_dl_pct" style="font-weight:800;font-size:13px;color:#5b7cfa;margin-top:8px;">8%</div></div>';
     D.body.appendChild(ov);
     var cur=8;
-    ov._iv=W.setInterval(function(){
+    W._ecDlIv=W.setInterval(function(){
       cur+=(92-cur)*0.055; if(cur>92)cur=92;
       var b=D.getElementById('_ec_dl_bar'),p=D.getElementById('_ec_dl_pct'),m=D.getElementById('_ec_dl_msg');
-      if(b)b.style.width=Math.round(cur)+'%'; if(p)p.textContent=Math.round(cur)+'%';
+      if(!b){ _ecDlClearTimers(); return; }
+      b.style.width=Math.round(cur)+'%'; if(p)p.textContent=Math.round(cur)+'%';
       if(m)m.textContent=cur<45?'Creando el documento…':(cur<78?'Procesando…':'Casi listo…');
     },130);
-    ov._to=W.setTimeout(function(){ if(ov._iv)clearInterval(ov._iv); if(ov.parentNode)ov.remove(); },15000);
+    W._ecDlMax=W.setTimeout(function(){ _ecDlRemove(); },12000);
   }
   W._ecDlFinish=function(ok){
-    var ov=D.getElementById('_ec_dl_preloader'); if(!ov) return;
-    if(ov._iv){clearInterval(ov._iv);ov._iv=null;} if(ov._to){clearTimeout(ov._to);ov._to=null;}
+    if(W._ecDlIv){W.clearInterval(W._ecDlIv);W._ecDlIv=null;}
+    var ov=D.getElementById('_ec_dl_preloader'); if(!ov){ _ecDlClearTimers(); return; }
     var b=D.getElementById('_ec_dl_bar'),p=D.getElementById('_ec_dl_pct'),m=D.getElementById('_ec_dl_msg');
     if(ok){ if(b)b.style.width='100%'; if(p)p.textContent='100%'; if(m){m.textContent='¡Listo! Descargando…';m.style.color='#16a34a';} }
     else { if(m){m.textContent='Documento no disponible.';m.style.color='#dc2626';} if(p)p.textContent=''; }
-    W.setTimeout(function(){ ov.style.transition='opacity .3s ease'; ov.style.opacity='0'; W.setTimeout(function(){ if(ov.parentNode)ov.remove(); },320); }, ok?650:1200);
+    W.setTimeout(_ecDlRemove, ok?700:1200);
   };
   function fire(action,ep){
     var inp=D.querySelector('.st-key-_ctx_cmd input'); if(!inp) return;
