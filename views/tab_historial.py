@@ -2431,7 +2431,15 @@ var MAT_DATA = """ + _mat_data_json_map + """;
         # componente se re-renderiza y el script corre una vez por descarga.
         if _ctx_dl is not None:
             import base64 as _b64ctx
-            _href_ctx = 'data:' + str(_ctx_dl[2]) + ';base64,' + _b64ctx.b64encode(_ctx_dl[0]).decode('ascii')
+            # Normaliza a bytes: generar_pdf_completo/cliente/compras devuelven un
+            # BytesIO (buffer), no bytes crudos — st.download_button lo aceptaba pero
+            # b64encode necesita bytes (mismo manejo que el visor del drawer).
+            _raw_ctx = _ctx_dl[0]
+            if hasattr(_raw_ctx, 'getvalue'):
+                _raw_ctx = _raw_ctx.getvalue()
+            elif hasattr(_raw_ctx, 'read'):
+                _raw_ctx = _raw_ctx.read()
+            _href_ctx = 'data:' + str(_ctx_dl[2]) + ';base64,' + _b64ctx.b64encode(_raw_ctx).decode('ascii')
             # El nonce (_ctx_done) hace ÚNICO el html en cada descarga: si se pide el
             # mismo documento dos veces (bytes idénticos), sin él Streamlit no
             # re-renderizaría el componente y el script no volvería a correr.
