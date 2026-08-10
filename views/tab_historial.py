@@ -2429,6 +2429,12 @@ var MAT_DATA = """ + _mat_data_json_map + """;
         # viajan igual que antes al navegador: es el PDF del propio usuario, misma
         # seguridad. El data-URL cambia en cada descarga (bytes distintos) → el
         # componente se re-renderiza y el script corre una vez por descarga.
+        _DL_ACTIONS = ('pdf_compras', 'pdf_completo', 'pdf_cliente', 'pdf_seleccion',
+                       'pdf_modificaciones', 'contrato', 'plano')
+        # El nonce (_ctx_done) hace ÚNICO el html en cada descarga: si se pide el mismo
+        # documento dos veces (bytes idénticos), sin él Streamlit no re-renderizaría el
+        # componente y el script no volvería a correr.
+        _nonce_ctx = str(st.session_state.get('_ctx_done', ''))
         if _ctx_dl is not None:
             import base64 as _b64ctx
             # Normaliza a bytes: generar_pdf_completo/cliente/compras devuelven un
@@ -2440,16 +2446,21 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             elif hasattr(_raw_ctx, 'read'):
                 _raw_ctx = _raw_ctx.read()
             _href_ctx = 'data:' + str(_ctx_dl[2]) + ';base64,' + _b64ctx.b64encode(_raw_ctx).decode('ascii')
-            # El nonce (_ctx_done) hace ÚNICO el html en cada descarga: si se pide el
-            # mismo documento dos veces (bytes idénticos), sin él Streamlit no
-            # re-renderizaría el componente y el script no volvería a correr.
-            _nonce_ctx = str(st.session_state.get('_ctx_done', ''))
             components.html(
-                "<script>(function(){var D=window.parent.document;"
+                "<script>(function(){var W=window.parent,D=W.document;"
+                "if(W._ecDlFinish){W._ecDlFinish(true);}else{var pl=D.getElementById('_ec_dl_preloader');if(pl){if(pl._iv)clearInterval(pl._iv);pl.remove();}}"
                 "var a=D.createElement('a');a.href=" + json.dumps(_href_ctx) + ";"
                 "a.download=" + json.dumps(str(_ctx_dl[1])) + ";"
                 "a.style.display='none';D.body.appendChild(a);a.click();"
                 "setTimeout(function(){try{a.remove();}catch(e){}},2000);})();</script>"
+                "<!--" + _nonce_ctx + "-->",
+                height=0)
+        elif _ctx_action in _DL_ACTIONS:
+            # Se pidió una descarga pero no se pudo generar (contrato no generado, sin
+            # plano, sin respuestas de selección…): cerrar el preloader con aviso.
+            components.html(
+                "<script>(function(){var W=window.parent,D=W.document;"
+                "if(W._ecDlFinish){W._ecDlFinish(false);}else{var pl=D.getElementById('_ec_dl_preloader');if(pl){if(pl._iv)clearInterval(pl._iv);pl.remove();}}})();</script>"
                 "<!--" + _nonce_ctx + "-->",
                 height=0)
 
@@ -2830,8 +2841,40 @@ var MAT_DATA = """ + _mat_data_json_map + """;
   ];
   function ic(p){return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">'+p+'</svg>';}
   function closeMenu(){var m=D.getElementById(MENU_ID);if(m)m.remove();}
+  var DL_LABELS={pdf_compras:'de compras',pdf_completo:'completo',pdf_cliente:'cliente',pdf_seleccion:'de selección de materiales',pdf_modificaciones:'de modificaciones',contrato:'del contrato',plano:'del plano'};
+  if(!D.getElementById('_ecdl_css')){var _dls=D.createElement('style');_dls.id='_ecdl_css';_dls.textContent='@keyframes _ecdlspin{to{transform:rotate(360deg)}}@keyframes _ecdlin{from{opacity:0}to{opacity:1}}';D.head.appendChild(_dls);}
+  function showDlPreloader(action){
+    var old=D.getElementById('_ec_dl_preloader'); if(old){ if(old._iv)clearInterval(old._iv); if(old._to)clearTimeout(old._to); old.remove(); }
+    var lbl=DL_LABELS[action]||'documento';
+    var ov=D.createElement('div'); ov.id='_ec_dl_preloader';
+    ov.style.cssText='position:fixed;inset:0;z-index:2147483600;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,0.6);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);animation:_ecdlin .15s ease;';
+    ov.innerHTML='<div style="background:#fff;border-radius:16px;padding:26px 30px;width:min(360px,88vw);box-shadow:0 24px 64px rgba(0,0,0,.32);text-align:center;font-family:Montserrat,sans-serif;">'
+      +'<div style="width:44px;height:44px;margin:0 auto 14px;border:4px solid #e8ecf5;border-top-color:#5b7cfa;border-radius:50%;animation:_ecdlspin .8s linear infinite;"></div>'
+      +'<div style="font-weight:800;font-size:15px;color:#0f172a;letter-spacing:.01em;">Creando el PDF '+lbl+'</div>'
+      +'<div id="_ec_dl_msg" style="font-size:12px;color:#64748b;margin-top:5px;">Creando el documento…</div>'
+      +'<div style="margin-top:16px;height:8px;background:#eef2f7;border-radius:99px;overflow:hidden;"><div id="_ec_dl_bar" style="height:100%;width:8%;background:linear-gradient(90deg,#5b7cfa,#7c5cfa);border-radius:99px;transition:width .3s ease;"></div></div>'
+      +'<div id="_ec_dl_pct" style="font-weight:800;font-size:13px;color:#5b7cfa;margin-top:8px;">8%</div></div>';
+    D.body.appendChild(ov);
+    var cur=8;
+    ov._iv=W.setInterval(function(){
+      cur+=(92-cur)*0.055; if(cur>92)cur=92;
+      var b=D.getElementById('_ec_dl_bar'),p=D.getElementById('_ec_dl_pct'),m=D.getElementById('_ec_dl_msg');
+      if(b)b.style.width=Math.round(cur)+'%'; if(p)p.textContent=Math.round(cur)+'%';
+      if(m)m.textContent=cur<45?'Creando el documento…':(cur<78?'Procesando…':'Casi listo…');
+    },130);
+    ov._to=W.setTimeout(function(){ if(ov._iv)clearInterval(ov._iv); if(ov.parentNode)ov.remove(); },15000);
+  }
+  W._ecDlFinish=function(ok){
+    var ov=D.getElementById('_ec_dl_preloader'); if(!ov) return;
+    if(ov._iv){clearInterval(ov._iv);ov._iv=null;} if(ov._to){clearTimeout(ov._to);ov._to=null;}
+    var b=D.getElementById('_ec_dl_bar'),p=D.getElementById('_ec_dl_pct'),m=D.getElementById('_ec_dl_msg');
+    if(ok){ if(b)b.style.width='100%'; if(p)p.textContent='100%'; if(m){m.textContent='¡Listo! Descargando…';m.style.color='#16a34a';} }
+    else { if(m){m.textContent='Documento no disponible.';m.style.color='#dc2626';} if(p)p.textContent=''; }
+    W.setTimeout(function(){ ov.style.transition='opacity .3s ease'; ov.style.opacity='0'; W.setTimeout(function(){ if(ov.parentNode)ov.remove(); },320); }, ok?650:1200);
+  };
   function fire(action,ep){
     var inp=D.querySelector('.st-key-_ctx_cmd input'); if(!inp) return;
+    if(DL_LABELS[action]) showDlPreloader(action);
     var vs=D.getElementById('_ec_vscroll'); if(vs&&vs.scrollTop>0) W._ecTableScrollY=vs.scrollTop;
     if(W._ecRestoreIv){clearInterval(W._ecRestoreIv);W._ecRestoreIv=null;}
     if(typeof W._ecTableScrollY==='number'&&W._ecTableScrollY>0){
