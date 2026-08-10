@@ -93,12 +93,13 @@ def _rank_badge(idx):
 # ── Datos (cacheados + defensivos) ───────────────────────────────────────────
 
 @st.cache_data(ttl=300, show_spinner=False)
-def _cargar_datos_dashboard(periodo='mes'):
+def _cargar_datos_dashboard(periodo='mes', desde='', hasta=''):
     try:
         from datetime import datetime as _dt, timedelta as _td
         from collections import defaultdict as _dd
 
         _ahora = _dt.now()
+        _fin_rango = None
         if periodo == 'mes':
             _inicio = _ahora.replace(day=1).strftime('%Y-%m-%d')
             _inicio_ant = (_ahora.replace(day=1) - _td(days=1)).replace(day=1).strftime('%Y-%m-%d')
@@ -111,6 +112,11 @@ def _cargar_datos_dashboard(periodo='mes'):
             _inicio = _ahora.replace(month=1, day=1).strftime('%Y-%m-%d')
             _inicio_ant = _ahora.replace(month=1, day=1, year=_ahora.year - 1).strftime('%Y-%m-%d')
             _fin_ant = (_ahora.replace(month=1, day=1) - _td(days=1)).strftime('%Y-%m-%d')
+        elif periodo == 'rango':
+            _inicio = desde or '2000-01-01'
+            _fin_rango = hasta or _ahora.strftime('%Y-%m-%d')
+            _inicio_ant = None
+            _fin_ant = None
         else:
             _inicio = '2000-01-01'
             _inicio_ant = None
@@ -126,7 +132,10 @@ def _cargar_datos_dashboard(periodo='mes'):
         ).execute()
 
         _rows_all = resp.data or []
-        if periodo != 'todo':
+        if periodo == 'rango':
+            rows = [r for r in _rows_all
+                    if _inicio <= (r.get('fecha_creacion') or r.get('fecha_modificacion') or '')[:10] <= _fin_rango]
+        elif periodo != 'todo':
             rows = [r for r in _rows_all
                     if (r.get('fecha_creacion') or r.get('fecha_modificacion') or '')[:10] >= _inicio]
         else:
@@ -398,7 +407,8 @@ def render_tab_dashboard(supabase, supabase_admin=None, **deps):
     )
 
     _periodo_opciones = {"Este mes": "mes", "Últimos 3 meses": "3meses",
-                         "Este año": "año", "Todos los tiempos": "todo"}
+                         "Este año": "año", "Todos los tiempos": "todo",
+                         "Rango personalizado": "rango"}
     st.markdown(
         "<style>.st-key-dash_periodo label,.st-key-dash_periodo label *{font-family:Montserrat,sans-serif!important;"
         "font-weight:700!important;font-size:0.88rem!important;letter-spacing:0.05em!important;line-height:1.6!important;"
@@ -408,8 +418,23 @@ def render_tab_dashboard(supabase, supabase_admin=None, **deps):
                               horizontal=True, index=0, key="dash_periodo", label_visibility="collapsed")
     _periodo = _periodo_opciones[_periodo_label]
 
+    _desde = _hasta = ''
+    if _periodo == 'rango':
+        import datetime as _dtr
+        _dc1, _dc2, _dc3 = st.columns([1.3, 1.3, 3.4])
+        with _dc1:
+            _dd_desde = st.date_input("Desde", value=(_dtr.date.today() - _dtr.timedelta(days=30)),
+                                      key="dash_desde", format="DD/MM/YYYY")
+        with _dc2:
+            _dd_hasta = st.date_input("Hasta", value=_dtr.date.today(),
+                                      key="dash_hasta", format="DD/MM/YYYY")
+        _desde = _dd_desde.isoformat() if _dd_desde else ''
+        _hasta = _dd_hasta.isoformat() if _dd_hasta else ''
+        if _desde and _hasta and _desde > _hasta:
+            _desde, _hasta = _hasta, _desde
+
     with st.spinner("Cargando datos..."):
-        _d = _cargar_datos_dashboard(_periodo)
+        _d = _cargar_datos_dashboard(_periodo, _desde, _hasta)
         _x = _dash_extra()
 
     if not _d:
@@ -705,4 +730,8 @@ def render_tab_dashboard(supabase, supabase_admin=None, **deps):
             _cargar_datos_dashboard.clear()
             _dash_extra.clear()
             st.rerun()
-    st.caption(f"Período: {_periodo_label}")
+    if _periodo == 'rango' and _desde and _hasta:
+        _fd = lambda s: f"{s[8:10]}/{s[5:7]}/{s[0:4]}"
+        st.caption(f"Rango: {_fd(_desde)} → {_fd(_hasta)}  ·  {_d['total_ep']} cotización(es)")
+    else:
+        st.caption(f"Período: {_periodo_label}")
