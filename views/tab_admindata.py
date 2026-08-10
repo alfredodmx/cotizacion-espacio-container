@@ -2,37 +2,64 @@
 Tab ADMINISTRACIÓN DE DATOS — Eliminación permanente de presupuestos y archivos (solo root).
 
 Rediseño 2026: la tabla de resultados usa el MISMO diseño que la tabla de
-COTIZACIONES (HTML, header navy, badges de estado idénticos vía
-calcular_estado_label + ESTADO_BADGE_COLORS/ICONS, fullscreen, búsqueda
-client-side) pero con lógica de BORRADO: selección por checkboxes, doble
-confirmación y auditoría (quién elimina, qué EPs, con fecha y hora) registrada
-en el sistema (cotizacion_logs / SEGURIDAD). Iconos SVG + tipografía unificada.
+COTIZACIONES (HTML, header navy, badges de estado idénticos, fullscreen,
+búsqueda). Los filtros están ESTANDARIZADOS con COTIZACIONES:
+  - Estado → badge bar con los mismos colores e iconos (_BADGE_STYLE/_BADGE_SVG).
+  - Ejecutivo → dropdown con foto del asesor (mismo diseño .ecsb-ej*).
+Ambos filtran 100% client-side (sin reruns). Lógica de BORRADO: selección por
+checkboxes, doble confirmación y auditoría (quién elimina, qué EPs, fecha y hora)
+registrada en el sistema (cotizacion_logs / SEGURIDAD).
 """
+import json
+from collections import Counter
 import streamlit as st
 import streamlit.components.v1 as components
 from config.supabase import supabase_admin as _supa_admin
+from config.settings import SUPABASE_URL
 from views.layout import render_page_header
+from utils.avatars import fetch_foto_map
 from services.cotizacion_service import (
     calcular_estado_label, ESTADO_BADGE_COLORS, ESTADO_BADGE_ICONS)
 from utils.security import log_evento_seguridad
 
-# Estados reales (mismo orden que el embudo del dashboard/reporte).
-_ESTADO_ORDER = [
-    'PROYECTO TERMINADO', 'ADJUDICADO', 'AUTORIZADO CON PLANO', 'AUTORIZADO',
-    'BORRADOR CON PLANO', 'BORRADOR', 'INCOMPLETO CON PLANO', 'INCOMPLETO', 'RECHAZADO',
+# ── Estados: mismo estilo de badge-filtro que la tabla de COTIZACIONES ────────
+# (bg, fg, active). Copiado 1:1 de tab_historial._BADGE_STYLE para estandarizar.
+_BADGE_STYLE = {
+    'TODOS': ('#ede9fe', '#6d28d9', '#6d28d9'),
+    'PROYECTO TERMINADO': ('#ede9fe', '#7c3aed', '#5b21b6'),
+    'ADJUDICADO': ('#dbeafe', '#1d4ed8', '#1e40af'),
+    'AUTORIZADO CON PLANO': ('#dcfce7', '#15803d', '#166534'),
+    'AUTORIZADO': ('#dcfce7', '#15803d', '#166534'),
+    'BORRADOR CON PLANO': ('#ffedd5', '#c2410c', '#9a3412'),
+    'BORRADOR': ('#fef9c3', '#854d0e', '#713f12'),
+    'INCOMPLETO CON PLANO': ('#fee2e2', '#dc2626', '#991b1b'),
+    'INCOMPLETO': ('#fee2e2', '#dc2626', '#991b1b'),
+    'RECHAZADO': ('#fee2e2', '#b91c1c', '#7f1d1d'),
+}
+_BADGE_SVG = {
+    'TODOS':                '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
+    'PROYECTO TERMINADO':   '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+    'ADJUDICADO':           '<path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"/><circle cx="12" cy="8" r="6"/>',
+    'AUTORIZADO CON PLANO': '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/>',
+    'AUTORIZADO':           '<path d="M20 6 9 17l-5-5"/>',
+    'BORRADOR CON PLANO':   '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><polyline points="14 2 14 8 20 8"/><path d="M10.4 12.6a2 2 0 1 1 3 3L8 21l-4 1 1-4z"/>',
+    'BORRADOR':             '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>',
+    'INCOMPLETO CON PLANO': '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>',
+    'INCOMPLETO':           '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
+    'RECHAZADO':            '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
+}
+_BADGE_ORDER = [
+    ('TODOS', 'Todos'), ('PROYECTO TERMINADO', 'terminados'),
+    ('ADJUDICADO', 'adjudicados'), ('AUTORIZADO CON PLANO', 'aut. c/plano'),
+    ('AUTORIZADO', 'autorizados'), ('BORRADOR CON PLANO', 'borrador c/plano'),
+    ('BORRADOR', 'borrador'), ('INCOMPLETO CON PLANO', 'incompleto c/plano'),
+    ('INCOMPLETO', 'incompletos'), ('RECHAZADO', 'rechazados'),
 ]
 
 _IC = {
-    "filter": '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
-    "search": '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
     "trash": '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
     "alert": '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/>',
     "shield": '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
-    "list": '<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/>',
-    "check": '<path d="M20 6 9 17l-5-5"/>',
-    "x": '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
-    "clock": '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
-    "user": '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
 }
 
 
@@ -43,7 +70,12 @@ def _ic(name, color="#64748b", size=15, mr=8, valign=-2):
             f'style="vertical-align:{valign}px;{_mr}flex-shrink:0;">{_IC.get(name, "")}</svg>')
 
 
-def _badge_html(label):
+def _he(s): return str(s).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+def _ae(s): return _he(s).replace('"', '&quot;')
+
+
+def _badge_cell(label):
+    """Badge de la columna ESTADO (mismo markup que crear_badge_estado)."""
     bg, fg = ESTADO_BADGE_COLORS.get(label, ('#e2e8f0', '#334155'))
     _svg = (f'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
             f'stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">'
@@ -55,21 +87,55 @@ def _badge_html(label):
             f'background:{bg};color:{fg};">{_svg}<span>{label}</span></span>')
 
 
-def _listar_usuarios_ej(supa_admin):
-    try:
-        _roots = [r.strip().lower() for r in st.secrets.get("ROOTS", "").split(",") if r.strip()]
-        res = supa_admin.auth.admin.list_users()
-        users = []
-        for u in res:
-            email = u.email or ""
-            if email.lower() in _roots:
-                continue
-            meta = u.user_metadata or {}
-            users.append({"id": str(u.id), "email": email,
-                          "nombre": meta.get("nombre", email), "rol": meta.get("rol", "ejecutivo")})
-        return users
-    except Exception:
-        return []
+def _badge_svg_bar(_p):
+    return ('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+            'stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">'
+            + _p + '</svg>')
+
+
+def _build_badge_bar(cnts, n_total, ini='TODOS'):
+    parts = [f'<div class="ec-badgebar" id="ad-badgebar" data-init="{ini}">']
+    for bk, blbl in _BADGE_ORDER:
+        if bk != 'TODOS' and not cnts.get(bk, 0):
+            continue
+        bg, fg, act = _BADGE_STYLE.get(bk, ('#e2e8f0', '#334155', '#334155'))
+        cnt = n_total if bk == 'TODOS' else cnts.get(bk, 0)
+        _st = (f'background:{act};color:#fff;box-shadow:0 0 0 2px {act};' if bk == ini
+               else f'background:{bg};color:{fg};')
+        parts.append(
+            f'<button class="ec-badge" data-filter="{bk}" data-bg="{bg}" data-fg="{fg}" '
+            f'data-act="{act}" style="{_st}">{_badge_svg_bar(_BADGE_SVG.get(bk, ""))}'
+            f'<span>{blbl} ({cnt})</span></button>')
+    parts.append('<button class="ec-badge ec-refresh" data-refresh="1" title="Actualizar" '
+                 'style="background:#fff;color:#475569;box-shadow:0 0 0 1px #e2e8f0;">'
+                 + _badge_svg_bar('<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>'
+                                  '<path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>'
+                                  '<path d="M8 16H3v5"/>') + '</button>')
+    parts.append('</div>')
+    return ''.join(parts)
+
+
+def _ej_av(foto, nombre, extra=''):
+    if foto:
+        return f'<span class="ecsb-av {extra}"><img src="{_ae(foto)}"></span>'
+    ini = ''.join(p[0] for p in (nombre or '').split()[:2]).upper() or 'EC'
+    return f'<span class="ecsb-av ecsb-av-ini {extra}">{_he(ini)}</span>'
+
+
+_ALL_AV = ('<span class="ecsb-av ecsb-av-all"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" '
+           'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+           '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>'
+           '<path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>')
+
+
+def _build_ej_menu(ejs):
+    opts = [f'<button class="ecsb-ejopt" data-ej="" data-name="Todos los ejecutivos">{_ALL_AV}'
+            '<span>Todos los ejecutivos</span></button>']
+    for e in ejs:
+        nm = e['nombre']
+        opts.append(f'<button class="ecsb-ejopt" data-ej="{_ae(nm.lower())}" data-name="{_ae(nm)}">'
+                    f'{_ej_av(e["foto"], nm)}<span>{_he(nm)}</span></button>')
+    return ''.join(opts)
 
 
 def _estado_de(r):
@@ -97,13 +163,10 @@ def render_tab_admindata(supabase, supabase_admin=None, **deps):
 
     st.markdown(
         "<style>"
-        ".ad-sec{font-family:'Montserrat',sans-serif;color:#0f172a;font-size:0.88rem;font-weight:700;"
-        "text-transform:uppercase;letter-spacing:0.05em;padding-bottom:8px;border-bottom:2px solid #e2e8f0;"
-        "margin:22px 0 14px;display:flex;align-items:center;gap:9px;}"
         ".ad-danger{background:linear-gradient(90deg,rgba(220,38,38,0.08),transparent);border-left:4px solid #dc2626;"
-        "border-radius:0 10px 10px 0;padding:11px 16px;display:flex;align-items:flex-start;gap:10px;margin:4px 0 18px;}"
+        "border-radius:0 10px 10px 0;padding:11px 16px;display:flex;align-items:flex-start;gap:10px;margin:4px 0 16px;}"
         ".ad-danger p{margin:0;font-size:0.82rem;color:#7f1d1d;line-height:1.5;}"
-        ".st-key-_ad_selcmd{position:absolute!important;left:-9999px!important;height:0!important;overflow:hidden!important;}"
+        ".st-key-_ad_selcmd,.st-key-ad_refresh{position:absolute!important;left:-9999px!important;height:0!important;overflow:hidden!important;}"
         "</style>",
         unsafe_allow_html=True)
 
@@ -119,195 +182,223 @@ def render_tab_admindata(supabase, supabase_admin=None, **deps):
     if _selcmd and _selcmd != st.session_state.get('_ad_selcmd_last', ''):
         st.session_state['_ad_selcmd_last'] = _selcmd
         try:
-            _payload = _selcmd.rsplit('|', 1)[0]
-            _eps_sel = [e.strip() for e in _payload.split(',') if e.strip()]
+            _eps_sel = [e.strip() for e in _selcmd.rsplit('|', 1)[0].split(',') if e.strip()]
         except Exception:
             _eps_sel = []
         if _eps_sel:
             st.session_state['ad_confirmar'] = True
             st.session_state['ad_eps_a_eliminar'] = _eps_sel
 
-    # ── Filtros ──
-    st.markdown(f'<div class="ad-sec">{_ic("filter","#0f172a",16,0)}Filtrar presupuestos</div>', unsafe_allow_html=True)
-    _c1, _c2, _c3, _c4, _c5 = st.columns([1.5, 1.5, 1.4, 1.2, 0.6])
-    with _c1:
-        _ad_ep = st.text_input("N&#176; EP", placeholder="Ej: EP-12345", key="ad_ep", label_visibility="collapsed")
-    with _c2:
-        try:
-            _ad_usu = _listar_usuarios_ej(supa_admin) or []
-            _ad_ej_opts = ['Todos los ejecutivos'] + [u.get('nombre', '') for u in _ad_usu if u.get('nombre')]
-        except Exception:
-            _ad_ej_opts = ['Todos los ejecutivos']
-        _ad_ej = st.selectbox("Ejecutivo", _ad_ej_opts, key="ad_ej", label_visibility="collapsed")
-    with _c3:
-        _ad_estado = st.selectbox("Estado", ['Todos los estados'] + _ESTADO_ORDER, key="ad_estado", label_visibility="collapsed")
-    with _c4:
-        _ad_fecha = st.date_input("Hasta fecha", value=None, key="ad_fecha", label_visibility="collapsed", format="DD/MM/YYYY")
-    with _c5:
-        _ad_buscar = st.button("Buscar", use_container_width=True, key="ad_buscar", icon=":material/search:")
+    # ── Refresh (lo dispara el badge circular del bar, como en COTIZACIONES) ──
+    if st.button("refresh", key="ad_refresh"):
+        st.session_state.pop('ad_results', None)
+        st.rerun()
 
-    # ── Carga de datos ──
-    if 'ad_results' not in st.session_state or _ad_buscar:
+    # ── Carga de datos (todo, filtrado 100% client-side como COTIZACIONES) ──
+    if 'ad_results' not in st.session_state:
         try:
-            _adq = supa_admin.table("cotizaciones").select(
+            _ad_res = supa_admin.table("cotizaciones").select(
                 "numero,cliente_nombre,cliente_email,asesor_nombre,asesor_email,asesor_telefono,"
                 "estado,fecha_creacion,total_total,config_margen,plano_url,"
-                "contrato_notariado_url,acta_url,motivo_rechazo")
-            if _ad_ep.strip():
-                _adq = _adq.ilike("numero", f"%{_ad_ep.strip()}%")
-            if _ad_ej != 'Todos los ejecutivos':
-                _adq = _adq.eq("asesor_nombre", _ad_ej)
-            if _ad_fecha:
-                _adq = _adq.lte("fecha_creacion", str(_ad_fecha))
-            _ad_res = _adq.order("fecha_creacion", desc=True).limit(500).execute()
+                "contrato_notariado_url,acta_url,motivo_rechazo"
+            ).order("fecha_creacion", desc=True).limit(500).execute()
             st.session_state['ad_results'] = _ad_res.data or []
         except Exception as _ade:
             st.error(f"Error: {_ade}")
             st.session_state['ad_results'] = []
 
     _ad_data = st.session_state.get('ad_results', [])
-    # Estado real por fila + filtro por estado (post-carga).
     for _r in _ad_data:
         _r['_estado_real'] = _estado_de(_r)
-    if _ad_estado != 'Todos los estados':
-        _ad_data = [r for r in _ad_data if r.get('_estado_real') == _ad_estado]
 
     if not _ad_data:
-        st.info("No se encontraron presupuestos con los filtros aplicados.")
-    else:
-        # ── Filas HTML (badges reales) ──
-        def _he(s): return str(s).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-        def _ae(s): return _he(s).replace('"', '&quot;')
+        st.info("No hay presupuestos para mostrar.")
+        return
 
-        _rows_html = ''
-        for _r in _ad_data:
-            _num = str(_r.get('numero', ''))
-            _cli = str(_r.get('cliente_nombre') or '—')
-            _ej = str(_r.get('asesor_nombre') or '—')
-            _est = _r.get('_estado_real', 'INCOMPLETO')
-            _fecha = (str(_r.get('fecha_creacion', '') or '')[:10]) or '—'
-            _tot_raw = _r.get('total_total') or 0
-            try:
-                _tot_fmt = ('$' + '{:,.0f}'.format(float(_tot_raw)).replace(',', '.')) if _tot_raw else '—'
-            except Exception:
-                _tot_fmt = '—'
-            _rows_html += (
-                f'<tr data-ep="{_ae(_num)}" data-cli="{_ae(_cli.lower())}" data-ej="{_ae(_ej.lower())}" data-est="{_ae(_est.lower())}">'
-                f'<td class="cchk"><input type="checkbox" class="ad-chk" data-ep="{_ae(_num)}"></td>'
-                f'<td class="mono ep">{_he(_num)}</td>'
-                f'<td class="cli">{_he(_cli)}</td>'
-                f'<td>{_he(_ej)}</td>'
-                f'<td>{_badge_html(_est)}</td>'
-                f'<td class="mono muted">{_he(_fecha)}</td>'
-                f'<td class="r mono bold">{_he(_tot_fmt)}</td>'
-                f'</tr>')
+    # Foto de asesores + lista única de ejecutivos presentes (con avatar).
+    try:
+        _foto_map = fetch_foto_map(SUPABASE_URL)
+    except Exception:
+        _foto_map = {}
+    _ej_seen, _ejs = set(), []
+    for _r in _ad_data:
+        _nm = (_r.get('asesor_nombre') or '').strip()
+        if not _nm or _nm.lower() in _ej_seen:
+            continue
+        _ej_seen.add(_nm.lower())
+        _mail = (_r.get('asesor_email') or '').strip().lower()
+        _ejs.append({'nombre': _nm, 'foto': _foto_map.get(_mail, '') if _mail else ''})
+    _ejs.sort(key=lambda x: x['nombre'].lower())
 
-        _n = len(_ad_data)
-        _tbl_h = max(160, min(_n * 44 + 52, 520))
-        _iframe_h = 52 + 10 + _tbl_h
+    _cnts = Counter(_r['_estado_real'] for _r in _ad_data)
+    _n = len(_ad_data)
 
-        _tbl_html = _TABLE_TEMPLATE \
-            .replace('IFRAMEHPX', str(_iframe_h) + 'px') \
-            .replace('__NRES__', str(_n)) \
-            .replace('ROWSPLACEHOLDER', _rows_html)
-        components.html(_tbl_html, height=_iframe_h + 4, scrolling=False)
+    # ── Filas HTML (badges reales + atributos para filtrar) ──
+    _rows_html = ''
+    for _r in _ad_data:
+        _num = str(_r.get('numero', ''))
+        _cli = str(_r.get('cliente_nombre') or '—')
+        _ej = str(_r.get('asesor_nombre') or '—')
+        _est = _r.get('_estado_real', 'INCOMPLETO')
+        _fecha = (str(_r.get('fecha_creacion', '') or '')[:10]) or '—'
+        _tot_raw = _r.get('total_total') or 0
+        try:
+            _tot_fmt = ('$' + '{:,.0f}'.format(float(_tot_raw)).replace(',', '.')) if _tot_raw else '—'
+        except Exception:
+            _tot_fmt = '—'
+        _rows_html += (
+            f'<tr data-ep="{_ae(_num)}" data-cli="{_ae(_cli.lower())}" data-ej="{_ae(_ej.lower())}" '
+            f'data-estkey="{_ae(_est)}">'
+            f'<td class="cchk"><input type="checkbox" class="ad-chk" data-ep="{_ae(_num)}"></td>'
+            f'<td class="mono ep">{_he(_num)}</td>'
+            f'<td class="cli">{_he(_cli)}</td>'
+            f'<td>{_he(_ej)}</td>'
+            f'<td>{_badge_cell(_est)}</td>'
+            f'<td class="mono muted">{_he(_fecha)}</td>'
+            f'<td class="r mono bold">{_he(_tot_fmt)}</td>'
+            f'</tr>')
 
-        # ── Confirmación (doble) ──
-        if st.session_state.get('ad_confirmar') and st.session_state.get('ad_eps_a_eliminar'):
-            _eps_el = st.session_state['ad_eps_a_eliminar']
-            st.markdown(
-                f'<div style="background:#fff1f2;border:1.5px solid #fca5a5;border-radius:14px;padding:16px 20px;margin-top:6px;">'
-                f'<div style="display:flex;align-items:center;gap:10px;font-family:Montserrat,sans-serif;font-weight:800;'
-                f'font-size:0.9rem;color:#b91c1c;text-transform:uppercase;letter-spacing:0.03em;">'
-                f'{_ic("alert","#dc2626",18,0,0)}Confirmación requerida</div>'
-                f'<p style="margin:8px 0 4px;font-size:0.85rem;color:#7f1d1d;line-height:1.5;">Estás a punto de eliminar '
-                f'<b>{len(_eps_el)} presupuesto(s)</b> de forma <b>permanente e irreversible</b>, junto con todos sus '
-                f'archivos y datos asociados.</p>'
-                f'<div style="font-size:0.76rem;color:#991b1b;background:#fee2e2;border-radius:8px;padding:8px 11px;margin-top:8px;'
-                f'font-family:monospace;word-break:break-word;">{" · ".join(_he(e) for e in _eps_el)}</div>'
-                f'</div>', unsafe_allow_html=True)
-            _cc1, _cc2 = st.columns(2)
-            with _cc1:
-                if st.button("Cancelar", use_container_width=True, key="ad_btn_cancelar", icon=":material/close:"):
-                    st.session_state.pop('ad_confirmar', None)
-                    st.session_state.pop('ad_eps_a_eliminar', None)
-                    st.rerun()
-            with _cc2:
-                if st.button(f"Sí, eliminar definitivamente ({len(_eps_el)})", type="primary",
-                             use_container_width=True, key="ad_btn_confirmar", icon=":material/delete_forever:"):
-                    _errores, _eliminados = [], []
-                    with st.spinner("Eliminando presupuestos y archivos..."):
-                        for _ep_del in _eps_el:
-                            try:
-                                for _path in [f"planos/{_ep_del}/", f"notariados/{_ep_del}/",
-                                              f"preview/preview_{_ep_del.replace('-', '_')}.pdf"]:
-                                    try:
-                                        _files = supa_admin.storage.from_("planos").list(_path.rstrip('/'))
-                                        if _files:
-                                            supa_admin.storage.from_("planos").remove([f"{_path}{f['name']}" for f in _files])
-                                    except Exception:
-                                        pass
-                                supa_admin.table("cotizaciones").delete().eq("numero", _ep_del).execute()
-                                _eliminados.append(_ep_del)
-                            except Exception as _del_e:
-                                _errores.append(f"{_ep_del}: {_del_e}")
+    _tbl_h = max(260, min(_n * 44 + 54, 520))
+    _iframe_h = 108 + _tbl_h
 
-                    # ── Auditoría: quién elimina, qué y cuándo ──
-                    try:
-                        from datetime import datetime as _dtn
+    _tbl_html = _TABLE_TEMPLATE \
+        .replace('IFRAMEHPX', str(_iframe_h) + 'px') \
+        .replace('__NRES__', str(_n)) \
+        .replace('__BADGES__', _build_badge_bar(_cnts, _n)) \
+        .replace('__EJMENU__', _build_ej_menu(_ejs)) \
+        .replace('ROWSPLACEHOLDER', _rows_html)
+    components.html(_tbl_html, height=_iframe_h + 4, scrolling=False)
+
+    # ── Confirmación (doble) + auditoría ──
+    if st.session_state.get('ad_confirmar') and st.session_state.get('ad_eps_a_eliminar'):
+        _eps_el = st.session_state['ad_eps_a_eliminar']
+        st.markdown(
+            f'<div style="background:#fff1f2;border:1.5px solid #fca5a5;border-radius:14px;padding:16px 20px;margin-top:6px;">'
+            f'<div style="display:flex;align-items:center;gap:10px;font-family:Montserrat,sans-serif;font-weight:800;'
+            f'font-size:0.9rem;color:#b91c1c;text-transform:uppercase;letter-spacing:0.03em;">'
+            f'{_ic("alert","#dc2626",18,0,0)}Confirmación requerida</div>'
+            f'<p style="margin:8px 0 4px;font-size:0.85rem;color:#7f1d1d;line-height:1.5;">Estás a punto de eliminar '
+            f'<b>{len(_eps_el)} presupuesto(s)</b> de forma <b>permanente e irreversible</b>, junto con todos sus '
+            f'archivos y datos asociados.</p>'
+            f'<div style="font-size:0.76rem;color:#991b1b;background:#fee2e2;border-radius:8px;padding:8px 11px;margin-top:8px;'
+            f'font-family:monospace;word-break:break-word;">{" · ".join(_he(e) for e in _eps_el)}</div>'
+            f'</div>', unsafe_allow_html=True)
+        _cc1, _cc2 = st.columns(2)
+        with _cc1:
+            if st.button("Cancelar", use_container_width=True, key="ad_btn_cancelar", icon=":material/close:"):
+                st.session_state.pop('ad_confirmar', None)
+                st.session_state.pop('ad_eps_a_eliminar', None)
+                st.rerun()
+        with _cc2:
+            if st.button(f"Sí, eliminar definitivamente ({len(_eps_el)})", type="primary",
+                         use_container_width=True, key="ad_btn_confirmar", icon=":material/delete_forever:"):
+                _errores, _eliminados = [], []
+                with st.spinner("Eliminando presupuestos y archivos..."):
+                    for _ep_del in _eps_el:
                         try:
-                            from zoneinfo import ZoneInfo
-                            _now = _dtn.now(ZoneInfo('America/Santiago'))
-                        except Exception:
-                            _now = _dtn.now()
-                        _autor_email = st.session_state.get('auth_email', '') or 'root'
-                        log_evento_seguridad('eliminacion_datos', _autor_email, {
-                            'autor_nombre': st.session_state.get('auth_nombre', '') or _autor_email,
-                            'rol': st.session_state.get('rol_usuario', 'root'),
-                            'fecha_hora_chile': _now.strftime('%d/%m/%Y %H:%M:%S'),
-                            'eps_solicitados': _eps_el,
-                            'eps_eliminados': _eliminados,
-                            'total_eliminados': len(_eliminados),
-                            'errores': _errores,
-                        }, severidad='alta')
+                            for _path in [f"planos/{_ep_del}/", f"notariados/{_ep_del}/",
+                                          f"preview/preview_{_ep_del.replace('-', '_')}.pdf"]:
+                                try:
+                                    _files = supa_admin.storage.from_("planos").list(_path.rstrip('/'))
+                                    if _files:
+                                        supa_admin.storage.from_("planos").remove([f"{_path}{f['name']}" for f in _files])
+                                except Exception:
+                                    pass
+                            supa_admin.table("cotizaciones").delete().eq("numero", _ep_del).execute()
+                            _eliminados.append(_ep_del)
+                        except Exception as _del_e:
+                            _errores.append(f"{_ep_del}: {_del_e}")
+
+                # Auditoría: quién elimina, qué y cuándo.
+                try:
+                    from datetime import datetime as _dtn
+                    try:
+                        from zoneinfo import ZoneInfo
+                        _now = _dtn.now(ZoneInfo('America/Santiago'))
                     except Exception:
-                        pass
+                        _now = _dtn.now()
+                    _autor_email = st.session_state.get('auth_email', '') or 'root'
+                    log_evento_seguridad('eliminacion_datos', _autor_email, {
+                        'autor_nombre': st.session_state.get('auth_nombre', '') or _autor_email,
+                        'rol': st.session_state.get('rol_usuario', 'root'),
+                        'fecha_hora_chile': _now.strftime('%d/%m/%Y %H:%M:%S'),
+                        'eps_solicitados': _eps_el,
+                        'eps_eliminados': _eliminados,
+                        'total_eliminados': len(_eliminados),
+                        'errores': _errores,
+                    }, severidad='alta')
+                except Exception:
+                    pass
 
-                    st.session_state.pop('ad_confirmar', None)
-                    st.session_state.pop('ad_eps_a_eliminar', None)
-                    st.session_state.pop('ad_results', None)
-                    if _eliminados:
-                        st.success(f"Eliminados correctamente: {', '.join(_eliminados)}")
-                    if _errores:
-                        st.error(f"Errores: {'; '.join(_errores)}")
-                    st.rerun()
+                st.session_state.pop('ad_confirmar', None)
+                st.session_state.pop('ad_eps_a_eliminar', None)
+                st.session_state.pop('ad_results', None)
+                if _eliminados:
+                    st.success(f"Eliminados correctamente: {', '.join(_eliminados)}")
+                if _errores:
+                    st.error(f"Errores: {'; '.join(_errores)}")
+                st.rerun()
 
 
-# ── Tabla HTML (iframe autocontenido): mismo diseño que COTIZACIONES ──────────
+# ── Tabla HTML (iframe autocontenido): mismo diseño y filtros que COTIZACIONES ─
 _TABLE_TEMPLATE = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Montserrat:wght@700;800;900&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:IFRAMEHPX;overflow:hidden;font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;background:transparent;}
 #wrap{display:flex;flex-direction:column;height:100%;position:relative;}
-#bar{display:flex;align-items:center;gap:8px;padding:2px 0 8px;flex-shrink:0;}
-#search{flex:1;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:0.84rem;
+
+/* ── Badge bar de estados (idéntico a COTIZACIONES) ── */
+.ec-badgebar{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:0 0 9px;font-family:Montserrat,sans-serif;}
+.ec-badge{display:inline-flex;align-items:center;gap:6px;font-family:Montserrat,sans-serif;font-weight:800;
+  font-size:11px;letter-spacing:0.03em;text-transform:uppercase;border:none;border-radius:99px;padding:6px 13px;
+  cursor:pointer;white-space:nowrap;transition:all .12s;line-height:1;}
+.ec-badge:hover{filter:brightness(0.96);}
+.ec-badge.ec-refresh{padding:7px 10px;}
+
+/* ── Dropdown de ejecutivo con foto (idéntico a COTIZACIONES) ── */
+.ecsb-ejwrap{position:relative;flex:0 0 auto;width:260px;}
+.ecsb-ejchip{width:100%;height:42px;border:1px solid #e2e8f0;border-radius:11px;background:#f8fafc;cursor:pointer;
+  display:flex;align-items:center;gap:10px;padding:0 11px;font-family:Montserrat,sans-serif;}
+.ecsb-ejchip:hover{border-color:#cbd5e1;}
+.ecsb-ejchip-body{display:flex;align-items:center;gap:10px;flex:1;min-width:0;}
+.ecsb-ejph{font-weight:700;font-size:12.5px;color:#64748b;}
+.ecsb-ejname{font-weight:800;font-size:13px;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ecsb-chev{color:#94a3b8;flex-shrink:0;margin-left:auto;}
+.ecsb-av{width:30px;height:30px;border-radius:50%;flex:0 0 auto;overflow:hidden;display:flex;align-items:center;
+  justify-content:center;box-shadow:0 3px 9px rgba(5,12,28,.22);background:#fff;}
+.ecsb-av img{width:100%;height:100%;object-fit:cover;display:block;}
+.ecsb-av-ini{background:linear-gradient(135deg,#0f3460,#1a5276);color:#fff;font-weight:900;font-size:12px;}
+.ecsb-av-all{background:#e2e8f0;color:#64748b;box-shadow:none;}
+.ecsb-ejmenu{position:absolute;top:calc(100% + 6px);left:0;right:0;max-height:240px;overflow-y:auto;
+  background:#fff;border:1px solid #e2e8f0;border-radius:13px;box-shadow:0 14px 40px rgba(15,23,42,.18);
+  z-index:99999;padding:6px;display:none;}
+.ecsb-ejmenu.open{display:block;}
+.ecsb-ejopt{width:100%;display:flex;align-items:center;gap:10px;background:none;border:none;cursor:pointer;
+  padding:7px 9px;border-radius:9px;font-family:Montserrat,sans-serif;font-weight:700;font-size:13px;color:#0f172a;text-align:left;}
+.ecsb-ejopt:hover{background:#f1f5f9;}
+.ecsb-ejopt span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* ── Barra de acciones (búsqueda + eliminar + fullscreen) ── */
+#bar2{display:flex;align-items:center;gap:8px;padding:0 0 9px;flex-shrink:0;}
+#search{flex:1;min-width:0;height:42px;border:1.5px solid #e2e8f0;border-radius:11px;padding:0 13px;font-size:0.84rem;
   font-family:inherit;outline:none;color:#1e293b;background:#f8fafc;transition:border-color .2s,box-shadow .2s;}
 #search:focus{border-color:#5b7cfa;background:#fff;box-shadow:0 0 0 3px rgba(91,124,250,.1);}
 #cnt{font-size:0.72rem;color:#94a3b8;white-space:nowrap;font-weight:700;min-width:70px;text-align:right;}
-#del-btn{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 15px;border:none;border-radius:9px;
+#del-btn{display:inline-flex;align-items:center;gap:7px;height:42px;padding:0 15px;border:none;border-radius:11px;
   background:#e2e8f0;color:#94a3b8;font-family:inherit;font-size:0.78rem;font-weight:800;letter-spacing:.02em;
   cursor:not-allowed;white-space:nowrap;transition:all .16s;flex-shrink:0;}
-#del-btn.on{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;cursor:pointer;
-  box-shadow:0 4px 14px rgba(220,38,38,.35);}
+#del-btn.on{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;cursor:pointer;box-shadow:0 4px 14px rgba(220,38,38,.35);}
 #del-btn.on:hover{filter:brightness(1.06);transform:translateY(-1px);}
 #del-btn svg{width:15px;height:15px;}
-#fsbtn{width:36px;height:36px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;color:#475569;
+#fsbtn{width:42px;height:42px;border:1px solid #e2e8f0;border-radius:11px;background:#fff;color:#475569;
   cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;transition:all .15s;}
 #fsbtn:hover{background:linear-gradient(135deg,#5b7cfa,#2563eb);color:#fff;border-color:transparent;box-shadow:0 4px 12px rgba(37,99,235,.3);}
 #fsbtn svg{width:17px;height:17px;display:block;}
 html.fs,html.fs body,html.fs #wrap{height:100vh!important;}
 html.fs body{padding:12px 16px!important;}
+
+/* ── Tabla (idéntica a .resultados-table de COTIZACIONES) ── */
 #tbl-w{flex:1;overflow:auto;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.08);border:1px solid #e2e8f0;}
 #tbl-w::-webkit-scrollbar{width:7px;height:7px;}
 #tbl-w::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px;}
@@ -334,9 +425,16 @@ input[type=checkbox]{width:17px;height:17px;accent-color:#dc2626;cursor:pointer;
 </style></head>
 <body>
 <div id="wrap">
-  <div id="bar">
-    <svg width="15" height="15" fill="none" stroke="#94a3b8" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-    <input id="search" type="text" placeholder="Filtrar por EP, cliente, ejecutivo o estado..." autocomplete="off">
+  __BADGES__
+  <div id="bar2">
+    <div class="ecsb-ejwrap">
+      <button type="button" id="ej-chip" class="ecsb-ejchip">
+        <span id="ej-chip-body" class="ecsb-ejchip-body"><span class="ecsb-av ecsb-av-all"></span><span class="ecsb-ejph">Todos los ejecutivos</span></span>
+        <svg class="ecsb-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div id="ej-menu" class="ecsb-ejmenu">__EJMENU__</div>
+    </div>
+    <input id="search" type="text" placeholder="Filtrar por EP, cliente o ejecutivo..." autocomplete="off">
     <span id="cnt"></span>
     <button id="del-btn" type="button" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span id="del-lbl">Eliminar</span></button>
     <button id="fsbtn" type="button" title="Pantalla completa"></button>
@@ -349,24 +447,28 @@ input[type=checkbox]{width:17px;height:17px;accent-color:#dc2626;cursor:pointer;
       </tr></thead>
       <tbody>ROWSPLACEHOLDER</tbody>
     </table>
-    <div id="empty">Sin resultados para la búsqueda.</div>
+    <div id="empty">Sin resultados para los filtros.</div>
   </div>
 </div>
 <script>
 (function(){
 var NRES=__NRES__;
 var doc=document;
+var F={badge:'TODOS', ej:'', term:''};
 function chks(){ return [].slice.call(doc.querySelectorAll('.ad-chk')); }
 function visRows(){ return [].slice.call(doc.querySelectorAll('tbody tr[data-ep]')).filter(function(r){return r.style.display!=='none';}); }
 
-function filterRows(){
-  var q=(doc.getElementById('search').value||'').toLowerCase().trim();
+function applyFilters(){
   var rows=doc.querySelectorAll('tbody tr[data-ep]');var vis=0;
   for(var i=0;i<rows.length;i++){
     var r=rows[i];
-    var hay=(r.getAttribute('data-ep')||'').toLowerCase()+' '+(r.getAttribute('data-cli')||'')+' '+(r.getAttribute('data-ej')||'')+' '+(r.getAttribute('data-est')||'');
-    var show=(!q||hay.indexOf(q)>=0);
+    var blob=((r.getAttribute('data-ep')||'')+' '+(r.getAttribute('data-cli')||'')+' '+(r.getAttribute('data-ej')||'')+' '+(r.getAttribute('data-estkey')||'')).toLowerCase();
+    var okTerm=(!F.term||blob.indexOf(F.term)>=0);
+    var okBadge=(F.badge==='TODOS'||(r.getAttribute('data-estkey')||'')===F.badge);
+    var okEj=(!F.ej||(r.getAttribute('data-ej')||'')===F.ej);
+    var show=okTerm&&okBadge&&okEj;
     r.style.display=show?'':'none';
+    if(!show){ var c=r.querySelector('.ad-chk'); if(c&&c.checked){ c.checked=false; } r.classList.remove('ad-sel'); }
     if(show)vis++;
   }
   var el=doc.getElementById('cnt'); if(el)el.textContent=vis+' de '+NRES;
@@ -374,6 +476,45 @@ function filterRows(){
   syncAll();
 }
 
+/* ── Badges de estado ── */
+function setBadge(f){
+  var bb=doc.getElementById('ad-badgebar'); if(!bb) return;
+  bb.querySelectorAll('.ec-badge[data-filter]').forEach(function(b){
+    var on=b.getAttribute('data-filter')===f;
+    if(on){ b.style.background=b.getAttribute('data-act'); b.style.color='#fff'; b.style.boxShadow='0 0 0 2px '+b.getAttribute('data-act'); }
+    else{ b.style.background=b.getAttribute('data-bg'); b.style.color=b.getAttribute('data-fg'); b.style.boxShadow='none'; }
+  });
+}
+(function(){
+  var bb=doc.getElementById('ad-badgebar'); if(!bb) return;
+  bb.addEventListener('click',function(e){
+    var b=e.target.closest?e.target.closest('.ec-badge'):null; if(!b) return;
+    if(b.getAttribute('data-refresh')){ try{ var rb=window.parent.document.querySelector('.st-key-ad_refresh button'); if(rb) rb.click(); }catch(_){ } return; }
+    var f=b.getAttribute('data-filter'); if(f===F.badge) f='TODOS'; F.badge=f; setBadge(f); applyFilters();
+  });
+})();
+
+/* ── Dropdown ejecutivo ── */
+(function(){
+  var chip=doc.getElementById('ej-chip'), menu=doc.getElementById('ej-menu');
+  if(!chip||!menu) return;
+  chip.addEventListener('click',function(e){ e.stopPropagation(); menu.classList.toggle('open'); });
+  menu.addEventListener('click',function(e){
+    var o=e.target.closest?e.target.closest('.ecsb-ejopt'):null; if(!o) return;
+    F.ej=o.getAttribute('data-ej')||'';
+    var av=o.querySelector('.ecsb-av'); var nm=o.getAttribute('data-name')||'';
+    var body=doc.getElementById('ej-chip-body');
+    if(F.ej){ body.innerHTML=(av?av.outerHTML:'')+'<span class="ecsb-ejname">'+nm.replace(/</g,'&lt;')+'</span>'; }
+    else{ body.innerHTML='<span class="ecsb-av ecsb-av-all"></span><span class="ecsb-ejph">Todos los ejecutivos</span>'; }
+    menu.classList.remove('open'); applyFilters();
+  });
+  doc.addEventListener('click',function(e){ if(!chip.contains(e.target)&&!menu.contains(e.target)) menu.classList.remove('open'); });
+})();
+
+/* ── Búsqueda ── */
+doc.getElementById('search').addEventListener('input',function(){ F.term=(this.value||'').trim().toLowerCase(); applyFilters(); });
+
+/* ── Selección + eliminar ── */
 function syncRow(cb){ var tr=cb.closest('tr'); if(tr){ tr.classList.toggle('ad-sel', cb.checked); } }
 function syncAll(){
   var vr=visRows(); var all=doc.getElementById('chk-all');
@@ -382,13 +523,11 @@ function syncAll(){
   updateDel();
 }
 function updateDel(){
-  var n=chks().filter(function(c){return c.checked;}).length;
+  var n=visRows().filter(function(r){var c=r.querySelector('.ad-chk');return c&&c.checked;}).length;
   var b=doc.getElementById('del-btn'), l=doc.getElementById('del-lbl');
   if(n>0){ b.classList.add('on'); b.disabled=false; l.textContent='Eliminar seleccionados ('+n+')'; }
   else{ b.classList.remove('on'); b.disabled=true; l.textContent='Eliminar'; }
 }
-
-doc.getElementById('search').addEventListener('input',filterRows);
 doc.addEventListener('change',function(e){
   var t=e.target;
   if(t.classList&&t.classList.contains('ad-chk')){ syncRow(t); syncAll(); }
@@ -397,10 +536,9 @@ doc.addEventListener('change',function(e){
     updateDel();
   }
 });
-
-/* ── Puente: enviar EPs seleccionados a Python (input oculto en el padre) ── */
 function fireDelete(){
-  var eps=chks().filter(function(c){return c.checked;}).map(function(c){return c.getAttribute('data-ep');});
+  var eps=visRows().filter(function(r){var c=r.querySelector('.ad-chk');return c&&c.checked;})
+    .map(function(r){return r.querySelector('.ad-chk').getAttribute('data-ep');});
   if(!eps.length) return;
   try{
     var W=window.parent, D=W.document;
@@ -416,7 +554,7 @@ function fireDelete(){
 }
 doc.getElementById('del-btn').addEventListener('click',function(){ if(!this.disabled) fireDelete(); });
 
-/* ── Fullscreen del iframe (mismo mecanismo/z-index que COTIZACIONES) ── */
+/* ── Fullscreen (mismo mecanismo/z-index que COTIZACIONES) ── */
 (function(){
   var P=window.parent, IFR=null;
   try{ IFR=window.frameElement; }catch(e){}
@@ -448,7 +586,7 @@ doc.getElementById('del-btn').addEventListener('click',function(){ if(!this.disa
   }catch(e){}
 })();
 
-filterRows();
+applyFilters();
 })();
 </script>
 </body></html>"""
