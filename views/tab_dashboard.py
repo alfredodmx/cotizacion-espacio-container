@@ -11,6 +11,21 @@ import streamlit as st
 from config.supabase import supabase_admin as _supa_admin
 from config.settings import SUPABASE_URL, SUPABASE_SERVICE_KEY
 from views.layout import render_page_header
+from services.cotizacion_service import (
+    calcular_estado_label, ESTADO_BADGE_COLORS, ESTADO_BADGE_ICONS)
+
+# Orden y etiquetas de los estados (mismo criterio y familia que COTIZACIONES).
+_ESTADO_ORDER = [
+    ('PROYECTO TERMINADO', 'Terminados'),
+    ('ADJUDICADO', 'Adjudicados'),
+    ('AUTORIZADO CON PLANO', 'Aut. c/plano'),
+    ('AUTORIZADO', 'Autorizados'),
+    ('BORRADOR CON PLANO', 'Borrador c/plano'),
+    ('BORRADOR', 'Borrador'),
+    ('INCOMPLETO CON PLANO', 'Incompleto c/plano'),
+    ('INCOMPLETO', 'Incompletos'),
+    ('RECHAZADO', 'Rechazados'),
+]
 
 
 # ── Iconos SVG (estilo Lucide) ───────────────────────────────────────────────
@@ -103,7 +118,8 @@ def _cargar_datos_dashboard(periodo='mes'):
 
         resp = _supa_admin.table('cotizaciones').select(
             'numero,fecha_creacion,fecha_modificacion,estado,'
-            'total_total,asesor_nombre,cliente_nombre,cliente_rut,'
+            'total_total,asesor_nombre,asesor_email,asesor_telefono,'
+            'cliente_nombre,cliente_email,cliente_rut,'
             'cliente_comuna,cliente_region,cliente_tipo,'
             'cliente_empresa,config_margen,productos,plano_url,'
             'contrato_notariado_url,acta_url,motivo_rechazo'
@@ -138,6 +154,19 @@ def _cargar_datos_dashboard(periodo='mes'):
         borradores = estados.count('borrador')
         incompletos = estados.count('incompleto')
         pct_conv = round((autorizados / total_ep) * 100) if total_ep else 0
+
+        # Estados REALES (misma clasificación/labels que COTIZACIONES) para el embudo.
+        estados_full = _dd(int)
+        for r in rows:
+            _lbl = calcular_estado_label(
+                r.get('cliente_nombre', ''), r.get('cliente_email', ''),
+                r.get('asesor_nombre', ''), r.get('asesor_email', ''), r.get('asesor_telefono', ''),
+                float(r.get('config_margen') or 0), bool((r.get('plano_url') or '').strip()),
+                tiene_notariado=bool((r.get('contrato_notariado_url') or '').strip()),
+                tiene_acta=bool((r.get('acta_url') or '').strip()),
+                motivo_rechazo=r.get('motivo_rechazo', ''))
+            estados_full[_lbl] += 1
+        estados_full = dict(estados_full)
 
         # Resultados de negocio (por hitos reales del proyecto)
         adjudicados = sum(1 for r in rows if (r.get('contrato_notariado_url') or '').strip())
@@ -272,6 +301,7 @@ def _cargar_datos_dashboard(periodo='mes'):
             'promedio_monto': promedio_monto, 'pipeline': pipeline,
             'autorizados': autorizados, 'borradores': borradores,
             'incompletos': incompletos, 'pct_conv': pct_conv,
+            'estados_full': estados_full,
             'adjudicados': adjudicados, 'terminados': terminados,
             'rechazados': rechazados, 'con_plano': con_plano,
             'monto_adj': monto_adj, 'tasa_cierre': tasa_cierre,
@@ -426,42 +456,50 @@ def render_tab_dashboard(supabase, supabase_admin=None, **deps):
             st.markdown(f'<div class="dash-mini"><div class="n" style="color:{color};">{n}</div>'
                         f'<div class="l">{_ic(icon,color,12,0)}{lab}</div></div>', unsafe_allow_html=True)
 
-    # ── Embudo de conversión ──
+    # ── Embudo de conversión (los 9 estados reales, mismos colores/iconos que COTIZACIONES) ──
     st.markdown(f'<div class="dash-sec">{_ic("trending","#0f172a",17,0)}Embudo de conversión</div>', unsafe_allow_html=True)
     _total_ep = _d['total_ep'] or 1
-    _funnel_data = [
-        (_dot("#16a34a") + "Autorizados", _d['autorizados'], "#16a34a"),
-        (_dot("#f59e0b") + "Borradores", _d['borradores'], "#f59e0b"),
-        (_dot("#ef4444") + "Incompletos", _d['incompletos'], "#ef4444"),
-    ]
+    _ef = _d.get('estados_full', {})
+
+    def _estado_svg(estado, color, size=13):
+        return (f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" '
+                f'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">'
+                f'{ESTADO_BADGE_ICONS.get(estado, "")}</svg>')
+
+    _presentes = [(e, l) for e, l in _ESTADO_ORDER if _ef.get(e, 0) > 0]
     col_funnel, col_donut = st.columns([3, 2])
     with col_funnel:
-        _fh = ('<div class="dash-panel"><div style="display:flex;justify-content:space-between;margin-bottom:18px;">'
+        _fh = ('<div class="dash-panel"><div style="display:flex;justify-content:space-between;margin-bottom:16px;">'
                '<span style="font-size:0.72rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;">Estado</span>'
                '<span style="font-size:0.72rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;">% del total</span></div>')
-        for label_f, count_f, color_f in _funnel_data:
-            pct_f = round((count_f / _total_ep) * 100) if _total_ep else 0
-            _fh += (f'<div style="margin-bottom:15px;"><div style="display:flex;justify-content:space-between;margin-bottom:5px;">'
-                    f'<span style="font-size:0.85rem;font-weight:700;color:#1e293b;">{label_f}</span>'
-                    f'<span style="font-size:0.85rem;font-weight:800;color:{color_f};">{count_f} &nbsp;({pct_f}%)</span></div>'
-                    f'<div class="funnel-bar-wrap"><div style="height:10px;border-radius:10px;width:{pct_f}%;background:{color_f};opacity:0.85;"></div></div></div>')
+        for _e, _l in _presentes:
+            _cnt = _ef.get(_e, 0)
+            _bg, _fg = ESTADO_BADGE_COLORS.get(_e, ('#f1f5f9', '#64748b'))
+            _pct = round((_cnt / _total_ep) * 100)
+            _fh += (f'<div style="margin-bottom:12px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;gap:8px;">'
+                    f'<span style="font-size:0.82rem;font-weight:700;color:#1e293b;display:inline-flex;align-items:center;gap:8px;min-width:0;">'
+                    f'<span style="width:22px;height:22px;border-radius:6px;background:{_bg};display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">{_estado_svg(_e, _fg)}</span>{_l}</span>'
+                    f'<span style="font-size:0.82rem;font-weight:800;color:{_fg};white-space:nowrap;">{_cnt} &nbsp;({_pct}%)</span></div>'
+                    f'<div class="funnel-bar-wrap"><div style="height:10px;border-radius:10px;width:{_pct}%;background:{_fg};opacity:0.85;"></div></div></div>')
         _fh += "</div>"
         st.markdown(_fh, unsafe_allow_html=True)
     with col_donut:
         with st.container(border=True):
-            if _d['autorizados'] + _d['borradores'] + _d['incompletos'] > 0:
+            if _presentes:
                 import plotly.graph_objects as go
-                _fig_d = go.Figure(go.Pie(
-                    labels=["Autorizados", "Borradores", "Incompletos"],
-                    values=[_d['autorizados'], _d['borradores'], _d['incompletos']], hole=0.62,
-                    marker=dict(colors=["#16a34a", "#f59e0b", "#ef4444"], line=dict(color='white', width=3)),
-                    textinfo='percent',
+                _labels = [l for e, l in _presentes]
+                _values = [_ef.get(e, 0) for e, l in _presentes]
+                _colors = [ESTADO_BADGE_COLORS.get(e, ('#f1f5f9', '#64748b'))[1] for e, l in _presentes]
+                _ganados = _ef.get('ADJUDICADO', 0) + _ef.get('PROYECTO TERMINADO', 0)
+                _pct_g = round((_ganados / _total_ep) * 100)
+                _fig_d = go.Figure(go.Pie(labels=_labels, values=_values, hole=0.62, sort=False,
+                    marker=dict(colors=_colors, line=dict(color='white', width=2)), textinfo='percent',
                     hovertemplate='<b>%{label}</b><br>%{value} cotizaciones<br>%{percent}<extra></extra>'))
-                _fig_d.add_annotation(text=f"<b>{_d['pct_conv']}%</b><br><span style='font-size:10px'>conv.</span>",
+                _fig_d.add_annotation(text=f"<b>{_pct_g}%</b><br><span style='font-size:10px'>ganados</span>",
                     x=0.5, y=0.5, showarrow=False, font=dict(size=18, family='Montserrat'), xref="paper", yref="paper")
-                _fig_d.update_layout(showlegend=True, margin=dict(t=16, b=16, l=16, r=16), height=240,
+                _fig_d.update_layout(showlegend=True, margin=dict(t=14, b=14, l=14, r=14), height=300,
                     paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                    legend=dict(font=dict(size=11, color='#475569'), orientation='h', yanchor='bottom', y=-0.18, xanchor='center', x=0.5, bgcolor='rgba(0,0,0,0)'))
+                    legend=dict(font=dict(size=9.5, color='#475569'), orientation='h', yanchor='top', y=-0.02, xanchor='center', x=0.5, bgcolor='rgba(0,0,0,0)'))
                 st.plotly_chart(_fig_d, use_container_width=True, config={'displayModeBar': False})
 
     # ── Evolución temporal ──
