@@ -2248,7 +2248,7 @@ var MAT_DATA = """ + _mat_data_json_map + """;
         # acción escribe "accion|ep|nonce" en este text_input oculto + blur → UN rerun
         # LIGERO que genera SOLO ese documento y lo auto-descarga. No hay selectbox ni
         # pre-generación de 4 PDFs por rerun (el cuello de botella anterior).
-        st.markdown('<style>.st-key-_ctx_cmd,.st-key-_ctx_dl{position:absolute!important;'
+        st.markdown('<style>.st-key-_ctx_cmd{position:absolute!important;'
             'left:-9999px!important;top:-9999px!important;width:240px!important;height:0!important;'
             'overflow:hidden!important;}</style>', unsafe_allow_html=True)
         st.text_input('ctx', key='_ctx_cmd', label_visibility='collapsed')
@@ -2421,14 +2421,29 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 except Exception as _ctxe:
                     st.toast(f"No se pudo generar el documento: {_ctxe}", icon=":material/error:")
 
-        # Descarga: botón oculto con los bytes + auto-click (misma pestaña, sin recargar).
-        # (st.download_button NO acepta label_visibility → el botón se oculta por CSS
-        #  con .st-key-_ctx_dl, no por el parámetro.)
+        # Descarga DIRECTA por data-URL: se crea un <a download> con los bytes en
+        # base64 y se auto-clickea (misma pestaña, sin recargar). NO usa
+        # st.download_button → evita el SEGUNDO rerun completo (el click del botón
+        # disparaba otro rerun) y es 100% fiable (no depende de que el botón exista a
+        # los 60 ms, que era la causa de tener que reintentar 2-3 veces). Los bytes
+        # viajan igual que antes al navegador: es el PDF del propio usuario, misma
+        # seguridad. El data-URL cambia en cada descarga (bytes distintos) → el
+        # componente se re-renderiza y el script corre una vez por descarga.
         if _ctx_dl is not None:
-            st.download_button('descarga', data=_ctx_dl[0], file_name=_ctx_dl[1], mime=_ctx_dl[2],
-                               key='_ctx_dl')
-            components.html("""<script>(function(){var D=window.parent.document;
-  setTimeout(function(){var b=D.querySelector('.st-key-_ctx_dl button'); if(b) b.click();},60);})();</script>""", height=0)
+            import base64 as _b64ctx
+            _href_ctx = 'data:' + str(_ctx_dl[2]) + ';base64,' + _b64ctx.b64encode(_ctx_dl[0]).decode('ascii')
+            # El nonce (_ctx_done) hace ÚNICO el html en cada descarga: si se pide el
+            # mismo documento dos veces (bytes idénticos), sin él Streamlit no
+            # re-renderizaría el componente y el script no volvería a correr.
+            _nonce_ctx = str(st.session_state.get('_ctx_done', ''))
+            components.html(
+                "<script>(function(){var D=window.parent.document;"
+                "var a=D.createElement('a');a.href=" + json.dumps(_href_ctx) + ";"
+                "a.download=" + json.dumps(str(_ctx_dl[1])) + ";"
+                "a.style.display='none';D.body.appendChild(a);a.click();"
+                "setTimeout(function(){try{a.remove();}catch(e){}},2000);})();</script>"
+                "<!--" + _nonce_ctx + "-->",
+                height=0)
 
         # Diálogo de rechazo (lo dispara el ítem "Rechazar" del menú → _show_rechazo_dialog).
         _rej_ep = st.session_state.get('_show_rechazo_dialog')
