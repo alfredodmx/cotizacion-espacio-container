@@ -392,19 +392,17 @@ _CLI_SELECTOR_CSS = """
 .st-key-_cli_view [role="radiogroup"] label span[role="img"][aria-label$=" icon"]{
   font-family:'Material Symbols Rounded'!important;font-weight:400!important;font-size:0.88rem!important;
   text-transform:none!important;letter-spacing:normal!important;}
-/* Etiqueta pequeña bajo cada botón-ícono. Se saca del flujo (absolute) y cuelga
-   JUSTO debajo de la línea del toolbar, sin empujar la altura de la fila. */
+/* Etiqueta pequeña bajo cada botón-ícono. Se saca del flujo (absolute) y queda
+   PEGADA al botón (no empuja la altura de la fila). */
 .cli-btncap{font-family:'Montserrat',sans-serif;font-size:0.6rem;font-weight:700;
   text-transform:uppercase;letter-spacing:0.02em;color:#94a3b8;text-align:center;line-height:1.1;}
-/* Línea del selector (PIPELINE/BANDEJA/MAESTRO) a lo ancho de TODA la barra, a la
-   altura de las pestañas/botones (pseudo-elemento). Las etiquetas quedan por debajo. */
-div[data-testid="stHorizontalBlock"]:has(> div[data-testid="stColumn"] .st-key-_cli_view){
-  position:relative!important;padding-bottom:22px!important;}
-div[data-testid="stHorizontalBlock"]:has(> div[data-testid="stColumn"] .st-key-_cli_view)::after{
-  content:'';position:absolute;left:0;right:0;bottom:22px;height:2px;background:#e2e6f3;}
 div[data-testid="stColumn"]:has(.cli-btncap) div[data-testid="stVerticalBlock"]{position:relative;}
 div[data-testid="stElementContainer"]:has(.cli-btncap){
-  position:absolute!important;top:100%!important;left:0;right:0;margin-top:6px!important;}
+  position:absolute!important;top:100%!important;left:0;right:0;margin-top:3px!important;}
+/* Línea del selector (PIPELINE/BANDEJA/MAESTRO) a lo ancho de TODA la barra, POR
+   DEBAJO de los textos de los botones (borde inferior + padding que la baja). */
+div[data-testid="stHorizontalBlock"]:has(> div[data-testid="stColumn"] .st-key-_cli_view){
+  border-bottom:2px solid #e2e6f3!important;padding-bottom:18px!important;}
 </style>
 """
 
