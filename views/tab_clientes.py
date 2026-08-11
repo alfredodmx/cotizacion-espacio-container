@@ -392,6 +392,10 @@ _CLI_SELECTOR_CSS = """
 .st-key-_cli_view [role="radiogroup"] label span[role="img"][aria-label$=" icon"]{
   font-family:'Material Symbols Rounded'!important;font-weight:400!important;font-size:0.88rem!important;
   text-transform:none!important;letter-spacing:normal!important;}
+/* Etiqueta pequeña bajo cada botón-ícono de la barra de acciones del CRM. */
+.cli-btncap{font-family:'Montserrat',sans-serif;font-size:0.6rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:0.02em;color:#94a3b8;text-align:center;
+  margin-top:3px;line-height:1.15;}
 </style>
 """
 
@@ -4348,7 +4352,7 @@ def render_tab_clientes(**kwargs):
               "Maestro": ":material/table_rows:"}
     if _es_gestor:
         _c_tabs, _c_sync, _c_guion, _c_imp, _c_camp, _c_firma, _c_merge, _c_add = st.columns(
-            [6, 1, 1, 1, 1, 1, 1, 2], vertical_alignment="center")
+            [6, 1, 1, 1, 1, 1, 1, 2], vertical_alignment="top")
     else:
         _c_tabs, _c_add = st.columns([9, 2], vertical_alignment="center")
     with _c_tabs:
@@ -4367,6 +4371,7 @@ def render_tab_clientes(**kwargs):
                     f"Sincronizado: {res['creados']} nuevo(s), {res['existentes']} ya estaban"
                     + (f" · {_est} presupuesto(s) vinculado(s)" if _est else "") + ".")
                 st.rerun()
+            st.markdown('<div class="cli-btncap">Sincronizar</div>', unsafe_allow_html=True)
         with _c_guion:
             if st.button("", icon=":material/fact_check:", use_container_width=True,
                          key="_cli_guion", help="Configurar guión de calificación"):
@@ -4374,6 +4379,7 @@ def render_tab_clientes(**kwargs):
                 st.session_state["_cli_just_opened"] = True
                 st.session_state.pop("_cli_ficha", None)
                 st.rerun()
+            st.markdown('<div class="cli-btncap">Gui&#243;n</div>', unsafe_allow_html=True)
         with _c_imp:
             if st.button("", icon=":material/upload_file:", use_container_width=True,
                          key="_cli_import", help="Importar leads desde CSV / Excel"):
@@ -4384,6 +4390,7 @@ def render_tab_clientes(**kwargs):
                 st.session_state.pop("_cli_ficha", None)
                 st.session_state.pop("_guion_open", None)
                 st.rerun()
+            st.markdown('<div class="cli-btncap">Importar</div>', unsafe_allow_html=True)
         with _c_camp:
             if st.button("", icon=":material/campaign:", use_container_width=True,
                          key="_cli_camp", help="Enviar campaña de correo por segmento"):
@@ -4393,6 +4400,7 @@ def render_tab_clientes(**kwargs):
                 st.session_state.pop("_guion_open", None)
                 st.session_state.pop("_import_open", None)
                 st.rerun()
+            st.markdown('<div class="cli-btncap">Campa&#241;a</div>', unsafe_allow_html=True)
         with _c_firma:
             if st.button("", icon=":material/signature:", use_container_width=True,
                          key="_cli_firma_btn", help="Configurar la firma de correo"):
@@ -4402,6 +4410,7 @@ def render_tab_clientes(**kwargs):
                 st.session_state.pop("_guion_open", None)
                 st.session_state.pop("_import_open", None)
                 st.rerun()
+            st.markdown('<div class="cli-btncap">Firma</div>', unsafe_allow_html=True)
         with _c_merge:
             if st.button("", icon=":material/merge:", use_container_width=True,
                          key="_cli_dedup_btn", help="Fusionar duplicados"):
@@ -4411,6 +4420,7 @@ def render_tab_clientes(**kwargs):
                 st.session_state.pop("_guion_open", None)
                 st.session_state.pop("_import_open", None)
                 st.rerun()
+            st.markdown('<div class="cli-btncap">Fusionar</div>', unsafe_allow_html=True)
         with _c_add:
             _add_btn()
     else:
