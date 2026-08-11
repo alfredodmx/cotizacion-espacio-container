@@ -371,7 +371,7 @@ _SLA_TICK_JS = r"""<script>
 _CLI_SELECTOR_CSS = """
 <style>
 .st-key-_cli_view [role="radiogroup"]{gap:0!important;flex-wrap:wrap!important;
-  border-bottom:2px solid #e2e6f3!important;margin-bottom:2px!important;padding:0!important;}
+  margin-bottom:0!important;padding:0!important;}
 .st-key-_cli_view [role="radiogroup"] > label{background:transparent!important;border:none!important;
   border-bottom:3px solid transparent!important;border-radius:0!important;padding:0.85rem 1.6rem!important;
   margin:0 0 -2px 0!important;cursor:pointer!important;color:#7c85b3!important;
@@ -392,10 +392,15 @@ _CLI_SELECTOR_CSS = """
 .st-key-_cli_view [role="radiogroup"] label span[role="img"][aria-label$=" icon"]{
   font-family:'Material Symbols Rounded'!important;font-weight:400!important;font-size:0.88rem!important;
   text-transform:none!important;letter-spacing:normal!important;}
-/* Etiqueta pequeña bajo cada botón-ícono de la barra de acciones del CRM. */
+/* Etiqueta pequeña, pegada al botón-ícono (reduce el gap del bloque de la columna). */
 .cli-btncap{font-family:'Montserrat',sans-serif;font-size:0.6rem;font-weight:700;
   text-transform:uppercase;letter-spacing:0.02em;color:#94a3b8;text-align:center;
-  margin-top:3px;line-height:1.15;}
+  margin-top:1px;line-height:1.1;}
+div[data-testid="stColumn"]:has(.cli-btncap) div[data-testid="stVerticalBlock"]{gap:0.15rem!important;}
+/* Línea del selector (PIPELINE/BANDEJA/MAESTRO) extendida a lo ancho: pasa también
+   bajo los botones-ícono de acciones para unificar la barra en una sola línea. */
+div[data-testid="stHorizontalBlock"]:has(> div[data-testid="stColumn"] .st-key-_cli_view){
+  border-bottom:2px solid #e2e6f3!important;padding-bottom:5px!important;}
 </style>
 """
 
@@ -4352,9 +4357,9 @@ def render_tab_clientes(**kwargs):
               "Maestro": ":material/table_rows:"}
     if _es_gestor:
         _c_tabs, _c_sync, _c_guion, _c_imp, _c_camp, _c_firma, _c_merge, _c_add = st.columns(
-            [6, 1, 1, 1, 1, 1, 1, 2], vertical_alignment="top")
+            [6, 1, 1, 1, 1, 1, 1, 2], vertical_alignment="bottom")
     else:
-        _c_tabs, _c_add = st.columns([9, 2], vertical_alignment="center")
+        _c_tabs, _c_add = st.columns([9, 2], vertical_alignment="bottom")
     with _c_tabs:
         _view = st.radio("Vista", _views, index=0, key="_cli_view", horizontal=True,
                          label_visibility="collapsed",
