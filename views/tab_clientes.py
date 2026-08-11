@@ -372,13 +372,17 @@ _CLI_SELECTOR_CSS = """
 <style>
 .st-key-_cli_view [role="radiogroup"]{gap:0!important;flex-wrap:wrap!important;
   margin-bottom:0!important;padding:0!important;}
-.st-key-_cli_view [role="radiogroup"] > label{background:transparent!important;border:none!important;
+.st-key-_cli_view [role="radiogroup"] > label{background:transparent!important;border:none!important;position:relative!important;
   border-bottom:3px solid transparent!important;border-radius:0!important;padding:0.85rem 1.6rem!important;
   margin:0 0 -2px 0!important;cursor:pointer!important;color:#7c85b3!important;
   transition:color .2s,border-color .2s!important;}
 .st-key-_cli_view [role="radiogroup"] > label:hover{color:#5b7cfa!important;background:rgba(91,124,250,.05)!important;}
 .st-key-_cli_view [role="radiogroup"] > label:has(input:checked){color:#5b7cfa!important;
-  border-bottom-color:#5b7cfa!important;background:rgba(91,124,250,.06)!important;}
+  border-bottom-color:transparent!important;background:rgba(91,124,250,.06)!important;}
+/* Indicador azul de la pestaña activa BAJADO hasta la línea ancha del toolbar
+   (la línea va 18px bajo la base de la pestaña; el pseudo la alcanza ahí). */
+.st-key-_cli_view [role="radiogroup"] > label:has(input:checked)::after{content:'';position:absolute;
+  left:0;right:0;bottom:-18px;height:2px;background:#5b7cfa;z-index:3;}
 .st-key-_cli_view [role="radiogroup"] > label > div:first-child{display:none!important;}
 .st-key-_cli_view [role="radiogroup"] label [data-testid="stMarkdownContainer"] p{
   font-family:'Plus Jakarta Sans',sans-serif!important;font-size:0.88rem!important;font-weight:700!important;
