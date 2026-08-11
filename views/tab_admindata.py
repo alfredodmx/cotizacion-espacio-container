@@ -151,14 +151,14 @@ def _estado_de(r):
 def render_tab_admindata(supabase, supabase_admin=None, **deps):
     supa_admin = supabase_admin or _supa_admin
 
-    if not st.session_state.get('es_root'):
-        st.info("Esta sección es solo para administradores root.", icon=":material/lock:")
+    if st.session_state.get('rol_usuario', 'ejecutivo') not in ('root', 'admin'):
+        st.info("Esta sección es solo para administradores (admin y root).", icon=":material/lock:")
         return
 
     render_page_header(
         "admindata",
         "Administraci&#243;n de datos",
-        "Eliminaci&#243;n permanente de presupuestos y archivos &middot; solo disponible para root.",
+        "Eliminaci&#243;n permanente de presupuestos y archivos &middot; solo disponible para admin y root.",
     )
 
     st.markdown(

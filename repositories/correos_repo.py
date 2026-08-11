@@ -61,3 +61,27 @@ def contar_correos(cliente_id=None) -> int:
         return q.execute().count or 0
     except Exception:
         return 0
+
+
+def contar_correos_hoy() -> int:
+    """Correos registrados HOY (hora Chile) — para la cuota diaria de Resend. Cada fila
+    de crm_correos es un envío (individual/campaña/prueba), así que cuenta 1:1 el uso
+    del día. 0 si no existe la tabla."""
+    try:
+        ini = datetime.now(_TZ_CL).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        return (_supa.table("crm_correos").select("id", count="exact")
+                .gte("fecha", ini).limit(1).execute().count or 0)
+    except Exception:
+        return 0
+
+
+def contar_correos_mes() -> int:
+    """Correos registrados este MES (hora Chile) — para la cuota mensual de Resend.
+    0 si no existe la tabla."""
+    try:
+        ini = datetime.now(_TZ_CL).replace(day=1, hour=0, minute=0, second=0,
+                                           microsecond=0).isoformat()
+        return (_supa.table("crm_correos").select("id", count="exact")
+                .gte("fecha", ini).limit(1).execute().count or 0)
+    except Exception:
+        return 0

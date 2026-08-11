@@ -111,10 +111,21 @@ try:   # Envío de correos (Resend) — opcional/defensivo
         estado_correo as _resend_estado, estado_lectura_disponible as _resend_estado_ok,
         enviar_lote as _resend_lote, pie_baja_html as _resend_pie,
         unsubscribe_url as _resend_unsub,
+        limite_diario as _resend_lim_dia, limite_mensual as _resend_lim_mes,
+        plan_nombre as _resend_plan,
     )
 except Exception:
     def _resend_configurado():
         return False
+
+    def _resend_lim_dia():
+        return 100
+
+    def _resend_lim_mes():
+        return 3000
+
+    def _resend_plan():
+        return "Free"
 
     def _resend_enviar(*a, **k):
         return False, "Módulo de correo no disponible."
@@ -150,6 +161,8 @@ try:   # Seguimiento de correos enviados (tabla crm_correos) — defensivo
     from repositories.correos_repo import (
         registrar_correo as _registrar_correo,
         listar_correos_cliente as _listar_correos_cliente,
+        contar_correos_hoy as _contar_correos_hoy,
+        contar_correos_mes as _contar_correos_mes,
     )
 except Exception:
     def _registrar_correo(*a, **k):
@@ -157,6 +170,12 @@ except Exception:
 
     def _listar_correos_cliente(_cid):
         return []
+
+    def _contar_correos_hoy():
+        return 0
+
+    def _contar_correos_mes():
+        return 0
 
 try:   # Firma de correo por ejecutivo (tabla crm_firma) — defensivo
     from repositories.firma_repo import (
@@ -2353,11 +2372,26 @@ def _render_correo(cid, cli):
                     'cada cliente al enviar.</div>', unsafe_allow_html=True)
 
         st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
+        # Cuota de correos: el chip solo lo ven admin/root; el bloqueo por cuota agotada
+        # aplica a todos (si no, Resend rechazaría el envío).
+        _rol_m = st.session_state.get("rol_usuario", "ejecutivo")
+        _gestor_m = _rol_m in ("root", "admin")
+        _q_mail = _cuota_resend() if _resend_configurado() else None
+        if _q_mail and _gestor_m:
+            st.markdown(_cuota_resend_html(_q_mail, compact=True), unsafe_allow_html=True)
+            st.markdown('<div style="height:9px"></div>', unsafe_allow_html=True)
+        _sin_cuota = bool(_q_mail and _q_mail["restante"] <= 0)
+        if _sin_cuota:
+            if _gestor_m:
+                st.warning(f"Alcanzaste el límite diario de {_q_mail['lim_dia']} correos. "
+                           "Podrás enviar de nuevo mañana.")
+            else:
+                st.info("Por ahora no hay envíos de correo disponibles. Intenta más tarde.")
         _mc1, _mc2 = st.columns(2)
         with _mc1:
             if st.button("Enviar", type="primary", use_container_width=True,
                          key="_cli_mail_send", icon=":material/send:",
-                         disabled=(not _to or not _resend_configurado())):
+                         disabled=(not _to or not _resend_configurado() or _sin_cuota)):
                 _subj = st.session_state.get("_cli_mail_subj", "")
                 _body = st.session_state.get("_cli_mail_body", "")
                 if not (_subj or "").strip() or not (_body or "").strip():
@@ -2601,16 +2635,76 @@ def _parece_html(texto: str) -> bool:
         t, _re2.I))
 
 
+def _cuota_resend() -> dict:
+    """Estado de la cuota de Resend según el plan (Free = 100/día, 3000/mes): cuántos
+    correos se enviaron hoy/este mes y cuántos quedan. Cada fila de crm_correos es un
+    envío, así que cuenta 1:1 (individual + campaña + prueba)."""
+    lim_d, lim_m = _resend_lim_dia(), _resend_lim_mes()
+    hoy, mes = _contar_correos_hoy(), _contar_correos_mes()
+    return {"plan": _resend_plan(), "lim_dia": lim_d, "lim_mes": lim_m,
+            "hoy": hoy, "mes": mes,
+            "restante": max(0, lim_d - hoy), "restante_mes": max(0, lim_m - mes)}
+
+
+@st.cache_data(ttl=30, show_spinner=False)
+def _cuota_resend_cached() -> dict:
+    """Cuota cacheada 30s para el chip de la vista principal (evita 2 count-queries en
+    cada rerun). Los diálogos de envío usan _cuota_resend() en vivo para exactitud."""
+    return _cuota_resend()
+
+
+def _cuota_resend_html(q=None, compact=False) -> str:
+    """Tarjeta visual de la cuota de correos (solo admin/root la ve). `compact` = chip
+    de una línea para la vista principal; completo para los diálogos de envío."""
+    q = q or _cuota_resend()
+    lim_d, hoy, rest = q["lim_dia"], q["hoy"], q["restante"]
+    pct = min(100, round(hoy / lim_d * 100)) if lim_d else 100
+    if rest <= 0:
+        _c, _bg, _bd = "#dc2626", "#fee2e2", "#fca5a5"
+    elif rest <= max(1, round(lim_d * 0.15)):
+        _c, _bg, _bd = "#c2410c", "#fff7ed", "#fed7aa"
+    else:
+        _c, _bg, _bd = "#15803d", "#f0fdf4", "#bbf7d0"
+    _mail = _svg('<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>', 14, _c)
+    if compact:
+        return (f'<div style="display:inline-flex;align-items:center;gap:8px;background:{_bg};'
+                f'border:1px solid {_bd};border-radius:99px;padding:5px 13px;font-family:Montserrat,sans-serif;">'
+                f'{_mail}<span style="font-size:0.72rem;font-weight:800;color:{_c};letter-spacing:.02em;">'
+                f'Correos hoy: {hoy}/{lim_d} · quedan {rest}</span>'
+                f'<span style="font-size:0.62rem;font-weight:700;color:#94a3b8;text-transform:uppercase;">Plan {q["plan"]}</span></div>')
+    return (
+        f'<div style="background:{_bg};border:1px solid {_bd};border-radius:13px;padding:13px 16px;'
+        f'font-family:Montserrat,sans-serif;margin:2px 0 6px;">'
+        f'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px;">'
+        f'<span style="display:inline-flex;align-items:center;gap:7px;font-size:0.72rem;font-weight:800;'
+        f'color:{_c};text-transform:uppercase;letter-spacing:.04em;">{_mail}Cuota de correos · Plan {q["plan"]}</span>'
+        f'<span style="font-size:0.72rem;font-weight:800;color:{_c};">Quedan {rest} hoy</span></div>'
+        f'<div style="display:flex;align-items:baseline;gap:6px;">'
+        f'<span style="font-size:1.5rem;font-weight:900;color:#0f172a;line-height:1;">{hoy}</span>'
+        f'<span style="font-size:0.9rem;font-weight:700;color:#64748b;">/ {lim_d} hoy</span></div>'
+        f'<div style="background:#fff;border:1px solid {_bd};border-radius:99px;height:8px;overflow:hidden;margin:8px 0 6px;">'
+        f'<div style="width:{pct}%;height:100%;background:{_c};border-radius:99px;"></div></div>'
+        f'<div style="font-size:0.68rem;color:#64748b;font-weight:600;">Este mes: {q["mes"]} / {q["lim_mes"]} '
+        f'· quedan {q["restante_mes"]}</div></div>')
+
+
 def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None, segmento_desc="",
-                    nombre="", es_html=None) -> dict:
+                    nombre="", es_html=None, limite=None) -> dict:
     """Envía el correo personalizado a cada cliente del segmento. Si el cuerpo es una
     plantilla HTML se manda TAL CUAL (solo se reemplazan {{variables}}); si es texto,
     se convierte a HTML. Cada correo: reply-to al ejecutivo asignado + pie con link de
     baja + header List-Unsubscribe, y se registra en crm_correos (etiquetado con la
     campaña) para el seguimiento y el REPORTE por campaña. CON adjuntos se envía UNO
     POR UNO (el batch de Resend no soporta adjuntos); SIN adjuntos, en lotes de 100.
-    Devuelve {enviados, fallidos, campana_id}."""
-    res = {"enviados": 0, "fallidos": 0}
+    `limite` (envío por goteo): si se pasa, solo envía esa cantidad y deja el resto
+    pendiente (respeta la cuota diaria del plan). Devuelve {enviados, fallidos,
+    omitidos, campana_id}."""
+    res = {"enviados": 0, "fallidos": 0, "omitidos": 0}
+    # Envío por goteo: recorta el segmento al límite disponible del día.
+    if limite is not None:
+        _tot0 = len(segmento)
+        segmento = list(segmento)[:max(0, int(limite))]
+        res["omitidos"] = max(0, _tot0 - len(segmento))
     _from = _resend_remitente()
     _es_html = _parece_html(body_tpl) if es_html is None else bool(es_html)
     _att = adjuntos or None
@@ -3342,6 +3436,33 @@ def _render_campana_dialog(data):
 
         st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
 
+        # ── Cuota de correos (plan Free) + envío por goteo ──────────────────
+        _q_camp = _cuota_resend()
+        st.markdown(_cuota_resend_html(_q_camp), unsafe_allow_html=True)
+        _goteo = st.toggle(
+            f"Envío por goteo · respeta el límite de {_q_camp['lim_dia']} correos/día",
+            value=True, key="_camp_goteo",
+            help=(f"Con el plan {_q_camp['plan']} puedes enviar {_q_camp['lim_dia']} correos por día. "
+                  "Con el goteo activado, si el segmento supera lo disponible hoy se envían solo esos "
+                  "y el resto queda pendiente para enviar otro día (no se pierde ninguno por exceder la cuota)."))
+        _disp_camp = _q_camp["restante"]
+        _n_enviar = min(len(_seg), _disp_camp) if _goteo else len(_seg)
+        if _disp_camp <= 0:
+            st.markdown('<div class="cli-actf-hint" style="color:#b91c1c;">Alcanzaste el límite diario de '
+                        f'{_q_camp["lim_dia"]} correos. Podrás enviar de nuevo mañana.</div>',
+                        unsafe_allow_html=True)
+        elif _goteo and len(_seg) > _disp_camp:
+            st.markdown('<div class="cli-actf-hint" style="color:#b45309;">El segmento tiene '
+                        f'{len(_seg)} y hoy quedan <b>{_disp_camp}</b>: se enviarán {_disp_camp} hoy y '
+                        f'{len(_seg) - _disp_camp} quedarán pendientes (envíalos otro día).</div>',
+                        unsafe_allow_html=True)
+        elif (not _goteo) and len(_seg) > _disp_camp:
+            st.markdown('<div class="cli-actf-hint" style="color:#b45309;">Sin goteo: al enviar '
+                        f'{len(_seg)} superarás lo disponible hoy ({_disp_camp}) y Resend rechazará el '
+                        'excedente. Deja el goteo activado para no perder correos.</div>',
+                        unsafe_allow_html=True)
+        st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
+
         # ── Mensaje (pestañas: Texto plano / Plantilla HTML) ────────────────
         st.markdown('<div class="cli-sec-t" style="margin:0 0 6px;">Mensaje</div>',
                     unsafe_allow_html=True)
@@ -3467,9 +3588,9 @@ def _render_campana_dialog(data):
             st.markdown('<div class="cli-actf-hint" style="color:#b45309;">Ponle un <b>nombre</b> '
                         'a la campaña (arriba) para poder enviar la prueba o la campaña.</div>',
                         unsafe_allow_html=True)
-        if st.button(f"Enviar campaña a {len(_seg)}", type="primary", use_container_width=True,
+        if st.button(f"Enviar campaña a {_n_enviar}", type="primary", use_container_width=True,
                      key="_camp_send", icon=":material/send:",
-                     disabled=(not _seg or not _resend_configurado() or not _nombre_now)):
+                     disabled=(not _seg or _n_enviar <= 0 or not _resend_configurado() or not _nombre_now)):
             _subj = st.session_state.get("_camp_subj", "")
             if not _nombre_now:
                 st.warning("Ponle un nombre a la campaña (obligatorio, uso interno).")
@@ -3493,14 +3614,18 @@ def _render_campana_dialog(data):
                     ("Fuente: " + _fl_.get(_fuente, _fuente)) if _fuente else "",
                 ])) or "Todos los clientes"
                 _nombre_camp = st.session_state.get("_camp_nombre", "") or ""
-                with st.spinner(f"Enviando {len(_seg)} correo(s)…"):
+                _lim = _disp_camp if _goteo else None
+                with st.spinner(f"Enviando {_n_enviar} correo(s)…"):
                     _r = _enviar_campana(_seg, _subj, _body, _actor, adjuntos=_att or None,
-                                         segmento_desc=_seg_desc, nombre=_nombre_camp, es_html=_es_html)
+                                         segmento_desc=_seg_desc, nombre=_nombre_camp,
+                                         es_html=_es_html, limite=_lim)
                 for _k in ("_camp_subj", "_camp_body"):
                     st.session_state.pop(_k, None)
                 st.session_state["_cli_toast"] = (
                     f"Campaña enviada: {_r['enviados']} correo(s)"
-                    + (f" · {_r['fallidos']} fallaron" if _r['fallidos'] else "") + ".")
+                    + (f" · {_r['fallidos']} fallaron" if _r['fallidos'] else "")
+                    + (f" · {_r.get('omitidos', 0)} pendientes por la cuota diaria"
+                       if _r.get('omitidos') else "") + ".")
                 st.rerun()
 
     _dlg()
@@ -4437,6 +4562,12 @@ def render_tab_clientes(**kwargs):
     else:
         with _c_add:
             _add_btn()
+
+    # Cuota de correos Resend (plan Free) — chip visible SOLO para admin/root.
+    if _es_gestor and _resend_configurado():
+        st.markdown('<div style="display:flex;justify-content:flex-end;margin:6px 0 -2px;">'
+                    + _cuota_resend_html(_cuota_resend_cached(), compact=True) + '</div>',
+                    unsafe_allow_html=True)
 
     # Buscador GLOBAL (todas las vistas, siempre visible): filtra al instante las
     # tarjetas del Pipeline/Bandeja y las filas del Maestro (client-side, sin reruns).

@@ -47,6 +47,29 @@ def configurado() -> bool:
     return bool(_api_key())
 
 
+def plan_nombre() -> str:
+    """Nombre del plan de Resend (para mostrarlo). Configurable por secret RESEND_PLAN."""
+    return str(_sec("RESEND_PLAN", "Free") or "Free").strip()
+
+
+def limite_diario() -> int:
+    """Correos permitidos por DÍA según el plan (Resend Free = 100). Configurable por
+    secret RESEND_DAILY_LIMIT para cuando se suba de plan."""
+    try:
+        return max(0, int(_sec("RESEND_DAILY_LIMIT", 100) or 100))
+    except Exception:
+        return 100
+
+
+def limite_mensual() -> int:
+    """Correos permitidos por MES según el plan (Resend Free = 3000). Configurable por
+    secret RESEND_MONTHLY_LIMIT."""
+    try:
+        return max(0, int(_sec("RESEND_MONTHLY_LIMIT", 3000) or 3000))
+    except Exception:
+        return 3000
+
+
 def app_url() -> str:
     """URL base de la app (para el link de baja). Configurable por secret APP_URL."""
     return str(_sec("APP_URL", "https://cotizador.espaciocontainerhouse.cl") or "").rstrip("/")
