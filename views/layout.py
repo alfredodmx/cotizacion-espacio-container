@@ -136,9 +136,20 @@ def _fmt_notif_fecha(iso) -> str:
     if not iso:
         return ""
     try:
-        from datetime import datetime as _dt
+        from datetime import datetime as _dt, timezone as _tz, timedelta
         d = _dt.fromisoformat(str(iso))
-        _abs = f"{d.day} {_MESES_ABR[d.month - 1]} {d.year}, {d.hour:02d}:{d.minute:02d}"
+        # La fecha viene en UTC desde la BD (timestamptz → +00:00). Para mostrar la
+        # hora local correcta hay que convertirla a hora de Chile (con horario de
+        # verano automático); si no, aparece +3/+4 h corrida (p.ej. 15:39 en vez de
+        # 11:39). El relativo ("hace N h") se calcula con el instante original.
+        if d.tzinfo is None:
+            d = d.replace(tzinfo=_tz.utc)
+        try:
+            from zoneinfo import ZoneInfo
+            _dloc = d.astimezone(ZoneInfo("America/Santiago"))
+        except Exception:
+            _dloc = d.astimezone(_tz(timedelta(hours=-4)))
+        _abs = f"{_dloc.day} {_MESES_ABR[_dloc.month - 1]} {_dloc.year}, {_dloc.hour:02d}:{_dloc.minute:02d}"
         try:
             _now = _dt.now(d.tzinfo) if d.tzinfo else _dt.now()
             _secs = (_now - d).total_seconds()
