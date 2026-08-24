@@ -2032,42 +2032,45 @@ def _render_bandeja(data: list, msel: bool = False):
 
 # ── Ficha 360 ─────────────────────────────────────────────────────────────────
 
+@st.fragment
 def _render_asignar(cid, cli):
-    """Dropdown 'Ejecutivo asignado' CON FOTO (chip + menú, estilo COTIZACIONES).
-    Solo root/admin. La selección va por el puente _cli_asigcmd → _do_asignar."""
-    _ejs = _ejecutivos()
+    """Asignación de ejecutivo con `st.selectbox` NATIVO dentro de un `@st.fragment`.
+    Antes era un dropdown HTML que escribía al puente `_cli_asigcmd`: con el modal
+    abierto, ese input del flujo principal quedaba detrás (inerte) y no commiteaba al
+    primer clic → había que elegir 2-3 veces y disparaba reruns de TODO el drawer.
+    Ahora el selectbox commitea al PRIMER clic (`on_change`) y solo re-renderiza ESTE
+    fragmento (no todo el drawer): asignación instantánea. Muestra el avatar del
+    ejecutivo elegido al lado; las opciones son los nombres. Solo root/admin."""
+    _ejs = sorted(_ejecutivos(), key=lambda x: (x.get("nombre") or "").lower())
     _cur_em = (cli.get("asignado_email") or "").strip().lower()
-    _cur_nm = _resolver_asig(cli.get("asignado_email"), cli.get("asignado_nombre"))
-    _cur_foto = ""
-    for e in _ejs:
-        if e["email"].lower() == _cur_em:
-            _cur_foto = e.get("foto_url", "")
-            _cur_nm = e.get("nombre") or _cur_nm
-            break
-    if _cur_em:
-        _chip_body = (_avatar_html(_cur_foto, _cur_nm, size=30, ring="#e2e8f0", font_scale=0.4)
-                      + f'<span class="cli-asig-nm">{_esc(_cur_nm)}</span>')
-    else:
-        _chip_body = '<span class="cli-asig-ph">— Sin asignar —</span>'
-    _none_ico = ('<span class="cli-asig-none">'
-                 + _svg('<path d="M19 21v-2a4 4 0 0 0-4-4H8"/><circle cx="10" cy="7" r="4"/>'
-                        '<line x1="17" x2="22" y1="8" y2="13"/><line x1="22" x2="17" y1="8" y2="13"/>',
-                        14, "currentColor") + '</span>')
-    _opts = (f'<button type="button" class="cli-asig-opt" data-em="__none__">'
-             f'{_none_ico}<span>— Sin asignar —</span></button>')
-    for e in sorted(_ejs, key=lambda x: (x.get("nombre") or "").lower()):
-        _av = _avatar_html(e.get("foto_url", ""), e.get("nombre") or e["email"],
-                           size=26, ring="#e2e8f0", font_scale=0.42)
-        _opts += (f'<button type="button" class="cli-asig-opt" data-em="{_esc(e["email"])}">'
-                  f'{_av}<span>{_esc(e.get("nombre") or e["email"])}</span></button>')
-    _cv = _svg('<polyline points="6 9 12 15 18 9"/>', 12, "currentColor")
-    st.markdown(
-        '<div class="cli-asig"><div class="cli-asig-lbl">Ejecutivo asignado</div>'
-        f'<div class="cli-asig-wrap" data-acid="{_esc(cid)}">'
-        f'<button type="button" class="cli-asig-chip">{_chip_body}'
-        f'<span class="cli-asig-cv">{_cv}</span></button>'
-        f'<div class="cli-asig-menu">{_opts}</div></div></div>',
-        unsafe_allow_html=True)
+    _nmap = {e["email"].lower(): (e.get("nombre") or e["email"]) for e in _ejs}
+    _fmap = {e["email"].lower(): e.get("foto_url", "") for e in _ejs}
+    _cur_nm = (_nmap.get(_cur_em)
+               or _resolver_asig(cli.get("asignado_email"), cli.get("asignado_nombre")) or "")
+    _opts = [""] + [e["email"] for e in _ejs]           # "" = — Sin asignar —
+    try:
+        _idx = _opts.index(next(e["email"] for e in _ejs if e["email"].lower() == _cur_em))
+    except StopIteration:
+        _idx = 0
+    _sbkey = f"_asig_sb_{cid}"
+
+    def _fmt(em):
+        return "— Sin asignar —" if not em else _nmap.get(em.lower(), em)
+
+    def _cb():
+        _do_asignar(cli, st.session_state.get(_sbkey) or "")   # muta cli + DB + notif
+        _cli_data.clear()                                      # el fragment re-lee cli
+
+    st.markdown('<div class="cli-asig-lbl" style="font-family:Montserrat,sans-serif;font-weight:700;'
+                'font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;'
+                'margin:0 0 5px;">Ejecutivo asignado</div>', unsafe_allow_html=True)
+    _ca1, _ca2 = st.columns([0.6, 5], vertical_alignment="center")
+    with _ca1:
+        st.markdown(_avatar_html(_fmap.get(_cur_em, ""), _cur_nm or "EC", size=38,
+                                 ring="#e2e8f0", font_scale=0.4), unsafe_allow_html=True)
+    with _ca2:
+        st.selectbox("Ejecutivo asignado", _opts, index=_idx, format_func=_fmt,
+                     key=_sbkey, label_visibility="collapsed", on_change=_cb)
 
 
 def _do_asignar(cli, new_email):
@@ -4137,12 +4140,17 @@ def _render_ficha(cid: str, data: list):
         _rut = cli.get("rut", "") or ""
         _rut_html = (_cp(_rut, _esc(_rut), "Copiar RUT") if _rut else "Sin RUT")
         _sc = cli.get("_score") or _lead_score(cli, _preguntas_data())
+        # El ejecutivo asignado se muestra en el header SOLO al ejecutivo (que no
+        # reasigna); a root/admin se lo muestra el selectbox vivo de más abajo, así
+        # el header no queda desfasado tras asignar dentro del fragment.
+        _es_gestor_fh = st.session_state.get("rol_usuario") in ("root", "admin")
+        _sub_asig = "" if _es_gestor_fh else f" · {_esc(_asig)}"
         st.markdown(
             '<div class="cli-fh">'
             f'<div class="cli-fh-av">{_esc(_initials(cli.get("nombre")))}</div>'
             '<div style="min-width:0;flex:1;">'
             f'{_nm_html}'
-            f'<div class="cli-fh-sub">{_rut_html} · {_esc(_asig)}</div>'
+            f'<div class="cli-fh-sub">{_rut_html}{_sub_asig}</div>'
             '</div>'
             f'<div style="margin-left:auto;">{_score_badge(_sc, "md")}</div>'
             '</div>'
@@ -4587,6 +4595,8 @@ def render_tab_clientes(**kwargs):
                 st.session_state.pop("_cli_act_res", None)
                 st.session_state.pop("_cli_mail_open", None)
                 st.session_state.pop("_cli_edit", None)
+                # el selectbox de asignación arranca en la asignación actual del cliente
+                st.session_state.pop(f"_asig_sb_{_p[1]}", None)
             elif _p[0] == "nuevo" and len(_p) >= 3:
                 # Crear presupuesto para este cliente (menú contextual pipeline/maestro).
                 _cobj = next((d for d in data if str(d.get("id")) == _p[1]), None)
