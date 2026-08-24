@@ -25,7 +25,7 @@ import streamlit.components.v1 as components
 
 from views.layout import render_page_header
 from repositories.clientes_repo import (
-    listar_clientes, crear_cliente, actualizar_cliente, registrar_actividad, listar_actividad,
+    listar_clientes, crear_cliente, actualizar_cliente, eliminar_cliente, registrar_actividad, listar_actividad,
     backfill_desde_cotizaciones, dedup_key, enriquecer_con_pipeline,
     identidades_compartidas,
     crear_tarea, listar_tareas_cliente, completar_tarea, listar_tareas_pendientes,
@@ -1301,6 +1301,7 @@ _CLI_CLICK_JS = r"""<script>
   }
   if(W._cliClickH){ D.removeEventListener('click', W._cliClickH, true); }
   W._cliClickH=function(ev){
+    if(D.getElementById('_cli_msel_bar')) return;   // en selección múltiple no se abre la ficha
     var t=ev.target; if(!t||!t.closest) return;
     var el=t.closest('[data-cid]'); if(!el) return;
     ev.preventDefault(); ev.stopPropagation(); fire(el.getAttribute('data-cid'));
@@ -1825,6 +1826,146 @@ def _traer_de_shopify():
         f"{_res['omitidos']} sin nombre.")
 
 
+# ── Selección múltiple (bulk) de leads — SOLO root/admin ──────────────────────
+_CLI_MSEL_CSS = """
+<style>
+.cli-msel-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border:1px solid #e6e9f4;
+  border-radius:12px;padding:9px 13px;margin:10px 0 4px;box-shadow:0 2px 10px rgba(30,36,71,.05);
+  font-family:'Plus Jakarta Sans',sans-serif;position:relative;z-index:20;}
+.cli-msel-all{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;font-weight:700;color:#475569;cursor:pointer;user-select:none;}
+.cli-msel-all input{width:16px;height:16px;accent-color:#5b7cfa;cursor:pointer;}
+.cli-msel-cnt{font-size:.78rem;font-weight:800;color:#0f172a;min-width:104px;}
+.cli-msel-asig{position:relative;margin-left:auto;}
+.cli-msel-chip{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 12px;border:1px solid #e2e8f0;
+  border-radius:10px;background:#f8fafc;cursor:pointer;font-family:inherit;min-width:200px;}
+.cli-msel-chip:hover{border-color:#cbd5e1;}
+.cli-msel-chipbody{display:inline-flex;align-items:center;gap:8px;flex:1;min-width:0;font-size:.82rem;font-weight:700;color:#0f172a;}
+.cli-msel-chipbody span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cli-msel-ph{color:#94a3b8!important;font-weight:600!important;}
+.cli-msel-cv{color:#94a3b8;margin-left:auto;display:inline-flex;flex-shrink:0;}
+.cli-msel-menu{position:absolute;top:calc(100% + 5px);left:0;right:0;max-height:260px;overflow-y:auto;background:#fff;
+  border:1px solid #e2e8f0;border-radius:11px;box-shadow:0 14px 40px rgba(15,23,42,.18);z-index:99999;padding:6px;display:none;}
+.cli-msel-menu.open{display:block;}
+.cli-msel-opt{width:100%;display:flex;align-items:center;gap:9px;background:none;border:none;cursor:pointer;padding:6px 8px;
+  border-radius:8px;font-family:inherit;font-size:.82rem;font-weight:700;color:#0f172a;text-align:left;}
+.cli-msel-opt:hover{background:#f1f5f9;}
+.cli-msel-opt span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cli-msel-btn{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 14px;border:none;border-radius:10px;
+  font-family:inherit;font-size:.78rem;font-weight:800;letter-spacing:.01em;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.cli-msel-btn svg{flex-shrink:0;}
+.cli-msel-asignar{background:linear-gradient(135deg,#5b7cfa,#2563eb);color:#fff;box-shadow:0 4px 12px rgba(37,99,235,.28);}
+.cli-msel-asignar:hover:not(:disabled){filter:brightness(1.06);transform:translateY(-1px);}
+.cli-msel-eliminar{background:#fee2e2;color:#dc2626;border:1px solid #fecaca;}
+.cli-msel-eliminar:hover:not(:disabled){background:#dc2626;color:#fff;border-color:#dc2626;}
+.cli-msel-btn:disabled{opacity:.45;cursor:not-allowed;filter:none;transform:none;box-shadow:none;}
+.cli-msel-card{position:relative;cursor:pointer;padding-left:42px!important;}
+.cli-msel-box{position:absolute;left:13px;top:15px;width:19px;height:19px;border:2px solid #cbd5e1;border-radius:6px;
+  background:#fff;transition:all .12s;box-sizing:border-box;}
+.cli-msel-card:hover .cli-msel-box{border-color:#5b7cfa;}
+.cli-msel-card.sel{background:#eef4ff!important;box-shadow:inset 3px 0 0 #5b7cfa,0 3px 12px rgba(37,99,235,.12)!important;}
+.cli-msel-card.sel .cli-msel-box{background:#5b7cfa;border-color:#5b7cfa;}
+.cli-msel-card.sel .cli-msel-box::after{content:'';position:absolute;left:5px;top:1px;width:5px;height:10px;
+  border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);}
+</style>"""
+
+
+def _build_msel_bar() -> str:
+    """Barra de acciones para la selección múltiple: contador + dropdown de ejecutivo
+    (con foto) + botones Asignar / Eliminar. La lógica va en _CLI_MSEL_JS."""
+    _ejs = _ejecutivos()
+    _none = ('<button type="button" class="cli-msel-opt" data-em="__none__" data-nm="">'
+             + _svg('<path d="M19 21v-2a4 4 0 0 0-4-4H8"/><circle cx="10" cy="7" r="4"/>'
+                    '<line x1="17" x2="22" y1="8" y2="13"/><line x1="22" x2="17" y1="8" y2="13"/>', 14, "#94a3b8")
+             + '<span>— Sin asignar —</span></button>')
+    _opts = _none
+    for e in sorted(_ejs, key=lambda x: (x.get("nombre") or "").lower()):
+        _av = _avatar_html(e.get("foto_url", ""), e.get("nombre") or e["email"],
+                           size=24, ring="#e2e8f0", font_scale=0.42)
+        _opts += (f'<button type="button" class="cli-msel-opt" data-em="{_esc(e["email"])}" '
+                  f'data-nm="{_esc(e.get("nombre") or e["email"])}">{_av}'
+                  f'<span>{_esc(e.get("nombre") or e["email"])}</span></button>')
+    _cv = _svg('<polyline points="6 9 12 15 18 9"/>', 12, "currentColor")
+    _ic_asig = _svg('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>'
+                    '<line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>', 15, "currentColor")
+    _ic_del = _svg('<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>', 15, "currentColor")
+    return (
+        '<div id="_cli_msel_bar" class="cli-msel-bar" data-selem="" data-selnm="">'
+        '<label class="cli-msel-all"><input type="checkbox" id="_cli_msel_all"><span>Todos</span></label>'
+        '<span id="_cli_msel_cnt" class="cli-msel-cnt">0 seleccionados</span>'
+        '<div class="cli-msel-asig">'
+        '<button type="button" class="cli-msel-chip" id="_cli_msel_chip">'
+        '<span id="_cli_msel_chipbody" class="cli-msel-chipbody"><span class="cli-msel-ph">Elegir ejecutivo…</span></span>'
+        f'<span class="cli-msel-cv">{_cv}</span></button>'
+        f'<div class="cli-msel-menu">{_opts}</div></div>'
+        f'<button type="button" class="cli-msel-btn cli-msel-asignar" id="_cli_msel_asignar" disabled>{_ic_asig}<span>Asignar</span></button>'
+        f'<button type="button" class="cli-msel-btn cli-msel-eliminar" id="_cli_msel_eliminar" disabled>{_ic_del}<span>Eliminar</span></button>'
+        '</div>')
+
+
+# JS de la selección múltiple: toggle de tarjetas + dropdown + botones → puentes
+# _cli_bulk_asig / _cli_bulk_del. Solo actúa si existe #_cli_msel_bar en el DOM.
+_CLI_MSEL_JS = r"""<script>
+(function(){
+  var W=window.parent, D=W&&W.document; if(!D) return;
+  function bar(){ return D.getElementById('_cli_msel_bar'); }
+  function cards(){ return [].slice.call(D.querySelectorAll('.cli-msel-card'))
+                      .filter(function(c){ return c.offsetParent!==null; }); }
+  function selCids(){ return cards().filter(function(c){return c.classList.contains('sel');})
+                        .map(function(c){return c.getAttribute('data-cid');}); }
+  function fire(key, payload){
+    var inp=D.querySelector('.st-key-'+key+' input'); if(!inp) return;
+    try{
+      var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set;
+      inp.focus({preventScroll:true});
+      setter.call(inp, payload+'|'+Date.now());
+      inp.dispatchEvent(new Event('input',{bubbles:true}));
+      inp.dispatchEvent(new Event('change',{bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.blur();
+    }catch(e){}
+  }
+  function upd(){
+    var b=bar(); if(!b) return;
+    var n=selCids().length, all=cards().length;
+    var cnt=D.getElementById('_cli_msel_cnt'); if(cnt) cnt.textContent=n+' seleccionado'+(n!==1?'s':'');
+    var em=b.getAttribute('data-selem')||'';
+    var bA=D.getElementById('_cli_msel_asignar'), bD=D.getElementById('_cli_msel_eliminar');
+    if(bA) bA.disabled=(n===0 || em==='');
+    if(bD) bD.disabled=(n===0);
+    var ac=D.getElementById('_cli_msel_all'); if(ac){ ac.checked=(all>0 && n===all); ac.indeterminate=(n>0 && n<all); }
+  }
+  if(W._cliMselH){ D.removeEventListener('click', W._cliMselH, true); }
+  W._cliMselH=function(ev){
+    if(!bar()) return;
+    var t=ev.target; if(!t||!t.closest) return;
+    if(t.closest('#_cli_msel_chip')){ ev.preventDefault(); ev.stopPropagation();
+      var m=D.querySelector('.cli-msel-menu'); if(m) m.classList.toggle('open'); return; }
+    var opt=t.closest('.cli-msel-opt');
+    if(opt){ ev.preventDefault(); ev.stopPropagation();
+      var b=bar(); b.setAttribute('data-selem', opt.getAttribute('data-em')||'');
+      b.setAttribute('data-selnm', opt.getAttribute('data-nm')||'');
+      var body=D.getElementById('_cli_msel_chipbody'); if(body) body.innerHTML=opt.innerHTML;
+      var m=D.querySelector('.cli-msel-menu'); if(m) m.classList.remove('open'); upd(); return; }
+    if(t.closest('.cli-msel-all')){ ev.stopPropagation();
+      setTimeout(function(){ var on=D.getElementById('_cli_msel_all').checked;
+        cards().forEach(function(c){ c.classList.toggle('sel', on); }); upd(); },0); return; }
+    if(t.closest('#_cli_msel_asignar')){ ev.preventDefault(); ev.stopPropagation();
+      if(D.getElementById('_cli_msel_asignar').disabled) return;
+      fire('_cli_bulk_asig', (bar().getAttribute('data-selem')||'__none__')+'|'+selCids().join(',')); return; }
+    if(t.closest('#_cli_msel_eliminar')){ ev.preventDefault(); ev.stopPropagation();
+      if(D.getElementById('_cli_msel_eliminar').disabled) return;
+      fire('_cli_bulk_del', selCids().join(',')); return; }
+    var card=t.closest('.cli-msel-card');
+    if(card){ ev.preventDefault(); ev.stopPropagation(); card.classList.toggle('sel'); upd(); return; }
+    // click fuera del menú → cerrarlo
+    var mm=D.querySelector('.cli-msel-menu.open'); if(mm && !t.closest('.cli-msel-asig')) mm.classList.remove('open');
+  };
+  D.addEventListener('click', W._cliMselH, true);
+  upd();
+})();
+</script>"""
+
+
 def _render_bandeja(data: list):
     leads = [d for d in data if (d.get("_stage") in (STAGE_LEAD, STAGE_CONTACTADO))]
     _titulo(f"Bandeja de leads · {len(leads)}",
@@ -1844,6 +1985,13 @@ def _render_bandeja(data: list):
                             '<code>SHOPIFY_STORE</code> y <code>SHOPIFY_TOKEN</code> '
                             '(o <code>SHOPIFY_ACCESS_TOKEN</code>) en los secrets '
                             'para activar la ingesta.</div>', unsafe_allow_html=True)
+    # Selección múltiple (asignar/eliminar en bloque) — SOLO root/admin.
+    _gestor_b = st.session_state.get("rol_usuario") in ("root", "admin")
+    _msel = False
+    if _gestor_b and leads:
+        st.markdown(_CLI_MSEL_CSS, unsafe_allow_html=True)
+        _msel = st.toggle("Selección múltiple", key="_cli_msel",
+                          help="Marca varios leads para asignarlos a un ejecutivo o eliminarlos en bloque.")
     if not leads:
         st.markdown(
             '<div class="cli-empty-ph">Sin leads pendientes por asignar.<br>'
@@ -1851,14 +1999,18 @@ def _render_bandeja(data: list):
             '(Shopify / web) para triar y asignar a un ejecutivo.</span></div>',
             unsafe_allow_html=True)
         return
+    if _msel:
+        st.markdown(_build_msel_bar(), unsafe_allow_html=True)
     cards = ""
     for d in leads:
         _asig_b = _resolver_asig(d.get("asignado_email"), d.get("asignado_nombre"))
         _sb = _esc(f"{d.get('nombre','')} {d.get('rut','')} {d.get('email','')} "
                    f"{d.get('telefono','')} {_asig_b} {d.get('origen','')}".lower())
+        _cls = "cli-card cli-msel-card" if _msel else "cli-card"
+        _box = '<span class="cli-msel-box"></span>' if _msel else ''
         cards += (
-            f'<div class="cli-card" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}"'
-            f' data-s="{_sb}" style="margin-bottom:10px;">'
+            f'<div class="{_cls}" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}"'
+            f' data-s="{_sb}" style="margin-bottom:10px;">{_box}'
             f'<div class="cli-card-nm">{_esc(d.get("nombre","") or "—")}</div>'
             f'<div class="cli-card-sub" style="margin-top:4px;">{_origen_pill(d.get("origen","Manual"))}</div>'
             f'<div class="cli-card-sub" style="margin-top:4px;">{_esc(d.get("email","") or d.get("telefono","") or "—")}</div>'
@@ -1937,6 +2089,41 @@ def _do_asignar(cli, new_email):
     else:
         registrar_actividad(cli["id"], "nota", "Cliente desasignado", actor=_actor)
         st.toast("Cliente desasignado")
+
+
+def _do_asignar_bulk(clis, email) -> int:
+    """Asigna (o desasigna si email vacío/__none__) VARIOS leads a un ejecutivo. Para
+    no spamear, manda UNA notificación in-app resumen + UN aviso de Telegram resumen.
+    Devuelve cuántos se asignaron OK. Usado por el puente _cli_bulk_asig."""
+    email = (email or "").strip()
+    if email == "__none__":
+        email = ""
+    _nm = ""
+    if email:
+        for e in _ejecutivos():
+            if e["email"].lower() == email.lower():
+                _nm = e.get("nombre") or e["email"]
+                break
+    _actor = st.session_state.get("auth_nombre") or st.session_state.get("auth_email", "")
+    _ok = []
+    for cli in clis:
+        _o, _ = actualizar_cliente(cli["id"], {"asignado_email": email, "asignado_nombre": _nm})
+        if _o:
+            cli["asignado_email"] = email
+            cli["asignado_nombre"] = _nm
+            registrar_actividad(cli["id"], "nota",
+                                (f"Asignado a {_nm}" if email else "Desasignado"), actor=_actor)
+            _ok.append(cli)
+    if email and _ok:
+        _crear_notif(email, f"Se te asignaron {len(_ok)} lead(s)", tipo="lead",
+                     detalle=f"Asignados por {_actor}", cliente_id=_ok[0]["id"])
+        try:
+            _res = (_ok[0].get("nombre", "Cliente") if len(_ok) == 1
+                    else f"{len(_ok)} leads nuevos")
+            notificar_lead_asignado(_res, email, _nm, _actor)
+        except Exception:
+            pass
+    return len(_ok)
 
 
 def _crear_reintento(cid, cli, titulo, actor, cuando) -> str:
@@ -4402,6 +4589,74 @@ def render_tab_clientes(**kwargs):
                 _cli_data.clear()
                 st.session_state["_cli_ficha"] = _acid   # mantener la ficha abierta
 
+    # Puentes de SELECCIÓN MÚLTIPLE (bulk) — solo root/admin. Asignar: "email|cids|ts";
+    # Eliminar: "cids|ts" (pide confirmación antes de borrar).
+    if _es_gestor:
+        st.markdown('<style>.st-key-_cli_bulk_asig,.st-key-_cli_bulk_del{position:absolute!important;'
+                    'left:-9999px!important;top:-9999px!important;height:0!important;width:0!important;'
+                    'overflow:hidden!important;}</style>', unsafe_allow_html=True)
+        st.text_input("basig", key="_cli_bulk_asig", label_visibility="collapsed")
+        st.text_input("bdel", key="_cli_bulk_del", label_visibility="collapsed")
+        _basig = str(st.session_state.get("_cli_bulk_asig", "") or "")
+        if _basig.count("|") >= 2:
+            _bh, _bts = _basig.rsplit("|", 1)
+            if _bts != st.session_state.get("_cli_basig_ts"):
+                st.session_state["_cli_basig_ts"] = _bts
+                _bem, _bcids = (_bh.split("|", 1) + [""])[:2]
+                _bids = [c for c in _bcids.split(",") if c.strip()]
+                if _bids:
+                    _sel = set(_bids)
+                    _clis = [d for d in data if str(d.get("id")) in _sel]
+                    _n = _do_asignar_bulk(_clis, _bem)
+                    _cli_data.clear()
+                    st.session_state["_cli_toast"] = (
+                        f"{_n} lead(s) desasignados." if _bem in ("", "__none__")
+                        else f"{_n} lead(s) asignados.")
+                    st.rerun()
+        _bdel = str(st.session_state.get("_cli_bulk_del", "") or "")
+        if _bdel.count("|") >= 1:
+            _dh, _dts = _bdel.rsplit("|", 1)
+            if _dts != st.session_state.get("_cli_bdel_ts"):
+                st.session_state["_cli_bdel_ts"] = _dts
+                _dids = [c for c in _dh.split(",") if c.strip()]
+                if _dids:
+                    st.session_state["_cli_bulk_del_pending"] = _dids
+                    st.rerun()
+
+    # Confirmación del borrado múltiple (doble confirmación) — root/admin.
+    if _es_gestor and st.session_state.get("_cli_bulk_del_pending"):
+        _pend = st.session_state["_cli_bulk_del_pending"]
+        _nom = [next((d.get("nombre") for d in data if str(d.get("id")) == c), "—") or "—" for c in _pend]
+        st.markdown(
+            '<div style="background:#fff1f2;border:1.5px solid #fca5a5;border-radius:14px;padding:15px 18px;margin:6px 0 14px;">'
+            '<div style="display:flex;align-items:center;gap:9px;font-family:Montserrat,sans-serif;font-weight:800;'
+            'font-size:0.86rem;color:#b91c1c;text-transform:uppercase;letter-spacing:.03em;">'
+            + _svg('<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>'
+                   '<line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/>', 17, "#dc2626")
+            + f'Eliminar {len(_pend)} lead(s)</div>'
+            '<p style="margin:8px 0 0;font-size:0.82rem;color:#7f1d1d;line-height:1.5;">Esta acción es '
+            '<b>permanente</b>: borra el lead y sus datos del CRM (actividad, tareas, correos). No afecta los '
+            f'presupuestos.<br><b>{_esc(", ".join(_nom[:8]))}{"…" if len(_nom) > 8 else ""}</b></p></div>',
+            unsafe_allow_html=True)
+        _dc1, _dc2 = st.columns(2)
+        with _dc1:
+            if st.button("Cancelar", key="_cli_bdel_cancel", use_container_width=True, icon=":material/close:"):
+                st.session_state.pop("_cli_bulk_del_pending", None)
+                st.rerun()
+        with _dc2:
+            if st.button(f"Sí, eliminar ({len(_pend)})", key="_cli_bdel_ok", type="primary",
+                         use_container_width=True, icon=":material/delete_forever:"):
+                _okn = 0
+                with st.spinner("Eliminando leads…"):
+                    for _cid in _pend:
+                        _o, _ = eliminar_cliente(_cid)
+                        if _o:
+                            _okn += 1
+                st.session_state.pop("_cli_bulk_del_pending", None)
+                _cli_data.clear()
+                st.session_state["_cli_toast"] = f"{_okn} lead(s) eliminados."
+                st.rerun()
+
     # Puente de los dropdowns (custom) de la campaña → selección del segmento. Vive en
     # el flujo principal (FUERA del @st.dialog, si no NO commitea). El dropdown del
     # diálogo escribe 'tier|ej|st|fu|ts'; aquí se parsea y se re-abre la campaña.
@@ -4592,7 +4847,7 @@ def render_tab_clientes(**kwargs):
 
     # Handler de click (abre ficha) + menú contextual + filtros/búsqueda + salida.
     components.html(_CLI_CLICK_JS + _CLI_CTXMENU_JS + _CLI_FILTER_JS + _CLI_ASIG_JS + _CLI_COPY_JS
-                    + _SLA_TICK_JS, height=0)
+                    + _SLA_TICK_JS + _CLI_MSEL_JS, height=0)
     components.html(_CLI_DRAWER_JS, height=0)
 
     # Drawer: base siempre; entrada SOLO al abrir desde cerrado, reposo en los

@@ -160,6 +160,25 @@ def actualizar_cliente(cid: str, campos: dict) -> tuple:
         return False, str(e)
 
 
+def eliminar_cliente(cid: str) -> tuple:
+    """Elimina PERMANENTEMENTE un cliente/lead del CRM y sus datos CRM asociados
+    (actividad, tareas, notificaciones, correos). NO toca `cotizaciones`: el CRM es
+    una capa aparte y los presupuestos viven en su propia tabla. Best-effort en las
+    dependencias (si una tabla no existe, sigue). Devuelve (ok, error)."""
+    if not cid:
+        return False, "sin id"
+    for _t in ("crm_actividad", "crm_tareas", "notificaciones", "crm_correos"):
+        try:
+            _supa.table(_t).delete().eq("cliente_id", cid).execute()
+        except Exception:
+            pass
+    try:
+        _supa.table(_TABLA).delete().eq("id", cid).execute()
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+
 def marcar_no_email(cliente_id, valor: bool = True) -> bool:
     """Marca (o desmarca) que un cliente NO quiere recibir correos (desuscripción).
     DEFENSIVO: si la columna `no_email` no existe aún, devuelve False sin romper."""
