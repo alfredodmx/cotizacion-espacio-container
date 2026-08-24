@@ -1387,6 +1387,10 @@ _CLI_CTXMENU_JS = r"""<script>
     }
     row('Crear presupuesto','<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" x2="12" y1="12" y2="18"/><line x1="9" x2="15" y1="15" y2="15"/>','#2563eb','nuevo');
     row('Ver ficha 360','<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>','#0f172a','open');
+    if(W._cliGestor){
+      var _sep=D.createElement('div'); _sep.style.cssText='height:1px;background:#f1f5f9;margin:4px 6px;'; m.appendChild(_sep);
+      row('Eliminar','<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>','#dc2626','del');
+    }
     D.body.appendChild(m);
     var vw=W.innerWidth, vh=W.innerHeight, sx=W.pageXOffset||0, sy=W.pageYOffset||0;
     var rw=m.offsetWidth, rh=m.offsetHeight, px=x, py=y;
@@ -1657,7 +1661,10 @@ _CLI_COPY_JS = r"""<script>
 
 # ── Renders de cada vista ─────────────────────────────────────────────────────
 
-def _render_maestro(data: list):
+def _render_maestro(data: list, msel: bool = False):
+    _mrow_cls = "cli-msel-row" if msel else ""
+    _mrow_td = '<td class="cli-msel-cell"><span class="cli-msel-tick"></span></td>' if msel else ""
+    _mrow_th = '<th style="width:38px;"></th>' if msel else ""
     _titulo(f'Maestro · <span id="_cli_count">{len(data)}</span> cliente(s)',
             _svg('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>'
                  '<path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>', 16))
@@ -1678,9 +1685,9 @@ def _render_maestro(data: list):
         _asig_email = (d.get("asignado_email") or "").strip().lower()
         _sc = d.get("_score") or _lead_score(d, None)
         rows += (
-            f'<tr data-s="{_s}" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}"'
+            f'<tr class="{_mrow_cls}" data-s="{_s}" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}"'
             f' data-asig="{_esc(_asig_email)}" data-stage="{_esc(_stage)}" data-tier="{_sc["key"]}"'
-            f' data-fuente="{_esc(_fuente_norm(d.get("origen")))}">'
+            f' data-fuente="{_esc(_fuente_norm(d.get("origen")))}">' + _mrow_td +
             f'<td>{_score_badge(_sc, "sm")}</td>'
             f'<td style="font-weight:700;">{_esc(d.get("nombre","") or "—")}</td>'
             f'<td><span class="cli-pill" style="background:{_sbg};color:{_sfg};">{_slbl}</span></td>'
@@ -1692,6 +1699,7 @@ def _render_maestro(data: list):
             '</tr>')
     st.markdown(
         '<div class="cli-tbl-wrap"><table><thead><tr>'
+        + _mrow_th +
         '<th>Score</th><th>Cliente</th><th>Etapa</th><th>RUT</th><th>Correo</th><th>Tel&eacute;fono</th>'
         '<th>Origen</th><th>Ejecutivo</th>'
         f'</tr></thead><tbody>{rows}</tbody></table></div>', unsafe_allow_html=True)
@@ -1714,7 +1722,9 @@ def _render_maestro(data: list):
         '</select></label></div>', unsafe_allow_html=True)
 
 
-def _render_pipeline(data: list):
+def _render_pipeline(data: list, msel: bool = False):
+    _mcls = " cli-msel-card" if msel else ""
+    _mbox = '<span class="cli-msel-box"></span>' if msel else ""
     _titulo("Pipeline de oportunidades",
             _svg('<path d="M3 3v18h18"/><rect x="7" y="13" width="3" height="5"/>'
                  '<rect x="12" y="9" width="3" height="9"/><rect x="17" y="5" width="3" height="13"/>', 16))
@@ -1768,9 +1778,9 @@ def _render_pipeline(data: list):
             _s_blob = _esc(f"{d.get('nombre','')} {d.get('rut','')} {d.get('email','')} "
                            f"{d.get('telefono','')} {_asig} {d.get('origen','')}".lower())
             cards += (
-                f'<div class="cli-card" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}"'
+                f'<div class="cli-card{_mcls}" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}"'
                 f' data-asig="{_esc(_asig_email)}" data-stage="{_esc(s)}" data-tier="{_sc["key"]}"'
-                f' data-fuente="{_esc(_fuente_norm(d.get("origen")))}" data-s="{_s_blob}">'
+                f' data-fuente="{_esc(_fuente_norm(d.get("origen")))}" data-s="{_s_blob}">' + _mbox +
                 '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">'
                 '<div style="min-width:0;">'
                 f'<div class="cli-card-nm">{_esc(d.get("nombre","") or "—")}</div>'
@@ -1866,6 +1876,17 @@ _CLI_MSEL_CSS = """
 .cli-msel-card.sel .cli-msel-box{background:#5b7cfa;border-color:#5b7cfa;}
 .cli-msel-card.sel .cli-msel-box::after{content:'';position:absolute;left:5px;top:1px;width:5px;height:10px;
   border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);}
+/* Maestro: fila seleccionable con celda de check */
+tr.cli-msel-row{cursor:pointer;}
+tr.cli-msel-row:hover td{background:#f5f7ff!important;}
+tr.cli-msel-row.sel td{background:#eef4ff!important;}
+.cli-msel-cell{text-align:center;width:38px;}
+.cli-msel-tick{display:inline-block;width:18px;height:18px;border:2px solid #cbd5e1;border-radius:5px;
+  background:#fff;vertical-align:middle;box-sizing:border-box;position:relative;transition:all .12s;}
+tr.cli-msel-row:hover .cli-msel-tick{border-color:#5b7cfa;}
+tr.cli-msel-row.sel .cli-msel-tick{background:#5b7cfa;border-color:#5b7cfa;}
+tr.cli-msel-row.sel .cli-msel-tick::after{content:'';position:absolute;left:4.5px;top:1px;width:5px;height:9px;
+  border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);}
 </style>"""
 
 
@@ -1908,7 +1929,7 @@ _CLI_MSEL_JS = r"""<script>
 (function(){
   var W=window.parent, D=W&&W.document; if(!D) return;
   function bar(){ return D.getElementById('_cli_msel_bar'); }
-  function cards(){ return [].slice.call(D.querySelectorAll('.cli-msel-card'))
+  function cards(){ return [].slice.call(D.querySelectorAll('.cli-msel-card, tr.cli-msel-row'))
                       .filter(function(c){ return c.offsetParent!==null; }); }
   function selCids(){ return cards().filter(function(c){return c.classList.contains('sel');})
                         .map(function(c){return c.getAttribute('data-cid');}); }
@@ -1955,7 +1976,7 @@ _CLI_MSEL_JS = r"""<script>
     if(t.closest('#_cli_msel_eliminar')){ ev.preventDefault(); ev.stopPropagation();
       if(D.getElementById('_cli_msel_eliminar').disabled) return;
       fire('_cli_bulk_del', selCids().join(',')); return; }
-    var card=t.closest('.cli-msel-card');
+    var card=t.closest('.cli-msel-card, tr.cli-msel-row');
     if(card){ ev.preventDefault(); ev.stopPropagation(); card.classList.toggle('sel'); upd(); return; }
     // click fuera del menú → cerrarlo
     var mm=D.querySelector('.cli-msel-menu.open'); if(mm && !t.closest('.cli-msel-asig')) mm.classList.remove('open');
@@ -1966,7 +1987,7 @@ _CLI_MSEL_JS = r"""<script>
 </script>"""
 
 
-def _render_bandeja(data: list):
+def _render_bandeja(data: list, msel: bool = False):
     leads = [d for d in data if (d.get("_stage") in (STAGE_LEAD, STAGE_CONTACTADO))]
     _titulo(f"Bandeja de leads · {len(leads)}",
             _svg('<path d="M22 12h-6l-2 3h-4l-2-3H2"/>'
@@ -1985,13 +2006,6 @@ def _render_bandeja(data: list):
                             '<code>SHOPIFY_STORE</code> y <code>SHOPIFY_TOKEN</code> '
                             '(o <code>SHOPIFY_ACCESS_TOKEN</code>) en los secrets '
                             'para activar la ingesta.</div>', unsafe_allow_html=True)
-    # Selección múltiple (asignar/eliminar en bloque) — SOLO root/admin.
-    _gestor_b = st.session_state.get("rol_usuario") in ("root", "admin")
-    _msel = False
-    if _gestor_b and leads:
-        st.markdown(_CLI_MSEL_CSS, unsafe_allow_html=True)
-        _msel = st.toggle("Selección múltiple", key="_cli_msel",
-                          help="Marca varios leads para asignarlos a un ejecutivo o eliminarlos en bloque.")
     if not leads:
         st.markdown(
             '<div class="cli-empty-ph">Sin leads pendientes por asignar.<br>'
@@ -1999,15 +2013,13 @@ def _render_bandeja(data: list):
             '(Shopify / web) para triar y asignar a un ejecutivo.</span></div>',
             unsafe_allow_html=True)
         return
-    if _msel:
-        st.markdown(_build_msel_bar(), unsafe_allow_html=True)
     cards = ""
     for d in leads:
         _asig_b = _resolver_asig(d.get("asignado_email"), d.get("asignado_nombre"))
         _sb = _esc(f"{d.get('nombre','')} {d.get('rut','')} {d.get('email','')} "
                    f"{d.get('telefono','')} {_asig_b} {d.get('origen','')}".lower())
-        _cls = "cli-card cli-msel-card" if _msel else "cli-card"
-        _box = '<span class="cli-msel-box"></span>' if _msel else ''
+        _cls = "cli-card cli-msel-card" if msel else "cli-card"
+        _box = '<span class="cli-msel-box"></span>' if msel else ''
         cards += (
             f'<div class="{_cls}" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}"'
             f' data-s="{_sb}" style="margin-bottom:10px;">{_box}'
@@ -4171,6 +4183,18 @@ def _render_ficha(cid: str, data: list):
         if st.session_state.get("rol_usuario") in ("root", "admin"):
             st.markdown(_zsec("Asignación de ejecutivo", _ZIC_ASIGNAR), unsafe_allow_html=True)
             _render_asignar(cid, cli)
+            # Eliminar cliente — sale de la ficha y pide segunda confirmación en la vista.
+            st.markdown(
+                '<style>.st-key-_cli_ficha_del button{background:#fff!important;border:1px solid #fecaca!important;'
+                'color:#dc2626!important;font-weight:700!important;}'
+                '.st-key-_cli_ficha_del button:hover{background:#dc2626!important;color:#fff!important;'
+                'border-color:#dc2626!important;}</style><div style="height:10px"></div>',
+                unsafe_allow_html=True)
+            if st.button("Eliminar cliente", key="_cli_ficha_del", use_container_width=True,
+                         icon=":material/delete:"):
+                st.session_state["_cli_bulk_del_pending"] = [cid]
+                st.session_state.pop("_cli_ficha", None)
+                st.rerun()
 
         # "Enviar correo" abre el compositor (Resend); "Nueva actividad" abre el
         # formulario para agendar. El cierre del drawer va por su X / clic fuera /
@@ -4569,6 +4593,11 @@ def render_tab_clientes(**kwargs):
                 if _cobj:
                     _iniciar_presupuesto(_cobj)
                     st.rerun()
+            elif _p[0] == "del" and len(_p) >= 3 and _es_gestor:
+                # Eliminar (click derecho) → confirmación antes de borrar. Cierra la ficha.
+                st.session_state["_cli_bulk_del_pending"] = [_p[1]]
+                st.session_state.pop("_cli_ficha", None)
+                st.rerun()
 
     # Puente de asignación (dropdown con foto de la ficha). "cid|email|ts". Solo
     # root/admin. Muta el cliente en `data` y mantiene la ficha abierta (setea
@@ -4838,15 +4867,28 @@ def render_tab_clientes(**kwargs):
     if _es_gestor and _view in ("Pipeline", "Maestro"):
         st.markdown(_build_filter_bar(data), unsafe_allow_html=True)
 
+    # Selección múltiple (asignar / eliminar en bloque) — SOLO root/admin, en TODAS
+    # las vistas (Pipeline, Bandeja, Maestro). La barra + los checkboxes aparecen al
+    # activar el toggle; el borrado siempre pide segunda confirmación.
+    _msel = False
+    if _es_gestor:
+        st.markdown(_CLI_MSEL_CSS, unsafe_allow_html=True)
+        _msel = st.toggle("Selección múltiple", key="_cli_msel",
+                          help="Marca varios leads/clientes para asignarlos a un ejecutivo "
+                               "o eliminarlos en bloque (pide confirmación).")
+        if _msel:
+            st.markdown(_build_msel_bar(), unsafe_allow_html=True)
+
     if _view == "Maestro":
-        _render_maestro(data)
+        _render_maestro(data, _msel)
     elif _view == "Bandeja":
-        _render_bandeja(data)
+        _render_bandeja(data, _msel)
     else:
-        _render_pipeline(data)
+        _render_pipeline(data, _msel)
 
     # Handler de click (abre ficha) + menú contextual + filtros/búsqueda + salida.
-    components.html(_CLI_CLICK_JS + _CLI_CTXMENU_JS + _CLI_FILTER_JS + _CLI_ASIG_JS + _CLI_COPY_JS
+    _gestor_flag_js = f"<script>try{{window.parent._cliGestor={'true' if _es_gestor else 'false'};}}catch(e){{}}</script>"
+    components.html(_gestor_flag_js + _CLI_CLICK_JS + _CLI_CTXMENU_JS + _CLI_FILTER_JS + _CLI_ASIG_JS + _CLI_COPY_JS
                     + _SLA_TICK_JS + _CLI_MSEL_JS, height=0)
     components.html(_CLI_DRAWER_JS, height=0)
 
