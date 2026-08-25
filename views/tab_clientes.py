@@ -1581,18 +1581,6 @@ _CLI_FILTER_JS = r"""<script>
 _CLI_ASIG_JS = r"""<script>
 (function(){
   var W=window.parent, D=W&&W.document; if(!D) return;
-  function fire(cid, em){
-    var inp=D.querySelector('.st-key-_cli_asigcmd input'); if(!inp) return;
-    try{
-      var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set;
-      inp.focus({preventScroll:true});
-      setter.call(inp, cid+'|'+em+'|'+Date.now());
-      inp.dispatchEvent(new Event('input',{bubbles:true}));
-      inp.dispatchEvent(new Event('change',{bubbles:true}));
-      inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
-      inp.blur();
-    }catch(e){}
-  }
   if(W._cliAsigH){ D.removeEventListener('click', W._cliAsigH, true); }
   W._cliAsigH=function(e){
     var t=e.target; if(!t||!t.closest) return;
@@ -1600,9 +1588,13 @@ _CLI_ASIG_JS = r"""<script>
     if(chip){ var w=chip.closest('.cli-asig-wrap'); var m=w?w.querySelector('.cli-asig-menu'):null;
       if(m) m.classList.toggle('open'); e.preventDefault(); e.stopPropagation(); return; }
     var opt=t.closest('.cli-asig-opt');
-    if(opt){ var w2=opt.closest('.cli-asig-wrap'); var cid=w2?w2.getAttribute('data-acid'):'';
-      var mm=w2?w2.querySelector('.cli-asig-menu'):null; if(mm) mm.classList.remove('open');
-      fire(cid, opt.getAttribute('data-em')||''); e.preventDefault(); e.stopPropagation(); return; }
+    if(opt){ e.preventDefault(); e.stopPropagation();
+      var w2=opt.closest('.cli-asig-wrap'); var mm=w2?w2.querySelector('.cli-asig-menu'):null;
+      if(mm) mm.classList.remove('open');
+      // Clic sobre el botón NATIVO oculto de esa opción (dentro del fragment → sí commitea).
+      var bk=opt.getAttribute('data-btnkey');
+      if(bk){ var b=D.querySelector('.st-key-'+bk+' button'); if(b) b.click(); }
+      return; }
     var op=D.querySelector('.cli-asig-menu.open');
     if(op && !(t.closest && t.closest('.cli-asig-wrap'))) op.classList.remove('open');
   };
@@ -2034,43 +2026,61 @@ def _render_bandeja(data: list, msel: bool = False):
 
 @st.fragment
 def _render_asignar(cid, cli):
-    """Asignación de ejecutivo con `st.selectbox` NATIVO dentro de un `@st.fragment`.
-    Antes era un dropdown HTML que escribía al puente `_cli_asigcmd`: con el modal
-    abierto, ese input del flujo principal quedaba detrás (inerte) y no commiteaba al
-    primer clic → había que elegir 2-3 veces y disparaba reruns de TODO el drawer.
-    Ahora el selectbox commitea al PRIMER clic (`on_change`) y solo re-renderiza ESTE
-    fragmento (no todo el drawer): asignación instantánea. Muestra el avatar del
-    ejecutivo elegido al lado; las opciones son los nombres. Solo root/admin."""
+    """Asignación de ejecutivo — dropdown HTML CON FOTO (chip + menú, estilo
+    COTIZACIONES) pero fiable y rápido. Antes el dropdown escribía a un `text_input`
+    del flujo principal (`_cli_asigcmd`): con el drawer abierto ese input queda detrás
+    (inerte) y no commiteaba al primer clic → 2-3 intentos + reruns de todo el drawer.
+    Ahora cada opción clickea un **botón nativo oculto DENTRO de este `@st.fragment`**
+    (los clicks de botón sí commitean dentro del diálogo) → asigna al PRIMER clic y
+    solo re-renderiza el fragmento (no todo el drawer). Solo root/admin."""
     _ejs = sorted(_ejecutivos(), key=lambda x: (x.get("nombre") or "").lower())
     _cur_em = (cli.get("asignado_email") or "").strip().lower()
-    _nmap = {e["email"].lower(): (e.get("nombre") or e["email"]) for e in _ejs}
-    _fmap = {e["email"].lower(): e.get("foto_url", "") for e in _ejs}
-    _cur_nm = (_nmap.get(_cur_em)
-               or _resolver_asig(cli.get("asignado_email"), cli.get("asignado_nombre")) or "")
-    _opts = [""] + [e["email"] for e in _ejs]           # "" = — Sin asignar —
-    try:
-        _idx = _opts.index(next(e["email"] for e in _ejs if e["email"].lower() == _cur_em))
-    except StopIteration:
-        _idx = 0
-    _sbkey = f"_asig_sb_{cid}"
+    # Picks: idx 0 = sin asignar; luego cada ejecutivo (email, nombre, foto).
+    _picks = [("", "— Sin asignar —", "")]
+    for e in _ejs:
+        _picks.append((e["email"], e.get("nombre") or e["email"], e.get("foto_url", "")))
+    _cur_nm = _resolver_asig(cli.get("asignado_email"), cli.get("asignado_nombre")) or ""
+    _cur_foto = ""
+    for _em, _nm, _ft in _picks:
+        if _em and _em.lower() == _cur_em:
+            _cur_nm, _cur_foto = _nm, _ft
+            break
 
-    def _fmt(em):
-        return "— Sin asignar —" if not em else _nmap.get(em.lower(), em)
+    def _pick(email):
+        _do_asignar(cli, email)     # muta cli + DB + notif; el fragment re-lee cli
+        _cli_data.clear()
 
-    def _cb():
-        _do_asignar(cli, st.session_state.get(_sbkey) or "")   # muta cli + DB + notif
-        _cli_data.clear()                                      # el fragment re-lee cli
+    # Botones nativos OCULTOS (uno por opción) → los clickea el JS del dropdown. Van
+    # DENTRO del fragment/diálogo (no inertes), por eso el click sí llega a Python.
+    st.markdown('<style>[class*="st-key-_asigpick_"]{position:absolute!important;left:-9999px!important;'
+                'top:-9999px!important;height:0!important;width:0!important;overflow:hidden!important;}</style>',
+                unsafe_allow_html=True)
+    for _i, (_em, _nm, _ft) in enumerate(_picks):
+        st.button("p", key=f"_asigpick_{_i}", on_click=_pick, args=(_em,))
 
-    st.markdown('<div class="cli-asig-lbl" style="font-family:Montserrat,sans-serif;font-weight:700;'
-                'font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;'
-                'margin:0 0 5px;">Ejecutivo asignado</div>', unsafe_allow_html=True)
-    _ca1, _ca2 = st.columns([0.6, 5], vertical_alignment="center")
-    with _ca1:
-        st.markdown(_avatar_html(_fmap.get(_cur_em, ""), _cur_nm or "EC", size=38,
-                                 ring="#e2e8f0", font_scale=0.4), unsafe_allow_html=True)
-    with _ca2:
-        st.selectbox("Ejecutivo asignado", _opts, index=_idx, format_func=_fmt,
-                     key=_sbkey, label_visibility="collapsed", on_change=_cb)
+    # Chip (selección actual) + menú con fotos. Cada opción lleva el key de su botón.
+    if _cur_em:
+        _chip_body = (_avatar_html(_cur_foto, _cur_nm, size=30, ring="#e2e8f0", font_scale=0.4)
+                      + f'<span class="cli-asig-nm">{_esc(_cur_nm)}</span>')
+    else:
+        _chip_body = '<span class="cli-asig-ph">— Sin asignar —</span>'
+    _none_ico = ('<span class="cli-asig-none">'
+                 + _svg('<path d="M19 21v-2a4 4 0 0 0-4-4H8"/><circle cx="10" cy="7" r="4"/>'
+                        '<line x1="17" x2="22" y1="8" y2="13"/><line x1="22" x2="17" y1="8" y2="13"/>',
+                        14, "currentColor") + '</span>')
+    _opts_html = ""
+    for _i, (_em, _nm, _ft) in enumerate(_picks):
+        _ico = (_avatar_html(_ft, _nm, size=26, ring="#e2e8f0", font_scale=0.42) if _em else _none_ico)
+        _opts_html += (f'<button type="button" class="cli-asig-opt" data-btnkey="_asigpick_{_i}">'
+                       f'{_ico}<span>{_esc(_nm)}</span></button>')
+    _cv = _svg('<polyline points="6 9 12 15 18 9"/>', 12, "currentColor")
+    st.markdown(
+        '<div class="cli-asig"><div class="cli-asig-lbl">Ejecutivo asignado</div>'
+        f'<div class="cli-asig-wrap" data-acid="{_esc(cid)}">'
+        f'<button type="button" class="cli-asig-chip">{_chip_body}'
+        f'<span class="cli-asig-cv">{_cv}</span></button>'
+        f'<div class="cli-asig-menu">{_opts_html}</div></div></div>',
+        unsafe_allow_html=True)
 
 
 def _do_asignar(cli, new_email):
@@ -2412,6 +2422,21 @@ def _render_datos(cid, cli):
         f'<div><div class="k">Comuna</div>{_cp(_com, _esc(_com or "—"), "Copiar comuna")}</div>'
         f'{_empresa}'
         '</div>', unsafe_allow_html=True)
+
+    # Eliminar cliente — SOLO root/admin. Sale de la ficha y pide 2ª confirmación
+    # en la vista (misma tarjeta roja que la selección múltiple).
+    if st.session_state.get("rol_usuario") in ("root", "admin"):
+        st.markdown(
+            '<style>.st-key-_cli_ficha_del button{background:#fff!important;border:1px solid #fecaca!important;'
+            'color:#dc2626!important;font-weight:700!important;}'
+            '.st-key-_cli_ficha_del button:hover{background:#dc2626!important;color:#fff!important;'
+            'border-color:#dc2626!important;}</style><div style="height:10px"></div>',
+            unsafe_allow_html=True)
+        if st.button("Eliminar cliente", key="_cli_ficha_del", use_container_width=True,
+                     icon=":material/delete:"):
+            st.session_state["_cli_bulk_del_pending"] = [cid]
+            st.session_state.pop("_cli_ficha", None)
+            st.rerun()
 
 
 _CORREO_META = {   # last_event de Resend -> (label, bg, fg)
@@ -4191,18 +4216,6 @@ def _render_ficha(cid: str, data: list):
         if st.session_state.get("rol_usuario") in ("root", "admin"):
             st.markdown(_zsec("Asignación de ejecutivo", _ZIC_ASIGNAR), unsafe_allow_html=True)
             _render_asignar(cid, cli)
-            # Eliminar cliente — sale de la ficha y pide segunda confirmación en la vista.
-            st.markdown(
-                '<style>.st-key-_cli_ficha_del button{background:#fff!important;border:1px solid #fecaca!important;'
-                'color:#dc2626!important;font-weight:700!important;}'
-                '.st-key-_cli_ficha_del button:hover{background:#dc2626!important;color:#fff!important;'
-                'border-color:#dc2626!important;}</style><div style="height:10px"></div>',
-                unsafe_allow_html=True)
-            if st.button("Eliminar cliente", key="_cli_ficha_del", use_container_width=True,
-                         icon=":material/delete:"):
-                st.session_state["_cli_bulk_del_pending"] = [cid]
-                st.session_state.pop("_cli_ficha", None)
-                st.rerun()
 
         # "Enviar correo" abre el compositor (Resend); "Nueva actividad" abre el
         # formulario para agendar. El cierre del drawer va por su X / clic fuera /
@@ -4595,8 +4608,6 @@ def render_tab_clientes(**kwargs):
                 st.session_state.pop("_cli_act_res", None)
                 st.session_state.pop("_cli_mail_open", None)
                 st.session_state.pop("_cli_edit", None)
-                # el selectbox de asignación arranca en la asignación actual del cliente
-                st.session_state.pop(f"_asig_sb_{_p[1]}", None)
             elif _p[0] == "nuevo" and len(_p) >= 3:
                 # Crear presupuesto para este cliente (menú contextual pipeline/maestro).
                 _cobj = next((d for d in data if str(d.get("id")) == _p[1]), None)
