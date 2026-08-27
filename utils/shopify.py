@@ -127,8 +127,10 @@ def _headers():
 
 
 def _scope_hint(code) -> str:
-    return (" — el token NO tiene el permiso 'write_products'. Agrégalo en tu app custom "
-            "de Shopify (scopes) y reinstala." if code in (401, 403) else "")
+    return (" — el token todavía NO tiene APROBADO el permiso 'write_products'. En tu app custom "
+            "de Shopify: agrega el scope write_products, Guarda, y luego INSTALA/REINSTALA la app "
+            "(ese paso es la 'aprobación del comerciante'). Si al reinstalar cambia el Admin API token, "
+            "actualízalo en el secret SHOPIFY_TOKEN." if code in (401, 403) else "")
 
 
 def get_producto(pid) -> tuple:
