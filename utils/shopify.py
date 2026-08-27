@@ -73,6 +73,53 @@ def listar_clientes(max_paginas: int = 40) -> tuple:
         return out, str(e)
 
 
+def store_admin_url() -> str:
+    """URL del admin de la tienda (para el botón 'Abrir en Shopify')."""
+    return f"https://{_store()}/admin" if _store() else ""
+
+
+def producto_admin_url(pid) -> str:
+    return f"https://{_store()}/admin/products/{pid}" if (_store() and pid) else ""
+
+
+def producto_web_url(handle) -> str:
+    """URL pública del producto en la tienda (myshopify)."""
+    return f"https://{_store()}/products/{handle}" if (_store() and handle) else ""
+
+
+def listar_productos(status: str = "active", max_paginas: int = 20) -> tuple:
+    """Trae los productos de la tienda (paginado por cursor, 250 por página).
+    `status`: 'active' | 'draft' | 'archived' | '' (todos). Devuelve (lista, error).
+    DEFENSIVO. Si el token no tiene `read_products`, Shopify responde 401/403 y se
+    devuelve un mensaje claro para que el usuario agregue el permiso a su app."""
+    if not configurado():
+        return [], "Faltan SHOPIFY_STORE / SHOPIFY_TOKEN (o SHOPIFY_ACCESS_TOKEN) en los secrets."
+    import requests
+    out = []
+    url = f"https://{_store()}/admin/api/{_version()}/products.json?limit=250"
+    if status:
+        url += f"&status={status}"
+    headers = {"X-Shopify-Access-Token": _token(), "Content-Type": "application/json"}
+    try:
+        for _ in range(max(1, int(max_paginas))):
+            r = requests.get(url, headers=headers, timeout=30)
+            if r.status_code != 200:
+                _msg = f"Shopify {r.status_code}: {r.text[:200]}"
+                if r.status_code in (401, 403):
+                    _msg += (" — parece que el token NO tiene el permiso 'read_products'. "
+                             "Agrégalo en tu app custom de Shopify (Admin → Apps → tu app → "
+                             "Configuración de API → scopes: read_products, write_products) y reinstala.")
+                return out, _msg
+            out.extend((r.json() or {}).get("products") or [])
+            _nxt = _next_link(r.headers.get("Link", "") or r.headers.get("link", ""))
+            if not _nxt:
+                break
+            url = _nxt
+        return out, None
+    except Exception as e:
+        return out, str(e)
+
+
 def a_lead(c: dict) -> dict:
     """Mapea un cliente de Shopify a un lead del CRM (llaves de CAMPOS_IMPORT)."""
     _addr = c.get("default_address") or {}
