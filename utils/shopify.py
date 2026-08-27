@@ -120,6 +120,104 @@ def listar_productos(status: str = "active", max_paginas: int = 20) -> tuple:
         return out, str(e)
 
 
+# ── Escritura de productos (Fase 2/3) — requiere scope write_products ─────────
+
+def _headers():
+    return {"X-Shopify-Access-Token": _token(), "Content-Type": "application/json"}
+
+
+def _scope_hint(code) -> str:
+    return (" — el token NO tiene el permiso 'write_products'. Agrégalo en tu app custom "
+            "de Shopify (scopes) y reinstala." if code in (401, 403) else "")
+
+
+def get_producto(pid) -> tuple:
+    """Trae UN producto fresco (para el editor). Devuelve (producto|None, error)."""
+    if not configurado():
+        return None, "Sin credenciales de Shopify."
+    import requests
+    try:
+        r = requests.get(f"https://{_store()}/admin/api/{_version()}/products/{pid}.json",
+                         headers=_headers(), timeout=25)
+        if r.status_code == 200:
+            return (r.json() or {}).get("product"), None
+        return None, f"Shopify {r.status_code}: {r.text[:200]}" + _scope_hint(r.status_code)
+    except Exception as e:
+        return None, str(e)
+
+
+def actualizar_producto(pid, campos: dict) -> tuple:
+    """PUT de campos del producto (title, body_html, status, product_type, tags…).
+    Devuelve (ok, error). DEFENSIVO."""
+    if not configurado():
+        return False, "Sin credenciales de Shopify."
+    import requests
+    try:
+        r = requests.put(f"https://{_store()}/admin/api/{_version()}/products/{pid}.json",
+                         headers=_headers(), json={"product": {"id": pid, **campos}}, timeout=30)
+        if r.status_code in (200, 201):
+            return True, None
+        return False, f"Shopify {r.status_code}: {r.text[:250]}" + _scope_hint(r.status_code)
+    except Exception as e:
+        return False, str(e)
+
+
+def actualizar_variante(vid, campos: dict) -> tuple:
+    """PUT de una variante (p.ej. {'price':'15990000'}). Devuelve (ok, error)."""
+    if not configurado():
+        return False, "Sin credenciales de Shopify."
+    import requests
+    try:
+        r = requests.put(f"https://{_store()}/admin/api/{_version()}/variants/{vid}.json",
+                         headers=_headers(), json={"variant": {"id": vid, **campos}}, timeout=30)
+        if r.status_code in (200, 201):
+            return True, None
+        return False, f"Shopify {r.status_code}: {r.text[:250]}" + _scope_hint(r.status_code)
+    except Exception as e:
+        return False, str(e)
+
+
+def agregar_imagen(pid, src: str = "", attachment: str = "", filename: str = "") -> tuple:
+    """Agrega una imagen al producto: por `src` (URL) o `attachment` (base64) + filename.
+    Devuelve (ok, error). DEFENSIVO."""
+    if not configurado():
+        return False, "Sin credenciales de Shopify."
+    _img = {}
+    if src:
+        _img["src"] = src
+    if attachment:
+        _img["attachment"] = attachment
+        if filename:
+            _img["filename"] = filename
+    if not _img:
+        return False, "Falta la URL o el archivo de la imagen."
+    import requests
+    try:
+        r = requests.post(f"https://{_store()}/admin/api/{_version()}/products/{pid}/images.json",
+                          headers=_headers(), json={"image": _img}, timeout=40)
+        if r.status_code in (200, 201):
+            return True, None
+        return False, f"Shopify {r.status_code}: {r.text[:250]}" + _scope_hint(r.status_code)
+    except Exception as e:
+        return False, str(e)
+
+
+def eliminar_imagen(pid, image_id) -> tuple:
+    """Elimina una imagen del producto. Devuelve (ok, error). DEFENSIVO."""
+    if not configurado():
+        return False, "Sin credenciales de Shopify."
+    import requests
+    try:
+        r = requests.delete(
+            f"https://{_store()}/admin/api/{_version()}/products/{pid}/images/{image_id}.json",
+            headers=_headers(), timeout=30)
+        if r.status_code in (200, 201):
+            return True, None
+        return False, f"Shopify {r.status_code}: {r.text[:250]}" + _scope_hint(r.status_code)
+    except Exception as e:
+        return False, str(e)
+
+
 def a_lead(c: dict) -> dict:
     """Mapea un cliente de Shopify a un lead del CRM (llaves de CAMPOS_IMPORT)."""
     _addr = c.get("default_address") or {}
