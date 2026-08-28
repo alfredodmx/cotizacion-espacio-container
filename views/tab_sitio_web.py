@@ -23,6 +23,7 @@ _IC = {
     "text": '<path d="M17 6.1H3"/><path d="M21 12.1H3"/><path d="M15.1 18H3"/>',
     "tag": '<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>',
     "money": '<line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+    "video": '<path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/>',
 }
 
 
@@ -259,7 +260,12 @@ _SW_JS = r"""<script>
       setter.call(inp, id+'|'+Date.now());
       inp.dispatchEvent(new Event('input',{bubbles:true}));
       inp.dispatchEvent(new Event('change',{bubbles:true}));
+      // Secuencia COMPLETA (si no, el 2º/3º clic no commitea a Python y "no deja editar").
+      inp.dispatchEvent(new KeyboardEvent('keypress',{key:'Enter',keyCode:13,which:13,bubbles:true}));
       inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new FocusEvent('blur',{bubbles:true}));
+      inp.dispatchEvent(new FocusEvent('focusout',{bubbles:true}));
       inp.blur();
     }catch(e){}
   }
@@ -281,6 +287,8 @@ def _clear_editor_state():
     st.session_state.pop("sw_edit_prod", None)
     st.session_state.pop("sw_edit_mf", None)
     st.session_state.pop("sw_edit_mf_pid", None)
+    st.session_state.pop("sw_edit_vid", None)
+    st.session_state.pop("sw_edit_vid_pid", None)
 
 
 def render_tab_sitio_web(**kwargs):
@@ -533,27 +541,59 @@ def _render_editor(pid):
                 f'<span style="color:#94a3b8;font-weight:800;">· {len(_imgs)}</span></div>',
                 unsafe_allow_html=True)
     if _imgs:
+        st.caption("La 1ª foto es la principal en la web. Usa ◀ ▶ para reordenar y la papelera para eliminar.")
+        _all_ids = [im.get("id") for im in _imgs]
+
+        def _reorder(new_ids):
+            with st.spinner("Reordenando…"):
+                _ok, _e = _shop.reordenar_imagenes(pid, new_ids)
+            if _ok:
+                st.session_state.pop("sw_edit_prod", None)
+                _cargar_productos.clear()
+                st.rerun()
+            else:
+                st.error(_e)
+
         _n = 4
-        _rows = [_imgs[i:i + _n] for i in range(0, len(_imgs), _n)]
-        for _row in _rows:
+        for _base in range(0, len(_imgs), _n):
+            _row = _imgs[_base:_base + _n]
             _cols = st.columns(_n)
             for _j, im in enumerate(_row):
+                _gidx = _base + _j
                 with _cols[_j]:
                     _src = im.get("src", "")
                     if _src:
                         st.markdown(f'<div class="sw-ph"><img src="{_he(_src)}" alt=""></div>',
                                     unsafe_allow_html=True)
-                    if st.button("Eliminar", key=f"sw_ed_delimg_{im.get('id')}", use_container_width=True,
-                                 icon=":material/delete:"):
-                        with st.spinner("Eliminando foto…"):
-                            _ok, _e = _shop.eliminar_imagen(pid, im.get("id"))
-                        if _ok:
-                            st.session_state.pop("sw_edit_prod", None)
-                            _cargar_productos.clear()
-                            st.toast("Foto eliminada.")
-                            st.rerun()
-                        else:
-                            st.error(_e)
+                    _b1, _b2, _b3 = st.columns(3)
+                    with _b1:
+                        if st.button("", icon=":material/chevron_left:", key=f"sw_ed_mvl_{im.get('id')}",
+                                     use_container_width=True, help="Mover antes", disabled=(_gidx == 0)):
+                            _no = list(_all_ids)
+                            _no[_gidx - 1], _no[_gidx] = _no[_gidx], _no[_gidx - 1]
+                            _reorder(_no)
+                    with _b2:
+                        if st.button("", icon=":material/chevron_right:", key=f"sw_ed_mvr_{im.get('id')}",
+                                     use_container_width=True, help="Mover después",
+                                     disabled=(_gidx == len(_imgs) - 1)):
+                            _no = list(_all_ids)
+                            _no[_gidx + 1], _no[_gidx] = _no[_gidx], _no[_gidx + 1]
+                            _reorder(_no)
+                    with _b3:
+                        if st.button("", icon=":material/delete:", key=f"sw_ed_delimg_{im.get('id')}",
+                                     use_container_width=True, help="Eliminar"):
+                            with st.spinner("Eliminando foto…"):
+                                _ok, _e = _shop.eliminar_imagen(pid, im.get("id"))
+                            if _ok:
+                                st.session_state.pop("sw_edit_prod", None)
+                                _cargar_productos.clear()
+                                st.toast("Foto eliminada.")
+                                st.rerun()
+                            else:
+                                st.error(_e)
+                    st.markdown(f'<div style="text-align:center;font-size:0.66rem;color:#94a3b8;'
+                                f'font-weight:700;">Foto #{_gidx + 1}'
+                                + ('  · principal' if _gidx == 0 else '') + '</div>', unsafe_allow_html=True)
     else:
         st.caption("Este producto no tiene fotos todavía.")
 
@@ -595,6 +635,80 @@ def _render_editor(pid):
                     st.rerun()
                 else:
                     st.error(_e)
+
+    # ── Videos ──
+    _vid = st.session_state.get("sw_edit_vid")
+    if _vid is None or st.session_state.get("sw_edit_vid_pid") != str(pid):
+        with st.spinner("Cargando videos…"):
+            _vid, _viderr = _shop.listar_videos(pid)
+        if _viderr:
+            st.warning(_viderr)
+            _vid = []
+        st.session_state["sw_edit_vid"] = _vid
+        st.session_state["sw_edit_vid_pid"] = str(pid)
+
+    st.markdown(f'<div class="sw-sec">{_ic("video", "#0f172a", 16, 0)}Videos '
+                f'<span style="color:#94a3b8;font-weight:800;">· {len(_vid)}</span></div>',
+                unsafe_allow_html=True)
+    st.caption("Agrega videos de YouTube o Vimeo pegando el enlace. Aparecen en la galería del producto "
+               "(si tu tema muestra videos).")
+
+    if _vid:
+        _vn = 4
+        for _vbase in range(0, len(_vid), _vn):
+            _vrow = _vid[_vbase:_vbase + _vn]
+            _vcols = st.columns(_vn)
+            for _vj, vd in enumerate(_vrow):
+                with _vcols[_vj]:
+                    _pv = vd.get("preview_url", "")
+                    if _pv:
+                        st.markdown(
+                            f'<div class="sw-ph" style="position:relative;"><img src="{_he(_pv)}" alt="">'
+                            '<div style="position:absolute;inset:0;display:flex;align-items:center;'
+                            'justify-content:center;"><div style="width:38px;height:38px;border-radius:50%;'
+                            'background:rgba(15,23,42,.6);display:flex;align-items:center;justify-content:center;">'
+                            '<svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><polygon points="6 3 20 12 6 21 6 3"/></svg>'
+                            '</div></div></div>', unsafe_allow_html=True)
+                    else:
+                        st.markdown('<div class="sw-ph" style="display:flex;align-items:center;'
+                                    'justify-content:center;aspect-ratio:1/1;color:#94a3b8;font-size:0.72rem;'
+                                    'font-weight:700;">VIDEO</div>', unsafe_allow_html=True)
+                    _label = (vd.get("host") or ("Externo" if vd.get("type") == "EXTERNAL_VIDEO" else "Subido")).title()
+                    _st = vd.get("status")
+                    _ourl = vd.get("origin_url", "")
+                    st.markdown(
+                        f'<div style="text-align:center;font-size:0.68rem;color:#64748b;font-weight:700;">{_he(_label)}'
+                        + (f' · {_he(_st)}' if _st and _st != "READY" else "")
+                        + (f'<br><a href="{_he(_ourl)}" target="_blank" style="color:#5b7cfa;">ver</a>' if _ourl else "")
+                        + '</div>', unsafe_allow_html=True)
+                    if st.button("Eliminar", key=f"sw_ed_vdel_{vd.get('id')}", use_container_width=True,
+                                 icon=":material/delete:"):
+                        with st.spinner("Eliminando video…"):
+                            _ok, _e = _shop.eliminar_media(pid, vd.get("id"))
+                        if _ok:
+                            st.session_state.pop("sw_edit_vid", None)
+                            st.toast("Video eliminado.")
+                            st.rerun()
+                        else:
+                            st.error(_e)
+    else:
+        st.caption("Este producto no tiene videos todavía.")
+
+    st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
+    _vurl = st.text_input("Agregar video (enlace de YouTube o Vimeo)", key="sw_ed_newvid_url",
+                          placeholder="https://www.youtube.com/watch?v=…")
+    if st.button("Agregar video", key="sw_ed_addvid", icon=":material/video_call:",
+                 disabled=not (_vurl or "").strip()):
+        with st.spinner("Agregando video…"):
+            _ok, _e = _shop.agregar_video_externo(pid, _vurl.strip())
+        if _ok:
+            st.session_state.pop("sw_edit_vid", None)
+            st.session_state.pop("sw_ed_newvid_url", None)
+            _cargar_productos.clear()
+            st.toast("Video agregado.")
+            st.rerun()
+        else:
+            st.error(_e)
 
     # ── Características (metafields) ──
     _mf = st.session_state.get("sw_edit_mf")

@@ -290,6 +290,98 @@ def eliminar_metafield(pid, metafield_id) -> tuple:
         return False, str(e)
 
 
+def reordenar_imagenes(pid, ordered_ids) -> tuple:
+    """Reordena las fotos del producto según `ordered_ids` (lista COMPLETA de ids en el
+    orden deseado). Se hace con el PUT del producto fijando `position` a cada imagen.
+    Devuelve (ok, error)."""
+    try:
+        _imgs = [{"id": int(i), "position": _idx + 1} for _idx, i in enumerate(ordered_ids)]
+    except Exception:
+        return False, "IDs de imagen inválidos."
+    if not _imgs:
+        return False, "Sin imágenes para reordenar."
+    return actualizar_producto(pid, {"images": _imgs})
+
+
+# ── Videos (media) — vía GraphQL Admin API. Requiere write_products ───────────
+
+def _graphql(query, variables=None) -> tuple:
+    """POST a la Admin GraphQL API. Devuelve (data, error). DEFENSIVO."""
+    if not configurado():
+        return None, "Sin credenciales de Shopify."
+    import requests
+    try:
+        r = requests.post(f"https://{_store()}/admin/api/{_version()}/graphql.json",
+                          headers=_headers(), json={"query": query, "variables": variables or {}}, timeout=40)
+        if r.status_code == 200:
+            d = r.json() or {}
+            if d.get("errors"):
+                return None, f"GraphQL: {str(d['errors'])[:250]}"
+            return d.get("data"), None
+        return None, f"Shopify {r.status_code}: {r.text[:200]}" + _scope_hint(r.status_code)
+    except Exception as e:
+        return None, str(e)
+
+
+def _gid_product(pid) -> str:
+    return f"gid://shopify/Product/{pid}"
+
+
+def listar_videos(pid) -> tuple:
+    """Videos del producto (subidos + externos YouTube/Vimeo). Devuelve (lista, error).
+    Cada uno: {id, mediaContentType, status, preview_url, origin_url, host}."""
+    q = ("query($id:ID!){ product(id:$id){ media(first:50){ nodes { "
+         "id mediaContentType status preview { image { url } } "
+         "... on ExternalVideo { host originUrl } } } } }")
+    data, err = _graphql(q, {"id": _gid_product(pid)})
+    if err:
+        return [], err
+    _nodes = (((data or {}).get("product") or {}).get("media") or {}).get("nodes") or []
+    out = []
+    for n in _nodes:
+        if n.get("mediaContentType") not in ("VIDEO", "EXTERNAL_VIDEO"):
+            continue
+        out.append({
+            "id": n.get("id"),
+            "type": n.get("mediaContentType"),
+            "status": n.get("status"),
+            "preview_url": (((n.get("preview") or {}).get("image") or {}).get("url")) or "",
+            "origin_url": n.get("originUrl") or "",
+            "host": n.get("host") or "",
+        })
+    return out, None
+
+
+def agregar_video_externo(pid, url) -> tuple:
+    """Agrega un video EXTERNO (link de YouTube/Vimeo) al producto. Devuelve (ok, error)."""
+    if not (url or "").strip():
+        return False, "Falta el enlace del video."
+    q = ("mutation($pid:ID!, $media:[CreateMediaInput!]!){ productCreateMedia(productId:$pid, media:$media){ "
+         "media { id mediaContentType } mediaUserErrors { field message } } }")
+    _vars = {"pid": _gid_product(pid),
+             "media": [{"originalSource": url.strip(), "mediaContentType": "EXTERNAL_VIDEO"}]}
+    data, err = _graphql(q, _vars)
+    if err:
+        return False, err
+    _errs = (((data or {}).get("productCreateMedia") or {}).get("mediaUserErrors") or [])
+    if _errs:
+        return False, "; ".join(e.get("message", "") for e in _errs) or "No se pudo agregar el video."
+    return True, None
+
+
+def eliminar_media(pid, media_id) -> tuple:
+    """Elimina un media (video) del producto por su id (gid). Devuelve (ok, error)."""
+    q = ("mutation($pid:ID!, $ids:[ID!]!){ productDeleteMedia(productId:$pid, mediaIds:$ids){ "
+         "deletedMediaIds mediaUserErrors { field message } } }")
+    data, err = _graphql(q, {"pid": _gid_product(pid), "ids": [media_id]})
+    if err:
+        return False, err
+    _errs = (((data or {}).get("productDeleteMedia") or {}).get("mediaUserErrors") or [])
+    if _errs:
+        return False, "; ".join(e.get("message", "") for e in _errs) or "No se pudo eliminar el video."
+    return True, None
+
+
 def a_lead(c: dict) -> dict:
     """Mapea un cliente de Shopify a un lead del CRM (llaves de CAMPOS_IMPORT)."""
     _addr = c.get("default_address") or {}
