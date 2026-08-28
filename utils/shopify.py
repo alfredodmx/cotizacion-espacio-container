@@ -399,6 +399,26 @@ def eliminar_media(pid, media_id) -> tuple:
     return True, None
 
 
+def duplicar_producto(pid, new_title, include_images: bool = True, new_status: str = "DRAFT") -> tuple:
+    """Duplica un producto (copia título/desc/variantes/opciones/tags/tipo + fotos si
+    `include_images`) como BORRADOR por defecto. Devuelve (nuevo_id_numérico|None, error).
+    NOTA: los metafields NO los copia Shopify; el llamador los copia aparte."""
+    q = ("mutation($productId:ID!, $newTitle:String!, $includeImages:Boolean, $newStatus:ProductStatus){"
+         " productDuplicate(productId:$productId, newTitle:$newTitle, includeImages:$includeImages, newStatus:$newStatus){"
+         " newProduct { id } userErrors { field message } } }")
+    _vars = {"productId": _gid_product(pid), "newTitle": str(new_title or "Copia"),
+             "includeImages": bool(include_images), "newStatus": (new_status or "DRAFT")}
+    data, err = _graphql(q, _vars)
+    if err:
+        return None, err
+    _res = (data or {}).get("productDuplicate") or {}
+    _errs = _res.get("userErrors") or []
+    if _errs:
+        return None, "; ".join(e.get("message", "") for e in _errs) or "No se pudo duplicar."
+    _gid = ((_res.get("newProduct") or {}).get("id")) or ""
+    return (_gid.rsplit("/", 1)[-1] if _gid else None), None
+
+
 def a_lead(c: dict) -> dict:
     """Mapea un cliente de Shopify a un lead del CRM (llaves de CAMPOS_IMPORT)."""
     _addr = c.get("default_address") or {}

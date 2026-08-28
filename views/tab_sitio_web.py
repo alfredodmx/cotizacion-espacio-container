@@ -229,6 +229,8 @@ _CSS = """
   border:none;cursor:pointer;line-height:1.5;}
 .sw-btn-edit{background:linear-gradient(135deg,#5b7cfa,#2563eb);color:#fff!important;}
 .sw-btn-edit:hover{filter:brightness(1.07);}
+.sw-btn-dup{background:#f0fdf4;color:#15803d!important;border:1px solid #bbf7d0;}
+.sw-btn-dup:hover{background:#dcfce7;}
 .sw-btn-web{background:#eef2ff;color:#2563eb!important;border:1px solid #dbe3ff;}
 .sw-btn-web:hover{background:#dbe3ff;}
 .sw-btn-adm{background:#f1f5f9;color:#475569!important;border:1px solid #e2e8f0;}
@@ -252,12 +254,12 @@ _CSS = """
 _SW_JS = r"""<script>
 (function(){
   var W=window.parent, D=W&&W.document; if(!D) return;
-  function fire(id){
+  function fire(payload){
     var inp=D.querySelector('.st-key-sw_editcmd input'); if(!inp) return;
     try{
       var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set;
       inp.focus({preventScroll:true});
-      setter.call(inp, id+'|'+Date.now());
+      setter.call(inp, payload+'|'+Date.now());
       inp.dispatchEvent(new Event('input',{bubbles:true}));
       inp.dispatchEvent(new Event('change',{bubbles:true}));
       // Secuencia COMPLETA (si no, el 2º/3º clic no commitea a Python y "no deja editar").
@@ -274,7 +276,9 @@ _SW_JS = r"""<script>
     var t=e.target; if(!t||!t.closest) return;
     var b=t.closest('.sw-edit-btn'); if(!b) return;
     e.preventDefault(); e.stopPropagation();
-    fire(b.getAttribute('data-editid')||'');
+    var act=b.getAttribute('data-swact')||'edit';
+    var id=b.getAttribute('data-swid')||b.getAttribute('data-editid')||'';
+    fire(act+':'+id);
   };
   D.addEventListener('click', W._swEditH, true);
 })();
@@ -289,6 +293,36 @@ def _clear_editor_state():
     st.session_state.pop("sw_edit_mf_pid", None)
     st.session_state.pop("sw_edit_vid", None)
     st.session_state.pop("sw_edit_vid_pid", None)
+
+
+def _duplicar_flow(pid):
+    """Duplica un producto como BORRADOR (copia fotos/variantes/desc + las características
+    editables) y abre el editor del NUEVO para renombrarlo y ajustarlo. Hace rerun."""
+    _p, _ = _shop.get_producto(pid)
+    _orig = (_p or {}).get("title", "Producto") if _p else "Producto"
+    with st.spinner("Duplicando producto…"):
+        _newid, _err = _shop.duplicar_producto(pid, f"Copia de {_orig}",
+                                                include_images=True, new_status="DRAFT")
+    if _err or not _newid:
+        st.error(_err or "No se pudo duplicar el producto.", icon=":material/error:")
+        return
+    # Copiar las características (metafields) EDITABLES (Shopify no las duplica). Las
+    # referencias/listas/json se omiten (apuntarían a media del original).
+    try:
+        _mfs, _ = _shop.listar_metafields(pid)
+        for m in (_mfs or []):
+            if _mf_kind(m.get("type")) == "readonly":
+                continue
+            _shop.crear_metafield(_newid, m.get("namespace") or "custom", m.get("key"),
+                                  m.get("type"), m.get("value"))
+    except Exception:
+        pass
+    _clear_editor_state()
+    st.session_state.pop("sw_new", None)
+    _cargar_productos.clear()
+    st.session_state["sw_edit_id"] = str(_newid)
+    st.toast("Producto duplicado (borrador). Renómbralo y ajústalo antes de activarlo.")
+    st.rerun()
 
 
 def render_tab_sitio_web(**kwargs):
@@ -309,15 +343,20 @@ def render_tab_sitio_web(**kwargs):
                    "necesita **read_products** y **write_products**.", icon=":material/warning:")
         return
 
-    # ── Puente para abrir el editor ──
+    # ── Puente para abrir el editor / duplicar ──
     _ec = st.text_input("editcmd", key="sw_editcmd", label_visibility="collapsed")
     if _ec and "|" in _ec:
-        _eid, _ets = _ec.rsplit("|", 1)
+        _head, _ets = _ec.rsplit("|", 1)
         if _ets != st.session_state.get("sw_editcmd_ts"):
             st.session_state["sw_editcmd_ts"] = _ets
-            _clear_editor_state()
-            st.session_state["sw_edit_id"] = _eid.strip()
-            st.rerun()
+            _act, _, _eid = _head.partition(":")
+            _eid = (_eid or _act).strip()   # compat: sin ":" el payload es solo el id (editar)
+            if _act == "dup":
+                _duplicar_flow(_eid)        # duplica y hace rerun al editor del nuevo
+            elif _eid:
+                _clear_editor_state()
+                st.session_state["sw_edit_id"] = _eid
+                st.rerun()
 
     # ── Modo NUEVO PRODUCTO ──
     if st.session_state.get("sw_new"):
@@ -430,8 +469,12 @@ def render_tab_sitio_web(**kwargs):
             f'<div class="sw-meta"><span>{_ic("img", "#94a3b8", 12, 4)}{len(_imgs)} foto(s)</span>'
             f'<span>{len(_vars)} variante(s)</span></div>'
             f'<div class="sw-type">{_ptype}</div>'
-            f'<div class="sw-actions"><button type="button" class="sw-btn sw-btn-edit sw-edit-btn" '
-            f'data-editid="{_he(p.get("id"))}">Editar</button></div>'
+            '<div class="sw-actions">'
+            f'<button type="button" class="sw-btn sw-btn-edit sw-edit-btn" '
+            f'data-swact="edit" data-swid="{_he(p.get("id"))}">Editar</button>'
+            f'<button type="button" class="sw-btn sw-btn-dup sw-edit-btn" '
+            f'data-swact="dup" data-swid="{_he(p.get("id"))}" '
+            'title="Crear una copia (borrador) para un modelo nuevo">Duplicar</button></div>'
             '<div class="sw-actions" style="margin-top:6px;">'
             + (f'<a class="sw-btn sw-btn-web" href="{_he(_web)}" target="_blank">Ver</a>' if _web else "")
             + (f'<a class="sw-btn sw-btn-adm" href="{_he(_admp)}" target="_blank">Shopify</a>' if _admp else "")
@@ -504,11 +547,21 @@ def _render_nuevo():
 
 def _render_editor(pid):
     """Editor de UN producto: datos + precios + fotos. Escribe a Shopify con confirmación."""
-    if st.button("← Volver al catálogo", key="sw_ed_back"):
-        st.session_state.pop("sw_edit_id", None)
-        _clear_editor_state()
-        _cargar_productos.clear()
-        st.rerun()
+    _bc1, _bc2 = st.columns([1, 1.15], vertical_alignment="center")
+    with _bc1:
+        if st.button("← Volver al catálogo", key="sw_ed_back"):
+            st.session_state.pop("sw_edit_id", None)
+            _clear_editor_state()
+            _cargar_productos.clear()
+            st.rerun()
+    with _bc2:
+        with st.popover("Duplicar producto", icon=":material/content_copy:", use_container_width=True):
+            st.markdown("**Duplicar este producto**")
+            st.caption("Crea una copia como **borrador** (invisible en la web) con las fotos, "
+                       "variantes, descripción y características. Luego la renombras y ajustas.")
+            if st.button("Sí, duplicar", key="sw_ed_dup_go", type="primary",
+                         icon=":material/content_copy:", use_container_width=True):
+                _duplicar_flow(pid)
 
     _p = st.session_state.get("sw_edit_prod")
     if not _p or str(_p.get("id")) != str(pid):
