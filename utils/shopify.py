@@ -221,6 +221,22 @@ def agregar_imagen(pid, src: str = "", attachment: str = "", filename: str = "")
         return False, str(e)
 
 
+def eliminar_producto(pid) -> tuple:
+    """Elimina un producto de la tienda (REST DELETE, PERMANENTE). Devuelve (ok, error).
+    DEFENSIVO. Requiere write_products."""
+    if not configurado():
+        return False, "Sin credenciales de Shopify."
+    import requests
+    try:
+        r = requests.delete(f"https://{_store()}/admin/api/{_version()}/products/{pid}.json",
+                            headers=_headers(), timeout=30)
+        if r.status_code in (200, 204):
+            return True, None
+        return False, f"Shopify {r.status_code}: {r.text[:250]}" + _scope_hint(r.status_code)
+    except Exception as e:
+        return False, str(e)
+
+
 def eliminar_imagen(pid, image_id) -> tuple:
     """Elimina una imagen del producto. Devuelve (ok, error). DEFENSIVO."""
     if not configurado():

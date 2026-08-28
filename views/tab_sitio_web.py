@@ -231,6 +231,8 @@ _CSS = """
 .sw-btn-edit:hover{filter:brightness(1.07);}
 .sw-btn-dup{background:#f0fdf4;color:#15803d!important;border:1px solid #bbf7d0;}
 .sw-btn-dup:hover{background:#dcfce7;}
+.sw-btn-del{background:#fef2f2;color:#dc2626!important;border:1px solid #fecaca;}
+.sw-btn-del:hover{background:#fee2e2;}
 .sw-btn-web{background:#eef2ff;color:#2563eb!important;border:1px solid #dbe3ff;}
 .sw-btn-web:hover{background:#dbe3ff;}
 .sw-btn-adm{background:#f1f5f9;color:#475569!important;border:1px solid #e2e8f0;}
@@ -362,10 +364,15 @@ td.antes s{color:#94a3b8;}
 .sw-tb-type{font-size:11px;color:#64748b;background:#f1f5f9;border-radius:6px;padding:3px 8px;font-weight:700;white-space:nowrap;}
 .sw-tb-cnt{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:24px;border-radius:7px;
   background:#eef2ff;color:#4256c7;font-weight:800;font-size:12px;padding:0 6px;}
+.sw-tb-acts{display:flex;gap:5px;align-items:center;justify-content:center;}
 .sw-tb-edit{font-family:Montserrat,sans-serif;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;
   background:linear-gradient(135deg,#5b7cfa,#2563eb);color:#fff;border:none;border-radius:8px;padding:7px 13px;cursor:pointer;
   white-space:nowrap;transition:filter .15s;}
 .sw-tb-edit:hover{filter:brightness(1.08);}
+.sw-tb-del{width:32px;height:30px;border:1px solid #fecaca;border-radius:8px;background:#fef2f2;color:#dc2626;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;padding:0;transition:all .15s;}
+.sw-tb-del:hover{background:#fee2e2;border-color:#fca5a5;}
+.sw-tb-del svg{width:15px;height:15px;display:block;}
 #empty{display:none;padding:26px;text-align:center;color:#94a3b8;font-size:0.85rem;}
 </style></head>
 <body>
@@ -379,7 +386,7 @@ td.antes s{color:#94a3b8;}
     <table>
       <thead><tr>
         <th>Imagen</th><th>Otras imágenes</th><th>Producto</th><th class="c">Estado</th><th>Tipo</th>
-        <th class="r">Precio antes</th><th class="r">Precio</th><th class="c">Variantes</th><th class="c">Fotos</th><th class="c">Editar</th>
+        <th class="r">Precio antes</th><th class="r">Precio</th><th class="c">Variantes</th><th class="c">Fotos</th><th class="c">Acciones</th>
       </tr></thead>
       <tbody>ROWSPLACEHOLDER</tbody>
     </table>
@@ -403,14 +410,14 @@ function applyFilters(){
 }
 doc.getElementById('search').addEventListener('input',applyFilters);
 
-/* Editar → abre el editor en el padre (input oculto sw_editcmd, secuencia COMPLETA) */
-function openEdit(id){
+/* Editar/Eliminar → escribe al input oculto sw_editcmd del padre (secuencia COMPLETA) */
+function fireCmd(payload){
   try{
     var W=window.parent, D=W.document;
     var inp=D.querySelector('.st-key-sw_editcmd input'); if(!inp) return;
     var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set;
     inp.focus({preventScroll:true});
-    setter.call(inp,'edit:'+id+'|'+Date.now());
+    setter.call(inp,payload+'|'+Date.now());
     inp.dispatchEvent(new Event('input',{bubbles:true}));
     inp.dispatchEvent(new Event('change',{bubbles:true}));
     inp.dispatchEvent(new KeyboardEvent('keypress',{key:'Enter',keyCode:13,which:13,bubbles:true}));
@@ -422,8 +429,10 @@ function openEdit(id){
   }catch(e){}
 }
 doc.addEventListener('click',function(e){
-  var b=e.target.closest?e.target.closest('.sw-tb-edit'):null; if(!b) return;
-  openEdit(b.getAttribute('data-swid')||'');
+  var ed=e.target.closest?e.target.closest('.sw-tb-edit'):null;
+  if(ed){ fireCmd('edit:'+(ed.getAttribute('data-swid')||'')); return; }
+  var dl=e.target.closest?e.target.closest('.sw-tb-del'):null;
+  if(dl){ fireCmd('del:'+(dl.getAttribute('data-swid')||'')); return; }
 });
 
 /* Fullscreen (mismo mecanismo/z-index que COTIZACIONES) */
@@ -507,7 +516,11 @@ def _build_sw_table(prods, bcol):
             f'<td class="r price">{_price}</td>'
             f'<td class="c"><span class="sw-tb-cnt">{len(_vars)}</span></td>'
             f'<td class="c"><span class="sw-tb-cnt">{len(_imgs)}</span></td>'
-            f'<td class="c"><button type="button" class="sw-tb-edit" data-swid="{_he(p.get("id"))}">Editar</button></td>'
+            f'<td class="c"><div class="sw-tb-acts">'
+            f'<button type="button" class="sw-tb-edit" data-swid="{_he(p.get("id"))}">Editar</button>'
+            f'<button type="button" class="sw-tb-del" data-swid="{_he(p.get("id"))}" title="Eliminar de la web">'
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>'
+            '</button></div></td>'
             f'</tr>')
     _n = len(prods)
     _tbl_h = max(320, min(_n * 74 + 56, 620))
@@ -553,8 +566,63 @@ def _duplicar_flow(pid):
     st.session_state.pop("sw_new", None)
     _cargar_productos.clear()
     st.session_state["sw_edit_id"] = str(_newid)
-    st.toast("Producto duplicado (borrador). Renómbralo y ajústalo antes de activarlo.")
+    st.session_state["sw_toast"] = "Producto duplicado (borrador). Renómbralo y ajústalo antes de activarlo."
     st.rerun()
+
+
+@st.dialog("Eliminar producto")
+def _dialog_eliminar(pid):
+    """Confirmación (doble: casilla + botón) para borrar un producto de Shopify."""
+    _p = st.session_state.get("sw_edit_prod")
+    if not _p or str(_p.get("id")) != str(pid):
+        _p, _ = _shop.get_producto(pid)
+    _p = _p or {}
+    _title = _p.get("title") or f"Producto {pid}"
+    _imgs = _p.get("images") or []
+    _img0 = (_imgs[0].get("src") if _imgs else "") or (_p.get("image") or {}).get("src", "")
+    _bcol = {"active": ("#dcfce7", "#15803d", "Activo"), "draft": ("#fef9c3", "#854d0e", "Borrador"),
+             "archived": ("#e2e8f0", "#475569", "Archivado")}
+    _bg, _fg, _blbl = _bcol.get(_p.get("status", "active"), _bcol["active"])
+    _thumb = (f'<img src="{_he(_img0)}" style="width:56px;height:56px;border-radius:10px;object-fit:cover;flex:0 0 auto;">'
+              if _img0 else '<div style="width:56px;height:56px;border-radius:10px;background:#f1f5f9;flex:0 0 auto;"></div>')
+    st.markdown(
+        '<div style="display:flex;gap:12px;align-items:center;background:#fff;border:1px solid #e8ebf3;'
+        'border-radius:12px;padding:12px 14px;margin-bottom:12px;">'
+        f'{_thumb}<div><div style="font-family:\'Plus Jakarta Sans\',sans-serif;font-weight:800;color:#0f172a;'
+        f'font-size:0.95rem;line-height:1.25;">{_he(_title)}</div>'
+        '<span style="display:inline-block;margin-top:5px;font-family:Montserrat,sans-serif;font-weight:800;'
+        'font-size:10px;text-transform:uppercase;letter-spacing:.03em;border-radius:99px;padding:3px 9px;'
+        f'background:{_bg};color:{_fg};">{_blbl}</span></div></div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div style="background:#fff1f2;border:1.5px solid #fca5a5;border-radius:12px;padding:13px 15px;">'
+        '<div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:0.82rem;color:#b91c1c;'
+        'text-transform:uppercase;letter-spacing:.03em;display:flex;align-items:center;gap:8px;">'
+        f'{_ic("alert", "#dc2626", 17, 0, 0)}Acción permanente</div>'
+        '<p style="margin:7px 0 0;font-size:0.83rem;color:#7f1d1d;line-height:1.5;">Este producto se eliminará '
+        'de la tienda Shopify y <b>dejará de aparecer en la web</b>, junto con sus fotos, variantes y '
+        'características. <b>No se puede deshacer.</b></p></div>', unsafe_allow_html=True)
+    _ok = st.checkbox("Entiendo que se elimina de la web de forma permanente.", key="sw_del_ck")
+    _c1, _c2 = st.columns(2)
+    with _c1:
+        if st.button("Cancelar", key="sw_del_cancel", use_container_width=True, icon=":material/close:"):
+            st.session_state.pop("sw_del_pending", None)
+            st.session_state.pop("sw_del_ck", None)
+            st.rerun()
+    with _c2:
+        if st.button("Sí, eliminar", key="sw_del_go", type="primary", use_container_width=True,
+                     icon=":material/delete_forever:", disabled=not _ok):
+            with st.spinner("Eliminando producto…"):
+                _ok2, _err = _shop.eliminar_producto(pid)
+            if _err or not _ok2:
+                st.error(_err or "No se pudo eliminar el producto.", icon=":material/error:")
+                return
+            st.session_state.pop("sw_del_pending", None)
+            st.session_state.pop("sw_del_ck", None)
+            st.session_state.pop("sw_edit_id", None)
+            _clear_editor_state()
+            _cargar_productos.clear()
+            st.session_state["sw_toast"] = f"Producto eliminado: {_title}"
+            st.rerun()
 
 
 def render_tab_sitio_web(**kwargs):
@@ -585,10 +653,22 @@ def render_tab_sitio_web(**kwargs):
             _eid = (_eid or _act).strip()   # compat: sin ":" el payload es solo el id (editar)
             if _act == "dup":
                 _duplicar_flow(_eid)        # duplica y hace rerun al editor del nuevo
+            elif _act == "del":
+                st.session_state["sw_del_pending"] = _eid
+                st.session_state.pop("sw_del_ck", None)
+                st.rerun()
             elif _eid:
                 _clear_editor_state()
                 st.session_state["sw_edit_id"] = _eid
                 st.rerun()
+
+    _tmsg = st.session_state.pop("sw_toast", None)
+    if _tmsg:
+        st.toast(_tmsg, icon=":material/check_circle:")
+
+    # ── Confirmación de borrado (sobre cualquier modo) ──
+    if st.session_state.get("sw_del_pending"):
+        _dialog_eliminar(st.session_state["sw_del_pending"])
 
     # ── Modo NUEVO PRODUCTO ──
     if st.session_state.get("sw_new"):
@@ -723,7 +803,12 @@ def render_tab_sitio_web(**kwargs):
             '<div class="sw-actions" style="margin-top:6px;">'
             + (f'<a class="sw-btn sw-btn-web" href="{_he(_web)}" target="_blank">Ver</a>' if _web else "")
             + (f'<a class="sw-btn sw-btn-adm" href="{_he(_admp)}" target="_blank">Shopify</a>' if _admp else "")
-            + '</div></div></div>')
+            + '</div>'
+            '<div class="sw-actions" style="margin-top:6px;">'
+            f'<button type="button" class="sw-btn sw-btn-del sw-edit-btn" '
+            f'data-swact="del" data-swid="{_he(p.get("id"))}" '
+            'title="Eliminar este producto de la web">Eliminar</button></div>'
+            '</div></div>')
 
     st.markdown(f'<div class="sw-grid">{_cards}</div>', unsafe_allow_html=True)
     components.html(_SW_JS, height=0)
@@ -792,7 +877,11 @@ def _render_nuevo():
 
 def _render_editor(pid):
     """Editor de UN producto: datos + precios + fotos. Escribe a Shopify con confirmación."""
-    _bc1, _bc2 = st.columns([1, 1.15], vertical_alignment="center")
+    st.markdown("<style>.st-key-sw_ed_del button{background:#fef2f2!important;border:1px solid #fecaca!important;"
+                "color:#dc2626!important;}.st-key-sw_ed_del button:hover{background:#fee2e2!important;"
+                "border-color:#fca5a5!important;}.st-key-sw_ed_del button p{color:#dc2626!important;}</style>",
+                unsafe_allow_html=True)
+    _bc1, _bc2, _bc3 = st.columns([1.1, 1.05, 1.05], vertical_alignment="center")
     with _bc1:
         if st.button("← Volver al catálogo", key="sw_ed_back"):
             st.session_state.pop("sw_edit_id", None)
@@ -807,6 +896,12 @@ def _render_editor(pid):
             if st.button("Sí, duplicar", key="sw_ed_dup_go", type="primary",
                          icon=":material/content_copy:", use_container_width=True):
                 _duplicar_flow(pid)
+    with _bc3:
+        if st.button("Eliminar producto", key="sw_ed_del", icon=":material/delete:",
+                     use_container_width=True):
+            st.session_state["sw_del_pending"] = str(pid)
+            st.session_state.pop("sw_del_ck", None)
+            st.rerun()
 
     _p = st.session_state.get("sw_edit_prod")
     if not _p or str(_p.get("id")) != str(pid):
