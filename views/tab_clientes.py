@@ -1295,7 +1295,11 @@ _CLI_CLICK_JS = r"""<script>
       setter.call(inp, 'open|'+cid+'|'+Date.now());
       inp.dispatchEvent(new Event('input',{bubbles:true}));
       inp.dispatchEvent(new Event('change',{bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keypress',{key:'Enter',keyCode:13,which:13,bubbles:true}));
       inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new FocusEvent('blur',{bubbles:true}));
+      inp.dispatchEvent(new FocusEvent('focusout',{bubbles:true}));
       inp.blur();
     }catch(e){}
   }
@@ -1361,7 +1365,11 @@ _CLI_CTXMENU_JS = r"""<script>
       setter.call(inp, action+'|'+cid+'|'+Date.now());
       inp.dispatchEvent(new Event('input',{bubbles:true}));
       inp.dispatchEvent(new Event('change',{bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keypress',{key:'Enter',keyCode:13,which:13,bubbles:true}));
       inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new FocusEvent('blur',{bubbles:true}));
+      inp.dispatchEvent(new FocusEvent('focusout',{bubbles:true}));
       inp.blur();
     }catch(e){}
   }
@@ -1933,7 +1941,11 @@ _CLI_MSEL_JS = r"""<script>
       setter.call(inp, payload+'|'+Date.now());
       inp.dispatchEvent(new Event('input',{bubbles:true}));
       inp.dispatchEvent(new Event('change',{bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keypress',{key:'Enter',keyCode:13,which:13,bubbles:true}));
       inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new FocusEvent('blur',{bubbles:true}));
+      inp.dispatchEvent(new FocusEvent('focusout',{bubbles:true}));
       inp.blur();
     }catch(e){}
   }
@@ -3044,7 +3056,11 @@ _CAMP_DD_JS = r"""<script>
       inp.focus({preventScroll:true}); setter.call(inp, val);
       inp.dispatchEvent(new Event('input',{bubbles:true}));
       inp.dispatchEvent(new Event('change',{bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keypress',{key:'Enter',keyCode:13,which:13,bubbles:true}));
       inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new FocusEvent('blur',{bubbles:true}));
+      inp.dispatchEvent(new FocusEvent('focusout',{bubbles:true}));
       inp.blur();
     }catch(e){}
   }

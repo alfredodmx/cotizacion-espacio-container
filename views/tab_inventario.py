@@ -258,7 +258,11 @@ _INV_FOTOS_JS = r"""<script>
       setter.call(inp, action+'|'+fid+'|'+Date.now());
       inp.dispatchEvent(new Event('input',{bubbles:true}));
       inp.dispatchEvent(new Event('change',{bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keypress',{key:'Enter',keyCode:13,which:13,bubbles:true}));
       inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new FocusEvent('blur',{bubbles:true}));
+      inp.dispatchEvent(new FocusEvent('focusout',{bubbles:true}));
       inp.blur();
     }catch(e){}
   }
@@ -318,7 +322,11 @@ _INV_TABLE_JS = r"""<script>
       setter.call(inp, action+'|'+id+'|'+Date.now());
       inp.dispatchEvent(new Event('input',{bubbles:true}));
       inp.dispatchEvent(new Event('change',{bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keypress',{key:'Enter',keyCode:13,which:13,bubbles:true}));
       inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new FocusEvent('blur',{bubbles:true}));
+      inp.dispatchEvent(new FocusEvent('focusout',{bubbles:true}));
       inp.blur();
     }catch(e){}
   }

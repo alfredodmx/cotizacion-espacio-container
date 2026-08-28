@@ -548,7 +548,11 @@ function fireDelete(){
     setter.call(inp, eps.join(',')+'|'+Date.now());
     inp.dispatchEvent(new Event('input',{bubbles:true}));
     inp.dispatchEvent(new Event('change',{bubbles:true}));
+    inp.dispatchEvent(new KeyboardEvent('keypress',{key:'Enter',keyCode:13,which:13,bubbles:true}));
     inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+    inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+    inp.dispatchEvent(new FocusEvent('blur',{bubbles:true}));
+    inp.dispatchEvent(new FocusEvent('focusout',{bubbles:true}));
     inp.blur();
   }catch(e){}
 }
