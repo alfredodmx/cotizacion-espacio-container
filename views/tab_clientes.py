@@ -163,6 +163,7 @@ try:   # Seguimiento de correos enviados (tabla crm_correos) — defensivo
         listar_correos_cliente as _listar_correos_cliente,
         contar_correos_hoy as _contar_correos_hoy,
         contar_correos_mes as _contar_correos_mes,
+        campanas_por_cliente as _campanas_por_cliente,
     )
 except Exception:
     def _registrar_correo(*a, **k):
@@ -176,6 +177,9 @@ except Exception:
 
     def _contar_correos_mes():
         return 0
+
+    def _campanas_por_cliente():
+        return {}
 
 try:   # Firma de correo por ejecutivo (tabla crm_firma) — defensivo
     from repositories.firma_repo import (
@@ -590,6 +594,13 @@ _CLI_CSS = """
 .cli-card-mt{font-size:13px;color:#0f172a;font-weight:800;margin:1px 0 0;}
 .cli-card-none{font-size:11px;color:#ea580c;font-weight:800;margin-top:7px;}
 .cli-card-sub{font-size:10.5px;color:#94a3b8;font-weight:600;display:flex;align-items:center;gap:5px;}
+.cli-card-camp{margin-top:8px;border-top:1px dashed #e2e8f0;padding-top:7px;display:flex;flex-direction:column;gap:4px;}
+.cli-camp-hd{display:flex;align-items:center;gap:5px;font-size:9.5px;font-weight:800;color:#15803d;
+  text-transform:uppercase;letter-spacing:.04em;}
+.cli-camp-item{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;color:#15803d;
+  background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:4px 8px;line-height:1.25;}
+.cli-camp-nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1;}
+.cli-camp-dt{color:#16a34a;font-weight:600;flex-shrink:0;font-size:9.5px;}
 .cli-fuente-b{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:800;padding:2px 7px;
   border-radius:20px;text-transform:uppercase;letter-spacing:.02em;}
 /* Etiqueta de TRATO (solo cuando un cliente tiene activo + historial): distingue
@@ -1067,6 +1078,48 @@ def _cli_data(rol: str = "root", email: str = "") -> list:
         _e = (email or "").strip().lower()
         return [c for c in _all if (c.get("asignado_email") or "").strip().lower() == _e]
     return _all
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _campanas_map() -> dict:
+    """{cliente_id -> [(nombre_campaña, fecha_iso), …]} cacheado 60s (para las cards)."""
+    return _campanas_por_cliente()
+
+
+def _fmt_campana_dt(iso) -> str:
+    """Fecha+hora de una campaña en horario de Chile (la BD guarda UTC)."""
+    from datetime import datetime as _dtc, timezone as _tzc, timedelta as _tdc
+    try:
+        d = _dtc.fromisoformat(str(iso))
+        if d.tzinfo is None:
+            d = d.replace(tzinfo=_tzc.utc)
+        try:
+            from zoneinfo import ZoneInfo
+            d = d.astimezone(ZoneInfo("America/Santiago"))
+        except Exception:
+            d = d.astimezone(_tzc(_tdc(hours=-4)))
+        return d.strftime("%d/%m/%Y %H:%M")
+    except Exception:
+        return str(iso or "")[:16]
+
+
+_MAIL_MINI = ('<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+              'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">'
+              '<rect width="20" height="16" x="2" y="4" rx="2"/>'
+              '<path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>')
+
+
+def _campanas_card_html(camps) -> str:
+    """Historial de campañas masivas recibidas (verde), apilado por fecha, para la card."""
+    if not camps:
+        return ""
+    _items = ""
+    for _nm, _fe in camps:
+        _items += (f'<div class="cli-camp-item">{_MAIL_MINI}'
+                   f'<span class="cli-camp-nm">{_esc(str(_nm))}</span>'
+                   f'<span class="cli-camp-dt">{_esc(_fmt_campana_dt(_fe))}</span></div>')
+    return (f'<div class="cli-card-camp"><div class="cli-camp-hd">{_MAIL_MINI}'
+            f'Campañas enviadas · {len(camps)}</div>{_items}</div>')
 
 
 @st.cache_data(ttl=60, show_spinner=False)
@@ -1790,6 +1843,7 @@ def _render_pipeline(data: list, msel: bool = False):
                 f'{_score_badge(_sc, "sm")}</div>'
                 f'{_pre}'
                 f'{_foot}'
+                f'{_campanas_card_html(d.get("_campanas"))}'
                 '</div>')
         if not cards:
             cards = '<div class="cli-kb-empty">—</div>'
@@ -2030,6 +2084,7 @@ def _render_bandeja(data: list, msel: bool = False):
             f'<div class="cli-card-nm">{_esc(d.get("nombre","") or "—")}</div>'
             f'<div class="cli-card-sub" style="margin-top:4px;">{_origen_pill(d.get("origen","Manual"))}</div>'
             f'<div class="cli-card-sub" style="margin-top:4px;">{_esc(d.get("email","") or d.get("telefono","") or "—")}</div>'
+            f'{_campanas_card_html(d.get("_campanas"))}'
             '</div>')
     st.markdown(f'<div style="margin-top:12px;">{cards}</div>', unsafe_allow_html=True)
 
@@ -3864,6 +3919,10 @@ def _render_campana_dialog(data):
                                          es_html=_es_html, limite=_lim)
                 for _k in ("_camp_subj", "_camp_body"):
                     st.session_state.pop(_k, None)
+                try:
+                    _campanas_map.clear()   # que el historial de campañas aparezca al instante en las cards
+                except Exception:
+                    pass
                 st.session_state["_cli_toast"] = (
                     f"Campaña enviada: {_r['enviados']} correo(s)"
                     + (f" · {_r['fallidos']} fallaron" if _r['fallidos'] else "")
@@ -4596,8 +4655,10 @@ def render_tab_clientes(**kwargs):
     # Lead Score por cliente (potencial según completitud). Se adjunta acá para que
     # tarjetas / maestro / filtros / ficha lean el MISMO valor.
     _pregs_score = _preguntas_data()
+    _camp_map = _campanas_map()
     for _d in data:
         _d["_score"] = _lead_score(_d, _pregs_score)
+        _d["_campanas"] = _camp_map.get(str(_d.get("id")), [])
 
     # Registrar transiciones de ETAPA en el timeline + mantener el reloj SLA (lazy,
     # gateado, best-effort → no frena el render).
