@@ -101,6 +101,99 @@ def _mf_serialize(t, w) -> str:
     return str(w)
 
 
+# Clasificación de metafields para mostrarlos amigables (no técnicos).
+def _mf_kind(t) -> str:
+    t = t or ""
+    if t == "rich_text_field":
+        return "rich"
+    if t == "boolean":
+        return "bool"
+    if t == "number_integer":
+        return "int"
+    if t == "number_decimal":
+        return "dec"
+    if t == "multi_line_text_field":
+        return "multi"
+    if t in ("single_line_text_field", "string"):
+        return "text"
+    return "readonly"   # referencias, json, listas, dimensiones… → solo lectura (Avanzados)
+
+
+_MF_KIND_LABEL = {"rich": "Texto con formato", "bool": "Sí / No", "int": "Número",
+                  "dec": "Número", "multi": "Texto", "text": "Texto", "readonly": "Avanzado"}
+
+
+def _richtext_to_text(value) -> str:
+    """Aplana el rich_text de Shopify (AST JSON {type:root,children:…}) a texto legible:
+    párrafos en líneas, ítems de lista con '- '. Si no es JSON, devuelve el texto tal cual."""
+    import json
+    try:
+        node = json.loads(value) if isinstance(value, str) else value
+    except Exception:
+        return str(value or "")
+    if not isinstance(node, dict):
+        return str(value or "")
+
+    def _inline(children):
+        out = []
+        for c in (children or []):
+            if not isinstance(c, dict):
+                continue
+            if c.get("type") == "text":
+                out.append(c.get("value", ""))
+            else:
+                out.append(_inline(c.get("children")))
+        return "".join(out)
+
+    lines = []
+
+    def _walk(n):
+        _t = n.get("type")
+        if _t == "root":
+            for ch in n.get("children", []):
+                _walk(ch)
+        elif _t == "list":
+            for li in n.get("children", []):
+                lines.append("- " + _inline(li.get("children")))
+        elif _t in ("paragraph", "heading", "list-item"):
+            _pref = "- " if _t == "list-item" else ""
+            lines.append(_pref + _inline(n.get("children")))
+        else:
+            _txt = _inline(n.get("children"))
+            if _txt:
+                lines.append(_txt)
+
+    _walk(node)
+    return "\n".join(lines).strip()
+
+
+def _text_to_richtext(text) -> str:
+    """Reconstruye un rich_text válido de Shopify desde texto plano: cada línea = párrafo;
+    líneas que empiezan con '- ' se agrupan como lista con viñetas."""
+    import json
+    children, buf = [], []
+
+    def _flush():
+        if buf:
+            children.append({"type": "list", "listType": "unordered",
+                             "children": [{"type": "list-item",
+                                           "children": [{"type": "text", "value": x}]} for x in buf]})
+            buf.clear()
+
+    for ln in str(text or "").split("\n"):
+        s = ln.rstrip()
+        if s.strip().startswith("- "):
+            buf.append(s.strip()[2:].strip())
+        else:
+            _flush()
+            if s.strip():
+                children.append({"type": "paragraph", "children": [{"type": "text", "value": s}]})
+    _flush()
+    if not children:
+        children = [{"type": "paragraph", "children": [{"type": "text", "value": ""}]}]
+    return json.dumps({"type": "root", "children": children}, ensure_ascii=False)
+
+
 @st.cache_data(ttl=300, show_spinner=False)
 def _cargar_productos(status, _cb=""):
     return _shop.listar_productos(status=status)
@@ -517,30 +610,42 @@ def _render_editor(pid):
     st.markdown(f'<div class="sw-sec">{_ic("text", "#0f172a", 16, 0)}Características / detalles '
                 f'<span style="color:#94a3b8;font-weight:800;">· {len(_mf)}</span></div>',
                 unsafe_allow_html=True)
-    st.caption("Datos estructurados del producto (m², dormitorios, baños, etc.). Se guardan como "
-               "metafields en Shopify; para que se vean en la web, el tema debe mostrarlos.")
+    st.caption("Los detalles del producto (m², dormitorios, baños, clima, kit incluye, etc.). Edítalos "
+               "acá en texto normal; el sistema los guarda en el formato que usa la web.")
 
-    if _mf:
+    _editable = [m for m in _mf if _mf_kind(m.get("type")) != "readonly"]
+    _advanced = [m for m in _mf if _mf_kind(m.get("type")) == "readonly"]
+
+    if _editable:
         _mf_ws = {}
-        for m in _mf:
+        for m in _editable:
             _mid = m.get("id")
+            _kind = _mf_kind(m.get("type"))
             _mc1, _mc2, _mc3 = st.columns([2.4, 3.2, 0.7], vertical_alignment="center")
             with _mc1:
                 st.markdown(
-                    f'<div style="font-weight:700;color:#0f172a;font-size:0.85rem;">{_he(_mf_label(m))}</div>'
+                    f'<div style="font-weight:700;color:#0f172a;font-size:0.85rem;line-height:1.2;">'
+                    f'{_he(_mf_label(m))}</div>'
                     f'<div style="font-size:0.64rem;color:#94a3b8;font-weight:600;">'
-                    f'{_he(m.get("namespace", ""))}.{_he(m.get("key", ""))} · {_he(m.get("type", ""))}</div>',
+                    f'{_he(_MF_KIND_LABEL.get(_kind, "Texto"))}</div>',
                     unsafe_allow_html=True)
             with _mc2:
-                _mf_ws[_mid] = (m.get("type"), _mf_widget(m, f"sw_ed_mf_{_mid}"))
+                if _kind == "rich":
+                    _orig = _richtext_to_text(m.get("value"))
+                    _w = st.text_area("v", value=_orig, key=f"sw_ed_mf_{_mid}", height=130,
+                                      label_visibility="collapsed",
+                                      help="Escribe normal. Para una lista con viñetas, empieza la línea con «- ».")
+                    _mf_ws[_mid] = ("rich", _w, _orig)
+                else:
+                    _mf_ws[_mid] = (m.get("type"), _mf_widget(m, f"sw_ed_mf_{_mid}"), None)
             with _mc3:
                 if st.button("", icon=":material/delete:", key=f"sw_ed_mfdel_{_mid}",
-                             use_container_width=True, help="Eliminar esta característica"):
+                             use_container_width=True, help="Eliminar este detalle"):
                     with st.spinner("Eliminando…"):
                         _ok, _e = _shop.eliminar_metafield(pid, _mid)
                     if _ok:
                         st.session_state.pop("sw_edit_mf", None)
-                        st.toast("Característica eliminada.")
+                        st.toast("Detalle eliminado.")
                         st.rerun()
                     else:
                         st.error(_e)
@@ -548,24 +653,59 @@ def _render_editor(pid):
                      icon=":material/save:"):
             _errs = []
             with st.spinner("Guardando características…"):
-                for m in _mf:
+                for m in _editable:
                     _mid = m.get("id")
-                    _t, _w = _mf_ws.get(_mid, (None, None))
-                    if _t is None:
+                    _tup = _mf_ws.get(_mid)
+                    if not _tup:
                         continue
-                    _nv = _mf_serialize(_t, _w)
-                    if str(_nv) != str(m.get("value", "")):
-                        _ok, _e = _shop.actualizar_metafield(pid, _mid, _t, _nv)
-                        if not _ok:
-                            _errs.append(_e)
+                    _t, _w, _orig = _tup
+                    if _t == "rich":
+                        if str(_w or "") != str(_orig or ""):
+                            _ok, _e = _shop.actualizar_metafield(pid, _mid, "rich_text_field",
+                                                                 _text_to_richtext(_w))
+                            if not _ok:
+                                _errs.append(_e)
+                    else:
+                        _nv = _mf_serialize(_t, _w)
+                        if str(_nv) != str(m.get("value", "")):
+                            _ok, _e = _shop.actualizar_metafield(pid, _mid, _t, _nv)
+                            if not _ok:
+                                _errs.append(_e)
             if _errs:
                 st.error("No se pudieron guardar algunas: " + " · ".join(str(x) for x in _errs))
             else:
                 st.session_state.pop("sw_edit_mf", None)
                 st.toast("Características guardadas.")
                 st.rerun()
-    else:
+    elif not _advanced:
         st.caption("Este producto aún no tiene características (metafields).")
+
+    # Avanzados (referencias / listas / JSON): solo lectura para no romperlos.
+    if _advanced:
+        with st.expander(f"Avanzados · {len(_advanced)} campo(s) técnico(s) (referencias / listas)"):
+            st.caption("Guardan referencias internas de Shopify (imágenes, archivos, listas…). Se muestran "
+                       "solo para consultarlos; edítalos en Shopify para no romperlos.")
+            for m in _advanced:
+                _mid = m.get("id")
+                _ac1, _ac2 = st.columns([5, 0.7], vertical_alignment="center")
+                with _ac1:
+                    st.markdown(
+                        f'<div style="font-weight:700;color:#334155;font-size:0.82rem;">{_he(_mf_label(m))}'
+                        f'<span style="font-size:0.62rem;color:#94a3b8;font-weight:600;"> · '
+                        f'{_he(m.get("namespace",""))}.{_he(m.get("key",""))}</span></div>', unsafe_allow_html=True)
+                    st.text_input("v", value=str(m.get("value", ""))[:300], disabled=True,
+                                  key=f"sw_ed_mfro_{_mid}", label_visibility="collapsed")
+                with _ac2:
+                    if st.button("", icon=":material/delete:", key=f"sw_ed_mfrodel_{_mid}",
+                                 use_container_width=True, help="Eliminar"):
+                        with st.spinner("Eliminando…"):
+                            _ok, _e = _shop.eliminar_metafield(pid, _mid)
+                        if _ok:
+                            st.session_state.pop("sw_edit_mf", None)
+                            st.toast("Campo eliminado.")
+                            st.rerun()
+                        else:
+                            st.error(_e)
 
     with st.expander("➕ Agregar característica"):
         _nc1, _nc2, _nc3 = st.columns([1.2, 1.6, 1.4])
