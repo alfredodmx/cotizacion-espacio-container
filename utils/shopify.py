@@ -220,6 +220,76 @@ def eliminar_imagen(pid, image_id) -> tuple:
         return False, str(e)
 
 
+# ── Metafields (características/detalles estructurados: m², dormitorios, etc.) ──
+
+def listar_metafields(pid) -> tuple:
+    """Metafields del producto. Devuelve (lista, error). DEFENSIVO. Cada metafield:
+    {id, namespace, key, type, value, description}."""
+    if not configurado():
+        return [], "Sin credenciales de Shopify."
+    import requests
+    try:
+        r = requests.get(
+            f"https://{_store()}/admin/api/{_version()}/products/{pid}/metafields.json?limit=250",
+            headers=_headers(), timeout=25)
+        if r.status_code == 200:
+            return (r.json() or {}).get("metafields") or [], None
+        return [], f"Shopify {r.status_code}: {r.text[:200]}" + _scope_hint(r.status_code)
+    except Exception as e:
+        return [], str(e)
+
+
+def crear_metafield(pid, namespace, key, mtype, value) -> tuple:
+    """Crea un metafield en el producto. Devuelve (ok, error). DEFENSIVO."""
+    if not configurado():
+        return False, "Sin credenciales de Shopify."
+    import requests
+    try:
+        r = requests.post(
+            f"https://{_store()}/admin/api/{_version()}/products/{pid}/metafields.json",
+            headers=_headers(),
+            json={"metafield": {"namespace": namespace, "key": key, "type": mtype, "value": str(value)}},
+            timeout=30)
+        if r.status_code in (200, 201):
+            return True, None
+        return False, f"Shopify {r.status_code}: {r.text[:280]}" + _scope_hint(r.status_code)
+    except Exception as e:
+        return False, str(e)
+
+
+def actualizar_metafield(pid, metafield_id, mtype, value) -> tuple:
+    """Actualiza el valor de un metafield existente. Devuelve (ok, error). DEFENSIVO."""
+    if not configurado():
+        return False, "Sin credenciales de Shopify."
+    import requests
+    try:
+        r = requests.put(
+            f"https://{_store()}/admin/api/{_version()}/products/{pid}/metafields/{metafield_id}.json",
+            headers=_headers(),
+            json={"metafield": {"id": metafield_id, "type": mtype, "value": str(value)}}, timeout=30)
+        if r.status_code in (200, 201):
+            return True, None
+        return False, f"Shopify {r.status_code}: {r.text[:280]}" + _scope_hint(r.status_code)
+    except Exception as e:
+        return False, str(e)
+
+
+def eliminar_metafield(pid, metafield_id) -> tuple:
+    """Elimina un metafield del producto. Devuelve (ok, error). DEFENSIVO."""
+    if not configurado():
+        return False, "Sin credenciales de Shopify."
+    import requests
+    try:
+        r = requests.delete(
+            f"https://{_store()}/admin/api/{_version()}/products/{pid}/metafields/{metafield_id}.json",
+            headers=_headers(), timeout=30)
+        if r.status_code in (200, 201):
+            return True, None
+        return False, f"Shopify {r.status_code}: {r.text[:250]}" + _scope_hint(r.status_code)
+    except Exception as e:
+        return False, str(e)
+
+
 def a_lead(c: dict) -> dict:
     """Mapea un cliente de Shopify a un lead del CRM (llaves de CAMPOS_IMPORT)."""
     _addr = c.get("default_address") or {}

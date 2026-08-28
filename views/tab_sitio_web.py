@@ -44,6 +44,63 @@ def _he(s):
     return str(s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
 
+# Tipos de metafield que ofrecemos al crear (etiqueta → tipo Shopify).
+_MF_TIPOS = {
+    "Texto": "single_line_text_field",
+    "Texto largo": "multi_line_text_field",
+    "Número entero": "number_integer",
+    "Número decimal": "number_decimal",
+    "Sí / No": "boolean",
+}
+
+
+def _mf_label(mf) -> str:
+    """Nombre legible de un metafield a partir de su key (metros_cuadrados → Metros cuadrados)."""
+    k = str(mf.get("key", "")).replace("_", " ").replace("-", " ").strip()
+    return (k[:1].upper() + k[1:]) if k else "(sin clave)"
+
+
+def _mf_widget(mf, keyp):
+    """Widget de valor adaptado al tipo del metafield (para editar el existente)."""
+    t = mf.get("type", "single_line_text_field")
+    val = mf.get("value", "")
+    if t == "boolean":
+        return st.checkbox("v", value=(str(val).strip().lower() == "true"), key=keyp, label_visibility="collapsed")
+    if t == "number_integer":
+        try:
+            _iv = int(float(val or 0))
+        except Exception:
+            _iv = 0
+        return st.number_input("v", value=_iv, step=1, key=keyp, label_visibility="collapsed")
+    if t == "number_decimal":
+        try:
+            _fv = float(val or 0)
+        except Exception:
+            _fv = 0.0
+        return st.number_input("v", value=_fv, step=0.1, format="%.2f", key=keyp, label_visibility="collapsed")
+    if t == "multi_line_text_field":
+        return st.text_area("v", value=str(val or ""), key=keyp, height=80, label_visibility="collapsed")
+    return st.text_input("v", value=str(val or ""), key=keyp, label_visibility="collapsed")
+
+
+def _mf_serialize(t, w) -> str:
+    """Serializa el valor del widget al formato string que espera Shopify según el tipo."""
+    if t == "boolean":
+        return "true" if w else "false"
+    if t == "number_integer":
+        try:
+            return str(int(w))
+        except Exception:
+            return "0"
+    if t == "number_decimal":
+        try:
+            s = ("%.4f" % float(w)).rstrip("0").rstrip(".")
+            return s or "0"
+        except Exception:
+            return "0"
+    return str(w)
+
+
 @st.cache_data(ttl=300, show_spinner=False)
 def _cargar_productos(status, _cb=""):
     return _shop.listar_productos(status=status)
@@ -129,6 +186,8 @@ def _clear_editor_state():
     for k in [k for k in list(st.session_state.keys()) if str(k).startswith("sw_ed_")]:
         st.session_state.pop(k, None)
     st.session_state.pop("sw_edit_prod", None)
+    st.session_state.pop("sw_edit_mf", None)
+    st.session_state.pop("sw_edit_mf_pid", None)
 
 
 def render_tab_sitio_web(**kwargs):
@@ -443,3 +502,102 @@ def _render_editor(pid):
                     st.rerun()
                 else:
                     st.error(_e)
+
+    # ── Características (metafields) ──
+    _mf = st.session_state.get("sw_edit_mf")
+    if _mf is None or st.session_state.get("sw_edit_mf_pid") != str(pid):
+        with st.spinner("Cargando características…"):
+            _mf, _mferr = _shop.listar_metafields(pid)
+        if _mferr:
+            st.warning(_mferr)
+            _mf = []
+        st.session_state["sw_edit_mf"] = _mf
+        st.session_state["sw_edit_mf_pid"] = str(pid)
+
+    st.markdown(f'<div class="sw-sec">{_ic("text", "#0f172a", 16, 0)}Características / detalles '
+                f'<span style="color:#94a3b8;font-weight:800;">· {len(_mf)}</span></div>',
+                unsafe_allow_html=True)
+    st.caption("Datos estructurados del producto (m², dormitorios, baños, etc.). Se guardan como "
+               "metafields en Shopify; para que se vean en la web, el tema debe mostrarlos.")
+
+    if _mf:
+        _mf_ws = {}
+        for m in _mf:
+            _mid = m.get("id")
+            _mc1, _mc2, _mc3 = st.columns([2.4, 3.2, 0.7], vertical_alignment="center")
+            with _mc1:
+                st.markdown(
+                    f'<div style="font-weight:700;color:#0f172a;font-size:0.85rem;">{_he(_mf_label(m))}</div>'
+                    f'<div style="font-size:0.64rem;color:#94a3b8;font-weight:600;">'
+                    f'{_he(m.get("namespace", ""))}.{_he(m.get("key", ""))} · {_he(m.get("type", ""))}</div>',
+                    unsafe_allow_html=True)
+            with _mc2:
+                _mf_ws[_mid] = (m.get("type"), _mf_widget(m, f"sw_ed_mf_{_mid}"))
+            with _mc3:
+                if st.button("", icon=":material/delete:", key=f"sw_ed_mfdel_{_mid}",
+                             use_container_width=True, help="Eliminar esta característica"):
+                    with st.spinner("Eliminando…"):
+                        _ok, _e = _shop.eliminar_metafield(pid, _mid)
+                    if _ok:
+                        st.session_state.pop("sw_edit_mf", None)
+                        st.toast("Característica eliminada.")
+                        st.rerun()
+                    else:
+                        st.error(_e)
+        if st.button("Guardar características", key="sw_ed_mfsave", type="primary",
+                     icon=":material/save:"):
+            _errs = []
+            with st.spinner("Guardando características…"):
+                for m in _mf:
+                    _mid = m.get("id")
+                    _t, _w = _mf_ws.get(_mid, (None, None))
+                    if _t is None:
+                        continue
+                    _nv = _mf_serialize(_t, _w)
+                    if str(_nv) != str(m.get("value", "")):
+                        _ok, _e = _shop.actualizar_metafield(pid, _mid, _t, _nv)
+                        if not _ok:
+                            _errs.append(_e)
+            if _errs:
+                st.error("No se pudieron guardar algunas: " + " · ".join(str(x) for x in _errs))
+            else:
+                st.session_state.pop("sw_edit_mf", None)
+                st.toast("Características guardadas.")
+                st.rerun()
+    else:
+        st.caption("Este producto aún no tiene características (metafields).")
+
+    with st.expander("➕ Agregar característica"):
+        _nc1, _nc2, _nc3 = st.columns([1.2, 1.6, 1.4])
+        with _nc1:
+            _ns = st.text_input("Namespace", value="custom", key="sw_ed_mfns",
+                                help="Agrupador. 'custom' es el habitual.")
+        with _nc2:
+            _key = st.text_input("Clave (key)", key="sw_ed_mfkey", placeholder="metros_cuadrados")
+        with _nc3:
+            _tlbl = st.selectbox("Tipo", list(_MF_TIPOS.keys()), key="sw_ed_mftipo")
+        _tval = _MF_TIPOS[_tlbl]
+        if _tval == "boolean":
+            _newv = st.checkbox("Valor (marcado = Sí)", key="sw_ed_mfval_b")
+        elif _tval == "number_integer":
+            _newv = st.number_input("Valor", step=1, value=0, key="sw_ed_mfval_i")
+        elif _tval == "number_decimal":
+            _newv = st.number_input("Valor", step=0.1, value=0.0, format="%.2f", key="sw_ed_mfval_d")
+        elif _tval == "multi_line_text_field":
+            _newv = st.text_area("Valor", key="sw_ed_mfval_t", height=80)
+        else:
+            _newv = st.text_input("Valor", key="sw_ed_mfval_s")
+        if st.button("Agregar característica", key="sw_ed_mfadd", type="primary",
+                     disabled=not (_key or "").strip(), icon=":material/add:"):
+            with st.spinner("Agregando…"):
+                _ok, _e = _shop.crear_metafield(pid, (_ns or "custom").strip(), _key.strip(),
+                                                _tval, _mf_serialize(_tval, _newv))
+            if _ok:
+                st.session_state.pop("sw_edit_mf", None)
+                for _k in ("sw_ed_mfkey", "sw_ed_mfval_s", "sw_ed_mfval_t", "sw_ed_mfval_i",
+                           "sw_ed_mfval_d", "sw_ed_mfval_b"):
+                    st.session_state.pop(_k, None)
+                st.toast("Característica agregada.")
+                st.rerun()
+            else:
+                st.error(_e)
