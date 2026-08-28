@@ -64,23 +64,29 @@ def contar_correos(cliente_id=None) -> int:
 
 
 def campanas_por_cliente() -> dict:
-    """{cliente_id -> [(nombre_campaña, fecha_iso), …] asc por fecha} para pintar en las
-    cards del CRM el historial de CAMPAÑAS MASIVAS recibidas por cada lead. Solo correos
-    con campana_id (los individuales no cuentan). DEFENSIVO → {} si algo falla."""
+    """{cliente_id -> [ {nombre, fecha, last_event, opened, clicked, bounced, complained}, … ]
+    asc por fecha} para pintar en las cards del CRM el historial de CAMPAÑAS MASIVAS
+    recibidas por cada lead (con su estado de correo). Solo correos con campana_id (los
+    individuales no cuentan). DEFENSIVO → {} si algo falla."""
     out = {}
     try:
         _camps = _supa.table("crm_campanas").select("*").execute().data or []
         _cn = {str(c.get("id")): (c.get("nombre") or c.get("asunto") or "Campaña") for c in _camps}
-        _cors = (_supa.table("crm_correos").select("cliente_id,campana_id,fecha,asunto")
+        _cors = (_supa.table("crm_correos").select("*")
                  .not_.is_("campana_id", "null").execute().data or [])
         for co in _cors:
             _cid = co.get("cliente_id")
             if not _cid:
                 continue
-            _nm = _cn.get(str(co.get("campana_id"))) or co.get("asunto") or "Campaña"
-            out.setdefault(str(_cid), []).append((_nm, co.get("fecha")))
+            out.setdefault(str(_cid), []).append({
+                "nombre": _cn.get(str(co.get("campana_id"))) or co.get("asunto") or "Campaña",
+                "fecha": co.get("fecha"),
+                "last_event": co.get("last_event"),
+                "opened": co.get("opened"), "clicked": co.get("clicked"),
+                "bounced": co.get("bounced"), "complained": co.get("complained"),
+            })
         for _cid in out:
-            out[_cid].sort(key=lambda x: str(x[1] or ""))
+            out[_cid].sort(key=lambda x: str(x.get("fecha") or ""))
     except Exception:
         pass
     return out

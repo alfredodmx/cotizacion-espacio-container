@@ -597,10 +597,12 @@ _CLI_CSS = """
 .cli-card-camp{margin-top:8px;border-top:1px dashed #e2e8f0;padding-top:7px;display:flex;flex-direction:column;gap:4px;}
 .cli-camp-hd{display:flex;align-items:center;gap:5px;font-size:9.5px;font-weight:800;color:#15803d;
   text-transform:uppercase;letter-spacing:.04em;}
-.cli-camp-item{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;color:#15803d;
-  background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:4px 8px;line-height:1.25;}
+.cli-camp-item{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:#15803d;
+  background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:4px 7px;line-height:1.2;}
 .cli-camp-nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1;}
-.cli-camp-dt{color:#16a34a;font-weight:600;flex-shrink:0;font-size:9.5px;}
+.cli-camp-st{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.02em;padding:1px 6px;
+  border-radius:99px;white-space:nowrap;flex-shrink:0;box-shadow:0 0 0 1px rgba(15,23,42,.05);}
+.cli-camp-dt{color:#16a34a;font-weight:600;flex-shrink:0;font-size:8.5px;}
 .cli-fuente-b{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:800;padding:2px 7px;
   border-radius:20px;text-transform:uppercase;letter-spacing:.02em;}
 /* Etiqueta de TRATO (solo cuando un cliente tiene activo + historial): distingue
@@ -1086,8 +1088,9 @@ def _campanas_map() -> dict:
     return _campanas_por_cliente()
 
 
-def _fmt_campana_dt(iso) -> str:
-    """Fecha+hora de una campaña en horario de Chile (la BD guarda UTC)."""
+def _fmt_campana_dt(iso, short: bool = False) -> str:
+    """Fecha+hora de una campaña en horario de Chile (la BD guarda UTC). `short` = sin
+    año (para que quepa junto al estado en la misma fila de la card)."""
     from datetime import datetime as _dtc, timezone as _tzc, timedelta as _tdc
     try:
         d = _dtc.fromisoformat(str(iso))
@@ -1098,7 +1101,7 @@ def _fmt_campana_dt(iso) -> str:
             d = d.astimezone(ZoneInfo("America/Santiago"))
         except Exception:
             d = d.astimezone(_tzc(_tdc(hours=-4)))
-        return d.strftime("%d/%m/%Y %H:%M")
+        return d.strftime("%d/%m %H:%M" if short else "%d/%m/%Y %H:%M")
     except Exception:
         return str(iso or "")[:16]
 
@@ -1110,14 +1113,27 @@ _MAIL_MINI = ('<svg width="11" height="11" viewBox="0 0 24 24" fill="none" strok
 
 
 def _campanas_card_html(camps) -> str:
-    """Historial de campañas masivas recibidas (verde), apilado por fecha, para la card."""
+    """Historial de campañas masivas recibidas (verde), apilado por fecha, para la card.
+    Cada fila: nombre + ESTADO del correo (mismos colores que la ficha) + fecha/hora."""
     if not camps:
         return ""
     _items = ""
-    for _nm, _fe in camps:
+    for c in camps:
+        # Estado sin polling (solo flags del webhook + last_event), colores de la ficha.
+        if c.get("complained"):
+            _lbl, _bg, _fg = _CORREO_META["complained"]
+        elif c.get("bounced"):
+            _lbl, _bg, _fg = _CORREO_META["bounced"]
+        elif c.get("clicked"):
+            _lbl, _bg, _fg = _CORREO_META["clicked"]
+        elif c.get("opened"):
+            _lbl, _bg, _fg = _CORREO_META["opened"]
+        else:
+            _lbl, _bg, _fg = _CORREO_META.get(str(c.get("last_event") or "").strip(), _CORREO_META["sent"])
+        _st = f'<span class="cli-camp-st" style="background:{_bg};color:{_fg};">{_esc(_lbl)}</span>'
         _items += (f'<div class="cli-camp-item">{_MAIL_MINI}'
-                   f'<span class="cli-camp-nm">{_esc(str(_nm))}</span>'
-                   f'<span class="cli-camp-dt">{_esc(_fmt_campana_dt(_fe))}</span></div>')
+                   f'<span class="cli-camp-nm">{_esc(str(c.get("nombre")))}</span>'
+                   f'{_st}<span class="cli-camp-dt">{_esc(_fmt_campana_dt(c.get("fecha"), short=True))}</span></div>')
     return (f'<div class="cli-card-camp"><div class="cli-camp-hd">{_MAIL_MINI}'
             f'Campañas enviadas · {len(camps)}</div>{_items}</div>')
 
