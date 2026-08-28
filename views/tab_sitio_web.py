@@ -67,6 +67,8 @@ _CSS = """
 .sw-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:0.86rem;color:#0f172a;line-height:1.25;
   margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.1em;}
 .sw-price{font-family:Montserrat,sans-serif;font-weight:900;font-size:1.02rem;color:#0f172a;}
+.sw-compare{font-size:0.72rem;color:#94a3b8;font-weight:600;margin-top:1px;}
+.sw-compare s{color:#94a3b8;}
 .sw-meta{font-size:0.68rem;color:#94a3b8;font-weight:600;margin-top:5px;display:flex;flex-wrap:wrap;gap:4px 10px;}
 .sw-type{font-size:0.66rem;color:#64748b;background:#f1f5f9;border-radius:6px;padding:2px 7px;margin-top:8px;
   display:inline-block;font-weight:700;width:fit-content;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -231,6 +233,16 @@ def render_tab_sitio_web(**kwargs):
             _price = _fmt_clp(_pmin) if _pmin == _pmax else f"{_fmt_clp(_pmin)} – {_fmt_clp(_pmax)}"
         else:
             _price = "—"
+        # Precio antes (compare_at_price, tachado) si alguna variante lo tiene.
+        _cmps = []
+        for v in _vars:
+            try:
+                _cv = float(v.get("compare_at_price") or 0)
+                if _cv > 0:
+                    _cmps.append(_cv)
+            except Exception:
+                pass
+        _cmp_html = (f'<div class="sw-compare">Antes: <s>{_fmt_clp(max(_cmps))}</s></div>' if _cmps else "")
         _bg, _fg, _blbl = _bcol.get(p.get("status", "active"), _bcol["active"])
         _ptype = _he(p.get("product_type") or (p.get("tags") or "").split(",")[0].strip() or "Producto")
         _web = _shop.producto_web_url(p.get("handle"))
@@ -241,7 +253,7 @@ def render_tab_sitio_web(**kwargs):
             f'<span class="sw-badge" style="background:{_bg};color:{_fg};">{_blbl}</span></div>'
             '<div class="sw-body">'
             f'<div class="sw-title">{_title}</div>'
-            f'<div class="sw-price">{_price}</div>'
+            f'<div class="sw-price">{_price}</div>{_cmp_html}'
             f'<div class="sw-meta"><span>{_ic("img", "#94a3b8", 12, 4)}{len(_imgs)} foto(s)</span>'
             f'<span>{len(_vars)} variante(s)</span></div>'
             f'<div class="sw-type">{_ptype}</div>'
@@ -307,15 +319,26 @@ def _render_editor(pid):
 
     # ── Precios ──
     st.markdown(f'<div class="sw-sec">{_ic("money", "#0f172a", 16, 0)}Precios</div>', unsafe_allow_html=True)
+    st.caption("«Precio antes» es el valor tachado que se muestra como precio anterior (para que se vea el "
+               "descuento debe ser MAYOR que el precio actual). Déjalo en 0 para quitarlo.")
     _vars = _p.get("variants") or []
     _price_widgets = {}
-    _pcols = st.columns(min(3, max(1, len(_vars))))
-    for _i, v in enumerate(_vars):
-        with _pcols[_i % len(_pcols)]:
-            _vid = v.get("id")
+    _cmp_widgets = {}
+    for v in _vars:
+        _vid = v.get("id")
+        _vtitle = v.get("title") or ""
+        if _vtitle and _vtitle.lower() != "default title":
+            st.markdown(f'<div style="font-weight:700;color:#475569;font-size:0.82rem;margin:8px 0 2px;">'
+                        f'{_he(_vtitle)}</div>', unsafe_allow_html=True)
+        _cp1, _cp2 = st.columns(2)
+        with _cp1:
             _price_widgets[_vid] = st.number_input(
-                f"{v.get('title') or 'Precio'}", min_value=0.0, step=1000.0, format="%.0f",
+                "Precio (ahora)", min_value=0.0, step=1000.0, format="%.0f",
                 value=float(v.get("price") or 0), key=f"sw_ed_price_{_vid}")
+        with _cp2:
+            _cmp_widgets[_vid] = st.number_input(
+                "Precio antes (tachado)", min_value=0.0, step=1000.0, format="%.0f",
+                value=float(v.get("compare_at_price") or 0), key=f"sw_ed_cmp_{_vid}")
 
     # ── Guardar (con confirmación) ──
     st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
@@ -332,9 +355,17 @@ def _render_editor(pid):
                 _errs.append(_e)
             for v in _vars:
                 _vid = v.get("id")
-                _new = _price_widgets.get(_vid)
-                if _new is not None and abs(float(v.get("price") or 0) - float(_new)) > 0.5:
-                    _ov, _oe = _shop.actualizar_variante(_vid, {"price": f"{_new:.0f}"})
+                _vc = {}
+                _np = _price_widgets.get(_vid)
+                if _np is not None and abs(float(v.get("price") or 0) - float(_np)) > 0.5:
+                    _vc["price"] = f"{_np:.0f}"
+                _nc = _cmp_widgets.get(_vid)
+                _curc = float(v.get("compare_at_price") or 0)
+                if _nc is not None and abs(_curc - float(_nc)) > 0.5:
+                    # 0 → null limpia el precio antes; >0 → lo fija.
+                    _vc["compare_at_price"] = (f"{_nc:.0f}" if float(_nc) > 0 else None)
+                if _vc:
+                    _ov, _oe = _shop.actualizar_variante(_vid, _vc)
                     if not _ov:
                         _errs.append(_oe)
         if _errs:
