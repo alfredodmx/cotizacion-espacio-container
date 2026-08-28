@@ -148,6 +148,23 @@ def get_producto(pid) -> tuple:
         return None, str(e)
 
 
+def crear_producto(campos: dict) -> tuple:
+    """Crea un producto NUEVO. `campos` puede traer title, body_html, status,
+    product_type, tags, variants ([{price}]), images ([{src}]). Devuelve
+    (producto|None, error). DEFENSIVO."""
+    if not configurado():
+        return None, "Sin credenciales de Shopify."
+    import requests
+    try:
+        r = requests.post(f"https://{_store()}/admin/api/{_version()}/products.json",
+                          headers=_headers(), json={"product": campos}, timeout=40)
+        if r.status_code in (200, 201):
+            return (r.json() or {}).get("product"), None
+        return None, f"Shopify {r.status_code}: {r.text[:280]}" + _scope_hint(r.status_code)
+    except Exception as e:
+        return None, str(e)
+
+
 def actualizar_producto(pid, campos: dict) -> tuple:
     """PUT de campos del producto (title, body_html, status, product_type, tags…).
     Devuelve (ok, error). DEFENSIVO."""

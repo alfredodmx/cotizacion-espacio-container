@@ -319,6 +319,11 @@ def render_tab_sitio_web(**kwargs):
             st.session_state["sw_edit_id"] = _eid.strip()
             st.rerun()
 
+    # ── Modo NUEVO PRODUCTO ──
+    if st.session_state.get("sw_new"):
+        _render_nuevo()
+        return
+
     # ── Modo EDITOR ──
     if st.session_state.get("sw_edit_id"):
         _render_editor(st.session_state["sw_edit_id"])
@@ -334,7 +339,7 @@ def render_tab_sitio_web(**kwargs):
         unsafe_allow_html=True)
 
     _opts = {"Activos": "active", "Borradores": "draft", "Archivados": "archived", "Todos": ""}
-    _c1, _c2 = st.columns([4, 1], vertical_alignment="bottom")
+    _c1, _c2, _c3 = st.columns([3.2, 1, 1.4], vertical_alignment="bottom")
     with _c1:
         st.markdown(
             "<style>.st-key-sw_estado label,.st-key-sw_estado label *{font-family:Montserrat,sans-serif!important;"
@@ -346,6 +351,14 @@ def render_tab_sitio_web(**kwargs):
     with _c2:
         if st.button("Actualizar", key="sw_refresh", use_container_width=True, icon=":material/refresh:"):
             _cargar_productos.clear()
+            st.rerun()
+    with _c3:
+        if st.button("Nuevo producto", key="sw_new_open", use_container_width=True, type="primary",
+                     icon=":material/add_box:"):
+            _clear_editor_state()
+            for _k in [k for k in list(st.session_state.keys()) if str(k).startswith("sw_new_")]:
+                st.session_state.pop(_k, None)
+            st.session_state["sw_new"] = True
             st.rerun()
     _status = _opts[_lbl]
 
@@ -426,6 +439,67 @@ def render_tab_sitio_web(**kwargs):
 
     st.markdown(f'<div class="sw-grid">{_cards}</div>', unsafe_allow_html=True)
     components.html(_SW_JS, height=0)
+
+
+def _render_nuevo():
+    """Formulario para CREAR un producto nuevo. Al crearlo, abre su editor para que se
+    le agreguen fotos, videos y características. Se crea como BORRADOR por defecto (no
+    queda público hasta que se active)."""
+    if st.button("← Volver al catálogo", key="sw_new_back"):
+        st.session_state.pop("sw_new", None)
+        for _k in [k for k in list(st.session_state.keys()) if str(k).startswith("sw_new_")]:
+            st.session_state.pop(_k, None)
+        st.rerun()
+
+    st.markdown(f'<div class="sw-sec">{_ic("box", "#0f172a", 17, 0)}Nuevo producto</div>',
+                unsafe_allow_html=True)
+    st.caption("Crea un modelo nuevo para la web. Se guarda como BORRADOR (no visible) hasta que lo "
+               "actives; primero podrás agregarle fotos, videos y características.")
+
+    _title = st.text_input("Nombre del producto *", key="sw_new_title",
+                           placeholder="Ej: Cabaña Aurora 36m²")
+    _dc1, _dc2 = st.columns([3, 1.2])
+    with _dc1:
+        _desc = st.text_area("Descripción · acepta HTML", key="sw_new_desc", height=150,
+                             placeholder="Describe el modelo, materiales, terminaciones…")
+    with _dc2:
+        _price = st.number_input("Precio", min_value=0.0, step=1000.0, format="%.0f", key="sw_new_price")
+        _est_lbl = st.selectbox("Estado inicial", ["Borrador", "Activo"], key="sw_new_status")
+    _tc1, _tc2 = st.columns(2)
+    with _tc1:
+        _ptype = st.text_input("Tipo de producto", value="Casa Container", key="sw_new_type")
+    with _tc2:
+        _tags = st.text_input("Etiquetas (separadas por coma)", key="sw_new_tags")
+    _imgurl = st.text_input("Foto principal por URL (opcional)", key="sw_new_img",
+                            placeholder="https://…/foto.jpg", help="Luego podrás agregar/subir más fotos.")
+
+    st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
+    _conf = st.checkbox("Confirmo crear este producto en la web (como borrador).", key="sw_new_conf")
+    if st.button("Crear producto", type="primary", key="sw_new_create",
+                 disabled=(not (_title or "").strip() or not _conf), icon=":material/add_box:"):
+        _campos = {
+            "title": _title.strip(),
+            "body_html": _desc,
+            "status": "active" if _est_lbl == "Activo" else "draft",
+            "product_type": _ptype.strip(),
+            "tags": _tags.strip(),
+            "variants": [{"price": f"{_price:.0f}"}],
+        }
+        if (_imgurl or "").strip():
+            _campos["images"] = [{"src": _imgurl.strip()}]
+        with st.spinner("Creando producto en Shopify…"):
+            _prod, _err = _shop.crear_producto(_campos)
+        if _err or not _prod:
+            st.error(_err or "No se pudo crear el producto.", icon=":material/error:")
+        else:
+            st.session_state.pop("sw_new", None)
+            for _k in [k for k in list(st.session_state.keys()) if str(k).startswith("sw_new_")]:
+                st.session_state.pop(_k, None)
+            _clear_editor_state()
+            _cargar_productos.clear()
+            st.session_state["sw_edit_id"] = str(_prod.get("id"))
+            st.toast("Producto creado. Ahora agrégale fotos, videos y características.")
+            st.rerun()
 
 
 def _render_editor(pid):
