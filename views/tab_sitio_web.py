@@ -285,6 +285,238 @@ _SW_JS = r"""<script>
 </script>"""
 
 
+# ── Selector de vista (Tarjetas / Tabla), disfrazado de pestañas igual que el CRM ──
+_SW_VISTA_CSS = """
+<style>
+.st-key-sw_vista{border-bottom:2px solid #e2e6f3!important;margin-bottom:16px!important;}
+.st-key-sw_vista [role="radiogroup"]{gap:0!important;flex-wrap:wrap!important;margin-bottom:0!important;padding:0!important;}
+.st-key-sw_vista [role="radiogroup"] > label{background:transparent!important;border:none!important;position:relative!important;
+  border-radius:0!important;padding:0.72rem 1.5rem!important;margin:0!important;cursor:pointer!important;color:#7c85b3!important;
+  transition:color .2s!important;}
+.st-key-sw_vista [role="radiogroup"] > label:hover{color:#5b7cfa!important;background:rgba(91,124,250,.05)!important;}
+.st-key-sw_vista [role="radiogroup"] > label:has(input:checked){color:#5b7cfa!important;background:rgba(91,124,250,.06)!important;}
+.st-key-sw_vista [role="radiogroup"] > label:has(input:checked)::after{content:'';position:absolute;left:0;right:0;
+  bottom:-2px;height:2px;background:#5b7cfa;z-index:3;}
+.st-key-sw_vista [role="radiogroup"] > label > div:first-child{display:none!important;}
+.st-key-sw_vista [role="radiogroup"] label [data-testid="stMarkdownContainer"] p{
+  font-family:'Plus Jakarta Sans',sans-serif!important;font-size:0.88rem!important;font-weight:700!important;
+  text-transform:uppercase!important;letter-spacing:0.05em!important;margin:0!important;}
+.st-key-sw_vista [role="radiogroup"] > label [data-testid="stMarkdownContainer"] p,
+.st-key-sw_vista [role="radiogroup"] > label [data-testid="stMarkdownContainer"] p span{color:#7c85b3!important;}
+.st-key-sw_vista [role="radiogroup"] > label:hover [data-testid="stMarkdownContainer"] p,
+.st-key-sw_vista [role="radiogroup"] > label:hover [data-testid="stMarkdownContainer"] p span,
+.st-key-sw_vista [role="radiogroup"] > label:has(input:checked) [data-testid="stMarkdownContainer"] p,
+.st-key-sw_vista [role="radiogroup"] > label:has(input:checked) [data-testid="stMarkdownContainer"] p span{color:#5b7cfa!important;}
+.st-key-sw_vista [role="radiogroup"] label span[role="img"][aria-label$=" icon"]{
+  font-family:'Material Symbols Rounded'!important;font-weight:400!important;font-size:0.9rem!important;
+  text-transform:none!important;letter-spacing:normal!important;}
+</style>
+"""
+
+
+# ── Tabla HTML (iframe autocontenido): mismo diseño que la tabla de COTIZACIONES ──
+_SW_TABLE_TEMPLATE = """<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Montserrat:wght@700;800;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:IFRAMEHPX;overflow:hidden;font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;background:transparent;}
+#wrap{display:flex;flex-direction:column;height:100%;position:relative;}
+#bar2{display:flex;align-items:center;gap:8px;padding:0 0 9px;flex-shrink:0;}
+#search{flex:1;min-width:0;height:42px;border:1.5px solid #e2e8f0;border-radius:11px;padding:0 13px;font-size:0.84rem;
+  font-family:inherit;outline:none;color:#1e293b;background:#f8fafc;transition:border-color .2s,box-shadow .2s;}
+#search:focus{border-color:#5b7cfa;background:#fff;box-shadow:0 0 0 3px rgba(91,124,250,.1);}
+#cnt{font-size:0.72rem;color:#94a3b8;white-space:nowrap;font-weight:700;min-width:70px;text-align:right;}
+#fsbtn{width:42px;height:42px;border:1px solid #e2e8f0;border-radius:11px;background:#fff;color:#475569;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;transition:all .15s;}
+#fsbtn:hover{background:linear-gradient(135deg,#5b7cfa,#2563eb);color:#fff;border-color:transparent;box-shadow:0 4px 12px rgba(37,99,235,.3);}
+#fsbtn svg{width:17px;height:17px;display:block;}
+html.fs,html.fs body,html.fs #wrap{height:100vh!important;}
+html.fs body{padding:12px 16px!important;}
+#tbl-w{flex:1;overflow:auto;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.08);border:1px solid #e2e8f0;}
+#tbl-w::-webkit-scrollbar{width:7px;height:7px;}
+#tbl-w::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px;}
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:0.86rem;table-layout:auto;background:#fff;}
+thead th{background:linear-gradient(135deg,#1e2447 0%,#2a3060 100%);color:#fff;font-weight:900;
+  font-size:0.7rem;letter-spacing:0.07em;text-transform:uppercase;padding:11px 12px;white-space:nowrap;
+  position:sticky;top:0;z-index:2;text-align:left;}
+thead th.r{text-align:right;}
+thead th.c{text-align:center;}
+tbody td{padding:9px 12px;border-bottom:1px solid #f0f2f8;color:#3a4070;vertical-align:middle;}
+tbody tr:hover td{background:#f5f7ff;}
+tbody tr:last-child td{border-bottom:none;}
+td.r{text-align:right;}
+td.c{text-align:center;}
+td.name{font-weight:700;color:#1e293b;max-width:250px;white-space:normal;line-height:1.3;}
+td.price{font-weight:900;color:#0f172a;font-variant-numeric:tabular-nums;white-space:nowrap;}
+td.antes{color:#94a3b8;font-variant-numeric:tabular-nums;white-space:nowrap;}
+td.antes s{color:#94a3b8;}
+.sw-tb-main{width:54px;height:54px;border-radius:9px;object-fit:cover;display:block;background:#f1f5f9;}
+.sw-tb-noimg{width:54px;height:54px;border-radius:9px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;
+  color:#cbd5e1;font-size:8px;font-weight:800;text-transform:uppercase;text-align:center;line-height:1.1;}
+.sw-tb-others{display:flex;gap:4px;align-items:center;flex-wrap:nowrap;}
+.sw-tb-oth{width:32px;height:32px;border-radius:6px;object-fit:cover;display:block;background:#f1f5f9;border:1px solid #e8ebf3;}
+.sw-tb-more{font-size:11px;font-weight:800;color:#64748b;background:#f1f5f9;border-radius:6px;padding:0 6px;height:32px;display:flex;align-items:center;}
+.sw-tb-dash{color:#cbd5e1;font-weight:700;}
+.sw-tb-badge{display:inline-block;font-family:Montserrat,sans-serif;font-weight:800;font-size:10px;letter-spacing:0.03em;
+  text-transform:uppercase;border-radius:99px;padding:4px 10px;white-space:nowrap;}
+.sw-tb-type{font-size:11px;color:#64748b;background:#f1f5f9;border-radius:6px;padding:3px 8px;font-weight:700;white-space:nowrap;}
+.sw-tb-cnt{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:24px;border-radius:7px;
+  background:#eef2ff;color:#4256c7;font-weight:800;font-size:12px;padding:0 6px;}
+.sw-tb-edit{font-family:Montserrat,sans-serif;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;
+  background:linear-gradient(135deg,#5b7cfa,#2563eb);color:#fff;border:none;border-radius:8px;padding:7px 13px;cursor:pointer;
+  white-space:nowrap;transition:filter .15s;}
+.sw-tb-edit:hover{filter:brightness(1.08);}
+#empty{display:none;padding:26px;text-align:center;color:#94a3b8;font-size:0.85rem;}
+</style></head>
+<body>
+<div id="wrap">
+  <div id="bar2">
+    <input id="search" type="text" placeholder="Buscar por nombre, tipo o estado..." autocomplete="off">
+    <span id="cnt"></span>
+    <button id="fsbtn" type="button" title="Pantalla completa"></button>
+  </div>
+  <div id="tbl-w">
+    <table>
+      <thead><tr>
+        <th>Imagen</th><th>Otras imágenes</th><th>Producto</th><th class="c">Estado</th><th>Tipo</th>
+        <th class="r">Precio antes</th><th class="r">Precio</th><th class="c">Variantes</th><th class="c">Fotos</th><th class="c">Editar</th>
+      </tr></thead>
+      <tbody>ROWSPLACEHOLDER</tbody>
+    </table>
+    <div id="empty">Sin resultados para la búsqueda.</div>
+  </div>
+</div>
+<script>
+(function(){
+var NRES=__NRES__;
+var doc=document;
+function applyFilters(){
+  var term=(doc.getElementById('search').value||'').trim().toLowerCase();
+  var rows=doc.querySelectorAll('tbody tr[data-blob]');var vis=0;
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i];
+    var show=(!term||(r.getAttribute('data-blob')||'').indexOf(term)>=0);
+    r.style.display=show?'':'none'; if(show)vis++;
+  }
+  var el=doc.getElementById('cnt'); if(el)el.textContent=vis+' de '+NRES;
+  doc.getElementById('empty').style.display=vis?'none':'block';
+}
+doc.getElementById('search').addEventListener('input',applyFilters);
+
+/* Editar → abre el editor en el padre (input oculto sw_editcmd, secuencia COMPLETA) */
+function openEdit(id){
+  try{
+    var W=window.parent, D=W.document;
+    var inp=D.querySelector('.st-key-sw_editcmd input'); if(!inp) return;
+    var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set;
+    inp.focus({preventScroll:true});
+    setter.call(inp,'edit:'+id+'|'+Date.now());
+    inp.dispatchEvent(new Event('input',{bubbles:true}));
+    inp.dispatchEvent(new Event('change',{bubbles:true}));
+    inp.dispatchEvent(new KeyboardEvent('keypress',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+    inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+    inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+    inp.dispatchEvent(new FocusEvent('blur',{bubbles:true}));
+    inp.dispatchEvent(new FocusEvent('focusout',{bubbles:true}));
+    inp.blur();
+  }catch(e){}
+}
+doc.addEventListener('click',function(e){
+  var b=e.target.closest?e.target.closest('.sw-tb-edit'):null; if(!b) return;
+  openEdit(b.getAttribute('data-swid')||'');
+});
+
+/* Fullscreen (mismo mecanismo/z-index que COTIZACIONES) */
+(function(){
+  var P=window.parent, IFR=null;
+  try{ IFR=window.frameElement; }catch(e){}
+  if(!IFR){ try{ var ifs=P.document.querySelectorAll('iframe'); for(var i=0;i<ifs.length;i++){ if(ifs[i].contentWindow===window){ IFR=ifs[i]; break; } } }catch(e){} }
+  var EXP='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+  var SHR='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/></svg>';
+  var btn=doc.getElementById('fsbtn');
+  var PROPS=[['position','fixed'],['top','0'],['left','0'],['width','100vw'],['height','100vh'],['z-index','999999'],['border','none'],['border-radius','0'],['margin','0'],['background','#fff']];
+  function isFS(){ return P._swFsActive===true; }
+  function apply(){ if(!IFR)return; for(var i=0;i<PROPS.length;i++) IFR.style.setProperty(PROPS[i][0],PROPS[i][1],'important'); doc.documentElement.classList.add('fs'); P._swFsActive=true; if(btn){btn.innerHTML=SHR;btn.title='Salir de pantalla completa';} }
+  function remove(){ if(IFR){for(var i=0;i<PROPS.length;i++) IFR.style.removeProperty(PROPS[i][0]);} doc.documentElement.classList.remove('fs'); P._swFsActive=false; if(btn){btn.innerHTML=EXP;btn.title='Pantalla completa';} }
+  function toggle(){ if(isFS())remove(); else apply(); }
+  if(btn){ btn.onclick=toggle; btn.innerHTML=isFS()?SHR:EXP; }
+  if(isFS()) apply();
+  doc.addEventListener('keydown',function(e){ if(e.key==='Escape'&&isFS()) remove(); });
+  try{ if(P._swFsEsc) P.document.removeEventListener('keydown',P._swFsEsc,true); P._swFsEsc=function(e){ if(e.key==='Escape'&&isFS()) remove(); }; P.document.addEventListener('keydown',P._swFsEsc,true); }catch(e){}
+})();
+
+applyFilters();
+})();
+</script>
+</body></html>"""
+
+
+def _build_sw_table(prods, bcol):
+    """Arma la tabla HTML (estilo COTIZACIONES) con una fila por producto. Devuelve
+    (html, alto_iframe)."""
+    _rows = ""
+    for p in prods:
+        _imgs = p.get("images") or []
+        _img0 = (_imgs[0].get("src") if _imgs else "") or (p.get("image") or {}).get("src", "")
+        _main = (f'<img class="sw-tb-main" src="{_he(_img0)}" alt="" loading="lazy">' if _img0
+                 else '<span class="sw-tb-noimg">Sin<br>foto</span>')
+        _others = _imgs[1:]
+        _oth = ""
+        for im in _others[:6]:
+            _s = im.get("src") or ""
+            if _s:
+                _oth += f'<img class="sw-tb-oth" src="{_he(_s)}" alt="" loading="lazy">'
+        _extra = len(_others) - 6
+        if _extra > 0:
+            _oth += f'<span class="sw-tb-more">+{_extra}</span>'
+        if not _oth:
+            _oth = '<span class="sw-tb-dash">—</span>'
+        _title = _he(p.get("title") or "(sin título)")
+        _status = p.get("status", "active")
+        _bg, _fg, _blbl = bcol.get(_status, bcol["active"])
+        _type = _he(p.get("product_type") or (p.get("tags") or "").split(",")[0].strip() or "—")
+        _vars = p.get("variants") or []
+        _prices, _cmps = [], []
+        for v in _vars:
+            try:
+                _prices.append(float(v.get("price") or 0))
+            except Exception:
+                pass
+            try:
+                _cv = float(v.get("compare_at_price") or 0)
+                if _cv > 0:
+                    _cmps.append(_cv)
+            except Exception:
+                pass
+        if _prices:
+            _pmin, _pmax = min(_prices), max(_prices)
+            _price = _fmt_clp(_pmin) if _pmin == _pmax else f"{_fmt_clp(_pmin)} – {_fmt_clp(_pmax)}"
+        else:
+            _price = "—"
+        _antes = (f"<s>{_fmt_clp(max(_cmps))}</s>" if _cmps else '<span class="sw-tb-dash">—</span>')
+        _blob = _he((str(p.get("title") or "") + " " + str(p.get("product_type") or "")
+                     + " " + str(p.get("tags") or "") + " " + _blbl).lower())
+        _rows += (
+            f'<tr data-blob="{_blob}">'
+            f'<td>{_main}</td>'
+            f'<td><div class="sw-tb-others">{_oth}</div></td>'
+            f'<td class="name">{_title}</td>'
+            f'<td class="c"><span class="sw-tb-badge" style="background:{_bg};color:{_fg};">{_blbl}</span></td>'
+            f'<td><span class="sw-tb-type">{_type}</span></td>'
+            f'<td class="r antes">{_antes}</td>'
+            f'<td class="r price">{_price}</td>'
+            f'<td class="c"><span class="sw-tb-cnt">{len(_vars)}</span></td>'
+            f'<td class="c"><span class="sw-tb-cnt">{len(_imgs)}</span></td>'
+            f'<td class="c"><button type="button" class="sw-tb-edit" data-swid="{_he(p.get("id"))}">Editar</button></td>'
+            f'</tr>')
+    _n = len(prods)
+    _tbl_h = max(320, min(_n * 74 + 56, 620))
+    _iframe_h = 66 + _tbl_h
+    _html = (_SW_TABLE_TEMPLATE.replace("IFRAMEHPX", str(_iframe_h) + "px")
+             .replace("__NRES__", str(_n)).replace("ROWSPLACEHOLDER", _rows))
+    return _html, _iframe_h
+
+
 def _clear_editor_state():
     for k in [k for k in list(st.session_state.keys()) if str(k).startswith("sw_ed_")]:
         st.session_state.pop(k, None)
@@ -377,6 +609,13 @@ def render_tab_sitio_web(**kwargs):
         'publica en la web real, con confirmación previa.</p></div>',
         unsafe_allow_html=True)
 
+    # ── Selector de vista: Tarjetas (por defecto) / Tabla ──
+    st.markdown(_SW_VISTA_CSS, unsafe_allow_html=True)
+    _vistas = ["Tarjetas", "Tabla"]
+    _vicons = {"Tarjetas": ":material/grid_view:", "Tabla": ":material/table_rows:"}
+    _vista = st.radio("Vista", _vistas, index=0, key="sw_vista", horizontal=True,
+                      label_visibility="collapsed", format_func=lambda v: f"{_vicons.get(v, '')} {v}")
+
     _opts = {"Activos": "active", "Borradores": "draft", "Archivados": "archived", "Todos": ""}
     _c1, _c2, _c3 = st.columns([3.2, 1, 1.4], vertical_alignment="bottom")
     with _c1:
@@ -425,6 +664,12 @@ def render_tab_sitio_web(**kwargs):
     _bcol = {"active": ("#dcfce7", "#15803d", "Activo"),
              "draft": ("#fef9c3", "#854d0e", "Borrador"),
              "archived": ("#e2e8f0", "#475569", "Archivado")}
+
+    # ── Modo TABLA (mismo diseño que la tabla de COTIZACIONES) ──
+    if _vista == "Tabla":
+        _tbl_html, _tbl_h = _build_sw_table(_prods, _bcol)
+        components.html(_tbl_html, height=_tbl_h + 4, scrolling=False)
+        return
 
     _cards = ""
     for p in _prods:
