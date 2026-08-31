@@ -124,6 +124,7 @@ _ORDER = {
     'root':      ['dashboard','presupuesto','datos','cotizaciones','edicion_pdf','ranking','contrato','3d','proyecto_excel','sistema','usuarios','notificaciones','reporte','operaciones','inventario','clientes','sitio_web','admindata','formulario','seguridad'],
     'admin':     ['presupuesto','cotizaciones','datos','contrato','clientes','operaciones','inventario','usuarios','proyecto_excel','edicion_pdf','ranking','3d','notificaciones','dashboard','reporte','sitio_web','admindata','formulario','seguridad'],
     'operacion': ['operaciones','inventario'],
+    'sitio_web': ['sitio_web'],
     'ejecutivo': ['ranking','presupuesto','datos','cotizaciones','clientes','contrato','formulario','3d'],
 }
 

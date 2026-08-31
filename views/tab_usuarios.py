@@ -54,6 +54,7 @@ _IC = {
     "x": '<path d="M18 6 6 18"/><path d="M6 6l12 12"/>',
     "upload": '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
     "ban": '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
+    "globe": '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
 }
 
 # Metadatos por rol: (label, icono, color)
@@ -61,6 +62,7 @@ _ROLES = {
     "admin":     ("Administrador", "crown",    "#7c3aed"),
     "ejecutivo": ("Ejecutivo",     "user",     "#2563eb"),
     "operacion": ("Operación",     "settings", "#b45309"),
+    "sitio_web": ("Sitio web",     "globe",    "#0891b2"),
 }
 
 
@@ -254,12 +256,16 @@ def _dlg_crear():
         telefono = st.text_input("Teléfono", placeholder="+56912345678", key="dc_tel")
         password = st.text_input("Contraseña *", type="password", placeholder="Mín. 6 caracteres", key="dc_pass")
 
-    labels = {"ejecutivo": "Ejecutivo", "admin": "Administrador", "operacion": "Operación"}
+    labels = {"ejecutivo": "Ejecutivo", "admin": "Administrador", "operacion": "Operación",
+              "sitio_web": "Sitio web"}
     rol = st.selectbox("Rol", list(labels.keys()), format_func=lambda r: labels[r], key="dc_rol")
     if rol == "admin":
         st.caption("Los administradores ven todas las cotizaciones y gestionan usuarios.")
     elif rol == "operacion":
         st.caption("Los usuarios de Operación solo acceden a la pestaña Operaciones.")
+    elif rol == "sitio_web":
+        st.caption("El rol Sitio web solo accede a la pestaña Sitio web (gestión de la tienda) "
+                   "e ingresa con código de acceso, igual que ejecutivos y operación.")
 
     st.divider()
     ok_col, no_col = st.columns(2)
@@ -411,10 +417,11 @@ def _dlg_password(u):
 @st.dialog("Cambiar rol")
 def _dlg_rol(u):
     rol_actual = u.get("rol", "ejecutivo")
-    labels = {"ejecutivo": "Ejecutivo", "operacion": "Operación", "admin": "Administrador"}
+    labels = {"ejecutivo": "Ejecutivo", "operacion": "Operación", "admin": "Administrador",
+              "sitio_web": "Sitio web"}
     st.markdown(f"**{u['nombre']}** · Rol actual: **{labels.get(rol_actual, rol_actual)}**")
     st.divider()
-    opciones  = [r for r in ["ejecutivo", "operacion", "admin"] if r != rol_actual]
+    opciones  = [r for r in ["ejecutivo", "operacion", "sitio_web", "admin"] if r != rol_actual]
     nuevo_rol = st.selectbox("Nuevo rol", opciones, format_func=lambda r: labels[r], key="dr_rol")
     st.divider()
     ok_col, no_col = st.columns(2)
@@ -696,6 +703,7 @@ def render_tab_usuarios(supabase_admin=None, **deps):
     n_adm = sum(1 for u in usuarios if u.get("rol") in ("admin", "administrador"))
     n_ej  = sum(1 for u in usuarios if u.get("rol") == "ejecutivo")
     n_op  = sum(1 for u in usuarios if u.get("rol") == "operacion")
+    n_sw  = sum(1 for u in usuarios if u.get("rol") in ("sitio_web", "sitioweb", "sitio web"))
     n_blk = sum(1 for u in usuarios if u.get("bloqueado"))
 
     def _stat(icon, color, n, lbl):
@@ -724,6 +732,7 @@ def render_tab_usuarios(supabase_admin=None, **deps):
         + _stat("crown", "#7c3aed", n_adm, "Admin")
         + _stat("user", "#2563eb", n_ej, "Ejecutivos")
         + _stat("settings", "#b45309", n_op, "Operación")
+        + (_stat("globe", "#0891b2", n_sw, "Sitio web") if n_sw else "")
         + _blk_html
         + '</div>',
         unsafe_allow_html=True,

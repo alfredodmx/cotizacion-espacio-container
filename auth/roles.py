@@ -5,13 +5,14 @@ Roles definidos:
   root      → acceso total, puede eliminar cualquier cuenta
   admin     → ve todo, puede crear ejecutivos y admins
   operacion → vista operacional de proyectos
+  sitio_web → solo la pestaña SITIO WEB (gestión de la web Shopify)
   ejecutivo → solo sus propias cotizaciones
 """
 from config.settings import ROOTS
 
 
 def get_rol(email: str, user_metadata: dict | None = None) -> str:
-    """Retorna el rol del usuario: 'root', 'admin', 'operacion' o 'ejecutivo'."""
+    """Retorna el rol del usuario: 'root', 'admin', 'operacion', 'sitio_web' o 'ejecutivo'."""
     email_l = (email or "").lower()
     if email_l in [r.lower() for r in ROOTS]:
         return "root"
@@ -22,6 +23,8 @@ def get_rol(email: str, user_metadata: dict | None = None) -> str:
         return "admin"
     if meta_rol in ("operacion", "operaciones"):
         return "operacion"
+    if meta_rol in ("sitio_web", "sitioweb", "sitio web"):
+        return "sitio_web"
     return "ejecutivo"
 
 

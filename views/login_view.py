@@ -236,7 +236,7 @@ def render_login(login_usuario_fn) -> None:
                 if user:
                     _meta  = user.user_metadata or {}
                     rol    = get_rol(user.email, _meta)
-                    requiere_codigo = rol in ("ejecutivo", "operacion")
+                    requiere_codigo = rol in ("ejecutivo", "operacion", "sitio_web")
                     if requiere_codigo and not validar_codigo_acceso(code_in):
                         st.error("🔐 Código de acceso incorrecto. Solicítalo al administrador.")
                     else:

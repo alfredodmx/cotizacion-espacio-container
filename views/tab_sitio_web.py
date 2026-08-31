@@ -626,8 +626,9 @@ def _dialog_eliminar(pid):
 
 
 def render_tab_sitio_web(**kwargs):
-    if st.session_state.get("rol_usuario", "ejecutivo") not in ("root", "admin"):
-        st.info("Esta sección es solo para administradores (admin y root).", icon=":material/lock:")
+    if st.session_state.get("rol_usuario", "ejecutivo") not in ("root", "admin", "sitio_web"):
+        st.info("Esta sección es solo para administradores (admin y root) y el rol Sitio web.",
+                icon=":material/lock:")
         return
 
     st.markdown(_CSS, unsafe_allow_html=True)
