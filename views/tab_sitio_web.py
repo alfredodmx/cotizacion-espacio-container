@@ -587,6 +587,8 @@ def _clear_editor_state():
     st.session_state.pop("sw_edit_vid_pid", None)
     st.session_state.pop("sw_edit_collects", None)
     st.session_state.pop("sw_edit_collects_pid", None)
+    st.session_state.pop("sw_edit_prodpubs", None)
+    st.session_state.pop("sw_edit_prodpubs_pid", None)
 
 
 def _duplicar_flow(pid):
@@ -772,6 +774,8 @@ def render_tab_sitio_web(**kwargs):
             _cargar_publicados.clear()
             st.session_state.pop("sw_mf_defs", None)
             st.session_state.pop("sw_cols", None)
+            st.session_state.pop("sw_pubs", None)
+            st.session_state.pop("sw_pubs_err", None)
             st.rerun()
     with _c3:
         if st.button("Nuevo producto", key="sw_new_open", use_container_width=True, type="primary",
@@ -1133,6 +1137,67 @@ def _render_editor(pid):
             _cargar_productos.clear()
             st.toast("Organización guardada.")
             st.rerun()
+
+    # ── Canales de venta (publicaciones) ──
+    st.markdown(f'<div class="sw-sec">{_ic("box", "#0f172a", 16, 0)}Canales de venta</div>',
+                unsafe_allow_html=True)
+    st.caption("Dónde se muestra el producto (Tienda online, Point of Sale, etc.), igual que "
+               "«Gestionar publicación» en Shopify. «Tienda online» es lo mismo que el estado "
+               "Activo/No publicado de arriba.")
+    _pubs = st.session_state.get("sw_pubs")
+    if _pubs is None:
+        with st.spinner("Cargando canales…"):
+            _pubs, _puberr = _shop.listar_publicaciones()
+        st.session_state["sw_pubs"] = _pubs or []
+        st.session_state["sw_pubs_err"] = _puberr
+        _pubs = _pubs or []
+    _puberr = st.session_state.get("sw_pubs_err")
+    if _puberr:
+        st.info("Para gestionar los canales de venta desde aquí, el token de Shopify necesita los "
+                "permisos **read_publications** y **write_publications**. Agrégalos en tu app custom "
+                "(Configuración de API → scopes), Guarda y REINSTALA la app. Luego pulsa Actualizar. "
+                f"\n\nDetalle técnico: {_puberr}", icon=":material/info:")
+    elif _pubs:
+        _ppubs = st.session_state.get("sw_edit_prodpubs")
+        if _ppubs is None or st.session_state.get("sw_edit_prodpubs_pid") != str(pid):
+            _pp, _ = _shop.publicaciones_de_producto(pid)
+            _ppubs = list(_pp) if _pp is not None else []
+            st.session_state["sw_edit_prodpubs"] = _ppubs
+            st.session_state["sw_edit_prodpubs_pid"] = str(pid)
+        _cur_pub = set(_ppubs)
+        _ch_state = {}
+        for _pub in _pubs:
+            _gid = _pub.get("id")
+            _num = str(_gid).rsplit("/", 1)[-1]
+            _cc1, _cc2 = st.columns([4, 1.2], vertical_alignment="center")
+            with _cc1:
+                st.markdown(f'<div style="font-weight:700;color:#0f172a;font-size:0.9rem;padding-top:6px;">'
+                            f'{_he(_pub.get("name", "Canal"))}</div>', unsafe_allow_html=True)
+            with _cc2:
+                _ch_state[_gid] = st.toggle("Publicado", value=(_gid in _cur_pub),
+                                            key=f"sw_ed_ch_{_num}", label_visibility="collapsed")
+        if st.button("Guardar canales", key="sw_ed_chsave", type="primary", icon=":material/save:"):
+            _to_pub = [p for p, on in _ch_state.items() if on and p not in _cur_pub]
+            _to_unpub = [p for p, on in _ch_state.items() if not on and p in _cur_pub]
+            _errs = []
+            with st.spinner("Actualizando canales…"):
+                if _to_pub:
+                    _ok, _e = _shop.publicar_en_canales(pid, _to_pub)
+                    if not _ok:
+                        _errs.append(_e)
+                if _to_unpub:
+                    _ok, _e = _shop.despublicar_de_canales(pid, _to_unpub)
+                    if not _ok:
+                        _errs.append(_e)
+            if _errs:
+                st.error("No se pudo actualizar todo: " + " · ".join(str(x) for x in _errs))
+            else:
+                st.session_state.pop("sw_edit_prodpubs", None)
+                st.session_state.pop("sw_edit_prod", None)
+                _cargar_productos.clear()
+                _cargar_publicados.clear()
+                st.toast("Canales de venta actualizados.")
+                st.rerun()
 
     # ── Fotos ──
     st.markdown(f'<div class="sw-sec">{_ic("img", "#0f172a", 16, 0)}Fotos '

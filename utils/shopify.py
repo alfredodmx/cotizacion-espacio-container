@@ -456,6 +456,74 @@ def quitar_de_coleccion(collect_id) -> tuple:
         return False, str(e)
 
 
+# ── Canales de venta (publicaciones) — GraphQL, requiere read/write_publications ─
+
+def listar_publicaciones() -> tuple:
+    """Canales de venta / publicaciones de la tienda (Tienda online, Point of Sale,
+    etc.). GraphQL. Devuelve (lista, error). Cada uno: {id (GID), name}. Requiere el
+    scope read_publications."""
+    q = "query{ publications(first:30){ edges{ node{ id name } } } }"
+    data, err = _graphql(q)
+    if err:
+        return [], err
+    _edges = (((data or {}).get("publications") or {}).get("edges")) or []
+    return [{"id": (e.get("node") or {}).get("id"),
+             "name": (e.get("node") or {}).get("name") or "Canal"} for e in _edges], None
+
+
+def publicaciones_de_producto(pid) -> tuple:
+    """Set de IDs (GID) de publicaciones donde el producto ESTÁ publicado. Devuelve
+    (set|None, error). None en error."""
+    q = ("query($id:ID!){ product(id:$id){ resourcePublicationsV2(first:30){ edges{ node{ "
+         "isPublished publication{ id } } } } } }")
+    data, err = _graphql(q, {"id": _gid_product(pid)})
+    if err:
+        return None, err
+    _edges = ((((data or {}).get("product") or {}).get("resourcePublicationsV2") or {}).get("edges")) or []
+    ids = set()
+    for e in _edges:
+        n = e.get("node") or {}
+        if n.get("isPublished"):
+            _pu = ((n.get("publication") or {}).get("id"))
+            if _pu:
+                ids.add(_pu)
+    return ids, None
+
+
+def publicar_en_canales(pid, publication_ids) -> tuple:
+    """Publica el producto en las publicaciones dadas (GIDs). Devuelve (ok, error).
+    Requiere write_publications."""
+    if not publication_ids:
+        return True, None
+    q = ("mutation($id:ID!, $input:[PublicationInput!]!){ publishablePublish(id:$id, input:$input){ "
+         "userErrors{ field message } } }")
+    _input = [{"publicationId": p} for p in publication_ids]
+    data, err = _graphql(q, {"id": _gid_product(pid), "input": _input})
+    if err:
+        return False, err
+    _errs = (((data or {}).get("publishablePublish") or {}).get("userErrors")) or []
+    if _errs:
+        return False, "; ".join(e.get("message", "") for e in _errs) or "No se pudo publicar."
+    return True, None
+
+
+def despublicar_de_canales(pid, publication_ids) -> tuple:
+    """Quita el producto de las publicaciones dadas (GIDs). Devuelve (ok, error).
+    Requiere write_publications."""
+    if not publication_ids:
+        return True, None
+    q = ("mutation($id:ID!, $input:[PublicationInput!]!){ publishableUnpublish(id:$id, input:$input){ "
+         "userErrors{ field message } } }")
+    _input = [{"publicationId": p} for p in publication_ids]
+    data, err = _graphql(q, {"id": _gid_product(pid), "input": _input})
+    if err:
+        return False, err
+    _errs = (((data or {}).get("publishableUnpublish") or {}).get("userErrors")) or []
+    if _errs:
+        return False, "; ".join(e.get("message", "") for e in _errs) or "No se pudo despublicar."
+    return True, None
+
+
 def reordenar_imagenes(pid, ordered_ids) -> tuple:
     """Reordena las fotos del producto según `ordered_ids` (lista COMPLETA de ids en el
     orden deseado). Se hace con el PUT del producto fijando `position` a cada imagen.
