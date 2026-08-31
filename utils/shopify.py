@@ -125,6 +125,35 @@ def listar_productos(status: str = "active", max_paginas: int = 20,
         return out, str(e)
 
 
+def listar_ids_publicados(max_paginas: int = 20) -> tuple:
+    """Conjunto de IDs (str) de productos PUBLICADOS en la tienda online
+    (`published_status=published`), que es lo que Shopify muestra como 'Activo' vs
+    'No publicado'. IMPORTANTE: el campo `published_at` del REST es el legacy y NO
+    siempre coincide (un producto puede estar publicado con published_at nulo, o al
+    revés), por eso el estado se decide con ESTE filtro. Devuelve (set|None, error);
+    None en error → el llamador cae al heurístico de published_at."""
+    if not configurado():
+        return None, "Sin credenciales de Shopify."
+    import requests
+    ids = set()
+    url = (f"https://{_store()}/admin/api/{_version()}/products.json"
+           f"?limit=250&published_status=published&fields=id")
+    try:
+        for _ in range(max(1, int(max_paginas))):
+            r = requests.get(url, headers=_headers(), timeout=30)
+            if r.status_code != 200:
+                return None, f"Shopify {r.status_code}: {r.text[:150]}"
+            for p in (r.json() or {}).get("products") or []:
+                ids.add(str(p.get("id")))
+            _nxt = _next_link(r.headers.get("Link", "") or r.headers.get("link", ""))
+            if not _nxt:
+                break
+            url = _nxt
+        return ids, None
+    except Exception as e:
+        return None, str(e)
+
+
 # ── Escritura de productos (Fase 2/3) — requiere scope write_products ─────────
 
 def _headers():

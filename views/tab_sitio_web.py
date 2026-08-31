@@ -214,6 +214,14 @@ def _cargar_productos(status, _cb="", published_status=""):
     return _shop.listar_productos(status=status, published_status=published_status)
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def _cargar_publicados(_cb=""):
+    """Set de IDs realmente publicados en la tienda online (fuente de verdad para
+    'Activo' vs 'No publicado'). None si Shopify falla → se cae a published_at."""
+    ids, _ = _shop.listar_ids_publicados()
+    return ids
+
+
 # Estados efectivos (status de Shopify + publicación en la tienda online).
 _ESTADOS = {
     "active":      ("#dcfce7", "#15803d", "Activo"),
@@ -223,16 +231,20 @@ _ESTADOS = {
 }
 
 
-def _estado_efectivo(p) -> str:
+def _estado_efectivo(p, pubset=None) -> str:
     """Estado REAL que muestra Shopify: archivado / borrador / activo (publicado) o
-    'unpublished' = activo pero SIN publicar en la tienda online (published_at nulo).
-    Así 'No publicado' no se confunde con 'Activo'."""
+    'unpublished' = activo pero SIN publicar en la tienda online. La publicación se
+    decide por el SET de ids publicados (published_status), NO por published_at (que
+    es legacy y no coincide). Si no hay set, cae a published_at."""
     _s = str(p.get("status") or "").lower()
     if _s == "archived":
         return "archived"
     if _s == "draft":
         return "draft"
-    # status active (o vacío): depende de si está publicado en la tienda online.
+    if pubset is None:
+        pubset = st.session_state.get("sw_pubset")
+    if pubset is not None:
+        return "active" if str(p.get("id")) in pubset else "unpublished"
     return "active" if p.get("published_at") else "unpublished"
 
 
@@ -677,6 +689,10 @@ def render_tab_sitio_web(**kwargs):
                    "necesita **read_products** y **write_products**.", icon=":material/warning:")
         return
 
+    # Set de productos publicados en la tienda online (fuente de verdad del estado).
+    # Se carga temprano (cacheado) para que card, tabla, editor y diálogo coincidan.
+    st.session_state["sw_pubset"] = _cargar_publicados()
+
     # ── Puente para abrir el editor / duplicar ──
     _ec = st.text_input("editcmd", key="sw_editcmd", label_visibility="collapsed")
     if _ec and "|" in _ec:
@@ -751,6 +767,7 @@ def render_tab_sitio_web(**kwargs):
     with _c2:
         if st.button("Actualizar", key="sw_refresh", use_container_width=True, icon=":material/refresh:"):
             _cargar_productos.clear()
+            _cargar_publicados.clear()
             st.session_state.pop("sw_mf_defs", None)
             st.rerun()
     with _c3:
@@ -1049,6 +1066,7 @@ def _render_editor(pid):
         else:
             st.session_state.pop("sw_edit_prod", None)   # refetch fresco
             _cargar_productos.clear()
+            _cargar_publicados.clear()                    # cambió la publicación
             st.toast("Cambios publicados en la web.")
             st.rerun()
 
