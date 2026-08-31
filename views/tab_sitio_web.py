@@ -102,6 +102,20 @@ def _mf_serialize(t, w) -> str:
     return str(w)
 
 
+def _mf_is_empty(t, val) -> bool:
+    """True si el valor serializado equivale a 'vacío' (para NO crear un metacampo
+    definido pero que el usuario dejó en blanco/0/No)."""
+    s = str(val or "").strip()
+    if t == "boolean":
+        return s != "true"
+    if t in ("number_integer", "number_decimal"):
+        try:
+            return float(s or 0) == 0
+        except Exception:
+            return True
+    return s == ""
+
+
 # Clasificación de metafields para mostrarlos amigables (no técnicos).
 def _mf_kind(t) -> str:
     t = t or ""
@@ -196,8 +210,30 @@ def _text_to_richtext(text) -> str:
 
 
 @st.cache_data(ttl=300, show_spinner=False)
-def _cargar_productos(status, _cb=""):
-    return _shop.listar_productos(status=status)
+def _cargar_productos(status, _cb="", published_status=""):
+    return _shop.listar_productos(status=status, published_status=published_status)
+
+
+# Estados efectivos (status de Shopify + publicación en la tienda online).
+_ESTADOS = {
+    "active":      ("#dcfce7", "#15803d", "Activo"),
+    "unpublished": ("#fef3c7", "#b45309", "No publicado"),
+    "draft":       ("#fef9c3", "#854d0e", "Borrador"),
+    "archived":    ("#e2e8f0", "#475569", "Archivado"),
+}
+
+
+def _estado_efectivo(p) -> str:
+    """Estado REAL que muestra Shopify: archivado / borrador / activo (publicado) o
+    'unpublished' = activo pero SIN publicar en la tienda online (published_at nulo).
+    Así 'No publicado' no se confunde con 'Activo'."""
+    _s = str(p.get("status") or "").lower()
+    if _s == "archived":
+        return "archived"
+    if _s == "draft":
+        return "draft"
+    # status active (o vacío): depende de si está publicado en la tienda online.
+    return "active" if p.get("published_at") else "unpublished"
 
 
 _CSS = """
@@ -481,8 +517,7 @@ def _build_sw_table(prods, bcol):
         if not _oth:
             _oth = '<span class="sw-tb-dash">—</span>'
         _title = _he(p.get("title") or "(sin título)")
-        _status = p.get("status", "active")
-        _bg, _fg, _blbl = bcol.get(_status, bcol["active"])
+        _bg, _fg, _blbl = bcol.get(_estado_efectivo(p), bcol["active"])
         _type = _he(p.get("product_type") or (p.get("tags") or "").split(",")[0].strip() or "—")
         _vars = p.get("variants") or []
         _prices, _cmps = [], []
@@ -580,9 +615,7 @@ def _dialog_eliminar(pid):
     _title = _p.get("title") or f"Producto {pid}"
     _imgs = _p.get("images") or []
     _img0 = (_imgs[0].get("src") if _imgs else "") or (_p.get("image") or {}).get("src", "")
-    _bcol = {"active": ("#dcfce7", "#15803d", "Activo"), "draft": ("#fef9c3", "#854d0e", "Borrador"),
-             "archived": ("#e2e8f0", "#475569", "Archivado")}
-    _bg, _fg, _blbl = _bcol.get(_p.get("status", "active"), _bcol["active"])
+    _bg, _fg, _blbl = _ESTADOS.get(_estado_efectivo(_p), _ESTADOS["active"])
     _thumb = (f'<img src="{_he(_img0)}" style="width:56px;height:56px;border-radius:10px;object-fit:cover;flex:0 0 auto;">'
               if _img0 else '<div style="width:56px;height:56px;border-radius:10px;background:#f1f5f9;flex:0 0 auto;"></div>')
     st.markdown(
@@ -697,8 +730,16 @@ def render_tab_sitio_web(**kwargs):
     _vista = st.radio("Vista", _vistas, index=0, key="sw_vista", horizontal=True,
                       label_visibility="collapsed", format_func=lambda v: f"{_vicons.get(v, '')} {v}")
 
-    _opts = {"Activos": "active", "Borradores": "draft", "Archivados": "archived", "Todos": ""}
-    _c1, _c2, _c3 = st.columns([3.2, 1, 1.4], vertical_alignment="bottom")
+    # Cada opción → (status, published_status). "No publicados" = activo pero sin
+    # publicar en la tienda online (lo que Shopify muestra en gris como "No publicado").
+    _opts = {
+        "Activos":       ("active", "published"),
+        "No publicados": ("active", "unpublished"),
+        "Borradores":    ("draft", ""),
+        "Archivados":    ("archived", ""),
+        "Todos":         ("", ""),
+    }
+    _c1, _c2, _c3 = st.columns([3.6, 1, 1.4], vertical_alignment="bottom")
     with _c1:
         st.markdown(
             "<style>.st-key-sw_estado label,.st-key-sw_estado label *{font-family:Montserrat,sans-serif!important;"
@@ -710,6 +751,7 @@ def render_tab_sitio_web(**kwargs):
     with _c2:
         if st.button("Actualizar", key="sw_refresh", use_container_width=True, icon=":material/refresh:"):
             _cargar_productos.clear()
+            st.session_state.pop("sw_mf_defs", None)
             st.rerun()
     with _c3:
         if st.button("Nuevo producto", key="sw_new_open", use_container_width=True, type="primary",
@@ -719,10 +761,10 @@ def render_tab_sitio_web(**kwargs):
                 st.session_state.pop(_k, None)
             st.session_state["sw_new"] = True
             st.rerun()
-    _status = _opts[_lbl]
+    _status, _pubstatus = _opts[_lbl]
 
     with st.spinner("Conectando con Shopify y trayendo los productos…"):
-        _prods, _err = _cargar_productos(_status)
+        _prods, _err = _cargar_productos(_status, published_status=_pubstatus)
 
     if _err:
         st.error(_err, icon=":material/error:")
@@ -742,9 +784,7 @@ def render_tab_sitio_web(**kwargs):
            f'text-decoration:none;">Abrir en Shopify ↗</a>' if _adm else "")
         + '</div>', unsafe_allow_html=True)
 
-    _bcol = {"active": ("#dcfce7", "#15803d", "Activo"),
-             "draft": ("#fef9c3", "#854d0e", "Borrador"),
-             "archived": ("#e2e8f0", "#475569", "Archivado")}
+    _bcol = _ESTADOS
 
     # ── Modo TABLA (mismo diseño que la tabla de COTIZACIONES) ──
     if _vista == "Tabla":
@@ -781,7 +821,7 @@ def render_tab_sitio_web(**kwargs):
             except Exception:
                 pass
         _cmp_html = (f'<div class="sw-compare">Antes: <s>{_fmt_clp(max(_cmps))}</s></div>' if _cmps else "")
-        _bg, _fg, _blbl = _bcol.get(p.get("status", "active"), _bcol["active"])
+        _bg, _fg, _blbl = _bcol.get(_estado_efectivo(p), _bcol["active"])
         _ptype = _he(p.get("product_type") or (p.get("tags") or "").split(",")[0].strip() or "Producto")
         _web = _shop.producto_web_url(p.get("handle"))
         _admp = _shop.producto_admin_url(p.get("id"))
@@ -931,11 +971,15 @@ def _render_editor(pid):
     with _dc1:
         _title = st.text_input("Título", value=_p.get("title", "") or "", key="sw_ed_title")
     with _dc2:
-        _status_opts = {"Activo": "active", "Borrador": "draft", "Archivado": "archived"}
-        _cur = _p.get("status", "active")
-        _sidx = list(_status_opts.values()).index(_cur) if _cur in _status_opts.values() else 0
-        _status_lbl = st.selectbox("Estado (visibilidad en la web)", list(_status_opts.keys()),
-                                   index=_sidx, key="sw_ed_status")
+        # Estado + publicación en la tienda online. "No publicado" = activo pero oculto
+        # en la web (published=false). Se refleja el estado REAL (no solo el status).
+        _est_map = {"Activo": ("active", True), "No publicado": ("active", False),
+                    "Borrador": ("draft", None), "Archivado": ("archived", None)}
+        _est_lbls = list(_est_map.keys())
+        _cur_lbl = {"active": "Activo", "unpublished": "No publicado",
+                    "draft": "Borrador", "archived": "Archivado"}.get(_estado_efectivo(_p), "Activo")
+        _status_lbl = st.selectbox("Estado (visibilidad en la web)", _est_lbls,
+                                   index=_est_lbls.index(_cur_lbl), key="sw_ed_status")
     _tc1, _tc2 = st.columns(2)
     with _tc1:
         _ptype = st.text_input("Tipo de producto", value=_p.get("product_type", "") or "", key="sw_ed_type")
@@ -975,10 +1019,14 @@ def _render_editor(pid):
                  key="sw_ed_save", icon=":material/cloud_upload:"):
         _errs = []
         with st.spinner("Guardando en Shopify…"):
-            _ok, _e = _shop.actualizar_producto(pid, {
+            _st_val, _pub_val = _est_map[_status_lbl]
+            _campos_prod = {
                 "title": _title.strip(), "body_html": _desc,
-                "status": _status_opts[_status_lbl],
-                "product_type": _ptype.strip(), "tags": _tags.strip()})
+                "status": _st_val,
+                "product_type": _ptype.strip(), "tags": _tags.strip()}
+            if _pub_val is not None:   # publicar / despublicar de la tienda online
+                _campos_prod["published"] = _pub_val
+            _ok, _e = _shop.actualizar_producto(pid, _campos_prod)
             if not _ok:
                 _errs.append(_e)
             for v in _vars:
@@ -1179,6 +1227,9 @@ def _render_editor(pid):
             st.error(_e)
 
     # ── Características (metafields) ──
+    # Se muestran TODOS los campos DEFINIDOS en la tienda (m², baños, dormitorios,
+    # clima, características…) aunque el producto todavía no tenga valor, más los
+    # metacampos propios que ya tenga. Así se pueden completar aunque estén vacíos.
     _mf = st.session_state.get("sw_edit_mf")
     if _mf is None or st.session_state.get("sw_edit_mf_pid") != str(pid):
         with st.spinner("Cargando características…"):
@@ -1189,40 +1240,69 @@ def _render_editor(pid):
         st.session_state["sw_edit_mf"] = _mf
         st.session_state["sw_edit_mf_pid"] = str(pid)
 
-    st.markdown(f'<div class="sw-sec">{_ic("text", "#0f172a", 16, 0)}Características / detalles '
-                f'<span style="color:#94a3b8;font-weight:800;">· {len(_mf)}</span></div>',
-                unsafe_allow_html=True)
-    st.caption("Los detalles del producto (m², dormitorios, baños, clima, kit incluye, etc.). Edítalos "
-               "acá en texto normal; el sistema los guarda en el formato que usa la web.")
+    _defs = st.session_state.get("sw_mf_defs")
+    if _defs is None:
+        _defs, _ = _shop.listar_definiciones_metafields()
+        _defs = _defs or []
+        st.session_state["sw_mf_defs"] = _defs
 
-    _editable = [m for m in _mf if _mf_kind(m.get("type")) != "readonly"]
+    # Fusiona definiciones + valores. Cada campo editable = def (con su nombre bonito)
+    # + el valor del producto si existe (id) o vacío (id=None → se crea al guardar).
+    _mf_by_nk = {(m.get("namespace") or "", m.get("key") or ""): m for m in _mf}
+    _editable, _seen = [], set()
+    for d in _defs:
+        _nk = (d.get("namespace") or "", d.get("key") or "")
+        if _mf_kind(d.get("type")) == "readonly":
+            continue   # referencias/imágenes/listas → abajo, solo si ya tienen valor
+        _ex = _mf_by_nk.get(_nk)
+        if _ex:
+            _editable.append({**_ex, "name": d.get("name") or _mf_label(_ex)})
+        else:
+            _editable.append({"id": None, "namespace": _nk[0], "key": _nk[1],
+                              "type": d.get("type"), "value": "", "name": d.get("name") or _mf_label(d)})
+        _seen.add(_nk)
+    for m in _mf:   # metacampos editables propios que no tengan definición
+        _nk = (m.get("namespace") or "", m.get("key") or "")
+        if _nk in _seen or _mf_kind(m.get("type")) == "readonly":
+            continue
+        _editable.append({**m, "name": _mf_label(m)})
     _advanced = [m for m in _mf if _mf_kind(m.get("type")) == "readonly"]
+
+    st.markdown(f'<div class="sw-sec">{_ic("text", "#0f172a", 16, 0)}Características / detalles '
+                f'<span style="color:#94a3b8;font-weight:800;">· {len(_editable)}</span></div>',
+                unsafe_allow_html=True)
+    st.caption("Los detalles del producto (m², dormitorios, baños, clima, características, etc.). Se muestran "
+               "todos los campos definidos aunque estén vacíos: complétalos y pulsa Guardar. Un campo que "
+               "dejes vacío no se publica.")
 
     if _editable:
         _mf_ws = {}
         for m in _editable:
+            _ns = m.get("namespace") or "custom"
+            _key = m.get("key") or ""
+            _nk = f"{_ns}__{_key}"
             _mid = m.get("id")
             _kind = _mf_kind(m.get("type"))
             _mc1, _mc2, _mc3 = st.columns([2.4, 3.2, 0.7], vertical_alignment="center")
             with _mc1:
                 st.markdown(
                     f'<div style="font-weight:700;color:#0f172a;font-size:0.85rem;line-height:1.2;">'
-                    f'{_he(_mf_label(m))}</div>'
+                    f'{_he(m.get("name") or _mf_label(m))}</div>'
                     f'<div style="font-size:0.64rem;color:#94a3b8;font-weight:600;">'
-                    f'{_he(_MF_KIND_LABEL.get(_kind, "Texto"))}</div>',
-                    unsafe_allow_html=True)
+                    f'{_he(_MF_KIND_LABEL.get(_kind, "Texto"))}' + ("" if _mid else " · sin completar")
+                    + '</div>', unsafe_allow_html=True)
             with _mc2:
                 if _kind == "rich":
                     _orig = _richtext_to_text(m.get("value"))
-                    _w = st.text_area("v", value=_orig, key=f"sw_ed_mf_{_mid}", height=130,
+                    _w = st.text_area("v", value=_orig, key=f"sw_ed_mf_{_nk}", height=130,
                                       label_visibility="collapsed",
                                       help="Escribe normal. Para una lista con viñetas, empieza la línea con «- ».")
-                    _mf_ws[_mid] = ("rich", _w, _orig)
+                    _mf_ws[_nk] = ("rich", _w, _orig, m)
                 else:
-                    _mf_ws[_mid] = (m.get("type"), _mf_widget(m, f"sw_ed_mf_{_mid}"), None)
+                    _mf_ws[_nk] = (m.get("type"), _mf_widget(m, f"sw_ed_mf_{_nk}"), None, m)
             with _mc3:
-                if st.button("", icon=":material/delete:", key=f"sw_ed_mfdel_{_mid}",
-                             use_container_width=True, help="Eliminar este detalle"):
+                if _mid and st.button("", icon=":material/delete:", key=f"sw_ed_mfdel_{_nk}",
+                                      use_container_width=True, help="Vaciar este detalle"):
                     with st.spinner("Eliminando…"):
                         _ok, _e = _shop.eliminar_metafield(pid, _mid)
                     if _ok:
@@ -1235,22 +1315,32 @@ def _render_editor(pid):
                      icon=":material/save:"):
             _errs = []
             with st.spinner("Guardando características…"):
-                for m in _editable:
+                for _nk, (_t, _w, _orig, m) in _mf_ws.items():
                     _mid = m.get("id")
-                    _tup = _mf_ws.get(_mid)
-                    if not _tup:
-                        continue
-                    _t, _w, _orig = _tup
+                    _ns = m.get("namespace") or "custom"
+                    _key = m.get("key") or ""
                     if _t == "rich":
-                        if str(_w or "") != str(_orig or ""):
-                            _ok, _e = _shop.actualizar_metafield(pid, _mid, "rich_text_field",
-                                                                 _text_to_richtext(_w))
+                        _newtxt = str(_w or "")
+                        if _mid:
+                            if _newtxt != str(_orig or ""):
+                                _ok, _e = _shop.actualizar_metafield(pid, _mid, "rich_text_field",
+                                                                     _text_to_richtext(_w))
+                                if not _ok:
+                                    _errs.append(_e)
+                        elif _newtxt.strip():
+                            _ok, _e = _shop.crear_metafield(pid, _ns, _key, "rich_text_field",
+                                                            _text_to_richtext(_w))
                             if not _ok:
                                 _errs.append(_e)
                     else:
                         _nv = _mf_serialize(_t, _w)
-                        if str(_nv) != str(m.get("value", "")):
-                            _ok, _e = _shop.actualizar_metafield(pid, _mid, _t, _nv)
+                        if _mid:
+                            if str(_nv) != str(m.get("value", "")):
+                                _ok, _e = _shop.actualizar_metafield(pid, _mid, _t, _nv)
+                                if not _ok:
+                                    _errs.append(_e)
+                        elif not _mf_is_empty(_t, _nv):
+                            _ok, _e = _shop.crear_metafield(pid, _ns, _key, _t, _nv)
                             if not _ok:
                                 _errs.append(_e)
             if _errs:
@@ -1260,7 +1350,7 @@ def _render_editor(pid):
                 st.toast("Características guardadas.")
                 st.rerun()
     elif not _advanced:
-        st.caption("Este producto aún no tiene características (metafields).")
+        st.caption("Este producto no tiene características ni definiciones de metacampos en la tienda.")
 
     # Avanzados (referencias / listas / JSON): solo lectura para no romperlos.
     if _advanced:

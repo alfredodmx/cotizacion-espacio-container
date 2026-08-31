@@ -87,11 +87,14 @@ def producto_web_url(handle) -> str:
     return f"https://{_store()}/products/{handle}" if (_store() and handle) else ""
 
 
-def listar_productos(status: str = "active", max_paginas: int = 20) -> tuple:
+def listar_productos(status: str = "active", max_paginas: int = 20,
+                     published_status: str = "") -> tuple:
     """Trae los productos de la tienda (paginado por cursor, 250 por página).
-    `status`: 'active' | 'draft' | 'archived' | '' (todos). Devuelve (lista, error).
-    DEFENSIVO. Si el token no tiene `read_products`, Shopify responde 401/403 y se
-    devuelve un mensaje claro para que el usuario agregue el permiso a su app."""
+    `status`: 'active' | 'draft' | 'archived' | '' (todos).
+    `published_status`: '' (cualquiera) | 'published' | 'unpublished' — filtra por si el
+    producto está o no publicado en la tienda online (lo que Shopify muestra como
+    'Activo' vs 'No publicado'). Devuelve (lista, error). DEFENSIVO. Si el token no tiene
+    `read_products`, Shopify responde 401/403 y se devuelve un mensaje claro."""
     if not configurado():
         return [], "Faltan SHOPIFY_STORE / SHOPIFY_TOKEN (o SHOPIFY_ACCESS_TOKEN) en los secrets."
     import requests
@@ -99,6 +102,8 @@ def listar_productos(status: str = "active", max_paginas: int = 20) -> tuple:
     url = f"https://{_store()}/admin/api/{_version()}/products.json?limit=250"
     if status:
         url += f"&status={status}"
+    if published_status:
+        url += f"&published_status={published_status}"
     headers = {"X-Shopify-Access-Token": _token(), "Content-Type": "application/json"}
     try:
         for _ in range(max(1, int(max_paginas))):
@@ -270,6 +275,30 @@ def listar_metafields(pid) -> tuple:
         return [], f"Shopify {r.status_code}: {r.text[:200]}" + _scope_hint(r.status_code)
     except Exception as e:
         return [], str(e)
+
+
+def listar_definiciones_metafields() -> tuple:
+    """Definiciones de metacampos de PRODUCTO de la tienda (GraphQL). Devuelve
+    (lista, error). Cada def: {namespace, key, name, type, description}. Sirve para
+    mostrar en el editor TODOS los campos definidos (m², baños, dormitorios, clima…)
+    aunque el producto todavía no tenga valor. DEFENSIVO."""
+    q = ("query{ metafieldDefinitions(first:100, ownerType:PRODUCT){ edges{ node{"
+         " namespace key name description type{ name } } } } }")
+    data, err = _graphql(q)
+    if err:
+        return [], err
+    _edges = (((data or {}).get("metafieldDefinitions") or {}).get("edges")) or []
+    out = []
+    for e in _edges:
+        n = (e or {}).get("node") or {}
+        out.append({
+            "namespace": n.get("namespace") or "",
+            "key": n.get("key") or "",
+            "name": n.get("name") or "",
+            "description": n.get("description") or "",
+            "type": ((n.get("type") or {}).get("name")) or "single_line_text_field",
+        })
+    return out, None
 
 
 def crear_metafield(pid, namespace, key, mtype, value) -> tuple:
