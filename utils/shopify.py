@@ -524,6 +524,50 @@ def despublicar_de_canales(pid, publication_ids) -> tuple:
     return True, None
 
 
+def _online_store_pub_id():
+    """GID de la publicación 'Tienda online' (para saber si un producto está publicado
+    en la web, que es lo que el admin muestra como Activo vs No publicado). None si no
+    se puede (sin scope read_publications o no existe)."""
+    _pubs, _err = listar_publicaciones()
+    if _err or not _pubs:
+        return None
+    for p in _pubs:
+        if "online" in (p.get("name") or "").strip().lower():   # "Online Store" / "Tienda online"
+            return p.get("id")
+    return None
+
+
+def ids_publicados_online_store(max_paginas: int = 15) -> tuple:
+    """Set de IDs (str, numéricos) publicados en la TIENDA ONLINE según la API de
+    publicaciones (AUTORITATIVA: coincide con el 'Activo/No publicado' del admin, a
+    diferencia de published_at / published_status del REST que son legacy y se
+    desincronizan). Devuelve (set|None, error). None si falta scope/publicación."""
+    _os = _online_store_pub_id()
+    if not _os:
+        return None, "No se identificó la publicación Tienda online (¿falta read_publications?)."
+    ids, cursor = set(), None
+    q = ("query($cursor:String,$pub:ID!){ products(first:100, after:$cursor){ "
+         "pageInfo{ hasNextPage endCursor } "
+         "edges{ node{ legacyResourceId publishedOnPublication(publicationId:$pub) } } } }")
+    try:
+        for _ in range(max(1, int(max_paginas))):
+            data, err = _graphql(q, {"cursor": cursor, "pub": _os})
+            if err:
+                return None, err
+            _conn = ((data or {}).get("products") or {})
+            for e in _conn.get("edges") or []:
+                n = e.get("node") or {}
+                if n.get("publishedOnPublication"):
+                    ids.add(str(n.get("legacyResourceId")))
+            _pi = _conn.get("pageInfo") or {}
+            if not _pi.get("hasNextPage"):
+                break
+            cursor = _pi.get("endCursor")
+        return ids, None
+    except Exception as e:
+        return None, str(e)
+
+
 def reordenar_imagenes(pid, ordered_ids) -> tuple:
     """Reordena las fotos del producto según `ordered_ids` (lista COMPLETA de ids en el
     orden deseado). Se hace con el PUT del producto fijando `position` a cada imagen.

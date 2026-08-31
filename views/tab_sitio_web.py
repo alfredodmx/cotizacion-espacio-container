@@ -216,10 +216,15 @@ def _cargar_productos(status, _cb="", published_status=""):
 
 @st.cache_data(ttl=300, show_spinner=False)
 def _cargar_publicados(_cb=""):
-    """Set de IDs realmente publicados en la tienda online (fuente de verdad para
-    'Activo' vs 'No publicado'). None si Shopify falla → se cae a published_at."""
-    ids, _ = _shop.listar_ids_publicados()
-    return ids
+    """Set de IDs publicados en la tienda online (fuente de verdad para 'Activo' vs
+    'No publicado'). Usa la API de publicaciones (GraphQL, AUTORITATIVA); si falta el
+    scope read_publications cae al filtro REST published_status (menos fiable) y, en
+    último caso, el llamador usa published_at. None si todo falla."""
+    ids, _ = _shop.ids_publicados_online_store()
+    if ids is not None:
+        return ids
+    ids2, _ = _shop.listar_ids_publicados()
+    return ids2
 
 
 # Estados efectivos (status de Shopify + publicación en la tienda online).
