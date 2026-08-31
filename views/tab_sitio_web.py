@@ -815,6 +815,39 @@ def render_tab_sitio_web(**kwargs):
 
     _bcol = _ESTADOS
 
+    # ── Diagnóstico temporal de estados (para hallar la señal correcta) ──
+    with st.expander("🔧 Diagnóstico de estados (debug)"):
+        if st.button("Analizar señales de publicación", key="sw_diag_btn"):
+            _pubs_d, _pe = _shop.listar_publicaciones()
+            _pubname = {p.get("id"): p.get("name") for p in (_pubs_d or [])}
+            _os_d = _shop._online_store_pub_id()
+            _pubset_d = st.session_state.get("sw_pubset")
+            st.write(f"**Publicaciones (canales) detectadas:** {[p.get('name') for p in (_pubs_d or [])]}"
+                     + (f" · error: {_pe}" if _pe else ""))
+            st.write(f"**Online Store pub id detectada:** `{_os_d}`")
+            st.write(f"**sw_pubset (set usado para el badge)** — {len(_pubset_d) if _pubset_d else 0} ids: "
+                     f"`{list(_pubset_d)[:20] if _pubset_d else _pubset_d}`")
+            _rows = []
+            with st.spinner("Consultando cada producto…"):
+                for p in _prods:
+                    _pid = p.get("id")
+                    _pp, _ = _shop.publicaciones_de_producto(_pid)
+                    _pp = _pp or set()
+                    _rows.append({
+                        "Producto": p.get("title"),
+                        "id": str(_pid),
+                        "status": p.get("status"),
+                        "published_at": str(p.get("published_at"))[:19] if p.get("published_at") else None,
+                        "published_scope": p.get("published_scope"),
+                        "En canales (isPublished)": ", ".join(
+                            sorted(_pubname.get(g, str(g).rsplit('/', 1)[-1]) for g in _pp)) or "—",
+                        "¿en Online Store?": (_os_d in _pp) if _os_d else None,
+                        "badge del sistema": _estado_efectivo(p),
+                    })
+            st.dataframe(_rows, use_container_width=True, hide_index=True)
+            st.caption("Compara la columna «badge del sistema» y «¿en Online Store?» con lo que Shopify "
+                       "muestra como Estado (Activo / No publicado) y dime cuál columna coincide.")
+
     # ── Modo TABLA (mismo diseño que la tabla de COTIZACIONES) ──
     if _vista == "Tabla":
         _tbl_html, _tbl_h = _build_sw_table(_prods, _bcol)
