@@ -585,6 +585,8 @@ def _clear_editor_state():
     st.session_state.pop("sw_edit_mf_pid", None)
     st.session_state.pop("sw_edit_vid", None)
     st.session_state.pop("sw_edit_vid_pid", None)
+    st.session_state.pop("sw_edit_collects", None)
+    st.session_state.pop("sw_edit_collects_pid", None)
 
 
 def _duplicar_flow(pid):
@@ -769,6 +771,7 @@ def render_tab_sitio_web(**kwargs):
             _cargar_productos.clear()
             _cargar_publicados.clear()
             st.session_state.pop("sw_mf_defs", None)
+            st.session_state.pop("sw_cols", None)
             st.rerun()
     with _c3:
         if st.button("Nuevo producto", key="sw_new_open", use_container_width=True, type="primary",
@@ -1070,6 +1073,67 @@ def _render_editor(pid):
             st.toast("Cambios publicados en la web.")
             st.rerun()
 
+    # ── Organización (proveedor + colecciones) ──
+    st.markdown(f'<div class="sw-sec">{_ic("box", "#0f172a", 16, 0)}Organización del producto</div>',
+                unsafe_allow_html=True)
+    st.caption("Proveedor y colecciones (agrupaciones de la web). Las colecciones «automáticas» "
+               "no aparecen aquí porque su contenido lo define una regla en Shopify.")
+    _vendor = st.text_input("Proveedor", value=_p.get("vendor", "") or "", key="sw_ed_vendor",
+                            placeholder="Ej: Container Houses")
+
+    _cols = st.session_state.get("sw_cols")
+    if _cols is None:
+        with st.spinner("Cargando colecciones…"):
+            _cols, _ = _shop.listar_colecciones()
+        _cols = _cols or []
+        st.session_state["sw_cols"] = _cols
+    _col_title = {str(c.get("id")): (c.get("title") or "(sin título)") for c in _cols}
+
+    _collects = st.session_state.get("sw_edit_collects")
+    if _collects is None or st.session_state.get("sw_edit_collects_pid") != str(pid):
+        _collects, _ = _shop.colecciones_de_producto(pid)
+        _collects = _collects or []
+        st.session_state["sw_edit_collects"] = _collects
+        st.session_state["sw_edit_collects_pid"] = str(pid)
+    _collect_by_col = {str(cl.get("collection_id")): cl.get("id") for cl in _collects}
+    _cur_cols = [cid for cid in _collect_by_col if cid in _col_title]
+
+    if _col_title:
+        _sel_cols = st.multiselect(
+            "Colecciones", options=list(_col_title.keys()), default=_cur_cols,
+            format_func=lambda cid: _col_title.get(cid, cid), key="sw_ed_cols",
+            help="Marca las colecciones a las que pertenece este producto.")
+    else:
+        _sel_cols = _cur_cols
+        st.caption("No hay colecciones manuales en la tienda (o el token no tiene permiso para leerlas).")
+
+    if st.button("Guardar organización", key="sw_ed_orgsave", type="primary", icon=":material/save:"):
+        _errs = []
+        with st.spinner("Guardando organización…"):
+            if (_vendor or "").strip() != (_p.get("vendor", "") or "").strip():
+                _ok, _e = _shop.actualizar_producto(pid, {"vendor": _vendor.strip()})
+                if not _ok:
+                    _errs.append(_e)
+            _selset, _curset = set(_sel_cols), set(_cur_cols)
+            for _cid in _selset - _curset:      # agregar a colección
+                _ok, _e = _shop.agregar_a_coleccion(pid, _cid)
+                if not _ok:
+                    _errs.append(_e)
+            for _cid in _curset - _selset:      # quitar de colección
+                _collectid = _collect_by_col.get(_cid)
+                if _collectid:
+                    _ok, _e = _shop.quitar_de_coleccion(_collectid)
+                    if not _ok:
+                        _errs.append(_e)
+        if _errs:
+            st.error("No se pudo guardar todo: " + " · ".join(str(x) for x in _errs))
+        else:
+            st.session_state.pop("sw_edit_prod", None)
+            st.session_state.pop("sw_edit_collects", None)
+            _cargar_productos.clear()
+            st.toast("Organización guardada.")
+            st.rerun()
+
     # ── Fotos ──
     st.markdown(f'<div class="sw-sec">{_ic("img", "#0f172a", 16, 0)}Fotos '
                 f'<span style="color:#94a3b8;font-weight:800;">· {len(_imgs)}</span></div>',
@@ -1284,7 +1348,26 @@ def _render_editor(pid):
         if _nk in _seen or _mf_kind(m.get("type")) == "readonly":
             continue
         _editable.append({**m, "name": _mf_label(m)})
-    _advanced = [m for m in _mf if _mf_kind(m.get("type")) == "readonly"]
+
+    # Avanzados = definiciones de tipo referencia/lista/imagen (Image, video reels…),
+    # incluso vacías, + los que ya tengan valor. Así no "faltan" campos.
+    _advanced, _adv_seen = [], set()
+    for d in _defs:
+        if _mf_kind(d.get("type")) != "readonly":
+            continue
+        _nk = (d.get("namespace") or "", d.get("key") or "")
+        _ex = _mf_by_nk.get(_nk)
+        if _ex:
+            _advanced.append({**_ex, "name": d.get("name") or _mf_label(_ex)})
+        else:
+            _advanced.append({"id": None, "namespace": _nk[0], "key": _nk[1],
+                              "type": d.get("type"), "value": "", "name": d.get("name") or _mf_label(d)})
+        _adv_seen.add(_nk)
+    for m in _mf:
+        _nk = (m.get("namespace") or "", m.get("key") or "")
+        if _nk in _adv_seen or _mf_kind(m.get("type")) != "readonly":
+            continue
+        _advanced.append({**m, "name": _mf_label(m)})
 
     st.markdown(f'<div class="sw-sec">{_ic("text", "#0f172a", 16, 0)}Características / detalles '
                 f'<span style="color:#94a3b8;font-weight:800;">· {len(_editable)}</span></div>',
@@ -1370,24 +1453,32 @@ def _render_editor(pid):
     elif not _advanced:
         st.caption("Este producto no tiene características ni definiciones de metacampos en la tienda.")
 
-    # Avanzados (referencias / listas / JSON): solo lectura para no romperlos.
+    # Avanzados (referencias / imágenes / listas / JSON): Image, video reels, etc.
+    # Se muestran (incluso vacíos) para que no "falten"; su contenido son referencias
+    # internas de Shopify, así que acá van en solo lectura (edítalos en Shopify).
     if _advanced:
-        with st.expander(f"Avanzados · {len(_advanced)} campo(s) técnico(s) (referencias / listas)"):
-            st.caption("Guardan referencias internas de Shopify (imágenes, archivos, listas…). Se muestran "
-                       "solo para consultarlos; edítalos en Shopify para no romperlos.")
+        with st.expander(f"Campos avanzados · {len(_advanced)} (imágenes / videos / referencias)"):
+            st.caption("Campos como Image o video reels guardan referencias internas de Shopify "
+                       "(archivos/medios). Se muestran para consultarlos; para cambiar su contenido, "
+                       "edítalos en Shopify (así no se rompen).")
             for m in _advanced:
                 _mid = m.get("id")
+                _ns = m.get("namespace") or ""
+                _key = m.get("key") or ""
+                _nk = f"{_ns}__{_key}"
+                _val = str(m.get("value", "") or "")
                 _ac1, _ac2 = st.columns([5, 0.7], vertical_alignment="center")
                 with _ac1:
                     st.markdown(
-                        f'<div style="font-weight:700;color:#334155;font-size:0.82rem;">{_he(_mf_label(m))}'
+                        f'<div style="font-weight:700;color:#334155;font-size:0.82rem;">'
+                        f'{_he(m.get("name") or _mf_label(m))}'
                         f'<span style="font-size:0.62rem;color:#94a3b8;font-weight:600;"> · '
-                        f'{_he(m.get("namespace",""))}.{_he(m.get("key",""))}</span></div>', unsafe_allow_html=True)
-                    st.text_input("v", value=str(m.get("value", ""))[:300], disabled=True,
-                                  key=f"sw_ed_mfro_{_mid}", label_visibility="collapsed")
+                        f'{_he(_ns)}.{_he(_key)}</span></div>', unsafe_allow_html=True)
+                    st.text_input("v", value=(_val[:300] if _val else "— sin completar —"),
+                                  disabled=True, key=f"sw_ed_mfro_{_nk}", label_visibility="collapsed")
                 with _ac2:
-                    if st.button("", icon=":material/delete:", key=f"sw_ed_mfrodel_{_mid}",
-                                 use_container_width=True, help="Eliminar"):
+                    if _mid and st.button("", icon=":material/delete:", key=f"sw_ed_mfrodel_{_nk}",
+                                          use_container_width=True, help="Vaciar este campo"):
                         with st.spinner("Eliminando…"):
                             _ok, _e = _shop.eliminar_metafield(pid, _mid)
                         if _ok:

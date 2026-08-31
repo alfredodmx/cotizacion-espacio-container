@@ -381,6 +381,81 @@ def eliminar_metafield(pid, metafield_id) -> tuple:
         return False, str(e)
 
 
+# ── Colecciones (organización del producto) ──────────────────────────────────
+
+def listar_colecciones(max_paginas: int = 10) -> tuple:
+    """Colecciones MANUALES (custom_collections) de la tienda. Devuelve (lista, error).
+    Cada una: {id, title, handle}. Las 'smart' (automáticas) no se listan porque su
+    membresía la define una regla, no se asigna a mano. DEFENSIVO."""
+    if not configurado():
+        return [], "Sin credenciales de Shopify."
+    import requests
+    out = []
+    url = f"https://{_store()}/admin/api/{_version()}/custom_collections.json?limit=250"
+    try:
+        for _ in range(max(1, int(max_paginas))):
+            r = requests.get(url, headers=_headers(), timeout=30)
+            if r.status_code != 200:
+                return out, f"Shopify {r.status_code}: {r.text[:150]}" + _scope_hint(r.status_code)
+            out.extend((r.json() or {}).get("custom_collections") or [])
+            _nxt = _next_link(r.headers.get("Link", "") or r.headers.get("link", ""))
+            if not _nxt:
+                break
+            url = _nxt
+        return out, None
+    except Exception as e:
+        return out, str(e)
+
+
+def colecciones_de_producto(pid) -> tuple:
+    """Collects del producto (a qué colecciones manuales pertenece). Devuelve
+    (lista, error). Cada uno: {id (collect id), collection_id}. DEFENSIVO."""
+    if not configurado():
+        return [], "Sin credenciales de Shopify."
+    import requests
+    try:
+        r = requests.get(
+            f"https://{_store()}/admin/api/{_version()}/collects.json?product_id={pid}&limit=250",
+            headers=_headers(), timeout=25)
+        if r.status_code == 200:
+            return (r.json() or {}).get("collects") or [], None
+        return [], f"Shopify {r.status_code}: {r.text[:150]}" + _scope_hint(r.status_code)
+    except Exception as e:
+        return [], str(e)
+
+
+def agregar_a_coleccion(pid, collection_id) -> tuple:
+    """Agrega el producto a una colección manual (crea un collect). Devuelve (ok, error)."""
+    if not configurado():
+        return False, "Sin credenciales de Shopify."
+    import requests
+    try:
+        r = requests.post(f"https://{_store()}/admin/api/{_version()}/collects.json",
+                          headers=_headers(),
+                          json={"collect": {"product_id": int(pid), "collection_id": int(collection_id)}},
+                          timeout=30)
+        if r.status_code in (200, 201):
+            return True, None
+        return False, f"Shopify {r.status_code}: {r.text[:200]}" + _scope_hint(r.status_code)
+    except Exception as e:
+        return False, str(e)
+
+
+def quitar_de_coleccion(collect_id) -> tuple:
+    """Quita el producto de una colección manual (borra el collect). Devuelve (ok, error)."""
+    if not configurado():
+        return False, "Sin credenciales de Shopify."
+    import requests
+    try:
+        r = requests.delete(f"https://{_store()}/admin/api/{_version()}/collects/{collect_id}.json",
+                           headers=_headers(), timeout=30)
+        if r.status_code in (200, 204):
+            return True, None
+        return False, f"Shopify {r.status_code}: {r.text[:200]}" + _scope_hint(r.status_code)
+    except Exception as e:
+        return False, str(e)
+
+
 def reordenar_imagenes(pid, ordered_ids) -> tuple:
     """Reordena las fotos del producto según `ordered_ids` (lista COMPLETA de ids en el
     orden deseado). Se hace con el PUT del producto fijando `position` a cada imagen.
