@@ -280,7 +280,7 @@ _CSS = """
 .sw-note{background:#f8fafc;border:1px solid #e8ebf3;border-left:3px solid #5b7cfa;border-radius:0 12px 12px 0;
   padding:13px 16px;display:flex;gap:11px;align-items:flex-start;margin:2px 0 16px;}
 .sw-note p{margin:0;font-size:0.82rem;color:#475569;line-height:1.55;}
-.st-key-sw_editcmd{position:absolute!important;left:-9999px!important;top:-9999px!important;height:0!important;width:0!important;overflow:hidden!important;}
+.st-key-sw_editcmd,.st-key-sw_savecmd{position:absolute!important;left:-9999px!important;top:-9999px!important;height:0!important;width:0!important;overflow:hidden!important;}
 .sw-ed-head{display:flex;gap:16px;align-items:center;background:#fff;border:1px solid #e8ebf3;border-radius:16px;
   padding:14px 18px;box-shadow:0 2px 12px rgba(15,23,42,.06);margin-bottom:6px;}
 .sw-ed-thumb{width:74px;height:74px;border-radius:12px;overflow:hidden;flex-shrink:0;background:#f1f5f9;}
@@ -569,6 +569,336 @@ def _build_sw_table(prods, bcol):
     return _html, _iframe_h
 
 
+def _clp_plain(v) -> str:
+    """Número con separador de miles (18490000 → '18.490.000'), sin símbolo, para los
+    inputs de precio con formato moneda."""
+    try:
+        n = int(round(float(v or 0)))
+    except Exception:
+        n = 0
+    return "" if n == 0 else "{:,.0f}".format(n).replace(",", ".")
+
+
+# ── Editor de producto: formulario HTML limpio (iframe) con guardado único ─────
+_SW_FORM_TEMPLATE = r"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Montserrat:wght@700;800;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;background:transparent;color:#0f172a;}
+.ed-head{display:flex;align-items:center;gap:14px;justify-content:space-between;margin:0 0 14px;flex-wrap:wrap;}
+.ed-title-mini{font-family:'Plus Jakarta Sans';font-weight:800;font-size:1.05rem;color:#0f172a;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+.ed-save{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#5b7cfa,#2563eb);color:#fff;
+  border:none;border-radius:11px;padding:11px 20px;font-family:Montserrat,sans-serif;font-weight:800;font-size:0.78rem;
+  text-transform:uppercase;letter-spacing:.04em;cursor:pointer;box-shadow:0 6px 18px rgba(37,99,235,.32);white-space:nowrap;
+  transition:filter .15s,transform .1s;}
+.ed-save:hover{filter:brightness(1.07);transform:translateY(-1px);}
+.ed-save:disabled{opacity:.6;cursor:default;transform:none;filter:none;}
+.ed-save svg{width:16px;height:16px;}
+.ed-grid{display:grid;grid-template-columns:1.55fr 1fr;gap:16px;align-items:start;}
+@media(max-width:820px){.ed-grid{grid-template-columns:1fr;}}
+.ed-card{background:#fff;border:1px solid #e8ebf3;border-radius:14px;padding:16px 17px;box-shadow:0 2px 10px rgba(15,23,42,.05);margin-bottom:16px;}
+.ed-card:last-child{margin-bottom:0;}
+.ed-lbl{font-family:Montserrat,sans-serif;font-weight:800;font-size:0.72rem;text-transform:uppercase;letter-spacing:.05em;
+  color:#0f172a;margin-bottom:11px;display:flex;align-items:center;gap:7px;}
+.ed-lbl small{font-family:'Plus Jakarta Sans';font-weight:600;font-size:0.68rem;text-transform:none;letter-spacing:0;color:#94a3b8;}
+label.ed-flbl{display:block;font-size:0.72rem;font-weight:700;color:#475569;margin:12px 0 5px;text-transform:uppercase;letter-spacing:.03em;}
+label.ed-flbl:first-child{margin-top:0;}
+input.ed-in,select.ed-in,textarea.ed-in{width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 12px;
+  font-size:0.9rem;font-family:inherit;color:#0f172a;background:#f8fafc;outline:none;transition:border-color .15s,box-shadow .15s;}
+input.ed-in:focus,select.ed-in:focus,textarea.ed-in:focus{border-color:#5b7cfa;background:#fff;box-shadow:0 0 0 3px rgba(91,124,250,.12);}
+textarea.ed-in{min-height:150px;resize:vertical;line-height:1.5;}
+select.ed-in{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2364748b' stroke-width='2.2' stroke-linecap='round'><path d='M4 6l4 4 4-4'/></svg>");background-repeat:no-repeat;background-position:right 12px center;padding-right:34px;}
+.ed-money-wrap{position:relative;}
+.ed-money-wrap::before{content:'$';position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94a3b8;font-weight:800;font-size:0.9rem;}
+input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:700;}
+.ed-two{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.ed-vrow{margin-bottom:12px;}
+.ed-vrow:last-child{margin-bottom:0;}
+.ed-vtitle{font-weight:700;color:#475569;font-size:0.8rem;margin-bottom:6px;}
+/* Imágenes */
+.ed-imgs{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px;}
+.ed-img{position:relative;aspect-ratio:1/1;border-radius:11px;overflow:hidden;background:#f1f5f9;border:1px solid #e8ebf3;
+  cursor:grab;user-select:none;}
+.ed-img.dragging{opacity:.4;cursor:grabbing;}
+.ed-img img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;}
+.ed-img .ed-del{position:absolute;top:5px;right:5px;width:26px;height:26px;border-radius:50%;border:none;
+  background:rgba(15,23,42,.62);color:#fff;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;}
+.ed-img:hover .ed-del{display:flex;}
+.ed-img .ed-del svg{width:14px;height:14px;}
+.ed-img .ed-del:hover{background:#dc2626;}
+.ed-img .ed-princ{position:absolute;bottom:5px;left:5px;font-family:Montserrat,sans-serif;font-weight:800;font-size:8.5px;
+  text-transform:uppercase;letter-spacing:.04em;background:#5b7cfa;color:#fff;border-radius:5px;padding:2px 6px;display:none;}
+.ed-img.is-princ .ed-princ{display:block;}
+.ed-img.ed-deleted{opacity:.32;filter:grayscale(1);}
+.ed-img.ed-deleted .ed-del{display:flex;background:#dc2626;}
+.ed-img.ed-new::after{content:'NUEVA';position:absolute;top:5px;left:5px;font-family:Montserrat;font-weight:800;font-size:8px;
+  background:#16a34a;color:#fff;border-radius:5px;padding:2px 5px;letter-spacing:.03em;}
+.ed-drag-hint{font-size:0.7rem;color:#94a3b8;margin-top:9px;}
+.ed-addimg{display:flex;gap:8px;margin-top:11px;}
+.ed-addimg input{flex:1;border:1.5px solid #e2e8f0;border-radius:9px;padding:8px 11px;font-size:0.82rem;font-family:inherit;background:#f8fafc;outline:none;}
+.ed-addimg input:focus{border-color:#5b7cfa;background:#fff;}
+.ed-addimg button{border:1px solid #dbe3ff;background:#eef2ff;color:#2563eb;border-radius:9px;padding:0 14px;font-weight:800;font-size:0.75rem;cursor:pointer;font-family:Montserrat;text-transform:uppercase;letter-spacing:.03em;}
+.ed-noimg{color:#94a3b8;font-size:0.82rem;padding:8px 0;}
+/* toggles + checks */
+.ed-toggle{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;}
+.ed-toggle:last-child{border-bottom:none;}
+.ed-toggle span{font-weight:700;font-size:0.86rem;color:#0f172a;}
+.ed-sw{position:relative;width:42px;height:23px;flex:0 0 auto;}
+.ed-sw input{opacity:0;width:0;height:0;position:absolute;}
+.ed-sw i{position:absolute;inset:0;background:#cbd5e1;border-radius:99px;transition:.18s;cursor:pointer;}
+.ed-sw i::after{content:'';position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;background:#fff;transition:.18s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+.ed-sw input:checked + i{background:#2563eb;}
+.ed-sw input:checked + i::after{left:21px;}
+.ed-check{display:flex;align-items:center;gap:9px;padding:7px 0;cursor:pointer;font-size:0.86rem;font-weight:600;color:#334155;}
+.ed-check input{width:17px;height:17px;accent-color:#2563eb;cursor:pointer;flex:0 0 auto;}
+.ed-info{font-size:0.74rem;color:#64748b;background:#f8fafc;border:1px solid #e8ebf3;border-radius:9px;padding:9px 11px;line-height:1.4;}
+</style></head>
+<body>
+<div class="ed-head">
+  <div class="ed-title-mini" id="ttl">__TITLE__</div>
+  <button class="ed-save" id="save" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+    <span id="savelbl">Guardar y publicar</span>
+  </button>
+</div>
+<div class="ed-grid">
+  <div class="ed-main">
+    <div class="ed-card">
+      <div class="ed-lbl">Fotos <small>· arrastra para ordenar · la 1ª es la principal · pasa el mouse para eliminar</small></div>
+      <div class="ed-imgs" id="imgs">__IMAGES__</div>
+      <div class="ed-addimg">
+        <input id="addurl" type="text" placeholder="Pega la URL de una foto y presiona Enter o Agregar">
+        <button type="button" id="addbtn">Agregar</button>
+      </div>
+    </div>
+    <div class="ed-card">
+      <label class="ed-flbl">Título</label>
+      <input class="ed-in" id="f_title" type="text" value="__TITLE_ATTR__">
+      <label class="ed-flbl">Descripción · acepta HTML básico</label>
+      <textarea class="ed-in" id="f_desc">__DESC__</textarea>
+    </div>
+    <div class="ed-card">
+      <div class="ed-lbl">Precios</div>
+      __PRICES__
+    </div>
+  </div>
+  <div class="ed-side">
+    <div class="ed-card">
+      <label class="ed-flbl">Estado</label>
+      <select class="ed-in" id="f_status">__STATUS__</select>
+    </div>
+    <div class="ed-card">
+      <div class="ed-lbl">Canales de venta</div>
+      __CHANNELS__
+    </div>
+    <div class="ed-card">
+      <label class="ed-flbl">Tipo de producto</label>
+      <input class="ed-in" id="f_type" type="text" value="__TYPE__" placeholder="Ej: Casa Container">
+      <label class="ed-flbl">Proveedor</label>
+      <input class="ed-in" id="f_vendor" type="text" value="__VENDOR__" placeholder="Ej: Container Houses">
+      <div class="ed-lbl" style="margin-top:15px;">Colecciones</div>
+      __COLLECTIONS__
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+var doc=document, grid=doc.getElementById('imgs');
+
+/* ── Formato moneda en los inputs de precio ── */
+function fmtMoney(v){ v=(''+v).replace(/\D/g,''); if(!v) return ''; return parseInt(v,10).toLocaleString('es-CL'); }
+[].slice.call(doc.querySelectorAll('.ed-money')).forEach(function(inp){
+  inp.value=fmtMoney(inp.value);
+  inp.addEventListener('input',function(){ var p=this.selectionStart; this.value=fmtMoney(this.value); });
+});
+
+/* ── Imágenes: principal + arrastrar + eliminar (marcar) ── */
+function refreshPrincipal(){
+  var first=null;
+  [].slice.call(grid.querySelectorAll('.ed-img')).forEach(function(t){
+    t.classList.remove('is-princ');
+    if(!first && !t.classList.contains('ed-deleted')) first=t;
+  });
+  if(first) first.classList.add('is-princ');
+}
+grid.addEventListener('click',function(e){
+  var d=e.target.closest?e.target.closest('.ed-del'):null; if(!d) return;
+  var tile=d.closest('.ed-img'); if(!tile) return;
+  if(tile.getAttribute('data-new')==='1'){ tile.remove(); }   // nueva → se descarta
+  else { tile.classList.toggle('ed-deleted'); }
+  refreshPrincipal();
+});
+var dragEl=null;
+grid.addEventListener('dragstart',function(e){
+  var t=e.target.closest('.ed-img'); if(!t) return; dragEl=t;
+  e.dataTransfer.effectAllowed='move'; setTimeout(function(){t.classList.add('dragging');},0);
+});
+grid.addEventListener('dragend',function(){ if(dragEl)dragEl.classList.remove('dragging'); dragEl=null; refreshPrincipal(); });
+grid.addEventListener('dragover',function(e){
+  e.preventDefault(); if(!dragEl) return;
+  var t=e.target.closest('.ed-img'); if(!t||t===dragEl) return;
+  var r=t.getBoundingClientRect(); var before=(e.clientY < r.top + r.height/2) || (Math.abs(e.clientY-(r.top+r.height/2))<r.height/2 && e.clientX < r.left + r.width/2);
+  grid.insertBefore(dragEl, before ? t : t.nextSibling);
+});
+
+/* ── Agregar foto por URL ── */
+function addUrl(){
+  var inp=doc.getElementById('addurl'); var u=(inp.value||'').trim(); if(!u) return;
+  var d=doc.createElement('div'); d.className='ed-img ed-new'; d.setAttribute('draggable','true');
+  d.setAttribute('data-new','1'); d.setAttribute('data-src',u);
+  d.innerHTML='<img src="'+u.replace(/"/g,'&quot;')+'" alt=""><button type="button" class="ed-del"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg></button><span class="ed-princ">Principal</span>';
+  grid.appendChild(d); inp.value=''; refreshPrincipal();
+}
+doc.getElementById('addbtn').addEventListener('click',addUrl);
+doc.getElementById('addurl').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); addUrl(); }});
+refreshPrincipal();
+
+/* ── Guardar todo (un solo payload al puente sw_savecmd) ── */
+function collect(){
+  var variants=[];
+  [].slice.call(doc.querySelectorAll('.ed-vrow')).forEach(function(row){
+    var id=row.getAttribute('data-vid');
+    var pr=row.querySelector('.ed-price'), cm=row.querySelector('.ed-cmp');
+    variants.push({id:id, price:parseInt((pr.value||'0').replace(/\D/g,'')||'0',10),
+                   compare_at:parseInt((cm.value||'0').replace(/\D/g,'')||'0',10)});
+  });
+  var channels_on=[];
+  [].slice.call(doc.querySelectorAll('.ed-chan')).forEach(function(c){ if(c.checked) channels_on.push(c.getAttribute('data-gid')); });
+  var collections_on=[];
+  [].slice.call(doc.querySelectorAll('.ed-col')).forEach(function(c){ if(c.checked) collections_on.push(c.getAttribute('data-cid')); });
+  var image_order=[], image_delete=[], image_add_urls=[];
+  [].slice.call(grid.querySelectorAll('.ed-img')).forEach(function(t){
+    var id=t.getAttribute('data-id');
+    if(t.classList.contains('ed-deleted')){ if(id) image_delete.push(parseInt(id,10)); return; }
+    if(t.getAttribute('data-new')==='1'){ image_add_urls.push(t.getAttribute('data-src')); }
+    else if(id){ image_order.push(parseInt(id,10)); }
+  });
+  return {
+    title:doc.getElementById('f_title').value,
+    body_html:doc.getElementById('f_desc').value,
+    status:doc.getElementById('f_status').value,
+    product_type:doc.getElementById('f_type').value,
+    vendor:doc.getElementById('f_vendor').value,
+    variants:variants, channels_on:channels_on, collections_on:collections_on,
+    channels_present:doc.querySelectorAll('.ed-chan').length>0,
+    collections_present:doc.querySelectorAll('.ed-col').length>0,
+    image_order:image_order, image_delete:image_delete, image_add_urls:image_add_urls
+  };
+}
+function fire(payload){
+  try{
+    var W=window.parent, D=W.document;
+    var inp=D.querySelector('.st-key-sw_savecmd input'); if(!inp) return;
+    var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set;
+    inp.focus({preventScroll:true});
+    setter.call(inp, payload+'|'+Date.now());
+    inp.dispatchEvent(new Event('input',{bubbles:true}));
+    inp.dispatchEvent(new Event('change',{bubbles:true}));
+    inp.dispatchEvent(new KeyboardEvent('keypress',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+    inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+    inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+    inp.dispatchEvent(new FocusEvent('blur',{bubbles:true}));
+    inp.dispatchEvent(new FocusEvent('focusout',{bubbles:true}));
+    inp.blur();
+  }catch(e){}
+}
+doc.getElementById('save').addEventListener('click',function(){
+  var b=this; b.disabled=true; doc.getElementById('savelbl').textContent='Guardando…';
+  fire(JSON.stringify(collect()));
+});
+})();
+</script>
+</body></html>"""
+
+
+def _build_editor_form(p, pubs, prod_pubs, cols, cur_cols):
+    """Arma el formulario HTML del editor. `pubs`=canales [{id,name}], `prod_pubs`=set
+    GIDs publicados, `cols`=colecciones [{id,title}], `cur_cols`=ids seleccionadas.
+    Devuelve (html, alto_iframe)."""
+    _imgs = p.get("images") or []
+    _x = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>'
+    _img_html = ""
+    for im in _imgs:
+        _src = _he(im.get("src", ""))
+        _img_html += (f'<div class="ed-img" draggable="true" data-id="{_he(im.get("id"))}">'
+                      f'<img src="{_src}" alt="">'
+                      f'<button type="button" class="ed-del">{_x}</button>'
+                      '<span class="ed-princ">Principal</span></div>')
+    if not _img_html:
+        _img_html = '<div class="ed-noimg">Este producto no tiene fotos. Agrega una por URL abajo.</div>'
+
+    # Precios por variante
+    _vars = p.get("variants") or []
+    _prices = ""
+    for v in _vars:
+        _vt = v.get("title") or ""
+        _vt_html = (f'<div class="ed-vtitle">{_he(_vt)}</div>'
+                    if _vt and _vt.lower() != "default title" else "")
+        _prices += (
+            f'<div class="ed-vrow" data-vid="{_he(v.get("id"))}">{_vt_html}'
+            '<div class="ed-two">'
+            '<div><label class="ed-flbl">Precio (ahora)</label>'
+            '<div class="ed-money-wrap"><input class="ed-in ed-money ed-price" inputmode="numeric" '
+            f'value="{_clp_plain(v.get("price"))}"></div></div>'
+            '<div><label class="ed-flbl">Precio antes (tachado)</label>'
+            '<div class="ed-money-wrap"><input class="ed-in ed-money ed-cmp" inputmode="numeric" '
+            f'value="{_clp_plain(v.get("compare_at_price"))}"></div></div>'
+            '</div></div>')
+    if not _prices:
+        _prices = '<div class="ed-noimg">Sin variantes.</div>'
+
+    # Estado
+    _cur_est = _estado_efectivo(p)
+    _status = ""
+    for _val, _lbl in (("active", "Activo"), ("unlisted", "No publicado"),
+                       ("draft", "Borrador"), ("archived", "Archivado")):
+        _st_key = {"active": "active", "unlisted": "unpublished", "draft": "draft", "archived": "archived"}[_val]
+        _sel = " selected" if _st_key == _cur_est else ""
+        _status += f'<option value="{_val}"{_sel}>{_lbl}</option>'
+
+    # Canales
+    _channels = ""
+    for pub in (pubs or []):
+        _gid = pub.get("id")
+        _chk = " checked" if _gid in (prod_pubs or set()) else ""
+        _channels += (f'<label class="ed-toggle"><span>{_he(pub.get("name", "Canal"))}</span>'
+                      f'<span class="ed-sw"><input type="checkbox" class="ed-chan" data-gid="{_he(_gid)}"{_chk}>'
+                      '<i></i></span></label>')
+    if not _channels:
+        _channels = ('<div class="ed-info">Para gestionar canales, el token necesita '
+                     '<b>read_publications</b> y <b>write_publications</b>. Agrégalos y reinstala la app.</div>')
+
+    # Colecciones
+    _collections = ""
+    _curset = set(str(c) for c in (cur_cols or []))
+    for c in (cols or []):
+        _cid = str(c.get("id"))
+        _chk = " checked" if _cid in _curset else ""
+        _collections += (f'<label class="ed-check"><input type="checkbox" class="ed-col" '
+                         f'data-cid="{_he(_cid)}"{_chk}><span>{_he(c.get("title", "(sin título)"))}</span></label>')
+    if not _collections:
+        _collections = '<div class="ed-info">No hay colecciones manuales en la tienda.</div>'
+
+    _title = _he(p.get("title") or "(sin título)")
+    _html = (_SW_FORM_TEMPLATE
+             .replace("__TITLE_ATTR__", _title).replace("__TITLE__", _title)
+             .replace("__IMAGES__", _img_html)
+             .replace("__DESC__", _he(p.get("body_html") or ""))
+             .replace("__PRICES__", _prices)
+             .replace("__STATUS__", _status)
+             .replace("__CHANNELS__", _channels)
+             .replace("__TYPE__", _he(p.get("product_type") or ""))
+             .replace("__VENDOR__", _he(p.get("vendor") or ""))
+             .replace("__COLLECTIONS__", _collections))
+    # Altura estimada (izquierda vs derecha).
+    _img_rows = (len(_imgs) + 3) // 4 if _imgs else 1
+    _left = 70 + (_img_rows * 118 + 90) + 300 + (max(1, len(_vars)) * 110 + 60)
+    _right = 130 + (max(1, len(pubs or [])) * 44 + 60) + (200 + len(cols or []) * 34)
+    _h = 70 + max(_left, _right)
+    return _html, _h
+
+
 def _clear_editor_state():
     for k in [k for k in list(st.session_state.keys()) if str(k).startswith("sw_ed_")]:
         st.session_state.pop(k, None)
@@ -611,6 +941,84 @@ def _duplicar_flow(pid):
     st.session_state["sw_edit_id"] = str(_newid)
     st.session_state["sw_toast"] = "Producto duplicado (borrador). Renómbralo y ajústalo antes de activarlo."
     st.rerun()
+
+
+def _guardar_todo(pid, data: dict):
+    """Persiste TODO el formulario del editor en Shopify de una sola vez: datos del
+    producto, precios, estado, canales, colecciones y fotos (borrar/reordenar/agregar).
+    Devuelve lista de errores (vacía = todo OK)."""
+    _errs = []
+    # 1) Datos del producto (título/desc/estado/tipo/proveedor).
+    _campos = {
+        "title": (data.get("title") or "").strip(),
+        "body_html": data.get("body_html") or "",
+        "status": (data.get("status") or "active"),
+        "product_type": (data.get("product_type") or "").strip(),
+        "vendor": (data.get("vendor") or "").strip(),
+    }
+    _ok, _e = _shop.actualizar_producto(pid, _campos)
+    if not _ok:
+        _errs.append(_e)
+    # 2) Precios por variante.
+    for v in data.get("variants") or []:
+        try:
+            _price = int(v.get("price") or 0)
+        except Exception:
+            _price = 0
+        try:
+            _cmp = int(v.get("compare_at") or 0)
+        except Exception:
+            _cmp = 0
+        _vc = {"price": str(_price), "compare_at_price": (str(_cmp) if _cmp > 0 else None)}
+        _ok, _e = _shop.actualizar_variante(v.get("id"), _vc)
+        if not _ok:
+            _errs.append(_e)
+    # 3) Canales (diff contra lo publicado actualmente). Solo si el formulario mostró
+    # los toggles (evita des-publicar por accidente cuando no cargaron / falta scope).
+    _cur_pub, _ = _shop.publicaciones_de_producto(pid) if data.get("channels_present") else (None, None)
+    if _cur_pub is not None:
+        _desired = set(data.get("channels_on") or [])
+        _to_pub = [g for g in _desired if g not in _cur_pub]
+        _to_unpub = [g for g in _cur_pub if g not in _desired]
+        if _to_pub:
+            _ok, _e = _shop.publicar_en_canales(pid, _to_pub)
+            if not _ok:
+                _errs.append(_e)
+        if _to_unpub:
+            _ok, _e = _shop.despublicar_de_canales(pid, _to_unpub)
+            if not _ok:
+                _errs.append(_e)
+    # 4) Colecciones (diff). Solo si el formulario mostró las colecciones.
+    _collects, _ = _shop.colecciones_de_producto(pid) if data.get("collections_present") else ([], None)
+    _collect_by_col = {str(cl.get("collection_id")): cl.get("id") for cl in (_collects or [])}
+    _cur_c = set(_collect_by_col.keys()) if data.get("collections_present") else set()
+    _desired_c = set(str(c) for c in (data.get("collections_on") or []))
+    for _cid in _desired_c - _cur_c:
+        _ok, _e = _shop.agregar_a_coleccion(pid, _cid)
+        if not _ok:
+            _errs.append(_e)
+    for _cid in _cur_c - _desired_c:
+        _collectid = _collect_by_col.get(_cid)
+        if _collectid:
+            _ok, _e = _shop.quitar_de_coleccion(_collectid)
+            if not _ok:
+                _errs.append(_e)
+    # 5) Fotos: eliminar marcadas → reordenar restantes → agregar nuevas (al final).
+    for _iid in data.get("image_delete") or []:
+        _ok, _e = _shop.eliminar_imagen(pid, _iid)
+        if not _ok:
+            _errs.append(_e)
+    _order = [i for i in (data.get("image_order") or [])]
+    if _order:
+        _ok, _e = _shop.reordenar_imagenes(pid, _order)
+        if not _ok:
+            _errs.append(_e)
+    for _url in data.get("image_add_urls") or []:
+        if _url:
+            _ok, _e = _shop.agregar_imagen(pid, src=_url)
+            if not _ok:
+                _errs.append(_e)
+    return _errs
 
 
 @st.dialog("Eliminar producto")
@@ -973,304 +1381,72 @@ def _render_editor(pid):
             return
         st.session_state["sw_edit_prod"] = _p
 
-    _imgs = _p.get("images") or []
-    _img0 = (_imgs[0].get("src") if _imgs else "")
-    _thumb = (f'<img src="{_he(_img0)}" alt="">' if _img0 else "")
-    st.markdown(
-        '<div class="sw-ed-head">'
-        f'<div class="sw-ed-thumb">{_thumb}</div>'
-        f'<div><div class="sw-ed-name">{_he(_p.get("title") or "—")}</div>'
-        f'<div style="font-size:0.76rem;color:#94a3b8;font-weight:600;margin-top:3px;">'
-        f'{len(_imgs)} foto(s) · {len(_p.get("variants") or [])} variante(s) · ID {_he(_p.get("id"))}</div></div></div>',
-        unsafe_allow_html=True)
-
-    # ── Datos del producto ──
-    st.markdown(f'<div class="sw-sec">{_ic("edit", "#0f172a", 16, 0)}Datos del producto</div>',
-                unsafe_allow_html=True)
-    _dc1, _dc2 = st.columns([3, 1])
-    with _dc1:
-        _title = st.text_input("Título", value=_p.get("title", "") or "", key="sw_ed_title")
-    with _dc2:
-        # Estado = campo `status` de Shopify. "No publicado" = status `unlisted`.
-        _est_map = {"Activo": "active", "No publicado": "unlisted",
-                    "Borrador": "draft", "Archivado": "archived"}
-        _est_lbls = list(_est_map.keys())
-        _cur_lbl = {"active": "Activo", "unpublished": "No publicado",
-                    "draft": "Borrador", "archived": "Archivado"}.get(_estado_efectivo(_p), "Activo")
-        _status_lbl = st.selectbox("Estado", _est_lbls,
-                                   index=_est_lbls.index(_cur_lbl), key="sw_ed_status")
-    _tc1, _tc2 = st.columns(2)
-    with _tc1:
-        _ptype = st.text_input("Tipo de producto", value=_p.get("product_type", "") or "", key="sw_ed_type")
-    with _tc2:
-        _tags = st.text_input("Etiquetas (separadas por coma)", value=_p.get("tags", "") or "", key="sw_ed_tags")
-    _desc = st.text_area("Descripción · acepta HTML", value=_p.get("body_html", "") or "",
-                         height=220, key="sw_ed_desc",
-                         help="Es la descripción que se ve en la ficha del producto en la web. Puedes usar HTML básico (<p>, <b>, <ul><li>…).")
-
-    # ── Precios ──
-    st.markdown(f'<div class="sw-sec">{_ic("money", "#0f172a", 16, 0)}Precios</div>', unsafe_allow_html=True)
-    st.caption("«Precio antes» es el valor tachado que se muestra como precio anterior (para que se vea el "
-               "descuento debe ser MAYOR que el precio actual). Déjalo en 0 para quitarlo.")
-    _vars = _p.get("variants") or []
-    _price_widgets = {}
-    _cmp_widgets = {}
-    for v in _vars:
-        _vid = v.get("id")
-        _vtitle = v.get("title") or ""
-        if _vtitle and _vtitle.lower() != "default title":
-            st.markdown(f'<div style="font-weight:700;color:#475569;font-size:0.82rem;margin:8px 0 2px;">'
-                        f'{_he(_vtitle)}</div>', unsafe_allow_html=True)
-        _cp1, _cp2 = st.columns(2)
-        with _cp1:
-            _price_widgets[_vid] = st.number_input(
-                "Precio (ahora)", min_value=0.0, step=1000.0, format="%.0f",
-                value=float(v.get("price") or 0), key=f"sw_ed_price_{_vid}")
-        with _cp2:
-            _cmp_widgets[_vid] = st.number_input(
-                "Precio antes (tachado)", min_value=0.0, step=1000.0, format="%.0f",
-                value=float(v.get("compare_at_price") or 0), key=f"sw_ed_cmp_{_vid}")
-
-    # ── Guardar (con confirmación) ──
-    st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
-    _conf = st.checkbox("Entiendo que estos cambios se **publican en la web real**.", key="sw_ed_confirm")
-    if st.button("Guardar y publicar", type="primary", disabled=not _conf,
-                 key="sw_ed_save", icon=":material/cloud_upload:"):
-        _errs = []
-        with st.spinner("Guardando en Shopify…"):
-            _campos_prod = {
-                "title": _title.strip(), "body_html": _desc,
-                "status": _est_map[_status_lbl],
-                "product_type": _ptype.strip(), "tags": _tags.strip()}
-            _ok, _e = _shop.actualizar_producto(pid, _campos_prod)
-            if not _ok:
-                _errs.append(_e)
-            for v in _vars:
-                _vid = v.get("id")
-                _vc = {}
-                _np = _price_widgets.get(_vid)
-                if _np is not None and abs(float(v.get("price") or 0) - float(_np)) > 0.5:
-                    _vc["price"] = f"{_np:.0f}"
-                _nc = _cmp_widgets.get(_vid)
-                _curc = float(v.get("compare_at_price") or 0)
-                if _nc is not None and abs(_curc - float(_nc)) > 0.5:
-                    # 0 → null limpia el precio antes; >0 → lo fija.
-                    _vc["compare_at_price"] = (f"{_nc:.0f}" if float(_nc) > 0 else None)
-                if _vc:
-                    _ov, _oe = _shop.actualizar_variante(_vid, _vc)
-                    if not _ov:
-                        _errs.append(_oe)
-        if _errs:
-            st.error("No se pudieron publicar algunos cambios: " + " · ".join(str(x) for x in _errs))
-        else:
-            st.session_state.pop("sw_edit_prod", None)   # refetch fresco
-            _cargar_productos.clear()
-            st.toast("Cambios publicados en la web.")
-            st.rerun()
-
-    # ── Organización (proveedor + colecciones) ──
-    st.markdown(f'<div class="sw-sec">{_ic("box", "#0f172a", 16, 0)}Organización del producto</div>',
-                unsafe_allow_html=True)
-    st.caption("Proveedor y colecciones (agrupaciones de la web). Las colecciones «automáticas» "
-               "no aparecen aquí porque su contenido lo define una regla en Shopify.")
-    _vendor = st.text_input("Proveedor", value=_p.get("vendor", "") or "", key="sw_ed_vendor",
-                            placeholder="Ej: Container Houses")
-
+    # ── Formulario del producto (HTML limpio, un solo guardado) ──
+    # Canales (publicaciones)
+    _pubs = st.session_state.get("sw_pubs")
+    if _pubs is None:
+        _pubs, _puberr = _shop.listar_publicaciones()
+        st.session_state["sw_pubs"] = _pubs or []
+        st.session_state["sw_pubs_err"] = _puberr
+        _pubs = _pubs or []
+    _prod_pubs = st.session_state.get("sw_edit_prodpubs")
+    if _prod_pubs is None or st.session_state.get("sw_edit_prodpubs_pid") != str(pid):
+        _pp, _ = _shop.publicaciones_de_producto(pid)
+        _prod_pubs = list(_pp) if _pp is not None else []
+        st.session_state["sw_edit_prodpubs"] = _prod_pubs
+        st.session_state["sw_edit_prodpubs_pid"] = str(pid)
+    _prod_pubs_set = set(_prod_pubs)
+    # Colecciones
     _cols = st.session_state.get("sw_cols")
     if _cols is None:
-        with st.spinner("Cargando colecciones…"):
-            _cols, _ = _shop.listar_colecciones()
+        _cols, _ = _shop.listar_colecciones()
         _cols = _cols or []
         st.session_state["sw_cols"] = _cols
-    _col_title = {str(c.get("id")): (c.get("title") or "(sin título)") for c in _cols}
-
+    _col_ids = {str(c.get("id")) for c in _cols}
     _collects = st.session_state.get("sw_edit_collects")
     if _collects is None or st.session_state.get("sw_edit_collects_pid") != str(pid):
         _collects, _ = _shop.colecciones_de_producto(pid)
         _collects = _collects or []
         st.session_state["sw_edit_collects"] = _collects
         st.session_state["sw_edit_collects_pid"] = str(pid)
-    _collect_by_col = {str(cl.get("collection_id")): cl.get("id") for cl in _collects}
-    _cur_cols = [cid for cid in _collect_by_col if cid in _col_title]
+    _cur_cols = [str(cl.get("collection_id")) for cl in _collects
+                 if str(cl.get("collection_id")) in _col_ids]
 
-    if _col_title:
-        _sel_cols = st.multiselect(
-            "Colecciones", options=list(_col_title.keys()), default=_cur_cols,
-            format_func=lambda cid: _col_title.get(cid, cid), key="sw_ed_cols",
-            help="Marca las colecciones a las que pertenece este producto.")
-    else:
-        _sel_cols = _cur_cols
-        st.caption("No hay colecciones manuales en la tienda (o el token no tiene permiso para leerlas).")
-
-    if st.button("Guardar organización", key="sw_ed_orgsave", type="primary", icon=":material/save:"):
-        _errs = []
-        with st.spinner("Guardando organización…"):
-            if (_vendor or "").strip() != (_p.get("vendor", "") or "").strip():
-                _ok, _e = _shop.actualizar_producto(pid, {"vendor": _vendor.strip()})
-                if not _ok:
-                    _errs.append(_e)
-            _selset, _curset = set(_sel_cols), set(_cur_cols)
-            for _cid in _selset - _curset:      # agregar a colección
-                _ok, _e = _shop.agregar_a_coleccion(pid, _cid)
-                if not _ok:
-                    _errs.append(_e)
-            for _cid in _curset - _selset:      # quitar de colección
-                _collectid = _collect_by_col.get(_cid)
-                if _collectid:
-                    _ok, _e = _shop.quitar_de_coleccion(_collectid)
-                    if not _ok:
-                        _errs.append(_e)
-        if _errs:
-            st.error("No se pudo guardar todo: " + " · ".join(str(x) for x in _errs))
-        else:
-            st.session_state.pop("sw_edit_prod", None)
-            st.session_state.pop("sw_edit_collects", None)
-            _cargar_productos.clear()
-            st.toast("Organización guardada.")
-            st.rerun()
-
-    # ── Canales de venta (publicaciones) ──
-    st.markdown(f'<div class="sw-sec">{_ic("box", "#0f172a", 16, 0)}Canales de venta</div>',
-                unsafe_allow_html=True)
-    st.caption("En qué canales está disponible el producto (Tienda online, Point of Sale, etc.), "
-               "igual que «Gestionar publicación» en Shopify. Es independiente del Estado de arriba.")
-    _pubs = st.session_state.get("sw_pubs")
-    if _pubs is None:
-        with st.spinner("Cargando canales…"):
-            _pubs, _puberr = _shop.listar_publicaciones()
-        st.session_state["sw_pubs"] = _pubs or []
-        st.session_state["sw_pubs_err"] = _puberr
-        _pubs = _pubs or []
-    _puberr = st.session_state.get("sw_pubs_err")
-    if _puberr:
-        st.info("Para gestionar los canales de venta desde aquí, el token de Shopify necesita los "
-                "permisos **read_publications** y **write_publications**. Agrégalos en tu app custom "
-                "(Configuración de API → scopes), Guarda y REINSTALA la app. Luego pulsa Actualizar. "
-                f"\n\nDetalle técnico: {_puberr}", icon=":material/info:")
-    elif _pubs:
-        _ppubs = st.session_state.get("sw_edit_prodpubs")
-        if _ppubs is None or st.session_state.get("sw_edit_prodpubs_pid") != str(pid):
-            _pp, _ = _shop.publicaciones_de_producto(pid)
-            _ppubs = list(_pp) if _pp is not None else []
-            st.session_state["sw_edit_prodpubs"] = _ppubs
-            st.session_state["sw_edit_prodpubs_pid"] = str(pid)
-        _cur_pub = set(_ppubs)
-        _ch_state = {}
-        for _pub in _pubs:
-            _gid = _pub.get("id")
-            _num = str(_gid).rsplit("/", 1)[-1]
-            _cc1, _cc2 = st.columns([4, 1.2], vertical_alignment="center")
-            with _cc1:
-                st.markdown(f'<div style="font-weight:700;color:#0f172a;font-size:0.9rem;padding-top:6px;">'
-                            f'{_he(_pub.get("name", "Canal"))}</div>', unsafe_allow_html=True)
-            with _cc2:
-                _ch_state[_gid] = st.toggle("Publicado", value=(_gid in _cur_pub),
-                                            key=f"sw_ed_ch_{_num}", label_visibility="collapsed")
-        if st.button("Guardar canales", key="sw_ed_chsave", type="primary", icon=":material/save:"):
-            _to_pub = [p for p, on in _ch_state.items() if on and p not in _cur_pub]
-            _to_unpub = [p for p, on in _ch_state.items() if not on and p in _cur_pub]
-            _errs = []
-            with st.spinner("Actualizando canales…"):
-                if _to_pub:
-                    _ok, _e = _shop.publicar_en_canales(pid, _to_pub)
-                    if not _ok:
-                        _errs.append(_e)
-                if _to_unpub:
-                    _ok, _e = _shop.despublicar_de_canales(pid, _to_unpub)
-                    if not _ok:
-                        _errs.append(_e)
-            if _errs:
-                st.error("No se pudo actualizar todo: " + " · ".join(str(x) for x in _errs))
-            else:
+    # Puente de guardado (input oculto sw_savecmd; se auto-limpia tras procesar).
+    if st.session_state.pop("_sw_reset_savecmd", False):
+        st.session_state["sw_savecmd"] = ""
+    _sc = st.text_input("savecmd", key="sw_savecmd", label_visibility="collapsed")
+    if _sc and "|" in _sc:
+        _sbody, _sts = _sc.rsplit("|", 1)
+        if _sts != st.session_state.get("sw_savecmd_ts"):
+            st.session_state["sw_savecmd_ts"] = _sts
+            st.session_state["_sw_reset_savecmd"] = True
+            import json as _json
+            try:
+                _data = _json.loads(_sbody)
+            except Exception:
+                _data = None
+            if _data is not None:
+                with st.spinner("Guardando en Shopify…"):
+                    _errs = _guardar_todo(pid, _data)
+                st.session_state.pop("sw_edit_prod", None)
+                st.session_state.pop("sw_edit_collects", None)
                 st.session_state.pop("sw_edit_prodpubs", None)
-                st.session_state.pop("sw_edit_prod", None)
                 _cargar_productos.clear()
-                st.toast("Canales de venta actualizados.")
+                if _errs:
+                    st.session_state["sw_toast"] = ("Guardado con avisos: "
+                                                    + " · ".join(str(x) for x in _errs[:3]))
+                else:
+                    st.session_state["sw_toast"] = "Cambios publicados en la web."
                 st.rerun()
 
-    # ── Fotos ──
-    st.markdown(f'<div class="sw-sec">{_ic("img", "#0f172a", 16, 0)}Fotos '
-                f'<span style="color:#94a3b8;font-weight:800;">· {len(_imgs)}</span></div>',
-                unsafe_allow_html=True)
-    if _imgs:
-        st.caption("La 1ª foto es la principal en la web. Usa ◀ ▶ para reordenar y la papelera para eliminar.")
-        _all_ids = [im.get("id") for im in _imgs]
+    _form_html, _form_h = _build_editor_form(_p, _pubs, _prod_pubs_set, _cols, _cur_cols)
+    components.html(_form_html, height=int(_form_h), scrolling=True)
 
-        def _reorder(new_ids):
-            with st.spinner("Reordenando…"):
-                _ok, _e = _shop.reordenar_imagenes(pid, new_ids)
-            if _ok:
-                st.session_state.pop("sw_edit_prod", None)
-                _cargar_productos.clear()
-                st.rerun()
-            else:
-                st.error(_e)
-
-        _n = 4
-        for _base in range(0, len(_imgs), _n):
-            _row = _imgs[_base:_base + _n]
-            _cols = st.columns(_n)
-            for _j, im in enumerate(_row):
-                _gidx = _base + _j
-                with _cols[_j]:
-                    _src = im.get("src", "")
-                    if _src:
-                        st.markdown(f'<div class="sw-ph"><img src="{_he(_src)}" alt=""></div>',
-                                    unsafe_allow_html=True)
-                    _b1, _b2, _b3 = st.columns(3)
-                    with _b1:
-                        if st.button("", icon=":material/chevron_left:", key=f"sw_ed_mvl_{im.get('id')}",
-                                     use_container_width=True, help="Mover antes", disabled=(_gidx == 0)):
-                            _no = list(_all_ids)
-                            _no[_gidx - 1], _no[_gidx] = _no[_gidx], _no[_gidx - 1]
-                            _reorder(_no)
-                    with _b2:
-                        if st.button("", icon=":material/chevron_right:", key=f"sw_ed_mvr_{im.get('id')}",
-                                     use_container_width=True, help="Mover después",
-                                     disabled=(_gidx == len(_imgs) - 1)):
-                            _no = list(_all_ids)
-                            _no[_gidx + 1], _no[_gidx] = _no[_gidx], _no[_gidx + 1]
-                            _reorder(_no)
-                    with _b3:
-                        if st.button("", icon=":material/delete:", key=f"sw_ed_delimg_{im.get('id')}",
-                                     use_container_width=True, help="Eliminar"):
-                            with st.spinner("Eliminando foto…"):
-                                _ok, _e = _shop.eliminar_imagen(pid, im.get("id"))
-                            if _ok:
-                                st.session_state.pop("sw_edit_prod", None)
-                                _cargar_productos.clear()
-                                st.toast("Foto eliminada.")
-                                st.rerun()
-                            else:
-                                st.error(_e)
-                    st.markdown(f'<div style="text-align:center;font-size:0.66rem;color:#94a3b8;'
-                                f'font-weight:700;">Foto #{_gidx + 1}'
-                                + ('  · principal' if _gidx == 0 else '') + '</div>', unsafe_allow_html=True)
-    else:
-        st.caption("Este producto no tiene fotos todavía.")
-
-    st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
-    _ac1, _ac2 = st.columns(2)
-    with _ac1:
-        _newurl = st.text_input("Agregar foto por URL", key="sw_ed_newimg_url",
-                                placeholder="https://…/foto.jpg")
-        if st.button("Agregar por URL", key="sw_ed_addurl", use_container_width=True,
-                     icon=":material/add_link:", disabled=not (_newurl or "").strip()):
-            with st.spinner("Subiendo foto…"):
-                _ok, _e = _shop.agregar_imagen(pid, src=_newurl.strip())
-            if _ok:
-                st.session_state.pop("sw_edit_prod", None)
-                st.session_state.pop("sw_ed_newimg_url", None)
-                _cargar_productos.clear()
-                st.toast("Foto agregada.")
-                st.rerun()
-            else:
-                st.error(_e)
-    with _ac2:
-        _up = st.file_uploader("O súbela desde tu equipo", type=["jpg", "jpeg", "png", "webp"],
-                               key="sw_ed_upimg")
-        if _up is not None and st.button("Subir esta foto", key="sw_ed_addup",
-                                         use_container_width=True, icon=":material/upload:"):
+    # Subir foto desde el equipo (el resto — URL, orden, borrar — va en el formulario).
+    with st.expander("Subir una foto desde tu equipo"):
+        _up = st.file_uploader("Archivo de imagen", type=["jpg", "jpeg", "png", "webp"], key="sw_ed_upimg")
+        if _up is not None and st.button("Subir esta foto", key="sw_ed_addup", icon=":material/upload:"):
             try:
                 _b64 = base64.b64encode(_up.getvalue()).decode()
             except Exception:
