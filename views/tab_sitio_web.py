@@ -691,6 +691,7 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
   background:#0f172a;color:#fff;border-radius:4px;padding:1px 4px;letter-spacing:.03em;}
 .ed-pcmsg{display:none;background:#fff1f2;border:1px solid #fca5a5;color:#b91c1c;border-radius:9px;padding:8px 11px;
   font-size:0.76rem;line-height:1.4;margin-top:10px;}
+.ed-pchint{font-size:0.72rem;color:#94a3b8;font-weight:600;margin-top:9px;}
 .ed-pcx{position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;border:none;background:rgba(15,23,42,.66);
   color:#fff;cursor:pointer;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;}
 .ed-pcx:hover{background:#dc2626;}
@@ -750,8 +751,7 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
           <button type="button" id="pcclear" class="ed-pcclear">Quitar todos</button></div>
         <div id="pcthumbs" class="ed-pcthumbs"></div>
         <div id="pcmsg" class="ed-pcmsg"></div>
-        <div id="pcprog" class="ed-pcprog"><div id="pcbar" class="ed-pcbar"></div></div>
-        <button type="button" id="pcup" class="ed-pcup">Subir</button>
+        <div class="ed-pchint">Se suben al pulsar «Guardar y publicar».</div>
       </div>
     </div>
     <div class="ed-card">
@@ -894,11 +894,32 @@ function fire(payload){
    lo quitas (o editas y vuelves atrás), el botón se DESACTIVA de nuevo. */
 var _initial=null;
 function collectStr(){ try{ return JSON.stringify(collect()); }catch(e){ return ''; } }
-function setDirty(){ try{ window.parent._swDirty=(_initial!==null && collectStr()!==_initial); }catch(e){} }
+function setDirty(){ try{ window.parent._swDirty=((_initial!==null && collectStr()!==_initial) || (typeof pcFiles!=='undefined' && pcFiles.length>0)); }catch(e){} }
 try{
   var _P=window.parent;
   _P._swDirty=false;                         // al cargar, sin cambios → botón deshabilitado
-  _P._swSave=function(){ try{ fire(JSON.stringify(collect())); }catch(e){} };
+  _P._swSave=async function(){               // guarda el formulario Y sube las fotos/videos del PC pendientes
+    try{
+      var payload=collect();
+      if(typeof pcFiles!=='undefined' && pcFiles.length){
+        var totV=pcFiles.filter(function(f){return f.isVideo;}).reduce(function(a,f){return a+f.file.size;},0);
+        if(totV>100*1024*1024){
+          if(pcmsg){ pcmsg.textContent='Los videos suman '+(totV/1048576).toFixed(0)+' MB. Máximo 100 MB — quita alguno o comprímelo (para videos muy pesados, súbelo directo en Shopify).'; pcmsg.style.display='block'; }
+          var fb0=window.parent.document.getElementById('sw-float-save'); if(fb0){ fb0.textContent='Guardar y publicar'; fb0.disabled=false; }
+          return;
+        }
+        var photos=[], videos=[], fb=window.parent.document.getElementById('sw-float-save');
+        for(var i=0;i<pcFiles.length;i++){
+          var it=pcFiles[i];
+          if(it.isVideo){ var vb=await fileB64(it.file); if(vb) videos.push({name:it.name, mime:(it.file.type||'video/mp4'), b64:vb}); }
+          else { var b=await resizeB64(it.file); if(b) photos.push({name:it.name, b64:b}); }
+          if(fb) fb.textContent='Subiendo '+(i+1)+'/'+pcFiles.length+'…';
+        }
+        payload.pc_files=photos; payload.pc_videos=videos;
+      }
+      fire(JSON.stringify(payload));
+    }catch(e){}
+  };
 }catch(e){}
 _initial=collectStr();                        // foto del estado inicial (sin cambios)
 doc.addEventListener('input', function(e){ var id=e.target&&e.target.id; if(id==='addurl'||id==='addvidurl') return; setDirty(); });
@@ -908,9 +929,7 @@ doc.addEventListener('change', function(e){ var id=e.target&&e.target.id; if(id=
 var pcFiles=[];
 var pcbtn=doc.getElementById('pcbtn'), pcfile=doc.getElementById('pcfile'),
     pcwrap=doc.getElementById('pcwrap'), pcthumbs=doc.getElementById('pcthumbs'),
-    pccount=doc.getElementById('pccount'), pcup=doc.getElementById('pcup'),
-    pcprog=doc.getElementById('pcprog'), pcbar=doc.getElementById('pcbar'),
-    pcmsg=doc.getElementById('pcmsg');
+    pccount=doc.getElementById('pccount'), pcmsg=doc.getElementById('pcmsg');
 function pcRender(){
   pcthumbs.innerHTML='';
   pcFiles.forEach(function(it,idx){
@@ -932,9 +951,9 @@ function pcRender(){
   var nv=pcFiles.filter(function(f){return f.isVideo;}).length, ni=pcFiles.length-nv, parts=[];
   if(ni) parts.push(ni+(ni===1?' foto':' fotos')); if(nv) parts.push(nv+(nv===1?' video':' videos'));
   pccount.textContent=parts.join(' · ')||'0 archivos';
-  pcup.textContent='Subir '+pcFiles.length+(pcFiles.length===1?' archivo':' archivos');
   pcwrap.classList.toggle('on', pcFiles.length>0);
   pcbtn.style.display = pcFiles.length ? 'none' : '';   // con archivos: se usa el tile "+"
+  setDirty();
 }
 pcbtn.addEventListener('click',function(){ pcfile.click(); });
 pcfile.addEventListener('change',function(){
@@ -967,24 +986,6 @@ function fileB64(file){
     r.onload=function(){ try{ res((''+r.result).split(',')[1]||''); }catch(e){ res(''); } };
     r.onerror=function(){ res(''); }; r.readAsDataURL(file); });
 }
-pcup.addEventListener('click',function(){
-  if(!pcFiles.length) return;
-  var vids=pcFiles.filter(function(f){return f.isVideo;});
-  var totV=vids.reduce(function(a,f){return a+f.file.size;},0), CAP=100*1024*1024;
-  if(totV>CAP){ pcmsg.textContent='Los videos suman '+(totV/1048576).toFixed(0)+' MB. El máximo es 100 MB por subida — quita alguno o comprímelo (para videos muy pesados, súbelo directo en Shopify).'; pcmsg.style.display='block'; return; }
-  var self=this; self.disabled=true; pcprog.classList.add('on'); pcbar.style.width='0%'; if(pcmsg) pcmsg.style.display='none';
-  var photos=[], videos=[], done=0, total=pcFiles.length;
-  function step(idx){
-    if(idx>=pcFiles.length){ self.textContent='Subiendo a la tienda…'; fire(JSON.stringify({op:'upload', files:photos, videos:videos})); return; }
-    var it=pcFiles[idx];
-    var p = it.isVideo
-      ? fileB64(it.file).then(function(b){ if(b) videos.push({name:it.name, mime:(it.file.type||'video/mp4'), b64:b}); })
-      : resizeB64(it.file).then(function(b){ if(b) photos.push({name:it.name, b64:b}); });
-    p.then(function(){ done++; pcbar.style.width=Math.round(done/total*100)+'%'; step(idx+1); });
-  }
-  step(0);
-});
-
 /* ── Agregar video por enlace (YouTube/Vimeo), estilo igual al de URL de imagen ── */
 var addvidbtn=doc.getElementById('addvidbtn'), addvidurl=doc.getElementById('addvidurl');
 function syncVid(){ addvidbtn.disabled=!(addvidurl.value||'').trim(); }
@@ -1222,6 +1223,21 @@ def _guardar_todo(pid, data: dict):
     for _url in data.get("image_add_urls") or []:
         if _url:
             _ok, _e = _shop.agregar_imagen(pid, src=_url)
+            if not _ok:
+                _errs.append(_e)
+    # 6) Fotos/videos elegidos desde el PC (van en el mismo guardado).
+    _errs += _subir_fotos(pid, data.get("pc_files") or [])
+    for _v in data.get("pc_videos") or []:
+        _b64v = _v.get("b64") or ""
+        if not _b64v:
+            continue
+        try:
+            _vb = base64.b64decode(_b64v)
+        except Exception:
+            _vb = b""
+        if _vb:
+            _ok, _e = _shop.subir_video(pid, _v.get("name") or "video.mp4",
+                                        _v.get("mime") or "video/mp4", _vb)
             if not _ok:
                 _errs.append(_e)
     return _errs
@@ -1715,9 +1731,11 @@ def _render_editor(pid):
                         st.session_state.pop("sw_edit_vid", None)
                         st.session_state["sw_toast"] = ("Video agregado." if _okv
                                                         else f"No se pudo agregar el video: {_ev}")
-                else:                               # guardado completo del formulario
+                else:                               # guardado completo del formulario (+ fotos/videos PC)
                     with st.spinner("Guardando en Shopify…"):
                         _errs = _guardar_todo(pid, _data)
+                    if _data.get("pc_videos"):
+                        st.session_state.pop("sw_edit_vid", None)   # refrescar galería de videos
                     if _errs:
                         st.session_state["sw_toast"] = "Guardado con avisos: " + " · ".join(str(x) for x in _errs[:3])
                     else:
