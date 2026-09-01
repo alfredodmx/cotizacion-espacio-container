@@ -289,6 +289,16 @@ _CSS = """
 .sw-ph-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;}
 .sw-ph{border:1px solid #e8ebf3;border-radius:12px;overflow:hidden;background:#fff;}
 .sw-ph img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block;}
+/* Subida desde el PC (file_uploader + miniaturas + botones) */
+section[data-testid="stFileUploaderDropzone"],div[data-testid="stFileUploaderDropzone"]{
+  background:#f8fafc!important;border:2px dashed #cbd5e1!important;border-radius:12px!important;}
+section[data-testid="stFileUploaderDropzone"]:hover,div[data-testid="stFileUploaderDropzone"]:hover{
+  border-color:#5b7cfa!important;background:#fff!important;}
+div[data-testid="stImage"] img{border-radius:10px;aspect-ratio:1/1;object-fit:cover;}
+.st-key-sw_up_go button{background:linear-gradient(135deg,#5b7cfa,#2563eb)!important;color:#fff!important;
+  border:none!important;font-weight:800!important;box-shadow:0 5px 14px rgba(37,99,235,.28)!important;}
+.st-key-sw_up_go button:hover{filter:brightness(1.07);}
+.st-key-sw_up_go button:disabled{opacity:.55;filter:none;box-shadow:none!important;}
 </style>
 """
 
@@ -638,7 +648,9 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
 .ed-addimg{display:flex;gap:8px;margin-top:11px;}
 .ed-addimg input{flex:1;border:1.5px solid #e2e8f0;border-radius:9px;padding:8px 11px;font-size:0.82rem;font-family:inherit;background:#f8fafc;outline:none;}
 .ed-addimg input:focus{border-color:#5b7cfa;background:#fff;}
-.ed-addimg button{border:1px solid #dbe3ff;background:#eef2ff;color:#2563eb;border-radius:9px;padding:0 14px;font-weight:800;font-size:0.75rem;cursor:pointer;font-family:Montserrat;text-transform:uppercase;letter-spacing:.03em;}
+.ed-addimg button{border:1px solid #dbe3ff;background:#eef2ff;color:#2563eb;border-radius:9px;padding:0 14px;font-weight:800;font-size:0.75rem;cursor:pointer;font-family:Montserrat;text-transform:uppercase;letter-spacing:.03em;transition:opacity .15s;}
+.ed-addimg button:disabled{opacity:.42;cursor:default;filter:grayscale(.4);}
+.ed-addimg button:not(:disabled):hover{background:#dbe3ff;}
 .ed-noimg{color:#94a3b8;font-size:0.82rem;padding:8px 0;}
 /* toggles + checks */
 .ed-toggle{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;}
@@ -669,7 +681,7 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
       <div class="ed-imgs" id="imgs">__IMAGES__</div>
       <div class="ed-addimg">
         <input id="addurl" type="text" placeholder="Pega la URL de una foto y presiona Enter o Agregar">
-        <button type="button" id="addbtn">Agregar</button>
+        <button type="button" id="addbtn" disabled>Agregar</button>
       </div>
     </div>
     <div class="ed-card">
@@ -748,11 +760,14 @@ function addUrl(){
   var d=doc.createElement('div'); d.className='ed-img ed-new'; d.setAttribute('draggable','true');
   d.setAttribute('data-new','1'); d.setAttribute('data-src',u);
   d.innerHTML='<img src="'+u.replace(/"/g,'&quot;')+'" alt=""><button type="button" class="ed-del"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg></button><span class="ed-princ">Principal</span>';
-  grid.appendChild(d); inp.value=''; refreshPrincipal();
+  grid.appendChild(d); inp.value=''; syncAdd(); refreshPrincipal();
 }
-doc.getElementById('addbtn').addEventListener('click',addUrl);
-doc.getElementById('addurl').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); addUrl(); }});
-refreshPrincipal();
+var _addbtn=doc.getElementById('addbtn'), _addurl=doc.getElementById('addurl');
+function syncAdd(){ _addbtn.disabled=!(_addurl.value||'').trim(); }
+_addurl.addEventListener('input',syncAdd);
+_addbtn.addEventListener('click',function(){ if(!this.disabled) addUrl(); });
+_addurl.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); addUrl(); }});
+syncAdd(); refreshPrincipal();
 
 /* ── Guardar todo (un solo payload al puente sw_savecmd) ── */
 function collect(){
@@ -911,6 +926,7 @@ def _clear_editor_state():
     st.session_state.pop("sw_edit_collects_pid", None)
     st.session_state.pop("sw_edit_prodpubs", None)
     st.session_state.pop("sw_edit_prodpubs_pid", None)
+    st.session_state.pop("sw_up_excluded", None)
 
 
 def _duplicar_flow(pid):
@@ -1344,6 +1360,74 @@ def _render_nuevo():
             st.rerun()
 
 
+def _render_subida_pc(pid):
+    """Sección 'Agregar fotos desde el PC': selección múltiple + miniaturas (quitar una a
+    una o todas) + barra de progreso REAL al subir (una request por foto)."""
+    st.markdown(f'<div class="sw-sec">{_ic("img", "#0f172a", 16, 0)}Agregar fotos desde tu PC</div>',
+                unsafe_allow_html=True)
+    st.caption("Elige una o varias fotos, revisa las miniaturas (quita las que no quieras) y súbelas. "
+               "El orden y la foto principal los ajustas arrastrando en el formulario de arriba.")
+    _nonce = st.session_state.get("sw_up_nonce", 0)
+    _ups = st.file_uploader("Selecciona fotos", type=["jpg", "jpeg", "png", "webp"],
+                            accept_multiple_files=True, key=f"sw_ed_upimg_{_nonce}",
+                            label_visibility="collapsed")
+    _excl = st.session_state.get("sw_up_excluded")
+    if not isinstance(_excl, set):
+        _excl = set()
+        st.session_state["sw_up_excluded"] = _excl
+    _ups = _ups or []
+    if not _ups:
+        return
+    _keep = [(i, f) for i, f in enumerate(_ups) if f"{i}:{f.name}" not in _excl]
+    st.markdown(f'<div style="font-family:Montserrat,sans-serif;font-weight:800;color:#0f172a;'
+                f'font-size:0.82rem;margin:8px 0 10px;">{len(_keep)} de {len(_ups)} foto(s) por subir</div>',
+                unsafe_allow_html=True)
+    _percol = 6
+    for _base in range(0, len(_keep), _percol):
+        _row = _keep[_base:_base + _percol]
+        _cols = st.columns(_percol)
+        for _c, (i, f) in enumerate(_row):
+            with _cols[_c]:
+                try:
+                    st.image(f.getvalue(), use_container_width=True)
+                except Exception:
+                    st.caption(f.name)
+                if st.button("✕ Quitar", key=f"sw_up_x_{_nonce}_{i}", use_container_width=True):
+                    _excl.add(f"{i}:{f.name}")
+                    st.rerun()
+    _a1, _a2, _a3 = st.columns([1, 1, 1.6])
+    with _a1:
+        if st.button("Quitar todas", key="sw_up_clear", use_container_width=True, icon=":material/close:"):
+            st.session_state["sw_up_nonce"] = _nonce + 1
+            st.session_state["sw_up_excluded"] = set()
+            st.rerun()
+    with _a3:
+        if st.button(f"Subir {len(_keep)} foto(s)", key="sw_up_go", type="primary",
+                     use_container_width=True, icon=":material/cloud_upload:", disabled=not _keep):
+            _prog = st.progress(0.0, text="Preparando…")
+            _n = len(_keep)
+            _done, _errs = 0, []
+            for _idx, (i, f) in enumerate(_keep):
+                try:
+                    _b64 = base64.b64encode(f.getvalue()).decode()
+                except Exception:
+                    _b64 = ""
+                if _b64:
+                    _ok, _e = _shop.agregar_imagen(pid, attachment=_b64, filename=f.name)
+                    if _ok:
+                        _done += 1
+                    else:
+                        _errs.append(_e)
+                _prog.progress((_idx + 1) / _n, text=f"Subiendo {_idx + 1} de {_n}…")
+            st.session_state.pop("sw_edit_prod", None)
+            _cargar_productos.clear()
+            st.session_state["sw_up_nonce"] = _nonce + 1
+            st.session_state["sw_up_excluded"] = set()
+            st.session_state["sw_toast"] = (f"{_done} foto(s) subida(s)."
+                                            + (f" {len(_errs)} con error." if _errs else ""))
+            st.rerun()
+
+
 def _render_editor(pid):
     """Editor de UN producto: datos + precios + fotos. Escribe a Shopify con confirmación."""
     st.markdown("<style>.st-key-sw_ed_del button{background:#fef2f2!important;border:1px solid #fecaca!important;"
@@ -1443,26 +1527,8 @@ def _render_editor(pid):
     _form_html, _form_h = _build_editor_form(_p, _pubs, _prod_pubs_set, _cols, _cur_cols)
     components.html(_form_html, height=int(_form_h), scrolling=True)
 
-    # Subir foto desde el equipo (el resto — URL, orden, borrar — va en el formulario).
-    with st.expander("Subir una foto desde tu equipo"):
-        _up = st.file_uploader("Archivo de imagen", type=["jpg", "jpeg", "png", "webp"], key="sw_ed_upimg")
-        if _up is not None and st.button("Subir esta foto", key="sw_ed_addup", icon=":material/upload:"):
-            try:
-                _b64 = base64.b64encode(_up.getvalue()).decode()
-            except Exception:
-                _b64 = ""
-            if not _b64:
-                st.error("No se pudo leer el archivo.")
-            else:
-                with st.spinner("Subiendo foto…"):
-                    _ok, _e = _shop.agregar_imagen(pid, attachment=_b64, filename=_up.name)
-                if _ok:
-                    st.session_state.pop("sw_edit_prod", None)
-                    _cargar_productos.clear()
-                    st.toast("Foto subida.")
-                    st.rerun()
-                else:
-                    st.error(_e)
+    # ── Agregar fotos DESDE EL PC (múltiple, miniaturas, quitar, barra de progreso) ──
+    _render_subida_pc(pid)
 
     # ── Videos ──
     _vid = st.session_state.get("sw_edit_vid")
