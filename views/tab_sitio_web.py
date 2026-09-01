@@ -240,6 +240,30 @@ def _estado_efectivo(p) -> str:
     return "active"
 
 
+@st.cache_data(ttl=600, show_spinner=False)
+def _plantilla_metafields(_cb=""):
+    """Plantilla MAESTRA de características: definiciones de metacampos + la UNIÓN de
+    los metacampos que ya existen en los productos de la tienda. Así un producto nuevo
+    (o incompleto) muestra TODOS los campos que trae un producto bien completado, aunque
+    estén en blanco. Cacheada (algunos metacampos los crean apps sin 'definición', por
+    eso no basta con listar_definiciones_metafields). Cada campo: {namespace,key,type,name}."""
+    _campos = {}
+    _defs, _ = _shop.listar_definiciones_metafields()
+    for d in (_defs or []):
+        _nk = (d.get("namespace") or "", d.get("key") or "")
+        _campos[_nk] = {"namespace": _nk[0], "key": _nk[1],
+                        "type": d.get("type") or "single_line_text_field", "name": d.get("name") or ""}
+    _prods, _ = _shop.listar_productos(status="")
+    for p in (_prods or [])[:20]:
+        _mfs, _ = _shop.listar_metafields(p.get("id"))
+        for m in (_mfs or []):
+            _nk = (m.get("namespace") or "", m.get("key") or "")
+            if _nk not in _campos:
+                _campos[_nk] = {"namespace": _nk[0], "key": _nk[1],
+                                "type": m.get("type") or "single_line_text_field", "name": ""}
+    return list(_campos.values())
+
+
 _CSS = """
 <style>
 .sw-sec{font-family:'Montserrat',sans-serif;color:#0f172a;font-size:0.88rem;font-weight:700;
@@ -1347,7 +1371,7 @@ def render_tab_sitio_web(**kwargs):
     with _c2:
         if st.button("Actualizar", key="sw_refresh", use_container_width=True, icon=":material/refresh:"):
             _cargar_productos.clear()
-            st.session_state.pop("sw_mf_defs", None)
+            _plantilla_metafields.clear()
             st.session_state.pop("sw_cols", None)
             st.session_state.pop("sw_pubs", None)
             st.session_state.pop("sw_pubs_err", None)
@@ -1714,11 +1738,8 @@ def _render_editor(pid):
         st.session_state["sw_edit_mf"] = _mf
         st.session_state["sw_edit_mf_pid"] = str(pid)
 
-    _defs = st.session_state.get("sw_mf_defs")
-    if _defs is None:
-        _defs, _ = _shop.listar_definiciones_metafields()
-        _defs = _defs or []
-        st.session_state["sw_mf_defs"] = _defs
+    with st.spinner("Cargando campos de características…"):
+        _defs = _plantilla_metafields()   # definiciones + unión de metacampos de la tienda
 
     # Fusiona definiciones + valores. Cada campo editable = def (con su nombre bonito)
     # + el valor del producto si existe (id) o vacío (id=None → se crea al guardar).
