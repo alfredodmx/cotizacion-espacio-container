@@ -990,6 +990,17 @@ addvidurl.addEventListener('input',syncVid);
 addvidbtn.addEventListener('click',function(){ if(!this.disabled) addVid(); });
 addvidurl.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); addVid(); }});
 syncVid();
+
+/* ── Auto-ajuste de la altura del iframe a su contenido (sin barra de scroll) ── */
+function swResize(){
+  try{
+    var h=Math.ceil(Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight))+4;
+    var fe=window.frameElement; if(!fe) return;
+    if(Math.abs((parseInt(fe.style.height,10)||0)-h)>2){ fe.style.setProperty('height', h+'px', 'important'); }
+  }catch(e){}
+}
+setInterval(swResize, 150);   // intervalo = ajuste continuo y fiable (el ResizeObserver no siempre dispara aquí)
+[0,120,350,700].forEach(function(t){ setTimeout(swResize, t); });
 })();
 </script>
 </body></html>"""
@@ -1708,7 +1719,7 @@ def _render_editor(pid):
                 st.rerun()
 
     _form_html, _form_h = _build_editor_form(_p, _pubs, _prod_pubs_set, _cols, _cur_cols)
-    components.html(_form_html, height=int(_form_h), scrolling=True)
+    components.html(_form_html, height=int(_form_h), scrolling=False)   # el propio iframe se auto-ajusta
     components.html(_SW_FLOAT_JS, height=0)   # botón flotante "Guardar y publicar"
 
     # ── Videos ──
