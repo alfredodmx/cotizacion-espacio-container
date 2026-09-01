@@ -657,6 +657,10 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
 .ed-pcthumbs{display:flex;flex-wrap:wrap;gap:8px;max-height:186px;overflow-y:auto;padding:2px;}
 .ed-pcthumb{position:relative;width:80px;height:80px;border-radius:9px;overflow:hidden;border:1px solid #e8ebf3;background:#f1f5f9;flex:0 0 auto;}
 .ed-pcthumb img,.ed-pcthumb video{width:100%;height:100%;object-fit:cover;display:block;background:#0f172a;}
+.ed-pcadd{width:80px;height:80px;border-radius:9px;border:2px dashed #cbd5e1;background:#f8fafc;color:#94a3b8;
+  display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:300;line-height:1;cursor:pointer;
+  flex:0 0 auto;transition:all .15s;}
+.ed-pcadd:hover{border-color:#5b7cfa;color:#5b7cfa;background:#fff;}
 .ed-pcplay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;}
 .ed-pcplay span{width:26px;height:26px;border-radius:50%;background:rgba(15,23,42,.6);display:flex;align-items:center;justify-content:center;}
 .ed-pcvtag{position:absolute;bottom:3px;left:3px;font-family:Montserrat,sans-serif;font-weight:800;font-size:7.5px;
@@ -879,11 +883,16 @@ function pcRender(){
     }
     pcthumbs.appendChild(d);
   });
+  if(pcFiles.length){   // tile "+" al final para seguir agregando (estilo Shopify)
+    var add=doc.createElement('div'); add.className='ed-pcadd'; add.setAttribute('title','Agregar más'); add.textContent='+';
+    pcthumbs.appendChild(add);
+  }
   var nv=pcFiles.filter(function(f){return f.isVideo;}).length, ni=pcFiles.length-nv, parts=[];
   if(ni) parts.push(ni+(ni===1?' foto':' fotos')); if(nv) parts.push(nv+(nv===1?' video':' videos'));
   pccount.textContent=parts.join(' · ')||'0 archivos';
   pcup.textContent='Subir '+pcFiles.length+(pcFiles.length===1?' archivo':' archivos');
   pcwrap.classList.toggle('on', pcFiles.length>0);
+  pcbtn.style.display = pcFiles.length ? 'none' : '';   // con archivos: se usa el tile "+"
 }
 pcbtn.addEventListener('click',function(){ pcfile.click(); });
 pcfile.addEventListener('change',function(){
@@ -892,6 +901,7 @@ pcfile.addEventListener('change',function(){
   this.value=''; if(pcmsg) pcmsg.style.display='none'; pcRender();
 });
 pcthumbs.addEventListener('click',function(e){
+  if(e.target.closest && e.target.closest('.ed-pcadd')){ pcfile.click(); return; }
   var x=e.target.closest?e.target.closest('.ed-pcx'):null; if(!x) return;
   var i=parseInt(x.getAttribute('data-i'),10); if(!isNaN(i)){ pcFiles.splice(i,1); pcRender(); }
 });
