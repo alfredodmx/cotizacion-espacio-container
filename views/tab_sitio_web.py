@@ -289,16 +289,6 @@ _CSS = """
 .sw-ph-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;}
 .sw-ph{border:1px solid #e8ebf3;border-radius:12px;overflow:hidden;background:#fff;}
 .sw-ph img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block;}
-/* Subida desde el PC (file_uploader + miniaturas + botones) */
-section[data-testid="stFileUploaderDropzone"],div[data-testid="stFileUploaderDropzone"]{
-  background:#f8fafc!important;border:2px dashed #cbd5e1!important;border-radius:12px!important;}
-section[data-testid="stFileUploaderDropzone"]:hover,div[data-testid="stFileUploaderDropzone"]:hover{
-  border-color:#5b7cfa!important;background:#fff!important;}
-div[data-testid="stImage"] img{border-radius:10px;aspect-ratio:1/1;object-fit:cover;}
-.st-key-sw_up_go button{background:linear-gradient(135deg,#5b7cfa,#2563eb)!important;color:#fff!important;
-  border:none!important;font-weight:800!important;box-shadow:0 5px 14px rgba(37,99,235,.28)!important;}
-.st-key-sw_up_go button:hover{filter:brightness(1.07);}
-.st-key-sw_up_go button:disabled{opacity:.55;filter:none;box-shadow:none!important;}
 </style>
 """
 
@@ -652,6 +642,32 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
 .ed-addimg button:disabled{opacity:.42;cursor:default;filter:grayscale(.4);}
 .ed-addimg button:not(:disabled):hover{background:#dbe3ff;}
 .ed-noimg{color:#94a3b8;font-size:0.82rem;padding:8px 0;}
+/* Agregar desde el PC (todo HTML) */
+.ed-pcbtn{margin-top:9px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:#0f172a;
+  color:#fff;border:none;border-radius:10px;padding:11px;font-family:Montserrat,sans-serif;font-weight:800;font-size:0.74rem;
+  text-transform:uppercase;letter-spacing:.03em;cursor:pointer;transition:filter .15s;}
+.ed-pcbtn:hover{filter:brightness(1.18);}
+.ed-pcbtn svg{width:16px;height:16px;}
+.ed-pcwrap{display:none;margin-top:11px;border-top:1px dashed #e2e8f0;padding-top:12px;}
+.ed-pcwrap.on{display:block;}
+.ed-pchead{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}
+.ed-pchead span{font-weight:800;font-size:0.76rem;color:#0f172a;font-family:Montserrat,sans-serif;}
+.ed-pcclear{background:none;border:none;color:#dc2626;font-weight:800;font-size:0.7rem;cursor:pointer;text-transform:uppercase;letter-spacing:.03em;font-family:Montserrat,sans-serif;}
+.ed-pcclear:hover{text-decoration:underline;}
+.ed-pcthumbs{display:flex;flex-wrap:wrap;gap:8px;max-height:186px;overflow-y:auto;padding:2px;}
+.ed-pcthumb{position:relative;width:80px;height:80px;border-radius:9px;overflow:hidden;border:1px solid #e8ebf3;background:#f1f5f9;flex:0 0 auto;}
+.ed-pcthumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.ed-pcx{position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;border:none;background:rgba(15,23,42,.66);
+  color:#fff;cursor:pointer;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;}
+.ed-pcx:hover{background:#dc2626;}
+.ed-pcprog{display:none;height:8px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin:12px 0 2px;}
+.ed-pcprog.on{display:block;}
+.ed-pcbar{height:100%;width:0;background:linear-gradient(90deg,#5b7cfa,#2563eb);transition:width .12s;}
+.ed-pcup{margin-top:11px;width:100%;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:10px;
+  padding:11px;font-family:Montserrat,sans-serif;font-weight:800;font-size:0.76rem;text-transform:uppercase;letter-spacing:.03em;
+  cursor:pointer;transition:filter .15s;box-shadow:0 5px 14px rgba(22,163,74,.26);}
+.ed-pcup:hover{filter:brightness(1.08);}
+.ed-pcup:disabled{opacity:.6;cursor:default;box-shadow:none;}
 /* toggles + checks */
 .ed-toggle{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;}
 .ed-toggle:last-child{border-bottom:none;}
@@ -682,6 +698,18 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
       <div class="ed-addimg">
         <input id="addurl" type="text" placeholder="Pega la URL de una foto y presiona Enter o Agregar">
         <button type="button" id="addbtn" disabled>Agregar</button>
+      </div>
+      <button type="button" id="pcbtn" class="ed-pcbtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+        Agregar fotos desde tu PC
+      </button>
+      <input type="file" id="pcfile" accept="image/*" multiple style="display:none">
+      <div id="pcwrap" class="ed-pcwrap">
+        <div class="ed-pchead"><span id="pccount">0 fotos</span>
+          <button type="button" id="pcclear" class="ed-pcclear">Quitar todas</button></div>
+        <div id="pcthumbs" class="ed-pcthumbs"></div>
+        <div id="pcprog" class="ed-pcprog"><div id="pcbar" class="ed-pcbar"></div></div>
+        <button type="button" id="pcup" class="ed-pcup">Subir fotos</button>
       </div>
     </div>
     <div class="ed-card">
@@ -821,6 +849,62 @@ function fire(payload){
 doc.getElementById('save').addEventListener('click',function(){
   var b=this; b.disabled=true; doc.getElementById('savelbl').textContent='Guardando…';
   fire(JSON.stringify(collect()));
+});
+
+/* ── Agregar fotos desde el PC (miniaturas 80x80 + resize + barra de progreso) ── */
+var pcFiles=[];
+var pcbtn=doc.getElementById('pcbtn'), pcfile=doc.getElementById('pcfile'),
+    pcwrap=doc.getElementById('pcwrap'), pcthumbs=doc.getElementById('pcthumbs'),
+    pccount=doc.getElementById('pccount'), pcup=doc.getElementById('pcup'),
+    pcprog=doc.getElementById('pcprog'), pcbar=doc.getElementById('pcbar');
+function pcRender(){
+  pcthumbs.innerHTML='';
+  pcFiles.forEach(function(it,idx){
+    var d=doc.createElement('div'); d.className='ed-pcthumb';
+    d.innerHTML='<img src="'+it.url+'" alt=""><button type="button" class="ed-pcx" data-i="'+idx+'">×</button>';
+    pcthumbs.appendChild(d);
+  });
+  pccount.textContent=pcFiles.length+(pcFiles.length===1?' foto':' fotos');
+  pcup.textContent='Subir '+pcFiles.length+' foto'+(pcFiles.length===1?'':'s');
+  pcwrap.classList.toggle('on', pcFiles.length>0);
+}
+pcbtn.addEventListener('click',function(){ pcfile.click(); });
+pcfile.addEventListener('change',function(){
+  var fs=this.files||[];
+  for(var i=0;i<fs.length;i++){ pcFiles.push({file:fs[i], url:URL.createObjectURL(fs[i]), name:fs[i].name}); }
+  this.value=''; pcRender();
+});
+pcthumbs.addEventListener('click',function(e){
+  var x=e.target.closest?e.target.closest('.ed-pcx'):null; if(!x) return;
+  var i=parseInt(x.getAttribute('data-i'),10); if(!isNaN(i)){ pcFiles.splice(i,1); pcRender(); }
+});
+doc.getElementById('pcclear').addEventListener('click',function(){ pcFiles=[]; pcRender(); });
+function resizeB64(file){
+  return new Promise(function(res){
+    var img=new Image();
+    img.onload=function(){
+      var mx=1500, w=img.width, h=img.height, s=Math.min(1, mx/Math.max(w,h));
+      var cw=Math.max(1,Math.round(w*s)), ch=Math.max(1,Math.round(h*s));
+      var cv=doc.createElement('canvas'); cv.width=cw; cv.height=ch;
+      try{ cv.getContext('2d').drawImage(img,0,0,cw,ch); res((cv.toDataURL('image/jpeg',0.8).split(',')[1])||''); }
+      catch(e){ res(''); }
+    };
+    img.onerror=function(){ res(''); };
+    img.src=URL.createObjectURL(file);
+  });
+}
+pcup.addEventListener('click',function(){
+  if(!pcFiles.length) return;
+  var self=this; self.disabled=true; pcprog.classList.add('on'); pcbar.style.width='0%';
+  var out=[], i=0;
+  function next(){
+    if(i>=pcFiles.length){ self.textContent='Subiendo a la tienda…'; fire(JSON.stringify({op:'upload', files:out})); return; }
+    resizeB64(pcFiles[i].file).then(function(b64){
+      if(b64) out.push({name:pcFiles[i].name, b64:b64});
+      i++; pcbar.style.width=Math.round((i/pcFiles.length)*100)+'%'; next();
+    });
+  }
+  next();
 });
 })();
 </script>
@@ -1034,6 +1118,20 @@ def _guardar_todo(pid, data: dict):
             _ok, _e = _shop.agregar_imagen(pid, src=_url)
             if not _ok:
                 _errs.append(_e)
+    return _errs
+
+
+def _subir_fotos(pid, files):
+    """Sube al producto las fotos elegidas desde el PC (ya redimensionadas en el
+    navegador, cada una en base64). Una request por foto. Devuelve lista de errores."""
+    _errs = []
+    for f in files or []:
+        _b64 = f.get("b64") or ""
+        if not _b64:
+            continue
+        _ok, _e = _shop.agregar_imagen(pid, attachment=_b64, filename=(f.get("name") or "foto.jpg"))
+        if not _ok:
+            _errs.append(_e)
     return _errs
 
 
@@ -1360,74 +1458,6 @@ def _render_nuevo():
             st.rerun()
 
 
-def _render_subida_pc(pid):
-    """Sección 'Agregar fotos desde el PC': selección múltiple + miniaturas (quitar una a
-    una o todas) + barra de progreso REAL al subir (una request por foto)."""
-    st.markdown(f'<div class="sw-sec">{_ic("img", "#0f172a", 16, 0)}Agregar fotos desde tu PC</div>',
-                unsafe_allow_html=True)
-    st.caption("Elige una o varias fotos, revisa las miniaturas (quita las que no quieras) y súbelas. "
-               "El orden y la foto principal los ajustas arrastrando en el formulario de arriba.")
-    _nonce = st.session_state.get("sw_up_nonce", 0)
-    _ups = st.file_uploader("Selecciona fotos", type=["jpg", "jpeg", "png", "webp"],
-                            accept_multiple_files=True, key=f"sw_ed_upimg_{_nonce}",
-                            label_visibility="collapsed")
-    _excl = st.session_state.get("sw_up_excluded")
-    if not isinstance(_excl, set):
-        _excl = set()
-        st.session_state["sw_up_excluded"] = _excl
-    _ups = _ups or []
-    if not _ups:
-        return
-    _keep = [(i, f) for i, f in enumerate(_ups) if f"{i}:{f.name}" not in _excl]
-    st.markdown(f'<div style="font-family:Montserrat,sans-serif;font-weight:800;color:#0f172a;'
-                f'font-size:0.82rem;margin:8px 0 10px;">{len(_keep)} de {len(_ups)} foto(s) por subir</div>',
-                unsafe_allow_html=True)
-    _percol = 6
-    for _base in range(0, len(_keep), _percol):
-        _row = _keep[_base:_base + _percol]
-        _cols = st.columns(_percol)
-        for _c, (i, f) in enumerate(_row):
-            with _cols[_c]:
-                try:
-                    st.image(f.getvalue(), use_container_width=True)
-                except Exception:
-                    st.caption(f.name)
-                if st.button("✕ Quitar", key=f"sw_up_x_{_nonce}_{i}", use_container_width=True):
-                    _excl.add(f"{i}:{f.name}")
-                    st.rerun()
-    _a1, _a2, _a3 = st.columns([1, 1, 1.6])
-    with _a1:
-        if st.button("Quitar todas", key="sw_up_clear", use_container_width=True, icon=":material/close:"):
-            st.session_state["sw_up_nonce"] = _nonce + 1
-            st.session_state["sw_up_excluded"] = set()
-            st.rerun()
-    with _a3:
-        if st.button(f"Subir {len(_keep)} foto(s)", key="sw_up_go", type="primary",
-                     use_container_width=True, icon=":material/cloud_upload:", disabled=not _keep):
-            _prog = st.progress(0.0, text="Preparando…")
-            _n = len(_keep)
-            _done, _errs = 0, []
-            for _idx, (i, f) in enumerate(_keep):
-                try:
-                    _b64 = base64.b64encode(f.getvalue()).decode()
-                except Exception:
-                    _b64 = ""
-                if _b64:
-                    _ok, _e = _shop.agregar_imagen(pid, attachment=_b64, filename=f.name)
-                    if _ok:
-                        _done += 1
-                    else:
-                        _errs.append(_e)
-                _prog.progress((_idx + 1) / _n, text=f"Subiendo {_idx + 1} de {_n}…")
-            st.session_state.pop("sw_edit_prod", None)
-            _cargar_productos.clear()
-            st.session_state["sw_up_nonce"] = _nonce + 1
-            st.session_state["sw_up_excluded"] = set()
-            st.session_state["sw_toast"] = (f"{_done} foto(s) subida(s)."
-                                            + (f" {len(_errs)} con error." if _errs else ""))
-            st.rerun()
-
-
 def _render_editor(pid):
     """Editor de UN producto: datos + precios + fotos. Escribe a Shopify con confirmación."""
     st.markdown("<style>.st-key-sw_ed_del button{background:#fef2f2!important;border:1px solid #fecaca!important;"
@@ -1511,24 +1541,26 @@ def _render_editor(pid):
             except Exception:
                 _data = None
             if _data is not None:
-                with st.spinner("Guardando en Shopify…"):
-                    _errs = _guardar_todo(pid, _data)
+                if _data.get("op") == "upload":     # subir fotos del PC (op aparte)
+                    _files = _data.get("files") or []
+                    with st.spinner(f"Subiendo {len(_files)} foto(s) a la tienda…"):
+                        _errs = _subir_fotos(pid, _files)
+                    st.session_state["sw_toast"] = (f"{len(_files) - len(_errs)} foto(s) subida(s)."
+                                                    + (" (con avisos)" if _errs else ""))
+                else:                               # guardado completo del formulario
+                    with st.spinner("Guardando en Shopify…"):
+                        _errs = _guardar_todo(pid, _data)
+                    st.session_state["sw_toast"] = (
+                        ("Guardado con avisos: " + " · ".join(str(x) for x in _errs[:3]))
+                        if _errs else "Cambios publicados en la web.")
                 st.session_state.pop("sw_edit_prod", None)
                 st.session_state.pop("sw_edit_collects", None)
                 st.session_state.pop("sw_edit_prodpubs", None)
                 _cargar_productos.clear()
-                if _errs:
-                    st.session_state["sw_toast"] = ("Guardado con avisos: "
-                                                    + " · ".join(str(x) for x in _errs[:3]))
-                else:
-                    st.session_state["sw_toast"] = "Cambios publicados en la web."
                 st.rerun()
 
     _form_html, _form_h = _build_editor_form(_p, _pubs, _prod_pubs_set, _cols, _cur_cols)
     components.html(_form_html, height=int(_form_h), scrolling=True)
-
-    # ── Agregar fotos DESDE EL PC (múltiple, miniaturas, quitar, barra de progreso) ──
-    _render_subida_pc(pid)
 
     # ── Videos ──
     _vid = st.session_state.get("sw_edit_vid")
