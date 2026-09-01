@@ -723,6 +723,7 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
 .ed-info{font-size:0.74rem;color:#64748b;background:#f8fafc;border:1px solid #e8ebf3;border-radius:9px;padding:9px 11px;line-height:1.4;}
 </style></head>
 <body>
+<div id="ed-root">
 <div class="ed-head">
   <div class="ed-title-mini" id="ttl">__TITLE__</div>
 </div>
@@ -782,6 +783,7 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
       __COLLECTIONS__
     </div>
   </div>
+</div>
 </div>
 <script>
 (function(){
@@ -887,13 +889,18 @@ function fire(payload){
     inp.blur();
   }catch(e){}
 }
-/* ── Estado "hay cambios" (dirty) + exponer el guardado al botón flotante del padre ── */
-function setDirty(){ try{ window.parent._swDirty=true; }catch(e){} }
+/* ── Estado "hay cambios" (dirty) + exponer el guardado al botón flotante del padre ──
+   dirty = el formulario ACTUAL difiere del estado INICIAL. Así, si agregas algo y luego
+   lo quitas (o editas y vuelves atrás), el botón se DESACTIVA de nuevo. */
+var _initial=null;
+function collectStr(){ try{ return JSON.stringify(collect()); }catch(e){ return ''; } }
+function setDirty(){ try{ window.parent._swDirty=(_initial!==null && collectStr()!==_initial); }catch(e){} }
 try{
   var _P=window.parent;
   _P._swDirty=false;                         // al cargar, sin cambios → botón deshabilitado
   _P._swSave=function(){ try{ fire(JSON.stringify(collect())); }catch(e){} };
 }catch(e){}
+_initial=collectStr();                        // foto del estado inicial (sin cambios)
 doc.addEventListener('input', function(e){ var id=e.target&&e.target.id; if(id==='addurl'||id==='addvidurl') return; setDirty(); });
 doc.addEventListener('change', function(e){ var id=e.target&&e.target.id; if(id==='addurl'||id==='addvidurl') return; setDirty(); });
 
@@ -991,16 +998,20 @@ addvidbtn.addEventListener('click',function(){ if(!this.disabled) addVid(); });
 addvidurl.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); addVid(); }});
 syncVid();
 
-/* ── Auto-ajuste de la altura del iframe a su contenido (sin barra de scroll) ── */
+/* ── Auto-ajuste de la altura del iframe a su contenido (sin barra de scroll) ──
+   Se mide el ALTO del wrapper #ed-root (offsetHeight = alto del contenido, NO depende
+   del alto exterior del iframe) → así NO hay bucle de realimentación (que hacía crecer
+   el iframe al infinito y tiritar la pantalla). */
 function swResize(){
   try{
-    var h=Math.ceil(Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight))+4;
+    var el=doc.getElementById('ed-root'); if(!el) return;
+    var h=Math.ceil(el.offsetHeight)+6;
     var fe=window.frameElement; if(!fe) return;
-    if(Math.abs((parseInt(fe.style.height,10)||0)-h)>2){ fe.style.setProperty('height', h+'px', 'important'); }
+    if(Math.abs((parseInt(fe.style.height,10)||0)-h)>3){ fe.style.setProperty('height', h+'px', 'important'); }
   }catch(e){}
 }
-setInterval(swResize, 150);   // intervalo = ajuste continuo y fiable (el ResizeObserver no siempre dispara aquí)
-[0,120,350,700].forEach(function(t){ setTimeout(swResize, t); });
+setInterval(swResize, 200);
+[0,150,400].forEach(function(t){ setTimeout(swResize, t); });
 })();
 </script>
 </body></html>"""
