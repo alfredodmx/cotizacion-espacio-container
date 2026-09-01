@@ -1584,7 +1584,8 @@ def _render_editor(pid):
                 "color:#dc2626!important;}.st-key-sw_ed_del button:hover{background:#fee2e2!important;"
                 "border-color:#fca5a5!important;}.st-key-sw_ed_del button p{color:#dc2626!important;}</style>",
                 unsafe_allow_html=True)
-    _bc1, _bc2, _bc3, _bc4 = st.columns([1.7, 1.5, 1.5, 4.3], vertical_alignment="center")
+    # Volver a la IZQUIERDA; Duplicar/Eliminar a la DERECHA (espacio al medio).
+    _bc1, _bcsp, _bc2, _bc3 = st.columns([1.8, 4, 1.6, 1.6], vertical_alignment="center")
     with _bc1:
         if st.button("← Volver al catálogo", key="sw_ed_back"):
             st.session_state.pop("sw_edit_id", None)
