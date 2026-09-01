@@ -1479,6 +1479,7 @@ _CLI_CTXMENU_JS = r"""<script>
   W._cliCtxH=function(e){
     var el=e.target&&e.target.closest?e.target.closest('[data-cid]'):null; if(!el) return;
     e.preventDefault();
+    if(W._cliSoloCampana) return;   // rol acotado: sin acciones de contexto
     build(el.getAttribute('data-cid'), el.getAttribute('data-cname')||'', e.pageX, e.pageY);
   };
   D.addEventListener('contextmenu', W._cliCtxH, true);
@@ -4652,13 +4653,18 @@ def render_tab_clientes(**kwargs):
     _rol = st.session_state.get("rol_usuario", "ejecutivo")
     _email = st.session_state.get("auth_email", "")
     _es_gestor = _rol in ("root", "admin")   # ven todo + pueden sincronizar/asignar
-    # DOBLE LLAVE: solo root / admin / ejecutivo (operación no tiene CRM).
-    if _rol not in ("root", "admin", "ejecutivo"):
+    # Rol ACOTADO "sitio_web": entra al CRM solo para lanzar CAMPAÑAS. Ve el Pipeline
+    # (sin fichas, sin eliminar, sin asignar, sin crear presupuestos) y Bandeja/Maestro
+    # deshabilitadas. El único botón activo es «Campaña».
+    _solo_campana = (_rol == "sitio_web")
+    # DOBLE LLAVE: root / admin / ejecutivo (CRM completo) + sitio_web (solo campañas).
+    if _rol not in ("root", "admin", "ejecutivo", "sitio_web"):
         render_page_header("clientes", "Mis Clientes CRM", "CRM")
         st.warning("Esta sección no está disponible para tu rol.")
         return
 
     _sub = ("CRM · todos los clientes" if _es_gestor
+            else "CRM · campañas de marketing" if _solo_campana
             else "CRM · mis clientes asignados")
     render_page_header("clientes", "Mis Clientes CRM", _sub)
     st.markdown(_CLI_CSS, unsafe_allow_html=True)
@@ -4693,7 +4699,11 @@ def render_tab_clientes(**kwargs):
         _p = _cmd.split("|")
         if _p[-1] != st.session_state.get("_cli_cmd_ts"):
             st.session_state["_cli_cmd_ts"] = _p[-1]
-            if _p[0] == "open" and len(_p) >= 3:
+            if _solo_campana:
+                # Rol acotado: ficha / crear presupuesto / eliminar están bloqueados.
+                # Feedback en el mismo click (equivale al tooltip "sin permisos").
+                st.toast("No tienes permiso para esa acción.", icon=":material/lock:")
+            elif _p[0] == "open" and len(_p) >= 3:
                 st.session_state["_cli_ficha"] = _p[1]
                 st.session_state["_cli_just_opened"] = True   # dispara la animación de entrada
                 # ficha nueva → formularios/paneles (actividad, correo, edición) cerrados
@@ -4884,15 +4894,41 @@ def render_tab_clientes(**kwargs):
     _views = ["Pipeline", "Bandeja", "Maestro"]
     _icons = {"Pipeline": ":material/view_kanban:", "Bandeja": ":material/inbox:",
               "Maestro": ":material/table_rows:"}
-    if _es_gestor:
+    if _es_gestor or _solo_campana:
         _c_tabs, _c_sync, _c_guion, _c_imp, _c_camp, _c_firma, _c_merge, _c_add = st.columns(
             [6, 1, 1, 1, 1, 1, 1, 2], vertical_alignment="bottom")
     else:
         _c_tabs, _c_add = st.columns([9, 2], vertical_alignment="bottom")
     with _c_tabs:
-        _view = st.radio("Vista", _views, index=0, key="_cli_view", horizontal=True,
-                         label_visibility="collapsed",
-                         format_func=lambda v: f"{_icons.get(v,'')} {v}")
+        if _solo_campana:
+            # Pestañas: Pipeline activa; Bandeja y Maestro deshabilitadas (con tooltip).
+            _view = "Pipeline"
+            _kanban = _svg('<rect x="3" y="3" width="7" height="18" rx="1"/>'
+                           '<rect x="14" y="3" width="7" height="11" rx="1"/>', 15, "#5b7cfa")
+            _inbox = _svg('<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/>'
+                          '<path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89'
+                          'A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>', 15, "#c2c9db")
+            _table = _svg('<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18"/>'
+                          '<path d="M3 15h18"/><path d="M9 3v18"/>', 15, "#c2c9db")
+            _lock = _svg('<rect x="4.5" y="10.5" width="15" height="10" rx="2"/>'
+                         '<path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>', 12, "#c2c9db")
+            _fam = "-apple-system,'Segoe UI',Roboto,sans-serif"
+            _tab_act = ('<div style="display:flex;align-items:center;gap:7px;padding:8px 2px 12px;'
+                        f'color:#5b7cfa;font-weight:700;font-size:14px;font-family:{_fam};'
+                        'border-bottom:2px solid #5b7cfa;">' + _kanban + '<span>Pipeline</span></div>')
+            def _tab_dis(_lbl, _ic):
+                return ('<div title="No tienes permiso para esta vista" '
+                        'style="display:flex;align-items:center;gap:7px;padding:8px 2px 12px;'
+                        f'color:#b4bcd0;font-weight:600;font-size:14px;font-family:{_fam};'
+                        'cursor:not-allowed;">' + _ic + f'<span>{_lbl}</span>' + _lock + '</div>')
+            st.markdown('<div style="display:flex;align-items:flex-end;gap:26px;'
+                        'border-bottom:1px solid #e8ecf5;margin-bottom:2px;">'
+                        + _tab_act + _tab_dis("Bandeja", _inbox) + _tab_dis("Maestro", _table)
+                        + '</div>', unsafe_allow_html=True)
+        else:
+            _view = st.radio("Vista", _views, index=0, key="_cli_view", horizontal=True,
+                             label_visibility="collapsed",
+                             format_func=lambda v: f"{_icons.get(v,'')} {v}")
     if _es_gestor:
         with _c_sync:
             if st.button("", icon=":material/sync:", use_container_width=True,
@@ -4957,6 +4993,36 @@ def render_tab_clientes(**kwargs):
             st.markdown('<div class="cli-btncap">Fusionar</div>', unsafe_allow_html=True)
         with _c_add:
             _add_btn()
+    elif _solo_campana:
+        # Rol acotado: solo «Campaña» activo; el resto deshabilitado con tooltip.
+        _NOPERM = "No tienes permiso para esta acción."
+        _dis = dict(use_container_width=True, disabled=True, help=_NOPERM)
+        with _c_sync:
+            st.button("", icon=":material/sync:", key="_cli_sync", **_dis)
+            st.markdown('<div class="cli-btncap">Sincronizar</div>', unsafe_allow_html=True)
+        with _c_guion:
+            st.button("", icon=":material/fact_check:", key="_cli_guion", **_dis)
+            st.markdown('<div class="cli-btncap">Gui&#243;n</div>', unsafe_allow_html=True)
+        with _c_imp:
+            st.button("", icon=":material/upload_file:", key="_cli_import", **_dis)
+            st.markdown('<div class="cli-btncap">Importar</div>', unsafe_allow_html=True)
+        with _c_camp:
+            if st.button("", icon=":material/campaign:", use_container_width=True,
+                         key="_cli_camp", help="Enviar campaña de correo por segmento"):
+                st.session_state["_camp_open"] = True
+                st.session_state["_cli_just_opened"] = True
+                st.session_state.pop("_cli_ficha", None)
+                st.rerun()
+            st.markdown('<div class="cli-btncap">Campa&#241;a</div>', unsafe_allow_html=True)
+        with _c_firma:
+            st.button("", icon=":material/signature:", key="_cli_firma_btn", **_dis)
+            st.markdown('<div class="cli-btncap">Firma</div>', unsafe_allow_html=True)
+        with _c_merge:
+            st.button("", icon=":material/merge:", key="_cli_dedup_btn", **_dis)
+            st.markdown('<div class="cli-btncap">Fusionar</div>', unsafe_allow_html=True)
+        with _c_add:
+            st.button("Agregar", icon=":material/person_add:", key="_cli_add_btn",
+                      use_container_width=True, disabled=True, help=_NOPERM)
     else:
         with _c_add:
             _add_btn()
@@ -5001,7 +5067,12 @@ def render_tab_clientes(**kwargs):
         _render_pipeline(data, _msel)
 
     # Handler de click (abre ficha) + menú contextual + filtros/búsqueda + salida.
-    _gestor_flag_js = f"<script>try{{window.parent._cliGestor={'true' if _es_gestor else 'false'};}}catch(e){{}}</script>"
+    # `_cliSoloCampana` suprime el menú contextual (crear/ver/eliminar) para el rol acotado.
+    _gestor_flag_js = ("<script>try{window.parent._cliGestor="
+                       + ('true' if _es_gestor else 'false')
+                       + ";window.parent._cliSoloCampana="
+                       + ('true' if _solo_campana else 'false')
+                       + ";}catch(e){}</script>")
     components.html(_gestor_flag_js + _CLI_CLICK_JS + _CLI_CTXMENU_JS + _CLI_FILTER_JS + _CLI_ASIG_JS + _CLI_COPY_JS
                     + _SLA_TICK_JS + _CLI_MSEL_JS, height=0)
     components.html(_CLI_DRAWER_JS, height=0)
@@ -5022,12 +5093,13 @@ def render_tab_clientes(**kwargs):
         _render_dedup_dialog(data)
     elif st.session_state.pop("_firma_open", False) and _es_gestor:
         _render_firma_dialog(data)
-    elif st.session_state.pop("_camp_open", False) and _es_gestor:
+    elif st.session_state.pop("_camp_open", False) and (_es_gestor or _solo_campana):
         _render_campana_dialog(data)
     else:
-        # Ficha 360 (one-shot: pop del flag; el dialog persiste vía su fragment).
+        # Ficha 360 (one-shot: pop del flag; el dialog persiste vía su fragment). El rol
+        # acotado NO abre fichas (defensa extra: el puente ya lo bloquea).
         _fid = st.session_state.pop("_cli_ficha", None)
-        if _fid:
+        if _fid and not _solo_campana:
             _render_ficha(_fid, data)
 
     # Diálogo de alta (one-shot). El ejecutivo lo crea auto-asignado a sí mismo.
