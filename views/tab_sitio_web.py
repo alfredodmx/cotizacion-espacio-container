@@ -678,7 +678,7 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
   cursor:pointer;transition:filter .15s;box-shadow:0 5px 14px rgba(22,163,74,.26);}
 .ed-pcup:hover{filter:brightness(1.08);}
 .ed-pcup:disabled{opacity:.6;cursor:default;box-shadow:none;}
-.ed-addvid{display:flex;gap:8px;margin-top:13px;padding-top:13px;border-top:1px dashed #e2e8f0;}
+.ed-addvid{display:flex;gap:8px;margin-top:8px;}
 .ed-addvid input{flex:1;border:1.5px solid #e2e8f0;border-radius:9px;padding:8px 11px;font-size:0.82rem;font-family:inherit;background:#f8fafc;outline:none;}
 .ed-addvid input:focus{border-color:#5b7cfa;background:#fff;}
 .ed-addvid button{border:1px solid #dbe3ff;background:#eef2ff;color:#2563eb;border-radius:9px;padding:0 14px;font-weight:800;font-size:0.75rem;cursor:pointer;font-family:Montserrat,sans-serif;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;transition:opacity .15s;}
@@ -715,6 +715,10 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
         <input id="addurl" type="text" placeholder="Pega la URL de una foto y presiona Enter o Agregar">
         <button type="button" id="addbtn" disabled>Agregar</button>
       </div>
+      <div class="ed-addvid">
+        <input id="addvidurl" type="text" placeholder="Enlace de video de YouTube o Vimeo y presiona Enter o Agregar">
+        <button type="button" id="addvidbtn" disabled>Agregar video</button>
+      </div>
       <button type="button" id="pcbtn" class="ed-pcbtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
         Agregar fotos/videos desde PC
@@ -727,10 +731,6 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
         <div id="pcmsg" class="ed-pcmsg"></div>
         <div id="pcprog" class="ed-pcprog"><div id="pcbar" class="ed-pcbar"></div></div>
         <button type="button" id="pcup" class="ed-pcup">Subir</button>
-      </div>
-      <div class="ed-addvid">
-        <input id="addvidurl" type="text" placeholder="Enlace de video de YouTube o Vimeo y presiona Enter o Agregar">
-        <button type="button" id="addvidbtn" disabled>Agregar video</button>
       </div>
     </div>
     <div class="ed-card">
@@ -939,7 +939,7 @@ pcup.addEventListener('click',function(){
   if(!pcFiles.length) return;
   var vids=pcFiles.filter(function(f){return f.isVideo;});
   var totV=vids.reduce(function(a,f){return a+f.file.size;},0), CAP=100*1024*1024;
-  if(totV>CAP){ pcmsg.textContent='Los videos suman '+(totV/1048576).toFixed(0)+' MB. Por aquí el máximo es 100 MB por subida — quita alguno, comprímelo, o usa "Subir video grande" más abajo.'; pcmsg.style.display='block'; return; }
+  if(totV>CAP){ pcmsg.textContent='Los videos suman '+(totV/1048576).toFixed(0)+' MB. El máximo es 100 MB por subida — quita alguno o comprímelo (para videos muy pesados, súbelo directo en Shopify).'; pcmsg.style.display='block'; return; }
   var self=this; self.disabled=true; pcprog.classList.add('on'); pcbar.style.width='0%'; if(pcmsg) pcmsg.style.display='none';
   var photos=[], videos=[], done=0, total=pcFiles.length;
   function step(idx){
@@ -1657,9 +1657,9 @@ def _render_editor(pid):
     st.markdown(f'<div class="sw-sec">{_ic("video", "#0f172a", 16, 0)}Videos '
                 f'<span style="color:#94a3b8;font-weight:800;">· {len(_vid)}</span></div>',
                 unsafe_allow_html=True)
-    st.caption("Los videos del producto. Para agregar, usa «Agregar video» (enlace) o «Agregar "
-               "fotos/videos desde PC» en el formulario de arriba; los videos muy grandes súbelos aquí abajo. "
-               "Aparecen en la galería del producto si tu tema muestra videos.")
+    st.caption("Los videos del producto. Para agregar, usa «Agregar video» (enlace de YouTube/Vimeo) o "
+               "«Agregar fotos/videos desde PC» en el formulario de arriba. Aparecen en la galería del "
+               "producto si tu tema muestra videos.")
 
     if _vid:
         _vn = 4
@@ -1701,39 +1701,6 @@ def _render_editor(pid):
                             st.error(_e)
     else:
         st.caption("Este producto no tiene videos todavía.")
-
-    # Subir video GRANDE desde el PC (staged uploads). Los videos ≤100 MB se pueden
-    # subir arriba junto con las fotos ("Agregar fotos/videos desde PC"); esto es para
-    # los grandes.
-    st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:800;color:#0f172a;'
-                'font-size:0.78rem;text-transform:uppercase;letter-spacing:.03em;margin:2px 0 6px;">'
-                'Subir video grande (más de 100 MB)</div>', unsafe_allow_html=True)
-    st.caption("Los videos de hasta 100 MB puedes subirlos arriba junto con las fotos. Para videos más "
-               "grandes usa esto: **MP4 o MOV** · hasta **10 minutos** · **máximo 400 MB** "
-               "(Shopify admite hasta 1 GB y 4K si lo subes directo en Shopify). Según el tamaño puede "
-               "tardar; al terminar, Shopify **procesa** el video unos minutos antes de mostrarlo.")
-    _vf = st.file_uploader("Video (mp4/mov)", type=["mp4", "mov"], key="sw_ed_upvid",
-                           label_visibility="collapsed")
-    if _vf is not None:
-        _mb = len(_vf.getvalue()) / (1024 * 1024)
-        st.markdown(f'<div style="font-size:0.8rem;color:#475569;font-weight:600;margin:2px 0 6px;">'
-                    f'{_ic("video", "#5b7cfa", 14, 4)}{_he(_vf.name)} · {_mb:.1f} MB</div>',
-                    unsafe_allow_html=True)
-        if _mb > 400:
-            st.error("El video supera los 400 MB permitidos desde el sistema. Comprímelo (o baja la "
-                     "resolución/duración) o súbelo directo en Shopify.", icon=":material/error:")
-        elif st.button("Subir video", key="sw_ed_upvid_go", type="primary",
-                       icon=":material/cloud_upload:"):
-            with st.spinner("Subiendo video a Shopify… (según el peso, puede tardar)"):
-                _ok, _e = _shop.subir_video(pid, _vf.name, _vf.type or "video/mp4", _vf.getvalue())
-            if _ok:
-                st.session_state.pop("sw_edit_vid", None)
-                _cargar_productos.clear()
-                st.session_state["sw_toast"] = "Video subido. Shopify lo está procesando (aparece en unos minutos)."
-                st.rerun()
-            else:
-                st.error(_e, icon=":material/error:")
 
     # ── Características (metafields) ──
     # Se muestran TODOS los campos DEFINIDOS en la tienda (m², baños, dormitorios,
