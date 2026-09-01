@@ -692,6 +692,25 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
 .ed-pcmsg{display:none;background:#fff1f2;border:1px solid #fca5a5;color:#b91c1c;border-radius:9px;padding:8px 11px;
   font-size:0.76rem;line-height:1.4;margin-top:10px;}
 .ed-pchint{font-size:0.72rem;color:#94a3b8;font-weight:600;margin-top:9px;}
+/* Características / detalles (metacampos) */
+.ed-mf-hint{font-size:0.75rem;color:#94a3b8;line-height:1.45;margin:2px 0 12px;}
+.ed-mf-list{display:flex;flex-direction:column;}
+.ed-mf-row{display:grid;grid-template-columns:1.25fr 2fr;gap:14px;align-items:start;padding:11px 0;border-bottom:1px solid #f1f5f9;}
+.ed-mf-row:last-child{border-bottom:none;}
+@media(max-width:700px){.ed-mf-row{grid-template-columns:1fr;gap:5px;}}
+.ed-mf-name{font-weight:700;color:#0f172a;font-size:0.85rem;line-height:1.25;padding-top:9px;}
+.ed-mf-name small{display:block;font-weight:600;font-size:0.63rem;color:#94a3b8;margin-top:2px;}
+.ed-mf-ctl{display:flex;gap:8px;align-items:flex-start;}
+.ed-mf-ctl .ed-in{flex:1;min-width:0;}
+.ed-mf-ctl textarea.ed-in{min-height:92px;}
+.ed-mf-del{flex:0 0 auto;width:40px;height:40px;border:1px solid #fecaca;border-radius:9px;background:#fef2f2;color:#dc2626;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:all .15s;}
+.ed-mf-del:hover{background:#fee2e2;border-color:#fca5a5;}
+.ed-mf-del svg{width:16px;height:16px;}
+.ed-mf-row.ed-mf-deleted{opacity:.5;}
+.ed-mf-row.ed-mf-deleted .ed-in{background:#f1f5f9;pointer-events:none;}
+.ed-mf-bool{display:flex;align-items:center;gap:9px;padding-top:9px;font-weight:600;color:#334155;font-size:0.9rem;cursor:pointer;}
+.ed-mf-bool input{width:18px;height:18px;accent-color:#2563eb;cursor:pointer;}
 .ed-pcx{position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;border:none;background:rgba(15,23,42,.66);
   color:#fff;cursor:pointer;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;}
 .ed-pcx:hover{background:#dc2626;}
@@ -783,7 +802,11 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
       __COLLECTIONS__
     </div>
   </div>
-</div>
+  <div class="ed-card ed-mf-card" style="margin-top:16px;">
+    <div class="ed-lbl">Características / detalles</div>
+    <div class="ed-mf-hint">Los detalles del producto (m², dormitorios, baños, clima, características, etc.). Complétalos; un campo que dejes vacío no se publica. La papelera vacía/elimina ese campo. Se guardan con «Guardar y publicar».</div>
+    <div class="ed-mf-list">__METAFIELDS__</div>
+  </div>
 </div>
 <script>
 (function(){
@@ -840,6 +863,23 @@ _addbtn.addEventListener('click',function(){ if(!this.disabled) addUrl(); });
 _addurl.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); addUrl(); }});
 syncAdd(); refreshPrincipal();
 
+/* ── Características / detalles (metacampos) ── */
+function collectMetafields(){
+  var out=[];
+  [].slice.call(doc.querySelectorAll('.ed-mf-row')).forEach(function(row){
+    var kind=row.getAttribute('data-kind'), el=row.querySelector('.ed-mf-input');
+    var val=(kind==='bool')?(el.checked?'true':'false'):(el.value||'');
+    out.push({ns:row.getAttribute('data-ns'), key:row.getAttribute('data-key'),
+      type:row.getAttribute('data-type'), id:row.getAttribute('data-id')||'', kind:kind,
+      value:val, orig:row.getAttribute('data-orig')||'', deleted:row.classList.contains('ed-mf-deleted')});
+  });
+  return out;
+}
+doc.addEventListener('click',function(e){
+  var d=e.target.closest?e.target.closest('.ed-mf-del'):null; if(!d) return;
+  var row=d.closest('.ed-mf-row'); if(row){ row.classList.toggle('ed-mf-deleted'); setDirty(); }
+});
+
 /* ── Guardar todo (un solo payload al puente sw_savecmd) ── */
 function collect(){
   var variants=[];
@@ -869,7 +909,8 @@ function collect(){
     variants:variants, channels_on:channels_on, collections_on:collections_on,
     channels_present:doc.querySelectorAll('.ed-chan').length>0,
     collections_present:doc.querySelectorAll('.ed-col').length>0,
-    image_order:image_order, image_delete:image_delete, image_add_urls:image_add_urls
+    image_order:image_order, image_delete:image_delete, image_add_urls:image_add_urls,
+    metafields:collectMetafields()
   };
 }
 function fire(payload){
@@ -1018,7 +1059,44 @@ setInterval(swResize, 200);
 </body></html>"""
 
 
-def _build_editor_form(p, pubs, prod_pubs, cols, cur_cols):
+def _mf_rows_html(editable):
+    """Filas HTML de los metacampos editables (Características/detalles) para el iframe.
+    Cada fila guarda ns/key/type/id/kind/orig en data-attrs para armar el payload."""
+    _trash = ('<button type="button" class="ed-mf-del" title="Vaciar/eliminar">'
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" '
+              'stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/>'
+              '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>')
+    _rows = ""
+    for m in editable or []:
+        _ns = m.get("namespace") or "custom"
+        _key = m.get("key") or ""
+        _mid = m.get("id") or ""
+        _kind = _mf_kind(m.get("type"))
+        _name = _he(m.get("name") or _mf_label(m))
+        _kindlbl = _he(_MF_KIND_LABEL.get(_kind, "Texto")) + ("" if _mid else " · sin completar")
+        if _kind in ("rich", "multi"):
+            _val = _richtext_to_text(m.get("value")) if _kind == "rich" else str(m.get("value") or "")
+            _ctl = f'<textarea class="ed-in ed-mf-input">{_he(_val)}</textarea>'
+            _orig = _val
+        elif _kind == "bool":
+            _chk = " checked" if str(m.get("value")).strip().lower() == "true" else ""
+            _ctl = f'<label class="ed-mf-bool"><input type="checkbox" class="ed-mf-input"{_chk}><span>Sí</span></label>'
+            _orig = "true" if _chk else "false"
+        else:
+            _val = str(m.get("value") or "")
+            _im = ' inputmode="numeric"' if _kind in ("int", "dec") else ''
+            _ctl = f'<input class="ed-in ed-mf-input" type="text"{_im} value="{_he(_val)}">'
+            _orig = _val
+        _rows += (
+            f'<div class="ed-mf-row" data-ns="{_he(_ns)}" data-key="{_he(_key)}" '
+            f'data-type="{_he(m.get("type") or "")}" data-id="{_he(_mid)}" data-kind="{_kind}" '
+            f'data-orig="{_he(_orig)}">'
+            f'<div class="ed-mf-name">{_name}<small>{_kindlbl}</small></div>'
+            f'<div class="ed-mf-ctl">{_ctl}{_trash}</div></div>')
+    return _rows or '<div class="ed-info">No hay características definidas en la tienda.</div>'
+
+
+def _build_editor_form(p, pubs, prod_pubs, cols, cur_cols, metafields=None):
     """Arma el formulario HTML del editor. `pubs`=canales [{id,name}], `prod_pubs`=set
     GIDs publicados, `cols`=colecciones [{id,title}], `cur_cols`=ids seleccionadas.
     Devuelve (html, alto_iframe)."""
@@ -1096,12 +1174,14 @@ def _build_editor_form(p, pubs, prod_pubs, cols, cur_cols):
              .replace("__CHANNELS__", _channels)
              .replace("__TYPE__", _he(p.get("product_type") or ""))
              .replace("__VENDOR__", _he(p.get("vendor") or ""))
-             .replace("__COLLECTIONS__", _collections))
-    # Altura estimada (izquierda vs derecha).
+             .replace("__COLLECTIONS__", _collections)
+             .replace("__METAFIELDS__", _mf_rows_html(metafields)))
+    # Altura estimada (izquierda vs derecha) + características (el iframe se auto-ajusta luego).
     _img_rows = (len(_imgs) + 3) // 4 if _imgs else 1
     _left = 70 + (_img_rows * 118 + 90) + 300 + (max(1, len(_vars)) * 110 + 60)
     _right = 130 + (max(1, len(pubs or [])) * 44 + 60) + (200 + len(cols or []) * 34)
-    _h = 70 + max(_left, _right)
+    _mf_h = 90 + len(metafields or []) * 78
+    _h = 70 + max(_left, _right) + _mf_h
     return _html, _h
 
 
@@ -1225,7 +1305,54 @@ def _guardar_todo(pid, data: dict):
             _ok, _e = _shop.agregar_imagen(pid, src=_url)
             if not _ok:
                 _errs.append(_e)
-    # 6) Fotos/videos elegidos desde el PC (van en el mismo guardado).
+    # 6) Características / detalles (metacampos): crear / actualizar / eliminar.
+    for m in data.get("metafields") or []:
+        _kind = m.get("kind")
+        _mid = (m.get("id") or "").strip()
+        _mns = m.get("ns") or "custom"
+        _mkey = m.get("key") or ""
+        _mtype = m.get("type") or "single_line_text_field"
+        _mval = m.get("value")
+        if m.get("deleted"):
+            if _mid:
+                _ok, _e = _shop.eliminar_metafield(pid, _mid)
+                if not _ok:
+                    _errs.append(_e)
+            continue
+        if str(_mval) == str(m.get("orig")):
+            continue                     # sin cambios → no tocar
+        if _kind == "rich":
+            _ser = _text_to_richtext(_mval or "")
+            _mtype = "rich_text_field"
+            _empty = not str(_mval or "").strip()
+        elif _kind == "bool":
+            _ser = "true" if str(_mval).strip().lower() == "true" else "false"
+            _mtype = "boolean"
+            _empty = (_ser == "false")
+        elif _kind == "int":
+            try:
+                _ser = str(int(float(_mval or 0)))
+            except Exception:
+                _ser = "0"
+            _empty = (_ser in ("0", ""))
+        elif _kind == "dec":
+            try:
+                _ser = ("%.4f" % float(_mval or 0)).rstrip("0").rstrip(".") or "0"
+            except Exception:
+                _ser = "0"
+            _empty = (_ser in ("0", ""))
+        else:
+            _ser = str(_mval or "")
+            _empty = not _ser.strip()
+        if _mid:
+            _ok, _e = _shop.actualizar_metafield(pid, _mid, _mtype, _ser)
+            if not _ok:
+                _errs.append(_e)
+        elif not _empty:                 # nuevo y con contenido → crear
+            _ok, _e = _shop.crear_metafield(pid, _mns, _mkey, _mtype, _ser)
+            if not _ok:
+                _errs.append(_e)
+    # 7) Fotos/videos elegidos desde el PC (van en el mismo guardado).
     _errs += _subir_fotos(pid, data.get("pc_files") or [])
     for _v in data.get("pc_videos") or []:
         _b64v = _v.get("b64") or ""
@@ -1687,6 +1814,32 @@ def _render_editor(pid):
         st.session_state["sw_edit_collects_pid"] = str(pid)
     _cur_cols = [str(cl.get("collection_id")) for cl in _collects
                  if str(cl.get("collection_id")) in _col_ids]
+    # Características (metacampos): TODOS los definidos (aunque vacíos) + los propios.
+    _mf = st.session_state.get("sw_edit_mf")
+    if _mf is None or st.session_state.get("sw_edit_mf_pid") != str(pid):
+        _mf, _ = _shop.listar_metafields(pid)
+        _mf = _mf or []
+        st.session_state["sw_edit_mf"] = _mf
+        st.session_state["sw_edit_mf_pid"] = str(pid)
+    _defs = _plantilla_metafields()
+    _mf_by_nk = {(m.get("namespace") or "", m.get("key") or ""): m for m in _mf}
+    _mf_editable, _mf_seen = [], set()
+    for d in _defs:
+        _nk = (d.get("namespace") or "", d.get("key") or "")
+        if _mf_kind(d.get("type")) == "readonly":
+            continue
+        _ex = _mf_by_nk.get(_nk)
+        if _ex:
+            _mf_editable.append({**_ex, "name": d.get("name") or _mf_label(_ex)})
+        else:
+            _mf_editable.append({"id": None, "namespace": _nk[0], "key": _nk[1],
+                                 "type": d.get("type"), "value": "", "name": d.get("name") or _mf_label(d)})
+        _mf_seen.add(_nk)
+    for m in _mf:
+        _nk = (m.get("namespace") or "", m.get("key") or "")
+        if _nk in _mf_seen or _mf_kind(m.get("type")) == "readonly":
+            continue
+        _mf_editable.append({**m, "name": _mf_label(m)})
 
     # Puente de guardado (input oculto sw_savecmd; se auto-limpia tras procesar).
     if st.session_state.pop("_sw_reset_savecmd", False):
@@ -1744,10 +1897,12 @@ def _render_editor(pid):
                 st.session_state.pop("sw_edit_prod", None)
                 st.session_state.pop("sw_edit_collects", None)
                 st.session_state.pop("sw_edit_prodpubs", None)
+                st.session_state.pop("sw_edit_mf", None)   # refrescar características
                 _cargar_productos.clear()
                 st.rerun()
 
-    _form_html, _form_h = _build_editor_form(_p, _pubs, _prod_pubs_set, _cols, _cur_cols)
+    _form_html, _form_h = _build_editor_form(_p, _pubs, _prod_pubs_set, _cols, _cur_cols,
+                                             metafields=_mf_editable)
     components.html(_form_html, height=int(_form_h), scrolling=False)   # el propio iframe se auto-ajusta
     components.html(_SW_FLOAT_JS, height=0)   # botón flotante "Guardar y publicar"
 
@@ -1807,215 +1962,3 @@ def _render_editor(pid):
                             st.rerun()
                         else:
                             st.error(_e)
-
-    # ── Características (metafields) ──
-    # Se muestran TODOS los campos DEFINIDOS en la tienda (m², baños, dormitorios,
-    # clima, características…) aunque el producto todavía no tenga valor, más los
-    # metacampos propios que ya tenga. Así se pueden completar aunque estén vacíos.
-    _mf = st.session_state.get("sw_edit_mf")
-    if _mf is None or st.session_state.get("sw_edit_mf_pid") != str(pid):
-        with st.spinner("Cargando características…"):
-            _mf, _mferr = _shop.listar_metafields(pid)
-        if _mferr:
-            st.warning(_mferr)
-            _mf = []
-        st.session_state["sw_edit_mf"] = _mf
-        st.session_state["sw_edit_mf_pid"] = str(pid)
-
-    with st.spinner("Cargando campos de características…"):
-        _defs = _plantilla_metafields()   # definiciones + unión de metacampos de la tienda
-
-    # Fusiona definiciones + valores. Cada campo editable = def (con su nombre bonito)
-    # + el valor del producto si existe (id) o vacío (id=None → se crea al guardar).
-    _mf_by_nk = {(m.get("namespace") or "", m.get("key") or ""): m for m in _mf}
-    _editable, _seen = [], set()
-    for d in _defs:
-        _nk = (d.get("namespace") or "", d.get("key") or "")
-        if _mf_kind(d.get("type")) == "readonly":
-            continue   # referencias/imágenes/listas → abajo, solo si ya tienen valor
-        _ex = _mf_by_nk.get(_nk)
-        if _ex:
-            _editable.append({**_ex, "name": d.get("name") or _mf_label(_ex)})
-        else:
-            _editable.append({"id": None, "namespace": _nk[0], "key": _nk[1],
-                              "type": d.get("type"), "value": "", "name": d.get("name") or _mf_label(d)})
-        _seen.add(_nk)
-    for m in _mf:   # metacampos editables propios que no tengan definición
-        _nk = (m.get("namespace") or "", m.get("key") or "")
-        if _nk in _seen or _mf_kind(m.get("type")) == "readonly":
-            continue
-        _editable.append({**m, "name": _mf_label(m)})
-
-    # Avanzados = definiciones de tipo referencia/lista/imagen (Image, video reels…),
-    # incluso vacías, + los que ya tengan valor. Así no "faltan" campos.
-    _advanced, _adv_seen = [], set()
-    for d in _defs:
-        if _mf_kind(d.get("type")) != "readonly":
-            continue
-        _nk = (d.get("namespace") or "", d.get("key") or "")
-        _ex = _mf_by_nk.get(_nk)
-        if _ex:
-            _advanced.append({**_ex, "name": d.get("name") or _mf_label(_ex)})
-        else:
-            _advanced.append({"id": None, "namespace": _nk[0], "key": _nk[1],
-                              "type": d.get("type"), "value": "", "name": d.get("name") or _mf_label(d)})
-        _adv_seen.add(_nk)
-    for m in _mf:
-        _nk = (m.get("namespace") or "", m.get("key") or "")
-        if _nk in _adv_seen or _mf_kind(m.get("type")) != "readonly":
-            continue
-        _advanced.append({**m, "name": _mf_label(m)})
-
-    st.markdown(f'<div class="sw-sec">{_ic("text", "#0f172a", 16, 0)}Características / detalles '
-                f'<span style="color:#94a3b8;font-weight:800;">· {len(_editable)}</span></div>',
-                unsafe_allow_html=True)
-    st.caption("Los detalles del producto (m², dormitorios, baños, clima, características, etc.). Se muestran "
-               "todos los campos definidos aunque estén vacíos: complétalos y pulsa Guardar. Un campo que "
-               "dejes vacío no se publica.")
-
-    if _editable:
-        _mf_ws = {}
-        for m in _editable:
-            _ns = m.get("namespace") or "custom"
-            _key = m.get("key") or ""
-            _nk = f"{_ns}__{_key}"
-            _mid = m.get("id")
-            _kind = _mf_kind(m.get("type"))
-            _mc1, _mc2, _mc3 = st.columns([2.4, 3.2, 0.7], vertical_alignment="center")
-            with _mc1:
-                st.markdown(
-                    f'<div style="font-weight:700;color:#0f172a;font-size:0.85rem;line-height:1.2;">'
-                    f'{_he(m.get("name") or _mf_label(m))}</div>'
-                    f'<div style="font-size:0.64rem;color:#94a3b8;font-weight:600;">'
-                    f'{_he(_MF_KIND_LABEL.get(_kind, "Texto"))}' + ("" if _mid else " · sin completar")
-                    + '</div>', unsafe_allow_html=True)
-            with _mc2:
-                if _kind == "rich":
-                    _orig = _richtext_to_text(m.get("value"))
-                    _w = st.text_area("v", value=_orig, key=f"sw_ed_mf_{_nk}", height=130,
-                                      label_visibility="collapsed",
-                                      help="Escribe normal. Para una lista con viñetas, empieza la línea con «- ».")
-                    _mf_ws[_nk] = ("rich", _w, _orig, m)
-                else:
-                    _mf_ws[_nk] = (m.get("type"), _mf_widget(m, f"sw_ed_mf_{_nk}"), None, m)
-            with _mc3:
-                if _mid and st.button("", icon=":material/delete:", key=f"sw_ed_mfdel_{_nk}",
-                                      use_container_width=True, help="Vaciar este detalle"):
-                    with st.spinner("Eliminando…"):
-                        _ok, _e = _shop.eliminar_metafield(pid, _mid)
-                    if _ok:
-                        st.session_state.pop("sw_edit_mf", None)
-                        st.toast("Detalle eliminado.")
-                        st.rerun()
-                    else:
-                        st.error(_e)
-        if st.button("Guardar características", key="sw_ed_mfsave", type="primary",
-                     icon=":material/save:"):
-            _errs = []
-            with st.spinner("Guardando características…"):
-                for _nk, (_t, _w, _orig, m) in _mf_ws.items():
-                    _mid = m.get("id")
-                    _ns = m.get("namespace") or "custom"
-                    _key = m.get("key") or ""
-                    if _t == "rich":
-                        _newtxt = str(_w or "")
-                        if _mid:
-                            if _newtxt != str(_orig or ""):
-                                _ok, _e = _shop.actualizar_metafield(pid, _mid, "rich_text_field",
-                                                                     _text_to_richtext(_w))
-                                if not _ok:
-                                    _errs.append(_e)
-                        elif _newtxt.strip():
-                            _ok, _e = _shop.crear_metafield(pid, _ns, _key, "rich_text_field",
-                                                            _text_to_richtext(_w))
-                            if not _ok:
-                                _errs.append(_e)
-                    else:
-                        _nv = _mf_serialize(_t, _w)
-                        if _mid:
-                            if str(_nv) != str(m.get("value", "")):
-                                _ok, _e = _shop.actualizar_metafield(pid, _mid, _t, _nv)
-                                if not _ok:
-                                    _errs.append(_e)
-                        elif not _mf_is_empty(_t, _nv):
-                            _ok, _e = _shop.crear_metafield(pid, _ns, _key, _t, _nv)
-                            if not _ok:
-                                _errs.append(_e)
-            if _errs:
-                st.error("No se pudieron guardar algunas: " + " · ".join(str(x) for x in _errs))
-            else:
-                st.session_state.pop("sw_edit_mf", None)
-                st.toast("Características guardadas.")
-                st.rerun()
-    elif not _advanced:
-        st.caption("Este producto no tiene características ni definiciones de metacampos en la tienda.")
-
-    # Avanzados (referencias / imágenes / listas / JSON): Image, video reels, etc.
-    # Se muestran (incluso vacíos) para que no "falten"; su contenido son referencias
-    # internas de Shopify, así que acá van en solo lectura (edítalos en Shopify).
-    if _advanced:
-        with st.expander(f"Campos avanzados · {len(_advanced)} (imágenes / videos / referencias)"):
-            st.caption("Campos como Image o video reels guardan referencias internas de Shopify "
-                       "(archivos/medios). Se muestran para consultarlos; para cambiar su contenido, "
-                       "edítalos en Shopify (así no se rompen).")
-            for m in _advanced:
-                _mid = m.get("id")
-                _ns = m.get("namespace") or ""
-                _key = m.get("key") or ""
-                _nk = f"{_ns}__{_key}"
-                _val = str(m.get("value", "") or "")
-                _ac1, _ac2 = st.columns([5, 0.7], vertical_alignment="center")
-                with _ac1:
-                    st.markdown(
-                        f'<div style="font-weight:700;color:#334155;font-size:0.82rem;">'
-                        f'{_he(m.get("name") or _mf_label(m))}'
-                        f'<span style="font-size:0.62rem;color:#94a3b8;font-weight:600;"> · '
-                        f'{_he(_ns)}.{_he(_key)}</span></div>', unsafe_allow_html=True)
-                    st.text_input("v", value=(_val[:300] if _val else "— sin completar —"),
-                                  disabled=True, key=f"sw_ed_mfro_{_nk}", label_visibility="collapsed")
-                with _ac2:
-                    if _mid and st.button("", icon=":material/delete:", key=f"sw_ed_mfrodel_{_nk}",
-                                          use_container_width=True, help="Vaciar este campo"):
-                        with st.spinner("Eliminando…"):
-                            _ok, _e = _shop.eliminar_metafield(pid, _mid)
-                        if _ok:
-                            st.session_state.pop("sw_edit_mf", None)
-                            st.toast("Campo eliminado.")
-                            st.rerun()
-                        else:
-                            st.error(_e)
-
-    with st.expander("➕ Agregar característica"):
-        _nc1, _nc2, _nc3 = st.columns([1.2, 1.6, 1.4])
-        with _nc1:
-            _ns = st.text_input("Namespace", value="custom", key="sw_ed_mfns",
-                                help="Agrupador. 'custom' es el habitual.")
-        with _nc2:
-            _key = st.text_input("Clave (key)", key="sw_ed_mfkey", placeholder="metros_cuadrados")
-        with _nc3:
-            _tlbl = st.selectbox("Tipo", list(_MF_TIPOS.keys()), key="sw_ed_mftipo")
-        _tval = _MF_TIPOS[_tlbl]
-        if _tval == "boolean":
-            _newv = st.checkbox("Valor (marcado = Sí)", key="sw_ed_mfval_b")
-        elif _tval == "number_integer":
-            _newv = st.number_input("Valor", step=1, value=0, key="sw_ed_mfval_i")
-        elif _tval == "number_decimal":
-            _newv = st.number_input("Valor", step=0.1, value=0.0, format="%.2f", key="sw_ed_mfval_d")
-        elif _tval == "multi_line_text_field":
-            _newv = st.text_area("Valor", key="sw_ed_mfval_t", height=80)
-        else:
-            _newv = st.text_input("Valor", key="sw_ed_mfval_s")
-        if st.button("Agregar característica", key="sw_ed_mfadd", type="primary",
-                     disabled=not (_key or "").strip(), icon=":material/add:"):
-            with st.spinner("Agregando…"):
-                _ok, _e = _shop.crear_metafield(pid, (_ns or "custom").strip(), _key.strip(),
-                                                _tval, _mf_serialize(_tval, _newv))
-            if _ok:
-                st.session_state.pop("sw_edit_mf", None)
-                for _k in ("sw_ed_mfkey", "sw_ed_mfval_s", "sw_ed_mfval_t", "sw_ed_mfval_i",
-                           "sw_ed_mfval_d", "sw_ed_mfval_b"):
-                    st.session_state.pop(_k, None)
-                st.toast("Característica agregada.")
-                st.rerun()
-            else:
-                st.error(_e)
