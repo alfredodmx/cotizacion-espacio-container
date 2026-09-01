@@ -1654,14 +1654,14 @@ def _render_editor(pid):
         st.session_state["sw_edit_vid"] = _vid
         st.session_state["sw_edit_vid_pid"] = str(pid)
 
-    st.markdown(f'<div class="sw-sec">{_ic("video", "#0f172a", 16, 0)}Videos '
-                f'<span style="color:#94a3b8;font-weight:800;">· {len(_vid)}</span></div>',
-                unsafe_allow_html=True)
-    st.caption("Los videos del producto. Para agregar, usa «Agregar video» (enlace de YouTube/Vimeo) o "
-               "«Agregar fotos/videos desde PC» en el formulario de arriba. Aparecen en la galería del "
-               "producto si tu tema muestra videos.")
-
+    # La sección Videos solo se muestra si el producto YA tiene videos (para verlos y
+    # eliminarlos). Para AGREGAR se usa el formulario de arriba (enlace o desde PC).
     if _vid:
+        st.markdown(f'<div class="sw-sec">{_ic("video", "#0f172a", 16, 0)}Videos '
+                    f'<span style="color:#94a3b8;font-weight:800;">· {len(_vid)}</span></div>',
+                    unsafe_allow_html=True)
+        st.caption("Videos del producto (agregados por enlace o desde el PC en el formulario de arriba). "
+                   "Elimínalos con el botón de cada uno.")
         _vn = 4
         for _vbase in range(0, len(_vid), _vn):
             _vrow = _vid[_vbase:_vbase + _vn]
@@ -1699,8 +1699,6 @@ def _render_editor(pid):
                             st.rerun()
                         else:
                             st.error(_e)
-    else:
-        st.caption("Este producto no tiene videos todavía.")
 
     # ── Características (metafields) ──
     # Se muestran TODOS los campos DEFINIDOS en la tienda (m², baños, dormitorios,
