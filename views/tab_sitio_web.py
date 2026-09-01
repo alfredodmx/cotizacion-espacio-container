@@ -678,6 +678,12 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
   cursor:pointer;transition:filter .15s;box-shadow:0 5px 14px rgba(22,163,74,.26);}
 .ed-pcup:hover{filter:brightness(1.08);}
 .ed-pcup:disabled{opacity:.6;cursor:default;box-shadow:none;}
+.ed-addvid{display:flex;gap:8px;margin-top:13px;padding-top:13px;border-top:1px dashed #e2e8f0;}
+.ed-addvid input{flex:1;border:1.5px solid #e2e8f0;border-radius:9px;padding:8px 11px;font-size:0.82rem;font-family:inherit;background:#f8fafc;outline:none;}
+.ed-addvid input:focus{border-color:#5b7cfa;background:#fff;}
+.ed-addvid button{border:1px solid #dbe3ff;background:#eef2ff;color:#2563eb;border-radius:9px;padding:0 14px;font-weight:800;font-size:0.75rem;cursor:pointer;font-family:Montserrat,sans-serif;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;transition:opacity .15s;}
+.ed-addvid button:disabled{opacity:.42;cursor:default;filter:grayscale(.4);}
+.ed-addvid button:not(:disabled):hover{background:#dbe3ff;}
 /* toggles + checks */
 .ed-toggle{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;}
 .ed-toggle:last-child{border-bottom:none;}
@@ -721,6 +727,10 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
         <div id="pcmsg" class="ed-pcmsg"></div>
         <div id="pcprog" class="ed-pcprog"><div id="pcbar" class="ed-pcbar"></div></div>
         <button type="button" id="pcup" class="ed-pcup">Subir</button>
+      </div>
+      <div class="ed-addvid">
+        <input id="addvidurl" type="text" placeholder="Enlace de video de YouTube o Vimeo y presiona Enter o Agregar">
+        <button type="button" id="addvidbtn" disabled>Agregar video</button>
       </div>
     </div>
     <div class="ed-card">
@@ -942,6 +952,19 @@ pcup.addEventListener('click',function(){
   }
   step(0);
 });
+
+/* ── Agregar video por enlace (YouTube/Vimeo), estilo igual al de URL de imagen ── */
+var addvidbtn=doc.getElementById('addvidbtn'), addvidurl=doc.getElementById('addvidurl');
+function syncVid(){ addvidbtn.disabled=!(addvidurl.value||'').trim(); }
+function addVid(){
+  var u=(addvidurl.value||'').trim(); if(!u) return;
+  addvidbtn.disabled=true; addvidbtn.textContent='Agregando…';
+  fire(JSON.stringify({op:'video_url', url:u}));
+}
+addvidurl.addEventListener('input',syncVid);
+addvidbtn.addEventListener('click',function(){ if(!this.disabled) addVid(); });
+addvidurl.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); addVid(); }});
+syncVid();
 })();
 </script>
 </body></html>"""
@@ -1597,6 +1620,14 @@ def _render_editor(pid):
                         st.session_state.pop("sw_edit_vid", None)   # refrescar la galería de videos
                     _msg = f"{len(_files)} foto(s)" + (f" y {len(_vids)} video(s)" if _vids else "")
                     st.session_state["sw_toast"] = _msg + " subido(s)." + (" (con avisos)" if _errs else "")
+                elif _data.get("op") == "video_url":   # agregar video por enlace (YouTube/Vimeo)
+                    _u = (_data.get("url") or "").strip()
+                    if _u:
+                        with st.spinner("Agregando video…"):
+                            _okv, _ev = _shop.agregar_video_externo(pid, _u)
+                        st.session_state.pop("sw_edit_vid", None)
+                        st.session_state["sw_toast"] = ("Video agregado." if _okv
+                                                        else f"No se pudo agregar el video: {_ev}")
                 else:                               # guardado completo del formulario
                     with st.spinner("Guardando en Shopify…"):
                         _errs = _guardar_todo(pid, _data)
@@ -1626,8 +1657,9 @@ def _render_editor(pid):
     st.markdown(f'<div class="sw-sec">{_ic("video", "#0f172a", 16, 0)}Videos '
                 f'<span style="color:#94a3b8;font-weight:800;">· {len(_vid)}</span></div>',
                 unsafe_allow_html=True)
-    st.caption("Agrega videos por enlace de YouTube/Vimeo o súbelos desde tu PC. Aparecen en la galería "
-               "del producto (si tu tema muestra videos).")
+    st.caption("Los videos del producto. Para agregar, usa «Agregar video» (enlace) o «Agregar "
+               "fotos/videos desde PC» en el formulario de arriba; los videos muy grandes súbelos aquí abajo. "
+               "Aparecen en la galería del producto si tu tema muestra videos.")
 
     if _vid:
         _vn = 4
@@ -1669,22 +1701,6 @@ def _render_editor(pid):
                             st.error(_e)
     else:
         st.caption("Este producto no tiene videos todavía.")
-
-    st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
-    _vurl = st.text_input("Agregar video (enlace de YouTube o Vimeo)", key="sw_ed_newvid_url",
-                          placeholder="https://www.youtube.com/watch?v=…")
-    if st.button("Agregar video", key="sw_ed_addvid", icon=":material/video_call:",
-                 disabled=not (_vurl or "").strip()):
-        with st.spinner("Agregando video…"):
-            _ok, _e = _shop.agregar_video_externo(pid, _vurl.strip())
-        if _ok:
-            st.session_state.pop("sw_edit_vid", None)
-            st.session_state.pop("sw_ed_newvid_url", None)
-            _cargar_productos.clear()
-            st.toast("Video agregado.")
-            st.rerun()
-        else:
-            st.error(_e)
 
     # Subir video GRANDE desde el PC (staged uploads). Los videos ≤100 MB se pueden
     # subir arriba junto con las fotos ("Agregar fotos/videos desde PC"); esto es para
