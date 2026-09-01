@@ -686,11 +686,17 @@ def render_tab_sitio_web(**kwargs):
         return
 
     # ── Puente para abrir el editor / duplicar ──
+    # Tras procesar un comando dejamos el input VACÍO: así el siguiente clic es una
+    # transición vacío→valor, que Streamlit commitea de forma fiable (cambiar de un
+    # valor no-vacío a otro a veces NO commitea en Streamlit Cloud → "no deja editar").
+    if st.session_state.pop("_sw_reset_editcmd", False):
+        st.session_state["sw_editcmd"] = ""
     _ec = st.text_input("editcmd", key="sw_editcmd", label_visibility="collapsed")
     if _ec and "|" in _ec:
         _head, _ets = _ec.rsplit("|", 1)
         if _ets != st.session_state.get("sw_editcmd_ts"):
             st.session_state["sw_editcmd_ts"] = _ets
+            st.session_state["_sw_reset_editcmd"] = True   # limpiar el input en el próximo run
             _act, _, _eid = _head.partition(":")
             _eid = (_eid or _act).strip()   # compat: sin ":" el payload es solo el id (editar)
             if _act == "dup":
