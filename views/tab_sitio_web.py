@@ -1577,8 +1577,8 @@ def _render_editor(pid):
     st.markdown(f'<div class="sw-sec">{_ic("video", "#0f172a", 16, 0)}Videos '
                 f'<span style="color:#94a3b8;font-weight:800;">· {len(_vid)}</span></div>',
                 unsafe_allow_html=True)
-    st.caption("Agrega videos de YouTube o Vimeo pegando el enlace. Aparecen en la galería del producto "
-               "(si tu tema muestra videos).")
+    st.caption("Agrega videos por enlace de YouTube/Vimeo o súbelos desde tu PC. Aparecen en la galería "
+               "del producto (si tu tema muestra videos).")
 
     if _vid:
         _vn = 4
@@ -1636,6 +1636,36 @@ def _render_editor(pid):
             st.rerun()
         else:
             st.error(_e)
+
+    # Subir video DESDE EL PC (staged uploads).
+    st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:800;color:#0f172a;'
+                'font-size:0.78rem;text-transform:uppercase;letter-spacing:.03em;margin:2px 0 6px;">'
+                'O súbelo desde tu PC</div>', unsafe_allow_html=True)
+    st.caption("Formatos **MP4 o MOV** · hasta **10 minutos** · **máximo 400 MB** desde el sistema "
+               "(Shopify admite hasta 1 GB y 4K si lo subes directo en Shopify). Según el tamaño puede "
+               "tardar; al terminar, Shopify **procesa** el video unos minutos antes de mostrarlo.")
+    _vf = st.file_uploader("Video (mp4/mov)", type=["mp4", "mov"], key="sw_ed_upvid",
+                           label_visibility="collapsed")
+    if _vf is not None:
+        _mb = len(_vf.getvalue()) / (1024 * 1024)
+        st.markdown(f'<div style="font-size:0.8rem;color:#475569;font-weight:600;margin:2px 0 6px;">'
+                    f'{_ic("video", "#5b7cfa", 14, 4)}{_he(_vf.name)} · {_mb:.1f} MB</div>',
+                    unsafe_allow_html=True)
+        if _mb > 400:
+            st.error("El video supera los 400 MB permitidos desde el sistema. Comprímelo (o baja la "
+                     "resolución/duración) o súbelo directo en Shopify.", icon=":material/error:")
+        elif st.button("Subir video", key="sw_ed_upvid_go", type="primary",
+                       icon=":material/cloud_upload:"):
+            with st.spinner("Subiendo video a Shopify… (según el peso, puede tardar)"):
+                _ok, _e = _shop.subir_video(pid, _vf.name, _vf.type or "video/mp4", _vf.getvalue())
+            if _ok:
+                st.session_state.pop("sw_edit_vid", None)
+                _cargar_productos.clear()
+                st.session_state["sw_toast"] = "Video subido. Shopify lo está procesando (aparece en unos minutos)."
+                st.rerun()
+            else:
+                st.error(_e, icon=":material/error:")
 
     # ── Características (metafields) ──
     # Se muestran TODOS los campos DEFINIDOS en la tienda (m², baños, dormitorios,

@@ -6,7 +6,7 @@ secondaryBackgroundColor = "#ffffff"
 textColor = "#1a1d2e"
 
 [server]
-maxUploadSize = 200
+maxUploadSize = 400
 
 [client]
 toolbarMode = "minimal"

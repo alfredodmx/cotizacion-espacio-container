@@ -647,6 +647,55 @@ def agregar_video_externo(pid, url) -> tuple:
     return True, None
 
 
+def subir_video(pid, filename, mimetype, filebytes) -> tuple:
+    """Sube un video (MP4/MOV) DESDE EL PC al producto vía staged uploads de Shopify.
+    Flujo: stagedUploadsCreate (resource VIDEO) → POST del archivo al destino firmado
+    (GCS, NO expone el token) → productCreateMedia (VIDEO). Devuelve (ok, error).
+    Requiere write_products. Límite Shopify: MP4/MOV, hasta 1 GB y 10 min."""
+    if not filebytes:
+        return False, "El archivo de video está vacío."
+    import requests
+    # 1) Destino de subida firmado.
+    q1 = ("mutation($input:[StagedUploadInput!]!){ stagedUploadsCreate(input:$input){ "
+          "stagedTargets{ url resourceUrl parameters{ name value } } userErrors{ field message } } }")
+    _input = [{"filename": filename or "video.mp4", "mimeType": mimetype or "video/mp4",
+               "resource": "VIDEO", "fileSize": str(len(filebytes)), "httpMethod": "POST"}]
+    data, err = _graphql(q1, {"input": _input})
+    if err:
+        return False, err
+    _res = (data or {}).get("stagedUploadsCreate") or {}
+    _ue = _res.get("userErrors") or []
+    if _ue:
+        return False, "; ".join(e.get("message", "") for e in _ue)
+    _targets = _res.get("stagedTargets") or []
+    if not _targets:
+        return False, "Shopify no entregó un destino de subida para el video."
+    _t = _targets[0]
+    _url = _t.get("url")
+    _params = _t.get("parameters") or []
+    _resource_url = _t.get("resourceUrl")
+    # 2) POST multipart al destino (los parámetros van primero; el 'file' AL FINAL).
+    try:
+        _form = [(p.get("name"), (None, p.get("value"))) for p in _params]
+        _form.append(("file", (filename or "video.mp4", filebytes, mimetype or "video/mp4")))
+        r = requests.post(_url, files=_form, timeout=1800)
+        if r.status_code not in (200, 201, 204):
+            return False, f"Subida al almacenamiento falló ({r.status_code}): {r.text[:150]}"
+    except Exception as e:
+        return False, f"Subida al almacenamiento: {e}"
+    # 3) Asociar el video al producto.
+    q2 = ("mutation($pid:ID!, $media:[CreateMediaInput!]!){ productCreateMedia(productId:$pid, media:$media){ "
+          "media{ id mediaContentType } mediaUserErrors{ field message } } }")
+    data2, err2 = _graphql(q2, {"pid": _gid_product(pid),
+                                "media": [{"originalSource": _resource_url, "mediaContentType": "VIDEO"}]})
+    if err2:
+        return False, err2
+    _errs = (((data2 or {}).get("productCreateMedia") or {}).get("mediaUserErrors") or [])
+    if _errs:
+        return False, "; ".join(e.get("message", "") for e in _errs) or "No se pudo asociar el video."
+    return True, None
+
+
 def eliminar_media(pid, media_id) -> tuple:
     """Elimina un media (video) del producto por su id (gid). Devuelve (ok, error)."""
     q = ("mutation($pid:ID!, $ids:[ID!]!){ productDeleteMedia(productId:$pid, mediaIds:$ids){ "
