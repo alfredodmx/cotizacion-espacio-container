@@ -210,24 +210,13 @@ def _text_to_richtext(text) -> str:
 
 
 @st.cache_data(ttl=300, show_spinner=False)
-def _cargar_productos(status, _cb="", published_status=""):
-    return _shop.listar_productos(status=status, published_status=published_status)
+def _cargar_productos(status, _cb=""):
+    return _shop.listar_productos(status=status)
 
 
-@st.cache_data(ttl=300, show_spinner=False)
-def _cargar_publicados(_cb=""):
-    """Set de IDs publicados en la tienda online (fuente de verdad para 'Activo' vs
-    'No publicado'). Usa la API de publicaciones (GraphQL, AUTORITATIVA); si falta el
-    scope read_publications cae al filtro REST published_status (menos fiable) y, en
-    último caso, el llamador usa published_at. None si todo falla."""
-    ids, _ = _shop.ids_publicados_online_store()
-    if ids is not None:
-        return ids
-    ids2, _ = _shop.listar_ids_publicados()
-    return ids2
-
-
-# Estados efectivos (status de Shopify + publicación en la tienda online).
+# Estados efectivos = el campo `status` de Shopify (es lo que el admin muestra en la
+# columna Estado). Ojo: además de active/draft/archived, existe `unlisted`, que Shopify
+# rotula como "No publicado".
 _ESTADOS = {
     "active":      ("#dcfce7", "#15803d", "Activo"),
     "unpublished": ("#fef3c7", "#b45309", "No publicado"),
@@ -236,21 +225,19 @@ _ESTADOS = {
 }
 
 
-def _estado_efectivo(p, pubset=None) -> str:
-    """Estado REAL que muestra Shopify: archivado / borrador / activo (publicado) o
-    'unpublished' = activo pero SIN publicar en la tienda online. La publicación se
-    decide por el SET de ids publicados (published_status), NO por published_at (que
-    es legacy y no coincide). Si no hay set, cae a published_at."""
+def _estado_efectivo(p) -> str:
+    """Estado que muestra Shopify en la columna Estado = el campo `status`:
+    active→Activo, unlisted→No publicado, draft→Borrador, archived→Archivado.
+    (La publicación por canal es OTRA cosa y no cambia este estado: un producto
+    'active' se ve Activo aunque no esté en ningún canal.)"""
     _s = str(p.get("status") or "").lower()
     if _s == "archived":
         return "archived"
     if _s == "draft":
         return "draft"
-    if pubset is None:
-        pubset = st.session_state.get("sw_pubset")
-    if pubset is not None:
-        return "active" if str(p.get("id")) in pubset else "unpublished"
-    return "active" if p.get("published_at") else "unpublished"
+    if _s in ("unlisted", "unpublished"):
+        return "unpublished"
+    return "active"
 
 
 _CSS = """
@@ -698,10 +685,6 @@ def render_tab_sitio_web(**kwargs):
                    "necesita **read_products** y **write_products**.", icon=":material/warning:")
         return
 
-    # Set de productos publicados en la tienda online (fuente de verdad del estado).
-    # Se carga temprano (cacheado) para que card, tabla, editor y diálogo coincidan.
-    st.session_state["sw_pubset"] = _cargar_publicados()
-
     # ── Puente para abrir el editor / duplicar ──
     _ec = st.text_input("editcmd", key="sw_editcmd", label_visibility="collapsed")
     if _ec and "|" in _ec:
@@ -755,14 +738,15 @@ def render_tab_sitio_web(**kwargs):
     _vista = st.radio("Vista", _vistas, index=0, key="sw_vista", horizontal=True,
                       label_visibility="collapsed", format_func=lambda v: f"{_vicons.get(v, '')} {v}")
 
-    # Cada opción → (status, published_status). "No publicados" = activo pero sin
-    # publicar en la tienda online (lo que Shopify muestra en gris como "No publicado").
+    # Cada opción → (status a pedir a Shopify, filtro extra client-side por estado
+    # efectivo). "No publicados" (status unlisted) no tiene filtro REST propio, así que
+    # se piden todos y se filtran en el cliente.
     _opts = {
-        "Activos":       ("active", "published"),
-        "No publicados": ("active", "unpublished"),
-        "Borradores":    ("draft", ""),
-        "Archivados":    ("archived", ""),
-        "Todos":         ("", ""),
+        "Activos":       ("active", None),
+        "No publicados": ("", "unpublished"),
+        "Borradores":    ("draft", None),
+        "Archivados":    ("archived", None),
+        "Todos":         ("", None),
     }
     _c1, _c2, _c3 = st.columns([3.6, 1, 1.4], vertical_alignment="bottom")
     with _c1:
@@ -776,7 +760,6 @@ def render_tab_sitio_web(**kwargs):
     with _c2:
         if st.button("Actualizar", key="sw_refresh", use_container_width=True, icon=":material/refresh:"):
             _cargar_productos.clear()
-            _cargar_publicados.clear()
             st.session_state.pop("sw_mf_defs", None)
             st.session_state.pop("sw_cols", None)
             st.session_state.pop("sw_pubs", None)
@@ -790,15 +773,17 @@ def render_tab_sitio_web(**kwargs):
                 st.session_state.pop(_k, None)
             st.session_state["sw_new"] = True
             st.rerun()
-    _status, _pubstatus = _opts[_lbl]
+    _status, _filtro_estado = _opts[_lbl]
 
     with st.spinner("Conectando con Shopify y trayendo los productos…"):
-        _prods, _err = _cargar_productos(_status, published_status=_pubstatus)
+        _prods, _err = _cargar_productos(_status)
 
     if _err:
         st.error(_err, icon=":material/error:")
         components.html(_SW_JS, height=0)
         return
+    if _filtro_estado:   # p.ej. "No publicados" (unlisted): filtro por estado efectivo
+        _prods = [p for p in (_prods or []) if _estado_efectivo(p) == _filtro_estado]
     if not _prods:
         st.info("No hay productos con ese estado en la tienda.")
         components.html(_SW_JS, height=0)
@@ -814,39 +799,6 @@ def render_tab_sitio_web(**kwargs):
         + '</div>', unsafe_allow_html=True)
 
     _bcol = _ESTADOS
-
-    # ── Diagnóstico temporal de estados (para hallar la señal correcta) ──
-    with st.expander("🔧 Diagnóstico de estados (debug)"):
-        if st.button("Analizar señales de publicación", key="sw_diag_btn"):
-            _pubs_d, _pe = _shop.listar_publicaciones()
-            _pubname = {p.get("id"): p.get("name") for p in (_pubs_d or [])}
-            _os_d = _shop._online_store_pub_id()
-            _pubset_d = st.session_state.get("sw_pubset")
-            st.write(f"**Publicaciones (canales) detectadas:** {[p.get('name') for p in (_pubs_d or [])]}"
-                     + (f" · error: {_pe}" if _pe else ""))
-            st.write(f"**Online Store pub id detectada:** `{_os_d}`")
-            st.write(f"**sw_pubset (set usado para el badge)** — {len(_pubset_d) if _pubset_d else 0} ids: "
-                     f"`{list(_pubset_d)[:20] if _pubset_d else _pubset_d}`")
-            _rows = []
-            with st.spinner("Consultando cada producto…"):
-                for p in _prods:
-                    _pid = p.get("id")
-                    _pp, _ = _shop.publicaciones_de_producto(_pid)
-                    _pp = _pp or set()
-                    _rows.append({
-                        "Producto": p.get("title"),
-                        "id": str(_pid),
-                        "status": p.get("status"),
-                        "published_at": str(p.get("published_at"))[:19] if p.get("published_at") else None,
-                        "published_scope": p.get("published_scope"),
-                        "En canales (isPublished)": ", ".join(
-                            sorted(_pubname.get(g, str(g).rsplit('/', 1)[-1]) for g in _pp)) or "—",
-                        "¿en Online Store?": (_os_d in _pp) if _os_d else None,
-                        "badge del sistema": _estado_efectivo(p),
-                    })
-            st.dataframe(_rows, use_container_width=True, hide_index=True)
-            st.caption("Compara la columna «badge del sistema» y «¿en Online Store?» con lo que Shopify "
-                       "muestra como Estado (Activo / No publicado) y dime cuál columna coincide.")
 
     # ── Modo TABLA (mismo diseño que la tabla de COTIZACIONES) ──
     if _vista == "Tabla":
@@ -1033,14 +985,13 @@ def _render_editor(pid):
     with _dc1:
         _title = st.text_input("Título", value=_p.get("title", "") or "", key="sw_ed_title")
     with _dc2:
-        # Estado + publicación en la tienda online. "No publicado" = activo pero oculto
-        # en la web (published=false). Se refleja el estado REAL (no solo el status).
-        _est_map = {"Activo": ("active", True), "No publicado": ("active", False),
-                    "Borrador": ("draft", None), "Archivado": ("archived", None)}
+        # Estado = campo `status` de Shopify. "No publicado" = status `unlisted`.
+        _est_map = {"Activo": "active", "No publicado": "unlisted",
+                    "Borrador": "draft", "Archivado": "archived"}
         _est_lbls = list(_est_map.keys())
         _cur_lbl = {"active": "Activo", "unpublished": "No publicado",
                     "draft": "Borrador", "archived": "Archivado"}.get(_estado_efectivo(_p), "Activo")
-        _status_lbl = st.selectbox("Estado (visibilidad en la web)", _est_lbls,
+        _status_lbl = st.selectbox("Estado", _est_lbls,
                                    index=_est_lbls.index(_cur_lbl), key="sw_ed_status")
     _tc1, _tc2 = st.columns(2)
     with _tc1:
@@ -1081,13 +1032,10 @@ def _render_editor(pid):
                  key="sw_ed_save", icon=":material/cloud_upload:"):
         _errs = []
         with st.spinner("Guardando en Shopify…"):
-            _st_val, _pub_val = _est_map[_status_lbl]
             _campos_prod = {
                 "title": _title.strip(), "body_html": _desc,
-                "status": _st_val,
+                "status": _est_map[_status_lbl],
                 "product_type": _ptype.strip(), "tags": _tags.strip()}
-            if _pub_val is not None:   # publicar / despublicar de la tienda online
-                _campos_prod["published"] = _pub_val
             _ok, _e = _shop.actualizar_producto(pid, _campos_prod)
             if not _ok:
                 _errs.append(_e)
@@ -1111,7 +1059,6 @@ def _render_editor(pid):
         else:
             st.session_state.pop("sw_edit_prod", None)   # refetch fresco
             _cargar_productos.clear()
-            _cargar_publicados.clear()                    # cambió la publicación
             st.toast("Cambios publicados en la web.")
             st.rerun()
 
@@ -1179,9 +1126,8 @@ def _render_editor(pid):
     # ── Canales de venta (publicaciones) ──
     st.markdown(f'<div class="sw-sec">{_ic("box", "#0f172a", 16, 0)}Canales de venta</div>',
                 unsafe_allow_html=True)
-    st.caption("Dónde se muestra el producto (Tienda online, Point of Sale, etc.), igual que "
-               "«Gestionar publicación» en Shopify. «Tienda online» es lo mismo que el estado "
-               "Activo/No publicado de arriba.")
+    st.caption("En qué canales está disponible el producto (Tienda online, Point of Sale, etc.), "
+               "igual que «Gestionar publicación» en Shopify. Es independiente del Estado de arriba.")
     _pubs = st.session_state.get("sw_pubs")
     if _pubs is None:
         with st.spinner("Cargando canales…"):
@@ -1233,7 +1179,6 @@ def _render_editor(pid):
                 st.session_state.pop("sw_edit_prodpubs", None)
                 st.session_state.pop("sw_edit_prod", None)
                 _cargar_productos.clear()
-                _cargar_publicados.clear()
                 st.toast("Canales de venta actualizados.")
                 st.rerun()
 
