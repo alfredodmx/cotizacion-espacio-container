@@ -867,6 +867,7 @@ function pcRender(){
   pccount.textContent=pcFiles.length+(pcFiles.length===1?' foto':' fotos');
   pcup.textContent='Subir '+pcFiles.length+' foto'+(pcFiles.length===1?'':'s');
   pcwrap.classList.toggle('on', pcFiles.length>0);
+  pcbtn.style.display = pcFiles.length ? 'none' : '';   // oculta "Agregar…" cuando hay fotos listas
 }
 pcbtn.addEventListener('click',function(){ pcfile.click(); });
 pcfile.addEventListener('change',function(){
