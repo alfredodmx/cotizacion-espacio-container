@@ -656,7 +656,13 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
 .ed-pcclear:hover{text-decoration:underline;}
 .ed-pcthumbs{display:flex;flex-wrap:wrap;gap:8px;max-height:186px;overflow-y:auto;padding:2px;}
 .ed-pcthumb{position:relative;width:80px;height:80px;border-radius:9px;overflow:hidden;border:1px solid #e8ebf3;background:#f1f5f9;flex:0 0 auto;}
-.ed-pcthumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.ed-pcthumb img,.ed-pcthumb video{width:100%;height:100%;object-fit:cover;display:block;background:#0f172a;}
+.ed-pcplay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+.ed-pcplay span{width:26px;height:26px;border-radius:50%;background:rgba(15,23,42,.6);display:flex;align-items:center;justify-content:center;}
+.ed-pcvtag{position:absolute;bottom:3px;left:3px;font-family:Montserrat,sans-serif;font-weight:800;font-size:7.5px;
+  background:#0f172a;color:#fff;border-radius:4px;padding:1px 4px;letter-spacing:.03em;}
+.ed-pcmsg{display:none;background:#fff1f2;border:1px solid #fca5a5;color:#b91c1c;border-radius:9px;padding:8px 11px;
+  font-size:0.76rem;line-height:1.4;margin-top:10px;}
 .ed-pcx{position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;border:none;background:rgba(15,23,42,.66);
   color:#fff;cursor:pointer;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;}
 .ed-pcx:hover{background:#dc2626;}
@@ -701,15 +707,16 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
       </div>
       <button type="button" id="pcbtn" class="ed-pcbtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
-        Agregar fotos desde tu PC
+        Agregar fotos/videos desde PC
       </button>
-      <input type="file" id="pcfile" accept="image/*" multiple style="display:none">
+      <input type="file" id="pcfile" accept="image/*,video/*" multiple style="display:none">
       <div id="pcwrap" class="ed-pcwrap">
-        <div class="ed-pchead"><span id="pccount">0 fotos</span>
-          <button type="button" id="pcclear" class="ed-pcclear">Quitar todas</button></div>
+        <div class="ed-pchead"><span id="pccount">0 archivos</span>
+          <button type="button" id="pcclear" class="ed-pcclear">Quitar todos</button></div>
         <div id="pcthumbs" class="ed-pcthumbs"></div>
+        <div id="pcmsg" class="ed-pcmsg"></div>
         <div id="pcprog" class="ed-pcprog"><div id="pcbar" class="ed-pcbar"></div></div>
-        <button type="button" id="pcup" class="ed-pcup">Subir fotos</button>
+        <button type="button" id="pcup" class="ed-pcup">Subir</button>
       </div>
     </div>
     <div class="ed-card">
@@ -851,35 +858,44 @@ doc.getElementById('save').addEventListener('click',function(){
   fire(JSON.stringify(collect()));
 });
 
-/* ── Agregar fotos desde el PC (miniaturas 80x80 + resize + barra de progreso) ── */
+/* ── Agregar fotos/videos desde el PC (miniaturas 80x80 + resize/lectura + progreso) ── */
 var pcFiles=[];
 var pcbtn=doc.getElementById('pcbtn'), pcfile=doc.getElementById('pcfile'),
     pcwrap=doc.getElementById('pcwrap'), pcthumbs=doc.getElementById('pcthumbs'),
     pccount=doc.getElementById('pccount'), pcup=doc.getElementById('pcup'),
-    pcprog=doc.getElementById('pcprog'), pcbar=doc.getElementById('pcbar');
+    pcprog=doc.getElementById('pcprog'), pcbar=doc.getElementById('pcbar'),
+    pcmsg=doc.getElementById('pcmsg');
 function pcRender(){
   pcthumbs.innerHTML='';
   pcFiles.forEach(function(it,idx){
     var d=doc.createElement('div'); d.className='ed-pcthumb';
-    d.innerHTML='<img src="'+it.url+'" alt=""><button type="button" class="ed-pcx" data-i="'+idx+'">×</button>';
+    if(it.isVideo){
+      d.innerHTML='<video src="'+it.url+'" muted preload="metadata"></video>'
+        +'<div class="ed-pcplay"><span><svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><polygon points="6 3 20 12 6 21 6 3"/></svg></span></div>'
+        +'<span class="ed-pcvtag">VIDEO</span>'
+        +'<button type="button" class="ed-pcx" data-i="'+idx+'">×</button>';
+    }else{
+      d.innerHTML='<img src="'+it.url+'" alt=""><button type="button" class="ed-pcx" data-i="'+idx+'">×</button>';
+    }
     pcthumbs.appendChild(d);
   });
-  pccount.textContent=pcFiles.length+(pcFiles.length===1?' foto':' fotos');
-  pcup.textContent='Subir '+pcFiles.length+' foto'+(pcFiles.length===1?'':'s');
+  var nv=pcFiles.filter(function(f){return f.isVideo;}).length, ni=pcFiles.length-nv, parts=[];
+  if(ni) parts.push(ni+(ni===1?' foto':' fotos')); if(nv) parts.push(nv+(nv===1?' video':' videos'));
+  pccount.textContent=parts.join(' · ')||'0 archivos';
+  pcup.textContent='Subir '+pcFiles.length+(pcFiles.length===1?' archivo':' archivos');
   pcwrap.classList.toggle('on', pcFiles.length>0);
-  pcbtn.style.display = pcFiles.length ? 'none' : '';   // oculta "Agregar…" cuando hay fotos listas
 }
 pcbtn.addEventListener('click',function(){ pcfile.click(); });
 pcfile.addEventListener('change',function(){
   var fs=this.files||[];
-  for(var i=0;i<fs.length;i++){ pcFiles.push({file:fs[i], url:URL.createObjectURL(fs[i]), name:fs[i].name}); }
-  this.value=''; pcRender();
+  for(var i=0;i<fs.length;i++){ var f=fs[i]; pcFiles.push({file:f, url:URL.createObjectURL(f), name:f.name, isVideo:((f.type||'').indexOf('video')===0)}); }
+  this.value=''; if(pcmsg) pcmsg.style.display='none'; pcRender();
 });
 pcthumbs.addEventListener('click',function(e){
   var x=e.target.closest?e.target.closest('.ed-pcx'):null; if(!x) return;
   var i=parseInt(x.getAttribute('data-i'),10); if(!isNaN(i)){ pcFiles.splice(i,1); pcRender(); }
 });
-doc.getElementById('pcclear').addEventListener('click',function(){ pcFiles=[]; pcRender(); });
+doc.getElementById('pcclear').addEventListener('click',function(){ pcFiles=[]; if(pcmsg) pcmsg.style.display='none'; pcRender(); });
 function resizeB64(file){
   return new Promise(function(res){
     var img=new Image();
@@ -894,18 +910,27 @@ function resizeB64(file){
     img.src=URL.createObjectURL(file);
   });
 }
+function fileB64(file){
+  return new Promise(function(res){ var r=new FileReader();
+    r.onload=function(){ try{ res((''+r.result).split(',')[1]||''); }catch(e){ res(''); } };
+    r.onerror=function(){ res(''); }; r.readAsDataURL(file); });
+}
 pcup.addEventListener('click',function(){
   if(!pcFiles.length) return;
-  var self=this; self.disabled=true; pcprog.classList.add('on'); pcbar.style.width='0%';
-  var out=[], i=0;
-  function next(){
-    if(i>=pcFiles.length){ self.textContent='Subiendo a la tienda…'; fire(JSON.stringify({op:'upload', files:out})); return; }
-    resizeB64(pcFiles[i].file).then(function(b64){
-      if(b64) out.push({name:pcFiles[i].name, b64:b64});
-      i++; pcbar.style.width=Math.round((i/pcFiles.length)*100)+'%'; next();
-    });
+  var vids=pcFiles.filter(function(f){return f.isVideo;});
+  var totV=vids.reduce(function(a,f){return a+f.file.size;},0), CAP=100*1024*1024;
+  if(totV>CAP){ pcmsg.textContent='Los videos suman '+(totV/1048576).toFixed(0)+' MB. Por aquí el máximo es 100 MB por subida — quita alguno, comprímelo, o usa "Subir video grande" más abajo.'; pcmsg.style.display='block'; return; }
+  var self=this; self.disabled=true; pcprog.classList.add('on'); pcbar.style.width='0%'; if(pcmsg) pcmsg.style.display='none';
+  var photos=[], videos=[], done=0, total=pcFiles.length;
+  function step(idx){
+    if(idx>=pcFiles.length){ self.textContent='Subiendo a la tienda…'; fire(JSON.stringify({op:'upload', files:photos, videos:videos})); return; }
+    var it=pcFiles[idx];
+    var p = it.isVideo
+      ? fileB64(it.file).then(function(b){ if(b) videos.push({name:it.name, mime:(it.file.type||'video/mp4'), b64:b}); })
+      : resizeB64(it.file).then(function(b){ if(b) photos.push({name:it.name, b64:b}); });
+    p.then(function(){ done++; pcbar.style.width=Math.round(done/total*100)+'%'; step(idx+1); });
   }
-  next();
+  step(0);
 });
 })();
 </script>
@@ -1542,12 +1567,26 @@ def _render_editor(pid):
             except Exception:
                 _data = None
             if _data is not None:
-                if _data.get("op") == "upload":     # subir fotos del PC (op aparte)
+                if _data.get("op") == "upload":     # subir fotos/videos del PC (op aparte)
                     _files = _data.get("files") or []
-                    with st.spinner(f"Subiendo {len(_files)} foto(s) a la tienda…"):
+                    _vids = _data.get("videos") or []
+                    _spin = f"Subiendo {len(_files)} foto(s)" + (f" y {len(_vids)} video(s)" if _vids else "") + " a la tienda…"
+                    with st.spinner(_spin):
                         _errs = _subir_fotos(pid, _files)
-                    st.session_state["sw_toast"] = (f"{len(_files) - len(_errs)} foto(s) subida(s)."
-                                                    + (" (con avisos)" if _errs else ""))
+                        for _v in _vids:
+                            try:
+                                _vb = base64.b64decode(_v.get("b64") or "")
+                            except Exception:
+                                _vb = b""
+                            if _vb:
+                                _ok, _e = _shop.subir_video(pid, _v.get("name") or "video.mp4",
+                                                            _v.get("mime") or "video/mp4", _vb)
+                                if not _ok:
+                                    _errs.append(_e)
+                    if _vids:
+                        st.session_state.pop("sw_edit_vid", None)   # refrescar la galería de videos
+                    _msg = f"{len(_files)} foto(s)" + (f" y {len(_vids)} video(s)" if _vids else "")
+                    st.session_state["sw_toast"] = _msg + " subido(s)." + (" (con avisos)" if _errs else "")
                 else:                               # guardado completo del formulario
                     with st.spinner("Guardando en Shopify…"):
                         _errs = _guardar_todo(pid, _data)
@@ -1637,12 +1676,15 @@ def _render_editor(pid):
         else:
             st.error(_e)
 
-    # Subir video DESDE EL PC (staged uploads).
+    # Subir video GRANDE desde el PC (staged uploads). Los videos ≤100 MB se pueden
+    # subir arriba junto con las fotos ("Agregar fotos/videos desde PC"); esto es para
+    # los grandes.
     st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
     st.markdown('<div style="font-family:Montserrat,sans-serif;font-weight:800;color:#0f172a;'
                 'font-size:0.78rem;text-transform:uppercase;letter-spacing:.03em;margin:2px 0 6px;">'
-                'O súbelo desde tu PC</div>', unsafe_allow_html=True)
-    st.caption("Formatos **MP4 o MOV** · hasta **10 minutos** · **máximo 400 MB** desde el sistema "
+                'Subir video grande (más de 100 MB)</div>', unsafe_allow_html=True)
+    st.caption("Los videos de hasta 100 MB puedes subirlos arriba junto con las fotos. Para videos más "
+               "grandes usa esto: **MP4 o MOV** · hasta **10 minutos** · **máximo 400 MB** "
                "(Shopify admite hasta 1 GB y 4K si lo subes directo en Shopify). Según el tamaño puede "
                "tardar; al terminar, Shopify **procesa** el video unos minutos antes de mostrarlo.")
     _vf = st.file_uploader("Video (mp4/mov)", type=["mp4", "mov"], key="sw_ed_upvid",
