@@ -725,10 +725,6 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
 <body>
 <div class="ed-head">
   <div class="ed-title-mini" id="ttl">__TITLE__</div>
-  <button class="ed-save" id="save" type="button">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
-    <span id="savelbl">Guardar y publicar</span>
-  </button>
 </div>
 <div class="ed-grid">
   <div class="ed-main">
@@ -812,14 +808,14 @@ grid.addEventListener('click',function(e){
   var tile=d.closest('.ed-img'); if(!tile) return;
   if(tile.getAttribute('data-new')==='1'){ tile.remove(); }   // nueva → se descarta
   else { tile.classList.toggle('ed-deleted'); }
-  refreshPrincipal();
+  refreshPrincipal(); setDirty();
 });
 var dragEl=null;
 grid.addEventListener('dragstart',function(e){
   var t=e.target.closest('.ed-img'); if(!t) return; dragEl=t;
   e.dataTransfer.effectAllowed='move'; setTimeout(function(){t.classList.add('dragging');},0);
 });
-grid.addEventListener('dragend',function(){ if(dragEl)dragEl.classList.remove('dragging'); dragEl=null; refreshPrincipal(); });
+grid.addEventListener('dragend',function(){ if(dragEl)dragEl.classList.remove('dragging'); dragEl=null; refreshPrincipal(); setDirty(); });
 grid.addEventListener('dragover',function(e){
   e.preventDefault(); if(!dragEl) return;
   var t=e.target.closest('.ed-img'); if(!t||t===dragEl) return;
@@ -833,7 +829,7 @@ function addUrl(){
   var d=doc.createElement('div'); d.className='ed-img ed-new'; d.setAttribute('draggable','true');
   d.setAttribute('data-new','1'); d.setAttribute('data-src',u);
   d.innerHTML='<img src="'+u.replace(/"/g,'&quot;')+'" alt=""><button type="button" class="ed-del"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg></button><span class="ed-princ">Principal</span>';
-  grid.appendChild(d); inp.value=''; syncAdd(); refreshPrincipal();
+  grid.appendChild(d); inp.value=''; syncAdd(); refreshPrincipal(); setDirty();
 }
 var _addbtn=doc.getElementById('addbtn'), _addurl=doc.getElementById('addurl');
 function syncAdd(){ _addbtn.disabled=!(_addurl.value||'').trim(); }
@@ -891,10 +887,15 @@ function fire(payload){
     inp.blur();
   }catch(e){}
 }
-doc.getElementById('save').addEventListener('click',function(){
-  var b=this; b.disabled=true; doc.getElementById('savelbl').textContent='Guardando…';
-  fire(JSON.stringify(collect()));
-});
+/* ── Estado "hay cambios" (dirty) + exponer el guardado al botón flotante del padre ── */
+function setDirty(){ try{ window.parent._swDirty=true; }catch(e){} }
+try{
+  var _P=window.parent;
+  _P._swDirty=false;                         // al cargar, sin cambios → botón deshabilitado
+  _P._swSave=function(){ try{ fire(JSON.stringify(collect())); }catch(e){} };
+}catch(e){}
+doc.addEventListener('input', function(e){ var id=e.target&&e.target.id; if(id==='addurl'||id==='addvidurl') return; setDirty(); });
+doc.addEventListener('change', function(e){ var id=e.target&&e.target.id; if(id==='addurl'||id==='addvidurl') return; setDirty(); });
 
 /* ── Agregar fotos/videos desde el PC (miniaturas 80x80 + resize/lectura + progreso) ── */
 var pcFiles=[];
@@ -1541,13 +1542,49 @@ def _render_nuevo():
             st.rerun()
 
 
+# Botón FLOTANTE "Guardar y publicar": se inyecta en el <body> del padre (fijo, centrado
+# abajo, con sombra). Deshabilitado sin cambios; se habilita cuando el formulario marca
+# window.parent._swDirty=true. Al click llama window.parent._swSave() (que arma y envía el
+# formulario por el puente). Un intervalo en el contexto del PADRE lo sincroniza y lo quita
+# al salir del editor (cuando ya no existe el input oculto sw_savecmd). Solo vive en esta
+# pestaña/editor.
+_SW_FLOAT_JS = r"""<script>
+(function(){
+  var P=window.parent, PD=P&&P.document; if(!PD) return;
+  var old=PD.getElementById('sw-float-save'); if(old) old.remove();
+  var b=PD.createElement('button'); b.id='sw-float-save'; b.type='button';
+  b.textContent='Guardar y publicar';
+  b.setAttribute('style','position:fixed;left:50%;transform:translateX(-50%);bottom:26px;z-index:99998;'
+    +'font-family:Montserrat,Segoe UI,sans-serif;font-weight:800;font-size:0.8rem;text-transform:uppercase;'
+    +'letter-spacing:.05em;padding:14px 34px;border:none;border-radius:13px;color:#fff;cursor:default;'
+    +'background:#aab2c5;box-shadow:0 6px 16px rgba(15,23,42,.18);transition:background .18s,box-shadow .18s,transform .1s;');
+  PD.body.appendChild(b);
+  b.onmousedown=function(){ if(!b.disabled) b.style.transform='translateX(-50%) translateY(1px)'; };
+  b.onmouseup=function(){ b.style.transform='translateX(-50%)'; };
+  b.onclick=function(){ if(b.disabled) return; try{ P._swSave(); }catch(e){} b.textContent='Guardando…'; b.disabled=true;
+    b.style.setProperty('background','#334155','important'); };
+  var s=PD.createElement('script');
+  s.textContent="(function(){var W=window;if(W._swFloatInt)clearInterval(W._swFloatInt);"
+    +"var GRAD='linear-gradient(135deg,#5b7cfa,#2563eb)';"
+    +"W._swFloatInt=setInterval(function(){try{var b=document.getElementById('sw-float-save');if(!b)return;"
+    +"if(!document.querySelector('.st-key-sw_savecmd')){b.remove();clearInterval(W._swFloatInt);return;}"
+    +"if(b.textContent.indexOf('Guardando')===0)return;var d=!!W._swDirty;b.disabled=!d;"
+    +"b.style.setProperty('background',d?GRAD:'#aab2c5','important');"
+    +"b.style.boxShadow=d?'0 12px 30px rgba(37,99,235,.42)':'0 6px 16px rgba(15,23,42,.18)';"
+    +"b.style.cursor=d?'pointer':'default';"
+    +"}catch(e){}},300);})();";
+  PD.body.appendChild(s); s.remove();
+})();
+</script>"""
+
+
 def _render_editor(pid):
     """Editor de UN producto: datos + precios + fotos. Escribe a Shopify con confirmación."""
     st.markdown("<style>.st-key-sw_ed_del button{background:#fef2f2!important;border:1px solid #fecaca!important;"
                 "color:#dc2626!important;}.st-key-sw_ed_del button:hover{background:#fee2e2!important;"
                 "border-color:#fca5a5!important;}.st-key-sw_ed_del button p{color:#dc2626!important;}</style>",
                 unsafe_allow_html=True)
-    _bc1, _bc2, _bc3 = st.columns([1.1, 1.05, 1.05], vertical_alignment="center")
+    _bc1, _bc2, _bc3, _bc4 = st.columns([1.7, 1.5, 1.5, 4.3], vertical_alignment="center")
     with _bc1:
         if st.button("← Volver al catálogo", key="sw_ed_back"):
             st.session_state.pop("sw_edit_id", None)
@@ -1568,6 +1605,9 @@ def _render_editor(pid):
             st.session_state["sw_del_pending"] = str(pid)
             st.session_state.pop("sw_del_ck", None)
             st.rerun()
+
+    if st.session_state.pop("sw_saved_ok", False):
+        st.success("Cambios guardados y publicados en el sitio web.", icon=":material/check_circle:")
 
     _p = st.session_state.get("sw_edit_prod")
     if not _p or str(_p.get("id")) != str(pid):
@@ -1655,9 +1695,11 @@ def _render_editor(pid):
                 else:                               # guardado completo del formulario
                     with st.spinner("Guardando en Shopify…"):
                         _errs = _guardar_todo(pid, _data)
-                    st.session_state["sw_toast"] = (
-                        ("Guardado con avisos: " + " · ".join(str(x) for x in _errs[:3]))
-                        if _errs else "Cambios publicados en la web.")
+                    if _errs:
+                        st.session_state["sw_toast"] = "Guardado con avisos: " + " · ".join(str(x) for x in _errs[:3])
+                    else:
+                        st.session_state["sw_toast"] = "✅ Cambios guardados y publicados en el sitio web."
+                        st.session_state["sw_saved_ok"] = True
                 st.session_state.pop("sw_edit_prod", None)
                 st.session_state.pop("sw_edit_collects", None)
                 st.session_state.pop("sw_edit_prodpubs", None)
@@ -1666,6 +1708,7 @@ def _render_editor(pid):
 
     _form_html, _form_h = _build_editor_form(_p, _pubs, _prod_pubs_set, _cols, _cur_cols)
     components.html(_form_html, height=int(_form_h), scrolling=True)
+    components.html(_SW_FLOAT_JS, height=0)   # botón flotante "Guardar y publicar"
 
     # ── Videos ──
     _vid = st.session_state.get("sw_edit_vid")
