@@ -623,6 +623,69 @@ def _gid_product(pid) -> str:
     return f"gid://shopify/Product/{pid}"
 
 
+def _gid_collection(cid) -> str:
+    return f"gid://shopify/Collection/{cid}"
+
+
+def productos_de_coleccion(collection_id) -> tuple:
+    """Productos de una colección MANUAL en su ORDEN actual (para reordenar). Devuelve
+    (lista, sort_order, error). Cada producto: {gid, id, title, status, image, price}."""
+    q = ("query($id:ID!){ collection(id:$id){ sortOrder "
+         "products(first:250){ nodes { id legacyResourceId title status "
+         "featuredImage { url } priceRangeV2 { minVariantPrice { amount } } } } } }")
+    data, err = _graphql(q, {"id": _gid_collection(collection_id)})
+    if err:
+        return [], "", err
+    _col = (data or {}).get("collection") or {}
+    if not _col:
+        return [], "", "La colección no existe o no es accesible."
+    _so = _col.get("sortOrder") or ""
+    _nodes = ((_col.get("products") or {}).get("nodes")) or []
+    out = []
+    for n in _nodes:
+        out.append({
+            "gid": n.get("id"),
+            "id": n.get("legacyResourceId"),
+            "title": n.get("title") or "",
+            "status": n.get("status") or "",
+            "image": (((n.get("featuredImage") or {}).get("url")) or ""),
+            "price": (((n.get("priceRangeV2") or {}).get("minVariantPrice") or {}).get("amount")) or "",
+        })
+    return out, _so, None
+
+
+def set_coleccion_manual(collection_id) -> tuple:
+    """Cambia el orden de la colección a Manual (requisito para fijar el orden a mano).
+    Devuelve (ok, error)."""
+    q = ("mutation($input:CollectionInput!){ collectionUpdate(input:$input){ "
+         "collection { id sortOrder } userErrors { field message } } }")
+    data, err = _graphql(q, {"input": {"id": _gid_collection(collection_id), "sortOrder": "MANUAL"}})
+    if err:
+        return False, err
+    _errs = (((data or {}).get("collectionUpdate") or {}).get("userErrors") or [])
+    if _errs:
+        return False, "; ".join(e.get("message", "") for e in _errs) or "No se pudo cambiar a orden manual."
+    return True, None
+
+
+def reordenar_productos_coleccion(collection_id, ordered_gids) -> tuple:
+    """Reordena los productos de una colección MANUAL según `ordered_gids` (lista de
+    product GIDs). Usa collectionReorderProducts (asíncrono). La colección debe estar en
+    orden Manual (el llamador lo asegura). Devuelve (ok, error). DEFENSIVO."""
+    _moves = [{"id": g, "newPosition": str(i)} for i, g in enumerate(ordered_gids) if g]
+    if len(_moves) < 2:
+        return True, None
+    q = ("mutation($id:ID!, $moves:[MoveInput!]!){ collectionReorderProducts(id:$id, moves:$moves){ "
+         "job { id } userErrors { field message } } }")
+    data, err = _graphql(q, {"id": _gid_collection(collection_id), "moves": _moves})
+    if err:
+        return False, err
+    _errs = (((data or {}).get("collectionReorderProducts") or {}).get("userErrors") or [])
+    if _errs:
+        return False, "; ".join(e.get("message", "") for e in _errs) or "No se pudo reordenar la colección."
+    return True, None
+
+
 def listar_videos(pid) -> tuple:
     """Videos del producto (subidos + externos YouTube/Vimeo). Devuelve (lista, error).
     Cada uno: {id, type, status, preview_url, origin_url, host, src}. `src` = URL del

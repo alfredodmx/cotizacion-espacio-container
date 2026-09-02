@@ -283,6 +283,22 @@ _CSS = """
   background:rgba(15,23,42,.48);color:#fff;font-family:Montserrat,sans-serif;font-weight:800;font-size:0.72rem;
   letter-spacing:.06em;text-transform:uppercase;opacity:0;transition:opacity .16s ease;pointer-events:none;}
 .sw-thumb:hover .sw-edit-ov{opacity:1;}
+/* Modo "Ordenar web": cards con manija de arrastre. */
+.sw-ord-hint{font-family:Montserrat,sans-serif;font-weight:700;font-size:0.74rem;color:#64748b;margin:2px 0 12px;
+  display:flex;align-items:center;gap:6px;}
+.sw-ord-hint span{color:#94a3b8;letter-spacing:-3px;}
+.sw-ord-card .sw-thumb{cursor:default;}
+.sw-ord-card .sw-thumb:hover img{transform:none;}
+.sw-ord-grip{position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:8px;background:rgba(15,23,42,.62);
+  color:#fff;display:flex;align-items:center;justify-content:center;cursor:grab;z-index:4;}
+.sw-ord-grip:active{cursor:grabbing;background:#5b7cfa;}
+.sw-ord-grip svg{width:16px;height:16px;pointer-events:none;}
+.sw-card.sw-dragging{opacity:.4;}
+.sw-ord-savewrap{display:flex;justify-content:center;margin:18px 0 6px;}
+.sw-ord-savebtn{background:#aab2c5;color:#fff;border:none;border-radius:11px;padding:12px 34px;cursor:default;
+  font-family:Montserrat,sans-serif;font-weight:800;font-size:0.8rem;letter-spacing:.05em;text-transform:uppercase;
+  box-shadow:0 6px 18px rgba(15,23,42,.14);transition:background .15s ease;}
+.sw-ord-savebtn.on{background:linear-gradient(135deg,#5b7cfa,#4f46e5);cursor:pointer;}
 .sw-badge{position:absolute;top:9px;left:9px;font-family:Montserrat,sans-serif;font-size:9.5px;font-weight:800;
   text-transform:uppercase;letter-spacing:.04em;padding:3px 9px;border-radius:99px;}
 .sw-body{padding:12px 13px 13px;display:flex;flex-direction:column;flex:1;}
@@ -311,7 +327,7 @@ _CSS = """
 .sw-note{background:#f8fafc;border:1px solid #e8ebf3;border-left:3px solid #5b7cfa;border-radius:0 12px 12px 0;
   padding:13px 16px;display:flex;gap:11px;align-items:flex-start;margin:2px 0 16px;}
 .sw-note p{margin:0;font-size:0.82rem;color:#475569;line-height:1.55;}
-.st-key-sw_editcmd,.st-key-sw_savecmd{position:absolute!important;left:-9999px!important;top:-9999px!important;height:0!important;width:0!important;overflow:hidden!important;}
+.st-key-sw_editcmd,.st-key-sw_savecmd,.st-key-sw_ordcmd{position:absolute!important;left:-9999px!important;top:-9999px!important;height:0!important;width:0!important;overflow:hidden!important;}
 .sw-ed-head{display:flex;gap:16px;align-items:center;background:#fff;border:1px solid #e8ebf3;border-radius:16px;
   padding:14px 18px;box-shadow:0 2px 12px rgba(15,23,42,.06);margin-bottom:6px;}
 .sw-ed-thumb{width:74px;height:74px;border-radius:12px;overflow:hidden;flex-shrink:0;background:#f1f5f9;}
@@ -1705,12 +1721,18 @@ def render_tab_sitio_web(**kwargs):
         'publica en la web real, con confirmación previa.</p></div>',
         unsafe_allow_html=True)
 
-    # ── Selector de vista: Tarjetas (por defecto) / Tabla ──
+    # ── Selector de vista: Tarjetas (por defecto) / Tabla / Ordenar web ──
     st.markdown(_SW_VISTA_CSS, unsafe_allow_html=True)
-    _vistas = ["Tarjetas", "Tabla"]
-    _vicons = {"Tarjetas": ":material/grid_view:", "Tabla": ":material/table_rows:"}
+    _vistas = ["Tarjetas", "Tabla", "Ordenar web"]
+    _vicons = {"Tarjetas": ":material/grid_view:", "Tabla": ":material/table_rows:",
+               "Ordenar web": ":material/swap_vert:"}
     _vista = st.radio("Vista", _vistas, index=0, key="sw_vista", horizontal=True,
                       label_visibility="collapsed", format_func=lambda v: f"{_vicons.get(v, '')} {v}")
+
+    # Modo "Ordenar web": arrastrar las tarjetas de una colección → fija su orden en la web.
+    if _vista == "Ordenar web":
+        _render_reordenar()
+        return
 
     # Cada opción → (status a pedir a Shopify, filtro extra client-side por estado
     # efectivo). "No publicados" (status unlisted) no tiene filtro REST propio, así que
@@ -1981,6 +2003,118 @@ def _crear_modelo(data: dict):
         st.session_state["sw_toast"] = "Modelo creado y publicado."
         st.session_state["sw_saved_ok"] = True
     st.rerun()
+
+
+# JS del modo "Ordenar web": arrastrar las cards (desde la manija) reordena la grilla en
+# el doc PADRE; el botón "Guardar orden" (#sw-ord-save) manda el orden por el puente
+# sw_ordcmd. draggable solo se habilita desde la manija (como en la galería del editor).
+_SW_REORDER_JS = r"""<script>
+(function(){
+  var W=window.parent, D=W&&W.document; if(!D) return;
+  var grid=D.getElementById('sw-reord-grid'); if(!grid) return;
+  var saveBtn=D.getElementById('sw-ord-save');
+  function order(){ return [].slice.call(grid.querySelectorAll('[data-pid]')).map(function(c){return c.getAttribute('data-pid');}); }
+  var initial=order().join(',');
+  function dirty(){ return order().join(',')!==initial; }
+  function refreshBtn(){ if(saveBtn){ var dd=dirty(); saveBtn.disabled=!dd; saveBtn.classList.toggle('on', dd); } }
+  grid.addEventListener('mousedown',function(e){ var h=e.target.closest?e.target.closest('.sw-ord-grip'):null; if(!h) return; var c=h.closest('[data-pid]'); if(c) c.setAttribute('draggable','true'); });
+  D.addEventListener('mouseup',function(){ [].slice.call(grid.querySelectorAll('[data-pid][draggable="true"]')).forEach(function(c){c.setAttribute('draggable','false');}); });
+  var dragEl=null;
+  grid.addEventListener('dragstart',function(e){ var c=e.target.closest('[data-pid]'); if(!c) return; dragEl=c; e.dataTransfer.effectAllowed='move'; setTimeout(function(){c.classList.add('sw-dragging');},0); });
+  grid.addEventListener('dragend',function(){ if(dragEl)dragEl.classList.remove('sw-dragging'); dragEl=null; refreshBtn(); });
+  grid.addEventListener('dragover',function(e){ e.preventDefault(); if(!dragEl) return; var c=e.target.closest('[data-pid]'); if(!c||c===dragEl) return; var r=c.getBoundingClientRect(); var before=(e.clientY<r.top+r.height/2)||(Math.abs(e.clientY-(r.top+r.height/2))<r.height/2 && e.clientX<r.left+r.width/2); grid.insertBefore(dragEl, before?c:c.nextSibling); });
+  function fire(payload){ var inp=D.querySelector('.st-key-sw_ordcmd input'); if(!inp) return; try{ var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set; inp.focus({preventScroll:true}); setter.call(inp, payload+'|'+Date.now()); inp.dispatchEvent(new Event('input',{bubbles:true})); inp.dispatchEvent(new Event('change',{bubbles:true})); inp.dispatchEvent(new KeyboardEvent('keypress',{key:'Enter',keyCode:13,which:13,bubbles:true})); inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true})); inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true})); inp.dispatchEvent(new FocusEvent('blur',{bubbles:true})); inp.dispatchEvent(new FocusEvent('focusout',{bubbles:true})); inp.blur(); }catch(e){} }
+  if(saveBtn && W._swOrdSaveH){ saveBtn.removeEventListener('click', W._swOrdSaveH); }
+  if(saveBtn){ W._swOrdSaveH=function(){ if(saveBtn.disabled) return; saveBtn.textContent='Guardando…'; saveBtn.disabled=true; fire(order().join(',')); }; saveBtn.addEventListener('click', W._swOrdSaveH); }
+  refreshBtn();
+})();
+</script>"""
+
+
+def _render_reordenar():
+    """Modo 'Ordenar web': elige una colección MANUAL y arrastra sus productos (desde la
+    manija) para fijar el orden en que se ven en su página web (collectionReorderProducts)."""
+    st.markdown(f'<div class="sw-sec">{_ic("box", "#0f172a", 17, 0)}Ordenar productos en la web</div>',
+                unsafe_allow_html=True)
+    st.caption("Elige una colección y arrastra las tarjetas desde la manija para definir el orden en que "
+               "se ven en su página web. Al guardar, la colección queda en orden Manual y el nuevo orden "
+               "se aplica en Shopify (puede tardar unos segundos en reflejarse).")
+
+    _cols = st.session_state.get("sw_cols")
+    if _cols is None:
+        _cols, _ = _shop.listar_colecciones()
+        _cols = _cols or []
+        st.session_state["sw_cols"] = _cols
+    if not _cols:
+        st.info("No hay colecciones manuales en la tienda para ordenar.")
+        return
+    _opts = {(c.get("title") or "(sin título)"): str(c.get("id")) for c in _cols}
+    _sel = st.selectbox("Colección", list(_opts.keys()), key="sw_reord_col")
+    _cid = _opts.get(_sel)
+    if not _cid:
+        return
+
+    with st.spinner("Cargando productos de la colección…"):
+        _prods, _so, _err = _shop.productos_de_coleccion(_cid)
+    if _err:
+        st.warning(_err)
+        return
+
+    # Puente de guardado del orden (input oculto sw_ordcmd; se auto-limpia tras procesar).
+    if st.session_state.pop("_sw_reset_ordcmd", False):
+        st.session_state["sw_ordcmd"] = ""
+    _oc = st.text_input("ordcmd", key="sw_ordcmd", label_visibility="collapsed")
+    if _oc and "|" in _oc:
+        _obody, _ots = _oc.rsplit("|", 1)
+        if _ots != st.session_state.get("sw_ordcmd_ts"):
+            st.session_state["sw_ordcmd_ts"] = _ots
+            st.session_state["_sw_reset_ordcmd"] = True
+            _gids = [g for g in _obody.split(",") if g]
+            if len(_gids) >= 2:
+                with st.spinner("Guardando el orden en Shopify…"):
+                    if _so and _so != "MANUAL":
+                        _shop.set_coleccion_manual(_cid)
+                    _ok, _e = _shop.reordenar_productos_coleccion(_cid, _gids)
+                if _ok:
+                    # Orden optimista: reflejarlo ya (el job async puede tardar al refetch).
+                    st.session_state["sw_ord_saved"] = {"cid": _cid, "gids": _gids}
+                    st.session_state["sw_toast"] = "Orden guardado. Puede tardar unos segundos en verse en la web."
+                else:
+                    st.session_state["sw_toast"] = f"No se pudo guardar el orden: {_e}"
+                st.rerun()
+
+    if not _prods:
+        st.info("Esta colección no tiene productos.")
+        return
+
+    # Reflejar el último orden guardado (optimista) mientras Shopify procesa el job.
+    _saved = st.session_state.get("sw_ord_saved")
+    if _saved and _saved.get("cid") == _cid:
+        _pos = {g: i for i, g in enumerate(_saved.get("gids") or [])}
+        _prods = sorted(_prods, key=lambda pr: _pos.get(pr.get("gid"), 10 ** 6))
+
+    st.markdown(f'<div class="sw-ord-hint">{len(_prods)} producto(s) en «{_he(_sel)}» · '
+                'arrastra desde la manija <span>&#8942;&#8942;</span> para reordenar</div>',
+                unsafe_allow_html=True)
+    _grip = ('<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.7"/>'
+             '<circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/>'
+             '<circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></svg>')
+    _cards = ""
+    for pr in _prods:
+        _img = _he(pr.get("image") or "")
+        _thumb = (f'<img src="{_img}" alt="" loading="lazy">' if _img
+                  else '<span class="sw-noimg">Sin foto</span>')
+        _bg, _fg, _blbl = _ESTADOS.get(_estado_efectivo({"status": pr.get("status")}), _ESTADOS["active"])
+        _cards += (
+            f'<div class="sw-card sw-ord-card" data-pid="{_he(pr.get("gid"))}">'
+            f'<div class="sw-thumb">{_thumb}'
+            f'<span class="sw-badge" style="background:{_bg};color:{_fg};">{_blbl}</span>'
+            f'<span class="sw-ord-grip" title="Arrastra para ordenar">{_grip}</span></div>'
+            f'<div class="sw-body"><div class="sw-title">{_he(pr.get("title"))}</div></div></div>')
+    st.markdown(f'<div id="sw-reord-grid" class="sw-grid">{_cards}</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sw-ord-savewrap"><button id="sw-ord-save" class="sw-ord-savebtn" disabled>'
+                'Guardar orden</button></div>', unsafe_allow_html=True)
+    components.html(_SW_REORDER_JS, height=0)
 
 
 # Botón FLOTANTE "Guardar y publicar": se inyecta en el <body> del padre (fijo, centrado
