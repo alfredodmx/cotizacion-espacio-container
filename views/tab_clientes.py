@@ -1902,9 +1902,11 @@ def _traer_de_shopify():
             notificar_nuevo_lead_web(_nom, fuente="Shopify")
         except Exception:
             pass
+    _react_s = int(_res.get("reactivados", 0) or 0)
     st.session_state["_cli_toast"] = (
-        f"Shopify: {_res['creados']} nuevo(s), {_res['duplicados']} ya estaban, "
-        f"{_res['omitidos']} sin nombre.")
+        f"Shopify: {_res['creados']} nuevo(s)"
+        + (f", {_react_s} reactivado(s)" if _react_s else "")
+        + f", {_res['duplicados']} ya estaban, {_res['omitidos']} sin nombre.")
 
 
 # ── Selección múltiple (bulk) de leads — SOLO root/admin ──────────────────────
@@ -4116,16 +4118,18 @@ def _render_importar_dialog():
                 res = importar_leads(rows, origen=_origen_imp,
                                      asignado_email=_ae, asignado_nombre=_an)
             _cli_data.clear()
-            # Aviso Telegram a admins/root: resumen de la importación manual.
-            if res.get("creados"):
+            # Aviso Telegram a admins/root: resumen de la importación manual (nuevos + reactivados).
+            _react = int(res.get("reactivados", 0) or 0)
+            if res.get("creados") or _react:
                 try:
                     _quien = st.session_state.get("auth_nombre") or st.session_state.get("auth_email", "")
-                    notificar_leads_importados(res["creados"], _quien, _origen_imp)
+                    notificar_leads_importados(int(res.get("creados", 0)) + _react, _quien, _origen_imp)
                 except Exception:
                     pass
             st.session_state["_cli_toast"] = (
-                f"Importados: {res['creados']} nuevo(s) · {res['duplicados']} ya existían · "
-                f"{res['omitidos']} sin nombre.")
+                f"Importados: {res['creados']} nuevo(s)"
+                + (f" · {_react} reactivado(s)" if _react else "")
+                + f" · {res['duplicados']} ya existían · {res['omitidos']} sin nombre.")
             st.rerun()
 
     _dlg()

@@ -383,13 +383,17 @@ def importar_leads(rows: list, origen: str = "Importado",
     ADITIVO: solo INSERTA en `clientes` (+ actividad); nunca toca lo existente."""
     polluted = identidades_compartidas()
 
-    idx = set()
+    # Índice del maestro: dedup key -> {id, activo}. Incluye INACTIVOS a propósito para
+    # poder REACTIVARLOS al reimportar (si no, un contacto borrado/fusionado quedaría
+    # bloqueado: "ya existe" pero invisible en la tabla).
+    idx: dict = {}
     for c in listar_clientes(solo_activos=False):
         k = dedup_key(c.get("rut"), c.get("email"), c.get("telefono"), c.get("nombre"), polluted)
-        if k[1]:
-            idx.add(k)
+        if k[1] and k not in idx:
+            idx[k] = {"id": c.get("id"), "activo": bool(c.get("activo", True))}
 
     nuevos: dict = {}
+    reactivar: dict = {}      # id_cliente -> payload de datos a refrescar (reactivación)
     duplicados = 0
     omitidos = 0
     for row in rows:
@@ -400,8 +404,26 @@ def importar_leads(rows: list, origen: str = "Importado",
         k = dedup_key(row.get("rut"), row.get("email"), row.get("telefono"), nombre, polluted)
         if not k[1]:
             k = ("nombre", _n(nombre))   # sin clave fuerte → dedup por nombre
-        if k in idx or k in nuevos:
+        if k in nuevos:
             duplicados += 1
+            continue
+        _match = idx.get(k)
+        if _match:
+            if _match["activo"]:
+                duplicados += 1          # ya existe y está ACTIVO → se omite
+                continue
+            # Existe pero INACTIVO (borrado/fusionado) → REACTIVAR + refrescar datos.
+            if _match["id"] not in reactivar:
+                _rp = {"activo": True, "origen": origen or "Importado",
+                       "etapa_manual": "lead_nuevo"}
+                if str(asignado_email or "").strip():
+                    _rp["asignado_email"] = str(asignado_email).strip()
+                    _rp["asignado_nombre"] = str(asignado_nombre or "").strip()
+                for _f in CAMPOS_IMPORT:
+                    _v = str(row.get(_f) or "").strip()
+                    if _v:
+                        _rp[_f] = _v
+                reactivar[_match["id"]] = _rp
             continue
         payload = {
             "id": str(uuid.uuid4()),
@@ -444,8 +466,23 @@ def importar_leads(rows: list, origen: str = "Importado",
         except Exception:
             omitidos += len(lote)
 
+    # Reactivar los que estaban INACTIVOS (borrados/fusionados) y volvieron en el CSV.
+    reactivados = 0
+    for _rid, _rp in reactivar.items():
+        _ok, _ = actualizar_cliente(_rid, _rp)
+        if _ok:
+            reactivados += 1
+            nombres_creados.append(_rp.get("nombre", ""))
+            try:
+                _supa.table("crm_actividad").insert({
+                    "id": str(uuid.uuid4()), "cliente_id": _rid, "tipo": "lead",
+                    "titulo": "Lead reactivado al reimportar", "detalle": origen or "Importado",
+                    "ep": "", "actor": "import", "fecha": now}).execute()
+            except Exception:
+                pass
+
     return {"creados": creados, "duplicados": duplicados, "omitidos": omitidos,
-            "nombres": nombres_creados}
+            "reactivados": reactivados, "nombres": nombres_creados}
 
 
 # ── Sincronización cliente CRM ↔ cotizaciones (datos de contacto) ─────────────
