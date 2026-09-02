@@ -646,13 +646,14 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
   cursor:pointer;user-select:none;}                 /* centro → clic para ampliar (dedito) */
 .ed-img.dragging{opacity:.4;cursor:grabbing;}
 .ed-img img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;}
-.ed-img .ed-del{position:absolute;top:5px;right:5px;width:26px;height:26px;border-radius:50%;border:none;
+/* X de eliminar: arriba a la IZQUIERDA (fotos y videos). */
+.ed-img .ed-del{position:absolute;top:5px;left:5px;width:26px;height:26px;border-radius:50%;border:none;
   background:rgba(15,23,42,.62);color:#fff;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:3;}
 .ed-img:hover .ed-del{display:flex;}
 .ed-img .ed-del svg{width:14px;height:14px;}
 .ed-img .ed-del:hover{background:#dc2626;}
-/* Manija de arrastre (grip) arriba a la derecha, a la izquierda de la X: cursor de "manito". */
-.ed-img .ed-drag{position:absolute;top:5px;right:36px;width:26px;height:26px;border-radius:7px;
+/* Manija de arrastre (grip): arriba a la DERECHA (fotos y videos); cursor de "manito". */
+.ed-img .ed-drag{position:absolute;top:5px;right:5px;width:26px;height:26px;border-radius:7px;
   background:rgba(15,23,42,.62);color:#fff;cursor:grab;display:none;align-items:center;justify-content:center;padding:0;z-index:3;}
 .ed-img:hover .ed-drag{display:flex;}
 .ed-img .ed-drag:active{cursor:grabbing;background:#5b7cfa;}
@@ -662,7 +663,7 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
 .ed-img.is-princ .ed-princ{display:block;}
 .ed-img.ed-deleted{opacity:.32;filter:grayscale(1);}
 .ed-img.ed-deleted .ed-del{display:flex;background:#dc2626;}
-.ed-img.ed-new::after{content:'NUEVA';position:absolute;top:5px;left:5px;font-family:Montserrat;font-weight:800;font-size:8px;
+.ed-img.ed-new::after{content:'NUEVA';position:absolute;bottom:5px;right:5px;font-family:Montserrat;font-weight:800;font-size:8px;
   background:#16a34a;color:#fff;border-radius:5px;padding:2px 5px;letter-spacing:.03em;}
 /* Videos en la galería: mismo tile, con badge de reproducción; clic para ampliar,
    pero NO se arrastran (sin manija). */
@@ -766,7 +767,7 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
 <div class="ed-grid">
   <div class="ed-main">
     <div class="ed-card">
-      <div class="ed-lbl">Fotos y videos <small>· clic para ampliar · arrastra las fotos para ordenar · la 1ª foto es la principal · pasa el mouse para eliminar</small></div>
+      <div class="ed-lbl">Fotos y videos <small>· clic para ampliar · arrastra desde la manija para ordenar · la 1ª foto es la principal</small></div>
       <div class="ed-imgs" id="imgs">__IMAGES__</div>
       <div class="ed-addimg">
         <input id="addurl" type="text" placeholder="Pega la URL de una foto y presiona Enter o Agregar">
@@ -1022,16 +1023,19 @@ function collect(){
   [].slice.call(doc.querySelectorAll('.ed-chan')).forEach(function(c){ if(c.checked) channels_on.push(c.getAttribute('data-gid')); });
   var collections_on=[];
   [].slice.call(doc.querySelectorAll('.ed-col')).forEach(function(c){ if(c.checked) collections_on.push(c.getAttribute('data-cid')); });
-  var image_order=[], image_delete=[], image_add_urls=[], video_delete=[];
+  var image_order=[], image_delete=[], image_add_urls=[], video_delete=[], media_order=[];
   [].slice.call(grid.querySelectorAll('.ed-img')).forEach(function(t){
-    if(t.getAttribute('data-video')==='1'){   // tile de video → solo borrado (por media id)
+    var mgid=t.getAttribute('data-mediaid');   // gid del media (foto o video) para reordenar TODO junto
+    if(t.getAttribute('data-video')==='1'){    // tile de video
       if(t.classList.contains('ed-deleted')){ var mid=t.getAttribute('data-mid'); if(mid) video_delete.push(mid); }
+      else if(mgid){ media_order.push(mgid); }
       return;
     }
     var id=t.getAttribute('data-id');
     if(t.classList.contains('ed-deleted')){ if(id) image_delete.push(parseInt(id,10)); return; }
-    if(t.getAttribute('data-new')==='1'){ image_add_urls.push(t.getAttribute('data-src')); }
-    else if(id){ image_order.push(parseInt(id,10)); }
+    if(t.getAttribute('data-new')==='1'){ image_add_urls.push(t.getAttribute('data-src')); return; }
+    if(id) image_order.push(parseInt(id,10));
+    if(mgid) media_order.push(mgid);
   });
   return {
     title:doc.getElementById('f_title').value,
@@ -1043,7 +1047,7 @@ function collect(){
     channels_present:doc.querySelectorAll('.ed-chan').length>0,
     collections_present:doc.querySelectorAll('.ed-col').length>0,
     image_order:image_order, image_delete:image_delete, image_add_urls:image_add_urls,
-    video_delete:video_delete,
+    video_delete:video_delete, media_order:media_order,
     metafields:collectMetafields()
   };
 }
@@ -1245,14 +1249,15 @@ def _build_editor_form(p, pubs, prod_pubs, cols, cur_cols, metafields=None, vide
     _img_html = ""
     for im in _imgs:
         _src = _he(im.get("src", ""))
-        _img_html += (f'<div class="ed-img" draggable="false" data-id="{_he(im.get("id"))}">'
+        _mgid = _he(im.get("admin_graphql_api_id") or "")   # gid del MediaImage (para reordenar)
+        _img_html += (f'<div class="ed-img" draggable="false" data-id="{_he(im.get("id"))}" data-mediaid="{_mgid}">'
                       f'<img src="{_src}" alt="">'
                       f'<span class="ed-drag" title="Arrastra para reordenar">{_grip}</span>'
                       f'<button type="button" class="ed-del">{_x}</button>'
                       '<span class="ed-princ">Principal</span></div>')
-    # Videos (subidos desde el PC o por enlace): mismos tiles que las fotos, con un badge
-    # de reproducción. NO son "principal" ni se reordenan; se pueden eliminar (se marca y
-    # se borra al Guardar). Van después de las fotos.
+    # Videos (subidos desde el PC o por enlace): mismos tiles que las fotos, con badge de
+    # reproducción y su propia manija de arrastre (se reordenan junto con las fotos vía
+    # media gid). NO son "principal". Se pueden eliminar. Van después de las fotos.
     for vd in _vids:
         _mid = _he(vd.get("id") or "")
         _pv = _he(vd.get("preview_url") or "")
@@ -1261,8 +1266,9 @@ def _build_editor_form(p, pubs, prod_pubs, cols, cur_cols, metafields=None, vide
         _thumb = (f'<img src="{_pv}" alt="">' if _pv
                   else '<div class="ed-vph">VIDEO</div>')
         _img_html += (f'<div class="ed-img ed-video" draggable="false" data-video="1" data-mid="{_mid}" '
-                      f'data-vsrc="{_vsrc}" data-vpv="{_pv}" data-vorigin="{_vorig}">'
+                      f'data-mediaid="{_mid}" data-vsrc="{_vsrc}" data-vpv="{_pv}" data-vorigin="{_vorig}">'
                       f'{_thumb}<div class="ed-vplay">{_play}</div>'
+                      f'<span class="ed-drag" title="Arrastra para reordenar">{_grip}</span>'
                       f'<button type="button" class="ed-del">{_x}</button>'
                       '<span class="ed-vbadge">Video</span></div>')
     if not _img_html:
@@ -1448,27 +1454,32 @@ def _guardar_todo(pid, data: dict):
             _ok, _e = _shop.quitar_de_coleccion(_collectid)
             if not _ok:
                 _errs.append(_e)
-    # 5) Fotos: eliminar marcadas → reordenar restantes → agregar nuevas (al final).
+    # 5) Medios (fotos + videos): eliminar marcados → agregar fotos nuevas → reordenar TODO.
     for _iid in data.get("image_delete") or []:
         _ok, _e = _shop.eliminar_imagen(pid, _iid)
         if not _ok:
             _errs.append(_e)
-    _order = [i for i in (data.get("image_order") or [])]
-    if _order:
-        _ok, _e = _shop.reordenar_imagenes(pid, _order)
-        if not _ok:
-            _errs.append(_e)
+    for _vmid in data.get("video_delete") or []:      # videos marcados (por media id)
+        if _vmid:
+            _ok, _e = _shop.eliminar_media(pid, _vmid)
+            if not _ok:
+                _errs.append(_e)
     for _url in data.get("image_add_urls") or []:
         if _url:
             _ok, _e = _shop.agregar_imagen(pid, src=_url)
             if not _ok:
                 _errs.append(_e)
-    # 5b) Videos marcados para eliminar (por media id). Se borran con eliminar_media.
-    for _vmid in data.get("video_delete") or []:
-        if _vmid:
-            _ok, _e = _shop.eliminar_media(pid, _vmid)
-            if not _ok:
-                _errs.append(_e)
+    # Reordenar TODO el media (fotos + videos) en el orden visual de la galería. Los
+    # medios recién agregados no traen gid → quedan al final (Shopify los deja después).
+    _mo = [g for g in (data.get("media_order") or []) if g]
+    if len(_mo) >= 2:
+        _ok, _e = _shop.reordenar_media(pid, _mo)
+        if not _ok:
+            _errs.append(_e)
+    elif data.get("image_order"):                     # fallback si no hubo gids de media
+        _ok, _e = _shop.reordenar_imagenes(pid, list(data.get("image_order")))
+        if not _ok:
+            _errs.append(_e)
     # 6) Características / detalles (metacampos): crear / actualizar / eliminar.
     for m in data.get("metafields") or []:
         _kind = m.get("kind")

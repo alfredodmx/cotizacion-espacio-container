@@ -581,6 +581,24 @@ def reordenar_imagenes(pid, ordered_ids) -> tuple:
     return actualizar_producto(pid, {"images": _imgs})
 
 
+def reordenar_media(pid, ordered_gids) -> tuple:
+    """Reordena TODO el media del producto (fotos + videos) según `ordered_gids` (lista
+    de media GIDs en el orden deseado). Usa productReorderMedia (asíncrono). Los medios
+    no listados (recién agregados) quedan después. Devuelve (ok, error). DEFENSIVO."""
+    _moves = [{"id": g, "newPosition": str(i)} for i, g in enumerate(ordered_gids) if g]
+    if len(_moves) < 2:
+        return True, None                       # nada que reordenar
+    q = ("mutation($id:ID!, $moves:[MoveInput!]!){ productReorderMedia(id:$id, moves:$moves){ "
+         "job { id } mediaUserErrors { field message } } }")
+    data, err = _graphql(q, {"id": _gid_product(pid), "moves": _moves})
+    if err:
+        return False, err
+    _errs = (((data or {}).get("productReorderMedia") or {}).get("mediaUserErrors") or [])
+    if _errs:
+        return False, "; ".join(e.get("message", "") for e in _errs) or "No se pudo reordenar el orden."
+    return True, None
+
+
 # ── Videos (media) — vía GraphQL Admin API. Requiere write_products ───────────
 
 def _graphql(query, variables=None) -> tuple:
