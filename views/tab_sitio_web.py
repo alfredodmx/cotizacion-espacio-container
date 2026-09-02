@@ -2024,8 +2024,9 @@ _SW_REORDER_JS = r"""<script>
   grid.addEventListener('dragend',function(){ if(dragEl)dragEl.classList.remove('sw-dragging'); dragEl=null; refreshBtn(); });
   grid.addEventListener('dragover',function(e){ e.preventDefault(); if(!dragEl) return; var c=e.target.closest('[data-pid]'); if(!c||c===dragEl) return; var r=c.getBoundingClientRect(); var before=(e.clientY<r.top+r.height/2)||(Math.abs(e.clientY-(r.top+r.height/2))<r.height/2 && e.clientX<r.left+r.width/2); grid.insertBefore(dragEl, before?c:c.nextSibling); });
   function fire(payload){ var inp=D.querySelector('.st-key-sw_ordcmd input'); if(!inp) return; try{ var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set; inp.focus({preventScroll:true}); setter.call(inp, payload+'|'+Date.now()); inp.dispatchEvent(new Event('input',{bubbles:true})); inp.dispatchEvent(new Event('change',{bubbles:true})); inp.dispatchEvent(new KeyboardEvent('keypress',{key:'Enter',keyCode:13,which:13,bubbles:true})); inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true})); inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true})); inp.dispatchEvent(new FocusEvent('blur',{bubbles:true})); inp.dispatchEvent(new FocusEvent('focusout',{bubbles:true})); inp.blur(); }catch(e){} }
+  if(saveBtn){ saveBtn.textContent='Guardar orden'; }   // en cada montaje/rerun vuelve al estado normal
   if(saveBtn && W._swOrdSaveH){ saveBtn.removeEventListener('click', W._swOrdSaveH); }
-  if(saveBtn){ W._swOrdSaveH=function(){ if(saveBtn.disabled) return; saveBtn.textContent='Guardando…'; saveBtn.disabled=true; fire(order().join(',')); }; saveBtn.addEventListener('click', W._swOrdSaveH); }
+  if(saveBtn){ W._swOrdSaveH=function(){ if(saveBtn.disabled) return; saveBtn.textContent='Guardando…'; saveBtn.disabled=true; saveBtn.classList.remove('on'); fire(order().join(',')); }; saveBtn.addEventListener('click', W._swOrdSaveH); }
   refreshBtn();
 })();
 </script>"""
@@ -2114,7 +2115,10 @@ def _render_reordenar():
     st.markdown(f'<div id="sw-reord-grid" class="sw-grid">{_cards}</div>', unsafe_allow_html=True)
     st.markdown('<div class="sw-ord-savewrap"><button id="sw-ord-save" class="sw-ord-savebtn" disabled>'
                 'Guardar orden</button></div>', unsafe_allow_html=True)
-    components.html(_SW_REORDER_JS, height=0)
+    # Nonce (colección + ts del último guardado): cambia el contenido del componente para
+    # forzar que el JS se re-ejecute tras guardar y resetee el botón (si no, queda pegado).
+    _nonce = f"{_cid}-{st.session_state.get('sw_ordcmd_ts', '')}"
+    components.html(_SW_REORDER_JS + f"<!--n:{_he(_nonce)}-->", height=0)
 
 
 # Botón FLOTANTE "Guardar y publicar": se inyecta en el <body> del padre (fijo, centrado
