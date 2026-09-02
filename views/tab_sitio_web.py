@@ -274,9 +274,15 @@ _CSS = """
 .sw-card{background:#fff;border:1px solid #e8ebf3;border-radius:15px;overflow:hidden;
   box-shadow:0 2px 12px rgba(15,23,42,.06);display:flex;flex-direction:column;transition:all .18s;}
 .sw-card:hover{transform:translateY(-3px);box-shadow:0 10px 26px rgba(15,23,42,.12);border-color:#cdd6ea;}
-.sw-thumb{aspect-ratio:1/1;background:#f1f5f9;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;}
-.sw-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.sw-thumb{aspect-ratio:1/1;background:#f1f5f9;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;cursor:pointer;}
+.sw-thumb img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .25s ease;}
+.sw-thumb:hover img{transform:scale(1.04);}
 .sw-thumb .sw-noimg{color:#cbd5e1;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;}
+/* Overlay "Editar" al pasar el mouse sobre la imagen de la card. */
+.sw-thumb .sw-edit-ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:7px;
+  background:rgba(15,23,42,.48);color:#fff;font-family:Montserrat,sans-serif;font-weight:800;font-size:0.72rem;
+  letter-spacing:.06em;text-transform:uppercase;opacity:0;transition:opacity .16s ease;pointer-events:none;}
+.sw-thumb:hover .sw-edit-ov{opacity:1;}
 .sw-badge{position:absolute;top:9px;left:9px;font-family:Montserrat,sans-serif;font-size:9.5px;font-weight:800;
   text-transform:uppercase;letter-spacing:.04em;padding:3px 9px;border-radius:99px;}
 .sw-body{padding:12px 13px 13px;display:flex;flex-direction:column;flex:1;}
@@ -1807,9 +1813,11 @@ def render_tab_sitio_web(**kwargs):
         _ptype = _he(p.get("product_type") or (p.get("tags") or "").split(",")[0].strip() or "Producto")
         _web = _shop.producto_web_url(p.get("handle"))
         _admp = _shop.producto_admin_url(p.get("id"))
+        _edit_ov = (f'<div class="sw-edit-ov">{_ic("edit", "#fff", 15, 0)}Editar</div>')
         _cards += (
             '<div class="sw-card">'
-            f'<div class="sw-thumb">{_thumb}'
+            f'<div class="sw-thumb sw-edit-btn" data-swact="edit" data-swid="{_he(p.get("id"))}" '
+            f'title="Editar este modelo">{_thumb}{_edit_ov}'
             f'<span class="sw-badge" style="background:{_bg};color:{_fg};">{_blbl}</span></div>'
             '<div class="sw-body">'
             f'<div class="sw-title">{_title}</div>'
