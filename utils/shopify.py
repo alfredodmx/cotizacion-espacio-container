@@ -607,10 +607,12 @@ def _gid_product(pid) -> str:
 
 def listar_videos(pid) -> tuple:
     """Videos del producto (subidos + externos YouTube/Vimeo). Devuelve (lista, error).
-    Cada uno: {id, mediaContentType, status, preview_url, origin_url, host}."""
+    Cada uno: {id, type, status, preview_url, origin_url, host, src}. `src` = URL del
+    MP4 reproducible (solo videos subidos; para reproducir en el visor fullscreen)."""
     q = ("query($id:ID!){ product(id:$id){ media(first:50){ nodes { "
          "id mediaContentType status preview { image { url } } "
-         "... on ExternalVideo { host originUrl } } } } }")
+         "... on ExternalVideo { host originUrl } "
+         "... on Video { sources { url mimeType height } } } } } }")
     data, err = _graphql(q, {"id": _gid_product(pid)})
     if err:
         return [], err
@@ -619,6 +621,13 @@ def listar_videos(pid) -> tuple:
     for n in _nodes:
         if n.get("mediaContentType") not in ("VIDEO", "EXTERNAL_VIDEO"):
             continue
+        # Mejor fuente MP4 (mayor altura) para reproducir en el visor.
+        _src = ""
+        _srcs = [s for s in (n.get("sources") or []) if (s or {}).get("url")]
+        if _srcs:
+            _mp4 = [s for s in _srcs if "mp4" in str(s.get("mimeType") or "").lower()] or _srcs
+            _best = max(_mp4, key=lambda s: (s.get("height") or 0))
+            _src = _best.get("url") or ""
         out.append({
             "id": n.get("id"),
             "type": n.get("mediaContentType"),
@@ -626,6 +635,7 @@ def listar_videos(pid) -> tuple:
             "preview_url": (((n.get("preview") or {}).get("image") or {}).get("url")) or "",
             "origin_url": n.get("originUrl") or "",
             "host": n.get("host") or "",
+            "src": _src,
         })
     return out, None
 
