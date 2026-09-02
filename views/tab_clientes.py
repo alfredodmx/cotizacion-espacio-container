@@ -4818,7 +4818,7 @@ def render_tab_clientes(**kwargs):
                 unsafe_allow_html=True)
     st.text_input("segcmd", key="_camp_segcmd", label_visibility="collapsed")
     _scmd = str(st.session_state.get("_camp_segcmd", "") or "")
-    if _es_gestor and _scmd.count("|") >= 4:
+    if (_es_gestor or _solo_campana) and _scmd.count("|") >= 4:
         _sp = _scmd.split("|")
         if _sp[-1] != st.session_state.get("_camp_segcmd_ts"):
             st.session_state["_camp_segcmd_ts"] = _sp[-1]
