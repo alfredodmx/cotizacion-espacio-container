@@ -24,6 +24,7 @@ _IC = {
     "tag": '<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>',
     "money": '<line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
     "video": '<path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/>',
+    "house": '<path d="M3 21h18"/><path d="M5 21V8l7-4.5L19 8v13"/><path d="M9.5 21v-6h5v6"/><path d="M9.5 10.5h1.5M13 10.5h1.5"/>',
 }
 
 
@@ -792,7 +793,7 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
     </div>
     <div class="ed-card">
       <label class="ed-flbl">Título</label>
-      <input class="ed-in" id="f_title" type="text" value="__TITLE_ATTR__">
+      <input class="ed-in" id="f_title" type="text" value="__TITLE_ATTR__" placeholder="Nombre del modelo">
       <label class="ed-flbl">Descripción · acepta HTML básico</label>
       <textarea class="ed-in" id="f_desc">__DESC__</textarea>
     </div>
@@ -1023,10 +1024,12 @@ function collect(){
   [].slice.call(doc.querySelectorAll('.ed-chan')).forEach(function(c){ if(c.checked) channels_on.push(c.getAttribute('data-gid')); });
   var collections_on=[];
   [].slice.call(doc.querySelectorAll('.ed-col')).forEach(function(c){ if(c.checked) collections_on.push(c.getAttribute('data-cid')); });
-  var image_order=[], image_delete=[], image_add_urls=[], video_delete=[], media_order=[];
+  var image_order=[], image_delete=[], image_add_urls=[], video_delete=[], media_order=[], new_ext_videos=[];
   [].slice.call(grid.querySelectorAll('.ed-img')).forEach(function(t){
     var mgid=t.getAttribute('data-mediaid');   // gid del media (foto o video) para reordenar TODO junto
     if(t.getAttribute('data-video')==='1'){    // tile de video
+      var nvu=t.getAttribute('data-newvidurl');
+      if(nvu){ new_ext_videos.push(nvu); return; }   // video externo nuevo (por URL) → se agrega al guardar
       if(t.classList.contains('ed-deleted')){ var mid=t.getAttribute('data-mid'); if(mid) video_delete.push(mid); }
       else if(mgid){ media_order.push(mgid); }
       return;
@@ -1047,7 +1050,7 @@ function collect(){
     channels_present:doc.querySelectorAll('.ed-chan').length>0,
     collections_present:doc.querySelectorAll('.ed-col').length>0,
     image_order:image_order, image_delete:image_delete, image_add_urls:image_add_urls,
-    video_delete:video_delete, media_order:media_order,
+    video_delete:video_delete, media_order:media_order, new_ext_videos:new_ext_videos,
     metafields:collectMetafields()
   };
 }
@@ -1165,13 +1168,20 @@ function fileB64(file){
     r.onload=function(){ try{ res((''+r.result).split(',')[1]||''); }catch(e){ res(''); } };
     r.onerror=function(){ res(''); }; r.readAsDataURL(file); });
 }
-/* ── Agregar video por enlace (YouTube/Vimeo), estilo igual al de URL de imagen ── */
+/* ── Agregar video por enlace (YouTube/Vimeo): agrega un tile a la galería y se
+   sube al presionar "Guardar y publicar" (igual que las fotos por URL / desde PC). ── */
 var addvidbtn=doc.getElementById('addvidbtn'), addvidurl=doc.getElementById('addvidurl');
 function syncVid(){ addvidbtn.disabled=!(addvidurl.value||'').trim(); }
 function addVid(){
   var u=(addvidurl.value||'').trim(); if(!u) return;
-  addvidbtn.disabled=true; addvidbtn.textContent='Agregando…';
-  fire(JSON.stringify({op:'video_url', url:u}));
+  var grip='<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></svg>';
+  var xico='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>';
+  var play='<svg viewBox="0 0 24 24" fill="#fff"><polygon points="6 3 20 12 6 21 6 3"/></svg>';
+  var d=doc.createElement('div'); d.className='ed-img ed-video ed-new'; d.setAttribute('draggable','false');
+  d.setAttribute('data-video','1'); d.setAttribute('data-new','1');
+  d.setAttribute('data-newvidurl',u); d.setAttribute('data-vorigin',u);
+  d.innerHTML='<div class="ed-vph">VIDEO</div><div class="ed-vplay">'+play+'</div><span class="ed-drag" title="Arrastra para reordenar">'+grip+'</span><button type="button" class="ed-del">'+xico+'</button><span class="ed-vbadge">Video</span>';
+  grid.appendChild(d); addvidurl.value=''; syncVid(); setDirty();
 }
 addvidurl.addEventListener('input',syncVid);
 addvidbtn.addEventListener('click',function(){ if(!this.disabled) addVid(); });
@@ -1327,9 +1337,10 @@ def _build_editor_form(p, pubs, prod_pubs, cols, cur_cols, metafields=None, vide
     if not _collections:
         _collections = '<div class="ed-info">No hay colecciones manuales en la tienda.</div>'
 
-    _title = _he(p.get("title") or "(sin título)")
+    _title_attr = _he(p.get("title") or "")               # valor del input (vacío = en blanco)
+    _title_disp = _he(p.get("title") or "(sin título)")    # encabezado mini
     _html = (_SW_FORM_TEMPLATE
-             .replace("__TITLE_ATTR__", _title).replace("__TITLE__", _title)
+             .replace("__TITLE_ATTR__", _title_attr).replace("__TITLE__", _title_disp)
              .replace("__IMAGES__", _img_html)
              .replace("__DESC__", _he(p.get("body_html") or ""))
              .replace("__PRICES__", _prices)
@@ -1467,6 +1478,11 @@ def _guardar_todo(pid, data: dict):
     for _url in data.get("image_add_urls") or []:
         if _url:
             _ok, _e = _shop.agregar_imagen(pid, src=_url)
+            if not _ok:
+                _errs.append(_e)
+    for _vu in data.get("new_ext_videos") or []:      # videos por enlace (YouTube/Vimeo)
+        if _vu:
+            _ok, _e = _shop.agregar_video_externo(pid, _vu)
             if not _ok:
                 _errs.append(_e)
     # Reordenar TODO el media (fotos + videos) en el orden visual de la galería. Los
@@ -1718,8 +1734,8 @@ def render_tab_sitio_web(**kwargs):
             st.session_state.pop("sw_pubs_err", None)
             st.rerun()
     with _c3:
-        if st.button("Nuevo producto", key="sw_new_open", use_container_width=True, type="primary",
-                     icon=":material/add_box:"):
+        if st.button("Nuevo modelo", key="sw_new_open", use_container_width=True, type="primary",
+                     icon=":material/villa:"):
             _clear_editor_state()
             for _k in [k for k in list(st.session_state.keys()) if str(k).startswith("sw_new_")]:
                 st.session_state.pop(_k, None)
@@ -1822,64 +1838,141 @@ def render_tab_sitio_web(**kwargs):
 
 
 def _render_nuevo():
-    """Formulario para CREAR un producto nuevo. Al crearlo, abre su editor para que se
-    le agreguen fotos, videos y características. Se crea como BORRADOR por defecto (no
-    queda público hasta que se active)."""
+    """Nuevo modelo: MISMA plantilla del editor, en blanco, con defaults (No publicado,
+    Online Store ON, proveedor Container Houses, colección LÍNEA HOME). Al «Guardar y
+    publicar» se crea el producto y se abre su editor."""
     if st.button("← Volver al catálogo", key="sw_new_back"):
         st.session_state.pop("sw_new", None)
-        for _k in [k for k in list(st.session_state.keys()) if str(k).startswith("sw_new_")]:
-            st.session_state.pop(_k, None)
+        _clear_editor_state()
         st.rerun()
 
-    st.markdown(f'<div class="sw-sec">{_ic("box", "#0f172a", 17, 0)}Nuevo producto</div>',
+    st.markdown(f'<div class="sw-sec">{_ic("house", "#0f172a", 18, 0)}Nuevo modelo</div>',
                 unsafe_allow_html=True)
-    st.caption("Crea un modelo nuevo para la web. Se guarda como BORRADOR (no visible) hasta que lo "
-               "actives; primero podrás agregarle fotos, videos y características.")
+    st.caption("Completa la plantilla y presiona «Guardar y publicar». Por defecto queda "
+               "No publicado, en el canal Online Store, proveedor Container Houses y colección LÍNEA HOME.")
 
-    _title = st.text_input("Nombre del producto *", key="sw_new_title",
-                           placeholder="Ej: Cabaña Aurora 36m²")
-    _dc1, _dc2 = st.columns([3, 1.2])
-    with _dc1:
-        _desc = st.text_area("Descripción · acepta HTML", key="sw_new_desc", height=150,
-                             placeholder="Describe el modelo, materiales, terminaciones…")
-    with _dc2:
-        _price = st.number_input("Precio", min_value=0.0, step=1000.0, format="%.0f", key="sw_new_price")
-        _est_lbl = st.selectbox("Estado inicial", ["Borrador", "Activo"], key="sw_new_status")
-    _tc1, _tc2 = st.columns(2)
-    with _tc1:
-        _ptype = st.text_input("Tipo de producto", value="Casa Container", key="sw_new_type")
-    with _tc2:
-        _tags = st.text_input("Etiquetas (separadas por coma)", key="sw_new_tags")
-    _imgurl = st.text_input("Foto principal por URL (opcional)", key="sw_new_img",
-                            placeholder="https://…/foto.jpg", help="Luego podrás agregar/subir más fotos.")
+    # Canales y colecciones (cacheados en sesión, igual que el editor).
+    _pubs = st.session_state.get("sw_pubs")
+    if _pubs is None:
+        _pubs, _puberr = _shop.listar_publicaciones()
+        st.session_state["sw_pubs"] = _pubs or []
+        st.session_state["sw_pubs_err"] = _puberr
+        _pubs = _pubs or []
+    _cols = st.session_state.get("sw_cols")
+    if _cols is None:
+        _cols, _ = _shop.listar_colecciones()
+        _cols = _cols or []
+        st.session_state["sw_cols"] = _cols
 
-    st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
-    _conf = st.checkbox("Confirmo crear este producto en la web (como borrador).", key="sw_new_conf")
-    if st.button("Crear producto", type="primary", key="sw_new_create",
-                 disabled=(not (_title or "").strip() or not _conf), icon=":material/add_box:"):
-        _campos = {
-            "title": _title.strip(),
-            "body_html": _desc,
-            "status": "active" if _est_lbl == "Activo" else "draft",
-            "product_type": _ptype.strip(),
-            "tags": _tags.strip(),
-            "variants": [{"price": f"{_price:.0f}"}],
-        }
-        if (_imgurl or "").strip():
-            _campos["images"] = [{"src": _imgurl.strip()}]
-        with st.spinner("Creando producto en Shopify…"):
-            _prod, _err = _shop.crear_producto(_campos)
-        if _err or not _prod:
-            st.error(_err or "No se pudo crear el producto.", icon=":material/error:")
-        else:
-            st.session_state.pop("sw_new", None)
-            for _k in [k for k in list(st.session_state.keys()) if str(k).startswith("sw_new_")]:
-                st.session_state.pop(_k, None)
-            _clear_editor_state()
-            _cargar_productos.clear()
-            st.session_state["sw_edit_id"] = str(_prod.get("id"))
-            st.toast("Producto creado. Ahora agrégale fotos, videos y características.")
-            st.rerun()
+    # Defaults: Online Store ON + colección LÍNEA HOME.
+    _os_gid = next((p.get("id") for p in _pubs
+                    if "online store" in str(p.get("name") or "").lower()), None)
+    _prod_pubs_set = {_os_gid} if _os_gid else set()
+
+    def _norm(s):
+        return " ".join(str(s or "").upper().replace("Í", "I").split())
+    _lh_id = next((str(c.get("id")) for c in _cols if "LINEA HOME" in _norm(c.get("title"))), None)
+    _cur_cols = [_lh_id] if _lh_id else []
+
+    # Características (metacampos): plantilla completa en BLANCO.
+    _mf_editable = []
+    for d in _plantilla_metafields():
+        if _mf_kind(d.get("type")) == "readonly":
+            continue
+        _mf_editable.append({"id": None, "namespace": d.get("namespace"), "key": d.get("key"),
+                             "type": d.get("type"), "value": "", "name": d.get("name") or _mf_label(d)})
+
+    # Producto VACÍO con los defaults (No publicado + proveedor Container Houses).
+    _p = {"id": None, "title": "", "body_html": "", "status": "unlisted",
+          "product_type": "", "vendor": "Container Houses", "images": [],
+          "variants": [{"id": None, "title": "Default Title", "price": "", "compare_at_price": ""}]}
+
+    # Puente de guardado (mismo input oculto sw_savecmd). El "guardado completo" CREA.
+    if st.session_state.pop("_sw_reset_savecmd", False):
+        st.session_state["sw_savecmd"] = ""
+    _sc = st.text_input("savecmd", key="sw_savecmd", label_visibility="collapsed")
+    if _sc and "|" in _sc:
+        _sbody, _sts = _sc.rsplit("|", 1)
+        if _sts != st.session_state.get("sw_savecmd_ts"):
+            st.session_state["sw_savecmd_ts"] = _sts
+            st.session_state["_sw_reset_savecmd"] = True
+            import json as _json
+            try:
+                _data = _json.loads(_sbody)
+            except Exception:
+                _data = None
+            # Las URLs de video ya se agregan como tile (van en el payload), así que aquí
+            # solo procesamos el guardado completo → crear el modelo.
+            if _data is not None and _data.get("op") not in ("upload", "video_url"):
+                _crear_modelo(_data)
+
+    _form_html, _form_h = _build_editor_form(_p, _pubs, _prod_pubs_set, _cols, _cur_cols,
+                                             metafields=_mf_editable, videos=[])
+    components.html(_form_html, height=int(_form_h), scrolling=False)
+    components.html(_SW_FLOAT_JS, height=0)
+
+
+def _crear_modelo(data: dict):
+    """Crea un modelo NUEVO desde la plantilla del editor: crea el producto base y luego
+    aplica TODO (estado real, canales, colecciones, características, fotos/videos) reusando
+    _guardar_todo. Deja «No publicado» aplicando el estado al final. Abre el nuevo editor."""
+    _title = (data.get("title") or "").strip()
+    if not _title:
+        st.session_state["sw_toast"] = "Ponle un nombre al modelo antes de crearlo."
+        st.rerun()
+        return
+    # Precio de la única variante (si lo pusieron).
+    _vs = data.get("variants") or []
+    try:
+        _price = int((_vs[0] or {}).get("price") or 0) if _vs else 0
+    except Exception:
+        _price = 0
+    try:
+        _cmp = int((_vs[0] or {}).get("compare_at") or 0) if _vs else 0
+    except Exception:
+        _cmp = 0
+    _want_status = (data.get("status") or "unlisted")
+    # "unlisted" no es un estado válido al CREAR (solo active/draft/archived); se crea
+    # activo (para poder publicarlo en el canal) y se pasa a No publicado al final.
+    _create_status = "active" if _want_status == "unlisted" else _want_status
+    _campos = {
+        "title": _title,
+        "body_html": data.get("body_html") or "",
+        "status": _create_status,
+        "product_type": (data.get("product_type") or "").strip(),
+        "vendor": (data.get("vendor") or "").strip(),
+        "variants": [{"price": str(_price), "compare_at_price": (str(_cmp) if _cmp > 0 else None)}],
+    }
+    with st.spinner("Creando el modelo en Shopify…"):
+        _prod, _err = _shop.crear_producto(_campos)
+    if _err or not _prod:
+        st.session_state["sw_toast"] = _err or "No se pudo crear el modelo."
+        st.rerun()
+        return
+    _newid = _prod.get("id")
+    # Aplicar el resto con _guardar_todo (canales, colecciones, metacampos, fotos/videos).
+    # Se quitan las variantes (el precio ya se fijó al crear) y se deja el estado de
+    # creación; el estado final (No publicado) se aplica DESPUÉS de publicar el canal.
+    _data2 = dict(data)
+    _data2["variants"] = []
+    _data2["status"] = _create_status
+    with st.spinner("Publicando y aplicando la configuración…"):
+        _errs = _guardar_todo(_newid, _data2)
+        if _want_status != _create_status:
+            _ok, _e = _shop.actualizar_producto(_newid, {"status": _want_status})
+            if not _ok:
+                _errs.append(_e)
+    # Abrir el editor del nuevo modelo.
+    st.session_state.pop("sw_new", None)
+    _clear_editor_state()
+    _cargar_productos.clear()
+    st.session_state["sw_edit_id"] = str(_newid)
+    if _errs:
+        st.session_state["sw_toast"] = "Modelo creado con avisos: " + " · ".join(str(x) for x in _errs[:3])
+    else:
+        st.session_state["sw_toast"] = "Modelo creado y publicado."
+        st.session_state["sw_saved_ok"] = True
+    st.rerun()
 
 
 # Botón FLOTANTE "Guardar y publicar": se inyecta en el <body> del padre (fijo, centrado
@@ -2062,7 +2155,7 @@ def _render_editor(pid):
                 else:                               # guardado completo del formulario (+ fotos/videos PC)
                     with st.spinner("Guardando en Shopify…"):
                         _errs = _guardar_todo(pid, _data)
-                    if _data.get("pc_videos") or _data.get("video_delete"):
+                    if _data.get("pc_videos") or _data.get("video_delete") or _data.get("new_ext_videos"):
                         st.session_state.pop("sw_edit_vid", None)   # refrescar galería de videos
                     if _errs:
                         st.session_state["sw_toast"] = "Guardado con avisos: " + " · ".join(str(x) for x in _errs[:3])
