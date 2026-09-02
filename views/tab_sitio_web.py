@@ -658,6 +658,15 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
 .ed-img.ed-deleted .ed-del{display:flex;background:#dc2626;}
 .ed-img.ed-new::after{content:'NUEVA';position:absolute;top:5px;left:5px;font-family:Montserrat;font-weight:800;font-size:8px;
   background:#16a34a;color:#fff;border-radius:5px;padding:2px 5px;letter-spacing:.03em;}
+/* Videos en la galería: mismo tile, con badge de reproducción; no se arrastran. */
+.ed-img.ed-video{cursor:default;}
+.ed-img.ed-video .ed-vph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+  background:#0f172a;color:#cbd5e1;font-family:Montserrat,sans-serif;font-weight:800;font-size:0.72rem;letter-spacing:.06em;}
+.ed-img.ed-video .ed-vplay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:36px;
+  border-radius:50%;background:rgba(15,23,42,.6);display:flex;align-items:center;justify-content:center;pointer-events:none;}
+.ed-img.ed-video .ed-vplay svg{width:16px;height:16px;}
+.ed-img.ed-video .ed-vbadge{position:absolute;bottom:5px;left:5px;font-family:Montserrat,sans-serif;font-weight:800;font-size:8.5px;
+  text-transform:uppercase;letter-spacing:.04em;background:rgba(15,23,42,.72);color:#fff;border-radius:5px;padding:2px 6px;}
 .ed-drag-hint{font-size:0.7rem;color:#94a3b8;margin-top:9px;}
 .ed-addimg{display:flex;gap:8px;margin-top:11px;}
 .ed-addimg input{flex:1;border:1.5px solid #e2e8f0;border-radius:9px;padding:8px 11px;font-size:0.82rem;font-family:inherit;background:#f8fafc;outline:none;}
@@ -750,7 +759,7 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
 <div class="ed-grid">
   <div class="ed-main">
     <div class="ed-card">
-      <div class="ed-lbl">Fotos <small>· arrastra para ordenar · la 1ª es la principal · pasa el mouse para eliminar</small></div>
+      <div class="ed-lbl">Fotos y videos <small>· arrastra las fotos para ordenar · la 1ª foto es la principal · pasa el mouse para eliminar</small></div>
       <div class="ed-imgs" id="imgs">__IMAGES__</div>
       <div class="ed-addimg">
         <input id="addurl" type="text" placeholder="Pega la URL de una foto y presiona Enter o Agregar">
@@ -824,7 +833,7 @@ function refreshPrincipal(){
   var first=null;
   [].slice.call(grid.querySelectorAll('.ed-img')).forEach(function(t){
     t.classList.remove('is-princ');
-    if(!first && !t.classList.contains('ed-deleted')) first=t;
+    if(!first && !t.classList.contains('ed-deleted') && t.getAttribute('data-video')!=='1') first=t;
   });
   if(first) first.classList.add('is-princ');
 }
@@ -893,8 +902,12 @@ function collect(){
   [].slice.call(doc.querySelectorAll('.ed-chan')).forEach(function(c){ if(c.checked) channels_on.push(c.getAttribute('data-gid')); });
   var collections_on=[];
   [].slice.call(doc.querySelectorAll('.ed-col')).forEach(function(c){ if(c.checked) collections_on.push(c.getAttribute('data-cid')); });
-  var image_order=[], image_delete=[], image_add_urls=[];
+  var image_order=[], image_delete=[], image_add_urls=[], video_delete=[];
   [].slice.call(grid.querySelectorAll('.ed-img')).forEach(function(t){
+    if(t.getAttribute('data-video')==='1'){   // tile de video → solo borrado (por media id)
+      if(t.classList.contains('ed-deleted')){ var mid=t.getAttribute('data-mid'); if(mid) video_delete.push(mid); }
+      return;
+    }
     var id=t.getAttribute('data-id');
     if(t.classList.contains('ed-deleted')){ if(id) image_delete.push(parseInt(id,10)); return; }
     if(t.getAttribute('data-new')==='1'){ image_add_urls.push(t.getAttribute('data-src')); }
@@ -910,6 +923,7 @@ function collect(){
     channels_present:doc.querySelectorAll('.ed-chan').length>0,
     collections_present:doc.querySelectorAll('.ed-col').length>0,
     image_order:image_order, image_delete:image_delete, image_add_urls:image_add_urls,
+    video_delete:video_delete,
     metafields:collectMetafields()
   };
 }
@@ -1096,12 +1110,15 @@ def _mf_rows_html(editable):
     return _rows or '<div class="ed-info">No hay características definidas en la tienda.</div>'
 
 
-def _build_editor_form(p, pubs, prod_pubs, cols, cur_cols, metafields=None):
+def _build_editor_form(p, pubs, prod_pubs, cols, cur_cols, metafields=None, videos=None):
     """Arma el formulario HTML del editor. `pubs`=canales [{id,name}], `prod_pubs`=set
-    GIDs publicados, `cols`=colecciones [{id,title}], `cur_cols`=ids seleccionadas.
+    GIDs publicados, `cols`=colecciones [{id,title}], `cur_cols`=ids seleccionadas,
+    `videos`=medios de video del producto (se muestran junto a las fotos).
     Devuelve (html, alto_iframe)."""
     _imgs = p.get("images") or []
+    _vids = videos or []
     _x = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>'
+    _play = '<svg viewBox="0 0 24 24" fill="#fff"><polygon points="6 3 20 12 6 21 6 3"/></svg>'
     _img_html = ""
     for im in _imgs:
         _src = _he(im.get("src", ""))
@@ -1109,8 +1126,21 @@ def _build_editor_form(p, pubs, prod_pubs, cols, cur_cols, metafields=None):
                       f'<img src="{_src}" alt="">'
                       f'<button type="button" class="ed-del">{_x}</button>'
                       '<span class="ed-princ">Principal</span></div>')
+    # Videos (subidos desde el PC o por enlace): mismos tiles que las fotos, con un badge
+    # de reproducción. NO son "principal" ni se reordenan; se pueden eliminar (se marca y
+    # se borra al Guardar). Van después de las fotos.
+    for vd in _vids:
+        _mid = _he(vd.get("id") or "")
+        _pv = _he(vd.get("preview_url") or "")
+        _thumb = (f'<img src="{_pv}" alt="">' if _pv
+                  else '<div class="ed-vph">VIDEO</div>')
+        _img_html += (f'<div class="ed-img ed-video" draggable="false" data-video="1" data-mid="{_mid}">'
+                      f'{_thumb}<div class="ed-vplay">{_play}</div>'
+                      f'<button type="button" class="ed-del">{_x}</button>'
+                      '<span class="ed-vbadge">Video</span></div>')
     if not _img_html:
-        _img_html = '<div class="ed-noimg">Este producto no tiene fotos. Agrega una por URL abajo.</div>'
+        _img_html = ('<div class="ed-noimg">Este producto no tiene fotos ni videos. '
+                     'Agrega una foto por URL o sube fotos/videos desde el PC abajo.</div>')
 
     # Precios por variante
     _vars = p.get("variants") or []
@@ -1177,7 +1207,8 @@ def _build_editor_form(p, pubs, prod_pubs, cols, cur_cols, metafields=None):
              .replace("__COLLECTIONS__", _collections)
              .replace("__METAFIELDS__", _mf_rows_html(metafields)))
     # Altura estimada (izquierda vs derecha) + características (el iframe se auto-ajusta luego).
-    _img_rows = (len(_imgs) + 3) // 4 if _imgs else 1
+    _nmedia = len(_imgs) + len(_vids)
+    _img_rows = (_nmedia + 3) // 4 if _nmedia else 1
     _left = 70 + (_img_rows * 118 + 90) + 300 + (max(1, len(_vars)) * 110 + 60)
     _right = 130 + (max(1, len(pubs or [])) * 44 + 60) + (200 + len(cols or []) * 34)
     _mf_h = 90 + len(metafields or []) * 78
@@ -1303,6 +1334,12 @@ def _guardar_todo(pid, data: dict):
     for _url in data.get("image_add_urls") or []:
         if _url:
             _ok, _e = _shop.agregar_imagen(pid, src=_url)
+            if not _ok:
+                _errs.append(_e)
+    # 5b) Videos marcados para eliminar (por media id). Se borran con eliminar_media.
+    for _vmid in data.get("video_delete") or []:
+        if _vmid:
+            _ok, _e = _shop.eliminar_media(pid, _vmid)
             if not _ok:
                 _errs.append(_e)
     # 6) Características / detalles (metacampos): crear / actualizar / eliminar.
@@ -1887,7 +1924,7 @@ def _render_editor(pid):
                 else:                               # guardado completo del formulario (+ fotos/videos PC)
                     with st.spinner("Guardando en Shopify…"):
                         _errs = _guardar_todo(pid, _data)
-                    if _data.get("pc_videos"):
+                    if _data.get("pc_videos") or _data.get("video_delete"):
                         st.session_state.pop("sw_edit_vid", None)   # refrescar galería de videos
                     if _errs:
                         st.session_state["sw_toast"] = "Guardado con avisos: " + " · ".join(str(x) for x in _errs[:3])
@@ -1901,12 +1938,8 @@ def _render_editor(pid):
                 _cargar_productos.clear()
                 st.rerun()
 
-    _form_html, _form_h = _build_editor_form(_p, _pubs, _prod_pubs_set, _cols, _cur_cols,
-                                             metafields=_mf_editable)
-    components.html(_form_html, height=int(_form_h), scrolling=False)   # el propio iframe se auto-ajusta
-    components.html(_SW_FLOAT_JS, height=0)   # botón flotante "Guardar y publicar"
-
-    # ── Videos ──
+    # Videos del producto (subidos + externos): se muestran DENTRO de la galería de
+    # medios, junto a las fotos (como en Shopify). Se cargan antes de armar el formulario.
     _vid = st.session_state.get("sw_edit_vid")
     if _vid is None or st.session_state.get("sw_edit_vid_pid") != str(pid):
         with st.spinner("Cargando videos…"):
@@ -1917,48 +1950,7 @@ def _render_editor(pid):
         st.session_state["sw_edit_vid"] = _vid
         st.session_state["sw_edit_vid_pid"] = str(pid)
 
-    # La sección Videos solo se muestra si el producto YA tiene videos (para verlos y
-    # eliminarlos). Para AGREGAR se usa el formulario de arriba (enlace o desde PC).
-    if _vid:
-        st.markdown(f'<div class="sw-sec">{_ic("video", "#0f172a", 16, 0)}Videos '
-                    f'<span style="color:#94a3b8;font-weight:800;">· {len(_vid)}</span></div>',
-                    unsafe_allow_html=True)
-        st.caption("Videos del producto (agregados por enlace o desde el PC en el formulario de arriba). "
-                   "Elimínalos con el botón de cada uno.")
-        _vn = 4
-        for _vbase in range(0, len(_vid), _vn):
-            _vrow = _vid[_vbase:_vbase + _vn]
-            _vcols = st.columns(_vn)
-            for _vj, vd in enumerate(_vrow):
-                with _vcols[_vj]:
-                    _pv = vd.get("preview_url", "")
-                    if _pv:
-                        st.markdown(
-                            f'<div class="sw-ph" style="position:relative;"><img src="{_he(_pv)}" alt="">'
-                            '<div style="position:absolute;inset:0;display:flex;align-items:center;'
-                            'justify-content:center;"><div style="width:38px;height:38px;border-radius:50%;'
-                            'background:rgba(15,23,42,.6);display:flex;align-items:center;justify-content:center;">'
-                            '<svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><polygon points="6 3 20 12 6 21 6 3"/></svg>'
-                            '</div></div></div>', unsafe_allow_html=True)
-                    else:
-                        st.markdown('<div class="sw-ph" style="display:flex;align-items:center;'
-                                    'justify-content:center;aspect-ratio:1/1;color:#94a3b8;font-size:0.72rem;'
-                                    'font-weight:700;">VIDEO</div>', unsafe_allow_html=True)
-                    _label = (vd.get("host") or ("Externo" if vd.get("type") == "EXTERNAL_VIDEO" else "Subido")).title()
-                    _st = vd.get("status")
-                    _ourl = vd.get("origin_url", "")
-                    st.markdown(
-                        f'<div style="text-align:center;font-size:0.68rem;color:#64748b;font-weight:700;">{_he(_label)}'
-                        + (f' · {_he(_st)}' if _st and _st != "READY" else "")
-                        + (f'<br><a href="{_he(_ourl)}" target="_blank" style="color:#5b7cfa;">ver</a>' if _ourl else "")
-                        + '</div>', unsafe_allow_html=True)
-                    if st.button("Eliminar", key=f"sw_ed_vdel_{vd.get('id')}", use_container_width=True,
-                                 icon=":material/delete:"):
-                        with st.spinner("Eliminando video…"):
-                            _ok, _e = _shop.eliminar_media(pid, vd.get("id"))
-                        if _ok:
-                            st.session_state.pop("sw_edit_vid", None)
-                            st.toast("Video eliminado.")
-                            st.rerun()
-                        else:
-                            st.error(_e)
+    _form_html, _form_h = _build_editor_form(_p, _pubs, _prod_pubs_set, _cols, _cur_cols,
+                                             metafields=_mf_editable, videos=_vid)
+    components.html(_form_html, height=int(_form_h), scrolling=False)   # el propio iframe se auto-ajusta
+    components.html(_SW_FLOAT_JS, height=0)   # botón flotante "Guardar y publicar"
