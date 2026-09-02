@@ -643,14 +643,20 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
 /* Imágenes */
 .ed-imgs{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px;}
 .ed-img{position:relative;aspect-ratio:1/1;border-radius:11px;overflow:hidden;background:#f1f5f9;border:1px solid #e8ebf3;
-  cursor:grab;user-select:none;}
+  cursor:pointer;user-select:none;}                 /* centro → clic para ampliar (dedito) */
 .ed-img.dragging{opacity:.4;cursor:grabbing;}
 .ed-img img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;}
 .ed-img .ed-del{position:absolute;top:5px;right:5px;width:26px;height:26px;border-radius:50%;border:none;
-  background:rgba(15,23,42,.62);color:#fff;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;}
+  background:rgba(15,23,42,.62);color:#fff;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:3;}
 .ed-img:hover .ed-del{display:flex;}
 .ed-img .ed-del svg{width:14px;height:14px;}
 .ed-img .ed-del:hover{background:#dc2626;}
+/* Manija de arrastre (grip) arriba a la derecha, a la izquierda de la X: cursor de "manito". */
+.ed-img .ed-drag{position:absolute;top:5px;right:36px;width:26px;height:26px;border-radius:7px;
+  background:rgba(15,23,42,.62);color:#fff;cursor:grab;display:none;align-items:center;justify-content:center;padding:0;z-index:3;}
+.ed-img:hover .ed-drag{display:flex;}
+.ed-img .ed-drag:active{cursor:grabbing;background:#5b7cfa;}
+.ed-img .ed-drag svg{width:15px;height:15px;pointer-events:none;}
 .ed-img .ed-princ{position:absolute;bottom:5px;left:5px;font-family:Montserrat,sans-serif;font-weight:800;font-size:8.5px;
   text-transform:uppercase;letter-spacing:.04em;background:#5b7cfa;color:#fff;border-radius:5px;padding:2px 6px;display:none;}
 .ed-img.is-princ .ed-princ{display:block;}
@@ -658,8 +664,9 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
 .ed-img.ed-deleted .ed-del{display:flex;background:#dc2626;}
 .ed-img.ed-new::after{content:'NUEVA';position:absolute;top:5px;left:5px;font-family:Montserrat;font-weight:800;font-size:8px;
   background:#16a34a;color:#fff;border-radius:5px;padding:2px 5px;letter-spacing:.03em;}
-/* Videos en la galería: mismo tile, con badge de reproducción; no se arrastran. */
-.ed-img.ed-video{cursor:default;}
+/* Videos en la galería: mismo tile, con badge de reproducción; clic para ampliar,
+   pero NO se arrastran (sin manija). */
+.ed-img.ed-video{cursor:pointer;}
 .ed-img.ed-video .ed-vph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;
   background:#0f172a;color:#cbd5e1;font-family:Montserrat,sans-serif;font-weight:800;font-size:0.72rem;letter-spacing:.06em;}
 .ed-img.ed-video .ed-vplay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:36px;
@@ -845,15 +852,24 @@ grid.addEventListener('click',function(e){
     else { tile.classList.toggle('ed-deleted'); }
     refreshPrincipal(); setDirty(); return;
   }
+  if(e.target.closest && e.target.closest('.ed-drag')) return;   // manija → no abrir visor
   var t=e.target.closest?e.target.closest('.ed-img'):null;  // click en el medio → previsualizar
   if(t && !t.classList.contains('ed-deleted')) openFs(t);
 });
+/* Arrastrar SOLO desde la manija (grip): se habilita draggable al presionarla y se
+   restaura al soltar. Así el centro queda como "clic para ampliar" (dedito). */
+grid.addEventListener('mousedown',function(e){
+  var h=e.target.closest?e.target.closest('.ed-drag'):null; if(!h) return;
+  var tile=h.closest('.ed-img'); if(tile) tile.setAttribute('draggable','true');
+});
+function _swResetDrag(){ [].slice.call(grid.querySelectorAll('.ed-img[draggable="true"]')).forEach(function(t){ t.setAttribute('draggable','false'); }); }
+doc.addEventListener('mouseup', _swResetDrag);
 var dragEl=null;
 grid.addEventListener('dragstart',function(e){
   var t=e.target.closest('.ed-img'); if(!t) return; dragEl=t;
   e.dataTransfer.effectAllowed='move'; setTimeout(function(){t.classList.add('dragging');},0);
 });
-grid.addEventListener('dragend',function(){ if(dragEl)dragEl.classList.remove('dragging'); dragEl=null; refreshPrincipal(); setDirty(); });
+grid.addEventListener('dragend',function(){ if(dragEl)dragEl.classList.remove('dragging'); dragEl=null; _swResetDrag(); refreshPrincipal(); setDirty(); });
 grid.addEventListener('dragover',function(e){
   e.preventDefault(); if(!dragEl) return;
   var t=e.target.closest('.ed-img'); if(!t||t===dragEl) return;
@@ -963,9 +979,10 @@ function openFs(startTile){
 /* ── Agregar foto por URL ── */
 function addUrl(){
   var inp=doc.getElementById('addurl'); var u=(inp.value||'').trim(); if(!u) return;
-  var d=doc.createElement('div'); d.className='ed-img ed-new'; d.setAttribute('draggable','true');
+  var d=doc.createElement('div'); d.className='ed-img ed-new'; d.setAttribute('draggable','false');
   d.setAttribute('data-new','1'); d.setAttribute('data-src',u);
-  d.innerHTML='<img src="'+u.replace(/"/g,'&quot;')+'" alt=""><button type="button" class="ed-del"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg></button><span class="ed-princ">Principal</span>';
+  var grip='<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></svg>';
+  d.innerHTML='<img src="'+u.replace(/"/g,'&quot;')+'" alt=""><span class="ed-drag" title="Arrastra para reordenar">'+grip+'</span><button type="button" class="ed-del"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg></button><span class="ed-princ">Principal</span>';
   grid.appendChild(d); inp.value=''; syncAdd(); refreshPrincipal(); setDirty();
 }
 var _addbtn=doc.getElementById('addbtn'), _addurl=doc.getElementById('addurl');
@@ -1222,11 +1239,15 @@ def _build_editor_form(p, pubs, prod_pubs, cols, cur_cols, metafields=None, vide
     _vids = videos or []
     _x = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>'
     _play = '<svg viewBox="0 0 24 24" fill="#fff"><polygon points="6 3 20 12 6 21 6 3"/></svg>'
+    _grip = ('<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.7"/>'
+             '<circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/>'
+             '<circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></svg>')
     _img_html = ""
     for im in _imgs:
         _src = _he(im.get("src", ""))
-        _img_html += (f'<div class="ed-img" draggable="true" data-id="{_he(im.get("id"))}">'
+        _img_html += (f'<div class="ed-img" draggable="false" data-id="{_he(im.get("id"))}">'
                       f'<img src="{_src}" alt="">'
+                      f'<span class="ed-drag" title="Arrastra para reordenar">{_grip}</span>'
                       f'<button type="button" class="ed-del">{_x}</button>'
                       '<span class="ed-princ">Principal</span></div>')
     # Videos (subidos desde el PC o por enlace): mismos tiles que las fotos, con un badge
