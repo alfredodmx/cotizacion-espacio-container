@@ -2061,6 +2061,16 @@ def _render_reordenar():
         st.warning(_err)
         return
 
+    # Resultado del último guardado (persistente, se muestra una vez para poder ver el
+    # error real de Shopify si algo falla).
+    _res = st.session_state.pop("sw_ord_result", None)
+    if _res:
+        if _res[0] == "ok":
+            st.success("Orden guardado en Shopify. Puede tardar unos segundos en reflejarse en la web.",
+                       icon=":material/check_circle:")
+        else:
+            st.error(f"Shopify no aceptó el nuevo orden: {_res[1]}", icon=":material/error:")
+
     # Puente de guardado del orden (input oculto sw_ordcmd; se auto-limpia tras procesar).
     if st.session_state.pop("_sw_reset_ordcmd", False):
         st.session_state["sw_ordcmd"] = ""
@@ -2072,16 +2082,25 @@ def _render_reordenar():
             st.session_state["_sw_reset_ordcmd"] = True
             _gids = [g for g in _obody.split(",") if g]
             if len(_gids) >= 2:
+                _errs = []
                 with st.spinner("Guardando el orden en Shopify…"):
-                    if _so and _so != "MANUAL":
-                        _shop.set_coleccion_manual(_cid)
+                    # La colección DEBE estar en orden Manual para poder fijar el orden. Lo
+                    # forzamos SIEMPRE (es idempotente): si ya está Manual, Shopify no cambia
+                    # nada; si estaba en automático (más vendidos, etc.), pasa a Manual. Sin
+                    # esto, collectionReorderProducts falla con "can only be reordered if
+                    # the collection sort order is 'Manually'".
+                    _okm, _em = _shop.set_coleccion_manual(_cid)
+                    if not _okm:
+                        _errs.append(_em)
                     _ok, _e = _shop.reordenar_productos_coleccion(_cid, _gids)
-                if _ok:
+                    if not _ok:
+                        _errs.append(_e)
+                if not _errs:
                     # Orden optimista: reflejarlo ya (el job async puede tardar al refetch).
                     st.session_state["sw_ord_saved"] = {"cid": _cid, "gids": _gids}
-                    st.session_state["sw_toast"] = "Orden guardado. Puede tardar unos segundos en verse en la web."
+                    st.session_state["sw_ord_result"] = ("ok", None)
                 else:
-                    st.session_state["sw_toast"] = f"No se pudo guardar el orden: {_e}"
+                    st.session_state["sw_ord_result"] = ("err", " · ".join(str(x) for x in _errs if x))
                 st.rerun()
 
     if not _prods:
