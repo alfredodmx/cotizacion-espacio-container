@@ -20,27 +20,40 @@ def _ahora() -> str:
 
 
 def registrar_correo(cliente_id, resend_id, para, asunto,
-                     enviado_por="", adjuntos=0, campana_id=None) -> tuple:
+                     enviado_por="", adjuntos=0, campana_id=None,
+                     cuerpo="", adjuntos_nombres=None) -> tuple:
     """Guarda un correo enviado (para el seguimiento). `campana_id` agrupa los correos
-    de un mismo envío masivo (para el reporte por campaña). Devuelve (id, err). DEFENSIVO."""
+    de un mismo envío masivo (para el reporte por campaña). `cuerpo` (HTML/texto enviado)
+    y `adjuntos_nombres` (lista de nombres de archivo) permiten «Ver correo» en la ficha.
+    Devuelve (id, err). DEFENSIVO: si faltan las columnas nuevas (ALTER no corrido),
+    reintenta sin ellas para no perder el seguimiento."""
+    cid = str(uuid.uuid4())
+    _base = {
+        "id": cid,
+        "cliente_id": str(cliente_id) if cliente_id else None,
+        "resend_id": str(resend_id or ""),
+        "para": str(para or ""),
+        "asunto": str(asunto or ""),
+        "enviado_por": str(enviado_por or ""),
+        "adjuntos": int(adjuntos or 0),
+        "fecha": _ahora(),
+    }
+    if campana_id:
+        _base["campana_id"] = str(campana_id)
+    _full = dict(_base)
+    if cuerpo:
+        _full["cuerpo"] = str(cuerpo)
+    if adjuntos_nombres:
+        _full["adjuntos_nombres"] = ", ".join(str(n) for n in adjuntos_nombres if str(n or "").strip())
     try:
-        cid = str(uuid.uuid4())
-        _row = {
-            "id": cid,
-            "cliente_id": str(cliente_id) if cliente_id else None,
-            "resend_id": str(resend_id or ""),
-            "para": str(para or ""),
-            "asunto": str(asunto or ""),
-            "enviado_por": str(enviado_por or ""),
-            "adjuntos": int(adjuntos or 0),
-            "fecha": _ahora(),
-        }
-        if campana_id:
-            _row["campana_id"] = str(campana_id)
-        _supa.table("crm_correos").insert(_row).execute()
+        _supa.table("crm_correos").insert(_full).execute()
         return cid, None
-    except Exception as e:
-        return None, str(e)
+    except Exception:
+        try:                                   # reintento sin las columnas nuevas
+            _supa.table("crm_correos").insert(_base).execute()
+            return cid, None
+        except Exception as e:
+            return None, str(e)
 
 
 def listar_correos_cliente(cliente_id) -> list:

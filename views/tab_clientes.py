@@ -2583,9 +2583,41 @@ def _correo_estado_meta(c: dict):
     return _CORREO_META.get(_ev, _CORREO_META["sent"])
 
 
+def _ver_correo_panel(c: dict):
+    """Panel desplegable con el CONTENIDO del correo enviado (cuerpo + adjuntos), para
+    «Ver correo». El cuerpo se guarda en crm_correos desde los envíos nuevos."""
+    with st.container(border=True):
+        _clip = _svg('<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 '
+                     '5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>', 13, "#64748b")
+        _meta = f'Para: {_esc(c.get("para") or "—")}'
+        if c.get("enviado_por"):
+            _meta += f' &middot; Enviado por: {_esc(c.get("enviado_por"))}'
+        _meta += f' &middot; {_esc(_fmt_fecha_local(c.get("fecha")))}'
+        st.markdown(f'<div style="font-size:0.72rem;color:#64748b;font-weight:600;margin-bottom:6px;">'
+                    f'{_meta}</div>', unsafe_allow_html=True)
+        _adjn = str(c.get("adjuntos_nombres") or "").strip()
+        if _adjn:
+            st.markdown('<div style="font-size:0.74rem;color:#334155;font-weight:700;margin-bottom:8px;'
+                        f'display:flex;align-items:center;gap:6px;">{_clip} Adjuntos: {_esc(_adjn)}</div>',
+                        unsafe_allow_html=True)
+        elif c.get("adjuntos"):
+            st.markdown('<div style="font-size:0.74rem;color:#334155;font-weight:700;margin-bottom:8px;'
+                        f'display:flex;align-items:center;gap:6px;">{_clip} {int(c.get("adjuntos"))} '
+                        'adjunto(s)</div>', unsafe_allow_html=True)
+        _cuerpo = str(c.get("cuerpo") or "").strip()
+        if _cuerpo:
+            _bhtml = _cuerpo if _parece_html(_cuerpo) else _resend_texto_html(_cuerpo)
+            components.html('<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;'
+                            'font-size:13px;color:#1a1d2e;line-height:1.5;padding:4px 8px;">'
+                            + _bhtml + '</div>', height=320, scrolling=True)
+        else:
+            st.caption("El contenido de este correo no quedó guardado (se guarda desde los envíos nuevos).")
+
+
 def _render_correos_enviados(cid, cli=None):
     """Sección 'Correos enviados': contador + estado por correo (entregado/abierto/
-    click/rebote/spam) que llega EN VIVO por el webhook de Resend, + aviso de baja."""
+    click/rebote/spam) que llega EN VIVO por el webhook de Resend, + botón «Ver correo»
+    para leer el contenido + adjuntos, + aviso de baja."""
     _cors = _listar_correos_cliente(cid)
     if not _cors:
         return
@@ -2604,7 +2636,6 @@ def _render_correos_enviados(cid, cli=None):
             except Exception:
                 pass
             st.toast("Estado de correos actualizado.")
-    _rows = ""
     for c in _cors:
         _lbl, _bg, _fg = _correo_estado_meta(c)
         _adj = (f' · {c.get("adjuntos")} adjunto(s)' if c.get("adjuntos") else "")
@@ -2633,19 +2664,28 @@ def _render_correos_enviados(cid, cli=None):
                 for u in _curls)
             _click_html = (f'<div style="font-size:0.66rem;color:#94a3b8;font-weight:700;'
                            f'margin-top:4px;">{_lbl_c}</div>{_links}')
-        _rows += (
-            '<div class="cli-ep-row">'
-            f'<div style="min-width:0;"><div style="font-size:0.84rem;color:#0f172a;font-weight:600;'
-            f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_esc(c.get("asunto") or "(sin asunto)")}</div>'
-            f'<div style="font-size:0.72rem;color:#94a3b8;">{_esc(_fmt_fecha_local(c.get("fecha")))}{_esc(_adj)}</div>'
-            f'{_chips_html}{_click_html}</div>'
-            f'<span class="cli-pill" style="background:{_bg};color:{_fg};">{_lbl}</span>'
-            '</div>')
+        _rc1, _rc2 = st.columns([6, 1.15], vertical_alignment="center")
+        with _rc1:
+            st.markdown(
+                '<div class="cli-ep-row" style="padding:8px 2px;">'
+                f'<div style="min-width:0;"><div style="font-size:0.84rem;color:#0f172a;font-weight:600;'
+                f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_esc(c.get("asunto") or "(sin asunto)")}</div>'
+                f'<div style="font-size:0.72rem;color:#94a3b8;">{_esc(_fmt_fecha_local(c.get("fecha")))}{_esc(_adj)}</div>'
+                f'{_chips_html}{_click_html}</div>'
+                f'<span class="cli-pill" style="background:{_bg};color:{_fg};">{_lbl}</span>'
+                '</div>', unsafe_allow_html=True)
+        with _rc2:
+            if st.button("Ver", key=f"_cli_vc_{c.get('id')}", use_container_width=True,
+                         icon=":material/visibility:", help="Ver el contenido del correo y sus adjuntos"):
+                _cur = st.session_state.get("_cli_vercorreo")
+                st.session_state["_cli_vercorreo"] = None if _cur == c.get("id") else c.get("id")
+                st.rerun(scope="fragment")
+        if st.session_state.get("_cli_vercorreo") == c.get("id"):
+            _ver_correo_panel(c)
     _baja_html = ('<div style="font-size:0.72rem;color:#b91c1c;font-weight:700;margin-top:4px;">'
                   '⛔ Este cliente se dio de baja — no recibirá correos masivos.</div>'
                   if (cli and cli.get("no_email")) else "")
-    st.markdown('<div style="border:1px solid #e6e9f4;border-radius:12px;overflow:hidden;">'
-                + _rows + '</div>' + _baja_html
+    st.markdown(_baja_html
                 + '<div style="font-size:0.72rem;color:#94a3b8;margin-top:4px;">'
                 'El estado (entregado/abierto/click/rebote/spam) se actualiza en vivo por el webhook '
                 'de Resend. Las respuestas llegan a tu buzón, no aparecen acá.</div>',
@@ -2751,8 +2791,11 @@ def _render_correo(cid, cli):
                         _adj = f" · {len(_att)} adjunto(s)" if _att else ""
                         registrar_actividad(cid, "correo", f"Correo enviado: {_subject}",
                                             detalle=(_texto[:200] + _adj), actor=_actor)
-                        # Guardar para el seguimiento (estado/entregado/click/rebote).
-                        _registrar_correo(cid, _res, _to, _subject, _actor, len(_att))
+                        # Guardar para el seguimiento (estado/entregado/click/rebote) + el
+                        # cuerpo y los adjuntos para poder «Ver correo» en la ficha.
+                        _registrar_correo(cid, _res, _to, _subject, _actor, len(_att),
+                                          cuerpo=_texto,
+                                          adjuntos_nombres=[_a.get("filename") for _a in (_att or [])])
                         st.session_state.pop("_cli_mail_open", None)
                         for _k in ("_cli_mail_subj", "_cli_mail_body", "_cli_mail_files"):
                             st.session_state.pop(_k, None)
@@ -3047,6 +3090,7 @@ def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None, segmento
     _es_html = _parece_html(body_tpl) if es_html is None else bool(es_html)
     _att = adjuntos or None
     _n_att = len(_att) if _att else 0
+    _att_nombres = [a.get("filename") for a in (_att or [])]
     _camp_id = _crear_campana(subj_tpl, segmento_desc, actor, len(segmento),
                               nombre=nombre, plantilla=body_tpl, es_html=_es_html) or None
     res["campana_id"] = _camp_id
@@ -3058,18 +3102,19 @@ def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None, segmento
         _html = ((_cuerpo if _es_html else _resend_texto_html(_cuerpo))
                  + _firma_html(_reply, masivo=True) + _resend_pie(_cli.get("id")))
         _hdr = {"List-Unsubscribe": f"<{_resend_unsub(_cli.get('id'))}>"}
-        return _subj, _html, _reply, _hdr
+        return _subj, _html, _reply, _hdr, _cuerpo
 
     # CON adjuntos → uno por uno (el batch no soporta adjuntos).
     if _att:
         for _cli in segmento:
             _to = (_cli.get("email") or "").strip()
-            _subj, _html, _reply, _hdr = _componer(_cli)
+            _subj, _html, _reply, _hdr, _cuerpo = _componer(_cli)
             _ok, _r = _resend_enviar(_to, _subj, _html, reply_to=(_reply or None),
                                      attachments=_att, headers=_hdr)
             if _ok:
                 res["enviados"] += 1
-                _registrar_correo(_cli.get("id"), _r, _to, _subj, actor, _n_att, campana_id=_camp_id)
+                _registrar_correo(_cli.get("id"), _r, _to, _subj, actor, _n_att, campana_id=_camp_id,
+                                  cuerpo=_cuerpo, adjuntos_nombres=_att_nombres)
             else:
                 res["fallidos"] += 1
         return res
@@ -3084,11 +3129,12 @@ def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None, segmento
         _ids = []
         if _ok and isinstance(_r, dict):
             _ids = [x.get("id", "") for x in (_r.get("data") or [])]
-        for _i, (_cli, _subj) in enumerate(_meta):
+        for _i, (_cli, _subj, _cuerpo) in enumerate(_meta):
             if _ok:
                 res["enviados"] += 1
                 _registrar_correo(_cli.get("id"), (_ids[_i] if _i < len(_ids) else ""),
-                                  _cli.get("email", ""), _subj, actor, 0, campana_id=_camp_id)
+                                  _cli.get("email", ""), _subj, actor, 0, campana_id=_camp_id,
+                                  cuerpo=_cuerpo)
             else:
                 res["fallidos"] += 1
         _buf.clear()
@@ -3096,12 +3142,12 @@ def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None, segmento
 
     for _cli in segmento:
         _to = (_cli.get("email") or "").strip()
-        _subj, _html, _reply, _hdr = _componer(_cli)
+        _subj, _html, _reply, _hdr, _cuerpo = _componer(_cli)
         _msg = {"from": _from, "to": [_to], "subject": _subj, "html": _html, "headers": _hdr}
         if _reply:
             _msg["reply_to"] = _reply
         _buf.append(_msg)
-        _meta.append((_cli, _subj))
+        _meta.append((_cli, _subj, _cuerpo))
         if len(_buf) >= 100:
             _flush()
     _flush()
@@ -4795,6 +4841,7 @@ def render_tab_clientes(**kwargs):
                 st.session_state.pop("_cli_act_res", None)
                 st.session_state.pop("_cli_mail_open", None)
                 st.session_state.pop("_cli_edit", None)
+                st.session_state.pop("_cli_vercorreo", None)
             elif _p[0] == "nuevo" and len(_p) >= 3:
                 # Crear presupuesto para este cliente (menú contextual pipeline/maestro).
                 _cobj = next((d for d in data if str(d.get("id")) == _p[1]), None)
