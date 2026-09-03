@@ -4632,11 +4632,12 @@ def _render_ficha(cid: str, data: list):
                              "detalle": _est, "fecha": _co.get("fecha"),
                              "actor": _co.get("enviado_por") or "sistema"})
         # CAMPAÑAS de mailing enviadas a este cliente → hito del timeline.
-        for _cp in (cli.get("_campanas") or []):
-            _est = _CORREO_META.get(str(_cp.get("last_event") or "").strip(), _CORREO_META["sent"])[0]
+        # (Ojo: NO usar `_cp` como variable: choca con la función `_cp` de campos copiables.)
+        for _cev in (cli.get("_campanas") or []):
+            _est = _CORREO_META.get(str(_cev.get("last_event") or "").strip(), _CORREO_META["sent"])[0]
             _eventos.append({"tipo": "campana",
-                             "titulo": f"Campaña · {_cp.get('nombre') or 'Campaña'}",
-                             "detalle": _est, "fecha": _cp.get("fecha"),
+                             "titulo": f"Campaña · {_cev.get('nombre') or 'Campaña'}",
+                             "detalle": _est, "fecha": _cev.get("fecha"),
                              "actor": "marketing"})
         _eventos.sort(key=lambda e: str(e.get("fecha") or ""), reverse=True)  # reciente arriba
         if _eventos:
