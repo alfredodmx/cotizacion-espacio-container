@@ -4613,15 +4613,36 @@ def _render_ficha(cid: str, data: list):
                     "titulo": f"Presupuesto {_co.get('numero', '') or ''}".strip(),
                     "detalle": f"{_co.get('estado', '')} · {_fmt_money(_co.get('total'))}",
                     "fecha": _co.get("fecha"), "actor": "sistema"})
-        for a in _acts:                       # actividades ya registradas
+        _cors_tl = _listar_correos_cliente(cid)   # envíos reales (individual + campaña)
+        _hay_cors = bool(_cors_tl)
+        for a in _acts:                       # actividades registradas (el envío de correo
+            # se agrega desde crm_correos → evita duplicar, salvo que no haya tracking).
+            if a.get("tipo") == "correo" and _hay_cors:
+                continue
             _eventos.append({"tipo": a.get("tipo"), "titulo": a.get("titulo", ""),
                              "detalle": a.get("detalle", ""), "fecha": a.get("fecha"),
                              "actor": a.get("actor", "") or "sistema"})
+        # Correos INDIVIDUALES enviados (crm_correos sin campaña) → hito del timeline.
+        for _co in _cors_tl:
+            if _co.get("campana_id"):
+                continue                       # las campañas van aparte (con su nombre)
+            _est = _CORREO_META.get(str(_co.get("last_event") or "").strip(), _CORREO_META["sent"])[0]
+            _eventos.append({"tipo": "correo",
+                             "titulo": f"Correo · {_co.get('asunto') or '(sin asunto)'}",
+                             "detalle": _est, "fecha": _co.get("fecha"),
+                             "actor": _co.get("enviado_por") or "sistema"})
+        # CAMPAÑAS de mailing enviadas a este cliente → hito del timeline.
+        for _cp in (cli.get("_campanas") or []):
+            _est = _CORREO_META.get(str(_cp.get("last_event") or "").strip(), _CORREO_META["sent"])[0]
+            _eventos.append({"tipo": "campana",
+                             "titulo": f"Campaña · {_cp.get('nombre') or 'Campaña'}",
+                             "detalle": _est, "fecha": _cp.get("fecha"),
+                             "actor": "marketing"})
         _eventos.sort(key=lambda e: str(e.get("fecha") or ""), reverse=True)  # reciente arriba
         if _eventos:
             _TL_ICON = {"correo": "#5b7cfa", "presupuesto": "#7F77DD", "nota": "#94a3b8",
                         "etapa": "#EF9F27", "lead": "#888780", "llamada": "#1D9E75",
-                        "whatsapp": "#22c55e"}
+                        "whatsapp": "#22c55e", "campana": "#ec4899"}
             _tl = ""
             for a in _eventos:
                 _c = _TL_ICON.get(str(a.get("tipo") or ""), "#94a3b8")
