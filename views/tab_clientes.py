@@ -870,27 +870,37 @@ def _fmt_fecha_local(iso_str) -> str:
 
 
 # ── Actividades (tareas) tipo CRM: tipos + hora + resultado de llamada ────────
-_ACT_TIPOS = ["llamada", "reunion", "correo", "tarea"]
+_ACT_TIPOS = ["llamada", "whatsapp", "reunion", "correo", "tarea"]
 _ACT_META = {   # tipo -> (label, svg_path)
     "llamada": ("Llamada", '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>'),
+    "whatsapp": ("WhatsApp", '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/>'),
     "reunion": ("Reunión", '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
     "correo":  ("Correo", '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>'),
     "tarea":   ("Tarea", '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'),
 }
-_ACT_MAT = {"llamada": ":material/call:", "reunion": ":material/groups:",
-            "correo": ":material/mail:", "tarea": ":material/task_alt:"}
+_ACT_MAT = {"llamada": ":material/call:", "whatsapp": ":material/chat:",
+            "reunion": ":material/groups:", "correo": ":material/mail:",
+            "tarea": ":material/task_alt:"}
 _RESULT_META = {  # resultado -> (label, bg, fg)
     "contesto": ("Contestó", "#dcfce7", "#15803d"),
     "no_contesto": ("No contestó", "#fef3c7", "#b45309"),
     "se_corto": ("Se cortó", "#ffedd5", "#c2410c"),
     "llamar_tarde": ("Llamar más tarde", "#e0e7ff", "#4338ca"),
     "no_interesado": ("No interesado", "#fee2e2", "#b91c1c"),
+    "info": ("Info enviada", "#dbeafe", "#1d4ed8"),
+    "cotizacion": ("Cotización enviada", "#dbeafe", "#1d4ed8"),
+    "sin_wa": ("Sin WhatsApp", "#f1f5f9", "#475569"),
 }
 # Motivos de "no pude hablar" (todos reagendan). label -> código de resultado.
 _REINTENTO_MOTIVOS = {
     "No contestó": "no_contesto",
     "Se cortó la llamada": "se_corto",
     "Llamar más tarde": "llamar_tarde",
+}
+# Variante WhatsApp de los motivos de reintento (mismos códigos, textos del canal).
+_REINTENTO_MOTIVOS_WA = {
+    "No respondió": "no_contesto",
+    "Me pidió escribirle después": "llamar_tarde",
 }
 _TIPO_CAMPO_LABEL = {
     "texto": "Texto", "numero": "Número / monto",
@@ -2237,10 +2247,11 @@ def _do_asignar_bulk(clis, email) -> int:
     return len(_ok)
 
 
-def _crear_reintento(cid, cli, titulo, actor, cuando) -> str:
-    """Crea una llamada de reintento (`cuando` = '1h' | '2h' | 'manana'), registra
-    la reagenda en la línea de tiempo y avisa (campana + Telegram). Devuelve el ISO
-    del nuevo vencimiento. Compartido por el panel de Resultado y el form de alta."""
+def _crear_reintento(cid, cli, titulo, actor, cuando, canal="llamada") -> str:
+    """Crea un reintento de contacto (`cuando` = '1h' | '2h' | 'manana'), registra la
+    reagenda en la línea de tiempo y avisa (campana + Telegram). `canal` = 'llamada' o
+    'whatsapp'. Devuelve el ISO del nuevo vencimiento. Compartido por el panel de
+    Resultado y el form de alta."""
     if cuando == "manana":
         _nx = (_ahora_scl() + _td(days=1)).replace(hour=9, minute=0, second=0, microsecond=0)
     else:
@@ -2248,24 +2259,30 @@ def _crear_reintento(cid, cli, titulo, actor, cuando) -> str:
         _nx = (_ahora_scl() + _td(hours=_h)).replace(second=0, microsecond=0)
     _iso = _nx.isoformat()
     _t = (titulo or "").strip()
-    _tt = f"Volver a llamar — {_t}" if _t else "Volver a llamar"
-    crear_tarea(cid, _tt, _iso, cli.get("asignado_email", ""), tipo="llamada")
-    registrar_actividad(cid, "llamada", "Llamada — reagendada",
+    _es_wa = (canal == "whatsapp")
+    _nom = "WhatsApp" if _es_wa else "Llamada"
+    _verb = "escribir" if _es_wa else "llamar"
+    _tt = f"Volver a {_verb} — {_t}" if _t else f"Volver a {_verb}"
+    crear_tarea(cid, _tt, _iso, cli.get("asignado_email", ""), tipo=canal)
+    registrar_actividad(cid, canal, f"{_nom} — reagendada",
                         detalle=_fmt_fecha_local(_iso), actor=actor)
     notificar_recordatorio(cli.get("nombre", "Cliente"),
-                           f"Volver a llamar: {_t}" if _t else "Volver a llamar",
+                           f"Volver a {_verb}: {_t}" if _t else f"Volver a {_verb}",
                            _fmt_fecha_local(_iso), cli.get("asignado_email", ""))
     _crear_notif(_notif_dest(cli),
-                 f"Volver a llamar · {cli.get('nombre','Cliente')}" + (f": {_t}" if _t else ""),
-                 tipo="llamada", detalle=_fmt_fecha_local(_iso), cliente_id=cid)
+                 f"Volver a {_verb} · {cli.get('nombre','Cliente')}" + (f": {_t}" if _t else ""),
+                 tipo=canal, detalle=_fmt_fecha_local(_iso), cliente_id=cid)
     return _iso
 
 
-def _guardar_contesto(cid, cli, tid, valores, preguntas, actor) -> None:
-    """Marca la llamada como 'contestó', guarda la calificación EN el cliente (si
-    hay respuestas) y registra el evento con un resumen. Compartido por el panel de
-    Resultado y el form de alta."""
+def _guardar_contesto(cid, cli, tid, valores, preguntas, actor, canal="llamada") -> None:
+    """Marca el contacto como 'contestó/respondió', guarda la calificación EN el cliente
+    (si hay respuestas) y registra el evento con un resumen. `canal` = 'llamada' o
+    'whatsapp'. Compartido por el panel de Resultado y el form de alta."""
     completar_tarea(tid, True, "contesto")
+    _es_wa = (canal == "whatsapp")
+    _nom = "WhatsApp" if _es_wa else "Llamada"
+    _verbo = "respondió" if _es_wa else "contestó"
     _resumen = ""
     if valores:
         _ok, _merged = guardar_calificacion(cid, valores)
@@ -2273,11 +2290,11 @@ def _guardar_contesto(cid, cli, tid, valores, preguntas, actor) -> None:
             cli["calificacion"] = _merged   # refleja al toque en la ficha abierta
             _cli_data.clear()
         else:
-            st.toast("La llamada se marcó, pero no se pudo guardar la calificación "
+            st.toast("El contacto se marcó, pero no se pudo guardar la calificación "
                      "(falta la columna 'calificacion').", icon="⚠️")
         _resumen = _resumen_calificacion(valores, preguntas)
-    registrar_actividad(cid, "llamada",
-                        "Llamada — contestó (calificado)" if _resumen else "Llamada — contestó",
+    registrar_actividad(cid, canal,
+                        f"{_nom} — {_verbo} (calificado)" if _resumen else f"{_nom} — {_verbo}",
                         detalle=_resumen, actor=actor)
 
 
@@ -2775,7 +2792,7 @@ def _render_actividad(cid, cli, t):
             f'<span style="font-size:0.72rem;color:#94a3b8;">{_cuando} {_esc(_fmt_fecha_local(vence))}</span>'
             '</div>', unsafe_allow_html=True)
     with rc2:
-        if not hecho and tipo == "llamada":
+        if not hecho and tipo in ("llamada", "whatsapp"):
             if st.button("Resultado", key=f"_cli_res_{tid}", use_container_width=True):
                 _cur = st.session_state.get("_cli_act_res")
                 st.session_state["_cli_act_res"] = None if _cur == tid else tid
@@ -2786,15 +2803,18 @@ def _render_actividad(cid, cli, t):
                 registrar_actividad(cid, "nota", f"{_lbl} realizada: {t.get('titulo','')}")
                 st.rerun(scope="fragment")
 
-    # Panel de resultado (solo llamadas pendientes, cuando está abierto).
-    if (not hecho) and tipo == "llamada" and st.session_state.get("_cli_act_res") == tid:
+    # Panel de resultado (llamadas/WhatsApp pendientes, cuando está abierto).
+    if (not hecho) and tipo in ("llamada", "whatsapp") and st.session_state.get("_cli_act_res") == tid:
         _actor = st.session_state.get("auth_nombre") or st.session_state.get("auth_email", "")
         _titulo = t.get("titulo", "")
+        _es_wa = (tipo == "whatsapp")
+        _canal_nom = "WhatsApp" if _es_wa else "Llamada"
         with st.container(border=True):
             # ── Sub-panel: CONTESTÓ → captura del guión de calificación ──
             if st.session_state.get("_cli_res_cal") == tid:
                 st.markdown('<div class="cli-sec-t" style="margin:0 0 4px;">'
-                            'Contestó — captura del guión</div>', unsafe_allow_html=True)
+                            + ("Respondió" if _es_wa else "Contestó") + ' — captura del guión</div>',
+                            unsafe_allow_html=True)
                 _vals, _pregs = _guion_inputs(cli, f"_resq_{cid}")
                 if not _pregs:
                     st.info("Aún no hay preguntas configuradas. El admin puede crearlas "
@@ -2803,7 +2823,7 @@ def _render_actividad(cid, cli, t):
                 with gb1:
                     if st.button("Guardar", key=f"_cli_calsave_{tid}", type="primary",
                                  use_container_width=True, icon=":material/save:"):
-                        _guardar_contesto(cid, cli, tid, _vals, _pregs, _actor)
+                        _guardar_contesto(cid, cli, tid, _vals, _pregs, _actor, canal=tipo)
                         st.session_state.pop("_cli_res_cal", None)
                         st.session_state.pop("_cli_act_res", None)
                         st.toast("Calificación guardada")
@@ -2815,40 +2835,42 @@ def _render_actividad(cid, cli, t):
             else:
                 o1, o2 = st.columns(2)
                 with o1:
-                    if st.button("Contestó", key=f"_cli_rok_{tid}", type="primary",
-                                 use_container_width=True, icon=":material/check_circle:"):
-                        # Con guión → abre la captura; sin guión → marca contestó directo.
+                    if st.button("Respondió" if _es_wa else "Contestó", key=f"_cli_rok_{tid}",
+                                 type="primary", use_container_width=True, icon=":material/check_circle:"):
+                        # Con guión → abre la captura; sin guión → marca contestó/respondió directo.
                         if _preguntas_data():
                             st.session_state["_cli_res_cal"] = tid
                         else:
-                            _guardar_contesto(cid, cli, tid, None, [], _actor)
+                            _guardar_contesto(cid, cli, tid, None, [], _actor, canal=tipo)
                             st.session_state.pop("_cli_act_res", None)
-                            st.toast("Marcado: contestó")
+                            st.toast("Marcado: " + ("respondió" if _es_wa else "contestó"))
                         st.rerun(scope="fragment")
                 with o2:
                     if st.button("No interesado", key=f"_cli_rno_{tid}",
                                  use_container_width=True, icon=":material/block:"):
                         completar_tarea(tid, True, "no_interesado")
-                        registrar_actividad(cid, "llamada", "Llamada — no interesado",
+                        registrar_actividad(cid, tipo, f"{_canal_nom} — no interesado",
                                             detalle=_titulo, actor=_actor)
                         st.session_state.pop("_cli_act_res", None)
                         st.rerun(scope="fragment")
                 st.markdown('<div style="font-size:0.72rem;color:#94a3b8;margin:6px 0 2px;">'
-                            'No pude hablar → motivo + volver a llamar:</div>',
+                            + ("No pude escribirle → motivo + volver a contactar:" if _es_wa
+                               else "No pude hablar → motivo + volver a llamar:") + '</div>',
                             unsafe_allow_html=True)
-                _motivo = st.selectbox("Motivo", list(_REINTENTO_MOTIVOS.keys()),
+                _motivos_map = _REINTENTO_MOTIVOS_WA if _es_wa else _REINTENTO_MOTIVOS
+                _motivo = st.selectbox("Motivo", list(_motivos_map.keys()),
                                        key=f"_cli_rmot_{tid}", label_visibility="collapsed")
-                _code = _REINTENTO_MOTIVOS[_motivo]
+                _code = _motivos_map[_motivo]
                 n1, n2, n3 = st.columns(3)
                 for _cw, (_ol, _cuando) in zip((n1, n2, n3),
                                                [("En 1 h", "1h"), ("En 2 h", "2h"), ("Mañana", "manana")]):
                     with _cw:
                         if st.button(_ol, key=f"_cli_rre_{tid}_{_cuando}", use_container_width=True):
                             completar_tarea(tid, True, _code)
-                            registrar_actividad(cid, "llamada",
-                                                f"Llamada — {_RESULT_META[_code][0].lower()}",
+                            registrar_actividad(cid, tipo,
+                                                f"{_canal_nom} — {_RESULT_META[_code][0].lower()}",
                                                 detalle=_titulo, actor=_actor)
-                            _crear_reintento(cid, cli, _titulo, _actor, _cuando)
+                            _crear_reintento(cid, cli, _titulo, _actor, _cuando, canal=tipo)
                             st.session_state.pop("_cli_act_res", None)
                             st.toast("Reagendado")
                             st.rerun(scope="fragment")
@@ -4352,27 +4374,51 @@ def _render_ficha(cid: str, data: list):
                 _tipo = st.radio("Tipo", _ACT_TIPOS, key="_cli_act_tipo", horizontal=True,
                                  format_func=lambda t: f"{_ACT_MAT.get(t, '')} {_ACT_META[t][0]}")
 
-                if _tipo == "llamada":
-                    _CALL_ESTADOS = {
-                        "Contestó — calificar": "contesto",
-                        "No contestó": "no_contesto",
-                        "Se cortó la llamada": "se_corto",
-                        "Llamar más tarde": "llamar_tarde",
-                        "No interesado": "no_interesado",
-                        "Programar recordatorio de llamada": "__prog__",
-                    }
-                    _estado = st.selectbox("Estado de la llamada", list(_CALL_ESTADOS.keys()),
+                if _tipo in ("llamada", "whatsapp"):
+                    # LLAMADA y WHATSAPP comparten el flujo: estado → guión/reagendar/
+                    # recordatorio. Solo cambian los textos y las opciones de estado.
+                    _es_wa = (_tipo == "whatsapp")
+                    _canal_nom = "WhatsApp" if _es_wa else "Llamada"
+                    if _es_wa:
+                        _CH_ESTADOS = {
+                            "Respondió — calificar": "contesto",
+                            "Le envié información / catálogo": "info",
+                            "Le envié la cotización": "cotizacion",
+                            "Envié mensaje (sin respuesta)": "no_contesto",
+                            "No tiene WhatsApp / número inválido": "sin_wa",
+                            "No interesado": "no_interesado",
+                            "Programar recordatorio de WhatsApp": "__prog__",
+                        }
+                        _est_lbl = "Estado del WhatsApp"
+                    else:
+                        _CH_ESTADOS = {
+                            "Contestó — calificar": "contesto",
+                            "No contestó": "no_contesto",
+                            "Se cortó la llamada": "se_corto",
+                            "Llamar más tarde": "llamar_tarde",
+                            "No interesado": "no_interesado",
+                            "Programar recordatorio de llamada": "__prog__",
+                        }
+                        _est_lbl = "Estado de la llamada"
+                    _CH_LBL = {"contesto": ("respondió" if _es_wa else "contestó"),
+                               "no_contesto": ("sin respuesta" if _es_wa else "no contestó"),
+                               "se_corto": "se cortó", "llamar_tarde": "llamar más tarde",
+                               "no_interesado": "no interesado", "info": "envié información",
+                               "cotizacion": "envié cotización", "sin_wa": "sin WhatsApp"}
+                    _estado = st.selectbox(_est_lbl, list(_CH_ESTADOS.keys()),
                                            key="_cli_actnew_estado")
-                    _code = _CALL_ESTADOS[_estado]
+                    _code = _CH_ESTADOS[_estado]
                     st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
 
                     if _code == "__prog__":
                         # Recordatorio: motivo + fecha + hora.
-                        st.markdown('<div class="cli-actf-hint">Programa la próxima llamada. Se '
-                                    'te avisará por la campana y por Telegram.</div>',
+                        st.markdown('<div class="cli-actf-hint">Programa el próximo '
+                                    + ("WhatsApp" if _es_wa else "llamado") +
+                                    '. Se te avisará por la campana y por Telegram.</div>',
                                     unsafe_allow_html=True)
                         _mot = st.text_input("Motivo del recordatorio", key="_cli_act_titulo",
-                                             placeholder="Ej: Llamar para cerrar el presupuesto")
+                                             placeholder=("Ej: Escribir para enviar el catálogo" if _es_wa
+                                                          else "Ej: Llamar para cerrar el presupuesto"))
                         pc1, pc2 = st.columns(2)
                         with pc1:
                             _af = st.date_input("Fecha", value=_date.today(),
@@ -4387,64 +4433,71 @@ def _render_ficha(cid: str, data: list):
                             else:
                                 _vence = _mk_vence(_af, _ah)
                                 _tid, _terr = crear_tarea(cid, _mot.strip(), _vence,
-                                                          cli.get("asignado_email", ""), tipo="llamada")
+                                                          cli.get("asignado_email", ""), tipo=_tipo)
                                 if _tid:
-                                    registrar_actividad(cid, "nota", f"Llamada agendada: {_mot.strip()}",
+                                    registrar_actividad(cid, "nota", f"{_canal_nom} agendado: {_mot.strip()}",
                                                         detalle=_fmt_fecha_local(_vence), actor=_actor)
                                     _n = notificar_recordatorio(cli.get("nombre", "Cliente"),
-                                                                f"Llamada: {_mot.strip()}",
+                                                                f"{_canal_nom}: {_mot.strip()}",
                                                                 _fmt_fecha_local(_vence),
                                                                 cli.get("asignado_email", ""))
                                     _crear_notif(_notif_dest(cli),
-                                                 f"Llamada · {cli.get('nombre','Cliente')}: {_mot.strip()}",
-                                                 tipo="llamada", detalle=_fmt_fecha_local(_vence), cliente_id=cid)
+                                                 f"{_canal_nom} · {cli.get('nombre','Cliente')}: {_mot.strip()}",
+                                                 tipo=_tipo, detalle=_fmt_fecha_local(_vence), cliente_id=cid)
                                     st.session_state.pop("_cli_act_open", None)
                                     st.toast("Recordatorio agendado" + (" · avisado por Telegram" if _n else ""))
                                     st.rerun(scope="fragment")
                                 else:
                                     st.error(f"No se pudo guardar: {_terr}")
                     else:
-                        # Registrar una llamada YA realizada (queda con la hora actual).
+                        # Registrar un contacto YA realizado (queda con la hora actual).
                         _cal_vals, _cal_pregs, _reint = None, [], None
                         if _code == "contesto":
                             st.markdown('<div class="cli-actf-hint">Responde el guión con lo que '
-                                        'capturaste en la llamada.</div>', unsafe_allow_html=True)
+                                        'capturaste' + (' por WhatsApp' if _es_wa else ' en la llamada') +
+                                        '.</div>', unsafe_allow_html=True)
                             _cal_vals, _cal_pregs = _guion_inputs(cli, f"_actnewq_{cid}")
                             if not _cal_pregs:
                                 st.info("Aún no hay preguntas configuradas. El admin puede crearlas "
                                         "con el botón «Guión».")
                         elif _code in ("no_contesto", "se_corto", "llamar_tarde"):
-                            _reint = st.selectbox("¿Volver a llamar?",
+                            _reint = st.selectbox("¿Volver a contactar?" if _es_wa else "¿Volver a llamar?",
                                                   ["No reagendar", "En 1 hora", "En 2 horas", "Mañana"],
                                                   key="_cli_actnew_reint")
+                        elif _code in ("info", "cotizacion", "sin_wa"):
+                            pass   # registro simple (marca la interacción)
                         else:  # no_interesado
-                            st.markdown('<div class="cli-actf-hint">Se marcará la llamada como '
+                            st.markdown('<div class="cli-actf-hint">Se marcará como '
                                         '«no interesado».</div>', unsafe_allow_html=True)
                         st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
-                        if st.button("Registrar llamada", type="primary",
+                        if st.button(f"Registrar {_canal_nom.lower()}", type="primary",
                                      use_container_width=True, key="_cli_act_save"):
-                            _lbl = _RESULT_META[_code][0]
-                            _tid, _terr = crear_tarea(cid, f"Llamada — {_lbl.lower()}",
+                            _lbl = _CH_LBL.get(_code, _code)
+                            _tid, _terr = crear_tarea(cid, f"{_canal_nom} — {_lbl}",
                                                       _ahora_scl().isoformat(),
-                                                      cli.get("asignado_email", ""), tipo="llamada")
+                                                      cli.get("asignado_email", ""), tipo=_tipo)
                             if not _tid:
                                 st.error(f"No se pudo guardar: {_terr}")
                             else:
                                 if _code == "contesto":
-                                    _guardar_contesto(cid, cli, _tid, _cal_vals, _cal_pregs, _actor)
+                                    _guardar_contesto(cid, cli, _tid, _cal_vals, _cal_pregs, _actor, canal=_tipo)
                                 elif _code == "no_interesado":
                                     completar_tarea(_tid, True, "no_interesado")
-                                    registrar_actividad(cid, "llamada", "Llamada — no interesado",
+                                    registrar_actividad(cid, _tipo, f"{_canal_nom} — no interesado",
+                                                        actor=_actor)
+                                elif _code in ("info", "cotizacion", "sin_wa"):
+                                    completar_tarea(_tid, True, _code)
+                                    registrar_actividad(cid, _tipo, f"{_canal_nom} — {_lbl}",
                                                         actor=_actor)
                                 else:  # no_contesto / se_corto / llamar_tarde
                                     completar_tarea(_tid, True, _code)
-                                    registrar_actividad(cid, "llamada", f"Llamada — {_lbl.lower()}",
+                                    registrar_actividad(cid, _tipo, f"{_canal_nom} — {_lbl}",
                                                         actor=_actor)
                                     _mp = {"En 1 hora": "1h", "En 2 horas": "2h", "Mañana": "manana"}
                                     if _reint in _mp:
-                                        _crear_reintento(cid, cli, "", _actor, _mp[_reint])
+                                        _crear_reintento(cid, cli, "", _actor, _mp[_reint], canal=_tipo)
                                 st.session_state.pop("_cli_act_open", None)
-                                st.toast("Llamada registrada")
+                                st.toast(f"{_canal_nom} registrad" + ("o" if _es_wa else "a"))
                                 st.rerun(scope="fragment")
                 else:
                     # Reunión / Correo / Tarea → se agendan (motivo + fecha + hora).
@@ -4563,7 +4616,8 @@ def _render_ficha(cid: str, data: list):
         _eventos.sort(key=lambda e: str(e.get("fecha") or ""), reverse=True)  # reciente arriba
         if _eventos:
             _TL_ICON = {"correo": "#5b7cfa", "presupuesto": "#7F77DD", "nota": "#94a3b8",
-                        "etapa": "#EF9F27", "lead": "#888780", "llamada": "#1D9E75"}
+                        "etapa": "#EF9F27", "lead": "#888780", "llamada": "#1D9E75",
+                        "whatsapp": "#22c55e"}
             _tl = ""
             for a in _eventos:
                 _c = _TL_ICON.get(str(a.get("tipo") or ""), "#94a3b8")
