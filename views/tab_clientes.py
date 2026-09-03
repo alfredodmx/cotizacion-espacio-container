@@ -665,8 +665,10 @@ _CLI_CSS = """
 /* "Crear presupuesto": una sola línea */
 .st-key-_cli_fh_nuevo button,.st-key-_cli_fh_nuevo button p{white-space:nowrap!important;}
 /* Formulario "Nueva actividad": encabezado, separadores, ayuda y tipografía chica */
-.cli-actf-h{font-family:Montserrat,sans-serif;font-weight:700;font-size:0.78rem;letter-spacing:0.05em;
-  text-transform:uppercase;color:#0f172a;margin:0 0 8px;}
+.cli-actf-h{font-family:Montserrat,sans-serif;font-weight:800;font-size:0.92rem;letter-spacing:0.03em;
+  text-transform:uppercase;color:#0f172a;margin:0 0 11px;display:flex;align-items:center;gap:9px;}
+.cli-actf-h::before{content:'';width:4px;height:16px;border-radius:3px;flex-shrink:0;
+  background:linear-gradient(180deg,#5b7cfa,#4f46e5);}
 .cli-actf-sep{height:1px;background:#e6e9f4;margin:12px 0;}
 .cli-actf-hint{font-size:0.75rem;color:#64748b;line-height:1.35;margin:0 0 6px;}
 /* Compositor de correo: label de herramientas + botones compactos emoji/variable */
@@ -679,7 +681,8 @@ _CLI_CSS = """
 .st-key-_cli_act_form label p,.st-key-_cli_act_form [data-testid="stWidgetLabel"] p,
 .st-key-_cli_mail_form label p,.st-key-_cli_mail_form [data-testid="stWidgetLabel"] p,
 .st-key-_cli_edit_form label p,.st-key-_cli_edit_form [data-testid="stWidgetLabel"] p{
-  font-size:0.72rem!important;}
+  font-size:0.74rem!important;font-weight:700!important;letter-spacing:0.02em!important;
+  color:#334155!important;-webkit-text-fill-color:#334155!important;}
 .st-key-_cli_act_form input,.st-key-_cli_act_form [data-baseweb="select"],
 .st-key-_cli_mail_form input,.st-key-_cli_mail_form textarea,
 .st-key-_cli_edit_form input,.st-key-_cli_edit_form [data-baseweb="select"]{font-size:0.86rem;}
@@ -4374,166 +4377,167 @@ def _render_ficha(cid: str, data: list):
                 _tipo = st.radio("Tipo", _ACT_TIPOS, key="_cli_act_tipo", horizontal=True,
                                  format_func=lambda t: f"{_ACT_MAT.get(t, '')} {_ACT_META[t][0]}")
 
-                if _tipo in ("llamada", "whatsapp"):
-                    # LLAMADA y WHATSAPP comparten el flujo: estado → guión/reagendar/
-                    # recordatorio. Solo cambian los textos y las opciones de estado.
-                    _es_wa = (_tipo == "whatsapp")
-                    _canal_nom = "WhatsApp" if _es_wa else "Llamada"
-                    if _es_wa:
-                        _CH_ESTADOS = {
-                            "Respondió — calificar": "contesto",
-                            "Le envié información / catálogo": "info",
-                            "Le envié la cotización": "cotizacion",
-                            "Envié mensaje (sin respuesta)": "no_contesto",
-                            "No tiene WhatsApp / número inválido": "sin_wa",
-                            "No interesado": "no_interesado",
-                            "Programar recordatorio de WhatsApp": "__prog__",
-                        }
-                        _est_lbl = "Estado del WhatsApp"
-                    else:
-                        _CH_ESTADOS = {
-                            "Contestó — calificar": "contesto",
-                            "No contestó": "no_contesto",
-                            "Se cortó la llamada": "se_corto",
-                            "Llamar más tarde": "llamar_tarde",
-                            "No interesado": "no_interesado",
-                            "Programar recordatorio de llamada": "__prog__",
-                        }
-                        _est_lbl = "Estado de la llamada"
-                    _CH_LBL = {"contesto": ("respondió" if _es_wa else "contestó"),
-                               "no_contesto": ("sin respuesta" if _es_wa else "no contestó"),
-                               "se_corto": "se cortó", "llamar_tarde": "llamar más tarde",
-                               "no_interesado": "no interesado", "info": "envié información",
-                               "cotizacion": "envié cotización", "sin_wa": "sin WhatsApp"}
-                    _estado = st.selectbox(_est_lbl, list(_CH_ESTADOS.keys()),
-                                           key="_cli_actnew_estado")
-                    _code = _CH_ESTADOS[_estado]
-                    st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
+                with st.container(key=f"_cli_actbody_{_tipo}"):
+                    if _tipo in ("llamada", "whatsapp"):
+                        # LLAMADA y WHATSAPP comparten el flujo: estado → guión/reagendar/
+                        # recordatorio. Solo cambian los textos y las opciones de estado.
+                        _es_wa = (_tipo == "whatsapp")
+                        _canal_nom = "WhatsApp" if _es_wa else "Llamada"
+                        if _es_wa:
+                            _CH_ESTADOS = {
+                                "Respondió — calificar": "contesto",
+                                "Le envié información / catálogo": "info",
+                                "Le envié la cotización": "cotizacion",
+                                "Envié mensaje (sin respuesta)": "no_contesto",
+                                "No tiene WhatsApp / número inválido": "sin_wa",
+                                "No interesado": "no_interesado",
+                                "Programar recordatorio de WhatsApp": "__prog__",
+                            }
+                            _est_lbl = "Estado del WhatsApp"
+                        else:
+                            _CH_ESTADOS = {
+                                "Contestó — calificar": "contesto",
+                                "No contestó": "no_contesto",
+                                "Se cortó la llamada": "se_corto",
+                                "Llamar más tarde": "llamar_tarde",
+                                "No interesado": "no_interesado",
+                                "Programar recordatorio de llamada": "__prog__",
+                            }
+                            _est_lbl = "Estado de la llamada"
+                        _CH_LBL = {"contesto": ("respondió" if _es_wa else "contestó"),
+                                   "no_contesto": ("sin respuesta" if _es_wa else "no contestó"),
+                                   "se_corto": "se cortó", "llamar_tarde": "llamar más tarde",
+                                   "no_interesado": "no interesado", "info": "envié información",
+                                   "cotizacion": "envié cotización", "sin_wa": "sin WhatsApp"}
+                        _estado = st.selectbox(_est_lbl, list(_CH_ESTADOS.keys()),
+                                               key="_cli_actnew_estado")
+                        _code = _CH_ESTADOS[_estado]
+                        st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
 
-                    if _code == "__prog__":
-                        # Recordatorio: motivo + fecha + hora.
-                        st.markdown('<div class="cli-actf-hint">Programa el próximo '
-                                    + ("WhatsApp" if _es_wa else "llamado") +
-                                    '. Se te avisará por la campana y por Telegram.</div>',
-                                    unsafe_allow_html=True)
-                        _mot = st.text_input("Motivo del recordatorio", key="_cli_act_titulo",
-                                             placeholder=("Ej: Escribir para enviar el catálogo" if _es_wa
-                                                          else "Ej: Llamar para cerrar el presupuesto"))
-                        pc1, pc2 = st.columns(2)
-                        with pc1:
+                        if _code == "__prog__":
+                            # Recordatorio: motivo + fecha + hora.
+                            st.markdown('<div class="cli-actf-hint">Programa el próximo '
+                                        + ("WhatsApp" if _es_wa else "llamado") +
+                                        '. Se te avisará por la campana y por Telegram.</div>',
+                                        unsafe_allow_html=True)
+                            _mot = st.text_input("Motivo del recordatorio", key="_cli_act_titulo",
+                                                 placeholder=("Ej: Escribir para enviar el catálogo" if _es_wa
+                                                              else "Ej: Llamar para cerrar el presupuesto"))
+                            pc1, pc2 = st.columns(2)
+                            with pc1:
+                                _af = st.date_input("Fecha", value=_date.today(),
+                                                    min_value=_date.today(), key="_cli_act_fecha")
+                            with pc2:
+                                _ah = st.time_input("Hora", value=_default_hora(), key="_cli_act_hora")
+                            st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
+                            if st.button("Agendar recordatorio", type="primary",
+                                         use_container_width=True, key="_cli_act_save"):
+                                if not (_mot or "").strip():
+                                    st.warning("Escribe el motivo del recordatorio.")
+                                else:
+                                    _vence = _mk_vence(_af, _ah)
+                                    _tid, _terr = crear_tarea(cid, _mot.strip(), _vence,
+                                                              cli.get("asignado_email", ""), tipo=_tipo)
+                                    if _tid:
+                                        registrar_actividad(cid, "nota", f"{_canal_nom} agendado: {_mot.strip()}",
+                                                            detalle=_fmt_fecha_local(_vence), actor=_actor)
+                                        _n = notificar_recordatorio(cli.get("nombre", "Cliente"),
+                                                                    f"{_canal_nom}: {_mot.strip()}",
+                                                                    _fmt_fecha_local(_vence),
+                                                                    cli.get("asignado_email", ""))
+                                        _crear_notif(_notif_dest(cli),
+                                                     f"{_canal_nom} · {cli.get('nombre','Cliente')}: {_mot.strip()}",
+                                                     tipo=_tipo, detalle=_fmt_fecha_local(_vence), cliente_id=cid)
+                                        st.session_state.pop("_cli_act_open", None)
+                                        st.toast("Recordatorio agendado" + (" · avisado por Telegram" if _n else ""))
+                                        st.rerun(scope="fragment")
+                                    else:
+                                        st.error(f"No se pudo guardar: {_terr}")
+                        else:
+                            # Registrar un contacto YA realizado (queda con la hora actual).
+                            _cal_vals, _cal_pregs, _reint = None, [], None
+                            if _code == "contesto":
+                                st.markdown('<div class="cli-actf-hint">Responde el guión con lo que '
+                                            'capturaste' + (' por WhatsApp' if _es_wa else ' en la llamada') +
+                                            '.</div>', unsafe_allow_html=True)
+                                _cal_vals, _cal_pregs = _guion_inputs(cli, f"_actnewq_{cid}")
+                                if not _cal_pregs:
+                                    st.info("Aún no hay preguntas configuradas. El admin puede crearlas "
+                                            "con el botón «Guión».")
+                            elif _code in ("no_contesto", "se_corto", "llamar_tarde"):
+                                _reint = st.selectbox("¿Volver a contactar?" if _es_wa else "¿Volver a llamar?",
+                                                      ["No reagendar", "En 1 hora", "En 2 horas", "Mañana"],
+                                                      key="_cli_actnew_reint")
+                            elif _code in ("info", "cotizacion", "sin_wa"):
+                                pass   # registro simple (marca la interacción)
+                            else:  # no_interesado
+                                st.markdown('<div class="cli-actf-hint">Se marcará como '
+                                            '«no interesado».</div>', unsafe_allow_html=True)
+                            st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
+                            if st.button(f"Registrar {_canal_nom.lower()}", type="primary",
+                                         use_container_width=True, key="_cli_act_save"):
+                                _lbl = _CH_LBL.get(_code, _code)
+                                _tid, _terr = crear_tarea(cid, f"{_canal_nom} — {_lbl}",
+                                                          _ahora_scl().isoformat(),
+                                                          cli.get("asignado_email", ""), tipo=_tipo)
+                                if not _tid:
+                                    st.error(f"No se pudo guardar: {_terr}")
+                                else:
+                                    if _code == "contesto":
+                                        _guardar_contesto(cid, cli, _tid, _cal_vals, _cal_pregs, _actor, canal=_tipo)
+                                    elif _code == "no_interesado":
+                                        completar_tarea(_tid, True, "no_interesado")
+                                        registrar_actividad(cid, _tipo, f"{_canal_nom} — no interesado",
+                                                            actor=_actor)
+                                    elif _code in ("info", "cotizacion", "sin_wa"):
+                                        completar_tarea(_tid, True, _code)
+                                        registrar_actividad(cid, _tipo, f"{_canal_nom} — {_lbl}",
+                                                            actor=_actor)
+                                    else:  # no_contesto / se_corto / llamar_tarde
+                                        completar_tarea(_tid, True, _code)
+                                        registrar_actividad(cid, _tipo, f"{_canal_nom} — {_lbl}",
+                                                            actor=_actor)
+                                        _mp = {"En 1 hora": "1h", "En 2 horas": "2h", "Mañana": "manana"}
+                                        if _reint in _mp:
+                                            _crear_reintento(cid, cli, "", _actor, _mp[_reint], canal=_tipo)
+                                    st.session_state.pop("_cli_act_open", None)
+                                    st.toast(f"{_canal_nom} registrad" + ("o" if _es_wa else "a"))
+                                    st.rerun(scope="fragment")
+                    else:
+                        # Reunión / Correo / Tarea → se agendan (motivo + fecha + hora).
+                        _at = st.text_input("Motivo / descripción", key="_cli_act_titulo",
+                                            placeholder="Ej: Reunión en oficina para ver el proyecto")
+                        gc1, gc2 = st.columns(2)
+                        with gc1:
                             _af = st.date_input("Fecha", value=_date.today(),
                                                 min_value=_date.today(), key="_cli_act_fecha")
-                        with pc2:
+                        with gc2:
                             _ah = st.time_input("Hora", value=_default_hora(), key="_cli_act_hora")
                         st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
-                        if st.button("Agendar recordatorio", type="primary",
-                                     use_container_width=True, key="_cli_act_save"):
-                            if not (_mot or "").strip():
-                                st.warning("Escribe el motivo del recordatorio.")
+                        if st.button("Agendar actividad", type="primary", use_container_width=True,
+                                     key="_cli_act_save"):
+                            if not (_at or "").strip():
+                                st.warning("Escribe el motivo o la descripción.")
                             else:
                                 _vence = _mk_vence(_af, _ah)
-                                _tid, _terr = crear_tarea(cid, _mot.strip(), _vence,
+                                _tid, _terr = crear_tarea(cid, _at.strip(), _vence,
                                                           cli.get("asignado_email", ""), tipo=_tipo)
                                 if _tid:
-                                    registrar_actividad(cid, "nota", f"{_canal_nom} agendado: {_mot.strip()}",
+                                    _tl = _ACT_META[_tipo][0]
+                                    registrar_actividad(cid, "nota", f"{_tl} agendada: {_at.strip()}",
                                                         detalle=_fmt_fecha_local(_vence), actor=_actor)
                                     _n = notificar_recordatorio(cli.get("nombre", "Cliente"),
-                                                                f"{_canal_nom}: {_mot.strip()}",
+                                                                f"{_tl}: {_at.strip()}",
                                                                 _fmt_fecha_local(_vence),
                                                                 cli.get("asignado_email", ""))
                                     _crear_notif(_notif_dest(cli),
-                                                 f"{_canal_nom} · {cli.get('nombre','Cliente')}: {_mot.strip()}",
+                                                 f"{_tl} · {cli.get('nombre','Cliente')}: {_at.strip()}",
                                                  tipo=_tipo, detalle=_fmt_fecha_local(_vence), cliente_id=cid)
                                     st.session_state.pop("_cli_act_open", None)
-                                    st.toast("Recordatorio agendado" + (" · avisado por Telegram" if _n else ""))
+                                    st.toast("Actividad agendada" + (" · avisado por Telegram" if _n else ""))
                                     st.rerun(scope="fragment")
                                 else:
                                     st.error(f"No se pudo guardar: {_terr}")
-                    else:
-                        # Registrar un contacto YA realizado (queda con la hora actual).
-                        _cal_vals, _cal_pregs, _reint = None, [], None
-                        if _code == "contesto":
-                            st.markdown('<div class="cli-actf-hint">Responde el guión con lo que '
-                                        'capturaste' + (' por WhatsApp' if _es_wa else ' en la llamada') +
-                                        '.</div>', unsafe_allow_html=True)
-                            _cal_vals, _cal_pregs = _guion_inputs(cli, f"_actnewq_{cid}")
-                            if not _cal_pregs:
-                                st.info("Aún no hay preguntas configuradas. El admin puede crearlas "
-                                        "con el botón «Guión».")
-                        elif _code in ("no_contesto", "se_corto", "llamar_tarde"):
-                            _reint = st.selectbox("¿Volver a contactar?" if _es_wa else "¿Volver a llamar?",
-                                                  ["No reagendar", "En 1 hora", "En 2 horas", "Mañana"],
-                                                  key="_cli_actnew_reint")
-                        elif _code in ("info", "cotizacion", "sin_wa"):
-                            pass   # registro simple (marca la interacción)
-                        else:  # no_interesado
-                            st.markdown('<div class="cli-actf-hint">Se marcará como '
-                                        '«no interesado».</div>', unsafe_allow_html=True)
-                        st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
-                        if st.button(f"Registrar {_canal_nom.lower()}", type="primary",
-                                     use_container_width=True, key="_cli_act_save"):
-                            _lbl = _CH_LBL.get(_code, _code)
-                            _tid, _terr = crear_tarea(cid, f"{_canal_nom} — {_lbl}",
-                                                      _ahora_scl().isoformat(),
-                                                      cli.get("asignado_email", ""), tipo=_tipo)
-                            if not _tid:
-                                st.error(f"No se pudo guardar: {_terr}")
-                            else:
-                                if _code == "contesto":
-                                    _guardar_contesto(cid, cli, _tid, _cal_vals, _cal_pregs, _actor, canal=_tipo)
-                                elif _code == "no_interesado":
-                                    completar_tarea(_tid, True, "no_interesado")
-                                    registrar_actividad(cid, _tipo, f"{_canal_nom} — no interesado",
-                                                        actor=_actor)
-                                elif _code in ("info", "cotizacion", "sin_wa"):
-                                    completar_tarea(_tid, True, _code)
-                                    registrar_actividad(cid, _tipo, f"{_canal_nom} — {_lbl}",
-                                                        actor=_actor)
-                                else:  # no_contesto / se_corto / llamar_tarde
-                                    completar_tarea(_tid, True, _code)
-                                    registrar_actividad(cid, _tipo, f"{_canal_nom} — {_lbl}",
-                                                        actor=_actor)
-                                    _mp = {"En 1 hora": "1h", "En 2 horas": "2h", "Mañana": "manana"}
-                                    if _reint in _mp:
-                                        _crear_reintento(cid, cli, "", _actor, _mp[_reint], canal=_tipo)
-                                st.session_state.pop("_cli_act_open", None)
-                                st.toast(f"{_canal_nom} registrad" + ("o" if _es_wa else "a"))
-                                st.rerun(scope="fragment")
-                else:
-                    # Reunión / Correo / Tarea → se agendan (motivo + fecha + hora).
-                    _at = st.text_input("Motivo / descripción", key="_cli_act_titulo",
-                                        placeholder="Ej: Reunión en oficina para ver el proyecto")
-                    gc1, gc2 = st.columns(2)
-                    with gc1:
-                        _af = st.date_input("Fecha", value=_date.today(),
-                                            min_value=_date.today(), key="_cli_act_fecha")
-                    with gc2:
-                        _ah = st.time_input("Hora", value=_default_hora(), key="_cli_act_hora")
-                    st.markdown('<div class="cli-actf-sep"></div>', unsafe_allow_html=True)
-                    if st.button("Agendar actividad", type="primary", use_container_width=True,
-                                 key="_cli_act_save"):
-                        if not (_at or "").strip():
-                            st.warning("Escribe el motivo o la descripción.")
-                        else:
-                            _vence = _mk_vence(_af, _ah)
-                            _tid, _terr = crear_tarea(cid, _at.strip(), _vence,
-                                                      cli.get("asignado_email", ""), tipo=_tipo)
-                            if _tid:
-                                _tl = _ACT_META[_tipo][0]
-                                registrar_actividad(cid, "nota", f"{_tl} agendada: {_at.strip()}",
-                                                    detalle=_fmt_fecha_local(_vence), actor=_actor)
-                                _n = notificar_recordatorio(cli.get("nombre", "Cliente"),
-                                                            f"{_tl}: {_at.strip()}",
-                                                            _fmt_fecha_local(_vence),
-                                                            cli.get("asignado_email", ""))
-                                _crear_notif(_notif_dest(cli),
-                                             f"{_tl} · {cli.get('nombre','Cliente')}: {_at.strip()}",
-                                             tipo=_tipo, detalle=_fmt_fecha_local(_vence), cliente_id=cid)
-                                st.session_state.pop("_cli_act_open", None)
-                                st.toast("Actividad agendada" + (" · avisado por Telegram" if _n else ""))
-                                st.rerun(scope="fragment")
-                            else:
-                                st.error(f"No se pudo guardar: {_terr}")
 
         # ── Lista de actividades (pendientes primero) ──
         _tareas = listar_tareas_cliente(cid)
