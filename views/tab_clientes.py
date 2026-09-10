@@ -2583,9 +2583,23 @@ def _correo_estado_meta(c: dict):
     return _CORREO_META.get(_ev, _CORREO_META["sent"])
 
 
-def _ver_correo_panel(c: dict):
+@st.cache_data(ttl=120, show_spinner=False)
+def _campana_plantilla(campana_id):
+    """(plantilla, es_html) de una campaña por id (para «Ver correo» de correos masivos,
+    cuyo cuerpo NO se guarda por destinatario sino UNA vez en crm_campanas). Defensivo."""
+    try:
+        for _c in (_listar_campanas() or []):
+            if str(_c.get("id")) == str(campana_id):
+                return (str(_c.get("plantilla") or ""), bool(_c.get("es_html")))
+    except Exception:
+        pass
+    return ("", False)
+
+
+def _ver_correo_panel(c: dict, cli: dict = None):
     """Panel desplegable con el CONTENIDO del correo enviado (cuerpo + adjuntos), para
-    «Ver correo». El cuerpo se guarda en crm_correos desde los envíos nuevos."""
+    «Ver correo». Individuales: el cuerpo se guarda en crm_correos. Campañas: el cuerpo
+    viene del template de crm_campanas (una sola copia), renderizado con el cliente."""
     with st.container(border=True):
         _clip = _svg('<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 '
                      '5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>', 13, "#64748b")
@@ -2605,8 +2619,15 @@ def _ver_correo_panel(c: dict):
                         f'display:flex;align-items:center;gap:6px;">{_clip} {int(c.get("adjuntos"))} '
                         'adjunto(s)</div>', unsafe_allow_html=True)
         _cuerpo = str(c.get("cuerpo") or "").strip()
+        _es_html_body = _parece_html(_cuerpo) if _cuerpo else False
+        if not _cuerpo and c.get("campana_id"):
+            # Campaña: el cuerpo es el template de crm_campanas (rendered con el cliente).
+            _tpl, _tpl_html = _campana_plantilla(c.get("campana_id"))
+            if _tpl:
+                _cuerpo = _resend_render(_tpl, cli or {})
+                _es_html_body = _tpl_html or _parece_html(_tpl)
         if _cuerpo:
-            _bhtml = _cuerpo if _parece_html(_cuerpo) else _resend_texto_html(_cuerpo)
+            _bhtml = _cuerpo if _es_html_body else _resend_texto_html(_cuerpo)
             components.html('<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;'
                             'font-size:13px;color:#1a1d2e;line-height:1.5;padding:4px 8px;">'
                             + _bhtml + '</div>', height=320, scrolling=True)
@@ -2681,7 +2702,7 @@ def _render_correos_enviados(cid, cli=None):
                 st.session_state["_cli_vercorreo"] = None if _cur == c.get("id") else c.get("id")
                 st.rerun(scope="fragment")
         if st.session_state.get("_cli_vercorreo") == c.get("id"):
-            _ver_correo_panel(c)
+            _ver_correo_panel(c, cli)
     _baja_html = ('<div style="font-size:0.72rem;color:#b91c1c;font-weight:700;margin-top:4px;">'
                   '⛔ Este cliente se dio de baja — no recibirá correos masivos.</div>'
                   if (cli and cli.get("no_email")) else "")
@@ -3090,7 +3111,6 @@ def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None, segmento
     _es_html = _parece_html(body_tpl) if es_html is None else bool(es_html)
     _att = adjuntos or None
     _n_att = len(_att) if _att else 0
-    _att_nombres = [a.get("filename") for a in (_att or [])]
     _camp_id = _crear_campana(subj_tpl, segmento_desc, actor, len(segmento),
                               nombre=nombre, plantilla=body_tpl, es_html=_es_html) or None
     res["campana_id"] = _camp_id
@@ -3102,19 +3122,18 @@ def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None, segmento
         _html = ((_cuerpo if _es_html else _resend_texto_html(_cuerpo))
                  + _firma_html(_reply, masivo=True) + _resend_pie(_cli.get("id")))
         _hdr = {"List-Unsubscribe": f"<{_resend_unsub(_cli.get('id'))}>"}
-        return _subj, _html, _reply, _hdr, _cuerpo
+        return _subj, _html, _reply, _hdr
 
     # CON adjuntos → uno por uno (el batch no soporta adjuntos).
     if _att:
         for _cli in segmento:
             _to = (_cli.get("email") or "").strip()
-            _subj, _html, _reply, _hdr, _cuerpo = _componer(_cli)
+            _subj, _html, _reply, _hdr = _componer(_cli)
             _ok, _r = _resend_enviar(_to, _subj, _html, reply_to=(_reply or None),
                                      attachments=_att, headers=_hdr)
             if _ok:
                 res["enviados"] += 1
-                _registrar_correo(_cli.get("id"), _r, _to, _subj, actor, _n_att, campana_id=_camp_id,
-                                  cuerpo=_cuerpo, adjuntos_nombres=_att_nombres)
+                _registrar_correo(_cli.get("id"), _r, _to, _subj, actor, _n_att, campana_id=_camp_id)
             else:
                 res["fallidos"] += 1
         return res
@@ -3129,12 +3148,11 @@ def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None, segmento
         _ids = []
         if _ok and isinstance(_r, dict):
             _ids = [x.get("id", "") for x in (_r.get("data") or [])]
-        for _i, (_cli, _subj, _cuerpo) in enumerate(_meta):
+        for _i, (_cli, _subj) in enumerate(_meta):
             if _ok:
                 res["enviados"] += 1
                 _registrar_correo(_cli.get("id"), (_ids[_i] if _i < len(_ids) else ""),
-                                  _cli.get("email", ""), _subj, actor, 0, campana_id=_camp_id,
-                                  cuerpo=_cuerpo)
+                                  _cli.get("email", ""), _subj, actor, 0, campana_id=_camp_id)
             else:
                 res["fallidos"] += 1
         _buf.clear()
@@ -3142,12 +3160,12 @@ def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None, segmento
 
     for _cli in segmento:
         _to = (_cli.get("email") or "").strip()
-        _subj, _html, _reply, _hdr, _cuerpo = _componer(_cli)
+        _subj, _html, _reply, _hdr = _componer(_cli)
         _msg = {"from": _from, "to": [_to], "subject": _subj, "html": _html, "headers": _hdr}
         if _reply:
             _msg["reply_to"] = _reply
         _buf.append(_msg)
-        _meta.append((_cli, _subj, _cuerpo))
+        _meta.append((_cli, _subj))
         if len(_buf) >= 100:
             _flush()
     _flush()
