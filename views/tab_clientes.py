@@ -5176,8 +5176,9 @@ def render_tab_clientes(**kwargs):
         with _c_add:
             _add_btn()
 
-    # Cuota de correos Resend (plan Free) — chip visible SOLO para admin/root.
-    if _es_gestor and _resend_configurado():
+    # Cuota de correos Resend (plan Free) — visible para gestores Y para sitio_web (rol
+    # de marketing cuyo trabajo principal son las campañas, así ve cuántos correos le quedan).
+    if (_es_gestor or _solo_campana) and _resend_configurado():
         st.markdown('<div style="display:flex;justify-content:flex-end;margin:6px 0 -2px;">'
                     + _cuota_resend_html(_cuota_resend_cached(), compact=True) + '</div>',
                     unsafe_allow_html=True)
