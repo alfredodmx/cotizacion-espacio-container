@@ -3167,21 +3167,39 @@ def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None, segmento
         if not _ok and _es_rate_limit(_r):     # lote con rate limit → espera y reintenta
             _time.sleep(1.6)
             _ok, _r = _resend_lote(list(_buf))
-        if not _ok:
-            _rec_err(_r)
-        _ids = []
-        if _ok and isinstance(_r, dict):
-            _ids = [x.get("id", "") for x in (_r.get("data") or [])]
-        for _i, (_cli, _subj) in enumerate(_meta):
-            if _ok:
+        if _ok:
+            _ids = []
+            if isinstance(_r, dict):
+                _ids = [x.get("id", "") for x in (_r.get("data") or [])]
+            for _i, (_cli, _subj) in enumerate(_meta):
                 res["enviados"] += 1
                 _registrar_correo(_cli.get("id"), (_ids[_i] if _i < len(_ids) else ""),
                                   _cli.get("email", ""), _subj, actor, 0, campana_id=_camp_id)
-            else:
-                res["fallidos"] += 1
+        else:
+            # El LOTE falló ENTERO (endpoint /emails/batch no soporta ciertos campos como
+            # headers, o error de cuota/dominio). Reintento UNO POR UNO con el endpoint
+            # individual (sí soporta headers/reply_to) + throttle. Si igual falla, se
+            # captura el motivo real.
+            _rec_err("lote: " + str(_r))
+            for _i, (_cli, _subj) in enumerate(_meta):
+                _m = _buf[_i]
+                _ok1, _r1 = _resend_enviar(_m["to"][0], _m["subject"], _m["html"],
+                                           reply_to=_m.get("reply_to"), headers=_m.get("headers"))
+                if not _ok1 and _es_rate_limit(_r1):
+                    _time.sleep(1.6)
+                    _ok1, _r1 = _resend_enviar(_m["to"][0], _m["subject"], _m["html"],
+                                               reply_to=_m.get("reply_to"), headers=_m.get("headers"))
+                if _ok1:
+                    res["enviados"] += 1
+                    _registrar_correo(_cli.get("id"), _r1, _m["to"][0], _subj, actor, 0,
+                                      campana_id=_camp_id)
+                else:
+                    res["fallidos"] += 1
+                    _rec_err(_r1)
+                _time.sleep(0.5)
         _buf.clear()
         _meta.clear()
-        _time.sleep(0.6)                       # margen entre lotes (rate limit Resend)
+        _time.sleep(0.3)                       # margen entre lotes (rate limit Resend)
 
     for _cli in segmento:
         _to = (_cli.get("email") or "").strip()
