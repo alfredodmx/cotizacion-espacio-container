@@ -3101,7 +3101,18 @@ def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None, segmento
     `limite` (envío por goteo): si se pasa, solo envía esa cantidad y deja el resto
     pendiente (respeta la cuota diaria del plan). Devuelve {enviados, fallidos,
     omitidos, campana_id}."""
-    res = {"enviados": 0, "fallidos": 0, "omitidos": 0}
+    import time as _time
+    res = {"enviados": 0, "fallidos": 0, "omitidos": 0, "errores": []}
+
+    def _rec_err(_r):   # guarda hasta 4 motivos ÚNICOS de fallo (para diagnosticar)
+        _m = str(_r or "").strip()[:200]
+        if _m and _m not in res["errores"] and len(res["errores"]) < 4:
+            res["errores"].append(_m)
+
+    def _es_rate_limit(_r):   # error de límite de tasa de Resend (429 / too many requests)
+        _s = str(_r or "").lower()
+        return "429" in _s or "rate" in _s or "too many" in _s
+
     # Envío por goteo: recorta el segmento al límite disponible del día.
     if limite is not None:
         _tot0 = len(segmento)
@@ -3124,18 +3135,26 @@ def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None, segmento
         _hdr = {"List-Unsubscribe": f"<{_resend_unsub(_cli.get('id'))}>"}
         return _subj, _html, _reply, _hdr
 
-    # CON adjuntos → uno por uno (el batch no soporta adjuntos).
+    # CON adjuntos → uno por uno (el batch no soporta adjuntos). Con THROTTLE + reintento
+    # para respetar el límite de tasa de Resend (~2 req/seg): sin esto, en un envío rápido
+    # solo pasan los primeros y el resto cae con 429 ("6 enviados, 64 fallidos").
     if _att:
         for _cli in segmento:
             _to = (_cli.get("email") or "").strip()
             _subj, _html, _reply, _hdr = _componer(_cli)
             _ok, _r = _resend_enviar(_to, _subj, _html, reply_to=(_reply or None),
                                      attachments=_att, headers=_hdr)
+            if not _ok and _es_rate_limit(_r):     # rate limit → espera y reintenta 1 vez
+                _time.sleep(1.6)
+                _ok, _r = _resend_enviar(_to, _subj, _html, reply_to=(_reply or None),
+                                         attachments=_att, headers=_hdr)
             if _ok:
                 res["enviados"] += 1
                 _registrar_correo(_cli.get("id"), _r, _to, _subj, actor, _n_att, campana_id=_camp_id)
             else:
                 res["fallidos"] += 1
+                _rec_err(_r)
+            _time.sleep(0.5)                       # ≤2 req/seg
         return res
 
     # SIN adjuntos → batch (100 por lote).
@@ -3145,6 +3164,11 @@ def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None, segmento
         if not _buf:
             return
         _ok, _r = _resend_lote(list(_buf))
+        if not _ok and _es_rate_limit(_r):     # lote con rate limit → espera y reintenta
+            _time.sleep(1.6)
+            _ok, _r = _resend_lote(list(_buf))
+        if not _ok:
+            _rec_err(_r)
         _ids = []
         if _ok and isinstance(_r, dict):
             _ids = [x.get("id", "") for x in (_r.get("data") or [])]
@@ -3157,6 +3181,7 @@ def _enviar_campana(segmento, subj_tpl, body_tpl, actor, adjuntos=None, segmento
                 res["fallidos"] += 1
         _buf.clear()
         _meta.clear()
+        _time.sleep(0.6)                       # margen entre lotes (rate limit Resend)
 
     for _cli in segmento:
         _to = (_cli.get("email") or "").strip()
@@ -4036,6 +4061,11 @@ def _render_campana_dialog(data):
                     + (f" · {_r['fallidos']} fallaron" if _r['fallidos'] else "")
                     + (f" · {_r.get('omitidos', 0)} pendientes por la cuota diaria"
                        if _r.get('omitidos') else "") + ".")
+                # Si hubo fallas, deja el MOTIVO real de Resend a la vista (persistente).
+                if _r.get("fallidos") and _r.get("errores"):
+                    st.session_state["_cli_camp_err"] = {
+                        "fallidos": _r["fallidos"], "enviados": _r["enviados"],
+                        "motivos": _r["errores"]}
                 st.rerun()
 
     _dlg()
@@ -4820,6 +4850,16 @@ def render_tab_clientes(**kwargs):
     _t = st.session_state.pop("_cli_toast", None)
     if _t:
         st.toast(_t)
+
+    # Motivo REAL de las fallas de la última campaña (persistente, one-shot) — para
+    # diagnosticar por qué falló el envío masivo (rate limit / cuota / dominio / etc.).
+    _cerr = st.session_state.pop("_cli_camp_err", None)
+    if _cerr:
+        st.error(
+            f"La última campaña envió {_cerr.get('enviados', 0)} y **falló {_cerr.get('fallidos', 0)}**. "
+            "Motivo(s) que devolvió Resend:\n\n"
+            + "\n".join(f"• {_m}" for _m in (_cerr.get("motivos") or [])),
+            icon=":material/error:")
 
     data = _cli_data(_rol, _email)
     # Lead Score por cliente (potencial según completitud). Se adjunta acá para que
