@@ -809,19 +809,54 @@ def _scope_hint_themes(code) -> str:
             "SHOPIFY_TOKEN." if code in (401, 403) else "")
 
 
+# Límite de Shopify REST = 2 llamadas/seg. El Asset API se usa en ráfaga (varios temas ×
+# varios JSON), así que TODAS las llamadas pasan por un throttle global + reintento en 429.
+_LAST_ASSET_CALL = [0.0]
+_ASSET_MIN_INTERVAL = 0.55  # ~1.8 req/s, bajo el tope de 2/s
+
+
+def _asset_api(method, url, **kwargs) -> tuple:
+    """GET/PUT al Asset API respetando el límite de 2 req/s (throttle) y reintentando en
+    429 (hasta 6 veces, honrando Retry-After). Devuelve (response|None, error_str|None)."""
+    import time, requests
+    kwargs.setdefault("headers", _headers())
+    kwargs.setdefault("timeout", 30)
+    _last_err = None
+    for _ in range(6):
+        _elapsed = time.time() - _LAST_ASSET_CALL[0]
+        if _elapsed < _ASSET_MIN_INTERVAL:
+            time.sleep(_ASSET_MIN_INTERVAL - _elapsed)
+        try:
+            r = requests.request(method, url, **kwargs)
+        except Exception as e:
+            _LAST_ASSET_CALL[0] = time.time()
+            _last_err = str(e)
+            time.sleep(0.6)
+            continue
+        _LAST_ASSET_CALL[0] = time.time()
+        if r.status_code == 429:
+            _ra = r.headers.get("Retry-After")
+            try:
+                _wait = float(_ra) if _ra else 1.0
+            except Exception:
+                _wait = 1.0
+            time.sleep(min(max(_wait, 0.6), 5.0))
+            _last_err = f"Shopify 429: {(r.text or '')[:120]}"
+            continue
+        return r, None
+    return None, (_last_err or "Shopify 429: se excedió el límite de solicitudes.")
+
+
 def listar_temas() -> tuple:
     """Temas de la tienda (Asset API). Devuelve (lista, error). Cada uno: {id, name, role}."""
     if not configurado():
         return [], "Sin credenciales de Shopify."
-    import requests
-    try:
-        r = requests.get(f"https://{_store()}/admin/api/{_version()}/themes.json",
-                         headers=_headers(), timeout=25)
-        if r.status_code == 200:
-            return (r.json() or {}).get("themes") or [], None
-        return [], f"Shopify {r.status_code}: {r.text[:150]}" + _scope_hint_themes(r.status_code)
-    except Exception as e:
-        return [], str(e)
+    r, err = _asset_api("GET", f"https://{_store()}/admin/api/{_version()}/themes.json", timeout=25)
+    if err:
+        return [], err
+    if r.status_code == 200:
+        return (r.json() or {}).get("themes") or [], None
+    return [], f"Shopify {r.status_code}: {r.text[:150]}" + _scope_hint_themes(r.status_code)
 
 
 def tema_principal() -> tuple:
@@ -838,17 +873,15 @@ def leer_asset(theme_id, key) -> tuple:
     (value_str|None, error). 404 = no existe (no es error duro). DEFENSIVO."""
     if not configurado():
         return None, "Sin credenciales de Shopify."
-    import requests
-    try:
-        r = requests.get(f"https://{_store()}/admin/api/{_version()}/themes/{theme_id}/assets.json",
-                         headers=_headers(), params={"asset[key]": key}, timeout=25)
-        if r.status_code == 200:
-            return ((r.json() or {}).get("asset") or {}).get("value"), None
-        if r.status_code == 404:
-            return None, None
-        return None, f"Shopify {r.status_code}: {r.text[:150]}" + _scope_hint_themes(r.status_code)
-    except Exception as e:
-        return None, str(e)
+    r, err = _asset_api("GET", f"https://{_store()}/admin/api/{_version()}/themes/{theme_id}/assets.json",
+                        params={"asset[key]": key}, timeout=25)
+    if err:
+        return None, err
+    if r.status_code == 200:
+        return ((r.json() or {}).get("asset") or {}).get("value"), None
+    if r.status_code == 404:
+        return None, None
+    return None, f"Shopify {r.status_code}: {r.text[:150]}" + _scope_hint_themes(r.status_code)
 
 
 def listar_assets_json(theme_id) -> tuple:
@@ -856,19 +889,17 @@ def listar_assets_json(theme_id) -> tuple:
     donde pueden vivir las secciones. Devuelve (keys, error)."""
     if not configurado():
         return [], "Sin credenciales de Shopify."
-    import requests
-    try:
-        r = requests.get(f"https://{_store()}/admin/api/{_version()}/themes/{theme_id}/assets.json",
-                         headers=_headers(), timeout=30)
-        if r.status_code != 200:
-            return [], f"Shopify {r.status_code}: {r.text[:150]}" + _scope_hint_themes(r.status_code)
-        _keys = [a.get("key") for a in ((r.json() or {}).get("assets") or [])]
-        _out = [k for k in _keys if k and k.endswith(".json")
-                and (k.startswith("templates/") or k.startswith("sections/")
-                     or k == "config/settings_data.json")]
-        return _out, None
-    except Exception as e:
-        return [], str(e)
+    r, err = _asset_api("GET", f"https://{_store()}/admin/api/{_version()}/themes/{theme_id}/assets.json",
+                        timeout=30)
+    if err:
+        return [], err
+    if r.status_code != 200:
+        return [], f"Shopify {r.status_code}: {r.text[:150]}" + _scope_hint_themes(r.status_code)
+    _keys = [a.get("key") for a in ((r.json() or {}).get("assets") or [])]
+    _out = [k for k in _keys if k and k.endswith(".json")
+            and (k.startswith("templates/") or k.startswith("sections/")
+                 or k == "config/settings_data.json")]
+    return _out, None
 
 
 def escribir_asset(theme_id, key, value) -> tuple:
@@ -876,15 +907,13 @@ def escribir_asset(theme_id, key, value) -> tuple:
     hace read-modify-write con respaldo. Devuelve (ok, error)."""
     if not configurado():
         return False, "Sin credenciales de Shopify."
-    import requests
-    try:
-        r = requests.put(f"https://{_store()}/admin/api/{_version()}/themes/{theme_id}/assets.json",
-                         headers=_headers(), json={"asset": {"key": key, "value": value}}, timeout=45)
-        if r.status_code in (200, 201):
-            return True, None
-        return False, f"Shopify {r.status_code}: {r.text[:200]}" + _scope_hint_themes(r.status_code)
-    except Exception as e:
-        return False, str(e)
+    r, err = _asset_api("PUT", f"https://{_store()}/admin/api/{_version()}/themes/{theme_id}/assets.json",
+                        json={"asset": {"key": key, "value": value}}, timeout=45)
+    if err:
+        return False, err
+    if r.status_code in (200, 201):
+        return True, None
+    return False, f"Shopify {r.status_code}: {r.text[:200]}" + _scope_hint_themes(r.status_code)
 
 
 def _seccion_con_reels(obj):
@@ -914,9 +943,14 @@ def _reels_en_tema(tema) -> tuple:
     _keys, err2 = listar_assets_json(_tid)
     if err2:
         return None, err2
-    _pri = ([k for k in _keys if k == "config/settings_data.json"]
-            + [k for k in _keys if k == "templates/index.json"]
-            + [k for k in _keys if k not in ("config/settings_data.json", "templates/index.json")])
+    # Los reels viven en la HOME, en settings_data (legacy) o en un section group; NO en los
+    # templates de producto/colección/carrito/etc. Acotamos para no gastar llamadas (rate limit
+    # de 2/s de Shopify): settings_data → index → otros templates/index.* → section groups.
+    _sd = [k for k in _keys if k == "config/settings_data.json"]
+    _idx = [k for k in _keys if k == "templates/index.json"]
+    _idx2 = [k for k in _keys if k.startswith("templates/index.") and k not in _idx]
+    _grp = [k for k in _keys if k.startswith("sections/") and k.endswith(".json")]
+    _pri = _sd + _idx + _idx2 + _grp
     for _key in _pri:
         _val, _e = leer_asset(_tid, _key)
         if _e or not _val:
