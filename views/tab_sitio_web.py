@@ -2275,28 +2275,50 @@ def _render_reels():
     if not _reels:
         st.info("La sección no tiene bloques de reel todavía.")
     else:
-        _n = 4
-        for _base in range(0, len(_reels), _n):
-            _rcols = st.columns(_n)
-            for _j, _r in enumerate(_reels[_base:_base + _n]):
-                with _rcols[_j]:
-                    _pv = (_vids.get(str(_r.get("video"))) or {}).get("preview_url", "")
-                    _thumb = (f'<img src="{_he(_pv)}" alt="">' if _pv
-                              else '<div class="sw-reel-ph">VIDEO</div>')
-                    _tag = (f'<div class="sw-reel-tag">{_he(_r.get("advisor_name"))}</div>'
-                            if _r.get("advisor_name") else "")
-                    st.markdown(
-                        f'<div class="sw-reel-card">{_thumb}{_tag}'
-                        '<div class="sw-reel-play"><svg viewBox="0 0 24 24" fill="#fff">'
-                        '<polygon points="6 3 20 12 6 21 6 3"/></svg></div></div>'
-                        + (f'<div class="sw-reel-cap">{_he(_r.get("caption"))}</div>'
-                           if _r.get("caption") else ""), unsafe_allow_html=True)
+        # Fila ÚNICA horizontal (scroll) de tiles chicos 9:16 REPRODUCIBLES: cada uno es un
+        # <video> con póster (miniatura) que se reproduce al pulsar play, dentro de un iframe
+        # para que <video> no lo filtre Streamlit.
+        _items = ""
+        for _r in _reels:
+            _rv = _vids.get(str(_r.get("video"))) or {}
+            _src, _pv = _rv.get("src", ""), _rv.get("preview_url", "")
+            _tag = (f'<div class="tag">{_he(_r.get("advisor_name"))}</div>'
+                    if _r.get("advisor_name") else "")
+            _cap = (f'<div class="cap">{_he(_r.get("caption"))}</div>'
+                    if _r.get("caption") else '<div class="cap cap--empty">Sin descripción</div>')
+            if _src:
+                _media = (f'<video class="v" preload="none" playsinline controls '
+                          f'{("poster=" + chr(34) + _he(_pv) + chr(34)) if _pv else ""} '
+                          f'src="{_he(_src)}"></video>')
+            elif _pv:
+                _media = f'<div class="v v--img" style="background-image:url(\'{_he(_pv)}\')"></div>'
+            else:
+                _media = '<div class="v v--ph">VIDEO<br><small>no encontrado</small></div>'
+            _items += f'<div class="rl">{_media}{_tag}{_cap}</div>'
+        _html = f"""<!doctype html><html><head><meta charset="utf-8"><style>
+        *{{box-sizing:border-box;}} body{{margin:0;font-family:-apple-system,Segoe UI,Roboto,sans-serif;}}
+        .row{{display:flex;gap:12px;overflow-x:auto;padding:4px 2px 14px;-webkit-overflow-scrolling:touch;}}
+        .row::-webkit-scrollbar{{height:8px;}} .row::-webkit-scrollbar-thumb{{background:#cbd5e1;border-radius:8px;}}
+        .rl{{flex:0 0 auto;width:150px;}}
+        .v{{width:150px;height:266px;border-radius:12px;background:#0f172a;object-fit:cover;display:block;
+          border:1px solid #e2e8f0;}}
+        .v--img{{background-size:cover;background-position:center;}}
+        .v--ph{{display:flex;flex-direction:column;align-items:center;justify-content:center;color:#64748b;
+          font-size:0.72rem;font-weight:700;letter-spacing:.04em;}}
+        .tag{{display:inline-block;margin-top:6px;background:#eef2ff;color:#4f46e5;font-size:0.66rem;
+          font-weight:700;padding:2px 8px;border-radius:999px;max-width:150px;overflow:hidden;
+          text-overflow:ellipsis;white-space:nowrap;}}
+        .cap{{font-size:0.72rem;color:#334155;margin-top:5px;line-height:1.25;max-height:2.5em;overflow:hidden;}}
+        .cap--empty{{color:#94a3b8;font-style:italic;}}
+        </style></head><body><div class="row">{_items}</div></body></html>"""
+        components.html(_html, height=330, scrolling=False)
 
-    # Diagnóstico: si NINGÚN video resolvió a miniatura, mostrar la estructura cruda del
+    # Diagnóstico: si NINGÚN video resolvió a reproducción, mostrar la estructura cruda del
     # bloque para ver el formato exacto del campo 'video' y ajustar la resolución.
-    _any = any((_vids.get(str(r.get("video"))) or {}).get("preview_url") for r in _reels)
+    _any = any((_vids.get(str(r.get("video"))) or {}).get("src")
+               or (_vids.get(str(r.get("video"))) or {}).get("preview_url") for r in _reels)
     if _reels and not _any:
-        with st.expander("Diagnóstico — no se resolvieron las miniaturas (ver estructura)"):
+        with st.expander("Diagnóstico — no se resolvió ningún video (ver estructura)"):
             st.caption(f"Valor del campo 'video' del primer reel: {_reels[0].get('video')!r}")
             st.json(_info.get("raw_reel") or {})
 

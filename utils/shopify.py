@@ -1019,43 +1019,95 @@ def leer_reels() -> tuple:
                   or "No se encontró una sección de reels en ningún tema (ni publicado ni borrador).")
 
 
+def _norm_fn(s) -> str:
+    """Normaliza un nombre de archivo para comparar (minúsculas + espacios colapsados)."""
+    return " ".join(str(s or "").split()).strip().lower()
+
+
+def _src_de_video_node(_n) -> str:
+    """Mejor URL .mp4 de las 'sources' de un nodo Video."""
+    _srcs = [s for s in ((_n or {}).get("sources") or []) if (s or {}).get("url")]
+    if not _srcs:
+        return ""
+    _mp4 = [s for s in _srcs if "mp4" in str(s.get("mimeType") or s.get("format") or "").lower()] or _srcs
+    return (max(_mp4, key=lambda s: (s.get("height") or 0)).get("url")) or ""
+
+
+def _mapa_videos_files() -> dict:
+    """Videos de Content > Files como {filename_normalizado: {gid, preview_url, src}}.
+    Se usa para resolver referencias 'shopify://files/videos/<nombre>' (los reels guardan
+    el video como archivo, no como Video de producto). DEFENSIVO: si falla, devuelve {}."""
+    def _fetch(_qf):
+        q = ("query($q:String){ files(first:250, query:$q){ nodes{ __typename "
+             "... on Video { id filename preview{ image{ url } } "
+             "sources{ url mimeType height format } } } } }")
+        data, err = _graphql(q, {"q": _qf})
+        if err:
+            return None
+        return ((data or {}).get("files") or {}).get("nodes") or []
+    _nodes = _fetch("media_type:VIDEO")
+    if not _nodes:  # por si el filtro no aplica en esta versión de la API
+        _nodes = _fetch(None)
+    _map = {}
+    for _n in (_nodes or []):
+        if not _n or _n.get("__typename") != "Video":
+            continue
+        _map[_norm_fn(_n.get("filename"))] = {
+            "gid": _n.get("id") or "",
+            "preview_url": (((_n.get("preview") or {}).get("image") or {}).get("url")) or "",
+            "src": _src_de_video_node(_n)}
+    return _map
+
+
 def resolver_videos(video_ids) -> tuple:
-    """Dado un iterable de ids de video (numéricos o gid), devuelve (dict, error) con
-    {id_original: {gid, preview_url, src}} vía GraphQL nodes. DEFENSIVO."""
-    _norm = {}
+    """Dado un iterable de valores de video de los reels, devuelve (dict, error) con
+    {valor_original: {gid, preview_url, src}}. Resuelve DOS formatos:
+      • id numérico / gid://shopify/Video/... → vía GraphQL nodes (Video de producto)
+      • shopify://files/videos/<nombre>.mp4  → vía Content>Files, por nombre de archivo
+    DEFENSIVO: lo que no se pueda resolver queda con preview_url/src vacíos."""
+    _norm, _files = {}, {}  # gid-based / file-based
     for _v in video_ids or []:
         if not _v:
             continue
         _s = str(_v)
-        if _s.startswith("gid://"):
-            _gid = _s
+        if _s.startswith("gid://shopify/Video/"):
+            _norm[_s] = _s
+        elif _s.startswith("shopify://files/") or "/files/videos/" in _s:
+            _norm_path = _s.split("/videos/", 1)[-1] if "/videos/" in _s else _s.rsplit("/", 1)[-1]
+            try:
+                from urllib.parse import unquote
+                _norm_path = unquote(_norm_path)
+            except Exception:
+                pass
+            _files[_s] = _norm_path
         elif _s.isdigit():
-            _gid = f"gid://shopify/Video/{_s}"
+            _norm[_s] = f"gid://shopify/Video/{_s}"
         else:
             continue
-        _norm[_s] = _gid
-    if not _norm:
-        return {}, None
-    q = ("query($ids:[ID!]!){ nodes(ids:$ids){ id __typename "
-         "... on Video { preview { image { url } } sources { url height mimeType } } } }")
-    data, err = _graphql(q, {"ids": list(dict.fromkeys(_norm.values()))})
-    if err:
-        return {}, err
-    _by_gid = {}
-    for _n in ((data or {}).get("nodes") or []):
-        if not _n:
-            continue
-        _gid = _n.get("id")
-        _src = ""
-        _srcs = [s for s in (_n.get("sources") or []) if (s or {}).get("url")]
-        if _srcs:
-            _mp4 = [s for s in _srcs if "mp4" in str(s.get("mimeType") or "").lower()] or _srcs
-            _src = (max(_mp4, key=lambda s: (s.get("height") or 0)).get("url")) or ""
-        _by_gid[_gid] = {"gid": _gid,
-                         "preview_url": (((_n.get("preview") or {}).get("image") or {}).get("url")) or "",
-                         "src": _src}
-    return ({_o: _by_gid.get(_g, {"gid": _g, "preview_url": "", "src": ""})
-             for _o, _g in _norm.items()}, None)
+    out = {}
+    # 1) Videos de producto por gid/id (nodes)
+    if _norm:
+        q = ("query($ids:[ID!]!){ nodes(ids:$ids){ id __typename "
+             "... on Video { preview { image { url } } sources { url height mimeType } } } }")
+        data, err = _graphql(q, {"ids": list(dict.fromkeys(_norm.values()))})
+        if err:
+            return {}, err
+        _by_gid = {}
+        for _n in ((data or {}).get("nodes") or []):
+            if not _n:
+                continue
+            _by_gid[_n.get("id")] = {
+                "gid": _n.get("id"),
+                "preview_url": (((_n.get("preview") or {}).get("image") or {}).get("url")) or "",
+                "src": _src_de_video_node(_n)}
+        for _o, _g in _norm.items():
+            out[_o] = _by_gid.get(_g, {"gid": _g, "preview_url": "", "src": ""})
+    # 2) Videos subidos a Files (referencia shopify://files/...) por nombre de archivo
+    if _files:
+        _fmap = _mapa_videos_files()
+        for _o, _fn in _files.items():
+            out[_o] = _fmap.get(_norm_fn(_fn)) or {"gid": "", "preview_url": "", "src": ""}
+    return out, None
 
 
 def duplicar_producto(pid, new_title, include_images: bool = True, new_status: str = "DRAFT") -> tuple:
